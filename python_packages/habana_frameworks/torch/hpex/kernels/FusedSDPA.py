@@ -22,7 +22,7 @@ def check_dbg_env_var(v):
         env_var_set = True
     return env_var_set
 
-def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = False, scale = None):
+def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = False, scale = None, recompute = False):
 
     if scale == None:
         scale = 1.0/math.sqrt(q.size(-1))
@@ -30,42 +30,61 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = 
     # Work around to handle is_causal in case source seq len < target seq len.
     # Create the triangular mask and pass it as usual attention mask. So clear is_causal flag.
     # Make it a float mask that can be added to the S tensor (S = q@k.transpose)
+    if recompute :
+       assert is_causal, "Recompute is supported only if is_causal = True"
     if is_causal:
         seq_len_N_t = q.size(-2)
         seq_len_N_s = k.size(-2)
         if seq_len_N_s < seq_len_N_t:
+            assert recompute == False, "Recompute is supported only if is_causal = True and source seq Len >= target seq Len"
             LNG = -3.0e38 #Close to -ve max for bfloat or float
             if q.dtype == torch.float16:
                 LNG = -6.5e4
             inv_causal_mask = torch.ones(seq_len_N_t, seq_len_N_s, dtype=q.dtype, device = q.device).triu(diagonal=1)
             attn_mask =  inv_causal_mask * LNG
             is_causal = False
+            recompute = False
 
-    fwd = torch.ops.hpu.sdpa_fwd
-    out, P, dm = fwd(q, k, v, attn_mask, dropout_p, scale, is_causal)
-    ctx.save_for_backward(q, k, v, P, dm)
+    if recompute:
+        out, m, linv, seed = torch.ops.hpu.sdpa_recomp_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal)
+        ctx.save_for_backward(q, k, v, attn_mask, m, linv, seed)
+    else:
+        out, P, dm = torch.ops.hpu.sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal)
+        ctx.save_for_backward(q, k, v, P, dm)
 
     ctx.dropout_p = dropout_p
     ctx.scale = scale
+    ctx.is_causal = is_causal
+    ctx.recompute = recompute
+
+    if recompute:
+        return out
+
     if not check_dbg_env_var('FSDPA_DBG_USE_DROPOUT_STUB'):
         return out
     else:
         return out, dm
 
 def sdpa_bwd_wrapper(ctx, dout, *args):
-    bwd = torch.ops.hpu.sdpa_bwd
-    q, k, v, P, dm = ctx.saved_tensors
-    scale = ctx.scale
-    dropout_p = ctx.dropout_p
-    dq, dk, dv = bwd(dout,q,k,v,P, dm, dropout_p, scale)
-    return dq, dk, dv, None, None, None, None
+    if ctx.recompute:
+        q, k, v, attn_mask, m, linv, seed = ctx.saved_tensors
+        scale = ctx.scale
+        dropout_p = ctx.dropout_p
+        dq, dk, dv = torch.ops.hpu.sdpa_recomp_bwd(dout,q,k,v, attn_mask, m, linv, seed, dropout_p, scale)
+        return dq, dk, dv, None, None, None, None, None
+    else:
+        q, k, v, P, dm = ctx.saved_tensors
+        scale = ctx.scale
+        dropout_p = ctx.dropout_p
+        dq, dk, dv = torch.ops.hpu.sdpa_bwd(dout,q,k,v,P, dm, dropout_p, scale)
+        return dq, dk, dv, None, None, None, None, None
 
 
 class FusedSDPA(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = False, scale = None):
+    def forward(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = False, scale = None, recompute = False):
         return sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = attn_mask,
-                     dropout_p=dropout_p, is_causal = is_causal, scale = scale)
+                     dropout_p=dropout_p, is_causal = is_causal, scale = scale, recompute = recompute)
 
 
     @staticmethod

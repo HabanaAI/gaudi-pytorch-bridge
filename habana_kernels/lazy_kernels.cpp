@@ -7165,6 +7165,57 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_bwd, hpu_op)
 }
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const double p,
+    const double scale,
+    const bool is_causal) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  c10::optional<at::Tensor> seed_opt;
+
+  if (p > 0.0) {
+    c10::optional<Generator> gen;
+    seed_opt = habana::get_seed_tensor_hpu(gen);
+  }
+  LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
+      "hpu::sdpa_recomp_fwd_be",
+      {q, k, v, attention_mask, seed_opt, p, scale, is_causal},
+      SDPARecompFwdOutputShape};
+  hpu_op.set_scalar_types(
+      {q.scalar_type(),
+       q.scalar_type(),
+       c10::ScalarType::Float,
+       c10::ScalarType::Int});
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const at::Tensor& m,
+    const at::Tensor& linv,
+    const c10::optional<at::Tensor>& seed,
+    const double p,
+    const double scale) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
+      "hpu::sdpa_recomp_bwd",
+      {grad, q, k, v, attention_mask, m, linv, seed, p, scale},
+      SDPARecompBwdOutputShape};
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_bwd, hpu_op)
+}
 at::Tensor scaled_triangular_softmax_lazy(
     const at::Tensor& self,
     double inv_scale_attn,

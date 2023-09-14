@@ -142,7 +142,7 @@ def perf_cmp_fsdpa_vs_vanilla_attn(g_hpu, q_hpu, k_hpu, v_hpu, attn_mask = None,
     return is_perf_run
 
 
-tc_list = [
+tc_list= [
     # Cross attention with head_dim qk != head_dim v
     ( 2, #batch_size,
       4, #n_heads,
@@ -155,6 +155,8 @@ tc_list = [
       True, #use_float_mask,
       False, #enable_autocast
       False, # is_causal
+      False, # recompute
+      False, # rhslice
     ),
     # Cross attention with head_dim qk != head_dim v ;enable auto cast, is_causal = True
     ( 2, #batch_size,
@@ -168,6 +170,8 @@ tc_list = [
       True, #use_float_mask,
       True, #enable_autocast
       True, # is_causal
+      False, # recompute
+      False, # rhslice
     ),
     # Cross attention with head_dim qk != head_dim v without multi head, i.e 3D tensors
     ( 2, #batch_size,
@@ -181,11 +185,55 @@ tc_list = [
       True, #use_float_mask,
       True, #enable_autocast
       False, # is_causal
+      False, # recompute
+      False, # rhslice
     ),
      ]
 
+tc_list_recompute = [
+    # Self attention with head_dim qk == head_dim v, is_causal, recompute
+    ( 2, #batch_size,
+      4, #n_heads,
+      32, #seq_len_N_t, i.e. Target seq len (i.e, of q)
+      32, #seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+      8, #head_dim_qk, i.e. head_dim of q and k
+      8, #head_dim_v,  i.e. head_dim of v
+      0.0, #dropout_p,
+      False, #use_attn_mask,
+      True, #use_float_mask,
+      False, #enable_autocast
+      True, # is_causal
+      True, # recompute
+      False, # rhslice
+    ),
+    ]
+
+# batchsize/numheads slice
+tc_list_rhslice = [
+    # Self attention with head_dim qk == head_dim v, is_causal, recompute, batchsize/numheads slice
+    ( 3, #batch_size,
+      5, #n_heads,
+      16, #seq_len_N_t, i.e. Target seq len (i.e, of q)
+      32, #seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+      8, #head_dim_qk, i.e. head_dim of q and k
+      4, #head_dim_v,  i.e. head_dim of v
+      0.0, #dropout_p,
+      False, #use_attn_mask,
+      True, #use_float_mask,
+      True, #enable_autocast
+      True, # is_causal
+      True, # recompute
+      True, # rhslice
+    ),
+]
+
+#For now disable additional tests
+#total_tc_list = tc_list + tc_list_recompute + tc_list_rhslice
+
+total_tc_list = tc_list
+
 @pytest.mark.xfail(reason="Results mismatch")
-@pytest.mark.parametrize("batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal", tc_list)
+@pytest.mark.parametrize("batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice", total_tc_list)
 def test_sdpa(
     batch_size,
     n_heads,
@@ -197,7 +245,9 @@ def test_sdpa(
     use_attn_mask,
     use_float_mask,
     enable_autocast,
-    is_causal):
+    is_causal,
+    recompute,
+    rhslice):
 
     torch.manual_seed(1234567)
     #batch_size = 8
@@ -292,6 +342,12 @@ def test_sdpa(
     if dropout_p == 0.0:
         os.environ['FSDPA_DBG_USE_DROPOUT_STUB'] = '0'
 
+    # Set the env. var to enable batchsize/Num heads slicing if needed.
+    if rhslice:
+        os.environ['PT_HPU_SDPA_BATCH_NUMHEADS_SLICE'] = '1'
+    else:
+        os.environ['PT_HPU_SDPA_BATCH_NUMHEADS_SLICE'] = '0'
+
     # ------------------------------- if Perf Run, run it first and return-----------------------------
     perf_run_count = 1
     profile_step = -1
@@ -327,12 +383,12 @@ def test_sdpa(
     if perf_run:
         exit(0)
     # ----------------------------------HPU Fused SDPA attention---------------------------------------------
-    if not check_dbg_env_var('FSDPA_DBG_USE_DROPOUT_STUB'):
+    if not check_dbg_env_var('FSDPA_DBG_USE_DROPOUT_STUB') or recompute:
         with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
-            O_hpu = FusedSDPA.apply(q_hpu,k_hpu,v_hpu, attn_mask_hpu, dropout_p, is_causal, None)
+            O_hpu = FusedSDPA.apply(q_hpu,k_hpu,v_hpu, attn_mask_hpu, dropout_p, is_causal, None, recompute)
     else:
         with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
-            O_hpu, DBG_ONLY_dropout_mask_g = FusedSDPA.apply(q_hpu,k_hpu,v_hpu, attn_mask_hpu, dropout_p, is_causal, None)
+            O_hpu, DBG_ONLY_dropout_mask_g = FusedSDPA.apply(q_hpu,k_hpu,v_hpu, attn_mask_hpu, dropout_p, is_causal, None, recompute)
         DBG_ONLY_dropout_mask_g = DBG_ONLY_dropout_mask_g.to("cpu")
 
     O_hpu.backward(g_hpu)
@@ -399,7 +455,6 @@ def test_sdpa(
             vb_print("Max diff PT NN SDPA BWD Ref K grad vs FSDPA ", torch.max(torch.abs(k.grad - k_grad_hpu_c)))
             vb_print("Max diff PT NN SDPA BWD Ref V grad vs FSDPA ", torch.max(torch.abs(v.grad - v_grad_hpu_c)))
 
-
 def test_sdpa_fwd_manual_seed():
 
     dtype = torch.float32
@@ -434,7 +489,3 @@ def test_sdpa_fwd_manual_seed():
 
     #assert not torch.allclose(case1_fwd_out, case3_fwd_out), " Error: Outputs are equal"
 
-
-if __name__ == "__main__":
-    test_sdpa(*tc_list[0])
-    test_sdpa_fwd_manual_seed()
