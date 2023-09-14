@@ -18,6 +18,7 @@ import contextlib
 from enum import Enum
 from typing import List, Optional
 from dataclasses import dataclass
+from packaging.version import Version
 
 from .shared_layer import is_eager_fallback_required
 from .partitioner import HabanaPartitioner
@@ -26,6 +27,12 @@ from .config import configuration_flags
 from .logger import get_compile_backend_logger
 
 logger = get_compile_backend_logger()
+
+
+def _is_legacy_pt():
+    if Version(Version(torch.__version__).base_version) < Version("2.1"):
+        return True
+    return False
 
 
 class OptimizationPassPlacement(Enum):
@@ -64,7 +71,12 @@ def optimize_graph(
     """
     from torch._dynamo import config
 
-    is_dynamic = config.dynamic_shapes
+    # TODO: It is a W/A for discovering dynamic models. In final implementation
+    # is should read this info from tensors.
+    if _is_legacy_pt():
+        is_dynamic = config.dynamic_shapes
+    else:
+        is_dynamic = not config.assume_static_by_default
 
     ctx = OptimizerContext(
         graph_module, example_inputs, is_training, is_backward, is_dynamic, stage, None
@@ -373,6 +385,7 @@ def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
                 return super().run(*args)
 
     fake_mode = detect_fake_mode(ctx.example_inputs)
+
     if not fake_mode:
         fake_mode = torch._subclasses.FakeTensorMode(allow_non_fake_inputs=True)
         TensorInfoPropagation(ctx.graph_module, fake_mode).propagate(
@@ -458,9 +471,7 @@ def pass_fake_propagation(ctx: OptimizerContext) -> bool:
     This pass makes sure that input tensors are in fake mode so we don't
     make any actual computation. Then it propagates tensor metadata into nodes.
     """
-    from packaging.version import Version
-
-    if Version(Version(torch.__version__).base_version) < Version("2.1"):
+    if _is_legacy_pt():
         return pass_fake_propagation_legacy(ctx)
     else:
         return pass_fake_propagation_current(ctx)
