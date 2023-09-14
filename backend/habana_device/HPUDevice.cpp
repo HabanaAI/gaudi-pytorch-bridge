@@ -15,6 +15,7 @@
 #include <memory>
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/time_slot.h"
 #include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
@@ -43,6 +44,7 @@ HPUDevice::~HPUDevice() {
    * Presence of other references should be investigated since it might not be
    * safe to finalize the synapse device later.
    **/
+  HabanaLaunchOpPT::clearRecipeCacheForConst();
   if (device_.use_count() != 1) {
     TORCH_WARN(
         "when deleting HPUDevice, device is kept alive by ",

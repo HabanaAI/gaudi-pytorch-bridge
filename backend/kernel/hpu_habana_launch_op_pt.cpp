@@ -66,7 +66,10 @@ const std::unordered_set<std::string> HabanaMetaOpList::meta_ops = {
 std::unordered_set<std::string> HabanaLaunchOpPT::disabled_jit_ir_ops_ = {};
 std::unordered_map<size_t, habana_helpers::InpTensorShapes>
     HabanaLaunchOpPT::ref_input_shape_map_ = {};
-std::unordered_map<int, size_t> HabanaLaunchOpPT::m_const_checksum_map;
+std::unordered_map<
+    int,
+    std::pair<size_t, std::vector<HabanaLaunchOpPT::constInfo_t>>>
+    HabanaLaunchOpPT::m_const_checksum_map;
 std::mutex HabanaLaunchOpPT::checksum_map_mtx;
 //--------------------------------------
 
@@ -249,6 +252,10 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
 HabanaLaunchOpPT::~HabanaLaunchOpPT() {
   PT_BRIDGE_DEBUG("Destroying : ", GetSynapseGraphName());
+}
+
+void HabanaLaunchOpPT::clearRecipeCacheForConst() {
+  m_const_checksum_map.clear();
 }
 
 bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
@@ -3413,6 +3420,42 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCacheTask(
 void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
   PT_BRIDGE_BEGIN;
   RecipeValueSpec& rv = *cur_rvalpsh;
+
+  if (habana_helpers::IsInferenceMode()) {
+    for (size_t j = 0; j < pt_stack_sh.size(); j++) {
+      auto ivpsh = pt_stack_sh[j];
+      if (ivpsh.get()->isTensor()) {
+        auto pt_tensor = ivpsh.get()->toTensor();
+        if (habana::is_tensor_const_with_valid_const_id(pt_tensor)) {
+          auto const_id = habana::get_tensor_const_id(pt_tensor);
+          HABANA_ASSERT(
+              m_const_checksum_map.find(const_id) != m_const_checksum_map.end(),
+              " No checksum exists for const_id: ",
+              const_id,
+              " in the map");
+          auto recipe_checksum =
+              GetConstCheckSumForRecipe(const_id, cur_rargpsh->hashCode());
+          // PT_BRIDGE_DEBUG("[Cache hit] const_id:  ", const_id, " recipe
+          // checksum:
+          // ", recipe_checksum, " current checksum on device: ",
+          // m_const_checksum_map[const_id].first)
+          if (m_const_checksum_map[const_id].first != recipe_checksum) {
+            GetConstPtrForRecipe(const_id, cur_rargpsh->hashCode(), pt_tensor);
+            InsertConstantChecksum(const_id, recipe_checksum);
+            // hbLaunchOp->ivalue_to_tensor_info_map[ivpsh]->set_buffer(
+            //    (void*)(pt_tensor.storage().data_ptr().get()));
+            PT_BRIDGE_DEBUG(
+                "Tensor with const_id: ",
+                const_id,
+                " has moved data pointer for the data corresponding to checksum: ",
+                recipe_checksum,
+                " for cache hit on key ",
+                cur_rargpsh->hashCode());
+          }
+        }
+      }
+    }
+  }
 
   if (!dry_run_) {
     rv.launch(

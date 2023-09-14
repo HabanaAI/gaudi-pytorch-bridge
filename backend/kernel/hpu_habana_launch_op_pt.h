@@ -242,6 +242,7 @@ class HabanaLaunchOpPT {
   size_t get_hpu_op_ntensorbytes() const {
     return hpu_op_ntensorbytes_;
   }
+  static void clearRecipeCacheForConst();
 
   // A map holding the ival hash and inputidx. 1-1 map for all inputs
   std::unordered_map<int64_t, int64_t> ival_hash_to_input_index_map_ = {};
@@ -379,13 +380,140 @@ class HabanaLaunchOpPT {
   std::unordered_map<IValPtrShared, PtTensorInfoShared>
       ivalue_to_tensor_info_map;
 
-  static std::unordered_map<int, size_t> m_const_checksum_map
-      GUARDED_BY(checksum_map_mtx);
+  struct constInfo_t {
+    size_t checksum; // checksum on the device
+    std::vector<size_t> recipe_key; // multiple recipe can share a key
+    uint64_t section_size;
+    std::optional<at::DataPtr> data_ptr;
+    constInfo_t(size_t _checksum, size_t _key, uint64_t _size)
+        : checksum(_checksum), section_size(_size) {
+      recipe_key.emplace_back(_key);
+    }
+  };
+
+  static std::unordered_map<int, std::pair<size_t, std::vector<constInfo_t>>>
+      m_const_checksum_map GUARDED_BY(checksum_map_mtx);
   static std::mutex checksum_map_mtx;
-  static void insertConstantChecksum(int id, size_t checksum) {
+  static void InsertConstantChecksum(int id, size_t checksum) {
     std::lock_guard<std::mutex> lock(checksum_map_mtx); // Acquire the lock
-    m_const_checksum_map[id] =
-        checksum; // Insert or replace the value in a single line
+    if (m_const_checksum_map.find(id) == m_const_checksum_map.end()) {
+      m_const_checksum_map[id] = std::make_pair(
+          checksum,
+          std::vector<constInfo_t>{}); // Insert value in a single line
+    } else {
+      m_const_checksum_map[id].first = checksum;
+    }
+  }
+
+  static void PushConstantChecksumInfo(
+      int id,
+      size_t _checksum,
+      size_t _key,
+      uint64_t _size) {
+    std::lock_guard<std::mutex> lock(checksum_map_mtx); // Acquire the lock
+    PT_BRIDGE_DEBUG(
+        "[PushConstantCheckSumInfo] :: const_id: ",
+        id,
+        " checksum: ",
+        _checksum,
+        " size: ",
+        _size,
+        " key: ",
+        _key);
+    // constInfo_t info(_checksum, _key, _size);
+    // The call for this function is made only after the check that key exists
+    m_const_checksum_map[id].second.emplace_back(_checksum, _key, _size);
+  }
+
+  static void AddRecipeForSharedChecksum(
+      int id,
+      size_t _checksum,
+      size_t _key) {
+    // The call for this function is made only after the check that key exists
+    std::lock_guard<std::mutex> lock(checksum_map_mtx); // Acquire the lock
+    for (auto& info : m_const_checksum_map[id].second) {
+      if (info.checksum == _checksum) {
+        info.recipe_key.emplace_back(_key);
+        return;
+      }
+    }
+  }
+
+  static void GetConstPtrForRecipe(int id, size_t _key, at::Tensor& _tensor) {
+    // The call for this function is made only after the check that key exists
+    auto current_checksum_on_device = m_const_checksum_map[id].first;
+    for (auto& info : m_const_checksum_map[id].second) {
+      for (auto key : info.recipe_key) {
+        if (key == _key) {
+          // auto device = _tensor.device();
+          // at::DataPtr ptr(info.data_ptr, device);
+          HABANA_ASSERT(
+              info.data_ptr.has_value(),
+              "There is no pointer assosciated with const_id: ",
+              id,
+              " for recipe: ",
+              _key);
+          auto old_data_ptr =
+              _tensor.storage().set_data_ptr(std::move(info.data_ptr.value()));
+          _tensor.storage().set_nbytes(info.section_size);
+          StorePrevDataPtr(
+              id, std::move(old_data_ptr), current_checksum_on_device);
+          info.data_ptr.reset();
+          return;
+        }
+      }
+    }
+    HABANA_ASSERT(
+        false, "Constant information not found in the map for id: ", id);
+  }
+
+  static void StorePrevDataPtr(int id, at::DataPtr _ptr, size_t _checksum) {
+    // The call for this function is made only after the check that key exists
+    std::lock_guard<std::mutex> lock(checksum_map_mtx); // Acquire the lock
+    for (auto& info : m_const_checksum_map[id].second) {
+      if (info.checksum == _checksum) {
+        info.data_ptr = std::move(_ptr);
+        PT_BRIDGE_DEBUG(
+            "[StorePrevDataPtr] :: const_id: ",
+            id,
+            " checksum: ",
+            info.checksum,
+            " size: ",
+            info.section_size,
+            " key: ",
+            info.recipe_key,
+            " ptr: ",
+            info.data_ptr.value().get());
+        return;
+      }
+    }
+    HABANA_ASSERT(false, "No such checksum found in the map, const_id: ", id);
+  }
+
+  static size_t GetConstCheckSumForRecipe(int id, size_t _key) {
+    for (auto& info : m_const_checksum_map[id].second) {
+      for (auto key : info.recipe_key) {
+        if (key == _key) {
+          return info.checksum;
+        }
+      }
+    }
+    HABANA_ASSERT(
+        false, " No checksum found for const_id: ", id, " for recipe: ", _key);
+    return 0;
+  }
+
+  static bool DoesCheckSumExist(int id, size_t _checksum) {
+    if (m_const_checksum_map.find(id) == m_const_checksum_map.end()) {
+      return false;
+    }
+
+    for (auto& info : m_const_checksum_map[id].second) {
+      if (info.checksum == _checksum) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // TIV : absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>
@@ -645,6 +773,23 @@ class HabanaLaunchOpPT {
   // to find constant section ID for Synapse graph inputs only
   void PostCompilationStepForConstTensors(RecipeValueSpec& rv);
 
+  void HandleRecipeWithNewChecksum(
+      std::shared_ptr<c10::IValue> _src,
+      size_t _section_size,
+      size_t _checksum,
+      size_t _key,
+      char* _section_data_ptr,
+      size_t _old_size,
+      int device_id);
+  void HandleRecipeWithExistingChecksumInCache(
+      int _const_id,
+      size_t _checksum,
+      size_t _key,
+      at::Tensor& _tensor);
+  void HandleRecipeWithChecksumOnDevice(
+      int _const_id,
+      size_t _checksum,
+      size_t _key);
   void EvictSynapseRecipe(size_t& dsi_bucket_id);
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
   void OrderInputs();

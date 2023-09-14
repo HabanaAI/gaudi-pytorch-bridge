@@ -17,7 +17,6 @@ import pytest
 
 from contextlib import contextmanager
 
-@pytest.mark.xfail
 def test_same_graph_with_diff_const():
     # Define the input tensor
     input_tensor = torch.randn(1, 3, 32, 32)  # Assuming input size of (batch_size, channels, height, width)
@@ -75,9 +74,7 @@ def test_same_graph_with_diff_const():
     htcore.hpu_reset_env()
 
 
-@pytest.mark.xfail(reason="Modification of constants differently across recipe is not supported")
 def test_same_const_across_recipes():
-    load_habana_module()
     # Define input tensors
     input_tensor1 = torch.randn(1, 3, 64, 64)
     input_tensor2 = torch.randn(1, 3, 32, 32)
@@ -121,9 +118,15 @@ def test_same_const_across_recipes():
         output2_hpu = conv_layer1_hpu(input_tensor2_hpu)
     output2_hpu_cpu = output2_hpu.to(cpu)
 
-    #numpy.testing.assert_allclose(
-    #    output1_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
-    #numpy.testing.assert_allclose(
-    #    output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
+    with torch.no_grad():
+        output1_repeat_hpu = conv_layer1_hpu(input_tensor1_hpu)
+    output1_repeat_hpu_cpu = output1_repeat_hpu.to(cpu)
+
+    numpy.testing.assert_allclose(
+        output1_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
+    numpy.testing.assert_allclose(
+        output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
+    numpy.testing.assert_allclose(
+       output1_repeat_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
 
     htcore.hpu_reset_env()

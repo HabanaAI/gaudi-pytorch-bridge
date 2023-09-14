@@ -1007,7 +1007,6 @@ void RecipeValueSpec::update_patching_table(
   HABANA_ASSERT(
       !allocated_outputs.has_value() ||
       (outputs_end - ridx == allocated_outputs->size()));
-
   for (; ridx < outputs_end; ridx++) {
     auto output_idx = dtensorinfos->at(ridx)->get_output_index();
     TORCH_CHECK(
@@ -1249,7 +1248,6 @@ void RecipeValueSpec::update_patching_table(
 
     const std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map =
         tidx_to_tensor_map_opt->get();
-
     for (auto& t : sif_tidx_to_tinfo_map) {
       auto sif_tensor_idx = t.first;
       HABANA_ASSERT(

@@ -19,6 +19,7 @@
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/hccl_kernels.h"
+#include "hpu_habana_launch_op_pt.h"
 
 void habana::HabanaLaunchOpPT::CopyInputStack(torch::jit::Stack& input_st) {
   // Keep a handle to the stack for future use
@@ -334,6 +335,94 @@ static void getTensorSectionId(
   isInput = true;
 }
 
+void habana::HabanaLaunchOpPT::HandleRecipeWithNewChecksum(
+    std::shared_ptr<c10::IValue> _src,
+    size_t _section_size,
+    size_t _checksum,
+    size_t _key,
+    char* _section_data_ptr,
+    size_t _old_size,
+    int _device_id) {
+  auto& _tensor = _src->toTensor();
+  auto tmeta{get_tensor_extra_meta(_tensor)};
+  auto const_id = tmeta->get_const_id();
+  // reallocation is required if old_size is not same as section size
+  // or if old_size is same as section_size but checksum is new
+  bool anyChecksumExists =
+      (m_const_checksum_map.find(const_id) != m_const_checksum_map.end());
+  bool reallocation_required =
+      (anyChecksumExists or (_old_size != _section_size));
+  if (reallocation_required) {
+    PT_BRIDGE_DEBUG(
+        "Needed reallocation (bridge) old_size ",
+        _old_size,
+        " != ",
+        _section_size,
+        " Checksum: ",
+        _checksum);
+    tmeta->set_nbytes_inference(_old_size);
+    at::DataPtr data = _tensor.storage().allocator()->allocate(_section_size);
+    auto old_data_ptr = _tensor.storage().set_data_ptr(std::move(data));
+    _tensor.storage().set_nbytes(_section_size);
+    ivalue_to_tensor_info_map[_src]->set_buffer(
+        (void*)(_tensor.storage().data_ptr().get()));
+    if (anyChecksumExists) {
+      StorePrevDataPtr(
+          const_id,
+          std::move(old_data_ptr),
+          m_const_checksum_map[const_id].first);
+    }
+  }
+  InsertConstantChecksum(const_id, _checksum);
+  PushConstantChecksumInfo(const_id, _checksum, _key, _section_size);
+  auto& device = HPURegistrar::get_device(_device_id);
+  std::atomic<bool> copyDone{false};
+  device.copy_data_to_device(
+      _section_data_ptr,
+      reinterpret_cast<synapse_helpers::device_ptr>(_tensor.data_ptr()),
+      reinterpret_cast<synapse_helpers::device_ptr>(
+          _tensor.storage().data_ptr().get()),
+      _section_size,
+      [&copyDone]() { copyDone = true; },
+      false,
+      true);
+  // wait for copy completion
+  while (!copyDone) {
+    std::this_thread::yield();
+  }
+}
+
+void habana::HabanaLaunchOpPT::HandleRecipeWithExistingChecksumInCache(
+    int _const_id,
+    size_t _checksum,
+    size_t _key,
+    at::Tensor& _tensor) {
+  AddRecipeForSharedChecksum(_const_id, _checksum, _key);
+  GetConstPtrForRecipe(_const_id, _key, _tensor);
+  InsertConstantChecksum(_const_id, _checksum);
+  PT_BRIDGE_DEBUG(
+      "Tensor with const_id: ",
+      _const_id,
+      " has moved data pointer for the data corresponding to checksum: ",
+      _checksum,
+      " for cache miss on key ",
+      _key);
+}
+
+void habana::HabanaLaunchOpPT::HandleRecipeWithChecksumOnDevice(
+    int _const_id,
+    size_t _checksum,
+    size_t _key) {
+  AddRecipeForSharedChecksum(_const_id, _checksum, _key);
+  PT_BRIDGE_DEBUG(
+      "Constant tensor already exists on the device, avoiding re-copy to device, checksum: ",
+      _checksum,
+      " const_id: ",
+      _const_id,
+      " recipe key: ",
+      _key);
+}
+
 void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     RecipeValueSpec& rv) {
   std::vector<synSectionId> constSectionIds;
@@ -357,7 +446,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
           PT_BRIDGE_DEBUG(
               "const tensor name:: ",
               tensor.name(),
-              " const id:: ",
+              " const id: ",
               tmeta->get_const_id());
           // habana_helpers::handle_const_section_tensor(src, tensor);
           // remove the const marking to avoid copy more than once
@@ -392,7 +481,6 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
               " , size (bridge) :: ",
               tensor.get_host_ptr_size());
           if (section_size) {
-            auto old_size = tensor.get_host_ptr_size();
             auto device_id = tensor.device_id();
             HABANA_ASSERT(
                 status == synStatus::synSuccess,
@@ -416,50 +504,38 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                 status == synStatus::synSuccess,
                 Logger::synStatusToStr(status));
             auto const_id = tmeta->get_const_id();
-            if (m_const_checksum_map.find(const_id) ==
-                m_const_checksum_map.end()) {
-              if (old_size != section_size) {
-                PT_BRIDGE_DEBUG(
-                    "Needed reallocation (bridge) old_size ",
-                    old_size,
-                    " is not same as ",
-                    section_size);
-                tmeta->set_nbytes_inference(old_size);
-                at::DataPtr data =
-                    src.storage().allocator()->allocate(section_size);
-                src.storage().set_data_ptr(std::move(data));
-                src.storage().set_nbytes(section_size);
-                ivalue_to_tensor_info_map[iter->first]->set_buffer(
-                    (void*)(src.storage().data_ptr().get()));
-              }
-              std::atomic<bool> copyDone{false};
-              device.copy_data_to_device(
-                  section_data_ptr,
-                  reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
-                  reinterpret_cast<synapse_helpers::device_ptr>(
-                      src.storage().data_ptr().get()),
+            auto checksum_found = DoesCheckSumExist(const_id, checksum);
+            PT_BRIDGE_DEBUG(
+                "const_id: ",
+                const_id,
+                " checksum_found: ",
+                checksum_found,
+                " checksum: ",
+                checksum);
+            if (!checksum_found) {
+              auto old_size = tensor.get_host_ptr_size();
+              HandleRecipeWithNewChecksum(
+                  iter->first,
                   section_size,
-                  [&copyDone]() { copyDone = true; },
-                  false,
-                  true);
-              // wait for copy completion
-              while (!copyDone) {
-                std::this_thread::yield();
-              }
-              insertConstantChecksum(const_id, checksum);
+                  checksum,
+                  cur_rargpsh->hashCode(),
+                  section_data_ptr,
+                  old_size,
+                  device_id);
               if (smeta) {
                 auto new_extra_smeta{habana::get_storage_extra_meta(src)};
                 new_extra_smeta->set_memory_permutation(permutation);
                 new_extra_smeta->set_dont_allow_permutation(allow);
               }
+            } else if (m_const_checksum_map[const_id].first == checksum) {
+              HandleRecipeWithChecksumOnDevice(
+                  const_id, checksum, cur_rargpsh->hashCode());
             } else {
-              HABANA_ASSERT(
-                  m_const_checksum_map[const_id] == checksum,
-                  "Modification of constants differently across recipe is not supported");
-              PT_BRIDGE_DEBUG(
-                  "Constant tensor only exists on the device, avoiding re-copy to device");
+              HandleRecipeWithExistingChecksumInCache(
+                  const_id, checksum, cur_rargpsh->hashCode(), src);
             }
-            constSectionIds.push_back(tensorSectionId);
+
+            constSectionIds.emplace_back(tensorSectionId);
             status = synHostUnmap(device_id, section_data_ptr);
             delete[] section_data_ptr;
             HABANA_ASSERT(
