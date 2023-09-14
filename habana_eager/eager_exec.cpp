@@ -154,7 +154,6 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
     std::vector<at::IValue>& ivalues) {
   std::vector<at::IValue> stack;
   stack.reserve(ivalues.size());
-
   traversing_ivalues<ProcessList::asList>(
       ivalues,
       overloaded{// metadata
@@ -164,7 +163,12 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
                  // tensors
                  [&stack](const at::Tensor& t) {
                    if (t.device().type() == c10::DeviceType::HPU) {
-                     stack.push_back(HbEagerTensorPool::get_backend_tensor(t));
+                     if (habana::get_tensor_extra_meta(t)->is_shape_tensor()) {
+                       stack.push_back(t);
+                     } else {
+                       stack.push_back(
+                           HbEagerTensorPool::get_backend_tensor(t));
+                     }
                      return;
                    }
 

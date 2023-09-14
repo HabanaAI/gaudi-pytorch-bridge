@@ -26,6 +26,8 @@
 void habana::HabanaLaunchOpPT::CopyInputStack(torch::jit::Stack& input_st) {
   // Keep a handle to the stack for future use
   pt_stack = &input_st;
+  input_tms.reserve(pt_stack->size());
+  pt_stack_sh.reserve(pt_stack->size());
 
   for (size_t i = 0; i < pt_stack->size(); i++) {
     if (pt_stack->at(i).isTensor()) {
@@ -40,7 +42,7 @@ void habana::HabanaLaunchOpPT::CopyInputStack(torch::jit::Stack& input_st) {
     }
 
     IValPtrShared ivpsh = std::make_shared<IVal>(pt_stack->at(i));
-    pt_stack_sh.push_back(ivpsh);
+    pt_stack_sh.emplace_back(ivpsh);
     if (ivpsh->isTensor() || ivpsh->isTensorList()) {
       num_tensor_inputs++;
     }

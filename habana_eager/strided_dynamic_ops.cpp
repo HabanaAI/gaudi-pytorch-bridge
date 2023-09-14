@@ -262,8 +262,8 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void AsStridedOperatorDS::UpdateDynamicInputs(
-    std::vector<torch::jit::IValue*>& dtensor_list,
-    std::vector<habana::graph::SymIntData>& scalar_idx_list,
+    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     std::vector<c10::IValue>& orig_stack) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_idx_list.size(),
@@ -453,8 +453,8 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void StridedInsertOperatorDS::UpdateDynamicInputs(
-    std::vector<torch::jit::IValue*>& dtensor_list,
-    std::vector<habana::graph::SymIntData>& scalar_idx_list,
+    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     std::vector<c10::IValue>& orig_stack) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_idx_list.size(),

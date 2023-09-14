@@ -22,6 +22,7 @@
 namespace habana {
 namespace graph {
 namespace pass {
+#define PT_MAX_SHAPETENSOR_INPUT 10
 
 struct HandleDynamicOpsPass {
   explicit HandleDynamicOpsPass(
@@ -235,14 +236,17 @@ void HandleDynamicInputPatching(
       dmeta->ds_input_patching_list.size());
   // Combine the original input stack and dynamic stack created at the runtime
   // into a single stack.
+  c10::SmallVector<torch::jit::IValue*, PT_MAX_SHAPETENSOR_INPUT> dtensor_list;
+  c10::SmallVector<habana::graph::SymIntData, PT_MAX_SHAPETENSOR_INPUT>
+      scalar_list;
   for (auto dtensor_info : dmeta->ds_input_patching_list) {
     auto dtensor_indexes = dtensor_info.second;
-    std::vector<torch::jit::IValue*> dtensor_list;
-    std::vector<habana::graph::SymIntData> scalar_list;
-    for (auto it = dtensor_indexes.begin(); it != dtensor_indexes.end(); it++) {
-      stack.push_back(dmeta->ds_stack[*it]);
-      dtensor_list.push_back(&(dmeta->ds_stack[*it]));
-      scalar_list.push_back(dmeta->ds_tensor_to_scalar_map[*it]);
+    dtensor_list.clear();
+    scalar_list.clear();
+    for (auto it : dtensor_indexes) {
+      stack.emplace_back(dmeta->ds_stack[it]);
+      dtensor_list.emplace_back(&(dmeta->ds_stack[it]));
+      scalar_list.emplace_back(dmeta->ds_tensor_to_scalar_map[it]);
     }
 
     if (!is_first_launch) {

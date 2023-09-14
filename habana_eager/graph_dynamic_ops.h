@@ -114,8 +114,8 @@ class DynamicOp {
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) = 0;
 
   static void UpdateDynamicInputs(
-      std::vector<torch::jit::IValue*>& dtensor_list,
-      std::vector<habana::graph::SymIntData>& scalar_list,
+      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_list,
       std::vector<c10::IValue>& orig_stack);
 
   std::vector<at::Tensor> getInputTensers(
@@ -198,8 +198,8 @@ class ViewOperatorDS : public DynamicOp {
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      std::vector<torch::jit::IValue*>& dtensor_list,
-      std::vector<habana::graph::SymIntData>& symint_list,
+      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       std::vector<c10::IValue>& stack);
 };
 
@@ -213,8 +213,8 @@ class RepeatOperatorDS : public DynamicOp {
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      std::vector<torch::jit::IValue*>& dtensor_list,
-      std::vector<habana::graph::SymIntData>& symint_list,
+      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       std::vector<c10::IValue>& stack);
 };
 
@@ -228,8 +228,8 @@ class TopkOperatorDS : public DynamicOp {
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      std::vector<torch::jit::IValue*>& dtensor_list,
-      std::vector<habana::graph::SymIntData>& symint_list,
+      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       std::vector<c10::IValue>& stack);
 };
 
@@ -243,8 +243,8 @@ class AsStridedOperatorDS : public DynamicOp {
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      std::vector<torch::jit::IValue*>& dtensor_list,
-      std::vector<habana::graph::SymIntData>& symint_list,
+      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       std::vector<c10::IValue>& stack);
 };
 
@@ -258,8 +258,8 @@ class StridedInsertOperatorDS : public DynamicOp {
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   static void UpdateDynamicInputs(
-      std::vector<torch::jit::IValue*>& dtensor_list,
-      std::vector<habana::graph::SymIntData>& symint_list,
+      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       std::vector<c10::IValue>& stack);
 };
 } // namespace graph

@@ -126,7 +126,11 @@ void GraphExec::ProcessDynamicGraph(torch::jit::Stack& example_inputs) {
 std::vector<at::IValue> GraphExec::ProcessDynamicStack(
     torch::jit::Stack& orig_stack,
     bool is_first_launch) {
-  torch::jit::Stack new_stack = orig_stack;
+  PT_EAGER_TRACE;
+  torch::jit::Stack new_stack;
+  new_stack.reserve(
+      orig_stack.size() + m_dgraph_meta->ds_input_patching_list.size());
+  new_stack.insert(new_stack.end(), orig_stack.begin(), orig_stack.end());
   pass::HandleDynamicInputPatching(new_stack, m_dgraph_meta, is_first_launch);
   HABANA_ASSERT(
       m_graph->inputs().size() == new_stack.size(),
@@ -134,7 +138,7 @@ std::vector<at::IValue> GraphExec::ProcessDynamicStack(
   return new_stack;
 }
 
-void GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
+std::string GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
   PT_EAGER_INFO(
       "Jit for ",
       m_graph_name,
@@ -159,6 +163,8 @@ void GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
           VecToString(m_perm));
     }
   }
+
+  return "";
 }
 
 void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
@@ -239,7 +245,7 @@ torch::jit::Stack GraphExec::LaunchDynamicRecipe(
   // [TODO] Disable hybrid sif until SW-153320
   habana_helpers::SetHybridSIFTorchCompile(false);
 
-  LogRecipeInfo(stack);
+  PT_EAGER_INFO("Dynamic graph Info:", LogRecipeInfo(stack));
 
   torch::jit::Stack backend_inputs =
       habana::eager::convert_ivalues_to_backend_tensors(stack);

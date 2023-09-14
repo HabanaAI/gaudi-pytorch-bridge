@@ -33,8 +33,8 @@ struct SymIntData {
 };
 
 using InputPatchFnPtr = std::function<void(
-    std::vector<torch::jit::IValue*>&,
-    std::vector<habana::graph::SymIntData>&,
+    c10::SmallVectorImpl<torch::jit::IValue*>&,
+    c10::SmallVectorImpl<habana::graph::SymIntData>&,
     std::vector<c10::IValue>&)>;
 using InputPatchPair = std::pair<InputPatchFnPtr, std::vector<int64_t>>;
 

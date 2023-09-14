@@ -3637,7 +3637,9 @@ void HabanaLaunchOpPT::run(
       "JIT IR graph_hash_code : ",
       graph_key_,
       ", hash_code with data layout : ",
-      graph_key_with_perm);
+      graph_key_with_perm,
+      "is dynamic : ",
+      refine_ds_enabled_);
 
   idx += 1;
   if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED) {
@@ -4000,6 +4002,7 @@ void HabanaLaunchOpPT::run(
 
     jit_graph_and_meta_data_->clear_cached_graph_info();
     ProcessHabanaFusedOpWithDS();
+    PT_BRIDGE_END;
     return;
   }
 

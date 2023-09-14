@@ -31,7 +31,11 @@ void GetValueAndScalarIndexFromInput(
   static const auto value_attr{torch::jit::Symbol::attr("value")};
   auto in_name = input->debugName();
   if (input->node()->kind() == constant_symbol) {
-    value = static_cast<int64_t>(input->node()->i(value_attr));
+    try {
+      value = static_cast<int64_t>(input->node()->i(value_attr));
+    } catch (std::exception& e) {
+      value = 0;
+    }
   } else if (org_stack_index_map.count(in_name)) {
     index = static_cast<int64_t>(org_stack_index_map[in_name]);
     value = static_cast<int64_t>(in_stack[index].toScalar().toInt());
@@ -130,14 +134,14 @@ void UpdateShapeTensorSize(
     at::Tensor& dtensor,
     std::vector<int64_t>& stack_idxs,
     std::vector<c10::IValue>& orig_stack) {
-  std::vector<int64_t> new_shape;
+  c10::SmallVector<int64_t, NUM_TENSOR_DIMS> new_shape(stack_idxs.size(), 1);
 
   for (int idx = 0; idx < stack_idxs.size(); idx++) {
     auto stack_index = stack_idxs[idx];
     if (stack_index == LONG_MAX) {
-      new_shape.push_back(dtensor.sizes()[idx]);
+      new_shape[idx] = dtensor.sizes()[idx];
     } else {
-      new_shape.push_back(GetSymintValue(orig_stack, stack_index));
+      new_shape[idx] = GetSymintValue(orig_stack, stack_index);
     }
   }
 
@@ -194,8 +198,8 @@ int64_t CreateH2DAndInsertToDSStack(
 }
 
 void DynamicOp::UpdateDynamicInputs(
-    std::vector<torch::jit::IValue*>& dtensor_list,
-    std::vector<habana::graph::SymIntData>& scalar_list,
+    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_list,
     std::vector<c10::IValue>& orig_stack) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_list.size(),
@@ -256,8 +260,8 @@ bool RepeatOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void RepeatOperatorDS::UpdateDynamicInputs(
-    std::vector<torch::jit::IValue*>& dtensor_list,
-    std::vector<habana::graph::SymIntData>& scalar_idx_list,
+    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     std::vector<c10::IValue>& orig_stack) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_idx_list.size(),
