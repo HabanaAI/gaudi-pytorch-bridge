@@ -96,6 +96,10 @@ void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
   jit_to_synapse_node_idx_map.clear();
   collective_kernels_info.clear();
   memory_reuse_pairs.clear();
+
+  syn_launch_info_.clear();
+  external_tensor_info_indexes_.clear();
+  dma_inputs_.clear();
 }
 
 void habana::HabanaLaunchOpPT::ClearStatics(bool is_shape_inference) {
@@ -639,6 +643,12 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
     rv.set_graph_name(GetSynapseGraphName());
   }
   rv.sif_tidx_to_tinfo_map = sif_tidx_to_tinfo_map;
+
+  if (rv.recipe) {
+    rv.patch_launch_info(syn_launch_info_, external_tensor_info_indexes_);
+  } else {
+    PT_BRIDGE_DEBUG("Skipping patch_launch_info for empty recipe");
+  }
 }
 
 void habana::HabanaLaunchOpPT::DumpTensors_pre(RecipeValueSpec& rv) {
@@ -754,7 +764,9 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
         hpu_stream,
         input_refs,
         intermediate_tensors_ptr,
-        *aten_outputs_ptr_sh_);
+        *aten_outputs_ptr_sh_,
+        syn_launch_info_,
+        external_tensor_info_indexes_);
   }
   rv.update_hit_count();
 

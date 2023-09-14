@@ -758,7 +758,7 @@ inline void RecipeValueSpec::update_new_tensor(
 void RecipeValueSpec::update_patching_table(
     at::ArrayRef<torch::jit::IValue>& input_refs,
     std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
-    std::shared_ptr<VecOfIValPtrSh>& dma_inputs_ptr,
+    VecOfIValPtrSh& dma_inputs,
     VecOfIValPtrSh& aten_outputs,
     const habana::IdShapeMap& m_actual_shapes,
     const synapse_helpers::graph& synapse_graph,
@@ -975,7 +975,7 @@ void RecipeValueSpec::update_patching_table(
 
       IValPtrShared dma_ivpsh = std::make_shared<IVal>(seed_tensor);
       PT_BRIDGE_DEBUG("Persistent tensor for DMA\n");
-      dma_inputs_ptr->push_back(dma_ivpsh);
+      dma_inputs.push_back(dma_ivpsh);
 
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache hit :: DMA input : buffer ptr ",
@@ -1543,7 +1543,9 @@ void RecipeValueSpec::launch(
     at::ArrayRef<torch::jit::IValue>& input_refs,
     std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
     const VecOfIValPtrSh& aten_outputs,
-    std::shared_ptr<VecOfIValPtrSh> dma_inputs_ptr) {
+    std::vector<synLaunchTensorInfoExt>& syn_launch_info,
+    std::vector<size_t>& external_tensor_info_indexes,
+    const VecOfIValPtrSh& dma_inputs) {
   PT_BRIDGE_BEGIN;
   SelfCheck();
   TORCH_CHECK(!aten_outputs.empty());
@@ -1555,14 +1557,6 @@ void RecipeValueSpec::launch(
   std::vector<at::Tensor> ptRefs;
   std::vector<at::Tensor> outPtRefs;
   std::vector<synapse_helpers::device_ptr> outDevPtr;
-
-  std::vector<synLaunchTensorInfoExt> syn_launch_info;
-  std::vector<size_t> external_tensor_info_indexes;
-  if (recipe) {
-    patch_launch_info(syn_launch_info, external_tensor_info_indexes);
-  } else {
-    PT_BRIDGE_DEBUG("Skipping patch_launch_info for empty recipe");
-  }
 
   size_t active_graph_key_ = 0;
 
@@ -1579,8 +1573,8 @@ void RecipeValueSpec::launch(
             input.toTensor().storage().data_ptr().get()));
       }
     }
-    if (dma_inputs_ptr != nullptr && dma_inputs_ptr->size() > 0) {
-      for (auto& dma_input : *dma_inputs_ptr) {
+    if (dma_inputs.size() > 0) {
+      for (auto& dma_input : dma_inputs) {
         TORCH_CHECK(
             dma_input->isTensor(), "Only tensor is supported as dma_input");
         at::Tensor tensor = dma_input->toTensor();

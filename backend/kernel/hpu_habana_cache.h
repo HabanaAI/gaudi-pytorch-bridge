@@ -289,7 +289,7 @@ struct RecipeValueSpec {
   void update_patching_table(
       at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
-      std::shared_ptr<VecOfIValPtrSh>& dma_inputs_ptr,
+      VecOfIValPtrSh& dma_inputs,
       VecOfIValPtrSh& aten_outputs,
       const habana::IdShapeMap& m_actual_shapes,
       const synapse_helpers::graph& synapse_graph,
@@ -314,7 +314,9 @@ struct RecipeValueSpec {
       at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
       const VecOfIValPtrSh& aten_outputs,
-      std::shared_ptr<VecOfIValPtrSh> dma_inputs_ptr = nullptr);
+      std::vector<synLaunchTensorInfoExt>& syn_launch_info,
+      std::vector<size_t>& external_tensor_info_indexes,
+      const VecOfIValPtrSh& dma_inputs = {});
 
   void create_outdup(
       size_t ti_idx,

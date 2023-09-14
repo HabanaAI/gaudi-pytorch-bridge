@@ -124,6 +124,14 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
       std::shared_ptr<habana_helpers::CompilationStatistics> statpsh,
       std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
 
+  void UpdatePatchingInformation(
+      std::optional<
+          std::reference_wrapper<const std::unordered_map<int64_t, at::Tensor>>>
+          tidx_to_tensor_map_opt = std::nullopt,
+      const std::unordered_map<synTensor, synTensor>&
+          synapse_orig_to_new_handle = {},
+      const bool is_shape_agnostic_graph = false);
+
   void run(
       torch::jit::Stack& stack,
       std::optional<std::vector<at::Tensor>> allocated_outputs = {},
@@ -300,6 +308,9 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // aten_outputs_ptr_sh_----------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
   // intermediate_syn_tensors_count------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // intermediate_tensors_ptr_sh_--------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
+  // dma_inputs_-------------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
+  // syn_launch_info_--------------------------///-----------------------------------///-----Write-(in-cache-hit-case)-----///-----Write-(in-cache-miss-case)----///-----------Read
+  // external_tensor_info_indexes_-------------///-----------------------------------///-----Write-(in-cache-hit-case)-----///-----Write-(in-cache-miss-case)----///-----------Read
   std::shared_ptr<synapse_helpers::graph> syn_graph_ptr_ = nullptr;
 
  private:
@@ -483,6 +494,11 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   int64_t meta_attribute_nodes_count_{0};
 
   std::shared_ptr<VecOfIValPtrSh> intermediate_tensors_ptr_sh_{nullptr};
+
+  VecOfIValPtrSh dma_inputs_{};
+
+  std::vector<synLaunchTensorInfoExt> syn_launch_info_{};
+  std::vector<size_t> external_tensor_info_indexes_{};
 
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph

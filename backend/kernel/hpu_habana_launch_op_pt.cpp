@@ -3166,11 +3166,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
             current_bucket_id_, jit_ir_graph_, ranges, refine_candidate);
       }
 
-      std::shared_ptr<VecOfIValPtrSh> intermediate_tensors_ptr =
-          std::make_shared<VecOfIValPtrSh>();
-
-      std::shared_ptr<VecOfIValPtrSh> dma_inputs_ptr =
-          std::make_shared<VecOfIValPtrSh>();
+      intermediate_tensors_ptr_sh_ = std::make_shared<VecOfIValPtrSh>();
 
       // The aten_output_num is the total number of outputs
       size_t aten_output_num = rv.get_aten_output_num();
@@ -3179,8 +3175,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
 
       rv.update_patching_table(
           input_refs,
-          intermediate_tensors_ptr,
-          dma_inputs_ptr,
+          intermediate_tensors_ptr_sh_,
+          dma_inputs_,
           *aten_outputs_ptr_sh_,
           m_map_shape.m_actual_shapes,
           *syn_graph_ptr_,
@@ -3200,12 +3196,19 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       }
 
       if (!dry_run_) {
+        if (rv.recipe) {
+          rv.patch_launch_info(syn_launch_info_, external_tensor_info_indexes_);
+        } else {
+          PT_BRIDGE_DEBUG("Skipping patch_launch_info for empty recipe");
+        }
         rv.launch(
             hpu_stream,
             input_refs,
-            intermediate_tensors_ptr,
+            intermediate_tensors_ptr_sh_,
             *aten_outputs_ptr_sh_,
-            dma_inputs_ptr);
+            syn_launch_info_,
+            external_tensor_info_indexes_,
+            dma_inputs_);
       }
       if (enable_tensor_dump_) {
         DumpTensors(rv);
@@ -3512,22 +3515,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
   PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: static shapes");
   PT_TEST_DEBUG("HabanaOp recipe cache hit :: static path");
 
-  std::shared_ptr<VecOfIValPtrSh> intermediate_tensors_ptr =
-      std::make_shared<VecOfIValPtrSh>();
-
-  std::shared_ptr<VecOfIValPtrSh> dma_inputs_ptr =
-      std::make_shared<VecOfIValPtrSh>();
-
-  rv.update_patching_table(
-      input_refs,
-      intermediate_tensors_ptr,
-      dma_inputs_ptr,
-      *hbLaunchOp->aten_outputs_ptr_sh_,
-      hbLaunchOp->m_map_shape.m_actual_shapes,
-      *hbLaunchOp->syn_graph_ptr_,
-      std::nullopt,
-      allocated_outputs);
-
   if (hbLaunchOp->enable_tensor_dump_) {
     hbLaunchOp->DumpTensors_pre(rv);
   }
@@ -3535,9 +3522,11 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
     rv.launch(
         hpu_stream,
         input_refs,
-        intermediate_tensors_ptr,
+        hbLaunchOp->intermediate_tensors_ptr_sh_,
         *hbLaunchOp->aten_outputs_ptr_sh_,
-        dma_inputs_ptr);
+        hbLaunchOp->syn_launch_info_,
+        hbLaunchOp->external_tensor_info_indexes_,
+        hbLaunchOp->dma_inputs_);
   }
 
   if (hbLaunchOp->enable_tensor_dump_) {
@@ -3610,6 +3599,42 @@ void HabanaLaunchOpPT::DumpStaticCompilationStatistics(
   }
 
   current_dbipsh_->get_statistics()->DumpAndNextStep();
+}
+
+void HabanaLaunchOpPT::UpdatePatchingInformation(
+    std::optional<
+        std::reference_wrapper<const std::unordered_map<int64_t, at::Tensor>>>
+        local_tidx_to_tensor_map,
+    const std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
+    const bool is_shape_agnostic_graph) {
+  RecipeValueSpec& rv = *cur_rvalpsh;
+
+  intermediate_tensors_ptr_sh_ = std::make_shared<VecOfIValPtrSh>();
+
+  // The aten_output_num is the total number of outputs
+  size_t aten_output_num = rv.get_aten_output_num();
+
+  aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>(aten_output_num);
+
+  rv.update_patching_table(
+      input_refs,
+      intermediate_tensors_ptr_sh_,
+      dma_inputs_,
+      *aten_outputs_ptr_sh_,
+      m_map_shape.m_actual_shapes,
+      *syn_graph_ptr_,
+      local_tidx_to_tensor_map,
+      allocated_outputs_,
+      out_shapes,
+      synapse_orig_to_new_handle,
+      is_shape_agnostic_graph);
+  if (!dry_run_) {
+    if (rv.recipe) {
+      rv.patch_launch_info(syn_launch_info_, external_tensor_info_indexes_);
+    } else {
+      PT_BRIDGE_DEBUG("Skipping patch_launch_info for empty recipe");
+    }
+  }
 }
 
 void HabanaLaunchOpPT::run(
@@ -3692,11 +3717,7 @@ void HabanaLaunchOpPT::run(
           habana_helpers::EventDispatcher::Topic::CACHE_HIT,
           std::to_string(cur_rargpsh->hashCode()));
 
-      RecipeValueSpec& rv = *cur_rvalpsh;
-      // The aten_output_num is the total number of outputs
-      size_t aten_output_num = rv.get_aten_output_num();
-
-      aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>(aten_output_num);
+      UpdatePatchingInformation();
 
       ExecuteSynapseCache(
           hpu_stream,
@@ -3735,11 +3756,7 @@ void HabanaLaunchOpPT::run(
           habana_helpers::EventDispatcher::Topic::CACHE_HIT,
           std::to_string(cur_rargpsh->hashCode()));
 
-      RecipeValueSpec& rv = *cur_rvalpsh;
-      // The aten_output_num is the total number of outputs
-      size_t aten_output_num = rv.get_aten_output_num();
-
-      aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>(aten_output_num);
+      UpdatePatchingInformation();
 
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
@@ -3921,11 +3938,6 @@ void HabanaLaunchOpPT::run(
       PT_EAGER_DEBUG(
           "HabanaOp shape agnostic graph cache hit :: static shapes");
 
-      intermediate_tensors_ptr_sh_ = std::make_shared<VecOfIValPtrSh>();
-
-      std::shared_ptr<VecOfIValPtrSh> dma_inputs_ptr =
-          std::make_shared<VecOfIValPtrSh>();
-
       std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle{};
       for (size_t i = 0; i < tensorsMap.size(); i++) {
         synapse_orig_to_new_handle.insert(
@@ -3948,22 +3960,9 @@ void HabanaLaunchOpPT::run(
         RunHybridSif<dynamic_shapes_false>(local_tidx_to_tensor_map);
       }
 
-      // The aten_output_num is the total number of outputs
-      size_t aten_output_num = rv.get_aten_output_num();
-
-      aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>(aten_output_num);
-
       constexpr bool is_shape_agnostic_graph = true;
-      rv.update_patching_table(
-          input_refs,
-          intermediate_tensors_ptr_sh_,
-          dma_inputs_ptr,
-          *aten_outputs_ptr_sh_,
-          m_map_shape.m_actual_shapes,
-          *syn_graph_ptr_,
+      UpdatePatchingInformation(
           local_tidx_to_tensor_map,
-          allocated_outputs_,
-          out_shapes,
           synapse_orig_to_new_handle,
           is_shape_agnostic_graph);
 
