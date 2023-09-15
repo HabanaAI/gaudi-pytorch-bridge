@@ -385,16 +385,18 @@ def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
                 return super().run(*args)
 
     fake_mode = detect_fake_mode(ctx.example_inputs)
-
-    if not fake_mode:
-        fake_mode = torch._subclasses.FakeTensorMode(allow_non_fake_inputs=True)
-        TensorInfoPropagation(ctx.graph_module, fake_mode).propagate(
-            *ctx.example_inputs
-        )
-    else:
-        TensorInfoPropagation(
-            ctx.graph_module, fake_mode
-        ).propagate_dont_convert_inputs(*ctx.example_inputs)
+    with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):
+        # Disabling autocast in fake tensor propagation as autocasting has been
+        # already done and all dtypes has been already deduced.
+        if not fake_mode:
+            fake_mode = torch._subclasses.FakeTensorMode(allow_non_fake_inputs=True)
+            TensorInfoPropagation(ctx.graph_module, fake_mode).propagate(
+                *ctx.example_inputs
+            )
+        else:
+            TensorInfoPropagation(
+                ctx.graph_module, fake_mode
+            ).propagate_dont_convert_inputs(*ctx.example_inputs)
 
     return True
 
