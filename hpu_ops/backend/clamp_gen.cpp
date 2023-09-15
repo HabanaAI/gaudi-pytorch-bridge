@@ -112,7 +112,7 @@ void clampTensor::AddNode(
   if (minTensorDefined && maxTensorDefined) {
     auto clampOut = BuildOp(
         graph,
-        get_guid_with_precision("clamp_fwd", ScalarType()),
+        get_guid_with_precision("clamp_pt_fwd", ScalarType()),
         {syn_in(0), syn_in(1), syn_in(2)},
         {{outshape, ScalarType(), 0}});
 
