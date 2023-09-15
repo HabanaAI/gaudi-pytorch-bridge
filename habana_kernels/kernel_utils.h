@@ -54,6 +54,20 @@ std::vector<int64_t> compute_broadcast_shape(
     const at::Tensor& arg1,
     const at::Tensor& arg2);
 
+void set_tensor_exp_bias(
+    const at::Tensor& tensor,
+    c10::optional<unsigned> exp_bias);
+
+c10::optional<unsigned> get_tensor_exp_bias(const at::Tensor& tensor);
+
+void set_output_hw_scaling_meta(
+    const at::Tensor& input,
+    const at::Tensor& output);
+
+void set_output_hw_scaling_meta(
+    const at::Tensor& input,
+    habana::OutputMetaData& meta);
+
 } // namespace habana_helpers
 
 // CastOut Operator

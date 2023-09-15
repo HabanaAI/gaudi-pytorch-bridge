@@ -114,6 +114,13 @@ Tensor CatOperator::CheckAllocateOutput(
     tensors_size.emplace_back(tensors.get(i).sizes().vec());
 
   validate_cat_tensor_dim_sizes(&tensors_size, dim);
+
+  if (!is_dry_run && output_metadata.allocated_tensor.has_value()) {
+    auto output = output_metadata.allocated_tensor.value();
+    habana_helpers::set_output_hw_scaling_meta(first_tensor, output);
+    return output;
+  }
+
   if (dim != dim_) {
     inputs[1] = IValue(dim);
   }
@@ -132,16 +139,13 @@ Tensor CatOperator::CheckAllocateOutput(
     out_size = inputs[2].toTensor().sizes().vec();
   }
 
-  if (!is_dry_run && output_metadata.allocated_tensor.has_value()) {
-    return output_metadata.allocated_tensor.value();
-  }
-
   auto out = habana::createPTTensor(
       first_tensor,
       out_size,
       first_tensor.options().dtype(output_dtype),
       first_tensor.suggest_memory_format(),
       output_metadata.persistent);
+  habana_helpers::set_output_hw_scaling_meta(first_tensor, out);
 
   return out;
 }
@@ -275,6 +279,7 @@ void TransposeOperator::AllocateAndAddSynapseNode(
       self.options(),
       self.suggest_memory_format(),
       output_metadata.at(0).persistent);
+  habana_helpers::set_output_hw_scaling_meta(self, out);
   synTransposeParamsNDims params;
   params.tensorDim = self.dim();
   int i;
@@ -378,6 +383,7 @@ void PermuteOperator::AllocateAndAddSynapseNode(
             self.options(),
             self.suggest_memory_format(),
             mdata.persistent);
+  habana_helpers::set_output_hw_scaling_meta(self, output);
 
   synTransposeParamsNDims params;
   params.tensorDim = self.dim();
@@ -509,6 +515,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
       self.options(),
       memory_format,
       output_metadata.at(0).persistent);
+  habana_helpers::set_output_hw_scaling_meta(self, output);
 
   TORCH_CHECK(
       self.numel() == output.numel(),
@@ -722,6 +729,7 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
         self.options(),
         self.suggest_memory_format(),
         output_metadata.at(0).persistent);
+    habana_helpers::set_output_hw_scaling_meta(self, result);
     // Allocate Shape tensor
     if (graph.is_dynamic_graph()) {
       AllocateSynapseShapeTensor(graph, result);
@@ -740,6 +748,7 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
         self.options(),
         self.suggest_memory_format(),
         output_metadata.at(0).persistent);
+    habana_helpers::set_output_hw_scaling_meta(self, result);
   }
 
   AllocateSynapseOutput(graph, result, output_metadata.at(0));

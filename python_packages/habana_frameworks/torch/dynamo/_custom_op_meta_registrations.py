@@ -49,6 +49,11 @@ def meta_cast_to_fp8_v2(input, scale, stochastic, is_amax, dtype):
     return out, amax
 
 
+@register_meta([torch.ops.hpu.cast_to_fp8_q.default])
+def meta_cast_to_fp8_q(input, dtype, exp_bias):
+    return input.new_empty(input.shape, dtype=dtype)
+
+
 @register_meta([torch.ops.hpu.fp8_cast_transpose.default])
 def meta_fp8_cast_transpose(input, scale, stochastic, out, transposed, amax):
     return out, transposed, amax

@@ -563,6 +563,9 @@ class Op(object):
     def get_scalar_ids(self):
         return self.op.get("scalar_ids", [])
 
+    def get_hw_scaling_ids(self):
+        return self.op.get("hw_scaling_ids", [])
+
     def promote_to_common_type(self):
         return self.op.get("promote_to_common_type", [])
 
@@ -1142,6 +1145,12 @@ def frontend(
                 )
             )
 
+        hw_scaling_ids = ctxop.get_hw_scaling_ids()
+        if hw_scaling_ids:
+            code += "  hpu_op.set_hw_scaling_index({{{}}});\n".format(
+                ", ".join([str(id) for id in hw_scaling_ids])
+            )
+
         if ctxop.get_op_frontend_class() == "ReductionFrontendTemplate":
             code += "  hpu_op.SetReductionVarsIndices({});\n".format(
                 ", ".join(extract_reduction_vars_indices(param_vars))
@@ -1347,6 +1356,10 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
                 ", ".join(extract_reduction_vars_indices(param_vars, True))
             )
         )
+
+    hw_scaling_ids = ctxop.get_hw_scaling_ids()
+    if hw_scaling_ids:
+        ctor_extra_calls.append("SetHwScalingIds({{{}}});".format(", ".join([str(id) for id in hw_scaling_ids])))
 
     return _OPCLASS_HEADER.format(
         op_backend_class=op_backend_class,

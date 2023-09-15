@@ -49,6 +49,21 @@ std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8(
   return hpu_op.call(result);
 }
 
+at::Tensor cast_to_fp8_q(
+    const at::Tensor& input,
+    at::ScalarType dtype,
+    int64_t exp_bias) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("cast_to_fp8_q :", DUMP_3ARGS(input, dtype, exp_bias));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::cast_to_fp8_q", {input, dtype, exp_bias}, {input.sizes().vec()}};
+  hpu_op.set_scalar_types({dtype});
+  auto output = hpu_op.call();
+  habana_helpers::set_tensor_exp_bias(output, exp_bias);
+  return output;
+}
+
 std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
@@ -981,6 +996,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
   m.def(
+      "hpu::cast_to_fp8_q(Tensor input, ScalarType dtype, int exp_bias) -> Tensor");
+  m.def(
       "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor)");
   m.def(
       "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None) -> Tensor");
@@ -1078,6 +1095,7 @@ TORCH_LIBRARY(hpu, m) {
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_from_fp8", cast_from_fp8);
   m.impl("hpu::cast_to_fp8", cast_to_fp8);
+  m.impl("hpu::cast_to_fp8_q", cast_to_fp8_q);
   m.impl("hpu::cast_to_fp8_v2", cast_to_fp8_v2);
   m.impl("hpu::conv2d_fp8", conv2d_fp8);
   m.impl("hpu::custom_softmax", custom_softmax);

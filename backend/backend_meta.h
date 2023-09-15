@@ -418,6 +418,14 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     is_maybe_grad_view_ = true;
   }
 
+  c10::optional<unsigned> get_exp_bias() const {
+    return exp_bias_;
+  }
+
+  void set_exp_bias(c10::optional<unsigned> exp_bias) {
+    exp_bias_ = exp_bias;
+  }
+
  private:
   c10::IntArrayRef sizes_{0};
   habana::LayoutFormat tensor_layout_{habana::LayoutFormat::NCHW};
@@ -444,6 +452,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   // view meta
   bool is_view_{false};
   bool is_maybe_grad_view_{false};
+  c10::optional<unsigned> exp_bias_{c10::nullopt};
 };
 
 TensorExtraMeta* get_tensor_extra_meta_from_hb_internal_tensor_impl(

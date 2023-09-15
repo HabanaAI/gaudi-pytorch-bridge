@@ -2069,6 +2069,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
       self.options(),
       self.suggest_memory_format(),
       output_metadata.at(0).persistent);
+  habana_helpers::set_output_hw_scaling_meta(self, output);
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
@@ -2869,6 +2870,7 @@ void SqueezeOperator::AllocateAndAddSynapseNode(
       input.options(),
       input.suggest_memory_format(),
       output_metadata.at(0).persistent);
+  habana_helpers::set_output_hw_scaling_meta(input, output);
 
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
@@ -2935,6 +2937,7 @@ void UnsqueezeOperator::AllocateAndAddSynapseNode(
       input.options(),
       input.suggest_memory_format(),
       output_metadata.at(0).persistent);
+  habana_helpers::set_output_hw_scaling_meta(input, output);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
 
   const auto syn_axis = input.dim() - dim;

@@ -56,12 +56,16 @@ static at::ScalarType GetScalarType(const at::Stack& stack, int index) {
   return habana_helpers::getInternalDtype(type);
 }
 
-static at::Tensor GetProxyTensor(at::ScalarType dtype, at::IntArrayRef sizes) {
+static at::Tensor GetProxyTensor(
+    at::ScalarType dtype,
+    at::IntArrayRef sizes,
+    c10::optional<unsigned> exp_bias = c10::nullopt) {
   const auto& t = at::detail::make_tensor<c10::TensorImpl>(
       c10::DispatchKeySet{at::DispatchKey::HPU, at::DispatchKey::AutogradHPU},
       c10::scalarTypeToTypeMeta(dtype),
       c10::Device(c10::kHPU, 0));
   t.unsafeGetTensorImpl()->set_sizes_contiguous(sizes);
+  habana_helpers::set_tensor_exp_bias(t, exp_bias);
 
   return t;
 }
@@ -150,7 +154,11 @@ void OpBackend::HandleFn(sh::graph& graph, const at::Stack& stack) {
 
   for (const auto& metadata : m_output_metadata) {
     if (!graph.is_dry_run() && metadata.allocated_tensor.has_value()) {
-      AllocateSynapseOutput(graph, metadata.allocated_tensor.value(), metadata);
+      const auto output = metadata.allocated_tensor.value();
+      if (metadata.exp_bias) {
+        habana_helpers::set_tensor_exp_bias(output, metadata.exp_bias);
+      }
+      AllocateSynapseOutput(graph, output, metadata);
     } else {
       const auto t = GetProxyTensor(metadata.dtype, metadata.shape);
       const auto& output = metadata.strides.empty()
@@ -163,6 +171,9 @@ void OpBackend::HandleFn(sh::graph& graph, const at::Stack& stack) {
                 t.options(),
                 metadata.mem_format,
                 metadata.persistent);
+      if (metadata.exp_bias) {
+        habana_helpers::set_tensor_exp_bias(output, metadata.exp_bias);
+      }
       AllocateSynapseOutput(graph, output, metadata);
     }
   }
@@ -293,6 +304,22 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
   update_guid_dtype(guid_, m_scalar_type);
 }
 
+void OpBackend::HandleHwScaling(const at::Stack& stack, const size_t i) {
+  if (m_hw_scaling_ids.size() <= i or m_hw_scaling_ids[i] == -1) {
+    return;
+  }
+
+  const auto& input = stack[m_hw_scaling_ids[i]];
+  HABANA_ASSERT(input.isTensor());
+  const auto& input_t = input.toTensor();
+  if (input_t.scalar_type() != at::ScalarType::Float8_e5m2 &&
+      input_t.scalar_type() != at::ScalarType::Float8_e4m3fn) {
+    return;
+  }
+
+  m_output_metadata[i].exp_bias = habana_helpers::get_tensor_exp_bias(input_t);
+}
+
 std::vector<sh::tensor> OpBackend::BuildOp(
     sh::graph& graph,
     std::string guid,
@@ -348,9 +375,10 @@ sh::tensor OpBackend::BroadcastHelper(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    c10::optional<int> final_result_index,
+    c10::optional<unsigned> exp_bias) {
   return OpBackend::BuildBroadcast(
-      this, graph, syn_in, sizes, dtype, final_result_index);
+      this, graph, syn_in, sizes, dtype, final_result_index, exp_bias);
 }
 
 sh::tensor OpBackend::ReshapeHelper(
@@ -358,9 +386,10 @@ sh::tensor OpBackend::ReshapeHelper(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    c10::optional<int> final_result_index,
+    c10::optional<unsigned> exp_bias) {
   return OpBackend::BuildReshape(
-      this, graph, syn_in, sizes, dtype, final_result_index);
+      this, graph, syn_in, sizes, dtype, final_result_index, exp_bias);
 }
 
 sh::tensor OpBackend::PermuteHelper(
@@ -369,9 +398,17 @@ sh::tensor OpBackend::PermuteHelper(
     at::IntArrayRef sizes,
     at::IntArrayRef permutation,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    c10::optional<int> final_result_index,
+    c10::optional<unsigned> exp_bias) {
   return OpBackend::BuildPermute(
-      this, graph, syn_in, sizes, permutation, dtype, final_result_index);
+      this,
+      graph,
+      syn_in,
+      sizes,
+      permutation,
+      dtype,
+      final_result_index,
+      exp_bias);
 }
 
 sh::tensor OpBackend::IdentityHelper(
@@ -379,9 +416,10 @@ sh::tensor OpBackend::IdentityHelper(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    c10::optional<int> final_result_index,
+    c10::optional<unsigned> exp_bias) {
   return OpBackend::BuildIdentity(
-      this, graph, syn_in, sizes, dtype, final_result_index);
+      this, graph, syn_in, sizes, dtype, final_result_index, exp_bias);
 }
 
 void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
@@ -483,6 +521,7 @@ void OpBackend::PopulateMetadata(
       m_output_metadata[i].strides = meta[i].strides;
       m_output_metadata[i].mem_format = meta[i].mem_format;
       m_output_metadata[i].undefined = meta[i].undefined;
+      m_output_metadata[i].exp_bias = meta[i].exp_bias;
     }
   } else if (m_res_ids.size()) {
     auto outshapes = ComputeOutputShapes(stack);
@@ -516,6 +555,8 @@ void OpBackend::PopulateMetadata(
           dtype = stack_tensor(stack, 0).scalar_type();
         }
       }
+
+      HandleHwScaling(stack, i);
     }
   }
 }
@@ -680,7 +721,7 @@ std::vector<sh::tensor> OpBackend::BuildNode(
         }
       }
 
-      const auto& t = GetProxyTensor(attr.dtype, attr.sizes);
+      const auto& t = GetProxyTensor(attr.dtype, attr.sizes, attr.exp_bias);
       outputs.emplace_back(
           habana_helpers::is_shape_tensor(attr.tensor_type)
               ? habana_helpers::create_shape_tensor(
@@ -904,12 +945,14 @@ sh::tensor OpBackend::BuildBroadcast(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    c10::optional<int> final_result_index,
+    c10::optional<unsigned> exp_bias) {
   std::vector<synTensor> inputs = {syn_in};
   op->CreateShapeTensorInput(graph, dtype, sizes, inputs);
+  NodeAttr::NodeOutputAttr out_attr{sizes, dtype, final_result_index};
+  out_attr.exp_bias = exp_bias;
 
-  auto broadcast = BuildNode(
-      op, graph, {"broadcast", inputs, {{sizes, dtype, final_result_index}}});
+  auto broadcast = BuildNode(op, graph, {"broadcast", inputs, {out_attr}});
   return std::move(broadcast.at(0));
 }
 
@@ -920,7 +963,8 @@ sh::tensor OpBackend::BuildPermute(
     at::IntArrayRef sizes,
     at::IntArrayRef permutation,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    c10::optional<int> final_result_index,
+    c10::optional<unsigned> exp_bias) {
   std::vector<synTensor> inputs = {syn_in};
 
   int dims_number = sizes.size();
@@ -957,7 +1001,11 @@ sh::tensor OpBackend::BuildPermute(
        inputs,
        {{std::move(compute_output_shape(sizes, permutation)),
          dtype,
-         final_result_index}},
+         final_result_index,
+         DATA_TENSOR,
+         syn_type_na,
+         c10::nullopt,
+         exp_bias}},
        &params,
        sizeof(params)});
   return std::move(permute.at(0));
@@ -969,7 +1017,8 @@ sh::tensor OpBackend::BuildReshape(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
+    c10::optional<int> final_result_index,
+    c10::optional<unsigned> exp_bias) {
   /*
     Inputs:
     * The tensor to reshape : T
@@ -988,9 +1037,10 @@ sh::tensor OpBackend::BuildReshape(
   */
   std::vector<synTensor> inputs = {syn_in};
   op->CreateShapeTensorInput(graph, dtype, sizes, inputs);
+  NodeAttr::NodeOutputAttr out_attr{sizes, dtype, final_result_index};
+  out_attr.exp_bias = exp_bias;
 
-  auto reshape = BuildNode(
-      op, graph, {"reshape", inputs, {{sizes, dtype, final_result_index}}});
+  auto reshape = BuildNode(op, graph, {"reshape", inputs, {out_attr}});
   return std::move(reshape.at(0));
 }
 
@@ -1000,9 +1050,11 @@ sh::tensor OpBackend::BuildIdentity(
     synTensor syn_in,
     at::IntArrayRef sizes,
     at::ScalarType dtype,
-    c10::optional<int> final_result_index) {
-  auto identity = BuildNode(
-      op, graph, {"identity", {syn_in}, {{sizes, dtype, final_result_index}}});
+    c10::optional<int> final_result_index,
+    c10::optional<unsigned> exp_bias) {
+  NodeAttr::NodeOutputAttr out_attr{sizes, dtype, final_result_index};
+  out_attr.exp_bias = exp_bias;
+  auto identity = BuildNode(op, graph, {"identity", {syn_in}, {out_attr}});
   return std::move(identity.at(0));
 }
 

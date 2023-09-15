@@ -253,6 +253,8 @@ class OutputMetaData {
   at::MemoryFormat mem_format{};
   std::optional<at::Tensor> allocated_tensor{};
   bool undefined{false};
+  c10::optional<unsigned> exp_bias{c10::nullopt};
+
   OutputMetaData(const torch::jit::Value& value) : name(value.debugName()){};
   OutputMetaData(
       at::ScalarType dtype,

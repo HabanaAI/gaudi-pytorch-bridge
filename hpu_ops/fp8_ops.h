@@ -32,6 +32,7 @@ namespace habana {
 // order to deal with that problem.
 DEFINE_OP(CastToFp8)
 DEFINE_OP(CastToFp8V2)
+DEFINE_OP(CastToFp8Q)
 DEFINE_OP(Fp8CastTranspose)
 DEFINE_OP(Fp8CastTransposeBgrad)
 DEFINE_OP(Fp8CastTransposeBgradDgelu)
@@ -65,6 +66,8 @@ OUTSHAPE_DECL(Fp8ReshapeOutputShape)
 OUTSHAPE_DECL(Fp8RepeatV2OutputShape)
 OUTSHAPE_DECL(Fp8IndexSelectV2OutputShape)
 OUTSHAPE_DECL(Conv2dFp8OutputShape)
+
+OUTMETA_DECL(CastToFp8QMeta)
 
 const synDataType fp8_syn_type =
     GET_ENV_FLAG_NEW(PT_USE_FP8_143) ? syn_type_fp8_143 : syn_type_fp8_152;

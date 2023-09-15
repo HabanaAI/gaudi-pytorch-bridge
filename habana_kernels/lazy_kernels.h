@@ -606,7 +606,13 @@ class LazyOp {
 
     context->viewContext.isLazyViewPresent = false;
 
-    return HandleLazy(infoToBackEnd);
+    auto result = HandleLazy(infoToBackEnd);
+    if (not m_hw_scaling_ids.empty()) {
+      const auto& input = m_inputs[m_hw_scaling_ids[0]];
+      HABANA_ASSERT(input.isTensor());
+      habana_helpers::set_output_hw_scaling_meta(input.toTensor(), result);
+    }
+    return result;
   }
 
   bool viewUpdateInputsProcessSingleTensor(at::Tensor& t, size_t& idx) {
@@ -1221,6 +1227,10 @@ class LazyOp {
     return m_scalar_types;
   }
 
+  void set_hw_scaling_index(const std::vector<int> ids) {
+    m_hw_scaling_ids = ids;
+  }
+
   void SetOutputMetaFn(
       std::function<habana::OutputMetaDataVector(const at::Stack&)>
           output_meta) {
@@ -1658,6 +1668,7 @@ class LazyOp {
   std::vector<bool> m_bcast_details;
   std::vector<std::vector<int64_t>> m_out_shapes;
   const int m_out_index;
+  std::vector<int> m_hw_scaling_ids;
   at::TensorList m_out_meta_tensors = {};
   std::vector<at::IValue> m_inputs = {};
   std::vector<c10::ScalarType> m_scalar_types;

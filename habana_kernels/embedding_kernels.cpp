@@ -145,16 +145,15 @@ void PadOperator::AllocateAndAddSynapseNode(
     param.pads[i + ndim] = pad[2 * i + 1];
   }
 
+  at::Tensor output;
   if (!graph.is_dry_run() &&
       output_metadata.at(0).allocated_tensor.has_value()) {
-    AllocateSynapseOutput(
-        graph,
-        output_metadata.at(0).allocated_tensor.value(),
-        output_metadata.at(0));
+    output = output_metadata.at(0).allocated_tensor.value();
   } else {
-    auto output = at::empty(shape, self.options());
-    AllocateSynapseOutput(graph, output, output_metadata.at(0));
+    output = at::empty(shape, self.options());
   }
+  habana_helpers::set_output_hw_scaling_meta(self, output);
+  AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 

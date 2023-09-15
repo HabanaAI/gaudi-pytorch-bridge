@@ -3447,6 +3447,7 @@ index_copy:
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
   out_ids: [0]
+  hw_scaling_ids: [0]
 
 index_copy_:
   dtypes:
@@ -3467,6 +3468,7 @@ index_copy.out:
 
 index_select:
   out_ids: [0]
+  hw_scaling_ids: [0]
   output_meta: IndexSelectMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
@@ -5477,6 +5479,7 @@ reflection_pad1d:
     Gaudi3: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
   guid: pad_fwd
   out_ids: [0]
+  hw_scaling_ids: [0]
   op_validator: check-node-with-shared-layer
 
 reflection_pad1d.out:
@@ -5513,6 +5516,7 @@ reflection_pad2d:
     Gaudi3: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
   guid: pad_fwd
   out_ids: [0]
+  hw_scaling_ids: [0]
   op_validator: check-node-with-shared-layer
 
 reflection_pad2d.out:
@@ -5549,6 +5553,7 @@ reflection_pad3d:
     Gaudi3: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
   guid: pad_fwd
   out_ids: [0]
+  hw_scaling_ids: [0]
   op_validator: check-node-with-shared-layer
 
 reflection_pad3d.out:
@@ -5667,6 +5672,7 @@ replication_pad1d:
     Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
   out_ids: [0]
+  hw_scaling_ids: [0]
   op_validator: check-node-with-shared-layer
 
 replication_pad1d.out:
@@ -5688,6 +5694,7 @@ replication_pad2d:
     Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
   out_ids: [0]
+  hw_scaling_ids: [0]
   op_validator: check-node-with-shared-layer
 
 replication_pad2d.out:
@@ -5709,6 +5716,7 @@ replication_pad3d:
     Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
   out_ids: [0]
+  hw_scaling_ids: [0]
   op_validator: check-node-with-shared-layer
 
 replication_pad3d.out:
@@ -6648,6 +6656,7 @@ squeeze.dims:
   guid: squeeze
   op_backend: SqueezeDims
   out_ids: [0]
+  hw_scaling_ids: [0]
   lazy:
     acc_thread: true
     override_fn: squeeze_dims_hpu_lazy

@@ -324,10 +324,8 @@ at::Tensor _copy_from_h2d(
 at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
   at::Tensor result;
 
-  [[maybe_unused]] auto dst_tmeta{habana::get_tensor_extra_meta(dst)};
   if (!dst.is_contiguous()) {
     auto self_ = self;
-    [[maybe_unused]] auto self_tmeta{habana::get_tensor_extra_meta(self)};
     bool same_data_type = (dst.scalar_type() == self.scalar_type());
     // If dtype is same, post_process_eager_graph() will take care
     // of strided-view node insertion when source is non-contiguous.

@@ -38,6 +38,7 @@ OutputMetaDataVector IndexSelectMeta(const at::Stack& stack) {
 
   OutputMetaData meta;
   meta.dtype = self.scalar_type();
+  habana_helpers::set_output_hw_scaling_meta(self, meta);
   if (shape.size()) {
     if (self.dim() == index.dim()) {
       meta.shape = index.sizes().vec();

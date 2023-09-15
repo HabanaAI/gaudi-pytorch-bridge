@@ -40,6 +40,7 @@ OutputMetaDataVector SqueezeDimsMeta(const at::Stack& stack) {
     }
     meta.shape = output_shape;
   }
+  habana_helpers::set_output_hw_scaling_meta(self, meta);
 
   return {meta};
 }
@@ -53,6 +54,7 @@ void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto output_shape = meta.shape;
   auto dtype = meta.dtype;
   auto intermediate_shape = self.pt_t.sizes().vec();
+  auto exp_bias = habana_helpers::get_tensor_exp_bias(self.pt_t);
 
   at::wrap_all_dims(dims, rank);
   std::vector<int64_t> valid_dims;
@@ -64,8 +66,9 @@ void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
   }
 
   if (valid_dims.empty() || rank == 1 || rank == 0) {
-    auto out =
-        BuildOp(graph, "identity", {self.syn_t}, {{output_shape, dtype, 0}});
+    NodeAttr::NodeOutputAttr out_attr{output_shape, dtype, 0};
+    out_attr.exp_bias = exp_bias;
+    auto out = BuildOp(graph, "identity", {self.syn_t}, {out_attr});
     syn_out(0) = std::move(out[0]);
     return;
   }
@@ -87,13 +90,15 @@ void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
     if (i == dims_count - 1) {
       result_idx = c10::make_optional<int>(0);
     }
+    NodeAttr::NodeOutputAttr out_attr{intermediate_shape, dtype, result_idx};
+    out_attr.exp_bias = exp_bias;
 
     intermediate_syn_helpers.emplace_back(std::move(OpBackend::BuildNode(
         this,
         graph,
         {"squeeze",
          {intermediate_syn_tensors.back()},
-         {{intermediate_shape, dtype, result_idx}},
+         {out_attr},
          &params,
          sizeof(params)})[0]));
     intermediate_syn_tensors.emplace_back(

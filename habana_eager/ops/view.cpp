@@ -35,6 +35,7 @@ at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
   auto out = alias_with_sizes_and_strides(self, inferred_size, *stride);
 
   view_propagate_permutation(self, out);
+  habana_helpers::set_output_hw_scaling_meta(self, out);
   return out;
 }
 
@@ -69,6 +70,7 @@ at::Tensor alias(const at::Tensor& self) {
   PT_EAGER_TRACE;
   auto out = alias_with_sizes_and_strides(self, self.sizes(), self.strides());
   view_propagate_permutation(self, out);
+  habana_helpers::set_output_hw_scaling_meta(self, out);
   return out;
 }
 

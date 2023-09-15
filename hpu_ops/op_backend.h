@@ -28,6 +28,7 @@ struct NodeAttr {
     synDataType syn_data_type{syn_type_na};
     c10::optional<std::variant<synapse_helpers::tensor*, int>> inplace_out_ptr{
         c10::nullopt};
+    c10::optional<unsigned> exp_bias{c10::nullopt};
   };
 
   std::string guid;
@@ -161,6 +162,10 @@ class OpBackend : public HabanaOperator {
     return m_output_metadata.at(i);
   }
 
+  void SetHwScalingIds(const std::vector<int>& ids) {
+    m_hw_scaling_ids = ids;
+  }
+
   bool UsesOutputMeta() const {
     return m_output_meta_fn != nullptr;
   }
@@ -188,6 +193,7 @@ class OpBackend : public HabanaOperator {
   void HandleTypePromotion(
       synapse_helpers::graph& graph,
       const at::Stack& stack);
+  void HandleHwScaling(const at::Stack&, const size_t);
 
  protected:
   std::vector<synapse_helpers::tensor> BuildOp(
@@ -226,14 +232,16 @@ class OpBackend : public HabanaOperator {
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      c10::optional<int> final_result_index = c10::nullopt,
+      c10::optional<unsigned> exp_bias = c10::nullopt);
 
   synapse_helpers::tensor BroadcastHelper(
       synapse_helpers::graph& graph,
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      c10::optional<int> final_result_index = c10::nullopt,
+      c10::optional<unsigned> exp_bias = c10::nullopt);
 
   synapse_helpers::tensor PermuteHelper(
       synapse_helpers::graph& graph,
@@ -241,14 +249,16 @@ class OpBackend : public HabanaOperator {
       at::IntArrayRef sizes,
       at::IntArrayRef permutation,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      c10::optional<int> final_result_index = c10::nullopt,
+      c10::optional<unsigned> exp_bias = c10::nullopt);
 
   synapse_helpers::tensor IdentityHelper(
       synapse_helpers::graph& graph,
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      c10::optional<int> final_result_index = c10::nullopt,
+      c10::optional<unsigned> exp_bias = c10::nullopt);
 
   virtual void AddNode(synapse_helpers::graph&, const at::Stack&);
 
@@ -291,7 +301,8 @@ class OpBackend : public HabanaOperator {
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      c10::optional<int> final_result_index = c10::nullopt,
+      c10::optional<unsigned> exp_bias = c10::nullopt);
 
   static synapse_helpers::tensor BuildBroadcast(
       OpBackend* op,
@@ -299,7 +310,8 @@ class OpBackend : public HabanaOperator {
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      c10::optional<int> final_result_index = c10::nullopt,
+      c10::optional<unsigned> exp_bias = c10::nullopt);
 
   static synapse_helpers::tensor BuildIdentity(
       OpBackend* op,
@@ -307,7 +319,8 @@ class OpBackend : public HabanaOperator {
       synTensor syn_in,
       at::IntArrayRef sizes,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      c10::optional<int> final_result_index = c10::nullopt,
+      c10::optional<unsigned> exp_bias = c10::nullopt);
 
   static std::vector<synapse_helpers::tensor> BuildNonZero(
       OpBackend*,
@@ -333,7 +346,8 @@ class OpBackend : public HabanaOperator {
       at::IntArrayRef sizes,
       at::IntArrayRef permutation,
       at::ScalarType dtype,
-      c10::optional<int> final_result_index = c10::nullopt);
+      c10::optional<int> final_result_index = c10::nullopt,
+      c10::optional<unsigned> exp_bias = c10::nullopt);
 
   struct TensorsPair {
     const at::Tensor& pt_t;
@@ -459,6 +473,7 @@ class OpBackend : public HabanaOperator {
   bool m_promote_type = false;
   bool m_promote_int_to_float = false;
   int m_num_out_tensors = 1;
+  std::vector<int> m_hw_scaling_ids;
 
   // For shape inference of outputs/intermediates
   bool m_output_inf_mode = false;

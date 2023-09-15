@@ -181,6 +181,10 @@ synapse_helpers::tensor create_tensor(
         DATA_TENSOR);
   }
 
+  auto syn_dtype =
+      pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type()));
+  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+
   std::vector<int64_t> min, max;
   if (graph.is_dynamic_graph()) {
     std::tie(min, max) = habana::ShapeInference::GetMinMaxShape(tensor_id);
@@ -213,18 +217,18 @@ synapse_helpers::tensor create_tensor(
           VecToString(permutation));
     }
 
-    auto builder =
-        synapse_helpers::tensor_builder(
-            max,
-            max_stride,
-            pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
-            .mark_persistence(persistent)
-            .mark_external(external)
-            .with_dynamic_shape(dynamic_shape)
-            .with_permutation(permutation)
-            .with_dont_allow_permutation(dont_allow_permutation);
+    auto builder = synapse_helpers::tensor_builder(max, max_stride, syn_dtype)
+                       .mark_persistence(persistent)
+                       .mark_external(external)
+                       .with_dynamic_shape(dynamic_shape)
+                       .with_permutation(permutation)
+                       .with_dont_allow_permutation(dont_allow_permutation);
     if (!name.empty()) {
       builder.use_suffix(name);
+    }
+
+    if (auto exp_bias = tmeta->get_exp_bias()) {
+      builder.with_quant_params(*exp_bias);
     }
 
     // To avoid special device index(-1) when it use
@@ -263,18 +267,14 @@ synapse_helpers::tensor create_tensor(
   bool const_section = false;
   void* host_ptr = nullptr;
   if (habana_helpers::IsInferenceMode() && tensor.has_storage()) {
-    auto tmeta{habana::get_tensor_extra_meta(tensor)};
     const_section = tmeta->is_const_tensor();
     if (const_section) {
-      host_ptr = habana::get_tensor_extra_meta(tensor)->get_host_ptr();
+      host_ptr = tmeta->get_host_ptr();
     }
   }
 
   auto builder =
-      synapse_helpers::tensor_builder(
-          tensor.sizes(),
-          strides,
-          pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type())))
+      synapse_helpers::tensor_builder(tensor.sizes(), strides, syn_dtype)
           .set_offset(syn_offset)
           .mark_persistence(persistent)
           .mark_external(external)
@@ -313,6 +313,10 @@ synapse_helpers::tensor create_tensor(
 
   if (!name.empty()) {
     builder.use_suffix(name);
+  }
+
+  if (auto exp_bias = tmeta->get_exp_bias()) {
+    builder.with_quant_params(*exp_bias);
   }
 
   // To avoid special device index(-1) when it use
@@ -810,6 +814,11 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section(
     builder.with_dynamic_shape(tensor.dynamic_shape());
   }
 
+  if (tensor.has_quant_params()) {
+    const auto quant_params = tensor.get_quant_params();
+    builder.with_quant_params(quant_params.expBias, quant_params.scale);
+  }
+
   auto maybe_tensor = builder.build(
       habana::HPURegistrar::get_device(tensor.device_id()).syn_device(),
       tensor.graph());
@@ -863,6 +872,12 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
   }
   PT_LAZY_DEBUG("Setting a duplicate tensor with permutation: ", permutation);
   builder.with_permutation(permutation);
+
+  if (tensor.has_quant_params()) {
+    const auto quant_params = tensor.get_quant_params();
+    builder.with_quant_params(quant_params.expBias, quant_params.scale);
+  }
+
   auto maybe_tensor = builder.build(
       habana::HPURegistrar::get_device(tensor.device_id()).syn_device(),
       tensor.graph());

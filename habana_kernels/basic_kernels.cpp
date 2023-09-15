@@ -400,6 +400,7 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
     p_context_->pt_outputs_.emplace_back(output);
   } else {
     output = habana::createPTTensor(self, output_metadata.at(0).persistent);
+    habana_helpers::set_output_hw_scaling_meta(self, output);
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
   }
   p_context_->params_size_ = 0;
@@ -442,6 +443,7 @@ void IdentityOperator::AllocateAndAddSynapseNode(
   } else {
     output = habana::createPTTensor(self, output_metadata.at(0).persistent);
   }
+  habana_helpers::set_output_hw_scaling_meta(self, output);
 
   p_context_->params_size_ = 0;
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
@@ -1740,7 +1742,6 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
   auto& mdata = output_metadata.at(0);
   if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
     output = mdata.allocated_tensor.value();
-    AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
   } else {
     output = habana::createPTTensor(
         self,
@@ -1748,8 +1749,9 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
         self.options(),
         self.suggest_memory_format(),
         mdata.persistent);
-    AllocateSynapseOutput(graph, output, mdata);
   }
+  habana_helpers::set_output_hw_scaling_meta(self, output);
+  AllocateSynapseOutput(graph, output, mdata);
 
   if (!meta_op) {
     // If shape tensors are not created at frontend we need to create

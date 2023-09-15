@@ -145,6 +145,51 @@ void CastToFp8V2::AddNode(
   }
 }
 
+/********** CastToFp8Q **********/
+
+OutputMetaDataVector CastToFp8QMeta(const at::Stack& stack) {
+  OutputMetaDataVector meta(1);
+  meta.at(0).shape = stack_tensor(stack, 0).sizes().vec();
+  meta.at(0).dtype = stack[1].toScalarType();
+  meta.at(0).exp_bias = stack[2].toInt();
+
+  return meta;
+}
+
+CastToFp8Q::CastToFp8Q(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "cast_to_fp8_q", scalar_type, {0}, {}, {}, false) {
+  SetOutputMetaFn(CastToFp8QMeta);
+}
+
+void CastToFp8Q::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 3, "CastToFp8Q must have 4 input arguments");
+  using namespace std::literals;
+
+  auto self = stack_tensor(stack, 0);
+  auto dtype = stack[1].toScalarType();
+
+  const auto from_dtype_str = synapse_helpers::graph::name_suffix_from_type(
+      habana_helpers::pytorch_to_synapse_type(self.scalar_type()));
+  const auto to_dtype_str = synapse_helpers::graph::name_suffix_from_type(
+      habana_helpers::pytorch_to_synapse_type(dtype));
+  const auto guid = std::string{"cast_"sv}
+                        .append(from_dtype_str)
+                        .append("_to_"sv)
+                        .append(to_dtype_str);
+
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{{self.sizes(), dtype, 0}};
+
+  ns_CastKernel::Params params{};
+  params.round_mode = CAST_ROUND_HALF_NE;
+
+  auto casted = OpBackend::BuildNode(
+      this, graph, {guid, {syn_in(0)}, output_attrs, &params, sizeof(params)});
+
+  syn_out(0) = std::move(casted[0]);
+}
+
 /********** Fp8CastTranspose **********/
 
 Fp8CastTranspose::Fp8CastTranspose(int device_id, c10::ScalarType scalar_type)
@@ -1370,6 +1415,7 @@ static const auto& CastKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::cast_to_fp8", KERNEL_FN_GLOBAL(habana::CastToFp8))
         .add("hpu::cast_to_fp8_v2", KERNEL_FN_GLOBAL(habana::CastToFp8V2))
+        .add("hpu::cast_to_fp8_q", KERNEL_FN_GLOBAL(habana::CastToFp8Q))
         .add(
             "hpu::fp8_cast_transpose",
             KERNEL_FN_GLOBAL(habana::Fp8CastTranspose))

@@ -26,6 +26,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
 #include "habana_kernels/hccl_kernels.h"
+#include "habana_kernels/kernel_utils.h"
 #include "habana_lazy/memlog.h"
 #include "habana_serialization/cache_version.h"
 #include "habana_serialization/deserializers.h"
@@ -119,6 +120,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
 
   ComputeOffsetHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, offset_hash_code);
+  size_t hw_scaling_hash_code = ComputeHwScalingHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, hw_scaling_hash_code);
   size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, sym_hash_code);
   size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
@@ -143,6 +146,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
   hash_code = at::hash_combine(hash_code, offset_hash_code);
   ComputeH2DHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, h2d_hash_code);
+  size_t hw_scaling_hash_code = ComputeHwScalingHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, hw_scaling_hash_code);
   size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, sym_hash_code);
   size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
@@ -231,6 +236,21 @@ void RecipeArgumentSpec::ComputeOffsetHashCode(
       offset_hash_code = at::hash_combine(offset_hash_code, offset);
     }
   }
+}
+
+size_t RecipeArgumentSpec::ComputeHwScalingHashCode(
+    at::ArrayRef<torch::jit::IValue> input_refs) const {
+  size_t hw_scaling_hash_code = 0;
+  for (auto& input : input_refs) {
+    if (input.isTensor()) {
+      if (const auto exp_bias_opt =
+              habana_helpers::get_tensor_exp_bias(input.toTensor())) {
+        hw_scaling_hash_code =
+            at::hash_combine(hw_scaling_hash_code, *exp_bias_opt);
+      }
+    }
+  }
+  return hw_scaling_hash_code;
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {
