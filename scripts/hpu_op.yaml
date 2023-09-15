@@ -5538,7 +5538,6 @@ remainder.Scalar_Tensor:
     Gaudi: [BFloat16, Float, Int, Char, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Short]
     Gaudi3: [BFloat16, Float, Int, Char, Short]
-  op_frontend: RemainderScalarTensor
   guid: rem_fwd
   out_ids: [1]
   scalar_ids: [0]

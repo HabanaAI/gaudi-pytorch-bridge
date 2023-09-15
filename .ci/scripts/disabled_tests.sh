@@ -66,7 +66,6 @@ FAILING_EAGER_TESTS=(
     "HpuOpTest.multinomial_without_replacement"
     "HpuOpTest.multinomial"
     "HpuOpTest.nll_loss2d_fwd_out_bf16"
-    "HpuOpTest.remainder_scalar_tensor"
     "HpuOpTest.right_shift_scal_ten_i32"
     "HpuOpTest.rrelu_with_noise_backward_train"
     "HpuOpTest.softplus_bwd_bf16"

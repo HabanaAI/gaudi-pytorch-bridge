@@ -291,7 +291,6 @@ add_library(habana_pytorch2_plugin SHARED
   hpu_ops/lazy/maxpool_gen.cpp
   hpu_ops/lazy/norm_gen.cpp
   hpu_ops/lazy/pow_gen.cpp
-  hpu_ops/lazy/remainder_gen.cpp
   hpu_ops/lazy/sort_gen.cpp
   hpu_ops/lazy/threshold_gen.cpp
   hpu_ops/lazy/topk_util.cpp
