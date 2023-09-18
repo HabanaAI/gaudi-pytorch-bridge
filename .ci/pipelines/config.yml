@@ -12,4 +12,3 @@ config:
   dependantComponents:
     - component: deepspeed_fork
     - component: pt_next
-      silentMode: true
