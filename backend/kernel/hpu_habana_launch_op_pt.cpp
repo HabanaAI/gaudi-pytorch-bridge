@@ -2670,6 +2670,20 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       }
     }
   }
+
+  if (refine_ds_enabled_ ||
+      (not jit_graph_and_meta_data_
+               ->get_jit_cached_graph_info_available_flag()) ||
+      jit_graph_and_meta_data_->get_is_control_edge_processing_required()) {
+    // Process control edges
+    control_edges::ProcessControlEdges(
+        *jit_ir_graph_,
+        *jit_graph_and_meta_data_,
+        jit_to_synapse_node_idx_map,
+        memory_reuse_pairs,
+        syn_graph_ptr_.get());
+  }
+
   PT_BRIDGE_END;
 }
 
@@ -3960,6 +3974,18 @@ void HabanaLaunchOpPT::run(
         if (!ti->is_duplicate()) {
           rv.ntensorbytes += ti->get_size();
         }
+      }
+
+      if (refine_ds_enabled_ ||
+          (not jit_graph_and_meta_data_
+                   ->get_jit_cached_graph_info_available_flag()) ||
+          jit_graph_and_meta_data_->get_is_control_edge_processing_required()) {
+        control_edges::ProcessControlEdges(
+            *jit_ir_graph_,
+            *jit_graph_and_meta_data_,
+            jit_to_synapse_node_idx_map,
+            memory_reuse_pairs,
+            syn_graph_ptr_.get());
       }
 
       syn_graph_ptr_->set_build_phase(true);

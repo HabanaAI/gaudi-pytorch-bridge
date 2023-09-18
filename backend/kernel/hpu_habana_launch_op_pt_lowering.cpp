@@ -448,20 +448,6 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
 
 void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
   TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
-  bool is_jit_cached_graph_info_available =
-      jit_graph_and_meta_data_->get_jit_cached_graph_info_available_flag();
-  bool is_c_edge_processing_required =
-      jit_graph_and_meta_data_->get_is_control_edge_processing_required();
-  if (refine_ds_enabled_ || is_jit_cached_graph_info_available == false ||
-      is_c_edge_processing_required) {
-    // Process control edges
-    control_edges::ProcessControlEdges(
-        *jit_ir_graph_,
-        *jit_graph_and_meta_data_,
-        jit_to_synapse_node_idx_map,
-        memory_reuse_pairs,
-        syn_graph_ptr_.get());
-  }
 
   if (syn_graph_ptr_->is_empty()) {
     PT_BRIDGE_DEBUG("Empty synapse graph. Nothing to compile.");
