@@ -978,7 +978,10 @@ void PostLaunch(
       auto& out_tensor = (*tensors)[indices[i++]];
       auto st = v.toTensor();
       executing_indices.push_back(out_tensor.getTensorUniqueId());
-      out_tensor.SetTensorData(st);
+      if ((!context->getDryRun()) ||
+          (context->getDryRun() && !out_tensor.isStorageAttached())) {
+        out_tensor.SetTensorData(st);
+      }
     }
   }
 
