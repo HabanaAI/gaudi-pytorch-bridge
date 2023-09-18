@@ -582,5 +582,13 @@ def test_add_out():
     # test cache hit
     fn()
 
+def test_fill():
+    shapes = [(2,3), (4,6)]
+    for shape in shapes:
+        input = torch.randn((shape), dtype=torch.bfloat16)
+        input_hpu = input.to("hpu")
 
+        input.t_().fill_(10)
+        input_hpu.t_().fill_(10)
 
+        assert torch.equal(input_hpu.cpu(), input)

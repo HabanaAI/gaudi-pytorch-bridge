@@ -253,7 +253,7 @@ torch::jit::Stack EagerExec::launch() {
     auto graph{create_eager_graph(orig_inputs)};
     auto eager_compiler_supported =
         is_eager_compiler_supported_for_graph(graph);
-    post_process_eager_graph(graph, eager_compiler_supported);
+    post_process_eager_graph(graph);
     prune_duplicate_graph_inputs(parent_vec, graph);
 
     at::ArrayRef<torch::jit::IValue> input_refs =
@@ -661,15 +661,12 @@ void EagerExec::set_eager_op_info(EagerOpMetaData&& eager_op_meta_data) {
   m_eager_op_meta_data = eager_op_meta_data;
 }
 
-void EagerExec::post_process_eager_graph(
-    std::shared_ptr<JitGraph>& graph,
-    bool eager_compiler_supported) {
+void EagerExec::post_process_eager_graph(std::shared_ptr<JitGraph>& graph) {
   PT_EAGER_TRACE;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_VIEW_HANDLING)) {
     PT_EAGER_DEBUG("Apply I/O View Handling pass.");
-    HandleInputOutputViews(
-        graph, m_inputs, m_eager_op_meta_data, eager_compiler_supported);
+    HandleInputOutputViews(graph, m_inputs, m_eager_op_meta_data);
     habana::graph::pass::HandleStridedViewsAndInsertPermute(graph);
   }
 }

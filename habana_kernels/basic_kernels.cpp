@@ -1725,6 +1725,10 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
   int64_t offset;
   compute_params(params, inputs, graph, size, strides, offset);
   auto self = inputs[0].toTensor();
+  int meta_op = 0;
+  if (inputs.size() == 5) {
+    meta_op = inputs[4].toInt();
+  }
 
   at::Tensor output;
   auto& mdata = output_metadata.at(0);
@@ -1741,18 +1745,20 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
     AllocateSynapseOutput(graph, output, mdata);
   }
 
-  // If shape tensors are not created at frontend we need to create
-  // Shape tensor at backend and also pass the params. Otherwise no params are
-  // required.
-  bool have_shape_tensors = inputs[1].isTensor();
-  if (!have_shape_tensors) {
-    // Allocate Shape tensor
-    if (graph.is_dynamic_graph()) {
-      AllocateSynapseShapeTensor(graph, output);
+  if (!meta_op) {
+    // If shape tensors are not created at frontend we need to create
+    // Shape tensor at backend and also pass the params. Otherwise no params are
+    // required.
+    bool have_shape_tensors = inputs[1].isTensor();
+    if (!have_shape_tensors) {
+      // Allocate Shape tensor
+      if (graph.is_dynamic_graph()) {
+        AllocateSynapseShapeTensor(graph, output);
+      }
+      AddNodeToSynapseGraph(graph, &params, sizeof(params));
+    } else {
+      AddNodeToSynapseGraph(graph, nullptr, 0);
     }
-    AddNodeToSynapseGraph(graph, &params, sizeof(params));
-  } else {
-    AddNodeToSynapseGraph(graph, nullptr, 0);
   }
 }
 

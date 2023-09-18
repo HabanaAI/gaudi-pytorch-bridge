@@ -83,9 +83,9 @@ struct StridedOutInfo {
 void HandleInputOutputViews(
     std::shared_ptr<JitGraph>& graph,
     const std::vector<at::IValue>& inputs,
-    const EagerOpMetaData& eager_op_meta_data,
-    bool eager_compiler_supported);
+    const EagerOpMetaData& eager_op_meta_data);
 
+void set_as_strided_meta(JitNode* node);
 void set_deterministic(JitNode* node);
 
 } // namespace eager

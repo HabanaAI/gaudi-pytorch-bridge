@@ -43,6 +43,13 @@ std::unordered_set<std::string> ops_needing_cast = {
     "aten::gt",
     "aten::lt"};
 
+bool check_if_op_doesnt_use_input(const JitNode* node) {
+  return (
+      underscored_ops_reported_as_non_inplace.find(
+          node->kind().toQualString()) !=
+      underscored_ops_reported_as_non_inplace.end());
+}
+
 void insert_cast_node(
     std::shared_ptr<JitGraph> graph,
     JitNode* node,
@@ -71,33 +78,12 @@ void insert_cast_node(
       copy_node, copy_node->output(0));
 }
 
-void insert_control_edge_node(
-    std::shared_ptr<JitGraph> graph,
-    JitNode* node,
-    JitNode* insert_after_node) {
-  torch::jit::WithInsertPoint insert_point(node);
-
-  if (underscored_ops_reported_as_non_inplace.find(
-          node->kind().toQualString()) ==
-      underscored_ops_reported_as_non_inplace.end()) {
-    return;
-  }
-
-  auto op_control_edge = c10::Symbol::fromQualString("hpu::control_edge_");
-  auto control_edge_node =
-      graph->create(op_control_edge, {insert_after_node->output(0)}, 1);
-  graph->insertNode(control_edge_node);
-  set_deterministic(control_edge_node);
-
-  insert_after_node->output(0)->replaceAllUsesAfterNodeWith(
-      control_edge_node, control_edge_node->output(0));
-}
-
 JitNode* insert_strided_view_node(
     JitGraph& graph,
     at::Tensor input,
     JitNode* node,
-    size_t idx) {
+    size_t idx,
+    const bool consumer_op_doesnt_use_input) {
   ViewParam p;
   p.setParam(input);
   torch::jit::WithInsertPoint insert_point(node);
@@ -120,6 +106,9 @@ JitNode* insert_strided_view_node(
       input.scalar_type(), input.device(), input.sizes()));
 
   set_deterministic(jit_node);
+  if (consumer_op_doesnt_use_input) {
+    set_as_strided_meta(jit_node);
+  }
   graph.insertNode(jit_node);
 
   value_in->replaceAllUsesAfterNodeWith(jit_node, jit_node->output(0));
@@ -290,6 +279,12 @@ JitNode* insert_strided_insert_node(
 
 } // namespace
 
+void set_as_strided_meta(JitNode* node) {
+  auto meta = torch::jit::attr::arg1;
+  node->i_(meta, 1);
+  PT_EAGER_DEBUG("as_strided node set for meta attribute ");
+}
+
 void set_deterministic(JitNode* node) {
   if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
     auto one = torch::jit::attr::deterministic;
@@ -303,8 +298,7 @@ void set_deterministic(JitNode* node) {
 void HandleInputOutputViews(
     std::shared_ptr<JitGraph>& graph,
     const std::vector<at::IValue>& inputs,
-    const EagerOpMetaData& eager_op_meta_data,
-    bool eager_compiler_supported) {
+    const EagerOpMetaData& eager_op_meta_data) {
   PT_EAGER_TRACE;
 
   PT_EAGER_DEBUG(
@@ -366,7 +360,8 @@ void HandleInputOutputViews(
       return;
     }
 
-    auto jit_node = insert_strided_view_node(*graph, input_tensor, node, idx);
+    auto jit_node = insert_strided_view_node(
+        *graph, input_tensor, node, idx, check_if_op_doesnt_use_input(node));
     strided_view_nodes.push_back(jit_node);
   };
 
@@ -395,13 +390,6 @@ void HandleInputOutputViews(
         "JIT_IR_Graph_END\n");
   } else {
     PT_EAGER_DEBUG("\nSV node insertion not required.=====================\n");
-  }
-
-  // Insert control edge for nodes that require it when graph compiler is used
-  // (i.e. Gaudi)
-  if (!eager_compiler_supported && strided_view_nodes.size()) {
-    auto last_node = strided_view_nodes.back();
-    insert_control_edge_node(graph, node, last_node);
   }
 
   if (!is_inplace_op or strided_out_info.empty()) {

@@ -163,6 +163,11 @@ void HandleStridedViewsAndInsertPermute(
     const auto& opname = std::string(node->kind().toQualString());
     if ((opname.find("aten::as_strided") != std::string::npos) ||
         (opname.find("hpu::strided_view") != std::string::npos)) {
+      // Check for meta atrribute for strided view
+      auto meta = torch::jit::attr::arg1;
+      if (node->hasAttribute(meta))
+        continue;
+
       // Check node output data type if permute op can be supported
       TORCH_CHECK(
           node->output(0)->isCompleteTensor() == true,

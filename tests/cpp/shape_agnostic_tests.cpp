@@ -479,3 +479,49 @@ TEST_F(ShapeAgnosticTest, StridedPermute3) {
     }
   }
 }
+
+TEST_F(ShapeAgnosticTest, Zero) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  std::vector<int64_t> shapes{{32}, {64}};
+  std::vector<std::vector<int64_t>> in_shapes{{4, 4}, {4, 4}};
+  std::vector<std::vector<int64_t>> in_strides{{1, 4}, {1, 4}};
+  if (device.type() == synDeviceGaudi2) {
+    for (auto i = 0; i < shapes.size(); i++) {
+      torch::Tensor input =
+          torch::rand(shapes[i]).to(torch::dtype(torch::kBFloat16));
+      auto input_hpu = input.to(torch::kHPU);
+
+      // Strides along FCD
+      auto input_strided = input.as_strided(in_shapes[i], in_strides[i], 4);
+      auto input_strided_hpu =
+          input_hpu.as_strided(in_shapes[i], in_strides[i], 4);
+
+      input_strided.zero_();
+      input_strided_hpu.zero_();
+
+      auto result = input_strided_hpu.cpu();
+      EXPECT_EQ(torch::equal(result, input_strided), true);
+    }
+  }
+}
+
+TEST_F(ShapeAgnosticTest, Fill) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  std::vector<std::vector<int64_t>> shapes{{2, 3}, {4, 6}};
+  if (device.type() == synDeviceGaudi2) {
+    for (auto i = 0; i < shapes.size(); i++) {
+      torch::Tensor input = torch::rand(shapes[i]);
+      auto input_hpu = input.to(torch::kHPU);
+
+      input.t_().fill_(10);
+      input_hpu.t_().fill_(10);
+
+      auto result = input_hpu.cpu();
+      EXPECT_EQ(torch::equal(result, input), true);
+    }
+  }
+}

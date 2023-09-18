@@ -159,9 +159,7 @@ class EagerExec {
       const UniqueIdxVec& parent_vec,
       std::shared_ptr<torch::jit::Graph>& graph);
   torch::jit::Stack prepare_input_stack(const torch::jit::Stack& stack);
-  void post_process_eager_graph(
-      std::shared_ptr<torch::jit::Graph>& graph,
-      bool eager_compiler_supported);
+  void post_process_eager_graph(std::shared_ptr<torch::jit::Graph>& graph);
   bool is_eager_compiler_supported_for_graph(
       std::shared_ptr<torch::jit::Graph>& graph);
   void mark_maybe_grad_view();

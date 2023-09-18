@@ -2159,6 +2159,19 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
     torch::jit::Stack input_stack = getStackForNode(node);
 
+    // If there is a "meta attribute" marked with attr::arg1, add the meta attr
+    // value to stack for the ops to work with. At this point, only StridedView
+    // ops in eager mode uses it.
+    auto meta = torch::jit::attr::arg1;
+    if (node->hasAttribute(meta)) {
+      HABANA_ASSERT(
+          !strcmp("aten::as_strided", node_qual_str),
+          "Meta op can only be marked for aten::as_strided, not supported in op ",
+          node_qual_str);
+      input_stack.insert(input_stack.end(), IValue(node->i(meta)));
+      meta_attribute_nodes_count_++;
+    }
+
     // Create/attach the synapse inputs from aten tensors
     GetSynapseInputs(HabanaKernel, node);
 
@@ -3763,12 +3776,17 @@ void HabanaLaunchOpPT::run(
             syn_graph_ptr_->get_num_of_shape_tensors());
       }
 
-      if (habana_kernels.size() != syn_graph_ptr_->get_num_of_nodes()) {
+      // ToDo: Refactor this logic later w.r.t synapse shape inference
+      // When meta attribute is set JIT IR Op kernel does not add synapse node
+      if ((habana_kernels.size() - meta_attribute_nodes_count_) !=
+          syn_graph_ptr_->get_num_of_nodes()) {
         jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
         PT_EAGER_DEBUG(
             "[SHAPE AGNOSTIC] Shape agnostic not supported for compound Op(s)",
             " number of kernels : ",
             habana_kernels.size(),
+            " number of JIT IR nodes with meta attribute : ",
+            meta_attribute_nodes_count_,
             " number of synapse nodes : ",
             syn_graph_ptr_->get_num_of_nodes());
       }

@@ -475,6 +475,11 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // and are persistent and not present in pt_to_synapse_tensors map
   int64_t implicit_syn_tensors_count_{0};
 
+  // Count for JIT IR nodes for which meta attribute is set
+  // such nodes kernel skips adding synapse node to the synapse graph
+  // At this point, only StridedView op may use it in eager mode.
+  int64_t meta_attribute_nodes_count_{0};
+
   std::shared_ptr<std::vector<IValPtrShared>> intermediate_tensors_ptr_sh_{
       nullptr};
 
