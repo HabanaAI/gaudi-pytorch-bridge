@@ -3896,10 +3896,11 @@ void HabanaLaunchOpPT::run(
           do_nothing,
           dry_run);
 
-      if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD)) {
-        habana_helpers::Singleton_CompileThreadPool::getInstance()
-            .JoinPendingThread();
-      }
+      // In case of SAG cache miss we have to wait till a compile thread sets
+      // permutation for outputs (In case of SAG cache hit, that info is taken
+      // from SAG recipe (from dtensorinfos))
+      habana_helpers::Singleton_CompileThreadPool::getInstance()
+          .JoinPendingThread();
     } else {
       PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
       syn_graph_ptr_ = cur_rvalpsh->shape_agnostic_synapse_graph_;
@@ -4050,6 +4051,15 @@ void HabanaLaunchOpPT::run(
       jit_graph_and_meta_data_->get_is_pipeline_supported()) {
     PT_LAZY_EAGER_DEBUG(
         "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
+
+    bool is_permute_data_cached = jit_graph_and_meta_data_->is_permute_set();
+    if (is_permute_data_cached) {
+      ApplyOutputPermutationsFromCache();
+    } else {
+      permutation_info_saver_ =
+          std::make_unique<PermutationInfoSaver>(jit_graph_and_meta_data_);
+    }
+
     constexpr bool do_nothing = true;
     enqueue_compile_synapse(
         hpu_stream,
@@ -4060,16 +4070,13 @@ void HabanaLaunchOpPT::run(
         !do_nothing,
         dry_run);
 
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD)) {
+    if (!is_permute_data_cached || enable_caching_ ||
+        !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD))
       habana_helpers::Singleton_CompileThreadPool::getInstance()
           .JoinPendingThread();
-    }
+
     // TODO: Move this before enqueuing
-    auto is_jit_cached_graph_info_available =
-        jit_graph_and_meta_data_->get_jit_cached_graph_info_available_flag();
-    if (is_jit_cached_graph_info_available == false) {
-      jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
-    }
+    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
   } else {
     CompileSynapseGraph();
     ConstructPatchingTableAndAtenOutputs();
@@ -4077,12 +4084,7 @@ void HabanaLaunchOpPT::run(
     StoreCompiledInformation(hpu_stream);
     ExecuteSynapseGraph(hpu_stream);
 
-    is_jit_cached_graph_info_available =
-        jit_graph_and_meta_data_->get_jit_cached_graph_info_available_flag();
-    if (is_jit_cached_graph_info_available == false) {
-      jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
-    }
-
+    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
     ClearStatics();
   }
 

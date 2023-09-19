@@ -145,8 +145,8 @@ get_tensor_memory_permutation(const at::Tensor& tensor);
 
 void set_tensor_memory_permutations(
     const at::Tensor& tensor,
-    synapse_helpers::layouts::MemoryPermutation permutation,
-    const synRetrievedLaunchTensorInfoExt* info = nullptr);
+    const synapse_helpers::layouts::MemoryPermutation& permutation);
+
 void update_tensor_layout_and_permutation(
     const at::Tensor& pt_tensor,
     const PtTensorInfo& ti);

@@ -107,6 +107,18 @@ void habana::HabanaLaunchOpPT::ClearStatics(bool is_shape_inference) {
   watchlist_.clear();
 }
 
+void habana::HabanaLaunchOpPT::ApplyOutputPermutationsFromCache() {
+  for (auto& el : jit_graph_and_meta_data_->get_permute()) {
+    auto oit =
+        value_to_ivalue.find(jit_ir_graph_->outputs().at(el.output_index));
+    HABANA_ASSERT(oit != value_to_ivalue.end());
+    auto& pt_tensor = oit->second;
+    HABANA_ASSERT(pt_tensor->isTensor());
+    habana_helpers::set_tensor_memory_permutations(
+        pt_tensor->toTensor(), el.permutation);
+  }
+}
+
 /**
  * Queries the synapse recipe output permutations and sets it to the BE tensors
  * so that the permutation is taken into account when copying the tensor back to
@@ -114,6 +126,7 @@ void habana::HabanaLaunchOpPT::ClearStatics(bool is_shape_inference) {
  */
 void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
   PT_LAZY_TRACE;
+
   if (syn_graph_ptr_->is_empty()) {
     PT_BRIDGE_DEBUG("Empty synapse graph. Skip UpdateSynapsePermutations.");
     return;
@@ -123,13 +136,39 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
     PT_BRIDGE_DEBUG("empty cur_rvalpsh->dtensorinfos, nothing to update");
     return;
   }
+
+  auto permutation_info_saver = std::move(permutation_info_saver_);
+
+  std::function<void(
+      const at::Tensor&, synapse_helpers::layouts::MemoryPermutation, uint64_t)>
+      set_memory_permutations =
+          [](const at::Tensor& tensor,
+             synapse_helpers::layouts::MemoryPermutation permutation,
+             uint64_t) {
+            habana_helpers::set_tensor_memory_permutations(tensor, permutation);
+          };
+
+  if (jit_graph_and_meta_data_->is_permute_set()) {
+    set_memory_permutations = [](const at::Tensor&,
+                                 synapse_helpers::layouts::MemoryPermutation,
+                                 uint64_t) {};
+  }
+
+  if (permutation_info_saver) {
+    set_memory_permutations =
+        [&](const at::Tensor& tensor,
+            synapse_helpers::layouts::MemoryPermutation permutation,
+            uint64_t output_index) {
+          permutation_info_saver->add_permutation(output_index, permutation);
+          habana_helpers::set_tensor_memory_permutations(tensor, permutation);
+        };
+  }
+
   // creating an opposite map to be able to find the tensors to update
-  std::map<uint64_t, IValPtrShared> synapse_to_pt_tensor;
-  for (auto iter = pt_to_synapse_tensors.begin();
-       iter != pt_to_synapse_tensors.end();
-       ++iter) {
-    for (synapse_helpers::tensor& tensor : *(iter->second)) {
-      synapse_to_pt_tensor.insert({tensor.id(), iter->first});
+  std::unordered_map<uint64_t, IValPtrShared> synapse_to_pt_tensor;
+  for (auto& el : pt_to_synapse_tensors) {
+    for (synapse_helpers::tensor& tensor : *el.second) {
+      synapse_to_pt_tensor.insert({tensor.id(), el.first});
     }
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
@@ -193,20 +232,15 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
           "; info.tensorPermutation = {",
           VecToString(permute_vec),
           "}\n");
+
       auto iter = synapse_to_pt_tensor.find(tensor_id);
-      if (iter != synapse_to_pt_tensor.end()) {
-        // updating the permute on the internal hb lazy tensor
-        if (iter->second->isTensor()) {
-          habana_helpers::set_tensor_memory_permutations(
-              iter->second->toTensor(), permute_or_empty, &info);
-        } else {
-          TORCH_CHECK(
-              false,
-              "Update permutation on non-tensor output is not supported");
-        }
-      } else {
-        TORCH_CHECK(false, "Failed to find PT tensor to update permutation");
-      }
+      TORCH_CHECK(
+          iter != synapse_to_pt_tensor.end(),
+          "Failed to find PT tensor to update permutation");
+      TORCH_CHECK(
+          iter->second->isTensor(),
+          "Update permutation on non-tensor output is not supported");
+
       // update the dttensorinfo record to update the cache
       HABANA_ASSERT(tinfo_map.count(tensor_id));
       auto info_record = tinfo_map[tensor_id];
@@ -223,6 +257,12 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
             VecToString(permute_vec));
       }
       info_record->setHbInternalPermute(permute_or_empty);
+
+      // updating the permute on the internal hb lazy tensor
+      set_memory_permutations(
+          iter->second->toTensor(),
+          permute_or_empty,
+          info_record->get_output_index());
     }
   }
   // clear the permutation of all the dtensorinfo that are not allowed
@@ -233,18 +273,17 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
     auto& info = (*tinfos)[i];
     if (!info->get_allow_permutation() && info->is_output()) {
       auto iter = synapse_to_pt_tensor.find(info->get_tensor_id());
-      if (iter != synapse_to_pt_tensor.end()) {
-        // updating the permute on the internal hb lazy tensor
-        if (iter->second->isTensor()) {
-          PT_BRIDGE_DEBUG(
-              "Resetting tensor ",
-              info->get_tensor_id(),
-              " permutation because it is not allowed permutation");
-          habana_helpers::set_tensor_memory_permutations(
-              iter->second->toTensor(), {});
-        }
-      } else {
-        TORCH_CHECK(false, "Failed to find PT tensor to update permutation");
+      TORCH_CHECK(
+          iter != synapse_to_pt_tensor.end(),
+          "Failed to find PT tensor to update permutation");
+      // updating the permute on the internal hb lazy tensor
+      if (iter->second->isTensor()) {
+        PT_BRIDGE_DEBUG(
+            "Resetting tensor ",
+            info->get_tensor_id(),
+            " permutation because it is not allowed permutation");
+        set_memory_permutations(
+            iter->second->toTensor(), {}, info->get_output_index());
       }
       if (!info->getHbInternalPermute().empty()) {
         PT_BRIDGE_DEBUG(

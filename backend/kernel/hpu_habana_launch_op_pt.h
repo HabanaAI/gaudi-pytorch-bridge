@@ -76,6 +76,25 @@ class PassException : public std::exception {
   std::string m_message;
 };
 
+class PermutationInfoSaver {
+ public:
+  PermutationInfoSaver(
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> jit_graph)
+      : jit_graph_(jit_graph){};
+  void add_permutation(
+      uint64_t index,
+      synapse_helpers::layouts::MemoryPermutation permutation) {
+    permutation_info_.push_back({index, permutation});
+  }
+  ~PermutationInfoSaver() {
+    jit_graph_->store_permutation_info(std::move(permutation_info_));
+  }
+
+ private:
+  OptimizedJITGraphAndMetaData::PermutationInfo permutation_info_;
+  std::shared_ptr<OptimizedJITGraphAndMetaData> jit_graph_;
+};
+
 // Forward declaration
 class PersistenceMarkerPassData;
 
@@ -123,6 +142,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   void CompileSynapseGraph(bool allocate_rval = true);
   void ConstructPatchingTableAndAtenOutputs();
   void UpdateSynapsePermutations();
+  void ApplyOutputPermutationsFromCache();
   void StoreShapeAgnosticGraph();
   void StoreCompiledInformation(synapse_helpers::hpuStream_t hpu_stream);
   void ExecuteSynapseGraph(synapse_helpers::hpuStream_t hpu_stream);
@@ -276,6 +296,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // dma_inputs_-------------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
   // syn_launch_info_--------------------------///-----------------------------------///-----Write-(in-cache-hit-case)-----///-----Write-(in-cache-miss-case)----///-----------Read
   // external_tensor_info_indexes_-------------///-----------------------------------///-----Write-(in-cache-hit-case)-----///-----Write-(in-cache-miss-case)----///-----------Read
+  // permutation_info_-------------------------///-----------------------------------///---------------Write---------------///----------------Write--------------///------------NA
   std::shared_ptr<synapse_helpers::graph> syn_graph_ptr_ = nullptr;
 
   static void RunHybridSif(
@@ -458,6 +479,12 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
 
   std::vector<synLaunchTensorInfoExt> syn_launch_info_{};
   std::vector<size_t> external_tensor_info_indexes_{};
+
+  // This object writes permutation data to the jit graph cache
+  // We only use it in normal flow, because we need to set output permutation
+  // in lowering thread in order to have ability execute compile and execution
+  // in another threads
+  std::unique_ptr<PermutationInfoSaver> permutation_info_saver_;
 
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph

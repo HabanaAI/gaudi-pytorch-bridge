@@ -46,7 +46,7 @@ class EnvHelper {
   bool m_recipe_cache_enable = true;
   bool m_eager_gc_enable = false;
   bool m_eager_view_handling_enable = false;
-  bool m_shape_agnostic_enable = false;
+  std::optional<bool> m_shape_agnostic_enable{};
   bool m_acc_par_mode_enable = true;
 
  private:
@@ -174,17 +174,19 @@ class EnvHelper {
     }
   }
 
-  void EnableShapeAgnostic() {
-    m_shape_agnostic_enable =
-        GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH);
-    if (!m_shape_agnostic_enable) {
-      SET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH, true, 1);
+  void EnableShapeAgnostic(bool enable = true) {
+    if (enable != GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
+      SET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH, enable, 1);
+      m_shape_agnostic_enable = !enable;
     }
   }
 
   void RestoreShapeAgnostic() {
-    if (!m_shape_agnostic_enable) {
-      SET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH, false, 1);
+    if (m_shape_agnostic_enable.has_value()) {
+      SET_ENV_FLAG_NEW(
+          PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH,
+          m_shape_agnostic_enable.value(),
+          1);
     }
   }
 

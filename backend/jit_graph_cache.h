@@ -248,6 +248,26 @@ struct OptimizedJITGraphAndMetaData {
     is_pipeline_supported_ = is_pipeline_supported;
   }
 
+  struct PermutationWithOutputPosition {
+    uint64_t output_index;
+    synapse_helpers::layouts::MemoryPermutation permutation;
+  };
+
+  using PermutationInfo = std::vector<PermutationWithOutputPosition>;
+
+  const PermutationInfo& get_permute() const {
+    HABANA_ASSERT(permutation_info_.has_value());
+    return permutation_info_.value();
+  }
+
+  bool is_permute_set() const {
+    return permutation_info_.has_value();
+  }
+
+  void store_permutation_info(PermutationInfo&& permutation_info) {
+    permutation_info_ = std::move(permutation_info);
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -278,6 +298,7 @@ struct OptimizedJITGraphAndMetaData {
       habana_helpers::HabanaFrontendTypes::INVALID;
   bool is_eager_compiler_supported = true;
   bool is_pipeline_supported_ = false;
+  std::optional<PermutationInfo> permutation_info_{};
 };
 
 /**

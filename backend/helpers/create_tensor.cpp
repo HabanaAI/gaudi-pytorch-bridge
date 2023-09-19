@@ -1007,8 +1007,7 @@ get_tensor_memory_permutation(const at::Tensor& tensor) {
 
 void set_tensor_memory_permutations(
     const at::Tensor& tensor,
-    synapse_helpers::layouts::MemoryPermutation permutation,
-    const synRetrievedLaunchTensorInfoExt* info) {
+    const synapse_helpers::layouts::MemoryPermutation& permutation) {
   auto smeta{habana::get_storage_extra_meta(tensor)};
   if (!smeta && permutation.empty()) {
     PT_BRIDGE_DEBUG(
@@ -1033,28 +1032,17 @@ void set_tensor_memory_permutations(
       " old permutation was: ",
       VecToString(smeta->get_memory_permutation()));
 
-  if (permutation.size() != tensor.sizes().size()) {
-    if (!permutation.empty()) {
-      if (info)
-        PT_BRIDGE_WARN(
-            "wrong permute size - info.tensorId=",
-            info->tensorId,
-            " tensor name: ",
-            info->tensorName,
-            "  permute_vec.size = ",
-            permutation.size(),
-            "  PT tensor shape.dims =",
-            tensor.sizes().size(),
-            " PT shape: ",
-            VecToString(tensor.sizes().vec()),
-            " synapse returned tensor dims: ",
-            info->tensorDims,
-            " synapse returned tensor shape: ",
-            VecToString(std::vector<uint64_t>(
-                info->tensorMaxSize, info->tensorMaxSize + info->tensorDims)));
-      HABANA_ASSERT(false);
-    }
+  if (!permutation.empty() && permutation.size() != tensor.sizes().size()) {
+    PT_BRIDGE_FATAL(
+        "wrong permute size",
+        "  permute_vec.size = ",
+        permutation.size(),
+        "  PT tensor shape.dims =",
+        tensor.sizes().size(),
+        " PT shape: ",
+        VecToString(tensor.sizes().vec()));
   }
+
   smeta->set_memory_permutation(permutation);
 }
 

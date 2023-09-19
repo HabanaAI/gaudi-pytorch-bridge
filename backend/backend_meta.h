@@ -122,7 +122,7 @@ struct StorageExtraMeta {
 
   void set_memory_permutation(
       synapse_helpers::layouts::MemoryPermutation permutation) {
-    memory_permutation_ = permutation;
+    memory_permutation_ = std::move(permutation);
   }
 
   void set_base_tensor_size(std::vector<int64_t> s) {

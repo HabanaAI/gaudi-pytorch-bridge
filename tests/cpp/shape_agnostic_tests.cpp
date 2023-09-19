@@ -15,23 +15,50 @@
 using namespace habana_lazy;
 using namespace at;
 
-class ShapeAgnosticTest : public habana_lazy_test::LazyTest {
- protected:
-  void SetUp() override {
+class BaseSettings : public habana_lazy_test::EnvHelper {
+ public:
+  void Create(bool enable_shape_agnostic = true) {
     habana::HABANAGuardImpl device_guard;
     device_guard.getDevice();
     SetEagerMode();
     DisableRecipeCache();
-    EnableShapeAgnostic();
+    EnableShapeAgnostic(enable_shape_agnostic);
     SetSeed();
   }
-
-  void TearDown() override {
+  void Finish() {
     RestoreRecipeCache();
     RestoreShapeAgnostic();
     RestoreMode();
   }
 };
+
+class ShapeAgnosticTest : public BaseSettings, public ::testing::Test {
+ protected:
+  void SetUp() override {
+    Create();
+  }
+
+  void TearDown() override {
+    Finish();
+  }
+};
+
+class ShapeAgnosticOrNormalFlowTest : public BaseSettings,
+                                      public ::testing::TestWithParam<bool> {
+ protected:
+  void SetUp() override {
+    Create(GetParam());
+  }
+
+  void TearDown() override {
+    Finish();
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    ConvPermutation,
+    ShapeAgnosticOrNormalFlowTest,
+    ::testing::Values(true, false));
 
 TEST_F(ShapeAgnosticTest, PermuteAdd) {
   auto& device = habana::HPURegistrar::get_device();
@@ -56,7 +83,8 @@ TEST_F(ShapeAgnosticTest, PermuteAdd) {
   }
 }
 
-TEST_F(ShapeAgnosticTest, ConvRelu) {
+TEST_P(ShapeAgnosticOrNormalFlowTest, ConvRelu) {
+  habana::OptimizedJitGraphCache::GetOptimizedJitCache().Clear();
   auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     auto input_tensor =
@@ -110,7 +138,7 @@ TEST_F(ShapeAgnosticTest, ConvRelu) {
 // 1st and 2nd relu has input with real permute while 3rd relu does not
 // have any permute on the input so 3rd relu should cause a JIT/SAG cache
 // miss.
-TEST_F(ShapeAgnosticTest, ConvReluRelu) {
+TEST_P(ShapeAgnosticOrNormalFlowTest, ConvReluRelu) {
   auto& device = habana::HPURegistrar::get_device();
   if (device.type() == synDeviceGaudi2) {
     // Disabling the number of cache entries check for now as the same

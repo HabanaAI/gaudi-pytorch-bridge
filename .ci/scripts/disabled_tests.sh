@@ -256,7 +256,6 @@ FAILING_EAGER_TESTS=(
     "HpuOpTest.sinh_outf"
     "HpuOpTest.tan_outf"
     "HpuOpTest.trunc_outf"
-    "ShapeAgnosticTest.ConvReluRelu"
     "l1loss/L1lossHpuOpTest.l1_loss/0"
     "l1loss/L1lossHpuOpTest.l1_loss/1"
     "l1loss/L1lossHpuOpTest.l1_loss/2"
