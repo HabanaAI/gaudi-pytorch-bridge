@@ -25,6 +25,7 @@
 #include "habana_eager/graph_exec_passes.h"
 #include "habana_eager/graph_storage.h"
 #include "habana_eager/graph_weight_permute.h"
+#include "habana_eager/passes/handle_views_insert_permute.h"
 
 #include "habana_helpers/logging.h"
 
@@ -170,6 +171,7 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
   pass::HandleTupleOnOutput(m_graph);
   pass::AddAttributeAlpha(m_graph);
   pass::RemoveDetachOp(m_graph);
+  pass::HandleStridedViewsAndInsertPermute(m_graph);
   pass::GetOutputsOrderInGraph(m_graph, m_outputs_order);
 }
 

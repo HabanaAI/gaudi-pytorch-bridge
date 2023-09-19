@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <numeric>
 
+#include "habana_eager/eager_exec.h"
 #include "habana_eager/eager_view.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "handle_views_insert_permute.h"
@@ -154,28 +155,44 @@ static bool isStridedViewPermuted(StridedViewAndPermuteInfo& info) {
 void HandleStridedViewsAndInsertPermute(
     std::shared_ptr<torch::jit::Graph>& graph) {
   PT_EAGER_TRACE;
+  static const std::set<c10::Symbol> strided_view_symbols{
+      c10::Symbol::fromQualString("aten::as_strided"),
+      c10::Symbol::fromQualString("hpu::strided_view")};
 
   // Step 1
   // Pass to collect strided_view nodes and their info with strides on FCD
   // if such a node can be represented using contiguous view and permute(s)
   std::vector<StridedViewAndPermuteInfo> strided_view_permute_info_vec;
   for (auto* node : graph->nodes()) {
-    const auto& opname = std::string(node->kind().toQualString());
-    if ((opname.find("aten::as_strided") != std::string::npos) ||
-        (opname.find("hpu::strided_view") != std::string::npos)) {
+    if (strided_view_symbols.find(node->kind()) != strided_view_symbols.end()) {
       // Check for meta atrribute for strided view
       auto meta = torch::jit::attr::arg1;
-      if (node->hasAttribute(meta))
+      if (node->hasAttribute(meta)) {
         continue;
+      }
+
+      const auto node_output_tensor =
+          node->output(0)->type()->cast<c10::TensorType>();
+      TORCH_CHECK(
+          node_output_tensor != nullptr, "Expected node output as a tensor");
+      if (!node_output_tensor->scalarType().has_value()) {
+        // skip op if dtype is not propagated
+        //
+        // It can happen when we create JIT graph out of FX graph, the converter
+        // does not propagate dtypes from FX graph. It occurs when user will
+        // explicitly use as_strided in its script. The case addressed by this
+        // pass is when GraphExec adds as_strided for all non-contiguous view
+        // inputs. When they are added, dtype is correctly set. Those are the
+        // ones that we want to decompose to permutes.
+        continue;
+      }
 
       // Check node output data type if permute op can be supported
       TORCH_CHECK(
           node->output(0)->isCompleteTensor() == true,
           "Expected node output as a complete tensor");
-      const auto node_output_tensor =
-          node->output(0)->type()->cast<c10::TensorType>();
-      const auto dtype = node_output_tensor->scalarType().value();
 
+      const auto dtype = node_output_tensor->scalarType().value();
       const auto device = node_output_tensor->device().value();
       const auto shapes = toIValue(node->input(1)).value().toIntVector();
       const auto strides = toIValue(node->input(2)).value().toIntVector();
