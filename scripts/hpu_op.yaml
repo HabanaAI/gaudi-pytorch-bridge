@@ -666,9 +666,9 @@ add.Scalar:
   broadcast: true
   custom_fill_params: FillBinaryAddParams
   dtypes:
-    Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi: [BFloat16, Float, Short, Int, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   op_backend: BinaryWithAlpha
@@ -680,9 +680,9 @@ add.Scalar:
 
 add_.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi: [BFloat16, Float, Short, Int, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
   override_fn: add_scalar_hpu_lazy_
   acc_thread: true
   promote_to_common_type: [self, other]
@@ -711,9 +711,9 @@ add.Scalar_out:
   custom_fill_params: FillBinaryAddParams
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi: [BFloat16, Float, Short, Int, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   op_backend: BinaryWithAlpha
