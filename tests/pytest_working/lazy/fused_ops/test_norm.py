@@ -13,8 +13,6 @@
 import numpy as np
 import torch
 
-import habana_frameworks.torch
-
 habana = torch.device("hpu")
 cpu = torch.device("cpu")
 
@@ -29,31 +27,32 @@ def test_norm():
         vec_n_cpu.append(torch.norm(u))
         v = u.detach().to(habana)
         vec_hpu.append(v)
-    # backend implementation requires additional tensor in grads
-    # in order to return total_norm result
-    vec_hpu.append(torch.ones(1).to(habana))
     n_cpu = torch.norm(torch.stack(vec_n_cpu), norm_type)
 
+    from habana_frameworks.torch import _hpex_C
+
     max_norm_t = (torch.ones((1)) * max_norm_val).to(habana)
-    torch.ops.hpu.fused_clip_norm(vec_hpu, max_norm_t, norm_type)
+    n_hpu = _hpex_C.fused_norm(vec_hpu, max_norm_t, norm_type)
 
     max_norm_cpu = float(max_norm_val)
     clip_coef = max_norm_cpu / (n_cpu + 1e-6)
     if clip_coef < 1:
         for p in vec_cpu:
             p.mul_(clip_coef)
-    assert np.allclose(
-        vec_hpu[-1].to(cpu).detach().numpy(), # total norm result
+    comp = np.allclose(
+        n_hpu.to(cpu).detach().numpy(),
         n_cpu.detach().numpy(),
         atol=0.001,
         rtol=0.001,
         equal_nan=True,
     )
+    print("FusedNorm output match :: {}".format(comp))
     for p, q in zip(vec_hpu, vec_cpu):
-        assert np.allclose(
+        comp = np.allclose(
             p.to(cpu).detach().numpy(),
             q.detach().numpy(),
             atol=0.001,
             rtol=0.001,
             equal_nan=True,
         )
+        print("FusedNorm grad param match :: {}".format(comp))

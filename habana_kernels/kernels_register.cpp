@@ -899,22 +899,6 @@ Tensor fused_norm_hpu_wrap(
   return fused_norm_hpu_lazy(grad, max_norm, norm_type);
 }
 
-void fused_clip_norm_hpu_wrap(
-    const std::vector<at::Tensor>& grads,
-    const at::Tensor& max_norm,
-    const double norm_type) {
-  PT_LAZY_TRACE;
-  PT_OP_INFO("fused_clip_norm:", DUMP_3ARGS(grads, max_norm, norm_type));
-
-  LazyOp<void> hpu_op{
-      "hpu::fused_clip_norm",
-      {grads, max_norm, norm_type},
-      [](const at::Stack&) { return std::vector<std::vector<int64_t>>{}; },
-      0};
-
-  hpu_op.call(grads);
-}
-
 void optimizer_adagrad_hpu_wrap(
     const TensorList& gradients,
     TensorList& weights,
@@ -2196,8 +2180,6 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
 } // namespace vision
 
 TORCH_LIBRARY(hpu, m) {
-  m.def(
-      "fused_clip_norm(Tensor(a!)[] grad, Tensor max_norm, float norm_type) -> ()");
   m.def("cat(Tensor[] tensors, int dim, Tensor out_shape) -> Tensor");
   m.def(
       "repeat_inlv(Tensor input, Tensor repeats, int dim, Tensor out_shape) -> Tensor");
@@ -2507,7 +2489,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_index_copy_", fp8_index_copy_wrap);
   m.impl("hpu::fp8_repeat_v2", fp8_repeat_v2_wrap);
   m.impl("hpu::fp8_index_select_v2", fp8_index_select_v2_wrap);
-  m.impl("hpu::fused_clip_norm", fused_clip_norm_hpu_wrap);
   m.impl(
       "hpu::scaled_masked_triangular_softmax",
       scaled_masked_triangular_softmax_wrap);

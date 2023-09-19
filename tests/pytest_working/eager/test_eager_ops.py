@@ -309,50 +309,6 @@ def test_batch_norm():
     assert torch.allclose(hpu_bias_grad, cpu_bias_grad, atol=1e-3)
 
 
-def test_fused_norm():
-    habana = torch.device("hpu")
-    cpu = torch.device("cpu")
-
-    d1, d2, num, norm_type = 2, 1024, 5, 2.0
-    max_norm_val = 1.0
-    vec_cpu, vec_n_cpu, vec_hpu = [], [], []
-    for _ in range(num):
-        u = torch.rand(d1, d2)
-        vec_cpu.append(u)
-        vec_n_cpu.append(torch.norm(u))
-        v = u.detach().to(habana)
-        vec_hpu.append(v)
-    # backend implementation requires additional tensor in grads
-    # in order to return total_norm result
-    vec_hpu.append(torch.ones(1).to(habana))
-    n_cpu = torch.norm(torch.stack(vec_n_cpu), norm_type)
-
-    max_norm_t = (torch.ones((1)) * max_norm_val).to(habana)
-    torch.ops.hpu.fused_clip_norm(vec_hpu, max_norm_t, norm_type)
-
-    max_norm_cpu = float(max_norm_val)
-    clip_coef = max_norm_cpu / (n_cpu + 1e-6)
-    if clip_coef < 1:
-        for p in vec_cpu:
-            p.mul_(clip_coef)
-    assert np.allclose(
-        vec_hpu[-1].to(cpu).detach().numpy(), # total norm result
-        n_cpu.detach().numpy(),
-        atol=0.001,
-        rtol=0.001,
-        equal_nan=True,
-    )
-
-    for p, q in zip(vec_hpu, vec_cpu):
-        assert np.allclose(
-            p.to(cpu).detach().numpy(),
-            q.detach().numpy(),
-            atol=0.001,
-            rtol=0.001,
-            equal_nan=True,
-        )
-
-
 def test_pow2d_contiguous():
     cpu_tensor = torch.Tensor(np.random.randint(-1, 1, (20, 20)))
     hpu_tensor = cpu_tensor.to("hpu")

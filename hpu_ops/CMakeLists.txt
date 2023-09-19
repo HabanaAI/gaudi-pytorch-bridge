@@ -128,7 +128,6 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/frac_gen.cpp
           backend/frexp_gen.cpp
           backend/full_gen.cpp
-          backend/fused_clip_norm_gen.cpp
           backend/fused_dropout_gen.cpp
           backend/gather_gen.cpp
           backend/gelu_gen.cpp

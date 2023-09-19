@@ -48,7 +48,6 @@ const std::unordered_set<std::string> AccThread::SupportedNonAutogenOps = {
     "empty_strided",
     "expand",
     "fused_norm",
-    "fused_clip_norm",
     "gelu_backward",
     "gelu",
     "index_add_out",
