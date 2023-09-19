@@ -30,7 +30,7 @@ dtypes = [
 @pytest.mark.parametrize(
     "sequence_shape, input_shape", [((10,), (10,)), ((5, 5), (5, 2))]
 )
-def test_hpu_searchsorted_input(right, out_int32, dtype, sequence_shape, input_shape):
+def test_searchsorted_input(right, out_int32, dtype, sequence_shape, input_shape):
     if dtype == torch.float16 and is_gaudi1():
         pytest.skip("Half is not supported on Gaudi.")
     torch.manual_seed(0)
@@ -59,7 +59,7 @@ def test_hpu_searchsorted_input(right, out_int32, dtype, sequence_shape, input_s
 @pytest.mark.parametrize("out_int32", [True, False])
 @pytest.mark.parametrize("right", [False, True])
 @pytest.mark.parametrize("dtype", dtypes)
-def test_hpu_searchsorted_scalar(out_int32, right, dtype):
+def test_searchsorted_scalar(out_int32, right, dtype):
     if dtype == torch.float16 and is_gaudi1():
         pytest.skip("Half is not supported on Gaudi.")
     torch.manual_seed(0)

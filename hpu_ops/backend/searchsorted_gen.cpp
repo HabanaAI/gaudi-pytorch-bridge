@@ -42,40 +42,4 @@ std::shared_ptr<void> FillSearchSortedParams(
   return params;
 }
 
-void SearchSorted::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto sorted_sequence = stack.at(0).toTensor();
-  std::optional<synapse_helpers::tensor> sorted_sequence_syn_helper;
-  synTensor sorted_sequence_syn_t;
-
-  if (stack.at(5).isTensor()) {
-    ns_GatherElementsKernel::Params gather_params;
-    gather_params.axis = 0;
-    auto gathered = BuildOp(
-        graph,
-        get_guid_with_precision(
-            "gather_elements_fwd", sorted_sequence.scalar_type()),
-        {syn_in(0), syn_in(2)},
-        {{sorted_sequence.sizes().vec(), sorted_sequence.scalar_type()}},
-        &gather_params,
-        sizeof(gather_params));
-    sorted_sequence_syn_helper = std::move(gathered[0]);
-    sorted_sequence_syn_t = sorted_sequence_syn_helper->get();
-  } else {
-    sorted_sequence_syn_t = syn_in(0);
-  }
-
-  auto outputMeta = SearchSortedMeta(stack)[0];
-  size_t params_size = sizeof(ns_SearchSorted::Params);
-  auto params = FillParams(stack, params_size);
-  auto result = BuildOp(
-      graph,
-      guid_,
-      {sorted_sequence_syn_t, syn_in(1)},
-      {{outputMeta.shape, outputMeta.dtype, 0}},
-      params.get(),
-      params_size);
-  syn_out(0) = std::move(result[0]);
-}
 } // namespace habana
