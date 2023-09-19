@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include <atomic>
@@ -196,7 +199,14 @@ class HabanaAcceleratedPytorchDL {
   }
 
   std::string saveDictToFile(py::dict dict_config) {
-    std::string config_path_name = std::tmpnam(nullptr);
+    char tmp_fname[] = "/tmp/dl_dict_XXXXXX";
+    int fd = mkstemp(tmp_fname);
+    if (fd == -1) {
+      throw std::system_error(errno, std::system_category());
+    }
+    close(fd);
+    std::string config_path_name = std::string(tmp_fname);
+
     // Convert py::dict to nlohmann::json with pybind11 binding
     m_json_config = dict_config;
 
