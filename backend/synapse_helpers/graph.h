@@ -60,6 +60,8 @@ class graph {
       synTensor tensor_handle,
       std::vector<uint8_t>& permute_or_empty);
 
+  static void setTensorSectionOffset(synTensor tensor_handle, uint64_t offset);
+
   void add_node(
       std::vector<synTensor>&& inputs,
       std::vector<synTensor>&& outputs,

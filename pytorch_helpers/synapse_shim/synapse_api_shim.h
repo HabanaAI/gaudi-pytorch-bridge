@@ -102,6 +102,7 @@
   visitor(synTensorSetExternal);               \
   visitor(synTensorGetExternal);               \
   visitor(synTensorAssignToSection);           \
+  visitor(synTensorSetSectionOffset);          \
   visitor(synTensorSetHostPtr);                \
   visitor(synTensorSetGeometryExt);            \
   visitor(synTensorSetDeviceFullLayout);       \

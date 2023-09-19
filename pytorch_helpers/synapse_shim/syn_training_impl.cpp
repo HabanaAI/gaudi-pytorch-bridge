@@ -567,6 +567,11 @@ synStatus SYN_API_CALL synTensorAssignToSection(
   return syn_api->synTensorAssignToSection(tensor, section, byteOffset);
 }
 
+synStatus SYN_API_CALL
+synTensorSetSectionOffset(synTensor tensor, uint64_t byteOffset) {
+  return syn_api->synTensorSetSectionOffset(tensor, byteOffset);
+}
+
 synStatus SYN_API_CALL synTensorSetHostPtr(
     synTensor tensor,
     void* hostPtr,

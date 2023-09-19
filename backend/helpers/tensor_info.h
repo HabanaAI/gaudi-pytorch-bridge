@@ -196,30 +196,41 @@ class PtTensorInfo {
   //   For the rest of the tensors offset will be used to calculate the buffer.
   void patch_exact(
       const at::Tensor& pt_tensor,
-      bool skip_offset_check = false) {
+      const bool shape_agnostic_flag = false) {
     buffer_ = pt_tensor.data_ptr();
     buffer_start_ = pt_tensor.storage().data_ptr().get();
     auto new_offset = get_buffer_syn() - get_buffer_start_syn();
     TORCH_CHECK(
-        skip_offset_check || offset_ == new_offset,
+        shape_agnostic_flag || offset_ == new_offset,
         "offset_ ",
         offset_,
         "is not matching with the offset of new tensor ",
         new_offset);
+    // For shape agnostic flow storage offset can be different
+    // store new offset for patching section offset for duplicates if any
+    if (shape_agnostic_flag) {
+      offset_ = new_offset;
+    }
   }
-  void patch(const PtTensorInfo& t, bool skip_offset_check = false) {
+  void patch(const PtTensorInfo& t, const bool shape_agnostic_flag = false) {
     buffer_start_ = t.buffer_start_;
-    if (!skip_offset_check)
+    if (!shape_agnostic_flag) {
       buffer_ = (void*)(get_buffer_start_syn() + offset_);
-    else
+    } else {
       buffer_ = t.buffer_;
+      offset_ = t.offset_;
+    }
   }
-  void patch(const at::Tensor& pt_tensor, bool skip_offset_check = false) {
+  void patch(
+      const at::Tensor& pt_tensor,
+      const bool shape_agnostic_flag = false) {
     buffer_start_ = pt_tensor.storage().data_ptr().get();
-    if (!skip_offset_check)
+    if (!shape_agnostic_flag) {
       buffer_ = (void*)(get_buffer_start_syn() + offset_);
-    else
+    } else {
       buffer_ = pt_tensor.data_ptr();
+      offset_ = pt_tensor.storage_offset() * pt_tensor.itemsize();
+    }
   }
 
   friend std::ostream& operator<<(std::ostream& O, const PtTensorInfo& t);

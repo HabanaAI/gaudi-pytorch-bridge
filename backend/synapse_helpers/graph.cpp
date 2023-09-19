@@ -235,6 +235,18 @@ void graph::setTensorPermutation(
   PT_SYNHELPER_END;
 }
 
+void graph::setTensorSectionOffset(synTensor tensor_handle, uint64_t offset) {
+  PT_SYNHELPER_BEGIN;
+  synStatus status = synSuccess;
+
+  status = synTensorSetSectionOffset(tensor_handle, offset);
+  HABANA_ASSERT(
+      status == synStatus::synSuccess,
+      "Tensor Set Section Offset failed. synStatus=",
+      Logger::formatStatusMsg(status))
+  PT_SYNHELPER_END;
+}
+
 graph::graph(graph&& other) noexcept
     : device_{other.device_},
       name_{other.name_},

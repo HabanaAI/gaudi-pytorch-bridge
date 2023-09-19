@@ -701,3 +701,32 @@ def test_sag_batch_norm():
 
     assert torch.allclose(output1_hpu.cpu(), output1, atol = 0.01, rtol = 0.01)
     assert torch.allclose(output2_hpu.cpu(), output2, atol = 0.01, rtol = 0.01)
+
+def test_sag_cat_view():
+    params = [(10,3), (20,5), (30,7)]
+    for element_count, sliced_count in params:
+        a = torch.arange(element_count, dtype=torch.int32)
+        m = a[:sliced_count]
+        n = a[-sliced_count:]
+        out = torch.cat([m,n])
+
+        a_hpu = a.to("hpu")
+        m_hpu = a_hpu[:sliced_count]
+        n_hpu = a_hpu[-sliced_count:]
+        out_hpu = torch.cat([m_hpu, n_hpu])
+
+        assert torch.equal(out_hpu.cpu(), out)
+
+def test_sag_add_view():
+    params = [(16, 4), (32, 8)]
+    for shape, offset in params:
+        input = torch.randn((64), dtype=torch.bfloat16)
+        input_view = input.as_strided((shape,), (1,), offset)
+
+        input_hpu = input.to("hpu")
+        input_hpu_view = input_hpu.as_strided((shape,), (1,), offset)
+
+        out = torch.add(input_view, input_view)
+        out_hpu = torch.add(input_hpu_view, input_hpu_view)
+
+        assert torch.allclose(out_hpu.cpu(), out, atol = 0.01, rtol = 0.01)

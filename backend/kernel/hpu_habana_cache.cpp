@@ -700,6 +700,7 @@ inline void RecipeValueSpec::update_new_tensor(
     size_t ridx,
     std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
     std::vector<int64_t> new_shape,
+    std::optional<uint64_t> tensor_offset_opt,
     std::optional<PtTensorInfoShared> tinfo_opt) {
   PtTensorInfoShared tinfo;
   // tinfo_opt is for passing sif info instead of dtensor info
@@ -749,6 +750,15 @@ inline void RecipeValueSpec::update_new_tensor(
 
   if (new_handle) {
     update_tensor_shape(synapse_graph, new_handle, tinfo, new_shape);
+    if (tensor_offset_opt.has_value()) {
+      const auto& new_offset = tensor_offset_opt.value();
+      PT_EAGER_DEBUG(
+          "[SHAPE AGNOSTIC] new handle : ",
+          new_handle,
+          " new section offset : ",
+          new_offset);
+      synapse_graph.setTensorSectionOffset(new_handle, new_offset);
+    }
   }
 }
 
@@ -921,11 +931,17 @@ void RecipeValueSpec::update_patching_table(
         IValPtrShared ivpsh = std::make_shared<IVal>(input);
         inputIVpshMap.emplace(ridx, ivpsh);
         if (is_shape_agnostic_graph) {
+          std::optional<uint64_t> tensor_offset_opt = std::nullopt;
+          const auto& tensor = input.toTensor();
+          if (tensor.data_ptr()) {
+            tensor_offset_opt = tensor.storage_offset() * tensor.itemsize();
+          }
           update_new_tensor(
               synapse_graph,
               ridx,
               synapse_orig_to_new_handle,
-              input.toTensor().sizes().vec());
+              tensor.sizes().vec(),
+              tensor_offset_opt);
           dtinfos_patched_count++;
         }
       } else {
@@ -938,8 +954,16 @@ void RecipeValueSpec::update_patching_table(
         IValPtrShared ivpsh = std::make_shared<IVal>(t);
         inputIVpshMap.emplace(ridx, ivpsh);
         if (is_shape_agnostic_graph) {
+          std::optional<uint64_t> t_offset_opt = std::nullopt;
+          if (t.data_ptr()) {
+            t_offset_opt = t.storage_offset() * t.itemsize();
+          }
           update_new_tensor(
-              synapse_graph, ridx, synapse_orig_to_new_handle, t.sizes().vec());
+              synapse_graph,
+              ridx,
+              synapse_orig_to_new_handle,
+              t.sizes().vec(),
+              t_offset_opt);
           dtinfos_patched_count++;
         }
         ridx++;
@@ -970,11 +994,19 @@ void RecipeValueSpec::update_patching_table(
           "HabanaOp recipe cache hit :: Input duplicate : parent idx ",
           parent_idx,
           ", parent buffer ptr ",
-          dtensorinfos->at(parent_idx)->get_buffer());
+          parent_ti->get_buffer());
       if (is_shape_agnostic_graph) {
         auto tshape{parent_ti->get_shape()};
+        std::optional<uint64_t> toffset_opt = std::nullopt;
+        if (parent_ti->get_buffer()) {
+          toffset_opt = parent_ti->get_offset();
+        }
         update_new_tensor(
-            synapse_graph, ridx, synapse_orig_to_new_handle, tshape);
+            synapse_graph,
+            ridx,
+            synapse_orig_to_new_handle,
+            tshape,
+            toffset_opt);
         dtinfos_patched_count++;
       }
     }
@@ -1226,11 +1258,18 @@ void RecipeValueSpec::update_patching_table(
             output_idx,
             " is greater than #outputs ",
             aten_output_num);
+        size_t parent_idx = dtensorinfos->at(ridx)->get_parent_index();
+        auto parent_ti = dtensorinfos->at(parent_idx);
+        std::optional<uint64_t> offset_opt = std::nullopt;
+        if (parent_ti->get_buffer()) {
+          offset_opt = parent_ti->get_offset();
+        }
         update_new_tensor(
             synapse_graph,
             ridx,
             synapse_orig_to_new_handle,
-            output_shapes.at(output_idx));
+            output_shapes.at(output_idx),
+            offset_opt);
         dtinfos_patched_count++;
       }
       create_outdup(
@@ -1381,6 +1420,7 @@ void RecipeValueSpec::update_patching_table(
           ++ridx, // dummy value
           synapse_orig_to_new_handle,
           new_sizes,
+          std::nullopt,
           t.second);
     }
   }

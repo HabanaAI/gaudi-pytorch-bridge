@@ -525,3 +525,51 @@ TEST_F(ShapeAgnosticTest, Fill) {
     }
   }
 }
+
+TEST_F(ShapeAgnosticTest, CatAddView) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  std::vector<int64_t> in_shapes{32, 48};
+  std::vector<int64_t> offset{4, 8};
+  if (device.type() == synDeviceGaudi2) {
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      auto a = torch::randn({8, 8}).to(torch::kBFloat16);
+      auto b = torch::randn({8, 8}).to(torch::kBFloat16);
+      auto c = torch::randn({8, 8}).to(torch::kBFloat16);
+
+      auto a_view = a.as_strided({in_shapes[i]}, {1}, offset[i]);
+      auto b_view = b.as_strided({in_shapes[i]}, {1}, offset[i]);
+      auto c_view = c.as_strided({in_shapes[i]}, {1}, offset[i]);
+
+      auto a_hpu = a.to(torch::kHPU);
+      auto b_hpu = b.to(torch::kHPU);
+      auto c_hpu = c.to(torch::kHPU);
+
+      auto a_hpu_view = a_hpu.as_strided({in_shapes[i]}, {1}, offset[i]);
+      auto b_hpu_view = b_hpu.as_strided({in_shapes[i]}, {1}, offset[i]);
+      auto c_hpu_view = c_hpu.as_strided({in_shapes[i]}, {1}, offset[i]);
+
+      auto out = torch::zeros({3 * 8 * 8}).to(torch::kBFloat16);
+      auto out_view = out.as_strided({3 * in_shapes[i]}, {1}, offset[i]);
+
+      auto out_hpu = out.to(torch::kHPU);
+      auto out_hpu_view =
+          out_hpu.as_strided({3 * in_shapes[i]}, {1}, offset[i]);
+
+      torch::cat_out(out_view, {a_view, b_view, c_view});
+      torch::cat_out(out_hpu_view, {a_hpu_view, b_hpu_view, c_hpu_view});
+
+      auto d = torch::randn({3 * 8 * 8}).to(torch::kBFloat16);
+      auto d_view = d.as_strided({3 * in_shapes[i]}, {1}, offset[i]);
+
+      auto d_hpu = d.to(torch::kHPU);
+      auto d_hpu_view = d_hpu.as_strided({3 * in_shapes[i]}, {1}, offset[i]);
+
+      out_view.add_(d_view);
+      out_hpu_view.add_(d_hpu_view);
+
+      EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out, 0.001, 0.001), true);
+    }
+  }
+}

@@ -119,6 +119,7 @@ SYN_API_PTR(synSectionGetPersistent);
 SYN_API_PTR(synSectionSetPersistent);
 SYN_API_PTR(synSectionDestroy);
 SYN_API_PTR(synTensorAssignToSection);
+SYN_API_PTR(synTensorSetSectionOffset);
 SYN_API_PTR(synTensorHandleCreate);
 SYN_API_PTR(synTensorGetName);
 SYN_API_PTR(synTensorSetExternal);
@@ -223,6 +224,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synSectionSetPersistent);
   SYN_API_INIT_PTR(synSectionDestroy);
   SYN_API_INIT_PTR(synTensorAssignToSection);
+  SYN_API_INIT_PTR(synTensorSetSectionOffset);
   SYN_API_INIT_PTR(synTensorHandleCreate);
   SYN_API_INIT_PTR(synTensorGetName);
   SYN_API_INIT_PTR(synTensorSetExternal);
@@ -972,6 +974,16 @@ synStatus SYN_API_CALL synTensorAssignToSection(
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synTensorAssignToSection, tensor, section, byteOffset)
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL
+synTensorSetSectionOffset(synTensor tensor, uint64_t byteOffset) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(tensor), ARG(byteOffset));
+  synStatus status;
+  CALL_SYN_FUNC(lib_synapse::synTensorSetSectionOffset, tensor, byteOffset)
   API_LOG_RESULT();
   return status;
 }
