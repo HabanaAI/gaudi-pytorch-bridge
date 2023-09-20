@@ -295,7 +295,6 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // blocking_nodes_vec------------------------///-----------------------------------///-----------------NA----------------///----------------Write--------------///------------NA
   // blocking_syn_nodes_vec--------------------///-----------------------------------///-----------------NA----------------///----------------Write--------------///------------NA
   // blocked_syn_nodes_vec---------------------///-----------------------------------///-----------------NA----------------///----------------Write--------------///------------NA
-  // memory_reuse_pairs------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
   // collective_kernels_info-------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
   // dfs_time_in_out_map-----------------------///----------Dynamic-Shapes-----------///----------------NA-----------------///----------------Write--------------///------------NA
   // dfs_cnt-----------------------------------///----------Dynamic-Shapes-----------///----------------NA-----------------///----------------Write--------------///------------NA
@@ -454,8 +453,6 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
 
   std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>
       jit_to_synapse_node_idx_map;
-  std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>
-      memory_reuse_pairs;
   std::vector<std::shared_ptr<habana_helpers::collective_kernel_info>>
       collective_kernels_info;
 

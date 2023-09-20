@@ -2065,6 +2065,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   // Collect intermediate shape tensors accross all nodes for not supporting
   // InferOutputMeta
   std::vector<size_t> intermediate_shape_tensors_vec;
+  std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>
+      memory_reuse_pairs;
   int inx = 0;
   PT_OP_DEBUG("JIT Graph: ", jit_ir_graph_->toString());
   for (auto* node : graph_nodes) {
@@ -3976,6 +3978,8 @@ void HabanaLaunchOpPT::run(
           (not jit_graph_and_meta_data_
                    ->get_jit_cached_graph_info_available_flag()) ||
           jit_graph_and_meta_data_->get_is_control_edge_processing_required()) {
+        std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>
+            memory_reuse_pairs;
         control_edges::ProcessControlEdges(
             *jit_ir_graph_,
             *jit_graph_and_meta_data_,
