@@ -180,9 +180,6 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   get_jit_graph_and_meta_data() const {
     return jit_graph_and_meta_data_;
   }
-  bool get_enable_tensor_dump_() const {
-    return enable_tensor_dump_;
-  }
 
   at::ArrayRef<torch::jit::IValue> get_input_refs_() const {
     return input_refs;
@@ -272,7 +269,6 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // shape_index-------------------------------///----------Dynamic-Shapes-----------///---------------Write---------------///-----------------NA----------------///------------NA
   // aten_intermediates------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
   // intermediate_tinfos-----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
-  // aten_dma_inputs---------------------------///-----------------------------------///-----------------NA----------------///-----------------NA----------------///------------NA
   // dma_input_tensorinfos---------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // shape_tensor_tinfos-----------------------///----------Dynamic-Shapes-----------///---------------Write---------------///----------------Read---------------///------------NA
   // non_persistent_intermediate_tinfos--------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
@@ -291,7 +287,6 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // enable_fast_shape_inf_--------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // tensor_dump_numel_------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
   // cur_ds_token_-----------------------------///----------Dynamic-Shapes-----------///---------------Write---------------///-----------------NA----------------///------------NA
-  // tdmp_dir_name_----------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // tdmp_file_name_pre_-----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // tdmp_file_name_---------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // iteration_count_--------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
@@ -336,8 +331,6 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   std::string name_ = std::string();
   size_t graph_index_ = 0;
   std::shared_ptr<torch::jit::Graph> jit_ir_graph_;
-  // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
-  const bool debug_;
   std::string id_str_ = std::string();
   std::string op_strs_ = std::string();
   size_t graph_key_ = 0;
@@ -404,16 +397,11 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
 
   // The persistent intermediates are stored in the following two vectors.
   // aten_intermediates is used for storing intermediates which are usually
-  // marked persistent by persistenceMarkingPass. aten_dma_inputs is
-  // used for storing the seed tensors needed for dropout kernel.
+  // marked persistent by persistenceMarkingPass.
   std::vector<at::Tensor> aten_intermediates;
   // tinfos corresponding to aten_intermediates.
   std::vector<PtTensorInfoShared> intermediate_tinfos;
 
-  // For supporting operators that need inputs which are not present in the
-  // stack. These inputs need to be DMA transferred during creation of the op
-  // or patching a cached recipe.
-  std::vector<at::Tensor> aten_dma_inputs;
   // tinfos corresponding to aten_intermediates.
   std::deque<PtTensorInfoShared> dma_input_tensorinfos;
   // tinfos corresponding to shape tensor.
@@ -435,7 +423,6 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
 
   torch::jit::Stack* pt_stack{nullptr};
   uint64_t t_compile_ns{0};
-
 
   // Making the cache eviction policy as lru as default
 
@@ -459,7 +446,6 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
 
   uint64_t cur_ds_token_{0};
 
-  std::string tdmp_dir_name_;
   std::string tdmp_file_name_pre_;
   std::string tdmp_file_name_;
 

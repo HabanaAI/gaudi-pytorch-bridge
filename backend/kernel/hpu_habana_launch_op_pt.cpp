@@ -137,7 +137,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
     : name_(optimized_jit_graph_and_meta_data->GetOpName()),
       graph_index_(optimized_jit_graph_and_meta_data->GetGraphIndex()),
       jit_ir_graph_(optimized_jit_graph_and_meta_data->get_cached_graph()),
-      debug_(optimized_jit_graph_and_meta_data->GetDbgFlag()),
       use_persistent_tensors{GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR)} {
   refine_ds_enabled_ = optimized_jit_graph_and_meta_data->GetDynamicGraph();
   enable_fast_shape_inf_ =
@@ -233,9 +232,9 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   }
 
   if (enable_tensor_dump_) {
-    std::string& idstrs = SetAndGetSynapseGraphName(name_, graph_index_);
+    const std::string& idstrs = SetAndGetSynapseGraphName(name_, graph_index_);
     struct stat st = {};
-    std::string dir_name{"./tensor_dumps"};
+    std::string dir_name{"./tensor_dumps/"};
     mode_t dir_mode{0755};
 
     if (stat(dir_name.c_str(), &st) == -1) {
@@ -243,18 +242,16 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       TORCH_CHECK(0 == ret, std::string("failed to create " + dir_name));
     }
 
-    dir_name += std::string("/") + idstrs;
+    dir_name += idstrs;
 
     if (stat(dir_name.c_str(), &st) == -1) {
       auto ret = mkdir(dir_name.c_str(), dir_mode);
       TORCH_CHECK(0 == ret, std::string("failed to create " + dir_name));
     }
 
-    tdmp_dir_name_ = dir_name;
-
     {
       std::ostringstream oss;
-      oss << tdmp_dir_name_ << "/"
+      oss << dir_name << "/"
           << (enable_caching_ ? "tensors_chon" : "tensors_choff")
           << "_pre.tdmp";
       tdmp_file_name_pre_ = oss.str();
@@ -269,7 +266,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
     {
       std::ostringstream oss;
-      oss << tdmp_dir_name_ << "/"
+      oss << dir_name << "/"
           << (enable_caching_ ? "tensors_chon" : "tensors_choff") << ".tdmp";
       tdmp_file_name_ = oss.str();
 

@@ -82,7 +82,6 @@ void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
   duplicate_intermediate_to_outtinfo_map.clear();
 
   aten_intermediates.clear();
-  aten_dma_inputs.clear();
 
   output_tensorinfo_map.clear();
 
