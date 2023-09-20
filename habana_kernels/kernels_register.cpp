@@ -503,7 +503,11 @@ Tensor hpu_wrap::instance_norm(
 
 at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& repeats,
+#if IS_PYTORCH_AT_LEAST(2, 2)
+    c10::optional<c10::SymInt> output_size) {
+#else
     c10::optional<int64_t> output_size) {
+#endif
   habana_lazy::NoAccThread no_acc_thread;
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -518,7 +522,13 @@ at::Tensor hpu_wrap::repeat_interleave(
       PARAMS1(repeats),
       PARAMS2(repeats, output_size),
       Tensor)
+#if IS_PYTORCH_AT_LEAST(2, 2)
+  auto out_size =
+      output_size.has_value() ? output_size.value().expect_int() : 0;
+  return repeat_inlv_hpu_lazy(repeats, out_size);
+#else
   return repeat_inlv_hpu_lazy(repeats, output_size);
+#endif
 }
 
 struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
