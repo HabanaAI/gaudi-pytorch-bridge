@@ -176,7 +176,7 @@ class MyLinear(torch.nn.Module):
 def test_te_matmul_fp8(device, dtype, size_A, size_B, batched, trans_a, trans_b):
     fp8_format = Format.E5M2_HYBRID
     fp8_recipe = DelayedScaling(
-        fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max"
+        fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False
     )
 
     if batched:
@@ -254,7 +254,7 @@ def test_te_matmul_fp8(device, dtype, size_A, size_B, batched, trans_a, trans_b)
 def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add):
     fp8_format = Format.E5M2_HYBRID
     fp8_recipe = DelayedScaling(
-        fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max"
+        fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False
     )
 
     inp_size = (size_B, size_A)
