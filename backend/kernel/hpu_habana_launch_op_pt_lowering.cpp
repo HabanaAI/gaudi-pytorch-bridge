@@ -417,11 +417,11 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
             auto const_id = tmeta->get_const_id();
             if (m_const_checksum_map.find(const_id) ==
                 m_const_checksum_map.end()) {
-              if (old_size < section_size) {
+              if (old_size != section_size) {
                 PT_BRIDGE_DEBUG(
                     "Needed reallocation (bridge) old_size ",
                     old_size,
-                    " < ",
+                    " is not same as ",
                     section_size);
                 tmeta->set_nbytes_inference(old_size);
                 at::DataPtr data =
