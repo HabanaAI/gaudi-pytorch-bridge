@@ -26,8 +26,6 @@ from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import 
     Format,
 )
 
-ht.disable_dynamic_shape()
-
 pytestmark = pytest.mark.xfail(
     reason="When running all tests from file, some of them fail randomly with RuntimeError: Habana device not initialized"
 )
@@ -43,7 +41,7 @@ def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
 
     meta = tex.FP8TensorMeta()
     meta.scale = torch.full((1,), scale, dtype=torch.float32, device=device)
-    meta.scale_inv = torch.full((1,), 0.0, dtype=torch.float32, device=device)
+    meta.scale_inv = torch.full((1,), 1/scale, dtype=torch.float32, device=device)
     meta.amax_history = torch.zeros(1, 1, dtype=torch.float32, device=device)
     cast_out = cast_to_fp8(
         input_data,
@@ -70,7 +68,6 @@ def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
         assert mean > 17.5
     else:
         assert mean == 20.0
-    assert meta.scale_inv.item() == 1.0 / scale
 
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])

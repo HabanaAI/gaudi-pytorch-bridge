@@ -459,6 +459,7 @@ def amax_and_scale_update(
             fp8_meta["recipe"],
         )
 
+    fp8_meta[fp8_meta_tensor_key].scale_inv = torch.reciprocal(fp8_meta[fp8_meta_tensor_key].scale)
     update_amax_history_index(fp8_meta, fp8_meta_tensor_key)
 
 

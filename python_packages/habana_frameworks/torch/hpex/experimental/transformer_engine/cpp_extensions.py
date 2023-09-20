@@ -214,8 +214,6 @@ def cast_to_fp8(
     measure_amax=True
 ) -> torch.Tensor:
     """Cast input to FP8"""
-    fp8_meta_tensor.scale_inv[fp8_tensor] = torch.reciprocal(fp8_meta_tensor.scale[fp8_tensor])
-
     def operator():
         return torch.ops.hpu.cast_to_fp8_v2(inp, fp8_meta_tensor.scale[fp8_tensor], stochastic_rounding, measure_amax)
     cast_out, amax = _select_amax_and_exec(
