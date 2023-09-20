@@ -7363,7 +7363,7 @@ at::Tensor& in_place_interleave_lazy(at::Tensor& self) {
   LazyOp<at::Tensor&> op{
       "hpu::in_place_interleave_", {self}, {{self.sizes().vec()}}};
 
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(kv_reorder, op, self)
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(in_place_interleave, op, self)
 }
 
 at::Tensor conv2d_fp8_lazy(

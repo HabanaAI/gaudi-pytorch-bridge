@@ -846,7 +846,12 @@ at::Tensor& kv_reorder(
     const at::Tensor& start,
     const at::Tensor& end,
     const at::Tensor& beam_idx) {
-  TORCH_CHECK(false, "hpu::kv_reorder is not available in Eager mode.");
+  PT_EAGER_TRACE;
+  PT_OP_INFO("kv_reorder_ :", DUMP_4ARGS(self, start, end, beam_idx));
+
+  eager::EagerOp<at::Tensor&> hpu_op{
+      "hpu::kv_reorder_", {self, start, end, beam_idx}, {{self.sizes().vec()}}};
+  return hpu_op.call(self);
 }
 
 at::Tensor& fp8_index_copy_(

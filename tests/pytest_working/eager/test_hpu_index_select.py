@@ -21,25 +21,23 @@ if not is_gaudi1():
     dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
 
 
-@pytest.mark.parametrize("shape", [(1, 4, 1, 32, 1), (3, 4, 8, 64, 28)])
+@pytest.mark.parametrize(
+    "shape, dim, index",
+    [
+        ([2, 3, 4], 0, [1]),
+        ([2, 3, 4], 1, [1, 2]),
+        ([2, 3, 4], 2, [0, 3]),
+        ([2, 3, 4], -1, [0, 3]),
+    ],
+)
 @pytest.mark.parametrize("dtype", dtypes)
-def test_kv_reorder(shape, dtype):
+def test_hpu_index_select(shape, dim, index, dtype):
     input_cpu = torch.randint(0, 100, shape).to(dtype)
-    start_cpu = torch.randint(0, 16, (shape[0],), dtype=torch.int32)
-    end_cpu = torch.randint(0, 16, (shape[0],), dtype=torch.int32)
-    beam_idx_cpu = torch.randint(0, 4, (shape[0], 4), dtype=torch.int32)
-
     input_hpu = input_cpu.to(hpu)
-    start_hpu = start_cpu.to(hpu)
-    end_hpu = (start_cpu + end_cpu).to(hpu)
-    beam_to_hpu = torch.sum(beam_idx_cpu * torch.tensor([[64, 16, 4, 1]]), axis=-1)
-    beam_idx_hpu = beam_to_hpu.to(hpu).to(torch.uint8)
+    index_cpu = torch.tensor(index, dtype=torch.int)
+    index_hpu = index_cpu.to("hpu")
 
-    torch.ops.hpu.kv_reorder_(input_hpu, start_hpu, end_hpu, beam_idx_hpu)
+    result_cpu = torch.index_select(input_cpu, dim, index_cpu)
+    result_hpu = torch.index_select(input_hpu, dim, index_hpu)
 
-    for i in range(shape[0]):
-        subset = torch.narrow(input_cpu[i], -2, start_cpu[i], end_cpu[i])
-        updated = subset.index_select(0, beam_idx_cpu[i])
-        subset.copy_(updated)
-
-    compare_tensors(input_hpu, input_cpu, atol=0.0, rtol=0.0)
+    compare_tensors(result_hpu, result_cpu, atol=0.0, rtol=0.0)

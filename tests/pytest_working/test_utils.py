@@ -178,17 +178,18 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
     for i in range(len(hpu_tensors)):
         if cpu_tensors[i] is None and hpu_tensors[i] is None:
             continue
-        elif assert_enable:
-            hpu_tensors[i] = (
-                hpu_tensors[i].float()
-                if hpu_tensors[i].dtype == torch.bfloat16
-                else hpu_tensors[i]
-            )
-            cpu_tensors[i] = (
-                cpu_tensors[i].float()
-                if cpu_tensors[i].dtype == torch.bfloat16
-                else cpu_tensors[i]
-            )
+
+        hpu_tensors[i] = (
+            hpu_tensors[i].float()
+            if hpu_tensors[i].dtype in [torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
+            else hpu_tensors[i]
+        )
+        cpu_tensors[i] = (
+            cpu_tensors[i].float()
+            if cpu_tensors[i].dtype in [torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
+            else cpu_tensors[i]
+        )
+        if assert_enable:
             np.testing.assert_allclose(
                 hpu_tensors[i].detach().numpy(),
                 cpu_tensors[i].detach().numpy(),
@@ -196,16 +197,6 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
                 rtol=rtol,
             )
         else:
-            hpu_tensors[i] = (
-                hpu_tensors[i].float()
-                if hpu_tensors[i].dtype == torch.bfloat16
-                else hpu_tensors[i]
-            )
-            cpu_tensors[i] = (
-                cpu_tensors[i].float()
-                if cpu_tensors[i].dtype == torch.bfloat16
-                else cpu_tensors[i]
-            )
             print("hpu_result[{}]".format(i), hpu_tensors[i].detach().numpy())
             print("cpu_result[{}]".format(i), cpu_tensors[i].detach().numpy())
             return np.allclose(

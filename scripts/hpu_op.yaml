@@ -3449,8 +3449,8 @@ index_add_:
 index_copy:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
   out_ids: [0]
@@ -3458,8 +3458,8 @@ index_copy:
 index_copy_:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
   inplace_ids: [0]
@@ -3467,8 +3467,8 @@ index_copy_:
 index_copy.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
 
@@ -3477,8 +3477,8 @@ index_select:
   custom_output_shape: IndexSelectOutShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: gather_fwd
   custom_fill_params: FillIndexSelectParams
   fallback_check: [IndexSelectFallbackCheck, self]
@@ -3487,8 +3487,8 @@ index_select.out:
   custom_output_shape: IndexSelectOutShape
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: gather_fwd
   custom_fill_params: FillIndexSelectParams
   fallback_check: [IndexSelectFallbackCheck, self]
@@ -5596,8 +5596,8 @@ remainder.Scalar_out:
 repeat:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char]
-    Gaudi2: [BFloat16, Float, Int, Half, Char]
-    Gaudi3: [BFloat16, Float, Int, Half, Char]
+    Gaudi2: [BFloat16, Float, Int, Half, Char, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Char, Float8_e5m2, Float8_e4m3fn]
   override_fn: repeat_hpu
   acc_thread: true
 
