@@ -57,6 +57,8 @@ orchestratorConfig:
     silentMode: true
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8cards_ci_container
 # PT perf 8 card jobs in K8S container mode <End>
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_topology_8cards
+    silentMode: true
   sanitizerConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   codeCoverageConfig:
