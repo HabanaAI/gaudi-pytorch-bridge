@@ -340,3 +340,16 @@ def test_local_scalar_dense(init_val, dtype):
         )
     else:
         assert hpu_res == init_val
+
+@pytest.mark.parametrize("shape_in", [(4, 4)])
+def test_rand(shape_in):
+    def fn(shape_in, g):
+        return torch.rand(shape_in, generator=g, device="hpu")
+    torch.manual_seed(123)
+    g = None#torch.Generator()
+    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_res1 = compiled_hpu(shape_in, g)
+    torch.manual_seed(123)
+    hpu_res2 = compiled_hpu(shape_in, g)
+    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
+

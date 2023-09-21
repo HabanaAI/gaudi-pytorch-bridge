@@ -37,7 +37,6 @@ hpu_fallback_op_list = {
     "initial_seed",
     "get_rng_state",
     "set_rng_state",
-    "rand",
     "randn",
     "randint",
     "rand_like",
