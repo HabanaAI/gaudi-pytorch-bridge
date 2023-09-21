@@ -20,6 +20,8 @@
 #include <unordered_set>
 #include "habana_lazy/passes/replace_inplace_ops.h"
 
+#include "backend/synapse_helpers/env_flags.h"
+
 using namespace torch::jit;
 
 struct ReplaceInplaceOpsPassTests : public ::testing::Test {
@@ -101,7 +103,8 @@ graph(%id_53_hpu__input : Float(device=hpu:0),
 
   auto printed_graph = Print(graph);
 
-  const std::size_t expected_number_of_inplace_muls = 3;
+  const bool inplace_zero = GET_ENV_FLAG_NEW(PT_HPU_INPLACE_ZERO);
+  const std::size_t expected_number_of_inplace_muls = inplace_zero ? 3 : 1;
 
   ASSERT_EQ(
       expected_number_of_inplace_muls, Count(printed_graph, "aten::mul_"));
