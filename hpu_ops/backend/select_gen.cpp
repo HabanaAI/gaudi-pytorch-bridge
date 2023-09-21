@@ -95,7 +95,7 @@ void SelectHpu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   std::fill_n(params.ends, HABANA_DIM_MAX, 0);
   std::fill_n(params.steps, HABANA_DIM_MAX, 1);
 
-  params.axes[0] = self.dim() - dim - 1;
+  params.axes[0] = get_dim_in_tpc_order(dim, self.dim());
   params.starts[0] = start;
   params.ends[0] = end;
   params.steps[0] = step;

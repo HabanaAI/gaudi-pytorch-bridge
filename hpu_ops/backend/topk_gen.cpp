@@ -72,7 +72,7 @@ void Topk::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   // As per CGUID doc, bsw is ignored if params.kType = K_TENSOR_SHAPE;
   // which is set in DS case.
   params.bsw = k;
-  params.axis = self.dim() - dim - 1;
+  params.axis = get_dim_in_tpc_order(dim, self.dim());
   params.bottomK = !largest;
   params.isVcData = false;
 

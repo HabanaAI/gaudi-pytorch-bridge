@@ -37,6 +37,7 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/resize.h"
 #include "habana_lazy/aten_lazy_bridge.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
 using namespace habana;
@@ -721,7 +722,7 @@ void SliceInsertOperator::ComputeParams(
     int64_t end = paramsList[i * 4 + 2];
     int64_t step = paramsList[i * 4 + 3];
     FixSliceParams(self, dim, start, end, step);
-    params.axes[i] = self.dim() - dim - 1;
+    params.axes[i] = get_dim_in_tpc_order(dim, self.dim());
     params.starts[i] = start;
     params.ends[i] = end;
     params.steps[i] = step;

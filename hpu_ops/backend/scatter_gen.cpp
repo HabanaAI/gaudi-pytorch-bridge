@@ -27,7 +27,7 @@ void ScatterOperator::AddNode(
   }
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   ns_ScatterKernel::Params params{};
-  params.axis = static_cast<int>(self.dim() - dim - 1);
+  params.axis = get_dim_in_tpc_order(dim, self.dim());
 
   synTensor src_or_val;
   std::unique_ptr<synapse_helpers::tensor> tmp_tensor;

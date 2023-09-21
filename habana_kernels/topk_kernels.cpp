@@ -27,6 +27,7 @@
 #include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/topk_kernels.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace torch;
 
@@ -221,7 +222,7 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
       GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_TOPK_USING_CGUID);
   if (enable_topk_in_cguid) {
     ns_TopkNodeV2::ParamsV4 params{};
-    params.axis = self.dim() - dim - 1;
+    params.axis = get_dim_in_tpc_order(dim, self.dim());
     params.bottomK = !largest;
     params.isVcData = false;
     if (graph.is_dynamic_graph()) {
@@ -245,7 +246,7 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
   } else {
     synBeamParams params;
     params.bsw = k;
-    params.axis = self.dim() - dim - 1;
+    params.axis = get_dim_in_tpc_order(dim, self.dim());
     params.bottomK = !largest;
 
     // add topk node

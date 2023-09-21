@@ -9,6 +9,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir.h"
 #include "habana_lazy/ir_utils.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "include/habanalabs/hpu_custom_op.h"
 
 using namespace habana_lazy;
@@ -104,7 +105,7 @@ class LazyCustomKernelKernelTest : public habana_lazy_test::LazyTest {
       auto self = inputs[0].toTensor(); // input
       params->bsw = inputs[1].toInt(); // k
       auto dim = inputs[2].toInt(); // axis
-      params->axis = self.dim() - dim - 1;
+      params->axis = habana::get_dim_in_tpc_order(dim, self.dim());
       params->bottomK = inputs[3].toBool(); // bottom
       return params;
     };

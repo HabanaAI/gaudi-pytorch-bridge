@@ -42,6 +42,7 @@
 #include "habana_lazy/tensor_impl.h"
 #include "hpu_ops/common/index.h"
 #include "hpu_ops/cpu_fallback.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
 
 using namespace torch;
@@ -128,7 +129,7 @@ void GatherOperator::AllocateAndAddSynapseNode(
   auto output = AllocateOutput(inputs, output_metadata.at(0));
 
   ns_GatherKernel::Params params;
-  params.axis = self.dim() - dim - 1;
+  params.axis = get_dim_in_tpc_order(dim, self.dim());
 
   p_context_->params_.emplace<ns_GatherKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
@@ -218,7 +219,7 @@ void GatherElemOperator::AllocateAndAddSynapseNode(
   auto output = AllocateOutput(inputs, output_metadata.at(0));
 
   ns_GatherElementsKernel::Params params;
-  params.axis = self.dim() - dim - 1;
+  params.axis = get_dim_in_tpc_order(dim, self.dim());
 
   p_context_->params_.emplace<ns_GatherElementsKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
@@ -287,7 +288,7 @@ void ScatterWrapperOperator::AllocateAndAddSynapseNode(
   }
 
   ns_ScatterKernel::Params params;
-  params.axis = self.dim() - dim - 1;
+  params.axis = get_dim_in_tpc_order(dim, self.dim());
 
   p_context_->params_.emplace<ns_ScatterKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
@@ -335,7 +336,7 @@ void ScatterAddOperator::AllocateAndAddSynapseNode(
   }
 
   ns_ScatterKernel::Params params;
-  params.axis = self.dim() - dim - 1;
+  params.axis = get_dim_in_tpc_order(dim, self.dim());
   p_context_->params_.emplace<ns_ScatterKernel::Params>(params);
   p_context_->params_size_ = sizeof(params);
 
@@ -2085,7 +2086,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
     std::fill_n(params.ends, HABANA_DIM_MAX, 0);
     std::fill_n(params.steps, HABANA_DIM_MAX, 1);
     // slice triggered only on 1 dim, therefore use only index 0
-    params.axes[0] = self.dim() - dim - 1;
+    params.axes[0] = get_dim_in_tpc_order(dim, self.dim());
     params.starts[0] = start;
     params.ends[0] = end;
     params.steps[0] = step;

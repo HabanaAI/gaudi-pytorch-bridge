@@ -10,6 +10,7 @@
  *
  *******************************************************************************/
 
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_backend.h"
 
 namespace habana {
@@ -58,7 +59,7 @@ void SplitHpu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
 
   synSplitParams params;
-  params.axis = self.dim() - dim - 1;
+  params.axis = get_dim_in_tpc_order(dim, self.dim());
 
   auto split_op = BuildOp(
       graph, guid_, {syn_in(0)}, node_output_attrs, &params, sizeof(params));
