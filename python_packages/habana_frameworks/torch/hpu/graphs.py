@@ -894,7 +894,7 @@ class ModuleCacher(torch.nn.Module):
         return self.orig_model(*args, **kwargs)
 
     def __call__(self, model, use_lfu=False, inplace=True, allow_unused_input=False, asynchronous=False, have_grad_accumulation=False, log_frequency=100, verbose=False,
-        disable_tensor_cache=False, dry_run=True):
+        disable_tensor_cache=False, dry_run=False):
         model.is_hpugraph_tracing = self.is_hpugraph_tracing
         if not inplace:
             model = copy.copy(model)
@@ -916,7 +916,8 @@ class ModuleCacher(torch.nn.Module):
         self.log_frequency = log_frequency
         env_tensor_cache = os.environ.get("PT_HPUGRAPH_DISABLE_TENSOR_CACHE")
         self.disable_tensor_cache =  disable_tensor_cache if env_tensor_cache is None else env_tensor_cache == "1"
-        self.dry_run = dry_run
+        env_dry_run = os.environ.get("PT_HPUGRAPH_ENABLE_DRY_RUN")
+        self.dry_run =  dry_run if env_dry_run is None else env_dry_run == "1"
         return self.model
 
     def log_stats(self):
