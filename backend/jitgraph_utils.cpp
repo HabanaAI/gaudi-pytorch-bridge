@@ -157,4 +157,61 @@ c10::ArrayRef<torch::jit::Value*> getNodeOutputs(torch::jit::Node* node) {
   return node_outs;
 }
 
+void visit_prim_node(
+    const torch::jit::Node* node,
+    std::unordered_map<const torch::jit::Value*, torch::jit::IValue>&
+        val_to_ival_map) {
+  if (torch::jit::prim::Constant == node->kind()) {
+    for (const auto value : node->outputs()) {
+      HABANA_ASSERT(val_to_ival_map.count(value) == 0);
+      val_to_ival_map[value] = torch::jit::IValue(toIValue(value).value());
+    }
+  } else if (torch::jit::prim::ListConstruct == node->kind()) {
+    auto node_outputs = node->outputs();
+    HABANA_ASSERT(node_outputs.size() == 1);
+    auto value{node_outputs[0]};
+    const auto& node_ins = node->inputs();
+
+    // Handle empty list
+    if (node_ins.empty()) {
+      val_to_ival_map[value] = torch::jit::IValue(c10::List<int64_t>());
+      return;
+    }
+
+    auto in_ivalue_0 = val_to_ival_map[node_ins[0]];
+
+    if (in_ivalue_0.isTensor()) {
+      // Handle construction of list consisting tensor only
+      std::vector<at::Tensor> tensorList;
+      for (const auto input : node->inputs()) {
+        HABANA_ASSERT(val_to_ival_map.count(input));
+        auto input_ival = val_to_ival_map[input];
+        HABANA_ASSERT(input_ival.isTensor());
+        tensorList.emplace_back(input_ival.toTensor());
+      }
+      val_to_ival_map[value] = torch::jit::IValue(tensorList);
+    } else if (in_ivalue_0.isInt()) {
+      //  Handle construction of list consisting ints only
+      c10::List<int64_t> intList;
+      for (const auto& value_in : node_ins) {
+        auto ivalue = val_to_ival_map[value_in];
+        // Constructed list should be homogenous
+        HABANA_ASSERT(ivalue.isInt());
+        intList.emplace_back(ivalue.toInt());
+      }
+      val_to_ival_map[value] = torch::jit::IValue(intList);
+    } else if (in_ivalue_0.isBool()) {
+      //  Handle construction of list consisting bools only
+      c10::List<bool> boolList;
+      for (const auto& value_in : node_ins) {
+        auto ivlaue = val_to_ival_map[value_in];
+        // Constructed list should be homogenous
+        HABANA_ASSERT(ivlaue.isBool());
+        boolList.emplace_back(ivlaue.toBool());
+      }
+      val_to_ival_map[value] = torch::jit::IValue(boolList);
+    }
+  }
+}
+
 } // namespace jitgraph_utils

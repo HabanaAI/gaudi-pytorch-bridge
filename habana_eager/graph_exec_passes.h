@@ -34,6 +34,10 @@ void HandleDynamicInputPatching(
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dgraph_meta,
     bool is_first_launch);
+void ResolveNegativeSTSizes(
+    std::shared_ptr<torch::jit::Graph> graph,
+    torch::jit::Stack& stack,
+    std::shared_ptr<DynamicGraphMetaData> dmeta);
 void RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph);
 void HandleInputViews(
     std::shared_ptr<torch::jit::Graph> graph,

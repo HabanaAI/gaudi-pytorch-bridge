@@ -83,7 +83,7 @@ GraphExec::GraphExec(
   torch::jit::Stack in_stack = example_inputs;
   if (IsDynamicGraph()) {
     ProcessDynamicGraph(example_inputs);
-    in_stack = ProcessDynamicStack(example_inputs, false);
+    in_stack = ProcessDynamicStack(example_inputs, true);
   }
 
   at::ArrayRef<torch::jit::IValue> input_refs =
@@ -134,6 +134,8 @@ std::vector<at::IValue> GraphExec::ProcessDynamicStack(
   HABANA_ASSERT(
       m_graph->inputs().size() == new_stack.size(),
       "Graph inputs size not patching with stack size!!");
+  if (!is_first_launch && m_dgraph_meta->negative_size_nodes.size())
+    pass::ResolveNegativeSTSizes(m_graph, new_stack, m_dgraph_meta);
   return new_stack;
 }
 

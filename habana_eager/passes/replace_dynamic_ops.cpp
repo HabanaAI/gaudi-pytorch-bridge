@@ -225,6 +225,26 @@ void HandleDynamicOps(
   }
 }
 
+void ResolveNegativeSTSizes(
+    std::shared_ptr<torch::jit::Graph> graph,
+    torch::jit::Stack& stack,
+    std::shared_ptr<DynamicGraphMetaData> dmeta) {
+  PT_EAGER_TRACE;
+  std::unordered_map<CValPtr, torch::jit::IValue> m_value_ivalue_map;
+  HabanaLaunchOpPT::RunHybridSif(graph, stack, m_value_ivalue_map);
+
+  for (auto it = dmeta->negative_size_nodes.begin();
+       it != dmeta->negative_size_nodes.end();
+       it++) {
+    torch::jit::Node* node{*it};
+    std::string node_name = node->kind().toQualString();
+    DynamicOpPtr dsOp = DSOpsRegistry().get(node_name);
+    if (!dsOp)
+      continue;
+    dsOp->ResolveNegativeSizes(graph, stack, node, m_value_ivalue_map);
+  }
+}
+
 void HandleDynamicInputPatching(
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dmeta,

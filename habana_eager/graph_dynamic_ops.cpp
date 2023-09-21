@@ -33,6 +33,8 @@ void GetValueAndScalarIndexFromInput(
   if (input->node()->kind() == constant_symbol) {
     try {
       value = static_cast<int64_t>(input->node()->i(value_attr));
+      if (value < 0)
+        index = value;
     } catch (std::exception& e) {
       value = 0;
     }
@@ -106,7 +108,7 @@ void GetValuesAndScalarIndexesFromListConstruct(
   }
 }
 
-void CreateAndInsertDynamicNodeToGraph(
+torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
     torch::jit::Graph* graph,
     torch::jit::Node* aten_node,
     const c10::Symbol& hpu_symbol,
@@ -127,6 +129,7 @@ void CreateAndInsertDynamicNodeToGraph(
     auto one = torch::jit::attr::deterministic;
     hpu_node->i_(one, aten_node->i(one));
   }
+  return hpu_node;
 }
 
 // TODO SW-152611
@@ -140,6 +143,10 @@ void UpdateShapeTensorSize(
     auto stack_index = stack_idxs[idx];
     if (stack_index == LONG_MAX) {
       new_shape[idx] = dtensor.sizes()[idx];
+    } else if (stack_index < 0) {
+      // add support for negative consts.. empty the shape tensor and COS in Sif
+      new_shape.set_size(0);
+      break;
     } else {
       new_shape[idx] = GetSymintValue(orig_stack, stack_index);
     }
@@ -344,6 +351,7 @@ habana::graph::RegisterDSOps& DSOpsRegistry() {
 static auto& BasicDSOpsRegistry =
     habana::graph::DSOpsRegistry()
         .add("aten::view", DSOP_MID_BACKEND(ViewOperatorDS))
+        .add("hpu::view_neg", DSOP_MID_BACKEND(ViewOperatorDS))
         .add("aten::repeat", DSOP_MID_BACKEND(RepeatOperatorDS))
         .add("aten::topk", DSOP_MID_BACKEND(TopkOperatorDS))
         .add("aten::as_strided", DSOP_MID_BACKEND(AsStridedOperatorDS))

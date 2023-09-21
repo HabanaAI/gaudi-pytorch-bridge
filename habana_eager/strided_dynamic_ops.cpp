@@ -30,7 +30,8 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
     ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
   HABANA_ASSERT(2 == aten_view_node->inputs().size());
-  static const auto hpu_view_symbol{c10::Symbol::fromQualString("hpu::view")};
+  static const auto hpu_view_symbol{
+      c10::Symbol::fromQualString("hpu::view_neg")};
   static const auto list_construct_symbol{
       c10::Symbol::fromQualString("prim::ListConstruct")};
   auto graph{aten_view_node->owningGraph()};
@@ -54,7 +55,6 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
   // Use actual reshape sizes and avoid sizes with dims "-1"
   auto out_tensors = getOutputTensers(aten_view_node, value_ivalue_map);
   auto inferred_st_sizes = out_tensors[0].sizes().vec();
-
   // Step2: Create shape tensor and insert to graph inputs.
   auto view_st_name =
       GetDynamicTensorName(v_view_shape->debugName(), SHAPE_TENSOR);
@@ -62,20 +62,46 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
       CreateSTAndInsertToDSStack(inferred_st_sizes, scalar_indexes, m_dmeta);
   auto v_st_tensor = graph->addInput(view_st_name);
 
-  // Step3: Register patching function and tensor lists
+  // Step3: Create hpu::view node and insert to the graph
+  auto hpu_view_node = CreateAndInsertDynamicNodeToGraph(
+      graph,
+      aten_view_node,
+      hpu_view_symbol,
+      {aten_view_node->input(0), v_st_tensor, v_view_shape},
+      value_ivalue_map);
+
+  // Step4: Register patching function and tensor lists
   std::vector<int64_t> dtensor_indexes{stack_index};
   InputPatchPair patch_info(&DynamicOp::UpdateDynamicInputs, dtensor_indexes);
   m_dmeta->ds_input_patching_list.push_back(patch_info);
 
-  // Step4: Create hpu::view node and insert to the graph
-  CreateAndInsertDynamicNodeToGraph(
-      graph,
-      aten_view_node,
-      hpu_view_symbol,
-      {aten_view_node->input(0), v_st_tensor},
-      value_ivalue_map);
+  for (auto val : st_size) {
+    if (val < 0) {
+      m_dmeta->negative_size_nodes.emplace_back(hpu_view_node);
+      break;
+    }
+  }
 
   return true;
+}
+
+void ViewOperatorDS::ResolveNegativeSizes(
+    std::shared_ptr<torch::jit::Graph> graph,
+    torch::jit::Stack& org_stack,
+    torch::jit::Node* node,
+    std::unordered_map<CValPtr, torch::jit::IValue>& value_ivalue_map) {
+  ValueIvalueMap gin_value_ivalue_map;
+  for (size_t j = 0; j < org_stack.size(); j++) {
+    auto value_input = graph->inputs().at(j);
+    auto ivpsh = std::make_shared<IVal>(org_stack[j]);
+    gin_value_ivalue_map[value_input] = ivpsh;
+  }
+  auto view_st_value = node->inputs().at(1);
+  auto view_out_value = node->outputs().at(0);
+  auto cos_t_shapes = value_ivalue_map[view_out_value].toTensor().sizes().vec();
+  auto ivsh_view_st = gin_value_ivalue_map[view_st_value];
+  ivsh_view_st->toTensor().unsafeGetTensorImpl()->set_sizes_contiguous(
+      cos_t_shapes);
 }
 
 bool IsStridedRatioUndefined(

@@ -437,6 +437,12 @@ InferOutputMetaRetType ReshapeOperator::InferOutputMeta(
   } else {
     auto shapeTensor = inputs[1].toTensor();
     inferred_size = shapeTensor.sizes().vec();
+    if (shapeTensor.sizes().empty() && inputs.size() == 3) {
+      auto shape = inputs[2].toIntList();
+      auto shape_vector = shape.vec();
+      auto input_shape = IntArrayRef(shape_vector.data(), shape_vector.size());
+      inferred_size = habana_helpers::infer_size(input_shape, self.numel());
+    }
   }
 
   auto memory_format = self.suggest_memory_format();
@@ -469,7 +475,7 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 2,
+      inputs.size() == 2 || inputs.size() == 3,
       "Incorrect size of input arguments for Reshape Operator");
   std::vector<int64_t> inferred_size;
   Tensor self = inputs[0].toTensor();
@@ -595,7 +601,7 @@ void ViewOperator::AllocateAndAddSynapseNode(
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() == 2,
+      inputs.size() == 2 || inputs.size() == 3,
       "Incorrect size of input arguments for View Operator");
   TORCH_CHECK(
       inputs[0].isTensor(), "Input arg 1 for View op needs to be tensor type");
@@ -855,6 +861,7 @@ static auto& TensorShapeKernelsKernelRegistry =
         .add("hpu::expand_ds", KERNEL_FN_GLOBAL(BroadcastOperator))
         .add("aten::view", KERNEL_FN_GLOBAL(ViewOperator))
         .add("hpu::view", KERNEL_FN_GLOBAL(ViewOperator))
+        .add("hpu::view_neg", KERNEL_FN_GLOBAL(ViewOperator))
         .add("hpu::reshape", KERNEL_FN_GLOBAL(ViewOperator))
         .add("aten::_unsafe_view", KERNEL_FN_GLOBAL(ViewOperator))
         .add("aten::split_with_sizes", KERNEL_FN_GLOBAL(SplitWithSizeOperator));

@@ -33,4 +33,8 @@ inline bool isInplace(const torch::jit::Node* node) {
   return inplaceInputId(node) >= 0;
 }
 c10::ArrayRef<torch::jit::Value*> getNodeOutputs(torch::jit::Node* node);
+void visit_prim_node(
+    const torch::jit::Node* node,
+    std::unordered_map<const torch::jit::Value*, torch::jit::IValue>&
+        val_to_ival_map);
 } // namespace jitgraph_utils

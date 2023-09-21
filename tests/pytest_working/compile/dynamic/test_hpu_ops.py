@@ -341,3 +341,28 @@ def test_view_negative_dim():
             result_compile_train = compiled_function_training(t_h, s2)
             out_c = raw_function(t, s2)
             assert torch.allclose(result_compile_train.to("cpu"), out_c)
+
+def test_view_negative_dim_1():
+    inputs = [(4, 7, 7, 8), (4, 6, 6, 8), (4, 5, 5, 8)]
+    inputs1 = [(4, 49, 8), (4, 36, 8), (4, 25, 8)]
+    shapes = [(4, -1, 8), (4, -1, 8), (4, -1, 8)]
+
+    def raw_function(input_tensor, shape):
+        t = torch.relu(input_tensor)
+        out = t.view(shape)
+        #t2 = torch.relu(input_tensor2)
+        #out2 = out + t2
+        #return out2
+        out1 = torch.relu(out)
+        return out1
+
+    compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+
+    for s1 , s1_1 , s2 in zip(inputs, inputs1, shapes):
+        t = torch.randn(s1, requires_grad = False)
+        t2 = torch.randn(s1_1, requires_grad = False)
+        t_h = t.to("hpu")
+        #t_h_2 = t2.to("hpu")
+        result_compile_train = compiled_function_training(t_h, s2)
+        out_c = raw_function(t, s2)
+        assert torch.allclose(result_compile_train.to("cpu"), out_c)

@@ -44,6 +44,7 @@ struct DynamicGraphMetaData {
       ds_tensor_to_scalar_map;
   std::vector<InputPatchPair> ds_input_patching_list;
   std::vector<size_t> remove_input_indexes;
+  std::vector<torch::jit::Node*> negative_size_nodes;
 };
 
 int64_t GetSymintValue(torch::jit::Stack&, uint64_t);

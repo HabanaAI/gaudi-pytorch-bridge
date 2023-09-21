@@ -308,6 +308,11 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // external_tensor_info_indexes_-------------///-----------------------------------///-----Write-(in-cache-hit-case)-----///-----Write-(in-cache-miss-case)----///-----------Read
   std::shared_ptr<synapse_helpers::graph> syn_graph_ptr_ = nullptr;
 
+  static void RunHybridSif(
+      std::shared_ptr<torch::jit::Graph> jit_ir_graph,
+      torch::jit::Stack& inputs,
+      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
+
  private:
   // user stream info
   synapse_helpers::hpuStream_t hpu_stream;

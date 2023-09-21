@@ -44,7 +44,7 @@ void GetValuesAndScalarIndexesFromListConstruct(
     std::vector<int64_t>& values,
     std::vector<int64_t>& scalar_indexes);
 
-void CreateAndInsertDynamicNodeToGraph(
+torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
     torch::jit::Graph* graph,
     torch::jit::Node* aten_view_node,
     const c10::Symbol& hpu_view_symbol,
@@ -112,6 +112,12 @@ class DynamicOp {
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) = 0;
+
+  virtual void ResolveNegativeSizes(
+      std::shared_ptr<torch::jit::Graph> graph,
+      torch::jit::Stack& org_stack,
+      torch::jit::Node* node,
+      std::unordered_map<CValPtr, torch::jit::IValue>& value_ivalue_map) {}
 
   static void UpdateDynamicInputs(
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
@@ -197,6 +203,12 @@ class ViewOperatorDS : public DynamicOp {
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
+  void ResolveNegativeSizes(
+      std::shared_ptr<torch::jit::Graph> graph,
+      torch::jit::Stack& org_stack,
+      torch::jit::Node* node,
+      std::unordered_map<CValPtr, torch::jit::IValue>& value_ivalue_map)
+      override;
   static void UpdateDynamicInputs(
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
