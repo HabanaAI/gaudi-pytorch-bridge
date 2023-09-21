@@ -40,7 +40,7 @@ COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
 add_library(${TARGET_NAME} SHARED
     shared_layer_bindings.cpp
     ${CMAKE_BINARY_DIR}/generated/check_kernel_support/op_def.cpp)
-target_include_directories(_shared_layer_C PRIVATE ${CMAKE_BINARY_DIR}/generated/check_kernel_support
+target_include_directories(_shared_layer_C PRIVATE ${CMAKE_BINARY_DIR}/generated/check_kernel_support ${CMAKE_BINARY_DIR}
     ${CMAKE_SOURCE_DIR}/python_packages/habana_frameworks/torch/dynamo/compile_backend)
 target_compile_definitions(${TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_NAME})
 set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")

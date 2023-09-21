@@ -21,5 +21,6 @@ target_include_directories(
   PUBLIC include/ ${PROJECT_SOURCE_DIR})
 target_include_directories(habana_serialization SYSTEM
                            PUBLIC $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(habana_serialization PRIVATE ${CMAKE_BINARY_DIR})
 
 target_link_libraries(habana_serialization PUBLIC torch c10 absl::span npu::hllogger npu::fmt)

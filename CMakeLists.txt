@@ -332,6 +332,7 @@ add_custom_command(TARGET habana_pytorch2_plugin POST_BUILD COMMAND
   $ENV{BUILD_ROOT_LATEST}/$<TARGET_FILE_NAME:habana_pytorch2_plugin>
 )
 add_dependencies(habana_pytorch2_plugin habana_pytorch_frontend_ops)
+add_dependencies(habana_serialization pytorch_generate_env)
 install(TARGETS habana_pytorch2_plugin LIBRARY DESTINATION habana_torch_plugin/lib)
 
 option(BUILD_TESTS "Build gtest binaries" ON)
