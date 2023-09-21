@@ -151,7 +151,7 @@ def test_multiple_graph_capture_memoptimization(asynchronous=False, dry_run=Fals
         loss_hpu_vec.append(loss_hpu)
         ht.core.mark_step()
         if release_memory_test:
-            module1_hpu.destroy()
+            module1_hpu.clear_cache()
         count = count+1
 
     for data, target in zip(real_inputs_cpu, real_targets_cpu):

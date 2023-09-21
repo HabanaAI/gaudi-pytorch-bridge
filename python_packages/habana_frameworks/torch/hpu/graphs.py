@@ -633,10 +633,10 @@ def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dr
 
     module.forward = forward
 
-    # Can call model.destroy to release the HPU graph memory cached
-    def destroy():
+    # Can call model.clear_cache to release the HPU graph memory cached
+    def clear_cache():
         cache.clear()
-    module.destroy = destroy
+    module.clear_cache = clear_cache
 
     return module
 
