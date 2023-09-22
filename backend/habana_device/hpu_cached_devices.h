@@ -220,10 +220,10 @@ class HPURegistrar {
   HPUDevice* active_device_{nullptr};
   using device_holder = std::unique_ptr<HPUDevice, void (*)(HPUDevice*)>;
   device_holder acquired_device_;
-  CallFinally accumulation_thread_cleanup_{};
   CallFinally lazy_exec_thread_pool_cleanup_{};
   CallFinally lazy_execution_arena_cleanup_{};
   CallFinally process_group_finalizer_;
+  CallFinally accumulation_thread_cleanup_{};
   CallFinally media_proxy_finalizer_;
 
   /**
