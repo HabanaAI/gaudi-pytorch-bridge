@@ -22,4 +22,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     }
     habana::HabanaLaunchOpPT::cleanUp();
   });
+  m.def("join_pending_pipeline_threads", []() {
+    habana::eager::JoinPendingPipelineThreads();
+  });
 }

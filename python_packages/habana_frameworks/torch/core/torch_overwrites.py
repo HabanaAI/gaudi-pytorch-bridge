@@ -107,6 +107,9 @@ def overwrite_torch_functions():
 
     @wraps(torch.manual_seed)
     def wrap_manual_seed(seed):
+        if not is_lazy():
+            from habana_frameworks.torch.utils import _debug_eager_C
+            _debug_eager_C.join_pending_pipeline_threads()
         rand_hpu.manual_seed(seed)
         return manual_seed_orig(seed)
 
