@@ -13,27 +13,19 @@
 
 #pragma once
 
+#include <torch/csrc/jit/runtime/argument_spec.h>
 #include <atomic>
 #include <functional>
 #include <iostream>
 #include <mutex>
 #include <string>
-
-#include <ATen/Tensor.h>
-#include <torch/csrc/jit/ir/ir.h>
-#include <torch/csrc/jit/runtime/argument_spec.h>
-#include <torch/csrc/jit/runtime/interpreter.h>
-
 #include "backend/helpers/collective_kernel_info.h"
-#include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/graph.h"
-#include "backend/synapse_helpers/time_slot.h"
 #include "habana_helpers/habana_serialization/include/habana_serialization/recipe_cache.h"
 #include "habana_helpers/logging.h"
-#include "habana_lazy/hpu_lazy_tensors.h"
 #include "synapse_common_types.h"
 
 #define PGM_LRU_MAX_EAGER_NRECIPES 100000

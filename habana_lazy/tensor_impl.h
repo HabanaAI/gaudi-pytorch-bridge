@@ -74,7 +74,7 @@ class HbLazyTensorImpl : public c10::TensorImpl {
 
   bool has_storage() const override;
 
-  void set_storage_keep_dtype(at::Storage storage);
+  void set_storage_keep_dtype(at::Storage storage) override;
 
   void handle_view_cycles(HbLazyTensor& hl_src, HbLazyTensor& hl_dst);
 

@@ -10,64 +10,55 @@
  *
  *******************************************************************************
  */
-
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "backend/helpers/eager_pipeline.h"
-#include "backend/kernel/hpu_habana_compile_op_pt.h"
-#include "backend/kernel/hpu_habana_execute_op_pt.h"
-#include "pytorch_helpers/habana_helpers/python_utils.h"
-
-#include <algorithm>
-#include <iomanip>
-#include <sstream>
-#include <typeinfo>
-#include <unordered_map>
-
 #include <ATen/record_function.h>
-#include <torch/csrc/jit/ir/constants.h>
-#include <torch/csrc/jit/runtime/interpreter.h>
-
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
 #include <absl/container/inlined_vector.h>
 #include <absl/hash/hash.h>
 #include <absl/memory/memory.h>
 #include <absl/types/optional.h>
-
+#include <torch/csrc/jit/ir/constants.h>
+#include <torch/csrc/jit/runtime/interpreter.h>
+#include <algorithm>
+#include <iomanip>
+#include <sstream>
+#include <typeinfo>
+#include <unordered_map>
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/tensor_builder.h"
-#include "backend/kernel/control_edges_processing.h"
-#include "habana_helpers/logging.h"
-
-#include "backend/kernel/ds_graph_recompile.h"
-#include "backend/kernel/hpu_shape_inference.h"
-#include "backend/kernel/refinement_engine.h"
-#include "backend/passes/hpu_habana_persistence_marker_pass.h"
-
+#include "backend/helpers/compilation_statistics.h"
 #include "backend/helpers/create_tensor.h"
+#include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
+#include "backend/jitgraph_utils.h"
+#include "backend/kernel/control_edges_processing.h"
+#include "backend/kernel/ds_graph_recompile.h"
+#include "backend/kernel/hpu_habana_compile_op_pt.h"
+#include "backend/kernel/hpu_habana_execute_op_pt.h"
+#include "backend/kernel/hpu_habana_meta_op_list.h"
+#include "backend/kernel/hpu_shape_inference.h"
+#include "backend/kernel/refinement_engine.h"
+#include "backend/passes/hpu_habana_persistence_marker_pass.h"
+#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/tcmalloc_helper.h"
+#include "habana_helpers/logging.h"
 #include "habana_helpers/logging_pt.h"
 #include "habana_helpers/misc_utils.h"
-
 #include "habana_kernels/hccl_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_kernels/unary_kernels.h"
-
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
-
 #include "hpu_ops/hpu_op_helper.h"
-
-#include "backend/jitgraph_utils.h"
-#include "backend/synapse_helpers/env_flags.h"
-#include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 
 using namespace torch::jit;
 using namespace jitgraph_utils;

@@ -11,11 +11,12 @@
  *******************************************************************************
  */
 #include "HPUGraph.h"
-
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/view_utils.h"
+
 namespace at {
 namespace hpu {
 
@@ -370,9 +371,7 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
   }
 }
 
-void HPUGraph::replayV3(
-    std::vector<at::Tensor>& inputs,
-    bool async) {
+void HPUGraph::replayV3(std::vector<at::Tensor>& inputs, bool async) {
   PT_LAZY_TRACE;
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   PT_HPUGRAPH_DEBUG(
@@ -525,9 +524,7 @@ void SingleHPUGraph::replay(bool async) {
   }
 }
 
-void SingleHPUGraph::replayV3(
-    std::vector<at::Tensor>& inputs,
-    bool async) {
+void SingleHPUGraph::replayV3(std::vector<at::Tensor>& inputs, bool async) {
   PT_HPUGRAPH_DEBUG(
       "In HPUGraph::replayV3 with ", inputs.size(), " input tensors");
   PT_DEVICE_DEBUG(graph_ ? (graph_->dump(), "") : "null graph");

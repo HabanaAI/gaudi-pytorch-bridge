@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include "lazy_executor.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_helpers/python_utils.h"
 
 namespace habana_lazy {

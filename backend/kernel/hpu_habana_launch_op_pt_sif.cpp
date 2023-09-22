@@ -11,46 +11,19 @@
  *******************************************************************************
  */
 
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
-
-#include <algorithm>
-#include <iomanip>
-#include <sstream>
-#include <typeinfo>
-#include <unordered_map>
-
-#include <ATen/record_function.h>
 #include <torch/csrc/jit/ir/constants.h>
-#include <torch/csrc/jit/runtime/interpreter.h>
-
-#include "backend/habana_device/HPUAllocator.h"
-#include "backend/habana_device/tensor_builder.h"
-#include "habana_helpers/logging.h"
-
-#include "backend/kernel/ds_graph_recompile.h"
-#include "backend/kernel/hpu_shape_inference.h"
-#include "backend/kernel/refinement_engine.h"
-#include "backend/passes/hpu_habana_persistence_marker_pass.h"
-
-#include "backend/helpers/create_tensor.h"
+#include <unordered_map>
 #include "backend/helpers/graph.h"
+#include "backend/jitgraph_utils.h"
+#include "backend/kernel/ds_graph_recompile.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/kernel/hpu_habana_meta_op_list.h"
+#include "backend/kernel/hpu_shape_inference.h"
+#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
-#include "habana_helpers/misc_utils.h"
-
-#include "habana_kernels/hccl_kernels.h"
-#include "habana_kernels/kernel_utils.h"
-#include "habana_kernels/lazy_kernels_declarations.h"
-#include "habana_kernels/random_gen_kernels.h"
-#include "habana_kernels/unary_kernels.h"
-
-#include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
-
-#include "hpu_ops/hpu_op_helper.h"
-
-#include "backend/jitgraph_utils.h"
-#include "backend/synapse_helpers/env_flags.h"
+#include "hpu_ops/op_backend.h"
 
 using namespace torch::jit;
 

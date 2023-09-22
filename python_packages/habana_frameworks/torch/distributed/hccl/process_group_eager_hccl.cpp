@@ -23,6 +23,7 @@
 #include <vector>
 
 #include <unistd.h>
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/collective_utils.h"
 #include "backend/synapse_helpers/hccl_communicator.h"
 #include "habana_eager/eager_context.h"

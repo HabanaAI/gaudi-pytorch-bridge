@@ -12,7 +12,7 @@
  */
 
 #include <c10/util/ArrayRef.h>
-
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_eager/graph_exec.h"
 #include "habana_helpers/logging_pt.h"
 

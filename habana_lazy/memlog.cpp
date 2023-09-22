@@ -10,14 +10,13 @@
  *
  *******************************************************************************
  */
+#include "memlog.h"
 #include <sstream>
 #include <utility>
-
 #include "absl/types/optional.h"
-
 #include "aten_lazy_bridge.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_lazy/hlexec.h"
-#include "memlog.h"
 
 namespace habana_lazy {
 

@@ -11,33 +11,27 @@
  *******************************************************************************
  */
 #include "hpu_lazy_tensors.h"
-#include <ATen/ExpandUtils.h>
-#include <ATen/Tensor.h>
 #include <torch/csrc/jit/ir/ir.h>
-
-#include "common/utils.h"
-
+#include "backend/habana_device/HPUStream.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/event_dispatcher.h"
-#include "backend/kernel/ds_graph_recompile.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
-
-#include "habana_helpers/logging_pt.h"
-
-#include "habana_kernels/lazy_kernels.h"
+#include "backend/synapse_helpers/devmem_logger.h"
+#include "backend/synapse_helpers/env_flags.h"
+#include "common/utils.h"
+#include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hlexec.h"
+#include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/ir.h"
-#include "habana_lazy/lazy_arg_spec.h"
+#include "habana_lazy/lazy_graph_hash_builder.h"
+#include "habana_lazy/lazy_graph_hash_disabler.h"
 #include "habana_lazy/ops/hpu_input.h"
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view_utils.h"
+#include "habana_lazy/visualize.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
-
-#include "backend/habana_device/HPUStream.h"
-#include "backend/synapse_helpers/devmem_logger.h"
-#include "backend/synapse_helpers/env_flags.h"
-#include "habana_kernels/random_gen_kernels.h"
 
 using namespace habana_lazy;
 

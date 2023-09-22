@@ -13,6 +13,7 @@
 
 #include "ir.h"
 #include <absl/strings/str_format.h>
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/runtime_config.h"
 #include "habana_helpers/logging.h"
 #include "lazy_executor.h"

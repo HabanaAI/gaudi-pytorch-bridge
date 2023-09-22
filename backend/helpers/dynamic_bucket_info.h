@@ -12,25 +12,22 @@
  */
 #pragma once
 
-#include <cstdint>
-#include "backend/backend_meta.h"
-#include "backend/helpers/dynamic_bucket_info_utils.h"
-
 #include <algorithm>
 #include <atomic>
+#include <cstdint>
 #include <deque>
 #include <iostream>
 #include <limits>
 #include <mutex>
-
+#include "backend/backend_meta.h"
+#include "backend/helpers/dynamic_bucket_info_utils.h"
 #include "backend/lazy_to_backend.h"
-#include "torch/csrc/jit/ir/ir.h"
-
 #include "backend/synapse_helpers/habana_tensor.h"
 #include "backend/synapse_helpers/stream.h"
 #include "backend/synapse_helpers/time_slot.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/tensor_impl.h"
+#include "torch/csrc/jit/ir/ir.h"
 
 namespace habana {
 struct RecipeValueSpec;
@@ -91,24 +88,25 @@ inline std::ostream& operator<<(std::ostream& O, const SplitPolicy& p) {
   return O;
 }
 
-inline std::string DebugString(const DynamicDimsPolicy& d) {
+inline std::string_view DebugString(const DynamicDimsPolicy& d) {
+  using namespace std::literals;
   switch (d) {
     case DynamicDimsPolicy::DEFAULT:
-      return std::string("DEFAULT");
+      return "DEFAULT"sv;
     case DynamicDimsPolicy::CALCULATED:
-      return std::string("CALCULATED");
+      return "CALCULATED"sv;
     case DynamicDimsPolicy::HISTORIC:
-      return std::string("HISTORIC");
+      return "HISTORIC"sv;
     case DynamicDimsPolicy::FLATTENED:
-      return std::string("FLATTENED");
+      return "FLATTENED"sv;
     case DynamicDimsPolicy::CURRENT:
-      return std::string("CURRENT");
+      return "CURRENT"sv;
     case DynamicDimsPolicy::LOCAL_HISTORIC:
-      return std::string("LOCAL_HISTORIC");
+      return "LOCAL_HISTORIC"sv;
     case DynamicDimsPolicy::LOCAL_HIST_PER_TSR:
-      return std::string("LOCAL_HIST_PER_TSR");
+      return "LOCAL_HIST_PER_TSR"sv;
   }
-  return std::string();
+  return ""sv;
 }
 
 inline std::ostream& operator<<(std::ostream& O, const DynamicDimsPolicy& d) {
@@ -135,8 +133,8 @@ struct SplitStatImplBase {
 };
 
 struct SplitStatImplDynamic : public SplitStatImplBase {
-  SplitStatImplDynamic(size_t m = 1) : SplitStatImplBase(SplitPolicy::DYNAMIC) {
-    num_dyn_ranges_ = m;
+  SplitStatImplDynamic(size_t m = 1)
+      : SplitStatImplBase(SplitPolicy::DYNAMIC), num_dyn_ranges_(m) {
     max_pos_.resize(m, 0);
   }
   void Increment(const DynamicRanges& ranges, const std::vector<int64_t>& dims)

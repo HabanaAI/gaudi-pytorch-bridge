@@ -15,16 +15,16 @@
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
 #include <torch/csrc/jit/passes/fold_conv_bn.h>
 #include <torch/script.h>
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
-
 #include <cmath>
 #include <iterator>
+#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
 #include "pass_utils.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
 #include "recalculate_batchnorm_params.h"
 
 namespace {

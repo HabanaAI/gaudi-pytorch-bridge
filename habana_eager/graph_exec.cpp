@@ -12,21 +12,21 @@
  */
 
 #include "habana_eager/graph_exec.h"
-
 #include "backend/habana_device/HPUStream.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_eager/eager_context.h"
+#include "habana_eager/eager_exec.h"
 #include "habana_eager/eager_tensor.h"
-#include "habana_eager/eager_view.h"
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_exec_passes.h"
 #include "habana_eager/graph_storage.h"
 #include "habana_eager/graph_weight_permute.h"
 #include "habana_eager/passes/handle_views_insert_permute.h"
-
 #include "habana_helpers/logging.h"
+#include "habana_helpers/thread_pool/thread_pool.h"
 
 namespace habana {
 namespace graph {

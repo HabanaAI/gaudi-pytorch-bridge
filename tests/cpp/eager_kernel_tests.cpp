@@ -15,6 +15,7 @@
 #include <math.h>
 #include <torch/torch.h>
 #include <stdexcept>
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "common_functions_norm_kernel_tests.h"
 #include "habana_kernels/lazy_kernels_declarations.h"

@@ -12,38 +12,25 @@
  */
 
 #include "backend/kernel/hpu_habana_cache.h"
-
 #include <algorithm>
-#include <chrono>
 #include <iomanip>
-#include <sstream>
-
 #include "backend/backend_meta.h"
-#include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "habana_helpers/logging.h"
-
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_utils.h"
-#include "backend/lazy_to_backend.h"
+#include "backend/jit_graph_cache.h"
+#include "backend/kernel/hpu_habana_meta_op_list.h"
+#include "backend/synapse_helpers/devmem_logger.h"
+#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/event.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
+#include "habana_kernels/hccl_kernels.h"
+#include "habana_lazy/memlog.h"
 #include "habana_serialization/cache_version.h"
 #include "habana_serialization/deserializers.h"
 #include "habana_serialization/recipe_cache_config.h"
 #include "habana_serialization/serializers.h"
-
-#include "backend/synapse_helpers/devmem_logger.h"
-#include "backend/synapse_helpers/env_flags.h"
-#include "backend/synapse_helpers/event.h"
-#include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/hlexec.h"
-
-#include "habana_kernels/hccl_kernels.h"
-
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
-
-#include "habana_lazy/memlog.h"
 
 namespace {
 template <typename T>
@@ -265,6 +252,7 @@ RecipeValueSpec::~RecipeValueSpec() {
     synStatus status;
     auto& device = HPURegistrar::get_device();
     auto device_id = device.id();
+    // NOLINTNEXTLINE(performance-no-int-to-ptr)
     status = synHostFree(device_id, (void*)(htensor_wbuff), 0);
     if (status != synSuccess)
       PT_BRIDGE_DEBUG(Logger::formatStatusMsg(status), "host-free failed");
@@ -1625,6 +1613,7 @@ void RecipeValueSpec::launch(
           "Remove tensor ",
           ti.tensorName,
           " address ",
+          // NOLINTNEXTLINE(performance-no-int-to-ptr)
           reinterpret_cast<void*>(ti.pTensorAddress),
           " from outDevPtr since it is an external tensor");
       outDevPtr.erase(
@@ -1779,11 +1768,15 @@ void RecipeValueSpec::launch(
           std::move(outDevPtr), stream_handle, cleanup_callback);
       for (auto data_ptr : inDevPtr) {
         device.get_device_memory().recordStream(
-            reinterpret_cast<void*>(data_ptr), hpu_stream);
+            // NOLINTNEXTLINE(performance-no-int-to-ptr)
+            reinterpret_cast<void*>(data_ptr),
+            hpu_stream);
       }
       for (auto data_ptr : outDevPtr) {
         device.get_device_memory().recordStream(
-            reinterpret_cast<void*>(data_ptr), hpu_stream);
+            // NOLINTNEXTLINE(performance-no-int-to-ptr)
+            reinterpret_cast<void*>(data_ptr),
+            hpu_stream);
       }
       // Launch collective ops
       HABANA_ASSERT(

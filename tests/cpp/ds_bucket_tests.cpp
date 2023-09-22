@@ -332,7 +332,7 @@ struct PrintToStringParamName {
   std::string operator()(
       const ::testing::TestParamInfo<ParamType>& info) const {
     auto p = static_cast<habana_helpers::DynamicDimsPolicy>(info.param);
-    return habana_helpers::DebugString(p);
+    return std::string{habana_helpers::DebugString(p)};
   }
 };
 

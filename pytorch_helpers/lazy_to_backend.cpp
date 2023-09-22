@@ -13,6 +13,7 @@
 
 #include "backend/lazy_to_backend.h"
 #include "backend/backend_meta.h"
+#include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/create_tensor.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"

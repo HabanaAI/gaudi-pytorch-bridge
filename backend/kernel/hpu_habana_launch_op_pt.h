@@ -12,42 +12,12 @@
  */
 #pragma once
 
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include <cstdlib>
-
-#include <atomic>
-#include <chrono>
-#include <fstream>
-#include <functional>
-#include <iostream>
-#include <mutex>
-#include <string>
-#include <unordered_set>
-#include <utility>
-
-#include <ATen/Tensor.h>
-#include <absl/hash/hash.h>
-#include <absl/types/variant.h>
-
-#include <torch/csrc/jit/ir/ir.h>
-#include <torch/csrc/jit/runtime/argument_spec.h>
-#include <torch/csrc/jit/runtime/interpreter.h>
-
-#include "backend/kernel/control_edges_processing.h"
-#include "backend/kernel/hpu_habana_cache.h"
-#include "backend/kernel/hpu_habana_meta_op_list.h"
-#include "backend/kernel/hpu_shape_inference.h"
-
-#include "backend/habana_operator.h"
-#include "backend/helpers/compilation_statistics.h"
+#include "backend/helpers/dynamic_bucket_info.h"
+#include "backend/helpers/dynamic_bucket_info_utils.h"
+#include "backend/helpers/tensor_info.h"
+#include "backend/helpers/tensor_utils.h"
 #include "backend/jit_graph_cache.h"
-#include "habana_helpers/thread_pool/thread_pool.h"
-#include "habana_lazy/hpu_lazy_tensors.h"
-#include "habana_lazy/lazy_arg_spec.h"
-#include "habana_lazy/visualize.h"
+#include "backend/kernel/hpu_shape_inference.h"
 
 namespace habana {
 using IValPtrSharedToTesorInfoMap =
