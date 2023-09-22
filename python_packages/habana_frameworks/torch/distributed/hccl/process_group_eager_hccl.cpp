@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2022 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "process_group_eager_hccl.hpp"
 
@@ -133,7 +136,17 @@ ProcessGroupEagerHCCL::ProcessGroupEagerHCCL(
 
 void ProcessGroupEagerHCCL::destroy() {
   if (comm_) {
-    hostBarrier();
+    // Consider adding additional suffix based on process group identifier
+    // in case of multi process group scenarios
+    std::string barrier_key = std::string("ProcessGroupEagerHCCL::destroy");
+    auto worker_count = store_->add(barrier_key, 1);
+    if (getRank() == 0) {
+      while (worker_count != size_) {
+        worker_count = store_->add(barrier_key, 0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+    }
+
     habana_helpers::AutoNoGIL gil_release;
     comm_->flush_stream();
     comm_.reset();
