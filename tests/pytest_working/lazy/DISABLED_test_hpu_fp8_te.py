@@ -693,8 +693,91 @@ def test_te_multiple_fwd_multiple_bwd(minimize_memory, device=torch.device("hpu:
             inputs[i].grad=None
 
     for i in range(len(test_outputs)):
-        assert torch.equal(ref_outputs[i], test_outputs[i])
-        assert torch.equal(ref_grads[i], test_grads[i])
+        assert torch.equal(ref_outputs[i], test_outputs[i]), f"output mismatch at i: {i}"
+        assert torch.equal(ref_grads[i], test_grads[i]), f"grad mismatch at i: {i}"
+
+
+# Verify if the weight caching is working well for micro batches case
+def test_linear_weight_caching_in_microbatches_case():
+    import habana_frameworks.torch as ht
+    torch.manual_seed(12345)
+    device=torch.device("hpu:0")
+    dtype=torch.bfloat16
+
+    input0 = torch.randn([4], dtype=dtype, device=device, requires_grad=True)
+    input1 = torch.randn([4], dtype=dtype, device=device, requires_grad=True)
+    input2 = torch.randn([4], dtype=dtype, device=device, requires_grad=True)
+    input3 = torch.randn([4], dtype=dtype, device=device, requires_grad=True)
+
+    fp8_recipe = DelayedScaling(
+        fp8_format=Format.E5M2_HYBRID,
+        amax_history_len=1,
+        amax_compute_algo="max",
+        reduce_amax=False,
+        interval=1,
+    )
+
+    # Prepare ref linear module and optimizer
+    torch.manual_seed(12345)
+    ref_linear = te.Linear(4, 3, bias=True)
+    ref_optimizer = torch.optim.SGD(ref_linear.parameters(), lr=0.1)
+
+    def train_step(model, input, optimizer=None):
+        out = model(input)
+        loss = out.sum()
+        loss.backward()
+        if optimizer is not None:
+            optimizer.step()
+
+        # Force computations
+        model.fp8_meta["scaling_fwd"].amax_history.cpu()
+        return out
+
+    def train_step_with_microbatches(model, input, is_first_microbatch, optimizer=None):
+        out = model(input, is_first_microbatch=is_first_microbatch)
+        loss = out.sum()
+        loss.backward()
+        if optimizer is not None:
+            optimizer.step()
+
+        # Force computations
+        model.fp8_meta["scaling_fwd"].amax_history.cpu()
+        return out
+
+    ref_outs = []
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        ref_outs.append(train_step(ref_linear, input0))
+        ref_outs.append(train_step(ref_linear, input1))
+        ref_outs.append(train_step(ref_linear, input2))
+        ref_outs.append(train_step(ref_linear, input3, optimizer=ref_optimizer))
+        ref_outs.append(train_step(ref_linear, input0))
+        ref_outs.append(train_step(ref_linear, input1))
+        ref_outs.append(train_step(ref_linear, input2))
+        ref_outs.append(train_step(ref_linear, input3, optimizer=ref_optimizer))
+
+
+    # Prepare tested linear module and optimizer
+    torch.manual_seed(12345)
+    test_linear = te.Linear(4, 3, bias=True)
+    test_optimizer = torch.optim.SGD(test_linear.parameters(), lr=0.1)
+
+
+    test_outs = []
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        # Notice we set is_first_microbatch on first and second microbatch (after optimizer step). First call is obvious
+        # (weight has been updated), and second is done to cast using amax value from the previous cast (updated weight).
+        # It is possible that we don't need that in full topology
+        test_outs.append(train_step_with_microbatches(test_linear, input0, is_first_microbatch=True))
+        test_outs.append(train_step_with_microbatches(test_linear, input1, is_first_microbatch=True))
+        test_outs.append(train_step_with_microbatches(test_linear, input2, is_first_microbatch=False))
+        test_outs.append(train_step_with_microbatches(test_linear, input3, optimizer=test_optimizer, is_first_microbatch=False))
+        test_outs.append(train_step_with_microbatches(test_linear, input0, is_first_microbatch=True))
+        test_outs.append(train_step_with_microbatches(test_linear, input1, is_first_microbatch=True))
+        test_outs.append(train_step_with_microbatches(test_linear, input2, is_first_microbatch=False))
+        test_outs.append(train_step_with_microbatches(test_linear, input3, optimizer=test_optimizer, is_first_microbatch=False))
+
+    for i in range(len(ref_outs)):
+        assert torch.equal(ref_outs[i], test_outs[i]), f"Mismatch on element: {i}"
 
 
 @pytest.mark.parametrize("interval",[1,4])

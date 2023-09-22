@@ -244,6 +244,53 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         )
         self.activation_dtype = inp.dtype
 
+    def _create_fp8_tensor(self, shape, synchronize=True) -> torch.Tensor:
+        # TODO: That's a hack. We need a kernel that will create int8 bridge tensor with float8 underlying tensor,
+        # or alternatively we need native PT fp8 support
+        a = torch.zeros(
+            shape,
+            device="hpu",
+            dtype=torch.bfloat16,
+        )
+
+        result, _ = torch.ops.hpu.cast_to_fp8_v2(
+            a,
+            None,
+            False,
+            False
+        )
+
+        # Another hack: Control edge is missing in fp8_copy_, so this workaround enforces correct order of operations.
+        # Not handling now in proper way, because in future we will switch to native fp8 in python, so we won't use fp8_copy_
+        if synchronize:
+            result.cpu()
+
+        return result
+
+    def set_fp8_weights(self) -> None:
+        """Initializes FP8 weights for the module as class attributes. These
+        are not parameters or buffers since we do not want functions such as
+        `.to(dtype)` or `.to(device)` to effect them. These also do not need
+        to be checkpointed. During `init` phase of the module, the attribute
+        `fp8_weight_shapes` must be populated with the tensor shapes for FP8
+        weights. This function will iterate over those shapes and initialize
+        respective attributed named `weight1_fp8`, `weight2_fp8`, ...
+        """
+        for i, shape in enumerate(self.fp8_weight_shapes, start=1):
+            weight_cast_attr = f"weight{i}_fp8"
+
+            if (
+                hasattr(self, weight_cast_attr)
+                and getattr(self, weight_cast_attr).shape == shape
+            ):
+                return
+
+            setattr(
+                self,
+                weight_cast_attr,
+                self._create_fp8_tensor(shape),
+            )
+
     def set_tensor_parallel_group(self, tp_group: Union[dist_group_type, None]) -> None:
         """Set TP group."""
         self.tp_group = tp_group
@@ -1046,13 +1093,13 @@ class _Linear(torch.autograd.Function):
     def forward(
         ctx,
         weight: torch.Tensor,
+        weight_fp8: torch.Tensor,
         inp: torch.Tensor,
         bias: torch.Tensor,
         use_bias: bool,
         is_first_microbatch: Union[bool, None],
         fp8: bool,
         fp8_meta: Dict[str, Any],
-        fuse_wgrad_accumulation: bool,
         tp_group: Union[dist_group_type, None],
         sequence_parallel: bool,
         tensor_parallel: bool,
@@ -1091,14 +1138,14 @@ class _Linear(torch.autograd.Function):
         bias = cast_if_needed(bias, bias_dtype) if use_bias else bias
 
         if update_fp8_weights:
-            weight_fp8 = cast_to_fp8(
+            torch.ops.hpu.fp8_copy_(weight_fp8, cast_to_fp8(
                 weight,
                 fp8_meta["scaling_fwd"],
                 tex.FP8FwdTensors.GEMM1_WEIGHT,
                 fp8_dtype_forward,
                 stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
                 measure_amax=is_amax_measure_enabled()
-            )
+            ))
 
         out = fp8_gemm(
             weight_fp8,
@@ -1126,7 +1173,6 @@ class _Linear(torch.autograd.Function):
         ctx.activation_dtype = activation_dtype
         ctx.fp8 = fp8
         ctx.fp8_meta = fp8_meta
-        ctx.fuse_wgrad_accumulation = fuse_wgrad_accumulation
         ctx.is_first_microbatch = is_first_microbatch
         ctx.use_bias = use_bias
         ctx.sequence_parallel = sequence_parallel
@@ -1182,13 +1228,6 @@ class _Linear(torch.autograd.Function):
             inputmat_fp8_total = inputmap_fp8
             inputmat_total = inputmat
 
-        if ctx.is_first_microbatch is not None:
-            accumulate_wgrad_into_param_main_grad = (
-                ctx.fuse_wgrad_accumulation and not ctx.is_first_microbatch
-            )
-        else:
-            accumulate_wgrad_into_param_main_grad = ctx.fuse_wgrad_accumulation
-
         assert ctx.fp8
         fp8_dtype_forward = get_fp8_te_dtype(
             ctx.fp8_meta["recipe"], fprop_tensor=True
@@ -1240,9 +1279,9 @@ class _Linear(torch.autograd.Function):
                 ],
                 fp8_dtype_backward,
                 ctx.activation_dtype,
-                accumulate=accumulate_wgrad_into_param_main_grad,
-                fp32_output=ctx.fuse_wgrad_accumulation,
-                out=weight.main_grad if ctx.fuse_wgrad_accumulation else None,
+                accumulate=False,
+                fp32_output=False,
+                out=None,
                 transa=False,
                 transb=True
             )
@@ -1260,9 +1299,9 @@ class _Linear(torch.autograd.Function):
 
         return (
             wgrad if weight.requires_grad else None,
+            None,
             dgrad.view(ctx.inp_shape),
             grad_bias,
-            None,
             None,
             None,
             None,
@@ -1316,12 +1355,6 @@ class Linear(TransformerEngineBaseModule):
 
     Optimization parameters
     -----------------------
-    fuse_wgrad_accumulation : bool, default = 'False'
-                             if set to `True`, enables fusing of creation and accumulation of
-                             the weight gradient. When enabled, it is assumed that the weights
-                             have an additional `main_grad` attribute (used instead of the
-                             regular `grad`) which is a pre-allocated buffer of the correct
-                             size to accumulate gradients in.
     return_bias : bool, default = `False`
                  when set to `True`, this module will not apply the additive bias itself, but
                  instead return the bias value during the forward pass together with the
@@ -1332,7 +1365,7 @@ class Linear(TransformerEngineBaseModule):
                   the model is trained with lower precision and the original FP32 parameters
                   would not fit in GPU memory.
     minimize_memory : bool, default = `False`
-                     when set to `False`, memory usage is decreased by recalculating fp8 weight
+                     when set to `True`, memory usage is decreased by recalculating fp8 weight
                      in backward pass. This reduces memory usage but obviously degrades perf.
                      It works especially well with deepspeed pipelining mechanism.
     """
@@ -1342,7 +1375,6 @@ class Linear(TransformerEngineBaseModule):
         in_features: int,
         out_features: int,
         sequence_parallel: bool = False,
-        fuse_wgrad_accumulation: bool = False,
         tp_group: Optional[dist_group_type] = None,
         tp_size: int = 1,
         get_rng_state_tracker: Optional[Callable] = None,
@@ -1357,7 +1389,6 @@ class Linear(TransformerEngineBaseModule):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.fuse_wgrad_accumulation = fuse_wgrad_accumulation
         self.use_bias = bias
         self.return_bias = return_bias
         self.skip_weight_param_allocation = skip_weight_param_allocation
@@ -1431,6 +1462,10 @@ class Linear(TransformerEngineBaseModule):
         else:
             self.gemm_bias_unfused_add = False
 
+        # To initialize weights stored in fp8. Notice that original implementation calls it every fwd,
+        # but we call it once to reduce host overhead
+        self.set_fp8_weights()
+
     def forward(
         self,
         inp: torch.Tensor,
@@ -1473,13 +1508,13 @@ class Linear(TransformerEngineBaseModule):
 
         out = _Linear.apply(
             weight if weight is not None else self.weight,
+            self.weight1_fp8,
             inp,
             bias_tensor,
             self.use_bias,
             is_first_microbatch,
             self.fp8,
             self.fp8_meta,
-            self.fuse_wgrad_accumulation,
             self.tp_group,
             self.sequence_parallel,
             self.tp_size > 1,
