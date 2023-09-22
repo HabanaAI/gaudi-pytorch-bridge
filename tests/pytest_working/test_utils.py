@@ -15,13 +15,11 @@ hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 
 
-
 def is_device(device_name):
     return hthpu.get_device_name() == device_name
 
 def is_gaudi1():
     return is_device("GAUDI")
-
 
 def is_gaudi2():
     return is_device("GAUDI2")
@@ -29,10 +27,8 @@ def is_gaudi2():
 def is_gaudi3():
     return is_device("GAUDI3")
 
-
 def is_lazy():
     return int(os.environ.get("PT_HPU_LAZY_MODE", 1)) == 1
-
 
 def evaluate_fwd_kernel(
     kernel, kernel_params, check_results=True, atol=0.001, rtol=1.0e-3, copy_kernel=True

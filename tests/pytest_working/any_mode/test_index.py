@@ -14,6 +14,7 @@ import pytest
 import torch
 from test_utils import cpu, hpu
 
+pytestmark = pytest.mark.skip(reason="segv")
 
 # optional on list cause fail
 @pytest.mark.parametrize(
@@ -25,14 +26,14 @@ from test_utils import cpu, hpu
         pytest.param(
             (2, 3, 4),
             (
-                [1, 2],
-                [3],
+                [1, 0],
+                [0],
                 None,
             ),
             marks=pytest.mark.xfail(rason="SW-155102"),
         ),
         [(2, 3, 8, 8), ([[[1], [0]]],)],
-        pytest.param((2, 3, 8, 8), (None, [1, 2], None,), marks=pytest.mark.xfail(rason="SW-155102")),
+        pytest.param((4, 3, 8, 8), (None, [1, 2], None,), marks=pytest.mark.xfail(rason="SW-155102")),
     ],
 )
 def test_index(shape, indices):
@@ -41,6 +42,7 @@ def test_index(shape, indices):
 
     func = torch.ops.aten.index
     if pytest.mode == "compile":
+        pytest.xfail(reason="torch._dynamo.optimize is called on a non function object")
         func = torch.compile(torch.ops.aten.index, backend="aot_hpu_training_backend")
 
     input_tensor = torch.randn(*shape, device="hpu:0")

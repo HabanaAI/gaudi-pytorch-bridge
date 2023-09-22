@@ -58,7 +58,7 @@ def pytest_configure(config):
     # TODO: assert correct lib was read
 
 def pytest_ignore_collect(collection_path, config):
-    return pytest.mode not in collection_path.parts
+    return not bool(pytest.mode in collection_path.parts or "any_mode" in collection_path.parts)
 
 def pytest_unconfigure(config):
     os.environ.clear()

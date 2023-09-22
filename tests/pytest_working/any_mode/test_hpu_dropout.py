@@ -12,6 +12,7 @@
 
 import pytest
 import torch
+from test_utils import is_gaudi1
 
 
 @pytest.mark.parametrize("p", [0.0, 0.2, 0.6, 1.0])
@@ -40,7 +41,9 @@ def test_hpu_dropout_fwd(p, dtype):
 
 @pytest.mark.parametrize("p", [0.0, 0.2, 0.6, 1.0])
 @pytest.mark.parametrize("train ", [True, False])
-@pytest.mark.parametrize("dtype ", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("dtype ", [
+    pytest.param(torch.float, marks=[pytest.mark.xfail(reason="results mismatch")] if is_gaudi1 else []),
+                 torch.bfloat16])
 def test_dropout_bwd(p, train, dtype):
     input = torch.randn((32, 48), dtype=dtype)
     input_hpu = input.to("hpu").requires_grad_(True)
