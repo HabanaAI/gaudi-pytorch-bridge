@@ -55,12 +55,15 @@ std::vector<int64_t> compute_pool_kernel_output_shape(
   unsigned int input_dim2 = 2;
   unsigned int input_dim3 = 3;
 
+  // Op accepts 3dim tensor. In this case, the batch size should be assumed as 1
+  bool fourDims = input.dim() == 4;
+  int offset = fourDims ? 0 : 1;
   input_dim0 = synapse_helpers::layouts::INPUT_N_IDX;
-  input_dim1 = synapse_helpers::layouts::INPUT_C_IDX;
-  input_dim2 = synapse_helpers::layouts::INPUT_H_IDX;
-  input_dim3 = synapse_helpers::layouts::INPUT_W_IDX;
+  input_dim1 = synapse_helpers::layouts::INPUT_C_IDX - offset;
+  input_dim2 = synapse_helpers::layouts::INPUT_H_IDX - offset;
+  input_dim3 = synapse_helpers::layouts::INPUT_W_IDX - offset;
 
-  const int64_t N = input.size(input_dim0);
+  const int64_t N = fourDims ? input.size(input_dim0) : 1;
   const int64_t C = input.size(input_dim1);
   const int64_t input_H = input.size(input_dim2);
   const int64_t input_W = input.size(input_dim3);

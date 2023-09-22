@@ -1258,7 +1258,7 @@ avg_pool2d:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
-  op_validator: check-node-with-shared-layer
+  op_backend: Avgpool2dFwd
 
 avg_pool2d.out:
   custom_fill_params: Fillavgpool2dParamsFwd
@@ -1271,8 +1271,7 @@ avg_pool2d.out:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
-  # op_validator: check-node-with-shared-layer
-
+  op_backend: Avgpool2dFwd
 
 avg_pool2d_backward.grad_input:
   custom_fill_params: Fillavgpool2dParamsBwd

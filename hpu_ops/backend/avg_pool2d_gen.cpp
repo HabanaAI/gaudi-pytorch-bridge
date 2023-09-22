@@ -1,20 +1,23 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "generated/backend/avg_pool2d.h"
 #include "generated/backend/avg_pool2d_backward.h"
 #include "hpu_ops/backend/pool_helpers.h"
 
-#define CHECK_DIM(input_size)                                        \
-  TORCH_CHECK(                                                       \
-      input_size == 4,                                               \
-      "Averagepool2D expects input_size equals to 4, but got size ", \
+#define CHECK_DIM(input_size)                                             \
+  TORCH_CHECK(                                                            \
+      input_size == 3 || input_size == 4,                                 \
+      "Averagepool2D expects input_size equals to 3 or 4, but got size ", \
       input_size);
 
 namespace habana {
@@ -80,7 +83,8 @@ std::shared_ptr<void> Fillavgpool2dParamsBwd(
 
 sizes_vec Avgpool2dOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
-  CHECK_DIM(self.dim());
+  const int rank = self.dim();
+  CHECK_DIM(rank);
   std::vector<long int> padding = {0, 0};
   std::vector<int64_t> dilation = {1, 1};
   auto kernel_size = stack.at(1).toIntVector();
@@ -91,6 +95,9 @@ sizes_vec Avgpool2dOutputShape(const at::Stack& stack) {
   const bool ceil_mode = stack.at(4).toBool();
   auto outshape = compute_pool_kernel_output_shape(
       self, kernel_size, stride, pad, dilation, ceil_mode);
+  if (rank == 3)
+    outshape.erase(begin(outshape));
+
   return {outshape};
 }
 
@@ -119,4 +126,48 @@ void Avgpool2dBwd::AddNode(
 
   syn_out(0) = std::move(avg_pool[0]);
 }
+
+void Avgpool2dFwd::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  size_t size = 0;
+  const auto& params = Fillavgpool2dParamsFwd(stack, size);
+  auto outShape = Avgpool2dOutputShape(stack)[0];
+  auto intermediateOutShape = outShape;
+  bool reshapeRequired = stack_tensor(stack, 0).dim() == 3;
+  std::vector<synTensor> grad = {syn_in(0)};
+  std::vector<synapse_helpers::tensor> expandResult;
+  c10::optional<int> finalIndex =
+      reshapeRequired ? c10::nullopt : c10::make_optional<int>(0);
+
+  if (reshapeRequired) {
+    auto inputExpandedShape = stack_tensor(stack, 0).sizes().vec();
+    inputExpandedShape.insert(begin(inputExpandedShape), 1);
+    intermediateOutShape.insert(begin(intermediateOutShape), 1);
+    synAxisParams expandParams{3};
+    expandResult.push_back(std::move(BuildOp(
+        graph,
+        "expand_dims",
+        {syn_in(0)},
+        {{inputExpandedShape, ScalarType()}},
+        &expandParams,
+        sizeof(expandParams))[0]));
+    grad[0] = expandResult[0].get();
+  }
+
+  this->CreateShapeTensorInput(
+      graph, this->ScalarType(), intermediateOutShape, grad);
+  auto avgPool = BuildOp(
+      graph,
+      guid_,
+      grad,
+      {{intermediateOutShape, ScalarType(), finalIndex}},
+      params.get(),
+      size);
+  syn_out(0) = reshapeRequired
+      ? std::move(
+            ReshapeHelper(graph, avgPool[0].get(), outShape, ScalarType(), 0))
+      : std::move(avgPool[0]);
+}
+
 } // namespace habana
