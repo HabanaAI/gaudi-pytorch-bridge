@@ -72,6 +72,17 @@ def check_for_default_fallback(op_name, node):
     # bool has issue with JIT scalar representation
     if op_name == "full" and isinstance(node.args[1], bool):
         return True
+
+    # representing scalar float value NaN in JIT fails, by being pasted as
+    # literal nan and interpreted as reference to global variable nan imported
+    # from math lib, rather than the value itself
+    for arg in node.args:
+        if torch.is_tensor(arg):
+            continue
+
+        if arg != arg:
+            return True
+
     return False
 
 
