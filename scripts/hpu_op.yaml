@@ -2465,7 +2465,7 @@ embedding_dense_backward:
   out_ids: [0]
 
 equal:
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes: [BFloat16, Float, Int, Long, Char, Byte]
   op_backend: Equal
   out_ids: [0]
 
@@ -4607,21 +4607,20 @@ mul.out:
   promote_to_common_type: [self, other]
 
 multinomial:
+  custom_fill_params: FillMultinomialParams
   dtypes: [BFloat16, Float]
-  custom_output_shape: MultinomialOutputShape
   guid: random_multinomial_fwd
   out_ids: [0]
   op_frontend: GeneratorToSeed
-  op_backend: Multinomial
-  out_dtypes: [Long]
+  output_meta: MultinomialMeta
   schema_args: "(Tensor self, int num_samples, bool replacement, Tensor seed) -> Tensor"
 
 multinomial.out:
+  custom_fill_params: FillMultinomialParams
   dtypes: [BFloat16, Float]
-  custom_output_shape: MultinomialOutputShape
   guid: random_multinomial_fwd
   op_frontend: GeneratorToSeedOut
-  op_backend: Multinomial
+  output_meta: MultinomialMeta
   schema_args: "(Tensor self, int num_samples, bool replacement, Tensor seed,  Tensor(a!) out) -> Tensor(a!)"
 
 mv:

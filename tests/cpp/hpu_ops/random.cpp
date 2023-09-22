@@ -277,7 +277,7 @@ TEST_F(HpuOpTest, multinomial) {
   SetSeed();
   auto result2 = torch::multinomial(GetHpuInput(0), c_sample);
 
-  Compare(result1, result2);
+  Compare(result1.cpu(), result2);
 }
 
 TEST_F(HpuOpTest, multinomial_without_replacement) {
@@ -291,7 +291,7 @@ TEST_F(HpuOpTest, multinomial_without_replacement) {
   SetSeed();
   auto result2 = torch::multinomial(GetHpuInput(0), c_sample, false);
 
-  Compare(result1, result2);
+  Compare(result1.cpu(), result2);
 }
 
 TEST_F(HpuOpTest, multinomial_with_replacement) {
@@ -305,7 +305,7 @@ TEST_F(HpuOpTest, multinomial_with_replacement) {
   SetSeed();
   auto result2 = torch::multinomial(GetHpuInput(0), c_sample, true);
 
-  Compare(result1, result2);
+  Compare(result1.cpu(), result2);
 }
 
 // Expected hpu results are different for different seed run
@@ -351,7 +351,7 @@ TEST_F(HpuOpTest, multinomial_out) {
       false,
       at::detail::getDefaultCPUGenerator(),
       result);
-  Compare(result1, result2);
+  Compare(result1.cpu(), result2);
 }
 
 TEST_F(HpuOpTest, multinomial_out_with_replacement) {
@@ -375,7 +375,7 @@ TEST_F(HpuOpTest, multinomial_out_with_replacement) {
       true,
       at::detail::getDefaultCPUGenerator(),
       result);
-  Compare(result1, result2);
+  Compare(result1.cpu(), result2);
 }
 
 // Expected hpu results are different for different seed run
