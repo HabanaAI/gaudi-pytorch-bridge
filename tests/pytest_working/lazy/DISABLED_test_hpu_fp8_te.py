@@ -722,7 +722,14 @@ def test_te_minimize_memory(device=torch.device("hpu:0"), dtype=torch.float32):
 
 # This test simulates scenario with deepspeed pipelining
 @pytest.mark.parametrize("minimize_memory", [True, False])
-def test_te_multiple_fwd_multiple_bwd(minimize_memory, device=torch.device("hpu:0"), dtype=torch.float32):
+@pytest.mark.parametrize("microbatches_approach", [True, False])
+def test_te_multiple_fwd_multiple_bwd(minimize_memory, microbatches_approach, device=torch.device("hpu:0"), dtype=torch.float32):
+    def is_first_microbatch(i):
+        if not microbatches_approach:
+            return None
+        else:
+            return i in [0, 1]
+
     input1 = torch.tensor([1, 2, 3, 4], dtype=dtype, device=device, requires_grad=True)
     input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device, requires_grad=True)
     input3 = torch.tensor([100, 200, 300, 400], dtype=dtype, device=device, requires_grad=True)
@@ -736,8 +743,7 @@ def test_te_multiple_fwd_multiple_bwd(minimize_memory, device=torch.device("hpu:
         reduce_amax=False,
     )
 
-
-    inputs = [input3,input2,input1]
+    inputs = [input3, input2, input1]
 
     # Reference - fwd -> bwd -> fwd -> bwd ...
     torch.manual_seed(12345)
@@ -745,14 +751,14 @@ def test_te_multiple_fwd_multiple_bwd(minimize_memory, device=torch.device("hpu:
 
     ref_outputs = []
     ref_grads = []
-    for input in inputs:
+    for i, input in enumerate(inputs):
         with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-            out = ref_linear(input)
+            out = ref_linear(input, is_first_microbatch=is_first_microbatch(i))
             loss = out.sum()
             loss.backward()
             ref_outputs.append(out.cpu())
             ref_grads.append(input.grad.clone().cpu().detach())
-            input.grad=None
+            input.grad = None
 
     # Tested configuration - fwd -> fwd -> ... -> bwd -> bwd -> ...
     torch.manual_seed(12345)
@@ -760,9 +766,9 @@ def test_te_multiple_fwd_multiple_bwd(minimize_memory, device=torch.device("hpu:
 
     test_outputs = []
     test_grads = []
-    for input in inputs:
+    for i, input in enumerate(inputs):
         with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-            out = test_linear(input)
+            out = test_linear(input, is_first_microbatch=is_first_microbatch(i))
             test_outputs.append(out.cpu())
 
     for i in reversed(range(len(test_outputs))):
@@ -772,11 +778,16 @@ def test_te_multiple_fwd_multiple_bwd(minimize_memory, device=torch.device("hpu:
             loss = output.sum()
             loss.backward()
             test_grads.append(inputs[i].grad.clone().cpu().detach())
-            inputs[i].grad=None
+            inputs[i].grad = None
+
+    # Note that in above loop gradients are appended to the list in reversed order, hence the following reverse
+    test_grads.reverse()
 
     for i in range(len(test_outputs)):
         assert torch.equal(ref_outputs[i], test_outputs[i]), f"output mismatch at i: {i}"
         assert torch.equal(ref_grads[i], test_grads[i]), f"grad mismatch at i: {i}"
+
+    assert torch.equal(ref_linear.weight.grad.cpu(), test_linear.weight.grad.cpu()), f"weight gradient mismatch"
 
 
 # Verify if the weight caching is working well for micro batches case

@@ -599,15 +599,19 @@ class _Linear(torch.autograd.Function):
         bias = cast_if_needed(bias, bias_dtype) if use_bias else bias
 
         if update_fp8_weights:
-            assert weight.shape == weight_fp8.shape, "Module initialized with different shape than received weight"
-            torch.ops.hpu.fp8_copy_(weight_fp8, cast_to_fp8(
+            casted = cast_to_fp8(
                 weight,
                 fp8_meta["scaling_fwd"],
                 tex.FP8FwdTensors.GEMM1_WEIGHT,
                 fp8_dtype_forward,
                 stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
                 measure_amax=is_amax_measure_enabled()
-            ))
+            )
+            if weight_fp8 is None:
+                weight_fp8 = casted
+            else:
+                assert weight.shape == weight_fp8.shape, "Module initialized with different shape than received weight"
+                torch.ops.hpu.fp8_copy_(weight_fp8, casted)
         out = fp8_gemm(
             weight_fp8,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_WEIGHT],
@@ -620,10 +624,20 @@ class _Linear(torch.autograd.Function):
             use_bias=use_bias,
         )
 
+        # NOTE: In case is_first_microbatch is not None, weight_fp8 is stored in the module and is shared
+        # between all fwds and bwds. As a result, fp8 weight cannot be cached for backward in the first microbatch,
+        # because next fwd will override its value (input bf16 weight will be the same but scale will be different,
+        # so the resulting fp8 weight will differ), so in the first microbatch bwd fp8 weight and scale_inv
+        # would not match - and the calculated dgrad will be incorrect.
+        cache_weight_fp8 = fp8 \
+          and not fp8_meta["recipe"].override_linear_precision.dgrad \
+          and not minimize_memory \
+          and not is_first_microbatch
+
         ctx.save_for_backward(
             inputmat_no_fp8 if not fp8 or fp8_meta["recipe"].override_linear_precision.wgrad else None,
             inputmat if fp8 and not fp8_meta["recipe"].override_linear_precision.wgrad else None,
-            weight_fp8 if fp8 and not fp8_meta["recipe"].override_linear_precision.dgrad and not minimize_memory else None,
+            weight_fp8 if cache_weight_fp8 else None,
             weight,
             fp8_meta["scaling_fwd"].scale_inv.clone() if fp8 else None,
             fp8_meta["scaling_fwd"].scale.clone() if fp8 else None,
@@ -631,7 +645,6 @@ class _Linear(torch.autograd.Function):
         ctx.activation_dtype = activation_dtype
         ctx.fp8 = fp8
         ctx.fp8_meta = fp8_meta
-        ctx.is_first_microbatch = is_first_microbatch
         ctx.use_bias = use_bias
         ctx.sequence_parallel = sequence_parallel
         ctx.tensor_parallel = tensor_parallel
@@ -975,7 +988,7 @@ class Linear(TransformerEngineBaseModule):
 
         out = _Linear.apply(
             weight_tensor,
-            self.weight1_fp8,
+            self.weight1_fp8 if is_first_microbatch is not None else None,
             inp,
             bias_tensor,
             self.use_bias,
