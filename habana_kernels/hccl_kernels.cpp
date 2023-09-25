@@ -170,6 +170,9 @@ void collective(
     TORCH_CHECK(
         devices.at(i) == 0,
         "All tensors are expected to be assigned to device with id 0");
+    if (pt_inputs[i].numel() == 0) {
+      continue;
+    }
     auto comm = HcclCommunicator::Get(communicator_ids.at(i));
     auto deviceCtxt = comm->getDeviceCtxt();
     synStreamHandle collective_stream = comm->getCommStream();
