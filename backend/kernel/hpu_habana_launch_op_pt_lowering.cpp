@@ -679,6 +679,45 @@ void habana::HabanaLaunchOpPT::DumpTensors(RecipeValueSpec& rv) {
   }
 }
 
+void habana::HabanaLaunchOpPT::StoreCompiledInformation(
+    synapse_helpers::hpuStream_t hpu_stream) {
+  TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
+  TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
+  RecipeValueSpec& rv = *cur_rvalpsh;
+  if (syn_graph_ptr_->is_empty() && rv.collective_kernels_info.empty()) {
+    return;
+  }
+
+  if (refine_ds_enabled_ && current_dbipsh_) {
+    // Initiate recipe execution time collection
+    if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+      InitiateSynlaunchTimeCapture(rv);
+    }
+
+    // Add the jit_ir_graph to current_dbipsh_
+    current_dbipsh_->SetJitIRGraphPtr(jit_ir_graph_);
+    if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
+      current_dbipsh_->UpdateCompileTime(t_compile_ns, current_bucket_id_);
+    }
+  }
+
+  // Save cache before calling launch to unblock other ranks who may wait on
+  // this cache entry to be flushed to disk
+  if (enable_caching_) {
+    // Add the <key,value> pair to the map
+    if (refine_ds_enabled_ && current_dbipsh_) {
+      rv.dynamic_graph = syn_graph_ptr_->is_dynamic_graph();
+      // Add the recipe to the corresponding bucket
+      current_dbipsh_->SetSynapseRecipePtr(current_bucket_id_, cur_rvalpsh);
+    }
+    RecipeCacheLRU::get_cache().add(cur_rargpsh, cur_rvalpsh);
+    PT_BRIDGE_DEBUG(
+        "HabanaOp recipe cache :: adding new recipe to cache :: ", rv.key);
+  }
+
+  rv.update_hit_count();
+}
+
 void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
     synapse_helpers::hpuStream_t hpu_stream) {
   TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
@@ -716,19 +755,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
     DumpTensors_pre(rv);
   }
 
-  if (refine_ds_enabled_ && current_dbipsh_) {
-    // Initiate recipe execution time collection
-    if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
-      InitiateSynlaunchTimeCapture(rv);
-    }
-
-    // Add the jit_ir_graph to current_dbipsh_
-    current_dbipsh_->SetJitIRGraphPtr(jit_ir_graph_);
-    if (GET_ENV_FLAG_NEW(PT_ENABLE_SYNLAUNCH_TIME_CAPTURE)) {
-      current_dbipsh_->UpdateCompileTime(t_compile_ns, current_bucket_id_);
-    }
-  }
-
   PT_BRIDGE_DEBUG(
       "HabanaOp recipe cache :: launching new recipe", rv.header_str());
 
@@ -744,20 +770,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
     }
   }
 
-  // Save cache before calling launch to unblock other ranks who may wait on
-  // this cache entry to be flushed to disk
-  if (enable_caching_) {
-    // Add the <key,value> pair to the map
-    if (refine_ds_enabled_ && current_dbipsh_) {
-      rv.dynamic_graph = syn_graph_ptr_->is_dynamic_graph();
-      // Add the recipe to the corresponding bucket
-      current_dbipsh_->SetSynapseRecipePtr(current_bucket_id_, cur_rvalpsh);
-    }
-    RecipeCacheLRU::get_cache().add(cur_rargpsh, cur_rvalpsh);
-    PT_BRIDGE_DEBUG(
-        "HabanaOp recipe cache :: adding new recipe to cache :: ", rv.key);
-  }
-
   if (!dry_run_) {
     rv.launch(
         hpu_stream,
@@ -767,7 +779,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
         syn_launch_info_,
         external_tensor_info_indexes_);
   }
-  rv.update_hit_count();
 
   if (enable_tensor_dump_) {
     DumpTensors(rv);

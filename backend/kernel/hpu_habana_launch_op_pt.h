@@ -154,6 +154,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   void ConstructPatchingTableAndAtenOutputs();
   void UpdateSynapsePermutations();
   void StoreShapeAgnosticGraph();
+  void StoreCompiledInformation(synapse_helpers::hpuStream_t hpu_stream);
   void ExecuteSynapseGraph(synapse_helpers::hpuStream_t hpu_stream);
   static void ExecuteSynapseCache(
       synapse_helpers::hpuStream_t hpu_stream,

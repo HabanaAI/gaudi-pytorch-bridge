@@ -4079,6 +4079,7 @@ void HabanaLaunchOpPT::run(
     CompileSynapseGraph();
     ConstructPatchingTableAndAtenOutputs();
     UpdateSynapsePermutations();
+    StoreCompiledInformation(hpu_stream);
     ExecuteSynapseGraph(hpu_stream);
 
     is_jit_cached_graph_info_available =
@@ -4648,6 +4649,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
       ConstructPatchingTableAndAtenOutputs();
       UpdateSynapsePermutations();
+      StoreCompiledInformation(hpu_stream);
       ExecuteSynapseGraph(hpu_stream);
     } catch (std::exception& e) {
       PT_DYNAMIC_SHAPE_DEBUG("Exception in BuildSynapseGraph");
@@ -4689,6 +4691,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
     ConstructPatchingTableAndAtenOutputs();
     UpdateSynapsePermutations();
+    StoreCompiledInformation(hpu_stream);
     ExecuteSynapseGraph(hpu_stream);
   }
   if (!try_catch_fail) {

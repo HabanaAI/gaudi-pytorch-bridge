@@ -82,6 +82,7 @@ void habana::HabanaCompile::CompileSynapse(
       hb_launch_op->StoreShapeAgnosticGraph();
       hb_launch_op->ConstructPatchingTableAndAtenOutputs();
       hb_launch_op->UpdateSynapsePermutations();
+      hb_launch_op->StoreCompiledInformation(hpu_stream);
       enqueue_execute_synapse(
           hpu_stream, hb_launch_op, true, do_nothing_execute, dry_run);
       if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD)) {
@@ -102,6 +103,7 @@ void habana::HabanaCompile::CompileSynapse(
     hb_launch_op->CompileSynapseGraph();
     hb_launch_op->ConstructPatchingTableAndAtenOutputs();
     hb_launch_op->UpdateSynapsePermutations();
+    hb_launch_op->StoreCompiledInformation(hpu_stream);
     enqueue_execute_synapse(
         hpu_stream, hb_launch_op, false, do_nothing_execute, dry_run);
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD)) {
