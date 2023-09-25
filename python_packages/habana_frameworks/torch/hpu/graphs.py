@@ -245,6 +245,7 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
 
     per_callable_static_grad_outputs = []
     per_callable_static_grad_inputs = []
+    bwd_mark_user_inputs_len = []
     for static_input_surface, args, static_outputs, bwd_graph, module_params in \
             zip(reversed(per_callable_static_input_surfaces),
                 reversed(sample_args),
@@ -259,8 +260,10 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
         with htorch.hpu.graph(bwd_graph, dry_run=True if disable_tensor_cache else dry_run):
             autograd_inputs = tuple(i for i in static_input_surface if i.requires_grad)
             if disable_tensor_cache:
-                bwd_graph.mark_user_inputs(get_user_input_tensor_list(static_grad_outputs, ())
-                                       + get_user_input_tensor_list(args, ()))
+                mark_user_inputs_list = (get_user_input_tensor_list(static_grad_outputs, ()) + get_user_input_tensor_list(args, ()))
+                bwd_graph.mark_user_inputs(mark_user_inputs_list)
+                bwd_mark_user_inputs_len.append(len(get_user_input_tensor_list(static_grad_outputs, ())))
+
             grad_inputs = torch.autograd.grad(outputs=tuple(o for o in static_outputs if o.requires_grad),
                                               inputs=autograd_inputs,
                                               grad_outputs=tuple(o for o in static_grad_outputs if o is not None),
@@ -279,6 +282,31 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
 
         per_callable_static_grad_outputs.append(static_grad_outputs)
         per_callable_static_grad_inputs.append(static_grad_inputs)
+
+    if disable_tensor_cache:
+        per_callable_input_surfaces_optim = []
+        for fwd_graph, static_input_surface, len_user_args in zip(fwd_graphs, per_callable_static_input_surfaces, per_callable_len_user_args):
+            len_module_params = len(per_callable_static_input_surfaces) - len_user_args
+            matched_input_index = fwd_graph.get_user_input_match_indices()
+            input_surface_list = list(static_input_surface)
+            for i in range(len_user_args):
+                if i in matched_input_index:
+                    input_surface_list[i+len_module_params] = torch.empty(0)
+            static_input_surface = tuple(input_surface_list)
+            per_callable_input_surfaces_optim.append(static_input_surface)
+        per_callable_static_input_surfaces = per_callable_input_surfaces_optim
+
+        per_callable_grad_outputs_optim = []
+        for bwd_graph, static_grad_outputs, bwd_uin_len in zip(bwd_graphs, reversed(per_callable_static_grad_outputs), reversed(bwd_mark_user_inputs_len)):
+            matched_input_index = bwd_graph.get_user_input_match_indices()
+            grad_outputs_list = list(static_grad_outputs)
+            for i in range(bwd_uin_len):
+                if i in matched_input_index:
+                    grad_outputs_list[i] = torch.empty(0)
+            static_grad_outputs = tuple(grad_outputs_list)
+            per_callable_grad_outputs_optim.append(static_grad_outputs)
+        per_callable_static_grad_outputs = per_callable_grad_outputs_optim
+
     per_callable_static_grad_outputs = list(reversed(per_callable_static_grad_outputs))
     per_callable_static_grad_inputs = list(reversed(per_callable_static_grad_inputs))
 

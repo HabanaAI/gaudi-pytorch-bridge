@@ -467,11 +467,18 @@ void SingleHPUGraph::replayGraph(
       launch_jobid, c10::hpu::getCurrentHPUStream().stream());
 
   // set exec for input/output tensors
+  std::unordered_set<size_t> in_uid;
   for (const auto& t : hblazy_tensors_in_) {
+    auto uid = t.getTensorUniqueId();
+    in_uid.insert(uid);
     t.SetExecutionInProgress();
   }
 
-  for (const auto& t : hblazy_tensors_out_) {
+  for (auto& t : hblazy_tensors_out_) {
+    auto uid = t.getTensorUniqueId();
+    if (in_uid.find(uid) == in_uid.end()) {
+      t.SetTensorDataNullOpt();
+    }
     t.SetExecutionInProgress();
   }
 
