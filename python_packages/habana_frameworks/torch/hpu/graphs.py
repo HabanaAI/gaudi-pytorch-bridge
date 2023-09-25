@@ -396,7 +396,7 @@ def input_hash(obj):
     elif isinstance(obj, list) or isinstance(obj, tuple):
         return hash(tuple(input_hash(el) for el in obj))
     elif torch.is_tensor(obj):
-        return hash(obj.shape)
+        return hash(tuple([obj.shape, _hpu_C.get_view_hash(obj)]))
     else:
         return hash(obj)
 
