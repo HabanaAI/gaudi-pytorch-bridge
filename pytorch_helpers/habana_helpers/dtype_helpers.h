@@ -17,7 +17,8 @@
 #include "backend/helpers/get_n_bytes.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 #ifndef HAVE_FP8_SUPPORT
-#define HAVE_FP8_SUPPORT IS_PYTORCH_FORK_AT_LEAST(1, 1)
+#define HAVE_FP8_SUPPORT \
+  IS_PYTORCH_AT_LEAST(2, 1) || IS_PYTORCH_FORK_AT_LEAST(1, 1)
 #endif
 
 namespace habana_helpers {
