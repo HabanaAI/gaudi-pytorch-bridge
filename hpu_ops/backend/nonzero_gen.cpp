@@ -93,87 +93,51 @@ std::vector<synapse_helpers::tensor> NonZeroCommon(
     synapse_helpers::graph& graph,
     NonZeroParams_t self_params,
     synTensor self_synin,
-    c10::optional<int> final_result_index,
-    DimVector& shape_tensor_shape,
+    c10::optional<int> final_result_index_0,
+    c10::optional<int> final_result_index_1,
     bool use_tpc_impl = false) {
-  std::vector<synapse_helpers::tensor> nonzero;
-  int64_t self_dims = (int64_t)self_params.sizes.size();
-  if (self_dims > 4 || use_tpc_impl) {
-    auto guid = get_guid_with_precision("non_zero_fwd", self_params.dtype);
-    auto output_shape = compute_nonzero_output_shape(self_params, use_tpc_impl);
-    // outputs - coordinates tensor is of output_shape with maximum
-    // self.numel()xself.dim() shape
-    //  and shape_tensor is having 5D shape filled by tpc with actual num of
-    //  nonzero elems
-    synDataType synType = syn_type_uint32;
-    std::vector<synTensor> inputs = {self_synin};
-    nonzero = OpBackend::BuildNode(
-        op,
-        graph,
-        {guid,
-         std::move(inputs),
-         {{output_shape, c10::ScalarType::Int, final_result_index, DATA_TENSOR},
-          {shape_tensor_shape,
-           c10::ScalarType::Int,
-           c10::nullopt,
-           DATA_TENSOR,
-           synType}}});
-    return std::move(nonzero);
-  } else {
-    auto v2_guid =
-        get_guid_with_precision("non_zero_v2_fwd", self_params.dtype);
-    auto output_shape = compute_nonzero_output_shape(self_params, use_tpc_impl);
+  auto output_shape = compute_nonzero_output_shape(self_params, use_tpc_impl);
+  auto shape_tensor_shape = DimVector{5};
+  ns_NonzeroV2::Params params = {};
+  std::vector<synTensor> inputs = {self_synin};
+  auto guid = get_guid_with_precision("non_zero_v2_fwd", self_params.dtype);
+
+  if (self_params.sizes.size() < 5 and not use_tpc_impl) {
+    // Need to create a reshape_shape_tensor for nonzero_v2 guid
     auto st_shape = compute_output_st_shape(self_params);
-    // Need to create a reshape_shape_tensor for nonzero_v2 guid here
-    std::vector<synTensor> inputs = {self_synin};
     op->CreateShapeTensorInput(
         graph, c10::ScalarType::Int, st_shape, inputs, SHAPE_TENSOR, true);
-    // outputs - coordinates tensor is of output_shape with maximum
-    // self.numel()xself.dim() shape
-    //  and shape_tensor is having 5D shape filled by tpc with actual num of
-    //  nonzero elems
-    ns_NonzeroV2::Params params = {};
     params.group_size = 64;
-    synDataType synType = syn_type_uint32;
-    nonzero = OpBackend::BuildNode(
-        op,
-        graph,
-        {v2_guid,
-         std::move(inputs),
-         {{output_shape, c10::ScalarType::Int, final_result_index, DATA_TENSOR},
-          {shape_tensor_shape,
-           c10::ScalarType::Int,
-           c10::nullopt,
-           DATA_TENSOR,
-           synType}},
-         &params,
-         sizeof(params)});
-    return std::move(nonzero);
   }
+
+  // outputs - coordinates tensor is of output_shape with maximum
+  // self.numel() * self.dim() shape
+  // and shape_tensor is having 5D shape filled by tpc with actual num of
+  // nonzero elems
+  return OpBackend::BuildNode(
+      op,
+      graph,
+      {guid,
+       inputs,
+       {{output_shape, c10::ScalarType::Int, final_result_index_0},
+        {shape_tensor_shape, c10::ScalarType::Int, final_result_index_1}},
+       &params,
+       sizeof(params)});
 }
 
 void NonZeroEager::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  std::vector<synapse_helpers::tensor> nonzero;
-  auto shape_tensor_shape = DimVector{5};
 
   NonZeroParams_t self_params;
   self_params.dtype = self.scalar_type();
   self_params.sizes = self.sizes().vec();
   self_params.numel = self.numel();
-  nonzero =
-      NonZeroCommon(this, graph, self_params, syn_in(0), 0, shape_tensor_shape);
+
+  auto nonzero = NonZeroCommon(this, graph, self_params, syn_in(0), 0, 1);
   syn_out(0) = std::move(nonzero.at(0));
-  // Add cast for second syn_out - this has to be of type syn_type_uint32
-  auto cast_out_shape = OpBackend::BuildNode(
-      this,
-      graph,
-      {"cast_u32_to_i32",
-       {nonzero.at(1).get()},
-       {{shape_tensor_shape, c10::ScalarType::Int, 1}}});
-  syn_out(1) = std::move(cast_out_shape.at(0));
+  syn_out(1) = std::move(nonzero.at(1));
 }
 } // namespace habana
 

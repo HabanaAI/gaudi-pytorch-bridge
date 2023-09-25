@@ -407,7 +407,7 @@ void IndexPutBoolEager::AddNode(
         index_params,
         bcastOpInd.get(),
         c10::nullopt,
-        shape_tensor_shape,
+        c10::nullopt,
         true);
     nonzero_out_shape = nonzero[0].pt_shape();
     auto flattened_size = std::accumulate(
