@@ -1211,6 +1211,7 @@ build_pytorch_vision_fork()
     if [ -n "$__configure" ]; then
         $__python_cmd setup.py clean
         git clean -fd
+        rm -rf ${LIGHTNING_HABANA_FORK_ROOT}/dist/*.whl
     fi
 
     echo "Build parameters ${__whl_params}"

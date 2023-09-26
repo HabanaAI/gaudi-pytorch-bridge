@@ -28,13 +28,12 @@ def ccacheStats = [
 ]
 def lightningHabanaFork = [
     'Build Lightning Habana fork': { util ->
-        util.runShellCommandWrapper('rm -rf ${LIGHTNING_HABANA_FORK_ROOT}/dist/*.whl')
-        util.runBuildShell('build_lightning_habana_fork')
+        util.runBuildShell('build_lightning_habana_fork -c')
     }
 ]
 def pytorchFork = [
     'Build Pytorchfork modules': { util ->
-        util.runBuildShell('build_pytorch_fork --dist')
+        util.runBuildShell('build_pytorch_fork -c --dist')
         util.runShellCommandWrapper("""
             set -xe
             __clean_pytorch_dev_py_deps
@@ -48,12 +47,6 @@ def preBuildStages = [
             set -x
             __check_pytorch_dev_py_deps
         """)
-    },
-    'Clean Old .whl pakages': { util ->
-        util.runShellCommandWrapper('rm -rf ${PYTORCH_FORK_ROOT}/dist/*.whl')
-        util.runShellCommandWrapper('rm -rf ${PYTORCH_VISION_FORK_ROOT}/dist/*.whl')
-        util.runShellCommandWrapper('rm -rf ${PYTORCH_MODULES_ROOT_PATH}/dist/*.whl')
-        util.runShellCommandWrapper('rm -rf ${LIGHTNING_HABANA_FORK_ROOT}/dist/*.whl')
     }
 ]
 preBuildStages = preBuildStages + ccacheStats + pytorchFork + ccacheStats
@@ -65,9 +58,10 @@ if((env.GERRIT_PROJECT == 'lightning-habana-fork' ) && env.IS_PROMOTE == "false"
 }
 preBuildStages =  preBuildStages + lightningHabanaFork + ccacheStats
 def buildCommands = [
-    'Pytorch vision fork': 'build_pytorch_vision_fork',
-    'Pytorch modules': 'build_pytorch_modules'
+    'Pytorch vision fork': 'build_pytorch_vision_fork -c',
+    'Pytorch modules': 'build_pytorch_modules -c'
 ]
+
 def testDependencies = ['CORAL_SIM', 'TPCSIM', 'TPC_FUSER', 'TPC_LLVM', 'HCL', 'MEDIA', 'CODEC']
 def requiredArtifact = [
     'SWTOOLS_SDK': ['bin', 'shared'],
