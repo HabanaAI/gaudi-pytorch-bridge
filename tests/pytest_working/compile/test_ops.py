@@ -9,15 +9,13 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import torch.nn as nn
-import pytest
-from torch.testing._internal.common_methods_invocations import op_db
 import habana_frameworks.torch.dynamo.compile_backend  # noqa: F401
 import habana_frameworks.torch.utils.experimental as htexp
-from functools import reduce
+import pytest
+import torch
+import torch.nn as nn
 from test_utils import generic_setup_teardown_env
-
+from torch.testing._internal.common_methods_invocations import op_db
 
 all_dtypes = [
     torch.bfloat16,
@@ -27,6 +25,8 @@ all_dtypes = [
     torch.int8,
     torch.bool,
 ]
+
+
 @pytest.fixture(autouse=True, scope="module")
 def setup_teardown_env():
     def callback():
@@ -214,7 +214,6 @@ def test_unsqueeze(dtype, dim):
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
 
 
-
 def test_constant_pad_nd():
     def raw_function(x, device):
         m = nn.ConstantPad2d(2, 3.5).to(device)
@@ -229,11 +228,13 @@ def test_constant_pad_nd():
     compiled_hpu = torch.compile(raw_function, backend="aot_hpu_training_backend")
     hpu_res = compiled_hpu(hpu_tensor, "hpu")
 
-    assert torch.allclose(cpu_res, hpu_res.to('cpu'), rtol=1e-3, atol=1e-3)
+    assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
 
 
 @pytest.mark.parametrize("dtype", all_dtypes)
-@pytest.mark.parametrize("torch_func", [torch.logical_and, torch.logical_xor, torch.logical_or])
+@pytest.mark.parametrize(
+    "torch_func", [torch.logical_and, torch.logical_xor, torch.logical_or]
+)
 def test_logical_bin_ops(dtype, torch_func):
     def raw_function(a, b):
         return torch_func(a, b)
@@ -288,16 +289,19 @@ def test_cat():
 
     torch.allclose(hpu_output.to(device="cpu"), cpu_reference)
 
+
 @pytest.mark.parametrize("dtype", all_dtypes)
 def test_unbind_opdbtest(dtype):
     results = run_test("unbind", dtype)
     for (a, b) in results:
-        assert torch.allclose(a, b.cpu(), atol = 0.001, rtol = 0.001)
+        assert torch.allclose(a, b.cpu(), atol=0.001, rtol=0.001)
+
 
 @pytest.mark.parametrize("shape_in", [(4, 4), (2, 3, 4, 4, 4)])
 def test_nonzero(shape_in):
     def fn(tensor):
         return torch.nonzero(tensor)
+
     cpu_tensor = torch.randint(10, shape_in) > 5
     hpu_tensor = cpu_tensor.to("hpu")
 
@@ -308,3 +312,30 @@ def test_nonzero(shape_in):
     hpu_res = compiled_hpu(hpu_tensor)
 
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
+
+
+@pytest.mark.parametrize(
+    "init_val, dtype",
+    [
+        (1234567, torch.int64),
+        (12345.678, torch.double),
+        (12345.678, torch.bfloat16),
+        (1234567, torch.int),
+        (True, torch.bool),
+    ],
+)
+def test_local_scalar_dense(init_val, dtype):
+    cpu_tensor = torch.Tensor([init_val]).type(dtype)
+
+    def fn(tensor):
+        return torch.ops.aten._local_scalar_dense(tensor)
+
+    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_res = compiled_hpu(cpu_tensor.to("hpu"))
+
+    if dtype in [torch.double, torch.bfloat16]:
+        assert torch.isclose(
+            torch.tensor([hpu_res]), cpu_tensor.to(torch.float), atol=0.001, rtol=0.001
+        )
+    else:
+        assert hpu_res == init_val
