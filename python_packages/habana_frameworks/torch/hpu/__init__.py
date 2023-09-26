@@ -292,7 +292,17 @@ def set_device(device: _device_t) -> None:
                 f" which was previously set."
             )
 
-    os.environ[HLS_MODULE_ID_VAR] = available_modules[device_idx]
+    if current_module_id == -1 and HABANA_VISIBLE_MODULES_VAR not in os.environ and device_count() < 8:
+        # As HLS_MODULE_ID is not set and HABANA_VISIBLE_MODULES is not provided
+        # by user:
+        # - the only supported device idx is 0
+        # - Module ID (HLS_MODULE_ID) can't be set as we don't know what Module
+        #   IDs are available in system. In a result device will be allocated by
+        #   type
+        assert device_idx == 0, f"As {HABANA_VISIBLE_MODULES_VAR} is not provided, the only supported device idx is 0."
+    else:
+        os.environ[HLS_MODULE_ID_VAR] = available_modules[device_idx]
+
     set_device.current_device_idx = device_idx
 
 
