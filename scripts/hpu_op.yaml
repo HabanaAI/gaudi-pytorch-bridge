@@ -1345,20 +1345,25 @@ atanh_:
   op_validator: check-node-with-shared-layer
 
 baddbmm:
+  custom_output_shape: BaddbmmOutputShape
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
     Gaudi3: [Float, BFloat16, Half]
-  override_fn: baddbmm_hpu_lazy
-  acc_thread: true
+  guid: batch_gemm
+  op_backend: Baddbmm
+  out_ids: [0]
 
 baddbmm_:
+  custom_output_shape: BaddbmmOutputShape
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
     Gaudi3: [Float, BFloat16, Half]
-  override_fn: baddbmm_hpu_lazy_
-  acc_thread: true
+  guid: batch_gemm
+  op_backend: Baddbmm
+  inplace_ids: [0]
+
 
 baddbmm.out:
   custom_output_shape: BaddbmmOutputShape
