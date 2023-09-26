@@ -99,9 +99,6 @@ at::Tensor instance_norm(
     double eps,
     bool cudnn_enabled);
 at::Tensor dropout(const at::Tensor& input, double p, bool train);
-at::Tensor repeat_interleave(
-    const at::Tensor& self,
-    c10::optional<int64_t> output_size);
 at::Tensor softmax(
     const at::Tensor& self,
     int64_t dim,

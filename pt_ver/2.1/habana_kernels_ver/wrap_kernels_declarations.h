@@ -59,4 +59,7 @@ at::Tensor& _index_put_impl_(
     bool accumulate,
     bool unsafe);
 at::Tensor nonzero(const at::Tensor& self);
+at::Tensor repeat_interleave(
+    const at::Tensor& self,
+    c10::optional<int64_t> output_size);
 } // namespace hpu_wrap
