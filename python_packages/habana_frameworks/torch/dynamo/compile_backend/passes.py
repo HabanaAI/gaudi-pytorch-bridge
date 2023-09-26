@@ -1010,7 +1010,6 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
 
     return graph_changed
 
-
 def pass_compile_clusters(ctx: OptimizerContext):
     """
     This pass goes through each node in the main module. For each generated HPU cluster
@@ -1067,6 +1066,28 @@ def pass_compile_clusters(ctx: OptimizerContext):
 
         return f
 
+    def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
+        """
+        This function dynamicity per graph module.
+        """
+
+        from torch._subclasses.fake_tensor import FakeTensor
+        from torch.fx.experimental.proxy_tensor import py_sym_types
+        from torch.fx.passes.shape_prop import TensorMetadata
+        is_dynamic = False
+        for node in input_module.graph.nodes:
+            if node.op == 'placeholder':
+                meta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+                if (
+                    (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides)
+                    or isinstance(meta_val, py_sym_types)
+                ):
+                    is_dynamic = True
+                    break
+
+        logger.debug("Module dynamicity %s",is_dynamic)
+        return is_dynamic
+
     num_subgraphs = 0
     for n in ctx.graph_module.graph.nodes:
         logger.debug("Node: %s Op: %s Target: %s", n, n.op, n.target)
@@ -1080,7 +1101,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
                 jit_ir_function,
                 submod,
                 is_training=ctx.is_training,
-                is_dynamic=ctx.is_dynamic,
+                is_dynamic=is_module_dynamic(submod),
             )
 
             ctx.graph_module.delete_submodule(n.target)

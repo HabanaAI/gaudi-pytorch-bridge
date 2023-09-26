@@ -366,3 +366,55 @@ def test_view_negative_dim_1():
         result_compile_train = compiled_function_training(t_h, s2)
         out_c = raw_function(t, s2)
         assert torch.allclose(result_compile_train.to("cpu"), out_c)
+
+
+def test_dynamicity_static_dynamic_and_automatic():
+    inputs = [(2, 2, 2, 3), (2, 3, 3, 3), (2, 4, 4, 3)]
+    inputs1 = [(2, 4, 3), (2, 9, 3), (2, 16, 3)]
+    shapes = [(2, -1, 3), (2, -1, 3), (2, -1, 3)]
+
+    def raw_function(input_tensor, shape, input2_tensor):
+        t = torch.relu(input_tensor)
+        out = t.view(shape)
+        out1 = torch.relu(out)
+        out2 = out1 + input2_tensor
+        return out2
+
+    # Automatic Dynamicity Defaut = None
+    torch._dynamo.reset()
+    compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+
+    for s1 , s1_1 , s2 in zip(inputs, inputs1, shapes):
+        t = torch.randn(s1, requires_grad = False)
+        t2 = torch.randn(s1_1, requires_grad = False)
+        t_h = t.to("hpu")
+        t2_h = t2.to("hpu")
+        result_compile_train = compiled_function_training(t_h, s2, t2_h)
+        out_c = raw_function(t, s2, t2)
+        assert torch.allclose(result_compile_train.to("cpu"), out_c)
+
+    # Static Compile Dynamicity False
+    torch._dynamo.reset()
+    compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=False)
+
+    for s1 , s1_1 , s2 in zip(inputs, inputs1, shapes):
+        t = torch.randn(s1, requires_grad = False)
+        t2 = torch.randn(s1_1, requires_grad = False)
+        t_h = t.to("hpu")
+        t2_h = t2.to("hpu")
+        result_compile_train = compiled_function_training(t_h, s2, t2_h)
+        out_c = raw_function(t, s2, t2)
+        assert torch.allclose(result_compile_train.to("cpu"), out_c)
+
+    # Dynamic Compile Dynamicity=True
+    torch._dynamo.reset()
+    compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+
+    for s1 , s1_1 , s2 in zip(inputs, inputs1, shapes):
+        t = torch.randn(s1, requires_grad = False)
+        t2 = torch.randn(s1_1, requires_grad = False)
+        t_h = t.to("hpu")
+        t2_h = t2.to("hpu")
+        result_compile_train = compiled_function_training(t_h, s2, t2_h)
+        out_c = raw_function(t, s2, t2)
+        assert torch.allclose(result_compile_train.to("cpu"), out_c)
