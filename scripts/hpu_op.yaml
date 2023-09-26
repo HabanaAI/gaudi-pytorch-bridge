@@ -2543,6 +2543,7 @@ erfc.out:
   # op_validator: check-node-with-shared-layer
 
 erfinv:
+  promote_int_to_float: [self]
   dtypes: [Float]
   guid: erfinv_fwd
   out_ids: [0]
