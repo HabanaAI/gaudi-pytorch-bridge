@@ -21,6 +21,7 @@ def test_gelu(shape, approximate, dtype):
     def fn(input):
         return torch.nn.functional.gelu(input, approximate=approximate)
 
+    torch._dynamo.reset()
     hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
     cpu_compiled_fn = torch.compile(fn)
 

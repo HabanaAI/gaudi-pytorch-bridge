@@ -18,6 +18,7 @@ def test_alias(shape, dtype):
     def fn(input):
         return torch.ops.aten.alias(input)
 
+    torch._dynamo.reset()
     cpu_input = torch.randn(shape, dtype=dtype) if dtype.is_floating_point else torch.randint(low=-128, high=127, size=shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
     cpu_compiled_fn = torch.compile(fn)
