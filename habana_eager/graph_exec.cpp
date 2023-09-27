@@ -110,8 +110,7 @@ GraphExec::GraphExec(
 };
 
 bool GraphExec::IsDynamicGraph() {
-  static bool is_refine_dynamic{
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)};
+  bool is_refine_dynamic{GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES)};
   return m_dynamic && is_refine_dynamic;
 }
 
