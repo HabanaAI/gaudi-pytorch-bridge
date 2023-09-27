@@ -273,7 +273,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
 
     auto& mdata = output_metadata.at(0);
-    if (mdata.allocated_tensor.has_value()) {
+    if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
       AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
     } else {
       auto output = habana::createPTTensor(
@@ -290,7 +290,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
     auto& mdata = output_metadata.at(0);
 
-    if (mdata.allocated_tensor.has_value()) {
+    if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
       AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
     } else {
       auto output = habana::createPTTensor(
@@ -564,7 +564,7 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
 
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
     auto& mdata = output_metadata.at(0);
-    if (mdata.allocated_tensor.has_value()) {
+    if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
       AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
     } else {
       auto output = habana::createPTTensor(
@@ -598,7 +598,7 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
   } else {
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
     auto& mdata = output_metadata.at(0);
-    if (mdata.allocated_tensor.has_value()) {
+    if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
       AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
     } else {
       auto output = habana::createPTTensor(

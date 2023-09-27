@@ -188,14 +188,17 @@ torch::jit::Stack GraphExec::launch(
     torch::jit::Stack& stack,
     std::vector<at::Tensor>& outputs) {
   PT_EAGER_TRACE_WITH_NAME(m_graph_name);
-  if (IsDynamicGraph()) {
-    // For dynamic shapes we do not use preallocated outputs - value is returned
-    // as stack. If python layer allocated outputs, it will probably disregard
-    // our stack modification, and return this output instead - so it will
-    // result with random/unitilized value.
-    HABANA_ASSERT(outputs.size() == 0);
 
-    return LaunchDynamicRecipe(stack);
+  if (IsDynamicGraph()) {
+    PT_EAGER_INFO("Launch dynamic recipe. is_first_launch: ", is_first_launch);
+    torch::jit::Stack original_stack = stack;
+    stack = ProcessDynamicStack(original_stack, is_first_launch);
+    is_first_launch = false;
+
+    // [TODO] Disable hybrid sif until SW-153320
+    habana_helpers::SetHybridSIFTorchCompile(false);
+
+    PT_EAGER_INFO("Dynamic graph Info:", LogRecipeInfo(stack));
   }
 
   torch::jit::Stack backend_inputs =
@@ -232,32 +235,6 @@ torch::jit::Stack GraphExec::launch(
         LaunchRecipe(std::move(backend_inputs), maybe_backend_outputs);
     return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);
   }
-}
-
-torch::jit::Stack GraphExec::LaunchDynamicRecipe(
-    torch::jit::Stack& original_stack) {
-  PT_EAGER_TRACE;
-  PT_EAGER_INFO("LaunchDynamicRecipe. is_first_launch: ", is_first_launch);
-
-  habana::eager::JoinPendingPipelineThreads();
-
-  torch::jit::Stack stack =
-      ProcessDynamicStack(original_stack, is_first_launch);
-  is_first_launch = false;
-
-  // [TODO] Disable hybrid sif until SW-153320
-  habana_helpers::SetHybridSIFTorchCompile(false);
-
-  PT_EAGER_INFO("Dynamic graph Info:", LogRecipeInfo(stack));
-
-  torch::jit::Stack backend_inputs =
-      habana::eager::convert_ivalues_to_backend_tensors(stack);
-
-  HandleWeightPermutation(backend_inputs);
-
-  torch::jit::Stack ret_stack = LaunchRecipe(std::move(backend_inputs));
-  habana_helpers::SetHybridSIFTorchCompile(true);
-  return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);
 }
 
 torch::jit::Stack GraphExec::LaunchRecipe(

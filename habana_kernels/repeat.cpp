@@ -158,7 +158,8 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
     p_context_->syn_inputs_[0] = std::move(syn_tensor);
   }
 
-  if (output_metadata.at(0).allocated_tensor.has_value()) {
+  if (!graph.is_dry_run() &&
+      output_metadata.at(0).allocated_tensor.has_value()) {
     AllocateSynapseOutput(
         graph,
         output_metadata.at(0).allocated_tensor.value(),
@@ -205,7 +206,8 @@ void RepeatOperator::AllocateAndAddSynapseNode(
   }
   ns_TileKernel::ParamsV2 params{};
 
-  if (output_metadata.at(0).allocated_tensor.has_value()) {
+  if (!graph.is_dry_run() &&
+      output_metadata.at(0).allocated_tensor.has_value()) {
     AllocateSynapseOutput(
         graph,
         output_metadata.at(0).allocated_tensor.value(),

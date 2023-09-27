@@ -149,7 +149,7 @@ void OpBackend::HandleFn(sh::graph& graph, const at::Stack& stack) {
   }
 
   for (const auto& metadata : m_output_metadata) {
-    if (metadata.allocated_tensor.has_value()) {
+    if (!graph.is_dry_run() && metadata.allocated_tensor.has_value()) {
       AllocateSynapseOutput(graph, metadata.allocated_tensor.value(), metadata);
     } else {
       const auto t = GetProxyTensor(metadata.dtype, metadata.shape);

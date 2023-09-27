@@ -30,7 +30,8 @@ class CatOperator : public habana::HabanaOperator {
 
   at::Tensor CheckAllocateOutput(
       torch::jit::Stack& inputs,
-      const habana::OutputMetaData& output_metadata);
+      const habana::OutputMetaData& output_metadata,
+      bool is_dry_run);
   static std::vector<int64_t> compute_output_shape(
       const at::TensorList tensors,
       int64_t dim_);

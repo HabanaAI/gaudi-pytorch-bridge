@@ -87,6 +87,55 @@ def test_op_view():
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
+def test_op_cat():
+    input_shapes = [
+        (3, 6, 4),
+        (3, 8, 4),
+        (3, 10, 4),
+    ]
+
+    def raw_function(t1, t2):
+        t3 = torch.cat((t1, t2))
+        return t3
+
+    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+
+    for s in input_shapes:
+        t1 = torch.randn(s, requires_grad = False)
+        t2 = torch.randn(s, requires_grad = False)
+        result = raw_function(t1, t2)
+        t1_h = t1.to("hpu")
+        t2_h = t2.to("hpu")
+        h_result = compiled_fn(t1_h, t2_h)
+        assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+
+def test_op_view_static():
+    input_shapes = [
+        [(3, 6, 4), (3, 24)],
+        [(3, 8, 4), (3, 32)],
+        [(3, 10, 4), (3, 40)]
+    ]
+
+    def raw_function(t1, x2):
+        t = t1.shape
+        t1 = torch.relu(t1)
+        shape = (t[0], int(t[1] * t[2]))
+        t2 = t1.reshape(shape)
+        t3 = torch.add(t2, x2)
+        return t3
+
+    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=False)
+
+    for s in input_shapes:
+        t1 = torch.randn(s[0], requires_grad = False)
+        t2 = torch.randn(s[1], requires_grad = False)
+        result = raw_function(t1, t2)
+        t1_h = t1.to("hpu")
+        t2_h = t2.to("hpu")
+        h_result = compiled_fn(t1_h, t2_h)
+        assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+
+
 @pytest.mark.skip(reason="https://github.com/pytorch/pytorch/issues/104025")
 def test_op_topk():
     sizes = [5, 10, 15, 18, 16]

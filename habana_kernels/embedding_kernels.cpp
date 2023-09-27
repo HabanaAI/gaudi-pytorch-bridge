@@ -145,7 +145,8 @@ void PadOperator::AllocateAndAddSynapseNode(
     param.pads[i + ndim] = pad[2 * i + 1];
   }
 
-  if (output_metadata.at(0).allocated_tensor.has_value()) {
+  if (!graph.is_dry_run() &&
+      output_metadata.at(0).allocated_tensor.has_value()) {
     AllocateSynapseOutput(
         graph,
         output_metadata.at(0).allocated_tensor.value(),

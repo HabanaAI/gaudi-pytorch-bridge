@@ -847,7 +847,7 @@ void MeanOperator::AllocateAndAddSynapseNode(
 
   auto& mdata = output_metadata.at(0);
   Tensor output;
-  if (mdata.allocated_tensor.has_value()) {
+  if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
     output = mdata.allocated_tensor.value();
   } else {
     output = habana::createPTTensor(

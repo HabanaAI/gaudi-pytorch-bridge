@@ -2083,7 +2083,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         jit_graph_and_meta_data_->get_outputs_metadata(outputs_metadata_index);
     outputs_metadata_index++;
 
-    if (allocated_outputs_iter.has_value()) {
+    if (!dry_run_ && allocated_outputs_iter.has_value()) {
       c10::ArrayRef<torch::jit::Value*> node_outputs = getNodeOutputs(node);
       for (auto [itm, itn] =
                std::tuple{outputs_metadata.begin(), node_outputs.begin()};

@@ -85,7 +85,8 @@ void CatOperator::validate_cat_tensor_dim_sizes(
 
 Tensor CatOperator::CheckAllocateOutput(
     Stack& inputs,
-    const OutputMetaData& output_metadata) {
+    const OutputMetaData& output_metadata,
+    bool is_dry_run) {
   TORCH_CHECK(
       inputs.size() == 2 || inputs.size() == 3,
       "Incorrect size of inputs expected for cat operator");
@@ -131,7 +132,7 @@ Tensor CatOperator::CheckAllocateOutput(
     out_size = inputs[2].toTensor().sizes().vec();
   }
 
-  if (output_metadata.allocated_tensor.has_value()) {
+  if (!is_dry_run && output_metadata.allocated_tensor.has_value()) {
     return output_metadata.allocated_tensor.value();
   }
 
@@ -146,7 +147,7 @@ Tensor CatOperator::CheckAllocateOutput(
 }
 
 InferOutputMetaRetType CatOperator::InferOutputMeta(torch::jit::Stack& inputs) {
-  auto out_tensor = CheckAllocateOutput(inputs, OutputMetaData());
+  auto out_tensor = CheckAllocateOutput(inputs, OutputMetaData(), false);
   InferOutputMetaRetType out;
   out.AddOutputTensor(TensorMetaData(
       out_tensor.sizes().vec(),
@@ -161,7 +162,8 @@ void CatOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
-  auto out = CheckAllocateOutput(inputs, output_metadata.at(0));
+  auto out =
+      CheckAllocateOutput(inputs, output_metadata.at(0), graph.is_dry_run());
   inputs.emplace_back(out);
   auto dim = inputs[1].toInt();
   auto kernel_dim = (out.ndimension() - dim) - 1;
@@ -367,7 +369,7 @@ void PermuteOperator::AllocateAndAddSynapseNode(
       PermuteOperator::compute_output_shape(self, dims);
 
   auto& mdata = output_metadata.at(0);
-  auto output = mdata.allocated_tensor.has_value()
+  auto output = !graph.is_dry_run() && mdata.allocated_tensor.has_value()
       ? mdata.allocated_tensor.value()
       : habana::createPTTensor(
             self,

@@ -432,9 +432,12 @@ void IdentityOperator::AllocateAndAddSynapseNode(
     SET_SIZE_STRIDE_1D(self);
   }
   at::Tensor output;
+
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
-  } else if (output_metadata.at(0).allocated_tensor.has_value()) {
+  } else if (
+      !graph.is_dry_run() &&
+      output_metadata.at(0).allocated_tensor.has_value()) {
     output = output_metadata.at(0).allocated_tensor.value();
   } else {
     output = habana::createPTTensor(self, output_metadata.at(0).persistent);
@@ -817,7 +820,7 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
 
   auto& mdata = output_metadata.at(0);
   Tensor output;
-  if (mdata.allocated_tensor.has_value()) {
+  if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
     output = mdata.allocated_tensor.value();
     AllocateSynapseOutput(graph, output, mdata);
   } else {
@@ -1356,7 +1359,7 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
   PT_EAGER_INFO("Input: ", habana_helpers::DebugString(orig_t));
 
   auto& mdata = output_metadata.at(0);
-  if (mdata.allocated_tensor.has_value()) {
+  if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
     AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
   } else {
     auto output = habana::createPTTensor(
@@ -1735,7 +1738,7 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
 
   at::Tensor output;
   auto& mdata = output_metadata.at(0);
-  if (mdata.allocated_tensor.has_value()) {
+  if (!graph.is_dry_run() && mdata.allocated_tensor.has_value()) {
     output = mdata.allocated_tensor.value();
     AllocateSynapseOutput(graph, mdata.allocated_tensor.value(), mdata);
   } else {
