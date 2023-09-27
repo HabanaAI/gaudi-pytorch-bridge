@@ -23,7 +23,11 @@ from .internal import (
 
 
 def hpu_compiler_inner(
-    graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], is_training: bool, is_backward: bool
+    graph_module: torch.fx.GraphModule,
+    example_inputs: List[torch.Tensor],
+    is_training: bool,
+    is_backward: bool,
+    uses_aot: bool
 ):
     """
     This function will be called for each input FX graph. There will be at least
@@ -32,37 +36,45 @@ def hpu_compiler_inner(
     """
 
     # Perform optimizations on a graph before the partitioner.
-    optimize_pre_partitioner(graph_module, example_inputs, is_training, is_backward)
+    optimize_pre_partitioner(graph_module, example_inputs, is_training, is_backward, uses_aot)
 
     # Partition the module based on propagated device placement data.
-    partition_module(graph_module, example_inputs, is_training, is_backward)
+    partition_module(graph_module, example_inputs, is_training, is_backward, uses_aot)
 
     # Perform optimizations on a graph after the partitioner.
-    optimize_post_partitioner(graph_module, example_inputs, is_training, is_backward)
+    optimize_post_partitioner(graph_module, example_inputs, is_training, is_backward, uses_aot)
 
-    # Return the module in boxed format required by AOT Autograd.
-    return functorch.compile.make_boxed_func(graph_module.forward)
-
+    if uses_aot:
+        # Return the module in boxed format required by AOT Autograd.
+        return functorch.compile.make_boxed_func(graph_module.forward)
+    else:
+        return graph_module.forward
 
 def hpu_training_compiler_fw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
     """
     Just passthrough for forward pass training compilation.
     """
-    return hpu_compiler_inner(graph_module, example_inputs, True, False)
+    return hpu_compiler_inner(graph_module, example_inputs, True, False, True)
 
 
 def hpu_training_compiler_bw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
     """
     Just passthrough for backward pass training compilation.
     """
-    return hpu_compiler_inner(graph_module, example_inputs, True, True)
+    return hpu_compiler_inner(graph_module, example_inputs, True, True, True)
 
 
 def hpu_inference_compiler(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
     """
     Just passthrough for forward inference compilation.
     """
-    return hpu_compiler_inner(graph_module, example_inputs, False, False)
+    return hpu_compiler_inner(graph_module, example_inputs, False, False, True)
+
+def hpu_inference_compiler_noaot(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+    """
+    Just passthrough for forward inference compilation.
+    """
+    return hpu_compiler_inner(graph_module, example_inputs, False, False, False)
 
 
 def hpu_inference_compiler_raise(*args):

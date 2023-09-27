@@ -48,6 +48,7 @@ class OptimizerContext:
     is_training: bool
     is_backward: bool
     is_dynamic: bool
+    uses_aot: bool
     stage: OptimizationPassPlacement
     current_partitions: List
 
@@ -58,6 +59,7 @@ def optimize_graph(
     example_inputs: List[torch.Tensor],
     is_training: bool,
     is_backward: bool,
+    uses_aot: bool,
 ) -> bool:
     """
     This function rans optimizations of specified stage, if anything in the
@@ -79,7 +81,7 @@ def optimize_graph(
         is_dynamic = not config.assume_static_by_default
 
     ctx = OptimizerContext(
-        graph_module, example_inputs, is_training, is_backward, is_dynamic, stage, None
+        graph_module, example_inputs, is_training, is_backward, is_dynamic, uses_aot, stage, None
     )
 
     graph_changed = False
@@ -121,8 +123,12 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_eagerize_leaf_views,
             pass_propose_partitions,
             pass_merge_paths,
+
             # This is final pass that creates final submoduled graph.
             pass_fuse_partitions,
+
+            # Workarounds after partitioner phase.
+            pass_wa_fix_output
         ]
     elif stage == OptimizationPassPlacement.POST_PARTITIONER:
         return [
@@ -388,7 +394,7 @@ def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
     with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):
         # Disabling autocast in fake tensor propagation as autocasting has been
         # already done and all dtypes has been already deduced.
-        if not fake_mode:
+        if not fake_mode or not ctx.uses_aot:
             fake_mode = torch._subclasses.FakeTensorMode(allow_non_fake_inputs=True)
             TensorInfoPropagation(ctx.graph_module, fake_mode).propagate(
                 *ctx.example_inputs
@@ -400,6 +406,37 @@ def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
 
     return True
 
+def pass_wa_fix_output(ctx: OptimizerContext) -> bool:
+    """
+    This pass is supposed to workaround an issue with global output not being the last
+    node in the graph. Details below.
+    """
+    assert ctx.graph_module is not None
+    graph_changed = False
+
+    # WORKAROUND BEGIN
+    # This is workaround for graphs that are not functionalized at this point.
+    # Issue is that some graphs has no outputs and it will cause wrong topological
+    # sort and execution when they are not functionalized. This code fixes that by
+    # moving global output node to the end of graph.
+    output_node = None
+    last_node_after_output = None
+    for n in ctx.graph_module.graph.nodes:
+        if output_node:
+            last_node_after_output = n
+
+        if n.op == "output":
+            output_node = n
+    if last_node_after_output is not None:
+        logger.warning("It seems graph wasn't functionalized, fixing empty output node.")
+        ctx.graph_module.graph.erase_node(output_node)
+        ctx.graph_module.graph.node_copy(output_node)
+        ctx.graph_module.recompile()
+        graph_changed = True
+
+    # WORKAROUND END
+
+    return graph_changed
 
 def pass_fake_propagation_legacy(ctx: OptimizerContext) -> bool:
     """

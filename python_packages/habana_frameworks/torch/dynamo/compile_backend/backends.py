@@ -25,6 +25,7 @@ from .compilers import (
     hpu_training_compiler_bw,
     hpu_inference_compiler,
     hpu_inference_compiler_raise,
+    hpu_inference_compiler_noaot,
 )
 
 @register_backend
@@ -54,3 +55,12 @@ def aot_hpu_inference_backend(graph_module: torch.fx.GraphModule, example_inputs
         decompositions=get_hpu_decompositions(is_training=False),
         keep_inference_input_mutations = configuration_flags["keep_input_mutations"]
     )(graph_module, example_inputs)
+
+@register_backend
+def hpu_inference_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+    """
+    This function implements interface for HPU inference backend without AOT.
+    """
+
+    # Create AOT Autograd instance and feed it with Habana compile function.
+    return hpu_inference_compiler_noaot(graph_module, example_inputs)
