@@ -94,7 +94,7 @@ sizes_vec Avgpool2dOutputShape(const at::Stack& stack) {
       stack.at(3).toListRef().empty() ? padding : stack.at(3).toIntVector();
   const bool ceil_mode = stack.at(4).toBool();
   auto outshape = compute_pool_kernel_output_shape(
-      self, kernel_size, stride, pad, dilation, ceil_mode);
+      self, kernel_size, stride, pad, dilation, ceil_mode, false);
   if (rank == 3)
     outshape.erase(begin(outshape));
 

@@ -47,3 +47,40 @@ def test_hpu_adaptive_avg_pool1d(shape, output_size, dtype):
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).to("cpu")
     assert torch.allclose(cpu_output, hpu_output)
+
+@pytest.mark.parametrize("shape", [[1, 8, 16, 16], [1, 1, 8, 16, 16]])
+@pytest.mark.parametrize("kernel_size_and_padding", [((3, 2, 2), 1), (4, (1, 2, 2)), ((1, 1, 1), 0)])
+@pytest.mark.parametrize("stride", [(2, 1, 2), 1, 2])
+@pytest.mark.parametrize("ceil_mode", [False, True])
+@pytest.mark.parametrize("count_include_pad", [False, True])
+@pytest.mark.parametrize("divisor_override", [None, 4, -3])
+@pytest.mark.parametrize("dtype", [torch.float])
+def test_hpu_avg_pool3d(shape, kernel_size_and_padding, stride, ceil_mode, count_include_pad, divisor_override, dtype):
+    if divisor_override != None and divisor_override < 0:
+        pytest.xfail('[SW-160805] Negative divisors error')
+    if (ceil_mode==True
+        and count_include_pad==True
+        and kernel_size_and_padding==((3, 2, 2), 1)
+        and divisor_override==None
+        and (stride==(2,1,2) or stride==2)):
+        pytest.xfail('[SW-160805] Output mismatch on last dim')
+
+    def fn(input):
+        return torch.ops.aten.avg_pool3d(
+            input,
+            kernel_size,
+            padding=padding,
+            stride=stride,
+            ceil_mode=ceil_mode,
+            count_include_pad=count_include_pad,
+            divisor_override=divisor_override)
+
+    kernel_size, padding = kernel_size_and_padding
+    cpu_input = torch.rand(shape, dtype=dtype)
+    hpu_input = cpu_input.to("hpu")
+    cpu_compiled_fn = torch.compile(fn)
+    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    cpu_output = cpu_compiled_fn(cpu_input)
+    hpu_output = hpu_compiled_fn(hpu_input).cpu()
+    assert torch.allclose(cpu_output, hpu_output)

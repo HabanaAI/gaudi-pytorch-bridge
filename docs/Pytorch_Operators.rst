@@ -24,7 +24,10 @@ PyTorch Operators Support Summary
 =================================   ======== ======== ========= ======== ========  ======================
 **PyTorch Operator**                **FP32** **BF16** **INT32** **INT8** **BOOL**  **Operator Type**
 =================================   ======== ======== ========= ======== ========  ======================
+adaptive_avg_pool1d                    Yes      Yes      No        No       No     torch.nn.functional
+avg_pool1d                             Yes      Yes      No        No       No     torch.nn.functional
 avg_pool2d                             Yes      Yes      No        No       No     torch.nn.functional
+avg_pool3d                             Yes      Yes      No        No       No     torch.nn.functional
 batch_norm                             Yes      Yes      No        No       No     torch.nn.functional
 binary_cross_entropy                   Yes      Yes      No        No       No     torch.nn.functional
 binary_cross_entropy_with_logits       Yes      Yes      No        No       No     torch.nn.functional
@@ -269,8 +272,11 @@ where                                  Yes      Yes      Yes       No       No  
 xlogy                                  Yes      Yes      No        No       No     torch
 zeros                                  Yes      Yes      Yes       Yes      Yes    torch
 zeros_like                             Yes      Yes      Yes       Yes      Yes    torch
+AdaptiveAvgPool1d                      Yes      Yes      No        No       No     torch.nn
 AdaptiveAvgPool2d                      Yes      Yes      No        No       No     torch.nn
+AvgPool1d                              Yes      Yes      No        No       No     torch.nn
 AvgPool2d                              Yes      Yes      No        No       No     torch.nn
+AvgPool3d                              Yes      Yes      No        No       No     torch.nn
 BatchNorm1d                            Yes      Yes      No        No       No     torch.nn
 BatchNorm2d                            Yes      Yes      No        No       No     torch.nn
 BCELoss                                Yes      Yes      No        No       No     torch.nn

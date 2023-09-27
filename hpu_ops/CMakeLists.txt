@@ -87,6 +87,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/argmin_max_gen.cpp
           backend/autocast_helpers.cpp
           backend/avg_pool2d_gen.cpp
+          backend/avg_pool3d_gen.cpp
           backend/baddbmm_gen.cpp
           backend/batch_norm_gen.cpp
           backend/bernoulli_gen.cpp

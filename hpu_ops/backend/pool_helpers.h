@@ -28,5 +28,6 @@ std::vector<int64_t> compute_pool_kernel_output_shape(
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation,
-    bool ceil_mode);
+    bool ceil_mode,
+    bool is_3d = false);
 } // namespace habana

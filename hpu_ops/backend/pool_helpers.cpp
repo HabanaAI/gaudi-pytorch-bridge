@@ -17,62 +17,55 @@
 #include "hpu_ops/backend/pool_helpers.h"
 
 namespace habana {
+static std::vector<int> get_params_vector(
+    const at::IntArrayRef params,
+    bool is_3d) {
+  std::vector<int> result;
+  int first = at::native::safe_downcast<int, int64_t>(params[0]);
+  int dims = is_3d ? 3 : 2;
+  for (int i = 0; i < dims; i++) {
+    result.push_back(
+        params.size() == 1
+            ? first
+            : at::native::safe_downcast<int, int64_t>(params[i]));
+  }
+  return result;
+}
 std::vector<int64_t> compute_pool_kernel_output_shape(
     const at::Tensor& input,
     const at::IntArrayRef kernel_size,
     const at::IntArrayRef stride,
     const at::IntArrayRef padding,
     const at::IntArrayRef dilation,
-    bool ceil_mode) {
-  const int filter_H = at::native::safe_downcast<int, int64_t>(kernel_size[0]);
-  const int filter_W = kernel_size.size() == 1
-      ? filter_H
-      : at::native::safe_downcast<int, int64_t>(kernel_size[1]);
+    bool ceil_mode,
+    bool is_3d) {
+  // depending on 2d or 3d variant of op, dimensions are NCHW or NCDHW
+  std::vector<int> filters = get_params_vector(kernel_size, is_3d);
+  std::vector<int> strides =
+      stride.empty() ? filters : get_params_vector(stride, is_3d);
+  std::vector<int> pads = get_params_vector(padding, is_3d);
+  std::vector<int> dilations = get_params_vector(dilation, is_3d);
 
-  const int stride_H = stride.empty()
-      ? filter_H
-      : at::native::safe_downcast<int, int64_t>(stride[0]);
-  const int stride_W = stride.empty()
-      ? filter_W
-      : stride.size() == 1 ? stride_H
-                           : at::native::safe_downcast<int, int64_t>(stride[1]);
+  // Op accepts tensor without batches (3d in 2D op variant and 4d in 3D op
+  // variant). In this case, the batch size should be assumed as 1
+  bool noBatchesVariant =
+      ((is_3d && input.dim() == 4) || (!is_3d && input.dim() == 3));
+  int offset = noBatchesVariant ? 1 : 0;
+  const int64_t N = noBatchesVariant ? 1 : input.size(0);
+  const int64_t C = input.size(1 - offset);
+  std::vector<int64_t> outshape{N, C};
 
-  const int pad_H = at::native::safe_downcast<int, int64_t>(padding[0]);
-  const int pad_W = padding.size() == 1
-      ? pad_H
-      : at::native::safe_downcast<int, int64_t>(padding[1]);
+  const size_t dims = is_3d ? 3 : 2;
+  for (size_t i = 0; i < dims; i++) {
+    outshape.push_back(at::native::pooling_output_shape<int64_t>(
+        input.size(i + 2 - offset),
+        filters[i],
+        pads[i],
+        strides[i],
+        dilations[i],
+        ceil_mode));
+  }
 
-  const int dilation_H = at::native::safe_downcast<int, int64_t>(dilation[0]);
-  const int dilation_W = dilation.size() == 1
-      ? dilation_H
-      : at::native::safe_downcast<int, int64_t>(dilation[1]);
-
-  // input NCHW, output NHWC
-  // weight KCHW, where K - output channels
-  // pad, stride HW
-  unsigned int input_dim0 = 0;
-  unsigned int input_dim1 = 1;
-  unsigned int input_dim2 = 2;
-  unsigned int input_dim3 = 3;
-
-  // Op accepts 3dim tensor. In this case, the batch size should be assumed as 1
-  bool fourDims = input.dim() == 4;
-  int offset = fourDims ? 0 : 1;
-  input_dim0 = synapse_helpers::layouts::INPUT_N_IDX;
-  input_dim1 = synapse_helpers::layouts::INPUT_C_IDX - offset;
-  input_dim2 = synapse_helpers::layouts::INPUT_H_IDX - offset;
-  input_dim3 = synapse_helpers::layouts::INPUT_W_IDX - offset;
-
-  const int64_t N = fourDims ? input.size(input_dim0) : 1;
-  const int64_t C = input.size(input_dim1);
-  const int64_t input_H = input.size(input_dim2);
-  const int64_t input_W = input.size(input_dim3);
-
-  const int64_t output_H = at::native::pooling_output_shape<int64_t>(
-      input_H, filter_H, pad_H, stride_H, dilation_H, ceil_mode);
-  const int64_t output_W = at::native::pooling_output_shape<int64_t>(
-      input_W, filter_W, pad_W, stride_W, dilation_W, ceil_mode);
-
-  return {N, C, output_H, output_W};
+  return outshape;
 }
 } // namespace habana

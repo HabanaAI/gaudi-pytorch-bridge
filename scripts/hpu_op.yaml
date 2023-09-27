@@ -1298,6 +1298,33 @@ avg_pool2d_backward:
   - [WHCN]
   out_ids: [0]
 
+avg_pool3d:
+  custom_fill_params: FillAvgPool3dParamsFwd
+  output_meta: AvgPool3dMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: avg_pool_3d_fwd
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+  out_ids: [0]
+  op_backend: Avgpool3dFwd
+
+avg_pool3d.out:
+  custom_fill_params: FillAvgPool3dParamsFwd
+  output_meta: AvgPool3dMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: avg_pool_3d_fwd
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+  op_backend: Avgpool3dFwd
+
 atanh:
   dtypes:
     Gaudi: [Float]
