@@ -24,9 +24,6 @@ namespace habana_helpers {
  */
 class ThreadPoolControl {
  public:
-  /**
-   * @param num_threads Number of available threads in underlying pool
-   */
   explicit ThreadPoolControl(){};
 
   ThreadPoolControl(const ThreadPoolControl&) = delete;
@@ -40,16 +37,22 @@ class ThreadPoolControl {
    * Thread safe.
    */
   void JoinPendingThread() {
-    std::shared_future<void> shared_thread_handle;
+    std::unique_lock lock{m_join_mutex};
+    std::future<void> local_thread_handle;
     {
       std::unique_lock lock{m_thread_handle_mutex};
-      shared_thread_handle = m_thread_handle;
+      local_thread_handle = std::move(m_thread_handle);
     }
-    if (shared_thread_handle.valid()) {
+    if (local_thread_handle.valid()) {
       PT_LAZY_EXEC_THREAD("Waiting for thread to finish");
       try {
-        shared_thread_handle.get();
-      } catch (std::exception&) {
+        local_thread_handle.get();
+      } catch (const std::exception& e) {
+        PT_BRIDGE_WARN("Exception caught in thread...\n", e.what());
+        throw;
+      } catch (...) {
+        PT_BRIDGE_WARN("Exception caught in thread...\n");
+        throw;
       }
     }
   }
@@ -78,7 +81,7 @@ class ThreadPoolControl {
   /**
    * Handle to last scheduled work in thread pool.
    */
-  std::shared_future<void> m_thread_handle GUARDED_BY(m_thread_handle_mutex);
+  std::future<void> m_thread_handle GUARDED_BY(m_thread_handle_mutex);
 
   /**
    * Guarding accesses to thread handle.
@@ -86,8 +89,9 @@ class ThreadPoolControl {
   std::mutex m_thread_handle_mutex;
 
   /**
-   * Busy waits until underlying thread pool is stopped or still has items.
+   * Guarding the call to join method
    */
+  std::mutex m_join_mutex;
 };
 
 /**
@@ -105,7 +109,6 @@ class Singleton_CompileThreadPool {
   }
 
  private:
-  static constexpr size_t num_threads = 1;
   Singleton_CompileThreadPool() = default;
   Singleton_CompileThreadPool(const Singleton_CompileThreadPool&) = delete;
   Singleton_CompileThreadPool& operator=(const Singleton_CompileThreadPool&) =
