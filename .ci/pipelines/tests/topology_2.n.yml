@@ -25,6 +25,8 @@ common:
       command: '__check_pytorch_dev_py_deps; __check_pytest_dev_py_deps'
     Update PyTorch module:
         command: |
+          rm -f $PYTORCH_FORK_RELEASE_BUILD/pkgs/torch-*.wh
+          cp -f ./dependencies/pt_next/pt_next_deps/whl_pyfork/*torch*.whl ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/
           __clean_pytorch_dev_py_deps
           pip install -U $PYTORCH_FORK_RELEASE_BUILD/pkgs/*.whl
           pip install -U ${PYTORCH_VISION_FORK_BUILD}/pkgs/*.whl
