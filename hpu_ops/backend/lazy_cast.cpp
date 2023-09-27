@@ -130,20 +130,24 @@ void CopyFrom::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   copy_impl(src, dst, this, graph, syn_in(0), syn_out(0));
 }
 
+template <bool is_inplace>
 struct Copy : OpBackend {
   Copy(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+
+  void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override {
+    auto dst = stack_tensor(stack, 0);
+    auto src = stack_tensor(stack, 1);
+
+    copy_impl(src, dst, this, graph, syn_in(1), syn_out(0));
+  }
 };
 
-Copy::Copy(int device_id, c10::ScalarType scalar_type)
+template <>
+Copy<true>::Copy(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, {}, scalar_type, {}, {0}, {}, false) {}
+template <>
+Copy<false>::Copy(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {}
-
-void Copy::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto dst = stack_tensor(stack, 0);
-  auto src = stack_tensor(stack, 1);
-
-  copy_impl(src, dst, this, graph, syn_in(1), syn_out(0));
-}
 
 struct ToCopy : OpBackend {
   ToCopy(int device_id, c10::ScalarType scalar_type);
@@ -190,7 +194,8 @@ void ToCopy::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 static const auto& CastKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::copy", KERNEL_FN_GLOBAL(habana::Copy))
+        .add("aten::copy", KERNEL_FN_GLOBAL(habana::Copy<false>))
+        .add("aten::copy_", KERNEL_FN_GLOBAL(habana::Copy<true>))
         .add("aten::_to_copy", KERNEL_FN_GLOBAL(habana::ToCopy))
         .add("hpu::_copy_from", KERNEL_FN_GLOBAL(habana::CopyFrom))
         .add("hpu::cast", KERNEL_FN_GLOBAL(habana::LazyCast))
