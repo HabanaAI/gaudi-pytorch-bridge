@@ -35,6 +35,8 @@ testJobConfig:
         hwType:
           asic:
   topology:
+    envVars:
+      IS_K8S_CONTAINER_TESTER: 'true'
     devices:
       gaudi2:
         hwType:
