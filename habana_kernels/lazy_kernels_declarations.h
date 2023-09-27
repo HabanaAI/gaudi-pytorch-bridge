@@ -311,6 +311,12 @@ at::Tensor& randperm_hpu_lazy(
     c10::SymInt n,
     c10::optional<at::Generator> gen,
     at::Tensor& output);
+at::Tensor randperm_nogen_hpu_lazy(
+    c10::SymInt n,
+    c10::optional<at::ScalarType> dtype,
+    c10::optional<at::Layout> layout,
+    c10::optional<at::Device> device,
+    c10::optional<bool> pin_memory);
 #endif
 at::Tensor bernoulli_hpu_lazy(
     const at::Tensor& self,

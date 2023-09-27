@@ -4627,6 +4627,25 @@ Tensor& randperm_hpu_lazy(
     RUN_INPLACE_MAYBE_WITH_ACC_THREAD(randperm_hpu_lazy_ht, op, output);
   }
 }
+
+Tensor randperm_nogen_hpu_lazy(
+    c10::SymInt n,
+    c10::optional<ScalarType> dtype,
+    c10::optional<Layout> layout,
+    c10::optional<Device> device,
+    c10::optional<bool> pin_memory) {
+  PT_LAZY_TRACE;
+  at::TensorOptions options = at::TensorOptions()
+                                  .device(device)
+                                  .dtype(c10::ScalarType::Int)
+                                  .layout(layout)
+                                  .pinned_memory(pin_memory);
+  std::vector<int64_t> out_size{n.expect_int()};
+  auto out_t =
+      empty_hpu_lazy(out_size, options, c10::MemoryFormat::Contiguous, true);
+  out_t = randperm_hpu_lazy(n, c10::nullopt, out_t);
+  return out_t.to(dtype.value_or(c10::ScalarType::Int));
+}
 #endif
 at::Tensor repeat_hpu_lazy_ht(const at::Tensor& self, at::IntArrayRef repeats) {
   PT_LAZY_TRACE;

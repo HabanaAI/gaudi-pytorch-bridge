@@ -37,7 +37,19 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, GeneratorToSeed, at::Tensor&) {
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, GeneratorToSeed, at::Tensor) {
-  ConvertGeneratorToSeedTensor(m_symbol, get_inputs().back());
+  int stack_size = (int)get_inputs().size();
+  int gen_pos = -1; // first position of generator or None type in the stack
+  for (int i = 0; i < stack_size; i++) {
+    if (get_inputs()[i].isNone() || get_inputs()[i].isGenerator()) {
+      gen_pos = i;
+      break;
+    }
+  }
+  if (gen_pos != -1) {
+    ConvertGeneratorToSeedTensor(m_symbol, get_inputs()[gen_pos]);
+  } else {
+    ConvertGeneratorToSeedTensor(m_symbol, get_inputs().back());
+  }
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(

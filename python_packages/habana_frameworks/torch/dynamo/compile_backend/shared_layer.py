@@ -49,7 +49,6 @@ hpu_fallback_op_list = {
     "rand_like",
     "randn_like",
     "randint_like",
-    "randperm",
     "poisson",
     "multinomial",
     # Other
