@@ -95,6 +95,12 @@ bool fillSharedLayerTensorType(SharedLayer::Tensor& tensor, at::ScalarType t) {
     case at::ScalarType::BFloat16:
       tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_BF16;
       return true;
+    case at::ScalarType::Float8_e5m2:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_F8_152;
+      return true;
+    case at::ScalarType::Float8_e4m3fn:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_F8_143;
+      return true;
     default:
       tensor.geometry.dataType = SharedLayer::TensorDataType::NUM_DATATYPES;
       return false;

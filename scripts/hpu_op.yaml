@@ -1975,8 +1975,8 @@ constant_pad_nd:
   custom_fill_params: FillConstantPadParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Half, Short, Char, Byte, Long]
-    Gaudi3: [BFloat16, Float, Int, Half, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Half, Short, Char, Byte, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Short, Char, Byte, Float8_e5m2, Float8_e4m3fn]
   guid: pad_fwd
   out_ids: [0]
   lazy:
@@ -5432,7 +5432,10 @@ relu.out:
 reflection_pad1d:
   custom_output_shape: ReflectionPad1DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
-  dtypes: [BFloat16, Float, Int, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Short]
+    Gaudi2: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
   guid: pad_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
@@ -5440,7 +5443,10 @@ reflection_pad1d:
 reflection_pad1d.out:
   custom_output_shape: ReflectionPad1DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
-  dtypes: [BFloat16, Float, Int, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Short]
+    Gaudi2: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
   guid: pad_fwd
   op_validator: check-node-with-shared-layer
 
@@ -5462,7 +5468,10 @@ reflection_pad1d_backward.grad_input:
 reflection_pad2d:
   custom_output_shape: ReflectionPad2DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
-  dtypes: [BFloat16, Float, Int, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Short]
+    Gaudi2: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
   guid: pad_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
@@ -5470,7 +5479,10 @@ reflection_pad2d:
 reflection_pad2d.out:
   custom_output_shape: ReflectionPad2DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
-  dtypes: [BFloat16, Float, Int, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Short]
+    Gaudi2: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
   guid: pad_fwd
   op_validator: check-node-with-shared-layer
 
@@ -5492,7 +5504,10 @@ reflection_pad2d_backward.grad_input:
 reflection_pad3d:
   custom_output_shape: ReflectionPad3DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
-  dtypes: [BFloat16, Float, Int, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Short]
+    Gaudi2: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
   guid: pad_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
@@ -5500,7 +5515,10 @@ reflection_pad3d:
 reflection_pad3d.out:
   custom_output_shape: ReflectionPad3DOutputShape
   custom_fill_params: FillReflectionPadForwardParams
-  dtypes: [BFloat16, Float, Int, Short]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Short]
+    Gaudi2: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Short, Float8_e5m2, Float8_e4m3fn]
   guid: pad_fwd
   op_validator: check-node-with-shared-layer
 
@@ -5605,7 +5623,10 @@ replication_pad1d:
   custom_output_shape: ReplicationPad1dOutputShape
   custom_fill_params: FillReplicationPad1dParams
   guid: pad_fwd
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
   out_ids: [0]
   op_validator: check-node-with-shared-layer
 
@@ -5613,14 +5634,20 @@ replication_pad1d.out:
   custom_output_shape: ReplicationPad1dOutputShape
   custom_fill_params: FillReplicationPad1dParams
   guid: pad_fwd
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
   op_validator: check-node-with-shared-layer
 
 replication_pad2d:
   custom_output_shape: ReplicationPad2dOutputShape
   custom_fill_params: FillReplicationPad2dParams
   guid: pad_fwd
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
   out_ids: [0]
   op_validator: check-node-with-shared-layer
 
@@ -5628,14 +5655,20 @@ replication_pad2d.out:
   custom_output_shape: ReplicationPad2dOutputShape
   custom_fill_params: FillReplicationPad2dParams
   guid: pad_fwd
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
   op_validator: check-node-with-shared-layer
 
 replication_pad3d:
   custom_output_shape: ReplicationPad3dOutputShape
   custom_fill_params: FillReplicationPad3dParams
   guid: pad_fwd
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
   out_ids: [0]
   op_validator: check-node-with-shared-layer
 
@@ -5643,7 +5676,10 @@ replication_pad3d.out:
   custom_output_shape: ReplicationPad3dOutputShape
   custom_fill_params: FillReplicationPad3dParams
   guid: pad_fwd
-  dtypes: [BFloat16, Float, Int]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Float8_e5m2, Float8_e4m3fn]
   op_validator: check-node-with-shared-layer
 
 replication_pad1d_backward:
