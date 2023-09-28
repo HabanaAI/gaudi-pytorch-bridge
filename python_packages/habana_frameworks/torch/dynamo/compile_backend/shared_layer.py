@@ -51,6 +51,7 @@ hpu_fallback_op_list = {
     "slice_backward",  # SW-146680
     "addcmul",
     "index",  # SW-146773
+    "copy_", # SW-160687
 }
 
 def check_for_default_op_support(op_name):
