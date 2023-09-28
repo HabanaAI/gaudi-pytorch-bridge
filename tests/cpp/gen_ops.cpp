@@ -498,28 +498,144 @@ TEST_F(GenOps, Fns) {
   // clang-format on
 }
 
-TEST_F(GenOps, clampGen) {
-  // clang-format off
-  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::optional<torch::Tensor>&, const torch::optional<torch::Tensor>&)>(torch::clamp));
-  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::optional<torch::Scalar>&, const torch::optional<torch::Scalar>&)>(torch::clamp));
-  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Tensor&)>(torch::clamp_min));
-  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Scalar&)>(torch::clamp_min));
-  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Tensor&)>(torch::clamp_max));
-  TestFn(static_cast<torch::Tensor (*)(const torch::Tensor&, const torch::Scalar&)>(torch::clamp_max));
+TEST_F(GenOps, clampGenTensor) {
+  TestFn(static_cast<torch::Tensor (*)(
+             const torch::Tensor&,
+             const torch::optional<torch::Tensor>&,
+             const torch::optional<torch::Tensor>&)>(torch::clamp));
+}
 
-  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::optional<torch::Tensor>&, const torch::optional<torch::Tensor>&)>(torch::clamp_));
-  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::optional<torch::Scalar>&, const torch::optional<torch::Scalar>&)>(torch::clamp_));
-  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Tensor&)>(torch::clamp_min_));
-  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Scalar&)>(torch::clamp_min_));
-  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Tensor&)>(torch::clamp_max_));
-  TestInplace(static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Scalar&)>(torch::clamp_max_));
+TEST_F(GenOps, clampGenScalar) {
+  TestFn(static_cast<torch::Tensor (*)(
+             const torch::Tensor&,
+             const torch::optional<torch::Scalar>&,
+             const torch::optional<torch::Scalar>&)>(torch::clamp));
+}
 
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Scalar&, torch::Tensor&)>(torch::clamp_max_outf), torch::kLong);
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::clamp_max_outf), torch::kLong);
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Scalar&, torch::Tensor&)>(torch::clamp_min_outf));
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(torch::clamp_min_outf));
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::optional<torch::Scalar>&, const torch::optional<torch::Scalar>&, torch::Tensor&)>(torch::clamp_outf));
-  TestOut(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::optional<torch::Tensor>&, const torch::optional<torch::Tensor>&,torch::Tensor&)>(torch::clamp_outf));
-  TestOutClampCustom(static_cast<torch::Tensor& (*)(const torch::Tensor&, const torch::optional<torch::Tensor>&, const torch::optional<torch::Tensor>&,torch::Tensor&)>(torch::clamp_outf));
-  // clang-format on
+TEST_F(GenOps, clampGenMinTensor) {
+  TestFn(static_cast<torch::Tensor (*)(
+             const torch::Tensor&, const torch::Tensor&)>(torch::clamp_min));
+}
+
+TEST_F(GenOps, clampGenMinScalar) {
+  TestFn(static_cast<torch::Tensor (*)(
+             const torch::Tensor&, const torch::Scalar&)>(torch::clamp_min));
+}
+
+TEST_F(GenOps, clampGenMaxTensor) {
+  TestFn(static_cast<torch::Tensor (*)(
+             const torch::Tensor&, const torch::Tensor&)>(torch::clamp_max));
+}
+
+TEST_F(GenOps, clampGenMaxScalar) {
+  TestFn(static_cast<torch::Tensor (*)(
+             const torch::Tensor&, const torch::Scalar&)>(torch::clamp_max));
+}
+
+TEST_F(GenOps, clampGenInplaceTensor) {
+  TestInplace(
+      static_cast<
+          torch::
+              Tensor& (*)(torch::Tensor&, const torch::optional<torch::Tensor>&, const torch::optional<torch::Tensor>&)>(
+          torch::clamp_));
+}
+
+TEST_F(GenOps, clampGenInplaceScalar) {
+  TestInplace(
+      static_cast<
+          torch::
+              Tensor& (*)(torch::Tensor&, const torch::optional<torch::Scalar>&, const torch::optional<torch::Scalar>&)>(
+          torch::clamp_));
+}
+
+TEST_F(GenOps, clampGenInplaceMinTensor) {
+  TestInplace(
+      static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Tensor&)>(
+          torch::clamp_min_));
+}
+
+TEST_F(GenOps, clampGenInplaceMinScalar) {
+  TestInplace(
+      static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Scalar&)>(
+          torch::clamp_min_));
+}
+
+TEST_F(GenOps, clampGenInplaceMaxTensor) {
+  TestInplace(
+      static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Tensor&)>(
+          torch::clamp_max_));
+}
+
+TEST_F(GenOps, clampGenInplaceMaxScalar) {
+  TestInplace(
+      static_cast<torch::Tensor& (*)(torch::Tensor&, const torch::Scalar&)>(
+          torch::clamp_max_));
+}
+
+TEST_F(GenOps, clampGenOutTensor) {
+  TestOut(static_cast<
+          torch::
+              Tensor& (*)(const torch::Tensor&, const torch::optional<torch::Tensor>&, const torch::optional<torch::Tensor>&, torch::Tensor&)>(
+      torch::clamp_outf));
+}
+
+TEST_F(GenOps, clampGenOutScalar) {
+  TestOut(static_cast<
+          torch::
+              Tensor& (*)(const torch::Tensor&, const torch::optional<torch::Scalar>&, const torch::optional<torch::Scalar>&, torch::Tensor&)>(
+      torch::clamp_outf));
+}
+
+TEST_F(GenOps, clampGenOutMinTensor) {
+  TestOut(static_cast<
+          torch::
+              Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(
+      torch::clamp_min_outf));
+}
+
+TEST_F(GenOps, clampGenOutMinScalar) {
+  TestOut(static_cast<
+          torch::
+              Tensor& (*)(const torch::Tensor&, const torch::Scalar&, torch::Tensor&)>(
+      torch::clamp_min_outf));
+}
+
+TEST_F(GenOps, clampGenOutMaxTensor) {
+  TestOut(static_cast<
+          torch::
+              Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(
+      torch::clamp_max_outf));
+}
+
+TEST_F(GenOps, clampGenOutMaxScalar) {
+  TestOut(static_cast<
+          torch::
+              Tensor& (*)(const torch::Tensor&, const torch::Scalar&, torch::Tensor&)>(
+      torch::clamp_max_outf));
+}
+
+TEST_F(GenOps, clampGenOutMaxTensorLong) {
+  TestOut(
+      static_cast<
+          torch::
+              Tensor& (*)(const torch::Tensor&, const torch::Tensor&, torch::Tensor&)>(
+          torch::clamp_max_outf),
+      torch::kLong);
+}
+
+TEST_F(GenOps, clampGenOutMaxScalarLong) {
+  TestOut(
+      static_cast<
+          torch::
+              Tensor& (*)(const torch::Tensor&, const torch::Scalar&, torch::Tensor&)>(
+          torch::clamp_max_outf),
+      torch::kLong);
+}
+
+TEST_F(GenOps, clamGenOutClamCustom) {
+  TestOutClampCustom(
+      static_cast<
+          torch::
+              Tensor& (*)(const torch::Tensor&, const torch::optional<torch::Tensor>&, const torch::optional<torch::Tensor>&, torch::Tensor&)>(
+          torch::clamp_outf));
 }
