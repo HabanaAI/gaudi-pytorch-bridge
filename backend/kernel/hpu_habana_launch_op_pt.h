@@ -279,7 +279,6 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // intermediate_tinfos-----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
   // dma_input_tensorinfos---------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // shape_tensor_tinfos-----------------------///----------Dynamic-Shapes-----------///---------------Write---------------///----------------Read---------------///------------NA
-  // non_persistent_intermediate_tinfos--------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // num_tensor_inputs-------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
   // use_persistent_tensors--------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // pt_stack----------------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Write
@@ -411,10 +410,6 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   std::deque<PtTensorInfoShared> dma_input_tensorinfos;
   // tinfos corresponding to shape tensor.
   std::vector<PtTensorInfoShared> shape_tensor_tinfos;
-
-  // tinfos corresponding to non-persistent intermediates tensors.
-  // for eager shape agnostic patching for synapse graph.
-  std::vector<PtTensorInfoShared> non_persistent_intermediate_tinfos;
 
   // caching :: begin
 

@@ -179,7 +179,6 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
         if (info->get_allow_permutation()) {
           synRetrievedLaunchTensorInfoExt record = {};
           record.tensorId = cur_rvalpsh->tensor_ids[i];
-          info->set_syn_tensor_id(record.tensorId);
           PT_BRIDGE_DEBUG(
               "preparing to query tensor: ",
               info->get_tensor_id(),

@@ -823,7 +823,6 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
             out_tensor_syn.tensor_type());
         constexpr bool use_output_shape = true;
         handle_shape_inf(ti, use_output_shape, enable_shape_agnostic_caching_);
-        non_persistent_intermediate_tinfos.emplace_back(ti);
         // non-persistent intermediate synapse tensor
         intermediate_syn_tensors_count_++;
       }
