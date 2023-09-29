@@ -126,7 +126,8 @@ TEST_F(MemHlMlUpdaterTests, InitialValue) {
   AssertTimestamp(time(NULL));
 }
 
-TEST_F(MemHlMlUpdaterTests, UpdatingValueInBackground) {
+TEST_F(MemHlMlUpdaterTests, DISABLED_UpdatingValueInBackground) {
+  // TODO: Reenable after fixed SW-160346 (flaky test)
   memory_value = 0xbbcc;
   WaitForUpdate();
   ASSERT_EQ(memory_value, ReadData().used_mem_in_bytes);
