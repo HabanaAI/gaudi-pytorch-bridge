@@ -10,7 +10,6 @@
  *
  *******************************************************************************
  */
-
 #include "habana_eager/graph_exec.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
@@ -37,12 +36,12 @@ size_t generate_graph_index(size_t recipe_id) {
 }
 
 void GraphExec::LaunchRecipeTask(
-    GraphExec& gexec,
+    GraphExec* gexec,
     torch::jit::Stack& inputs,
     std::vector<at::Tensor>& outputs) {
-  PT_EAGER_TRACE_WITH_NAME(gexec.m_graph_name);
+  PT_EAGER_TRACE_WITH_NAME(gexec->m_graph_name);
   try {
-    gexec.LaunchRecipe(inputs, outputs);
+    gexec->LaunchRecipe(inputs, outputs);
   } catch (const std::exception& e) {
     PT_BRIDGE_WARN(
         "Exception caught in Lowering thread (will be rethrown in main thread)...\n",
@@ -63,11 +62,13 @@ GraphExec::GraphExec(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
     bool dynamic,
-    bool inference)
+    bool inference,
+    bool has_preallocated_outputs)
     : m_graph_index(generate_graph_index(recipe_id)),
       m_graph(graph),
       m_dynamic(dynamic),
-      m_inference(inference) {
+      m_inference(inference),
+      m_has_preallocated_outputs(has_preallocated_outputs) {
   PT_EAGER_TRACE;
 
   habana::eager::JoinPendingPipelineThreads();
@@ -178,7 +179,9 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
   pass::AddAttributeAlpha(m_graph);
   pass::RemoveDetachOp(m_graph);
   pass::HandleStridedViewsAndInsertPermute(m_graph);
-  pass::GetOutputsOrderInGraph(m_graph, m_outputs_order);
+  if (m_has_preallocated_outputs) {
+    pass::GetOutputsOrderInGraph(m_graph, m_outputs_order);
+  }
 }
 
 torch::jit::Stack GraphExec::launch(
@@ -215,7 +218,7 @@ torch::jit::Stack GraphExec::launch(
              backend_inputs = std::move(backend_inputs),
              backend_outputs = std::move(backend_outputs)]() mutable {
               return hpu_registrar().get_device().get_lowering_thread().enqueue(
-                  LaunchRecipeTask, *this, backend_inputs, backend_outputs);
+                  LaunchRecipeTask, this, backend_inputs, backend_outputs);
             });
     return {};
   } else {

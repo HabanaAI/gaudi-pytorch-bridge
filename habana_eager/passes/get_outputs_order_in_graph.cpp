@@ -42,20 +42,21 @@ struct GetOutputsOrderInGraphPass {
         }
       }
     }
+    m_graph->block()->permuteOutputs(m_outputs_order);
   }
 
-  std::vector<int> get_outputs_order() {
+  std::vector<size_t> get_outputs_order() {
     return m_outputs_order;
   }
 
  private:
   std::shared_ptr<torch::jit::Graph> m_graph;
-  std::vector<int> m_outputs_order;
+  std::vector<size_t> m_outputs_order;
 };
 
 void GetOutputsOrderInGraph(
     std::shared_ptr<torch::jit::Graph> graph,
-    std::vector<int>& outputs_order) {
+    std::vector<size_t>& outputs_order) {
   PT_EAGER_TRACE;
   GetOutputsOrderInGraphPass pass{graph};
   pass.run();

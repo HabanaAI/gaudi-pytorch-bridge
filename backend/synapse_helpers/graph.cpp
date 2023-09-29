@@ -630,8 +630,8 @@ void graph::launch(
         log_tensor_info(
             ((iter->tensorName == nullptr) ? "" : iter->tensorName),
             index,
-            address,
-            addresses[index]);
+            addresses[index],
+            address);
       }
 
       if (host_address_map.count(index)) {

@@ -975,8 +975,8 @@ void log_tensor_info(
   auto& dmd = deviceMallocData::singleton();
   if (dmd.is_recording_enabled()) {
     std::stringstream msg;
-    msg << "Tensor Name" << tensor_name << " virtual addr::" << v_addr
-        << " device_addr::" << d_addr;
+    msg << "Tensor Name " << tensor_name << std::hex << " virtual addr::0x"
+        << v_addr << " device_addr::0x" << d_addr;
     synapse_helpers::print_live_allocations(msg.str().c_str());
   }
   if (dmd.is_fragment_json_enabled()) {

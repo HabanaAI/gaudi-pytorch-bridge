@@ -25,20 +25,23 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       [](std::shared_ptr<torch::jit::Graph> graph,
          const py::tuple& inputs,
          bool dynamic,
-         bool inference) {
+         bool inference,
+         bool has_preallocated_outputs) {
         torch::jit::Stack stack;
         stack.reserve(inputs.size());
         for (auto& obj : inputs) {
           stack.push_back(torch::jit::toTypeInferredIValue(obj));
         }
         auto& graph_storage{habana::graph::GraphStorage::get()};
-        return graph_storage.add_new_recipe(graph, stack, dynamic, inference);
+        return graph_storage.add_new_recipe(
+            graph, stack, dynamic, inference, has_preallocated_outputs);
       },
       py::return_value_policy::copy,
       py::arg("graph"),
       py::arg("inputs"),
       py::arg("dynamic"),
-      py::arg("inference"));
+      py::arg("inference"),
+      py::arg("has_preallocated_outputs"));
   m.def(
       "graph_launch",
       [](size_t recipe_id,

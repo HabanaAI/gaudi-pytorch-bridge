@@ -33,16 +33,22 @@ class GraphExec {
       std::shared_ptr<torch::jit::Graph> graph,
       torch::jit::Stack& example_inputs,
       bool dynamic,
-      bool inference);
+      bool inference,
+      bool has_preallocated_outputs);
 
   torch::jit::Stack launch(
       torch::jit::Stack& inputs,
       std::vector<at::Tensor>& outputs);
 
   static void LaunchRecipeTask(
-      GraphExec& gexec,
+      GraphExec* gexec,
       torch::jit::Stack& inputs,
       std::vector<at::Tensor>& outputs);
+
+  GraphExec() = delete;
+  GraphExec(const GraphExec&) = delete;
+  GraphExec(GraphExec&&) = default;
+  GraphExec& operator=(const GraphExec&) = delete;
 
  private:
   torch::jit::Stack LaunchDynamicRecipe(torch::jit::Stack& inputs);
@@ -69,7 +75,8 @@ class GraphExec {
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData> m_graph_and_meta;
   std::set<int> m_graph_inputs_to_permute;
   std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes;
-  std::vector<int> m_outputs_order;
+  std::vector<size_t> m_outputs_order;
+  bool m_has_preallocated_outputs = false;
 };
 
 } // namespace graph

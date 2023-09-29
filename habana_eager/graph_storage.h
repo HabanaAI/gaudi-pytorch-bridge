@@ -27,7 +27,8 @@ class GraphStorage {
       std::shared_ptr<torch::jit::Graph> graph,
       torch::jit::Stack& example_inputs,
       bool dynamic,
-      bool inference);
+      bool inference,
+      bool has_preallocated_outputs);
   torch::jit::Stack launch_recipe(
       size_t recipe_id,
       torch::jit::Stack& inputs,

@@ -24,7 +24,7 @@ void DetectWeightTensors(
     std::set<int>& graph_inputs_to_permute);
 void GetOutputsOrderInGraph(
     std::shared_ptr<torch::jit::Graph> graph,
-    std::vector<int>& outputs_order);
+    std::vector<size_t>& outputs_order);
 void ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph);
 void HandleDynamicOps(
     std::shared_ptr<torch::jit::Graph> graph,
