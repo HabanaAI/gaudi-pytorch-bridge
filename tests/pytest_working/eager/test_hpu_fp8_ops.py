@@ -122,6 +122,8 @@ def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, is_scale, out_dtype):
 @pytest.mark.parametrize("is_amax", [True, False])
 @pytest.mark.parametrize("out_dtype", FP8_NAMES)
 def test_fp8_gelu_v2(shape, scale, dtype, stochastic, is_scale, is_amax, out_dtype):
+    if is_scale and dtype == torch.bfloat16 and not stochastic:
+      pytest.xfail("https://jira.habana-labs.com/browse/SW-160938")
     out_dtype = dtype_from_string(out_dtype)
     torch.manual_seed(12345)
     hpu = torch.device("hpu")
@@ -164,6 +166,8 @@ def test_fp8_gelu_v2(shape, scale, dtype, stochastic, is_scale, is_amax, out_dty
 @pytest.mark.parametrize("is_amax", [True, False])
 @pytest.mark.parametrize("out_dtype", FP8_NAMES)
 def test_fp8_bgrad_dgelu_optional(shape, dtype, retain, is_scale, is_amax, out_dtype):
+    if is_scale and dtype == torch.bfloat16:
+        pytest.xfail("https://jira.habana-labs.com/browse/SW-160938")
     out_dtype = dtype_from_string(out_dtype)
     torch.manual_seed(12345)
     hpu = torch.device("hpu")

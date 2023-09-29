@@ -159,6 +159,8 @@ def test_index_put_bool_mask_only(self_shape, indices_shape, accumulate):
         return tensor.index_put([bool_mask], value, accumulate)
     if (len(self_shape) < len(indices_shape)):
         pytest.skip("Invalid case self.dim() < indices.dim()")
+    elif (len(self_shape) > len(indices_shape)):
+        pytest.xfail("https://jira.habana-labs.com/browse/SW-161015")
     self_numel = reduce(lambda x, y: x*y, list(self_shape))
     indices_numel = reduce(lambda x, y: x*y, list(indices_shape))
     tensor = torch.arange(self_numel).view(self_shape)
