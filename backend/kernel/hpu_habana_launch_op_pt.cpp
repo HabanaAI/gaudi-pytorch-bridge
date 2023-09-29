@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include <ATen/native/Resize.h>
 #include <ATen/record_function.h>
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
@@ -36,9 +37,7 @@
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jitgraph_utils.h"
 #include "backend/kernel/control_edges_processing.h"
-#include "backend/kernel/ds_graph_recompile.h"
 #include "backend/kernel/hpu_habana_compile_op_pt.h"
-#include "backend/kernel/hpu_habana_execute_op_pt.h"
 #include "backend/kernel/hpu_habana_meta_op_list.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/kernel/refinement_engine.h"
@@ -46,19 +45,12 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "habana_helpers/logging.h"
-#include "habana_helpers/logging_pt.h"
 #include "habana_helpers/misc_utils.h"
 #include "habana_kernels/hccl_kernels.h"
-#include "habana_kernels/kernel_utils.h"
+#include "habana_kernels/index_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/random_gen_kernels.h"
-#include "habana_kernels/unary_kernels.h"
-#include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
-#include "hpu_ops/hpu_op_helper.h"
-#include "pytorch_helpers/habana_helpers/dtype_helpers.h"
-#include "pytorch_helpers/habana_helpers/python_utils.h"
 
 using namespace torch::jit;
 using namespace jitgraph_utils;
@@ -71,7 +63,6 @@ const std::unordered_set<std::string> HabanaMetaOpList::meta_ops = {
     "aten::size",
     "prim::dtype"};
 
-std::unordered_set<std::string> HabanaLaunchOpPT::watchlist_ = {};
 std::unordered_set<std::string> HabanaLaunchOpPT::disabled_jit_ir_ops_ = {};
 std::unordered_map<size_t, habana_helpers::InpTensorShapes>
     HabanaLaunchOpPT::ref_input_shape_map_ = {};
@@ -143,31 +134,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   PT_BRIDGE_DEBUG(
       "Creating : ", SetAndGetSynapseGraphName(name_, graph_index_));
 
-  tensor_dump_numel_ = -2;
-
-  char* snumel = nullptr;
-  if (!is_optimized_lazy_eager) {
-    snumel = getenv("HABANA_PGM_DUMP_TENSOR_NUMEL");
-  }
-  if (snumel != nullptr) {
-    tensor_dump_numel_ = atoi(snumel);
-    char* wfile_name = getenv("HABANA_PGM_WATCHLIST_FILE");
-    if (watchlist_.empty() && wfile_name) {
-      std::ifstream wfile(wfile_name);
-      TORCH_CHECK(
-          wfile.is_open(), "Unable to open watchlist file ", wfile_name);
-
-      std::string opname;
-      while (wfile) {
-        getline(wfile, opname);
-        watchlist_.insert(opname);
-      }
-      wfile.close();
-    }
-  }
-
-  enable_tensor_dump_ = (tensor_dump_numel_ >= -1) ? true : false;
-
   execution_mode_ = jit_graph_and_meta_data_->GetFrontendType();
 
   // To support old lazy eager mode
@@ -220,58 +186,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
         out_shapes.size(),
         " is not equal to #outputs in jit graph ",
         jit_ir_graph_->outputs().size());
-  }
-
-  if (enable_tensor_dump_) {
-    const std::string& idstrs = SetAndGetSynapseGraphName(name_, graph_index_);
-    struct stat st = {};
-    std::string dir_name{"./tensor_dumps/"};
-    mode_t dir_mode{0755};
-
-    if (stat(dir_name.c_str(), &st) == -1) {
-      auto ret = mkdir(dir_name.c_str(), dir_mode);
-      TORCH_CHECK(0 == ret, std::string("failed to create " + dir_name));
-    }
-
-    dir_name += idstrs;
-
-    if (stat(dir_name.c_str(), &st) == -1) {
-      auto ret = mkdir(dir_name.c_str(), dir_mode);
-      TORCH_CHECK(0 == ret, std::string("failed to create " + dir_name));
-    }
-
-    {
-      std::ostringstream oss;
-      oss << dir_name << "/"
-          << (enable_caching_ ? "tensors_chon" : "tensors_choff")
-          << "_pre.tdmp";
-      tdmp_file_name_pre_ = oss.str();
-
-      std::ofstream tensor_file;
-      tensor_file.open(tdmp_file_name_pre_.c_str());
-      tensor_file << "---- id_str : " << idstrs << '\n'
-                  << "---- tensor dump of the following graph" << '\n';
-      tensor_file << jit_ir_graph_->toString() << "----" << '\n' << '\n';
-      tensor_file.close();
-    }
-
-    {
-      std::ostringstream oss;
-      oss << dir_name << "/"
-          << (enable_caching_ ? "tensors_chon" : "tensors_choff") << ".tdmp";
-      tdmp_file_name_ = oss.str();
-
-      std::ofstream tensor_file;
-      tensor_file.open(tdmp_file_name_.c_str());
-      tensor_file << "---- id_str : " << idstrs << '\n'
-                  << "---- tensor dump of the following graph" << '\n';
-      tensor_file << jit_ir_graph_->toString() << "----" << '\n' << '\n';
-      tensor_file.close();
-    }
-
-    if (tensor_dump_numel_ > 0) {
-      htensor_wbuff_size = sizeof(float) * tensor_dump_numel_;
-    }
   }
 }
 
@@ -454,7 +368,6 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
         pt_tensor,
         syn_tensor.name(),
         irn,
-        watch_tensor_flag_,
         syn_tensor.id(),
         syn_tensor.get(),
         syn_tensor.tensor_type());
@@ -589,7 +502,6 @@ void HabanaLaunchOpPT::GetSynapseInputs(
         seed_tensor,
         syn_tensor.name(),
         "%seed_input",
-        watch_tensor_flag_,
         syn_tensor.id(),
         syn_tensor.get(),
         syn_tensor.tensor_type(),
@@ -652,7 +564,6 @@ PtTensorInfoShared HabanaLaunchOpPT::ProcessPersistentNodeOutput(
       ivpsh,
       out_syntensor.name(),
       vp,
-      watch_tensor_flag_,
       out_syntensor.id(),
       out_syntensor.get(),
       out_syntensor.tensor_type());
@@ -896,7 +807,6 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
         // Try maintaing it in another struct other than dtensor info struct
         PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
             out_tensor_syn.name(),
-            watch_tensor_flag_,
             out_tensor_syn.id(),
             out_tensor_syn.get(),
             out_tensor_syn.tensor_type());
@@ -934,7 +844,6 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
           ivpsh,
           sh_t.name(),
           input_nodes[pt_input_idx],
-          watch_tensor_flag_,
           sh_t.id(),
           sh_t.get(),
           sh_t.tensor_type());
@@ -1076,7 +985,6 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
         value_to_ivalue[value_in],
         meta_syn_tensors.back().name(),
         value_in,
-        watch_tensor_flag_,
         meta_syn_tensors.back().id(),
         meta_syn_tensors.back().get(),
         meta_syn_tensors.back().tensor_type());
@@ -1207,7 +1115,6 @@ void HabanaLaunchOpPT::handleRestrideNode(
         ivpsh_restrided,
         syn_tensor.name(),
         value_in,
-        watch_tensor_flag_,
         syn_tensor.id(),
         syn_tensor.get(),
         syn_tensor.tensor_type());
@@ -1475,7 +1382,6 @@ void HabanaLaunchOpPT::handlePrimConstantNode(torch::jit::Node* node) {
           tensor,
           meta_syn_tensors.back().name(),
           irn,
-          watch_tensor_flag_,
           meta_syn_tensors.back().id(),
           meta_syn_tensors.back().get(),
           meta_syn_tensors.back().tensor_type());
@@ -1560,15 +1466,13 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
               PtTensorInfo(
                   value_to_ivalue[value_in],
                   meta_syn_tensors.back().name(),
-                  value_in,
-                  watch_tensor_flag_));
+                  value_in));
           buff_to_input_ivpsh_map.emplace(in_data, value_to_ivalue[value_in]);
         } else {
           input_tivs.emplace_back(PtTensorInfo(
               value_to_ivalue[value_in],
               meta_syn_tensors.back().name(),
-              value_in,
-              watch_tensor_flag_));
+              value_in));
         }
       }*/
     }
@@ -2062,15 +1966,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   PT_OP_DEBUG("JIT Graph: ", jit_ir_graph_->toString());
   for (auto* node : graph_nodes) {
     std::vector<IdxTensorTup> intermediate_shape_tensor_cs;
-    watch_tensor_flag_ = false;
     auto node_qual_str = node->kind().toQualString();
     std::string opname(node_qual_str);
 
     PT_BRIDGE_DEBUG("Working on ", node_qual_str);
-
-    if (watchlist_.empty() || watchlist_.find(opname) != watchlist_.end()) {
-      watch_tensor_flag_ = true;
-    }
 
     // TODO: SW-68593 if node is collective add validation that outputs or
     // output duplicates are not used in the graph
@@ -2425,7 +2324,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
           appended_index++;
 
           PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
-              tensor, tensor_name, irn, watch_tensor_flag_, tensor_id);
+              tensor, tensor_name, irn, tensor_id);
           auto& ivpsh = it->second;
           ivalue_to_tensor_info_map[ivpsh] = ti;
 
@@ -3173,10 +3072,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
           tidx_to_tensor_map,
           allocated_outputs_);
 
-      if (enable_tensor_dump_) {
-        DumpTensors_pre(rv);
-      }
-
       {
         std::lock_guard<std::mutex> lg(current_dbipsh_->get_refine_mutex());
         // Initiate recipe execution time collection
@@ -3199,9 +3094,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
             syn_launch_info_,
             external_tensor_info_indexes_,
             dma_inputs_);
-      }
-      if (enable_tensor_dump_) {
-        DumpTensors(rv);
       }
 
       // Update the stack from the recipe itself
@@ -3492,9 +3384,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
   PT_BRIDGE_BEGIN;
   RecipeValueSpec& rv = *cur_rvalpsh;
 
-  if (hbLaunchOp->enable_tensor_dump_) {
-    hbLaunchOp->DumpTensors_pre(rv);
-  }
   if (!dry_run) {
     rv.launch(
         hpu_stream,
@@ -3506,9 +3395,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
         hbLaunchOp->dma_inputs_);
   }
 
-  if (hbLaunchOp->enable_tensor_dump_) {
-    hbLaunchOp->DumpTensors(rv);
-  }
   if (habana_helpers::GetRefineDynamicShapeStatus()) {
     hbLaunchOp->CreateStaticCompilationDBI(graph_key_with_perm);
   }
@@ -3624,7 +3510,6 @@ void HabanaLaunchOpPT::run(
   allocated_outputs_ = std::move(allocated_outputs);
 
   dry_run_ = dry_run;
-  iteration_count_++;
   auto& device = HPURegistrar::get_device();
 
   // Check whether dynamic shape is needed

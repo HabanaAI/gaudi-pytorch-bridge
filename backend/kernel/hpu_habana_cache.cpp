@@ -248,16 +248,6 @@ std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {
 RecipeValueSpec::~RecipeValueSpec() {
   PT_BRIDGE_DEBUG("Destroying recipe with key : ", key);
 
-  if (htensor_wbuff) {
-    synStatus status;
-    auto& device = HPURegistrar::get_device();
-    auto device_id = device.id();
-    // NOLINTNEXTLINE(performance-no-int-to-ptr)
-    status = synHostFree(device_id, (void*)(htensor_wbuff), 0);
-    if (status != synSuccess)
-      PT_BRIDGE_DEBUG(Logger::formatStatusMsg(status), "host-free failed");
-  }
-
   if (nullptr != tensor_names) {
     delete[] tensor_names;
   }
@@ -321,69 +311,6 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
   O << "---- recipe details :: end" << '\n';
 
   return O;
-}
-
-void RecipeValueSpec::print_hbuff(
-    size_t buf_idx,
-    std::ofstream& out,
-    size_t iteration_count,
-    int numel) {
-  float* wb = reinterpret_cast<float*>(htensor_wbuff);
-  unsigned buf_size = dtensorinfos->at(buf_idx)->get_size();
-
-  out << "iteration " << iteration_count << " : <"
-      << ((buf_idx >= num_inputs) ? "output" : "input") << "> :: < "
-      << dtensorinfos->at(buf_idx)->get_ir_name() << " : "
-      << "shape [" << dtensorinfos->at(buf_idx)->get_shape() << "] : "
-      << "numel " << dtensorinfos->at(buf_idx)->get_numel() << " : "
-      << "size (" << buf_size << " b) >";
-  out << "<buffer" << '[' << buf_idx << ']' << "@"
-      << dtensorinfos->at(buf_idx)->get_buffer() << ">";
-
-  const unsigned max_numel = buf_size / sizeof(float);
-  unsigned lim{max_numel};
-  if (numel >= 0) {
-    lim = std::min(lim, (unsigned)numel);
-  }
-
-  size_t line_items_num = 8;
-  size_t j = 0;
-  for (j = 0; j < lim; j++) {
-    out << (j % line_items_num ? ' ' : '\n') << std::showpoint << std::setw(10)
-        << std::fixed << std::right << wb[j];
-  }
-
-  if (lim && lim < max_numel)
-    out << (j % line_items_num ? ' ' : '\n') << "...";
-
-  out << '\n';
-  if (lim > 0) {
-    out << "--------------------" << '\n';
-  }
-}
-
-void RecipeValueSpec::d2h_dbuff(size_t buf_idx) {
-  TORCH_CHECK(num_tinfos > buf_idx, "buf_idx is out of range");
-
-  unsigned buf_size = dtensorinfos->at(buf_idx)->get_size();
-  if (buf_size > htensor_wbuff_size) {
-    buf_size = htensor_wbuff_size;
-  }
-  PT_BRIDGE_DEBUG("tensor dump will write ", htensor_wbuff_size, " bytes");
-
-  auto& device = HPURegistrar::get_device();
-  std::atomic<bool> copyDone{false};
-  device.copy_data_to_host(
-      (uint64_t)dtensorinfos->at(buf_idx)->get_buffer(),
-      (void*)htensor_wbuff,
-      dtensorinfos->at(buf_idx)->get_buffer_start_syn(),
-      buf_size,
-      [&copyDone]() { copyDone = true; });
-
-  // wait for copy completion
-  while (!copyDone) {
-    std::this_thread::yield();
-  }
 }
 
 std::string RecipeValueSpec::header_str() {
@@ -468,8 +395,6 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
   }
 
   deserialize(is, workspace_size);
-  deserialize(is, htensor_wbuff);
-  deserialize(is, htensor_wbuff_size);
   deserialize(is, id);
   deserialize(is, iter_idx);
   deserialize(is, num_tinfos);
@@ -566,8 +491,6 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
     tInfo->Serialize(os);
   }
   serialize(os, workspace_size);
-  serialize(os, htensor_wbuff);
-  serialize(os, htensor_wbuff_size);
   serialize(os, id);
   serialize(os, iter_idx);
   serialize(os, num_tinfos);

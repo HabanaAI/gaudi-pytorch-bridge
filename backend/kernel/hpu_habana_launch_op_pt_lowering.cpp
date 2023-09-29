@@ -12,16 +12,11 @@
  */
 #include <cstdint>
 #include "backend/backend_meta.h"
-#include "backend/helpers/get_n_bytes.h"
-#include "backend/helpers/runtime_config.h"
-#include "backend/kernel/control_edges_processing.h"
-#include "backend/kernel/hpu_habana_launch_op_pt.h"
-
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/lazy_to_backend.h"
+#include "backend/helpers/runtime_config.h"
+#include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
-#include "habana_lazy/aten_lazy_bridge.h"
 
 void habana::HabanaLaunchOpPT::CopyInputStack(torch::jit::Stack& input_st) {
   // Keep a handle to the stack for future use
@@ -103,8 +98,6 @@ void habana::HabanaLaunchOpPT::ClearStatics(bool is_shape_inference) {
   if (is_shape_inference == false) {
     habana::ShapeInference::Reset();
   }
-
-  watchlist_.clear();
 }
 
 void habana::HabanaLaunchOpPT::ApplyOutputPermutationsFromCache() {
@@ -687,35 +680,6 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
   }
 }
 
-void habana::HabanaLaunchOpPT::DumpTensors_pre(RecipeValueSpec& rv) {
-  if (enable_tensor_dump_) {
-    std::ofstream tensor_file;
-    tensor_file.open(
-        tdmp_file_name_pre_.c_str(), std::ios::out | std::ios::app);
-    for (size_t i = 0; i < rv.num_tinfos; ++i) {
-      if (rv.dtensorinfos->at(i)->watch_enabled()) {
-        rv.d2h_dbuff(i);
-        rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
-      }
-    }
-    tensor_file.close();
-  }
-}
-
-void habana::HabanaLaunchOpPT::DumpTensors(RecipeValueSpec& rv) {
-  if (enable_tensor_dump_) {
-    std::ofstream tensor_file;
-    tensor_file.open(tdmp_file_name_.c_str(), std::ios::out | std::ios::app);
-    for (size_t i = 0; i < rv.num_tinfos; ++i) {
-      if (rv.dtensorinfos->at(i)->watch_enabled()) {
-        rv.d2h_dbuff(i);
-        rv.print_hbuff(i, tensor_file, iteration_count_, tensor_dump_numel_);
-      }
-    }
-    tensor_file.close();
-  }
-}
-
 void habana::HabanaLaunchOpPT::StoreCompiledInformation(
     synapse_helpers::hpuStream_t hpu_stream) {
   TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
@@ -769,29 +733,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
   auto& device = HPURegistrar::get_device();
   synDeviceId device_id = device.id();
 
-  if (enable_tensor_dump_) {
-    if (0 == htensor_wbuff_size) {
-      for (size_t i = 0; i < rv.num_tinfos; ++i) {
-        htensor_wbuff_size =
-            std::max(htensor_wbuff_size, rv.dtensorinfos->at(i)->get_size());
-      }
-    }
-
-    if (!htensor_wbuff) {
-      synStatus status;
-      status = synHostMalloc(
-          device_id, htensor_wbuff_size, 0, (void**)&(htensor_wbuff));
-      TORCH_HABANA_CHECK(
-          status, Logger::synStatusToStr(status), "host-malloc failed");
-    }
-    rv.htensor_wbuff = htensor_wbuff;
-    rv.htensor_wbuff_size = htensor_wbuff_size;
-  }
-
-  if (enable_tensor_dump_) {
-    DumpTensors_pre(rv);
-  }
-
   PT_BRIDGE_DEBUG(
       "HabanaOp recipe cache :: launching new recipe", rv.header_str());
 
@@ -815,10 +756,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
         *aten_outputs_ptr_sh_,
         syn_launch_info_,
         external_tensor_info_indexes_);
-  }
-
-  if (enable_tensor_dump_) {
-    DumpTensors(rv);
   }
 
   if (enable_graph_caching_ && refine_ds_enabled_ && current_dbipsh_) {

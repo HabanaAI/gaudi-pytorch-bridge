@@ -12,19 +12,15 @@
  */
 
 #include "backend/helpers/tensor_info.h"
-
 #include <sstream>
-
 #include "backend/backend_meta.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/helpers/tensor_utils.h"
-#include "backend/lazy_to_backend.h"
+#include "habana_helpers/logging.h"
+#include "habana_helpers/misc_utils.h"
 #include "habana_kernels/random_gen_kernels.h"
-#include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_serialization/deserializers.h"
 #include "habana_serialization/serializers.h"
-
-#include "habana_helpers/logging.h"
 
 void DMAInputGenerators::populateSeedTensor(
     const PtTensorInfo& ti,
@@ -56,7 +52,6 @@ void PtTensorInfo::populate_tinfo(
     const at::Tensor& pt_tensor,
     const std::string& sn,
     const std::string& irn,
-    const bool wflag,
     const uint64_t tensor_id,
     const synTensorType stt,
     DMAInputGeneratorType dma_gen_id) {
@@ -98,8 +93,6 @@ void PtTensorInfo::populate_tinfo(
 
   tensor_type_ = stt;
 
-  watch_ = wflag;
-
   update_shape_syn();
 }
 
@@ -123,20 +116,18 @@ PtTensorInfo::PtTensorInfo(
     const at::Tensor& pt_tensor,
     const std::string& sn,
     const std::string& irn,
-    const bool wflag,
     const uint64_t tensor_id,
     const synTensor handle,
     const synTensorType stt,
     DMAInputGeneratorType dma_gen_id)
     : orig_syn_handle_(handle) {
-  populate_tinfo(pt_tensor, sn, irn, wflag, tensor_id, stt, dma_gen_id);
+  populate_tinfo(pt_tensor, sn, irn, tensor_id, stt, dma_gen_id);
 }
 
 PtTensorInfo::PtTensorInfo(
     const IValPtrShared& ivpsh,
     const std::string& sn,
     const ValPtr& vp,
-    const bool wflag,
     const uint64_t tensor_id,
     const synTensor handle,
     const synTensorType stt,
@@ -145,18 +136,16 @@ PtTensorInfo::PtTensorInfo(
   TORCH_CHECK(ivpsh->isTensor(), "aten tensor is expected");
   std::string irn = "%" + vp->debugName();
   auto pt_tensor = ivpsh->toTensor();
-  populate_tinfo(pt_tensor, sn, irn, wflag, tensor_id, stt, dma_gen_id);
+  populate_tinfo(pt_tensor, sn, irn, tensor_id, stt, dma_gen_id);
 }
 
 PtTensorInfo::PtTensorInfo(
     const std::string& sn,
-    const bool wflag,
     const uint64_t tensor_id,
     const synTensor handle,
     const synTensorType stt)
     : orig_syn_handle_(handle),
       syn_name_(sn),
-      watch_(wflag),
       tensor_id_(tensor_id),
       tensor_type_(stt) {}
 
@@ -199,7 +188,6 @@ PtTensorInfo::PtTensorInfo(std::istream& is) {
   deserialize(is, is_duplicate_);
   deserialize(is, parent_index_);
   deserialize(is, output_index_);
-  deserialize(is, watch_);
   deserialize(is, shape_);
   deserialize(is, strides_);
   deserialize(is, mf_);
@@ -229,7 +217,7 @@ void PtTensorInfo::Serialize(std::ostream& os) const {
   serialize(os, is_duplicate_);
   serialize(os, parent_index_);
   serialize(os, output_index_);
-  serialize(os, watch_);
+
   serialize(os, shape_);
   serialize(os, strides_);
   serialize(os, mf_);

@@ -13,22 +13,17 @@
 
 #pragma once
 
+#include <ATen/Tensor.h>
+#include <torch/csrc/jit/ir/ir.h>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <utility>
-
-#include <ATen/Tensor.h>
-#include <torch/csrc/jit/ir/ir.h>
-
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_utils.h"
-#include "habana_helpers/logging.h"
-#include "habana_helpers/misc_utils.h"
-
 #include "backend/synapse_helpers/device_types.h"
-#include "backend/synapse_helpers/graph.h"
 #include "backend/synapse_helpers/habana_tensor.h"
+#include "habana_helpers/logging.h"
 
 class PtTensorInfo;
 
@@ -120,7 +115,6 @@ class PtTensorInfo {
       const IValPtrShared& ivp,
       const std::string& sn,
       const ValPtr& vp,
-      const bool wflag,
       const uint64_t tensor_id,
       const synTensor handle = nullptr,
       const synTensorType stt = DATA_TENSOR,
@@ -129,14 +123,12 @@ class PtTensorInfo {
       const at::Tensor& pt_tensor,
       const std::string& sn,
       const std::string& irn,
-      const bool wflag,
       const uint64_t tensor_id,
       const synTensor handle = nullptr,
       const synTensorType stt = DATA_TENSOR,
       DMAInputGeneratorType dma_gen_id = DMAInputGeneratorType::INVALID);
   PtTensorInfo(
       const std::string& sn,
-      const bool wflag,
       const uint64_t tensor_id,
       const synTensor handle = nullptr,
       const synTensorType stt = DATA_TENSOR);
@@ -256,9 +248,6 @@ class PtTensorInfo {
   }
   unsigned get_size() const {
     return size_;
-  }
-  bool watch_enabled() const {
-    return watch_;
   }
   synapse_helpers::device_ptr get_offset() const {
     return offset_;
@@ -409,7 +398,6 @@ class PtTensorInfo {
   bool is_duplicate_{false};
   size_t parent_index_{ULONG_MAX};
   size_t output_index_{ULONG_MAX};
-  bool watch_ = false;
 
   std::vector<int64_t> shape_;
   std::vector<int64_t> strides_;
@@ -439,7 +427,6 @@ class PtTensorInfo {
       const at::Tensor& pt_tensor,
       const std::string& irn,
       const std::string& sn,
-      const bool wflag,
       const uint64_t tensor_id,
       const synTensorType stt,
       DMAInputGeneratorType dma_gen_id);

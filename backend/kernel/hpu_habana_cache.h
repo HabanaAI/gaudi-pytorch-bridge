@@ -250,13 +250,6 @@ struct RecipeValueSpec {
     in_use.store(flag, std::memory_order_relaxed);
   }
 
-  void print_hbuff(
-      size_t buf_idx,
-      std::ofstream& out,
-      size_t iteration_count,
-      int numel = -1);
-  void d2h_dbuff(size_t buf_idx);
-
   std::string header_str();
   std::string build_header_str() const;
   std::string digest_str();
@@ -422,9 +415,6 @@ struct RecipeValueSpec {
       collective_kernels_info;
   std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
   uint64_t workspace_size;
-
-  uint64_t htensor_wbuff = 0;
-  unsigned htensor_wbuff_size = 0;
 
   size_t id{0};
   size_t iter_idx{0};
