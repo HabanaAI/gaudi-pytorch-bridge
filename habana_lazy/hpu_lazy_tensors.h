@@ -536,28 +536,30 @@ struct HbContext {
   }
 
   void insert(int64_t unique_id, std::weak_ptr<Data> m_data_ptr) {
+    bool exists = tensors_data_opt.count(unique_id) != 0;
     tensors_data_opt[unique_id] = m_data_ptr;
-    tensors_data_opt_order.erase(
-        std::remove(
-            tensors_data_opt_order.begin(),
-            tensors_data_opt_order.end(),
-            unique_id),
-        tensors_data_opt_order.end());
+    if (exists) {
+      auto pos = std::find(
+          tensors_data_opt_order.begin(),
+          tensors_data_opt_order.end(),
+          unique_id);
+      if (pos != tensors_data_opt_order.end()) {
+        tensors_data_opt_order.erase(pos);
+      }
+    }
     tensors_data_opt_order.emplace_back(unique_id);
   }
 
   void erase(int64_t unique_id) {
     tensors_data_opt.erase(unique_id);
-    tensors_data_opt_order.erase(
-        std::remove(
-            tensors_data_opt_order.begin(),
-            tensors_data_opt_order.end(),
-            unique_id),
-        tensors_data_opt_order.end());
   }
 
   std::shared_ptr<Data> getDataPtr(int64_t unique_id) {
-    return tensors_data_opt.at(unique_id).lock();
+    if (tensors_data_opt.count(unique_id) != 0) {
+      return tensors_data_opt.at(unique_id).lock();
+    } else {
+      return nullptr;
+    }
   }
 
  private:

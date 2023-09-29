@@ -115,21 +115,22 @@ std::vector<HbLazyTensor> HbContextArena::GetLiveTensors(
       devctx, is_allreduce, bucket_recent_id);
   for (auto& uid : devctx->tensors_data_opt_order) {
     std::shared_ptr<Data> data = devctx->getDataPtr(uid);
-    HABANA_ASSERT(data);
-    auto id = data->unique_id;
-    auto hl_t = HbLazyTensor(std::move(data));
+    if (data) {
+      auto id = data->unique_id;
+      auto hl_t = HbLazyTensor(std::move(data));
 
-    auto is_view = hl_t.getDataPtr()->stride_params.has_value();
+      auto is_view = hl_t.getDataPtr()->stride_params.has_value();
 
-    if (bucket_recent_id.count(id)) {
-      context->viewContext.updated_bucket_list.emplace_back(hl_t);
-    }
-    auto is_view_out = context->viewContext.view_outputs.count(id);
+      if (bucket_recent_id.count(id)) {
+        context->viewContext.updated_bucket_list.emplace_back(hl_t);
+      }
+      auto is_view_out = context->viewContext.view_outputs.count(id);
 
-    if (is_view_out ||
-        ((bucket_recent_id.count(id) == 0) && (!is_view) &&
-         (hl_t.getDataPtr()->recent_base == c10::nullopt))) {
-      tensors.emplace_back(hl_t);
+      if (is_view_out ||
+          ((bucket_recent_id.count(id) == 0) && (!is_view) &&
+           (hl_t.getDataPtr()->recent_base == c10::nullopt))) {
+        tensors.emplace_back(hl_t);
+      }
     }
   }
   {
@@ -784,6 +785,9 @@ void HbLazyTensor::SyncTensorsGraph(
   if (devctx->tensors_data_size()) {
     for (auto& t : *tensors) {
       devctx->erase(t.getTensorUniqueId());
+      if (devctx->tensors_data_size() == 0) {
+        break;
+      }
     }
   }
 
