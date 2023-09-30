@@ -1847,21 +1847,10 @@ std::shared_ptr<RecipeValueSpec> RecipeCacheLRU::get(
     auto mit = map_.find(key);
     list_.splice(list_.begin(), list_, mit->second);
 
-    // wait till the execution complete
-    bool use_flag{false};
-    do {
-      use_flag = list_.front().second->get_use_flag();
-      if (use_flag) {
-        PT_BRIDGE_DEBUG(
-            "waiting for the completion of recipe, key ", key->hashCode());
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-      }
-    } while (use_flag);
-
-    // set the use flag true so that the recipe is not removed from cache
+    // increment the use_count so that the recipe is not removed from cache
     // it is the responsibility of the caller of get function to
-    // set the use flag to false after the execution is completed
-    list_.front().second->set_use_flag(true);
+    // decrement the use count after the execution is completed
+    list_.front().second->increment_use_count();
 
     return list_.front().second;
   } else if (disk_cache_) {
@@ -1871,6 +1860,7 @@ std::shared_ptr<RecipeValueSpec> RecipeCacheLRU::get(
           "recipe was not found in LRU cache, but was found on disk, key:",
           key->hashCode());
       insert(key, val);
+      val->increment_use_count();
       return val;
     }
   }
@@ -1891,7 +1881,7 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& num_recipes, bool mem_exhausted) {
     auto lit = list_.end();
     lit--;
 
-    while (lit->second->get_use_flag() == true && lit != list_.begin()) {
+    while (lit->second->is_in_use() && lit != list_.begin()) {
       PT_BRIDGE_DEBUG(
           "recipe is in use, key ",
           lit->first->hashCode(),
@@ -1902,7 +1892,7 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& num_recipes, bool mem_exhausted) {
 
     // delete the recipe only if it is not in use
     // otherwise the caller need to wait
-    if (lit->second->get_use_flag() == false) {
+    if (!lit->second->is_in_use()) {
       if (mem_exhausted) {
         PT_BRIDGE_DEBUG(
             "memory exhausted : removing recipe, key ",

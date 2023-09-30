@@ -3247,7 +3247,7 @@ void RecipeValueSpec::create_outdup(
 
 void HabanaLaunchOpPT::ReturnCachedRecipe(RecipeValueSpec& rv) {
   PT_BRIDGE_BEGIN;
-  rv.set_use_flag(false);
+  rv.decrement_use_count();
   PT_BRIDGE_END;
 }
 

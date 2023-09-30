@@ -242,12 +242,19 @@ struct RecipeValueSpec {
     }
   }
 
-  bool get_use_flag() {
-    return in_use.load(std::memory_order_relaxed);
+  bool is_in_use() const {
+    return (use_count > 0);
   }
 
-  void set_use_flag(bool flag) {
-    in_use.store(flag, std::memory_order_relaxed);
+  void increment_use_count() {
+    ++use_count;
+  }
+
+  void decrement_use_count() {
+    auto prev_use_count = use_count--;
+    HABANA_ASSERT(
+        prev_use_count > 0,
+        " trying to decrement use count which is already 0!");
   }
 
   std::string header_str();
@@ -470,7 +477,7 @@ struct RecipeValueSpec {
   static size_t launch_count;
 
  private:
-  std::atomic<bool> in_use{false};
+  std::atomic<size_t> use_count{0};
 };
 
 class DiskCache {
