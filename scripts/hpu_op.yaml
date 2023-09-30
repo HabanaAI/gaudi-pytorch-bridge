@@ -5869,16 +5869,6 @@ rsub.Scalar:
   scalar_ids: [1, 2]
   op_backend: BinaryWithAlpha
 
-scalar_tensor:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short, Long]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
-  guid: scalar_tensor_fwd
-  output_meta: ScalarTensorMeta
-  op_backend: ScalarTensor
-  out_ids: [0]
-
 scatter.src:
   dtypes:
     Gaudi:
