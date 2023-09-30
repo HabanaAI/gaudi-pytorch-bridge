@@ -3491,19 +3491,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
     bool dry_run) {
   PT_BRIDGE_BEGIN;
   RecipeValueSpec& rv = *cur_rvalpsh;
-  rv.update_hit_count();
-
-  PT_BRIDGE_DEBUG(
-      hbLaunchOp->id_str_,
-      ": ",
-      "HabanaOp recipe cache hit :: key ",
-      cur_rargpsh->hashCode(),
-      "\n",
-      rv.header_str(),
-      "\n",
-      rv.digest_str());
-  PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: static shapes");
-  PT_TEST_DEBUG("HabanaOp recipe cache hit :: static path");
 
   if (hbLaunchOp->enable_tensor_dump_) {
     hbLaunchOp->DumpTensors_pre(rv);
@@ -3698,46 +3685,8 @@ void HabanaLaunchOpPT::run(
                 dry_run);
       };
 
-  // recipe caching :: begin
-  if (enable_graph_caching_) {
-    cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
-
-    if (ABSL_PREDICT_TRUE(cur_rvalpsh)) {
-      emitCacheEvent(
-          habana_helpers::EventDispatcher::Topic::CACHE_HIT,
-          std::to_string(cur_rargpsh->hashCode()));
-
-      UpdatePatchingInformation();
-
-      ExecuteSynapseCache(
-          hpu_stream,
-          graph_key_with_perm,
-          input_refs,
-          this,
-          cur_rvalpsh,
-          cur_rargpsh,
-          allocated_outputs_,
-          dry_run);
-      PT_BRIDGE_END;
-      return;
-    } else {
-      emitCacheEvent(
-          habana_helpers::EventDispatcher::Topic::CACHE_MISS,
-          std::to_string(cur_rargpsh->hashCode()));
-      PT_BRIDGE_DEBUG(
-          id_str_,
-          ": ",
-          "HabanaOp recipe cache miss :: key ",
-          cur_rargpsh->hashCode());
-      PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: static shapes");
-    }
-  }
-  // recipe caching :: end
-
-  // currently only eager backend supports pipelining
-  // can be merged once non-eager backends support pipelining
-  // eager recipe caching :: begin
-  if (enable_eager_caching_) {
+  // eager and graph recipe caching :: begin
+  if (enable_caching_) {
     PT_BRIDGE_DEBUG("Getting cached recipe : ", cur_rargpsh->hashCode());
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
@@ -3746,23 +3695,56 @@ void HabanaLaunchOpPT::run(
           habana_helpers::EventDispatcher::Topic::CACHE_HIT,
           std::to_string(cur_rargpsh->hashCode()));
 
+      RecipeValueSpec& rv = *cur_rvalpsh;
+      rv.update_hit_count();
+
+      PT_BRIDGE_DEBUG(
+          id_str_,
+          ": ",
+          "HabanaOp recipe cache hit :: key ",
+          cur_rargpsh->hashCode(),
+          "\n",
+          rv.header_str(),
+          "\n",
+          rv.digest_str());
+      PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: static shapes");
+      PT_TEST_DEBUG("HabanaOp recipe cache hit :: static path");
+
       UpdatePatchingInformation();
 
-      PT_LAZY_EAGER_DEBUG(
-          "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-      constexpr bool do_nothing = true;
-      enqueue_compile_synapse(
-          hpu_stream,
-          this->shared_from_this(),
-          graph_key_with_perm,
-          false,
-          do_nothing,
-          !do_nothing,
-          dry_run);
-      // TODO: Merge with is_pipeline_supported status flag
-      if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD)) {
-        habana_helpers::Singleton_CompileThreadPool::getInstance()
-            .JoinPendingThread();
+      // currently only eager backend supports pipelining
+      // can be merged once non-eager backends support pipelining
+      if (enable_graph_caching_) {
+        ExecuteSynapseCache(
+            hpu_stream,
+            graph_key_with_perm,
+            input_refs,
+            this,
+            cur_rvalpsh,
+            cur_rargpsh,
+            allocated_outputs_,
+            dry_run);
+      } else if (enable_eager_caching_) {
+        PT_LAZY_EAGER_DEBUG(
+            "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
+        constexpr bool do_nothing = true;
+        enqueue_compile_synapse(
+            hpu_stream,
+            this->shared_from_this(),
+            graph_key_with_perm,
+            false,
+            do_nothing,
+            !do_nothing,
+            dry_run);
+        // TODO: Merge with is_pipeline_supported status flag
+        if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD)) {
+          habana_helpers::Singleton_CompileThreadPool::getInstance()
+              .JoinPendingThread();
+        }
+      } else {
+        HABANA_ASSERT(
+            enable_graph_caching_ || enable_eager_caching_,
+            " something went wrong! either eager or graph recipe caching should be enabled");
       }
 
       PT_BRIDGE_END;
@@ -3779,7 +3761,7 @@ void HabanaLaunchOpPT::run(
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: static shapes");
     }
   }
-  // eager recipe caching :: end
+  // eager and graph recipe caching :: end
 
   bool is_jit_cached_graph_info_available =
       jit_graph_and_meta_data_->get_jit_cached_graph_info_available_flag();
