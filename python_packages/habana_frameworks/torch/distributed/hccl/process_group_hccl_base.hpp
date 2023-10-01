@@ -23,7 +23,6 @@
 #include <thread>
 #include <unordered_map>
 #include "backend/synapse_helpers/device_context.h"
-#include "backend/synapse_helpers/hccl_communicator.h"
 
 using Work = c10d_ver::Work;
 
@@ -148,7 +147,6 @@ class TORCH_API ProcessGroupHcclBase : public ProcessGroup {
       int peerRank) = 0;
 
   void hostBarrier();
-  void goodbyeHandshake();
 
   virtual void permutedSendTensorsToDense(std::vector<at::Tensor>& tensors) = 0;
   virtual void clearPermutesFromRecvTensors(
@@ -158,7 +156,6 @@ class TORCH_API ProcessGroupHcclBase : public ProcessGroup {
   bool always_support_int64_;
   c10::intrusive_ptr<Store> store_;
   size_t barrier_cnt_;
-  std::shared_ptr<habana::HcclCommunicator> comm_;
 };
 
 } // namespace c10d

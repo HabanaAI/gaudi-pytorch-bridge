@@ -24,6 +24,7 @@
 #include <torch_ver/csrc/distributed/c10d/Utils.hpp>
 #include <functional>
 
+#include "backend/synapse_helpers/hccl_communicator.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "process_group_hccl_base.hpp"
 
@@ -74,6 +75,8 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
 
   void permutedSendTensorsToDense(std::vector<at::Tensor>& tensors) override;
   void clearPermutesFromRecvTensors(std::vector<at::Tensor>& tensors) override;
+
+  std::shared_ptr<habana::HcclCommunicator> comm_;
 };
 
 } // namespace c10d

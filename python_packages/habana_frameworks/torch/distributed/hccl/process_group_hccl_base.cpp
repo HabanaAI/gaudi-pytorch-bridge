@@ -20,7 +20,6 @@
 #include <unistd.h>
 #include <future>
 #include <map>
-#include <sstream>
 
 #include "backend/helpers/collective_utils.h"
 #include "backend/helpers/tensor_utils.h"
@@ -40,6 +39,18 @@ using namespace synapse_helpers;
 namespace c10d {
 
 namespace {
+
+#define HOST_SYNC()                                   \
+  {                                                   \
+    if (GET_ENV_FLAG_NEW(PT_HPU_USE_PT_STORE_SYNC)) { \
+    }                                                 \
+  }
+
+#define NW_STREAM_SYNC()                               \
+  {                                                    \
+    if (GET_ENV_FLAG_NEW(PT_HPU_USE_NW_STREAM_SYNC)) { \
+    }                                                  \
+  }
 
 void adjustElementcount_int64(
     c10::ScalarType scalar_type,
@@ -120,30 +131,9 @@ ProcessGroupHcclBase::ProcessGroupHcclBase(
       store_(store),
       barrier_cnt_(0) {
   this->emulate_distributed_ = GET_ENV_FLAG_NEW(PT_HPU_EMULATE_DISTRIBUTED);
-  comm_ = habana::HcclCommunicator::Create(
-      rank,
-      size,
-      [store, rank](
-          int64_t comm_id, hcclUniqueId* hcclID) { // Use hcclID as store key?
-        std::string storeKey = std::to_string(comm_id);
-        if (rank == 0) {
-          auto vec = std::vector<uint8_t>(
-              reinterpret_cast<uint8_t*>(hcclID),
-              reinterpret_cast<uint8_t*>(hcclID) + sizeof(hcclUniqueId));
-          store->set(storeKey, vec);
-        } else {
-          auto vec = store->get(storeKey);
-          TORCH_CHECK(vec.size() == sizeof(hcclUniqueId));
-          std::memcpy(hcclID, vec.data(), vec.size());
-        }
-      });
 }
 
-ProcessGroupHcclBase::~ProcessGroupHcclBase() {
-  if (comm_) {
-    comm_.reset();
-  }
-}
+ProcessGroupHcclBase::~ProcessGroupHcclBase() {}
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
     std::vector<at::Tensor>& tensors,
@@ -165,6 +155,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         hcclDataType_t hccl_data_type;
         const auto scalar_type = input.scalar_type();
         auto hccl_numel = input.numel();
@@ -254,6 +246,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input.numel();
         size_t element_size = c10::elementSize(
@@ -344,6 +338,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] reduce with input_address :: ",
             send_buffer,
@@ -421,6 +417,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         hcclDataType_t hccl_data_type;
         int64_t hccl_numel = input.numel();
         hcclResult_t hccl_result{hcclSuccess};
@@ -501,6 +499,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
           int64_t hccl_numel = input.numel();
           auto hccl_data_type =
               habana_helpers::getHCCLDataType(input.scalar_type());
+          HOST_SYNC()
+          NW_STREAM_SYNC()
 
           const auto scalar_type = input.scalar_type();
           habana_helpers::getCountDatatype(
@@ -554,6 +554,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
           int64_t hccl_numel = input.numel();
           auto hccl_data_type =
               habana_helpers::getHCCLDataType(input.scalar_type());
+          HOST_SYNC()
+          NW_STREAM_SYNC()
           PT_DISTRIBUTED_DEBUG(
               "[PYT-DIST] alltoall with input_address :: ",
               send_buffer,
@@ -645,6 +647,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         auto scalar_type = input.scalar_type();
         auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
         auto hccl_numel = input.numel();
@@ -734,6 +738,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] _allgather_base with input_address :: ",
             send_buffer,
@@ -810,6 +816,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         // Wait for event on input
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] reduce_scatter with input_address :: ",
@@ -869,6 +877,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
           void* recv_buffer,
           hcclComm_t& hccl_comm,
           synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
         // Wait for event on input
         PT_DISTRIBUTED_DEBUG(
             "[PYT-DIST] _reduce_scatter_base with input_address :: ",
@@ -1003,10 +1013,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::recvAnysource(
 }
 
 void ProcessGroupHcclBase::hostBarrier() {
-  PT_DISTRIBUTED_BEGIN;
   if (this->emulate_distributed_) {
     return;
   }
+  PT_DISTRIBUTED_BEGIN;
 
   constexpr int64_t kSynchronizeBusyWaitMillis = 1;
   // Minumum three keys are required to avoid race condition
@@ -1038,31 +1048,6 @@ void ProcessGroupHcclBase::hostBarrier() {
 
   barrier_cnt_ = (barrier_cnt_ + 1) % kNumBarrierKeys;
   PT_DISTRIBUTED_END;
-}
-
-void ProcessGroupHcclBase::goodbyeHandshake() {
-  // goodbyeHandshake is a host barrier which ensures that master rank (0) will
-  // finish last. It is important due to the fact that store used to implement
-  // this barrier is hosted on master rank, so once process group on master rank
-  // is destructed the store will be destroyed as well. This is why process
-  // group on master rank has to be destroyed at the end.
-  PT_DISTRIBUTED_BEGIN
-  if (this->emulate_distributed_) {
-    return;
-  }
-
-  if (comm_) {
-    std::ostringstream barrierKeyStream;
-    barrierKeyStream << "GOODBYE_HS:" << comm_->GetId();
-    std::string barrierKey = barrierKeyStream.str();
-    auto worker_count = store_->add(barrierKey, 1);
-    if (getRank() == 0) {
-      while (worker_count != size_) {
-        worker_count = store_->add(barrierKey, 0);
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      }
-    }
-  }
 }
 
 } // namespace c10d

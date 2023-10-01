@@ -48,7 +48,6 @@ class HcclCommunicator {
       std::function<void(int64_t, hcclUniqueId*)> broadcastUniqueHCCLID_fn);
   static std::shared_ptr<HcclCommunicator> Get(int64_t id);
   static int Count();
-  static void FlushAllStreams();
 
  private:
   HcclCommunicator(

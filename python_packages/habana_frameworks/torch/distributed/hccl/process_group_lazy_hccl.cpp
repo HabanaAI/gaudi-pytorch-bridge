@@ -18,7 +18,6 @@
 #include <pybind11/pybind11.h>
 
 #include "backend/helpers/collective_utils.h"
-#include "habana_helpers/python_utils.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
@@ -29,6 +28,13 @@
 namespace c10d {
 
 namespace {
+
+#define HOST_SYNC()                                   \
+  {                                                   \
+    if (GET_ENV_FLAG_NEW(PT_HPU_USE_PT_STORE_SYNC)) { \
+      hostBarrier();                                  \
+    }                                                 \
+  }
 
 bool resizeTensor(
     std::vector<at::Tensor>& tensors,
@@ -93,12 +99,9 @@ ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
 };
 
 ProcessGroupLazyHCCL::~ProcessGroupLazyHCCL() {
-  PT_DISTRIBUTED_BEGIN;
+  PT_LAZY_DEBUG("Destroy ProcessGroupLazyHCCL");
   hostBarrier();
-  habana_helpers::AutoNoGIL gil_release;
-  comm_->flush_stream();
   comm_.reset();
-  PT_DISTRIBUTED_END;
 };
 
 ProcessGroupLazyHCCL::WorkLazy::WorkLazy(const std::vector<at::Tensor>& outputs)
@@ -145,6 +148,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::broadcast(
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
   resizeTensor(tensors, changed, sizeList, strideList);
+  HOST_SYNC()
   for (auto& t : tensors) {
     habana_lazy::broadcast_hpu_lazy_(t, opts.rootRank, comm_->GetId());
   }
@@ -155,6 +159,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::broadcast(
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allreduce(
     std::vector<at::Tensor>& tensors,
     const AllreduceOptions& opts) {
+  HOST_SYNC()
   for (auto& t : tensors) {
     auto data_type = t.scalar_type();
     bool cast_tensor =
@@ -228,6 +233,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
   change = resizeTensor(inputTensors, in_changed, in_sizeList, in_strideList);
   auto output_flattened = habana_helpers::flatten_for_scatter_gather(
       outputTensors, inputTensors, size_);
+  HOST_SYNC()
   for (size_t index = 0; index < output_flattened.size(); ++index) {
     habana_lazy::allgather_hpu_lazy_out(
         inputTensors.at(index), comm_->GetId(), output_flattened.at(index));
@@ -263,6 +269,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_allgather_base(
   TORCH_CHECK(
       inputBuffer.numel() * size_ == outputBuffer.numel(),
       "incompatible buffer sizes");
+  HOST_SYNC()
   habana_lazy::allgather_hpu_lazy_out(
       inputBuffer, comm_->GetId(), outputBuffer);
   std::vector<at::Tensor> out_tensors = {outputBuffer};
@@ -479,15 +486,4 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
 
   processGroupHccl.def(
       py::init<const c10::intrusive_ptr<c10d::Store>&, int, int>());
-
-  {
-    // Flushing all streams in order to ensure that all events have been
-    // handled (all tensors connected with pending events are deallocated)
-    // before Python interpreter finalization. If tensor is deallocated when
-    // interpreter is down or is going down (finalizing) then cPython may
-    // issue std::terminate (abort), what will be observed in DFA report.
-
-    auto gil_release = pybind11::gil_scoped_release();
-    habana::HcclCommunicator::FlushAllStreams();
-  }
 };
