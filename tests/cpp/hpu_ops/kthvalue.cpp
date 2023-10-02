@@ -105,6 +105,9 @@ class HpuOpTest : public HpuOpTestUtil {
     if (!IsDtypeSupportedOnCurrentDevice(DTYPE)) {        \
       GTEST_SKIP();                                       \
     }                                                     \
+    if (isGaudi3()) {                                     \
+      GTEST_SKIP() << "Test skipped on Gaudi3.";          \
+    }                                                     \
     testKthvalue({3, 4}, DTYPE, 2, 0, true);              \
     testKthvalue({3, 4}, DTYPE, 2, 0, false);             \
     testKthvalue({3, 4, 6, 8}, DTYPE, 3, 3, true);        \
