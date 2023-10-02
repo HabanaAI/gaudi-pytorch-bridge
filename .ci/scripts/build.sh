@@ -672,6 +672,11 @@ build_pytorch_fork()
             restore_python_version
             return 0
             ;;
+        *)
+            echo Invalid argument: $1
+            usage $__scriptname
+            restore_python_version
+            return 1
         esac
         shift
     done
