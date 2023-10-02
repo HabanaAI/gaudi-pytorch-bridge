@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -2370,6 +2370,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_multinomial(Tensor see, Tensor self, int num_samples, bool replacement=False) -> Tensor");
   m.def(
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
+  m.def(
+      "hpu::sum_fp8(Tensor self, int[1]? dim=None, bool keepdim=False, ScalarType? out_dtype=None) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2422,6 +2424,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::scaled_triangular_softmax_retain",
       scaled_triangular_softmax_retain_wrap);
+  m.impl("hpu::sum_fp8", sum_fp8_lazy);
   m.impl("hpu::fp8_copy_", fp8_copy_wrap);
   m.impl("hpu::fp8_kv_reorder_", fp8_kv_reorder_wrap);
   m.impl("hpu::kv_reorder_", kv_reorder_wrap);

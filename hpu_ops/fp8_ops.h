@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -57,6 +57,7 @@ DEFINE_OP(Fp8IndexSelectV2)
 HPU_OP_BACKEND(InPlaceInterleaveCommon)
 DEFINE_OP(Conv2dFp8)
 DEFINE_OP(SoftmaxFp8)
+DEFINE_OP(SumFp8)
 
 OUTSHAPE_DECL(CastToFp8V2OutputShape)
 OUTSHAPE_DECL(CastToFp8HybridOutputShape)
@@ -69,6 +70,7 @@ OUTSHAPE_DECL(Fp8ReshapeOutputShape)
 OUTSHAPE_DECL(Fp8RepeatV2OutputShape)
 OUTSHAPE_DECL(Fp8IndexSelectV2OutputShape)
 OUTSHAPE_DECL(Conv2dFp8OutputShape)
+OUTSHAPE_DECL(SumFp8OutputShape)
 
 OUTMETA_DECL(CastToFp8QMeta)
 

@@ -7744,4 +7744,15 @@ at::Tensor dequantize_per_channel_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(dequantize_per_channel, hpu_op)
 }
 
+at::Tensor sum_fp8_lazy(
+    const at::Tensor& self,
+    at::OptionalIntArrayRef dim,
+    bool keepdim,
+    c10::optional<at::ScalarType> out_dtype) {
+  LazyOp<at::Tensor> hpu_op{
+      "hpu::sum_fp8", {self, dim, keepdim, out_dtype}, SumFp8OutputShape};
+  hpu_op.set_scalar_types({out_dtype.value_or(self.scalar_type())});
+  return hpu_op.call();
+}
+
 } // namespace habana_lazy

@@ -7013,8 +7013,8 @@ sum:
   op_template: reduction
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_sum_multi_dim_fwd
   out_ids: [0]
 
@@ -7022,16 +7022,16 @@ sum.dim_IntList:
   op_template: reduction
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_sum_fwd
   out_ids: [0]
 
 sum.IntList_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_sum_multi_dim_fwd
   op_template: reduction
 

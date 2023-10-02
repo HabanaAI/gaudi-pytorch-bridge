@@ -989,4 +989,9 @@ at::Tensor dequantize_per_channel_lazy(
     int64_t quant_min,
     int64_t quant_max,
     at::ScalarType type);
+at::Tensor sum_fp8_lazy(
+    const at::Tensor& self,
+    at::OptionalIntArrayRef dim,
+    bool keepdim,
+    c10::optional<at::ScalarType> out_dtype);
 } // namespace habana_lazy

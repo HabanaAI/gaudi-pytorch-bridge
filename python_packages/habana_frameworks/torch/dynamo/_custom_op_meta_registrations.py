@@ -13,7 +13,7 @@
 import torch
 from torch._decomp import global_decomposition_table
 from torch._ops import OpOverload, HigherOrderOperator
-from torch._meta_registrations import register_meta
+from torch._meta_registrations import register_meta, _compute_reduction_shape, utils
 
 _meta_lib_dont_use_me_use_register_meta_for_hpu = torch.library.Library(
     "hpu", "IMPL", "Meta"
@@ -558,6 +558,14 @@ def meta_rms_norm(data_in, gamma, epsilon):
 @register_meta([torch.ops.hpu.rms_norm_backward.default])
 def meta_rms_norm_backward(grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode):
     return data_in.new_empty(data_in.shape), gamma.new_empty(gamma.shape)
+
+
+@register_meta([torch.ops.hpu.sum_fp8.default])
+def meta_sum_fp8(self, dim=None, keepdim=False, out_dtype=None):
+    dim = utils.reduction_dims(self.shape, dim)
+    output_shape = _compute_reduction_shape(self, dim, keepdim)
+    output_dtype = out_dtype if out_dtype else self.dtype
+    return self.new_empty(output_shape, dtype=output_dtype)
 
 
 def activate_hpu_custom_op_meta():

@@ -32,7 +32,7 @@ import habana_frameworks.torch.hpu as ht
 ht.disable_dynamic_shape()
 
 pytestmark = [
-    pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 doesn't support fp8"),
+    pytest.mark.skipif(is_gaudi1(), reason="Gaudi doesn't support fp8"),
 ]
 
 fp8_dtypes = [torch.float8_e5m2, torch.float8_e4m3fn]

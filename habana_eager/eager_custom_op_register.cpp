@@ -26,6 +26,10 @@
 namespace {
 using habana::to_string; // For DUMP_*ARGS
 
+/***********************************************************************************
+ * Custom ops
+ **********************************************************************************/
+
 std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
@@ -1218,6 +1222,26 @@ at::Tensor custom_softmax(const at::Tensor& input, int64_t flavor) {
   return hpu_op.call();
 }
 
+at::Tensor sum_fp8(
+    const at::Tensor& self,
+    at::OptionalIntArrayRef dim,
+    bool keepdim,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("sum_fp8 :", DUMP_4ARGS(self, dim, keepdim, out_dtype));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::sum_fp8",
+      {self, dim, keepdim, out_dtype},
+      habana::SumFp8OutputShape};
+  hpu_op.set_scalar_types({out_dtype.value_or(self.scalar_type())});
+  return hpu_op.call();
+}
+
+/***********************************************************************************
+ * Native ops
+ **********************************************************************************/
+
 at::Tensor roi_align(
     const at::Tensor& input,
     const at::Tensor& rois,
@@ -1588,6 +1612,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_multinomial(Tensor see, Tensor self, int num_samples, bool replacement=False) -> Tensor");
   m.def(
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
+  m.def(
+      "hpu::sum_fp8(Tensor self, int[1]? dim=None, bool keepdim=False, ScalarType? out_dtype=None) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -1645,10 +1671,11 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::scaled_masked_triangular_softmax",
       scaled_masked_triangular_softmax);
   m.impl("hpu::scaled_triangular_softmax", scaled_triangular_softmax);
-  m.impl("hpu::softmax_fp8", softmax_fp8);
   m.impl(
       "hpu::scaled_triangular_softmax_retain",
       scaled_triangular_softmax_retain);
+  m.impl("hpu::softmax_fp8", softmax_fp8);
+  m.impl("hpu::sum_fp8", sum_fp8);
 }
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
