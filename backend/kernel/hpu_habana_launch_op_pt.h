@@ -202,6 +202,14 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
     return intermediate_tensors_ptr_sh_;
   }
 
+  bool get_enable_2stage_pipeline() const {
+    return enable_2stage_pipeline_;
+  }
+
+  bool get_enable_4stage_pipeline() const {
+    return enable_4stage_pipeline_;
+  }
+
   // A map holding the ival hash and inputidx. 1-1 map for all inputs
   std::unordered_map<int64_t, int64_t> ival_hash_to_input_index_map_ = {};
 
@@ -266,6 +274,8 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   // enable_graph_caching_---------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // enable_eager_caching_---------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // enable_shape_agnostic_caching_------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // enable_2stage_pipeline_-------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // enable_4stage_pipeline_-------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // enable_fast_shape_inf_--------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // cur_ds_token_-----------------------------///----------Dynamic-Shapes-----------///---------------Write---------------///-----------------NA----------------///------------NA
   // jit_to_synapse_node_idx_map---------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
@@ -414,6 +424,8 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   bool enable_graph_caching_{false};
   bool enable_eager_caching_{false};
   bool enable_shape_agnostic_caching_{false};
+  bool enable_2stage_pipeline_{false};
+  bool enable_4stage_pipeline_{false};
   bool enable_fast_shape_inf_{false};
 
   uint64_t cur_ds_token_{0};

@@ -46,6 +46,8 @@ void habana::HabanaCompile::CompileSynapse(
                 dry_run);
       };
 
+  auto is_enable_4stage_pipeline = hb_launch_op->get_enable_4stage_pipeline();
+
   if (do_nothing_compile && !do_nothing_execute) {
     // TODO : Move to HabanaExecute class and use single lambda to enqueue both
     // ExecuteSynapse as well as ExecuteSynapseCache
@@ -58,7 +60,7 @@ void habana::HabanaCompile::CompileSynapse(
             std::move(hb_launch_op),
             dry_run);
     // TODO: Merge with is_pipeline_supported_ status flag
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD)) {
+    if (!is_enable_4stage_pipeline) {
       habana_helpers::Singleton_ExecThreadPool::getInstance()
           .JoinPendingThread();
     }
@@ -67,7 +69,7 @@ void habana::HabanaCompile::CompileSynapse(
     enqueue_execute_synapse(
         hpu_stream, hb_launch_op, true, do_nothing_execute, dry_run);
 
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD)) {
+    if (!is_enable_4stage_pipeline) {
       habana_helpers::Singleton_ExecThreadPool::getInstance()
           .JoinPendingThread();
     }
@@ -85,7 +87,7 @@ void habana::HabanaCompile::CompileSynapse(
       hb_launch_op->StoreCompiledInformation(hpu_stream);
       enqueue_execute_synapse(
           hpu_stream, hb_launch_op, true, do_nothing_execute, dry_run);
-      if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD)) {
+      if (!is_enable_4stage_pipeline) {
         habana_helpers::Singleton_ExecThreadPool::getInstance()
             .JoinPendingThread();
       }
@@ -94,7 +96,7 @@ void habana::HabanaCompile::CompileSynapse(
       hb_launch_op->CompileSynapseGraph(false);
       enqueue_execute_synapse(
           hpu_stream, hb_launch_op, false, do_nothing_execute, dry_run);
-      if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD)) {
+      if (!is_enable_4stage_pipeline) {
         habana_helpers::Singleton_ExecThreadPool::getInstance()
             .JoinPendingThread();
       }
@@ -106,7 +108,7 @@ void habana::HabanaCompile::CompileSynapse(
     hb_launch_op->StoreCompiledInformation(hpu_stream);
     enqueue_execute_synapse(
         hpu_stream, hb_launch_op, false, do_nothing_execute, dry_run);
-    if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD)) {
+    if (!is_enable_4stage_pipeline) {
       habana_helpers::Singleton_ExecThreadPool::getInstance()
           .JoinPendingThread();
     }

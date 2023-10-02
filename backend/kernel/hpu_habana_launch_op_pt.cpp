@@ -134,7 +134,8 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   PT_BRIDGE_DEBUG(
       "Creating : ", SetAndGetSynapseGraphName(name_, graph_index_));
 
-  execution_mode_ = jit_graph_and_meta_data_->GetFrontendType();
+  auto front_end_type = jit_graph_and_meta_data_->GetFrontendType();
+  execution_mode_ = front_end_type;
 
   // To support old lazy eager mode
   // This must be removed once lazy eager mode is deprecated
@@ -187,6 +188,16 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
         " is not equal to #outputs in jit graph ",
         jit_ir_graph_->outputs().size());
   }
+
+  auto frontend_type_eager_or_compile =
+      ((front_end_type == habana_helpers::HabanaFrontendTypes::EAGER) ||
+       (front_end_type == habana_helpers::HabanaFrontendTypes::COMPILE));
+  enable_2stage_pipeline_ =
+      jit_graph_and_meta_data_->get_is_pipeline_supported();
+  // To Do - To also enable 4-stage pipeline for dynamic shapes
+  enable_4stage_pipeline_ = enable_2stage_pipeline_ &&
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE) &&
+      !refine_ds_enabled_ && frontend_type_eager_or_compile;
 }
 
 HabanaLaunchOpPT::~HabanaLaunchOpPT() {
@@ -3399,8 +3410,10 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
     hbLaunchOp->CreateStaticCompilationDBI(graph_key_with_perm);
   }
 
-  // Update the stack from the recipe itself
-  hbLaunchOp->UpdateOutputs(rv);
+  if (!hbLaunchOp->get_enable_2stage_pipeline()) {
+    // Update the stack from the recipe itself
+    hbLaunchOp->UpdateOutputs(rv);
+  }
   PT_BRIDGE_DEBUG("Returning cached recipe : ", cur_rargpsh->hashCode());
   hbLaunchOp->ReturnCachedRecipe(rv);
 
@@ -3548,6 +3561,8 @@ void HabanaLaunchOpPT::run(
         false, input_refs, jit_ir_graph_, graph_key_, op_strs_);
   }
 
+  auto is_enable_4stage_pipeline = enable_4stage_pipeline_;
+
   auto enqueue_compile_synapse =
       [&](synapse_helpers::hpuStream_t hpu_stream,
           std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
@@ -3622,7 +3637,7 @@ void HabanaLaunchOpPT::run(
             !do_nothing,
             dry_run);
         // TODO: Merge with is_pipeline_supported status flag
-        if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD)) {
+        if (!is_enable_4stage_pipeline) {
           habana_helpers::Singleton_CompileThreadPool::getInstance()
               .JoinPendingThread();
         }
@@ -3860,7 +3875,7 @@ void HabanaLaunchOpPT::run(
           do_nothing,
           do_nothing,
           dry_run);
-      if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD)) {
+      if (!is_enable_4stage_pipeline) {
         habana_helpers::Singleton_CompileThreadPool::getInstance()
             .JoinPendingThread();
       }
@@ -3938,7 +3953,7 @@ void HabanaLaunchOpPT::run(
         dry_run);
 
     if (!is_permute_data_cached || enable_caching_ ||
-        !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILE_EXEC_THREAD))
+        !is_enable_4stage_pipeline)
       habana_helpers::Singleton_CompileThreadPool::getInstance()
           .JoinPendingThread();
 
