@@ -33,5 +33,5 @@ def consolidated_inplace_copies(dsts: List[torch.Tensor], srcs: List[torch.Tenso
     # this is not really needed, this is just temporary w/a for incorrect JIT IR
     # outputs when no tensor output is specified. It should force IR to have some
     # output.
-    return torch.clone(dsts[0])
+    return dsts
     # WORKAROUND END
