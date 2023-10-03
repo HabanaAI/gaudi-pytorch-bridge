@@ -134,6 +134,9 @@ TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
 }
 
 TEST_F(LazyLinearKernelTest, BaddBmmTest1) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   torch::Tensor A = torch::randn({10, 3, 5});
   torch::Tensor B = torch::randn({10, 3, 4});
   torch::Tensor C = torch::randn({10, 4, 5});
