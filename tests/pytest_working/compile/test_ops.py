@@ -114,6 +114,7 @@ def run_test(aten_name, dtype):
         def fn(op, t_inp, t_args, t_kwargs):
             return op(t_inp, *t_args, **t_kwargs)
 
+        torch._dynamo.reset()
         compiled_cpu = torch.compile(fn)
         result_cpu = compiled_cpu(opinfo.op, t_inp, t_args, t_kwargs)
 

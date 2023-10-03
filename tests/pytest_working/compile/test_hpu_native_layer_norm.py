@@ -22,6 +22,7 @@ def test_native_layer_norm(shape, eps, dtype):
     def fn(input, weight, bias):
         return torch.native_layer_norm(input, shape, weight, bias, eps)
 
+    torch._dynamo.reset()
     hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
     cpu_compiled_fn = torch.compile(fn)
 
@@ -56,6 +57,7 @@ def test_native_layer_norm_bwd(shape, dtype):
     hpu_weight = cpu_weight.to("hpu")
     hpu_bias = cpu_bias.to("hpu")
 
+    torch._dynamo.reset()
     cpu_compiled_fn = torch.compile(fn)
     cpu_results = cpu_compiled_fn(cpu_input, cpu_weight, cpu_bias)
     hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")

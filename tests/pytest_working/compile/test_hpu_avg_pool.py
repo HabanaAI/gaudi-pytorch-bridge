@@ -21,9 +21,11 @@ def test_hpu_avg_pool1d(shape, kernel_size_and_padding, stride, dtype):
     def fn(input):
         return torch.ops.aten.avg_pool1d(input, kernel_size, stride=stride, padding=padding)
 
+    torch._dynamo.reset()
     kernel_size, padding = kernel_size_and_padding
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
+    torch._dynamo.reset()
     cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
@@ -41,9 +43,11 @@ def test_hpu_adaptive_avg_pool1d(shape, output_size, dtype):
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
 
+    torch._dynamo.reset()
     cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
+    torch._dynamo.reset()
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).to("cpu")
     assert torch.allclose(cpu_output, hpu_output)
@@ -75,9 +79,11 @@ def test_hpu_avg_pool3d(shape, kernel_size_and_padding, stride, ceil_mode, count
             count_include_pad=count_include_pad,
             divisor_override=divisor_override)
 
+    torch._dynamo.reset()
     kernel_size, padding = kernel_size_and_padding
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
+    torch._dynamo.reset()
     cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
@@ -102,6 +108,7 @@ def test_hpu_avg_pool2d_bwd(shape, kernel_size_and_padding, stride, dtype):
     kernel_size, padding = kernel_size_and_padding
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
+    torch._dynamo.reset()
     cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 

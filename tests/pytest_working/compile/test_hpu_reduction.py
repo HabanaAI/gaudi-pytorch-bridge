@@ -45,6 +45,7 @@ def test_reduction_dim(op_code, dim, keepdim):
         result = fn(x, dim, keepdim)
 
         # HPU
+        torch._dynamo.reset()
         compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
         hresult = compiled_fn(hx, dim, keepdim)
