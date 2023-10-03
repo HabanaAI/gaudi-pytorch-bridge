@@ -60,12 +60,42 @@ sizes_vec AdaptiveAvgPool2dOutputShapeBwd(const at::Stack& stack) {
   return {self.sizes().vec()};
 }
 
+void AdaptiveAvgPool2dFwd::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  size_t size = 0;
+  const auto& params = FillAdaptiveAvgPool2dParamsFwd(stack, size);
+  auto outshape = AdaptiveAvgPool2dOutputShape(stack)[0];
+
+  if (stack_tensor(stack, 0).dim() == 4) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+  }
+
+  auto adaptive_avg_pool = BuildOp(
+      graph,
+      GetGuid(),
+      {syn_in(0)},
+      {{outshape, ScalarType(), 0}},
+      params.get(),
+      size);
+
+  syn_out(0) = std::move(adaptive_avg_pool[0]);
+}
+
 void AdaptiveAvgPool2dBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   size_t size = 0;
   const auto& params = FillAdaptiveAvgPool2dParamsBwd(stack, size);
   auto outshape = AdaptiveAvgPool2dOutputShapeBwd(stack)[0];
+
+  if (stack_tensor(stack, 0).dim() == 4) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+  }
 
   std::vector<synTensor> grad = {syn_in(0)};
   this->CreateShapeTensorInput(graph, this->ScalarType(), outshape, grad);

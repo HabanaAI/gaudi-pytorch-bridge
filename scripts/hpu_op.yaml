@@ -1214,9 +1214,7 @@ _adaptive_avg_pool2d:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: adaptive_avg_pool_2d_fwd
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
+  op_backend: AdaptiveAvgPool2dFwd
   out_ids: [0]
   # op_validator: check-node-with-shared-layer
 
@@ -1228,9 +1226,7 @@ adaptive_avg_pool2d.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: adaptive_avg_pool_2d_fwd
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
+  op_backend: AdaptiveAvgPool2dFwd
   # op_validator: check-node-with-shared-layer
 
 _adaptive_avg_pool2d_backward:
@@ -1241,9 +1237,6 @@ _adaptive_avg_pool2d_backward:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: AdaptiveAvgPool2dBwd
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
   out_ids: [0]
 
 avg_pool2d:
