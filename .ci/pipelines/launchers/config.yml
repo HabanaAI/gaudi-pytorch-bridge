@@ -140,4 +140,13 @@ launchers:
 - testToLaunch: pt_next/Test_dependent_Build_pt_next_u20
   gerritTriggerMap:
   - repository: pytorch-integration
-
+- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_eager_2.n
+  silentMode: false
+  gerritTriggerMap:
+  - repository: pytorch-integration
+  - repository: pytorch-vision-fork
+- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_eager_2.n
+  silentMode: false
+  gerritTriggerMap:
+  - repository: pytorch-integration
+  - repository: pytorch-vision-fork
