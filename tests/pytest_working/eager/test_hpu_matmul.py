@@ -17,7 +17,7 @@ import habana_frameworks.torch.core as htcore
 from test_utils import compare_tensors, hpu
 
 
-matmul_lazy_list = [
+shapes = [
     # size1, size2
     ((2), (2)),
     ((3), (3, 2)),
@@ -34,12 +34,12 @@ matmul_lazy_list = [
     ((2, 3, 4), (2, 4, 5)),
     ((2, 3, 4), (4)),
     ((2, 2, 3, 4), (2, 4, 3)),
-    # ((1, 8, 16), (10, 16, 12)), TODO: SW-158291
+    ((1, 8, 16), (10, 16, 12)),
     ((1, 10, 8, 16), (2, 10, 16, 12)),
 ]
 
 
-@pytest.mark.parametrize("size1, size2", matmul_lazy_list)
+@pytest.mark.parametrize("size1, size2", shapes)
 def test_hpu_matmul_fwd_bwd(size1, size2):
     t1 = torch.randn(size1, requires_grad=True)
     t2 = torch.randn(size2, requires_grad=True)
@@ -66,7 +66,7 @@ def test_hpu_matmul_fwd_bwd(size1, size2):
     assert np.allclose(grad_t2_cpu, grad_t2_h, atol=0.001, rtol=1.0e-3)
 
 
-@pytest.mark.parametrize("size1, size2", matmul_lazy_list)
+@pytest.mark.parametrize("size1, size2", shapes)
 def test_hpu_matmul_fwd(size1, size2):
     t1 = torch.randn(size1)
     t2 = torch.randn(size2)

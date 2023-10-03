@@ -262,7 +262,7 @@ TEST_F(EagerKernelTest, MatMulTest) {
   matmul_test({3, 4}, {2, 4, 3});
   matmul_test({12, 16, 20, 24}, {16, 24, 20});
   matmul_test({16, 20, 24}, {12, 16, 24, 20});
-  // matmul_test({10, 8, 16}, {1, 16, 12}); TODO: SW-158291
+  matmul_test({10, 8, 16}, {1, 16, 12});
   matmul_test({2, 10, 8, 16}, {2, 1, 16, 12});
 }
 
