@@ -15,6 +15,7 @@ import pytest
 import torch.nn as nn
 import habana_frameworks.torch.dynamo.compile_backend
 from test_utils import is_gaudi1, is_torch_at_least
+import os
 
 
 def test_op_addr():
@@ -657,3 +658,29 @@ def test_constant_pad_default():
         grad = torch.ones_like(h_result)
         h_result.backward(grad)
 
+def test_op_arange():
+    os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "1"
+    input_shapes = [
+        [(2, 3), (0, 6, 2)],
+        [(10, 3), (0, 18, 6)],
+        [(5, 3), (0, 12, 4)]
+    ]
+
+    def raw_function(t1, arg, device):
+        t = t1.shape
+        t1 = torch.relu(t1)
+        t2 = torch.arange(arg[0], arg[1], arg[2], device=device)
+        t3 = torch.add(t1, t2)
+        return t3
+
+    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+
+    for s in input_shapes:
+        t1 = torch.randn(s[0], requires_grad = False)
+        device_cpu = "cpu"
+        device_hpu = "hpu"
+        result = raw_function(t1, s[1], device_cpu)
+        t1_h = t1.to("hpu")
+        h_result = compiled_fn(t1_h, s[1], device_hpu)
+        os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "0"
+        assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
