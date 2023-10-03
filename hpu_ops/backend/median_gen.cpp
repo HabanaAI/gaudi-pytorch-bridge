@@ -109,6 +109,10 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   std::vector<int64_t> topk_outshape;
   topk_outshape = self_size;
 
+  auto indices_dtype = GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)
+      ? c10::ScalarType::Long
+      : c10::ScalarType::Int;
+
   auto topk = TopK_Helper(
       this,
       graph,
@@ -145,7 +149,7 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph,
       {topk[1].get()},
       slice_outshape,
-      c10::ScalarType::Int,
+      indices_dtype,
       self_size[reduction_axis],
       self.ndimension(),
       reduction_axis,
@@ -162,7 +166,7 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         graph, median_value[0].get(), output_shape, ScalarType(), 0);
 
     auto reshaped_median_index = ReshapeHelper(
-        graph, median_index[0].get(), output_shape, c10::ScalarType::Int, 1);
+        graph, median_index[0].get(), output_shape, indices_dtype, 1);
 
     syn_out(0) = std::move(reshaped_median_value);
     syn_out(1) = std::move(reshaped_median_index);
