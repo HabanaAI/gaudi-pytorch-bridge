@@ -12,12 +12,15 @@
 import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
+from test_utils import is_torch_at_least
 
 @pytest.mark.parametrize("shape", [[2, 7], [2, 2, 7]])
 @pytest.mark.parametrize("kernel_size_and_padding", [(1, 0), (2, 0), (2,1), (3, 1)])
 @pytest.mark.parametrize("stride", [1, 2])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_hpu_avg_pool1d(shape, kernel_size_and_padding, stride, dtype):
+    if is_torch_at_least(2,1):
+        pytest.xfail('https://jira.habana-labs.com/browse/SW-162580')
     def fn(input):
         return torch.ops.aten.avg_pool1d(input, kernel_size, stride=stride, padding=padding)
 
@@ -37,6 +40,8 @@ def test_hpu_avg_pool1d(shape, kernel_size_and_padding, stride, dtype):
 @pytest.mark.parametrize("output_size", [1, 6, 10])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_hpu_adaptive_avg_pool1d(shape, output_size, dtype):
+    if is_torch_at_least(2,1):
+        pytest.xfail('https://jira.habana-labs.com/browse/SW-162580')
     def fn(input):
         return torch.ops.aten.adaptive_avg_pool1d(input, output_size)
 
@@ -96,6 +101,8 @@ def test_hpu_avg_pool3d(shape, kernel_size_and_padding, stride, ceil_mode, count
 @pytest.mark.parametrize("stride", [(1, 2), 1, 2])
 @pytest.mark.parametrize("dtype", [torch.float])
 def test_hpu_avg_pool2d_bwd(shape, kernel_size_and_padding, stride, dtype):
+    if is_torch_at_least(2,1):
+        pytest.xfail('https://jira.habana-labs.com/browse/SW-162580')
     if shape == [8, 16, 16]:
         pytest.xfail('[SW-161411] bwd kernel does not support 3d input')
     def fn(input):

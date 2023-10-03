@@ -75,6 +75,7 @@ TEST_F(DebugUtilsTest, GraphDotDump1) {
 }
 
 TEST_F(DebugUtilsTest, DebugCustomOp3) {
+  GTEST_SKIP() << "https://jira.habana-labs.com/browse/SW-162345";
   if (!GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE))
     SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_STORAGE_OVERRIDE, true, 1);
 

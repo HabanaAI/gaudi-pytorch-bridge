@@ -15,7 +15,9 @@ import os
 import numpy as np
 import habana_frameworks.torch as htorch
 from habana_frameworks.torch.core.quantization import _mark_params_as_const, _check_params_as_const
+from test_utils import is_torch_at_least
 import shutil
+import pytest
 
 class Net(torch.nn.Module):
   def __init__(self):
@@ -30,6 +32,8 @@ class Net(torch.nn.Module):
     return x
 
 def test_const_serialization_cache():
+    if is_torch_at_least(2,1):
+        pytest.xfail("https://jira.habana-labs.com/browse/SW-161539")
     torch.manual_seed(123456)
     htorch.hpu.enable_inference_mode()
 

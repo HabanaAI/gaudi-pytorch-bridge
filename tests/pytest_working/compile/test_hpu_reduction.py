@@ -13,6 +13,7 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.core as htcore
+from test_utils import is_torch_at_least
 
 @pytest.mark.parametrize("op_code", [torch.any, torch.mean, torch.prod])
 def test_reduction(op_code):
@@ -35,18 +36,21 @@ def test_reduction(op_code):
 @pytest.mark.parametrize("dim", [0, 1, 2, 3, -1])
 @pytest.mark.parametrize("keepdim", [True, False])
 def test_reduction_dim(op_code, dim, keepdim):
-        def fn(input, dim, keepdim):
-            return op_code(input, dim, keepdim)
+    if is_torch_at_least(2,1):
+        pytest.xfail("https://jira.habana-labs.com/browse/SW-161576")
 
-        # CPU
-        x = torch.randn([12, 10, 8, 6])
-        hx = x.to('hpu')
+    def fn(input, dim, keepdim):
+        return op_code(input, dim, keepdim)
 
-        result = fn(x, dim, keepdim)
+    # CPU
+    x = torch.randn([12, 10, 8, 6])
+    hx = x.to('hpu')
 
-        # HPU
-        torch._dynamo.reset()
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    result = fn(x, dim, keepdim)
 
-        hresult = compiled_fn(hx, dim, keepdim)
-        assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)
+    # HPU
+    torch._dynamo.reset()
+    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    hresult = compiled_fn(hx, dim, keepdim)
+    assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)

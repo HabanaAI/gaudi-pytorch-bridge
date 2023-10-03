@@ -14,6 +14,7 @@ import pytest
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.dynamo.compile_backend
 import numpy as np
+from test_utils import is_torch_at_least
 
 @pytest.mark.parametrize("shape", [(1, 3, 4, 4)])
 @pytest.mark.parametrize("eps", [0.01, 0.1])
@@ -41,6 +42,8 @@ def test_native_layer_norm(shape, eps, dtype):
 @pytest.mark.parametrize("shape", [(1, 3, 4, 4)])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_native_layer_norm_bwd(shape, dtype):
+    if is_torch_at_least(2,1):
+      pytest.xfail("https://jira.habana-labs.com/browse/SW-161574")
     extended_shape = (10,) + shape
     def fn(input, weight, bias):
         input.requires_grad = True
