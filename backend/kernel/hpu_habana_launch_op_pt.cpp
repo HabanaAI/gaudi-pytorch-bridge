@@ -545,8 +545,10 @@ void HabanaLaunchOpPT::GetSynapseInputs(
   }
 
   if (populate_seed) {
-    int seed = get_seed_hpu(c10::nullopt);
-
+    int seed = 0;
+    if (!syn_graph_ptr_->is_dry_run()) {
+      seed = get_seed_hpu(c10::nullopt);
+    }
     at::Tensor seed_cpu_tensor = at::tensor(seed);
     at::Tensor seed_tensor = at::empty(
         seed_cpu_tensor.sizes(),
