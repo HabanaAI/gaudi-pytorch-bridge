@@ -850,7 +850,7 @@ class ModuleCacher(torch.nn.Module):
             self.uncached_train_hits += 1
         else:
             self.uncached_eval_hits +=1
-        return self.orig_model(*args, **kwargs)
+        return self.model.orig_forward(*args, **kwargs)
 
     def capture_start(self):
         self.is_capturing = True
@@ -891,7 +891,7 @@ class ModuleCacher(torch.nn.Module):
             self.uncached_train_hits += 1
         else:
             self.uncached_eval_hits +=1
-        return self.orig_model(*args, **kwargs)
+        return self.model.orig_forward(*args, **kwargs)
 
     def __call__(self, model, use_lfu=False, inplace=True, allow_unused_input=False, asynchronous=False, have_grad_accumulation=False, log_frequency=100, verbose=False,
         disable_tensor_cache=False, dry_run=False):
@@ -902,6 +902,7 @@ class ModuleCacher(torch.nn.Module):
         self.forward_params = GraphModel.process_function_signature(self.orig_model.forward)
         self.model = model
         self.use_lfu = use_lfu
+        self.model.orig_forward = self.model.forward
         if self.use_lfu:
             self.model.forward = self.forward_lfs
         else:
