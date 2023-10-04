@@ -1,4 +1,5 @@
 def stableBranch = GERRIT_BRANCH - '_next'
+def isPromote = env.IS_PROMOTE.toBoolean() || env.TRIGGER_BUILD.startsWith("Promote")
 src = library("pipeline-library@$stableBranch")
 
 def user_install = env.runInDocker == 'true' ? '' : '--user'
@@ -50,10 +51,10 @@ def preBuildStages = [
     }
 ]
 preBuildStages = preBuildStages + ccacheStats + pytorchFork + ccacheStats
-if(env.GERRIT_PROJECT == 'pytorch-integration' && env.IS_PROMOTE == "false") {
+if(env.GERRIT_PROJECT == 'pytorch-integration' && !isPromote) {
     preBuildStages = clangFormatValidation + checkYAMLLinter + preBuildStages
 }
-if((env.GERRIT_PROJECT == 'lightning-habana-fork' ) && env.IS_PROMOTE == "false") {
+if((env.GERRIT_PROJECT == 'lightning-habana-fork' ) && !isPromote) {
     preBuildStages =  preBuildStages + lightningHabanaFork
 }
 preBuildStages =  preBuildStages + lightningHabanaFork + ccacheStats
