@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021-22 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,6 +13,7 @@
 
 #include "generated/backend/clamp.h"
 #include "generated/backend/clamp_max.h"
+#include "generated/backend/clamp_min.h"
 #include "habana_helpers/dtype_helpers.h"
 
 namespace habana {
@@ -54,19 +55,26 @@ static std::shared_ptr<void> ClampParams(
   return params;
 }
 
+template <typename ScalarType>
+static std::shared_ptr<void> FillClampParamsAndFixOverlapping(
+    const at::Stack& stack,
+    size_t& size) {
+  ScalarType min = stack[1].isScalar()
+      ? stack[1].toScalar().to<ScalarType>()
+      : -std::numeric_limits<ScalarType>::max();
+  ScalarType max = stack[2].isScalar() ? stack[2].toScalar().to<ScalarType>()
+                                       : std::numeric_limits<ScalarType>::max();
+  if (max < min) {
+    min = max;
+  }
+  return ClampParams(min, max, size);
+}
+
 std::shared_ptr<void> FillClampParams(const at::Stack& stack, size_t& size) {
   if (c10::isFloatingType(stack[0].toTensor().scalar_type())) {
-    float min = stack[1].isScalar() ? stack[1].toScalar().to<float>()
-                                    : -std::numeric_limits<float>::max();
-    float max = stack[2].isScalar() ? stack[2].toScalar().to<float>()
-                                    : std::numeric_limits<float>::max();
-    return ClampParams(min, max, size);
+    return FillClampParamsAndFixOverlapping<float>(stack, size);
   } else {
-    int min = stack[1].isScalar() ? stack[1].toScalar().to<int>()
-                                  : -std::numeric_limits<int>::max();
-    int max = stack[2].isScalar() ? stack[2].toScalar().to<int>()
-                                  : std::numeric_limits<int>::max();
-    return ClampParams(min, max, size);
+    return FillClampParamsAndFixOverlapping<int>(stack, size);
   }
 }
 
@@ -102,40 +110,58 @@ std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
       -std::numeric_limits<int>::max(), stack[1].toScalar().toInt(), size);
 }
 
+static synapse_helpers::tensor ClampCommon(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    c10::ScalarType scalar_type,
+    std::vector<synTensor> inputs,
+    std::vector<int64_t> outshape) {
+  return std::move(OpBackend::BuildNode(
+      op,
+      graph,
+      {get_guid_with_precision("clamp_pt_fwd", scalar_type),
+       inputs,
+       {{outshape, scalar_type, 0}}})[0]);
+}
+
 void clampTensor::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const at::Tensor self = stack_tensor(stack, 0);
   auto outshape = OutputMeta(stack)[0].shape;
   bool minTensorDefined = stack.at(1).isTensor();
   bool maxTensorDefined = stack.at(2).isTensor();
-  if (minTensorDefined && maxTensorDefined) {
-    auto clampOut = BuildOp(
-        graph,
-        get_guid_with_precision("clamp_pt_fwd", ScalarType()),
-        {syn_in(0), syn_in(1), syn_in(2)},
-        {{outshape, ScalarType(), 0}});
+  HABANA_ASSERT(
+      maxTensorDefined || minTensorDefined,
+      "At least one of 'min' or 'max' must not be None")
 
-    syn_out(0) = std::move(clampOut[0]);
-  } else if (minTensorDefined) {
-    auto maxOut = BuildOp(
-        graph,
-        get_guid_with_precision("max_fwd", ScalarType()),
-        {syn_in(0), syn_in(1)},
-        {{outshape, ScalarType(), 0}});
+  StackGetter stackGetter(stack, "clampTensor::AddNode");
+  auto input = getNextInput<TensorsPair>(stackGetter);
+  auto min = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto max = getNextInput<c10::optional<TensorsPair>>(stackGetter);
 
-    syn_out(0) = std::move(maxOut[0]);
-  } else {
-    HABANA_ASSERT(
-        maxTensorDefined, "At least one of 'min' or 'max' must not be None")
-    auto minOut = BuildOp(
-        graph,
-        get_guid_with_precision("min_fwd", ScalarType()),
-        {syn_in(0), syn_in(1)},
-        {{outshape, ScalarType(), 0}});
+  std::vector<synTensor> inputs = {input.syn_t};
+  inputs.push_back(min ? min.value().syn_t : nullptr);
+  inputs.push_back(max ? max.value().syn_t : nullptr);
 
-    syn_out(0) = std::move(minOut[0]);
-  }
+  syn_out(0) = ClampCommon(this, graph, ScalarType(), inputs, outshape);
+}
+
+void clampMaxTensor::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto outshape = OutputMeta(stack)[0].shape;
+  std::vector<synTensor> inputs = {syn_in(0), nullptr, syn_in(1)};
+
+  syn_out(0) = ClampCommon(this, graph, ScalarType(), inputs, outshape);
+}
+
+void clampMinTensor::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto outshape = OutputMeta(stack)[0].shape;
+  std::vector<synTensor> inputs = {syn_in(0), syn_in(1)};
+
+  syn_out(0) = ClampCommon(this, graph, ScalarType(), inputs, outshape);
 }
 
 } // namespace habana

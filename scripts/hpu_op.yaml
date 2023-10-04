@@ -1805,8 +1805,7 @@ clamp:
     Gaudi2: [BFloat16, Float, Int, Long, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, min, max]
-  op_frontend: ClampFE
-  guid: clamp_fwd
+  guid: clamp_pt_fwd
   out_ids: [0]
 
 clamp.Tensor:
@@ -1826,8 +1825,7 @@ clamp_:
     Gaudi2: [BFloat16, Float, Int, Long, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, min, max]
-  op_frontend: ClampFE
-  guid: clamp_fwd
+  guid: clamp_pt_fwd
   inplace_ids: [0]
 
 clamp_.Tensor:
@@ -1846,7 +1844,7 @@ clamp.out:
     Gaudi2: [BFloat16, Float, Int, Long, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, min, max]
-  guid: clamp_fwd
+  guid: clamp_pt_fwd
   # op_validator: check-node-with-shared-layer
 
 clamp.Tensor_out:
@@ -1864,7 +1862,7 @@ clamp_max:
     Gaudi: [BFloat16, Float, Int, Long]
     Gaudi2: [BFloat16, Float, Int, Long, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Half]
-  guid: clamp_fwd
+  guid: clamp_pt_fwd
   out_ids: [0]
   promote_to_common_type: [self, max]
   # op_validator: check-node-with-shared-layer
@@ -1876,7 +1874,8 @@ clamp_max.Tensor:
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, max]
   broadcast: true
-  guid: min_fwd
+  guid: clamp_pt_fwd
+  op_backend: clampMaxTensor
   out_ids: [0]
   # op_validator: check-node-with-shared-layer
 
@@ -1887,7 +1886,7 @@ clamp_max_:
     Gaudi2: [BFloat16, Float, Int, Long, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, max]
-  guid: clamp_fwd
+  guid: clamp_pt_fwd
   inplace_ids: [0]
   # op_validator: check-node-with-shared-layer
 
@@ -1897,7 +1896,8 @@ clamp_max_.Tensor:
     Gaudi2: [BFloat16, Float, Int, Long, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, max]
-  guid: min_fwd
+  guid: clamp_pt_fwd
+  op_backend: clampMaxTensor
   inplace_ids: [0]
   # op_validator: check-node-with-shared-layer
 
@@ -1908,7 +1908,7 @@ clamp_max.out:
     Gaudi2: [BFloat16, Float, Int, Long, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, max]
-  guid: clamp_fwd
+  guid: clamp_pt_fwd
   # op_validator: check-node-with-shared-layer
 
 clamp_max.Tensor_out:
@@ -1918,7 +1918,7 @@ clamp_max.Tensor_out:
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, max]
   broadcast: true
-  guid: min_fwd
+  op_backend: clampMaxTensor
   # op_validator: check-node-with-shared-layer
 
 clamp_min:
@@ -1928,7 +1928,7 @@ clamp_min:
     Gaudi2: [BFloat16, Float, Int, Long, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, min]
-  guid: clamp_fwd
+  guid: clamp_pt_fwd
   out_ids: [0]
   # op_validator: check-node-with-shared-layer
 
@@ -1939,7 +1939,8 @@ clamp_min.Tensor:
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, min]
   broadcast: true
-  guid: max_fwd
+  guid: clamp_pt_fwd
+  op_backend: clampMinTensor
   out_ids: [0]
   # op_validator: check-node-with-shared-layer
 
@@ -1950,7 +1951,7 @@ clamp_min_:
     Gaudi2: [BFloat16, Float, Int, Long, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, min]
-  guid: clamp_fwd
+  guid: clamp_pt_fwd
   inplace_ids: [0]
   # op_validator: check-node-with-shared-layer
 
@@ -1960,7 +1961,8 @@ clamp_min_.Tensor:
     Gaudi2: [BFloat16, Float, Int, Long, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, min]
-  guid: max_fwd
+  guid: clamp_pt_fwd
+  op_backend: clampMinTensor
   inplace_ids: [0]
   # op_validator: check-node-with-shared-layer
 
@@ -1971,7 +1973,7 @@ clamp_min.out:
     Gaudi2: [BFloat16, Float, Int, Long, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, min]
-  guid: clamp_fwd
+  guid: clamp_pt_fwd
   # op_validator: check-node-with-shared-layer
 
 clamp_min.Tensor_out:
@@ -1981,7 +1983,7 @@ clamp_min.Tensor_out:
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   promote_to_common_type: [self, min]
   broadcast: true
-  guid: max_fwd
+  op_backend: clampMinTensor
   # op_validator: check-node-with-shared-layer
 
 clone:

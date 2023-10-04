@@ -20,7 +20,6 @@ add_library(habana_pytorch2_frontend OBJECT
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/arange_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/bernoulli_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/index_gen.cpp
-          ${CMAKE_SOURCE_DIR}/hpu_ops/eager/clamp_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/convolution_backward_overrideable_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/convolution_overrideable_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/fill_gen.cpp

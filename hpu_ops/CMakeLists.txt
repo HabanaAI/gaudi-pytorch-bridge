@@ -292,7 +292,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/binaryscalar2tensor.cpp
 	  lazy/bitwise_gen.cpp
           lazy/bitwise_shift_gen.cpp
-          lazy/clamp_gen.cpp
           lazy/compare_gen.cpp
           lazy/convolution_overrideable_gen.cpp
           lazy/convolution_backward_overrideable_gen.cpp
