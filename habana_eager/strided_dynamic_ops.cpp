@@ -30,8 +30,6 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
     ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
   HABANA_ASSERT(2 == aten_view_node->inputs().size());
-  static const auto hpu_view_symbol{
-      c10::Symbol::fromQualString("hpu::view_neg")};
   static const auto list_construct_symbol{
       c10::Symbol::fromQualString("prim::ListConstruct")};
   auto graph{aten_view_node->owningGraph()};
@@ -62,25 +60,42 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
       CreateSTAndInsertToDSStack(inferred_st_sizes, scalar_indexes, m_dmeta);
   auto v_st_tensor = graph->addInput(view_st_name);
 
+  // find if view has negative dims
+  auto has_neg_size = false;
+  for (auto val : st_size) {
+    if (val < 0) {
+      has_neg_size = true;
+      break;
+    }
+  }
+
   // Step3: Create hpu::view node and insert to the graph
-  auto hpu_view_node = CreateAndInsertDynamicNodeToGraph(
-      graph,
-      aten_view_node,
-      hpu_view_symbol,
-      {aten_view_node->input(0), v_st_tensor, v_view_shape},
-      value_ivalue_map);
+  torch::jit::Node* hpu_view_node;
+  if (has_neg_size) {
+    static const auto hpu_view_symbol{
+        c10::Symbol::fromQualString("hpu::view_neg")};
+    hpu_view_node = CreateAndInsertDynamicNodeToGraph(
+        graph,
+        aten_view_node,
+        hpu_view_symbol,
+        {aten_view_node->input(0), v_st_tensor, v_view_shape},
+        value_ivalue_map);
+  } else {
+    static const auto hpu_view_symbol{c10::Symbol::fromQualString("hpu::view")};
+    hpu_view_node = CreateAndInsertDynamicNodeToGraph(
+        graph,
+        aten_view_node,
+        hpu_view_symbol,
+        {aten_view_node->input(0), v_st_tensor},
+        value_ivalue_map);
+  }
 
   // Step4: Register patching function and tensor lists
   std::vector<int64_t> dtensor_indexes{stack_index};
   InputPatchPair patch_info(&DynamicOp::UpdateDynamicInputs, dtensor_indexes);
   m_dmeta->ds_input_patching_list.push_back(patch_info);
-
-  for (auto val : st_size) {
-    if (val < 0) {
-      m_dmeta->negative_size_nodes.emplace_back(hpu_view_node);
-      break;
-    }
-  }
+  if (has_neg_size)
+    m_dmeta->negative_size_nodes.emplace_back(hpu_view_node);
 
   return true;
 }
