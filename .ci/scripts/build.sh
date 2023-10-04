@@ -40,9 +40,9 @@ function pytorch_usage()
         echo -e "options:\n"
         echo -e "  -j,  --jobs <val>           Max jobs used for compilation"
         echo -e "  -c,  --clean                clean up temporary files from 'build' command"
-        echo -e "  -a,  --build-all            Build both debug and release build"
         echo -e "  -r,  --release              Build only release build"
         echo -e "       --recursive            Build all the pre-requisite modules in a recursive way"
+        echo -e "  -s,  --sanitize             Build with sanitize flags on"
         echo -e "  -d,  --debug                Build only debug build"
         echo -e "       --install              will install the package"
         echo -e "       --dist                 create a wheel distribution"
@@ -622,9 +622,6 @@ build_pytorch_fork()
     while [ -n "$1" ];
     do
         case $1 in
-        -j  | --jobs )
-            __env_vars+=" MAX_JOBS=$2"
-            ;;
         -c  | --configure )
              __configure="yes"
             ;;
@@ -657,6 +654,12 @@ build_pytorch_fork()
              set_python_version $2
              __set_py_vers="true"
             ;;
+        --recursive )
+            # No-op. Fork has no dependencies.
+            ;;
+        -s  | --sanitize )
+            __env_vars+=" USE_ASAN=ON"
+            ;;
         --no-conda )
             __no_conda="true"
             ;;
@@ -671,6 +674,13 @@ build_pytorch_fork()
             usage $__scriptname
             restore_python_version
             return 0
+            ;;
+        -j  | --jobs )
+            __env_vars+=" MAX_JOBS=$2"
+            shift
+            ;;
+        -j* )
+            __env_vars+=" MAX_JOBS=${1:2}"  # drop the first two characters
             ;;
         *)
             echo Invalid argument: $1
@@ -816,6 +826,7 @@ build_pytorch_fork()
        mkdir -p $PYTORCH_FORK_RELEASE_BUILD/pkgs
        cp -f ${TORCH_WHL_PATH}/torch*.whl $PYTORCH_FORK_RELEASE_BUILD/pkgs
     fi
+
     popd
     printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
     restore_python_version
