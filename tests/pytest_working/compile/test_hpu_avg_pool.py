@@ -84,3 +84,27 @@ def test_hpu_avg_pool3d(shape, kernel_size_and_padding, stride, ceil_mode, count
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+
+@pytest.mark.parametrize("shape", [[8, 16, 16], [1, 8, 16, 16]])
+@pytest.mark.parametrize("kernel_size_and_padding", [((2, 2), 1), ((4, 4), 2)])
+@pytest.mark.parametrize("stride", [(1, 2), 1, 2])
+@pytest.mark.parametrize("dtype", [torch.float])
+def test_hpu_avg_pool2d_bwd(shape, kernel_size_and_padding, stride, dtype):
+    if shape == [8, 16, 16]:
+        pytest.xfail('[SW-161411] bwd kernel does not support 3d input')
+    def fn(input):
+        input.requires_grad = True
+        avg_pool = torch.ops.aten.avg_pool2d(input, kernel_size=kernel_size, padding=padding, stride=stride)
+        grad = torch.ones_like(avg_pool)
+        avg_pool.backward(grad)
+        return input.grad
+
+    kernel_size, padding = kernel_size_and_padding
+    cpu_input = torch.rand(shape, dtype=dtype)
+    hpu_input = cpu_input.to("hpu")
+    cpu_compiled_fn = torch.compile(fn)
+    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    cpu_output = cpu_compiled_fn(cpu_input)
+    hpu_output = hpu_compiled_fn(hpu_input).cpu()
+    assert torch.allclose(cpu_output, hpu_output)
