@@ -36,9 +36,8 @@ LAYER_NORM_TEST(LazyNormKernelTest, FwdBwdAffine)
 
 class LazyNormKernelDsTest : public habana_lazy_test::LazyDynamicTest {};
 
-// Fixing in SW-150776
-// LAYER_NORM_TEST_DS(LazyNormKernelDsTest, Forward)
-// LAYER_NORM_TEST_DS(LazyNormKernelDsTest, Backward)
+LAYER_NORM_TEST_DS(LazyNormKernelDsTest, Forward)
+LAYER_NORM_TEST_DS(LazyNormKernelDsTest, Backward)
 
 TEST_F(LazyNormKernelTest, InstanceNormChLast) {
   auto input_tensor =

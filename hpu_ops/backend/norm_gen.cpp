@@ -520,6 +520,19 @@ void NormOpScalar::AddNode(sh::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(result);
 }
 
+std::shared_ptr<void> FillNativeLayerNormParams(
+    const at::Stack& stack,
+    size_t& size) {
+  const auto eps = stack.at(4).toDouble();
+  const auto normalized_ndim = stack.at(1).toIntList().size();
+  PARAMS_STUB(ns_LayerNormKernel::ParamsPt);
+  params->eps = static_cast<float>(eps);
+  params->epsValid = true;
+  params->normalizedShapeDims = normalized_ndim;
+
+  return params;
+}
+
 sizes_vec LayerNormOutputShape(const at::Stack& stack) {
   auto input = stack[0].toTensor();
   auto normalized_shape = stack[1].toIntList();
@@ -538,12 +551,10 @@ OutputMetaDataVector LayerNormHabanaMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto shapes = LayerNormOutputShape(stack);
   OutputMetaDataVector metaVec(3);
-  metaVec[0].shape = shapes[0];
-  metaVec[0].dtype = self.scalar_type();
-  metaVec[1].shape = shapes[1];
-  metaVec[1].dtype = at::ScalarType::Float;
-  metaVec[2].shape = shapes[2];
-  metaVec[2].dtype = at::ScalarType::Float;
+  for (size_t i = 0; i < metaVec.size(); ++i) {
+    metaVec[i].shape = shapes[i];
+    metaVec[i].dtype = i == 0 ? self.scalar_type() : at::ScalarType::Float;
+  }
   return metaVec;
 }
 
@@ -587,140 +598,166 @@ void LayerNormHabanaOperator::AddNode(
   auto normalized_shape = getNextInput<std::vector<int64_t>>(stackGetter);
   auto weightOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto eps = getNextInput<double>(stackGetter);
-
-  const auto input_shape = input.pt_t.sizes();
-  const auto input_ndim = input.pt_t.dim();
-  const int normalized_ndim = normalized_shape.size();
-
-  auto use_tpc_affine_path =
-      !weightOpt && !biasOpt && (input_ndim == 4) && (normalized_ndim == 3);
-
-  // Since G1 uses TPC kernels, W/B tensors have to be 3D in affine mode.
-  // This also applies to F16 on G2. For BF16 and F32 CGUIDs are used on G2
-  // so there is no need to change shape of W/B tensors. For G3 affine tests
-  // are skipped.
-  auto is_reshape_for_tpc_kernels_required = use_tpc_affine_path &&
-      (habana::HPURegistrar::get_device().type() !=
-           synDeviceType::synDeviceGaudi2 ||
-       input.pt_t.scalar_type() == torch::kFloat16);
-
-  int64_t normalized_shape_numel = c10::multiply_integers(
-      normalized_shape.cbegin(), normalized_shape.cend());
-
-  int64_t weightOrBias_constant_numel = use_tpc_affine_path
-      ? input_shape[input_ndim - 1]
-      : normalized_shape_numel;
-
-  std::vector<int64_t> weightOrBias_constant_shape =
-      is_reshape_for_tpc_kernels_required
-      ? std::vector<int64_t>{1, 1, weightOrBias_constant_numel}
-      : (use_tpc_affine_path &&
-         GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER)
-          ? normalized_shape
-          : std::vector<int64_t>{weightOrBias_constant_numel};
-
-  std::vector<sh::tensor> storage;
-  // Manual handling of reserved size - maximum number of calls to
-  // storage.push_back
-  storage.reserve(5);
-
-  std::vector<int64_t> weightOrBias_shape = {};
-  synTensor synWeight = CreateLayerNormBiasWeightTensor(
-      this,
-      graph,
-      storage,
-      weightOpt,
-      weightOrBias_constant_shape,
-      1.0f,
-      weightOrBias_shape);
-
-  synTensor synBias = CreateLayerNormBiasWeightTensor(
-      this,
-      graph,
-      storage,
-      biasOpt,
-      weightOrBias_constant_shape,
-      0.0f,
-      weightOrBias_shape);
-
-  synTensor synInput = input.syn_t;
-
-  if (input_ndim < normalized_ndim ||
-      !input_shape.slice(input_ndim - normalized_ndim)
-           .equals(normalized_shape)) {
-    std::stringstream ss;
-    ss << "Given normalized_shape=" << normalized_shape
-       << ", expected input with shape [*";
-    for (auto size : normalized_shape) {
-      ss << ", " << size;
-    }
-    ss << "], but got input of size" << input_shape;
-    AT_ERROR(ss.str());
-  }
-
-  const int64_t axis = input_ndim - normalized_ndim;
-  int64_t m =
-      c10::multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
-  int64_t n =
-      c10::multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
-
-  int64_t input_reshaped_shape[] = {1, 1, m, n};
-  if (!use_tpc_affine_path) {
-    storage.push_back(ReshapeHelper(
-        graph, synInput, input_reshaped_shape, input.pt_t.scalar_type()));
-    synInput = storage.back().get();
-  }
-
-  ns_LayerNormKernel::ParamsNorm params_norm{};
-  ns_LayerNormKernel::Params params{};
-  void* paramsPtr = nullptr;
-  size_t paramsSize = 0;
-
-  if (use_tpc_affine_path) {
-    params_norm.eps = static_cast<float>(eps);
-    params_norm.epsValid = true;
-    params_norm.NormAxisBmp =
-        (1 << normalized_ndim) - 1; // normalize across CWH
-    params_norm.ParamAxisBmp = 1;
-    paramsPtr = &params_norm;
-    paramsSize = sizeof(params_norm);
-  } else {
-    params.eps = static_cast<float>(eps);
-    params.epsValid = true;
-    paramsPtr = &params;
-    paramsSize = sizeof(params);
-  }
 
   auto metas = LayerNormHabanaMeta(stack);
-  int64_t mean_rstd_shape[] = {1, 1, m, 1};
 
-  std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
-  for (size_t i = 0; i < metas.size(); ++i) {
-    c10::ScalarType outputType = metas[i].dtype;
-    if (use_tpc_affine_path) {
-      node_output_attr.push_back({metas[i].shape, outputType, i});
-    } else {
-      node_output_attr.push_back(
-          {i == 0 ? input_reshaped_shape : mean_rstd_shape, outputType});
+  if (GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) {
+    size_t size = 0;
+    const auto params = FillParams(stack, size);
+
+    std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
+
+    for (size_t i = 0; i < metas.size(); ++i) {
+      node_output_attr.push_back({metas[i].shape, metas[i].dtype, i});
     }
-  }
 
-  auto ln = BuildOp(
-      graph,
-      guid_,
-      {synInput, synBias, synWeight},
-      std::move(node_output_attr),
-      paramsPtr,
-      paramsSize);
+    auto ln = BuildOp(
+        graph,
+        guid_,
+        {input.syn_t,
+         weightOpt ? weightOpt.value().syn_t : nullptr,
+         biasOpt ? biasOpt.value().syn_t : nullptr},
+        node_output_attr,
+        params.get(),
+        size);
 
-  for (size_t i = 0; i < ln.size(); ++i) {
-    if (use_tpc_affine_path) {
+    for (size_t i = 0; i < ln.size(); ++i) {
       syn_out(i) = std::move(ln[i]);
+    }
+
+  } else {
+    auto eps = getNextInput<double>(stackGetter);
+
+    const auto input_shape = input.pt_t.sizes();
+    const auto input_ndim = input.pt_t.dim();
+    const int normalized_ndim = normalized_shape.size();
+
+    auto use_tpc_affine_path =
+        !weightOpt && !biasOpt && (input_ndim == 4) && (normalized_ndim == 3);
+
+    // Since G1 uses TPC kernels, W/B tensors have to be 3D in affine mode.
+    // This also applies to F16 on G2. For BF16 and F32 CGUIDs are used on G2
+    // so there is no need to change shape of W/B tensors. For G3 affine tests
+    // are skipped.
+    auto is_reshape_for_tpc_kernels_required = use_tpc_affine_path &&
+        (habana::HPURegistrar::get_device().type() !=
+             synDeviceType::synDeviceGaudi2 ||
+         input.pt_t.scalar_type() == torch::kFloat16);
+
+    int64_t normalized_shape_numel = c10::multiply_integers(
+        normalized_shape.cbegin(), normalized_shape.cend());
+
+    int64_t weightOrBias_constant_numel = use_tpc_affine_path
+        ? input_shape[input_ndim - 1]
+        : normalized_shape_numel;
+
+    std::vector<int64_t> weightOrBias_constant_shape =
+        is_reshape_for_tpc_kernels_required
+        ? std::vector<int64_t>{1, 1, weightOrBias_constant_numel}
+        : std::vector<int64_t>{weightOrBias_constant_numel};
+
+    std::vector<sh::tensor> storage;
+    // Manual handling of reserved size - maximum number of calls to
+    // storage.push_back
+    storage.reserve(5);
+
+    std::vector<int64_t> weightOrBias_shape = {};
+    synTensor synWeight = CreateLayerNormBiasWeightTensor(
+        this,
+        graph,
+        storage,
+        weightOpt,
+        weightOrBias_constant_shape,
+        1.0f,
+        weightOrBias_shape);
+
+    synTensor synBias = CreateLayerNormBiasWeightTensor(
+        this,
+        graph,
+        storage,
+        biasOpt,
+        weightOrBias_constant_shape,
+        0.0f,
+        weightOrBias_shape);
+
+    synTensor synInput = input.syn_t;
+
+    if (input_ndim < normalized_ndim ||
+        !input_shape.slice(input_ndim - normalized_ndim)
+             .equals(normalized_shape)) {
+      std::stringstream ss;
+      ss << "Given normalized_shape=" << normalized_shape
+         << ", expected input with shape [*";
+      for (auto size : normalized_shape) {
+        ss << ", " << size;
+      }
+      ss << "], but got input of size" << input_shape;
+      AT_ERROR(ss.str());
+    }
+
+    const int64_t axis = input_ndim - normalized_ndim;
+    int64_t m = c10::multiply_integers(
+        input_shape.cbegin(), input_shape.cbegin() + axis);
+    int64_t n =
+        c10::multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
+
+    int64_t input_reshaped_shape[] = {1, 1, m, n};
+    if (!use_tpc_affine_path) {
+      storage.push_back(ReshapeHelper(
+          graph, synInput, input_reshaped_shape, input.pt_t.scalar_type()));
+      synInput = storage.back().get();
+    }
+
+    ns_LayerNormKernel::ParamsNorm params_norm{};
+    ns_LayerNormKernel::Params params{};
+    void* paramsPtr = nullptr;
+    size_t paramsSize = 0;
+
+    if (use_tpc_affine_path) {
+      params_norm.eps = static_cast<float>(eps);
+      params_norm.epsValid = true;
+      params_norm.NormAxisBmp =
+          (1 << normalized_ndim) - 1; // normalize across CWH
+      params_norm.ParamAxisBmp = 1;
+      paramsPtr = &params_norm;
+      paramsSize = sizeof(params_norm);
     } else {
-      auto reshaped =
-          ReshapeHelper(graph, ln[i].get(), metas[i].shape, metas[i].dtype, i);
-      syn_out(i) = std::move(reshaped);
+      params.eps = static_cast<float>(eps);
+      params.epsValid = true;
+      paramsPtr = &params;
+      paramsSize = sizeof(params);
+    }
+
+    auto metas = LayerNormHabanaMeta(stack);
+    int64_t mean_rstd_shape[] = {1, 1, m, 1};
+
+    std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
+    for (size_t i = 0; i < metas.size(); ++i) {
+      c10::ScalarType outputType = metas[i].dtype;
+      if (use_tpc_affine_path) {
+        node_output_attr.push_back({metas[i].shape, outputType, i});
+      } else {
+        node_output_attr.push_back(
+            {i == 0 ? input_reshaped_shape : mean_rstd_shape, outputType});
+      }
+    }
+
+    auto ln = BuildOp(
+        graph,
+        get_guid_with_precision("layer_norm_fwd", metas[0].dtype),
+        {synInput, synBias, synWeight},
+        std::move(node_output_attr),
+        paramsPtr,
+        paramsSize);
+
+    for (size_t i = 0; i < ln.size(); ++i) {
+      if (use_tpc_affine_path) {
+        syn_out(i) = std::move(ln[i]);
+      } else {
+        auto reshaped = ReshapeHelper(
+            graph, ln[i].get(), metas[i].shape, metas[i].dtype, i);
+        syn_out(i) = std::move(reshaped);
+      }
     }
   }
 }
@@ -728,7 +765,6 @@ void LayerNormHabanaOperator::AddNode(
 sizes_vec LayerNormBwdOutputShape(const at::Stack& stack) {
   auto input = stack[1].toTensor();
   auto input_size = input.sizes().vec();
-
   auto weight_size = stack[2].toIntList().vec();
 
   return {input_size, weight_size, weight_size};
@@ -739,12 +775,10 @@ OutputMetaDataVector LayerNormBwdMeta(const at::Stack& stack) {
   auto dtype = self.scalar_type();
   auto shapes = LayerNormBwdOutputShape(stack);
   OutputMetaDataVector metaVec(3);
-  metaVec[0].shape = shapes[0];
-  metaVec[0].dtype = self.scalar_type();
-  metaVec[1].shape = shapes[1];
-  metaVec[1].dtype = dtype;
-  metaVec[2].shape = shapes[2];
-  metaVec[2].dtype = dtype;
+  for (size_t i = 0; i < metaVec.size(); ++i) {
+    metaVec[i].shape = shapes[i];
+    metaVec[i].dtype = dtype;
+  }
   return metaVec;
 }
 

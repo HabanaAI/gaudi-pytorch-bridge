@@ -4990,7 +4990,8 @@ native_layer_norm:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: layer_norm_fwd
+  guid: layer_norm_fwd_pt
+  custom_fill_params: FillNativeLayerNormParams
   op_backend: LayerNormHabanaOperator
   output_meta: LayerNormHabanaMeta
   out_ids: [0, 0, 0]
