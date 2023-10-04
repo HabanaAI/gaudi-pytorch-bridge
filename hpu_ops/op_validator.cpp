@@ -110,23 +110,14 @@ bool fillSharedLayerTensorType(SharedLayer::Tensor& tensor, at::ScalarType t) {
 bool fillGuidParamInfoWithIntList(
     SharedLayer::Tensor& tensor,
     const std::vector<int64_t>& xs) {
-  // passed int vector contains dims and type, this is a reason for below
-  // indexing; refer struct habana::detail::TensorDescr @ op_validator.h
-
   if (not fillSharedLayerTensorType(tensor, (at::ScalarType)xs.back()))
     return false;
 
-  auto vec_size = xs.size();
-  tensor.geometry.dims = vec_size - 1;
-  for (uint64_t dim = 0; dim < vec_size - 1; ++dim) {
-    int64_t syn_dim = vec_size - dim - 2;
-    tensor.geometry.minSizes[syn_dim] = tensor.geometry.maxSizes[syn_dim] =
-        xs[dim];
-  }
+  tensor.geometry.dims = xs.size() - 1;
+
   if (tensor.geometry.dims == 0) {
     // scalar size wa
     tensor.geometry.dims = 1;
-    tensor.geometry.maxSizes[0] = tensor.geometry.minSizes[0] = 1;
   }
 
   return true;
@@ -140,28 +131,10 @@ bool fillGuidParamInfoWithTensor(
   if (not fillSharedLayerTensorType(tensor, t.scalar_type()))
     return false;
 
-  auto geometry_dims = t.dim();
+  tensor.geometry.dims = t.dim();
 
-  tensor.geometry.dims = geometry_dims;
-  for (int64_t dim = 0; dim < geometry_dims; ++dim) {
-    int64_t syn_dim = geometry_dims - dim - 1;
-    auto sym_dim = t.sym_size(dim);
-    if (
-#if IS_PYTORCH_AT_LEAST(2, 1)
-        sym_dim.is_heap_allocated()
-#else
-        sym_dim.is_symbolic()
-#endif
-    ) {
-      tensor.geometry.minSizes[syn_dim] = tensor.geometry.maxSizes[syn_dim] = 1;
-    } else {
-      tensor.geometry.minSizes[syn_dim] = tensor.geometry.maxSizes[syn_dim] =
-          sym_dim.as_int_unchecked();
-    }
-  }
   if (tensor.geometry.dims == 0) {
     tensor.geometry.dims = 1;
-    tensor.geometry.maxSizes[0] = tensor.geometry.minSizes[0] = 1;
   }
 
   return true;
