@@ -10,6 +10,9 @@
 # This file contains Habana Labs, Ltd. proprietary and confidential information
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
+#
+# Changes:
+# - Removed unused constants
 
 """Enums for e2e transformer"""
 import torch
@@ -38,12 +41,6 @@ Torch_DType = {
     tex.DType.kFloat8E4M3: torch.int8,
     tex.DType.kFloat8E5M2: torch.int8
 }
-
-AttnMaskTypes = ("causal", "padding")
-
-AttnTypes = ("self", "cross")
-
-LayerTypes = ("encoder", "decoder")
 
 GemmParallelModes = ("row", "column", None)
 

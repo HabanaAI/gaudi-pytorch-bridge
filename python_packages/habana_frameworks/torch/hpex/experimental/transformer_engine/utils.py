@@ -13,20 +13,13 @@
 #
 # Changes:
 # - Changed device to 'hpu'
+# - Removed unused functions
 
 """Utility functions for Transformer Engine modules"""
 import math
 from typing import Any, Callable, Optional, Tuple
 import torch
 import habana_frameworks.torch as htorch
-
-
-def attention_mask_func(
-    attention_scores: torch.Tensor, attention_mask: torch.Tensor
-) -> torch.Tensor:
-    """Get attention mask"""
-    attention_scores.masked_fill_(attention_mask, -10000.0)
-    return attention_scores
 
 
 def get_default_init_method() -> Callable:

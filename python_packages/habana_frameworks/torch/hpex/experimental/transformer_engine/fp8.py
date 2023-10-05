@@ -208,7 +208,7 @@ def set_amax_buffer_key_deletion(
 
 def get_default_fp8_recipe() -> DelayedScaling:
     """FP8 recipe if not provided by user
-    Margin = 0, interval = 1, E4M3
+    Margin = 0, interval = 1, E5M2_HYBRID
     """
     return DelayedScaling()
 

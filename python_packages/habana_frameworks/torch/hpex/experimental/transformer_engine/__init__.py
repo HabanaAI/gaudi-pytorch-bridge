@@ -13,16 +13,13 @@
 #
 # Changes:
 # - Added MatMul layer
-# - Added SelfAttention layer
+# - Added SelfAttentionScoresAndValue and SelfAttentionContext layer
 
 """Transformer Engine bindings for pyTorch"""
-#from .module import LayerNormLinear TODO SW-124446
 from .module import Linear
-#from .module import LayerNormMLP TODO SW-119025
 from .module import LayerNorm
 from .module import MatMul
 from .module import SelfAttentionScoresAndValue
 from .module import SelfAttentionContext
-#from .transformer import TransformerLayer TODO SW-124447
 from .fp8 import fp8_autocast
 from .distributed import checkpoint
