@@ -108,11 +108,25 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
     // Inplace -> out of place replacement pass will remove  intermediate
     // inplace ops anyway Remaining inplace ops at graph outputs will be set
     // with persistent i/o
+    bool foundInIgnoreList = false;
+    std::string op_name = toString(node->schema().operator_name());
+    std::vector<std::string> ignoreOpsList{
+        "hpu::kv_reorder_",
+        "hpu::in_place_interleave_",
+        "aten::masked_fill_.Scalar",
+        "aten::masked_fill_.Tensor"};
+
+    if (std::find(
+            std::begin(ignoreOpsList), std::end(ignoreOpsList), op_name) !=
+        std::end(ignoreOpsList)) {
+      foundInIgnoreList = true;
+    }
     int inputId = 0;
     if (habana::control_edges::IsControlEdgeNode(node) ||
         habana_helpers::IsCollective(node->kind()) ||
         // must the be last condition as it can change inputId
-        ((inputId = inplaceInputId(node)) >= 0)) {
+        (((inputId = inplaceInputId(node)) >= 0) && !foundInIgnoreList) ||
+        (foundInIgnoreList && jitgraph_utils::isInGraphOutputs(node))) {
       set_persistence_input(node, inputId);
       set_persistence_output(node, 0);
     }

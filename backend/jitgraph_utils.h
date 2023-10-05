@@ -25,6 +25,7 @@ bool isPermuteInGraphOutputs(const torch::jit::Value* value);
 bool IsOutputToPermute(const torch::jit::Value* value);
 torch::jit::Node* GetUnpackNodeFromTensorList(const torch::jit::Value* val);
 bool isInGraphOutputs(const torch::jit::Node* node, size_t index);
+bool isInGraphOutputs(const torch::jit::Node* node);
 bool isInGraphOutputs(const torch::jit::Value* value);
 bool isListNode(const torch::jit::Node* node);
 int inplaceInputId(const torch::jit::Node* node);

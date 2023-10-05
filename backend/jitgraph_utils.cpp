@@ -95,6 +95,16 @@ bool isInGraphOutputs(const torch::jit::Node* node, size_t index) {
   return isInGraphOutputs(node_outs[index]);
 }
 
+bool isInGraphOutputs(const torch::jit::Node* node) {
+  auto node_outs = node->outputs();
+  for (auto node_outs : node->outputs()) {
+    if (isInGraphOutputs(node_outs)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool isInGraphOutputs(const torch::jit::Value* value) {
   auto graph_outs = value->owningGraph()->outputs();
   for (auto value_out : graph_outs) {
