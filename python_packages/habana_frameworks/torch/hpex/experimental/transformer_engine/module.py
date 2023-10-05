@@ -215,7 +215,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         if hasattr(self, "activation_dtype"):
             return
 
-        #TODO(SW-161527) make proper check for HMP being enabled
+        #TODO: make proper check for HMP being enabled
         self.activation_dtype = torch.bfloat16
         return
 
@@ -240,7 +240,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         self.activation_dtype = inp.dtype
 
     def _create_fp8_tensor(self, shape, synchronize=True) -> torch.Tensor:
-        # TODO (SW-161529): That's a hack. We need a kernel that will create int8 bridge tensor with float8 underlying tensor,
+        # TODO: That's a hack. We need a kernel that will create int8 bridge tensor with float8 underlying tensor,
         # or alternatively we need native PT fp8 support
         a = torch.zeros(
             shape,
@@ -588,6 +588,8 @@ class _Linear(torch.autograd.Function):
             stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
             measure_amax=is_amax_measure_enabled()
         )
+
+        # TODO: Column Parallel Linear
 
         bias_dtype = (
             torch.bfloat16
@@ -959,12 +961,20 @@ class Linear(TransformerEngineBaseModule):
                                produced)
         """
 
+        bias_tensor = bias if bias is not None else self.bias if self.use_bias or self.return_bias else None
+        weight_tensor = weight if weight is not None else self.weight
+
+        if not is_fp8_enabled():
+            return torch.nn.functional.linear(
+                inp,
+                weight_tensor,
+                bias_tensor,
+            )
+
         inp = self.pre_forward(inp)
 
-        bias_tensor = bias if bias is not None else self.bias if self.use_bias or self.return_bias else None
-
         out = _Linear.apply(
-            weight if weight is not None else self.weight,
+            weight_tensor,
             self.weight1_fp8,
             inp,
             bias_tensor,

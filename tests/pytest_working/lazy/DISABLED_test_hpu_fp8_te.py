@@ -245,6 +245,88 @@ def test_te_matmul_fp8(device, dtype, size_A, size_B, batched, trans_a, trans_b)
     assert np.array_equal(grad_in_hpu, grad_in_cpu, equal_nan=True), "Data mismatch"
     assert np.array_equal(grad_w_hpu, grad_w_cpu, equal_nan=True), "Data mismatch"
 
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32], ids=["bf16", "fp32"])
+@pytest.mark.parametrize("sizes", [[16,16,16],[16,32,48]], ids=["[16,16,16]","[16,32,48]"])
+@pytest.mark.parametrize("use_bias", [False, True], ids=["no_bias", "with_bias"])
+@pytest.mark.parametrize("skip_weight_param_allocation", [False, True], ids=["allocate_weight", "skip_weight_allocation"])
+def test_te_linear_fp8_disabled(dtype, sizes, use_bias, skip_weight_param_allocation):
+    fp8_format = Format.E5M2_HYBRID
+    fp8_recipe = DelayedScaling(fp8_format=fp8_format)
+
+    size_A, size_B, size_C = sizes
+
+    device = torch.device("hpu:0")
+    inp_size = (size_A, size_B)
+    weight_size = (size_C, size_B)
+    bias_size = (size_C)
+
+    # Calculate te linear result
+    torch.manual_seed(123)
+    te_in = torch.randn(inp_size, dtype=dtype, device=device, requires_grad=True)
+
+    if skip_weight_param_allocation:
+        te_w = torch.randn(weight_size, dtype=dtype, device=device, requires_grad=True)
+        te_b = torch.randn(bias_size, dtype=dtype, device=device, requires_grad=True)
+    else:
+        te_w = None
+        te_b = None
+
+    te_linear = te.Linear(
+        in_features=size_B,
+        out_features=size_C,
+        bias=use_bias,
+        skip_weight_param_allocation=skip_weight_param_allocation,
+        params_dtype=dtype
+    )
+
+    if not skip_weight_param_allocation:
+        # If weights were initialized in te.Linear module, remember the weights for reference calculation
+        ref_w = te_linear.weight.clone().detach()
+        ref_w.requires_grad = True
+        if use_bias:
+            ref_b = te_linear.bias.clone().detach()
+            ref_b.requires_grad = True
+
+    with te.fp8_autocast(enabled=False, fp8_recipe=fp8_recipe):
+        te_out = te_linear(te_in, weight=te_w, bias=te_b if use_bias else None)
+
+    te_loss = te_out.sum()
+    te_loss.backward()
+    te_grad_in = te_in.grad.cpu()
+    te_grad_w = te_w.grad.cpu() if te_w is not None else te_linear.weight.grad
+    if use_bias:
+        te_grad_b = te_b.grad.cpu() if te_b is not None else te_linear.bias.grad
+    te_out = te_out.cpu()
+
+    # Calculate reference
+    torch.manual_seed(123)
+    ref_in = torch.randn(inp_size, dtype=dtype, device=device, requires_grad=True)
+    if skip_weight_param_allocation:
+        ref_w = torch.randn(weight_size, dtype=dtype, device=device, requires_grad=True)
+        ref_b = torch.randn(bias_size, dtype=dtype, device=device, requires_grad=True)
+
+    ref_out = torch.nn.functional.linear(ref_in, ref_w, bias=ref_b if use_bias else None)
+
+    ref_loss = ref_out.sum()
+    ref_loss.backward()
+    ref_grad_in = ref_in.grad.cpu()
+    ref_grad_w = ref_w.grad.cpu()
+    if use_bias:
+        ref_grad_b = ref_b.grad.cpu()
+    ref_out = ref_out.cpu()
+
+    assert ref_out.shape==te_out.shape, f"Out shape mismatch, ref shape: {ref_out.shape}, te shape: {te_out.shape}"
+    assert ref_grad_in.shape==te_grad_in.shape, f"Input grad shape mismatch, ref shape: {ref_grad_in.shape}, te shape: {te_grad_in.shape}"
+    assert ref_grad_w.shape==te_grad_w.shape, f"Weight grad mismatch, ref shape: {ref_grad_w.shape}, te shape: {te_grad_w.shape}"
+    if use_bias:
+        assert ref_grad_b.shape==te_grad_b.shape, f"Bias grad mismatch, ref shape: {ref_grad_b.shape}, te shape: {te_grad_b.shape}"
+
+    assert torch.equal(ref_out, te_out), "Out value mismatch"
+    assert torch.equal(ref_grad_in, te_grad_in), "Input grad value mismatch"
+    assert torch.equal(ref_grad_w, te_grad_w), "Weight grad value mismatch"
+    if use_bias:
+        assert torch.equal(ref_grad_b, te_grad_b), "Bias grad value mismatch"
+
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])

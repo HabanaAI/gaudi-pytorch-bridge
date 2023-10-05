@@ -40,7 +40,11 @@ def fp8_gemm(
     transa: bool = True,
     transb: bool = False,
 ) -> torch.Tensor:
-    """TN layout GEMM with fp8 inputs."""
+    """GEMM with fp8 inputs."""
+
+    # TODO: Remove these params if not needed
+    assert not fp32_output
+    assert not use_split_accumulator
 
     if out is None:
         out = torch.ops.hpu.fp8_gemm_v2(
