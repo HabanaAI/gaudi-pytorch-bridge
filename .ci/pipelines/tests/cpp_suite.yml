@@ -10,6 +10,7 @@ common:
     - TPC_FUSER
     - TPC_KERNELS
     - TPCSIM
+    - RDMA_CORE
   config:
     testCommand: run_pytorch_modules_tests
     loadLKD: true
