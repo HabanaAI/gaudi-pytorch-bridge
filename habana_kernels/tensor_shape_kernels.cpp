@@ -366,13 +366,16 @@ void PermuteOperator::AllocateAndAddSynapseNode(
   std::tie(new_sizes, new_strides) =
       PermuteOperator::compute_output_shape(self, dims);
 
-  auto output = habana::createPTTensor(
-      self,
-      new_sizes,
-      new_strides,
-      self.options(),
-      self.suggest_memory_format(),
-      output_metadata.at(0).persistent);
+  auto& mdata = output_metadata.at(0);
+  auto output = mdata.allocated_tensor.has_value()
+      ? mdata.allocated_tensor.value()
+      : habana::createPTTensor(
+            self,
+            new_sizes,
+            new_strides,
+            self.options(),
+            self.suggest_memory_format(),
+            mdata.persistent);
 
   synTransposeParamsNDims params;
   params.tensorDim = self.dim();
@@ -387,7 +390,7 @@ void PermuteOperator::AllocateAndAddSynapseNode(
 
   p_context_->params_.emplace<synTransposeParamsNDims>(params);
   p_context_->params_size_ = sizeof(params);
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
+  AllocateSynapseOutput(graph, output, mdata);
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 

@@ -171,8 +171,8 @@ at::Tensor _copy_from_d2h(
         {base, self.sizes(), self.strides(), self.storage_offset()},
         {self.sizes().vec()},
         out_index};
-    hpu_op.dont_preallocate_outputs();
     self_ = hpu_op.call();
+    habana::eager::JoinPendingPipelineThreads();
 
     // restride cpu tensor since synapse will always return contiguous tensor
     dst.unsafeGetTensorImpl()->set_sizes_contiguous(dst.sizes());
