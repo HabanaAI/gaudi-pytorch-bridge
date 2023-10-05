@@ -13,6 +13,8 @@
 
 #include "habana_eager/ops/copy_from.h"
 #include "backend/backend_meta.h"
+#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_eager/eager_context.h"
@@ -20,6 +22,7 @@
 #include "habana_eager/ops/view.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "hpu_ops/op_logger.h"
+#include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 
 namespace {
 
@@ -204,6 +207,78 @@ at::Tensor add_strided_insert(at::Tensor dst, at::Tensor insert) {
   return hpu_op.call();
 }
 
+void Execute_Copy(
+    const at::Tensor& src,
+    const at::Tensor& dst,
+    bool non_blocking) {
+  habana_helpers::copy_data_to_device(
+      std::move(src), std::move(dst), non_blocking);
+}
+
+void Copy_Compile_Empty_Task(
+    const at::Tensor& src,
+    const at::Tensor& dst,
+    bool non_blocking) {
+  habana_helpers::Singleton_ExecThreadPool::getInstance()
+      .ScheduleWorkAndUpdateThreadHandle(
+          Execute_Copy,
+          std::move(src),
+          std::move(dst),
+          std::move(non_blocking));
+
+  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+    habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+  }
+}
+
+void Copy_Empty_Lowering_Task(
+    const at::Tensor& src,
+    const at::Tensor& dst,
+    bool non_blocking) {
+  habana_helpers::Singleton_CompileThreadPool::getInstance()
+      .ScheduleWorkAndUpdateThreadHandle(
+          Copy_Compile_Empty_Task,
+          std::move(src),
+          std::move(dst),
+          non_blocking);
+  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+    habana_helpers::Singleton_CompileThreadPool::getInstance()
+        .JoinPendingThread();
+  }
+}
+
+void Register_Copy_In_Pipeline(
+    const at::Tensor& src,
+    const at::Tensor& dst,
+    bool non_blocking) {
+  habana::eager::SingleTonEagerContext::getInstance()
+      .ScheduleWorkAndUpdateLoweringThreadHandle(
+          [src = std::move(src),
+           dst = std::move(dst),
+           non_blocking = std::move(non_blocking)]() mutable {
+            return hpu_registrar().get_device().get_lowering_thread().enqueue(
+                Copy_Empty_Lowering_Task,
+                std::move(src),
+                std::move(dst),
+                std::move(non_blocking));
+          });
+}
+
+void Pipeline_Or_Direct_Copy(
+    const at::Tensor& src,
+    const at::Tensor& dst,
+    bool non_blocking) {
+  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) && non_blocking) {
+    auto src_backend = HbEagerTensorPool::get_backend_tensor(src);
+    auto dst_backend = HbEagerTensorPool::get_backend_tensor(dst);
+
+    Register_Copy_In_Pipeline(src_backend, dst_backend, non_blocking);
+  } else {
+    SingleTonEagerContext::getInstance().JoinPendingLoweringThread();
+    Execute_Copy(src, dst, non_blocking);
+  }
+}
+
 at::Tensor _copy_from_h2d(
     const at::Tensor& self,
     const at::Tensor& dst,
@@ -212,9 +287,6 @@ at::Tensor _copy_from_h2d(
   _assert_tensors_dtypes(self, dst);
 
   at::Tensor result;
-
-  // Make sure eager thread is finished before using values to copy.
-  SingleTonEagerContext::getInstance().JoinPendingLoweringThread();
 
   // Special handling for Long/Double tensors
   // Downcast sent data (implicitly backend will treat it as Int/Float anyway)
@@ -237,11 +309,11 @@ at::Tensor _copy_from_h2d(
     // device. Then invoke strided_insert
     auto insert_t = at::empty(
         temp_self.sizes(), dst.options(), c10::MemoryFormat::Contiguous);
-    habana_helpers::copy_data_to_device(temp_self, insert_t, non_blocking);
+    Pipeline_Or_Direct_Copy(temp_self, insert_t, non_blocking);
 
     result = add_strided_insert(dst, insert_t);
   } else {
-    habana_helpers::copy_data_to_device(temp_self, dst, non_blocking);
+    Pipeline_Or_Direct_Copy(temp_self, dst, non_blocking);
     result = dst;
   }
 
