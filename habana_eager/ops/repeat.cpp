@@ -21,7 +21,6 @@ at::Tensor repeat_hpu(const at::Tensor& self, at::SymIntArrayRef _repeats) {
       {self, repeats},
       {RepeatOperator::compute_output_shape(self, repeats)},
       0};
-  k.dont_preallocate_outputs();
   return k.call();
 }
 } // namespace eager
