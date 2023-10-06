@@ -1007,9 +1007,9 @@ arange:
   op_backend: ArangeDefaultEnd
   guid: range
   dtypes:
-    Gaudi: [Float, BFloat16, Int, Short, Char, Byte]
-    Gaudi2: [Float, BFloat16, Int, Short, Char, Byte, Half]
-    Gaudi3: [Float, BFloat16, Int, Short, Char, Byte, Half]
+    Gaudi: [Float, BFloat16, Long, Int, Short, Char, Byte]
+    Gaudi2: [Float, BFloat16, Long, Int, Short, Char, Byte, Half]
+    Gaudi3: [Float, BFloat16, Long, Int, Short, Char, Byte, Half]
   custom_fill_params: FillArangeDefaultEndParams
   out_ids: [0]
 
@@ -1018,9 +1018,9 @@ arange.start:
   op_backend: ArangeDefaultStartEnd
   guid: range
   dtypes:
-    Gaudi: [Float, BFloat16, Int, Short, Char, Byte]
-    Gaudi2: [Float, BFloat16, Int, Short, Char, Byte, Half]
-    Gaudi3: [Float, BFloat16, Int, Short, Char, Byte, Half]
+    Gaudi: [Float, BFloat16, Long, Int, Short, Char, Byte]
+    Gaudi2: [Float, BFloat16, Long, Int, Short, Char, Byte, Half]
+    Gaudi3: [Float, BFloat16, Long, Int, Short, Char, Byte, Half]
   custom_fill_params: FillArangeDefaultStartEndParams
   out_ids: [0]
 
@@ -1029,9 +1029,9 @@ arange.start_step:
   op_backend: ArangeDefaultStartEndStep
   guid: range
   dtypes:
-    Gaudi: [Float, BFloat16, Int, Short, Char, Byte]
-    Gaudi2: [Float, BFloat16, Int, Short, Char, Byte, Half]
-    Gaudi3: [Float, BFloat16, Int, Short, Char, Byte, Half]
+    Gaudi: [Float, BFloat16, Long, Int, Short, Char, Byte]
+    Gaudi2: [Float, BFloat16, Long, Int, Short, Char, Byte, Half]
+    Gaudi3: [Float, BFloat16, Long, Int, Short, Char, Byte, Half]
   custom_fill_params: FillArangeDefaultStartEndStepParams
   out_ids: [0]
 
@@ -1041,9 +1041,9 @@ arange.start_out:
   op_frontend: ArangeFE
   guid: range
   dtypes:
-    Gaudi: [Float, BFloat16, Int, Short, Char, Byte]
-    Gaudi2: [Float, BFloat16, Int, Short, Char, Byte, Half]
-    Gaudi3: [Float, BFloat16, Int, Short, Char, Byte, Half]
+    Gaudi: [Float, BFloat16, Long, Int, Short, Char, Byte]
+    Gaudi2: [Float, BFloat16, Long, Int, Short, Char, Byte, Half]
+    Gaudi3: [Float, BFloat16, Long, Int, Short, Char, Byte, Half]
   custom_output_shape: ArangeOutputShape
   custom_fill_params: FillArangeParams
   schema_args: "(Scalar start, Scalar end, Scalar step, *, Tensor? h2d_tensor=None, Tensor? shape_tensor=None, Tensor(a!) out) -> Tensor(a!)"
