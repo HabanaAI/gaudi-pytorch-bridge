@@ -118,20 +118,6 @@ sizes_vec MaxPoolOutputShapeBwd(const at::Stack& stack) {
   return {input_shape};
 }
 
-int ComputeMaxpool3dOutputDim(
-    int input_shape,
-    int kernel,
-    int stride,
-    int padding,
-    int dilation,
-    bool ceilMode) {
-  return (
-      ((input_shape + 2 * padding - dilation * (kernel - 1) - 1 +
-        (ceilMode ? stride - 1 : 0)) /
-       stride) +
-      1);
-}
-
 sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
   std::vector<long int> pad = {0, 0, 0};
   std::vector<long int> dil = {1, 1, 1};
@@ -174,7 +160,7 @@ sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
   int output_shape_index = output_shape.size() - n;
   // updating the width, height, & depth dimension
   for (int i = 0; i < n; i++) {
-    output_shape.at(output_shape_index) = ComputeMaxpool3dOutputDim(
+    output_shape.at(output_shape_index) = OutputShapeComputation(
         input_shape.at(output_shape_index),
         kernel[i],
         stride[i],
@@ -192,8 +178,8 @@ sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
       if ((output_shape.at(index_ceil_mode) - 1) * stride[i] >=
           input_shape.at(index_ceil_mode) + padding[i])
         --output_shape.at(index_ceil_mode);
+      index_ceil_mode++;
     }
-    index_ceil_mode++;
   }
   return {output_shape, output_shape};
 }

@@ -35,6 +35,22 @@ TEST_F(HpuOpTest, maxpool_3d_with_indices) {
   Compare(std::get<0>(expected), std::get<0>(result));
 }
 
+TEST_F(HpuOpTest, maxpool_3d_with_indices_f32) {
+  GenerateInputs(1, {{1, 1, 3, 7, 8}}, torch::kFloat);
+  std::vector<int64_t> kernel_size = {{3, 3, 3}};
+  std::vector<int64_t> stride = {{3, 3, 3}};
+  std::vector<int64_t> pad_size = {{1, 1, 1}};
+  std::vector<int64_t> dilation = {{1, 1, 1}};
+  bool ceil_mode = true;
+
+  auto expected = torch::max_pool3d_with_indices(
+      GetCpuInput(0), kernel_size, stride, pad_size, dilation, ceil_mode);
+  auto result = torch::max_pool3d_with_indices(
+      GetHpuInput(0), kernel_size, stride, pad_size, dilation, ceil_mode);
+
+  Compare(std::get<0>(expected), std::get<0>(result));
+}
+
 TEST_F(HpuOpTest, maxpool_3d_with_indices_backward) {
   GenerateInputs(1, {{1, 2, 3, 6, 6}});
   std::vector<int64_t> kernel_size = {{3, 3, 3}};
