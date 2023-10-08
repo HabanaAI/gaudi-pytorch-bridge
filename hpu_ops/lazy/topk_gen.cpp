@@ -30,8 +30,7 @@ LazyTopk<std::tuple<at::Tensor, at::Tensor>>::LazyTopk(
     : habana_lazy::LazyOp<std::tuple<at::Tensor, at::Tensor>>(
           qualstring,
           inputs,
-          out_shapes_fn,
-          -1) {
+          out_shapes_fn) {
   auto input = get_inputs();
   convert_k_to_tensor(input);
   set_inputs(input);
