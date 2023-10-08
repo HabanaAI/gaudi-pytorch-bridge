@@ -284,6 +284,7 @@ using tuple_double_int64 = std::tuple<double,int64_t>;
 using tuple_tensor_vector = std::tuple<Tensor,::std::vector<Tensor>>;
 using tuple_vector_tensor = std::tuple<::std::vector<Tensor>,Tensor>;
 using tuple_tensor_2_vectors = std::tuple<Tensor,::std::vector<Tensor>,::std::vector<Tensor>>;
+using tuple_4_tensors_2_int64_2_tensors = std::tuple<at::Tensor,at::Tensor,at::Tensor,at::Tensor,int64_t,int64_t,at::Tensor,at::Tensor>;
 using tuple_4_tensors_4_int64_tensor = std::tuple<Tensor,Tensor,Tensor,Tensor,int64_t,int64_t,int64_t,int64_t,Tensor>;
 using tuple_2_tensors_2_int64_tensor = std::tuple<Tensor,Tensor,int64_t,int64_t,Tensor>;
 using tuple_4_tensors_2_int64_3_tensor = std::tuple<Tensor,Tensor,Tensor,Tensor,int64_t,int64_t,Tensor,Tensor,Tensor>;
@@ -2216,6 +2217,10 @@ def generate_autocast_ops(fgens, args, out_dir):
             "tuple_tensor_2_vectors",
         ),
         (
+            "::std::tuple<at::Tensor,at::Tensor,at::Tensor,at::Tensor,int64_t,int64_t,at::Tensor,at::Tensor>",
+            "tuple_4_tensors_2_int64_2_tensors",
+        ),
+        (
             "::std::tuple<at::Tensor,at::Tensor,at::Tensor,at::Tensor,int64_t,int64_t,int64_t,int64_t,at::Tensor>",
             "tuple_4_tensors_4_int64_tensor",
         ),
@@ -2245,6 +2250,7 @@ def generate_autocast_ops(fgens, args, out_dir):
         "sym_numel",
         "sym_stride.int",
         "sym_storage_offset",
+        "_scaled_dot_product_flash_attention"
     ] + (["_fused_adam", "_fused_adamw"] if torch.__version__ < Version("2.1") else [])
 
     def op_to_skip(function_name, op_name):
