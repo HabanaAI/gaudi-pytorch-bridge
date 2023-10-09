@@ -158,6 +158,7 @@ hpu_backend_decompositions_common = get_decompositions(
         aten.native_batch_norm.out,
         aten.native_batch_norm_backward.out,
         aten._native_batch_norm_legit.default,
+        aten.native_dropout.default,
         aten.native_dropout_backward.default,
         aten.native_dropout_backward.out,
         aten.native_group_norm.default,
