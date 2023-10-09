@@ -2519,3 +2519,16 @@ build_pytorch_vision()
     restore_python_version
     return $__result
 }
+
+# Installs pt fork, pt vision, lightning if required & pt modules
+# called from the ci/promote flow
+install_pytorch_whls() {
+    __clean_pytorch_dev_py_deps
+    $__pip_cmd install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*.whl
+    $__pip_cmd install -U ${PYTORCH_VISION_FORK_BUILD}/pkgs/*.whl
+    install_pillow_simd
+    if [ "${GERRIT_PROJECT}" = "lightning-habana-fork" ];  then
+        $__pip_cmd install -U ${LIGHTNING_HABANA_FORK_BUILD}/pkgs/*.whl --force-reinstall --no-deps
+    fi
+    $__pip_cmd install -U ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/*.whl
+}
