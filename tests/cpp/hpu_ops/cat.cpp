@@ -19,6 +19,13 @@ TEST_F(HpuOpTest, cat) {
   Compare(expected, result, 0, 0);
 }
 
+TEST_F(HpuOpTest, cat_empty) {
+  GenerateInputs(2, {{0}, {8, 3, 24, 24}});
+  auto expected = torch::cat({GetCpuInput(0), GetCpuInput(1)}, 1);
+  auto result = torch::cat({GetHpuInput(0), GetHpuInput(1)}, 1);
+  Compare(expected, result, 0, 0);
+}
+
 TEST_F(HpuOpTest, DISABLED_cat_out) {
   // GenerateInputs(3, {at::kFloat, at::kInt, at::kBFloat16});
   GenerateInputs(3, {at::kInt, at::kBFloat16, at::kBFloat16});

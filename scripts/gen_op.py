@@ -1177,7 +1177,7 @@ def frontend(
                     code += "  RUN_TUPLE_MAYBE_WITH_ACC_THREAD({}, hpu_op)".format(
                         fname
                     )
-                elif "TensorList" in sig:
+                elif rtype.startswith("void") and "TensorList" in sig:
                     if sig.count("TensorList") == 1:
                         code += "  RUN_TENSOR_LIST_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(
                             fname, param_vars[0]

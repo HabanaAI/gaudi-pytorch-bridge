@@ -1760,14 +1760,16 @@ bmm.out:
 
 cat:
   promote_to_common_type: [tensors]
-  override_fn: cat_hpu_lazy
-  acc_thread: true
+  output_meta: CatMeta
+  guid: concat
+  op_backend: CatHabanaOperator
+  out_ids: [0]
 
 cat.out:
   promote_to_common_type: [tensors]
   output_meta: CatMeta
   guid: concat
-  op_backend: CatOutHabanaOperator
+  op_backend: CatHabanaOperator
 
 ceil:
   dtypes: [BFloat16, Float]

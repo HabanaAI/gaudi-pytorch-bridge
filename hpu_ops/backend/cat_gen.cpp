@@ -16,57 +16,30 @@
 namespace sh = synapse_helpers;
 
 namespace habana {
-
-void ValidateInputParams(
-    const at::Stack& stack,
-    std::vector<int64_t>& cal_out_shape) {
-  auto tensors = stack[0].toTensorList().vec();
-  auto out_result = stack[2].toTensor();
-  auto in_tensor_count = tensors.size();
-  auto input_tensor_type = tensors[0].scalar_type();
-  auto input_tensor_dim = tensors[0].dim();
-
-  for (unsigned i = 1; i < in_tensor_count; i++) {
-    TORCH_CHECK(
-        (input_tensor_dim == tensors[i].dim()),
-        "Input tensor expected to be of same dimensions. Expected:",
-        input_tensor_dim,
-        ", got:",
-        tensors[i].dim());
-  }
-
-  TORCH_CHECK(
-      (out_result.dim() == cal_out_shape.size()),
-      "Calculated Output tensor ambiguity with expected output dims. Calculated:",
-      cal_out_shape.size(),
-      ", got:",
-      out_result.dim());
-
-  TORCH_CHECK(
-      (out_result.sizes() == cal_out_shape),
-      "Calculated Output tensor shape is different than expected output shape. Calculated:",
-      cal_out_shape,
-      ", got:",
-      out_result.sizes());
-}
-
 OutputMetaDataVector CatMeta(const at::Stack& stack) {
-  auto tensors = stack[0].toTensorList();
+  auto tensors_ = stack[0].toTensorVector();
   auto dim_ = stack[1].toInt();
-  const at::Tensor& first_tensor = tensors[0];
-  int64_t dim = at::maybe_wrap_dim(
-      dim_,
-      first_tensor.dim(),
-      /*wrap_scalar=*/true);
 
-  auto in_tensor_count = tensors.size();
-  auto out_size = first_tensor.sizes().vec();
-  out_size[dim] = 0;
-  for (const at::Tensor& tensor : tensors) {
-    out_size[dim] += tensor.sizes()[dim];
+  TORCH_CHECK(tensors_.size() > 0, "Empty tensors list!");
+  const at::Tensor& first_tensor = tensors_[0];
+  auto tensors = at::filter(tensors_, [](const at::Tensor& tensor) {
+    return tensor.dim() != 1 || tensor.size(0) != 0;
+  });
+
+  std::vector<int64_t> out_size;
+  if (tensors.size() > 0) {
+    const at::Tensor& first_valid_tensor = tensors[0];
+    int64_t dim = at::maybe_wrap_dim(dim_, first_valid_tensor.dim());
+
+    auto in_tensor_count = tensors.size();
+    out_size = first_valid_tensor.sizes().vec();
+    out_size[dim] = 0;
+    for (const at::Tensor& tensor : tensors) {
+      out_size[dim] += tensor.sizes()[dim];
+    }
   }
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
-      {tensors},
+      {tensors_},
       c10::nullopt,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
@@ -78,23 +51,41 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
       first_tensor.suggest_memory_format()}};
 }
 
-void CatOutHabanaOperator::AddNode(
+void CatHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto in_tensors = stack[0].toTensorList().vec();
-  auto dim_ = stack[1].toInt();
-  auto result = stack[2].toTensor();
   TORCH_CHECK(in_tensors.size() > 0, "Empty tensors list!");
-  int64_t dim = at::maybe_wrap_dim(
-      dim_,
-      in_tensors[0].dim(),
-      /*wrap_scalar=*/true);
+  auto dim_ = stack[1].toInt();
+
+  auto md = OutputMeta(stack)[0];
+  auto cal_out_size = md.shape;
+  auto out_tensor_type = md.dtype;
+
+  std::vector<size_t> valid_indices;
+  valid_indices.reserve(in_tensors.size());
+
+  for (size_t i{}; i < in_tensors.size(); ++i) {
+    const auto& t = in_tensors[i];
+    if (t.dim() != 1 || t.size(0) != 0) {
+      valid_indices.push_back(i);
+    }
+  }
+
+  if (valid_indices.empty()) {
+    auto identity =
+        BuildOp(graph, "memset", {}, {{cal_out_size, out_tensor_type, 0}});
+    syn_out(0) = std::move(identity[0]);
+    return;
+  }
+
+  int64_t first_valid_tensor_dim = in_tensors[valid_indices[0]].dim();
+  int64_t dim = at::maybe_wrap_dim(dim_, first_valid_tensor_dim);
+
   std::vector<sh::tensor> cat_input_shTensor;
   std::vector<synTensor> cat_input_synTensor;
 
-  auto out_tensor_type = result.scalar_type();
-
-  for (unsigned i = 0; i < in_tensors.size(); i++) {
+  for (size_t i : valid_indices) {
     if (habana_helpers::pytorch_to_synapse_type(in_tensors[i].scalar_type()) !=
         habana_helpers::pytorch_to_synapse_type(out_tensor_type)) {
       cat_input_shTensor.emplace_back(CastHelper(
@@ -108,11 +99,9 @@ void CatOutHabanaOperator::AddNode(
       cat_input_synTensor.emplace_back(syn_in(i));
     }
   }
-  auto cal_out_size = OutputMeta(stack)[0].shape;
-  ValidateInputParams(stack, cal_out_size);
 
   synConcatenateParams concat_params{};
-  concat_params.axis = in_tensors[0].dim() - dim - 1;
+  concat_params.axis = first_valid_tensor_dim - dim - 1;
 
   auto catop = BuildOp(
       graph,

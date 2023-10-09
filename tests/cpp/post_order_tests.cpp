@@ -376,7 +376,7 @@ TEST_F(PostOrderTest, poTestCat) {
   torch::Tensor tensor_in1 = torch::randn({2, 3}).to(torch::kHPU);
   torch::Tensor tensor_in2 = torch::randn({2, 3}).to(torch::kHPU);
 
-  auto result = cat_hpu_lazy({torch::neg(tensor_in1), tensor_in2}, 0);
+  auto result = torch::cat({torch::neg(tensor_in1), tensor_in2}, 0);
   auto hl_result = SyncAndGetHbLazyTensor(result);
 
   std::vector<HbLazyTensor> tensors = {hl_result};

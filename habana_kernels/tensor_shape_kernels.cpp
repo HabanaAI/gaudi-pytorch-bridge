@@ -849,8 +849,6 @@ void SplitWithSizeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 
 static auto& TensorShapeKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::cat", KERNEL_FN_GLOBAL(CatOperator))
-        .add("hpu::cat", KERNEL_FN_GLOBAL(CatOperator))
         .add("aten::permute", KERNEL_FN_GLOBAL(PermuteOperator))
         .add("hpu::permute", KERNEL_FN_GLOBAL(PermuteOperator))
         .add("hpu::permute_cl", KERNEL_FN_GLOBAL(PermuteCLOperator))
