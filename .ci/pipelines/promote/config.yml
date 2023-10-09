@@ -56,8 +56,9 @@ orchestratorConfig:
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_8cards_performance_8x_promote
 # PT perf 8 card jobs in K8S container mode <End>
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_topology_8cards
-  sanitizerConfig:
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
+# Skip it till sanitizer fix (SW-158415)
+#  sanitizerConfig:
+#  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   codeCoverageConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   coverityConfig:
