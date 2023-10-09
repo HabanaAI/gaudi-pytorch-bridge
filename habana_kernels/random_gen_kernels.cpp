@@ -233,45 +233,6 @@ void RandpermOperator::AllocateAndAddSynapseNode(
       std::move(randShuffleOp->GetOutputs()[0]));
 }
 
-void BernoulliOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 2,
-      "Incorrect size of inputs expected for Bernoulli Operator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be Tensor for Bernoulli Operator");
-  TORCH_CHECK(
-      inputs[1].isInt() || inputs[1].isNone(),
-      "Input arg2 expected to be Int or None for Bernoulli Operator");
-
-  auto self = inputs[0].toTensor();
-
-  ns_RandomBernoulli::Params params;
-
-  if (inputs[1].isNone()) {
-    params.seed = get_seed_hpu(c10::nullopt);
-  } else {
-    auto seed = inputs[1].toInt();
-    params.seed = seed;
-  }
-
-  p_context_->params_.emplace<ns_RandomBernoulli::Params>(params);
-  p_context_->params_size_ = sizeof(params);
-
-  Tensor output = habana::createPTTensor(
-      self,
-      self.sizes(),
-      self.options(),
-      self.suggest_memory_format(),
-      c10::ScalarType::Int,
-      output_metadata.at(0).persistent);
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, &params, sizeof(params));
-}
-
 void DropoutOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,

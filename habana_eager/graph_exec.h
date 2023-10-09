@@ -34,7 +34,8 @@ class GraphExec {
       torch::jit::Stack& example_inputs,
       bool dynamic,
       bool inference,
-      bool has_preallocated_outputs);
+      bool has_preallocated_outputs,
+      bool has_randoms);
 
   torch::jit::Stack launch(
       torch::jit::Stack& inputs,
@@ -44,6 +45,8 @@ class GraphExec {
       GraphExec* gexec,
       torch::jit::Stack&& inputs,
       std::vector<at::Tensor>&& outputs);
+
+  void ResetSeed();
 
   GraphExec() = delete;
   GraphExec(const GraphExec&) = delete;
@@ -62,6 +65,12 @@ class GraphExec {
   bool IsDynamicGraph();
   void ProcessDynamicGraph(torch::jit::Stack& example_inputs);
   std::vector<c10::IValue> ProcessDynamicStack(torch::jit::Stack& stack, bool);
+  void UpdateSeedTensors(torch::jit::Stack& stack);
+
+  struct SeedTensors {
+    std::optional<at::Tensor> seed;
+    std::optional<at::Tensor> counter;
+  };
 
   size_t m_graph_index;
   std::shared_ptr<torch::jit::Graph> m_graph;
@@ -77,6 +86,9 @@ class GraphExec {
   std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes;
   std::vector<size_t> m_outputs_order;
   bool m_has_preallocated_outputs = false;
+  const bool m_has_randoms;
+  bool m_reset_seed = true;
+  SeedTensors m_seed_tensors{};
 };
 
 } // namespace graph

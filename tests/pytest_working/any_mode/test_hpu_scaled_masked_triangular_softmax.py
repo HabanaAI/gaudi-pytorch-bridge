@@ -15,7 +15,7 @@ import pytest
 import numpy as np
 from test_utils import (
     clear_t_compile_logs,
-    check_op_executed_in_jit_ir,
+    check_ops_executed_in_jit_ir,
     is_pytest_mode_compile,
 )
 
@@ -88,7 +88,7 @@ def test_scaled_masked_triangular_softmax(
 
     assert torch.allclose(result_ref, result, atol=atol, rtol=rtol)
     if is_pytest_mode_compile():
-        check_op_executed_in_jit_ir("scaled_masked_triangular_softmax")
+        check_ops_executed_in_jit_ir("scaled_masked_triangular_softmax")
 
 
 @pytest.mark.parametrize("shape", [(192, 1, 2048)])
@@ -146,4 +146,4 @@ def test_scaled_masked_triangular_softmax_next_token(
 
     assert torch.allclose(result_ref, result, atol=atol, rtol=rtol)
     if is_pytest_mode_compile():
-        check_op_executed_in_jit_ir("scaled_masked_triangular_softmax")
+        check_ops_executed_in_jit_ir("scaled_masked_triangular_softmax")

@@ -63,12 +63,14 @@ GraphExec::GraphExec(
     torch::jit::Stack& example_inputs,
     bool dynamic,
     bool inference,
-    bool has_preallocated_outputs)
+    bool has_preallocated_outputs,
+    bool has_randoms)
     : m_graph_index(generate_graph_index(recipe_id)),
       m_graph(graph),
       m_dynamic(dynamic),
       m_inference(inference),
-      m_has_preallocated_outputs(has_preallocated_outputs) {
+      m_has_preallocated_outputs(has_preallocated_outputs),
+      m_has_randoms(has_randoms) {
   PT_EAGER_TRACE;
 
   habana::eager::JoinPendingPipelineThreads();
@@ -78,6 +80,7 @@ GraphExec::GraphExec(
   m_is_pipeline_supported =
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) && !m_dynamic;
 
+  UpdateSeedTensors(example_inputs);
   RunGraphPasses(example_inputs);
   LogRecipeInfo(example_inputs);
   PT_DYNAMIC_SHAPE_DEBUG("Is Dynamic Graph = ", IsDynamicGraph());
@@ -193,6 +196,8 @@ torch::jit::Stack GraphExec::launch(
     std::vector<at::Tensor>& outputs) {
   PT_EAGER_TRACE_WITH_NAME(m_graph_name);
 
+  UpdateSeedTensors(stack);
+
   if (IsDynamicGraph()) {
     PT_EAGER_INFO("Launch dynamic recipe. is_first_launch: ", is_first_launch);
     torch::jit::Stack original_stack = stack;
@@ -239,6 +244,10 @@ torch::jit::Stack GraphExec::launch(
         LaunchRecipe(std::move(backend_inputs), maybe_backend_outputs);
     return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);
   }
+}
+
+void GraphExec::ResetSeed() {
+  m_reset_seed = true;
 }
 
 torch::jit::Stack GraphExec::LaunchRecipe(
@@ -305,6 +314,23 @@ void GraphExec::HandleWeightPermutation(torch::jit::Stack& stack) {
     torch::Tensor weight_tensor{input_value.toTensor()};
     habana::graph::PermuteWeightTensor t(weight_tensor);
     t.PermuteIfNeeded();
+  }
+}
+
+void GraphExec::UpdateSeedTensors(torch::jit::Stack& stack) {
+  PT_EAGER_TRACE;
+
+  if (m_has_randoms) {
+    if (m_reset_seed) {
+      m_seed_tensors.seed =
+          torch::randint(std::numeric_limits<int32_t>::max(), {}, torch::kInt)
+              .to("hpu");
+      m_seed_tensors.counter = torch::tensor(0, {torch::kInt}).to("hpu");
+      m_reset_seed = false;
+    }
+
+    stack[0] = *m_seed_tensors.seed;
+    stack[1] = *m_seed_tensors.counter;
   }
 }
 

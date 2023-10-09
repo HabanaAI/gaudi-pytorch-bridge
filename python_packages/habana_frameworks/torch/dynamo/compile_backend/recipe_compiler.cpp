@@ -26,7 +26,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
          const py::tuple& inputs,
          bool dynamic,
          bool inference,
-         bool has_preallocated_outputs) {
+         bool has_preallocated_outputs,
+         bool has_randoms) {
         torch::jit::Stack stack;
         stack.reserve(inputs.size());
         for (auto& obj : inputs) {
@@ -34,14 +35,20 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         }
         auto& graph_storage{habana::graph::GraphStorage::get()};
         return graph_storage.add_new_recipe(
-            graph, stack, dynamic, inference, has_preallocated_outputs);
+            graph,
+            stack,
+            dynamic,
+            inference,
+            has_preallocated_outputs,
+            has_randoms);
       },
       py::return_value_policy::copy,
       py::arg("graph"),
       py::arg("inputs"),
       py::arg("dynamic"),
       py::arg("inference"),
-      py::arg("has_preallocated_outputs"));
+      py::arg("has_preallocated_outputs"),
+      py::arg("has_randoms"));
   m.def(
       "graph_launch",
       [](size_t recipe_id,
@@ -70,4 +77,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("recipe_id"),
       py::arg("inputs"),
       py::arg("outputs"));
+  m.def("reset_seeds", []() {
+    auto& graph_storage{habana::graph::GraphStorage::get()};
+    graph_storage.reset_seeds();
+  });
 }

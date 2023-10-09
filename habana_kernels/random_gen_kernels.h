@@ -20,24 +20,7 @@ at::Generator createHPUGenerator();
 uint32_t get_seed_hpu(const c10::optional<torch::Generator>& gen);
 at::Tensor get_seed_tensor_hpu(const c10::optional<torch::Generator>& gen);
 
-// Bernoulli Operator
-class BernoulliOperator : public HabanaOperator {
- public:
-  BernoulliOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            get_guid_with_precision("random_bernoulli_fwd", scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
-// Bernoulli Operator
+// Dropout Operator
 class DropoutOperator : public HabanaOperator {
  public:
   DropoutOperator(int device_id, c10::ScalarType scalarType)

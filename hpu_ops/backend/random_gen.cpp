@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "generated/backend/bernoulli.h"
@@ -14,6 +17,7 @@
 #include "generated/backend/random.h"
 #include "generated/backend/uniform.h"
 #include "habana_kernels/random_gen_kernels.h"
+#include "hpu_ops/habana_random_ops.h"
 
 namespace habana {
 const unsigned SIZE_INDEX = 2;
@@ -379,4 +383,128 @@ void RandomSeedTensorInput::AddNode(
       size);
   syn_out(0) = std::move(rand[0]);
 }
+
+OutputMetaDataVector HabanaRandOutputMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  meta.shape = stack[0].toIntVector();
+  meta.dtype =
+      stack[2].toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
+  meta.layout = stack[3].toOptional<at::Layout>().value_or(at::kStrided);
+  return {meta};
+}
+
+HabanaRand::HabanaRand(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "random_uniform", scalar_type, {1}, {}, {}, false) {
+  SetOutputMetaFn(HabanaRandOutputMeta);
+}
+
+void HabanaRand::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto output_shape = stack[0].toIntVector();
+  auto dtype =
+      stack[2].toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
+
+  ns_RandomUniform::Params params{};
+  params.low = 0.0;
+  params.high = 1.0;
+
+  std::vector<synTensor> inputs{syn_in(0)};
+
+  CreateShapeTensorInput(graph, dtype, output_shape, inputs);
+
+  auto rand = BuildOp(
+      graph,
+      get_guid_with_precision("random_uniform", dtype),
+      std::move(inputs),
+      {{output_shape, dtype, 0}},
+      &params,
+      sizeof(params));
+  syn_out(0) = std::move(rand[0]);
+}
+
+HabanaRandn::HabanaRandn(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "random_normal", scalar_type, {1}, {}, {}, false) {
+  SetOutputMetaFn(HabanaRandOutputMeta);
+}
+
+void HabanaRandn::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto output_shape = stack[0].toIntVector();
+  auto seed = stack_tensor(stack, 1);
+  auto dtype =
+      stack[2].toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
+
+  ns_RandomNormal::Params params{};
+  params.mean = 0.0;
+  params.stddev = 1.0;
+
+  std::vector<synTensor> inputs{nullptr, syn_in(0)};
+
+  CreateShapeTensorInput(graph, dtype, output_shape, inputs);
+
+  auto rand = BuildOp(
+      graph,
+      get_guid_with_precision("random_normal", dtype),
+      std::move(inputs),
+      {{output_shape, dtype, 0}},
+      &params,
+      sizeof(params));
+  syn_out(0) = std::move(rand[0]);
+}
+
+OutputMetaDataVector HabanaSeedGeneratorOutputMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  meta.shape = {stack[2].toInt()};
+  meta.dtype = at::ScalarType::Int;
+  return {meta};
+}
+
+HabanaSeedGenerator::HabanaSeedGenerator(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "philox_random_uniform",
+          scalar_type,
+          {0},
+          {},
+          {},
+          false) {
+  SetOutputMetaFn(HabanaSeedGeneratorOutputMeta);
+}
+
+void HabanaSeedGenerator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  ns_PhiloxRandomUniform::ParamsV3 params{};
+  params.low_i = 0;
+  params.high_i = std::numeric_limits<int32_t>::max();
+  auto philox_dtype = at::ScalarType::Int;
+
+  std::vector<int64_t> output_shape{stack[2].toInt()};
+
+  std::vector<synTensor> inputs{syn_in(0), syn_in(1)};
+
+  CreateShapeTensorInput(graph, philox_dtype, output_shape, inputs);
+
+  auto rand = BuildOp(
+      graph,
+      get_guid_with_precision("philox_random_uniform", philox_dtype),
+      std::move(inputs),
+      {{output_shape, philox_dtype, 0}},
+      &params,
+      sizeof(params));
+
+  syn_out(0) = std::move(rand[0]);
+}
 } // namespace habana
+
+static const auto& HabanaRandomKernelRegistry =
+    habana::KernelRegistry()
+        .add("hpu::habana_rand", KERNEL_FN_GLOBAL(habana::HabanaRand))
+        .add("hpu::habana_randn", KERNEL_FN_GLOBAL(habana::HabanaRandn))
+        .add(
+            "hpu::habana_seed_generator",
+            KERNEL_FN_GLOBAL(habana::HabanaSeedGenerator));

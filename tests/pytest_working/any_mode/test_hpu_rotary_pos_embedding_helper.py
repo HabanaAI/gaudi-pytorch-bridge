@@ -16,7 +16,7 @@ from test_utils import (
     cpu,
     hpu,
     is_gaudi1,
-    check_op_executed_in_jit_ir,
+    check_ops_executed_in_jit_ir,
     is_pytest_mode_compile,
     clear_t_compile_logs,
 )
@@ -264,8 +264,9 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
     )
 
     if is_pytest_mode_compile():
-        check_op_executed_in_jit_ir("rotary_pos_embedding")
-        check_op_executed_in_jit_ir("rotary_pos_embedding_backward")
+        check_ops_executed_in_jit_ir(
+            ["rotary_pos_embedding", "rotary_pos_embedding_backward"]
+        )
 
 
 @pytest.mark.parametrize(
@@ -328,8 +329,9 @@ def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dty
     )
 
     if is_pytest_mode_compile():
-        check_op_executed_in_jit_ir("rotary_pos_embedding")
-        check_op_executed_in_jit_ir("rotary_pos_embedding_backward")
+        check_ops_executed_in_jit_ir(
+            ["rotary_pos_embedding", "rotary_pos_embedding_backward"]
+        )
 
 
 @pytest.mark.parametrize(
@@ -377,7 +379,7 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
     )
 
     if is_pytest_mode_compile():
-        check_op_executed_in_jit_ir("rotary_pos_embedding")
+        check_ops_executed_in_jit_ir("rotary_pos_embedding")
 
 
 @pytest.mark.parametrize(
@@ -443,8 +445,9 @@ def test_apply_rotary_pos_emb_diff_dtypes(
     )
 
     if is_pytest_mode_compile():
-        check_op_executed_in_jit_ir("rotary_pos_embedding")
-        check_op_executed_in_jit_ir("rotary_pos_embedding_backward")
+        check_ops_executed_in_jit_ir(
+            ["rotary_pos_embedding", "rotary_pos_embedding_backward"]
+        )
 
 
 @pytest.mark.parametrize(
@@ -491,7 +494,7 @@ def test_apply_rotary_pos_emb_chatglm_fwd(p_size, cos_sin_size, dtype):
     )
 
     if is_pytest_mode_compile():
-        check_op_executed_in_jit_ir("rotary_pos_embedding")
+        check_ops_executed_in_jit_ir("rotary_pos_embedding")
 
 
 @pytest.mark.parametrize(
@@ -549,5 +552,6 @@ def test_apply_rotary_pos_emb_chatglm_fwd_bwd(p_size, cos_sin_size, dtype):
     )
 
     if is_pytest_mode_compile():
-        check_op_executed_in_jit_ir("rotary_pos_embedding")
-        check_op_executed_in_jit_ir("rotary_pos_embedding_backward")
+        check_ops_executed_in_jit_ir(
+            ["rotary_pos_embedding", "rotary_pos_embedding_backward"]
+        )

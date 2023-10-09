@@ -11,10 +11,9 @@
 ###############################################################################
 
 import torch
-import habana_frameworks
-import os
 from .config import configuration_flags
 from .logger import get_compile_backend_logger
+import habana_frameworks.torch.internal.bridge_config as bc
 
 logger = get_compile_backend_logger()
 from ._shared_layer_C import check_cpu_fallback_op
@@ -40,6 +39,9 @@ hpu_supported_op_list = {
     "rotary_pos_embedding_backward",
 }
 
+if bc.get_pt_hpu_wrap_random_ops_compile():
+    hpu_supported_op_list.update(["rand", "randn"])
+
 hpu_fallback_op_list = {
     # Random OPs.
     "seed",
@@ -48,8 +50,6 @@ hpu_fallback_op_list = {
     "get_rng_state",
     "set_rng_state",
     "randint",
-    "rand_like",
-    "randn_like",
     "randint_like",
     "randperm",
     "poisson",

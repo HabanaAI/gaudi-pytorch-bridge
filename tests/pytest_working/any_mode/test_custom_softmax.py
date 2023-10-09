@@ -15,7 +15,7 @@ import torch
 from habana_frameworks.torch.hpex.kernels import CustomSoftmax
 from test_utils import (
     hpu,
-    check_op_executed_in_jit_ir,
+    check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     is_pytest_mode_compile,
 )
@@ -47,7 +47,7 @@ def test_custom_softmax():
 
     assert np.allclose(out_cpu.numpy(), ref_output.numpy(), atol=1e-04)
     if is_pytest_mode_compile():
-        check_op_executed_in_jit_ir("custom_softmax")
+        check_ops_executed_in_jit_ir("custom_softmax")
 
 
 if __name__ == "__main__":

@@ -2384,6 +2384,13 @@ TORCH_LIBRARY(hpu, m) {
   m.def("hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))");
   m.def(
       "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None) -> Tensor");
+  m.def("hpu::habana_bernoulli(Tensor self, Tensor seed) -> Tensor");
+  m.def(
+      "hpu::habana_rand(SymInt[] size, Tensor seed, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_randn(SymInt[] size, Tensor seed, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

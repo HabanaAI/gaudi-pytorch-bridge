@@ -485,7 +485,7 @@ def clear_t_compile_logs():
         open(t_compile_logs_path, "w").close()
 
 
-def check_op_executed_in_jit_ir(op_name):
+def check_ops_executed_in_jit_ir(op_names):
     from os import path
     import re
 
@@ -502,6 +502,9 @@ def check_op_executed_in_jit_ir(op_name):
     before_pass_graph_print = True
     before_jit_ir = True
 
+    if not isinstance(op_names, list):
+        op_names = [op_names]
+
     with open(t_compile_logs_path) as f:
         for line in f.readlines():
             if before_placement:
@@ -517,9 +520,13 @@ def check_op_executed_in_jit_ir(op_name):
                         fallback_ops.append(op)
             elif before_jit_ir:
                 before_jit_ir = "JIT IR graph" not in line
-            elif f"hpu::{op_name}" in line:
-                op_found = True
-                break
+            else:
+                for op_name in op_names:
+                    if f"hpu::{op_name}" in line:
+                        op_names.remove(op_name)
+                        break
+                if not op_names:
+                    break
 
     assert not fallback_ops, f"These ops fell back to eager: {fallback_ops}"
-    assert op_found, f"{op_name} was not found in the JIT IR graph"
+    assert not op_names, f"Ops {op_names} were not found in the JIT IR graph"

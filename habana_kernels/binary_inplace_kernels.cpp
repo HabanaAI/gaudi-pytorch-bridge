@@ -112,7 +112,6 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
 habana::InferOutputMetaRetType habana::BinaryInplaceOperatorWithAlpha::
     InferOutputMeta(torch::jit::Stack& inputs) {
   Tensor arg1 = inputs[0].toTensor();
-  Tensor arg2 = inputs[1].toTensor();
 
   InferOutputMetaRetType out;
   if (inputs[2].toScalar().toFloat() != 1.0) {

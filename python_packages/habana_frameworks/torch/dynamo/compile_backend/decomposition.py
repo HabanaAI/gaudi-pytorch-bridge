@@ -284,6 +284,15 @@ def register_custom_decomposition(ops, decomposition_list):
     return torch._decomp.register_decomposition(ops, decomposition_list)
 
 
+def get_like_layout(
+    tensor: torch.Tensor, memory_format: Optional[torch.memory_format]
+) -> torch.memory_format:
+    if memory_format in (torch.preserve_format, None):
+        return utils.suggest_memory_format(tensor)
+    else:
+        return memory_format
+
+
 @register_custom_decomposition(aten.full_like, hpu_backend_decompositions_common)
 def full_like(
     a: utils.TensorLikeType,
@@ -385,6 +394,36 @@ def native_dropout(input, p, train=None):
         return (res, bool_mask)
     else:
         return (input, torch.ones_like(input, dtype=torch.bool))
+
+
+@register_custom_decomposition(
+    torch.ops.aten.rand_like.default, hpu_backend_decompositions_common
+)
+def rand_like(self, *, dtype=None, device=None, memory_format=None, **kwargs):
+    return torch.rand(
+        [*self.size()],
+        dtype=dtype or self.dtype,
+        device=device or self.device,
+        **kwargs,
+    ).to(memory_format=get_like_layout(self, memory_format))
+
+
+@register_custom_decomposition(
+    torch.ops.aten.randn_like.default, hpu_backend_decompositions_common
+)
+def randn_like(self, *, dtype=None, device=None, memory_format=None, **kwargs):
+    return torch.randn(
+        [*self.size()],
+        dtype=dtype or self.dtype,
+        device=device or self.device,
+        **kwargs,
+    ).to(memory_format=get_like_layout(self, memory_format))
+
+
+@register_custom_decomposition(aten.rand.generator, hpu_backend_decompositions_common)
+def rand_generator(size, **kwargs):
+    kwargs.pop("generator", None)
+    return torch.rand(size, **kwargs)
 
 
 def get_hpu_decompositions(is_training: bool):

@@ -143,8 +143,13 @@ def overwrite_torch_functions():
     def wrap_manual_seed(seed):
         if not is_lazy():
             from habana_frameworks.torch.utils import _debug_eager_C
+            from habana_frameworks.torch.dynamo.compile_backend import (
+                _recipe_compiler_C,
+            )
 
             _debug_eager_C.join_pending_pipeline_threads()
+            _recipe_compiler_C.reset_seeds()
+
         rand_hpu.manual_seed(seed)
         return manual_seed_orig(seed)
 

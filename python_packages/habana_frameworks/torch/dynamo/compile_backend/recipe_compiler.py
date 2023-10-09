@@ -18,6 +18,7 @@ import habana_frameworks.torch.internal.bridge_config as bc
 
 from .config import configuration_flags
 from .logger import get_compile_backend_logger, dump_fx_graph
+from .random_utils import is_random_op
 
 logger = get_compile_backend_logger()
 
@@ -28,10 +29,12 @@ from torch.fx.experimental.proxy_tensor import py_sym_types
 
 enable_dynamic_output_preallocate = bc.get_pt_hpu_enable_dynamic_output_preallocate()
 
+
 class CSEVariable:
     """A CSEVariable is just a name for an expression but it is useful to be able to annotate them on a backend dependent basis.
     The backends can inherit from this class and overload the "create_cse_var" Kernel to do that.
-    The "update_on_args" method gives you a hook for annotations, see example of TritonCSEVariable in triton.py."""
+    The "update_on_args" method gives you a hook for annotations, see example of TritonCSEVariable in triton.py.
+    """
 
     def __init__(self, name):
         self.name = name
@@ -47,6 +50,7 @@ class CSEVariable:
 
     def update_on_args(self, name, args, kwargs):
         pass
+
 
 class ExprPrinter(Printer):
     @staticmethod
@@ -85,6 +89,7 @@ class ExprPrinter(Printer):
     def _print_CleanDiv(self, expr):
         return self._print_FloorDiv(expr)
 
+
 class PythonPrinter(ExprPrinter):
     def _print_ModularIndexing(self, expr):
         x, div, mod = expr.args
@@ -105,7 +110,8 @@ class PythonPrinter(ExprPrinter):
         assert len(expr.args) == 1
         return f"math.floor({self.paren(self._print(expr.args[0]))})"
 
-class SymbolicShapeEvaluator():
+
+class SymbolicShapeEvaluator:
     def __init__(self, symbolic_metadata):
         self._symbolic_value_dict = {}
         self._symbolic_metadata = symbolic_metadata
@@ -115,6 +121,7 @@ class SymbolicShapeEvaluator():
 
     def calculate_symbol_size(self, sym_expr, input_stack):
         pexpr = PythonPrinter().doprint
+
         def get_symbolic_value(sym_meta, inputs):
             input_idx = sym_meta[0]
             dim = sym_meta[1]
@@ -165,8 +172,17 @@ class SymbolicShapeEvaluator():
                 assert False
         return concrete_size
 
+
 class HabanaGraphModule(torch.nn.Module):
-    def __init__(self, jit_ir, graph_module, outputs_metadata, symbolic_metadata, is_training=False, dynamic=False):
+    def __init__(
+        self,
+        jit_ir,
+        graph_module,
+        outputs_metadata,
+        symbolic_metadata,
+        is_training=False,
+        dynamic=False,
+    ):
         logger.debug("Creating HabanaGraphModule")
         super().__init__()
         self._jit_ir = jit_ir
@@ -176,6 +192,7 @@ class HabanaGraphModule(torch.nn.Module):
         self._recipe_id = None
         self._dynamic = dynamic
         self._symbol_evaluator = SymbolicShapeEvaluator(symbolic_metadata)
+        self._has_randoms = False
 
     def __call__(self, *args):
         outputs = []
@@ -187,38 +204,72 @@ class HabanaGraphModule(torch.nn.Module):
             size = md[0]
             if self._dynamic and enable_dynamic_output_preallocate:
                 size = self._symbol_evaluator.calculate_shape(md[0], inputs)
+
             outputs.append(torch.empty(size, dtype=md[1], device="hpu"))
 
         from ._recipe_compiler_C import graph_compile, graph_launch
 
         if self._recipe_id is None:
-            self._recipe_id = graph_compile(graph=self._jit_ir.graph, inputs=inputs,
-                                            dynamic=self._dynamic, inference=self._inference,
-                                            has_preallocated_outputs=bool(outputs))
+            self.check_for_random_ops()
+            if self._has_randoms:
+                inputs = (None, None) + inputs
+            self._recipe_id = graph_compile(
+                graph=self._jit_ir.graph,
+                inputs=inputs,
+                dynamic=self._dynamic,
+                inference=self._inference,
+                has_preallocated_outputs=bool(outputs),
+                has_randoms=self._has_randoms,
+            )
             dump_fx_graph(self._fx_module, self._recipe_id)
-        return graph_launch(recipe_id=self._recipe_id, inputs=inputs, outputs=outputs)
+        elif self._has_randoms:
+            inputs = (None, None) + inputs
+
+        return graph_launch(
+            recipe_id=self._recipe_id,
+            inputs=inputs,
+            outputs=outputs,
+        )
+
+    def check_for_random_ops(self):
+        for n in self._fx_module.graph.nodes:
+            if is_random_op(n):
+                self._has_randoms = True
+                return
 
 
-def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule, is_training=False, is_dynamic=False):
+def get_callable_recipe(
+    jit_ir, graph_module: torch.fx.GraphModule, is_training=False, is_dynamic=False
+):
     """
     Calls backend to create compiled recipe or just returns unchanged module to
     run it eagerly depending on config.
     """
     outputs_metadata = []
     symbolic_metadata = {}
-    if not is_dynamic and ((os.getenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "").upper() not in [
-            "ON", "1", "YES", "TRUE", "Y"]) or enable_dynamic_output_preallocate):
+    if not is_dynamic and (
+        os.getenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "").upper()
+        not in ["ON", "1", "YES", "TRUE", "Y"]
+        or enable_dynamic_output_preallocate
+    ):
         outputs_metadata = get_outputs_metadata(graph_module)
     elif is_dynamic and enable_dynamic_output_preallocate:
         outputs_metadata = get_outputs_metadata(graph_module)
         symbolic_metadata = get_symbolic_metadata(graph_module, outputs_metadata)
 
     if configuration_flags["use_compiled_recipes"]:
-        return HabanaGraphModule(jit_ir, graph_module, outputs_metadata, symbolic_metadata,
-                                 is_training=is_training, dynamic=is_dynamic)
+        return HabanaGraphModule(
+            jit_ir,
+            graph_module,
+            outputs_metadata,
+            symbolic_metadata,
+            is_training=is_training,
+            dynamic=is_dynamic,
+        )
     else:
         # Return unchanged module, it will be ran eagerly.
         return graph_module
+
 
 def get_symbolic_metadata(graph_module, outputs_metadata):
     """
@@ -237,7 +288,7 @@ def get_symbolic_metadata(graph_module, outputs_metadata):
     pexpr = PythonPrinter().doprint
     for node in graph_module.graph.nodes:
         if node.op is "placeholder":
-            tmeta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+            tmeta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
             if isinstance(tmeta_val, py_sym_types):
                 val_str = pexpr(tmeta_val)
                 input_symbolic_dict[val_str] = (input_index, sys.maxsize)
@@ -245,10 +296,16 @@ def get_symbolic_metadata(graph_module, outputs_metadata):
                 shape = node.meta["output_shapes"][0]
                 for dim, sz in enumerate(shape):
                     sz_str = pexpr(sz)
-                    if isinstance(sz, torch.SymInt) and sz_str not in input_symbolic_dict:
+                    if (
+                        isinstance(sz, torch.SymInt)
+                        and sz_str not in input_symbolic_dict
+                    ):
                         input_symbolic_dict[sz_str] = (input_index, dim)
             else:
-                logger.debug("Graph input node type not inserted to input_symbolic_dict!!!:", tmeta_val)
+                logger.debug(
+                    "Graph input node type not inserted to input_symbolic_dict!!!:",
+                    tmeta_val,
+                )
             input_index += 1
 
     symbolic_meta = {}
@@ -257,18 +314,29 @@ def get_symbolic_metadata(graph_module, outputs_metadata):
             if isinstance(sz, torch.SymInt):
                 sym_sz_str = pexpr(sz)
                 if sym_sz_str in input_symbolic_dict:
-                    symbolic_meta[sym_sz_str] = (input_symbolic_dict[sym_sz_str][0],
-                                                 input_symbolic_dict[sym_sz_str][1], ())
+                    symbolic_meta[sym_sz_str] = (
+                        input_symbolic_dict[sym_sz_str][0],
+                        input_symbolic_dict[sym_sz_str][1],
+                        (),
+                    )
                 else:
                     sym_sz = sympify(sym_sz_str)
                     assert sym_sz.free_symbols is not None
-                    symbolic_meta[sym_sz_str] = (sys.maxsize, sys.maxsize, sym_sz.free_symbols)
+                    symbolic_meta[sym_sz_str] = (
+                        sys.maxsize,
+                        sys.maxsize,
+                        sym_sz.free_symbols,
+                    )
                     for sym in sym_sz.free_symbols:
                         sym_str = pexpr(sym)
                         assert sym_str in input_symbolic_dict
-                        symbolic_meta[sym_str] = (input_symbolic_dict[sym_str][0],
-                                                     input_symbolic_dict[sym_str][1], ())
+                        symbolic_meta[sym_str] = (
+                            input_symbolic_dict[sym_str][0],
+                            input_symbolic_dict[sym_str][1],
+                            (),
+                        )
     return symbolic_meta
+
 
 def get_outputs_metadata(graph_module):
     """
@@ -280,7 +348,9 @@ def get_outputs_metadata(graph_module):
         if node.op == "output":
             for i in node.all_input_nodes:
                 assert len(i.meta["output_shapes"]) == len(i.meta["output_dtypes"])
-                for shape, dtype in zip(i.meta["output_shapes"], i.meta["output_dtypes"]):
+                for shape, dtype in zip(
+                    i.meta["output_shapes"], i.meta["output_dtypes"]
+                ):
                     outputs_metadata.append((shape, dtype))
 
     return outputs_metadata

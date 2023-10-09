@@ -730,3 +730,10 @@ If this flag is not set, the div kernel will be used by default for div\n
 operations without rounding mode; the div precise kernel will be used by\n
 default for div operations with rounding mode."
 
+PT_HPU_WRAP_RANDOM_OPS_COMPILE:
+  type: bool
+  default: true
+  doc: "This flag enables new flow of random ops in torch.compile.\n
+Random ops are replaced with custom wrappers containing seed tensor input.\n
+This allows determinism without generating seed on CPU each iteration."
+

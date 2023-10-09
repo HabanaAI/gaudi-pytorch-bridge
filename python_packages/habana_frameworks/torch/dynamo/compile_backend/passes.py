@@ -25,6 +25,7 @@ from .partitioner import HabanaPartitioner
 from .recipe_compiler import get_callable_recipe
 from .config import configuration_flags
 from .logger import get_compile_backend_logger
+from .random_utils import is_random_op, random_op_inputs
 
 logger = get_compile_backend_logger()
 
@@ -34,6 +35,7 @@ def _is_legacy_pt():
         return True
     return False
 
+
 def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
     """
     This function dynamicity per graph module.
@@ -42,19 +44,21 @@ def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
     from torch._subclasses.fake_tensor import FakeTensor
     from torch.fx.experimental.proxy_tensor import py_sym_types
     from torch.fx.passes.shape_prop import TensorMetadata
+
     is_dynamic = False
     for node in input_module.graph.nodes:
-        if node.op == 'placeholder':
-            meta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+        if node.op == "placeholder":
+            meta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
             if (
-                (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides)
-                or isinstance(meta_val, py_sym_types)
-            ):
+                isinstance(meta_val, FakeTensor)
+                and meta_val._has_symbolic_sizes_strides
+            ) or isinstance(meta_val, py_sym_types):
                 is_dynamic = True
                 break
 
-    logger.debug("Module dynamicity %s",is_dynamic)
+    logger.debug("Module dynamicity %s", is_dynamic)
     return is_dynamic
+
 
 class OptimizationPassPlacement(Enum):
     PRE_PARTITIONER = 1
@@ -100,9 +104,13 @@ def optimize_graph(
         # To satisfy above, we will monkey patch this function for optimizer scope so no
         # pass can do this silently in non-aot mode.
         original_dce_func = torch.fx.Graph.eliminate_dead_code
+
         def dummy_dce_raise(*args, **kwargs):
-            raise Exception("Tried to call DCE in possibly non-functionalized graph."
-                            "Make sure you add proper check in your code")
+            raise Exception(
+                "Tried to call DCE in possibly non-functionalized graph."
+                "Make sure you add proper check in your code"
+            )
+
         torch.fx.Graph.eliminate_dead_code = dummy_dce_raise
 
     from torch._dynamo import config
@@ -115,7 +123,14 @@ def optimize_graph(
         is_dynamic = not config.assume_static_by_default
 
     ctx = OptimizerContext(
-        graph_module, example_inputs, is_training, is_backward, is_dynamic, uses_aot, stage, None
+        graph_module,
+        example_inputs,
+        is_training,
+        is_backward,
+        is_dynamic,
+        uses_aot,
+        stage,
+        None,
     )
 
     graph_changed = False
@@ -162,13 +177,12 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_eagerize_leaf_views,
             pass_propose_partitions,
             pass_merge_paths,
-
             # This is final pass that creates final submoduled graph.
             pass_fuse_partitions,
             pass_make_symints_available,
             pass_graph_print,
             # Workarounds after partitioner phase.
-            pass_wa_fix_output
+            pass_wa_fix_output,
         ]
     elif stage == OptimizationPassPlacement.POST_PARTITIONER:
         return [
@@ -255,6 +269,7 @@ def pass_graph_print(ctx: OptimizerContext) -> bool:
             logger.debug("    meta.output_device: %s", node.meta["output_device"])
     return False
 
+
 def pass_make_symints_available(ctx: OptimizerContext) -> bool:
     is_dynamic = is_module_dynamic(ctx.graph_module)
     if not is_dynamic:
@@ -264,7 +279,7 @@ def pass_make_symints_available(ctx: OptimizerContext) -> bool:
         symint_list = ()
         for node in ctx.graph_module.graph.nodes:
             if node.op == "placeholder":
-                tmeta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+                tmeta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
                 if isinstance(tmeta_val, torch.SymInt):
                     symint_list += (node,)
         return symint_list
@@ -291,7 +306,9 @@ def pass_make_symints_available(ctx: OptimizerContext) -> bool:
 
     for node in ctx.graph_module.graph.nodes:
         if node.op == "call_module":
-            missing_symint_list = get_missing_symbolic_int_input_nodes(symint_list, node)
+            missing_symint_list = get_missing_symbolic_int_input_nodes(
+                symint_list, node
+            )
             if missing_symint_list == ():
                 continue
 
@@ -308,8 +325,12 @@ def pass_make_symints_available(ctx: OptimizerContext) -> bool:
             for misinput in reversed(missing_symint_list):
                 with submodule.graph.inserting_before(first_subgraph_node):
                     new_node = submodule.graph.create_node(
-                        misinput.op, misinput.target, misinput.args,
-                        misinput.kwargs, misinput.name, misinput.type
+                        misinput.op,
+                        misinput.target,
+                        misinput.args,
+                        misinput.kwargs,
+                        misinput.name,
+                        misinput.type,
                     )
                     new_node.meta = copy.copy(misinput.meta)
                     first_subgraph_node = new_node
@@ -317,6 +338,7 @@ def pass_make_symints_available(ctx: OptimizerContext) -> bool:
     ctx.graph_module.recompile()
 
     return True
+
 
 def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx.Node):
     """
@@ -430,7 +452,6 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         or "output_layouts" in node.meta
         or "output_shapes" in node.meta
     ):
-
         assert node.meta["output_device"] == device
         assert node.meta["output_dtypes"] == dtypes
         assert node.meta["output_layouts"] == layouts
@@ -490,7 +511,9 @@ def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
                 return super().run(*args)
 
     fake_mode = detect_fake_mode(ctx.example_inputs)
-    with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):
+    with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(
+        enabled=False, device_type="cpu"
+    ):
         # Disabling autocast in fake tensor propagation as autocasting has been
         # already done and all dtypes has been already deduced.
         if not fake_mode or not ctx.uses_aot:
@@ -504,6 +527,7 @@ def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
             ).propagate_dont_convert_inputs(*ctx.example_inputs)
 
     return True
+
 
 def pass_wa_fix_output(ctx: OptimizerContext) -> bool:
     """
@@ -527,7 +551,9 @@ def pass_wa_fix_output(ctx: OptimizerContext) -> bool:
         if n.op == "output":
             output_node = n
     if last_node_after_output is not None:
-        logger.warning("It seems graph wasn't functionalized, fixing empty output node.")
+        logger.warning(
+            "It seems graph wasn't functionalized, fixing empty output node."
+        )
         ctx.graph_module.graph.erase_node(output_node)
         ctx.graph_module.graph.node_copy(output_node)
         ctx.graph_module.recompile()
@@ -536,6 +562,7 @@ def pass_wa_fix_output(ctx: OptimizerContext) -> bool:
     # WORKAROUND END
 
     return graph_changed
+
 
 def pass_fake_propagation_legacy(ctx: OptimizerContext) -> bool:
     """
@@ -594,7 +621,9 @@ def pass_fake_propagation_legacy(ctx: OptimizerContext) -> bool:
             fake_mode = torch._subclasses.FakeTensorMode()
             fake_inputs = deepcopy_to_fake_tensor(ctx.example_inputs, fake_mode)
 
-    with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):
+    with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(
+        enabled=False, device_type="cpu"
+    ):
         # Disabling autocast in fake tensor propagation as autocasting has been
         # already done and all dtypes has been already deduced.
         LegacyTensorInfoPropagation(
@@ -750,7 +779,9 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                 placement = "hpu_cluster"
             else:
                 placement = "eager"
-        elif node.op == "call_function" and is_eager_fallback_required(node, is_dynamic=ctx.is_dynamic):
+        elif node.op == "call_function" and is_eager_fallback_required(
+            node, is_dynamic=ctx.is_dynamic
+        ):
             placement = "eager"
         elif node.meta["output_device"].type == "hpu":
             # Current assumption is that if OP outputs HPU tensor, then all its inputs are also on HPU.
@@ -778,6 +809,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
 
     return True
 
+
 def pass_merge_paths(ctx: OptimizerContext) -> bool:
     """
     This pass that will merge parallel partitions.
@@ -786,7 +818,9 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
     assert ctx.graph_module is not None
     assert ctx.current_partitions is not None
 
-    logger.debug(f"Merging parallel graph path. Partition cnt: {len(ctx.current_partitions)}")
+    logger.debug(
+        f"Merging parallel graph path. Partition cnt: {len(ctx.current_partitions)}"
+    )
 
     graph_changed = False
 
@@ -795,7 +829,7 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
         # In case of single partition there is no merging to be done
         return graph_changed
 
-    class ColorGraph():
+    class ColorGraph:
         def __init__(self):
             self.OUTPUT_COLOR = 0
             self.all_colors = set()
@@ -875,9 +909,7 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
         def __str__(self):
             lines = []
             lines.append(f"Partition colors: {self.partition_colors}")
-            lines.extend([
-                f"{k} --> {v}" for k, v in self._graph.items()
-            ])
+            lines.extend([f"{k} --> {v}" for k, v in self._graph.items()])
             return "\n".join(lines)
 
     color_graph = ColorGraph()
@@ -931,9 +963,15 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
 
     return graph_changed
 
+
 def helper_is_compute_node(node):
     # return false if node is a view node, input node or output node
-    return (not helper_is_view_node(node)) and (node.op != "placeholder") and (node.op != "output")
+    return (
+        (not helper_is_view_node(node))
+        and (node.op != "placeholder")
+        and (node.op != "output")
+    )
+
 
 def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
     """
@@ -990,6 +1028,7 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
            |
         [1, 3] -> b
     """
+
     def helper_calculate_default_strides(sizes):
         # Calculate default strides for given size
         if len(sizes) == 0:
@@ -1001,7 +1040,9 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
         return list(reversed(reversed_strides))
 
     def is_output_contiguous_strides(node):
-        contiguous_strides = helper_calculate_default_strides(node.meta["output_shapes"][0])
+        contiguous_strides = helper_calculate_default_strides(
+            node.meta["output_shapes"][0]
+        )
         actual_strides = node.meta["output_strides"][0]
         return contiguous_strides == list(actual_strides)
 
@@ -1015,7 +1056,9 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
     assert ctx.graph_module is not None
     graph_changed = False
 
-    fw_output_node = [node for node in ctx.graph_module.graph.nodes if node.op == "output"][0]
+    fw_output_node = [
+        node for node in ctx.graph_module.graph.nodes if node.op == "output"
+    ][0]
     fw_outputs = fw_output_node.args[0]
     # no inplace op
     if len(fw_outputs) < 2:
@@ -1046,7 +1089,7 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
         # try to find the end point of this chain
         end_node_in_chain = node
         next_node = helper_get_node_users(end_node_in_chain)[0]
-        while(next_node is not None):
+        while next_node is not None:
             if next_node in nodes_is_visted:
                 # next_node is in previous chain, exit current chain search
                 is_duplicate_chain = True
@@ -1054,10 +1097,10 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
 
             # found first node which has view user, assumes it's the end
             # point of chain. Or it reaches the graph output
-            if (next_node.op == "output"
-                or (next_node.op == "call_function"
-                    and helper_is_view_node(next_node)
-                    and next_node in fw_outputs)
+            if next_node.op == "output" or (
+                next_node.op == "call_function"
+                and helper_is_view_node(next_node)
+                and next_node in fw_outputs
             ):
                 break
 
@@ -1074,7 +1117,7 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
         # collect candidate view nodes before this chain
         # bottom up from the end_node_in_chain
         view_in_node = end_node_in_chain
-        while(view_in_node.op != "placeholder"):
+        while view_in_node.op != "placeholder":
             view_in_node_args = helper_get_node_args(view_in_node)
             if len(view_in_node_args) > 0:
                 # workaround for where whose data input is third argument
@@ -1086,7 +1129,8 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
                 view_in_node = None
                 break
 
-            if (view_in_node.op == "call_function"
+            if (
+                view_in_node.op == "call_function"
                 and helper_is_view_node(view_in_node)
                 and not view_in_node in current_chain
             ):
@@ -1103,7 +1147,8 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
             # there are same view before / after the current node
             # actually we may also need check if the same arguments, for
             # example dim0 and dim1 for torch.transpose
-            if (user.target == view_in_node.target
+            if (
+                user.target == view_in_node.target
                 # view-pair for inplace op
                 and (out_node is not None and out_node.target == view_in_node.target)
                 # this based on the fact that HPU node only produces contiguous output
@@ -1123,7 +1168,9 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
 
             with ctx.graph_module.graph.inserting_after(node_to_change):
                 # input node
-                new_args = [node_to_change,]
+                new_args = [
+                    node_to_change,
+                ]
                 # sizes of inserted as_strided_0 node
                 new_args.append(arg_view_in_node.meta["output_shapes"][0])
                 # strides of inserted as_strided_0 node
@@ -1134,15 +1181,17 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
                     torch.ops.aten.as_strided.default,
                     tuple(new_args),
                     new_kwargs,
-                    'as_strided_0',
-                    node_to_change.type
+                    "as_strided_0",
+                    node_to_change.type,
                 )
                 as_strided_0.meta = copy.copy(arg_view_in_node.meta)
                 # reset output_strides in case it can be propagated later
                 as_strided_0.meta["output_strides"] = None
 
             # connect as_stride_0 node to original node_to_change's user
-            list(node_to_change.users.keys())[0].replace_input_with(node_to_change, as_strided_0)
+            list(node_to_change.users.keys())[0].replace_input_with(
+                node_to_change, as_strided_0
+            )
 
             graph_changed = True
 
@@ -1152,6 +1201,7 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
     if graph_changed:
         pass_fake_propagation(ctx)
     return graph_changed
+
 
 def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
     """
@@ -1221,7 +1271,10 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
             # Move non-red (HPU path) edges to the new node.
             nodes_to_change = []
             for dst in node.users:
-                if dst.meta["pass_meta_color"] != "red" and dst.meta["placement"] == "hpu_cluster":
+                if (
+                    dst.meta["pass_meta_color"] != "red"
+                    and dst.meta["placement"] == "hpu_cluster"
+                ):
                     nodes_to_change.append(dst)
             for dst in nodes_to_change:
                 dst.replace_input_with(node, new_node)
@@ -1247,6 +1300,50 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
 
     return graph_changed
 
+
+def wrap_random_ops(input_module: torch.fx.GraphModule):
+    """
+    This pass goes through habana cluster and:
+    - replaces random ops with habana wrappers,
+    - creates seed and counter tensor for habana_seed_generator,
+    - feeds habana wrappers with generated seed tensors.
+    """
+
+    random_count = 0
+    random_ops = []
+
+    for node in input_module.graph.nodes:
+        if is_random_op(node):
+            random_count += 1
+            random_ops.append(node)
+
+    if random_count == 0:
+        return
+
+    with input_module.graph.inserting_before():
+        counter_pl = input_module.graph.placeholder("counter_pl")
+        seed_pl = input_module.graph.placeholder("seed_pl")
+
+    with input_module.graph.inserting_after(counter_pl):
+        seeds = input_module.graph.call_function(
+            torch.ops.hpu.habana_seed_generator, (counter_pl, seed_pl, random_count), {}
+        )
+        add_inplace = input_module.graph.call_function(
+            torch.ops.aten.add_, (counter_pl, random_count), {}
+        )
+
+    for i, node in enumerate(random_ops):
+        with input_module.graph.inserting_before(node):
+            seed = input_module.graph.call_function(torch.select, (seeds, 0, i), {})
+            random_node = input_module.graph.call_function(
+                *random_op_inputs(node, seed)
+            )
+            node.replace_all_uses_with(random_node, propagate_meta=True)
+            input_module.graph.erase_node(node)
+
+    input_module.recompile()
+
+
 def pass_compile_clusters(ctx: OptimizerContext):
     """
     This pass goes through each node in the main module. For each generated HPU cluster
@@ -1265,6 +1362,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
         from torch._functorch.compilers import _disable_jit_autocast
 
         module = copy.deepcopy(input_module)
+        wrap_random_ops(module)
 
         with _disable_jit_autocast():
             strip_overloads(module)

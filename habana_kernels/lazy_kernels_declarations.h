@@ -312,13 +312,6 @@ at::Tensor& randperm_hpu_lazy(
     c10::optional<at::Generator> gen,
     at::Tensor& output);
 #endif
-at::Tensor bernoulli_hpu_lazy(
-    const at::Tensor& self,
-    c10::optional<at::Generator> gen = c10::nullopt);
-at::Tensor& bernoulli_scalar_hpu_lazy(
-    at::Tensor& self,
-    double p,
-    c10::optional<at::Generator> gen = c10::nullopt);
 at::Tensor repeat_hpu(const at::Tensor& self, c10::SymIntArrayRef repeats);
 at::Tensor repeat_inlv_hpu_lazy(
     const at::Tensor& self,
