@@ -157,6 +157,7 @@ def helper_is_view_node(node):
         "transpose",
         "t",
         "permute",
+        "split",
     ]
 
     return node_target in view_ops
@@ -946,8 +947,13 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
         if node.meta["placement"] == "eager" or node.meta["pass_meta_color"] == "red":
             args = helper_get_node_args(node)
             for arg in args:
-                if arg.meta["placement"] == "hpu_cluster" and helper_is_view_node(arg):
-                    arg.meta["pass_meta_color"] = "red"
+                if arg.meta["placement"] == "hpu_cluster":
+                    node_target = arg.target.__name__.split(".")[0]
+                    if helper_is_view_node(arg):
+                        arg.meta["pass_meta_color"] = "red"
+                    # getitem is special-cased here since it may have view args and break the view ops chain
+                    elif node_target == "getitem" and helper_is_view_node(arg.args[0]):
+                        arg.meta["pass_meta_color"] = "red"
 
     # Find HPU view chains used by eager OPs that are also used by non-eager HPU ops ('blue' color - to be cloned).
     for node in reverse_nodes_list:
