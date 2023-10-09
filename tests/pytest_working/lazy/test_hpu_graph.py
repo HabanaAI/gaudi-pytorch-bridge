@@ -195,7 +195,7 @@ class Net(torch.nn.Module):
 
 @pytest.mark.parametrize("disable_tensor_cache", [True, False])
 @pytest.mark.parametrize("dry_run", [True, False])
-def test_cached_module_training(disable_tensor_cache, dry_run):
+def test_cached_module_training(disable_tensor_cache, dry_run, save_model=False):
     torch.manual_seed(12345)
     model = Net().to('hpu')
     state_dict = copy.deepcopy(model.state_dict())
@@ -228,9 +228,18 @@ def test_cached_module_training(disable_tensor_cache, dry_run):
             inp['x'].grad.zero_()
         return loss.cpu(), m.cpu()
 
+    if save_model:
+        torch.save(model, "model.pb")
+        model = torch.load("model.pb")
     loss_original, m_original = train_model()
     model.load_state_dict(state_dict)
+
     ht.hpu.ModuleCacher()(model=model, inplace=True, disable_tensor_cache=disable_tensor_cache)
+
+    if save_model:
+        torch.save(model, "model_cached.pb")
+        model = torch.load("model_cached.pb")
+
     loss_cached, m_cached = train_model()
     assert loss_original == loss_cached
     assert m_original == m_cached
@@ -743,6 +752,7 @@ if __name__ == "__main__":
     test_graph_training()
     test_tensor_packer()
     test_cached_module_training(disable_tensor_cache=False, dry_run=False)
+    test_cached_module_training(disable_tensor_cache=False, dry_run=False, save_model=True)
     test_cached_module_training(disable_tensor_cache=False, dry_run=True)
     test_cached_module_training(disable_tensor_cache=True, dry_run=False)
     test_cached_module_training(disable_tensor_cache=True, dry_run=True)

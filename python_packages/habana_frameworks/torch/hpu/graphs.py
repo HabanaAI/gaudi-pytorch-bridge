@@ -815,6 +815,36 @@ class GraphModel(torch.nn.Module):
         return input_hash(GraphModel.get_full_args(forward_params, *args, **kwargs))
 
 class ModuleCacher(torch.nn.Module):
+    def __getstate__(self):
+        return self.max_graphs, self.dry_run, self.disable_tensor_cache, self.log_frequency, self.verbose, self.have_grad_accumulation, \
+            self.asynchronous, self.allow_unused_input, self.use_lfu, self.hpugraph_tracing, self.forward_params, self.inplace, self.orig_model
+
+    def __setstate__(self, state):
+        self.__init__(state[0])
+        self.dry_run = state[1]
+        self.disable_tensor_cache = state[2]
+        self.log_frequency = state[3]
+        self.verbose = state[4]
+        self.have_grad_accumulation = state[5]
+        self.asynchronous = state[6]
+        self.allow_unused_input = state[7]
+        self.use_lfu = state[8]
+        self.hpugraph_tracing = state[9]
+        self.forward_params = state[10]
+        self.inplace = state[11]
+        self.orig_model = state[12]
+        model = copy.copy(self.orig_model)
+        if not self.inplace:
+            model = copy.copy(self.orig_model)
+        self.model = model
+        if self.use_lfu:
+            self.model.forward = self.forward_lfs
+        else:
+            self.model.forward = self.forward
+        self.model.set_iteration_count = self.set_iteration_count
+        self.model.capture_start = self.capture_start
+        self.model.capture_end = self.capture_end
+
     def __init__(self, max_graphs=10):
         super(ModuleCacher, self).__init__()
         self.max_graphs = max_graphs
@@ -833,6 +863,7 @@ class ModuleCacher(torch.nn.Module):
         self.set_iterations_call_cnt = 0
         self.disable_tensor_cache = False
         self.dry_run = False
+        self.inplace = True
 
     def set_iteration_count(self, iter_num):
         self.forward_cnt = iter_num
@@ -924,6 +955,7 @@ class ModuleCacher(torch.nn.Module):
     def __call__(self, model, use_lfu=False, inplace=True, allow_unused_input=False, asynchronous=False, have_grad_accumulation=False, log_frequency=100, verbose=False,
         disable_tensor_cache=False, dry_run=False):
         model.is_hpugraph_tracing = self.is_hpugraph_tracing
+        self.inplace = inplace
         if not inplace:
             model = copy.copy(model)
         self.orig_model = copy.copy(model)
