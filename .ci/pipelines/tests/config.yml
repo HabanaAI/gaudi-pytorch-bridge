@@ -83,8 +83,12 @@ testJobConfig:
       gaudi2:
         hwType:
           asic:
+            envVars:
+              IS_K8S_CONTAINER_TESTER: 'true'
           sim:
       gaudi:
         hwType:
           asic:
+            envVars:
+              IS_K8S_CONTAINER_TESTER: 'true'
           sim:
