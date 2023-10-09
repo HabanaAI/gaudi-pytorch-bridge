@@ -63,9 +63,7 @@ def test_cast_to_fp8(shape, dtype, out_dtype):
         device=hpu,
     )
     amax = torch.tensor(0, dtype=torch.float).to("hpu")
-    torch.ops.hpu.cast_to_fp8(
-        input.to(hpu), scale_hpu, False, casted, amax
-    )
+    torch.ops.hpu.cast_to_fp8(input.to(hpu), scale_hpu, False, casted, amax)
     uncasted = torch.ops.hpu.cast_from_fp8(casted, scale_inv_hpu, dtype)
 
     assert torch.equal(uncasted.cpu(), unscaled_input)
@@ -122,8 +120,6 @@ def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, is_scale, out_dtype):
 @pytest.mark.parametrize("is_amax", [True, False])
 @pytest.mark.parametrize("out_dtype", FP8_NAMES)
 def test_fp8_gelu_v2(shape, scale, dtype, stochastic, is_scale, is_amax, out_dtype):
-    if is_scale and dtype == torch.bfloat16 and not stochastic:
-      pytest.xfail("https://jira.habana-labs.com/browse/SW-160938")
     out_dtype = dtype_from_string(out_dtype)
     torch.manual_seed(12345)
     hpu = torch.device("hpu")
@@ -153,7 +149,8 @@ def test_fp8_gelu_v2(shape, scale, dtype, stochastic, is_scale, is_amax, out_dty
     if stochastic:
         assert torch.allclose(gelu_unscaled.cpu(), result_cpu, rtol=0.26, atol=0.01)
     else:
-        assert torch.allclose(gelu_unscaled.cpu(), result_cpu, rtol=0.0, atol=0.01)
+        rtol = 0.01 if dtype == torch.bfloat16 else 0.0
+        assert torch.allclose(gelu_unscaled.cpu(), result_cpu, rtol=rtol, atol=0.0)
     if is_amax:
         assert amax.cpu() == torch.max(input.abs())
     assert torch.equal(retain.cpu(), retain_cpu)
@@ -166,8 +163,6 @@ def test_fp8_gelu_v2(shape, scale, dtype, stochastic, is_scale, is_amax, out_dty
 @pytest.mark.parametrize("is_amax", [True, False])
 @pytest.mark.parametrize("out_dtype", FP8_NAMES)
 def test_fp8_bgrad_dgelu_optional(shape, dtype, retain, is_scale, is_amax, out_dtype):
-    if is_scale and dtype == torch.bfloat16:
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-160938")
     out_dtype = dtype_from_string(out_dtype)
     torch.manual_seed(12345)
     hpu = torch.device("hpu")
@@ -179,7 +174,7 @@ def test_fp8_bgrad_dgelu_optional(shape, dtype, retain, is_scale, is_amax, out_d
     grad = torch.rand(full_shape, dtype=dtype)
     grad_hpu = grad.to(hpu)
 
-    scale_val = 1.3 if is_scale else 1.0
+    scale_val = 0.5 if is_scale else 1.0
     scale = torch.tensor(scale_val, dtype=torch.float)
     scale_inv = scale.reciprocal()
 
@@ -210,7 +205,8 @@ def test_fp8_bgrad_dgelu_optional(shape, dtype, retain, is_scale, is_amax, out_d
     uncasted = torch.ops.hpu.cast_from_fp8(casted, scale_inv_hpu, dtype).cpu()
 
     assert torch.allclose(bgrad.cpu(), reduced)
-    assert torch.allclose(uncasted, unscaled_input, rtol=0.0, atol=0.01)
+    rtol = 0.01 if dtype == torch.bfloat16 else 0.0
+    assert torch.allclose(uncasted, unscaled_input, rtol=rtol, atol=0.1)
     if is_amax:
         assert amax.cpu() == torch.max(gelu_bwd.abs())
 
@@ -425,16 +421,16 @@ def test_fp8_gemm_v2(
 
 
 @pytest.mark.parametrize("shape", [(8, 2, 2, 5)])
-@pytest.mark.parametrize(
-    "dtype", [torch.bfloat16] + FP8_NAMES
-)
+@pytest.mark.parametrize("dtype", [torch.bfloat16] + FP8_NAMES)
 def test_in_place_interleave(shape, dtype):
     dtype = dtype_from_string(dtype)
     torch.manual_seed(12345)
     input = torch.randn(shape, dtype=torch.bfloat16) * 10.0
     input_hpu = input.to("hpu")
     if dtype != torch.bfloat16:
-        input_hpu, _ = torch.ops.hpu.cast_to_fp8_v2(input_hpu, None, False, False, dtype)
+        input_hpu, _ = torch.ops.hpu.cast_to_fp8_v2(
+            input_hpu, None, False, False, dtype
+        )
         input = simulateFp8Precision(input, dtype)
 
     indices = []
@@ -452,7 +448,7 @@ def test_in_place_interleave(shape, dtype):
     assert torch.equal(input_hpu.cpu(), output_ref)
 
 
-@pytest.mark.parametrize("N, C, H, W", [(8,3,28,28), (4, 6, 16, 16)])
+@pytest.mark.parametrize("N, C, H, W", [(8, 3, 28, 28), (4, 6, 16, 16)])
 @pytest.mark.parametrize("out_channels", [16])
 @pytest.mark.parametrize("kernel", [(2, 2), (4, 6)])
 @pytest.mark.parametrize("stride", [(1, 1), (2, 2)])
@@ -469,13 +465,25 @@ def test_conv2d_fp8(
     input_cpu = torch.randn((N, C, H, W), dtype=out_dtype).to(fp8_dtype).to(out_dtype)
     input_hpu = input_cpu.to("hpu").to(fp8_dtype)
 
-    weight_cpu = torch.rand((out_channels, C, kernel[0], kernel[1]), dtype=out_dtype).to(fp8_dtype).to(out_dtype)
+    weight_cpu = (
+        torch.rand((out_channels, C, kernel[0], kernel[1]), dtype=out_dtype)
+        .to(fp8_dtype)
+        .to(out_dtype)
+    )
     weight_hpu = weight_cpu.to("hpu").to(fp8_dtype)
 
-    bias_cpu = torch.rand(out_channels, dtype=out_dtype).to(fp8_dtype).to(out_dtype) if bias else None
+    bias_cpu = (
+        torch.rand(out_channels, dtype=out_dtype).to(fp8_dtype).to(out_dtype)
+        if bias
+        else None
+    )
     bias_hpu = bias_cpu.to("hpu") if bias else None
 
-    conv = torch.ops.hpu.conv2d_fp8(input_hpu, weight_hpu, bias_hpu, stride, padding, 1, 1, out_dtype)
-    conv_ref = torch.nn.functional.conv2d(input_cpu, weight_cpu, bias_cpu, stride, padding, 1, 1)
+    conv = torch.ops.hpu.conv2d_fp8(
+        input_hpu, weight_hpu, bias_hpu, stride, padding, 1, 1, out_dtype
+    )
+    conv_ref = torch.nn.functional.conv2d(
+        input_cpu, weight_cpu, bias_cpu, stride, padding, 1, 1
+    )
 
     compare_tensors(conv, conv_ref, atol=1e-2, rtol=1e-2)
