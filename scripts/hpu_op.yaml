@@ -4595,9 +4595,9 @@ mul_.Scalar:
 mul.out:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Gaudi: [BFloat16, Byte, Char, Float, Int, Short, Long]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Long]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Long]
   guid: mult_fwd
   promote_to_common_type: [self, other]
 

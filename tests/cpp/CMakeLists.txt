@@ -162,6 +162,7 @@ set(hpu_ops_tests_src
   hpu_ops/mish.cpp
   hpu_ops/mm.cpp
   hpu_ops/mse_loss.cpp
+  hpu_ops/mul.cpp
   hpu_ops/nan_to_num.cpp
   hpu_ops/nansum.cpp
   hpu_ops/ne.cpp
