@@ -22,11 +22,15 @@ namespace habana {
 
 sizes_vec StdVarComputeOutShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
-  auto dims =
-      stack.at(1).isNone() ? std::vector<int64_t>{} : stack.at(1).toIntVector();
+  std::vector<int64_t> dims;
+  bool keepdim = false;
+  if (!stack.at(1).isBool()) {
+    dims = stack.at(1).isNone() ? std::vector<int64_t>{}
+                                : stack.at(1).toIntVector();
+    keepdim = stack.at(3).toBool();
+  }
   int ndims = self.sizes().vec().size();
   LoweringUtil::SortAndRemoveDuplicateDims(dims, ndims);
-  const bool keepdim = stack.at(3).toBool();
   return ReductionOutputShape(self, dims, keepdim);
 }
 
@@ -244,10 +248,19 @@ void Var::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 void VarMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto dim =
-      stack.at(1).isNone() ? std::vector<int64_t>{} : stack.at(1).toIntVector();
-  const int correction = stack.at(2).isNone() ? 0 : stack.at(2).toInt();
-  const bool keepdim = stack.at(3).toBool();
+
+  std::vector<int64_t> dim;
+  int correction = 0;
+  bool keepdim = false;
+  if (stack.at(1).isBool()) {
+    // this argument is for 'unbiased', convert its value for 'correction'
+    correction = static_cast<int>(stack.at(1).toBool());
+  } else {
+    dim = stack.at(1).isNone() ? std::vector<int64_t>{}
+                               : stack.at(1).toIntVector();
+    correction = stack.at(2).isNone() ? 0 : stack.at(2).toInt();
+    keepdim = stack.at(3).toBool();
+  }
 
   auto out_shape = ReductionOutputShape(self, dim, keepdim)[0];
   auto mean_shape = ReductionOutputShape(self, dim, true)[0];

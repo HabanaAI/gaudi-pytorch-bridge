@@ -7647,6 +7647,12 @@ var.correction_out:
   dtypes: [BFloat16, Float]
   op_backend: Var
 
+var_mean:
+  custom_output_shape: StdVarMeanComputeOutShape
+  dtypes: [BFloat16, Float]
+  op_backend: VarMean
+  out_ids: [0, 0]
+
 var_mean.correction:
   custom_output_shape: StdVarMeanComputeOutShape
   dtypes: [BFloat16, Float]

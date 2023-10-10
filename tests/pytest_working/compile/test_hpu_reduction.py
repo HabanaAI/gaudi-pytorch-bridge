@@ -15,24 +15,29 @@ import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.core as htcore
 from test_utils import is_torch_at_least
 
-@pytest.mark.parametrize("op_code", [torch.any, torch.mean, torch.prod])
+@pytest.mark.parametrize("op_code", [torch.any, torch.mean, torch.prod, torch.var_mean])
 def test_reduction(op_code):
-        def fn(input):
-            return op_code(input)
+    def fn(input):
+        return op_code(input)
 
-        # CPU
-        x = torch.randn([12, 10, 8, 6])
-        hx = x.to('hpu')
+    # CPU
+    x = torch.randn([12, 10, 8, 6])
+    hx = x.to('hpu')
 
-        result = fn(x)
+    result = fn(x)
 
-        # HPU
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    # HPU
+    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
-        hresult = compiled_fn(hx)
+    hresult = compiled_fn(hx)
+
+    if isinstance(result, tuple):
+        for (a, b) in zip(result, hresult):
+            assert torch.allclose(a, b.cpu(), atol = 0.001, rtol = 0.001)
+    else:
         assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)
 
-@pytest.mark.parametrize("op_code", [torch.any, torch.mean, torch.prod])
+@pytest.mark.parametrize("op_code", [torch.any, torch.mean, torch.prod, torch.var_mean])
 @pytest.mark.parametrize("dim", [0, 1, 2, 3, -1])
 @pytest.mark.parametrize("keepdim", [True, False])
 def test_reduction_dim(op_code, dim, keepdim):
@@ -50,4 +55,9 @@ def test_reduction_dim(op_code, dim, keepdim):
     compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
     hresult = compiled_fn(hx, dim, keepdim)
-    assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)
+
+    if isinstance(result, tuple):
+        for (a, b) in zip(result, hresult):
+            assert torch.allclose(a, b.cpu(), atol = 0.001, rtol = 0.001)
+    else:
+        assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)
