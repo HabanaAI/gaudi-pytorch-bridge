@@ -389,11 +389,9 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
               section_size,
               " , size (bridge) :: ",
               tensor.get_host_ptr_size());
-          void* host_ptr{nullptr};
           if (section_size) {
             auto old_size = tensor.get_host_ptr_size();
             auto device_id = tensor.device_id();
-            status = synHostMalloc(device_id, section_size, 0, &host_ptr);
             HABANA_ASSERT(
                 status == synStatus::synSuccess,
                 Logger::synStatusToStr(status));
@@ -402,18 +400,19 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                 tensorSectionId,
                 SECTION_DATA,
                 &section_data);
+            char* section_data_ptr = (char*)section_data;
             HABANA_ASSERT(
                 status == synStatus::synSuccess,
                 Logger::synStatusToStr(status));
-            std::copy(
-                reinterpret_cast<uint8_t*>(section_data),
-                reinterpret_cast<uint8_t*>(section_data) + section_size,
-                (uint8_t*)host_ptr);
-            auto checksum = GetDataChecksum((void*)(host_ptr), section_size);
+            auto checksum = GetDataChecksum(section_data_ptr, section_size);
             HABANA_ASSERT(
                 tmeta->has_valid_const_id(),
                 "Constant tensor can not have constant id as -1");
             auto& device = HPURegistrar::get_device(device_id);
+            status = synHostMap(device_id, section_size, section_data_ptr);
+            HABANA_ASSERT(
+                status == synStatus::synSuccess,
+                Logger::synStatusToStr(status));
             auto const_id = tmeta->get_const_id();
             if (m_const_checksum_map.find(const_id) ==
                 m_const_checksum_map.end()) {
@@ -433,7 +432,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
               }
               std::atomic<bool> copyDone{false};
               device.copy_data_to_device(
-                  host_ptr,
+                  section_data_ptr,
                   reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
                   reinterpret_cast<synapse_helpers::device_ptr>(
                       src.storage().data_ptr().get()),
@@ -459,11 +458,8 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                   "Constant tensor only exists on the device, avoiding re-copy to device");
             }
             constSectionIds.push_back(tensorSectionId);
-            status = synHostFree(device_id, host_ptr, 0);
-            HABANA_ASSERT(
-                status == synStatus::synSuccess,
-                Logger::synStatusToStr(status));
-            status = synHostUnmap(device_id, (void*)(section_data));
+            status = synHostUnmap(device_id, section_data_ptr);
+            delete[] section_data_ptr;
             HABANA_ASSERT(
                 status == synStatus::synSuccess,
                 Logger::synStatusToStr(status));
