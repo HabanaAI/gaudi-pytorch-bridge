@@ -23,6 +23,7 @@ import warnings
 from abc import ABC, abstractmethod
 from typing import Union, Optional, Callable, Tuple, Dict, List, Any, Mapping
 from functools import partial
+from contextlib import contextmanager
 
 import torch
 from torch.nn.parameter import Parameter
@@ -48,8 +49,6 @@ from .fp8 import (
     get_manual_measurement_mode,
     get_global_fp8_buffer,
     set_global_fp8_buffer,
-    get_global_fp8_recompute_buffer,
-    set_global_fp8_recompute_buffer,
     set_amax_buffer_key_deletion,
     delete_key_from_amax_buffer,
     copy_forward_fp8_meta_tensors_for_recompute,
@@ -79,6 +78,44 @@ from .cpp_extensions import (
 )
 from .constants import GemmParallelModes, dist_group_type, TE_DType
 
+@contextmanager
+def _prepare_backward(fp8: bool,
+                      fp8_meta: Dict[str, Any],
+                      amax_measure_state: dict,
+                      is_scale_update_required: bool,
+                      reduce_amax_across_tp_group: bool,
+                      tp_group: Union[dist_group_type, None]):
+    """Checks and prep for BWD."""
+    if fp8:
+        if fp8_meta["update_amax_bwd"].get("enabled", False):
+            # Update amax and scale; Skip all setup for global amax reduction
+            if not fp8_meta["recipe"].reduce_amax:
+                amax_and_scale_update(fp8_meta, False, is_scale_update_required)
+            else:
+                # From previous iteration
+                copy_amax_from_global_buffer(fp8_meta, forward=False)
+                amax_and_scale_update(fp8_meta, False, is_scale_update_required)
+                set_amax_buffer_key_deletion(fp8_meta, forward=False)
+
+                # Get new backward key.
+                fp8_meta["autocast_id_bwd"] = fp8_meta["autocast_id_fwd_stack"].pop(0)
+
+                add_amax_to_global_buffer(fp8_meta, forward=False)
+
+        fp8_meta["update_amax_bwd"] = amax_measure_state
+
+    yield
+
+    """Checks and prep for BWD."""
+    if not fp8 or not fp8_meta["recipe"].reduce_amax:
+        return
+
+    if fp8_meta["first_module"]:
+        global_amax_reduction(
+            fp8_meta, reduce_amax_across_tp_group, tp_group, forward=False
+        )
+        delete_key_from_amax_buffer(forward=False)
+
 class TransformerEngineBaseModule(torch.nn.Module, ABC):
     """Base TE module."""
 
@@ -95,6 +132,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         self.sequence_parallel = False
         self.fp8_weight_shapes = []
         self.run_cnt = 0
+        self.fp8_meta["autocast_id_fwd_stack"] = []
 
     def set_meta_tensor(self, fwd: bool) -> None:
         """Init scales and amaxes for fwd | bwd."""
@@ -137,7 +175,6 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             state["scale_bwd"] = self.fp8_meta["scaling_bwd"].scale
             state["amax_history_bwd"] = self.fp8_meta["scaling_bwd"].amax_history
             state["global_fp8_buffer"] = get_global_fp8_buffer()
-            state["global_fp8_recompute_buffer"] = get_global_fp8_recompute_buffer()
 
             # Store other pickelable values.
             extra = {}
@@ -190,11 +227,11 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
 
         # Restore global FP8 buffer states.
         set_global_fp8_buffer(state["global_fp8_buffer"])
-        set_global_fp8_recompute_buffer(state["global_fp8_recompute_buffer"])
-
         # Load extra items.
         self.fp8_meta.update(state["extra_fp8_variables"])
         self.fp8_meta["recipe"].amax_history_len = state["amax_history_fwd"].shape[0]
+        if "global_fp8_buffer_pos_fwd_recompute" in self.fp8_meta:
+            del self.fp8_meta["global_fp8_buffer_pos_fwd_recompute"]
 
         # Initialize before loading.
         self.init_fp8_meta_tensors()
@@ -342,61 +379,64 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             return (self.fp8_meta["recipe"].interval == 1 or
             (self.run_cnt + self.fp8_meta["recipe"].interval - 2) % self.fp8_meta["recipe"].interval == 0)
 
-    def pre_forward(self, inp: torch.Tensor, num_gemms: int = 1) -> (None, bool):
-        """Checks and prep for FWD."""
-        self.run_cnt += 1
+    @contextmanager
+    def prepare_forward(self, inp: torch.Tensor, num_gemms: int = 1)  -> (None, bool):
+        """Checks and prep for FWD.
+        The context manager is needed because there isn't a way for a module to know
+        if it's the last FP8 module in the forward autocast. It is useful
+        to setup the forward aggregated amax reduction for every module
+        just in case. The autocast exit will pick up the most recent one.
+        """
+        self.run_cnt+=1
 
         # Activation recomputation is used and this is the second forward phase.
         if self.fp8 and in_fp8_activation_recompute_phase():
             get_old_fp8_meta_tensors_for_recompute(self.fp8_meta)
-            return inp.contiguous(), False
-
-        if self.tp_size > 1:
-            assert self.tp_group_initialized, "TP group not initialized."
-
-        self.set_activation_dtype(inp)
-        self.fp8_init(num_gemms=num_gemms)
-
-        is_scale_update_required = self.is_scale_update_required()
-        # Previous iteration was grad_enabled
-        if self.fp8_meta["update_amax_fwd"].get("enabled", False):
-            if self.fp8_meta["recipe"].reduce_amax:
-                copy_amax_from_global_buffer(self.fp8_meta, forward=True)
-                amax_and_scale_update(self.fp8_meta, True, is_scale_update_required)
-                set_amax_buffer_key_deletion(self.fp8_meta, forward=True)
-            else:
-                amax_and_scale_update(self.fp8_meta, True, is_scale_update_required)
-
-        if self.fp8 and self.training:
-            # Setup for amax reduction
-            if self.fp8_meta["recipe"].reduce_amax:
-                self.fp8_meta["first_module"] = is_first_fp8_module()
-                if self.fp8_meta["first_module"]:
-                    self.fp8_meta["autocast_id_fwd"] = new_fp8_context_id()
-                    set_fp8_context_id(self.fp8_meta["autocast_id_fwd"])
-                else:
-                    self.fp8_meta["autocast_id_fwd"] = get_fp8_context_id()
-                add_amax_to_global_buffer(self.fp8_meta, forward=True)
-            self.fp8_meta["update_amax_fwd"] = self.get_amax_measure_state()
+            is_scale_update_required = False
         else:
-            self.fp8_meta["update_amax_fwd"] = False
+            if self.tp_size > 1:
+                assert self.tp_group_initialized, "TP group not initialized."
 
-        # Activation recomputation is used and this is the first forward phase.
-        if (
-            self.fp8
-            and is_fp8_activation_recompute_enabled()
-            and not in_fp8_activation_recompute_phase()
-        ):
-            copy_forward_fp8_meta_tensors_for_recompute(self.fp8_meta)
+            self.set_activation_dtype(inp)
+            self.fp8_init(num_gemms=num_gemms)
 
-        return inp.contiguous(), is_scale_update_required
+            is_scale_update_required = self.is_scale_update_required()
+            # Previous iteration was grad_enabled
+            if self.fp8_meta["update_amax_fwd"].get("enabled", False):
+                if self.fp8_meta["recipe"].reduce_amax:
+                    copy_amax_from_global_buffer(self.fp8_meta, forward=True)
+                    amax_and_scale_update(self.fp8_meta, True, is_scale_update_required)
+                    set_amax_buffer_key_deletion(self.fp8_meta, forward=True)
+                else:
+                    amax_and_scale_update(self.fp8_meta, True, is_scale_update_required)
 
-    def post_forward(self) -> None:
-        """This is needed because there isn't a way for a module to know
-        if it's the last FP8 module in the forward autocast. It is useful
-        to setup the forward aggregated amax reduction for every module
-        just in case. The autocast exit will pick up the most recent.
-        """
+            if self.fp8 and self.training:
+                # Setup for amax reduction
+                if self.fp8_meta["recipe"].reduce_amax:
+                    self.fp8_meta["first_module"] = is_first_fp8_module()
+                    if self.fp8_meta["first_module"]:
+                        self.fp8_meta["autocast_id_fwd"] = new_fp8_context_id()
+                        set_fp8_context_id(self.fp8_meta["autocast_id_fwd"])
+                    else:
+                        self.fp8_meta["autocast_id_fwd"] = get_fp8_context_id()
+                    self.fp8_meta["autocast_id_fwd_stack"].append(
+                        self.fp8_meta["autocast_id_fwd"]
+                    )
+                    add_amax_to_global_buffer(self.fp8_meta, forward=True)
+                self.fp8_meta["update_amax_fwd"] = self.get_amax_measure_state()
+            else:
+                self.fp8_meta["update_amax_fwd"] = False
+
+            # Activation recomputation is used and this is the first forward phase.
+            if (
+                self.fp8
+                and self.training
+                and is_fp8_activation_recompute_enabled()
+                and not in_fp8_activation_recompute_phase()
+            ):
+                copy_forward_fp8_meta_tensors_for_recompute(self.fp8_meta)
+
+        yield inp.contiguous(), is_scale_update_required
 
         if self.fp8 and in_fp8_activation_recompute_phase():
             restore_fp8_meta_tensors(self.fp8_meta)
@@ -412,49 +452,6 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                 forward=True,
             )
             setup_amax_forward_global_reduce_func(reduce_func)
-
-    @staticmethod
-    def pre_backward(fp8: bool, fp8_meta: Dict[str, Any], amax_measure_state: dict, is_scale_update_required: bool ) -> None:
-        """Checks and prep for BWD."""
-        if not fp8:
-            return
-
-        if fp8_meta["update_amax_bwd"].get("enabled", False):
-            # Update amax and scale; Skip all setup for global amax reduction
-            if not fp8_meta["recipe"].reduce_amax:
-                amax_and_scale_update(fp8_meta, False, is_scale_update_required)
-            else:
-                # From previous iteration
-                copy_amax_from_global_buffer(fp8_meta, forward=False)
-                amax_and_scale_update(fp8_meta, False, is_scale_update_required)
-                set_amax_buffer_key_deletion(fp8_meta, forward=False)
-
-                # Get new backward key.
-                if "autocast_id_bwd" not in fp8_meta:
-                    fp8_meta["autocast_id_bwd"] = fp8_meta["autocast_id_fwd"]
-                else:
-                    fp8_meta["autocast_id_bwd"] += 1
-
-                add_amax_to_global_buffer(fp8_meta, forward=False)
-
-        fp8_meta["update_amax_bwd"] = amax_measure_state
-
-    @staticmethod
-    def post_backward(
-        fp8: bool,
-        fp8_meta: Dict[str, Any],
-        reduce_amax_across_tp_group: bool,
-        tp_group: Union[dist_group_type, None],
-    ) -> None:
-        """Checks and prep for BWD."""
-        if not fp8 or not fp8_meta["recipe"].reduce_amax:
-            return
-
-        if fp8_meta["first_module"]:
-            global_amax_reduction(
-                fp8_meta, reduce_amax_across_tp_group, tp_group, forward=False
-            )
-            delete_key_from_amax_buffer(forward=False)
 
     def set_nccl_overlap_warning_if_tp(self) -> None:
         """When using TP, the NCCL communication needs to be scheduled
@@ -694,108 +691,110 @@ class _Linear(torch.autograd.Function):
     def backward(
         ctx, grad_output: torch.Tensor
     ) -> Tuple[Union[torch.Tensor, None], ...]:
-        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta, ctx.amax_measure_state, ctx.is_scale_update_required)
-
-        (
-            inputmat,
-            inputmap_fp8,
-            weight_fp8,
-            weight,
-            fwd_scale_inverses,
-            fwd_scales,
-        ) = ctx.saved_tensors
-
-        (
-            grad_output,
-            grad_output_c,
-            grad_bias,
-        ) = TransformerEngineBaseModule.grad_output_preprocess(
-            ctx, grad_output, ctx.parallel_mode == "row", ctx.amax_measure_state
-        )
-
-        # Column Parallel Linear
-        # Overlap input AG with dgrad
-        if ctx.parallel_mode == "column" and ctx.sequence_parallel:
-            if ctx.fp8 and not ctx.fp8_meta["recipe"].override_linear_precision.wgrad:
-                inputmat_fp8_total, handle = gather_along_last_dim(
-                    inputmap_fp8, ctx.tp_group, async_op=True
-                )
-            else:
-                inputmat_total, handle = gather_along_first_dim(
-                    inputmat, ctx.tp_group, async_op=True
-                )
-        else:
-            inputmat_fp8_total = inputmap_fp8
-            inputmat_total = inputmat
-
-        assert ctx.fp8
-        fp8_dtype_forward = get_fp8_te_dtype(
-            ctx.fp8_meta["recipe"], fprop_tensor=True
-        )
-        fp8_dtype_backward = get_fp8_te_dtype(
-            ctx.fp8_meta["recipe"], fprop_tensor=False
-        )
-
-        if weight_fp8 is None:
-            # If weight_fp8 was not remembered from fwd pass, recompute it
-            weight_fp8, _ = torch.ops.hpu.cast_to_fp8_v2(
+        with _prepare_backward(
+            ctx.fp8,
+            ctx.fp8_meta,
+            ctx.amax_measure_state,
+            ctx.is_scale_update_required,
+            ctx.sequence_parallel,
+            ctx.tp_group
+        ):
+            (
+                inputmat,
+                inputmap_fp8,
+                weight_fp8,
                 weight,
-                fwd_scales[tex.FP8FwdTensors.GEMM1_WEIGHT],
-                stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=True),
-                is_amax=False
+                fwd_scale_inverses,
+                fwd_scales,
+            ) = ctx.saved_tensors
+
+            (
+                grad_output,
+                grad_output_c,
+                grad_bias,
+            ) = TransformerEngineBaseModule.grad_output_preprocess(
+                ctx, grad_output, ctx.parallel_mode == "row", ctx.amax_measure_state
             )
 
-        # DGRAD
-        dgrad = fp8_gemm(
-            weight_fp8,
-            fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
-            fp8_dtype_forward,
-            grad_output_c,
-            ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
-            fp8_dtype_backward,
-            ctx.activation_dtype,
-            transa=False,
-        )
+            # Column Parallel Linear
+            # Overlap input AG with dgrad
+            if ctx.parallel_mode == "column" and ctx.sequence_parallel:
+                if ctx.fp8 and not ctx.fp8_meta["recipe"].override_linear_precision.wgrad:
+                    inputmat_fp8_total, handle = gather_along_last_dim(
+                        inputmap_fp8, ctx.tp_group, async_op=True
+                    )
+                else:
+                    inputmat_total, handle = gather_along_first_dim(
+                        inputmat, ctx.tp_group, async_op=True
+                    )
+            else:
+                inputmat_fp8_total = inputmap_fp8
+                inputmat_total = inputmat
 
-        # Overlap dgrad-RS/AR with wgrad
-        if ctx.parallel_mode == "column" and ctx.sequence_parallel:
-            handle.wait()
-            dgrad, handle = reduce_scatter_along_first_dim(
-                dgrad, ctx.tp_group, async_op=True
+            assert ctx.fp8
+            fp8_dtype_forward = get_fp8_te_dtype(
+                ctx.fp8_meta["recipe"], fprop_tensor=True
             )
-        elif ctx.parallel_mode == "column" and ctx.tensor_parallel:
-            dgrad, handle = allreduce(dgrad, ctx.tp_group, async_op=True)
+            fp8_dtype_backward = get_fp8_te_dtype(
+                ctx.fp8_meta["recipe"], fprop_tensor=False
+            )
 
-        if weight.requires_grad:
-            # WGRAD
-            assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
-            wgrad = fp8_gemm(
-                inputmat_fp8_total,
-                fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+            if weight_fp8 is None:
+                # If weight_fp8 was not remembered from fwd pass, recompute it
+                weight_fp8, _ = torch.ops.hpu.cast_to_fp8_v2(
+                    weight,
+                    fwd_scales[tex.FP8FwdTensors.GEMM1_WEIGHT],
+                    stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=True),
+                    is_amax=False
+                )
+
+            # DGRAD
+            dgrad = fp8_gemm(
+                weight_fp8,
+                fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
                 fp8_dtype_forward,
                 grad_output_c,
-                ctx.fp8_meta["scaling_bwd"].scale_inv[
-                    tex.FP8BwdTensors.GRAD_OUTPUT1
-                ],
+                ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
                 fp8_dtype_backward,
                 ctx.activation_dtype,
-                accumulate=False,
-                fp32_output=False,
-                out=None,
                 transa=False,
-                transb=True
             )
 
-        # Column Parallel Linear
-        if ctx.parallel_mode == "column" and ctx.tensor_parallel and handle is not None:
-            handle.wait()
+            # Overlap dgrad-RS/AR with wgrad
+            if ctx.parallel_mode == "column" and ctx.sequence_parallel:
+                handle.wait()
+                dgrad, handle = reduce_scatter_along_first_dim(
+                    dgrad, ctx.tp_group, async_op=True
+                )
+            elif ctx.parallel_mode == "column" and ctx.tensor_parallel:
+                dgrad, handle = allreduce(dgrad, ctx.tp_group, async_op=True)
 
-        if not ctx.use_bias:
-            grad_bias = None
+            if weight.requires_grad:
+                # WGRAD
+                assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
+                wgrad = fp8_gemm(
+                    inputmat_fp8_total,
+                    fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                    fp8_dtype_forward,
+                    grad_output_c,
+                    ctx.fp8_meta["scaling_bwd"].scale_inv[
+                        tex.FP8BwdTensors.GRAD_OUTPUT1
+                    ],
+                    fp8_dtype_backward,
+                    ctx.activation_dtype,
+                    accumulate=False,
+                    fp32_output=False,
+                    out=None,
+                    transa=False,
+                    transb=True
+                )
 
-        TransformerEngineBaseModule.post_backward(
-            ctx.fp8, ctx.fp8_meta, ctx.sequence_parallel, ctx.tp_group
-        )
+            # Column Parallel Linear
+            if ctx.parallel_mode == "column" and ctx.tensor_parallel and handle is not None:
+                handle.wait()
+
+            if not ctx.use_bias:
+                grad_bias = None
 
         return (
             wgrad if weight.requires_grad else None,
@@ -1014,28 +1013,25 @@ class Linear(TransformerEngineBaseModule):
                 bias_tensor,
             )
 
-        inp, is_scale_update_required = self.pre_forward(inp)
-
-        out = _Linear.apply(
-            weight_tensor,
-            self.weight1_fp8 if is_first_microbatch is not None else None,
-            inp,
-            bias_tensor,
-            self.use_bias,
-            is_first_microbatch,
-            self.fp8,
-            self.fp8_meta,
-            self.tp_group,
-            self.sequence_parallel,
-            self.tp_size > 1,
-            self.activation_dtype,
-            self.parallel_mode,
-            self.minimize_memory,
-            self.get_amax_measure_state(),
-            is_scale_update_required,
-        )
-
-        self.post_forward()
+        with self.prepare_forward(inp) as (inp, is_scale_update_required):
+            out = _Linear.apply(
+                weight_tensor,
+                self.weight1_fp8 if is_first_microbatch is not None else None,
+                inp,
+                bias_tensor,
+                self.use_bias,
+                is_first_microbatch,
+                self.fp8,
+                self.fp8_meta,
+                self.tp_group,
+                self.sequence_parallel,
+                self.tp_size > 1,
+                self.activation_dtype,
+                self.parallel_mode,
+                self.minimize_memory,
+                self.get_amax_measure_state(),
+                is_scale_update_required,
+            )
 
         if self.gemm_bias_unfused_add:
             out = out + cast_if_needed(bias_tensor, self.activation_dtype)
@@ -1261,84 +1257,86 @@ class _MatMul(torch.autograd.Function):
     def backward(
         ctx, grad_output: torch.Tensor
     ) -> Tuple[Union[torch.Tensor, None], ...]:
-        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta, ctx.amax_measure_state, ctx.is_scale_update_required)
+        with _prepare_backward(
+            ctx.fp8,
+            ctx.fp8_meta,
+            ctx.amax_measure_state,
+            ctx.is_scale_update_required,
+            ctx.sequence_parallel,
+            ctx.tp_group
+        ):
+            (
+                inputmat,
+                weight,
+                weight_fp8,
+                fwd_scale_inverses,
+            ) = ctx.saved_tensors
 
-        (
-            inputmat,
-            weight,
-            weight_fp8,
-            fwd_scale_inverses,
-        ) = ctx.saved_tensors
+            inputmat_total = inputmat
 
-        inputmat_total = inputmat
-
-        assert ctx.fp8
-        fp8_dtype_forward = get_fp8_te_dtype(
-            ctx.fp8_meta["recipe"], fprop_tensor=True
-        )
-        fp8_dtype_backward = get_fp8_te_dtype(
-            ctx.fp8_meta["recipe"], fprop_tensor=False
-        )
-
-        grad_output_c = cast_to_fp8(
-            grad_output,
-            ctx.fp8_meta["scaling_bwd"],
-            tex.FP8BwdTensors.GRAD_OUTPUT1,
-            fp8_dtype_backward,
-            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
-            measure_amax=ctx.amax_measure_state["enabled"]
-        )
-
-        # DGRAD
-        dgrad = fp8_gemm(
-            weight_fp8,
-            fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
-            fp8_dtype_forward,
-            grad_output_c,
-            ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
-            fp8_dtype_backward,
-            ctx.activation_dtype,
-            transa = not ctx.transpose_weight,
-            transb = False,
-        )
-        if ctx.transpose_inp:
-            dgrad = dgrad.transpose(-1, -2)
-
-        # Overlap dgrad-RS/AR with wgrad
-        if ctx.parallel_mode == "column" and ctx.sequence_parallel:
-            handle.wait()
-            dgrad, handle = reduce_scatter_along_first_dim(
-                dgrad, ctx.tp_group, async_op=True
+            assert ctx.fp8
+            fp8_dtype_forward = get_fp8_te_dtype(
+                ctx.fp8_meta["recipe"], fprop_tensor=True
             )
-        elif ctx.parallel_mode == "column" and ctx.tensor_parallel:
-            dgrad, handle = allreduce(dgrad, ctx.tp_group, async_op=True)
+            fp8_dtype_backward = get_fp8_te_dtype(
+                ctx.fp8_meta["recipe"], fprop_tensor=False
+            )
 
-        if weight.requires_grad:
-            # WGRAD
-            assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
-            wgrad = fp8_gemm(
-                grad_output_c,
-                ctx.fp8_meta["scaling_bwd"].scale_inv[
-                    tex.FP8BwdTensors.GRAD_OUTPUT1
-                ],
+            grad_output_c = cast_to_fp8(
+                grad_output,
+                ctx.fp8_meta["scaling_bwd"],
+                tex.FP8BwdTensors.GRAD_OUTPUT1,
                 fp8_dtype_backward,
-                inputmat_total,
-                fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
-                fp8_dtype_forward,
-                ctx.activation_dtype,
-                transa = False,
-                transb = not ctx.transpose_inp
+                stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
+                measure_amax=ctx.amax_measure_state["enabled"]
             )
-            if ctx.transpose_weight:
-                wgrad = wgrad.transpose(-1, -2)
 
-        # Column Parallel Linear
-        if ctx.parallel_mode == "column" and ctx.tensor_parallel and handle is not None:
-            handle.wait()
+            # DGRAD
+            dgrad = fp8_gemm(
+                weight_fp8,
+                fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
+                fp8_dtype_forward,
+                grad_output_c,
+                ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
+                fp8_dtype_backward,
+                ctx.activation_dtype,
+                transa = not ctx.transpose_weight,
+                transb = False,
+            )
+            if ctx.transpose_inp:
+                dgrad = dgrad.transpose(-1, -2)
 
-        TransformerEngineBaseModule.post_backward(
-            ctx.fp8, ctx.fp8_meta, ctx.sequence_parallel, ctx.tp_group
-        )
+            # Overlap dgrad-RS/AR with wgrad
+            if ctx.parallel_mode == "column" and ctx.sequence_parallel:
+                handle.wait()
+                dgrad, handle = reduce_scatter_along_first_dim(
+                    dgrad, ctx.tp_group, async_op=True
+                )
+            elif ctx.parallel_mode == "column" and ctx.tensor_parallel:
+                dgrad, handle = allreduce(dgrad, ctx.tp_group, async_op=True)
+
+            if weight.requires_grad:
+                # WGRAD
+                assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
+                wgrad = fp8_gemm(
+                    grad_output_c,
+                    ctx.fp8_meta["scaling_bwd"].scale_inv[
+                        tex.FP8BwdTensors.GRAD_OUTPUT1
+                    ],
+                    fp8_dtype_backward,
+                    inputmat_total,
+                    fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                    fp8_dtype_forward,
+                    ctx.activation_dtype,
+                    transa = False,
+                    transb = not ctx.transpose_inp
+                )
+                if ctx.transpose_weight:
+                    wgrad = wgrad.transpose(-1, -2)
+
+            # Column Parallel Linear
+            if ctx.parallel_mode == "column" and ctx.tensor_parallel and handle is not None:
+                handle.wait()
 
         return (
             wgrad if weight.requires_grad else None,
@@ -1426,25 +1424,22 @@ class MatMul(TransformerEngineBaseModule):
                 is initialized with `skip_weight_param_allocation=True`
         """
 
-        inp, is_scale_update_required = self.pre_forward(inp)
-
-        out = _MatMul.apply(
-            weight,
-            inp,
-            transb,
-            transa,
-            self.fp8,
-            self.fp8_meta,
-            self.tp_group,
-            self.sequence_parallel,
-            self.tp_size > 1,
-            self.activation_dtype,
-            self.parallel_mode,
-            self.get_amax_measure_state(),
-            is_scale_update_required,
-        )
-
-        self.post_forward()
+        with self.prepare_forward(inp) as (inp, is_scale_update_required):
+            out = _MatMul.apply(
+                weight,
+                inp,
+                transb,
+                transa,
+                self.fp8,
+                self.fp8_meta,
+                self.tp_group,
+                self.sequence_parallel,
+                self.tp_size > 1,
+                self.activation_dtype,
+                self.parallel_mode,
+                self.get_amax_measure_state(),
+                is_scale_update_required,
+            )
 
         return out
 
@@ -1715,207 +1710,209 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
         attention_scores_grad_output: torch.Tensor,
         value_grad_output: torch.Tensor
     ) -> Tuple[Union[torch.Tensor, None], ...]:
-        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta, ctx.amax_measure_state, ctx.is_scale_update_required)
+        with _prepare_backward(
+            ctx.fp8,
+            ctx.fp8_meta,
+            ctx.amax_measure_state,
+            ctx.is_scale_update_required,
+            ctx.sequence_parallel,
+            ctx.tp_group
+        ):
+            (
+                inputmat_fp8,
+                query_weight_fp8,
+                query_weight,
+                key_weight_fp8,
+                key_weight,
+                value_weight_fp8,
+                value_weight,
+                query_layer_fp8,
+                key_layer_fp8,
+                fwd_scale_inverses,
+            ) = ctx.saved_tensors
 
-        (
-            inputmat_fp8,
-            query_weight_fp8,
-            query_weight,
-            key_weight_fp8,
-            key_weight,
-            value_weight_fp8,
-            value_weight,
-            query_layer_fp8,
-            key_layer_fp8,
-            fwd_scale_inverses,
-        ) = ctx.saved_tensors
-
-        assert ctx.fp8
-        fp8_dtype_forward = get_fp8_te_dtype(
-            ctx.fp8_meta["recipe"], fprop_tensor=True
-        )
-        fp8_dtype_backward = get_fp8_te_dtype(
-            ctx.fp8_meta["recipe"], fprop_tensor=False
-        )
-
-        attention_scores_grad_output_c = cast_to_fp8(
-            attention_scores_grad_output,
-            ctx.fp8_meta["scaling_bwd"],
-            tex.FP8BwdTensors.GRAD_OUTPUT4,
-            fp8_dtype_backward,
-            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
-            measure_amax=ctx.amax_measure_state["enabled"]
-        )
-
-        # attention scores DGRAD
-        query_layer_grad = fp8_gemm(
-            key_layer_fp8,
-            fwd_scale_inverses[tex.FP8FwdTensors.GEMM4_WEIGHT],
-            fp8_dtype_forward,
-            attention_scores_grad_output_c,
-            ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT4],
-            fp8_dtype_backward,
-            ctx.activation_dtype,
-            transa = True,
-            transb = False
-        )
-
-        key_layer_grad = fp8_gemm(
-            attention_scores_grad_output_c,
-            ctx.fp8_meta["scaling_bwd"].scale_inv[
-                tex.FP8BwdTensors.GRAD_OUTPUT4
-            ],
-            fp8_dtype_backward,
-            query_layer_fp8,
-            fwd_scale_inverses[tex.FP8FwdTensors.GEMM4_INPUT],
-            fp8_dtype_forward,
-            ctx.activation_dtype,
-            transa = False,
-            transb = True,
-        )
-
-        query_grad_output = _SelfAttentionScoresAndValue._grad_transpose_for_scores(query_layer_grad)
-        key_grad_output = _SelfAttentionScoresAndValue._grad_transpose_key_for_scores(key_layer_grad)
-
-        ctx.use_bias = True
-        (
-            query_grad_output,
-            query_grad_output_c,
-            query_grad_bias,
-        ) = TransformerEngineBaseModule.grad_output_preprocess(
-            ctx, query_grad_output, row_parallel_mode=False, amax_measure_state=ctx.amax_measure_state,
-            grad_tensor=tex.FP8BwdTensors.GRAD_OUTPUT1
-        )
-
-        (
-            key_grad_output,
-            key_grad_output_c,
-            key_grad_bias,
-        ) = TransformerEngineBaseModule.grad_output_preprocess(
-            ctx, key_grad_output, row_parallel_mode=False, amax_measure_state=ctx.amax_measure_state,
-            grad_tensor=tex.FP8BwdTensors.GRAD_OUTPUT2
-        )
-
-        (
-            value_grad_output,
-            value_grad_output_c,
-            value_grad_bias,
-        ) = TransformerEngineBaseModule.grad_output_preprocess(
-            ctx, value_grad_output, row_parallel_mode=False, amax_measure_state=ctx.amax_measure_state,
-            grad_tensor=tex.FP8BwdTensors.GRAD_OUTPUT3
-        )
-
-        inputmat_fp8_total = inputmat_fp8
-
-        if ctx.is_first_microbatch is not None:
-            accumulate_wgrad_into_param_main_grad = (
-                ctx.fuse_wgrad_accumulation and not ctx.is_first_microbatch
+            assert ctx.fp8
+            fp8_dtype_forward = get_fp8_te_dtype(
+                ctx.fp8_meta["recipe"], fprop_tensor=True
             )
-        else:
-            accumulate_wgrad_into_param_main_grad = ctx.fuse_wgrad_accumulation
+            fp8_dtype_backward = get_fp8_te_dtype(
+                ctx.fp8_meta["recipe"], fprop_tensor=False
+            )
 
-        # query DGRAD
-        query_dgrad = fp8_gemm(
-            query_weight_fp8,
-            fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
-            fp8_dtype_forward,
-            query_grad_output_c,
-            ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
-            fp8_dtype_backward,
-            ctx.activation_dtype,
-            transa=False,
-            transb=False,
-        )
+            attention_scores_grad_output_c = cast_to_fp8(
+                attention_scores_grad_output,
+                ctx.fp8_meta["scaling_bwd"],
+                tex.FP8BwdTensors.GRAD_OUTPUT4,
+                fp8_dtype_backward,
+                stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
+                measure_amax=ctx.amax_measure_state["enabled"]
+            )
 
-        if query_weight.requires_grad:
-            # query WGRAD
-            assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
-            query_wgrad = fp8_gemm(
-                inputmat_fp8_total,
-                fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+            # attention scores DGRAD
+            query_layer_grad = fp8_gemm(
+                key_layer_fp8,
+                fwd_scale_inverses[tex.FP8FwdTensors.GEMM4_WEIGHT],
+                fp8_dtype_forward,
+                attention_scores_grad_output_c,
+                ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT4],
+                fp8_dtype_backward,
+                ctx.activation_dtype,
+                transa = True,
+                transb = False
+            )
+
+            key_layer_grad = fp8_gemm(
+                attention_scores_grad_output_c,
+                ctx.fp8_meta["scaling_bwd"].scale_inv[
+                    tex.FP8BwdTensors.GRAD_OUTPUT4
+                ],
+                fp8_dtype_backward,
+                query_layer_fp8,
+                fwd_scale_inverses[tex.FP8FwdTensors.GEMM4_INPUT],
+                fp8_dtype_forward,
+                ctx.activation_dtype,
+                transa = False,
+                transb = True,
+            )
+
+            query_grad_output = _SelfAttentionScoresAndValue._grad_transpose_for_scores(query_layer_grad)
+            key_grad_output = _SelfAttentionScoresAndValue._grad_transpose_key_for_scores(key_layer_grad)
+
+            ctx.use_bias = True
+            (
+                query_grad_output,
+                query_grad_output_c,
+                query_grad_bias,
+            ) = TransformerEngineBaseModule.grad_output_preprocess(
+                ctx, query_grad_output, row_parallel_mode=False, amax_measure_state=ctx.amax_measure_state,
+                grad_tensor=tex.FP8BwdTensors.GRAD_OUTPUT1
+            )
+
+            (
+                key_grad_output,
+                key_grad_output_c,
+                key_grad_bias,
+            ) = TransformerEngineBaseModule.grad_output_preprocess(
+                ctx, key_grad_output, row_parallel_mode=False, amax_measure_state=ctx.amax_measure_state,
+                grad_tensor=tex.FP8BwdTensors.GRAD_OUTPUT2
+            )
+
+            (
+                value_grad_output,
+                value_grad_output_c,
+                value_grad_bias,
+            ) = TransformerEngineBaseModule.grad_output_preprocess(
+                ctx, value_grad_output, row_parallel_mode=False, amax_measure_state=ctx.amax_measure_state,
+                grad_tensor=tex.FP8BwdTensors.GRAD_OUTPUT3
+            )
+
+            inputmat_fp8_total = inputmat_fp8
+
+            if ctx.is_first_microbatch is not None:
+                accumulate_wgrad_into_param_main_grad = (
+                    ctx.fuse_wgrad_accumulation and not ctx.is_first_microbatch
+                )
+            else:
+                accumulate_wgrad_into_param_main_grad = ctx.fuse_wgrad_accumulation
+
+            # query DGRAD
+            query_dgrad = fp8_gemm(
+                query_weight_fp8,
+                fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
                 fp8_dtype_forward,
                 query_grad_output_c,
-                ctx.fp8_meta["scaling_bwd"].scale_inv[
-                    tex.FP8BwdTensors.GRAD_OUTPUT1
-                ],
+                ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
                 fp8_dtype_backward,
                 ctx.activation_dtype,
-                accumulate=accumulate_wgrad_into_param_main_grad,
-                fp32_output=ctx.fuse_wgrad_accumulation,
-                out=query_weight.main_grad if ctx.fuse_wgrad_accumulation else None,
                 transa=False,
-                transb=True,
+                transb=False,
             )
 
-        # key DGRAD
-        key_dgrad = fp8_gemm(
-            key_weight_fp8,
-            fwd_scale_inverses[tex.FP8FwdTensors.GEMM2_WEIGHT],
-            fp8_dtype_forward,
-            key_grad_output_c,
-            ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT2],
-            fp8_dtype_backward,
-            ctx.activation_dtype,
-            transa=False,
-            transb=False,
-        )
+            if query_weight.requires_grad:
+                # query WGRAD
+                assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
+                query_wgrad = fp8_gemm(
+                    inputmat_fp8_total,
+                    fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                    fp8_dtype_forward,
+                    query_grad_output_c,
+                    ctx.fp8_meta["scaling_bwd"].scale_inv[
+                        tex.FP8BwdTensors.GRAD_OUTPUT1
+                    ],
+                    fp8_dtype_backward,
+                    ctx.activation_dtype,
+                    accumulate=accumulate_wgrad_into_param_main_grad,
+                    fp32_output=ctx.fuse_wgrad_accumulation,
+                    out=query_weight.main_grad if ctx.fuse_wgrad_accumulation else None,
+                    transa=False,
+                    transb=True,
+                )
 
-        if key_weight.requires_grad:
-            # key WGRAD
-            assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
-            key_wgrad = fp8_gemm(
-                inputmat_fp8_total,
-                fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+            # key DGRAD
+            key_dgrad = fp8_gemm(
+                key_weight_fp8,
+                fwd_scale_inverses[tex.FP8FwdTensors.GEMM2_WEIGHT],
                 fp8_dtype_forward,
                 key_grad_output_c,
-                ctx.fp8_meta["scaling_bwd"].scale_inv[
-                    tex.FP8BwdTensors.GRAD_OUTPUT2
-                ],
+                ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT2],
                 fp8_dtype_backward,
                 ctx.activation_dtype,
-                accumulate=accumulate_wgrad_into_param_main_grad,
-                fp32_output=ctx.fuse_wgrad_accumulation,
-                out=key_weight.main_grad if ctx.fuse_wgrad_accumulation else None,
                 transa=False,
-                transb=True,
+                transb=False,
             )
 
-        # value DGRAD
-        value_dgrad = fp8_gemm(
-            value_weight_fp8,
-            fwd_scale_inverses[tex.FP8FwdTensors.GEMM3_WEIGHT],
-            fp8_dtype_forward,
-            value_grad_output_c,
-            ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT3],
-            fp8_dtype_backward,
-            ctx.activation_dtype,
-            transa=False,
-            transb=False,
-        )
+            if key_weight.requires_grad:
+                # key WGRAD
+                assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
+                key_wgrad = fp8_gemm(
+                    inputmat_fp8_total,
+                    fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                    fp8_dtype_forward,
+                    key_grad_output_c,
+                    ctx.fp8_meta["scaling_bwd"].scale_inv[
+                        tex.FP8BwdTensors.GRAD_OUTPUT2
+                    ],
+                    fp8_dtype_backward,
+                    ctx.activation_dtype,
+                    accumulate=accumulate_wgrad_into_param_main_grad,
+                    fp32_output=ctx.fuse_wgrad_accumulation,
+                    out=key_weight.main_grad if ctx.fuse_wgrad_accumulation else None,
+                    transa=False,
+                    transb=True,
+                )
 
-        if value_weight.requires_grad:
-            # value WGRAD
-            assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
-            value_wgrad = fp8_gemm(
-                inputmat_fp8_total,
-                fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+            # value DGRAD
+            value_dgrad = fp8_gemm(
+                value_weight_fp8,
+                fwd_scale_inverses[tex.FP8FwdTensors.GEMM3_WEIGHT],
                 fp8_dtype_forward,
                 value_grad_output_c,
-                ctx.fp8_meta["scaling_bwd"].scale_inv[
-                    tex.FP8BwdTensors.GRAD_OUTPUT3
-                ],
+                ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT3],
                 fp8_dtype_backward,
                 ctx.activation_dtype,
-                accumulate=accumulate_wgrad_into_param_main_grad,
-                fp32_output=ctx.fuse_wgrad_accumulation,
-                out=value_weight.main_grad if ctx.fuse_wgrad_accumulation else None,
                 transa=False,
-                transb=True,
+                transb=False,
             )
 
-        TransformerEngineBaseModule.post_backward(
-            ctx.fp8, ctx.fp8_meta, ctx.sequence_parallel, ctx.tp_group
-        )
+            if value_weight.requires_grad:
+                # value WGRAD
+                assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
+                value_wgrad = fp8_gemm(
+                    inputmat_fp8_total,
+                    fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                    fp8_dtype_forward,
+                    value_grad_output_c,
+                    ctx.fp8_meta["scaling_bwd"].scale_inv[
+                        tex.FP8BwdTensors.GRAD_OUTPUT3
+                    ],
+                    fp8_dtype_backward,
+                    ctx.activation_dtype,
+                    accumulate=accumulate_wgrad_into_param_main_grad,
+                    fp32_output=ctx.fuse_wgrad_accumulation,
+                    out=value_weight.main_grad if ctx.fuse_wgrad_accumulation else None,
+                    transa=False,
+                    transb=True,
+                )
 
         # Gradient with respect to input - sum of the gradients of gemms
         dgrad = value_dgrad + key_dgrad + query_dgrad
@@ -2060,31 +2057,28 @@ class SelfAttentionScoresAndValue(TransformerEngineBaseModule):
         # - GRAD_OUTPUT2: key grad,
         # - GRAD_OUTPUT3: value grad,
         # - GRAD_OUTPUT4: attention scores grad,
-        inp, is_scale_update_required = self.pre_forward(hidden_states, num_gemms = 4)
-
-        attention_scores, value_out = _SelfAttentionScoresAndValue.apply(
-            inp,
-            self.query_weight,
-            self.query_bias,
-            self.key_weight,
-            self.key_bias,
-            self.value_weight,
-            self.value_bias,
-            self.num_attention_heads,
-            self.attention_head_size,
-            is_first_microbatch,
-            self.fp8,
-            self.fp8_meta,
-            self.fuse_wgrad_accumulation,
-            self.tp_group,
-            self.sequence_parallel,
-            self.tp_size > 1,
-            self.activation_dtype,
-            self.get_amax_measure_state(),
-            is_scale_update_required,
-        )
-
-        self.post_forward()
+        with self.prepare_forward(hidden_states, num_gemms = 4) as (inp, is_scale_update_required):
+            attention_scores, value_out = _SelfAttentionScoresAndValue.apply(
+                inp,
+                self.query_weight,
+                self.query_bias,
+                self.key_weight,
+                self.key_bias,
+                self.value_weight,
+                self.value_bias,
+                self.num_attention_heads,
+                self.attention_head_size,
+                is_first_microbatch,
+                self.fp8,
+                self.fp8_meta,
+                self.fuse_wgrad_accumulation,
+                self.tp_group,
+                self.sequence_parallel,
+                self.tp_size > 1,
+                self.activation_dtype,
+                self.get_amax_measure_state(),
+                is_scale_update_required,
+            )
 
         return attention_scores, value_out
 
@@ -2183,62 +2177,64 @@ class _SelfAttentionContext(torch.autograd.Function):
         ctx,
         grad_output: torch.Tensor
     ) -> Tuple[Union[torch.Tensor, None], ...]:
-        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta, ctx.amax_measure_state, ctx.is_scale_update_required)
+        with _prepare_backward(
+            ctx.fp8,
+            ctx.fp8_meta,
+            ctx.amax_measure_state,
+            ctx.is_scale_update_required,
+            ctx.sequence_parallel,
+            ctx.tp_group
+        ):
+            (
+                attention_probs_fp8,
+                value_layer_fp8,
+                fwd_scale_inverses,
+            ) = ctx.saved_tensors
 
-        (
-            attention_probs_fp8,
-            value_layer_fp8,
-            fwd_scale_inverses,
-        ) = ctx.saved_tensors
+            assert ctx.fp8
+            fp8_dtype_forward = get_fp8_te_dtype(
+                ctx.fp8_meta["recipe"], fprop_tensor=True
+            )
+            fp8_dtype_backward = get_fp8_te_dtype(
+                ctx.fp8_meta["recipe"], fprop_tensor=False
+            )
 
-        assert ctx.fp8
-        fp8_dtype_forward = get_fp8_te_dtype(
-            ctx.fp8_meta["recipe"], fprop_tensor=True
-        )
-        fp8_dtype_backward = get_fp8_te_dtype(
-            ctx.fp8_meta["recipe"], fprop_tensor=False
-        )
+            grad_output_c = cast_to_fp8(
+                grad_output,
+                ctx.fp8_meta["scaling_bwd"],
+                tex.FP8BwdTensors.GRAD_OUTPUT1,
+                fp8_dtype_backward,
+                stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
+                measure_amax=ctx.amax_measure_state["enabled"]
+            )
 
-        grad_output_c = cast_to_fp8(
-            grad_output,
-            ctx.fp8_meta["scaling_bwd"],
-            tex.FP8BwdTensors.GRAD_OUTPUT1,
-            fp8_dtype_backward,
-            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
-            measure_amax=ctx.amax_measure_state["enabled"]
-        )
+            attention_probs_grad = fp8_gemm(
+                value_layer_fp8,
+                fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
+                fp8_dtype_forward,
+                grad_output_c,
+                ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
+                fp8_dtype_backward,
+                ctx.activation_dtype,
+                transa = True,
+                transb = False
+            )
 
-        attention_probs_grad = fp8_gemm(
-            value_layer_fp8,
-            fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
-            fp8_dtype_forward,
-            grad_output_c,
-            ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
-            fp8_dtype_backward,
-            ctx.activation_dtype,
-            transa = True,
-            transb = False
-        )
+            value_layer_grad = fp8_gemm(
+                grad_output_c,
+                ctx.fp8_meta["scaling_bwd"].scale_inv[
+                    tex.FP8BwdTensors.GRAD_OUTPUT1
+                ],
+                fp8_dtype_backward,
+                attention_probs_fp8,
+                fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                fp8_dtype_forward,
+                ctx.activation_dtype,
+                transa = False,
+                transb = True,
+            )
 
-        value_layer_grad = fp8_gemm(
-            grad_output_c,
-            ctx.fp8_meta["scaling_bwd"].scale_inv[
-                tex.FP8BwdTensors.GRAD_OUTPUT1
-            ],
-            fp8_dtype_backward,
-            attention_probs_fp8,
-            fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
-            fp8_dtype_forward,
-            ctx.activation_dtype,
-            transa = False,
-            transb = True,
-        )
-
-        mixed_value_layer_grad = _SelfAttentionScoresAndValue._grad_transpose_for_scores(value_layer_grad)
-
-        TransformerEngineBaseModule.post_backward(
-            ctx.fp8, ctx.fp8_meta, ctx.sequence_parallel, ctx.tp_group
-        )
+            mixed_value_layer_grad = _SelfAttentionScoresAndValue._grad_transpose_for_scores(value_layer_grad)
 
         return (
             attention_probs_grad,
@@ -2314,29 +2310,26 @@ class SelfAttentionContext(TransformerEngineBaseModule):
         value_layer,
         is_first_microbatch: Optional[bool] = None
     ):
-        attention_probs, is_scale_update_required = self.pre_forward(attention_probs, num_gemms = 1)
+        with self.prepare_forward(attention_probs, num_gemms = 1) as (attention_probs, is_scale_update_required):
+            self.set_activation_dtype(value_layer)
+            value_layer = value_layer.contiguous()
 
-        self.set_activation_dtype(value_layer)
-        value_layer = value_layer.contiguous()
-
-        context_layer = _SelfAttentionContext.apply(
-            attention_probs,
-            value_layer,
-            self.num_attention_heads,
-            self.attention_head_size,
-            is_first_microbatch,
-            self.fp8,
-            self.fp8_meta,
-            self.fuse_wgrad_accumulation,
-            self.tp_group,
-            self.sequence_parallel,
-            self.tp_size > 1,
-            self.activation_dtype,
-            self.get_amax_measure_state(),
-            is_scale_update_required,
-        )
-
-        self.post_forward()
+            context_layer = _SelfAttentionContext.apply(
+                attention_probs,
+                value_layer,
+                self.num_attention_heads,
+                self.attention_head_size,
+                is_first_microbatch,
+                self.fp8,
+                self.fp8_meta,
+                self.fuse_wgrad_accumulation,
+                self.tp_group,
+                self.sequence_parallel,
+                self.tp_size > 1,
+                self.activation_dtype,
+                self.get_amax_measure_state(),
+                is_scale_update_required,
+            )
 
         return context_layer
 
