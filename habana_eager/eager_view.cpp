@@ -252,6 +252,12 @@ void HandleInputOutputView(
 
   if (!is_view(t)) {
     if (inplace_input) {
+      // When any non-view inplace input is present we have to resign from
+      // replacement inplace node with non-inplace node as such tensor
+      // will not be updated.
+      // See usage of this counter later.
+      // Views are different as strided_insert node can modify the input
+      // even it is not the output in IR.
       ++state.inplace_ordinary_tensors;
     }
     return;

@@ -52,10 +52,10 @@ class ViewParam {
     total_num_elements = (int64_t)(habana_helpers::GetNBytes(impl) / elem_size);
   }
 
-  std::vector<int64_t> getViewSizes() const {
+  const std::vector<int64_t>& getViewSizes() const {
     return sizes;
   }
-  std::vector<int64_t> getViewStrides() const {
+  const std::vector<int64_t>& getViewStrides() const {
     return strides;
   }
   int64_t getViewOffset() const {
