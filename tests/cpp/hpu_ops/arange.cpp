@@ -8,6 +8,8 @@
  ******************************************************************************
  */
 
+#include <gtest/gtest-typed-test.h>
+#include "habana_kernels/fallback_helper.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -116,3 +118,30 @@ TEST_F(HpuOpTest, arange_start_step_mixed_dtypes) {
 
   Compare(expected, result);
 }
+
+class ArangeDTypeSupportTest : public DTypeSupportTest {};
+
+TEST_P(ArangeDTypeSupportTest, ArangeStartOutDTypeSupportTest) {
+  auto dtype = GetParam();
+  auto options = torch::TensorOptions().dtype(dtype).device(torch::kHPU);
+  auto out = torch::empty({10}, options);
+
+  torch::arange_outf(0.0, 1.0, 10.0, out);
+
+  const auto& op_fallback_frequency =
+      habana::HpuFallbackHelper::get()->get_op_count();
+  EXPECT_EQ(
+      op_fallback_frequency.find("aten:arange.start_out"),
+      op_fallback_frequency.end());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ArangeStartOutFallback,
+    ArangeDTypeSupportTest,
+    testing::Values(
+        torch::kBFloat16,
+        torch::kFloat32,
+        torch::kInt32,
+        torch::kInt64,
+        torch::kInt8,
+        torch::kInt16));
