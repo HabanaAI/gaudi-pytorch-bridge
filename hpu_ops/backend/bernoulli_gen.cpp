@@ -21,7 +21,10 @@ static auto bernoulli_impl(
     synTensor seed,
     at::IntArrayRef outshape,
     at::ScalarType dtype) {
-  auto bcastOp = OpBackend::BuildBroadcast(op, graph, p, outshape, dtype);
+  std::vector<synTensor> inputs = {};
+  inputs.push_back(p);
+  inputs.push_back(seed);
+  op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
 
   auto bernoulli_out_dtype = dtype == c10::ScalarType::Float
       ? c10::ScalarType::Int
@@ -33,28 +36,20 @@ static auto bernoulli_impl(
   auto bernoulli = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("random_bernoulli_fwd", dtype),
-       {bcastOp.get(), seed},
-       {{outshape, bernoulli_out_dtype}},
+      {get_guid_with_precision("pt_bernoulli", dtype),
+       inputs,
+       {{outshape, dtype, 0}},
        params.get(),
        params_size});
-
-  return OpBackend::BuildCast(
-      op,
-      graph,
-      bernoulli.at(0).get(),
-      outshape,
-      bernoulli_out_dtype,
-      dtype,
-      0);
+  return bernoulli;
 }
 
 void Bernoulli::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto outshape = stack_tensor(stack, 0).sizes();
   auto p = syn_in(0); // self is p
   auto seed = stack[1].isTensor() ? syn_in(1) : syn_seed();
-  syn_out(0) =
-      std::move(bernoulli_impl(this, graph, p, seed, outshape, ScalarType()));
+  syn_out(0) = std::move(
+      bernoulli_impl(this, graph, p, seed, outshape, ScalarType())[0]);
 }
 
 void BernoulliOut::AddNode(
@@ -63,8 +58,8 @@ void BernoulliOut::AddNode(
   auto outshape = stack_tensor(stack, 0).sizes();
   auto p = syn_in(0); // self is p
   auto seed = syn_in(1);
-  syn_out(0) =
-      std::move(bernoulli_impl(this, graph, p, seed, outshape, ScalarType()));
+  syn_out(0) = std::move(
+      bernoulli_impl(this, graph, p, seed, outshape, ScalarType())[0]);
 }
 
 void BernoulliWithP::AddNode(
@@ -73,7 +68,7 @@ void BernoulliWithP::AddNode(
   auto outshape = stack_tensor(stack, 0).sizes();
   auto p = syn_in(1); // ignore self when p is present
   auto seed = syn_in(2);
-  syn_out(0) =
-      std::move(bernoulli_impl(this, graph, p, seed, outshape, ScalarType()));
+  syn_out(0) = std::move(
+      bernoulli_impl(this, graph, p, seed, outshape, ScalarType())[0]);
 }
 } // namespace habana
