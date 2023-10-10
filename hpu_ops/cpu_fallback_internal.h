@@ -420,7 +420,7 @@ struct dispatch_out_of_place<
         std::get<OutArgsIs>(result),
         out_cast_copy[OutArgsIs],
         at::ScalarType::Float)...};
-    auto result_before_cast{
+    [[maybe_unused]] const auto result_before_cast{
         redispatch_if_any_arg_changed<Op, ReturnType, InArgs..., OutArgs...>::
             call(
                 arg_changed,

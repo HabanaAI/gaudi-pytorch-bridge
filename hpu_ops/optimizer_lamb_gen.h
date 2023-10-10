@@ -14,6 +14,7 @@
 #pragma once
 
 #include "habana_eager/ops/eager_op.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_backend.h"
 

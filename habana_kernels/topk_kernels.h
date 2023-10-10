@@ -25,7 +25,8 @@ class TopkOutOperator : public HabanaOperator {
     values_persistent = false;
     indices_persistent = false;
   }
-  virtual InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs);
+  virtual InferOutputMetaRetType InferOutputMeta(
+      torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

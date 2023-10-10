@@ -444,7 +444,6 @@ class EagerOp : public EagerOpBase {
   typename std::enable_if<is_tuple_of_tensors<T>::value, T>::type get_result() {
     PT_EAGER_TRACE;
 
-    bool is_view_input = false;
     if (m_output_meta_fn) {
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
       const auto& meta = m_output_meta_fn(get_inputs());

@@ -14,6 +14,8 @@
 #include "hpu_ops/op_backend.h"
 #include <c10/core/ScalarType.h>
 #include "backend/create_pt_tensor.h"
+#include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/cast_sequence.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/runtime_config.h"

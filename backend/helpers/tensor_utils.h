@@ -12,20 +12,18 @@
  */
 #pragma once
 
-#include <tuple>
-#include <unordered_map>
-#include <vector>
-
 #include <ATen/ATen.h>
+#include <backend/synapse_helpers/device.h>
 #include <c10/core/Allocator.h>
 #include <c10/core/TensorOptions.h>
 #include <c10/util/ArrayRef.h>
-#include <torch/script.h>
-
-#include <backend/synapse_helpers/device.h>
+#include <fmt/format.h>
 #include <synapse_common_types.h>
+#include <torch/script.h>
+#include <tuple>
+#include <unordered_map>
+#include <vector>
 #include "backend/synapse_helpers/device_types.h"
-#include "backend/synapse_helpers/graph.h"
 #include "backend/synapse_helpers/habana_tensor.h"
 
 // set to 5 considering tensors upto 5d are most common case where we would like
@@ -103,26 +101,9 @@ void copy_data_within_device(
     bool non_blocking);
 
 void copy_scalar_to_device(void* src_ptr, const at::Tensor& dst, uint32_t size);
+
 void copy_scalars_to_device(
     const std::vector<std::pair<at::Tensor, at::Tensor>>& tensors_list);
-
-at::Tensor GenerateAndCopyTensorToHPU(
-    const at::Tensor& ref_tensor,
-    const float value,
-    bool is_persistent);
-
-void change_tensors_to_memory_format(
-    std::vector<at::Tensor*> pt_outputs,
-    std::vector<const at::Tensor*> pt_inputs,
-    std::vector<const at::IntArrayRef*> pt_new_pos,
-    c10::MemoryFormat memory_format);
-
-void change_tensor_strides(
-    at::Tensor* pt_output,
-    const at::Tensor* pt_input,
-    const at::IntArrayRef* pt_new_pos);
-
-c10::MemoryFormat get_memory_format(std::vector<const at::Tensor*> pt_inputs);
 
 size_t hash_combine_scalars(
     size_t hash_code,
@@ -133,7 +114,9 @@ void recalc_strides(
     const std::vector<int64_t>& self_sizes);
 
 bool is_supported_type(c10::ScalarType type);
+
 bool is_shape_tensor(synTensorType shape_tensor);
+
 std::vector<int64_t> calculate_strides(std::vector<int64_t> sizes);
 
 /**
@@ -164,9 +147,9 @@ struct InternalFormatter<FormatTokens> {
 template <typename... Args>
 void debug_log_internal_tensor(
     const at::Tensor& tensor,
-    std::string_view format_string,
+    const std::string_view format_string,
     Args... args) {
-  PT_BRIDGE_DEBUG(absl::StrFormat(
+  PT_BRIDGE_DEBUG(fmt::format(
       format_string,
       habana_helpers::detail::InternalFormatter<Args>::format(
           tensor, args)...));

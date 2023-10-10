@@ -12,6 +12,7 @@
  */
 #include "hpu_ops/backend/reduction_template.h"
 #include "backend/helpers/lowering_util.h"
+#include "habana_kernels/kernel_utils.h"
 #include "hpu_ops/common/reduction_template.h"
 
 namespace habana {

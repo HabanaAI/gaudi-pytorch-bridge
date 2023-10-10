@@ -76,7 +76,7 @@ class CompareWrapperOperator : public CompareOutWrapperOperator {
   virtual InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override;
 
-  void SetPTOutputs(torch::jit::Stack& inputs);
+  void SetPTOutputs(torch::jit::Stack& inputs) override;
 
   static std::vector<int64_t> compute_output_shape(
       const at::Tensor& arg1,

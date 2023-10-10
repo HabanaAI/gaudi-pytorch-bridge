@@ -251,11 +251,11 @@ class SynapseApi : public StubSynapseApi {
           return synSuccess;
         };
 
-    synapse_api_.synDeviceGetNextStreamAffinity =
-        [this](const synDeviceId, uint64_t* availAffinity) {
-          *availAffinity = 0;
-          return synSuccess;
-        };
+    synapse_api_.synDeviceGetNextStreamAffinity = [](const synDeviceId,
+                                                     uint64_t* availAffinity) {
+      *availAffinity = 0;
+      return synSuccess;
+    };
 
     synapse_api_.synEventCreate =
         [this](

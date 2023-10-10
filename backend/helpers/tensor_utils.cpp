@@ -198,25 +198,6 @@ std::vector<int64_t> habana_helpers::infer_size(
   return inferred_size;
 }
 
-Tensor habana_helpers::GenerateAndCopyTensorToHPU(
-    const Tensor& ref_tensor,
-    const float value,
-    bool is_persistent) {
-  // Convert bias_corrections to tensors to avoid cache misses
-  Tensor val_t = habana::createPTTensor(
-      ref_tensor,
-      {1},
-      ref_tensor.options(),
-      ref_tensor.suggest_memory_format(),
-      c10::ScalarType::Float,
-      is_persistent);
-  auto size = val_t.numel() * val_t.element_size();
-  std::vector<float> buffer(size, value);
-  copy_scalar_to_device(buffer.data(), val_t, size);
-
-  return val_t;
-}
-
 /******************************************************************************
  * @brief helper function for copying data from host to device
  * @param[in] src_ptr - source memory address in cpu
@@ -536,111 +517,6 @@ void habana_helpers::copy_data_within_device(
       std::this_thread::yield();
     }
   }
-}
-
-void habana_helpers::change_tensor_strides(
-    at::Tensor* pt_output,
-    const at::Tensor* pt_input,
-    const at::IntArrayRef* pt_new_pos) {
-  auto sizes = pt_input->sizes().vec();
-  auto new_pos = *pt_new_pos;
-  std::vector<long int> swapped_sizes = {
-      sizes[new_pos[0]],
-      sizes[new_pos[1]],
-      sizes[new_pos[2]],
-      sizes[new_pos[3]]};
-  auto strides = pt_input->strides().vec();
-  std::vector<long int> swapped_strides = {
-      strides[new_pos[0]],
-      strides[new_pos[1]],
-      strides[new_pos[2]],
-      strides[new_pos[3]]};
-  /* The following method of using 'alias' followed by
-   * set_sizes_and_strides is necessary to "dereference" pt_outputs[i]
-   * from pt_inputs[i] and create new copies of sizes and strides.
-   * Using unsafeGetTensorImpl directly on pt_outputs[i] will
-   * reference pt_inputs[i] itself because 'pt_output[i] = pt_input[i]'
-   * is a reference copy*/
-  *pt_output = at::alias(*pt_input);
-  pt_output->unsafeGetTensorImpl()->set_sizes_and_strides(
-      swapped_sizes, swapped_strides);
-}
-
-void habana_helpers::change_tensors_to_memory_format(
-    std::vector<at::Tensor*> pt_outputs,
-    std::vector<const at::Tensor*> pt_inputs,
-    std::vector<const IntArrayRef*> pt_new_pos,
-    c10::MemoryFormat memory_format) {
-  auto count = pt_inputs.size();
-  for (unsigned i = 0; i < count; i++) {
-    switch (memory_format) {
-      case c10::MemoryFormat::ChannelsLast3d:
-      case c10::MemoryFormat::ChannelsLast: {
-        auto sizes = pt_inputs[i]->sizes().vec();
-        auto new_pos = *pt_new_pos[i];
-        auto is_3d_layout = memory_format == c10::MemoryFormat::ChannelsLast3d;
-        std::vector<long int> swapped_sizes = {
-            sizes[new_pos[0]],
-            sizes[new_pos[1]],
-            sizes[new_pos[2]],
-            sizes[new_pos[3]]};
-        auto strides = pt_inputs[i]->strides().vec();
-        std::vector<long int> swapped_strides = {
-            strides[new_pos[0]],
-            strides[new_pos[1]],
-            strides[new_pos[2]],
-            strides[new_pos[3]]};
-        if (is_3d_layout) {
-          swapped_sizes.push_back(sizes[new_pos[4]]);
-          swapped_strides.push_back(strides[new_pos[4]]);
-        }
-        /* The following method of using 'alias' followed by
-         * set_sizes_and_strides is necessary to "dereference" pt_outputs[i]
-         * from pt_inputs[i] and create new copies of sizes and strides.
-         * Using unsafeGetTensorImpl directly on pt_outputs[i] will
-         * reference pt_inputs[i] itself because 'pt_output[i] = pt_input[i]'
-         * is a reference copy*/
-        *pt_outputs[i] = at::alias(*pt_inputs[i]);
-        pt_outputs[i]->unsafeGetTensorImpl()->set_sizes_and_strides(
-            swapped_sizes, swapped_strides);
-        break;
-      }
-      case c10::MemoryFormat::Contiguous: {
-        // Create dimshuffled inputs and outputs to match synapse data layout
-        if (pt_outputs[i] != pt_inputs[i]) {
-          auto new_pos = *pt_new_pos[i];
-          *pt_outputs[i] = (*pt_inputs[i]).permute(new_pos);
-        }
-        break;
-      }
-      default:
-        TORCH_CHECK(
-            false,
-            "Unsupported memory format. Supports only ChannelsLast3d, ChannelsLast, Contiguous");
-    }
-  }
-  return;
-}
-
-c10::MemoryFormat habana_helpers::get_memory_format(
-    std::vector<const at::Tensor*> pt_inputs) {
-  auto count = pt_inputs.size();
-  TORCH_CHECK(count > 0, "Empty input tensor list given to get_memory_format");
-  c10::MemoryFormat memory_format = pt_inputs[0]->suggest_memory_format();
-  for (unsigned i = 0; i < count; i++) {
-    if (pt_inputs[i]->suggest_memory_format() ==
-        c10::MemoryFormat::ChannelsLast3d) {
-      memory_format = c10::MemoryFormat::ChannelsLast3d;
-      break;
-    }
-
-    if (pt_inputs[i]->suggest_memory_format() ==
-        c10::MemoryFormat::ChannelsLast) {
-      memory_format = c10::MemoryFormat::ChannelsLast;
-      break;
-    }
-  }
-  return memory_format;
 }
 
 size_t habana_helpers::hash_combine_scalars(

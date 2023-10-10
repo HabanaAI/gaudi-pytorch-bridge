@@ -11,16 +11,14 @@
  *******************************************************************************
  */
 #pragma once
+#include <ATen/core/Tensor.h>
+#include <ATen/core/stack.h>
 #include <perf_lib_layer_params.h>
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/kernels_accumulation.h"
 #include "habana_helpers/logging.h"
-#include "habana_kernels/lazy_kernels.h"
-#include "op_backend.h"
-#include "op_logger.h"
-
-#include "supported_dtypes.h"
+#include "hpu_ops/op_backend.h" // IWYU pragma: keep for HPU_OP_BACKEND
 
 namespace habana {
 
@@ -418,25 +416,26 @@ inline constexpr size_t tuple_elements(const std::tuple<Args...>&) {
     func();                                                                 \
   }
 
-#define RUN_WITH_PREDICATE_VIEW_OP_MAYBE_WITH_ACC_THREAD(                     \
-    op, self, out, param_setter, additional_predicate)                        \
-  if (habana_lazy::AccThread::Get().CanUseAccThread() &&                      \
-      GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_VIEW_OPS_MODE) != 0) {                 \
-    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread");   \
-    habana_lazy::AccThread::Get().run(                                        \
-        [self, out, param_setter, additional_predicate]() {                   \
-          lazy_view_fallback_handle(                                          \
-              self, out, param_setter, additional_predicate);                 \
-          habana_lazy::AccThread::Get().PushCleanupTask(                      \
-              [self = std::move(self),                                        \
-               out = std::move(out),                                          \
-               param_setter = std::move(param_setter),                        \
-               additional_predicate = std::move(additional_predicate)]() {}); \
-        });                                                                   \
-    MAYBE_FLUSH_OP(1);                                                        \
-    return out;                                                               \
-  }                                                                           \
-  lazy_view_fallback_handle(self, out, param_setter, additional_predicate);   \
+#define RUN_WITH_PREDICATE_VIEW_OP_MAYBE_WITH_ACC_THREAD(                   \
+    op, self, out, param_setter, additional_predicate)                      \
+  if (habana_lazy::AccThread::Get().CanUseAccThread() &&                    \
+      GET_ENV_FLAG_NEW(PT_HPU_LAZY_ACC_VIEW_OPS_MODE) != 0) {               \
+    PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
+    habana_lazy::AccThread::Get().run(                                      \
+        [self, out, param_setter, additional_predicate]() {                 \
+          lazy_view_fallback_handle(                                        \
+              self, out, param_setter, additional_predicate);               \
+          habana_lazy::AccThread::Get().PushCleanupTask(                    \
+              [self = std::move(self), out = std::move(out)]() {            \
+                /* Silence lambda capture not used. */                      \
+                (void)self;                                                 \
+                (void)out;                                                  \
+              });                                                           \
+        });                                                                 \
+    MAYBE_FLUSH_OP(1);                                                      \
+    return out;                                                             \
+  }                                                                         \
+  lazy_view_fallback_handle(self, out, param_setter, additional_predicate); \
   return out;
 
 #define RUN_VIEW_OP_MAYBE_WITH_ACC_THREAD(op, self, out, param_setter)      \
@@ -446,9 +445,11 @@ inline constexpr size_t tuple_elements(const std::tuple<Args...>&) {
     habana_lazy::AccThread::Get().run([self, out, param_setter]() {         \
       lazy_view_fallback_handle(self, out, param_setter);                   \
       habana_lazy::AccThread::Get().PushCleanupTask(                        \
-          [self_in = std::move(self),                                       \
-           out = std::move(out),                                            \
-           param_setter = std::move(param_setter)]() {});                   \
+          [self_in = std::move(self), out = std::move(out)]() {             \
+            /* Silence lambda capture not used warning */                   \
+            (void)self_in;                                                  \
+            (void)out;                                                      \
+          });                                                               \
     });                                                                     \
     MAYBE_FLUSH_OP(1);                                                      \
     return out;                                                             \

@@ -76,17 +76,6 @@ std::string get_mem_str(uint64_t nbytes) {
   return oss.str();
 }
 
-// Since computation on stream is asynchronous, in order to share workspace
-// buffer, it has to be fixed in size otherwise, there need to be implemented
-// mechanism to adjust its size at runtime, but that would require an explcit
-// barrier on the computation stream and reallocation of this buffer. For now
-// it's fixed to 10GB, since for BERT SQUAD, batch12 on fp32, the largest
-// recipe requires WS of size ~9.7GB
-// TODO: as a WA for memory issue, modified it to 5GB for the resnet run of
-// BS=64,
-//       may require changes or revert in future
-constexpr std::size_t GLOBAL_WORKSPACE_SIZE = 5e9;
-
 std::weak_ptr<device> device::device_in_use;
 std::mutex device::device_mtx;
 

@@ -470,14 +470,8 @@ Tensor HbLazyTensorViews::add_strided_view_node(
     // use the actual out tensor provided by the inplace op
     result = out_t.value();
   } else {
-      result = empty_strided_hpu_lazy(
-          size,
-          stride,
-          self.options(),
-          false,
-          DATA_TENSOR,
-          storage_offset,
-          self);
+    result = empty_strided_hpu_lazy(
+        size, stride, self.options(), false, DATA_TENSOR, storage_offset, self);
   }
 
   if (habana_lazy::AccThread::Get().CanUseAccThread() &&
@@ -495,8 +489,13 @@ Tensor HbLazyTensorViews::add_strided_view_node(
           [self = std::move(self),
            result = std::move(result),
            size = std::move(size),
-           stride = std::move(stride),
-           is_out = std::move(is_out)]() {});
+           stride = std::move(stride)]() {
+            /* Silence unused lambda capture */
+            (void)self;
+            (void)result;
+            (void)size;
+            (void)stride;
+          });
     });
   } else {
     add_strided_view_node_parallel_impl(
@@ -1172,22 +1171,21 @@ void HbLazyTensorViews::StepMarkerAllReduce(const std::vector<Tensor>& inputs) {
   std::set<int64_t> bucket_recent_id;
   std::vector<habana_lazy::HbLazyTensor> bucket_hl_t;
 
-    for (auto t : inputs) {
-      auto base = habana_lazy::HbLazyTensorViews::get_base_tensor(t);
-      auto org_id = habana_lazy::GetHbLazyTensorId(base, false, false);
+  for (auto t : inputs) {
+    auto base = habana_lazy::HbLazyTensorViews::get_base_tensor(t);
+    auto org_id = habana_lazy::GetHbLazyTensorId(base, false, false);
 
-      auto recent_base =
-          habana_lazy::HbLazyTensorViews::get_recent_base_tensor(base);
-      auto updated_id =
-          habana_lazy::GetHbLazyTensorId(recent_base, true, false);
+    auto recent_base =
+        habana_lazy::HbLazyTensorViews::get_recent_base_tensor(base);
+    auto updated_id = habana_lazy::GetHbLazyTensorId(recent_base, true, false);
 
-      if (org_id != updated_id) {
-        /* strided inserts have happened */
-        bucket_hl_t.emplace_back(
-            habana_lazy::GetHbLazyTensor(base, false, false));
-        bucket_recent_id.emplace(updated_id);
-      }
+    if (org_id != updated_id) {
+      /* strided inserts have happened */
+      bucket_hl_t.emplace_back(
+          habana_lazy::GetHbLazyTensor(base, false, false));
+      bucket_recent_id.emplace(updated_id);
     }
+  }
 
   /* special processing of view outputs needed only for the bwd case*/
   bool is_allreduce_bwd = (bucket_recent_id.size() > 0);

@@ -1,13 +1,28 @@
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+
 #include <bfloat16.h>
 #include <comparison_methods.hpp>
 #include <float16.h>
-
-#include <iostream>
-
 #include <math.h>
-#include <Eigen/Dense>
 #include <algorithm>
+#include <iostream>
 #include <type_traits>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpragmas"
+#pragma GCC diagnostic ignored "-Wabsolute-value"
+#include <Eigen/Dense>
+#pragma GCC diagnostic pop
 
 namespace Eigen {
 template <>
@@ -99,7 +114,14 @@ float TestMethods<ReferenceDataType, TensorDataType>::calcAvgError(
     unsigned length) {
   VecMap<ReferenceDataType> vExpected(expected, length);
   VecMap<TensorDataType> vResult(result, length);
-  return abs((vExpected - vResult).array().mean());
+  if constexpr (std::is_unsigned<decltype(
+                    (vExpected - vResult).array().mean())>::value) {
+    return (vExpected.cwiseMax(vResult) - vExpected.cwiseMin(vResult))
+        .array()
+        .mean();
+  } else {
+    return abs((vExpected - vResult).array().mean());
+  }
 }
 
 template <typename ReferenceDataType, typename TensorDataType>

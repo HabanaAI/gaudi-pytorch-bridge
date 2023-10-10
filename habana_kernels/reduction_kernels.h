@@ -136,7 +136,7 @@ class SumDimOperator : public ReduceOperator {
             get_guid_with_precision("reduce_sum_fwd", scalarType)) {
     kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
   }
-  InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs);
+  InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
   virtual void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

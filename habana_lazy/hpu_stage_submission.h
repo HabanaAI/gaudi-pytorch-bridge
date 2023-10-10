@@ -11,7 +11,8 @@
  *******************************************************************************
  */
 #pragma once
-#include "aten_lazy_bridge.h"
+
+#include <atomic>
 #include "backend/synapse_helpers/env_flags.h"
 
 // namespace habana_lazy

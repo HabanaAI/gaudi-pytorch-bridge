@@ -23,30 +23,24 @@
 #include "backend/helpers/tensor_utils.h"
 #include "common/dump_args.h"
 #include "habana_helpers/frontend_utils.h"
-#include "habana_helpers/logging_pt.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/embedding_kernels.h"
-#include "habana_kernels/index_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_kernels/loss_kernels.h"
 #include "habana_kernels/nonzero_kernel.h"
 #include "habana_kernels/norm_kernels.h"
-#include "habana_kernels/pool_kernels.h"
 #include "habana_kernels/random_gen_kernels.h"
-#include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/repeat.h"
 #include "habana_kernels/resize.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_lazy/aten_lazy_bridge.h"
-#include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/lazy_graph_hash_builder.h"
 #include "habana_lazy/ops/cast_ops.h"
-#include "habana_lazy/ops/convolution.h"
-#include "habana_lazy/ops/embedding.h"
 #include "habana_lazy/ops/embedding_bag.h"
 #include "habana_lazy/ops/index.h"
 #include "habana_lazy/ops/norm.h"
@@ -56,9 +50,9 @@
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view_utils.h"
-#include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/masked_batch_gemm.h"
+#include "hpu_ops/op_logger.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
 #include "hpu_ops/sdpa_gen.h"
 #include "lazy_kernels_declarations.h"
@@ -2470,7 +2464,6 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   }
   auto self_sizes = self.sizes().vec();
   std::vector<at::Tensor> indices_list;
-  int64_t explicit_index_count = 0;
   int64_t broadcast_to_size = 1;
   int64_t i = 0;
   std::vector<int64_t> broadcast_to_shape;
@@ -2488,7 +2481,6 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       }
       index_all_elems[i] = false;
       index_t_sizes[i] = input.value().sizes()[0];
-      explicit_index_count++;
     } else if (!input.has_value()) {
       index_t_sizes[i] = self_sizes[i];
       index_all_elems[i] = true;

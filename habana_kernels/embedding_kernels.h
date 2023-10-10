@@ -162,7 +162,7 @@ class PadOperatorHT : public PadOperator {
   PadOperatorHT(int device_id, c10::ScalarType scalarType)
       : PadOperator(device_id, scalarType) {}
 
-  InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs);
+  InferOutputMetaRetType InferOutputMeta(torch::jit::Stack& inputs) override;
   void AllocateAndAddSynapseNode(
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,

@@ -63,25 +63,24 @@ at::Tensor habana_lazy::empty_hpu_lazy(
 
     if (is_strided && base_view.has_value()) {
       const auto& base = base_view.value().get();
-      const auto& storage = base.storage();
       at_internal_tensor = AtenInternalHbTensor(
-          std::move(c10::Storage(storage)),
+          c10::Storage(base.storage()),
           new_dtype,
           tensor_type,
           base.sizes(),
           c10::nullopt,
           mem_format);
     } else {
-      int64_t nelements = multiply_integers(size);
+      int64_t n_elements = multiply_integers(size);
       // we dont create a full storage for shape tensors but we need a backend
       // impl to get meta data
       if (shape_tensor) {
-        nelements =
+        n_elements =
             (tensor_type == DEVICE_SHAPE_TENSOR) ? SYN_MAX_TENSOR_DIM : 0;
       }
       int elem_size = new_dtype.itemsize();
-      size_t storage_size_bytes = nelements * elem_size;
-      size_bytes = nelements * original_dtype.itemsize();
+      size_t storage_size_bytes = n_elements * elem_size;
+      size_bytes = n_elements * original_dtype.itemsize();
       auto storage_impl = c10::make_intrusive<c10::StorageImpl>(
           c10::StorageImpl::use_byte_size_t(),
           size_bytes,

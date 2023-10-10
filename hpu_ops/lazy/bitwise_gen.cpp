@@ -12,8 +12,7 @@
  */
 #include <cstdint>
 #include "generated/lazy/bitwise_and.h"
-#include "generated/lazy/bitwise_or.h"
-#include "generated/lazy/bitwise_xor.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {

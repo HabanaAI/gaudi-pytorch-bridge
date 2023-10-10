@@ -20,6 +20,16 @@
 
 namespace habana_lazy {
 
+template <typename T>
+/**
+ * clang16 complains AccThreadPoolFast cannot be instantiated with LockFreeQueue
+ * as it has multiple template parameters (even if latter has default). This is
+ * to workaround this.
+ */
+struct LockFreeQueueDefaultSize : public LockFreeQueue<T> {
+  using LockFreeQueue<T>::LockFreeQueue;
+};
+
 std::unique_ptr<AccThreadPoolBase> CreateAccThreadPool() {
   if (GET_ENV_FLAG_NEW(PT_HPU_SYNCHRONOUS_ACC_QUEUE_FLUSHING))
     return std::make_unique<AccNoThread>();
@@ -31,7 +41,7 @@ std::unique_ptr<AccThreadPoolBase> CreateAccThreadPool() {
       case 1:
         return std::make_unique<AccThreadPoolFast<BlockingQueue>>();
       default:
-        return std::make_unique<AccThreadPoolFast<LockFreeQueue>>();
+        return std::make_unique<AccThreadPoolFast<LockFreeQueueDefaultSize>>();
     }
   }
 }
@@ -279,7 +289,7 @@ void AccThreadPoolFast<Queue>::checkNoException() {
   ex_ptr_ = nullptr;
 }
 
-template class AccThreadPoolFast<LockFreeQueue>;
+template class AccThreadPoolFast<LockFreeQueueDefaultSize>;
 template class AccThreadPoolFast<BlockingQueue>;
 
 } // namespace habana_lazy

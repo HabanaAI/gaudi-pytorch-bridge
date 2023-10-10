@@ -1029,9 +1029,9 @@ void RecipeValueSpec::update_patching_table(
     if (is_shape_agnostic_graph) {
       PT_BACKEND_DEBUG_TENSOR(
           pt_output,
-          "output HbInternal address: %s"
-          " storage address : %s"
-          " permute: %s",
+          "output HbInternal address: {:s}"
+          " storage address : {:s}"
+          " permute: {:s}",
           habana_helpers::FormatTokens::ImplPtr,
           habana_helpers::FormatTokens::DataPtr,
           habana_helpers::FormatTokens::Permutations);

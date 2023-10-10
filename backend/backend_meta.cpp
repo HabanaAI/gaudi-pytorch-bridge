@@ -23,6 +23,7 @@
 #else
 #include "habana_lazy/tensor_impl.h"
 #endif
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "common/utils.h"
 #include "habana_kernels/kernel_utils.h"
 

@@ -12,6 +12,10 @@
  */
 #pragma once
 
+#include <ATen/Tensor.h>
+#include <tuple>
+#include <type_traits>
+
 template <class...>
 struct conjunction : std::true_type {};
 

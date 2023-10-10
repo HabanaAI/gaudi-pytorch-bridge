@@ -3221,9 +3221,9 @@ void RecipeValueSpec::create_outdup(
   } else {
     PT_BACKEND_DEBUG_TENSOR(
         pt_outdup,
-        "Setting tensor %d "
-        " permutation from the TensorInfo cache record: %s"
-        " old permutation was: %s",
+        "Setting tensor {:d} "
+        " permutation from the TensorInfo cache record: {:s}"
+        " old permutation was: {:s}",
         ti.get_tensor_id(),
         VecToString(ti.getHbInternalPermute()),
         habana_helpers::FormatTokens::Permutations);
@@ -3232,7 +3232,7 @@ void RecipeValueSpec::create_outdup(
   }
   PT_BACKEND_DEBUG_TENSOR(
       pt_outdup,
-      " duplicate output HbInternal address : %s  storage address : %s",
+      " duplicate output HbInternal address : {:s}  storage address : {:s}",
       habana_helpers::FormatTokens::ImplPtr,
       habana_helpers::FormatTokens::DataPtr);
   ti.patch(pt_outdup, is_shape_agnostic_graph);

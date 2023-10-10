@@ -74,7 +74,14 @@ class HbLazyTensorImpl : public c10::TensorImpl {
 
   bool has_storage() const override;
 
+#pragma GCC diagnostic push
+// Following done as internal fork has different function signature than
+// upstream, and clang16 fails on it.
+// And GCC fails on unknown option
+#pragma GCC diagnostic ignored "-Wpragmas"
+#pragma GCC diagnostic ignored "-Winconsistent-missing-override"
   void set_storage_keep_dtype(at::Storage storage);
+#pragma GCC diagnostic pop
 
   void handle_view_cycles(HbLazyTensor& hl_src, HbLazyTensor& hl_dst);
 

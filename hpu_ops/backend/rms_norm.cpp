@@ -12,6 +12,7 @@
  */
 
 #include "hpu_ops/rms_norm.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 
 namespace habana {
 

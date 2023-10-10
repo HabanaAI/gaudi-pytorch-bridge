@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+#include <ATen/core/Tensor.h>
 #include <torch/library.h>
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/device_helpers.h"
@@ -20,8 +21,10 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
+#include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/lazy_executor.h"
 #include "hpu_ops/cpu_fallback.h"
+#include "hpu_ops/op_logger.h"
 #include "hpu_ops/run_maybe_with_acc_thread.h"
 #include "kernel_input_checks.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"

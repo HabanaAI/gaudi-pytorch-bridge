@@ -1,4 +1,3 @@
-#include <omp.h>
 #include <torch/extension.h>
 
 #include <ATen/ATen.h>

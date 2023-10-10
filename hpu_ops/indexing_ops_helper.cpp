@@ -13,7 +13,7 @@
 
 #include "hpu_ops/indexing_ops_helper.h"
 #include <stdint.h>
-#include "habana_kernels/index_kernels.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "hpu_ops/hpu_op_helper.h"
 namespace habana {

@@ -12,9 +12,8 @@
  */
 #pragma once
 #include <ATen/native/ReduceOpsUtils.h>
-#include "habana_helpers/dtype_helpers.h"
-#include "habana_kernels/lazy_kernels.h"
 #include "hpu_ops/common/reduction_template.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 class ReductionBackendTemplate : public OpBackend {

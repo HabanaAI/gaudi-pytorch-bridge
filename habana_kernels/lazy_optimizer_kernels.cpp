@@ -16,6 +16,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ops/optimizer.h"
 #include "habana_lazy/view_utils.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 using namespace at;
 using namespace habana;

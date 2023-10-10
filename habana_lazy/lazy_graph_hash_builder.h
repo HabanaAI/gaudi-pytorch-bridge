@@ -180,7 +180,6 @@ class GraphHashBuilder {
 
   // Forward running hash - gets updated with each op accumulation
   uint64_t fwd_running_hash{0};
-  uint64_t input_hash_running_cntr;
   // List of nodes, added in the accumulation order
   std::vector<OpArrayEntry> nodes_array;
 

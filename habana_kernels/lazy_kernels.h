@@ -21,17 +21,14 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "common/list_of_lists_custom_iterator.h"
 #include "habana_helpers/dtype_helpers.h"
-#include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/template_helpers.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
-#include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/lazy_graph_hash_builder.h"
 #include "habana_lazy/sbs_runner.h"
 #include "habana_lazy/view_utils.h"
-#include "hpu_ops/hpu_op_helper.h"
 #include "lazy_kernels_declarations.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 #include "resize.h"
@@ -207,7 +204,6 @@ class LazyOp {
         });
 
     if (isOptimizedLazyEager == false) {
-
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
           GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
           info_to_lazy_backend) {
@@ -349,7 +345,6 @@ class LazyOp {
         });
 
     if (isOptimizedLazyEager == false) {
-
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
           GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
           info_to_lazy_backend) {
@@ -529,7 +524,6 @@ class LazyOp {
     const auto& result = get_result();
     auto hl_result = GetHbLazyTensor(result, true, !m_collective_op);
     if (isOptimizedLazyEager == false) {
-
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
           GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
           info_to_lazy_backend) {
@@ -566,7 +560,6 @@ class LazyOp {
 
     auto hl_result = GetHbLazyTensor(self, true, !m_collective_op);
     if (isOptimizedLazyEager == false) {
-
       // lazy eager - preparing the input tensor uids
       if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2 &&
           GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) &&
