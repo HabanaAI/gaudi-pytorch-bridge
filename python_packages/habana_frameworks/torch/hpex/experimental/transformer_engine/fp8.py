@@ -33,7 +33,6 @@ _IS_FIRST_FP8_MODULE = False
 _FP8_AUTOCAST_COUNTER = 0
 _FP8_CURRENT_CONTEXT_ID = 0
 _FP8_AUTOCAST_DEPTH = 0
-_FP8_MEASURE_ENABLED = True
 _FP8_MANUAL_MEASUREMENT = None
 _global_fp8_buffer = {}
 _fp8_tensors_recompute_buffer = []
@@ -248,7 +247,7 @@ def fp8_autocast(
     global _FP8_ENABLED, _FP8_RECIPE, _FP8_DISTRIBUTED_GROUP, _FP8_AUTOCAST_DEPTH
     global _IS_FIRST_FP8_MODULE, _FP8_AUTOCAST_COUNTER
     global _global_fp8_buffer, _buffer_delete_key_fwd
-    global _FP8_MEASURE_ENABLED, _FP8_MANUAL_MEASUREMENT
+    global _FP8_MANUAL_MEASUREMENT
     fp8_state = (_FP8_ENABLED, _FP8_RECIPE, _FP8_DISTRIBUTED_GROUP)
     try:
         _FP8_ENABLED = enabled
@@ -259,8 +258,6 @@ def fp8_autocast(
             _IS_FIRST_FP8_MODULE = True
             _FP8_AUTOCAST_COUNTER += 1
             _FP8_MANUAL_MEASUREMENT = force_measurement
-            _FP8_MEASURE_ENABLED = (_FP8_RECIPE.interval == 1 or
-                                    _FP8_AUTOCAST_COUNTER % _FP8_RECIPE.interval == 1)
         _FP8_AUTOCAST_DEPTH += 1
 
         yield
@@ -321,10 +318,8 @@ def set_measurement_mode(manual: bool, manual_value: bool = True):
         _FP8_MANUAL_MEASUREMENT = None
 
 
-def is_amax_measure_enabled() -> bool:
-    if _FP8_MANUAL_MEASUREMENT is not None:
-        return _FP8_MANUAL_MEASUREMENT
-    return _FP8_MEASURE_ENABLED
+def get_manual_measurement_mode():
+    return _FP8_MANUAL_MEASUREMENT
 
 
 def get_fp8_recipe() -> DelayedScaling:
@@ -432,34 +427,37 @@ def update_amax_history_index(
 def amax_and_scale_update(
     fp8_meta: Dict[str, Any],
     fwd_update: bool,
+    perform_scale_update: bool,
 ) -> None:
     """Updates fp8 amaxes/scales for fwd | bwd."""
-    amax_compute = fp8_meta["recipe"].amax_compute_algo
-    sf_compute = fp8_meta["recipe"].scaling_factor_compute_algo
     fp8_meta_tensor_key = "scaling_fwd" if fwd_update else "scaling_bwd"
-    fp8_max_key = "fp8_max_fwd" if fwd_update else "fp8_max_bwd"
+    if perform_scale_update:
+        amax_compute = fp8_meta["recipe"].amax_compute_algo
+        sf_compute = fp8_meta["recipe"].scaling_factor_compute_algo
+        fp8_max_key = "fp8_max_fwd" if fwd_update else "fp8_max_bwd"
 
-    if not callable(amax_compute) and sf_compute is None:
-        fp8_meta[fp8_meta_tensor_key].scale = fused_amax_and_scale_update(
-            fp8_meta[fp8_meta_tensor_key].amax_history,
-            fp8_meta[fp8_meta_tensor_key].scale,
-            fp8_meta[fp8_max_key],
-            fp8_meta["recipe"].margin,
-            fp8_meta["recipe"].amax_compute_algo,
-        )
-    else:
-        amax = _compute_amax(
-            fp8_meta[fp8_meta_tensor_key].amax_history,
-            fp8_meta["recipe"],
-        )
-        fp8_meta[fp8_meta_tensor_key].scale = _compute_scaling_factor(
-            amax,
-            fp8_meta[fp8_meta_tensor_key].scale,
-            fp8_meta[fp8_max_key],
-            fp8_meta["recipe"],
-        )
+        if not callable(amax_compute) and sf_compute is None:
+            fp8_meta[fp8_meta_tensor_key].scale = fused_amax_and_scale_update(
+                fp8_meta[fp8_meta_tensor_key].amax_history,
+                fp8_meta[fp8_meta_tensor_key].scale,
+                fp8_meta[fp8_max_key],
+                fp8_meta["recipe"].margin,
+                fp8_meta["recipe"].amax_compute_algo,
+            )
+        else:
+            amax = _compute_amax(
+                fp8_meta[fp8_meta_tensor_key].amax_history,
+                fp8_meta["recipe"],
+            )
+            fp8_meta[fp8_meta_tensor_key].scale = _compute_scaling_factor(
+                amax,
+                fp8_meta[fp8_meta_tensor_key].scale,
+                fp8_meta[fp8_max_key],
+                fp8_meta["recipe"],
+            )
 
-    fp8_meta[fp8_meta_tensor_key].scale_inv = torch.reciprocal(fp8_meta[fp8_meta_tensor_key].scale)
+        fp8_meta[fp8_meta_tensor_key].scale_inv = torch.reciprocal(fp8_meta[fp8_meta_tensor_key].scale)
+
     update_amax_history_index(fp8_meta, fp8_meta_tensor_key)
 
 

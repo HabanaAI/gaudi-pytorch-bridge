@@ -105,7 +105,7 @@ def cast_to_fp8(
     fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
     otype: tex.DType,
     stochastic_rounding = False,
-    measure_amax=True
+    measure_amax = True
 ) -> torch.Tensor:
     """Cast input to FP8"""
     def operator():

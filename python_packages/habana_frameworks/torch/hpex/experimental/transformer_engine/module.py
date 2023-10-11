@@ -37,7 +37,6 @@ from .fp8 import (
     get_fp8_te_dtype,
     get_fp8_te_sr,
     is_first_fp8_module,
-    is_amax_measure_enabled,
     new_fp8_context_id,
     get_fp8_context_id,
     set_fp8_context_id,
@@ -46,6 +45,7 @@ from .fp8 import (
     global_amax_reduction,
     setup_amax_forward_global_reduce_func,
     amax_and_scale_update,
+    get_manual_measurement_mode,
     get_global_fp8_buffer,
     set_global_fp8_buffer,
     get_global_fp8_recompute_buffer,
@@ -94,6 +94,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         self.tp_size = 1
         self.sequence_parallel = False
         self.fp8_weight_shapes = []
+        self.run_cnt = 0
 
     def set_meta_tensor(self, fwd: bool) -> None:
         """Init scales and amaxes for fwd | bwd."""
@@ -180,7 +181,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
 
             # Restore global FP8 buffer state.
             set_global_fp8_buffer(state[4])
-            self.fp8_meta["update_amax_and_scale_fwd"] = state[5]
+            self.fp8_meta["update_amax_fwd"] = state[5]
             self.fp8_meta["global_fp8_buffer_pos_fwd"] = state[6]
             self.fp8_meta["global_fp8_buffer_pos_bwd"] = state[7]
             self.fp8_meta["autocast_id_fwd"] = state[8]
@@ -316,16 +317,39 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         self.init_fp8_meta_tensors()
 
         # Init amax measurement meta state
-        self.fp8_meta["update_amax_and_scale_fwd"] = False
-        self.fp8_meta["update_amax_and_scale_bwd"] = False
+        self.fp8_meta["update_amax_fwd"] = {}
+        self.fp8_meta["update_amax_bwd"] = {}
 
-    def pre_forward(self, inp: torch.Tensor, num_gemms: int = 1) -> None:
+    def get_amax_measure_state(self) -> dict:
+        res = {}
+        res['manual'] = get_manual_measurement_mode() is not None
+        if get_manual_measurement_mode() is not None:
+            res['enabled'] = get_manual_measurement_mode()
+        else:
+            res['enabled'] = self.fp8_meta["recipe"].interval == 1 or \
+            (self.run_cnt + self.fp8_meta["recipe"].interval - 2) % self.fp8_meta["recipe"].interval in \
+            range(self.fp8_meta["recipe"].interval - self.fp8_meta["recipe"].amax_history_len, self.fp8_meta["recipe"].interval)
+        return res
+
+    def is_scale_update_required(self) -> bool:
+        if not self.fp8:
+            return False
+        manual = self.fp8_meta["update_amax_fwd"].get("manual", False)
+        enabled = self.fp8_meta["update_amax_fwd"].get("enabled", False)
+        if manual:
+            return enabled
+        else:
+            return (self.fp8_meta["recipe"].interval == 1 or
+            (self.run_cnt + self.fp8_meta["recipe"].interval - 2) % self.fp8_meta["recipe"].interval == 0)
+
+    def pre_forward(self, inp: torch.Tensor, num_gemms: int = 1) -> (None, bool):
         """Checks and prep for FWD."""
+        self.run_cnt += 1
 
         # Activation recomputation is used and this is the second forward phase.
         if self.fp8 and in_fp8_activation_recompute_phase():
             get_old_fp8_meta_tensors_for_recompute(self.fp8_meta)
-            return inp.contiguous()
+            return inp.contiguous(), False
 
         if self.tp_size > 1:
             assert self.tp_group_initialized, "TP group not initialized."
@@ -333,14 +357,15 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         self.set_activation_dtype(inp)
         self.fp8_init(num_gemms=num_gemms)
 
+        is_scale_update_required = self.is_scale_update_required()
         # Previous iteration was grad_enabled
-        if self.fp8_meta.get("update_amax_and_scale_fwd", False):
+        if self.fp8_meta["update_amax_fwd"].get("enabled", False):
             if self.fp8_meta["recipe"].reduce_amax:
                 copy_amax_from_global_buffer(self.fp8_meta, forward=True)
-                amax_and_scale_update(self.fp8_meta, True)
+                amax_and_scale_update(self.fp8_meta, True, is_scale_update_required)
                 set_amax_buffer_key_deletion(self.fp8_meta, forward=True)
             else:
-                amax_and_scale_update(self.fp8_meta, True)
+                amax_and_scale_update(self.fp8_meta, True, is_scale_update_required)
 
         if self.fp8 and self.training:
             # Setup for amax reduction
@@ -352,9 +377,9 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                 else:
                     self.fp8_meta["autocast_id_fwd"] = get_fp8_context_id()
                 add_amax_to_global_buffer(self.fp8_meta, forward=True)
-            self.fp8_meta["update_amax_and_scale_fwd"] = is_amax_measure_enabled()
+            self.fp8_meta["update_amax_fwd"] = self.get_amax_measure_state()
         else:
-            self.fp8_meta["update_amax_and_scale_fwd"] = False
+            self.fp8_meta["update_amax_fwd"] = False
 
         # Activation recomputation is used and this is the first forward phase.
         if (
@@ -364,7 +389,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         ):
             copy_forward_fp8_meta_tensors_for_recompute(self.fp8_meta)
 
-        return inp.contiguous()
+        return inp.contiguous(), is_scale_update_required
 
     def post_forward(self) -> None:
         """This is needed because there isn't a way for a module to know
@@ -389,19 +414,19 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             setup_amax_forward_global_reduce_func(reduce_func)
 
     @staticmethod
-    def pre_backward(fp8: bool, fp8_meta: Dict[str, Any], is_amax_measure_enabled: bool ) -> None:
+    def pre_backward(fp8: bool, fp8_meta: Dict[str, Any], amax_measure_state: dict, is_scale_update_required: bool ) -> None:
         """Checks and prep for BWD."""
         if not fp8:
             return
 
-        if fp8_meta.get("update_amax_and_scale_bwd", False):
+        if fp8_meta["update_amax_bwd"].get("enabled", False):
             # Update amax and scale; Skip all setup for global amax reduction
             if not fp8_meta["recipe"].reduce_amax:
-                amax_and_scale_update(fp8_meta, False)
+                amax_and_scale_update(fp8_meta, False, is_scale_update_required)
             else:
                 # From previous iteration
                 copy_amax_from_global_buffer(fp8_meta, forward=False)
-                amax_and_scale_update(fp8_meta, False)
+                amax_and_scale_update(fp8_meta, False, is_scale_update_required)
                 set_amax_buffer_key_deletion(fp8_meta, forward=False)
 
                 # Get new backward key.
@@ -412,7 +437,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
 
                 add_amax_to_global_buffer(fp8_meta, forward=False)
 
-        fp8_meta["update_amax_and_scale_bwd"] = is_amax_measure_enabled
+        fp8_meta["update_amax_bwd"] = amax_measure_state
 
     @staticmethod
     def post_backward(
@@ -447,7 +472,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         ctx,
         grad_output: torch.Tensor,
         row_parallel_mode: bool,
-        is_amax_measure_enabled: bool,
+        amax_measure_state: dict,
         grad_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors] = tex.FP8BwdTensors.GRAD_OUTPUT1,
     ) -> Tuple[Union[torch.Tensor, None], ...]:
         """Utility function for backward.
@@ -491,7 +516,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                 grad_tensor,
                 fp8_dtype_backward,
                 stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
-                measure_amax=is_amax_measure_enabled
+                measure_amax=amax_measure_state["enabled"]
             )
             grad_output_c, _ = gather_along_first_dim(grad_output_c, ctx.tp_group)
 
@@ -508,7 +533,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             grad_tensor,
             fp8_dtype_backward,
             stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
-            measure_amax=is_amax_measure_enabled
+            measure_amax=amax_measure_state["enabled"]
         )
 
         return grad_output_mat, grad_output_c, grad_bias
@@ -565,6 +590,8 @@ class _Linear(torch.autograd.Function):
         activation_dtype: torch.dtype,
         parallel_mode: Union[str, None],
         minimize_memory: bool,
+        amax_measure_state: dict,
+        is_scale_update_required: bool,
     ) -> torch.Tensor:
         # Make sure input dimensions are compatible
         in_features = weight.shape[-1]
@@ -586,7 +613,7 @@ class _Linear(torch.autograd.Function):
             tex.FP8FwdTensors.GEMM1_INPUT,
             fp8_dtype_forward,
             stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-            measure_amax=is_amax_measure_enabled()
+            measure_amax=amax_measure_state["enabled"]
         )
 
         # TODO: Column Parallel Linear
@@ -605,7 +632,7 @@ class _Linear(torch.autograd.Function):
                 tex.FP8FwdTensors.GEMM1_WEIGHT,
                 fp8_dtype_forward,
                 stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-                measure_amax=is_amax_measure_enabled()
+                measure_amax=amax_measure_state["enabled"]
             )
             if weight_fp8 is None:
                 weight_fp8 = casted
@@ -651,7 +678,8 @@ class _Linear(torch.autograd.Function):
         ctx.inp_shape = inp.shape
         ctx.parallel_mode = parallel_mode
         ctx.tp_group = tp_group
-        ctx.is_amax_measure_enabled = is_amax_measure_enabled()
+        ctx.amax_measure_state = amax_measure_state.copy()
+        ctx.is_scale_update_required = is_scale_update_required
 
         # Row Parallel Linear
         if parallel_mode == "row" and sequence_parallel:
@@ -666,7 +694,7 @@ class _Linear(torch.autograd.Function):
     def backward(
         ctx, grad_output: torch.Tensor
     ) -> Tuple[Union[torch.Tensor, None], ...]:
-        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta, ctx.is_amax_measure_enabled)
+        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta, ctx.amax_measure_state, ctx.is_scale_update_required)
 
         (
             inputmat,
@@ -682,7 +710,7 @@ class _Linear(torch.autograd.Function):
             grad_output_c,
             grad_bias,
         ) = TransformerEngineBaseModule.grad_output_preprocess(
-            ctx, grad_output, ctx.parallel_mode == "row", ctx.is_amax_measure_enabled
+            ctx, grad_output, ctx.parallel_mode == "row", ctx.amax_measure_state
         )
 
         # Column Parallel Linear
@@ -774,6 +802,8 @@ class _Linear(torch.autograd.Function):
             None,
             dgrad.view(ctx.inp_shape),
             grad_bias,
+            None,
+            None,
             None,
             None,
             None,
@@ -984,7 +1014,7 @@ class Linear(TransformerEngineBaseModule):
                 bias_tensor,
             )
 
-        inp = self.pre_forward(inp)
+        inp, is_scale_update_required = self.pre_forward(inp)
 
         out = _Linear.apply(
             weight_tensor,
@@ -1001,6 +1031,8 @@ class Linear(TransformerEngineBaseModule):
             self.activation_dtype,
             self.parallel_mode,
             self.minimize_memory,
+            self.get_amax_measure_state(),
+            is_scale_update_required,
         )
 
         self.post_forward()
@@ -1151,6 +1183,8 @@ class _MatMul(torch.autograd.Function):
         tensor_parallel: bool,
         activation_dtype: torch.dtype,
         parallel_mode: Union[str, None],
+        amax_measure_state: dict,
+        is_scale_update_required: bool,
     ) -> torch.Tensor:
         # Make sure input dimensions are compatible
         dim0 = weight.shape[-2] if not transpose_weight else weight.shape[-1]
@@ -1170,7 +1204,7 @@ class _MatMul(torch.autograd.Function):
             tex.FP8FwdTensors.GEMM1_INPUT,
             fp8_dtype_forward,
             stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-            measure_amax=is_amax_measure_enabled()
+            measure_amax=amax_measure_state["enabled"]
         )
 
         weight_fp8 = cast_to_fp8(
@@ -1179,7 +1213,7 @@ class _MatMul(torch.autograd.Function):
             tex.FP8FwdTensors.GEMM1_WEIGHT,
             fp8_dtype_forward,
             stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-            measure_amax=is_amax_measure_enabled()
+            measure_amax=amax_measure_state["enabled"]
         )
 
         out = fp8_gemm(
@@ -1211,7 +1245,8 @@ class _MatMul(torch.autograd.Function):
         ctx.parallel_mode = parallel_mode
         ctx.tp_group = tp_group
         ctx.use_bias = False
-        ctx.is_amax_measure_enabled = is_amax_measure_enabled()
+        ctx.amax_measure_state = amax_measure_state.copy()
+        ctx.is_scale_update_required = is_scale_update_required
 
         # Row Parallel Linear
         if parallel_mode == "row" and sequence_parallel:
@@ -1226,7 +1261,7 @@ class _MatMul(torch.autograd.Function):
     def backward(
         ctx, grad_output: torch.Tensor
     ) -> Tuple[Union[torch.Tensor, None], ...]:
-        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta, ctx.is_amax_measure_enabled)
+        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta, ctx.amax_measure_state, ctx.is_scale_update_required)
 
         (
             inputmat,
@@ -1251,7 +1286,7 @@ class _MatMul(torch.autograd.Function):
             tex.FP8BwdTensors.GRAD_OUTPUT1,
             fp8_dtype_backward,
             stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
-            measure_amax=ctx.is_amax_measure_enabled
+            measure_amax=ctx.amax_measure_state["enabled"]
         )
 
         # DGRAD
@@ -1308,6 +1343,8 @@ class _MatMul(torch.autograd.Function):
         return (
             wgrad if weight.requires_grad else None,
             dgrad,
+            None,
+            None,
             None,
             None,
             None,
@@ -1389,7 +1426,7 @@ class MatMul(TransformerEngineBaseModule):
                 is initialized with `skip_weight_param_allocation=True`
         """
 
-        inp = self.pre_forward(inp)
+        inp, is_scale_update_required = self.pre_forward(inp)
 
         out = _MatMul.apply(
             weight,
@@ -1403,6 +1440,8 @@ class MatMul(TransformerEngineBaseModule):
             self.tp_size > 1,
             self.activation_dtype,
             self.parallel_mode,
+            self.get_amax_measure_state(),
+            is_scale_update_required,
         )
 
         self.post_forward()
@@ -1476,6 +1515,8 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
         sequence_parallel: bool,
         tensor_parallel: bool,
         activation_dtype: torch.dtype,
+        amax_measure_state: dict,
+        is_scale_update_required: bool,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # Make sure input dimensions are compatible
         in_features = query_weight.shape[-1]
@@ -1500,7 +1541,7 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             tex.FP8FwdTensors.GEMM1_INPUT,
             fp8_dtype_forward,
             stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-            measure_amax=is_amax_measure_enabled()
+            measure_amax=amax_measure_state["enabled"]
         )
 
         # Query matmul
@@ -1518,7 +1559,7 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
                 tex.FP8FwdTensors.GEMM1_WEIGHT,
                 fp8_dtype_forward,
                 stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-                measure_amax=is_amax_measure_enabled()
+                measure_amax=amax_measure_state["enabled"]
             )
 
         query_out = fp8_gemm(
@@ -1548,7 +1589,7 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
                 tex.FP8FwdTensors.GEMM2_WEIGHT,
                 fp8_dtype_forward,
                 stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-                measure_amax=is_amax_measure_enabled()
+                measure_amax=amax_measure_state["enabled"]
             )
 
         key_out = fp8_gemm(
@@ -1578,7 +1619,7 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
                 tex.FP8FwdTensors.GEMM3_WEIGHT,
                 fp8_dtype_forward,
                 stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-                measure_amax=is_amax_measure_enabled()
+                measure_amax=amax_measure_state["enabled"]
             )
 
         value_out = fp8_gemm(
@@ -1604,7 +1645,7 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             tex.FP8FwdTensors.GEMM4_INPUT,
             fp8_dtype_forward,
             stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-            measure_amax=is_amax_measure_enabled()
+            measure_amax=amax_measure_state["enabled"]
         )
 
         key_layer_fp8 = cast_to_fp8(
@@ -1613,7 +1654,7 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             tex.FP8FwdTensors.GEMM4_WEIGHT,
             fp8_dtype_forward,
             stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-            measure_amax=is_amax_measure_enabled()
+            measure_amax=amax_measure_state["enabled"]
         )
 
         query_layer_fp8 = _SelfAttentionScoresAndValue._transpose_for_scores_fp8(
@@ -1662,7 +1703,8 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
         ctx.tensor_parallel = tensor_parallel
         ctx.inp_shape = inp.shape
         ctx.tp_group = tp_group
-        ctx.is_amax_measure_enabled = is_amax_measure_enabled()
+        ctx.amax_measure_state = amax_measure_state.copy()
+        ctx.is_scale_update_required = is_scale_update_required
 
         return attention_scores, value_out
 
@@ -1673,7 +1715,7 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
         attention_scores_grad_output: torch.Tensor,
         value_grad_output: torch.Tensor
     ) -> Tuple[Union[torch.Tensor, None], ...]:
-        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta, ctx.is_amax_measure_enabled)
+        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta, ctx.amax_measure_state, ctx.is_scale_update_required)
 
         (
             inputmat_fp8,
@@ -1702,7 +1744,7 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             tex.FP8BwdTensors.GRAD_OUTPUT4,
             fp8_dtype_backward,
             stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
-            measure_amax=ctx.is_amax_measure_enabled
+            measure_amax=ctx.amax_measure_state["enabled"]
         )
 
         # attention scores DGRAD
@@ -1741,7 +1783,7 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             query_grad_output_c,
             query_grad_bias,
         ) = TransformerEngineBaseModule.grad_output_preprocess(
-            ctx, query_grad_output, row_parallel_mode=False, is_amax_measure_enabled=ctx.is_amax_measure_enabled,
+            ctx, query_grad_output, row_parallel_mode=False, amax_measure_state=ctx.amax_measure_state,
             grad_tensor=tex.FP8BwdTensors.GRAD_OUTPUT1
         )
 
@@ -1750,7 +1792,7 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             key_grad_output_c,
             key_grad_bias,
         ) = TransformerEngineBaseModule.grad_output_preprocess(
-            ctx, key_grad_output, row_parallel_mode=False, is_amax_measure_enabled=ctx.is_amax_measure_enabled,
+            ctx, key_grad_output, row_parallel_mode=False, amax_measure_state=ctx.amax_measure_state,
             grad_tensor=tex.FP8BwdTensors.GRAD_OUTPUT2
         )
 
@@ -1759,7 +1801,7 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             value_grad_output_c,
             value_grad_bias,
         ) = TransformerEngineBaseModule.grad_output_preprocess(
-            ctx, value_grad_output, row_parallel_mode=False, is_amax_measure_enabled=ctx.is_amax_measure_enabled,
+            ctx, value_grad_output, row_parallel_mode=False, amax_measure_state=ctx.amax_measure_state,
             grad_tensor=tex.FP8BwdTensors.GRAD_OUTPUT3
         )
 
@@ -1898,6 +1940,8 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             None,
             None,
             None,
+            None,
+            None,
         )
 
 
@@ -2016,7 +2060,7 @@ class SelfAttentionScoresAndValue(TransformerEngineBaseModule):
         # - GRAD_OUTPUT2: key grad,
         # - GRAD_OUTPUT3: value grad,
         # - GRAD_OUTPUT4: attention scores grad,
-        inp = self.pre_forward(hidden_states, num_gemms = 4)
+        inp, is_scale_update_required = self.pre_forward(hidden_states, num_gemms = 4)
 
         attention_scores, value_out = _SelfAttentionScoresAndValue.apply(
             inp,
@@ -2036,6 +2080,8 @@ class SelfAttentionScoresAndValue(TransformerEngineBaseModule):
             self.sequence_parallel,
             self.tp_size > 1,
             self.activation_dtype,
+            self.get_amax_measure_state(),
+            is_scale_update_required,
         )
 
         self.post_forward()
@@ -2063,6 +2109,8 @@ class _SelfAttentionContext(torch.autograd.Function):
         sequence_parallel: bool,
         tensor_parallel: bool,
         activation_dtype: torch.dtype,
+        amax_measure_state: dict,
+        is_scale_update_required: bool,
     ) -> torch.Tensor:
         dim0 = attention_probs_input.shape[-1]
         dim1 = mixed_value_layer_input.shape[-2]
@@ -2084,7 +2132,7 @@ class _SelfAttentionContext(torch.autograd.Function):
             tex.FP8FwdTensors.GEMM1_INPUT,
             fp8_dtype_forward,
             stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-            measure_amax=is_amax_measure_enabled()
+            measure_amax=amax_measure_state["enabled"]
         )
 
         mixed_value_layer_fp8 = cast_to_fp8(
@@ -2093,7 +2141,7 @@ class _SelfAttentionContext(torch.autograd.Function):
             tex.FP8FwdTensors.GEMM1_WEIGHT,
             fp8_dtype_forward,
             stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-            measure_amax=is_amax_measure_enabled()
+            measure_amax=amax_measure_state["enabled"]
         )
 
         value_layer_fp8 = _SelfAttentionScoresAndValue._transpose_for_scores_fp8(
@@ -2124,7 +2172,8 @@ class _SelfAttentionContext(torch.autograd.Function):
         ctx.sequence_parallel = sequence_parallel
         ctx.tensor_parallel = tensor_parallel
         ctx.tp_group = tp_group
-        ctx.is_amax_measure_enabled = is_amax_measure_enabled()
+        ctx.amax_measure_state = amax_measure_state.copy()
+        ctx.is_scale_update_required = is_scale_update_required
 
         return out
 
@@ -2134,7 +2183,7 @@ class _SelfAttentionContext(torch.autograd.Function):
         ctx,
         grad_output: torch.Tensor
     ) -> Tuple[Union[torch.Tensor, None], ...]:
-        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta, ctx.is_amax_measure_enabled)
+        TransformerEngineBaseModule.pre_backward(ctx.fp8, ctx.fp8_meta, ctx.amax_measure_state, ctx.is_scale_update_required)
 
         (
             attention_probs_fp8,
@@ -2156,7 +2205,7 @@ class _SelfAttentionContext(torch.autograd.Function):
             tex.FP8BwdTensors.GRAD_OUTPUT1,
             fp8_dtype_backward,
             stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
-            measure_amax=ctx.is_amax_measure_enabled
+            measure_amax=ctx.amax_measure_state["enabled"]
         )
 
         attention_probs_grad = fp8_gemm(
@@ -2194,6 +2243,8 @@ class _SelfAttentionContext(torch.autograd.Function):
         return (
             attention_probs_grad,
             mixed_value_layer_grad,
+            None,
+            None,
             None,
             None,
             None,
@@ -2263,7 +2314,7 @@ class SelfAttentionContext(TransformerEngineBaseModule):
         value_layer,
         is_first_microbatch: Optional[bool] = None
     ):
-        attention_probs = self.pre_forward(attention_probs, num_gemms = 1)
+        attention_probs, is_scale_update_required = self.pre_forward(attention_probs, num_gemms = 1)
 
         self.set_activation_dtype(value_layer)
         value_layer = value_layer.contiguous()
@@ -2281,6 +2332,8 @@ class SelfAttentionContext(TransformerEngineBaseModule):
             self.sequence_parallel,
             self.tp_size > 1,
             self.activation_dtype,
+            self.get_amax_measure_state(),
+            is_scale_update_required,
         )
 
         self.post_forward()

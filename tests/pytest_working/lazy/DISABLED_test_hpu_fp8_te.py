@@ -882,14 +882,7 @@ def test_measurement_interval_auto_mode(interval):
     fp8_recipe = DelayedScaling(interval=interval)
 
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-        assert fp8.is_amax_measure_enabled()
-
-    for _ in range(interval-1):
-        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-            assert not fp8.is_amax_measure_enabled()
-
-    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-        assert fp8.is_amax_measure_enabled()
+        assert fp8.get_manual_measurement_mode() == None
 
 
 def test_force_measurement_mode():
@@ -900,17 +893,17 @@ def test_force_measurement_mode():
     fp8_recipe = DelayedScaling(interval=1)
 
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe, force_measurement=True):
-        assert fp8.is_amax_measure_enabled()
+        assert fp8.get_manual_measurement_mode()
 
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe, force_measurement=False):
-        assert not fp8.is_amax_measure_enabled()
+        assert not fp8.get_manual_measurement_mode()
 
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
         fp8.set_measurement_mode(True, True)
-        assert fp8.is_amax_measure_enabled()
+        assert fp8.get_manual_measurement_mode()
 
         fp8.set_measurement_mode(True, False)
-        assert not fp8.is_amax_measure_enabled()
+        assert not fp8.get_manual_measurement_mode()
 
 
 def test_auto_measurement_after_force_mode():
@@ -923,7 +916,7 @@ def test_auto_measurement_after_force_mode():
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
         fp8.set_measurement_mode(True, False)
         fp8.set_measurement_mode(False)
-        assert fp8.is_amax_measure_enabled()
+        assert fp8.get_manual_measurement_mode() == None
 
 
 # We need to be able to check if amax measure is enabled after we go out of the fp8 context
@@ -938,4 +931,91 @@ def test_measurement_auto_mode_outside_fp8_autocast_context():
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
         pass
 
-    assert fp8.is_amax_measure_enabled()
+    assert fp8.get_manual_measurement_mode() == None
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16])
+@pytest.mark.parametrize("amax_history_len", [1, 5, 10])
+@pytest.mark.parametrize("interval", [1, 5, 10])
+@pytest.mark.parametrize("manual", [True, False])
+def test_amax_measure_interval(dtype, amax_history_len, interval, manual, margin=0):
+    import habana_frameworks.torch as ht
+    torch.manual_seed(12345)
+    device=torch.device("hpu:0")
+
+    inputs = []
+    for i in reversed(range(0, max(interval, amax_history_len) * 2)):
+        inputs.append(torch.tensor([0.1 * 2**i, 0.2 * 2**i, 0.3 * 2**i, 0.4 * 2**i], dtype=dtype, device=device, requires_grad=True))
+
+    fp8_recipe = DelayedScaling(
+        fp8_format=Format.E5M2_HYBRID,
+        margin=0,
+        amax_history_len=amax_history_len,
+        amax_compute_algo="max",
+        reduce_amax=False,
+        interval=interval,
+    )
+
+    # Prepare te linear module and optimizer
+    my_linear = te.Linear(4, 3, bias=True)
+    optimizer = torch.optim.SGD(my_linear.parameters(), lr=0.1)
+
+    ref = {}
+    ref['fwd_amax'] = torch.zeros(amax_history_len, 2, dtype=torch.float32, device=device)
+    ref['bwd_amax'] = torch.zeros(amax_history_len, 1, dtype=torch.float32, device=device)
+    ref['fwd_scale'] = torch.tensor([1.0, 1.0], dtype=torch.float32, device=device)
+    ref['fwd_scale_inv'] = torch.tensor([1.0, 1.0], dtype=torch.float32, device=device)
+    ref['bwd_scale'] = torch.tensor([1.0], dtype=torch.float32, device=device)
+    ref['bwd_scale_inv'] = torch.tensor([1.0], dtype=torch.float32, device=device)
+    fp8_max = 57344.0
+    def update_amax(i, out_grad):
+        ref['fwd_amax'] = torch.roll(ref['fwd_amax'], 1, dims=0)
+        ref['fwd_amax'][0][0] = torch.max(torch.abs(inputs[i]))
+        ref['fwd_amax'][0][1] = torch.max(torch.abs(my_linear.weight))
+
+        ref['bwd_amax'] = torch.roll(ref['bwd_amax'], 1, dims=0)
+        ref['bwd_amax'][0][0] = torch.max(torch.abs(out_grad))
+
+    def update_scale():
+        amax = torch.max(ref['fwd_amax'], 0).values
+        exp = torch.floor(torch.log2(fp8_max / amax)) - margin
+        sf = torch.pow(2.0, torch.abs(exp))
+        ref['fwd_scale'] = torch.where(amax > 0.0, sf, ref['fwd_scale'])
+        ref['fwd_scale_inv'] = 1.0/ref['fwd_scale']
+
+        amax = torch.max(ref['bwd_amax'], 0).values
+        exp = torch.floor(torch.log2(fp8_max / amax)) - margin
+        sf = torch.pow(2.0, torch.abs(exp))
+        ref['bwd_scale'] = torch.where(amax > 0.0, sf, ref['bwd_scale'])
+        ref['bwd_scale_inv'] = 1.0/ref['bwd_scale']
+
+    def train_step(model, input, c):
+        out = model(input)
+        out.retain_grad()
+        loss = out.sum()
+        loss.backward()
+
+        # Force computations
+        model.fp8_meta["scaling_fwd"].amax_history.cpu()
+
+        if (not manual and ((c - 1) % interval == 1 or interval == 1)) or \
+            (manual and ((c - 1) % interval == 2 or interval == 1)):
+            update_scale()
+        if not manual or (manual and (c % interval == 2 or interval == 1)):
+            update_amax(i, out.grad.detach())
+
+    if manual:
+        fp8.set_measurement_mode(True, False)
+    fp8.set_fp8_autocast_counter(0)
+    for iter in range(1,10):
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+            for i, input in enumerate(inputs):
+                c = i + 1
+
+                fp8.set_measurement_mode(manual, c % interval == 2 or interval == 1)
+                train_step(my_linear, input, c)
+                optimizer.step()
+
+                assert torch.equal(my_linear.fp8_meta["scaling_fwd"].scale, ref['fwd_scale']), f"wrong fwd scale computed at iter {iter}, input {i}"
+                assert torch.equal(my_linear.fp8_meta["scaling_fwd"].scale_inv, ref['fwd_scale_inv']), f"wrong fwd scale_inv computed at iter {iter}, input {i}"
+                assert torch.equal(my_linear.fp8_meta["scaling_bwd"].scale, ref['bwd_scale']), f"wrong bwd scale computed at iter {iter}, input {i}"
+                assert torch.equal(my_linear.fp8_meta["scaling_bwd"].scale_inv, ref['bwd_scale_inv']), f"wrong bwd scale_inv computed at iter {iter}, input {i}"
