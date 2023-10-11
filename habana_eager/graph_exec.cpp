@@ -182,7 +182,6 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
   pass::HandleTupleOnOutput(m_graph);
   pass::AddAttributeAlpha(m_graph);
   pass::RemoveDetachOp(m_graph);
-  pass::HandleStridedViewsAndInsertPermute(m_graph);
   if (m_has_preallocated_outputs) {
     pass::GetOutputsOrderInGraph(m_graph, m_outputs_order);
   }
