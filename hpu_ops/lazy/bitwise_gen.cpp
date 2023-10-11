@@ -42,29 +42,9 @@ LazyBitwiseScalar<T>::LazyBitwiseScalar(
 template struct LazyBitwiseScalar<at::Tensor&>;
 template struct LazyBitwiseScalar<at::Tensor>;
 
-template <>
-LazyBitwiseScalarTensor<at::Tensor>::LazyBitwiseScalarTensor(
-    const std::string& qualstring,
-    const std::vector<at::IValue>& inputs,
-    const std::function<sizes_vec(const at::Stack&)>& out_shapes_fn)
-    : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn, -1) {
-  auto input = get_inputs();
-  bitwise_convert_scalar_to_tensor(
-      input, 1 /*tensor_index*/, 0 /*scalar_index*/);
-  set_inputs(input);
-}
-
 template <typename T>
 T LazyBitwiseScalar<T>::get_result_overrideable() {
   HABANA_ASSERT(false, "Shouldn't be reachable");
   return habana_lazy::LazyOp<T>::get_result_overrideable();
-}
-
-template <>
-at::Tensor LazyBitwiseScalarTensor<at::Tensor>::get_result_overrideable() {
-  const auto& inputs = habana_lazy::LazyOp<at::Tensor>::get_inputs();
-  const auto& t = inputs.at(1).toTensor();
-  return habana_lazy::empty_hpu_lazy(
-      t.sizes(), t.options(), t.suggest_memory_format(), false);
 }
 } // namespace habana

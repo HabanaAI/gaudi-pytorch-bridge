@@ -1500,7 +1500,7 @@ binary_cross_entropy_with_logits:
   out_ids: [0]
 
 bitwise_and.Scalar:
-  broadcast: true
+  output_meta: BitwiseLogicalMeta
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
@@ -1510,29 +1510,8 @@ bitwise_and.Scalar:
   out_ids: [0]
   scalar_ids: [1]
 
-bitwise_and.Scalar_out:
-  broadcast: true
-  dtypes:
-    Gaudi: [Int, Short, Byte, Char]
-    Gaudi2: [Int, Short, Byte, Char]
-    Gaudi3: [Int, Short, Byte, Char]
-  op_frontend: LazyBitwiseScalar
-  guid: bitwise_and_fwd
-  scalar_ids: [1]
-
-bitwise_and.Scalar_Tensor:
-  broadcast: true
-  dtypes:
-    Gaudi: [Int, Short, Byte, Char]
-    Gaudi2: [Int, Short, Byte, Char]
-    Gaudi3: [Int, Short, Byte, Char]
-  op_frontend: LazyBitwiseScalarTensor
-  guid: bitwise_and_fwd
-  out_ids: [1]
-  scalar_ids: [0]
-
 bitwise_and.Tensor:
-  broadcast: true
+  output_meta: BitwiseLogicalMeta
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
@@ -1541,7 +1520,7 @@ bitwise_and.Tensor:
   out_ids: [0]
 
 bitwise_and.Tensor_out:
-  broadcast: true
+  output_meta: BitwiseLogicalMetaOut
   dtypes:
     Gaudi: [Int, Long, Short, Byte, Char]
     Gaudi2: [Int, Long, Short, Byte, Char]
@@ -1624,6 +1603,7 @@ bitwise_not_:
   op_validator: check-node-with-shared-layer
 
 bitwise_or.Scalar:
+  output_meta: BitwiseLogicalMeta
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
@@ -1633,27 +1613,8 @@ bitwise_or.Scalar:
   out_ids: [0]
   scalar_ids: [1]
 
-bitwise_or.Scalar_out:
-  dtypes:
-    Gaudi: [Int, Short, Byte, Char]
-    Gaudi2: [Int, Short, Byte, Char]
-    Gaudi3: [Int, Short, Byte, Char]
-  op_frontend: LazyBitwiseScalar
-  guid: bitwise_or_fwd
-  scalar_ids: [1]
-
-bitwise_or.Scalar_Tensor:
-  dtypes:
-    Gaudi: [Int, Short, Byte, Char]
-    Gaudi2: [Int, Short, Byte, Char]
-    Gaudi3: [Int, Short, Byte, Char]
-  op_frontend: LazyBitwiseScalarTensor
-  guid: bitwise_or_fwd
-  out_ids: [1]
-  scalar_ids: [0]
-
 bitwise_or.Tensor:
-  broadcast: true
+  output_meta: BitwiseLogicalMeta
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
@@ -1662,7 +1623,7 @@ bitwise_or.Tensor:
   out_ids: [0]
 
 bitwise_or.Tensor_out:
-  broadcast: true
+  output_meta: BitwiseLogicalMetaOut
   dtypes:
     Gaudi: [Int, Long, Short, Byte, Char]
     Gaudi2: [Int, Long, Short, Byte, Char]
@@ -1727,27 +1688,19 @@ bitwise_right_shift_.Tensor_Scalar:
   inplace_ids: [0]
   scalar_ids: [1]
 
-bitwise_xor.Scalar_out:
+bitwise_xor.Scalar:
+  output_meta: BitwiseLogicalMeta
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
     Gaudi3: [Int, Short, Byte, Char]
   op_frontend: LazyBitwiseScalar
   guid: bitwise_xor_fwd
+  out_ids: [0]
   scalar_ids: [1]
 
-bitwise_xor.Scalar_Tensor:
-  dtypes:
-    Gaudi: [Int, Short, Byte, Char]
-    Gaudi2: [Int, Short, Byte, Char]
-    Gaudi3: [Int, Short, Byte, Char]
-  op_frontend: LazyBitwiseScalarTensor
-  guid: bitwise_xor_fwd
-  out_ids: [1]
-  scalar_ids: [0]
-
 bitwise_xor.Tensor:
-  broadcast: true
+  output_meta: BitwiseLogicalMeta
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]
@@ -1756,7 +1709,7 @@ bitwise_xor.Tensor:
   out_ids: [0]
 
 bitwise_xor.Tensor_out:
-  broadcast: true
+  output_meta: BitwiseLogicalMetaOut
   dtypes:
     Gaudi: [Int, Short, Byte, Char]
     Gaudi2: [Int, Short, Byte, Char]

@@ -15,4 +15,41 @@
 #include "generated/backend/bitwise_or.h"
 #include "generated/backend/bitwise_xor.h"
 
-namespace habana {} // namespace habana
+namespace habana {
+
+std::vector<int64_t> BitwiseLogicalShape(const at::Stack& stack) {
+  if (stack.at(0).isScalar() && stack.at(1).isTensor()) {
+    return {stack_tensor(stack, 1).sizes().vec()};
+  }
+  const torch::Tensor& self = stack_tensor(stack, 0);
+  if (stack.at(1).isScalar()) {
+    return {self.sizes().vec()};
+  }
+  const torch::Tensor& other = stack_tensor(stack, 1);
+  return at::infer_size(self.sizes(), other.sizes());
+}
+
+OutputMetaDataVector BitwiseLogicalMetaCommon(
+    const at::Stack& stack,
+    const at::ScalarType& dtype) {
+  OutputMetaData meta;
+  meta.shape = BitwiseLogicalShape(stack);
+  meta.dtype = dtype;
+  return {meta};
+}
+
+OutputMetaDataVector BitwiseLogicalMeta(const at::Stack& stack) {
+  const auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+      stack,
+      c10::nullopt,
+      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+      false);
+  return BitwiseLogicalMetaCommon(stack, dtype);
+}
+
+OutputMetaDataVector BitwiseLogicalMetaOut(const at::Stack& stack) {
+  const auto dtype = stack.back().toTensor().scalar_type();
+  return BitwiseLogicalMetaCommon(stack, dtype);
+}
+
+} // namespace habana
