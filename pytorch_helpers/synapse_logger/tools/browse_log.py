@@ -695,7 +695,7 @@ class Log:
                     t = Tensor(entry, "")
                     self.tensors[result["pTensor"]] = t
                     self.ntensors[t.name] = t
-                if is_call(entry, "synTensorSetGeometryExt"):
+                if is_call(entry, "synTensorSetGeometry"):
                     geometry_object = objects[entry["args"]["geometry"]]
                     tensor = entry["args"]["tensor"]
                     self.tensors[tensor].update_geometry(entry, geometry_object)

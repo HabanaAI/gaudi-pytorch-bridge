@@ -651,11 +651,11 @@ synStatus SYN_API_CALL synTensorRetrieveLaunchInfoByIdExt(
       pRecipeHandle, numOfTensors, tensorsLaunchInfo);
 }
 
-synStatus SYN_API_CALL synTensorSetGeometryExt(
+synStatus SYN_API_CALL synTensorSetGeometry(
     synTensor tensor,
-    const synTensorGeometryExt* geometry,
+    const synTensorGeometry* geometry,
     synGeometryType geometryType) {
-  return syn_api->synTensorSetGeometryExt(tensor, geometry, geometryType);
+  return syn_api->synTensorSetGeometry(tensor, geometry, geometryType);
 }
 
 synStatus SYN_API_CALL synTensorSetDeviceFullLayout(

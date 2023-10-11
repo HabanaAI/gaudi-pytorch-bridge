@@ -127,7 +127,7 @@ SYN_API_PTR(synTensorRetrieveLaunchAmount);
 SYN_API_PTR(synTensorRetrieveLaunchIds);
 SYN_API_PTR(synTensorRetrieveLaunchInfoById);
 SYN_API_PTR(synTensorRetrieveLaunchInfoByIdExt);
-SYN_API_PTR(synTensorSetGeometryExt);
+SYN_API_PTR(synTensorSetGeometry);
 SYN_API_PTR(synTensorSetDeviceDataType);
 SYN_API_PTR(synTensorSetHostPtr);
 SYN_API_PTR(synTensorSetPermutation);
@@ -232,7 +232,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synTensorRetrieveLaunchIds);
   SYN_API_INIT_PTR(synTensorRetrieveLaunchInfoById);
   SYN_API_INIT_PTR(synTensorRetrieveLaunchInfoByIdExt);
-  SYN_API_INIT_PTR(synTensorSetGeometryExt);
+  SYN_API_INIT_PTR(synTensorSetGeometry);
   SYN_API_INIT_PTR(synTensorSetDeviceDataType);
   SYN_API_INIT_PTR(synTensorSetHostPtr);
   SYN_API_INIT_PTR(synTensorSetPermutation);
@@ -819,7 +819,7 @@ inline void log_synConstTensorDescriptor(const synTensorDescriptor* obj) {
 }
 
 inline void log_synTensorSetGeometry(
-    const synTensorGeometryExt* obj,
+    const synTensorGeometry* obj,
     synTensor& tensor) {
   if (!logger_is_enabled(
           synapse_logger::data_dump_category::SYNAPSE_API_CALL) ||
@@ -829,7 +829,7 @@ inline void log_synTensorSetGeometry(
 
   synapse_logger::ostr_t out{synapse_logger::get_ostr()};
   out << R"("name":"object", "args":{"at":")" << (void*)obj << R"(", "tensor":)"
-      << tensor << R"(, "type":"synTensorGeometryExt", "fields":{)"
+      << tensor << R"(, "type":"synTensorGeometry", "fields":{)"
       << R"( "m_sizes":[)"
       << absl::Span<const tensor_size_t>(obj->sizes, HABANA_DIM_MAX)
       << R"(], "m_dims":)" << obj->dims << "}}";
@@ -1828,9 +1828,9 @@ synStatus SYN_API_CALL synTensorRetrieveLaunchInfoByIdExt(
   return status;
 }
 
-synStatus SYN_API_CALL synTensorSetGeometryExt(
+synStatus SYN_API_CALL synTensorSetGeometry(
     synTensor tensor,
-    const synTensorGeometryExt* geometry,
+    const synTensorGeometry* geometry,
     synGeometryType geometryType) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
 
@@ -1838,7 +1838,7 @@ synStatus SYN_API_CALL synTensorSetGeometryExt(
   API_LOG_CALL(ARG(tensor), ARG(geometry), ARG(geometryType));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synTensorSetGeometryExt, tensor, geometry, geometryType);
+      lib_synapse::synTensorSetGeometry, tensor, geometry, geometryType);
   API_LOG_RESULT();
   return status;
 }

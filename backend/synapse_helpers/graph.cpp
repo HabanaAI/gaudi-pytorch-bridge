@@ -200,15 +200,14 @@ void graph::setTensorGeometry(
     std::vector<int64_t> shape) {
   PT_SYNHELPER_BEGIN;
   synStatus status = synSuccess;
-  synTensorGeometryExt maxGeometry;
+  synTensorGeometry maxGeometry;
   maxGeometry.dims = shape.size();
 
   for (size_t i = 0; i < shape.size(); i++) {
     maxGeometry.sizes[shape.size() - i - 1] = shape.at(i);
   }
 
-  status =
-      synTensorSetGeometryExt(tensor_handle, &maxGeometry, synGeometrySizes);
+  status = synTensorSetGeometry(tensor_handle, &maxGeometry, synGeometrySizes);
   HABANA_ASSERT(
       status == synStatus::synSuccess,
       "Tensor Set Geometry failed. synStatus=",

@@ -839,7 +839,7 @@ class Flow:
                         replacements["type"] = f"(synTensorType) {tensorType}"
                         out(Flow.call(entry, replacements))
 
-                    elif func_def.name == "synTensorSetGeometryExt":
+                    elif func_def.name == "synTensorSetGeometry":
                         replacements = space.get_args(
                             entry,
                             (

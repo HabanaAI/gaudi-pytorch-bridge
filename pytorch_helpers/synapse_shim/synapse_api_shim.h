@@ -104,7 +104,7 @@
   visitor(synTensorAssignToSection);           \
   visitor(synTensorSetSectionOffset);          \
   visitor(synTensorSetHostPtr);                \
-  visitor(synTensorSetGeometryExt);            \
+  visitor(synTensorSetGeometry);               \
   visitor(synTensorSetDeviceFullLayout);       \
   visitor(synTensorSetQuantizationData);       \
   visitor(synTensorGetQuantizationData);       \

@@ -427,8 +427,8 @@ synapse_error_o tensor::create() {
     set_quantization_data(&dynamic_range_);
   }
 
-  synTensorGeometryExt maxGeometry;
-  // Add tensor dimension via synTensorGeometryExt
+  synTensorGeometry maxGeometry;
+  // Add tensor dimension via synTensorGeometry
   // Max geometry is also used as the actual geometry. In synapse side,
   // synGeometryMaxSizes is aliased to synGeometrySizes
   tensor_size_t maxSizes[sizeof(maxGeometry.sizes) / sizeof(tensor_size_t)] = {
@@ -441,9 +441,9 @@ synapse_error_o tensor::create() {
 
   maxGeometry.dims = shape_.max().rank().value;
   memcpy(maxGeometry.sizes, maxSizes, sizeof(maxGeometry.sizes));
-  status = synTensorSetGeometryExt(tensor_, &maxGeometry, synGeometrySizes);
+  status = synTensorSetGeometry(tensor_, &maxGeometry, synGeometrySizes);
   SYNAPSE_SUCCESS_CHECK_WITH_OP(
-      "synTensorSetGeometryExt failed.", status, cleanup());
+      "synTensorSetGeometry failed.", status, cleanup());
 
   if (is_host_to_device_tensor()) {
     status = synTensorSetHostPtr(
@@ -485,7 +485,7 @@ synapse_error_o tensor::create() {
   } else {
     HABANA_ASSERT(!memory_section_ || (memory_section_ && is_persistent_));
 
-    synTensorGeometryExt minGeometry;
+    synTensorGeometry minGeometry;
     tensor_size_t minSizes[sizeof(minGeometry.sizes) / sizeof(tensor_size_t)] =
         {0};
 
@@ -496,10 +496,9 @@ synapse_error_o tensor::create() {
 
     minGeometry.dims = shape_.min().rank().value;
     memcpy(minGeometry.sizes, minSizes, sizeof(minGeometry.sizes));
-    status =
-        synTensorSetGeometryExt(tensor_, &minGeometry, synGeometryMinSizes);
+    status = synTensorSetGeometry(tensor_, &minGeometry, synGeometryMinSizes);
     SYNAPSE_SUCCESS_CHECK_WITH_OP(
-        "synTensorSetGeometryExt min sizes failed.", status, cleanup());
+        "synTensorSetGeometry min sizes failed.", status, cleanup());
     if (tensor_type_ == SHAPE_TENSOR) {
       HABANA_ASSERT(data_type_ == syn_type_uint32);
     } else if (!memory_section_ && is_persistent_) {
