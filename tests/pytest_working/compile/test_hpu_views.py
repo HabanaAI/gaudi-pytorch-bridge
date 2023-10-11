@@ -136,23 +136,21 @@ def test_hpu_leaf_views_test():
 
 
 def test_hpu_eagerize_split_getitem():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
+    def fn(a):
+        b = a.split(2)
+        return b[0]
 
-        def fn(a):
-            b = a.split(2)
-            return b[0]
+    # CPU
+    x = torch.randn([10, 10])
+    hx = x.to("hpu")
 
-        # CPU
-        x = torch.randn([10, 10])
-        hx = x.to("hpu")
+    res = fn(x)
 
-        res = fn(x)
+    # HPU
+    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
-        # HPU
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
-
-        hres = compiled_fn(hx)
-        assert torch.allclose(res, hres.cpu(), atol=0.001, rtol=0.001)
+    hres = compiled_fn(hx)
+    assert torch.allclose(res, hres.cpu(), atol=0.001, rtol=0.001)
 
 
 def fn(a):
