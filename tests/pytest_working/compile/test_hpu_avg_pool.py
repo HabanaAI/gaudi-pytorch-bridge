@@ -137,6 +137,22 @@ def test_hpu_avg_pool2d_bwd(shape, kernel_size_and_padding, stride, dtype):
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
     assert torch.allclose(cpu_output, hpu_output)
 
+@pytest.mark.parametrize("shape", [[1, 2, 3, 7], [1, 1, 2, 3, 7]])
+@pytest.mark.parametrize("output_size", [(2, 3, 1), (2, 3, 6), (2, 3, 10)])
+@pytest.mark.parametrize("dtype", [torch.float])
+def test_hpu_adaptive_avg_pool3d(shape, output_size, dtype):
+    def fn(input):
+        return torch.ops.aten.adaptive_avg_pool3d(input, output_size)
+
+    cpu_input = torch.rand(shape, dtype=dtype)
+    hpu_input = cpu_input.to("hpu")
+
+    cpu_compiled_fn = torch.compile(fn)
+    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    cpu_output = cpu_compiled_fn(cpu_input)
+    hpu_output = hpu_compiled_fn(hpu_input).to("cpu")
+    assert torch.allclose(cpu_output, hpu_output)
 @pytest.mark.parametrize("shape", [[8, 16, 16], [1, 8, 16, 16]])
 @pytest.mark.parametrize("output_size", [((2, 2))])
 @pytest.mark.parametrize("dtype", [torch.float])
