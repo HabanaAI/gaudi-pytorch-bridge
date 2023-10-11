@@ -12,9 +12,24 @@
 import torch
 from habana_frameworks.torch import _hpex_C
 
+
 class CustomSoftmax(torch.autograd.Function):
+    """Optimized approximate softmax implementation. Limited to bfloat16 only."""
+
     @staticmethod
     def forward(ctx, inp, flavor):
+        """Performs forward pass
+
+        Parameters
+        ----------
+        inp : Tensor
+            Input tensor.
+
+        flavor : int
+            Flavor of computation.
+            0 (default) - using default exponent function.
+            1 - use non-LUT approximation which has better performance for large tensors at cost of reduced accuracy.
+        """
         softmax_result = torch.ops.hpu.custom_softmax(inp, flavor)
         ctx.save_for_backward(softmax_result)
         return softmax_result
@@ -22,5 +37,7 @@ class CustomSoftmax(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         (softmax_result,) = ctx.saved_tensors
-        grad_input = torch._softmax_backward_data(grad_output, softmax_result, softmax_result.dim() - 1, torch.bfloat16)
+        grad_input = torch._softmax_backward_data(
+            grad_output, softmax_result, softmax_result.dim() - 1, torch.bfloat16
+        )
         return grad_input, None

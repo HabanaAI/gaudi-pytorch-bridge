@@ -11,10 +11,10 @@
  *******************************************************************************
  */
 
-#include "hpu_ops/custom_softmax.h"
+#include "hpu_ops/hpu_op_helper.h"
+#include "hpu_ops/op_backend.h"
 
-namespace habana {
-
+namespace {
 std::shared_ptr<void> FillCustomSoftmaxParams(
     const at::Stack& stack,
     size_t& size) {
@@ -23,20 +23,21 @@ std::shared_ptr<void> FillCustomSoftmaxParams(
   return params;
 }
 
-CustomSoftmax::CustomSoftmax(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "custom_softmax_fwd",
-          scalar_type,
-          {0},
-          {},
-          {},
-          false) {
-  SetFillParams(FillCustomSoftmaxParams);
-}
-
-} // namespace habana
+struct CustomSoftmax : habana::OpBackend {
+  CustomSoftmax(int device_id, c10::ScalarType scalar_type)
+      : OpBackend(
+            device_id,
+            "custom_softmax_fwd",
+            scalar_type,
+            {0},
+            {},
+            {},
+            false) {
+    SetFillParams(FillCustomSoftmaxParams);
+  }
+};
+} // namespace
 
 static const auto& CustomSoftmaxKernelRegistry = habana::KernelRegistry().add(
     "hpu::custom_softmax",
-    KERNEL_FN_GLOBAL(habana::CustomSoftmax));
+    KERNEL_FN_GLOBAL(CustomSoftmax));

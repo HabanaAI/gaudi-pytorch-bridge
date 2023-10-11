@@ -14,26 +14,33 @@ import torch
 hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 
-def is_torch_at_least(major : int = 2, minor : int = 0):
-    torch_version = torch.__version__.split('.')
+
+def is_torch_at_least(major: int = 2, minor: int = 0):
+    torch_version = torch.__version__.split(".")
     torch_major = int(torch_version[0])
     torch_minor = int(torch_version[1])
     return major >= torch_major and minor >= torch_minor
 
+
 def is_device(device_name):
     return hthpu.get_device_name() == device_name
+
 
 def is_gaudi1():
     return is_device("GAUDI")
 
+
 def is_gaudi2():
     return is_device("GAUDI2")
+
 
 def is_gaudi3():
     return is_device("GAUDI3")
 
+
 def is_lazy():
     return int(os.environ.get("PT_HPU_LAZY_MODE", 1)) == 1
+
 
 def evaluate_fwd_kernel(
     kernel, kernel_params, check_results=True, atol=0.001, rtol=1.0e-3, copy_kernel=True
@@ -182,12 +189,14 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
 
         hpu_tensors[i] = (
             hpu_tensors[i].float()
-            if hpu_tensors[i].dtype in [torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
+            if hpu_tensors[i].dtype
+            in [torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
             else hpu_tensors[i]
         )
         cpu_tensors[i] = (
             cpu_tensors[i].float()
-            if cpu_tensors[i].dtype in [torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
+            if cpu_tensors[i].dtype
+            in [torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
             else cpu_tensors[i]
         )
         if assert_enable:
@@ -235,6 +244,7 @@ def env_var_in_scope(vars=None):
             else:
                 if key in os.environ:
                     del os.environ[key]
+
 
 def generic_setup_teardown_env(
     temp_test_env: Dict, callback: Optional[Callable] = None
@@ -366,14 +376,19 @@ def _convert_to_tensor_list(tensor_or_tensors):
     else:
         raise TypeError("Can not convert outputs")
 
+
 def _is_simulator():
     status = False
     if os.path.exists("/sys/class/accel/accel0/device/device_type"):
         import subprocess
-        out = subprocess.Popen(['cat', '/sys/class/accel/accel0/device/device_type'],
-                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+        out = subprocess.Popen(
+            ["cat", "/sys/class/accel/accel0/device/device_type"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
         stdout, _ = out.communicate()
-        status = ("SIM".lower() in str(stdout).lower())
+        status = "SIM".lower() in str(stdout).lower()
     return status
 
 
@@ -415,7 +430,9 @@ class TcLimitedFormatter:
                         self.counter += 1
                     elif i > limit_array and i < len(val) - limit_array:
                         continue
-                ret = "{},{}".format(ret, self.format_tc_common(current_value, limit_array))
+                ret = "{},{}".format(
+                    ret, self.format_tc_common(current_value, limit_array)
+                )
             ret = "{}]".format(ret)
             if limit_str is not None and len(ret) > limit_str:
                 ret = ret[0:limit_str] + "___{}".format(self.counter)
@@ -445,3 +462,64 @@ def format_tc(val):
     print them clearly in pytest --collect-only. If function not used params in printed not by value
     but with appended integer. For example it would be dims0, dims1, etc."""
     return TcLimitedFormatter()(val)
+
+
+def is_pytest_mode_compile():
+    return pytest.mode == "compile"
+
+
+def get_t_compile_logs_path():
+    from os import path, environ
+
+    return path.join(environ["HABANA_LOGS"], "aot_hpu_backend.log")
+
+
+def clear_t_compile_logs():
+    from os import path
+    from shutil import copyfile
+    from time import mktime, gmtime
+
+    t_compile_logs_path = get_t_compile_logs_path()
+    if path.exists(t_compile_logs_path):
+        copyfile(t_compile_logs_path, t_compile_logs_path + str(mktime(gmtime())))
+        open(t_compile_logs_path, "w").close()
+
+
+def check_op_executed_in_jit_ir(op_name):
+    from os import path
+    import re
+
+    t_compile_logs_path = get_t_compile_logs_path()
+    if not path.exists(t_compile_logs_path):
+        return
+
+    pattern = r"^Node: (\w+) requires fallback: (\w+)"
+    fallback_ops = []
+    op_found = False
+
+    before_placement = True
+    before_skip_copies = True
+    before_pass_graph_print = True
+    before_jit_ir = True
+
+    with open(t_compile_logs_path) as f:
+        for line in f.readlines():
+            if before_placement:
+                before_placement = "running pass_mark_placement" not in line
+            elif before_skip_copies and before_pass_graph_print:
+                before_skip_copies = "running pass_skip_copies" not in line
+                before_pass_graph_print = "running pass_graph_print" not in line
+                m = re.match(pattern, line)
+                if m:
+                    op = m.group(1)
+                    fallback = m.group(2)
+                    if fallback == "True":
+                        fallback_ops.append(op)
+            elif before_jit_ir:
+                before_jit_ir = "JIT IR graph" not in line
+            elif f"hpu::{op_name}" in line:
+                op_found = True
+                break
+
+    assert not fallback_ops, f"These ops fell back to eager: {fallback_ops}"
+    assert op_found, f"{op_name} was not found in the JIT IR graph"

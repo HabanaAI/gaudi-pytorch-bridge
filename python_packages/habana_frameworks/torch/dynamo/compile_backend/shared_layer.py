@@ -34,6 +34,7 @@ hpu_supported_op_list = {
     "fp8_gemm_v2",
     "kv_reorder",
     "in_place_interleave",
+    "custom_softmax",
 }
 
 hpu_fallback_op_list = {

@@ -315,6 +315,11 @@ def meta_in_place_interleave(self):
     return self.new_empty(self.shape)
 
 
+@register_meta([torch.ops.hpu.custom_softmax.default])
+def meta_custom_softmax(input, flavor):
+    return input.new_empty(input.shape)
+
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 

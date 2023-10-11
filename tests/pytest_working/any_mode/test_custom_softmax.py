@@ -13,7 +13,13 @@
 import numpy as np
 import torch
 from habana_frameworks.torch.hpex.kernels import CustomSoftmax
-from test_utils import hpu
+from test_utils import (
+    hpu,
+    check_op_executed_in_jit_ir,
+    clear_t_compile_logs,
+    is_pytest_mode_compile,
+)
+import pytest
 
 
 def test_custom_softmax():
@@ -30,10 +36,18 @@ def test_custom_softmax():
         dtype=torch.float32,
     )
 
-    out = CustomSoftmax.apply(torch.clone(input).detach().to(hpu), 0)
+    op = CustomSoftmax.apply
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        op = torch.compile(CustomSoftmax.apply, backend="aot_hpu_training_backend")
+
+    out = op(torch.clone(input).detach().to(hpu), 0)
     out_cpu = out.cpu().to(torch.float32)
 
     assert np.allclose(out_cpu.numpy(), ref_output.numpy(), atol=1e-04)
+    if is_pytest_mode_compile():
+        check_op_executed_in_jit_ir("custom_softmax")
 
 
 if __name__ == "__main__":
