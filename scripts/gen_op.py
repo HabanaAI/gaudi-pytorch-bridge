@@ -1780,7 +1780,7 @@ non_mandatory_ops_whitelist = [
     "is_pinned",
     "native_layer_norm",
     "repeat",
-    "linear"
+    "linear",
 ]
 
 
@@ -2503,7 +2503,7 @@ def generate_backend(fgens, fgen_files):
                     op_backend=op_backend,
                     kr_regs=kr_regs,
                     torch_regs="",
-                    custom_schema_regs="",
+                    custom_schema_regs=torch_library_fragment(custom_schema_regs),
                     file_idx=gen_file_idx,
                 ),
                 file=gen_cpp_output_file(args, "backend/hpu_op{}".format(gen_file_idx)),
@@ -2951,7 +2951,7 @@ def generate_frontend(fgens, fgen_files, frontend_inclusions, out_dir):
                     op_backend="",
                     kr_regs="",
                     torch_regs=torch_library_impl(torch_regs),
-                    custom_schema_regs=torch_library_fragment(custom_schema_regs),
+                    custom_schema_regs="",
                     file_idx=gen_file_idx,
                 ),
                 file=gen_cpp_output_file(
