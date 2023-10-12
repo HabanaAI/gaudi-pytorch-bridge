@@ -33,6 +33,9 @@ orchestratorConfig:
 # Dtype validation <Start>
   - testToLaunch:  pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_dtype
 # Dtype validation <End>
+# PyTorch Operators and feature validation 2.1 <Start>
+  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_2.n_master_next
+# PyTorch Operators and feature validation 2.1 <end>
 # Subgraph validation <Start>
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_sub_graph_other
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_promote_training_suite_sub_graph_other
