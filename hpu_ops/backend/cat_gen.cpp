@@ -103,6 +103,8 @@ void CatHabanaOperator::AddNode(
   synConcatenateParams concat_params{};
   concat_params.axis = first_valid_tensor_dim - dim - 1;
 
+  CreateShapeTensorInput(
+      graph, out_tensor_type, cal_out_size, cat_input_synTensor);
   auto catop = BuildOp(
       graph,
       "concat",
