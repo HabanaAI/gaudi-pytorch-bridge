@@ -114,7 +114,6 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_fake_propagation,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
             pass_mark_placement,
-            pass_skip_copies,
             pass_graph_print,
         ]
     elif stage == OptimizationPassPlacement.PARTITIONER:
@@ -673,94 +672,6 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         node.meta["placement"] = placement
 
     return True
-
-
-def pass_skip_copies(ctx: OptimizerContext) -> bool:
-    """
-    This pass is supposed to find cases where input to the node is copy between devices, which
-    was created by the opposite copy. In that scenario we can just skip these copies. After we
-    do that, we should remove dead code and recompile the FX graph.
-    """
-
-    assert ctx.graph_module is not None
-    graph_changed = False
-
-    for node in ctx.graph_module.graph.nodes:
-        # For this specific node, check every input for copies. If there is a copy, follow the chain
-        # to skip as many copies as possible.
-        args = helper_get_node_args(node)
-
-        for arg in args:
-            if (
-                isinstance(arg, torch.fx.Node)
-                and arg.op == "call_function"
-                and "to_copy" in arg.target.__name__
-            ):
-                # Candidate_node is a node that produces output we would
-                # like out original input to skip to.
-                candidate_node = None
-
-                # Found copy, save original input metadata.
-                original_device = arg.meta["output_device"]
-                original_dtype = arg.meta["output_dtypes"][0]
-                original_layout = arg.meta["output_layouts"][0]
-                original_shapes = arg.meta["output_shapes"][0]
-                original_strides = arg.meta["output_strides"][0]
-                original_contiguous = arg.meta["output_contiguous"][0]
-
-                current_node = arg
-
-                valid_chain = True
-                while valid_chain:
-                    chain_arg = helper_get_node_args(current_node)[0]
-
-                    assert isinstance(chain_arg, torch.fx.Node)
-
-                    # Follow the chain till dtype and layouts are matching.
-                    chain_arg_device = chain_arg.meta["output_device"]
-                    chain_arg_dtype = chain_arg.meta["output_dtypes"][0]
-                    chain_arg_layout = chain_arg.meta["output_layouts"][0]
-                    chain_arg_shapes = chain_arg.meta["output_shapes"][0]
-                    chain_arg_strides = chain_arg.meta["output_strides"][0]
-                    chain_arg_contiguous = chain_arg.meta["output_contiguous"][0]
-
-                    if (
-                        chain_arg_dtype == original_dtype
-                        and chain_arg_layout == original_layout
-                    ):
-                        # Dtypes and layouts still match. If device is the same as original, save as
-                        # candidate for final skip.
-                        if chain_arg_device == original_device:
-                            candidate_node = chain_arg
-                    else:
-                        # This chain is not longer valid, bail out.
-                        valid_chain = False
-
-                    if (
-                        chain_arg.op == "call_function"
-                        and "to_copy" in chain_arg.target.__name__
-                    ):
-                        # This node is also a copy, let's go deeper.
-                        current_node = chain_arg
-                    else:
-                        # This chain finished, bail out.
-                        valid_chain = False
-
-                if candidate_node is not None:
-                    # We have candidate for skip. Skip it then.
-                    node.replace_input_with(arg, candidate_node)
-                    graph_changed = True
-
-    # Clean up the graph.
-    # The circular copy back to the input is being considered as dead code.
-    # The whole graph is incorrectly eliminated
-    # skip this optimization when keep_input_mutation is enabled
-    if configuration_flags["keep_input_mutations"] is False:
-        ctx.graph_module.graph.eliminate_dead_code()
-    ctx.graph_module.recompile()
-
-    return graph_changed
-
 
 def pass_merge_paths(ctx: OptimizerContext) -> bool:
     """
