@@ -158,7 +158,6 @@ hpu_backend_decompositions_common = get_decompositions(
         aten.native_batch_norm.out,
         aten.native_batch_norm_backward.out,
         aten._native_batch_norm_legit.default,
-        aten.native_dropout.default,
         aten.native_dropout_backward.default,
         aten.native_dropout_backward.out,
         aten.native_group_norm.default,
@@ -255,7 +254,7 @@ hpu_backend_decompositions_common = get_decompositions(
         aten.zero_.default,
         aten.zeros.default,
         aten.zeros_like.default,
-        aten.zeros_like.out
+        aten.zeros_like.out,
     ]
 )
 
@@ -275,6 +274,7 @@ hpu_backend_decompositions_inference = get_decompositions(
     ]
 )
 
+
 # This function should be used to attach additional custom decompositions on top of builtin ones above.
 def register_custom_decomposition(ops, decomposition_list):
     for op in [ops] if callable(ops) else ops:
@@ -282,6 +282,7 @@ def register_custom_decomposition(ops, decomposition_list):
             logger.warning(f"duplicate decomp: {ops}")
     logger.info(f"registering custom decomposition of: {ops}")
     return torch._decomp.register_decomposition(ops, decomposition_list)
+
 
 @register_custom_decomposition(aten.full_like, hpu_backend_decompositions_common)
 def full_like(
@@ -295,7 +296,6 @@ def full_like(
     requires_grad: bool = False,
     memory_format: torch.memory_format = torch.preserve_format,
 ) -> utils.TensorLikeType:
-
     dtype = a.dtype if dtype is None else dtype
     layout = a.layout if layout is None else layout
     device = a.device if device is None else device
@@ -310,9 +310,11 @@ def full_like(
         requires_grad=requires_grad,
     )
 
+
 @register_custom_decomposition(aten.bernoulli.p, hpu_backend_decompositions_common)
 def bernoulli(input, p, *, generator=None):
     return torch.bernoulli(torch.full_like(input, p), generator=generator)
+
 
 @register_custom_decomposition(aten.sort, hpu_backend_decompositions_common)
 def sort(
@@ -323,21 +325,51 @@ def sort(
     k = a.size(dim)
     return torch.topk(a, k, dim, descending)
 
-@register_custom_decomposition(torch.ops.aten.squeeze.dim, hpu_backend_decompositions_common)
+
+@register_custom_decomposition(
+    torch.ops.aten.squeeze.dim, hpu_backend_decompositions_common
+)
 def squeeze(input, dim):
     return torch.squeeze(input, [dim])
 
-@register_custom_decomposition(torch.ops.aten.squeeze.default, hpu_backend_decompositions_common)
+
+@register_custom_decomposition(
+    torch.ops.aten.squeeze.default, hpu_backend_decompositions_common
+)
 def squeeze(input):
     inp_size = len(input.size())
     dim_list = list(range(0, inp_size))
     return torch.squeeze(input, dim_list)
 
+
+# Decomposition based on https://github.com/pytorch/pytorch/blob/v2.1.0/torch/_decomp/decompositions.py#L1055
+# with bernoulli instead of rand_like
+@register_custom_decomposition(
+    aten.native_dropout.default, hpu_backend_decompositions_common
+)
+def native_dropout(input, p, train=None):
+    if train and p != 0:
+        if p == 1:
+            return (torch.zeros_like(input), torch.zeros_like(input, dtype=torch.bool))
+        p1m = 1.0 - p
+        bool_mask = torch.ops.aten.bernoulli(torch.ops.aten.empty_like(input), p1m)
+        res = bool_mask * input * float(1.0 / p1m)
+        return (res, bool_mask)
+    else:
+        return (input, torch.ones_like(input, dtype=torch.bool))
+
+
 def get_hpu_decompositions(is_training: bool):
     if configuration_flags["use_decompositions"]:
         if is_training:
-            return {**hpu_backend_decompositions_common, **hpu_backend_decompositions_training}
+            return {
+                **hpu_backend_decompositions_common,
+                **hpu_backend_decompositions_training,
+            }
         else:
-            return {**hpu_backend_decompositions_common, **hpu_backend_decompositions_inference}
+            return {
+                **hpu_backend_decompositions_common,
+                **hpu_backend_decompositions_inference,
+            }
     else:
         return None

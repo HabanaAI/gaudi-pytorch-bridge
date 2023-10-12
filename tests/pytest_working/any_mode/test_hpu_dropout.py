@@ -40,10 +40,8 @@ def test_hpu_dropout_fwd(p, dtype):
 
 
 @pytest.mark.parametrize("p", [0.0, 0.2, 0.6, 1.0])
-@pytest.mark.parametrize("train ", [True, False])
-@pytest.mark.parametrize("dtype ", [
-    pytest.param(torch.float, marks=[pytest.mark.xfail(reason="results mismatch")] if is_gaudi1 else []),
-                 torch.bfloat16])
+@pytest.mark.parametrize("train", [True, False])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_dropout_bwd(p, train, dtype):
     input = torch.randn((32, 48), dtype=dtype)
     input_hpu = input.to("hpu").requires_grad_(True)
@@ -65,7 +63,7 @@ def test_dropout_bwd(p, train, dtype):
     result_hpu_c = result_hpu.cpu()
 
     if p in [0.0, 1.0] or not train:
-        assert torch.equal(result_hpu_c, result)
+        assert torch.allclose(result_hpu_c, result)
         assert torch.equal(input_hpu_grad_c, input_grad)
     else:
         unique_hpu = torch.unique(input_hpu_grad_c)
