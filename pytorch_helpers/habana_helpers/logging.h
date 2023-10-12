@@ -536,3 +536,29 @@ std::string VecToString(const std::vector<Integer>& vec) {
           __VA_ARGS__);                   \
     }                                     \
   } while (0)
+
+// Intentionally outside named namespace to make log statements shorter
+
+namespace {
+inline std::string to_hexstring(std::int64_t x) {
+  char buffer[32];
+  if (x >= 0) {
+    snprintf(buffer, sizeof(buffer) - 1, "0x%lx", x);
+  } else {
+    snprintf(buffer, sizeof(buffer) - 1, "-0x%lx", x);
+  }
+  buffer[sizeof(buffer) - 1] = 0;
+  return buffer;
+}
+
+inline std::string to_hexstring(std::uint64_t x) {
+  char buffer[32];
+  snprintf(buffer, sizeof(buffer) - 1, "0x%lx", x);
+  buffer[sizeof(buffer) - 1] = 0;
+  return buffer;
+}
+
+inline std::string to_hexstring(const void* x) {
+  return to_hexstring((std::uint64_t)x);
+}
+} // namespace

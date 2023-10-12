@@ -241,6 +241,7 @@ synStatus device_memory::deallocate(void* ptr) {
     auto status{synDeviceFree(device_.id(), ptr_address, 0)};
     PT_DEVMEM_DEBUG(Logger::formatStatusMsg(status), "SynDeviceFree Failed.");
   }
+  PT_DEVMEM_DEBUG("device_memory::deallocate ptr=", to_hexstring(ptr));
   log_synDeviceMemStats(*this);
   return status;
 }
@@ -273,6 +274,15 @@ synStatus device_memory::alloc(
       *v_ptr = reinterpret_cast<void*>(ptr);
       log_synDeviceMemStats(*this);
     }
+    PT_DEVMEM_DEBUG(
+        "device_memory::allocS ptr=",
+        to_hexstring(*v_ptr),
+        " size=",
+        size,
+        " (",
+        to_hexstring(size),
+        ") stream=",
+        stream);
   }
 
   return status;
@@ -295,7 +305,15 @@ synStatus device_memory::malloc(
     status = alloc((void**)&ptr, size);
     *v_ptr = reinterpret_cast<void*>(ptr);
   }
-
+  PT_DEVMEM_DEBUG(
+      "device_memory::mallocS ptr=",
+      to_hexstring(*v_ptr),
+      " size=",
+      size,
+      " (",
+      to_hexstring(size),
+      ") stream=",
+      stream);
   log_synDeviceMalloc(ptr, size, status);
   record(*v_ptr, size, true);
   return status;
@@ -332,10 +350,22 @@ synStatus device_memory::free_with_stream(void* free_ptr) {
       log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
       record(free_ptr, 0, false);
     } // TODO fixme if there are other stream, need to erase the h_id
+    PT_DEVMEM_DEBUG(
+        "device_memory::free_with_stream ptr=",
+        to_hexstring(free_ptr),
+        " size=",
+        ptr_and_size.size_,
+        " (",
+        to_hexstring(ptr_and_size.size_),
+        ")");
   } else {
     status = deallocate(free_ptr);
     log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
     record(free_ptr, 0, false);
+    PT_DEVMEM_DEBUG(
+        "device_memory::free_with_stream ptr=",
+        to_hexstring(free_ptr),
+        " size=NA (NA)");
   }
   return status;
 }
@@ -355,6 +385,14 @@ synStatus device_memory::malloc(void** v_ptr, uint64_t size) {
     *v_ptr = reinterpret_cast<void*>(ptr);
   }
 
+  PT_DEVMEM_DEBUG(
+      "device_memory::malloc_ ptr=",
+      to_hexstring(*v_ptr),
+      " size=",
+      size,
+      " (",
+      to_hexstring(size),
+      ")");
   log_synDeviceMalloc(ptr, size, status);
   record(*v_ptr, size, true);
   return status;
@@ -381,6 +419,14 @@ synStatus device_memory::free(void* free_ptr) {
     if (ptr_and_size.ptr_ != nullptr) {
       deallocate(ptr_and_size.ptr_);
     }
+    PT_DEVMEM_DEBUG(
+        "device_memory::free ptr=",
+        to_hexstring(free_ptr),
+        " size=",
+        ptr_and_size.size_,
+        " (",
+        to_hexstring(ptr_and_size.size_),
+        ")");
   } else {
     status = deallocate(free_ptr);
   }
