@@ -813,7 +813,7 @@ addcmul.out:
   schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Tensor(a!) out) -> Tensor(a!)"
 
 addmm:
-  custom_output_shape: AddMMOutshape
+  output_meta: AddMMMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -823,7 +823,7 @@ addmm:
   out_ids: [0]
 
 addmm_:
-  custom_output_shape: AddMMOutshape
+  output_meta: AddMMMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -833,7 +833,7 @@ addmm_:
   inplace_ids: [0]
 
 addmm.out:
-  custom_output_shape: AddMMOutshape
+  output_meta: AddMMMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]

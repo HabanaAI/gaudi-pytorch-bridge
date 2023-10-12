@@ -43,6 +43,17 @@ sizes_vec AddMMOutshape(const at::Stack& stack) {
   return {outshape};
 }
 
+OutputMetaDataVector AddMMMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+      stack,
+      c10::nullopt,
+      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+      false);
+  meta.shape = AddMMOutshape(stack)[0];
+  return {meta};
+}
+
 OutputMetaDataVector AddBMMMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, idxSelf);
   auto batch1 = stack_tensor(stack, idxBatch1);
@@ -233,7 +244,7 @@ static std::vector<synapse_helpers::tensor> AddMMCommon(
 }
 
 void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = AddMMOutshape(stack)[0];
+  const auto meta = AddMMMeta(stack);
 
   const float beta_val = stack.at(idxBeta).toScalar().toFloat();
   const float alpha_val = stack.at(idxAlpha).toScalar().toFloat();
@@ -250,7 +261,7 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         graph,
         guid_,
         {syn_in(0), syn_in(1), syn_in(2)},
-        {{outshape, ScalarType(), 0}},
+        {{meta[0].shape, meta[0].dtype, 0}},
         &params,
         sizeof(params));
     syn_out(0) = std::move(addmv[0]);
@@ -265,7 +276,7 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
          syn_in(2),
          beta_tensor.get(),
          alpha_tensor.get()},
-        {{outshape, ScalarType(), 0}});
+        {{meta[0].shape, meta[0].dtype, 0}});
 
     syn_out(0) = std::move(addmm[0]);
   }
