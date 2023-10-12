@@ -226,9 +226,6 @@ def fn13(a):
 
 @pytest.mark.parametrize("func", [fn, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn12, fn13])
 def test_hpu_non_contiguous_outputs(func):
-    if is_torch_at_least(2, 1) and (func is fn2 or func is fn4):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-159252")
-
     import habana_frameworks.torch.core as htcore
 
     def inner_compiler(fx_module: torch.fx.GraphModule, example_inputs):
