@@ -151,7 +151,10 @@ def _disallow_collectives_in_graph():
                           if inspect.isfunction(getattr(dist, dist_member))]:
             for coll_name in COLLECTIVE_BASE_NAMES:
                 if coll_name in dist_func.__name__:
-                    torch._dynamo.disallow_in_graph(dist_func)
+                    try:
+                        torch._dynamo.decorators._disallow_in_graph_helper(False)(dist_func)
+                    except: # torch < 2.1
+                        torch._dynamo.disallow_in_graph(dist_func)
                     break
     except torch._dynamo.exc.IncorrectUsage:
         # collectives already excluded from graph
