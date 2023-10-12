@@ -526,6 +526,13 @@ class HabanaOperator {
     p_context_->syn_input_orig_.clear();
   }
 
+  void clear_all_pt_and_syn_tensors() {
+    p_context_->syn_outputs_.clear();
+    p_context_->syn_inputs_.clear();
+    p_context_->pt_outputs_.clear();
+    p_context_->pt_inputs_.clear();
+  }
+
   static std::vector<int64_t> CalculateStrides(
       const at::IntArrayRef sizes,
       c10::MemoryFormat format);

@@ -17,6 +17,7 @@
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
+#include "habana_kernels/hccl_kernels.h"
 
 void habana::HabanaLaunchOpPT::CopyInputStack(torch::jit::Stack& input_st) {
   // Keep a handle to the stack for future use
@@ -764,6 +765,15 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
         *aten_outputs_ptr_sh_,
         syn_launch_info_,
         external_tensor_info_indexes_);
+  }
+
+  if (!rv.collective_kernels_info.empty()) {
+    for (auto kernel_info : rv.collective_kernels_info) {
+      CollectiveOperator* collective =
+          dynamic_cast<CollectiveOperator*>(kernel_info->kernel.get());
+      HABANA_ASSERT(collective);
+      collective->clear_all_pt_and_syn_tensors();
+    }
   }
 
   if (enable_graph_caching_ && refine_ds_enabled_ && current_dbipsh_) {

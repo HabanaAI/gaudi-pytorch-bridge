@@ -159,8 +159,8 @@ template <typename Fn>
 void collective(
     std::vector<PtTensorInfoShared>& inputs,
     std::vector<PtTensorInfoShared>& outputs,
-    std::vector<at::Tensor>& pt_inputs,
-    std::vector<at::Tensor>& pt_outputs,
+    __attribute__((unused)) std::vector<at::Tensor>& pt_inputs,
+    __attribute__((unused)) std::vector<at::Tensor>& pt_outputs,
     std::vector<int64_t> devices,
     std::vector<int64_t> communicator_ids,
     bool async,
@@ -170,7 +170,7 @@ void collective(
     TORCH_CHECK(
         devices.at(i) == 0,
         "All tensors are expected to be assigned to device with id 0");
-    if (pt_inputs[i].numel() == 0) {
+    if (inputs.at(i)->get_numel() == 0) {
       continue;
     }
     auto comm = HcclCommunicator::Get(communicator_ids.at(i));
@@ -192,8 +192,8 @@ void collective(
     auto func = [fn = fn,
                  input = inputs.at(i),
                  output = outputs.at(i),
-                 pt_input = pt_inputs[i],
-                 pt_output = pt_outputs[i],
+                 //  pt_input = pt_inputs[i],
+                 //  pt_output = pt_outputs[i],
                  comm = comm,
                  collective_stream = collective_stream,
                  async = async,
@@ -214,11 +214,11 @@ void collective(
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
       struct ResourceHolder {
-        std::vector<at::Tensor> pt_tensor;
+        // std::vector<at::Tensor> pt_tensor;
         std::unique_ptr<synapse_helpers::device_ptr_lock> address_lock;
       };
       auto resource_holder = std::make_shared<ResourceHolder>();
-      resource_holder->pt_tensor = {pt_input, pt_output};
+      // resource_holder->pt_tensor = {pt_input, pt_output};
 
       void* input_address;
       void* output_address;
