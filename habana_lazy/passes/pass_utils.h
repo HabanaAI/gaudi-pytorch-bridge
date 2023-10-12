@@ -84,6 +84,7 @@ class WeightIdentificationPass {
   const std::set<std::string> StridedKernels = {
       "hpu::as_strided_lazy",
       "hpu::strided_insert",
+      "hpu::strided_insert_",
       "hpu::strided_insert_cl",
       "hpu::strided_insert_ds",
       "hpu::strided_insert_cl_ds",

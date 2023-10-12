@@ -28,6 +28,15 @@ namespace habana::control_edges {
 bool IsControlEdgeNode(const torch::jit::Node* const node);
 
 /**
+ * Determines whether given node is one of StridedInsert or SliceInsert.
+ *
+ * @param node_qual_str Node name to check.
+ *
+ * @return Result of the check.
+ */
+bool IsNodeStridedInsertOrSliceInsert(const std::string_view node_qual_str);
+
+/**
  * Optimizes the memory usage for chain of strided inserts.
  *
  * Optimization is being done by reusing the input memory for the graph output.

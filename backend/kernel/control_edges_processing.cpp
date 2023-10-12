@@ -719,6 +719,19 @@ void ControlEdgesProcessor::ProcessControlEdgesForMemoryReuse(
   }
 }
 
+bool IsNodeStridedInsertOrSliceInsert(const std::string_view node_qual_str) {
+  // Condition below may look stange at first glance.
+  //
+  // hpu::strided_insert_ is new op defined in backend that works as any other
+  // inplace op without necessity of special handling throughout the code.
+  //
+  // hpu::strided_insert is opposite. It is defined in legacy way and
+  // thus requires special handling here and there.
+  return (node_qual_str != "hpu::strided_insert_") &&
+      ((node_qual_str.find("strided_insert") != std::string::npos) ||
+       (node_qual_str.find("slice_insert") != std::string::npos));
+}
+
 void ProcessStridedInsertAtOutput(
     torch::jit::Node* node,
     HabanaOperatorPtr habana_kernel,
@@ -745,8 +758,7 @@ void ProcessStridedInsertAtOutput(
     // Perform memory reuse if the chain has either strided/slice inserts or
     // inplace ops add control edges between consumers of inplace/ctrl edge
     // nodes and the last strided insert.
-    if (node_qual_str.find("strided_insert"sv) == node_qual_str.npos &&
-        node_qual_str.find("slice_insert"sv) == node_qual_str.npos) {
+    if (!IsNodeStridedInsertOrSliceInsert(node_qual_str)) {
       if (NodeRequiresControlEdge(input_node) == ControlEdgeType::None) {
         break;
       } else {

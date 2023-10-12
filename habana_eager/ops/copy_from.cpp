@@ -201,10 +201,16 @@ at::Tensor add_strided_insert(at::Tensor dst, at::Tensor insert) {
   auto base = habana::eager::create_base(dst);
   base.unsafeGetTensorImpl()->set_storage_keep_dtype(dst.storage());
 
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::strided_insert", {base, insert, strides, offset}};
-  hpu_op.dont_preallocate_outputs();
-  return hpu_op.call();
+  habana::eager::EagerOp<at::Tensor&> hpu_op{
+      "hpu::strided_insert_", {base, insert, strides, offset}};
+
+  hpu_op.set_eager_op_info(
+      {eager::eagerOpKind::Inplace,
+       "hpu::strided_insert",
+       decltype(eager::EagerOpMetaData::out_indices_){0}});
+
+  hpu_op.call(base);
+  return dst;
 }
 
 void Execute_Copy(
@@ -404,6 +410,8 @@ TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def("identity(Tensor self) -> Tensor");
   m.def(
       "strided_insert(Tensor self, Tensor other, int[] stride, int offset) -> (Tensor)");
+  m.def(
+      "strided_insert_(Tensor(a!) self, Tensor other, int[] stride, int offset) -> (Tensor(a!))");
 }
 } // namespace eager
 } // namespace habana

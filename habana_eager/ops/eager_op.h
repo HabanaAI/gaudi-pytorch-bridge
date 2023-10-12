@@ -69,12 +69,6 @@ class EagerOpBase {
     m_eager_op_meta_data = std::move(eager_op_meta_data);
   }
 
-  // This workaround, which has to be removed as soon as aten::as_strided and
-  // hpu::strided_insert start using OpBackend
-  void dont_preallocate_outputs() {
-    m_dont_preallocate_outputs = true;
-  }
-
  private:
   auto process_EagerOpBase_input(
       std::vector<std::vector<int64_t>>&& out_shapes,
@@ -119,7 +113,6 @@ class EagerOpBase {
       m_output_meta_fn;
   EagerOpMetaData m_eager_op_meta_data;
   bool m_is_pipeline_supported = true;
-  bool m_dont_preallocate_outputs = false;
 
   void validate_inputs(const std::vector<at::IValue>& inputs);
 };
@@ -370,17 +363,8 @@ class EagerOp : public EagerOpBase {
     PT_EAGER_DEBUG("Eager Call regular :: ", m_symbol.toQualString());
 
     auto result = get_result();
-    if (!m_dont_preallocate_outputs) {
-      run({HbEagerTensorPool::get_backend_tensor(result)});
-      return result;
-    } else {
-      m_is_pipeline_supported = false;
-      auto out_spec = OutputSpec{
-          result.scalar_type(), result.device(), result.sizes().vec()};
-      auto stack = run({out_spec});
-      HABANA_ASSERT(stack.size() == 1); // single output only
-      return HbEagerTensorPool::get_backend_tensor(stack.at(0).toTensor());
-    }
+    run({HbEagerTensorPool::get_backend_tensor(result)});
+    return result;
   }
 
   template <typename T = ReturnType>

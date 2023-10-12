@@ -2121,10 +2121,9 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       outputs_metadata.at(0).module_name = module_name;
     }
     // applicable for both persistent strided view and strided insert tensors
-    if (((outputs_metadata.size() == 1) && (!is_shape_inference) &&
-         (outputs_metadata.at(0).persistent == true)) &&
-        ((opname.find("strided_insert") != std::string::npos) ||
-         (opname.find("slice_insert") != std::string::npos) ||
+    if ((outputs_metadata.size() == 1) && !is_shape_inference &&
+        (outputs_metadata.at(0).persistent == true) &&
+        (habana::control_edges::IsNodeStridedInsertOrSliceInsert(opname) ||
          (opname.find("strided_view_out") != std::string::npos))) {
       habana::control_edges::ProcessStridedInsertAtOutput(
           node,

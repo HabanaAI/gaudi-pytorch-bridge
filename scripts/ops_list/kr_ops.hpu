@@ -999,6 +999,7 @@ RegisterKernel::add op = hpu::slice_insert
 RegisterKernel::add op = hpu::slice_insert_ds
 RegisterKernel::add op = hpu::slice_insert_ds_ht
 RegisterKernel::add op = hpu::strided_insert
+RegisterKernel::add op = hpu::strided_insert_
 RegisterKernel::add op = hpu::strided_insert_cl
 RegisterKernel::add op = hpu::strided_insert_cl_ds
 RegisterKernel::add op = hpu::strided_insert_ds

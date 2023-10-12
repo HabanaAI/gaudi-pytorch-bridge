@@ -225,6 +225,7 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/sort_gen.cpp
           backend/split_gen.cpp
           backend/squeeze_dims_gen.cpp
+          backend/strided_insert_gen.cpp
           backend/take_gen.cpp
           backend/threshold_gen.cpp
           backend/trace_gen.cpp
