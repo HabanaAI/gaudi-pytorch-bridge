@@ -17,6 +17,7 @@
 #include <pybind11/stl.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
 #include <torch/csrc/jit/tensorexpr/tensorexpr_init.h>
+#include <torch/csrc/utils/python_symnode.h>
 #include <torch/extension.h>
 #include <iostream>
 #include <tuple>
@@ -152,16 +153,26 @@ c10::optional<c10::IValue> toTypeInferredIValueOptional(py::handle input) {
   }
 }
 
+void pushIValueToStack(torch::jit::Stack& stack, pybind11::handle item) {
+  if (torch::is_symint(item)) {
+    stack.push_back(torch::jit::toIValue(item, c10::SymIntType::get()));
+  } else if (torch::is_symfloat(item)) {
+    stack.push_back(torch::jit::toIValue(item, c10::SymFloatType::get()));
+  } else {
+    stack.push_back(toTypeInferredIValueOptional(item));
+  }
+}
+
 template <typename SharedOp>
 bool check_support(py::object args, py::dict kwargs) {
   at::Tensor self;
   torch::jit::Stack stack;
   stack.reserve(PySequence_Size(args.ptr()));
   for (auto item : args) {
-    stack.push_back(toTypeInferredIValueOptional(item));
+    pushIValueToStack(stack, item);
   }
   for (auto item : kwargs) {
-    stack.push_back(toTypeInferredIValueOptional(item.second));
+    pushIValueToStack(stack, item.second);
   }
   static SharedOp shared_op;
   return shared_op.func(stack);
