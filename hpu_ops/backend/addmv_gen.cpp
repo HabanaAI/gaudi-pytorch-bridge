@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "generated/backend/addmv.h"
 
@@ -19,7 +22,7 @@
 
 namespace habana {
 
-sizes_vec AddMVOutshape(const at::Stack& stack) {
+OutputMetaDataVector AddMVMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto mat = stack_tensor(stack, 1);
   auto vec = stack_tensor(stack, 2);
@@ -43,12 +46,16 @@ sizes_vec AddMVOutshape(const at::Stack& stack) {
       mat.size(1),
       ",",
       vec.size(0));
-  std::vector<int64_t> outshape{mat.sizes()[0]}; // (n, m)@(m, 1) -> (n, 1)
-  return {outshape};
+
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = {mat.sizes()[0]}; // (n, m)@(m, 1) -> (n, 1)
+
+  return {meta};
 }
 
 void AddMV::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = AddMVOutshape(stack)[0];
+  auto meta = AddMVMeta(stack)[0];
 
   const float beta_val = stack.at(idxBeta).toScalar().toFloat();
   const float alpha_val = stack.at(idxAlpha).toScalar().toFloat();
@@ -65,13 +72,13 @@ void AddMV::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         graph,
         guid_,
         {syn_in(0), syn_in(1), syn_in(2)},
-        {{outshape, ScalarType(), 0}},
+        {{meta.shape, meta.dtype, 0}},
         &params,
         sizeof(params));
     syn_out(0) = std::move(addmv[0]);
   } else {
-    auto alpha_tensor = ConstantHelper(graph, alpha_val, ScalarType(), 1);
-    auto beta_tensor = ConstantHelper(graph, beta_val, ScalarType(), 1);
+    auto alpha_tensor = ConstantHelper(graph, alpha_val, meta.dtype, 1);
+    auto beta_tensor = ConstantHelper(graph, beta_val, meta.dtype, 1);
     auto addmm = BuildOp(
         graph,
         guid_,
@@ -80,7 +87,7 @@ void AddMV::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
          syn_in(2),
          beta_tensor.get(),
          alpha_tensor.get()},
-        {{outshape, ScalarType(), 0}});
+        {{meta.shape, meta.dtype, 0}});
 
     syn_out(0) = std::move(addmm[0]);
   }

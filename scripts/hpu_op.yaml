@@ -842,7 +842,7 @@ addmm.out:
   op_backend: AddMM
 
 addmv:
-  custom_output_shape: AddMVOutshape
+  output_meta: AddMVMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -852,7 +852,7 @@ addmv:
   op_backend: AddMV
 
 addmv_:
-  custom_output_shape: AddMVOutshape
+  output_meta: AddMVMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -862,7 +862,7 @@ addmv_:
   op_backend: AddMV
 
 addmv.out:
-  custom_output_shape: AddMVOutshape
+  output_meta: AddMVMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
