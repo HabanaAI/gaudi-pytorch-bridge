@@ -60,26 +60,6 @@ struct HandleDynamicOpsPass {
     }
   }
 
-  void executeNode(const torch::jit::Node* node, torch::jit::Stack& inputs) {
-    try {
-      torch::jit::Operator jit_op = node->getOperator();
-      jit_op.getOperation()(inputs);
-    } catch (std::exception& e) {
-      // catch runtime error due to non-implmentation/mismatch
-      PT_EAGER_DEBUG("Catch Exception in DS executeNode ", e.what());
-      auto input_tensor = inputs[0].toTensor();
-      torch::jit::drop(inputs, node->inputs().size());
-      auto node_outs = node->outputs();
-      for (int i = 0; i < node_outs.size(); i++) {
-        auto output_val = node_outs[i];
-        if (output_val->type()->kind() == c10::TypeKind::TensorType) {
-          auto result = input_tensor.clone();
-          torch::jit::pack(inputs, std::move(result));
-        }
-      }
-    }
-  }
-
   void handlePrimConstantNode(torch::jit::Node* node) {
     auto node_vals = node->outputs();
     for (const auto value : node_vals) {
@@ -124,49 +104,15 @@ struct HandleDynamicOpsPass {
     }
   }
 
-  void propagateShape(const torch::jit::Stack& org_stack) {
-    // Set the shapes of input tensors in the map
-    const auto& g_inputs = m_graph->inputs();
-    for (size_t i = 0; i < org_stack.size(); ++i) {
-      const auto& name = g_inputs[i]->debugName();
-      m_value_ivalue_map[g_inputs[i]] = std::make_shared<IVal>(org_stack[i]);
+  void propagateShape(torch::jit::Stack& org_stack) {
+    // Run SIF
+    std::unordered_map<CValPtr, torch::jit::IValue> value_ivalue_map;
+    HabanaLaunchOpPT::RunHybridSif(m_graph, org_stack, value_ivalue_map);
+    for (auto val_ivalue : value_ivalue_map) {
+      m_value_ivalue_map[val_ivalue.first] =
+          std::make_shared<IVal>(val_ivalue.second);
     }
-
-    // Propagate the shapes through the graph nodes
-    for (const auto& node : m_graph->nodes()) {
-      torch::jit::Stack nodeInputs;
-      if (node->kind() == torch::jit::prim::Constant) {
-        handlePrimConstantNode(node);
-        continue;
-      } else if (node->kind() == torch::jit::prim::ListConstruct) {
-        handlePrimListConstructNode(node);
-        continue;
-      } else if (node->kind() == torch::jit::prim::ListUnpack) {
-        handlePrimListUnpackNode(node);
-        continue;
-      }
-
-      for (const auto& input : node->inputs()) {
-        const auto& name = input->debugName();
-        if ((*m_value_ivalue_map[input]).isTensor()) {
-          auto input_ct = (*m_value_ivalue_map[input]).toTensor().to(c10::kCPU);
-          nodeInputs.push_back(torch::jit::IValue(input_ct));
-        } else {
-          nodeInputs.push_back(*m_value_ivalue_map[input]);
-        }
-      }
-
-      executeNode(node, nodeInputs);
-
-      auto node_outs = node->outputs();
-      auto outputIValues = torch::jit::last(nodeInputs, node_outs.size());
-      for (int i = 0; i < outputIValues.size(); i++) {
-        auto output_val = node_outs[i];
-        auto output_ival = outputIValues[i];
-        m_value_ivalue_map[output_val] = std::make_shared<IVal>(output_ival);
-      }
-    }
-
+    // dump shapes
     dumpValueIValueMap();
   }
 

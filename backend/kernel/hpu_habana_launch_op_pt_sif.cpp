@@ -113,7 +113,9 @@ void create_synapse_inputs(
     if (ivalue.isTensor()) {
       PT_DYNAMIC_SHAPE_DEBUG("Input coming from %", value_in->debugName());
       create_synapse_input(value_in, habana_op, syn_graph, val_to_ival_map);
-    } else if (value_in->node()->kind() == torch::jit::prim::ListConstruct) {
+    } else if (
+        (value_in->node()->kind() == torch::jit::prim::ListConstruct) &&
+        (ivalue.isTensorList())) {
       PT_DYNAMIC_SHAPE_DEBUG(
           "Input coming from ListConstruct output %", value_in->debugName());
       HABANA_ASSERT(ivalue.isTensorList(), "TensorList expected");
@@ -426,7 +428,36 @@ void HabanaLaunchOpPT::RunHybridSif(
       habana_op->AllocateAndAddSynapseNode(
           syn_graph, op_input_stack, outputs_metadata);
 
-      // process_outputs(habana_op, node, val_to_ival_map, tidx_to_tensor_map);
+      // process outputs
+      {
+        auto output_nodes = node->outputs();
+
+        if (node->output(0)->type() == torch::ListType::ofTensors() &&
+            node->outputs().size() == 1) {
+          auto unpack_node =
+              jitgraph_utils::GetUnpackNodeFromTensorList(node->output(0));
+          HABANA_ASSERT(
+              unpack_node != nullptr,
+              "TensorList is not input to ListUnpack node. Node: ",
+              node->kind().toQualString());
+          output_nodes = unpack_node->outputs();
+        }
+
+        size_t output_idx = 0;
+        for (auto& out_tensor_pt : habana_op->GetOutputs()) {
+          val_to_ival_map.emplace(
+              output_nodes[output_idx], torch::jit::IValue(out_tensor_pt));
+        }
+
+        for (const auto& pt_input_idx_and_sh_tensor :
+             habana_op->GetSynImplicitOutputs()) {
+          val_to_ival_map.emplace(
+              node->inputs()[pt_input_idx_and_sh_tensor.pt_input_idx],
+              torch::jit::IValue(
+                  habana_op
+                      ->GetInputs()[pt_input_idx_and_sh_tensor.syn_input_idx]));
+        }
+      }
     }};
 
     if (!disabled_jit_ir_ops_.count(op_name)) {
@@ -439,19 +470,27 @@ void HabanaLaunchOpPT::RunHybridSif(
         propagate_shape();
       } else {
         // Output shape info based flow
-        auto output_tensors = output_shape_info.GetOutputTensor();
+        try {
+          auto output_tensors = output_shape_info.GetOutputTensor();
 
-        size_t exclude_outputs = 0;
-        if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
-          exclude_outputs = op->GetSynImplicitOutputs().size();
-        }
+          size_t exclude_outputs = 0;
+          if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
+            exclude_outputs = op->GetSynImplicitOutputs().size();
+          }
 
-        HABANA_ASSERT(
-            node->outputs().size() == output_tensors.size() - exclude_outputs);
-        for (size_t i = 0; i < node->outputs().size(); ++i) {
-          auto output = node->outputs().at(i);
-          HABANA_ASSERT(val_to_ival_map.count(output) == 0);
-          val_to_ival_map[output] = IVal(std::get<1>(output_tensors[i]));
+          TORCH_CHECK(
+              node->outputs().size() ==
+                  (output_tensors.size() - exclude_outputs),
+              "Output size mismatch");
+
+          for (size_t i = 0; i < node->outputs().size(); ++i) {
+            auto output = node->outputs().at(i);
+            HABANA_ASSERT(val_to_ival_map.count(output) == 0);
+            val_to_ival_map[output] = IVal(std::get<1>(output_tensors[i]));
+          }
+        } catch (std::exception& e) {
+          PT_DYNAMIC_SHAPE_DEBUG("Catch Exception SIF failed: ", e.what());
+          propagate_shape();
         }
       }
     } else {
