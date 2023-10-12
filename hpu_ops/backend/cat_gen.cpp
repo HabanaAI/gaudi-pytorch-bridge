@@ -108,7 +108,7 @@ void CatHabanaOperator::AddNode(
   auto catop = BuildOp(
       graph,
       "concat",
-      cat_input_synTensor,
+      std::move(cat_input_synTensor),
       {{{cal_out_size}, out_tensor_type, 0}},
       &concat_params,
       sizeof(concat_params));

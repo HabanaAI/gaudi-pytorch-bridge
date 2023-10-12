@@ -117,18 +117,18 @@ void Avgpool3dFwd::AddNode(
     expandResult.push_back(std::move(BuildOp(
         graph,
         "expand_dims",
-        inputs,
+        std::move(inputs),
         {{inputExpandedShape, meta.dtype}},
         &expandParams,
         sizeof(expandParams))[0]));
-    inputs[0] = expandResult[0].get();
+    inputs = {expandResult[0].get()};
   }
 
   CreateShapeTensorInput(graph, meta.dtype, intermediateOutShape, inputs);
   auto avgPool = BuildOp(
       graph,
       guid_,
-      inputs,
+      std::move(inputs),
       {{intermediateOutShape, ScalarType(), finalIndex}},
       params.get(),
       size);

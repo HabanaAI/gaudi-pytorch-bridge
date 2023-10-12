@@ -79,7 +79,7 @@ void InstanceNormBackward::AddNode(
   };
   auto InstanceNormBackward = BuildOp(
       graph,
-      guid,
+      std::move(guid),
       {syn_in(0), syn_in(1), syn_in(2), syn_in(3), syn_in(4)},
       {{meta[0].shape, meta[0].dtype, 0},
        {meta[1].shape, meta[1].dtype, 1},

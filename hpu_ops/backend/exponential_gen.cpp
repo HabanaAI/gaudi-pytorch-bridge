@@ -54,7 +54,7 @@ void ExponentialSeedTensorInput::AddNode(
   auto exponential = BuildOp(
       graph,
       get_guid_with_precision("random_exponential_fwd", meta.dtype),
-      inputs,
+      std::move(inputs),
       {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);

@@ -391,7 +391,7 @@ void MaxPool3DWithIndicesBwd::AddNode(
   auto grad_output = BuildOp(
       graph,
       get_guid_with_precision("maxpool_3d_bwd", ScalarType()),
-      grad,
+      std::move(grad),
       {{out_shape[0], ScalarType(), 0}},
       params.get(),
       size);
@@ -450,7 +450,7 @@ void MaxPool2DWithIndicesBwd::AddNode(
   auto maxpool2d_gradout = BuildOp(
       graph,
       get_guid_with_precision("maxpool_2d_bwd", ScalarType()),
-      grad,
+      std::move(grad),
       {{out_shape[0], ScalarType(), 0}},
       params.get(),
       size);

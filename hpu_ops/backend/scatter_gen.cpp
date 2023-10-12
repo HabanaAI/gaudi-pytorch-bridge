@@ -87,7 +87,7 @@ void ScatterOperator::AddNode(
     auto scatterkernel = BuildOp(
         graph,
         get_guid_with_precision("scatter_fwd", c10::ScalarType::Int),
-        syn_input_tensors,
+        std::move(syn_input_tensors),
         {{outshape, c10::ScalarType::Int}},
         &params,
         sizeof(params));
@@ -106,7 +106,7 @@ void ScatterOperator::AddNode(
     auto scatterkernel = BuildOp(
         graph,
         get_guid_with_precision("scatter_fwd", ScalarType()),
-        syn_input_tensors,
+        std::move(syn_input_tensors),
         {{outshape, ScalarType(), 0}},
         &params,
         sizeof(params));

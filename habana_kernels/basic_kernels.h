@@ -194,10 +194,9 @@ class SelectScatterOperator : public SliceScatterOperator {
 
 class StridedInsertOperator : public habana::HabanaOperator {
  public:
-  StridedInsertOperator(int device_id, c10::ScalarType scalarType)
+  StridedInsertOperator(int device_id, c10::ScalarType)
       : HabanaOperator("strided_insert") {
-    static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
+    CreateSynContext(device_id);
 
     kernel_meta_data_.input_layout.assign(
         {habana::LayoutFormat::NCHW,
@@ -218,17 +217,19 @@ class StridedInsertOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
       const habana::OutputMetaDataVector& output_metadata) override;
-  void compute_params(
+  static void compute_params(
+      HabanaOperator&,
       synStridedOpParams&,
-      torch::jit::Stack& inputs,
+      const torch::jit::Stack& inputs,
       synapse_helpers::graph& graph);
-  void compute_params_h2d(
+  static void compute_params_h2d(
+      HabanaOperator&,
       synStridedOpParams&,
-      torch::jit::Stack& inputs,
+      const torch::jit::Stack& inputs,
       synapse_helpers::graph& graph);
-  bool verifyViewMemoryAccess(
-      at::Tensor& real,
-      at::Tensor& view,
+  static bool verifyViewMemoryAccess(
+      const at::Tensor& real,
+      const at::Tensor& view,
       c10::IntArrayRef& strides,
       int64_t& offset);
 };

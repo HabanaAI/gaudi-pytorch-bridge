@@ -82,7 +82,7 @@ void InstanceNorm::AddNode(
   };
   auto instanceNorm = BuildOp(
       graph,
-      guid,
+      std::move(guid),
       {syn_in(0), syn_in(2), syn_in(1)},
       {{meta[0].shape, meta[0].dtype, 0},
        {meta[1].shape, c10::ScalarType::Float, 1},

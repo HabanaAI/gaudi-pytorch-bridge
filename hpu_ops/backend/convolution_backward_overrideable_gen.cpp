@@ -339,10 +339,10 @@ void ConvolutionBackwardOverrideable::AddNode(
 
   auto BuildOpFor =
       [&](synapse_helpers::graph& graph,
-          std::string& guid,
+          std::string&& guid,
           bool is_conv_3d,
-          std::vector<synTensor> node_inputs,
-          const std::vector<NodeAttr::NodeOutputAttr>& node_output_attr,
+          std::vector<synTensor>&& node_inputs,
+          std::vector<NodeAttr::NodeOutputAttr>&& node_output_attr,
           void* params,
           size_t param_size) {
         if (guid.find("spatial_convolution") != std::string::npos ||
@@ -392,10 +392,14 @@ void ConvolutionBackwardOverrideable::AddNode(
 
         guid = get_guid_with_precision(guid, ScalarType());
 
-        return std::move(
-            BuildOp(
-                graph, guid, node_inputs, node_output_attr, params, params_size)
-                .at(0));
+        return std::move(BuildOp(
+                             graph,
+                             std::move(guid),
+                             std::move(node_inputs),
+                             std::move(node_output_attr),
+                             params,
+                             params_size)
+                             .at(0));
       };
 
   std::string guid;
@@ -413,7 +417,7 @@ void ConvolutionBackwardOverrideable::AddNode(
       guid = "spatial_convolution";
       auto convOp = BuildOpFor(
           graph,
-          guid,
+          std::move(guid),
           is_conv_3d,
           {grad_output_reshaped, weight_reshaped},
           {{out0_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 0)}},
@@ -427,7 +431,7 @@ void ConvolutionBackwardOverrideable::AddNode(
       guid = is_conv_3d ? "dedw3d" : "dedw";
       auto dedwOp = BuildOpFor(
           graph,
-          guid,
+          std::move(guid),
           is_conv_3d,
           {input_reshaped, grad_output_reshaped},
           {{out1_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 1)}},
@@ -446,9 +450,9 @@ void ConvolutionBackwardOverrideable::AddNode(
       guid = is_conv_3d ? "dedx3d" : "dedx";
       auto convOp = BuildOpFor(
           graph,
-          guid,
+          std::move(guid),
           is_conv_3d,
-          syn_inputs,
+          std::move(syn_inputs),
           {{out0_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 0)}},
           params.get(),
           params_size);
@@ -460,7 +464,7 @@ void ConvolutionBackwardOverrideable::AddNode(
       guid = is_conv_3d ? "dedw3d" : "dedw";
       auto dedwOp = BuildOpFor(
           graph,
-          guid,
+          std::move(guid),
           is_conv_3d,
           {grad_output_reshaped, input_reshaped},
           {{out1_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 1)}},

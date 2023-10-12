@@ -212,8 +212,13 @@ void ConvolutionOverrideable::AddNode(
   if ((transposed && bias.defined()) || is_conv_1d)
     node_output_attr.final_result_index = c10::nullopt;
 
-  auto convOp =
-      BuildOp(graph, guid, inputs, {node_output_attr}, params.get(), size);
+  auto convOp = BuildOp(
+      graph,
+      std::move(guid),
+      std::move(inputs),
+      {node_output_attr},
+      params.get(),
+      size);
 
   SetSynapseLayouts({}, {});
 

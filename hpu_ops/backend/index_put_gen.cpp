@@ -300,7 +300,7 @@ void IndexPutEager::AddNode(
   auto catop1 = BuildOp(
       graph,
       "concat",
-      cat_input_synTensor,
+      std::move(cat_input_synTensor),
       {{cat_out_size, indices_scalar_type}},
       &concat_params,
       sizeof(concat_params));
@@ -435,7 +435,7 @@ void IndexPutBoolEager::AddNode(
   auto catop1 = BuildOp(
       graph,
       "concat",
-      cat_input_synTensor,
+      std::move(cat_input_synTensor),
       {{cat_out_size, indices_scalar_type}},
       &concat_params,
       sizeof(concat_params));

@@ -102,7 +102,7 @@ void AdaptiveAvgPool2dBwd::AddNode(
   auto adaptive_avg_pool = BuildOp(
       graph,
       get_guid_with_precision("adaptive_avg_pool_2d_bwd", ScalarType()),
-      grad,
+      std::move(grad),
       {{outshape, ScalarType(), 0}},
       params.get(),
       size);

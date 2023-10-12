@@ -34,8 +34,8 @@ void MaskedFill::AddNode(
     inputs[1] = cast->get();
   }
 
-  auto result =
-      BuildOp(graph, guid_, inputs, {{self.sizes(), ScalarType(), 0}});
+  auto result = BuildOp(
+      graph, guid_, std::move(inputs), {{self.sizes(), ScalarType(), 0}});
 
   syn_out(0) = std::move(result[0]);
 }

@@ -295,21 +295,21 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
 
 std::vector<sh::tensor> OpBackend::BuildOp(
     sh::graph& graph,
-    const std::string& guid,
-    std::vector<synTensor> node_inputs,
-    const std::vector<NodeAttr::NodeOutputAttr>& node_output_attr,
+    std::string guid,
+    std::vector<synTensor>&& node_inputs,
+    std::vector<NodeAttr::NodeOutputAttr> node_output_attr,
     void* params,
     size_t param_size,
     std::string name) {
   return OpBackend::BuildNode(
       this,
       graph,
-      {guid,
+      {std::move(guid),
        std::move(node_inputs),
-       node_output_attr,
+       std::move(node_output_attr),
        params,
        param_size,
-       name});
+       std::move(name)});
 }
 
 sh::tensor OpBackend::CastHelper(
@@ -573,7 +573,7 @@ void OpBackend::CreateShapeTensorInput(
 std::vector<sh::tensor> OpBackend::BuildNode(
     OpBackend* op,
     sh::graph& graph,
-    NodeAttr node_attr) {
+    NodeAttr&& node_attr) {
   if (op->isOutputInfMode()) {
     auto& meta = op->GetOutputInfMeta();
     const auto& output_attrs_size = node_attr.output_attrs.size();
@@ -1005,12 +1005,11 @@ std::vector<sh::tensor> OpBackend::BuildNonZero(
       outShape.size(),
       " rank was given");
 
-  const std::string guid =
-      get_guid_with_precision("non_zero_fwd", inScalarType);
+  std::string guid = get_guid_with_precision("non_zero_fwd", inScalarType);
 
   return op->BuildOp(
       graph,
-      guid,
+      std::move(guid),
       {inTensor.get()},
       {NodeAttr::NodeOutputAttr{outShape, at::kInt, finalResultIndex},
        NodeAttr::NodeOutputAttr{
@@ -1052,12 +1051,12 @@ sh::tensor OpBackend::BuildScatterNDOnnx(
         "ScatterND ValidCount tensor must have rank 1");
   }
 
-  const std::string guid =
+  std::string guid =
       get_guid_with_precision("scatter_nd_onnx_fwd", inScalarType);
 
   return std::move(op->BuildOp(
                          graph,
-                         guid,
+                         std::move(guid),
                          [&]() {
                            const auto& validCountTensor = inTensors[3];
                            std::vector<synTensor> res;

@@ -119,7 +119,7 @@ void Avgpool2dBwd::AddNode(
   auto avg_pool = BuildOp(
       graph,
       get_guid_with_precision("avg_pool_2d_bwd", ScalarType()),
-      grad,
+      std::move(grad),
       {{outshape, ScalarType(), 0}},
       params.get(),
       size);
@@ -160,7 +160,7 @@ void Avgpool2dFwd::AddNode(
   auto avgPool = BuildOp(
       graph,
       guid_,
-      grad,
+      std::move(grad),
       {{intermediateOutShape, ScalarType(), finalIndex}},
       params.get(),
       size);

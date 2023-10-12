@@ -120,7 +120,7 @@ void RandomSeedTensorInput::AddNode(
     auto rand = BuildOp(
         graph,
         update_guid_dtype(guid_, "f32"),
-        inputs,
+        std::move(inputs),
         {{outshape}},
         rand_params.get(),
         size);
@@ -143,7 +143,7 @@ void RandomSeedTensorInput::AddNode(
   auto rand = BuildOp(
       graph,
       guid_,
-      inputs,
+      std::move(inputs),
       {{outshape, ScalarType(), 0}},
       rand_params.get(),
       size);

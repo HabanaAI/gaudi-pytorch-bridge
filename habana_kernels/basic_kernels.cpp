@@ -903,8 +903,8 @@ void SelectScatterOperator::AllocateAndAddSynapseNode(
 }
 
 bool StridedInsertOperator::verifyViewMemoryAccess(
-    at::Tensor& real,
-    at::Tensor& view,
+    const at::Tensor& real,
+    const at::Tensor& view,
     IntArrayRef& strides,
     int64_t& offset) {
   auto rv = real.sizes().vec();
@@ -930,7 +930,7 @@ namespace {
 // For Memory Reuse case even though stack size if 4
 // would not mean tensor[3] is strides, in that case
 // need to check if tensor[3] is shape tensor to be sure
-bool HasFrontendStrides(torch::jit::Stack& inputs) {
+bool HasFrontendStrides(const torch::jit::Stack& inputs) {
   bool frontend_stride = false;
   if (inputs.size() >= 4) {
     auto tensor = inputs[3].toTensor();
@@ -943,7 +943,7 @@ bool HasFrontendStrides(torch::jit::Stack& inputs) {
   return frontend_stride;
 }
 
-bool IsStridesRatioUsed(torch::jit::Stack& inputs) {
+bool IsStridesRatioUsed(const torch::jit::Stack& inputs) {
   bool stride_ratio_used = false;
   if (inputs.size() >= 4) {
     auto offset_t = inputs[3].toTensor();
@@ -1022,7 +1022,7 @@ std::vector<int64_t> GetAsStridedOperatorStrideData(
 }
 
 std::vector<int64_t> GetStridedInsertOperatorH2DStrides(
-    torch::jit::Stack& inputs,
+    const torch::jit::Stack& inputs,
     bool is_dry_run) {
   std::vector<int64_t> strides;
   at::Tensor stride_t = inputs[2].toTensor();
@@ -1088,7 +1088,7 @@ std::vector<int64_t> GetStridedViewOperatorH2DStrides(
 }
 
 std::vector<int64_t> GetStridedInsertOperatorStrides(
-    torch::jit::Stack& inputs,
+    const torch::jit::Stack& inputs,
     bool is_dry_run) {
   std::vector<int64_t> strides;
 
@@ -1123,8 +1123,9 @@ std::vector<int64_t> GetStridedInsertOperatorStrides(
 } // namespace
 
 void StridedInsertOperator::compute_params_h2d(
+    HabanaOperator& hop,
     synStridedOpParams& params,
-    Stack& inputs,
+    const Stack& inputs,
     synapse_helpers::graph& graph) {
   std::fill_n(params.strides, HABANA_DIM_MAX, 0);
   auto orig_t = inputs[0].toTensor();
@@ -1184,8 +1185,8 @@ void StridedInsertOperator::compute_params_h2d(
       tmeta->set_max<uint64_t>(stride_data_vec);
     }
 
-    const auto& end = p_context_->syn_inputs_.end();
-    p_context_->syn_inputs_.erase(end - 1, end);
+    const auto& end = hop.GetSynInputs().end();
+    hop.GetSynInputs().erase(end - 1, end);
 
     params.baseOffset = static_cast<uint64_t>(offset);
     size_t idx = 0;
@@ -1217,8 +1218,9 @@ void StridedInsertOperator::compute_params_h2d(
 }
 
 void StridedInsertOperator::compute_params(
+    HabanaOperator& hop,
     synStridedOpParams& params,
-    Stack& inputs,
+    const Stack& inputs,
     synapse_helpers::graph& graph) {
   std::fill_n(params.strides, HABANA_DIM_MAX, 0);
   auto orig_t = inputs[0].toTensor();
@@ -1229,11 +1231,11 @@ void StridedInsertOperator::compute_params(
   bool have_shape_tensors = inputs[2].isTensor();
   if (have_shape_tensors) {
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
-      StridedInsertOperator::compute_params_h2d(params, inputs, graph);
+      StridedInsertOperator::compute_params_h2d(hop, params, inputs, graph);
       return;
     }
 
-    TORCH_CHECK(p_context_->syn_inputs_[2].ref().is_shape_tensor());
+    TORCH_CHECK(hop.GetSynInputs()[2].ref().is_shape_tensor());
     strides = GetStridedInsertOperatorStrides(inputs, graph.is_dry_run());
     IntArrayRef strides_ref(strides.data(), strides.size());
     if (HasFrontendStrides(inputs)) {
@@ -1254,8 +1256,8 @@ void StridedInsertOperator::compute_params(
       // Need to insert strides before offset
       // Before: orig, insert, offset
       // After : orig, insert, strides, offset
-      p_context_->syn_inputs_.emplace(
-          p_context_->syn_inputs_.begin() + 2, std::move(syn_shape_input));
+      hop.GetSynInputs().emplace(
+          hop.GetSynInputs().begin() + 2, std::move(syn_shape_input));
     }
     PT_DYNAMIC_SHAPE_DEBUG(
         "Backend orig tensor = ",
@@ -1288,15 +1290,15 @@ void StridedInsertOperator::compute_params(
   if (!have_shape_tensors) {
     // Allocate Shape tensor
     if (graph.is_dynamic_graph()) {
-      AllocateSynapseShapeTensor(graph, orig_t);
+      hop.AllocateSynapseShapeTensor(graph, orig_t);
       // For Dynamic case fill strides/offset params with max size
       if (!graph.is_dry_run()) {
-        synapse_helpers::tensor& stride_tensor = p_context_->syn_inputs_[2];
+        synapse_helpers::tensor& stride_tensor = hop.GetSynInputs()[2];
         std::vector<int64_t> min, max;
         std::tie(min, max) =
             habana::ShapeInference::GetMinMaxShape(stride_tensor.id());
         strides = max;
-        synapse_helpers::tensor& offset_tensor = p_context_->syn_inputs_[3];
+        synapse_helpers::tensor& offset_tensor = hop.GetSynInputs()[3];
         std::tie(min, max) =
             habana::ShapeInference::GetMinMaxShape(offset_tensor.id());
         if (max.size()) {
@@ -1347,7 +1349,7 @@ void StridedInsertOperator::AllocateAndAddSynapseNode(
       "Incorrect number of arguments for strided insert op");
 
   synStridedOpParams params;
-  compute_params(params, inputs, graph);
+  compute_params(*this, params, inputs, graph);
 
   auto orig_t = inputs[0].toTensor();
 
@@ -1387,7 +1389,7 @@ void StridedInsertOperator::ReuseMemoryAndAddSynapseNode(
   TORCH_CHECK(graph_input.sizes() == orig_t.sizes(), "incorrect graph input");
 
   struct synStridedOpParams params;
-  compute_params(params, inputs, graph);
+  compute_params(*this, params, inputs, graph);
 
   p_context_->syn_outputs_.emplace_back(
       habana_helpers::duplicate_tensor_in_memory_section(

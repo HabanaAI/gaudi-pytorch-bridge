@@ -58,8 +58,8 @@ void OptimizerFusedEmaOperator::AddNode(
   const auto& decay_shape = decay.pt_t.sizes();
   std::vector<NodeAttr::NodeOutputAttr> decay_attr = {{decay_shape, dtype}};
 
-  auto one_minus_decay =
-      BuildOp(graph, sub_node, {c_one.get(), decay.syn_t}, decay_attr);
+  auto one_minus_decay = BuildOp(
+      graph, sub_node, {c_one.get(), decay.syn_t}, std::move(decay_attr));
 
   size_t vec_size = model_inputs.size();
   for (size_t i = 0; i < vec_size; ++i) {

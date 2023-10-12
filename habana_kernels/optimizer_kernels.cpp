@@ -892,7 +892,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
     auto sum1 = BuildOp(
         graph,
         get_guid_with_precision("reduce_sum_fwd", dtype),
-        reduction_inputs1,
+        std::move(reduction_inputs1),
         {{1, dtype}},
         &reduce_params,
         sizeof(reduce_params));
@@ -925,7 +925,7 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
     auto sum2 = BuildOp(
         graph,
         get_guid_with_precision("reduce_sum_fwd", dtype),
-        reduction_inputs2,
+        std::move(reduction_inputs2),
         {{1, dtype}},
         &reduce_params,
         sizeof(reduce_params));

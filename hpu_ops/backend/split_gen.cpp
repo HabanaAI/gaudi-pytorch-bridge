@@ -62,7 +62,12 @@ void SplitHpu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   params.axis = get_dim_in_tpc_order(dim, self.dim());
 
   auto split_op = BuildOp(
-      graph, guid_, {syn_in(0)}, node_output_attrs, &params, sizeof(params));
+      graph,
+      guid_,
+      {syn_in(0)},
+      std::move(node_output_attrs),
+      &params,
+      sizeof(params));
 
   for (unsigned i = 0; i < split_op.size(); ++i) {
     syn_out(i) = std::move(split_op[i]);

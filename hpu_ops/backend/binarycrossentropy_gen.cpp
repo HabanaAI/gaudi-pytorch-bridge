@@ -102,7 +102,7 @@ void BinaryCrossEntropyFwd::AddNode(
   auto bce_logits_fwd = BuildOp(
       graph,
       get_guid_with_precision("binary_cross_entropy_fwd", ScalarType()),
-      input,
+      std::move(input),
       {{output_shape, ScalarType(), 0}},
       params.get(),
       size);
@@ -149,7 +149,7 @@ void BinaryCrossEntropyWithLogitsFwd::AddNode(
   auto bce_logits_fwd = BuildOp(
       graph,
       get_guid_with_precision("binary_cross_entropy_fwd", ScalarType()),
-      input,
+      std::move(input),
       {{output_shape, ScalarType(), 0}},
       params.get(),
       size);

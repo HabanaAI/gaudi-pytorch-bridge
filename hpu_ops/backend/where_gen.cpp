@@ -68,7 +68,8 @@ void WhereBackend::AddNode(
 
   update_guid_dtype(guid_, result_type);
 
-  auto result = BuildOp(graph, guid_, inputs, {{shape, result_type, 0}});
+  auto result =
+      BuildOp(graph, guid_, std::move(inputs), {{shape, result_type, 0}});
   syn_out(0) = std::move(result[0]);
 }
 

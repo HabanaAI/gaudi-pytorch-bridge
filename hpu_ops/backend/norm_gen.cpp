@@ -94,7 +94,7 @@ void NormHabanaOperator::AddNode(sh::graph& graph, const at::Stack& stack) {
       auto sum = BuildOp(
           graph,
           get_guid_with_precision("reduce_sum_fwd", dtype),
-          reduction_inputs,
+          std::move(reduction_inputs),
           {{1, dtype}},
           &reduce_params,
           sizeof(reduce_params));
@@ -707,7 +707,7 @@ void LayerNormHabanaOperator::AddNode(
       graph,
       guid_,
       {synInput, synBias, synWeight},
-      node_output_attr,
+      std::move(node_output_attr),
       paramsPtr,
       paramsSize);
 

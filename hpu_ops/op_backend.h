@@ -187,9 +187,9 @@ class OpBackend : public HabanaOperator {
  protected:
   std::vector<synapse_helpers::tensor> BuildOp(
       synapse_helpers::graph& graph,
-      const std::string& guid,
-      std::vector<synTensor> node_inputs,
-      const std::vector<NodeAttr::NodeOutputAttr>& node_output_attr,
+      std::string guid,
+      std::vector<synTensor>&& node_inputs,
+      std::vector<NodeAttr::NodeOutputAttr> node_output_attr,
       void* params = nullptr,
       size_t param_size = 0,
       std::string name = std::string());
@@ -253,7 +253,7 @@ class OpBackend : public HabanaOperator {
   static std::vector<synapse_helpers::tensor> BuildNode(
       OpBackend* op,
       synapse_helpers::graph& graph,
-      NodeAttr node_attr);
+      NodeAttr&& node_attr);
 
   static synapse_helpers::tensor BuildCast(
       OpBackend* op,
