@@ -154,37 +154,7 @@ synapse_helpers::tensor ArangeCommon(
   }
 }
 
-void Arange::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = ComputeOutputShapes(stack)[0];
-  size_t size = 0;
-  auto params = FillParams(stack, size);
-  auto start = stack.at(0).toScalar();
-  auto end = stack.at(1).toScalar();
-  auto step = stack.at(2).toScalar();
-  auto out_dtype = stack.back().toTensor().scalar_type();
-  std::optional<synTensor> syn_in0 = can_use_dynamic_shapes(start, end, step)
-      ? std::make_optional(syn_in(0))
-      : std::nullopt;
-  std::optional<synTensor> syn_in1 = can_use_dynamic_shapes(start, end, step)
-      ? std::make_optional(syn_in(1))
-      : std::nullopt;
-  syn_out(0) = ArangeCommon(
-      this,
-      graph,
-      start,
-      end,
-      step,
-      out_dtype,
-      syn_in0,
-      syn_in1,
-      guid_,
-      outshape,
-      params,
-      size,
-      0);
-}
-
-OutputMetaData ArangeDefaultCommonMeta(
+OutputMetaDataVector ArangeDefaultCommonMeta(
     const int64_t depth,
     const at::IValue& dtype_opt,
     const at::IValue& layout_opt,
@@ -208,19 +178,69 @@ OutputMetaData ArangeDefaultCommonMeta(
   return {meta};
 }
 
+OutputMetaDataVector ArangeStartOutMeta(const at::Stack& stack) {
+  const c10::Scalar start = stack.at(0).toScalar();
+  const c10::Scalar step = stack.at(2).toScalar();
+  const c10::Scalar end = stack.at(1).toScalar();
+  const auto outScalarType = stack.back().toTensor().scalar_type();
+  const int64_t depth = get_arange_depth(start, end, step);
+  const bool setToIntegralDType =
+      end.isIntegral(true) && start.isIntegral(true) && step.isIntegral(true);
+
+  return ArangeDefaultCommonMeta(
+      depth,
+      outScalarType,
+      c10::nullopt,
+      c10::nullopt,
+      c10::nullopt,
+      setToIntegralDType);
+}
+
+void Arange::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  const auto meta = ArangeStartOutMeta(stack)[0];
+  auto outshape = meta.shape;
+  auto out_dtype = meta.dtype;
+  size_t size = 0;
+  auto params = FillParams(stack, size);
+  auto start = stack.at(0).toScalar();
+  auto end = stack.at(1).toScalar();
+  auto step = stack.at(2).toScalar();
+
+  std::optional<synTensor> syn_in0 = can_use_dynamic_shapes(start, end, step)
+      ? std::make_optional(syn_in(0))
+      : std::nullopt;
+  std::optional<synTensor> syn_in1 = can_use_dynamic_shapes(start, end, step)
+      ? std::make_optional(syn_in(1))
+      : std::nullopt;
+  syn_out(0) = ArangeCommon(
+      this,
+      graph,
+      start,
+      end,
+      step,
+      out_dtype,
+      syn_in0,
+      syn_in1,
+      guid_,
+      outshape,
+      params,
+      size,
+      0);
+}
+
 OutputMetaDataVector ArangeDefaultEndMeta(const at::Stack& stack) {
   const c10::Scalar defaultStart{0};
   const c10::Scalar defaultStep{1};
   const c10::Scalar end = stack.at(0).toScalar();
   const int64_t depth = get_arange_depth(defaultStart, end, defaultStep);
   const bool setToIntegralDType = end.isIntegral(true);
-  return {ArangeDefaultCommonMeta(
+  return ArangeDefaultCommonMeta(
       depth,
       stack.at(1),
       stack.at(2),
       stack.at(3),
       stack.at(4),
-      setToIntegralDType)};
+      setToIntegralDType);
 }
 
 OutputMetaDataVector ArangeDefaultStartEndMeta(const at::Stack& stack) {
@@ -230,13 +250,13 @@ OutputMetaDataVector ArangeDefaultStartEndMeta(const at::Stack& stack) {
   const int64_t depth = get_arange_depth(start, end, defaultStep);
   const bool setToIntegralDType =
       end.isIntegral(true) && start.isIntegral(true);
-  return {ArangeDefaultCommonMeta(
+  return ArangeDefaultCommonMeta(
       depth,
       stack.at(2),
       stack.at(3),
       stack.at(4),
       stack.at(5),
-      setToIntegralDType)};
+      setToIntegralDType);
 }
 
 OutputMetaDataVector ArangeDefaultStartEndStepMeta(const at::Stack& stack) {
@@ -247,13 +267,13 @@ OutputMetaDataVector ArangeDefaultStartEndStepMeta(const at::Stack& stack) {
   const bool setToIntegralDType =
       end.isIntegral(true) && start.isIntegral(true) && step.isIntegral(true);
 
-  return {ArangeDefaultCommonMeta(
+  return ArangeDefaultCommonMeta(
       depth,
       stack.at(3),
       stack.at(4),
       stack.at(5),
       stack.at(6),
-      setToIntegralDType)};
+      setToIntegralDType);
 }
 
 std::shared_ptr<void> FillArangeDefaultCommonParams(

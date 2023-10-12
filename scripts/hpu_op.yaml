@@ -1044,7 +1044,7 @@ arange.start_out:
     Gaudi: [Float, BFloat16, Long, Int, Short, Char, Byte]
     Gaudi2: [Float, BFloat16, Long, Int, Short, Char, Byte, Half]
     Gaudi3: [Float, BFloat16, Long, Int, Short, Char, Byte, Half]
-  custom_output_shape: ArangeOutputShape
+  output_meta: ArangeStartOutMeta
   custom_fill_params: FillArangeParams
   schema_args: "(Scalar start, Scalar end, Scalar step, *, Tensor? h2d_tensor=None, Tensor? shape_tensor=None, Tensor(a!) out) -> Tensor(a!)"
 
