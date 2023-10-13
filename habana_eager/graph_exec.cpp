@@ -112,6 +112,7 @@ GraphExec::GraphExec(
   size_t graph_key = m_graph_and_meta->get_cached_graph_key();
   m_graph_and_meta->set_cached_graph_key(
       at::hash_combine(graph_key, perm_hash_code));
+  m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
 };
 
 bool GraphExec::IsDynamicGraph() {
@@ -230,6 +231,7 @@ torch::jit::Stack GraphExec::launch(
       maybe_backend_outputs = backend_outputs;
     }
     habana::eager::JoinPendingPipelineThreads();
+    m_graph_and_meta->set_is_pipeline_supported(false);
     torch::jit::Stack ret_stack =
         LaunchRecipe(backend_inputs, maybe_backend_outputs);
     return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);
@@ -299,8 +301,12 @@ torch::jit::Stack GraphExec::LaunchRecipe(
   m_graph_and_meta->SetHPUStream(stream);
 
   try {
-    habana::HabanaLaunchOpPT habana_launch_op_{m_graph_and_meta};
-    habana_launch_op_.run(stack, maybe_outputs);
+    std::shared_ptr<habana::HabanaLaunchOpPT> habana_launch_op_ =
+        std::make_shared<habana::HabanaLaunchOpPT>(m_graph_and_meta);
+    habana_launch_op_->set_input_stack_(stack);
+    habana_launch_op_->run(
+        habana_launch_op_->get_input_stack_(), maybe_outputs);
+    habana_launch_op_->copy_input_stack_(stack);
     return stack;
   } catch (const std::exception& e) {
     PT_EAGER_FATAL("HabanaLaunchOpPT Run returned exception....\n", e.what());

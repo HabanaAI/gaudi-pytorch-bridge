@@ -137,12 +137,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   auto front_end_type = jit_graph_and_meta_data_->GetFrontendType();
   execution_mode_ = front_end_type;
 
-  // To support old lazy eager mode
-  // This must be removed once lazy eager mode is deprecated
-  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
-    execution_mode_ = habana_helpers::HabanaFrontendTypes::EAGER;
-  }
-
   // used for controlling recipe caching in non-eager backends
   enable_graph_caching_ =
       (execution_mode_ != habana_helpers::HabanaFrontendTypes::EAGER) &&
@@ -3540,6 +3534,8 @@ void HabanaLaunchOpPT::run(
 
   const auto eager_mode =
       (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER);
+  const auto compile_mode =
+      (execution_mode_ == habana_helpers::HabanaFrontendTypes::COMPILE);
   PT_BRIDGE_DEBUG(
       "Lowering:\n",
       "JIT_IR_Graph_BEGIN\n",
@@ -3598,6 +3594,9 @@ void HabanaLaunchOpPT::run(
 
   // eager and graph recipe caching :: begin
   if (enable_caching_) {
+    HABANA_ASSERT(
+        enable_graph_caching_ || enable_eager_caching_,
+        " something went wrong! either eager or graph recipe caching should be enabled");
     PT_BRIDGE_DEBUG("Getting cached recipe : ", cur_rargpsh->hashCode());
     cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
 
@@ -3625,7 +3624,7 @@ void HabanaLaunchOpPT::run(
 
       // currently only eager backend supports pipelining
       // can be merged once non-eager backends support pipelining
-      if (enable_graph_caching_) {
+      if (enable_graph_caching_ && !compile_mode) {
         ExecuteSynapseCache(
             hpu_stream,
             graph_key_with_perm,
@@ -3635,7 +3634,7 @@ void HabanaLaunchOpPT::run(
             cur_rargpsh,
             allocated_outputs_,
             dry_run);
-      } else if (enable_eager_caching_) {
+      } else {
         PT_LAZY_EAGER_DEBUG(
             "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
         constexpr bool do_nothing = true;
@@ -3652,12 +3651,7 @@ void HabanaLaunchOpPT::run(
           habana_helpers::Singleton_CompileThreadPool::getInstance()
               .JoinPendingThread();
         }
-      } else {
-        HABANA_ASSERT(
-            enable_graph_caching_ || enable_eager_caching_,
-            " something went wrong! either eager or graph recipe caching should be enabled");
       }
-
       PT_BRIDGE_END;
       return;
     } else {
@@ -3947,7 +3941,8 @@ void HabanaLaunchOpPT::run(
 
   aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
 
-  if (eager_mode && !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
+  if ((eager_mode || compile_mode) &&
+      !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
       jit_graph_and_meta_data_->get_is_pipeline_supported()) {
     PT_LAZY_EAGER_DEBUG(
         "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
