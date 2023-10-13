@@ -36,7 +36,6 @@ _FP8_AUTOCAST_DEPTH = 0
 _FP8_MANUAL_MEASUREMENT = None
 _global_fp8_buffer = {}
 _fp8_tensors_recompute_buffer = []
-_amax_forward_global_reduce_func = None
 _buffer_delete_key_fwd = None
 _buffer_delete_key_bwd = None
 
@@ -62,6 +61,13 @@ def get_autocast_key(forward: bool = True) -> str:
     return "autocast_id_bwd"
 
 
+def get_run_id_key(forward: bool = True) -> str:
+    """Returns module position key in `fp8_meta`."""
+    if forward:
+        return "run_id_fwd"
+    return "run_id_bwd"
+
+
 def get_global_fp8_buffer() -> Dict[str, List[torch.Tensor]]:
     """Returns global fp8 buffer."""
     return _global_fp8_buffer
@@ -78,17 +84,11 @@ def set_global_fp8_buffer(buffer: Dict[str, List[torch.Tensor]]) -> None:
     _global_fp8_buffer = buffer
 
 
-def setup_amax_forward_global_reduce_func(f: Callable) -> None:
-    """Sets up the function to call during autocast exit."""
-    global _amax_forward_global_reduce_func
-    _amax_forward_global_reduce_func = f
-
-
 def get_amax_buffer_key(fp8_meta: Dict[str, Any], forward: bool = True) -> str:
     """Return a key in `_global_fp8_buffer` for the AMAX storage."""
     if forward:
-        return f"FWD_AMAX_{fp8_meta['autocast_id_fwd']}"
-    return f"BWD_AMAX_{fp8_meta['autocast_id_bwd']}"
+        return f"FWD_AMAX_{fp8_meta[get_run_id_key(forward)]}"
+    return f"BWD_AMAX_{fp8_meta[get_run_id_key(forward)]}"
 
 
 def add_amax_to_global_buffer(fp8_meta: Dict[str, Any], forward: bool = True) -> None:
@@ -99,10 +99,10 @@ def add_amax_to_global_buffer(fp8_meta: Dict[str, Any], forward: bool = True) ->
     buffer_position_key = get_buffer_position_key(forward=forward)
 
     if buffer_key not in _global_fp8_buffer:
-        _global_fp8_buffer[buffer_key] = [fp8_meta[fp8_meta_tensor_key].amax_history[0]]
+        _global_fp8_buffer[buffer_key] = [fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index][0]]
     else:
         _global_fp8_buffer[buffer_key].append(
-            fp8_meta[fp8_meta_tensor_key].amax_history[0]
+            fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index][0]
         )
 
     if buffer_position_key not in fp8_meta:
@@ -171,7 +171,7 @@ def copy_amax_from_global_buffer(
     if buffer_position_key not in fp8_meta:
         return
     amax_buffer_key = get_amax_buffer_key(fp8_meta, forward=forward)
-    fp8_meta[fp8_meta_tensor_key].amax_history[0] = _global_fp8_buffer[amax_buffer_key][
+    fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index][0] = _global_fp8_buffer[amax_buffer_key][
         fp8_meta[buffer_position_key]
     ]
 
@@ -180,7 +180,7 @@ def set_amax_buffer_key_deletion(
     fp8_meta: Dict[str, Any], forward: bool = True
 ) -> None:
     """Delete this amax key from global buffer during autocast end."""
-    if get_autocast_key(forward=forward) not in fp8_meta:
+    if get_run_id_key(forward=forward) not in fp8_meta:
         return
     global _buffer_delete_key_fwd, _buffer_delete_key_bwd
     if forward:
@@ -250,11 +250,6 @@ def fp8_autocast(
         _IS_FIRST_FP8_MODULE = False
         _FP8_AUTOCAST_DEPTH -= 1
 
-        if _FP8_AUTOCAST_DEPTH == 0:
-            if callable(_amax_forward_global_reduce_func):
-                _amax_forward_global_reduce_func()
-            delete_key_from_amax_buffer(forward=True)
-
 
 def get_fp8_context_id() -> int:
     """Returns an ID for the current FP8 context."""
@@ -277,6 +272,15 @@ def new_fp8_context_id() -> int:
 def set_fp8_autocast_counter(value: int=0):
     global _FP8_AUTOCAST_COUNTER
     _FP8_AUTOCAST_COUNTER = value
+
+
+def clear_global_fp8_buffer():
+    _global_fp8_buffer.clear()
+
+
+def reset_global_state():
+    set_fp8_autocast_counter(0)
+    clear_global_fp8_buffer()
 
 
 def is_fp8_enabled() -> bool:
@@ -508,9 +512,11 @@ def delete_key_from_amax_buffer(forward: bool = True) -> None:
             and _buffer_delete_key_fwd in _global_fp8_buffer
         ):
             del _global_fp8_buffer[_buffer_delete_key_fwd]
+            _buffer_delete_key_fwd = None
     else:
         if (
             _buffer_delete_key_bwd is not None
             and _buffer_delete_key_bwd in _global_fp8_buffer
         ):
             del _global_fp8_buffer[_buffer_delete_key_bwd]
+            _buffer_delete_key_bwd = None

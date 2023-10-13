@@ -910,7 +910,7 @@ def test_linear_weight_caching_in_microbatches_case():
 @pytest.mark.parametrize("interval",[1,4])
 def test_measurement_interval_auto_mode(interval):
     # Setup
-    fp8.set_fp8_autocast_counter(0)
+    fp8.reset_global_state()
 
     # Actual test
     fp8_recipe = DelayedScaling(interval=interval)
@@ -921,7 +921,7 @@ def test_measurement_interval_auto_mode(interval):
 
 def test_force_measurement_mode():
     # Setup
-    fp8.set_fp8_autocast_counter(0)
+    fp8.reset_global_state()
 
     # Actual test
     fp8_recipe = DelayedScaling(interval=1)
@@ -942,7 +942,7 @@ def test_force_measurement_mode():
 
 def test_auto_measurement_after_force_mode():
     # Setup
-    fp8.set_fp8_autocast_counter(0)
+    fp8.reset_global_state()
 
     # Actual test
     fp8_recipe = DelayedScaling(interval=1)
@@ -957,7 +957,7 @@ def test_auto_measurement_after_force_mode():
 # (recipe doesn't exist anymore). This is the case in backward pass in some workloads.
 def test_measurement_auto_mode_outside_fp8_autocast_context():
     # Setup
-    fp8.set_fp8_autocast_counter(0)
+    fp8.reset_global_state()
 
     # Actual test
     fp8_recipe = DelayedScaling(interval=1)
@@ -971,7 +971,8 @@ def test_measurement_auto_mode_outside_fp8_autocast_context():
 @pytest.mark.parametrize("amax_history_len", [1, 5, 10])
 @pytest.mark.parametrize("interval", [1, 5, 10])
 @pytest.mark.parametrize("manual", [True, False])
-def test_amax_measure_interval(dtype, amax_history_len, interval, manual, margin=0):
+@pytest.mark.parametrize("reduce_amax", [True, False])
+def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce_amax, margin=0):
     import habana_frameworks.torch as ht
     torch.manual_seed(12345)
     device=torch.device("hpu:0")
@@ -985,71 +986,101 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, margin
         margin=0,
         amax_history_len=amax_history_len,
         amax_compute_algo="max",
-        reduce_amax=False,
+        reduce_amax=reduce_amax,
         interval=interval,
     )
 
-    # Prepare te linear module and optimizer
-    my_linear = te.Linear(4, 3, bias=True, params_dtype=dtype)
-    optimizer = torch.optim.SGD(my_linear.parameters(), lr=0.1)
+    # Prepare te linear modules and optimizers
+    my_linears = []
+    optimizers = []
+    refs = []
+    for i in range(0,3):
+        my_linears.append(te.Linear(4, 3, bias=True, params_dtype=dtype))
+        optimizers.append(torch.optim.SGD(my_linears[i].parameters(), lr=0.1))
+        refs.append({})
+        refs[i]['fwd_amax'] = torch.zeros(amax_history_len, 2, dtype=torch.float32, device=device)
+        refs[i]['bwd_amax'] = torch.zeros(amax_history_len, 1, dtype=torch.float32, device=device)
+        refs[i]['fwd_scale'] = torch.tensor([1.0, 1.0], dtype=torch.float32, device=device)
+        refs[i]['fwd_scale_inv'] = torch.tensor([1.0, 1.0], dtype=torch.float32, device=device)
+        refs[i]['bwd_scale'] = torch.tensor([1.0], dtype=torch.float32, device=device)
+        refs[i]['bwd_scale_inv'] = torch.tensor([1.0], dtype=torch.float32, device=device)
 
-    ref = {}
-    ref['fwd_amax'] = torch.zeros(amax_history_len, 2, dtype=torch.float32, device=device)
-    ref['bwd_amax'] = torch.zeros(amax_history_len, 1, dtype=torch.float32, device=device)
-    ref['fwd_scale'] = torch.tensor([1.0, 1.0], dtype=torch.float32, device=device)
-    ref['fwd_scale_inv'] = torch.tensor([1.0, 1.0], dtype=torch.float32, device=device)
-    ref['bwd_scale'] = torch.tensor([1.0], dtype=torch.float32, device=device)
-    ref['bwd_scale_inv'] = torch.tensor([1.0], dtype=torch.float32, device=device)
     fp8_max = 57344.0
-    def update_amax(i, out_grad):
-        ref['fwd_amax'] = torch.roll(ref['fwd_amax'], 1, dims=0)
-        ref['fwd_amax'][0][0] = torch.max(torch.abs(inputs[i]))
-        ref['fwd_amax'][0][1] = torch.max(torch.abs(my_linear.weight))
-
-        ref['bwd_amax'] = torch.roll(ref['bwd_amax'], 1, dims=0)
-        ref['bwd_amax'][0][0] = torch.max(torch.abs(out_grad))
+    def update_amax(input, outs):
+        for i, out in enumerate(outs):
+            out.grad.detach()
+            refs[i]['fwd_amax'] = torch.roll(refs[i]['fwd_amax'], 1, dims=0)
+            refs[i]['fwd_amax'][0][0] = torch.max(torch.abs(input))
+            refs[i]['fwd_amax'][0][1] = torch.max(torch.abs(my_linears[i].weight))
+            refs[i]['bwd_amax'] = torch.roll(refs[i]['bwd_amax'], 1, dims=0)
+            refs[i]['bwd_amax'][0][0] = torch.max(torch.abs(out.grad))
 
     def update_scale():
-        amax = torch.max(ref['fwd_amax'], 0).values
-        exp = torch.floor(torch.log2(fp8_max / amax)) - margin
-        sf = torch.pow(2.0, torch.abs(exp))
-        ref['fwd_scale'] = torch.where(amax > 0.0, sf, ref['fwd_scale'])
-        ref['fwd_scale_inv'] = 1.0/ref['fwd_scale']
+        for ref in refs:
+            amax = torch.max(ref['fwd_amax'], 0).values
+            exp = torch.floor(torch.log2(fp8_max / amax)) - margin
+            sf = torch.pow(2.0, torch.abs(exp))
+            ref['fwd_scale'] = torch.where(amax > 0.0, sf, ref['fwd_scale'])
+            ref['fwd_scale_inv'] = 1.0/ref['fwd_scale']
 
-        amax = torch.max(ref['bwd_amax'], 0).values
-        exp = torch.floor(torch.log2(fp8_max / amax)) - margin
-        sf = torch.pow(2.0, torch.abs(exp))
-        ref['bwd_scale'] = torch.where(amax > 0.0, sf, ref['bwd_scale'])
-        ref['bwd_scale_inv'] = 1.0/ref['bwd_scale']
+            amax = torch.max(ref['bwd_amax'], 0).values
+            exp = torch.floor(torch.log2(fp8_max / amax)) - margin
+            sf = torch.pow(2.0, torch.abs(exp))
+            ref['bwd_scale'] = torch.where(amax > 0.0, sf, ref['bwd_scale'])
+            ref['bwd_scale_inv'] = 1.0/ref['bwd_scale']
 
-    def train_step(model, input, c):
-        out = model(input)
-        out.retain_grad()
-        loss = out.sum()
-        loss.backward()
+    def train_step(models, input, c):
+        outs = []
+        for i, model in enumerate(models):
+            outs.append(model(input))
+            outs[i].retain_grad()
+        for i, model in reversed(list(enumerate(models))):
+            loss = outs[i].sum()
+            loss.backward()
 
-        # Force computations
-        model.fp8_meta["scaling_fwd"].amax_history.cpu()
+            # Force computations
+            model.fp8_meta["scaling_fwd"].amax_history.cpu()
 
         if (not manual and ((c - 1) % interval == 1 or interval == 1)) or \
             (manual and ((c - 1) % interval == 2 or interval == 1)):
             update_scale()
         if not manual or (manual and (c % interval == 2 or interval == 1)):
-            update_amax(i, out.grad.detach())
+            update_amax(input, outs)
+
+    fp8.reset_global_state()
 
     if manual:
         fp8.set_measurement_mode(True, False)
-    fp8.set_fp8_autocast_counter(0)
-    for iter in range(1,10):
+
+    global_counter=0
+    for iter in range(0,3):
         with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
             for i, input in enumerate(inputs):
                 c = i + 1
+                global_counter += 1
 
                 fp8.set_measurement_mode(manual, c % interval == 2 or interval == 1)
-                train_step(my_linear, input, c)
-                optimizer.step()
+                train_step(my_linears, input, c)
+                for optimizer in optimizers:
+                    optimizer.step()
 
-                assert torch.equal(my_linear.fp8_meta["scaling_fwd"].scale, ref['fwd_scale']), f"wrong fwd scale computed at iter {iter}, input {i}"
-                assert torch.equal(my_linear.fp8_meta["scaling_fwd"].scale_inv, ref['fwd_scale_inv']), f"wrong fwd scale_inv computed at iter {iter}, input {i}"
-                assert torch.equal(my_linear.fp8_meta["scaling_bwd"].scale, ref['bwd_scale']), f"wrong bwd scale computed at iter {iter}, input {i}"
-                assert torch.equal(my_linear.fp8_meta["scaling_bwd"].scale_inv, ref['bwd_scale_inv']), f"wrong bwd scale_inv computed at iter {iter}, input {i}"
+                for m, my_linear in enumerate(my_linears):
+                    suffix = f"at iter {iter}, input {i}, module {m}"
+                    assert torch.equal(my_linear.fp8_meta["scaling_fwd"].scale, refs[m]['fwd_scale']), f"wrong fwd scale computed {suffix}"
+                    assert torch.equal(my_linear.fp8_meta["scaling_fwd"].scale_inv, refs[m]['fwd_scale_inv']), f"wrong fwd scale_inv computed {suffix}"
+                    assert torch.equal(my_linear.fp8_meta["scaling_bwd"].scale, refs[m]['bwd_scale']), f"wrong bwd scale computed {suffix}"
+                    assert torch.equal(my_linear.fp8_meta["scaling_bwd"].scale_inv, refs[m]['bwd_scale_inv']), f"wrong bwd scale_inv computed {suffix}"
+                    global_fp8_buffer_fwd_id = "FWD_AMAX_" + str(global_counter)
+                    global_fp8_buffer_bwd_id = "BWD_AMAX_" + str(global_counter)
+                    if reduce_amax and my_linear.get_amax_measure_state()["enabled"]:
+                        assert torch.equal(fp8.get_global_fp8_buffer()[global_fp8_buffer_fwd_id][m], refs[m]['fwd_amax'][0]), f"wrong fwd value global fp8 buffer {suffix}"
+                        assert torch.equal(fp8.get_global_fp8_buffer()[global_fp8_buffer_bwd_id][m], refs[m]['bwd_amax'][0]), f"wrong bwd value global fp8 buffer {suffix}"
+
+                suffix = f"at iter {iter}, input {i}"
+                if reduce_amax:
+                    if my_linear.get_amax_measure_state()["enabled"]:
+                        assert len(fp8.get_global_fp8_buffer()) in (2,3), f"global fp8 buffer must contain 2 or 3 entries (previous FWD and current FWD+BWD) {suffix}"
+                    else:
+                        assert len(fp8.get_global_fp8_buffer()) in (0,1), f"global fp8 buffer must contain 0 or 1 entries (previous FWD) {suffix}"
+                else:
+                    assert len(fp8.get_global_fp8_buffer()) == 0, f"global fp8 buffer must contain 0 entries {suffix}"

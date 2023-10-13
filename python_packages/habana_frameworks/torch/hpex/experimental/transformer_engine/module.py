@@ -38,13 +38,12 @@ from .fp8 import (
     get_fp8_te_dtype,
     get_fp8_te_sr,
     is_first_fp8_module,
-    new_fp8_context_id,
-    get_fp8_context_id,
     set_fp8_context_id,
+    get_fp8_context_id,
+    get_run_id_key,
     add_amax_to_global_buffer,
     copy_amax_from_global_buffer,
     global_amax_reduction,
-    setup_amax_forward_global_reduce_func,
     amax_and_scale_update,
     get_manual_measurement_mode,
     get_global_fp8_buffer,
@@ -94,12 +93,13 @@ def _prepare_backward(fp8: bool,
                 # From previous iteration
                 copy_amax_from_global_buffer(fp8_meta, forward=False)
                 amax_and_scale_update(fp8_meta, False, is_scale_update_required)
-                set_amax_buffer_key_deletion(fp8_meta, forward=False)
+                if fp8_meta["first_module"]:
+                    set_amax_buffer_key_deletion(fp8_meta, forward=False)
 
-                # Get new backward key.
-                fp8_meta["autocast_id_bwd"] = fp8_meta["autocast_id_fwd_stack"].pop(0)
-
-                add_amax_to_global_buffer(fp8_meta, forward=False)
+        if amax_measure_state["enabled"] and fp8_meta["recipe"].reduce_amax:
+            # Get new backward key.
+            if amax_measure_state["enabled"] and fp8_meta["recipe"].reduce_amax:
+                fp8_meta[get_run_id_key(forward=False)] = fp8_meta["run_id_fwd_stack"].pop(0)
 
         fp8_meta["update_amax_bwd"] = amax_measure_state
 
@@ -109,10 +109,11 @@ def _prepare_backward(fp8: bool,
     if not fp8 or not fp8_meta["recipe"].reduce_amax:
         return
 
+    if amax_measure_state["enabled"]:
+        add_amax_to_global_buffer(fp8_meta, forward=False)
+        if fp8_meta["first_module"]:
+            global_amax_reduction(fp8_meta, reduce_amax_across_tp_group, tp_group, forward=False)
     if fp8_meta["first_module"]:
-        global_amax_reduction(
-            fp8_meta, reduce_amax_across_tp_group, tp_group, forward=False
-        )
         delete_key_from_amax_buffer(forward=False)
 
 class TransformerEngineBaseModule(torch.nn.Module, ABC):
@@ -131,7 +132,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         self.sequence_parallel = False
         self.fp8_weight_shapes = []
         self.run_cnt = 0
-        self.fp8_meta["autocast_id_fwd_stack"] = []
+        self.fp8_meta["run_id_fwd_stack"] = []
 
     def set_meta_tensor(self, fwd: bool) -> None:
         """Init scales and amaxes for fwd | bwd."""
@@ -220,8 +221,8 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             self.fp8_meta["update_amax_fwd"] = state[5]
             self.fp8_meta["global_fp8_buffer_pos_fwd"] = state[6]
             self.fp8_meta["global_fp8_buffer_pos_bwd"] = state[7]
-            self.fp8_meta["autocast_id_fwd"] = state[8]
-            self.fp8_meta["autocast_id_bwd"] = state[9]
+            self.fp8_meta[get_run_id_key(forward=True)] = state[8]
+            self.fp8_meta[get_run_id_key(forward=False)] = state[9]
             return
 
         # Restore global FP8 buffer states.
@@ -385,28 +386,38 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             self.fp8_init(num_gemms=num_gemms)
 
             is_scale_update_required = self.is_scale_update_required()
+
+            if not "first_module" in self.fp8_meta:
+                self.fp8_meta["first_module"] = is_first_fp8_module()
+            if self.fp8_meta["first_module"]:
+                delete_key_from_amax_buffer(forward=True)
+
             # Previous iteration was grad_enabled
             if self.fp8_meta["update_amax_fwd"].get("enabled", False):
                 if self.fp8_meta["recipe"].reduce_amax:
+                    if self.fp8_meta["first_module"]:
+                        global_amax_reduction(
+                            self.fp8_meta, self.sequence_parallel, self.tp_group, forward=True
+                        )
                     copy_amax_from_global_buffer(self.fp8_meta, forward=True)
                     amax_and_scale_update(self.fp8_meta, True, is_scale_update_required)
-                    set_amax_buffer_key_deletion(self.fp8_meta, forward=True)
+                    if self.fp8_meta["first_module"]:
+                        set_amax_buffer_key_deletion(self.fp8_meta, forward=True)
                 else:
                     amax_and_scale_update(self.fp8_meta, True, is_scale_update_required)
 
             if self.fp8 and self.training:
                 # Setup for amax reduction
-                if self.fp8_meta["recipe"].reduce_amax:
-                    self.fp8_meta["first_module"] = is_first_fp8_module()
+                if self.get_amax_measure_state()["enabled"] and self.fp8_meta["recipe"].reduce_amax:
+                    run_id_key = get_run_id_key(forward=True)
                     if self.fp8_meta["first_module"]:
-                        self.fp8_meta["autocast_id_fwd"] = new_fp8_context_id()
-                        set_fp8_context_id(self.fp8_meta["autocast_id_fwd"])
+                        self.fp8_meta[run_id_key] = self.run_cnt
+                        set_fp8_context_id(self.fp8_meta[run_id_key])
                     else:
-                        self.fp8_meta["autocast_id_fwd"] = get_fp8_context_id()
-                    self.fp8_meta["autocast_id_fwd_stack"].append(
-                        self.fp8_meta["autocast_id_fwd"]
+                        self.fp8_meta[run_id_key] = get_fp8_context_id()
+                    self.fp8_meta["run_id_fwd_stack"].append(
+                        self.fp8_meta[run_id_key]
                     )
-                    add_amax_to_global_buffer(self.fp8_meta, forward=True)
                 self.fp8_meta["update_amax_fwd"] = self.get_amax_measure_state()
             else:
                 self.fp8_meta["update_amax_fwd"] = False
@@ -426,16 +437,8 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             restore_fp8_meta_tensors(self.fp8_meta)
             return
 
-        if self.fp8 and self.training and self.fp8_meta["recipe"].reduce_amax:
-            set_fp8_context_id(self.fp8_meta["autocast_id_fwd"])
-            reduce_func = partial(
-                global_amax_reduction,
-                self.fp8_meta,
-                self.sequence_parallel,
-                self.tp_group,
-                forward=True,
-            )
-            setup_amax_forward_global_reduce_func(reduce_func)
+        if self.fp8 and self.training and self.fp8_meta["recipe"].reduce_amax and self.fp8_meta["update_amax_fwd"]["enabled"]:
+            add_amax_to_global_buffer(self.fp8_meta, forward=True)
 
     def set_nccl_overlap_warning_if_tp(self) -> None:
         """When using TP, the NCCL communication needs to be scheduled
