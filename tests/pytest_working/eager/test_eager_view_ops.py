@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 import torch
 import copy
+import habana_frameworks.torch.internal.bridge_config as bc
 from test_utils import cpu, hpu
 from dataclasses import dataclass, field
 from typing import Callable, List, Dict
@@ -658,6 +659,32 @@ def place_on_hpu(cpu_tensors):
     for key, value in cpu_tensors.items():
         hpu_tensors[key] = value.to("hpu")
     return hpu_tensors
+
+# This test case shall start failing as soon as you fix the JIRA issue:
+# https://jira.habana-labs.com/browse/SW-152023
+@pytest.mark.xfail(reason="We are to fix SW-152023 to get pass")
+def test_view_split_op_int64_default():
+    assert bc.get_pt_enable_int64_support() == False
+    t = torch.tensor([1,2,3,4,5,6], dtype=torch.int64)
+    t1 = t.to('hpu')
+    assert list(t1[1:3].to('cpu')) == list(t[1:3])
+
+def test_view_split_op_int64_enabled():
+    with bc.env_setting('pt_enable_int64_support', True):
+        assert bc.get_pt_enable_int64_support() == True
+        t = torch.tensor([1,2,3,4,5,6], dtype=torch.int64)
+        t1 = t.to('hpu')
+        assert list(t1[1:3].to('cpu')) == list(t[1:3])
+
+# This test case shall start failing as soon as you fix the JIRA issue:
+# https://jira.habana-labs.com/browse/SW-152023
+@pytest.mark.xfail(reason="We are to fix SW-152023 to get pass")
+def test_view_split_op_int64_disabled():
+    with bc.env_setting('pt_enable_int64_support', False):
+        assert bc.get_pt_enable_int64_support() == False
+        t = torch.tensor([1,2,3,4,5,6], dtype=torch.int64)
+        t1 = t.to('hpu')
+        assert list(t1[1:3].to('cpu')) == list(t[1:3])
 
 
 @pytest.mark.parametrize("inout", ["in", "out", "inplace"])

@@ -30,13 +30,18 @@ import textwrap
 import yaml
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--test", "-t", type=str, required=False, default=True)
-parser.add_argument("--cpp", "-c", type=str, required=False, default=True)
-parser.add_argument("--python", "-p", type=str, required=False, default=True)
 parser.add_argument("--yaml", "-y", type=str, required=False, default="env_flags.yaml")
 parser.add_argument(
     "--output_dir",
     "-o",
+    type=str,
+    required=False,
+    default="../../../bin/pytorch_modules_multi_build/torch/py3.8/pt2.0.1/Release/generated/env_flags",
+)
+
+parser.add_argument(
+    "--python_output_dir",
+    "-p",
     type=str,
     required=False,
     default="../../../bin/pytorch_modules_multi_build/torch/py3.8/pt2.0.1/Release/generated/env_flags",
@@ -83,6 +88,17 @@ generated_include = '\
 
 python_include = "\
 import habana_frameworks.torch.internal._bridge_config_C as bc\n\n"
+
+python_tools = "\
+from contextlib import contextmanager\n\
+@contextmanager\n\
+def env_setting(var, val):\n\
+    get_func = globals()['get_' + var]\n\
+    set_func = globals()['set_' + var]\n\
+    current = get_func()\n\
+    set_func(val)\n\
+    yield\n\
+    set_func(current)\n\n"
 
 env_namespaces = "\
 using namespace env_flags::new_style;\n\
@@ -170,7 +186,7 @@ def generate_env(dictionary):
     cpp_bindings = generated_include + cpp_binding_block
     cpp_code = flags_include + env_namespaces
     cpp_definition = generated_include + env_namespaces
-    python_code = python_include
+    python_code = python_include + python_tools
 
     for flag in dictionary:
         cpp_comment = ""
@@ -234,6 +250,7 @@ def main():
     args = parser.parse_args()
     print("YAML file: ", args.yaml)
     print("Output directory: ", args.output_dir)
+    print("Python output directory: ", args.python_output_dir)
 
     with open(args.yaml) as file:
         try:
@@ -259,7 +276,7 @@ def main():
         cpp_output.write(copyright_header)
         cpp_output.write(cpp_bindings)
 
-    with open(args.output_dir + "/bridge_config.py", "w") as py_output:
+    with open(args.python_output_dir + "/bridge_config.py", "w") as py_output:
         py_output.write(python_copyright_header)
         py_output.write(python_code)
 
@@ -274,7 +291,7 @@ def main():
         + "/env_flags_definition_generated.h"
     )
     print("Bindings have been generated: " + args.output_dir + "/Bindings.cpp")
-    print("Python bridge has been generated: " + args.output_dir + "/bridge_config.py")
+    print("Python bridge has been generated: " + args.python_output_dir + "/bridge_config.py")
 
 
 if __name__ == "__main__":

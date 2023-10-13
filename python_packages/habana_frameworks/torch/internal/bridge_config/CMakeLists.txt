@@ -18,7 +18,8 @@ target_compile_definitions(${TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_
 set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
 target_link_libraries(${TARGET_NAME} PUBLIC bindings torch absl::strings ${TORCH_PYTHON_LIBRARY})
 target_include_directories(${TARGET_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/pytorch_helpers)
-install(TARGETS ${TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin/internal)
+install(TARGETS ${TARGET_NAME} INCLUDES ${CMAKE_BINARY_DIR}/generated/env_flags/bridge_config.py LIBRARY
+   DESTINATION habana_torch_plugin/internal)
 add_dependencies(${TARGET_NAME} pytorch_generate_env)
 
 add_custom_command(OUTPUT
@@ -28,6 +29,7 @@ ${CMAKE_BINARY_DIR}/generated/env_flags/Bindings.cpp
 ${CMAKE_BINARY_DIR}/generated/env_flags/bridge_config.py
 COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/generate_env.py
                      --output_dir=${CMAKE_BINARY_DIR}/generated/env_flags
+                     --python_output_dir=${PROJECT_SOURCE_DIR}/python_packages/habana_frameworks/torch/internal
                      --yaml=${CMAKE_SOURCE_DIR}/scripts/env_flags.yaml
                    MAIN_DEPENDENCY ${CMAKE_SOURCE_DIR}/scripts/generate_env.py
                    DEPENDS
