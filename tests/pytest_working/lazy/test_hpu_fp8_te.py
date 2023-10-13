@@ -25,10 +25,7 @@ from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import 
     DelayedScaling,
     Format,
 )
-
-pytestmark = pytest.mark.xfail(
-    reason="When running all tests from file, some of them fail randomly with RuntimeError: Habana device not initialized"
-)
+from test_utils import is_gaudi1
 
 def _get_inp_weigth_bias_size(batch, in_features, out_features):
     inp_size = (batch, in_features)
@@ -41,6 +38,8 @@ def _get_inp_weigth_bias_size(batch, in_features, out_features):
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
 @pytest.mark.parametrize("scale", [1.0, 16.0])
 def test_te_cast(device, dtype, scale):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     input_value = 18.5
     input_data = torch.tensor([input_value] * 1000, dtype=dtype, device=device)
 
@@ -72,6 +71,8 @@ def test_te_cast(device, dtype, scale):
 def test_te_gelu(
     device, dtype, scale, value, rounded_value
 ):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     if dtype == torch.float32:
         pytest.skip("SW-144156 fp8_gelu compilation fails with segfault (fp32 dtype)")
     input_data = torch.tensor([value] * 1000, dtype=dtype, device=device)
@@ -155,6 +156,8 @@ class MyLinear(torch.nn.Module):
 @pytest.mark.parametrize("use_bias", [False, True], ids=["no_bias", "with_bias"])
 @pytest.mark.parametrize("skip_weight_param_allocation", [False, True], ids=["allocate_weight", "skip_weight_allocation"])
 def test_te_linear_fp8_disabled(dtype, sizes, use_bias, skip_weight_param_allocation):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     fp8_format = Format.E5M2
     fp8_recipe = DelayedScaling(fp8_format=fp8_format)
 
@@ -237,6 +240,8 @@ def test_te_linear_fp8_disabled(dtype, sizes, use_bias, skip_weight_param_alloca
 @pytest.mark.parametrize("size_B", [16, 128])
 @pytest.mark.parametrize("bias_add", [False])
 def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     fp8_format = Format.E5M2
     fp8_recipe = DelayedScaling(
         fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False
@@ -333,15 +338,21 @@ def _changed_history_size(params):
         verify_amax_history(expected_amaxes, linear)
 
 def test_shorter_history_size():
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     # Test simple case with shrinking amax history
     _changed_history_size([(5, 3), (2, 1), (2, 1)])
 
 def test_shorter_history_size_index_in_the_middle():
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     # Test case, where index is lower than new amax_history length,
     # So the new amax history needs to be constructed from two slices
     _changed_history_size([(5, 7), (4, 1)])
 
 def test_longer_history_size():
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     # Changing history size to a longer one
     _changed_history_size([(4, 6), (8, 4), (8, 1)])
 
@@ -349,6 +360,8 @@ def test_longer_history_size():
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("lp_dtype", [torch.bfloat16])
 def test_fp8_linear_with_amp(device, lp_dtype):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     fp8_format = Format.E5M2
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, reduce_amax=False)
 
@@ -384,6 +397,8 @@ def test_fp8_linear_with_amp(device, lp_dtype):
 @pytest.mark.parametrize("dtype", [torch.float32])
 @pytest.mark.parametrize("amax_history_len", [1, 2, 3])
 def test_te_linear_hpu_graph(device, dtype, amax_history_len, hpu_graph=True):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     input1 = torch.tensor([1, 2, 3, 4], dtype=dtype, device=device)
     input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device)
     input3 = torch.tensor([100, 200, 300, 400], dtype=dtype, device=device)
@@ -473,6 +488,8 @@ def test_te_linear_hpu_graph(device, dtype, amax_history_len, hpu_graph=True):
 @pytest.mark.parametrize("graphed_callables", [True, False], ids=["make_graphed_callables", "ModuleCacher"])
 @pytest.mark.parametrize("restore_fp8_meta", [True], ids=["fp8_meta_restored"])
 def test_te_linear_module_cacher(device, dtype, amax_history_len, zero_grad, graphed_callables, restore_fp8_meta):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     import habana_frameworks.torch as ht
     # Prepare te linear module
     torch.manual_seed(12345)
@@ -573,6 +590,8 @@ def test_te_linear_module_cacher(device, dtype, amax_history_len, zero_grad, gra
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16])
 def test_module_cacher_with_dilation(dtype):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     import habana_frameworks.torch as ht
     torch.manual_seed(12345)
     device=torch.device("hpu:0")
@@ -654,6 +673,8 @@ def test_module_cacher_with_dilation(dtype):
         assert not torch.equal(weights[i], weights[i+1])
 
 def test_te_minimize_memory(device=torch.device("hpu:0"), dtype=torch.float32):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     import habana_frameworks.torch as ht
     # Prepare te linear module
     torch.manual_seed(12345)
@@ -710,6 +731,8 @@ def test_te_minimize_memory(device=torch.device("hpu:0"), dtype=torch.float32):
 @pytest.mark.parametrize("minimize_memory", [True, False])
 @pytest.mark.parametrize("microbatches_approach", [True, False])
 def test_te_multiple_fwd_multiple_bwd(minimize_memory, microbatches_approach, device=torch.device("hpu:0"), dtype=torch.float32):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     def is_first_microbatch(i):
         if not microbatches_approach:
             return None
@@ -778,6 +801,8 @@ def test_te_multiple_fwd_multiple_bwd(minimize_memory, microbatches_approach, de
 
 # Verify if the weight caching is working well for micro batches case
 def test_linear_weight_caching_in_microbatches_case():
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     import habana_frameworks.torch as ht
     torch.manual_seed(12345)
     device=torch.device("hpu:0")
@@ -861,6 +886,8 @@ def test_linear_weight_caching_in_microbatches_case():
 
 @pytest.mark.parametrize("interval",[1,4])
 def test_measurement_interval_auto_mode(interval):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     # Setup
     fp8.reset_global_state()
 
@@ -872,6 +899,8 @@ def test_measurement_interval_auto_mode(interval):
 
 
 def test_force_measurement_mode():
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     # Setup
     fp8.reset_global_state()
 
@@ -893,6 +922,8 @@ def test_force_measurement_mode():
 
 
 def test_auto_measurement_after_force_mode():
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     # Setup
     fp8.reset_global_state()
 
@@ -908,6 +939,8 @@ def test_auto_measurement_after_force_mode():
 # We need to be able to check if amax measure is enabled after we go out of the fp8 context
 # (recipe doesn't exist anymore). This is the case in backward pass in some workloads.
 def test_measurement_auto_mode_outside_fp8_autocast_context():
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     # Setup
     fp8.reset_global_state()
 
@@ -925,6 +958,8 @@ def test_measurement_auto_mode_outside_fp8_autocast_context():
 @pytest.mark.parametrize("manual", [True, False])
 @pytest.mark.parametrize("reduce_amax", [True, False])
 def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce_amax, margin=0):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     import habana_frameworks.torch as ht
     torch.manual_seed(12345)
     device=torch.device("hpu:0")
@@ -1039,6 +1074,8 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
 
 @pytest.mark.parametrize("init_before_load", [True, False])
 def test_save_load_module(init_before_load):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
     from copy import deepcopy
 
     torch.manual_seed(123)
