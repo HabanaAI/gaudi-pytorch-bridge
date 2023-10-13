@@ -3072,9 +3072,9 @@ native_group_norm_backward:
 
 gt.Scalar_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Half]
   guid: greater_fwd
   scalar_ids: [1]
   promote_to_common_type: [self, other]
