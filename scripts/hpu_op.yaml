@@ -539,7 +539,8 @@ _foreach_zero_:
   op_backend: ForeachZero
 
 _fused_dropout:
-  custom_output_shape: FusedDropoutOutputShape
+  output_meta: FusedDropoutMeta
+  custom_fill_params: FillFusedDropoutParams
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]

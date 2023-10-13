@@ -488,6 +488,7 @@ void HabanaLaunchOpPT::GetSynapseInputs(
   switch (node->kind()) {
     case torch::jit::aten::bernoulli:
     case torch::jit::aten::exponential:
+    case torch::jit::aten::_fused_dropout:
       populate_seed = true;
       break;
   }

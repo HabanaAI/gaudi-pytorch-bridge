@@ -111,7 +111,6 @@ add_library(habana_pytorch_backend_ops OBJECT
           backend/div_mod_util.cpp
           backend/div_round_gen.cpp
           backend/dot_gen.cpp
-          backend/dropout_gen.cpp
           backend/embedding_gen.cpp
           backend/embedding_dense_backward_gen.cpp
           backend/empty_gen.cpp
