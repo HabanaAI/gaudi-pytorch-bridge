@@ -645,7 +645,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                 placement = "hpu_cluster"
             else:
                 placement = "eager"
-        elif node.op == "call_function" and is_eager_fallback_required(node):
+        elif node.op == "call_function" and is_eager_fallback_required(node, is_dynamic=ctx.is_dynamic):
             placement = "eager"
         elif node.meta["output_device"].type == "hpu":
             # Current assumption is that if OP outputs HPU tensor, then all its inputs are also on HPU.

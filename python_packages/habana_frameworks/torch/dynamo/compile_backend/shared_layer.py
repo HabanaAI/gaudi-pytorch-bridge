@@ -59,7 +59,7 @@ def check_for_default_op_support(op_name):
     return False
 
 
-def check_for_default_fallback(op_name, node):
+def check_for_default_fallback(op_name, node, is_dynamic = False):
     if op_name in hpu_fallback_op_list:
         return True
     unsupported_types = {"permute": torch.int64}
@@ -72,6 +72,20 @@ def check_for_default_fallback(op_name, node):
     # bool has issue with JIT scalar representation
     if op_name == "full" and isinstance(node.args[1], bool):
         return True
+
+    # [SW-121751] - scalar_tensor implementation
+    # workaround for: https://github.com/pytorch/pytorch/issues/108745
+    # ticket for cleanup once root issue is resolved: [SW-162298]
+    # because order of operations returned from torch compile is not
+    # deterministic, the same computations may return slightly different
+    # graphs, which leads to cache misses in dynamic runs. scalar_tensor is
+    # particularly prone to this happening as in most cases it's inputs are
+    # constant and known beforehand, so this call might appear anywhere from
+    # first line of fused function up to just before it's output is used.
+    # To workaround this issue we fallback to eager for dynamic runs, which
+    # shouldn't have big impacts on performance.
+    if op_name == "scalar_tensor" and is_dynamic:
+            return True
 
     # representing scalar float value NaN in JIT fails, by being pasted as
     # literal nan and interpreted as reference to global variable nan imported
@@ -86,7 +100,7 @@ def check_for_default_fallback(op_name, node):
     return False
 
 
-def is_eager_fallback_required(node: torch.fx.Node) -> bool:
+def is_eager_fallback_required(node: torch.fx.Node, is_dynamic = False) -> bool:
     """
     This function is supposed to ask shared layer whether specific
     node is supported by the device.
@@ -94,12 +108,12 @@ def is_eager_fallback_required(node: torch.fx.Node) -> bool:
 
     do_fallback = False
     assert node.op == "call_function"
-
     if node.meta["output_device"].type == "hpu":
         args, kwargs = node.val_args, node.val_kwargs
         arg_types = []
         op_name = node.target.__name__.split(".")[0]
-        if check_for_default_fallback(op_name, node):
+
+        if check_for_default_fallback(op_name, node, is_dynamic):
             do_fallback = True
         elif not check_for_default_op_support(op_name):
             for arg in args:
