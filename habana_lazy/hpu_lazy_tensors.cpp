@@ -1409,8 +1409,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
         // Setting output shapes for the lazy eager shape agnostic graph
         hlexec.GetJITGraphMetaDataPtr()->set_output_shapes(out_shapes);
       }
-      // Dump the JIT graph with PT_IRGRAPH_DEBUG
-      PT_IRGRAPH_DEBUG(hlexec.get_graph()->toString());
     } else {
       for (const auto& in : po_data.inputs) {
         std::shared_ptr<Data> d = in.m_data_ptr.lock();
