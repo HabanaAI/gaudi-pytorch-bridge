@@ -189,7 +189,7 @@ void emitRecipeLaunch(
     [[maybe_unused]] const synapse_helpers::graph::recipe_handle& recipe_handle,
     [[maybe_unused]] uint64_t workspace_size,
     [[maybe_unused]] const std::vector<std::uint64_t>& addresses,
-    [[maybe_unused]] const std::vector<synLaunchTensorInfoExt>& tensors) {
+    [[maybe_unused]] const std::vector<synLaunchTensorInfo>& tensors) {
   if (not config.log_recipe)
     return;
 

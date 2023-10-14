@@ -33,7 +33,7 @@ void emitRecipeLaunch(
     const synapse_helpers::graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
     const std::vector<std::uint64_t>& addresses,
-    const std::vector<synLaunchTensorInfoExt>& tensors);
+    const std::vector<synLaunchTensorInfo>& tensors);
 void emitRecipeFinished(
     const synapse_helpers::graph::recipe_handle& recipe_handle);
 
@@ -65,7 +65,7 @@ _MAKE_TOWL_ENTRYPOINT(
     (const synapse_helpers::graph::recipe_handle& recipe_handle,
      uint64_t workspace_size,
      const std::vector<std::uint64_t>& locked_addresses,
-     const std::vector<synLaunchTensorInfoExt>& tensors),
+     const std::vector<synLaunchTensorInfo>& tensors),
     (recipe_handle, workspace_size, locked_addresses, tensors))
 _MAKE_TOWL_ENTRYPOINT(
     emitRecipeFinished,

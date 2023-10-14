@@ -23,16 +23,16 @@ synStatus PartialEventEmulation::synTensorExtExtractExecutionOrder(
 
 synStatus PartialEventEmulation::synLaunchWithExternalEvents(
     const synStreamHandle streamHandle,
-    const synLaunchTensorInfoExt* launchTensorsInfo,
+    const synLaunchTensorInfo* launchTensorsInfo,
     const uint32_t numberOfTensors,
     uint64_t pWorkspace,
     const synRecipeHandle pRecipeHandle,
     synEventHandle* eventHandleList,
     const uint32_t numberOfEvents,
     uint32_t flags) {
-  auto status = synLaunchExt(
+  auto status = synLaunch(
       streamHandle,
-      reinterpret_cast<const synLaunchTensorInfoExt*>(launchTensorsInfo),
+      reinterpret_cast<const synLaunchTensorInfo*>(launchTensorsInfo),
       numberOfTensors,
       pWorkspace,
       pRecipeHandle,
@@ -54,7 +54,7 @@ synStatus PartialEventEmulation::synLaunchWithExternalEvents(
 synStatus PartialEventEmulation::synEventMapTensor(
     synEventHandle*,
     size_t,
-    const synLaunchTensorInfoExt*,
+    const synLaunchTensorInfo*,
     const synRecipeHandle) {
   return synSuccess;
 }

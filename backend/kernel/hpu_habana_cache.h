@@ -286,7 +286,7 @@ struct RecipeValueSpec {
   void populate_syn_tensor_ids(
       const synapse_helpers::graph::recipe_handle& recipe);
   void patch_launch_info(
-      std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec,
+      std::vector<synLaunchTensorInfo>& syn_launch_info_vec,
       std::vector<size_t>& external_tensor_info_indexes) const;
   void MaybePrintDebugInfo(
       const at::ArrayRef<torch::jit::IValue>& input_refs,
@@ -466,7 +466,7 @@ struct RecipeLauncher {
       const at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
       const VecOfIValPtrSh& aten_outputs,
-      std::vector<synLaunchTensorInfoExt>& syn_launch_info,
+      std::vector<synLaunchTensorInfo>& syn_launch_info,
       std::vector<size_t>& external_tensor_info_indexes,
       const VecOfIValPtrSh& dma_inputs = {});
 

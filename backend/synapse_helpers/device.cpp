@@ -1668,7 +1668,7 @@ void device::wait_for_event(shared_event& event) {
 shared_event device::map_event_to_tensor(
     stream& stream,
     const synRecipeHandle recipe_handle,
-    synLaunchTensorInfoExt* tensor_info,
+    synLaunchTensorInfo* tensor_info,
     event_done_callback done_cb) {
   return sem_.map_event_to_tensor(
       stream, recipe_handle, tensor_info, std::move(done_cb));

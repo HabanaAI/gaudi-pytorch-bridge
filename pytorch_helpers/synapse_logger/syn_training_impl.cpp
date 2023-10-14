@@ -56,14 +56,12 @@ SYN_API_PTR(synStreamQuery);
 SYN_API_PTR(synEventCreate);
 SYN_API_PTR(synEventDestroy);
 SYN_API_PTR(synEventMapTensor);
-SYN_API_PTR(synEventMapTensorExt);
 SYN_API_PTR(synEventRecord);
 SYN_API_PTR(synEventQuery);
 SYN_API_PTR(synEventSynchronize);
 SYN_API_PTR(synEventElapsedTime);
-SYN_API_PTR(synLaunchExt);
+SYN_API_PTR(synLaunch);
 SYN_API_PTR(synLaunchWithExternalEvents);
-SYN_API_PTR(synLaunchWithExternalEventsExt);
 SYN_API_PTR(synWorkspaceGetSize);
 SYN_API_PTR(synMemCopyAsync);
 SYN_API_PTR(synMemCopyAsyncMultiple);
@@ -128,7 +126,6 @@ SYN_API_PTR(synTensorSetExternal);
 SYN_API_PTR(synTensorRetrieveLaunchAmount);
 SYN_API_PTR(synTensorRetrieveLaunchIds);
 SYN_API_PTR(synTensorRetrieveLaunchInfoById);
-SYN_API_PTR(synTensorRetrieveLaunchInfoByIdExt);
 SYN_API_PTR(synTensorGetGeometry);
 SYN_API_PTR(synTensorSetGeometry);
 SYN_API_PTR(synTensorSetDeviceDataType);
@@ -164,14 +161,12 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synEventCreate);
   SYN_API_INIT_PTR(synEventDestroy);
   SYN_API_INIT_PTR(synEventMapTensor);
-  SYN_API_INIT_PTR(synEventMapTensorExt);
   SYN_API_INIT_PTR(synEventRecord);
   SYN_API_INIT_PTR(synEventQuery);
   SYN_API_INIT_PTR(synEventSynchronize);
   SYN_API_INIT_PTR(synEventElapsedTime);
-  SYN_API_INIT_PTR(synLaunchExt);
+  SYN_API_INIT_PTR(synLaunch);
   SYN_API_INIT_PTR(synLaunchWithExternalEvents);
-  SYN_API_INIT_PTR(synLaunchWithExternalEventsExt);
   SYN_API_INIT_PTR(synWorkspaceGetSize);
   SYN_API_INIT_PTR(synMemCopyAsync);
   SYN_API_INIT_PTR(synMemCopyAsyncMultiple);
@@ -236,7 +231,6 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synTensorRetrieveLaunchAmount);
   SYN_API_INIT_PTR(synTensorRetrieveLaunchIds);
   SYN_API_INIT_PTR(synTensorRetrieveLaunchInfoById);
-  SYN_API_INIT_PTR(synTensorRetrieveLaunchInfoByIdExt);
   SYN_API_INIT_PTR(synTensorGetGeometry);
   SYN_API_INIT_PTR(synTensorSetGeometry);
   SYN_API_INIT_PTR(synTensorSetDeviceDataType);
@@ -439,28 +433,6 @@ synStatus SYN_API_CALL synEventMapTensor(
   return status;
 }
 
-synStatus SYN_API_CALL synEventMapTensorExt(
-    synEventHandle* eventHandle,
-    size_t numOfEvents,
-    const synLaunchTensorInfoExt* launchTensorsInfo,
-    const synRecipeHandle recipeHandle) {
-  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(
-      ARG_X(eventHandle),
-      ARG(numOfEvents),
-      ARG_X(launchTensorsInfo),
-      ARG(recipeHandle));
-  synStatus status;
-  CALL_SYN_FUNC(
-      lib_synapse::synEventMapTensorExt,
-      eventHandle,
-      numOfEvents,
-      launchTensorsInfo,
-      recipeHandle)
-  API_LOG_RESULT();
-  return status;
-}
-
 synStatus SYN_API_CALL
 synEventRecord(synEventHandle eventHandle, const synStreamHandle streamHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
@@ -511,14 +483,14 @@ synStatus SYN_API_CALL synEventElapsedTime(
 
 inline std::ostream& operator<<(
     std::ostream& out,
-    const synLaunchTensorInfoExt& v) {
+    const synLaunchTensorInfo& v) {
   return out << '"' << (v.tensorName ? v.tensorName : "nullptr") << "\", \""
              << v.tensorId << "\", \"" << (void*)v.pTensorAddress << '"';
 }
 
-synStatus SYN_API_CALL synLaunchExt(
+synStatus SYN_API_CALL synLaunch(
     const synStreamHandle streamHandle,
-    const synLaunchTensorInfoExt* launchTensorsInfo,
+    const synLaunchTensorInfo* launchTensorsInfo,
     const uint32_t numberTensors,
     uint64_t pWorkspace,
     const synRecipeHandle pRecipeHandle,
@@ -534,7 +506,7 @@ synStatus SYN_API_CALL synLaunchExt(
       ARG(flags));
   synStatus status;
   CALL_SYN_FUNC(
-      lib_synapse::synLaunchExt,
+      lib_synapse::synLaunch,
       streamHandle,
       launchTensorsInfo,
       numberTensors,
@@ -569,40 +541,6 @@ synStatus SYN_API_CALL synLaunchWithExternalEvents(
       lib_synapse::synLaunchWithExternalEvents,
       streamHandle,
       launchTensorsInfo,
-      numberOfTensors,
-      pWorkspace,
-      pRecipeHandle,
-      eventHandleList,
-      numberOfEvents,
-      flags)
-  API_LOG_RESULT();
-  return status;
-}
-
-synStatus SYN_API_CALL synLaunchWithExternalEventsExt(
-    const synStreamHandle streamHandle,
-    const synLaunchTensorInfoExt* launchTensorsInfoExt,
-    const uint32_t numberOfTensors,
-    uint64_t pWorkspace,
-    const synRecipeHandle pRecipeHandle,
-    synEventHandle* eventHandleList,
-    const uint32_t numberOfEvents,
-    uint32_t flags) {
-  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(
-      ARG(streamHandle),
-      ARG(launchTensorsInfoExt),
-      ARG(numberOfTensors),
-      ARG_X(pWorkspace),
-      ARG(pRecipeHandle),
-      ARG(eventHandleList),
-      ARG(numberOfEvents),
-      ARG(flags));
-  synStatus status;
-  CALL_SYN_FUNC(
-      lib_synapse::synLaunchWithExternalEventsExt,
-      streamHandle,
-      launchTensorsInfoExt,
       numberOfTensors,
       pWorkspace,
       pRecipeHandle,
@@ -1829,22 +1767,6 @@ synStatus SYN_API_CALL synTensorRetrieveLaunchInfoById(
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synTensorRetrieveLaunchInfoById,
-      pRecipeHandle,
-      numOfTensors,
-      tensorsLaunchInfo);
-  API_LOG_RESULT();
-  return status;
-}
-
-synStatus SYN_API_CALL synTensorRetrieveLaunchInfoByIdExt(
-    const synRecipeHandle pRecipeHandle,
-    const uint32_t numOfTensors,
-    synRetrievedLaunchTensorInfoExt* tensorsLaunchInfo) {
-  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(pRecipeHandle), ARG(numOfTensors), ARG(tensorsLaunchInfo));
-  synStatus status;
-  CALL_SYN_FUNC(
-      lib_synapse::synTensorRetrieveLaunchInfoByIdExt,
       pRecipeHandle,
       numOfTensors,
       tensorsLaunchInfo);

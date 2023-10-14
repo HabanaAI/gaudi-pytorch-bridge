@@ -108,14 +108,14 @@ synStatus SYN_API_CALL synEventElapsedTime(
       pMilliseconds, eventHandleStart, eventHandleEnd);
 }
 
-synStatus SYN_API_CALL synLaunchExt(
+synStatus SYN_API_CALL synLaunch(
     const synStreamHandle streamHandle,
-    const synLaunchTensorInfoExt* launchTensorsInfo,
+    const synLaunchTensorInfo* launchTensorsInfo,
     uint32_t numberTensors,
     uint64_t pWorkspace,
     const synRecipeHandle pRecipehandle,
     uint32_t flags) {
-  return syn_api->synLaunchExt(
+  return syn_api->synLaunch(
       streamHandle,
       launchTensorsInfo,
       numberTensors,
@@ -652,14 +652,6 @@ synStatus SYN_API_CALL synTensorRetrieveLaunchInfoById(
       pRecipeHandle, numOfTensors, tensorsLaunchInfo);
 }
 
-synStatus SYN_API_CALL synTensorRetrieveLaunchInfoByIdExt(
-    const synRecipeHandle pRecipeHandle,
-    const uint32_t numOfTensors,
-    synRetrievedLaunchTensorInfoExt* tensorsLaunchInfo) {
-  return syn_api->synTensorRetrieveLaunchInfoByIdExt(
-      pRecipeHandle, numOfTensors, tensorsLaunchInfo);
-}
-
 synStatus SYN_API_CALL synTensorGetGeometry(
     const synTensor tensor,
     synTensorGeometry* geometry,
@@ -714,23 +706,23 @@ synStatus SYN_API_CALL synTensorExtExtractExecutionOrder(
         recipeHandle, numOfExternalTensors, tensorIds);
 }
 
-synStatus SYN_API_CALL synEventMapTensorExt(
+synStatus SYN_API_CALL synEventMapTensor(
     synEventHandle* eventHandle,
     size_t numOfEvents,
-    const synLaunchTensorInfoExt* launchTensorsInfo,
+    const synLaunchTensorInfo* launchTensorsInfo,
     const synRecipeHandle recipeHandle) {
   if (UsePartialEventEmulation()) {
     auto& partial_event_emulation = PartialEventEmulation::Instance();
     return partial_event_emulation.synEventMapTensor(
         eventHandle, numOfEvents, launchTensorsInfo, recipeHandle);
   } else
-    return syn_api->synEventMapTensorExt(
+    return syn_api->synEventMapTensor(
         eventHandle, numOfEvents, launchTensorsInfo, recipeHandle);
 }
 
-synStatus SYN_API_CALL synLaunchWithExternalEventsExt(
+synStatus SYN_API_CALL synLaunchWithExternalEvents(
     const synStreamHandle streamHandle,
-    const synLaunchTensorInfoExt* launchTensorsInfoExt,
+    const synLaunchTensorInfo* launchTensorsInfo,
     const uint32_t numberOfTensors,
     uint64_t pWorkspace,
     const synRecipeHandle pRecipeHandle,
@@ -741,7 +733,7 @@ synStatus SYN_API_CALL synLaunchWithExternalEventsExt(
     auto& partial_event_emulation = PartialEventEmulation::Instance();
     return partial_event_emulation.synLaunchWithExternalEvents(
         streamHandle,
-        launchTensorsInfoExt,
+        launchTensorsInfo,
         numberOfTensors,
         pWorkspace,
         pRecipeHandle,
@@ -749,9 +741,9 @@ synStatus SYN_API_CALL synLaunchWithExternalEventsExt(
         numberOfEvents,
         flags);
   } else
-    return syn_api->synLaunchWithExternalEventsExt(
+    return syn_api->synLaunchWithExternalEvents(
         streamHandle,
-        launchTensorsInfoExt,
+        launchTensorsInfo,
         numberOfTensors,
         pWorkspace,
         pRecipeHandle,

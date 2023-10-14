@@ -171,7 +171,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
   }
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE)) {
     std::map<uint64_t, uint64_t> persistent_to_tensor_id;
-    std::vector<synRetrievedLaunchTensorInfoExt> tensor_info_vec;
+    std::vector<synRetrievedLaunchTensorInfo> tensor_info_vec;
     // creating a map of tensor id to tinfo
     // preparing the tensors to query their permutation
     std::map<uint64_t, PtTensorInfoShared> tinfo_map;
@@ -181,7 +181,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
         // HABANA_ASSERT(tinfo_map.count(info->get_tensor_id() == 0));
         tinfo_map[info->get_tensor_id()] = info;
         if (info->get_allow_permutation()) {
-          synRetrievedLaunchTensorInfoExt record = {};
+          synRetrievedLaunchTensorInfo record = {};
           record.tensorId = rvs.tensor_ids_[i];
           PT_BRIDGE_DEBUG(
               "preparing to query tensor: ",

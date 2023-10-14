@@ -101,13 +101,13 @@ class event {
     event_ids_.emplace_back(std::move(event_id));
   }
 
-  /*! \brief Invokes synEventMapTensorExt with its synEventHandle, recipe and
+  /*! \brief Invokes synEventMapTensor with its synEventHandle, recipe and
    * tensor \param recipe_handle recipe from which the event will be signaled
    *  \param tensor_info External tensor information
    */
   void map_event_to_tensor(
       const synRecipeHandle recipe_handle,
-      synLaunchTensorInfoExt* tensor_info);
+      synLaunchTensorInfo* tensor_info);
 
   /*! \return true if synEventHandle already happened, false otherwise
    */

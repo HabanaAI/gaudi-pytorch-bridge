@@ -67,7 +67,7 @@ def register_habana_activity_profiler():
                 "LaunchSyncTensorsGraph",
                 "synEventRecord",
                 "synEventSynchronize",
-                "synLaunchWithExternalEventsExt",
+                "synLaunchWithExternalEvents",
                 "hpu_lazy",
                 "synMemCopyAsync"
             ]

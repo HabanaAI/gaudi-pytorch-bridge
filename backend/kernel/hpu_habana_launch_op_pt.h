@@ -626,7 +626,7 @@ class HabanaLaunchOpPT {
 
   VecOfIValPtrSh dma_inputs_{};
 
-  std::vector<synLaunchTensorInfoExt> syn_launch_info_{};
+  std::vector<synLaunchTensorInfo> syn_launch_info_{};
   std::vector<size_t> external_tensor_info_indexes_{};
 
   // This object writes permutation data to the jit graph cache

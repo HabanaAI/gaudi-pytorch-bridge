@@ -81,7 +81,7 @@ class stream_event_manager {
   shared_event map_event_to_tensor(
       stream& stream,
       const synRecipeHandle recipe_handle,
-      synLaunchTensorInfoExt* tensor_info,
+      synLaunchTensorInfo* tensor_info,
       event_done_callback done_cb);
 
   /*! \brief Returns reference to Event, if exists

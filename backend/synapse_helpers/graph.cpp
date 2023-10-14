@@ -532,12 +532,9 @@ std::shared_ptr<graph::recipe_handle> graph::compile() {
   return recipe_handle;
 }
 
-std::string to_string(
-    const std::vector<synLaunchTensorInfoExt>& patching_info) {
+std::string to_string(const std::vector<synLaunchTensorInfo>& patching_info) {
   return absl::StrJoin(
-      patching_info,
-      ",",
-      [](std::string* out, const synLaunchTensorInfoExt& in) {
+      patching_info, ",", [](std::string* out, const synLaunchTensorInfo& in) {
         absl::StrAppendFormat(
             out,
             "%s:%u:0x%X [%s]",
@@ -563,8 +560,8 @@ uint64_t graph::query_workspace_size(
 
 void graph::query_recipe_tensor_info(
     std::shared_ptr<graph::recipe_handle> recipe_handle,
-    std::vector<synRetrievedLaunchTensorInfoExt>& tensor_info_vec) {
-  auto status = synTensorRetrieveLaunchInfoByIdExt(
+    std::vector<synRetrievedLaunchTensorInfo>& tensor_info_vec) {
+  auto status = synTensorRetrieveLaunchInfoById(
       recipe_handle->syn_recipe_handle_,
       tensor_info_vec.size(),
       tensor_info_vec.data());
@@ -578,7 +575,7 @@ void graph::launch(
     device& device,
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
-    std::vector<synLaunchTensorInfoExt>&& inputs_and_outputs_info,
+    std::vector<synLaunchTensorInfo>&& inputs_and_outputs_info,
     std::unique_ptr<device_ptr_lock>& address_lock,
     std::vector<shared_event>& ext_events,
     stream& compute_stream,
@@ -598,7 +595,7 @@ void graph::launch(
     device& device,
     const graph::recipe_handle& recipe_handle,
     uint64_t workspace_size,
-    std::vector<synLaunchTensorInfoExt>& inputs_and_outputs_info,
+    std::vector<synLaunchTensorInfo>& inputs_and_outputs_info,
     std::unique_ptr<device_ptr_lock>& address_lock,
     std::vector<shared_event>& ext_events,
     stream& compute_stream,
@@ -614,7 +611,7 @@ void graph::launch(
   HABANA_ASSERT(
       recipe_handle.in_execution_phase_, "Graph not in execution phase.");
 
-  for (synLaunchTensorInfoExt& tensorInfo : inputs_and_outputs_info) {
+  for (synLaunchTensorInfo& tensorInfo : inputs_and_outputs_info) {
     // [SW-96080], due to change in get_tensor_for_scalar PT tensor has
     // size [0] for 0d tensor need to force it [1] to pass to synapse correctly
     // valdity check for pTensorAddress to differentiate from ZST
@@ -627,7 +624,7 @@ void graph::launch(
   PT_SYNHELPER_DEBUG("STREAM:: Launch recipe with stream::", compute_stream);
 
   auto table_checker{
-      [&recipe_handle](const synLaunchTensorInfoExt& info) -> bool {
+      [&recipe_handle](const synLaunchTensorInfo& info) -> bool {
         if (info.tensorName == nullptr || info.tensorName[0] == '\0') {
           PT_SYNHELPER_WARN(
               recipe_handle.recipe_name_,
@@ -749,7 +746,7 @@ void graph::launch(
         std::back_inserter(event_handles),
         [](shared_event& event) -> synEventHandle { return *event; });
 
-    status = synLaunchWithExternalEventsExt(
+    status = synLaunchWithExternalEvents(
         compute_stream,
         inputs_and_outputs_info.data(),
         inputs_and_outputs_info.size(),
