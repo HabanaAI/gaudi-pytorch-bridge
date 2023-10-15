@@ -32,13 +32,13 @@ launchers:
   - repository: pytorch-integration
   - repository: lightning-habana-fork
 - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_small_models_test
-  silentMode: false
+  silentMode: true
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
 - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_small_models_test
-  silentMode: false
+  silentMode: true
   gerritTriggerMap:
   - repository: pytorch-fork
   - repository: pytorch-vision-fork
