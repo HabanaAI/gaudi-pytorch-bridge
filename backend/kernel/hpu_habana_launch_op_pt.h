@@ -114,6 +114,8 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
       std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
 
   void UpdatePatchingInformation(
+      // do not update output shapes
+      bool is_ds_patching_update = false,
       std::optional<
           std::reference_wrapper<const std::unordered_map<int64_t, at::Tensor>>>
           tidx_to_tensor_map_opt = std::nullopt,
