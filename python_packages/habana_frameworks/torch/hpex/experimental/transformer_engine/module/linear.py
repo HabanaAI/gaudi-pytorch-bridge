@@ -16,7 +16,7 @@
 # - Removed unused code paths
 
 """Linear API"""
-from typing import Union, Optional, Callable, Tuple, Dict, Any
+from typing import Union, Optional, Callable, Tuple, List, Dict, Any
 
 import torch
 from torch.nn.parameter import Parameter
@@ -456,6 +456,21 @@ class Linear(TransformerEngineBaseModule):
         # but we call it once to reduce host overhead
         self.set_fp8_weights()
 
+    def get_fp8_weights_scratchpad(
+        self,
+        is_first_microbatch: Union[bool, None],
+    ) -> List[torch.Tensor]:
+        """
+        Fetch the fp8 weight tensor placeholders if they exist (when
+        `is_first_microbatch` is not `None`), return None otherwise
+        """
+        if not self.fp8 or is_first_microbatch is None:
+            return [None]
+
+        # These persistent weight placeholders should've been created in
+        # `set_fp8_weights` method
+        return [self.weight1_fp8]
+
     def forward(
         self,
         inp: torch.Tensor,
@@ -502,10 +517,15 @@ class Linear(TransformerEngineBaseModule):
                 bias_tensor,
             )
 
+        # Fetch the fp8 weight placeholder (for linear/gemm)
+        weight1_fp8, = self.get_fp8_weights_scratchpad(
+            is_first_microbatch
+        )
+
         with self.prepare_forward(inp) as (inp, is_scale_update_required):
             out = _Linear.apply(
                 weight_tensor,
-                self.weight1_fp8 if is_first_microbatch is not None else None,
+                weight1_fp8,
                 inp,
                 bias_tensor,
                 self.apply_bias and not self.gemm_bias_unfused_add,

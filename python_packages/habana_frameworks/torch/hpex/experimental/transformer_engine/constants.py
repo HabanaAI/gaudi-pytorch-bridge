@@ -17,7 +17,8 @@
 
 """Enums for e2e transformer"""
 import torch
+import torch.distributed
 
 GemmParallelModes = ("row", "column", None)
 
-dist_group_type = torch._C._distributed_c10d.ProcessGroup
+dist_group_type = torch.distributed.ProcessGroup

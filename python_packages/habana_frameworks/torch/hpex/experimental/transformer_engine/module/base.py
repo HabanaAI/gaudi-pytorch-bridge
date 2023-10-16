@@ -20,7 +20,7 @@ import os
 import pickle
 import warnings
 from abc import ABC, abstractmethod
-from typing import Generator, Union, Optional, Tuple, Dict, Any
+from typing import Generator, Union, Optional, Tuple, Dict, Any, List
 from contextlib import contextmanager
 
 import numpy as np
@@ -296,25 +296,20 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         if hasattr(self, "activation_dtype"):
             return
 
-        assert all(
-            (
-                (inp.dtype == param.dtype) if param is not None else True
-                for param in self.parameters()
-            )
-        ), (
-            "Data type for activations and weights must "
-            "match when outside of autocasted region"
-        )
-        assert all(
-            (
-                (inp.dtype == buf.dtype) if buf is not None else True
-                for buf in self.buffers()
-            )
-        ), (
-            "Data type for activations and buffers must "
-            "match when outside of autocasted region"
-        )
-        self.activation_dtype = inp.dtype
+        dtype = inp.dtype
+        for name, param in self.named_parameters():
+            if param is not None:
+                assert dtype == param.dtype, (
+                    "Data types for parameters must match when outside of autocasted region. "
+                    f" Found input dtype: {dtype} and {name!r} dtype: {param.dtype}"
+                )
+        for name, buf in self.named_buffers():
+            if buf is not None:
+                assert dtype == buf.dtype, (
+                    "Data types for buffers must match when outside of autocasted region. "
+                    f" Found input dtype: {dtype} and {name!r} dtype: {buf.dtype}"
+                )
+        self.activation_dtype = dtype
 
     def _create_fp8_tensor(self, shape) -> torch.Tensor:
         fp8_dtype = get_fp8_te_dtype(
@@ -597,4 +592,11 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
 
     @abstractmethod
     def forward(self):
+        """Needs override."""
+
+    @abstractmethod
+    def get_fp8_weights_scratchpad(
+        self,
+        is_first_microbatch: Union[bool, None],
+    ) -> List[torch.Tensor]:
         """Needs override."""
