@@ -53,7 +53,7 @@ def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
         input_data,
         meta,
         tex.FP8FwdTensors.GEMM1_INPUT,
-        tex.DType.kFloat8E5M2,
+        torch.float8_e5m2,
         stochastic_rounding=stochastic_rounding,
     )
 
@@ -61,8 +61,7 @@ def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
         cast_out,
         meta,
         tex.FP8FwdTensors.GEMM1_INPUT,
-        tex.DType.kFloat8E5M2,
-        tex.DType.kFloat32,
+        torch.float32,
     )
     mean = torch.mean(upcasted).cpu()
     # When stochastic rounding is turned off, 18.5 will be rounded to 20.0 with default rounding mode
@@ -96,7 +95,7 @@ def test_te_gelu_with_stochastic_rounding(
         input_data,
         meta,
         tex.FP8FwdTensors.GEMM1_INPUT,
-        tex.DType.kFloat8E5M2,
+        torch.float8_e5m2,
         stochastic_rounding=stochastic_rounding,
     )
 
@@ -104,8 +103,7 @@ def test_te_gelu_with_stochastic_rounding(
         gelu_out,
         meta,
         tex.FP8FwdTensors.GEMM1_INPUT,
-        tex.DType.kFloat8E5M2,
-        tex.DType.kFloat32,
+        torch.float32,
     )
     mean = torch.mean(upcasted).cpu()
     # When stochastic rounding is turned off, 18.5 will be rounded to 20.0 with default rounding mode

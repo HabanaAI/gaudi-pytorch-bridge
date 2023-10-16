@@ -26,7 +26,6 @@
 #include <torch/extension.h>
 #include <torch/torch.h>
 #include "logging.h"
-#include "transformer_engine.h"
 
 namespace transformer_engine {
 
@@ -66,44 +65,5 @@ enum FP8BwdTensors {
 };
 
 } // namespace transformer_engine
-
-transformer_engine::DType getTransformerEngineFP8Type(
-    bool e4m3_if_hybrid,
-    const std::string& fp8_recipe);
-
-inline at::ScalarType GetATenDType(transformer_engine::DType t) {
-  switch (t) {
-    case transformer_engine::DType::kInt32:
-    case transformer_engine::DType::kFloat32:
-      return at::kFloat;
-    case transformer_engine::DType::kFloat16:
-      return at::kHalf;
-    case transformer_engine::DType::kBFloat16:
-      return at::kBFloat16;
-    case transformer_engine::DType::kByte:
-    case transformer_engine::DType::kFloat8E4M3:
-    case transformer_engine::DType::kFloat8E5M2:
-      return at::kByte;
-    default:
-      HPTE_ERROR("Invalid type");
-  }
-}
-
-inline transformer_engine::DType GetTransformerEngineDType(at::ScalarType t) {
-  switch (t) {
-    case at::kHalf:
-      return transformer_engine::DType::kFloat16;
-    case at::kFloat:
-      return transformer_engine::DType::kFloat32;
-    case at::kBFloat16:
-      return transformer_engine::DType::kBFloat16;
-    default:
-      HPTE_ERROR("Invalid type");
-  }
-}
-
-inline transformer_engine::DType GetTransformerEngineDType(int DType_value) {
-  return static_cast<transformer_engine::DType>(DType_value);
-}
 
 #endif // TRANSFORMER_ENGINE_PYTORCH_CSRC_COMMON_H_
