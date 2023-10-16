@@ -71,6 +71,19 @@ def optimize_graph(
     For example:
     PT_HPU_DISABLE_pass_eagerize_leaf_views=True
     """
+    if not uses_aot:
+        # If backend used by the user does not use AOT then we cannot be sure whether
+        # it is properly functionalized, meaning we should not call eliminate_dead_code
+        # over it as it is not sound usage of Dead Code Elimination:
+        # https://github.com/pytorch/pytorch/issues/68301
+        # To satisfy above, we will monkey patch this function for optimizer scope so no
+        # pass can do this silently in non-aot mode.
+        original_dce_func = torch.fx.Graph.eliminate_dead_code
+        def dummy_dce_raise(*args, **kwargs):
+            raise Exception("Tried to call DCE in possibly non-functionalized graph."
+                            "Make sure you add proper check in your code")
+        torch.fx.Graph.eliminate_dead_code = dummy_dce_raise
+
     from torch._dynamo import config
 
     # TODO: It is a W/A for discovering dynamic models. In final implementation
@@ -93,6 +106,10 @@ def optimize_graph(
         else:
             logger.debug("running %s pass at stage %s", pass_name, stage)
             graph_changed = optimization_pass(ctx) or graph_changed
+
+    if not uses_aot:
+        # Bring back original state.
+        torch.fx.Graph.eliminate_dead_code = original_dce_func
 
     return graph_changed
 
@@ -607,7 +624,13 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
 
     if graph_changed:
         # Clean up the graph and log the situation.
-        ctx.graph_module.graph.eliminate_dead_code()
+        if ctx.uses_aot:
+            ctx.graph_module.graph.eliminate_dead_code()
+        else:
+            # Running DCE on graph that might not be functionalized in unsafe:
+            # https://github.com/pytorch/pytorch/issues/68301
+            logger.warning("Disallowed to run DCE in non-aot mode.")
+
         ctx.graph_module.recompile()
         logger.debug("Detected mixed devices. Workaround applied.")
 
