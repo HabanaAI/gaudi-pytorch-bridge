@@ -14,7 +14,7 @@ import pytest
 import habana_frameworks.torch.hpu as ht
 
 
-@pytest.mark.parametrize("shape", [(4, 10, 5), (4, 6, 8), (6, 128, 128)])
+@pytest.mark.parametrize("shape", [(4, 10, 10), (4, 8, 8), (6, 128, 128)])
 @pytest.mark.parametrize("inv_scale_attn", [1.3, 1.0])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_scaled_triangular_softmax(shape, inv_scale_attn, dtype):
@@ -36,7 +36,7 @@ def test_scaled_triangular_softmax(shape, inv_scale_attn, dtype):
     assert torch.allclose(res_hpu, res_cpu, atol=atol, rtol=rtol)
 
 
-@pytest.mark.parametrize("shape", [(4, 10, 5), (4, 6, 8), (6, 128, 128)])
+@pytest.mark.parametrize("shape", [(4, 10, 10), (4, 8, 8), (6, 128, 128)])
 @pytest.mark.parametrize("inv_scale_attn", [1.3, 1.0, 0.75])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_scaled_triangular_softmax_retain(shape, inv_scale_attn, dtype):

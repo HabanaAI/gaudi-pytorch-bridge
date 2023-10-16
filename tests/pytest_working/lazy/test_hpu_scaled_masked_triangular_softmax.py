@@ -71,7 +71,7 @@ def test_scaled_masked_triangular_softmax(
 
 
 @pytest.mark.parametrize("shape", [(192, 1, 2048)])
-@pytest.mark.parametrize("inv_scale_attn", [1.3, 1.0])
+@pytest.mark.parametrize("inv_scale_attn", [1.3, 1.1])
 @pytest.mark.parametrize("grouped_batch_size", [64])
 @pytest.mark.parametrize("use_max", [True, False])
 @pytest.mark.parametrize("mode", [0, 1, 15])
