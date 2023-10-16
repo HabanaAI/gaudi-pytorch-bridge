@@ -96,6 +96,13 @@ def test_index_put_():
 
     compare_tensors(tensor_self, tensor_self_hpu.to(cpu), atol=0.001, rtol=1.0e-3)
 
+def test_index_put_bool():
+    tensor1 = torch.zeros(size = [2, 3, 7], dtype=torch.bfloat16)
+    tensor2 = torch.ones(size = [2, 3] , dtype=torch.bool)
+    tensor1 = tensor1.to(hpu)
+    tensor2 = tensor2.to(hpu)
+    tensor1[tensor2, :] = 7.0
+    assert torch.all(torch.eq(tensor1, 7.0))
 
 if __name__ == "__main__":
     test_cpu_tensor_hpu_index()
@@ -105,3 +112,4 @@ if __name__ == "__main__":
     test_cpuTensor_cpuValue_hpu_indices()
     test_cpuTensor_hpuValue_hpu_indices()
     test_index_put_()
+    test_index_put_bool()

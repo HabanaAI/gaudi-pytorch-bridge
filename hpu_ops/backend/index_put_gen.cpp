@@ -12,6 +12,7 @@
  */
 #include <ATen/core/DimVector.h>
 #include "generated/backend/gather.h"
+#include "habana_kernels/index_kernels.h"
 #include "hpu_ops/backend/arange.h"
 #include "hpu_ops/backend/nonzero.h"
 #include "hpu_ops/backend/reduction_template.h"
@@ -392,11 +393,26 @@ void IndexPutBoolEager::AddNode(
   std::vector<std::vector<int64_t>> cat_input_index;
   std::vector<int64_t> nonzero_out_shape;
 
+  auto unsqueeze = [this, &graph](
+                       const at::Tensor& t, synTensor st, const int ndims) {
+    const auto missing = ndims - t.dim();
+    auto new_shape = t.sizes().vec();
+    new_shape.insert(new_shape.end(), missing, 1);
+    return this->ReshapeHelper(graph, st, new_shape, t.scalar_type());
+  };
+
   for (size_t i = 0; i < indices.size(); i++) {
     NonZeroParams_t index_params;
     index_params.dtype = indices[i].scalar_type();
-    auto bcastOpInd =
-        BroadcastHelper(graph, syn_in(i + 1), max_size, index_params.dtype);
+
+    auto bcastOpInd = BroadcastHelper(
+        graph,
+        max_size.size() > indices[i].dim()
+            ? unsqueeze(indices[i], syn_in(i + 1), max_size.size()).get()
+            : syn_in(i + 1),
+        max_size,
+        index_params.dtype);
+
     index_params.sizes = max_size;
     index_params.numel = std::accumulate(
         std::begin(max_size), std::end(max_size), 1, std::multiplies<size_t>());
