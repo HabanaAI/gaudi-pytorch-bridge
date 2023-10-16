@@ -8,6 +8,9 @@
  ******************************************************************************
  */
 
+#include <gtest/gtest-param-test.h>
+#include "habana_kernels/fallback_helper.h"
+
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -113,3 +116,34 @@ TEST_F(HpuOpTest, scatter_out_bool_val) {
   torch::scatter_outf(self_hpu, 0, indices_hpu, val, out_hpu);
   Compare(out_cpu, out_hpu, 0, 0);
 }
+
+class ScatterDTypeSupportTest
+    : public DTypeSupportTest<std::tuple<c10::ScalarType, c10::ScalarType>> {};
+
+TEST_P(ScatterDTypeSupportTest, ScatterValueOut) {
+  auto tensor_dtype = std::get<0>(GetParam());
+  auto index_dtype = std::get<1>(GetParam());
+  auto options = torch::TensorOptions().dtype(tensor_dtype).device(torch::kHPU);
+  auto input = torch::tensor({{1, 2, 3, 4}, {1, 2, 3, 4}}, options);
+  auto output = torch::clone(input);
+  auto indices = torch::tensor({1, 3}, options.dtype(index_dtype));
+
+  torch::scatter_out(output, input, 0, indices, 8);
+  const auto& op_fallback_frequency =
+      habana::HpuFallbackHelper::get()->get_op_count();
+  EXPECT_EQ(
+      op_fallback_frequency.find("aten::scatter.value_out"),
+      op_fallback_frequency.end());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ScatterValueOutFallback,
+    ScatterDTypeSupportTest,
+    testing::Combine(
+        testing::Values(
+            torch::kFloat32,
+            torch::kBFloat16,
+            torch::kInt32,
+            torch::kInt8,
+            torch::kUInt8),
+        testing::Values(torch::kInt32, torch::kInt64)));

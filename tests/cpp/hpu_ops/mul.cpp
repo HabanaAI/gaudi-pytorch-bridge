@@ -2,7 +2,7 @@
 #include "habana_kernels/fallback_helper.h"
 #include "util.h"
 
-class MulDtypeSupportTest : public DTypeSupportTest {};
+class MulDtypeSupportTest : public DTypeSupportTest<c10::ScalarType> {};
 
 TEST_P(MulDtypeSupportTest, MulOutDtypeSupportTest) {
   auto dtype = GetParam();

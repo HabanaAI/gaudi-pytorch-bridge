@@ -5993,15 +5993,15 @@ scatter.value_out:
   dtypes:
     Gaudi:
       self: [BFloat16, Float, Int, Short, Byte, Char]
-      index: [Int]
+      index: [Int, Long]
       out: [BFloat16, Float, Int, Short, Byte, Char]
     Gaudi2:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      index: [Int]
+      index: [Int, Long]
       out: [BFloat16, Float, Int, Short, Byte, Char, Half]
     Gaudi3:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      index: [Int]
+      index: [Int, Long]
       out: [BFloat16, Float, Int, Short, Byte, Char, Half]
   op_backend: ScatterOperator
 

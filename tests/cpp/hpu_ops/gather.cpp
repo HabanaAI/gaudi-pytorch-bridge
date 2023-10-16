@@ -95,7 +95,7 @@ Gather4DOutTest(gather_out_byte, byte);
 Gather5DOutTest(gather_out_int32, int32);
 Gather5DOutTest(gather_out_bool, bool);
 
-class GatherDtypeSupportTest : public DTypeSupportTest {};
+class GatherDtypeSupportTest : public DTypeSupportTest<c10::ScalarType> {};
 
 TEST_P(GatherDtypeSupportTest, GatherOutDtypeSupportTest) {
   auto dtype = GetParam();

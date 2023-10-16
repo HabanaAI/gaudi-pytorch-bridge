@@ -17,25 +17,9 @@
 #include "habana_kernels/fallback_helper.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 
-class EmbeddingDTypeFallbackTest
-    : public testing::Test,
-      public testing::WithParamInterface<c10::ScalarType> {
-  void SetUp() override {
-    auto& op_fallback_frequency =
-        habana::HpuFallbackHelper::get()->get_op_count();
-    (const_cast<std::unordered_map<std::string, size_t>&>(
-         op_fallback_frequency))
-        .clear();
-  }
+#include "util.h"
 
-  void TearDown() override {
-    auto& op_fallback_frequency =
-        habana::HpuFallbackHelper::get()->get_op_count();
-    (const_cast<std::unordered_map<std::string, size_t>&>(
-         op_fallback_frequency))
-        .clear();
-  }
-};
+class EmbeddingDTypeFallbackTest : public DTypeSupportTest<c10::ScalarType> {};
 
 TEST_P(EmbeddingDTypeFallbackTest, HpuSupportsEmbeddingInt64Indices) {
   auto options = torch::TensorOptions().dtype(GetParam()).device(torch::kHPU);

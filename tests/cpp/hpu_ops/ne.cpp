@@ -16,7 +16,7 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-class NeDtypeSupportTest : public DTypeSupportTest {};
+class NeDtypeSupportTest : public DTypeSupportTest<c10::ScalarType> {};
 
 TEST_F(HpuOpTest, ne_scalar_out) {
   GenerateInputs(1, torch::kFloat);

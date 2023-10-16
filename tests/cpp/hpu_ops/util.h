@@ -107,9 +107,9 @@ class HpuOpTestUtil : public HpuOpTestUtilBase, public ::testing::Test {
     RestoreMode();
   }
 };
-
+template <typename T>
 class DTypeSupportTest : public testing::Test,
-                         public testing::WithParamInterface<c10::ScalarType> {
+                         public testing::WithParamInterface<T> {
   void SetUp() override {
     clearRegisteredFallbacks();
   }

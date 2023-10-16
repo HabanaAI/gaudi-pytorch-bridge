@@ -119,7 +119,7 @@ TEST_F(HpuOpTest, arange_start_step_mixed_dtypes) {
   Compare(expected, result);
 }
 
-class ArangeDTypeSupportTest : public DTypeSupportTest {};
+class ArangeDTypeSupportTest : public DTypeSupportTest<c10::ScalarType> {};
 
 TEST_P(ArangeDTypeSupportTest, ArangeStartOutDTypeSupportTest) {
   auto dtype = GetParam();

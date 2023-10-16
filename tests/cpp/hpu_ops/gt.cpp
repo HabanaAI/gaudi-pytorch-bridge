@@ -1,3 +1,13 @@
+/******************************************************************************
+ * Copyright (C) 2023 HabanaLabs, Ltd.
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file, via any medium is strictly prohibited.
+ * Proprietary and confidential.
+ *
+ ******************************************************************************
+ */
+
 #include <gtest/gtest-param-test.h>
 #include "habana_kernels/fallback_helper.h"
 #include "util.h"
@@ -24,7 +34,7 @@ TEST_F(HpuOpTest, gt_tensor) {
   Compare(GetCpuInput(0), GetHpuInput(0));
 }
 
-class GTDTypeSupportTest : public DTypeSupportTest {};
+class GTDTypeSupportTest : public DTypeSupportTest<c10::ScalarType> {};
 
 TEST_P(GTDTypeSupportTest, GTScalarOut) {
   auto dtype = GetParam();
