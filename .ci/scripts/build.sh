@@ -48,6 +48,7 @@ function pytorch_usage()
         echo -e "       --dist                 create a wheel distribution"
         echo -e "       --build-number         Extend whl version number by build number"
         echo -e "       --build-version        Build version used for whl creation"
+        echo -e "       --pytorch-next         Build pytorch-next instead of pytorch-fork"
         echo -e "       --pt-version           Build for given pytorch version"
         echo -e "       --py-version           Python version"
         echo -e "  -h,  --help                 Prints this help"
