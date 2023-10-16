@@ -837,6 +837,7 @@ class ModuleCacher(torch.nn.Module):
         if not self.inplace:
             model = copy.copy(self.orig_model)
         self.model = model
+        self.model.orig_forward = self.model.forward
         if self.use_lfu:
             self.model.forward = self.forward_lfs
         else:
