@@ -118,30 +118,34 @@ static int64_t ComputeOutputSize(
   }
 }
 
-sizes_vec ConvolutionOverrideableOutputShape(const at::Stack& stack) {
-  auto shape_in = stack_tensor(stack, 0).sizes();
-  auto shape_wt = stack_tensor(stack, 1).sizes();
-  const auto stride = stack[3].toIntList().vec();
-  const auto padding = stack[4].toIntList().vec();
-  const auto dilation = stack[5].toIntList().vec();
-  const bool transposed = stack[6].toBool();
-  const auto output_padding = stack[7].toIntList().vec();
-  const int64_t groups = stack[8].toInt();
+OutputMetaDataVector ConvolutionOverrideableMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto shapeIn = self.sizes();
+  auto shapeWt = stack_tensor(stack, 1).sizes();
+  const auto stride = stack.at(3).toIntList().vec();
+  const auto padding = stack.at(4).toIntList().vec();
+  const auto dilation = stack.at(5).toIntList().vec();
+  const bool transposed = stack.at(6).toBool();
+  const auto outputPadding = stack.at(7).toIntList().vec();
+  const int64_t groups = stack.at(8).toInt();
 
-  auto K = transposed ? shape_wt[1] * groups : shape_wt[0];
-  std::vector<int64_t> out_shape{shape_in[0], K};
-  for (int i = 0; i < shape_in.size() - 2; ++i) {
-    out_shape.push_back(ComputeOutputSize(
-        shape_in[i + 2],
+  auto K = transposed ? shapeWt[1] * groups : shapeWt[0];
+  std::vector<int64_t> outputShape{shapeIn[0], K};
+  for (int i = 0; i < shapeIn.size() - 2; ++i) {
+    outputShape.push_back(ComputeOutputSize(
+        shapeIn[i + 2],
         padding[i],
         dilation[i],
-        shape_wt[i + 2],
+        shapeWt[i + 2],
         stride[i],
-        output_padding[i],
+        outputPadding[i],
         transposed));
   }
 
-  return {out_shape};
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = outputShape;
+  return {meta};
 }
 
 static std::pair<SynapseLayouts, SynapseLayouts> MakeLayouts(
@@ -192,21 +196,19 @@ void ConvolutionOverrideable::AddNode(
 
   std::vector<synTensor> inputs = {input_reshaped, weight_reshaped};
 
-  auto out_shape = ConvolutionOverrideableOutputShape(stack)[0];
+  auto meta = ConvolutionOverrideableMeta(stack)[0];
 
-  if (is_conv_1d) {
-    out_shape.push_back(1);
-  }
+  if (is_conv_1d)
+    meta.shape.push_back(1);
 
-  if (guid == "dedx" || guid == "dedx3d") {
-    this->CreateShapeTensorInput(graph, this->ScalarType(), out_shape, inputs);
-  } else if (bias.defined()) {
+  if (guid == "dedx" || guid == "dedx3d")
+    this->CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
+  else if (bias.defined())
     inputs.emplace_back(syn_in(2));
-  }
 
   const auto& params = FillConvolutionOverrideableParams(stack, size);
 
-  NodeAttr::NodeOutputAttr node_output_attr = {out_shape, ScalarType(), 0};
+  NodeAttr::NodeOutputAttr node_output_attr = {meta.shape, meta.dtype, 0};
   if ((transposed && bias.defined()) || is_conv_1d)
     node_output_attr.final_result_index = c10::nullopt;
 
@@ -220,19 +222,19 @@ void ConvolutionOverrideable::AddNode(
     int64_t data[5] = {1, bias.sizes().vec()[0], 1, 1, 1};
     c10::IntArrayRef shape(data, is_conv_3d ? 5 : 4);
     synapse_helpers::tensor biasReshaped =
-        BuildReshape(this, graph, syn_in(2), shape, ScalarType());
+        BuildReshape(this, graph, syn_in(2), shape, meta.dtype);
 
     c10::optional<int> final_result_index_0 =
         is_conv_1d ? c10::optional<int>{c10::nullopt} : c10::optional<int>{0};
     auto addOp = BuildOp(
         graph,
-        get_guid_with_precision("add_fwd", ScalarType()),
+        get_guid_with_precision("add_fwd", meta.dtype),
         {convOp[0].get(), biasReshaped.get()},
-        {{out_shape, ScalarType(), final_result_index_0}});
+        {{meta.shape, meta.dtype, final_result_index_0}});
 
-    IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(addOp[0], out_shape, 0);
+    IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(addOp[0], meta.shape, 0);
   } else {
-    IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp[0], out_shape, 0);
+    IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp[0], meta.shape, 0);
   }
 }
 } // namespace habana

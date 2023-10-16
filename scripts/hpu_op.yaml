@@ -2011,7 +2011,7 @@ constant_pad_nd:
     override_fn: constant_pad_hpu_lazy
 
 convolution_overrideable:
-  custom_output_shape: ConvolutionOverrideableOutputShape
+  output_meta: ConvolutionOverrideableMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
@@ -2021,7 +2021,7 @@ convolution_overrideable:
   out_ids: [0]
 
 convolution:
-  custom_output_shape: ConvolutionOverrideableOutputShape
+  output_meta: ConvolutionOverrideableMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
