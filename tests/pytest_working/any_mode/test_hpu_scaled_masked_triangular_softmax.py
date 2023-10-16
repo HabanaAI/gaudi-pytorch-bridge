@@ -13,6 +13,18 @@
 import torch
 import pytest
 import numpy as np
+from test_utils import (
+    clear_t_compile_logs,
+    check_op_executed_in_jit_ir,
+    is_pytest_mode_compile,
+)
+
+
+@pytest.fixture
+def mode_checked(mode, dtype):
+    if mode == 1 and dtype == torch.float:
+        pytest.skip("No LUT version is only supported with bfloat16 datatype")
+    return mode
 
 
 @pytest.mark.parametrize("shape", [(16, 5, 5)])
@@ -22,11 +34,9 @@ import numpy as np
 @pytest.mark.parametrize("mode", [0, 1, 15])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_scaled_masked_triangular_softmax(
-    shape, inv_scale_attn, grouped_batch_size, use_max, mode, dtype
+    shape, inv_scale_attn, grouped_batch_size, use_max, mode_checked, dtype
 ):
     torch.manual_seed(12345)
-    if mode == 1 and dtype == torch.float:
-        pytest.skip("No LUT version is only supported with bfloat16 datatype")
 
     batch = shape[0]
     dim1 = shape[1]
@@ -50,13 +60,22 @@ def test_scaled_masked_triangular_softmax(
     for i in range(batch):
         self_tril[i][idx[0], idx[1]] = min_val
 
-    result = torch.ops.hpu.scaled_masked_triangular_softmax(
+    hpu_op = torch.ops.hpu.scaled_masked_triangular_softmax
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        hpu_op = torch.compile(
+            torch.ops.hpu.scaled_masked_triangular_softmax,
+            backend="aot_hpu_training_backend",
+        )
+
+    result = hpu_op(
         self.to("hpu"),
         start_end.to("hpu"),
         inv_scale_attn,
         grouped_batch_size,
         use_max,
-        mode,
+        mode_checked,
     ).cpu()
 
     result_ref = torch.nn.functional.softmax(self_tril, dim=-1)
@@ -68,6 +87,8 @@ def test_scaled_masked_triangular_softmax(
     rtol = atol
 
     assert torch.allclose(result_ref, result, atol=atol, rtol=rtol)
+    if is_pytest_mode_compile():
+        check_op_executed_in_jit_ir("scaled_masked_triangular_softmax")
 
 
 @pytest.mark.parametrize("shape", [(192, 1, 2048)])
@@ -77,14 +98,9 @@ def test_scaled_masked_triangular_softmax(
 @pytest.mark.parametrize("mode", [0, 1, 15])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_scaled_masked_triangular_softmax_next_token(
-    shape, inv_scale_attn, grouped_batch_size, use_max, mode, dtype
+    shape, inv_scale_attn, grouped_batch_size, use_max, mode_checked, dtype
 ):
     torch.manual_seed(12345)
-    if mode == 1 and dtype == torch.float:
-        pytest.skip("No LUT version is only supported with bfloat16 datatype")
-
-    batch = shape[0]
-    dim2 = shape[2]
 
     self = torch.randn(shape, dtype=dtype)
 
@@ -105,13 +121,22 @@ def test_scaled_masked_triangular_softmax_next_token(
 
     start_end = torch.tensor(starts_ends).flatten()
 
-    result = torch.ops.hpu.scaled_masked_triangular_softmax(
+    hpu_op = torch.ops.hpu.scaled_masked_triangular_softmax
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        hpu_op = torch.compile(
+            torch.ops.hpu.scaled_masked_triangular_softmax,
+            backend="aot_hpu_training_backend",
+        )
+
+    result = hpu_op(
         self.to("hpu"),
         start_end.to("hpu"),
         inv_scale_attn,
         grouped_batch_size,
         use_max,
-        mode,
+        mode_checked,
     ).cpu()
 
     result_ref = torch.nn.functional.softmax(self_scaled, dim=-1)
@@ -120,3 +145,5 @@ def test_scaled_masked_triangular_softmax_next_token(
     rtol = atol
 
     assert torch.allclose(result_ref, result, atol=atol, rtol=rtol)
+    if is_pytest_mode_compile():
+        check_op_executed_in_jit_ir("scaled_masked_triangular_softmax")

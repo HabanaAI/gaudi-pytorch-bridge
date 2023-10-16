@@ -904,9 +904,11 @@ at::Tensor scaled_masked_triangular_softmax(
     int64_t grouped_batch_size,
     bool use_max,
     int64_t mode) {
-  TORCH_CHECK(
-      false,
-      "hpu::scaled_masked_triangular_softmax is not available in Eager mode.");
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::scaled_masked_triangular_softmax",
+      {self, start_end, inv_scale_attn, grouped_batch_size, use_max, mode},
+      {{self.sizes().vec()}}};
+  return hpu_op.call();
 }
 
 at::Tensor& in_place_interleave_(at::Tensor& self) {

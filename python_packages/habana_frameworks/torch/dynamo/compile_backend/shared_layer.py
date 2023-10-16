@@ -35,6 +35,7 @@ hpu_supported_op_list = {
     "kv_reorder",
     "in_place_interleave",
     "custom_softmax",
+    "scaled_masked_triangular_softmax",
 }
 
 hpu_fallback_op_list = {
