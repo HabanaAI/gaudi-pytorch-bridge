@@ -31,3 +31,4 @@ from .RotaryPosEmbeddingHelper import (
     apply_rotary_pos_emb,
 )
 from .FusedSDPA import FusedSDPA
+from .CTCLoss import CTCLoss

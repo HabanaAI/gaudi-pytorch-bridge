@@ -19,6 +19,7 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/random_gen_kernels.h"
+#include "hpu_ops/ctc_loss_custom.h"
 #include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/masked_batch_gemm.h"
 #include "hpu_ops/op_logger.h"
@@ -963,6 +964,87 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_backward(
   return hpu_op.call();
 }
 
+std::tuple<at::Tensor, at::Tensor> ctc_loss_custom(
+    const at::Tensor& log_probs,
+    const at::Tensor& targets,
+    const at::Tensor& input_lengths,
+    const at::Tensor& target_lengths,
+    int64_t blank,
+    int64_t reduction,
+    bool zero_infinity) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "ctc_loss_custom :",
+      DUMP_7ARGS(
+          log_probs,
+          targets,
+          input_lengths,
+          target_lengths,
+          blank,
+          reduction,
+          zero_infinity));
+  auto shapes = habana::calculate_output_shapes_for_ctc_loss_custom_fwd(
+      log_probs, targets, reduction);
+
+  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
+      "hpu::ctc_loss_custom",
+      {log_probs,
+       targets,
+       input_lengths,
+       target_lengths,
+       blank,
+       reduction,
+       zero_infinity},
+      {std::get<0>(shapes), std::get<1>(shapes)},
+      0};
+
+  return hpu_op.call();
+}
+
+at::Tensor ctc_loss_custom_backward(
+    const at::Tensor& grad,
+    const at::Tensor& log_probs,
+    const at::Tensor& targets,
+    const at::Tensor& input_lengths,
+    const at::Tensor& target_lengths,
+    const at::Tensor& neg_log_likelihood,
+    const at::Tensor& log_alpha,
+    int64_t blank,
+    int64_t reduction,
+    bool zero_infinity) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "ctc_loss_custom_backward :",
+      DUMP_10ARGS(
+          grad,
+          log_probs,
+          targets,
+          input_lengths,
+          target_lengths,
+          neg_log_likelihood,
+          log_alpha,
+          blank,
+          reduction,
+          zero_infinity));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::ctc_loss_custom_backward",
+      {grad,
+       log_probs,
+       targets,
+       input_lengths,
+       target_lengths,
+       neg_log_likelihood,
+       log_alpha,
+       blank,
+       reduction,
+       zero_infinity},
+      {log_probs.sizes().vec()},
+      0};
+
+  return hpu_op.call();
+}
+
 at::Tensor masked_batch_gemm(
     const at::Tensor& a,
     const at::Tensor& b,
@@ -1745,6 +1827,10 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, int offset, int mode) -> Tensor");
   m.def(
+      "hpu::ctc_loss_custom(Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, int blank, int reduction, bool zero_infinity) -> (Tensor, Tensor)");
+  m.def(
+      "hpu::ctc_loss_custom_backward(Tensor grad, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction, bool zero_infinity) -> Tensor");
+  m.def(
       "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode, ScalarType? out_dtype=None) -> Tensor");
   m.def(
       "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor");
@@ -1842,11 +1928,12 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::rms_norm_backward", rms_norm_backward);
   m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding);
   m.impl("hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward);
+  m.impl("hpu::ctc_loss_custom", ctc_loss_custom);
+  m.impl("hpu::ctc_loss_custom_backward", ctc_loss_custom_backward);
   m.impl(
       "hpu::scaled_masked_triangular_softmax",
       scaled_masked_triangular_softmax);
   m.impl("hpu::scaled_triangular_softmax", scaled_triangular_softmax);
-  m.impl("hpu::softmax_fp8", softmax_fp8);
   m.impl("hpu::sdpa_recomp_fwd", sdpa_recomp_fwd);
   m.impl("hpu::sdpa_recomp_bwd", sdpa_recomp_bwd);
   m.impl("hpu::sdpa_fwd", sdpa_fwd);

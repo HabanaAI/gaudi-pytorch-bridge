@@ -1622,6 +1622,77 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_backward_wrap(
       grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode);
 }
 
+std::tuple<at::Tensor, at::Tensor> ctc_loss_custom_wrap(
+    const at::Tensor& log_probs,
+    const at::Tensor& targets,
+    const at::Tensor& input_lengths,
+    const at::Tensor& target_lengths,
+    int64_t blank,
+    int64_t reduction,
+    bool zero_infinity) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "ctc_loss_custom :",
+      DUMP_7ARGS(
+          log_probs,
+          targets,
+          input_lengths,
+          target_lengths,
+          blank,
+          reduction,
+          zero_infinity));
+
+  return ctc_loss_custom_lazy(
+      log_probs,
+      targets,
+      input_lengths,
+      target_lengths,
+      blank,
+      reduction,
+      zero_infinity);
+}
+
+at::Tensor ctc_loss_custom_backward_wrap(
+    const at::Tensor& grad,
+    const at::Tensor& log_probs,
+    const at::Tensor& targets,
+    const at::Tensor& input_lengths,
+    const at::Tensor& target_lengths,
+    const at::Tensor& neg_log_likelihood,
+    const at::Tensor& log_alpha,
+    int64_t blank,
+    int64_t reduction,
+    bool zero_infinity) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "ctc_loss_custom_backward :",
+      DUMP_10ARGS(
+          grad,
+          log_probs,
+          targets,
+          input_lengths,
+          target_lengths,
+          neg_log_likelihood,
+          log_alpha,
+          blank,
+          reduction,
+          zero_infinity));
+
+  return ctc_loss_custom_backward_lazy(
+      grad,
+      log_probs,
+      targets,
+      input_lengths,
+      target_lengths,
+      neg_log_likelihood,
+      log_alpha,
+      blank,
+      reduction,
+      zero_infinity);
+}
+
 at::Tensor masked_batch_gemm_wrap(
     const at::Tensor& a,
     const at::Tensor& b,
@@ -2306,6 +2377,10 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)");
   m.def(
+      "hpu::ctc_loss_custom(Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, int blank, int reduction, bool zero_infinity) -> (Tensor, Tensor)");
+  m.def(
+      "hpu::ctc_loss_custom_backward(Tensor grad, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction, bool zero_infinity) -> Tensor");
+  m.def(
       "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
 
   // Seed is generated at FE and passed to BE. There is no seed at python
@@ -2408,6 +2483,8 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward_wrap);
   m.impl("hpu::rms_norm", rms_norm_wrap);
   m.impl("hpu::rms_norm_backward", rms_norm_backward_wrap);
+  m.impl("hpu::ctc_loss_custom", ctc_loss_custom_wrap);
+  m.impl("hpu::ctc_loss_custom_backward", ctc_loss_custom_backward_wrap);
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm_wrap);
   m.impl("hpu::sdpa_fwd", sdpa_fwd_wrap);
   m.impl("hpu::sdpa_bwd", sdpa_bwd_wrap);

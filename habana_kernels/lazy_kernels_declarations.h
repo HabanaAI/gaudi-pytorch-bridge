@@ -819,6 +819,25 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_backward_lazy(
     const at::Tensor& inverse_rms,
     bool use_stages,
     int64_t bwd_mode);
+std::tuple<at::Tensor, at::Tensor> ctc_loss_custom_lazy(
+    const at::Tensor& log_probs,
+    const at::Tensor& targets,
+    const at::Tensor& input_lengths,
+    const at::Tensor& target_lengths,
+    int64_t blank,
+    int64_t reduction,
+    bool zero_infinity);
+at::Tensor ctc_loss_custom_backward_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& log_probs,
+    const at::Tensor& targets,
+    const at::Tensor& input_lengths,
+    const at::Tensor& target_lengths,
+    const at::Tensor& neg_log_likelihood,
+    const at::Tensor& log_alpha,
+    int64_t blank,
+    int64_t reduction,
+    bool zero_infinity);
 at::Tensor masked_batch_gemm_lazy(
     const at::Tensor& a,
     const at::Tensor& b,

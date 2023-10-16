@@ -51,6 +51,7 @@
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view_utils.h"
+#include "hpu_ops/ctc_loss_custom.h"
 #include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/masked_batch_gemm.h"
 #include "hpu_ops/op_logger.h"
@@ -7199,6 +7200,64 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_backward_lazy(
       {{data_in.sizes().vec(), gamma.sizes().vec()}}};
 
   RUN_MAYBE_WITH_ACC_THREAD(rms_norm_backward, op)
+}
+
+std::tuple<at::Tensor, at::Tensor> ctc_loss_custom_lazy(
+    const at::Tensor& log_probs,
+    const at::Tensor& targets,
+    const at::Tensor& input_lengths,
+    const at::Tensor& target_lengths,
+    int64_t blank,
+    int64_t reduction,
+    bool zero_infinity) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  auto shapes = habana::calculate_output_shapes_for_ctc_loss_custom_fwd(
+      log_probs, targets, reduction);
+
+  LazyOp<std::tuple<at::Tensor, at::Tensor>> op{
+      "hpu::ctc_loss_custom",
+      {log_probs,
+       targets,
+       input_lengths,
+       target_lengths,
+       blank,
+       reduction,
+       zero_infinity},
+      {std::get<0>(shapes), std::get<1>(shapes)}};
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(ctc_loss_custom, op)
+}
+
+at::Tensor ctc_loss_custom_backward_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& log_probs,
+    const at::Tensor& targets,
+    const at::Tensor& input_lengths,
+    const at::Tensor& target_lengths,
+    const at::Tensor& neg_log_likelihood,
+    const at::Tensor& log_alpha,
+    int64_t blank,
+    int64_t reduction,
+    bool zero_infinity) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> op{
+      "hpu::ctc_loss_custom_backward",
+      {grad,
+       log_probs,
+       targets,
+       input_lengths,
+       target_lengths,
+       neg_log_likelihood,
+       log_alpha,
+       blank,
+       reduction,
+       zero_infinity},
+      {{log_probs.sizes().vec()}}};
+
+  RUN_MAYBE_WITH_ACC_THREAD(ctc_loss_custom_backward, op)
 }
 
 at::Tensor masked_batch_gemm_lazy(

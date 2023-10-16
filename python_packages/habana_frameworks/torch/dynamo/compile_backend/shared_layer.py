@@ -38,6 +38,8 @@ hpu_supported_op_list = {
     "cast_to_fp8_hybrid",
     "cast_to_fp8_v2",
     "conv2d_fp8",
+    "ctc_loss_custom",
+    "ctc_loss_custom_backward",
     "custom_softmax",
     "fp8_gemm_v2",
     "in_place_interleave",

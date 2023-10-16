@@ -564,6 +564,27 @@ def meta_rms_norm_backward(grad_in, data_in, gamma, inverse_rms, use_stages, bwd
     return data_in.new_empty(data_in.shape), gamma.new_empty(gamma.shape)
 
 
+@register_meta([torch.ops.hpu.ctc_loss_custom.default])
+def meta_ctc_loss_custom(log_probs, targets, input_lengths, target_lengths, blank, reduction, zero_infinity):
+    input_sequence_length = log_probs.shape[0]
+    batch_size = log_probs.shape[1] if log_probs.dim() > 2 else 1
+    max_target_length = targets.shape[1] if targets.dim() > 1 else targets.shape[0]
+    alpha_shape = (input_sequence_length, batch_size, 2 * max_target_length + 1)
+    dtype = log_probs.dtype
+
+    if reduction == 0:
+        return input_lengths.new_empty((batch_size), dtype=dtype), log_probs.new_empty(alpha_shape)
+    else:
+        return input_lengths.new_empty((), dtype=dtype), log_probs.new_empty(alpha_shape)
+
+
+@register_meta([torch.ops.hpu.ctc_loss_custom_backward.default])
+def meta_ctc_loss_custom_backward(
+    loss_grad_in, log_probs, targets, input_lengths, target_lengths, loss, alpha, blank, reduction, zero_infinity
+):
+    return log_probs.new_empty(log_probs.shape)
+
+
 @register_meta([torch.ops.hpu.sum_fp8.default])
 def meta_sum_fp8(self, dim=None, keepdim=False, out_dtype=None):
     dim = utils.reduction_dims(self.shape, dim)
