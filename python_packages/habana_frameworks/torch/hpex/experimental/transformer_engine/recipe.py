@@ -115,7 +115,7 @@ class DelayedScaling:
                 tensors is reduced across the `fp8_group` (specified in the `fp8_autocast`
                 call). This keeps the amaxes and scaling factors synced across the given
                 distributed group. If set to `False`, this reduction is skipped and every
-                GPU maintains local amaxes and scaling factors. To ensure results are
+                HPU maintains local amaxes and scaling factors. To ensure results are
                 numerically identical across checkpointing boundaries in this case, all
                 ranks must checkpoint in order to store the local tensors.
 

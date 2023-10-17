@@ -40,7 +40,7 @@ from ..distributed import (
     set_tensor_model_parallel_attributes,
     get_distributed_world_size,
     allreduce,
-    initialize_affine_weight_gpu,
+    initialize_affine_weight_hpu,
     reduce_scatter_along_first_dim,
     gather_along_first_dim,
     gather_along_last_dim,
@@ -205,7 +205,7 @@ class _Linear(torch.autograd.Function):
 
             # Column Parallel Linear
             # Overlap input AG with dgrad
-            if ctx.parallel_mode == "column" and ctx.sequence_parallel:
+            if ctx.requires_wgrad and ctx.parallel_mode == "column" and ctx.sequence_parallel:
                 if ctx.fp8 and not ctx.fp8_meta["recipe"].override_linear_precision.wgrad:
                     inputmat_fp8_total, handle = gather_along_last_dim(
                         inputmap_fp8, ctx.tp_group, async_op=ctx.requires_dgrad
@@ -217,6 +217,7 @@ class _Linear(torch.autograd.Function):
             else:
                 inputmat_fp8_total = inputmap_fp8
                 inputmat_total = inputmat
+                handle = None
 
             assert ctx.fp8
             fp8_dtype_forward = get_fp8_te_dtype(
@@ -247,7 +248,8 @@ class _Linear(torch.autograd.Function):
 
                 # Overlap dgrad-RS/AR with wgrad
                 if ctx.parallel_mode == "column" and ctx.sequence_parallel:
-                    handle.wait()
+                    if handle is not None:
+                        handle.wait()
                     dgrad, handle = reduce_scatter_along_first_dim(
                         dgrad, ctx.tp_group, async_op=True
                     )
@@ -302,7 +304,7 @@ class Linear(TransformerEngineBaseModule):
     """
     Applies a linear transformation to the incoming data :math:`y = xA^T + b`
 
-    On NVIDIA GPUs it is a drop-in replacement for `torch.nn.Linear`.
+    On HPUs it is a drop-in replacement for `torch.nn.Linear`.
 
     Parameters
     ----------
@@ -315,6 +317,10 @@ class Linear(TransformerEngineBaseModule):
     init_method : Callable, default = `None`
                  used for initializing weights in the following way: `init_method(weight)`.
                  When set to `None`, defaults to `torch.nn.init.normal_(mean=0.0, std=0.023)`.
+    device : Union[torch.device, str], default = "hpu"
+          The device on which the parameters of the model will allocated. It is the user's
+          responsibility to ensure all parameters are moved to the HPU before running the
+          forward pass.
 
     Parallelism parameters
     ----------------------
@@ -346,7 +352,7 @@ class Linear(TransformerEngineBaseModule):
     params_dtype : torch.dtype, default = `torch.get_default_dtype()`
                   it controls the type used to allocate the initial parameters. Useful when
                   the model is trained with lower precision and the original FP32 parameters
-                  would not fit in GPU memory.
+                  would not fit in HPU memory.
     minimize_memory : bool, default = `False`
                      when set to `True`, memory usage is decreased by recalculating fp8 weight
                      in backward pass. This reduces memory usage but obviously degrades perf.
@@ -367,6 +373,7 @@ class Linear(TransformerEngineBaseModule):
         params_dtype: Optional[torch.dtype] = None,
         parallel_mode: Optional[str] = None,
         skip_weight_param_allocation: bool = False,
+        device: Union[torch.device, str] = "hpu",
         minimize_memory: bool = False,
     ) -> None:
         super().__init__()
@@ -409,12 +416,12 @@ class Linear(TransformerEngineBaseModule):
                 torch.empty(
                     self.out_features,
                     self.in_features,
-                    device="hpu",
+                    device=device,
                     dtype=params_dtype,
                 )
             )
 
-            initialize_affine_weight_gpu(
+            initialize_affine_weight_hpu(
                 self.weight,
                 init_method,
                 get_rng_state_tracker,
@@ -426,14 +433,14 @@ class Linear(TransformerEngineBaseModule):
                 self.bias = Parameter(
                     torch.empty(
                         self.out_features,
-                        device="hpu",
+                        device=device,
                         dtype=params_dtype,
                     )
                 )
                 if self.parallel_mode == "column":
                     set_tensor_model_parallel_attributes(self.bias, True, 0, 1)
             else:
-                self.bias = torch.Tensor().to(dtype=params_dtype, device="hpu")
+                self.bias = torch.Tensor().to(dtype=params_dtype, device=device)
 
             with torch.no_grad():
                 self.bias.zero_()

@@ -61,14 +61,14 @@ def get_distributed_rank(group: Optional[dist_group_type] = None) -> int:
     return torch.distributed.get_rank(group=group)
 
 
-def initialize_affine_weight_gpu(
+def initialize_affine_weight_hpu(
     weight: torch.Tensor,
     init_method: Callable,
     get_rng_state_tracker: Callable,
     partition_dim: int,
     stride: int = 1,
 ) -> None:
-    """Initialize affine weight for model parallel on GPU."""
+    """Initialize affine weight for model parallel on HPU."""
 
     set_tensor_model_parallel_attributes(
         tensor=weight, is_parallel=True, dim=partition_dim, stride=stride
@@ -316,7 +316,7 @@ def reduce_scatter_along_first_dim(
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Reduce-scatter the input tensor across model parallel group."""
     world_size = get_distributed_world_size(tp_group)
-    # Bypass the function if we are using only 1 GPU.
+    # Bypass the function if we are using only 1 HPU.
     if world_size == 1:
         return input_, None
 
@@ -342,7 +342,7 @@ def gather_along_first_dim(
     """Gather tensors and concatinate along the first dimension."""
 
     world_size = get_distributed_world_size(tp_group)
-    # Bypass the function if we are using only 1 GPU.
+    # Bypass the function if we are using only 1 HPU.
     if world_size == 1:
         return input_, None
 
@@ -365,7 +365,7 @@ def gather_along_last_dim(
     """Gather tensors and concatinate along the last dimension."""
 
     world_size = get_distributed_world_size(tp_group)
-    # Bypass the function if we are using only 1 GPU.
+    # Bypass the function if we are using only 1 HPU.
     if world_size == 1:
         return input_, None
 
@@ -389,7 +389,7 @@ def allreduce(
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """All-reduce the input tensor across model parallel group."""
 
-    # Bypass the function if we are using only 1 GPU.
+    # Bypass the function if we are using only 1 HPU.
     if get_distributed_world_size(tp_group) == 1:
         return input_, None
 
