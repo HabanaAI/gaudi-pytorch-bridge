@@ -6401,7 +6401,7 @@ sinh_:
   op_validator: check-node-with-shared-layer
 
 smooth_l1_loss:
-  custom_output_shape: SmoothL1LossOutputShape
+  output_meta: SmoothL1LossMeta
   dtypes: [BFloat16, Float]
   guid: smooth_l1_loss_fwd
   custom_fill_params: FillSmoothL1LossFwdParams
@@ -6409,20 +6409,20 @@ smooth_l1_loss:
   # op_validator: check-node-with-shared-layer
 
 smooth_l1_loss.out:
-  custom_output_shape: SmoothL1LossOutputShape
+  output_meta: SmoothL1LossMeta
   dtypes: [BFloat16, Float]
   guid: smooth_l1_loss_fwd
   custom_fill_params: FillSmoothL1LossFwdParams
   # op_validator: check-node-with-shared-layer
 
 smooth_l1_loss_backward:
-  custom_output_shape: SmoothL1LossBackwardOutputShape
+  output_meta: SmoothL1LossBackwardMeta
   dtypes: [BFloat16, Float]
   op_backend: SmoothL1LossBwdOperator
   out_ids: [0]
 
 smooth_l1_loss_backward.grad_input:
-  custom_output_shape: SmoothL1LossBackwardOutputShape
+  output_meta: SmoothL1LossBackwardMeta
   dtypes: [BFloat16, Float]
   op_backend: SmoothL1LossBwdOperator
 
