@@ -173,6 +173,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     // include also the accumulated lazy graph ops and Then wait for device
     // sync.
     // Note: This is synchronous step marker
+    PT_IRGRAPH_DEBUG("step marker due to bindings-synchronize_device");
     habana_lazy::HbLazyTensor::StepMarker();
     habana::HPURegistrar::synchronize_device();
   });

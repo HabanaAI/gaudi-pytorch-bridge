@@ -709,6 +709,8 @@ void HbLazyTensorViews::HandleViewsLazyCollective(const at::Tensor& tensor) {
       (data_ptr->stride_params.value().viewStatus != kEvaluated)) {
     PT_LAZY_DEBUG(
         "stepmarker triggered to handle lazy inplace before collectives");
+    PT_IRGRAPH_DEBUG(
+        "step marker due to handle lazy inplace before collectives");
     HbLazyTensor::StepMarker({});
   }
 }
@@ -1189,6 +1191,7 @@ void HbLazyTensorViews::StepMarkerAllReduce(const std::vector<Tensor>& inputs) {
 
   /* special processing of view outputs needed only for the bwd case*/
   bool is_allreduce_bwd = (bucket_recent_id.size() > 0);
+  PT_IRGRAPH_DEBUG("step marker due to HbLazyTensorViews::StepMarkerAllReduce");
   habana_lazy::HbLazyTensor::StepMarker(
       {},
       nullptr,

@@ -379,6 +379,7 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
   if (is_allreduce) {
     habana_lazy::HbLazyTensorViews::StepMarkerAllReduce(inputs);
   } else {
+    PT_IRGRAPH_DEBUG("step marker due to ProcessGroupHCCL::collective");
     habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, false /*async*/);
   }
 
@@ -565,6 +566,8 @@ void ProcessGroupHCCL::permutedSendTensorsToDense(
         lazy_front_end_info =
             std::make_shared<habana_lazy::HbLazyFrontEndInfoToBackend>();
     lazy_front_end_info->set_is_hccl_send_mark_step(true);
+    PT_IRGRAPH_DEBUG(
+        "step marker due to ProcessGroupHCCL::permutedSendTensorsToDense");
     habana_lazy::HbLazyTensor::StepMarker({}, lazy_front_end_info);
   }
 }

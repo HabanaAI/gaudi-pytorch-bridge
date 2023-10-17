@@ -35,6 +35,8 @@ optimizer_sparse_sgd_with_valid_count_hpu_lazy(
   PT_LAZY_TRACE;
   habana_lazy::NoAccThread no_acc_thread;
 
+  PT_IRGRAPH_DEBUG(
+      "step marker due to optimizer_sparse_sgd_with_valid_count_hpu_lazy");
   HbLazyTensor::StepMarker({});
   LazyOp<::std::tuple<at::Tensor&, at::Tensor&>> k{
       "hpu::habanaOptimizerSparseSgd",

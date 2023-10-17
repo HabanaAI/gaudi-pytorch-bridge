@@ -57,6 +57,8 @@ void PTOpTrace::increment_compound_ops() {
     PT_LAZY_DEBUG(
         "Reached max accumulated compound op size, triggering a mark_step");
     bool async = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD);
+    PT_IRGRAPH_DEBUG(
+        "step marker due to reaching max accumulated compound op size");
     habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, async);
   }
 }

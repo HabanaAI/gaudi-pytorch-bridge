@@ -687,6 +687,7 @@ at::Tensor HbLazyTensor::EvaluateTensorData(bool sync_acc_thread) {
   // If data isn't available then do step marker to get data.
   if (CurrentIrValue() && !CurrentTensorData()) {
     if (GET_ENV_FLAG_NEW(PT_USE_MARKSTEP)) {
+      PT_IRGRAPH_DEBUG("step marker due to EvaluateTensorData-PT_USE_MARKSTEP");
       HbLazyTensor::StepMarker({});
     } else {
       std::lock_guard<std::recursive_mutex> lock(
@@ -731,6 +732,8 @@ c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
     if (currentIrValue.mp_node->is_input() == true) {
       return data()->tensor_data;
     } else if (GET_ENV_FLAG_NEW(PT_USE_MARKSTEP)) {
+      PT_IRGRAPH_DEBUG(
+          "step marker due to GetHbLazyTensorDataForMedia-PT_USE_MARKSTEP");
       HbLazyTensor::StepMarker({});
     } else {
       std::lock_guard<std::recursive_mutex> lock(

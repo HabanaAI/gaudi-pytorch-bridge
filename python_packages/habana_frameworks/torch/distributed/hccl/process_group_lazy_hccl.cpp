@@ -123,6 +123,7 @@ bool ProcessGroupLazyHCCL::WorkLazy::isSuccess() const {
 
 bool ProcessGroupLazyHCCL::WorkLazy::wait(std::chrono::milliseconds timeout
                                           [[maybe_unused]]) {
+  PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::WorkLazy::wait");
   habana_lazy::HbLazyTensor::StepMarker();
   return true;
 }
@@ -132,6 +133,8 @@ void ProcessGroupLazyHCCL::WorkLazy::abort() {
 }
 
 void ProcessGroupLazyHCCL::WorkLazy::synchronize() {
+  PT_IRGRAPH_DEBUG(
+      "step marker due to ProcessGroupLazyHCCL::WorkLazy::synchronize");
   habana_lazy::HbLazyTensor::StepMarker();
 }
 
@@ -252,6 +255,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
     }
   }
   if (change) {
+    PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::allgather");
     habana_lazy::HbLazyTensor::StepMarker();
   }
   for (size_t i = 0; i < outputTensors.size(); i++) {
@@ -461,6 +465,7 @@ void ProcessGroupLazyHCCL::hostBarrier() {
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::barrier(
     const BarrierOptions& opts [[maybe_unused]]) {
   hostBarrier();
+  PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::barrier");
   habana_lazy::HbLazyTensor::StepMarker();
 
   auto comm = habana::HcclCommunicator::Get(comm_->GetId());

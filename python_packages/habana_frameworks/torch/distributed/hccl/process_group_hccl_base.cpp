@@ -696,6 +696,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
     }
   }
   if (change) {
+    PT_IRGRAPH_DEBUG("step marker due to ProcessGroupHcclBase::allgather");
     habana_lazy::HbLazyTensor::StepMarker();
   }
   for (size_t i = 0; i < outputTensors.size(); i++) {
@@ -917,6 +918,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
   resizeTensor(tensors, changed, sizeList, strideList);
+  PT_IRGRAPH_DEBUG("step marker due to ProcessGroupHcclBase::send");
   habana_lazy::HbLazyTensor::StepMarker();
   permutedSendTensorsToDense(tensors);
   auto work = pointToPoint(
@@ -967,6 +969,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::recv(
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
   resizeTensor(tensors, changed, sizeList, strideList);
+  PT_IRGRAPH_DEBUG("step marker due to ProcessGroupHcclBase::recv");
   habana_lazy::HbLazyTensor::StepMarker();
   clearPermutesFromRecvTensors(tensors);
   auto work = pointToPoint(

@@ -45,6 +45,7 @@ void HPUGraph::capture_begin(bool dry_run) {
       habana_lazy::get_device_lazy_execution_context(device.id());
   capture_stream_ = stream;
   /*flush current Accumulated graph, before capture */
+  PT_IRGRAPH_DEBUG("step marker due to new HPUGraph::capture_begin");
   habana_lazy::HbLazyTensor::StepMarker({});
 
   dynamic_env_ = habana_helpers::GetRefineDynamicShapeStatus();
@@ -80,6 +81,7 @@ void HPUGraph::capture_end() {
       habana_lazy::get_device_lazy_execution_context(device.id());
 
   /*flush graph to capture in the end */
+  PT_IRGRAPH_DEBUG("step marker due to HPUGraph::capture_end");
   habana_lazy::HbLazyTensor::StepMarker({});
   capturing_ = false;
 
@@ -186,6 +188,7 @@ void HPUGraph::replay(bool async) {
     return;
   }
 
+  PT_IRGRAPH_DEBUG("step marker due to HPUGraph::replay");
   if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD)) {
     habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, true);
   } else {
@@ -208,6 +211,7 @@ void HPUGraph::replayV2(
     return;
   }
 
+  PT_IRGRAPH_DEBUG("step marker due to HPUGraph::replayV2");
   if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD)) {
     habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, true);
   } else {
@@ -382,6 +386,7 @@ void HPUGraph::replayV3(std::vector<at::Tensor>& inputs, bool async) {
     return;
   }
 
+  PT_IRGRAPH_DEBUG("step marker due to HPUGraph::replayV3");
   if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD)) {
     habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, true);
   } else {

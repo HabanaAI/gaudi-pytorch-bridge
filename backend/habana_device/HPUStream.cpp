@@ -98,6 +98,7 @@ bool HPUStream::query() const {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) { /* only for lazy mode */
     /*TDB check if StepMarker is required for query */
     if (id() != getCurrentHPUStream(device_index).id()) {
+      PT_IRGRAPH_DEBUG("step marker due to HPUStream::query");
       habana_lazy::HbLazyTensor::StepMarker({});
     } else {
       // If there are current jobs in stream. return false
@@ -135,12 +136,14 @@ void HPUStream::synchronize() const {
   auto& stream = device.get_stream(hpu_stream_id);
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
     if (id() != getCurrentHPUStream(device_index).id()) {
+      PT_IRGRAPH_DEBUG("step marker due to HPUStream::synchronize");
       habana_lazy::HbLazyTensor::StepMarker({});
     } else {
       bool is_main_thread = habana::HPURegistrar::get_main_thread_id() ==
           std::this_thread::get_id();
       // If synchronize is called from userthread, just do wait till the
       // execution is over
+      PT_IRGRAPH_DEBUG("step marker due to HPUStream::synchronize userthread");
       habana_lazy::HbLazyTensor::StepMarkerFinish(!is_main_thread);
     }
   }

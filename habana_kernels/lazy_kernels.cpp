@@ -184,6 +184,7 @@ void flushWithMarkStep() {
   }
   if (rand_num < aggressiveness) {
     PT_LAZY_DEBUG("Triggering a mark_step");
+    PT_IRGRAPH_DEBUG("step marker due to flushWithMarkStep");
     HbLazyTensor::StepMarker({});
   }
 }
@@ -215,12 +216,14 @@ void flush_op(
     bool async =
         (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD) &&
          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD));
+    PT_IRGRAPH_DEBUG("step marker due to flush_op");
     HbLazyTensor::StepMarker(
         {}, lazy_front_end_info, out_hb_lazy_tensor, async);
   } else if (m_random_flush) {
     flushWithMarkStep();
   } else if (StageSubmission::getInstance().isExceededMaxAccumlatedSize()) {
     PT_LAZY_DEBUG("Reached max accumulated graph size, triggering a mark_step");
+    PT_IRGRAPH_DEBUG("step marker due to max accumulated graph size");
     HbLazyTensor::StepMarker({}, lazy_front_end_info);
   }
 }
@@ -779,6 +782,7 @@ void d2h_maybe_eval(const Tensor& src, bool async = false) {
 
     if (hl_t.CurrentIrValue() && !hl_t.CurrentIrValue().IsHpuInputNode()) {
       PT_LAZY_DEBUG("Triggering mark_step before D2H copy");
+      PT_IRGRAPH_DEBUG("step marker due to d2h_maybe_eval");
       HbLazyTensor::StepMarker({}, nullptr, {}, async);
     }
   }
@@ -1070,6 +1074,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   if (self_hb_tensor.CurrentIrValue() &&
       !self_hb_tensor.CurrentIrValue().IsHpuInputNode()) {
     PT_LAZY_DEBUG("Triggering mark_step before H2D copy");
+    PT_IRGRAPH_DEBUG("step marker due to H2D copy");
     HbLazyTensor::StepMarker({});
   }
 
@@ -3074,6 +3079,7 @@ Tensor index_put_frontend_impl_hpu_lazy(
   if (indices_vec[0].scalar_type() == c10::ScalarType::Bool) {
     // do a mark_step to avoid attaching the select + scatter to a larger
     // previous graph
+    PT_IRGRAPH_DEBUG("step marker due to index_put_frontend_impl_hpu_lazy");
     HbLazyTensor::StepMarker({});
     for (size_t i = 0; i < indices_vec.size(); i++) {
       auto list = torch::nonzero_numpy(indices_vec.at(i));
