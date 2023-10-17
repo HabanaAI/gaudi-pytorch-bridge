@@ -871,7 +871,7 @@ addmv.out:
   op_backend: AddMV
 
 addr:
-  custom_output_shape: AddROutshape
+  output_meta: AddRMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -880,7 +880,7 @@ addr:
   out_ids: [0]
 
 addr_:
-  custom_output_shape: AddROutshape
+  output_meta: AddRMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -889,7 +889,7 @@ addr_:
   inplace_ids: [0]
 
 addr.out:
-  custom_output_shape: AddROutshape
+  output_meta: AddRMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
