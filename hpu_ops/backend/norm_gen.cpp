@@ -726,13 +726,7 @@ sizes_vec LayerNormBwdOutputShape(const at::Stack& stack) {
   auto input = stack[1].toTensor();
   auto input_size = input.sizes().vec();
 
-  std::vector<int64_t> weight_size;
-  if (stack[5].isTensor()) {
-    auto weight = stack[5].toTensor();
-    weight_size = weight.sizes().vec();
-  } else {
-    weight_size = stack[2].toIntList().vec();
-  }
+  auto weight_size = stack[2].toIntList().vec();
 
   return {input_size, weight_size, weight_size};
 }
