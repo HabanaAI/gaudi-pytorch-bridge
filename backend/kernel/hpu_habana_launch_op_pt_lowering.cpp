@@ -16,6 +16,7 @@
 #include "backend/helpers/runtime_config.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/hccl_kernels.h"
 
@@ -358,6 +359,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
               tensor.name(),
               " const id:: ",
               tmeta->get_const_id());
+          // habana_helpers::handle_const_section_tensor(src, tensor);
           // remove the const marking to avoid copy more than once
           TensorExtraMeta::set_const_tensor(src, false);
           PT_BRIDGE_DEBUG(
@@ -473,6 +475,8 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
       constSectionIds.data(),
       constSectionIds.size());
   constSectionIds.clear();
+  // Call TcMalloc extension to release memory
+  synapse_helpers::ReleaseFreeMemory();
 }
 
 void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {

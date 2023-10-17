@@ -22,6 +22,7 @@
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/runtime_config.h"
 #include "backend/lazy_to_backend.h"
+#include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
 
@@ -356,6 +357,8 @@ void handle_const_section_tensor(
       device.get_host_memory().free(tmeta->get_host_ptr());
       tmeta->set_host_ptr(nullptr);
       tmeta->set_data_in_host_memory(false);
+      // Call TcMalloc extension to release memory
+      synapse_helpers::ReleaseFreeMemory();
     }
   }
 }
