@@ -9,11 +9,11 @@
 # was provided.
 #
 ###############################################################################
+
 import torch
 import pytest
 import numpy as np
-from test_utils import hpu, is_gaudi1, compare_tensors
-import habana_frameworks.torch.core as htcore
+from test_utils import compare_tensors, is_gaudi1
 
 
 dtypes = [torch.float32, torch.bfloat16, torch.int]
@@ -22,22 +22,30 @@ if not is_gaudi1():
 
 
 @pytest.mark.parametrize(
-    "shape, dim, index",
+    "shape, repeats",
     [
-        ([2, 3, 4], 0, [1]),
-        ([2, 3, 4], 1, [1, 2]),
-        ([2, 3, 4], 2, [0, 3]),
-        ([2, 3, 4], -1, [0, 3]),
+        ([3], [2]),
+        ([3], [2, 3]),
+        ([3, 5], [2, 3]),
+        ([3, 5], [2, 3, 4]),
+        ([3, 5], [2, 3, 4, 5]),
+        ([3, 5, 7], [2, 3, 4]),
+        ([3, 5, 7], [2, 3, 4, 5]),
     ],
 )
 @pytest.mark.parametrize("dtype", dtypes)
-def test_hpu_index_select(shape, dim, index, dtype):
-    input_cpu = torch.randint(0, 100, shape).to(dtype)
-    input_hpu = input_cpu.to(hpu)
-    index_cpu = torch.tensor(index, dtype=torch.int)
-    index_hpu = index_cpu.to("hpu")
+def test_hpu_repeat(shape, repeats, dtype):
+    self = torch.randint(-10, 10, shape).to(dtype)
+    self_h = self.to("hpu")
 
-    result_cpu = torch.index_select(input_cpu, dim, index_cpu)
-    result_hpu = torch.index_select(input_hpu, dim, index_hpu)
+    result = self.repeat(repeats)
 
-    compare_tensors(result_hpu, result_cpu, atol=0.0, rtol=0.0)
+    def fn(self, repeats):
+        return self.repeat(repeats)
+
+    if pytest.mode == "compile":
+        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    result_h = fn(self_h, repeats)
+
+    compare_tensors(result_h, result, atol=0.0, rtol=0.0)

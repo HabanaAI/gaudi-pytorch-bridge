@@ -28,6 +28,12 @@ hpu_supported_op_list = {
     "getitem",
     "slice_scatter",
     "alias",
+    # Custom ops
+    "cast_to_fp8_v2",
+    "cast_from_fp8",
+    "fp8_gemm_v2",
+    "kv_reorder",
+    "in_place_interleave",
 }
 
 hpu_fallback_op_list = {
@@ -52,13 +58,14 @@ hpu_fallback_op_list = {
     "index",  # SW-146773
 }
 
+
 def check_for_default_op_support(op_name):
     if op_name in hpu_supported_op_list:
         return True
     return False
 
 
-def check_for_default_fallback(op_name, node, is_dynamic = False):
+def check_for_default_fallback(op_name, node, is_dynamic=False):
     if op_name in hpu_fallback_op_list:
         return True
     unsupported_types = {"permute": torch.int64}
@@ -84,7 +91,7 @@ def check_for_default_fallback(op_name, node, is_dynamic = False):
     # To workaround this issue we fallback to eager for dynamic runs, which
     # shouldn't have big impacts on performance.
     if op_name == "scalar_tensor" and is_dynamic:
-            return True
+        return True
 
     # representing scalar float value NaN in JIT fails, by being pasted as
     # literal nan and interpreted as reference to global variable nan imported
@@ -99,7 +106,7 @@ def check_for_default_fallback(op_name, node, is_dynamic = False):
     return False
 
 
-def is_eager_fallback_required(node: torch.fx.Node, is_dynamic = False) -> bool:
+def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
     """
     This function is supposed to ask shared layer whether specific
     node is supported by the device.

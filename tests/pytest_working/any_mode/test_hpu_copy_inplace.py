@@ -30,6 +30,14 @@ def test_hpu_copy_(shape, dtype):
     src_h = src.to("hpu")
 
     self.copy_(src)
-    self_h.copy_(src_h)
+
+    def fn(self, src):
+        self.copy_(src)
+        return self
+
+    if pytest.mode == "compile":
+        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    fn(self_h, src_h)
 
     compare_tensors(self_h, self, atol=0.0, rtol=0.0)

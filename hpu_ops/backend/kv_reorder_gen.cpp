@@ -15,10 +15,33 @@
 
 namespace habana {
 
-KvReorder::KvReorder(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "kv_reorder", scalar_type, {}, {0}, {}, false) {}
+struct KvReorder : KvReorderCommon {
+  KvReorder(int device_id, c10::ScalarType scalar_type)
+      : KvReorderCommon(
+            device_id,
+            "kv_reorder",
+            scalar_type,
+            {0},
+            {},
+            {},
+            false) {}
+};
 
-void KvReorder::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+struct KvReorder_ : KvReorderCommon {
+  KvReorder_(int device_id, c10::ScalarType scalar_type)
+      : KvReorderCommon(
+            device_id,
+            "kv_reorder_",
+            scalar_type,
+            {},
+            {0},
+            {},
+            false) {}
+};
+
+void KvReorderCommon::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 4, "KvReorder must have 4 input arguments");
 
   StackGetter stackGetter(stack, "KvReorder::AddNode");
@@ -55,4 +78,6 @@ void KvReorder::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 } // namespace habana
 
 static auto& KvReorderKernelRegistry =
-    habana::KernelRegistry().add("hpu::kv_reorder_", KERNEL_FN(KvReorder));
+    habana::KernelRegistry()
+        .add("hpu::kv_reorder_", KERNEL_FN(KvReorder_))
+        .add("hpu::kv_reorder", KERNEL_FN(KvReorder));

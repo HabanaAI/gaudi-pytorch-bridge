@@ -1204,17 +1204,31 @@ void Fp8IndexSelectV2::AddNode(
 
 /********** InPlaceInterleave **********/
 
-InPlaceInterleave::InPlaceInterleave(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "in_place_interleave_",
-          scalar_type,
-          {},
-          {0},
-          {},
-          false) {}
+struct InPlaceInterleave : InPlaceInterleaveCommon {
+  InPlaceInterleave(int device_id, c10::ScalarType scalar_type)
+      : InPlaceInterleaveCommon(
+            device_id,
+            "in_place_interleave",
+            scalar_type,
+            {0},
+            {},
+            {},
+            false) {}
+};
 
-void InPlaceInterleave::AddNode(
+struct InPlaceInterleave_ : InPlaceInterleaveCommon {
+  InPlaceInterleave_(int device_id, c10::ScalarType scalar_type)
+      : InPlaceInterleaveCommon(
+            device_id,
+            "in_place_interleave_",
+            scalar_type,
+            {},
+            {0},
+            {},
+            false) {}
+};
+
+void InPlaceInterleaveCommon::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   TORCH_CHECK(
@@ -1390,5 +1404,8 @@ static const auto& CastKernelRegistry =
             KERNEL_FN_GLOBAL(habana::Fp8IndexSelectV2))
         .add(
             "hpu::in_place_interleave_",
+            KERNEL_FN_GLOBAL(habana::InPlaceInterleave_))
+        .add(
+            "hpu::in_place_interleave",
             KERNEL_FN_GLOBAL(habana::InPlaceInterleave))
         .add("hpu::conv2d_fp8", KERNEL_FN_GLOBAL(habana::Conv2dFp8));

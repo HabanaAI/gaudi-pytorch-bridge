@@ -18,10 +18,6 @@
 
 namespace habana {
 
-struct KvReorder : OpBackend {
-  KvReorder(int device_id, c10::ScalarType scalar_type);
-
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
-};
+HPU_OP_BACKEND(KvReorderCommon)
 
 } // namespace habana

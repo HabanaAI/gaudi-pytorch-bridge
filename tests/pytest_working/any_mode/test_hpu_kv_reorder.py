@@ -35,7 +35,13 @@ def test_kv_reorder(shape, dtype):
     beam_to_hpu = torch.sum(beam_idx_cpu * torch.tensor([[64, 16, 4, 1]]), axis=-1)
     beam_idx_hpu = beam_to_hpu.to(hpu).to(torch.uint8)
 
-    torch.ops.hpu.kv_reorder_(input_hpu, start_hpu, end_hpu, beam_idx_hpu)
+    def fn(input, start, end, beam_idx):
+        return torch.ops.hpu.kv_reorder_(input, start, end, beam_idx)
+
+    if pytest.mode == "compile":
+        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    fn(input_hpu, start_hpu, end_hpu, beam_idx_hpu)
 
     for i in range(shape[0]):
         subset = torch.narrow(input_cpu[i], -2, start_cpu[i], end_cpu[i])

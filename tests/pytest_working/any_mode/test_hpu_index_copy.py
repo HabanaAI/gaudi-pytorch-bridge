@@ -21,7 +21,7 @@ if not is_gaudi1():
     dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
 
 
-@pytest.mark.parametrize("shape", [(5, 7), (6, 4)])
+@pytest.mark.parametrize("shape", [(5, 7), (6, 4, 3)])
 @pytest.mark.parametrize("dim", [0, 1])
 @pytest.mark.parametrize("is_full_shape", [True, False])
 @pytest.mark.parametrize("dtype", dtypes)
@@ -46,7 +46,17 @@ def test_hpu_index_copy(shape, dim, is_full_shape, dtype):
     index_tensor = torch.tensor(idx)
     index_tensor_h = index_tensor.to("hpu")
 
-    self_tensor_h.index_copy_(dim, index_tensor_h, updates_tensor_h)
+    def fn(self_tensor, dim, index_tensor, updates_tensor):
+        self_tensor.index_copy_(dim, index_tensor, updates_tensor)
+
+    if pytest.mode == "compile":
+        # there is an open discussion if torch._dynamo.reset() should be called
+        # before each test: https://github.com/pytorch/pytorch/issues/107444
+        # Sometimes our tests fail without reset, probably due to some cache leftovers.
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    fn(self_tensor_h, dim, index_tensor_h, updates_tensor_h)
 
     if dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
         self_tensor = self_tensor.float()

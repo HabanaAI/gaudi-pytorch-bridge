@@ -52,7 +52,7 @@ DEFINE_OP(Fp8KvReorder)
 DEFINE_OP(Fp8IndexCopy_)
 DEFINE_OP(Fp8RepeatV2)
 DEFINE_OP(Fp8IndexSelectV2)
-DEFINE_OP(InPlaceInterleave)
+HPU_OP_BACKEND(InPlaceInterleaveCommon)
 DEFINE_OP(Conv2dFp8)
 
 OUTSHAPE_DECL(CastToFp8V2OutputShape)

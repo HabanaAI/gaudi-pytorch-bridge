@@ -37,7 +37,13 @@ def test_hpu_index_select(shape, dim, index, dtype):
     index_cpu = torch.tensor(index, dtype=torch.int)
     index_hpu = index_cpu.to("hpu")
 
+    def fn(input, dim, index):
+        return torch.index_select(input, dim, index)
+
+    if pytest.mode == "compile":
+        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    result_hpu = fn(input_hpu, dim, index_hpu)
     result_cpu = torch.index_select(input_cpu, dim, index_cpu)
-    result_hpu = torch.index_select(input_hpu, dim, index_hpu)
 
     compare_tensors(result_hpu, result_cpu, atol=0.0, rtol=0.0)

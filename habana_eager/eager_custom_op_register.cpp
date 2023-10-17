@@ -12,6 +12,7 @@
  */
 
 #include <ATen/ATen.h>
+#include <ATen/FunctionalTensorWrapper.h>
 #include <ATen/Tensor.h>
 #include <torch/library.h>
 #include "common/dump_args.h"
@@ -844,7 +845,7 @@ at::Tensor& fp8_kv_reorder(
   TORCH_CHECK(false, "hpu::fp8_kv_reorder is not available in Eager mode.");
 }
 
-at::Tensor& kv_reorder(
+at::Tensor& kv_reorder_(
     at::Tensor& self,
     const at::Tensor& start,
     const at::Tensor& end,
@@ -855,6 +856,19 @@ at::Tensor& kv_reorder(
   eager::EagerOp<at::Tensor&> hpu_op{
       "hpu::kv_reorder_", {self, start, end, beam_idx}, {{self.sizes().vec()}}};
   return hpu_op.call(self);
+}
+
+at::Tensor kv_reorder(
+    const at::Tensor& self,
+    const at::Tensor& start,
+    const at::Tensor& end,
+    const at::Tensor& beam_idx) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("kv_reorder :", DUMP_4ARGS(self, start, end, beam_idx));
+
+  eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::kv_reorder", {self, start, end, beam_idx}, {{self.sizes().vec()}}};
+  return hpu_op.call();
 }
 
 at::Tensor& fp8_index_copy_(
@@ -900,6 +914,19 @@ at::Tensor& in_place_interleave_(at::Tensor& self) {
   eager::EagerOp<at::Tensor&> hpu_op{
       "hpu::in_place_interleave_", {self}, {{self.sizes().vec()}}};
   return hpu_op.call(self);
+}
+
+at::Tensor in_place_interleave(const at::Tensor& self) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("in_place_interleave :", DUMP_ARG(self));
+
+  TORCH_CHECK(
+      self.scalar_type() != at::ScalarType::Char,
+      "hpu::in_place_interleave with int8 is not available in Eager mode.");
+
+  eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::in_place_interleave", {self}, {{self.sizes().vec()}}};
+  return hpu_op.call();
 }
 
 at::Tensor conv2d_fp8(
@@ -1004,6 +1031,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
   m.def(
+      "hpu::kv_reorder(Tensor self, Tensor start, Tensor end, Tensor beam_idx) -> Tensor");
+  m.def(
       "hpu::fp8_index_copy_(Tensor(a!) self, int dim, Tensor index, Tensor source) -> Tensor(a!)");
   m.def("hpu::fp8_repeat_v2(Tensor self, SymInt[] repeats) -> Tensor");
   m.def(
@@ -1011,6 +1040,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode) -> Tensor");
   m.def("hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))");
+  m.def("hpu::in_place_interleave(Tensor self) -> Tensor");
   m.def(
       "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None) -> Tensor");
 }
@@ -1053,7 +1083,8 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       scaled_triangular_softmax_retain);
   m.impl("hpu::fp8_copy_", fp8_copy_);
   m.impl("hpu::fp8_kv_reorder_", fp8_kv_reorder);
-  m.impl("hpu::kv_reorder_", kv_reorder);
+  m.impl("hpu::kv_reorder_", kv_reorder_);
+  m.impl("hpu::kv_reorder", kv_reorder);
   m.impl("hpu::fp8_index_copy_", fp8_index_copy_);
   m.impl("hpu::fp8_repeat_v2", fp8_repeat_v2);
   m.impl("hpu::fp8_index_select_v2", fp8_index_select_v2);
@@ -1061,7 +1092,72 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::scaled_masked_triangular_softmax",
       scaled_masked_triangular_softmax);
   m.impl("hpu::in_place_interleave_", in_place_interleave_);
+  m.impl("hpu::in_place_interleave", in_place_interleave);
   m.impl("hpu::conv2d_fp8", conv2d_fp8);
+}
+
+// Inplace ops must be additionally registered to Functionalize backend
+// to be handled in torch.compile
+// https://gist.github.com/bdhirsh/7dadbf6296f8f7d1abcf4c482f438aaa
+static at::Tensor get_functional_tensor(const at::Tensor& tensor) {
+  TORCH_INTERNAL_ASSERT(
+      at::functionalization::impl::isFunctionalTensor(tensor));
+  at::functionalization::impl::sync(tensor);
+  return at::functionalization::impl::from_functional_tensor(tensor);
+}
+
+at::Tensor& kv_reorder__functionalization_glue(
+    at::Tensor& self,
+    const at::Tensor& start,
+    const at::Tensor& end,
+    const at::Tensor& beam_idx) {
+  auto self_ = get_functional_tensor(self);
+  auto start_ = get_functional_tensor(start);
+  auto end_ = get_functional_tensor(end);
+  auto beam_idx_ = get_functional_tensor(beam_idx);
+
+  static auto op_handle = c10::Dispatcher::singleton()
+                              .findSchemaOrThrow("hpu::kv_reorder", "")
+                              .typed<at::Tensor(
+                                  const at::Tensor&,
+                                  const at::Tensor&,
+                                  const at::Tensor&,
+                                  const at::Tensor&)>();
+
+  at::Tensor tmp_output;
+  {
+    at::AutoDispatchSkipFunctionalize guard;
+    tmp_output = op_handle.call(self_, start_, end_, beam_idx_);
+  }
+
+  at::functionalization::impl::replace_(self, tmp_output);
+  at::functionalization::impl::commit_update(self);
+  at::functionalization::impl::sync(self);
+  return self;
+}
+
+at::Tensor& in_place_interleave__functionalization_glue(at::Tensor& self) {
+  auto self_ = get_functional_tensor(self);
+
+  static auto op_handle = c10::Dispatcher::singleton()
+                              .findSchemaOrThrow("hpu::in_place_interleave", "")
+                              .typed<at::Tensor(const at::Tensor&)>();
+
+  at::Tensor tmp_output;
+  {
+    at::AutoDispatchSkipFunctionalize guard;
+    tmp_output = op_handle.call(self_);
+  }
+
+  at::functionalization::impl::replace_(self, tmp_output);
+  at::functionalization::impl::commit_update(self);
+  at::functionalization::impl::sync(self);
+  return self;
+}
+
+TORCH_LIBRARY_IMPL(hpu, Functionalize, m) {
+  m.impl("kv_reorder_", kv_reorder__functionalization_glue);
+  m.impl("in_place_interleave_", in_place_interleave__functionalization_glue);
 }
 
 } // namespace eager

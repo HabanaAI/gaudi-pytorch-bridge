@@ -19,12 +19,14 @@ _meta_lib_dont_use_me_use_register_meta_for_hpu = torch.library.Library(
     "hpu", "IMPL", "Meta"
 )
 
+
 @register_meta([torch.ops.hpu.instance_norm.default])
 def instance_norm(input, weight_opt, bias_opt, eps):
     out = torch.empty_like(input)
     mean_tensor = input.new_empty((input.shape[0], input.shape[1]), dtype=torch.float32)
     istd_tensor = input.new_empty((input.shape[0], input.shape[1]), dtype=torch.float32)
     return [out, mean_tensor, istd_tensor]
+
 
 @register_meta([torch.ops.hpu.instance_norm_backward.default])
 def instance_norm_bwd(input, grad_in, mean, istd, gamma):
@@ -95,7 +97,9 @@ def meta_fp8_bgrad_dgelu(grad, input, scale, retain, stochastic, is_amax, dtype)
 
 
 @register_meta([torch.ops.hpu.fp8_fast_softmax.default])
-def meta_fp8_fast_softmax(input, mask, scale, softmax_scale, stochastic, is_amax, dtype):
+def meta_fp8_fast_softmax(
+    input, mask, scale, softmax_scale, stochastic, is_amax, dtype
+):
     out_dtype = dtype if dtype else torch.int8
     out = input.new_empty(input.shape, dtype=out_dtype)
     amax = input.new_empty((), dtype=torch.float32)
@@ -149,9 +153,9 @@ def meta_fp8_gemm_v2(
     accumulate,
 ):
     batch_dims = A.dim() - 2
-    dim_a = batch_dims + (A.shape[1] if trans_A else A.shape[0])
-    dim_b = batch_dims + (B.shape[0] if trans_B else A.shape[1])
-    out_shape = list(A.shape[0:batch_dims]) + [dim_a, dim_b]
+    dim_a = batch_dims + (1 if trans_A else 0)
+    dim_b = batch_dims + (0 if trans_B else 1)
+    out_shape = list(A.shape[0:batch_dims]) + [A.shape[dim_a], B.shape[dim_b]]
     out = A.new_empty(out_shape, dtype=out_dtype)
     return out
 
@@ -258,6 +262,11 @@ def meta_kv_reorder_(self, start, end, beam_idx):
     return self
 
 
+@register_meta([torch.ops.hpu.kv_reorder.default])
+def meta_kv_reorder(self, start, end, beam_idx):
+    return self.new_empty(self.shape)
+
+
 @register_meta([torch.ops.hpu.fp8_index_copy_.default])
 def meta_fp8_index_copy_(self, src):
     return self
@@ -295,9 +304,15 @@ def meta_scaled_masked_triangular_softmax(
 ):
     return self.new_empty(self.shape)
 
+
 @register_meta([torch.ops.hpu.in_place_interleave_.default])
 def meta_in_place_interleave_(self):
     return self
+
+
+@register_meta([torch.ops.hpu.in_place_interleave.default])
+def meta_in_place_interleave(self):
+    return self.new_empty(self.shape)
 
 
 def activate_hpu_custom_op_meta():
