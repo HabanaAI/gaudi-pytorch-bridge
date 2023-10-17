@@ -3328,9 +3328,9 @@ index.Tensor:
 index.Tensor_out:
   output_meta: IndexMeta
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Half]
   guid: index
   fallback_check: [IndexFallbackCheck, indices]
   op_backend: IndexHabanaOperator
