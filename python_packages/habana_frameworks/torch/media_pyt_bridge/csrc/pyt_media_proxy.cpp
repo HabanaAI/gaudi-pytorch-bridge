@@ -15,6 +15,7 @@
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_helpers/logging.h"
+#include "pytorch_helpers/lazy_to_backend.cpp"
 
 namespace torch_hpu {
 
@@ -76,7 +77,17 @@ uintptr_t PytMediaProxy::allocateFrameworkHostOutputTensor(
 uintptr_t PytMediaProxy::allocateFrameworkDeviceOutputTensor(
     habana_helpers::TensorShape shape,
     torch::ScalarType dtype) {
-  torch::Tensor tensor = torch::empty(shape.get_dims(), dtype).to(torch::kHPU);
+  // torch::Tensor tensor = torch::empty(shape.get_dims(),
+  // dtype).to(torch::kHPU);
+  at::TensorOptions hb_options = at::TensorOptions(torch::kHPU);
+  hb_options = hb_options.dtype(dtype);
+
+  torch::Tensor tensor = habana_lazy::empty_hpu_lazy(
+      shape.get_dims(), hb_options, c10::MemoryFormat::Contiguous, true);
+  // empty_hpu_lazy is used instead of torch::empty because from mediapipe
+  // thread torch::empty may trigger marksteps. This will create some
+  // inconsistency in live tensors and might lead to complications.
+
   auto& device = habana::HPURegistrar::get_device(device_id_);
   auto tensor_data_ptr = reinterpret_cast<uintptr_t>(
       device.syn_device().get_fixed_address(tensor.data_ptr()));
