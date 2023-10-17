@@ -92,6 +92,38 @@ TEST_F(LazyLinearKernelTest, MatmulTest) {
   matmul_test({16, 20, 24}, {12, 16, 24, 20});
   matmul_test({10, 8, 16}, {1, 16, 12});
   matmul_test({2, 10, 8, 16}, {2, 1, 16, 12});
+
+  // testing all broadcast scenarios
+  // all combinations of batch dim sizes=[1..2] across all different rank
+  // configurations
+  auto generator = [](int dim, int gen, c10::IntArrayRef last_dims) {
+    auto mask = [](int i, int idx) { return (i & 1 << idx) ? 2 : 1; };
+
+    std::vector<int64_t> ret(dim);
+    if (dim == 1) {
+      ret[0] = 4;
+    } else {
+      ret[dim - 1] = last_dims[1];
+      ret[dim - 2] = last_dims[0];
+      for (int i = 0; i < dim - 2; i++) {
+        ret[i] = mask(gen, i);
+      }
+    }
+    return ret;
+  };
+
+  // iterate over all combinations of N-D x M-D; N,M in range [1..5]
+  for (int N = 1; N <= 5; N++) {
+    for (int M = 1; M <= 5; M++) {
+      // now iterate over all cases for each N and M
+      for (int gen1 = 0; gen1 < 1 << std::max(0, N - 2); gen1++) {
+        for (int gen2 = 0; gen2 < 1 << std::max(0, M - 2); gen2++) {
+          // perform the test for each case
+          matmul_test(generator(N, gen1, {3, 4}), generator(M, gen2, {4, 5}));
+        }
+      }
+    }
+  }
 }
 
 TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
