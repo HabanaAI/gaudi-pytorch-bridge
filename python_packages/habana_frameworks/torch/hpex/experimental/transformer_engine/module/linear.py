@@ -433,10 +433,7 @@ class Linear(TransformerEngineBaseModule):
                 if self.parallel_mode == "column":
                     set_tensor_model_parallel_attributes(self.bias, True, 0, 1)
             else:
-                self.register_buffer("bias",
-                                     torch.Tensor().to(dtype=params_dtype,
-                                                       device="hpu"),
-                                     persistent=False)
+                self.bias = torch.Tensor().to(dtype=params_dtype, device="hpu")
 
             with torch.no_grad():
                 self.bias.zero_()
