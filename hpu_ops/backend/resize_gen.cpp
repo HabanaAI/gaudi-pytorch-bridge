@@ -18,22 +18,30 @@ sizes_vec ResizeOutputShape(const at::Stack& stack) {
 void ResizeHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
+  auto t = stack.at(0).toTensor();
+  auto sizes = stack.at(1).toIntVector();
+  auto memory_format = stack.at(2).toOptional<at::MemoryFormat>().value_or(
+      t.suggest_memory_format());
+
+  if (isOutputInfMode()) {
+    GetOutputInfMeta().AddOutputTensor(TensorMetaData(
+        sizes,
+        CalculateStrides(sizes, memory_format),
+        t.scalar_type(),
+        memory_format));
+    return;
+  }
+
   p_context_->syn_outputs_.clear();
   p_context_->pt_outputs_.clear();
 
   // What if the same tensor is resized twice without getting flushed?
 
-  auto t = stack.at(0).toTensor();
-  auto sizes = stack.at(1).toIntVector();
-  auto memory_format_opt = stack.at(2).isNone()
-      ? at::nullopt
-      : at::make_optional(stack.at(2).toMemoryFormat());
-  // this is inplceOp persistance forced to true
   OutputMetaData outMetaData;
   outMetaData.persistent = true;
   outMetaData.external = GetOutputMetaData(0).external; // temp WA for SW-156952
   const auto& output =
-      habana::createPTTensor(t, sizes, t.options(), memory_format_opt, true);
+      habana::createPTTensor(t, sizes, t.options(), memory_format, true);
   AllocateSynapseOutput(graph, output, outMetaData);
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
