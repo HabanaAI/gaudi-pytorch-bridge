@@ -101,12 +101,15 @@ std::vector<synapse_helpers::tensor> NonZeroCommon(
   ns_NonzeroV2::Params params = {};
   std::vector<synTensor> inputs = {self_synin};
   auto guid = get_guid_with_precision("non_zero_v2_fwd", self_params.dtype);
+  auto shape_tensor_dtype =
+      (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) ? c10::ScalarType::Long
+                                                 : c10::ScalarType::Int);
 
   if (self_params.sizes.size() < 5 and not use_tpc_impl) {
     // Need to create a reshape_shape_tensor for nonzero_v2 guid
     auto st_shape = compute_output_st_shape(self_params);
     op->CreateShapeTensorInput(
-        graph, c10::ScalarType::Int, st_shape, inputs, SHAPE_TENSOR, true);
+        graph, shape_tensor_dtype, st_shape, inputs, SHAPE_TENSOR, true);
     params.group_size = 64;
   }
 
@@ -119,8 +122,8 @@ std::vector<synapse_helpers::tensor> NonZeroCommon(
       graph,
       {guid,
        inputs,
-       {{output_shape, c10::ScalarType::Int, final_result_index_0},
-        {shape_tensor_shape, c10::ScalarType::Int, final_result_index_1}},
+       {{output_shape, shape_tensor_dtype, final_result_index_0},
+        {shape_tensor_shape, shape_tensor_dtype, final_result_index_1}},
        &params,
        sizeof(params)});
 }
