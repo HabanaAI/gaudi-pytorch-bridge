@@ -1,9 +1,12 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
  ******************************************************************************
  */
@@ -12,18 +15,25 @@
 
 namespace habana {
 
-sizes_vec MseLossFwdOutputShape(const at::Stack& stack) {
+OutputMetaDataVector MseLossFwdMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t reduction = stack.at(2).toInt();
-  if (reduction == at::Reduction::Reduction::None) {
-    return {self.sizes().vec()};
-  }
-  return {{}};
+
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = (reduction == at::Reduction::Reduction::None)
+      ? self.sizes().vec()
+      : std::vector<int64_t>{};
+  return {meta};
 }
 
-sizes_vec MseLossBwdOutputShape(const at::Stack& stack) {
+OutputMetaDataVector MseLossBwdMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 1);
-  return {self.sizes().vec()};
+
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = self.sizes().vec();
+  return {meta};
 }
 
 std::shared_ptr<void> FillMseLossParams(const at::Stack& stack, size_t& size) {

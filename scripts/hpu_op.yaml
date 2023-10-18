@@ -4508,7 +4508,7 @@ mm.out:
 
 mse_loss:
   custom_fill_params: FillMseLossParams
-  custom_output_shape: MseLossFwdOutputShape
+  output_meta: MseLossFwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -4519,7 +4519,7 @@ mse_loss:
 
 mse_loss_backward:
   custom_fill_params: FillMseLossParams
-  custom_output_shape: MseLossBwdOutputShape
+  output_meta: MseLossBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -4530,7 +4530,7 @@ mse_loss_backward:
 
 mse_loss.out:
   custom_fill_params: FillMseLossParams
-  custom_output_shape: MseLossFwdOutputShape
+  output_meta: MseLossFwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -4540,7 +4540,7 @@ mse_loss.out:
 
 mse_loss_backward.grad_input:
   custom_fill_params: FillMseLossParams
-  custom_output_shape: MseLossBwdOutputShape
+  output_meta: MseLossBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
