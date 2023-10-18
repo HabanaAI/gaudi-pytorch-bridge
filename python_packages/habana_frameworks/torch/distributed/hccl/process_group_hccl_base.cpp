@@ -730,6 +730,21 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(
   auto inputs = std::vector<at::Tensor>{input_tensor};
   auto outputs = std::vector<at::Tensor>{output_tensor};
 
+  // size compatible with resize method api and with singularity of allgather
+  // base
+  auto tensor_size{1};
+  std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> in_strideList(tensor_size);
+
+  std::unique_ptr<bool[]> out_changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> out_sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> out_strideList(tensor_size);
+
+  bool change =
+      resizeTensor(outputs, out_changed, out_sizeList, out_strideList);
+  change |= resizeTensor(inputs, in_changed, in_sizeList, in_strideList);
+
   auto work = collective(
       inputs,
       outputs,
@@ -768,6 +783,12 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(
         return hccl_result;
       });
 
+  if (change) {
+    habana_lazy::HbLazyTensor::StepMarker();
+  }
+
+  restoreTensorsize(inputs, in_changed, in_sizeList, in_strideList, work);
+  restoreTensorsize(outputs, out_changed, out_sizeList, out_strideList, work);
   PT_DISTRIBUTED_END;
   return work;
 }
