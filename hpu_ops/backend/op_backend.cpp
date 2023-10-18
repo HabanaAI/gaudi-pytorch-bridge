@@ -843,29 +843,47 @@ sh::tensor OpBackend::BuildConstant(
   at::ScalarType valtype =
       force_type.has_value() ? force_type.value() : val.type();
 
-  ns_ConstantKernel::Params params{};
-  if (valtype == c10::ScalarType::Int or valtype == c10::ScalarType::Long) {
-    get<int>(params.constant) = val.to<int>();
-    if (habana_helpers::is_downcast_to_int_needed(valtype)) {
-      valtype = c10::ScalarType::Int;
-    }
-  } else {
-    get<float>(params.constant) = val.to<float>();
-  }
-
   std::vector<synTensor> input;
   op->CreateShapeTensorInput(graph, valtype, constant_outshape, input);
 
-  auto constant = BuildNode(
-      op,
-      graph,
-      {get_guid_with_precision("constant", valtype),
-       input,
-       {{constant_outshape, valtype, final_result_index}},
-       &params,
-       sizeof(params)});
+  if (valtype == c10::ScalarType::Long &&
+      GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+    ns_ConstantKernel::Params_v2 paramsV2{};
+    int64_t value = val.to<int64_t>();
+    paramsV2.const_low = value;
+    paramsV2.const_high = value >> 32;
 
-  return std::move(constant.at(0));
+    auto constant = BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("constant", valtype, true),
+         input,
+         {{constant_outshape, valtype, final_result_index}},
+         &paramsV2,
+         sizeof(paramsV2)});
+    return std::move(constant.at(0));
+  } else {
+    ns_ConstantKernel::Params params{};
+    if (valtype == c10::ScalarType::Int or valtype == c10::ScalarType::Long) {
+      get<int>(params.constant) = val.to<int>();
+      if (habana_helpers::is_downcast_to_int_needed(valtype)) {
+        valtype = c10::ScalarType::Int;
+      }
+    } else {
+      get<float>(params.constant) = val.to<float>();
+    }
+
+    auto constant = BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("constant", valtype),
+         input,
+         {{constant_outshape, valtype, final_result_index}},
+         &params,
+         sizeof(params)});
+
+    return std::move(constant.at(0));
+  }
 }
 
 sh::tensor OpBackend::BuildConstantTensor(

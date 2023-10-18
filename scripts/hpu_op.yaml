@@ -2144,9 +2144,9 @@ count_nonzero.dim_IntList:
   custom_fill_params: FillCountNonzeroParams
   custom_output_shape: CountNonzeroShape
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Int, Short, Char, Half]
+    Gaudi: [BFloat16, Float, Int, Long, Short, Char]
+    Gaudi2: [BFloat16, Float, Int, Long, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Short, Char, Half]
   guid: count_non_zero_fwd
   out_dtypes: [Long]
   out_ids: [0]
@@ -2156,9 +2156,9 @@ count_nonzero:
   custom_fill_params: FillCountNonzeroParams
   custom_output_shape: CountNonzeroShape
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Int, Short, Char, Half]
+    Gaudi: [BFloat16, Float, Int, Long, Short, Char]
+    Gaudi2: [BFloat16, Float, Int, Long, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Short, Char, Half]
   guid: count_non_zero_fwd
   out_dtypes: [Long]
   # op_validator: check-node-with-shared-layer
@@ -2697,42 +2697,42 @@ eye.m_out:
 
 fill.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
   op_backend: FillScalar
   op_frontend: FillFE
   out_ids: [0]
 
 fill.Scalar_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
   op_backend: FillScalar
   op_frontend: FillFE
 
 fill.Tensor_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
   op_backend: Fill
 
 fill_.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
   op_backend: FillScalar
   op_frontend: FillFE
   inplace_ids: [0]
 
 fill_.Tensor:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
   op_backend: Fill
   inplace_ids: [0]
 

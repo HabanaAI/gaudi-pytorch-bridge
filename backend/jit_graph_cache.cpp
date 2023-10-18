@@ -229,8 +229,8 @@ size_t ComputeSymSizeHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
       auto scalar_input = input.toScalar();
       size_t symsize_hash{0};
       if (input.isInt()) {
-        auto value = input.toScalar().toInt();
-        std::hash<int> valhash;
+        int64_t value = input.toScalar().toLong();
+        std::hash<int64_t> valhash;
         symsize_hash = at::hash_combine(symsize_hash, valhash(value));
       } else if (input.isBool()) {
         auto value = input.toScalar().toBool();
