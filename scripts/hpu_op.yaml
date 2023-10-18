@@ -1208,7 +1208,7 @@ atan2.out:
 
 _adaptive_avg_pool2d:
   custom_fill_params: FillAdaptiveAvgPool2dParamsFwd
-  custom_output_shape: AdaptiveAvgPool2dOutputShape
+  output_meta: AdaptiveAvgPool2dMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -1220,7 +1220,7 @@ _adaptive_avg_pool2d:
 
 adaptive_avg_pool2d.out:
   custom_fill_params: FillAdaptiveAvgPool2dParamsFwd
-  custom_output_shape: AdaptiveAvgPool2dOutputShape
+  output_meta: AdaptiveAvgPool2dMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -1231,7 +1231,7 @@ adaptive_avg_pool2d.out:
 
 _adaptive_avg_pool2d_backward:
   custom_fill_params: FillAdaptiveAvgPool2dParamsBwd
-  custom_output_shape: AdaptiveAvgPool2dOutputShapeBwd
+  output_meta: AdaptiveAvgPool2dBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]

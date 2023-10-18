@@ -36,7 +36,7 @@ std::shared_ptr<void> FillAdaptiveAvgPool2dParamsBwd(
   return params;
 }
 
-sizes_vec AdaptiveAvgPool2dOutputShape(const at::Stack& stack) {
+OutputMetaDataVector AdaptiveAvgPool2dMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   const auto output_size = stack[1].toIntList().vec();
   const auto input_size = self.dim();
@@ -48,16 +48,19 @@ sizes_vec AdaptiveAvgPool2dOutputShape(const at::Stack& stack) {
   const int64_t output_H = output_size[0];
   const int64_t output_W = output_size.size() == 1 ? output_H : output_size[1];
 
-  if (self.dim() == 4) {
-    return {{self.size(0), self.size(1), output_H, output_W}};
-  } else {
-    return {{self.size(0), output_H, output_W}};
-  }
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = (self.dim() == 4)
+      ? std::vector<int64_t>{self.size(0), self.size(1), output_H, output_W}
+      : std::vector<int64_t>{self.size(0), output_H, output_W};
+  return {meta};
 }
 
-sizes_vec AdaptiveAvgPool2dOutputShapeBwd(const at::Stack& stack) {
-  auto self = stack.at(1).toTensor();
-  return {self.sizes().vec()};
+OutputMetaDataVector AdaptiveAvgPool2dBwdMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  meta.dtype = stack_tensor(stack, 0).scalar_type();
+  meta.shape = stack_tensor(stack, 1).sizes().vec();
+  return {meta};
 }
 
 void AdaptiveAvgPool2dFwd::AddNode(
@@ -65,7 +68,7 @@ void AdaptiveAvgPool2dFwd::AddNode(
     const at::Stack& stack) {
   size_t size = 0;
   const auto& params = FillAdaptiveAvgPool2dParamsFwd(stack, size);
-  auto outshape = AdaptiveAvgPool2dOutputShape(stack)[0];
+  auto meta = AdaptiveAvgPool2dMeta(stack)[0];
 
   if (stack_tensor(stack, 0).dim() == 4) {
     SetSynapseLayouts(
@@ -77,7 +80,7 @@ void AdaptiveAvgPool2dFwd::AddNode(
       graph,
       GetGuid(),
       {syn_in(0)},
-      {{outshape, ScalarType(), 0}},
+      {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);
 
@@ -89,7 +92,7 @@ void AdaptiveAvgPool2dBwd::AddNode(
     const at::Stack& stack) {
   size_t size = 0;
   const auto& params = FillAdaptiveAvgPool2dParamsBwd(stack, size);
-  auto outshape = AdaptiveAvgPool2dOutputShapeBwd(stack)[0];
+  auto meta = AdaptiveAvgPool2dBwdMeta(stack)[0];
 
   if (stack_tensor(stack, 0).dim() == 4) {
     SetSynapseLayouts(
@@ -98,12 +101,12 @@ void AdaptiveAvgPool2dBwd::AddNode(
   }
 
   std::vector<synTensor> grad = {syn_in(0)};
-  this->CreateShapeTensorInput(graph, this->ScalarType(), outshape, grad);
+  this->CreateShapeTensorInput(graph, meta.dtype, meta.shape, grad);
   auto adaptive_avg_pool = BuildOp(
       graph,
-      get_guid_with_precision("adaptive_avg_pool_2d_bwd", ScalarType()),
+      get_guid_with_precision("adaptive_avg_pool_2d_bwd", meta.dtype),
       std::move(grad),
-      {{outshape, ScalarType(), 0}},
+      {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);
 
