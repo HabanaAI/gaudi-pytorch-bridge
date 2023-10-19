@@ -107,7 +107,13 @@ at::Tensor fused_norm_hpu_wrap(
   hpu_op.SetOutputMetaFn(FusedNormMeta);
   auto res = hpu_op.call();
   for (int i = 0; i < grad.size(); ++i) {
-    grad[i].copy_(res[i + 1]);
+    // grad[i] = res[i + 1]
+    // calls operator= with rvalue reference qualifier i.e. deep copy
+    // grad_ref = res[i + 1]
+    // calls operator= with lvalue reference qualifier i.e. shallow copy
+    // https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/templates/TensorBody.h
+    at::Tensor& grad_ref = grad[i];
+    grad_ref = res[i + 1];
   }
   return res[0];
 }
