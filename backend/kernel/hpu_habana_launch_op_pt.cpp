@@ -1850,11 +1850,13 @@ void HabanaLaunchOpPT::UpdateMaxValues(
     std::vector<int64_t> max_new, max_old;
     if (input_tensor.isTensor()) {
       auto tmeta = get_tensor_extra_meta(input_tensor.toTensor());
+      auto ivalHash = input_tensor.hash().toInt();
+      auto input_idx = ival_hash_to_input_index_map_[ivalHash];
       if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR &&
           tmeta->peek_H2D_data_for_bucketing()) {
+        max_old = index2maxvalues[i];
         max_new = SliceOperator::GetH2DTensorData(
             input_tensor.toTensor(), true, false);
-        max_old = index2maxvalues[i];
       } else {
         max_new = std::get<1>(habana::ShapeInference::GetMinMaxShape(
             habana_op->SynInput(i).ref().id()));
@@ -1863,17 +1865,6 @@ void HabanaLaunchOpPT::UpdateMaxValues(
       HABANA_ASSERT(max_new.size() == max_old.size());
       for (auto j = 0; j < max_new.size(); j++) {
         if (max_new[j] != max_old[j]) {
-          auto ivalHash = input_tensor.hash().toInt();
-          auto input_idx = 0;
-          if (ival_hash_to_input_index_map_.count(ivalHash)) {
-            input_idx = ival_hash_to_input_index_map_[ivalHash];
-          } else {
-            HABANA_ASSERT(
-                0,
-                "Could not find ",
-                ivalHash,
-                " in ival_hash_to_input_index_map_ ");
-          }
           PT_DYNAMIC_SHAPE_DEBUG(
               "Need to update dynamic ranges of bucket id ",
               current_bucket_id_,
@@ -1903,19 +1894,32 @@ void HabanaLaunchOpPT::UpdatePTStack(DynamicShapeInfo& graph_input_info) {
   graph_input_info.max_input_tshapes.clear();
   graph_input_info.max_input_tshapes.insert(
       ranges.max_shapes.begin(), ranges.max_shapes.end());
+  SetH2DMinMaxData(
+      *pt_stack,
+      graph_input_info.max_input_tshapes,
+      ShapeInfo::InferencePass::MAX_SHAPE);
+  updatemax_graph = false;
+}
+
+void HabanaLaunchOpPT::RevertH2DMinMaxData() {
   for (int i = 0; i < pt_stack->size(); i++) {
     if (pt_stack->at(i).isTensor()) {
+      auto& input_tensor = pt_stack->at(i);
       auto tmeta = get_tensor_extra_meta(pt_stack->at(i).toTensor());
       if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR &&
           tmeta->peek_H2D_data_for_bucketing()) {
-        SetH2DMinMaxData(
-            *pt_stack,
-            graph_input_info.max_input_tshapes,
-            ShapeInfo::InferencePass::MAX_SHAPE);
+        auto ivalHash = input_tensor.hash().toInt();
+        auto input_idx = ival_hash_to_input_index_map_[ivalHash];
+        if (!current_dbipsh_->IsBucketMember(input_idx, current_bucket_id_)) {
+          auto host_ptr = tmeta->get_host_ptr();
+          size_t data_size = tmeta->get_host_size() * tmeta->get_host_el_size();
+          auto compile_host_ptr = tmeta->get_compile_host_ptr();
+          memcpy(compile_host_ptr, host_ptr, data_size);
+        }
       }
     }
   }
-  update_max = false;
+  updatemax_graph = false;
 }
 
 void HabanaLaunchOpPT::BuildSynapseGraph(
@@ -2135,14 +2139,20 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       std::unordered_map<int64_t, std::vector<int64_t>> index2maxvalues;
       // Currently max update which is less than bucket range issue exists for
       // slice. If other node needs this, can be added here.
-      update_max = update_max ||
+      bool updatemax_node =
           ((habana::ShapeInference::GetCurrentPass() ==
             habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
            (habana::ShapeInference::GetMaxPolicyInUse() ==
             habana_helpers::DynamicDimsPolicy::CALCULATED) &&
            ((strcmp(node->kind().toQualString(), "hpu::slice") == 0) ||
             strcmp(node->kind().toQualString(), "hpu::slice_ht") == 0));
-      if (update_max) {
+      updatemax_graph |=
+          ((habana::ShapeInference::GetCurrentPass() ==
+            habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
+           (habana::ShapeInference::GetMaxPolicyInUse() ==
+            habana_helpers::DynamicDimsPolicy::CALCULATED) &&
+           strcmp(node->kind().toQualString(), "hpu::slice_ht") == 0);
+      if (updatemax_node) {
         FillMaxValues(HabanaKernel, input_stack, index2maxvalues);
       }
       // Check Compute output shapes for mismatch else raise exception
@@ -2154,7 +2164,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       HabanaKernel->AllocateAndAddSynapseNode(
           *syn_graph, input_stack, outputs_metadata);
       HabanaKernel->dump(node, input_stack);
-      if (update_max) {
+      if (updatemax_node) {
         UpdateMaxValues(HabanaKernel, input_stack, index2maxvalues);
       }
     }
@@ -4225,6 +4235,7 @@ void HabanaLaunchOpPT::run_shape_inference(
     PT_DYNAMIC_SHAPE_DEBUG("Exception occured in Pass = ", pass);
     PT_DYNAMIC_SHAPE_DEBUG("Exception Details : ", error_str);
     throw_exception = true;
+    RevertH2DMinMaxData();
   }
 
   if (old_stack) {
@@ -4233,7 +4244,7 @@ void HabanaLaunchOpPT::run_shape_inference(
     pt_stack_sh = old_pt_stack_sh;
   }
 
-  if (update_max) {
+  if (updatemax_graph) {
     UpdatePTStack(graph_input_info);
   }
 

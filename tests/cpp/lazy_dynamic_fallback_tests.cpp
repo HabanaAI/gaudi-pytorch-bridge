@@ -286,6 +286,34 @@ TEST_F(LazyDynamicFallbackTest, SliceTest3) {
     int64_t step = in_step[i];
     torch::Tensor h_out = torch::slice(hA, dim, start, end, step);
     auto h_cout = h_out.to(torch::kCPU);
+
+    auto cout = torch::slice(A, dim, start, end, step);
+    EXPECT_EQ(allclose(h_cout, cout), true);
+  }
+}
+
+TEST_F(LazyDynamicFallbackTest, SliceTest4) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  int N = 128;
+  std::vector<int> W_values{140, 141};
+  std::vector<int> in_start{0, 1};
+  std::vector<int> in_end{120, 100};
+  for (int i = 0; i < W_values.size(); i++) {
+    int W = W_values[i];
+    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
+    torch::Tensor A = torch::randn({1, N, W}, torch::requires_grad(false));
+    torch::Tensor hA = A.to(torch::kHPU);
+    int64_t dim = 2;
+    int64_t start = in_start[i];
+    int64_t end = in_end[i];
+    hA = torch::slice(hA, 2, 0, 128, 1);
+    auto h_cout = torch::slice(hA, 2, start, end, 1);
+    h_cout = h_cout.to(torch::kCPU);
+
+    A = torch::slice(A, 2, 0, 128, 1);
+    auto cout = torch::slice(A, 2, start, end, 1);
+
+    EXPECT_EQ(allclose(h_cout, cout), true);
   }
 }
 

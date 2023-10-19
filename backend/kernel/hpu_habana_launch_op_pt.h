@@ -654,7 +654,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
 
   // Dynamic shape specific functions
   size_t current_bucket_id_{};
-  bool update_max = false;
+  bool updatemax_graph = false;
 
   void FillMaxValues(
       const HabanaOperatorPtr& habana_op,
@@ -667,6 +667,8 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
       std::unordered_map<int64_t, std::vector<int64_t>>& index2maxvalues);
 
   void UpdatePTStack(DynamicShapeInfo& graph_input_info);
+
+  void RevertH2DMinMaxData();
 
   std::shared_ptr<habana_helpers::CompilationStatistics> statistics_;
 

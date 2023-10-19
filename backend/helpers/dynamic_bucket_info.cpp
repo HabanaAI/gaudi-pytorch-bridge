@@ -360,6 +360,11 @@ DynamicBucketInfo::DynamicBucketInfo(size_t key)
   max_policy_ = getPolicy(max_policy_seq.at(0) - zero_offset);
 }
 
+bool DynamicBucketInfo::IsBucketMember(int64_t tensor_idx, uint64_t bucket) {
+  auto& dynamic_dims = buckets_[bucket].getDynamicDims();
+  return dynamic_dims.count(tensor_idx);
+}
+
 void DynamicBucketInfo::UpdateShapes(
     uint64_t bucket,
     int64_t tensor_idx,

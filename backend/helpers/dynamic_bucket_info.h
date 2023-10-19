@@ -481,6 +481,8 @@ class DynamicBucketInfo {
       int64_t dim_idx,
       int64_t new_val);
 
+  bool IsBucketMember(int64_t tensor_idx, uint64_t bucket);
+
   ResultShapes CalculateShapes(uint64_t bucket);
 
   void CollectDynamicDims(const InpTensorShapes& shapes);
