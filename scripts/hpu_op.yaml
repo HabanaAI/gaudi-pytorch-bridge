@@ -1241,7 +1241,7 @@ _adaptive_avg_pool2d_backward:
 
 avg_pool2d:
   custom_fill_params: Fillavgpool2dParamsFwd
-  custom_output_shape: Avgpool2dOutputShape
+  output_meta: Avgpool2dMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -1255,7 +1255,7 @@ avg_pool2d:
 
 avg_pool2d.out:
   custom_fill_params: Fillavgpool2dParamsFwd
-  custom_output_shape: Avgpool2dOutputShape
+  output_meta: Avgpool2dMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -1268,7 +1268,7 @@ avg_pool2d.out:
 
 avg_pool2d_backward.grad_input:
   custom_fill_params: Fillavgpool2dParamsBwd
-  custom_output_shape: Avgpool2dOutputShapeBwd
+  output_meta: Avgpool2dBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -1280,7 +1280,7 @@ avg_pool2d_backward.grad_input:
 
 avg_pool2d_backward:
   custom_fill_params: Fillavgpool2dParamsBwd
-  custom_output_shape: Avgpool2dOutputShapeBwd
+  output_meta: Avgpool2dBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]

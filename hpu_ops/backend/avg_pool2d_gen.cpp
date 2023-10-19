@@ -81,7 +81,7 @@ std::shared_ptr<void> Fillavgpool2dParamsBwd(
       kernel_size, stride, pad, ceil_mode, include_pad, divOverride, size);
 }
 
-sizes_vec Avgpool2dOutputShape(const at::Stack& stack) {
+OutputMetaDataVector Avgpool2dMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   const int rank = self.dim();
   CHECK_DIM(rank);
@@ -98,13 +98,21 @@ sizes_vec Avgpool2dOutputShape(const at::Stack& stack) {
   if (rank == 3)
     outshape.erase(begin(outshape));
 
-  return {outshape};
+  OutputMetaData meta;
+  meta.shape = outshape;
+  meta.dtype = self.scalar_type();
+
+  return {meta};
 }
 
-sizes_vec Avgpool2dOutputShapeBwd(const at::Stack& stack) {
+OutputMetaDataVector Avgpool2dBwdMeta(const at::Stack& stack) {
   auto self = stack.at(1).toTensor();
-  std::vector<int64_t> input_shape = self.sizes().vec();
-  return {input_shape};
+
+  OutputMetaData meta;
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+
+  return {meta};
 }
 
 void Avgpool2dBwd::AddNode(
@@ -112,15 +120,15 @@ void Avgpool2dBwd::AddNode(
     const at::Stack& stack) {
   size_t size = 0;
   const auto& params = Fillavgpool2dParamsBwd(stack, size);
-  auto outshape = Avgpool2dOutputShapeBwd(stack)[0];
+  auto meta = Avgpool2dBwdMeta(stack)[0];
 
   std::vector<synTensor> grad = {syn_in(0)};
-  this->CreateShapeTensorInput(graph, this->ScalarType(), outshape, grad);
+  this->CreateShapeTensorInput(graph, meta.dtype, meta.shape, grad);
   auto avg_pool = BuildOp(
       graph,
-      get_guid_with_precision("avg_pool_2d_bwd", ScalarType()),
+      get_guid_with_precision("avg_pool_2d_bwd", meta.dtype),
       std::move(grad),
-      {{outshape, ScalarType(), 0}},
+      {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);
 
@@ -132,8 +140,8 @@ void Avgpool2dFwd::AddNode(
     const at::Stack& stack) {
   size_t size = 0;
   const auto& params = Fillavgpool2dParamsFwd(stack, size);
-  auto outShape = Avgpool2dOutputShape(stack)[0];
-  auto intermediateOutShape = outShape;
+  auto meta = Avgpool2dMeta(stack)[0];
+  auto intermediateOutShape = meta.shape;
   bool reshapeRequired = stack_tensor(stack, 0).dim() == 3;
   std::vector<synTensor> grad = {syn_in(0)};
   std::vector<synapse_helpers::tensor> expandResult;
@@ -149,24 +157,23 @@ void Avgpool2dFwd::AddNode(
         graph,
         "expand_dims",
         {syn_in(0)},
-        {{inputExpandedShape, ScalarType()}},
+        {{inputExpandedShape, meta.dtype}},
         &expandParams,
         sizeof(expandParams))[0]));
     grad[0] = expandResult[0].get();
   }
 
-  this->CreateShapeTensorInput(
-      graph, this->ScalarType(), intermediateOutShape, grad);
+  this->CreateShapeTensorInput(graph, meta.dtype, intermediateOutShape, grad);
   auto avgPool = BuildOp(
       graph,
       guid_,
       std::move(grad),
-      {{intermediateOutShape, ScalarType(), finalIndex}},
+      {{intermediateOutShape, meta.dtype, finalIndex}},
       params.get(),
       size);
   syn_out(0) = reshapeRequired
       ? std::move(
-            ReshapeHelper(graph, avgPool[0].get(), outShape, ScalarType(), 0))
+            ReshapeHelper(graph, avgPool[0].get(), meta.shape, meta.dtype, 0))
       : std::move(avgPool[0]);
 }
 
