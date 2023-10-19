@@ -2,9 +2,9 @@ ATEN IR OP;                              SUPPORTED
 aten::_adaptive_avg_pool2d;              YES
 aten::_adaptive_avg_pool2d_backward;     YES
 aten::_log_softmax;                      YES
-aten::_native_batch_norm_legit.no_stats; NO
+aten::_native_batch_norm_legit.no_stats; YES
 aten::_softmax;                          YES
-aten::_to_copy;                          NO
+aten::_to_copy;                          YES
 aten::abs;                               YES
 aten::acos;                              YES
 aten::acosh;                             YES
@@ -14,7 +14,7 @@ aten::addmm;                             YES
 aten::alias;                             YES
 aten::amax;                              YES
 aten::amin;                              YES
-aten::arange.start_step;                 NO
+aten::arange.start_step;                 YES
 aten::argmax;                            YES
 aten::argmin;                            YES
 aten::as_strided;                        YES
@@ -34,8 +34,8 @@ aten::clamp;                             YES
 aten::clone;                             YES
 aten::col2im;                            NO
 aten::constant_pad_nd;                   YES
-aten::convolution;                       NO
-aten::convolution_backward;              NO
+aten::convolution;                       YES
+aten::convolution_backward;              YES
 aten::cos;                               YES
 aten::cosh;                              YES
 aten::div.Scalar;                        YES
@@ -52,7 +52,7 @@ aten::fill.Scalar;                       YES
 aten::flip;                              YES
 aten::floor;                             YES
 aten::fmod.Tensor;                       YES
-aten::full;                              NO
+aten::full;                              YES
 aten::gather;                            YES
 aten::ge.Scalar;                         YES
 aten::ge.Tensor;                         YES
@@ -107,9 +107,9 @@ aten::repeat;                            YES
 aten::replication_pad2d;                 YES
 aten::replication_pad3d;                 YES
 aten::rsqrt;                             YES
-aten::scalar_tensor;                     NO
+aten::scalar_tensor;                     YES
 aten::scatter_add;                       YES
-aten::scatter_reduce.two;                NO
+aten::scatter_reduce.two;                YES
 aten::select.int;                        YES
 aten::sigmoid;                           YES
 aten::sign;                              YES
@@ -119,12 +119,12 @@ aten::slice.Tensor;                      YES
 aten::slice_scatter;                     YES
 aten::sqrt;                              YES
 aten::squeeze.dim;                       YES
-aten::squeeze.dims;                      NO
+aten::squeeze.dims;                      YES
 aten::sub.Scalar;                        YES
 aten::sub.Tensor;                        YES
 aten::sum.dim_IntList;                   YES
 aten::tanh;                              YES
-aten::topk;                              NO
+aten::topk;                              YES
 aten::unsqueeze;                         YES
 aten::upsample_bilinear2d.vec;           YES
 aten::upsample_nearest2d.vec;            YES
