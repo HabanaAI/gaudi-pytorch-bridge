@@ -649,7 +649,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
 
     for node in ctx.graph_module.graph.nodes:
         placement = None
-        if node.op == "placeholder" or node.op == "output":
+        if node.op == "placeholder" or node.op == "output" or node.op == "get_attr":
             placement = "eager"
         elif node.op == "call_function" and "to_copy" in node.target.__name__:
             input_node = None
