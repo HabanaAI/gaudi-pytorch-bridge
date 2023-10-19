@@ -21,9 +21,6 @@ from test_utils import is_torch_at_least
 @pytest.mark.parametrize("largest", [True, False])
 @pytest.mark.parametrize("sorted", [True])
 def test_topk(k, dim, largest, sorted, dtype):
-    if is_torch_at_least(2,1):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-161545")
-
     def fn(input, k, dim, largest, sorted):
         return torch.topk(input, k, dim, largest, sorted)
 

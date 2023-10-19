@@ -50,8 +50,6 @@ def test_hpu_add_scalar(dtype):
 
 @pytest.mark.parametrize("dtype", supported_dtypes)
 def test_hpu_add_scalar_inplace(dtype):
-    if is_torch_at_least(2,1):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-162431")
 
     input, other, input_hpu = generate_inputs((8, 12), dtype)
 
@@ -69,8 +67,6 @@ def test_hpu_add_scalar_inplace(dtype):
 
 @pytest.mark.parametrize("dtype", supported_dtypes)
 def test_hpu_add_scalar_out(dtype):
-    if float(torch.__version__[0:3]) >= 2.1:
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-162431")
 
     input, other, input_hpu = generate_inputs((8, 12), dtype)
     out = torch.empty_like(input)

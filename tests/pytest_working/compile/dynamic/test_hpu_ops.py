@@ -101,8 +101,6 @@ def test_op_topk():
         assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
 
 def test_op_topk_static_k():
-    if is_torch_at_least(2,1):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-161545")
     sizes = [5, 10, 15, 18, 16]
     K = [1, 2, 3, 4, 5]
 
