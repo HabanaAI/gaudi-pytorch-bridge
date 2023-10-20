@@ -3785,8 +3785,6 @@ void HabanaLaunchOpPT::run(
       // from SAG recipe (from dtensorinfos))
       habana_helpers::Singleton_CompileThreadPool::getInstance()
           .JoinPendingThread();
-      get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(
-          get_cur_rvalpsh());
     } else {
       PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
       is_shape_agnostic_supported_ = true;

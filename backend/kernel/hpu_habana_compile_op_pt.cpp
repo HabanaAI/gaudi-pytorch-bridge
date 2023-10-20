@@ -80,6 +80,9 @@ void habana::HabanaCompile::CompileSynapse(
       hb_launch_op->ConstructPatchingTableAndAtenOutputs();
       hb_launch_op->UpdateSynapsePermutations();
       hb_launch_op->StoreCompiledInformation();
+      hb_launch_op->get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(
+          hb_launch_op->get_cur_rvalpsh());
+
       enqueue_execute_synapse(hb_launch_op, true, do_nothing_execute, dry_run);
       if (!is_enable_4stage_pipeline) {
         habana_helpers::Singleton_ExecThreadPool::getInstance()
