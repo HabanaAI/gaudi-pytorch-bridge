@@ -309,6 +309,10 @@ PT_HPU_MAX_COMPOUND_OP_SIZE:
   type: signed long
   default: INT64_MAX
 
+PT_HPU_MAX_COMPOUND_OP_SYNC:
+  type: bool
+  default: false
+
 PT_HPU_MAX_COMPOUND_OP_SIZE_SS:
   type: signed long
   default: 10
