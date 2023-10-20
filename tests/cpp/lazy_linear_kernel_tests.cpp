@@ -163,6 +163,58 @@ TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
   matmulbwd_test({2, 2, 3, 4}, {2, 4, 3});
   matmulbwd_test({2, 3}, {3, 4});
   matmulbwd_test({1, 3}, {3, 1});
+
+  // testing all broadcast scenarios
+  // all combinations of batch dim sizes=[1..2] across all different rank
+  // configurations
+  auto generator = [](int dim, int gen, c10::IntArrayRef last_dims) {
+    auto mask = [](int i, int idx) { return (i & 1 << idx) ? 2 : 1; };
+
+    std::vector<int64_t> ret(dim);
+    if (dim == 1) {
+      ret[0] = 4;
+    } else {
+      ret[dim - 1] = last_dims[1];
+      ret[dim - 2] = last_dims[0];
+      for (int i = 0; i < dim - 2; i++) {
+        ret[i] = mask(gen, i);
+      }
+    }
+    return ret;
+  };
+
+  auto should_skip_case_on_gaudi = [](int N, int M, int gen1, int gen2) {
+    if (N == 3 && M == 5 && gen1 == 1 && (gen2 == 1 || gen2 == 2 || gen2 == 3))
+      return true;
+    if (N == 4 && M == 5 && (gen1 == 1 || gen1 == 2 || gen1 == 3) && gen2 == 1)
+      return true;
+    if (N == 4 && M == 5 && gen1 == 3 && (gen2 == 3 || gen2 == 5))
+      return true;
+    if (N == 5 && M == 3 && (gen1 == 1 || gen1 == 2 || gen1 == 3) && gen2 == 1)
+      return true;
+    if (N == 5 && M == 4 && gen1 == 1 && (gen2 == 1 || gen2 == 2 || gen2 == 3))
+      return true;
+    if (N == 5 && M == 4 && (gen1 == 3 || gen1 == 5) && gen2 == 3)
+      return true;
+
+    return false;
+  };
+
+  // iterate over all combinations of N-D x M-D; N,M in range [1..5]
+  for (int N = 1; N <= 5; N++) {
+    for (int M = 1; M <= 5; M++) {
+      // now iterate over all cases for each N and M
+      for (int gen1 = 0; gen1 < 1 << std::max(0, N - 2); gen1++) {
+        for (int gen2 = 0; gen2 < 1 << std::max(0, M - 2); gen2++) {
+          if (isGaudi() && should_skip_case_on_gaudi(N, M, gen1, gen2))
+            continue;
+          // perform the test for each case
+          matmulbwd_test(
+              generator(N, gen1, {3, 4}), generator(M, gen2, {4, 5}));
+        }
+      }
+    }
+  }
 }
 
 TEST_F(LazyLinearKernelTest, BaddBmmTest1) {
