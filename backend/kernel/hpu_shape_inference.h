@@ -132,7 +132,9 @@ class ShapeInference {
   }
 
   static ShapeInfo::InferencePass GetCurrentPass() {
-    return m_shape_info->m_pass;
+    return ShapeInference::m_shape_info
+        ? m_shape_info->m_pass
+        : habana::ShapeInfo::InferencePass::INVALID;
   }
 
   static habana_helpers::DynamicDimsPolicy GetMinPolicyInUse() {
