@@ -25,8 +25,6 @@ from test_utils import is_torch_at_least
 @pytest.mark.parametrize("lambd", [1.0, 1.5])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
 def test_exponential(shape, lambd, dtype):
-    if is_torch_at_least(2,1):
-      pytest.xfail("https://jira.habana-labs.com/browse/SW-162430")
     def fn(input):
         return input.exponential_(lambd)
 
