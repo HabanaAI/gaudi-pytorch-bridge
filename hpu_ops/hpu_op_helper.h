@@ -115,6 +115,33 @@ inline std::string& update_guid_dtype(
           habana_helpers::pytorch_to_synapse_type(dtype)));
 }
 
+inline std::string& update_div_guid_with_precise(
+    std::string& guid,
+    bool has_rounding = false) {
+  const std::string_view div{"div"};
+  if (guid.rfind(div, 0) != 0) {
+    // Not start with div, no update
+    return guid;
+  }
+  // Use precise when rounding is used or the flag is explicitly set
+  bool use_precise = has_rounding;
+  if (IS_ENV_FLAG_DEFINED_NEW(PT_HPU_ENABLE_DIV_PRECISE)) {
+    use_precise = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DIV_PRECISE);
+  }
+  const std::string_view div_precise{"div_precise"};
+  bool precise_used = (guid.rfind(div_precise, 0) == 0);
+  if (use_precise) {
+    if (!precise_used) {
+      guid = guid.replace(0, div.size(), div_precise);
+    }
+  } else {
+    if (precise_used) {
+      guid = guid.replace(0, div_precise.size(), div);
+    }
+  }
+  return guid;
+}
+
 inline int get_dim_in_tpc_order(int64_t dim_, int64_t max_dims) {
   auto dim = at::maybe_wrap_dim(dim_, max_dims, /*wrap_scalar=*/true);
   return std::max(static_cast<int>(max_dims - dim - 1), 0);

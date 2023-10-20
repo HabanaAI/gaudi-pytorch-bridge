@@ -2260,6 +2260,7 @@ div.out:
   guid: div
   promote_int_to_float: [self, other]
   # op_validator: check-node-with-shared-layer
+  op_backend: Divide
 
 div.out_mode:
   fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
@@ -2277,6 +2278,7 @@ div.Scalar:
   out_ids: [0]
   scalar_ids: [1]
   promote_int_to_float: [self, other]
+  op_backend: Divide
 
 div_.Scalar:
   dtypes:
@@ -2288,6 +2290,7 @@ div_.Scalar:
   inplace_ids: [0]
   scalar_ids: [1]
   promote_int_to_float: [self, other]
+  op_backend: Divide
 
 div.Scalar_mode:
   fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
@@ -2315,6 +2318,7 @@ div.Tensor:
   guid: div
   out_ids: [0]
   promote_int_to_float: [self, other]
+  op_backend: Divide
 
 div.Tensor_mode:
   fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
@@ -2333,6 +2337,7 @@ div_.Tensor:
   inplace_ids: [0]
   promote_int_to_float: [self, other]
   # op_validator: check-node-with-shared-layer
+  op_backend: Divide
 
 div_.Tensor_mode:
   fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
@@ -2358,6 +2363,7 @@ div.Scalar_out:
   op_frontend: LazyDivScalarInplace
   promote_int_to_float: [self, other]
   scalar_ids: [1]
+  op_backend: Divide
 
 dot:
   custom_output_shape: DotOutputShape

@@ -121,6 +121,10 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
     bool bNeedToCastFinalResult = (final_result_type != computation_type);
 
     auto guid = op->GetGuid();
+    if (computation_type == at::ScalarType::Float) {
+      // Update the div guid with precise based on env and rounding mode
+      guid = update_div_guid_with_precise(guid, isNotNone);
+    }
     divOp = OpBackend::BuildNode(
         op,
         graph,

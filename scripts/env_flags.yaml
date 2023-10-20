@@ -730,4 +730,13 @@ aten:zero_ -> aten::zero_ transformation in replace_inplace_ops pass,\n
 which help to fix some OOM issues but may also cause performance\n
 regression in some models. So we disable it by default. This env var\n
 may be removed after we find a better solution"
-  
+
+PT_HPU_ENABLE_DIV_PRECISE:
+  type: bool
+  default: false
+  doc: "Option to enable div the precise kernel.\n
+This flag is used to enable or disable the use of the div precise kernel.\n
+If this flag is not set, the div kernel will be used by default for div\n
+operations without rounding mode; the div precise kernel will be used by\n
+default for div operations with rounding mode."
+
