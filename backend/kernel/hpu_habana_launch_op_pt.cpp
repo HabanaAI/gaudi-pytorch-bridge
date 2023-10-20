@@ -3366,8 +3366,7 @@ void HabanaLaunchOpPT::MaybePrintDuplicateGraphInformation(
 
 void habana::HabanaLaunchOpPT::ExecuteSynapseCacheTask(
     size_t graph_key_with_perm,
-    std::shared_ptr<HabanaLaunchOpPT> hbLaunchOp,
-    bool dry_run) {
+    std::shared_ptr<HabanaLaunchOpPT> hbLaunchOp) {
   ExecuteSynapseCache(
       graph_key_with_perm,
       hbLaunchOp->get_input_refs_(),
@@ -3375,7 +3374,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCacheTask(
       hbLaunchOp->get_cur_rvalpsh(),
       hbLaunchOp->get_cur_rargpsh(),
       hbLaunchOp->get_allocated_outputs_(),
-      dry_run);
+      hbLaunchOp->dry_run_);
 }
 
 // call this function for recipe caching (graph/eager)
@@ -3573,8 +3572,7 @@ void HabanaLaunchOpPT::run(
           size_t graph_key_with_perm,
           bool is_shape_agnostic_cache_miss,
           bool do_nothing_compile,
-          bool do_nothing_execute,
-          bool dry_run) {
+          bool do_nothing_execute) {
         std::shared_ptr<HabanaCompile> habanacompiler =
             std::make_shared<HabanaCompile>();
         habana_helpers::Singleton_CompileThreadPool::getInstance()
@@ -3584,8 +3582,7 @@ void HabanaLaunchOpPT::run(
                 std::move(hb_launch_op),
                 graph_key_with_perm,
                 do_nothing_compile,
-                do_nothing_execute,
-                dry_run);
+                do_nothing_execute);
       };
 
   // eager and graph recipe caching :: begin
@@ -3628,7 +3625,7 @@ void HabanaLaunchOpPT::run(
             cur_rvalpsh,
             cur_rargpsh,
             allocated_outputs_,
-            dry_run);
+            dry_run_);
       } else {
         PT_LAZY_EAGER_DEBUG(
             "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
@@ -3638,8 +3635,7 @@ void HabanaLaunchOpPT::run(
             graph_key_with_perm,
             false,
             do_nothing,
-            !do_nothing,
-            dry_run);
+            !do_nothing);
         // TODO: Merge with is_pipeline_supported status flag
         if (!is_enable_4stage_pipeline) {
           habana_helpers::Singleton_CompileThreadPool::getInstance()
@@ -3777,8 +3773,7 @@ void HabanaLaunchOpPT::run(
           graph_key_with_perm,
           true,
           do_nothing,
-          do_nothing,
-          dry_run);
+          do_nothing);
 
       // In case of SAG cache miss we have to wait till a compile thread sets
       // permutation for outputs (In case of SAG cache hit, that info is taken
@@ -3878,8 +3873,7 @@ void HabanaLaunchOpPT::run(
           graph_key_with_perm,
           false,
           do_nothing,
-          do_nothing,
-          dry_run);
+          do_nothing);
       if (!is_enable_4stage_pipeline) {
         habana_helpers::Singleton_CompileThreadPool::getInstance()
             .JoinPendingThread();
@@ -3947,8 +3941,7 @@ void HabanaLaunchOpPT::run(
         graph_key_with_perm,
         false,
         !do_nothing,
-        !do_nothing,
-        dry_run);
+        !do_nothing);
 
     if (!is_permute_data_cached || enable_caching_ ||
         !is_enable_4stage_pipeline)

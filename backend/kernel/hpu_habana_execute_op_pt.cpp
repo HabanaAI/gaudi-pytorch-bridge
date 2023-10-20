@@ -20,8 +20,7 @@ namespace habana {
 void habana::HabanaExecute::ExecuteSynapse(
     bool is_shape_agnostic_cache_miss,
     std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
-    bool do_nothing_execute,
-    bool dry_run) {
+    bool do_nothing_execute) {
   PT_BRIDGE_BEGIN;
   if (do_nothing_execute) {
     PT_BRIDGE_END;

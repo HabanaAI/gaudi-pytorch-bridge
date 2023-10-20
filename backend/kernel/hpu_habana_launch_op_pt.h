@@ -152,11 +152,10 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
       std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
       std::shared_ptr<RecipeArgumentSpec> cur_rargpsh,
       std::optional<std::vector<at::Tensor>> allocated_outputs,
-      bool dry_run = false);
+      bool dry_run);
   static void ExecuteSynapseCacheTask(
       size_t graph_key_with_perm,
-      std::shared_ptr<HabanaLaunchOpPT> hbLaunchOp,
-      bool dry_run = false);
+      std::shared_ptr<HabanaLaunchOpPT> hbLaunchOp);
   // To clear the static variables
   void ClearStatics(bool is_shape_inference = false);
 

@@ -25,7 +25,6 @@ class HabanaCompile {
       std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
       size_t graph_key_with_perm,
       bool do_nothing_compile,
-      bool do_nothing_execute,
-      bool dry_run);
+      bool do_nothing_execute);
 };
 } // namespace habana

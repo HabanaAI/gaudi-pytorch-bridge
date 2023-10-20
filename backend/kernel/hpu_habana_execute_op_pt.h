@@ -24,8 +24,7 @@ class HabanaExecute {
   static void ExecuteSynapse(
       bool is_shape_agnostic_cache_miss,
       std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
-      bool do_nothing_execute,
-      bool dry_run);
+      bool do_nothing_execute);
 };
 
 } // namespace habana
