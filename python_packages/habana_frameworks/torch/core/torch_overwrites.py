@@ -82,12 +82,14 @@ def _post_fwd_hook(module, input, output):
         htdebug._set_module_name(name)
         try:
             if isinstance(output, Tensor):
-                if output.requires_grad:
+                if output.requires_grad and not _names_hook_already_registered(output):
                     output.register_hook(_gen_grad_hook(grad_name))
+                    output.names_hook = True
             else:
                 for o in output:
-                    if isinstance(o, Tensor) and o.requires_grad:
+                    if isinstance(o, Tensor) and o.requires_grad and not _names_hook_already_registered(o):
                         o.register_hook(_gen_grad_hook(grad_name))
+                        o.names_hook = True
         except:
             pass
 
