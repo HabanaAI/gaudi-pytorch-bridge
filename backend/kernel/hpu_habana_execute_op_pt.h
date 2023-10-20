@@ -22,7 +22,6 @@ class HabanaExecute {
   virtual ~HabanaExecute() {}
 
   static void ExecuteSynapse(
-      synapse_helpers::hpuStream_t hpu_stream,
       bool is_shape_agnostic_cache_miss,
       std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
       bool do_nothing_execute,

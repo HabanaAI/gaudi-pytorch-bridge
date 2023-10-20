@@ -126,7 +126,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       refine_ds_enabled_;
   op_strs_ = optimized_jit_graph_and_meta_data->get_cached_opstrs();
   graph_key_ = optimized_jit_graph_and_meta_data->get_cached_graph_key();
-  hpu_stream = optimized_jit_graph_and_meta_data->GetHPUStream();
+  hpu_stream_ = optimized_jit_graph_and_meta_data->GetHPUStream();
   bool is_optimized_lazy_eager =
       optimized_jit_graph_and_meta_data->GetOptimizedLazyEagerFlag();
   jit_graph_and_meta_data_ = optimized_jit_graph_and_meta_data;
@@ -2832,7 +2832,7 @@ void HabanaLaunchOpPT::InitiateSynlaunchTimeCapture(RecipeValueSpec& rv) {
   PT_BRIDGE_BEGIN;
   // Initiate recipe execution time collection
   if (current_dbipsh_->NeedRunTimeSlot(current_bucket_id_)) {
-    rv.time_slot_ = HPURegistrar::get_device().create_time_slot(hpu_stream);
+    rv.time_slot_ = HPURegistrar::get_device().create_time_slot(hpu_stream_);
     if (rv.time_slot_) {
       current_dbipsh_->RegisterTimeSlot(rv.time_slot_, current_bucket_id_);
     }
@@ -3095,7 +3095,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
           PT_BRIDGE_DEBUG("Skipping patch_launch_info for empty recipe");
         }
         rv.launch(
-            hpu_stream,
+            hpu_stream_,
             input_refs,
             intermediate_tensors_ptr_sh_,
             *aten_outputs_ptr_sh_,
@@ -3369,7 +3369,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCacheTask(
     std::shared_ptr<HabanaLaunchOpPT> hbLaunchOp,
     bool dry_run) {
   ExecuteSynapseCache(
-      hbLaunchOp->hpu_stream,
       graph_key_with_perm,
       hbLaunchOp->get_input_refs_(),
       hbLaunchOp.get(),
@@ -3381,7 +3380,6 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCacheTask(
 
 // call this function for recipe caching (graph/eager)
 void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
-    synapse_helpers::hpuStream_t hpu_stream,
     size_t graph_key_with_perm,
     at::ArrayRef<torch::jit::IValue> input_refs,
     HabanaLaunchOpPT* hbLaunchOp,
@@ -3394,7 +3392,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
 
   if (!dry_run) {
     rv.launch(
-        hpu_stream,
+        hbLaunchOp->hpu_stream_,
         input_refs,
         hbLaunchOp->intermediate_tensors_ptr_sh_,
         *hbLaunchOp->aten_outputs_ptr_sh_,
@@ -3571,8 +3569,7 @@ void HabanaLaunchOpPT::run(
   auto is_enable_4stage_pipeline = enable_4stage_pipeline_;
 
   auto enqueue_compile_synapse =
-      [&](synapse_helpers::hpuStream_t hpu_stream,
-          std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
+      [&](std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
           size_t graph_key_with_perm,
           bool is_shape_agnostic_cache_miss,
           bool do_nothing_compile,
@@ -3583,7 +3580,6 @@ void HabanaLaunchOpPT::run(
         habana_helpers::Singleton_CompileThreadPool::getInstance()
             .ScheduleWorkAndUpdateThreadHandle(
                 habanacompiler->CompileSynapse,
-                std::move(hpu_stream),
                 is_shape_agnostic_cache_miss,
                 std::move(hb_launch_op),
                 graph_key_with_perm,
@@ -3626,7 +3622,6 @@ void HabanaLaunchOpPT::run(
       // can be merged once non-eager backends support pipelining
       if (enable_graph_caching_ && !compile_mode) {
         ExecuteSynapseCache(
-            hpu_stream,
             graph_key_with_perm,
             input_refs,
             this,
@@ -3639,7 +3634,6 @@ void HabanaLaunchOpPT::run(
             "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
         constexpr bool do_nothing = true;
         enqueue_compile_synapse(
-            hpu_stream,
             this->shared_from_this(),
             graph_key_with_perm,
             false,
@@ -3779,7 +3773,6 @@ void HabanaLaunchOpPT::run(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
       constexpr bool do_nothing = false;
       enqueue_compile_synapse(
-          hpu_stream,
           this->shared_from_this(),
           graph_key_with_perm,
           true,
@@ -3883,7 +3876,6 @@ void HabanaLaunchOpPT::run(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
       constexpr bool do_nothing = false;
       enqueue_compile_synapse(
-          hpu_stream,
           this->shared_from_this(),
           graph_key_with_perm,
           false,
@@ -3953,7 +3945,6 @@ void HabanaLaunchOpPT::run(
     jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
     constexpr bool do_nothing = true;
     enqueue_compile_synapse(
-        hpu_stream,
         this->shared_from_this(),
         graph_key_with_perm,
         false,
@@ -3969,8 +3960,8 @@ void HabanaLaunchOpPT::run(
     CompileSynapseGraph();
     ConstructPatchingTableAndAtenOutputs();
     UpdateSynapsePermutations();
-    StoreCompiledInformation(hpu_stream);
-    ExecuteSynapseGraph(hpu_stream);
+    StoreCompiledInformation();
+    ExecuteSynapseGraph();
 
     jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
     ClearStatics();
@@ -4552,8 +4543,8 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
       ConstructPatchingTableAndAtenOutputs();
       UpdateSynapsePermutations();
-      StoreCompiledInformation(hpu_stream);
-      ExecuteSynapseGraph(hpu_stream);
+      StoreCompiledInformation();
+      ExecuteSynapseGraph();
     } catch (std::exception& e) {
       PT_DYNAMIC_SHAPE_DEBUG("Exception in BuildSynapseGraph");
       PT_DYNAMIC_SHAPE_DEBUG("Details:\n", e.what());
@@ -4594,8 +4585,8 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
     ConstructPatchingTableAndAtenOutputs();
     UpdateSynapsePermutations();
-    StoreCompiledInformation(hpu_stream);
-    ExecuteSynapseGraph(hpu_stream);
+    StoreCompiledInformation();
+    ExecuteSynapseGraph();
   }
   if (!try_catch_fail) {
     current_dbipsh_->get_statistics()->LogCompilation(

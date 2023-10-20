@@ -20,7 +20,6 @@
 namespace habana {
 
 void habana::HabanaCompile::CompileSynapse(
-    synapse_helpers::hpuStream_t hpu_stream,
     bool is_shape_agnostic_cache_miss,
     std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
     size_t graph_key_with_perm,
@@ -29,8 +28,7 @@ void habana::HabanaCompile::CompileSynapse(
     bool dry_run) {
   PT_BRIDGE_BEGIN;
   auto enqueue_execute_synapse =
-      [&](synapse_helpers::hpuStream_t hpu_stream,
-          std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
+      [&](std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
           bool is_shape_agnostic_cache_miss,
           bool do_nothing_execute,
           bool dry_run) {
@@ -39,7 +37,6 @@ void habana::HabanaCompile::CompileSynapse(
         habana_helpers::Singleton_ExecThreadPool::getInstance()
             .ScheduleWorkAndUpdateThreadHandle(
                 habanaexecutor->ExecuteSynapse,
-                std::move(hpu_stream),
                 is_shape_agnostic_cache_miss,
                 std::move(hb_launch_op),
                 do_nothing_execute,
@@ -66,8 +63,7 @@ void habana::HabanaCompile::CompileSynapse(
     }
     return;
   } else if (do_nothing_compile && do_nothing_execute) {
-    enqueue_execute_synapse(
-        hpu_stream, hb_launch_op, true, do_nothing_execute, dry_run);
+    enqueue_execute_synapse(hb_launch_op, true, do_nothing_execute, dry_run);
 
     if (!is_enable_4stage_pipeline) {
       habana_helpers::Singleton_ExecThreadPool::getInstance()
@@ -83,9 +79,8 @@ void habana::HabanaCompile::CompileSynapse(
       hb_launch_op->StoreShapeAgnosticGraph();
       hb_launch_op->ConstructPatchingTableAndAtenOutputs();
       hb_launch_op->UpdateSynapsePermutations();
-      hb_launch_op->StoreCompiledInformation(hpu_stream);
-      enqueue_execute_synapse(
-          hpu_stream, hb_launch_op, true, do_nothing_execute, dry_run);
+      hb_launch_op->StoreCompiledInformation();
+      enqueue_execute_synapse(hb_launch_op, true, do_nothing_execute, dry_run);
       if (!is_enable_4stage_pipeline) {
         habana_helpers::Singleton_ExecThreadPool::getInstance()
             .JoinPendingThread();
@@ -93,8 +88,7 @@ void habana::HabanaCompile::CompileSynapse(
 
     } else {
       hb_launch_op->CompileSynapseGraph(false);
-      enqueue_execute_synapse(
-          hpu_stream, hb_launch_op, false, do_nothing_execute, dry_run);
+      enqueue_execute_synapse(hb_launch_op, false, do_nothing_execute, dry_run);
       if (!is_enable_4stage_pipeline) {
         habana_helpers::Singleton_ExecThreadPool::getInstance()
             .JoinPendingThread();
@@ -104,9 +98,8 @@ void habana::HabanaCompile::CompileSynapse(
     hb_launch_op->CompileSynapseGraph();
     hb_launch_op->ConstructPatchingTableAndAtenOutputs();
     hb_launch_op->UpdateSynapsePermutations();
-    hb_launch_op->StoreCompiledInformation(hpu_stream);
-    enqueue_execute_synapse(
-        hpu_stream, hb_launch_op, false, do_nothing_execute, dry_run);
+    hb_launch_op->StoreCompiledInformation();
+    enqueue_execute_synapse(hb_launch_op, false, do_nothing_execute, dry_run);
     if (!is_enable_4stage_pipeline) {
       habana_helpers::Singleton_ExecThreadPool::getInstance()
           .JoinPendingThread();

@@ -21,7 +21,6 @@ class HabanaCompile {
   explicit HabanaCompile() {}
   virtual ~HabanaCompile() {}
   static void CompileSynapse(
-      synapse_helpers::hpuStream_t hpu_stream,
       bool is_shape_agnostic_cache_miss,
       std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
       size_t graph_key_with_perm,

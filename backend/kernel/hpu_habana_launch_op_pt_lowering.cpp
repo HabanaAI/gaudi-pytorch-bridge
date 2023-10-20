@@ -688,8 +688,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
   }
 }
 
-void habana::HabanaLaunchOpPT::StoreCompiledInformation(
-    synapse_helpers::hpuStream_t hpu_stream) {
+void habana::HabanaLaunchOpPT::StoreCompiledInformation() {
   TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
   TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
   RecipeValueSpec& rv = *cur_rvalpsh;
@@ -727,8 +726,7 @@ void habana::HabanaLaunchOpPT::StoreCompiledInformation(
   rv.update_hit_count();
 }
 
-void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
-    synapse_helpers::hpuStream_t hpu_stream) {
+void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
   TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
   TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
   RecipeValueSpec& rv = *cur_rvalpsh;
@@ -758,7 +756,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph(
 
   if (!dry_run_) {
     rv.launch(
-        hpu_stream,
+        hpu_stream_,
         input_refs,
         intermediate_tensors_ptr,
         *aten_outputs_ptr_sh_,

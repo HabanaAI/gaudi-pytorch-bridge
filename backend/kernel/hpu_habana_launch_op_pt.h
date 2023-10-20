@@ -143,10 +143,9 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   void UpdateSynapsePermutations();
   void ApplyOutputPermutationsFromCache();
   void StoreShapeAgnosticGraph();
-  void StoreCompiledInformation(synapse_helpers::hpuStream_t hpu_stream);
-  void ExecuteSynapseGraph(synapse_helpers::hpuStream_t hpu_stream);
+  void StoreCompiledInformation();
+  void ExecuteSynapseGraph();
   static void ExecuteSynapseCache(
-      synapse_helpers::hpuStream_t hpu_stream,
       size_t graph_key_with_perm,
       at::ArrayRef<torch::jit::IValue> input_refs,
       HabanaLaunchOpPT* hbLaunchOp,
@@ -317,7 +316,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
 
  private:
   // user stream info
-  synapse_helpers::hpuStream_t hpu_stream;
+  synapse_helpers::hpuStream_t hpu_stream_;
   at::ArrayRef<torch::jit::IValue> input_refs;
   std::shared_ptr<RecipeValueSpec> cur_rvalpsh{nullptr};
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
