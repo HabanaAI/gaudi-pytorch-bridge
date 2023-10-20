@@ -3771,6 +3771,8 @@ void HabanaLaunchOpPT::run(
           intermediate_syn_tensors_count_);
       syn_graph_ptr_->set_num_of_inter_tensors(intermediate_syn_tensors_count_);
 
+      jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
+
       aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
 
       PT_LAZY_EAGER_DEBUG(
@@ -3875,6 +3877,7 @@ void HabanaLaunchOpPT::run(
       }
 
       syn_graph_ptr_->set_build_phase(true);
+      jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
 
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
@@ -3892,13 +3895,6 @@ void HabanaLaunchOpPT::run(
             .JoinPendingThread();
       }
     }
-
-    is_jit_cached_graph_info_available =
-        jit_graph_and_meta_data_->get_jit_cached_graph_info_available_flag();
-    if (is_jit_cached_graph_info_available == false) {
-      jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
-    }
-
     PT_BRIDGE_END;
     return;
   }
@@ -3954,7 +3950,7 @@ void HabanaLaunchOpPT::run(
       permutation_info_saver_ =
           std::make_unique<PermutationInfoSaver>(jit_graph_and_meta_data_);
     }
-
+    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
     constexpr bool do_nothing = true;
     enqueue_compile_synapse(
         hpu_stream,
@@ -3969,9 +3965,6 @@ void HabanaLaunchOpPT::run(
         !is_enable_4stage_pipeline)
       habana_helpers::Singleton_CompileThreadPool::getInstance()
           .JoinPendingThread();
-
-    // TODO: Move this before enqueuing
-    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
   } else {
     CompileSynapseGraph();
     ConstructPatchingTableAndAtenOutputs();
