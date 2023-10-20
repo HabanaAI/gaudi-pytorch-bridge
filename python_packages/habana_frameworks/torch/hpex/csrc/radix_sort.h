@@ -3,6 +3,7 @@
 
 //#include "sort_headers.h"
 #include <omp.h>
+#include <cstdio>
 #include <limits>
 #include <utility>
 
@@ -19,22 +20,22 @@ Key_Value_Pair<T>* radix_sort_parallel(
     Key_Value_Pair<T>* tmp_buf,
     int64_t elements_count,
     int64_t max_value) {
-  constexpr int bkt_bits = BKT_BITS;
-  constexpr int nbkts = (1 << bkt_bits);
-  constexpr int bkt_mask = (nbkts - 1);
+  constexpr unsigned bkt_bits = BKT_BITS;
+  constexpr unsigned nbkts = (1 << bkt_bits);
+  constexpr unsigned bkt_mask = (nbkts - 1);
 
   int maxthreads = omp_get_max_threads();
   int histogram[nbkts * maxthreads], histogram_ps[nbkts * maxthreads + 1];
   if (max_value == 0)
     return inp_buf;
-  int num_bits = 64;
+  unsigned num_bits = 64;
   if (sizeof(T) == 8 && max_value > std::numeric_limits<int>::max()) {
     num_bits = sizeof(T) * 8 - __builtin_clzll(max_value);
   } else {
     num_bits = 32 - __builtin_clz((unsigned int)max_value);
   }
 
-  int num_passes = (num_bits + bkt_bits - 1) / bkt_bits;
+  unsigned num_passes = (num_bits + bkt_bits - 1) / bkt_bits;
 
 #pragma omp parallel
   {
@@ -47,10 +48,10 @@ Key_Value_Pair<T>* radix_sort_parallel(
     Key_Value_Pair<T>* input = inp_buf;
     Key_Value_Pair<T>* output = tmp_buf;
 
-    for (unsigned int pass = 0; pass < num_passes; pass++) {
+    for (unsigned int pass = 0; pass < num_passes; ++pass) {
       // Step 1: compute histogram
       // Reset histogram
-      for (int i = 0; i < nbkts; i++)
+      for (unsigned i = 0; i < nbkts; i++)
         local_histogram[i] = 0;
 
 #pragma omp for schedule(static)
@@ -75,13 +76,13 @@ Key_Value_Pair<T>* radix_sort_parallel(
       // Step 2: prefix sum
       if (tid == 0) {
         int sum = 0, prev_sum = 0;
-        for (int bins = 0; bins < nbkts; bins++)
+        for (unsigned bins = 0; bins < nbkts; bins++)
           for (int t = 0; t < nthreads; t++) {
             sum += histogram[t * nbkts + bins];
             histogram_ps[t * nbkts + bins] = prev_sum;
             prev_sum = sum;
           }
-        histogram_ps[nbkts * nthreads] = prev_sum;
+        histogram_ps[static_cast<size_t>(nbkts) * nthreads] = prev_sum;
         if (prev_sum != elements_count) {
           printf("Error1!\n");
           exit(123);

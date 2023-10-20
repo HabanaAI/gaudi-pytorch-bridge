@@ -82,7 +82,7 @@ void RecipeCacheConfig::reload() {
         },
     };
 
-    for (int param_idx = 0; param_idx < params.size(); param_idx++) {
+    for (size_t param_idx = 0; param_idx < params.size(); ++param_idx) {
       env_var_setters[param_idx](params[param_idx]);
     }
   }

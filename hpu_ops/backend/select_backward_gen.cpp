@@ -64,7 +64,7 @@ void SelectBackward::AddNode(
   // Synapse indexes dims in opposite order then PT
   for (size_t i = 0; i < input_sizes.size(); ++i) {
     params.axes[i] = input_sizes.size() - i - 1;
-    if (i == dim) {
+    if (static_cast<int>(i) == dim) {
       params.starts[i] = normalize_idx(index, input_sizes[i]);
       params.ends[i] = params.starts[i] + 1;
     } else {

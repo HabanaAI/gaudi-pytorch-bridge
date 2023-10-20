@@ -53,7 +53,7 @@ static int prepareDivisor(
       break;
     default:
       for (unsigned i = 0; i < dimsVec.size() && i < dims.size() &&
-           dims[i] < input_shape.size();
+           dims[i] < static_cast<int64_t>(input_shape.size());
            i++) {
         divisor *= input_shape[dims[i]];
       }

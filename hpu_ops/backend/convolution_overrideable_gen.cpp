@@ -131,7 +131,7 @@ OutputMetaDataVector ConvolutionOverrideableMeta(const at::Stack& stack) {
 
   auto K = transposed ? shapeWt[1] * groups : shapeWt[0];
   std::vector<int64_t> outputShape{shapeIn[0], K};
-  for (int i = 0; i < shapeIn.size() - 2; ++i) {
+  for (size_t i = 0; i < shapeIn.size() - 2; ++i) {
     outputShape.push_back(ComputeOutputSize(
         shapeIn[i + 2],
         padding[i],

@@ -24,7 +24,7 @@ OutputMetaDataVector ForeachMeta(const at::Stack& stack) {
   OutputMetaDataVector meta;
   meta.resize(tensors.size());
 
-  for (int i = 0; i < tensors.size(); ++i) {
+  for (size_t i = 0; i < tensors.size(); ++i) {
     const at::Tensor& tensor = tensors[i];
     meta[i].dtype = tensor.scalar_type();
     meta[i].shape = tensor.sizes().vec();

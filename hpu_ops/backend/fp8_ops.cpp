@@ -921,7 +921,7 @@ void Fp8Permute::AddNode(
 
   synTransposeParams params{};
   params.tensorDim = dims_size;
-  for (int i = 0; i < dims_size; i++) {
+  for (size_t i = 0; i < dims_size; i++) {
     params.permutation[i] = static_cast<TransposePermutationDim>(
         dims_size - dims[dims_size - i - 1] - 1);
   }
@@ -1100,7 +1100,7 @@ void Fp8RepeatV2::AddNode(
 
   synTensor self_reshaped_st = self.syn_t;
   std::optional<synapse_helpers::tensor> self_reshaped_storage;
-  if (repeats.size() > self.pt_t.ndimension()) {
+  if (static_cast<int64_t>(repeats.size()) > self.pt_t.ndimension()) {
     int64_t num_new_dimensions = repeats.size() - self.pt_t.dim();
     std::vector<int64_t> padded_size(num_new_dimensions, 1);
     padded_size.insert(
@@ -1125,7 +1125,7 @@ void Fp8RepeatV2::AddNode(
   }
 
   ns_TileKernel::ParamsV2 params{};
-  for (int64_t i = 0; i < repeats.size(); ++i) {
+  for (size_t i = 0; i < repeats.size(); ++i) {
     params.repeat[repeats.size() - i - 1] = repeats[i];
   }
 

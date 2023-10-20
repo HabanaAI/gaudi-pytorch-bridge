@@ -69,7 +69,7 @@ void SliceBackward::AddNode(
     std::fill_n(params.ends, HABANA_DIM_MAX, 0);
     std::fill_n(params.steps, HABANA_DIM_MAX, 1);
 
-    for (int i = 0; i < input_sizes.size(); ++i) {
+    for (size_t i = 0; i < input_sizes.size(); ++i) {
       params.axes[i] = input_sizes.size() - i - 1;
       if (i == dim) {
         params.starts[i] = normalize_idx(start, input_sizes[i]);

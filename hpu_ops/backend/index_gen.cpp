@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include <cstddef>
 #include "generated/backend/arange.h"
 #include "generated/backend/gather.h"
 #include "generated/backend/index.h"
@@ -413,8 +414,8 @@ void IndexHabanaOperator::AddNode(
 
     auto permuted_self_shape = permuted_self[0].pt_shape();
     permuted_self_t = std::move(permuted_self[0].get());
-    int i = 0;
-    for (; i < adv_ind_dim.size(); i++) {
+    size_t i = 0;
+    for (; i < adv_ind_dim.size(); ++i) {
       if (adv_ind_dim[i] == true) {
         index_all_elems[i] = true;
       } else {
@@ -440,7 +441,7 @@ void IndexHabanaOperator::AddNode(
 
     // account for any trailing dims that are not specified to be
     // indexed explicitly, but need to be taken care of.
-    for (; i < self.dim(); i++) {
+    for (; i < self.dim(); ++i) {
       index_all_elems[i] = true;
     }
 

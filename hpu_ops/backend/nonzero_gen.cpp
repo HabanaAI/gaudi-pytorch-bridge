@@ -72,14 +72,14 @@ std::vector<int64_t> compute_nonzero_output_shape(
     NonZeroParams_t self_params,
     bool use_tpc_impl) {
   auto input_shape = self_params.sizes;
-  int dimensions = input_shape.size();
+  int64_t dimensions = input_shape.size();
   auto elements = self_params.numel;
   if ((habana::HPURegistrar::get_device().type() !=
        synDeviceType::synDeviceGreco) and
       (dimensions <= 4) and (dimensions > 0) and !use_tpc_impl) {
     elements = 1;
     auto last_dim_rounded = round_dims(self_params, 64);
-    for (unsigned i = 0; i < dimensions - 1; i++) {
+    for (int64_t i = 0; i < dimensions - 1; i++) {
       elements *= self_params.sizes[i];
     }
     elements = elements * last_dim_rounded;

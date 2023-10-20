@@ -384,7 +384,8 @@ void DynamicBucketInfo::UpdateShapes(
     auto range_idx = dynamic_dims.at(tensor_idx).at(dim_idx);
     auto& ranges = buckets_[bucket].getRanges();
     HABANA_ASSERT(
-        (range_idx < ranges.size()), "UpdateShapes ranges exceed the index");
+        (range_idx < static_cast<int64_t>(ranges.size())),
+        "UpdateShapes ranges exceed the index");
 
     std::pair<int64_t, int64_t> new_minmax;
     bool isMax =

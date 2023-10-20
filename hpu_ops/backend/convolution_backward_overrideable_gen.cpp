@@ -313,7 +313,7 @@ void ConvolutionBackwardOverrideable::AddNode(
     auto shape_wt = weight.sizes().vec();
     auto K = transposed ? shape_wt[1] * groups : shape_wt[0];
     std::vector<int64_t> out_shape{shape_in[0], K};
-    for (int i = 0; i < shape_in.size() - 2; ++i) {
+    for (size_t i = 0; i < shape_in.size() - 2; ++i) {
       out_shape.push_back(ComputeOutputSize(
           shape_in[i + 2],
           padding[i],

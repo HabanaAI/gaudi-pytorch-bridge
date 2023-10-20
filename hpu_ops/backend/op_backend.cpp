@@ -202,7 +202,7 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
 
   int syn_counter = 0;
   int out_counter = 0;
-  for (int stack_id = 0, inplace_ids_pos = 0;
+  for (size_t stack_id = 0, inplace_ids_pos = 0;
        (stack_id < stack.size()) && (inplace_ids_pos < m_inplace_ids.size());
        ++stack_id) {
     const auto& ival = stack[stack_id];
@@ -479,7 +479,7 @@ void OpBackend::PopulateMetadata(
   if (UsesOutputMeta()) {
     const auto& meta = OutputMeta(stack);
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(meta.size() == m_output_metadata.size());
-    for (int i = 0; i < m_output_metadata.size(); ++i) {
+    for (size_t i = 0; i < m_output_metadata.size(); ++i) {
       m_output_metadata[i].shape = meta[i].shape;
       m_output_metadata[i].dtype = meta[i].dtype;
       m_output_metadata[i].strides = meta[i].strides;

@@ -16,7 +16,6 @@
 #include "generated/backend/native_layer_norm.h"
 #include "generated/backend/native_layer_norm_backward.h"
 #include "generated/backend/norm.h"
-#include "habana_kernels/norm_kernels.h"
 #include "hpu_ops/backend/reduction_template.h"
 
 #define INF std::numeric_limits<float>::infinity()
@@ -697,7 +696,7 @@ void LayerNormHabanaOperator::AddNode(
   int64_t mean_rstd_shape[] = {1, 1, m, 1};
 
   std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
-  for (int i = 0; i < metas.size(); ++i) {
+  for (size_t i = 0; i < metas.size(); ++i) {
     c10::ScalarType outputType = metas[i].dtype;
     if (use_tpc_affine_path) {
       node_output_attr.push_back({metas[i].shape, outputType, i});
@@ -801,7 +800,7 @@ void LayerNormBwdHabanaOperator::AddNode(
 
   std::array<int64_t, 4> mean_rstd_as_4D = {1, 1, m, 1};
   std::array<unsigned, 2> storage_indices = {};
-  for (int i = 0; i < storage_indices.size(); ++i) {
+  for (size_t i = 0; i < storage_indices.size(); ++i) {
     const auto& src = (i == 0) ? mean : rstd;
     storage.push_back(ReshapeHelper(
         graph, src.syn_t, mean_rstd_as_4D, src.pt_t.scalar_type()));
@@ -835,7 +834,7 @@ void LayerNormBwdHabanaOperator::AddNode(
       &params,
       sizeof(params));
 
-  for (int i = 1; i < lnbwd.size(); ++i) {
+  for (size_t i = 1; i < lnbwd.size(); ++i) {
     if (metas[i].dtype != c10::kFloat) {
       lnbwd[i] = CastHelper(
           graph, lnbwd[i].get(), weightShape, c10::kFloat, metas[i].dtype);
