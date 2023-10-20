@@ -8,20 +8,27 @@
 # agreements under which it was provided.
 #
 # ##############################################################################
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+
 set(CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(TARGET_NAME "bindings")
+
 set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
-add_library(${TARGET_NAME} INTERFACE)
-target_include_directories(${TARGET_NAME}
-    INTERFACE "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(${TARGET_NAME} INTERFACE ${CMAKE_BINARY_DIR})
-target_include_directories(${TARGET_NAME} INTERFACE "${PYTHON_INCLUDE_DIR}")
+
+add_habana_library(bindings INTERFACE)
+target_include_directories(
+  bindings INTERFACE "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
+  "${CMAKE_BINARY_DIR}"
+  "${PYTHON_INCLUDE_DIR}")
+
+find_package(Torch REQUIRED)
 find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
-target_compile_options(${TARGET_NAME} INTERFACE -fopenmp -fpermissive)
-target_link_libraries(${TARGET_NAME} INTERFACE npu::fmt npu::hllogger npu::hcl npu::specs_external npu::specs_embedded pytorch_helpers)
-target_compile_definitions(${TARGET_NAME} INTERFACE MAX_DEVICES_PER_BOX=8)
+
+include(pt_ver)
+set_up_pt_ver_mechanism()
+
+target_compile_options(bindings INTERFACE -fopenmp -fpermissive)
+target_link_libraries(bindings INTERFACE npu::fmt npu::hllogger npu::hcl npu::specs_external npu::specs_embedded
+  pytorch_helpers)
 
 add_subdirectory(internal/bridge_config)
 add_subdirectory(activity_profiler/csrc)

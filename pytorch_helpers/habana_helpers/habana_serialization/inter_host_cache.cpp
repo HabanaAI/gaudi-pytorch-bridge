@@ -116,7 +116,7 @@ void InterHostCache::init() {
   server_addr.sin_port = master_port;
   server_addr.sin_addr.s_addr = inet_addr(master_addr.c_str());
 
-  int e;
+  int e{-1};
   if (rank == 0) {
     e = bind(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
   } else if (rank >= l_w_size) {
@@ -172,7 +172,7 @@ void InterHostCache::thread_function(int clientfd) {
   char tdata[MAX_SIZE];
 
   while (true) {
-    int bytes_read, bytes_sent, rsize = 0, tb = 0;
+    int bytes_read;
 
     // Get command from Client
     bytes_read = recv(clientfd, tdata, cmdSet.size() + 1, 0);

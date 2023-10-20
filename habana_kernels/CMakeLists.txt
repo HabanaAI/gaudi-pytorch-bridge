@@ -10,10 +10,11 @@
 #
 # ##############################################################################
 
-
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
-
-add_library(habana_kernels OBJECT
+add_habana_library(habana_kernels OBJECT
   index_kernels.cpp
   )
+
+set_target_properties(habana_kernels PROPERTIES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED ON
+)

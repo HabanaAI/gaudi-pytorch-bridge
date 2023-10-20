@@ -38,6 +38,8 @@ std::string GetDynamicTensorName(
     case HOST_TO_DEVICE_TENSOR:
       t_name = prefix + "_H2D";
       break;
+    default:
+      break;
   }
   return t_name;
 }

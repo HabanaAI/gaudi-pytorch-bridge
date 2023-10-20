@@ -72,7 +72,7 @@ void ConstSectionFileHandler::init(std::string path) {
         fs::remove(de->path());
         de++;
       }
-    } catch (fs::filesystem_error err) {
+    } catch (fs::filesystem_error& err) {
       PT_CONST_SECTION_FATAL(
           "Exception in const section removal on init, Please delete manually: ",
           err.what(),

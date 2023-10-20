@@ -10,12 +10,10 @@
 #
 ###############################################################################
 
-add_library(pytorch_synapse_utils_shim STATIC synapse_utils_shim.cpp)
+add_habana_library(pytorch_synapse_utils_shim STATIC synapse_utils_shim.cpp)
 
 target_include_directories(pytorch_synapse_utils_shim SYSTEM
                            PUBLIC $<TARGET_PROPERTY:SynapseUtils,INTERFACE_INCLUDE_DIRECTORIES>)
-
-target_compile_options(pytorch_synapse_utils_shim PRIVATE -Wall -Wextra -Werror)
 
 target_link_libraries(pytorch_synapse_utils_shim PUBLIC ${CMAKE_DL_LIBS} SynapseUtils pytorch_synapse_shim)
 

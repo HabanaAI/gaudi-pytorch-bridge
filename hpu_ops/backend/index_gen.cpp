@@ -91,7 +91,6 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
   bool explicit_indices_together = false;
   int index_tensor_groups = 0;
   int explicit_indices_count = 0;
-  int explicit_index_tensor_group_start = 0;
   bool adv_indexing_present = false;
   int dim = 0;
   for (auto input : indices_ival) {
@@ -102,7 +101,6 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
       }
     } else if (o1.has_value() && o1->defined()) {
       if (!explicit_indices_together) {
-        explicit_index_tensor_group_start = dim;
         index_tensor_groups++;
       }
       explicit_indices_together = true;

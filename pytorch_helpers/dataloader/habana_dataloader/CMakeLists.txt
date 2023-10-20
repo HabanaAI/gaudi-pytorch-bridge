@@ -8,15 +8,14 @@
 # agreements under which it was provided.
 #
 # ##############################################################################
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+
 set(CXX_STANDARD 17)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(TARGET_NAME "habana_dl_app")
-add_library(${TARGET_NAME} SHARED main.cpp)
-set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
-target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_include_directories(${TARGET_NAME} PUBLIC "${PYTHON_INCLUDE_DIR}")
-target_link_directories(${TARGET_NAME} PRIVATE $ENV{BUILD_ROOT_LATEST})
+
+add_habana_library(habana_dl_app SHARED main.cpp)
+set_target_properties(habana_dl_app PROPERTIES PREFIX "")
+target_include_directories(habana_dl_app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${PYTHON_INCLUDE_DIR}")
+target_link_directories(habana_dl_app PRIVATE $ENV{BUILD_ROOT_LATEST})
 find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
-target_link_libraries(${TARGET_NAME} PUBLIC torch nlohmann_json aeon ${TORCH_PYTHON_LIBRARY})
-install(TARGETS ${TARGET_NAME} LIBRARY DESTINATION habana_torch_dataloader)
+target_link_libraries(habana_dl_app PUBLIC torch nlohmann_json aeon ${TORCH_PYTHON_LIBRARY})
+install(TARGETS habana_dl_app LIBRARY DESTINATION habana_torch_dataloader)

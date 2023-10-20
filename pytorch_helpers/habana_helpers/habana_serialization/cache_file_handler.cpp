@@ -62,7 +62,7 @@ void CacheFileHandler::init(std::string path) {
           fs::remove(de->path());
           de++;
         }
-      } catch (fs::filesystem_error err) {
+      } catch (fs::filesystem_error& err) {
         PT_HABHELPER_DEBUG(
             CACHEFILE_LOG,
             "Exception in cache removal on init, Please delete manually: ",

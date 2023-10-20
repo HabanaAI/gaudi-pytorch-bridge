@@ -8,16 +8,12 @@
 # agreements under which it was provided.
 #
 # ##############################################################################
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-set(TARGET_NAME "_media_pyt_bridge_C")
-add_library(${TARGET_NAME} SHARED
-    media_pyt_bridge.cpp
-    pyt_media_proxy.cpp
-    pyt_media_shim.cpp)
 
-target_compile_definitions(${TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_NAME})
+add_habana_library(_media_pyt_bridge_C SHARED media_pyt_bridge.cpp pyt_media_proxy.cpp pyt_media_shim.cpp)
 
-set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
-target_link_libraries(${TARGET_NAME} PUBLIC bindings torch absl::variant  ${TORCH_PYTHON_LIBRARY} Media)
+target_compile_definitions(_media_pyt_bridge_C PRIVATE TORCH_EXTENSION_NAME=_media_pyt_bridge_C)
 
-install(TARGETS ${TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin)
+set_target_properties(_media_pyt_bridge_C PROPERTIES PREFIX "")
+target_link_libraries(_media_pyt_bridge_C PUBLIC bindings torch absl::variant  ${TORCH_PYTHON_LIBRARY} Media)
+
+install(TARGETS _media_pyt_bridge_C LIBRARY DESTINATION habana_torch_plugin)

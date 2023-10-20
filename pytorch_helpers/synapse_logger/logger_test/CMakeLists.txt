@@ -13,7 +13,6 @@ cmake_minimum_required(VERSION 3.5.1)
 set(CMAKE_CXX_COMPILER_NAMES clang++ c++ cxx)
 set(CMAKE_C_COMPILER_NAMES clang) # gcc icc cc)
 
-project(Test)
 project(Test LANGUAGES CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

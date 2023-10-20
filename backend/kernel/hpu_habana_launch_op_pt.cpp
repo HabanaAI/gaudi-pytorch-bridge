@@ -198,9 +198,9 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   // used for controlling recipe caching in eager backends
   // combined with PT_HPU_PGM_ENABLE_CACHE to allow debugging
   enable_eager_caching_ =
-      (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER) &&
-          (!jit_graph_and_meta_data_->get_is_eager_compiler_supported() &&
-           GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) ||
+      ((execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER) &&
+       (!jit_graph_and_meta_data_->get_is_eager_compiler_supported() &&
+        GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE))) ||
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_CACHE);
 
   enable_caching_ = enable_graph_caching_ || enable_eager_caching_;

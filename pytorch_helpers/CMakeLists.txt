@@ -10,10 +10,9 @@
 #
 ###############################################################################
 
-set(TARGET_NAME pytorch_helpers)
-add_library(${TARGET_NAME} INTERFACE)
-target_include_directories(${TARGET_NAME} INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(${TARGET_NAME} INTERFACE nlohmann_json)
+add_habana_library(pytorch_helpers INTERFACE)
+target_include_directories(pytorch_helpers INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(pytorch_helpers INTERFACE nlohmann_json absl::variant)
 
 if (BUILD_DIST)
  message ("Building only pytorch_helpers for the usage in distributed")

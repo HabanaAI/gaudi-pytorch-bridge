@@ -218,7 +218,7 @@ StorageExtraMeta* get_storage_extra_meta(
   // The is_contiguous() helps with the corner case torch.expand where the
   // view can be bigger than the base The assumption is that whenever such
   // expansions happen the view won't be contiguous
-  if (nbytes.has_value() && (nbytes.value() < alloc_ctx->num_bytes) ||
+  if ((nbytes.has_value() && (nbytes.value() < alloc_ctx->num_bytes)) ||
       (!is_contiguous)) {
     // It is intended to access the map with [], as we always want to get an
     // entry for new storage offset (either create or lookup is fine)

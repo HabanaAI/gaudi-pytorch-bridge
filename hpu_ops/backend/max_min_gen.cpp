@@ -16,12 +16,6 @@
 #include "generated/backend/min.h"
 #include "hpu_ops/backend/reduction_template.h"
 
-namespace {
-auto indices_type() {
-  return GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) ? c10::ScalarType::Long
-                                                   : c10::ScalarType::Int;
-}
-} // namespace
 namespace habana {
 
 sizes_vec MinMaxOutputShape(const at::Stack& stack) {

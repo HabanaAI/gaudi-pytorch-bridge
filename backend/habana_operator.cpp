@@ -816,7 +816,7 @@ synapse_helpers::tensor habana::HabanaOperator::AllocateConstantSynapseTensor(
   // Increment count for const tensors created for scalars
   graph.increment_const_tensors();
 
-  return std::move(const_syn_tensor);
+  return const_syn_tensor;
 }
 
 synapse_helpers::tensor& habana::HabanaOperator::AllocateSeed(

@@ -8,12 +8,11 @@
 # agreements under which it was provided.
 #
 # ##############################################################################
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-set(TARGET_NAME "_hpu_C")
-add_library(${TARGET_NAME} SHARED
-    bindings.cpp)
-target_compile_definitions(${TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_NAME})
 
-set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
-target_link_libraries(${TARGET_NAME} PUBLIC bindings torch absl::variant absl::flat_hash_map absl::strings ${TORCH_PYTHON_LIBRARY})
-install(TARGETS ${TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin)
+add_habana_library(_hpu_C SHARED bindings.cpp)
+target_compile_definitions(_hpu_C PRIVATE TORCH_EXTENSION_NAME=_hpu_C)
+
+set_target_properties(_hpu_C PROPERTIES PREFIX "")
+target_link_libraries(_hpu_C PUBLIC bindings torch absl::variant absl::flat_hash_map absl::strings
+                                    ${TORCH_PYTHON_LIBRARY})
+install(TARGETS _hpu_C LIBRARY DESTINATION habana_torch_plugin)

@@ -457,7 +457,6 @@ void HandleInputOutputViews(
       !io_view_state.inplace_ordinary_tensors) {
     pt_eager_graph_debug.before("Node replacement");
 
-    JitNode* new_node = node;
     // These kernels completely ignore the data in input tensor and hence the
     // input tensor can be reused by updating inplace. Further it also avoids
     // implementing out of place variants
@@ -465,7 +464,7 @@ void HandleInputOutputViews(
     if (!underscored_ops_reported_as_non_inplace.count(
             node->kind().toQualString())) {
       if (eager_op_meta_data.num_out_tensors_ <= 1) {
-        new_node =
+        auto* new_node =
             replace_with_out_of_place_op(graph, node, eager_op_meta_data);
         replaced = true;
       }

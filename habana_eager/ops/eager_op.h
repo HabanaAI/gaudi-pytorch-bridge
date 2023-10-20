@@ -503,7 +503,7 @@ class EagerOp : public EagerOpBase {
       std::vector<at::Tensor> results;
 
       results.reserve(meta.size());
-      for (const auto output_meta : meta) {
+      for (const auto& output_meta : meta) {
         results.emplace_back(at::empty(
             output_meta.shape,
             options.dtype(output_meta.dtype),

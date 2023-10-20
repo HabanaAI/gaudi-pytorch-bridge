@@ -81,36 +81,6 @@ std::shared_ptr<void> FillNllLossBwdParams(
 }
 enum modes { Fwd2D, Bwd2D };
 
-// Transpose NCHW to NHWC and vice versa
-static std::vector<synapse_helpers::tensor> Transpose_MemFormat(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    enum modes nll_loss_mode,
-    std::vector<synTensor> input,
-    const at::IntArrayRef input_shape,
-    c10::optional<int> final_index = c10::nullopt) {
-  synTransposeParams trans_params{};
-  trans_params.tensorDim = 4;
-  for (int i = 0; i < 4; ++i) {
-    trans_params.permutation[i] = static_cast<TransposePermutationDim>(i);
-  }
-  if (nll_loss_mode == Fwd2D) { // 2D variant Fwd
-    std::swap(trans_params.permutation[1], trans_params.permutation[2]);
-    std::swap(trans_params.permutation[0], trans_params.permutation[1]);
-  } else if (nll_loss_mode == Bwd2D) { // 2D variant Bwd
-    std::swap(trans_params.permutation[0], trans_params.permutation[1]);
-    std::swap(trans_params.permutation[1], trans_params.permutation[2]);
-  }
-  return OpBackend::BuildNode(
-      op,
-      graph,
-      {"transpose",
-       std::move(input),
-       {{input_shape, op->ScalarType(), final_index}},
-       &trans_params,
-       sizeof(trans_params)});
-}
-
 static std::vector<synapse_helpers::tensor> NllLoss(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -184,7 +154,6 @@ void NllLoss2DFwd::AddNode(
         GetOutputMetaData(1).external);
   }
 
-  auto input_shape = stack_tensor(stack, 0).sizes();
   size_t size = 0;
   const auto& params = FillParams(stack, size);
   const auto outshape = ComputeOutputShapes(stack)[0];

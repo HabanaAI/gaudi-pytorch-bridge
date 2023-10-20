@@ -8,30 +8,20 @@
 # agreements under which it was provided.
 #
 # ##############################################################################
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
-set(TARGET_NAME "_debug_C")
-add_library(${TARGET_NAME} SHARED
-    bindings.cpp)
-target_compile_definitions(${TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${TARGET_NAME})
 
-set_target_properties(${TARGET_NAME} PROPERTIES PREFIX "")
-target_link_libraries(${TARGET_NAME} PUBLIC bindings torch absl::flat_hash_map absl::strings ${TORCH_PYTHON_LIBRARY})
-install(TARGETS ${TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin/utils)
+add_habana_library(_debug_C SHARED bindings.cpp)
+target_compile_definitions(_debug_C PRIVATE TORCH_EXTENSION_NAME=_debug_C)
+set_target_properties(_debug_C PROPERTIES PREFIX "")
+target_link_libraries(_debug_C PUBLIC bindings torch absl::flat_hash_map absl::strings ${TORCH_PYTHON_LIBRARY})
 
-set(EAGER_TARGET_NAME "_debug_eager_C")
-add_library(${EAGER_TARGET_NAME} SHARED
-    bindings_eager.cpp)
-target_compile_definitions(${EAGER_TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${EAGER_TARGET_NAME})
+add_habana_library(_debug_eager_C SHARED bindings_eager.cpp)
+target_compile_definitions(_debug_eager_C PRIVATE TORCH_EXTENSION_NAME=_debug_eager_C)
+set_target_properties(_debug_eager_C PROPERTIES PREFIX "")
+target_link_libraries(_debug_eager_C PUBLIC bindings torch absl::flat_hash_map absl::strings ${TORCH_PYTHON_LIBRARY})
 
-set_target_properties(${EAGER_TARGET_NAME} PROPERTIES PREFIX "")
-target_link_libraries(${EAGER_TARGET_NAME} PUBLIC bindings torch absl::flat_hash_map absl::strings ${TORCH_PYTHON_LIBRARY})
-install(TARGETS ${EAGER_TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin/utils)
+add_habana_library(_debug_lazy_C SHARED bindings_lazy.cpp)
+target_compile_definitions(_debug_lazy_C PRIVATE TORCH_EXTENSION_NAME=_debug_lazy_C)
+set_target_properties(_debug_lazy_C PROPERTIES PREFIX "")
+target_link_libraries(_debug_lazy_C PUBLIC bindings torch absl::flat_hash_map absl::strings ${TORCH_PYTHON_LIBRARY})
 
-set(EAGER_TARGET_NAME "_debug_lazy_C")
-add_library(${EAGER_TARGET_NAME} SHARED
-    bindings_lazy.cpp)
-target_compile_definitions(${EAGER_TARGET_NAME} PRIVATE TORCH_EXTENSION_NAME=${EAGER_TARGET_NAME})
-
-set_target_properties(${EAGER_TARGET_NAME} PROPERTIES PREFIX "")
-target_link_libraries(${EAGER_TARGET_NAME} PUBLIC bindings torch absl::flat_hash_map absl::strings ${TORCH_PYTHON_LIBRARY})
-install(TARGETS ${EAGER_TARGET_NAME} LIBRARY DESTINATION habana_torch_plugin/utils)
+install(TARGETS _debug_C _debug_eager_C _debug_lazy_C LIBRARY DESTINATION habana_torch_plugin/utils)

@@ -30,6 +30,7 @@ macro(detect_pt_version)
     "    str(PYTORCH_FORK_MINOR))\;"
     "}")
   list(JOIN PT_VER_PRINTER_LINES "\n" CMAKE_CONFIGURABLE_FILE_CONTENT)
+  unset(PT_VER_PRINTER_LINES)
 
   configure_file("${CMAKE_ROOT}/Modules/CMakeConfigurableFile.in"
                  "${CMAKE_CURRENT_BINARY_DIR}/pt_version_printer.cpp" @ONLY)

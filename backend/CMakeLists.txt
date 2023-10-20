@@ -11,7 +11,7 @@
 ###############################################################################
 
 add_subdirectory(synapse_helpers)
-add_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpers>
+add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synapse_helpers>
   jit_graph_cache.cpp
   jitgraph_utils.cpp
   create_pt_tensor.cpp
@@ -114,7 +114,6 @@ target_include_directories(
   $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>
   ${PYTHON_INCLUDE_DIRS})
 
-target_compile_definitions(habana_pytorch_backend PRIVATE MAX_DEVICES_PER_BOX=8)
 target_compile_definitions(habana_pytorch_backend PUBLIC GENERIC_HELPERS)
 target_compile_features(habana_pytorch_backend PUBLIC cxx_std_14) # still required as this is transitive
 set_target_properties(habana_pytorch_backend PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)

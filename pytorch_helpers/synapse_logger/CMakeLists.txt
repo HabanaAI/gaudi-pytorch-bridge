@@ -15,9 +15,7 @@ set(SYNAPSE_LOGGER_SRCS
   ./syn_training_impl.cpp
   )
 
-add_library(pytorch_synapse_logger SHARED ${SYNAPSE_LOGGER_SRCS})
-target_compile_options(pytorch_synapse_logger
-  PRIVATE -Wall -Wextra -Werror)
+add_habana_library(pytorch_synapse_logger SHARED ${SYNAPSE_LOGGER_SRCS})
 set_target_properties(pytorch_synapse_logger PROPERTIES PREFIX "")
 target_include_directories(pytorch_synapse_logger PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(pytorch_synapse_logger SYSTEM
@@ -62,10 +60,8 @@ target_compile_features(py_pytorch_synapse_logger_wrap PRIVATE cxx_std_11)
 target_compile_options(py_pytorch_synapse_logger_wrap PRIVATE -fno-exceptions -w)
 target_include_directories(py_pytorch_synapse_logger_wrap PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${PYTHON_INCLUDE_DIR} ${NumPy_INCLUDE_DIR})
 
-add_library(_py_pytorch_synapse_logger SHARED ${SYNAPSE_LOGGER_SRCS})
+add_habana_library(_py_pytorch_synapse_logger SHARED ${SYNAPSE_LOGGER_SRCS})
 target_compile_features(_py_pytorch_synapse_logger PRIVATE cxx_std_11)
-target_compile_options(_py_pytorch_synapse_logger
-  PRIVATE -Wall -Wextra -Werror)
 set_target_properties(_py_pytorch_synapse_logger PROPERTIES PREFIX "")
 target_compile_options(_py_pytorch_synapse_logger PRIVATE -fno-exceptions)
 target_compile_definitions(_py_pytorch_synapse_logger PUBLIC -DBINARY_NAME="_py_pytorch_synapse_logger.so")

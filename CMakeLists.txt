@@ -48,6 +48,8 @@ find_package(Torch REQUIRED)
 include(pt_ver)
 set_up_pt_ver_mechanism()
 
+include(Targets)
+
 if(SANITIZER)
   message("Building sanitizers configuration")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined -fno-sanitize=vptr -fsanitize-address-use-after-scope -O0")
@@ -104,7 +106,7 @@ add_subdirectory(pytorch_helpers)
 add_subdirectory(backend)
 
 # workaround for cmake3.5. Starting from 3.13 sources are optional and we can add them in add_subdirectories
-add_library(habana_pytorch_plugin SHARED
+add_habana_library(habana_pytorch_plugin SHARED
   common/lazy/utils.cpp
   pytorch_helpers/lazy_to_backend.cpp
   pytorch_helpers/habana_helpers/logging.cpp
@@ -182,10 +184,6 @@ add_library(habana_pytorch_plugin SHARED
 add_subdirectory(hpu_ops)
 add_subdirectory(python_packages/habana_frameworks/torch)
 target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_17)
-
-# TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
-target_compile_options(habana_pytorch_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
-
 # Link against LibTorch and synapse
 target_link_libraries(habana_pytorch_plugin
   PRIVATE
@@ -214,7 +212,7 @@ add_custom_command(TARGET habana_pytorch_plugin POST_BUILD COMMAND
 install(TARGETS habana_pytorch_plugin LIBRARY DESTINATION habana_torch_plugin/lib)
 
 add_subdirectory(habana_eager)
-add_library(habana_pytorch2_plugin SHARED
+add_habana_library(habana_pytorch2_plugin SHARED
   common/eager/utils.cpp
   pytorch_helpers/lazy_to_backend.cpp
   pytorch_helpers/habana_helpers/dtype_helpers.cpp
@@ -303,10 +301,6 @@ add_library(habana_pytorch2_plugin SHARED
 target_include_directories(habana_pytorch2_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
 target_include_directories(habana_pytorch2_plugin SYSTEM PRIVATE ${PYTHON_INCLUDE_DIR})
 target_compile_features(habana_pytorch2_plugin PRIVATE cxx_std_17)
-
-# TODO: remove -Wno-error=deprecated-declarations after removing functions marked [[deprecated]]
-target_compile_options(habana_pytorch2_plugin PRIVATE -Wall -Wextra -Werror -Wno-error=deprecated-declarations)
-
 # Link against LibTorch and synapse
 target_link_libraries(habana_pytorch2_plugin
   PRIVATE

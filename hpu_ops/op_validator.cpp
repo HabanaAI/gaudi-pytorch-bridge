@@ -154,7 +154,10 @@ SharedLayer::Return_t ValidateGuid(
   auto deviceId = getDeviceType();
   params.deviceId = deviceId;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
   strncpy(params.guid.name, guid.c_str(), SharedLayer::MAX_NODE_NAME);
+#pragma GCC diagnostic pop
   // skipping:
   // params.guid.nameHash - not used in lower layer
   // params.guid.kernelProperties - not used in lower layer

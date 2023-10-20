@@ -96,7 +96,6 @@ bool isInGraphOutputs(const torch::jit::Node* node, size_t index) {
 }
 
 bool isInGraphOutputs(const torch::jit::Node* node) {
-  auto node_outs = node->outputs();
   for (auto node_outs : node->outputs()) {
     if (isInGraphOutputs(node_outs)) {
       return true;

@@ -12,6 +12,7 @@
  */
 
 #include "hpu_ops/indexing_ops_helper.h"
+#include <c10/core/ScalarType.h>
 #include <stdint.h>
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/tensor_shape_kernels.h"
@@ -49,7 +50,7 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
   int adv_ind_dim_count = 0;
   unsigned max_elem_count = 0;
   std::vector<int64_t> largest_specified_index_t_size;
-  for (int i = 0; i < (int)adv_index_dims.size(); i++) {
+  for (size_t i = 0; i < (int)adv_index_dims.size(); i++) {
     unsigned elem_count;
     if (i < indexing_tensor_shapes.size()) {
       elem_count = std::accumulate(
@@ -70,7 +71,7 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
 
   std::vector<int64_t> output_shape;
   bool non_adv_indexing_found = false;
-  for (int i = 0; i < (int)adv_index_dims.size(); i++) {
+  for (size_t i = 0; i < (int)adv_index_dims.size(); i++) {
     if (adv_index_dims[i]) {
       output_shape.emplace_back(
           (i < indexing_tensor_shapes.size()) ? indexing_tensor_shapes[i][0]
@@ -168,13 +169,13 @@ std::tuple<std::vector<int64_t>, std::vector<at::Tensor>> transposeToFront(
     }
   }
   dims.reserve(self.dim());
-  for (const auto i : c10::irange(self.dim())) {
+  for (const auto i : c10::irange<size_t>(self.dim())) {
     if ((i < indices.size()) && indices[i].has_value()) {
       dims.push_back(i);
       transposedIndices.emplace_back(indices[i].value());
     }
   }
-  for (const auto i : c10::irange(self.dim())) {
+  for (const auto i : c10::irange<size_t>(self.dim())) {
     if ((i < indices.size()) && !indices[i].has_value()) {
       dims.push_back(i);
       // Don't add undefined tensors to list as Lazy infra can't handle such
@@ -188,7 +189,7 @@ std::tuple<std::vector<int64_t>, std::vector<at::Tensor>> transposeToFront(
 
 bool check_for_adv_indexing(c10::ArrayRef<c10::IValue> indices_in_orig) {
   bool advanced_indexing = false;
-  c10::ScalarType prev_scalar_type;
+  c10::ScalarType prev_scalar_type{c10::ScalarType::Undefined};
   bool first_scalar = true;
   if (indices_in_orig.size() <= MAX_DIMS_FOR_ADVANCED_INDEXING) {
     for (auto input : indices_in_orig) {

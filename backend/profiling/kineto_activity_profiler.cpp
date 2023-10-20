@@ -147,8 +147,9 @@ class GenericTraceActivitySink : public TraceSink {
         return libkineto::ActivityType::GPU_MEMCPY;
       case ActivityType::MEMSET:
         return libkineto::ActivityType::GPU_MEMSET;
+      default:
+        return libkineto::ActivityType::HPU_OP;
     }
-    return libkineto::ActivityType::HPU_OP;
   }
   std::deque<GenericTraceActivity>& activities_;
 };

@@ -261,8 +261,8 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
     const bool dynamic)
     : jit_graph_to_lowering(JitGraphToLowering),
       unique_graph_cntr(ug_cntr),
-      node_bcast_details(bcast_details),
-      dynamic_graph(dynamic) {
+      dynamic_graph(dynamic),
+      node_bcast_details(bcast_details) {
   // Compute the graph hash
   ComputeGraphHashCode(JitGraphToLowering, input_refs, id);
 }

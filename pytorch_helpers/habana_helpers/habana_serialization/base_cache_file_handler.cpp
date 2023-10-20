@@ -86,7 +86,7 @@ std::vector<BaseCacheFileHandler::RecipeInfo> BaseCacheFileHandler::
       }
       de++;
     }
-  } catch (fs::filesystem_error err) {
+  } catch (fs::filesystem_error& err) {
     PT_HABHELPER_WARN(
         CACHEFILE_LOG,
         "Can't calculate current disk cache space consumption. Disk cache eviction may not work correctly.");
@@ -188,7 +188,7 @@ bool BaseCacheFileHandler::delete_recipe(RecipeInfo& r_info) {
       fs::remove(met_path);
       PT_HABHELPER_DEBUG(CACHEFILE_LOG, "Deleted ", r_info.recipe_id);
       removed_successfully = true;
-    } catch (fs::filesystem_error err) {
+    } catch (fs::filesystem_error& err) {
       PT_HABHELPER_WARN(
           CACHEFILE_LOG,
           "File system error during removing recipe/metadata for ",
