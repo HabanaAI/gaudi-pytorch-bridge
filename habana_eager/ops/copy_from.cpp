@@ -253,15 +253,10 @@ void Register_Copy_In_Pipeline(
     bool non_blocking) {
   habana::eager::SingleTonEagerContext::getInstance()
       .ScheduleWorkAndUpdateLoweringThreadHandle(
-          [src = std::move(src),
-           dst = std::move(dst),
-           non_blocking = std::move(non_blocking)]() mutable {
-            return hpu_registrar().get_device().get_lowering_thread().enqueue(
-                Copy_Empty_Lowering_Task,
-                std::move(src),
-                std::move(dst),
-                std::move(non_blocking));
-          });
+          Copy_Empty_Lowering_Task,
+          std::move(src),
+          std::move(dst),
+          non_blocking);
 }
 
 void Pipeline_Or_Direct_Copy(

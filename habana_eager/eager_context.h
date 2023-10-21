@@ -15,6 +15,8 @@
 #include <future>
 #include <mutex>
 #include "backend/habana_device/HPUDevice.h"
+#include "backend/habana_device/hpu_cached_devices.h"
+#include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 
 namespace habana {
 namespace eager {
@@ -41,8 +43,14 @@ class SingleTonEagerContext {
    *
    * @param starter Function that launch execution and returns handle
    */
-  void ScheduleWorkAndUpdateLoweringThreadHandle(
-      const std::function<std::shared_future<void>()>& starter);
+  template <class F, class... Args>
+  void ScheduleWorkAndUpdateLoweringThreadHandle(F&& f, Args&&... args) {
+    auto handle =
+        hpu_registrar().get_device().get_lowering_thread().enqueue<F, Args...>(
+            std::forward<F>(f), std::forward<Args>(args)...);
+    std::unique_lock lock{m_lowering_thread_handle_mutex};
+    m_lowering_thread_handle = std::move(handle);
+  }
 
   /**
    * Joins scheduled work.

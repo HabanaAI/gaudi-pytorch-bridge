@@ -58,12 +58,6 @@ void SingleTonEagerContext::JoinPendingLoweringThread() {
   HandleException();
 }
 
-void SingleTonEagerContext::ScheduleWorkAndUpdateLoweringThreadHandle(
-    const std::function<std::shared_future<void>()>& starter) {
-  std::unique_lock lock{m_lowering_thread_handle_mutex};
-  m_lowering_thread_handle = starter();
-}
-
 void SingleTonEagerContext::HandleException() {
   PT_EAGER_TRACE;
   if (C10_UNLIKELY(m_lowering_thread_exception)) {

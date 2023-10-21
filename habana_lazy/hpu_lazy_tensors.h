@@ -406,7 +406,7 @@ class HbLazyTensor {
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_out,
       std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,
-      std::unordered_map<int64_t, c10::optional<at::Generator>>&
+      const std::unordered_map<int64_t, c10::optional<at::Generator>>&
           seed_tensors_generator_map,
       bool is_cached,
       uint64_t launch_jobid);

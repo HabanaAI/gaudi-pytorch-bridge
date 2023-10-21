@@ -23,9 +23,9 @@ namespace habana {
 namespace eager {
 void EagerLoweringTask(
     at::Symbol symbol,
-    std::vector<at::IValue> inputs,
-    OutputSpecsOrTensors out_spec_or_tensors,
-    EagerOpMetaData eager_op_meta_data,
+    std::vector<at::IValue>&& inputs,
+    OutputSpecsOrTensors&& out_spec_or_tensors,
+    EagerOpMetaData&& eager_op_meta_data,
     bool is_pipeline_supported) {
   habana::eager::EagerExec hlexec{
       std::move(symbol),
@@ -92,17 +92,12 @@ torch::jit::Stack EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
       m_is_pipeline_supported) {
     SingleTonEagerContext::getInstance()
         .ScheduleWorkAndUpdateLoweringThreadHandle(
-            [this,
-             stack = std::move(stack),
-             out_spec_or_tensors = std::move(out_spec_or_tensors)]() mutable {
-              return hpu_registrar().get_device().get_lowering_thread().enqueue(
-                  EagerLoweringTask,
-                  m_symbol,
-                  std::move(stack),
-                  std::move(out_spec_or_tensors),
-                  std::move(m_eager_op_meta_data),
-                  m_is_pipeline_supported);
-            });
+            EagerLoweringTask,
+            m_symbol,
+            std::move(stack),
+            std::move(out_spec_or_tensors),
+            std::move(m_eager_op_meta_data),
+            m_is_pipeline_supported);
 
     return {torch::jit::IValue()};
 

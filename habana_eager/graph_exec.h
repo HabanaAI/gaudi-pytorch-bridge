@@ -42,8 +42,8 @@ class GraphExec {
 
   static void LaunchRecipeTask(
       GraphExec* gexec,
-      torch::jit::Stack& inputs,
-      std::vector<at::Tensor>& outputs);
+      torch::jit::Stack&& inputs,
+      std::vector<at::Tensor>&& outputs);
 
   GraphExec() = delete;
   GraphExec(const GraphExec&) = delete;

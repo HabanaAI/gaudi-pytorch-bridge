@@ -37,8 +37,8 @@ size_t generate_graph_index(size_t recipe_id) {
 
 void GraphExec::LaunchRecipeTask(
     GraphExec* gexec,
-    torch::jit::Stack& inputs,
-    std::vector<at::Tensor>& outputs) {
+    torch::jit::Stack&& inputs,
+    std::vector<at::Tensor>&& outputs) {
   PT_EAGER_TRACE_WITH_NAME(gexec->m_graph_name);
   try {
     gexec->LaunchRecipe(inputs, outputs);
@@ -218,12 +218,11 @@ torch::jit::Stack GraphExec::launch(
   if (m_is_pipeline_supported && backend_outputs.size() > 0) {
     habana::eager::SingleTonEagerContext::getInstance()
         .ScheduleWorkAndUpdateLoweringThreadHandle(
-            [this,
-             backend_inputs = std::move(backend_inputs),
-             backend_outputs = std::move(backend_outputs)]() mutable {
-              return hpu_registrar().get_device().get_lowering_thread().enqueue(
-                  LaunchRecipeTask, this, backend_inputs, backend_outputs);
-            });
+            LaunchRecipeTask,
+            this,
+            std::move(backend_inputs),
+            std::move(backend_outputs));
+
     return {};
   } else {
     std::optional<std::vector<at::Tensor>> maybe_backend_outputs;
