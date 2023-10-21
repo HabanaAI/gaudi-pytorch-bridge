@@ -17,14 +17,14 @@
 
 namespace habana {
 
-std::vector<int64_t> MultinomialOutputShape(const at::Stack& stack) {
+sizes_vec MultinomialOutputShape(const at::Stack& stack) {
   const torch::Tensor& t = stack_tensor(stack, 0);
   int64_t num_samples = stack.at(1).toInt();
   auto dim = t.sizes()[0];
   if (t.dim() == 1) {
-    return {num_samples};
+    return {{num_samples}};
   }
-  return {dim, num_samples};
+  return {{dim, num_samples}};
 }
 
 std::shared_ptr<void> FillMultinomialParams(
@@ -56,8 +56,19 @@ std::shared_ptr<void> FillMultinomialParams(
   return params;
 }
 
-OutputMetaDataVector MultinomialMeta(const at::Stack& stack) {
-  return {
-      {.dtype = at::ScalarType::Long, .shape = MultinomialOutputShape(stack)}};
+void Multinomial::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  size_t size = 0;
+  auto outshape = MultinomialOutputShape(stack)[0];
+  auto params = FillMultinomialParams(stack, size);
+  auto multinomial = BuildOp(
+      graph,
+      guid_,
+      {syn_in(0), syn_in(1)},
+      {{outshape, torch::kInt, 0}},
+      params.get(),
+      size);
+  syn_out(0) = std::move(multinomial[0]);
 }
 } // namespace habana

@@ -258,8 +258,6 @@ class OutputMetaData {
         strides(std::move(strides)),
         layout(layout),
         mem_format(mem_format) {}
-  OutputMetaData(at::ScalarType dtype, std::vector<int64_t> shape)
-      : dtype(dtype), shape(std::move(shape)) {}
   OutputMetaData() = default;
 };
 using OutputMetaDataVector = std::vector<OutputMetaData>;
