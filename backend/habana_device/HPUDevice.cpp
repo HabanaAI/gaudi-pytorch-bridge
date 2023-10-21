@@ -72,8 +72,6 @@ std::shared_ptr<synapse_helpers::TimeSlot> HPUDevice::create_time_slot(
 habana_helpers::ThreadPool& HPUDevice::create_lowering_thread() {
   class ThreadPoolHolder final : public DeviceResource {
    public:
-    ThreadPoolHolder()
-        : thread_pool_{num_threads, habana_helpers::QT_LockFree} {}
     habana_helpers::ThreadPool thread_pool_;
   };
   auto lowering_thread{std::make_unique<ThreadPoolHolder>()};

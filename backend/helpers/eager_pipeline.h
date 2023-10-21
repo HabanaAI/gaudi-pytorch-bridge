@@ -27,9 +27,7 @@ class ThreadPoolControl {
   /**
    * @param num_threads Number of available threads in underlying pool
    */
-  explicit ThreadPoolControl(const size_t num_threads)
-      : m_num_threads{num_threads},
-        m_thread_pool_obj{m_num_threads, habana_helpers::QT_LockFree} {};
+  explicit ThreadPoolControl(){};
 
   ThreadPoolControl(const ThreadPoolControl&) = delete;
   ThreadPoolControl& operator=(const ThreadPoolControl&) = delete;
@@ -50,7 +48,6 @@ class ThreadPoolControl {
     if (shared_thread_handle.valid()) {
       PT_LAZY_EXEC_THREAD("Waiting for thread to finish");
       try {
-        WaitUntilThreadPoolIsDone();
         shared_thread_handle.get();
       } catch (std::exception&) {
       }
@@ -74,12 +71,6 @@ class ThreadPoolControl {
 
  private:
   /**
-   * Size of underlying thread pool.
-   */
-  const size_t
-      m_num_threads; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
-
-  /**
    * Underlying thread pool.
    */
   habana_helpers::ThreadPool m_thread_pool_obj;
@@ -97,15 +88,6 @@ class ThreadPoolControl {
   /**
    * Busy waits until underlying thread pool is stopped or still has items.
    */
-  void WaitUntilThreadPoolIsDone() {
-    while (m_thread_pool_obj.has_queued_items.load()) {
-      if (m_thread_pool_obj.m_stop ||
-          !m_thread_pool_obj.has_queued_items.load()) {
-        break;
-      }
-    }
-    return;
-  }
 };
 
 /**
@@ -118,7 +100,7 @@ class Singleton_CompileThreadPool {
    * compilation thread pool.
    */
   static ThreadPoolControl& getInstance() {
-    static ThreadPoolControl thread_pool_control_obj{num_threads};
+    static ThreadPoolControl thread_pool_control_obj;
     return thread_pool_control_obj;
   }
 
@@ -140,12 +122,11 @@ class Singleton_ExecThreadPool {
    * thread pool.
    */
   static ThreadPoolControl& getInstance() {
-    static ThreadPoolControl thread_pool_control_obj{num_threads};
+    static ThreadPoolControl thread_pool_control_obj;
     return thread_pool_control_obj;
   }
 
  private:
-  static constexpr size_t num_threads = 1;
   Singleton_ExecThreadPool() = default;
   Singleton_ExecThreadPool(const Singleton_ExecThreadPool&) = delete;
   Singleton_ExecThreadPool& operator=(const Singleton_ExecThreadPool&) = delete;

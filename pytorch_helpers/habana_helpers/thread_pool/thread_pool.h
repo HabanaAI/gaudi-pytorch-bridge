@@ -29,73 +29,81 @@
 
 namespace habana_helpers {
 
-/**
- * @brief Used to run different compares in different threads
- *
- */
-class ThreadPool {
+// add new work item to the pool
+template <typename T>
+class BlockingQueue {
  public:
-  ThreadPool(size_t, QueueType qType = QT_Standard);
-  template <class F, class... Args>
-  auto enqueue(F&& f, Args&&... args)
-      -> std::future<typename std::result_of<F(Args...)>::type>;
-  void joinAllThreads();
-  bool inThreadPool() const;
-  std::thread::id get_id(size_t worker);
-  ~ThreadPool();
-  void ThrottleIfNeeded();
-  bool m_stop;
-  std::atomic<bool> has_queued_items{false};
-  std::string ToString();
+  T pop() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    cond_.wait(lock, [this] { return !queue_.empty(); });
+    T item = std::move(queue_.front());
+    queue_.pop();
+    return item;
+  }
+  void push(T&& item) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    queue_.push(std::move(item));
+    lock.unlock();
+    cond_.notify_one();
+  }
+  bool empty() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    return queue_.empty();
+  }
 
-  // To wait till the queue becomes empty or thread pool instance is destroyed
-  void waitOnQueue() {
-    while (has_queued_items.load()) {
-      if (m_stop || !has_queued_items.load()) {
-        break;
-      }
-    }
-    return;
+  size_t size() const {
+    std::unique_lock<std::mutex> lock(mutex_);
+    return queue_.size();
   }
 
  private:
-  std::vector<std::thread> m_workers;
-  Queue<std::function<void()>>* m_tasks;
-  // synchronization
-  std::mutex m_queueMutex;
-  std::condition_variable m_condition;
+  std::queue<T> queue_;
+  mutable std::mutex mutex_;
+  std::condition_variable cond_;
 };
 
-// add new work item to the pool
+template <template <typename> typename Queue>
+class ThreadPoolBase {
+ public:
+  ThreadPoolBase(bool propagate_exception = false);
+  ~ThreadPoolBase();
+
+  using Task = std::packaged_task<void()>;
+
+  template <class F, class... Args>
+  auto enqueue(F&& f, Args&&... args);
+  void waitWorkComplete();
+  void rethrowIfException();
+  std::string ToString() const;
+
+ private:
+  Queue<Task> tasks_;
+
+  std::thread thread_;
+  std::atomic_bool stop_;
+  std::exception_ptr ex_ptr_;
+
+  bool propagate_exception_ = false;
+
+  void main_loop() {
+    while (!stop_)
+      executePendingTask(std::move(tasks_.pop()));
+  }
+  void executePendingTask(Task&& task);
+};
+
+template <template <typename> typename Queue>
 template <class F, class... Args>
-auto ThreadPool::enqueue(F&& f, Args&&... args)
-    -> std::future<typename std::result_of<F(Args...)>::type> {
-  using return_type = typename std::result_of<F(Args...)>::type;
-
-  ThrottleIfNeeded();
-
-  auto task = std::make_shared<std::packaged_task<return_type()>>(
-      std::bind(std::forward<F>(f), std::forward<Args>(args)...));
-
-  std::future<return_type> res = task->get_future();
-  {
-    std::lock_guard<std::mutex> lock(m_queueMutex);
-    // don't allow enqueueing after stopping the pool
-    if (m_stop)
-      throw std::runtime_error("enqueue on stopped ThreadPool");
-
-    m_tasks->emplace([task]() { (*task)(); });
-  }
-  m_condition.notify_one();
+auto ThreadPoolBase<Queue>::enqueue(F&& f, Args&&... args) {
+  auto packed_func = [args = std::make_tuple(std::forward<Args>(args)...),
+                      func = std::move(f)]() mutable {
+    std::apply([&](auto&&... x) { func(std::forward<Args>(x)...); }, args);
+  };
+  auto task = std::packaged_task<void()>(std::move(packed_func));
+  auto res = task.get_future();
+  tasks_.push(std::move(task));
   return res;
-}
+};
 
-inline std::thread::id ThreadPool::get_id(size_t worker) {
-  std::thread::id tid(-1);
-  if (worker < m_workers.size()) {
-    tid = m_workers[worker].get_id();
-  }
-  return tid;
-}
-
+using ThreadPool = ThreadPoolBase<BlockingQueue>;
 } // namespace habana_helpers

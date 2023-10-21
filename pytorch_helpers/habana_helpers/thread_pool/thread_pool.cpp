@@ -18,91 +18,66 @@
 
 namespace habana_helpers {
 
-ThreadPool::ThreadPool(size_t threads, QueueType qType) : m_stop(false) {
-  m_tasks = Queue<std::function<void()>>::Create(
-      qType, GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY));
-  for (size_t i = 0; i < threads; ++i)
-    m_workers.emplace_back([this] {
-      for (;;) {
-        std::function<void()> task;
-        {
-          std::unique_lock<std::mutex> lock(this->m_queueMutex);
-          this->m_condition.wait(
-              lock, [this] { return this->m_stop || !this->m_tasks->empty(); });
-          if (this->m_stop && this->m_tasks->empty()) {
-            this->has_queued_items.store(false);
-            if (this->m_tasks) {
-              delete this->m_tasks;
-              this->m_tasks = NULL;
-            }
-            return;
-          }
-          task = std::move(this->m_tasks->front());
-          this->m_tasks->pop();
-        }
-
-        // Run the task.
-        try {
-          task();
-        } catch (const std::exception& e) {
-          PT_BRIDGE_FATAL("Exception in launch thread pool task: ", e.what());
-        } catch (...) {
-          PT_BRIDGE_FATAL("Exception in launch thread pool task: unknown");
-        }
-
-        if (this->m_tasks->empty()) {
-          this->has_queued_items.store(false);
-        } else {
-          this->has_queued_items.store(true);
-        }
-      }
-    });
+template <template <typename> typename Queue>
+ThreadPoolBase<Queue>::ThreadPoolBase(bool propagate_exception)
+    : stop_(false),
+      ex_ptr_(nullptr),
+      propagate_exception_(propagate_exception) {
+  thread_ = std::thread(&ThreadPoolBase<Queue>::main_loop, this);
 }
 
-void ThreadPool::joinAllThreads() {
-  for (std::thread& worker : m_workers) {
-    worker.join();
+template <template <typename> typename Queue>
+ThreadPoolBase<Queue>::~ThreadPoolBase() {
+  // set flag to true to break main loop in the acc thread
+  tasks_.push(std::packaged_task<void()>{[this]() { stop_ = true; }});
+  try {
+    thread_.join();
+  } catch (const std::exception& ex) {
+    PT_BRIDGE_WARN("Exception in pool destructor: ", ex.what());
   }
 }
 
-bool ThreadPool::inThreadPool() const {
-  static thread_local std::thread::id tid = std::this_thread::get_id();
-  for (auto& thread : m_workers) {
-    if (thread.get_id() == tid) {
-      return true;
-    }
-  }
-  return false;
+template <template <typename> typename Queue>
+void ThreadPoolBase<Queue>::waitWorkComplete() {
+  auto task = std::packaged_task<void()>([]() {});
+  auto work_compelete = task.get_future();
+  tasks_.push(std::move(task));
+  work_compelete.wait();
 }
 
-std::string ThreadPool::ToString() {
+template <template <typename> typename Queue>
+void ThreadPoolBase<Queue>::executePendingTask(Task&& task) {
+  try {
+    task();
+  } catch (const std::exception& e) {
+    if (propagate_exception_)
+      ex_ptr_ = std::current_exception();
+    else
+      PT_BRIDGE_FATAL("Exception in launch thread pool task: ", e.what());
+  } catch (...) {
+    if (propagate_exception_)
+      ex_ptr_ = std::current_exception();
+    else
+      PT_BRIDGE_FATAL("Exception in launch thread pool task: unknown");
+  }
+}
+
+template <template <typename> typename Queue>
+void ThreadPoolBase<Queue>::rethrowIfException() {
+  if (ex_ptr_) {
+    auto ex_ptr = ex_ptr_;
+    ex_ptr_ = nullptr;
+    std::rethrow_exception(ex_ptr);
+  }
+}
+
+template <template <typename> typename Queue>
+std::string ThreadPoolBase<Queue>::ToString() const {
   std::stringstream ss;
-  ss << "ThreadPool has_queued_items:" << has_queued_items;
-  ss << " m_workers size:" << m_workers.size();
-  ss << " m_tasks size:" << m_tasks->size();
+  ss << "ThreadPool m_tasks size:" << tasks_.size();
   return ss.str();
 }
 
-void ThreadPool::ThrottleIfNeeded() {
-  if (m_tasks->is_full()) {
-    PT_BRIDGE_WARN(
-        "Message queue is full, queue size : ",
-        m_tasks->size(),
-        " queue capacity : ",
-        m_tasks->queue_capacity());
-    while (m_tasks->size() > m_tasks->queue_capacity() / 2) {
-      sleep(0);
-    }
-  }
-}
+template class ThreadPoolBase<BlockingQueue>;
 
-// the destructor joins all threads
-ThreadPool::~ThreadPool() {
-  {
-    std::lock_guard<std::mutex> lock(m_queueMutex);
-    m_stop = true;
-  }
-  m_condition.notify_all();
-  joinAllThreads();
-}
 } // namespace habana_helpers

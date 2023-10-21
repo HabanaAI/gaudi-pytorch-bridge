@@ -17,8 +17,14 @@
 #include "habana_helpers/logging.h"
 
 namespace habana_helpers {
-class ThreadPool;
-}
+template <template <typename> class Queue>
+class ThreadPoolBase;
+
+template <typename T>
+class BlockingQueue;
+
+using ThreadPool = ThreadPoolBase<BlockingQueue>;
+} // namespace habana_helpers
 
 namespace synapse_helpers {
 class TimeSlot;
@@ -184,8 +190,6 @@ class HPUDevice {
   habana_helpers::ThreadPool* raw_lowering_thread_{nullptr};
 
   habana_helpers::ThreadPool& create_lowering_thread();
-
-  static constexpr size_t num_threads = 1;
 };
 
 } // namespace habana
