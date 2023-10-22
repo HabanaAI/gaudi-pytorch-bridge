@@ -3562,8 +3562,7 @@ void HabanaLaunchOpPT::run(
       [&](std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
           size_t graph_key_with_perm,
           bool is_shape_agnostic_cache_miss,
-          bool do_nothing_compile,
-          bool do_nothing_execute) {
+          bool do_nothing_compile) {
         std::shared_ptr<HabanaCompile> habanacompiler =
             std::make_shared<HabanaCompile>();
         habana_helpers::Singleton_CompileThreadPool::getInstance()
@@ -3572,8 +3571,7 @@ void HabanaLaunchOpPT::run(
                 is_shape_agnostic_cache_miss,
                 std::move(hb_launch_op),
                 graph_key_with_perm,
-                do_nothing_compile,
-                do_nothing_execute);
+                do_nothing_compile);
       };
 
   // eager and graph recipe caching :: begin
@@ -3622,11 +3620,7 @@ void HabanaLaunchOpPT::run(
             "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
         constexpr bool do_nothing = true;
         enqueue_compile_synapse(
-            this->shared_from_this(),
-            graph_key_with_perm,
-            false,
-            do_nothing,
-            !do_nothing);
+            this->shared_from_this(), graph_key_with_perm, false, do_nothing);
         // TODO: Merge with is_pipeline_supported status flag
         if (!is_enable_4stage_pipeline) {
           habana_helpers::Singleton_CompileThreadPool::getInstance()
@@ -3760,11 +3754,7 @@ void HabanaLaunchOpPT::run(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
       constexpr bool do_nothing = false;
       enqueue_compile_synapse(
-          this->shared_from_this(),
-          graph_key_with_perm,
-          true,
-          do_nothing,
-          do_nothing);
+          this->shared_from_this(), graph_key_with_perm, true, do_nothing);
 
       // In case of SAG cache miss we have to wait till a compile thread sets
       // permutation for outputs (In case of SAG cache hit, that info is taken
@@ -3861,11 +3851,7 @@ void HabanaLaunchOpPT::run(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
       constexpr bool do_nothing = false;
       enqueue_compile_synapse(
-          this->shared_from_this(),
-          graph_key_with_perm,
-          false,
-          do_nothing,
-          do_nothing);
+          this->shared_from_this(), graph_key_with_perm, false, do_nothing);
       if (!is_enable_4stage_pipeline) {
         habana_helpers::Singleton_CompileThreadPool::getInstance()
             .JoinPendingThread();
@@ -3929,11 +3915,7 @@ void HabanaLaunchOpPT::run(
     jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
     constexpr bool do_nothing = true;
     enqueue_compile_synapse(
-        this->shared_from_this(),
-        graph_key_with_perm,
-        false,
-        !do_nothing,
-        !do_nothing);
+        this->shared_from_this(), graph_key_with_perm, false, !do_nothing);
 
     if (!is_permute_data_cached || enable_caching_ ||
         !is_enable_4stage_pipeline)

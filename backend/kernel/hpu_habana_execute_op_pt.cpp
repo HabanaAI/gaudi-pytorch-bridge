@@ -19,13 +19,8 @@ namespace habana {
 
 void habana::HabanaExecute::ExecuteSynapse(
     bool is_shape_agnostic_cache_miss,
-    std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
-    bool do_nothing_execute) {
+    std::shared_ptr<HabanaLaunchOpPT> hb_launch_op) {
   PT_BRIDGE_BEGIN;
-  if (do_nothing_execute) {
-    PT_BRIDGE_END;
-    return;
-  }
   if (hb_launch_op->get_enable_shape_agnostic_caching_() &&
       hb_launch_op->get_is_shape_agnostic_supported()) {
     if (is_shape_agnostic_cache_miss) {
