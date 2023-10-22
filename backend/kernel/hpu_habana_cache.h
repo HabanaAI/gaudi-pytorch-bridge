@@ -298,12 +298,12 @@ struct RecipeValueSpec {
       std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec,
       std::vector<size_t>& external_tensor_info_indexes);
   void MaybePrintDebugInfo(
-      at::ArrayRef<torch::jit::IValue>& input_refs,
-      std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
+      const at::ArrayRef<torch::jit::IValue>& input_refs,
+      const std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
       const VecOfIValPtrSh& aten_outputs);
   void launch(
       synapse_helpers::hpuStream_t hpu_stream,
-      at::ArrayRef<torch::jit::IValue>& input_refs,
+      const at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
       const VecOfIValPtrSh& aten_outputs,
       std::vector<synLaunchTensorInfoExt>& syn_launch_info,

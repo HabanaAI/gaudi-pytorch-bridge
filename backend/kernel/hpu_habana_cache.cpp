@@ -1390,8 +1390,8 @@ void RecipeValueSpec::patch_launch_info(
 }
 
 void RecipeValueSpec::MaybePrintDebugInfo(
-    at::ArrayRef<torch::jit::IValue>& input_refs,
-    std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
+    const at::ArrayRef<torch::jit::IValue>& input_refs,
+    const std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
     const VecOfIValPtrSh& aten_outputs) {
   PT_BRIDGE_BEGIN;
   if (hl_logger::logLevelAtLeast(
@@ -1451,7 +1451,7 @@ size_t get_active_graph_unique_key(const std::string& name) {
 
 void RecipeValueSpec::launch(
     synapse_helpers::hpuStream_t hpu_stream,
-    at::ArrayRef<torch::jit::IValue>& input_refs,
+    const at::ArrayRef<torch::jit::IValue>& input_refs,
     std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
     const VecOfIValPtrSh& aten_outputs,
     std::vector<synLaunchTensorInfoExt>& syn_launch_info,

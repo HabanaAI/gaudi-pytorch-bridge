@@ -3354,51 +3354,37 @@ void HabanaLaunchOpPT::MaybePrintDuplicateGraphInformation(
 void habana::HabanaLaunchOpPT::ExecuteSynapseCacheTask(
     size_t graph_key_with_perm,
     std::shared_ptr<HabanaLaunchOpPT> hbLaunchOp) {
-  ExecuteSynapseCache(
-      graph_key_with_perm,
-      hbLaunchOp->get_input_refs_(),
-      hbLaunchOp.get(),
-      hbLaunchOp->get_cur_rvalpsh(),
-      hbLaunchOp->get_cur_rargpsh(),
-      hbLaunchOp->get_allocated_outputs_(),
-      hbLaunchOp->dry_run_);
+  hbLaunchOp->ExecuteSynapseCache(graph_key_with_perm);
 }
 
 // call this function for recipe caching (graph/eager)
-void habana::HabanaLaunchOpPT::ExecuteSynapseCache(
-    size_t graph_key_with_perm,
-    at::ArrayRef<torch::jit::IValue> input_refs,
-    HabanaLaunchOpPT* hbLaunchOp,
-    std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
-    std::shared_ptr<RecipeArgumentSpec> cur_rargpsh,
-    std::optional<std::vector<at::Tensor>> allocated_outputs,
-    bool dry_run) {
+void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
   PT_BRIDGE_BEGIN;
   RecipeValueSpec& rv = *cur_rvalpsh;
 
-  if (!dry_run) {
+  if (!dry_run_) {
     rv.launch(
-        hbLaunchOp->hpu_stream_,
+        hpu_stream_,
         input_refs,
-        hbLaunchOp->intermediate_tensors_ptr_sh_,
-        *hbLaunchOp->aten_outputs_ptr_sh_,
-        hbLaunchOp->syn_launch_info_,
-        hbLaunchOp->external_tensor_info_indexes_,
-        hbLaunchOp->dma_inputs_);
+        intermediate_tensors_ptr_sh_,
+        *aten_outputs_ptr_sh_,
+        syn_launch_info_,
+        external_tensor_info_indexes_,
+        dma_inputs_);
   }
 
   if (habana_helpers::GetRefineDynamicShapeStatus()) {
-    hbLaunchOp->CreateStaticCompilationDBI(graph_key_with_perm);
+    CreateStaticCompilationDBI(graph_key_with_perm);
   }
 
-  if (!hbLaunchOp->get_enable_2stage_pipeline()) {
+  if (!get_enable_2stage_pipeline()) {
     // Update the stack from the recipe itself
-    hbLaunchOp->UpdateOutputs(rv);
+    UpdateOutputs(rv);
   }
   PT_BRIDGE_DEBUG("Returning cached recipe : ", cur_rargpsh->hashCode());
-  hbLaunchOp->ReturnCachedRecipe(rv);
+  ReturnCachedRecipe(rv);
 
-  hbLaunchOp->ClearStatics();
+  ClearStatics();
   PT_BRIDGE_END;
 }
 
@@ -3607,14 +3593,7 @@ void HabanaLaunchOpPT::run(
       // currently only eager backend supports pipelining
       // can be merged once non-eager backends support pipelining
       if (enable_graph_caching_ && !compile_mode) {
-        ExecuteSynapseCache(
-            graph_key_with_perm,
-            input_refs,
-            this,
-            cur_rvalpsh,
-            cur_rargpsh,
-            allocated_outputs_,
-            dry_run_);
+        ExecuteSynapseCache(graph_key_with_perm);
       } else {
         PT_LAZY_EAGER_DEBUG(
             "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");

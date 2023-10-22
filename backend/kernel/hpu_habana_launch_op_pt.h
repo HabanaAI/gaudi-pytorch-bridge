@@ -147,14 +147,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   void StoreShapeAgnosticGraph();
   void StoreCompiledInformation();
   void ExecuteSynapseGraph();
-  static void ExecuteSynapseCache(
-      size_t graph_key_with_perm,
-      at::ArrayRef<torch::jit::IValue> input_refs,
-      HabanaLaunchOpPT* hbLaunchOp,
-      std::shared_ptr<RecipeValueSpec> cur_rvalpsh,
-      std::shared_ptr<RecipeArgumentSpec> cur_rargpsh,
-      std::optional<std::vector<at::Tensor>> allocated_outputs,
-      bool dry_run);
+  void ExecuteSynapseCache(size_t graph_key_with_perm);
   static void ExecuteSynapseCacheTask(
       size_t graph_key_with_perm,
       std::shared_ptr<HabanaLaunchOpPT> hbLaunchOp);
@@ -170,7 +163,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
     return jit_graph_and_meta_data_;
   }
 
-  at::ArrayRef<torch::jit::IValue> get_input_refs_() const {
+  at::ArrayRef<torch::jit::IValue> get_input_refs() const {
     return input_refs;
   }
 
