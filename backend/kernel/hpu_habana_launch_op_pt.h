@@ -509,8 +509,8 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   OutputMetaDataVector nodeOutputMetaData(torch::jit::Node* node);
   void CreateValueToIvalueMapForInputs();
   void InitiateSynlaunchTimeCapture(RecipeValueSpec& rv);
-  void ProcessHabanaFusedOpWithDS(const size_t& graph_key_with_perm);
-  void CreateFirstDynamicBucket(const size_t& graph_key_with_perm);
+  void ProcessHabanaFusedOpWithDS();
+  void CreateFirstDynamicBucket();
   void DumpStaticCompilationStatistics(
       size_t graph_key_with_perm,
       bool is_compile = false);

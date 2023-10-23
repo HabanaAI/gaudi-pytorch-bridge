@@ -95,28 +95,34 @@ HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
 RecipeArgumentSpec::RecipeArgumentSpec(
     at::ArrayRef<torch::jit::IValue> input_refs,
     const size_t& graphKey,
-    const size_t& graphKey_with_perm,
     const std::string& op_strs)
     : cas(false, input_refs), opstrs(op_strs), graph_hash_code(graphKey) {
-  hash_code = graphKey_with_perm;
+  hash_code = graph_hash_code;
+  size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, sym_hash_code);
+  size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, perm_hash_code);
   graph_with_permute_hash_code = hash_code;
 }
 
 RecipeArgumentSpec::RecipeArgumentSpec(
     at::ArrayRef<torch::jit::IValue> input_refs,
     const size_t& graphKey,
-    const size_t& graphKey_with_perm,
     const std::string& op_strs,
     const uint64_t token)
     : cas(false, input_refs), opstrs(op_strs) {
   graph_hash_code = graphKey;
-  hash_code = at::hash_combine(hash_code, graphKey_with_perm);
+  hash_code = at::hash_combine(hash_code, graph_hash_code);
 
   token_ = token;
   hash_code = at::hash_combine(hash_code, token_);
 
   ComputeOffsetHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, offset_hash_code);
+  size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, sym_hash_code);
+  size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, perm_hash_code);
   dynamic_hash_code = hash_code;
 }
 
@@ -125,12 +131,11 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     at::ArrayRef<torch::jit::IValue> input_refs,
     const std::shared_ptr<torch::jit::Graph>& irgraph,
     const size_t& graphKey,
-    const size_t& graphKey_with_perm,
     const std::string& op_strs)
     : cas(with_grad, input_refs), opstrs(op_strs), hash_code(cas.hashCode()) {
   cargspec_hash_code = cas.hashCode();
   graph_hash_code = graphKey;
-  hash_code = at::hash_combine(hash_code, graphKey_with_perm);
+  hash_code = at::hash_combine(hash_code, graph_hash_code);
   hash_code = at::hash_combine(hash_code, irgraph->outputs().size());
   hash_code = habana_helpers::hash_combine_scalars(hash_code, input_refs);
 
@@ -138,6 +143,10 @@ RecipeArgumentSpec::RecipeArgumentSpec(
   hash_code = at::hash_combine(hash_code, offset_hash_code);
   ComputeH2DHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, h2d_hash_code);
+  size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, sym_hash_code);
+  size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, perm_hash_code);
   /*Add deterministic flag as well here*/
   if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
     torch::jit::graph_node_list graph_nodes = irgraph->nodes();

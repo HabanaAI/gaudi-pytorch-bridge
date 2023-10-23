@@ -625,10 +625,10 @@ size_t HlExec::GetGraphIndex(
     return visualize::GetGraphIndex(hash);
   }
 
-  auto perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-  hash = at::hash_combine(hash, perm_hash_code);
   size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
   hash = at::hash_combine(hash, sym_hash_code);
+  auto perm_hash_code = habana::ComputePermutationHashCode(input_refs);
+  hash = at::hash_combine(hash, perm_hash_code);
 
   static std::mutex s_mutex;
   std::lock_guard<std::mutex> guard(s_mutex);

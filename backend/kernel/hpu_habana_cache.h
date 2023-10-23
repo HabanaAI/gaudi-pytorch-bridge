@@ -69,13 +69,11 @@ struct RecipeArgumentSpec {
   RecipeArgumentSpec(
       at::ArrayRef<torch::jit::IValue> input_refs,
       const size_t& graphKey,
-      const size_t& graphKey_with_perm,
       const std::string& op_strs);
 
   RecipeArgumentSpec(
       at::ArrayRef<torch::jit::IValue> input_refs,
       const size_t& graphKey,
-      const size_t& graphKey_with_perm,
       const std::string& op_strs,
       const uint64_t token);
 
@@ -84,7 +82,6 @@ struct RecipeArgumentSpec {
       at::ArrayRef<torch::jit::IValue> input_refs,
       const std::shared_ptr<torch::jit::Graph>& irgraph,
       const size_t& graphKey,
-      const size_t& graphKey_with_perm,
       const std::string& op_strs);
 
   bool operator==(const RecipeArgumentSpec& arg) const {

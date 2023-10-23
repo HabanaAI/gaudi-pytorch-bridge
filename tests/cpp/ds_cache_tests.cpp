@@ -72,17 +72,14 @@ TEST(DS_CacheTest, JIT_IR_GraphKeyTest) {
   size_t graphKey = 0;
   std::string op_strs = std::string();
   habana::ComputeGraphHashCode(jit_ir_graph, id_str, inputs, op_strs, graphKey);
-  size_t perm_hash_code = habana::ComputePermutationHashCode(inputs);
-  size_t graph_key_with_perm = at::hash_combine(graphKey, perm_hash_code);
   std::shared_ptr<habana::RecipeArgumentSpec> rargpsh1 =
-      std::make_shared<habana::RecipeArgumentSpec>(
-          inputs, graphKey, graph_key_with_perm, op_strs);
+      std::make_shared<habana::RecipeArgumentSpec>(inputs, graphKey, op_strs);
 
   EXPECT_EQ(rargpsh1->graphWithPermuteHashCode(), rargpsh1->hashCode());
 
   std::shared_ptr<habana::RecipeArgumentSpec> rargpsh2 =
       std::make_shared<habana::RecipeArgumentSpec>(
-          false, inputs, jit_ir_graph, graphKey, graph_key_with_perm, op_strs);
+          false, inputs, jit_ir_graph, graphKey, op_strs);
 
   EXPECT_EQ(rargpsh1->graphHashCode(), rargpsh2->graphHashCode());
   EXPECT_NE(rargpsh2->graphHashCode(), rargpsh2->hashCode());

@@ -2660,7 +2660,7 @@ void HabanaLaunchOpPT::CreateStaticCompilationDBI(size_t graph_key_with_perm) {
         "\n--------------------");
     ref_input_shape_map_.emplace(graph_key_with_perm, input_tshapes);
     if (path != "") {
-      CreateFirstDynamicBucket(graph_key_with_perm);
+      CreateFirstDynamicBucket();
       DumpStaticCompilationStatistics(graph_key_with_perm, true);
     }
   } else if (path != "") {
@@ -2868,13 +2868,11 @@ void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
   }
 }
 
-void HabanaLaunchOpPT::CreateFirstDynamicBucket(
-    const size_t& graph_key_with_perm) {
+void HabanaLaunchOpPT::CreateFirstDynamicBucket() {
   RecipeCacheLRU::SetHostMemoryThreshold();
 
   std::shared_ptr<RecipeArgumentSpec> rargpsh_graph =
-      std::make_shared<RecipeArgumentSpec>(
-          input_refs, graph_key_, graph_key_with_perm, op_strs_);
+      std::make_shared<RecipeArgumentSpec>(input_refs, graph_key_, op_strs_);
 
   current_dbipsh_ = DynamicBucketInfoMap::get_instance().get(rargpsh_graph);
   if (nullptr == current_dbipsh_) {
@@ -2920,13 +2918,11 @@ void HabanaLaunchOpPT::CreateFirstDynamicBucket(
   }
 }
 
-void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
-    const size_t& graph_key_with_perm) {
+void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
   PT_BRIDGE_BEGIN;
 
   std::shared_ptr<RecipeArgumentSpec> rargpsh_graph =
-      std::make_shared<RecipeArgumentSpec>(
-          input_refs, graph_key_, graph_key_with_perm, op_strs_);
+      std::make_shared<RecipeArgumentSpec>(input_refs, graph_key_, op_strs_);
 
   PT_DYNAMIC_SHAPE_DEBUG(
       "====================\n",
@@ -2936,7 +2932,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
       ", hash_code with data layout : ",
       rargpsh_graph->hashCode());
 
-  CreateFirstDynamicBucket(graph_key_with_perm);
+  CreateFirstDynamicBucket();
 
   DynamicShapeInfo graph_input_info;
   CreateDynamicBucketInputShapes(graph_input_info.act_input_tshapes);
@@ -2986,7 +2982,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
       graph_input_info.min_policy, graph_input_info.max_policy);
 
   cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
-      input_refs, graph_key_, graph_key_with_perm, op_strs_, cur_ds_token_);
+      input_refs, graph_key_, op_strs_, cur_ds_token_);
   PT_DYNAMIC_SHAPE_DEBUG("cur_rargpsh = ", *cur_rargpsh);
   DynamicBucketInfoMap::get_instance().add(cur_rargpsh, current_dbipsh_);
   // Used only for compilation statistics purpose now
@@ -3442,8 +3438,7 @@ void HabanaLaunchOpPT::DumpStaticCompilationStatistics(
         cur_rargpsh->graphHashCode(), 0, 0, cur_rargpsh->hashCode(), false);
   } else {
     std::shared_ptr<RecipeArgumentSpec> rargpsh_graph =
-        std::make_shared<RecipeArgumentSpec>(
-            input_refs, graph_key_, graph_key_with_perm, op_strs_);
+        std::make_shared<RecipeArgumentSpec>(input_refs, graph_key_, op_strs_);
     current_dbipsh_ = DynamicBucketInfoMap::get_instance().get(rargpsh_graph);
     HABANA_ASSERT(
         (current_dbipsh_ != nullptr),
@@ -3522,12 +3517,10 @@ void HabanaLaunchOpPT::run(
 
   // Check whether dynamic shape is needed
   size_t graph_key_with_perm = graph_key_;
-  if (execution_mode_ != habana_helpers::HabanaFrontendTypes::COMPILE) {
-    size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-    graph_key_with_perm = at::hash_combine(graph_key_with_perm, perm_hash_code);
-  }
   size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
   graph_key_with_perm = at::hash_combine(graph_key_with_perm, sym_hash_code);
+  size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
+  graph_key_with_perm = at::hash_combine(graph_key_with_perm, perm_hash_code);
 
   const auto eager_mode =
       (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER);
@@ -3557,12 +3550,7 @@ void HabanaLaunchOpPT::run(
   idx += 1;
   if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED) {
     cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
-        false,
-        input_refs,
-        jit_ir_graph_,
-        graph_key_,
-        graph_key_with_perm,
-        op_strs_);
+        false, input_refs, jit_ir_graph_, graph_key_, op_strs_);
   }
 
   auto is_enable_4stage_pipeline = enable_4stage_pipeline_;
@@ -3893,7 +3881,7 @@ void HabanaLaunchOpPT::run(
         "\nStarting dynamic shape flow");
 
     jit_graph_and_meta_data_->clear_cached_graph_info();
-    ProcessHabanaFusedOpWithDS(graph_key_with_perm);
+    ProcessHabanaFusedOpWithDS();
     PT_BRIDGE_END;
     return;
   }
@@ -4118,17 +4106,8 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
     std::string error_str;
     try {
       cur_ds_token_ = new_bucket.getToken();
-      size_t graph_key_with_perm = graph_key_;
-      if (execution_mode_ != habana_helpers::HabanaFrontendTypes::COMPILE) {
-        size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-        graph_key_with_perm =
-            at::hash_combine(graph_key_with_perm, perm_hash_code);
-      }
-      size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
-      graph_key_with_perm =
-          at::hash_combine(graph_key_with_perm, sym_hash_code);
       cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
-          input_refs, graph_key_, graph_key_with_perm, op_strs_, cur_ds_token_);
+          input_refs, graph_key_, op_strs_, cur_ds_token_);
       new_recipe_key = cur_rargpsh->hashCode();
 
       m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
@@ -4490,17 +4469,8 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
   auto new_ds_token = current_dbipsh_->GetTokenForBucketId(current_bucket_id_);
 
   if (new_ds_token != cur_ds_token_) {
-    size_t graph_key_with_perm = graph_key_;
-    if (execution_mode_ != habana_helpers::HabanaFrontendTypes::COMPILE) {
-      size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-      graph_key_with_perm =
-          at::hash_combine(graph_key_with_perm, perm_hash_code);
-    }
-    size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
-    graph_key_with_perm = at::hash_combine(graph_key_with_perm, sym_hash_code);
-
     cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
-        input_refs, graph_key_, graph_key_with_perm, op_strs_, new_ds_token);
+        input_refs, graph_key_, op_strs_, new_ds_token);
     current_dbipsh_->SetRecipeKeyForBucket(
         current_bucket_id_, cur_rargpsh->hashCode());
     DynamicBucketInfoMap::get_instance().add(cur_rargpsh, current_dbipsh_);

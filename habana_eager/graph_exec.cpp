@@ -108,10 +108,6 @@ GraphExec::GraphExec(
       habana_helpers::HabanaFrontendTypes::COMPILE);
   m_graph_and_meta->SetOpName(m_graph_name);
   m_graph_and_meta->set_is_eager_compiler_supported(false);
-  size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-  size_t graph_key = m_graph_and_meta->get_cached_graph_key();
-  m_graph_and_meta->set_cached_graph_key(
-      at::hash_combine(graph_key, perm_hash_code));
   m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
 };
 
