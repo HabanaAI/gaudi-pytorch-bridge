@@ -228,6 +228,7 @@ sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
   auto q = stack_tensor(stack, 0);
   auto k = stack_tensor(stack, 1);
   auto v = stack_tensor(stack, 2);
+  auto requires_backward = stack.at(8).toBool();
 
   int64_t rank = q.dim();
   std::vector<int64_t> q_shape = q.sizes().vec();
@@ -274,7 +275,9 @@ sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
   softmax_stats_shape.push_back(q_shape[L_dim]);
   // last dim which of Softmax stats shape is 1
   softmax_stats_shape.push_back(1);
-
+  if (!requires_backward) {
+    return {out_shape, {1}, {1}, {1}};
+  }
   return {out_shape, softmax_stats_shape, softmax_stats_shape, {1}};
 }
 
@@ -304,6 +307,7 @@ void SDPARecompFwd::AddNode(
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
   auto is_causal = getNextInput<bool>(stackGetter);
+  auto requires_backward = getNextInput<bool>(stackGetter);
 
   ns_Sdpa::Params params{};
   params.scale = scale;
@@ -327,22 +331,26 @@ void SDPARecompFwd::AddNode(
     syn_inputs.push_back(nullptr);
   }
 
-  std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
-      {out_shapes[0], q.pt_t.scalar_type(), 0},
-      {out_shapes[1], q.pt_t.scalar_type(), 1}, // TODO: make optional
-      {out_shapes[2], c10::ScalarType::Float, 2}}; // TODO: make optional
-  if (p > 0.0) {
-    output_attrs.push_back({out_shapes[3], at::ScalarType::Int, 3});
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs;
+  output_attrs.push_back({out_shapes[0], q.pt_t.scalar_type(), 0});
+  if (requires_backward) {
+    output_attrs.push_back({out_shapes[1], q.pt_t.scalar_type(), 1});
+    output_attrs.push_back({out_shapes[2], c10::ScalarType::Float, 2});
+    if (p > 0.0) {
+      output_attrs.push_back({out_shapes[3], at::ScalarType::Int, 3});
+    }
   }
 
   auto output = OpBackend::BuildNode(
       this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
 
   syn_out(0) = std::move(output[0]);
-  syn_out(1) = std::move(output[1]); // TODO: make optional
-  syn_out(2) = std::move(output[2]); // TODO: make optional
-  if (p > 0.0) {
-    syn_out(3) = std::move(output[3]);
+  if (requires_backward) {
+    syn_out(1) = std::move(output[1]);
+    syn_out(2) = std::move(output[2]);
+    if (p > 0.0) {
+      syn_out(3) = std::move(output[3]);
+    }
   }
 }
 

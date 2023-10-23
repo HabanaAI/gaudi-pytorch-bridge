@@ -438,7 +438,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_wrap(
     const c10::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
-    const bool is_causal);
+    const bool is_causal,
+    const bool requires_backward);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
     const at::Tensor& grad,
     const at::Tensor& q,

@@ -1752,14 +1752,17 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_wrap(
     const c10::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
-    const bool is_causal) {
+    const bool is_causal,
+    const bool requires_backward) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "sdpa_recomp_fwd :",
-      DUMP_7ARGS(q, k, v, attention_mask, p, scale, is_causal));
+      DUMP_8ARGS(
+          q, k, v, attention_mask, p, scale, is_causal, requires_backward));
 
-  return sdpa_recomp_fwd_lazy(q, k, v, attention_mask, p, scale, is_causal);
+  return sdpa_recomp_fwd_lazy(
+      q, k, v, attention_mask, p, scale, is_causal, requires_backward);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
@@ -2354,7 +2357,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, float p, float scale) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::sdpa_recomp_fwd", sdpa_recomp_fwd_wrap);
   m.def(
-      "hpu::sdpa_recomp_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal) -> (Tensor, Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal, bool requires_backward) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
       "hpu::sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor ? seed, float p, float scale) -> (Tensor, Tensor, Tensor)");
   m.def(

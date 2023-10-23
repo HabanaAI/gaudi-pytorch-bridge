@@ -468,7 +468,6 @@ def test_sdpa_fwd_manual_seed():
     K_hpu = K.to("hpu")
     V_hpu = K.to("hpu")
 
-
     dropout = 0.2
     seed = 20000
     # Just need FWD output; No need to o/p the dropout mask
@@ -481,7 +480,7 @@ def test_sdpa_fwd_manual_seed():
     torch.manual_seed(seed)
     case2_fwd_out= FusedSDPA.apply(Q_hpu, K_hpu, V_hpu, None, dropout )
 
-    assert torch.allclose(case1_fwd_out, case2_fwd_out), " Error: Outputs are not equal"
+    assert torch.allclose(case1_fwd_out.to("cpu"), case2_fwd_out.to("cpu")), " Error: Outputs are not equal"
 
     #Enable the following test if SDPA seed test needs more testing
     #torch.manual_seed(seed + 1000)

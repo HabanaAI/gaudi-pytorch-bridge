@@ -23,7 +23,11 @@ def check_dbg_env_var(v):
     return env_var_set
 
 def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = False, scale = None, recompute = False):
-
+    requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
+    # if(not requires_backward):
+    #     print("requires grad is true and exiting")
+    #     assert False, "Requires grad is false"
+    #     return
     if scale == None:
         scale = 1.0/math.sqrt(q.size(-1))
 
@@ -46,11 +50,13 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = 
             recompute = False
 
     if recompute:
-        out, m, linv, seed = torch.ops.hpu.sdpa_recomp_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal)
+        out, m, linv, seed = torch.ops.hpu.sdpa_recomp_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, requires_backward)
+        if not requires_backward:
+            return out
         ctx.save_for_backward(q, k, v, attn_mask, m, linv, seed)
     else:
-        out, P, dm = torch.ops.hpu.sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal)
-        ctx.save_for_backward(q, k, v, P, dm)
+       out, P, dm = torch.ops.hpu.sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal)
+       ctx.save_for_backward(q, k, v, P, dm)
 
     ctx.dropout_p = dropout_p
     ctx.scale = scale
