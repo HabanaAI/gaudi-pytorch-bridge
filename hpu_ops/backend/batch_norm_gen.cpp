@@ -184,15 +184,15 @@ void reshape_tensor(
     OpBackend& op,
     sh::graph& graph,
     c10::IntArrayRef input_sizes,
-    sh::tensor& inout_tensor) {
-  if (input_sizes.size() == 4) {
+    sh::tensor& inout_tensor,
+    c10::ScalarType scalarType) {
+  if (input_sizes.size() == 4)
     return;
-  }
 
   auto in_shape = input_sizes.vec();
   if (in_shape.size() >= 1 && in_shape.size() <= 3) {
     inout_tensor = OpBackend::BuildReshape(
-        &op, graph, inout_tensor.get(), in_shape, op.ScalarType(), 0);
+        &op, graph, inout_tensor.get(), in_shape, scalarType, 0);
   } else {
     // Input is in dims format N,Dm,D1,D2,D3,...,C,H,W
     // Final output should be in format N,C,D1,D2,D3,...,Dm,H,W
@@ -204,15 +204,9 @@ void reshape_tensor(
     std::swap(in_shape[1], in_shape[in_shape.size() - 3]);
 
     inout_tensor = OpBackend::BuildReshape(
-        &op, graph, inout_tensor.get(), in_shape, op.ScalarType());
+        &op, graph, inout_tensor.get(), in_shape, scalarType);
     inout_tensor = OpBackend::BuildPermute(
-        &op,
-        graph,
-        inout_tensor.get(),
-        in_shape,
-        permute_dims,
-        op.ScalarType(),
-        0);
+        &op, graph, inout_tensor.get(), in_shape, permute_dims, scalarType, 0);
   }
 }
 
@@ -473,16 +467,22 @@ sizes_vec BatchNormNoStatsFwdOutputShape(const at::Stack& stack) {
   return {input_sv, mean_sv, var_sv};
 }
 
-sizes_vec BatchNormBwdOutputShape(const at::Stack& stack) {
+OutputMetaDataVector BatchNormBwdMeta(const at::Stack& stack) {
   using namespace BNBwd;
-  auto input_grad_sv = stack[INPUT_IDX].toTensor().sizes().vec();
-  auto weight_grad_sv = stack[WEIGHT_IDX].isTensor()
-      ? stack[WEIGHT_IDX].toTensor().sizes().vec()
-      : get_rm_size(stack[INPUT_IDX].toTensor()).vec();
-  auto bias_grad_sv = stack[WEIGHT_IDX].isTensor()
-      ? stack[WEIGHT_IDX].toTensor().sizes().vec()
-      : get_rm_size(stack[INPUT_IDX].toTensor()).vec();
-  return {input_grad_sv, weight_grad_sv, bias_grad_sv};
+  auto input = stack_tensor(stack, INPUT_IDX);
+  auto weightBiasShape = stack.at(WEIGHT_IDX).isTensor()
+      ? stack_tensor(stack, WEIGHT_IDX).sizes().vec()
+      : get_rm_size(input).vec();
+
+  OutputMetaDataVector metaVec(3);
+  metaVec[0].shape = input.sizes().vec();
+  metaVec[0].dtype = input.scalar_type();
+  for (int i = 1; i <= 2; i++) {
+    metaVec[i].shape = weightBiasShape;
+    metaVec[i].dtype = at::ScalarType::Float;
+  }
+
+  return metaVec;
 }
 
 OutputMetaDataVector BatchNormFwdMeta(const at::Stack& stack) {
@@ -605,7 +605,7 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
           paramsSize,
           outShapes);
 
-  reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0]);
+  reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0], ScalarType());
 
   syn_out(0) = std::move(bnOut[0]);
   syn_out(1) = std::move(bnOut[1]);
@@ -647,7 +647,7 @@ void BatchNormNoTrainingOpBackend::AddNode(
           paramsSize,
           outShapes);
 
-  reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0]);
+  reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0], ScalarType());
 
   syn_out(0) = std::move(bnOut[0]);
   syn_out(1) = std::move(bnOut[1]);
@@ -687,7 +687,7 @@ void BatchNormNoStatsOpBackend::AddNode(
           paramsSize,
           outShapes);
 
-  reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0]);
+  reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0], ScalarType());
 
   syn_out(0) = std::move(bnOut[0]);
   syn_out(1) = std::move(bnOut[1]);
@@ -711,7 +711,7 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto saved_istd_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   bool training = getNextInput<bool>(stackGetter);
   double eps = getNextInput<double>(stackGetter);
-
+  auto meta = BatchNormBwdMeta(stack);
   /* 2. Perform frontend operations */
   // In case of batch norm:
   // 2.1 Preprocess inputs
@@ -750,50 +750,54 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
     saved_mean = running_mean;
 
     // istd = rsqrt(add(running_var, eps));
-    auto eps_constant = ConstantHelper(graph, eps, c10::ScalarType::Float, {1});
+    auto eps_constant = ConstantHelper(graph, eps, meta[1].dtype, {1});
 
-    auto rv_add_eps =
-        std::move(BuildOp(
-                      graph,
-                      "add_fwd_f32",
-                      {running_var, eps_constant.get()},
-                      {{running_var_shape, c10::ScalarType::Float}})
-                      .at(0));
+    auto rv_add_eps = std::move(BuildOp(
+                                    graph,
+                                    "add_fwd_f32",
+                                    {running_var, eps_constant.get()},
+                                    {{running_var_shape, meta[1].dtype}})
+                                    .at(0));
 
-    saved_istd_storage =
-        std::move(BuildOp(
-                      graph,
-                      "rsqrt_fwd_f32",
-                      {rv_add_eps.get()},
-                      {{running_var_shape, c10::ScalarType::Float}})
-                      .at(0));
+    saved_istd_storage = std::move(BuildOp(
+                                       graph,
+                                       "rsqrt_fwd_f32",
+                                       {rv_add_eps.get()},
+                                       {{running_var_shape, meta[1].dtype}})
+                                       .at(0));
     saved_istd = (*saved_istd_storage).get();
   } else {
     saved_mean = (*saved_mean_opt).syn_t;
     saved_istd = (*saved_istd_opt).syn_t;
   }
 
-  auto out_shapes = BatchNormBwdOutputShape(stack);
-
   size_t size; // Will be initialized by below call
   const auto params = FillBatchNormBwdParams(stack, size);
 
-  c10::optional<int> final_result_index_0 = input.pt_t.sizes().size() != 4
+  c10::optional<int> final_result_index_0 =
+      meta[INPUT_GRAD_IDX].shape.size() != 4
       ? c10::optional<int>{c10::nullopt}
       : c10::optional<int>{INPUT_GRAD_IDX};
   auto bn_out = BuildOp(
       graph,
-      get_guid_with_precision("batch_norm_bwd", ScalarType()),
+      get_guid_with_precision("batch_norm_bwd", meta[0].dtype),
       {input_4d, grad_out_4d, saved_mean, saved_istd, weight},
-      {{input_4d_shape, ScalarType(), final_result_index_0},
-       {out_shapes[BIAS_GRAD_IDX], c10::ScalarType::Float, BIAS_GRAD_IDX},
-       {out_shapes[WEIGHT_GRAD_IDX], c10::ScalarType::Float, WEIGHT_GRAD_IDX}},
+      {{input_4d_shape, meta[INPUT_GRAD_IDX].dtype, final_result_index_0},
+       {meta[BIAS_GRAD_IDX].shape, meta[BIAS_GRAD_IDX].dtype, BIAS_GRAD_IDX},
+       {meta[WEIGHT_GRAD_IDX].shape,
+        meta[WEIGHT_GRAD_IDX].dtype,
+        WEIGHT_GRAD_IDX}},
       params.get(),
       size);
 
   // 2.4 Postprocess outputs
   // 2.4.1 Reshape output to original input's shape
-  reshape_tensor(*this, graph, input.pt_t.sizes(), bn_out[0]);
+  reshape_tensor(
+      *this,
+      graph,
+      meta[INPUT_GRAD_IDX].shape,
+      bn_out[INPUT_GRAD_IDX],
+      meta[INPUT_GRAD_IDX].dtype);
 
   syn_out(INPUT_GRAD_IDX) = std::move(bn_out[0]);
   syn_out(WEIGHT_GRAD_IDX) = std::move(bn_out[2]);

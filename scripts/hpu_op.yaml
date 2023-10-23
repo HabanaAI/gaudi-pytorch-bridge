@@ -4852,7 +4852,7 @@ native_batch_norm:
 
 native_batch_norm_backward:
   custom_fill_params: FillBatchNormBwdParams
-  custom_output_shape: BatchNormBwdOutputShape
+  output_meta: BatchNormBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]

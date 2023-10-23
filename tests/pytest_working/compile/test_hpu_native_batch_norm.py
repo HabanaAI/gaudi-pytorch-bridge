@@ -1,8 +1,9 @@
 import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
+from test_utils import is_gaudi1, format_tc
 
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 @pytest.mark.parametrize("params", [
     (
         {
@@ -11,7 +12,7 @@ import habana_frameworks.torch.dynamo.compile_backend
             "eps" : 1e-5
         }
     )
-])
+], ids=format_tc)
 def test_hpu_native_batch_norm_legit_no_training(dtype, params):
     def fn(input, weight, bias, running_mean, running_var, momentum, eps):
         return torch._native_batch_norm_legit_no_training(input, weight, bias, running_mean, running_var, momentum, eps)
@@ -30,3 +31,37 @@ def test_hpu_native_batch_norm_legit_no_training(dtype, params):
     hpu_out = aot_hpu_compiled_fn(input.to("hpu"), weight.to("hpu"), bias.to("hpu"), running_mean.to("hpu"), running_var.to("hpu"), params["momentum"], params["eps"])
 
     assert torch.allclose(cpu_out[0], hpu_out[0].to("cpu"), equal_nan=True)
+
+@pytest.mark.parametrize("shape", [[4, 3, 8]], ids=format_tc)
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
+def test_hpu_native_batch_norm_bwd(shape, dtype):
+    if is_gaudi1 and dtype == torch.bfloat16:
+        pytest.xfail("[SW-167045] - segfault - GLUE_INCOMPATIBLE_DATA_TYPE")
+    def fn(input, weight, bias, running_mean, running_var):
+        native_batch_norm = torch.native_batch_norm(input, weight, bias, running_mean=running_mean, running_var=running_var, training=True, momentum=0.1, eps=1e-5)
+        grad = torch.ones_like(native_batch_norm[0])
+        native_batch_norm[0].backward(grad)
+        return input.grad
+
+    num_channels = shape[1]
+    cpu_input = torch.randn(shape, dtype=dtype)
+    hpu_input = cpu_input.to("hpu")
+    cpu_input.requires_grad = True
+    hpu_input.requires_grad = True
+    cpu_weight = torch.ones(num_channels, dtype=dtype)
+    hpu_weight = cpu_weight.to("hpu")
+    cpu_bias = torch.zeros(num_channels, dtype=dtype)
+    hpu_bias = cpu_bias.to("hpu")
+    cpu_running_mean = torch.zeros(num_channels, dtype=dtype)
+    hpu_running_mean = cpu_running_mean.to("hpu")
+    cpu_running_var = torch.ones(num_channels, dtype=dtype)
+    hpu_running_var = cpu_running_var.to("hpu")
+    torch._dynamo.reset()
+
+    cpu_compiled_fn = torch.compile(fn)
+    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    cpu_output = cpu_compiled_fn(cpu_input, cpu_weight, cpu_bias, cpu_running_mean, cpu_running_var)
+    hpu_output = hpu_compiled_fn(hpu_input, hpu_weight, hpu_bias, hpu_running_mean, hpu_running_var).cpu()
+    tol = 1e-3 if dtype == torch.bfloat16 else 1e-6
+    assert torch.allclose(cpu_output, hpu_output, atol=tol)
