@@ -486,7 +486,7 @@ class HbLazyTensor {
     return data()->is_const_tensor;
   }
 
-  bool GetConstTensorId() const {
+  int GetConstTensorId() const {
     return data()->const_id;
   }
   void SetIsConstTensor(bool is_const, int const_id) {
