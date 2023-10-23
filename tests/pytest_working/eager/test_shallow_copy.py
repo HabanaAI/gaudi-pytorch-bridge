@@ -1,10 +1,6 @@
 import habana_frameworks.torch.core as htcore
-<<<<<<< HEAD:tests/test_shallow_copy.py
 import pytest
-=======
 import torch
-
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/lazy/test_shallow_copy.py
 
 def test_simple():
     def func(dev):
@@ -47,7 +43,6 @@ def test_view_with_strides2():
         view = base[::2]
         view2 = base.view(-1)
         base.data = view.data
-
         return base.mul_(2.0), view.add(2.0), view2
 
     for cpu_tensor, hpu_tensor in zip(func("cpu"), func("hpu")):
@@ -61,7 +56,6 @@ def test_shallow_copy_free():
         y.add(1.0)
         return y
 
-    # CPU
     a = torch.randn([2, 3])
     ha = a.to("hpu")
 
@@ -80,7 +74,7 @@ def test_shallow_copy_free2():
             htcore.mark_step()
         return b
 
-    a = torch.randn([2, 3])
+    a = torch.randn([2,3])
     ha = a.to("hpu")
 
     b = torch.randn([6])
@@ -118,12 +112,10 @@ def test_shallow_copy_free3():
     assert torch.allclose(res, hres_cpu)
 
 
-@pytest.mark.xfail(reason="Results mismatch")
 def test_shallow_copy_free4():
-    def fn(param, ds_tensor, dev):
-
+    def fn(param, ds_tensor, param2, dev):
         ds_tensor.copy_(param)
-        param.data = torch.randn([2, 2], dtype=torch.float).to(device=dev)
+        param.data = param2.to(device=dev)
         new_consumer = param.add(1.0)
         return ds_tensor, new_consumer
 
@@ -133,14 +125,14 @@ def test_shallow_copy_free4():
 
     ds_tensor = torch.randn([6])
     hds_tensor = ds_tensor.to("hpu")
+    param2 = torch.randn([2, 2], dtype=torch.float)
 
     # # CPU
-    res1, res2 = fn(param, ds_tensor, "cpu")
+    res1, res2 = fn(param, ds_tensor, param2, "cpu")
     # HPU
-    hres1, hres2 = fn(hparam, hds_tensor, "hpu")
+    hres1, hres2 = fn(hparam, hds_tensor, param2, "hpu")
     hres1_cpu = hres1.cpu()
     hres2_cpu = hres2.cpu()
-<<<<<<< HEAD:tests/test_shallow_copy.py
     assert(torch.allclose(res1, hres1_cpu, atol = 0.001, rtol = 0.001))
     assert(torch.allclose(res2, hres2_cpu, atol = 0.001, rtol = 0.001))
 
@@ -150,13 +142,11 @@ def test_shallow_copy_param_free():
         param.data = torch.empty(0, dtype = torch.float , device=dev)
         return dst_tensor
 
-    def fn(x, dev):
         y = x.add(1.0)
         x.data = torch.empty(0, dtype = x.dtype).to(dev)
         z = y.add(1.0)
         return y
 
-    #CPU
     a = torch.randn([2, 3])
     ha = a.to('hpu')
     dst_a = torch.randn([2, 3])
@@ -186,7 +176,3 @@ def test_shallow_copy_param_free():
         hdst_a = fn_copy(h_module.get_param(), hdst_a, 'hpu')
 
         assert(torch.allclose(dst_a, hdst_a.cpu()))
-=======
-    assert torch.allclose(res1, hres1_cpu, atol=0.001, rtol=0.001)
-    assert torch.allclose(res2, hres2_cpu, atol=0.001, rtol=0.001)
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/lazy/test_shallow_copy.py
