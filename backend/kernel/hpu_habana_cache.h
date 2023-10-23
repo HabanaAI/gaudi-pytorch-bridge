@@ -524,6 +524,7 @@ class RecipeCacheLRU {
   }
 
   void clear() {
+    std::lock_guard<std::mutex> lg(mutex_);
     map_.clear();
     list_.clear();
   }

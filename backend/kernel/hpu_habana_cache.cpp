@@ -2004,6 +2004,7 @@ size_t DynamicBucketInfoMap::HistSize() const {
 }
 
 void DynamicBucketInfoMap::clear() {
+  std::lock_guard<std::mutex> lg(mutex_);
   map_.clear();
 }
 
