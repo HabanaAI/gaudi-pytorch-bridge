@@ -272,13 +272,22 @@ torch::jit::Stack GraphExec::LaunchRecipe(
   }
 
   m_graph_and_meta->SetHPUStream(stream);
-
   try {
-    std::shared_ptr<habana::HabanaLaunchOpPT> habana_launch_op =
-        std::make_shared<habana::HabanaLaunchOpPT>(m_graph_and_meta);
-    habana_launch_op->set_input_stack(std::move(stack));
-    habana_launch_op->run(habana_launch_op->get_input_stack(), maybe_outputs);
-    return habana_launch_op->get_input_stack();
+    if (m_is_pipeline_supported) {
+      auto habana_launch_op =
+          std::make_unique<habana::HabanaLaunchOpPT>(m_graph_and_meta);
+      habana_launch_op->set_input_stack(stack);
+      HabanaLaunchOpPipeline::LoweringTask(
+          std::move(habana_launch_op),
+          habana_launch_op->get_input_stack(),
+          maybe_outputs);
+      return {};
+    } else {
+      habana::HabanaLaunchOpPT habana_launch_op(m_graph_and_meta);
+      habana_launch_op.set_input_stack(stack);
+      habana_launch_op.run(habana_launch_op.get_input_stack(), maybe_outputs);
+      return habana_launch_op.get_input_stack();
+    }
   } catch (const std::exception& e) {
     PT_EAGER_FATAL("HabanaLaunchOpPT Run returned exception....\n", e.what());
   }

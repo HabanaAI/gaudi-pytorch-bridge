@@ -17,27 +17,35 @@
 
 namespace habana {
 
-void habana::HabanaExecute::ExecuteSynapse(
-    bool is_shape_agnostic_cache_miss,
-    std::shared_ptr<HabanaLaunchOpPT> hb_launch_op) {
-  PT_BRIDGE_BEGIN;
-  if (hb_launch_op->get_enable_shape_agnostic_caching_() &&
-      hb_launch_op->get_is_shape_agnostic_supported()) {
-    if (!is_shape_agnostic_cache_miss) {
-      RecipeValueSpec& rv = *hb_launch_op->get_cur_rvalpsh();
-      // SAG cache hit case - to avoid race condition with compile thread
-      rv.recipe = hb_launch_op->get_hpu_op_recipe();
-      rv.workspace_size = hb_launch_op->get_hpu_op_workspace_size();
-      // SAG cache hit case - to avoid race condition with lowering thread
-      rv.ntensorbytes = hb_launch_op->get_hpu_op_ntensorbytes();
-    }
-    hb_launch_op->ExecuteSynapseGraph();
+namespace HabanaLaunchOpPipeline {
+void ExecuteSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
+  launch_op->ExecuteSynapse();
+}
+} // namespace HabanaLaunchOpPipeline
 
-    synGraphDestroy(hb_launch_op->syn_graph_ptr_->get_duplicate_graph_handle());
-  } else {
-    hb_launch_op->ExecuteSynapseGraph();
+void HabanaLaunchOpPT::ExecuteSynapse() {
+  PT_BRIDGE_BEGIN;
+  if (execution_control_.no_compile_) {
+    ExecuteSynapseCache(execution_control_.graph_key_with_perm_.value());
+    return;
   }
-  hb_launch_op->ClearStatics();
+
+  if (get_enable_shape_agnostic_caching_() &&
+      get_is_shape_agnostic_supported()) {
+    if (!execution_control_.is_shape_agnostic_cache_miss_) {
+      RecipeValueSpec& rv = *get_cur_rvalpsh();
+      // SAG cache hit case - to avoid race condition with compile thread
+      rv.recipe = get_hpu_op_recipe();
+      rv.workspace_size = get_hpu_op_workspace_size();
+      // SAG cache hit case - to avoid race condition with lowering thread
+      rv.ntensorbytes = get_hpu_op_ntensorbytes();
+    }
+    ExecuteSynapseGraph();
+    synGraphDestroy(syn_graph_ptr_->get_duplicate_graph_handle());
+  } else {
+    ExecuteSynapseGraph();
+  }
+  ClearStatics();
   PT_BRIDGE_END;
 }
 } // namespace habana

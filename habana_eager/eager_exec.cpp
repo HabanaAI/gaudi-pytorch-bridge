@@ -305,11 +305,13 @@ void EagerExec::launch() {
   }
 
   try {
-    std::shared_ptr<habana::HabanaLaunchOpPT> habana_launch_op =
-        std::make_shared<habana::HabanaLaunchOpPT>(graph_and_meta);
-    habana_launch_op->set_input_stack(std::move(stack));
-    habana_launch_op->run(
-        habana_launch_op->get_input_stack(), m_outputs.get_tensors());
+    auto habana_launch_op =
+        std::make_unique<habana::HabanaLaunchOpPT>(graph_and_meta);
+    habana_launch_op->set_input_stack(stack);
+    HabanaLaunchOpPipeline::LoweringTask(
+        std::move(habana_launch_op),
+        habana_launch_op->get_input_stack(),
+        m_outputs.get_tensors());
   } catch (const std::exception& e) {
     PT_EAGER_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
     throw;

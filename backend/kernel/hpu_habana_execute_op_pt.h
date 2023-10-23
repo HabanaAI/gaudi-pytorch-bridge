@@ -14,16 +14,6 @@
 
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 
-namespace habana {
-
-class HabanaExecute {
- public:
-  explicit HabanaExecute() {}
-  virtual ~HabanaExecute() {}
-
-  static void ExecuteSynapse(
-      bool is_shape_agnostic_cache_miss,
-      std::shared_ptr<HabanaLaunchOpPT> hb_launch_op);
-};
-
-} // namespace habana
+namespace habana::HabanaLaunchOpPipeline {
+void ExecuteSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op);
+}

@@ -19,79 +19,44 @@
 
 namespace habana {
 
-void habana::HabanaCompile::CompileSynapse(
-    bool is_shape_agnostic_cache_miss,
-    std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
-    size_t graph_key_with_perm,
-    bool do_nothing_compile) {
+namespace HabanaLaunchOpPipeline {
+void CompileSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
+  bool sync_with_execute_stage = !launch_op->get_enable_4stage_pipeline();
+
+  launch_op->CompileSynapse();
+
+  habana_helpers::Singleton_ExecThreadPool::getInstance()
+      .ScheduleWorkAndUpdateThreadHandle(
+          HabanaLaunchOpPipeline::ExecuteSynapseTask, std::move(launch_op));
+
+  if (sync_with_execute_stage)
+    habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+}
+}; // namespace HabanaLaunchOpPipeline
+
+void HabanaLaunchOpPT::CompileSynapse() {
   PT_BRIDGE_BEGIN;
-  auto enqueue_execute_synapse =
-      [&](std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
-          bool is_shape_agnostic_cache_miss) {
-        std::shared_ptr<HabanaExecute> habanaexecutor =
-            std::make_shared<HabanaExecute>();
-        habana_helpers::Singleton_ExecThreadPool::getInstance()
-            .ScheduleWorkAndUpdateThreadHandle(
-                habanaexecutor->ExecuteSynapse,
-                is_shape_agnostic_cache_miss,
-                std::move(hb_launch_op));
-      };
 
-  auto is_enable_4stage_pipeline = hb_launch_op->get_enable_4stage_pipeline();
-
-  if (do_nothing_compile) {
-    // TODO : Move to HabanaExecute class and use single lambda to enqueue both
-    // ExecuteSynapse as well as ExecuteSynapseCache
-    std::shared_ptr<HabanaExecute> habanaexecutor =
-        std::make_shared<HabanaExecute>();
-    habana_helpers::Singleton_ExecThreadPool::getInstance()
-        .ScheduleWorkAndUpdateThreadHandle(
-            hb_launch_op->ExecuteSynapseCacheTask,
-            graph_key_with_perm,
-            std::move(hb_launch_op));
-    // TODO: Merge with is_pipeline_supported_ status flag
-    if (!is_enable_4stage_pipeline) {
-      habana_helpers::Singleton_ExecThreadPool::getInstance()
-          .JoinPendingThread();
-    }
+  if (execution_control_.no_compile_) {
     return;
   }
 
-  if (hb_launch_op->get_enable_shape_agnostic_caching_() &&
-      hb_launch_op->get_is_shape_agnostic_supported()) {
-    if (is_shape_agnostic_cache_miss) {
-      hb_launch_op->CompileSynapseGraph();
-      hb_launch_op->StoreShapeAgnosticGraph();
-      hb_launch_op->ConstructPatchingTableAndAtenOutputs();
-      hb_launch_op->UpdateSynapsePermutations();
-      hb_launch_op->StoreCompiledInformation();
-      hb_launch_op->get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(
-          hb_launch_op->get_cur_rvalpsh());
-
-      enqueue_execute_synapse(hb_launch_op, true);
-      if (!is_enable_4stage_pipeline) {
-        habana_helpers::Singleton_ExecThreadPool::getInstance()
-            .JoinPendingThread();
-      }
-
-    } else {
-      hb_launch_op->CompileSynapseGraph(false);
-      enqueue_execute_synapse(hb_launch_op, false);
-      if (!is_enable_4stage_pipeline) {
-        habana_helpers::Singleton_ExecThreadPool::getInstance()
-            .JoinPendingThread();
-      }
+  if (get_enable_shape_agnostic_caching_() &&
+      get_is_shape_agnostic_supported()) {
+    CompileSynapseGraph(execution_control_.is_shape_agnostic_cache_miss_);
+    if (execution_control_.is_shape_agnostic_cache_miss_) {
+      StoreShapeAgnosticGraph();
+      ConstructPatchingTableAndAtenOutputs();
+      UpdateSynapsePermutations();
+      StoreCompiledInformation();
+      get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(
+          get_cur_rvalpsh());
     }
   } else {
-    hb_launch_op->CompileSynapseGraph();
-    hb_launch_op->ConstructPatchingTableAndAtenOutputs();
-    hb_launch_op->UpdateSynapsePermutations();
-    hb_launch_op->StoreCompiledInformation();
-    enqueue_execute_synapse(hb_launch_op, false);
-    if (!is_enable_4stage_pipeline) {
-      habana_helpers::Singleton_ExecThreadPool::getInstance()
-          .JoinPendingThread();
-    }
+    CompileSynapseGraph();
+    ConstructPatchingTableAndAtenOutputs();
+    UpdateSynapsePermutations();
+    StoreCompiledInformation();
   }
   PT_BRIDGE_END;
 }

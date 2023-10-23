@@ -95,10 +95,36 @@ class PermutationInfoSaver {
   std::shared_ptr<OptimizedJITGraphAndMetaData> jit_graph_;
 };
 
+struct ExecutionControl {
+  std::optional<size_t> graph_key_with_perm_{};
+  bool is_shape_agnostic_cache_miss_ = false;
+  bool no_compile_ = false;
+  void cached_task(size_t graph_key_with_perm) {
+    graph_key_with_perm_ = graph_key_with_perm;
+    no_compile_ = true;
+  }
+  void sag_cache_miss() {
+    is_shape_agnostic_cache_miss_ = true;
+  }
+};
+
+class HabanaLaunchOpPT;
+
+namespace HabanaLaunchOpPipeline {
+
+class PipelineCallBase;
+extern PipelineCallBase NoPipeline;
+
+void LoweringTask(
+    std::unique_ptr<HabanaLaunchOpPT>&& launch_op,
+    torch::jit::Stack& stack,
+    std::optional<std::vector<at::Tensor>> allocated_outputs);
+} // namespace HabanaLaunchOpPipeline
+
 // Forward declaration
 class PersistenceMarkerPassData;
 
-class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
+class HabanaLaunchOpPT {
  public:
   explicit HabanaLaunchOpPT(
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
@@ -126,11 +152,10 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   void run(
       torch::jit::Stack& stack,
       std::optional<std::vector<at::Tensor>> allocated_outputs = {},
-      bool dry_run = false);
+      bool dry_run = false,
+      HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution =
+          HabanaLaunchOpPipeline::NoPipeline);
 
-  HabanaLaunchOpPT& getInstance() {
-    return *this;
-  };
   static void cleanUp();
 
   static std::unordered_map<size_t, habana_helpers::InpTensorShapes>
@@ -140,12 +165,14 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   void set_lazy_front_end_info(
       std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> info);
   bool is_hccl_send_mark_step();
+  void CompileSynapse();
   void CompileSynapseGraph(bool allocate_rval = true);
   void ConstructPatchingTableAndAtenOutputs();
   void UpdateSynapsePermutations();
   void ApplyOutputPermutationsFromCache();
   void StoreShapeAgnosticGraph();
   void StoreCompiledInformation();
+  void ExecuteSynapse();
   void ExecuteSynapseGraph();
   void ExecuteSynapseCache(size_t graph_key_with_perm);
   static void ExecuteSynapseCacheTask(
@@ -175,7 +202,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
     return cur_rargpsh;
   }
 
-  std::optional<std::vector<at::Tensor>> get_allocated_outputs_() const {
+  std::optional<std::vector<at::Tensor>> get_allocated_outputs() const {
     return allocated_outputs_;
   }
 
@@ -337,7 +364,8 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
 
   // We keep a vector of kernels so that the context memory
   //   for each kernel is retained till graph execution
-  // This is done to enable reuse of PT and synapse tensors and their processing
+  // This is done to enable reuse of PT and synapse tensors and their
+  // processing
   std::vector<HabanaOperatorPtr> habana_kernels;
 
   // map between PT and synapse tensors
@@ -739,5 +767,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
   bool RunHybridSif(
       std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
   // --------------------
+
+  ExecutionControl execution_control_;
 };
 } // namespace habana

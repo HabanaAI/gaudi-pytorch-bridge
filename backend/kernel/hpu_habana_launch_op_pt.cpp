@@ -70,6 +70,59 @@ std::unordered_map<int, size_t> HabanaLaunchOpPT::m_const_checksum_map;
 std::mutex HabanaLaunchOpPT::checksum_map_mtx;
 //--------------------------------------
 
+namespace HabanaLaunchOpPipeline {
+
+class PipelineCallBase {
+ public:
+  virtual void operator()(bool) {
+    PT_BRIDGE_FATAL("HabanaLaunchOpPT has been used without pipeline wrapper");
+  }
+};
+
+PipelineCallBase NoPipeline;
+
+class PipelineCall : public PipelineCallBase {
+ public:
+  virtual void operator()(bool sync_needed) override {
+    sync_with_compile_stage_ = sync_needed;
+  }
+  bool is_called() {
+    return sync_with_compile_stage_.has_value();
+  }
+  bool is_sync_needed() {
+    return sync_with_compile_stage_.value();
+  }
+
+ private:
+  std::optional<bool> sync_with_compile_stage_{};
+};
+
+void LoweringTask(
+    std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op,
+    torch::jit::Stack& stack,
+    std::optional<std::vector<at::Tensor>> allocated_outputs) {
+  PipelineCall pipeline_call;
+
+  launch_op->run(stack, allocated_outputs, false, pipeline_call);
+
+  if (!pipeline_call.is_called()) {
+    PT_BRIDGE_DEBUG(
+        "HabanaLaunchOpPT wraped by pipeline has been called but pipelined path haven't been chosen in run call");
+    // TODO: we have to be sure that habana::eager::JoinPendingPipelineThreads()
+    // has been called before
+    return;
+  }
+
+  habana_helpers::Singleton_CompileThreadPool::getInstance()
+      .ScheduleWorkAndUpdateThreadHandle(
+          HabanaLaunchOpPipeline::CompileSynapseTask, std::move(launch_op));
+
+  if (pipeline_call.is_sync_needed())
+    habana_helpers::Singleton_CompileThreadPool::getInstance()
+        .JoinPendingThread();
+}
+} // namespace HabanaLaunchOpPipeline
+
 void HabanaLaunchOpPT::cleanUp() {
   ref_input_shape_map_ = {};
   DynamicBucketInfoMap::get_instance().clear();
@@ -3599,7 +3652,8 @@ void HabanaLaunchOpPT::UpdatePatchingInformation(
 void HabanaLaunchOpPT::run(
     torch::jit::Stack& stack,
     std::optional<std::vector<at::Tensor>> allocated_outputs,
-    bool dry_run) {
+    bool dry_run,
+    HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution) {
   PT_BRIDGE_BEGIN;
   static int idx{1};
   ProcessInputStack(stack);
@@ -3648,22 +3702,6 @@ void HabanaLaunchOpPT::run(
 
   auto is_enable_4stage_pipeline = enable_4stage_pipeline_;
 
-  auto enqueue_compile_synapse =
-      [&](std::shared_ptr<HabanaLaunchOpPT> hb_launch_op,
-          size_t graph_key_with_perm,
-          bool is_shape_agnostic_cache_miss,
-          bool do_nothing_compile) {
-        std::shared_ptr<HabanaCompile> habanacompiler =
-            std::make_shared<HabanaCompile>();
-        habana_helpers::Singleton_CompileThreadPool::getInstance()
-            .ScheduleWorkAndUpdateThreadHandle(
-                habanacompiler->CompileSynapse,
-                is_shape_agnostic_cache_miss,
-                std::move(hb_launch_op),
-                graph_key_with_perm,
-                do_nothing_compile);
-      };
-
   // eager and graph recipe caching :: begin
   if (enable_caching_) {
     HABANA_ASSERT(
@@ -3701,13 +3739,11 @@ void HabanaLaunchOpPT::run(
       } else {
         PT_LAZY_EAGER_DEBUG(
             "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-        constexpr bool do_nothing = true;
-        enqueue_compile_synapse(
-            this->shared_from_this(), graph_key_with_perm, false, do_nothing);
-        // TODO: Merge with is_pipeline_supported status flag
         if (!is_enable_4stage_pipeline) {
-          habana_helpers::Singleton_CompileThreadPool::getInstance()
-              .JoinPendingThread();
+          ExecuteSynapseCache(graph_key_with_perm);
+        } else {
+          execution_control_.cached_task(graph_key_with_perm);
+          pipeline_execution(false);
         }
       }
       PT_BRIDGE_END;
@@ -3870,15 +3906,12 @@ void HabanaLaunchOpPT::run(
 
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-      constexpr bool do_nothing = false;
-      enqueue_compile_synapse(
-          this->shared_from_this(), graph_key_with_perm, true, do_nothing);
-
+      execution_control_.sag_cache_miss();
       // In case of SAG cache miss we have to wait till a compile thread sets
       // permutation for outputs (In case of SAG cache hit, that info is taken
       // from SAG recipe (from dtensorinfos))
-      habana_helpers::Singleton_CompileThreadPool::getInstance()
-          .JoinPendingThread();
+      pipeline_execution(true);
+      return;
     } else {
       PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
       is_shape_agnostic_supported_ = true;
@@ -3974,13 +4007,7 @@ void HabanaLaunchOpPT::run(
 
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-      constexpr bool do_nothing = false;
-      enqueue_compile_synapse(
-          this->shared_from_this(), graph_key_with_perm, false, do_nothing);
-      if (!is_enable_4stage_pipeline) {
-        habana_helpers::Singleton_CompileThreadPool::getInstance()
-            .JoinPendingThread();
-      }
+      pipeline_execution(!is_enable_4stage_pipeline);
     }
     PT_BRIDGE_END;
     return;
@@ -4038,14 +4065,10 @@ void HabanaLaunchOpPT::run(
           std::make_unique<PermutationInfoSaver>(jit_graph_and_meta_data_);
     }
     jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
-    constexpr bool do_nothing = true;
-    enqueue_compile_synapse(
-        this->shared_from_this(), graph_key_with_perm, false, !do_nothing);
 
-    if (!is_permute_data_cached || enable_caching_ ||
-        !is_enable_4stage_pipeline)
-      habana_helpers::Singleton_CompileThreadPool::getInstance()
-          .JoinPendingThread();
+    pipeline_execution(
+        !is_permute_data_cached || enable_caching_ ||
+        !is_enable_4stage_pipeline);
   } else {
     CompileSynapseGraph();
     ConstructPatchingTableAndAtenOutputs();
