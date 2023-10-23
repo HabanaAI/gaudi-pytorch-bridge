@@ -817,8 +817,8 @@ addmm:
   output_meta: AddMMMeta
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: addmm
   op_backend: AddMM
   out_ids: [0]
@@ -827,8 +827,8 @@ addmm_:
   output_meta: AddMMMeta
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: addmm
   op_backend: AddMM
   inplace_ids: [0]
@@ -837,8 +837,8 @@ addmm.out:
   output_meta: AddMMMeta
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: addmm
   op_backend: AddMM
 
@@ -2363,8 +2363,8 @@ dot:
   custom_output_shape: DotOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: dot_fwd
   out_ids: [0]
 
@@ -2372,8 +2372,8 @@ dot.out:
   custom_output_shape: DotOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: dot_fwd
 
 elu:
@@ -4630,8 +4630,8 @@ mv:
   custom_output_shape: MvOpsOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mv_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
@@ -4640,8 +4640,8 @@ mv.out:
   custom_output_shape: MvOpsOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mv_fwd
   op_validator: check-node-with-shared-layer
 

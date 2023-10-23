@@ -252,6 +252,13 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const bool shouldUseParams = beta_val == 0.0 || beta_val == 1.0 ||
       alpha_val == 1.0 || alpha_val == 0.0;
 
+  // Kernel precision type is based on the input1 of the addmm op,
+  // because we want to support configuration: inputs(fp8), output(bf16/fp32).
+  // Formula: out = beta * input0 + alpha * (input1 @ input2)
+  // GEMM returns higher precision dtype, so input0 has to be (bf16/fp32).
+  auto guid =
+      get_guid_with_precision("addmm", stack_tensor(stack, 1).scalar_type());
+
   if (shouldUseParams) {
     ns_AddmmKernel::Params params{};
     params.alpha = alpha_val;
@@ -259,7 +266,7 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     auto addmv = BuildOp(
         graph,
-        guid_,
+        guid,
         {syn_in(0), syn_in(1), syn_in(2)},
         {{meta[0].shape, meta[0].dtype, 0}},
         &params,
@@ -270,7 +277,7 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     auto beta_tensor = ConstantHelper(graph, beta_val, ScalarType(), 1);
     auto addmm = BuildOp(
         graph,
-        guid_,
+        guid,
         {syn_in(0),
          syn_in(1),
          syn_in(2),

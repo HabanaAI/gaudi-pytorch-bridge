@@ -4897,6 +4897,9 @@ Tensor transpose_hpu_lazy(const Tensor& self, int64_t dim0_, int64_t dim1_) {
 
 Tensor t_hpu_lazy(const Tensor& self) {
   PT_LAZY_TRACE;
+  if (self.dim() < 2) {
+    return self;
+  }
   auto out = at::native::t(self);
 
   // lazy eager optimized view handling (no need to create view table)
