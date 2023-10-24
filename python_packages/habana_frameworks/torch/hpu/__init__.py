@@ -10,7 +10,6 @@
 #
 ###############################################################################
 
-import collections
 import os
 from torch.types import Device
 import threading
@@ -31,6 +30,7 @@ from ._utils import (
 from .events import *
 from .memory import *
 from .metrics import *
+from .random import *
 from .streams import *
 
 if is_lazy():
@@ -173,8 +173,10 @@ def enable_dynamic_shape():
 def disable_dynamic_shape():
     _hpu_C.disable_dynamic_shape()
 
+
 def get_dynamic_shape_status() -> bool:
     return _hpu_C.get_dynamic_shape_status()
+
 
 def enable_inference_mode():
     _hpu_C.enable_inference_mode()
@@ -183,8 +185,10 @@ def enable_inference_mode():
 def disable_inference_mode():
     _hpu_C.disable_inference_mode()
 
+
 def enable_quantization():
     _hpu_C.enable_quantization()
+
 
 def disable_quantization():
     _hpu_C.disable_quantization()
@@ -292,14 +296,20 @@ def set_device(device: _device_t) -> None:
                 f" which was previously set."
             )
 
-    if current_module_id == -1 and HABANA_VISIBLE_MODULES_VAR not in os.environ and device_count() < 8:
+    if (
+        current_module_id == -1
+        and HABANA_VISIBLE_MODULES_VAR not in os.environ
+        and device_count() < 8
+    ):
         # As HLS_MODULE_ID is not set and HABANA_VISIBLE_MODULES is not provided
         # by user:
         # - the only supported device idx is 0
         # - Module ID (HLS_MODULE_ID) can't be set as we don't know what Module
         #   IDs are available in system. In a result device will be allocated by
         #   type
-        assert device_idx == 0, f"As {HABANA_VISIBLE_MODULES_VAR} is not provided, the only supported device idx is 0."
+        assert (
+            device_idx == 0
+        ), f"As {HABANA_VISIBLE_MODULES_VAR} is not provided, the only supported device idx is 0."
     else:
         os.environ[HLS_MODULE_ID_VAR] = available_modules[device_idx]
 
