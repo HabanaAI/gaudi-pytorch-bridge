@@ -24,8 +24,13 @@ namespace habana {
 
 namespace sh = synapse_helpers;
 
-sizes_vec NormOutputShape(const at::Stack&) {
-  return {{}};
+OutputMetaDataVector NormMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  meta.shape = {};
+  meta.dtype = stack.size() == 3 ? stack.at(2).toScalarType()
+                                 : stack_tensor(stack, 0).scalar_type();
+
+  return {meta};
 }
 
 // Second param is unused so neglecting it
@@ -37,6 +42,29 @@ sizes_vec NormOpOutputShape(const at::Stack& stack) {
   const bool keepdim = stack.at(3).toBool();
 
   return ReductionOutputShape(self, dim, keepdim);
+}
+
+OutputMetaDataVector NormOpMeta(const at::Stack& stack) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
+
+  OutputMetaData meta;
+  meta.dtype = (stack.size() >= 5 && !stack.at(4).isTensor())
+      ? stack.at(4).toScalarType()
+      : self.scalar_type();
+  meta.shape = NormOpOutputShape(stack)[0];
+
+  return {meta};
+}
+
+OutputMetaDataVector VecNormMeta(const at::Stack& stack) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
+
+  OutputMetaData meta;
+  meta.dtype =
+      stack.at(4).toOptional<at::ScalarType>().value_or(self.scalar_type());
+  meta.shape = NormOpOutputShape(stack)[0];
+
+  return {meta};
 }
 
 std::shared_ptr<void> FillPFormNormOpParams(
@@ -424,30 +452,28 @@ static sh::tensor NormCommon(
 
 void VecNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  auto optional_dtype = stack.at(4).toOptional<at::ScalarType>();
   auto optional_ord = stack.at(1).toOptional<at::Scalar>();
   std::vector<int64_t> dim =
       stack.at(2).isNone() ? std::vector<int64_t>() : stack.at(2).toIntVector();
   const at::Scalar ord = optional_ord.value_or(2);
-  const at::ScalarType& dtype = optional_dtype.value_or(ScalarType());
   const bool keepdim = stack.at(3).toBool();
 
-  auto output_shape = NormOpOutputShape(stack)[0];
+  auto meta = VecNormMeta(stack)[0];
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
-      dtype == torch::kBFloat16 || dtype == torch::kFloat,
+      meta.dtype == torch::kBFloat16 || meta.dtype == torch::kFloat,
       "linalg.vector_norm: Expected input dtype to be Float or kBFloat16, but got ",
-      dtype);
+      meta.dtype);
 
   auto result = NormCommon(
       this,
       graph,
       syn_in(0),
-      dtype,
+      meta.dtype,
       self,
       dim,
       keepdim,
       ord,
-      {{output_shape, dtype, 0}},
+      {{meta.shape, meta.dtype, 0}},
       true /* vec_norm */);
   syn_out(0) = std::move(result);
 }
@@ -457,42 +483,19 @@ void NormOpWithDtype::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto optional_ord = stack.at(1).toOptional<at::Scalar>();
   std::vector<int64_t> dim = stack.at(2).toIntVector();
   const at::Scalar ord = optional_ord.value_or(2);
-  const at::ScalarType& dtype = stack.at(4).toScalarType();
   const bool keepdim = stack.at(3).toBool();
-  auto output_shape = NormOpOutputShape(stack)[0];
+  auto meta = NormOpMeta(stack)[0];
 
   auto result = NormCommon(
       this,
       graph,
       syn_in(0),
-      dtype,
+      meta.dtype,
       self,
       dim,
       keepdim,
       ord,
-      {{output_shape, dtype, 0}},
-      false /* norm */);
-  syn_out(0) = std::move(result);
-}
-
-void NormOpWithOutDtype::AddNode(sh::graph& graph, const at::Stack& stack) {
-  auto self = stack_tensor(stack, 0);
-  auto optional_ord = stack.at(1).toOptional<at::Scalar>();
-  std::vector<int64_t> dim = stack.at(2).toIntList().vec();
-  const at::Scalar ord = optional_ord.value_or(2);
-  const bool keepdim = stack.at(3).toBool();
-  auto output_shape = NormOpOutputShape(stack)[0];
-
-  auto result = NormCommon(
-      this,
-      graph,
-      syn_in(0),
-      ScalarType(),
-      self,
-      dim,
-      keepdim,
-      ord,
-      {{output_shape, ScalarType(), 0}},
+      {{meta.shape, meta.dtype, 0}},
       false /* norm */);
   syn_out(0) = std::move(result);
 }
@@ -500,17 +503,18 @@ void NormOpWithOutDtype::AddNode(sh::graph& graph, const at::Stack& stack) {
 void NormOpScalar::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto ord = stack.at(1).toScalar();
+  auto meta = NormMeta(stack)[0];
 
   auto result = NormCommon(
       this,
       graph,
       syn_in(0),
-      ScalarType(),
+      meta.dtype,
       self,
       {},
       false,
       ord,
-      {{1, ScalarType(), 0}},
+      {{meta.shape, meta.dtype, 0}},
       false /* norm */);
   syn_out(0) = std::move(result);
 }

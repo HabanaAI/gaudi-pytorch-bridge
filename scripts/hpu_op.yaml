@@ -3686,14 +3686,13 @@ linalg_cross.out:
   op_backend: LinAlgCross
 
 linalg_vector_norm:
-  custom_output_shape: NormOpOutputShape
+  output_meta: VecNormMeta
   dtypes: [BFloat16, Float]
   op_backend: VecNormOp
-  op_frontend: LazyNormOp
   out_ids: [0]
 
 linalg_vector_norm.out:
-  custom_output_shape: NormOpOutputShape
+  output_meta: VecNormMeta
   dtypes: [BFloat16, Float]
   op_backend: VecNormOp
 
@@ -5150,15 +5149,15 @@ log_normal_:
   schema_args: "(Tensor(a!) self, float mean=1, float std=2, *, Tensor seed) -> Tensor(a!)"
 
 norm.out:
-  custom_output_shape: NormOpOutputShape
+  output_meta: NormOpMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  op_backend: NormOpWithOutDtype
+  op_backend: NormOpWithDtype
 
 norm.dtype_out:
-  custom_output_shape: NormOpOutputShape
+  output_meta: NormOpMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5166,7 +5165,7 @@ norm.dtype_out:
   op_backend: NormOpWithDtype
 
 norm.Scalar:
-  custom_output_shape: NormOutputShape
+  output_meta: NormMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5175,26 +5174,25 @@ norm.Scalar:
   out_ids: [0]
 
 norm.ScalarOpt_dim_dtype:
-  custom_output_shape: NormOpOutputShape
+  output_meta: NormOpMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: NormOpWithDtype
-  op_frontend: LazyNormOp
   out_ids: [0]
 
 norm.ScalarOpt_dim:
-  custom_output_shape: NormOpOutputShape
+  output_meta: NormOpMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  op_backend: NormOpWithOutDtype
+  op_backend: NormOpWithDtype
   out_ids: [0]
 
 norm.ScalarOpt_dtype:
-  custom_output_shape: NormOutputShape
+  output_meta: NormMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]

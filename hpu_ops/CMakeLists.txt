@@ -302,7 +302,6 @@ add_library(habana_pytorch_frontend_ops OBJECT
           lazy/index_gen.cpp
           lazy/index_select_gen.cpp
           lazy/maxpool_gen.cpp
-          lazy/norm_gen.cpp
           lazy/optimizer_lamb_gen.cpp
           lazy/pow_gen.cpp
           lazy/random_gen.cpp
