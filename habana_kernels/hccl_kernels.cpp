@@ -188,8 +188,8 @@ void collective(
     auto pr = std::make_shared<std::promise<bool>>();
     std::future<bool> fut = pr->get_future();
     auto func = [fn = fn,
-                 input = inputs.at(i),
-                 output = outputs.at(i),
+                 input = std::make_shared<PtTensorInfo>(*inputs.at(i)),
+                 output = std::make_shared<PtTensorInfo>(*outputs.at(i)),
                  comm = comm,
                  collective_stream = collective_stream,
                  async = async,
