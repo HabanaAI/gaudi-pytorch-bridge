@@ -15,13 +15,15 @@
 #include "generated/backend/embedding_dense_backward.h"
 
 namespace habana {
-sizes_vec EmbeddingDenseBwdOutputShape(const at::Stack& stack) {
+OutputMetaDataVector EmbeddingDenseBwdMeta(const at::Stack& stack) {
   const auto& grad = stack_tensor(stack, 0);
   int num_weights = stack.at(2).toScalar().to<int>();
-  std::vector<int64_t> size;
-  size.push_back(num_weights);
-  size.push_back(grad.sizes().vec().back());
-  return {size};
+
+  OutputMetaData meta;
+  meta.dtype = grad.scalar_type();
+  meta.shape.push_back(num_weights);
+  meta.shape.push_back(grad.sizes().vec().back());
+  return {meta};
 }
 
 std::shared_ptr<void> FillEmbeddingDenseBackwardParams(
@@ -43,16 +45,15 @@ void EmbeddingDenseBwd::AddNode(
     const at::Stack& stack) {
   size_t size = 0;
   const auto& params = FillEmbeddingDenseBackwardParams(stack, size);
-  const auto outshape = EmbeddingDenseBwdOutputShape(stack)[0];
-  auto dtype = stack.at(0).toTensor().scalar_type();
+  const auto meta = EmbeddingDenseBwdMeta(stack)[0];
   std::vector<synTensor> inputs = {syn_in(0), syn_in(1)};
-  CreateShapeTensorInput(graph, dtype, outshape, inputs);
+  CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
   auto embedding = OpBackend::BuildNode(
       this,
       graph,
       {guid_,
        std::move(inputs),
-       {{outshape, ScalarType(), 0}},
+       {{meta.shape, meta.dtype, 0}},
        params.get(),
        size});
   syn_out(0) = std::move(embedding.at(0));

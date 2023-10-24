@@ -15,20 +15,21 @@
 #include "generated/backend/embedding_dense_backward.h"
 
 namespace habana {
-sizes_vec EmbeddingOutputShape(const at::Stack& stack) {
+OutputMetaDataVector EmbeddingMeta(const at::Stack& stack) {
   const auto& weight = stack_tensor(stack, 0);
   const auto& indices = stack_tensor(stack, 1);
 
-  std::vector<int64_t> size;
+  OutputMetaData meta;
+  meta.dtype = weight.scalar_type();
   if (indices.dim() == 1) {
-    size = weight.sizes().vec();
-    size[0] = indices.numel();
+    meta.shape = weight.sizes().vec();
+    meta.shape[0] = indices.numel();
   } else {
-    size = indices.sizes().vec();
+    meta.shape = indices.sizes().vec();
     for (int64_t d : weight.sizes().slice(1)) {
-      size.push_back(d);
+      meta.shape.push_back(d);
     }
   }
-  return {size};
+  return {meta};
 }
 } // namespace habana

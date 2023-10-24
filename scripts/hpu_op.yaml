@@ -2444,7 +2444,7 @@ embedding:
       weight: [BFloat16, Float, Half, Int, Char, Short, Byte]
       indices: [Int]
   fallback_check: [EmbeddingFallbackCheck, scale_grad_by_freq, sparse]
-  custom_output_shape: EmbeddingOutputShape
+  output_meta: EmbeddingMeta
   guid: embedding_pt_fwd
   out_ids: [0]
 
@@ -2461,7 +2461,7 @@ embedding_dense_backward:
       grad_output: [BFloat16, Float, Half]
       indices: [Int, Long]
   fallback_check: [EmbeddingDenseBwdFallbackCheck, scale_grad_by_freq]
-  custom_output_shape: EmbeddingDenseBwdOutputShape
+  output_meta: EmbeddingDenseBwdMeta
   guid: embedding_dense_pt_bwd
   op_backend: EmbeddingDenseBwd
   out_ids: [0]
