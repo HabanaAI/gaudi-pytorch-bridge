@@ -29,20 +29,26 @@ std::shared_ptr<void> FillIndexSelectParams(
   return params;
 }
 
-sizes_vec IndexSelectOutShape(const at::Stack& stack) {
+OutputMetaDataVector IndexSelectMeta(const at::Stack& stack) {
   auto self = stack.at(index_of_self).toTensor();
   auto dim_ = stack.at(index_of_dim).toInt();
   auto index = stack.at(index_of_index_position).toTensor();
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   auto shape = self.sizes().vec();
+
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
   if (shape.size()) {
     if (self.dim() == index.dim()) {
-      shape = index.sizes().vec();
+      meta.shape = index.sizes().vec();
     } else {
       shape.erase(shape.begin() + dim);
       shape.insert(shape.begin() + dim, index.numel());
+      meta.shape = shape;
     }
+  } else {
+    meta.shape = shape;
   }
-  return {shape};
+  return {meta};
 }
 } // namespace habana

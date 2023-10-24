@@ -3490,7 +3490,7 @@ index_copy.out:
 
 index_select:
   out_ids: [0]
-  custom_output_shape: IndexSelectOutShape
+  output_meta: IndexSelectMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
@@ -3500,7 +3500,7 @@ index_select:
   fallback_check: [IndexSelectFallbackCheck, self]
 
 index_select.out:
-  custom_output_shape: IndexSelectOutShape
+  output_meta: IndexSelectMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
