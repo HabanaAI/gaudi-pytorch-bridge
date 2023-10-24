@@ -47,13 +47,8 @@ class SharedTensorExtraMeta {
   }
   static std::optional<SharedTensorExtraMeta> create(const at::Tensor& tensor) {
     auto impl{tensor.unsafeGetTensorImpl()};
-#if IS_PYTORCH_AT_LEAST(2, 1)
     c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta(
-        impl->get_backend_meta(), {});
-#else
-    c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta(
-        impl->get_backend_meta());
-#endif
+        impl->get_backend_meta_intrusive_ptr());
     if (!meta)
       return {};
     auto tmeta_ptr{dynamic_cast<habana::TensorExtraMeta*>(meta.get())};
@@ -78,28 +73,15 @@ class SharedTensorExtraMeta {
     TORCH_CHECK(
         impl != nullptr,
         "Cannot obtain the TensorImpl from the tensor provided");
-    {
-#if IS_PYTORCH_AT_LEAST(2, 1)
-      c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta(
-          impl->get_backend_meta(), {});
-#else
-      c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta(
-          impl->get_backend_meta());
-#endif
-      TORCH_CHECK(
-          meta == nullptr,
-          "Cannot create a new backend meta as one already exists");
-    }
+    c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta(
+        impl->get_backend_meta_intrusive_ptr());
+    TORCH_CHECK(
+        meta == nullptr,
+        "Cannot create a new backend meta as one already exists");
     c10::intrusive_ptr<c10::BackendMeta> new_tmeta{
         std::unique_ptr<c10::BackendMeta>(new habana::TensorExtraMeta())};
     impl->set_backend_meta(new_tmeta);
-#if IS_PYTORCH_AT_LEAST(2, 1)
-    c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta(
-        impl->get_backend_meta(), {});
-#else
-    c10::intrusive_ptr<habana::BaseTensorExtraMeta> meta(
-        impl->get_backend_meta());
-#endif
+    meta = impl->get_backend_meta_intrusive_ptr();
     TORCH_CHECK(meta == new_tmeta, "Attached meta not the same as created");
     auto tmeta_ptr{dynamic_cast<habana::TensorExtraMeta*>(meta.get())};
     TORCH_CHECK(
