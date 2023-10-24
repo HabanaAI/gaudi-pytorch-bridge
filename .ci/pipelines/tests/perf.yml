@@ -7,6 +7,7 @@ common:
     - SYNAPSE
     - SYNAPSE_UTILS
     - TPC_KERNELS
+    - RDMA_CORE
   config:
     testCommand: run_pytorch_qa_tests
     loadLKD: true
@@ -14,7 +15,7 @@ common:
     releaseFlag: false
     saveToFileBeatMount: true
   envVars:
-    LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);')"
+    LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);'):${RDMA_CORE_ROOT}/build/lib"
     CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
     LD_PRELOAD: "/lib/x86_64-linux-gnu/libtcmalloc.so.4"
     JOB_SCENARIO: pt_smoke_perf_gaudi2
