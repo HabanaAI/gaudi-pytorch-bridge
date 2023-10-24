@@ -12,7 +12,7 @@
 
 import torch
 
-from typing import List
+from typing import List, Optional
 from torch._dynamo.backends.common import aot_autograd
 from torch._dynamo.backends.registry import register_backend
 
@@ -29,7 +29,8 @@ from .compilers import (
 )
 
 @register_backend
-def aot_hpu_training_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+def aot_hpu_training_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor],
+                             mode: Optional[str] = None):
     """
     This function implements interface for HPU training backend.
     """
@@ -43,7 +44,8 @@ def aot_hpu_training_backend(graph_module: torch.fx.GraphModule, example_inputs:
     )(graph_module, example_inputs)
 
 @register_backend
-def aot_hpu_inference_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+def aot_hpu_inference_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor],
+                              mode: Optional[str] = None):
     """
     This function implements interface for HPU inference backend.
     """
@@ -57,7 +59,8 @@ def aot_hpu_inference_backend(graph_module: torch.fx.GraphModule, example_inputs
     )(graph_module, example_inputs)
 
 @register_backend
-def hpu_inference_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+def hpu_inference_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor],
+                          mode: Optional[str] = None):
     """
     This function implements interface for HPU inference backend without AOT.
     """
