@@ -186,16 +186,12 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
     return allocated_outputs_;
   }
 
-  torch::jit::Stack& get_input_stack_() {
+  torch::jit::Stack& get_input_stack() {
     return input_st_copy;
   }
 
-  void set_input_stack_(torch::jit::Stack stack) {
-    input_st_copy = stack;
-  }
-
-  void copy_input_stack_(torch::jit::Stack& stack) {
-    stack = input_st_copy;
+  void set_input_stack(torch::jit::Stack stack) {
+    input_st_copy = std::move(stack);
   }
 
   std::shared_ptr<VecOfIValPtrSh> get_intermediate_tensors_ptrsh() const {

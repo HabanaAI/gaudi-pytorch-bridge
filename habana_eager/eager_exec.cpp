@@ -305,13 +305,12 @@ torch::jit::Stack EagerExec::launch() {
   }
 
   try {
-    std::shared_ptr<habana::HabanaLaunchOpPT> habana_launch_op_ =
+    std::shared_ptr<habana::HabanaLaunchOpPT> habana_launch_op =
         std::make_shared<habana::HabanaLaunchOpPT>(graph_and_meta);
-    habana_launch_op_->set_input_stack_(stack);
-    habana_launch_op_->run(
-        habana_launch_op_->get_input_stack_(), m_outputs.get_tensors());
-    habana_launch_op_->copy_input_stack_(stack);
-    return stack;
+    habana_launch_op->set_input_stack(std::move(stack));
+    habana_launch_op->run(
+        habana_launch_op->get_input_stack(), m_outputs.get_tensors());
+    return habana_launch_op->get_input_stack();
   } catch (const std::exception& e) {
     PT_EAGER_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
     throw;

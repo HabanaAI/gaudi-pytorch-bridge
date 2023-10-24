@@ -41,7 +41,7 @@ void GraphExec::LaunchRecipeTask(
     std::vector<at::Tensor>&& outputs) {
   PT_EAGER_TRACE_WITH_NAME(gexec->m_graph_name);
   try {
-    gexec->LaunchRecipe(inputs, outputs);
+    gexec->LaunchRecipe(std::move(inputs), outputs);
   } catch (const std::exception& e) {
     PT_BRIDGE_WARN(
         "Exception caught in Lowering thread (will be rethrown in main thread)...\n",
@@ -108,7 +108,6 @@ GraphExec::GraphExec(
       habana_helpers::HabanaFrontendTypes::COMPILE);
   m_graph_and_meta->SetOpName(m_graph_name);
   m_graph_and_meta->set_is_eager_compiler_supported(false);
-  m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
 };
 
 bool GraphExec::IsDynamicGraph() {
@@ -211,7 +210,9 @@ torch::jit::Stack GraphExec::launch(
 
   HandleWeightPermutation(backend_inputs);
 
-  if (m_is_pipeline_supported && backend_outputs.size() > 0) {
+  m_is_pipeline_supported = m_is_pipeline_supported && !backend_outputs.empty();
+  m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
+  if (m_is_pipeline_supported) {
     habana::eager::SingleTonEagerContext::getInstance()
         .ScheduleWorkAndUpdateLoweringThreadHandle(
             LaunchRecipeTask,
@@ -226,9 +227,8 @@ torch::jit::Stack GraphExec::launch(
       maybe_backend_outputs = backend_outputs;
     }
     habana::eager::JoinPendingPipelineThreads();
-    m_graph_and_meta->set_is_pipeline_supported(false);
     torch::jit::Stack ret_stack =
-        LaunchRecipe(backend_inputs, maybe_backend_outputs);
+        LaunchRecipe(std::move(backend_inputs), maybe_backend_outputs);
     return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);
   }
 }
@@ -254,13 +254,13 @@ torch::jit::Stack GraphExec::LaunchDynamicRecipe(
 
   HandleWeightPermutation(backend_inputs);
 
-  torch::jit::Stack ret_stack = LaunchRecipe(backend_inputs);
+  torch::jit::Stack ret_stack = LaunchRecipe(std::move(backend_inputs));
   habana_helpers::SetHybridSIFTorchCompile(true);
   return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);
 }
 
 torch::jit::Stack GraphExec::LaunchRecipe(
-    torch::jit::Stack& stack,
+    torch::jit::Stack stack,
     std::optional<std::vector<at::Tensor>> maybe_outputs) {
   // Important - this function is meant to be run on lowering thread.
   PT_EAGER_TRACE;
@@ -296,13 +296,11 @@ torch::jit::Stack GraphExec::LaunchRecipe(
   m_graph_and_meta->SetHPUStream(stream);
 
   try {
-    std::shared_ptr<habana::HabanaLaunchOpPT> habana_launch_op_ =
+    std::shared_ptr<habana::HabanaLaunchOpPT> habana_launch_op =
         std::make_shared<habana::HabanaLaunchOpPT>(m_graph_and_meta);
-    habana_launch_op_->set_input_stack_(stack);
-    habana_launch_op_->run(
-        habana_launch_op_->get_input_stack_(), maybe_outputs);
-    habana_launch_op_->copy_input_stack_(stack);
-    return stack;
+    habana_launch_op->set_input_stack(std::move(stack));
+    habana_launch_op->run(habana_launch_op->get_input_stack(), maybe_outputs);
+    return habana_launch_op->get_input_stack();
   } catch (const std::exception& e) {
     PT_EAGER_FATAL("HabanaLaunchOpPT Run returned exception....\n", e.what());
   }

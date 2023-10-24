@@ -53,7 +53,7 @@ class GraphExec {
  private:
   torch::jit::Stack LaunchDynamicRecipe(torch::jit::Stack& inputs);
   torch::jit::Stack LaunchRecipe(
-      torch::jit::Stack& stack,
+      torch::jit::Stack stack,
       std::optional<std::vector<at::Tensor>> maybe_outputs = {});
 
   void RunGraphPasses(torch::jit::Stack& example_inputs);
