@@ -244,18 +244,14 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
     def set_activation_dtype(self, inp: torch.Tensor) -> None:
         """Get activation data type for AMP."""
         # Native AMP (`torch.autocast`) gets highest priority
-        if torch.is_autocast_enabled():
-            self.activation_dtype = torch.get_autocast_gpu_dtype()
+        if torch.hpu.is_autocast_hpu_enabled():
+            self.activation_dtype = torch.hpu.get_autocast_hpu_dtype()
             return
 
         # All checks after this have already been performed once, thus skip
         # We assume that user doesn't change input types across iterations
         if hasattr(self, "activation_dtype"):
             return
-
-        #TODO: make proper check for HMP being enabled
-        self.activation_dtype = torch.bfloat16
-        return
 
         assert all(
             (

@@ -30,6 +30,12 @@ pytestmark = pytest.mark.xfail(
     reason="When running all tests from file, some of them fail randomly with RuntimeError: Habana device not initialized"
 )
 
+def _get_inp_weigth_bias_size(batch, in_features, out_features):
+    inp_size = (batch, in_features)
+    weight_size = (out_features, in_features)
+    bias_size = (out_features)
+    return inp_size, weight_size, bias_size
+
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
@@ -256,9 +262,7 @@ def test_te_linear_fp8_disabled(dtype, sizes, use_bias, skip_weight_param_alloca
     size_A, size_B, size_C = sizes
 
     device = torch.device("hpu:0")
-    inp_size = (size_A, size_B)
-    weight_size = (size_C, size_B)
-    bias_size = (size_C)
+    inp_size, weight_size, bias_size = _get_inp_weigth_bias_size(size_A, size_B, size_C)
 
     # Calculate te linear result
     torch.manual_seed(123)
@@ -339,8 +343,7 @@ def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add):
         fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False
     )
 
-    inp_size = (size_B, size_A)
-    weight_size = (size_A, size_A)
+    inp_size, weight_size, _ = _get_inp_weigth_bias_size(size_B, size_A, size_A)
     fp32_in_val = 0.46875
     fp8_in_val = 0.5
     fp32_w_val = 3.26
@@ -393,6 +396,39 @@ def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add):
     assert np.array_equal(grad_in_hpu, grad_in_cpu, equal_nan=True), "Data mismatch"
     assert np.array_equal(grad_w_hpu, grad_w_cpu, equal_nan=True), "Data mismatch"
 
+@pytest.mark.parametrize("device", [torch.device("hpu:0")])
+@pytest.mark.parametrize("lp_dtype", [torch.bfloat16])
+def test_fp8_linear_with_amp(device, lp_dtype):
+    fp8_format = Format.E5M2_HYBRID
+    fp8_recipe = DelayedScaling(fp8_format=fp8_format, reduce_amax=False)
+
+    hp_dtype = torch.float
+    batch = 2
+    in_features = 4
+    out_features = 8
+
+    inp_size, weight_size, _ = _get_inp_weigth_bias_size(batch, in_features, out_features)
+
+    in_hpu = torch.randn(inp_size, dtype=hp_dtype, device=device)
+    w_hpu = torch.randn(weight_size, dtype=hp_dtype, device=device)
+
+    linear_1 = te.Linear(
+        in_features, out_features, bias=False, skip_weight_param_allocation=True
+    )
+    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+        out_no_autocast = linear_1(in_hpu, weight=w_hpu)
+
+    linear_2 = te.Linear(
+        in_features, out_features, bias=False, skip_weight_param_allocation=True
+    )
+
+    with torch.autocast(device_type=device.type, dtype=lp_dtype):
+        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+            out_autocast = linear_2(in_hpu, weight=w_hpu)
+
+    assert out_no_autocast.dtype == hp_dtype
+    assert out_autocast.dtype == lp_dtype
+
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.float32])
@@ -411,7 +447,7 @@ def test_te_linear_hpu_graph(device, dtype, amax_history_len, hpu_graph=True):
         reduce_amax=False,
     )
 
-    my_linear = te.Linear(4, 3, bias=True)
+    my_linear = te.Linear(4, 3, bias=True, params_dtype=dtype)
 
     inputs = [
         input1,
@@ -506,9 +542,9 @@ def test_te_linear_module_cacher(device, dtype, amax_history_len, zero_grad, gra
     )
 
     torch.manual_seed(12345)
-    my_linear_ref = te.Linear(4, 3, bias=True)
+    my_linear_ref = te.Linear(4, 3, bias=True, params_dtype=dtype)
     torch.manual_seed(12345)
-    my_linear_test = te.Linear(4, 3, bias=True)
+    my_linear_test = te.Linear(4, 3, bias=True, params_dtype=dtype)
 
     inputs = [input1, input2, input3, input2, input1, input2, input3, input3, input1, input1, input3]
 
@@ -604,7 +640,7 @@ def test_module_cacher_with_dilation(dtype):
     )
 
     # Prepare te linear module and optimizer
-    my_linear = te.Linear(4, 3, bias=True)
+    my_linear = te.Linear(4, 3, bias=True, params_dtype=dtype)
     optimizer = torch.optim.SGD(my_linear.parameters(), lr=0.1)
 
     def train_step(model, input, optimizer):
@@ -686,9 +722,9 @@ def test_te_minimize_memory(device=torch.device("hpu:0"), dtype=torch.float32):
     )
 
     torch.manual_seed(12345)
-    ref_linear = te.Linear(4, 3, bias=True, minimize_memory=False)
+    ref_linear = te.Linear(4, 3, bias=True, params_dtype=dtype, minimize_memory=False)
     torch.manual_seed(12345)
-    min_linear = te.Linear(4, 3, bias=True, minimize_memory=True)
+    min_linear = te.Linear(4, 3, bias=True, params_dtype=dtype, minimize_memory=True)
 
     inputs = [input1, input2, input3, input2, input1, input2, input3, input3, input1, input1, input3]
 
@@ -747,7 +783,7 @@ def test_te_multiple_fwd_multiple_bwd(minimize_memory, microbatches_approach, de
 
     # Reference - fwd -> bwd -> fwd -> bwd ...
     torch.manual_seed(12345)
-    ref_linear = te.Linear(4, 3, bias=True, minimize_memory=minimize_memory)
+    ref_linear = te.Linear(4, 3, bias=True, params_dtype=dtype, minimize_memory=minimize_memory)
 
     ref_outputs = []
     ref_grads = []
@@ -762,7 +798,7 @@ def test_te_multiple_fwd_multiple_bwd(minimize_memory, microbatches_approach, de
 
     # Tested configuration - fwd -> fwd -> ... -> bwd -> bwd -> ...
     torch.manual_seed(12345)
-    test_linear = te.Linear(4, 3, bias=True, minimize_memory=minimize_memory)
+    test_linear = te.Linear(4, 3, bias=True, params_dtype=dtype, minimize_memory=minimize_memory)
 
     test_outputs = []
     test_grads = []
@@ -812,7 +848,7 @@ def test_linear_weight_caching_in_microbatches_case():
 
     # Prepare ref linear module and optimizer
     torch.manual_seed(12345)
-    ref_linear = te.Linear(4, 3, bias=True)
+    ref_linear = te.Linear(4, 3, bias=True, params_dtype=dtype)
     ref_optimizer = torch.optim.SGD(ref_linear.parameters(), lr=0.1)
 
     def train_step(model, input, optimizer=None):
@@ -851,7 +887,7 @@ def test_linear_weight_caching_in_microbatches_case():
 
     # Prepare tested linear module and optimizer
     torch.manual_seed(12345)
-    test_linear = te.Linear(4, 3, bias=True)
+    test_linear = te.Linear(4, 3, bias=True, params_dtype=dtype)
     test_optimizer = torch.optim.SGD(test_linear.parameters(), lr=0.1)
 
 
@@ -956,7 +992,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, margin
     )
 
     # Prepare te linear module and optimizer
-    my_linear = te.Linear(4, 3, bias=True)
+    my_linear = te.Linear(4, 3, bias=True, params_dtype=dtype)
     optimizer = torch.optim.SGD(my_linear.parameters(), lr=0.1)
 
     ref = {}
