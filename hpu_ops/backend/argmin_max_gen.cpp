@@ -16,48 +16,42 @@
 #include "hpu_ops/backend/reduction_template.h"
 
 namespace {
-auto output_type() {
-  return GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) ? c10::ScalarType::Long
-                                                   : c10::ScalarType::Int;
+
+auto GetDimVector(const at::Stack& stack) {
+  auto dim = stack.at(1);
+  return dim.isNone() ? std::vector<int64_t>{}
+                      : std::vector<int64_t>{dim.toInt()};
 }
+
 } // namespace
 namespace habana {
 
-sizes_vec ArgMinMaxOutputShape(const at::Stack& stack) {
+OutputMetaDataVector ArgMinMaxMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
-
-  auto dim = stack.at(1);
-  auto is_dim_none = dim.isNone();
-  auto dim_vec =
-      is_dim_none ? std::vector<int64_t>{} : std::vector<int64_t>{dim.toInt()};
-
   const bool keepdim = stack.at(2).toBool();
-  auto shape = ReductionOutputShape(self, dim_vec, keepdim);
+  auto dimVector = GetDimVector(stack);
 
-  return {shape};
+  OutputMetaData meta;
+  meta.shape = ReductionOutputShape(self, dimVector, keepdim)[0];
+  meta.dtype = c10::ScalarType::Long;
+  return {meta};
 }
 
 void ArgMinMax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   const bool keepdim = stack.at(2).toBool();
 
-  auto shape = ArgMinMaxOutputShape(stack)[0];
-  auto dtype = output_type();
-  auto dim = stack.at(1);
-  auto is_dim_none = dim.isNone();
-
-  auto dim_vec =
-      is_dim_none ? std::vector<int64_t>{} : std::vector<int64_t>{dim.toInt()};
+  auto meta = ArgMinMaxMeta(stack)[0];
 
   auto op = HandleReductionDimAndKeepdim(
       this,
       graph,
       self,
       {syn_in(0)},
-      dim_vec,
+      GetDimVector(stack),
       keepdim,
       guid_,
-      {{shape, dtype, 0}});
+      {{meta.shape, meta.dtype, 0}});
 
   syn_out(0) = std::move(op[0]);
 }

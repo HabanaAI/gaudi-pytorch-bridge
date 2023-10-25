@@ -1050,18 +1050,17 @@ arange.start_out:
   schema_args: "(Scalar start, Scalar end, Scalar step, *, Tensor? h2d_tensor=None, Tensor? shape_tensor=None, Tensor(a!) out) -> Tensor(a!)"
 
 argmax:
-  custom_output_shape: ArgMinMaxOutputShape
+  output_meta: ArgMinMaxMeta
   dtypes:
     Gaudi: [Float, BFloat16, Int, Char, Byte]
     Gaudi2: [Float, BFloat16, Int, Char, Byte, Half]
     Gaudi3: [Float, BFloat16, Int, Char, Byte, Half]
   guid: argmax_fwd
   op_backend: ArgMinMax
-  out_dtypes: [Long]
   out_ids: [0]
 
 argmax.out:
-  custom_output_shape: ArgMinMaxOutputShape
+  output_meta: ArgMinMaxMeta
   dtypes:
     Gaudi: [Float, BFloat16, Int, Char, Byte]
     Gaudi2: [Float, BFloat16, Int, Char, Byte, Half]
@@ -1070,18 +1069,17 @@ argmax.out:
   op_backend: ArgMinMax
 
 argmin:
-  custom_output_shape: ArgMinMaxOutputShape
+  output_meta: ArgMinMaxMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: argmin_fwd
   op_backend: ArgMinMax
-  out_dtypes: [Long]
   out_ids: [0]
 
 argmin.out:
-  custom_output_shape: ArgMinMaxOutputShape
+  output_meta: ArgMinMaxMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
