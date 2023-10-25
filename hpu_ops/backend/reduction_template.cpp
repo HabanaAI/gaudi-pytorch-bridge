@@ -34,7 +34,7 @@ static std::shared_ptr<void> FillReductionParams(
   unsigned maskval = 0;
   for (size_t i = 0; (i < dims.size()) && ndims; ++i) {
     auto d = c10::maybe_wrap_dim(dims[i], ndims); // handling negative indices
-    maskval = maskval | (1 << (ndims - d - 1)); // (ndims-i-1) is TPC order
+    maskval |= (1 << (ndims - d - 1)); // (ndims-i-1) is TPC order
   }
 
   params->reductionDimensionMask = maskval;

@@ -3027,8 +3027,15 @@ native_group_norm_backward:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
-  override_fn: native_group_norm_backward_hpu_lazy
-  acc_thread: true
+  output_meta: GroupNormMeta
+  op_backend: NativeGroupNormBwdHabanaOperator
+  synapse_layouts:
+  - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
+  out_ids: [0, 0, 0]
+  lazy:
+    acc_thread: true
+    override_fn: native_group_norm_backward_hpu_lazy
 
 gt.Scalar_out:
   dtypes:

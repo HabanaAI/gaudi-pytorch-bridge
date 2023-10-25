@@ -166,6 +166,7 @@ set(hpu_ops_tests_src
   hpu_ops/mul.cpp
   hpu_ops/nan_to_num.cpp
   hpu_ops/nansum.cpp
+  hpu_ops/native_group_norm_tests.cpp
   hpu_ops/ne.cpp
   hpu_ops/new_zeros.cpp
   hpu_ops/nextafter.cpp
