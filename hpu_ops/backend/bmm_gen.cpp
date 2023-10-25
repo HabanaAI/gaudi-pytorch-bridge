@@ -11,7 +11,7 @@
 #include "generated/backend/bmm.h"
 
 namespace habana {
-sizes_vec BmmOutputShape(const at::Stack& stack) {
+OutputMetaDataVector BmmMeta(const at::Stack& stack) {
   const at::Tensor self = stack_tensor(stack, 0);
   const at::Tensor mat2 = stack_tensor(stack, 1);
   auto self_sizes = self.sizes();
@@ -38,7 +38,11 @@ sizes_vec BmmOutputShape(const at::Stack& stack) {
       ",",
       *(mat2_end_iter - 2),
       "]")
-  return {{self_sizes[0], self_sizes[1], *(mat2_end_iter - 1)}};
+
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = {self_sizes[0], self_sizes[1], *(mat2_end_iter - 1)};
+  return {meta};
 }
 
 } // namespace habana

@@ -1750,7 +1750,7 @@ bmm:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
-  custom_output_shape: BmmOutputShape
+  output_meta: BmmMeta
   guid: batch_gemm
   out_ids: [0]
   # op_validator: check-node-with-shared-layer
@@ -1760,7 +1760,7 @@ bmm.out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
-  custom_output_shape: BmmOutputShape
+  output_meta: BmmMeta
   guid: batch_gemm
   # op_validator: check-node-with-shared-layer
 
