@@ -93,8 +93,8 @@ python_tools = "\
 from contextlib import contextmanager\n\
 @contextmanager\n\
 def env_setting(var, val):\n\
-    get_func = globals()['get_' + var]\n\
-    set_func = globals()['set_' + var]\n\
+    get_func = globals()['get_' + var.lower()]\n\
+    set_func = globals()['set_' + var.lower()]\n\
     current = get_func()\n\
     set_func(val)\n\
     yield\n\

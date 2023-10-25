@@ -670,7 +670,7 @@ def test_view_split_op_int64_default():
     assert list(t1[1:3].to('cpu')) == list(t[1:3])
 
 def test_view_split_op_int64_enabled():
-    with bc.env_setting('pt_enable_int64_support', True):
+    with bc.env_setting('PT_ENABLE_INT64_SUPPORT', True):
         assert bc.get_pt_enable_int64_support() == True
         t = torch.tensor([1,2,3,4,5,6], dtype=torch.int64)
         t1 = t.to('hpu')
@@ -680,7 +680,7 @@ def test_view_split_op_int64_enabled():
 # https://jira.habana-labs.com/browse/SW-152023
 @pytest.mark.xfail(reason="We are to fix SW-152023 to get pass")
 def test_view_split_op_int64_disabled():
-    with bc.env_setting('pt_enable_int64_support', False):
+    with bc.env_setting('PT_ENABLE_INT64_SUPPORT', False):
         assert bc.get_pt_enable_int64_support() == False
         t = torch.tensor([1,2,3,4,5,6], dtype=torch.int64)
         t1 = t.to('hpu')
