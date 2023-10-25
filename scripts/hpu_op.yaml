@@ -2882,7 +2882,7 @@ full:
 
 gather:
   custom_fill_params: FillGatherParams
-  custom_output_shape: GatherOutputShape
+  output_meta: GatherMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Short, Byte, Char, Half]
@@ -2892,7 +2892,7 @@ gather:
 
 gather.out:
   custom_fill_params: FillGatherParams
-  custom_output_shape: GatherOutputShape
+  output_meta: GatherMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Short, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Long, Short, Byte, Char, Half]

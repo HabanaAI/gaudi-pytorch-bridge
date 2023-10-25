@@ -12,7 +12,7 @@
 
 namespace habana {
 
-sizes_vec GatherOutputShape(const at::Stack& stack) {
+OutputMetaDataVector GatherMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto index = stack.at(2).toTensor();
   auto dim_ = stack.at(1).toInt();
@@ -49,7 +49,10 @@ sizes_vec GatherOutputShape(const at::Stack& stack) {
       shape[dim] = index.numel();
     }
   }
-  return {shape};
+  OutputMetaData meta;
+  meta.shape = shape;
+  meta.dtype = self.scalar_type();
+  return {meta};
 }
 
 std::shared_ptr<void> FillGatherParams(const at::Stack& stack, size_t& size) {
