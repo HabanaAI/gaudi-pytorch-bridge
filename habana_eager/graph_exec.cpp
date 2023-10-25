@@ -108,6 +108,7 @@ GraphExec::GraphExec(
       habana_helpers::HabanaFrontendTypes::COMPILE);
   m_graph_and_meta->SetOpName(m_graph_name);
   m_graph_and_meta->set_is_eager_compiler_supported(false);
+  m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
 };
 
 bool GraphExec::IsDynamicGraph() {
