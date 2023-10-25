@@ -19,18 +19,29 @@
 #include "generated/backend/nll_loss_forward.h"
 
 namespace habana {
-sizes_vec NllLossFwdOutputShape(const at::Stack& stack) {
+
+OutputMetaDataVector NllLossFwdMeta(const at::Stack& stack) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
   const torch::Tensor& target = stack_tensor(stack, 1);
   int64_t reduction = stack.at(3).toInt();
-  if (reduction == at::Reduction::Reduction::None) {
-    return {target.sizes().vec(), {}};
+  OutputMetaDataVector meta(2);
+  for (int i = 0; i < 2; ++i) {
+    meta.at(i).dtype = self.scalar_type();
+    meta.at(i).shape = {};
   }
-  return {{}, {}};
+  if (reduction == at::Reduction::Reduction::None) {
+    meta.at(0).shape = target.sizes().vec();
+  }
+  return meta;
 }
 
-sizes_vec NllLossBwdOutputShape(const at::Stack& stack) {
+OutputMetaDataVector NllLossBwdMeta(const at::Stack& stack) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
   const torch::Tensor& target = stack_tensor(stack, 1);
-  return {target.sizes().vec()};
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = target.sizes().vec();
+  return {meta};
 }
 
 sizes_vec NllLossBwdShapeTnsrShape(const at::Stack& stack) {
@@ -85,7 +96,7 @@ static std::vector<synapse_helpers::tensor> NllLoss(
     OpBackend* op,
     synapse_helpers::graph& graph,
     std::vector<synTensor> input,
-    const at::IntArrayRef outshape,
+    const OutputMetaData& meta,
     std::shared_ptr<void> params,
     size_t size,
     c10::optional<int> final_index = c10::nullopt) {
@@ -94,7 +105,7 @@ static std::vector<synapse_helpers::tensor> NllLoss(
       graph,
       {op->GetGuid(),
        std::move(input),
-       {{outshape, op->ScalarType(), final_index}},
+       {{meta.shape, meta.dtype, final_index}},
        params.get(),
        size});
 }
@@ -103,15 +114,14 @@ static std::vector<synapse_helpers::tensor> NllLossBwdFunc(
     OpBackend* op,
     synapse_helpers::graph& graph,
     std::vector<synTensor> input,
-    c10::ScalarType dtype,
-    const at::IntArrayRef outshape,
+    const OutputMetaData& meta,
     std::shared_ptr<void> params,
     size_t size,
     c10::optional<int> final_index = c10::nullopt,
     at::IntArrayRef shapeTnsrSize = {}) {
   // This helper function is used only when weight is none
-  op->CreateShapeTensorInput(graph, dtype, shapeTnsrSize, input);
-  return NllLoss(op, graph, input, outshape, params, size, final_index);
+  op->CreateShapeTensorInput(graph, meta.dtype, shapeTnsrSize, input);
+  return NllLoss(op, graph, input, meta, params, size, final_index);
 }
 
 static void DummyOutput(
@@ -125,6 +135,7 @@ static void DummyOutput(
 
 static std::vector<synapse_helpers::tensor> ReduceWeight(
     OpBackend* op,
+    const OutputMetaData& meta,
     synapse_helpers::graph& graph,
     std::vector<synTensor> input) {
   ns_Reduction::Params reduce_params{};
@@ -134,12 +145,13 @@ static std::vector<synapse_helpers::tensor> ReduceWeight(
       graph,
       {
 
-          get_guid_with_precision("reduce_sum_fwd", op->ScalarType()),
+          get_guid_with_precision("reduce_sum_fwd", meta.dtype),
           std::move(input),
-          {{1, op->ScalarType()}},
+          {{1, meta.dtype}},
           &reduce_params,
           sizeof(reduce_params)});
 }
+
 void NllLoss2DFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -156,7 +168,7 @@ void NllLoss2DFwd::AddNode(
 
   size_t size = 0;
   const auto& params = FillParams(stack, size);
-  const auto outshape = ComputeOutputShapes(stack)[0];
+  const auto meta = OutputMeta(stack)[0];
 
   std::vector<synapse_helpers::tensor> nll_loss;
   int64_t reduction = stack.at(3).toInt();
@@ -167,15 +179,15 @@ void NllLoss2DFwd::AddNode(
 
   if (stack.at(2).isNone()) { // weight is none
     nll_loss =
-        NllLoss(this, graph, {syn_in(0), syn_in(1)}, outshape, params, size, 0);
+        NllLoss(this, graph, {syn_in(0), syn_in(1)}, meta, params, size, 0);
   } else { // weight is not none
-    auto weight_sum = ReduceWeight(this, graph, {syn_in(2)});
+    auto weight_sum = ReduceWeight(this, meta, graph, {syn_in(2)});
 
     nll_loss = NllLoss(
         this,
         graph,
         {syn_in(0), syn_in(1), syn_in(2), weight_sum[0].get()},
-        outshape,
+        meta,
         params,
         size,
         0);
@@ -189,8 +201,7 @@ void NllLossBwd::AddNode(
     const at::Stack& stack) {
   size_t size = 0;
   const auto& params = FillParams(stack, size);
-  const auto outshape = ComputeOutputShapes(stack)[0];
-  auto dtype = stack.at(0).toTensor().scalar_type();
+  const auto meta = OutputMeta(stack)[0];
   const auto shapeTnsrSize = NllLossBwdShapeTnsrShape(stack)[0];
 
   if (stack.at(3).isNone()) { // weight is none
@@ -198,8 +209,7 @@ void NllLossBwd::AddNode(
         this,
         graph,
         {syn_in(0), syn_in(2)},
-        dtype,
-        outshape,
+        meta,
         params,
         size,
         0,
@@ -208,9 +218,9 @@ void NllLossBwd::AddNode(
   } else { // weight is not none
     auto nll_loss = BuildOp(
         graph,
-        get_guid_with_precision("cnll_loss_bwd", dtype),
+        get_guid_with_precision("cnll_loss_bwd", meta.dtype),
         {syn_in(0), syn_in(1), syn_in(2), syn_in(3), syn_in(4)},
-        {{outshape, dtype, 0}},
+        {{meta.shape, meta.dtype, 0}},
         params.get(),
         size);
     syn_out(0) = std::move(nll_loss[0]);
@@ -222,9 +232,8 @@ void NllLoss2DBwd::AddNode(
     const at::Stack& stack) {
   size_t size = 0;
   const auto& params = FillParams(stack, size);
-  const auto outshape = ComputeOutputShapes(stack)[0];
+  const auto meta = OutputMeta(stack)[0];
   const auto shapeTnsrSize = NllLossBwdShapeTnsrShape(stack)[0];
-  auto dtype = stack.at(0).toTensor().scalar_type();
 
   // A JIRA is created for self input tensor not used
   // https://jira.habana-labs.com/browse/SW-73878
@@ -235,20 +244,19 @@ void NllLoss2DBwd::AddNode(
         this,
         graph,
         {syn_in(0), syn_in(2)},
-        dtype,
-        outshape,
+        meta,
         params,
         size,
         0,
         shapeTnsrSize);
   } else { // weight is not none
-    auto weight_sum = ReduceWeight(this, graph, {syn_in(3)});
+    auto weight_sum = ReduceWeight(this, meta, graph, {syn_in(3)});
 
     output = NllLoss(
         this,
         graph,
         {syn_in(0), syn_in(2), syn_in(3), weight_sum[0].get()},
-        outshape,
+        meta,
         params,
         size,
         0);

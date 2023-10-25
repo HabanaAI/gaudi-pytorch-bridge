@@ -4931,7 +4931,7 @@ nextafter.out:
 
 nll_loss_backward:
   custom_fill_params: FillNllLossBwdParams
-  custom_output_shape: NllLossBwdOutputShape
+  output_meta: NllLossBwdMeta
   dtypes:
     Gaudi:
       grad_output: [BFloat16, Float]
@@ -4957,7 +4957,7 @@ nll_loss_backward:
 
 nll_loss_forward:
   custom_fill_params: FillNllLossFwdParams
-  custom_output_shape: NllLossFwdOutputShape
+  output_meta: NllLossFwdMeta
   dtypes:
     Gaudi:
       self: [BFloat16, Float]
@@ -4976,7 +4976,7 @@ nll_loss_forward:
 
 nll_loss2d_backward:
   custom_fill_params: FillNllLossBwdParams
-  custom_output_shape: NllLossBwdOutputShape
+  output_meta: NllLossBwdMeta
   dtypes:
     Gaudi:
       grad_output: [BFloat16, Float]
@@ -5005,7 +5005,7 @@ nll_loss2d_backward:
 
 nll_loss2d_forward:
   custom_fill_params: FillNllLossFwdParams
-  custom_output_shape: NllLossFwdOutputShape
+  output_meta: NllLossFwdMeta
   dtypes:
     Gaudi:
       self: [BFloat16, Float]
@@ -5028,7 +5028,7 @@ nll_loss2d_forward:
 
 nll_loss_backward.grad_input:
   custom_fill_params: FillNllLossBwdParams
-  custom_output_shape: NllLossBwdOutputShape
+  output_meta: NllLossBwdMeta
   dtypes:
     Gaudi:
       grad_output: [BFloat16, Float]
@@ -5053,7 +5053,7 @@ nll_loss_backward.grad_input:
 
 nll_loss_forward.output:
   custom_fill_params: FillNllLossFwdParams
-  custom_output_shape: NllLossFwdOutputShape
+  output_meta: NllLossFwdMeta
   dtypes:
     Gaudi:
       self: [BFloat16, Float]
@@ -5074,7 +5074,7 @@ nll_loss_forward.output:
 
 nll_loss2d_backward.grad_input:
   custom_fill_params: FillNllLossBwdParams
-  custom_output_shape: NllLossBwdOutputShape
+  output_meta: NllLossBwdMeta
   dtypes:
     grad_output: [BFloat16, Float]
     self: [BFloat16, Float]
@@ -5089,7 +5089,7 @@ nll_loss2d_backward.grad_input:
 
 nll_loss2d_forward.output:
   custom_fill_params: FillNllLossFwdParams
-  custom_output_shape: NllLossFwdOutputShape
+  output_meta: NllLossFwdMeta
   dtypes:
     self: [BFloat16, Float]
     target: [Int]
