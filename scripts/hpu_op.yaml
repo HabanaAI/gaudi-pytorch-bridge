@@ -4488,7 +4488,7 @@ mish_backward:
   out_ids: [0]
 
 mm:
-  custom_output_shape: MmOutputShape
+  output_meta: MmMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
@@ -4499,7 +4499,7 @@ mm:
 
 
 mm.out:
-  custom_output_shape: MmOutputShape
+  output_meta: MmMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
