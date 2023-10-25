@@ -5831,7 +5831,7 @@ replication_pad3d_backward.grad_input:
   op_backend: ReplicationPadBwdOp
 
 resize_:
-  custom_output_shape: ResizeOutputShape
+  output_meta: ResizeOutputMeta
   guid: memcpy
   inplace_ids: [0]
   op_backend: ResizeHabanaOperator
