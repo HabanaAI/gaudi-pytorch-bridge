@@ -294,8 +294,13 @@ device::device(
   }
 
   // GLOBAL_WORKSPACE_SIZE is set based on PT_HPU_INITIAL_WORKSPACE_SIZE in GB
-  const size_t init_size =
+  size_t init_size =
       GET_ENV_FLAG_NEW(PT_HPU_INITIAL_WORKSPACE_SIZE) * 1024 * 1024 * 1024;
+  // Set initial size of workspace buffer to 4MB in case of
+  // PT_HPU_INITIAL_WORKSPACE is equal to 0
+  if (init_size == 0) {
+    init_size = 4 * 1024 * 1024;
+  }
   if (init_size > 0) {
     workspace_buffer_ = get_workspace_buffer(init_size);
 

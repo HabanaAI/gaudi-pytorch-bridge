@@ -636,6 +636,10 @@ void graph::launch(
     if (oom_may) {
       least_workspace_size =
           device.get_least_workspace_size(tensor_mem, workspace_size);
+      // Set minimal size of workspace to 4MB to prevent it from being 0
+      if (least_workspace_size < 4 * 1024 * 1024) {
+        least_workspace_size = 4 * 1024 * 1024;
+      }
       device.cleanup_workspace_buffer();
     }
   }
