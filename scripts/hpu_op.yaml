@@ -1754,8 +1754,8 @@ clamp:
   custom_fill_params: FillClampParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min, max]
   guid: clamp_pt_fwd
   out_ids: [0]
@@ -1763,8 +1763,8 @@ clamp:
 clamp.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min, max]
   output_meta: ClampMeta
   op_backend: clampTensor
@@ -1774,8 +1774,8 @@ clamp_:
   custom_fill_params: FillClampParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min, max]
   guid: clamp_pt_fwd
   inplace_ids: [0]
@@ -1783,8 +1783,8 @@ clamp_:
 clamp_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min, max]
   op_backend: clampTensor
   inplace_ids: [0]
@@ -1793,8 +1793,8 @@ clamp.out:
   custom_fill_params: FillClampParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min, max]
   guid: clamp_pt_fwd
   # op_validator: check-node-with-shared-layer
@@ -1802,8 +1802,8 @@ clamp.out:
 clamp.Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min, max]
   output_meta: ClampMeta
   op_backend: clampTensor
@@ -1812,8 +1812,8 @@ clamp_max:
   custom_fill_params: FillClampMaxParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: clamp_pt_fwd
   out_ids: [0]
   promote_to_common_type: [self, max]
@@ -1822,8 +1822,8 @@ clamp_max:
 clamp_max.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, max]
   broadcast: true
   guid: clamp_pt_fwd
@@ -1835,8 +1835,8 @@ clamp_max_:
   custom_fill_params: FillClampMaxParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, max]
   guid: clamp_pt_fwd
   inplace_ids: [0]
@@ -1845,8 +1845,8 @@ clamp_max_:
 clamp_max_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, max]
   guid: clamp_pt_fwd
   op_backend: clampMaxTensor
@@ -1857,8 +1857,8 @@ clamp_max.out:
   custom_fill_params: FillClampMaxParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, max]
   guid: clamp_pt_fwd
   # op_validator: check-node-with-shared-layer
@@ -1866,8 +1866,8 @@ clamp_max.out:
 clamp_max.Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, max]
   broadcast: true
   op_backend: clampMaxTensor
@@ -1877,8 +1877,8 @@ clamp_min:
   custom_fill_params: FillClampMinParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min]
   guid: clamp_pt_fwd
   out_ids: [0]
@@ -1887,8 +1887,8 @@ clamp_min:
 clamp_min.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min]
   broadcast: true
   guid: clamp_pt_fwd
@@ -1900,8 +1900,8 @@ clamp_min_:
   custom_fill_params: FillClampMinParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min]
   guid: clamp_pt_fwd
   inplace_ids: [0]
@@ -1910,8 +1910,8 @@ clamp_min_:
 clamp_min_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min]
   guid: clamp_pt_fwd
   op_backend: clampMinTensor
@@ -1922,8 +1922,8 @@ clamp_min.out:
   custom_fill_params: FillClampMinParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min]
   guid: clamp_pt_fwd
   # op_validator: check-node-with-shared-layer
@@ -1931,8 +1931,8 @@ clamp_min.out:
 clamp_min.Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min]
   broadcast: true
   op_backend: clampMinTensor
