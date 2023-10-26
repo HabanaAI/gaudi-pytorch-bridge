@@ -102,7 +102,7 @@ class EagerOpBase {
   }
 
  protected:
-  torch::jit::Stack run(OutputSpecsOrTensors&& out_spec_or_tensors);
+  void run(OutputSpecsOrTensors&& out_spec_or_tensors);
 
   at::Symbol m_symbol;
   std::vector<std::vector<int64_t>> m_out_shapes;
@@ -112,7 +112,6 @@ class EagerOpBase {
   std::function<habana::OutputMetaDataVector(const at::Stack&)>
       m_output_meta_fn;
   EagerOpMetaData m_eager_op_meta_data;
-  bool m_is_pipeline_supported = true;
 
   void validate_inputs(const std::vector<at::IValue>& inputs);
 };
@@ -164,7 +163,7 @@ class EagerOp : public EagerOpBase {
 
     auto out_spec =
         OutputSpec{self.scalar_type(), self.device(), self.sizes().vec()};
-    auto stack = run({out_spec});
+    run({out_spec});
     return self;
   }
 
@@ -195,7 +194,7 @@ class EagerOp : public EagerOpBase {
 
     auto out_spec =
         OutputSpec{self.scalar_type(), self.device(), self.sizes().vec()};
-    auto stack = run({out_spec});
+    run({out_spec});
     return self;
   }
 
@@ -249,7 +248,7 @@ class EagerOp : public EagerOpBase {
           OutputSpec{el.scalar_type(), el.device(), el.sizes().vec()});
     });
 
-    auto stack = run(std::move(out_spec));
+    run(std::move(out_spec));
     return self;
   }
 
@@ -290,7 +289,7 @@ class EagerOp : public EagerOpBase {
           OutputSpec{el.scalar_type(), el.device(), el.sizes().vec()});
     }
 
-    auto stack = run(std::move(out_spec));
+    run(std::move(out_spec));
   }
 
   template <typename T = ReturnType, class U>
@@ -318,7 +317,7 @@ class EagerOp : public EagerOpBase {
       } while (customIt.has_more_items());
     }
 
-    auto stack = run(std::move(out_spec));
+    run(std::move(out_spec));
   }
 
   template <typename T = ReturnType>
@@ -353,7 +352,7 @@ class EagerOp : public EagerOpBase {
         tensor.device().type() == at::kHPU,
         "Got a non-HPU tensor, expecting an HPU tensor");
 
-    auto stack = run({OutputSpec{
+    run({OutputSpec{
         tensor.scalar_type(), tensor.device(), tensor.sizes().vec()}});
   }
 

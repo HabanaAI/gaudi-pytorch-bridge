@@ -132,7 +132,7 @@ class EagerExec {
         m_outputs(std::move(outputs)),
         m_is_pipeline_supported(is_pipeline_supported) {}
 
-  torch::jit::Stack launch();
+  void launch();
 
   void set_eager_op_info(EagerOpMetaData&& eager_op_meta_data);
 

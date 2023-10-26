@@ -225,7 +225,7 @@ std::vector<at::IValue> convert_cpu_wrapped_numbers(
   return stack;
 }
 
-torch::jit::Stack EagerExec::launch() {
+void EagerExec::launch() {
   PT_EAGER_TRACE_WITH_NAME(m_graph_name);
   const c10::hpu::HPUStream& stream{c10::hpu::getCurrentHPUStream()};
   synEventHandle event_handle{};
@@ -310,7 +310,6 @@ torch::jit::Stack EagerExec::launch() {
     habana_launch_op->set_input_stack(std::move(stack));
     habana_launch_op->run(
         habana_launch_op->get_input_stack(), m_outputs.get_tensors());
-    return habana_launch_op->get_input_stack();
   } catch (const std::exception& e) {
     PT_EAGER_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
     throw;
