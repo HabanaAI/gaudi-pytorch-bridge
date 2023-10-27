@@ -24,7 +24,6 @@ import torch
 from torch.distributed.constants import default_pg_timeout
 from torch.functional import Tensor
 import threading
-from packaging.version import Version
 
 _name_stack = deque()
 _module_dict = dict()
@@ -104,33 +103,6 @@ def _deserialize_habana_wrapper(func, marker, *args):
 
 
 def overwrite_torch_functions():
-    if Version(Version(torch.__version__).base_version) < Version("2.1"):
-        # wrap torch.distributed.distributed_c10d._get_pg_device
-        get_pg_device_orig = torch.distributed.distributed_c10d._get_pg_device
-
-        @wraps(torch.distributed.distributed_c10d._get_pg_device)
-        def wrap_get_pg_device(group):
-            backend_name = group.getBackendName() if group is not None else torch.distributed.get_backend()
-            if backend_name == "hccl":
-                return torch.device("hpu")
-
-            return get_pg_device_orig(group)
-
-        torch.distributed.distributed_c10d._get_pg_device = wrap_get_pg_device
-    else:
-        # wrap torch.distributed.distributed_c10d._get_pg_default_device
-        get_pg_default_device_orig = torch.distributed.distributed_c10d._get_pg_default_device
-
-        @wraps(torch.distributed.distributed_c10d._get_pg_default_device)
-        def wrap_get_pg_default_device(group):
-            backend_name = group.getBackendName() if group is not None else torch.distributed.get_backend()
-            if backend_name == "hccl":
-                return torch.device("hpu")
-
-            return get_pg_default_device_orig(group)
-
-        torch.distributed.distributed_c10d._get_pg_default_device = wrap_get_pg_default_device
-
     # wrap torch.manual_seed
 
     manual_seed_orig = torch.manual_seed
