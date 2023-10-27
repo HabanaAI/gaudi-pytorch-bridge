@@ -35,7 +35,6 @@ def fp8_gemm(
     out: Optional[torch.Tensor] = None,
     bias: Optional[torch.Tensor] = None,
     use_bias: bool = False,
-    fp32_output: bool = False,
     use_split_accumulator: bool = False,
     transa: bool = True,
     transb: bool = False,
@@ -43,7 +42,6 @@ def fp8_gemm(
     """GEMM with fp8 inputs."""
 
     # TODO: Remove these params if not needed
-    assert not fp32_output
     assert not use_split_accumulator
 
     if out is None:

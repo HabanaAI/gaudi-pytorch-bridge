@@ -396,6 +396,57 @@ def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add):
     assert np.array_equal(grad_in_hpu, grad_in_cpu, equal_nan=True), "Data mismatch"
     assert np.array_equal(grad_w_hpu, grad_w_cpu, equal_nan=True), "Data mismatch"
 
+# params: list of tuples (amax_history_len, iterations)
+def _changed_history_size(params):
+    torch.manual_seed(123)
+    fp8_format = Format.E5M2
+
+    device = torch.device("hpu")
+    dtype = torch.float
+    in_features = 2
+    out_features = 4
+
+    def inputs_gen():
+        i = 0
+        while True:
+            yield torch.tensor([[i]*in_features], dtype=dtype, device=device)
+            i += 1
+    gen = inputs_gen()
+
+    expected_amaxes = []
+    linear = te.Linear(in_features, out_features)
+
+    def verify_amax_history(expected_amaxes, module):
+        history_len = module.fp8_meta["recipe"].amax_history_len
+        amax_history = module.fp8_meta["scaling_fwd"].amax_history.cpu()
+        for i in range(min(history_len, len(expected_amaxes))):
+            expected = expected_amaxes[-(i+1)]
+            assert expected in amax_history, f'value: {expected} not in amax_history: {amax_history}'
+
+    for amax_history_len, iterations in params:
+        fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=amax_history_len, reduce_amax=False)
+        for _ in range(iterations):
+            inp = next(gen)
+            with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+                linear(inp).cpu()
+                expected_amaxes.append(torch.amax(inp))
+
+        verify_amax_history(expected_amaxes, linear)
+
+def test_shorter_history_size():
+    # Test simple case with shrinking amax history
+    _changed_history_size([(5, 3), (2, 1), (2, 1)])
+
+def test_shorter_history_size_index_in_the_middle():
+    # Test case, where index is lower than new amax_history length,
+    # So the new amax history needs to be constructed from two slices
+    _changed_history_size([(5, 7), (4, 1)])
+
+def test_longer_history_size():
+    # Changing history size to a longer one
+    _changed_history_size([(4, 6), (8, 4), (8, 1)])
+
+
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("lp_dtype", [torch.bfloat16])
 def test_fp8_linear_with_amp(device, lp_dtype):

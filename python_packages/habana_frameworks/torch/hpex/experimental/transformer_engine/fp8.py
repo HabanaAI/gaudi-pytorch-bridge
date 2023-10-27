@@ -15,7 +15,7 @@
 # - Changed device type to "hpu"
 # - Minor code adaptations
 
-"""FP8 utilies for TransformerEngine"""
+"""FP8 utilities for TransformerEngine"""
 from contextlib import contextmanager
 from collections import deque
 from typing import Callable, List, Optional, Dict, Any, Tuple, Union
@@ -38,6 +38,24 @@ _global_fp8_buffer = {}
 _fp8_tensors_recompute_buffer = []
 _buffer_delete_key_fwd = None
 _buffer_delete_key_bwd = None
+_is_fp8_available = None
+_reason_for_no_fp8 = ""
+
+
+def _check_fp8_support() -> Tuple[bool, str]:
+    """Return if fp8 support is available"""
+    from habana_frameworks.torch.hpu import get_device_name
+    if get_device_name() == "GAUDI":
+       return False, "FP8 not supported on Gaudi, Gaudi2 or higher required"
+    return True, ""
+
+
+def is_fp8_available() -> Tuple[bool, str]:
+    """Return if fp8 support is available"""
+    global _is_fp8_available, _reason_for_no_fp8
+    if _is_fp8_available is None:
+        _is_fp8_available, _reason_for_no_fp8 = _check_fp8_support()
+    return _is_fp8_available, _reason_for_no_fp8
 
 
 def get_meta_tensor_key(forward: bool = True) -> str:
@@ -170,7 +188,10 @@ def copy_amax_from_global_buffer(
     buffer_position_key = get_buffer_position_key(forward=forward)
     if buffer_position_key not in fp8_meta:
         return
+
     amax_buffer_key = get_amax_buffer_key(fp8_meta, forward=forward)
+    assert amax_buffer_key in _global_fp8_buffer, "TE internal error."
+
     fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index][0] = _global_fp8_buffer[amax_buffer_key][
         fp8_meta[buffer_position_key]
     ]
@@ -243,6 +264,10 @@ def fp8_autocast(
             _FP8_AUTOCAST_COUNTER += 1
             _FP8_MANUAL_MEASUREMENT = force_measurement
         _FP8_AUTOCAST_DEPTH += 1
+
+        if enabled:
+            fp8_available, reason_for_no_fp8 = is_fp8_available()
+            assert fp8_available, reason_for_no_fp8
 
         yield
     finally:
@@ -456,14 +481,16 @@ def get_fp8_te_dtype(
     if fp8_recipe.fp8_format == Format.E4M3 or (
         fp8_recipe.fp8_format == Format.HYBRID and fprop_tensor
     ):
-        return tex.DType.kFloat8E4M3
-    return tex.DType.kFloat8E5M2
+        return torch.float8_e4m3fn
+    return torch.float8_e5m2
+
 
 def get_fp8_te_sr(
     fp8_recipe: DelayedScaling, fprop_tensor: bool = True
 ) -> tex.DType:
     """Get fp8 stochastic rounding flag according to recipe and tensor"""
     return fp8_recipe.fp8_format == Format.E5M2_HYBRID and not fprop_tensor
+
 
 def reduce_tensor_across_group_op_max(
     tensor: torch.Tensor, group: dist_group_type
