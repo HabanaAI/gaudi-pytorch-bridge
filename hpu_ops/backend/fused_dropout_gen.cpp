@@ -53,7 +53,7 @@ void FusedDropout::AddNode(
   auto dropout = BuildOp(
       graph,
       get_guid_with_precision("dropout_fwd", metas[0].dtype),
-      inputTensors,
+      std::move(inputTensors),
       {NodeAttr::NodeOutputAttr{metas[0].shape, metas[0].dtype, 0},
        NodeAttr::NodeOutputAttr{metas[1].shape, metas[1].dtype, 1}},
       params.get(),
