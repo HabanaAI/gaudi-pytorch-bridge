@@ -937,26 +937,38 @@ all.out:
   op_backend: AllDim
 
 amax:
-  dtypes: [Float, BFloat16, Int]
+  dtypes:
+    Gaudi: [Float, BFloat16, Int]
+    Gaudi2: [Float, BFloat16, Int, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [Float, BFloat16, Int, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_max_fwd
   output_meta: AminAmaxMeta
   op_backend: AminAmax
   out_ids: [0]
 
 amax.out:
-  dtypes: [Float, BFloat16, Int, Long]
+  dtypes:
+    Gaudi: [Float, BFloat16, Int, Long]
+    Gaudi2: [Float, BFloat16, Int, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [Float, BFloat16, Int, Long, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_max_fwd
   op_template: reduction
 
 amin:
-  dtypes: [Float, BFloat16, Int]
+  dtypes:
+    Gaudi: [Float, BFloat16, Int]
+    Gaudi2: [Float, BFloat16, Int, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [Float, BFloat16, Int, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_min_fwd
   output_meta: AminAmaxMeta
   op_backend: AminAmax
   out_ids: [0]
 
 amin.out:
-  dtypes: [Float, BFloat16, Int, Long]
+  dtypes:
+    Gaudi: [Float, BFloat16, Int, Long]
+    Gaudi2: [Float, BFloat16, Int, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [Float, BFloat16, Int, Long, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_min_fwd
   op_template: reduction
 
@@ -4173,15 +4185,18 @@ max:
   custom_output_shape: AllAnyOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi2: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_max_fwd
   op_backend: ReduceMinMax
   out_ids: [0]
 
 max.dim:
   custom_fill_params: FillMinMaxParams
-  dtypes: [BFloat16, Float, Int, Long]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_max_fwd
   output_meta: MinMaxMeta
   op_backend: MaxDimOp
@@ -4191,8 +4206,8 @@ max.dim_max:
   custom_fill_params: FillMinMaxParams
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi2: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_max_fwd
   output_meta: MinMaxMeta
   op_backend: MinMaxOut
@@ -4201,8 +4216,8 @@ maximum:
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi2: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: max_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -4212,8 +4227,8 @@ maximum.out:
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Half, Long]
+    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: max_fwd
   promote_to_common_type: [self, other]
   # op_validator: check-node-with-shared-layer
@@ -4395,8 +4410,8 @@ min:
   custom_output_shape: AllAnyOutputShape
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi2: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_min_fwd
   op_backend: ReduceMinMax
   out_ids: [0]
@@ -4405,8 +4420,8 @@ min.dim:
   custom_fill_params: FillMinMaxParams
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi2: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_min_fwd
   output_meta: MinMaxMeta
   op_backend: MinMaxOut
@@ -4416,8 +4431,8 @@ min.dim_min:
   custom_fill_params: FillMinMaxParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Half, Long]
+    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_min_fwd
   output_meta: MinMaxMeta
   op_backend: MinMaxOut
@@ -4426,8 +4441,8 @@ minimum:
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi2: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: min_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -4437,8 +4452,8 @@ minimum.out:
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Half, Long]
+    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: min_fwd
   promote_to_common_type: [self, other]
   # op_validator: check-node-with-shared-layer

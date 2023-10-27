@@ -11,11 +11,17 @@
 ###############################################################################
 import torch
 import pytest
-import habana_frameworks.torch.dynamo.compile_backend
+from test_utils import is_gaudi1, compare_tensors
+
+
+dtypes = [torch.float32, torch.bfloat16, torch.int]
+if not is_gaudi1():
+    dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
+
 
 @pytest.mark.parametrize("shape", [[2, 7], [2, 3, 4]])
 @pytest.mark.parametrize("op", [torch.minimum, torch.maximum])
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int])
+@pytest.mark.parametrize("dtype", dtypes)
 def test_hpu_minimum_maximum(shape, op, dtype):
     def fn(input, other):
         return op(input, other)
@@ -24,14 +30,19 @@ def test_hpu_minimum_maximum(shape, op, dtype):
         cpu_input = torch.randint(low=-100, high=100, size=shape, dtype=dtype)
         cpu_other = torch.randint(low=-100, high=100, size=shape, dtype=dtype)
     else:
-        cpu_input = torch.rand(shape, dtype=dtype)
-        cpu_other = torch.rand(shape, dtype=dtype)
+        cpu_input = torch.randn(shape).to(dtype)
+        cpu_other = torch.randn(shape).to(dtype)
 
     hpu_input = cpu_input.to("hpu")
     hpu_other = cpu_other.to("hpu")
-    cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
-    cpu_output = cpu_compiled_fn(cpu_input, cpu_other)
-    hpu_output = hpu_compiled_fn(hpu_input, hpu_other).cpu()
+    if dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
+        cpu_input = cpu_input.float()
+        cpu_other = cpu_other.float()
+
+    if pytest.mode == "compile":
+        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    cpu_output = op(cpu_input, cpu_other)
+    hpu_output = fn(hpu_input, hpu_other).cpu()
     assert torch.equal(cpu_output, hpu_output)
