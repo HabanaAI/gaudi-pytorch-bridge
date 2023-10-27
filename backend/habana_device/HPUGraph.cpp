@@ -472,23 +472,35 @@ void SingleHPUGraph::replayGraph(
       launch_jobid, c10::hpu::getCurrentHPUStream().stream());
 
   // set exec for input/output tensors
-  std::unordered_set<size_t> in_uid;
-  for (const auto& t : hblazy_tensors_in_) {
-    auto uid = t.getTensorUniqueId();
-    in_uid.insert(uid);
-    t.SetExecutionInProgress();
-  }
-
-  for (auto& t : hblazy_tensors_out_) {
-    auto uid = t.getTensorUniqueId();
-    if (in_uid.find(uid) == in_uid.end()) {
-      t.SetTensorDataNullOpt();
+  bool queue_in_thread_pool = async &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD) &&
+      GET_ENV_FLAG_NEW(PT_HPU_QUEUE_SYNLAUNCHES);
+  if (!queue_in_thread_pool) {
+    std::unordered_set<size_t> in_uid;
+    for (const auto& t : hblazy_tensors_in_) {
+      auto uid = t.getTensorUniqueId();
+      in_uid.insert(uid);
+      t.SetExecutionInProgress();
     }
-    t.SetExecutionInProgress();
+
+    for (auto& t : hblazy_tensors_out_) {
+      auto uid = t.getTensorUniqueId();
+      if (in_uid.find(uid) == in_uid.end()) {
+        t.SetTensorDataNullOpt();
+      }
+      t.SetExecutionInProgress();
+    }
+  } else {
+    for (const auto& t : hblazy_tensors_in_) {
+      t.SetExecutionInProgress();
+    }
+
+    for (const auto& t : hblazy_tensors_out_) {
+      t.SetExecutionInProgress();
+    }
   }
 
-  if (async && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_HPUGRAPH_THREAD) &&
-      GET_ENV_FLAG_NEW(PT_HPU_QUEUE_SYNLAUNCHES)) {
+  if (queue_in_thread_pool) {
     context->m_launch_thread_handle =
         habana_lazy::SingleTonExecThreadPool::getInstance().enqueue(
             habana_lazy::HbLazyTensor::ExecuteCachedGraph,
