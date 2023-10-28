@@ -451,17 +451,17 @@ def amax_and_scale_update(
 
 def get_fp8_te_dtype(
     fp8_recipe: DelayedScaling, fprop_tensor: bool = True
-) -> torch.dtype:
+) -> tex.DType:
     """Get fp8 data type according to recipe and tensor"""
     if fp8_recipe.fp8_format == Format.E4M3 or (
         fp8_recipe.fp8_format == Format.HYBRID and fprop_tensor
     ):
-        return torch.float8_e4m3fn
-    return torch.float8_e5m2
+        return tex.DType.kFloat8E4M3
+    return tex.DType.kFloat8E5M2
 
 def get_fp8_te_sr(
     fp8_recipe: DelayedScaling, fprop_tensor: bool = True
-) -> bool:
+) -> tex.DType:
     """Get fp8 stochastic rounding flag according to recipe and tensor"""
     return fp8_recipe.fp8_format == Format.E5M2_HYBRID and not fprop_tensor
 

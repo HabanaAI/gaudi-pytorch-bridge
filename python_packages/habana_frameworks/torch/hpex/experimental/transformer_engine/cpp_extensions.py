@@ -19,13 +19,16 @@
 from typing import Optional, Tuple, Union
 import torch
 from habana_frameworks.torch import _hpex_C as tex
+from .constants import Torch_DType
 
 
 def fp8_gemm(
     A: torch.Tensor,
     A_scale_inv: torch.Tensor,
+    A_dtype: tex.DType,
     B: torch.Tensor,
     B_scale_inv: torch.Tensor,
+    B_dtype: tex.DType,
     out_dtype: torch.dtype,
     workspace: torch.Tensor = None,
     accumulate: bool = False,
@@ -76,7 +79,7 @@ def fp8_gelu(
     inp: torch.Tensor,
     fp8_meta_tensor: tex.FP8TensorMeta,
     fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
-    otype: torch.dtype,
+    otype: tex.DType,
     retain: torch.Tensor = None,
     stochastic_rounding = False,
     measure_amax = True
@@ -100,18 +103,18 @@ def cast_to_fp8(
     inp: torch.Tensor,
     fp8_meta_tensor: tex.FP8TensorMeta,
     fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
-    otype: torch.dtype,
+    otype: tex.DType,
     stochastic_rounding = False,
     measure_amax = True
 ) -> torch.Tensor:
     """Cast input to FP8"""
     def operator():
-        return torch.ops.hpu.cast_to_fp8_v2(inp, fp8_meta_tensor.scale[fp8_tensor], stochastic_rounding, measure_amax, dtype=otype)
+        return torch.ops.hpu.cast_to_fp8_v2(inp, fp8_meta_tensor.scale[fp8_tensor], stochastic_rounding, measure_amax)
     cast_out, amax = _select_amax_and_exec(
         fp8_meta_tensor,
         fp8_tensor,
         operator,
-        measure_amax=measure_amax,
+        measure_amax=measure_amax
         )
 
     return cast_out
@@ -120,13 +123,14 @@ def cast_from_fp8(
     inp: torch.Tensor,
     fp8_meta_tensor: tex.FP8TensorMeta,
     fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
-    otype: torch.dtype,
+    itype: tex.DType,
+    otype: tex.DType,
 ) -> torch.Tensor:
     """Cast input from FP8"""
     return torch.ops.hpu.cast_from_fp8(
         inp,
         fp8_meta_tensor.scale_inv[fp8_tensor],
-        otype,
+        Torch_DType[otype],
     )
 
 

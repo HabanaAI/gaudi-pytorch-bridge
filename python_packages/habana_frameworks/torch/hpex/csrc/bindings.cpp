@@ -234,6 +234,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           "amax_history_index",
           &transformer_engine::FP8TensorMeta::amax_history_index);
 
+  py::enum_<transformer_engine::DType>(m, "DType")
+      .value("kByte", transformer_engine::DType::kByte)
+      .value("kInt32", transformer_engine::DType::kInt32)
+      .value("kFloat32", transformer_engine::DType::kFloat32)
+      .value("kFloat16", transformer_engine::DType::kFloat16)
+      .value("kBFloat16", transformer_engine::DType::kBFloat16)
+      .value("kFloat8E4M3", transformer_engine::DType::kFloat8E4M3)
+      .value("kFloat8E5M2", transformer_engine::DType::kFloat8E5M2);
+
   py::enum_<transformer_engine::FP8FwdTensors>(m, "FP8FwdTensors")
       .value("GEMM1_INPUT", transformer_engine::FP8FwdTensors::GEMM1_INPUT)
       .value("GEMM1_WEIGHT", transformer_engine::FP8FwdTensors::GEMM1_WEIGHT)

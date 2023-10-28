@@ -73,8 +73,9 @@ from .distributed import (
 from .cpp_extensions import (
     fp8_gemm,
     cast_to_fp8,
+    cast_from_fp8,
 )
-from .constants import GemmParallelModes, dist_group_type
+from .constants import GemmParallelModes, dist_group_type, TE_DType
 
 @contextmanager
 def _prepare_backward(fp8: bool,
@@ -273,15 +274,26 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         )
         self.activation_dtype = inp.dtype
 
-    def _create_fp8_tensor(self, shape) -> torch.Tensor:
-        fp8_dtype = get_fp8_te_dtype(
-            self.fp8_meta["recipe"], fprop_tensor=True
-        )
-        result = torch.zeros(
+    def _create_fp8_tensor(self, shape, synchronize=True) -> torch.Tensor:
+        # TODO: That's a hack. We need a kernel that will create int8 bridge tensor with float8 underlying tensor,
+        # or alternatively we need native PT fp8 support
+        a = torch.zeros(
             shape,
             device="hpu",
-            dtype=fp8_dtype,
+            dtype=torch.bfloat16,
         )
+
+        result, _ = torch.ops.hpu.cast_to_fp8_v2(
+            a,
+            None,
+            False,
+            False
+        )
+
+        # Another hack: Control edge is missing in fp8_copy_, so this workaround enforces correct order of operations.
+        # Not handling now in proper way, because in future we will switch to native fp8 in python, so we won't use fp8_copy_
+        if synchronize:
+            result.cpu()
 
         return result
 
@@ -622,12 +634,14 @@ class _Linear(torch.autograd.Function):
                 weight_fp8 = casted
             else:
                 assert weight.shape == weight_fp8.shape, "Module initialized with different shape than received weight"
-                weight_fp8.copy_(casted)
+                torch.ops.hpu.fp8_copy_(weight_fp8, casted)
         out = fp8_gemm(
             weight_fp8,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_WEIGHT],
+            fp8_dtype_forward,
             inputmat,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
+            fp8_dtype_forward,
             activation_dtype,
             bias=bias,
             use_bias=use_bias,
@@ -730,16 +744,17 @@ class _Linear(torch.autograd.Function):
                     weight,
                     fwd_scales[tex.FP8FwdTensors.GEMM1_WEIGHT],
                     stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=True),
-                    is_amax=False,
-                    dtype=fp8_dtype_forward,
+                    is_amax=False
                 )
 
             # DGRAD
             dgrad = fp8_gemm(
                 weight_fp8,
                 fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
+                fp8_dtype_forward,
                 grad_output_c,
                 ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
+                fp8_dtype_backward,
                 ctx.activation_dtype,
                 transa=False,
             )
@@ -759,10 +774,12 @@ class _Linear(torch.autograd.Function):
                 wgrad = fp8_gemm(
                     inputmat_fp8_total,
                     fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                    fp8_dtype_forward,
                     grad_output_c,
                     ctx.fp8_meta["scaling_bwd"].scale_inv[
                         tex.FP8BwdTensors.GRAD_OUTPUT1
                     ],
+                    fp8_dtype_backward,
                     ctx.activation_dtype,
                     accumulate=False,
                     fp32_output=False,
@@ -1197,8 +1214,10 @@ class _MatMul(torch.autograd.Function):
         out = fp8_gemm(
             weight_fp8,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_WEIGHT],
+            fp8_dtype_forward,
             inputmat,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
+            fp8_dtype_forward,
             activation_dtype,
             transa = transpose_weight,
             transb = transpose_inp
@@ -1275,8 +1294,10 @@ class _MatMul(torch.autograd.Function):
             dgrad = fp8_gemm(
                 weight_fp8,
                 fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
+                fp8_dtype_forward,
                 grad_output_c,
                 ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
+                fp8_dtype_backward,
                 ctx.activation_dtype,
                 transa = not ctx.transpose_weight,
                 transb = False,
@@ -1301,8 +1322,10 @@ class _MatMul(torch.autograd.Function):
                     ctx.fp8_meta["scaling_bwd"].scale_inv[
                         tex.FP8BwdTensors.GRAD_OUTPUT1
                     ],
+                    fp8_dtype_backward,
                     inputmat_total,
                     fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                    fp8_dtype_forward,
                     ctx.activation_dtype,
                     transa = False,
                     transb = not ctx.transpose_inp
@@ -1431,8 +1454,11 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
         attention_head_size: int
     ) -> torch.Tensor:
         new_x_shape = x.size()[:-1] + (num_attention_heads, attention_head_size)
-        x = torch.reshape(x, new_x_shape)
-        out = torch.permute(x, [0,2,1,3])
+        x = torch.ops.hpu.fp8_reshape(x, new_x_shape)
+        out = torch.empty(
+            (x.shape[0], x.shape[2], x.shape[1], x.shape[3]), device="hpu", dtype=torch.int8
+        )
+        torch.ops.hpu.fp8_permute(x, [0,2,1,3], out)
         return out
 
     @staticmethod
@@ -1449,8 +1475,11 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
         attention_head_size: int
     ) -> torch.Tensor:
         new_x_shape = x.size()[:-1] + (num_attention_heads, attention_head_size)
-        x = torch.reshape(x, new_x_shape)
-        out = torch.permute(x, [0,2,3,1])
+        x = torch.ops.hpu.fp8_reshape(x, new_x_shape)
+        out = torch.empty(
+            (x.shape[0], x.shape[2], x.shape[3], x.shape[1]), device="hpu", dtype=torch.int8
+        )
+        torch.ops.hpu.fp8_permute(x, [0,2,3,1], out)
         return out
 
     @staticmethod
@@ -1530,8 +1559,10 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
         query_out = fp8_gemm(
             query_weight_fp8,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_WEIGHT],
+            fp8_dtype_forward,
             inputmat,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
+            fp8_dtype_forward,
             activation_dtype,
             bias=query_bias,
             use_bias=True,
@@ -1558,8 +1589,10 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
         key_out = fp8_gemm(
             key_weight_fp8,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM2_WEIGHT],
+            fp8_dtype_forward,
             inputmat,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
+            fp8_dtype_forward,
             activation_dtype,
             bias=key_bias,
             use_bias=True,
@@ -1586,8 +1619,10 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
         value_out = fp8_gemm(
             value_weight_fp8,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM3_WEIGHT],
+            fp8_dtype_forward,
             inputmat,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
+            fp8_dtype_forward,
             activation_dtype,
             bias=value_bias,
             use_bias=True,
@@ -1624,8 +1659,10 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
         attention_scores = fp8_gemm(
             key_layer_fp8,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM4_WEIGHT],
+            fp8_dtype_forward,
             query_layer_fp8,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM4_INPUT],
+            fp8_dtype_forward,
             activation_dtype,
             transa = False,
             transb = False,
@@ -1714,8 +1751,10 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             query_layer_grad = fp8_gemm(
                 key_layer_fp8,
                 fwd_scale_inverses[tex.FP8FwdTensors.GEMM4_WEIGHT],
+                fp8_dtype_forward,
                 attention_scores_grad_output_c,
                 ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT4],
+                fp8_dtype_backward,
                 ctx.activation_dtype,
                 transa = True,
                 transb = False
@@ -1726,8 +1765,10 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
                 ctx.fp8_meta["scaling_bwd"].scale_inv[
                     tex.FP8BwdTensors.GRAD_OUTPUT4
                 ],
+                fp8_dtype_backward,
                 query_layer_fp8,
                 fwd_scale_inverses[tex.FP8FwdTensors.GEMM4_INPUT],
+                fp8_dtype_forward,
                 ctx.activation_dtype,
                 transa = False,
                 transb = True,
@@ -1777,8 +1818,10 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             query_dgrad = fp8_gemm(
                 query_weight_fp8,
                 fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
+                fp8_dtype_forward,
                 query_grad_output_c,
                 ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
+                fp8_dtype_backward,
                 ctx.activation_dtype,
                 transa=False,
                 transb=False,
@@ -1790,10 +1833,12 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
                 query_wgrad = fp8_gemm(
                     inputmat_fp8_total,
                     fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                    fp8_dtype_forward,
                     query_grad_output_c,
                     ctx.fp8_meta["scaling_bwd"].scale_inv[
                         tex.FP8BwdTensors.GRAD_OUTPUT1
                     ],
+                    fp8_dtype_backward,
                     ctx.activation_dtype,
                     accumulate=accumulate_wgrad_into_param_main_grad,
                     fp32_output=ctx.fuse_wgrad_accumulation,
@@ -1806,8 +1851,10 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             key_dgrad = fp8_gemm(
                 key_weight_fp8,
                 fwd_scale_inverses[tex.FP8FwdTensors.GEMM2_WEIGHT],
+                fp8_dtype_forward,
                 key_grad_output_c,
                 ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT2],
+                fp8_dtype_backward,
                 ctx.activation_dtype,
                 transa=False,
                 transb=False,
@@ -1819,10 +1866,12 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
                 key_wgrad = fp8_gemm(
                     inputmat_fp8_total,
                     fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                    fp8_dtype_forward,
                     key_grad_output_c,
                     ctx.fp8_meta["scaling_bwd"].scale_inv[
                         tex.FP8BwdTensors.GRAD_OUTPUT2
                     ],
+                    fp8_dtype_backward,
                     ctx.activation_dtype,
                     accumulate=accumulate_wgrad_into_param_main_grad,
                     fp32_output=ctx.fuse_wgrad_accumulation,
@@ -1835,8 +1884,10 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
             value_dgrad = fp8_gemm(
                 value_weight_fp8,
                 fwd_scale_inverses[tex.FP8FwdTensors.GEMM3_WEIGHT],
+                fp8_dtype_forward,
                 value_grad_output_c,
                 ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT3],
+                fp8_dtype_backward,
                 ctx.activation_dtype,
                 transa=False,
                 transb=False,
@@ -1848,10 +1899,12 @@ class _SelfAttentionScoresAndValue(torch.autograd.Function):
                 value_wgrad = fp8_gemm(
                     inputmat_fp8_total,
                     fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                    fp8_dtype_forward,
                     value_grad_output_c,
                     ctx.fp8_meta["scaling_bwd"].scale_inv[
                         tex.FP8BwdTensors.GRAD_OUTPUT3
                     ],
+                    fp8_dtype_backward,
                     ctx.activation_dtype,
                     accumulate=accumulate_wgrad_into_param_main_grad,
                     fp32_output=ctx.fuse_wgrad_accumulation,
@@ -2090,8 +2143,10 @@ class _SelfAttentionContext(torch.autograd.Function):
         out = fp8_gemm(
             value_layer_fp8,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_WEIGHT],
+            fp8_dtype_forward,
             attention_probs_fp8,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
+            fp8_dtype_forward,
             activation_dtype,
             transa = False,
             transb = False,
@@ -2155,8 +2210,10 @@ class _SelfAttentionContext(torch.autograd.Function):
             attention_probs_grad = fp8_gemm(
                 value_layer_fp8,
                 fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
+                fp8_dtype_forward,
                 grad_output_c,
                 ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
+                fp8_dtype_backward,
                 ctx.activation_dtype,
                 transa = True,
                 transb = False
@@ -2167,8 +2224,10 @@ class _SelfAttentionContext(torch.autograd.Function):
                 ctx.fp8_meta["scaling_bwd"].scale_inv[
                     tex.FP8BwdTensors.GRAD_OUTPUT1
                 ],
+                fp8_dtype_backward,
                 attention_probs_fp8,
                 fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                fp8_dtype_forward,
                 ctx.activation_dtype,
                 transa = False,
                 transb = True,
