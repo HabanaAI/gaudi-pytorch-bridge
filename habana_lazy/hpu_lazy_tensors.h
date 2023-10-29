@@ -529,6 +529,7 @@ struct HbContext {
   void clear_tensors_data() {
     tensors_data_opt.clear();
     tensors_data_opt_order.clear();
+    tensors_data_del.clear();
   }
 
   size_t tensors_data_size() {
@@ -537,6 +538,7 @@ struct HbContext {
 
   void insert(int64_t unique_id, std::weak_ptr<Data> m_data_ptr) {
     bool exists = tensors_data_opt.count(unique_id) != 0;
+    exists |= (tensors_data_del.count(unique_id) != 0);
     tensors_data_opt[unique_id] = m_data_ptr;
     if (exists) {
       auto pos = std::find(
@@ -551,6 +553,7 @@ struct HbContext {
   }
 
   void erase(int64_t unique_id) {
+    tensors_data_del.insert(unique_id);
     tensors_data_opt.erase(unique_id);
   }
 
@@ -564,6 +567,7 @@ struct HbContext {
 
  private:
   absl::flat_hash_map<int64_t, std::weak_ptr<Data>> tensors_data_opt;
+  absl::flat_hash_set<int64_t> tensors_data_del;
 };
 
 class HbContextArena {
