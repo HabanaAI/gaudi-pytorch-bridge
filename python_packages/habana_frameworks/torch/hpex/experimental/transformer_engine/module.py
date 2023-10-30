@@ -215,6 +215,8 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             state["scale_inv_bwd"] = self.fp8_meta["scaling_bwd"].scale_inv
             state["amax_history_bwd"] = self.fp8_meta["scaling_bwd"].amax_history
             state["global_fp8_buffer"] = get_global_fp8_buffer()
+            state["update_amax_fwd"] = self.fp8_meta["update_amax_fwd"]
+            state["update_amax_bwd"] = self.fp8_meta["update_amax_bwd"]
 
             # Store other pickelable values.
             extra = {}
@@ -297,6 +299,8 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             self.fp8_meta["scaling_fwd"].scale_inv.copy_(state["scale_inv_fwd"])
             self.fp8_meta["scaling_bwd"].scale_inv.copy_(state["scale_inv_bwd"])
 
+        self.fp8_meta["update_amax_fwd"] = state.get("update_amax_fwd", {})
+        self.fp8_meta["update_amax_bwd"] = state.get("update_amax_bwd", {})
 
     def set_activation_dtype(self, inp: torch.Tensor) -> None:
         """Get activation data type for AMP."""
