@@ -849,18 +849,26 @@ void LayerNormBwdHabanaOperator::AddNode(
   }
 }
 
-sizes_vec WeightNormOutputShape(const at::Stack& stack) {
+OutputMetaDataVector WeightNormMeta(const at::Stack& stack) {
   const torch::Tensor& v_in = stack_tensor(stack, 0);
   const torch::Tensor& g_in = stack_tensor(stack, 1);
   auto dim = stack.at(2).toInt();
   auto shapes = at::infer_size(v_in.sizes(), g_in.sizes());
   auto norm_shapes = v_in.sizes()[dim];
-  return {shapes, {norm_shapes}};
+
+  OutputMetaDataVector metaVec(2);
+  metaVec[0].shape = v_in.sizes().vec();
+  metaVec[1].shape = g_in.sizes().vec();
+
+  metaVec[0].dtype = v_in.scalar_type();
+  metaVec[1].dtype = g_in.scalar_type();
+  return metaVec;
 }
 
 void WeightNormOp::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
+  const auto metas = WeightNormMeta(stack);
   auto v_in = stack_tensor(stack, 0);
   auto g_in = stack_tensor(stack, 1);
   auto dim = stack.at(2).toInt();
@@ -906,41 +914,38 @@ void WeightNormOp::AddNode(
         dim_to_norm,
         false,
         ord,
-        {{outsize_norm_op, dtype}},
+        {{metas[1].shape, dtype, 1}},
         false));
   } else {
     normOp.emplace_back(NormCommon(
         this,
         graph,
         syn_in(0),
-        ScalarType(),
+        metas[1].dtype,
         v_in,
         dim_to_norm,
         false,
         ord,
-        {{outsize_norm_op, ScalarType()}},
+        {{metas[1].shape, metas[1].dtype, 1}},
         false));
   }
-
-  auto reshapeOp =
-      ReshapeHelper(graph, normOp[0].get(), g_in.sizes(), ScalarType(), 1);
 
   auto divOp = BuildOp(
       graph,
       get_guid_with_precision("div_fwd", ScalarType()),
-      {syn_in(1), reshapeOp.get()},
-      {{g_in.sizes(), ScalarType()}});
+      {syn_in(1), normOp[0].get()},
+      {{metas[1].shape, metas[1].dtype}});
   auto mulOp = BuildOp(
       graph,
       get_guid_with_precision("mult_fwd", ScalarType()),
       {syn_in(0), divOp.at(0).get()},
-      {{v_in.sizes(), ScalarType(), 0}});
+      {{metas[0].shape, metas[0].dtype, 0}});
 
   syn_out(0) = std::move(mulOp[0]);
-  syn_out(1) = std::move(reshapeOp);
+  syn_out(1) = std::move(normOp[0]);
 }
 
-sizes_vec WeightNormBwdOutputShape(const at::Stack& stack) {
+OutputMetaDataVector WeightNormBwdMeta(const at::Stack& stack) {
   const torch::Tensor& grad_w = stack_tensor(stack, 0);
   const torch::Tensor& saved_v = stack_tensor(stack, 1);
   const torch::Tensor& saved_g = stack_tensor(stack, 2);
@@ -954,8 +959,13 @@ sizes_vec WeightNormBwdOutputShape(const at::Stack& stack) {
   } else {
     bcast_size[last_dim] = last_size;
   }
-  auto shapes = at::infer_size(grad_w.sizes(), saved_v.sizes());
-  return {shapes, bcast_size};
+
+  OutputMetaDataVector metaVec(2);
+  metaVec[0].shape = at::infer_size(grad_w.sizes(), saved_v.sizes());
+  metaVec[1].shape = bcast_size;
+  metaVec[0].dtype = saved_v.scalar_type();
+  metaVec[1].dtype = saved_g.scalar_type();
+  return metaVec;
 }
 
 void WeightNormBwdOp::AddNode(
@@ -966,6 +976,11 @@ void WeightNormBwdOp::AddNode(
   const torch::Tensor& saved_g = stack_tensor(stack, 2);
   const torch::Tensor& saved_norms = stack_tensor(stack, 3);
   auto dim = stack.at(4).toInt();
+
+  const auto metas = WeightNormBwdMeta(stack);
+
+  // It is expected that both outputs have the same dtype
+  const auto commonOutDtype = metas[0].dtype;
 
   // In Functions.cpp, the HardshrinkBackward object supplies
   // "grad.contiguous()" as the first argument, so grad_w should be contiguous
@@ -992,13 +1007,15 @@ void WeightNormBwdOp::AddNode(
   // To consider:  saved_norms.to(..., True );
 
   std::vector<synapse_helpers::tensor> norms_cast;
-  if (saved_norms.scalar_type() != saved_g.scalar_type()) {
+  synTensor saved_norms_syn_tensor = syn_in(3);
+  if (saved_norms.scalar_type() != commonOutDtype) {
     norms_cast.emplace_back(CastHelper(
         graph,
-        syn_in(3),
+        saved_norms_syn_tensor,
         saved_norms.sizes(),
         saved_norms.scalar_type(),
-        saved_g.scalar_type()));
+        commonOutDtype));
+    saved_norms_syn_tensor = norms_cast[0].get();
   }
   std::vector<synapse_helpers::tensor> per_dim_sums;
   std::vector<synapse_helpers::tensor> divOp21;
@@ -1008,142 +1025,94 @@ void WeightNormBwdOp::AddNode(
   std::vector<synapse_helpers::tensor> subOp25;
   std::vector<synapse_helpers::tensor> grad_v;
   std::vector<synapse_helpers::tensor> grad_g;
-  std::vector<int64_t> bcast_size(saved_v.dim(), 1);
+  std::vector<int64_t> bcast_size = metas[1].shape;
 
+  auto outsize_mulOp11 = at::infer_size(grad_w.sizes(), saved_v.sizes());
+  auto mulOp11 = BuildOp(
+      graph,
+      get_guid_with_precision("mult_fwd", commonOutDtype),
+      {syn_in(0), syn_in(1)},
+      {{outsize_mulOp11, commonOutDtype}});
+
+  std::vector<int64_t> reshape_outshape;
   // Analytic backward path using differentiable primitive ops
   if (dim == 0) {
-    bcast_size[0] = saved_v.size(0);
-
-    auto outsize_mulOp11 = at::infer_size(grad_w.sizes(), saved_v.sizes());
-    auto mulOp11 = BuildOp(
-        graph,
-        get_guid_with_precision("mult_fwd", ScalarType()),
-        {syn_in(0), syn_in(1)},
-        {{outsize_mulOp11, ScalarType()}});
-
-    std::vector<int64_t> reshape_outshape;
     reshape_outshape.push_back(saved_v.size(0));
-
     if (grad_w.numel() > saved_v.numel()) {
       reshape_outshape.push_back(grad_w.numel() / saved_v.size(0));
     } else {
       reshape_outshape.push_back(saved_v.numel() / saved_v.size(0));
     }
 
-    auto reshapeOp12 =
-        ReshapeHelper(graph, mulOp11[0].get(), reshape_outshape, ScalarType());
-
-    ns_Reduction::Params reduce_params{};
-    int axis = 1;
-    reduce_params.reductionDimension = reshape_outshape.size() - axis - 1;
-
-    int reductionDimension = reshape_outshape.size() - axis - 1;
-    reduce_params.reductionDimension = reductionDimension;
-    per_dim_sums = BuildOp(
-        graph,
-        get_guid_with_precision("reduce_sum_fwd", ScalarType()),
-        {reshapeOp12.get()},
-        {{bcast_size, ScalarType()}},
-        &reduce_params,
-        sizeof(reduce_params));
   } else {
-    bcast_size[last_dim] = last_size;
-    auto outsize_mulOp11 = at::infer_size(grad_w.sizes(), saved_v.sizes());
-    auto mulOp11 = BuildOp(
-        graph,
-        get_guid_with_precision("mult_fwd", ScalarType()),
-        {syn_in(0), syn_in(1)},
-        {{outsize_mulOp11, ScalarType()}});
-
-    std::vector<int64_t> reshape_outshape;
     if (grad_w.numel() > saved_v.numel()) {
       reshape_outshape.push_back(grad_w.numel() / last_size);
     } else {
       reshape_outshape.push_back(saved_v.numel() / last_size);
     }
     reshape_outshape.push_back(last_size);
-
-    auto reshapeOp12 =
-        ReshapeHelper(graph, mulOp11[0].get(), reshape_outshape, ScalarType());
-
-    ns_Reduction::Params reduce_params{};
-    int axis = 0;
-    int reductionDimension = reshape_outshape.size() - axis - 1;
-    reduce_params.reductionDimension = reductionDimension;
-
-    per_dim_sums = BuildOp(
-        graph,
-        get_guid_with_precision("reduce_sum_fwd", ScalarType()),
-        {reshapeOp12.get()},
-        {{bcast_size, ScalarType()}},
-        &reduce_params,
-        sizeof(reduce_params));
   }
+
+  auto reshapeOp12 =
+      ReshapeHelper(graph, mulOp11[0].get(), reshape_outshape, commonOutDtype);
+
+  ns_Reduction::Params reduce_params{};
+  int axis = dim == 0 ? 1 : 0;
+
+  int reductionDimension = reshape_outshape.size() - axis - 1;
+  reduce_params.reductionDimension = reductionDimension;
+
+  per_dim_sums = BuildOp(
+      graph,
+      get_guid_with_precision("reduce_sum_fwd", commonOutDtype),
+      {reshapeOp12.get()},
+      {{bcast_size, commonOutDtype}},
+      &reduce_params,
+      sizeof(reduce_params));
 
   auto outsize_divOp21 = at::infer_size(saved_g.sizes(), saved_norms.sizes());
-  if (saved_norms.scalar_type() != saved_g.scalar_type()) {
-    divOp21 = BuildOp(
-        graph,
-        get_guid_with_precision("div_fwd", ScalarType()),
-        {syn_in(2), norms_cast[0].get()},
-        {{outsize_divOp21, ScalarType()}});
+  divOp21 = BuildOp(
+      graph,
+      get_guid_with_precision("div_fwd", commonOutDtype),
+      {syn_in(2), saved_norms_syn_tensor},
+      {{outsize_divOp21, commonOutDtype}});
 
-    mulOp22 = BuildOp(
-        graph,
-        get_guid_with_precision("mult_fwd", ScalarType()),
-        {norms_cast[0].get(), norms_cast[0].get()},
-        {{saved_norms.sizes(), ScalarType()}});
-  } else {
-    divOp21 = BuildOp(
-        graph,
-        get_guid_with_precision("div_fwd", ScalarType()),
-        {syn_in(2), syn_in(3)},
-        {{saved_g.sizes(), ScalarType()}});
-    mulOp22 = BuildOp(
-        graph,
-        get_guid_with_precision("mult_fwd", ScalarType()),
-        {syn_in(3), syn_in(3)},
-        {{saved_norms.sizes(), ScalarType()}});
-  }
+  mulOp22 = BuildOp(
+      graph,
+      get_guid_with_precision("mult_fwd", commonOutDtype),
+      {saved_norms_syn_tensor, saved_norms_syn_tensor},
+      {{saved_norms.sizes(), commonOutDtype}});
   divOp23 = BuildOp(
       graph,
-      get_guid_with_precision("div_fwd", ScalarType()),
+      get_guid_with_precision("div_fwd", commonOutDtype),
       {per_dim_sums[0].get(), mulOp22[0].get()},
-      {{bcast_size, ScalarType()}});
+      {{bcast_size, commonOutDtype}});
 
   auto outsize_mulOp24 = at::infer_size(saved_v.sizes(), bcast_size);
   mulOp24 = BuildOp(
       graph,
-      get_guid_with_precision("mult_fwd", ScalarType()),
+      get_guid_with_precision("mult_fwd", commonOutDtype),
       {syn_in(1), divOp23[0].get()},
-      {{saved_v.sizes(), ScalarType()}});
+      {{saved_v.sizes(), commonOutDtype}});
 
   auto outsize_subOp25 = at::infer_size(grad_w.sizes(), saved_v.sizes());
   subOp25 = BuildOp(
       graph,
-      get_guid_with_precision("sub_fwd", ScalarType()),
+      get_guid_with_precision("sub_fwd", commonOutDtype),
       {syn_in(0), mulOp24[0].get()},
-      {{outsize_subOp25, ScalarType()}});
+      {{outsize_subOp25, commonOutDtype}});
 
   auto outsize_grad_v = at::infer_size(saved_g.sizes(), outsize_subOp25);
   grad_v = BuildOp(
       graph,
-      get_guid_with_precision("mult_fwd", ScalarType()),
+      get_guid_with_precision("mult_fwd", commonOutDtype),
       {divOp21[0].get(), subOp25[0].get()},
-      {{outsize_grad_v, ScalarType(), 0}});
-  if (saved_norms.scalar_type() != saved_g.scalar_type()) {
-    grad_g = BuildOp(
-        graph,
-        get_guid_with_precision("div_fwd", ScalarType()),
-        {per_dim_sums[0].get(), norms_cast[0].get()},
-        {{bcast_size, ScalarType(), 1}});
-  } else {
-    grad_g = BuildOp(
-        graph,
-        get_guid_with_precision("div_fwd", ScalarType()),
-        {per_dim_sums[0].get(), syn_in(3)},
-        {{bcast_size, ScalarType(), 1}});
-  }
+      {{outsize_grad_v, commonOutDtype, 0}});
+  grad_g = BuildOp(
+      graph,
+      get_guid_with_precision("div_fwd", commonOutDtype),
+      {per_dim_sums[0].get(), saved_norms_syn_tensor},
+      {{bcast_size, commonOutDtype, 1}});
 
   syn_out(0) = std::move(grad_v.at(0));
   syn_out(1) = std::move(grad_g.at(0));

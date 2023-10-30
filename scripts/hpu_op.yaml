@@ -5236,7 +5236,7 @@ norm.ScalarOpt_dtype:
   out_ids: [0]
 
 _weight_norm_interface:
-  custom_output_shape: WeightNormOutputShape
+  output_meta: WeightNormMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -5245,7 +5245,7 @@ _weight_norm_interface:
   out_ids: [0, 0]
 
 _weight_norm_interface_backward:
-  custom_output_shape: WeightNormBwdOutputShape
+  output_meta: WeightNormBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
