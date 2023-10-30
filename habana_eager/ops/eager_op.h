@@ -114,6 +114,7 @@ class EagerOpBase {
   EagerOpMetaData m_eager_op_meta_data;
 
   void validate_inputs(const std::vector<at::IValue>& inputs);
+  static std::mutex m_mutex;
 };
 
 template <typename ReturnType>

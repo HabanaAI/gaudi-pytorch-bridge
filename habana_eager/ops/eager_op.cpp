@@ -84,6 +84,8 @@ void EagerOpBase::validate_inputs(const std::vector<at::IValue>& inputs) {
   }
 }
 
+std::mutex EagerOpBase::m_mutex;
+
 void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
   auto stack = convert_ivalues_to_backend_tensors(m_inputs);
 
@@ -105,6 +107,7 @@ void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
         m_symbol, std::move(stack), std::move(out_spec_or_tensors), false};
 
     hlexec.set_eager_op_info(std::move(m_eager_op_meta_data));
+    std::lock_guard lock(m_mutex);
     hlexec.launch();
   }
 }
