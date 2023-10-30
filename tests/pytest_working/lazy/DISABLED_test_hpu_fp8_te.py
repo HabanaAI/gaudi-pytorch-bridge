@@ -52,15 +52,14 @@ def test_te_cast(device, dtype, scale):
         input_data,
         meta,
         tex.FP8FwdTensors.GEMM1_INPUT,
-        tex.DType.kFloat8E5M2,
+        torch.float8_e5m2,
     )
 
     upcasted = cast_from_fp8(
         cast_out,
         meta,
         tex.FP8FwdTensors.GEMM1_INPUT,
-        tex.DType.kFloat8E5M2,
-        tex.DType.kFloat32,
+        torch.float32,
     )
     mean = torch.mean(upcasted).cpu()
     assert mean == 20.0
@@ -85,15 +84,14 @@ def test_te_gelu(
         input_data,
         meta,
         tex.FP8FwdTensors.GEMM1_INPUT,
-        tex.DType.kFloat8E5M2,
+        torch.float8_e5m2,
     )
 
     upcasted = cast_from_fp8(
         gelu_out,
         meta,
         tex.FP8FwdTensors.GEMM1_INPUT,
-        tex.DType.kFloat8E5M2,
-        tex.DType.kFloat32,
+        torch.float32,
     )
     mean = torch.mean(upcasted).cpu()
     assert mean == torch.nn.functional.gelu(torch.tensor(rounded_value))

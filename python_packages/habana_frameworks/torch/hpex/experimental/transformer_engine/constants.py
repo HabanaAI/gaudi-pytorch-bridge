@@ -13,34 +13,10 @@
 #
 # Changes:
 # - Removed unused constants
+# - Removed Torch_DType and TE_DType enums
 
 """Enums for e2e transformer"""
 import torch
-from habana_frameworks.torch import _hpex_C as tex
-
-"""
-This is a map: torch.dtype -> int
-Used for passing dtypes into cuda
-extension. Has one to one mapping
-with enum in transformer_engine.h
-"""
-TE_DType = {
-    torch.int8: tex.DType.kByte,
-    torch.int32: tex.DType.kInt32,
-    torch.float32: tex.DType.kFloat32,
-    torch.half: tex.DType.kFloat16,
-    torch.bfloat16: tex.DType.kBFloat16,
-}
-
-Torch_DType = {
-    tex.DType.kByte: torch.int8,
-    tex.DType.kInt32: torch.int32,
-    tex.DType.kFloat32: torch.float32,
-    tex.DType.kFloat16: torch.half,
-    tex.DType.kBFloat16: torch.bfloat16,
-    tex.DType.kFloat8E4M3: torch.int8,
-    tex.DType.kFloat8E5M2: torch.int8
-}
 
 GemmParallelModes = ("row", "column", None)
 

@@ -476,7 +476,7 @@ def amax_and_scale_update(
 
 def get_fp8_te_dtype(
     fp8_recipe: DelayedScaling, fprop_tensor: bool = True
-) -> tex.DType:
+) -> torch.dtype:
     """Get fp8 data type according to recipe and tensor"""
     if fp8_recipe.fp8_format == Format.E4M3 or (
         fp8_recipe.fp8_format == Format.HYBRID and fprop_tensor

@@ -75,9 +75,8 @@ from .distributed import (
 from .cpp_extensions import (
     fp8_gemm,
     cast_to_fp8,
-    cast_from_fp8,
 )
-from .constants import GemmParallelModes, dist_group_type, TE_DType
+from .constants import GemmParallelModes, dist_group_type
 
 @contextmanager
 def _prepare_backward(fp8: bool,
@@ -331,26 +330,15 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         )
         self.activation_dtype = inp.dtype
 
-    def _create_fp8_tensor(self, shape, synchronize=True) -> torch.Tensor:
-        # TODO: That's a hack. We need a kernel that will create int8 bridge tensor with float8 underlying tensor,
-        # or alternatively we need native PT fp8 support
-        a = torch.zeros(
+    def _create_fp8_tensor(self, shape) -> torch.Tensor:
+        fp8_dtype = get_fp8_te_dtype(
+            self.fp8_meta["recipe"], fprop_tensor=True
+        )
+        result = torch.zeros(
             shape,
             device="hpu",
-            dtype=torch.bfloat16,
+            dtype=fp8_dtype,
         )
-
-        result, _ = torch.ops.hpu.cast_to_fp8_v2(
-            a,
-            None,
-            False,
-            False
-        )
-
-        # Another hack: Control edge is missing in fp8_copy_, so this workaround enforces correct order of operations.
-        # Not handling now in proper way, because in future we will switch to native fp8 in python, so we won't use fp8_copy_
-        if synchronize:
-            result.cpu()
 
         return result
 
@@ -690,14 +678,12 @@ class _Linear(torch.autograd.Function):
                 weight_fp8 = casted
             else:
                 assert weight.shape == weight_fp8.shape, "Module initialized with different shape than received weight"
-                torch.ops.hpu.fp8_copy_(weight_fp8, casted)
+                weight_fp8.copy_(casted)
         out = fp8_gemm(
             weight_fp8,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_WEIGHT],
-            fp8_dtype_forward,
             inputmat,
             fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
-            fp8_dtype_forward,
             activation_dtype,
             bias=bias,
             use_bias=use_bias,
@@ -800,17 +786,16 @@ class _Linear(torch.autograd.Function):
                 weight_fp8, _ = torch.ops.hpu.cast_to_fp8_v2(
                     weight,
                     fwd_scales[tex.FP8FwdTensors.GEMM1_WEIGHT],
-                    is_amax=False
+                    is_amax=False,
+                    dtype=fp8_dtype_forward,
                 )
 
             if ctx.requires_dgrad:
                 dgrad = fp8_gemm(
                     weight_fp8,
                     fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
-                    fp8_dtype_forward,
                     grad_output_c,
                     ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
-                    fp8_dtype_backward,
                     ctx.activation_dtype,
                     transa=False,
                 )
@@ -830,12 +815,10 @@ class _Linear(torch.autograd.Function):
                 wgrad = fp8_gemm(
                     inputmat_fp8_total,
                     fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
-                    fp8_dtype_forward,
                     grad_output_c,
                     ctx.fp8_meta["scaling_bwd"].scale_inv[
                         tex.FP8BwdTensors.GRAD_OUTPUT1
                     ],
-                    fp8_dtype_backward,
                     ctx.activation_dtype,
                     accumulate=False,
                     out=None,
