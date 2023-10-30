@@ -103,6 +103,19 @@ def _deserialize_habana_wrapper(func, marker, *args):
 
 
 def overwrite_torch_functions():
+    # wrap torch.distributed.distributed_c10d._get_pg_default_device
+    get_pg_default_device_orig = torch.distributed.distributed_c10d._get_pg_default_device
+
+    @wraps(torch.distributed.distributed_c10d._get_pg_default_device)
+    def wrap_get_pg_default_device(group):
+      backend_name = group._get_backend_name() if group is not None else torch.distributed.get_backend()
+      if backend_name == "hccl":
+        return torch.device("hpu")
+
+      return get_pg_default_device_orig(group)
+
+    torch.distributed.distributed_c10d._get_pg_default_device = wrap_get_pg_default_device
+
     # wrap torch.manual_seed
 
     manual_seed_orig = torch.manual_seed
