@@ -6556,7 +6556,7 @@ softplus_backward.grad_input:
   op_validator: check-node-with-shared-layer
 
 special_xlog1py:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
@@ -6566,7 +6566,7 @@ special_xlog1py:
   out_ids: [0]
 
 special_xlog1py.other_scalar:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
@@ -6577,7 +6577,7 @@ special_xlog1py.other_scalar:
   out_ids: [0]
 
 special_xlog1py.other_scalar_out:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
@@ -6587,7 +6587,7 @@ special_xlog1py.other_scalar_out:
   op_backend: XlogYOperator
 
 special_xlog1py.out:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
@@ -6596,7 +6596,7 @@ special_xlog1py.out:
   op_backend: XlogYOperator
 
 special_xlog1py.self_scalar:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
@@ -6607,7 +6607,7 @@ special_xlog1py.self_scalar:
   out_ids: [1]
 
 special_xlog1py.self_scalar_out:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
@@ -7583,7 +7583,7 @@ where.self_out:
   fallback_check: [WhereFallbackCheck, condition, self, other]
 
 xlogy.OutTensor:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
@@ -7592,7 +7592,7 @@ xlogy.OutTensor:
   # op_validator: check-node-with-shared-layer
 
 xlogy.OutScalar_Self:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
@@ -7601,7 +7601,7 @@ xlogy.OutScalar_Self:
   op_frontend: LazyXlogY
 
 xlogy.OutScalar_Other:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
@@ -7610,7 +7610,7 @@ xlogy.OutScalar_Other:
   op_frontend: LazyXlogY
 
 xlogy.Scalar_Self:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
@@ -7620,7 +7620,7 @@ xlogy.Scalar_Self:
   out_ids: [1]
 
 xlogy.Scalar_Other:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
@@ -7630,7 +7630,7 @@ xlogy.Scalar_Other:
   out_ids: [0]
 
 xlogy_.Scalar_Other:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
@@ -7640,7 +7640,7 @@ xlogy_.Scalar_Other:
   inplace_ids: [0]
 
 xlogy.Tensor:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
@@ -7650,7 +7650,7 @@ xlogy.Tensor:
   # op_validator: check-node-with-shared-layer
 
 xlogy_.Tensor:
-  custom_output_shape: XlogYOutputShape
+  output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]

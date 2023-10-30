@@ -16,23 +16,31 @@
 
 namespace habana {
 
-sizes_vec XlogYOutputShape(const at::Stack& stack) {
+OutputMetaDataVector XlogYMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+
   if (stack.at(1).isScalar()) {
-    const torch::Tensor& self = stack_tensor(stack, 0);
-    return {self.sizes().vec()};
+    auto self = stack_tensor(stack, 0);
+    meta.shape = self.sizes().vec();
+    meta.dtype = self.scalar_type();
   } else if (stack.at(0).isScalar()) {
-    const torch::Tensor& other = stack_tensor(stack, 1);
-    return {other.sizes().vec()};
+    auto other = stack_tensor(stack, 1);
+    meta.shape = other.sizes().vec();
+    meta.dtype = other.scalar_type();
+  } else {
+    auto self = stack_tensor(stack, 0);
+    auto other = stack_tensor(stack, 1);
+    meta.shape = at::infer_size(self.sizes(), other.sizes());
+    meta.dtype = self.scalar_type();
   }
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  const torch::Tensor& other = stack_tensor(stack, 1);
-  return {at::infer_size(self.sizes(), other.sizes())};
+
+  return {meta};
 }
 
 void XlogYOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto outshape = XlogYOutputShape(stack)[0];
+  auto outshape = XlogYMeta(stack)[0].shape;
   auto other_shape = stack_tensor(stack, 1).sizes().vec();
 
   auto logy = BuildOp(graph, guid_, {syn_in(1)}, {{other_shape, ScalarType()}});
