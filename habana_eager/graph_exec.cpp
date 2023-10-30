@@ -87,6 +87,8 @@ GraphExec::GraphExec(
     in_stack = ProcessDynamicStack(example_inputs, true);
   }
 
+  pass::DetectWeightTensors(m_graph, m_graph_inputs_to_permute);
+
   at::ArrayRef<torch::jit::IValue> input_refs =
       torch::jit::last(in_stack, m_graph->inputs().size());
 
@@ -119,6 +121,7 @@ bool GraphExec::IsDynamicGraph() {
 void GraphExec::ProcessDynamicGraph(torch::jit::Stack& example_inputs) {
   m_dgraph_meta = std::make_shared<DynamicGraphMetaData>();
   pass::HandleDynamicOps(m_graph, example_inputs, m_dgraph_meta);
+  pass::HandlePostDynamic(m_dgraph_meta, m_input_new_base_sizes);
   PT_EAGER_DEBUG(
       "Jit for ", m_graph_name, " after processing dynamicity\n", *m_graph);
 }
@@ -173,7 +176,6 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
   PT_EAGER_TRACE;
   PT_EAGER_DEBUG("Jit for ", m_graph_name, " before passes\n", *m_graph);
   pass::SanitizeGraphInput(m_graph);
-  pass::DetectWeightTensors(m_graph, m_graph_inputs_to_permute);
   pass::HandleInputViews(m_graph, example_inputs, m_input_new_base_sizes);
   pass::ReplaceGetItemWithListUnpack(m_graph);
   pass::HandleTupleOnOutput(m_graph);

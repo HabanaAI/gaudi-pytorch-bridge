@@ -484,7 +484,7 @@ PT_HPU_ENABLE_H2D_DYNAMIC_SLICE:
 
 PT_HPU_ENABLE_DYNAMIC_OUTPUT_PREALLOCATE:
   type: bool
-  default: false
+  default: true
 
 PT_HPU_ENABLE_H2D_COPY_ASYNC_THREAD:
   type: bool

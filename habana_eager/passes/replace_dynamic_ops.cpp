@@ -171,6 +171,33 @@ void HandleDynamicOps(
   }
 }
 
+void HandlePostDynamic(
+    std::shared_ptr<DynamicGraphMetaData> dgraph_meta,
+    std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map) {
+  // 1. Correct the input indexes in input_base_sizes_map
+  std::map<int64_t, int64_t> key_map;
+  for (auto& input_datasize_pair : input_base_sizes_map) {
+    int key = input_datasize_pair.first;
+
+    // Check if key is greater than any element in the vector
+    int new_key = key;
+    for (int idx : dgraph_meta->remove_input_indexes) {
+      if (key > idx) {
+        --new_key;
+        key_map[key] = new_key;
+      }
+    }
+  }
+  size_t erase_count = 0;
+  for (auto key_pair : key_map) {
+    auto value = input_base_sizes_map[key_pair.first];
+    // Reduce the key by 1
+    int newKey = key_pair.second;
+    input_base_sizes_map[newKey] = value;
+    input_base_sizes_map.erase(key_pair.first);
+  }
+}
+
 void ResolveNegativeSTSizes(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,

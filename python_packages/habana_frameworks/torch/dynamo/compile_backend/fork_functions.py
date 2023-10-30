@@ -13,7 +13,7 @@
 import torch
 from typing import List
 
-@torch.compile(backend="hpu_inference_backend")
+@torch.compile(dynamic=False, backend="hpu_inference_backend")
 def consolidated_inplace_copies(dsts: List[torch.Tensor], srcs: List[torch.Tensor], len: int):
     """
     This function is used by the Habana pytorch fork.

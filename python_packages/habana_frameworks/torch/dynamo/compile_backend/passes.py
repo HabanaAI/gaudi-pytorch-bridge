@@ -34,6 +34,27 @@ def _is_legacy_pt():
         return True
     return False
 
+def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
+    """
+    This function dynamicity per graph module.
+    """
+
+    from torch._subclasses.fake_tensor import FakeTensor
+    from torch.fx.experimental.proxy_tensor import py_sym_types
+    from torch.fx.passes.shape_prop import TensorMetadata
+    is_dynamic = False
+    for node in input_module.graph.nodes:
+        if node.op == 'placeholder':
+            meta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+            if (
+                (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides)
+                or isinstance(meta_val, py_sym_types)
+            ):
+                is_dynamic = True
+                break
+
+    logger.debug("Module dynamicity %s",is_dynamic)
+    return is_dynamic
 
 class OptimizationPassPlacement(Enum):
     PRE_PARTITIONER = 1
@@ -144,7 +165,8 @@ def get_passes(stage: OptimizationPassPlacement):
 
             # This is final pass that creates final submoduled graph.
             pass_fuse_partitions,
-
+            pass_make_symints_available,
+            pass_graph_print,
             # Workarounds after partitioner phase.
             pass_wa_fix_output
         ]
@@ -233,6 +255,68 @@ def pass_graph_print(ctx: OptimizerContext) -> bool:
             logger.debug("    meta.output_device: %s", node.meta["output_device"])
     return False
 
+def pass_make_symints_available(ctx: OptimizerContext) -> bool:
+    is_dynamic = is_module_dynamic(ctx.graph_module)
+    if not is_dynamic:
+        return True
+
+    def get_all_symbolic_int_nodes():
+        symint_list = ()
+        for node in ctx.graph_module.graph.nodes:
+            if node.op == "placeholder":
+                tmeta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+                if isinstance(tmeta_val, torch.SymInt):
+                    symint_list += (node,)
+        return symint_list
+
+    def get_missing_symbolic_int_input_nodes(symint_list, node):
+        is_arguments_present = False
+        missing_symints = ()
+        for symint in symint_list:
+            symint_count = 0
+            for node_in in node.args:
+                is_arguments_present = True
+                if node_in.target == symint.target:
+                    symint_count += 1
+                    break
+            if symint_count == 0:
+                missing_symints = missing_symints + (symint,)
+
+        if is_arguments_present:
+            return missing_symints
+
+        return ()
+
+    symint_list = get_all_symbolic_int_nodes()
+
+    for node in ctx.graph_module.graph.nodes:
+        if node.op == "call_module":
+            missing_symint_list = get_missing_symbolic_int_input_nodes(symint_list, node)
+            if missing_symint_list == ():
+                continue
+
+            node.args = missing_symint_list + node.args
+            submodule = node.graph.owning_module.get_submodule(node.target)
+
+            # Get the First node in the graph to insert all the SymInts at the
+            # beginning of the node_list
+            first_subgraph_node = node
+            for sub_node in submodule.graph.nodes:
+                first_subgraph_node = sub_node
+                break
+
+            for misinput in reversed(missing_symint_list):
+                with submodule.graph.inserting_before(first_subgraph_node):
+                    new_node = submodule.graph.create_node(
+                        misinput.op, misinput.target, misinput.args,
+                        misinput.kwargs, misinput.name, misinput.type
+                    )
+                    new_node.meta = copy.copy(misinput.meta)
+                    first_subgraph_node = new_node
+
+    ctx.graph_module.recompile()
+
+    return True
 
 def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx.Node):
     """
@@ -1218,28 +1302,6 @@ def pass_compile_clusters(ctx: OptimizerContext):
         )
 
         return f
-
-    def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
-        """
-        This function dynamicity per graph module.
-        """
-
-        from torch._subclasses.fake_tensor import FakeTensor
-        from torch.fx.experimental.proxy_tensor import py_sym_types
-        from torch.fx.passes.shape_prop import TensorMetadata
-        is_dynamic = False
-        for node in input_module.graph.nodes:
-            if node.op == 'placeholder':
-                meta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
-                if (
-                    (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides)
-                    or isinstance(meta_val, py_sym_types)
-                ):
-                    is_dynamic = True
-                    break
-
-        logger.debug("Module dynamicity %s",is_dynamic)
-        return is_dynamic
 
     num_subgraphs = 0
     for n in ctx.graph_module.graph.nodes:

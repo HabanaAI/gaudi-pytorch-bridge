@@ -25,6 +25,7 @@ from sympy.printing.printer import Printer
 from sympy import sympify
 from torch.fx.experimental.proxy_tensor import py_sym_types
 
+
 enable_dynamic_output_preallocate = bc.get_pt_hpu_enable_dynamic_output_preallocate()
 
 class CSEVariable:
@@ -109,6 +110,9 @@ class SymbolicShapeEvaluator():
         self._symbolic_value_dict = {}
         self._symbolic_metadata = symbolic_metadata
 
+    def clear_symbolic_value_dict(self):
+        self._symbolic_value_dict = {}
+
     def calculate_symbol_size(self, sym_expr, input_stack):
         pexpr = PythonPrinter().doprint
         def get_symbolic_value(sym_meta, inputs):
@@ -176,6 +180,9 @@ class HabanaGraphModule(torch.nn.Module):
     def __call__(self, *args):
         outputs = []
         inputs = tuple(args)
+        if self._dynamic and enable_dynamic_output_preallocate:
+            self._symbol_evaluator.clear_symbolic_value_dict()
+
         for md in self._outputs_metadata:
             size = md[0]
             if self._dynamic and enable_dynamic_output_preallocate:
@@ -199,8 +206,8 @@ def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule, is_training=
     """
     outputs_metadata = []
     symbolic_metadata = {}
-    if not is_dynamic and (os.getenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "").upper() not in [
-            "ON", "1", "YES", "TRUE", "Y"]):
+    if not is_dynamic and ((os.getenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "").upper() not in [
+            "ON", "1", "YES", "TRUE", "Y"]) or enable_dynamic_output_preallocate):
         outputs_metadata = get_outputs_metadata(graph_module)
     elif is_dynamic and enable_dynamic_output_preallocate:
         outputs_metadata = get_outputs_metadata(graph_module)

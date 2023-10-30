@@ -256,11 +256,13 @@ def test_op_cat():
     )
 
     for shapes in shapes_per_run:
-        inputs = [torch.randn(s) for s in shapes]
+        inputs = [torch.randn(s, requires_grad=True) for s in shapes]
         result = raw_function(inputs)
         inputs_hpu = [x.to("hpu") for x in inputs]
         result_hpu = compiled_fn(inputs_hpu)
         assert torch.allclose(result_hpu.to("cpu"), result, atol=0, rtol=0)
+        grad = torch.ones_like(result_hpu)
+        result_hpu.backward(grad)
 
 
 @pytest.mark.skip(
