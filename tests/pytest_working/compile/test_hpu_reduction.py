@@ -36,9 +36,6 @@ def test_reduction(op_code):
 @pytest.mark.parametrize("dim", [0, 1, 2, 3, -1])
 @pytest.mark.parametrize("keepdim", [True, False])
 def test_reduction_dim(op_code, dim, keepdim):
-    if is_torch_at_least(2,1):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-161576")
-
     def fn(input, dim, keepdim):
         return op_code(input, dim, keepdim)
 
