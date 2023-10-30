@@ -212,7 +212,7 @@ def set_amax_buffer_key_deletion(
 
 def get_default_fp8_recipe() -> DelayedScaling:
     """FP8 recipe if not provided by user
-    Margin = 0, interval = 1, E5M2_HYBRID
+    Margin = 0, interval = 1, E5M2
     """
     return DelayedScaling()
 
@@ -483,13 +483,6 @@ def get_fp8_te_dtype(
     ):
         return torch.float8_e4m3fn
     return torch.float8_e5m2
-
-
-def get_fp8_te_sr(
-    fp8_recipe: DelayedScaling, fprop_tensor: bool = True
-) -> tex.DType:
-    """Get fp8 stochastic rounding flag according to recipe and tensor"""
-    return fp8_recipe.fp8_format == Format.E5M2_HYBRID and not fprop_tensor
 
 
 def reduce_tensor_across_group_op_max(

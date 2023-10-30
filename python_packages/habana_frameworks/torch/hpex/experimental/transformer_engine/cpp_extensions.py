@@ -79,14 +79,13 @@ def fp8_gelu(
     fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
     otype: tex.DType,
     retain: torch.Tensor = None,
-    stochastic_rounding = False,
     measure_amax = True
 ) -> torch.Tensor:
     """GeLU with FP8 output"""
 
     fp8_meta_tensor.scale_inv[fp8_tensor] = torch.reciprocal(fp8_meta_tensor.scale[fp8_tensor])
     def operator():
-        return torch.ops.hpu.fp8_gelu_v2(inp, fp8_meta_tensor.scale[fp8_tensor], stochastic_rounding, measure_amax)
+        return torch.ops.hpu.fp8_gelu_v2(inp, fp8_meta_tensor.scale[fp8_tensor], False, measure_amax)
     out, retain, amax = _select_amax_and_exec(
         fp8_meta_tensor,
         fp8_tensor,
@@ -102,12 +101,11 @@ def cast_to_fp8(
     fp8_meta_tensor: tex.FP8TensorMeta,
     fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
     otype: tex.DType,
-    stochastic_rounding = False,
     measure_amax = True
 ) -> torch.Tensor:
     """Cast input to FP8"""
     def operator():
-        return torch.ops.hpu.cast_to_fp8_v2(inp, fp8_meta_tensor.scale[fp8_tensor], stochastic_rounding, measure_amax)
+        return torch.ops.hpu.cast_to_fp8_v2(inp, fp8_meta_tensor.scale[fp8_tensor], False, measure_amax)
     cast_out, amax = _select_amax_and_exec(
         fp8_meta_tensor,
         fp8_tensor,

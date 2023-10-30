@@ -39,9 +39,8 @@ def _get_inp_weigth_bias_size(batch, in_features, out_features):
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
-@pytest.mark.parametrize("stochastic_rounding", [True, False])
 @pytest.mark.parametrize("scale", [1.0, 16.0])
-def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, scale):
+def test_te_cast(device, dtype, scale):
     input_value = 18.5
     input_data = torch.tensor([input_value] * 1000, dtype=dtype, device=device)
 
@@ -54,7 +53,6 @@ def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
         meta,
         tex.FP8FwdTensors.GEMM1_INPUT,
         tex.DType.kFloat8E5M2,
-        stochastic_rounding=stochastic_rounding,
     )
 
     upcasted = cast_from_fp8(
@@ -65,24 +63,15 @@ def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
         tex.DType.kFloat32,
     )
     mean = torch.mean(upcasted).cpu()
-    # When stochastic rounding is turned off, 18.5 will be rounded to 20.0 with default rounding mode
-    # (or 16.0 when rounded down). With stochastic rounding, it rounds up or down with the probability
-    # dependent on the distance between original value to the closest fp8 numbers, so the mean result
-    # should be close to the input value.
-    if stochastic_rounding:
-        assert mean < 19.5
-        assert mean > 17.5
-    else:
-        assert mean == 20.0
+    assert mean == 20.0
 
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
-@pytest.mark.parametrize("stochastic_rounding", [True, False])
 @pytest.mark.parametrize("scale", [1.0, 16.0])
 @pytest.mark.parametrize("value, rounded_value", [(18.5, 20.0), (-18.5, 0.0)])
-def test_te_gelu_with_stochastic_rounding(
-    device, dtype, stochastic_rounding, scale, value, rounded_value
+def test_te_gelu(
+    device, dtype, scale, value, rounded_value
 ):
     if dtype == torch.float32:
         pytest.skip("SW-144156 fp8_gelu compilation fails with segfault (fp32 dtype)")
@@ -97,7 +86,6 @@ def test_te_gelu_with_stochastic_rounding(
         meta,
         tex.FP8FwdTensors.GEMM1_INPUT,
         tex.DType.kFloat8E5M2,
-        stochastic_rounding=stochastic_rounding,
     )
 
     upcasted = cast_from_fp8(
@@ -108,15 +96,7 @@ def test_te_gelu_with_stochastic_rounding(
         tex.DType.kFloat32,
     )
     mean = torch.mean(upcasted).cpu()
-    # When stochastic rounding is turned off, 18.5 will be rounded to 20.0 with default rounding mode
-    # (or 16.0 when rounded down). With stochastic rounding, it rounds up or down with the probability
-    # dependent on the distance between original value to the closest fp8 numbers, so the mean result
-    # should be close to the input value.
-    if stochastic_rounding:
-        assert mean <= torch.nn.functional.gelu(torch.tensor(value + 1.0))
-        assert mean >= torch.nn.functional.gelu(torch.tensor(value - 1.0))
-    else:
-        assert mean == torch.nn.functional.gelu(torch.tensor(rounded_value))
+    assert mean == torch.nn.functional.gelu(torch.tensor(rounded_value))
     assert meta.scale_inv.item() == 1.0 / scale
 
 
@@ -177,7 +157,7 @@ class MyLinear(torch.nn.Module):
 @pytest.mark.parametrize("use_bias", [False, True], ids=["no_bias", "with_bias"])
 @pytest.mark.parametrize("skip_weight_param_allocation", [False, True], ids=["allocate_weight", "skip_weight_allocation"])
 def test_te_linear_fp8_disabled(dtype, sizes, use_bias, skip_weight_param_allocation):
-    fp8_format = Format.E5M2_HYBRID
+    fp8_format = Format.E5M2
     fp8_recipe = DelayedScaling(fp8_format=fp8_format)
 
     size_A, size_B, size_C = sizes
@@ -259,7 +239,7 @@ def test_te_linear_fp8_disabled(dtype, sizes, use_bias, skip_weight_param_alloca
 @pytest.mark.parametrize("size_B", [16, 128])
 @pytest.mark.parametrize("bias_add", [False])
 def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add):
-    fp8_format = Format.E5M2_HYBRID
+    fp8_format = Format.E5M2
     fp8_recipe = DelayedScaling(
         fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False
     )
@@ -371,7 +351,7 @@ def test_longer_history_size():
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("lp_dtype", [torch.bfloat16])
 def test_fp8_linear_with_amp(device, lp_dtype):
-    fp8_format = Format.E5M2_HYBRID
+    fp8_format = Format.E5M2
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, reduce_amax=False)
 
     hp_dtype = torch.float
@@ -410,7 +390,7 @@ def test_te_linear_hpu_graph(device, dtype, amax_history_len, hpu_graph=True):
     input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device)
     input3 = torch.tensor([100, 200, 300, 400], dtype=dtype, device=device)
 
-    fp8_format = Format.E5M2_HYBRID
+    fp8_format = Format.E5M2
     fp8_recipe = DelayedScaling(
         fp8_format=fp8_format,
         amax_history_len=amax_history_len,
@@ -504,7 +484,7 @@ def test_te_linear_module_cacher(device, dtype, amax_history_len, zero_grad, gra
     input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device)
     input3 = torch.tensor([100, 200, 300, 400], dtype=dtype, device=device)
 
-    fp8_format = Format.E5M2_HYBRID
+    fp8_format = Format.E5M2
     fp8_recipe = DelayedScaling(
         fp8_format=fp8_format,
         amax_history_len=amax_history_len,
@@ -604,7 +584,7 @@ def test_module_cacher_with_dilation(dtype):
     input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device, requires_grad=True)
 
     fp8_recipe = DelayedScaling(
-        fp8_format=Format.E5M2_HYBRID,
+        fp8_format=Format.E5M2,
         amax_history_len=1,
         amax_compute_algo="max",
         reduce_amax=False,
@@ -684,7 +664,7 @@ def test_te_minimize_memory(device=torch.device("hpu:0"), dtype=torch.float32):
     input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device, requires_grad=True)
     input3 = torch.tensor([100, 200, 300, 400], dtype=dtype, device=device, requires_grad=True)
 
-    fp8_format = Format.E5M2_HYBRID
+    fp8_format = Format.E5M2
     fp8_recipe = DelayedScaling(
         fp8_format=fp8_format,
         amax_history_len=1,
@@ -742,7 +722,7 @@ def test_te_multiple_fwd_multiple_bwd(minimize_memory, microbatches_approach, de
     input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device, requires_grad=True)
     input3 = torch.tensor([100, 200, 300, 400], dtype=dtype, device=device, requires_grad=True)
 
-    fp8_format = Format.E5M2_HYBRID
+    fp8_format = Format.E5M2
     fp8_recipe = DelayedScaling(
         fp8_format=fp8_format,
         amax_history_len=1,
@@ -811,7 +791,7 @@ def test_linear_weight_caching_in_microbatches_case():
     input3 = torch.randn([4], dtype=dtype, device=device, requires_grad=True)
 
     fp8_recipe = DelayedScaling(
-        fp8_format=Format.E5M2_HYBRID,
+        fp8_format=Format.E5M2,
         amax_history_len=1,
         amax_compute_algo="max",
         reduce_amax=False,
@@ -956,7 +936,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
         inputs.append(torch.tensor([0.1 * 2**i, 0.2 * 2**i, 0.3 * 2**i, 0.4 * 2**i], dtype=dtype, device=device, requires_grad=True))
 
     fp8_recipe = DelayedScaling(
-        fp8_format=Format.E5M2_HYBRID,
+        fp8_format=Format.E5M2,
         margin=0,
         amax_history_len=amax_history_len,
         amax_compute_algo="max",

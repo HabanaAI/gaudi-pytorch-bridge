@@ -423,7 +423,7 @@ def test_cached_module_training_fp8(disable_tensor_cache):
     input2 = torch.tensor([10, 20, 30, 40]).to('hpu')
     input3 = torch.tensor([100, 200, 300, 400]).to('hpu')
 
-    fp8_format = Format.E5M2_HYBRID
+    fp8_format = Format.E5M2
     fp8_recipe = DelayedScaling(
         fp8_format=fp8_format,
         amax_history_len=1,
