@@ -13,7 +13,7 @@ testJobConfig:
       greco:
         hwType:
           sim:
-  cpp_suite_2.n:
+  cpp_suite_future:
     devices:
       gaudi:
         hwType:
@@ -44,7 +44,7 @@ testJobConfig:
       gaudi:
         hwType:
           asic:
-  topology_2.n:
+  topology:
     devices:
       gaudi2:
         hwType:
@@ -53,6 +53,13 @@ testJobConfig:
         hwType:
           asic:
   topology_group_1:
+    envVars:
+      IS_K8S_CONTAINER_TESTER: 'true'
+    devices:
+      gaudi2:
+        hwType:
+          asic:
+  topology_group_1_future:
     envVars:
       IS_K8S_CONTAINER_TESTER: 'true'
     devices:
