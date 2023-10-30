@@ -17,6 +17,7 @@ import torch
 from habana_frameworks.torch import hpu
 from habana_frameworks.torch import _core_C
 from habana_frameworks.torch.utils import _experimental_C
+from habana_frameworks.torch.internal import fuse_conv_bn
 from torch.fx import symbolic_trace
 
 from .torch_overwrites import _names_hook_already_registered
@@ -114,11 +115,15 @@ def _set_quantization_attributes(model):
             hpu.enable_quantization()
 
 _set_env = 1
-def hpu_set_env():
+
+def hpu_set_env(model=None):
     global _set_env
     hpu.enable_inference_mode()
     hpu.enable_matmul3d_2d_reshape()
     _set_env = 0
+    if model is not None:
+        modified_model = fuse_conv_bn.fuse(model)
+        return modified_model
 
 def hpu_initialize(model=None, optimizer=None, args=None):
     global _set_env
