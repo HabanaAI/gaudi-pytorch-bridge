@@ -62,7 +62,6 @@ class HabanaAcceleratedPytorchDL {
     m_use_prefetch = use_prefetch;
     m_channels_last = channels_last;
     m_user_idx = 0;
-    m_aeon_idx = 0;
     m_shouldStopPrefetch = false;
     m_aeon_permute = image_etl.value("aeon_permute", true);
 
@@ -99,7 +98,6 @@ class HabanaAcceleratedPytorchDL {
   HabanaAcceleratedPytorchDL* getIter() {
     aeondataloader::data_loader_reset(m_loader);
     m_user_idx = 0;
-    m_aeon_idx = 0;
     if (m_use_prefetch) {
       runPrefetchThread();
     }
@@ -116,9 +114,10 @@ class HabanaAcceleratedPytorchDL {
 
  protected:
   void addPytorchPairToQueueThread() {
-    while (++m_aeon_idx <= m_total_batch_count && !m_shouldStopPrefetch) {
+    int aeon_idx = 0;
+    while (++aeon_idx <= m_total_batch_count && !m_shouldStopPrefetch) {
       // This is a blocking API
-      m_prefetchQueue.push(getTensorTuple(m_aeon_idx == m_total_batch_count));
+      m_prefetchQueue.push(getTensorTuple(aeon_idx == m_total_batch_count));
     }
   }
 
@@ -272,7 +271,6 @@ class HabanaAcceleratedPytorchDL {
   std::thread m_prefetchThread;
   BlockingQueue<std::vector<torch::Tensor>> m_prefetchQueue;
   // internal index for current index in aeon prefetching, always >= m_user_idx
-  int m_aeon_idx;
   std::atomic<bool> m_shouldStopPrefetch;
 
   // For user-API
