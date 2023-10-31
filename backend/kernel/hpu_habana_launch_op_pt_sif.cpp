@@ -471,11 +471,18 @@ void HabanaLaunchOpPT::RunHybridSif(
       } else {
         // Output shape info based flow
         try {
-          auto output_tensors = output_shape_info.GetOutputTensor();
-
           size_t exclude_outputs = 0;
           if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
             exclude_outputs = op->GetSynImplicitOutputs().size();
+          }
+
+          auto output_tensors = output_shape_info.GetOutputTensor();
+          if (!(node->outputs().size() ==
+                (output_tensors.size() - exclude_outputs))) {
+            if (output_shape_info.GetKernelOutputs().size()) {
+              output_tensors =
+                  output_shape_info.GetKernelOutputs().at(0)->GetOutputTensor();
+            }
           }
 
           TORCH_CHECK(
@@ -490,6 +497,7 @@ void HabanaLaunchOpPT::RunHybridSif(
           }
         } catch (std::exception& e) {
           PT_DYNAMIC_SHAPE_DEBUG("Catch Exception SIF failed: ", e.what());
+          disabled_jit_ir_ops_.insert(op_name);
           propagate_shape();
         }
       }
@@ -497,7 +505,6 @@ void HabanaLaunchOpPT::RunHybridSif(
       propagate_shape();
     }
   }
-
   PT_BRIDGE_END;
 }
 
