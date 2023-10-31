@@ -1509,8 +1509,18 @@ def get_eager_op_info(ctxop, opname):
         type += "OutOfPlace"
 
     name = opname
+    # replace to coresponding OutOfPlace variant.
+    # generally, the OutOfPlace variant is Inplace Op without suffix "_",
+    # but some ops not follow this rule.
     if type != "eager::eagerOpKind::OutOfPlace":
-        name = opname.rsplit("_", 1)[0]
+        if name == "__ilshift__":
+            name = "__lshift__"
+        elif name == "__irshift__":
+            name = "__rshift__"
+        elif name == "__lshift__" or name == "__rshift__":
+            pass
+        else:
+            name = opname.rsplit("_", 1)[0]
     op_name = "aten::" + name
 
     return type, op_name

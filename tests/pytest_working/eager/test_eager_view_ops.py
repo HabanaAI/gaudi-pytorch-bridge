@@ -802,3 +802,17 @@ def test_view(ttl, inout):
         assert torch.allclose(
             result_hpu.cpu(), result_cpu, atol=0.001, rtol=0.001
         )
+
+
+@pytest.mark.parametrize("shift_op", [torch.ops.aten.__ilshift__, torch.ops.aten.__lshift__, torch.ops.aten.__irshift__, torch.ops.aten.__rshift__])
+@pytest.mark.parametrize("transpose", [False, True])
+def test_shift(shift_op, transpose):
+    a = torch.tensor([[1, 2, 4], [1, 2, 4]], dtype=torch.int64)
+    if transpose:
+        a = a.transpose(1, 0)
+    ha = a.to("hpu")
+
+    a_out = shift_op(a, 1)
+    ha_out = shift_op(ha, 1)
+
+    assert torch.allclose(ha_out.cpu(), a_out)
