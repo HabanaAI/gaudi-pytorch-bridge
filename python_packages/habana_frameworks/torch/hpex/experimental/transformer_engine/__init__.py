@@ -10,16 +10,8 @@
 # This file contains Habana Labs, Ltd. proprietary and confidential information
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
-#
-# Changes:
-# - Added MatMul layer
-# - Added SelfAttentionScoresAndValue and SelfAttentionContext layer
 
 """Transformer Engine bindings for pyTorch"""
 from .module import Linear
-from .module import LayerNorm
-from .module import MatMul
-from .module import SelfAttentionScoresAndValue
-from .module import SelfAttentionContext
 from .fp8 import fp8_autocast
 from .distributed import checkpoint
