@@ -30,9 +30,9 @@ LazyUpsample<at::Tensor>::LazyUpsample(
     : habana_lazy::LazyOp<at::Tensor>(qualstring, inputs, out_shapes_fn) {
   auto x = get_inputs();
   auto self = x[0].toTensor();
-  auto outshape = UpsampleNearest2DBwdOutputShape(x)[0];
+  auto meta = UpsampleNearest2DBwdMeta(x)[0];
   auto outshape_st = habana_lazy::empty_hpu_lazy(
-      outshape,
+      meta.shape,
       self.options(),
       self.suggest_memory_format(),
       false,

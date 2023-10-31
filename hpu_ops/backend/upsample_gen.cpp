@@ -293,31 +293,34 @@ std::vector<int64_t> UpsampleNearest2DFwdOutputShapeSynapseLayout(
   }
   return out_shape;
 }
-// Forward Output Shape - Nearest2D
-sizes_vec UpsampleNearest2DFwdOutputShape(const at::Stack& stack) {
+// Forward Meta Function - Nearest2D
+OutputMetaDataVector UpsampleNearest2DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(2);
   std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale)
-  out_shape = UpsampleNearest2DFwdOutputShapeSynapseLayout(stack);
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = UpsampleNearest2DFwdOutputShapeSynapseLayout(stack);
 
   CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
-      self.sizes()[2], out_shape.at(2), self.sizes()[3], out_shape.at(3));
-  return {out_shape};
+      self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
+  return {meta};
 }
-// Backward Output Shape - Nearest2D
-sizes_vec UpsampleNearest2DBwdOutputShape(const at::Stack& stack) {
+// Backward Meta Function - Nearest2D
+OutputMetaDataVector UpsampleNearest2DBwdMeta(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
-  std::vector<int64_t> outshape = stack.at(2).isTensor()
-      ? stack_tensor(stack, 2).sizes().vec()
-      : stack.at(2).toIntVector();
+  OutputMetaData meta;
+  meta.dtype = grad_in.scalar_type();
+  meta.shape = stack.at(2).isTensor() ? stack_tensor(stack, 2).sizes().vec()
+                                      : stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  return {outshape};
+  return {meta};
 }
 
 std::vector<int64_t> UpsampleBicubic2DFwdOutputShapeSynapseLayout(
@@ -1001,22 +1004,19 @@ void UpsampleNearest1DBwdOperator::AddNode(
 void UpSampleNearest2DOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto outshape = ComputeOutputShapes(stack)[0];
+  auto meta = OutputMeta(stack)[0];
   auto self = stack_tensor(stack, 0);
   std::vector<synTensor> input{syn_in(0)};
   std::unique_ptr<synapse_helpers::tensor> cast;
   c10::optional<int> final_index = 0;
-  CreateShapeTensorInput(graph, ScalarType(), outshape, input, SHAPE_TENSOR);
-  if (self.scalar_type() == c10::ScalarType::Byte) {
+  CreateShapeTensorInput(graph, meta.dtype, meta.shape, input, SHAPE_TENSOR);
+  auto intermediateDtype = meta.dtype;
+  if (meta.dtype == c10::ScalarType::Byte) {
     // u8 to f32
+    intermediateDtype = c10::ScalarType::Float;
     cast = std::make_unique<synapse_helpers::tensor>(CastHelper(
-        graph,
-        input[0],
-        self.sizes().vec(),
-        c10::ScalarType::Byte,
-        c10::ScalarType::Float));
+        graph, input[0], self.sizes().vec(), meta.dtype, intermediateDtype));
     input = {cast->get()};
-    SetScalarType(c10::ScalarType::Float);
     final_index = c10::nullopt;
   }
 
@@ -1024,16 +1024,18 @@ void UpSampleNearest2DOperator::AddNode(
   const auto& params = FillParams(stack, size);
 
   auto resize = Resize(
-      this, graph, input, outshape, ScalarType(), params, size, final_index);
-  if (self.scalar_type() == c10::ScalarType::Byte) {
+      this,
+      graph,
+      input,
+      meta.shape,
+      intermediateDtype,
+      params,
+      size,
+      final_index);
+  if (meta.dtype == c10::ScalarType::Byte) {
     // f32 to u8
     resize[0] = CastHelper(
-        graph,
-        resize[0].get(),
-        outshape,
-        c10::ScalarType::Float,
-        c10::ScalarType::Byte,
-        0);
+        graph, resize[0].get(), meta.shape, intermediateDtype, meta.dtype, 0);
   }
   syn_out(0) = std::move(resize.at(0));
 }

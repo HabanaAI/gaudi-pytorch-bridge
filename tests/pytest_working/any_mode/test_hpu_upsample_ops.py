@@ -63,6 +63,15 @@ class TestHpuUpsample:
         shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
 
+    @pytest.mark.parametrize("shape_and_size", [((2, 2, 3, 3), None), ((2, 2, 3, 3), (6, 6))])
+    @pytest.mark.parametrize("scale_factor", [None, [1, 2]])
+    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
+    def test_upsample_nearest2d(self, shape_and_size, scale_factor, variant, dtype):
+        if (pytest.mode == "compile"):
+            pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
+        shape, size = shape_and_size
+        TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
+
     @pytest.mark.parametrize("shape_and_size", [((2, 2, 3, 3, 3), None), ((2, 2, 3, 3, 3), (6, 6, 6))])
     @pytest.mark.parametrize("scale_factor", [None, [1, 2, 3]])
     @pytest.mark.parametrize("variant", ["fwd", "bwd"])

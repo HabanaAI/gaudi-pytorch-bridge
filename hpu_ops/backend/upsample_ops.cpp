@@ -94,7 +94,7 @@ struct UpsampleNearest2dVec : UpSampleNearest2DOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-    SetComputeOutputShapes(UpsampleNearest2DFwdOutputShape);
+    SetOutputMetaFn(UpsampleNearest2DFwdMeta);
     SetFillParams(FillNearestFwdParams);
   }
 };

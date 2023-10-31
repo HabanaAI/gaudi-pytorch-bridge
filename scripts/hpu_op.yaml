@@ -7368,7 +7368,7 @@ upsample_nearest1d_backward.vec:
 
 upsample_nearest2d:
   custom_fill_params: FillNearestFwdParams
-  custom_output_shape: UpsampleNearest2DFwdOutputShape
+  output_meta: UpsampleNearest2DFwdMeta
   op_backend: UpSampleNearest2DOperator
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
@@ -7382,7 +7382,7 @@ upsample_nearest2d:
 
 upsample_nearest2d.out:
   custom_fill_params: FillNearestFwdParams
-  custom_output_shape: UpsampleNearest2DFwdOutputShape
+  output_meta: UpsampleNearest2DFwdMeta
   op_backend: UpSampleNearest2DOperator
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
@@ -7395,7 +7395,7 @@ upsample_nearest2d.out:
 
 upsample_nearest2d_backward:
   custom_fill_params: FillNearestBwdParams
-  custom_output_shape: UpsampleNearest2DBwdOutputShape
+  output_meta: UpsampleNearest2DBwdMeta
   op_backend: UpSampleNearest2DOperator
   op_frontend: LazyUpsample
   dtypes:
@@ -7411,7 +7411,7 @@ upsample_nearest2d_backward:
 
 upsample_nearest2d_backward.grad_input:
   custom_fill_params: FillNearestBwdParams
-  custom_output_shape: UpsampleNearest2DBwdOutputShape
+  output_meta: UpsampleNearest2DBwdMeta
   op_backend: UpSampleNearest2DOperator
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
@@ -7474,7 +7474,7 @@ upsample_nearest3d_backward.grad_input:
 
 upsample_nearest2d_backward.vec:
   custom_fill_params: FillNearestBwdParams
-  custom_output_shape: UpsampleNearest2DBwdOutputShape
+  output_meta: UpsampleNearest2DBwdMeta
   op_backend: UpSampleNearest2DOperator
   op_frontend: LazyUpsample
   dtypes:
@@ -7491,7 +7491,7 @@ upsample_nearest2d_backward.vec:
 upsample_nearest2d.vec:
   pytorch2_mode: disable
   custom_fill_params: FillNearestFwdParams
-  custom_output_shape: UpsampleNearest2DFwdOutputShape
+  output_meta: UpsampleNearest2DFwdMeta
   op_backend: UpSampleNearest2DOperator
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
