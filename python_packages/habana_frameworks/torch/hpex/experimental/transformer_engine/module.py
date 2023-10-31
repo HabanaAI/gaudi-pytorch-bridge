@@ -22,7 +22,7 @@ import os
 import pickle
 import warnings
 from abc import ABC, abstractmethod
-from typing import Union, Optional, Callable, Tuple, Dict, Any, Mapping, List
+from typing import Generator, Union, Optional, Callable, Tuple, Dict, Any, Mapping, List
 from functools import partial
 from contextlib import contextmanager
 
@@ -85,7 +85,7 @@ def _prepare_backward(fp8: bool,
                       is_scale_update_required: bool,
                       reduce_amax_across_tp_group: bool,
                       tp_group: Optional[dist_group_type] = None
-) -> None:
+) -> Generator[None, None, None]:
     """Checks and prep for BWD."""
     if fp8:
         if fp8_meta["update_amax_bwd"].get("enabled", False):
@@ -424,7 +424,11 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             (self.run_cnt + self.fp8_meta["recipe"].interval - 2) % self.fp8_meta["recipe"].interval == 0)
 
     @contextmanager
-    def prepare_forward(self, inp: torch.Tensor, num_gemms: int = 1)  -> (None, bool):
+    def prepare_forward(
+        self,
+        inp: torch.Tensor,
+        num_gemms: int = 1
+    ) -> Generator[tuple, None, None]:
         """Checks and prep for FWD.
         The context manager is needed because there isn't a way for a module to know
         if it's the last FP8 module in the forward autocast. It is useful
@@ -902,7 +906,7 @@ class Linear(TransformerEngineBaseModule):
                  instead return the bias value during the forward pass together with the
                  output of the linear transformation :math:`y = xA^T`. This is useful when
                  the bias addition can be fused to subsequent operations.
-    params_dtype : torch.dtype, default = `torch.float32`
+    params_dtype : torch.dtype, default = `torch.get_default_dtype()`
                   it controls the type used to allocate the initial parameters. Useful when
                   the model is trained with lower precision and the original FP32 parameters
                   would not fit in GPU memory.
@@ -923,12 +927,14 @@ class Linear(TransformerEngineBaseModule):
         init_method: Optional[Callable] = None,
         bias: bool = True,
         return_bias: bool = False,
-        params_dtype: torch.dtype = torch.float32,
+        params_dtype: Optional[torch.dtype] = None,
         parallel_mode: Optional[str] = None,
         skip_weight_param_allocation: bool = False,
         minimize_memory: bool = False,
     ) -> None:
         super().__init__()
+
+        params_dtype = torch.get_default_dtype() if params_dtype is None else params_dtype
         self.in_features = in_features
         self.out_features = out_features
         self.use_bias = bias
@@ -991,7 +997,10 @@ class Linear(TransformerEngineBaseModule):
                 if self.parallel_mode == "column":
                     set_tensor_model_parallel_attributes(self.bias, True, 0, 1)
             else:
-                self.register_buffer("bias", torch.Tensor(), persistent=False)
+                self.register_buffer("bias",
+                                     torch.Tensor().to(dtype=params_dtype,
+                                                       device="hpu"),
+                                     persistent=False)
 
             with torch.no_grad():
                 self.bias.zero_()
