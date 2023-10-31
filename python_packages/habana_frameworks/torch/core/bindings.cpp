@@ -117,10 +117,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "_iter_mark_step", []() { habana_lazy::HbLazyTensor::IterStepMarker(); });
   m.def(
       "_mark_step",
-      [](const std::string& device_str) {
-        habana_lazy::HbLazyTensor::StepMarkerBind(device_str);
+      [](const std::string& device_str, bool sync) {
+        habana_lazy::HbLazyTensor::StepMarkerBind(device_str, sync);
       },
-      py::arg("device_str") = "");
+      py::arg("device_str") = "",
+      py::arg("sync") = false);
   m.def("_get_default_generator", []() {
     return habana::getDefaultHPUGenerator();
   });

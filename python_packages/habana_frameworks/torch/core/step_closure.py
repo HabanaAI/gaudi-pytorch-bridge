@@ -56,8 +56,8 @@ def _mark_step_if_lazy(device_str=""):
         mark_step(device_str)
 
 @lazy_only
-def mark_step(device_str=""):
-    htcore._mark_step(device_str)
+def mark_step(device_str="", sync = False):
+    htcore._mark_step(device_str, sync)
     _run_step_closures()
 
 @lazy_only
