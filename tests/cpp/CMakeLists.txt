@@ -1,4 +1,4 @@
-###############################################################################
+# ##############################################################################
 # Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
@@ -8,58 +8,58 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-###############################################################################
+# ##############################################################################
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 set(lazy_tests_src
-    lazy_graph_passes/test_replace_inplace_ops.cpp
-    lazy_add_composite_tests.cpp
-    lazy_basic_kernel_tests.cpp
-    lazy_binary_composite_kernel_tests.cpp
-    lazy_binary_inplace_kernel_tests.cpp
-    lazy_binary_kernel_tests.cpp
-    lazy_bitwise_kernel_tests.cpp
-    lazy_cache_tests.cpp
-    lazy_compare_kernel_tests.cpp
-    lazy_control_edge_tests.cpp
-    lazy_conv_kernel_tests.cpp
-    lazy_custom_kernel_tests.cpp
-    lazy_custom_op_kernel_test.cpp
-    lazy_dynamic_compute_output_shapes_tests.cpp
-    lazy_dynamic_fallback_tests.cpp
-    lazy_dynamic_launch_fallback_test.cpp
-    lazy_dynamic_shapes_bucket_refine.cpp
-    lazy_dynamic_shapes_serialize_tests.cpp
-    lazy_dynamic_shapes_tests.cpp
-    lazy_dynamic_shapes_tests2.cpp
-    lazy_eager_tests.cpp
-    lazy_embedding_kernel_tests.cpp
-    lazy_execution_test.cpp
-    lazy_fill_kernel_tests.cpp
-    lazy_forward_running_hash_tests.cpp
-    lazy_fp8_ops.cpp
-    lazy_index_kernel_tests.cpp
-    lazy_jit_graph_tests.cpp
-    lazy_linear_kernel_tests.cpp
-    lazy_loss_kernel_tests.cpp
-    lazy_mask_scalar_kernel_test.cpp
-    lazy_misc_tests.cpp
-    lazy_norm_kernel_tests.cpp
-    lazy_pool_kernel_tests.cpp
-    lazy_random_gen_kernel_tests.cpp
-    lazy_reduction_kernel_tests.cpp
-    lazy_softmax_kernel_tests.cpp
-    lazy_special_kernel_tests.cpp
-    lazy_stride_tests.cpp
-    lazy_tensor_api_tests.cpp
-    lazy_tensor_shape_kernel_tests.cpp
-    lazy_unary_kernel_tests.cpp
-    lazy_upsample_kernel_tests.cpp
-    lazy_where_kernel_tests.cpp
-    post_order_tests.cpp
-    sbs_tests.cpp
-    dry_run_test.cpp
+  lazy_graph_passes/test_replace_inplace_ops.cpp
+  lazy_add_composite_tests.cpp
+  lazy_basic_kernel_tests.cpp
+  lazy_binary_composite_kernel_tests.cpp
+  lazy_binary_inplace_kernel_tests.cpp
+  lazy_binary_kernel_tests.cpp
+  lazy_bitwise_kernel_tests.cpp
+  lazy_cache_tests.cpp
+  lazy_compare_kernel_tests.cpp
+  lazy_control_edge_tests.cpp
+  lazy_conv_kernel_tests.cpp
+  lazy_custom_kernel_tests.cpp
+  lazy_custom_op_kernel_test.cpp
+  lazy_dynamic_compute_output_shapes_tests.cpp
+  lazy_dynamic_fallback_tests.cpp
+  lazy_dynamic_launch_fallback_test.cpp
+  lazy_dynamic_shapes_bucket_refine.cpp
+  lazy_dynamic_shapes_serialize_tests.cpp
+  lazy_dynamic_shapes_tests.cpp
+  lazy_dynamic_shapes_tests2.cpp
+  lazy_eager_tests.cpp
+  lazy_embedding_kernel_tests.cpp
+  lazy_execution_test.cpp
+  lazy_fill_kernel_tests.cpp
+  lazy_forward_running_hash_tests.cpp
+  lazy_fp8_ops.cpp
+  lazy_index_kernel_tests.cpp
+  lazy_jit_graph_tests.cpp
+  lazy_linear_kernel_tests.cpp
+  lazy_loss_kernel_tests.cpp
+  lazy_mask_scalar_kernel_test.cpp
+  lazy_misc_tests.cpp
+  lazy_norm_kernel_tests.cpp
+  lazy_pool_kernel_tests.cpp
+  lazy_random_gen_kernel_tests.cpp
+  lazy_reduction_kernel_tests.cpp
+  lazy_softmax_kernel_tests.cpp
+  lazy_special_kernel_tests.cpp
+  lazy_stride_tests.cpp
+  lazy_tensor_api_tests.cpp
+  lazy_tensor_shape_kernel_tests.cpp
+  lazy_unary_kernel_tests.cpp
+  lazy_upsample_kernel_tests.cpp
+  lazy_where_kernel_tests.cpp
+  post_order_tests.cpp
+  sbs_tests.cpp
+  dry_run_test.cpp
 )
 
 set(hpu_ops_tests_src
@@ -281,11 +281,13 @@ add_executable(
 )
 
 target_compile_definitions(test_pt_integration PRIVATE LAZY_TESTS)
+set_target_properties(test_pt_integration PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
 
-if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
+if("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
   # Remove tests unrelated or not working with PT2
   list(REMOVE_ITEM misc_tests_src
     graph_optimize_passes.cpp
+
     # Doesn't compile
     linear_2d_bwd.cpp
     matmul_bwd.cpp
@@ -302,19 +304,23 @@ if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     ${misc_tests_src}
     ${eager_tests_src})
   target_compile_definitions(test_pt2_integration PRIVATE EAGER_TESTS)
+  set_target_properties(test_pt2_integration PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
 endif()
 
 find_package(Python COMPONENTS Interpreter Development)
 
 find_library(PYTHON3_LIB python3)
+
 if(NOT PYTHON3_LIB)
   message(STATUS "python3 library not found!!!")
+
   # NOTE: Ubuntu 22.04 requires python3.10 version
   find_library(PYTHON3_LIB python3.10)
 endif()
 
 if(NOT PYTHON3_LIB)
   message(STATUS "python3.10 library not found!!!")
+
   # NOTE: Currently depending on python3.8 exclusively, in case version upgrade
   # please change accordingly
   find_library(PYTHON3_LIB python3.8)
@@ -329,46 +335,46 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
 target_link_libraries(
   test_pt_integration
   PRIVATE "${PYTHON3_LIB}"
-          torch
-          habana_pytorch_backend
-          habana_pytorch_plugin
-          gtest
-          gtest_main
-          util
-          pthread
-          stdc++
-          stdc++fs
-          nlohmann_json::nlohmann_json
-          absl::strings
-          dl
-          npu::hllogger)
+  torch
+  habana_pytorch_backend
+  habana_pytorch_plugin
+  gtest
+  gtest_main
+  util
+  pthread
+  stdc++
+  stdc++fs
+  nlohmann_json::nlohmann_json
+  absl::strings
+  dl
+  npu::hllogger)
 
 add_custom_command(
   TARGET test_pt_integration
   POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:test_pt_integration>
-          ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:test_pt_integration>)
+  ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:test_pt_integration>)
 
-if ("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
+if("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
   target_link_libraries(
     test_pt2_integration
     PRIVATE "${PYTHON3_LIB}"
-            torch
-            habana_pytorch_backend
-            habana_pytorch2_plugin
-            gtest
-            gtest_main
-            util
-            pthread
-            stdc++
-            stdc++fs
-            nlohmann_json::nlohmann_json
-            absl::strings
-            dl
-            npu::hllogger)
+    torch
+    habana_pytorch_backend
+    habana_pytorch2_plugin
+    gtest
+    gtest_main
+    util
+    pthread
+    stdc++
+    stdc++fs
+    nlohmann_json::nlohmann_json
+    absl::strings
+    dl
+    npu::hllogger)
   add_custom_command(
     TARGET test_pt2_integration
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:test_pt2_integration>
-            ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:test_pt2_integration>)
+    ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:test_pt2_integration>)
 endif()

@@ -728,9 +728,9 @@ TEST_F(LazyDynamicInferOutputMetasTest, DISABLED_RoiAlignBwd) {
         true);
     output.to(torch::kCPU);
   };
-  roi_align_test({6}, {2, 3, 25, 25});
-  roi_align_test({10}, {2, 3, 35, 35});
-  roi_align_test({12}, {2, 3, 50, 50});
+  roi_align_test(6, {2, 3, 25, 25});
+  roi_align_test(10, {2, 3, 35, 35});
+  roi_align_test(12, {2, 3, 50, 50});
 }
 
 // Also validates InferOutputMeta for RandPermHT

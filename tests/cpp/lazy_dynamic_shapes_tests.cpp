@@ -186,7 +186,7 @@ void LazyDynamicShapesTest::DynamicShapeTest2(bool with_mark_step) {
     torch::Tensor h_out_conv = torch::conv2d(
         h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::Tensor out_conv = torch::conv2d(
-        in_tensor, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, {1});
+        in_tensor, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     // bn_out = BatchNorm(out_conv)
     torch::Tensor gamma =
         torch::randn(C, torch::dtype(torch::kFloat).requires_grad(false));
@@ -1817,9 +1817,9 @@ TEST_F(LazyDynamicShapesTest, DS_RoiAlignFwdTest) {
         images, new_boxes, num_rois, 7, 7, 0, 2, 0.25, true);
     output.to(torch::kCPU);
   };
-  roi_align_test({6}, {2, 3, 25, 25});
-  roi_align_test({10}, {2, 3, 35, 35});
-  roi_align_test({12}, {2, 3, 50, 50});
+  roi_align_test(6, {2, 3, 25, 25});
+  roi_align_test(10, {2, 3, 35, 35});
+  roi_align_test(12, {2, 3, 50, 50});
 }
 
 TEST_F(LazyDynamicShapesTest, ConvSliceReluChLastTest) {
@@ -2566,8 +2566,7 @@ TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest_5D) {
   std::vector<std::vector<int64_t>> out_sizes{
       {1, 3, 32, 32, 32}, {1, 3, 128, 128, 128}};
   std::vector<std::vector<int64_t>> strides{
-      {98304, 32768, 1024, 32, 1},
-      {6291456, 2097152, 16384, 128, 1}};
+      {98304, 32768, 1024, 32, 1}, {6291456, 2097152, 16384, 128, 1}};
   std::vector<int64_t> offsets{0, 0};
 
   for (int i = 0; i < in_sizes.size(); i++) {

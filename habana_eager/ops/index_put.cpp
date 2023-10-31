@@ -189,7 +189,6 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   }
   auto self_sizes = self.sizes().vec();
   std::vector<at::Tensor> indices_list;
-  int64_t explicit_index_count = 0;
   int64_t broadcast_to_size = 1;
   int64_t i = 0;
   std::vector<int64_t> broadcast_to_shape;
@@ -206,7 +205,6 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       }
       index_all_elems[i] = false;
       index_t_sizes[i] = input.value().sizes()[0];
-      explicit_index_count++;
     } else if (!input.has_value()) {
       index_t_sizes[i] = self_sizes[i];
       index_all_elems[i] = true;

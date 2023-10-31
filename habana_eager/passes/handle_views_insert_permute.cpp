@@ -126,7 +126,7 @@ static bool isStridedViewPermuted(StridedViewAndPermuteInfo& info) {
 
   // check if permuted True on strides and permuted False on permuted strides
   // get permute order and update permutation i.e. combine multiple permutes
-  if (isPermuted(strides) & (!isPermuted(new_strides))) {
+  if (isPermuted(strides) && (!isPermuted(new_strides))) {
     auto permute_order = getPermuteOrder(permutation);
     HABANA_ASSERT(
         permute_order >= 1,

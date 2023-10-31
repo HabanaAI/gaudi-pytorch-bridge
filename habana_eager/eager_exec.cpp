@@ -330,7 +330,7 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
       stack,
       overloaded{
           // metadata
-          [&node_inputs, &graph, &idx](const torch::jit::IValue& c) {
+          [&node_inputs, &graph](const torch::jit::IValue& c) {
             node_inputs.push_back(graph->insertConstant(c));
           },
           // scalar inputs
@@ -419,7 +419,7 @@ size_t EagerExec::calculate_operator_key(
   traversing_ivalues<ProcessList::asTensor>(
       stack,
       overloaded{
-          [this, &optimized_key, &inp_index](const torch::jit::IValue& input) {
+          [&optimized_key, &inp_index](const torch::jit::IValue& input) {
             optimized_key = at::hash_combine(optimized_key, inp_index++);
             if (input.isList()) {
               for (auto& v : input.toListRef()) {
@@ -435,7 +435,7 @@ size_t EagerExec::calculate_operator_key(
               }
             }
           },
-          [this, &optimized_key, &inp_index](const at::Scalar& input) {
+          [&optimized_key, &inp_index](const at::Scalar& input) {
             optimized_key = at::hash_combine(optimized_key, inp_index++);
 
             // TODO: remove from hash
@@ -445,7 +445,7 @@ size_t EagerExec::calculate_operator_key(
             optimized_key =
                 at::hash_combine(optimized_key, at::IValue::hash(input.type()));
           },
-          [this, &optimized_key, &input_hash_values, &inp_index](
+          [&optimized_key, &input_hash_values, &inp_index](
               const at::Tensor& tensor) {
             optimized_key = at::hash_combine(optimized_key, inp_index++);
             size_t input_hash_val = c10::get_hash(tensor.unsafeGetTensorImpl());
@@ -641,7 +641,7 @@ torch::jit::Stack EagerExec::prepare_input_stack(
   traversing_ivalues<ProcessList::asTensor>(
       inputs,
       overloaded{// metadata
-                 [&stack](const torch::jit::IValue& v) {},
+                 [](const torch::jit::IValue& v) {},
                  // scalars
                  [&stack](const at::Scalar& s) { stack.push_back(s); },
                  // tensors

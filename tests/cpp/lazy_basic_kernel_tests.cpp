@@ -795,8 +795,8 @@ TEST_F(LazyBasicKernelTest, aliasTest3) {
   auto B = at::alias(x);
   auto hB = at::alias(hx);
 
-  auto C = B.unsqueeze({-1});
-  auto hC = hB.unsqueeze({-1});
+  auto C = B.unsqueeze(-1);
+  auto hC = hB.unsqueeze(-1);
 
   EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
 }
@@ -808,8 +808,8 @@ TEST_F(LazyBasicKernelTest, aliasTest4) {
   auto B = at::alias(x);
   auto hB = at::alias(hx);
 
-  auto C = B.unsqueeze({-1});
-  auto hC = hB.unsqueeze({-1});
+  auto C = B.unsqueeze(-1);
+  auto hC = hB.unsqueeze(-1);
 
   EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
 }

@@ -137,7 +137,6 @@ class EagerExec {
   void set_eager_op_info(EagerOpMetaData&& eager_op_meta_data);
 
  private:
-  size_t m_key;
   const at::Symbol m_symbol;
   std::string m_graph_name;
   std::vector<at::IValue> m_inputs;

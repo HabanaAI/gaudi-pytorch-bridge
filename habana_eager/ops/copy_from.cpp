@@ -142,7 +142,7 @@ at::Tensor _hpu_cast(const at::Tensor& dst, const at::Tensor& src) {
   habana::eager::EagerOp<at::Tensor&> hpu_op{
       "hpu::_copy_from", {src, dst}, {dst.sizes().vec()}, 1};
   hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", {1}});
+      {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", 1});
   return hpu_op.call(const_cast<at::Tensor&>(dst));
 }
 
@@ -345,7 +345,7 @@ at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
     habana::eager::EagerOp<at::Tensor&> hpu_op{
         "hpu::_copy_from", {self, dst}, {dst.sizes().vec()}, 1};
     hpu_op.set_eager_op_info(
-        {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", {1}});
+        {habana::eager::eagerOpKind::InplaceOut, "hpu::_copy_from", 1});
     result = hpu_op.call(const_cast<at::Tensor&>(dst));
   }
   return result;

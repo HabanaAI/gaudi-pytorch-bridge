@@ -219,8 +219,7 @@ class EagerOp : public EagerOpBase {
           out_shapes.empty() || out_shapes.size() == std::tuple_size<T>::value);
     }
 
-    auto it_shape = out_shapes.begin();
-    habana::for_each_in_tuple(self, [this, &it_shape](const auto& el) {
+    habana::for_each_in_tuple(self, [](const auto& el) {
       HABANA_ASSERT(
           el.device().type() == at::kHPU,
           "Got a non-HPU tensor, expecting an HPU tensor");
@@ -228,7 +227,7 @@ class EagerOp : public EagerOpBase {
 
     if (!out_shapes.empty()) {
       habana::for_each_in_tuple_with_index(
-          self, [this, &out_shapes](const auto& el, size_t index) {
+          self, [&out_shapes](const auto& el, size_t index) {
             const auto& out_shape = out_shapes[index];
             if (el.sizes() != out_shape) {
               PT_EAGER_WARN(
