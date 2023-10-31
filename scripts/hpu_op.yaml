@@ -1439,7 +1439,7 @@ bernoulli.float_out:
   schema_args: "(Tensor self, Tensor p, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
 
 binary_cross_entropy:
-  custom_output_shape: BinaryCrossEntropyFwdOutputShape
+  output_meta: BinaryCrossEntropyFwdMetaData
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
@@ -1448,7 +1448,7 @@ binary_cross_entropy:
   out_ids: [0]
 
 binary_cross_entropy_backward:
-  custom_output_shape: BinaryCrossEntropyBwdOutputShape
+  output_meta: BinaryCrossEntropyBwdMetaData
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
@@ -1457,7 +1457,7 @@ binary_cross_entropy_backward:
   out_ids: [0]
 
 binary_cross_entropy.out:
-  custom_output_shape: BinaryCrossEntropyFwdOutputShape
+  output_meta: BinaryCrossEntropyFwdMetaData
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
@@ -1465,7 +1465,7 @@ binary_cross_entropy.out:
   op_backend: BinaryCrossEntropyFwd
 
 binary_cross_entropy_backward.grad_input:
-  custom_output_shape: BinaryCrossEntropyBwdOutputShape
+  output_meta: BinaryCrossEntropyBwdMetaData
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
@@ -1473,7 +1473,7 @@ binary_cross_entropy_backward.grad_input:
   op_backend: BinaryCrossEntropyBwd
 
 binary_cross_entropy_with_logits:
-  custom_output_shape: BinaryCrossEntropyLogitsFwdOutputShape
+  output_meta: BinaryCrossEntropyLogitsFwdMetaData
   dtypes:
     Gaudi: [Float, BFloat16]
     Gaudi2: [Float, BFloat16, Half]
