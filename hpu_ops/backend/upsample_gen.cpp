@@ -245,29 +245,34 @@ std::vector<int64_t> UpsampleBilinear2DFwdOutputShapeSynapseLayout(
   }
   return out_shape;
 }
-// Forward Output Shape - Bilinear2D
-sizes_vec UpsampleBilinear2DFwdOutputShape(const at::Stack& stack) {
+// Forward Meta Function - Bilinear2D
+OutputMetaDataVector UpsampleBilinear2DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
   std::vector<int64_t> out_shape;
   upsample_2d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale);
-  out_shape = UpsampleBilinear2DFwdOutputShapeSynapseLayout(stack);
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = UpsampleBilinear2DFwdOutputShapeSynapseLayout(stack);
 
   CHECK_INPUT_OUTPUT_HEIGHT_WIDTH(
-      self.sizes()[2], out_shape.at(2), self.sizes()[3], out_shape.at(3));
-  return {out_shape};
+      self.sizes()[2], meta.shape.at(2), self.sizes()[3], meta.shape.at(3));
+  return {meta};
 }
-// Backward Output Shape - Bilinear2D
-sizes_vec UpsampleBilinear2DBwdOutputShape(const at::Stack& stack) {
+// Backward Meta Function - Bilinear2D
+OutputMetaDataVector UpsampleBilinear2DBwdMeta(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(4);
-  std::vector<int64_t> outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
-  return {outshape};
+
+  OutputMetaData meta;
+  meta.shape = stack.at(2).toIntVector();
+  meta.dtype = grad_in.scalar_type();
+  return {meta};
 }
 std::vector<int64_t> UpsampleNearest2DFwdOutputShapeSynapseLayout(
     const at::Stack& stack) {

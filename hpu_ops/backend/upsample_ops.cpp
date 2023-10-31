@@ -63,7 +63,7 @@ struct UpsampleBilinear2dVec : OpBackend {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-    SetComputeOutputShapes(UpsampleBilinear2DFwdOutputShape);
+    SetOutputMetaFn(UpsampleBilinear2DFwdMeta);
     SetFillParams(FillBilinearFwdParams);
   }
 };
