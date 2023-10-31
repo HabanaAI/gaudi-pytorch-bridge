@@ -13,8 +13,6 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 
-@pytest.mark.parametrize("align_corners", [True, False])
-@pytest.mark.parametrize("antialias", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float])
 class TestHpuUpsample:
     @staticmethod
@@ -49,9 +47,35 @@ class TestHpuUpsample:
 
     @pytest.mark.parametrize("shape_and_size", [((2, 2, 3, 3), None), ((2, 2, 3, 3), (6, 6))])
     @pytest.mark.parametrize("scale_factor", [None, [1, 2]])
+    @pytest.mark.parametrize("align_corners", [True, False])
+    @pytest.mark.parametrize("antialias", [True, False])
     @pytest.mark.parametrize("variant", ["fwd", "bwd"])
     def test_upsample_bicubic2d(self, shape_and_size, scale_factor, align_corners, antialias, variant, dtype):
         if (pytest.mode == "compile" and antialias == False):
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, align_corners, antialias, "bicubic", dtype)
+
+    @pytest.mark.parametrize("shape_and_size", [((2, 3, 3), None), ((2, 3, 3), 6)])
+    @pytest.mark.parametrize("scale_factor", [None, [2]])
+    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
+    def test_upsample_nearest1d(self, shape_and_size, scale_factor, variant, dtype):
+        shape, size = shape_and_size
+        TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
+
+    @pytest.mark.parametrize("shape_and_size", [((2, 2, 3, 3, 3), None), ((2, 2, 3, 3, 3), (6, 6, 6))])
+    @pytest.mark.parametrize("scale_factor", [None, [1, 2, 3]])
+    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
+    def test_upsample_nearest3d(self, shape_and_size, scale_factor, variant, dtype):
+        if (pytest.mode == "compile"):
+            pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
+        shape, size = shape_and_size
+        TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
+
+    @pytest.mark.parametrize("shape_and_size", [((2, 3, 3), None), ((2, 3, 3), 6)])
+    @pytest.mark.parametrize("scale_factor", [None, [2]])
+    @pytest.mark.parametrize("align_corners", [True, False])
+    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
+    def test_upsample_linear1d(self, shape_and_size, scale_factor, align_corners, variant, dtype):
+        shape, size = shape_and_size
+        TestHpuUpsample._common_test(variant, shape, size, scale_factor, align_corners, False, "linear", dtype)

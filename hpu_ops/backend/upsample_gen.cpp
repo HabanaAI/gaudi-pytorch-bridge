@@ -153,65 +153,73 @@ void upsample_3d_common_check(
   }
 }
 
-// Forward Output Shape - Linear1D
-sizes_vec UpsampleLinear1DFwdOutputShape(const at::Stack& stack) {
+// Forward Meta Function - Linear1D
+OutputMetaDataVector UpsampleLinear1DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
-  std::vector<int64_t> out_shape;
   upsample_1d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale);
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
   if (!out_size.isNone()) {
-    out_shape = {
+    meta.shape = {
         self.sizes()[0], self.sizes()[1], out_size.toIntVector().at(0)};
   } else if (!scale.isNone() && !scale.isScalar()) {
     double scale_factor = scale.toDoubleVector().at(0);
     auto width = self.sizes()[2];
-    out_shape = {
+    meta.shape = {
         self.sizes()[0],
         self.sizes()[1],
         static_cast<int64_t>(width * scale_factor)};
   }
-  CHECK_INPUT_OUTPUT_WIDTH(self.sizes()[2], out_shape.at(2));
-  return {out_shape};
+  CHECK_INPUT_OUTPUT_WIDTH(self.sizes()[2], meta.shape.at(2));
+  return {meta};
 }
-// Backward Output Shape - Linear1D
-sizes_vec UpsampleLinear1DBwdOutputShape(const at::Stack& stack) {
+// Backward Meta Function - Linear1D
+OutputMetaDataVector UpsampleLinear1DBwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(4);
   upsample_1d_common_check(self, out_size, scale);
-  return {stack.at(2).toIntVector()};
+  OutputMetaData meta;
+  meta.shape = stack.at(2).toIntVector();
+  meta.dtype = self.scalar_type();
+  return {meta};
 }
-// Forward Output Shape - Nearest1D
-sizes_vec UpsampleNearest1DFwdOutputShape(const at::Stack& stack) {
+// Forward Meta Function - Nearest1D
+OutputMetaDataVector UpsampleNearest1DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(2);
-  std::vector<int64_t> out_shape;
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
   upsample_1d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale);
   if (!out_size.isNone()) {
-    out_shape = {
+    meta.shape = {
         self.sizes()[0], self.sizes()[1], out_size.toIntVector().at(0)};
   } else if (!scale.isNone()) {
     double scale_factor = scale.toDoubleVector().at(0);
     auto width = self.sizes()[2];
-    out_shape = {
+    meta.shape = {
         self.sizes()[0],
         self.sizes()[1],
         static_cast<int64_t>(width * scale_factor)};
   }
-  CHECK_INPUT_OUTPUT_WIDTH(self.sizes()[2], out_shape.at(2));
-  return {out_shape};
+  CHECK_INPUT_OUTPUT_WIDTH(self.sizes()[2], meta.shape.at(2));
+  return {meta};
 }
-// Backward Output Shape - Nearest1D
-sizes_vec UpsampleNearest1DBwdOutputShape(const at::Stack& stack) {
+// Backward Meta Function - Nearest1D
+OutputMetaDataVector UpsampleNearest1DBwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
   upsample_1d_common_check(self, out_size, scale);
-  return {stack.at(2).toIntVector()};
+  OutputMetaData meta;
+  meta.shape = stack.at(2).toIntVector();
+  meta.dtype = self.scalar_type();
+  return {meta};
 }
 // Forward Output Shape - Bilinear2D
 std::vector<int64_t> UpsampleBilinear2DFwdOutputShapeSynapseLayout(
@@ -366,16 +374,17 @@ OutputMetaDataVector UpsampleBicubic2DBwdMeta(const at::Stack& stack) {
   upsample_2d_common_check(grad_in, out_size, scale);
   return {meta};
 }
-// Forward Output Shape - Nearest3D
-sizes_vec UpsampleNearest3DFwdOutputShape(const at::Stack& stack) {
+// Forward Meta Function - Nearest3D
+OutputMetaDataVector UpsampleNearest3DFwdMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(2);
-  std::vector<int64_t> out_shape;
   upsample_3d_common_check(self, out_size, scale);
   CHECK_NULL_INPUT(out_size, scale);
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
   if (!out_size.isNone()) {
-    out_shape = {
+    meta.shape = {
         self.sizes()[0],
         self.sizes()[1],
         out_size.toIntVector().at(0),
@@ -385,7 +394,7 @@ sizes_vec UpsampleNearest3DFwdOutputShape(const at::Stack& stack) {
     double scale_d = scale.toDoubleVector().at(0);
     double scale_h = scale.toDoubleVector().at(1);
     double scale_w = scale.toDoubleVector().at(2);
-    out_shape = {
+    meta.shape = {
         self.sizes()[0],
         self.sizes()[1],
         static_cast<int64_t>(self.sizes()[2] * scale_d),
@@ -394,22 +403,25 @@ sizes_vec UpsampleNearest3DFwdOutputShape(const at::Stack& stack) {
   }
   CHECK_INPUT_OUTPUT_DEPTH_HEIGHT_WIDTH(
       self.sizes()[2],
-      out_shape.at(2),
+      meta.shape.at(2),
       self.sizes()[3],
-      out_shape.at(3),
+      meta.shape.at(3),
       self.sizes()[4],
-      out_shape.at(4));
-  return {out_shape};
+      meta.shape.at(4));
+  return {meta};
 }
 // Backward Output Shape - Nearest3D
-sizes_vec UpsampleNearest3DBwdOutputShape(const at::Stack& stack) {
+OutputMetaDataVector UpsampleNearest3DBwdMeta(const at::Stack& stack) {
   auto grad_in = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   auto scale = stack.at(3);
-  auto outshape = stack.at(2).toIntVector();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_3d_common_check(grad_in, out_size, scale);
-  return {outshape};
+
+  OutputMetaData meta;
+  meta.shape = stack.at(2).toIntVector();
+  meta.dtype = grad_in.scalar_type();
+  return {meta};
 }
 
 enum modes { nearest, linear, bicubic };
@@ -638,13 +650,10 @@ static std::vector<synapse_helpers::tensor> Resize(
     synapse_helpers::graph& graph,
     std::vector<synTensor> input,
     const at::IntArrayRef outshape,
+    const at::ScalarType& dtype,
     std::shared_ptr<void> params,
     size_t size,
     c10::optional<int> final_index = c10::nullopt) {
-  auto dtype = op->ScalarType();
-  if (dtype == c10::ScalarType::Byte) {
-    dtype = c10::ScalarType::Float;
-  }
   auto guid = op->GetGuid();
   update_guid_dtype(guid, dtype);
 
@@ -664,6 +673,7 @@ static std::vector<synapse_helpers::tensor> Slice(
     int64_t input_size,
     std::vector<synTensor> input,
     const at::IntArrayRef outshape,
+    const at::ScalarType& dtype,
     c10::optional<int> final_index = c10::nullopt) {
   if (input_size == 3) {
     // 3D inputs are reshaped to 4D inputs
@@ -675,10 +685,6 @@ static std::vector<synapse_helpers::tensor> Slice(
     slice_params.starts[i] = 0;
     slice_params.ends[i] = outshape[(input_size - i - 1)];
     slice_params.steps[i] = 1;
-  }
-  auto dtype = op->ScalarType();
-  if (dtype == c10::ScalarType::Byte) {
-    dtype = c10::ScalarType::Float;
   }
   return OpBackend::BuildNode(
       op,
@@ -703,7 +709,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
     double scale_w,
     double scale_h,
     double scale_d,
-    const at::IntArrayRef outshape,
+    const OutputMetaData& meta,
     const at::Tensor self_tensor) {
   auto variant_type = self_tensor.dim();
   auto shape_in = self_tensor.sizes().vec();
@@ -711,7 +717,8 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
 
   std::vector<synapse_helpers::tensor> reshape;
   std::unique_ptr<synapse_helpers::tensor> cast;
-  if (self_tensor.scalar_type() == c10::ScalarType::Byte) {
+  auto intermediateDtype = meta.dtype;
+  if (meta.dtype == c10::ScalarType::Byte) {
     // u8 to f32
     cast = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
         op,
@@ -721,7 +728,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
         c10::ScalarType::Byte,
         c10::ScalarType::Float));
     input = {cast->get()};
-    op->SetScalarType(c10::ScalarType::Float);
+    intermediateDtype = c10::ScalarType::Float;
   }
   std::vector<synTensor> reshaped_input(std::move(input));
   // Reshape - 1D varaints only
@@ -730,7 +737,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
     out_shape_temp = {
         shape_in[0], shape_in[1], static_cast<int64_t>(1), shape_in[2]};
     reshape.emplace_back(OpBackend::BuildReshape(
-        op, graph, reshaped_input[0], out_shape_temp, op->ScalarType()));
+        op, graph, reshaped_input[0], out_shape_temp, intermediateDtype));
     reshaped_input[0] = reshape[0].get();
   }
   // Resize
@@ -748,11 +755,11 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
     }
   } else {
     if (variant_type == 3) { // 1D
-      out_shape_temp.at(3) = outshape.at(2);
+      out_shape_temp.at(3) = meta.shape.at(2);
     } else if (variant_type == 5) { // 3D
-      out_shape_temp.at(2) = outshape.at(2);
-      out_shape_temp.at(3) = outshape.at(3);
-      out_shape_temp.at(4) = outshape.at(4);
+      out_shape_temp.at(2) = meta.shape.at(2);
+      out_shape_temp.at(3) = meta.shape.at(3);
+      out_shape_temp.at(4) = meta.shape.at(4);
     }
   }
 
@@ -768,8 +775,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
       scale_d,
       align_corners);
   auto final_index_for_resize = modifyInputWithOutputWidth ||
-          variant_type == 3 ||
-          self_tensor.scalar_type() == c10::ScalarType::Byte
+          variant_type == 3 || meta.dtype == c10::ScalarType::Byte
       ? c10::optional<int>()
       : c10::optional<int>(0);
   auto resize = Resize(
@@ -777,20 +783,20 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
       graph,
       reshaped_input,
       out_shape_temp,
+      intermediateDtype,
       params,
       size,
       final_index_for_resize);
   // Slice
   // For Fwd ops, when both size and scale is provided with align_corners=false
   if (modifyInputWithOutputWidth) {
-    std::vector<int64_t> slice_shape(outshape.begin(), outshape.end());
+    std::vector<int64_t> slice_shape(meta.shape.begin(), meta.shape.end());
     if (variant_type == 3) { // 1D
       // NCHW
-      slice_shape = {shape_in[0], shape_in[1], 1 /*H*/, outshape.at(2)};
+      slice_shape = {shape_in[0], shape_in[1], 1 /*H*/, meta.shape.at(2)};
     }
     auto final_index_for_slice =
-        (variant_type == 3 ||
-         self_tensor.scalar_type() == c10::ScalarType::Byte)
+        (variant_type == 3 || meta.dtype == c10::ScalarType::Byte)
         ? c10::optional<int>()
         : c10::optional<int>(0);
 
@@ -800,6 +806,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
         variant_type,
         {resize[0].get()},
         slice_shape,
+        intermediateDtype,
         final_index_for_slice);
   };
 
@@ -807,27 +814,27 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
   // N,C,H,W to N,C,W where H=2
   if (variant_type == 3) {
     c10::optional<int> final_result_index = {0};
-    if (self_tensor.scalar_type() == c10::ScalarType::Byte) {
+    if (meta.dtype == c10::ScalarType::Byte) {
       final_result_index = c10::nullopt;
     }
     resize.front() = OpBackend::BuildReshape(
         op,
         graph,
         resize[0].get(),
-        outshape,
-        op->ScalarType(),
+        meta.shape,
+        intermediateDtype,
         final_result_index);
   }
-  if (self_tensor.scalar_type() == c10::ScalarType::Byte) {
+  if (meta.dtype == c10::ScalarType::Byte) {
     // f32 to u8
     std::vector<synapse_helpers::tensor> result;
     result.emplace_back(OpBackend::BuildCast(
         op,
         graph,
         resize[0].get(),
-        outshape,
-        c10::ScalarType::Float,
-        c10::ScalarType::Byte,
+        meta.shape,
+        intermediateDtype,
+        meta.dtype,
         0));
     return result;
   }
@@ -847,12 +854,12 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
     double scale_w,
     double scale_h,
     double scale_d,
-    const at::IntArrayRef outshape,
+    const OutputMetaData& meta,
     const at::Tensor self_tensor) {
   PT_LAZY_DEBUG(__FUNCTION__);
   std::vector<synapse_helpers::tensor> output;
   op->CreateShapeTensorInput(
-      graph, op->ScalarType(), outshape, input, SHAPE_TENSOR);
+      graph, meta.dtype, meta.shape, input, SHAPE_TENSOR);
   return UpsampleCommonFuncSynapseLayout(
       op,
       graph,
@@ -865,7 +872,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
       scale_w,
       scale_h,
       scale_d,
-      outshape,
+      meta,
       self_tensor);
 }
 
@@ -873,7 +880,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFunc(
 void UpsampleLinear1DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleLinear1DFwdOutputShape(stack)[0];
+  auto meta = UpsampleLinear1DFwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   bool align_corners = stack.at(2).toBool();
@@ -895,7 +902,7 @@ void UpsampleLinear1DFwdOperator::AddNode(
       scale_w,
       1.0 /*scale_h*/,
       1.0 /*scale_d*/,
-      output_shape,
+      meta,
       self_tensor);
 
   syn_out(0) = std::move(result.at(0));
@@ -904,7 +911,7 @@ void UpsampleLinear1DFwdOperator::AddNode(
 void UpsampleLinear1DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleLinear1DBwdOutputShape(stack)[0];
+  auto meta = UpsampleLinear1DBwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   bool align_corners = stack.at(3).toBool();
@@ -926,7 +933,7 @@ void UpsampleLinear1DBwdOperator::AddNode(
       scale_w,
       1.0 /*scale_h*/,
       1.0 /*scale_d*/,
-      output_shape,
+      meta,
       self_tensor);
   syn_out(0) = std::move(result.at(0));
 }
@@ -934,7 +941,7 @@ void UpsampleLinear1DBwdOperator::AddNode(
 void UpsampleNearest1DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleNearest1DFwdOutputShape(stack)[0];
+  auto meta = UpsampleNearest1DFwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   bool align_corners = false;
@@ -956,7 +963,7 @@ void UpsampleNearest1DFwdOperator::AddNode(
       scale_w,
       1.0 /*scale_h*/,
       1.0 /*scale_d*/,
-      output_shape,
+      meta,
       self_tensor);
   syn_out(0) = std::move(result.at(0));
 }
@@ -964,7 +971,7 @@ void UpsampleNearest1DFwdOperator::AddNode(
 void UpsampleNearest1DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleNearest1DBwdOutputShape(stack)[0];
+  auto meta = UpsampleNearest1DBwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   bool align_corners = false;
@@ -986,7 +993,7 @@ void UpsampleNearest1DBwdOperator::AddNode(
       scale_w,
       1.0 /*scale_h*/,
       1.0 /*scale_d*/,
-      output_shape,
+      meta,
       self_tensor);
   syn_out(0) = std::move(result.at(0));
 }
@@ -1016,7 +1023,8 @@ void UpSampleNearest2DOperator::AddNode(
   size_t size = 0;
   const auto& params = FillParams(stack, size);
 
-  auto resize = Resize(this, graph, input, outshape, params, size, final_index);
+  auto resize = Resize(
+      this, graph, input, outshape, ScalarType(), params, size, final_index);
   if (self.scalar_type() == c10::ScalarType::Byte) {
     // f32 to u8
     resize[0] = CastHelper(
@@ -1033,7 +1041,7 @@ void UpSampleNearest2DOperator::AddNode(
 void UpSampleNearest3DFwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto output_shape = UpsampleNearest3DFwdOutputShape(stack)[0];
+  auto meta = UpsampleNearest3DFwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   // scales
@@ -1060,7 +1068,7 @@ void UpSampleNearest3DFwdOperator::AddNode(
       scale_w,
       scale_h,
       scale_d,
-      output_shape,
+      meta,
       self_tensor);
   syn_out(0) = std::move(result.at(0));
 }
@@ -1069,7 +1077,7 @@ void UpSampleNearest3DBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   // outshape
-  auto output_shape = UpsampleNearest3DBwdOutputShape(stack)[0];
+  auto meta = UpsampleNearest3DBwdMeta(stack)[0];
   auto self_tensor = stack.at(0).toTensor();
   auto out_size = stack.at(1);
   // scales
@@ -1096,7 +1104,7 @@ void UpSampleNearest3DBwdOperator::AddNode(
       scale_w,
       scale_h,
       scale_d,
-      output_shape,
+      meta,
       self_tensor);
   syn_out(0) = std::move(result.at(0));
 }

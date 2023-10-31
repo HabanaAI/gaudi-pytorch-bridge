@@ -34,7 +34,7 @@ struct UpsampleNearest1dVec : UpsampleNearest1DFwdOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-    SetComputeOutputShapes(UpsampleNearest1DFwdOutputShape);
+    SetOutputMetaFn(UpsampleNearest1DFwdMeta);
   }
 };
 
@@ -52,7 +52,7 @@ struct UpsampleLinear1dVec : UpsampleLinear1DFwdOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-    SetComputeOutputShapes(UpsampleLinear1DFwdOutputShape);
+    SetOutputMetaFn(UpsampleLinear1DFwdMeta);
   }
 };
 
@@ -113,7 +113,7 @@ struct UpsampleNearest3dVec : UpSampleNearest3DFwdOperator {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
          synapse_helpers::layouts::SynapseLayoutFormat::WHDCN},
         {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
-    SetComputeOutputShapes(UpsampleNearest3DFwdOutputShape);
+    SetOutputMetaFn(UpsampleNearest3DFwdMeta);
   }
 };
 

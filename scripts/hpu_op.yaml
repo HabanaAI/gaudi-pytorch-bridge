@@ -7189,7 +7189,7 @@ upsample_bilinear2d_backward.vec:
   out_ids: [0]
 
 upsample_linear1d:
-  custom_output_shape: UpsampleLinear1DFwdOutputShape
+  output_meta: UpsampleLinear1DFwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -7202,7 +7202,7 @@ upsample_linear1d:
   out_ids: [0]
 
 upsample_linear1d.out:
-  custom_output_shape: UpsampleLinear1DFwdOutputShape
+  output_meta: UpsampleLinear1DFwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -7215,7 +7215,7 @@ upsample_linear1d.out:
 
 upsample_linear1d.vec:
   pytorch2_mode: disable
-  custom_output_shape: UpsampleLinear1DFwdOutputShape
+  output_meta: UpsampleLinear1DFwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -7228,7 +7228,7 @@ upsample_linear1d.vec:
   - [WHCN]
 
 upsample_linear1d_backward:
-  custom_output_shape: UpsampleLinear1DBwdOutputShape
+  output_meta: UpsampleLinear1DBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -7241,7 +7241,7 @@ upsample_linear1d_backward:
   - [WHCN]
 
 upsample_linear1d_backward.grad_input:
-  custom_output_shape: UpsampleLinear1DBwdOutputShape
+  output_meta: UpsampleLinear1DBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -7253,7 +7253,7 @@ upsample_linear1d_backward.grad_input:
   - [WHCN]
 
 upsample_linear1d_backward.vec:
-  custom_output_shape: UpsampleLinear1DBwdOutputShape
+  output_meta: UpsampleLinear1DBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -7266,7 +7266,7 @@ upsample_linear1d_backward.vec:
   out_ids: [0]
 
 upsample_nearest1d:
-  custom_output_shape: UpsampleNearest1DFwdOutputShape
+  output_meta: UpsampleNearest1DFwdMeta
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
@@ -7279,7 +7279,7 @@ upsample_nearest1d:
   out_ids: [0]
 
 upsample_nearest1d.out:
-  custom_output_shape: UpsampleNearest1DFwdOutputShape
+  output_meta: UpsampleNearest1DFwdMeta
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
@@ -7292,7 +7292,7 @@ upsample_nearest1d.out:
 
 upsample_nearest1d.vec:
   pytorch2_mode: disable
-  custom_output_shape: UpsampleNearest1DFwdOutputShape
+  output_meta: UpsampleNearest1DFwdMeta
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
@@ -7305,7 +7305,7 @@ upsample_nearest1d.vec:
   out_ids: [0]
 
 upsample_nearest1d_backward:
-  custom_output_shape: UpsampleNearest1DBwdOutputShape
+  output_meta: UpsampleNearest1DBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
@@ -7318,7 +7318,7 @@ upsample_nearest1d_backward:
   out_ids: [0]
 
 upsample_nearest1d_backward.grad_input:
-  custom_output_shape: UpsampleNearest1DBwdOutputShape
+  output_meta: UpsampleNearest1DBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
@@ -7330,7 +7330,7 @@ upsample_nearest1d_backward.grad_input:
   - [WHCN]
 
 upsample_nearest1d_backward.vec:
-  custom_output_shape: UpsampleNearest1DBwdOutputShape
+  output_meta: UpsampleNearest1DBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
@@ -7399,7 +7399,7 @@ upsample_nearest2d_backward.grad_input:
   - [WHCN]
 
 upsample_nearest3d:
-  custom_output_shape: UpsampleNearest3DFwdOutputShape
+  output_meta: UpsampleNearest3DFwdMeta
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
@@ -7412,7 +7412,7 @@ upsample_nearest3d:
   out_ids: [0]
 
 upsample_nearest3d.out:
-  custom_output_shape: UpsampleNearest3DFwdOutputShape
+  output_meta: UpsampleNearest3DFwdMeta
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
@@ -7424,7 +7424,7 @@ upsample_nearest3d.out:
   - [WHDCN]
 
 upsample_nearest3d_backward:
-  custom_output_shape: UpsampleNearest3DBwdOutputShape
+  output_meta: UpsampleNearest3DBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
@@ -7437,7 +7437,7 @@ upsample_nearest3d_backward:
   - [WHDCN]
 
 upsample_nearest3d_backward.grad_input:
-  custom_output_shape: UpsampleNearest3DBwdOutputShape
+  output_meta: UpsampleNearest3DBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
@@ -7481,7 +7481,7 @@ upsample_nearest2d.vec:
 
 upsample_nearest3d.vec:
   pytorch2_mode: disable
-  custom_output_shape: UpsampleNearest3DFwdOutputShape
+  output_meta: UpsampleNearest3DFwdMeta
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
@@ -7494,7 +7494,7 @@ upsample_nearest3d.vec:
   - [WHDCN]
 
 upsample_nearest3d_backward.vec:
-  custom_output_shape: UpsampleNearest3DBwdOutputShape
+  output_meta: UpsampleNearest3DBwdMeta
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
