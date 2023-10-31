@@ -16,6 +16,7 @@ from torch.utils.checkpoint import DefaultDeviceType
 import threading
 import warnings
 from typing import Any, List, Optional, Union
+import contextlib
 
 import torch
 from habana_frameworks.torch import _hpu_C
@@ -404,6 +405,37 @@ def _create_tensor_alias(name, dtype):
         return torch.tensor(*args, **kwargs)
 
     return tensor_alias
+
+def enable_recompute_sdp(enabled: bool):
+    r"""User control to enable or disable recompute based fused SDPA
+    enabled = True -> Fused SDPA with recompute
+    enabled = False -> Fused SDPA without recompute
+    """
+    _hpu_C.enable_recompute_FSDPA(enabled)
+
+def recompute_sdp_enabled():
+    r"""User control to check if recompute based fused SDPA is enabled.
+    return = True -> Fused SDPA with recompute enabled
+    return = False -> Fused SDPA without recompute enabled
+    """
+    return _hpu_C.is_recompute_FSDPA_enabled()
+
+
+@contextlib.contextmanager
+def sdp_kernel(
+    enable_recompute: bool = True,
+):
+    r"""Context manager to enable or disable recompute based fused SDPA
+    enable_recompute = True -> Fused SDPA with recompute
+    enable_recompute = False -> Fused SDPA without recompute
+    """
+    recompute_backup: bool = recompute_sdp_enabled()
+
+    try:
+        enable_recompute_sdp(enable_recompute)
+        yield {}
+    finally:
+        enable_recompute_sdp(recompute_backup)
 
 
 BFloat16Tensor = _create_tensor_alias("BFloat16Tensor", torch.bfloat16)

@@ -369,5 +369,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     habana_helpers::DisableMatmul3d2dReshape();
   });
 
+  m.def("enable_recompute_FSDPA", [](bool recompute) {
+    habana_helpers::enableRecomputeFSDPA(recompute);
+  });
+  m.def("is_recompute_FSDPA_enabled", []() {
+    return habana_helpers::isRecomputeFSDPAEnabled();
+  });
+
   m.doc() = "This module registers hpu backend.";
 }

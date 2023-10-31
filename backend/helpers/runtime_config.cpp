@@ -25,6 +25,9 @@ std::string const_section_serialize_path = "";
 // if true, remove all existingconst section files in given path.
 bool clear_const_section_path = false;
 
+// if true enables recompute based fused SDPA
+bool enabled_recomputeFSDPA = true;
+
 void EnableInferenceMode() {
   enable_inference_mode = true;
 }
@@ -78,5 +81,13 @@ void DisableMatmul3d2dReshape() {
 
 bool IsMatmul3d2dReshapeEnabled() {
   return enable_matmul3d_2d_reshape;
+}
+
+void enableRecomputeFSDPA(bool recompute) {
+  enabled_recomputeFSDPA = recompute;
+}
+
+bool isRecomputeFSDPAEnabled() {
+  return enabled_recomputeFSDPA;
 }
 } // namespace habana_helpers

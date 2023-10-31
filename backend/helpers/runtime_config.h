@@ -33,4 +33,6 @@ bool ShouldClearConstSectionPath();
 void EnableMatmul3d2dReshape();
 void DisableMatmul3d2dReshape();
 bool IsMatmul3d2dReshapeEnabled();
+void enableRecomputeFSDPA(bool);
+bool isRecomputeFSDPAEnabled();
 } // namespace habana_helpers
