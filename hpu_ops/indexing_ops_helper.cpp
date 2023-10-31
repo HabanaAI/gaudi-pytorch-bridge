@@ -47,10 +47,9 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
     at::TensorList indices,
     std::vector<bool> adv_index_dims,
     std::vector<std::vector<int64_t>> indexing_tensor_shapes) {
-  int adv_ind_dim_count = 0;
   unsigned max_elem_count = 0;
   std::vector<int64_t> largest_specified_index_t_size;
-  for (size_t i = 0; i < (int)adv_index_dims.size(); i++) {
+  for (size_t i = 0; i < adv_index_dims.size(); ++i) {
     unsigned elem_count;
     if (i < indexing_tensor_shapes.size()) {
       elem_count = std::accumulate(
@@ -65,13 +64,12 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
       if (i < indexing_tensor_shapes.size())
         largest_specified_index_t_size = indexing_tensor_shapes[i];
       max_elem_count = elem_count;
-    } else if (adv_index_dims[i])
-      adv_ind_dim_count++;
+    }
   }
 
   std::vector<int64_t> output_shape;
   bool non_adv_indexing_found = false;
-  for (size_t i = 0; i < (int)adv_index_dims.size(); i++) {
+  for (size_t i = 0; i < adv_index_dims.size(); ++i) {
     if (adv_index_dims[i]) {
       output_shape.emplace_back(
           (i < indexing_tensor_shapes.size()) ? indexing_tensor_shapes[i][0]
@@ -98,7 +96,6 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
 bool hasContiguousSubspace(c10::ArrayRef<c10::IValue> indices_ival) {
   bool explicit_indices_together = false;
   int index_tensor_groups = 0;
-  int dim = 0;
   for (auto input : indices_ival) {
     auto o1 = input.toOptional<at::Tensor>();
     if (o1.has_value() && o1.value().defined()) {
@@ -110,8 +107,6 @@ bool hasContiguousSubspace(c10::ArrayRef<c10::IValue> indices_ival) {
       if (explicit_indices_together)
         explicit_indices_together = false;
     }
-
-    dim++;
   }
 
   return index_tensor_groups <= 1;
@@ -403,16 +398,10 @@ std::vector<int64_t> get_index_result_shape(
   }
   if (adv_indexing_present) {
     std::vector<int64_t> self_permute_dims = inputs_vec[4].toIntList().vec();
-    std::vector<int64_t> new_sizes, new_strides;
-    std::tie(new_sizes, new_strides) =
+    std::vector<int64_t> permuted_input_sizes, new_strides;
+    std::tie(permuted_input_sizes, new_strides) =
         PermuteOperator::compute_output_shape(input, self_permute_dims);
 
-    std::vector<int64_t> permuted_input_sizes;
-    if (adv_indexing_present) {
-      permuted_input_sizes = new_sizes;
-    } else {
-      permuted_input_sizes = input.sizes().vec();
-    }
     auto indexing_tensor_shapes = calc_indexing_tensors_shapes(inputs_vec);
     auto shape = habana::ComputeOutputShapeWithAdvIndexing(
         permuted_input_sizes, indices, adv_index_dims, indexing_tensor_shapes);

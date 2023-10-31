@@ -106,7 +106,7 @@ at::Tensor fused_norm_hpu_wrap(
       "hpu::fused_norm_lazy", {grad, max_norm, norm_type}};
   hpu_op.SetOutputMetaFn(FusedNormMeta);
   auto res = hpu_op.call();
-  for (int i = 0; i < grad.size(); ++i) {
+  for (size_t i = 0; i < grad.size(); ++i) {
     // grad[i] = res[i + 1]
     // calls operator= with rvalue reference qualifier i.e. deep copy
     // grad_ref = res[i + 1]

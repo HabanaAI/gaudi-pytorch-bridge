@@ -408,12 +408,12 @@ PYBIND11_MODULE(habana_dl_app, m) {
              bool use_prefetch,
              bool channels_last,
              bool drop_last) {
-            return std::move(Factory::create(
+            return Factory::create(
                 dict_config,
                 pin_memory,
                 use_prefetch,
                 channels_last,
-                drop_last));
+                drop_last);
           },
           py::return_value_policy::move)
       .def(py::init<py::dict, bool, bool, bool, bool>())

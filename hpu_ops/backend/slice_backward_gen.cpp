@@ -71,7 +71,7 @@ void SliceBackward::AddNode(
 
     for (size_t i = 0; i < input_sizes.size(); ++i) {
       params.axes[i] = input_sizes.size() - i - 1;
-      if (i == dim) {
+      if (static_cast<long>(i) == dim) {
         params.starts[i] = normalize_idx(start, input_sizes[i]);
         params.ends[i] = normalize_idx(end, input_sizes[i]);
         params.steps[i] = step;

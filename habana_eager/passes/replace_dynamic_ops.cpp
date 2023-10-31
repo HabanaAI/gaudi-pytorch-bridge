@@ -17,7 +17,6 @@
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_dynamic_ops.h"
-#include "habana_helpers/logging_pt.h"
 
 namespace habana {
 namespace graph {
@@ -41,7 +40,7 @@ struct HandleDynamicOpsPass {
 
  private:
   void createGraphInputStackIndexMap(GraphInputIndexMap& org_stack_index_map) {
-    for (int idx = 0; idx < m_graph->inputs().size(); idx++) {
+    for (size_t idx = 0; idx < m_graph->inputs().size(); ++idx) {
       auto input = m_graph->inputs().at(idx);
       auto name = input->debugName();
       org_stack_index_map[name] = idx;
@@ -85,7 +84,7 @@ struct HandleDynamicOpsPass {
     for (const auto& input : node->inputs()) {
       const auto& name = input->debugName();
       auto tensors = (*m_value_ivalue_map[input]).toTensorList();
-      for (int i = 0; i < tensors.size(); ++i) {
+      for (size_t i = 0; i < tensors.size(); ++i) {
         const at::Tensor& tensor = tensors[i];
         m_value_ivalue_map[node_vals[i]] = std::make_shared<IVal>(tensor);
       }

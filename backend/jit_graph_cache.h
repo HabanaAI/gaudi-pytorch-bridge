@@ -287,9 +287,6 @@ struct OptimizedJITGraphAndMetaData {
   bool is_control_edge_processing_required = false;
   bool is_syn_graph_empty{false};
   synapse_helpers::hpuStream_t hpu_stream = 0;
-  synEventHandle event_handle{nullptr};
-  synapse_helpers::hpuStream_t event_stream = 0;
-  bool event_flag = false;
   std::vector<std::vector<int64_t>> output_shapes{};
   std::shared_ptr<habana::RecipeValueSpec> cur_shape_agnostic_rvalpsh{nullptr};
   bool is_shape_agnostic_supported = true;

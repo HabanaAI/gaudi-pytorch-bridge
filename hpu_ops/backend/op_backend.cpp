@@ -28,9 +28,7 @@
 namespace sh = synapse_helpers;
 
 namespace {
-const auto BuildCastGuid(
-    const c10::ScalarType& src,
-    const c10::ScalarType& dst) {
+auto BuildCastGuid(const c10::ScalarType& src, const c10::ScalarType& dst) {
   using namespace std::literals;
   static const std::string_view prefix = "cast_"sv;
   auto get_prec_str = [](const c10::ScalarType& dtype) {
@@ -211,7 +209,7 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
         : ival.isTensorList() ? ival.toTensorList() : at::List<at::Tensor>{};
 
     const auto inplace_id = m_inplace_ids[inplace_ids_pos];
-    if (inplace_id != stack_id) {
+    if (inplace_id != (int)stack_id) {
       syn_counter += tensors.size();
     } else {
       for (auto i = 0u; i < tensors.size(); ++i) {
@@ -495,7 +493,7 @@ void OpBackend::PopulateMetadata(
         outshapes.emplace_back(stack_tensor(stack, res_id).sizes().vec());
       }
     }
-    for (int i = 0; i < m_output_metadata.size(); ++i) {
+    for (size_t i = 0; i < m_output_metadata.size(); ++i) {
       m_output_metadata[i].shape = outshapes[i];
 
       auto& dtype = m_output_metadata[i].dtype;

@@ -28,9 +28,6 @@ class BridgeLogsSource : public TraceSource {
   void extract(TraceSink& output) override;
   TraceSourceVariant get_variant() override;
   void set_offset(unsigned offset) override;
-
- private:
-  bool is_active{false};
 };
 }; // namespace profile
 }; // namespace habana

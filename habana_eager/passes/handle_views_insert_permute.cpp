@@ -48,7 +48,7 @@ struct StridedViewAndPermuteInfo {
 static inline bool isPermuted(const std::vector<int64_t>& strides) {
   bool monotic_decreasing = true;
   // check that strides are monotonically decreasing
-  for (auto i = 0; i < (strides.size() - 1); ++i) {
+  for (size_t i = 0; i < (strides.size() - 1); ++i) {
     monotic_decreasing &= (strides[i] >= strides[i + 1]);
   }
   return !monotic_decreasing;
@@ -58,7 +58,7 @@ static inline bool isPermuted(const std::vector<int64_t>& strides) {
 static inline uint8_t getPermuteOrder(std::vector<int64_t>& permutation) {
   // base permute order map
   std::map<uint8_t, uint8_t> base_permute_order_map;
-  for (auto i = 0; i < permutation.size(); ++i) {
+  for (size_t i = 0; i < permutation.size(); ++i) {
     base_permute_order_map.insert({permutation[i], i});
   }
   // create copy of base permute order map for dot product

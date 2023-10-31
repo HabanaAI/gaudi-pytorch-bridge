@@ -249,14 +249,13 @@ void InterHostCache::thread_function(int clientfd) {
 InterHostCache::~InterHostCache() {
   if (rank != 0 && is_cache_valid_ && rank >= l_w_size) {
     send(sockfd, cmdEnd.c_str(), cmdSet.size() + 1, 0);
-    int bytes_recv = recv(sockfd, data, cmdSet.size() + 1, 0);
+    auto bytes_recv = recv(sockfd, data, cmdSet.size() + 1, 0);
     CHECK(bytes_recv, __LINE__);
     close(sockfd);
   }
 }
 
 bool InterHostCache::_send_file(std::string filename, int sock, char* buff) {
-  int bytes_recv, bytes_sent, tb = 0;
   FILE* fp = fopen(filename.c_str(), "rb");
   if (fp == NULL) {
     PT_HABHELPER_FATAL(INTERHOST_LOG, "Unable to open for Send(): ", filename);
@@ -267,9 +266,9 @@ bool InterHostCache::_send_file(std::string filename, int sock, char* buff) {
   send(sock, &num, sizeof(num), 0);
   fseek(fp, 0L, SEEK_SET);
 
+  int bytes_recv{0};
   while ((bytes_recv = fread(buff, 1, MAX_SIZE, fp)) > 0) {
-    bytes_sent = send(sock, buff, bytes_recv, 0);
-    tb += bytes_sent;
+    send(sock, buff, bytes_recv, 0);
   }
 
   bytes_recv = recv(sock, buff, cmdSet.size() + 1, 0);
@@ -279,7 +278,6 @@ bool InterHostCache::_send_file(std::string filename, int sock, char* buff) {
 }
 
 bool InterHostCache::_recv_file(std::string filename, int sock, char* buff) {
-  int bytes_recv, tb = 0;
   FILE* fp = fopen(filename.c_str(), "wb");
   if (fp == NULL) {
     PT_HABHELPER_FATAL(INTERHOST_LOG, "Unable to open for Recv(): ", filename);
@@ -287,7 +285,7 @@ bool InterHostCache::_recv_file(std::string filename, int sock, char* buff) {
   }
 
   size_t num;
-  bytes_recv = recv(sock, &num, sizeof(num), 0);
+  int bytes_recv = recv(sock, &num, sizeof(num), 0);
   CHECK(bytes_recv, __LINE__);
 
   while (num > 0) {
@@ -295,7 +293,6 @@ bool InterHostCache::_recv_file(std::string filename, int sock, char* buff) {
     CHECK(bytes_recv, __LINE__);
     fwrite(buff, 1, bytes_recv, fp);
     num -= bytes_recv;
-    tb += bytes_recv;
   }
 
   send(sock, cmdAck.c_str(), cmdSet.size() + 1, 0);

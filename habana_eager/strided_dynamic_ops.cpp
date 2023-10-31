@@ -359,7 +359,7 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
           updated_h2d_data.begin(),
           static_cast<uint64_t>(values_strides.size()));
       // fill remaining half with same data
-      for (auto idx = 0; idx < (h2d_data.size() >> 1); idx++) {
+      for (size_t idx = 0; idx < (h2d_data.size() >> 1); idx++) {
         updated_h2d_data.push_back(updated_h2d_data[idx]);
       }
       UpdateH2DTensorData<uint64_t>(dtensor, updated_h2d_data);
@@ -372,7 +372,7 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
     }
   } else {
     SymIntData& scalar_idx = scalar_idx_list[1];
-    for (int idx = 0; idx < scalar_idx.values.size(); idx++) {
+    for (size_t idx = 0; idx < scalar_idx.values.size(); idx++) {
       auto stack_index = scalar_idx.values[idx];
       if (stack_index == LONG_MAX) {
         std::vector<uint64_t> h2d_data =
@@ -386,7 +386,7 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
 
     UpdateH2DTensorData<uint64_t>(dtensor, updated_h2d_data);
 
-    for (auto i = 0; i < dtensor_list.size(); i++) {
+    for (size_t i = 0; i < dtensor_list.size(); i++) {
       if (i == 1)
         continue;
       auto dtensor = dtensor_list[i]->toTensor();
@@ -404,7 +404,7 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
     auto tmeta_offset{get_tensor_extra_meta(dtensor_offset)};
     auto num_strides = updated_h2d_data[0];
     std::vector<int64_t> actual_strides;
-    for (auto i = 2; i < (2 + num_strides); i++) {
+    for (size_t i = 2; i < (2 + num_strides); ++i) {
       actual_strides.push_back(updated_h2d_data[i]);
     }
     // Since strides here are reversed, make it unreverse
@@ -566,7 +566,7 @@ void StridedInsertOperatorDS::UpdateDynamicInputs(
   SymIntData& scalar_idx = scalar_idx_list[0];
 
   std::vector<uint64_t> updated_h2d_data;
-  for (int idx = 0; idx < scalar_idx.values.size(); idx++) {
+  for (size_t idx = 0; idx < scalar_idx.values.size(); ++idx) {
     auto stack_index = scalar_idx.values[idx];
     if (stack_index == LONG_MAX) {
       std::vector<uint64_t> h2d_data = GetH2DTensorHostData<uint64_t>(dtensor);
@@ -591,7 +591,7 @@ void StridedInsertOperatorDS::UpdateDynamicInputs(
     auto tmeta_offset{get_tensor_extra_meta(dtensor_offset)};
     auto num_strides = updated_h2d_data[0];
     std::vector<int64_t> actual_strides;
-    for (auto i = 2; i < (2 + num_strides); i++) {
+    for (size_t i = 2; i < (2 + num_strides); ++i) {
       actual_strides.push_back(updated_h2d_data[i]);
     }
     // Since strides here are reversed, make it unreverse

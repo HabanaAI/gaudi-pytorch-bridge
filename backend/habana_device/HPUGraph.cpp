@@ -331,7 +331,6 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
             !isExists(user_out_tensors_idx_set, outIdx)) {
           for (size_t j = graphIdx + 1; j < captured_graphs.size(); j++) {
             auto next_graph = captured_graphs[j];
-            size_t input_idx = 0;
             // Go over all the inputs in the following SingleHPUGraph
             for (auto& hbt_in : next_graph->hblazy_tensors_in_) {
               // Found a match
@@ -341,7 +340,6 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
                 last_use = j;
                 break;
               }
-              ++input_idx;
             }
           }
         }

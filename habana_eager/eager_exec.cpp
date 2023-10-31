@@ -359,7 +359,7 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
           [&node_inputs,
            &graph](const c10::ArrayRef<torch::jit::IValue>& list) {
             std::vector<JitValue*> list_inp_args;
-            for (int i = 0; i < list.size(); ++i) {
+            for (size_t i = 0; i < list.size(); ++i) {
               auto tensor = list[i].toTensor();
               auto t = graph->addInput(tensor.toString());
               t->setType(c10::TensorType::createContiguous(

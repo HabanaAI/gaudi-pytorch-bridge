@@ -57,7 +57,8 @@ void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
   at::wrap_all_dims(dims, rank);
   std::vector<int64_t> valid_dims;
   for (auto dim : dims) {
-    if (intermediate_shape.size() > dim && intermediate_shape[dim] == 1) {
+    if (intermediate_shape.size() > static_cast<uint64_t>(dim) &&
+        intermediate_shape[dim] == 1) {
       valid_dims.push_back(dim);
     }
   }

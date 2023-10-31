@@ -139,7 +139,7 @@ void UpdateShapeTensorSize(
     std::vector<c10::IValue>& orig_stack) {
   c10::SmallVector<int64_t, NUM_TENSOR_DIMS> new_shape(stack_idxs.size(), 1);
 
-  for (int idx = 0; idx < stack_idxs.size(); idx++) {
+  for (size_t idx = 0; idx < stack_idxs.size(); ++idx) {
     auto stack_index = stack_idxs[idx];
     if (stack_index == LONG_MAX) {
       new_shape[idx] = dtensor.sizes()[idx];
@@ -283,7 +283,7 @@ void RepeatOperatorDS::UpdateDynamicInputs(
   SymIntData& scalar_idx = scalar_idx_list[0];
 
   std::vector<int32_t> updated_h2d_data;
-  for (int idx = 0; idx < scalar_idx.values.size(); idx++) {
+  for (size_t idx = 0; idx < scalar_idx.values.size(); ++idx) {
     auto stack_index = scalar_idx.values[idx];
     if (stack_index == LONG_MAX) {
       std::vector<int32_t> h2d_data = GetH2DTensorHostData<int32_t>(dtensor);

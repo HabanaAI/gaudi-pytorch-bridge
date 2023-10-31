@@ -49,7 +49,7 @@ static std::pair<synTensor, synTensor> NormalizeInput(
 
   if (input_dims > 1) {
     storage.emplace_back(
-        op->BuildReshape(op, graph, {input_t}, input_numel, dtype));
+        op->BuildReshape(op, graph, input_t, input_numel, dtype));
     input_t = storage.back().get();
   }
 

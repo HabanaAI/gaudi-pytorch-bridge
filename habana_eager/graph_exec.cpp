@@ -155,7 +155,8 @@ std::string GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
       ":\n",
       *m_graph);
 
-  for (int input_idx = 0; input_idx < m_graph->inputs().size(); input_idx++) {
+  for (size_t input_idx = 0; input_idx < m_graph->inputs().size();
+       input_idx++) {
     if (example_inputs[input_idx].isTensor()) {
       torch::Tensor tensor{example_inputs[input_idx].toTensor()};
       synapse_helpers::layouts::MemoryPermutation m_perm;

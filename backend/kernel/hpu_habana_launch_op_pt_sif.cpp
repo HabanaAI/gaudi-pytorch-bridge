@@ -105,7 +105,6 @@ void create_synapse_inputs(
     const HabanaOperatorPtr& habana_op,
     synapse_helpers::graph& syn_graph,
     std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
-  int input_idx = 0;
   for (const auto value_in : node->inputs()) {
     auto value_exists = val_to_ival_map.find(value_in);
     HABANA_ASSERT(value_exists != std::end(val_to_ival_map));
@@ -138,7 +137,6 @@ void create_synapse_inputs(
           "Not creating synapse tensor for the ivalue for %",
           value_in->debugName());
     }
-    input_idx += 1;
   }
 }
 } // namespace

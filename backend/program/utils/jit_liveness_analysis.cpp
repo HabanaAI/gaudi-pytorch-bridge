@@ -45,9 +45,7 @@ class LivenessAnalysisImpl {
   LivenessAnalysisImpl(
       const LazyJitGraph& lazy_graph,
       const std::vector<const torch::jit::Node*>& schedule)
-      : lazy_graph_(lazy_graph),
-        graph_(*lazy_graph.get_cached_graph()),
-        schedule_(schedule) {
+      : graph_(*lazy_graph.get_cached_graph()), schedule_(schedule) {
     result.bytes_alive_before.resize(schedule_.size());
     result.bytes_alive_after.resize(schedule_.size());
   }
@@ -133,7 +131,6 @@ class LivenessAnalysisImpl {
   }
 
   LivenessResult result;
-  const LazyJitGraph& lazy_graph_;
   const torch::jit::Graph& graph_;
   const std::vector<const torch::jit::Node*>& schedule_;
 };

@@ -43,7 +43,7 @@ struct HandleInputViewsPass {
       at::ArrayRef<torch::jit::Value*> inputs,
       torch::jit::Stack& example_inputs) {
     bool changed{false};
-    for (int input_idx = 0; input_idx < inputs.size(); input_idx++) {
+    for (size_t input_idx = 0; input_idx < inputs.size(); input_idx++) {
       torch::jit::Value* input{inputs.at(input_idx)};
       if (!example_inputs[input_idx].isTensor()) {
         continue;

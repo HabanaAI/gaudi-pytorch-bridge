@@ -472,7 +472,7 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
     std::vector<int64_t> sif_tensor_indices;
     deserialize(is, sif_tensor_indices);
 
-    for (int idx = 0; idx < sif_tensor_indices.size(); idx++) {
+    for (size_t idx = 0; idx < sif_tensor_indices.size(); ++idx) {
       sif_tidx_to_tinfo_map.insert(
           {sif_tensor_indices[idx], dtensorinfos->at(idx)});
     }
@@ -994,12 +994,11 @@ void RecipeValueSpec::update_patching_table(
 
   auto create_or_use_output_tensor = !allocated_outputs.has_value()
       ? std::function<at::Tensor(const PtTensorInfo&)>(
-            [this](const PtTensorInfo& ti) {
+            [](const PtTensorInfo& ti) {
               return habana_helpers::create_empty_tensor(ti);
             })
       : std::function<at::Tensor(const PtTensorInfo&)>(
-            [this,
-             it = allocated_outputs->begin()](const PtTensorInfo& ti) mutable {
+            [it = allocated_outputs->begin()](const PtTensorInfo& ti) mutable {
               habana_helpers::update_tensor_layout_and_permutation(*it, ti);
               return *it++;
             });

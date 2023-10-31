@@ -39,7 +39,7 @@ void _StridedInsert_Backend::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto num_syn_inputs = GetSynInputs().size();
   std::vector<synTensor> syn_inputs;
   syn_inputs.reserve(num_syn_inputs);
-  for (auto i = 0; i < num_syn_inputs; ++i) {
+  for (size_t i = 0; i < num_syn_inputs; ++i) {
     syn_inputs.emplace_back(syn_in(i));
   }
 

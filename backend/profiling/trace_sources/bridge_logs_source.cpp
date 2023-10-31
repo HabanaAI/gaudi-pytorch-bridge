@@ -96,13 +96,13 @@ struct BridgeLogsSourceImpl : public TraceSource {
     static BridgeLogsSourceImpl source;
     return source;
   }
-  void start() {
+  void start() override {
     is_started_ = true;
   }
-  void stop() {
+  void stop() override {
     is_started_ = false;
   }
-  void extract(TraceSink& output) {
+  void extract(TraceSink& output) override {
     if (events_.empty())
       return;
     pid_t pid = getpid() + offset_;
@@ -117,10 +117,10 @@ struct BridgeLogsSourceImpl : public TraceSource {
     output.addDevice("Bridge Logs", pid);
     events_.clear();
   }
-  TraceSourceVariant get_variant() {
+  TraceSourceVariant get_variant() override {
     return TraceSourceVariant::BRIDGE_LOGS;
   }
-  void set_offset(unsigned offset) {
+  void set_offset(unsigned offset) override {
     offset_ = offset;
   }
 

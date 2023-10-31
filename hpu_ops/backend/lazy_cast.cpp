@@ -102,8 +102,8 @@ static void copy_impl(
     output = std::move(OpBackend::BuildNode(
         op, graph, {"identity", {input}, {{shape, src_type, 0}}})[0]);
   } else {
-    output = std::move(
-        OpBackend::BuildCast(op, graph, input, shape, src_type, dst_type, 0));
+    output =
+        OpBackend::BuildCast(op, graph, input, shape, src_type, dst_type, 0);
   }
 }
 

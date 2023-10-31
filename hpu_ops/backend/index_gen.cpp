@@ -12,6 +12,7 @@
  */
 
 #include <cstddef>
+#include <cstdint>
 #include "generated/backend/arange.h"
 #include "generated/backend/gather.h"
 #include "generated/backend/index.h"
@@ -93,7 +94,6 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
   int index_tensor_groups = 0;
   int explicit_indices_count = 0;
   bool adv_indexing_present = false;
-  int dim = 0;
   for (auto input : indices_ival) {
     auto o1 = input.toOptional<at::Tensor>();
     if (o1.has_value() && !o1->defined()) {
@@ -107,7 +107,6 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
       explicit_indices_together = true;
       explicit_indices_count += (int)o1.value().sizes().size();
     }
-    dim++;
   }
   if (index_tensor_groups > 1) {
     std::vector<at::Tensor> t_indices;
@@ -413,8 +412,8 @@ void IndexHabanaOperator::AddNode(
 
     auto permuted_self_shape = permuted_self[0].pt_shape();
     permuted_self_t = std::move(permuted_self[0].get());
-    size_t i = 0;
-    for (; i < adv_ind_dim.size(); ++i) {
+    int64_t i = 0;
+    for (; i < (int64_t)adv_ind_dim.size(); ++i) {
       if (adv_ind_dim[i] == true) {
         index_all_elems[i] = true;
       } else {
@@ -453,7 +452,7 @@ void IndexHabanaOperator::AddNode(
       repeats_needed[i] = 1;
       int64_t total_elements_above = 1;
       bool explicit_index_above = false;
-      for (int j = 0; j < i; j++) {
+      for (int64_t j = 0; j < i; j++) {
         if ((j >= explicit_index_tensor_group_start) &&
             (j < explicit_index_tensor_group_start + explicit_index_count)) {
           explicit_index_above = true;
@@ -463,7 +462,7 @@ void IndexHabanaOperator::AddNode(
       }
       repeats_needed[i] = total_elements_above;
       int64_t index_numel;
-      if (i < (int)indexing_tensor_shapes.size()) {
+      if (i < (int64_t)indexing_tensor_shapes.size()) {
         index_numel = (int64_t)std::accumulate(
             indexing_tensor_shapes[i].begin(),
             indexing_tensor_shapes[i].end(),

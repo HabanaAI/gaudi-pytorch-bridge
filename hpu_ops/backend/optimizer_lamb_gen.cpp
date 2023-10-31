@@ -57,7 +57,7 @@ void OptimizerLambNorm::AddNode(
 
   auto syn_max_grad_norm = ConstantHelper(graph, max_grad_norm, dtype, {1});
 
-  auto num_params = static_cast<int>(gradients.size());
+  auto num_params = gradients.size();
   std::vector<synapse_helpers::tensor> first_reshape;
   std::vector<synapse_helpers::tensor> intermediate_reduce;
   std::vector<synTensor> concat_inputs;
@@ -93,7 +93,7 @@ void OptimizerLambNorm::AddNode(
       graph,
       "concat",
       std::move(concat_inputs),
-      {{{num_params}, dtype}},
+      {{{static_cast<long>(num_params)}, dtype}},
       &concat_params,
       sizeof(concat_params));
 

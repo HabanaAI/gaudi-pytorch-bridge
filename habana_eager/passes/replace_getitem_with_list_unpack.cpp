@@ -23,7 +23,7 @@ struct ListUnpackDesc {
   explicit ListUnpackDesc(torch::jit::Node* list_unpack_node)
       : m_node(list_unpack_node) {}
 
-  void add_output(int idx, torch::jit::Value* out) {
+  void add_output(size_t idx, torch::jit::Value* out) {
     if (m_output_list.size() < idx + 1) {
       m_output_list.resize(idx + 1);
     }

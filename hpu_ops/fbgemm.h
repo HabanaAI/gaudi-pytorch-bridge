@@ -25,7 +25,7 @@ struct LazyPermuteSparseDataCommon : OpBackend {
       bool is1D,
       bool hasWeights);
 
-  void AddNode(
+  void AddLazyPermuteSparseDataNode(
       synapse_helpers::graph& graph,
       const at::Stack& stack,
       bool is1D) {

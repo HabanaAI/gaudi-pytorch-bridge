@@ -37,7 +37,7 @@ struct DetectWeightTensorsPass {
 
  private:
   void processInputs(at::ArrayRef<torch::jit::Value*> inputs) {
-    for (int input_idx = 0; input_idx < inputs.size(); input_idx++) {
+    for (size_t input_idx = 0; input_idx < inputs.size(); input_idx++) {
       torch::jit::Value* input{inputs.at(input_idx)};
       for (auto& use : input->uses()) {
         bool is_weight_input{processInputUse(input, use)};
@@ -98,7 +98,7 @@ struct DetectWeightTensorsPass {
   bool isDirectConvoWeightInput(
       torch::jit::Value* input,
       torch::jit::Node* user_node) {
-    static const std::map<c10::Symbol, int> conv_symbols_map{
+    static const std::map<c10::Symbol, size_t> conv_symbols_map{
         {c10::Symbol::fromQualString("aten::convolution"), 1},
         {c10::Symbol::fromQualString("aten::convolution_backward"), 2},
         {c10::Symbol::fromQualString("aten::convolution_overrideable"), 1},
@@ -106,7 +106,7 @@ struct DetectWeightTensorsPass {
          2}};
 
     if (conv_symbols_map.find(user_node->kind()) != conv_symbols_map.end()) {
-      const int weight_input_idx{conv_symbols_map.at(user_node->kind())};
+      const size_t weight_input_idx{conv_symbols_map.at(user_node->kind())};
       HABANA_ASSERT(user_node->inputs().size() >= weight_input_idx);
       torch::jit::Value* weight_input{user_node->input(weight_input_idx)};
 

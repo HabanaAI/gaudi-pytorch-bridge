@@ -73,7 +73,6 @@ class SynapseLoggerSource : public TraceSource,
           begin(begin) {}
   };
   std::deque<Event> events_;
-  bool enabled_{false};
   unsigned offset_{};
   std::mutex m{};
   bool is_started_{false};

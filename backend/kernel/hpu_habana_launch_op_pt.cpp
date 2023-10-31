@@ -1895,7 +1895,7 @@ void HabanaLaunchOpPT::FillMaxValues(
     const HabanaOperatorPtr& habana_op,
     const torch::jit::Stack& input_stack,
     std::unordered_map<int64_t, std::vector<int64_t>>& index2maxvalues) {
-  for (int i = 0; i < input_stack.size(); i++) {
+  for (size_t i = 0; i < input_stack.size(); ++i) {
     auto& input_tensor = input_stack[i];
     if (input_tensor.isTensor()) {
       auto tmeta = get_tensor_extra_meta(input_tensor.toTensor());
@@ -1915,7 +1915,7 @@ void HabanaLaunchOpPT::UpdateMaxValues(
     const HabanaOperatorPtr& habana_op,
     const torch::jit::Stack& input_stack,
     std::unordered_map<int64_t, std::vector<int64_t>>& index2maxvalues) {
-  for (int i = 0; i < input_stack.size(); i++) {
+  for (size_t i = 0; i < input_stack.size(); ++i) {
     auto& input_tensor = input_stack[i];
     std::vector<int64_t> max_new, max_old;
     if (input_tensor.isTensor()) {
@@ -1933,7 +1933,7 @@ void HabanaLaunchOpPT::UpdateMaxValues(
         max_old = index2maxvalues[i];
       }
       HABANA_ASSERT(max_new.size() == max_old.size());
-      for (auto j = 0; j < max_new.size(); j++) {
+      for (size_t j = 0; j < max_new.size(); ++j) {
         if (max_new[j] != max_old[j]) {
           PT_DYNAMIC_SHAPE_DEBUG(
               "Need to update dynamic ranges of bucket id ",
@@ -1972,7 +1972,7 @@ void HabanaLaunchOpPT::UpdatePTStack(DynamicShapeInfo& graph_input_info) {
 }
 
 void HabanaLaunchOpPT::RevertH2DMinMaxData() {
-  for (int i = 0; i < pt_stack->size(); i++) {
+  for (size_t i = 0; i < pt_stack->size(); ++i) {
     if (pt_stack->at(i).isTensor()) {
       auto& input_tensor = pt_stack->at(i);
       auto tmeta = get_tensor_extra_meta(pt_stack->at(i).toTensor());
@@ -2022,7 +2022,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       jit_graph_and_meta_data_->get_jit_cached_graph_info_available_flag();
   if (is_jit_cached_graph_info_available == false) {
     persistence_marker_pass_data_ptr_ =
-        std::move(PersistenceMarkerPass(this).VisitGraph(jit_ir_graph_));
+        PersistenceMarkerPass(this).VisitGraph(jit_ir_graph_);
   }
 
   habana::ShapeInference::ResetSifTensorId();

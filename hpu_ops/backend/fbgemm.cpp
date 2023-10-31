@@ -45,13 +45,14 @@ LazyPermute2DSparseData::LazyPermute2DSparseData(
 void LazyPermute1DSparseData::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  LazyPermuteSparseDataCommon::AddNode(graph, stack, true);
+  LazyPermuteSparseDataCommon::AddLazyPermuteSparseDataNode(graph, stack, true);
 }
 
 void LazyPermute2DSparseData::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  LazyPermuteSparseDataCommon::AddNode(graph, stack, false);
+  LazyPermuteSparseDataCommon::AddLazyPermuteSparseDataNode(
+      graph, stack, false);
 }
 
 LazyExpandIntoJaggedPermute::LazyExpandIntoJaggedPermute(

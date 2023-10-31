@@ -181,7 +181,6 @@ class HPUDevice {
   }
 
  private:
-  bool is_stream_async_enabled_;
   synapse_helpers::device_handle device_{nullptr};
   std::unique_ptr<backend::ScalarCache> scalar_cache_{nullptr};
 
