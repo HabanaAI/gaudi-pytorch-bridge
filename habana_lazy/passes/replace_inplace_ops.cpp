@@ -11,40 +11,27 @@
 #include <torch/csrc/jit/ir/irparser.h>
 #include "habana_helpers/logging.h"
 
-#include "backend/synapse_helpers/env_flags.h"
-
 namespace habana_lazy {
 
 using Graph = torch::jit::Graph;
 using Value = torch::jit::Value;
 using Node = torch::jit::Node;
 
-namespace {
-
-std::unordered_map<std::string, std::string> buildPlaceToOutOfPlaceTable() {
-  std::unordered_map<std::string, std::string> table{
-      {"aten::add_", "aten::add"},
-      {"hpu::add_", "hpu::add"},
-      {"aten::div_", "aten::div"},
-      {"aten::index_put_", "aten::index_put"},
-      {"aten::mul_", "aten::mul"},
-      {"aten::relu_", "aten::relu"},
-      {"aten::leaky_relu_", "aten::leaky_relu"},
-      {"aten::clamp_", "aten::clamp"},
-      {"aten::sub_", "aten::sub"},
-  };
-
-  if (GET_ENV_FLAG_NEW(PT_HPU_INPLACE_ZERO)) {
-    // Idemponent transformation inplace -> inplace, it is quick fix for
-    // invalid detection of graph inputs in some cases.
-    table["aten::zero_"] = "aten::zero_";
-  }
-
-  return table;
-}
-}; // namespace
-
-static const auto inPlaceToOutOfPlace = buildPlaceToOutOfPlaceTable();
+static const std::unordered_map<std::string, std::string> inPlaceToOutOfPlace =
+    {
+        {"aten::add_", "aten::add"},
+        {"hpu::add_", "hpu::add"},
+        {"aten::div_", "aten::div"},
+        {"aten::index_put_", "aten::index_put"},
+        {"aten::mul_", "aten::mul"},
+        {"aten::relu_", "aten::relu"},
+        {"aten::leaky_relu_", "aten::leaky_relu"},
+        {"aten::clamp_", "aten::clamp"},
+        {"aten::sub_", "aten::sub"},
+        // Idemponent transformation inplace -> inplace, it is quick fix for
+        // invalid detection of graph inputs in some cases.
+        {"aten::zero_", "aten::zero_"},
+};
 
 bool isInplaceOp(const Node* node) {
   return node ? inPlaceToOutOfPlace.count(node->kind().toQualString()) != 0

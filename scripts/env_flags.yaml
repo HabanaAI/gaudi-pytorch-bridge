@@ -721,16 +721,6 @@ PT_CACHE_FOLDER_DELETE:
   type: bool
   default: false
 
-PT_HPU_INPLACE_ZERO:
-  type: bool
-  default: false
-  doc: "clang-format off\n
-This is a temporary variable to control idempotent\n
-aten:zero_ -> aten::zero_ transformation in replace_inplace_ops pass,\n
-which help to fix some OOM issues but may also cause performance\n
-regression in some models. So we disable it by default. This env var\n
-may be removed after we find a better solution"
-
 PT_HPU_ENABLE_DIV_PRECISE:
   type: bool
   default: false
