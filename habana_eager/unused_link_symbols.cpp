@@ -106,11 +106,7 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
 
 at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& self,
-#if IS_PYTORCH_AT_LEAST(2, 2)
-    c10::optional<SymInt> output_size) {
-#else
     c10::optional<int64_t> output_size) {
-#endif
   FALLBACK_UNSUPPORTED_OP2_O(
       repeat_interleave, PARAMS2(self, output_size), Tensor);
 }
