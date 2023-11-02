@@ -193,9 +193,11 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             state["scale_fwd"] = self.fp8_meta["scaling_fwd"].scale
             state["scale_inv_fwd"] = self.fp8_meta["scaling_fwd"].scale_inv
             state["amax_history_fwd"] = self.fp8_meta["scaling_fwd"].amax_history
+            state["amax_history_index_fwd"] = self.fp8_meta["scaling_fwd"].amax_history_index
             state["scale_bwd"] = self.fp8_meta["scaling_bwd"].scale
             state["scale_inv_bwd"] = self.fp8_meta["scaling_bwd"].scale_inv
             state["amax_history_bwd"] = self.fp8_meta["scaling_bwd"].amax_history
+            state["amax_history_index_bwd"] = self.fp8_meta["scaling_bwd"].amax_history_index
             state["global_fp8_buffer"] = get_global_fp8_buffer()
             state["update_amax_fwd"] = self.fp8_meta["update_amax_fwd"]
             state["update_amax_bwd"] = self.fp8_meta["update_amax_bwd"]
@@ -267,8 +269,10 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         self.init_fp8_meta_tensors()
         self.fp8_meta["scaling_fwd"].scale.copy_(state["scale_fwd"])
         self.fp8_meta["scaling_fwd"].amax_history.copy_(state["amax_history_fwd"])
+        self.fp8_meta["scaling_fwd"].amax_history_index.copy_(state["amax_history_index_fwd"])
         self.fp8_meta["scaling_bwd"].scale.copy_(state["scale_bwd"])
         self.fp8_meta["scaling_bwd"].amax_history.copy_(state["amax_history_bwd"])
+        self.fp8_meta["scaling_bwd"].amax_history_index.copy_(state["amax_history_index_bwd"])
 
         # Backwards compatibility: compute scale inv if it wasn't saved in the extra state.
         if "scale_inv_fwd" not in state or "scale_inv_bwd" not in state:

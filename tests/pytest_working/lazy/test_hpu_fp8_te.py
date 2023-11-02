@@ -34,6 +34,16 @@ def _get_inp_weigth_bias_size(batch, in_features, out_features):
     return inp_size, weight_size, bias_size
 
 
+def _assert_amax_history_equal(a, b):
+    def _assert(key):
+        assert torch.equal(a.fp8_meta[key].amax_history, b.fp8_meta[key].amax_history), f"""amax history not equal for key {key},
+        first: {a.fp8_meta[key].amax_history},
+        second: {b.fp8_meta[key].amax_history}"""
+
+    _assert("scaling_fwd")
+    _assert("scaling_bwd")
+
+
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
 @pytest.mark.parametrize("scale", [1.0, 16.0])
@@ -1073,7 +1083,8 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
                     assert len(fp8.get_global_fp8_buffer()) == 0, f"global fp8 buffer must contain 0 entries {suffix}"
 
 @pytest.mark.parametrize("init_before_load", [True, False])
-def test_save_load_module(init_before_load):
+@pytest.mark.parametrize("amax_history_len", [1, 4])
+def test_save_load_module(init_before_load, amax_history_len):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
     from copy import deepcopy
@@ -1081,7 +1092,7 @@ def test_save_load_module(init_before_load):
     torch.manual_seed(123)
     device = torch.device("hpu")
     fp8_format = Format.E5M2
-    fp8_recipe = DelayedScaling(fp8_format=fp8_format, reduce_amax=False)
+    fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=amax_history_len, reduce_amax=False)
 
     dtype = torch.float
     batch = 2
@@ -1092,7 +1103,9 @@ def test_save_load_module(init_before_load):
 
     in_hpu = torch.randn(inp_size, dtype=dtype, device=device)
 
-    def train_step(model, optimizer, input):
+    def train_step(model, optimizer, input=None):
+        if input is None:
+            input = torch.randn_like(in_hpu)
         with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
             out = model(input)
         loss = out.sum()
@@ -1109,7 +1122,8 @@ def test_save_load_module(init_before_load):
         result = te.Linear(in_features, out_features, bias=False)
         optimizer = torch.optim.SGD(result.parameters(), lr=0.1)
         if (init):
-            train_step(result, optimizer, torch.rand_like(in_hpu))
+            train_step(result, optimizer)
+            train_step(result, optimizer)
         return result, optimizer
 
     # Create ref module, save state, perform train step
@@ -1123,3 +1137,4 @@ def test_save_load_module(init_before_load):
     out_tested = train_step(linear_tested, optimizer_tested, in_hpu)
 
     assert torch.equal(out_ref, out_tested)
+    _assert_amax_history_equal(linear_ref, linear_tested)
