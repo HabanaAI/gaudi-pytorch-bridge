@@ -127,7 +127,7 @@ void DetectWeightTensors(
     std::set<int>& indices_to_permute) {
   PT_EAGER_TRACE;
   DetectWeightTensorsPass pass{graph};
-  bool changed{pass.run()};
+  pass.run();
   indices_to_permute = pass.get_weight_input_indices();
 }
 

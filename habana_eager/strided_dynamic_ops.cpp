@@ -149,7 +149,6 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   auto graph{aten_as_strided_node->owningGraph()};
   auto shape_construct_node{as_strided_shape->node()};
   auto stride_construct_node{as_strided_stride->node()};
-  auto offset_construct_node{as_strided_offset->node()};
   static const auto hpu_as_strided_orig_symbol{
       c10::Symbol::fromQualString("hpu::strided_view_orig_ds_h2d")};
   static const auto hpu_as_strided_symbol{
@@ -429,7 +428,6 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
   static const auto hpu_strided_insert_symbol{
       c10::Symbol::fromQualString("hpu::strided_insert_orig_ds")};
   auto stride_construct_node{strided_insert_stride->node()};
-  auto offset_construct_node{strided_insert_offset->node()};
   auto graph{strided_insert_node->owningGraph()};
   std::vector<int64_t> dtensor_indexes;
   // Collect ST shape and symlnt pos using ListConstruct values for strides

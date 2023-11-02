@@ -203,12 +203,10 @@ std::string GraphOfClusters::ToDebugSummary() const {
   result += "\n";
   result += "Sizes:";
   for (auto& p : nodes_) {
-    result += " ";
-    std::size_t num_nodes = 0;
-    for (auto node : p.second->lazy_graph_->get_cached_graph()->nodes()) {
-      num_nodes += 1;
-    }
-    result += std::to_string(num_nodes);
+    result += " " +
+        std::to_string(std::distance(
+            p.second->lazy_graph_->get_cached_graph()->nodes().begin(),
+            p.second->lazy_graph_->get_cached_graph()->nodes().end()));
   }
   result += "\n";
   return result;

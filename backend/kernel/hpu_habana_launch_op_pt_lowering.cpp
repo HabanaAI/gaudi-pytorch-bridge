@@ -546,7 +546,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
       }
     }
   }
-  auto status = synRecipeSectionHostBuffersClear(
+  synRecipeSectionHostBuffersClear(
       rv.recipe->syn_recipe_handle_,
       constSectionIds.data(),
       constSectionIds.size());
@@ -812,8 +812,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
     return;
   }
 
-  auto& device = HPURegistrar::get_device();
-  synDeviceId device_id = device.id();
+  [[maybe_unused]] auto& device = HPURegistrar::get_device();
 
   PT_BRIDGE_DEBUG(
       "HabanaOp recipe cache :: launching new recipe", rv.header_str());

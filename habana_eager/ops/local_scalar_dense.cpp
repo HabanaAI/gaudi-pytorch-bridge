@@ -37,6 +37,14 @@ at::Scalar _local_scalar_dense_hpu(const at::Tensor& self) {
 
   gil_scoped_release_if_held release;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpragmas"
+#pragma GCC diagnostic ignored "-Wunknown-warning-option"
+// Due to runtime check cases detected by compiler won't appear.
+// (clang does not have this check at all)
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Warray-bounds"
+
   AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND3(
       at::ScalarType::Bool,
       at::ScalarType::BFloat16,
@@ -59,6 +67,8 @@ at::Scalar _local_scalar_dense_hpu(const at::Tensor& self) {
         }
         r = c10::Scalar(val);
       });
+
+#pragma GCC diagnostic pop
   return r;
 }
 } // namespace eager

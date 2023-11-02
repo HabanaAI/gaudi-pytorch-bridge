@@ -228,10 +228,6 @@ std::vector<at::IValue> convert_cpu_wrapped_numbers(
 void EagerExec::launch() {
   PT_EAGER_TRACE_WITH_NAME(m_graph_name);
   const c10::hpu::HPUStream& stream{c10::hpu::getCurrentHPUStream()};
-  synEventHandle event_handle{};
-  synapse_helpers::hpuStream_t event_stream{0};
-  bool event_flag{0};
-  // auto& device = HPURegistrar::get_device();
 
   // stack is used for both inputs to synapse lowering and outputs from
   // synapse lowering, therefore allocate memory which is max of input
@@ -293,7 +289,7 @@ void EagerExec::launch() {
     // would have modified the input tensor to base tensor. Need to
     // perform this operation for the cache hit case as well
     auto in = val.toTensor();
-    auto input_smeta{habana::get_storage_extra_meta(in)};
+    [[maybe_unused]] auto input_smeta{habana::get_storage_extra_meta(in)};
 
     if (habana::is_view_lowering(in) || !in.is_contiguous()) {
       // modify the backend tensor of the view as the base

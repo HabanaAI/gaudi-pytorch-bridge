@@ -524,8 +524,8 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto runningMeanOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto runningVarOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   bool training = getNextInput<bool>(stackGetter);
-  float momentum = static_cast<float>(getNextInput<double>(stackGetter));
-  float epsilon = static_cast<float>(getNextInput<double>(stackGetter));
+  getNextInput<double>(stackGetter); // momentum
+  getNextInput<double>(stackGetter); // epsilon
 
   size_t paramsSize; // Will be initialized by below call
   const auto params = FillBatchNormFwdParams(stack, paramsSize);
@@ -566,8 +566,8 @@ void BatchNormNoStatsOpBackend::AddNode(
   auto weightOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   bool training = getNextInput<bool>(stackGetter);
-  float momentum = static_cast<float>(getNextInput<double>(stackGetter));
-  float epsilon = static_cast<float>(getNextInput<double>(stackGetter));
+  getNextInput<double>(stackGetter); // momentum
+  getNextInput<double>(stackGetter); // epsilon
 
   size_t paramsSize; // Will be initialized by below call
   const auto params = FillBatchNormNoStatsFwdParams(stack, paramsSize);

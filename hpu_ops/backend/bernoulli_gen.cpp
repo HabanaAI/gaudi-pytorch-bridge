@@ -27,10 +27,6 @@ static auto bernoulli_impl(
   inputs.push_back(seed);
   op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
 
-  auto bernoulli_out_dtype = dtype == c10::ScalarType::Float
-      ? c10::ScalarType::Int
-      : c10::ScalarType::Short;
-
   // Empty params with optional seed but still required to be filled to
   // bypass tpc kernel glue check
   PARAMS_STUB_VARS(ns_RandomBernoulli::Params, params, params_size);

@@ -464,8 +464,7 @@ void HandleInputOutputViews(
     if (!underscored_ops_reported_as_non_inplace.count(
             node->kind().toQualString())) {
       if (eager_op_meta_data.num_out_tensors_ <= 1) {
-        auto* new_node =
-            replace_with_out_of_place_op(graph, node, eager_op_meta_data);
+        replace_with_out_of_place_op(graph, node, eager_op_meta_data);
         replaced = true;
       }
     }

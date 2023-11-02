@@ -21,7 +21,6 @@ sizes_vec MaskedBatchGemmOutputShape(const at::Stack& stack) {
   bool trans_a = stack[4].toBool();
   bool trans_b = stack[5].toBool();
 
-  int64_t rank = a.dim();
   std::vector<int64_t> a_shape = a.sizes().vec();
   std::vector<int64_t> b_shape = b.sizes().vec();
   std::vector<int64_t> out_shape{a_shape[0], a_shape[1]};

@@ -16,7 +16,6 @@
 #include "generated/backend/binary_cross_entropy_with_logits.h"
 #include "hpu_ops/op_backend.h"
 
-constexpr int64_t index_of_fwd_weight_tensor = 2;
 constexpr int64_t index_of_fwd_mode = 3;
 constexpr int64_t index_of_fwd_self = 0;
 constexpr int64_t index_of_fwd_reduction = 4;

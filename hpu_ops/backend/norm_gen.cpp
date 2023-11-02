@@ -760,7 +760,7 @@ void LayerNormBwdHabanaOperator::AddNode(
   auto mean = getNextInput<TensorsPair>(stackGetter);
   auto rstd = getNextInput<TensorsPair>(stackGetter);
   auto weightOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  getNextInput<c10::optional<TensorsPair>>(stackGetter); // biasOpt
   auto output_mask = getNextInput<c10::List<bool>>(stackGetter);
 
   const auto input_shape = input.pt_t.sizes();
@@ -854,9 +854,7 @@ void LayerNormBwdHabanaOperator::AddNode(
 OutputMetaDataVector WeightNormMeta(const at::Stack& stack) {
   const torch::Tensor& v_in = stack_tensor(stack, 0);
   const torch::Tensor& g_in = stack_tensor(stack, 1);
-  auto dim = stack.at(2).toInt();
   auto shapes = at::infer_size(v_in.sizes(), g_in.sizes());
-  auto norm_shapes = v_in.sizes()[dim];
 
   OutputMetaDataVector metaVec(2);
   metaVec[0].shape = v_in.sizes().vec();
@@ -888,7 +886,6 @@ void WeightNormOp::AddNode(
       " and g_in is on ",
       g_in.device());
 
-  auto outsize_norm_op = v_in.sizes()[dim];
   std::vector<int64_t> dim_to_norm;
   for (int64_t i = 0; i < v_in.ndimension(); ++i) {
     if (i != dim) // skip given dimension

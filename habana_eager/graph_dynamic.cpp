@@ -51,7 +51,6 @@ std::vector<T> GetH2DTensorHostData(at::Tensor& tensor) {
   size_t data_size = tensor.sizes()[0];
   PT_EAGER_DEBUG("Read H2D data of size :", data_size);
   if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
-    habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
     void* host_ptr = tmeta->get_host_ptr();
     T* h2d_data = static_cast<T*>(host_ptr);
     for (size_t i = 0; i < data_size; i++) {

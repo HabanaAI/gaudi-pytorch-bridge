@@ -31,7 +31,6 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
     const at::Tensor& first_valid_tensor = tensors[0];
     int64_t dim = at::maybe_wrap_dim(dim_, first_valid_tensor.dim());
 
-    auto in_tensor_count = tensors.size();
     out_size = first_valid_tensor.sizes().vec();
     out_size[dim] = 0;
     for (const at::Tensor& tensor : tensors) {

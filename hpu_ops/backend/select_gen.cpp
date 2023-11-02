@@ -80,7 +80,6 @@ void SelectHpu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto dim = stack.at(1).toInt();
   auto index = stack.at(2).toInt();
-  auto dimensions = self.sizes().size();
 
   auto start = index;
   auto end = index + 1;

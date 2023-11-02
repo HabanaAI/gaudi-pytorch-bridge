@@ -115,7 +115,6 @@ void CastToFp8V2::AddNode(
 
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
-  bool stochastic_rounding = stack[2].toBool();
   bool is_amax = stack[3].toBool();
   auto src_type = self.scalar_type();
   auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[4]);
@@ -1241,8 +1240,6 @@ void InPlaceInterleaveCommon::AddNode(
   TORCH_CHECK(shape.size() == 4, "Input has to be a 4D tensor.");
   TORCH_CHECK(shape[0] % 4 == 0, "Batch size has to be a multiple of 4.");
 
-  auto dtype = self.pt_t.scalar_type();
-
   std::string guid_suffix =
       synapse_helpers::graph::name_suffix_from_type(dst_syn_type).data();
   auto output = BuildNode(
@@ -1273,7 +1270,6 @@ sizes_vec Conv2dFp8OutputShape(const at::Stack& stack) {
   const auto stride = stack[3].toIntList().vec();
   const auto padding = stack[4].toIntList().vec();
   const auto dilation = stack[5].toIntList().vec();
-  const int64_t groups = stack[6].toInt();
 
   std::vector<int64_t> out_shape{shape_in[0], shape_wt[0]};
   for (int i = 0; i < 2; ++i) {

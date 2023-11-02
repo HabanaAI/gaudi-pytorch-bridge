@@ -62,7 +62,6 @@ void OptimizerLambNorm::AddNode(
   std::vector<synapse_helpers::tensor> intermediate_reduce;
   std::vector<synTensor> concat_inputs;
   for (size_t i = 0; i < num_params; ++i) {
-    auto rank = gradients[i].pt_t.dim();
     auto shape = gradients[i].pt_t.sizes().vec();
 
     int reshape_shape = 1;

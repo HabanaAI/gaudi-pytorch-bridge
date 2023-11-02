@@ -33,9 +33,6 @@ namespace {
 // Global stream state and constants
 static std::once_flag init_flag;
 
-// Non-default streams
-static std::once_flag device_flags;
-
 // Note [StreamId assignment]
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
 // How do we assign stream IDs?

@@ -71,7 +71,6 @@ struct HandleDynamicOpsPass {
   }
 
   void handlePrimListConstructNode(torch::jit::Node* node) {
-    const auto& node_ins = node->inputs();
     auto node_vals = node->outputs();
     HABANA_ASSERT(node_vals.size() == 1);
     IValPtrShared ival =
@@ -193,7 +192,6 @@ void HandlePostDynamic(
       }
     }
   }
-  size_t erase_count = 0;
   for (auto key_pair : key_map) {
     auto value = input_base_sizes_map[key_pair.first];
     // Reduce the key by 1

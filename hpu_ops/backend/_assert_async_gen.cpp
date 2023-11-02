@@ -18,7 +18,6 @@ void AssertAsync::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  size_t size;
 
   std::string name = graph.name();
   std::size_t found = name.find("_");

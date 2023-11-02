@@ -290,7 +290,7 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
         auto user_out_hbl_t = habana_lazy::GetHbLazyTensor(t);
         auto base_view_tids =
             get_hb_base_tensor_id_list_if_view(user_out_hbl_t);
-        auto& ir_value = user_out_hbl_t.CurrentIrValue();
+        [[maybe_unused]] auto& ir_value = user_out_hbl_t.CurrentIrValue();
         for (auto& out_tensor : single_graph->hblazy_tensors_out_) {
           auto isSameHbTensor = out_tensor.getTensorUniqueId() ==
               user_out_hbl_t.getTensorUniqueId();

@@ -266,7 +266,6 @@ sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
 
   // Append the matrix dims (last 2 dims) to batch dims to get final shape.
   int L_dim = rank - 2; // Target seq len dim
-  int S_dim = rank - 2; // Source seq len dim
   int Ev_dim = rank - 1; // head_dim_v dim
 
   out_shape.push_back(q_shape[L_dim]);

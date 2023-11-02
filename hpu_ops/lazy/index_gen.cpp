@@ -44,8 +44,6 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
   int dim = 0;
   at::Tensor t_nz;
   bool has_bool_mask = false;
-  c10::ScalarType prev_scalar_type;
-  bool first_scalar = true;
   int num_index_tensors = (int)indices_in_orig.size();
   bool advanced_indexing = false;
   advanced_indexing = check_for_adv_indexing(indices_in_orig);

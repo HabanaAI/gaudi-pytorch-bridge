@@ -183,8 +183,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   op_strs_ = optimized_jit_graph_and_meta_data->get_cached_opstrs();
   graph_key_ = optimized_jit_graph_and_meta_data->get_cached_graph_key();
   hpu_stream_ = optimized_jit_graph_and_meta_data->GetHPUStream();
-  bool is_optimized_lazy_eager =
-      optimized_jit_graph_and_meta_data->GetOptimizedLazyEagerFlag();
   jit_graph_and_meta_data_ = optimized_jit_graph_and_meta_data;
 
   PT_BRIDGE_DEBUG(
@@ -1407,7 +1405,6 @@ at::Tensor createDynamicTensor(
 }
 
 void HabanaLaunchOpPT::handlePrimListConstructNode(torch::jit::Node* node) {
-  const auto& node_ins = node->inputs();
   auto node_vals = node->outputs();
   HABANA_ASSERT(node_vals.size() == 1);
   IValPtrShared ival =

@@ -29,7 +29,6 @@ static std::vector<int64_t> broadcast_size(
   auto isz = indices[0].sizes().vec();
   std::vector<int64_t> size;
   auto self_sizes = self.sizes().vec();
-  int indices_tensors_count = (int)indices.size();
   if (indices[0].dim() == 1) {
     size = isz;
   } else {

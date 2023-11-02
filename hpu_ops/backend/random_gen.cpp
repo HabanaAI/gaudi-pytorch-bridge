@@ -150,9 +150,6 @@ synapse_helpers::tensor NormalTensorHelper(
     NormalVariant normal_variant) {
   const auto meta = NormalMeta(stack)[0];
   std::vector<synTensor> inputs;
-  int64_t stddev_numel = (normal_variant == NORMAL_TF)
-      ? stack.at(0).toTensor().numel()
-      : stack.at(1).toTensor().numel();
   /*
   NOTE: Due to TPC guid limitations of random_normal.
   We will use the linear transformation approach N(mean, std) = (N(0,1) +

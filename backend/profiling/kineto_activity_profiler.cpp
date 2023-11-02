@@ -256,10 +256,5 @@ class ActivityProfiler : public libkineto::IActivityProfiler {
 std::unique_ptr<IActivityProfiler> register_activity_profiler() {
   return std::make_unique<ActivityProfiler>();
 }
-
-auto register_activity_sink_factory = [] {
-  libkineto::api().registerProfilerFactory(register_activity_profiler);
-  return 0;
-};
 }; // namespace profile
 }; // namespace habana
