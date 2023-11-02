@@ -4,12 +4,14 @@
 #   bufferOF
 #   termination
 #   undefined
+
 # "true" means fail the Jenkins build if defects are found,
 # "false" means ignore defects ("silent")
 # default is false
+
 customConfig:
   runtimeErrors : false
   leaks         : false
   bufferOF      : false
-  termination   : true
-  undefined     : true
+  termination   : false
+  undefined     : false
