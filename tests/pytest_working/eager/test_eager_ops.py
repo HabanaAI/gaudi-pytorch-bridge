@@ -233,6 +233,7 @@ def test_eager_frexp_out():
     )
     assert torch.equal(cpu_outtensor[1], hpu_outtensor[1].to("cpu"))
 
+
 @pytest.mark.xfail(reason="runtime error")
 def test_eager_max_out():
     # test for EagerOp<std::tupel<Tensor&, Tensor&>>
@@ -501,21 +502,30 @@ def test_index_put_bool():
 
 
 def test_index_mixed():
-    cpu_tensor = torch.arange(144).to(torch.float).view(4,4,3,3)
+    cpu_tensor = torch.arange(144).to(torch.float).view(4, 4, 3, 3)
     hpu_tensor = cpu_tensor.to("hpu")
-    bmask = torch.tensor([[False, True, False],[False, False, True],[True, True, False],[False,True,True]])
+    bmask = torch.tensor(
+        [
+            [False, True, False],
+            [False, False, True],
+            [True, True, False],
+            [False, True, True],
+        ]
+    )
     ind_t = torch.tensor([0, 1, 2, 0, 1, 2]).to(torch.int64)
-    res_cpu = cpu_tensor[:,bmask,ind_t]
-    res_hpu = hpu_tensor[:,bmask.to("hpu"),ind_t.to("hpu")]
+    res_cpu = cpu_tensor[:, bmask, ind_t]
+    res_hpu = hpu_tensor[:, bmask.to("hpu"), ind_t.to("hpu")]
     assert torch.equal(res_hpu.to("cpu"), res_cpu)
 
+
 def test_index_single_elem_index():
-    cpu_tensor = torch.arange(48).to(torch.float).view(2,4,3,2)
+    cpu_tensor = torch.arange(48).to(torch.float).view(2, 4, 3, 2)
     hpu_tensor = cpu_tensor.to("hpu")
     ind_t = torch.tensor([-2]).to(torch.int64)
-    res_cpu = cpu_tensor[...,ind_t,:]
-    res_hpu = hpu_tensor[...,ind_t.to("hpu"),:]
+    res_cpu = cpu_tensor[..., ind_t, :]
+    res_hpu = hpu_tensor[..., ind_t.to("hpu"), :]
     assert torch.equal(res_hpu.to("cpu"), res_cpu)
+
 
 @pytest.mark.parametrize("shape_in", [(4, 4), (2, 3, 4, 4, 4)])
 def test_nonzero(shape_in):
@@ -622,6 +632,7 @@ def test_sag_conv_relu(setup_teardown_env_fixture):
 # have any permute on the input so 3rd relu should cause a JIT/SAG cache
 # miss.
 
+
 @pytest.mark.skip(reason="Tests in this file are chaning env variables")
 @pytest.mark.parametrize(
     "setup_teardown_env_fixture",
@@ -681,11 +692,21 @@ def test_sag_conv_relu_relu(setup_teardown_env_fixture):
     assert torch.allclose(hpu_out_b.to("cpu"), out_b, atol=0.001, rtol=0.001)
     assert torch.allclose(hpu_out_c.to("cpu"), out_c, atol=0.001, rtol=0.001)
 
+
 def test_sag_batch_norm():
     torch.manual_seed(0)
 
-    batch_norm_cpu = torch.nn.BatchNorm2d(num_features=4, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-    batch_norm_hpu = torch.nn.BatchNorm2d(num_features=4, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True, device="hpu")
+    batch_norm_cpu = torch.nn.BatchNorm2d(
+        num_features=4, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True
+    )
+    batch_norm_hpu = torch.nn.BatchNorm2d(
+        num_features=4,
+        eps=1e-05,
+        momentum=0.1,
+        affine=True,
+        track_running_stats=True,
+        device="hpu",
+    )
 
     input1 = torch.randn((2, 4, 8, 8), dtype=torch.bfloat16)
     input1_hpu = input1.to("hpu")
@@ -699,16 +720,17 @@ def test_sag_batch_norm():
     output1_hpu = batch_norm_hpu(input1_hpu)
     output2_hpu = batch_norm_hpu(input2_hpu)
 
-    assert torch.allclose(output1_hpu.cpu(), output1, atol = 0.01, rtol = 0.01)
-    assert torch.allclose(output2_hpu.cpu(), output2, atol = 0.01, rtol = 0.01)
+    assert torch.allclose(output1_hpu.cpu(), output1, atol=0.01, rtol=0.01)
+    assert torch.allclose(output2_hpu.cpu(), output2, atol=0.01, rtol=0.01)
+
 
 def test_sag_cat_view():
-    params = [(10,3), (20,5), (30,7)]
+    params = [(10, 3), (20, 5), (30, 7)]
     for element_count, sliced_count in params:
         a = torch.arange(element_count, dtype=torch.int32)
         m = a[:sliced_count]
         n = a[-sliced_count:]
-        out = torch.cat([m,n])
+        out = torch.cat([m, n])
 
         a_hpu = a.to("hpu")
         m_hpu = a_hpu[:sliced_count]
@@ -716,6 +738,7 @@ def test_sag_cat_view():
         out_hpu = torch.cat([m_hpu, n_hpu])
 
         assert torch.equal(out_hpu.cpu(), out)
+
 
 def test_sag_add_view():
     params = [(16, 4), (32, 8)]
@@ -729,4 +752,25 @@ def test_sag_add_view():
         out = torch.add(input_view, input_view)
         out_hpu = torch.add(input_hpu_view, input_hpu_view)
 
-        assert torch.allclose(out_hpu.cpu(), out, atol = 0.01, rtol = 0.01)
+        assert torch.allclose(out_hpu.cpu(), out, atol=0.01, rtol=0.01)
+
+
+def test_set_op():
+    tensor1 = torch.randn([64]).to("hpu")
+    tensor2 = torch.randn([64]).to("hpu")
+    storage1 = tensor1.untyped_storage()
+    assert tensor1.data_ptr() != tensor2.data_ptr()
+    tensor1.set_(tensor2)
+    assert tensor1.data_ptr() == tensor2.data_ptr()
+    tensor1_data_ptr = tensor1.data_ptr()
+    tensor1.set_()
+    assert tensor1.data_ptr() != tensor1_data_ptr
+    tensor1_data_ptr = tensor1.data_ptr()
+    tensor1.set_(storage1)
+    assert (
+        tensor1.data_ptr() == storage1.data_ptr()
+        and storage1.data_ptr() != tensor2.data_ptr()
+        and tensor1.data_ptr() != tensor1_data_ptr
+    )
+    tensor1.set_(storage1, 10, [54])
+    assert tensor1.data_ptr() == (storage1.data_ptr() + 40)
