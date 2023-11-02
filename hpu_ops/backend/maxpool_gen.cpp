@@ -17,6 +17,7 @@
 #include "generated/backend/max_pool2d_with_indices_backward.h"
 #include "generated/backend/max_pool3d_with_indices.h"
 #include "generated/backend/max_pool3d_with_indices_backward.h"
+#include "hpu_ops/backend/pool_helpers.h"
 
 namespace habana {
 
@@ -39,7 +40,7 @@ static int OutputShapeComputation(
       1);
 }
 
-sizes_vec MaxPool2DOutputShape(const at::Stack& stack) {
+OutputMetaDataVector MaxPool2DMeta(const at::Stack& stack) {
   std::vector<long int> pad = {0, 0};
   std::vector<long int> dil = {1, 1};
   auto self = stack.at(0).toTensor();
@@ -98,25 +99,39 @@ sizes_vec MaxPool2DOutputShape(const at::Stack& stack) {
         --output_shape.rbegin()[i];
     }
   }
-  return {output_shape, output_shape};
+
+  OutputMetaDataVector meta;
+  meta.resize(2);
+
+  meta[0].shape = output_shape;
+  meta[0].dtype = self.scalar_type();
+
+  meta[1].shape = output_shape;
+  meta[1].dtype = at::kLong;
+
+  return meta;
 }
 
-sizes_vec MaxPoolOutputShapeBwd(const at::Stack& stack) {
+OutputMetaDataVector MaxPoolMetaBwd(const at::Stack& stack) {
   auto self = stack.at(1).toTensor();
-  std::vector<int64_t> input_shape = self.sizes().vec();
   at::Stack stack_fwd(stack.begin() + 1, stack.end());
   auto grad = stack.at(0).toTensor();
   auto kernel = stack.at(2).toIntVector();
   std::vector<int64_t> indices;
   if (kernel.size() == 2) {
-    indices = MaxPool2DOutputShape(stack_fwd)[0];
+    indices = MaxPool2DMeta(stack_fwd)[0].shape;
   }
   if (kernel.size() == 3) {
     indices = Maxpool3dWithIndicesMeta(stack_fwd)[0].shape;
   }
   HABANA_ASSERT(
       (grad.sizes() == indices), "Grad and Indices sizes don't match");
-  return {input_shape};
+
+  OutputMetaData meta;
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+
+  return {meta};
 }
 
 sizes_vec MaxPool3DIndicesOutputShape(const at::Stack& stack) {
@@ -333,13 +348,13 @@ std::shared_ptr<void> FillSpatialReduction2DParamsBwd(
       kernel, stride, padding, dilation, ceil_mode, size);
 }
 
-static c10::ScalarType FindRetainTensorType(c10::ScalarType inputTensorType) {
+static at::ScalarType FindRetainTensorType(at::ScalarType inputTensorType) {
   switch (inputTensorType) {
-    case c10::ScalarType::BFloat16:
-    case c10::ScalarType::Half:
-      return c10::ScalarType::Short;
+    case at::ScalarType::BFloat16:
+    case at::ScalarType::Half:
+      return at::ScalarType::Short;
     default:
-      return c10::ScalarType::Byte;
+      return at::ScalarType::Byte;
   }
 }
 
@@ -348,52 +363,83 @@ static c10::ScalarType FindRetainTensorType(c10::ScalarType inputTensorType) {
 void MaxPool3DWithIndicesOut::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const auto& output_meta = Maxpool3dWithIndicesMeta(stack);
+  const auto meta = Maxpool3dWithIndicesMeta(stack)[0];
   size_t size = 0;
-  auto index_type = FindRetainTensorType(ScalarType());
+  auto index_type = FindRetainTensorType(meta.dtype);
   const auto& params = FillSpatialReduction3DParamsFwd(stack, size);
-  const auto& output_meta_shape = output_meta[0].shape;
+
+  auto intermediateOutShape = meta.shape;
+  auto self = stack_tensor(stack, 0);
+  auto reshapeRequired = (self.dim() == 4);
+  std::vector<synTensor> inputs = {syn_in(0)};
+  std::vector<synapse_helpers::tensor> expandResult;
+  c10::optional<int> finalIndex =
+      reshapeRequired ? c10::nullopt : c10::make_optional<int>(0);
+
+  if (reshapeRequired) {
+    const auto& vec = self.sizes().vec();
+    std::vector<int64_t> inputExpandedShape{};
+    inputExpandedShape.reserve(1 + vec.size());
+    inputExpandedShape.push_back(1);
+    inputExpandedShape.insert(
+        std::end(inputExpandedShape), vec.begin(), vec.end());
+    intermediateOutShape.insert(std::begin(intermediateOutShape), 1);
+    synAxisParams expandParams{4};
+    auto expandedInput = BuildOp(
+        graph,
+        "expand_dims",
+        std::move(inputs),
+        {{inputExpandedShape, meta.dtype}},
+        &expandParams,
+        sizeof(expandParams));
+    expandResult.push_back(std::move(expandedInput[0]));
+    inputs = {expandResult[0].get()};
+  }
 
   auto maxpool3d = BuildOp(
       graph,
-      get_guid_with_precision("maxpool_3d_fwd", ScalarType()),
-      {syn_in(0)},
-      {{output_meta_shape, index_type}, {output_meta_shape, ScalarType(), 0}},
+      get_guid_with_precision("maxpool_3d_fwd", meta.dtype),
+      std::move(inputs),
+      {{intermediateOutShape, index_type},
+       {intermediateOutShape, meta.dtype, finalIndex}},
       params.get(),
       size);
 
-  syn_out(0) = std::move(maxpool3d.at(1));
+  auto& maxpool3d_0 = maxpool3d.at(0);
+  auto& maxpool3d_1 = maxpool3d.at(1);
+  if (reshapeRequired) {
+    maxpool3d_0 =
+        ReshapeHelper(graph, maxpool3d.at(0).get(), meta.shape, index_type);
+    maxpool3d_1 =
+        ReshapeHelper(graph, maxpool3d.at(1).get(), meta.shape, meta.dtype, 0);
+  }
+  syn_out(0) = std::move(maxpool3d_1);
   syn_out(1) = CastHelper(
-      graph,
-      maxpool3d.at(0).get(),
-      output_meta_shape,
-      index_type,
-      at::kLong,
-      1);
+      graph, maxpool3d_0.get(), meta.shape, index_type, at::kLong, 1);
 }
 
 void MaxPool3DWithIndicesBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const auto& out_shape = ComputeOutputShapes(stack);
+  const auto meta = MaxPoolMetaBwd(stack)[0];
   size_t size = 0;
-  const auto params = FillParams(stack, size);
+  const auto params = FillSpatialReduction3DParamsBwd(stack, size);
 
   auto cast_input = CastHelper(
       graph,
       syn_in(2),
       stack.back().toTensor().sizes(),
       at::kLong,
-      FindRetainTensorType(ScalarType()));
+      FindRetainTensorType(meta.dtype));
 
   std::vector<synTensor> grad = {syn_in(0), cast_input.get()};
-  CreateShapeTensorInput(graph, ScalarType(), out_shape[0], grad);
+  CreateShapeTensorInput(graph, meta.dtype, meta.shape, grad);
 
   auto grad_output = BuildOp(
       graph,
-      get_guid_with_precision("maxpool_3d_bwd", ScalarType()),
+      get_guid_with_precision("maxpool_3d_bwd", meta.dtype),
       std::move(grad),
-      {{out_shape[0], ScalarType(), 0}},
+      {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);
 
@@ -405,28 +451,78 @@ void MaxPool3DWithIndicesBwd::AddNode(
 void MaxPool2DWithIndices::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto out_shape = ComputeOutputShapes(stack)[0];
+  auto meta = MaxPool2DMeta(stack)[0];
   size_t size = 0;
-  const auto& params = FillParams(stack, size);
+  const auto& params = FillSpatialReduction2DParamsFwd(stack, size);
+  auto intermediateOutShape = meta.shape;
+  auto self = stack_tensor(stack, 0);
+  auto reshapeRequired = (self.dim() == 3);
+  std::vector<synTensor> inputs = {syn_in(0)};
+  std::vector<synapse_helpers::tensor> expandResult;
+  c10::optional<int> finalIndex =
+      reshapeRequired ? c10::nullopt : c10::make_optional<int>(0);
 
-  auto retain_tensor_type = FindRetainTensorType(ScalarType());
+  if (reshapeRequired) {
+    const auto& vec = self.sizes().vec();
+    std::vector<int64_t> inputExpandedShape{};
+    inputExpandedShape.reserve(1 + vec.size());
+    inputExpandedShape.push_back(1);
+    inputExpandedShape.insert(
+        std::end(inputExpandedShape), vec.begin(), vec.end());
+    intermediateOutShape.insert(std::begin(intermediateOutShape), 1);
+    synAxisParams expandParams{3};
+    auto expandedInput = BuildOp(
+        graph,
+        "expand_dims",
+        std::move(inputs),
+        {{inputExpandedShape, meta.dtype}},
+        &expandParams,
+        sizeof(expandParams));
+    expandResult.push_back(std::move(expandedInput[0]));
+    inputs = {expandResult[0].get()};
+  }
+
+  auto retain_tensor_type = FindRetainTensorType(meta.dtype);
 
   auto maxpool2d = BuildOp(
       graph,
-      get_guid_with_precision("maxpool_2d_fwd", ScalarType()),
-      {syn_in(0)},
-      {{out_shape, retain_tensor_type}, {out_shape, ScalarType(), 0}},
+      get_guid_with_precision("maxpool_2d_fwd", meta.dtype),
+      std::move(inputs),
+      {{intermediateOutShape, retain_tensor_type},
+       {intermediateOutShape, meta.dtype, finalIndex}},
       params.get(),
       size);
 
-  syn_out(0) = std::move(maxpool2d[1]);
+  auto& maxpool2d_0 = maxpool2d.at(0);
+  auto& maxpool2d_1 = maxpool2d.at(1);
+  if (reshapeRequired) {
+    maxpool2d_0 = ReshapeHelper(
+        graph, maxpool2d[0].get(), meta.shape, retain_tensor_type);
+    maxpool2d_1 =
+        ReshapeHelper(graph, maxpool2d[1].get(), meta.shape, meta.dtype, 0);
+  }
+  syn_out(0) = std::move(maxpool2d_1);
   syn_out(1) = CastHelper(
-      graph,
-      maxpool2d.at(0).get(),
-      out_shape,
-      retain_tensor_type,
-      at::kLong,
-      1);
+      graph, maxpool2d_0.get(), meta.shape, retain_tensor_type, at::kLong, 1);
 }
 
+// Since the out varriant intices tensor has some issue
+// (https://jira.habana-labs.com/browse/SW-74263)
+void MaxPool2DWithIndicesBwd::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const auto meta = MaxPoolMetaBwd(stack).at(0);
+  size_t size = 0;
+  const auto& params = FillParams(stack, size);
+
+  auto maxpool2d_gradout = BuildOp(
+      graph,
+      GetGuid(),
+      {syn_in(0), syn_in(1), syn_in(2)},
+      {{meta.shape, meta.dtype, 0}},
+      params.get(),
+      size);
+
+  syn_out(0) = std::move(maxpool2d_gradout.at(0));
+}
 } // namespace habana

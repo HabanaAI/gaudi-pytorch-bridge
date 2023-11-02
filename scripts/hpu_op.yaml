@@ -4235,7 +4235,7 @@ maximum.out:
 
 max_pool2d_with_indices:
   custom_fill_params: FillSpatialReduction2DParamsFwd
-  custom_output_shape: MaxPool2DOutputShape
+  output_meta: MaxPool2DMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -4249,7 +4249,7 @@ max_pool2d_with_indices:
 
 max_pool2d_with_indices.out:
   custom_fill_params: FillSpatialReduction2DParamsFwd
-  custom_output_shape: MaxPool2DOutputShape
+  output_meta: MaxPool2DMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -4261,7 +4261,7 @@ max_pool2d_with_indices.out:
 
 max_pool2d_with_indices_backward:
   custom_fill_params: FillSpatialReduction2DParamsBwd
-  custom_output_shape: MaxPoolOutputShapeBwd
+  output_meta: MaxPoolMetaBwd
   dtypes:
     Gaudi:
       self: [BFloat16, Float]
@@ -4275,6 +4275,7 @@ max_pool2d_with_indices_backward:
       self: [BFloat16, Float, Half]
       grad_output: [BFloat16, Float, Half]
       indices: [Int]
+  op_backend: MaxPool2DWithIndicesBwd
   guid: pt_maxpool_2d_bwd
   synapse_layouts:
   - [WHCN, WHCN, WHCN]
@@ -4283,7 +4284,7 @@ max_pool2d_with_indices_backward:
 
 max_pool2d_with_indices_backward.grad_input:
   custom_fill_params: FillSpatialReduction2DParamsBwd
-  custom_output_shape: MaxPoolOutputShapeBwd
+  output_meta: MaxPoolMetaBwd
   dtypes:
     Gaudi:
       self: [BFloat16, Float]
@@ -4297,6 +4298,7 @@ max_pool2d_with_indices_backward.grad_input:
       self: [BFloat16, Float, Half]
       grad_output: [BFloat16, Float, Half]
       indices: [Int, Long]
+  op_backend: MaxPool2DWithIndicesBwd
   guid: pt_maxpool_2d_bwd
   synapse_layouts:
   - [WHCN, WHCN, WHCN]
@@ -4329,7 +4331,7 @@ max_pool3d_with_indices:
 
 max_pool3d_with_indices_backward:
   custom_fill_params: FillSpatialReduction3DParamsBwd
-  custom_output_shape: MaxPoolOutputShapeBwd
+  output_meta: MaxPoolMetaBwd
   dtypes:
     self: [BFloat16, Float]
     grad_output: [BFloat16, Float]
