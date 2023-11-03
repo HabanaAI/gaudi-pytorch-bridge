@@ -543,7 +543,7 @@ std::string VecToString(const std::vector<Integer>& vec) {
           "] ",                           \
           __VA_ARGS__);                   \
     }                                     \
-  } while (0)
+  } while (0) // NOLINT(cppcoreguidelines-avoid-do-while)
 
 // Intentionally outside named namespace to make log statements shorter
 

@@ -297,7 +297,7 @@ at::Tensor& _index_put_impl_eager(
     const c10::List<c10::optional<at::Tensor>>& indices_in,
     const at::Tensor& value,
     bool accumulate,
-    bool unsafe) {
+    [[maybe_unused]] bool unsafe) {
   c10::List<c10::optional<at::Tensor>> indices;
   bool advanced_indexing = check_for_advanced_indexing(indices_in);
   if (advanced_indexing) {

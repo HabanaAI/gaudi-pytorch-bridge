@@ -796,7 +796,7 @@ class HabanaLaunchOpPT {
   void ProcessInputStack(torch::jit::Stack& input_st);
   void RestoreInputTensorMetadata();
   void UpdateOutputs();
-  void UpdateOutputs(RecipeValueSpec& rv);
+  void UpdateRecipeOutputs();
   void validateOutputShapeNonDynamic(
       const HabanaOperatorPtr& HabanaKernel,
       const InferOutputMetaRetType& output_shape_handle,

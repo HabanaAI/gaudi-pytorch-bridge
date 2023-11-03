@@ -17,6 +17,89 @@
 
 using namespace synapse_helpers::layouts;
 
+namespace {
+synapse_helpers::tensor ComputeBiasGrad(
+    habana::OpBackend* op,
+    synapse_helpers::graph& graph,
+    bool is_conv_3d,
+    at::Tensor& grad_output,
+    std::vector<synTensor> syn_grad_output,
+    synapse_helpers::tensor& ten_output) {
+  auto channel_dim = is_conv_3d ? INPUT_3D_C_IDX : INPUT_C_IDX;
+
+  std::vector<int64_t> dim_to_reduce;
+  for (int64_t i = 0; i < grad_output.ndimension(); ++i) {
+    if (i != channel_dim) // skip C dimension
+      dim_to_reduce.push_back(i);
+  }
+
+  auto num_dims_to_reduce = dim_to_reduce.size();
+  // wrap dims to positive values, sort dim list and remove any duplicates
+  habana::LoweringUtil::SortAndRemoveDuplicateDims(
+      dim_to_reduce, grad_output.dim());
+
+  // Check whether all dims in list are the higher "continuous" dimensions
+  // if yes, "flatten" higher dims to a single unrolled-size dim.
+  // Note-1 that this is an optimization to avoid any precision loss we may
+  // get due to separate back 2 back reductions along single dimensions.
+  // Note-2 cases such as [0,1,3] where there is in additional dim to reduce
+  // in addition to continuous dims is not supported with flattening and falls
+  // back to regular flow
+  std::vector<int64_t> next_val{0, 1, 2, 3, 4};
+  bool flatten_higher_dims = false;
+  for (auto i = 0u; i < num_dims_to_reduce && num_dims_to_reduce > 1; ++i) {
+    if (dim_to_reduce[i] == next_val[i]) {
+      flatten_higher_dims = true;
+    } else {
+      flatten_higher_dims = false;
+      break;
+    }
+  }
+
+  if (flatten_higher_dims) {
+    // TODO: remove or replace if we want to support flatten higher dims
+    return std::move(ten_output);
+  } else {
+    at::ScalarType scalar_type = grad_output.scalar_type();
+    std::string guid =
+        habana::get_guid_with_precision("reduce_sum_fwd", scalar_type);
+
+    std::vector<synapse_helpers::tensor> syn_tmp;
+    std::vector<int64_t> pyt_shape = grad_output.sizes().vec();
+    for (size_t i = 0, j = 0; i < dim_to_reduce.size(); ++i, ++j) {
+      ns_Reduction::Params params{};
+      params.reductionDimension = grad_output.dim() - dim_to_reduce[j] - 1;
+
+      pyt_shape[dim_to_reduce[i]] = 1;
+      c10::IntArrayRef shape_red(pyt_shape.data(), pyt_shape.size());
+
+      std::vector<synTensor> syn_tmp_in = (i == 0)
+          ? std::move(syn_grad_output)
+          : std::vector<synTensor>{syn_tmp[0].get()};
+      syn_tmp = habana::OpBackend::BuildNode(
+          op,
+          graph,
+          {guid,
+           std::move(syn_tmp_in),
+           {{shape_red, scalar_type}},
+           &params,
+           sizeof(params)});
+    }
+
+    // Add a final reshape to remove the "1" sized upper
+    int64_t data[1] = {syn_tmp[0].pt_shape()[1]};
+    c10::IntArrayRef shape_out(data, 1);
+
+    std::vector<synTensor> syn_tmp_in = {syn_tmp[0].get()};
+    op->CreateShapeTensorInput(graph, scalar_type, {data[0]}, syn_tmp_in);
+
+    synapse_helpers::tensor reshapeOp = op->BuildReshape(
+        op, graph, syn_tmp[0].get(), shape_out, scalar_type, 2);
+    return reshapeOp;
+  }
+}
+} // namespace
+
 namespace habana {
 
 static std::shared_ptr<void> SynapseConvParamsBuilder(
@@ -146,86 +229,6 @@ OutputMetaDataVector ConvolutionOverrideableMetaBwd(const at::Stack& stack) {
   return {input_meta, weight_meta, grad_output_meta};
 }
 
-static synapse_helpers::tensor ComputeBiasGrad(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    bool is_conv_3d,
-    const OutputMetaData& out_metadata,
-    at::Tensor& grad_output,
-    std::vector<synTensor> syn_grad_output,
-    synapse_helpers::tensor& ten_output) {
-  auto channel_dim = is_conv_3d ? INPUT_3D_C_IDX : INPUT_C_IDX;
-
-  std::vector<int64_t> dim_to_reduce;
-  for (int64_t i = 0; i < grad_output.ndimension(); ++i) {
-    if (i != channel_dim) // skip C dimension
-      dim_to_reduce.push_back(i);
-  }
-
-  auto num_dims_to_reduce = dim_to_reduce.size();
-  // wrap dims to positive values, sort dim list and remove any duplicates
-  LoweringUtil::SortAndRemoveDuplicateDims(dim_to_reduce, grad_output.dim());
-
-  // Check whether all dims in list are the higher "continuous" dimensions
-  // if yes, "flatten" higher dims to a single unrolled-size dim.
-  // Note-1 that this is an optimization to avoid any precision loss we may
-  // get due to separate back 2 back reductions along single dimensions.
-  // Note-2 cases such as [0,1,3] where there is in additional dim to reduce
-  // in addition to continuous dims is not supported with flattening and falls
-  // back to regular flow
-  std::vector<int64_t> next_val{0, 1, 2, 3, 4};
-  bool flatten_higher_dims = false;
-  for (auto i = 0u; i < num_dims_to_reduce && num_dims_to_reduce > 1; ++i) {
-    if (dim_to_reduce[i] == next_val[i]) {
-      flatten_higher_dims = true;
-    } else {
-      flatten_higher_dims = false;
-      break;
-    }
-  }
-
-  if (flatten_higher_dims) {
-    // TODO: remove or replace if we want to support flatten higher dims
-    return std::move(ten_output);
-  } else {
-    at::ScalarType scalar_type = grad_output.scalar_type();
-    std::string guid = get_guid_with_precision("reduce_sum_fwd", scalar_type);
-
-    std::vector<synapse_helpers::tensor> syn_tmp;
-    std::vector<int64_t> pyt_shape = grad_output.sizes().vec();
-    for (size_t i = 0, j = 0; i < dim_to_reduce.size(); ++i, ++j) {
-      ns_Reduction::Params params{};
-      params.reductionDimension = grad_output.dim() - dim_to_reduce[j] - 1;
-
-      pyt_shape[dim_to_reduce[i]] = 1;
-      c10::IntArrayRef shape_red(pyt_shape.data(), pyt_shape.size());
-
-      std::vector<synTensor> syn_tmp_in = (i == 0)
-          ? std::move(syn_grad_output)
-          : std::vector<synTensor>{syn_tmp[0].get()};
-      syn_tmp = OpBackend::BuildNode(
-          op,
-          graph,
-          {guid,
-           std::move(syn_tmp_in),
-           {{shape_red, scalar_type}},
-           &params,
-           sizeof(params)});
-    }
-
-    // Add a final reshape to remove the "1" sized upper
-    int64_t data[1] = {syn_tmp[0].pt_shape()[1]};
-    c10::IntArrayRef shape_out(data, 1);
-
-    std::vector<synTensor> syn_tmp_in = {syn_tmp[0].get()};
-    op->CreateShapeTensorInput(graph, scalar_type, {data[0]}, syn_tmp_in);
-
-    synapse_helpers::tensor reshapeOp = op->BuildReshape(
-        op, graph, syn_tmp[0].get(), shape_out, scalar_type, 2);
-    return reshapeOp;
-  }
-}
-
 static int64_t ComputeOutputSize(
     const int64_t input_dim,
     const int64_t padding,
@@ -333,8 +336,7 @@ void ConvolutionBackwardOverrideable::AddNode(
           bool is_conv_3d,
           std::vector<synTensor>&& node_inputs,
           std::vector<NodeAttr::NodeOutputAttr>&& node_output_attr,
-          void* params,
-          size_t param_size) {
+          void* params) {
         if (guid.find("spatial_convolution") != std::string::npos ||
             guid.find("dedx") != std::string::npos) {
           if (is_conv_3d) {
@@ -411,8 +413,7 @@ void ConvolutionBackwardOverrideable::AddNode(
           is_conv_3d,
           {grad_output_reshaped, weight_reshaped},
           {{out0_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 0)}},
-          params.get(),
-          params_size);
+          params.get());
 
       IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
     } else {
@@ -427,8 +428,7 @@ void ConvolutionBackwardOverrideable::AddNode(
           is_conv_3d,
           {input_reshaped, grad_output_reshaped},
           {{out1_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 1)}},
-          params.get(),
-          params_size);
+          params.get());
 
       IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
     } else {
@@ -448,8 +448,7 @@ void ConvolutionBackwardOverrideable::AddNode(
           is_conv_3d,
           std::move(syn_inputs),
           {{out0_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 0)}},
-          params.get(),
-          params_size);
+          params.get());
 
       IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
     } else {
@@ -464,8 +463,7 @@ void ConvolutionBackwardOverrideable::AddNode(
           is_conv_3d,
           {grad_output_reshaped, input_reshaped},
           {{out1_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 1)}},
-          params.get(),
-          params_size);
+          params.get());
 
       IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
     } else {
@@ -477,13 +475,7 @@ void ConvolutionBackwardOverrideable::AddNode(
   if (output_mask_in[2]) {
     SetSynapseLayouts({}, {});
     auto biasRes = ComputeBiasGrad(
-        this,
-        graph,
-        is_conv_3d,
-        GetOutputMetaData(0),
-        grad_output,
-        {syn_in(0)},
-        syn_out(2));
+        this, graph, is_conv_3d, grad_output, {syn_in(0)}, syn_out(2));
     syn_out(2) = std::move(biasRes);
   } else {
     AddUndefindedOutputTensor();

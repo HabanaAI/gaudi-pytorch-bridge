@@ -250,8 +250,6 @@ synapse_helpers::tensor NormalFloatFloatHelper(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Stack& stack,
-    synTensor syn_in0,
-    synTensor syn_in1,
     synTensor syn_seed) {
   const auto meta = NormalMeta(stack)[0];
   std::vector<synTensor> inputs;
@@ -311,8 +309,7 @@ void NormalBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         syn_seed_t,
         normal_variant);
   } else {
-    syn_out(0) = NormalFloatFloatHelper(
-        this, graph, stack, nullptr, nullptr, syn_seed_t);
+    syn_out(0) = NormalFloatFloatHelper(this, graph, stack, syn_seed_t);
   }
   return;
 }

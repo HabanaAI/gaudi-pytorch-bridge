@@ -13,15 +13,10 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "generated/backend/arange.h"
 #include "generated/backend/gather.h"
 #include "generated/backend/index.h"
-#include "generated/backend/index_select.h"
-#include "habana_kernels/index_kernels.h"
-#include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "hpu_ops/backend/arange.h"
-#include "hpu_ops/common/arange_gen.h"
 #include "hpu_ops/common/index.h"
 #include "hpu_ops/indexing_ops_helper.h"
 
@@ -192,10 +187,7 @@ sizes_vec IndexOutputShape(const at::Stack& stack) {
           PermuteOperator::compute_output_shape(input, self_permute_dims);
       sizes_vec shape = std::vector<std::vector<int64_t>>{
           {habana::ComputeOutputShapeWithAdvIndexing(
-              permuted_input_sizes,
-              indices,
-              adv_ind_dim,
-              indexing_tensor_shapes)}};
+              permuted_input_sizes, adv_ind_dim, indexing_tensor_shapes)}};
       return shape;
     } else {
       const at::Tensor input = stack_tensor(stack, 0);
@@ -711,10 +703,7 @@ void IndexHabanaOperator::AddNode(
         {{shape, ScalarType()}});
     auto index_out_shape = indexOp[0].pt_shape();
     auto final_shape = habana::ComputeOutputShapeWithAdvIndexing(
-        permuted_self_shape,
-        tensorlist,
-        index_all_elems,
-        indexing_tensor_shapes);
+        permuted_self_shape, index_all_elems, indexing_tensor_shapes);
     auto index_out =
         ReshapeHelper(graph, indexOp[0].get(), final_shape, ScalarType(), 0);
     syn_out(0) = std::move(index_out);

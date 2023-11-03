@@ -3158,7 +3158,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       }
 
       // Update the stack from the recipe itself
-      UpdateOutputs(rv);
+      UpdateRecipeOutputs();
       ReturnCachedRecipe(rv);
 
       RefinementEngine::GetEngine().AddGraphKey(rargpsh_graph->graphHashCode());
@@ -3459,7 +3459,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
 
   if (!get_enable_2stage_pipeline()) {
     // Update the stack from the recipe itself
-    UpdateOutputs(rv);
+    UpdateRecipeOutputs();
   }
   PT_BRIDGE_DEBUG("Returning cached recipe : ", cur_rargpsh->hashCode());
   ReturnCachedRecipe(rv);

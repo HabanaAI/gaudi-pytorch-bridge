@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -551,7 +551,6 @@ static synTensor CreateLayerNormBiasWeightTensor(
     OpBackend* op,
     sh::graph& graph,
     std::vector<sh::tensor>& storage,
-    const OpBackend::TensorsPair& input,
     const c10::optional<OpBackend::TensorsPair>& weightOrBiasOpt,
     int64_t constant_numel,
     float constant_value,
@@ -628,7 +627,6 @@ void LayerNormHabanaOperator::AddNode(
       this,
       graph,
       storage,
-      input,
       weightOpt,
       weightOrBias_constant_numel,
       1.0f,
@@ -639,7 +637,6 @@ void LayerNormHabanaOperator::AddNode(
       this,
       graph,
       storage,
-      input,
       biasOpt,
       weightOrBias_constant_numel,
       0.0f,
@@ -792,7 +789,6 @@ void LayerNormBwdHabanaOperator::AddNode(
       this,
       graph,
       storage,
-      input,
       weightOpt,
       c10::multiply_integers(
           normalized_shape.cbegin(), normalized_shape.cend()),

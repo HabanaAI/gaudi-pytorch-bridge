@@ -509,7 +509,9 @@ std::tuple<at::Tensor, at::Tensor> fp8_fast_softmax(
   return hpu_op.call();
 }
 
-at::Tensor fp8_reshape(const at::Tensor& input, at::IntArrayRef shape) {
+at::Tensor fp8_reshape(
+    [[maybe_unused]] const at::Tensor& input,
+    [[maybe_unused]] at::IntArrayRef shape) {
   TORCH_CHECK(false, "hpu::fp8_reshape is not available in Eager mode.");
 }
 
@@ -518,9 +520,9 @@ at::Tensor& fp8_transpose(const at::Tensor&, at::Tensor&) {
 }
 
 at::Tensor& fp8_permute(
-    const at::Tensor& input,
-    at::IntArrayRef dims,
-    at::Tensor& out) {
+    [[maybe_unused]] const at::Tensor& input,
+    [[maybe_unused]] at::IntArrayRef dims,
+    [[maybe_unused]] at::Tensor& out) {
   TORCH_CHECK(false, "hpu::fp8_permute is not available in Eager mode.");
 }
 
@@ -856,15 +858,17 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> scaled_triangular_softmax_retain(
   return hpu_op.call();
 }
 
-at::Tensor& fp8_copy_(at::Tensor& self, const at::Tensor& src) {
+at::Tensor& fp8_copy_(
+    [[maybe_unused]] at::Tensor& self,
+    [[maybe_unused]] const at::Tensor& src) {
   TORCH_CHECK(false, "hpu::fp8_copy_ is not available in Eager mode.");
 }
 
 at::Tensor& fp8_kv_reorder(
-    at::Tensor& self,
-    const at::Tensor& start,
-    const at::Tensor& end,
-    const at::Tensor& beam_idx) {
+    [[maybe_unused]] at::Tensor& self,
+    [[maybe_unused]] const at::Tensor& start,
+    [[maybe_unused]] const at::Tensor& end,
+    [[maybe_unused]] const at::Tensor& beam_idx) {
   TORCH_CHECK(false, "hpu::fp8_kv_reorder is not available in Eager mode.");
 }
 
@@ -895,21 +899,23 @@ at::Tensor kv_reorder(
 }
 
 at::Tensor& fp8_index_copy_(
-    at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index,
-    const at::Tensor& source) {
+    [[maybe_unused]] at::Tensor& self,
+    [[maybe_unused]] int64_t dim,
+    [[maybe_unused]] const at::Tensor& index,
+    [[maybe_unused]] const at::Tensor& source) {
   TORCH_CHECK(false, "hpu::fp8_index_copy_ is not available in Eager mode.");
 }
 
-at::Tensor fp8_repeat_v2(const at::Tensor& self, c10::SymIntArrayRef repeats) {
+at::Tensor fp8_repeat_v2(
+    [[maybe_unused]] const at::Tensor& self,
+    [[maybe_unused]] c10::SymIntArrayRef repeats) {
   TORCH_CHECK(false, "hpu::fp8_repeat_v2 is not available in Eager mode.");
 }
 
 at::Tensor fp8_index_select_v2(
-    const at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index) {
+    [[maybe_unused]] const at::Tensor& self,
+    [[maybe_unused]] [[maybe_unused]] int64_t dim,
+    [[maybe_unused]] const at::Tensor& index) {
   TORCH_CHECK(
       false, "hpu::fp8_index_select_v2 is not available in Eager mode.");
 }

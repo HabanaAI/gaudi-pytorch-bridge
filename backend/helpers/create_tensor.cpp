@@ -14,18 +14,44 @@
 #include "backend/helpers/create_tensor.h"
 #include <string>
 #include "backend/backend_meta.h"
-#include "backend/helpers/tensor_info.h"
-#include "backend/kernel/hpu_shape_inference.h"
-
-#include "backend/create_pt_tensor.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/runtime_config.h"
-#include "backend/lazy_to_backend.h"
+#include "backend/helpers/tensor_info.h"
+#include "backend/kernel/hpu_shape_inference.h"
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "common/utils.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
+
+namespace {
+void handle_const_section_tensor(const at::Tensor& tensor) {
+  if (habana_helpers::IsConstSectionSerialization()) {
+    auto tmeta{habana::get_tensor_extra_meta(tensor)};
+    if (tmeta->is_const_tensor()) {
+      if (!tmeta->get_const_section_data_serializer()->isSerialized(
+              tmeta->get_const_id())) {
+        tmeta->get_const_section_data_serializer()->serialize(
+            tmeta->get_host_ptr(),
+            tmeta->get_host_size(),
+            tmeta->get_const_id());
+      } else {
+        PT_CONST_SECTION_DEBUG(
+            __func__,
+            " const: ",
+            tmeta->get_const_id(),
+            "already serialized...");
+      }
+      auto& device = habana::HPURegistrar::get_device();
+      device.get_host_memory().free(tmeta->get_host_ptr());
+      tmeta->set_host_ptr(nullptr);
+      tmeta->set_data_in_host_memory(false);
+      // Call TcMalloc extension to release memory
+      synapse_helpers::ReleaseFreeMemory();
+    }
+  }
+}
+} // namespace
 
 namespace habana_helpers {
 
@@ -335,37 +361,8 @@ synapse_helpers::tensor create_tensor(
   syn_tensor.set_pt_info(
       tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
   PT_DYNAMIC_SHAPE_DEBUG("create_tensor ", syn_tensor);
-  handle_const_section_tensor(tensor, syn_tensor);
+  handle_const_section_tensor(tensor);
   return syn_tensor;
-}
-
-void handle_const_section_tensor(
-    const at::Tensor& tensor,
-    const synapse_helpers::tensor& syn_tensor) {
-  if (habana_helpers::IsConstSectionSerialization()) {
-    auto tmeta{habana::get_tensor_extra_meta(tensor)};
-    if (tmeta->is_const_tensor()) {
-      if (!tmeta->get_const_section_data_serializer()->isSerialized(
-              tmeta->get_const_id())) {
-        tmeta->get_const_section_data_serializer()->serialize(
-            tmeta->get_host_ptr(),
-            tmeta->get_host_size(),
-            tmeta->get_const_id());
-      } else {
-        PT_CONST_SECTION_DEBUG(
-            __func__,
-            " const: ",
-            tmeta->get_const_id(),
-            "already serialized...");
-      }
-      auto& device = habana::HPURegistrar::get_device();
-      device.get_host_memory().free(tmeta->get_host_ptr());
-      tmeta->set_host_ptr(nullptr);
-      tmeta->set_data_in_host_memory(false);
-      // Call TcMalloc extension to release memory
-      synapse_helpers::ReleaseFreeMemory();
-    }
-  }
 }
 
 synapse_helpers::tensor create_tensor(

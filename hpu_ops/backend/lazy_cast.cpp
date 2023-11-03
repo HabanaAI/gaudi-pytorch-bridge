@@ -33,19 +33,15 @@ void LazyCast::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto src_type = self.scalar_type();
   auto dst_type = stack.at(1).toScalarType();
   auto sizes = self.sizes();
-  bool stochastic_rounding_override = false;
-  int sr_seed{0};
 
   if (stack.size() > 2) {
     TORCH_CHECK(
         stack[2].isBool(), "Input arg2 expected to be Bool for cast operator");
-    stochastic_rounding_override = stack[2].toBool();
   }
 
   if (stack.size() > 3) {
     TORCH_CHECK(
         stack[3].isInt(), "Input arg3 expected to be Int for cast operator");
-    sr_seed = stack[3].toInt();
   }
 
   auto src_type_cast_type = habana_helpers::DataTypeToCastType(src_type);
@@ -56,15 +52,7 @@ void LazyCast::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         BuildOp(graph, "identity", {syn_in(0)}, {{sizes, ScalarType(), 0}});
     syn_out(0) = std::move(out.at(0));
   } else {
-    auto out = CastHelper(
-        graph,
-        syn_in(0),
-        sizes,
-        src_type,
-        dst_type,
-        0,
-        stochastic_rounding_override,
-        sr_seed);
+    auto out = CastHelper(graph, syn_in(0), sizes, src_type, dst_type, 0);
     syn_out(0) = std::move(out);
   }
 }

@@ -21,7 +21,7 @@ namespace py = pybind11;
 bool check_cpu_fallback_op(
     std::string op,
     py::object args,
-    py::list arg_types,
+    [[maybe_unused]] py::list arg_types,
     py::dict kwargs) {
   if (hpu_shared_layer_unsupported_ops.find(op) !=
       hpu_shared_layer_unsupported_ops.end()) {

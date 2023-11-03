@@ -48,7 +48,9 @@ InferOutputMetaRetType ExpandOp::OutputShapeInf(
   return out;
 }
 
-void ExpandOp::AddNode(synapse_helpers::graph& graph, const at::Stack& inputs) {
+void ExpandOp::AddNode(
+    synapse_helpers::graph& graph,
+    [[maybe_unused]] const at::Stack& inputs) {
   const auto& metadata = GetOutputMetaData(0);
   auto final_result_index =
       metadata.persistent ? c10::make_optional<int>(0) : c10::nullopt;

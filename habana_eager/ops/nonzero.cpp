@@ -85,7 +85,9 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
   return result;
 }
 
-at::Tensor& nonzero_out_eager(const at::Tensor& self, at::Tensor& out) {
+at::Tensor& nonzero_out_eager(
+    [[maybe_unused]] const at::Tensor& self,
+    at::Tensor& out) {
   // TBD
   return out;
 }

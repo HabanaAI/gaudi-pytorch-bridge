@@ -1,14 +1,40 @@
-/******************************************************************************
- * Copyright (C) 2023 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "generated/backend/baddbmm.h"
+
+namespace {
+std::vector<synapse_helpers::tensor> ComputeGEMM(
+    habana::OpBackend* op,
+    synapse_helpers::graph& graph,
+    std::vector<synTensor> input_tensor,
+    const at::IntArrayRef gemm_output_shape,
+    c10::optional<int> final_idx = c10::nullopt) {
+  habana::NodeAttr::NodeOutputAttr gemm_node_output_attr = {
+      gemm_output_shape, op->ScalarType()};
+  gemm_node_output_attr.final_result_index = final_idx;
+  synGEMMParams matmul_params{};
+  std::vector<synapse_helpers::tensor> gemm_out = habana::OpBackend::BuildNode(
+      op,
+      graph,
+      {op->GetGuid(),
+       std::move(input_tensor),
+       {gemm_node_output_attr},
+       &matmul_params,
+       sizeof(matmul_params)});
+  return gemm_out;
+}
+} // namespace
 
 namespace habana {
 
@@ -39,28 +65,6 @@ sizes_vec BaddbmmOutputShape(const at::Stack& stack) {
       "].");
 
   return {output_size};
-}
-
-static std::vector<synapse_helpers::tensor> ComputeGEMM(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    std::vector<synTensor> input_tensor,
-    const at::IntArrayRef output_shape,
-    const at::IntArrayRef gemm_output_shape,
-    c10::optional<int> final_idx = c10::nullopt) {
-  NodeAttr::NodeOutputAttr gemm_node_output_attr = {
-      gemm_output_shape, op->ScalarType()};
-  gemm_node_output_attr.final_result_index = final_idx;
-  synGEMMParams matmul_params{};
-  std::vector<synapse_helpers::tensor> gemm_out = OpBackend::BuildNode(
-      op,
-      graph,
-      {op->GetGuid(),
-       std::move(input_tensor),
-       {gemm_node_output_attr},
-       &matmul_params,
-       sizeof(matmul_params)});
-  return gemm_out;
 }
 
 static std::vector<synapse_helpers::tensor> ComputeBetaSide(
@@ -98,12 +102,7 @@ static std::vector<synapse_helpers::tensor> ComputeAlphaSide(
   }
 
   std::vector<synapse_helpers::tensor> gemm_out = ComputeGEMM(
-      op,
-      graph,
-      input_tensor,
-      output_shape,
-      gemm_output_shape,
-      is_gemm_final_node);
+      op, graph, input_tensor, gemm_output_shape, is_gemm_final_node);
 
   if (alpha_val == 1.0) {
     return gemm_out;

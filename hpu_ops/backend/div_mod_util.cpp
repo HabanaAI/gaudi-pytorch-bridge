@@ -1,15 +1,17 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "hpu_ops/div_mod_util.h"
-#include "generated/backend/div.h"
 
 namespace habana {
 
@@ -30,7 +32,6 @@ std::vector<synapse_helpers::tensor> GetDivModOutput(
     synTensor syn_denominator,
     bool pyCompatible,
     const std::vector<long int> shape_out,
-    const at::ScalarType result_type,
     DIV_MODE_OUTPUT_TYPE t) {
   static_cast<void>(t);
   auto inputs = {syn_numerator, syn_denominator};

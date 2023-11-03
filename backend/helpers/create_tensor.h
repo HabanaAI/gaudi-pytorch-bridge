@@ -152,8 +152,4 @@ void update_tensor_layout_and_permutation(
     const PtTensorInfo& ti);
 at::Tensor create_empty_tensor(const PtTensorInfo& ti);
 
-void handle_const_section_tensor(
-    const at::Tensor& tensor,
-    const synapse_helpers::tensor& syn_tensor);
-
 } // namespace habana_helpers

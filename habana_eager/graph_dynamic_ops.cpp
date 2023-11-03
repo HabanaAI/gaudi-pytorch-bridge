@@ -209,7 +209,7 @@ int64_t CreateH2DAndInsertToDSStack(
 void DynamicOp::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_list,
-    c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     std::vector<c10::IValue>& orig_stack) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_list.size(),
@@ -272,7 +272,7 @@ bool RepeatOperatorDS::ReplaceWithDynamicHPUOp(
 void RepeatOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
-    c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     std::vector<c10::IValue>& orig_stack) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_idx_list.size(),

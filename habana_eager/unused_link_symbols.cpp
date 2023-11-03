@@ -303,222 +303,222 @@ at::Tensor& recv_hpu_lazy_(
 } // namespace habana_lazy
 
 void optimizer_adagrad_hpu_wrap(
-    const TensorList& gradients,
-    TensorList& weights,
-    TensorList& variances,
-    const at::Tensor& epoch_num,
-    at::Tensor& lr,
-    const float wd,
-    const float lrd,
-    const float epsilon) {
+    [[maybe_unused]] const TensorList& gradients,
+    [[maybe_unused]] TensorList& weights,
+    [[maybe_unused]] TensorList& variances,
+    [[maybe_unused]] const at::Tensor& epoch_num,
+    [[maybe_unused]] at::Tensor& lr,
+    [[maybe_unused]] const float wd,
+    [[maybe_unused]] const float lrd,
+    [[maybe_unused]] const float epsilon) {
   EAGER_NOT_SUPPORTED;
 }
 
 void optimizer_lars_hpu_wrap(
-    const at::TensorList params,
-    at::TensorList grads,
-    const std::vector<int64_t> skipMasks,
-    const float eeta,
-    const float weight_decay,
-    const float eps,
-    const float lr) {
+    [[maybe_unused]] const at::TensorList params,
+    [[maybe_unused]] at::TensorList grads,
+    [[maybe_unused]] const std::vector<int64_t> skipMasks,
+    [[maybe_unused]] const float eeta,
+    [[maybe_unused]] const float weight_decay,
+    [[maybe_unused]] const float eps,
+    [[maybe_unused]] const float lr) {
   EAGER_NOT_SUPPORTED;
 }
 
 void optimizer_sgd_hpu_wrap(
-    const TensorList& gradients,
-    TensorList& weights,
-    at::Tensor& lr,
-    const float wd,
-    const float mom,
-    const float damp,
-    const bool nesterov) {
+    [[maybe_unused]] const TensorList& gradients,
+    [[maybe_unused]] TensorList& weights,
+    [[maybe_unused]] at::Tensor& lr,
+    [[maybe_unused]] const float wd,
+    [[maybe_unused]] const float mom,
+    [[maybe_unused]] const float damp,
+    [[maybe_unused]] const bool nesterov) {
   EAGER_NOT_SUPPORTED;
 }
 
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_wrap(
-    const Tensor& gradients,
-    Tensor& weights_in,
-    Tensor& moments_in,
-    const Tensor& indices,
-    const Tensor& learning_rate,
-    const Tensor& valid_count_tensor,
-    float mom,
-    bool nesterov) {
+    [[maybe_unused]] const Tensor& gradients,
+    [[maybe_unused]] Tensor& weights_in,
+    [[maybe_unused]] Tensor& moments_in,
+    [[maybe_unused]] const Tensor& indices,
+    [[maybe_unused]] const Tensor& learning_rate,
+    [[maybe_unused]] const Tensor& valid_count_tensor,
+    [[maybe_unused]] float mom,
+    [[maybe_unused]] bool nesterov) {
   EAGER_NOT_SUPPORTED;
 }
 
 std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& amax) {
+    [[maybe_unused]] const at::Tensor& input,
+    [[maybe_unused]] const c10::optional<at::Tensor>& scale,
+    [[maybe_unused]] bool stochastic_rounding,
+    [[maybe_unused]] at::Tensor& out,
+    [[maybe_unused]] at::Tensor& amax) {
   EAGER_NOT_SUPPORTED;
 }
 
 at::Tensor cast_from_fp8_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    at::ScalarType out_dtype) {
+    [[maybe_unused]] const at::Tensor& input,
+    [[maybe_unused]] const c10::optional<at::Tensor>& scale,
+    [[maybe_unused]] at::ScalarType out_dtype) {
   EAGER_NOT_SUPPORTED;
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    bool is_amax) {
+    [[maybe_unused]] const at::Tensor& input,
+    [[maybe_unused]] const c10::optional<at::Tensor>& scale,
+    [[maybe_unused]] bool stochastic_rounding,
+    [[maybe_unused]] bool is_amax) {
   EAGER_NOT_SUPPORTED;
 }
 
 void optimizer_ema_hpu_wrap(
-    const TensorList model_inputs,
-    TensorList updated_ema,
-    const at::Tensor& decay) {
+    [[maybe_unused]] const TensorList model_inputs,
+    [[maybe_unused]] TensorList updated_ema,
+    [[maybe_unused]] const at::Tensor& decay) {
   EAGER_NOT_SUPPORTED;
 }
 
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_adagrad_with_valid_count_hpu_wrap(
-    const Tensor& gradients,
-    Tensor& weights_in,
-    Tensor& moments_in,
-    const Tensor& indices,
-    const Tensor& learning_rate,
-    const Tensor& valid_count_tensor) {
+    [[maybe_unused]] const Tensor& gradients,
+    [[maybe_unused]] Tensor& weights_in,
+    [[maybe_unused]] Tensor& moments_in,
+    [[maybe_unused]] const Tensor& indices,
+    [[maybe_unused]] const Tensor& learning_rate,
+    [[maybe_unused]] const Tensor& valid_count_tensor) {
   EAGER_NOT_SUPPORTED;
 }
 
 Tensor torchvision_nms_hpu_wrap(
-    const at::Tensor& boxes,
-    const at::Tensor& scores,
-    double iou_threshold) {
+    [[maybe_unused]] const at::Tensor& boxes,
+    [[maybe_unused]] const at::Tensor& scores,
+    [[maybe_unused]] double iou_threshold) {
   EAGER_NOT_SUPPORTED;
 }
 
 Tensor batched_nms_hpu_wrap(
-    const at::Tensor& boxes,
-    const at::Tensor& scores,
-    const at::Tensor& indices,
-    float iou_threshold) {
+    [[maybe_unused]] const at::Tensor& boxes,
+    [[maybe_unused]] const at::Tensor& scores,
+    [[maybe_unused]] const at::Tensor& indices,
+    [[maybe_unused]] float iou_threshold) {
   EAGER_NOT_SUPPORTED;
 }
 
 Tensor embedding_bag_sum_hpu_wrap(
-    const Tensor& input,
-    const Tensor& indices,
-    const Tensor& offsets,
-    const Tensor& valid_count,
-    int64_t kernel_mode) {
+    [[maybe_unused]] const Tensor& input,
+    [[maybe_unused]] const Tensor& indices,
+    [[maybe_unused]] const Tensor& offsets,
+    [[maybe_unused]] const Tensor& valid_count,
+    [[maybe_unused]] int64_t kernel_mode) {
   EAGER_NOT_SUPPORTED;
 }
 
 Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_wrap(
-    Tensor& out,
-    const Tensor& input,
-    const Tensor& indices,
-    const Tensor& offsets,
-    const Tensor& valid_count,
-    int64_t kernel_mode) {
+    [[maybe_unused]] Tensor& out,
+    [[maybe_unused]] const Tensor& input,
+    [[maybe_unused]] const Tensor& indices,
+    [[maybe_unused]] const Tensor& offsets,
+    [[maybe_unused]] const Tensor& valid_count,
+    [[maybe_unused]] int64_t kernel_mode) {
   EAGER_NOT_SUPPORTED;
 }
 
 Tensor habana_cast_to_fp8_wrap(
-    const at::Tensor& input,
-    bool stochastic_rounding,
-    int seed) {
+    [[maybe_unused]] const at::Tensor& input,
+    [[maybe_unused]] bool stochastic_rounding,
+    [[maybe_unused]] int seed) {
   EAGER_NOT_SUPPORTED;
 }
 
 std::vector<at::Tensor> habana_permute_1D_sparse_data_wrap(
-    const at::Tensor& permute,
-    const at::Tensor& lengths,
-    const at::Tensor& indices,
-    const c10::optional<at::Tensor>& weights) {
+    [[maybe_unused]] const at::Tensor& permute,
+    [[maybe_unused]] const at::Tensor& lengths,
+    [[maybe_unused]] const at::Tensor& indices,
+    [[maybe_unused]] const c10::optional<at::Tensor>& weights) {
   EAGER_NOT_SUPPORTED;
 }
 
 std::vector<at::Tensor> habana_permute_2D_sparse_data_wrap(
-    const at::Tensor& permute,
-    const at::Tensor& lengths,
-    const at::Tensor& indices,
-    const c10::optional<at::Tensor>& weights) {
+    [[maybe_unused]] const at::Tensor& permute,
+    [[maybe_unused]] const at::Tensor& lengths,
+    [[maybe_unused]] const at::Tensor& indices,
+    [[maybe_unused]] const c10::optional<at::Tensor>& weights) {
   EAGER_NOT_SUPPORTED;
 }
 
 at::Tensor habana_split_permute_cat_wrap(
-    const at::Tensor& input,
-    const at::Tensor& indices,
-    int64_t batch_size,
-    int64_t num_features,
-    int64_t dims) {
+    [[maybe_unused]] const at::Tensor& input,
+    [[maybe_unused]] const at::Tensor& indices,
+    [[maybe_unused]] int64_t batch_size,
+    [[maybe_unused]] int64_t num_features,
+    [[maybe_unused]] int64_t dims) {
   EAGER_NOT_SUPPORTED;
 }
 
 at::Tensor habana_expand_into_jagged_permute_wrap(
-    const at::Tensor& permute,
-    const at::Tensor& input_offsets,
-    const at::Tensor& output_offsets,
-    int64_t output_size) {
+    [[maybe_unused]] const at::Tensor& permute,
+    [[maybe_unused]] const at::Tensor& input_offsets,
+    [[maybe_unused]] const at::Tensor& output_offsets,
+    [[maybe_unused]] int64_t output_size) {
   EAGER_NOT_SUPPORTED;
 }
 
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>
 habana_bounds_check_indices_wrap(
-    at::Tensor& indices,
-    at::Tensor& offsets,
-    at::Tensor& warning,
-    const at::Tensor& rows_per_table,
-    int64_t bounds_check_mode,
-    const c10::optional<at::Tensor>& weights) {
+    [[maybe_unused]] at::Tensor& indices,
+    [[maybe_unused]] at::Tensor& offsets,
+    [[maybe_unused]] at::Tensor& warning,
+    [[maybe_unused]] const at::Tensor& rows_per_table,
+    [[maybe_unused]] int64_t bounds_check_mode,
+    [[maybe_unused]] const c10::optional<at::Tensor>& weights) {
   EAGER_NOT_SUPPORTED;
 }
 
 at::Tensor matmul_ex_wrap(
-    const at::Tensor& self,
-    const at::Tensor& other,
-    at::ScalarType dtype) {
+    [[maybe_unused]] const at::Tensor& self,
+    [[maybe_unused]] const at::Tensor& other,
+    [[maybe_unused]] at::ScalarType dtype) {
   EAGER_NOT_SUPPORTED;
 }
 std::tuple<at::Tensor, at::Tensor> matmul_ex_backward_wrap(
-    const Tensor& grad_output,
-    const Tensor& self,
-    const Tensor& other,
-    at::ScalarType dtype) {
+    [[maybe_unused]] const Tensor& grad_output,
+    [[maybe_unused]] const Tensor& self,
+    [[maybe_unused]] const Tensor& other,
+    [[maybe_unused]] at::ScalarType dtype) {
   EAGER_NOT_SUPPORTED;
 }
 
-Tensor habana_random_seed_wrap(const at::Tensor& input) {
+Tensor habana_random_seed_wrap([[maybe_unused]] const at::Tensor& input) {
   EAGER_NOT_SUPPORTED;
 }
 
 namespace vision {
 namespace ops {
 at::Tensor roi_align_fwd_wrap(
-    const at::Tensor& images,
-    const at::Tensor& rois,
-    double spatial_scale,
-    int64_t output_h,
-    int64_t output_w,
-    int64_t sampling_ratio,
-    bool aligned) {
+    [[maybe_unused]] const at::Tensor& images,
+    [[maybe_unused]] const at::Tensor& rois,
+    [[maybe_unused]] double spatial_scale,
+    [[maybe_unused]] int64_t output_h,
+    [[maybe_unused]] int64_t output_w,
+    [[maybe_unused]] int64_t sampling_ratio,
+    [[maybe_unused]] bool aligned) {
   EAGER_NOT_SUPPORTED;
 }
 
 at::Tensor roi_align_bwd_wrap(
-    const at::Tensor& grad_out,
-    const at::Tensor& rois,
-    double spatial_scale,
-    int64_t output_h,
-    int64_t output_w,
-    int64_t bs,
-    int64_t ch,
-    int64_t h,
-    int64_t w,
-    int64_t sampling_ratio,
-    bool aligned) {
+    [[maybe_unused]] const at::Tensor& grad_out,
+    [[maybe_unused]] const at::Tensor& rois,
+    [[maybe_unused]] double spatial_scale,
+    [[maybe_unused]] int64_t output_h,
+    [[maybe_unused]] int64_t output_w,
+    [[maybe_unused]] int64_t bs,
+    [[maybe_unused]] int64_t ch,
+    [[maybe_unused]] int64_t h,
+    [[maybe_unused]] int64_t w,
+    [[maybe_unused]] int64_t sampling_ratio,
+    [[maybe_unused]] bool aligned) {
   EAGER_NOT_SUPPORTED;
 }
 } // namespace ops

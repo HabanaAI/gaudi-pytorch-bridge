@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -24,6 +24,5 @@ std::vector<synapse_helpers::tensor> GetDivModOutput(
     synTensor syn_denominator,
     bool pyCompatible,
     const std::vector<long int> shape_out,
-    const at::ScalarType result_type,
     DIV_MODE_OUTPUT_TYPE t);
 } // namespace habana

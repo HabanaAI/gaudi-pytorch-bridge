@@ -8,7 +8,8 @@
  * and is subject to the confidentiality and license agreements under which it
  * was provided.
  *
- *******************************************************************************/
+ *******************************************************************************
+ */
 
 // #include <c10/util/ArrayRef.h>
 
@@ -49,7 +50,8 @@ struct HandleInputViewsPass {
         continue;
       }
       torch::Tensor input_tensor{example_inputs[input_idx].toTensor()};
-      auto storage_meta{habana::get_storage_extra_meta(input_tensor)};
+      [[maybe_unused]] auto storage_meta{
+          habana::get_storage_extra_meta(input_tensor)};
 
       if (habana::is_view_lowering(input_tensor) ||
           !input_tensor.is_contiguous()) {
@@ -72,7 +74,6 @@ struct HandleInputViewsPass {
         m_input_base_sizes_to_set[input_idx] = std::vector<int64_t>();
         insert_strided_view_node(
             input_tensor,
-            storage_meta,
             user,
             input,
             view_params,
@@ -86,7 +87,6 @@ struct HandleInputViewsPass {
 
   void insert_strided_view_node(
       at::Tensor input_tensor,
-      habana::StorageExtraMeta* input_smeta,
       torch::jit::Node* node,
       torch::jit::Value* value_in,
       std::unique_ptr<habana::eager::ViewParam>& p,

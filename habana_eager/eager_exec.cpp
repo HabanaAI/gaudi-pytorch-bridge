@@ -643,7 +643,7 @@ torch::jit::Stack EagerExec::prepare_input_stack(
   traversing_ivalues<ProcessList::asTensor>(
       inputs,
       overloaded{// metadata
-                 [](const torch::jit::IValue& v) {},
+                 [](const torch::jit::IValue&) {},
                  // scalars
                  [&stack](const at::Scalar& s) { stack.push_back(s); },
                  // tensors

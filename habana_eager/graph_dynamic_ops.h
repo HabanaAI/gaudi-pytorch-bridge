@@ -116,10 +116,11 @@ class DynamicOp {
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) = 0;
 
   virtual void ResolveNegativeSizes(
-      std::shared_ptr<torch::jit::Graph> graph,
-      torch::jit::Stack& org_stack,
-      torch::jit::Node* node,
-      std::unordered_map<CValPtr, torch::jit::IValue>& value_ivalue_map) {}
+      [[maybe_unused]] std::shared_ptr<torch::jit::Graph> graph,
+      [[maybe_unused]] torch::jit::Stack& org_stack,
+      [[maybe_unused]] torch::jit::Node* node,
+      [[maybe_unused]] std::unordered_map<CValPtr, torch::jit::IValue>&
+          value_ivalue_map) {}
 
   static void UpdateDynamicInputs(
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,

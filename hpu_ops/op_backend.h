@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -187,7 +187,7 @@ class OpBackend : public HabanaOperator {
   void HandleScalarToTensor(
       synapse_helpers::graph& graph,
       const at::Stack& stack);
-  void HandleFn(synapse_helpers::graph& graph, const at::Stack& stack);
+  void HandleFn(synapse_helpers::graph& graph);
   void HandleInplaceFn(synapse_helpers::graph& graph, const at::Stack& stack);
   void HandleOutFn(synapse_helpers::graph& graph, const at::Stack& stack);
   void HandleTypePromotion(
@@ -216,9 +216,7 @@ class OpBackend : public HabanaOperator {
       at::IntArrayRef sizes,
       const at::ScalarType& from,
       const at::ScalarType& to,
-      c10::optional<int> final_result_index = c10::nullopt,
-      bool stochastic_rounding_override = false,
-      int sr_seed = 0);
+      c10::optional<int> final_result_index = c10::nullopt);
 
   synapse_helpers::tensor ConstantHelper(
       synapse_helpers::graph& graph,
@@ -277,9 +275,7 @@ class OpBackend : public HabanaOperator {
       const at::IntArrayRef sizes,
       const at::ScalarType& from,
       const at::ScalarType& to,
-      c10::optional<int> final_result_index = c10::nullopt,
-      bool stochastic_rounding_override = false,
-      int sr_seed = 0);
+      c10::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildConstant(
       OpBackend* op,

@@ -19,7 +19,6 @@
 namespace habana {
 std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
     std::vector<int64_t> input_shape,
-    at::TensorList indices,
     std::vector<bool> adv_index_dims,
     std::vector<std::vector<int64_t>> indexing_tensor_shapes);
 

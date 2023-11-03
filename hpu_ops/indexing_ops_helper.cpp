@@ -44,7 +44,6 @@ std::vector<int64_t> indices_size(at::TensorList indices) {
 // ref:https://github.com/apache/incubator-mxnet/blob/master/src/operator/tensor/indexing_op.h#L1319
 std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
     std::vector<int64_t> input_shape,
-    at::TensorList indices,
     std::vector<bool> adv_index_dims,
     std::vector<std::vector<int64_t>> indexing_tensor_shapes) {
   unsigned max_elem_count = 0;
@@ -404,7 +403,7 @@ std::vector<int64_t> get_index_result_shape(
 
     auto indexing_tensor_shapes = calc_indexing_tensors_shapes(inputs_vec);
     auto shape = habana::ComputeOutputShapeWithAdvIndexing(
-        permuted_input_sizes, indices, adv_index_dims, indexing_tensor_shapes);
+        permuted_input_sizes, adv_index_dims, indexing_tensor_shapes);
     // TO DO: Resize output tensor if not of required shape.
     return shape;
   } else {

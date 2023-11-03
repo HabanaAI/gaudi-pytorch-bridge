@@ -26,12 +26,8 @@ function(find_keyword KEYWORD RESULT_VAR)
 endfunction()
 
 function(set_up_warnings TARGET_NAME)
-  target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Wno-error=deprecated-declarations)
-
-  # TODO: Reenable disabled warnings
   # TODO: Add -Wconversion
-  target_compile_options(${TARGET_NAME} PRIVATE
-    -Wno-unused-parameter)
+  target_compile_options(${TARGET_NAME} PRIVATE -Wall -Wextra -Wno-error=deprecated-declarations)
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.0.0")
     # According to https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80635 GCC older than 11 may trigger

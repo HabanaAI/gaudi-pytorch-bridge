@@ -11,12 +11,12 @@
  *******************************************************************************
  */
 
-#include "backend/create_pt_tensor.h"
+#include "backend/habana_operator.h"
 #include "hpu_ops/empty.h"
 
-namespace habana {
+namespace {
 
-static auto empty_meta(
+auto empty_meta(
     std::vector<int64_t>&& sizes,
     std::vector<int64_t>&& strides,
     const at::IValue& dtype_opt,
@@ -37,11 +37,10 @@ static auto empty_meta(
   auto mem_format = memory_format_opt.toOptional<at::MemoryFormat>().value_or(
       at::MemoryFormat::Contiguous);
 
-  return OutputMetaData{dtype, sizes, strides, layout, mem_format};
+  return habana::OutputMetaData{dtype, sizes, strides, layout, mem_format};
 }
 
-OutputMetaDataVector EmptyMeta(const at::Stack& stack) {
-  OutputMetaData meta;
+habana::OutputMetaDataVector EmptyMeta(const at::Stack& stack) {
   auto size = stack.at(0).toIntVector();
   auto dtype = stack.at(1);
   auto layout = stack.at(2);
@@ -59,7 +58,7 @@ OutputMetaDataVector EmptyMeta(const at::Stack& stack) {
       memory_format)};
 }
 
-OutputMetaDataVector EmptyStridedMeta(const at::Stack& stack) {
+habana::OutputMetaDataVector EmptyStridedMeta(const at::Stack& stack) {
   auto size = stack.at(0).toIntVector();
   auto strides = stack.at(1).toIntVector();
   auto dtype = stack.at(2);
@@ -76,8 +75,8 @@ OutputMetaDataVector EmptyStridedMeta(const at::Stack& stack) {
       c10::nullopt)};
 }
 
-OutputMetaDataVector EmptyLikeMeta(const at::Stack& stack) {
-  const at::Tensor& self = stack_tensor(stack, 0);
+habana::OutputMetaDataVector EmptyLikeMeta(const at::Stack& stack) {
+  const at::Tensor& self = habana::stack_tensor(stack, 0);
   auto size = self.sizes().vec();
   auto dtype =
       stack.at(1).toOptional<at::ScalarType>().value_or(self.scalar_type());
@@ -109,27 +108,33 @@ OutputMetaDataVector EmptyLikeMeta(const at::Stack& stack) {
       memory_format)};
 }
 
-static auto empty_impl(
-    OpBackend* op,
+auto empty_impl(
+    habana::OpBackend* op,
     synapse_helpers::graph& graph,
-    const at::Stack& stack,
-    const OutputMetaData& md) {
-  return std::move(OpBackend::BuildNode(
+    const habana::OutputMetaData& md) {
+  return std::move(habana::OpBackend::BuildNode(
       op, graph, {"memset", {}, {{md.shape, md.dtype, 0}}})[0]);
 }
+} // namespace
 
-void Empty::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  syn_out(0) = empty_impl(this, graph, stack, GetOutputMetaData(0));
+namespace habana {
+
+void Empty::AddNode(
+    synapse_helpers::graph& graph,
+    [[maybe_unused]] const at::Stack& stack) {
+  syn_out(0) = empty_impl(this, graph, GetOutputMetaData(0));
 }
 
 void EmptyStrided::AddNode(
     synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  syn_out(0) = empty_impl(this, graph, stack, GetOutputMetaData(0));
+    [[maybe_unused]] const at::Stack& stack) {
+  syn_out(0) = empty_impl(this, graph, GetOutputMetaData(0));
 }
 
-void EmptyLike::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  syn_out(0) = empty_impl(this, graph, stack, GetOutputMetaData(0));
+void EmptyLike::AddNode(
+    synapse_helpers::graph& graph,
+    [[maybe_unused]] const at::Stack& stack) {
+  syn_out(0) = empty_impl(this, graph, GetOutputMetaData(0));
 }
 
 Empty::Empty(int device_id, c10::ScalarType scalar_type)

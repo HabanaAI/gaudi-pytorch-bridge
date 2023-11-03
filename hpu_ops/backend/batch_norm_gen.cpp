@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -12,7 +12,6 @@
  */
 
 #include <perf_lib_layer_params.h>
-#include "backend/helpers/create_tensor.h"
 #include "backend/helpers/runtime_config.h"
 #include "generated/backend/_native_batch_norm_legit.h"
 #include "generated/backend/native_batch_norm.h"
@@ -245,7 +244,6 @@ inline void unused_variables(const Args&...){};
 std::vector<sh::tensor> handle_batch_norm_training_fwd(
     OpBackend& op,
     sh::graph& graph,
-    const at::Stack& stack,
     const OpBackend::TensorsPair& input,
     const c10::optional<OpBackend::TensorsPair>& weight_opt,
     const c10::optional<OpBackend::TensorsPair>& bias_opt,
@@ -323,7 +321,6 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
 std::vector<sh::tensor> handle_batch_norm_inference_fwd(
     OpBackend& op,
     sh::graph& graph,
-    const at::Stack& stack,
     const OpBackend::TensorsPair& input,
     const c10::optional<OpBackend::TensorsPair>& weight_opt,
     const c10::optional<OpBackend::TensorsPair>& bias_opt,
@@ -562,7 +559,6 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
            : handle_batch_norm_inference_fwd)(
           *this,
           graph,
-          stack,
           input,
           weightOpt,
           biasOpt,
@@ -603,7 +599,6 @@ void BatchNormNoStatsOpBackend::AddNode(
                                     : handle_batch_norm_inference_fwd)(
           *this,
           graph,
-          stack,
           input,
           weightOpt,
           biasOpt,

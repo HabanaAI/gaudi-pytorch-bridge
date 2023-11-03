@@ -863,7 +863,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
   }
 
   if (!jit_graph_and_meta_data_->get_is_pipeline_supported()) {
-    UpdateOutputs(rv);
+    UpdateRecipeOutputs();
   }
 }
 
@@ -1286,7 +1286,7 @@ void habana::HabanaLaunchOpPT::UpdateOutputs() {
   PT_BRIDGE_END;
 }
 
-void habana::HabanaLaunchOpPT::UpdateOutputs(RecipeValueSpec& rv) {
+void habana::HabanaLaunchOpPT::UpdateRecipeOutputs() {
   // Restore the metadata of the inputs
   RestoreInputTensorMetadata();
 

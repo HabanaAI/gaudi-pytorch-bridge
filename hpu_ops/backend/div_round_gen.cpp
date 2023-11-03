@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -32,28 +32,6 @@ OutputMetaDataVector DivModeMeta(const at::Stack& stack) {
   return {meta};
 }
 
-static std::vector<synapse_helpers::tensor> CommonFuncForRoundingModeIntType(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    std::vector<synTensor> inputs,
-    std::vector<int64_t> shape_out,
-    const c10::optional<c10::string_view>& rounding_mode,
-    c10::ScalarType final_result_type) {
-  std::vector<synapse_helpers::tensor> output;
-  // The second argument of "FillDivModParams", pyCompatible is false
-  // for 'trunc' mode and true for 'floor' case
-  output = GetDivModOutput(
-      op,
-      graph,
-      inputs[0],
-      inputs[1],
-      (StrModeFloor == rounding_mode),
-      std::move(shape_out),
-      final_result_type,
-      DIV_MODE_OUTPUT_TYPE::QUOTIENT);
-  return output;
-}
-
 std::vector<synapse_helpers::tensor> DivCommonFunction(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -77,14 +55,16 @@ std::vector<synapse_helpers::tensor> DivCommonFunction(
   // Handle integral cases differently using div_mod, else floating point
   // convertion yields error after truncation in some cases.
   if (isNotNone && (c10::isIntegralType(final_result_type, true))) {
-    auto res = CommonFuncForRoundingModeIntType(
+    // The second argument of "FillDivModParams", pyCompatible is false
+    // for 'trunc' mode and true for 'floor' case
+    return GetDivModOutput(
         op,
         graph,
-        binaryop_inputs,
-        shape_out,
-        rounding_mode,
-        final_result_type);
-    return res;
+        binaryop_inputs[0],
+        binaryop_inputs[1],
+        (StrModeFloor == rounding_mode),
+        std::move(shape_out),
+        DIV_MODE_OUTPUT_TYPE::QUOTIENT);
   } else { // if (isIntegralType(final_result_type, true))
 
     // Computation is always done in float or bfloat16

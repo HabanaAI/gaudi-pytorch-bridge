@@ -41,14 +41,17 @@ void hpu_init() {
   // later will add device properties here.
 }
 
-const std::string get_device_name(int device_id) {
+const std::string get_device_name([[maybe_unused]] int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
   return habana::HPURegistrar::get_device().name();
 }
 
-const synapse_helpers::MemoryStats get_mem_stat(int device_id) {
+/* clang-format off */
+const synapse_helpers::MemoryStats get_mem_stat(
+    [[maybe_unused]] int device_id) {
+  /* clang-format on */
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
@@ -58,7 +61,7 @@ const synapse_helpers::MemoryStats get_mem_stat(int device_id) {
   return stats;
 }
 
-const std::string get_hlml_shared_object_name(int device_id) {
+const std::string get_hlml_shared_object_name([[maybe_unused]] int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
@@ -71,7 +74,7 @@ const std::string get_hlml_shared_object_name(int device_id) {
   return "";
 }
 
-void reset_peak_memory_stats(int device_id) {
+void reset_peak_memory_stats([[maybe_unused]] int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
@@ -79,7 +82,7 @@ void reset_peak_memory_stats(int device_id) {
   device.get_device_memory().reset_peak_memory_stats();
 }
 
-void clear_memory_stats(int device_id) {
+void clear_memory_stats([[maybe_unused]] int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.

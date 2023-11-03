@@ -147,7 +147,7 @@ void OpBackend::HandleScalarToTensor(sh::graph& graph, const at::Stack& stack) {
     }
   }
 }
-void OpBackend::HandleFn(sh::graph& graph, const at::Stack& stack) {
+void OpBackend::HandleFn(sh::graph& graph) {
   if (m_res_ids.empty()) {
     return;
   }
@@ -345,19 +345,9 @@ sh::tensor OpBackend::CastHelper(
     at::IntArrayRef sizes,
     const at::ScalarType& from,
     const at::ScalarType& to,
-    c10::optional<int> final_result_index,
-    bool stochastic_rounding_override,
-    int sr_seed) {
+    c10::optional<int> final_result_index) {
   return OpBackend::BuildCast(
-      this,
-      graph,
-      syn_in,
-      sizes,
-      from,
-      to,
-      final_result_index,
-      stochastic_rounding_override,
-      sr_seed);
+      this, graph, syn_in, sizes, from, to, final_result_index);
 }
 
 sh::tensor OpBackend::ConstantHelper(
@@ -569,7 +559,7 @@ void OpBackend::AllocateAndAddSynapseNode(
 
   CustomHandler(graph, stack);
 
-  HandleFn(graph, stack);
+  HandleFn(graph);
   HandleInplaceFn(graph, stack);
   HandleOutFn(graph, stack);
 
@@ -800,9 +790,7 @@ sh::tensor OpBackend::BuildCast(
     const at::IntArrayRef sizes,
     const at::ScalarType& from,
     const at::ScalarType& to,
-    c10::optional<int> final_result_index,
-    bool stochastic_rounding_override,
-    int sr_seed) {
+    c10::optional<int> final_result_index) {
   // Verify from and to types correctness
   BuildCastGuid(from, to);
 
