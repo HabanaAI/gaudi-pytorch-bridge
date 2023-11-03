@@ -24,7 +24,6 @@ struct OptimizerLambNorm : OpBackend {
   OptimizerLambNorm(int device_id, c10::ScalarType scalar_type);
 
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
-  void CustomHandler(synapse_helpers::graph&, at::Stack&) override;
 };
 
 OUTMETA_DECL(ComputeLambOutputMetadata)

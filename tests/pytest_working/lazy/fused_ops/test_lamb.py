@@ -216,7 +216,6 @@ class TorchNVLAMB(torch.optim.Optimizer):
                 p.data.add_(adam_step)
 
 
-@pytest.mark.xfail(reason="Graph compile failed")
 def test_lamb():
     d1, d2, lr = 2, 1024, 0.001
 

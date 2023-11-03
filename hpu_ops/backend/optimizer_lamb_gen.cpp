@@ -32,29 +32,11 @@ OptimizerLambNorm::OptimizerLambNorm(int device_id, c10::ScalarType scalar_type)
           device_id,
           "optimizer_lamb_norm_fwd_",
           scalar_type,
-          {},
+          {0},
           {},
           {},
           false) {
   SetOutputMetaFn(ComputeLambOutputMetadata);
-}
-
-void OptimizerLambNorm::CustomHandler(
-    synapse_helpers::graph& graph,
-    at::Stack& stack) {
-  auto metadata = GetOutputMetaData(0);
-  const auto& t = at::detail::make_tensor<c10::TensorImpl>(
-      c10::DispatchKeySet{at::DispatchKey::HPU, at::DispatchKey::AutogradHPU},
-      c10::scalarTypeToTypeMeta(metadata.dtype),
-      c10::Device(c10::kHPU, 0));
-  t.unsafeGetTensorImpl()->set_sizes_contiguous(metadata.shape);
-
-  const auto& output = habana::createPTTensor(
-      t,
-      metadata.shape,
-      t.options().dtype(metadata.dtype),
-      metadata.persistent);
-  AllocateSynapseOutput(graph, output, metadata);
 }
 
 void OptimizerLambNorm::AddNode(
