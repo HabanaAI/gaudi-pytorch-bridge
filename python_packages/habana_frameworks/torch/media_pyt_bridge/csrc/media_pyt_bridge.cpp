@@ -85,12 +85,18 @@ class MediaProxyHolder {
  public:
   static MediaProxyHolder& getInstance() {
     std::call_once(initialize_once_flag_, []() {
-      instance_.reset(new MediaProxyHolder());
+      instance_ = std::make_shared<std::unique_ptr<MediaProxyHolder>>(
+          new MediaProxyHolder());
+      std::weak_ptr<std::unique_ptr<MediaProxyHolder>> wp = instance_;
       habana::HPURegistrar::get_hpu_registrar().register_media_proxy_finalizer(
-          habana::CallFinally([]() { instance_.reset(nullptr); }));
+          habana::CallFinally([wp = std::move(wp)]() {
+            if (auto sp = wp.lock())
+              sp->reset(nullptr);
+          }));
     });
-    return *instance_.get();
+    return *(instance_->get());
   }
+
   MediaProxyHolder(const MediaProxyHolder&) = delete;
   MediaProxyHolder(MediaProxyHolder&&) = delete;
   MediaProxyHolder& operator=(const MediaProxyHolder&) = delete;
@@ -113,11 +119,12 @@ class MediaProxyHolder {
         getComputeStream);
   }
 
-  static std::unique_ptr<MediaProxyHolder> instance_;
+  static std::shared_ptr<std::unique_ptr<MediaProxyHolder>> instance_;
   static std::once_flag initialize_once_flag_;
 };
 
-std::unique_ptr<MediaProxyHolder> MediaProxyHolder::instance_{};
+std::shared_ptr<std::unique_ptr<MediaProxyHolder>>
+    MediaProxyHolder::instance_{};
 std::once_flag MediaProxyHolder::initialize_once_flag_{};
 } // namespace
 
