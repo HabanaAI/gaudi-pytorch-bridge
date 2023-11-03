@@ -939,7 +939,7 @@ all.out:
 amax:
   dtypes: [Float, BFloat16, Int]
   guid: reduce_max_fwd
-  custom_output_shape: AminAmaxOutputShape
+  output_meta: AminAmaxMeta
   op_backend: AminAmax
   out_ids: [0]
 
@@ -951,7 +951,7 @@ amax.out:
 amin:
   dtypes: [Float, BFloat16, Int]
   guid: reduce_min_fwd
-  custom_output_shape: AminAmaxOutputShape
+  output_meta: AminAmaxMeta
   op_backend: AminAmax
   out_ids: [0]
 
