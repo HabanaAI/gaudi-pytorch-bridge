@@ -61,15 +61,6 @@ def test_hpu_adaptive_avg_pool1d(shape, output_size, dtype):
 @pytest.mark.parametrize("divisor_override", [None, 4, -3])
 @pytest.mark.parametrize("dtype", [torch.float])
 def test_hpu_avg_pool3d(shape, kernel_size_and_padding, stride, ceil_mode, count_include_pad, divisor_override, dtype):
-    if divisor_override != None and divisor_override < 0:
-        pytest.xfail('[SW-160805] Negative divisors error')
-    if (ceil_mode==True
-        and count_include_pad==True
-        and kernel_size_and_padding==((3, 2, 2), 1)
-        and divisor_override==None
-        and (stride==(2,1,2) or stride==2)):
-        pytest.xfail('[SW-160805] Output mismatch on last dim')
-
     def fn(input):
         return torch.ops.aten.avg_pool3d(
             input,

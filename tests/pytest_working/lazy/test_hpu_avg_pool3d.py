@@ -56,10 +56,6 @@ def calculate_out_shape(input_shape, kernel_size, stride, padding, ceil_mode):
 @pytest.mark.parametrize("chlast", [False, True])
 def test_hpu_avg_pool_3d(input_shape, kernel_size, stride, padding, ceil_mode, count_include_pad,
                          divisor_override, dtype, tol, chlast):
-    if divisor_override != None and divisor_override < 0:
-        pytest.xfail('[SW-160805] Negative divisors error')
-    if ceil_mode==True and count_include_pad==True and kernel_size==(3, 2, 2) and padding==1 and divisor_override==None and (stride==(2,1,2) or stride==2):
-        pytest.xfail('[SW-160805] Output mismatch on last dim')
     input = torch.randn(input_shape).to(dtype)
     if chlast:
         input = input.contiguous(memory_format=torch.channels_last_3d)
