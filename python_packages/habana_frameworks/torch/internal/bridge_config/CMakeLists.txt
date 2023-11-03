@@ -26,7 +26,7 @@ add_custom_command(OUTPUT
 ${CMAKE_BINARY_DIR}/generated/env_flags/env_flags_generated.h
 ${CMAKE_BINARY_DIR}/generated/env_flags/env_flags_definition_generated.cpp
 ${CMAKE_BINARY_DIR}/generated/env_flags/Bindings.cpp
-${CMAKE_BINARY_DIR}/generated/env_flags/bridge_config.py
+${PROJECT_SOURCE_DIR}/python_packages/habana_frameworks/torch/internal/bridge_config.py
 COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/generate_env.py
                      --output_dir=${CMAKE_BINARY_DIR}/generated/env_flags
                      --python_output_dir=${PROJECT_SOURCE_DIR}/python_packages/habana_frameworks/torch/internal
@@ -39,5 +39,5 @@ add_custom_target(pytorch_generate_env DEPENDS
   ${CMAKE_BINARY_DIR}/generated/env_flags/env_flags_generated.h
   ${CMAKE_BINARY_DIR}/generated/env_flags/env_flags_definition_generated.cpp
   ${CMAKE_BINARY_DIR}/generated/env_flags/Bindings.cpp
-  ${CMAKE_BINARY_DIR}/generated/env_flags/bridge_config.py
+  ${PROJECT_SOURCE_DIR}/python_packages/habana_frameworks/torch/internal/bridge_config.py
 )
