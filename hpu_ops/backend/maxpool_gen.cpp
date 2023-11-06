@@ -77,14 +77,16 @@ sizes_vec MaxPool2DOutputShape(const at::Stack& stack) {
 
   int n = kernel.size();
   // updating the width & height dimension
+  int output_shape_index = output_shape.size() - n;
   for (int i = 0; i < n; i++) {
-    output_shape.rbegin()[i] = OutputShapeComputation(
-        input_shape.rbegin()[i],
-        kernel[n - i - 1],
-        stride[n - i - 1],
-        padding[n - i - 1],
-        dilation[n - i - 1],
+    output_shape.at(output_shape_index) = OutputShapeComputation(
+        input_shape.at(output_shape_index),
+        kernel[i],
+        stride[i],
+        padding[i],
+        dilation[i],
         ceil_mode);
+    output_shape_index++;
   }
 
   // ensure that the last pooling starts inside the image
@@ -96,7 +98,6 @@ sizes_vec MaxPool2DOutputShape(const at::Stack& stack) {
         --output_shape.rbegin()[i];
     }
   }
-
   return {output_shape, output_shape};
 }
 
@@ -428,33 +429,4 @@ void MaxPool2DWithIndices::AddNode(
       1);
 }
 
-// Since the out varriant intices tensor has some issue
-// (https://jira.habana-labs.com/browse/SW-74263)
-void MaxPool2DWithIndicesBwd::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  const auto& out_shape = ComputeOutputShapes(stack);
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
-
-  auto cast_input = CastHelper(
-      graph,
-      syn_in(2),
-      stack[7].toTensor().sizes(),
-      at::kLong,
-      FindRetainTensorType(ScalarType()));
-
-  std::vector<synTensor> grad = {syn_in(0), cast_input.get()};
-  CreateShapeTensorInput(graph, ScalarType(), out_shape[0], grad);
-
-  auto maxpool2d_gradout = BuildOp(
-      graph,
-      get_guid_with_precision("maxpool_2d_bwd", ScalarType()),
-      std::move(grad),
-      {{out_shape[0], ScalarType(), 0}},
-      params.get(),
-      size);
-
-  syn_out(0) = std::move(maxpool2d_gradout.at(0));
-}
 } // namespace habana

@@ -4281,7 +4281,7 @@ max_pool2d_with_indices_backward:
       self: [BFloat16, Float, Half]
       grad_output: [BFloat16, Float, Half]
       indices: [Int]
-  op_backend: MaxPool2DWithIndicesBwd
+  guid: pt_maxpool_2d_bwd
   synapse_layouts:
   - [WHCN, WHCN, WHCN]
   - [WHCN]
@@ -4303,7 +4303,7 @@ max_pool2d_with_indices_backward.grad_input:
       self: [BFloat16, Float, Half]
       grad_output: [BFloat16, Float, Half]
       indices: [Int, Long]
-  op_backend: MaxPool2DWithIndicesBwd
+  guid: pt_maxpool_2d_bwd
   synapse_layouts:
   - [WHCN, WHCN, WHCN]
   - [WHCN]
