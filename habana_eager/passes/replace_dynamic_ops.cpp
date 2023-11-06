@@ -27,8 +27,11 @@ namespace pass {
 struct HandleDynamicOpsPass {
   explicit HandleDynamicOpsPass(
       std::shared_ptr<torch::jit::Graph> graph,
-      std::shared_ptr<DynamicGraphMetaData> dmeta)
-      : m_graph(std::move(graph)), m_dmeta(std::move(dmeta)) {}
+      std::shared_ptr<DynamicGraphMetaData> dmeta,
+      std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes)
+      : m_graph(std::move(graph)), m_dmeta(std::move(dmeta)) {
+    m_input_new_base_sizes = input_new_base_sizes;
+  }
 
   bool run(torch::jit::Stack& stack) {
     propagateShape(stack);
@@ -130,6 +133,7 @@ struct HandleDynamicOpsPass {
       if (!dsOp)
         continue;
       PT_EAGER_DEBUG("Replace dynamic Op: ", node_name);
+      dsOp->m_input_new_base_sizes = m_input_new_base_sizes;
       changed = dsOp->ReplaceWithDynamicHPUOp(
           node, org_stack, org_stack_index_map, m_value_ivalue_map, m_dmeta);
     }
@@ -156,14 +160,16 @@ struct HandleDynamicOpsPass {
   std::shared_ptr<torch::jit::Graph> m_graph;
   std::shared_ptr<DynamicGraphMetaData> m_dmeta;
   CValuePtrToIValuePtrMap m_value_ivalue_map;
+  std::map<int64_t, std::vector<int64_t>>* m_input_new_base_sizes;
 };
 
 void HandleDynamicOps(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,
-    std::shared_ptr<DynamicGraphMetaData> dmeta) {
+    std::shared_ptr<DynamicGraphMetaData> dmeta,
+    std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes) {
   PT_EAGER_TRACE;
-  HandleDynamicOpsPass pass{graph, dmeta};
+  HandleDynamicOpsPass pass{graph, dmeta, input_new_base_sizes};
 
   bool changed{pass.run(stack)};
   if (changed) {
@@ -232,6 +238,7 @@ void HandleDynamicInputPatching(
   c10::SmallVector<torch::jit::IValue*, PT_MAX_SHAPETENSOR_INPUT> dtensor_list;
   c10::SmallVector<habana::graph::SymIntData, PT_MAX_SHAPETENSOR_INPUT>
       scalar_list;
+  c10::SmallVector<std::vector<int64_t>, PT_MAX_SHAPETENSOR_INPUT> tensor_list;
   for (auto dtensor_info : dmeta->ds_input_patching_list) {
     auto dtensor_indexes = dtensor_info.second;
     dtensor_list.clear();
@@ -240,10 +247,11 @@ void HandleDynamicInputPatching(
       stack.emplace_back(dmeta->ds_stack[it]);
       dtensor_list.emplace_back(&(dmeta->ds_stack[it]));
       scalar_list.emplace_back(dmeta->ds_tensor_to_scalar_map[it]);
+      tensor_list.emplace_back(dmeta->ds_tensor_to_tensor_map[it]);
     }
 
     if (!is_first_launch) {
-      dtensor_info.first(dtensor_list, scalar_list, stack);
+      dtensor_info.first(dtensor_list, scalar_list, tensor_list, stack);
     }
   }
 

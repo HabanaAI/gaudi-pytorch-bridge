@@ -35,6 +35,7 @@ struct SymIntData {
 using InputPatchFnPtr = std::function<void(
     c10::SmallVectorImpl<torch::jit::IValue*>&,
     c10::SmallVectorImpl<habana::graph::SymIntData>&,
+    c10::SmallVectorImpl<std::vector<int64_t>>&,
     std::vector<c10::IValue>&)>;
 using InputPatchPair = std::pair<InputPatchFnPtr, std::vector<int64_t>>;
 
@@ -42,6 +43,7 @@ struct DynamicGraphMetaData {
   torch::jit::Stack ds_stack;
   std::unordered_map<int64_t, habana::graph::SymIntData>
       ds_tensor_to_scalar_map;
+  std::map<int64_t, std::vector<int64_t>> ds_tensor_to_tensor_map;
   std::vector<InputPatchPair> ds_input_patching_list;
   std::vector<size_t> remove_input_indexes;
   std::vector<torch::jit::Node*> negative_size_nodes;

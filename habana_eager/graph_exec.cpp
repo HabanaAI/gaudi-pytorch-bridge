@@ -120,7 +120,8 @@ bool GraphExec::IsDynamicGraph() {
 
 void GraphExec::ProcessDynamicGraph(torch::jit::Stack& example_inputs) {
   m_dgraph_meta = std::make_shared<DynamicGraphMetaData>();
-  pass::HandleDynamicOps(m_graph, example_inputs, m_dgraph_meta);
+  pass::HandleDynamicOps(
+      m_graph, example_inputs, m_dgraph_meta, &m_input_new_base_sizes);
   pass::HandlePostDynamic(m_dgraph_meta, m_input_new_base_sizes);
   PT_EAGER_DEBUG(
       "Jit for ", m_graph_name, " after processing dynamicity\n", *m_graph);
@@ -244,7 +245,6 @@ torch::jit::Stack GraphExec::LaunchRecipe(
     std::optional<std::vector<at::Tensor>> maybe_outputs) {
   // Important - this function is meant to be run on lowering thread.
   PT_EAGER_TRACE;
-
   if (maybe_outputs.has_value() && maybe_outputs.value().size() > 0) {
     std::vector<at::Tensor>& outputs{maybe_outputs.value()};
     std::vector<at::Tensor> reordered_outputs;
@@ -264,13 +264,14 @@ torch::jit::Stack GraphExec::LaunchRecipe(
   for (auto& input_base_sizes_pair : m_input_new_base_sizes) {
     int64_t input_idx{input_base_sizes_pair.first};
     std::vector<int64_t> base_sizes{input_base_sizes_pair.second};
-
     HABANA_ASSERT(input_refs.at(input_idx).isTensor());
     torch::Tensor input_tensor{input_refs.at(input_idx).toTensor()};
 
+    auto base_sizes_to_set = habana::get_base_tensor_size(input_tensor);
     auto* impl = input_tensor.unsafeGetTensorImpl();
     impl->set_storage_offset(0);
-    impl->set_sizes_contiguous(base_sizes);
+    impl->set_sizes_contiguous(base_sizes_to_set);
+    input_base_sizes_pair.second = base_sizes_to_set;
   }
 
   m_graph_and_meta->SetHPUStream(stream);

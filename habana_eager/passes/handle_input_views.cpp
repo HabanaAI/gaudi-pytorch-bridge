@@ -67,7 +67,6 @@ struct HandleInputViewsPass {
           // graph
           continue;
         }
-
         auto view_params{std::make_unique<habana::eager::ViewParam>()};
         view_params->setParam(input_tensor);
         m_input_base_sizes_to_set[input_idx] = std::vector<int64_t>();

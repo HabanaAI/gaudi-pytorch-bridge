@@ -56,8 +56,8 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
   // Step2: Create shape tensor and insert to graph inputs.
   auto view_st_name =
       GetDynamicTensorName(v_view_shape->debugName(), SHAPE_TENSOR);
-  int64_t stack_index =
-      CreateSTAndInsertToDSStack(inferred_st_sizes, scalar_indexes, m_dmeta);
+  int64_t stack_index = CreateSTAndInsertToDSStack(
+      inferred_st_sizes, scalar_indexes, {}, m_dmeta);
   auto v_st_tensor = graph->addInput(view_st_name);
 
   // find if view has negative dims
@@ -155,6 +155,19 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   static const auto hpu_as_strided_symbol{
       c10::Symbol::fromQualString("hpu::strided_view_ds_h2d")};
 
+  std::vector<int64_t> tensor_indexes;
+  if (!m_input_new_base_sizes->empty()) {
+    for (auto& input_base_sizes_pair : *m_input_new_base_sizes) {
+      int64_t input_idx{input_base_sizes_pair.first};
+      auto as_strided_node_ip_0 = aten_as_strided_node->input(0)->debugName();
+      auto graph_inputs_idx = graph->inputs().at(input_idx)->debugName();
+      if (strcmp(as_strided_node_ip_0.c_str(), graph_inputs_idx.c_str()) == 0) {
+        tensor_indexes.push_back(input_idx);
+        break;
+      }
+    }
+  }
+
   // Collect ST shape and symlnt pos using ListConstruct values for sizes
   std::vector<int64_t> values_shapes;
   std::vector<int64_t> scalar_indexes_shape;
@@ -171,8 +184,8 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   }
   auto as_strided_shape_st_name =
       GetDynamicTensorName(as_strided_shape->debugName(), SHAPE_TENSOR);
-  int64_t stack_index =
-      CreateSTAndInsertToDSStack(values_shapes, scalar_indexes_shape, m_dmeta);
+  int64_t stack_index = CreateSTAndInsertToDSStack(
+      values_shapes, scalar_indexes_shape, tensor_indexes, m_dmeta);
   auto v_st_sizes_tensor = graph->addInput(as_strided_shape_st_name);
   std::vector<int64_t> dtensor_indexes{stack_index};
 
@@ -235,8 +248,8 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   SetH2DTensorHostData<uint64_t>(
       h2d_tensor_strides, h2d_values, HostDataType::UINT64_T, false);
   auto iv_st_strides_tensor = torch::jit::IValue(h2d_tensor_strides);
-  int64_t stack_index_strides =
-      UpdateDynamicTensorDSStack(iv_st_strides_tensor, scalar_indexes, m_dmeta);
+  int64_t stack_index_strides = UpdateDynamicTensorDSStack(
+      iv_st_strides_tensor, scalar_indexes, tensor_indexes, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(as_strided_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
 
@@ -280,7 +293,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
     std::vector<int64_t> scalar_indexes_offset;
     scalar_indexes_offset.push_back(offset_idx);
     int64_t stack_index_offset = UpdateDynamicTensorDSStack(
-        iv_st_offset_tensor, scalar_indexes_offset, m_dmeta);
+        iv_st_offset_tensor, scalar_indexes_offset, tensor_indexes, m_dmeta);
     auto as_strided_offset_st_name =
         GetDynamicTensorName(as_strided_offset->debugName(), SHAPE_TENSOR);
     auto v_st_offset_tensor = graph->addInput(as_strided_offset_st_name);
@@ -305,6 +318,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
 void AsStridedOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
+    c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     std::vector<c10::IValue>& orig_stack) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_idx_list.size(),
@@ -316,28 +330,69 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
   // Stride H2D patching
   // Format of H2D [num_strides, offset, stride[n], stride[n-1], .., 0]
   auto dtensor = dtensor_list[1]->toTensor();
-  SymIntData& scalar_idx = scalar_idx_list[1];
-
   std::vector<uint64_t> updated_h2d_data;
-  for (int idx = 0; idx < scalar_idx.values.size(); idx++) {
-    auto stack_index = scalar_idx.values[idx];
-    if (stack_index == LONG_MAX) {
-      std::vector<uint64_t> h2d_data = GetH2DTensorHostData<uint64_t>(dtensor);
-      updated_h2d_data.push_back(h2d_data[idx]);
-    } else {
-      updated_h2d_data.push_back(
-          static_cast<uint64_t>(GetSymintValue(orig_stack, stack_index)));
+  if (!tensor_list[0].empty()) {
+    // Patch from tensor sizes and strides
+    auto stack_idx = tensor_list[0].at(0);
+    auto stack_tensor = orig_stack[stack_idx].toTensor();
+    std::vector<uint64_t> h2d_data = GetH2DTensorHostData<uint64_t>(dtensor);
+    updated_h2d_data.reserve(h2d_data.size());
+    // update offset value
+    {
+      auto base_sizes_to_set = habana::get_base_tensor_size(stack_tensor);
+      auto* impl = stack_tensor.unsafeGetTensorImpl();
+      auto offset = impl->storage_offset();
+      updated_h2d_data.push_back(static_cast<uint64_t>(offset));
     }
-  }
+    // Update strides
+    {
+      std::vector<int64_t> values_strides = stack_tensor.strides().vec();
+      for (auto it = values_strides.rbegin(); it != values_strides.rend();
+           ++it) {
+        updated_h2d_data.push_back(static_cast<uint64_t>(*it));
+      }
+      size_t fill_dim = (SYN_MAX_TENSOR_DIM + 1) - values_strides.size();
+      for (size_t i = 0; i < fill_dim; i++) {
+        updated_h2d_data.push_back(static_cast<uint64_t>(0));
+      }
+      updated_h2d_data.insert(
+          updated_h2d_data.begin(),
+          static_cast<uint64_t>(values_strides.size()));
+      // fill remaining half with same data
+      for (auto idx = 0; idx < (h2d_data.size() >> 1); idx++) {
+        updated_h2d_data.push_back(updated_h2d_data[idx]);
+      }
+      UpdateH2DTensorData<uint64_t>(dtensor, updated_h2d_data);
+    }
+    // Update size ShapeTensor
+    {
+      auto dtensor = dtensor_list[0]->toTensor();
+      std::vector<int64_t> values_sizes = stack_tensor.sizes().vec();
+      dtensor.unsafeGetTensorImpl()->set_sizes_contiguous(stack_tensor.sizes());
+    }
+  } else {
+    SymIntData& scalar_idx = scalar_idx_list[1];
+    for (int idx = 0; idx < scalar_idx.values.size(); idx++) {
+      auto stack_index = scalar_idx.values[idx];
+      if (stack_index == LONG_MAX) {
+        std::vector<uint64_t> h2d_data =
+            GetH2DTensorHostData<uint64_t>(dtensor);
+        updated_h2d_data.push_back(h2d_data[idx]);
+      } else {
+        updated_h2d_data.push_back(
+            static_cast<uint64_t>(GetSymintValue(orig_stack, stack_index)));
+      }
+    }
 
-  UpdateH2DTensorData<uint64_t>(dtensor, updated_h2d_data);
+    UpdateH2DTensorData<uint64_t>(dtensor, updated_h2d_data);
 
-  for (auto i = 0; i < dtensor_list.size(); i++) {
-    if (i == 1)
-      continue;
-    auto dtensor = dtensor_list[i]->toTensor();
-    SymIntData st_values = scalar_idx_list[i];
-    UpdateShapeTensorSize(dtensor, st_values.values, orig_stack);
+    for (auto i = 0; i < dtensor_list.size(); i++) {
+      if (i == 1)
+        continue;
+      auto dtensor = dtensor_list[i]->toTensor();
+      SymIntData st_values = scalar_idx_list[i];
+      UpdateShapeTensorSize(dtensor, st_values.values, orig_stack);
+    }
   }
   // offset patching in case stridedratio flow is used
   // Need to update the stride information also to be patched
@@ -431,8 +486,8 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
   SetH2DTensorHostData<uint64_t>(
       h2d_tensor_strides, h2d_values, HostDataType::UINT64_T, false);
   auto iv_st_strides_tensor = torch::jit::IValue(h2d_tensor_strides);
-  int64_t stack_index_strides =
-      UpdateDynamicTensorDSStack(iv_st_strides_tensor, scalar_indexes, m_dmeta);
+  int64_t stack_index_strides = UpdateDynamicTensorDSStack(
+      iv_st_strides_tensor, scalar_indexes, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(strided_insert_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
 
@@ -471,7 +526,7 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
     std::vector<int64_t> scalar_indexes_offset;
     scalar_indexes_offset.push_back(offset_idx);
     int64_t stack_index_offset = UpdateDynamicTensorDSStack(
-        iv_st_offset_tensor, scalar_indexes_offset, m_dmeta);
+        iv_st_offset_tensor, scalar_indexes_offset, {}, m_dmeta);
     auto strided_insert_offset_st_name =
         GetDynamicTensorName(strided_insert_offset->debugName(), SHAPE_TENSOR);
     auto v_st_offset_tensor = graph->addInput(strided_insert_offset_st_name);
@@ -496,6 +551,7 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
 void StridedInsertOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
+    c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     std::vector<c10::IValue>& orig_stack) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_idx_list.size(),

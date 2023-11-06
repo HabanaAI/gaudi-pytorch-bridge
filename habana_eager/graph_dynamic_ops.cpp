@@ -159,6 +159,7 @@ void UpdateShapeTensorSize(
 int64_t UpdateDynamicTensorDSStack(
     torch::jit::IValue& iv_tensor,
     const std::vector<int64_t>& scalar_indexes,
+    const std::vector<int64_t>& tensor_indexes,
     std::shared_ptr<DynamicGraphMetaData> dmeta) {
   int64_t stack_index = dmeta->ds_stack.size();
   dmeta->ds_stack.push_back(iv_tensor);
@@ -168,19 +169,20 @@ int64_t UpdateDynamicTensorDSStack(
   habana::graph::SymIntData STValue;
   STValue.values = scalar_indexes;
   dmeta->ds_tensor_to_scalar_map[stack_index] = STValue;
+  dmeta->ds_tensor_to_tensor_map[stack_index] = tensor_indexes;
   PT_EAGER_DEBUG("Dynamic tensor inserted to stack at index:", stack_index);
-
   return stack_index;
 }
 
 int64_t CreateSTAndInsertToDSStack(
     const std::vector<int64_t>& st_size,
     const std::vector<int64_t>& scalar_indexes,
+    const std::vector<int64_t>& tensor_indexes,
     std::shared_ptr<DynamicGraphMetaData> dmeta) {
   auto iv_st_tensor =
       torch::jit::IValue(createDynamicTensor(st_size, SHAPE_TENSOR));
-  int64_t stack_index =
-      UpdateDynamicTensorDSStack(iv_st_tensor, scalar_indexes, dmeta);
+  int64_t stack_index = UpdateDynamicTensorDSStack(
+      iv_st_tensor, scalar_indexes, tensor_indexes, dmeta);
   return stack_index;
 }
 
@@ -200,13 +202,14 @@ int64_t CreateH2DAndInsertToDSStack(
 
   auto iv_h2d_tensor = torch::jit::IValue(h2d_tensor);
   int64_t stack_index =
-      UpdateDynamicTensorDSStack(iv_h2d_tensor, scalar_indexes, dmeta);
+      UpdateDynamicTensorDSStack(iv_h2d_tensor, scalar_indexes, {}, dmeta);
   return stack_index;
 }
 
 void DynamicOp::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_list,
+    c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     std::vector<c10::IValue>& orig_stack) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_list.size(),
@@ -269,6 +272,7 @@ bool RepeatOperatorDS::ReplaceWithDynamicHPUOp(
 void RepeatOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
+    c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
     std::vector<c10::IValue>& orig_stack) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_idx_list.size(),
@@ -316,7 +320,7 @@ bool TopkOperatorDS::ReplaceWithDynamicHPUOp(
   // Step2: Create shape tensor and insert to graph inputs.
   auto k_st_name = GetDynamicTensorName(v_k->debugName(), SHAPE_TENSOR);
   int64_t stack_index =
-      CreateSTAndInsertToDSStack({act_value}, {scalar_idx}, m_dmeta);
+      CreateSTAndInsertToDSStack({act_value}, {scalar_idx}, {}, m_dmeta);
   auto v_st_tensor = graph->addInput(k_st_name);
 
   // Step3: Register patching function and tensor lists
