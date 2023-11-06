@@ -32,7 +32,7 @@ static std::shared_ptr<void> FillReductionParams(
     size_t& size) {
   PARAMS_STUB(ns_Reduction::ParamsV2);
   unsigned maskval = 0;
-  for (int i = 0; i < dims.size(); ++i) {
+  for (int i = 0; (i < dims.size()) && ndims; ++i) {
     auto d = c10::maybe_wrap_dim(dims[i], ndims); // handling negative indices
     maskval = maskval | (1 << (ndims - d - 1)); // (ndims-i-1) is TPC order
   }

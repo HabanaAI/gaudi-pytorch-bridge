@@ -561,7 +561,10 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
     return rvpsh;
   }
   void ReturnCachedRecipe(RecipeValueSpec& rv);
-  void DuplicateSynapseGraph();
+
+  void DuplicateSynapseGraph(
+      std::vector<std::pair<synTensor, std::vector<int64_t>>>&
+          duplicate_tensors_shape_map);
   void ValidateInputsAndOutputsAndDisableSA(
       at::ArrayRef<torch::jit::IValue>& input_refs);
   void MaybePrintDuplicateGraphInformation(
@@ -733,7 +736,7 @@ class HabanaLaunchOpPT : public std::enable_shared_from_this<HabanaLaunchOpPT> {
       std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
 
   template <bool DynamicShapes>
-  void RunHybridSif(
+  bool RunHybridSif(
       std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
   // --------------------
 };

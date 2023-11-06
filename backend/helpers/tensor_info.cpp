@@ -143,11 +143,13 @@ PtTensorInfo::PtTensorInfo(
     const std::string& sn,
     const uint64_t tensor_id,
     const synTensor handle,
-    const synTensorType stt)
+    const synTensorType stt,
+    const std::vector<int64_t> shape)
     : orig_syn_handle_(handle),
       syn_name_(sn),
       tensor_id_(tensor_id),
-      tensor_type_(stt) {}
+      tensor_type_(stt),
+      shape_(shape) {}
 
 void PtTensorInfo::update_shape_syn() {
   switch (tensor_type_) {
