@@ -4919,12 +4919,6 @@ Tensor squeeze_hpu_lazy(const Tensor& self, int64_t dim_) {
 
   if (dim != HABANA_DIM_MAX) {
     dim = at::maybe_wrap_dim(dim_, self.dim());
-
-    // no degenerate axis to squeeze
-    if ((self.sizes()[dim] != 1) || (self.dim() == 1)) {
-      return alias_hpu_lazy(self);
-    }
-
     out = at::native::squeeze(self, dim);
   } else {
     out = at::native::squeeze(self);

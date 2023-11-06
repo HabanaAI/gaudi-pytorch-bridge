@@ -100,23 +100,17 @@ void SelectHpu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   params.ends[0] = end;
   params.steps[0] = step;
 
-  bool is_slice_output = dimensions == 1;
   NodeAttr::NodeOutputAttr node_output_attr = {
       slice_output_shape, ScalarType()};
 
-  if (is_slice_output) {
-    node_output_attr.final_result_index = 0;
-  }
   auto slice_op = BuildOp(
       graph, "slice", {syn_in(0)}, {node_output_attr}, &params, sizeof(params));
-  if (!is_slice_output) {
-    auto reshape_output_shape = slice_output_shape;
-    reshape_output_shape.erase(reshape_output_shape.begin() + dim);
-    syn_out(0) = OpBackend::BuildReshape(
-        this, graph, slice_op[0].get(), reshape_output_shape, ScalarType(), 0);
-    return;
-  }
-  syn_out(0) = std::move(slice_op[0]);
+
+  auto reshape_output_shape = slice_output_shape;
+  reshape_output_shape.erase(reshape_output_shape.begin() + dim);
+
+  syn_out(0) = OpBackend::BuildReshape(
+      this, graph, slice_op[0].get(), reshape_output_shape, ScalarType(), 0);
 }
 
 } // namespace habana
