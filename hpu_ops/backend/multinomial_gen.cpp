@@ -18,14 +18,14 @@
 
 namespace habana {
 
-sizes_vec MultinomialOutputShape(const at::Stack& stack) {
+std::vector<int64_t> MultinomialOutputShape(const at::Stack& stack) {
   const torch::Tensor& t = stack_tensor(stack, 0);
   int64_t num_samples = stack.at(1).toInt();
   auto dim = t.sizes()[0];
   if (t.dim() == 1) {
-    return {{num_samples}};
+    return {num_samples};
   }
-  return {{dim, num_samples}};
+  return {dim, num_samples};
 }
 
 static std::shared_ptr<void> MultinomialParams(
@@ -40,6 +40,7 @@ static std::shared_ptr<void> MultinomialParams(
   switch (type) {
     case at::ScalarType::Float:
     case at::ScalarType::BFloat16:
+    case at::ScalarType::Half:
       params->num_samples = num_samples;
       params->replacement = replacement;
       break;
@@ -58,26 +59,14 @@ static std::shared_ptr<void> MultinomialParams(
   return params;
 }
 
+OutputMetaDataVector MultinomialMeta(const at::Stack& stack) {
+  return {OutputMetaData(at::ScalarType::Long, MultinomialOutputShape(stack))};
+}
+
 std::shared_ptr<void> FillMultinomialParams(
     const at::Stack& stack,
     size_t& size) {
   return MultinomialParams(stack, size);
-}
-
-void Multinomial::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  size_t size = 0;
-  auto outshape = MultinomialOutputShape(stack)[0];
-  auto params = FillMultinomialParams(stack, size);
-  auto multinomial = BuildOp(
-      graph,
-      guid_,
-      {syn_in(0), syn_in(1)},
-      {{outshape, torch::kInt, 0}},
-      params.get(),
-      size);
-  syn_out(0) = std::move(multinomial[0]);
 }
 
 std::shared_ptr<void> FillHabanaMultinomialParams(
