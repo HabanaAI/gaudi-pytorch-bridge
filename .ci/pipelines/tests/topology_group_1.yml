@@ -5,6 +5,7 @@ common:
     - HCL
     - HL_THUNK
     - MEDIA
+    - PT_FORK
     - RDMA_CORE
     - SWTOOLS_SDK
     - SYNAPSE

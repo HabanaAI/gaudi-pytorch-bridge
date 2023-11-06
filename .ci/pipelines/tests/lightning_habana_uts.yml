@@ -4,6 +4,7 @@ common:
     - HCL
     - HL_THUNK
     - MEDIA
+    - PT_FORK
     - RDMA_CORE
     - SWTOOLS_SDK
     - SYNAPSE
@@ -23,7 +24,7 @@ common:
     Install Python test dependencies:
       command: '__check_pytorch_dev_py_deps; __check_pytest_dev_py_deps'
     Update PyTorch module:
-      command: '__clean_pytorch_dev_py_deps; pip install -U $PYTORCH_FORK_RELEASE_BUILD/pkgs/*.whl; pip install -U ${PYTORCH_VISION_FORK_BUILD}/pkgs/*.whl; install_pillow_simd; pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl; pip install -U scikit-learn; build_deepspeed_fork; pip install -U $LIGHTNING_HABANA_FORK_BUILD/pkgs/*.whl --force-reinstall --no-deps'
+      command: 'install_pytorch_whls; pip install -U scikit-learn; build_deepspeed_fork; pip install -U $LIGHTNING_HABANA_FORK_BUILD/pkgs/*.whl --force-reinstall --no-deps'
     Install media loader wheel:
       command: 'pip install -U ${MEDIA_RELEASE_BUILD}/pkgs/*.whl'
 testsMap:
