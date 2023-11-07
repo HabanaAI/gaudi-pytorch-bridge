@@ -468,12 +468,6 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::barrier(
   PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::barrier");
   habana_lazy::HbLazyTensor::StepMarker();
 
-  auto comm = habana::HcclCommunicator::Get(comm_->GetId());
-  if (comm->GetHcclHandle() != nullptr) {
-    synStreamHandle collective_stream = comm->getCommStream();
-    hcclBarrier(*comm->GetHcclHandle(), collective_stream);
-  }
-
   std::vector<at::Tensor> tensors;
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
