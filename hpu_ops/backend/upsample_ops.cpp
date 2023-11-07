@@ -75,7 +75,7 @@ struct UpsampleBicubic2dVec : OpBackend {
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-    SetOutputMetaFn(UpsampleBicubic2DFwdMeta);
+    SetComputeOutputShapes(UpsampleBicubic2DFwdOutputShape);
     SetFillParams(FillBicubicFwdParams);
   }
 };

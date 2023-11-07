@@ -7049,7 +7049,7 @@ unsqueeze:
 
 upsample_bicubic2d:
   custom_fill_params: FillBicubicFwdParams
-  output_meta: UpsampleBicubic2DFwdMeta
+  custom_output_shape: UpsampleBicubic2DFwdOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -7063,7 +7063,7 @@ upsample_bicubic2d:
 
 upsample_bicubic2d.out:
   custom_fill_params: FillBicubicFwdParams
-  output_meta: UpsampleBicubic2DFwdMeta
+  custom_output_shape: UpsampleBicubic2DFwdOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -7077,7 +7077,7 @@ upsample_bicubic2d.out:
 upsample_bicubic2d.vec:
   pytorch2_mode: disable
   custom_fill_params: FillBicubicFwdParams
-  output_meta: UpsampleBicubic2DFwdMeta
+  custom_output_shape: UpsampleBicubic2DFwdOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -7091,7 +7091,7 @@ upsample_bicubic2d.vec:
 
 upsample_bicubic2d_backward:
   custom_fill_params: FillBicubicBwdParams
-  output_meta: UpsampleBicubic2DBwdMeta
+  custom_output_shape: UpsampleBicubic2DBwdOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -7105,7 +7105,7 @@ upsample_bicubic2d_backward:
 
 upsample_bicubic2d_backward.grad_input:
   custom_fill_params: FillBicubicBwdParams
-  output_meta: UpsampleBicubic2DBwdMeta
+  custom_output_shape: UpsampleBicubic2DBwdOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -7118,7 +7118,7 @@ upsample_bicubic2d_backward.grad_input:
 
 upsample_bicubic2d_backward.vec:
   custom_fill_params: FillBicubicBwdParams
-  output_meta: UpsampleBicubic2DBwdMeta
+  custom_output_shape: UpsampleBicubic2DBwdOutputShape
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
