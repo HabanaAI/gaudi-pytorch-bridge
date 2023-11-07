@@ -331,7 +331,14 @@ class device(object):
     r"""Context manager that changes the selected device."""
 
     def __init__(self, device: Any):
-        self.idx = _get_device_index(device)
+        # After 2.1 upgrade, device coming from fork might be 0
+        device_idx = _get_device_index(device)
+        env_device_idx = _get_module_id_from_environ()
+        if device_idx != 0 and device_idx != env_device_idx:
+            raise AssertionError(
+                f"Requested device_id={device_idx} is different from env_device_id={env_device_idx}"
+            )
+        self.idx = env_device_idx
         self.prev_idx = -1
 
     def __enter__(self):
