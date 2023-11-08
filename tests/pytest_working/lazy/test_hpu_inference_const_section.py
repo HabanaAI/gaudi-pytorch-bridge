@@ -32,8 +32,6 @@ class Net(torch.nn.Module):
     return x
 
 def test_const_serialization_cache():
-    if is_torch_at_least(2,1):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-161539")
     torch.manual_seed(123456)
     htorch.hpu.enable_inference_mode()
 
