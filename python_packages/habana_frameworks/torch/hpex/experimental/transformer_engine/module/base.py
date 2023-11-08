@@ -404,6 +404,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
     def prepare_forward(
         self,
         inp: torch.Tensor,
+        is_first_microbatch: Union[bool, None],
         num_gemms: int = 1
     ) -> Generator[tuple, None, None]:
         """Checks and prep for FWD.
@@ -424,6 +425,11 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
 
             self.set_activation_dtype(inp)
             self.fp8_init(num_gemms=num_gemms)
+
+            # Create persistent tensors for fp8 weights and their transposes
+            # only when fp8 weight caching is used.
+            if is_first_microbatch is not None:
+                self.set_fp8_weights()
 
             if self.fp8 and self.sequence_parallel:
                 assert self.fp8_meta["recipe"].reduce_amax, \

@@ -452,10 +452,6 @@ class Linear(TransformerEngineBaseModule):
         else:
             self.gemm_bias_unfused_add = False
 
-        # To initialize weights stored in fp8. Notice that original implementation calls it every fwd,
-        # but we call it once to reduce host overhead
-        self.set_fp8_weights()
-
     def get_fp8_weights_scratchpad(
         self,
         is_first_microbatch: Union[bool, None],
@@ -522,7 +518,7 @@ class Linear(TransformerEngineBaseModule):
             is_first_microbatch
         )
 
-        with self.prepare_forward(inp) as (inp, is_scale_update_required):
+        with self.prepare_forward(inp, is_first_microbatch) as (inp, is_scale_update_required):
             out = _Linear.apply(
                 weight_tensor,
                 weight1_fp8,
