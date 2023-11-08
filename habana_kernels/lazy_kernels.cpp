@@ -7040,13 +7040,14 @@ at::Tensor rotary_pos_embedding_backward_lazy(
     const at::Tensor& grad_in,
     const at::Tensor& sin,
     const at::Tensor& cos,
-    const int64_t offset) {
+    const int64_t offset,
+    const int64_t mode) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> op{
       "hpu::rotary_pos_embedding_backward",
-      {grad_in, sin, cos, offset},
+      {grad_in, sin, cos, offset, mode},
       {{grad_in.sizes().vec()}}};
 
   RUN_MAYBE_WITH_ACC_THREAD(rotary_pos_embedding_backward, op)

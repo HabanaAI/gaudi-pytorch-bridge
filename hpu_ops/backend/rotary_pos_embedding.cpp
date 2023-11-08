@@ -69,6 +69,7 @@ void RotaryPosEmbeddingBackward::AddNode(
   auto sin = getNextInput<TensorsPair>(stackGetter);
   auto cos = getNextInput<TensorsPair>(stackGetter);
   auto offset = getNextInput<int>(stackGetter);
+  auto mode = getNextInput<int>(stackGetter);
 
   auto output_shape = grad_in.pt_t.sizes().vec();
 
@@ -109,8 +110,9 @@ void RotaryPosEmbeddingBackward::AddNode(
     inputs.push_back(cos.syn_t);
   }
 
-  ns_RoPESt2::Params params{};
+  ns_RoPESt2::ParamsV2 params{};
   params.offset = offset;
+  params.mode = static_cast<RotaryPosEmbeddingMode_t>(mode);
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
       {output_shape, grad_in.pt_t.scalar_type(), 0}};

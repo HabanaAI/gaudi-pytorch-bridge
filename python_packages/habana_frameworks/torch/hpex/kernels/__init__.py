@@ -25,6 +25,7 @@ from .RotaryPosEmbeddingHelper import (
     RotaryPosEmbeddingMode,
     RotaryPosEmbeddingHelperV1,
     RotaryPosEmbeddingHelperV2,
+    RotaryPosEmbeddingHelperV3,
     apply_rotary_pos_emb,
 )
 from .FusedSDPA import FusedSDPA

@@ -17,6 +17,7 @@ from habana_frameworks.torch.hpex.kernels import (
     RotaryPosEmbeddingMode,
     RotaryPosEmbeddingHelperV1,
     RotaryPosEmbeddingHelperV2,
+    RotaryPosEmbeddingHelperV3,
     apply_rotary_pos_emb,
 )
 
@@ -48,6 +49,13 @@ apply_rotary_pos_emb_gptj_test_case_list = [
 apply_rotary_pos_emb_diff_dtypes_test_case_list = [
     # p_size, cos_sin_size
     ((1, 6, 4, 6), (1, 1, 32, 6)),
+]
+
+apply_rotary_pos_emb_chatglm_test_case_list = [
+    # p_size, cos_sin_size
+    ((2, 4, 2, 8), (1, 2, 4)),
+    ((32, 4, 8, 32), (8192, 8)),
+    ((32, 4, 8, 32), (8192, 16)),
 ]
 
 
@@ -123,6 +131,32 @@ def apply_rotary_pos_emb_gptj_ref(
     Note that the original version has sin and cos swapped with each other.
     """
     return (tensor * cos) + (rotate_every_two(tensor) * sin)
+
+
+def apply_rotary_pos_emb_chatglm_ref(
+    x: torch.Tensor, rope_cache: torch.Tensor
+) -> torch.Tensor:
+    """
+    Based on apply_rotary_pos_emb() from ChatGLM model.
+    """
+    # x: [sq, b, np, hn]
+    sq, _, np, _ = x.size(0), x.size(1), x.size(2), x.size(3)
+    rot_dim = rope_cache.shape[-2] * 2
+    x, x_pass = x[..., :rot_dim], x[..., rot_dim:]
+    # truncate to support variable sizes
+    rope_cache = rope_cache[:sq]
+    xshaped = x.reshape(sq, -1, np, rot_dim // 2, 2)
+    rope_cache = rope_cache.view(sq, -1, 1, xshaped.size(3), 2)
+    x_out2 = torch.stack(
+        [
+            xshaped[..., 0] * rope_cache[..., 0] - xshaped[..., 1] * rope_cache[..., 1],
+            xshaped[..., 1] * rope_cache[..., 0] + xshaped[..., 0] * rope_cache[..., 1],
+        ],
+        -1,
+    )
+    x_out2 = x_out2.flatten(3)
+
+    return torch.cat((x_out2, x_pass), dim=-1)
 
 
 def prepare_test_data(p_size, cos_sin_size, offset, mode):
@@ -346,6 +380,88 @@ def test_apply_rotary_pos_emb_diff_dtypes(
 
     if dtype == torch.float32:
         tol = 0.002
+    else:
+        tol = 0.012
+
+    torch.testing.assert_close(
+        p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol
+    )
+
+    torch.testing.assert_close(
+        p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol
+    )
+
+
+@pytest.mark.parametrize(
+    "p_size, cos_sin_size",
+    apply_rotary_pos_emb_chatglm_test_case_list,
+)
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
+def test_apply_rotary_pos_emb_chatglm_fwd(p_size, cos_sin_size, dtype):
+    if is_gaudi1() and dtype == torch.float16:
+        pytest.skip("Half is not supported on Gaudi.")
+
+    torch.manual_seed(12345)
+
+    # Prepare data
+    p = torch.rand(p_size, dtype=torch.float32)
+    cos = torch.rand(cos_sin_size, dtype=torch.float32)
+    sin = torch.rand(cos_sin_size, dtype=torch.float32)
+    rope_cache = torch.stack((cos, sin), dim=-1)
+
+    output_ref = apply_rotary_pos_emb_chatglm_ref(p, rope_cache)
+
+    p_hpu = p.to(dtype).to(hpu)
+    rope_cache_hpu = rope_cache.to(hpu)
+
+    output_hpu = apply_rotary_pos_emb(p_hpu, rope_cache_hpu)
+
+    if dtype == torch.float32:
+        tol = 0.001
+    else:
+        tol = 0.012
+
+    torch.testing.assert_close(
+        output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol
+    )
+
+
+@pytest.mark.parametrize(
+    "p_size, cos_sin_size",
+    apply_rotary_pos_emb_chatglm_test_case_list,
+)
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
+def test_apply_rotary_pos_emb_chatglm_fwd_bwd(p_size, cos_sin_size, dtype):
+    if is_gaudi1() and dtype == torch.float16:
+        pytest.skip("Half is not supported on Gaudi.")
+
+    torch.manual_seed(12345)
+
+    # Prepare data
+    p = torch.rand(p_size, dtype=torch.float32, requires_grad=True)
+    cos = torch.rand(cos_sin_size, dtype=torch.float32)
+    sin = torch.rand(cos_sin_size, dtype=torch.float32)
+    rope_cache = torch.stack((cos, sin), dim=-1)
+
+    # Compute reference gradients on CPU using autograd
+    p_embed_ref = apply_rotary_pos_emb_chatglm_ref(p, rope_cache)
+    loss_ref = p_embed_ref.sum()
+    loss_ref.backward()
+
+    grad_p_ref = p.grad.clone().detach()
+
+    # Compute gradients on HPU
+    p_hpu = p.clone().to(dtype).to(hpu)
+    p_hpu.retain_grad()
+    rope_cache_hpu = rope_cache.to(dtype).to(hpu)
+
+    output_fwd = RotaryPosEmbeddingHelperV3.apply
+    p_embed = output_fwd(p_hpu, rope_cache_hpu)
+    loss = p_embed.sum()
+    loss.backward()
+
+    if dtype == torch.float32:
+        tol = 0.001
     else:
         tol = 0.012
 

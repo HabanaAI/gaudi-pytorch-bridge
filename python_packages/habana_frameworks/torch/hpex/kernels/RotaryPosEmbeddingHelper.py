@@ -37,18 +37,13 @@ def recalculate_params(
 
 def apply_rotary_pos_emb(
     p: torch.Tensor,
-    cos: torch.Tensor,
-    sin: torch.Tensor,
-    position_ids: torch.LongTensor = None,
-    offset: int = 0,
-    mode: RotaryPosEmbeddingMode = RotaryPosEmbeddingMode.BLOCKWISE,
+    *args,
 ) -> torch.Tensor:
-    r"""Calculates the rotary positional embedding of each token in the input sequence (according to Megatron implementation).
-    Used in a forward phase only.
+    r"""Calculates the rotary positional embedding of each token in the input sequence.
 
     Args:
         p: Input tensor.
-        cos: Cosine input tensor.
+        cos or rope_cache: Cosine input tensor or cos and sin combined together.
         sin: Sine input tensor.
         position_ids: Indices of positions of each input sequence tokens in the position embeddings.
         offset: Offset value defining from where to start loading the cos & sin values. Content is relevant only for mode BLOCKWISE.
@@ -84,15 +79,31 @@ def apply_rotary_pos_emb(
             p, cos, sin, position_ids, offset = 0, mode = BLOCKWISE
         For GPT-J model, the input parameters should be set as follows:
             p, cos, sin, position_ids = None, offset = 0, mode = PAIRWISE
+        For ChatGLM model, the input parameters should be set as follows:
+            p, rope_cache
     """
-    p_dtype = p.dtype
 
-    if p_dtype != sin.dtype:
-        sin = sin.to(p_dtype)
-    if p_dtype != cos.dtype:
-        cos = cos.to(p_dtype)
+    if len(args) > 1:
+        cos = args[0]
+        sin = args[1]
+        position_ids = args[2] if len(args) > 2 else None
+        offset = args[3] if len(args) > 3 else 0
+        mode = args[4] if len(args) > 4 else RotaryPosEmbeddingMode.BLOCKWISE
 
-    return torch.ops.hpu.rotary_pos_embedding(p, sin, cos, position_ids, offset, mode.value)
+        p_dtype = p.dtype
+
+        if p_dtype != sin.dtype:
+            sin = sin.to(p_dtype)
+        if p_dtype != cos.dtype:
+            cos = cos.to(p_dtype)
+
+        return torch.ops.hpu.rotary_pos_embedding(
+            p, sin, cos, position_ids, offset, mode.value
+        )
+    else:
+        rope_cache = args[0]
+        output_fwd = RotaryPosEmbeddingHelperV3.apply
+        return output_fwd(p, rope_cache)
 
 
 def apply_rotary_pos_emb_bwd(
@@ -101,10 +112,9 @@ def apply_rotary_pos_emb_bwd(
     sin: torch.Tensor,
     position_ids: torch.LongTensor = None,
     offset: int = 0,
+    mode: RotaryPosEmbeddingMode = RotaryPosEmbeddingMode.BLOCKWISE,
 ) -> torch.Tensor:
-    cos, sin, offset = recalculate_params(
-        cos, sin, position_ids, offset, RotaryPosEmbeddingMode.BLOCKWISE
-    )
+    cos, sin, offset = recalculate_params(cos, sin, position_ids, offset, mode)
 
     p_grad_in_dtype = p_grad_in.dtype
 
@@ -113,7 +123,9 @@ def apply_rotary_pos_emb_bwd(
     if p_grad_in_dtype != cos.dtype:
         cos = cos.to(p_grad_in_dtype)
 
-    return torch.ops.hpu.rotary_pos_embedding_backward(p_grad_in, sin, cos, offset)
+    return torch.ops.hpu.rotary_pos_embedding_backward(
+        p_grad_in, sin, cos, offset, mode.value
+    )
 
 
 class RotaryPosEmbeddingHelperV1(torch.autograd.Function):
@@ -157,3 +169,49 @@ class RotaryPosEmbeddingHelperV2(torch.autograd.Function):
         cos, sin, position_ids = ctx.saved_tensors
         p_embed_grad = apply_rotary_pos_emb_bwd(p_grad_in, cos, sin, position_ids)
         return p_embed_grad, None, None, None
+
+
+class RotaryPosEmbeddingHelperV3(torch.autograd.Function):
+    """
+    Based on apply_rotary_pos_emb() from ChatGLM model.
+    """
+
+    @staticmethod
+    def parse_rope_cache(p, rope_cache):
+        sq, np = p.size(0), p.size(2)
+        rot_dim = rope_cache.shape[-2] * 2
+        p, p_pass = p[..., :rot_dim], p[..., rot_dim:].clone()
+        rope_cache = rope_cache[:sq]
+        p_shaped2 = p.reshape(sq, -1, np, rot_dim // 2, 2)
+        p_shaped = p.reshape(sq, -1, np, rot_dim)
+        rope_cache = rope_cache.reshape(sq, -1, 1, p_shaped2.size(3), 2)
+        cos = torch.repeat_interleave(rope_cache[:, :, :, :, 0], 2, dim=-1).to(
+            p_shaped.dtype
+        )
+        sin = torch.repeat_interleave(rope_cache[:, :, :, :, 1], 2, dim=-1).to(
+            p_shaped.dtype
+        )
+
+        return p_shaped, p_pass, sin, cos
+
+    @staticmethod
+    def forward(ctx, p, rope_cache):
+        p_shaped, p_pass, sin, cos = RotaryPosEmbeddingHelperV3.parse_rope_cache(
+            p, rope_cache
+        )
+        ctx.save_for_backward(rope_cache)
+        res = torch.ops.hpu.rotary_pos_embedding(
+            p_shaped, sin, cos, None, 0, RotaryPosEmbeddingMode.PAIRWISE.value
+        )
+        return torch.cat((res, p_pass), dim=-1)
+
+    @staticmethod
+    def backward(ctx, p_grad_in):
+        (rope_cache,) = ctx.saved_tensors
+        p_shaped, p_pass, sin, cos = RotaryPosEmbeddingHelperV3.parse_rope_cache(
+            p_grad_in, rope_cache
+        )
+        p_embed_grad = apply_rotary_pos_emb_bwd(
+            p_shaped, cos, sin, None, 0, RotaryPosEmbeddingMode.PAIRWISE
+        )
+        return torch.cat((p_embed_grad, p_pass), dim=-1), None

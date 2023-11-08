@@ -727,14 +727,16 @@ at::Tensor rotary_pos_embedding_backward(
     const at::Tensor& grad_in,
     const at::Tensor& sin,
     const at::Tensor& cos,
-    const int64_t offset) {
+    const int64_t offset,
+    const int64_t mode) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
-      "rotary_pos_embedding_backward :", DUMP_4ARGS(grad_in, sin, cos, offset));
+      "rotary_pos_embedding_backward :",
+      DUMP_5ARGS(grad_in, sin, cos, offset, mode));
 
   habana::eager::EagerOp<at::Tensor> hpu_op{
       "hpu::rotary_pos_embedding_backward",
-      {grad_in, sin, cos, offset},
+      {grad_in, sin, cos, offset, mode},
       {grad_in.sizes().vec()},
       0};
 
@@ -1047,7 +1049,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
   m.def(
-      "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, int offset) -> Tensor");
+      "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, int offset, int mode) -> Tensor");
   m.def(
       "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode) -> Tensor");
   m.def(
