@@ -125,7 +125,7 @@ bool ProcessGroupLazyHCCL::WorkLazy::isSuccess() const {
 bool ProcessGroupLazyHCCL::WorkLazy::wait(std::chrono::milliseconds timeout
                                           [[maybe_unused]]) {
   PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::WorkLazy::wait");
-  habana_lazy::HbLazyTensor::StepMarker();
+  habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, true);
   return true;
 }
 
@@ -155,6 +155,7 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::broadcast(
   for (auto& t : tensors) {
     habana_lazy::broadcast_hpu_lazy_(t, opts.rootRank, comm_->GetId());
   }
+  habana_lazy::HbLazyTensor::StepMarker();
   restoreTensorsize(tensors, changed, sizeList, strideList);
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };

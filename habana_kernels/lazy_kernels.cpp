@@ -414,7 +414,8 @@ void strided_insert_hpu_lazy(
     const Tensor& insert_t,
     bool is_flush) {
   PT_LAZY_TRACE;
-  auto& stride_params_opt = GetHbLazyTensor(self).getDataPtr()->stride_params;
+  auto& stride_params_opt =
+      GetHbLazyTensor(self, true, true).getDataPtr()->stride_params;
   TORCH_CHECK(stride_params_opt.has_value(), "incorrect tensor id");
   StrideParams& params = stride_params_opt.value();
 
@@ -443,8 +444,8 @@ void strided_insert_hpu_lazy(
   }
 
   // update orig tensor map
-  GetHbLazyTensor(params.base).getDataPtr()->recent_base = out;
-  GetHbLazyTensor(self).SetOpAccumulationInProgress();
+  GetHbLazyTensor(params.base, true, false).getDataPtr()->recent_base = out;
+  GetHbLazyTensor(self, true, false).SetOpAccumulationInProgress();
 
   PT_VIEWTABLE_DEBUG(
       "orig tensor map entry created for ", GetHbLazyTensorId(params.base));

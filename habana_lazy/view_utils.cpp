@@ -710,7 +710,7 @@ void HbLazyTensorViews::HandleViewsLazyCollective(const at::Tensor& tensor) {
         "stepmarker triggered to handle lazy inplace before collectives");
     PT_IRGRAPH_DEBUG(
         "step marker due to handle lazy inplace before collectives");
-    HbLazyTensor::StepMarker({});
+    HbLazyTensor::StepMarker({}, nullptr, {}, true);
   }
 }
 

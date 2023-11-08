@@ -92,7 +92,8 @@ void HPUEvent::record(const c10::hpu::HPUStream& stream) {
     if (stream.stream() == (c10::hpu::getCurrentHPUStream()).stream()) {
       PT_DEVICE_DEBUG("Reocrd Stream current and record stream are same");
       PT_IRGRAPH_DEBUG("step marker due to HPUEvent::record");
-      habana_lazy::HbLazyTensor::StepMarker({});
+      habana_lazy::HbLazyTensor::StepMarker(
+          {}, nullptr, {}, (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SFG) == true));
     }
   }
 

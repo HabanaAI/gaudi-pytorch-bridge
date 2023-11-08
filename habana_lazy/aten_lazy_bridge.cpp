@@ -256,7 +256,7 @@ c10::optional<HbLazyTensor> TryGetHbLazyTensor(
        !habana_lazy::AccThread::Get().inAccThreadContext())) {
     PT_LAZY_DEBUG("step marker due to collective op output request");
     PT_IRGRAPH_DEBUG("step marker due to collective op output request");
-    HbLazyTensor::StepMarker({});
+    habana_lazy::HbLazyTensor::StepMarker({}, nullptr, {}, true);
   }
 
   return hl_t;
