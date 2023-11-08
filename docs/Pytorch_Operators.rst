@@ -25,6 +25,7 @@ PyTorch Operators Support Summary
 **PyTorch Operator**                **FP32** **BF16** **INT32** **INT8** **BOOL**  **Operator Type**
 =================================   ======== ======== ========= ======== ========  ======================
 adaptive_avg_pool1d                    Yes      Yes      No        No       No     torch.nn.functional
+adaptive_avg_pool3d                    Yes      Yes      No        No       No     torch.nn.functional
 avg_pool1d                             Yes      Yes      No        No       No     torch.nn.functional
 avg_pool2d                             Yes      Yes      No        No       No     torch.nn.functional
 avg_pool3d                             Yes      Yes      No        No       No     torch.nn.functional
@@ -274,6 +275,7 @@ zeros                                  Yes      Yes      Yes       Yes      Yes 
 zeros_like                             Yes      Yes      Yes       Yes      Yes    torch
 AdaptiveAvgPool1d                      Yes      Yes      No        No       No     torch.nn
 AdaptiveAvgPool2d                      Yes      Yes      No        No       No     torch.nn
+AdaptiveAvgPool3d                      Yes      Yes      No        No       No     torch.nn
 AvgPool1d                              Yes      Yes      No        No       No     torch.nn
 AvgPool2d                              Yes      Yes      No        No       No     torch.nn
 AvgPool3d                              Yes      Yes      No        No       No     torch.nn

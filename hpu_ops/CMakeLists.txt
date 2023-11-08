@@ -113,6 +113,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/_efficientzerotensor_gen.cpp
           backend/_masked_scale_gen.cpp
           backend/adaptive_avg_pool2d_gen.cpp
+          backend/adaptive_avg_pool3d_gen.cpp
           backend/add_composite_gen.cpp
           backend/addmm_gen.cpp
           backend/addmv_gen.cpp
