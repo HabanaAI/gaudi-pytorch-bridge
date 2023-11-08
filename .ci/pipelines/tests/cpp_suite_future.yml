@@ -1,25 +1,27 @@
 common:
   dependencies:
-    - CODEC
     - COMPLEX_GUID
+    - CORAL_SIM
     - HCL
     - HL_THUNK
-    - MEDIA
     - SWTOOLS_SDK
     - SYNAPSE
     - SYNAPSE_UTILS
+    - TPC_FUSER
     - TPC_KERNELS
+    - TPCSIM
+    - RDMA_CORE
   config:
-    testCommand: run_pytorch_qa_tests
+    testCommand: run_pytorch_modules_tests
     loadLKD: true
     testXMLOutputKey: --xml
     releaseFlag: false
     saveToFileBeatMount: true
   envVars:
-    LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);')"
+    LD_LIBRARY_PATH: "${LD_LIBRARY_PATH}:${HOME}/.venv/lib/${__python_cmd}/site-packages/torch/lib:$(${__python_cmd} -c 'import habana_frameworks.torch.lib; print(habana_frameworks.torch.lib.__path__[0]);'):${RDMA_CORE_ROOT}/build/lib"
     CI_WORKSPACE_TO_TOX: "${WORKSPACE}"
     LD_PRELOAD: "/lib/x86_64-linux-gnu/libtcmalloc.so.4"
-    JOB_SCENARIO: pt_smoke_gaudi2
+    JOB_SCENARIO: pt_ci_cpp
   preTestStages:
     Install Python test dependencies:
       command: '__check_pytorch_dev_py_deps; __check_pytest_dev_py_deps'
@@ -41,25 +43,41 @@ common:
           install_pillow_simd
           if [ $GERRIT_PROJECT == lightning-habana-fork ]
           then
-            pip install -U $LIGHTNING_HABANA_FORK_BUILD/pkgs/*.whl --force-reinstall --no-deps
+            pip install -U $LIGHTNING_HABANA_FORK_BUILD/pkgs/*.whl
           fi
           pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
-    Install media loader wheel:
-      command: |
-          pip install -U ${MEDIA_RELEASE_BUILD}/pkgs/*.whl
 testsMap:
-  Test_pytorch_modules_gaudi2_asic_topology_2.n:
+  Test_pytorch_modules_gaudi_sim_cpp_suite_future:
     dependencies:
-      - TPC_FUSER
+      - PT_NEXT
+    stages:
+      Run CPP tests gaudi sim:
+        filter: -t cpp_tests
+      Run PY tests gaudi sim:
+        filter: -t py_tests
+  Test_pytorch_modules_gaudi2_sim_cpp_suite_future:
+    dependencies:
       - TPC_LLVM
       - PT_NEXT
     stages:
-      Run toplogy tests on gaudi2 asic:
-        filter: -t topology_ci -a smoke_gaudi2
-  Test_pytorch_modules_gaudi_asic_topology_2.n:
+      Run CPP tests gaudi2 sim:
+        filter: -t cpp_tests --dut gaudi2
+      Run PY tests gaudi2 sim:
+        filter: -t py_tests --dut gaudi2
+  Test_pytorch_modules_gaudi3_sim_cpp_suite_future:
     dependencies:
-      - AEON
+      - TPC_LLVM
       - PT_NEXT
     stages:
-      Run toplogy tests on gaudi asic:
-        filter: -t topology_ci -a smoke
+      Run CPP tests gaudi3 sim:
+        filter: -t cpp_tests --dut gaudi3
+      Run PY tests gaudi3 sim:
+        filter: -t py_tests --dut gaudi3
+  Test_pytorch_modules_greco_sim_cpp_suite_future:
+    dependencies:
+      - TPC_LLVM
+    stages:
+      Run CPP tests greco sim:
+        filter: -t cpp_tests --dut greco
+      Run PY tests greco sim:
+        filter: -t py_tests --dut greco
