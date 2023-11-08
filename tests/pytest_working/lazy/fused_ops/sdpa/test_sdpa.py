@@ -158,6 +158,7 @@ tc_list= [
       False, # is_causal
       False, # recompute
       False, # rhslice
+      False, # inference
     ),
     # Cross attention with head_dim qk != head_dim v ;enable auto cast, is_causal = True
     ( 2, #batch_size,
@@ -173,6 +174,7 @@ tc_list= [
       True, # is_causal
       False, # recompute
       False, # rhslice
+      False, # inference
     ),
     # Cross attention with head_dim qk != head_dim v without multi head, i.e 3D tensors
     ( 2, #batch_size,
@@ -188,6 +190,7 @@ tc_list= [
       False, # is_causal
       False, # recompute
       False, # rhslice
+      False, # inference
     ),
      ]
 
@@ -206,12 +209,14 @@ tc_list_recompute = [
       True, # is_causal
       True, # recompute
       False, # rhslice
+      False, # inference
     ),
     ]
 
 # batchsize/numheads slice
 tc_list_rhslice = [
     # Self attention with head_dim qk == head_dim v, is_causal, recompute, batchsize/numheads slice
+    #4D Training
     ( 3, #batch_size,
       5, #n_heads,
       16, #seq_len_N_t, i.e. Target seq len (i.e, of q)
@@ -225,16 +230,131 @@ tc_list_rhslice = [
       True, # is_causal
       True, # recompute
       True, # rhslice
+      False, # inference
+    ),
+    #3D Training
+    ( 3, #batch_size,
+      0, #n_heads,
+      16, #seq_len_N_t, i.e. Target seq len (i.e, of q)
+      32, #seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+      8, #head_dim_qk, i.e. head_dim of q and k
+      4, #head_dim_v,  i.e. head_dim of v
+      0.0, #dropout_p,
+      False, #use_attn_mask,
+      True, #use_float_mask,
+      True, #enable_autocast
+      True, # is_causal
+      True, # recompute
+      True, # rhslice
+      False, # inference
+    ),
+    #4D inference
+    ( 3, #batch_size,
+      4, #n_heads,
+      16, #seq_len_N_t, i.e. Target seq len (i.e, of q)
+      32, #seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+      8, #head_dim_qk, i.e. head_dim of q and k
+      8, #head_dim_v,  i.e. head_dim of v
+      0.0, #dropout_p,
+      False, #use_attn_mask,
+      True, #use_float_mask,
+      True, #enable_autocast
+      True, # is_causal
+      True, # recompute
+      True, # rhslice
+      True, # inference
+    ),
+    # 3D inference
+    ( 3, #batch_size,
+      0, #n_heads,
+      16, #seq_len_N_t, i.e. Target seq len (i.e, of q)
+      32, #seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+      8, #head_dim_qk, i.e. head_dim of q and k
+      8, #head_dim_v,  i.e. head_dim of v
+      0.0, #dropout_p,
+      False, #use_attn_mask,
+      True, #use_float_mask,
+      True, #enable_autocast
+      True, # is_causal
+      True, # recompute
+      True, # rhslice
+      True, # inference
     ),
 ]
 
+tc_list_rhslice_inf_attn_mask = [
+    #4D inference, float attn_mask
+    ( 3, #batch_size,
+      4, #n_heads,
+      16, #seq_len_N_t, i.e. Target seq len (i.e, of q)
+      32, #seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+      8, #head_dim_qk, i.e. head_dim of q and k
+      8, #head_dim_v,  i.e. head_dim of v
+      0.0, #dropout_p,
+      True, #use_attn_mask,
+      True, #use_float_mask,
+      True, #enable_autocast
+      False, # is_causal
+      True, # recompute
+      True, # rhslice
+      True, # inference
+    ),
+    #3D inference, float attn_mask
+    ( 3, #batch_size,
+      0, #n_heads,
+      16, #seq_len_N_t, i.e. Target seq len (i.e, of q)
+      32, #seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+      8, #head_dim_qk, i.e. head_dim of q and k
+      8, #head_dim_v,  i.e. head_dim of v
+      0.0, #dropout_p,
+      True, #use_attn_mask,
+      True, #use_float_mask,
+      True, #enable_autocast
+      False, # is_causal
+      True, # recompute
+      True, # rhslice
+      True, # inference
+    ),
+    #4D inference, bool attn_mask
+    ( 3, #batch_size,
+      4, #n_heads,
+      16, #seq_len_N_t, i.e. Target seq len (i.e, of q)
+      32, #seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+      8, #head_dim_qk, i.e. head_dim of q and k
+      8, #head_dim_v,  i.e. head_dim of v
+      0.0, #dropout_p,
+      True, #use_attn_mask,
+      False, #use_float_mask,
+      True, #enable_autocast
+      False, # is_causal
+      True, # recompute
+      True, # rhslice
+      True, # inference
+    ),
+    #3D inference, bool attn_mask
+    ( 3, #batch_size,
+      0, #n_heads,
+      16, #seq_len_N_t, i.e. Target seq len (i.e, of q)
+      32, #seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+      8, #head_dim_qk, i.e. head_dim of q and k
+      8, #head_dim_v,  i.e. head_dim of v
+      0.0, #dropout_p,
+      True, #use_attn_mask,
+      False, #use_float_mask,
+      True, #enable_autocast
+      False, # is_causal
+      True, # recompute
+      True, # rhslice
+      True, # inference
+    ),
+]
 #For now disable additional tests
-#total_tc_list = tc_list + tc_list_recompute + tc_list_rhslice
+#total_tc_list = tc_list + tc_list_recompute + tc_list_rhslice + tc_list_rhslice_inf_attn_mask
 
 total_tc_list = tc_list
 
 @pytest.mark.xfail(reason="Results mismatch")
-@pytest.mark.parametrize("batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice", total_tc_list)
+@pytest.mark.parametrize("batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice, inference", total_tc_list)
 def test_sdpa(
     batch_size,
     n_heads,
@@ -248,7 +368,8 @@ def test_sdpa(
     enable_autocast,
     is_causal,
     recompute,
-    rhslice):
+    rhslice,
+    inference):
 
     torch.manual_seed(1234567)
     #batch_size = 8
@@ -313,18 +434,32 @@ def test_sdpa(
     vb_print("q shape = ", q_shape)
     vb_print("k shape = ", k_shape)
     vb_print("v shape = ", v_shape)
-    q = torch.randn(q_shape).to(dtype).detach().requires_grad_()
-    k = torch.randn(k_shape).to(dtype).detach().requires_grad_()
-    v = torch.randn(v_shape).to(dtype).detach().requires_grad_()
+    q = torch.randn(q_shape).to(dtype).detach()
+    k = torch.randn(k_shape).to(dtype).detach()
+    v = torch.randn(v_shape).to(dtype).detach()
     g = torch.ones(fwd_out_shape).to(grad_dtype)
+    if not inference:
+        q = q.requires_grad_()
+        k = k.requires_grad_()
+        v = v.requires_grad_()
 
-    q_t = q.clone().detach().requires_grad_()
-    k_t = k.clone().detach().requires_grad_()
-    v_t = v.clone().detach().requires_grad_()
+    q_t = q.clone().detach()
+    k_t = k.clone().detach()
+    v_t = v.clone().detach()
     g_t = g.clone()
-    q_hpu = q.to("hpu").detach().requires_grad_()
-    k_hpu = k.to("hpu").detach().requires_grad_()
-    v_hpu = v.to("hpu").detach().requires_grad_()
+    if not inference:
+        q_t = q_t.requires_grad_()
+        k_t = k_t.requires_grad_()
+        v_t = v_t.requires_grad_()
+    q_hpu = q.to("hpu").detach()
+    k_hpu = k.to("hpu").detach()
+    v_hpu = v.to("hpu").detach()
+    if not inference:
+        q_hpu = q_hpu.requires_grad_()
+        k_hpu = k_hpu.requires_grad_()
+        v_hpu = v_hpu.requires_grad_()
+
+
     g_hpu = g.to("hpu")
 
     if use_attn_mask:
@@ -396,7 +531,8 @@ def test_sdpa(
                 O_hpu, DBG_ONLY_dropout_mask_g = FusedSDPA.apply(q_hpu,k_hpu,v_hpu, attn_mask_hpu, dropout_p, is_causal, None)
         DBG_ONLY_dropout_mask_g = DBG_ONLY_dropout_mask_g.to("cpu")
 
-    O_hpu.backward(g_hpu)
+    if not inference:
+        O_hpu.backward(g_hpu)
 
     htcore.mark_step()
 
@@ -404,7 +540,8 @@ def test_sdpa(
     if dropout_p == 0.0 or dropout_p == 1.0:
         with torch.autocast(device_type="cpu", dtype=torch.bfloat16, enabled=enable_autocast):
             sdp_ref = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal)
-        sdp_ref.backward(g)
+        if not inference:
+            sdp_ref.backward(g)
     else:
         vb_print("\ndropout_p is not 0.0 or 1.0; So not running torch.nn.functional.scaled_dot_product_attention for comparison")
         vb_print("Will use vanilla attention implementation for comparison")
@@ -414,51 +551,59 @@ def test_sdpa(
     # Vanilla SDPA and HPU Fused SDPA attention FWD and BWD results are expected to match.
     with torch.autocast(device_type="cpu", dtype=torch.bfloat16, enabled=enable_autocast):
         O_ref = vanilla_attention_impl_for_test(q_t, k_t, v_t, attn_mask = attn_mask, dropout_p = dropout_p, is_causal = is_causal, dbg_dropout_mask = DBG_ONLY_dropout_mask_g)
-    O_ref.backward(g_t)
+    if not inference:
+        O_ref.backward(g_t)
 
     # ------------------------------- Test Results Comparison ----------------------------
     vb_print("\n")
     O_hpu_c = O_hpu.detach().to("cpu")
-    q_grad_hpu_c = q_hpu.grad.detach().to("cpu")
-    k_grad_hpu_c = k_hpu.grad.detach().to("cpu")
-    v_grad_hpu_c = v_hpu.grad.detach().to("cpu")
+    if not inference:
+        q_grad_hpu_c = q_hpu.grad.detach().to("cpu")
+        k_grad_hpu_c = k_hpu.grad.detach().to("cpu")
+        v_grad_hpu_c = v_hpu.grad.detach().to("cpu")
 
     compare_tensors(O_ref, O_hpu_c, atol = atol, rtol = rtol)
-    compare_tensors(q_t.grad, q_grad_hpu_c, atol = atol, rtol = rtol)
-    compare_tensors(k_t.grad, k_grad_hpu_c, atol = atol, rtol = rtol)
-    compare_tensors(v_t.grad, v_grad_hpu_c, atol = atol, rtol = rtol)
+    if not inference:
+        compare_tensors(q_t.grad, q_grad_hpu_c, atol = atol, rtol = rtol)
+        compare_tensors(k_t.grad, k_grad_hpu_c, atol = atol, rtol = rtol)
+        compare_tensors(v_t.grad, v_grad_hpu_c, atol = atol, rtol = rtol)
 
 
     vb_print("Vanilla SDPA FWD Ref vs FSDPA match? = ", torch.allclose(O_ref, O_hpu_c, rtol=rtol, atol=atol))
-    vb_print("Vanilla SDPA BWD Ref Q grad vs FSDPA match? = ", torch.allclose(q_t.grad, q_grad_hpu_c, rtol=rtol, atol=atol))
-    vb_print("Vanilla SDPA BWD Ref K grad vs FSDPA match? = ", torch.allclose(k_t.grad, k_grad_hpu_c, rtol=rtol, atol=atol))
-    vb_print("Vanilla SDPA BWD Ref V grad vs FSDPA match? = ", torch.allclose(v_t.grad, v_grad_hpu_c, rtol=rtol, atol=atol))
+    if not inference:
+        vb_print("Vanilla SDPA BWD Ref Q grad vs FSDPA match? = ", torch.allclose(q_t.grad, q_grad_hpu_c, rtol=rtol, atol=atol))
+        vb_print("Vanilla SDPA BWD Ref K grad vs FSDPA match? = ", torch.allclose(k_t.grad, k_grad_hpu_c, rtol=rtol, atol=atol))
+        vb_print("Vanilla SDPA BWD Ref V grad vs FSDPA match? = ", torch.allclose(v_t.grad, v_grad_hpu_c, rtol=rtol, atol=atol))
     vb_print("\n")
     if print_max_diff:
         vb_print("Max diff Vanilla SDPA FWD Ref vs FSDPA ", torch.max(torch.abs(O_ref-O_hpu_c)))
-        vb_print("Max diff Vanilla SDPA BWD Ref Q grad vs FSDPA ", torch.max(torch.abs(q_t.grad - q_grad_hpu_c)))
-        vb_print("Max diff Vanilla SDPA BWD Ref K grad vs FSDPA ", torch.max(torch.abs(k_t.grad - k_grad_hpu_c)))
-        vb_print("Max diff Vanilla SDPA BWD Ref V grad vs FSDPA ", torch.max(torch.abs(v_t.grad - v_grad_hpu_c)))
+        if not inference:
+            vb_print("Max diff Vanilla SDPA BWD Ref Q grad vs FSDPA ", torch.max(torch.abs(q_t.grad - q_grad_hpu_c)))
+            vb_print("Max diff Vanilla SDPA BWD Ref K grad vs FSDPA ", torch.max(torch.abs(k_t.grad - k_grad_hpu_c)))
+            vb_print("Max diff Vanilla SDPA BWD Ref V grad vs FSDPA ", torch.max(torch.abs(v_t.grad - v_grad_hpu_c)))
 
     if dropout_p == 0.0 or dropout_p == 1.0:
         vb_print("\n")
         print("\ndropout_p == 0.0 or 1.0 : so, comparing with torch.nn.scaled_dot_product_attention also")
         compare_tensors(sdp_ref, O_hpu_c, atol = atol, rtol = rtol)
-        compare_tensors(q.grad, q_grad_hpu_c, atol = atol, rtol = rtol)
-        compare_tensors(k.grad, k_grad_hpu_c, atol = atol, rtol = rtol)
-        compare_tensors(v.grad, v_grad_hpu_c, atol = atol, rtol = rtol)
+        if not inference:
+            compare_tensors(q.grad, q_grad_hpu_c, atol = atol, rtol = rtol)
+            compare_tensors(k.grad, k_grad_hpu_c, atol = atol, rtol = rtol)
+            compare_tensors(v.grad, v_grad_hpu_c, atol = atol, rtol = rtol)
 
         vb_print("PT NN SDPA FWD Ref vs FSDPA match? = ", torch.allclose(sdp_ref.detach(), O_hpu_c, rtol=rtol, atol=atol))
-        vb_print("PT NN SDPA BWD Ref Q grad vs FSDPA match? = ", torch.allclose(q.grad, q_grad_hpu_c, rtol=rtol, atol=atol))
-        vb_print("PT NN SDPA BWD Ref K grad vs FSDPA match? = ", torch.allclose(k.grad, k_grad_hpu_c, rtol=rtol, atol=atol))
-        vb_print("PT NN SDPA BWD Ref V grad vs FSDPA match? = ", torch.allclose(v.grad, v_grad_hpu_c, rtol=rtol, atol=atol))
+        if not inference:
+            vb_print("PT NN SDPA BWD Ref Q grad vs FSDPA match? = ", torch.allclose(q.grad, q_grad_hpu_c, rtol=rtol, atol=atol))
+            vb_print("PT NN SDPA BWD Ref K grad vs FSDPA match? = ", torch.allclose(k.grad, k_grad_hpu_c, rtol=rtol, atol=atol))
+            vb_print("PT NN SDPA BWD Ref V grad vs FSDPA match? = ", torch.allclose(v.grad, v_grad_hpu_c, rtol=rtol, atol=atol))
 
         vb_print("\n")
         if print_max_diff:
             vb_print("Max diff PT NN SDPA FWD Ref vs FSDPA ", torch.max(torch.abs(sdp_ref-O_hpu_c)))
-            vb_print("Max diff PT NN SDPA BWD Ref Q grad vs FSDPA ", torch.max(torch.abs(q.grad - q_grad_hpu_c)))
-            vb_print("Max diff PT NN SDPA BWD Ref K grad vs FSDPA ", torch.max(torch.abs(k.grad - k_grad_hpu_c)))
-            vb_print("Max diff PT NN SDPA BWD Ref V grad vs FSDPA ", torch.max(torch.abs(v.grad - v_grad_hpu_c)))
+            if not inference:
+                vb_print("Max diff PT NN SDPA BWD Ref Q grad vs FSDPA ", torch.max(torch.abs(q.grad - q_grad_hpu_c)))
+                vb_print("Max diff PT NN SDPA BWD Ref K grad vs FSDPA ", torch.max(torch.abs(k.grad - k_grad_hpu_c)))
+                vb_print("Max diff PT NN SDPA BWD Ref V grad vs FSDPA ", torch.max(torch.abs(v.grad - v_grad_hpu_c)))
 
 @pytest.mark.skip(reason="Failure only in CI.Works fine locally")
 def test_sdpa_fwd_manual_seed():
