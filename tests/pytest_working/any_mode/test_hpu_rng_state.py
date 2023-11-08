@@ -52,3 +52,40 @@ def test_hpu_seed():
     hpu_seed_2 = torch.hpu.initial_seed()
     assert hpu_seed_2 == hpu_seed_1
     assert cpu_seed_2 != cpu_seed_1
+
+
+def test_fork_rng():
+    rng_state_0 = torch.hpu.get_rng_state()
+
+    # fork_rng should restore rng_state after its scope when device_type is "hpu"
+    with torch.random.fork_rng(device_type="hpu"):
+        torch.manual_seed(12345678)
+        rng_state_temp_0 = torch.hpu.get_rng_state()
+
+    assert not torch.equal(rng_state_0, rng_state_temp_0)
+
+    rng_state_1 = torch.hpu.get_rng_state()
+    assert torch.equal(rng_state_1, rng_state_0)
+
+    # fork_rng should restore rng_state after its scope with default device_type,
+    # since we overwritten default implementation, so default device_type is "hpu"
+    with torch.random.fork_rng():
+        torch.manual_seed(654321)
+        rng_state_temp_1 = torch.hpu.get_rng_state()
+
+    assert not torch.equal(rng_state_temp_1, rng_state_temp_0)
+    assert not torch.equal(rng_state_1, rng_state_temp_1)
+
+    rng_state_2 = torch.hpu.get_rng_state()
+    assert torch.equal(rng_state_2, rng_state_1)
+
+    # fork_rng shouldn't restore rng_state after its scope with device_type != "hpu"
+    with torch.random.fork_rng(device_type="cuda"):
+        torch.manual_seed(424242)
+        rng_state_temp_2 = torch.hpu.get_rng_state()
+
+    assert not torch.equal(rng_state_temp_2, rng_state_temp_1)
+    assert not torch.equal(rng_state_2, rng_state_temp_2)
+
+    rng_state_3 = torch.hpu.get_rng_state()
+    assert torch.equal(rng_state_3, rng_state_temp_2)
