@@ -78,7 +78,6 @@ struct DetectWeightTensorsPass {
           c10::Symbol::fromQualString("aten::to")};
       static const int cast_tensor_input_idx{0};
       if (cast_symbol == node->kind()) {
-        HABANA_ASSERT(node->inputs().size() >= cast_tensor_input_idx);
         HABANA_ASSERT(node->outputs().size() == 1);
         torch::jit::Value* cast_input{node->input(cast_tensor_input_idx)};
         torch::jit::Value* cast_output{node->output(0)};

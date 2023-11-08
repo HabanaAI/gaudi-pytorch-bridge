@@ -33,6 +33,14 @@ function(set_up_warnings TARGET_NAME)
     -Wno-unused-parameter -Wno-unused-variable -Wno-strict-aliasing -Wno-array-bounds
     -Wno-sign-compare)
 
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.0.0")
+    # According to https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80635 GCC older than 11 may trigger
+    # bugous maybe-uninitialized warning for std::optional destructor. And this was observed on d10
+    # build with gcc8.3.0.
+    # As a W/A don't emit error in this case.
+    target_compile_options(${TARGET_NAME} PRIVATE -Wno-error=maybe-uninitialized)
+  endif()
+
   if(PROJECT_IS_TOP_LEVEL)
     target_compile_options(${TARGET_NAME} PRIVATE -Werror)
   endif()

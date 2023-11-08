@@ -140,6 +140,15 @@ bool fillGuidParamInfoWithTensor(
   return true;
 }
 
+namespace {
+template <size_t MaxSize>
+void safe_string_copy(const std::string& source, char* destination) {
+  static const auto limited_length_string_format =
+      "%." + std::to_string(MaxSize) + "s";
+  sprintf(destination, limited_length_string_format.c_str(), source.c_str());
+}
+} // namespace
+
 /*
  * This function is a wrapper for shared layer query interface.
  */
@@ -154,10 +163,7 @@ SharedLayer::Return_t ValidateGuid(
   auto deviceId = getDeviceType();
   params.deviceId = deviceId;
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstringop-truncation"
-  strncpy(params.guid.name, guid.c_str(), SharedLayer::MAX_NODE_NAME);
-#pragma GCC diagnostic pop
+  safe_string_copy<SharedLayer::MAX_NODE_NAME>(guid, params.guid.name);
   // skipping:
   // params.guid.nameHash - not used in lower layer
   // params.guid.kernelProperties - not used in lower layer
