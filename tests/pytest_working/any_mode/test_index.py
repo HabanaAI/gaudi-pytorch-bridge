@@ -14,43 +14,43 @@ import pytest
 import torch
 from test_utils import cpu, hpu
 
-pytestmark = pytest.mark.skip(reason="segv")
-
 # optional on list cause fail
 @pytest.mark.parametrize(
     "shape, indices",
     [
-        [(5, 5), ([1, 2, 3],)],
-        pytest.param((5, 5), (None, [1, 2, 3],), marks=pytest.mark.xfail(rason="SW-155102")),
-        pytest.param((2, 3, 4), (None, None,), marks=pytest.mark.xfail(rason="SW-155102")),
-        pytest.param(
-            (2, 3, 4),
-            (
-                [1, 0],
-                [0],
-                None,
-            ),
-            marks=pytest.mark.xfail(rason="SW-155102"),
-        ),
-        [(2, 3, 8, 8), ([[[1], [0]]],)],
-        pytest.param((4, 3, 8, 8), (None, [1, 2], None,), marks=pytest.mark.xfail(rason="SW-155102")),
+        pytest.param((5, 5), ([1, 2, 3],)),
+        pytest.param((5, 5, 5), ([1, 2, 3], [1, 3, 4])),
+        pytest.param((5, 5, 5, 5), ([1, 2, 3],)),
+        pytest.param((5, 5, 5, 5, 5), ([1, 2, 3], [0, 2, 3], [0, 2, 4], [2, 3, 4])),
+        pytest.param((5, 5), (None, [1, 2, 3],)),
+        #pytest.param((2, 3, 4), (None, None,)), THIS CASE DOES NOT WORK IN PYTORCH ITSELF
+        pytest.param((2, 3, 4), ([1, 0], [0], None,)),
+        pytest.param((2, 3, 8, 8), ([[[1], [0]]],)),
+        pytest.param((4, 3, 8, 8), (None, [1, 2], None,)),
+        pytest.param((4, 3, 8, 8), ([1, 2], None, [1, 2], None,)),
+        pytest.param((4, 3, 8, 8), (None, [1, 2], [1, 4], None,)),
+        pytest.param((4, 3, 8, 8), ([0, 1, 2], None, None, [1, 2, 7])),
+        pytest.param((2, 3, 8, 8, 8), (None, None, [1, 2, 7], None, [3, 6, 7])),
+        pytest.param((2, 3, 8, 8, 8), (None, None, None, [1, 2, 7], [3, 6, 7])),
     ],
 )
 def test_index(shape, indices):
-    if pytest.mode == "lazy":
-        pytest.xfail()
+    def wrapper_fn(shape, indices):
+        return torch.ops.aten.index(shape, indices)
 
-    func = torch.ops.aten.index
     if pytest.mode == "compile":
-        pytest.xfail(reason="torch._dynamo.optimize is called on a non function object")
-        func = torch.compile(torch.ops.aten.index, backend="aot_hpu_training_backend")
+        f_cpu = torch.compile(wrapper_fn)
+        f_hpu = torch.compile(wrapper_fn, backend="aot_hpu_training_backend")
+    else:
+        f_cpu = wrapper_fn
+        f_hpu = wrapper_fn
 
-    input_tensor = torch.randn(*shape, device="hpu:0")
-    indices = [torch.tensor(x, device="hpu:0") if x is not None else x for x in indices]
+    input_tensor = torch.rand(shape, device=hpu)
+    indices = [torch.tensor(x, device=hpu) if x is not None else x for x in indices]
 
-    y_cpu = func(
+    y_cpu = f_cpu(
         input_tensor.to(cpu), [x.to(cpu) if x is not None else x for x in indices]
     )
-    y_hpu = func(input_tensor, indices)
+    y_hpu = f_hpu(input_tensor, indices)
 
     assert torch.equal(y_cpu, y_hpu.to(cpu))

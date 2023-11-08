@@ -42,11 +42,6 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
 
   std::vector<bool> advanced_indexing_present;
   int dim = 0;
-  int num_explicit_indices = 0;
-  bool explicit_indices_together = false;
-  int index_tensor_groups = 0;
-  int index_tensor_group_start = 0;
-  int index_tensor_group_end = (int)indices_in.size();
   at::Tensor t_nz;
   bool has_bool_mask = false;
   c10::ScalarType prev_scalar_type;
@@ -70,55 +65,46 @@ static inline void index_fe(torch::jit::Stack& in_stack) {
   at::Tensor self_permuted = self;
   std::vector<int64_t> self_permute_dims;
   if (advanced_indexing) {
-    if (indices_in.size() <= MAX_DIMS_FOR_ADVANCED_INDEXING) {
-      for (auto input : indices_in) {
-        auto o1 = input.toOptional<at::Tensor>();
-        if (o1.has_value() && !o1->defined()) {
-          if (explicit_indices_together) {
-            explicit_indices_together = false;
-            index_tensor_group_end = dim;
-          }
-        } else if (o1.has_value() && o1->defined()) {
-          if (!explicit_indices_together) {
-            index_tensor_group_start = dim;
-            index_tensor_groups++;
-          }
-          explicit_indices_together = true;
-          auto o1_sizes = o1.value().sizes().vec();
-          num_explicit_indices++;
-        }
-        if (explicit_indices_together) {
-          index_tensor_group_end = dim;
-        }
-        dim++;
-      }
-    }
-    bool dims_permuted = false;
+    // If indices for the given dim are not initialized or their values
+    // are not defined then populate the advanced_indexing_present with
+    // true else false. The case with dims_permuted triggers when there
+    // is more than one group of explicit indices detected e.g.
+    // ([0, 1], None, [0, 2]), such indices are transposed to the front then.
+    bool explicit_indices_together = false;
+    int index_tensor_group_start = 0;
+    int index_tensor_group_end = 0;
+    int num_explicit_indices = 0;
 
+    for (auto input : indices_in) {
+      auto o1 = input.toOptional<at::Tensor>();
+      if (o1.has_value() && o1.value().defined()) {
+        if (!explicit_indices_together) {
+          explicit_indices_together = true;
+          index_tensor_group_start = dim;
+        }
+        index_tensor_group_end = dim;
+        num_explicit_indices++;
+      } else {
+        explicit_indices_together = false;
+      }
+      dim++;
+    }
+
+    bool dims_permuted = false;
     std::tie(dims_permuted, num_index_tensors, self_permute_dims, indices_vec) =
         generate_advanced_indexing_indices_list(inputs_vec);
-    if (dims_permuted) { // all explicitly indexed dims are now in higher
-                         // order dims.
-      for (const auto i : c10::irange(num_index_tensors)) {
-        if (i < num_explicit_indices) {
-          advanced_indexing_present.emplace_back(false);
-        } else {
-          advanced_indexing_present.emplace_back(true);
-        }
-      }
-    } else if (num_explicit_indices >= 1) {
-      for (const auto i : c10::irange(num_index_tensors)) {
-        if ((i >= index_tensor_group_start) && (i <= index_tensor_group_end)) {
-          advanced_indexing_present.emplace_back(false);
-        } else {
-          advanced_indexing_present.emplace_back(true);
-        }
-      }
-    }
-    for (int i = num_index_tensors; i < (int)indices_in.size(); i++) {
+    if (dims_permuted)
+      for (const auto i : c10::irange(num_index_tensors))
+        advanced_indexing_present.emplace_back(i >= num_explicit_indices);
+    else if (num_explicit_indices > 0)
+      for (const auto i : c10::irange(num_index_tensors))
+        advanced_indexing_present.emplace_back(
+            (i < index_tensor_group_start) || (i > index_tensor_group_end));
+
+    for (int i = num_index_tensors; i < (int)indices_in.size(); i++)
       advanced_indexing_present.emplace_back(true);
-    }
-  } else {
+
+  } else { // advanced_indexing end
     for (auto input : indices_in) {
       auto o1 = input.toOptional<at::Tensor>();
       if (o1.has_value() && o1->defined()) {

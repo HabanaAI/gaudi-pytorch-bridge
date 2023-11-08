@@ -95,30 +95,26 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
   return output_shape;
 }
 
-int hasContiguousSubspace(c10::ArrayRef<c10::IValue> indices_ival) {
+bool hasContiguousSubspace(c10::ArrayRef<c10::IValue> indices_ival) {
   bool explicit_indices_together = false;
   int index_tensor_groups = 0;
-  int index_tensor_group_start = 0;
   int dim = 0;
   for (auto input : indices_ival) {
     auto o1 = input.toOptional<at::Tensor>();
-    if (o1.has_value() && !o1->defined()) {
-      if (explicit_indices_together) {
-        explicit_indices_together = false;
-      }
-    } else if (o1.has_value() && o1->defined()) {
+    if (o1.has_value() && o1.value().defined()) {
       if (!explicit_indices_together) {
-        index_tensor_group_start = dim;
+        explicit_indices_together = true;
         index_tensor_groups++;
       }
-      explicit_indices_together = true;
+    } else {
+      if (explicit_indices_together)
+        explicit_indices_together = false;
     }
+
     dim++;
   }
-  if (index_tensor_groups <= 1)
-    return index_tensor_group_start;
-  else
-    return 0;
+
+  return index_tensor_groups <= 1;
 }
 
 int hasContiguousSubspace(std::vector<int64_t> implicit_indices_pos_vec) {
@@ -161,7 +157,7 @@ std::tuple<std::vector<int64_t>, std::vector<at::Tensor>> transposeToFront(
   std::vector<c10::optional<at::Tensor>> indices;
   for (const auto& index_opt : indices_ival) {
     auto o1 = index_opt.toOptional<at::Tensor>();
-    if (o1.has_value() && !o1.value().defined()) {
+    if (!o1.has_value() || !o1.value().defined()) {
       indices.emplace_back(c10::nullopt);
     } else if (o1.has_value() && o1.value().defined()) {
       const auto& index = o1.value();
@@ -194,7 +190,7 @@ bool check_for_adv_indexing(c10::ArrayRef<c10::IValue> indices_in_orig) {
   if (indices_in_orig.size() <= MAX_DIMS_FOR_ADVANCED_INDEXING) {
     for (auto input : indices_in_orig) {
       auto o1 = input.toOptional<at::Tensor>();
-      if (o1.has_value() && !o1->defined()) {
+      if (!o1.has_value() || !o1->defined()) {
         advanced_indexing = true;
         break;
       } else if (o1.has_value() && o1->defined()) {
@@ -324,8 +320,8 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   int num_index_tensors = 0;
   // if the non-null indices are not all adjacent, transpose self and indices
   // together so that they're adjacent at the front
-  auto explicit_index_tensor_group_start = hasContiguousSubspace(indices_ival);
-  if (!explicit_index_tensor_group_start) {
+  auto isSpaceContiguous = hasContiguousSubspace(indices_ival);
+  if (!isSpaceContiguous) {
     std::tie(self_permute_dims, indices) = transposeToFront(stack);
     dims_permuted = true;
     for (int i = 0; i < (int)indices.size(); i++) {
@@ -343,7 +339,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
     int i = 0;
     for (const auto& index_opt : indices_ival) {
       auto o1 = index_opt.toOptional<at::Tensor>();
-      if (o1.has_value() && !o1.value().defined()) {
+      if (!o1.has_value() || !o1.value().defined()) {
         // Don't add undefined tensors to list as Lazy infra can't handle such
         // tensors
         implicit_indices_pos_vec[i] = -1; //-1 indicates implicit indexing

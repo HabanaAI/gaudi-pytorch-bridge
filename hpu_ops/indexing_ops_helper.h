@@ -25,7 +25,7 @@ std::vector<int64_t> ComputeOutputShapeWithAdvIndexing(
 
 std::vector<int64_t> indices_size(at::TensorList indices);
 
-int hasContiguousSubspace(c10::ArrayRef<c10::IValue> indices_ival);
+bool hasContiguousSubspace(c10::ArrayRef<c10::IValue> indices_ival);
 
 int hasContiguousSubspace(std::vector<int64_t> implicit_indices_pos_vec);
 
