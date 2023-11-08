@@ -495,17 +495,6 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         if self.fp8 and self.training and self.fp8_meta["recipe"].reduce_amax and self.fp8_meta["update_amax_fwd"]["enabled"]:
             add_amax_to_global_buffer(self.fp8_meta, forward=True)
 
-    def set_nccl_overlap_warning_if_tp(self) -> None:
-        """When using TP, the NCCL communication needs to be scheduled
-        before the GEMM for there to be a guaranteed overlap. From the
-        host side in TE, the comm calls are always launched first, but
-        to ensure that the GEMM isn't scheduled first, the environment
-        variable `CUDA_DEVICE_MAX_CONNECTIONS` needs to be set to 1 to
-        force a single channel.
-        """
-        if self.tp_size == 1:
-            return
-
     @staticmethod
     def grad_output_preprocess(
         ctx,

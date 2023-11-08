@@ -386,7 +386,6 @@ class Linear(TransformerEngineBaseModule):
         else:
             self.tp_size = get_distributed_world_size(tp_group)
             self.set_tensor_parallel_group(tp_group)
-        self.set_nccl_overlap_warning_if_tp()
 
         self.parallel_mode = parallel_mode
         assert (
