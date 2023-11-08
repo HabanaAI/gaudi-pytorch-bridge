@@ -29,72 +29,6 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "hpu_ops/op_logger.h"
 
-using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
-
-const std::array<int64_t, 4>& habana::HabanaOperator::getPermuteOrder(
-    const LayoutFormat target_layout,
-    bool to_device) {
-  static const std::
-      unordered_map<const LayoutFormat, const std::array<int64_t, 4>>
-          toDevicePermuteOrder = {
-              // Host -> Device
-              {LayoutFormat::NHWC,
-               {LayoutFormatDims::N,
-                LayoutFormatDims::H,
-                LayoutFormatDims::W,
-                LayoutFormatDims::C}}, // NCHW -> NHWC
-              {LayoutFormat::NCHW,
-               {LayoutFormatDims::N,
-                LayoutFormatDims::C,
-                LayoutFormatDims::H,
-                LayoutFormatDims::W}}, // NCHW -> NCHW (No Change)
-              {LayoutFormat::HWCK,
-               {LayoutFormatDims::H,
-                LayoutFormatDims::W,
-                LayoutFormatDims::C,
-                LayoutFormatDims::N}}, // KCHW -> HWCK
-              {LayoutFormat::ANY,
-               {LayoutFormatDims::N,
-                LayoutFormatDims::C,
-                LayoutFormatDims::H,
-                LayoutFormatDims::W}} // XXXX -> XXXX (No Change)
-          };
-
-  static const std::
-      unordered_map<const LayoutFormat, const std::array<int64_t, 4>>
-          toHostPermuteOrder = {
-              // Device -> Host
-              {LayoutFormat::NCHW,
-               {LayoutFormatDims::N,
-                LayoutFormatDims::C,
-                LayoutFormatDims::H,
-                LayoutFormatDims::W}}, // NCHW   -> NCHW (No Change)
-              {LayoutFormat::NHWC,
-               {LayoutFormatDims::N,
-                LayoutFormatDims::W,
-                LayoutFormatDims::C,
-                LayoutFormatDims::H}}, // NHWC   -> NCHW
-              {LayoutFormat::HWCK,
-               {LayoutFormatDims::W,
-                LayoutFormatDims::H,
-                LayoutFormatDims::N,
-                LayoutFormatDims::C}}, // HWCK   -> KCHW
-              {LayoutFormat::ANY,
-               {LayoutFormatDims::N,
-                LayoutFormatDims::C,
-                LayoutFormatDims::H,
-                LayoutFormatDims::W}} // XXXX   -> XXXX (No Change)
-          };
-
-  const auto& permuteOrder =
-      (to_device ? toDevicePermuteOrder : toHostPermuteOrder);
-
-  TORCH_CHECK(
-      permuteOrder.find(target_layout) != permuteOrder.end(),
-      "Unknown layout in getPermuteOrder");
-  return permuteOrder.find(target_layout)->second;
-}
-
 static const synDataType fp8_syn_type =
     GET_ENV_FLAG_NEW(PT_USE_FP8_143) ? syn_type_fp8_143 : syn_type_fp8_152;
 
@@ -696,8 +630,7 @@ synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseOutput(
 }
 
 habana::InferOutputMetaRetType habana::HabanaOperator::InferOutputMeta(
-    torch::jit::Stack& inputs) {
-  static_cast<void>(inputs);
+    torch::jit::Stack&) {
   InferOutputMetaRetType ret(true);
   return ret;
 }
@@ -901,7 +834,7 @@ void habana::HabanaOperator::dump(
 
 void habana::InferOutputMetaRetType::AddTensor(
     const TensorMetaData& data,
-    std::vector<IdxTensorTup>& v) {
+    std::vector<IdxTensorTuple>& v) {
   auto sif_tensor_id_ = habana::ShapeInference::ReadAndIncrementSifTensorId();
   auto tensor = habana::nonPersistentTensor(
       data.sizes, data.strides, data.mf, scalarTypeToTypeMeta(data.dtype));
@@ -940,20 +873,21 @@ habana::InferOutputMetaRetType habana::InferOutputMetaRetType::
   return output;
 }
 
-const habana::IdxTensorTup& habana::InferOutputMetaRetType::GetOutputTensor(
+const habana::IdxTensorTuple& habana::InferOutputMetaRetType::GetOutputTensor(
     size_t index) {
   HABANA_ASSERT(index <= output_tensors.size(), "index out of range");
   return output_tensors.at(index);
 }
 
-const habana::IdxTensorTup& habana::InferOutputMetaRetType::GetShapeTensor(
+const habana::IdxTensorTuple& habana::InferOutputMetaRetType::GetShapeTensor(
     size_t index) {
   HABANA_ASSERT(index <= shape_tensors.size(), "index out of range");
   return shape_tensors.at(index);
 }
 
-void habana::InferOutputMetaRetType::MoveToOutput(habana::IdxTensorTup&& data) {
-  output_tensors.emplace_back(data);
+void habana::InferOutputMetaRetType::MoveToOutput(
+    habana::IdxTensorTuple&& data) {
+  output_tensors.emplace_back(std::move(data));
 }
 
 void habana::InferOutputMetaRetType::RemoveOutput(size_t index) {

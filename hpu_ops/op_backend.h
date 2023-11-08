@@ -165,6 +165,11 @@ class OpBackend : public HabanaOperator {
     return m_output_meta_fn != nullptr;
   }
 
+  void AddUndefindedOutputTensor() {
+    auto& meta = GetOutputInfMeta();
+    meta.AddUndefindedOutputTensor();
+  }
+
   virtual void CustomHandler(synapse_helpers::graph&, at::Stack&) {}
 
  private:

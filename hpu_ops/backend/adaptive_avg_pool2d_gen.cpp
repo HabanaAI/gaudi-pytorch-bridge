@@ -101,7 +101,7 @@ void AdaptiveAvgPool2dBwd::AddNode(
   }
 
   std::vector<synTensor> grad = {syn_in(0)};
-  this->CreateShapeTensorInput(graph, meta.dtype, meta.shape, grad);
+  CreateShapeTensorInput(graph, meta.dtype, meta.shape, grad);
   auto adaptive_avg_pool = BuildOp(
       graph,
       get_guid_with_precision("adaptive_avg_pool_2d_bwd", meta.dtype),

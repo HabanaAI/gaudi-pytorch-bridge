@@ -200,26 +200,17 @@ static synapse_helpers::tensor ComputeBiasGrad(
       pyt_shape[dim_to_reduce[i]] = 1;
       c10::IntArrayRef shape_red(pyt_shape.data(), pyt_shape.size());
 
-      if (i == 0) {
-        syn_tmp = OpBackend::BuildNode(
-            op,
-            graph,
-            {guid,
-             std::move(syn_grad_output),
-             {{shape_red, scalar_type}},
-             &params,
-             sizeof(params)});
-      } else {
-        std::vector<synTensor> syn_tmp_in = {syn_tmp[0].get()};
-        syn_tmp = OpBackend::BuildNode(
-            op,
-            graph,
-            {guid,
-             std::move(syn_tmp_in),
-             {{shape_red, scalar_type}},
-             &params,
-             sizeof(params)});
-      }
+      std::vector<synTensor> syn_tmp_in = (i == 0)
+          ? std::move(syn_grad_output)
+          : std::vector<synTensor>{syn_tmp[0].get()};
+      syn_tmp = OpBackend::BuildNode(
+          op,
+          graph,
+          {guid,
+           std::move(syn_tmp_in),
+           {{shape_red, scalar_type}},
+           &params,
+           sizeof(params)});
     }
 
     // Add a final reshape to remove the "1" sized upper
@@ -285,9 +276,8 @@ void ConvolutionBackwardOverrideable::AddNode(
   const int64_t groups = stack[8 + index_shift].toInt();
   const auto output_mask_in = stack[9 + index_shift].toBoolList();
 
-  const uint64_t DIM5 = 5;
   const bool is_conv_1d = input.dim() == 3;
-  const bool is_conv_3d = input.dim() == DIM5;
+  const bool is_conv_3d = input.dim() == 5;
 
   const auto output_meta = ConvolutionOverrideableMetaBwd(stack);
   auto out0_shape = output_meta[0].shape;
@@ -425,6 +415,8 @@ void ConvolutionBackwardOverrideable::AddNode(
           params_size);
 
       IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
+    } else {
+      AddUndefindedOutputTensor();
     }
 
     if (output_mask_in[1]) {
@@ -439,6 +431,8 @@ void ConvolutionBackwardOverrideable::AddNode(
           params_size);
 
       IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
+    } else {
+      AddUndefindedOutputTensor();
     }
   } else {
     if (output_mask_in[0]) {
@@ -458,6 +452,8 @@ void ConvolutionBackwardOverrideable::AddNode(
           params_size);
 
       IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
+    } else {
+      AddUndefindedOutputTensor();
     }
 
     if (output_mask_in[1]) {
@@ -472,6 +468,8 @@ void ConvolutionBackwardOverrideable::AddNode(
           params_size);
 
       IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
+    } else {
+      AddUndefindedOutputTensor();
     }
   }
 
@@ -487,6 +485,8 @@ void ConvolutionBackwardOverrideable::AddNode(
         {syn_in(0)},
         syn_out(2));
     syn_out(2) = std::move(biasRes);
+  } else {
+    AddUndefindedOutputTensor();
   }
 }
 

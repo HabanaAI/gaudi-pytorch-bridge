@@ -931,7 +931,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
 
 void HabanaLaunchOpPT::ProcessShapeTensorsCS(
     const InferOutputMetaRetType& output,
-    std::vector<IdxTensorTup>& intermediate_shape_tensor_cs) {
+    std::vector<IdxTensorTuple>& intermediate_shape_tensor_cs) {
   auto shape_tensors = output.GetShapeTensor();
 
   for (auto& st : shape_tensors) {
@@ -1656,21 +1656,25 @@ void HabanaLaunchOpPT::validateOutputShapeDynamic(
   auto output_vec = output_shape_handle.GetOutputTensor();
   auto output_shape_vec = output_shape_handle.GetShapeTensor();
   auto output_size = output_vec.size() + output_shape_vec.size();
+  auto num_undefined_output_tensors =
+      output_shape_handle.GetNumUndefinedOutputTensors();
 
   size_t exclude_outputs = 0;
   if (auto op = std::dynamic_pointer_cast<OpBackend>(HabanaKernel)) {
     exclude_outputs = HabanaKernel->GetSynImplicitOutputs().size();
   }
 
+  auto num_outs_expected = syn_outputs.size() +
+      intermediate_shape_tensor_count - num_undefined_output_tensors;
+  auto num_outs_got = output_size - exclude_outputs;
   HABANA_ASSERT(
-      (syn_outputs.size() + intermediate_shape_tensor_count) ==
-          (output_size - exclude_outputs),
+      num_outs_expected == num_outs_got,
       "Node: ",
       opname,
       " number of output mismatch, expected: ",
-      (syn_outputs.size() + intermediate_shape_tensor_count),
+      num_outs_expected,
       " but got: ",
-      (output_size - exclude_outputs));
+      num_outs_got);
   // compare output shape
   size_t i = 0, j = 0;
   std::vector<int64_t> t;
@@ -1755,20 +1759,24 @@ void HabanaLaunchOpPT::validateOutputShapeNonDynamic(
       HabanaKernel->GetSynOutputs();
   auto output_vec = output_shape_handle.GetOutputTensor();
   auto output_size = output_vec.size();
+  auto num_undefined_output_tensors =
+      output_shape_handle.GetNumUndefinedOutputTensors();
 
   size_t exclude_outputs = 0;
   if (auto op = std::dynamic_pointer_cast<OpBackend>(HabanaKernel)) {
     exclude_outputs = HabanaKernel->GetSynImplicitOutputs().size();
   }
 
+  auto num_outs_expected = syn_outputs.size() - num_undefined_output_tensors;
+  auto num_outs_got = output_size - exclude_outputs;
   HABANA_ASSERT(
-      syn_outputs.size() == (output_size - exclude_outputs),
+      num_outs_expected == num_outs_got,
       "Node: ",
       opname,
       " number of output mismatch, expected: ",
-      syn_outputs.size(),
+      num_outs_expected,
       " but got: ",
-      (output_size - exclude_outputs));
+      num_outs_got);
   // compare output shape
   size_t j = 0;
   std::vector<int64_t> t;
@@ -2029,7 +2037,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   int inx = 0;
   PT_OP_DEBUG("JIT Graph: ", jit_ir_graph_->toString());
   for (auto* node : graph_nodes) {
-    std::vector<IdxTensorTup> intermediate_shape_tensor_cs;
+    std::vector<IdxTensorTuple> intermediate_shape_tensor_cs;
     auto node_qual_str = node->kind().toQualString();
     std::string opname(node_qual_str);
 

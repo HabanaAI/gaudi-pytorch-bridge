@@ -226,8 +226,8 @@ InferOutputMetaRetType ReduceOperator::InferOutputMeta(
     // reshape output
     auto reshape1_out = out.call_InferOutputMeta(ReshapeOp, stack);
     // since reshape is directly realized at synapse guid level
-    auto reshape_ptr = out.GetKernel(out.GetKernelSize() - 1);
-    reshape_ptr->RemoveOutput(0);
+    auto& reshape = out.GetKernel(out.GetKernelSize() - 1);
+    reshape.RemoveOutput(0);
   }
   return out;
 }

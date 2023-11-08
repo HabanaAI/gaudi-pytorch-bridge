@@ -690,7 +690,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
 
         // Recursivly collect all shape tensors
         if constexpr (DynamicShapes) {
-          std::vector<IdxTensorTup> intermediate_shape_tensor_cs;
+          std::vector<IdxTensorTuple> intermediate_shape_tensor_cs;
           ProcessShapeTensorsCS(
               output_shape_info, intermediate_shape_tensor_cs);
           shape_tensors_flag |=

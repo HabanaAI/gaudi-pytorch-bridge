@@ -202,7 +202,7 @@ void ConvolutionOverrideable::AddNode(
     meta.shape.push_back(1);
 
   if (guid == "dedx" || guid == "dedx3d")
-    this->CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
+    CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
   else if (bias.defined())
     inputs.emplace_back(syn_in(2));
 

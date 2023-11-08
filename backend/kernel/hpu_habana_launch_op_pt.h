@@ -573,7 +573,7 @@ class HabanaLaunchOpPT {
       bool isRecursiveCall = false);
   void ProcessShapeTensorsCS(
       const InferOutputMetaRetType& output,
-      std::vector<IdxTensorTup>& intermediate_shape_tensor_cs);
+      std::vector<IdxTensorTuple>& intermediate_shape_tensor_cs);
   void handlePrimNodes(torch::jit::Node* node);
   void handlePrimConstantNode(torch::jit::Node* node);
   void handlePrimListConstructNode(torch::jit::Node* node);

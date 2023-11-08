@@ -98,7 +98,7 @@ namespace habana {
 
 class HabanaOperator;
 class PytorchKernelContext;
-using PytorchKernelContextPtr = std::shared_ptr<PytorchKernelContext>;
+using PytorchKernelContextPtr = std::unique_ptr<PytorchKernelContext>;
 using HabanaOperatorPtr = std::shared_ptr<HabanaOperator>;
 using RegisterFunc =
     std::function<HabanaOperatorPtr(const int, c10::ScalarType)>;
@@ -119,19 +119,19 @@ struct TensorMetaData {
       std::vector<int64_t> sz,
       std::vector<int64_t> st,
       c10::MemoryFormat f)
-      : sizes(sz), strides(st), mf(f) {}
+      : sizes(std::move(sz)), strides(std::move(st)), mf(f) {}
 
   TensorMetaData(
       std::vector<int64_t> sz,
       std::vector<int64_t> st,
       c10::ScalarType type,
       c10::MemoryFormat f)
-      : sizes(sz), strides(st), dtype(type), mf(f) {}
+      : sizes(std::move(sz)), strides(std::move(st)), dtype(type), mf(f) {}
 };
 
 // Return value for InferOutputMeta Function
 class InferOutputMetaRetType;
-using IdxTensorTup = std::tuple<int32_t, at::Tensor>;
+using IdxTensorTuple = std::tuple<int32_t, at::Tensor>;
 using InferOutputMetaRetTypePtr = std::shared_ptr<InferOutputMetaRetType>;
 class InferOutputMetaRetType {
  public:
@@ -143,42 +143,49 @@ class InferOutputMetaRetType {
     empty_flag = flag;
   }
   void AddOutputTensor(const TensorMetaData& data);
+  void AddUndefindedOutputTensor() {
+    ++num_undefined_outputs;
+  }
   void AddIntermediateTensor(const TensorMetaData& data);
   void AddShapeTensor(const TensorMetaData& data);
   void AddDupTensor(const TensorMetaData& data);
-  const IdxTensorTup& GetOutputTensor(size_t index);
-  const IdxTensorTup& GetShapeTensor(size_t index);
-  void MoveToOutput(IdxTensorTup&& data);
+  const IdxTensorTuple& GetOutputTensor(size_t index);
+  const IdxTensorTuple& GetShapeTensor(size_t index);
+  void MoveToOutput(IdxTensorTuple&& data);
   void RemoveOutput(size_t index);
   size_t GetKernelSize() {
     return kernel_outputs.size();
   }
-  InferOutputMetaRetTypePtr& GetKernel(size_t index) {
-    return kernel_outputs.at(index);
+  InferOutputMetaRetType& GetKernel(size_t index) {
+    return *kernel_outputs.at(index);
   }
   const std::vector<InferOutputMetaRetTypePtr>& GetKernels() const {
     return kernel_outputs;
   }
-  const std::vector<IdxTensorTup>& GetOutputTensor() const {
+  const std::vector<IdxTensorTuple>& GetOutputTensor() const {
     return output_tensors;
   }
-  const std::vector<IdxTensorTup>& GetShapeTensor() const {
+  const std::vector<IdxTensorTuple>& GetShapeTensor() const {
     return shape_tensors;
+  }
+  unsigned GetNumUndefinedOutputTensors() const {
+    return num_undefined_outputs;
   }
 
   InferOutputMetaRetType call_InferOutputMeta(
       HabanaOperatorPtr kernel,
       torch::jit::Stack& inputs);
 
-  const std::vector<InferOutputMetaRetTypePtr> GetKernelOutputs() const {
+  const std::vector<InferOutputMetaRetTypePtr>& GetKernelOutputs() const {
     return kernel_outputs;
   }
 
  private:
-  void AddTensor(const TensorMetaData& data, std::vector<IdxTensorTup>& v);
-  std::vector<IdxTensorTup> output_tensors;
-  std::vector<IdxTensorTup> shape_tensors;
-  std::vector<IdxTensorTup> dup_tensors;
+  void AddTensor(const TensorMetaData& data, std::vector<IdxTensorTuple>& v);
+  std::vector<IdxTensorTuple> output_tensors;
+  std::vector<IdxTensorTuple> shape_tensors;
+  std::vector<IdxTensorTuple> dup_tensors;
+  unsigned num_undefined_outputs = 0;
 
   std::vector<InferOutputMetaRetTypePtr> kernel_outputs;
   bool empty_flag{false};
@@ -192,7 +199,7 @@ struct PtInputIdxAndSynHelpTensor {
 
 //
 // The Pytorch kernel context holds the operator context
-// whcih includes the pytorch tensors, synapse tensor and
+// which includes the pytorch tensors, synapse tensor and
 // params information for the operator
 class PytorchKernelContext {
  public:
@@ -270,7 +277,7 @@ std::vector<T> SelectVectorIndices(
   std::vector<T> result;
   result.reserve(indices.size());
   for (auto index : indices) {
-    if ((int)index >= 0 && index < src.size())
+    if (index < src.size())
       result.push_back(src.at(index));
   }
   HABANA_ASSERT(result.size() == indices.size());
@@ -290,23 +297,12 @@ class HabanaOperator {
  public:
   HabanaOperator(const std::string guid) : guid_(guid) {}
 
-  // Given a target layout, get the permute order.
-  // If the tensor is to be sent to device from host
-  //    - the target_layout is the one expected inside device
-  //    - to_device is true
-  // If the tensor is to be sent to host from device
-  //    - the target_layout is the one expected in host
-  //    - to_device is false
-  static const std::array<int64_t, 4>& getPermuteOrder(
-      const LayoutFormat target_layout,
-      bool to_device = true);
-
   static bool isFp8Op(const std::string_view guid);
 
   //
   // Creates graph builder context, based on the device
   void CreateSynContext(int device_id, std::string node_type = "") {
-    p_context_ = std::make_shared<PytorchKernelContext>();
+    p_context_ = std::make_unique<PytorchKernelContext>();
     p_context_->device_id_ = device_id;
     p_context_->node_type_ = node_type;
     p_context_->recipe_key_ = 0;

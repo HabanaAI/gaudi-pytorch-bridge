@@ -123,7 +123,7 @@ void Avgpool2dBwd::AddNode(
   auto meta = Avgpool2dBwdMeta(stack)[0];
 
   std::vector<synTensor> grad = {syn_in(0)};
-  this->CreateShapeTensorInput(graph, meta.dtype, meta.shape, grad);
+  CreateShapeTensorInput(graph, meta.dtype, meta.shape, grad);
   auto avg_pool = BuildOp(
       graph,
       get_guid_with_precision("avg_pool_2d_bwd", meta.dtype),
@@ -163,7 +163,7 @@ void Avgpool2dFwd::AddNode(
     grad[0] = expandResult[0].get();
   }
 
-  this->CreateShapeTensorInput(graph, meta.dtype, intermediateOutShape, grad);
+  CreateShapeTensorInput(graph, meta.dtype, intermediateOutShape, grad);
   auto avgPool = BuildOp(
       graph,
       guid_,
