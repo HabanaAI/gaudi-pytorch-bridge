@@ -14,6 +14,7 @@ import torch
 import logging
 import sys
 import os
+import habana_frameworks.torch.internal.bridge_config as bc
 
 from .config import configuration_flags
 from .logger import get_compile_backend_logger, dump_fx_graph
@@ -24,7 +25,7 @@ from sympy.printing.printer import Printer
 from sympy import sympify
 from torch.fx.experimental.proxy_tensor import py_sym_types
 
-enable_dynamic_output_preallocate = (os.getenv("PT_HPU_ENABLE_DYNAMIC_OUTPUT_PREALLOCATE", "").upper() in ["1", "TRUE"])
+enable_dynamic_output_preallocate = bc.get_pt_hpu_enable_dynamic_output_preallocate()
 
 class CSEVariable:
     """A CSEVariable is just a name for an expression but it is useful to be able to annotate them on a backend dependent basis.
@@ -167,23 +168,18 @@ class HabanaGraphModule(torch.nn.Module):
         self._jit_ir = jit_ir
         self._fx_module = graph_module
         self._outputs_metadata = outputs_metadata
-        self._symbolic_metadata = symbolic_metadata
         self._inference = not is_training
         self._recipe_id = None
         self._dynamic = dynamic
+        self._symbol_evaluator = SymbolicShapeEvaluator(symbolic_metadata)
 
     def __call__(self, *args):
         outputs = []
         inputs = tuple(args)
-        if self._dynamic and enable_dynamic_output_preallocate:
-            self._symbol_evaluator = SymbolicShapeEvaluator(self._symbolic_metadata)
-
         for md in self._outputs_metadata:
             size = md[0]
             if self._dynamic and enable_dynamic_output_preallocate:
                 size = self._symbol_evaluator.calculate_shape(md[0], inputs)
-
-            logger.debug("HabanaGraphModule output size= %s output dtype= %s", size, md[1])
             outputs.append(torch.empty(size, dtype=md[1], device="hpu"))
 
         from ._recipe_compiler_C import graph_compile, graph_launch

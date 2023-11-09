@@ -537,3 +537,28 @@ def test_dynamicity_static_dynamic_and_automatic():
         result_compile_train = compiled_function_training(t_h, s2, t2_h)
         out_c = raw_function(t, s2, t2)
         assert torch.allclose(result_compile_train.to("cpu"), out_c)
+
+def test_constant_pad_1d_output_preallocate():
+    def raw_function(x, device):
+        m = nn.ConstantPad1d((1, 1), 2).to(device)
+        pad_x = m(x)
+        out = torch.add(pad_x, pad_x)
+        return out
+    input_shapes = [
+        (8),
+        (16),
+        (12),
+    ]
+
+    compiled_fn = torch.compile(
+        raw_function, backend="aot_hpu_training_backend", dynamic=True
+    )
+
+    for s in input_shapes:
+        t = torch.randn(s, requires_grad=True)
+        result = raw_function(t, "cpu")
+        t_h = t.to("hpu")
+        h_result = compiled_fn(t_h, "hpu")
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+        grad = torch.ones_like(h_result)
+        h_result.backward(grad)
