@@ -317,11 +317,8 @@ struct OptimizedJITGraphAndMetaData {
 class JitGraphCache {
  public:
   static JitGraphCache& GetJitCache() {
-    static JitGraphCache* mp_instance;
-    if (!mp_instance) {
-      mp_instance = new JitGraphCache();
-    }
-    return *mp_instance;
+    static JitGraphCache mp_instance;
+    return mp_instance;
   }
 
   JitGraphCache(const JitGraphCache&) = delete;
@@ -355,19 +352,14 @@ class JitGraphCache {
 class OptimizedJitGraphCache {
  public:
   static OptimizedJitGraphCache& GetOptimizedJitCache() {
-    static OptimizedJitGraphCache* optimized_mp_instance;
-    if (!optimized_mp_instance) {
-      optimized_mp_instance = new OptimizedJitGraphCache();
-    }
-    return *optimized_mp_instance;
+    static OptimizedJitGraphCache optimized_mp_instance;
+    return optimized_mp_instance;
   }
 
   OptimizedJitGraphCache(const OptimizedJitGraphCache&) = delete;
   OptimizedJitGraphCache(OptimizedJitGraphCache&&) = delete;
   OptimizedJitGraphCache& operator=(const OptimizedJitGraphCache&) = delete;
   OptimizedJitGraphCache& operator=(OptimizedJitGraphCache&&) = delete;
-
-  ~OptimizedJitGraphCache();
 
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
   GetOptimizedJITGraphAndMetaData(size_t key);
@@ -379,12 +371,13 @@ class OptimizedJitGraphCache {
   size_t CacheSize();
   bool Empty();
   void Clear();
-  void BackupCache();
-  void RestoreCache();
-  void ClearBackupCache();
 
  private:
   explicit OptimizedJitGraphCache();
+
+  void swap(OptimizedJitGraphCache& cache) {
+    std::swap(m_cache_map, cache.m_cache_map);
+  }
 
   std::mutex m_mutex;
 
@@ -394,10 +387,20 @@ class OptimizedJitGraphCache {
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData>>
       m_cache_map;
 
-  std::unordered_map<
-      size_t,
-      std::shared_ptr<habana::OptimizedJITGraphAndMetaData>>
-      m_cache_map_backup;
+  friend class OptimizedJitGraphCacheBackup;
+};
+
+class OptimizedJitGraphCacheBackup {
+ public:
+  OptimizedJitGraphCacheBackup() {
+    OptimizedJitGraphCache::GetOptimizedJitCache().swap(cache_);
+  }
+  ~OptimizedJitGraphCacheBackup() {
+    OptimizedJitGraphCache::GetOptimizedJitCache().swap(cache_);
+  }
+
+ private:
+  OptimizedJitGraphCache cache_{};
 };
 
 } // namespace habana

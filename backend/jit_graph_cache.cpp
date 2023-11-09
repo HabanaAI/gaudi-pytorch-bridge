@@ -505,20 +505,4 @@ void OptimizedJitGraphCache::Clear() {
   m_cache_map.clear();
 }
 
-void OptimizedJitGraphCache::BackupCache() {
-  m_cache_map_backup = m_cache_map;
-}
-
-void OptimizedJitGraphCache::RestoreCache() {
-  m_cache_map = m_cache_map_backup;
-}
-
-void OptimizedJitGraphCache::ClearBackupCache() {
-  m_cache_map_backup.clear();
-}
-
-OptimizedJitGraphCache::~OptimizedJitGraphCache() {
-  Clear();
-}
-
 } // namespace habana

@@ -144,8 +144,8 @@ TEST_P(ShapeAgnosticOrNormalFlowTest, ConvReluRelu) {
     // Disabling the number of cache entries check for now as the same
     // test is being also called for the lazy frontend as well and there
     // the cache class instance is different than PT2.0 eager.
-    habana::OptimizedJitGraphCache::GetOptimizedJitCache().BackupCache();
-    habana::OptimizedJitGraphCache::GetOptimizedJitCache().Clear();
+    habana::OptimizedJitGraphCacheBackup make_cache_backup;
+
     size_t num_cache_entries_start =
         habana::OptimizedJitGraphCache::GetOptimizedJitCache().CacheSize();
 
@@ -200,8 +200,6 @@ TEST_P(ShapeAgnosticOrNormalFlowTest, ConvReluRelu) {
     size_t num_cache_entries_end =
         habana::OptimizedJitGraphCache::GetOptimizedJitCache().CacheSize();
     size_t num_cache_entries = num_cache_entries_end - num_cache_entries_start;
-    habana::OptimizedJitGraphCache::GetOptimizedJitCache().RestoreCache();
-    habana::OptimizedJitGraphCache::GetOptimizedJitCache().ClearBackupCache();
 
     EXPECT_EQ(allclose(out_conv, outConv1, 0.01, 0.01), true);
     EXPECT_EQ(allclose(out_conv_2, outConv2, 0.01, 0.01), true);
