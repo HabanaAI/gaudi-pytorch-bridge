@@ -4452,21 +4452,6 @@ void HabanaLaunchOpPT::handle_pass_exception(
       }
       break;
     }
-    // The OUTPUT_SHAPE inference exception is actually compile exception.
-    // if min and max both was current, meaning the failure is in
-    // static(fallback path), bail out execution by throwing error.
-    case ShapeInfo::InferencePass::OUTPUT_SHAPE: {
-      if (graph_input_info.min_policy ==
-              habana_helpers::DynamicDimsPolicy::CURRENT &&
-          graph_input_info.max_policy ==
-              habana_helpers::DynamicDimsPolicy::CURRENT) {
-        PT_DYNAMIC_SHAPE_FATAL("Unhandled exception exiting ..");
-        throw std::runtime_error("Exception was not handled ..");
-      }
-      graph_input_info.min_policy = habana_helpers::DynamicDimsPolicy::CURRENT;
-      graph_input_info.max_policy = habana_helpers::DynamicDimsPolicy::CURRENT;
-      break;
-    }
     default:
       PT_DYNAMIC_SHAPE_FATAL("Unhandled exception exiting ..");
       throw std::runtime_error("Exception was not handled ..");
@@ -4527,25 +4512,6 @@ void HabanaLaunchOpPT::handle_pass_exception(
       try_run_shape_inference(
           ShapeInfo::InferencePass::MAX_SHAPE, graph_input_info);
       break;
-    // In reruning output pass, clear the min, max and actual name-shape map
-    // populate the graph_input_info structure with ranges and call
-    // CompileAndRunDynamicGraph to again try compilation. If the exception
-    // occurs then we again call handle_pass_exception with both policy as
-    // CURRENT and pass as OUTPUT_PASS which breaks the handling and throws
-    // runtime error.
-    case ShapeInfo::InferencePass::OUTPUT_SHAPE:
-      PT_DYNAMIC_SHAPE_DEBUG("Rerun with policy CURRENT ..");
-      graph_input_info.min_input_tshapes.clear();
-      graph_input_info.max_input_tshapes.clear();
-      graph_input_info.max_input_tshapes.insert(
-          fallback_ranges.max_shapes.begin(), fallback_ranges.max_shapes.end());
-      graph_input_info.min_input_tshapes.insert(
-          fallback_ranges.min_shapes.begin(), fallback_ranges.min_shapes.end());
-      habana::ShapeInference::ResetMin();
-      habana::ShapeInference::ResetMax();
-      habana::ShapeInference::ResetActual();
-      CompileAndRunDynamicGraph(graph_input_info);
-      break;
     default:
       PT_DYNAMIC_SHAPE_FATAL("Unhandled exception exiting ..");
       throw std::runtime_error("Exception was not handled ..");
@@ -4595,7 +4561,6 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
 
   std::string result = "OK";
   std::string jit_ir = "";
-  bool try_catch_fail = false;
   if (graph_input_info.current_bucket_id == 0) {
     jit_ir = jit_ir_graph_->toString();
   }
@@ -4619,102 +4584,47 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
   } else {
     last_compilation_pass = habana_helpers::CompilationPass::DYNAMIC_MAX;
   }
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_LAUNCH_FALLBACK)) {
-    // Try running the BuildSynapseGraph with min and max
-    // infered above if the BuildSynapseGraph fails, call
-    // handle_pass_exception with pass type OUTPUT_SHAPE. In handling this
-    // exception bucket ranges are recalculated as per min and max both as
-    // CURRENT and again call CompileAndRunDynamicGraph with changed ranges and
-    // policy. This is last resort if anything further fails bail out the
-    // execution. We need not change anything in cache because exception either
-    // occurs in compilation or launch and both happens before adding recipie to
-    // cache.
-    try {
-      m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
-      auto syn_graph = std::make_shared<synapse_helpers::graph>(
-          habana_helpers::create_graph(device.id(), GetSynapseGraphName()));
-      syn_graph->set_dynamic_graph(is_dynamic_graph);
-      BuildSynapseGraph(syn_graph);
-      CompileSynapseGraph();
-      aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
-      ConstructPatchingTableAndAtenOutputs();
-      UpdateSynapsePermutations();
-      StoreCompiledInformation();
-      ExecuteSynapseGraph();
-    } catch (std::exception& e) {
-      PT_DYNAMIC_SHAPE_DEBUG("Exception in BuildSynapseGraph");
-      PT_DYNAMIC_SHAPE_DEBUG("Details:\n", e.what());
-      ClearMembers(true);
-      ClearStatics(true);
-      PassException p(habana::ShapeInfo::InferencePass::OUTPUT_SHAPE, e.what());
-      try_catch_fail = true;
-      current_dbipsh_->get_statistics()->LogCompilation(
-          jit_ir,
-          jit_ir_graph_,
-          graph_input_info.min_policy,
-          graph_input_info.max_policy,
-          ranges,
-          current_dbipsh_->GetRecipeKeyForBucket(
-              graph_input_info.current_bucket_id),
-          "dynamic compilation failed",
-          last_compilation_pass);
-      current_dbipsh_->get_statistics()->LogShapes(
-          jit_ir_graph_, graph_input_info.act_input_tshapes);
-      current_dbipsh_->get_statistics()->LogSelectedRecipe(
-          current_dbipsh_->GetRecipeKeyForBucket(
-              graph_input_info.current_bucket_id),
-          0);
-      if (!syn_graph_ptr_->is_empty()) {
-        current_dbipsh_->get_statistics()->LogRecipeMemory(cur_rvalpsh);
-      }
-      RestoreInputTensorMetadata();
-      handle_pass_exception(graph_input_info, p);
-    }
-  } else {
-    m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
-    auto syn_graph = std::make_shared<synapse_helpers::graph>(
-        habana_helpers::create_graph(device.id(), GetSynapseGraphName()));
-    syn_graph->set_dynamic_graph(is_dynamic_graph);
-    EvictSynapseRecipe(graph_input_info.current_bucket_id);
-    BuildSynapseGraph(syn_graph);
-    CompileSynapseGraph();
-    aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
-    ConstructPatchingTableAndAtenOutputs();
-    UpdateSynapsePermutations();
-    StoreCompiledInformation();
-    ExecuteSynapseGraph();
+  m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
+  auto syn_graph = std::make_shared<synapse_helpers::graph>(
+      habana_helpers::create_graph(device.id(), GetSynapseGraphName()));
+  syn_graph->set_dynamic_graph(is_dynamic_graph);
+  EvictSynapseRecipe(graph_input_info.current_bucket_id);
+  BuildSynapseGraph(syn_graph);
+  CompileSynapseGraph();
+  aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
+  ConstructPatchingTableAndAtenOutputs();
+  UpdateSynapsePermutations();
+  StoreCompiledInformation();
+  ExecuteSynapseGraph();
+
+  current_dbipsh_->get_statistics()->LogCompilation(
+      jit_ir,
+      jit_ir_graph_,
+      graph_input_info.min_policy,
+      graph_input_info.max_policy,
+      ranges,
+      current_dbipsh_->GetRecipeKeyForBucket(
+          graph_input_info.current_bucket_id),
+      result,
+      last_compilation_pass);
+  current_dbipsh_->get_statistics()->LogShapes(
+      jit_ir_graph_, graph_input_info.act_input_tshapes);
+  bool refine_candidate = false;
+  if (last_compilation_pass != habana_helpers::CompilationPass::STATIC) {
+    refine_candidate =
+        (current_dbipsh_->GetMFUBucket() == graph_input_info.current_bucket_id);
   }
-  if (!try_catch_fail) {
-    current_dbipsh_->get_statistics()->LogCompilation(
-        jit_ir,
-        jit_ir_graph_,
-        graph_input_info.min_policy,
-        graph_input_info.max_policy,
-        ranges,
-        current_dbipsh_->GetRecipeKeyForBucket(
-            graph_input_info.current_bucket_id),
-        result,
-        last_compilation_pass);
-    current_dbipsh_->get_statistics()->LogShapes(
-        jit_ir_graph_, graph_input_info.act_input_tshapes);
-    bool refine_candidate = false;
-    if (last_compilation_pass != habana_helpers::CompilationPass::STATIC) {
-      refine_candidate =
-          (current_dbipsh_->GetMFUBucket() ==
-           graph_input_info.current_bucket_id);
-    }
-    current_dbipsh_->get_statistics()->LogUsedBucket(
-        graph_input_info.current_bucket_id,
-        jit_ir_graph_,
-        ranges,
-        refine_candidate);
-    current_dbipsh_->get_statistics()->LogSelectedRecipe(
-        current_dbipsh_->GetRecipeKeyForBucket(
-            graph_input_info.current_bucket_id),
-        0);
-    if (!syn_graph_ptr_->is_empty()) {
-      current_dbipsh_->get_statistics()->LogRecipeMemory(cur_rvalpsh);
-    }
+  current_dbipsh_->get_statistics()->LogUsedBucket(
+      graph_input_info.current_bucket_id,
+      jit_ir_graph_,
+      ranges,
+      refine_candidate);
+  current_dbipsh_->get_statistics()->LogSelectedRecipe(
+      current_dbipsh_->GetRecipeKeyForBucket(
+          graph_input_info.current_bucket_id),
+      0);
+  if (!syn_graph_ptr_->is_empty()) {
+    current_dbipsh_->get_statistics()->LogRecipeMemory(cur_rvalpsh);
   }
 }
 

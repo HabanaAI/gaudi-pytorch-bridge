@@ -30,15 +30,11 @@ class LazyDynamicDualFallbackTest : public habana_lazy_test::LazyTest {
   void SetUp() override {
     SetDynamicMode();
 
-    EnableDynamicLaunchFallback();
-
     habana_lazy_test::LazyTest::SetUp();
   }
 
   void TearDown() override {
     UnsetDynamicMode();
-
-    RestoreDynamicLaunchFallback();
 
     habana_lazy_test::LazyTest::TearDown();
   }

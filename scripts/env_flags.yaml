@@ -406,10 +406,6 @@ PT_HPU_ENABLE_DYNAMIC_PASS_FALLBACK:
   default: true
   doc: "Dynamic shape related env variables"
 
-PT_HPU_ENABLE_DYNAMIC_LAUNCH_FALLBACK:
-  type: bool
-  default: false
-
 PT_HPU_ENABLE_MIN_MAX_AS_CURRENT:
   type: bool
   default: false

@@ -41,7 +41,6 @@ class EnvHelper {
   unsigned m_dynamic = 0;
   unsigned m_inference = 0;
   unsigned m_fallback_pass = 1;
-  unsigned m_fallback_launch = 0;
   uint64_t m_seed = InitSeed();
   bool m_recipe_cache_enable = true;
   bool m_eager_gc_enable = false;
@@ -105,19 +104,6 @@ class EnvHelper {
   void RestoreDynamicPassFallback() {
     if (m_fallback_pass) {
       SET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_PASS_FALLBACK, true, 1);
-    }
-  }
-
-  void EnableDynamicLaunchFallback() {
-    m_fallback_launch = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_LAUNCH_FALLBACK);
-    if (!m_fallback_launch) {
-      SET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_LAUNCH_FALLBACK, true, 1);
-    }
-  }
-
-  void RestoreDynamicLaunchFallback() {
-    if (!m_fallback_launch) {
-      SET_ENV_FLAG_NEW(PT_HPU_ENABLE_DYNAMIC_LAUNCH_FALLBACK, false, 1);
     }
   }
 
