@@ -11,7 +11,15 @@
 #include "generated/backend/vdot.h"
 
 namespace habana {
-sizes_vec VdotOutputShape(const at::Stack&) {
-  return {{}};
+
+OutputMetaDataVector VdotMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = {};
+
+  return {meta};
 }
+
 } // namespace habana

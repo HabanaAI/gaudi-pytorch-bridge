@@ -7714,13 +7714,13 @@ var_mean.correction:
   out_ids: [0, 0]
 
 vdot:
-  custom_output_shape: VdotOutputShape
+  output_meta: VdotMeta
   dtypes: [BFloat16, Float]
   guid: dot_fwd
   out_ids: [0]
 
 vdot.out:
-  custom_output_shape: VdotOutputShape
+  output_meta: VdotMeta
   dtypes: [BFloat16, Float]
   guid: dot_fwd
 
