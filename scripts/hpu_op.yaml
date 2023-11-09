@@ -1525,7 +1525,7 @@ bitwise_left_shift.Tensor:
 
 bitwise_left_shift.Tensor_out:
   broadcast: true
-  dtypes: [Int, Char, Byte, Short]
+  dtypes: [Int, Char, Byte, Short, Long]
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
   promote_to_common_type: [self, other]
@@ -2437,7 +2437,7 @@ eq.Scalar_out:
   safe_cast_check: false
 
 eq.Tensor_out:
-  dtypes: [BFloat16, Float, Int, Char, Byte]
+  dtypes: [BFloat16, Float, Int, Char, Byte, Long]
   guid: equal_fwd
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
@@ -2743,21 +2743,21 @@ floor_:
 
 floor_divide.out:
   broadcast: true
-  dtypes: [BFloat16, Float, Int, Byte, Char]
+  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
   guid: div
   op_backend: FloorDivideOperator
   promote_to_common_type: [self, other]
 
 floor_divide:
   broadcast: true
-  dtypes: [BFloat16, Float, Int, Byte, Char]
+  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
   guid: div
   op_backend: FloorDivideOperator
   promote_to_common_type: [self, other]
   out_ids: [0]
 
 floor_divide_.Tensor:
-  dtypes: [BFloat16, Float, Int, Byte, Char]
+  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
   guid: div
   op_backend: FloorDivideOperator
   promote_to_common_type: [self, other]
@@ -2812,7 +2812,7 @@ fmod.Tensor:
 
 fmod.Tensor_out:
   broadcast: true
-  dtypes: [BFloat16, Float, Int]
+  dtypes: [BFloat16, Float, Int, Long]
   guid: mod_fwd
   promote_to_common_type: [self, other]
 
@@ -2859,9 +2859,9 @@ gather.out:
 
 ge.Scalar_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half, Long]
   guid: greater_equal_fwd
   scalar_ids: [1]
   promote_to_common_type: [self, other]
@@ -2869,9 +2869,9 @@ ge.Scalar_out:
 
 ge.Tensor_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half, Long]
   guid: greater_equal_fwd
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
@@ -3049,9 +3049,9 @@ gt.Scalar_out:
 
 gt.Tensor_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half, Long]
   guid: greater_fwd
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
@@ -3489,9 +3489,9 @@ index_select.out:
 
 le.Scalar_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half, Long]
   guid: less_equal_fwd
   scalar_ids: [1]
   promote_to_common_type: [self, other]
@@ -3499,9 +3499,9 @@ le.Scalar_out:
 
 le.Tensor_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half, Long]
   guid: less_equal_fwd
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
@@ -3928,9 +3928,9 @@ logical_and_:
 logical_and.out:
   output_meta: LogicalMeta
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Byte, Char]
-    Gaudi2: [BFloat16, Float, Half, Int, Byte, Char]
-    Gaudi3: [BFloat16, Float, Half, Int, Byte, Char]
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Long]
+    Gaudi2: [BFloat16, Float, Half, Int, Byte, Char, Long]
+    Gaudi3: [BFloat16, Float, Half, Int, Byte, Char, Long]
   guid: and
 
 logical_not:
@@ -4053,9 +4053,9 @@ logspace.out:
 
 lt.Scalar_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half, Long]
   guid: less_fwd
   scalar_ids: [1]
   promote_to_common_type: [self, other]
@@ -4063,9 +4063,9 @@ lt.Scalar_out:
 
 lt.Tensor_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half, Long]
   guid: less_fwd
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
@@ -4210,9 +4210,9 @@ maximum:
 maximum.out:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Half, Long]
   guid: max_fwd
   promote_to_common_type: [self, other]
   # op_validator: check-node-with-shared-layer
@@ -4414,9 +4414,9 @@ min.dim:
 min.dim_min:
   custom_fill_params: FillMinMaxParams
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Half, Long]
   guid: reduce_min_fwd
   output_meta: MinMaxMeta
   op_backend: MinMaxOut
@@ -4435,9 +4435,9 @@ minimum:
 minimum.out:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Half, Long]
   guid: min_fwd
   promote_to_common_type: [self, other]
   # op_validator: check-node-with-shared-layer
@@ -4804,9 +4804,9 @@ native_layer_norm_backward:
 
 ne.Tensor_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Byte, Char]
-    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
-    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Long]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half, Long]
   op_backend: NE
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
@@ -5633,9 +5633,9 @@ remainder.Scalar_Tensor:
 
 remainder.Tensor_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Short]
-    Gaudi3: [BFloat16, Float, Int, Char, Short]
+    Gaudi: [BFloat16, Float, Int, Char, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Short, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Short, Long]
   guid: rem_fwd
   promote_to_common_type: [self, other]
   broadcast: true
