@@ -54,6 +54,10 @@ static at::ScalarType GetScalarType(const at::Stack& stack, int index) {
   auto type =
       ival.isTensor() ? ival.toTensor().scalar_type() : ival.toScalar().type();
 
+  // return Bool instead of Char for handling copy from/to Bool in Cast Node
+  if (type == at::kBool)
+    return type;
+
   return habana_helpers::getInternalDtype(type);
 }
 
@@ -256,6 +260,11 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
       c10::nullopt,
       false,
       false);
+
+  // For comparison op, bool inputs need to be casted to uint8.
+  if (m_cast_bool_to_uint8 && m_scalar_type == at::kBool) {
+    m_scalar_type = at::kByte;
+  }
 
   auto skipScalarCastNeeded = [&](size_t i) -> bool {
     // Scalars (which are not converted to tensors - index not found in
@@ -833,12 +842,8 @@ sh::tensor OpBackend::BuildCast(
     const at::ScalarType& from,
     const at::ScalarType& to,
     c10::optional<int> final_result_index) {
-  // Verify from and to types correctness
-  BuildCastGuid(from, to);
-
-  // We want either 1 or 0 as results and not the entire i8 range as a bool
-  // output.
-  if (to == at::kBool) {
+  // We want either 0x00 or 0x01 stored in bytes when casting from or to Bool.
+  if (to == at::kBool || from == at::kBool) {
     auto zero_tensor = OpBackend::BuildConstant(op, graph, 0, from);
 
     auto eq = OpBackend::BuildNode(
@@ -851,11 +856,12 @@ sh::tensor OpBackend::BuildCast(
     auto ne = OpBackend::BuildNode(
         op,
         graph,
-        {"not_fwd_i8",
-         {eq[0].get()},
-         {{sizes, c10::ScalarType::Bool, final_result_index}}});
+        {"not_fwd_i8", {eq[0].get()}, {{sizes, to, final_result_index}}});
     return std::move(ne[0]);
   }
+
+  // Verify from and to types correctness
+  BuildCastGuid(from, to);
 
   habana_helpers::CastTypes cast_types{
       habana_helpers::DataTypeToCastType(from),

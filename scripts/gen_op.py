@@ -575,6 +575,9 @@ class Op(object):
     def safe_cast_check(self):
         return self.op.get("safe_cast_check", None)
 
+    def handle_bool_inputs(self):
+        return self.op.get("handle_bool_inputs", None)
+
     def custom_schema(self):
         args = self.op.get("schema_args", None)
         if args:
@@ -1248,6 +1251,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     output_meta_fn = ctxop.get_output_meta()
     promote_to_common_type = ctxop.promote_to_common_type()
     promote_int_to_float = ctxop.promote_int_to_float()
+    handle_bool_inputs = ctxop.handle_bool_inputs()
 
     assert (not out_ids) ^ (not inplace_ids) ^ is_out_fn(fname), (
         "`out_ids` or `inplace_ids` should not be defined for {}".format(fname)
@@ -1344,6 +1348,9 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
         ctor_extra_calls.append("EnableTypePromotion();")
     elif promote_int_to_float:
         ctor_extra_calls.append("PromoteIntToFloat();")
+
+    if handle_bool_inputs:
+        ctor_extra_calls.append("HandleBoolInputs();")
 
     if ctxop.get_op_backend_class() == "ReductionBackendTemplate":
         ctor_extra_calls.append(

@@ -2504,6 +2504,7 @@ eq.Scalar_out:
   scalar_ids: [1]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 eq.Tensor_out:
   dtypes: [BFloat16, Float, Int, Char, Byte, Long]
@@ -2511,6 +2512,7 @@ eq.Tensor_out:
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 eq_.Scalar:
   dtypes: [BFloat16, Float, Int, Char, Byte]
@@ -2519,6 +2521,7 @@ eq_.Scalar:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 eq_.Tensor:
   dtypes: [BFloat16, Float, Int, Char, Byte]
@@ -2526,6 +2529,7 @@ eq_.Tensor:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 eq.Scalar:
   dtypes:
@@ -2538,6 +2542,7 @@ eq.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   promote_to_common_type: [self, other]
+  handle_bool_inputs: true
 
 eq.Tensor:
   dtypes:
@@ -2548,6 +2553,7 @@ eq.Tensor:
   output_meta: CompareMeta
   out_ids: [0]
   promote_to_common_type: [self, other]
+  handle_bool_inputs: true
 
 erf:
   promote_int_to_float: [self]
@@ -2935,6 +2941,7 @@ ge.Scalar_out:
   scalar_ids: [1]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 ge.Tensor_out:
   dtypes:
@@ -2945,6 +2952,7 @@ ge.Tensor_out:
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 ge_.Scalar:
   dtypes:
@@ -2956,6 +2964,7 @@ ge_.Scalar:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 ge_.Tensor:
   dtypes:
@@ -2966,6 +2975,7 @@ ge_.Tensor:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 ge.Scalar:
   dtypes:
@@ -2978,6 +2988,7 @@ ge.Scalar:
   out_ids: [0]
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
+  handle_bool_inputs: true
 
 ge.Tensor:
   dtypes:
@@ -2988,6 +2999,7 @@ ge.Tensor:
   output_meta: CompareMeta
   out_ids: [0]
   promote_to_common_type: [self, other]
+  handle_bool_inputs: true
 
 gelu:
   dtypes:
@@ -3115,6 +3127,7 @@ gt.Scalar_out:
   scalar_ids: [1]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 gt.Tensor_out:
   dtypes:
@@ -3125,6 +3138,7 @@ gt.Tensor_out:
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 gt_.Scalar:
   dtypes:
@@ -3136,6 +3150,7 @@ gt_.Scalar:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 gt_.Tensor:
   dtypes:
@@ -3146,6 +3161,7 @@ gt_.Tensor:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 gt.Scalar:
   dtypes:
@@ -3158,6 +3174,7 @@ gt.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   promote_to_common_type: [self, other]
+  handle_bool_inputs: true
 
 gt.Tensor:
   dtypes:
@@ -3168,6 +3185,7 @@ gt.Tensor:
   output_meta: CompareMeta
   out_ids: [0]
   promote_to_common_type: [self, other]
+  handle_bool_inputs: true
 
 hardshrink:
   dtypes: [Float, BFloat16]
@@ -3567,6 +3585,7 @@ le.Scalar_out:
   scalar_ids: [1]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 le.Tensor_out:
   dtypes:
@@ -3577,6 +3596,7 @@ le.Tensor_out:
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 le_.Scalar:
   dtypes:
@@ -3588,6 +3608,7 @@ le_.Scalar:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 le_.Tensor:
   dtypes:
@@ -3598,6 +3619,7 @@ le_.Tensor:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 le.Scalar:
   dtypes:
@@ -3610,6 +3632,7 @@ le.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   promote_to_common_type: [self, other]
+  handle_bool_inputs: true
 
 le.Tensor:
   dtypes:
@@ -3620,6 +3643,7 @@ le.Tensor:
   output_meta: CompareMeta
   out_ids: [0]
   promote_to_common_type: [self, other]
+  handle_bool_inputs: true
 
 leaky_relu_backward.grad_input:
   custom_fill_params: FillLeakyReluBackwardParams
@@ -4131,6 +4155,7 @@ lt.Scalar_out:
   scalar_ids: [1]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 lt.Tensor_out:
   dtypes:
@@ -4141,6 +4166,7 @@ lt.Tensor_out:
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 lt_.Tensor:
   dtypes:
@@ -4151,6 +4177,7 @@ lt_.Tensor:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 lt_.Scalar:
   dtypes:
@@ -4162,6 +4189,7 @@ lt_.Scalar:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  handle_bool_inputs: true
 
 lt.Scalar:
   dtypes:
@@ -4174,6 +4202,7 @@ lt.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   promote_to_common_type: [self, other]
+  handle_bool_inputs: true
 
 lt.Tensor:
   dtypes:
@@ -4184,6 +4213,7 @@ lt.Tensor:
   output_meta: CompareMeta
   out_ids: [0]
   promote_to_common_type: [self, other]
+  handle_bool_inputs: true
 
 _masked_scale:
   custom_output_shape: MaskedScaleOutputShape

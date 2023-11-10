@@ -13,6 +13,8 @@
 import numpy as np
 import pytest
 import torch
+from test_utils import format_tc
+
 
 def test_argmax():
     def test(func, cpu_tensor):
@@ -83,9 +85,8 @@ def test_empty_strided(size_stride):
 
     result_cpu = test(size, stride, cpu_device)
     result_hpu = test(size, stride, hpu_device)
-    assert (result_hpu.size() == result_cpu.size() \
-        and result_hpu.dtype == result_cpu.dtype)
-
+    assert (result_hpu.size() == result_cpu.size()
+            and result_hpu.dtype == result_cpu.dtype)
 
 
 @pytest.mark.parametrize("memory_format", [None, torch.contiguous_format])
@@ -119,6 +120,73 @@ def test_to_copy_dtype():
     assert torch.equal(result_cpu, result_hpu)
 
 
+@pytest.mark.parametrize("src_dtype", [torch.int8, torch.bfloat16, torch.float32], ids=format_tc)
+@pytest.mark.parametrize("op_name", ["eq", "eq_", "gt", "gt_", "ge", "ge_", "lt", "lt_", "le", "le_"])
+@pytest.mark.parametrize("is_view", [True, False])
+def test_bool_comparison(src_dtype, op_name, is_view):
+    def get_fn(op_name):
+        def eq(self, other):
+            return self.eq(other)
+
+        def eq_(self, other):
+            return self.eq_(other)
+
+        def lt(self, other):
+            return self.lt(other)
+
+        def lt_(self, other):
+            return self.lt_(other)
+
+        def gt(self, other):
+            return self.gt(other)
+
+        def gt_(self, other):
+            return self.gt_(other)
+
+        def le(self, other):
+            return self.le(other)
+
+        def le_(self, other):
+            return self.le_(other)
+
+        def ge(self, other):
+            return self.ge(other)
+
+        def ge_(self, other):
+            return self.ge_(other)
+
+        op_maps = {'eq': eq, "eq_": eq_, "lt": lt, "lt_": lt_, "le": le,
+                   "le_": le_, "gt": gt, "gt_": gt_, "ge": ge, "ge_": ge_}
+
+        return op_maps[op_name]
+
+    def convert_boolean_tensors(x, is_view):
+        if not isinstance(x, torch.Tensor) or x.dtype != torch.bool:
+            return x
+
+        # Map False -> 0 and True -> Random value in [2, 255]
+        true_vals = torch.randint(2, 255, x.shape, dtype=torch.uint8, device=x.device)
+        false_vals = torch.zeros((), dtype=torch.uint8, device=x.device)
+        x_int = torch.where(x, true_vals, false_vals)
+
+        if is_view:
+            ret = x_int.view(torch.bool)
+        else:
+            ret = x_int.to(torch.bool)
+        return ret
+
+    fn = get_fn(op_name)
+    cpu_in = torch.tensor(range(0, 10), device="cpu", dtype=src_dtype) > 5
+    cpu_out = convert_boolean_tensors(cpu_in, is_view)
+    result_cpu = fn(cpu_in, cpu_out)
+
+    hpu_in = torch.tensor(range(0, 10), device="hpu", dtype=src_dtype) > 5
+    hpu_out = convert_boolean_tensors(hpu_in, is_view)
+    result_hpu = fn(hpu_in, hpu_out)
+
+    assert torch.allclose(result_cpu, result_hpu.to("cpu"), rtol=0, atol=0)
+
+
 @pytest.mark.parametrize("dim", [0, 1, 2, [0, 1], [0, 2], [1, 2], [0, 1, 2]])
 @pytest.mark.parametrize("unbiased", [True, False])
 @pytest.mark.parametrize("keepdim", [False, True])
@@ -132,6 +200,7 @@ def test_var_dim(dim, unbiased, keepdim):
     result_cpu = raw_function(cpu_tensor)
     result_hpu = raw_function(hpu_tensor).to("cpu")
     assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
+
 
 @pytest.mark.parametrize("dim", [-1, 0])
 def test_unsqueeze(dim):

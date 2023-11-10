@@ -134,6 +134,10 @@ class OpBackend : public HabanaOperator {
     m_promote_type = true;
   }
 
+  void HandleBoolInputs() {
+    m_cast_bool_to_uint8 = true;
+  }
+
   bool IsTypePromotion() const {
     return m_promote_type;
   }
@@ -490,6 +494,7 @@ class OpBackend : public HabanaOperator {
   c10::ScalarType m_scalar_type;
   std::optional<int> m_output_type_stack_idx;
   bool m_promote_type = false;
+  bool m_cast_bool_to_uint8 = false;
   bool m_promote_int_to_float = false;
   int m_num_out_tensors = 1;
   std::vector<int> m_hw_scaling_ids;

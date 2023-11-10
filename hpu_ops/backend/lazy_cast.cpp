@@ -87,7 +87,8 @@ static void copy_impl(
     input = broadcast.value().get();
   }
 
-  if (src_type_cast_type == dst_type_cast_type) {
+  if ((src_type_cast_type == dst_type_cast_type) &&
+      !(dst_type == at::ScalarType::Bool && src_type == at::ScalarType::Char)) {
     NodeAttr::NodeOutputAttr out_attr{shape, src_type, 0};
     out_attr.exp_bias = habana_helpers::get_tensor_exp_bias(src);
     output = std::move(
