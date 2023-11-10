@@ -3317,19 +3317,8 @@ void HabanaLaunchOpPT::ReturnCachedRecipe(RecipeValueSpec& rv) {
 
 // shape agnostic : duplicate synapse graph
 void HabanaLaunchOpPT::DuplicateSynapseGraph() {
-  // first duplicate call to populate number of tensors and nodes in the
-  // graph
-  syn_graph_ptr_->duplicate(nullptr, nullptr);
-
-  std::vector<synTensorHandleMap> tensorsMap(
-      syn_graph_ptr_->get_num_of_tensors());
-  std::vector<synNodeHandleMap> nodesMap(syn_graph_ptr_->get_num_of_nodes());
-
-  // second duplicate call to to get the tensor and nodes map
-  syn_graph_ptr_->duplicate(tensorsMap.data(), nodesMap.data());
-
-  MaybePrintDuplicateGraphInformation(
-      syn_graph_ptr_, tensorsMap, nodesMap, "cache miss");
+  auto tensorsMap = syn_graph_ptr_->duplicate();
+  MaybePrintDuplicateGraphInformation(syn_graph_ptr_, tensorsMap, false);
 }
 
 // shape agnostic : store shape agnostic graph
@@ -3384,12 +3373,11 @@ void HabanaLaunchOpPT::ValidateInputsAndOutputsAndDisableSA(
 // shape agnostic : print duplicate graph information
 void HabanaLaunchOpPT::MaybePrintDuplicateGraphInformation(
     const std::shared_ptr<synapse_helpers::graph>& graph_ptr,
-    std::vector<synTensorHandleMap>& tensors_map,
-    std::vector<synNodeHandleMap>& nodes_map [[maybe_unused]],
-    std::string cache_hit_or_miss) {
+    const std::vector<synTensorHandleMap>& tensors_map,
+    bool is_cache_hit) {
   PT_EAGER_DEBUG(
-      "[SHAPE AGNOSTIC] === ",
-      cache_hit_or_miss,
+      "[SHAPE AGNOSTIC] === cache ",
+      is_cache_hit ? "hit" : "miss",
       " duplicate graph information ====");
   PT_EAGER_DEBUG(
       "[SHAPE AGNOSTIC] original graph handle : ",
@@ -3821,15 +3809,8 @@ void HabanaLaunchOpPT::run(
       syn_graph_ptr_ = std::make_shared<synapse_helpers::graph>(
           *(cur_rvalpsh->shape_agnostic_synapse_graph_.get()));
 
-      std::vector<synTensorHandleMap> tensorsMap(
-          syn_graph_ptr_->get_num_of_tensors());
-      std::vector<synNodeHandleMap> nodesMap(
-          syn_graph_ptr_->get_num_of_nodes());
-
-      syn_graph_ptr_->duplicate(tensorsMap.data(), nodesMap.data());
-
-      MaybePrintDuplicateGraphInformation(
-          syn_graph_ptr_, tensorsMap, nodesMap, "cache hit");
+      auto tensorsMap = syn_graph_ptr_->duplicate();
+      MaybePrintDuplicateGraphInformation(syn_graph_ptr_, tensorsMap, true);
 
       RecipeValueSpec& rv = *cur_rvalpsh;
       rv.update_hit_count();

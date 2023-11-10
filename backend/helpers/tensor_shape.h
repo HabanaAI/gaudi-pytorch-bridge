@@ -109,7 +109,7 @@ class TensorShape {
   bool is_scalar_initialized{false};
   at::ScalarType scalar_type_;
   std::vector<int64_t> m_sizes;
-  synTensorType m_tensor_type;
+  synTensorType m_tensor_type{TENSOR_TYPE_INVALID};
 };
 
 } // namespace habana_helpers

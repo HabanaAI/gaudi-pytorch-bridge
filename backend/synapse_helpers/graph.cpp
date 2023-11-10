@@ -168,31 +168,48 @@ graph graph::create_for_refinement(device& device, std::string name) {
   return syn_graph;
 }
 
-void graph::duplicate(
-    synTensorHandleMap* tensorsMap,
-    synNodeHandleMap* nodesMap) {
+std::vector<synTensorHandleMap> graph::duplicate() {
   PT_SYNHELPER_BEGIN;
-
   PT_SYNHELPER_DEBUG("Graph Duplicate.");
-  synStatus status = synSuccess;
-  if (eager_mode_) {
-    status = synGraphDuplicate(
+
+  HABANA_ASSERT(
+      eager_mode_,
+      "Graph Duplicate API is not supposed to be used in lazy mode");
+
+  if (numTensors == 0 && numNodes == 0) {
+    // first duplicate call to obtain number of tensors and nodes in the
+    // graph
+    auto status = synGraphDuplicate(
         graph_handle_,
         &duplicate_graph_handle_,
-        tensorsMap,
+        nullptr,
         &numTensors,
-        nodesMap,
+        nullptr,
         &numNodes);
-  } else {
     HABANA_ASSERT(
-        0 && "Graph Duplicate API is not supposed to be used in lazy mode");
+        status == synStatus::synSuccess,
+        "Graph duplication failed. synStatus=",
+        Logger::formatStatusMsg(status));
   }
+
+  std::vector<synTensorHandleMap> tensorsMap(numTensors);
+  std::vector<synNodeHandleMap> nodesMap(numNodes);
+
+  auto status = synGraphDuplicate(
+      graph_handle_,
+      &duplicate_graph_handle_,
+      tensorsMap.data(),
+      &numTensors,
+      nodesMap.data(),
+      &numNodes);
+
   HABANA_ASSERT(
       status == synStatus::synSuccess,
       "Graph duplication failed. synStatus=",
       Logger::formatStatusMsg(status));
   graph_is_empty_ = false;
   PT_SYNHELPER_END;
+  return tensorsMap;
 }
 
 void graph::setTensorGeometry(

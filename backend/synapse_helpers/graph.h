@@ -50,7 +50,7 @@ class graph {
 
   static graph create_for_refinement(device& device, std::string name);
 
-  void duplicate(synTensorHandleMap* tensorsMap, synNodeHandleMap* nodesMap);
+  std::vector<synTensorHandleMap> duplicate();
 
   static void setTensorGeometry(
       synTensor tensor_handle,

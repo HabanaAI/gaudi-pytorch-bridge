@@ -720,11 +720,10 @@ class HabanaLaunchOpPT {
   void DuplicateSynapseGraph();
   void ValidateInputsAndOutputsAndDisableSA(
       at::ArrayRef<torch::jit::IValue>& input_refs);
-  void MaybePrintDuplicateGraphInformation(
+  static void MaybePrintDuplicateGraphInformation(
       const std::shared_ptr<synapse_helpers::graph>& graph_ptr,
-      std::vector<synTensorHandleMap>& tensors_map,
-      std::vector<synNodeHandleMap>& nodes_map [[maybe_unused]],
-      std::string cache_hit_or_miss);
+      const std::vector<synTensorHandleMap>& tensors_map,
+      bool is_cache_hit);
 
   void create_duplicate_syn_tensor(
       at::Tensor* tensor,
