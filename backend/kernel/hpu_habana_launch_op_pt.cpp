@@ -51,6 +51,7 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "hpu_ops/op_logger.h"
 
 using namespace torch::jit;
 using namespace jitgraph_utils;
@@ -1611,6 +1612,28 @@ std::string DumpNodeOutputs(
   }
   return str;
 }
+
+std::string DumpOpInfo(
+    const at::OperatorName& opname,
+    const torch::jit::Stack& input_stack) {
+  std::ostringstream out;
+  out << opname << ":";
+  int arg_id = 1;
+  for (size_t i = 0; i < input_stack.size(); i++) {
+    auto& input = input_stack[i];
+    out << " %" << arg_id++ << "=";
+    if (input.isTensor()) {
+      out << to_string(input.toTensor());
+    } else if (input.isTensorList()) {
+      out << to_string(input.toTensorList());
+    } else if (input.isOptionalTensorList()) {
+      out << to_string(input.toOptionalTensorList());
+    } else {
+      out << input;
+    }
+  }
+  return out.str();
+}
 } // namespace
 
 void HabanaLaunchOpPT::validateOutputShapeDynamic(
@@ -2115,6 +2138,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     }
 
     torch::jit::Stack input_stack = getStackForNode(node);
+    PT_OP_INFO("JIT_OP ", DumpOpInfo(op, input_stack));
 
     // If there is a "meta attribute" marked with attr::arg1, add the meta attr
     // value to stack for the ops to work with. At this point, only StridedView
