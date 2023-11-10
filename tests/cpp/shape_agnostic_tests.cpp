@@ -400,8 +400,7 @@ TEST_F(ShapeAgnosticTest, Gelu) {
   }
 }
 
-// Enable this test once issue SW-160567 is fixed
-TEST_F(ShapeAgnosticTest, DISABLED_GeluView) {
+TEST_F(ShapeAgnosticTest, GeluView) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
   auto& device = habana::HPURegistrar::get_device();
