@@ -107,7 +107,8 @@ void SelectHpu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph, "slice", {syn_in(0)}, {node_output_attr}, &params, sizeof(params));
 
   auto reshape_output_shape = slice_output_shape;
-  reshape_output_shape.erase(reshape_output_shape.begin() + dim);
+  auto dim_ = at::maybe_wrap_dim(dim, self.dim());
+  reshape_output_shape.erase(reshape_output_shape.begin() + dim_);
 
   syn_out(0) = OpBackend::BuildReshape(
       this, graph, slice_op[0].get(), reshape_output_shape, ScalarType(), 0);
