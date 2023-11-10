@@ -236,6 +236,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synTensorRetrieveLaunchInfoById);
   SYN_API_INIT_PTR(synTensorRetrieveLaunchInfoByIdExt);
   SYN_API_INIT_PTR(synTensorGetGeometry);
+  SYN_API_INIT_PTR(synTensorSetGeometry);
   SYN_API_INIT_PTR(synTensorSetDeviceDataType);
   SYN_API_INIT_PTR(synTensorSetHostPtr);
   SYN_API_INIT_PTR(synTensorSetPermutation);
