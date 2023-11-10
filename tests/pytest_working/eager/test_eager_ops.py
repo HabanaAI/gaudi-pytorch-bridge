@@ -542,9 +542,13 @@ def test_index_single_elem_index():
     assert torch.equal(res_hpu.to("cpu"), res_cpu)
 
 
-@pytest.mark.parametrize("shape_in", [(4, 4), (2, 3, 4, 4, 4)])
-def test_nonzero(shape_in):
-    self = torch.randint(10, shape_in) > 5
+@pytest.mark.parametrize("shape_in", [(), (2,), (4, 4), (2, 3, 4, 4, 4)])
+@pytest.mark.parametrize("zero_input", [True, False])
+def test_nonzero(shape_in, zero_input):
+    if zero_input:
+        self = torch.zeros(shape_in)
+    else:
+        self = torch.randint(10, shape_in) > 5
     nonzero_cpu = torch.nonzero(self)
     nonzero_hpu = torch.nonzero(self.to("hpu")).to("cpu")
     assert torch.equal(nonzero_hpu, nonzero_cpu)

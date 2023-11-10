@@ -59,8 +59,14 @@ static float round_dims(NonZeroParams_t self_params, int group_size) {
 
 std::vector<int64_t> compute_output_st_shape(NonZeroParams_t self_params) {
   constexpr int group_size = 64;
-  auto last_dim_rounded = round_dims(self_params, group_size);
   auto out_st_shape = self_params.sizes;
+  // handle scalar input
+  if (out_st_shape.empty()) {
+    out_st_shape.emplace_back(1);
+    out_st_shape.emplace_back(group_size);
+    return out_st_shape;
+  }
+  auto last_dim_rounded = round_dims(self_params, group_size);
   auto group_size_aligned_dim =
       (long int)last_dim_rounded / (long int)group_size;
   out_st_shape.pop_back();
@@ -77,7 +83,12 @@ std::vector<int64_t> compute_nonzero_output_shape(
   auto elements = self_params.numel;
   if ((habana::HPURegistrar::get_device().type() !=
        synDeviceType::synDeviceGreco) and
-      (dimensions <= 4) and (dimensions > 0) and !use_tpc_impl) {
+      (dimensions <= 4) and (dimensions >= 0) and !use_tpc_impl) {
+    // Handle Scalar input
+    if (dimensions == 0 && elements == 1) {
+      std::vector<int64_t> output_shape{64, 1};
+      return output_shape;
+    }
     elements = 1;
     auto last_dim_rounded = round_dims(self_params, 64);
     for (int64_t i = 0; i < dimensions - 1; i++) {

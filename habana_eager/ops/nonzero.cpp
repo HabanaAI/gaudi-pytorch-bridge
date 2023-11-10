@@ -34,7 +34,7 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
   hb_options = hb_options.dtype(c10::ScalarType::Long);
   // Handle case for empty tensor where we return empty tensor with size
   if (elements == 0) {
-    auto shape = c10::DimVector({dimensions}); // DimVector{0, dimensions};
+    auto shape = c10::DimVector({0, dimensions});
     auto output = at::empty(shape, hb_options, c10::nullopt);
     return output;
   }
@@ -74,8 +74,13 @@ at::Tensor nonzero_eager(const at::Tensor& self) {
   auto end = end_tensor.item<int64_t>();
   // Handle case for all False where we return empty tensor with size
   if (end == 0) {
-    // auto shape = c10::DimVector({0, dimensions});
-    auto shape = c10::DimVector({});
+    auto shape = c10::DimVector({0, dimensions});
+    auto output = at::empty(shape, hb_options, c10::nullopt);
+    return output;
+  }
+  // Handle case for nonzero scalar input
+  if (elements == 1 && dimensions == 0 && end != 0) {
+    auto shape = c10::DimVector({end, 0});
     auto output = at::empty(shape, hb_options, c10::nullopt);
     return output;
   }
