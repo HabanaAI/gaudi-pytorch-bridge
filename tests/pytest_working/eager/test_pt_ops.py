@@ -133,18 +133,6 @@ def test_var_dim(dim, unbiased, keepdim):
     result_hpu = raw_function(hpu_tensor).to("cpu")
     assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
 
-@pytest.mark.parametrize("n", [32, 1])
-def test_randperm(n):
-    def fn(n, g):
-        return torch.randperm(n, generator=g, device="hpu")
-    seed = 1234
-    torch.manual_seed(seed)
-    g = None#torch.Generator()
-    hpu_res1 = fn(n, g)
-    torch.manual_seed(seed)
-    hpu_res2 = fn(n, g)
-    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
-
 @pytest.mark.parametrize("dim", [-1, 0])
 def test_unsqueeze(dim):
     def raw_function(x):

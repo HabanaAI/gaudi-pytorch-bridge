@@ -2782,7 +2782,7 @@ using habana_helpers::DTypeHelper;
 using namespace torch::jit;
 """
 
-unsupported_data_types = ["TensorList", "ArrayRef", "std::array", "at::MemoryFormat", "at::Generator"]
+unsupported_data_types = ["TensorList", "ArrayRef", "std::array", "at::MemoryFormat"]
 
 
 def generate_check_kernel_support_frontend(

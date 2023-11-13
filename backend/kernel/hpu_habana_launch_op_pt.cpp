@@ -543,7 +543,6 @@ void HabanaLaunchOpPT::GetSynapseInputs(
     case torch::jit::aten::exponential:
     case torch::jit::aten::_fused_dropout:
     case torch::jit::aten::normal:
-    case torch::jit::aten::randperm:
       populate_seed = true;
       break;
   }
