@@ -225,12 +225,8 @@ void Copy_Compile_Empty_Task(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  habana_helpers::Singleton_ExecThreadPool::getInstance()
-      .ScheduleWorkAndUpdateThreadHandle(
-          Execute_Copy,
-          std::move(src),
-          std::move(dst),
-          std::move(non_blocking));
+  habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
+      Execute_Copy, std::move(src), std::move(dst), std::move(non_blocking));
 
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
     habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
@@ -241,12 +237,8 @@ void Copy_Empty_Lowering_Task(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  habana_helpers::Singleton_CompileThreadPool::getInstance()
-      .ScheduleWorkAndUpdateThreadHandle(
-          Copy_Compile_Empty_Task,
-          std::move(src),
-          std::move(dst),
-          non_blocking);
+  habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
+      Copy_Compile_Empty_Task, std::move(src), std::move(dst), non_blocking);
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
     habana_helpers::Singleton_CompileThreadPool::getInstance()
         .JoinPendingThread();

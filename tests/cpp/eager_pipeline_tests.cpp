@@ -70,8 +70,8 @@ TEST_F(EagerPipelineTest, CompileError) {
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);
-  habana_helpers::Singleton_CompileThreadPool::getInstance()
-      .ScheduleWorkAndUpdateThreadHandle(CompileTask, true);
+  habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
+      CompileTask, true);
   EXPECT_ANY_THROW(habana_helpers::Singleton_CompileThreadPool::getInstance()
                        .JoinPendingThread());
   SET_ENV_FLAG_NEW(
@@ -82,8 +82,8 @@ TEST_F(EagerPipelineTest, ExecError) {
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);
-  habana_helpers::Singleton_ExecThreadPool::getInstance()
-      .ScheduleWorkAndUpdateThreadHandle(ExecTask, true);
+  habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
+      ExecTask, true);
   EXPECT_ANY_THROW(habana_helpers::Singleton_ExecThreadPool::getInstance()
                        .JoinPendingThread());
   SET_ENV_FLAG_NEW(

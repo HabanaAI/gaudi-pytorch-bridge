@@ -17,13 +17,13 @@
 #include "habana_helpers/logging.h"
 
 namespace habana_helpers {
-template <template <typename> class Queue>
+template <template <typename> class Queue, typename Task>
 class ThreadPoolBase;
 
 template <typename T>
 class BlockingQueue;
-
-using ThreadPool = ThreadPoolBase<BlockingQueue>;
+class move_only_function_void;
+using ThreadPool = ThreadPoolBase<BlockingQueue, move_only_function_void>;
 } // namespace habana_helpers
 
 namespace synapse_helpers {
