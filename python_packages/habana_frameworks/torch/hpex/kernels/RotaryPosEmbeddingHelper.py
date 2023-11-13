@@ -171,34 +171,33 @@ class RotaryPosEmbeddingHelperV2(torch.autograd.Function):
         return p_embed_grad, None, None, None
 
 
+def parse_rope_cache(p, rope_cache):
+    sq, np = p.size(0), p.size(2)
+    rot_dim = rope_cache.shape[-2] * 2
+    p, p_pass = p[..., :rot_dim], p[..., rot_dim:].clone()
+    rope_cache = rope_cache[:sq]
+    p_shaped2 = p.reshape(sq, -1, np, rot_dim // 2, 2)
+    p_shaped = p.reshape(sq, -1, np, rot_dim)
+    rope_cache = rope_cache.reshape(sq, -1, 1, p_shaped2.size(3), 2)
+    cos = torch.repeat_interleave(rope_cache[:, :, :, :, 0], 2, dim=-1).to(
+        p_shaped.dtype
+    )
+    sin = torch.repeat_interleave(rope_cache[:, :, :, :, 1], 2, dim=-1).to(
+        p_shaped.dtype
+    )
+
+    return p_shaped, p_pass, sin, cos
+
+
 class RotaryPosEmbeddingHelperV3(torch.autograd.Function):
     """
     Based on apply_rotary_pos_emb() from ChatGLM model.
     """
 
     @staticmethod
-    def parse_rope_cache(p, rope_cache):
-        sq, np = p.size(0), p.size(2)
-        rot_dim = rope_cache.shape[-2] * 2
-        p, p_pass = p[..., :rot_dim], p[..., rot_dim:].clone()
-        rope_cache = rope_cache[:sq]
-        p_shaped2 = p.reshape(sq, -1, np, rot_dim // 2, 2)
-        p_shaped = p.reshape(sq, -1, np, rot_dim)
-        rope_cache = rope_cache.reshape(sq, -1, 1, p_shaped2.size(3), 2)
-        cos = torch.repeat_interleave(rope_cache[:, :, :, :, 0], 2, dim=-1).to(
-            p_shaped.dtype
-        )
-        sin = torch.repeat_interleave(rope_cache[:, :, :, :, 1], 2, dim=-1).to(
-            p_shaped.dtype
-        )
-
-        return p_shaped, p_pass, sin, cos
-
-    @staticmethod
     def forward(ctx, p, rope_cache):
-        p_shaped, p_pass, sin, cos = RotaryPosEmbeddingHelperV3.parse_rope_cache(
-            p, rope_cache
-        )
+        p_shaped, p_pass, sin, cos = parse_rope_cache(p, rope_cache)
+
         ctx.save_for_backward(rope_cache)
         res = torch.ops.hpu.rotary_pos_embedding(
             p_shaped, sin, cos, None, 0, RotaryPosEmbeddingMode.PAIRWISE.value
@@ -208,9 +207,8 @@ class RotaryPosEmbeddingHelperV3(torch.autograd.Function):
     @staticmethod
     def backward(ctx, p_grad_in):
         (rope_cache,) = ctx.saved_tensors
-        p_shaped, p_pass, sin, cos = RotaryPosEmbeddingHelperV3.parse_rope_cache(
-            p_grad_in, rope_cache
-        )
+        p_shaped, p_pass, sin, cos = parse_rope_cache(p_grad_in, rope_cache)
+
         p_embed_grad = apply_rotary_pos_emb_bwd(
             p_shaped, cos, sin, None, 0, RotaryPosEmbeddingMode.PAIRWISE
         )

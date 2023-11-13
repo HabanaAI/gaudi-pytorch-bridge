@@ -320,6 +320,16 @@ def meta_custom_softmax(input, flavor):
     return input.new_empty(input.shape)
 
 
+@register_meta([torch.ops.hpu.rotary_pos_embedding.default])
+def meta_rotary_pos_embedding(input, sin, cos, position_ids, offset, mode):
+    return input.new_empty(input.shape)
+
+
+@register_meta([torch.ops.hpu.rotary_pos_embedding_backward.default])
+def meta_rotary_pos_embedding_backward(grad_in, sin, cos, offset, mode):
+    return grad_in.new_empty(grad_in.shape)
+
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 

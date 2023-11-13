@@ -15,7 +15,9 @@ from habana_frameworks.torch.utils.internal import is_lazy
 if not is_lazy():
     import warnings
 
-    warnings.warn(f"{__name__} is no yet supported in eager mode")
+    warnings.warn(
+        f"CustomNms, RoiAlignFunction, ScaledMaskedSoftmax, FusedSDPA from {__name__} are no yet supported in eager mode"
+    )
 
 from .CustomNms import CustomNms
 from .CustomRoiAlign import RoiAlignFunction

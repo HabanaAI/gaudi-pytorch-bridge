@@ -11,7 +11,16 @@
 # ******************************************************************************
 import torch
 import pytest
-from test_utils import cpu, hpu, is_gaudi1
+import warnings
+from test_utils import (
+    cpu,
+    hpu,
+    is_gaudi1,
+    check_op_executed_in_jit_ir,
+    is_pytest_mode_compile,
+    clear_t_compile_logs,
+)
+
 
 from habana_frameworks.torch.hpex.kernels import (
     RotaryPosEmbeddingMode,
@@ -230,6 +239,13 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
     sin_hpu = sin.to(dtype).to(hpu)
 
     output_fwd = RotaryPosEmbeddingHelperV1.apply
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        output_fwd = torch.compile(
+            RotaryPosEmbeddingHelperV1.apply, backend="aot_hpu_training_backend"
+        )
+
     p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, offset)
     loss = p_embed.sum()
     loss.backward()
@@ -246,6 +262,10 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
     torch.testing.assert_close(
         p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol
     )
+
+    if is_pytest_mode_compile():
+        check_op_executed_in_jit_ir("rotary_pos_embedding")
+        check_op_executed_in_jit_ir("rotary_pos_embedding_backward")
 
 
 @pytest.mark.parametrize(
@@ -283,6 +303,13 @@ def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dty
     position_ids_hpu = position_ids.to(hpu)
 
     output_fwd = RotaryPosEmbeddingHelperV2.apply
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        output_fwd = torch.compile(
+            RotaryPosEmbeddingHelperV2.apply, backend="aot_hpu_training_backend"
+        )
+
     p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, position_ids_hpu)
     loss = p_embed.sum()
     loss.backward()
@@ -300,6 +327,10 @@ def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dty
         p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol
     )
 
+    if is_pytest_mode_compile():
+        check_op_executed_in_jit_ir("rotary_pos_embedding")
+        check_op_executed_in_jit_ir("rotary_pos_embedding_backward")
+
 
 @pytest.mark.parametrize(
     "p_size, cos_sin_size",
@@ -316,13 +347,23 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
         p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.PAIRWISE
     )
 
+    # Compute reference output values
     output_ref = apply_rotary_pos_emb_gptj_ref(p, cos, sin)
 
+    # Compute output values on HPU
     p_hpu = p.to(dtype).to(hpu)
     cos_hpu = cos.to(dtype).to(hpu)
     sin_hpu = sin.to(dtype).to(hpu)
 
-    output_hpu = apply_rotary_pos_emb(
+    output_fwd = apply_rotary_pos_emb
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        output_fwd = torch.compile(
+            apply_rotary_pos_emb, backend="aot_hpu_training_backend"
+        )
+
+    output_hpu = output_fwd(
         p_hpu, cos_hpu, sin_hpu, None, 0, RotaryPosEmbeddingMode.PAIRWISE
     )
 
@@ -334,6 +375,9 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
     torch.testing.assert_close(
         output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol
     )
+
+    if is_pytest_mode_compile():
+        check_op_executed_in_jit_ir("rotary_pos_embedding")
 
 
 @pytest.mark.parametrize(
@@ -374,6 +418,13 @@ def test_apply_rotary_pos_emb_diff_dtypes(
     position_ids_hpu = position_ids.to(hpu)
 
     output_fwd = RotaryPosEmbeddingHelperV2.apply
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        output_fwd = torch.compile(
+            RotaryPosEmbeddingHelperV2.apply, backend="aot_hpu_training_backend"
+        )
+
     p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, position_ids_hpu)
     loss = p_embed.sum()
     loss.backward()
@@ -391,6 +442,10 @@ def test_apply_rotary_pos_emb_diff_dtypes(
         p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol
     )
 
+    if is_pytest_mode_compile():
+        check_op_executed_in_jit_ir("rotary_pos_embedding")
+        check_op_executed_in_jit_ir("rotary_pos_embedding_backward")
+
 
 @pytest.mark.parametrize(
     "p_size, cos_sin_size",
@@ -403,18 +458,28 @@ def test_apply_rotary_pos_emb_chatglm_fwd(p_size, cos_sin_size, dtype):
 
     torch.manual_seed(12345)
 
-    # Prepare data
+    # Prepare input data
     p = torch.rand(p_size, dtype=torch.float32)
     cos = torch.rand(cos_sin_size, dtype=torch.float32)
     sin = torch.rand(cos_sin_size, dtype=torch.float32)
     rope_cache = torch.stack((cos, sin), dim=-1)
 
+    # Compute reference output values
     output_ref = apply_rotary_pos_emb_chatglm_ref(p, rope_cache)
 
+    # Compute output values on HPU
     p_hpu = p.to(dtype).to(hpu)
     rope_cache_hpu = rope_cache.to(hpu)
 
-    output_hpu = apply_rotary_pos_emb(p_hpu, rope_cache_hpu)
+    output_fwd = apply_rotary_pos_emb
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        output_fwd = torch.compile(
+            apply_rotary_pos_emb, backend="aot_hpu_training_backend"
+        )
+
+    output_hpu = output_fwd(p_hpu, rope_cache_hpu)
 
     if dtype == torch.float32:
         tol = 0.001
@@ -424,6 +489,9 @@ def test_apply_rotary_pos_emb_chatglm_fwd(p_size, cos_sin_size, dtype):
     torch.testing.assert_close(
         output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol
     )
+
+    if is_pytest_mode_compile():
+        check_op_executed_in_jit_ir("rotary_pos_embedding")
 
 
 @pytest.mark.parametrize(
@@ -437,7 +505,7 @@ def test_apply_rotary_pos_emb_chatglm_fwd_bwd(p_size, cos_sin_size, dtype):
 
     torch.manual_seed(12345)
 
-    # Prepare data
+    # Prepare input data
     p = torch.rand(p_size, dtype=torch.float32, requires_grad=True)
     cos = torch.rand(cos_sin_size, dtype=torch.float32)
     sin = torch.rand(cos_sin_size, dtype=torch.float32)
@@ -456,6 +524,13 @@ def test_apply_rotary_pos_emb_chatglm_fwd_bwd(p_size, cos_sin_size, dtype):
     rope_cache_hpu = rope_cache.to(dtype).to(hpu)
 
     output_fwd = RotaryPosEmbeddingHelperV3.apply
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        output_fwd = torch.compile(
+            RotaryPosEmbeddingHelperV3.apply, backend="aot_hpu_training_backend"
+        )
+
     p_embed = output_fwd(p_hpu, rope_cache_hpu)
     loss = p_embed.sum()
     loss.backward()
@@ -472,3 +547,7 @@ def test_apply_rotary_pos_emb_chatglm_fwd_bwd(p_size, cos_sin_size, dtype):
     torch.testing.assert_close(
         p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol
     )
+
+    if is_pytest_mode_compile():
+        check_op_executed_in_jit_ir("rotary_pos_embedding")
+        check_op_executed_in_jit_ir("rotary_pos_embedding_backward")
