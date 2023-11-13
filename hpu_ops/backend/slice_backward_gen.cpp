@@ -36,8 +36,14 @@ idx_t normalize_idx(idx_t idx, size_t size) {
   return idx;
 }
 
-sizes_vec SliceBackwardOutputShape(const at::Stack& stack) {
-  return {stack[1].toIntList().vec()}; // input_sizes
+OutputMetaDataVector SliceBackwardMeta(const at::Stack& stack) {
+  auto self = stack[0].toTensor();
+
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = stack[1].toIntList().vec();
+
+  return {meta};
 }
 
 void SliceBackward::AddNode(
@@ -51,8 +57,10 @@ void SliceBackward::AddNode(
   auto end = getNextInput<int>(stackGetter);
   auto step = getNextInput<int>(stackGetter);
 
-  const auto grad_sizes = grad.pt_t.sizes();
-  const auto grad_scalar_type = grad.pt_t.scalar_type();
+  auto meta = SliceBackwardMeta(stack);
+
+  const auto grad_sizes = meta[0].shape;
+  const auto grad_scalar_type = meta[0].dtype;
 
   if (std::find(grad_sizes.begin(), grad_sizes.end(), 0) != grad_sizes.end()) {
     auto zero_tensor =
