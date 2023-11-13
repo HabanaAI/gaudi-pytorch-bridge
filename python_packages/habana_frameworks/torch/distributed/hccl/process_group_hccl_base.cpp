@@ -885,10 +885,24 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
         false,
         "input tensor must be the same size as output size times world size");
   }
-
+  at::Tensor reduce_out_tensors;
+  at::Tensor reduce_in_tensors;
+  auto out_scalar_t = output_tensor.scalar_type();
+  auto data_type = habana_helpers::getHCCLDataType(output_tensor.scalar_type());
+  if (is_valid_hccl_dtype(data_type) || out_scalar_t == at::kInt ||
+      out_scalar_t == at::kLong) {
+    reduce_out_tensors = output_tensor;
+    reduce_in_tensors = input_tensor;
+  } else {
+    PT_DISTRIBUTED_DEBUG("[PYT-DIST] alltoall tensors converted to float");
+    reduce_out_tensors = output_tensor.to(c10::ScalarType::Float);
+    reduce_in_tensors = input_tensor.to(c10::ScalarType::Float);
+  }
   // just a wrapper to fit the collective interface
-  auto inputs = std::vector<at::Tensor>{input_tensor};
-  auto outputs = std::vector<at::Tensor>{output_tensor};
+  std::vector<at::Tensor> inputs;
+  std::vector<at::Tensor> outputs;
+  inputs.push_back(reduce_in_tensors);
+  outputs.push_back(reduce_out_tensors);
 
   auto work = collective(
       inputs,
@@ -925,6 +939,11 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
         }
         return hccl_result;
       });
+  if (!is_valid_hccl_dtype(data_type) && out_scalar_t != at::kInt &&
+      out_scalar_t != at::kLong) {
+    work->wait();
+    output_tensor.copy_(reduce_out_tensors.to(output_tensor.scalar_type()));
+  }
   PT_DISTRIBUTED_END;
   return work;
 }

@@ -118,7 +118,7 @@ def _create_process_group_hccl(store, rank, size, timeout):
         size)
 
 
-torch.distributed.Backend.register_backend("hccl", _create_process_group_hccl)
+torch.distributed.Backend.register_backend("hccl", _create_process_group_hccl, devices=['hpu'])
 
 
 def _disallow_collectives_in_graph():
