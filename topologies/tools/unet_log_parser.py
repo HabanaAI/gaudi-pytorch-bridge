@@ -59,6 +59,8 @@ def process(args):
             head_list2=[]
 
             if  b1.get('gpus') == "0":
+                if b1.get('is_hmp'):
+                    data_type = 'bf16_'
                 device_name2 = "hpu_" + data_type
             else:
                 if b1.get('dtype'):

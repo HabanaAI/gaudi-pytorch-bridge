@@ -321,10 +321,20 @@ def train(args, train_dataset, model, tokenizer, teacher=None, trainMetaData=Non
                         if args.optimizer == "FusedAdamW":
                             FusedNorm.clip_norm(model.parameters())
                         else :
-                            torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                            if args.hmp:
+                                from habana_frameworks.torch.hpex import hmp
+                                with hmp.disable_casts():
+                                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                            else:
+                                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
 
                 tools.tp_probe_tensors_iteration_end(model, torch.device('hpu'), outputs[1].detach().to('cpu'), loss.item(), trainMetaData.ParamsDump, False)
-                optimizer.step()
+                if args.hpu and args.hmp and not(args.optimizer == "FusedAdamW"):
+                    from habana_frameworks.torch.hpex import hmp
+                    with hmp.disable_casts():
+                        optimizer.step()
+                else:
+                    optimizer.step()
 
                 if args.use_lazy_mode:
                     htcore.mark_step()
@@ -805,8 +815,14 @@ def main():
     )
     parser.add_argument("--server_ip", type=str, default="", help="Can be used for distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="Can be used for distant debugging.")
+
     parser.add_argument("--threads", type=int, default=1, help="multiple threads for converting example to features")
     parser.add_argument("--hpu", action="store_true", help="HPU run")
+    parser.add_argument("--hmp", action="store_true", help="Enable HMP")
+    parser.add_argument("--hmp_bf16", type=str, default='', help="List of ops to be run in BF16 for HPU")
+    parser.add_argument("--hmp_fp32", type=str, default='', help="List of ops to be run in FP32 for HPU")
+    parser.add_argument("--hmp_opt_level", type=str, default='O1',help="Optimization level for HMP")
+    parser.add_argument("--hmp_verbose", action="store_true",help="Optimization level for HMP")
     parser.add_argument('--use_lazy_mode', action='store_true', help='run model in lazy execution mode')
     parser.add_argument("--optimizer", type=str, default="AdamW", help="type of optimizer.")
 
@@ -895,6 +911,10 @@ def main():
             if args.local_rank in [-1, 0]:
                 logger.info("Enable habana lazy mode")
 
+        if args.hmp:
+            from habana_frameworks.torch.hpex import hmp
+            hmp.convert(opt_level=args.hmp_opt_level, bf16_file_path=args.hmp_bf16,
+                fp32_file_path=args.hmp_fp32, isVerbose=args.hmp_verbose)
     elif args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
         args.n_gpu = 0 if args.no_cuda else torch.cuda.device_count()

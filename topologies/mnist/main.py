@@ -269,6 +269,7 @@ def parse_args():
                         help='disable log')
     parser.add_argument('--log-device-mem-alloc', action='store_true',
                         help='log live memory allocations on device at the given point')
+    parser.add_argument('--hmp', dest='is_hmp', action='store_true', help='enable hmp mode')
     #Distributed parameters
     parser.add_argument('--backend',default='hccl', help='Device backend for distributed')
     args = parser.parse_args()
@@ -280,6 +281,10 @@ def main(args):
 
     if args.run_lazy_mode:
        os.environ["PT_HPU_LAZY_MODE"] = "1"
+
+    if args.is_hmp:
+        from habana_frameworks.torch.hpex import hmp
+        hmp.convert()
 
     use_habana = not args.no_habana
     if use_habana:

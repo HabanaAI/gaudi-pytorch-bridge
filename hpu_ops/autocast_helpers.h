@@ -30,6 +30,8 @@ std::unordered_set<std::string> load_list(
     const std::string_view list_name,
     const std::unordered_set<std::string>& default_list);
 
+// Below lists are based on the hmp lists from
+// pytorch-integration/python_packages/habana_frameworks/torch/hpex/hmp/
 static const std::unordered_set<std::string> default_lower_ops{
     "addmm",
     "addbmm",

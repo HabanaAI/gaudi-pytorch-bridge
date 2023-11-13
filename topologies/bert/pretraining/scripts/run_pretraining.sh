@@ -15,6 +15,7 @@
 
 train_batch_size=${1:-8192}
 learning_rate=${2:-"6e-3"}
+precision=${3:-"bf16"}
 n_pu=${4:-1} #Number of processing units
 warmup_proportion=${5:-"0.2843"}
 train_steps=${6:-7038}
@@ -68,6 +69,8 @@ if [ "$precision" = "fp16" ] ; then
 elif [ "$precision" = "fp32" ] ; then
    PREC=""
 elif [ "$precision" = "tf32" ] ; then
+   PREC=""
+elif [ "$precision" = "bf16" ] ; then
    PREC=""
 else
    echo "Unknown <precision> argument"
@@ -125,6 +128,11 @@ CMD+=" --json-summary ${RESULTS_DIR}/dllogger.json "
 CMD+=" --use_habana "
 CMD+=" --use_jit_trace "
 CMD+=" --use_fused_lamb "
+if [ "$precision" = "bf16" ] ; then
+    CMD+=" --hmp "
+    CMD+=" --hmp_bf16 $BERT_REPO_BASE/../configs/ops_bf16_bert_pt.txt "
+    CMD+=" --hmp_fp32 $BERT_REPO_BASE/../configs/ops_fp32_bert_pt.txt "
+fi
 
 if [ "$n_pu" -gt "1" ]; then
     CMD="python3 -m torch.distributed.launch --nproc_per_node=$n_pu $CMD"
@@ -162,6 +170,8 @@ if [ "$precision" = "fp16" ] ; then
 elif [ "$precision" = "fp32" ] ; then
    PREC=""
 elif [ "$precision" = "tf32" ] ; then
+   PREC=""
+elif [ "$precision" = "bf16" ] ; then
    PREC=""
 else
    echo "Unknown <precision> argument"
@@ -208,6 +218,11 @@ CMD+=" --json-summary ${RESULTS_DIR}/dllogger.json "
 CMD+=" --use_habana "
 CMD+=" --use_jit_trace "
 CMD+=" --use_fused_lamb "
+if [ "$precision" = "bf16" ] ; then
+    CMD+=" --hmp "
+    CMD+=" --hmp_bf16 $BERT_REPO_BASE/../configs/ops_bf16_bert_pt.txt "
+    CMD+=" --hmp_fp32 $BERT_REPO_BASE/../configs/ops_fp32_bert_pt.txt "
+fi
 
 if [ "$n_pu" -gt "1" ]; then
     CMD="python3 -m torch.distributed.launch --nproc_per_node=$n_pu $CMD"
