@@ -20,6 +20,7 @@
 #include "backend/helpers/eager_pipeline.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
+#include "pytorch_helpers/habana_helpers/thread_queue.h"
 
 namespace habana {
 namespace eager {
@@ -36,40 +37,17 @@ void SingleTonEagerContext::CreateInstance() {
 
 void SingleTonEagerContext::JoinPendingLoweringThread() {
   PT_EAGER_TRACE;
+  if (!hpu_registrar().is_initialized())
+    return;
 
-  std::shared_future<void> shared_lowering_thread_handle;
-  {
-    std::unique_lock lock{m_lowering_thread_handle_mutex};
-    shared_lowering_thread_handle = m_lowering_thread_handle;
-  }
-  if (shared_lowering_thread_handle.valid()) {
-    PT_LAZY_EXEC_THREAD("Waiting for lowering thread to finish");
-
+  try {
+    // TODO remove gil_release once SW-160978 is fixed
     habana_helpers::AutoNoGIL gil_release;
-
-    // If the future is already ready when below line executes, it can
-    // create an exception. Ignore the exception as the wait is already
-    // over.
-    try {
-      shared_lowering_thread_handle.get();
-    } catch (...) {
-    };
-  }
-  HandleException();
-}
-
-void SingleTonEagerContext::HandleException() {
-  PT_EAGER_TRACE;
-  if (C10_UNLIKELY(m_lowering_thread_exception)) {
-    try {
-      std::rethrow_exception(m_lowering_thread_exception);
-    } catch (const std::exception& e) {
-      m_lowering_thread_exception = nullptr;
-      PT_BRIDGE_FATAL("Exception in Lowering thread...\n", e.what());
-    } catch (...) {
-      m_lowering_thread_exception = nullptr;
-      PT_BRIDGE_FATAL("Exception in Lowering thread...\n");
-    }
+    hpu_registrar().get_device().get_lowering_thread().waitWorkComplete();
+  } catch (const std::exception& e) {
+    PT_BRIDGE_FATAL("Exception in Lowering thread...\n", e.what());
+  } catch (...) {
+    PT_BRIDGE_FATAL("Exception in Lowering thread...\n");
   }
 }
 

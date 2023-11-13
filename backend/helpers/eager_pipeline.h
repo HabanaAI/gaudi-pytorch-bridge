@@ -12,7 +12,7 @@
  */
 
 #pragma once
-#include <absl/base/thread_annotations.h>
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 #include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 #include "pytorch_helpers/habana_helpers/thread_queue.h"
 
@@ -37,61 +37,34 @@ class ThreadPoolControl {
    * Thread safe.
    */
   void JoinPendingThread() {
-    std::unique_lock lock{m_join_mutex};
-    std::future<void> local_thread_handle;
-    {
-      std::unique_lock lock{m_thread_handle_mutex};
-      local_thread_handle = std::move(m_thread_handle);
-    }
-    if (local_thread_handle.valid()) {
-      PT_LAZY_EXEC_THREAD("Waiting for thread to finish");
-      try {
-        local_thread_handle.get();
-      } catch (const std::exception& e) {
-        PT_BRIDGE_WARN("Exception caught in thread...\n", e.what());
-        throw;
-      } catch (...) {
-        PT_BRIDGE_WARN("Exception caught in thread...\n");
-        throw;
-      }
+    try {
+      m_thread_pool_obj.waitWorkComplete();
+    } catch (const std::exception& e) {
+      PT_BRIDGE_WARN("Exception caught in thread...\n", e.what());
+      throw;
+    } catch (...) {
+      PT_BRIDGE_WARN("Exception caught in thread...\n");
+      throw;
     }
   }
 
   /**
-   * Schedules work to thread pool and stores handle to scheduled work.
-   * Thread safe.
+   * Schedules work to thread pool
    *
    * @param f Function with work
    * @param args Arguments to work
    */
   template <class F, class... Args>
-  void ScheduleWorkAndUpdateThreadHandle(F&& f, Args&&... args) {
-    auto handle = m_thread_pool_obj.enqueue<F, Args...>(
+  void Enqueue(F&& f, Args&&... args) {
+    m_thread_pool_obj.enqueue<F, Args...>(
         std::forward<F>(f), std::forward<Args>(args)...);
-    std::unique_lock lock{m_thread_handle_mutex};
-    m_thread_handle = std::move(handle);
   }
 
  private:
   /**
    * Underlying thread pool.
    */
-  habana_helpers::ThreadPool m_thread_pool_obj;
-
-  /**
-   * Handle to last scheduled work in thread pool.
-   */
-  std::future<void> m_thread_handle ABSL_GUARDED_BY(m_thread_handle_mutex);
-
-  /**
-   * Guarding accesses to thread handle.
-   */
-  std::mutex m_thread_handle_mutex;
-
-  /**
-   * Guarding the call to join method
-   */
-  std::mutex m_join_mutex;
+  habana_helpers::ThreadPool m_thread_pool_obj{true};
 };
 
 /**
