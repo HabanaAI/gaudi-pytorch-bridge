@@ -315,12 +315,16 @@ def full_like(
 def bernoulli(input, p, *, generator=None):
     return torch.bernoulli(torch.full_like(input, p), generator=generator)
 
+
 @register_custom_decomposition(aten.randn.generator, hpu_backend_decompositions_common)
-def randngen(size, generator=None, 
+def randngen(
+    size,
+    generator=None,
     dtype: Optional[torch.dtype] = None,
     layout: Optional[torch.layout] = None,
     device: Optional[torch.device] = None,
-    pin_memory: bool = False,):
+    pin_memory: bool = False,
+):
     mean = torch.full(
         size,
         0.0,
@@ -339,13 +343,14 @@ def randngen(size, generator=None,
     )
     return torch.normal(mean, stddev, generator=generator)
 
+
 @register_custom_decomposition(aten.sort, hpu_backend_decompositions_common)
 def sort(
     a: utils.Tensor,
     dim: int = -1,
     descending: bool = False,
 ) -> utils.Tuple[utils.Tensor, utils.Tensor]:
-    k = a.size(dim)
+    k = a.size(dim) if a.dim() > 0 else 1
     return torch.topk(a, k, dim, descending)
 
 
