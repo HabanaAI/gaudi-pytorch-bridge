@@ -307,9 +307,12 @@ graph::graph(graph&& other) noexcept
       is_valid_{other.is_valid_},
       in_build_phase_(other.in_build_phase_),
       in_execution_phase_(other.in_execution_phase_),
+      graph_is_empty_(other.graph_is_empty_),
       graph_handle_(other.graph_handle_),
       dry_run_(other.dry_run_),
+      numTensors(other.numTensors),
       numInterTensors(other.numInterTensors),
+      numNodes(other.numNodes),
       is_shape_agnostic_graph_(other.is_shape_agnostic_graph_),
       eager_mode_(other.eager_mode_) {
   other.is_valid_ = false;

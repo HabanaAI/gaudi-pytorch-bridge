@@ -465,7 +465,7 @@ struct RecipeValueSpec {
   // a dedicated time slot for itself
   std::shared_ptr<synapse_helpers::TimeSlot> time_slot_;
   std::shared_ptr<torch::jit::Graph> jit_graph_{nullptr};
-  std::shared_ptr<synapse_helpers::graph> shape_agnostic_synapse_graph_{
+  std::unique_ptr<synapse_helpers::graph> shape_agnostic_synapse_graph_{
       nullptr};
 
   static size_t current_id_;

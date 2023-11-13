@@ -3423,20 +3423,10 @@ static void ResetDuplicateTensorShapes(
 // shape agnostic : store shape agnostic graph
 void HabanaLaunchOpPT::StoreShapeAgnosticGraph() {
   cur_rvalpsh->shape_agnostic_synapse_graph_ =
-      std::make_shared<synapse_helpers::graph>(std::move(*syn_graph_ptr_));
-  // after std::move the is_valid_ becomes false which is causing the
-  // original graph handle to not getting destroyed. we need the original
-  // graph handle throughout the use case so that it is duplicated each
-  // time.
-  auto shape_agnostic_graph_ptr =
-      cur_rvalpsh->shape_agnostic_synapse_graph_.get();
-  shape_agnostic_graph_ptr->set_num_of_tensors(
-      syn_graph_ptr_->get_num_of_tensors());
-  shape_agnostic_graph_ptr->set_num_of_nodes(
-      syn_graph_ptr_->get_num_of_nodes());
-  shape_agnostic_graph_ptr->set_is_empty_value(false);
-  shape_agnostic_graph_ptr->set_build_phase(true);
-  shape_agnostic_graph_ptr->set_is_valid(true);
+      std::make_unique<synapse_helpers::graph>(std::move(*syn_graph_ptr_));
+
+  cur_rvalpsh->shape_agnostic_synapse_graph_->set_build_phase(true);
+  HABANA_ASSERT(cur_rvalpsh->shape_agnostic_synapse_graph_->get_is_valid());
 }
 
 // shape agnostic : validate Inputs and Outputs and disable shape agnostic if
