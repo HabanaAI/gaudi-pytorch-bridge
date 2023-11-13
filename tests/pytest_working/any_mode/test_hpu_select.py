@@ -1,0 +1,64 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+import pytest
+import torch
+import habana_frameworks.torch.dynamo.compile_backend
+from test_utils import format_tc
+
+select_backward_test_case_list = [
+    # size, dim, index
+    ((4,), 0, 1),
+    ((4,), 0, -1),
+    ((4,), 0, -2),
+    ((3, 4), 0, 2),
+    ((16, 16), 0, 8),
+    ((16, 16), 0, -8),
+    ((16, 8), 1, 7),        # XFAIL
+    ((8, 4, 16), 0, 5),
+    ((8, 6, 12), 1, 5),     # XFAIL
+    ((16, 12, 8), 2, 7),    # XFAIL
+    ((16, 12, 8), 2, -2),
+    ((4, 6, 12, 30), 3, 9),
+]
+
+
+@pytest.mark.parametrize("size, dim, index", select_backward_test_case_list, ids=format_tc)
+@pytest.mark.parametrize("dtype", ["float32", "bfloat16", "int32"])
+def test_select(size, dim, index, dtype):
+    dtype = getattr(torch, dtype)
+
+    if dtype == torch.int32:
+        input_cpu = torch.randint(-5000, 5000, dtype=dtype, size=size)
+    else:
+        input_cpu = torch.rand(size, dtype=dtype)
+
+    def fn(input, dim, index):
+        return torch.select(input, dim, index)
+
+    input_hpu = input_cpu.to("hpu")
+
+    cpu_fn = torch.compile(fn) if pytest.mode == "compile" else fn
+    hpu_fn = torch.compile(fn, backend="aot_hpu_training_backend") if pytest.mode == "compile" else fn
+
+    if (size == (16,8) and dim == 1 and index == 7):
+        pytest.xfail("SW-165317")
+
+    if (size == (8, 6, 12) and dim == 1 and index == 5):
+        pytest.xfail("SW-165317")
+
+    if (size == (16, 12, 8) and dim == 2 and index == 7):
+        pytest.xfail("SW-165317")
+
+    cpu_output = cpu_fn(input_cpu, dim, index)
+    hpu_output = hpu_fn(input_hpu, dim, index).cpu()
+
+    assert torch.equal(cpu_output, hpu_output)

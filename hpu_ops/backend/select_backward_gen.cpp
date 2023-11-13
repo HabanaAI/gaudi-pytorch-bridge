@@ -16,8 +16,13 @@ using namespace synapse_helpers::layouts;
 
 namespace habana {
 
-sizes_vec SelectBackwardOutputShape(const at::Stack& stack) {
-  return {stack[1].toIntList().vec()}; // input_sizes
+OutputMetaDataVector SelectBackwardMeta(const at::Stack& stack) {
+  auto self = stack[0].toTensor();
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = stack[1].toIntList().vec();
+
+  return {meta};
 }
 
 template <typename idx_t, typename size_t>

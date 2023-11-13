@@ -6426,7 +6426,7 @@ searchsorted.Scalar:
   scalar_ids: [1]
 
 select.int:
-  custom_output_shape: SelectHpuOutputShape
+  output_meta: SelectHpuMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
@@ -6437,7 +6437,7 @@ select.int:
   out_ids: [0]
 
 select_backward:
-  custom_output_shape: SelectBackwardOutputShape
+  output_meta: SelectBackwardMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int]

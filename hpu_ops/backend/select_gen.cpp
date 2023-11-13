@@ -66,11 +66,20 @@ sizes_vec SelectHpuOutputShape(const at::Stack& stack) {
   return {shape};
 }
 
+OutputMetaDataVector SelectHpuMeta(const at::Stack& stack) {
+  auto self = stack[0].toTensor();
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = SelectHpuOutputShape(stack)[0];
+
+  return {meta};
+}
+
 class SelectHpu : public OpBackend {
  public:
   SelectHpu(int device_id, c10::ScalarType scalar_type)
       : OpBackend(device_id, "select", scalar_type, {0}, {}, {}, false) {
-    SetComputeOutputShapes(SelectHpuOutputShape);
+    SetOutputMetaFn(SelectHpuMeta);
   }
 
   void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override;
@@ -87,6 +96,7 @@ void SelectHpu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   std::vector<int64_t> slice_output_shape;
   slice_output_shape = SliceOutputShape(stack)[0];
+  auto meta = SelectHpuMeta(stack)[0];
   synSliceParamsNDims params;
 
   std::fill_n(params.axes, HABANA_DIM_MAX, 0);
@@ -99,8 +109,7 @@ void SelectHpu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   params.ends[0] = end;
   params.steps[0] = step;
 
-  NodeAttr::NodeOutputAttr node_output_attr = {
-      slice_output_shape, ScalarType()};
+  NodeAttr::NodeOutputAttr node_output_attr = {slice_output_shape, meta.dtype};
 
   auto slice_op = BuildOp(
       graph, "slice", {syn_in(0)}, {node_output_attr}, &params, sizeof(params));
@@ -110,9 +119,8 @@ void SelectHpu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   reshape_output_shape.erase(reshape_output_shape.begin() + dim_);
 
   syn_out(0) = OpBackend::BuildReshape(
-      this, graph, slice_op[0].get(), reshape_output_shape, ScalarType(), 0);
+      this, graph, slice_op[0].get(), reshape_output_shape, meta.dtype, 0);
 }
-
 } // namespace habana
 
 static auto& SelectKernelRegistry =
