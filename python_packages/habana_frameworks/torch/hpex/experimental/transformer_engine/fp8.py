@@ -18,6 +18,7 @@
 """FP8 utilities for TransformerEngine"""
 from contextlib import contextmanager
 from collections import deque
+from enum import Enum
 from typing import Callable, List, Optional, Dict, Any, Tuple, Union
 
 import torch
@@ -58,11 +59,54 @@ def is_fp8_available() -> Tuple[bool, str]:
     return _is_fp8_available, _reason_for_no_fp8
 
 
-def get_meta_tensor_key(forward: bool = True) -> str:
+class MetaTensorType(Enum):
+    FORWARD = 0
+    HYBRID = 1
+    BACKWARD = 2
+
+
+def get_meta_tensor_key(t: MetaTensorType):
+    """Returns scaling key in `fp8_meta`."""
+    assert isinstance(t, MetaTensorType)
+
+    if t == MetaTensorType.FORWARD:
+        return "scaling_fwd"
+    if t == MetaTensorType.BACKWARD:
+        return "scaling_bwd"
+    if t == MetaTensorType.HYBRID:
+        return "scaling_hybrid"
+
+
+def get_meta_tensor_key_bool(forward: bool = True) -> str:
     """Returns scaling key in `fp8_meta`."""
     if forward:
-        return "scaling_fwd"
-    return "scaling_bwd"
+        return get_meta_tensor_key(MetaTensorType.FORWARD)
+    return get_meta_tensor_key(MetaTensorType.BACKWARD)
+
+
+def get_fp8_max_key(t: MetaTensorType):
+    if t == MetaTensorType.FORWARD:
+        return "fp8_max_fwd"
+    if t in [MetaTensorType.HYBRID, MetaTensorType.BACKWARD]:
+        return "fp8_max_bwd"
+
+
+def get_key_suffix(t: MetaTensorType):
+    if t == MetaTensorType.FORWARD:
+        return "fwd"
+    if t == MetaTensorType.BACKWARD:
+        return "bwd"
+    if t == MetaTensorType.HYBRID:
+        return "hybrid"
+
+
+def is_forward(t: MetaTensorType):
+    return t in [MetaTensorType.FORWARD, MetaTensorType.HYBRID]
+
+
+def is_hybrid_mode(fp8_meta: Dict[str, Any]):
+    """Checks if hybrid mode without mixed precision is turned on"""
+    return get_meta_tensor_key(MetaTensorType.HYBRID) in fp8_meta
 
 
 def get_buffer_position_key(forward: bool = True) -> str:
@@ -113,7 +157,9 @@ def add_amax_to_global_buffer(fp8_meta: Dict[str, Any], forward: bool = True) ->
     """Append 1D tensor `amax` to global buffer."""
     global _global_fp8_buffer
     buffer_key = get_amax_buffer_key(fp8_meta, forward=forward)
-    fp8_meta_tensor_key = get_meta_tensor_key(forward=forward)
+    # NOTE: For hybrid mode amax_history is the same as for forward. To limit the number
+    # of reduce operation, we only reduce fwd amax_history (to later copy it to fwd and hybrid, if exists)
+    fp8_meta_tensor_key = get_meta_tensor_key_bool(forward=forward)
     buffer_position_key = get_buffer_position_key(forward=forward)
 
     if buffer_key not in _global_fp8_buffer:
@@ -134,12 +180,19 @@ def copy_forward_fp8_meta_tensors_for_recompute(fp8_meta: Dict[str, Any]) -> Non
     global _fp8_tensors_recompute_buffer
     buffer_position_key = "global_fp8_buffer_pos_fwd_recompute"
 
-    to_copy = [
-        fp8_meta["scaling_fwd"].amax_history.clone(),
-        fp8_meta["scaling_fwd"].amax_history_index.clone(),
-        fp8_meta["scaling_fwd"].scale.clone(),
-        fp8_meta["scaling_fwd"].scale_inv.clone(),
-    ]
+    def _append_meta(collection, key):
+        collection.append(fp8_meta[key].amax_history.clone())
+        collection.append(fp8_meta[key].amax_history_index.clone())
+        collection.append(fp8_meta[key].scale.clone())
+        collection.append(fp8_meta[key].scale_inv.clone())
+
+    fwd_key = get_meta_tensor_key(MetaTensorType.FORWARD)
+    to_copy = []
+    _append_meta(to_copy, fwd_key)
+
+    if is_hybrid_mode(fp8_meta):
+        hybrid_key = get_meta_tensor_key(MetaTensorType.HYBRID)
+        _append_meta(to_copy, hybrid_key)
 
     if buffer_position_key in fp8_meta:
         _fp8_tensors_recompute_buffer[fp8_meta[buffer_position_key]].append(to_copy)
@@ -158,10 +211,17 @@ def get_old_fp8_meta_tensors_for_recompute(fp8_meta: Dict[str, Any]) -> None:
     """
 
     # Store updated amaxes and scales from phase 1 post forward.
-    fp8_meta["updated_amax_history_fwd"] = fp8_meta["scaling_fwd"].amax_history
-    fp8_meta["updated_amax_history_index_fwd"] = fp8_meta["scaling_fwd"].amax_history_index
-    fp8_meta["updated_scale_fwd"] = fp8_meta["scaling_fwd"].scale
-    fp8_meta["updated_scale_inv_fwd"] = fp8_meta["scaling_fwd"].scale_inv
+    def _store_updated_meta(t: MetaTensorType):
+        key = get_meta_tensor_key(t)
+        key_suffix = get_key_suffix(t)
+        fp8_meta[f"updated_amax_history_{key_suffix}"] = fp8_meta[key].amax_history
+        fp8_meta[f"updated_amax_history_index_{key_suffix}"] = fp8_meta[key].amax_history_index
+        fp8_meta[f"updated_scale_{key_suffix}"] = fp8_meta[key].scale
+        fp8_meta[f"updated_scale_inv_{key_suffix}"] = fp8_meta[key].scale_inv
+
+    _store_updated_meta(MetaTensorType.FORWARD)
+    if is_hybrid_mode(fp8_meta):
+        _store_updated_meta(MetaTensorType.HYBRID)
 
     # Retrieve stashed amaxes and scales from phase 1 pre forward.
     buffer_position_key = "global_fp8_buffer_pos_fwd_recompute"
@@ -170,25 +230,34 @@ def get_old_fp8_meta_tensors_for_recompute(fp8_meta: Dict[str, Any]) -> None:
     ].popleft()
 
     # Replace amaxes and scales with stashed values for phase 2 forward
-    fp8_meta["scaling_fwd"].amax_history = stashed_fp8_meta[0]
-    fp8_meta["scaling_fwd"].amax_history_index = stashed_fp8_meta[1]
-    fp8_meta["scaling_fwd"].scale = stashed_fp8_meta[2]
-    fp8_meta["scaling_fwd"].scale_inv = stashed_fp8_meta[3]
+    def _restore_meta(stashed, t: MetaTensorType):
+        key = get_meta_tensor_key(t)
+        fp8_meta[key].amax_history = stashed[0]
+        fp8_meta[key].amax_history_index = stashed[1]
+        fp8_meta[key].scale = stashed[2]
+        fp8_meta[key].scale_inv = stashed[3]
+
+    _restore_meta(stashed_fp8_meta[:4], MetaTensorType.FORWARD)
+    if is_hybrid_mode(fp8_meta):
+        _restore_meta(stashed_fp8_meta[4:], MetaTensorType.HYBRID)
 
 
 def restore_fp8_meta_tensors(fp8_meta: Dict[str, Any]) -> None:
     """Restore latest scaling factors and amaxes after recompute forward run."""
-    fp8_meta["scaling_fwd"].amax_history = fp8_meta["updated_amax_history_fwd"]
-    fp8_meta["scaling_fwd"].amax_history_index = fp8_meta["updated_amax_history_index_fwd"]
-    fp8_meta["scaling_fwd"].scale = fp8_meta["updated_scale_fwd"]
-    fp8_meta["scaling_fwd"].scale_inv = fp8_meta["updated_scale_inv_fwd"]
+    def _restore_updated_meta(t: MetaTensorType):
+        key = get_meta_tensor_key(t)
+        key_suffix = get_key_suffix(t)
+        fp8_meta[key].amax_history = fp8_meta[f"updated_amax_history_{key_suffix}"]
+        fp8_meta[key].amax_history_index = fp8_meta[f"updated_amax_history_index_{key_suffix}"]
+        fp8_meta[key].scale = fp8_meta[f"updated_scale_{key_suffix}"]
+        fp8_meta[key].scale_inv = fp8_meta[f"updated_scale_inv_{key_suffix}"]
 
 
 def copy_amax_from_global_buffer(
     fp8_meta: Dict[str, Any], forward: bool = True
 ) -> None:
     """Populate current amax with the correct location from buffer."""
-    fp8_meta_tensor_key = get_meta_tensor_key(forward=forward)
+    fp8_meta_tensor_key = get_meta_tensor_key_bool(forward=forward)
     buffer_position_key = get_buffer_position_key(forward=forward)
     if buffer_position_key not in fp8_meta:
         return
@@ -199,6 +268,14 @@ def copy_amax_from_global_buffer(
     fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index][0] = _global_fp8_buffer[amax_buffer_key][
         fp8_meta[buffer_position_key]
     ]
+
+    # NOTE: For hybrid mode amax_history is the same as for forward. To limit the number
+    # of reduce operation, only fwd amax_history was reduced. Now the reduction result needs to be copied also to hybrid
+    if forward and is_hybrid_mode(fp8_meta):
+        hybrid_key = get_meta_tensor_key(MetaTensorType.HYBRID)
+        fp8_meta[hybrid_key].amax_history[fp8_meta[hybrid_key].amax_history_index][0] = _global_fp8_buffer[amax_buffer_key][
+            fp8_meta[buffer_position_key]
+        ]
 
 
 def set_amax_buffer_key_deletion(
@@ -215,9 +292,7 @@ def set_amax_buffer_key_deletion(
 
 
 def get_default_fp8_recipe() -> DelayedScaling:
-    """FP8 recipe if not provided by user
-    Margin = 0, interval = 1, E5M2
-    """
+    """FP8 recipe if not provided by user"""
     return DelayedScaling()
 
 
@@ -446,35 +521,44 @@ def amax_and_scale_update(
     perform_scale_update: bool,
 ) -> None:
     """Updates fp8 amaxes/scales for fwd | bwd."""
-    fp8_meta_tensor_key = "scaling_fwd" if fwd_update else "scaling_bwd"
-    if perform_scale_update:
-        amax_compute = fp8_meta["recipe"].amax_compute_algo
-        sf_compute = fp8_meta["recipe"].scaling_factor_compute_algo
-        fp8_max_key = "fp8_max_fwd" if fwd_update else "fp8_max_bwd"
+    def _update(meta_tensor_type: MetaTensorType):
+        fp8_meta_tensor_key = get_meta_tensor_key(meta_tensor_type)
+        fp8_max_key = get_fp8_max_key(meta_tensor_type)
 
-        if not callable(amax_compute) and sf_compute is None:
-            fp8_meta[fp8_meta_tensor_key].scale = fused_amax_and_scale_update(
-                fp8_meta[fp8_meta_tensor_key].amax_history,
-                fp8_meta[fp8_meta_tensor_key].scale,
-                fp8_meta[fp8_max_key],
-                fp8_meta["recipe"].margin,
-                fp8_meta["recipe"].amax_compute_algo,
-            )
-        else:
-            amax = _compute_amax(
-                fp8_meta[fp8_meta_tensor_key].amax_history,
-                fp8_meta["recipe"],
-            )
-            fp8_meta[fp8_meta_tensor_key].scale = _compute_scaling_factor(
-                amax,
-                fp8_meta[fp8_meta_tensor_key].scale,
-                fp8_meta[fp8_max_key],
-                fp8_meta["recipe"],
-            )
+        if perform_scale_update:
+            amax_compute = fp8_meta["recipe"].amax_compute_algo
+            sf_compute = fp8_meta["recipe"].scaling_factor_compute_algo
 
-        fp8_meta[fp8_meta_tensor_key].scale_inv = torch.reciprocal(fp8_meta[fp8_meta_tensor_key].scale)
+            if not callable(amax_compute) and sf_compute is None:
+                fp8_meta[fp8_meta_tensor_key].scale = fused_amax_and_scale_update(
+                    fp8_meta[fp8_meta_tensor_key].amax_history,
+                    fp8_meta[fp8_meta_tensor_key].scale,
+                    fp8_meta[fp8_max_key],
+                    fp8_meta["recipe"].margin,
+                    fp8_meta["recipe"].amax_compute_algo,
+                )
+            else:
+                amax = _compute_amax(
+                    fp8_meta[fp8_meta_tensor_key].amax_history,
+                    fp8_meta["recipe"],
+                )
+                fp8_meta[fp8_meta_tensor_key].scale = _compute_scaling_factor(
+                    amax,
+                    fp8_meta[fp8_meta_tensor_key].scale,
+                    fp8_meta[fp8_max_key],
+                    fp8_meta["recipe"],
+                )
 
-    update_amax_history_index(fp8_meta, fp8_meta_tensor_key)
+            fp8_meta[fp8_meta_tensor_key].scale_inv = torch.reciprocal(fp8_meta[fp8_meta_tensor_key].scale)
+
+        update_amax_history_index(fp8_meta, fp8_meta_tensor_key)
+
+    if fwd_update:
+        _update(MetaTensorType.FORWARD)
+        if is_hybrid_mode(fp8_meta):
+            _update(MetaTensorType.HYBRID)
+    else:
+        _update(MetaTensorType.BACKWARD)
 
 
 def get_fp8_te_dtype(

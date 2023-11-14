@@ -28,6 +28,9 @@ from .base import (
     TransformerEngineBaseModule
 )
 from ..fp8 import (
+    MetaTensorType,
+    get_meta_tensor_key,
+    is_hybrid_mode,
     is_fp8_enabled,
     get_fp8_te_dtype,
 )
@@ -48,6 +51,7 @@ from ..distributed import (
 from ..cpp_extensions import (
     fp8_gemm,
     cast_to_fp8,
+    cast_to_fp8_hybrid,
 )
 from ..constants import GemmParallelModes, dist_group_type
 
@@ -64,7 +68,8 @@ class _Linear(torch.autograd.Function):
     def forward(
         ctx,
         weight: torch.Tensor,
-        weight_fp8: torch.Tensor,
+        weight_fp8_fwd: torch.Tensor,
+        weight_fp8_bwd: torch.Tensor,
         inp: torch.Tensor,
         bias: torch.Tensor,
         use_bias: bool,
@@ -94,16 +99,78 @@ class _Linear(torch.autograd.Function):
         assert fp8
         fp8_dtype_forward = get_fp8_te_dtype(fp8_meta["recipe"], fprop_tensor=True)
 
-        inputmat = cast_to_fp8(
-            inputmat,
-            fp8_meta["scaling_fwd"],
-            tex.FP8FwdTensors.GEMM1_INPUT,
-            fp8_dtype_forward,
-            measure_amax=amax_measure_state["enabled"]
-        )
+        hybrid_mode = is_hybrid_mode(fp8_meta)
+        if hybrid_mode:
+            assert (weight_fp8_fwd is None) == (weight_fp8_bwd is None), \
+                "Internal TE errror: Either both fp8 weight placeholders need to be None, or both need to be passed"
+
+        meta_fwd_key = get_meta_tensor_key(MetaTensorType.FORWARD)
+        if not hybrid_mode:
+            inputmat = cast_to_fp8(
+                inputmat,
+                fp8_meta[meta_fwd_key],
+                tex.FP8FwdTensors.GEMM1_INPUT,
+                fp8_dtype_forward,
+                measure_amax=amax_measure_state["enabled"]
+            )
+
+            if update_fp8_weights:
+                casted = cast_to_fp8(
+                    weight,
+                    fp8_meta[meta_fwd_key],
+                    tex.FP8FwdTensors.GEMM1_WEIGHT,
+                    fp8_dtype_forward,
+                    measure_amax=amax_measure_state["enabled"]
+                )
+                if weight_fp8_fwd is None:
+                    weight_fp8_fwd = casted
+                else:
+                    assert weight.shape == weight_fp8_fwd.shape, "Module initialized with different shape than received weight"
+                    weight_fp8_fwd.copy_(casted)
+
+            inputmat_fp8_for_bwd = inputmat
+            weight_fp8_for_bwd = weight_fp8_fwd
+            scale_cache_key = meta_fwd_key
+        else:
+            # NOTE: In case mixed precision gemm is not supported and fwd type differs from bwd type,
+            # we need to remember activations in backward type
+            # TODO: Support mixed precision
+            meta_hybrid_key = get_meta_tensor_key(MetaTensorType.HYBRID)
+            fp8_dtype_backward = get_fp8_te_dtype(fp8_meta["recipe"], fprop_tensor=False)
+
+            assert fp8_dtype_backward == torch.float8_e5m2 and fp8_dtype_forward == torch.float8_e4m3fn, \
+                "Only E4M3 fwd E5M2 bwd hybrid mode supported"
+
+            inputmat_bwd, inputmat_fwd = cast_to_fp8_hybrid(
+                inputmat_no_fp8,
+                fp8_meta[meta_hybrid_key],
+                fp8_meta[meta_fwd_key],
+                tex.FP8FwdTensors.GEMM1_INPUT,
+                measure_amax=amax_measure_state["enabled"]
+            )
+
+            if update_fp8_weights:
+                casted_bwd, casted_fwd = cast_to_fp8_hybrid(
+                    weight,
+                    fp8_meta[meta_hybrid_key],
+                    fp8_meta[meta_fwd_key],
+                    tex.FP8FwdTensors.GEMM1_WEIGHT,
+                    measure_amax=amax_measure_state["enabled"]
+                )
+                if weight_fp8_fwd is None:
+                    weight_fp8_fwd = casted_fwd
+                    weight_fp8_bwd = casted_bwd
+                else:
+                    assert weight.shape == weight_fp8_bwd.shape, "Module initialized with different shape than received weight"
+                    weight_fp8_fwd.copy_(casted_fwd)
+                    weight_fp8_bwd.copy_(casted_bwd)
+
+            inputmat = inputmat_fwd
+            inputmat_fp8_for_bwd = inputmat_bwd
+            weight_fp8_for_bwd = weight_fp8_bwd
+            scale_cache_key = meta_hybrid_key
 
         # TODO: Column Parallel Linear
-
         bias_dtype = (
             torch.bfloat16
             if activation_dtype == torch.float32
@@ -111,24 +178,11 @@ class _Linear(torch.autograd.Function):
         )
         bias = cast_if_needed(bias, bias_dtype) if use_bias else bias
 
-        if update_fp8_weights:
-            casted = cast_to_fp8(
-                weight,
-                fp8_meta["scaling_fwd"],
-                tex.FP8FwdTensors.GEMM1_WEIGHT,
-                fp8_dtype_forward,
-                measure_amax=amax_measure_state["enabled"]
-            )
-            if weight_fp8 is None:
-                weight_fp8 = casted
-            else:
-                assert weight.shape == weight_fp8.shape, "Module initialized with different shape than received weight"
-                weight_fp8.copy_(casted)
         out = fp8_gemm(
-            weight_fp8,
-            fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_WEIGHT],
+            weight_fp8_fwd,
+            fp8_meta[meta_fwd_key].scale_inv[tex.FP8FwdTensors.GEMM1_WEIGHT],
             inputmat,
-            fp8_meta["scaling_fwd"].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
+            fp8_meta[meta_fwd_key].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
             activation_dtype,
             bias=bias,
             use_bias=use_bias,
@@ -142,13 +196,14 @@ class _Linear(torch.autograd.Function):
         # so the resulting fp8 weight will differ), so in the first microbatch bwd fp8 weight and scale_inv
         # would not match - and the calculated dgrad will be incorrect.
         cache_weight_fp8 = fp8 and not minimize_memory and not is_first_microbatch
+
         ctx.save_for_backward(
             inputmat_no_fp8 if weight.requires_grad and not fp8_wgrad else None,
-            inputmat if weight.requires_grad and fp8_wgrad else None,
-            weight_fp8 if cache_weight_fp8 else None,
+            inputmat_fp8_for_bwd if weight.requires_grad and fp8_wgrad else None,
+            weight_fp8_for_bwd if cache_weight_fp8 else None,
             weight,
-            fp8_meta["scaling_fwd"].scale_inv.clone() if fp8 else None,
-            fp8_meta["scaling_fwd"].scale.clone() if fp8 else None,
+            fp8_meta[scale_cache_key].scale_inv.clone() if fp8 else None,
+            fp8_meta[scale_cache_key].scale.clone() if fp8 else None,
         )
         ctx.activation_dtype = activation_dtype
         ctx.fp8 = fp8
@@ -220,9 +275,6 @@ class _Linear(torch.autograd.Function):
                 handle = None
 
             assert ctx.fp8
-            fp8_dtype_forward = get_fp8_te_dtype(
-                ctx.fp8_meta["recipe"], fprop_tensor=True
-            )
             fp8_dtype_backward = get_fp8_te_dtype(
                 ctx.fp8_meta["recipe"], fprop_tensor=False
             )
@@ -233,15 +285,16 @@ class _Linear(torch.autograd.Function):
                     weight,
                     fwd_scales[tex.FP8FwdTensors.GEMM1_WEIGHT],
                     is_amax=False,
-                    dtype=fp8_dtype_forward,
+                    dtype=fp8_dtype_backward,
                 )
 
+            meta_bwd_key = get_meta_tensor_key(MetaTensorType.BACKWARD)
             if ctx.requires_dgrad:
                 dgrad = fp8_gemm(
                     weight_fp8,
                     fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
                     grad_output_c,
-                    ctx.fp8_meta["scaling_bwd"].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
+                    ctx.fp8_meta[meta_bwd_key].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
                     ctx.activation_dtype,
                     transa=False,
                 )
@@ -263,7 +316,7 @@ class _Linear(torch.autograd.Function):
                     inputmat_fp8_total,
                     fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
                     grad_output_c,
-                    ctx.fp8_meta["scaling_bwd"].scale_inv[
+                    ctx.fp8_meta[meta_bwd_key].scale_inv[
                         tex.FP8BwdTensors.GRAD_OUTPUT1
                     ],
                     ctx.activation_dtype,
@@ -282,6 +335,7 @@ class _Linear(torch.autograd.Function):
 
         return (
             wgrad if ctx.requires_wgrad else None,
+            None,
             None,
             dgrad.view(ctx.inp_shape) if ctx.requires_dgrad else None,
             grad_bias,
@@ -464,11 +518,14 @@ class Linear(TransformerEngineBaseModule):
         `is_first_microbatch` is not `None`), return None otherwise
         """
         if not self.fp8 or is_first_microbatch is None:
-            return [None]
+            return [None, None]
 
         # These persistent weight placeholders should've been created in
         # `set_fp8_weights` method
-        return [self.weight1_fp8]
+        if is_hybrid_mode(self.fp8_meta):
+            return [self.weight1_fp8_fwd, self.weight1_fp8_bwd]
+
+        return [self.weight1_fp8_fwd, None]
 
     def forward(
         self,
@@ -516,15 +573,16 @@ class Linear(TransformerEngineBaseModule):
                 bias_tensor,
             )
 
-        # Fetch the fp8 weight placeholder (for linear/gemm)
-        weight1_fp8, = self.get_fp8_weights_scratchpad(
-            is_first_microbatch
-        )
+        with self.prepare_forward(inp, is_first_microbatch, num_gemms=1) as (inp, is_scale_update_required):
+            # Fetch the fp8 weight placeholder (for linear/gemm)
+            weight1_fp8_fwd, weight1_fp8_bwd = self.get_fp8_weights_scratchpad(
+                is_first_microbatch
+            )
 
-        with self.prepare_forward(inp, is_first_microbatch) as (inp, is_scale_update_required):
             out = _Linear.apply(
                 weight_tensor,
-                weight1_fp8,
+                weight1_fp8_fwd,
+                weight1_fp8_bwd,
                 inp,
                 bias_tensor,
                 self.apply_bias and not self.gemm_bias_unfused_add,

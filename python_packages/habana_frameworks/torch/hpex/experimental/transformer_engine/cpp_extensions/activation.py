@@ -35,9 +35,9 @@ def fp8_gelu(
     def operator():
         return torch.ops.hpu.fp8_gelu_v2(inp, fp8_meta_tensor.scale[fp8_tensor], False, measure_amax)
     out, retain = select_amax_and_exec(
+        operator,
         fp8_meta_tensor,
         fp8_tensor,
-        operator,
         measure_amax=measure_amax
         )
 

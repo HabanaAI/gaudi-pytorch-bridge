@@ -28,6 +28,11 @@ import torch
 
 from habana_frameworks.torch import _hpex_C as tex
 from ..fp8 import (
+    MetaTensorType,
+    get_meta_tensor_key,
+    get_key_suffix,
+    is_forward,
+    is_hybrid_mode,
     is_fp8_enabled,
     get_fp8_recipe,
     get_fp8_group,
@@ -152,12 +157,12 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             slice2 = self.fp8_meta[fp8_meta_tensor_key].amax_history[index+1:]
             self.fp8_meta[fp8_meta_tensor_key].amax_history = torch.cat((slice0, slice1, slice2))
 
-    def set_meta_tensor(self, fwd: bool) -> None:
+    def set_meta_tensor(self, tensor_type: MetaTensorType) -> None:
         """Init scales and amaxes for fwd | bwd."""
-        fp8_meta_tensor_key = "scaling_fwd" if fwd else "scaling_bwd"
+        fp8_meta_tensor_key = get_meta_tensor_key(tensor_type)
 
         num_fp8_tensors = (
-            self.fp8_meta["num_gemms"] * 2 if fwd else self.fp8_meta["num_gemms"]
+            self.fp8_meta["num_gemms"] * 2 if is_forward(tensor_type) else self.fp8_meta["num_gemms"]
         )
 
         if self.fp8_meta_tensors_initialized:
@@ -180,10 +185,14 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         self.fp8_meta[fp8_meta_tensor_key].amax_history_index = torch.tensor(
             [0], dtype=torch.int32, device="hpu")
 
-    def init_fp8_meta_tensors(self) -> None:
+    def init_fp8_meta_tensors(self, force_hybrid_init: bool = False) -> None:
         """Init scales and amaxes."""
-        self.set_meta_tensor(True)
-        self.set_meta_tensor(False)
+        from ..recipe import Format
+        self.set_meta_tensor(MetaTensorType.FORWARD)
+        if force_hybrid_init or self.fp8_meta["recipe"].fp8_format == Format.HYBRID:
+            self.set_meta_tensor(MetaTensorType.HYBRID)
+        self.set_meta_tensor(MetaTensorType.BACKWARD)
+
         self.fp8_meta_tensors_initialized = True
 
     def get_extra_state(self) -> torch.Tensor:
@@ -196,14 +205,18 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
 
         if fp8_checkpoint:
             state = {}
-            state["scale_fwd"] = self.fp8_meta["scaling_fwd"].scale
-            state["scale_inv_fwd"] = self.fp8_meta["scaling_fwd"].scale_inv
-            state["amax_history_fwd"] = self.fp8_meta["scaling_fwd"].amax_history
-            state["amax_history_index_fwd"] = self.fp8_meta["scaling_fwd"].amax_history_index
-            state["scale_bwd"] = self.fp8_meta["scaling_bwd"].scale
-            state["scale_inv_bwd"] = self.fp8_meta["scaling_bwd"].scale_inv
-            state["amax_history_bwd"] = self.fp8_meta["scaling_bwd"].amax_history
-            state["amax_history_index_bwd"] = self.fp8_meta["scaling_bwd"].amax_history_index
+            def _save_meta(t: MetaTensorType):
+                key = get_meta_tensor_key(t)
+                key_suffix = get_key_suffix(t)
+                state[f"scale_{key_suffix}"] = self.fp8_meta[key].scale
+                state[f"scale_inv_{key_suffix}"] = self.fp8_meta[key].scale_inv
+                state[f"amax_history_{key_suffix}"] = self.fp8_meta[key].amax_history
+                state[f"amax_history_index_{key_suffix}"] = self.fp8_meta[key].amax_history_index
+
+            _save_meta(MetaTensorType.FORWARD)
+            if is_hybrid_mode(self.fp8_meta):
+                _save_meta(MetaTensorType.HYBRID)
+            _save_meta(MetaTensorType.BACKWARD)
             state["global_fp8_buffer"] = get_global_fp8_buffer()
             state["update_amax_fwd"] = self.fp8_meta["update_amax_fwd"]
             state["update_amax_bwd"] = self.fp8_meta["update_amax_bwd"]
@@ -244,10 +257,12 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
 
             # Initialize before loading
             self.init_fp8_meta_tensors()
-            self.fp8_meta["scaling_fwd"].scale.copy_(scale_fwd)
-            self.fp8_meta["scaling_fwd"].amax_history.copy_(amax_history_fwd)
-            self.fp8_meta["scaling_bwd"].scale.copy_(scale_bwd)
-            self.fp8_meta["scaling_bwd"].amax_history.copy_(amax_history_bwd)
+            meta_fwd_key = get_meta_tensor_key(MetaTensorType.FORWARD)
+            self.fp8_meta[meta_fwd_key].scale.copy_(scale_fwd)
+            self.fp8_meta[meta_fwd_key].amax_history.copy_(amax_history_fwd)
+            meta_bwd_key = get_meta_tensor_key(MetaTensorType.BACKWARD)
+            self.fp8_meta[meta_bwd_key].scale.copy_(scale_bwd)
+            self.fp8_meta[meta_bwd_key].amax_history.copy_(amax_history_bwd)
 
             # Restore global FP8 buffer state.
             set_global_fp8_buffer(state[4])
@@ -272,24 +287,30 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             del self.fp8_meta["global_fp8_buffer_pos_fwd_recompute"]
 
         # Initialize before loading.
-        self.init_fp8_meta_tensors()
-        self.fp8_meta["scaling_fwd"].scale.copy_(state["scale_fwd"])
-        self.fp8_meta["scaling_fwd"].amax_history.copy_(state["amax_history_fwd"])
-        self.fp8_meta["scaling_fwd"].amax_history_index.copy_(state["amax_history_index_fwd"])
-        self.fp8_meta["scaling_bwd"].scale.copy_(state["scale_bwd"])
-        self.fp8_meta["scaling_bwd"].amax_history.copy_(state["amax_history_bwd"])
-        self.fp8_meta["scaling_bwd"].amax_history_index.copy_(state["amax_history_index_bwd"])
+        hybrid_checkpoint = 'scale_hybrid' in state
+        self.init_fp8_meta_tensors(force_hybrid_init=hybrid_checkpoint)
+        def _load_meta(t: MetaTensorType):
+            key = get_meta_tensor_key(t)
+            key_suffix = get_key_suffix(t)
+            self.fp8_meta[key].scale.copy_(state[f"scale_{key_suffix}"])
+            self.fp8_meta[key].amax_history.copy_(state[f"amax_history_{key_suffix}"])
+            self.fp8_meta[key].amax_history_index.copy_(state[f"amax_history_index_{key_suffix}"])
+            # Backwards compatibility: compute scale inv if it wasn't saved in the extra state.
+            if f"scale_inv_{key_suffix}" not in state:
+                self.fp8_meta[key].scale_inv.copy_(1.0/state[f"scale_{key_suffix}"])
+            else:
+                self.fp8_meta[key].scale_inv.copy_(state[f"scale_inv_{key_suffix}"])
 
-        # Backwards compatibility: compute scale inv if it wasn't saved in the extra state.
+        _load_meta(MetaTensorType.FORWARD)
+        if hybrid_checkpoint:
+            _load_meta(MetaTensorType.HYBRID)
+        _load_meta(MetaTensorType.BACKWARD)
+
+        # Checkpoint integrity check
         if "scale_inv_fwd" not in state or "scale_inv_bwd" not in state:
             assert (
                 "scale_inv_fwd" not in state and "scale_inv_bwd" not in state
             ), "Invalid state, began saving scale_inv_fwd and scale_inv_bwd at the same time"
-            self.fp8_meta["scaling_fwd"].scale_inv.copy_(1.0/state["scale_fwd"])
-            self.fp8_meta["scaling_bwd"].scale_inv.copy_(1.0/state["scale_bwd"])
-        else:
-            self.fp8_meta["scaling_fwd"].scale_inv.copy_(state["scale_inv_fwd"])
-            self.fp8_meta["scaling_bwd"].scale_inv.copy_(state["scale_inv_bwd"])
 
         self.fp8_meta["update_amax_fwd"] = state.get("update_amax_fwd", {})
         self.fp8_meta["update_amax_bwd"] = state.get("update_amax_bwd", {})
@@ -321,9 +342,9 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                 )
         self.activation_dtype = dtype
 
-    def _create_fp8_tensor(self, shape) -> torch.Tensor:
+    def _create_fp8_tensor(self, shape, fprop_tensor: bool) -> torch.Tensor:
         fp8_dtype = get_fp8_te_dtype(
-            self.fp8_meta["recipe"], fprop_tensor=True
+            self.fp8_meta["recipe"], fprop_tensor=fprop_tensor
         )
         result = torch.zeros(
             shape,
@@ -343,19 +364,23 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         respective attributed named `weight1_fp8`, `weight2_fp8`, ...
         """
         for i, shape in enumerate(self.fp8_weight_shapes, start=1):
-            weight_cast_attr = f"weight{i}_fp8"
+            def _create(fprop_tensor: bool):
+                attr_name = f"weight{i}_fp8_" + ("fwd" if fprop_tensor else "bwd")
+                if (
+                    hasattr(self, attr_name)
+                    and getattr(self, attr_name).shape == shape
+                ):
+                    return
 
-            if (
-                hasattr(self, weight_cast_attr)
-                and getattr(self, weight_cast_attr).shape == shape
-            ):
-                return
+                setattr(
+                    self,
+                    attr_name,
+                    self._create_fp8_tensor(shape, fprop_tensor=fprop_tensor),
+                )
 
-            setattr(
-                self,
-                weight_cast_attr,
-                self._create_fp8_tensor(shape),
-            )
+            _create(True)
+            if is_hybrid_mode(self.fp8_meta):
+                _create(False)
 
     def set_tensor_parallel_group(self, tp_group: Union[dist_group_type, None]) -> None:
         """Set TP group."""
@@ -547,7 +572,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                 grad_bias = None
             grad_output_c = cast_to_fp8(
                 grad_output_mat,
-                ctx.fp8_meta["scaling_bwd"],
+                ctx.fp8_meta[get_meta_tensor_key(MetaTensorType.BACKWARD)],
                 grad_tensor,
                 fp8_dtype_backward,
                 measure_amax=amax_measure_state["enabled"]
@@ -563,7 +588,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             grad_bias = None
         grad_output_c = cast_to_fp8(
             grad_output_mat,
-            ctx.fp8_meta["scaling_bwd"],
+            ctx.fp8_meta[get_meta_tensor_key(MetaTensorType.BACKWARD)],
             grad_tensor,
             fp8_dtype_backward,
             measure_amax=amax_measure_state["enabled"]
@@ -572,29 +597,33 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         return grad_output_mat, grad_output_c, grad_bias
 
     def save_fp8_meta(self):
-        scale_fwd = self.fp8_meta["scaling_fwd"].scale.clone()
-        scale_inv_fwd = self.fp8_meta["scaling_fwd"].scale_inv.clone()
-        amax_history_fwd = self.fp8_meta["scaling_fwd"].amax_history.clone()
-        amax_history_index_fwd = self.fp8_meta["scaling_fwd"].amax_history_index.clone()
-        scale_bwd = self.fp8_meta["scaling_bwd"].scale.clone()
-        scale_inv_bwd = self.fp8_meta["scaling_bwd"].scale_inv.clone()
-        amax_history_bwd = self.fp8_meta["scaling_bwd"].amax_history.clone()
-        amax_history_index_bwd = self.fp8_meta["scaling_bwd"].amax_history_index.clone()
+        result = []
+        def _append_to_result(t: MetaTensorType):
+            key = get_meta_tensor_key(t)
+            result.append(self.fp8_meta[key].scale.clone())
+            result.append(self.fp8_meta[key].scale_inv.clone())
+            result.append(self.fp8_meta[key].amax_history.clone())
+            result.append(self.fp8_meta[key].amax_history_index.clone())
 
-        return scale_fwd, scale_inv_fwd, amax_history_fwd, amax_history_index_fwd, scale_bwd, scale_inv_bwd, amax_history_bwd, amax_history_index_bwd
+        _append_to_result(MetaTensorType.FORWARD)
+        if is_hybrid_mode(self.fp8_meta):
+            _append_to_result(MetaTensorType.HYBRID)
+        _append_to_result(MetaTensorType.BACKWARD)
+
+        return result
 
     def load_fp8_meta(self, fp8_meta):
-        scale_fwd, scale_inv_fwd, amax_history_fwd, amax_history_index_fwd, scale_bwd, scale_inv_bwd, amax_history_bwd, amax_history_index_bwd = fp8_meta
+        def _pop_meta(t: MetaTensorType):
+            key = get_meta_tensor_key(t)
+            self.fp8_meta[key].scale.copy_(fp8_meta.pop(0))
+            self.fp8_meta[key].scale_inv.copy_(fp8_meta.pop(0))
+            self.fp8_meta[key].amax_history.copy_(fp8_meta.pop(0))
+            self.fp8_meta[key].amax_history_index.copy_(fp8_meta.pop(0))
 
-        self.fp8_meta["scaling_fwd"].scale.copy_(scale_fwd)
-        self.fp8_meta["scaling_fwd"].scale_inv.copy_(scale_inv_fwd)
-        self.fp8_meta["scaling_fwd"].amax_history.copy_(amax_history_fwd)
-        self.fp8_meta["scaling_fwd"].amax_history_index.copy_(amax_history_index_fwd)
-        self.fp8_meta["scaling_bwd"].scale.copy_(scale_bwd)
-        self.fp8_meta["scaling_bwd"].scale_inv.copy_(scale_inv_bwd)
-        self.fp8_meta["scaling_bwd"].amax_history.copy_(amax_history_bwd)
-        self.fp8_meta["scaling_bwd"].amax_history_index.copy_(amax_history_index_bwd)
-
+        _pop_meta(MetaTensorType.FORWARD)
+        if is_hybrid_mode(self.fp8_meta):
+            _pop_meta(MetaTensorType.HYBRID)
+        _pop_meta(MetaTensorType.BACKWARD)
 
     @abstractmethod
     def forward(self):

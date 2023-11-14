@@ -44,8 +44,7 @@ class Format(Enum):
             FP8 tensors in the forward pass are in e4m3 format,
             FP8 tensors in the backward pass are in e5m2 format
     """
-
-    E4M3 = _FormatHelper(max_fwd=448.0, max_bwd=448.0)
+    E4M3 = _FormatHelper(max_fwd=240.0, max_bwd=240.0)
     E5M2 = _FormatHelper(max_fwd=57344.0, max_bwd=57344.0)
     HYBRID = _FormatHelper(max_fwd=E4M3.max_fwd, max_bwd=E5M2.max_bwd)
 
@@ -75,7 +74,7 @@ class DelayedScaling:
             Margin for the scaling factor computation.
     interval : int, default = 1
               Controls how often the scaling factor is recomputed.
-    fp8_format : {Format.E4M3, Format.E5M2}, default = Format.E5M2
+    fp8_format : {Format.E5M2, Format.HYBRID}, default = Format.E5M2
                 Controls the FP8 data format used during forward and backward
                 pass.
     amax_history_len : int, default = 1
@@ -144,7 +143,7 @@ class DelayedScaling:
     reduce_amax: bool = True
 
     def __post_init__(self) -> None:
-        assert self.fp8_format == Format.E5M2, "Only E5M2 training is currently supported."
+        assert self.fp8_format in (Format.E5M2, Format.HYBRID), "Only E5M2 and HYBRID training are currently supported."
         assert self.override_linear_precision in (
             (False, False, False),
         ), "No override is currently supported."
