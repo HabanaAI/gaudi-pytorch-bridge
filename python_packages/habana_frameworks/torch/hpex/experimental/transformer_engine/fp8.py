@@ -136,6 +136,7 @@ def copy_forward_fp8_meta_tensors_for_recompute(fp8_meta: Dict[str, Any]) -> Non
 
     to_copy = [
         fp8_meta["scaling_fwd"].amax_history.clone(),
+        fp8_meta["scaling_fwd"].amax_history_index.clone(),
         fp8_meta["scaling_fwd"].scale.clone(),
         fp8_meta["scaling_fwd"].scale_inv.clone(),
     ]
@@ -158,6 +159,7 @@ def get_old_fp8_meta_tensors_for_recompute(fp8_meta: Dict[str, Any]) -> None:
 
     # Store updated amaxes and scales from phase 1 post forward.
     fp8_meta["updated_amax_history_fwd"] = fp8_meta["scaling_fwd"].amax_history
+    fp8_meta["updated_amax_history_index_fwd"] = fp8_meta["scaling_fwd"].amax_history_index
     fp8_meta["updated_scale_fwd"] = fp8_meta["scaling_fwd"].scale
     fp8_meta["updated_scale_inv_fwd"] = fp8_meta["scaling_fwd"].scale_inv
 
@@ -169,13 +171,15 @@ def get_old_fp8_meta_tensors_for_recompute(fp8_meta: Dict[str, Any]) -> None:
 
     # Replace amaxes and scales with stashed values for phase 2 forward
     fp8_meta["scaling_fwd"].amax_history = stashed_fp8_meta[0]
-    fp8_meta["scaling_fwd"].scale = stashed_fp8_meta[1]
-    fp8_meta["scaling_fwd"].scale_inv = stashed_fp8_meta[2]
+    fp8_meta["scaling_fwd"].amax_history_index = stashed_fp8_meta[1]
+    fp8_meta["scaling_fwd"].scale = stashed_fp8_meta[2]
+    fp8_meta["scaling_fwd"].scale_inv = stashed_fp8_meta[3]
 
 
 def restore_fp8_meta_tensors(fp8_meta: Dict[str, Any]) -> None:
     """Restore latest scaling factors and amaxes after recompute forward run."""
     fp8_meta["scaling_fwd"].amax_history = fp8_meta["updated_amax_history_fwd"]
+    fp8_meta["scaling_fwd"].amax_history_index = fp8_meta["updated_amax_history_index_fwd"]
     fp8_meta["scaling_fwd"].scale = fp8_meta["updated_scale_fwd"]
     fp8_meta["scaling_fwd"].scale_inv = fp8_meta["updated_scale_inv_fwd"]
 
