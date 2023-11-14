@@ -14,6 +14,7 @@ import os
 import copy
 import torch
 import contextlib
+import habana_frameworks.torch.internal.bridge_config as bc
 
 from enum import Enum
 from typing import List, Optional
@@ -26,8 +27,10 @@ from .partitioner import HabanaPartitioner
 from .recipe_compiler import get_callable_recipe
 from .logger import get_compile_backend_logger
 from .random_utils import is_random_op, random_op_inputs
-from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from .symbolic_execution import SymExprNodeManager
+from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
+
+
 
 logger = get_compile_backend_logger()
 
@@ -61,6 +64,23 @@ def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
     logger.debug("Module dynamicity %s", is_dynamic)
     return is_dynamic
 
+def get_dynamic_config_value():
+    """
+    This function return the is_dynamic=True if user configured
+    the same while calling torch.compile. Otherwise return is_dynamic=False
+    """
+
+    is_dynamic = False
+    from torch._dynamo import config
+
+    # TODO: It is a W/A for discovering dynamic models. In final implementation
+    # is should read this info from tensors.
+    if _is_legacy_pt():
+        is_dynamic = config.dynamic_shapes
+    else:
+        is_dynamic = not config.assume_static_by_default
+
+    return is_dynamic
 
 class OptimizationPassPlacement(Enum):
     PRE_PARTITIONER = 1
@@ -115,14 +135,7 @@ def optimize_graph(
 
         torch.fx.Graph.eliminate_dead_code = dummy_dce_raise
 
-    from torch._dynamo import config
-
-    # TODO: It is a W/A for discovering dynamic models. In final implementation
-    # is should read this info from tensors.
-    if _is_legacy_pt():
-        is_dynamic = config.dynamic_shapes
-    else:
-        is_dynamic = not config.assume_static_by_default
+    is_dynamic = get_dynamic_config_value()
 
     ctx = OptimizerContext(
         graph_module,
@@ -167,6 +180,7 @@ def get_passes(stage: OptimizationPassPlacement):
             # These passes will be ran once, they always get and produce a flat graph without submodules.
             pass_graph_print,
             pass_fake_propagation,
+            pass_update_dynamic_shape_ctx,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
             pass_mark_placement,
             pass_graph_print,
@@ -258,8 +272,7 @@ def helper_get_node_args(node: torch.fx.Node):
 
 
 def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
-    is_dynamic = is_module_dynamic(ctx.graph_module)
-    if not is_dynamic:
+    if not ctx.is_dynamic:
         return True
 
     graph_changed = False
@@ -298,6 +311,18 @@ def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
 
     return True
 
+def pass_update_dynamic_shape_ctx(ctx: OptimizerContext) -> bool:
+    """
+    Update dynamic shape status in OptimizerContext.
+
+    Initially dynamic shape status is set based on the user configuration.
+    This pass update the dynamic shape status based on symbolic graph inputs.
+    if any of the graph input is symbolic, then the OptimizerContext
+    is updated as dynamic.
+    """
+    ctx.is_dynamic = is_module_dynamic(ctx.graph_module)
+    return False
+
 def pass_graph_print(ctx: OptimizerContext) -> bool:
     """
     This pass just prints the graph in debug mode.
@@ -317,8 +342,7 @@ def pass_graph_print(ctx: OptimizerContext) -> bool:
 
 
 def pass_make_symints_available(ctx: OptimizerContext) -> bool:
-    is_dynamic = is_module_dynamic(ctx.graph_module)
-    if not is_dynamic:
+    if not ctx.is_dynamic:
         return True
 
     def get_all_symbolic_int_nodes():
@@ -1540,6 +1564,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
         return f
 
     num_subgraphs = 0
+    refine_dynamic = bc.get_pt_hpu_enable_refine_dynamic_shapes()
     for n in ctx.graph_module.graph.nodes:
         logger.debug("Node: %s Op: %s Target: %s", n, n.op, n.target)
 
@@ -1548,11 +1573,17 @@ def pass_compile_clusters(ctx: OptimizerContext):
             submod = ctx.graph_module.get_submodule(n.target)
 
             jit_ir_function = generate_jit_ir_from_module(submod)
+
+            # Submodule dynamicity has to recheck and set to the collable.
+            is_submod_dynamic = is_module_dynamic(submod)
+            if refine_dynamic:
+                is_submod_dynamic = is_submod_dynamic or  get_dynamic_config_value()
+
             callable_recipe = get_callable_recipe(
                 jit_ir_function,
                 submod,
                 is_training=ctx.is_training,
-                is_dynamic=is_module_dynamic(submod),
+                is_dynamic=is_submod_dynamic,
             )
 
             ctx.graph_module.delete_submodule(n.target)
