@@ -65,6 +65,7 @@ enum class LoggerType {
   PT_RECIPE_STATS,
   PT_HPUGRAPH,
   PT_CONST_SECTION,
+  PT_PYTHON,
   LOG_MAX // Don't use it
 };
 } // namespace HlLogger
@@ -121,6 +122,7 @@ inline std::string DebugString(const HlLogger::LoggerType& mod) {
       {HlLogger::LoggerType::PT_CUSTOM, "PT_CUSTOM"},
       {HlLogger::LoggerType::PT_HPUGRAPH, "PT_HPUGRAPH"},
       {HlLogger::LoggerType::PT_CONST_SECTION, "PT_CONST_SECTION"},
+      {HlLogger::LoggerType::PT_PYTHON, "PT_PYTHON"},
       // {HlLogger::LoggerType::LOG_MAX, "LOG_MAX"},
   };
   if (auto result = names.find(mod); result != names.end())
@@ -487,6 +489,12 @@ class PTFuncLog {
 
 #define PT_EAGER_INFO(...) PT_MOD_INFO(PT_EAGER, __VA_ARGS__);
 #define PT_HABHELPER_INFO(...) PT_MOD_INFO(PT_HABHELPER, __VA_ARGS__)
+
+#define PT_PYTHON_TRACE(...) HLLOG_TRACE(PT_PYTHON, FORMAT_AND_MSG(__VA_ARGS__))
+#define PT_PYTHON_DEBUG(...) HLLOG_DEBUG(PT_PYTHON, FORMAT_AND_MSG(__VA_ARGS__))
+#define PT_PYTHON_INFO(...) HLLOG_INFO(PT_PYTHON, FORMAT_AND_MSG(__VA_ARGS__))
+#define PT_PYTHON_WARN(...) HLLOG_WARN(PT_PYTHON, FORMAT_AND_MSG(__VA_ARGS__))
+#define PT_PYTHON_FATAL(...) PT_MOD_FATAL(PT_PYTHON, __VA_ARGS__)
 
 #define PT_TEST_DEBUG_TH(...)     \
   PT_TEST_DEBUG(                  \

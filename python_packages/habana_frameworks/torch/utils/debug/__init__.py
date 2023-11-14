@@ -1,5 +1,16 @@
-import torch
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
 from habana_frameworks.torch.utils import _debug_C
+from habana_frameworks.torch.utils.debug.logger import Logger
 from habana_frameworks.torch.utils.internal import is_lazy
 
 def _get_fallback_op_count() -> dict:
