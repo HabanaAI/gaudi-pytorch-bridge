@@ -27,7 +27,7 @@ OutputMetaDataVector SqueezeDimsMeta(const at::Stack& stack) {
 
   if (output_shape.size() == 1 && dims.size() == 1 && output_shape[0] == 1) {
     meta.shape = {};
-  } else if (output_shape.size() == 1) {
+  } else if (output_shape.size() == 1 || output_shape.size() == 0) {
     meta.shape = output_shape;
   } else {
     at::wrap_all_dims(dims, self.dim());
@@ -57,12 +57,12 @@ void SqueezeDims::AddNode(sh::graph& graph, const at::Stack& stack) {
   at::wrap_all_dims(dims, rank);
   std::vector<int64_t> valid_dims;
   for (auto dim : dims) {
-    if (intermediate_shape[dim] == 1) {
+    if (intermediate_shape.size() > dim && intermediate_shape[dim] == 1) {
       valid_dims.push_back(dim);
     }
   }
 
-  if (valid_dims.empty() || rank == 1) {
+  if (valid_dims.empty() || rank == 1 || rank == 0) {
     auto out =
         BuildOp(graph, "identity", {self.syn_t}, {{output_shape, dtype, 0}});
     syn_out(0) = std::move(out[0]);
