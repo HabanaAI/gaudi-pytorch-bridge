@@ -4,7 +4,6 @@ import warnings
 from typing import Any, Dict, Union, Optional
 import habana_frameworks.torch as htorch
 from habana_frameworks.torch import _hpu_C
-from ._utils import _get_device_index
 
 class Event():
     r"""Wrapper around a HPU event.
