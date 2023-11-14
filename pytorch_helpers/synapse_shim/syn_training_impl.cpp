@@ -377,10 +377,6 @@ synStatus SYN_API_CALL synGraphDuplicate(
       graphHandle, newGraphHandle, tensorsMap, numTensors, nodesMap, numNodes);
 }
 
-synStatus SYN_API_CALL synGraphInferShapes(synGraphHandle graphHandle) {
-  return syn_api->synGraphInferShapes(graphHandle);
-}
-
 synStatus SYN_API_CALL synGraphDestroy(const synGraphHandle graphHandle) {
   return syn_api->synGraphDestroy(graphHandle);
 }
@@ -653,13 +649,6 @@ synStatus SYN_API_CALL synTensorRetrieveLaunchInfoByIdExt(
     synRetrievedLaunchTensorInfoExt* tensorsLaunchInfo) {
   return syn_api->synTensorRetrieveLaunchInfoByIdExt(
       pRecipeHandle, numOfTensors, tensorsLaunchInfo);
-}
-
-synStatus SYN_API_CALL synTensorGetGeometry(
-    const synTensor tensor,
-    synTensorGeometry* geometry,
-    synGeometryType geometryType) {
-  return syn_api->synTensorGetGeometry(tensor, geometry, geometryType);
 }
 
 synStatus SYN_API_CALL synTensorSetGeometry(

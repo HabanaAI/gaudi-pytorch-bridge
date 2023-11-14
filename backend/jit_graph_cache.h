@@ -208,20 +208,12 @@ struct OptimizedJITGraphAndMetaData {
     cur_shape_agnostic_rvalpsh = shape_agnostic_recipe;
   }
 
-  bool get_is_shape_agnostic_supported() const {
+  bool get_is_shape_agnostic_supported() {
     return is_shape_agnostic_supported;
   }
 
-  void set_is_shape_agnostic_supported(const bool flag) {
+  void set_is_shape_agnostic_supported(bool flag) {
     is_shape_agnostic_supported = flag;
-  }
-
-  bool get_is_synapse_shape_inf_required() const {
-    return is_synapse_sif_required;
-  }
-
-  void set_is_synapse_shape_inf_required(const bool flag) {
-    is_synapse_sif_required = flag;
   }
 
   void set_fwd_graph_builder_stack_map(std::vector<uint64_t> stack_idx_map) {
@@ -301,7 +293,6 @@ struct OptimizedJITGraphAndMetaData {
   std::vector<std::vector<int64_t>> output_shapes{};
   std::shared_ptr<habana::RecipeValueSpec> cur_shape_agnostic_rvalpsh{nullptr};
   bool is_shape_agnostic_supported = true;
-  bool is_synapse_sif_required = false;
   std::vector<uint64_t> stack_idx_fwd_graph_builder{};
   habana_helpers::HabanaFrontendTypes frontend_type =
       habana_helpers::HabanaFrontendTypes::INVALID;
