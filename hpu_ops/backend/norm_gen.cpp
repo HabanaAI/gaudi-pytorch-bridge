@@ -640,8 +640,7 @@ void LayerNormHabanaOperator::AddNode(
     // are skipped.
     auto is_reshape_for_tpc_kernels_required = use_tpc_affine_path &&
         (habana::HPURegistrar::get_device().type() !=
-             synDeviceType::synDeviceGaudi2 ||
-         input.pt_t.scalar_type() == torch::kFloat16);
+         synDeviceType::synDeviceGaudi2);
 
     int64_t normalized_shape_numel = c10::multiply_integers(
         normalized_shape.cbegin(), normalized_shape.cend());
@@ -653,7 +652,9 @@ void LayerNormHabanaOperator::AddNode(
     std::vector<int64_t> weightOrBias_constant_shape =
         is_reshape_for_tpc_kernels_required
         ? std::vector<int64_t>{1, 1, weightOrBias_constant_numel}
-        : std::vector<int64_t>{weightOrBias_constant_numel};
+        : (use_tpc_affine_path && input.pt_t.scalar_type() == torch::kFloat16)
+            ? normalized_shape
+            : std::vector<int64_t>{weightOrBias_constant_numel};
 
     std::vector<sh::tensor> storage;
     // Manual handling of reserved size - maximum number of calls to
