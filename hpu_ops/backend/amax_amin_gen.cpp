@@ -46,19 +46,6 @@ OutputMetaDataVector AminAmaxMeta(const at::Stack& stack) {
   return {meta};
 }
 
-sizes_vec AminAmaxOutputShape(const at::Stack& stack) {
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  auto dim = stack.at(1);
-  auto is_dim_none = dim.isNone();
-  const bool keepdim = stack.at(2).toBool();
-
-  auto dim_vec = is_dim_none ? std::vector<int64_t>{} : dim.toIntVector();
-
-  auto shapes = ReductionOutputShape(self, dim_vec, keepdim);
-
-  return {shapes[0]};
-}
-
 static std::vector<synapse_helpers::tensor> AminmaxCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -155,7 +142,7 @@ void AminAmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto dim = stack.at(1);
   auto dim_vec = is_dim_none ? std::vector<int64_t>{} : dim.toIntVector();
 
-  const auto output_shape = AminAmaxOutputShape(stack)[0];
+  const auto meta = OutputMeta(stack)[0];
 
   auto op = HandleReductionDimAndKeepdim(
       this,
@@ -165,7 +152,7 @@ void AminAmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       dim_vec,
       keepdim,
       guid_,
-      {{output_shape, ScalarType(), 0}});
+      {{meta.shape, meta.dtype, 0}});
 
   syn_out(0) = std::move(op[0]);
 }
