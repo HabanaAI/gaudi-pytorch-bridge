@@ -92,7 +92,9 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
     # first line of fused function up to just before it's output is used.
     # To workaround this issue we fallback to eager for dynamic runs, which
     # shouldn't have big impacts on performance.
-    if op_name == "scalar_tensor" and is_dynamic:
+    # also workaround for: https://jira.habana-labs.com/browse/SW-162350
+    # Slice op is not yet supported for dynamic shape in torch compile
+    if (op_name == "scalar_tensor" or op_name == "slice") and is_dynamic:
         return True
 
     # representing scalar float value NaN in JIT fails, by being pasted as
