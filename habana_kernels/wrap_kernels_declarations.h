@@ -418,7 +418,9 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_backward_wrap(
     const at::Tensor& grad_in,
     const at::Tensor& data_in,
     const at::Tensor& gamma,
-    const at::Tensor& inverse_rms);
+    const at::Tensor& inverse_rms,
+    bool use_stages,
+    int64_t bwd_mode);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,

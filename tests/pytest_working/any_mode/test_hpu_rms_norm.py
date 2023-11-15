@@ -13,8 +13,15 @@ import torch
 import pytest
 from test_utils import cpu, hpu
 
-import habana_frameworks.torch.utils.experimental as htexp
-from habana_frameworks.torch.hpex.normalization import FusedRMSNorm
+from habana_frameworks.torch.hpex.normalization import FusedRMSNorm, RmsNormBwdMode
+from test_utils import (
+    cpu,
+    hpu,
+    is_gaudi1,
+    check_ops_executed_in_jit_ir,
+    is_pytest_mode_compile,
+    clear_t_compile_logs,
+)
 
 rms_norm_test_case_list = [
     # Input shape (D, H, W, C) or (N, D, H, W, C), eps
@@ -34,12 +41,13 @@ def rms_norm_fwd_ref(data_in, gamma, eps):
 
 
 @pytest.mark.parametrize("size, eps", rms_norm_test_case_list)
+@pytest.mark.parametrize("use_stages", [True, False])
+@pytest.mark.parametrize(
+    "bwd_mode", [RmsNormBwdMode.DEFAULT, RmsNormBwdMode.STATIC_CASE_GC_SLICE_ENABLED]
+)
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
-def test_rms_norm_fwd_bwd(size, eps, dtype):
-    if (
-        dtype == torch.float16
-        and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
-    ):
+def test_rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, dtype):
+    if is_gaudi1() and dtype == torch.float16:
         pytest.skip("Half is not supported on Gaudi.")
 
     torch.manual_seed(12345)
@@ -63,7 +71,16 @@ def test_rms_norm_fwd_bwd(size, eps, dtype):
     gamma_hpu.retain_grad()
 
     output_fwd = FusedRMSNorm.apply
-    root_mean_square_norm = output_fwd(input_hpu, gamma_hpu, eps)
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        output_fwd = torch.compile(
+            FusedRMSNorm.apply, backend="aot_hpu_training_backend"
+        )
+
+    root_mean_square_norm = output_fwd(
+        input_hpu, gamma_hpu, eps, use_stages, bwd_mode.value
+    )
     loss = root_mean_square_norm.sum()
     loss.backward()
 
@@ -85,3 +102,6 @@ def test_rms_norm_fwd_bwd(size, eps, dtype):
     torch.testing.assert_close(
         input_hpu.grad.to(torch.float32).to(cpu), grad_input_ref, rtol=tol, atol=tol
     )
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir({"rms_norm", "rms_norm_backward"})

@@ -39,6 +39,8 @@ hpu_supported_op_list = {
     "scaled_masked_triangular_softmax",
     "rotary_pos_embedding",
     "rotary_pos_embedding_backward",
+    "rms_norm",
+    "rms_norm_backward",
     # Torchvision
     "roi_align",
     "_roi_align_backward",

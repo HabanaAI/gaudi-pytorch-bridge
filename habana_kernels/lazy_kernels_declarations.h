@@ -771,7 +771,9 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_backward_lazy(
     const at::Tensor& grad_in,
     const at::Tensor& data_in,
     const at::Tensor& gamma,
-    const at::Tensor& inverse_rms);
+    const at::Tensor& inverse_rms,
+    bool use_stages,
+    int64_t bwd_mode);
 at::Tensor masked_batch_gemm_lazy(
     const at::Tensor& a,
     const at::Tensor& b,

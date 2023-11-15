@@ -784,14 +784,17 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_backward(
     const at::Tensor& grad_in,
     const at::Tensor& data_in,
     const at::Tensor& gamma,
-    const at::Tensor& inverse_rms) {
+    const at::Tensor& inverse_rms,
+    bool use_stages,
+    int64_t bwd_mode) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
-      "rms_norm_backward :", DUMP_4ARGS(grad_in, data_in, gamma, inverse_rms));
+      "rms_norm_backward :",
+      DUMP_6ARGS(grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode));
 
   habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
       "hpu::rms_norm_backward",
-      {grad_in, data_in, gamma, inverse_rms},
+      {grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode},
       {data_in.sizes().vec(), gamma.sizes().vec()},
       0};
 
@@ -1164,7 +1167,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
   m.def(
-      "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms) -> (Tensor, Tensor)");
+      "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)");
   m.def(
       "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
   m.def(

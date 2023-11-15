@@ -1701,13 +1701,17 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_backward_wrap(
     const at::Tensor& grad_in,
     const at::Tensor& data_in,
     const at::Tensor& gamma,
-    const at::Tensor& inverse_rms) {
+    const at::Tensor& inverse_rms,
+    bool use_stages,
+    int64_t bwd_mode) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      "rms_norm_backward :", DUMP_4ARGS(grad_in, data_in, gamma, inverse_rms));
+      "rms_norm_backward :",
+      DUMP_6ARGS(grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode));
 
-  return rms_norm_backward_lazy(grad_in, data_in, gamma, inverse_rms);
+  return rms_norm_backward_lazy(
+      grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode);
 }
 
 at::Tensor masked_batch_gemm_wrap(
@@ -2377,7 +2381,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
   m.def(
-      "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms) -> (Tensor, Tensor)");
+      "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)");
   m.def(
       "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
 

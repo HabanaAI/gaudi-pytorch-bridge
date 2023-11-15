@@ -11,4 +11,4 @@
 ###############################################################################
 
 from .FusedClipNorm import FusedClipNorm
-from .FusedRMSNorm import FusedRMSNorm
+from .FusedRMSNorm import FusedRMSNorm, RmsNormBwdMode
