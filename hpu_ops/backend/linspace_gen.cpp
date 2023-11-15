@@ -11,9 +11,14 @@
 
 namespace habana {
 
-sizes_vec LinspaceOutputShape(const at::Stack& stack) {
-  int64_t step = stack.at(2).toInt();
-  return {{step}};
+OutputMetaDataVector LinspaceMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  auto out_tensor = stack.at(3).toTensor();
+
+  meta.dtype = out_tensor.scalar_type();
+  meta.shape = {stack.at(2).toInt()};
+
+  return {meta};
 }
 
 std::shared_ptr<void> LinspaceRangeParams(
@@ -48,7 +53,8 @@ std::shared_ptr<void> LinspaceRangeParams(
 void LinspaceOut::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto outshape = LinspaceOutputShape(stack)[0];
+  OutputMetaData meta = LinspaceMeta(stack)[0];
+  auto outshape = meta.shape;
 
   float start = stack[0].toScalar().to<float>();
   float end = stack[1].toScalar().to<float>();
