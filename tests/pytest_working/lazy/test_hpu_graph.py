@@ -628,7 +628,7 @@ def test_module_cacher_propnet_views():
         outputs_target_cpu.append(o)
         outputs_target_hpu.append(o.to('hpu'))
 
-    module1_hpu = ht.hpu.ModuleCacher()(have_grad_accumulation=True, model=module1_hpu, inplace=True)
+    module1_hpu = ht.hpu.ModuleCacher()(have_grad_accumulation=True, model=module1_hpu, inplace=True, hash_with_views=True)
     loss_fn = torch.nn.MSELoss()
     optim_y_cpu = torch.optim.SGD(module1_cpu.parameters(), lr=0.1)
     optim_y_hpu = torch.optim.SGD(module1_hpu.parameters(), lr=0.1)

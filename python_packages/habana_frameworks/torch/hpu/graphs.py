@@ -424,10 +424,19 @@ def input_hash(obj):
     elif isinstance(obj, list) or isinstance(obj, tuple):
         return hash(tuple(input_hash(el) for el in obj))
     elif torch.is_tensor(obj):
-        return hash(tuple([obj.shape, _hpu_C.get_view_hash(obj)]))
+        return hash(obj.shape)
     else:
         return hash(obj)
 
+def input_hash_with_views(obj):
+    if isinstance(obj, dict):
+        return input_hash_with_views(tuple(obj.items()))
+    elif isinstance(obj, list) or isinstance(obj, tuple):
+        return hash(tuple(input_hash_with_views(el) for el in obj))
+    elif torch.is_tensor(obj):
+        return hash(tuple([obj.shape, _hpu_C.get_view_hash(obj)]))
+    else:
+        return hash(obj)
 
 def copy_to(dst, src):
     assert type(dst) == type(src)
@@ -488,7 +497,7 @@ def get_tensor_info(tensor):
     return {'shape': tensor.shape, 'dtype': tensor.dtype, 'device': tensor.device}
 
 
-def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs):
+def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs, hash_with_views):
     """
     Wrapped forward method that captures and replays the HPU graph.
 
@@ -502,6 +511,7 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
         asynchronous (bool): Specifies whether the graph replay should be asynchronous.
         dry_run (bool): Enable dry run, which helps to run model without allocating memory.
         max_graphs: maximum graphs which will be cached
+        hash_with_views: input hash include view and base tensors
 
     Returns:
         The output of the original forward method.
@@ -519,7 +529,10 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
         return orig_fwd(*args, **kwargs)
     inputs = (args, kwargs)
 
-    h = input_hash(inputs)
+    if hash_with_views:
+        h = input_hash_with_views(inputs)
+    else:
+        h = input_hash(inputs)
     cached = cache.get(h)
 
     cached_tlist =  extract_tensors(kwargs.pop('cache_tensors_list', []))
@@ -587,7 +600,7 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
     # print("Graph count: ", len(cache), htorch.hpu.memory.memory_stats())
     return out
 
-def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=None):
+def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=None, hash_with_views=True):
     """
     Wraps the forward method of a module in an HPU graph capture and replay mechanism.
 
@@ -599,6 +612,8 @@ def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False,
             Defaults to False.
         dry_run (bool): Enable dry run, which helps to run model without allocating memory.
         max_graphs: maximum graphs which will be cached
+        hash_with_views: Input hash include view and base tensors. Might impact performance as all input tensors are considered for hash.
+            Caution: Disabling this flag may cause accuracy issue.
 
     Returns:
         torch.nn.Module: The module with the wrapped forward method.
@@ -620,10 +635,10 @@ def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False,
     orig_fwd = func
 
     def forward(*args, **kwargs):
-        return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs)
+        return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs, hash_with_views)
     return forward
 
-def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=None):
+def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=None, hash_with_views=True):
     """
     Wraps the forward method of a module in an HPU graph capture and replay mechanism.
 
@@ -635,6 +650,8 @@ def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dr
             Defaults to False.
         dry_run (bool): Enable dry run, which helps to run model without allocating memory.
         max_graphs: maximum graphs which will be cached
+        hash_with_views: Input hash include view and base tensors. Might impact performance as all input tensors are considered for hash.
+            Caution: Disabling this flag may cause accuracy issue.
 
     Returns:
         torch.nn.Module: The module with the wrapped forward method.
@@ -657,7 +674,7 @@ def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dr
 
     @wraps(orig_fwd)
     def forward(*args, **kwargs):
-        return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs)
+        return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs, hash_with_views)
 
     module.forward = forward
 
@@ -743,7 +760,7 @@ class TensorPacker:
         return data
 
 class GraphModel(torch.nn.Module):
-    def __init__(self, model, allow_unused_input=False, asynchronous=False, disable_tensor_cache=False, dry_run=False):
+    def __init__(self, model, allow_unused_input=False, asynchronous=False, disable_tensor_cache=False, dry_run=False, hash_with_views=True):
         super(GraphModel, self).__init__()
         self.model = model
         self.input_packer = TensorPacker()
@@ -756,6 +773,7 @@ class GraphModel(torch.nn.Module):
         self.asynchronous = asynchronous
         self.disable_tensor_cache = disable_tensor_cache
         self.dry_run = dry_run
+        self.hash_with_views = hash_with_views
 
     def forward(self, *args):
         full_args = self.input_packer.unpack(args, self.input_meta)
@@ -771,7 +789,10 @@ class GraphModel(torch.nn.Module):
 
     def init_hpu_graph(self, *args, **kwargs):
         full_args = GraphModel.get_full_args(self.func_parameters, *args, **kwargs)
-        self.input_id = input_hash(full_args)
+        if self.hash_with_views:
+            self.input_id = input_hash_with_views(full_args)
+        else:
+            self.input_id = input_hash(full_args)
         tensor_args, self.input_meta = self.input_packer.pack(full_args)
         self.hpu_graph = make_graphed_callables(self, tensor_args, allow_unused_input=self.allow_unused_input,
          asynchronous=self.asynchronous, disable_tensor_cache=self.disable_tensor_cache, dry_run=self.dry_run)
@@ -811,13 +832,17 @@ class GraphModel(torch.nn.Module):
         return args_full
 
     @staticmethod
-    def full_input_hash(forward_params, *args, **kwargs):
-        return input_hash(GraphModel.get_full_args(forward_params, *args, **kwargs))
+    def full_input_hash(hash_with_views, forward_params, *args, **kwargs):
+        if hash_with_views:
+            return input_hash_with_views(GraphModel.get_full_args(forward_params, *args, **kwargs))
+        else:
+            return input_hash(GraphModel.get_full_args(forward_params, *args, **kwargs))
 
 class ModuleCacher(torch.nn.Module):
     def __getstate__(self):
         return self.max_graphs, self.dry_run, self.disable_tensor_cache, self.log_frequency, self.verbose, self.have_grad_accumulation, \
-            self.asynchronous, self.allow_unused_input, self.use_lfu, self.hpugraph_tracing, self.forward_params, self.inplace, self.orig_model
+            self.asynchronous, self.allow_unused_input, self.use_lfu, self.hpugraph_tracing, self.forward_params, self.inplace, \
+            self.hash_with_views, self.orig_model
 
     def __setstate__(self, state):
         self.__init__(state[0])
@@ -832,7 +857,8 @@ class ModuleCacher(torch.nn.Module):
         self.hpugraph_tracing = state[9]
         self.forward_params = state[10]
         self.inplace = state[11]
-        self.orig_model = state[12]
+        self.hash_with_views = state[12]
+        self.orig_model = state[13]
         model = copy.copy(self.orig_model)
         if not self.inplace:
             model = copy.copy(self.orig_model)
@@ -865,6 +891,7 @@ class ModuleCacher(torch.nn.Module):
         self.disable_tensor_cache = False
         self.dry_run = False
         self.inplace = True
+        self.hash_with_views = True
 
     def set_iteration_count(self, iter_num):
         self.forward_cnt = iter_num
@@ -890,11 +917,14 @@ class ModuleCacher(torch.nn.Module):
 
     def forward(self, *args, **kwargs):
         self.iteration_cnt += 1
-        input_id = GraphModel.full_input_hash(self.forward_params, *args, **kwargs)
+        input_id = GraphModel.full_input_hash(self.hash_with_views, self.forward_params, *args, **kwargs)
         use_cache = self.model.training and torch.is_grad_enabled() and self.use_lazy_mode
 
         if self.have_grad_accumulation and self.forward_cnt == 0:
-            input_id = input_hash((input_id, self.forward_cnt+1,))
+            if self.hash_with_views:
+                input_id = input_hash_with_views((input_id, self.forward_cnt+1,))
+            else:
+                input_id = input_hash((input_id, self.forward_cnt+1,))
 
         if self.verbose and self.iteration_cnt % self.log_frequency == 0:
             self.log_stats()
@@ -928,11 +958,14 @@ class ModuleCacher(torch.nn.Module):
     def forward_lfs(self, *args, **kwargs):
         self.iteration_cnt += 1
 
-        input_id = GraphModel.full_input_hash(self.forward_params, *args, **kwargs)
+        input_id = GraphModel.full_input_hash(self.hash_with_views, self.forward_params, *args, **kwargs)
         use_cache = self.model.training and torch.is_grad_enabled() and self.use_lazy_mode and not self.is_capturing
 
         if self.have_grad_accumulation and self.forward_cnt == 0:
-            input_id = input_hash((input_id, self.forward_cnt+1,))
+            if self.hash_with_views:
+                input_id = input_hash_with_views((input_id, self.forward_cnt+1,))
+            else:
+                input_id = input_hash((input_id, self.forward_cnt+1,))
 
         if self.is_capturing:
             self.record(input_id)
@@ -954,7 +987,7 @@ class ModuleCacher(torch.nn.Module):
         return self.model.orig_forward(*args, **kwargs)
 
     def __call__(self, model, use_lfu=False, inplace=True, allow_unused_input=False, asynchronous=False, have_grad_accumulation=False, log_frequency=100, verbose=False,
-        disable_tensor_cache=False, dry_run=False):
+        disable_tensor_cache=False, dry_run=False, hash_with_views=True):
         model.is_hpugraph_tracing = self.is_hpugraph_tracing
         self.inplace = inplace
         if not inplace:
@@ -980,6 +1013,7 @@ class ModuleCacher(torch.nn.Module):
         self.disable_tensor_cache =  disable_tensor_cache if env_tensor_cache is None else env_tensor_cache == "1"
         env_dry_run = os.environ.get("PT_HPUGRAPH_ENABLE_DRY_RUN")
         self.dry_run =  dry_run if env_dry_run is None else env_dry_run == "1"
+        self.hash_with_views = hash_with_views
         return self.model
 
     def log_stats(self):
@@ -990,6 +1024,7 @@ class ModuleCacher(torch.nn.Module):
         print("    Async execution config    :-", self.asynchronous)
         print("    Grad accumulation config  :-", self.have_grad_accumulation)
         print("    Set iteration calls       :-", self.set_iterations_call_cnt)
+        print("    Include views T in Hash   :-", self.hash_with_views)
         print("  Cache info ")
         print("    No. of HPUGraphs cached   :-", len(self.model_dict))
         print("    Priority keys             :-", self.priority_keys)
