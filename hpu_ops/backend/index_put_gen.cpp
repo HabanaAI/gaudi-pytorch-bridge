@@ -407,7 +407,7 @@ void IndexPutBoolEager::AddNode(
 
     auto bcastOpInd = BroadcastHelper(
         graph,
-        max_size.size() > indices[i].dim()
+        static_cast<int64_t>(max_size.size()) > indices[i].dim()
             ? unsqueeze(indices[i], syn_in(i + 1), max_size.size()).get()
             : syn_in(i + 1),
         max_size,
