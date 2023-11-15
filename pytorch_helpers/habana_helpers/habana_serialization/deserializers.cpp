@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "deserializers.h"
 
@@ -15,13 +18,13 @@ void deserialize(std::istream& is, char*& input) {
   size_t size = 0;
   is.read(reinterpret_cast<char*>(&size), sizeof(size));
   input = new char[size];
-  is.read(input, size);
+  is.read(input, static_cast<std::streamsize>(size));
 }
 
 void deserialize(std::istream& is, std::string& output) {
   int size;
   deserialize(is, size);
-  output.resize(size);
+  output.resize(static_cast<size_t>(size));
   is.read(&output[0], size);
 }
 

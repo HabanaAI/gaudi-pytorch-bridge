@@ -13,6 +13,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace habana {
 namespace profile {
 

@@ -90,7 +90,7 @@ OpBackend::OpBackend(
   CreateSynContext(device_id);
 }
 
-synTensor OpBackend::syn_in(int index) {
+synTensor OpBackend::syn_in(size_t index) {
   if (isOutputInfMode()) {
     return nullptr;
   }
@@ -98,7 +98,7 @@ synTensor OpBackend::syn_in(int index) {
   return SynInput(index).ref().get();
 }
 
-sh::tensor& OpBackend::syn_out(int index) {
+sh::tensor& OpBackend::syn_out(size_t index) {
   if (isOutputInfMode()) {
     // create dummy tensor with out incrementing tensor id
     static auto ph = sh::tensor::create_placeholder(
@@ -117,7 +117,7 @@ synTensor OpBackend::syn_seed() {
   return p_context_->syn_seed_.value().ref().get();
 }
 
-sh::tensor_or_ref& OpBackend::SynInput(int index) {
+sh::tensor_or_ref& OpBackend::SynInput(size_t index) {
   auto it = syn_inputs_cast_.find(index);
   if (it != syn_inputs_cast_.end()) {
     return it->second;

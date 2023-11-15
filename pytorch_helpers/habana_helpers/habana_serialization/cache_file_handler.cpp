@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "cache_file_handler.h"
@@ -102,7 +105,7 @@ bool CacheFileHandler::fileLock(int fd, bool block, size_t& size) {
   if (!fileLock(fd, block))
     return false;
 
-  size = lseek(fd, (size_t)0, SEEK_END);
+  size = static_cast<size_t>(lseek(fd, 0, SEEK_END));
   lseek(fd, 0, SEEK_SET);
 
   return true;

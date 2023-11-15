@@ -145,7 +145,7 @@ class HPURegistrar {
     return device.syn_device().get_device_capability();
   }
 
-  static std::string get_device_properties(int id) {
+  static std::string get_device_properties(unsigned id) {
     return synapse_helpers::device::get_device_properties(id);
   }
 

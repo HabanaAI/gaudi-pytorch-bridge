@@ -205,9 +205,9 @@ class OpBackend : public HabanaOperator {
       size_t param_size = 0,
       std::string name = std::string());
 
-  synTensor syn_in(int index);
-  synapse_helpers::tensor& syn_out(int index);
-  synapse_helpers::tensor_or_ref& SynInput(int index) override;
+  synTensor syn_in(size_t index);
+  synapse_helpers::tensor& syn_out(size_t index);
+  synapse_helpers::tensor_or_ref& SynInput(size_t index) override;
   synTensor syn_seed();
 
   synapse_helpers::tensor CastHelper(

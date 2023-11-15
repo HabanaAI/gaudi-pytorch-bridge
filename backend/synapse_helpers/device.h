@@ -46,13 +46,13 @@ std::string get_mem_str(size_t nbytes);
 
 // this enum is used only for the case where non generic stream is used
 enum default_stream_type {
-  _BEGIN_TYPE = 0,
+  BEGIN_TYPE_ = 0,
   COMPUTE = 0,
   DMA_D2D = 1,
   DMA_H2D = 2,
   DMA_D2H = 3,
   NETWORK = 4,
-  _END_TYPE = 4
+  END_TYPE_ = 4
 };
 
 class session;
@@ -79,8 +79,8 @@ class active_recipe_counter {
   void increase();
   void decrease_and_notify();
   bool is_zero();
-  uint32_t wait_for_next_decrease_call();
-  uint32_t get_count();
+  uint64_t wait_for_next_decrease_call();
+  uint64_t get_count();
 
  private:
   uint64_t counter_state_{0};
@@ -125,7 +125,7 @@ class device {
 
   using transfer_manifest = std::vector<transfer_desc>;
 
-  static const std::uint32_t INVALID_ID = -1;
+  static const synDeviceId INVALID_ID = static_cast<synDeviceId>(-1);
 
   static std::weak_ptr<device> device_in_use;
   static std::mutex device_mtx;
@@ -381,7 +381,7 @@ class device {
     return device_memory_;
   }
 
-  uint32_t GetMaxRecipeLimitInQueue() {
+  uint64_t GetMaxRecipeLimitInQueue() {
     return max_recipe_limit_in_queue_;
   }
 
@@ -399,7 +399,7 @@ class device {
 
   std::string get_device_capability();
 
-  static std::string get_device_properties(int id);
+  static std::string get_device_properties(unsigned id);
 
   void release();
 
@@ -501,7 +501,7 @@ class device {
   bool host_memory_cache_enabled_;
   unsigned max_dma_copy_retry_count_;
   std::chrono::milliseconds dma_copy_retry_delay_;
-  uint32_t max_recipe_limit_in_queue_;
+  uint64_t max_recipe_limit_in_queue_;
   bool enable_memory_defragmentation_;
   bool enable_memory_defrag_info_;
 
@@ -529,7 +529,7 @@ class device {
   // device is released
   framework_specific_cleanup_fnc framework_specific_cleanup_{[] {}};
   std::map<size_t, uint32_t> workspace_usage_;
-  std::unordered_map<hpuEvent_t, std::array<synEventHandle, _END_TYPE>>
+  std::unordered_map<hpuEvent_t, std::array<synEventHandle, END_TYPE_>>
       user_event_map_;
   std::mutex usr_event_mutex_;
   std::unordered_map<uint64_t, std::shared_ptr<host_event>>

@@ -11,10 +11,10 @@
  *******************************************************************************
  */
 #include "backend/synapse_helpers/device.h"
-
 #include <absl/types/variant.h>
 #include <hl_logger/hllog_core.hpp>
 #include <stdlib.h>
+#include <synapse_api.h>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -22,27 +22,20 @@
 #include <ostream>
 #include <sstream>
 #include <string>
-
 #include <thread>
 #include <vector>
-
-#include <synapse_api.h>
-
 #include "backend/helpers/dynamic_shape_info.h"
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/kernel/refinement_engine.h"
-
-#include "habana_helpers/logging.h"
-#include "habana_kernels/fallback_helper.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
-#include "pytorch_helpers/habana_helpers/python_utils.h"
-
 #include "backend/synapse_helpers/devmem_logger.h"
-#include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/session.h"
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "backend/synapse_helpers/util.h"
 #include "common/utils.h"
+#include "habana_helpers/logging.h"
+#include "habana_kernels/fallback_helper.h"
+#include "pytorch_helpers/habana_helpers/logging.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 
 #define PRINT_ENV_FLAG_DEFAULT(name) \
   std::clog << " " << #name << " = " << GET_ENV_FLAG_NEW(name) << "\n";
@@ -102,7 +95,7 @@ bool active_recipe_counter::is_zero() {
   return zflag;
 }
 
-uint32_t active_recipe_counter::wait_for_next_decrease_call() {
+uint64_t active_recipe_counter::wait_for_next_decrease_call() {
   std::unique_lock<std::mutex> cond_lock(counter_mutex_);
   if (counter_state_ > 0) {
     if ((total_submitted_ - total_freed_) != counter_state_) {
@@ -127,7 +120,7 @@ uint32_t active_recipe_counter::wait_for_next_decrease_call() {
   return counter_state_;
 }
 
-uint32_t active_recipe_counter::get_count() {
+uint64_t active_recipe_counter::get_count() {
   std::unique_lock<std::mutex> cond_lock(counter_mutex_);
   return counter_state_;
 }
@@ -195,7 +188,7 @@ int GetSystemRamInKB(void) {
 }
 
 void dumpEnvSettings() {
-  int node_id = 0;
+  unsigned long node_id = 0;
   char* ptr1;
   char* ptr2;
   ptr1 = std::getenv("RANK");
@@ -391,7 +384,8 @@ synapse_error_v<device_handle> device::create(
   if (std::getenv("HLS_MODULE_ID") != nullptr) {
     // Required for  multi chip configuration
     status = synDeviceAcquireByModuleId(
-        &new_device_id, std::stoll(std::getenv("HLS_MODULE_ID")));
+        &new_device_id,
+        static_cast<synModuleId>(std::stoul(std::getenv("HLS_MODULE_ID"))));
     if (status == synSuccess) {
       synDeviceInfo dinfo;
       auto status_info = synDeviceGetInfo(new_device_id, &dinfo);
@@ -605,9 +599,9 @@ synapse_helpers::hpuEvent_t device::create_event(bool flags) {
   std::unique_lock<std::mutex> lock(usr_event_mutex_);
   synapse_helpers::hpuEvent_t id = get_event_index();
   PT_SYNHELPER_DEBUG("Create_event for id::", id, " flasg::", flags);
-  std::array<synEventHandle, _END_TYPE> event_array;
+  std::array<synEventHandle, END_TYPE_> event_array;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
-    for (int i = 0; i < _END_TYPE; i++) {
+    for (size_t i = 0; i < END_TYPE_; ++i) {
       if (flags) {
         event_array[i] = get_time_event_handle_cache().get_free_handle();
       } else {
@@ -634,9 +628,9 @@ void device::record_event(
   auto it = user_event_map_.find(id);
   HABANA_ASSERT(it != user_event_map_.end());
 
-  std::array<synEventHandle, _END_TYPE> event_array = it->second;
+  std::array<synEventHandle, END_TYPE_> event_array = it->second;
   if (record_stream == 0 && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
-    for (int i = 0; i < (int)default_streams_.size(); i++) {
+    for (size_t i = 0; i < default_streams_.size(); ++i) {
       auto type = (default_stream_type)i;
       auto status = synEventRecord(event_array[i], *default_streams_[type]);
       if (synStatus::synSuccess != status) {
@@ -651,7 +645,7 @@ void device::record_event(
     }
   } else {
     auto& stream = get_stream(record_stream);
-    for (int i = 0; i < (int)user_event_map_[id].size(); i++) {
+    for (size_t i = 0; i < user_event_map_[id].size(); ++i) {
       if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0)
         break;
       auto status = synEventRecord(event_array[i], stream);
@@ -676,12 +670,12 @@ void device::wait_event(
   auto it = user_event_map_.find(id);
   HABANA_ASSERT(it != user_event_map_.end());
 
-  std::array<synEventHandle, _END_TYPE> event_array = it->second;
+  std::array<synEventHandle, END_TYPE_> event_array = it->second;
 
   if (block_stream == 0 && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
-    for (int i = 0; i < (int)default_streams_.size(); i++) {
+    for (size_t i = 0; i < default_streams_.size(); ++i) {
       auto type = (default_stream_type)i;
-      for (int j = 0; j < (int)user_event_map_[id].size(); j++) {
+      for (size_t j = 0; j < user_event_map_[id].size(); ++j) {
         auto status =
             synStreamWaitEvent(*default_streams_[type], event_array[j], 0);
         if (synStatus::synSuccess != status) {
@@ -697,7 +691,7 @@ void device::wait_event(
     }
   } else {
     auto& stream = get_stream(block_stream);
-    for (int i = 0; i < (int)user_event_map_[id].size(); i++) {
+    for (size_t i = 0; i < user_event_map_[id].size(); ++i) {
       if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0)
         break;
       auto status = synStreamWaitEvent(stream, event_array[i], 0);
@@ -719,8 +713,8 @@ void device::synchronize_event(synapse_helpers::hpuEvent_t id) {
   auto it = user_event_map_.find(id);
   HABANA_ASSERT(it != user_event_map_.end());
 
-  std::array<synEventHandle, _END_TYPE> event_array = it->second;
-  for (int i = 0; i < (int)user_event_map_[id].size(); i++) {
+  std::array<synEventHandle, END_TYPE_> event_array = it->second;
+  for (size_t i = 0; i < user_event_map_[id].size(); ++i) {
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0)
       break;
     auto status = synEventSynchronize(event_array[i]);
@@ -740,8 +734,8 @@ bool device::query_event(synapse_helpers::hpuEvent_t id) {
   auto it = user_event_map_.find(id);
   HABANA_ASSERT(it != user_event_map_.end());
 
-  std::array<synEventHandle, _END_TYPE> event_array = it->second;
-  for (int i = 0; i < (int)user_event_map_[id].size(); i++) {
+  std::array<synEventHandle, END_TYPE_> event_array = it->second;
+  for (size_t i = 0; i < user_event_map_[id].size(); ++i) {
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0)
       break;
     auto status = synEventQuery(event_array[i]);
@@ -765,13 +759,13 @@ uint64_t device::elapsed_time(
   auto it = user_event_map_.find(id1);
   HABANA_ASSERT(it != user_event_map_.end());
 
-  std::array<synEventHandle, _END_TYPE> event_array1 = it->second;
+  std::array<synEventHandle, END_TYPE_> event_array1 = it->second;
 
   it = user_event_map_.find(id2);
   HABANA_ASSERT(it != user_event_map_.end());
 
-  std::array<synEventHandle, _END_TYPE> event_array2 = it->second;
-  for (int i = 0; i < (int)user_event_map_[id1].size(); i++) {
+  std::array<synEventHandle, END_TYPE_> event_array2 = it->second;
+  for (size_t i = 0; i < user_event_map_[id1].size(); ++i) {
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0)
       break;
     uint64_t time_ms = 0;
@@ -790,8 +784,8 @@ void device::delete_event(synapse_helpers::hpuEvent_t id, bool flags) {
   auto it = user_event_map_.find(id);
   HABANA_ASSERT(it != user_event_map_.end());
 
-  std::array<synEventHandle, _END_TYPE> event_array = it->second;
-  for (int i = 0; i < (int)user_event_map_[id].size(); i++) {
+  std::array<synEventHandle, END_TYPE_> event_array = it->second;
+  for (size_t i = 0; i < user_event_map_[id].size(); ++i) {
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM) && i > 0)
       break;
     if (flags) {
@@ -1213,7 +1207,7 @@ synapse_error device::copy_data_to_device(
   auto total_bytes = std::accumulate(
       transfers.begin(),
       transfers.end(),
-      0,
+      static_cast<size_t>(0),
       [&](size_t total, const transfer_desc& curr) {
         return total + curr.bytes_to_transfer;
       });
@@ -1678,7 +1672,7 @@ std::string device::get_device_capability() {
   return std::string(pDriverVersion);
 }
 
-std::string device::get_device_properties(int id) {
+std::string device::get_device_properties(unsigned id) {
   synDeviceInfo device_info;
   auto status = synDeviceGetInfo(id, &device_info);
   if (status != synSuccess) {

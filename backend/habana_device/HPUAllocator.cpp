@@ -10,22 +10,18 @@
  *
  *******************************************************************************
  */
-#include <synapse_api.h>
-
 #include "HPUAllocator.h"
+#include <synapse_api.h>
 #include "HPUGuardImpl.h"
 #include "backend/synapse_helpers/devmem_logger.h"
-#include "backend/synapse_helpers/env_flags.h"
-#include "habana_helpers/kernels_accumulation.h"
 #include "habana_helpers/logging.h"
-#include "hpu_cached_devices.h"
-
-#include "habana_lazy/lazy_executor.h"
 #include "habana_lazy/memlog.h"
+#include "hpu_cached_devices.h"
 
 namespace habana {
 
-synDeviceId HPUDeviceAllocator::allocator_active_device_id = -1;
+synDeviceId HPUDeviceAllocator::allocator_active_device_id =
+    static_cast<synDeviceId>(-1);
 
 static HPUDeviceAllocator hpu_device_allocator;
 
@@ -124,7 +120,7 @@ static synStatus waitTillRecipeExecution(
 }
 
 HPUDeviceAllocator::HPUDeviceAllocator() {
-  allocator_active_device_id = -1;
+  allocator_active_device_id = static_cast<synDeviceId>(-1);
 }
 
 void HPUDeviceAllocator::deleter(void* ptr) {

@@ -11,12 +11,7 @@
  *******************************************************************************
  */
 #include <ATen/core/DimVector.h>
-#include "generated/backend/gather.h"
-#include "habana_kernels/index_kernels.h"
-#include "hpu_ops/backend/arange.h"
 #include "hpu_ops/backend/nonzero.h"
-#include "hpu_ops/backend/reduction_template.h"
-#include "hpu_ops/common/index.h"
 #include "hpu_ops/index_put.h"
 #include "hpu_ops/topk_util.h"
 
@@ -49,9 +44,9 @@ static std::vector<int64_t> broadcast_size(
 static void validate_cat_tensor_dim_sizes(
     const std::vector<std::vector<int64_t>>* tensors,
     int64_t dim) {
-  unsigned i = 0;
+  size_t i = 0;
   auto tensor_count = tensors->size();
-  auto tempT_i = 0;
+  size_t tempT_i = 0;
   for (i = 1; i < tensor_count; i++) {
     // check whether sizes along dimensions match except for cat dimension.
     unsigned j = 0;
@@ -76,8 +71,10 @@ static std::vector<int64_t> CalcCatOutSize(
   if (tensor_count == 0) // if tensor is empty or its first element is empty,
                          // then concatenate out size is 0
     return {0};
-  int64_t dim =
-      at::maybe_wrap_dim(*dim_inp, tensors->at(0).size(), /*wrap_scalar=*/true);
+  int64_t dim = at::maybe_wrap_dim(
+      *dim_inp,
+      static_cast<int64_t>(tensors->at(0).size()),
+      /*wrap_scalar=*/true);
   validate_cat_tensor_dim_sizes(tensors, *dim_inp);
 
   if (dim != *dim_inp) {
@@ -88,9 +85,10 @@ static std::vector<int64_t> CalcCatOutSize(
   // along the dim in which to cat
   auto out_size = tensors->at(0);
   if (out_size.size() != 0) {
-    out_size[dim] = 0;
+    out_size[static_cast<size_t>(dim)] = 0;
     for (unsigned i = 0; i < tensor_count; i++) {
-      out_size[dim] += tensors->at(i)[dim];
+      out_size[static_cast<size_t>(dim)] +=
+          tensors->at(i)[static_cast<size_t>(dim)];
     }
   }
   return out_size;
@@ -103,16 +101,16 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
     synapse_helpers::tensor& catop,
     synapse_helpers::tensor& reshape_val_op,
     synTensor syn_in_0,
-    int rank_idx,
+    size_t rank_idx,
     c10::ScalarType indices_scalar_type) {
   auto self_scalar_type = self.scalar_type();
   auto scatter_indices_shape = catop.pt_shape();
   // Convert indices to values (ravelling indices) for sorting
   std::vector<int64_t> indices_shape;
-  for (int i = 0; i < rank_idx; i++)
+  for (size_t i = 0; i < rank_idx; ++i)
     indices_shape.push_back(self.sizes().vec()[i]);
   // Compute multiplication factor for each dimension
-  std::vector<int> mul_factor_v{1};
+  std::vector<int64_t> mul_factor_v{1};
   for (size_t i = 0; i < indices_shape.size() - 1; i++)
     mul_factor_v.push_back(mul_factor_v[i] * indices_shape[i]);
 
@@ -123,7 +121,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   std::vector<synapse_helpers::tensor> cat_input_tensor;
   std::vector<std::vector<int64_t>> cat_input_index;
   std::vector<int64_t> const_shape = {1};
-  for (size_t i = 0; i < mul_factor_v.size(); i++) {
+  for (size_t i = 0; i < mul_factor_v.size(); ++i) {
     cat_input_tensor.emplace_back(OpBackend::BuildConstant(
         op, graph, mul_factor_v[i], indices_scalar_type, const_shape));
     cat_input_synTensor.emplace_back(
@@ -135,10 +133,10 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   std::vector<int64_t> cat_out_size =
       CalcCatOutSize(&cat_input_index, &cat_dim);
   cat_dim = cat_out_size.size() > 0
-      ? (cat_out_size.size() - cat_dim) - 1
+      ? (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1
       : 0; // if tensor is empty then dim of the concatenated tensor will be 0
   synConcatenateParams concat_params{};
-  concat_params.axis = cat_dim;
+  concat_params.axis = static_cast<unsigned int>(cat_dim);
   auto catop2 = OpBackend::BuildNode(
       op,
       graph,
@@ -161,10 +159,11 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto red_output_shape = mulOp.at(0).pt_shape();
   int red_dim = 1;
   // red_output_shape.erase(red_output_shape.cbegin()+red_dim);
-  red_output_shape[red_dim] = 1;
+  red_output_shape[static_cast<size_t>(red_dim)] = 1;
   ns_Reduction::Params red_params{};
   red_params.reductionDimension =
-      get_dim_in_tpc_order(red_dim /*dim*/, red_output_shape.size());
+      static_cast<unsigned int>(get_dim_in_tpc_order(
+          red_dim /*dim*/, static_cast<int64_t>(red_output_shape.size())));
   auto sumop = OpBackend::BuildNode(
       op,
       graph,
@@ -184,8 +183,8 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
       0,
       reshape_sum_op.pt_shape(),
       0 /*descending order*/,
-      reshape_sum_op.pt_shape().size(),
-      reshape_sum_op.pt_shape()[0],
+      static_cast<int>(reshape_sum_op.pt_shape().size()),
+      static_cast<int>(reshape_sum_op.pt_shape()[0]),
       0, /*median vairiant*/
       indices_scalar_type);
   auto sort_res0 = std::move(sortOp.at(0));
@@ -194,10 +193,11 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   // Fill params for gather
   ns_GatherKernel::Params gather_params;
   auto outshape = catop.pt_shape();
-  int size1 = outshape.size();
-  int size2 = sort_res1.pt_shape().size();
-  int gather_dim = 0;
-  gather_params.axis = size1 - gather_dim - 1;
+  auto size1 = outshape.size();
+  auto size2 = sort_res1.pt_shape().size();
+  long gather_dim = 0;
+  gather_params.axis =
+      static_cast<int>(size1 - static_cast<size_t>(gather_dim) - 1);
   if (size1) {
     // for gather op, output size is same as index
     if (size1 == size2) {
@@ -228,8 +228,12 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
       op, graph, sort_res1.get(), reshape_size2, indices_scalar_type);
   ns_ScatterNDKernel::Params scatter_params{int(catop.pt_shape().size()), {0}};
   // Dims reversed between PT and synapse
-  for (int i = scatter_indices_shape.size() - 1, j = 0; i >= 0; --i, ++j) {
-    scatter_params.origIndicesShape[j] = scatter_indices_shape[i];
+  for (int64_t i = static_cast<int64_t>(scatter_indices_shape.size()) - 1,
+               j = 0;
+       i >= 0;
+       --i, ++j) {
+    scatter_params.origIndicesShape[j] =
+        static_cast<int>(scatter_indices_shape[static_cast<size_t>(i)]);
   }
   auto scatter_op = OpBackend::BuildNode(
       op,
@@ -292,11 +296,11 @@ void IndexPutEager::AddNode(
   std::vector<int64_t> cat_out_size =
       CalcCatOutSize(&cat_input_index, &cat_dim);
   cat_dim = cat_out_size.size() > 0
-      ? (cat_out_size.size() - cat_dim) - 1
+      ? (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1
       : 0; // if tensor is empty then dim of the concatenated tensor will be 0
 
   synConcatenateParams concat_params{};
-  concat_params.axis = cat_dim;
+  concat_params.axis = static_cast<unsigned int>(cat_dim);
   auto catop1 = BuildOp(
       graph,
       "concat",
@@ -308,8 +312,8 @@ void IndexPutEager::AddNode(
   auto catop = std::move(catop1.at(0));
 
   // Calculate the dimensionality of updates for broadcasting
-  auto rank_inp = self.ndimension();
-  auto rank_idx = catop.pt_shape()[1];
+  auto rank_inp = static_cast<size_t>(self.ndimension());
+  auto rank_idx = static_cast<size_t>(catop.pt_shape()[1]);
 
   std::vector<int64_t> value_upd_dim{catop.pt_shape()[0]};
   if (((int)indices.size() == self.dim()) && (values.numel() > 1)) {
@@ -317,7 +321,7 @@ void IndexPutEager::AddNode(
     value_upd_dim = values.sizes().vec();
   }
 
-  for (int i = rank_idx; i < rank_inp; i++)
+  for (size_t i = rank_idx; i < rank_inp; ++i)
     value_upd_dim.push_back(self.sizes().vec()[i]);
   auto values_scalar_type = values.scalar_type();
 
@@ -394,7 +398,7 @@ void IndexPutBoolEager::AddNode(
 
   auto unsqueeze = [this, &graph](
                        const at::Tensor& t, synTensor st, const int ndims) {
-    const auto missing = ndims - t.dim();
+    const auto missing = static_cast<size_t>(ndims - t.dim());
     auto new_shape = t.sizes().vec();
     new_shape.insert(new_shape.end(), missing, 1);
     return this->ReshapeHelper(graph, st, new_shape, t.scalar_type());
@@ -407,7 +411,9 @@ void IndexPutBoolEager::AddNode(
     auto bcastOpInd = BroadcastHelper(
         graph,
         static_cast<int64_t>(max_size.size()) > indices[i].dim()
-            ? unsqueeze(indices[i], syn_in(i + 1), max_size.size()).get()
+            ? unsqueeze(
+                  indices[i], syn_in(i + 1), static_cast<int>(max_size.size()))
+                  .get()
             : syn_in(i + 1),
         max_size,
         index_params.dtype);
@@ -441,11 +447,11 @@ void IndexPutBoolEager::AddNode(
   std::vector<int64_t> cat_out_size =
       CalcCatOutSize(&cat_input_index, &cat_dim);
   cat_dim = cat_out_size.size() > 0
-      ? (cat_out_size.size() - cat_dim) - 1
-      : 0; // if tensor is empty then dim of the concatenated tensor will be 0
+      ? (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1
+      : 0; // If tensor is empty then dim of the concatenated tensor will be 0
 
   synConcatenateParams concat_params{};
-  concat_params.axis = cat_dim;
+  concat_params.axis = static_cast<unsigned int>(cat_dim);
   auto catop1 = BuildOp(
       graph,
       "concat",
@@ -457,8 +463,9 @@ void IndexPutBoolEager::AddNode(
   auto catop = std::move(catop1.at(0));
   auto cat_pt_shape = catop.pt_shape();
   // Calculate the dimensionality of updates for broadcasting
-  auto rank_inp = self.ndimension();
-  auto rank_idx = nonzero_out_shape[1]; // catop.pt_shape()[1];
+  auto rank_inp = static_cast<size_t>(self.ndimension());
+  auto rank_idx =
+      static_cast<size_t>(nonzero_out_shape[1]); // catop.pt_shape()[1];
   auto values_scalar_type = values.scalar_type();
   std::vector<int64_t> value_upd_dim;
   if (values.numel() >
@@ -468,15 +475,15 @@ void IndexPutBoolEager::AddNode(
     if (indices[0].dim() != self.dim() &&
         values.dim() != (1 + (self.dim() - indices[0].dim()))) {
       value_upd_dim.push_back(nonzero_out_shape[0]);
-      for (int i = rank_idx; i < rank_inp; i++)
+      for (size_t i = rank_idx; i < rank_inp; i++)
         value_upd_dim.push_back(self_sizes[i]);
     } else {
-      for (int i = 0; i < values.dim(); i++)
+      for (size_t i = 0; i < static_cast<size_t>(values.dim()); i++)
         value_upd_dim.push_back(values_sizes[i]);
     }
   } else { // We are assuming uses passes value shapes correctly for scatter
     value_upd_dim.push_back(nonzero_out_shape[0]);
-    for (int i = rank_idx; i < rank_inp; i++)
+    for (size_t i = rank_idx; i < rank_inp; i++)
       value_upd_dim.push_back(self_sizes[i]);
   }
   auto bcastOp = BroadcastHelper(

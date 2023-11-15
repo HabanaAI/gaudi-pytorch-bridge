@@ -15,17 +15,19 @@
 #include "backend/synapse_helpers/device_mem_stats.h"
 #include "backend/synapse_helpers/device_types.h"
 
-#define TO_GB(arg) ((arg) / (1024 * 1024 * 1024.))
+#define TO_GB(arg) ((arg) / (static_cast<double>(1024 * 1024) * 1024.))
 #define TO_REPORT_EVENT(key, value)                                         \
   std::string(" \"") + key + std::string("\":\"") + std::to_string(value) + \
       std::string("\"")
 #define TO_REPORT_EVENT_GB(key, value)                                      \
   std::string(" \"") + key + std::string("\":\"") + std::to_string(value) + \
-      std::string(" (") + std::to_string((value) / (1024 * 1024 * 1024.)) + \
+      std::string(" (") +                                                   \
+      std::to_string(static_cast<double>(value) / (1024 * 1024 * 1024.)) +  \
       std::string(" GB)\"")
-#define TO_GB_STR(value)                      \
-  std::to_string(value) + std::string(" (") + \
-      std::to_string((value) / (1024 * 1024 * 1024.)) + std::string(" GB)")
+#define TO_GB_STR(value)                                                   \
+  std::to_string(value) + std::string(" (") +                              \
+      std::to_string(static_cast<double>(value) / (1024 * 1024 * 1024.)) + \
+      std::string(" GB)")
 
 namespace synapse_helpers {
 struct MemoryConsumption {
@@ -63,15 +65,15 @@ struct MemoryConsumption {
         "Scratch Memory Allocated:          %20lld (%.6f GB)\n"
         "Persistent Memory Allocated:       %20lld (%.6f GB)\n",
         this->total_allocs_bytes,
-        TO_GB(this->total_allocs_bytes),
+        TO_GB(static_cast<double>(this->total_allocs_bytes)),
         this->max_alloc_bytes,
-        TO_GB(this->max_alloc_bytes),
+        TO_GB(static_cast<double>(this->max_alloc_bytes)),
         this->pre_allocated_bytes,
-        TO_GB(this->pre_allocated_bytes),
+        TO_GB(static_cast<double>(this->pre_allocated_bytes)),
         this->workspace_allocated,
-        TO_GB(this->workspace_allocated),
+        TO_GB(static_cast<double>(this->workspace_allocated)),
         this->persistent_tensor_size,
-        TO_GB(this->persistent_tensor_size));
+        TO_GB(static_cast<double>(this->persistent_tensor_size)));
   };
 
   std::string toJsonEvent(std::string& header_begin, std::string& header_end)

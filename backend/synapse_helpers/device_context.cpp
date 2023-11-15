@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+#include "device_context.h"
 #include <absl/memory/memory.h>
 #include <absl/types/optional.h>
 #include <absl/types/variant.h>
@@ -20,13 +21,10 @@
 #include <string>
 #include <thread>
 #include <utility>
-#include "backend/synapse_helpers/synapse_error.h"
-
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/device_types.h"
-#include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/stream.h"
-#include "device_context.h"
+#include "backend/synapse_helpers/synapse_error.h"
 #include "habana_helpers/logging.h"
 #include "hccl_types.h"
 #include "status_conversion.h"
@@ -50,7 +48,8 @@ hcclResult_t device_context::open_device(int device_id) {
       "Calling device_context::open_device(device_id=", device_id, ")");
   std::lock_guard<std::mutex> guard{access_mutex_};
 
-  auto maybe_dev_handle = synapse_helpers::device::get_by_id(device_id);
+  auto maybe_dev_handle =
+      synapse_helpers::device::get_by_id(static_cast<synDeviceId>(device_id));
   if (!ok(maybe_dev_handle)) {
     RETURN_ON_SYNAPSE_ERROR(get_error(maybe_dev_handle));
   }

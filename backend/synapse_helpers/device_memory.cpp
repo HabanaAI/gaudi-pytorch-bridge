@@ -16,12 +16,9 @@
 #include <sstream>
 #include <unordered_map>
 #include <utility>
-
-#include <synapse_api.h>
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/profiling/trace_sources/sources.h"
 #include "backend/synapse_helpers/devmem_logger.h"
-#include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/memory_defragmentation.h"
 #include "habana_helpers/logging.h"
 
@@ -1102,7 +1099,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
         "Allocation failed for size::",
         size,
         " (",
-        size / (1024 * 1024.),
+        static_cast<double>(size) / (1024 * 1024.),
         ")MB");
   }
 

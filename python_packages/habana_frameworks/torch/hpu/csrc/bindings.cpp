@@ -186,7 +186,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_device_capability", []() {
     return habana::HPURegistrar::get_device_capability();
   });
-  m.def("get_device_properties", [](int id) {
+  m.def("get_device_properties", [](unsigned id) {
     return habana::HPURegistrar::get_device_properties(id);
   });
   m.def("reset_peak_memory_stats", [](int id) { reset_peak_memory_stats(id); });

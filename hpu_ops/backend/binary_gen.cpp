@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2023 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "generated/backend/_foreach_add.h"
@@ -56,7 +59,7 @@ std::shared_ptr<void> FillBinaryWithAlphaParams(
         "point number.");
     params->alpha.i = alpha.to<int>();
   } else
-    params->alpha.f = alpha.to<double>();
+    params->alpha.f = static_cast<float>(alpha.to<double>());
 
   params->mode = mode;
   return params;

@@ -16,7 +16,6 @@
 #include <absl/types/span.h>
 #include <dlfcn.h>
 #include <link.h>
-#include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 
 #include <fcntl.h>
@@ -46,7 +45,7 @@ std::string get_synapse_lib_path(void) {
       return std::string{sopath};
     }
   }
-  HABANA_ASSERT("Synapse lib not loaded");
+  HABANA_ASSERT(false, "Synapse lib not loaded");
   return "";
 }
 
@@ -74,8 +73,8 @@ size_t hash64_file_content(const std::string& path_to_file) {
     if (fstat(fh, &sb) == -1) {
       PT_HABHELPER_WARN("Failed to get stat of file: ", path_to_file);
     } else {
-      char* fileAddr =
-          (char*)mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fh, 0);
+      char* fileAddr = (char*)mmap(
+          NULL, static_cast<size_t>(sb.st_size), PROT_READ, MAP_PRIVATE, fh, 0);
       if (fileAddr == MAP_FAILED) {
         PT_HABHELPER_WARN("Failed in mapping file: ", path_to_file);
       } else {
@@ -143,11 +142,15 @@ std::string CacheVersion::libs_env_hash() {
       // GC_KERNEL_PATH can be a list of paths to libs, comma separated, need to
       // hash them all
       do {
+        using difference_type = decltype(gc_kernel_path)::difference_type;
         std::string path(
-            gc_kernel_path.begin(), gc_kernel_path.begin() + foundComma);
+            gc_kernel_path.begin(),
+            gc_kernel_path.begin() + static_cast<difference_type>(foundComma));
         hash = at::hash_combine(hash, hash64_file_content(path));
         gc_kernel_path = std::string(
-            gc_kernel_path.begin() + foundComma + 1, gc_kernel_path.end());
+            gc_kernel_path.begin() + static_cast<difference_type>(foundComma) +
+                1,
+            gc_kernel_path.end());
         foundComma = gc_kernel_path.find(",");
       } while (foundComma != std::string::npos);
     }

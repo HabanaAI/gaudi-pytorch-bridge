@@ -535,7 +535,7 @@ class HabanaOperator {
       const at::IntArrayRef sizes,
       c10::MemoryFormat format);
 
-  virtual synapse_helpers::tensor_or_ref& SynInput(int index) {
+  virtual synapse_helpers::tensor_or_ref& SynInput(size_t index) {
     return p_context_->syn_inputs_.at(index);
   }
 
