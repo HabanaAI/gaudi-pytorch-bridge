@@ -13,7 +13,7 @@ def max_memory_allocated(device: Optional[_device_t] = None) -> int:
     to reset the starting point in tracing stats.
     """
     hpu.init()
-    device = _get_device_index(device, optional=True)
+    device = _get_device_index(device)
     if device < 0 or device >= hpu.device_count():
         raise AssertionError("Invalid device id")
     return memory_stats(device=device).get("MaxInUse")
@@ -23,7 +23,7 @@ def memory_allocated(device: Optional[_device_t] = None) -> int:
     HPU memory occupied by tensors.
     """
     hpu.init()
-    device = _get_device_index(device, optional=True)
+    device = _get_device_index(device)
     if device < 0 or device >= hpu.device_count():
         raise AssertionError("Invalid device id")
     return memory_stats(device=device).get("InUse")
@@ -33,7 +33,7 @@ def reset_peak_memory_stats(device: Optional[_device_t] = None) -> None:
     of memory occupied by tensors.
     """
     hpu.init()
-    device = _get_device_index(device, optional=True)
+    device = _get_device_index(device)
     if device < 0 or device >= hpu.device_count():
         raise AssertionError("Invalid device id")
     _hpu_C.reset_peak_memory_stats(device)
@@ -43,7 +43,7 @@ def reset_accumulated_memory_stats(device: Optional[_device_t] = None) -> None:
     number of allocs and number of frees.
     """
     hpu.init()
-    device = _get_device_index(device, optional=True)
+    device = _get_device_index(device)
     if device < 0 or device >= hpu.device_count():
         raise AssertionError("Invalid device id")
     _hpu_C.clear_memory_stats(device)
@@ -63,7 +63,7 @@ def memory_stats(device: Optional[_device_t] = None) -> Dict[str, Any]:
     ('TotalActiveAllocs', 32)] : total number of active allocations
     """
     hpu.init()
-    device = _get_device_index(device, optional=True)
+    device = _get_device_index(device)
     if device < 0 or device >= hpu.device_count():
         raise AssertionError("Invalid device id")
     return _hpu_C.get_mem_stats(device)
@@ -93,7 +93,7 @@ def memory_summary(device: Optional[_device_t] = None) -> str:
     human readable printout of current memory stats.
     """
     hpu.init()
-    device = _get_device_index(device, optional=True)
+    device = _get_device_index(device)
     if device < 0 or device >= hpu.device_count():
         raise AssertionError("Invalid device id")
     tbl = []

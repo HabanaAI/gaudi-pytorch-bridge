@@ -1,3 +1,8 @@
+<<<<<<< HEAD:tests/test_habanaframework_api.py
+import torch
+import habana_frameworks.torch as htorch
+=======
+>>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_habanaframework_api.py
 import os
 
 import habana_frameworks.torch as htorch
@@ -5,6 +10,10 @@ import pytest
 import torch
 from test_utils import env_var_in_scope, hpu
 
+<<<<<<< HEAD:tests/test_habanaframework_api.py
+pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
+=======
+>>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_habanaframework_api.py
 
 # Use torch_hpu APIs, equivalent to torch.cuda APIs
 @pytest.mark.xfail(
@@ -42,22 +51,3 @@ def test_device_synchronize_api():
     torch.zeros(10, 2).to("hpu")
     tB_h = torch.full((1000,), 1, device="hpu")  # noqa
     htorch.hpu.synchronize()  # Need verify with the log
-
-def test_get_device_index_api():
-    try:
-        htorch.hpu._get_device_index('hpu0', optional=True)
-    except Exception as err:
-        assert err != "Invalid device string"
-        pass
-
-    #with self.assertRaisesRegex(ValueError, "Expected a hpu device"):
-    try:
-        cpu_device = torch.device('cpu')
-        htorch.hpu._get_device_index(cpu_device, optional=True)
-    except Exception as err:
-        assert err != "Expected a hpu device"
-
-    index = htorch.hpu._get_device_index('hpu:1')
-    assert index == 1
-    index = htorch.hpu._get_device_index(torch.device("hpu:2"))
-    assert index == 2

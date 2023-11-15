@@ -29,7 +29,7 @@ class Stream(object):
             self.device = 0
         else:
             self.device = -1
-            device = _get_device_index(device, optional=True)
+            device = _get_device_index(device)
 
             self.device = device
             self.isHighPriorityStream = priority < 0

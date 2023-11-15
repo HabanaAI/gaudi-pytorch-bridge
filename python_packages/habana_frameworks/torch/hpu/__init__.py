@@ -120,7 +120,7 @@ def get_device_name(device: Optional[_device_t] = None) -> str:
         return ""
 
     init()
-    device = _get_device_index(device, optional=True)
+    device = _get_device_index(device)
     if device < 0 or device >= device_count():
         raise AssertionError("Invalid device id")
     return _hpu_C.get_device_name(device)
@@ -232,7 +232,7 @@ def get_device_capability(device: Optional[_device_t] = None) -> str:
         return ""
 
     init()
-    device = _get_device_index(device, optional=True)
+    device = _get_device_index(device)
     if device < 0 or device >= device_count():
         raise AssertionError("Invalid device id")
     return _hpu_C.get_device_capability()
@@ -244,7 +244,7 @@ def get_device_properties(device: Optional[_device_t] = None) -> str:
         return ""
 
     init()
-    device = _get_device_index(device, optional=True)
+    device = _get_device_index(device)
     if device < 0 or device >= device_count():
         raise AssertionError("Invalid device id")
     return _hpu_C.get_device_properties(device)
@@ -255,8 +255,8 @@ def can_device_access_peer(device: _device_t, peer_device: _device_t) -> bool:
         warnings.warn("Device not available")
         return ""
     init()
-    device = _get_device_index(device, optional=True)
-    peer_device = _get_device_index(peer_device, optional=True)
+    device = _get_device_index(device)
+    peer_device = _get_device_index(peer_device)
     count = device_count()
     if device < 0 or device >= count:
         raise AssertionError("Invalid device id : {}".format(device))
@@ -286,7 +286,7 @@ def get_arch_list() -> List[str]:
 
 def set_device(device: _device_t) -> None:
     r"""Sets the current device"""
-    device_idx = _get_device_index(device, optional=True)
+    device_idx = _get_device_index(device)
     # hack to match torch.cuda API
     available_modules = _get_available_modules_from_environ()
     if device_idx > len(available_modules):
@@ -332,7 +332,7 @@ class device(object):
 
     def __init__(self, device: Any):
         # After 2.1 upgrade, device coming from fork might be 0
-        device_idx = _get_device_index(device, optional=True)
+        device_idx = _get_device_index(device)
         env_device_idx = _get_module_id_from_environ()
         if device_idx != 0 and device_idx != env_device_idx:
             raise AssertionError(
@@ -372,7 +372,7 @@ def memory_usage(device: Optional[Union[Device, int]] = None) -> int:
             if :attr:`device` is ``None`` (default).
     """
     init()
-    device_idx = _get_device_index(device, optional=True)
+    device_idx = _get_device_index(device)
     if device_idx < 0 or device_idx >= device_count():
         raise AssertionError("Invalid device id")
     return _hpu_C.get_mem_stats(device_idx)["InUse"]
@@ -387,7 +387,7 @@ def utilization(device: Optional[Union[Device, int]] = None) -> int:
             if :attr:`device` is ``None`` (default).
     """
     init()
-    device_idx = _get_device_index(device, optional=True)
+    device_idx = _get_device_index(device)
     if device_idx < 0 or device_idx >= torch.hpu.device_count():
         raise AssertionError("Invalid device id")
     try:
