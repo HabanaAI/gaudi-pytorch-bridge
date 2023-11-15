@@ -498,7 +498,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
             HABANA_ASSERT(
                 tmeta->has_valid_const_id(),
                 "Constant tensor can not have constant id as -1");
-            auto& device = HPURegistrar::get_device(device_id);
+            [[maybe_unused]] auto& device = HPURegistrar::get_device(device_id);
             status = synHostMap(device_id, section_size, section_data_ptr);
             HABANA_ASSERT(
                 status == synStatus::synSuccess,
