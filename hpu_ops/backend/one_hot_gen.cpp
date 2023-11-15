@@ -26,18 +26,20 @@ int64_t calculateNumberOfClasses(const at::Stack& stack) {
   return num_classes;
 }
 
-sizes_vec OneHotOutputShape(const at::Stack& stack) {
+OutputMetaDataVector OneHotMeta(const at::Stack& stack) {
   auto input = stack_tensor(stack, 0);
+  OutputMetaData meta;
   const auto num_classes = calculateNumberOfClasses(stack);
-  auto out_shape = input.sizes().vec();
-  out_shape.push_back(num_classes);
+  meta.shape = input.sizes().vec();
+  meta.shape.push_back(num_classes);
+  meta.dtype = input.scalar_type();
 
-  return {out_shape};
+  return {meta};
 }
 
 void OneHot::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto num_classes = calculateNumberOfClasses(stack);
-  const auto output_shape = OneHotOutputShape(stack)[0];
+  const auto meta = OutputMeta(stack)[0];
   auto input = stack_tensor(stack, 0);
   const std::string guid{"one_hot_fwd"};
   std::optional<synapse_helpers::tensor> cast{};
@@ -50,8 +52,8 @@ void OneHot::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto output_type = c10::ScalarType::Float;
 
-  if (!isIntegralType(ScalarType(), true)) {
-    output_type = ScalarType();
+  if (!isIntegralType(meta.dtype, true)) {
+    output_type = meta.dtype;
     c10::ScalarType target_type = c10::ScalarType::Short;
 
     if (output_type == at::kHalf || output_type == at::kFloat) {
@@ -66,16 +68,11 @@ void OneHot::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph,
       get_guid_with_precision(guid, output_type),
       {input_feature_map},
-      {{output_shape, output_type}},
+      {{meta.shape, output_type}},
       &oneHotParams,
       sizeof(oneHotParams));
 
   syn_out(0) = CastHelper(
-      graph,
-      result[0].get(),
-      output_shape,
-      output_type,
-      c10::ScalarType::Int,
-      0);
+      graph, result[0].get(), meta.shape, output_type, c10::ScalarType::Int, 0);
 }
 } // namespace habana
