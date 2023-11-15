@@ -105,17 +105,11 @@ void ViewOperatorDS::ResolveNegativeSizes(
     torch::jit::Stack& org_stack,
     torch::jit::Node* node,
     std::unordered_map<CValPtr, torch::jit::IValue>& value_ivalue_map) {
-  ValueIvalueMap gin_value_ivalue_map;
-  for (size_t j = 0; j < org_stack.size(); j++) {
-    auto value_input = graph->inputs().at(j);
-    auto ivpsh = std::make_shared<IVal>(org_stack[j]);
-    gin_value_ivalue_map[value_input] = ivpsh;
-  }
   auto view_st_value = node->inputs().at(1);
   auto view_out_value = node->outputs().at(0);
   auto cos_t_shapes = value_ivalue_map[view_out_value].toTensor().sizes().vec();
-  auto ivsh_view_st = gin_value_ivalue_map[view_st_value];
-  ivsh_view_st->toTensor().unsafeGetTensorImpl()->set_sizes_contiguous(
+  auto ivsh_view_st = value_ivalue_map[view_st_value];
+  ivsh_view_st.toTensor().unsafeGetTensorImpl()->set_sizes_contiguous(
       cos_t_shapes);
 }
 
