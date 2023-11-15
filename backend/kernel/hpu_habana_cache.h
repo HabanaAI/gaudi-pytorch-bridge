@@ -235,7 +235,7 @@ struct RecipeValueSpec {
 
   friend std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v);
 
-  void SelfCheck() {
+  void SelfCheck() const {
     if (recipe != nullptr || !collective_kernels_info.empty()) {
       TORCH_CHECK(dtensorinfos != nullptr);
       TORCH_CHECK(dtensorinfos->size() == num_tinfos);
@@ -266,7 +266,7 @@ struct RecipeValueSpec {
           synapse_tensor_id_to_tensor_handle,
       std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
       size_t ridx);
-  void update_tensor_shape(
+  static void update_tensor_shape(
       const synapse_helpers::graph& synapse_graph,
       synTensor tensor_handle,
       PtTensorInfoShared tinfo,
@@ -277,7 +277,7 @@ struct RecipeValueSpec {
       std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
       std::vector<int64_t> new_shape,
       std::optional<uint64_t> tensor_offset_opt = std::nullopt,
-      std::optional<PtTensorInfoShared> tinfo_opt = std::nullopt);
+      std::optional<PtTensorInfoShared> tinfo_opt = std::nullopt) const;
   void update_patching_table(
       at::ArrayRef<torch::jit::IValue>& input_refs,
       std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
@@ -296,11 +296,11 @@ struct RecipeValueSpec {
   void populate_syn_tensor_ids();
   void patch_launch_info(
       std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec,
-      std::vector<size_t>& external_tensor_info_indexes);
+      std::vector<size_t>& external_tensor_info_indexes) const;
   void MaybePrintDebugInfo(
       const at::ArrayRef<torch::jit::IValue>& input_refs,
       const std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
-      const VecOfIValPtrSh& aten_outputs);
+      const VecOfIValPtrSh& aten_outputs) const;
   void launch(
       synapse_helpers::hpuStream_t hpu_stream,
       const at::ArrayRef<torch::jit::IValue>& input_refs,
@@ -315,7 +315,7 @@ struct RecipeValueSpec {
       std::unordered_map<size_t, IValPtrShared>& parent_ivpsh_map,
       std::string map_name,
       VecOfIValPtrSh& aten_outputs,
-      bool is_shape_agnostic_graph = false);
+      bool is_shape_agnostic_graph = false) const;
 
   static size_t get_recipe_count() {
     return recipe_count;
@@ -386,7 +386,7 @@ struct RecipeValueSpec {
     opstrs = s;
   }
 
-  std::string get_graph_name() {
+  std::string get_graph_name() const {
     return graph_name;
   }
   void set_graph_name(const std::string& name) {
@@ -416,8 +416,6 @@ struct RecipeValueSpec {
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
   std::shared_ptr<std::vector<PtTensorInfoShared>> dtensorinfos;
-  std::vector<uint64_t> output_tensor_ids{};
-  std::vector<bool> output_tensor_alllow_permutations{};
   std::vector<std::shared_ptr<habana_helpers::collective_kernel_info>>
       collective_kernels_info;
   std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;

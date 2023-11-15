@@ -605,7 +605,7 @@ inline void RecipeValueSpec::update_new_tensor(
     std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
     std::vector<int64_t> new_shape,
     std::optional<uint64_t> tensor_offset_opt,
-    std::optional<PtTensorInfoShared> tinfo_opt) {
+    std::optional<PtTensorInfoShared> tinfo_opt) const {
   PtTensorInfoShared tinfo;
   // tinfo_opt is for passing sif info instead of dtensor info
   if (tinfo_opt.has_value()) {
@@ -976,9 +976,6 @@ void RecipeValueSpec::update_patching_table(
   size_t aten_output_num = num_outputs + num_input_to_outduplicates +
       num_intermediate_to_outduplicates + num_output_to_outduplicates;
 
-  output_tensor_ids = std::vector<uint64_t>(aten_output_num);
-  output_tensor_alllow_permutations = std::vector<bool>(aten_output_num);
-
   if (is_shape_agnostic_graph) {
     TORCH_CHECK(
         aten_output_num == output_shapes.size(),
@@ -1218,12 +1215,6 @@ void RecipeValueSpec::update_patching_table(
         dtinfos_patched_count,
         ", mismatch with num_tinfos : ",
         num_tinfos);
-
-    PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] output_tensor_ids size : ",
-        output_tensor_ids.size(),
-        " output_tensor_alllow_permutations size : ",
-        output_tensor_alllow_permutations.size());
   }
 
   // Patch non-persistent info for shape agnostic flow
@@ -1307,7 +1298,7 @@ void RecipeValueSpec::populate_syn_tensor_ids() {
 
 void RecipeValueSpec::patch_launch_info(
     std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec,
-    std::vector<size_t>& external_tensor_info_indexes) {
+    std::vector<size_t>& external_tensor_info_indexes) const {
   TORCH_CHECK(
       (num_tensors != 0 && tensor_ids != nullptr && tensor_names != nullptr),
       "syn tensor ids are not populated");
@@ -1389,7 +1380,7 @@ void RecipeValueSpec::patch_launch_info(
 void RecipeValueSpec::MaybePrintDebugInfo(
     const at::ArrayRef<torch::jit::IValue>& input_refs,
     const std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
-    const VecOfIValPtrSh& aten_outputs) {
+    const VecOfIValPtrSh& aten_outputs) const {
   PT_BRIDGE_BEGIN;
   if (hl_logger::logLevelAtLeast(
           HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_DEBUG)) {

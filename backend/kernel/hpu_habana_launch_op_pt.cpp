@@ -3221,7 +3221,7 @@ void RecipeValueSpec::create_outdup(
     std::unordered_map<size_t, IValPtrShared>& parent_ivpsh_map,
     std::string map_name,
     VecOfIValPtrSh& aten_outputs,
-    bool is_shape_agnostic_graph) {
+    bool is_shape_agnostic_graph) const {
   // The aten_output_num is the total number of outputs
   size_t aten_output_num = num_outputs + num_input_to_outduplicates +
       num_intermediate_to_outduplicates + num_output_to_outduplicates;
