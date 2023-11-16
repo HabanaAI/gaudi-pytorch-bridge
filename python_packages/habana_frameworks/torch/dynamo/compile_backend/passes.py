@@ -34,6 +34,12 @@ from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 
 logger = get_compile_backend_logger()
 
+def _is_cpu_scalar_or_symbolic_scalar(node: torch.fx.Node) -> bool:
+    if node.type in [int, float]:
+        assert node.meta["output_device"] == torch.device('cpu')
+        return True
+    else:
+        return False
 
 def _is_legacy_pt():
     if Version(Version(torch.__version__).base_version) < Version("2.1"):
@@ -758,6 +764,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
                 if (
                     isinstance(arg, torch.fx.Node)
                     and arg.meta["output_device"].type != "hpu"
+                    and not _is_cpu_scalar_or_symbolic_scalar(arg)
                 ):
                     nodes_to_fix_list.append(node)
                     break
@@ -851,6 +858,9 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                     # If you got into this assert, we might need to rewrite this part so we cluster only
                     # these OPs that also have all inputs on HPU. Or debug why this OP have mixed device
                     # tensors, that could be the original issue here.
+                    if _is_cpu_scalar_or_symbolic_scalar(arg):
+                        logger.debug("Argument {} to node {} is a scalar or a symbolic scalar", arg, node)
+                        continue
                     assert arg.meta["output_device"].type == "hpu"
 
             placement = "hpu_cluster"
@@ -863,7 +873,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         # ...it happens that placeholder nodes might be reused between FWD and BWD.
         # They are always placed in eager though, so it should not be an issue.
         if "placement" in node.meta:
-            assert node.op == "placeholder"
+            logger.debug("Node {} of type {} has had it's placement already set" ,node, node.op)
+            assert node.meta["placement"] == placement
 
         node.meta["placement"] = placement
 
