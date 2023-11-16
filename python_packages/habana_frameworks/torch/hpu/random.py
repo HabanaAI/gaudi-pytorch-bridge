@@ -38,7 +38,7 @@ __all__ = [
 
 
 def get_rng_state(device: Union[int, str, torch.device] = "hpu") -> Tensor:
-    device_index = _get_device_index(device)
+    device_index = _get_device_index(device, optional=True)
     if device_index != 0:
         raise RuntimeError("hpu get_rng_state supports only device 0")
     return _default_generator().get_state()
@@ -47,7 +47,7 @@ def get_rng_state(device: Union[int, str, torch.device] = "hpu") -> Tensor:
 def set_rng_state(
     new_state: torch.Tensor, device: Union[int, str, torch.device] = "hpu"
 ) -> None:
-    device_index = _get_device_index(device)
+    device_index = _get_device_index(device, optional=True)
     if device_index != 0:
         raise RuntimeError("hpu set_rng_state supports only device 0")
     _default_generator().set_state(new_state)
