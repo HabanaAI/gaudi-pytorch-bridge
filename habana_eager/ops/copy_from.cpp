@@ -275,7 +275,7 @@ void Pipeline_Or_Direct_Copy(
 
     Register_Copy_In_Pipeline(src_backend, dst_backend, non_blocking);
   } else {
-    SingleTonEagerContext::getInstance().JoinPendingLoweringThread();
+    habana::eager::JoinPendingPipelineThreads();
     Execute_Copy(src, dst, non_blocking);
   }
 }
