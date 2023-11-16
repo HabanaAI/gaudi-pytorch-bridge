@@ -955,11 +955,6 @@ class LazyOp {
       const at::Tensor& self,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> info_to_lazy_backend =
           nullptr) {
-    auto hl_self = GetHbLazyTensor(self, true, !m_collective_op);
-    updateDstDependencies(self);
-    const auto& node = create_node();
-    hl_self.IrSetNode(node);
-
     std::vector<int64_t> out_shape;
     if (m_output_meta_fn) {
       out_shape = m_output_meta_fn(get_inputs())[0].shape;
@@ -969,9 +964,40 @@ class LazyOp {
       out_shape = m_out_shapes[0];
     }
 
-    if (self.sizes() != out_shape || m_shape_was_changed) {
+    const bool need_resize = self.sizes() != out_shape || m_shape_was_changed;
+
+    if (need_resize) {
+      // SyncAccThreadPool to before resize an intermediate tensor
+      if (!self.storage().data_ptr())
+        HbLazyTensor::StepMarker({});
+    }
+
+    auto hl_self = GetHbLazyTensor(self, true, !m_collective_op);
+
+    if (need_resize) {
+      // Handle View Input for TensorResize
+      if (!hl_self.isStorageAttached()) {
+        auto& stride_params_opt = hl_self.getDataPtr()->stride_params;
+        if (stride_params_opt.has_value()) {
+          if (self.device().type() == c10::DeviceType::HPU) {
+            flush_op();
+            // Trigger point execution
+            PT_IRGRAPH_DEBUG("step marker due to view tensor resize");
+            HbLazyTensor::StepMarker({});
+          }
+          auto base = HbLazyTensorViews::get_recent_base_tensor(
+              stride_params_opt.value().base);
+          TORCH_CHECK(base.storage(), "base tensor should have valid storage");
+          auto base_internal_tensor = GetHbLazyTensor(base).CurrentTensorData();
+          hl_self.SetTensorData(*base_internal_tensor);
+        } else {
+          TORCH_CHECK(
+              0, "Neither storage attached to input tensor, not its view.")
+        }
+      }
       auto impl = hl_self.getAttachedTensorImpl();
       THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
+      hl_self.ClearStrideParams();
       self.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
       if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
           GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH) &&
@@ -979,6 +1005,10 @@ class LazyOp {
         info_to_lazy_backend->set_out_shapes({out_shape});
       }
     }
+
+    updateDstDependencies(self);
+    const auto& node = create_node();
+    hl_self.IrSetNode(node);
 
     auto context = get_device_lazy_execution_context();
     context->MarkTensorStatus(

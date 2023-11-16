@@ -312,6 +312,7 @@ class HbLazyTensor {
   void SetCollective();
   void ClearCollective();
   bool IsCollective() const;
+  void ClearStrideParams();
   const c10::optional<at::Tensor>& GetCPUTensorData() const;
   void AssignIrValue(ir::Value ir_value) const;
   c10::ScalarType dtype() const;

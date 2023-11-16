@@ -440,6 +440,10 @@ bool HbLazyTensor::IsCollective() const {
   return data()->collective;
 }
 
+void HbLazyTensor::ClearStrideParams() {
+  data()->stride_params.reset();
+}
+
 const c10::optional<at::Tensor>& HbLazyTensor::GetCPUTensorData() const {
   const auto& tens = data()->cpu_tensor_data;
   if (tens != c10::nullopt) {
