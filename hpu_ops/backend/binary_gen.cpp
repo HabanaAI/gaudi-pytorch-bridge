@@ -188,23 +188,62 @@ void BinaryWithAlpha::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const at::Tensor& self = stack_tensor(stack, SELF_INDEX);
+  auto other = stack.at(OTHER_INDEX);
   at::ScalarType result_type;
   size_t size = 0;
+
   auto params = FillParams(stack, size);
   const auto outputShape = IsInplace() ? BinaryOutputShapeInplace(stack)[0]
                                        : BinaryOutputShape(stack)[0];
-  if (stack.at(1).isTensor()) {
-    const at::Tensor& other = stack_tensor(stack, OTHER_INDEX);
-    result_type = at::result_type(self, other);
+
+  bool isAlphaIntegralType{false};
+  if (other.isTensor()) {
+    isAlphaIntegralType =
+        c10::isIntegralType(other.toTensor().scalar_type(), true) &&
+        c10::isIntegralType(self.scalar_type(), true);
+
+    const at::Tensor& other_tensor = stack_tensor(stack, OTHER_INDEX);
+    result_type = at::result_type(self, other_tensor);
   } else {
+    isAlphaIntegralType = c10::isIntegralType(other.toScalar().type(), true) &&
+        c10::isIntegralType(self.scalar_type(), true);
+
     const auto& other_scalar = stack.at(OTHER_INDEX).toScalar();
     result_type = at::result_type(self, other_scalar);
   }
 
+  const auto& filledParams =
+      std::reinterpret_pointer_cast<ns_BinaryWithAlphaKernel::Params>(params);
+  const auto& alpha = filledParams->alpha;
+  const auto& mode = filledParams->mode;
+
+  std::vector<synTensor> inputs{syn_in(SELF_INDEX), syn_in(OTHER_INDEX)};
+  std::string guid{guid_};
+
+  if (GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) {
+    if ((isAlphaIntegralType ? alpha.i : alpha.f) == 1) {
+      std::string opName;
+      switch (mode) {
+        case BINARY_WITH_ALPHA_MODE_ADD:
+          opName = "add";
+          break;
+        case BINARY_WITH_ALPHA_MODE_RSUB:
+          // RSUB uses SUB kernel, but with reversed inputs
+          inputs = {syn_in(OTHER_INDEX), syn_in(SELF_INDEX)};
+          [[fallthrough]];
+        case BINARY_WITH_ALPHA_MODE_SUB:
+          opName = "sub";
+          break;
+        default:
+          opName = {};
+      }
+      guid = get_guid_with_precision(opName, result_type);
+    }
+  }
   auto op = BuildOp(
       graph,
-      guid_,
-      {syn_in(SELF_INDEX), syn_in(OTHER_INDEX)},
+      std::move(guid),
+      std::move(inputs),
       {{outputShape, result_type, 0}},
       params.get(),
       size);
