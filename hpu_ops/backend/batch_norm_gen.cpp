@@ -14,6 +14,7 @@
 #include <perf_lib_layer_params.h>
 #include "backend/helpers/runtime_config.h"
 #include "generated/backend/_native_batch_norm_legit.h"
+#include "generated/backend/_native_batch_norm_legit_no_training.h"
 #include "generated/backend/native_batch_norm.h"
 #include "generated/backend/native_batch_norm_backward.h"
 
@@ -38,6 +39,20 @@ enum InputIdx {
 enum OutputIdx { OUTPUT_IDX = 0, SAVED_MEAN_IDX = 1, SAVED_ISTD_IDX = 2 };
 
 }; // namespace BNFwd
+
+namespace BNNoTrainingFwd {
+
+enum InputIdx {
+  INPUT_IDX = 0,
+  WEIGHT_IDX = 1,
+  BIAS_IDX = 2,
+  RUNNING_MEAN_IDX = 3,
+  RUNNING_VAR_IDX = 4,
+  MOMENTUM_IDX = 5,
+  EPSILON_IDX = 6
+};
+
+};
 
 namespace BNNoStatsFwd {
 
@@ -73,6 +88,28 @@ enum OutputIdx { INPUT_GRAD_IDX = 0, WEIGHT_GRAD_IDX = 1, BIAS_GRAD_IDX = 2 };
 inline bool is_training(bool pt_training_flag, bool is_running_mean_defined) {
   bool inference_mode = (not pt_training_flag) and is_running_mean_defined;
   return habana_helpers::IsInferenceMode() ? false : not inference_mode;
+}
+
+template <typename T>
+std::tuple<std::shared_ptr<void>, size_t> fillBatchNormParams(
+    float momentum,
+    float epsilon) {
+  size_t size;
+  PARAMS_STUB(T);
+  params->momentum = momentum;
+  params->epsilon = epsilon;
+  params->threshold.f = 0.0;
+  if constexpr (std::is_same_v<T, ns_BatchNormKernel::ParamsV2>) {
+    params->isTraining = true;
+  }
+
+  return std::make_tuple(params, size);
+}
+
+auto fillBatchNormParams(bool isTraining, float momentum, float epsilon) {
+  return (isTraining)
+      ? fillBatchNormParams<ns_BatchNormKernel::ParamsV2>(momentum, epsilon)
+      : fillBatchNormParams<ns_BatchNormKernel::Params>(momentum, epsilon);
 }
 
 c10::IntArrayRef get_rm_size(const at::Tensor& input) {
@@ -486,44 +523,44 @@ std::shared_ptr<void> FillBatchNormFwdParams(
     const at::Stack& stack,
     size_t& size) {
   using namespace BNFwd;
+  float momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
+  float epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
   bool is_training_ = is_training(
       stack.at(IS_TRAINING_IDX).toBool(),
       stack.at(RUNNING_MEAN_IDX).isTensor());
-  if (is_training_) {
-    PARAMS_STUB(ns_BatchNormKernel::ParamsV2);
-    params->momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
-    params->epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
-    params->threshold.f = 0.0;
-    params->isTraining = is_training_;
-    return params;
-  } else {
-    PARAMS_STUB(ns_BatchNormKernel::Params);
-    params->momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
-    params->epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
-    params->threshold.f = 0.0;
-    return params;
-  }
+  auto [params, paramsSize] =
+      fillBatchNormParams(is_training_, momentum, epsilon);
+
+  size = paramsSize;
+  return params;
+}
+
+std::shared_ptr<void> FillBatchNormNoTrainingFwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  using namespace BNNoTrainingFwd;
+  float momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
+  float epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
+  bool is_training_ = is_training(false, stack.at(RUNNING_MEAN_IDX).isTensor());
+  auto [params, paramsSize] =
+      fillBatchNormParams(is_training_, momentum, epsilon);
+
+  size = paramsSize;
+  return params;
 }
 
 std::shared_ptr<void> FillBatchNormNoStatsFwdParams(
     const at::Stack& stack,
     size_t& size) {
   using namespace BNNoStatsFwd;
+  float momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
+  float epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
   bool is_training_ = is_training(stack.at(IS_TRAINING_IDX).toBool(), false);
-  if (is_training_) {
-    PARAMS_STUB(ns_BatchNormKernel::ParamsV2);
-    params->momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
-    params->epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
-    params->threshold.f = 0.0;
-    params->isTraining = is_training_;
-    return params;
-  } else {
-    PARAMS_STUB(ns_BatchNormKernel::Params);
-    params->momentum = static_cast<float>(stack.at(MOMENTUM_IDX).toDouble());
-    params->epsilon = static_cast<float>(stack.at(EPSILON_IDX).toDouble());
-    params->threshold.f = 0.0;
-    return params;
-  }
+  auto [params, paramsSize] =
+      fillBatchNormParams(is_training_, momentum, epsilon);
+
+  size = paramsSize;
+  return params;
 }
 
 std::shared_ptr<void> FillBatchNormBwdParams(
@@ -559,6 +596,49 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
            : handle_batch_norm_inference_fwd)(
           *this,
           graph,
+          input,
+          weightOpt,
+          biasOpt,
+          runningMeanOpt,
+          runningVarOpt,
+          params,
+          paramsSize,
+          outShapes);
+
+  reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0]);
+
+  syn_out(0) = std::move(bnOut[0]);
+  syn_out(1) = std::move(bnOut[1]);
+  syn_out(2) = std::move(bnOut[2]);
+  if (is_batch_norm_functional(*this)) {
+    syn_out(3) = std::move(bnOut[3]);
+    syn_out(4) = std::move(bnOut[4]);
+  }
+}
+
+void BatchNormNoTrainingOpBackend::AddNode(
+    sh::graph& graph,
+    const at::Stack& stack) {
+  StackGetter stackGetter(stack, "BatchNormNoTrainingOpBackend::AddNode");
+  auto input = getNextInput<TensorsPair>(stackGetter);
+  auto weightOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto runningMeanOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto runningVarOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  getNextInput<double>(stackGetter); // momentum
+  getNextInput<double>(stackGetter); // epsilon
+
+  size_t paramsSize; // Will be initialized by below call
+  const auto params = FillBatchNormNoTrainingFwdParams(stack, paramsSize);
+  const auto outShapes = BatchNormFwdOutputShape(stack);
+
+  std::vector<sh::tensor> bnOut =
+      (is_training(false, runningMeanOpt.has_value())
+           ? handle_batch_norm_training_fwd
+           : handle_batch_norm_inference_fwd)(
+          *this,
+          graph,
+          stack,
           input,
           weightOpt,
           biasOpt,
