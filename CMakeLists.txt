@@ -48,6 +48,10 @@ find_package(Torch REQUIRED)
 include(pt_ver)
 set_up_pt_ver_mechanism()
 
+set(CMAKE_CONFIGURABLE_FILE_CONTENT "${TORCH_VERSION}")
+configure_file("${CMAKE_ROOT}/Modules/CMakeConfigurableFile.in" "${PROJECT_SOURCE_DIR}/python_packages/habana_frameworks/torch/required_version.txt" @ONLY)
+unset(CMAKE_CONFIGURABLE_FILE_CONTENT)
+
 include(Targets)
 
 if(SANITIZER)
