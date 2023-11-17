@@ -522,7 +522,7 @@ def check_ops_executed_in_jit_ir(op_names):
                 before_jit_ir = "JIT IR graph" not in line
             else:
                 for op_name in op_names:
-                    if f"hpu::{op_name}" in line:
+                    if f"::{op_name}" in line:
                         op_names.remove(op_name)
                         break
                 if not op_names:

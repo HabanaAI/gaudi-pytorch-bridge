@@ -653,8 +653,8 @@ add.Tensor:
   custom_fill_params: FillBinaryAddParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int, Long]
-    Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   op_backend: BinaryWithAlpha
   out_ids: [0]
@@ -668,8 +668,8 @@ add.Scalar:
   custom_fill_params: FillBinaryAddParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int, Long]
-    Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   op_backend: BinaryWithAlpha
@@ -682,8 +682,8 @@ add.Scalar:
 add_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int, Long]
-    Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   override_fn: add_scalar_hpu_lazy_
   acc_thread: true
   promote_to_common_type: [self, other]
@@ -691,8 +691,8 @@ add_.Scalar:
 add_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int, Long]
-    Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   override_fn: add_tensor_hpu_lazy_
   acc_thread: true
   promote_to_common_type: [self, other]
@@ -702,8 +702,8 @@ add.out:
   custom_fill_params: FillBinaryAddParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int, Long]
-    Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
@@ -713,8 +713,8 @@ add.Scalar_out:
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int, Long]
-    Gaudi2: [BFloat16, Float, Short, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Short, Int, Half, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   op_backend: BinaryWithAlpha
@@ -4545,8 +4545,8 @@ mse_loss_backward.grad_input:
 mul.Tensor:
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Short, Int]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   out_ids: [0]
   broadcast: true
@@ -4555,8 +4555,8 @@ mul.Tensor:
 mul.Scalar:
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   out_ids: [0]
   scalar_ids: [1]
@@ -4566,8 +4566,8 @@ mul.Scalar_out:
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   promote_to_common_type: [self, other]
   scalar_ids: [1]
@@ -4575,8 +4575,8 @@ mul.Scalar_out:
 mul_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   inplace_ids: [0]
   promote_to_common_type: [self, other]
@@ -4584,8 +4584,8 @@ mul_.Tensor:
 mul_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Int, Short]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   inplace_ids: [0]
   scalar_ids: [1]
@@ -4595,8 +4595,8 @@ mul.out:
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Byte, Char, Float, Int, Short, Long]
-    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Long]
-    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Long]
+    Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   promote_to_common_type: [self, other]
 
@@ -5910,8 +5910,8 @@ rsub.Tensor:
   broadcast: true
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, other]
   guid: binary_with_alpha_fwd
   custom_fill_params: FillBinaryRSubParams
@@ -5923,8 +5923,8 @@ rsub.Scalar:
   custom_fill_params: FillBinaryRSubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, other]
   guid: binary_with_alpha_fwd
   out_ids: [0]
@@ -6706,8 +6706,8 @@ sub.Tensor:
   custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   out_ids: [0]
   op_backend: BinaryWithAlpha
@@ -6719,8 +6719,8 @@ sub.Scalar:
   custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   out_ids: [0]
@@ -6732,8 +6732,8 @@ sub_.Tensor:
   custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   inplace_ids: [0]
   op_backend: BinaryWithAlpha
@@ -6745,8 +6745,8 @@ sub_.Scalar:
   custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   inplace_ids: [0]
@@ -6758,8 +6758,8 @@ sub.Scalar_out:
   custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   op_backend: BinaryWithAlpha
@@ -6770,8 +6770,8 @@ sub.out:
   custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
