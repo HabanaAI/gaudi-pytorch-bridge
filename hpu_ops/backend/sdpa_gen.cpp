@@ -152,6 +152,7 @@ void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   if (is_causal) {
     params.is_causal = true;
   }
+  params.is_inference = false;
   std::string guid = get_guid_with_precision("sdpa_fwd", q.pt_t.scalar_type());
   auto out_shapes = SDPAFwdOutputShape(stack);
 
@@ -198,6 +199,7 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   ns_Sdpa::Params params{};
   params.scale = scale;
   params.dropout.ratio = p;
+  params.is_inference = false;
 
   std::string guid = get_guid_with_precision("sdpa_bwd", q.pt_t.scalar_type());
   auto out_shapes = SDPABwdOutputShape(stack);
@@ -314,6 +316,7 @@ void SDPARecompFwd::AddNode(
   if (is_causal) {
     params.is_causal = true;
   }
+  params.is_inference = !requires_backward;
   std::string guid =
       get_guid_with_precision("sdpa_recomp_fwd", q.pt_t.scalar_type());
   auto out_shapes = SDPARecompFwdOutputShape(stack);
@@ -374,6 +377,7 @@ void SDPARecompBwd::AddNode(
   if (is_causal) {
     params.is_causal = true;
   }
+  params.is_inference = false;
 
   std::string guid =
       get_guid_with_precision("sdpa_recomp_bwd", q.pt_t.scalar_type());
