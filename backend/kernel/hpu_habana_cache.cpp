@@ -709,7 +709,7 @@ void RecipeValueSpec::update_patching_table(
       }
       std::sort(sif_tidx_vec.begin(), sif_tidx_vec.end());
       for (auto tensor_idx : sif_tidx_vec) {
-        auto& ti = sif_tidx_to_tinfo_map[tensor_idx];
+        auto& ti = sif_tidx_to_tinfo_map.at(tensor_idx);
         // for (auto& tensors : sif_tidx_to_tinfo_map) {
         // auto tensor_idx = tensors.first;
         // auto& ti = tensors.second;
