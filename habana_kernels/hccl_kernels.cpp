@@ -610,7 +610,12 @@ void HcclAllToAllOutOperator::AllocateAndAddSynapseNode(
 
   if (p_context_->pt_inputs_.size() == 0)
     p_context_->pt_inputs_.emplace_back(inputs[0].toTensor());
-  AllocateSynapseInplaceOutput(graph, output_metadata.at(0).external);
+  p_context_->syn_outputs_.emplace_back(
+      habana_helpers::duplicate_tensor_in_memory_section(
+          p_context_->syn_inputs_.at(1),
+          graph,
+          output_metadata.at(0).external));
+  p_context_->pt_outputs_.emplace_back(outputTensor);
 }
 
 void HcclAllToAllOutOperator::Serialize(std::ostream& os) const {
