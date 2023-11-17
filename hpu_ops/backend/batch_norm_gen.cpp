@@ -237,6 +237,11 @@ bool is_batch_norm_functional(const OpBackend& op) {
       std::string::npos;
 }
 
+namespace {
+template <typename... Args>
+inline void unused_variables(const Args&...){};
+}
+
 std::vector<sh::tensor> handle_batch_norm_training_fwd(
     OpBackend& op,
     sh::graph& graph,
@@ -264,6 +269,15 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
   auto [running_var, running_var_shape, running_var_storage_or_idx] =
       get_or_create_tensor(
           op, graph, running_var_opt, rm_size, get_running_var_def_value(op));
+
+  unused_variables(
+      input_4d_storage,
+      weight_shape,
+      weight_storage_or_idx,
+      bias_shape,
+      bias_storage_or_idx,
+      running_mean_shape,
+      running_var_shape);
 
   auto input_dim = input.pt_t.sizes().size();
   bool is_functional = is_batch_norm_functional(op);
@@ -336,6 +350,17 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
   const auto [running_var, running_var_shape, running_var_storage_or_idx] =
       get_or_create_tensor(
           op, graph, running_var_opt, rm_size, get_running_var_def_value(op));
+
+  unused_variables(
+      input_4d_storage,
+      weight_size,
+      weight_storage_or_idx,
+      bias_shape,
+      bias_storage_or_idx,
+      running_mean_shape,
+      running_mean_storage_or_idx,
+      running_var_shape,
+      running_var_storage_or_idx);
 
   auto input_dim = input.pt_t.sizes().size();
 
@@ -627,6 +652,13 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto [weight, weight_shape, weight_storage_or_idx] =
       get_or_create_tensor(*this, graph, weight_opt, rm_size, 1);
 
+  unused_variables(
+      input_4d_storage,
+      grad_out_4d_shape,
+      grad_out_4d_storage,
+      weight_shape,
+      weight_storage_or_idx);
+
   synTensor saved_mean, saved_istd;
   std::optional<sh::tensor> saved_mean_storage, saved_istd_storage;
   if (!is_training(training, running_mean_opt.has_value())) {
@@ -634,6 +666,11 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
         get_or_create_tensor(*this, graph, running_mean_opt, rm_size, 0);
     const auto [running_var, running_var_shape, running_var_storage_or_idx] =
         get_or_create_tensor(*this, graph, running_var_opt, rm_size, 1);
+
+    unused_variables(
+        running_mean_shape,
+        running_mean_storage_or_idx,
+        running_var_storage_or_idx);
 
     // TODO calculate saved_mean, saved_istd
     saved_mean = running_mean;
