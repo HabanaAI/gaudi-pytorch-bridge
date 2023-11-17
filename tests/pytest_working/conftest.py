@@ -20,6 +20,7 @@ import os
 
 # Can't import torch module because PT_HPU_LAZY_MODE is set in pytest_configure. If any function needs torch module it must be imported locally
 
+SKIP_TESTS_LIST='pytest_working/skip_tests_list.txt'
 
 @pytest.fixture(autouse=True)
 def reset_seed(seed=0xC001A1):
@@ -83,3 +84,16 @@ def pytest_ignore_collect(collection_path, config):
 def pytest_unconfigure(config):
     os.environ.clear()
     os.environ.update(config.stash[backup_env])
+
+def pytest_collection_modifyitems(config, items):
+    with open(f"{config.rootdir}/{SKIP_TESTS_LIST}", 'r') as f:
+        skip_list = [l.strip() for l in f]
+
+    if len(skip_list) == 0:
+        print("Tests skip list is empty.")
+        return
+
+    for item in items:
+        skip_marker = pytest.mark.skip("Test present in skip_tests_list.txt")
+        if item.nodeid in skip_list:
+            item.add_marker(skip_marker)
