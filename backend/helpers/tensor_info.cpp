@@ -78,7 +78,7 @@ void PtTensorInfo::populate_tinfo(
   hb_internal_lf_ = tmeta->get_tensor_layout();
   PT_BACKEND_DEBUG_TENSOR(
       pt_tensor,
-      "Saving the layout and permutation to the cache for tensor: {:d}",
+      "Saving the layout and permutation to the cache for tensor: {:d}"
       " permutation: {:s}",
       tensor_id,
       habana_helpers::FormatTokens::Permutations);
