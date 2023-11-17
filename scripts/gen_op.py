@@ -1871,6 +1871,7 @@ non_mandatory_ops_whitelist = [
     "convolution_backward_overrideable",
     "is_pinned",
     "native_layer_norm",
+    "native_group_norm",
     "repeat",
     "linear",
 ]
@@ -2702,6 +2703,9 @@ lazy_frontend_blacklist = [
     # convolution_overrideable and convolution_backward_overrideable
     "convolution",
     "convolution_backward",
+    # native_group_norm should be registered only for eager and compile mode,
+    # in lazy pytorch implementation is used which uses batch_norm kernel
+    "native_group_norm"
 ]
 
 

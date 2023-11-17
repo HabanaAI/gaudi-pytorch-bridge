@@ -3126,12 +3126,22 @@ grid_sampler_2d:
   out_ids: [0]
   op_validator: check-node-with-shared-layer
 
+native_group_norm:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
+  guid: native_group_norm_fwd
+  custom_fill_params: FillNativeGroupNormParams
+  output_meta: GroupNormFwdMeta
+  out_ids: [0, 0, 0]
+
 native_group_norm_backward:
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
-  output_meta: GroupNormMeta
+  output_meta: GroupNormBwdMeta
   op_backend: NativeGroupNormBwdHabanaOperator
   synapse_layouts:
   - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]

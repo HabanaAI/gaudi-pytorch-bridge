@@ -4261,64 +4261,6 @@ Tensor batch_norm_backward_elemt_lazy(
   return std::tie(out1, out2);
 }
 
-std::tuple<Tensor, Tensor, Tensor> native_group_norm_hpu_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& weight_opt,
-    const c10::optional<at::Tensor>& bias_opt,
-    [[maybe_unused]] c10::SymInt N,
-    [[maybe_unused]] c10::SymInt C,
-    [[maybe_unused]] c10::SymInt HxW,
-    int64_t num_groups,
-    double eps) {
-  auto normalized_shape_ = input.sizes();
-  auto weight = weight_opt.value_or(Tensor());
-  auto sizes_vec = input.sizes().vec();
-  // check whether we can use a perf optimized TPC exec path
-  auto use_tpc_affine_path =
-      LayerNormOperator::is_tpc_affine_path(input, normalized_shape_, weight);
-  std::vector<int64_t> normalized_shape_vec = normalized_shape_.vec();
-  // check whether to use LN affine path
-  if (use_tpc_affine_path) { // if optimized path, then we can't have
-                             // N/mini-batch-size for generating weights/biases
-    sizes_vec.erase(sizes_vec.begin());
-    // NOTE: Add Hack to indicate to lowering kernel that
-    // elementwise_affine=False Without this we have to change the schema and
-    // add a new variable to indicate the path. If, in future, TPC moves fully
-    // to use optimized path, we can remove this.
-    if (normalized_shape_vec.size() == (size_t)input.dim() - 1) {
-      normalized_shape_vec.insert(normalized_shape_vec.begin(), 1);
-    }
-  }
-  if (!weight.defined()) {
-    auto options = torch::TensorOptions()
-                       .dtype(c10::ScalarType::Float)
-                       .device(torch::kHPU)
-                       .requires_grad(false);
-    weight = torch::ones(normalized_shape_vec, options);
-  }
-
-  auto bias = bias_opt.value_or(Tensor());
-  if (!bias.defined()) {
-    auto options = torch::TensorOptions()
-                       .dtype(c10::ScalarType::Float)
-                       .device(torch::kHPU)
-                       .requires_grad(false);
-    bias = torch::zeros(normalized_shape_vec, options);
-  }
-  std::vector<int64_t> normalized_shape = input.sizes().vec();
-  normalized_shape.erase(normalized_shape.begin());
-
-  auto sizes = GroupNormForwardOperator::getOutputSizes(
-      input, normalized_shape, num_groups);
-  using T = std::tuple<Tensor, Tensor, Tensor>;
-  LazyOp<T> k(
-      "hpu::group_norm",
-      {input, weight, bias, normalized_shape, num_groups, eps},
-      {sizes} // out_shapes
-  );
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(group_norm, k)
-}
-
 #if 1 // BatchNorm based implementation
 std::tuple<at::Tensor, at::Tensor, at::Tensor>
 native_group_norm_backward_hpu_lazy(
@@ -4381,10 +4323,7 @@ native_group_norm_backward_hpu_lazy(
   dimarr[0] = 0;
   c10::IntArrayRef reduce_dims(dimarr, input_.dim() - 1);
 
-  auto grad_beta = at::sum(grad_out, reduce_dims, false);
-
   auto t1 = at::mul(grad_out, bn_fwd_out);
-  auto grad_gamma = at::sum(t1, reduce_dims, false);
 
   int64_t rszarr1[input_.dim()];
   for (int i = 0; i < input_.dim(); i++)
@@ -4399,6 +4338,8 @@ native_group_norm_backward_hpu_lazy(
                        .requires_grad(false);
     weight = torch::ones(wt_view_shape.vec(), options);
   }
+  auto grad_beta = at::sum(grad_out, reduce_dims, false).to(weight.dtype());
+  auto grad_gamma = at::sum(t1, reduce_dims, false).to(weight.dtype());
 
   auto weight_view = at::reshape(weight, wt_view_shape);
   auto t2 = at::mul(grad_out, weight_view);

@@ -13,23 +13,7 @@
 
 #include "util.h"
 
-class BatchNormHpuOpTest : public HpuOpTestUtil {
-  template <typename... Ts, std::size_t... Is>
-  void compare_output_impl(
-      const std::tuple<Ts...>& expected,
-      const std::tuple<Ts...>& result,
-      std::index_sequence<Is...>) {
-    (Compare(std::get<Is>(expected), std::get<Is>(result)), ...);
-  }
-
- public:
-  template <typename... Ts>
-  void CompareOutputs(
-      const std::tuple<Ts...>& expected,
-      const std::tuple<Ts...>& result) {
-    compare_output_impl(expected, result, std::index_sequence_for<Ts...>{});
-  }
-};
+class BatchNormHpuOpTest : public HpuOpTestUtil {};
 
 class NativeBatchNormLegitNoStatsHpuOpTest
     : public BatchNormHpuOpTest,
@@ -63,7 +47,7 @@ class NativeBatchNormLegitNoStatsHpuOpTest
         momentum,
         epsilon);
 
-    CompareOutputs(expected, result);
+    Compare(expected, result);
   }
 };
 

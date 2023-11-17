@@ -743,15 +743,6 @@ at::Tensor& fp8_permute_lazy(
     at::IntArrayRef dims,
     at::Tensor& out);
 at::Tensor fp8_reshape_lazy(const at::Tensor& input, at::IntArrayRef shape);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> native_group_norm_hpu_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& weight,
-    const c10::optional<at::Tensor>& bias,
-    c10::SymInt N,
-    c10::SymInt C,
-    c10::SymInt HxW,
-    int64_t group,
-    double eps);
 std::tuple<at::Tensor, at::Tensor, at::Tensor>
 native_group_norm_backward_hpu_lazy(
     const at::Tensor& grad_out,

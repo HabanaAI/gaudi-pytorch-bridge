@@ -881,6 +881,7 @@ aten::bmm.out
 aten::bmm
 aten::abs_
 aten::native_group_norm_backward
+aten::native_group_norm
 hpu::rotary_pos_embedding
 aten::bitwise_or_.Tensor
 aten::hypot.out
