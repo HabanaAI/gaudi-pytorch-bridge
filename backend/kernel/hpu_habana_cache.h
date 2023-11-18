@@ -226,7 +226,7 @@ struct RecipeValueSpec {
   RecipeValueSpec(
       std::shared_ptr<synapse_helpers::graph::recipe_handle> r = nullptr,
       std::shared_ptr<torch::jit::Graph> g = nullptr)
-      : recipe(r), dtensorinfos(nullptr), jit_graph_(g) {
+      : recipe(r), jit_graph_(g) {
     count++;
     id = count;
   }
@@ -239,8 +239,7 @@ struct RecipeValueSpec {
 
   void SelfCheck() const {
     if (recipe != nullptr || !collective_kernels_info.empty()) {
-      TORCH_CHECK(dtensorinfos != nullptr);
-      TORCH_CHECK(dtensorinfos->size() == num_tinfos);
+      TORCH_CHECK(dtensorinfos.size() == num_tinfos);
     }
   }
 
@@ -407,14 +406,14 @@ struct RecipeValueSpec {
     for (const auto& kernel_info : collective_kernels_info) {
       size += kernel_info->Size();
     }
-    for (const auto& tensor_info : *dtensorinfos) {
+    for (const auto& tensor_info : dtensorinfos) {
       size += tensor_info->Size();
     }
     return size;
   }
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
-  std::shared_ptr<std::vector<PtTensorInfoShared>> dtensorinfos;
+  std::vector<PtTensorInfoShared> dtensorinfos;
   std::vector<std::shared_ptr<habana_helpers::collective_kernel_info>>
       collective_kernels_info;
   std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;

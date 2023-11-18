@@ -3216,7 +3216,7 @@ void RecipeValueSpec::create_outdup(
   // The aten_output_num is the total number of outputs
   size_t aten_output_num = num_outputs + num_input_to_outduplicates +
       num_intermediate_to_outduplicates + num_output_to_outduplicates;
-  PtTensorInfo& ti = *(dtensorinfos->at(ti_idx));
+  PtTensorInfo& ti = *(dtensorinfos.at(ti_idx));
   auto output_idx = ti.get_output_index();
   TORCH_CHECK(
       output_idx < aten_output_num,
@@ -3845,7 +3845,7 @@ void HabanaLaunchOpPT::run(
       // updated
       // SAG cache hit case - to avoid race condition with execute thread
       hpu_op_ntensorbytes_ = 0;
-      for (auto& ti : *rv.dtensorinfos) {
+      for (auto& ti : rv.dtensorinfos) {
         if (!ti->is_duplicate()) {
           hpu_op_ntensorbytes_ += ti->get_size();
         }

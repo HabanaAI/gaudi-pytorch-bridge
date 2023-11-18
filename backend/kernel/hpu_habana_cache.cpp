@@ -303,14 +303,12 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     << " #output_to_outduplicates       : " << v.num_output_to_outduplicates
     << '\n';
 
-  if (v.dtensorinfos) {
-    O << "dtensorinfos #" << v.dtensorinfos->size() << "::";
-    O << '\n';
-    size_t idx{0};
-    for (auto& a : *v.dtensorinfos) {
-      O << idx++ << " : ";
-      O << *a << '\n';
-    }
+  O << "dtensorinfos #" << v.dtensorinfos.size() << "::";
+  O << '\n';
+  size_t idx{0};
+  for (auto& a : v.dtensorinfos) {
+    O << idx++ << " : ";
+    O << *a << '\n';
   }
   if (!v.sif_tidx_to_tinfo_map.empty()) {
     O << "sif_tidx_to_tinfo_map #" << v.sif_tidx_to_tinfo_map.size() << "::";
@@ -406,10 +404,9 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
 
   int info_size = 0;
   deserialize(is, info_size);
-  dtensorinfos = std::make_shared<std::vector<PtTensorInfoShared>>();
-  dtensorinfos->reserve(info_size);
+  dtensorinfos.reserve(info_size);
   for (int i = 0; i < info_size; ++i) {
-    dtensorinfos->emplace_back(std::make_shared<PtTensorInfo>(is));
+    dtensorinfos.emplace_back(std::make_shared<PtTensorInfo>(is));
   }
 
   deserialize(is, workspace_size);
@@ -458,12 +455,12 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
     std::vector<int64_t> input_indices;
     deserialize(is, input_indices);
     kernel_info->input_tensor_infos =
-        indices_array_to_ptr_array(input_indices, *dtensorinfos);
+        indices_array_to_ptr_array(input_indices, dtensorinfos);
 
     std::vector<int64_t> output_indices;
     deserialize(is, output_indices);
     kernel_info->output_tensor_infos =
-        indices_array_to_ptr_array(output_indices, *dtensorinfos);
+        indices_array_to_ptr_array(output_indices, dtensorinfos);
 
     std::string guid;
     int device_id;
@@ -492,7 +489,7 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
 
     for (size_t idx = 0; idx < sif_tensor_indices.size(); ++idx) {
       sif_tidx_to_tinfo_map.insert(
-          {sif_tensor_indices[idx], dtensorinfos->at(idx)});
+          {sif_tensor_indices[idx], dtensorinfos.at(idx)});
     }
   }
 }
@@ -504,8 +501,8 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
     serialize(os, recipe->recipe_name_);
     serialize(os, recipe->graph_is_empty_);
   }
-  serialize(os, static_cast<int>(dtensorinfos.get()->size()));
-  for (PtTensorInfoShared& tInfo : *dtensorinfos) {
+  serialize(os, static_cast<int>(dtensorinfos.size()));
+  for (const PtTensorInfoShared& tInfo : dtensorinfos) {
     tInfo->Serialize(os);
   }
   serialize(os, workspace_size);
@@ -544,11 +541,11 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
   serialize(os, collective_kernels_info.size());
   for (const auto& collective_kernel : collective_kernels_info) {
     auto input_indices =
-        ptr_array_indices(collective_kernel->input_tensor_infos, *dtensorinfos);
+        ptr_array_indices(collective_kernel->input_tensor_infos, dtensorinfos);
     serialize(os, input_indices);
 
-    auto output_indices = ptr_array_indices(
-        collective_kernel->output_tensor_infos, *dtensorinfos);
+    auto output_indices =
+        ptr_array_indices(collective_kernel->output_tensor_infos, dtensorinfos);
     serialize(os, output_indices);
 
     serialize(os, collective_kernel->kernel->GetGuid());
@@ -562,7 +559,7 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
     for (auto const& ele : sif_tidx_to_tinfo_map) {
       tinfo_to_sif_tidx_map[ele.second] = ele.first;
     }
-    for (PtTensorInfoShared& tinfo : *dtensorinfos) {
+    for (const PtTensorInfoShared& tinfo : dtensorinfos) {
       sif_tensor_indices.push_back(tinfo_to_sif_tidx_map[tinfo]);
     }
     serialize(os, sif_tensor_indices);
@@ -627,7 +624,7 @@ inline void RecipeValueSpec::update_new_tensor(
   if (tinfo_opt.has_value()) {
     tinfo = tinfo_opt.value();
   } else {
-    tinfo = dtensorinfos->at(ridx);
+    tinfo = dtensorinfos.at(ridx);
   }
 
   auto orig_handle = tinfo->get_orig_syn_handle();
@@ -696,7 +693,7 @@ void RecipeValueSpec::update_patching_table(
     std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle,
     bool is_shape_agnostic_graph) {
   PT_BRIDGE_BEGIN;
-  PT_EAGER_DEBUG("[SHAPE AGNOSTIC] dtensorinfos size : ", dtensorinfos->size());
+  PT_EAGER_DEBUG("[SHAPE AGNOSTIC] dtensorinfos size : ", dtensorinfos.size());
   bool enable_fast_shape_inf =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE);
   if (dynamic_graph) {
@@ -744,8 +741,8 @@ void RecipeValueSpec::update_patching_table(
             *ti);
       }
     } else {
-      for (size_t i = 0; i < dtensorinfos->size(); ++i) {
-        auto& ti = *(dtensorinfos->at(i));
+      for (size_t i = 0; i < dtensorinfos.size(); ++i) {
+        auto& ti = *(dtensorinfos.at(i));
         auto tensor_id = ti.get_tensor_id();
         HABANA_ASSERT(m_actual_shapes.count(tensor_id));
         auto dims = m_actual_shapes.at(tensor_id).get_dims();
@@ -782,7 +779,7 @@ void RecipeValueSpec::update_patching_table(
 
       auto tmeta{habana::get_tensor_extra_meta(tensor)};
       if (false == tmeta->is_shape_tensor()) {
-        dtensorinfos->at(ridx)->patch_exact(
+        dtensorinfos.at(ridx)->patch_exact(
             input.toTensor(), is_shape_agnostic_graph);
         IValPtrShared ivpsh = std::make_shared<IVal>(input);
         inputIVpshMap.emplace(ridx, ivpsh);
@@ -800,12 +797,12 @@ void RecipeValueSpec::update_patching_table(
           dtinfos_patched_count++;
         }
       } else {
-        dtensorinfos->at(ridx)->set_host_ptr(tmeta->get_host_ptr());
+        dtensorinfos.at(ridx)->set_host_ptr(tmeta->get_host_ptr());
       }
       ridx++;
     } else if (input.isTensorList()) {
       for (const at::Tensor& t : input.toTensorList()) {
-        dtensorinfos->at(ridx)->patch_exact(t, is_shape_agnostic_graph);
+        dtensorinfos.at(ridx)->patch_exact(t, is_shape_agnostic_graph);
         IValPtrShared ivpsh = std::make_shared<IVal>(t);
         inputIVpshMap.emplace(ridx, ivpsh);
         if (is_shape_agnostic_graph) {
@@ -838,9 +835,9 @@ void RecipeValueSpec::update_patching_table(
         " num_induplicates : ",
         num_induplicates);
     for (; ridx < induplicates_index_end; ridx++) {
-      size_t parent_idx = dtensorinfos->at(ridx)->get_parent_index();
-      auto parent_ti = dtensorinfos->at(parent_idx);
-      dtensorinfos->at(ridx)->patch(*parent_ti, is_shape_agnostic_graph);
+      size_t parent_idx = dtensorinfos.at(ridx)->get_parent_index();
+      auto parent_ti = dtensorinfos.at(parent_idx);
+      dtensorinfos.at(ridx)->patch(*parent_ti, is_shape_agnostic_graph);
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache hit :: Input duplicate : parent idx ",
           parent_idx,
@@ -872,7 +869,7 @@ void RecipeValueSpec::update_patching_table(
           "[SHAPE AGNOSTIC] dma_inputs ridx : ",
           ridx,
           " shape patching not done!");
-      auto& ti = *(dtensorinfos->at(ridx));
+      auto& ti = *(dtensorinfos.at(ridx));
 
       auto dma_cb = ti.get_dma_cb();
       auto tshape{ti.get_shape()};
@@ -896,7 +893,7 @@ void RecipeValueSpec::update_patching_table(
 
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache hit :: DMA input : buffer ptr ",
-          dtensorinfos->at(ridx)->get_buffer());
+          dtensorinfos.at(ridx)->get_buffer());
     }
   }
 
@@ -919,7 +916,7 @@ void RecipeValueSpec::update_patching_table(
         "[SHAPE AGNOSTIC] intermediates ridx : ",
         ridx,
         " shape patching not done!");
-    PtTensorInfo& ti = *(dtensorinfos->at(ridx));
+    PtTensorInfo& ti = *(dtensorinfos.at(ridx));
     auto tshape{ti.get_shape()};
 
     if (ti.is_duplicate()) {
@@ -1010,7 +1007,7 @@ void RecipeValueSpec::update_patching_table(
       !allocated_outputs.has_value() ||
       (outputs_end - ridx == allocated_outputs->size()));
   for (; ridx < outputs_end; ridx++) {
-    auto output_idx = dtensorinfos->at(ridx)->get_output_index();
+    auto output_idx = dtensorinfos.at(ridx)->get_output_index();
     TORCH_CHECK(
         output_idx < aten_output_num,
         "output index ",
@@ -1022,7 +1019,7 @@ void RecipeValueSpec::update_patching_table(
           ridx, synapse_orig_to_new_handle, output_shapes.at(output_idx));
       dtinfos_patched_count++;
     }
-    PtTensorInfo& ti = *(dtensorinfos->at(ridx));
+    PtTensorInfo& ti = *(dtensorinfos.at(ridx));
     auto pt_output = create_or_use_output_tensor(ti);
     if (is_shape_agnostic_graph) {
       PT_BACKEND_DEBUG_TENSOR(
@@ -1064,8 +1061,8 @@ void RecipeValueSpec::update_patching_table(
           "[SHAPE AGNOSTIC] outduplicates ridx : ",
           ridx,
           " shape patching not done!");
-      size_t parent_idx = dtensorinfos->at(ridx)->get_parent_index();
-      dtensorinfos->at(ridx)->patch(*(dtensorinfos->at(parent_idx)));
+      size_t parent_idx = dtensorinfos.at(ridx)->get_parent_index();
+      dtensorinfos.at(ridx)->patch(*(dtensorinfos.at(parent_idx)));
     }
   }
 
@@ -1087,15 +1084,15 @@ void RecipeValueSpec::update_patching_table(
   if (num_input_to_outduplicates) {
     for (; ridx < input_to_outduplicates_end; ridx++) {
       if (is_shape_agnostic_graph) {
-        auto output_idx = dtensorinfos->at(ridx)->get_output_index();
+        auto output_idx = dtensorinfos.at(ridx)->get_output_index();
         TORCH_CHECK(
             output_idx < aten_output_num,
             "output index ",
             output_idx,
             " is greater than #outputs ",
             aten_output_num);
-        size_t parent_idx = dtensorinfos->at(ridx)->get_parent_index();
-        auto parent_ti = dtensorinfos->at(parent_idx);
+        size_t parent_idx = dtensorinfos.at(ridx)->get_parent_index();
+        auto parent_ti = dtensorinfos.at(parent_idx);
         std::optional<uint64_t> offset_opt = std::nullopt;
         if (parent_ti->get_buffer()) {
           offset_opt = parent_ti->get_offset();
@@ -1166,7 +1163,7 @@ void RecipeValueSpec::update_patching_table(
   if (num_output_to_outduplicates) {
     for (; ridx < output_to_outduplicates_end; ridx++) {
       if (is_shape_agnostic_graph) {
-        auto output_idx = dtensorinfos->at(ridx)->get_output_index();
+        auto output_idx = dtensorinfos.at(ridx)->get_output_index();
         TORCH_CHECK(
             output_idx < aten_output_num,
             "output index ",
@@ -1280,7 +1277,7 @@ void RecipeValueSpec::populate_syn_tensor_ids() {
 
     size_t tensor_idx{0};
     for (size_t i = 0; i < num_tinfos; ++i) {
-      PtTensorInfo& ti = *(dtensorinfos->at(i));
+      PtTensorInfo& ti = *(dtensorinfos.at(i));
       tensor_names[tensor_idx++] = ti.get_syn_namec_str();
     }
 
@@ -1304,7 +1301,7 @@ void RecipeValueSpec::patch_launch_info(
   auto record_graph_data = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_FRAGMENT_JSON);
   size_t tensor_idx{0};
   for (size_t i = 0; i < num_tinfos; ++i) {
-    PtTensorInfo& ti = *(dtensorinfos->at(i));
+    PtTensorInfo& ti = *(dtensorinfos.at(i));
     if (record_graph_data) {
       auto is_output = ti.is_output();
       synapse_helpers::log_synDeviceRecordGraphTensorInfo(

@@ -127,8 +127,8 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
     PT_BRIDGE_DEBUG("Empty synapse graph. Skip UpdateSynapsePermutations.");
     return;
   }
-  auto tinfos = cur_rvalpsh->dtensorinfos;
-  if (!tinfos) {
+  auto& tinfos = cur_rvalpsh->dtensorinfos;
+  if (tinfos.size() == 0) {
     PT_BRIDGE_DEBUG("empty cur_rvalpsh->dtensorinfos, nothing to update");
     return;
   }
@@ -173,8 +173,8 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
     // creating a map of tensor id to tinfo
     // preparing the tensors to query their permutation
     std::map<uint64_t, PtTensorInfoShared> tinfo_map;
-    for (size_t i = 0; i < tinfos->size(); ++i) {
-      auto& info = (*tinfos)[i];
+    for (size_t i = 0; i < tinfos.size(); ++i) {
+      auto& info = tinfos[i];
       if (info->is_output() && !info->is_ZST()) {
         // HABANA_ASSERT(tinfo_map.count(info->get_tensor_id() == 0));
         tinfo_map[info->get_tensor_id()] = info;
@@ -264,8 +264,8 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
   // permutation. for example, weights tenor that serves as graph input and
   // ouput, when the allow permutation is disabled then synapse returns it dense
   // NCHW even if the input was permuted.
-  for (size_t i = 0; i < tinfos->size(); ++i) {
-    auto& info = (*tinfos)[i];
+  for (size_t i = 0; i < tinfos.size(); ++i) {
+    auto& info = tinfos[i];
     if (!info->get_allow_permutation() && info->is_output()) {
       auto iter = synapse_to_pt_tensor.find(info->get_tensor_id());
       TORCH_CHECK(
@@ -624,16 +624,16 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
 
   if (!dma_input_tensorinfos.empty()) {
     rv.num_dma_inputs = dma_input_tensorinfos.size();
-    rv.dtensorinfos->insert(
-        rv.dtensorinfos->end(),
+    rv.dtensorinfos.insert(
+        rv.dtensorinfos.end(),
         dma_input_tensorinfos.begin(),
         dma_input_tensorinfos.end());
   }
 
   if (!shape_tensor_tinfos.empty()) {
     rv.num_shape_tensors = shape_tensor_tinfos.size();
-    rv.dtensorinfos->insert(
-        rv.dtensorinfos->end(),
+    rv.dtensorinfos.insert(
+        rv.dtensorinfos.end(),
         shape_tensor_tinfos.begin(),
         shape_tensor_tinfos.end());
   }
@@ -645,8 +645,8 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
   if (!enable_caching_ && !enable_shape_agnostic_caching_) {
     if (!intermediate_tinfos.empty()) {
       rv.num_intermediates = intermediate_tinfos.size();
-      rv.dtensorinfos->insert(
-          rv.dtensorinfos->end(),
+      rv.dtensorinfos.insert(
+          rv.dtensorinfos.end(),
           intermediate_tinfos.begin(),
           intermediate_tinfos.end());
     }
@@ -656,7 +656,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
     TORCH_CHECK(
         (rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs +
              rv.num_shape_tensors + rv.num_intermediates ==
-         rv.dtensorinfos->size()),
+         rv.dtensorinfos.size()),
         "num_inputs ",
         rv.num_inputs,
         " num_induplicates ",
@@ -668,7 +668,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
         " num_shape_tensors ",
         rv.num_shape_tensors,
         " are not adding up to #dtensorinfos ",
-        rv.dtensorinfos->size());
+        rv.dtensorinfos.size());
 
     size_t output_idx{0};
     for (auto output : jit_ir_graph_->outputs()) {
@@ -693,20 +693,20 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
         output_tensorinfo_map.size(),
         " tensors.");
 
-    rv.dtensorinfos->insert(
-        rv.dtensorinfos->end(),
+    rv.dtensorinfos.insert(
+        rv.dtensorinfos.end(),
         output_tensorinfos.begin(),
         output_tensorinfos.end());
 
     rv.num_outputs = output_tensorinfos.size();
-    rv.num_tinfos = rv.dtensorinfos->size();
+    rv.num_tinfos = rv.dtensorinfos.size();
   } else {
     // TODO :
     //   preclude any interim tinfo from adding to output_tensorinfo_map
     OrderOutputTinfos(rv);
   }
 
-  for (auto& ti : *rv.dtensorinfos) {
+  for (auto& ti : rv.dtensorinfos) {
     if (!ti->is_duplicate()) {
       rv.ntensorbytes += ti->get_size();
     }
@@ -720,7 +720,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
       rv.num_intermediate_to_outduplicates + rv.num_output_to_outduplicates;
 
   TORCH_CHECK(
-      total_tinfos == rv.dtensorinfos->size(),
+      total_tinfos == rv.dtensorinfos.size(),
       " num_inputs ",
       rv.num_inputs,
       " num_induplicates ",
@@ -740,7 +740,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
       " num_output_to_outduplicates ",
       rv.num_output_to_outduplicates,
       " are not adding up to #dtensorinfos ",
-      rv.dtensorinfos->size());
+      rv.dtensorinfos.size());
 
   rv.populate_syn_tensor_ids();
 
@@ -869,24 +869,23 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
 
 void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
   // dtensorinfos maintain the flattened tinfo list
-  rv.dtensorinfos = std::make_shared<std::vector<PtTensorInfoShared>>(
-      std::vector<PtTensorInfoShared>());
+  HABANA_ASSERT(rv.dtensorinfos.empty());
 
   std::unordered_map<void*, size_t> buff_to_inputtividx_map;
   for (auto& tiv : input_tivs) {
     if (absl::holds_alternative<PtTensorInfoShared>(tiv)) {
       const auto ti = absl::get<PtTensorInfoShared>(tiv);
-      rv.dtensorinfos->push_back(ti);
+      rv.dtensorinfos.push_back(ti);
       if (enable_caching_ || enable_shape_agnostic_caching_) {
         void* buffp = ti->get_buffer_start();
-        buff_to_inputtividx_map.emplace(buffp, rv.dtensorinfos->size() - 1);
+        buff_to_inputtividx_map.emplace(buffp, rv.dtensorinfos.size() - 1);
       }
     } else if (absl::holds_alternative<std::vector<PtTensorInfoShared>>(tiv)) {
       for (const auto& ti : absl::get<std::vector<PtTensorInfoShared>>(tiv)) {
-        rv.dtensorinfos->push_back(ti);
+        rv.dtensorinfos.push_back(ti);
         if (enable_caching_ || enable_shape_agnostic_caching_) {
           void* buffp = ti->get_buffer_start();
-          buff_to_inputtividx_map.emplace(buffp, rv.dtensorinfos->size() - 1);
+          buff_to_inputtividx_map.emplace(buffp, rv.dtensorinfos.size() - 1);
         }
       }
     } else {
@@ -894,7 +893,7 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
     }
   }
   // At this point inputs tinfos are populated
-  rv.num_inputs = rv.dtensorinfos->size();
+  rv.num_inputs = rv.dtensorinfos.size();
 
   // Link the input tivs with the duplicate
   size_t nduplicates{0};
@@ -926,11 +925,11 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
             "FlattenAndLinkInputTIVs: Input duplicate: parent idx ",
             parent_idx,
             " parent buffer ptr ",
-            rv.dtensorinfos->at(parent_idx)->get_buffer(),
+            rv.dtensorinfos.at(parent_idx)->get_buffer(),
             " duplicate_tiv buffer ptr ",
             ti->get_buffer());
       }
-      rv.dtensorinfos->push_back(ti);
+      rv.dtensorinfos.push_back(ti);
       nduplicates++;
     } else {
       TORCH_CHECK(false, "duplicate tiv must be a tensor");
@@ -947,13 +946,13 @@ void habana::HabanaLaunchOpPT::FlattenAndLinkInputTIVs(RecipeValueSpec& rv) {
 
   // At this point inputs and duplicate tinfos are populated
   TORCH_CHECK(
-      (rv.num_inputs + rv.num_induplicates == rv.dtensorinfos->size()),
+      (rv.num_inputs + rv.num_induplicates == rv.dtensorinfos.size()),
       "num_inputs ",
       rv.num_inputs,
       "num_induplicates ",
       rv.num_induplicates,
       " are not adding up to #dtensorinfos ",
-      rv.dtensorinfos->size());
+      rv.dtensorinfos.size());
 }
 
 void habana::HabanaLaunchOpPT::OrderInputs() {
@@ -1059,8 +1058,8 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
       interim_tinfo_idx++;
     }
 
-    rv.dtensorinfos->insert(
-        rv.dtensorinfos->end(),
+    rv.dtensorinfos.insert(
+        rv.dtensorinfos.end(),
         intermediate_tinfos.begin(),
         intermediate_tinfos.end());
   }
@@ -1072,10 +1071,10 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
 
   // Add the outputs to rv.dtensorinfos
   for (auto& ti : output_tensorinfos) {
-    rv.dtensorinfos->push_back(ti);
+    rv.dtensorinfos.push_back(ti);
     void* buffp = ti->get_buffer_start();
 
-    buff_to_outputtinfoidx_map.emplace(buffp, rv.dtensorinfos->size() - 1);
+    buff_to_outputtinfoidx_map.emplace(buffp, rv.dtensorinfos.size() - 1);
   }
   rv.num_outputs = output_tensorinfos.size();
 
@@ -1111,7 +1110,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
         outputs_end,
         ')');
     ti->set_parent_index(parent_idx);
-    rv.dtensorinfos->push_back(ti);
+    rv.dtensorinfos.push_back(ti);
     nduplicates++;
   }
   rv.num_outduplicates = nduplicates;
@@ -1167,7 +1166,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
         rv.num_inputs,
         ')');
     ti->set_parent_index(parent_idx);
-    rv.dtensorinfos->push_back(ti);
+    rv.dtensorinfos.push_back(ti);
     nduplicates++;
   }
 
@@ -1205,7 +1204,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
         intermediates_end,
         ')');
     ti->set_parent_index(parent_idx);
-    rv.dtensorinfos->push_back(ti);
+    rv.dtensorinfos.push_back(ti);
     nduplicates++;
   }
   rv.num_intermediate_to_outduplicates = nduplicates;
@@ -1243,12 +1242,12 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
         outputs_end,
         ')');
     ti->set_parent_index(parent_idx);
-    rv.dtensorinfos->push_back(ti);
+    rv.dtensorinfos.push_back(ti);
     nduplicates++;
   }
   rv.num_output_to_outduplicates = nduplicates;
 
-  rv.num_tinfos = rv.dtensorinfos->size();
+  rv.num_tinfos = rv.dtensorinfos.size();
 }
 
 void habana::HabanaLaunchOpPT::RestoreInputTensorMetadata() {
