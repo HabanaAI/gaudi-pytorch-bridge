@@ -601,7 +601,6 @@ synTensor RecipeValueSpec::get_syn_new_handle(
 }
 
 void RecipeValueSpec::update_tensor_shape(
-    const synapse_helpers::graph& synapse_graph,
     synTensor tensor_handle,
     PtTensorInfoShared tinfo,
     std::vector<int64_t> shape) {
@@ -616,11 +615,10 @@ void RecipeValueSpec::update_tensor_shape(
   tinfo->set_shape(shape);
   PT_EAGER_DEBUG(
       "[SHAPE AGNOSTIC] tensor shape after patching : ", tinfo->get_shape());
-  synapse_graph.setTensorGeometry(tensor_handle, shape);
+  synapse_helpers::graph::setTensorGeometry(tensor_handle, shape);
 }
 
 inline void RecipeValueSpec::update_new_tensor(
-    const synapse_helpers::graph& synapse_graph,
     size_t ridx,
     std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
     std::vector<int64_t> new_shape,
@@ -673,7 +671,7 @@ inline void RecipeValueSpec::update_new_tensor(
       tinfo->get_output_index());
 
   if (new_handle) {
-    update_tensor_shape(synapse_graph, new_handle, tinfo, new_shape);
+    update_tensor_shape(new_handle, tinfo, new_shape);
     if (tensor_offset_opt.has_value()) {
       const auto& new_offset = tensor_offset_opt.value();
       PT_EAGER_DEBUG(
@@ -681,7 +679,7 @@ inline void RecipeValueSpec::update_new_tensor(
           new_handle,
           " new section offset : ",
           new_offset);
-      synapse_graph.setTensorSectionOffset(new_handle, new_offset);
+      synapse_helpers::graph::setTensorSectionOffset(new_handle, new_offset);
     }
   }
 }
@@ -692,7 +690,6 @@ void RecipeValueSpec::update_patching_table(
     VecOfIValPtrSh& dma_inputs,
     VecOfIValPtrSh& aten_outputs,
     const habana::IdShapeMap& m_actual_shapes,
-    const synapse_helpers::graph& synapse_graph,
     std::optional<
         std::reference_wrapper<const std::unordered_map<int64_t, at::Tensor>>>
         tidx_to_tensor_map_opt,
@@ -798,7 +795,6 @@ void RecipeValueSpec::update_patching_table(
             tensor_offset_opt = tensor.storage_offset() * tensor.itemsize();
           }
           update_new_tensor(
-              synapse_graph,
               ridx,
               synapse_orig_to_new_handle,
               tensor.sizes().vec(),
@@ -820,11 +816,7 @@ void RecipeValueSpec::update_patching_table(
             t_offset_opt = t.storage_offset() * t.itemsize();
           }
           update_new_tensor(
-              synapse_graph,
-              ridx,
-              synapse_orig_to_new_handle,
-              t.sizes().vec(),
-              t_offset_opt);
+              ridx, synapse_orig_to_new_handle, t.sizes().vec(), t_offset_opt);
           dtinfos_patched_count++;
         }
         ridx++;
@@ -863,11 +855,7 @@ void RecipeValueSpec::update_patching_table(
           toffset_opt = parent_ti->get_offset();
         }
         update_new_tensor(
-            synapse_graph,
-            ridx,
-            synapse_orig_to_new_handle,
-            tshape,
-            toffset_opt);
+            ridx, synapse_orig_to_new_handle, tshape, toffset_opt);
         dtinfos_patched_count++;
       }
     }
@@ -1033,10 +1021,7 @@ void RecipeValueSpec::update_patching_table(
         aten_output_num);
     if (is_shape_agnostic_graph) {
       update_new_tensor(
-          synapse_graph,
-          ridx,
-          synapse_orig_to_new_handle,
-          output_shapes.at(output_idx));
+          ridx, synapse_orig_to_new_handle, output_shapes.at(output_idx));
       dtinfos_patched_count++;
     }
     PtTensorInfo& ti = *(dtensorinfos->at(ridx));
@@ -1118,7 +1103,6 @@ void RecipeValueSpec::update_patching_table(
           offset_opt = parent_ti->get_offset();
         }
         update_new_tensor(
-            synapse_graph,
             ridx,
             synapse_orig_to_new_handle,
             output_shapes.at(output_idx),
@@ -1192,10 +1176,7 @@ void RecipeValueSpec::update_patching_table(
             " is greater than #outputs ",
             aten_output_num);
         update_new_tensor(
-            synapse_graph,
-            ridx,
-            synapse_orig_to_new_handle,
-            output_shapes.at(output_idx));
+            ridx, synapse_orig_to_new_handle, output_shapes.at(output_idx));
         dtinfos_patched_count++;
       }
       create_outdup(
@@ -1274,7 +1255,6 @@ void RecipeValueSpec::update_patching_table(
           new_sizes);
 
       update_new_tensor(
-          synapse_graph,
           ++ridx, // dummy value
           synapse_orig_to_new_handle,
           new_sizes,

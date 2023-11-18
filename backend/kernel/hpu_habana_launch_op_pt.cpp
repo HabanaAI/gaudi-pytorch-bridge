@@ -3546,7 +3546,6 @@ void HabanaLaunchOpPT::UpdatePatchingInformation(
         dma_inputs_,
         *aten_outputs_ptr_sh_,
         m_map_shape.m_actual_shapes,
-        *syn_graph_ptr_,
         local_tidx_to_tensor_map,
         allocated_outputs_,
         out_shapes,
@@ -3559,7 +3558,6 @@ void HabanaLaunchOpPT::UpdatePatchingInformation(
         dma_inputs_,
         *aten_outputs_ptr_sh_,
         m_map_shape.m_actual_shapes,
-        *syn_graph_ptr_,
         local_tidx_to_tensor_map,
         allocated_outputs_);
   }
