@@ -210,49 +210,57 @@ void reshape_tensor(
   }
 }
 
-std::tuple<synTensor, std::vector<int64_t>, std::optional<sh::tensor>>
-transform_tensor_to_4d(
+enum TensorDataIdx { TENSOR_IDX = 0, SHAPE_IDX, STORAGE_IDX };
+
+template <unsigned I>
+struct TensorDataGetter {
+  auto operator()(sh::tensor& arg) {
+    if constexpr (I == TENSOR_IDX) {
+      return arg.get();
+    } else if constexpr (I == SHAPE_IDX) {
+      return arg.pt_shape();
+    } else if constexpr (I == STORAGE_IDX) {
+      return std::variant<sh::tensor*, int>{&arg};
+    }
+  }
+  auto operator()(const OpBackend::TensorsPair& arg) {
+    if constexpr (I == TENSOR_IDX) {
+      return arg.syn_t;
+    } else if constexpr (I == SHAPE_IDX) {
+      return arg.pt_t.sizes().vec();
+    } else if constexpr (I == STORAGE_IDX) {
+      return std::variant<sh::tensor*, int>{arg.syn_idx};
+    }
+  }
+};
+
+template <unsigned... Is>
+auto transform_tensor_to_4d(
     OpBackend& op,
     sh::graph& graph,
-    const OpBackend::TensorsPair& tensor) {
+    const OpBackend::TensorsPair& tensor,
+    std::optional<sh::tensor>& tensorStorageOpt) {
   if (tensor.pt_t.sizes().size() != 4) {
-    sh::tensor tensor_4d_storage = get_4d_tensor(op, graph, tensor);
-    synTensor tensor_4d_syn = tensor_4d_storage.get();
-    std::vector<int64_t> tensor_4d_shape = tensor_4d_storage.pt_shape();
-    return std::make_tuple(
-        std::move(tensor_4d_syn),
-        std::move(tensor_4d_shape),
-        std::move(tensor_4d_storage));
+    tensorStorageOpt = get_4d_tensor(op, graph, tensor);
+    return std::make_tuple(TensorDataGetter<Is>{}(*tensorStorageOpt)...);
   }
-  return std::make_tuple(tensor.syn_t, tensor.pt_t.sizes().vec(), std::nullopt);
+  return std::make_tuple(TensorDataGetter<Is>{}(tensor)...);
 }
 
-std::tuple<synTensor, std::vector<int64_t>, std::variant<sh::tensor, int>>
-get_or_create_tensor(
+template <unsigned... Is>
+auto get_or_create_tensor(
     OpBackend& op,
     sh::graph& graph,
     const c10::optional<OpBackend::TensorsPair>& tensor,
     const c10::IntArrayRef& rm_size,
-    const at::Scalar& val) {
+    const at::Scalar& val,
+    std::optional<sh::tensor>& tensorStorageOpt) {
   if (not tensor.has_value()) {
-    sh::tensor stub_tensor_storage =
+    tensorStorageOpt =
         op.BuildConstant(&op, graph, val, c10::ScalarType::Float, rm_size);
-    auto stub_tensor_syn = stub_tensor_storage.get();
-    auto stub_tensor_shape = stub_tensor_storage.pt_shape();
-    return std::make_tuple(
-        std::move(stub_tensor_syn),
-        std::move(stub_tensor_shape),
-        std::move(stub_tensor_storage));
+    return std::make_tuple(TensorDataGetter<Is>{}(*tensorStorageOpt)...);
   }
-  return std::make_tuple(
-      (*tensor).syn_t, (*tensor).pt_t.sizes().vec(), (*tensor).syn_idx);
-}
-
-std::variant<sh::tensor*, int> variant_cast(std::variant<sh::tensor, int>& v) {
-  if (std::holds_alternative<sh::tensor>(v)) {
-    return &std::get<sh::tensor>(v);
-  }
-  return std::get<int>(v);
+  return std::make_tuple(TensorDataGetter<Is>{}(*tensor)...);
 }
 
 auto get_running_var_def_value(const OpBackend& op) {
@@ -265,11 +273,6 @@ auto get_running_var_def_value(const OpBackend& op) {
 bool is_batch_norm_functional(const OpBackend& op) {
   return op.GetGuid().find("_native_batch_norm_legit_functional") !=
       std::string::npos;
-}
-
-namespace {
-template <typename... Args>
-inline void unused_variables(const Args&...){};
 }
 
 std::vector<sh::tensor> handle_batch_norm_training_fwd(
@@ -285,28 +288,31 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
     const sizes_vec& out_shapes) {
   using namespace BNFwd;
 
-  const auto [input_4d, input_4d_shape, input_4d_storage] =
-      transform_tensor_to_4d(op, graph, input);
+  std::optional<sh::tensor> inputStorageOpt;
+  const auto [input_4d, input_4d_shape] =
+      transform_tensor_to_4d<TENSOR_IDX, SHAPE_IDX>(
+          op, graph, input, inputStorageOpt);
 
   c10::IntArrayRef rm_size = get_rm_size(input.pt_t);
-  const auto [weight, weight_shape, weight_storage_or_idx] =
-      get_or_create_tensor(op, graph, weight_opt, rm_size, 1);
-  const auto [bias, bias_shape, bias_storage_or_idx] =
-      get_or_create_tensor(op, graph, bias_opt, rm_size, 0);
-  auto [running_mean, running_mean_shape, running_mean_storage_or_idx] =
-      get_or_create_tensor(op, graph, running_mean_opt, rm_size, 0);
-  auto [running_var, running_var_shape, running_var_storage_or_idx] =
-      get_or_create_tensor(
-          op, graph, running_var_opt, rm_size, get_running_var_def_value(op));
-
-  unused_variables(
-      input_4d_storage,
-      weight_shape,
-      weight_storage_or_idx,
-      bias_shape,
-      bias_storage_or_idx,
-      running_mean_shape,
-      running_var_shape);
+  std::optional<sh::tensor> weightStorageOpt;
+  const auto [weight] = get_or_create_tensor<TENSOR_IDX>(
+      op, graph, weight_opt, rm_size, 1, weightStorageOpt);
+  std::optional<sh::tensor> biasStorageOpt;
+  const auto [bias] = get_or_create_tensor<TENSOR_IDX>(
+      op, graph, bias_opt, rm_size, 0, biasStorageOpt);
+  std::optional<sh::tensor> runningMeanStorageOpt;
+  auto [running_mean, running_mean_storage_or_idx] =
+      get_or_create_tensor<TENSOR_IDX, STORAGE_IDX>(
+          op, graph, running_mean_opt, rm_size, 0, runningMeanStorageOpt);
+  std::optional<sh::tensor> runningVarStorageOpt;
+  auto [running_var, running_var_storage_or_idx] =
+      get_or_create_tensor<TENSOR_IDX, STORAGE_IDX>(
+          op,
+          graph,
+          running_var_opt,
+          rm_size,
+          get_running_var_def_value(op),
+          runningVarStorageOpt);
 
   auto input_dim = input.pt_t.sizes().size();
   bool is_functional = is_batch_norm_functional(op);
@@ -328,12 +334,12 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
             ? NodeAttr::
                   NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 3}
             : NodeAttr::
-                  NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, variant_cast(running_mean_storage_or_idx)}, // SAVED_ISTD_IDX?!
+                  NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_mean_storage_or_idx}, // SAVED_ISTD_IDX?!
         is_functional
             ? NodeAttr::
                   NodeOutputAttr{out_shapes[SAVED_MEAN_IDX], c10::ScalarType::Float, 4}
             : NodeAttr::
-                  NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, variant_cast(running_var_storage_or_idx)}},
+                  NodeOutputAttr{out_shapes[SAVED_ISTD_IDX], c10::ScalarType::Float, c10::nullopt, DATA_TENSOR, syn_type_na, running_var_storage_or_idx}},
        params.get(),
        params_size});
 
@@ -365,30 +371,29 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
   std::vector<sh::tensor> bn_out;
   bn_out.reserve(5);
 
-  const auto [input_4d, input_4d_shape, input_4d_storage] =
-      transform_tensor_to_4d(op, graph, input);
+  std::optional<sh::tensor> inputStorageOpt;
+  const auto [input_4d, input_4d_shape] =
+      transform_tensor_to_4d<TENSOR_IDX, SHAPE_IDX>(
+          op, graph, input, inputStorageOpt);
 
   c10::IntArrayRef rm_size = get_rm_size(input.pt_t);
-  const auto [weight, weight_size, weight_storage_or_idx] =
-      get_or_create_tensor(op, graph, weight_opt, rm_size, 1);
-  const auto [bias, bias_shape, bias_storage_or_idx] =
-      get_or_create_tensor(op, graph, bias_opt, rm_size, 0);
-  const auto [running_mean, running_mean_shape, running_mean_storage_or_idx] =
-      get_or_create_tensor(op, graph, running_mean_opt, rm_size, 0);
-  const auto [running_var, running_var_shape, running_var_storage_or_idx] =
-      get_or_create_tensor(
-          op, graph, running_var_opt, rm_size, get_running_var_def_value(op));
-
-  unused_variables(
-      input_4d_storage,
-      weight_size,
-      weight_storage_or_idx,
-      bias_shape,
-      bias_storage_or_idx,
-      running_mean_shape,
-      running_mean_storage_or_idx,
-      running_var_shape,
-      running_var_storage_or_idx);
+  std::optional<sh::tensor> weightStorageOpt;
+  const auto [weight] = get_or_create_tensor<TENSOR_IDX>(
+      op, graph, weight_opt, rm_size, 1, weightStorageOpt);
+  std::optional<sh::tensor> biasStorageOpt;
+  const auto [bias] = get_or_create_tensor<TENSOR_IDX>(
+      op, graph, bias_opt, rm_size, 0, biasStorageOpt);
+  std::optional<sh::tensor> runningMeanStorageOpt;
+  const auto [running_mean] = get_or_create_tensor<TENSOR_IDX>(
+      op, graph, running_mean_opt, rm_size, 0, runningMeanStorageOpt);
+  std::optional<sh::tensor> runningVarStorageOpt;
+  const auto [running_var] = get_or_create_tensor<TENSOR_IDX>(
+      op,
+      graph,
+      running_var_opt,
+      rm_size,
+      get_running_var_def_value(op),
+      runningVarStorageOpt);
 
   auto input_dim = input.pt_t.sizes().size();
 
@@ -717,34 +722,30 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   // 2.1 Preprocess inputs
   // 2.1.1 Reshape input to 4D
 
-  const auto [input_4d, input_4d_shape, input_4d_storage] =
-      transform_tensor_to_4d(*this, graph, input);
-  const auto [grad_out_4d, grad_out_4d_shape, grad_out_4d_storage] =
-      transform_tensor_to_4d(*this, graph, grad_out);
+  std::optional<sh::tensor> inputStorageOpt;
+  const auto [input_4d, input_4d_shape] =
+      transform_tensor_to_4d<TENSOR_IDX, SHAPE_IDX>(
+          *this, graph, input, inputStorageOpt);
+
+  std::optional<sh::tensor> gradStorageOpt;
+  const auto [grad_out_4d] = transform_tensor_to_4d<TENSOR_IDX>(
+      *this, graph, grad_out, gradStorageOpt);
 
   c10::IntArrayRef rm_size = get_rm_size(input.pt_t);
-  const auto [weight, weight_shape, weight_storage_or_idx] =
-      get_or_create_tensor(*this, graph, weight_opt, rm_size, 1);
-
-  unused_variables(
-      input_4d_storage,
-      grad_out_4d_shape,
-      grad_out_4d_storage,
-      weight_shape,
-      weight_storage_or_idx);
+  std::optional<sh::tensor> weightStorageOpt;
+  const auto [weight] = get_or_create_tensor<TENSOR_IDX>(
+      *this, graph, weight_opt, rm_size, 1, weightStorageOpt);
 
   synTensor saved_mean, saved_istd;
   std::optional<sh::tensor> saved_mean_storage, saved_istd_storage;
   if (!is_training(training, running_mean_opt.has_value())) {
-    const auto [running_mean, running_mean_shape, running_mean_storage_or_idx] =
-        get_or_create_tensor(*this, graph, running_mean_opt, rm_size, 0);
-    const auto [running_var, running_var_shape, running_var_storage_or_idx] =
-        get_or_create_tensor(*this, graph, running_var_opt, rm_size, 1);
-
-    unused_variables(
-        running_mean_shape,
-        running_mean_storage_or_idx,
-        running_var_storage_or_idx);
+    std::optional<sh::tensor> runningMeanStorageOpt;
+    const auto [running_mean] = get_or_create_tensor<TENSOR_IDX>(
+        *this, graph, running_mean_opt, rm_size, 0, runningMeanStorageOpt);
+    std::optional<sh::tensor> runningVarStorageOpt;
+    const auto [running_var, running_var_shape] =
+        get_or_create_tensor<TENSOR_IDX, SHAPE_IDX>(
+            *this, graph, running_var_opt, rm_size, 1, runningVarStorageOpt);
 
     // TODO calculate saved_mean, saved_istd
     saved_mean = running_mean;
