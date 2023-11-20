@@ -30,21 +30,13 @@ void HabanaLaunchOpPT::ExecuteSynapse() {
     return;
   }
 
+  ExecuteSynapseGraph();
+
   if (get_enable_shape_agnostic_caching_() &&
       get_is_shape_agnostic_supported()) {
-    if (!execution_control_.is_shape_agnostic_cache_miss_) {
-      RecipeValueSpec& rv = *get_cur_rvalpsh();
-      // SAG cache hit case - to avoid race condition with compile thread
-      rv.recipe = get_hpu_op_recipe();
-      rv.workspace_size = get_hpu_op_workspace_size();
-      // SAG cache hit case - to avoid race condition with lowering thread
-      rv.ntensorbytes = get_hpu_op_ntensorbytes();
-    }
-    ExecuteSynapseGraph();
     synGraphDestroy(syn_graph_ptr_->get_duplicate_graph_handle());
-  } else {
-    ExecuteSynapseGraph();
   }
+
   ClearStatics();
   PT_BRIDGE_END;
 }

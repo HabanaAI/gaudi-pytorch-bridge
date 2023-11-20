@@ -170,7 +170,7 @@ class HabanaLaunchOpPT {
       std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> info);
   bool is_hccl_send_mark_step();
   void CompileSynapse();
-  void CompileSynapseGraph(bool allocate_rval = true);
+  void CompileSynapseGraph();
   void ConstructPatchingTableAndAtenOutputs();
   void UpdateSynapsePermutations();
   void ApplyOutputPermutationsFromCache();
@@ -199,7 +199,7 @@ class HabanaLaunchOpPT {
   }
 
   std::shared_ptr<RecipeValueSpec> get_cur_rvalpsh() const {
-    return cur_rvalpsh;
+    return recipe_launcher_->rvs_;
   }
 
   std::shared_ptr<RecipeArgumentSpec> get_cur_rargpsh() const {
@@ -239,13 +239,6 @@ class HabanaLaunchOpPT {
     return is_shape_agnostic_supported_;
   }
 
-  uint64_t get_hpu_op_workspace_size() const {
-    return hpu_op_workspace_size_;
-  }
-
-  size_t get_hpu_op_ntensorbytes() const {
-    return hpu_op_ntensorbytes_;
-  }
   static void clearRecipeCacheForConst();
 
   // A map holding the ival hash and inputidx. 1-1 map for all inputs
@@ -327,8 +320,6 @@ class HabanaLaunchOpPT {
   // permutation_info_saver_-------------------///-----------------------------------///---------------Write---------------///----------------Write--------------///------------NA
   // hpu_op_recipe_----------------------------///-----------------------------------///-----------------------------------///----------------Write--------------///-----------Read
   // is_shape_agnostic_supported_--------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
-  // hpu_op_workspace_size_--------------------///-----------------------------------///-----------------------------------///----------------Write--------------///-----------Read
-  // hpu_op_ntensorbytes_----------------------///-----------------------------------///-----------------------------------///----------------Write--------------///-----------Read
   std::shared_ptr<synapse_helpers::graph> syn_graph_ptr_ = nullptr;
   std::unique_ptr<VecOfIValPtrSh> aten_outputs_ptr_sh_{nullptr};
   static void RunHybridSif(
@@ -340,7 +331,7 @@ class HabanaLaunchOpPT {
   // user stream info
   synapse_helpers::hpuStream_t hpu_stream_;
   at::ArrayRef<torch::jit::IValue> input_refs;
-  std::shared_ptr<RecipeValueSpec> cur_rvalpsh{nullptr};
+  std::shared_ptr<RecipeLauncher> recipe_launcher_{nullptr};
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
       jit_graph_and_meta_data_ = nullptr;
   torch::jit::Stack input_st_copy;
@@ -634,8 +625,6 @@ class HabanaLaunchOpPT {
   std::shared_ptr<synapse_helpers::graph::recipe_handle> hpu_op_recipe_{
       nullptr};
   bool is_shape_agnostic_supported_ = false;
-  uint64_t hpu_op_workspace_size_{0};
-  size_t hpu_op_ntensorbytes_{0};
 
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph
@@ -657,7 +646,7 @@ class HabanaLaunchOpPT {
   bool IsValueExternal(torch::jit::Value* value);
   OutputMetaDataVector nodeOutputMetaData(torch::jit::Node* node);
   void CreateValueToIvalueMapForInputs();
-  void InitiateSynlaunchTimeCapture(RecipeValueSpec& rv);
+  void InitiateSynlaunchTimeCapture(RecipeLauncher& rv);
   void ProcessHabanaFusedOpWithDS(
       HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution);
   void CreateFirstDynamicBucket();
@@ -711,11 +700,11 @@ class HabanaLaunchOpPT {
   void handleRestrideNode(torch::jit::Node* node, bool is_restride_cl);
   void handleMetaOps(torch::jit::Node* node);
 
-  std::shared_ptr<RecipeValueSpec> GetCachedRecipe(
+  std::shared_ptr<RecipeLauncher> GetCachedRecipe(
       std::shared_ptr<RecipeArgumentSpec>& spec_key) {
     auto rvpsh{RecipeCacheLRU::get_cache().get(spec_key)};
-    if (nullptr != rvpsh && nullptr == rvpsh->jit_graph_) {
-      rvpsh->jit_graph_ = jit_ir_graph_;
+    if (nullptr != rvpsh && nullptr == rvpsh->rvs_->jit_graph_) {
+      rvpsh->rvs_->jit_graph_ = jit_ir_graph_;
     }
     return rvpsh;
   }
@@ -776,7 +765,8 @@ class HabanaLaunchOpPT {
   // No need to allocate for lazy eager shape agnostic cache hit scenario
   // API for populating Synapse tensor info which needs to be used
   // to find constant section ID for Synapse graph inputs only
-  void PostCompilationStepForConstTensors(RecipeValueSpec& rv);
+  void PostCompilationStepForConstTensors(
+      synapse_helpers::graph::recipe_handle& recipe);
 
   void HandleRecipeWithNewChecksum(
       std::shared_ptr<c10::IValue> _src,

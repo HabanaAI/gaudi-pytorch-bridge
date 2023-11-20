@@ -40,9 +40,10 @@ void HabanaLaunchOpPT::CompileSynapse() {
     return;
   }
 
+  CompileSynapseGraph();
+
   if (get_enable_shape_agnostic_caching_() &&
       get_is_shape_agnostic_supported()) {
-    CompileSynapseGraph(execution_control_.is_shape_agnostic_cache_miss_);
     if (execution_control_.is_shape_agnostic_cache_miss_) {
       StoreShapeAgnosticGraph();
       ConstructPatchingTableAndAtenOutputs();
@@ -52,7 +53,6 @@ void HabanaLaunchOpPT::CompileSynapse() {
           get_cur_rvalpsh());
     }
   } else {
-    CompileSynapseGraph();
     aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
     ConstructPatchingTableAndAtenOutputs();
     UpdateSynapsePermutations();

@@ -95,7 +95,7 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
       std::string,
       uint64_t) override{};
   void LogSelectedRecipe(uint64_t, uint64_t) override{};
-  void LogRecipeMemory(std::shared_ptr<habana::RecipeValueSpec>, uint64_t)
+  void LogRecipeMemory(synapse_helpers::graph::recipe_handle&, uint64_t)
       override{};
   void LogLaunchBase(uint64_t, uint64_t) override{};
   void LogLaunch(uint64_t, uint64_t) override{};
@@ -248,11 +248,11 @@ void CompilationStatistics::LogSelectedRecipe(
 }
 
 void CompilationStatistics::LogRecipeMemory(
-    std::shared_ptr<habana::RecipeValueSpec> cur_rvalpsh,
+    synapse_helpers::graph::recipe_handle& recipe,
     uint64_t step) {
   std::lock_guard<std::mutex> lg(json_file_mutex_);
   json_file_[GetStep(step)]["recipe memory size"] =
-      cur_rvalpsh->recipe->get_recipe_host_mem_size();
+      recipe.get_recipe_host_mem_size();
 }
 
 void CompilationStatistics::LogLaunchBase(uint64_t ns, uint64_t step) {

@@ -223,10 +223,8 @@ struct RecipeArgumentSpecEqual {
 // The order of the outputs will match the order they appears within the
 // subgraph
 struct RecipeValueSpec {
-  RecipeValueSpec(
-      std::shared_ptr<synapse_helpers::graph::recipe_handle> r = nullptr,
-      std::shared_ptr<torch::jit::Graph> g = nullptr)
-      : recipe(r), jit_graph_(g) {
+  RecipeValueSpec(std::shared_ptr<torch::jit::Graph> g = nullptr)
+      : jit_graph_(g) {
     count++;
     id = count;
   }
@@ -285,7 +283,8 @@ struct RecipeValueSpec {
       std::vector<std::vector<int64_t>> output_shapes = {},
       std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle = {},
       bool is_shape_agnostic_graph = false);
-  void populate_syn_tensor_ids();
+  void populate_syn_tensor_ids(
+      const synapse_helpers::graph::recipe_handle& recipe);
   void patch_launch_info(
       std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec,
       std::vector<size_t>& external_tensor_info_indexes) const;
@@ -293,14 +292,6 @@ struct RecipeValueSpec {
       const at::ArrayRef<torch::jit::IValue>& input_refs,
       const std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
       const VecOfIValPtrSh& aten_outputs) const;
-  void launch(
-      synapse_helpers::hpuStream_t hpu_stream,
-      const at::ArrayRef<torch::jit::IValue>& input_refs,
-      std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
-      const VecOfIValPtrSh& aten_outputs,
-      std::vector<synLaunchTensorInfoExt>& syn_launch_info,
-      std::vector<size_t>& external_tensor_info_indexes,
-      const VecOfIValPtrSh& dma_inputs = {});
 
   void create_outdup(
       size_t ti_idx,
@@ -403,13 +394,10 @@ struct RecipeValueSpec {
     return size;
   }
 
-  std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
   std::vector<PtTensorInfoShared> dtensorinfos;
   habana_helpers::CollectiveKernelInfos collective_kernels_info;
   std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
   std::unordered_set<std::string> disabled_jit_ir_ops_;
-
-  uint64_t workspace_size;
 
   size_t id{0};
   size_t iter_idx{0};
@@ -425,8 +413,6 @@ struct RecipeValueSpec {
   size_t num_intermediate_to_outduplicates{0};
   size_t num_output_to_outduplicates{0};
   size_t num_launches{0};
-
-  size_t ntensorbytes{0};
 
   size_t key{0};
   size_t graph_key{0};
@@ -445,10 +431,6 @@ struct RecipeValueSpec {
   // graph, so the runtime improvement condition is not applicable for the first
   // refinement.
   bool is_refined_wirt{false};
-
-  // Multiple recipes can be queued up, so each recipe would need
-  // a dedicated time slot for itself
-  std::shared_ptr<synapse_helpers::TimeSlot> time_slot_;
   std::shared_ptr<torch::jit::Graph> jit_graph_{nullptr};
   std::unique_ptr<synapse_helpers::graph> shape_agnostic_synapse_graph_{
       nullptr};
@@ -461,15 +443,68 @@ struct RecipeValueSpec {
   static size_t compile_count;
   static size_t launch_count;
 
+  size_t CalculateNtensorbytes() {
+    size_t ntensorbytes = 0;
+    for (auto& ti : dtensorinfos) {
+      if (!ti->is_duplicate()) {
+        ntensorbytes += ti->get_size();
+      }
+    }
+    return ntensorbytes;
+  }
+
  private:
   std::atomic<size_t> use_count{0};
+};
+
+struct RecipeLauncher {
+  RecipeLauncher(std::shared_ptr<RecipeValueSpec> rvs);
+  RecipeLauncher();
+  RecipeLauncher(std::istream& is);
+  void Launch(
+      synapse_helpers::hpuStream_t hpu_stream,
+      const at::ArrayRef<torch::jit::IValue>& input_refs,
+      std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
+      const VecOfIValPtrSh& aten_outputs,
+      std::vector<synLaunchTensorInfoExt>& syn_launch_info,
+      std::vector<size_t>& external_tensor_info_indexes,
+      const VecOfIValPtrSh& dma_inputs = {});
+
+  // TODO should not be a shared_ptr
+  std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe_{nullptr};
+  uint64_t workspace_size_{0};
+  size_t ntensorbytes_{0};
+  // Multiple recipes can be queued up, so each recipe would need
+  // a dedicated time slot for itself
+  std::shared_ptr<synapse_helpers::TimeSlot> time_slot_;
+  std::shared_ptr<RecipeValueSpec> rvs_;
+
+  size_t Size() const {
+    return rvs_->Size();
+  }
+
+  void Serialize(std::ostream& os) const;
+
+  void CalculateNtensorbytes() {
+    ntensorbytes_ = rvs_->CalculateNtensorbytes();
+  }
+
+  void populate_syn_tensor_ids() {
+    if (!recipe_) {
+      PT_BRIDGE_DEBUG("Empty recipie. No need to retrive tensor ids.");
+      return;
+    }
+    rvs_->populate_syn_tensor_ids(*recipe_);
+  }
+
+  friend std::ostream& operator<<(std::ostream& O, const RecipeLauncher& v);
 };
 
 class DiskCache {
  public:
   DiskCache(std::string cache_path);
-  void Add(const RecipeValueSpec& recipe, const RecipeArgumentSpec& spec);
-  std::shared_ptr<RecipeValueSpec> Find(const RecipeArgumentSpec& spec);
+  void Add(const RecipeLauncher& val, const RecipeArgumentSpec& spec);
+  std::shared_ptr<RecipeLauncher> Find(const RecipeArgumentSpec& spec);
   // in case RecipeValueSpec creation failed, DiskCache is leaving lock files on
   // disk. This ensures a cleanup.
   void flush();
@@ -522,15 +557,13 @@ class RecipeCacheLRU {
     return ret_flag;
   }
 
-  std::pair<
-      std::shared_ptr<RecipeArgumentSpec>,
-      std::shared_ptr<RecipeValueSpec>>
-      dropped_recipe;
+  std::
+      pair<std::shared_ptr<RecipeArgumentSpec>, std::shared_ptr<RecipeLauncher>>
+          dropped_recipe;
   void add(
       std::shared_ptr<RecipeArgumentSpec>& key,
-      std::shared_ptr<RecipeValueSpec>& val);
-  std::shared_ptr<RecipeValueSpec> get(
-      std::shared_ptr<RecipeArgumentSpec>& key);
+      std::shared_ptr<RecipeLauncher>& val);
+  std::shared_ptr<RecipeLauncher> get(std::shared_ptr<RecipeArgumentSpec>& key);
   bool drop_lru(size_t& num_recipes);
   void remove_oldest();
   void ResetDiskCache();
@@ -557,7 +590,7 @@ class RecipeCacheLRU {
   bool drop_lru_impl(size_t& recipe_count, bool mem_exhausted = false);
   void insert(
       std::shared_ptr<RecipeArgumentSpec>& key,
-      std::shared_ptr<RecipeValueSpec>& val);
+      std::shared_ptr<RecipeLauncher>& val);
   void InitDiskCache();
 
   static std::mutex mutex_;
@@ -568,14 +601,14 @@ class RecipeCacheLRU {
 
   std::list<std::pair<
       std::shared_ptr<RecipeArgumentSpec>,
-      std::shared_ptr<RecipeValueSpec>>>
+      std::shared_ptr<RecipeLauncher>>>
       list_;
 
   std::unordered_map<
       std::shared_ptr<RecipeArgumentSpec>,
       std::list<std::pair<
           std::shared_ptr<RecipeArgumentSpec>,
-          std::shared_ptr<RecipeValueSpec>>>::iterator,
+          std::shared_ptr<RecipeLauncher>>>::iterator,
       RecipeArgumentSpecHash,
       RecipeArgumentSpecEqual>
       map_;
