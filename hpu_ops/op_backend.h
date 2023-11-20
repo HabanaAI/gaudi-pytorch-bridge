@@ -438,6 +438,19 @@ class OpBackend : public HabanaOperator {
     return result;
   }
 
+  c10::optional<c10::ScalarType> getNextInputInternal(
+      StackGetter& sg,
+      c10::optional<c10::ScalarType>*) {
+    auto pos = sg.CheckGetAndIncrStackPos();
+    TORCH_CHECK(
+        sg.stack[pos].isNone() || sg.stack[pos].isInt(),
+        "Input ",
+        pos,
+        " type expected to be ",
+        "none or ScalarType");
+    return sg.stack[pos].toOptional<at::ScalarType>();
+  }
+
 #define GET_NEXT_INPUT_INTERNAL(T, isFn, toFn, Tstr)                         \
   T getNextInputInternal(StackGetter& sg, T*) {                              \
     auto pos = sg.CheckGetAndIncrStackPos();                                 \

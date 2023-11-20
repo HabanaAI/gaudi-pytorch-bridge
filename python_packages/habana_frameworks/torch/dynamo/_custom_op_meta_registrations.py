@@ -305,9 +305,10 @@ def meta_fp8_index_select_v2(self, dim, index):
 
 @register_meta([torch.ops.hpu.scaled_masked_triangular_softmax.default])
 def meta_scaled_masked_triangular_softmax(
-    self, start_end, inv_scale_attn, grouped_batch_size, use_max, mode
+    self, start_end, inv_scale_attn, grouped_batch_size, use_max, mode, out_dtype=None
 ):
-    return self.new_empty(self.shape)
+    dtype = out_dtype if out_dtype else self.dtype
+    return self.new_empty(self.shape, dtype=dtype)
 
 
 @register_meta([torch.ops.hpu.in_place_interleave_.default])

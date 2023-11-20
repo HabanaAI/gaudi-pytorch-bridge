@@ -29,4 +29,6 @@ struct ScaledMaskedTriangularSoftmax : OpBackend {
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
+OUTMETA_DECL(ScaledMaskedTriangularSoftmaxOutputMeta);
+
 } // namespace habana

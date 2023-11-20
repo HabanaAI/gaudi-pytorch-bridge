@@ -16,6 +16,8 @@ import numpy as np
 from test_utils import (
     clear_t_compile_logs,
     check_ops_executed_in_jit_ir,
+    compare_tensors,
+    is_gaudi1,
     is_pytest_mode_compile,
 )
 
@@ -27,17 +29,34 @@ def mode_checked(mode, dtype):
     return mode
 
 
+@pytest.fixture
+def out_dtype_checked(dtype, out_dtype):
+    if dtype == torch.float and out_dtype:
+        pytest.skip("fp8 output is supported only for bfloat16 input")
+    return out_dtype
+
+
+out_dtypes = []
+if not is_gaudi1():
+    out_dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
+
+
 @pytest.mark.parametrize("shape", [(16, 5, 5)])
 @pytest.mark.parametrize("inv_scale_attn", [1.3, 1.0])
 @pytest.mark.parametrize("grouped_batch_size", [16])
 @pytest.mark.parametrize("use_max", [True, False])
 @pytest.mark.parametrize("mode", [0, 1, 15])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("out_dtype", out_dtypes)
 def test_scaled_masked_triangular_softmax(
-    shape, inv_scale_attn, grouped_batch_size, use_max, mode_checked, dtype
+    shape,
+    inv_scale_attn,
+    grouped_batch_size,
+    use_max,
+    mode_checked,
+    dtype,
+    out_dtype_checked,
 ):
-    torch.manual_seed(12345)
-
     batch = shape[0]
     dim1 = shape[1]
 
@@ -76,7 +95,8 @@ def test_scaled_masked_triangular_softmax(
         grouped_batch_size,
         use_max,
         mode_checked,
-    ).cpu()
+        out_dtype_checked,
+    )
 
     result_ref = torch.nn.functional.softmax(self_tril, dim=-1)
     # hpu kernel leaves zeros for masked rows
@@ -86,7 +106,11 @@ def test_scaled_masked_triangular_softmax(
     atol = 1e-3 if dtype == torch.float else 1e-1
     rtol = atol
 
-    assert torch.allclose(result_ref, result, atol=atol, rtol=rtol)
+    if out_dtype_checked:
+        result_ref = result_ref.to(out_dtype_checked)
+        assert result.dtype == out_dtype_checked
+
+    compare_tensors(result, result_ref, atol=atol, rtol=rtol)
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("scaled_masked_triangular_softmax")
 
@@ -100,8 +124,6 @@ def test_scaled_masked_triangular_softmax(
 def test_scaled_masked_triangular_softmax_next_token(
     shape, inv_scale_attn, grouped_batch_size, use_max, mode_checked, dtype
 ):
-    torch.manual_seed(12345)
-
     self = torch.randn(shape, dtype=dtype)
 
     # simulates lower triangular softmax with mask

@@ -37,6 +37,16 @@ ScaledMaskedSoftmax::ScaledMaskedSoftmax(
   SetFillParams(FillScaledMaskedSoftmaxParams);
 }
 
+OutputMetaDataVector ScaledMaskedTriangularSoftmaxOutputMeta(
+    const at::Stack& stack) {
+  OutputMetaData meta;
+  const auto self = stack[0].toTensor();
+  meta.shape = self.sizes().vec();
+  meta.dtype =
+      stack[6].toOptional<c10::ScalarType>().value_or(self.scalar_type());
+  return {meta};
+}
+
 ScaledMaskedTriangularSoftmax::ScaledMaskedTriangularSoftmax(
     int device_id,
     c10::ScalarType scalar_type)
@@ -47,18 +57,34 @@ ScaledMaskedTriangularSoftmax::ScaledMaskedTriangularSoftmax(
           {0},
           {},
           {},
-          false) {}
+          false) {
+  SetOutputMetaFn(ScaledMaskedTriangularSoftmaxOutputMeta);
+}
 
 void ScaledMaskedTriangularSoftmax::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   StackGetter stackGetter(stack, "ScaledMaskedTriangularSoftmax::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  auto start_end = getNextInput<TensorsPair>(stackGetter);
-  auto inv_scale_attn = getNextInput<double>(stackGetter);
-  auto grouped_batch_size = getNextInput<int>(stackGetter);
-  auto use_max = getNextInput<bool>(stackGetter);
-  auto mode = getNextInput<int>(stackGetter);
+  const auto self = getNextInput<TensorsPair>(stackGetter);
+  const auto start_end = getNextInput<TensorsPair>(stackGetter);
+  const auto inv_scale_attn = getNextInput<double>(stackGetter);
+  const auto grouped_batch_size = getNextInput<int>(stackGetter);
+  const auto use_max = getNextInput<bool>(stackGetter);
+  const auto mode = getNextInput<int>(stackGetter);
+  const auto out_dtype =
+      getNextInput<c10::optional<c10::ScalarType>>(stackGetter)
+          .value_or(self.pt_t.scalar_type());
+  const auto& input_dtype = ScalarType();
+
+  TORCH_CHECK(
+      input_dtype == out_dtype or
+          (input_dtype == c10::ScalarType::BFloat16 and
+           (out_dtype == c10::ScalarType::Float8_e5m2 or
+            out_dtype == c10::ScalarType::Float8_e4m3fn)),
+      "Input and output dtypes must be equal or input must be bfloat16 and output must be fp8. Got: input = ",
+      input_dtype,
+      ", output = ",
+      out_dtype);
 
   auto shape = self.pt_t.sizes().vec();
   auto rank = shape.size();
@@ -70,6 +96,15 @@ void ScaledMaskedTriangularSoftmax::AddNode(
   TORCH_CHECK(
       shape[0] % grouped_batch_size == 0,
       "dim0 must be a multiple of grouped_batch_size.");
+
+  if (shape[1] != shape[2]) {
+    TORCH_CHECK(
+        input_dtype == out_dtype,
+        "Dim1 must equal dim2 when output is fp8. Got: dim1 = ",
+        shape[1],
+        ", dim2 = ",
+        shape[2]);
+  }
 
   auto start_end_reshape = std::vector<int64_t>{start_end.pt_t.numel()};
 
@@ -90,7 +125,7 @@ void ScaledMaskedTriangularSoftmax::AddNode(
       graph,
       {guid_,
        {self.syn_t, start_end_reshaped.get()},
-       {{self.pt_t.sizes().vec(), ScalarType(), 0}},
+       {{self.pt_t.sizes().vec(), out_dtype, 0}},
        &params,
        sizeof(params)});
 

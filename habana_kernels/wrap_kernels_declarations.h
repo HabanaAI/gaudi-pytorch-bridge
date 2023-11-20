@@ -478,7 +478,8 @@ at::Tensor scaled_masked_triangular_softmax_wrap(
     double inv_scale_attn,
     int64_t grouped_batch_size,
     bool use_max,
-    int64_t mode);
+    int64_t mode,
+    c10::optional<at::ScalarType> out_dtype);
 at::Tensor& in_place_interleave_wrap(at::Tensor& self);
 at::Tensor conv2d_fp8_wrap(
     const at::Tensor& input,

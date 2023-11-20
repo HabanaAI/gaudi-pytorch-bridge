@@ -1903,14 +1903,27 @@ at::Tensor scaled_masked_triangular_softmax_wrap(
     double inv_scale_attn,
     int64_t grouped_batch_size,
     bool use_max,
-    int64_t mode) {
+    int64_t mode,
+    c10::optional<at::ScalarType> out_dtype) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO(DUMP_6ARGS(
-      self, start_end, inv_scale_attn, grouped_batch_size, use_max, mode));
+  PT_OP_INFO(DUMP_7ARGS(
+      self,
+      start_end,
+      inv_scale_attn,
+      grouped_batch_size,
+      use_max,
+      mode,
+      out_dtype));
 
   return scaled_masked_triangular_softmax_lazy(
-      self, start_end, inv_scale_attn, grouped_batch_size, use_max, mode);
+      self,
+      start_end,
+      inv_scale_attn,
+      grouped_batch_size,
+      use_max,
+      mode,
+      out_dtype);
 }
 
 at::Tensor& in_place_interleave_wrap(at::Tensor& self) {
@@ -2393,7 +2406,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_index_select_v2(Tensor self, int dim, Tensor index) -> Tensor");
   m.def(
-      "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode) -> Tensor");
+      "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode, ScalarType? out_dtype=None) -> Tensor");
   m.def("hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))");
   m.def(
       "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None) -> Tensor");

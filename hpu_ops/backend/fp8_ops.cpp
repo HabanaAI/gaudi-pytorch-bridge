@@ -1370,8 +1370,8 @@ void Conv2dFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto padding = getNextInput<std::vector<int64_t>>(stackGetter);
   auto dilation = getNextInput<std::vector<int64_t>>(stackGetter);
   auto groups = getNextInput<int>(stackGetter);
-  auto pt_dtype =
-      stack[7].toOptional<at::ScalarType>().value_or(at::ScalarType::BFloat16);
+  auto pt_dtype = getNextInput<c10::optional<c10::ScalarType>>(stackGetter)
+                      .value_or(at::ScalarType::BFloat16);
 
   TORCH_CHECK(
       input.pt_t.dim() == 4 and weight.pt_t.dim() == 4,

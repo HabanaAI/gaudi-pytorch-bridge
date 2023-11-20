@@ -926,11 +926,30 @@ at::Tensor scaled_masked_triangular_softmax(
     double inv_scale_attn,
     int64_t grouped_batch_size,
     bool use_max,
-    int64_t mode) {
+    int64_t mode,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "scaled_masked_triangular_softmax :",
+      DUMP_7ARGS(
+          self,
+          start_end,
+          inv_scale_attn,
+          grouped_batch_size,
+          use_max,
+          mode,
+          out_dtype));
   habana::eager::EagerOp<at::Tensor> hpu_op{
       "hpu::scaled_masked_triangular_softmax",
-      {self, start_end, inv_scale_attn, grouped_batch_size, use_max, mode},
+      {self,
+       start_end,
+       inv_scale_attn,
+       grouped_batch_size,
+       use_max,
+       mode,
+       out_dtype},
       {{self.sizes().vec()}}};
+  hpu_op.set_scalar_types({out_dtype.value_or(self.scalar_type())});
   return hpu_op.call();
 }
 
@@ -1074,7 +1093,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, int offset, int mode) -> Tensor");
   m.def(
-      "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode) -> Tensor");
+      "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode, ScalarType? out_dtype=None) -> Tensor");
   m.def(
       "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor");
   m.def(
