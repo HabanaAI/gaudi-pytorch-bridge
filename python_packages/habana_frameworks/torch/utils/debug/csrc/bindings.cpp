@@ -22,11 +22,11 @@
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 enum log_level {
-  trace = HLLOG_LEVEL_TRACE,
-  debug = HLLOG_LEVEL_DEBUG,
-  info = HLLOG_LEVEL_INFO,
-  warn = HLLOG_LEVEL_WARN,
-  error = HLLOG_LEVEL_ERROR,
+  TRACE = HLLOG_LEVEL_TRACE,
+  DEBUG = HLLOG_LEVEL_DEBUG,
+  INFO = HLLOG_LEVEL_INFO,
+  WARN = HLLOG_LEVEL_WARN,
+  ERROR = HLLOG_LEVEL_ERROR,
 };
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -169,11 +169,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def("hg_print", [](std::string msg) { PT_HPUGRAPH_DEBUG(msg); });
   py::enum_<log_level>(m, "log_level")
-      .value("trace", HLLOG_LEVEL_TRACE)
-      .value("debug", HLLOG_LEVEL_DEBUG)
-      .value("info", HLLOG_LEVEL_INFO)
-      .value("warn", HLLOG_LEVEL_WARN)
-      .value("error", HLLOG_LEVEL_ERROR)
+      .value("trace", TRACE)
+      .value("debug", DEBUG)
+      .value("info", INFO)
+      .value("warn", WARN)
+      .value("error", ERROR)
       .export_values();
   m.def("is_log_python_enabled", [](log_level level) {
     return hl_logger::logLevelAtLeast(HlLogger::LoggerType::PT_PYTHON, level);
