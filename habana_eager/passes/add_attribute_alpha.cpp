@@ -13,8 +13,7 @@
 
 #include <c10/util/ArrayRef.h>
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "habana_eager/graph_exec.h"
-#include "habana_helpers/logging_pt.h"
+#include "habana_helpers/logging_pt.h" // Required for logging
 
 namespace habana {
 namespace graph {
@@ -25,28 +24,26 @@ struct AddAttributeAlphaPass {
       : m_graph(std::move(graph)) {}
 
   bool run() {
-    if (!GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-      return false;
-    }
     return processBlocks(m_graph->block());
   }
 
  private:
   bool processBlocks(at::ArrayRef<torch::jit::Block*> blocks) {
     bool changed{false};
-    auto& gconfig{HPURegistrar::get_hpu_global_config()};
+    const auto deterministic =
+        HPURegistrar::get_hpu_global_config().getDeterministic();
 
     for (auto block : blocks) {
       for (auto node : block->nodes()) {
-        changed |= processNode(node, gconfig.getDeterministic());
+        changed |= processNode(node, deterministic);
       }
     }
+
     return changed;
   }
 
   bool processNode(torch::jit::Node* node, bool deterministic) {
-    auto one = torch::jit::attr::deterministic;
-    node->i_(one, deterministic);
+    node->i_(torch::jit::attr::deterministic, deterministic);
     return true;
   }
 

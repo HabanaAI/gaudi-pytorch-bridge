@@ -125,10 +125,10 @@ torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
     output_count = output_count + 1;
   }
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-    auto one = torch::jit::attr::deterministic;
-    hpu_node->i_(one, aten_node->i(one));
-  }
+  hpu_node->i_(
+      torch::jit::attr::deterministic,
+      aten_node->i(torch::jit::attr::deterministic));
+
   return hpu_node;
 }
 

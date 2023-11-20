@@ -9,23 +9,28 @@
 # was provided.
 #
 ###############################################################################
+
 import torch
 import pytest
 import random
 import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch.dynamo.compile_backend
+import habana_frameworks.torch.dynamo.compile_backend  # noqa # pylint: disable=unused-import
 from test_utils import env_var_in_scope
 
-@pytest.mark.xfail(reason="CI problem: undefined symbol: _ZN6habana5graph12GraphStorage3getEv [SW-150162]")
-@pytest.mark.parametrize("shape", [(1,1), (2,2), (3,4,5,6,7)])
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int8, torch.int32])
+
+@pytest.mark.parametrize("shape", [(1, 1), (2, 2), (3, 4, 5, 6, 7)])
+@pytest.mark.parametrize(
+    "dtype", [torch.float, torch.bfloat16, torch.int8, torch.int32]
+)
 def test_masked_fill(shape, dtype):
-    with env_var_in_scope(PT_HPU_LAZY_MODE="0", PT_HPU_DETERMINISTIC_ENABLE="0", PT_HPU_COMPILE_USE_RECIPES=True):
+    with env_var_in_scope({"PT_HPU_COMPILE_USE_RECIPES": "True"}):
+
         def fn(input, mask, fill_value):
             return torch.ops.aten.masked_fill(input, mask, fill_value)
+
         compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
-        if (dtype.is_floating_point):
+        if dtype.is_floating_point:
             val = random.random()
             cpuInput = torch.randn(shape, dtype=dtype)
         else:

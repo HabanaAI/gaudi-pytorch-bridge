@@ -412,7 +412,7 @@ void graph::add_node(
     *ret_node_id = nodeId;
   }
   PT_BRIDGE_DEBUG("Adding Syn graph::add_node val ", deterministic);
-  if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE) && deterministic) {
+  if (deterministic) {
     auto status = synNodeSetDeterministic(graph_handle_, nodeId, deterministic);
     if (status != synStatus::synSuccess) {
       PT_SYNHELPER_WARN(

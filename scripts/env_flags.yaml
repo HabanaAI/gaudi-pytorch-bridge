@@ -1,4 +1,4 @@
-# ******************************************************************************
+###############################################################################
 # Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
@@ -8,7 +8,7 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-# ******************************************************************************
+###############################################################################
 
 # ENV_VARIABLE_NAME:
 #  type: c_style_type [default: string] [e.g. bool, unsigned, unsigned long]
@@ -82,10 +82,6 @@ PT_HPU_LAZY_ACC_PAR_MODE:
 PT_HPU_LAZY_ACC_VIEW_OPS_MODE:
   type: unsigned
   default: 0
-
-PT_HPU_DETERMINISTIC_ENABLE:
-  type: bool
-  default: true
 
 PT_HPU_USE_SYN_TENSOR_IDS:
   type: bool

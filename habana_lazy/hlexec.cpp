@@ -765,12 +765,11 @@ void HlExec::Create(
       //       torch::jit::ScopePtr(),
       //       c10::Symbol::fromQualString("debug::" + scope_name)));
       // }
-      if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-        auto one = torch::jit::attr::deterministic;
-        jit_node->i_(one, node->getDeterministic());
-        PT_BRIDGE_DEBUG(
-            "Deterministic val during Jit Node creation: ", jit_node->i(one));
-      }
+
+      jit_node->i_(torch::jit::attr::deterministic, node->getDeterministic());
+      PT_BRIDGE_DEBUG(
+          "Deterministic val during Jit Node creation: ",
+          jit_node->i(torch::jit::attr::deterministic));
 
       mp_g_->insertNode(jit_node);
 

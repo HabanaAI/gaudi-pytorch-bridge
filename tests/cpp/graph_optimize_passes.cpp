@@ -135,9 +135,6 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
   std::string marker_end = "\n}";
 
   std::ofstream out(fpath, std::ofstream::out);
-  if (!(GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE))) {
-    out << patterns;
-  }
   out << marker_begin;
   out << patterns0;
   out << patterns1;
@@ -165,18 +162,11 @@ TEST_F(GraphOptimizeTest, SubGraphRewriteTest) {
 
   hlexec->GetOrCreate(po_data, stack);
 
-  if ((GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE))) {
-    torch::jit::testing::FileCheck()
-        .check_not("= aten::mm")
-        ->check_not("= aten::relu")
-        ->run(*hlexec->get_graph());
-  } else {
-    torch::jit::testing::FileCheck()
-        .check_not("= aten::mm")
-        ->check_not("= aten::relu")
-        ->check_count("= aten::matmul", 1)
-        ->run(*hlexec->get_graph());
-  }
+  torch::jit::testing::FileCheck()
+      .check_not("= aten::mm")
+      ->check_not("= aten::relu")
+      ->run(*hlexec->get_graph());
+
   unsetenv("HABANA_TRANSFORM_GRAPH_FILE");
   remove(fpath);
 }

@@ -321,10 +321,9 @@ size_t Node::get_hash_without_connections() {
     m_node_hash_without_connection = at::hash_combine(
         m_node_hash_without_connection, m_meta_data.get_hash());
     // Op deterministic flag
-    if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-      m_node_hash_without_connection =
-          at::hash_combine(m_node_hash_without_connection, deterministic);
-    }
+
+    m_node_hash_without_connection =
+        at::hash_combine(m_node_hash_without_connection, deterministic);
   }
   return m_node_hash_without_connection;
 }
@@ -339,10 +338,9 @@ size_t Node::get_hash() {
           at::hash_combine(m_node_hash, m_inputs.at(i).mp_node->get_hash());
     }
     m_node_hash = at::hash_combine(m_node_hash, m_meta_data.get_hash());
-    if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-      m_node_hash = at::hash_combine(m_node_hash, deterministic);
-      PT_BRIDGE_DEBUG("Caching calculation deterministic: ", deterministic);
-    }
+
+    m_node_hash = at::hash_combine(m_node_hash, deterministic);
+    PT_BRIDGE_DEBUG("Caching calculation deterministic: ", deterministic);
   }
   return m_node_hash;
 }

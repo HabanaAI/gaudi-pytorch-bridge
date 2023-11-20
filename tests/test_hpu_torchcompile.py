@@ -14,16 +14,10 @@ import pytest
 import torch
 from test_utils import env_var_in_scope
 
-<<<<<<< HEAD:tests/test_hpu_torchcompile.py
-pytestmark = pytest.mark.skip(reason="silently kills all tests")
-=======
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_torchcompile.py
 
 @pytest.mark.xfail
 def test_simple_convolution():
-    with env_var_in_scope(
-        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
-    ):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
         pass
 
         class Net(torch.nn.Module):
@@ -53,9 +47,7 @@ def test_simple_convolution():
 
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends")
 def test_simple_convolution_mixed():
-    with env_var_in_scope(
-        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
-    ):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
         pass
 
         class Net_1(torch.nn.Module):
@@ -115,9 +107,7 @@ def test_simple_convolution_mixed():
 
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends")
 def test_simple_sgd_convnet():
-    with env_var_in_scope(
-        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
-    ):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
         pass
 
         class LeNet5(torch.nn.Module):
@@ -205,9 +195,7 @@ def test_simple_sgd_convnet():
 
 @pytest.mark.skip
 def test_simple_sgd_convnet_with_device_pingpong():
-    with env_var_in_scope(
-        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
-    ):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
         pass
 
         class LeNet5(torch.nn.Module):
@@ -301,9 +289,7 @@ def test_simple_sgd_convnet_with_device_pingpong():
 
 @pytest.mark.xfail  # Adam have issues when deepcopying FX graph in the backend: https://github.com/pytorch/pytorch/issues/96949
 def test_simple_adam_convnet():
-    with env_var_in_scope(
-        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
-    ):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
 
         class LeNet5(torch.nn.Module):
             def __init__(self):
@@ -390,9 +376,7 @@ def test_simple_adam_convnet():
 
 @pytest.mark.xfail  # Adam have issues when deepcopying FX graph in the backend: https://github.com/pytorch/pytorch/issues/96949
 def test_simple_adam_convnet_with_device_pingpong():
-    with env_var_in_scope(
-        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
-    ):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
         pass
 
         class LeNet5(torch.nn.Module):
@@ -486,9 +470,7 @@ def test_simple_adam_convnet_with_device_pingpong():
 
 @pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends")
 def test_simple_view():
-    with env_var_in_scope(
-        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0"}
-    ):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0"}):
         pass
 
         def raw_function(x):
@@ -513,20 +495,27 @@ def test_simple_view():
         print(res)
         print(res_view)
 
+
 @pytest.mark.xfail(reason="AttributeError: 'NoneType' object has no attribute 'reset'")
 def test_cache_metrics_enabled_and_graph_compilaton():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_ENABLE_CACHE_METRICS": "1"}):
+    with env_var_in_scope(
+        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_ENABLE_CACHE_METRICS": "1"}
+    ):
         from habana_frameworks.torch.hpu.metrics import metric_global
+
         gc_metric = metric_global("graph_compilation")
         gc_metric.reset()
         rc_metric = metric_global("recipe_cache")
         rc_metric.reset()
 
         import habana_frameworks.torch.core as htcore
+
         def raw_function(x):
             return torch.relu(x)
 
-        compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+        compiled_function_inference = torch.compile(
+            raw_function, backend="aot_hpu_inference_backend"
+        )
         input_tensor = torch.rand(3, 3, device="cpu").to("hpu")
         last_total_time = 0
         for curr_iter in range(5):
@@ -541,8 +530,11 @@ def test_cache_metrics_enabled_and_graph_compilaton():
 
 @pytest.mark.xfail(reason="AttributeError: 'NoneType' object has no attribute 'reset'")
 def test_metrics_eager_mode():
-    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_DETERMINISTIC_ENABLE": "0", "PT_HPU_ENABLE_CACHE_METRICS": "1"}):
+    with env_var_in_scope(
+        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_ENABLE_CACHE_METRICS": "1"}
+    ):
         from habana_frameworks.torch.hpu.metrics import metric_global
+
         rc_metric = metric_global("recipe_cache")
         rc_metric.reset()
         gc_metric = metric_global("graph_compilation")
@@ -550,12 +542,13 @@ def test_metrics_eager_mode():
 
         import habana_frameworks.torch.core as htcore
         import habana_frameworks.torch.utils.experimental as htexp
+
         class Net(torch.nn.Module):
             def __init__(self):
                 super().__init__()
                 self.layer = torch.nn.Sequential(
                     torch.nn.Conv2d(1, 6, kernel_size=9, stride=2, padding=1),
-                    torch.nn.Conv2d(6, 3, kernel_size=1, stride=1, padding=0)
+                    torch.nn.Conv2d(6, 3, kernel_size=1, stride=1, padding=0),
                 )
 
             def forward(self, x):
@@ -570,7 +563,9 @@ def test_metrics_eager_mode():
             gc_metric_dict = dict(gc_metric.stats())
             rc_metric_dict = dict(rc_metric.stats())
             # eager compilation not supported on Gaudi1
-            assert gc_metric_dict["TotalNumber"] == 0 or htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
+            assert (
+                gc_metric_dict["TotalNumber"] == 0
+                or htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
+            )
             assert rc_metric_dict["TotalMiss"] == 0
             assert rc_metric_dict["TotalHit"] == 0
-

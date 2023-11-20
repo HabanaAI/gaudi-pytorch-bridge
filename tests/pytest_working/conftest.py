@@ -1,3 +1,15 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 import pytest
 import numpy as np
 import random
@@ -7,6 +19,7 @@ import pytest
 import os
 
 # Can't import torch module because PT_HPU_LAZY_MODE is set in pytest_configure. If any function needs torch module it must be imported locally
+
 
 
 @pytest.fixture(autouse=True)
@@ -48,10 +61,6 @@ def pytest_configure(config):
         os.environ["PT_HPU_LAZY_MODE"] = "1"
     elif pytest.mode == "compile":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
-        # According to Piotr Papierkowski PT_HPU_DETERMINISTIC_ENABLE=1 set's alfa parameter
-        # in some graphs/tensors. When using torch.compile such attribute is not defined so
-        # this flag shall be ignored by bridge code.
-        # os.environ["PT_HPU_DETERMINISTIC_ENABLE"] = "0"
 
     # import torch after flag is set
     import habana_frameworks.torch  # noqa

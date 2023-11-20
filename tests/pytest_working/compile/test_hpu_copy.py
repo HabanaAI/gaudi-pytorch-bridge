@@ -9,20 +9,14 @@
 # was provided.
 #
 ###############################################################################
-import pytest
+
 import torch
 from test_utils import env_var_in_scope
 
-pytestmark = pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
-
-from test_utils import env_var_in_scope
-pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
 def test_hpu_view_copy():
     with env_var_in_scope(
         {
-            "PT_HPU_LAZY_MODE": "0",
-            "PT_HPU_DETERMINISTIC_ENABLE": "0",
             "PT_HPU_COMPILE_USE_RECIPES": "True",
             "PT_HPU_KEEP_INPUT_MUTATIONS": "1",
         }
@@ -48,8 +42,6 @@ def test_hpu_view_copy():
 def test_hpu_copy_expand():
     with env_var_in_scope(
         {
-            "PT_HPU_LAZY_MODE": "0",
-            "PT_HPU_DETERMINISTIC_ENABLE": "0",
             "PT_HPU_COMPILE_USE_RECIPES": "True",
             "PT_HPU_KEEP_INPUT_MUTATIONS": "1",
         }
@@ -78,8 +70,6 @@ def test_hpu_copy_expand():
 def test_hpu_copy_keepmutation():
     with env_var_in_scope(
         {
-            "PT_HPU_LAZY_MODE": "0",
-            "PT_HPU_DETERMINISTIC_ENABLE": "0",
             "PT_HPU_COMPILE_USE_RECIPES": "True",
             "PT_HPU_KEEP_INPUT_MUTATIONS": "1",
         }
@@ -105,8 +95,6 @@ def test_hpu_copy_keepmutation():
 def test_hpu_inplace_copies():
     with env_var_in_scope(
         {
-            "PT_HPU_LAZY_MODE": "0",
-            "PT_HPU_DETERMINISTIC_ENABLE": "0",
             "PT_HPU_COMPILE_USE_RECIPES": "True",
             "PT_HPU_KEEP_INPUT_MUTATIONS": "1",
         }
@@ -134,8 +122,6 @@ def test_hpu_inplace_copies():
 def test_hpu_expand():
     with env_var_in_scope(
         {
-            "PT_HPU_LAZY_MODE": "0",
-            "PT_HPU_DETERMINISTIC_ENABLE": "0",
             "PT_HPU_COMPILE_USE_RECIPES": "True",
             "PT_HPU_KEEP_INPUT_MUTATIONS": "0",
         }

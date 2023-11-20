@@ -92,12 +92,11 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
     if (HabanaKernel == nullptr)
       continue;
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-      // Set the deterministic val
-      auto one = torch::jit::attr::deterministic;
-      PT_BRIDGE_DEBUG("Deterministic value in BuildGraph: ", node->i(one));
-      HabanaKernel->setDeterministic(node->i(one));
-    }
+    // Set the deterministic val
+    PT_BRIDGE_DEBUG(
+        "Deterministic value in BuildGraph: ",
+        node->i(torch::jit::attr::deterministic));
+    HabanaKernel->setDeterministic(node->i(torch::jit::attr::deterministic));
 
     // override the persistence logic if any kernel sets it as persistent
     // We assume that first index for output will be the persistent.

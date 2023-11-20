@@ -396,11 +396,8 @@ void HabanaLaunchOpPT::RunHybridSif(
 
     TORCH_CHECK(habana_op, op, " isn't registered in KernelRegistry!");
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-      // Set the deterministic val
-      auto one = torch::jit::attr::deterministic;
-      habana_op->setDeterministic(node->i(one));
-    }
+    // Set the deterministic val
+    habana_op->setDeterministic(node->i(torch::jit::attr::deterministic));
 
     bool is_mapped_flag{true};
     torch::jit::Stack op_input_stack;
@@ -579,12 +576,11 @@ void HabanaLaunchOpPT::RunHybridSif(
 
     TORCH_CHECK(habana_op, op, " isn't registered in KernelRegistry!");
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-      // Set the deterministic val
-      auto one = torch::jit::attr::deterministic;
-      PT_BRIDGE_DEBUG("Deterministic value in BuildGraph: ", node->i(one));
-      habana_op->setDeterministic(node->i(one));
-    }
+    // Set the deterministic val
+    PT_BRIDGE_DEBUG(
+        "Deterministic value in BuildGraph: ",
+        node->i(torch::jit::attr::deterministic));
+    habana_op->setDeterministic(node->i(torch::jit::attr::deterministic));
 
     bool is_mapped_flag{true};
     auto op_input_stack =

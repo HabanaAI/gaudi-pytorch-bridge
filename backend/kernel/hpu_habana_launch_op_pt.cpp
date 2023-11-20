@@ -55,14 +55,6 @@
 using namespace torch::jit;
 using namespace jitgraph_utils;
 namespace habana {
-
-// static initializations
-const std::unordered_set<std::string> HabanaMetaOpList::meta_ops = {
-    // Add aten string here for ops to support
-    // e.g  :: "aten::view"
-    "aten::size",
-    "prim::dtype"};
-
 std::unordered_set<std::string> HabanaLaunchOpPT::disabled_jit_ir_ops_ = {};
 std::unordered_map<size_t, habana_helpers::InpTensorShapes>
     HabanaLaunchOpPT::ref_input_shape_map_ = {};
@@ -2078,12 +2070,11 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
     TORCH_CHECK(HabanaKernel, op, " isn't registered in KernelRegistry!");
 
-    if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-      // Set the deterministic val
-      auto one = torch::jit::attr::deterministic;
-      PT_BRIDGE_DEBUG("Deterministic value in BuildGraph: ", node->i(one));
-      HabanaKernel->setDeterministic(node->i(one));
-    }
+    // Set the deterministic val
+    PT_BRIDGE_DEBUG(
+        "Deterministic value in BuildGraph: ",
+        node->i(torch::jit::attr::deterministic));
+    HabanaKernel->setDeterministic(node->i(torch::jit::attr::deterministic));
 
     // Set kernel execution mode
     HabanaKernel->SetExecutionMode(execution_mode_);
@@ -2252,11 +2243,11 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         HabanaOperatorPtr csHabanaKernel =
             KernelRegistry().get(device_id, op, getNodeScalarType(node));
 
-        if (GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE)) {
-          auto one = torch::jit::attr::deterministic;
-          PT_BRIDGE_DEBUG("Deterministic value in BuildGraph: ", node->i(one));
-          HabanaKernel->setDeterministic(node->i(one));
-        }
+        PT_BRIDGE_DEBUG(
+            "Deterministic value in BuildGraph: ",
+            node->i(torch::jit::attr::deterministic));
+        HabanaKernel->setDeterministic(
+            node->i(torch::jit::attr::deterministic));
 
         // Set output meta data if auto-gen op
         if (auto op = std::dynamic_pointer_cast<OpBackend>(csHabanaKernel)) {

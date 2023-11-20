@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -67,14 +67,11 @@ class ScatterReduceOpTest : public HpuOpTestUtil,
   };
 
  private:
-  bool deterministic_;
   void SetUp() override {
-    deterministic_ = GET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE);
     DisableCpuFallback();
     TearDownBridge();
   }
   void TearDown() override {
-    SET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE, deterministic_, 1);
     RestoreMode();
   }
 };
@@ -94,7 +91,6 @@ TEST_P(ScatterReduceOpTest, scatter_reduce) {
     GTEST_SKIP()
         << "Setting environment variables causes that in subsequent test cases variables are not reloaded. This causes sporadic failures. To test deterministic_mode, remove the skip macro and run the test filtering deterministic tests only";
   }
-  SET_ENV_FLAG_NEW(PT_HPU_DETERMINISTIC_ENABLE, shapeInfo.deterministic, 1);
   GenerateInputs(
       2, {shapeInfo.inputShape, shapeInfo.sourceShape}, {dtype, dtype});
   auto selfCpu = GetCpuInput(0);
