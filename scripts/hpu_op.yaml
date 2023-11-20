@@ -1798,6 +1798,7 @@ clamp:
     Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min, max]
+  output_meta: ClampMeta
   guid: clamp_pt_fwd
   out_ids: [0]
 
@@ -1838,6 +1839,7 @@ clamp.out:
     Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, min, max]
   guid: clamp_pt_fwd
+  output_meta: ClampMeta
   # op_validator: check-node-with-shared-layer
 
 clamp.Tensor_out:

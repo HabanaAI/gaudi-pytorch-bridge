@@ -266,18 +266,32 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
         m_scalar_ids.end();
   };
 
+  auto isEmptyOptionalInput = [&](size_t i) -> bool {
+    // Empty optional inputs do not deliver underlying synTensors
+    return stack.at(i).isNone();
+  };
+
+  auto isNotScalarAndNotTensor = [&](size_t i) -> bool {
+    return !(stack.at(i).isScalar() or stack.at(i).isTensor());
+  };
+
   bool cast_inserted = false;
-  for (size_t i = 0; i < op_inputs.size(); ++i) {
-    if (!(stack[i].isScalar() or stack[i].isTensor())) {
-      continue;
-    }
-    auto input_type = GetScalarType(stack, i);
-    if (habana_helpers::pytorch_to_synapse_type(input_type) ==
-        habana_helpers::pytorch_to_synapse_type(m_scalar_type)) {
+
+  for (auto [i, offset] = std::tuple<size_t, size_t>{0, 0};
+       i < op_inputs.size();
+       ++i) {
+    if (skipScalarCastNeeded(i) or isEmptyOptionalInput(i) or
+        isNotScalarAndNotTensor(i)) {
+      // When stack input doesn't deliver underlying synTensor, there is a shift
+      // in indexing of inputs from stack and from synTensors which is adjusted
+      // by offest value
+      ++offset;
       continue;
     }
 
-    if (skipScalarCastNeeded(i)) {
+    auto input_type = GetScalarType(stack, i);
+    if (habana_helpers::pytorch_to_synapse_type(input_type) ==
+        habana_helpers::pytorch_to_synapse_type(m_scalar_type)) {
       continue;
     }
 
@@ -286,7 +300,7 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
     // Insert cast on the input with lower dtype
     auto cast = CastHelper(
         graph,
-        syn_in(i),
+        syn_in(i - offset),
         stack.at(i).isTensor() ? stack_tensor(stack, i).sizes() : 1,
         input_type,
         m_scalar_type);

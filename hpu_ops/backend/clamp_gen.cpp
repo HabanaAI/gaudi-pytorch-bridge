@@ -20,17 +20,22 @@ namespace habana {
 
 OutputMetaDataVector ClampMeta(const at::Stack& stack) {
   OutputMetaData meta{};
-  auto self_sizes = stack_tensor(stack, 0).sizes();
+  auto selfSizes = stack_tensor(stack, 0).sizes();
+  bool minMaxScalar = stack.at(1).isScalar() || stack.at(2).isScalar();
   bool minTensorDefined = stack.at(1).isTensor();
   bool maxTensorDefined = stack.at(2).isTensor();
-  if (minTensorDefined && maxTensorDefined) {
-    meta.shape = at::infer_size(
-        at::infer_size(self_sizes, stack_tensor(stack, 1).sizes()),
-        stack_tensor(stack, 2).sizes());
-  } else if (minTensorDefined) {
-    meta.shape = at::infer_size(self_sizes, stack_tensor(stack, 1).sizes());
+
+  if (minMaxScalar) {
+    meta.shape = selfSizes.vec();
   } else {
-    meta.shape = at::infer_size(self_sizes, stack_tensor(stack, 2).sizes());
+    if (minTensorDefined && maxTensorDefined)
+      meta.shape = at::infer_size(
+          at::infer_size(selfSizes, stack_tensor(stack, 1).sizes()),
+          stack_tensor(stack, 2).sizes());
+    else if (minTensorDefined)
+      meta.shape = at::infer_size(selfSizes, stack_tensor(stack, 1).sizes());
+    else
+      meta.shape = at::infer_size(selfSizes, stack_tensor(stack, 2).sizes());
   }
 
   meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
@@ -113,21 +118,20 @@ std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
 static synapse_helpers::tensor ClampCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
-    c10::ScalarType scalar_type,
     std::vector<synTensor> inputs,
-    std::vector<int64_t> outshape) {
+    const OutputMetaData& meta) {
   return std::move(OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("clamp_pt_fwd", scalar_type),
+      {get_guid_with_precision("clamp_pt_fwd", meta.dtype),
        inputs,
-       {{outshape, scalar_type, 0}}})[0]);
+       {{meta.shape, meta.dtype, 0}}})[0]);
 }
 
 void clampTensor::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto outshape = OutputMeta(stack)[0].shape;
+  auto meta = OutputMeta(stack)[0];
   bool minTensorDefined = stack.at(1).isTensor();
   bool maxTensorDefined = stack.at(2).isTensor();
   HABANA_ASSERT(
@@ -143,25 +147,25 @@ void clampTensor::AddNode(
   inputs.push_back(min ? min.value().syn_t : nullptr);
   inputs.push_back(max ? max.value().syn_t : nullptr);
 
-  syn_out(0) = ClampCommon(this, graph, ScalarType(), inputs, outshape);
+  syn_out(0) = ClampCommon(this, graph, inputs, meta);
 }
 
 void clampMaxTensor::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto outshape = OutputMeta(stack)[0].shape;
+  auto meta = OutputMeta(stack)[0];
   std::vector<synTensor> inputs = {syn_in(0), nullptr, syn_in(1)};
 
-  syn_out(0) = ClampCommon(this, graph, ScalarType(), inputs, outshape);
+  syn_out(0) = ClampCommon(this, graph, inputs, meta);
 }
 
 void clampMinTensor::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto outshape = OutputMeta(stack)[0].shape;
+  auto meta = OutputMeta(stack)[0];
   std::vector<synTensor> inputs = {syn_in(0), syn_in(1)};
 
-  syn_out(0) = ClampCommon(this, graph, ScalarType(), inputs, outshape);
+  syn_out(0) = ClampCommon(this, graph, inputs, meta);
 }
 
 } // namespace habana
