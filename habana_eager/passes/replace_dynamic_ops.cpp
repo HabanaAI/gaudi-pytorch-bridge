@@ -217,7 +217,7 @@ void ResolveNegativeSTSizes(
     DynamicOpPtr dsOp = DSOpsRegistry().get(node_name);
     if (!dsOp)
       continue;
-    dsOp->ResolveNegativeSizes(graph, stack, node, m_value_ivalue_map);
+    dsOp->ResolveNegativeSizes(node, m_value_ivalue_map);
   }
 }
 

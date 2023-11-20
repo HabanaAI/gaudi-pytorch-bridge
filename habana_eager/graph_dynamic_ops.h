@@ -116,8 +116,6 @@ class DynamicOp {
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) = 0;
 
   virtual void ResolveNegativeSizes(
-      [[maybe_unused]] std::shared_ptr<torch::jit::Graph> graph,
-      [[maybe_unused]] torch::jit::Stack& org_stack,
       [[maybe_unused]] torch::jit::Node* node,
       [[maybe_unused]] std::unordered_map<CValPtr, torch::jit::IValue>&
           value_ivalue_map) {}
@@ -208,8 +206,6 @@ class ViewOperatorDS : public DynamicOp {
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   void ResolveNegativeSizes(
-      std::shared_ptr<torch::jit::Graph> graph,
-      torch::jit::Stack& org_stack,
       torch::jit::Node* node,
       std::unordered_map<CValPtr, torch::jit::IValue>& value_ivalue_map)
       override;

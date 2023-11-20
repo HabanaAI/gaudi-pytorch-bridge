@@ -101,8 +101,6 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
 }
 
 void ViewOperatorDS::ResolveNegativeSizes(
-    std::shared_ptr<torch::jit::Graph> graph,
-    torch::jit::Stack& org_stack,
     torch::jit::Node* node,
     std::unordered_map<CValPtr, torch::jit::IValue>& value_ivalue_map) {
   auto view_st_value = node->inputs().at(1);
