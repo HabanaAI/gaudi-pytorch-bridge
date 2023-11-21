@@ -931,17 +931,16 @@ alias:
   acc_thread: true
 
 all:
-  custom_output_shape: AllAnyOutputShape
+  output_meta: AllAnyMeta
   dtypes:
     Gaudi: [Char]
     Gaudi2: [Char]
     Gaudi3: [Char]
-  out_dtypes: [Bool]
   out_ids: [0]
   op_backend: All
 
 all.all_out:
-  custom_output_shape: AllAnyOutputShape
+  output_meta: AllAnyMeta
   dtypes:
     Gaudi: [Char]
     Gaudi2: [Char]
@@ -1013,18 +1012,17 @@ aminmax.out:
   op_backend: Aminmax
 
 any.all_out:
-  custom_output_shape: AllAnyOutputShape
+  output_meta: AllAnyMeta
   dtypes: [Char]
   op_backend: Any
 
 any:
-  custom_output_shape: AllAnyOutputShape
+  output_meta: AllAnyMeta
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
     Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
   op_backend: Any
-  out_dtypes: [Bool]
   out_ids: [0]
 
 any.dim:
@@ -4307,7 +4305,7 @@ masked_fill.Tensor:
   out_ids: [0]
 
 max:
-  custom_output_shape: AllAnyOutputShape
+  output_meta: ReduceMinMaxMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
@@ -4534,7 +4532,7 @@ median.dim_values:
   op_backend: Mediandim
 
 min:
-  custom_output_shape: AllAnyOutputShape
+  output_meta: ReduceMinMaxMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]

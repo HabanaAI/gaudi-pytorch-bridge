@@ -18,6 +18,15 @@
 
 namespace habana {
 
+OutputMetaDataVector ReduceMinMaxMeta(const at::Stack& stack) {
+  const auto self = stack.at(0).toTensor();
+
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = {};
+  return {meta};
+}
+
 sizes_vec MinMaxOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   int64_t dim = stack.at(1).toInt();
@@ -60,9 +69,9 @@ void ReduceMinMax::AddNode(
   StackGetter sg{stack, "ReduceMinMax::AddNode"};
   auto self = getNextInput<TensorsPair>(sg);
 
-  std::vector<int64_t> shape = {};
+  const auto meta = ReduceMinMaxMeta(stack)[0];
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {shape, ScalarType(), 0}, {shape, c10::ScalarType::Int}};
+      {meta.shape, meta.dtype, 0}, {meta.shape, c10::ScalarType::Int}};
 
   syn_out(0) = std::move(HandleReductionDimAndKeepdim(
       this, graph, self.pt_t, {self.syn_t}, {}, false, guid_, output_attrs)[0]);

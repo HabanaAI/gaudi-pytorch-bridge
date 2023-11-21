@@ -17,8 +17,13 @@
 #include "hpu_ops/backend/reduction_template.h"
 
 namespace habana {
-sizes_vec AllAnyOutputShape(const at::Stack&) {
-  return {{}};
+OutputMetaDataVector AllAnyMeta(const at::Stack& stack) {
+  const auto self = stack.at(0).toTensor();
+
+  OutputMetaData meta;
+  meta.dtype = at::kBool;
+  meta.shape = {};
+  return {meta};
 }
 
 OutputMetaDataVector AllAnyDimMeta(const at::Stack& stack) {
@@ -90,7 +95,7 @@ void Any::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
 
   auto any_out = AnyCommonFunc(
-      this, graph, syn_in(0), self, {}, false, ComputeOutputShapes(stack)[0]);
+      this, graph, syn_in(0), self, {}, false, AllAnyMeta(stack)[0].shape);
   syn_out(0) = std::move(any_out);
 }
 } // namespace habana
