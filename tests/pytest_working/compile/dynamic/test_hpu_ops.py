@@ -516,6 +516,25 @@ def test_view_negative_dim_1():
         out_c = raw_function(t, s2)
         assert torch.allclose(result_compile_train.to("cpu"), out_c)
 
+def test_view_negative_dim_pure_static():
+    inputs = [(4, 7, 7, 8), (4, 10, 10, 8)]
+    shapes = [(4, -1, 8), (4, -1, 8)]
+
+    def raw_function(input_tensor, shape):
+        t = torch.relu(input_tensor)
+        out = t.view(shape)
+        return out
+
+    compiled_function_training = torch.compile(
+        raw_function, backend="aot_hpu_training_backend", dynamic=False
+    )
+
+    for s1, s2 in zip(inputs, shapes):
+        t = torch.randn(s1, requires_grad=False)
+        t_h = t.to("hpu")
+        result_compile_train = compiled_function_training(t_h, s2)
+        out_c = raw_function(t, s2)
+        assert torch.allclose(result_compile_train.to("cpu"), out_c)
 
 def test_dynamicity_static_dynamic_and_automatic():
     inputs = [(2, 2, 2, 3), (2, 3, 3, 3), (2, 4, 4, 3)]

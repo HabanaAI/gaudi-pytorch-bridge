@@ -174,6 +174,7 @@ def get_passes(stage: OptimizationPassPlacement):
     elif stage == OptimizationPassPlacement.PARTITIONER:
         return [
             # These passes will prepare proper placement for some corner-cases.
+            pass_handle_negative_dims,
             pass_handle_view_before_inplace_compute_ops,
             pass_graph_print,
             pass_eagerize_leaf_views,
@@ -1008,6 +1009,98 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
 
     return graph_changed
 
+class resolve_negative_dim:
+    is_dynamic = False
+    node_name = ''
+    view_dim_index = 0
+    py_node_manager = None
+
+    @staticmethod
+    def required(node):
+        node_name = node.target.__name__.split(".")[0]
+        resolve_negative_dim.node_name = node_name
+        # This is list of OPs with negative Dims.
+        negative_dim_ops = [
+            "view",
+        ]
+
+        from torch.fx.experimental.proxy_tensor import py_sym_types
+        from torch._subclasses.fake_tensor import FakeTensor
+        if node_name in negative_dim_ops:
+            if node_name == 'view':
+                node_arg0 = node.args[0]
+                meta_val = node_arg0.meta.get('val', node.meta.get('tensor_meta', None))
+                if (
+                    (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides)
+                    or isinstance(meta_val, py_sym_types)
+                ):
+                    resolve_negative_dim.is_dynamic = True
+                in_args_1 = node.args[1]
+                for index, value in enumerate(in_args_1):
+                    if not isinstance(value, py_sym_types):
+                        if value == -1:
+                            resolve_negative_dim.view_dim_index = index
+                            return True
+        return False
+
+    @classmethod
+    def __resolve_view_shapes(cls, ctx, node):
+        if node.args[0].meta["output_device"].type == "hpu":
+            new_args1 = []
+            if not cls.is_dynamic:
+                meta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+                new_args1 = list(meta_val.size())
+            else:
+                sym_size_expr = node.meta["output_shapes"][0][cls.view_dim_index]
+                meta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+                value = copy.copy(meta_val.shape[cls.view_dim_index])
+                new_node = cls.py_node_manager.get_or_create(sym_size_expr, int)
+                new_node.meta['val'] = value
+                new_node.meta["placement"] = "eager"
+                new_node.meta["output_device"] = torch.device("cpu")
+                for arg in node.args[1]:
+                    new_args1.append(arg)
+                neg_node = new_args1[cls.view_dim_index]
+                new_args1[cls.view_dim_index] = new_node
+            # replace call_function and recompile the graph
+            with ctx.graph_module.graph.inserting_before(node):
+                view_new_node = ctx.graph_module.graph.call_function(
+                    torch.ops.aten.view.default,
+                    (node.args[0], new_args1,),
+                    {},
+                )
+                node.replace_all_uses_with(view_new_node, propagate_meta=True)
+
+            ctx.graph_module.recompile()
+            ctx.graph_module.graph.eliminate_dead_code()
+        return True
+
+    def __new__(cls, ctx, node):
+        if cls.node_name == 'view':
+            return cls.__resolve_view_shapes(ctx, node)
+        return False
+
+def pass_handle_negative_dims(ctx: OptimizerContext) -> bool:
+    """
+    This pass goes through each node in the main module and replace
+    negative dims of node with static values in non-dynamic mode and
+    unrolled sympy expression with cpu operations in dynamic case
+    """
+
+    graph_changed = False
+    py_node_manager = SymExprNodeManager(ctx.graph_module)
+    resolve_negative_dim.py_node_manager = py_node_manager
+
+    for node in ctx.graph_module.graph.nodes:
+        if node.op == "placeholder":
+            tmeta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+            if isinstance(tmeta_val, py_sym_types):
+                py_node_manager.add_sym_placeholder(tmeta_val, node)
+        if node.op == "call_function":
+            if resolve_negative_dim.required(node):
+                py_node_manager.set_insert_point(node.prev)
+                graph_changed = resolve_negative_dim(ctx, node)
+    return graph_changed
 
 def helper_is_compute_node(node):
     # return false if node is a view node, input node or output node
