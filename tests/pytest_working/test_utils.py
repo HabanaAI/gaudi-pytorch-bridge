@@ -495,7 +495,6 @@ def check_ops_executed_in_jit_ir(op_names):
 
     pattern = r"^Node: (\w+) requires fallback: (\w+)"
     fallback_ops = []
-    op_found = False
 
     before_placement = True
     before_skip_copies = True

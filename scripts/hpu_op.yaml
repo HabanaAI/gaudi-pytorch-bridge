@@ -2680,8 +2680,8 @@ eye.m_out:
 fill.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: FillScalar
   op_frontend: FillFE
   out_ids: [0]
@@ -2689,23 +2689,23 @@ fill.Scalar:
 fill.Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: FillScalar
   op_frontend: FillFE
 
 fill.Tensor_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: Fill
 
 fill_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: FillScalar
   op_frontend: FillFE
   inplace_ids: [0]
@@ -2713,8 +2713,8 @@ fill_.Scalar:
 fill_.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: Fill
   inplace_ids: [0]
 
@@ -2843,8 +2843,8 @@ fmod_.Tensor:
 full:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short, Long]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
   output_meta: FullMeta
   op_backend: FullBE
   out_ids: [0]
@@ -7687,8 +7687,8 @@ xlogy_.Tensor:
 zero_:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: ZeroHpuLazyOperator
   inplace_ids: [0]
 

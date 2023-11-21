@@ -188,6 +188,8 @@ hpu_backend_decompositions_common = get_decompositions(
         aten.norm.names_ScalarOpt_dim_dtype,
         aten.norm.names_dtype_out,
         aten.norm.names_out,
+        aten.ones.default,
+        aten.ones_like.default,
         aten.ones_like.out,
         aten._prelu_kernel.default,
         aten._prelu_kernel_backward.default,
