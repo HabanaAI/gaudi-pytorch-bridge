@@ -189,20 +189,13 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   }
   auto self_sizes = self.sizes().vec();
   std::vector<at::Tensor> indices_list;
-  int64_t broadcast_to_size = 1;
   int64_t i = 0;
-  std::vector<int64_t> broadcast_to_shape;
   int64_t index_t_sizes[self.dim()];
   bool index_all_elems[self.dim()];
   for (auto index_input : indices) {
     auto input = index_input;
     if (input.has_value() &&
         (input.value().scalar_type() != c10::ScalarType::Bool)) {
-      auto cur_index_dim_size = input.value().sizes().vec()[0];
-      if (cur_index_dim_size >= broadcast_to_size) {
-        broadcast_to_size = cur_index_dim_size;
-        broadcast_to_shape = input.value().sizes().vec();
-      }
       index_all_elems[i] = false;
       index_t_sizes[i] = input.value().sizes()[0];
     } else if (!input.has_value()) {
@@ -220,42 +213,22 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   int64_t repeat_interleaves_needed[self.dim()];
   for (i = 0; i < self.dim(); i++) {
     repeats_needed[i] = 1;
-    int64_t total_elements_above = 1;
-    bool explicit_index_above = false;
-    for (int j = 0; j < i; j++) {
-      total_elements_above *= (index_all_elems[j]) ? self_sizes[j] : 1;
-      if (!index_all_elems[j]) {
-        explicit_index_above = true;
-      }
-    }
-    repeats_needed[i] = total_elements_above;
-    if (index_all_elems[i] && explicit_index_above) {
-      repeats_needed[i] *= broadcast_to_size;
-    } else if (!index_all_elems[i] && (1 == index_t_sizes[i])) {
-      repeats_needed[i] *= broadcast_to_size;
-    }
-
     repeat_interleaves_needed[i] = 1;
-    int64_t total_elements_below = 1;
-    bool explicit_index_below = false;
-    for (int j = i + 1; j < self.dim(); j++) {
-      total_elements_below *= (index_all_elems[j]) ? self_sizes[j] : 1;
-      if (!index_all_elems[j]) {
-        explicit_index_below = true;
-      }
-    }
-    if (index_all_elems[i] && explicit_index_below && !explicit_index_above) {
-      total_elements_below *= broadcast_to_size;
-    }
-    repeat_interleaves_needed[i] = total_elements_below;
-  }
 
+    for (int j = 0; j < i; j++) {
+      repeats_needed[i] *=
+          (index_all_elems[j]) ? self_sizes[j] : index_t_sizes[j];
+    }
+    for (int j = i + 1; j < self.dim(); j++) {
+      repeat_interleaves_needed[i] *=
+          (index_all_elems[j]) ? self_sizes[j] : index_t_sizes[j];
+    }
+  }
   // Now create all indices tensors and insert into list using repeats_needed
   // and repeat_interleaves_needed. Note that in Boolean mask indexing method we
   // have to create indices from the mask using nonzero and squeeze as done in
   // previous code block.
   for (int dim = 0; dim < self.dim(); dim++) {
-    at::Tensor it;
     if (index_all_elems[dim]) {
       std::vector<int64_t> shape{self.sizes().vec()[dim]};
       c10::IntArrayRef arange_size(shape.data(), shape.size());
@@ -271,9 +244,8 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
           c10::nullopt,
           c10::kHPU,
           c10::nullopt);
-      it = generated_index_tensor;
-      auto it_repeat_interleave =
-          it.repeat_interleave(repeat_interleaves_needed[dim]);
+      auto it_repeat_interleave = generated_index_tensor.repeat_interleave(
+          repeat_interleaves_needed[dim]);
       indices_list.push_back(it_repeat_interleave.repeat(repeats_needed[dim]));
     } else if (indices[dim].has_value()) {
       auto input_temp = indices[dim].value();

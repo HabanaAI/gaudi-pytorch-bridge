@@ -270,28 +270,21 @@ void IndexPutEager::AddNode(
   std::vector<synapse_helpers::tensor> cat_input_tensor;
   std::vector<std::vector<int64_t>> cat_input_index;
   for (size_t i = 0; i < indices.size(); i++) {
-    if (indices[i].dim() == 1) {
-      auto bcastOp =
-          BroadcastHelper(graph, syn_in(i + 1), max_size, indices_scalar_type);
-      // Reshape broadcasted indices to [N, 1] for concatenation
-      auto flattened_size = std::accumulate(
-          std::begin(max_size),
-          std::end(max_size),
-          1,
-          std::multiplies<size_t>());
+    auto bcastOp =
+        BroadcastHelper(graph, syn_in(i + 1), max_size, indices_scalar_type);
+    // Reshape broadcasted indices to [N, 1] for concatenation
+    auto flattened_size = std::accumulate(
+        std::begin(max_size), std::end(max_size), 1, std::multiplies<size_t>());
 
-      std::vector<int64_t> expanded_size = {flattened_size, 1};
-      cat_input_tensor.emplace_back(ReshapeHelper(
-          graph, bcastOp.get(), expanded_size, indices_scalar_type));
-      cat_input_synTensor.emplace_back(
-          cat_input_tensor[cat_input_tensor.size() - 1].get());
-      cat_input_index.emplace_back(
-          cat_input_tensor[cat_input_tensor.size() - 1].pt_shape());
-    } else {
-      cat_input_synTensor.emplace_back(syn_in(i + 1));
-      cat_input_index.emplace_back(indices[i].sizes().vec());
-    }
+    std::vector<int64_t> expanded_size = {flattened_size, 1};
+    cat_input_tensor.emplace_back(ReshapeHelper(
+        graph, bcastOp.get(), expanded_size, indices_scalar_type));
+    cat_input_synTensor.emplace_back(
+        cat_input_tensor[cat_input_tensor.size() - 1].get());
+    cat_input_index.emplace_back(
+        cat_input_tensor[cat_input_tensor.size() - 1].pt_shape());
   }
+
   int64_t cat_dim = 1;
   std::vector<int64_t> cat_out_size =
       CalcCatOutSize(&cat_input_index, &cat_dim);
@@ -310,7 +303,6 @@ void IndexPutEager::AddNode(
       sizeof(concat_params));
 
   auto catop = std::move(catop1.at(0));
-
   // Calculate the dimensionality of updates for broadcasting
   auto rank_inp = static_cast<size_t>(self.ndimension());
   auto rank_idx = static_cast<size_t>(catop.pt_shape()[1]);
