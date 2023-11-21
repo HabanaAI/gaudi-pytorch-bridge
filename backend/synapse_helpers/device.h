@@ -212,7 +212,8 @@ class device {
       const event_done_callback& done_cb,
       bool non_blocking = false,
       bool is_pinned = false,
-      hpuStream_t hpu_stream = 0);
+      hpuStream_t hpu_stream = 0,
+      void* host_cpu_data = nullptr);
   synapse_error copy_data_to_host(
       device_ptr device_data,
       void* destination,
@@ -523,7 +524,8 @@ class device {
       size_t total_bytes,
       const event_done_callback& done_cb,
       bool is_pinned,
-      hpuStream_t hpu_stream);
+      hpuStream_t hpu_stream,
+      void* host_cpu_data = nullptr);
 
   uint64_t get_compute_stream_count();
   // Empty be default, framework can register its function to be called before

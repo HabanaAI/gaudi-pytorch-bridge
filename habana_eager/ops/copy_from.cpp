@@ -249,6 +249,34 @@ void Register_Copy_In_Pipeline(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
+  // Set pipeline metadata on the dst hpu tensor
+  auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst)};
+  dst_hb_tmeta->set_tensor_pipelined();
+
+  // Set cpu host memory metadata on the src cpu tensor (if non-pinned memory)
+  if (!habana::PinnedMemoryAllocator_is_pinned(src.data_ptr())) {
+    // Allocate host memory and do std::copy in the main thread
+    // host memory will be freed after dma memcopy at copy_data_to_device
+    void* host_ptr;
+    const size_t total_bytes = habana_helpers::GetNBytes(src);
+    synStatus status =
+        habana::HPURegistrar::get_device().get_host_memory().malloc(
+            &host_ptr, total_bytes);
+    TORCH_CHECK(
+        status == synStatus::synSuccess,
+        Logger::formatStatusMsg(status),
+        "Host malloc failed !");
+    PT_EAGER_DEBUG("Host memory : ", host_ptr, " bytes :", total_bytes);
+
+    std::copy(
+        reinterpret_cast<uint8_t*>(src.data_ptr()),
+        reinterpret_cast<uint8_t*>(src.data_ptr()) + total_bytes,
+        reinterpret_cast<uint8_t*>(host_ptr));
+
+    auto src_hb_tmeta{habana::get_tensor_extra_meta(src)};
+    src_hb_tmeta->set_host_cpu_data_ptr(host_ptr);
+  }
+
   habana::eager::SingleTonEagerContext::getInstance()
       .ScheduleWorkAndUpdateLoweringThreadHandle(
           Copy_Empty_Lowering_Task,
@@ -261,7 +289,16 @@ void Pipeline_Or_Direct_Copy(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking) {
-  if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) && non_blocking) {
+  bool pipeline_flag =
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) && non_blocking;
+  if (pipeline_flag) {
+    // Check if the CPU src tensor is allocated at the pinned memory.
+    // non-blocking copy with pinned memory allocation should not be pipelined.
+    // as there can be a race condition with CPU tensor inplace operation.
+    pipeline_flag &= (!habana::PinnedMemoryAllocator_is_pinned(src.data_ptr()));
+  }
+
+  if (pipeline_flag) {
     auto src_backend = HbEagerTensorPool::get_backend_tensor(src);
     auto dst_backend = HbEagerTensorPool::get_backend_tensor(dst);
 

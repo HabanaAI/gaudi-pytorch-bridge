@@ -438,6 +438,17 @@ void habana_helpers::copy_data_to_device(
   }
 
   if (non_blocking && device.IsStreamASyncEnabled()) {
+    // check if non pinned memory and CPU host memory
+    // already allocated in the main thread
+    void* host_cpu_data = nullptr;
+    if (!is_pinned) {
+      if (auto tmeta = src.unsafeGetTensorImpl()->get_backend_meta()) {
+        if (auto hb_tmeta = dynamic_cast<habana::TensorExtraMeta*>(tmeta)) {
+          host_cpu_data = hb_tmeta->get_host_cpu_data_ptr();
+        }
+      }
+    }
+
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
@@ -452,7 +463,8 @@ void habana_helpers::copy_data_to_device(
         [srcRef, dstRef]() { return; },
         non_blocking,
         is_pinned,
-        hpu_stream);
+        hpu_stream,
+        host_cpu_data);
   } else {
     std::atomic<bool> copyDone{false};
     device.copy_data_to_device(

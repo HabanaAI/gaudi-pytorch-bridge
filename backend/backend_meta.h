@@ -426,6 +426,22 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     exp_bias_ = exp_bias;
   }
 
+  bool is_tensor_pipelined() const {
+    return is_tensor_pipelined_;
+  }
+
+  void set_tensor_pipelined() {
+    is_tensor_pipelined_ = true;
+  }
+
+  void* get_host_cpu_data_ptr() const {
+    return host_cpu_data_ptr_;
+  }
+
+  void set_host_cpu_data_ptr(void* ptr) {
+    host_cpu_data_ptr_ = ptr;
+  }
+
  private:
   c10::IntArrayRef sizes_{0};
   habana::LayoutFormat tensor_layout_{habana::LayoutFormat::NCHW};
@@ -453,6 +469,9 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   bool is_view_{false};
   bool is_maybe_grad_view_{false};
   c10::optional<unsigned> exp_bias_{c10::nullopt};
+
+  bool is_tensor_pipelined_{false};
+  void* host_cpu_data_ptr_{nullptr};
 };
 
 TensorExtraMeta* get_tensor_extra_meta_from_hb_internal_tensor_impl(

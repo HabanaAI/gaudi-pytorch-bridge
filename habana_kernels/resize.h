@@ -22,6 +22,7 @@
 #include "backend/helpers/get_n_bytes.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "kernel_utils.h"
+#include "pytorch_helpers/habana_helpers/misc_utils.h"
 
 #define THMin(X, Y) ((X) < (Y) ? (X) : (Y))
 
@@ -48,7 +49,8 @@ inline StorageImpl* THTensor_getStoragePtr(const TensorImpl* tensor) {
 inline void THStorage_resizeBytes(
     c10::StorageImpl* self,
     ptrdiff_t size_bytes,
-    const caffe2::TypeMeta dtype) {
+    const caffe2::TypeMeta dtype,
+    bool is_tensor_pipelined = false) {
   TORCH_CHECK(size_bytes >= 0, "invalid size");
   TORCH_CHECK(self->allocator() != nullptr);
   int device_id = habana::HPUDeviceAllocator::allocator_active_device_id;
@@ -61,6 +63,9 @@ inline void THStorage_resizeBytes(
         at::DataPtr(nullptr, at::Device(at::DeviceType::HPU, device_id)));
     self->set_nbytes(0);
   } else {
+    if (is_tensor_pipelined) {
+      habana::TryJoinPendingEagerPipelineThreads();
+    }
     at::DataPtr data = self->allocator()->allocate(size_bytes);
 
     if (self->data_ptr()) {
@@ -110,8 +115,17 @@ inline void maybe_resize_storage_hpu(TensorImpl* self, int64_t new_size) {
     uint64_t new_size_bytes =
         (new_size + self->storage_offset()) * self->dtype().itemsize();
     if (new_size_bytes > habana_helpers::GetNBytes(self)) {
+      auto is_tensor_pipelined = false;
+      if (auto tmeta = self->get_backend_meta()) {
+        if (auto hb_tmeta = dynamic_cast<habana::TensorExtraMeta*>(tmeta)) {
+          is_tensor_pipelined = hb_tmeta->is_tensor_pipelined();
+        }
+      }
       THStorage_resizeBytes(
-          THTensor_getStoragePtr(self), new_size_bytes, self->dtype());
+          THTensor_getStoragePtr(self),
+          new_size_bytes,
+          self->dtype(),
+          is_tensor_pipelined);
     }
   }
 }

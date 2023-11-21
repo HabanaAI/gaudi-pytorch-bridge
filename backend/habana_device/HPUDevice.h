@@ -101,7 +101,8 @@ class HPUDevice {
       const synapse_helpers::event_done_callback& done_cb,
       bool non_blocking = false,
       bool is_pinned = false,
-      hpuStream_t hpu_stream = 0) {
+      hpuStream_t hpu_stream = 0,
+      void* host_cpu_data = nullptr) {
     auto syn_error{device_->copy_data_to_device(
         cpu_data,
         destination,
@@ -110,7 +111,8 @@ class HPUDevice {
         done_cb,
         non_blocking,
         is_pinned,
-        hpu_stream)};
+        hpu_stream,
+        host_cpu_data)};
     TORCH_HABANA_CHECK(syn_error.status, syn_error.error);
   }
 

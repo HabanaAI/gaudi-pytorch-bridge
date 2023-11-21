@@ -1066,7 +1066,8 @@ inline bool device::copy_data_to_device_(
     size_t total_bytes,
     const event_done_callback& done_cb,
     bool is_pinned,
-    synapse_helpers::hpuStream_t hpu_stream) {
+    synapse_helpers::hpuStream_t hpu_stream,
+    void* host_cpu_data) {
   PT_SYNHELPER_DEBUG(
       "Copy CPU Tensor to Device ",
       cpu_data,
@@ -1080,15 +1081,21 @@ inline bool device::copy_data_to_device_(
   synapse_helpers::stream& stream_handle = get_stream(hpu_stream, DMA_H2D);
   uint8_t* dst_ptr;
   if (!is_pinned) {
-    status = host_memory_.malloc((void**)&dst_ptr, total_bytes);
-    if (status != synStatus::synSuccess) {
-      PT_SYNHELPER_FATAL(Logger::formatStatusMsg(status), "Host malloc failed");
-      return false;
+    if (host_cpu_data) {
+      // host memory already allocated in the main thread
+      dst_ptr = reinterpret_cast<uint8_t*>(host_cpu_data);
+    } else {
+      status = host_memory_.malloc((void**)&dst_ptr, total_bytes);
+      if (status != synStatus::synSuccess) {
+        PT_SYNHELPER_FATAL(
+            Logger::formatStatusMsg(status), "Host malloc failed");
+        return false;
+      }
+      std::copy(
+          reinterpret_cast<uint8_t*>(cpu_data),
+          reinterpret_cast<uint8_t*>(cpu_data) + total_bytes,
+          dst_ptr);
     }
-    std::copy(
-        reinterpret_cast<uint8_t*>(cpu_data),
-        reinterpret_cast<uint8_t*>(cpu_data) + total_bytes,
-        dst_ptr);
     mapped_cpu_data = dst_ptr;
   } else {
     PT_SYNHELPER_DEBUG("copy_data_to_device uses Pinned memory");
@@ -1152,7 +1159,8 @@ synapse_error device::copy_data_to_device(
     const event_done_callback& done_cb,
     bool non_blocking,
     bool is_pinned,
-    synapse_helpers::hpuStream_t hpu_stream) {
+    synapse_helpers::hpuStream_t hpu_stream,
+    void* host_cpu_data) {
   /* in case of write, we can invoke a fill (compute)
    * stream or via DMA. if we have a fill and a copy
    * Need to wait for the fill compute stream to complete
@@ -1177,7 +1185,7 @@ synapse_error device::copy_data_to_device(
    * Else
    *  - Continue copy data function in the same main thread
    */
-  if (true == non_blocking && false == is_pinned &&
+  if (true == non_blocking && false == is_pinned && nullptr == host_cpu_data &&
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_COPY_ASYNC_THREAD) &&
       total_bytes >= GET_ENV_FLAG_NEW(PT_HPU_H2D_COPY_MIN_TENSOR_SIZE)) {
     std::shared_future<bool> copy_future = std::async(
@@ -1190,7 +1198,8 @@ synapse_error device::copy_data_to_device(
         total_bytes,
         done_cb,
         is_pinned,
-        hpu_stream);
+        hpu_stream,
+        host_cpu_data);
     submit_future(destination, std::move(copy_future));
   } else { // Continue in the same main thread
     (void)device::copy_data_to_device_(
@@ -1200,7 +1209,8 @@ synapse_error device::copy_data_to_device(
         total_bytes,
         done_cb,
         is_pinned,
-        hpu_stream);
+        hpu_stream,
+        host_cpu_data);
   }
   return {};
 }

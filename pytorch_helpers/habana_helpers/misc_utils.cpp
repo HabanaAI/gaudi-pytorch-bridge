@@ -13,7 +13,11 @@
 
 #include "misc_utils.h"
 #include <ATen/Tensor.h>
+#include <dlfcn.h>
+#include <stdlib.h>
 #include "habana_helpers/logging.h"
+
+using JoinPendingPipelineThreadsFunc = void (*)(void);
 
 namespace habana {
 
@@ -62,6 +66,18 @@ int GetRankFromEnv() {
   }
 
   return node_id;
+}
+
+void TryJoinPendingEagerPipelineThreads() {
+  static JoinPendingPipelineThreadsFunc joinPendingPipelineThreads =
+      reinterpret_cast<JoinPendingPipelineThreadsFunc>(
+          dlsym(RTLD_DEFAULT, "JoinPendingPipelineThreads"));
+  if (joinPendingPipelineThreads) {
+    PT_BRIDGE_DEBUG("habana::eager::JoinPendingPipelineThreads called");
+    joinPendingPipelineThreads();
+  } else {
+    PT_BRIDGE_WARN("habana::eager::JoinPendingPipelineThreads was not linked");
+  }
 }
 
 } // namespace habana
