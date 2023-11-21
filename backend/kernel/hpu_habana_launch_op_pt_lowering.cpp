@@ -565,7 +565,6 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph(bool allocate_rval) {
       cur_rvalpsh = std::make_shared<RecipeValueSpec>(nullptr, jit_ir_graph_);
     } else {
       cur_rvalpsh->recipe = nullptr;
-      cur_rvalpsh->jit_graph_ = jit_ir_graph_;
     }
     return;
   }
