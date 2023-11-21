@@ -453,6 +453,11 @@ size_t EagerExec::calculate_operator_key(
   return optimized_key;
 }
 
+// ZST tensor has rank '1' with shape '0' but no allocation
+static inline bool is_zst(const at::Tensor& t) {
+  return (t.dim() == 1 && t.sizes()[0] == 0);
+}
+
 void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
   key = at::hash_combine(key, static_cast<size_t>(t.scalar_type()));
 
@@ -502,6 +507,11 @@ void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
   key = at::hash_combine(key, static_cast<size_t>(t.suggest_memory_format()));
   key = at::hash_combine(key, static_cast<size_t>(t.layout()));
   key = at::hash_combine(key, t.dim());
+
+  // hash for zst tensor
+  if (is_zst(t)) {
+    key = at::hash_combine(key, true);
+  }
 }
 
 UniqueIdxVec EagerExec::find_duplicate_in_stack(torch::jit::Stack& stack) {

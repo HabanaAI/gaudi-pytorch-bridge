@@ -873,7 +873,8 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
             out_tensor_syn.name(),
             out_tensor_syn.id(),
             out_tensor_syn.get(),
-            out_tensor_syn.tensor_type());
+            out_tensor_syn.tensor_type(),
+            out_tensor_syn.pt_shape());
         constexpr bool use_output_shape = true;
         handle_shape_inf(ti, use_output_shape, enable_shape_agnostic_caching_);
         // non-persistent intermediate synapse tensor
@@ -3312,9 +3313,112 @@ void HabanaLaunchOpPT::ReturnCachedRecipe(RecipeValueSpec& rv) {
 }
 
 // shape agnostic : duplicate synapse graph
-void HabanaLaunchOpPT::DuplicateSynapseGraph() {
+void HabanaLaunchOpPT::DuplicateSynapseGraph(
+    std::vector<std::pair<synTensor, std::vector<int64_t>>>&
+        duplicate_tensors_shape_map) {
   auto tensorsMap = syn_graph_ptr_->duplicate();
   MaybePrintDuplicateGraphInformation(syn_graph_ptr_, tensorsMap, false);
+
+  // Get all persistent tensors info i.e. graph inputs/outputs
+  std::vector<PtTensorInfoShared> tensors_info;
+  for (size_t i = 0; i < jit_ir_graph_->inputs().size(); ++i) {
+    auto input = jit_ir_graph_->inputs().at(i);
+    HABANA_ASSERT(value_to_ivalue.count(input));
+    auto input_ivalue = value_to_ivalue[input];
+    if (!input_ivalue->isTensor())
+      continue;
+    HABANA_ASSERT(ivalue_to_tensor_info_map.count(input_ivalue));
+    tensors_info.emplace_back(ivalue_to_tensor_info_map[input_ivalue]);
+  }
+
+  for (size_t i = 0; i < jit_ir_graph_->outputs().size(); ++i) {
+    auto output = jit_ir_graph_->outputs().at(i);
+    HABANA_ASSERT(value_to_ivalue.count(output));
+    auto output_ivalue = value_to_ivalue[output];
+    HABANA_ASSERT(ivalue_to_tensor_info_map.count(output_ivalue));
+    tensors_info.emplace_back(ivalue_to_tensor_info_map[output_ivalue]);
+  }
+
+  // Get all non-persistent tensors info supported by hybrid sif
+  for (auto& tinfo_map : sif_tidx_to_tinfo_map) {
+    tensors_info.emplace_back(tinfo_map.second);
+  }
+
+  // Get map for orig handle -> <duplicate handle and boolean set bit>
+  std::unordered_map<synTensor, std::pair<synTensor, bool>>
+      synapse_orig_to_new_handle_info{};
+  for (const auto& tensorMap : tensorsMap) {
+    synapse_orig_to_new_handle_info.insert(
+        {tensorMap.origHandle, std::make_pair(tensorMap.newHandle, false)});
+  }
+
+  // Set tensor geometry on duplicate tensors for known shapes
+  for (const auto& tinfo : tensors_info) {
+    const auto& orig_handle = tinfo->get_orig_syn_handle();
+    const auto& tensor_map = synapse_orig_to_new_handle_info.find(orig_handle);
+    if (tensor_map != synapse_orig_to_new_handle_info.end()) {
+      const auto& new_handle = tensor_map->second.first;
+      auto shape = tinfo->get_shape();
+      if (shape.size() == 0 && !tinfo->is_ZST()) {
+        shape = {1};
+      }
+      syn_graph_ptr_->setTensorGeometry(new_handle, shape);
+      PT_EAGER_DEBUG(
+          "[SHAPE AGNOSTIC] new handle : ",
+          new_handle,
+          " set geometry : ",
+          shape);
+      // Mark set bit and add to duplicate tensors shapes map
+      tensor_map->second.second = true;
+      duplicate_tensors_shape_map.emplace_back(
+          std::make_pair(new_handle, std::move(shape)));
+    } else {
+      PT_EAGER_DEBUG(
+          "[SHAPE AGNOSTIC] orig handle : ",
+          orig_handle,
+          " not present in the synapse_orig_to_new_handle map");
+    }
+  }
+
+  // Collect org graph non-persistent shapes not aware to bridge SIF
+  // to reset to the correct shapes if synapse Infer shapes failed
+  for (const auto& tensor_map : synapse_orig_to_new_handle_info) {
+    // check if set bit not set
+    const auto& orig_handle = tensor_map.first;
+    const auto& new_handle_info = tensor_map.second;
+    if (new_handle_info.second == false) {
+      // Get org tensor shapes and add it to duplicate tensors shape maps
+      std::vector<int64_t> shape;
+      syn_graph_ptr_->getTensorGeometry(orig_handle, shape);
+      const auto& new_handle = new_handle_info.first;
+      PT_EAGER_DEBUG(
+          "[SHAPE AGNOSTIC] org handle : ",
+          orig_handle,
+          " new handle : ",
+          new_handle,
+          " get geomtery org shapes : ",
+          shape);
+      // Add to duplicate tensors shapes map
+      duplicate_tensors_shape_map.emplace_back(
+          std::make_pair(new_handle, std::move(shape)));
+    }
+  }
+}
+
+static void ResetDuplicateTensorShapes(
+    std::shared_ptr<synapse_helpers::graph> syn_graph_ptr,
+    std::vector<std::pair<synTensor, std::vector<int64_t>>>&
+        duplicate_tensors_shape_map) {
+  for (const auto& map : duplicate_tensors_shape_map) {
+    const auto& new_handle = map.first;
+    const auto& shape = map.second;
+    syn_graph_ptr->setTensorGeometry(new_handle, shape);
+    PT_EAGER_DEBUG(
+        "[SHAPE AGNOSTIC] new handle : ",
+        new_handle,
+        " reset geomtery : ",
+        shape);
+  }
 }
 
 // shape agnostic : store shape agnostic graph
@@ -3722,7 +3826,9 @@ void HabanaLaunchOpPT::run(
         return;
       }
 
-      DuplicateSynapseGraph();
+      std::vector<std::pair<synTensor, std::vector<int64_t>>>
+          duplicate_tensors_shape_map;
+      DuplicateSynapseGraph(duplicate_tensors_shape_map);
 
       if (syn_graph_ptr_->get_num_of_shape_tensors() > 0) {
         jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
@@ -3732,52 +3838,85 @@ void HabanaLaunchOpPT::run(
             syn_graph_ptr_->get_num_of_shape_tensors());
       }
 
-      // ToDo: Refactor this logic later w.r.t synapse shape inference
-      // When meta attribute is set JIT IR Op kernel does not add synapse node
-      if ((habana_kernels.size() - meta_attribute_nodes_count_) !=
-          syn_graph_ptr_->get_num_of_nodes()) {
-        jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
+      if (jit_graph_and_meta_data_->get_is_shape_agnostic_supported()) {
+        bool compound_ops_flag =
+            ((habana_kernels.size() - meta_attribute_nodes_count_) !=
+             syn_graph_ptr_->get_num_of_nodes());
+
         PT_EAGER_DEBUG(
-            "[SHAPE AGNOSTIC] Shape agnostic not supported for compound Op(s)",
-            " number of kernels : ",
+            "[SHAPE AGNOSTIC] Number of kernels: ",
             habana_kernels.size(),
-            " number of JIT IR nodes with meta attribute : ",
+            ", number of JIT IR nodes with meta attribute : ",
             meta_attribute_nodes_count_,
-            " number of synapse nodes : ",
-            syn_graph_ptr_->get_num_of_nodes());
-      }
+            ", number of synapse nodes: ",
+            syn_graph_ptr_->get_num_of_nodes(),
+            ", flag compound op(s): ",
+            compound_ops_flag);
 
-      /*
-       * Check for non-persistent syn tensors (i.e. added with in habana kernel)
-       * Example Gelu Pytorch Op is unary kernel i.e. 1 input and 1 input
-       * But TPC kernel has two outputs second output is internal to synapse
-       * i.e. non-persitent and is reserved for backward pass calculation.
-       *
-       * Adding fallback for such cases.
-       * This fallback should not occur with views as of today sizes/strides
-       * are cached. Need to fix once params agnostic support is added.
-       * To remove this fallback once shape inference is supported for
-       * non-persistent synapse tensors.
-       */
-      if (jit_graph_and_meta_data_->get_is_shape_agnostic_supported() &&
-          ((syn_graph_ptr_->get_num_of_tensors() -
-            syn_graph_ptr_->get_num_of_const_tensors()) !=
-           (pt_to_synapse_tensors.size() + implicit_syn_tensors_count_))) {
-        jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
+        bool non_persistent_tensors_flag =
+            ((syn_graph_ptr_->get_num_of_tensors() -
+              syn_graph_ptr_->get_num_of_const_tensors()) !=
+             (pt_to_synapse_tensors.size() + implicit_syn_tensors_count_));
+
         PT_EAGER_DEBUG(
-            "[SHAPE AGNOSTIC] Shape agnostic not supported for non-persistent"
-            " total number of syn tensors : ",
+            "[SHAPE AGNOSTIC] Total num of syn tensors: ",
             syn_graph_ptr_->get_num_of_tensors(),
-            " number of const tensors : ",
+            ", num of const tensors: ",
             syn_graph_ptr_->get_num_of_const_tensors(),
-            " number of persistent tensors : ",
+            ", num of persistent tensors: ",
             pt_to_synapse_tensors.size(),
-            " number implicit tensors : ",
+            ", num of implicit tensors: ",
             implicit_syn_tensors_count_,
-            " number of syn nodes : ",
-            syn_graph_ptr_->get_num_of_nodes());
-      }
+            ", flag non persistent tensor(s): ",
+            non_persistent_tensors_flag);
 
+        if (compound_ops_flag || non_persistent_tensors_flag) {
+          bool syn_infer_shapes = true;
+          // ToDO: Remove try run hybrid sif logic once shape tensor(s)
+          // can be queried using shared layer.
+          // Try run hybrid sif with dynamic shapes flag to detect
+          // if shape tensor(s) required for synapse shape inference
+          try {
+            habana::ShapeInference::ResetSifTensorId();
+            std::unordered_map<int64_t, at::Tensor> tmp_map;
+            constexpr bool dynamic_shapes_true = true;
+            if (RunHybridSif<dynamic_shapes_true>(tmp_map)) {
+              jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
+              PT_EAGER_DEBUG(
+                  "[SHAPE AGNOSTIC] Shape agnostic not supported, "
+                  "syanpse shape inference expects shape tensor(s) !");
+              syn_infer_shapes = false;
+            }
+          } catch (std::exception& e) {
+            // RunHybridSif<true> can return TORCH CHECK from
+            // AllocateAndAddSynapseNode if ComputeOutputShape
+            // is not supported or failed during early validation
+            PT_EAGER_DEBUG(
+                "[SHAPE AGNOSTIC] Shape agnostic not supported, "
+                "RunHybridSif with dynamic shapes failed ! ",
+                "what(): ",
+                e.what());
+            syn_infer_shapes = false;
+          }
+
+          // Try infer shapes using synapse shape inference if possible
+          if (syn_infer_shapes) {
+            if (syn_graph_ptr_->inferShapes()) {
+              jit_graph_and_meta_data_->set_is_synapse_shape_inf_required(true);
+              PT_EAGER_DEBUG(
+                  "[SHAPE AGNOSTIC] syanpse shape inference is required");
+            } else {
+              jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
+              PT_EAGER_DEBUG(
+                  "[SHAPE AGNOSTIC] Shape agnostic not supported, "
+                  " Cache miss synapse shape inference failed !");
+              // Reset duplicate tensors shape to correct shapes
+              ResetDuplicateTensorShapes(
+                  syn_graph_ptr_, duplicate_tensors_shape_map);
+            }
+          }
+        }
+      }
       PT_EAGER_DEBUG(
           "[SHAPE AGNOSTIC] Shape agnostic SIF tinfo map size : ",
           sif_tidx_to_tinfo_map.size(),
@@ -3848,6 +3987,13 @@ void HabanaLaunchOpPT::run(
           local_tidx_to_tensor_map,
           synapse_orig_to_new_handle,
           is_shape_agnostic_graph);
+
+      // Run Synapse Shape inference if required
+      if (jit_graph_and_meta_data_->get_is_synapse_shape_inf_required()) {
+        HABANA_ASSERT(
+            syn_graph_ptr_->inferShapes() == true,
+            "[SHAPE AGNOSTIC] Cache hit Synapse shape inference failed !");
+      }
 
       // To check if any other members just like ntensorbytes also need to be
       // updated

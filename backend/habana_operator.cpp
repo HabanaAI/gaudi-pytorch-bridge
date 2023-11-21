@@ -467,6 +467,7 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseShapeTensor(
   auto syn_shape_input = habana_helpers::create_shape_tensor(
       input_shapes, syn_device, graph, false, shape_tensor_type, "", host_ptr);
   syn_shape_input.set_intermediate_shape_tensor();
+  graph.increment_shape_tensors();
   p_context_->syn_inputs_.emplace_back(std::move(syn_shape_input));
   return p_context_->syn_inputs_.back();
 }

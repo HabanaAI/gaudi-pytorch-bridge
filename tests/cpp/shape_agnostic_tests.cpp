@@ -423,6 +423,100 @@ TEST_F(ShapeAgnosticTest, DISABLED_GeluView) {
   }
 }
 
+TEST_F(ShapeAgnosticTest, EqWithCast) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    std::vector<int> in_shapes = {16, 32};
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      auto input = torch::arange({in_shapes[i]}, torch::dtype(torch::kInt32))
+                       .to(torch::dtype(torch::kFloat));
+      auto input_hpu = input.to(torch::kHPU);
+
+      auto output = torch::empty(0, torch::dtype(torch::kBool));
+      auto output_hpu = output.to(torch::kHPU);
+
+      torch::eq_outf(input, 1, output);
+      torch::eq_outf(input_hpu, 1, output_hpu);
+
+      EXPECT_EQ(equal(output, output_hpu.cpu()), true);
+    }
+  }
+}
+
+TEST_F(ShapeAgnosticTest, EqWithCastView) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    std::vector<int> in_shapes = {16, 32};
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      auto input = torch::arange({in_shapes[i]}, torch::dtype(torch::kInt32))
+                       .to(torch::dtype(torch::kFloat));
+      auto input_hpu = input.to(torch::kHPU);
+
+      auto input_view = input.as_strided({4, 4}, {1, 4}, 0);
+      auto input_view_hpu = input_hpu.as_strided({4, 4}, {1, 4}, 0);
+
+      auto output = torch::empty(0, torch::dtype(torch::kBool));
+      auto output_hpu = output.to(torch::kHPU);
+
+      torch::eq_outf(input_view, 0, output);
+      torch::eq_outf(input_view_hpu, 0, output_hpu);
+
+      EXPECT_EQ(equal(output, output_hpu.cpu()), true);
+    }
+  }
+}
+
+TEST_F(ShapeAgnosticTest, Div) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    std::vector<int> in_shapes = {0, 0};
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      auto input = torch::empty({in_shapes[i]});
+      auto input_hpu = input.to(torch::kHPU);
+
+      auto output = torch::empty(0);
+      auto output_hpu = output.to(torch::kHPU);
+
+      torch::div_outf(input, 2, output);
+      torch::div_outf(input_hpu, 2, output_hpu);
+
+      EXPECT_EQ(allclose(output, output_hpu.cpu(), 0.01, 0.01), true);
+    }
+  }
+}
+
+TEST_F(ShapeAgnosticTest, DISABLED_DivView) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    std::vector<int> in_shapes = {256, 512};
+    for (auto i = 0; i < in_shapes.size(); i++) {
+      auto input =
+          torch::randn({in_shapes[i], 2048}).to(torch::dtype(torch::kBFloat16));
+      auto input_hpu = input.to(torch::kHPU);
+
+      auto output = torch::empty(0, torch::dtype(torch::kBFloat16));
+      auto output_hpu = output.to(torch::kHPU);
+
+      auto input_view = input.as_strided({256, 2048, 7, 7}, {2048, 1, 0, 0}, 0);
+      torch::div_outf(input_view, 2, output);
+
+      auto input_view_hpu =
+          input_hpu.as_strided({256, 2048, 7, 7}, {2048, 1, 0, 0}, 0);
+      torch::div_outf(input_view_hpu, 2, output_hpu);
+
+      EXPECT_EQ(allclose(output, output_hpu.cpu(), 0.01, 0.01), true);
+    }
+  }
+}
+
 // Test where strided_view with strides on FCD is replaced
 // by strided_view with contiguous strides on FCD and permute op
 TEST_F(ShapeAgnosticTest, StridedPermute) {
@@ -598,5 +692,97 @@ TEST_F(ShapeAgnosticTest, CatAddView) {
 
       EXPECT_EQ(allclose(out_hpu.to(torch::kCPU), out, 0.001, 0.001), true);
     }
+  }
+}
+
+TEST_F(ShapeAgnosticTest, LayerNormForwardExecute) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    auto input_tensor =
+        torch::randn((480), torch::dtype(torch::kFloat).requires_grad(false))
+            .reshape({10, 1, 3, 4, 4}); // nchw
+    torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
+    at::Tensor weight =
+        torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
+            .reshape({1, 3, 4, 4}); // nchw;
+    torch::Tensor tWeight = weight.to(torch::kHPU);
+    at::Tensor bias =
+        torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
+            .reshape({1, 3, 4, 4}); // nchw;
+    torch::Tensor tBias = bias.to(torch::kHPU);
+    auto results =
+        torch::native_layer_norm(tHabanaX, {1, 3, 4, 4}, tWeight, tBias, 0.01);
+
+    auto input_tensor_2 =
+        torch::arange(1920, torch::dtype(torch::kFloat).requires_grad(false))
+            .reshape({40, 1, 3, 4, 4}); // nchw
+    torch::Tensor tHabanaX_2 = input_tensor_2.to(torch::kHPU);
+    at::Tensor weight_2 =
+        torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
+            .reshape({1, 3, 4, 4}); // nchw;
+    torch::Tensor tWeight_2 = weight_2.to(torch::kHPU);
+    at::Tensor bias_2 =
+        torch::arange(48, torch::dtype(torch::kFloat).requires_grad(false))
+            .reshape({1, 3, 4, 4}); // nchw;
+    torch::Tensor tBias_2 = bias_2.to(torch::kHPU);
+    auto results_2 = torch::native_layer_norm(
+        tHabanaX_2, {1, 3, 4, 4}, tWeight_2, tBias_2, 0.01);
+
+    at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
+    at::Tensor result_lazy_2 = (std::get<0>(results_2)).to(torch::kCPU);
+    auto results_cpu = torch::native_layer_norm(
+        input_tensor, {1, 3, 4, 4}, weight, bias, 0.01);
+    auto results_cpu_2 = torch::native_layer_norm(
+        input_tensor_2, {1, 3, 4, 4}, weight_2, bias_2, 0.01);
+    at::Tensor result_cpu = std::get<0>(results_cpu);
+    at::Tensor result_cpu_2 = std::get<0>(results_cpu_2);
+    // cpu and hpu results not expected match
+    EXPECT_FALSE(result_lazy.equal(result_cpu));
+    EXPECT_FALSE(result_lazy_2.equal(result_cpu_2));
+  }
+}
+
+TEST_F(ShapeAgnosticTest, LayerNormForwardExecute2) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    auto input_tensor = torch::randn(
+        {24, 384, 1024}, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);
+    at::Tensor weight = torch::empty(
+        {1024}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw;
+    torch::Tensor tWeight = weight.to(torch::kHPU);
+    at::Tensor bias = torch::empty(
+        {1024}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw;
+    torch::Tensor tBias = bias.to(torch::kHPU);
+    auto results =
+        torch::native_layer_norm(tHabanaX, {1024}, tWeight, tBias, 0.01);
+
+    auto input_tensor_2 = torch::randn(
+        {36, 576, 1024}, torch::dtype(torch::kFloat).requires_grad(false));
+    torch::Tensor tHabanaX_2 = input_tensor_2.to(torch::kHPU);
+    at::Tensor weight_2 = torch::empty(
+        {1024}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw;
+    torch::Tensor tWeight_2 = weight_2.to(torch::kHPU);
+    at::Tensor bias_2 = torch::empty(
+        {1024}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw;
+    torch::Tensor tBias_2 = bias_2.to(torch::kHPU);
+    auto results_2 =
+        torch::native_layer_norm(tHabanaX_2, {1024}, tWeight_2, tBias_2, 0.01);
+
+    at::Tensor result_lazy = (std::get<0>(results)).to(torch::kCPU);
+    at::Tensor result_lazy_2 = (std::get<0>(results_2)).to(torch::kCPU);
+    auto results_cpu =
+        torch::native_layer_norm(input_tensor, {1024}, weight, bias, 0.01);
+    auto results_cpu_2 = torch::native_layer_norm(
+        input_tensor_2, {1024}, weight_2, bias_2, 0.01);
+    at::Tensor result_cpu = std::get<0>(results_cpu);
+    at::Tensor result_cpu_2 = std::get<0>(results_cpu_2);
+    // cpu and hpu results not expected match
+    EXPECT_FALSE(result_lazy.equal(result_cpu));
+    EXPECT_FALSE(result_lazy_2.equal(result_cpu_2));
   }
 }

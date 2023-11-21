@@ -52,6 +52,12 @@ class graph {
 
   std::vector<synTensorHandleMap> duplicate();
 
+  bool inferShapes();
+
+  static void getTensorGeometry(
+      synTensor tensor_handle,
+      std::vector<int64_t>& shape);
+
   static void setTensorGeometry(
       synTensor tensor_handle,
       std::vector<int64_t> shape);
