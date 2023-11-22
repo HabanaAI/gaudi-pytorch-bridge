@@ -146,6 +146,10 @@ class TORCH_API ProcessGroupHcclBase : public ProcessGroup {
       PointToPointFn fn,
       int peerRank) = 0;
 
+  c10::intrusive_ptr<Work> _broadcast_oop(
+      std::vector<at::Tensor>& outputTensors,
+      std::vector<at::Tensor>& inputTensors,
+      const BroadcastOptions& opts);
   void hostBarrier();
 
   virtual void permutedSendTensorsToDense(std::vector<at::Tensor>& tensors) = 0;

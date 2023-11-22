@@ -20,6 +20,7 @@ class DistSetup:
         self.world_size = world_size
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ['MASTER_PORT'] = '12340'
+        import habana_frameworks.torch.distributed.hccl
         dist.init_process_group(backend='hccl', rank=rank, world_size=world_size)
         # Following Code is to ensure that HCL_Init is done
         _tensor = torch.ones(1).to(device)
@@ -50,6 +51,35 @@ def sync_allGather_func(hpu, world_size, dtype):
         _tensor = hpu * torch.ones(TENSOR_LEN).to(dtype).to(device)
         torch.distributed.all_gather(_tensor_list, _tensor)
         for t1, t2 in zip(_tensor_ref, _tensor_list):
+            assert(torch.equal(t1.cpu(), t2.cpu()) and t1.dtype == dtype and t1.dtype == t2.dtype)
+
+def sync_allGather_func_uneven_size(hpu, world_size, dtype):
+    output_split_sizes = []
+    group = list(range(0, world_size))
+    for dst in group:
+        output_split_sizes.append(dst + 1)
+    sum_len = sum(output_split_sizes)
+    _tensor_ref = torch.ones(sum_len, sum_len).to(dtype).to(device)
+    for i in range(ITER):
+        tensor = (torch.ones(output_split_sizes[hpu], sum_len).to(dtype).to(device))
+        out_tensor = torch.zeros(sum_len, sum_len).to(dtype).to(device)
+        torch.distributed.all_gather(list(torch.split(out_tensor, output_split_sizes)), tensor)
+        for t1, t2 in zip(_tensor_ref, out_tensor):
+            assert(torch.equal(t1.cpu(), t2.cpu()) and t1.dtype == dtype and t1.dtype == t2.dtype)
+
+def async_allGather_func_uneven_size(hpu, world_size, dtype):
+    output_split_sizes = []
+    group = list(range(0, world_size))
+    for dst in group:
+        output_split_sizes.append(dst + 1)
+    sum_len = sum(output_split_sizes)
+    _tensor_ref = torch.ones(sum_len, sum_len).to(dtype).to(device)
+    for i in range(ITER):
+        tensor = (torch.ones(output_split_sizes[hpu], sum_len).to(dtype).to(device))
+        out_tensor = torch.zeros(sum_len, sum_len).to(dtype).to(device)
+        handle = torch.distributed.all_gather(list(torch.split(out_tensor, output_split_sizes)), tensor, async_op=True)
+        handle.wait()
+        for t1, t2 in zip(_tensor_ref, out_tensor):
             assert(torch.equal(t1.cpu(), t2.cpu()) and t1.dtype == dtype and t1.dtype == t2.dtype)
 
 # Test: Functional test of synchronous Reduce
@@ -216,6 +246,8 @@ def main(hpu, world_size, dtype, func):
                                 async_allReduce_tensorLife,
 
                                 sync_allGather_func,
+                                sync_allGather_func_uneven_size,
+                                async_allGather_func_uneven_size,
                                 sync_gather_func,
 
                                 sync_broadcast_func,

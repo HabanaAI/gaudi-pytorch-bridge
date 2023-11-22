@@ -53,6 +53,15 @@ namespace {
     }                                                  \
   }
 
+bool check_same_size(const std::vector<at::Tensor>& input_tensors) {
+  for (const auto& input_tensor : input_tensors) {
+    if (!input_tensors[0].is_same_size(input_tensor)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void adjustElementcount_int64(
     c10::ScalarType scalar_type,
     std::vector<size_t>& send_lengths,
@@ -614,35 +623,25 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
   return work;
 }
 
-c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
-    std::vector<std::vector<at::Tensor>>& outputTensors,
+// _broadcast_oop adds an out-of-place broadcast
+// One use-case is implementing a vector all_gather
+// where unevenly sized inputs are gathered among participating ranks
+c10::intrusive_ptr<Work> ProcessGroupHcclBase::_broadcast_oop(
+    std::vector<at::Tensor>& outputTensors,
     std::vector<at::Tensor>& inputTensors,
-    [[maybe_unused]] const AllgatherOptions& opts) {
+    const BroadcastOptions& opts) {
   PT_DISTRIBUTED_BEGIN;
-  habana_lazy::NoAccThread no_acc_thread;
-  bool change = false;
-  size_t tensor_size = outputTensors[0].size();
-  std::unique_ptr<std::unique_ptr<bool[]>[]> changed(
-      new std::unique_ptr<bool[]>[tensor_size]());
-  std::vector<std::vector<std::vector<int64_t>>> sizeList(tensor_size);
-  std::vector<std::vector<std::vector<int64_t>>> strideList(tensor_size);
-  for (size_t i = 0; i < outputTensors.size(); i++) {
-    changed[i] = std::make_unique<bool[]>(outputTensors[i].size());
-    sizeList[i].resize(outputTensors[i].size());
-    strideList[i].resize(outputTensors[i].size());
-    resizeTensor(outputTensors[i], changed[i], sizeList[i], strideList[i]);
+  auto out_tensor = outputTensors.back();
+  auto in_tensor = inputTensors.back();
+  if (out_tensor.numel() != in_tensor.numel()) {
+    PT_DISTRIBUTED_FATAL(
+        "Tensor input and output of _broadcast_oop must have the same number of elements");
   }
-  std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
-  std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
-  std::vector<std::vector<int64_t>> in_strideList(tensor_size);
-  change = resizeTensor(inputTensors, in_changed, in_sizeList, in_strideList);
-  auto outputFlattened = habana_helpers::flatten_for_scatter_gather(
-      outputTensors, inputTensors, size_);
-
   auto work = collective(
       inputTensors,
-      outputFlattened,
-      [&](at::Tensor& input,
+      outputTensors,
+      [rootRank = opts.rootRank, this](
+          at::Tensor& input,
           [[maybe_unused]] at::Tensor& output,
           const void* send_buffer,
           void* recv_buffer,
@@ -650,17 +649,27 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
           synStreamHandle stream) {
         HOST_SYNC()
         NW_STREAM_SYNC()
-        auto scalar_type = input.scalar_type();
-        auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
+        hcclDataType_t hccl_data_type;
+        const auto scalar_type = input.scalar_type();
         auto hccl_numel = input.numel();
+
         habana_helpers::getCountDatatype(
             scalar_type,
             input.element_size(),
             hccl_numel,
             hccl_data_type,
             always_support_int64_);
+
+        size_t element_size = habana_helpers::getHCCLDataSize(hccl_data_type);
+        size_t chunk_size_in_elems =
+            getHCCLSliceSize(habana_helpers::collectiveBroadcast) /
+            element_size;
+
+        size_t data_offset = 0;
+        hcclResult_t hccl_result{hcclSuccess};
+
         PT_DISTRIBUTED_DEBUG(
-            "[PYT-DIST] allgather with input_address=",
+            "[PYT-DIST] broadcast with input_address=",
             send_buffer,
             " output_address=",
             recv_buffer,
@@ -674,40 +683,156 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
             hccl_data_type,
             " hccl_count=",
             hccl_numel);
-        hcclResult_t hccl_result{hcclSuccess};
-        if (!this->emulate_distributed_) {
-          hccl_result = hcclAllGather(
-              send_buffer,
-              recv_buffer,
-              hccl_numel,
-              hccl_data_type,
-              hccl_comm,
-              stream);
+        while (hccl_numel > 0) {
+          size_t num_elements_in_current_chunk =
+              (static_cast<size_t>(hccl_numel) > chunk_size_in_elems)
+              ? chunk_size_in_elems
+              : hccl_numel;
+          if (!this->emulate_distributed_) {
+            hccl_result = hcclBroadcast(
+                static_cast<const uint8_t*>(send_buffer) + data_offset,
+                static_cast<uint8_t*>(recv_buffer) + data_offset,
+                num_elements_in_current_chunk,
+                hccl_data_type,
+                rootRank,
+                hccl_comm,
+                stream);
+          }
+
+          TORCH_CHECK(
+              hcclSuccess == hccl_result, "Collective call returned error");
+          data_offset =
+              data_offset + (num_elements_in_current_chunk * element_size);
+          hccl_numel -= num_elements_in_current_chunk;
         }
         return hccl_result;
       });
-  // Record even for outputFlattened on ncclStream
-  for (size_t i = 0; i < outputTensors.size(); ++i) {
-    for (size_t j = 0; j < outputTensors[0].size(); ++j) {
-      if (!this->emulate_distributed_) {
-        outputTensors[i][j].copy_(outputFlattened[i][j], true);
-      } else {
-        outputTensors[i][j].copy_(inputTensors[i], true);
-      }
-    }
-  }
-  if (change) {
-    PT_IRGRAPH_DEBUG("step marker due to ProcessGroupHcclBase::allgather");
-    habana_lazy::HbLazyTensor::StepMarker();
-  }
-  for (size_t i = 0; i < outputTensors.size(); i++) {
-    restoreTensorsize(
-        outputTensors[i], changed[i], sizeList[i], strideList[i], work);
-  }
-  restoreTensorsize(inputTensors, in_changed, in_sizeList, in_strideList, work);
-
   PT_DISTRIBUTED_END;
   return work;
+}
+
+c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
+    std::vector<std::vector<at::Tensor>>& outputTensors,
+    std::vector<at::Tensor>& inputTensors,
+    [[maybe_unused]] const AllgatherOptions& opts) {
+  PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
+  bool same_size = check_same_size(outputTensors.back());
+  if (same_size) {
+    bool change = false;
+    size_t tensor_size = outputTensors[0].size();
+    std::unique_ptr<std::unique_ptr<bool[]>[]> changed(
+        new std::unique_ptr<bool[]>[tensor_size]());
+    std::vector<std::vector<std::vector<int64_t>>> sizeList(tensor_size);
+    std::vector<std::vector<std::vector<int64_t>>> strideList(tensor_size);
+    for (size_t i = 0; i < outputTensors.size(); i++) {
+      changed[i] = std::make_unique<bool[]>(outputTensors[i].size());
+      sizeList[i].resize(outputTensors[i].size());
+      strideList[i].resize(outputTensors[i].size());
+      resizeTensor(outputTensors[i], changed[i], sizeList[i], strideList[i]);
+    }
+    std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
+    std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
+    std::vector<std::vector<int64_t>> in_strideList(tensor_size);
+    change = resizeTensor(inputTensors, in_changed, in_sizeList, in_strideList);
+    auto outputFlattened = habana_helpers::flatten_for_scatter_gather(
+        outputTensors, inputTensors, size_);
+
+    auto work = collective(
+        inputTensors,
+        outputFlattened,
+        [&](at::Tensor& input,
+            [[maybe_unused]] at::Tensor& output,
+            const void* send_buffer,
+            void* recv_buffer,
+            hcclComm_t& hccl_comm,
+            synStreamHandle stream) {
+          HOST_SYNC()
+          NW_STREAM_SYNC()
+          auto scalar_type = input.scalar_type();
+          auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
+          auto hccl_numel = input.numel();
+          habana_helpers::getCountDatatype(
+              scalar_type,
+              input.element_size(),
+              hccl_numel,
+              hccl_data_type,
+              always_support_int64_);
+          PT_DISTRIBUTED_DEBUG(
+              "[PYT-DIST] allgather with input_address=",
+              send_buffer,
+              " output_address=",
+              recv_buffer,
+              " numel=",
+              input.numel(),
+              " scalar_type=",
+              input.scalar_type(),
+              " element_size=",
+              input.element_size(),
+              " hccl_type=",
+              hccl_data_type,
+              " hccl_count=",
+              hccl_numel);
+          hcclResult_t hccl_result{hcclSuccess};
+          if (!this->emulate_distributed_) {
+            hccl_result = hcclAllGather(
+                send_buffer,
+                recv_buffer,
+                hccl_numel,
+                hccl_data_type,
+                hccl_comm,
+                stream);
+          }
+          return hccl_result;
+        });
+    // Record even for outputFlattened on ncclStream
+    for (size_t i = 0; i < outputTensors.size(); ++i) {
+      for (size_t j = 0; j < outputTensors[0].size(); ++j) {
+        if (!this->emulate_distributed_) {
+          outputTensors[i][j].copy_(outputFlattened[i][j], true);
+        } else {
+          outputTensors[i][j].copy_(inputTensors[i], true);
+        }
+      }
+    }
+    if (change) {
+      PT_IRGRAPH_DEBUG("step marker due to ProcessGroupHcclBase::allgather");
+      habana_lazy::HbLazyTensor::StepMarker();
+    }
+    for (size_t i = 0; i < outputTensors.size(); i++) {
+      restoreTensorsize(
+          outputTensors[i], changed[i], sizeList[i], strideList[i], work);
+    }
+    restoreTensorsize(
+        inputTensors, in_changed, in_sizeList, in_strideList, work);
+
+    PT_DISTRIBUTED_END;
+    return work;
+  } else {
+    const auto num_devices = outputTensors.size();
+    const auto num_reduces = outputTensors[0].size();
+    auto rank = getRank();
+    c10::intrusive_ptr<Work> work;
+    for (const auto i : c10::irange(num_reduces)) {
+      std::vector<at::Tensor> inputs_multi_dev(num_devices);
+      std::vector<at::Tensor> outputs_multi_dev(num_devices);
+      for (const auto j : c10::irange(num_devices)) {
+        outputs_multi_dev[j] = outputTensors[j][i];
+        inputs_multi_dev[j] = i == (rank * num_devices + j)
+            ? inputTensors[j]
+            : outputs_multi_dev[j];
+      }
+      auto broadcastOpts = BroadcastOptions{
+          static_cast<int64_t>(i),
+          static_cast<int64_t>(i % num_devices),
+          opts.timeout};
+      work = _broadcast_oop(outputs_multi_dev, inputs_multi_dev, broadcastOpts);
+      if (i != num_reduces - 1) {
+        work->wait();
+      }
+    }
+    return work;
+  }
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(
