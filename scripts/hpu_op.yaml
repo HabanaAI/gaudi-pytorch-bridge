@@ -4621,7 +4621,7 @@ multinomial.out:
   schema_args: "(Tensor self, int num_samples, bool replacement, Tensor seed,  Tensor(a!) out) -> Tensor(a!)"
 
 mv:
-  custom_output_shape: MvOpsOutputShape
+  output_meta: MvOpsMeta
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]
@@ -4631,7 +4631,7 @@ mv:
   op_validator: check-node-with-shared-layer
 
 mv.out:
-  custom_output_shape: MvOpsOutputShape
+  output_meta: MvOpsMeta
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
     Gaudi2: [BFloat16, Float, Short, Int, Half, Float8_e5m2, Float8_e4m3fn]

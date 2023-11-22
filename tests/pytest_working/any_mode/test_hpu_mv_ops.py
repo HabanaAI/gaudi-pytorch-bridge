@@ -1,0 +1,44 @@
+###############################################################################
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+import habana_frameworks.torch.dynamo.compile_backend
+import torch
+import pytest
+
+
+@pytest.mark.parametrize("shapes", [([2, 3], [3])])
+@pytest.mark.parametrize(
+    "dtype", [torch.bfloat16, torch.float, torch.short, torch.int]
+)
+def test_hpu_mv_ops(shapes, dtype):
+    def fn(mat, vec):
+        return torch.mv(mat, vec)
+
+    mat_shape, vec_shape = shapes
+    if dtype in [torch.bfloat16, torch.float]:
+        cpu_mat = torch.rand(mat_shape, dtype=dtype)
+        cpu_vec = torch.rand(vec_shape, dtype=dtype)
+    else:
+        cpu_mat = torch.randint(0, 10, mat_shape, dtype=dtype)
+        cpu_vec = torch.randint(0, 10, vec_shape, dtype=dtype)
+
+    hpu_mat = cpu_mat.to("hpu")
+    hpu_vec = cpu_vec.to("hpu")
+    cpu_wrapped_fn = torch.compile(fn) if (pytest.mode == "compile") else fn
+    hpu_wrapped_fn = (
+        torch.compile(fn, backend="aot_hpu_training_backend")
+        if (pytest.mode == "compile")
+        else fn
+    )
+
+    cpu_output = cpu_wrapped_fn(cpu_mat, cpu_vec)
+    hpu_output = hpu_wrapped_fn(hpu_mat, hpu_vec).cpu()
+    assert torch.allclose(cpu_output, hpu_output, rtol=1e-2, atol=1e-2)
