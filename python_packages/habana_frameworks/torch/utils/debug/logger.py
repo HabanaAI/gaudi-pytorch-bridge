@@ -31,11 +31,17 @@ def format_args(args):
 class Logger:
     def __init__(self, type):
         self.type = type
+        self.store_data = False
+        self.data = []
 
     def log(self, level, args):
-        if _debug_C.is_log_python_enabled(level):
+        logs_enabled = _debug_C.is_log_python_enabled(level)
+        if logs_enabled or self.store_data:
             formatted_msg = f"[{self.type}] {format_args(args)}"
-            _debug_C.log_python(level, formatted_msg)
+            if logs_enabled:
+                _debug_C.log_python(level, formatted_msg)
+            if self.store_data:
+                self.data.append(formatted_msg)
 
     def trace(self, *args):
         self.log(_debug_C.log_level.trace, args)
@@ -51,3 +57,7 @@ class Logger:
 
     def error(self, *args):
         self.log(_debug_C.log_level.error, args)
+
+    def set_store_data(self, enable):
+        self.store_data = enable
+        self.data = []

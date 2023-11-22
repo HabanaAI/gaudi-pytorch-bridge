@@ -5462,8 +5462,8 @@ reciprocal:
   promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reciprocal_fwd
   out_ids: [0]
   # op_validator: check-node-with-shared-layer
@@ -5472,8 +5472,8 @@ reciprocal_:
   promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reciprocal_fwd
   inplace_ids: [0]
   op_validator: check-node-with-shared-layer
@@ -5482,8 +5482,8 @@ reciprocal.out:
   promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reciprocal_fwd
   op_validator: check-node-with-shared-layer
 

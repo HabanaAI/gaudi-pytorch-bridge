@@ -19,55 +19,33 @@ from test_utils import (
     is_pytest_mode_compile,
 )
 
-dtypes = [torch.float32, torch.bfloat16, torch.int]
+dtypes = [torch.float32, torch.bfloat16]
 fp8_dtypes = [torch.float8_e5m2, torch.float8_e4m3fn]
 if not is_gaudi1():
     dtypes += fp8_dtypes
 
 
-def generate_tensor(shape, dtype):
-    if dtype in fp8_dtypes:
-        return torch.rand(shape).to(dtype)
-    return (torch.randn(shape) * 3.0).to(dtype)
-
-
-@pytest.mark.parametrize("func", [torch.add, torch.sub, torch.rsub])
-@pytest.mark.parametrize(
-    "shape_a, shape_b", [[(), ()], [(1,), (2,)], [(4, 4), (1, 1)], [(16, 12), (16, 12)]]
-)
-@pytest.mark.parametrize("alpha", [1, 3])
+@pytest.mark.parametrize("shape", [(), (1,), (20, 40)])
 @pytest.mark.parametrize("dtype", dtypes)
-def test_binary(func, shape_a, shape_b, alpha, dtype):
-    def fn(input, other, alpha):
-        return func(input, other, alpha=alpha)
+def test_reciprocal(shape, dtype):
+    def fn(input):
+        return torch.reciprocal(input)
 
     if is_pytest_mode_compile():
-        clear_t_compile_logs()
         torch._dynamo.reset()
+        clear_t_compile_logs()
         fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
-    input = generate_tensor(shape_a, dtype)
-    other = generate_tensor(shape_b, dtype)
+    input = (torch.randn(shape) * 10.0).to(dtype)
 
     input_hpu = input.to("hpu")
-    other_hpu = other.to("hpu")
     if dtype in fp8_dtypes:
         input = input.float()
-        other = other.float()
 
-    expected = func(input, other, alpha=alpha)
-    result = fn(input_hpu, other_hpu, alpha)
+    expected = torch.reciprocal(input).to(dtype)
+    result = fn(input_hpu)
 
-    if dtype in fp8_dtypes:
-        expected = expected.to(dtype)
-
-    if dtype == torch.bfloat16:
-        tol = 0.05
-    elif dtype in fp8_dtypes:
-        tol = 0.25
-    else:
-        tol = 1e-06
+    tol = 1e-5
     compare_tensors(result, expected, atol=tol, rtol=tol)
     if is_pytest_mode_compile():
-        name = "add" if func == torch.add else "sub"
-        check_ops_executed_in_jit_ir(name)
+        check_ops_executed_in_jit_ir("reciprocal")

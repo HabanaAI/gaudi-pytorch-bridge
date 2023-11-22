@@ -468,64 +468,58 @@ def is_pytest_mode_compile():
     return pytest.mode == "compile"
 
 
-def get_t_compile_logs_path():
-    from os import path, environ
-
-    return path.join(environ["HABANA_LOGS"], "aot_hpu_backend.log")
-
-
 def clear_t_compile_logs():
-    from os import path
-    from shutil import copyfile
-    from time import mktime, gmtime
+    from habana_frameworks.torch.dynamo.compile_backend.passes import (
+        logger as graph_logger,
+    )
+    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
+        logger as fallback_logger,
+    )
 
-    t_compile_logs_path = get_t_compile_logs_path()
-    if path.exists(t_compile_logs_path):
-        copyfile(t_compile_logs_path, t_compile_logs_path + str(mktime(gmtime())))
-        open(t_compile_logs_path, "w").close()
+    graph_logger.set_store_data(True)
+    fallback_logger.set_store_data(True)
 
 
 def check_ops_executed_in_jit_ir(op_names):
-    from os import path
     import re
+    from habana_frameworks.torch.dynamo.compile_backend.passes import (
+        logger as graph_logger,
+    )
+    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
+        logger as fallback_logger,
+    )
 
-    t_compile_logs_path = get_t_compile_logs_path()
-    if not path.exists(t_compile_logs_path):
-        return
+    graphs_data = graph_logger.data
+    fallback_data = fallback_logger.data
 
-    pattern = r"^Node: (\w+) requires fallback: (\w+)"
     fallback_ops = []
+    pattern = r"[PT_COMPILE] Node: (\w+) requires fallback: (\w+)"
 
-    before_placement = True
-    before_skip_copies = True
-    before_pass_graph_print = True
-    before_jit_ir = True
+    for log in fallback_data:
+        m = re.match(pattern, log)
+        if m:
+            op = m.group(1)
+            fallback = m.group(2)
+            if fallback == "True":
+                fallback_ops.append(op)
 
-    if not isinstance(op_names, list):
-        op_names = [op_names]
+    if not isinstance(op_names, set):
+        op_names = {op_names}
 
-    with open(t_compile_logs_path) as f:
-        for line in f.readlines():
-            if before_placement:
-                before_placement = "running pass_mark_placement" not in line
-            elif before_skip_copies and before_pass_graph_print:
-                before_skip_copies = "running pass_skip_copies" not in line
-                before_pass_graph_print = "running pass_graph_print" not in line
-                m = re.match(pattern, line)
+    nodes_in_graphs = set()
+    pattern = r"::(\w+)\("
+
+    for log in graphs_data:
+        if "####PyTorch-generated JIT IR" in log:
+            for line in log.split("\n"):
+                m = re.search(pattern, line)
                 if m:
-                    op = m.group(1)
-                    fallback = m.group(2)
-                    if fallback == "True":
-                        fallback_ops.append(op)
-            elif before_jit_ir:
-                before_jit_ir = "JIT IR graph" not in line
-            else:
-                for op_name in op_names:
-                    if f"::{op_name}" in line:
-                        op_names.remove(op_name)
-                        break
-                if not op_names:
-                    break
+                    nodes_in_graphs.add(m.group(1))
+
+    op_names.difference_update(nodes_in_graphs)
+
+    graph_logger.set_store_data(False)
+    fallback_logger.set_store_data(False)
 
     assert not fallback_ops, f"These ops fell back to eager: {fallback_ops}"
     assert not op_names, f"Ops {op_names} were not found in the JIT IR graph"

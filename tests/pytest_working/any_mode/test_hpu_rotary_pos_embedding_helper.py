@@ -265,7 +265,7 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir(
-            ["rotary_pos_embedding", "rotary_pos_embedding_backward"]
+            {"rotary_pos_embedding", "rotary_pos_embedding_backward"}
         )
 
 
@@ -330,7 +330,7 @@ def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dty
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir(
-            ["rotary_pos_embedding", "rotary_pos_embedding_backward"]
+            {"rotary_pos_embedding", "rotary_pos_embedding_backward"}
         )
 
 
@@ -446,7 +446,7 @@ def test_apply_rotary_pos_emb_diff_dtypes(
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir(
-            ["rotary_pos_embedding", "rotary_pos_embedding_backward"]
+            {"rotary_pos_embedding", "rotary_pos_embedding_backward"}
         )
 
 
@@ -553,5 +553,5 @@ def test_apply_rotary_pos_emb_chatglm_fwd_bwd(p_size, cos_sin_size, dtype):
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir(
-            ["rotary_pos_embedding", "rotary_pos_embedding_backward"]
+            {"rotary_pos_embedding", "rotary_pos_embedding_backward"}
         )

@@ -8,6 +8,7 @@ import os
 
 # Can't import torch module because PT_HPU_LAZY_MODE is set in pytest_configure. If any function needs torch module it must be imported locally
 
+
 @pytest.fixture(autouse=True)
 def reset_seed(seed=0xC001A1):
     import torch
@@ -57,8 +58,12 @@ def pytest_configure(config):
 
     # TODO: assert correct lib was read
 
+
 def pytest_ignore_collect(collection_path, config):
-    return not bool(pytest.mode in collection_path.parts or "any_mode" in collection_path.parts)
+    return not bool(
+        pytest.mode in collection_path.parts or "any_mode" in collection_path.parts
+    )
+
 
 def pytest_unconfigure(config):
     os.environ.clear()
