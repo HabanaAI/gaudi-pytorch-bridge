@@ -50,7 +50,7 @@ void OneHot::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   auto output_type = c10::ScalarType::Float;
 
-  if (ScalarType() != c10::ScalarType::Int) {
+  if (!isIntegralType(ScalarType(), true)) {
     output_type = ScalarType();
     c10::ScalarType target_type = c10::ScalarType::Short;
 
