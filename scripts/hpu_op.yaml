@@ -4250,7 +4250,7 @@ lt.Tensor:
   handle_bool_inputs: true
 
 _masked_scale:
-  custom_output_shape: MaskedScaleOutputShape
+  output_meta: MaskedScaleMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short, Byte, Char]
     Gaudi2: [BFloat16, Float, Int, Short, Byte, Char, Half]

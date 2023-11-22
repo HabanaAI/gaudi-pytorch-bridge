@@ -12,10 +12,12 @@
 
 namespace habana {
 
-sizes_vec MaskedScaleOutputShape(const at::Stack& stack) {
-  const torch::Tensor& mask = stack_tensor(stack, 1);
-  std::vector<int64_t> mask_shape = mask.sizes().vec();
-  return {mask_shape};
+OutputMetaDataVector MaskedScaleMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  const torch::Tensor& self = stack_tensor(stack, 0);
+  meta.dtype = self.scalar_type();
+  meta.shape = self.sizes().vec();
+  return {meta};
 }
 
 void MaskedScale::AddNode(
@@ -25,21 +27,21 @@ void MaskedScale::AddNode(
   auto mask = stack.at(1).toTensor();
   auto scale = stack.at(2).toScalar().toDouble();
   scale = 1.0 / (1.0 - 1.0 / scale);
-  auto outshape = MaskedScaleOutputShape(stack)[0];
+  const auto meta = MaskedScaleMeta(stack)[0];
 
   auto mult = BuildOp(
       graph,
-      get_guid_with_precision("mult_fwd", ScalarType()),
+      get_guid_with_precision("mult_fwd", meta.dtype),
       {syn_in(0), syn_in(1)},
-      {{outshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
-  auto scale_tensor = ConstantHelper(graph, scale, ScalarType(), outshape);
+  auto scale_tensor = ConstantHelper(graph, scale, meta.dtype, meta.shape);
 
   auto output = BuildOp(
       graph,
-      get_guid_with_precision("mult_fwd", ScalarType()),
+      get_guid_with_precision("mult_fwd", meta.dtype),
       {mult[0].get(), scale_tensor.get()},
-      {{outshape, ScalarType(), 0}});
+      {{meta.shape, meta.dtype, 0}});
 
   syn_out(0) = std::move(output[0]);
 }
