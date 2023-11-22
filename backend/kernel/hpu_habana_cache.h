@@ -237,12 +237,6 @@ struct RecipeValueSpec {
 
   friend std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v);
 
-  void SelfCheck() const {
-    if (recipe != nullptr || !collective_kernels_info.empty()) {
-      TORCH_CHECK(dtensorinfos.size() == num_tinfos);
-    }
-  }
-
   bool is_in_use() const {
     return (use_count > 0);
   }
@@ -401,8 +395,7 @@ struct RecipeValueSpec {
 
   size_t Size() const {
     size_t size = sizeof(*this);
-    size += num_tensors * sizeof(tensor_ids);
-    size += num_tensors * sizeof(tensor_names);
+    size += tensor_ids_.size() * sizeof(decltype(tensor_ids_)::value_type);
     for (const auto& kernel_info : collective_kernels_info) {
       size += kernel_info->Size();
     }
@@ -421,7 +414,6 @@ struct RecipeValueSpec {
 
   size_t id{0};
   size_t iter_idx{0};
-  size_t num_tinfos{0};
 
   size_t num_inputs{0};
   size_t num_induplicates{0};
@@ -443,9 +435,7 @@ struct RecipeValueSpec {
 
   std::string header;
   std::string graph_name;
-  size_t num_tensors{0};
-  uint64_t* tensor_ids{nullptr};
-  const char** tensor_names{nullptr};
+  std::vector<uint64_t> tensor_ids_;
   bool dynamic_graph{false};
   bool enable_time_scope{false};
   // is_refine becomes true if the recipe is created from the refinement thread

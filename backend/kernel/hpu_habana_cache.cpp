@@ -265,13 +265,6 @@ std::ostream& operator<<(std::ostream& O, const RecipeArgumentSpec& v) {
 
 RecipeValueSpec::~RecipeValueSpec() {
   PT_BRIDGE_DEBUG("Destroying recipe with key : ", key);
-
-  if (nullptr != tensor_names) {
-    delete[] tensor_names;
-  }
-  if (nullptr != tensor_ids) {
-    delete[] tensor_ids;
-  }
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
@@ -289,8 +282,6 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
     << '\n';
 
   O << " #inputs                        : " << v.num_inputs << '\n';
-  O << " #num_tensors                   : " << v.num_tensors << '\n';
-
   O << " #induplicates                  : " << v.num_induplicates << '\n'
     << " #dma_inputs                    : " << v.num_dma_inputs << '\n'
     << " #intermediates                 : " << v.num_intermediates << '\n'
@@ -412,7 +403,6 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
   deserialize(is, workspace_size);
   deserialize(is, id);
   deserialize(is, iter_idx);
-  deserialize(is, num_tinfos);
   deserialize(is, num_inputs);
   deserialize(is, num_induplicates);
   deserialize(is, num_dma_inputs);
@@ -428,17 +418,12 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
   deserialize(is, graph_key);
   deserialize(is, opstrs);
   deserialize(is, header);
+  size_t num_tensors;
   deserialize(is, num_tensors);
   deserialize(is, graph_name);
-  tensor_ids = new uint64_t[num_tensors];
+  tensor_ids_.resize(num_tensors);
   for (size_t i = 0; i < num_tensors; i++) {
-    deserialize(is, tensor_ids[i]);
-  }
-  tensor_names = new const char*[num_tensors];
-  for (size_t i = 0; i < num_tensors; i++) {
-    char* tmp;
-    deserialize(is, tmp);
-    tensor_names[i] = tmp;
+    deserialize(is, tensor_ids_[i]);
   }
   deserialize(is, dynamic_graph);
   deserialize(is, is_refined);
@@ -508,7 +493,6 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
   serialize(os, workspace_size);
   serialize(os, id);
   serialize(os, iter_idx);
-  serialize(os, num_tinfos);
   serialize(os, num_inputs);
   serialize(os, num_induplicates);
   serialize(os, num_dma_inputs);
@@ -524,13 +508,10 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
   serialize(os, graph_key);
   serialize(os, opstrs);
   serialize(os, header);
-  serialize(os, num_tensors);
+  serialize(os, tensor_ids_.size());
   serialize(os, graph_name);
-  for (size_t i = 0; i < num_tensors; i++) {
-    serialize(os, tensor_ids[i]);
-  }
-  for (size_t i = 0; i < num_tensors; i++) {
-    serialize(os, tensor_names[i]);
+  for (auto el : tensor_ids_) {
+    serialize(os, el);
   }
 
   serialize(os, dynamic_graph);
@@ -1190,6 +1171,7 @@ void RecipeValueSpec::update_patching_table(
       " mismatch with output_to_outduplicates_end ",
       output_to_outduplicates_end);
 
+  auto num_tinfos = dtensorinfos.size();
   TORCH_CHECK(
       ridx == num_tinfos,
       "tensor info idx ",
@@ -1265,29 +1247,28 @@ void RecipeValueSpec::populate_syn_tensor_ids() {
     PT_BRIDGE_DEBUG("Empty recipie. No need to retrive tensor ids.");
     return;
   }
-  for (size_t i = 0; i < num_tinfos; ++i) {
-    num_tensors++;
+  if (!GET_ENV_FLAG_NEW(PT_HPU_USE_SYN_TENSOR_IDS))
+    return;
+
+  HABANA_ASSERT(tensor_ids_.empty());
+
+  auto num_tinfos = dtensorinfos.size();
+  tensor_ids_.resize(num_tinfos);
+  std::vector<const char*> tensor_names;
+  tensor_names.reserve(num_tinfos);
+
+  for (auto& el : dtensorinfos) {
+    tensor_names.push_back(el->get_syn_namec_str());
   }
 
-  if (GET_ENV_FLAG_NEW(PT_HPU_USE_SYN_TENSOR_IDS)) {
-    if (nullptr == tensor_names) {
-      tensor_ids = new uint64_t[num_tensors];
-      tensor_names = new const char*[num_tensors];
-    }
-
-    size_t tensor_idx{0};
-    for (size_t i = 0; i < num_tinfos; ++i) {
-      PtTensorInfo& ti = *(dtensorinfos.at(i));
-      tensor_names[tensor_idx++] = ti.get_syn_namec_str();
-    }
-
-    synStatus status = synTensorRetrieveIds(
-        recipe->syn_recipe_handle_, tensor_names, tensor_ids, num_tensors);
-    if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) {
-      PT_BRIDGE_FATAL(
-          Logger::formatStatusMsg(status),
-          "synTensorRetrieveIds launch failed");
-    }
+  synStatus status = synTensorRetrieveIds(
+      recipe->syn_recipe_handle_,
+      tensor_names.data(),
+      tensor_ids_.data(),
+      num_tinfos);
+  if (ABSL_PREDICT_FALSE(status != synStatus::synSuccess)) {
+    PT_BRIDGE_FATAL(
+        Logger::formatStatusMsg(status), "synTensorRetrieveIds launch failed");
   }
 }
 
@@ -1295,13 +1276,13 @@ void RecipeValueSpec::patch_launch_info(
     std::vector<synLaunchTensorInfoExt>& syn_launch_info_vec,
     std::vector<size_t>& external_tensor_info_indexes) const {
   TORCH_CHECK(
-      (num_tensors != 0 && tensor_ids != nullptr && tensor_names != nullptr),
+      tensor_ids_.size() == dtensorinfos.size(),
       "syn tensor ids are not populated");
 
   auto record_graph_data = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_FRAGMENT_JSON);
   size_t tensor_idx{0};
-  for (size_t i = 0; i < num_tinfos; ++i) {
-    PtTensorInfo& ti = *(dtensorinfos.at(i));
+  for (size_t i = 0; i < dtensorinfos.size(); ++i) {
+    const PtTensorInfo& ti = *dtensorinfos[i];
     if (record_graph_data) {
       auto is_output = ti.is_output();
       synapse_helpers::log_synDeviceRecordGraphTensorInfo(
@@ -1325,7 +1306,7 @@ void RecipeValueSpec::patch_launch_info(
             0,
             ti.tensor_type(),
             {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
-            tensor_ids[tensor_idx++]});
+            tensor_ids_[tensor_idx++]});
         break;
       }
       case HOST_TO_DEVICE_TENSOR: {
@@ -1335,7 +1316,7 @@ void RecipeValueSpec::patch_launch_info(
             ti.get_host_ptr(),
             ti.tensor_type(),
             {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4], tsv[5], tsv[6], tsv[7]},
-            tensor_ids[tensor_idx++]});
+            tensor_ids_[tensor_idx++]});
         break;
       }
       case DATA_TENSOR:
@@ -1349,7 +1330,7 @@ void RecipeValueSpec::patch_launch_info(
             ti.get_buffer_syn(),
             ti.tensor_type(),
             {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4], tsv[5], tsv[6], tsv[7]},
-            tensor_ids[tensor_idx++]});
+            tensor_ids_[tensor_idx++]});
         break;
       }
       case DEVICE_SHAPE_TENSOR: {
@@ -1359,7 +1340,7 @@ void RecipeValueSpec::patch_launch_info(
             ti.get_buffer_syn(),
             ti.tensor_type(),
             {tsv[0], tsv[1], tsv[2], tsv[3], tsv[4]},
-            tensor_ids[tensor_idx++]});
+            tensor_ids_[tensor_idx++]});
         break;
       }
       case TENSOR_TYPE_MAX:
@@ -1441,7 +1422,6 @@ void RecipeValueSpec::launch(
     std::vector<size_t>& external_tensor_info_indexes,
     const VecOfIValPtrSh& dma_inputs) {
   PT_BRIDGE_BEGIN;
-  SelfCheck();
   TORCH_CHECK(!aten_outputs.empty());
   MaybePrintDebugInfo(input_refs, intermediate_tensors_ptr, aten_outputs);
 

@@ -287,7 +287,7 @@ class PtTensorInfo {
   synTensorType tensor_type() const {
     return tensor_type_;
   }
-  const std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM>& syn_shape() {
+  const std::array<uint32_t, SYN_GAUDI_MAX_TENSOR_DIM>& syn_shape() const {
     return syn_shape_;
   }
 

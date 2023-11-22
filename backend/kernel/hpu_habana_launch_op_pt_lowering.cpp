@@ -180,7 +180,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
         tinfo_map[info->get_tensor_id()] = info;
         if (info->get_allow_permutation()) {
           synRetrievedLaunchTensorInfoExt record = {};
-          record.tensorId = cur_rvalpsh->tensor_ids[i];
+          record.tensorId = cur_rvalpsh->tensor_ids_[i];
           PT_BRIDGE_DEBUG(
               "preparing to query tensor: ",
               info->get_tensor_id(),
@@ -699,7 +699,6 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
         output_tensorinfos.end());
 
     rv.num_outputs = output_tensorinfos.size();
-    rv.num_tinfos = rv.dtensorinfos.size();
   } else {
     // TODO :
     //   preclude any interim tinfo from adding to output_tensorinfo_map
@@ -1246,8 +1245,6 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
     nduplicates++;
   }
   rv.num_output_to_outduplicates = nduplicates;
-
-  rv.num_tinfos = rv.dtensorinfos.size();
 }
 
 void habana::HabanaLaunchOpPT::RestoreInputTensorMetadata() {
