@@ -38,6 +38,9 @@ hpu_supported_op_list = {
     "scaled_masked_triangular_softmax",
     "rotary_pos_embedding",
     "rotary_pos_embedding_backward",
+    # Torchvision
+    "roi_align",
+    "_roi_align_backward",
 }
 
 if bc.get_pt_hpu_wrap_random_ops_compile():

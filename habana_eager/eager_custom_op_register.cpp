@@ -1010,6 +1010,83 @@ at::Tensor custom_softmax(const at::Tensor& input, int64_t flavor) {
       "hpu::custom_softmax", {input, flavor}, {{input.sizes().vec()}}};
   return hpu_op.call();
 }
+
+at::Tensor roi_align(
+    const at::Tensor& input,
+    const at::Tensor& rois,
+    double spatial_scale,
+    int64_t output_h,
+    int64_t output_w,
+    int64_t sampling_ratio,
+    bool aligned) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "roi_align :",
+      DUMP_7ARGS(
+          input,
+          rois,
+          spatial_scale,
+          output_h,
+          output_w,
+          sampling_ratio,
+          aligned));
+
+  std::vector<int64_t> output_shape{
+      rois.size(0), input.size(1), output_h, output_w};
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "torchvision::roi_align",
+      {input, rois, spatial_scale, output_h, output_w, sampling_ratio, aligned},
+      {{output_shape}}};
+  return hpu_op.call();
+}
+
+at::Tensor roi_align_backward(
+    const at::Tensor& grad,
+    const at::Tensor& rois,
+    double spatial_scale,
+    int64_t pooled_height,
+    int64_t pooled_width,
+    int64_t batch_size,
+    int64_t channels,
+    int64_t height,
+    int64_t width,
+    int64_t sampling_ratio,
+    bool aligned) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "_roi_align_backward :",
+      DUMP_11ARGS(
+          grad,
+          rois,
+          spatial_scale,
+          pooled_height,
+          pooled_width,
+          batch_size,
+          channels,
+          height,
+          width,
+          sampling_ratio,
+          aligned));
+
+  std::vector<int64_t> output_shape{batch_size, channels, height, width};
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "torchvision::_roi_align_backward",
+      {grad,
+       rois,
+       spatial_scale,
+       pooled_height,
+       pooled_width,
+       batch_size,
+       channels,
+       height,
+       width,
+       sampling_ratio,
+       aligned},
+      {{output_shape}}};
+  return hpu_op.call();
+}
 } // namespace
 
 namespace habana::eager {
@@ -1168,6 +1245,11 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::scaled_triangular_softmax_retain",
       scaled_triangular_softmax_retain);
+}
+
+TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
+  m.impl("roi_align", roi_align);
+  m.impl("_roi_align_backward", roi_align_backward);
 }
 } // namespace habana::eager
 
