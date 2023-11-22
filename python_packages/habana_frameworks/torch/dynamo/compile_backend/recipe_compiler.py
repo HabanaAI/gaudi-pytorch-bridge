@@ -104,11 +104,7 @@ def get_callable_recipe(
     """
     outputs_metadata = []
     symbolic_metadata = {}
-    if not is_dynamic and (
-        os.getenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", "").upper()
-        not in ["ON", "1", "YES", "TRUE", "Y"]
-        or enable_dynamic_output_preallocate
-    ):
+    if not is_dynamic:
         outputs_metadata = get_outputs_metadata(graph_module)
     elif is_dynamic and enable_dynamic_output_preallocate:
         outputs_metadata = get_outputs_metadata_dynamic(graph_module)
