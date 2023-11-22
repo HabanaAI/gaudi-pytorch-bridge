@@ -389,6 +389,16 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
     const std::string& idx) {
   PT_BRIDGE_TRACE;
   // TORCH_CHECK(input != nullptr, "Input cannot be null");
+  if (input.scalar_type() == c10::ScalarType::Long &&
+      !common::IsInt64Supported()) {
+    auto tmeta{habana::get_tensor_extra_meta(input)};
+    if (tmeta && tmeta->is_view_tensor() && input.storage_offset() &&
+        guid_.find("gather_elements_fwd") != std::string::npos) {
+      auto* impl = input.unsafeGetTensorImpl();
+      impl->set_storage_and_dtype(
+          input.storage(), c10::scalarTypeToTypeMeta(c10::ScalarType::Int));
+    }
+  }
   if (!habana_helpers::is_shape_tensor(shape_tensor_type)) {
     if (p_context_->is_duplicate_input_) {
       uint64_t syn_offset = input.storage_offset() * input.itemsize();
