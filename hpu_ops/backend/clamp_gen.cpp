@@ -76,7 +76,12 @@ static std::shared_ptr<void> FillClampParamsAndFixOverlapping(
 }
 
 std::shared_ptr<void> FillClampParams(const at::Stack& stack, size_t& size) {
-  if (c10::isFloatingType(stack[0].toTensor().scalar_type())) {
+  auto result_type = habana_helpers::DTypeHelper::get_compute_dtype(
+      stack,
+      c10::nullopt,
+      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+      false);
+  if (c10::isFloatingType(result_type)) {
     return FillClampParamsAndFixOverlapping<float>(stack, size);
   } else {
     return FillClampParamsAndFixOverlapping<int>(stack, size);

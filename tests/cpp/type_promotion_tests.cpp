@@ -213,6 +213,19 @@ TEST_F(TypePromotionTests, ClampMaxMin) {
   EXPECT_EQ(t3_hpu.dtype() == t3_cpu.dtype(), true);
 }
 
+TEST_F(TypePromotionTests, ClampMaxMinScalar) {
+  auto min = -0.5f;
+  auto max = 0.5f;
+  auto t1_cpu = torch::tensor({1, 2, 3, 4}, torch::kInt32);
+  auto t3_cpu = torch::clamp(t1_cpu, min, max);
+
+  auto t1_hpu = t1_cpu.to(torch::kHPU);
+  auto t3_hpu = torch::clamp(t1_hpu, min, max);
+
+  EXPECT_EQ(allclose(t3_hpu.to(torch::kCPU), t3_cpu, 0.001, 0.001), true);
+  EXPECT_EQ(t3_hpu.dtype() == t3_cpu.dtype(), true);
+}
+
 TEST_F(TypePromotionTests, InplaceClampMin) {
   auto scalar = 2;
   auto t1_cpu = torch::tensor({1, 2, 3, 4}, torch::kFloat);
