@@ -20,6 +20,8 @@ typedef const std::function<
 typedef const std::function<std::vector<at::Tensor>(at::TensorList)>
     FunctionOneList;
 typedef const std::function<void(at::TensorList)> FunctionOneListInplace;
+typedef const std::function<void(at::TensorList, at::TensorList)>
+    FunctionTwoListsInplace;
 
 std::vector<at::Scalar> scalars = {7, 3.141, 2., -100, -0.001};
 
@@ -156,6 +158,51 @@ TEST_F(HpuOpTest, foreachAdd) {
       {at::kInt, at::kFloat, at::kByte, at::kLong, at::kBFloat16},
       {at::kByte, at::kDouble, at::kLong, at::kShort, at::kInt},
       foreach_add_list);
+}
+
+TEST_F(HpuOpTest, foreachAddInplace) {
+  FunctionOneListInplace foreach_add_inplace_scalar_floats = std::bind(
+      static_cast<void (*)(at::TensorList, const at::Scalar&)>(
+          at::_foreach_add_),
+      std::placeholders::_1,
+      2.6431);
+  TestForeachBinaryInplace(
+      {{4, 3, 5}, {2, 3, 4, 5}},
+      {at::kFloat, at::kBFloat16},
+      foreach_add_inplace_scalar_floats);
+
+  FunctionOneListInplace foreach_add_inplace_scalar_ints = std::bind(
+      static_cast<void (*)(at::TensorList, const at::Scalar&)>(
+          at::_foreach_add_),
+      std::placeholders::_1,
+      2);
+  TestForeachBinaryInplace(
+      {{4, 3, 5}, {2, 3, 4, 5}},
+      {at::kInt, at::kLong},
+      foreach_add_inplace_scalar_ints);
+
+  FunctionOneListInplace foreach_add_inplace_scalars = std::bind(
+      static_cast<void (*)(at::TensorList, at::ArrayRef<at::Scalar>)>(
+          at::_foreach_add_),
+      std::placeholders::_1,
+      scalars);
+  TestForeachBinaryInplace(
+      {{4, 2, 3}, {5}, {7}, {64, 0}, {2, 1, 4, 1}},
+      {at::kInt, at::kFloat, at::kFloat, at::kLong, at::kBFloat16},
+      foreach_add_inplace_scalars);
+
+  FunctionTwoListsInplace foreach_add_inplace_list = std::bind(
+      static_cast<void (*)(at::TensorList, at::TensorList, const at::Scalar&)>(
+          at::_foreach_add_),
+      std::placeholders::_1,
+      std::placeholders::_2,
+      3);
+  TestForeachBinaryListInplace(
+      {{4, 2, 3}, {5}, {7}, {64, 0}, {2, 3, 4, 5}},
+      {{4, 1, 1}, {5}, {7}, {64, 0}, {2, 1, 4, 5}},
+      {at::kFloat, at::kFloat, at::kFloat, at::kShort, at::kInt},
+      {at::kInt, at::kBFloat16, at::kFloat, at::kShort, at::kShort},
+      foreach_add_inplace_list);
 }
 
 TEST_F(HpuOpTest, foreachMul) {

@@ -145,6 +145,33 @@ _foreach_add.List:
   output_meta: ForeachBinaryMeta
   out_ids: [0]
 
+_foreach_add_.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Long, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Long, Half]
+  guid: add_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+
+_foreach_add_.ScalarList:
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Long, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Long, Half]
+  guid: add_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+
+_foreach_add_.List:
+  dtypes:
+    Gaudi: [BFloat16, Float, Short, Int, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Long, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Long, Half]
+  guid: add_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+
 _foreach_acos:
   dtypes: [Float]
   guid: acos_fwd
