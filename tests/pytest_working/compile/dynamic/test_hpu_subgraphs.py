@@ -65,15 +65,15 @@ def test_graph_control_flow_static():
 
 def test_graph_mult_module_split():
     input_shapes = [
-        [(3, 6, 4), (3, 24)],
-        [(3, 8, 4), (3, 32)],
-        [(3, 10, 4), (3, 40)]
+        [(3, 6, 4, 2), (3, 48)],
+        [(3, 8, 4, 2), (3, 64)],
+        [(3, 10, 4, 2), (3, 80)]
     ]
 
     def raw_function(t1, x2):
         t1 = torch.relu(t1)
         t = t1.shape
-        shape = (t[0], int(t[1] * t[2]))
+        shape = (t[0], int((t[1] * t[2]) * 2))
         t2 = t1.reshape(shape)
         t3 = torch.add(t2, x2)
         sh = t3.shape

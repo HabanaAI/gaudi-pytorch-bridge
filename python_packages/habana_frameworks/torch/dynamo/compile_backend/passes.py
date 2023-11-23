@@ -19,6 +19,7 @@ from enum import Enum
 from typing import List, Optional
 from dataclasses import dataclass
 from packaging.version import Version
+from torch.fx.experimental.proxy_tensor import py_sym_types
 
 from .shared_layer import is_eager_fallback_required
 from .partitioner import HabanaPartitioner
@@ -26,6 +27,7 @@ from .recipe_compiler import get_callable_recipe
 from .logger import get_compile_backend_logger
 from .random_utils import is_random_op, random_op_inputs
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
+from .symbolic_execution import SymExprNodeManager
 
 logger = get_compile_backend_logger()
 
@@ -175,6 +177,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_handle_view_before_inplace_compute_ops,
             pass_graph_print,
             pass_eagerize_leaf_views,
+            pass_replace_sym_size,
             pass_propose_partitions,
             pass_merge_paths,
             # This is final pass that creates final submoduled graph.
@@ -252,6 +255,47 @@ def helper_get_node_args(node: torch.fx.Node):
 
     return cleaned_args
 
+
+def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
+    is_dynamic = is_module_dynamic(ctx.graph_module)
+    if not is_dynamic:
+        return True
+
+    graph_changed = False
+    py_node_manager = SymExprNodeManager(ctx.graph_module)
+
+    def process_symsize(node):
+        in_node = node.args[0]
+        sym_size_dim = node.args[1]
+        sym_size_expr = in_node.meta["output_shapes"][0][sym_size_dim]
+
+        py_node = py_node_manager.get_or_create(sym_size_expr, node.type)
+        py_node.meta = copy.copy(node.meta)
+        list(node.users.keys())[0].replace_input_with(node, py_node)
+        node.replace_all_uses_with(py_node)
+
+    for node in ctx.graph_module.graph.nodes:
+        if node.op == "placeholder":
+            tmeta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+            if isinstance(tmeta_val, py_sym_types):
+                py_node_manager.add_sym_placeholder(tmeta_val, node)
+            py_node_manager.set_insert_point(node)
+
+        if node.target == torch.ops.aten.sym_size:
+            process_symsize(node)
+            graph_changed = True
+
+    if graph_changed:
+        # Clean up the graph and log the situation.
+        if ctx.uses_aot:
+            ctx.graph_module.graph.eliminate_dead_code()
+        else:
+            # Running DCE on graph that might not be functionalized in unsafe:
+            # https://github.com/pytorch/pytorch/issues/68301
+            logger.warning("Disallowed to run DCE in non-aot mode.")
+        ctx.graph_module.recompile()
+
+    return True
 
 def pass_graph_print(ctx: OptimizerContext) -> bool:
     """

@@ -17,153 +17,17 @@ import os
 import sympy
 import habana_frameworks.torch.internal.bridge_config as bc
 
-from .config import configuration_flags
-from .logger import get_compile_backend_logger, dump_fx_graph
-from .random_utils import is_random_op
-from sympy.printing.printer import Printer
 from sympy import sympify
 from torch.fx.experimental.proxy_tensor import py_sym_types
 
+from .config import configuration_flags
+from .logger import get_compile_backend_logger, dump_fx_graph
+from .random_utils import is_random_op
+from .symbolic_execution import PythonPrinter, SymbolicShapeEvaluator
+
+
 logger = get_compile_backend_logger()
-
 enable_dynamic_output_preallocate = bc.get_pt_hpu_enable_dynamic_output_preallocate()
-
-
-class CSEVariable:
-    """A CSEVariable is just a name for an expression but it is useful to be able to annotate them on a backend dependent basis.
-    The backends can inherit from this class and overload the "create_cse_var" Kernel to do that.
-    The "update_on_args" method gives you a hook for annotations, see example of TritonCSEVariable in triton.py.
-    """
-
-    def __init__(self, name):
-        self.name = name
-
-    def __str__(self):
-        return self.name
-
-    def __hash__(self) -> int:
-        return hash(self.name)
-
-    def __eq__(self, other) -> bool:
-        return type(other) == type(self) and other.name == self.name
-
-    def update_on_args(self, name, args, kwargs):
-        pass
-
-
-class ExprPrinter(Printer):
-    @staticmethod
-    def paren(string):
-        if (
-            isinstance(string, CSEVariable)
-            or re.match(r"^[a-z0-9_.]+$", string, re.I)
-            or re.match(r"^\([^)]*\)$", string, re.I)
-            or string == ""
-        ):
-            return string
-        return f"({string})"
-
-    def _print_Pow(self, expr):
-        # Pow() confuses triton
-        base, exp = expr.args
-        base = self._print(base)
-        assert exp.is_integer
-        exp = int(exp)
-        if exp > 0:
-            return "*".join([self.paren(base)] * exp)
-        elif exp < 0:
-            return "1/" + self.paren("*".join([self.paren(base)] * abs(exp)))
-        else:  # exp == 0
-            return "1"
-
-    def _print_Mul(self, expr):
-        return "*".join(map(self.paren, map(self._print, expr.args)))
-
-    def _print_Add(self, expr):
-        return " + ".join(map(self.paren, map(self._print, expr.args)))
-
-    def _print_Mod(self, expr):
-        return " % ".join(map(self.paren, map(self._print, expr.args)))
-
-    def _print_CleanDiv(self, expr):
-        return self._print_FloorDiv(expr)
-
-
-class PythonPrinter(ExprPrinter):
-    def _print_ModularIndexing(self, expr):
-        x, div, mod = expr.args
-        x = self.paren(self.doprint(x))
-        div = self.paren(self.doprint(div))
-        mod = self.paren(self.doprint(mod))
-        if div != "1":
-            x = f"({x} // {div})"
-        return f"{x} % {mod}"
-
-    def _print_FloorDiv(self, expr):
-        x, div = expr.args
-        x = self.paren(self.doprint(x))
-        div = self.paren(self.doprint(div))
-        return f"({x} // {div})"
-
-    def _print_floor(self, expr):
-        assert len(expr.args) == 1
-        return f"math.floor({self.paren(self._print(expr.args[0]))})"
-
-
-class SymbolicShapeEvaluator:
-    def __init__(self, symbolic_metadata):
-        self._symbolic_value_dict = {}
-        self._symbolic_metadata = symbolic_metadata
-
-    def clear_symbolic_value_dict(self):
-        self._symbolic_value_dict = {}
-
-    def calculate_symbol_size(self, expr_sympy, expr_str, input_stack):
-        def get_symbolic_value(sym_meta, inputs):
-            input_idx = sym_meta[0]
-            dim = sym_meta[1]
-            input = inputs[input_idx]
-            value = 0
-            if isinstance(input, int):
-                value = input
-            elif isinstance(input, torch.Tensor):
-                value = input.shape[dim]
-            else:
-                assert False, "Wrong input type to look for dimention value"
-            return value
-
-        size = 0
-        sym_meta = self._symbolic_metadata[expr_str]
-        if expr_str in self._symbolic_value_dict:
-            return self._symbolic_value_dict[expr_str]
-        elif sym_meta[0] is not sys.maxsize:
-            size = get_symbolic_value(sym_meta, input_stack)
-        else:
-            pexpr = PythonPrinter().doprint
-            free_symbols = sym_meta[2]
-            sym_value_pair = []
-            for sub_sym in free_symbols:
-                sub_sym_str = pexpr(sub_sym)
-                sub_sym_meta = self._symbolic_metadata[sub_sym_str]
-                value = get_symbolic_value(sub_sym_meta, input_stack)
-                sym_value_pair.append((sub_sym, value))
-            size = expr_sympy.subs(sym_value_pair)
-
-        self._symbolic_value_dict[expr_str] = size
-        return size
-
-    def calculate_shape(self, out_shape_meta, input_stack):
-        """
-        Return the concrete size after evaluating the symbolic expression.
-        """
-        concrete_size = []
-        for idx, sz in enumerate(out_shape_meta[0]):
-            if isinstance(sz, sympy.Expr):
-                value = self.calculate_symbol_size(sz, out_shape_meta[1][idx], input_stack)
-                concrete_size.append(value)
-            else:
-                concrete_size.append(sz)
-        return concrete_size
 
 
 class HabanaGraphModule(torch.nn.Module):
