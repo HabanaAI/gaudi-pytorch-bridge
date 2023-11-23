@@ -1988,6 +1988,13 @@ Tensor hpu_wrap::matmul(const Tensor& self, const Tensor& other) {
   return MatmulFunction::apply(self, other);
 }
 
+Tensor matmul_inference(const Tensor& self, const Tensor& other) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("matmul:", " self=", to_string(self), "other=", to_string(other));
+  return matmul_hpu_lazy(self, other);
+}
+
 Tensor hpu_wrap::slice(
     const at::Tensor& self,
     int64_t dim,
@@ -2479,6 +2486,12 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
   m.impl(
       TORCH_SELECTIVE_NAME("torchvision::nms"),
       TORCH_FN(torchvision_nms_hpu_wrap));
+}
+
+// We need to override matmul implementation also for inference,
+// to have the same implementation as matmul forward in autograd.
+TORCH_LIBRARY_IMPL(aten, HPU, m) {
+  m.impl("matmul", matmul_inference);
 }
 
 TORCH_LIBRARY(hccl, m) {

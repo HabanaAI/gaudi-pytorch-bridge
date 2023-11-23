@@ -86,3 +86,17 @@ def test_hpu_matmul_fwd(size1, size2):
     out_h = torch.matmul(t1_h, t2_h)
 
     compare_tensors([out_h], [out], atol=1.0e-3, rtol=1.0e-3, assert_enable=True)
+
+
+@pytest.mark.parametrize("size1, size2", matmul_lazy_list)
+def test_hpu_matmul_inference(size1, size2):
+    t1 = torch.randn(size1)
+    t2 = torch.randn(size2)
+    t1_h = t1.to(hpu)
+    t2_h = t2.to(hpu)
+
+    out_training = torch.matmul(t1_h, t2_h)
+    with torch.inference_mode():
+        out_inference = torch.matmul(t1_h, t2_h)
+
+    assert torch.equal(out_training, out_inference)
