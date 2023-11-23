@@ -4,13 +4,14 @@ common:
     - CORAL_SIM
     - HCL
     - HL_THUNK
+    - PT_FORK
+    - RDMA_CORE
     - SWTOOLS_SDK
     - SYNAPSE
     - SYNAPSE_UTILS
     - TPC_FUSER
     - TPC_KERNELS
     - TPCSIM
-    - RDMA_CORE
   config:
     testCommand: run_pytorch_modules_tests
     loadLKD: true
@@ -26,16 +27,7 @@ common:
     Install Python test dependencies:
       command: '__check_pytorch_dev_py_deps; __check_pytest_dev_py_deps'
     Update PyTorch module:
-        command: |
-          __clean_pytorch_dev_py_deps
-          pip install -U $PYTORCH_FORK_RELEASE_BUILD/pkgs/*.whl
-          pip install -U ${PYTORCH_VISION_FORK_BUILD}/pkgs/*.whl
-          install_pillow_simd
-          if [ $GERRIT_PROJECT == lightning-habana-fork ]
-          then
-            pip install -U $LIGHTNING_HABANA_FORK_BUILD/pkgs/*.whl
-          fi
-          pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
+      command: 'install_pytorch_whls'
 testsMap:
   Test_pytorch_modules_gaudi_sim_cpp_suite:
     stages:
