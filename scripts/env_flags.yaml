@@ -737,3 +737,7 @@ PT_HPU_WRAP_RANDOM_OPS_COMPILE:
 Random ops are replaced with custom wrappers containing seed tensor input.\n
 This allows determinism without generating seed on CPU each iteration."
 
+PT_HPU_ENABLE_EAGER_JIT_CACHE:
+  type: bool
+  default: true
+  doc: "This flag enable/Disable Eager Jit Cache. by default this is enabled."

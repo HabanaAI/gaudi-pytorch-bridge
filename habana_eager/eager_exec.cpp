@@ -276,7 +276,9 @@ void EagerExec::launch() {
     graph_and_meta->set_is_eager_compiler_supported(eager_compiler_supported);
     graph_and_meta->set_is_shape_agnostic_supported(eager_compiler_supported);
     graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
-    cache.Add(key, graph_and_meta);
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_JIT_CACHE)) {
+      cache.Add(key, graph_and_meta);
+    }
   }
   graph_and_meta->set_output_shapes(m_outputs.get_shapes());
 
