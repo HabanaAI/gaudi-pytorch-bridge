@@ -638,7 +638,6 @@ void BatchNormNoTrainingOpBackend::AddNode(
            : handle_batch_norm_inference_fwd)(
           *this,
           graph,
-          stack,
           input,
           weightOpt,
           biasOpt,
