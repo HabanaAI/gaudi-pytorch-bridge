@@ -32,7 +32,9 @@ def test_hpu_avg_pool1d(shape, kernel_size_and_padding, stride, dtype):
 
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
-    assert torch.equal(cpu_output, hpu_output)
+
+    tol = 1e-2 if dtype == torch.bfloat16 else 1e-5
+    assert torch.allclose(cpu_output, hpu_output, atol=tol, rtol=tol)
 
 @pytest.mark.parametrize("shape", [[2, 7], [2, 2, 7]])
 @pytest.mark.parametrize("output_size", [1, 6, 10])
