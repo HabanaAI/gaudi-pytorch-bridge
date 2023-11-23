@@ -73,11 +73,18 @@ OutputMetaDataVector ForeachBinaryMeta(const at::Stack& stack) {
 }
 
 void Foreach::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  size_t params_size = 0;
+  auto params = FillParams(stack, params_size);
   const auto& tensors = stack[0].toTensorList();
   for (auto i = 0u; i < tensors.size(); ++i) {
     const auto& tensor = tensors[i];
     auto out = BuildOp(
-        graph, guid_, {syn_in(i)}, {{tensor.sizes(), tensor.scalar_type(), i}});
+        graph,
+        guid_,
+        {syn_in(i)},
+        {{tensor.sizes(), tensor.scalar_type(), i}},
+        params.get(),
+        params_size);
     syn_out(i) = std::move(out[0]);
   }
 }

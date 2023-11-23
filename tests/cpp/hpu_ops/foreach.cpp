@@ -100,3 +100,21 @@ FOREACH_TESTS(frac)
 FOREACH_TESTS(reciprocal)
 FOREACH_TESTS(sigmoid)
 FOREACH_TESTS(trunc)
+
+TEST_F(HpuOpTest, ForeachRound) {
+  std::vector<at::Tensor> cpu_in;
+  std::vector<at::Tensor> hpu_in;
+  auto t1_cpu = torch::tensor({1.5, 2.5, 3.5, 4.5}, torch::kFloat);
+  cpu_in.push_back(t1_cpu);
+  auto cpu_out = torch::_foreach_round(cpu_in);
+
+  auto t1_hpu = t1_cpu.to(torch::kHPU);
+  hpu_in.push_back(t1_hpu);
+  auto hpu_out = torch::_foreach_round(hpu_in);
+
+  auto t2_cpu = cpu_out[0];
+  auto t2_hpu = hpu_out[0];
+
+  EXPECT_EQ(allclose(t2_hpu.to(torch::kCPU), t2_cpu, 0.001, 0.001), true);
+  EXPECT_EQ(t2_hpu.dtype() == t2_cpu.dtype(), true);
+}

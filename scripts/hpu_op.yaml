@@ -430,6 +430,7 @@ _foreach_reciprocal_:
   op_backend: Foreach
 
 _foreach_round:
+  custom_fill_params: FillRoundParams
   dtypes: [BFloat16, Float]
   guid: round_fwd
   op_backend: Foreach
@@ -437,6 +438,7 @@ _foreach_round:
   out_ids: [0]
 
 _foreach_round_:
+  custom_fill_params: FillRoundParams
   dtypes: [BFloat16, Float]
   guid: round_fwd
   inplace_ids: [0]
