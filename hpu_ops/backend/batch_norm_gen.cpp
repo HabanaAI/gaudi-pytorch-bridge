@@ -17,6 +17,7 @@
 #include "generated/backend/_native_batch_norm_legit_no_training.h"
 #include "generated/backend/native_batch_norm.h"
 #include "generated/backend/native_batch_norm_backward.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
@@ -210,30 +211,6 @@ void reshape_tensor(
   }
 }
 
-enum TensorDataIdx { TENSOR_IDX = 0, SHAPE_IDX, STORAGE_IDX };
-
-template <unsigned I>
-struct TensorDataGetter {
-  auto operator()(sh::tensor& arg) {
-    if constexpr (I == TENSOR_IDX) {
-      return arg.get();
-    } else if constexpr (I == SHAPE_IDX) {
-      return arg.pt_shape();
-    } else if constexpr (I == STORAGE_IDX) {
-      return std::variant<sh::tensor*, int>{&arg};
-    }
-  }
-  auto operator()(const OpBackend::TensorsPair& arg) {
-    if constexpr (I == TENSOR_IDX) {
-      return arg.syn_t;
-    } else if constexpr (I == SHAPE_IDX) {
-      return arg.pt_t.sizes().vec();
-    } else if constexpr (I == STORAGE_IDX) {
-      return std::variant<sh::tensor*, int>{arg.syn_idx};
-    }
-  }
-};
-
 template <unsigned... Is>
 auto transform_tensor_to_4d(
     OpBackend& op,
@@ -245,22 +222,6 @@ auto transform_tensor_to_4d(
     return std::make_tuple(TensorDataGetter<Is>{}(*tensorStorageOpt)...);
   }
   return std::make_tuple(TensorDataGetter<Is>{}(tensor)...);
-}
-
-template <unsigned... Is>
-auto get_or_create_tensor(
-    OpBackend& op,
-    sh::graph& graph,
-    const c10::optional<OpBackend::TensorsPair>& tensor,
-    const c10::IntArrayRef& rm_size,
-    const at::Scalar& val,
-    std::optional<sh::tensor>& tensorStorageOpt) {
-  if (not tensor.has_value()) {
-    tensorStorageOpt =
-        op.BuildConstant(&op, graph, val, c10::ScalarType::Float, rm_size);
-    return std::make_tuple(TensorDataGetter<Is>{}(*tensorStorageOpt)...);
-  }
-  return std::make_tuple(TensorDataGetter<Is>{}(*tensor)...);
 }
 
 auto get_running_var_def_value(const OpBackend& op) {
@@ -296,14 +257,26 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
   c10::IntArrayRef rm_size = get_rm_size(input.pt_t);
   std::optional<sh::tensor> weightStorageOpt;
   const auto [weight] = get_or_create_tensor<TENSOR_IDX>(
-      op, graph, weight_opt, rm_size, 1, weightStorageOpt);
+      op,
+      graph,
+      weight_opt,
+      rm_size,
+      c10::ScalarType::Float,
+      1,
+      weightStorageOpt);
   std::optional<sh::tensor> biasStorageOpt;
   const auto [bias] = get_or_create_tensor<TENSOR_IDX>(
-      op, graph, bias_opt, rm_size, 0, biasStorageOpt);
+      op, graph, bias_opt, rm_size, c10::ScalarType::Float, 0, biasStorageOpt);
   std::optional<sh::tensor> runningMeanStorageOpt;
   auto [running_mean, running_mean_storage_or_idx] =
       get_or_create_tensor<TENSOR_IDX, STORAGE_IDX>(
-          op, graph, running_mean_opt, rm_size, 0, runningMeanStorageOpt);
+          op,
+          graph,
+          running_mean_opt,
+          rm_size,
+          c10::ScalarType::Float,
+          0,
+          runningMeanStorageOpt);
   std::optional<sh::tensor> runningVarStorageOpt;
   auto [running_var, running_var_storage_or_idx] =
       get_or_create_tensor<TENSOR_IDX, STORAGE_IDX>(
@@ -311,6 +284,7 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
           graph,
           running_var_opt,
           rm_size,
+          c10::ScalarType::Float,
           get_running_var_def_value(op),
           runningVarStorageOpt);
 
@@ -379,19 +353,32 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
   c10::IntArrayRef rm_size = get_rm_size(input.pt_t);
   std::optional<sh::tensor> weightStorageOpt;
   const auto [weight] = get_or_create_tensor<TENSOR_IDX>(
-      op, graph, weight_opt, rm_size, 1, weightStorageOpt);
+      op,
+      graph,
+      weight_opt,
+      rm_size,
+      c10::ScalarType::Float,
+      1,
+      weightStorageOpt);
   std::optional<sh::tensor> biasStorageOpt;
   const auto [bias] = get_or_create_tensor<TENSOR_IDX>(
-      op, graph, bias_opt, rm_size, 0, biasStorageOpt);
+      op, graph, bias_opt, rm_size, c10::ScalarType::Float, 0, biasStorageOpt);
   std::optional<sh::tensor> runningMeanStorageOpt;
   const auto [running_mean] = get_or_create_tensor<TENSOR_IDX>(
-      op, graph, running_mean_opt, rm_size, 0, runningMeanStorageOpt);
+      op,
+      graph,
+      running_mean_opt,
+      rm_size,
+      c10::ScalarType::Float,
+      0,
+      runningMeanStorageOpt);
   std::optional<sh::tensor> runningVarStorageOpt;
   const auto [running_var] = get_or_create_tensor<TENSOR_IDX>(
       op,
       graph,
       running_var_opt,
       rm_size,
+      c10::ScalarType::Float,
       get_running_var_def_value(op),
       runningVarStorageOpt);
 
@@ -734,18 +721,36 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   c10::IntArrayRef rm_size = get_rm_size(input.pt_t);
   std::optional<sh::tensor> weightStorageOpt;
   const auto [weight] = get_or_create_tensor<TENSOR_IDX>(
-      *this, graph, weight_opt, rm_size, 1, weightStorageOpt);
+      *this,
+      graph,
+      weight_opt,
+      rm_size,
+      c10::ScalarType::Float,
+      1,
+      weightStorageOpt);
 
   synTensor saved_mean, saved_istd;
   std::optional<sh::tensor> saved_mean_storage, saved_istd_storage;
   if (!is_training(training, running_mean_opt.has_value())) {
     std::optional<sh::tensor> runningMeanStorageOpt;
     const auto [running_mean] = get_or_create_tensor<TENSOR_IDX>(
-        *this, graph, running_mean_opt, rm_size, 0, runningMeanStorageOpt);
+        *this,
+        graph,
+        running_mean_opt,
+        rm_size,
+        c10::ScalarType::Float,
+        0,
+        runningMeanStorageOpt);
     std::optional<sh::tensor> runningVarStorageOpt;
     const auto [running_var, running_var_shape] =
         get_or_create_tensor<TENSOR_IDX, SHAPE_IDX>(
-            *this, graph, running_var_opt, rm_size, 1, runningVarStorageOpt);
+            *this,
+            graph,
+            running_var_opt,
+            rm_size,
+            c10::ScalarType::Float,
+            1,
+            runningVarStorageOpt);
 
     // TODO calculate saved_mean, saved_istd
     saved_mean = running_mean;

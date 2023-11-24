@@ -13,26 +13,48 @@
 #include "generated/backend/rrelu_with_noise.h"
 #include "generated/backend/rrelu_with_noise_backward.h"
 #include "habana_kernels/random_gen_kernels.h"
+#include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
 
 void Rrelu_with_noise::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
+  StackGetter stackGetter(stack, "Rrelu_with_noise::AddNode");
+  [[maybe_unused]] auto input = getNextInput<TensorsPair>(stackGetter);
+  auto noiseIn = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   const auto& outshape = stack_tensor(stack, 0).sizes();
   auto training = stack.at(4).toBool();
   auto lower = stack.at(2).toScalar().to<float>();
   auto upper = stack.at(3).toScalar().to<float>();
   size_t size = 0;
   if (training) {
+    std::optional<synapse_helpers::tensor> noiseStorageOpt;
+    auto [noise_in, noise_in_storage_or_idx] =
+        get_or_create_tensor<TENSOR_IDX, STORAGE_IDX>(
+            *this,
+            graph,
+            noiseIn,
+            (*noiseIn).pt_t.numel(),
+            ScalarType(),
+            0,
+            noiseStorageOpt);
     PARAMS_STUB(ns_RandomUniform::Params);
     params->low = lower;
     params->high = upper;
+
+    // populate seed
+    std::vector<synTensor> inputs;
+    if (stack.at(5).isTensor())
+      inputs.push_back(syn_in(2));
+    else
+      inputs.push_back(syn_seed());
+
     // uniform random tensor
     auto uniform_random = BuildOp(
         graph,
         get_guid_with_precision("random_uniform_fwd", ScalarType()),
-        {},
+        std::move(inputs),
         {{outshape, ScalarType()}},
         params.get(),
         size);
@@ -49,7 +71,13 @@ void Rrelu_with_noise::AddNode(
         graph,
         get_guid_with_precision("where_fwd", ScalarType()),
         {cond[0].get(), uniform_random[0].get(), ones.get()},
-        {{outshape, ScalarType()}});
+        {NodeAttr::NodeOutputAttr{
+            outshape,
+            ScalarType(),
+            c10::nullopt,
+            DATA_TENSOR,
+            syn_type_na,
+            noise_in_storage_or_idx}});
     // output
     auto output = BuildOp(
         graph,
@@ -57,6 +85,8 @@ void Rrelu_with_noise::AddNode(
         {syn_in(0), noise[0].get()},
         {{outshape, ScalarType(), 0}});
     syn_out(0) = std::move(output[0]);
+    GetSynImplicitOutputs().emplace_back(PtInputIdxAndSynHelpTensor{
+        1, std::move(noise[0]), std::get<int>(noise_in_storage_or_idx)});
   } else {
     PARAMS_STUB(ns_LeakyReluKernel::Params);
     auto negative_slope = (lower + upper) / 2;

@@ -577,6 +577,12 @@ class LazyOp {
 
     runSBS(self);
     flush_op(1, info_to_lazy_backend, {hl_result});
+    // walkaround here due to the second input of rrelu will be write
+    using namespace std::literals;
+    const auto node_str = std::string_view{m_symbol.toQualString()};
+    if (node_str == "hpu::rrelu_with_noise"sv) {
+      HbLazyTensor::StepMarker({});
+    }
     return self;
   }
 

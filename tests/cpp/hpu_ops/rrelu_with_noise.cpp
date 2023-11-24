@@ -1,14 +1,18 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "../utils/device_type_util.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -44,23 +48,12 @@ TEST_F(HpuOpTest, rrelu_with_noise_train) {
   float lower = GenerateScalar<float>(0.1, 0.3);
   float upper = GenerateScalar<float>(0.6, 0.9);
   bool training = true;
-  SetSeed();
+  auto gen1 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
+  auto gen2 = at::detail::createCPUGenerator(/*seed_val=*/67280421310721);
   auto expected = torch::rrelu_with_noise(
-      GetHpuInput(0),
-      GetHpuInput(1),
-      lower,
-      upper,
-      training,
-      at::detail::getDefaultCPUGenerator());
-  SetSeed();
-  GenerateInputs(2);
+      GetHpuInput(0), GetHpuInput(1), lower, upper, training, gen1);
   auto result = torch::rrelu_with_noise(
-      GetHpuInput(0),
-      GetHpuInput(1),
-      lower,
-      upper,
-      training,
-      at::detail::getDefaultCPUGenerator());
+      GetHpuInput(0), GetHpuInput(1), lower, upper, training, gen2);
   EXPECT_TRUE(expected.equal(result));
 }
 
@@ -145,7 +138,7 @@ TEST_F(HpuOpTest, rrelu_with_noise_backward) {
   auto result = torch::rrelu_with_noise_backward(
       GetHpuInput(0),
       GetHpuInput(1),
-      GetCpuInput(2),
+      GetHpuInput(2),
       lower,
       upper,
       training,
@@ -174,7 +167,7 @@ TEST_F(HpuOpTest, rrelu_with_noise_backward_train) {
   auto result = torch::rrelu_with_noise_backward(
       GetHpuInput(0),
       GetHpuInput(1),
-      GetCpuInput(2),
+      GetHpuInput(2),
       lower,
       upper,
       training,

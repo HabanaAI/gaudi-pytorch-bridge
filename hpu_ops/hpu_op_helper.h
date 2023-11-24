@@ -194,6 +194,46 @@ OutputMetaDataVector PointwiseMeta(const at::Stack& stack) {
   return {meta};
 }
 
+enum TensorDataIdx { TENSOR_IDX = 0, SHAPE_IDX, STORAGE_IDX };
+
+template <unsigned I>
+struct TensorDataGetter {
+  auto operator()(synapse_helpers::tensor& arg) {
+    if constexpr (I == TENSOR_IDX) {
+      return arg.get();
+    } else if constexpr (I == SHAPE_IDX) {
+      return arg.pt_shape();
+    } else if constexpr (I == STORAGE_IDX) {
+      return std::variant<synapse_helpers::tensor*, int>{&arg};
+    }
+  }
+  auto operator()(const OpBackend::TensorsPair& arg) {
+    if constexpr (I == TENSOR_IDX) {
+      return arg.syn_t;
+    } else if constexpr (I == SHAPE_IDX) {
+      return arg.pt_t.sizes().vec();
+    } else if constexpr (I == STORAGE_IDX) {
+      return std::variant<synapse_helpers::tensor*, int>{arg.syn_idx};
+    }
+  }
+};
+
+template <unsigned... Is>
+auto get_or_create_tensor(
+    OpBackend& op,
+    synapse_helpers::graph& graph,
+    const c10::optional<OpBackend::TensorsPair>& tensor,
+    const c10::IntArrayRef& size,
+    const c10::ScalarType& scalar_type,
+    const at::Scalar& val,
+    std::optional<synapse_helpers::tensor>& tensorStorageOpt) {
+  if (not tensor.has_value()) {
+    tensorStorageOpt = op.BuildConstant(&op, graph, val, scalar_type, size);
+    return std::make_tuple(TensorDataGetter<Is>{}(*tensorStorageOpt)...);
+  }
+  return std::make_tuple(TensorDataGetter<Is>{}(*tensor)...);
+}
+
 } // namespace habana
 
 #define PARAMS_STUB(structname) \
