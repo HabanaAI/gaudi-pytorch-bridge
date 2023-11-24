@@ -100,6 +100,19 @@ void Median::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, index_of_self);
   auto self_size = self.sizes().vec();
+
+  if (self_size.size() == 0) {
+    auto out_shape = MediandimOutputShape(stack)[0];
+    auto out = OpBackend::BuildOp(
+        graph, "identity", {syn_in(0)}, {{out_shape, ScalarType(), 0}});
+    syn_out(0) = std::move(out[0]);
+    auto indices_dtype = common::IsInt64Supported() ? c10::ScalarType::Long
+                                                    : c10::ScalarType::Int;
+    auto index = ConstantHelper(graph, /*val=*/0, indices_dtype, out_shape, 1);
+    syn_out(1) = std::move(index);
+    return;
+  }
+
   bool keepdim = stack[index_of_keepdim].toBool();
   int64_t reduction_axis = c10::maybe_wrap_dim(
       stack[index_of_reduction_axis].toInt(),

@@ -18,7 +18,7 @@ if not is_gaudi1():
     dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
 
 
-@pytest.mark.parametrize("shape", [[20, 10]], ids=format_tc)
+@pytest.mark.parametrize("shape", [[1], [20, 10]], ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 def test_2_iterations(shape, dtype):
     if pytest.mode == "compile" and dtype in (torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn):
