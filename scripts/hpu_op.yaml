@@ -5644,7 +5644,7 @@ relu.out:
   op_validator: check-node-with-shared-layer
 
 reflection_pad1d:
-  custom_output_shape: ReflectionPad1DOutputShape
+  output_meta: ReflectionPad1DMeta
   custom_fill_params: FillReflectionPadForwardParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short]
@@ -5656,7 +5656,7 @@ reflection_pad1d:
   op_validator: check-node-with-shared-layer
 
 reflection_pad1d.out:
-  custom_output_shape: ReflectionPad1DOutputShape
+  output_meta: ReflectionPad1DMeta
   custom_fill_params: FillReflectionPadForwardParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short]
@@ -5666,7 +5666,7 @@ reflection_pad1d.out:
   op_validator: check-node-with-shared-layer
 
 reflection_pad1d_backward:
-  custom_output_shape: ReflectionPadBackwardOutputShape
+  output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPad
   dtypes: [BFloat16, Float, Int, Short]
@@ -5674,14 +5674,14 @@ reflection_pad1d_backward:
   out_ids: [0]
 
 reflection_pad1d_backward.grad_input:
-  custom_output_shape: ReflectionPadBackwardOutputShape
+  output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPad
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
 
 reflection_pad2d:
-  custom_output_shape: ReflectionPad2DOutputShape
+  output_meta: ReflectionPad2DMeta
   custom_fill_params: FillReflectionPadForwardParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short]
@@ -5693,7 +5693,7 @@ reflection_pad2d:
   op_validator: check-node-with-shared-layer
 
 reflection_pad2d.out:
-  custom_output_shape: ReflectionPad2DOutputShape
+  output_meta: ReflectionPad2DMeta
   custom_fill_params: FillReflectionPadForwardParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short]
@@ -5703,7 +5703,7 @@ reflection_pad2d.out:
   op_validator: check-node-with-shared-layer
 
 reflection_pad2d_backward:
-  custom_output_shape: ReflectionPadBackwardOutputShape
+  output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPad
   dtypes: [BFloat16, Float, Int, Short]
@@ -5711,14 +5711,14 @@ reflection_pad2d_backward:
   out_ids: [0]
 
 reflection_pad2d_backward.grad_input:
-  custom_output_shape: ReflectionPadBackwardOutputShape
+  output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPad
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
 
 reflection_pad3d:
-  custom_output_shape: ReflectionPad3DOutputShape
+  output_meta: ReflectionPad3DMeta
   custom_fill_params: FillReflectionPadForwardParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short]
@@ -5730,7 +5730,7 @@ reflection_pad3d:
   op_validator: check-node-with-shared-layer
 
 reflection_pad3d.out:
-  custom_output_shape: ReflectionPad3DOutputShape
+  output_meta: ReflectionPad3DMeta
   custom_fill_params: FillReflectionPadForwardParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short]
@@ -5740,7 +5740,7 @@ reflection_pad3d.out:
   op_validator: check-node-with-shared-layer
 
 reflection_pad3d_backward:
-  custom_output_shape: ReflectionPadBackwardOutputShape
+  output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPad
   dtypes: [BFloat16, Float, Int, Short]
@@ -5748,7 +5748,7 @@ reflection_pad3d_backward:
   out_ids: [0]
 
 reflection_pad3d_backward.grad_input:
-  custom_output_shape: ReflectionPadBackwardOutputShape
+  output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
   op_backend: ReflectionPad
   dtypes: [BFloat16, Float, Int, Short]
@@ -5837,7 +5837,7 @@ repeat:
   acc_thread: true
 
 replication_pad1d:
-  custom_output_shape: ReplicationPad1dOutputShape
+  output_meta: ReplicationPad1DMeta
   custom_fill_params: FillReplicationPad1dParams
   guid: pad_fwd
   dtypes:
@@ -5849,7 +5849,7 @@ replication_pad1d:
   op_validator: check-node-with-shared-layer
 
 replication_pad1d.out:
-  custom_output_shape: ReplicationPad1dOutputShape
+  output_meta: ReplicationPad1DMeta
   custom_fill_params: FillReplicationPad1dParams
   guid: pad_fwd
   dtypes:
@@ -5859,7 +5859,7 @@ replication_pad1d.out:
   op_validator: check-node-with-shared-layer
 
 replication_pad2d:
-  custom_output_shape: ReplicationPad2dOutputShape
+  output_meta: ReplicationPad2DMeta
   custom_fill_params: FillReplicationPad2dParams
   guid: pad_fwd
   dtypes:
@@ -5871,7 +5871,7 @@ replication_pad2d:
   op_validator: check-node-with-shared-layer
 
 replication_pad2d.out:
-  custom_output_shape: ReplicationPad2dOutputShape
+  output_meta: ReplicationPad2DMeta
   custom_fill_params: FillReplicationPad2dParams
   guid: pad_fwd
   dtypes:
@@ -5881,7 +5881,7 @@ replication_pad2d.out:
   op_validator: check-node-with-shared-layer
 
 replication_pad3d:
-  custom_output_shape: ReplicationPad3dOutputShape
+  output_meta: ReplicationPad3DMeta
   custom_fill_params: FillReplicationPad3dParams
   guid: pad_fwd
   dtypes:
@@ -5893,7 +5893,7 @@ replication_pad3d:
   op_validator: check-node-with-shared-layer
 
 replication_pad3d.out:
-  custom_output_shape: ReplicationPad3dOutputShape
+  output_meta: ReplicationPad3DMeta
   custom_fill_params: FillReplicationPad3dParams
   guid: pad_fwd
   dtypes:
@@ -5903,40 +5903,40 @@ replication_pad3d.out:
   op_validator: check-node-with-shared-layer
 
 replication_pad1d_backward:
-  custom_output_shape: ReplicationPadBwdOutputShape
+  output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad1dBwdParams
   dtype: [BFloat16, Float, Int]
   out_ids: [0]
   op_backend: ReplicationPadBwdOp
 
 replication_pad1d_backward.grad_input:
-  custom_output_shape: ReplicationPadBwdOutputShape
+  output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad1dBwdParams
   dtype: [BFloat16, Float, Int]
   op_backend: ReplicationPadBwdOp
 
 replication_pad2d_backward:
-  custom_output_shape: ReplicationPadBwdOutputShape
+  output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad2dBwdParams
   dtype: [BFloat16, Float, Int]
   out_ids: [0]
   op_backend: ReplicationPadBwdOp
 
 replication_pad2d_backward.grad_input:
-  custom_output_shape: ReplicationPadBwdOutputShape
+  output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad2dBwdParams
   dtype: [BFloat16, Float, Int]
   op_backend: ReplicationPadBwdOp
 
 replication_pad3d_backward:
-  custom_output_shape: ReplicationPadBwdOutputShape
+  output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad3dBwdParams
   dtype: [BFloat16, Float, Int]
   out_ids: [0]
   op_backend: ReplicationPadBwdOp
 
 replication_pad3d_backward.grad_input:
-  custom_output_shape: ReplicationPadBwdOutputShape
+  output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad3dBwdParams
   dtype: [BFloat16, Float, Int]
   op_backend: ReplicationPadBwdOp

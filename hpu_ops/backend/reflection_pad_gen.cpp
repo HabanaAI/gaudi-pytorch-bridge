@@ -12,40 +12,50 @@
 
 namespace habana {
 
-sizes_vec ReflectionPad1DOutputShape(const at::Stack& stack) {
+OutputMetaDataVector ReflectionPad1DMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  std::vector<int64_t> outputShape = self.sizes().vec();
+  OutputMetaData meta;
+
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+
   auto pad = stack.at(1).toIntVector();
   TORCH_CHECK((pad.size() == 2), "Pad size can only be 2 for ReflectionPad1d");
   // updating the width dimension
-  outputShape.rbegin()[0] = outputShape.rbegin()[0] + pad[0] + pad[1];
-  return {outputShape};
+  meta.shape.rbegin()[0] += pad[0] + pad[1];
+  return {meta};
 }
 
-sizes_vec ReflectionPad2DOutputShape(const at::Stack& stack) {
+OutputMetaDataVector ReflectionPad2DMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  std::vector<int64_t> outputShape = self.sizes().vec();
+  OutputMetaData meta;
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+
   auto pad = stack.at(1).toIntVector();
   TORCH_CHECK((pad.size() == 4), "Pad size can only be 4 for ReflectionPad2d");
   // updating the width dimension
-  outputShape.rbegin()[0] = outputShape.rbegin()[0] + pad[0] + pad[1];
+  meta.shape.rbegin()[0] += pad[0] + pad[1];
   // updating the height dimension
-  outputShape.rbegin()[1] = outputShape.rbegin()[1] + pad[2] + pad[3];
-  return {outputShape};
+  meta.shape.rbegin()[1] += pad[2] + pad[3];
+  return {meta};
 }
 
-sizes_vec ReflectionPad3DOutputShape(const at::Stack& stack) {
+OutputMetaDataVector ReflectionPad3DMeta(const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  std::vector<int64_t> outputShape = self.sizes().vec();
+  OutputMetaData meta;
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+
   auto pad = stack.at(1).toIntVector();
   TORCH_CHECK((pad.size() == 6), "Pad size can only be 6 for ReflectionPad3d");
   // updating the width dimension
-  outputShape.rbegin()[0] = outputShape.rbegin()[0] + pad[0] + pad[1];
+  meta.shape.rbegin()[0] += pad[0] + pad[1];
   // updating the height dimension
-  outputShape.rbegin()[1] = outputShape.rbegin()[1] + pad[2] + pad[3];
+  meta.shape.rbegin()[1] += pad[2] + pad[3];
   // updating the depth dimension
-  outputShape.rbegin()[2] = outputShape.rbegin()[2] + pad[4] + pad[5];
-  return {outputShape};
+  meta.shape.rbegin()[2] += pad[4] + pad[5];
+  return {meta};
 }
 
 static std::shared_ptr<void> FillReflectionPadParams(
@@ -81,9 +91,12 @@ std::shared_ptr<void> FillReflectionPadForwardParams(
   return FillReflectionPadParams(stack, size, 1);
 }
 
-sizes_vec ReflectionPadBackwardOutputShape(const at::Stack& stack) {
+OutputMetaDataVector ReflectionPadBackwardMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 1);
-  return {self.sizes().vec()};
+  OutputMetaData meta;
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+  return {meta};
 }
 
 std::shared_ptr<void> FillReflectionPadBackwardParams(

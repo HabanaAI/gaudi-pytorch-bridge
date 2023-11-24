@@ -47,9 +47,12 @@ std::shared_ptr<void> FillPadBwdParams(
   return params;
 }
 
-sizes_vec ReplicationPadBwdOutputShape(const at::Stack& stack) {
+OutputMetaDataVector ReplicationPadBwdMeta(const at::Stack& stack) {
   auto self = stack.at(1).toTensor();
-  return {self.sizes().vec()};
+  OutputMetaData meta;
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+  return {meta};
 }
 
 std::shared_ptr<void> FillReplicationPad1dBwdParams(
@@ -77,7 +80,7 @@ void ReplicationPadBwdOp::AddNode(
   // we are having 2 tensor arguments(Grad-In & Self),
   // but the kernel expects Grad-In tensor alone.
   std::vector<synapse_helpers::tensor> pad_bwd_out;
-  auto outshape = ReplicationPadBwdOutputShape(stack)[0];
+  auto meta = ReplicationPadBwdMeta(stack)[0];
   size_t size = 0;
   auto params = FillParams(stack, size);
 
@@ -85,7 +88,7 @@ void ReplicationPadBwdOp::AddNode(
       graph,
       get_guid_with_precision("pad_bwd", ScalarType()),
       {syn_in(0)},
-      {{outshape, ScalarType(), 0}},
+      {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);
 

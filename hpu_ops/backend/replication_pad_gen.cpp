@@ -15,11 +15,9 @@
 
 namespace habana {
 
-sizes_vec ComputeOutputShape(
-    const at::Stack& stack,
-    bool pad1d,
-    bool pad2d,
-    bool pad3d) {
+enum PadType : int64_t { pad1D = 0, pad2D, pad3D };
+
+sizes_vec ComputeOutputShape(const at::Stack& stack, PadType padType) {
   auto self = stack.at(0).toTensor();
   auto padding = stack.at(1).toIntVector();
   std::vector<int64_t> outputsize = self.sizes().vec();
@@ -37,16 +35,15 @@ sizes_vec ComputeOutputShape(
 
   if (padding.size() == 1) {
     for (auto i = 0; i < self.dim() - 1; i++) {
-      outputsize.rbegin()[i] = outputsize.rbegin()[i] + 2 * padding.at(0);
-      if ((i == 0 && pad1d) || (i == 1 && pad2d) || (i == 2 && pad3d)) {
+      outputsize.rbegin()[i] += 2 * padding.at(0);
+      if (i == padType) {
         break;
       }
     }
   } else {
-    for (auto i = 0; i < self.dim() - 1; i += 1) {
-      outputsize.rbegin()[i] =
-          outputsize.rbegin()[i] + padding.at(i * 2) + padding.at(i * 2 + 1);
-      if ((i == 0 && pad1d) || (i == 1 && pad2d) || (i == 2 && pad3d)) {
+    for (auto i = 0; i < self.dim() - 1; i++) {
+      outputsize.rbegin()[i] += padding.at(i * 2) + padding.at(i * 2 + 1);
+      if (i == padType) {
         break;
       }
     }
@@ -57,9 +54,7 @@ sizes_vec ComputeOutputShape(
 
 std::shared_ptr<void> FillPadParams(
     const at::Stack& stack,
-    bool pad1d,
-    bool pad2d,
-    bool pad3d,
+    PadType padType,
     size_t& size) {
   PARAMS_STUB(ns_PadKernelEx::Params);
   auto self = stack.at(0).toTensor();
@@ -70,7 +65,7 @@ std::shared_ptr<void> FillPadParams(
     for (auto i = 0; i < self.dim() - 1; i++) {
       params->pads[i] = padding.at(0);
       params->pads[i + self.dim()] = padding.at(0);
-      if ((i == 0 && pad1d) || (i == 1 && pad2d) || (i == 2 && pad3d)) {
+      if (i == padType) {
         break;
       }
     }
@@ -78,7 +73,7 @@ std::shared_ptr<void> FillPadParams(
     for (auto i = 0; i < self.dim() - 1; i += 1) {
       params->pads[i] = padding.at(i * 2);
       params->pads[i + self.dim()] = padding.at(i * 2 + 1);
-      if ((i == 0 && pad1d) || (i == 1 && pad2d) || (i == 2 && pad3d)) {
+      if (i == padType) {
         break;
       }
     }
@@ -87,34 +82,46 @@ std::shared_ptr<void> FillPadParams(
   return params;
 }
 
-sizes_vec ReplicationPad1dOutputShape(const at::Stack& stack) {
-  return ComputeOutputShape(stack, true, false, false);
+OutputMetaDataVector ReplicationPad1DMeta(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  OutputMetaData meta;
+  meta.shape = ComputeOutputShape(stack, pad1D)[0];
+  meta.dtype = self.scalar_type();
+  return {meta};
 }
 
-sizes_vec ReplicationPad2dOutputShape(const at::Stack& stack) {
-  return ComputeOutputShape(stack, false, true, false);
+OutputMetaDataVector ReplicationPad2DMeta(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  OutputMetaData meta;
+  meta.shape = ComputeOutputShape(stack, pad2D)[0];
+  meta.dtype = self.scalar_type();
+  return {meta};
 }
 
-sizes_vec ReplicationPad3dOutputShape(const at::Stack& stack) {
-  return ComputeOutputShape(stack, false, false, true);
+OutputMetaDataVector ReplicationPad3DMeta(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  OutputMetaData meta;
+  meta.shape = ComputeOutputShape(stack, pad3D)[0];
+  meta.dtype = self.scalar_type();
+  return {meta};
 }
 
 std::shared_ptr<void> FillReplicationPad1dParams(
     const at::Stack& stack,
     size_t& size) {
-  return FillPadParams(stack, true, false, false, size);
+  return FillPadParams(stack, pad1D, size);
 }
 
 std::shared_ptr<void> FillReplicationPad2dParams(
     const at::Stack& stack,
     size_t& size) {
-  return FillPadParams(stack, false, true, false, size);
+  return FillPadParams(stack, pad2D, size);
 }
 
 std::shared_ptr<void> FillReplicationPad3dParams(
     const at::Stack& stack,
     size_t& size) {
-  return FillPadParams(stack, false, false, true, size);
+  return FillPadParams(stack, pad3D, size);
 }
 
 } // namespace habana
