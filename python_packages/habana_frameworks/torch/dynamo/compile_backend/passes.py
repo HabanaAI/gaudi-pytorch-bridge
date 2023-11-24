@@ -23,7 +23,6 @@ from packaging.version import Version
 from .shared_layer import is_eager_fallback_required
 from .partitioner import HabanaPartitioner
 from .recipe_compiler import get_callable_recipe
-from .config import configuration_flags
 from .logger import get_compile_backend_logger
 from .random_utils import is_random_op, random_op_inputs
 
@@ -551,7 +550,7 @@ def pass_wa_fix_output(ctx: OptimizerContext) -> bool:
         if n.op == "output":
             output_node = n
     if last_node_after_output is not None:
-        logger.warning(
+        logger.warn(
             "It seems graph wasn't functionalized, fixing empty output node."
         )
         ctx.graph_module.graph.erase_node(output_node)
@@ -740,7 +739,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
         else:
             # Running DCE on graph that might not be functionalized in unsafe:
             # https://github.com/pytorch/pytorch/issues/68301
-            logger.warning("Disallowed to run DCE in non-aot mode.")
+            logger.warn("Disallowed to run DCE in non-aot mode.")
 
         ctx.graph_module.recompile()
         logger.debug("Detected mixed devices. Workaround applied.")

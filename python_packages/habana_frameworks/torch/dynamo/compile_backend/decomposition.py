@@ -281,7 +281,7 @@ hpu_backend_decompositions_inference = get_decompositions(
 def register_custom_decomposition(ops, decomposition_list):
     for op in [ops] if callable(ops) else ops:
         if op in decomposition_list:
-            logger.warning(f"duplicate decomp: {ops}")
+            logger.warn(f"duplicate decomp: {ops}")
     logger.info(f"registering custom decomposition of: {ops}")
     return torch._decomp.register_decomposition(ops, decomposition_list)
 
