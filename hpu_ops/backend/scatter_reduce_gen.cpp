@@ -68,11 +68,4 @@ OutputMetaDataVector ScatterReduceMeta(const at::Stack& stack) {
   return {meta};
 }
 
-FALLBACK_CHECK(
-    ScatterReduceFallbackCheck,
-    c10::string_view reduce,
-    bool include_self) {
-  return (reduce == "amax" || reduce == "amin" || (!include_self));
-}
-
 } // namespace habana

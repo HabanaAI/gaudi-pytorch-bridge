@@ -10,13 +10,12 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.hpu as hpu
 import habana_frameworks.torch.dynamo.compile_backend  # noqa # pylint: disable=unused-import
 import numpy as np
 import pytest
 import torch
-from pytest_working.test_utils import env_var_in_scope
-
+from test_utils import format_tc
 
 @pytest.mark.parametrize(
     "dim_shape_deterministic",
@@ -29,40 +28,33 @@ from pytest_working.test_utils import env_var_in_scope
         (0, [(3, 4, 3), (2, 1, 1), (2, 6, 4)], False),
         (2, [(3, 4, 3), (1, 1, 3), (2, 6, 4)], False),
         (-2, [(3, 4, 3), (1, 4, 1), (2, 6, 4)], False),
-    ],
+    ], ids=format_tc
 )
 @pytest.mark.parametrize("reduction", ["amax", "amin", "sum", "prod", "mean"])
 @pytest.mark.parametrize("include_self", [True, False])
-@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
-def test_scatter_reduce(dim_shape_deterministic, reduction, include_self, dtype):
-    if not include_self:
-        pytest.skip(f"include_self={include_self} is not yet supported - skipping.")
-    if reduction in ["sum", "prod", "mean"]:
-        pytest.skip(f"reduction={reduction} is not supported yet")
-    dim, shapes, deterministic = dim_shape_deterministic
-    if deterministic:
-        pytest.skip(
-            f"Setting environment variables causes that in subsequent test "
-            f"cases variables are not reloaded. This causes sporadic failures. To "
-            f"test deterministic_mode, remove the skip macro and run the test "
-            f"filtering deterministic tests only "
-        )
-    with env_var_in_scope(
-        {
-            "PT_HPU_COMPILE_USE_RECIPES": True,
-        }
-    ):
-        if deterministic:
-            torch.use_deterministic_algorithms(True)
-        else:
-            torch.use_deterministic_algorithms(False)
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16], ids=format_tc)
+class TestHpuScatterReduce:
+    @classmethod
+    def setup_class(self):
+        self.deterministicTorchOldValue = torch.are_deterministic_algorithms_enabled()
+        self.deterministicHpuOldValue = hpu.getDeterministic()
 
+    def teardown_class(self):
+        torch.use_deterministic_algorithms(self.deterministicTorchOldValue)
+        hpu.setDeterministic(self.deterministicHpuOldValue)
+
+    @staticmethod
+    def test_scatter_reduce(dim_shape_deterministic, reduction, include_self, dtype):
+        dim, shapes, deterministic = dim_shape_deterministic
+        torch.use_deterministic_algorithms(deterministic)
+        hpu.setDeterministic(deterministic)
         def fn(t1, dim, t2, t3, reduce):
             return torch.scatter_reduce(
                 t1, dim, t2, t3, reduce=reduce, include_self=include_self
             )
 
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_cpu_fn = torch.compile(fn)
+        compiled_hpu_fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
         input_shape = shapes[0]
         index_shape = shapes[1]
@@ -81,6 +73,7 @@ def test_scatter_reduce(dim_shape_deterministic, reduction, include_self, dtype)
         hpu_index = cpu_index.to("hpu")
         hpu_source = cpu_source.to("hpu")
 
-        expected = fn(cpu_input, dim, cpu_index, cpu_source, reduction)
-        result = compiled_fn(hpu_input, dim, hpu_index, hpu_source, reduction).cpu()
-        assert torch.equal(result, expected)
+        expected = compiled_cpu_fn(cpu_input, dim, cpu_index, cpu_source, reduction)
+        result = compiled_hpu_fn(hpu_input, dim, hpu_index, hpu_source, reduction).cpu()
+        tol = 1e-2 if dtype == torch.bfloat16 else 1e-5
+        assert torch.allclose(result, expected, rtol=tol, atol=tol)

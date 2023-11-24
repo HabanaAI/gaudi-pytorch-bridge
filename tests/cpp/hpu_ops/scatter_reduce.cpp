@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "util.h"
 
 struct ScatterReduceShapeInfoParams {
@@ -47,6 +48,7 @@ class ScatterReduceOpTest : public HpuOpTestUtil,
 {
  public:
   bool verbose = false;
+  ScatterReduceShapeInfoParams shapeInfo;
   struct GetName {
     template <class ParamType>
     std::string operator()(
@@ -66,31 +68,38 @@ class ScatterReduceOpTest : public HpuOpTestUtil,
     }
   };
 
+  ScatterReduceOpTest() {
+    shapeInfo = std::get<0>(GetParam());
+  }
+
  private:
+  bool deterministicTorchOldValue = false;
+  bool deterministicHpuOldValue = false;
   void SetUp() override {
     DisableCpuFallback();
     TearDownBridge();
+    auto& hpuGConfig = habana::HPURegistrar::get_hpu_global_config();
+    auto& torchGConfig = at::globalContext();
+    deterministicHpuOldValue = hpuGConfig.getDeterministic();
+    deterministicTorchOldValue = torchGConfig.deterministicAlgorithms();
+    hpuGConfig.setDeterministic(shapeInfo.deterministic);
+    torchGConfig.setDeterministicAlgorithms(shapeInfo.deterministic, false);
   }
   void TearDown() override {
+    habana::HPURegistrar::get_hpu_global_config().setDeterministic(
+        deterministicHpuOldValue);
+    at::globalContext().setDeterministicAlgorithms(
+        deterministicTorchOldValue, false);
     RestoreMode();
   }
 };
 
 TEST_P(ScatterReduceOpTest, scatter_reduce) {
   const auto& testParams = GetParam();
-  auto shapeInfo = std::get<0>(testParams);
   auto reduce = std::get<1>(testParams);
   auto dtype = std::get<2>(testParams);
   auto includeSelf = std::get<3>(testParams);
 
-  if (!includeSelf)
-    GTEST_SKIP() << "include_self=False is not supported yet";
-  if (reduce == "sum" || reduce == "prod" || reduce == "mean")
-    GTEST_SKIP() << "reduce=" << reduce << " is not supported yet";
-  if (shapeInfo.deterministic) {
-    GTEST_SKIP()
-        << "Setting environment variables causes that in subsequent test cases variables are not reloaded. This causes sporadic failures. To test deterministic_mode, remove the skip macro and run the test filtering deterministic tests only";
-  }
   GenerateInputs(
       2, {shapeInfo.inputShape, shapeInfo.sourceShape}, {dtype, dtype});
   auto selfCpu = GetCpuInput(0);

@@ -157,6 +157,8 @@ def get_sync_debug_mode() -> int:
 def setDeterministic(val: bool) -> None:
     _hpu_C.setDeterministic(val)
 
+def getDeterministic() -> bool:
+    _hpu_C.getDeterministic()
 
 def set_autocast_hpu_enabled(enabled) -> None:
     _hpu_C.set_autocast_hpu_enabled(enabled)

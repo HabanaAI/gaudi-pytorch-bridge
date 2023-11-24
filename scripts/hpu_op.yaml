@@ -6188,7 +6188,6 @@ scatter_reduce:
       index: [Int]
       src: [BFloat16, Float, Half]
   guid: scatter_reduce_fwd
-  fallback_check: [ScatterReduceFallbackCheck, reduce, include_self]
   out_ids: [0]
 
 scatter_reduce_:
@@ -6208,7 +6207,6 @@ scatter_reduce_:
       index: [Int]
       src: [BFloat16, Float, Half]
   guid: scatter_reduce_fwd
-  fallback_check: [ScatterReduceFallbackCheck, reduce, include_self]
   inplace_ids: [0]
 
 scatter_reduce.out:
@@ -6227,7 +6225,6 @@ scatter_reduce.out:
       self: [BFloat16, Float, Half]
       index: [Int]
       src: [BFloat16, Float, Half]
-  fallback_check: [ScatterReduceFallbackCheck, reduce, include_self]
   guid: scatter_reduce_fwd
 
 scatter_reduce.two:
@@ -6247,7 +6244,6 @@ scatter_reduce.two:
       index: [Int]
       src: [BFloat16, Float, Half]
   guid: scatter_reduce_fwd
-  fallback_check: [ScatterReduceFallbackCheck, reduce, include_self]
   out_ids: [0]
 
 scatter_reduce_.two:
@@ -6267,7 +6263,6 @@ scatter_reduce_.two:
       index: [Int]
       src: [BFloat16, Float, Half]
   guid: scatter_reduce_fwd
-  fallback_check: [ScatterReduceFallbackCheck, reduce, include_self]
   inplace_ids: [0]
 
 scatter_reduce.two_out:
@@ -6287,7 +6282,6 @@ scatter_reduce.two_out:
       index: [Int]
       src: [BFloat16, Float, Half]
   guid: scatter_reduce_fwd
-  fallback_check: [ScatterReduceFallbackCheck, reduce, include_self]
 
 searchsorted.Tensor:
   custom_fill_params: FillSearchSortedParams

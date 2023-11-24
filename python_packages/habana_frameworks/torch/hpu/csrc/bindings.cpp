@@ -223,6 +223,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     auto& gconfig = habana::HPURegistrar::get_hpu_global_config();
     gconfig.setDeterministic(val);
   });
+  m.def("getDeterministic", []() -> bool {
+    return habana::HPURegistrar::get_hpu_global_config().getDeterministic();
+  });
   m.def("get_device_name", [](int id) { return get_device_name(id); });
   py::class_<HPUStream>(m, "HPUStream");
   m.def("get_stream", [](bool isHighPriorityStream, int device) {
