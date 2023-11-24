@@ -14,18 +14,17 @@ import torch
 import logging
 import sys
 import os
+import sympy
 import habana_frameworks.torch.internal.bridge_config as bc
 
 from .config import configuration_flags
 from .logger import get_compile_backend_logger, dump_fx_graph
 from .random_utils import is_random_op
-
-logger = get_compile_backend_logger()
-
 from sympy.printing.printer import Printer
 from sympy import sympify
 from torch.fx.experimental.proxy_tensor import py_sym_types
 
+logger = get_compile_backend_logger()
 
 enable_dynamic_output_preallocate = bc.get_pt_hpu_enable_dynamic_output_preallocate()
 
@@ -119,9 +118,7 @@ class SymbolicShapeEvaluator:
     def clear_symbolic_value_dict(self):
         self._symbolic_value_dict = {}
 
-    def calculate_symbol_size(self, sym_expr, input_stack):
-        pexpr = PythonPrinter().doprint
-
+    def calculate_symbol_size(self, expr_sympy, expr_str, input_stack):
         def get_symbolic_value(sym_meta, inputs):
             input_idx = sym_meta[0]
             dim = sym_meta[1]
@@ -135,15 +132,14 @@ class SymbolicShapeEvaluator:
                 assert False, "Wrong input type to look for dimention value"
             return value
 
-        sym_expr_str = pexpr(sym_expr)
         size = 0
-        sym_meta = self._symbolic_metadata[sym_expr_str]
-        if sym_expr_str in self._symbolic_value_dict:
-            return self._symbolic_value_dict[sym_expr_str]
+        sym_meta = self._symbolic_metadata[expr_str]
+        if expr_str in self._symbolic_value_dict:
+            return self._symbolic_value_dict[expr_str]
         elif sym_meta[0] is not sys.maxsize:
             size = get_symbolic_value(sym_meta, input_stack)
         else:
-            sympi_expr = sympify(sym_expr_str)
+            pexpr = PythonPrinter().doprint
             free_symbols = sym_meta[2]
             sym_value_pair = []
             for sub_sym in free_symbols:
@@ -151,25 +147,22 @@ class SymbolicShapeEvaluator:
                 sub_sym_meta = self._symbolic_metadata[sub_sym_str]
                 value = get_symbolic_value(sub_sym_meta, input_stack)
                 sym_value_pair.append((sub_sym, value))
-            size = sympi_expr.subs(sym_value_pair)
+            size = expr_sympy.subs(sym_value_pair)
 
-        self._symbolic_value_dict[sym_expr_str] = size
+        self._symbolic_value_dict[expr_str] = size
         return size
 
-    def calculate_shape(self, sym_shape, input_stack):
+    def calculate_shape(self, out_shape_meta, input_stack):
         """
         Return the concrete size after evaluating the symbolic expression.
         """
         concrete_size = []
-        for sz in sym_shape:
-            if isinstance(sz, int):
-                concrete_size.append(sz)
-            elif isinstance(sz, torch.SymInt):
-                value = self.calculate_symbol_size(sz, input_stack)
+        for idx, sz in enumerate(out_shape_meta[0]):
+            if isinstance(sz, sympy.Expr):
+                value = self.calculate_symbol_size(sz, out_shape_meta[1][idx], input_stack)
                 concrete_size.append(value)
             else:
-                logger.debug("Symbolic type not supported:", sz)
-                assert False
+                concrete_size.append(sz)
         return concrete_size
 
 
@@ -254,7 +247,7 @@ def get_callable_recipe(
     ):
         outputs_metadata = get_outputs_metadata(graph_module)
     elif is_dynamic and enable_dynamic_output_preallocate:
-        outputs_metadata = get_outputs_metadata(graph_module)
+        outputs_metadata = get_outputs_metadata_dynamic(graph_module)
         symbolic_metadata = get_symbolic_metadata(graph_module, outputs_metadata)
 
     if configuration_flags["use_compiled_recipes"]:
@@ -310,24 +303,24 @@ def get_symbolic_metadata(graph_module, outputs_metadata):
 
     symbolic_meta = {}
     for md in outputs_metadata:
-        for sz in md[0]:
-            if isinstance(sz, torch.SymInt):
-                sym_sz_str = pexpr(sz)
-                if sym_sz_str in input_symbolic_dict:
-                    symbolic_meta[sym_sz_str] = (
-                        input_symbolic_dict[sym_sz_str][0],
-                        input_symbolic_dict[sym_sz_str][1],
+        out_shape_meta = md[0]
+        for idx, sz_sympy in enumerate(out_shape_meta[0]):
+            if isinstance(sz_sympy, sympy.Expr):
+                sz_str = out_shape_meta[1][idx]
+                if sz_str in input_symbolic_dict:
+                    symbolic_meta[sz_str] = (
+                        input_symbolic_dict[sz_str][0],
+                        input_symbolic_dict[sz_str][1],
                         (),
                     )
                 else:
-                    sym_sz = sympify(sym_sz_str)
-                    assert sym_sz.free_symbols is not None
-                    symbolic_meta[sym_sz_str] = (
+                    assert sz_sympy.free_symbols is not None
+                    symbolic_meta[sz_str] = (
                         sys.maxsize,
                         sys.maxsize,
-                        sym_sz.free_symbols,
+                        sz_sympy.free_symbols,
                     )
-                    for sym in sym_sz.free_symbols:
+                    for sym in sz_sympy.free_symbols:
                         sym_str = pexpr(sym)
                         assert sym_str in input_symbolic_dict
                         symbolic_meta[sym_str] = (
@@ -352,5 +345,37 @@ def get_outputs_metadata(graph_module):
                     i.meta["output_shapes"], i.meta["output_dtypes"]
                 ):
                     outputs_metadata.append((shape, dtype))
+
+    return outputs_metadata
+
+
+def get_outputs_metadata_dynamic(graph_module):
+    """
+    Returns a list of metadata of outputs from the graph, in the form of
+    tuples((sympy shape expr, str shape expr), dtype), in the order in which
+    they appear in the graph.
+    """
+    outputs_metadata = []
+    for node in graph_module.graph.nodes:
+        if node.op == "output":
+            for i in node.all_input_nodes:
+                assert len(i.meta["output_shapes"]) == len(i.meta["output_dtypes"])
+                for shape, dtype in zip(i.meta["output_shapes"], i.meta["output_dtypes"]):
+                    dynamic_shape_sympy = []
+                    dynamic_shape_str = []
+                    for sz in shape:
+                        if isinstance(sz, int):
+                            dynamic_shape_sympy.append(sz)
+                            dynamic_shape_str.append(sz)
+                        elif isinstance(sz, torch.SymInt):
+                            pexpr = PythonPrinter().doprint
+                            sz_str = pexpr(sz)
+                            sz_sympy = sympify(sz_str)
+                            dynamic_shape_sympy.append(sz_sympy)
+                            dynamic_shape_str.append(sz_str)
+                        else:
+                            logger.debug("Symbolic type not supported:", sz)
+                            assert False
+                    outputs_metadata.append(((dynamic_shape_sympy, dynamic_shape_str), dtype))
 
     return outputs_metadata
