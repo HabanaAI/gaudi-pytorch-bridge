@@ -21,10 +21,46 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     ConvolutionOverrideableFE,
     at::Tensor) {
   auto weight = inputs[1].toTensor();
-  at::Tensor weight_hpu =
-      habana_lazy::HbLazyTensorViews::HandleViewsD2H(weight);
+  // WA: detect the pattern and skip view handling and weight permuting to avoid
+  // the graph break, see details at: SW-162183.
+  bool need_skip = false;
+  if (weight.dim() == 4) {
+    auto weight_hb_lazy_tensor = habana_lazy::GetHbLazyTensor(weight);
+    auto weight_stride_params =
+        weight_hb_lazy_tensor.getDataPtr()->stride_params;
+    if (weight_stride_params.has_value() &&
+        weight_stride_params.value().optype ==
+            habana_lazy::StridedOPType::kStridedOpUnsqueeze) {
+      // 3D weight
+      auto base = habana_lazy::HbLazyTensorViews::get_recent_base_tensor(
+          weight_stride_params.value().base);
+      const auto base_hb_lazy_tensor = habana_lazy::GetHbLazyTensor(base);
+      const auto& ir_value = base_hb_lazy_tensor.GetIrValue();
+      const auto& ir_node = ir_value.mp_node;
+      const auto& ir_op = ir_node->op();
+      if (strcmp(ir_op.toQualString(), "hpu::cast") == 0) {
+        const auto& ir_inputs = ir_node->GetInputs();
+        const auto& ir_weight_norm_value = ir_inputs[0];
+        const auto& ir_weight_norm_node = ir_weight_norm_value.mp_node;
+        const auto& ir_weight_norm_op = ir_weight_norm_node->op();
+        if (strcmp(
+                ir_weight_norm_op.toQualString(),
+                "aten::_weight_norm_interface") == 0) {
+          need_skip = true;
+          PT_LAYOUTS_DEBUG(
+              "Detected pattern, skipping view handling and weight",
+              " permuting to avoid graph break.");
+        }
+      }
+    }
+  }
 
-  habana_lazy::PermuteTensors::permuteWeight(weight_hpu);
+  if (!need_skip) {
+    at::Tensor weight_hpu =
+        habana_lazy::HbLazyTensorViews::HandleViewsD2H(weight);
+
+    habana_lazy::PermuteTensors::permuteWeight(weight_hpu);
+  }
 }
 
 } // namespace habana
