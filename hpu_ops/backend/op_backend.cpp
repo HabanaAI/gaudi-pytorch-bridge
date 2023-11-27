@@ -579,7 +579,8 @@ void OpBackend::CreateShapeTensorInput(
     at::IntArrayRef sizes,
     std::vector<synTensor>& inputs,
     synTensorType shape_tensor_type,
-    bool force_create) {
+    bool force_create,
+    void* hostDataPtr) {
   // Add intermediate shape tensor
   if (isOutputInfMode()) {
     auto& meta = GetOutputInfMeta();
@@ -596,11 +597,37 @@ void OpBackend::CreateShapeTensorInput(
 
   if (force_create or graph.is_dynamic_graph()) {
     auto st = habana_helpers::create_shape_tensor(
-        GetProxyTensor(dtype, sizes), graph, false, shape_tensor_type);
+        GetProxyTensor(dtype, sizes),
+        graph,
+        false,
+        shape_tensor_type,
+        std::string(),
+        hostDataPtr);
     st.set_intermediate_shape_tensor();
     m_shape_tensors.emplace_back(std::move(st));
     inputs.emplace_back(m_shape_tensors.back().get());
   }
+}
+
+void OpBackend::CreateH2dTensorInput(
+    sh::graph& graph,
+    at::ScalarType dtype,
+    void* hostDataPtr,
+    size_t hostDataSize,
+    std::vector<synTensor>& inputs,
+    synTensorType shape_tensor_type,
+    bool force_create) {
+  size_t es = c10::elementSize(dtype);
+  int64_t tensorSize = (hostDataSize + es - 1) / es;
+
+  CreateShapeTensorInput(
+      graph,
+      dtype,
+      at::IntArrayRef(tensorSize),
+      inputs,
+      shape_tensor_type,
+      force_create,
+      hostDataPtr);
 }
 
 std::vector<sh::tensor> OpBackend::BuildNode(

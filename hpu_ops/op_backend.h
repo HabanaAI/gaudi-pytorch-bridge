@@ -77,6 +77,16 @@ class OpBackend : public HabanaOperator {
       at::IntArrayRef sizes,
       std::vector<synTensor>& inputs,
       synTensorType shape_tensor_type = SHAPE_TENSOR,
+      bool force_create = false,
+      void* hostDataPtr = nullptr);
+
+  void CreateH2dTensorInput(
+      synapse_helpers::graph& graph,
+      at::ScalarType dtype,
+      void* hostDataPtr,
+      size_t hostDataSize,
+      std::vector<synTensor>& inputs,
+      synTensorType shape_tensor_type = HOST_TO_DEVICE_TENSOR,
       bool force_create = false);
 
   sizes_vec ComputeOutputShapes(const at::Stack& stack) const {

@@ -298,6 +298,10 @@ class graph {
     is_shape_agnostic_graph_ = shape_agnostic_graph;
   }
 
+  bool is_eager_mode() const {
+    return eager_mode_;
+  }
+
  private:
   using Op2NodeContainer =
       absl::flat_hash_map<std::string, absl::flat_hash_set<synNodeId>>;

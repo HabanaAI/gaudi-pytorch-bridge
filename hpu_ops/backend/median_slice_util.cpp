@@ -11,13 +11,24 @@
  *******************************************************************************
  */
 #include "hpu_ops/median_slice_util.h"
+#include <gc_interface.h>
+
+// SW-166179 - request to move what is copied below to public API
+// Copied from ../synapse/src/graph_compiler/habana_nodes/h2d_tensors.h
+using TSize = uint64_t;
+struct dynamic_slice_dma_h2d_tensor_t {
+  TSize dims;
+  TSize steps[gcapi::MAX_TENSOR_DIM];
+  TSize starts[gcapi::MAX_TENSOR_DIM];
+};
+// End of copy from ../synapse/src/graph_compiler/habana_nodes/h2d_tensors.h
 
 namespace habana {
 
 std::vector<synapse_helpers::tensor> Median_Slice_Helper(
     OpBackend* op,
     synapse_helpers::graph& graph,
-    std::vector<synTensor> input,
+    std::vector<synTensor> inputs,
     const at::IntArrayRef outshape,
     const at::ScalarType dtype,
     int64_t nelements,
@@ -29,12 +40,28 @@ std::vector<synapse_helpers::tensor> Median_Slice_Helper(
   if (!final_node)
     node_index = c10::nullopt;
 
+  dynamic_slice_dma_h2d_tensor_t sliceDs{};
+  bool useDsVariant = graph.is_dynamic_graph() || graph.is_eager_mode();
+
+  // TODO: SW-166787 enable it
+  useDsVariant = false;
+
+  if (useDsVariant) {
+    sliceDs.dims = outshape.size();
+    for (unsigned d = 0; d < sliceDs.dims; ++d) {
+      sliceDs.steps[0] = 1;
+    }
+  }
+
   synSliceParamsV2 slice_params{};
   if (median_variant == 0) {
     slice_params.axes[0] = reduction_axis;
     slice_params.starts[0] = nelements / 2;
     slice_params.ends[0] = nelements / 2;
     slice_params.steps[0] = 1;
+    if (useDsVariant) {
+      sliceDs.starts[reduction_axis] = slice_params.starts[0];
+    }
   } else {
     for (int64_t idx = 0; idx < ndimension; ++idx) {
       slice_params.axes[idx] = idx;
@@ -42,6 +69,9 @@ std::vector<synapse_helpers::tensor> Median_Slice_Helper(
       if (idx == (get_dim_in_tpc_order(reduction_axis, ndimension))) {
         slice_params.starts[idx] = nelements / 2;
         slice_params.ends[idx] = nelements / 2;
+        if (useDsVariant) {
+          sliceDs.starts[idx] = slice_params.starts[idx];
+        }
       } else {
         slice_params.starts[idx] = 0;
         slice_params.ends[idx] =
@@ -49,11 +79,26 @@ std::vector<synapse_helpers::tensor> Median_Slice_Helper(
       }
     }
   }
+
+  if (useDsVariant) {
+    op->CreateShapeTensorInput(
+        graph, dtype, outshape, inputs, SHAPE_TENSOR, graph.is_eager_mode());
+
+    op->CreateH2dTensorInput(
+        graph,
+        c10::ScalarType::Int,
+        &sliceDs,
+        sizeof(sliceDs),
+        inputs,
+        HOST_TO_DEVICE_TENSOR,
+        graph.is_eager_mode());
+  }
+
   return OpBackend::BuildNode(
       op,
       graph,
       {"slice",
-       std::move(input),
+       std::move(inputs),
        {{outshape, dtype, node_index}},
        &slice_params,
        sizeof(slice_params)});
