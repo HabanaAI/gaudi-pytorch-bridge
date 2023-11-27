@@ -30,27 +30,34 @@ std::shared_ptr<void> FillHuberLossFwdParams(
   return params;
 }
 
-sizes_vec HuberLossOutputShape(const at::Stack& stack) {
+OutputMetaDataVector HuberLossMeta(const at::Stack& stack) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
+  int64_t reduction = stack.at(2).toInt();
   double delta = stack.at(3).toScalar().to<double>();
   TORCH_CHECK(
       delta >= 0, "huber_loss does not support negative values for delta.")
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  int64_t reduction = stack.at(2).toInt();
-  if (reduction == at::Reduction::Reduction::None) {
-    return {self.sizes().vec()};
-  }
-  return {{}};
+
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = {};
+  if (reduction == at::Reduction::Reduction::None)
+    meta.shape = self.sizes().vec();
+
+  return {meta};
 }
 
-sizes_vec HuberLossBackwardOutputShape(const at::Stack& stack) {
+OutputMetaDataVector HuberLossBackwardMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 1);
-  return {self.sizes().vec()};
+  OutputMetaData meta;
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+  return {meta};
 }
 
 void HuberLossBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const auto& inputshape = stack_tensor(stack, 1).sizes();
+  auto meta = HuberLossBackwardMeta(stack)[0];
 
   float delta = stack.at(4).toScalar().to<float>();
   TORCH_CHECK(
@@ -61,63 +68,63 @@ void HuberLossBwdOperator::AddNode(
       ? 1 / static_cast<float>(stack_tensor(stack, 1).numel())
       : 1;
 
-  auto norm = ConstantHelper(graph, norm_factor, ScalarType(), inputshape);
+  auto norm = ConstantHelper(graph, norm_factor, meta.dtype, meta.shape);
 
-  auto delta_const = ConstantHelper(graph, delta, ScalarType(), inputshape);
+  auto delta_const = ConstantHelper(graph, delta, meta.dtype, meta.shape);
 
   auto t_diff = BuildOp(
       graph,
-      get_guid_with_precision("sub", ScalarType()),
+      get_guid_with_precision("sub", meta.dtype),
       {syn_in(1), syn_in(2)},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   auto t_mul = BuildOp(
       graph,
-      get_guid_with_precision("mult", ScalarType()),
+      get_guid_with_precision("mult", meta.dtype),
       {syn_in(0), norm.get()},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   auto t_sign = BuildOp(
       graph,
-      get_guid_with_precision("sign_fwd", ScalarType()),
+      get_guid_with_precision("sign_fwd", meta.dtype),
       {t_diff.at(0).get()},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   auto t_0 = BuildOp(
       graph,
-      get_guid_with_precision("mult", ScalarType()),
+      get_guid_with_precision("mult", meta.dtype),
       {t_mul.at(0).get(), delta_const.get()},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   auto t_1 = BuildOp(
       graph,
-      get_guid_with_precision("mult", ScalarType()),
+      get_guid_with_precision("mult", meta.dtype),
       {t_0.at(0).get(), t_sign.at(0).get()},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   auto t_2 = BuildOp(
       graph,
-      get_guid_with_precision("mult", ScalarType()),
+      get_guid_with_precision("mult", meta.dtype),
       {t_diff.at(0).get(), t_mul.at(0).get()},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   auto t_abs = BuildOp(
       graph,
-      get_guid_with_precision("abs_fwd", ScalarType()),
+      get_guid_with_precision("abs_fwd", meta.dtype),
       {t_diff.at(0).get()},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   auto mask_bwd = BuildOp(
       graph,
-      get_guid_with_precision("less_fwd", ScalarType()),
+      get_guid_with_precision("less_fwd", meta.dtype),
       {t_abs.at(0).get(), delta_const.get()},
-      {{inputshape, at::kBool}});
+      {{meta.shape, at::kBool}});
 
   auto grad_in = BuildOp(
       graph,
-      get_guid_with_precision("where_fwd", ScalarType()),
+      get_guid_with_precision("where_fwd", meta.dtype),
       {mask_bwd.at(0).get(), t_2.at(0).get(), t_1.at(0).get()},
-      {{inputshape, ScalarType(), 0}});
+      {{meta.shape, meta.dtype, 0}});
 
   syn_out(0) = std::move(grad_in.at(0));
 }

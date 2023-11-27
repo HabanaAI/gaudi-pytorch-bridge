@@ -3239,7 +3239,7 @@ hardtanh_backward.grad_input:
 
 huber_loss:
   custom_fill_params: FillHuberLossFwdParams
-  custom_output_shape: HuberLossOutputShape
+  output_meta: HuberLossMeta
   dtypes: [BFloat16, Float]
   guid: huber_loss_fwd
   out_ids: [0]
@@ -3247,19 +3247,19 @@ huber_loss:
 
 huber_loss.out:
   custom_fill_params: FillHuberLossFwdParams
-  custom_output_shape: HuberLossOutputShape
+  output_meta: HuberLossMeta
   dtypes: [BFloat16, Float]
   guid: huber_loss_fwd
   op_validator: check-node-with-shared-layer
 
 huber_loss_backward:
-  custom_output_shape: HuberLossBackwardOutputShape
+  output_meta: HuberLossBackwardMeta
   dtypes: [BFloat16, Float]
   op_backend: HuberLossBwdOperator
   out_ids: [0]
 
 huber_loss_backward.out:
-  custom_output_shape: HuberLossBackwardOutputShape
+  output_meta: HuberLossBackwardMeta
   dtypes: [BFloat16, Float]
   op_backend: HuberLossBwdOperator
 
