@@ -454,6 +454,15 @@ size_t EagerExec::calculate_operator_key(
   return optimized_key;
 }
 
+// ZST tensor has rank '1' with shape '0' but no allocation
+static inline bool is_zst(const at::Tensor& t) {
+  return (t.dim() == 1 && t.sizes()[0] == 0);
+}
+
+// define tensor type ZST for hashing the value
+// other tensor types can be added here, if required
+enum class TensorType { ZST_TENSOR = 1 };
+
 void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
   key = at::hash_combine(key, static_cast<size_t>(t.scalar_type()));
 
@@ -503,6 +512,16 @@ void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
   key = at::hash_combine(key, static_cast<size_t>(t.suggest_memory_format()));
   key = at::hash_combine(key, static_cast<size_t>(t.layout()));
   key = at::hash_combine(key, t.dim());
+
+  /*
+   * hash if zst tensor is true
+   * To Do: Check if there is a need to hash a non-ZST tensor
+   *        Hashing key calculations should not be condition-based
+   *        and should consider the properties of the object.
+   */
+  if (is_zst(t)) {
+    key = at::hash_combine(key, static_cast<size_t>(TensorType::ZST_TENSOR));
+  }
 }
 
 UniqueIdxVec EagerExec::find_duplicate_in_stack(torch::jit::Stack& stack) {

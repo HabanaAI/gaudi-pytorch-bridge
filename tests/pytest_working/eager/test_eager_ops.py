@@ -793,3 +793,14 @@ def test_set_op():
     )
     tensor1.set_(storage1, 10, [54])
     assert tensor1.data_ptr() == (storage1.data_ptr() + 40)
+
+def test_sag_zst_1d():
+    a = torch.empty(0).to("hpu")
+    b = torch.mul(a, 2)
+    c = b.cpu()
+
+    d = torch.empty(1).to("hpu")
+    d.fill_(3)
+    e = torch.mul(d, 2)
+
+    assert torch.equal(e.cpu(), torch.mul(d.cpu(), 2))
