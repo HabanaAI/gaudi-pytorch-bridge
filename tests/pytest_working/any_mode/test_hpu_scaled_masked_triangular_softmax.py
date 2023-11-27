@@ -36,7 +36,7 @@ def out_dtype_checked(dtype, out_dtype):
     return out_dtype
 
 
-out_dtypes = []
+out_dtypes = [None]
 if not is_gaudi1():
     out_dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
 
@@ -121,8 +121,15 @@ def test_scaled_masked_triangular_softmax(
 @pytest.mark.parametrize("use_max", [True, False])
 @pytest.mark.parametrize("mode", [0, 1, 15])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("out_dtype", out_dtypes)
 def test_scaled_masked_triangular_softmax_next_token(
-    shape, inv_scale_attn, grouped_batch_size, use_max, mode_checked, dtype
+    shape,
+    inv_scale_attn,
+    grouped_batch_size,
+    use_max,
+    mode_checked,
+    dtype,
+    out_dtype_checked,
 ):
     self = torch.randn(shape, dtype=dtype)
 
@@ -159,6 +166,7 @@ def test_scaled_masked_triangular_softmax_next_token(
         grouped_batch_size,
         use_max,
         mode_checked,
+        out_dtype_checked,
     ).cpu()
 
     result_ref = torch.nn.functional.softmax(self_scaled, dim=-1)
@@ -166,6 +174,10 @@ def test_scaled_masked_triangular_softmax_next_token(
     atol = 1e-2 if dtype == torch.float else 1e-1
     rtol = atol
 
-    assert torch.allclose(result_ref, result, atol=atol, rtol=rtol)
+    if out_dtype_checked:
+        result_ref = result_ref.to(out_dtype_checked)
+        assert result.dtype == out_dtype_checked
+
+    compare_tensors(result, result_ref, atol=atol, rtol=rtol)
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("scaled_masked_triangular_softmax")

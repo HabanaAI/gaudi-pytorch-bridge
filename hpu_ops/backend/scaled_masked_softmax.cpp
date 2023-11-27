@@ -97,15 +97,6 @@ void ScaledMaskedTriangularSoftmax::AddNode(
       shape[0] % grouped_batch_size == 0,
       "dim0 must be a multiple of grouped_batch_size.");
 
-  if (shape[1] != shape[2]) {
-    TORCH_CHECK(
-        input_dtype == out_dtype,
-        "Dim1 must equal dim2 when output is fp8. Got: dim1 = ",
-        shape[1],
-        ", dim2 = ",
-        shape[2]);
-  }
-
   auto start_end_reshape = std::vector<int64_t>{start_end.pt_t.numel()};
 
   auto start_end_reshaped = ReshapeHelper(
