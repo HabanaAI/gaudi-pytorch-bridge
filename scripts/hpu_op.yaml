@@ -6876,7 +6876,7 @@ t:
   acc_thread: true
 
 take:
-  custom_output_shape: TakeOutputShape
+  output_meta: TakeMeta
   dtypes:
     self: [BFloat16, Float]
     index: [Int, Long]
@@ -6884,7 +6884,7 @@ take:
   out_ids: [0]
 
 take.out:
-  custom_output_shape: TakeOutputShape
+  output_meta: TakeMeta
   dtypes:
     self: [BFloat16, Float]
     index: [Int, Long]

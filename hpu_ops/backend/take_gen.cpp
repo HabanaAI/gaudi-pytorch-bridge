@@ -12,7 +12,13 @@
 
 namespace habana {
 
-sizes_vec TakeOutputShape(const at::Stack& stack) {
-  return {stack_tensor(stack, 1).sizes().vec()};
+OutputMetaDataVector TakeMeta(const at::Stack& stack) {
+  const auto input = stack_tensor(stack, 0);
+  const auto index = stack_tensor(stack, 1);
+
+  OutputMetaData meta;
+  meta.dtype = input.scalar_type();
+  meta.shape = index.sizes().vec();
+  return {meta};
 }
 } // namespace habana
