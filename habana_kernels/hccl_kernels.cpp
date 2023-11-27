@@ -423,7 +423,7 @@ void HcclBroadcastOperator::Deserialize(std::istream& is) {
 }
 
 void HcclBroadcastOperator::RunCollective(
-    std::vector<PtTensorInfoShared>& inputs,
+    const std::vector<PtTensorInfoShared>& inputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
@@ -482,7 +482,7 @@ void HcclAllreduceOperator::Deserialize(std::istream& is) {
 }
 
 void HcclAllreduceOperator::RunCollective(
-    std::vector<PtTensorInfoShared>& inputs,
+    const std::vector<PtTensorInfoShared>& inputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) {
   HABANA_ASSERT(
@@ -561,7 +561,7 @@ void HcclReduceOperator::Deserialize(std::istream& is) {
 }
 
 void HcclReduceOperator::RunCollective(
-    std::vector<PtTensorInfoShared>& inputs,
+    const std::vector<PtTensorInfoShared>& inputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) {
   HABANA_ASSERT(
@@ -653,7 +653,7 @@ void HcclAllToAllOutOperator::Deserialize(std::istream& is) {
 }
 
 void HcclAllToAllOutOperator::RunCollective(
-    std::vector<PtTensorInfoShared>& inputs,
+    const std::vector<PtTensorInfoShared>& inputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
@@ -794,7 +794,7 @@ void HcclAllgatherOutOperator::Deserialize(std::istream& is) {
 }
 
 void HcclAllgatherOutOperator::RunCollective(
-    std::vector<PtTensorInfoShared>& inputs,
+    const std::vector<PtTensorInfoShared>& inputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
@@ -859,7 +859,7 @@ void HcclReduceScatterOutOperator::Deserialize(std::istream& is) {
 }
 
 void HcclReduceScatterOutOperator::RunCollective(
-    std::vector<PtTensorInfoShared>& inputs,
+    const std::vector<PtTensorInfoShared>& inputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
@@ -933,7 +933,7 @@ void HcclSendOperator::Deserialize(std::istream& is) {
 }
 
 void HcclSendOperator::RunCollective(
-    std::vector<PtTensorInfoShared>& inputs,
+    const std::vector<PtTensorInfoShared>& inputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};
@@ -996,7 +996,7 @@ void HcclRecvOperator::Deserialize(std::istream& is) {
 }
 
 void HcclRecvOperator::RunCollective(
-    std::vector<PtTensorInfoShared>& inputs,
+    const std::vector<PtTensorInfoShared>& inputs,
     bool async,
     synapse_helpers::event_done_callback done_cb) {
   std::vector<PtTensorInfoShared> tensor_inputs = {inputs.at(0)};

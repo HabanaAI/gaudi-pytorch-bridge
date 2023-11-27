@@ -387,9 +387,7 @@ struct RecipeValueSpec {
   size_t Size() const {
     size_t size = sizeof(*this);
     size += tensor_ids_.size() * sizeof(decltype(tensor_ids_)::value_type);
-    for (const auto& kernel_info : collective_kernels_info) {
-      size += kernel_info->Size();
-    }
+    size += collective_kernels_info.Size();
     for (const auto& tensor_info : dtensorinfos) {
       size += tensor_info->Size();
     }
@@ -397,8 +395,7 @@ struct RecipeValueSpec {
   }
 
   std::vector<PtTensorInfoShared> dtensorinfos;
-  std::vector<std::shared_ptr<habana_helpers::collective_kernel_info>>
-      collective_kernels_info;
+  habana_helpers::CollectiveKernelInfos collective_kernels_info;
   std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
   std::unordered_set<std::string> disabled_jit_ir_ops_;
 
