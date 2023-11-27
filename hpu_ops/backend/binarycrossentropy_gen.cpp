@@ -62,7 +62,8 @@ static std::shared_ptr<void> BceParams(
     const int reduction_index,
     const bool is_binary_cross_entropy_without_sigmoid,
     const PosWeightMode_t pos_mode) {
-  PARAMS_STUB(ns_BinaryCrossEntropy::ParamsOptionalPosWeight);
+  PARAMS_STUB(ns_BinaryCrossEntropy::ParamsOptionalNormalize);
+  params->isNormalizeWeights = 0;
   auto mode = stack.at(reduction_index).toInt();
   params->isWeightsUsed = is_weights_used;
   params->binaryCrossEntropyWithoutSigmoid =

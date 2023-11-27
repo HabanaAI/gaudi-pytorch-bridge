@@ -13,7 +13,7 @@ import habana_frameworks.torch.core as htcore
 
 import pytest
 import torch
-from test_utils import compare_tensors
+from test_utils import is_gaudi1
 
 input_sizes = [
     # size
@@ -35,111 +35,112 @@ bwd_reductions = [
     "mean", "sum"
 ]
 
-@pytest.mark.parametrize("input_size", input_sizes)
-@pytest.mark.parametrize("weight_use", weight_uses)
-@pytest.mark.parametrize("reduction", reductions)
-def test_hpu_lazy_binary_cross_entropy_fwd(input_size, weight_use, reduction):
-    if type(input_size) == tuple and len(input_size) == 5:
-        pytest.xfail("Binary cross entropy Op returns widely different results for hpu and cpu - [SW-163929]")
+dtypes = [
+    torch.float32,
+    torch.bfloat16
+]
 
-    input = torch.randn(input_size, requires_grad=True, dtype=torch.float32)
-    target = torch.rand(input_size, requires_grad=True, dtype=torch.float32)
-    weight = torch.randn(input_size, requires_grad=False, dtype=torch.float32) if weight_use else None
+if not is_gaudi1():
+    dtypes.append(torch.float16)
 
-    loss = torch.nn.functional.binary_cross_entropy(torch.sigmoid(input), target, weight=weight, reduction=reduction)
+atol_for_dtype = {
+    torch.float32:0.001,
+    torch.float16:0.005,
+    torch.bfloat16:0.05
+}
 
-    hpu = torch.device("hpu")
-    input_h = input.to(hpu).requires_grad_()
-    target_h = target.to(hpu).requires_grad_()
-    weight_h = weight.to(hpu) if weight is not None else None
+rtol_for_dtype = {
+    torch.float32:0.001,
+    torch.float16:0.001,
+    torch.bfloat16:0.01
+}
 
-    loss_h = torch.nn.functional.binary_cross_entropy(torch.sigmoid(input_h), target_h, weight=weight_h, reduction=reduction)
+hpu = torch.device("hpu")
 
-    assert torch.allclose(loss, loss_h.cpu(), atol=0.001, rtol=0.001)
+def gen_inputs(size, weight_use, dtype, force_f32_for_cpu=False):
+    input = torch.sigmoid(torch.randn(size, dtype=torch.float32 if force_f32_for_cpu else dtype))
+    target = torch.rand(size, dtype=torch.float32 if force_f32_for_cpu else dtype)
+    weight = torch.randn(size, dtype=torch.float32 if force_f32_for_cpu else dtype) if weight_use else None
 
-
-@pytest.mark.parametrize("input_size", input_sizes)
-@pytest.mark.parametrize("weight_use", weight_uses)
-@pytest.mark.parametrize("reduction", bwd_reductions)
-def test_hpu_lazy_binary_cross_entropy_bwd(input_size, weight_use, reduction):
-    if type(input_size) == tuple and len(input_size) == 5:
-        pytest.xfail("Binary cross entropy Op doesn't support 5D inputs on hpu - [SW-163929]")
-    if reduction == 'sum':
-        pytest.xfail("BCE Bwd with sum reduction produces different results on hpu and cpu")
-    if weight_use:
-        pytest.xfail("BCE Bwd with weights used produces different results on hpu and cpu")
-
-    input = torch.sigmoid(torch.randn(input_size, dtype=torch.float32))
-    target = torch.rand(input_size, dtype=torch.float32)
-    weight = torch.randn(input_size, dtype=torch.float32) if weight_use else None
-
-    hpu = torch.device("hpu")
-    input_h = input.to(hpu)
-    target_h = target.to(hpu)
-    weight_h = weight.to(hpu) if weight is not None else None
-
-    input.requires_grad = True
+    input_h = input.to(dtype).to(hpu)
     input_h.requires_grad = True
-    target.requires_grad = True
+    input.requires_grad = True
+    target_h = target.to(dtype).to(hpu)
     target_h.requires_grad = True
+    target.requires_grad = True
+    weight_h = weight.to(dtype).to(hpu) if weight is not None else None
 
-    entropy = torch.nn.functional.binary_cross_entropy(input, target, weight=weight, reduction=reduction)
-    grad = torch.ones_like(entropy)
-    entropy.backward(grad)
+    c = {'in': input, 't':target, 'w': weight}
+    h = {'in': input_h, 't':target_h, 'w': weight_h}
 
-    entropy_h = torch.nn.functional.binary_cross_entropy(input_h, target_h, weight=weight_h, reduction=reduction)
-    grad_h = torch.ones_like(entropy_h)
-    entropy_h.backward(grad_h)
-
-    assert torch.allclose(input.grad, input_h.grad.cpu(), atol=0.001, rtol=0.001)
-    assert torch.allclose(target.grad, target_h.grad.cpu(), atol=0.001, rtol=0.001)
+    return c, h
 
 
 @pytest.mark.parametrize("input_size", input_sizes)
 @pytest.mark.parametrize("weight_use", weight_uses)
 @pytest.mark.parametrize("reduction", reductions)
-def test_hpu_lazy_binary_cross_entropy_logits_fwd(input_size, weight_use, reduction):
-    input = torch.randn(input_size, requires_grad=True, dtype=torch.float32)
-    target = torch.rand(input_size, requires_grad=True, dtype=torch.float32)
-    weight = torch.randn(input_size, requires_grad=False, dtype=torch.float32) if weight_use else None
+@pytest.mark.parametrize("dtype", dtypes)
+def test_hpu_lazy_binary_cross_entropy_fwd(input_size, weight_use, reduction, dtype):
+    if type(input_size) == tuple and len(input_size) == 5:
+        pytest.xfail("HPU implementation of Binary cross entropy Op doesn't support 5D+ inputs - [SW-163929]")
 
-    loss = torch.nn.functional.binary_cross_entropy_with_logits(torch.sigmoid(input), target, weight=weight, reduction=reduction)
+    c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=True)
 
-    hpu = torch.device("hpu")
-    input_h = input.to(hpu).requires_grad_()
-    target_h = target.to(hpu).requires_grad_()
-    weight_h = weight.to(hpu) if weight is not None else None
+    entropy = torch.nn.functional.binary_cross_entropy(c['in'], c['t'], weight=c['w'], reduction=reduction)
+    entropy_h = torch.nn.functional.binary_cross_entropy(h['in'], h['t'], weight=h['w'], reduction=reduction)
 
-    loss_h = torch.nn.functional.binary_cross_entropy_with_logits(torch.sigmoid(input_h), target_h, weight=weight_h, reduction=reduction)
-
-    assert torch.allclose(loss, loss_h.cpu(), atol=0.001, rtol=0.001)
+    assert torch.allclose(entropy, entropy_h.cpu().to(torch.float32), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
 
 
 @pytest.mark.parametrize("input_size", input_sizes)
 @pytest.mark.parametrize("weight_use", weight_uses)
 @pytest.mark.parametrize("reduction", bwd_reductions)
-def test_hpu_lazy_binary_cross_entropy_logits_bwd(input_size, weight_use, reduction):
-    input = torch.sigmoid(torch.randn(input_size, dtype=torch.float32))
-    target = torch.rand(input_size, dtype=torch.float32)
-    weight = torch.randn(input_size, dtype=torch.float32) if weight_use else None
+@pytest.mark.parametrize("dtype", dtypes)
+def test_hpu_lazy_binary_cross_entropy_bwd(input_size, weight_use, reduction, dtype):
+    if type(input_size) == tuple and len(input_size) == 5:
+        pytest.xfail("HPU implementation of Binary cross entropy Op doesn't support 5D+ inputs - [SW-163929]")
 
-    hpu = torch.device("hpu")
-    input_h = input.to(hpu)
-    target_h = target.to(hpu)
-    weight_h = weight.to(hpu) if weight is not None else None
+    c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=True)
 
-    input.requires_grad = True
-    input_h.requires_grad = True
-    target.requires_grad = True
-    target_h.requires_grad = True
-
-    entropy = torch.nn.functional.binary_cross_entropy_with_logits(input, target, weight=weight, reduction=reduction)
+    entropy = torch.nn.functional.binary_cross_entropy(c['in'], c['t'], weight=c['w'], reduction=reduction)
     grad = torch.ones_like(entropy)
     entropy.backward(grad)
 
-    entropy_h = torch.nn.functional.binary_cross_entropy_with_logits(input_h, target_h, weight=weight_h, reduction=reduction)
+    entropy_h = torch.nn.functional.binary_cross_entropy(h['in'], h['t'], weight=h['w'], reduction=reduction)
     grad_h = torch.ones_like(entropy_h)
     entropy_h.backward(grad_h)
 
-    assert torch.allclose(input.grad, input_h.grad.cpu(), atol=0.001, rtol=0.001)
-    assert torch.allclose(target.grad, target_h.grad.cpu(), atol=0.001, rtol=0.001)
+    assert torch.allclose(c['in'].grad, h['in'].grad.cpu().to(torch.float32), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
+    assert torch.allclose(c['t'].grad, h['t'].grad.cpu().to(torch.float32), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
+
+
+@pytest.mark.parametrize("input_size", input_sizes)
+@pytest.mark.parametrize("weight_use", weight_uses)
+@pytest.mark.parametrize("reduction", reductions)
+@pytest.mark.parametrize("dtype", dtypes)
+def test_hpu_lazy_binary_cross_entropy_logits_fwd(input_size, weight_use, reduction, dtype):
+    c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=False)
+
+    entropy = torch.nn.functional.binary_cross_entropy_with_logits(c['in'], c['t'], weight=c['w'], reduction=reduction)
+    entropy_h = torch.nn.functional.binary_cross_entropy_with_logits(h['in'], h['t'], weight=h['w'], reduction=reduction)
+
+    assert torch.allclose(entropy, entropy_h.cpu(), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
+
+
+@pytest.mark.parametrize("input_size", input_sizes)
+@pytest.mark.parametrize("weight_use", weight_uses)
+@pytest.mark.parametrize("reduction", bwd_reductions)
+@pytest.mark.parametrize("dtype", dtypes)
+def test_hpu_lazy_binary_cross_entropy_logits_bwd(input_size, weight_use, reduction, dtype):
+    c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=False)
+
+    entropy = torch.nn.functional.binary_cross_entropy_with_logits(c['in'], c['t'], weight=c['w'], reduction=reduction)
+    grad = torch.ones_like(entropy)
+    entropy.backward(grad)
+
+    entropy_h = torch.nn.functional.binary_cross_entropy_with_logits(h['in'], h['t'], weight=h['w'], reduction=reduction)
+    grad_h = torch.ones_like(entropy_h)
+    entropy_h.backward(grad_h)
+
+    assert torch.allclose(c['in'].grad, h['in'].grad.cpu(), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
+    assert torch.allclose(c['t'].grad, h['t'].grad.cpu(), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])

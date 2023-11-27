@@ -13,7 +13,7 @@ import habana_frameworks.torch.core as htcore
 
 import pytest
 import torch
-from test_utils import compare_tensors
+from test_utils import is_gaudi1
 
 input_sizes = [
     # size
@@ -36,10 +36,52 @@ bwd_reductions = [
     "mean", "sum"
 ]
 
+dtypes = [
+    torch.float32,
+    torch.bfloat16
+]
+
+if not is_gaudi1():
+    dtypes.append(torch.float16)
+
+atol_for_dtype = {
+    torch.float32:0.001,
+    torch.float16:0.005,
+    torch.bfloat16:0.05
+}
+
+rtol_for_dtype = {
+    torch.float32:0.001,
+    torch.float16:0.001,
+    torch.bfloat16:0.01
+}
+
+hpu = torch.device("hpu")
+
+def gen_inputs(size, weight_use, dtype, force_f32_for_cpu=False):
+    input = torch.sigmoid(torch.randn(size, dtype=torch.float32 if force_f32_for_cpu else dtype))
+    target = torch.rand(size, dtype=torch.float32 if force_f32_for_cpu else dtype)
+    weight = torch.randn(size, dtype=torch.float32 if force_f32_for_cpu else dtype) if weight_use else None
+
+    input_h = input.to(dtype).to(hpu)
+    input_h.requires_grad = True
+    input.requires_grad = True
+    target_h = target.to(dtype).to(hpu)
+    target_h.requires_grad = True
+    target.requires_grad = True
+    weight_h = weight.to(dtype).to(hpu) if weight is not None else None
+
+    c = {'in': input, 't':target, 'w': weight}
+    h = {'in': input_h, 't':target_h, 'w': weight_h}
+
+    return c, h
+
+
 @pytest.mark.parametrize("input_size", input_sizes)
 @pytest.mark.parametrize("weight_use", weight_uses)
 @pytest.mark.parametrize("reduction", reductions)
-def test_hpu_compile_binary_cross_entropy_fwd(input_size, weight_use, reduction):
+@pytest.mark.parametrize("dtype", dtypes)
+def test_hpu_compile_binary_cross_entropy_fwd(input_size, weight_use, reduction, dtype):
     if type(input_size) == tuple and len(input_size) == 5:
         pytest.xfail("Binary cross entropy Op doesn't support 5D inputs on hpu - [SW-163929]")
     if weight_use:
@@ -51,26 +93,19 @@ def test_hpu_compile_binary_cross_entropy_fwd(input_size, weight_use, reduction)
     fn_cpu = torch.compile(fn, dynamic=True)
     fn_hpu = torch.compile(fn, dynamic=True, backend="hpu_backend")
 
-    input = torch.randn(input_size, requires_grad=True, dtype=torch.float32)
-    target = torch.rand(input_size, requires_grad=True, dtype=torch.float32)
-    weight = torch.randn(input_size, requires_grad=False, dtype=torch.float32) if weight_use else None
+    c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=True)
 
-    loss = fn_cpu(torch.sigmoid(input), target, weight=weight, reduction=reduction)
+    entropy = fn_cpu(c['in'], c['t'], weight=c['w'], reduction=reduction)
+    entropy_h = fn_hpu(h['in'], h['t'], weight=h['w'], reduction=reduction)
 
-    hpu = torch.device("hpu")
-    input_h = input.to(hpu).requires_grad_()
-    target_h = target.to(hpu).requires_grad_()
-    weight_h = weight.to(hpu) if weight is not None else None
-
-    loss_h = fn_hpu(torch.sigmoid(input_h), target_h, weight=weight_h, reduction=reduction)
-
-    assert torch.allclose(loss, loss_h.cpu(), atol=0.001, rtol=0.001)
+    assert torch.allclose(entropy, entropy_h.cpu().to(torch.float32), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
 
 
 @pytest.mark.parametrize("input_size", input_sizes)
 @pytest.mark.parametrize("weight_use", weight_uses)
 @pytest.mark.parametrize("reduction", bwd_reductions)
-def test_hpu_compile_binary_cross_entropy_bwd(input_size, weight_use, reduction):
+@pytest.mark.parametrize("dtype", dtypes)
+def test_hpu_compile_binary_cross_entropy_bwd(input_size, weight_use, reduction, dtype):
     def fn(input, target, weight=None, reduction='none'):
         entropy = torch.nn.functional.binary_cross_entropy_with_logits(input, target, weight=weight, reduction=reduction)
         grad = torch.ones_like(entropy)
@@ -80,57 +115,39 @@ def test_hpu_compile_binary_cross_entropy_bwd(input_size, weight_use, reduction)
     fn_cpu = torch.compile(fn)
     fn_hpu = torch.compile(fn, backend="hpu_backend")
 
-    input = torch.sigmoid(torch.randn(input_size, dtype=torch.float32))
-    target = torch.rand(input_size, dtype=torch.float32)
-    weight = torch.randn(input_size, dtype=torch.float32) if weight_use else None
+    c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=True)
 
-    hpu = torch.device("hpu")
-    input_h = input.to(hpu)
-    target_h = target.to(hpu)
-    weight_h = weight.to(hpu) if weight is not None else None
+    input_grad, target_grad = fn_cpu(c['in'], c['t'], weight=c['w'], reduction=reduction)
+    input_grad_h, target_grad_h = fn_hpu(h['in'], h['t'], weight=h['w'], reduction=reduction)
 
-    input.requires_grad = True
-    input_h.requires_grad = True
-    target.requires_grad = True
-    target_h.requires_grad = True
-
-    input_grad, target_grad = fn_cpu(input, target, weight=weight, reduction=reduction)
-    input_grad_h, target_grad_h = fn_hpu(input_h, target_h, weight=weight_h, reduction=reduction)
-
-    assert torch.allclose(input_grad, input_grad_h.cpu(), atol=0.001, rtol=0.001)
-    assert torch.allclose(target_grad, target_grad_h.cpu(), atol=0.001, rtol=0.001)
+    assert torch.allclose(input_grad, input_grad_h.cpu().to(torch.float32), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
+    assert torch.allclose(target_grad, target_grad_h.cpu().to(torch.float32), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
 
 
 @pytest.mark.parametrize("input_size", input_sizes)
 @pytest.mark.parametrize("weight_use", weight_uses)
 @pytest.mark.parametrize("reduction", reductions)
-def test_hpu_compile_binary_cross_entropy_logits_fwd(input_size, weight_use, reduction):
+@pytest.mark.parametrize("dtype", dtypes)
+def test_hpu_compile_binary_cross_entropy_logits_fwd(input_size, weight_use, reduction, dtype):
     def fn(input, target, weight=None, reduction='none'):
         return torch.nn.functional.binary_cross_entropy_with_logits(input, target, weight=weight, reduction=reduction)
 
     fn_cpu = torch.compile(fn)
     fn_hpu = torch.compile(fn, backend="hpu_backend")
 
-    input = torch.randn(input_size, requires_grad=True, dtype=torch.float32)
-    target = torch.rand(input_size, requires_grad=True, dtype=torch.float32)
-    weight = torch.randn(input_size, requires_grad=False, dtype=torch.float32) if weight_use else None
+    c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=False)
 
-    loss = fn_cpu(torch.sigmoid(input), target, weight=weight, reduction=reduction)
+    entropy = fn_cpu(c['in'], c['t'], weight=c['w'], reduction=reduction)
+    entropy_h = fn_hpu(h['in'], h['t'], weight=h['w'], reduction=reduction)
 
-    hpu = torch.device("hpu")
-    input_h = input.to(hpu).requires_grad_()
-    target_h = target.to(hpu).requires_grad_()
-    weight_h = weight.to(hpu) if weight is not None else None
-
-    loss_h = fn_hpu(torch.sigmoid(input_h), target_h, weight=weight_h, reduction=reduction)
-
-    assert torch.allclose(loss, loss_h.cpu(), atol=0.001, rtol=0.001)
+    assert torch.allclose(entropy, entropy_h.cpu(), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
 
 
 @pytest.mark.parametrize("input_size", input_sizes)
 @pytest.mark.parametrize("weight_use", weight_uses)
 @pytest.mark.parametrize("reduction", bwd_reductions)
-def test_hpu_compile_binary_cross_entropy_logits_bwd(input_size, weight_use, reduction):
+@pytest.mark.parametrize("dtype", dtypes)
+def test_hpu_compile_binary_cross_entropy_logits_bwd(input_size, weight_use, reduction, dtype):
     def fn(input, target, weight=None, reduction='none'):
         entropy = torch.nn.functional.binary_cross_entropy_with_logits(input, target, weight=weight, reduction=reduction)
         grad = torch.ones_like(entropy)
@@ -140,22 +157,10 @@ def test_hpu_compile_binary_cross_entropy_logits_bwd(input_size, weight_use, red
     fn_cpu = torch.compile(fn)
     fn_hpu = torch.compile(fn, backend="hpu_backend")
 
-    input = torch.sigmoid(torch.randn(input_size, dtype=torch.float32))
-    target = torch.rand(input_size, dtype=torch.float32)
-    weight = torch.randn(input_size, dtype=torch.float32) if weight_use else None
+    c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=False)
 
-    hpu = torch.device("hpu")
-    input_h = input.to(hpu)
-    target_h = target.to(hpu)
-    weight_h = weight.to(hpu) if weight is not None else None
+    input_grad, target_grad = fn_cpu(c['in'], c['t'], weight=c['w'], reduction=reduction)
+    input_grad_h, target_grad_h = fn_hpu(h['in'], h['t'], weight=h['w'], reduction=reduction)
 
-    input.requires_grad = True
-    input_h.requires_grad = True
-    target.requires_grad = True
-    target_h.requires_grad = True
-
-    input_grad, target_grad = fn_cpu(input, target, weight=weight, reduction=reduction)
-    input_grad_h, target_grad_h = fn_hpu(input_h, target_h, weight=weight_h, reduction=reduction)
-
-    assert torch.allclose(input_grad, input_grad_h.cpu(), atol=0.001, rtol=0.001)
-    assert torch.allclose(target_grad, target_grad_h.cpu(), atol=0.001, rtol=0.001)
+    assert torch.allclose(input_grad, input_grad_h.cpu(), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
+    assert torch.allclose(target_grad, target_grad_h.cpu(), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
