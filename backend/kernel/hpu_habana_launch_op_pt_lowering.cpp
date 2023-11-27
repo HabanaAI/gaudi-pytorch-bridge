@@ -91,7 +91,7 @@ void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
   buff_to_syn_tensor_map.clear();
 
   jit_to_synapse_node_idx_map.clear();
-  collective_kernels_info.clear();
+  collective_kernels_info.Clear();
   syn_launch_info_.clear();
   external_tensor_info_indexes_.clear();
   dma_inputs_.clear();
@@ -608,7 +608,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
   TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
   TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
   RecipeValueSpec& rv = *cur_rvalpsh;
-  if (syn_graph_ptr_->is_empty() && collective_kernels_info.empty()) {
+  if (syn_graph_ptr_->is_empty() && collective_kernels_info.Empty()) {
     PT_BRIDGE_DEBUG(
         "Empty synapse graph. No need to construct the patching table.");
     return;
@@ -637,7 +637,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
         shape_tensor_tinfos.end());
   }
 
-  rv.collective_kernels_info = collective_kernels_info;
+  rv.collective_kernels_info = std::move(collective_kernels_info);
 
   // tinfos for outputs are populated during compile
   // need to be reordered only when the tensor handles are released
@@ -766,7 +766,7 @@ void habana::HabanaLaunchOpPT::StoreCompiledInformation() {
   TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
   TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
   RecipeValueSpec& rv = *cur_rvalpsh;
-  if (syn_graph_ptr_->is_empty() && rv.collective_kernels_info.empty()) {
+  if (syn_graph_ptr_->is_empty() && rv.collective_kernels_info.Empty()) {
     return;
   }
 
@@ -804,7 +804,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
   TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
   TORCH_CHECK(cur_rvalpsh, "Recipe pointer is null");
   RecipeValueSpec& rv = *cur_rvalpsh;
-  if (syn_graph_ptr_->is_empty() && rv.collective_kernels_info.empty()) {
+  if (syn_graph_ptr_->is_empty() && rv.collective_kernels_info.Empty()) {
     PT_BRIDGE_DEBUG("Empty synapse graph. Will update outputs directly.");
     UpdateOutputs();
     return;
@@ -837,14 +837,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
         external_tensor_info_indexes_);
   }
 
-  if (!rv.collective_kernels_info.empty()) {
-    for (auto kernel_info : rv.collective_kernels_info) {
-      CollectiveOperator* collective =
-          dynamic_cast<CollectiveOperator*>(kernel_info->kernel.get());
-      HABANA_ASSERT(collective);
-      collective->clear_all_pt_and_syn_tensors();
-    }
-  }
+  collective_kernels_info.ClearAllPtAndSynTensors();
 
   if (enable_graph_caching_ && refine_ds_enabled_ && current_dbipsh_) {
     PT_DYNAMIC_SHAPE_DEBUG(

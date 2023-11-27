@@ -33,48 +33,6 @@
 #include "habana_serialization/recipe_cache_config.h"
 #include "habana_serialization/serializers.h"
 
-namespace {
-template <typename T>
-std::vector<int64_t> ptr_array_indices(
-    const std::vector<std::shared_ptr<T>>& elements,
-    const std::vector<std::shared_ptr<T>>& src_array) {
-  std::vector<int64_t> indices;
-  indices.reserve(elements.size());
-  for (const auto& e : elements) {
-    if (e.get() == nullptr) {
-      indices.push_back(-1);
-      continue;
-    }
-    auto iter = std::find(src_array.begin(), src_array.end(), e);
-    TORCH_CHECK(iter != src_array.end(), "Failed to find element in src_array");
-    indices.push_back(std::distance(src_array.begin(), iter));
-  }
-  return indices;
-}
-
-template <typename T>
-std::vector<std::shared_ptr<T>> indices_array_to_ptr_array(
-    const std::vector<int64_t>& indices,
-    const std::vector<std::shared_ptr<T>>& src_array) {
-  std::vector<std::shared_ptr<T>> ptr_array;
-  ptr_array.reserve(indices.size());
-  for (const auto& idx : indices) {
-    if (idx == -1) {
-      ptr_array.push_back(nullptr);
-      continue;
-    }
-
-    TORCH_CHECK(
-        idx <= (int64_t)src_array.size(),
-        "idx ",
-        idx,
-        " out of range. src array size = ",
-        src_array.size());
-    ptr_array.push_back(src_array.at(idx));
-  }
-  return ptr_array;
-}
-} // namespace
 namespace habana {
 
 // static initializations
@@ -431,43 +389,8 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
   deserialize(is, count);
   deserialize(is, total_recipe_ntbytes);
   // deserialize(is, get_use_flag());
-  size_t num_collective_kernels = 0;
-  deserialize(is, num_collective_kernels);
-  for (size_t i = 0; i < num_collective_kernels; i++) {
-    auto kernel_info =
-        std::make_shared<habana_helpers::collective_kernel_info>();
+  collective_kernels_info.Deserialize(is, dtensorinfos);
 
-    std::vector<int64_t> input_indices;
-    deserialize(is, input_indices);
-    kernel_info->input_tensor_infos =
-        indices_array_to_ptr_array(input_indices, dtensorinfos);
-
-    std::vector<int64_t> output_indices;
-    deserialize(is, output_indices);
-    kernel_info->output_tensor_infos =
-        indices_array_to_ptr_array(output_indices, dtensorinfos);
-
-    std::string guid;
-    int device_id;
-    c10::ScalarType scalar_type;
-    deserialize(is, guid);
-    deserialize(is, device_id);
-    deserialize(is, scalar_type);
-    c10::OperatorName op_name(guid, "");
-    HabanaOperatorPtr habana_kernel =
-        KernelRegistry().get(device_id, op_name, scalar_type);
-    auto collective_kernel =
-        std::dynamic_pointer_cast<CollectiveOperator>(habana_kernel);
-    TORCH_CHECK(
-        collective_kernel,
-        "Failed to find collective kernel for ",
-        guid,
-        "during recipe load from disk");
-
-    collective_kernel->Deserialize(is);
-    kernel_info->kernel = collective_kernel;
-    collective_kernels_info.emplace_back(kernel_info);
-  }
   if (dynamic_graph) {
     std::vector<int64_t> sif_tensor_indices;
     deserialize(is, sif_tensor_indices);
@@ -519,21 +442,8 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
   serialize(os, is_refined_wirt);
   serialize(os, count);
   serialize(os, total_recipe_ntbytes);
-  serialize(os, collective_kernels_info.size());
-  for (const auto& collective_kernel : collective_kernels_info) {
-    auto input_indices =
-        ptr_array_indices(collective_kernel->input_tensor_infos, dtensorinfos);
-    serialize(os, input_indices);
+  collective_kernels_info.Serialize(os, dtensorinfos);
 
-    auto output_indices =
-        ptr_array_indices(collective_kernel->output_tensor_infos, dtensorinfos);
-    serialize(os, output_indices);
-
-    serialize(os, collective_kernel->kernel->GetGuid());
-    serialize(os, collective_kernel->kernel->GetDeviceId());
-    serialize(os, collective_kernel->kernel->GetScalarType());
-    collective_kernel->kernel->Serialize(os);
-  }
   if (dynamic_graph) {
     std::unordered_map<PtTensorInfoShared, int64_t> tinfo_to_sif_tidx_map;
     std::vector<int64_t> sif_tensor_indices;
@@ -1599,17 +1509,7 @@ void RecipeValueSpec::launch(
       device.register_producer_on_stream(
           std::move(outDevPtr), stream_handle, cleanup_callback);
       // Launch collective ops
-      HABANA_ASSERT(
-          collective_kernels_info.empty() ||
-          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES))
-      for (auto kernel_info : collective_kernels_info) {
-        CollectiveOperator* collective =
-            dynamic_cast<CollectiveOperator*>(kernel_info->kernel.get());
-        HABANA_ASSERT(collective);
-        PT_BRIDGE_DEBUG("Running collective op ", collective->GetGuid());
-        collective->RunCollective(
-            kernel_info->input_tensor_infos, true, cleanup_callback);
-      }
+      collective_kernels_info.Launch(true, cleanup_callback);
     } else {
       // Use wrapper for resources that must survive async part of the compute.
       struct ResourceHolder {
@@ -1665,17 +1565,7 @@ void RecipeValueSpec::launch(
             hpu_stream);
       }
       // Launch collective ops
-      HABANA_ASSERT(
-          collective_kernels_info.empty() ||
-          GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES))
-      for (auto kernel_info : collective_kernels_info) {
-        CollectiveOperator* collective =
-            dynamic_cast<CollectiveOperator*>(kernel_info->kernel.get());
-        HABANA_ASSERT(collective);
-        PT_BRIDGE_DEBUG("Running collective op ", collective->GetGuid());
-        collective->RunCollective(
-            kernel_info->input_tensor_infos, true, cleanup_callback);
-      }
+      collective_kernels_info.Launch(true, cleanup_callback);
     }
 
   } else {
@@ -1715,16 +1605,7 @@ void RecipeValueSpec::launch(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
 
     // Launch collective ops
-    HABANA_ASSERT(
-        collective_kernels_info.empty() ||
-        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES))
-    for (auto kernel_info : collective_kernels_info) {
-      CollectiveOperator* collective =
-          dynamic_cast<CollectiveOperator*>(kernel_info->kernel.get());
-      HABANA_ASSERT(collective);
-      PT_BRIDGE_DEBUG("Running collective op ", collective->GetGuid());
-      collective->RunCollective(kernel_info->input_tensor_infos, false, [] {});
-    }
+    collective_kernels_info.Launch(false, [] {});
 
     if (synapse_helpers::memory_reporter_enable() && active_graph_key_ > 0) {
       auto& device = HPURegistrar::get_device();

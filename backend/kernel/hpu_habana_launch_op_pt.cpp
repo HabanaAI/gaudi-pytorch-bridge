@@ -2452,17 +2452,16 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     if (!is_shape_inference && habana_helpers::IsCollective(node->kind())) {
       // save indexes of kernel input stack in graph input stack
       // when launching provide new input stack to RunCollective
-      std::shared_ptr<habana_helpers::collective_kernel_info> kernel_info =
-          std::make_shared<habana_helpers::collective_kernel_info>();
+      habana_helpers::CollectiveKernelInfos::Info kernel_info;
 
       auto node_inputs = node->inputs();
       for (auto input : node_inputs) {
         auto ivalptr = value_to_ivalue.at(input);
         if (ivalptr->isTensor()) {
           PtTensorInfoShared ti = ivalue_to_tensor_info_map.at(ivalptr);
-          kernel_info->input_tensor_infos.push_back(ti);
+          kernel_info.input_tensor_infos.push_back(ti);
         } else {
-          kernel_info->input_tensor_infos.push_back(nullptr);
+          kernel_info.input_tensor_infos.push_back(nullptr);
         }
       }
 
@@ -2471,14 +2470,14 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         auto ivalptr = value_to_ivalue.at(output);
         if (ivalptr->isTensor()) {
           PtTensorInfoShared ti = ivalue_to_tensor_info_map.at(ivalptr);
-          kernel_info->output_tensor_infos.push_back(ti);
+          kernel_info.output_tensor_infos.push_back(ti);
         } else {
-          kernel_info->output_tensor_infos.push_back(nullptr);
+          kernel_info.output_tensor_infos.push_back(nullptr);
         }
       }
-      kernel_info->kernel =
+      kernel_info.kernel =
           std::dynamic_pointer_cast<CollectiveOperator>(HabanaKernel);
-      collective_kernels_info.push_back(kernel_info);
+      collective_kernels_info.AddKernel(std::move(kernel_info));
     }
 
     // Adding to a vector as we share context through shared pointers and we
