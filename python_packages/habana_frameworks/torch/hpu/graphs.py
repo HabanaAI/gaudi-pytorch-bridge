@@ -630,7 +630,7 @@ def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False,
           after replaying, saves memory.
 
     """
-    stream = htorch.hpu.Stream()
+    stream = htorch.hpu.default_stream()
     cache = {}
     orig_fwd = func
 
@@ -668,7 +668,7 @@ def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dr
           after replaying, saves memory.
 
     """
-    stream = htorch.hpu.Stream()
+    stream = htorch.hpu.default_stream()
     cache = {}
     orig_fwd = module.forward
 
