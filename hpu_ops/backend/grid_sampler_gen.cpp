@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include <ATen/native/GridSampler.h>
@@ -14,7 +17,7 @@ using at::native::detail::GridSamplerInterpolation;
 using at::native::detail::GridSamplerPadding;
 
 namespace habana {
-sizes_vec GridSampler2dOutputShape(const at::Stack& stack) {
+OutputMetaDataVector GridSampler2dMeta(const at::Stack& stack) {
   constexpr int SELF_POS = 0;
   constexpr int GRID_POS = 1;
   auto self = stack.at(SELF_POS).toTensor();
@@ -28,12 +31,15 @@ sizes_vec GridSampler2dOutputShape(const at::Stack& stack) {
   constexpr int C_SELF = 1;
   constexpr int H_GRID = 1;
   constexpr int W_GRID = 2;
-  std::vector<int64_t> shape{
+
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = {
       self.sizes()[N_SELF],
       self.sizes()[C_SELF],
       grid.sizes()[H_GRID],
       grid.sizes()[W_GRID]};
-  return {shape};
+  return {meta};
 }
 
 std::shared_ptr<void> FillGridSamplerParams(
