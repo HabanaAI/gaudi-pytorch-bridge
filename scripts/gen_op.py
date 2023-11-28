@@ -2281,7 +2281,7 @@ def generate_autocast_ops(fgens, args, out_dir):
         "sym_storage_offset",
         "_scaled_dot_product_flash_attention",
         "_efficient_attention_forward",
-    ] + (["_fused_adam", "_fused_adamw"] if torch.__version__ < Version("2.1") else [])
+    ] + (["_fused_adam", "_fused_adamw"] if Version(torch.__version__) < Version("2.1") else [])
 
     def op_to_skip(function_name, op_name):
         return (
