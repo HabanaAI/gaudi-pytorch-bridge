@@ -3734,38 +3734,38 @@ leaky_relu.out:
     - [1, float]
 
 lerp.Scalar:
-  custom_output_shape: LerpOutputShape
+  output_meta: LerpMeta
   dtypes: [BFloat16, Float, Int]
   op_backend: Lerp
   scalar_ids: [2]
   out_ids: [0]
 
 lerp.Tensor:
-  custom_output_shape: LerpOutputShape
+  output_meta: LerpMeta
   dtypes: [BFloat16, Float, Int]
   op_backend: Lerp
   out_ids: [0]
 
 lerp.Scalar_out:
-  custom_output_shape: LerpOutputShape
+  output_meta: LerpMeta
   dtypes: [BFloat16, Float, Int]
   op_backend: Lerp
   scalar_ids: [2]
 
 lerp.Tensor_out:
-  custom_output_shape: LerpOutputShape
+  output_meta: LerpMeta
   dtypes: [BFloat16, Float, Int]
   op_backend: Lerp
 
 lerp_.Scalar:
-  custom_output_shape: LerpOutputShape
+  output_meta: LerpMeta
   dtypes: [BFloat16, Float, Int]
   op_backend: Lerp
   scalar_ids: [2]
   inplace_ids: [0]
 
 lerp_.Tensor:
-  custom_output_shape: LerpOutputShape
+  output_meta: LerpMeta
   dtypes: [BFloat16, Float, Int]
   op_backend: Lerp
   inplace_ids: [0]
