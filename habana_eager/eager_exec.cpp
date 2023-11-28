@@ -412,6 +412,7 @@ size_t EagerExec::calculate_operator_key(
     optimized_key = at::hash_combine(optimized_key, parent_vec[i]);
 
   std::unordered_set<size_t> input_hash_values;
+  std::vector<uint64_t> storage_base_addresses;
   int inp_index = 0;
   traversing_ivalues<ProcessList::asTensor>(
       stack,
@@ -442,12 +443,46 @@ size_t EagerExec::calculate_operator_key(
             optimized_key =
                 at::hash_combine(optimized_key, at::IValue::hash(input.type()));
           },
-          [&optimized_key, &input_hash_values, &inp_index](
-              const at::Tensor& tensor) {
+          [&optimized_key,
+           &input_hash_values,
+           &inp_index,
+           &storage_base_addresses](const at::Tensor& tensor) {
             optimized_key = at::hash_combine(optimized_key, inp_index++);
             size_t input_hash_val = c10::get_hash(tensor.unsafeGetTensorImpl());
             if (input_hash_values.count(input_hash_val) == 0) {
               input_hash_values.emplace(input_hash_val);
+
+              // hash memory section id if valid storage present
+              if (tensor.has_storage()) {
+                uint64_t base_address = reinterpret_cast<uint64_t>(
+                    tensor.storage().data_ptr().get());
+                if (base_address) {
+                  // find the base address in the storage_base_addresses vector
+                  // whose index is analogous to section id i.e. unique memory
+                  // section
+                  std::vector<uint64_t>::iterator it = std::find(
+                      storage_base_addresses.begin(),
+                      storage_base_addresses.end(),
+                      base_address);
+
+                  int section_id;
+                  if (it != storage_base_addresses.end()) {
+                    // tensor base address is the view
+                    // resuse the old section id i.e. index of the vector
+                    section_id =
+                        std::distance(storage_base_addresses.begin(), it);
+                  } else {
+                    // tensor base address is the unique address
+                    // assign the new section i.e. add it to the vector
+                    section_id = storage_base_addresses.size();
+                    storage_base_addresses.push_back(base_address);
+                  }
+
+                  // hash section id
+                  optimized_key = at::hash_combine(optimized_key, section_id);
+                }
+              }
+
               update_key_for_tensor(tensor, optimized_key);
             }
           }});

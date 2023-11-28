@@ -816,3 +816,43 @@ def test_shift(shift_op, transpose):
     ha_out = shift_op(ha, 1)
 
     assert torch.allclose(ha_out.cpu(), a_out)
+
+def test_sag_view_section_id_1():
+    #1 different tensor view inputs
+    a = torch.rand(5)
+    b = torch.rand(5)
+    ha = a.to("hpu")
+    hb = b.to("hpu")
+
+    out1 = torch.mul(a[:3], b[:3])
+    hout1 = torch.mul(ha[:3], hb[:3])
+    assert torch.equal(hout1.cpu(), out1)
+
+    #2 same tensor views inputs
+    c = torch.rand(10)
+    hc = c.to("hpu")
+
+    #view1 is first 5 elements and view2 is last 5 elements of same tensor
+    out2 = torch.mul(c[:5], c[5:])
+    hout2 = torch.mul(hc[:5], hc[5:])
+    assert torch.equal(hout2.cpu(), out2)
+
+def test_sag_view_section_id_2():
+    #1 same tensor views inputs
+    a = torch.rand(10, dtype=torch.bfloat16)
+    ha = a.to("hpu")
+
+    #view1 is first 5 elements and view2 is last 5 elements of same tensor
+    out1 = torch.mul(a[:5], a[5:])
+    hout1 = torch.mul(ha[:5], ha[5:])
+    assert torch.equal(hout1.cpu(), out1)
+
+    #2 different tensor view inputs
+    b = torch.rand(5, dtype=torch.bfloat16)
+    c = torch.rand(5, dtype=torch.bfloat16)
+    hb = b.to("hpu")
+    hc = c.to("hpu")
+
+    out2 = torch.mul(b[:3], c[:3])
+    hout2 = torch.mul(hb[:3], hc[:3])
+    assert torch.equal(hout2.cpu(), out2)
