@@ -35,7 +35,6 @@
   visitor(hcclReduceScatter);          \
   visitor(hcclAllGather);              \
   visitor(hcclAlltoAll);               \
-  visitor(hcclBarrier);                \
   visitor(hcclSend);                   \
   visitor(hcclRecv);                   \
   visitor(hcclGroupStart);             \

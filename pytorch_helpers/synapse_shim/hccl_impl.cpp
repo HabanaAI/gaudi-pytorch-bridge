@@ -151,10 +151,6 @@ hcclResult_t hcclAlltoAll(
       sendbuff, recvbuff, count, datatype, comm, stream_handle);
 }
 
-hcclResult_t hcclBarrier(hcclComm_t comm, synStreamHandle stream_handle) {
-  return hccl_api->hcclBarrier(comm, stream_handle);
-}
-
 hcclResult_t hcclSend(
     const void* sendbuff,
     size_t count,
