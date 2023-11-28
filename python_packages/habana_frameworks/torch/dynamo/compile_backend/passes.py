@@ -25,6 +25,7 @@ from .partitioner import HabanaPartitioner
 from .recipe_compiler import get_callable_recipe
 from .logger import get_compile_backend_logger
 from .random_utils import is_random_op, random_op_inputs
+from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 
 logger = get_compile_backend_logger()
 
@@ -187,6 +188,7 @@ def get_passes(stage: OptimizationPassPlacement):
         return [
             # These passes will be ran once, they have to work on graph with submodules.
             pass_graph_print,
+            pass_summarize_graph,
             pass_compile_clusters,
         ]
     else:
@@ -1424,3 +1426,19 @@ def pass_compile_clusters(ctx: OptimizerContext):
     logger.info("INFO: Number of subgraphs created:\n%s", num_subgraphs)
 
     return num_subgraphs != 0
+
+
+def pass_summarize_graph(ctx: OptimizerContext):
+    """
+    This pass is just for debug.
+    In case any FxGraphAnalyzer contexts are registered it counts ops occurring in FX Graph.
+    """
+    assert ctx.stage == OptimizationPassPlacement.POST_PARTITIONER
+    assert ctx.graph_module is not None
+    if not FxGraphAnalyzer.registered_contexts:
+        return False
+
+    for debug_context in FxGraphAnalyzer.registered_contexts.values():
+        debug_context.count_ops(ctx.graph_module.graph.nodes, ctx)
+
+    return False
