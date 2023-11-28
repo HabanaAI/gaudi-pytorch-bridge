@@ -2668,12 +2668,12 @@ exponential.functional:
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed) -> Tensor"
 
 eye.out:
-  custom_output_shape: EyeOutputShape
+  output_meta: EyeMeta
   dtypes: [BFloat16, Float]
   op_backend: EyeOpOut
 
 eye.m_out:
-  custom_output_shape: EyeOutputShape
+  output_meta: EyeMeta
   dtypes: [BFloat16, Float]
   op_backend: EyeOpOut
 
