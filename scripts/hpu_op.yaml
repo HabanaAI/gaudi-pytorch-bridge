@@ -3065,19 +3065,19 @@ glu:
   dtypes: [Float]
   guid: glu_fwd
   custom_fill_params: FillGluFwdParams
-  custom_output_shape: GluOutputShape
+  output_meta: GluMeta
   out_ids: [0]
   # op_validator: check-node-with-shared-layer
 
 glu.out:
   guid: glu_fwd
   custom_fill_params: FillGluFwdParams
-  custom_output_shape: GluOutputShape
+  output_meta: GluMeta
   dtypes: [Float]
   # op_validator: check-node-with-shared-layer
 
 glu_backward:
-  custom_output_shape: GluBwdOutputShape
+  output_meta: GluBwdMeta
   dtypes: [Float]
   custom_fill_params: FillGluBwdParams
   guid: glu_bwd
@@ -3086,7 +3086,7 @@ glu_backward:
   # op_validator: check-node-with-shared-layer
 
 glu_backward.grad_input:
-  custom_output_shape: GluBwdOutputShape
+  output_meta: GluBwdMeta
   custom_fill_params: FillGluBwdParams
   dtypes: [Float]
   guid: glu_bwd

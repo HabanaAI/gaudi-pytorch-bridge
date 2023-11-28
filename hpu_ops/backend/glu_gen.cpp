@@ -12,17 +12,24 @@
 
 namespace habana {
 
-sizes_vec GluOutputShape(const at::Stack& stack) {
-  auto out_shape = stack.at(0).toTensor().sizes().vec();
+OutputMetaDataVector GluMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  auto self = stack.at(0).toTensor();
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+
   const int64_t axis = stack.at(1).toInt();
   auto dim = (axis >= 0) ? axis : stack.at(0).toTensor().dim() + axis;
-  out_shape[dim] = out_shape[dim] / 2;
-  return {out_shape};
+  meta.shape[dim] = meta.shape[dim] / 2;
+  return {meta};
 }
 
-sizes_vec GluBwdOutputShape(const at::Stack& stack) {
-  auto out_shape = stack.at(1).toTensor().sizes().vec();
-  return {out_shape};
+OutputMetaDataVector GluBwdMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  auto self = stack.at(1).toTensor();
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+  return {meta};
 }
 
 std::shared_ptr<void> FillGluParams(
