@@ -577,6 +577,12 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype);
+std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid_lazy(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale_152,
+    const c10::optional<at::Tensor>& scale_143,
+    bool stochastic_rounding,
+    bool is_amax);
 at::Tensor cast_to_fp8_q_lazy(
     const at::Tensor& input,
     at::ScalarType dtype,

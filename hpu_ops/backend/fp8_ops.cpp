@@ -145,6 +145,66 @@ void CastToFp8V2::AddNode(
   }
 }
 
+/********** CastToFp8Hybrid **********/
+
+sizes_vec CastToFp8HybridOutputShape(const at::Stack& stack) {
+  auto input_sv = stack[0].toTensor().sizes().vec();
+  bool is_amax = stack[4].toBool();
+  return {input_sv, input_sv, std::vector<int64_t>{is_amax ? 1 : 0}};
+}
+
+CastToFp8Hybrid::CastToFp8Hybrid(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "cast_to_fp8_hybrid",
+          scalar_type,
+          {0, 0, 0},
+          {},
+          {},
+          false) {
+  SetComputeOutputShapes(CastToFp8HybridOutputShape);
+}
+
+void CastToFp8Hybrid::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 5, "CastToFp8Hybrid must have 5 input arguments");
+
+  StackGetter stackGetter(stack, "CastToFp8Hybrid::AddNode");
+  auto self = getNextInput<TensorsPair>(stackGetter);
+  auto scale_152 = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto scale_143 = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto stochastic_rounding = getNextInput<bool>(stackGetter);
+  auto is_amax = getNextInput<bool>(stackGetter);
+
+  std::string guid =
+      get_guid_with_precision("convert_to_fp8_hybrid", self.pt_t.scalar_type());
+
+  auto out_shapes = CastToFp8HybridOutputShape(stack);
+  std::vector<synTensor> syn_inputs{self.syn_t};
+  syn_inputs.push_back(scale_152 ? scale_152->syn_t : nullptr);
+  syn_inputs.push_back(scale_143 ? scale_143->syn_t : nullptr);
+
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
+      {out_shapes[0], at::ScalarType::Float8_e5m2, 0},
+      {out_shapes[1], at::ScalarType::Float8_e4m3fn, 1}};
+  if (is_amax) {
+    output_attrs.push_back({out_shapes[2], at::ScalarType::Float, 2});
+  }
+
+  ns_CastKernel::Params params{};
+  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+
+  auto casted = OpBackend::BuildNode(
+      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
+
+  syn_out(0) = std::move(casted[0]);
+  syn_out(1) = std::move(casted[1]);
+  if (is_amax) {
+    syn_out(2) = std::move(casted[2]);
+  }
+}
+
 /********** CastToFp8Q **********/
 
 OutputMetaDataVector CastToFp8QMeta(const at::Stack& stack) {
@@ -1415,6 +1475,9 @@ static const auto& CastKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::cast_to_fp8", KERNEL_FN_GLOBAL(habana::CastToFp8))
         .add("hpu::cast_to_fp8_v2", KERNEL_FN_GLOBAL(habana::CastToFp8V2))
+        .add(
+            "hpu::cast_to_fp8_hybrid",
+            KERNEL_FN_GLOBAL(habana::CastToFp8Hybrid))
         .add("hpu::cast_to_fp8_q", KERNEL_FN_GLOBAL(habana::CastToFp8Q))
         .add(
             "hpu::fp8_cast_transpose",

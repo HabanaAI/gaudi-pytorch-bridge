@@ -1119,6 +1119,22 @@ std::tuple<Tensor, Tensor> cast_to_fp8_v2_wrap(
   return cast_to_fp8_v2_lazy(input, scale, stochastic_rounding, is_amax, dtype);
 }
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid_wrap(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale_152,
+    const c10::optional<at::Tensor>& scale_143,
+    bool stochastic_rounding,
+    bool is_amax) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "cast_to_fp8_hybrid:",
+      DUMP_5ARGS(input, scale_152, scale_143, stochastic_rounding, is_amax));
+  FP8_CHECK
+  return cast_to_fp8_hybrid_lazy(
+      input, scale_152, scale_143, stochastic_rounding, is_amax);
+}
+
 at::Tensor cast_to_fp8_q_wrap(
     const at::Tensor& input,
     at::ScalarType dtype,
@@ -2323,6 +2339,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor)");
   m.def(
+      "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)");
+  m.def(
       "hpu::cast_to_fp8_q(Tensor input, ScalarType dtype, int exp_bias) -> Tensor");
   m.def(
       "hpu::fp8_cast_transpose(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
@@ -2433,6 +2451,7 @@ TORCH_LIBRARY(hpu, m) {
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_to_fp8", cast_to_fp8_wrap);
   m.impl("hpu::cast_to_fp8_v2", cast_to_fp8_v2_wrap);
+  m.impl("hpu::cast_to_fp8_hybrid", cast_to_fp8_hybrid_wrap);
   m.impl("hpu::cast_to_fp8_q", cast_to_fp8_q_wrap);
   m.impl("hpu::fp8_cast_transpose", fp8_cast_transpose_wrap);
   m.impl("hpu::fp8_cast_transpose_bgrad", fp8_cast_transpose_bgrad_wrap);

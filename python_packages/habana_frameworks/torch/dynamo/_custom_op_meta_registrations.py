@@ -42,11 +42,23 @@ def meta_cast_to_fp8(input, scale, stochastic, out, amax):
 
 
 @register_meta([torch.ops.hpu.cast_to_fp8_v2.default])
-def meta_cast_to_fp8_v2(input, scale, stochastic, is_amax, dtype):
+def meta_cast_to_fp8_v2(input, scale=None, stochastic=False, is_amax=False, dtype=None):
     out_dtype = dtype if dtype else torch.int8
     out = input.new_empty(input.shape, dtype=out_dtype)
-    amax = input.new_empty((), dtype=torch.float32)
+    amax_shape = () if is_amax else 0
+    amax = input.new_empty(amax_shape, dtype=torch.float32)
     return out, amax
+
+
+@register_meta([torch.ops.hpu.cast_to_fp8_hybrid.default])
+def meta_cast_to_fp8_hybrid(
+    input, scale_152=None, scale_143=None, stochastic=False, is_amax=False
+):
+    out_152 = input.new_empty(input.shape, dtype=torch.float8_e5m2)
+    out_143 = input.new_empty(input.shape, dtype=torch.float8_e4m3fn)
+    amax_shape = () if is_amax else 0
+    amax = input.new_empty(amax_shape, dtype=torch.float32)
+    return out_152, out_143, amax
 
 
 @register_meta([torch.ops.hpu.cast_to_fp8_q.default])

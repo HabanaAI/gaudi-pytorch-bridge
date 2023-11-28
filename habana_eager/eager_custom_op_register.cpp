@@ -87,6 +87,28 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2(
   return hpu_op.call();
 }
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale_152,
+    const c10::optional<at::Tensor>& scale_143,
+    bool stochastic_rounding,
+    bool is_amax) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "cast_to_fp8_hybrid :",
+      DUMP_5ARGS(input, scale_152, scale_143, stochastic_rounding, is_amax));
+
+  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
+      "hpu::cast_to_fp8_hybrid",
+      {input, scale_152, scale_143, stochastic_rounding, is_amax},
+      habana::CastToFp8HybridOutputShape};
+  hpu_op.set_scalar_types(
+      {at::ScalarType::Float8_e5m2,
+       at::ScalarType::Float8_e4m3fn,
+       at::ScalarType::Float});
+  return hpu_op.call();
+}
+
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
@@ -1105,6 +1127,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor)");
   m.def(
+      "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)");
+  m.def(
       "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None) -> Tensor");
   m.def("hpu::custom_softmax(Tensor input, int flavor) -> Tensor");
   m.def(
@@ -1202,6 +1226,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_to_fp8", cast_to_fp8);
   m.impl("hpu::cast_to_fp8_q", cast_to_fp8_q);
   m.impl("hpu::cast_to_fp8_v2", cast_to_fp8_v2);
+  m.impl("hpu::cast_to_fp8_hybrid", cast_to_fp8_hybrid);
   m.impl("hpu::conv2d_fp8", conv2d_fp8);
   m.impl("hpu::custom_softmax", custom_softmax);
   m.impl("hpu::fp8_bgrad_dgelu", fp8_bgrad_dgelu);

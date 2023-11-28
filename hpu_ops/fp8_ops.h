@@ -32,6 +32,7 @@ namespace habana {
 // order to deal with that problem.
 DEFINE_OP(CastToFp8)
 DEFINE_OP(CastToFp8V2)
+DEFINE_OP(CastToFp8Hybrid)
 DEFINE_OP(CastToFp8Q)
 DEFINE_OP(Fp8CastTranspose)
 DEFINE_OP(Fp8CastTransposeBgrad)
@@ -57,6 +58,7 @@ HPU_OP_BACKEND(InPlaceInterleaveCommon)
 DEFINE_OP(Conv2dFp8)
 
 OUTSHAPE_DECL(CastToFp8V2OutputShape)
+OUTSHAPE_DECL(CastToFp8HybridOutputShape)
 OUTSHAPE_DECL(Fp8DropoutOutputShape)
 OUTSHAPE_DECL(Fp8GeluV2OutputShape)
 OUTSHAPE_DECL(Fp8GemmV2OutputShape)

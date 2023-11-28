@@ -13,14 +13,15 @@ import torch
 import pytest
 import numpy as np
 from fp8_utils import (
-    dtype_from_string,
     simulateFp8Precision,
-    IS_NATIVE_FP8,
     FP8_MAX,
-    FP8_NAMES,
 )
-from test_utils import is_gaudi1, compare_tensors
-import habana_frameworks.torch.core as htcore
+from test_utils import (
+    clear_t_compile_logs,
+    check_ops_executed_in_jit_ir,
+    is_gaudi1,
+    is_pytest_mode_compile,
+)
 
 # Disable dynamic shapes
 import habana_frameworks.torch.hpu as ht
@@ -29,11 +30,9 @@ ht.disable_dynamic_shape()
 
 pytestmark = [
     pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 doesn't support fp8"),
-    pytest.mark.skipif(
-        not IS_NATIVE_FP8,
-        reason="Native fp8 types are not supported in pytorch package.",
-    ),
 ]
+
+out_dtypes = [torch.float8_e5m2, torch.float8_e4m3fn]
 
 
 @pytest.mark.parametrize("shape", [(64, 48)])
@@ -41,10 +40,8 @@ pytestmark = [
 @pytest.mark.parametrize("stochastic", [True, False])
 @pytest.mark.parametrize("is_amax", [True, False])
 @pytest.mark.parametrize("is_scale", [True, False])
-@pytest.mark.parametrize("out_dtype", FP8_NAMES)
+@pytest.mark.parametrize("out_dtype", out_dtypes)
 def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, is_scale, out_dtype):
-    out_dtype = dtype_from_string(out_dtype)
-    torch.manual_seed(12345)
     hpu = torch.device("hpu")
     input_pos = torch.rand(shape, dtype=dtype) * 30 + 10
     input_neg = -input_pos
@@ -69,7 +66,11 @@ def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, is_scale, out_dtype):
         uncasted = torch.ops.hpu.cast_from_fp8(casted, scale_inv, dtype)
         return casted, amax, uncasted
 
-    fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
     casted, amax, uncasted = fn(
         input.to(hpu), scale_hpu, scale_inv_hpu, stochastic, is_amax, out_dtype, dtype
     )
@@ -81,6 +82,106 @@ def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, is_scale, out_dtype):
 
     if is_amax:
         assert amax.cpu() == torch.max(input.abs())
+    else:
+        assert amax.numel() == 0
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "cast_from_fp8"})
+
+
+@pytest.mark.parametrize("shape", [(16, 24, 8), (64, 48)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("stochastic", [True, False])
+@pytest.mark.parametrize("is_amax", [True, False])
+@pytest.mark.parametrize("is_scale_152", [True, False])
+@pytest.mark.parametrize("is_scale_143", [True, False])
+def test_cast_to_fp8_hybrid(
+    shape, dtype, stochastic, is_amax, is_scale_152, is_scale_143
+):
+    hpu = torch.device("hpu")
+    input_pos = torch.rand(shape, dtype=dtype) * 30 + 10
+    input_neg = -input_pos
+    input = torch.cat((input_pos, input_neg))
+
+    scale_152_val = 1.3 if is_scale_152 else 1.0
+    scale_152 = torch.tensor(scale_152_val, dtype=torch.float)
+    scale_152_inv = scale_152.reciprocal()
+    scale_143_val = 0.7 if is_scale_143 else 1.0
+    scale_143 = torch.tensor(scale_143_val, dtype=torch.float)
+    scale_143_inv = scale_143.reciprocal()
+
+    scaled_input_low_precision_152 = simulateFp8Precision(
+        input * scale_152.to(dtype), torch.float8_e5m2
+    )
+    unscaled_input_152 = scaled_input_low_precision_152 * scale_152_inv.to(dtype)
+
+    scaled_input_low_precision_143 = simulateFp8Precision(
+        input * scale_143.to(dtype), torch.float8_e4m3fn
+    )
+    unscaled_input_143 = scaled_input_low_precision_143 * scale_143_inv.to(dtype)
+
+    scale_152_hpu = scale_152.to(hpu) if is_scale_152 else None
+    scale_152_inv_hpu = scale_152_inv.to(hpu) if is_scale_152 else None
+    scale_143_hpu = scale_143.to(hpu) if is_scale_143 else None
+    scale_143_inv_hpu = scale_143_inv.to(hpu) if is_scale_143 else None
+
+    def fn(
+        input,
+        scale_152,
+        scale_143,
+        scale_152_inv,
+        scale_143_inv,
+        stochastic,
+        is_amax,
+        dtype,
+    ):
+        casted_152, casted_143, amax = torch.ops.hpu.cast_to_fp8_hybrid(
+            input, scale_152, scale_143, stochastic, is_amax
+        )
+        uncasted_152 = torch.ops.hpu.cast_from_fp8(casted_152, scale_152_inv, dtype)
+        uncasted_143 = torch.ops.hpu.cast_from_fp8(casted_143, scale_143_inv, dtype)
+
+        return casted_152, casted_143, amax, uncasted_152, uncasted_143
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    casted_152, casted_143, amax, uncasted_152, uncasted_143 = fn(
+        input.to(hpu),
+        scale_152_hpu,
+        scale_143_hpu,
+        scale_152_inv_hpu,
+        scale_143_inv_hpu,
+        stochastic,
+        is_amax,
+        dtype,
+    )
+
+    if stochastic:
+        assert torch.allclose(
+            uncasted_152.cpu(), unscaled_input_152, rtol=0.26, atol=0.0
+        )
+        assert torch.allclose(
+            uncasted_143.cpu(), unscaled_input_143, rtol=0.26, atol=0.0
+        )
+    else:
+        rtol = 0.01 if dtype == torch.bfloat16 else 0.0
+        assert torch.allclose(
+            uncasted_152.cpu(), unscaled_input_152, rtol=rtol, atol=0.0
+        )
+        assert torch.allclose(
+            uncasted_143.cpu(), unscaled_input_143, rtol=rtol, atol=0.0
+        )
+
+    if is_amax:
+        assert amax.cpu() == torch.max(input.abs())
+    else:
+        assert amax.numel() == 0
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir({"cast_to_fp8_hybrid", "cast_from_fp8"})
 
 
 @pytest.mark.parametrize(
@@ -92,12 +193,10 @@ def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, is_scale, out_dtype):
 @pytest.mark.parametrize("scaleA", [True, False])
 @pytest.mark.parametrize("scaleB", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
-@pytest.mark.parametrize("fp8_dtype", FP8_NAMES)
+@pytest.mark.parametrize("fp8_dtype", out_dtypes)
 def test_fp8_gemm_v2(
     shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, fp8_dtype
 ):
-    fp8_dtype = dtype_from_string(fp8_dtype)
-    torch.manual_seed(12345)
     hpu = torch.device("hpu")
     A = torch.rand(shapeA, dtype=dtype) * 10 + 30.0
     A_hpu = A.to(hpu)
@@ -126,11 +225,8 @@ def test_fp8_gemm_v2(
     bias_tensor = torch.rand(out_shape, dtype=dtype) * 10 + 30.0
     bias_tensor_hpu = bias_tensor.to(hpu) if bias else None
 
-    if accumulate:
-        out = torch.full(out_shape, 1000.0, dtype=dtype)
-        out_hpu = out.to(hpu)
-    else:
-        out_hpu = None
+    out = torch.full(out_shape, 1000.0, dtype=dtype)
+    out_hpu = out.to(hpu)
 
     def fn(
         A_hpu,
@@ -160,7 +256,11 @@ def test_fp8_gemm_v2(
         )
         return result
 
-    fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
     result = fn(
         A_hpu,
         scaleA_hpu,
@@ -187,14 +287,20 @@ def test_fp8_gemm_v2(
     )
     assert np.amax(percentage_diff.numpy()) <= 15
 
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "fp8_gemm_v2"})
+
 
 @pytest.mark.parametrize("shape", [(8, 2, 2, 5)])
-@pytest.mark.parametrize("dtype", [torch.bfloat16] + FP8_NAMES)
+@pytest.mark.parametrize("dtype", [torch.bfloat16] + out_dtypes)
 def test_in_place_interleave(shape, dtype):
-    dtype = dtype_from_string(dtype)
-    torch.manual_seed(12345)
-    input = torch.randn(shape).to(dtype)
+    input = torch.randn(shape, dtype=torch.bfloat16) * 10.0
     input_hpu = input.to("hpu")
+    if dtype != torch.bfloat16:
+        input_hpu, _ = torch.ops.hpu.cast_to_fp8_v2(
+            input_hpu, None, False, False, dtype
+        )
+        input = simulateFp8Precision(input, dtype)
 
     indices = []
     for i in range(int(shape[0] / 4)):
@@ -203,12 +309,20 @@ def test_in_place_interleave(shape, dtype):
 
     def fn(input):
         torch.ops.hpu.in_place_interleave_(input)
-        return input
 
-    fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="aot_hpu_training_backend")
 
     fn(input_hpu)
 
+    if dtype != torch.bfloat16:
+        input_hpu = torch.ops.hpu.cast_from_fp8(input_hpu, None, torch.bfloat16)
+
     output_ref = torch.index_select(input, 0, index)
 
-    compare_tensors(input_hpu, output_ref, atol=0.0, rtol=0.0)
+    assert torch.equal(input_hpu.cpu(), output_ref)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("in_place_interleave")

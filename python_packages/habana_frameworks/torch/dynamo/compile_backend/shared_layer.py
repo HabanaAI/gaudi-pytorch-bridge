@@ -30,6 +30,7 @@ hpu_supported_op_list = {
     "alias",
     # Custom ops
     "cast_to_fp8_v2",
+    "cast_to_fp8_hybrid",
     "cast_to_fp8_q",
     "cast_from_fp8",
     "fp8_gemm_v2",
