@@ -2328,7 +2328,7 @@ div.Scalar_out:
   op_backend: Divide
 
 dot:
-  custom_output_shape: DotOutputShape
+  output_meta: DotMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
@@ -2337,7 +2337,7 @@ dot:
   out_ids: [0]
 
 dot.out:
-  custom_output_shape: DotOutputShape
+  output_meta: DotMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]

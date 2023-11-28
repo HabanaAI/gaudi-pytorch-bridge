@@ -30,4 +30,20 @@ sizes_vec DotOutputShape(const at::Stack& stack) {
       "size tensors");
   return {{}};
 }
+
+OutputMetaDataVector DotMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+
+  meta.shape = DotOutputShape(stack)[0];
+  meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+      stack,
+      c10::nullopt,
+      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+      false,
+      c10::nullopt,
+      false,
+      false);
+
+  return {meta};
+}
 } // namespace habana
