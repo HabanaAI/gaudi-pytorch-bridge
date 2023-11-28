@@ -42,8 +42,12 @@ sizes_vec AddMMOutshape(const at::Stack& stack) {
       "addmm: Expected mat2 to be 2-D, but got ",
       mat2.dim(),
       "-D");
-  std::vector<int64_t> outshape{
-      mat1.sizes()[0], mat2.sizes()[1]}; // (n, m)@(m, p) -> (n, p)
+  TORCH_CHECK(
+      mat1.sizes()[1] == mat2.sizes()[0],
+      "Matrices sizes are not compatible to multiply them");
+  // (n, m)@(m, p) -> (n, p)
+  std::vector<int64_t> matMulShape = {mat1.sizes()[0], mat2.sizes()[1]};
+  std::vector<int64_t> outshape = at::infer_size(self.sizes(), matMulShape);
   return {outshape};
 }
 
