@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "generated/backend/diag.h"
@@ -20,12 +23,13 @@ std::shared_ptr<void> FillDiagParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
-sizes_vec DiagOutShape(const at::Stack& stack) {
+OutputMetaDataVector DiagMeta(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto sizes = self.sizes().vec();
   auto diagonal = stack.at(1).toInt();
 
-  std::vector<int64_t> output_shape;
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
   // https://jira.habana-labs.com/browse/SW-42950
 
   TORCH_CHECK(self.dim() <= 2, "Input tensor should have a dimension 1 or 2");
@@ -35,8 +39,8 @@ sizes_vec DiagOutShape(const at::Stack& stack) {
       "Invalid Input size",
       self.sizes().vec())
   if (self.dim() == 1) {
-    output_shape.push_back(self.sizes().vec()[0] + abs(diagonal));
-    output_shape.push_back(self.sizes().vec()[0] + abs(diagonal));
+    meta.shape.push_back(self.sizes().vec()[0] + abs(diagonal));
+    meta.shape.push_back(self.sizes().vec()[0] + abs(diagonal));
   } else if (self.dim() == 2) {
     int64_t m = self.sizes().vec()[0];
     int64_t n = self.sizes().vec()[1];
@@ -55,15 +59,15 @@ sizes_vec DiagOutShape(const at::Stack& stack) {
     } else { // diagonal < 0 R>C/ R=C/ R<C
       size = m + diagonal;
     }
-    output_shape.push_back(size);
+    meta.shape.push_back(size);
   }
-  return {output_shape};
+  return {meta};
 }
 
 void Diag::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
 
-  auto out_shape = DiagOutShape(stack)[0];
+  auto meta = DiagMeta(stack)[0];
 
   size_t size = 0;
   auto params = FillDiagParams(stack, size);
@@ -75,9 +79,9 @@ void Diag::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
   auto result = BuildOp(
       graph,
-      get_guid_with_precision(guid, ScalarType()),
+      get_guid_with_precision(guid, meta.dtype),
       {syn_in(0)},
-      {{out_shape, ScalarType(), 0}},
+      {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);
 

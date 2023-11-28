@@ -2199,7 +2199,7 @@ cumsum_:
 
 diag:
   pytorch2_mode: disable
-  custom_output_shape: DiagOutShape
+  output_meta: DiagMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
@@ -2209,7 +2209,7 @@ diag:
   op_backend: Diag
 
 diag.out:
-  custom_output_shape: DiagOutShape
+  output_meta: DiagMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
