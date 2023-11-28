@@ -4181,6 +4181,43 @@ masked_fill_.Tensor:
   op_backend: MaskedFill
   inplace_ids: [0]
 
+masked_fill.Scalar:
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float, Int, Char]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Int, Char]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Char, Half]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Int, Char, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Int, Char, Half]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Int, Char, Half]
+  guid: where
+  op_backend: MaskedFill
+  scalar_ids: [2]
+  out_ids: [0]
+
+masked_fill.Tensor:
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float, Int, Char]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Int, Char]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Char, Half]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Int, Char, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Int, Char, Half]
+      mask: [Int, Char]
+      value: [BFloat16, Float, Int, Char, Half]
+  guid: where
+  op_backend: MaskedFill
+  out_ids: [0]
+
 max:
   custom_output_shape: AllAnyOutputShape
   dtypes:
