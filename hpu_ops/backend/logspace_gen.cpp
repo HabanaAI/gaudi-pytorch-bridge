@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -15,9 +15,30 @@
 
 namespace habana {
 
-sizes_vec LogspaceOutputShape(const at::Stack& stack) {
-  int64_t step = stack.at(2).toInt();
-  return {{step}};
+OutputMetaDataVector LogspaceMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  meta.shape = {stack.at(2).toInt()};
+
+  meta.dtype = stack.at(4).toOptional<at::ScalarType>().value_or(
+      torch::get_default_dtype_as_scalartype());
+  meta.layout =
+      stack.at(5).toOptional<at::Layout>().value_or(at::Layout::Strided);
+
+  const auto device = stack.at(6).toOptional<at::Device>().value_or(at::kHPU);
+  TORCH_INTERNAL_ASSERT(device.is_hpu());
+
+  const bool pin_memory = stack.at(7).toOptional<bool>().value_or(false);
+  TORCH_CHECK(!pin_memory, "Only dense CPU tensors can be pinned");
+
+  return {meta};
+}
+
+OutputMetaDataVector LogspaceOutMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  meta.shape = {stack.at(2).toInt()};
+  meta.dtype = stack.at(4).toTensor().scalar_type();
+
+  return {meta};
 }
 
 std::shared_ptr<void> RangeParams(const at::Stack& stack, size_t& size) {
@@ -47,17 +68,21 @@ std::shared_ptr<void> RangeParams(const at::Stack& stack, size_t& size) {
 }
 
 void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto outshape = LogspaceOutputShape(stack)[0];
+  auto meta = OutputMeta(stack)[0];
   float start = stack[0].toScalar().to<float>();
   float end = stack[1].toScalar().to<float>();
   int64_t len = stack[2].toScalar().to<int64_t>();
   float base = stack[3].toScalar().to<float>();
+
+  auto outType =
+      c10::isIntegralType(meta.dtype, true) ? at::kFloat : meta.dtype;
+
   if (len == 0) {
     auto result = habana::OpBackend::BuildOp(
-        graph, "memset", {}, {{outshape, ScalarType(), 0}});
+        graph, "memset", {}, {{meta.shape, outType, 0}});
     syn_out(0) = std::move(result[0]);
   } else if (base == 1.f) {
-    auto result = ConstantHelper(graph, 1.f, ScalarType(), outshape, 0);
+    auto result = ConstantHelper(graph, 1.f, outType, meta.shape, 0);
     syn_out(0) = std::move(result);
   } else {
     std::vector<synapse_helpers::tensor> range;
@@ -67,22 +92,22 @@ void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
       range = BuildOp(
           graph,
-          get_guid_with_precision("range", ScalarType()),
+          get_guid_with_precision("range", outType),
           {},
-          {{outshape, ScalarType()}},
+          {{meta.shape, outType}},
           params.get(),
           size);
     } else {
-      range.push_back(ConstantHelper(graph, start, ScalarType(), outshape));
+      range.push_back(ConstantHelper(graph, start, outType, meta.shape));
     }
 
-    auto constant = ConstantHelper(graph, stack[3].toScalar(), ScalarType());
+    auto constant = ConstantHelper(graph, stack[3].toScalar(), outType);
 
     auto pow = BuildOp(
         graph,
-        get_guid_with_precision("pow_fwd", ScalarType()),
+        get_guid_with_precision("pow_fwd", outType),
         {constant.get(), range[0].get()},
-        {{outshape, ScalarType(), 0}});
+        {{meta.shape, outType, 0}});
 
     syn_out(0) = std::move(pow[0]);
   }

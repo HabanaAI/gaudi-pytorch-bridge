@@ -4231,10 +4231,16 @@ logit_backward.grad_input:
   guid: logit_bwd
   op_validator: check-node-with-shared-layer
 
+logspace:
+  dtypes: [BFloat16, Float]
+  op_backend: LogSpace
+  output_meta: LogspaceMeta
+  out_ids: [0]
+
 logspace.out:
   dtypes: [BFloat16, Float]
   op_backend: LogSpace
-  custom_output_shape: LogspaceOutputShape
+  output_meta: LogspaceOutMeta
 
 lt.Scalar_out:
   dtypes:

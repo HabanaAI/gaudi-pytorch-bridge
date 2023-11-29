@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -128,8 +128,6 @@ hpu_backend_decompositions_common = get_decompositions(
         aten.log_sigmoid_forward.output,
         aten._log_softmax.out,
         aten._log_softmax_backward_data.out,
-        aten.logspace.default,
-        aten.logspace.out,
         aten.logsumexp.default,
         aten.masked_fill.Tensor,
         aten.masked_fill.Scalar,
