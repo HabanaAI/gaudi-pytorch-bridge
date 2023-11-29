@@ -766,7 +766,10 @@ void HlExec::Create(
       //       c10::Symbol::fromQualString("debug::" + scope_name)));
       // }
 
-      jit_node->i_(torch::jit::attr::deterministic, node->getDeterministic());
+      jit_node->i_(
+          torch::jit::attr::deterministic,
+          node->getDeterministic() ||
+              at::globalContext().deterministicAlgorithms());
       PT_BRIDGE_DEBUG(
           "Deterministic val during Jit Node creation: ",
           jit_node->i(torch::jit::attr::deterministic));

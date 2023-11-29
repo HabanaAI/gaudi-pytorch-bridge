@@ -155,10 +155,18 @@ def get_sync_debug_mode() -> int:
 
 
 def setDeterministic(val: bool) -> None:
+    warnings.warn(
+        "torch.hpu.setDeterministic is deprecated and will be removed in next release. Please use torch.use_deterministic_algorithms instead."
+    )
     _hpu_C.setDeterministic(val)
 
+
 def getDeterministic() -> bool:
-    _hpu_C.getDeterministic()
+    warnings.warn(
+        "torch.hpu.getDeterministic is deprecated and will be removed in next release. Please use torch.are_deterministic_algorithms_enabled instead."
+    )
+    return _hpu_C.getDeterministic()
+
 
 def set_autocast_hpu_enabled(enabled) -> None:
     _hpu_C.set_autocast_hpu_enabled(enabled)
@@ -415,12 +423,14 @@ def _create_tensor_alias(name, dtype):
 
     return tensor_alias
 
+
 def enable_recompute_sdp(enabled: bool):
     r"""User control to enable or disable recompute based fused SDPA
     enabled = True -> Fused SDPA with recompute
     enabled = False -> Fused SDPA without recompute
     """
     _hpu_C.enable_recompute_FSDPA(enabled)
+
 
 def recompute_sdp_enabled():
     r"""User control to check if recompute based fused SDPA is enabled.

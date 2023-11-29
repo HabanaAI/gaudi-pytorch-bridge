@@ -527,7 +527,7 @@ class Node {
     return m_bcast_details;
   }
 
-  size_t get_post_order_pos() {
+  size_t get_post_order_pos() const {
     return post_order_pos;
   }
 
@@ -543,7 +543,7 @@ class Node {
     m_bcast_details = std::move(bcast_details);
   }
 
-  bool getDeterministic() {
+  bool getDeterministic() const {
     return deterministic;
   }
 

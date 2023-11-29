@@ -74,20 +74,17 @@ class ScatterReduceOpTest : public HpuOpTestUtil,
 
  private:
   bool deterministicTorchOldValue = false;
-  bool deterministicHpuOldValue = false;
+
   void SetUp() override {
     DisableCpuFallback();
     TearDownBridge();
     auto& hpuGConfig = habana::HPURegistrar::get_hpu_global_config();
     auto& torchGConfig = at::globalContext();
-    deterministicHpuOldValue = hpuGConfig.getDeterministic();
     deterministicTorchOldValue = torchGConfig.deterministicAlgorithms();
     hpuGConfig.setDeterministic(shapeInfo.deterministic);
     torchGConfig.setDeterministicAlgorithms(shapeInfo.deterministic, false);
   }
   void TearDown() override {
-    habana::HPURegistrar::get_hpu_global_config().setDeterministic(
-        deterministicHpuOldValue);
     at::globalContext().setDeterministicAlgorithms(
         deterministicTorchOldValue, false);
     RestoreMode();

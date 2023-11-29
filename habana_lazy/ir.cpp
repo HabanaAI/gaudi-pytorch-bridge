@@ -86,10 +86,13 @@ size_t Use::operator()(const Use& in) const {
 };
 
 Node::Node(c10::Symbol op, bool _is_input)
-    : m_op(op), m_is_input(_is_input), m_is_control_edge(false) {
+    : m_op(op),
+      m_is_input(_is_input),
+      m_is_control_edge(false),
+      deterministic(
+          habana::HPURegistrar::get_hpu_global_config().getDeterministic() ||
+          at::globalContext().deterministicAlgorithms()) {
   /*Need to set this node if the deterministic mode is ON*/
-  auto& gconfig = habana::HPURegistrar::get_hpu_global_config();
-  deterministic = gconfig.getDeterministic();
   PT_BRIDGE_DEBUG("Deterministic value During Node Creation: ", deterministic);
   SetModuleName(*(habana_lazy::ir::getCurrentModuleName()));
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {

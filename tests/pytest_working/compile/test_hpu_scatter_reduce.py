@@ -17,6 +17,7 @@ import pytest
 import torch
 from test_utils import format_tc
 
+
 @pytest.mark.parametrize(
     "dim_shape_deterministic",
     [
@@ -28,7 +29,8 @@ from test_utils import format_tc
         (0, [(3, 4, 3), (2, 1, 1), (2, 6, 4)], False),
         (2, [(3, 4, 3), (1, 1, 3), (2, 6, 4)], False),
         (-2, [(3, 4, 3), (1, 4, 1), (2, 6, 4)], False),
-    ], ids=format_tc
+    ],
+    ids=format_tc,
 )
 @pytest.mark.parametrize("reduction", ["amax", "amin", "sum", "prod", "mean"])
 @pytest.mark.parametrize("include_self", [True, False])
@@ -37,17 +39,16 @@ class TestHpuScatterReduce:
     @classmethod
     def setup_class(self):
         self.deterministicTorchOldValue = torch.are_deterministic_algorithms_enabled()
-        self.deterministicHpuOldValue = hpu.getDeterministic()
 
     def teardown_class(self):
         torch.use_deterministic_algorithms(self.deterministicTorchOldValue)
-        hpu.setDeterministic(self.deterministicHpuOldValue)
 
     @staticmethod
     def test_scatter_reduce(dim_shape_deterministic, reduction, include_self, dtype):
         dim, shapes, deterministic = dim_shape_deterministic
         torch.use_deterministic_algorithms(deterministic)
         hpu.setDeterministic(deterministic)
+
         def fn(t1, dim, t2, t3, reduce):
             return torch.scatter_reduce(
                 t1, dim, t2, t3, reduce=reduce, include_self=include_self

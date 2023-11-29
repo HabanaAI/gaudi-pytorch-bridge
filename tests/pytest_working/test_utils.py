@@ -485,6 +485,10 @@ def is_pytest_mode_compile():
     return pytest.mode == "compile"
 
 
+def is_pytest_mode_eager():
+    return pytest.mode == "eager"
+
+
 def clear_t_compile_logs():
     from habana_frameworks.torch.dynamo.compile_backend.passes import (
         logger as graph_logger,
@@ -556,3 +560,46 @@ def check_ops_executed_in_jit_ir(op_names, verbose=False):
     assert all_ops, "No ops detected"
     assert not fallback_ops, f"These ops fell back to eager: {fallback_ops}"
     assert not op_names, f"Ops {op_names} were not found in the JIT IR graph"
+
+
+def get_fuser_debug_logs_path():
+    return os.path.join(os.environ["HABANA_LOGS"], "fuser_debug_logs")
+
+
+@pytest.fixture
+def clear_fuser_debug_logs():
+    import shutil
+
+    shutil.rmtree(get_fuser_debug_logs_path(), ignore_errors=True)
+    yield
+    shutil.rmtree(get_fuser_debug_logs_path(), ignore_errors=True)
+
+
+def check_op_in_fuser_fused_ops(op_names):
+    from os import path, listdir
+
+    assert path.exists(get_fuser_debug_logs_path())
+
+    from re import fullmatch
+
+    import json
+
+    fused_op_dump_file_names = [
+        name
+        for name in listdir(get_fuser_debug_logs_path())
+        if fullmatch("fusergraph-[0-9]+-fused_kernel.*symbol\\.json", name)
+    ]
+
+    assert len(fused_op_dump_file_names) > 0
+
+    for fused_op_dump_file_name in fused_op_dump_file_names:
+        with open(
+            path.join(get_fuser_debug_logs_path(), fused_op_dump_file_name)
+        ) as fused_op_dump_file:
+            fused_op_data = json.load(fused_op_dump_file)
+
+        for node in fused_op_data["nodes"]:
+            if node["name"] in op_names:
+                return True
+
+    return False

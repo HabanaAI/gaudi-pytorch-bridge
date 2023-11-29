@@ -31,7 +31,8 @@ struct AddAttributeAlphaPass {
   bool processBlocks(at::ArrayRef<torch::jit::Block*> blocks) {
     bool changed{false};
     const auto deterministic =
-        HPURegistrar::get_hpu_global_config().getDeterministic();
+        HPURegistrar::get_hpu_global_config().getDeterministic() ||
+        at::globalContext().deterministicAlgorithms();
 
     for (auto block : blocks) {
       for (auto node : block->nodes()) {
