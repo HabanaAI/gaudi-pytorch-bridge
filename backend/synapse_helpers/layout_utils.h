@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -34,6 +34,7 @@ enum class SynapseLayoutFormat {
   VN = 11,
   NSB = 12,
   BSN = 13,
+  WHC = 14,
   INVALID
 };
 
@@ -65,6 +66,7 @@ static const std::unordered_map<const SynapseLayoutFormat, const char*>
         {SynapseLayoutFormat::VN, "VN"},
         {SynapseLayoutFormat::NSB, "NSB"},
         {SynapseLayoutFormat::BSN, "BSN"},
+        {SynapseLayoutFormat::WHC, "WHC"},
         {SynapseLayoutFormat::DONT_CARE, dont_care}};
 
 inline std::vector<const char*> getSynapseLayoutFormat(

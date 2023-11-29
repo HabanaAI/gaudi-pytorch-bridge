@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -395,6 +395,7 @@ void MaxPool3DWithIndicesOut::AddNode(
     expandResult.push_back(std::move(expandedInput[0]));
     inputs = {expandResult[0].get()};
   }
+  CreateShapeTensorInput(graph, meta.dtype, intermediateOutShape, inputs);
 
   auto maxpool3d = BuildOp(
       graph,
@@ -433,18 +434,57 @@ void MaxPool3DWithIndicesBwd::AddNode(
       at::kLong,
       FindRetainTensorType(meta.dtype));
 
-  std::vector<synTensor> grad = {syn_in(0), cast_input.get()};
-  CreateShapeTensorInput(graph, meta.dtype, meta.shape, grad);
+  auto intermediateOutShape = meta.shape;
+  auto self = stack_tensor(stack, 0);
+  auto reshapeRequired = (self.dim() == 4);
+  std::vector<synTensor> inputs = {syn_in(0), cast_input.get()};
+  std::vector<synapse_helpers::tensor> expandResult;
+  c10::optional<int> finalIndex =
+      reshapeRequired ? c10::nullopt : c10::make_optional<int>(0);
+
+  if (reshapeRequired) {
+    const auto& vec = self.sizes().vec();
+    std::vector<int64_t> inputExpandedShape{};
+    inputExpandedShape.reserve(1 + vec.size());
+    inputExpandedShape.push_back(1);
+    inputExpandedShape.insert(
+        std::end(inputExpandedShape), vec.begin(), vec.end());
+    intermediateOutShape.insert(std::begin(intermediateOutShape), 1);
+    synAxisParams expandParams{4};
+    auto expandedInput0 = BuildOp(
+        graph,
+        "expand_dims",
+        std::vector<synTensor>{inputs.at(0)},
+        {{inputExpandedShape, meta.dtype}},
+        &expandParams,
+        sizeof(expandParams));
+    auto expandedInput1 = BuildOp(
+        graph,
+        "expand_dims",
+        std::vector<synTensor>{inputs.at(1)},
+        {{inputExpandedShape, FindRetainTensorType(meta.dtype)}},
+        &expandParams,
+        sizeof(expandParams));
+    expandResult.push_back(std::move(expandedInput0[0]));
+    expandResult.push_back(std::move(expandedInput1[0]));
+    inputs = {expandResult[0].get(), expandResult[1].get()};
+  }
+  CreateShapeTensorInput(graph, meta.dtype, intermediateOutShape, inputs);
 
   auto grad_output = BuildOp(
       graph,
       get_guid_with_precision("maxpool_3d_bwd", meta.dtype),
-      std::move(grad),
-      {{meta.shape, meta.dtype, 0}},
+      std::move(inputs),
+      {{intermediateOutShape, meta.dtype, finalIndex}},
       params.get(),
       size);
 
-  syn_out(0) = std::move(grad_output.at(0));
+  auto& maxPool3D_out = grad_output.at(0);
+  if (reshapeRequired) {
+    maxPool3D_out = ReshapeHelper(
+        graph, grad_output.at(0).get(), meta.shape, meta.dtype, 0);
+  }
+  syn_out(0) = std::move(maxPool3D_out);
 }
 
 // Since the out varriant intices tensor has some issue
@@ -452,6 +492,11 @@ void MaxPool3DWithIndicesBwd::AddNode(
 void MaxPool2DWithIndices::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
+  SetSynapseLayouts(
+      {synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
+      {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+       synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+
   auto meta = MaxPool2DMeta(stack)[0];
   size_t size = 0;
   const auto& params = FillSpatialReduction2DParamsFwd(stack, size);
@@ -497,6 +542,14 @@ void MaxPool2DWithIndices::AddNode(
   auto& maxpool2d_0 = maxpool2d.at(0);
   auto& maxpool2d_1 = maxpool2d.at(1);
   if (reshapeRequired) {
+    // NOTE - A second synapse input layout is added before the reshape.
+    // This is due to the reshape function adding an additional (second) input
+    // when dynamic shapes are handled.
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
     maxpool2d_0 = ReshapeHelper(
         graph, maxpool2d[0].get(), meta.shape, retain_tensor_type);
     maxpool2d_1 =
@@ -521,6 +574,21 @@ void MaxPool2DWithIndicesBwd::AddNode(
   const auto meta = MaxPoolMetaBwd(stack).at(0);
   size_t size = 0;
   const auto& params = FillParams(stack, size);
+  const auto& inputDimensions = stack_tensor(stack, 0).dim();
+
+  if (inputDimensions == 4) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+  } else if (inputDimensions == 3) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHC,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHC,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHC},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHC});
+  }
 
   auto maxpool2d_gradout = BuildOp(
       graph,

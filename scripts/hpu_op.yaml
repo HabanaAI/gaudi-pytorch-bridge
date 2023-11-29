@@ -1,5 +1,5 @@
 # ******************************************************************************
-# Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -4408,9 +4408,6 @@ max_pool2d_with_indices:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: MaxPool2DWithIndices
-  synapse_layouts:
-  - [WHCN]
-  - [WHCN, WHCN]
   op_frontend: LazyMaxPool
   out_ids: [0, 0]
 
@@ -4422,9 +4419,6 @@ max_pool2d_with_indices.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: MaxPool2DWithIndices
-  synapse_layouts:
-  - [WHCN]
-  - [WHCN, WHCN]
 
 max_pool2d_with_indices_backward:
   custom_fill_params: FillSpatialReduction2DParamsBwd
@@ -4444,9 +4438,6 @@ max_pool2d_with_indices_backward:
       indices: [Int]
   op_backend: MaxPool2DWithIndicesBwd
   guid: pt_maxpool_2d_bwd
-  synapse_layouts:
-  - [WHCN, WHCN, WHCN]
-  - [WHCN]
   out_ids: [0]
 
 max_pool2d_with_indices_backward.grad_input:
@@ -4467,9 +4458,6 @@ max_pool2d_with_indices_backward.grad_input:
       indices: [Int, Long]
   op_backend: MaxPool2DWithIndicesBwd
   guid: pt_maxpool_2d_bwd
-  synapse_layouts:
-  - [WHCN, WHCN, WHCN]
-  - [WHCN]
 
 max_pool3d_with_indices:
   custom_fill_params: FillSpatialReduction3DParamsFwd

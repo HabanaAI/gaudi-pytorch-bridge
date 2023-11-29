@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,12 +13,13 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 from pytest_working.test_utils import is_gaudi1
+from test_utils import format_tc
 
 @pytest.mark.parametrize("shape", [[8, 16, 16], [1, 8, 16, 16]])
 @pytest.mark.parametrize("kernel_size_and_padding", [((2, 2), 1)])
 @pytest.mark.parametrize("stride", [(1, 2), 1, []])
 @pytest.mark.parametrize("dilation", [(1, 2), 1])
-@pytest.mark.parametrize("dtype", [torch.float])
+@pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
 def test_hpu_max_pool2d(
     shape, kernel_size_and_padding, stride, dilation, dtype
 ):
@@ -47,13 +48,10 @@ def test_hpu_max_pool2d(
 @pytest.mark.parametrize("kernel_size_and_padding", [((2, 2), 1)])
 @pytest.mark.parametrize("stride", [(1, 2), 1, []])
 @pytest.mark.parametrize("dilation", [(1, 2), 1])
-@pytest.mark.parametrize("dtype", [torch.float])
+@pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
 def test_hpu_max_pool2d_bwd(
     shape, kernel_size_and_padding, stride, dilation, dtype
 ):
-    if len(shape) == 3:
-        pytest.xfail("[SW-164128] Missing 3D support")
-
     def fn(input):
         max_pool_2d = torch.ops.aten.max_pool2d(
             input,
@@ -84,7 +82,7 @@ def test_hpu_max_pool2d_bwd(
 @pytest.mark.parametrize("kernel_size_and_padding", [((2, 2, 2), (1, 1, 1))])
 @pytest.mark.parametrize("stride", [[1, 2, 2]])
 @pytest.mark.parametrize("dilation", [[1, 2, 2]])
-@pytest.mark.parametrize("dtype", [torch.float])
+@pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
 def test_hpu_max_pool3d(
     shape, kernel_size_and_padding, stride, dilation, dtype
 ):
@@ -113,12 +111,10 @@ def test_hpu_max_pool3d(
 @pytest.mark.parametrize("kernel_size_and_padding", [((2, 2, 2), (1, 1, 1))])
 @pytest.mark.parametrize("stride", [[1, 2, 2]])
 @pytest.mark.parametrize("dilation", [[1, 2, 2]])
-@pytest.mark.parametrize("dtype", [torch.float])
+@pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
 def test_hpu_max_pool3d_bwd(
     shape, kernel_size_and_padding, stride, dilation, dtype
 ):
-    if len(shape) == 4:
-        pytest.xfail("[SW-164128] Missing 4D support")
     if is_gaudi1() == True:
         pytest.xfail("[SW-165533] result mismatch")
     def fn(input):
