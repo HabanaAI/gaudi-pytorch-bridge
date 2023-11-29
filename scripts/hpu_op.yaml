@@ -3861,13 +3861,13 @@ log_sigmoid_backward.grad_input:
   op_backend: LogSigmoidBackward
 
 log_sigmoid_forward:
-  custom_output_shape: LogSigmoidfwdOutputShape
+  output_meta: LogSigmoidFwdMeta
   dtypes: [Float]
   op_backend: LogSigmoidForward
   out_ids: [0, 0]
 
 log_sigmoid_forward.output:
-  custom_output_shape: LogSigmoidfwdOutputShape
+  output_meta: LogSigmoidFwdMeta
   dtypes: [Float]
   op_backend: LogSigmoidForward
 

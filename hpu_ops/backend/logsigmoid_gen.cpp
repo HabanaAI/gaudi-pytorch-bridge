@@ -1,99 +1,105 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "generated/backend/log_sigmoid_backward.h"
 #include "generated/backend/log_sigmoid_forward.h"
 
 namespace habana {
 
-sizes_vec LogSigmoidfwdOutputShape(const at::Stack& stack) {
+OutputMetaDataVector LogSigmoidFwdMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
-  return {self.sizes().vec(), self.sizes().vec()};
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = self.sizes().vec();
+  return {meta, meta};
 }
 
 void LogSigmoidForward::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const auto& inputshape = stack_tensor(stack, 0).sizes();
+  const auto meta = LogSigmoidFwdMeta(stack)[0];
 
   // negitive(input)
   auto neg = BuildOp(
       graph,
-      get_guid_with_precision("neg_fwd", ScalarType()),
+      get_guid_with_precision("neg_fwd", meta.dtype),
       {syn_in(0)},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   // zero constant
-  auto zero = ConstantHelper(graph, 0, ScalarType());
+  auto zero = ConstantHelper(graph, 0, meta.dtype);
 
   // max(neg(input), 0)
   auto max_vec = BuildOp(
       graph,
-      get_guid_with_precision("max_fwd", ScalarType()),
+      get_guid_with_precision("max_fwd", meta.dtype),
       {neg[0].get(), zero.get()},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   // neg(max(neg(input), 0))
   auto buffer_neg = BuildOp(
       graph,
-      get_guid_with_precision("neg_fwd", ScalarType()),
+      get_guid_with_precision("neg_fwd", meta.dtype),
       {max_vec[0].get()},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   // exp(neg(max(neg(input), 0)))
   auto buffer_left = BuildOp(
       graph,
-      get_guid_with_precision("exp_fwd", ScalarType()),
+      get_guid_with_precision("exp_fwd", meta.dtype),
       {buffer_neg[0].get()},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   // sub(neg(input), max(neg(input), 0))
   auto buffer_right_input = BuildOp(
       graph,
-      get_guid_with_precision("sub", ScalarType()),
+      get_guid_with_precision("sub", meta.dtype),
       {neg[0].get(), max_vec[0].get()},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   // exp(buffer_right_input)
   auto buffer_right = BuildOp(
       graph,
-      get_guid_with_precision("exp_fwd", ScalarType()),
+      get_guid_with_precision("exp_fwd", meta.dtype),
       {buffer_right_input[0].get()},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   // add(left_buffer, right_buffer)
   auto buffer = BuildOp(
       graph,
-      get_guid_with_precision("add", ScalarType()),
+      get_guid_with_precision("add", meta.dtype),
       {buffer_right[0].get(), buffer_left[0].get()},
-      {{inputshape, ScalarType(), 1}});
+      {{meta.shape, meta.dtype, 1}});
 
   // log(buffer)
   auto log = BuildOp(
       graph,
-      get_guid_with_precision("log_fwd", ScalarType()),
+      get_guid_with_precision("log_fwd", meta.dtype),
       {buffer[0].get()},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   // add(log, max_vec)
   auto max_vec_log = BuildOp(
       graph,
-      get_guid_with_precision("add", ScalarType()),
+      get_guid_with_precision("add", meta.dtype),
       {max_vec[0].get(), log[0].get()},
-      {{inputshape, ScalarType()}});
+      {{meta.shape, meta.dtype}});
 
   // neg( add(log, max_vec))
   auto result = BuildOp(
       graph,
-      get_guid_with_precision("neg_fwd", ScalarType()),
+      get_guid_with_precision("neg_fwd", meta.dtype),
       {max_vec_log[0].get()},
-      {{inputshape, ScalarType(), 0}});
+      {{meta.shape, meta.dtype, 0}});
 
   syn_out(0) = std::move(result[0]);
   syn_out(1) = std::move(buffer[0]);
