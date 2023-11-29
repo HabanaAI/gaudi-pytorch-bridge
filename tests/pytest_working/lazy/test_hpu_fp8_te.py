@@ -1015,15 +1015,11 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
     def update_scale():
         for ref in refs:
             amax = torch.max(ref['fwd_amax'], 0).values
-            exp = torch.floor(torch.log2(fp8_max / amax)) - margin
-            sf = torch.pow(2.0, torch.abs(exp))
-            ref['fwd_scale'] = torch.where(amax > 0.0, sf, ref['fwd_scale'])
+            ref['fwd_scale'] = fp8._default_sf_compute(amax, ref['fwd_scale'], fp8_max, margin)
             ref['fwd_scale_inv'] = 1.0/ref['fwd_scale']
 
             amax = torch.max(ref['bwd_amax'], 0).values
-            exp = torch.floor(torch.log2(fp8_max / amax)) - margin
-            sf = torch.pow(2.0, torch.abs(exp))
-            ref['bwd_scale'] = torch.where(amax > 0.0, sf, ref['bwd_scale'])
+            ref['bwd_scale'] = fp8._default_sf_compute(amax, ref['bwd_scale'], fp8_max, margin)
             ref['bwd_scale_inv'] = 1.0/ref['bwd_scale']
 
     def train_step(models, input, c):
