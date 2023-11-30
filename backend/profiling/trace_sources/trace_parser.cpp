@@ -65,6 +65,8 @@ struct EngineType {
         "*ARC_FARM",
         "*VIDEO_DECODER", // Additional engines in Gaudi2
         "*NIC ",
+        "*NIC External ",
+        "*NIC Internal ",
         "**NIC ",
     };
     for (int i = 0; i < (int)engines_of_interest.size(); i++) {
