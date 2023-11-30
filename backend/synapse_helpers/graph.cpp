@@ -212,41 +212,6 @@ std::vector<synTensorHandleMap> graph::duplicate() {
   return tensorsMap;
 }
 
-bool graph::inferShapes() {
-  PT_SYNHELPER_BEGIN;
-
-  PT_SYNHELPER_DEBUG("Infer Shapes on Duplicate Graph.");
-  synStatus status = synSuccess;
-  if (eager_mode_) {
-    status = synGraphInferShapes(duplicate_graph_handle_);
-  } else {
-    HABANA_ASSERT(
-        0 && "Infer Shapes API is not supposed to be used in lazy mode");
-  }
-  PT_SYNHELPER_END;
-  return synStatus::synSuccess == status;
-}
-
-void graph::getTensorGeometry(
-    synTensor tensor_handle,
-    std::vector<int64_t>& shape) {
-  PT_SYNHELPER_BEGIN;
-  synStatus status = synSuccess;
-  synTensorGeometry tensorGeometry;
-  status =
-      synTensorGetGeometry(tensor_handle, &tensorGeometry, synGeometrySizes);
-  HABANA_ASSERT(
-      status == synStatus::synSuccess,
-      "Tensor Get Geometry failed. synStatus=",
-      Logger::formatStatusMsg(status))
-
-  shape.resize(tensorGeometry.dims);
-  for (size_t i = 0; i < shape.size(); i++) {
-    shape[i] = tensorGeometry.sizes[shape.size() - i - 1];
-  }
-  PT_SYNHELPER_END;
-}
-
 void graph::setTensorGeometry(
     synTensor tensor_handle,
     std::vector<int64_t> shape) {

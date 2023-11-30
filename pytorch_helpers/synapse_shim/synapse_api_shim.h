@@ -57,7 +57,6 @@
   visitor(synGraphSetAttribute);               \
   visitor(synGraphGetAttribute);               \
   visitor(synGraphDuplicate);                  \
-  visitor(synGraphInferShapes);                \
   visitor(synGraphDestroy);                    \
   visitor(synMemsetD32Async);                  \
   visitor(synMemsetD8Async);                   \
@@ -105,7 +104,6 @@
   visitor(synTensorAssignToSection);           \
   visitor(synTensorSetSectionOffset);          \
   visitor(synTensorSetHostPtr);                \
-  visitor(synTensorGetGeometry);               \
   visitor(synTensorSetGeometry);               \
   visitor(synTensorSetDeviceFullLayout);       \
   visitor(synTensorSetQuantizationData);       \

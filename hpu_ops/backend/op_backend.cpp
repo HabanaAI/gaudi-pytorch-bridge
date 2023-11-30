@@ -597,7 +597,6 @@ void OpBackend::CreateShapeTensorInput(
     auto st = habana_helpers::create_shape_tensor(
         GetProxyTensor(dtype, sizes), graph, false, shape_tensor_type);
     st.set_intermediate_shape_tensor();
-    graph.increment_shape_tensors();
     m_shape_tensors.emplace_back(std::move(st));
     inputs.emplace_back(m_shape_tensors.back().get());
   }

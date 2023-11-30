@@ -329,6 +329,14 @@ void HabanaLaunchOpPT::visit_prim_node(
   }
 }
 
+// To instantiate the template method(s) RunHybridSif
+template void HabanaLaunchOpPT::RunHybridSif<true>(
+    std::unordered_map<int64_t, at::Tensor>&);
+
+template void HabanaLaunchOpPT::RunHybridSif<false>(
+    std::unordered_map<int64_t, at::Tensor>&);
+// --------------------
+
 void HabanaLaunchOpPT::RunHybridSif(
     std::shared_ptr<torch::jit::Graph> jit_ir_graph,
     torch::jit::Stack& inputs,
@@ -498,30 +506,11 @@ void HabanaLaunchOpPT::RunHybridSif(
   PT_BRIDGE_END;
 }
 
-// To instantiate the template method(s) RunHybridSif
-template bool HabanaLaunchOpPT::RunHybridSif<true>(
-    std::unordered_map<int64_t, at::Tensor>&);
-
-template bool HabanaLaunchOpPT::RunHybridSif<false>(
-    std::unordered_map<int64_t, at::Tensor>&);
-// --------------------
-
-// RunHybridSIF updated to return true if shape tensor(s) in the compound op(s)
-// For lazy flow/compile flow:
-// shape tensors are added for dynamic shapes for enabling GC shape inference.
-// For eager mode:
-// Shape tensors are neither supported nor added at PT bridge but for shapeless
-// caching for synapse graph i.e. eager shape agnostic flow it may rely on
-// GC shape inference for compound op(s), Idea is to detect such op(s) in the
-// eager graph for which synapse required shape tensors.
-// Such method will be only called during Eager shape agnostic cache miss i.e.
-// non-critical path with RunHybridSif<DynamicShapes == true>().
 template <bool DynamicShapes>
-bool HabanaLaunchOpPT::RunHybridSif(
+void HabanaLaunchOpPT::RunHybridSif(
     std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map) {
   PT_BRIDGE_BEGIN;
 
-  bool shape_tensors_flag = false;
   PT_DYNAMIC_SHAPE_DEBUG(
       "\nRunning hybrid shape inference on graph: ", GetSynapseGraphName());
   habana::PrintStack(*pt_stack);
@@ -639,9 +628,6 @@ bool HabanaLaunchOpPT::RunHybridSif(
 
       if constexpr (DynamicShapes) {
         process_shape_tensors(habana_op, intermediate_shape_tensors_vec);
-        shape_tensors_flag |=
-            (intermediate_shape_tensors_vec.size() &&
-             habana_op->GetKernels().size());
       }
       process_outputs(habana_op, node, val_to_ival_map, tidx_to_tensor_map);
 
@@ -691,9 +677,6 @@ bool HabanaLaunchOpPT::RunHybridSif(
           std::vector<IdxTensorTuple> intermediate_shape_tensor_cs;
           ProcessShapeTensorsCS(
               output_shape_info, intermediate_shape_tensor_cs);
-          shape_tensors_flag |=
-              (intermediate_shape_tensor_cs.size() &&
-               output_shape_info.GetKernels().size());
 
           // Get all values of shape tensor
           for (auto& t : intermediate_shape_tensor_cs) {
@@ -763,7 +746,6 @@ bool HabanaLaunchOpPT::RunHybridSif(
   }
 
   PT_BRIDGE_END;
-  return shape_tensors_flag;
 }
 
 } // namespace habana
