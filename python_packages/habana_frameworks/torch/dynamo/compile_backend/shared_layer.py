@@ -10,10 +10,11 @@
 #
 ###############################################################################
 
+import habana_frameworks.torch.internal.bridge_config as bc
 import torch
+
 from .config import configuration_flags
 from .logger import get_compile_backend_logger
-import habana_frameworks.torch.internal.bridge_config as bc
 
 logger = get_compile_backend_logger()
 from ._shared_layer_C import check_cpu_fallback_op
@@ -41,6 +42,9 @@ hpu_supported_op_list = {
     # Torchvision
     "roi_align",
     "_roi_align_backward",
+    # instance_norm_backward needs to be explicitly added to that list because there
+    # is no aten::instance_norm_backward that could be overridden by hpu implementation
+    "instance_norm_backward",
 }
 
 if bc.get_pt_hpu_wrap_random_ops_compile():
