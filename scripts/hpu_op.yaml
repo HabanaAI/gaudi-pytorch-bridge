@@ -4652,7 +4652,7 @@ nan_to_num.out:
   op_backend: NantoNum
 
 nansum:
-  custom_output_shape: NanSumIntListOutputShape
+  output_meta: NanSumIntListMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -4662,7 +4662,7 @@ nansum:
   out_ids: [0]
 
 nansum.out:
-  custom_output_shape: NanSumIntListOutputShape
+  output_meta: NanSumIntListMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
