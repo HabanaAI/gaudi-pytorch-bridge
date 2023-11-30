@@ -707,45 +707,6 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
   habana_helpers::SetRefineDynamicShape(org_state);
 }
 
-TEST_F(LazyDynamicShapesTest, DISABLED_DynamicConvBkwdTest) {
-  int kH = 3;
-  int kW = 3;
-  int N = 1;
-  const int C = 3;
-  int H = 6;
-  std::vector<int> in_sizes{3, 6, 9};
-
-  for (int i = 0; i < in_sizes.size(); i++) {
-    int W = in_sizes[i];
-    PT_TEST_DEBUG("\nPTI_DBG :: TEST ", i, "  --------\n");
-    torch::Tensor weight_tensor =
-        torch::randn({C, C, kW, kH}, torch::requires_grad(true));
-    auto in_tensor = torch::randn({N, C, H, W}, torch::requires_grad(true));
-    // cpu
-    torch::Tensor out_conv = torch::conv2d(
-        in_tensor, weight_tensor, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-    auto cpu_out = torch::relu(out_conv);
-
-    // fwd propgation
-    torch::Tensor h_weight_tensor = weight_tensor.to(torch::kHPU);
-    torch::Tensor h_weight_tensor_hwck = h_weight_tensor;
-
-    torch::Tensor h_in_tensor = in_tensor.to(torch::kHPU);
-    torch::Tensor h_out_conv = torch::conv2d(
-        h_in_tensor, h_weight_tensor_hwck, {}, {1}, at::IntArrayRef{0}, {1}, 1);
-    torch::Tensor hpu_out = torch::relu(h_out_conv);
-
-    // bwd propgation with dummy grad tensor
-    auto grad_tensor =
-        torch::randn({N, C, H - 2, W - 2}, torch::requires_grad(true));
-    torch::Tensor tHabanaG = grad_tensor.to(torch::kHPU);
-    hpu_out.backward({tHabanaG}, false, true);
-
-    auto out_cpu_lazy = hpu_out.to(torch::kCPU);
-    ASSERT_TRUE(torch::allclose(out_cpu_lazy, cpu_out));
-  }
-}
-
 TEST_F(LazyDynamicShapesTest, ProdTest) {
   GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int H = 4;
