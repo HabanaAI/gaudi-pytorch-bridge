@@ -45,8 +45,11 @@ class SingleTonEagerContext {
    */
   template <class F, class... Args>
   void ScheduleWorkAndUpdateLoweringThreadHandle(F&& f, Args&&... args) {
-    hpu_registrar().get_device().get_lowering_thread().enqueue<F, Args...>(
-        std::forward<F>(f), std::forward<Args>(args)...);
+    auto handle =
+        hpu_registrar().get_device().get_lowering_thread().enqueue<F, Args...>(
+            std::forward<F>(f), std::forward<Args>(args)...);
+    std::unique_lock lock{m_lowering_thread_handle_mutex};
+    m_lowering_thread_handle = std::move(handle);
   }
 
   /**
@@ -55,10 +58,40 @@ class SingleTonEagerContext {
    */
   void JoinPendingLoweringThread();
 
+  /**
+   * Saves exception that happened in lowering task.
+   * Not thread safe.
+   */
+  void StoreLoweringThreadException(std::exception_ptr exception) {
+    m_lowering_thread_exception = std::move(exception);
+  }
+
+  /**
+   * Processes stored exception, and fatal error main thread in case it was
+   * present. Not thread safe.
+   */
+  void HandleException();
+
  private:
   SingleTonEagerContext() = default;
   SingleTonEagerContext(const SingleTonEagerContext&) = delete;
   SingleTonEagerContext& operator=(const SingleTonEagerContext&) = delete;
+
+  /**
+   * Saved exception.
+   */
+  std::exception_ptr m_lowering_thread_exception = nullptr;
+
+  /**
+   * Handle to last scheduled task (assumption - only 1 task can execute in
+   * parallel, thus FIFO order of completion of scheduled work is maintained)
+   */
+  std::shared_future<void> m_lowering_thread_handle;
+
+  /**
+   * Mutex to ensure thread safety of storing and restoring task handles.
+   */
+  std::mutex m_lowering_thread_handle_mutex;
 
   static std::once_flag initialize_once_flag_;
   static std::unique_ptr<SingleTonEagerContext> instance_;

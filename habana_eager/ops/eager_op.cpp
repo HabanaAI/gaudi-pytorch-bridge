@@ -33,8 +33,23 @@ void EagerLoweringTask(
       true};
 
   hlexec.set_eager_op_info(std::move(eager_op_meta_data));
+
   // Launch the execution
-  hlexec.launch();
+  try {
+    hlexec.launch();
+  } catch (const std::exception& e) {
+    PT_BRIDGE_WARN(
+        "Exception caught in Lowering thread (will be rethrown in main thread)...\n",
+        e.what());
+    SingleTonEagerContext::getInstance().StoreLoweringThreadException(
+        std::current_exception());
+
+  } catch (...) {
+    PT_BRIDGE_WARN(
+        "Exception caught in Lowering thread (will be rethrown in main thread)...\n");
+    SingleTonEagerContext::getInstance().StoreLoweringThreadException(
+        std::current_exception());
+  }
 }
 
 void EagerOpBase::validate_inputs(const std::vector<at::IValue>& inputs) {

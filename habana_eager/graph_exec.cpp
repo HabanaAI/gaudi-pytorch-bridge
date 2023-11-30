@@ -40,7 +40,21 @@ void GraphExec::LaunchRecipeTask(
     torch::jit::Stack&& inputs,
     std::vector<at::Tensor>&& outputs) {
   PT_EAGER_TRACE_WITH_NAME(gexec->m_graph_name);
-  gexec->LaunchRecipe(std::move(inputs), outputs);
+  try {
+    gexec->LaunchRecipe(std::move(inputs), outputs);
+  } catch (const std::exception& e) {
+    PT_BRIDGE_WARN(
+        "Exception caught in Lowering thread (will be rethrown in main thread)...\n",
+        e.what());
+    habana::eager::SingleTonEagerContext::getInstance()
+        .StoreLoweringThreadException(std::current_exception());
+
+  } catch (...) {
+    PT_BRIDGE_WARN(
+        "Exception caught in Lowering thread (will be rethrown in main thread)...\n");
+    habana::eager::SingleTonEagerContext::getInstance()
+        .StoreLoweringThreadException(std::current_exception());
+  }
 }
 
 GraphExec::GraphExec(

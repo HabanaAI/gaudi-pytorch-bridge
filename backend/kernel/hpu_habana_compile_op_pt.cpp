@@ -25,8 +25,9 @@ void CompileSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
 
   launch_op->CompileSynapse();
 
-  habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
-      HabanaLaunchOpPipeline::ExecuteSynapseTask, std::move(launch_op));
+  habana_helpers::Singleton_ExecThreadPool::getInstance()
+      .ScheduleWorkAndUpdateThreadHandle(
+          HabanaLaunchOpPipeline::ExecuteSynapseTask, std::move(launch_op));
 
   if (sync_with_execute_stage)
     habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();

@@ -22,43 +22,12 @@
 #include <queue>
 #include <stdexcept>
 #include <thread>
-#include <type_traits>
 #include <vector>
 
 #include "backend/synapse_helpers/env_flags.h"
 #include "pytorch_helpers/habana_helpers/thread_queue.h"
 
 namespace habana_helpers {
-
-// Should be replaced by C++23 std::move_only_function
-class move_only_function_void {
- public:
-  template <typename F>
-  move_only_function_void(F&& f)
-      : func_wrapper_(
-            std::make_unique<Wrapper<std::decay_t<F>>>(std::forward<F>(f))) {}
-
-  void operator()() {
-    func_wrapper_->invoke();
-  }
-
- private:
-  struct BaseWrapper {
-    virtual void invoke() = 0;
-    virtual ~BaseWrapper() = default;
-  };
-
-  template <typename F>
-  struct Wrapper : public BaseWrapper {
-    F func_;
-    template <typename T>
-    Wrapper(T&& f) : func_(std::forward<T>(f)) {}
-    void invoke() override {
-      func_();
-    }
-  };
-  std::unique_ptr<BaseWrapper> func_wrapper_;
-};
 
 // add new work item to the pool
 template <typename T>
@@ -93,36 +62,18 @@ class BlockingQueue {
   std::condition_variable cond_;
 };
 
-template <template <typename> typename Queue, typename Task>
+template <template <typename> typename Queue>
 class ThreadPoolBase {
  public:
   ThreadPoolBase(bool propagate_exception = false);
   ~ThreadPoolBase();
 
-  template <
-      class F,
-      class... Args,
-      typename T = Task,
-      typename std::
-          enable_if_t<std::is_same_v<T, move_only_function_void>, bool> = true>
-  void enqueue(F&& f, Args&&... args);
+  using Task = std::packaged_task<void()>;
 
-  template <
-      typename T = Task,
-      typename std::
-          enable_if_t<std::is_same_v<T, move_only_function_void>, bool> = true>
+  template <class F, class... Args>
+  auto enqueue(F&& f, Args&&... args);
   void waitWorkComplete();
-
-  template <
-      class F,
-      class... Args,
-      typename T = Task,
-      typename std::enable_if_t<
-          std::is_same_v<T, std::packaged_task<void()>>,
-          bool> = true>
-  std::future<void> enqueue(F&& f, Args&&... args);
-
-  void RethrowIfException();
+  void rethrowIfException();
   std::string ToString() const;
 
  private:
@@ -141,29 +92,9 @@ class ThreadPoolBase {
   void executePendingTask(Task&& task);
 };
 
-template <template <typename> typename Queue, typename Task>
-template <
-    class F,
-    class... Args,
-    typename T,
-    typename std::enable_if_t<std::is_same_v<T, move_only_function_void>, bool>>
-void ThreadPoolBase<Queue, Task>::enqueue(F&& f, Args&&... args) {
-  RethrowIfException();
-  auto task = [args = std::make_tuple(std::forward<Args>(args)...),
-               func = std::move(f)]() mutable {
-    std::apply([&](auto&&... x) { func(std::forward<Args>(x)...); }, args);
-  };
-  tasks_.push(std::move(task));
-};
-
-template <template <typename> typename Queue, typename Task>
-template <
-    class F,
-    class... Args,
-    typename T,
-    typename std::
-        enable_if_t<std::is_same_v<T, std::packaged_task<void()>>, bool>>
-std::future<void> ThreadPoolBase<Queue, Task>::enqueue(F&& f, Args&&... args) {
+template <template <typename> typename Queue>
+template <class F, class... Args>
+auto ThreadPoolBase<Queue>::enqueue(F&& f, Args&&... args) {
   auto packed_func = [args = std::make_tuple(std::forward<Args>(args)...),
                       func = std::move(f)]() mutable {
     std::apply([&](auto&&... x) { func(std::forward<Args>(x)...); }, args);
@@ -174,23 +105,5 @@ std::future<void> ThreadPoolBase<Queue, Task>::enqueue(F&& f, Args&&... args) {
   return res;
 };
 
-template <template <typename> typename Queue, typename Task>
-template <
-    typename T,
-    typename std::enable_if_t<std::is_same_v<T, move_only_function_void>, bool>>
-void ThreadPoolBase<Queue, Task>::waitWorkComplete() {
-  RethrowIfException();
-  std::promise<void> last_task;
-  std::future<void> work_compelete = last_task.get_future();
-  tasks_.push([&last_task]() { last_task.set_value(); });
-  work_compelete.wait();
-  RethrowIfException();
-}
-
-using ThreadPool = ThreadPoolBase<BlockingQueue, move_only_function_void>;
-
-// This is deprecated version which has to be removed along with lazy execution
-using ThreadPoolWithFutures =
-    ThreadPoolBase<BlockingQueue, std::packaged_task<void()>>;
-
+using ThreadPool = ThreadPoolBase<BlockingQueue>;
 } // namespace habana_helpers

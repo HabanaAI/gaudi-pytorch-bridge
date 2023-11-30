@@ -116,8 +116,9 @@ void LoweringTask(
     return;
   }
 
-  habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
-      HabanaLaunchOpPipeline::CompileSynapseTask, std::move(launch_op));
+  habana_helpers::Singleton_CompileThreadPool::getInstance()
+      .ScheduleWorkAndUpdateThreadHandle(
+          HabanaLaunchOpPipeline::CompileSynapseTask, std::move(launch_op));
 
   if (pipeline_call.is_sync_needed())
     habana_helpers::Singleton_CompileThreadPool::getInstance()

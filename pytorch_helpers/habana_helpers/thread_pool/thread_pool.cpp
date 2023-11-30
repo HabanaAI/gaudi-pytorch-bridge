@@ -18,18 +18,18 @@
 
 namespace habana_helpers {
 
-template <template <typename> typename Queue, typename Task>
-ThreadPoolBase<Queue, Task>::ThreadPoolBase(bool propagate_exception)
+template <template <typename> typename Queue>
+ThreadPoolBase<Queue>::ThreadPoolBase(bool propagate_exception)
     : stop_(false),
       ex_ptr_(nullptr),
       propagate_exception_(propagate_exception) {
-  thread_ = std::thread(&ThreadPoolBase<Queue, Task>::main_loop, this);
+  thread_ = std::thread(&ThreadPoolBase<Queue>::main_loop, this);
 }
 
-template <template <typename> typename Queue, typename Task>
-ThreadPoolBase<Queue, Task>::~ThreadPoolBase() {
-  // set flag to true to break main loop in the thread
-  tasks_.push(Task{[this]() { stop_ = true; }});
+template <template <typename> typename Queue>
+ThreadPoolBase<Queue>::~ThreadPoolBase() {
+  // set flag to true to break main loop in the acc thread
+  tasks_.push(std::packaged_task<void()>{[this]() { stop_ = true; }});
   try {
     thread_.join();
   } catch (const std::exception& ex) {
@@ -37,8 +37,16 @@ ThreadPoolBase<Queue, Task>::~ThreadPoolBase() {
   }
 }
 
-template <template <typename> typename Queue, typename Task>
-void ThreadPoolBase<Queue, Task>::executePendingTask(Task&& task) {
+template <template <typename> typename Queue>
+void ThreadPoolBase<Queue>::waitWorkComplete() {
+  auto task = std::packaged_task<void()>([]() {});
+  auto work_compelete = task.get_future();
+  tasks_.push(std::move(task));
+  work_compelete.wait();
+}
+
+template <template <typename> typename Queue>
+void ThreadPoolBase<Queue>::executePendingTask(Task&& task) {
   try {
     task();
   } catch (const std::exception& e) {
@@ -54,8 +62,8 @@ void ThreadPoolBase<Queue, Task>::executePendingTask(Task&& task) {
   }
 }
 
-template <template <typename> typename Queue, typename Task>
-void ThreadPoolBase<Queue, Task>::RethrowIfException() {
+template <template <typename> typename Queue>
+void ThreadPoolBase<Queue>::rethrowIfException() {
   if (ex_ptr_) {
     auto ex_ptr = ex_ptr_;
     ex_ptr_ = nullptr;
@@ -63,13 +71,13 @@ void ThreadPoolBase<Queue, Task>::RethrowIfException() {
   }
 }
 
-template <template <typename> typename Queue, typename Task>
-std::string ThreadPoolBase<Queue, Task>::ToString() const {
-  return std::string("ThreadPool m_tasks size: ") +
-      std::to_string(tasks_.size());
+template <template <typename> typename Queue>
+std::string ThreadPoolBase<Queue>::ToString() const {
+  std::stringstream ss;
+  ss << "ThreadPool m_tasks size:" << tasks_.size();
+  return ss.str();
 }
 
-template class ThreadPoolBase<BlockingQueue, move_only_function_void>;
-template class ThreadPoolBase<BlockingQueue, std::packaged_task<void()>>;
+template class ThreadPoolBase<BlockingQueue>;
 
 } // namespace habana_helpers
