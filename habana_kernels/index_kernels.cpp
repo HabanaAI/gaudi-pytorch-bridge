@@ -1811,7 +1811,7 @@ InferOutputMetaRetType SliceOperator::InferOutputMeta(
     int64_t dim, start, end, step;
     dim = inputs[1].toInt();
     start = inputs[2].toInt();
-    end = inputs[3].toInt();
+    end = inputs[3].isNone() ? INT64_MAX : inputs[3].toInt();
     step = inputs[4].toInt();
     out_shape = compute_output_shape(self, dim, start, end, step);
   }
