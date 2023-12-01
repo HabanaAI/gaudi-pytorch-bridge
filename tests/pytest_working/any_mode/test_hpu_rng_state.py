@@ -39,7 +39,7 @@ def test_hpu_seed():
     torch.seed()
     cpu_seed_0 = torch.initial_seed()
     hpu_seed_0 = torch.hpu.initial_seed()
-    assert cpu_seed_0 != hpu_seed_0
+    assert cpu_seed_0 == hpu_seed_0
 
     torch.hpu.seed()
     cpu_seed_1 = torch.initial_seed()
@@ -50,7 +50,7 @@ def test_hpu_seed():
     torch.seed()
     cpu_seed_2 = torch.initial_seed()
     hpu_seed_2 = torch.hpu.initial_seed()
-    assert hpu_seed_2 == hpu_seed_1
+    assert hpu_seed_2 != hpu_seed_1
     assert cpu_seed_2 != cpu_seed_1
 
 

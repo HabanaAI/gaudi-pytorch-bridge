@@ -477,3 +477,17 @@ def overwrite_torch_functions():
     # So we have a lazy version of weights_only_unpickler.
     if is_lazy():
         torch.serialization._legacy_load = wrap_serialization_legacy_load_internal
+
+    # wrap torch.seed
+    # In public PyTorch, torch.seed() generates a random seed and synchronizes it across available accelerators:
+    # https://github.com/pytorch/pytorch/blob/b6a30bbfb6c1bcb9c785e7a853c2622c8bc17093/torch/random.py#L62
+
+    seed_original = torch.seed
+
+    @wraps(torch.seed)
+    def wrap_seed() -> int:
+        seed = seed_original()
+        torch.hpu.manual_seed_all(seed)
+        return seed
+
+    torch.seed = wrap_seed
