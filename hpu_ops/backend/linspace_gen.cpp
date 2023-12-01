@@ -1,12 +1,16 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
+
 #include "generated/backend/linspace.h"
 
 namespace habana {
@@ -28,7 +32,6 @@ std::shared_ptr<void> LinspaceRangeParams(
   float end = stack[1].toScalar().to<float>();
   int64_t step = stack[2].toScalar().to<int64_t>();
 
-  TORCH_CHECK(step, "0 steps is not supported as delta cannot be 0.");
   float endValueModification = 0.000001;
   int64_t arange_step = step;
 
@@ -58,23 +61,32 @@ void LinspaceOut::AddNode(
 
   float start = stack[0].toScalar().to<float>();
   float end = stack[1].toScalar().to<float>();
+  int64_t step = stack[2].toScalar().to<int64_t>();
 
-  if (start != end) {
-    size_t size = 0;
-    auto params = LinspaceRangeParams(stack, size);
-
-    auto range = BuildOp(
-        graph,
-        get_guid_with_precision("range", ScalarType()),
-        {},
-        {{outshape, ScalarType(), 0}},
-        params.get(),
-        size);
-
-    syn_out(0) = std::move(range[0]);
+  if (step == 0) {
+    // return empty tensor if zero step
+    auto result = habana::OpBackend::BuildOp(
+        graph, "memset", {}, {{outshape, ScalarType(), 0}});
+    syn_out(0) = std::move(result[0]);
   } else {
-    auto result = ConstantHelper(graph, start, ScalarType(), outshape, 0);
-    syn_out(0) = std::move(result);
+    if (start != end && step != 1) {
+      size_t size = 0;
+      auto params = LinspaceRangeParams(stack, size);
+
+      auto range = BuildOp(
+          graph,
+          get_guid_with_precision("range", ScalarType()),
+          {},
+          {{outshape, ScalarType(), 0}},
+          params.get(),
+          size);
+
+      syn_out(0) = std::move(range[0]);
+    } else {
+      // return start when start == end or step == 1
+      auto result = ConstantHelper(graph, start, ScalarType(), outshape, 0);
+      syn_out(0) = std::move(result);
+    }
   }
 }
 } // namespace habana
