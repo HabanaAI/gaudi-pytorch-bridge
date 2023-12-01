@@ -3502,7 +3502,7 @@ Tensor slice_backward_hpu_lazy(
   const auto grad_output_sizes = grad_output.sizes();
   if (std::find(grad_output_sizes.begin(), grad_output_sizes.end(), 0) !=
       grad_output_sizes.end()) {
-    return torch::zeros(input_sizes);
+    return torch::zeros(input_sizes).to(torch::kHPU);
   } else {
     return at::native::slice_backward(
         grad_output, input_sizes, dim, start, end, step);
