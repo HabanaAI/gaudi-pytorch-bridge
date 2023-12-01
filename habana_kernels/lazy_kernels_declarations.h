@@ -132,11 +132,6 @@ at::Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
     const at::Tensor& offsets_bwd,
     const at::Tensor& valid_count_bwd);
 at::Tensor& fill_hpu_lazy_(at::Tensor& self, const at::Scalar& value);
-at::Tensor scatter_add_src_hpu_lazy(
-    const at::Tensor& self,
-    int64_t dim_,
-    const at::Tensor& index,
-    const at::Tensor& src);
 at::Tensor& scatter_add_inplace_src_hpu_lazy(
     at::Tensor& self,
     int64_t dim_,

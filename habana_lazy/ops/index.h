@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -188,7 +188,7 @@ struct ScatterAdd : public ir::Node {
       int64_t dim,
       const at::Tensor& index,
       const at::Tensor& src)
-      : Node(c10::Symbol::fromQualString("aten::scatter_add")) {
+      : Node(c10::Symbol::fromQualString("hpu::scatter_add")) {
     auto hl_self = habana_lazy::GetOrCreateHbLazyTensor(self, c10::kHPU);
     auto hl_index = habana_lazy::GetOrCreateHbLazyTensor(index, c10::kHPU);
     auto hl_src = habana_lazy::GetOrCreateHbLazyTensor(src, c10::kHPU);

@@ -3086,7 +3086,7 @@ void UnsqueezeOperator::AllocateAndAddSynapseNode(
 
 static auto& IndexKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::scatter_add", KERNEL_FN(ScatterAddOperator))
+        .add("hpu::scatter_add", KERNEL_FN(ScatterAddOperator))
         .add("hpu::scatter_nd", KERNEL_FN(ScatterNdOperator))
         .add("hpu::scatter_nd_onnx", KERNEL_FN(ScatterNdONNXOperator))
         .add("aten::index_put", KERNEL_FN(IndexPutOperator))

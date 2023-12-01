@@ -2279,17 +2279,6 @@ Tensor& fill_hpu_lazy_(Tensor& self, const Scalar& value) {
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fill_, k, self)
 }
 
-Tensor scatter_add_src_hpu_lazy(
-    const Tensor& self,
-    int64_t dim_,
-    const Tensor& index,
-    const Tensor& src) {
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> k{"aten::scatter_add", {self, dim_, index, src}};
-  RUN_MAYBE_WITH_ACC_THREAD(scatter_add, k)
-}
-
 // scatter_add is producing wrong value randomly
 // https://jira.habana-labs.com/browse/SW-44742
 Tensor& scatter_add_inplace_src_hpu_lazy(

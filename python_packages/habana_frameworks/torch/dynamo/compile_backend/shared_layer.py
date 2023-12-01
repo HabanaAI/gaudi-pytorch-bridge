@@ -160,6 +160,11 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
         # For other cases, Slice DS is supported.
         return False
 
+    # workaround for: https://jira.habana-labs.com/browse/SW-181805
+    # The scatter_add op is not yet supported for dynamic shape in torch compile
+    if op_name == "scatter_add" and is_dynamic:
+        return True
+
     # representing scalar float value NaN in JIT fails, by being pasted as
     # literal nan and interpreted as reference to global variable nan imported
     # from math lib, rather than the value itself

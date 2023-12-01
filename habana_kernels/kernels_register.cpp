@@ -2519,6 +2519,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::constant_pad_nd(Tensor self, int[] pad_tensor, Scalar value) -> Tensor");
   m.def(
+      "hpu::scatter_add(Tensor self, int dim, Tensor index, Tensor src) -> Tensor");
+  m.def(
       "hpu::scatter_nd_onnx(Tensor input, Tensor indices, Tensor values) -> Tensor");
   m.def(
       "hpu::scatter_nd(Tensor input, Tensor indices, Tensor grouped_indices, Tensor update_locations, Tensor updates) -> Tensor");
