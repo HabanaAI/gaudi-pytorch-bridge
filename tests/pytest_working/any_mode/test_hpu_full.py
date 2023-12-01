@@ -13,6 +13,9 @@
 import os
 import pytest
 import torch
+
+import habana_frameworks.torch.internal.bridge_config as bc
+
 from test_utils import (
     compare_tensors,
     is_gaudi1,
@@ -43,10 +46,7 @@ if not is_gaudi1():
 @pytest.mark.parametrize("size", [(1,), (2, 3)])
 @pytest.mark.parametrize("dtype, fill_value", test_data)
 def test_full(size, dtype, fill_value):
-    if (
-        abs(fill_value) > 0x7FFFFFFF
-        and int(os.environ.get("PT_ENABLE_INT64_SUPPORT", "0")) == 0
-    ):
+    if abs(fill_value) > 0x7FFFFFFF and bc.get_pt_enable_int64_support() == False:
         pytest.skip(reason="fill_value exceed int32 range which is unsupported")
 
     def fn(size, fill_value, dtype, device):

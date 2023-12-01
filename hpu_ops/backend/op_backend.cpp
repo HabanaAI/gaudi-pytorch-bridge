@@ -20,6 +20,7 @@
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/runtime_config.h"
 #include "backend/helpers/tensor_utils.h"
+#include "common/utils.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/kernel_utils.h"
@@ -874,8 +875,7 @@ sh::tensor OpBackend::BuildConstant(
   std::vector<synTensor> input;
   op->CreateShapeTensorInput(graph, valtype, constant_outshape, input);
 
-  if (valtype == c10::ScalarType::Long &&
-      GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT)) {
+  if (valtype == c10::ScalarType::Long && common::IsInt64Supported()) {
     ns_ConstantKernel::Params_v2 paramsV2{};
     int64_t value = val.to<int64_t>();
     paramsV2.const_low = value;

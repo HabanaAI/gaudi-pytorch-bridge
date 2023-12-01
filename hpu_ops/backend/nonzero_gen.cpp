@@ -21,6 +21,7 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_shape_inference.h"
+#include "common/utils.h"
 #include "habana_helpers/frontend_utils.h"
 #include "habana_kernels/kernel_utils.h"
 #include "hpu_ops/hpu_op_helper.h"
@@ -102,8 +103,8 @@ std::vector<synapse_helpers::tensor> NonZeroCommon(
   std::vector<synTensor> inputs = {self_synin};
   auto guid = get_guid_with_precision("non_zero_v2_fwd", self_params.dtype);
   auto shape_tensor_dtype =
-      (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) ? c10::ScalarType::Long
-                                                 : c10::ScalarType::Int);
+      (common::IsInt64Supported() ? c10::ScalarType::Long
+                                  : c10::ScalarType::Int);
 
   if (self_params.sizes.size() < 5 and not use_tpc_impl) {
     // Need to create a reshape_shape_tensor for nonzero_v2 guid
