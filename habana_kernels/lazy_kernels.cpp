@@ -6205,7 +6205,8 @@ at::Tensor& reduce_scatter_hpu_lazy_out(
   MarkTensorAsOutputFromCollectiveOp(outputTensor);
   LazyOp<at::Tensor&> k(
       "hccl::reduce_scatter_out",
-      {inputTensor, reduce_op, comm_id, outputTensor});
+      {inputTensor, reduce_op, comm_id, outputTensor},
+      {outputTensor.sizes().vec()});
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(reduce_scatter_out, k, outputTensor)
 }
 
