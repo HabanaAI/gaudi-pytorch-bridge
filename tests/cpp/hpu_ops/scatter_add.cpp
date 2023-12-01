@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -14,7 +14,7 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "util.h"
 
-struct ScatterReduceShapeInfoParams {
+struct ScatterAddShapeInfoParams {
   int dim;
   std::vector<int64_t> inputShape;
   std::vector<int64_t> indexShape;
@@ -24,7 +24,7 @@ struct ScatterReduceShapeInfoParams {
 
 std::ostream& operator<<(
     std::ostream& os,
-    const ScatterReduceShapeInfoParams& params) {
+    const ScatterAddShapeInfoParams& params) {
   os << "dim_" << params.dim;
   os << HpuOpTestUtil::SerializeShape(params.inputShape, "_input_");
   os << HpuOpTestUtil::SerializeShape(params.indexShape, "_index_");
@@ -32,30 +32,26 @@ std::ostream& operator<<(
   os << "_deterministic_" << (params.deterministic ? "true" : "false");
   return os;
 }
-class ScatterReduceOpTest : public HpuOpTestUtil,
-                            public testing::WithParamInterface<std::tuple<
-                                ScatterReduceShapeInfoParams, // input params
-                                std::string, // reduce
-                                c10::ScalarType, // dtype
-                                bool>> // include self
+class ScatterAddOpTest : public HpuOpTestUtil,
+                         public testing::WithParamInterface<std::tuple<
+                             ScatterAddShapeInfoParams, // input params
+                             c10::ScalarType>> // dtype
 {
  public:
   bool verbose = false;
-  ScatterReduceShapeInfoParams shapeInfo;
+  ScatterAddShapeInfoParams shapeInfo;
   struct GetName {
     template <class ParamType>
     std::string operator()(
         const ::testing::TestParamInfo<ParamType>& info) const {
-      const ScatterReduceShapeInfoParams& params = std::get<0>(info.param);
+      const ScatterAddShapeInfoParams& params = std::get<0>(info.param);
       std::stringstream ss;
-      ss << "params_" << params << "_mode_" << std::get<1>(info.param)
-         << "_dtype_" << std::get<2>(info.param) << "_includeSelf_"
-         << (std::get<3>(info.param) ? "true" : "false");
+      ss << "params_" << params << "_dtype_" << std::get<1>(info.param);
       return FixTestName(ss.str());
     }
   };
 
-  ScatterReduceOpTest() {
+  ScatterAddOpTest() {
     shapeInfo = std::get<0>(GetParam());
   }
 
@@ -78,15 +74,9 @@ class ScatterReduceOpTest : public HpuOpTestUtil,
   }
 };
 
-TEST_P(ScatterReduceOpTest, scatter_reduce) {
+TEST_P(ScatterAddOpTest, scatter_add) {
   const auto& testParams = GetParam();
-  auto reduce = std::get<1>(testParams);
-  auto dtype = std::get<2>(testParams);
-  auto includeSelf = std::get<3>(testParams);
-
-  if (reduce == "mean" & shapeInfo.deterministic == true) {
-    GTEST_SKIP() << "Test sporadically failing - SW-171740";
-  }
+  auto dtype = std::get<1>(testParams);
 
   GenerateInputs(
       2, {shapeInfo.inputShape, shapeInfo.sourceShape}, {dtype, dtype});
@@ -112,10 +102,8 @@ TEST_P(ScatterReduceOpTest, scatter_reduce) {
   }
 
   auto indexHpu = indexCpu.to(torch::kHPU);
-  auto hpuResult = torch::scatter_reduce(
-      selfHpu, shapeInfo.dim, indexHpu, srcHpu, reduce, includeSelf);
-  auto cpuResult = torch::scatter_reduce(
-      selfCpu, shapeInfo.dim, indexCpu, srcCpu, reduce, includeSelf);
+  auto hpuResult = torch::scatter_add(selfHpu, shapeInfo.dim, indexHpu, srcHpu);
+  auto cpuResult = torch::scatter_add(selfCpu, shapeInfo.dim, indexCpu, srcCpu);
   Compare(cpuResult, hpuResult);
 
   if (verbose) {
@@ -131,47 +119,58 @@ TEST_P(ScatterReduceOpTest, scatter_reduce) {
 
 INSTANTIATE_TEST_SUITE_P(
     sanity,
-    ScatterReduceOpTest,
+    ScatterAddOpTest,
     ::testing::Combine(
         ::testing::Values(
-            ScatterReduceShapeInfoParams{0, {3}, {2}, {2}, false},
-            ScatterReduceShapeInfoParams{
-                0,
-                {1, 2, 2},
-                {1, 2, 2},
-                {1, 2, 2},
-                true},
-            ScatterReduceShapeInfoParams{
-                0,
-                {3, 4, 3},
-                {2, 3, 2},
-                {2, 6, 4},
-                true},
-            ScatterReduceShapeInfoParams{
-                2,
-                {3, 4, 3},
-                {2, 3, 2},
-                {2, 6, 4},
-                true},
-            ScatterReduceShapeInfoParams{
-                -2,
-                {3, 4, 3},
-                {2, 3, 2},
-                {2, 6, 4},
-                true},
-            ScatterReduceShapeInfoParams{
+            ScatterAddShapeInfoParams{0, {5}, {2}, {2}, true},
+            ScatterAddShapeInfoParams{0, {3}, {2}, {2}, false},
+            ScatterAddShapeInfoParams{0, {3, 4}, {1, 1}, {2, 6}, false},
+            ScatterAddShapeInfoParams{1, {3, 4}, {1, 2}, {2, 6}, false},
+            ScatterAddShapeInfoParams{-1, {3, 4}, {1, 1}, {2, 6}, false},
+            ScatterAddShapeInfoParams{0, {1, 2, 2}, {1, 2, 2}, {1, 2, 2}, true},
+            ScatterAddShapeInfoParams{0, {3, 4, 3}, {2, 3, 2}, {2, 6, 4}, true},
+            ScatterAddShapeInfoParams{2, {3, 4, 3}, {2, 3, 2}, {2, 6, 4}, true},
+            ScatterAddShapeInfoParams{
                 0,
                 {3, 4, 3},
                 {2, 1, 1},
                 {2, 6, 4},
                 false},
-            ScatterReduceShapeInfoParams{
+            ScatterAddShapeInfoParams{
                 -2,
                 {3, 4, 3},
                 {1, 4, 1},
                 {2, 6, 4},
+                false},
+            ScatterAddShapeInfoParams{
+                2,
+                {3, 4, 3, 2, 5},
+                {3, 1, 1, 1, 1},
+                {3, 4, 2, 5, 2},
+                true},
+            ScatterAddShapeInfoParams{
+                -1,
+                {3, 4, 3, 2, 5},
+                {3, 1, 1, 1, 1},
+                {3, 4, 2, 5, 2},
+                true},
+            ScatterAddShapeInfoParams{
+                0,
+                {3, 4, 3, 2, 5},
+                {1, 1, 1, 1, 1},
+                {3, 4, 2, 5, 2},
+                false},
+            ScatterAddShapeInfoParams{
+                2,
+                {3, 4, 3, 2, 5},
+                {1, 1, 1, 1, 1},
+                {3, 4, 2, 5, 2},
+                false},
+            ScatterAddShapeInfoParams{
+                -1,
+                {3, 4, 3, 2, 5},
+                {1, 1, 1, 1, 1},
+                {3, 4, 2, 5, 2},
                 false}),
-        ::testing::Values<std::string>("sum", "prod", "mean", "amax", "amin"),
-        ::testing::Values<c10::ScalarType>(torch::kFloat, torch::kBFloat16),
-        ::testing::Values<bool>(true, false)),
-    ScatterReduceOpTest::GetName());
+        ::testing::Values<c10::ScalarType>(torch::kFloat, torch::kBFloat16)),
+    ScatterAddOpTest::GetName());

@@ -132,6 +132,12 @@ bool HpuOpTestUtilBase::GenerateScalar(
     c10::optional<bool> max) const;
 
 class HpuOpTestUtil : public HpuOpTestUtilBase, public ::testing::Test {
+ public:
+  template <typename T>
+  static std::string SerializeShape(const std::vector<T> &, const std::string &);
+ protected:
+  static std::string FixTestName(std::string name);
+ private:
   void SetUp() override {
     DisableCpuFallback();
     habana_lazy::StageSubmission::getInstance().resetCurrentAccumulatedOps();
@@ -141,6 +147,20 @@ class HpuOpTestUtil : public HpuOpTestUtilBase, public ::testing::Test {
     RestoreMode();
   }
 };
+
+template <typename T>
+std::string HpuOpTestUtil::SerializeShape(const std::vector<T> &shape,
+                                   const std::string &prefix) {
+  std::string s = prefix;
+  auto seprator = "";
+  for (auto &&d : shape) {
+    s += seprator;
+    s += std::to_string(d);
+    seprator = "x";
+  }
+  return s;
+}
+
 template <typename T>
 class DTypeSupportTest : public testing::Test,
                          public testing::WithParamInterface<T> {

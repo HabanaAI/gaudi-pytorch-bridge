@@ -1,5 +1,5 @@
 # ##############################################################################
-# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -186,6 +186,7 @@ set(hpu_ops_tests_src
   hpu_ops/rrelu_with_noise.cpp
   hpu_ops/scalar_tensor.cpp
   hpu_ops/scatter.cpp
+  hpu_ops/scatter_add.cpp
   hpu_ops/scatter_reduce.cpp
   hpu_ops/searchsorted.cpp
   hpu_ops/select.cpp

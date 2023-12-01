@@ -6476,12 +6476,44 @@ scatter.value_out:
   op_backend: ScatterOperator
 
 scatter_add:
+  custom_fill_params: ScatterAddParams
+  output_meta: ScatterAddMeta
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-  override_fn: scatter_add_src_hpu_lazy
-  acc_thread: true
+    Gaudi:
+      self: [BFloat16, Float]
+      index: [Int, Long]
+      src: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      index: [Int, Long]
+      src: [BFloat16, Float, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      index: [Int, Long]
+      src: [BFloat16, Float, Half]
+  guid: complex_scatter_add
+  out_ids: [0]
+  lazy:
+    acc_thread: true
+    override_fn: scatter_add_src_hpu_lazy
+
+scatter_add.out:
+  custom_fill_params: ScatterAddParams
+  output_meta: ScatterAddMeta
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float]
+      index: [Int, Long]
+      src: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      index: [Int, Long]
+      src: [BFloat16, Float, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      index: [Int, Long]
+      src: [BFloat16, Float, Half]
+  guid: complex_scatter_add
 
 scatter_reduce:
   custom_fill_params: ScatterReduceParams

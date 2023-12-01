@@ -2286,7 +2286,7 @@ Tensor scatter_add_src_hpu_lazy(
     const Tensor& src) {
   PT_LAZY_TRACE;
 
-  LazyOp<at::Tensor> k{"aten::scatter_add", {self, dim_, index, src}};
+  LazyOp<at::Tensor> k{"hpu::scatter_add", {self, dim_, index, src}};
   RUN_MAYBE_WITH_ACC_THREAD(scatter_add, k)
 }
 
