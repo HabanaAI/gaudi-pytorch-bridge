@@ -6835,13 +6835,13 @@ squeeze_.dim:
   acc_thread: true
 
 std.correction:
-  custom_output_shape: StdVarComputeOutShape
+  output_meta: StdVarMeta
   dtypes: [BFloat16, Float]
   op_backend: Std
   out_ids: [0]
 
 std.correction_out:
-  custom_output_shape: StdVarComputeOutShape
+  output_meta: StdVarMeta
   dtypes: [BFloat16, Float]
   op_backend: Std
 
@@ -7691,13 +7691,13 @@ upsample_nearest3d_backward.vec:
   - [WHDCN]
 
 var.correction:
-  custom_output_shape: StdVarComputeOutShape
+  output_meta: StdVarMeta
   dtypes: [BFloat16, Float]
   op_backend: Var
   out_ids: [0]
 
 var.correction_out:
-  custom_output_shape: StdVarComputeOutShape
+  output_meta: StdVarMeta
   dtypes: [BFloat16, Float]
   op_backend: Var
 

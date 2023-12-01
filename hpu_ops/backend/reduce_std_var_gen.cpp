@@ -20,7 +20,7 @@
 
 namespace habana {
 
-sizes_vec StdVarComputeOutShape(const at::Stack& stack) {
+OutputMetaDataVector StdVarMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   std::vector<int64_t> dims;
   bool keepdim = false;
@@ -31,14 +31,16 @@ sizes_vec StdVarComputeOutShape(const at::Stack& stack) {
   }
   int ndims = self.sizes().vec().size();
   LoweringUtil::SortAndRemoveDuplicateDims(dims, ndims);
-  return ReductionOutputShape(self, dims, keepdim);
+
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = ReductionOutputShape(self, dims, keepdim)[0];
+  return {meta};
 }
 
 OutputMetaDataVector StdVarMeanMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
-  OutputMetaData meta;
-  meta.dtype = self.scalar_type();
-  meta.shape = StdVarComputeOutShape(stack)[0];
+  auto meta = StdVarMeta(stack)[0];
   return {meta, meta};
 }
 
@@ -231,7 +233,7 @@ void Var::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const int correction = stack.at(2).isNone() ? 0 : stack.at(2).toInt();
   const bool keepdim = stack.at(3).toBool();
 
-  auto out_shape = ReductionOutputShape(self, dim, keepdim)[0];
+  auto meta = StdVarMeta(stack)[0];
   auto mean_shape = ReductionOutputShape(self, dim, true)[0];
 
   auto var = StdVarCommonFunc(
@@ -242,7 +244,7 @@ void Var::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       dim,
       {syn_in(0)},
       correction,
-      {{out_shape, ScalarType(), 0}, {mean_shape, ScalarType()}},
+      {{meta.shape, meta.dtype, 0}, {mean_shape, meta.dtype}},
       false, /*take_sqrt*/
       false /*mean_out_required*/);
 
@@ -302,7 +304,7 @@ void Std::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const int correction = stack.at(2).isNone() ? 0 : stack.at(2).toInt();
   const bool keepdim = stack.at(3).toBool();
 
-  auto out_shape = ReductionOutputShape(self, dim, keepdim)[0];
+  auto meta = StdVarMeta(stack)[0];
   auto mean_shape = ReductionOutputShape(self, dim, true)[0];
 
   auto std = StdVarCommonFunc(
@@ -313,7 +315,7 @@ void Std::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       dim,
       {syn_in(0)},
       correction,
-      {{out_shape, ScalarType(), 0}, {mean_shape, ScalarType()}},
+      {{meta.shape, meta.dtype, 0}, {mean_shape, meta.dtype}},
       true, /*take_sqrt*/
       false /*mean_out_required*/);
 
