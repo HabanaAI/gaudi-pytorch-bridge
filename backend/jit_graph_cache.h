@@ -153,6 +153,8 @@ struct OptimizedJITGraphAndMetaData {
 
   habana::OutputMetaDataVector& get_outputs_metadata(size_t index);
 
+  void clear_cached_outputs_tensors();
+
   void clear_cached_graph_info();
 
   void set_prim_nodes_ival(IValPtrShared ival);

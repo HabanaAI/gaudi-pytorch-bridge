@@ -341,6 +341,16 @@ habana::OutputMetaDataVector& OptimizedJITGraphAndMetaData::
   return outputs_metadata[index];
 }
 
+void OptimizedJITGraphAndMetaData::clear_cached_outputs_tensors() {
+  for (auto& metadatas : outputs_metadata) {
+    for (auto& metadata : metadatas) {
+      if (metadata.allocated_tensor.has_value()) {
+        metadata.allocated_tensor.reset();
+      }
+    }
+  }
+}
+
 void OptimizedJITGraphAndMetaData::clear_cached_graph_info() {
   outputs_metadata.clear();
   prim_nodes_ivals.clear();

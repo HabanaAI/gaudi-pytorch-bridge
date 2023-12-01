@@ -3772,6 +3772,8 @@ void HabanaLaunchOpPT::run(
 
       UpdatePatchingInformation();
 
+      jit_graph_and_meta_data_->clear_cached_outputs_tensors();
+
       // currently only eager backend supports pipelining
       // can be merged once non-eager backends support pipelining
       if (enable_graph_caching_ && !compile_mode) {
