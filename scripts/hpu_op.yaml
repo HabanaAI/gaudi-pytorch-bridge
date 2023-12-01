@@ -6815,7 +6815,7 @@ std.correction_out:
   op_backend: Std
 
 std_mean.correction:
-  custom_output_shape: StdVarMeanComputeOutShape
+  output_meta: StdVarMeanMeta
   dtypes: [BFloat16, Float]
   op_backend: StdMean
   out_ids: [0, 0]
@@ -7677,7 +7677,7 @@ var_mean:
   out_ids: [0, 0]
 
 var_mean.correction:
-  custom_output_shape: StdVarMeanComputeOutShape
+  output_meta: StdVarMeanMeta
   dtypes: [BFloat16, Float]
   op_backend: VarMean
   out_ids: [0, 0]

@@ -34,9 +34,12 @@ sizes_vec StdVarComputeOutShape(const at::Stack& stack) {
   return ReductionOutputShape(self, dims, keepdim);
 }
 
-sizes_vec StdVarMeanComputeOutShape(const at::Stack& stack) {
-  auto outshape = StdVarComputeOutShape(stack)[0];
-  return {outshape, outshape};
+OutputMetaDataVector StdVarMeanMeta(const at::Stack& stack) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  meta.shape = StdVarComputeOutShape(stack)[0];
+  return {meta, meta};
 }
 
 static int prepareDivisor(
@@ -262,47 +265,32 @@ void VarMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     keepdim = stack.at(3).toBool();
   }
 
-  auto out_shape = ReductionOutputShape(self, dim, keepdim)[0];
+  auto meta = StdVarMeanMeta(stack);
   auto mean_shape = ReductionOutputShape(self, dim, true)[0];
-
+  c10::optional<int> finalIndex =
+      keepdim ? c10::make_optional<int>(1) : c10::nullopt;
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {out_shape, ScalarType(), 0}};
+      {meta[0].shape, meta[0].dtype, 0},
+      {mean_shape, meta[1].dtype, finalIndex}};
+
+  auto var_mean = StdVarCommonFunc(
+      this,
+      graph,
+      self,
+      keepdim,
+      dim,
+      {syn_in(0)},
+      correction,
+      output_attrs,
+      false, /*take_sqrt*/
+      true /*mean_out_required*/);
+  syn_out(0) = std::move(var_mean[0]);
 
   if (keepdim) {
-    output_attrs.push_back({mean_shape, ScalarType(), 1});
-    auto var_mean = StdVarCommonFunc(
-        this,
-        graph,
-        self,
-        keepdim,
-        dim,
-        {syn_in(0)},
-        correction,
-        output_attrs,
-        false, /*take_sqrt*/
-        true /*mean_out_required*/);
-
-    syn_out(0) = std::move(var_mean[0]);
     syn_out(1) = std::move(var_mean[1]);
   } else {
-    output_attrs.push_back({mean_shape, ScalarType()});
-
-    auto var_mean = StdVarCommonFunc(
-        this,
-        graph,
-        self,
-        keepdim,
-        dim,
-        {syn_in(0)},
-        correction,
-        output_attrs,
-        false, /*take_sqrt*/
-        true /*mean_out_required*/);
-
-    auto reshape =
-        ReshapeHelper(graph, var_mean[1].get(), out_shape, ScalarType(), 1);
-
-    syn_out(0) = std::move(var_mean[0]);
+    auto reshape = ReshapeHelper(
+        graph, var_mean[1].get(), meta[1].shape, meta[1].dtype, 1);
     syn_out(1) = std::move(reshape);
   }
 }
@@ -339,47 +327,32 @@ void StdMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const int correction = stack.at(2).isNone() ? 0 : stack.at(2).toInt();
   const bool keepdim = stack.at(3).toBool();
 
-  auto out_shape = ReductionOutputShape(self, dim, keepdim)[0];
+  auto meta = StdVarMeanMeta(stack);
   auto mean_shape = ReductionOutputShape(self, dim, true)[0];
-
+  c10::optional<int> finalIndex =
+      keepdim ? c10::make_optional<int>(1) : c10::nullopt;
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {out_shape, ScalarType(), 0}};
+      {meta[0].shape, meta[0].dtype, 0},
+      {mean_shape, meta[1].dtype, finalIndex}};
+
+  auto std_mean = StdVarCommonFunc(
+      this,
+      graph,
+      self,
+      keepdim,
+      dim,
+      {syn_in(0)},
+      correction,
+      output_attrs,
+      true, /*take_sqrt*/
+      true /*mean_out_required*/);
+  syn_out(0) = std::move(std_mean[0]);
 
   if (keepdim) {
-    output_attrs.push_back({mean_shape, ScalarType(), 1});
-
-    auto std_mean = StdVarCommonFunc(
-        this,
-        graph,
-        self,
-        keepdim,
-        dim,
-        {syn_in(0)},
-        correction,
-        output_attrs,
-        true, /*take_sqrt*/
-        true /*mean_out_required*/);
-
-    syn_out(0) = std::move(std_mean[0]);
     syn_out(1) = std::move(std_mean[1]);
   } else {
-    output_attrs.push_back({mean_shape, ScalarType()});
-    auto std_mean = StdVarCommonFunc(
-        this,
-        graph,
-        self,
-        keepdim,
-        dim,
-        {syn_in(0)},
-        correction,
-        output_attrs,
-        true, /*take_sqrt*/
-        true /*mean_out_required*/);
-
-    auto reshape =
-        ReshapeHelper(graph, std_mean[1].get(), out_shape, ScalarType(), 1);
-
-    syn_out(0) = std::move(std_mean[0]);
+    auto reshape = ReshapeHelper(
+        graph, std_mean[1].get(), meta[1].shape, meta[1].dtype, 1);
     syn_out(1) = std::move(reshape);
   }
 }
