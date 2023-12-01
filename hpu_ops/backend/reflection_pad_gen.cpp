@@ -12,58 +12,66 @@
 
 namespace habana {
 
-OutputMetaDataVector ReflectionPad1DMeta(const at::Stack& stack) {
+constexpr uint SELF_INDEX_FWD = 0;
+constexpr uint PAD_INDEX_FWD = 1;
+constexpr uint SELF_INDEX_BWD = 1;
+constexpr uint PAD_INDEX_BWD = 2;
+constexpr uint PADS_PER_DIM = 2;
+
+sizes_vec ReflectionPadOutputShape(
+    const at::Stack& stack,
+    uint selfIndex,
+    uint padIndex,
+    uint dimsVariant) {
+  std::vector<int64_t> outputShape =
+      stack.at(selfIndex).toTensor().sizes().vec();
+  auto pad = stack.at(padIndex).toIntVector();
+  uint expectedPadsNumber = PADS_PER_DIM * dimsVariant;
+  TORCH_CHECK(
+      (pad.size() == expectedPadsNumber),
+      "Pad size can only be %dd for ReflectionPad%dd",
+      expectedPadsNumber,
+      dimsVariant);
+
+  for (uint dim = 0; dim < dimsVariant; dim++) {
+    outputShape.rbegin()[dim] = outputShape.rbegin()[dim] +
+        pad[dim * PADS_PER_DIM] + pad[dim * PADS_PER_DIM + 1];
+  }
+  return {outputShape};
+}
+
+OutputMetaDataVector ReflectionPadDMeta(
+    const at::Stack& stack,
+    uint dimsVariant) {
   auto self = stack.at(0).toTensor();
   OutputMetaData meta;
 
-  meta.shape = self.sizes().vec();
+  meta.shape = ReflectionPadOutputShape(
+      stack, SELF_INDEX_FWD, PAD_INDEX_FWD, dimsVariant)[0];
   meta.dtype = self.scalar_type();
 
-  auto pad = stack.at(1).toIntVector();
-  TORCH_CHECK((pad.size() == 2), "Pad size can only be 2 for ReflectionPad1d");
-  // updating the width dimension
-  meta.shape.rbegin()[0] += pad[0] + pad[1];
   return {meta};
+}
+
+OutputMetaDataVector ReflectionPad1DMeta(const at::Stack& stack) {
+  return ReflectionPadDMeta(stack, 1);
 }
 
 OutputMetaDataVector ReflectionPad2DMeta(const at::Stack& stack) {
-  auto self = stack.at(0).toTensor();
-  OutputMetaData meta;
-  meta.shape = self.sizes().vec();
-  meta.dtype = self.scalar_type();
-
-  auto pad = stack.at(1).toIntVector();
-  TORCH_CHECK((pad.size() == 4), "Pad size can only be 4 for ReflectionPad2d");
-  // updating the width dimension
-  meta.shape.rbegin()[0] += pad[0] + pad[1];
-  // updating the height dimension
-  meta.shape.rbegin()[1] += pad[2] + pad[3];
-  return {meta};
+  return ReflectionPadDMeta(stack, 2);
 }
 
 OutputMetaDataVector ReflectionPad3DMeta(const at::Stack& stack) {
-  auto self = stack.at(0).toTensor();
-  OutputMetaData meta;
-  meta.shape = self.sizes().vec();
-  meta.dtype = self.scalar_type();
-
-  auto pad = stack.at(1).toIntVector();
-  TORCH_CHECK((pad.size() == 6), "Pad size can only be 6 for ReflectionPad3d");
-  // updating the width dimension
-  meta.shape.rbegin()[0] += pad[0] + pad[1];
-  // updating the height dimension
-  meta.shape.rbegin()[1] += pad[2] + pad[3];
-  // updating the depth dimension
-  meta.shape.rbegin()[2] += pad[4] + pad[5];
-  return {meta};
+  return ReflectionPadDMeta(stack, 3);
 }
 
 static std::shared_ptr<void> FillReflectionPadParams(
     const at::Stack& stack,
     size_t& size,
+    uint self_index,
     uint pad_index) {
   PARAMS_STUB(ns_PadKernelEx::Params);
-  auto self = stack.at(0).toTensor();
+  auto self = stack.at(self_index).toTensor();
   std::vector<int64_t> inputShape = self.sizes().vec();
   auto pads = stack.at(pad_index).toIntVector();
   params->mode = PadMode_t::PAD_MODE_REFLECT;
@@ -87,38 +95,55 @@ static std::shared_ptr<void> FillReflectionPadParams(
 std::shared_ptr<void> FillReflectionPadForwardParams(
     const at::Stack& stack,
     size_t& size) {
-  // pad_index in the stack is 1 for forward ops
-  return FillReflectionPadParams(stack, size, 1);
+  return FillReflectionPadParams(stack, size, SELF_INDEX_FWD, PAD_INDEX_FWD);
+}
+
+std::shared_ptr<void> FillReflectionPadBackwardParams(
+    const at::Stack& stack,
+    size_t& size) {
+  return FillReflectionPadParams(stack, size, SELF_INDEX_BWD, PAD_INDEX_BWD);
 }
 
 OutputMetaDataVector ReflectionPadBackwardMeta(const at::Stack& stack) {
-  const torch::Tensor& self = stack_tensor(stack, 1);
+  const torch::Tensor& self = stack_tensor(stack, SELF_INDEX_BWD);
   OutputMetaData meta;
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
   return {meta};
 }
 
-std::shared_ptr<void> FillReflectionPadBackwardParams(
-    const at::Stack& stack,
-    size_t& size) {
-  // pad_index in the stack is 2 for backward ops
-  return FillReflectionPadParams(stack, size, 2);
-}
-
-void ReflectionPad::AddNode(
+void ReflectionPadBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const auto& outshape = stack_tensor(stack, 1).sizes();
   size_t size = 0;
   const auto& params = FillReflectionPadBackwardParams(stack, size);
+
+  if (habana::ShapeInference::GetCurrentPass() ==
+      habana::ShapeInfo::InferencePass::MAX_SHAPE) {
+    synapse_helpers::tensor& syn_tensor_start = p_context_->syn_inputs_[0];
+    std::vector<int64_t> max = std::get<1>(
+        habana::ShapeInference::GetMinMaxShape(syn_tensor_start.id()));
+    uint dimsVariant =
+        stack.at(PAD_INDEX_BWD).toIntVector().size() / PADS_PER_DIM;
+    auto outputShapeExpectedMax = ReflectionPadOutputShape(
+        stack, SELF_INDEX_BWD, PAD_INDEX_BWD, dimsVariant);
+
+    for (uint dim = 0; dim < max.size(); dim++) {
+      TORCH_CHECK(
+          (max[dim] <= outputShapeExpectedMax[0][dim]),
+          "Output shape at dim=%d in max pass is greater than expectedd max output shape.",
+          dim);
+    }
+  }
+  auto meta = ReflectionPadBackwardMeta(stack)[0];
+
   // dropping off the second input to tpc kernel since it
   // expects only 1 input tensor
   auto reflection_pad = BuildOp(
       graph,
       get_guid_with_precision("pad_bwd", ScalarType()),
       {syn_in(0)},
-      {{outshape, ScalarType(), 0}},
+      {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);
 

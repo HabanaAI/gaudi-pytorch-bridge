@@ -5668,7 +5668,7 @@ reflection_pad1d.out:
 reflection_pad1d_backward:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
-  op_backend: ReflectionPad
+  op_backend: ReflectionPadBwd
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
   out_ids: [0]
@@ -5676,7 +5676,7 @@ reflection_pad1d_backward:
 reflection_pad1d_backward.grad_input:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
-  op_backend: ReflectionPad
+  op_backend: ReflectionPadBwd
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
 
@@ -5705,7 +5705,7 @@ reflection_pad2d.out:
 reflection_pad2d_backward:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
-  op_backend: ReflectionPad
+  op_backend: ReflectionPadBwd
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
   out_ids: [0]
@@ -5713,7 +5713,7 @@ reflection_pad2d_backward:
 reflection_pad2d_backward.grad_input:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
-  op_backend: ReflectionPad
+  op_backend: ReflectionPadBwd
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
 
@@ -5742,7 +5742,7 @@ reflection_pad3d.out:
 reflection_pad3d_backward:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
-  op_backend: ReflectionPad
+  op_backend: ReflectionPadBwd
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
   out_ids: [0]
@@ -5750,7 +5750,7 @@ reflection_pad3d_backward:
 reflection_pad3d_backward.grad_input:
   output_meta: ReflectionPadBackwardMeta
   custom_fill_params: FillReflectionPadBackwardParams
-  op_backend: ReflectionPad
+  op_backend: ReflectionPadBwd
   dtypes: [BFloat16, Float, Int, Short]
   guid: pad_bwd
 
