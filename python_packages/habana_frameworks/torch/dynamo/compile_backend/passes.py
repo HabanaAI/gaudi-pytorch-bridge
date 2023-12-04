@@ -296,6 +296,26 @@ def helper_get_node_args(node: torch.fx.Node):
     return cleaned_args
 
 
+def helper_handle_noncontiguous_output(node: torch.fx.Node, result: torch.Tensor):
+    """
+    This function aims to handle non-contiguous output, see details at:
+    https://github.com/pytorch/pytorch/issues/103650 and
+    https://github.com/pytorch/pytorch/pull/104689. The public fix is not
+    complete since besides `torch/_refs/__init__.py`, there are still some ops
+    whose meta function is defined at `pytorch/torch/_meta_registrations.py`.
+    """
+    if node.op != 'call_function':
+        return result
+
+    node_target_list = [
+        'round.default',
+        'round.decimals',
+    ]
+    if node.target.__name__ in node_target_list:
+        result = result.contiguous()
+    return result
+
+
 def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
     if not ctx.is_dynamic:
         return True
@@ -429,6 +449,7 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     This function takes out basic information from propagated fake tensor, like
     dtype, layout and device and puts it to the node that created it.
     """
+    result = helper_handle_noncontiguous_output(node, result)
 
     device = None
     dtypes = []
@@ -451,6 +472,7 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         output_contiguous = [result.is_contiguous()]
 
         logger.debug("    result shape: %s", result.shape)
+        logger.debug("    result stride: %s", result.stride())
     elif type(result) is torch.SymInt:
         device = torch.device("cpu")
         dtypes = [None]
@@ -1145,14 +1167,6 @@ def pass_handle_negative_dims(ctx: OptimizerContext) -> bool:
                 graph_changed = resolve_negative_dim(ctx, node)
     return graph_changed
 
-def helper_is_compute_node(node):
-    # return false if node is a view node, input node or output node
-    return (
-        (not helper_is_view_node(node))
-        and (node.op != "placeholder")
-        and (node.op != "output")
-    )
-
 
 def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
     """
@@ -1184,35 +1198,50 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
     having stride [2, 1]. The output stride is mismatched with expected stride.
 
     With this pass, `as_strided` node will be inserted before t_2 (b). And the
-    output strides of `as_strided` node is filled with strides of original strides.
-    The strides propagation flow of above graph is like below:
+    output strides of `as_strided` node is filled with strides of original
+    strides. The strides propagation flow of above graph is like below:
 
     [3, 1]
        |
-       t
+       t (prefix view node)
        |
     [1, 3]    Scalar
         \     /
-          mul
+          mul (anchor node)
            |
-         [2, 1] (contiguous)
+         [2, 1] (forced to be contiguous)
            |
-          t_1
+          t_1 (leaf view node)
            |
-        [1, 2] (copy to original input due to input mutation)
+         [1, 2]
            |
-       as_strided (newly inserted, restore un-viewed strides)
-           |
-        [3, 1]
-           |
-          t_2
-           |
-        [1, 3] -> b
+           |    <----------- inserting point: as_strided
+           |                                       |
+          t_2 (leaf view node)                   [3, 1]
+           |                                       |
+        [2, 1] -> b                               t_2 (leaf view node)
+                                                   |
+                                                 [1, 3] -> b
     """
+    def helper_is_compute_node(node):
+        # return false if node is a view node, input node or output node
+        return (
+            (not helper_is_view_node(node))
+            and (node.op != "placeholder")
+            and (node.op != "output")
+        )
+
+    def helper_is_decomposed_node(node):
+        if node.op != "call_function":
+            return False
+        node_target = node.target.__name__
+        if 'original_aten' not in node.meta:
+            return False
+        return node_target != node.meta['original_aten'].__name__
 
     def helper_calculate_default_strides(sizes):
         # Calculate default strides for given size
-        if len(sizes) == 0:
+        if sizes is None or len(sizes) == 0:
             return []
 
         reversed_strides = [1]
@@ -1221,166 +1250,289 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
         return list(reversed(reversed_strides))
 
     def is_output_contiguous_strides(node):
+        if "output_shapes" not in node.meta or "output_contiguous" not in node.meta:
+            return False
+
         contiguous_strides = helper_calculate_default_strides(
             node.meta["output_shapes"][0]
         )
+        if not contiguous_strides:
+            return False
         actual_strides = node.meta["output_strides"][0]
-        return contiguous_strides == list(actual_strides)
+        return node.meta["output_contiguous"][0] or (contiguous_strides ==
+                                                     list(actual_strides))
 
     def helper_get_node_users(node):
-        assert isinstance(node, torch.fx.Node)
+        if not isinstance(node, torch.fx.Node):
+            return [None]
         node_list = list(node.users.keys())
         if len(node_list) == 0:
             return [None]
         return node_list
 
+    def insert_as_strided_after(ctx, node_insert_point, node_src_meta):
+        with ctx.graph_module.graph.inserting_after(node_insert_point):
+            # input node
+            new_args = [
+                node_insert_point,
+            ]
+            # sizes of inserted as_strided node
+            new_args.append(node_src_meta.meta["output_shapes"][0])
+            # strides of inserted as_strided node
+            new_args.append(node_src_meta.meta["output_strides"][0])
+            new_kwargs = None
+            as_strided_custom = ctx.graph_module.graph.create_node(
+                node_insert_point.op,
+                torch.ops.aten.as_strided.default,
+                tuple(new_args),
+                new_kwargs,
+                "as_strided_custom_0",
+                node_insert_point.type,
+            )
+            as_strided_custom.meta = copy.copy(node_src_meta.meta)
+            # reset output_strides in case it can be propagated later
+            as_strided_custom.meta["output_strides"] = None
+        return as_strided_custom
+
+    def check_same_target_and_parameters(ref, comp) -> bool:
+        if ref.target != comp.target or len(comp.args) != len(ref.args):
+            return False
+        comp_args = comp.args
+        idx = 0
+        for ref_arg in ref.args:
+            # only check those int or list[int] parameters
+            # for example, 0 and 1 in aten.transpose(a, 0, 1)
+            # or [1, 2, 0, 3] in aten.permute(a, [1, 2, 0, 3])
+            if isinstance(ref_arg, int) or isinstance(ref_arg, list):
+                if ref_arg != comp_args[idx]:
+                    return False
+
+            idx += 1
+        return True
+
+    def is_call_function_node(node):
+        return isinstance(node, torch.fx.Node) and node.op == "call_function"
+
     assert ctx.graph_module is not None
     graph_changed = False
+    # This is general checking for input mutation and output alias which will
+    # filter out those cases early this pass doesn't target for.
+    is_input_mutation_in_graph = False
+    is_only_output_alias_in_graph = False
+    # see usage of torch._guards.TracingContext at _functorch/aot_autograd.py.
+    if ctx.uses_aot and torch._guards.TracingContext.get():
+        fw_metadata = torch._guards.TracingContext.get().fw_metadata
+        # there exist inplace or alias
+        is_input_mutation_in_graph = fw_metadata.num_mutated_inputs > 0
+        is_only_output_alias_in_graph = (not is_input_mutation_in_graph
+                                         and fw_metadata.num_outputs_aliased > 0)
 
+    if not is_input_mutation_in_graph and not is_only_output_alias_in_graph:
+        return graph_changed
+
+    # make sure the graph nodes are topologically sorted
+    ctx.graph_module.graph.lint()
+
+    # get output nodes in graph
     fw_output_node = [
         node for node in ctx.graph_module.graph.nodes if node.op == "output"
     ][0]
     fw_outputs = fw_output_node.args[0]
-    # no inplace op
-    if len(fw_outputs) < 2:
+
+    # Step 0: fast path for the case where only detach node exists in graph.
+    # Unlike nodes like aten.tranpose, aten.detach is a special node which never
+    # changes shape/strides. aten.transpose may not change shape/stride if
+    # providing parametes like aten.transpose(self, 0, 0).
+    #
+    # An example FX graph:
+    # class <lambda>(torch.nn.Module):
+    # def forward(self, arg0_1: f32[10, 5]):
+    #     t: f32[5, 10] = torch.ops.aten.t.default(arg0_1);  arg0_1 = None
+    #     alias: f32[5, 10] = torch.ops.aten.alias.default(t);  t = None
+    #     return (alias,)
+    is_alias_node = lambda node: (
+        is_call_function_node(node) and 'alias' in node.target.__name__
+    )
+
+    if is_only_output_alias_in_graph:
+        for out_node in fw_outputs:
+            if not is_alias_node(out_node):
+                continue
+            prefix_node = helper_get_node_args(out_node)[0]
+            if (is_call_function_node(prefix_node)
+                and not is_output_contiguous_strides(prefix_node)
+                ):
+                as_strided_node = insert_as_strided_after(ctx, out_node,
+                                                          prefix_node)
+                # connect as_stride node as input of following users
+                list(out_node.users.keys())[0].replace_input_with(
+                    out_node, as_strided_node
+                )
+                graph_changed = True
+
+        if graph_changed:
+            ctx.graph_module.recompile()
+            pass_fake_propagation(ctx)
         return graph_changed
 
-    # make sure the graph nodes is topologically sorted
-    ctx.graph_module.graph.lint()
-
-    nodes_is_visted = set()
+    # record pair of (prefix view node, inserting point)
+    prefix_view_node_insert_point_pair = []
     for node in ctx.graph_module.graph.nodes:
-        if node.op != "call_function" or node in nodes_is_visted:
+        # skip for args nodes
+        if not is_call_function_node(node):
             continue
 
-        # mark current node as visited
-        nodes_is_visted.add(node)
-
-        view_in_node = None
-        # find HPU node which is actually an inplace node
-        # we may not need to check placement ('hpu_cluster') due to no matter
-        # what strides compute node generates, the later inserted as_strided node
-        # should use the correct strides
-        if not helper_is_compute_node(node):
+        # find node which is derived from, or decomposed from an inplace node.
+        # we don't need to check placement ('hpu_cluster') as it doesn't matter
+        # what strides compute node generates, the later inserted as_strided
+        # node should use the correct strides
+        if not (helper_is_compute_node(node) or
+                # for aten.addr node, it will be decomposed into view ops +
+                # other ops, here need to filter out those decomposed nodes
+                helper_is_decomposed_node(node)):
             continue
 
-        is_duplicate_chain = False
-        current_chain = [node]
-        # take node as the start point of potential inplace op chain
-        # try to find the end point of this chain
-        end_node_in_chain = node
-        next_node = helper_get_node_users(end_node_in_chain)[0]
+        # Step 1: find the leaf view node pair (t_1 and t_2 in below graph) and
+        # inserting point
+        #
+        # Example FX graph:
+        # def forward(self, arg0_1: f32[2, 3]):
+        #     t: f32[3, 2] = torch.ops.aten.t.default(arg0_1);  arg0_1 = None
+        #     mul: f32[3, 2] = torch.ops.aten.mul.Tensor(t, 1.0);  t = None
+        #     t_1: f32[2, 3] = torch.ops.aten.t.default(mul);  mul = None
+        #     t_2: f32[3, 2] = torch.ops.aten.t.default(t_1)
+        #     return (t_1, t_2)
+        #
+        # records nodes already searched in current path
+        nodes_in_current_path = set()
+        nodes_in_current_path.add(node)
+
+        # The first while loop aims to find the anchor node following with pair
+        # of leaf view nodes in a top-down manner
+        anchor_node = node
+        next_node = helper_get_node_users(anchor_node)[0]
         while next_node is not None:
-            if next_node in nodes_is_visted:
-                # next_node is in previous chain, exit current chain search
-                is_duplicate_chain = True
-                break
-
-            # found first node which has view user, assumes it's the end
-            # point of chain. Or it reaches the graph output
+            # exit the search when reaches to the graph output or finds the
+            # leaf view node pair
             if next_node.op == "output" or (
-                next_node.op == "call_function"
+                is_call_function_node(next_node)
                 and helper_is_view_node(next_node)
+                # leaf view node also as graph outputs
                 and next_node in fw_outputs
             ):
                 break
 
-            end_node_in_chain = next_node
-            nodes_is_visted.add(next_node)
-            current_chain.append(next_node)
+            anchor_node = next_node
+            nodes_in_current_path.add(next_node)
             # look at next user node
             next_node = helper_get_node_users(next_node)[0]
 
-        # detect duplicate chain or no valid consequent view nodes
-        if is_duplicate_chain or next_node is None or next_node.op == "output":
+        if next_node is None or next_node.op == "output":
+            logger.debug("Not found valid leaf view node pair.")
             break
 
-        # collect candidate view nodes before this chain
-        # bottom up from the end_node_in_chain
-        view_in_node = end_node_in_chain
-        while view_in_node.op != "placeholder":
-            view_in_node_args = helper_get_node_args(view_in_node)
-            if len(view_in_node_args) > 0:
-                # workaround for where whose data input is third argument
-                if view_in_node.target == torch.ops.aten.where.self:
-                    view_in_node = view_in_node_args[2]
+        # record leaf view nodes
+        leaf_view_nodes_first = next_node
+        leaf_view_nodes_second = helper_get_node_users(leaf_view_nodes_first)[0]
+        if (leaf_view_nodes_second is None
+            or leaf_view_nodes_second.op == "output"
+            or not helper_is_view_node(leaf_view_nodes_second)
+            ):
+            logger.debug("Not found valid leaf view node pair.")
+            break
+
+        # Step 2: bottom up to find prefix view node
+        #
+        # The second while loop aims to locate the prefix view node in a
+        # bottom-up manner. Here the loop robustly traverses all potential paths
+        # to find prefix view nodes. For example for a aten.mul node which has
+        # two arguments. The prefix view node might be inserted before the first
+        # argument, or the second one.
+        prefix_view_node = anchor_node
+        nodes_queue_to_search = []
+        while prefix_view_node.op != "placeholder":
+            prefix_view_node_args = helper_get_node_args(prefix_view_node)
+            if prefix_view_node_args:
+                # workaround for aten.where whose data input is third argument
+                if prefix_view_node.target == torch.ops.aten.where.self:
+                    nodes_queue_to_search.insert(0, prefix_view_node_args[2])
                 else:
-                    view_in_node = view_in_node_args[0]
+                    # insert input args at the front of queue
+                    node_args = [n for n in prefix_view_node_args
+                                             if isinstance(n, torch.fx.Node)
+                                             and n.op != "placeholder"]
+                    nodes_queue_to_search[0:0] = node_args
+
+                if not nodes_queue_to_search:
+                    prefix_view_node = None
+                    break
+
+                # inverse depth-first search
+                prefix_view_node = nodes_queue_to_search.pop(0)
             else:
-                view_in_node = None
-                break
+                if not nodes_queue_to_search:
+                    prefix_view_node = None
+                    break
+                # pop last node in queue to research
+                prefix_view_node = nodes_queue_to_search.pop()
 
             if (
-                view_in_node.op == "call_function"
-                and helper_is_view_node(view_in_node)
-                and not view_in_node in current_chain
+                is_call_function_node(prefix_view_node)
+                and (helper_is_view_node(prefix_view_node) and not
+                     helper_is_decomposed_node(prefix_view_node))
+                and prefix_view_node.target == leaf_view_nodes_first.target
+                and prefix_view_node not in nodes_queue_to_search
             ):
+                # additional check if leaf view node and prefix view node has
+                # matched parameters
+                if (leaf_view_nodes_second in fw_outputs
+                    and not check_same_target_and_parameters(
+                        leaf_view_nodes_second, prefix_view_node)
+                    ):
+                    prefix_view_node = None
                 # found
                 break
 
-        if view_in_node is None or view_in_node.op == "placeholder":
-            continue
+        if prefix_view_node is None or prefix_view_node.op == "placeholder":
+            logger.debug("Not found prefix view node")
+            break
 
-        nodes_to_change = []
-        # check if current node's output node is the same view node as input node
-        for user in end_node_in_chain.users:
-            out_node = helper_get_node_users(user)[0]
-            # there are same view before / after the current node
-            # actually we may also need check if the same arguments, for
-            # example dim0 and dim1 for torch.transpose
-            if (
-                user.target == view_in_node.target
-                # view-pair for inplace op
-                and (out_node is not None and out_node.target == view_in_node.target)
-                # this based on the fact that HPU node only produces contiguous output
-                and (not is_output_contiguous_strides(view_in_node))
-                and (is_output_contiguous_strides(end_node_in_chain))
+        # Step 3: decide whther to insert as_strided node by checking contiguity
+        # of nodes
+        if (not is_output_contiguous_strides(prefix_view_node)
+            and is_output_contiguous_strides(anchor_node)
             ):
-                nodes_to_change.append(user)
+            prefix_view_node_insert_point_pair = [prefix_view_node,
+                                                  leaf_view_nodes_first]
+            break
+        else:
+            # debug purpose
+            prefix_view_node_output_contiguity = 'True' if is_output_contiguous_strides(prefix_view_node) else 'False'
+            anchor_node_output_contiguity = 'True' if is_output_contiguous_strides(anchor_node) else 'False'
+            logger.debug("prefix_view_node contiguity: %s",
+                         prefix_view_node_output_contiguity)
+            logger.debug("anchor_node contiguity: %s",
+                         anchor_node_output_contiguity)
+
+    # Step 4: insert as_strided node and then recompile graph
+    if prefix_view_node_insert_point_pair:
+        prefix_view_node = prefix_view_node_insert_point_pair[0]
+        inserting_point = prefix_view_node_insert_point_pair[1]
 
         # node which has original strides information
-        arg_view_in_node = helper_get_node_args(view_in_node)[0]
-
-        # found ops which has wrong strides
-        if nodes_to_change:
-            # node which has original strides information
-            arg_view_in_node = helper_get_node_args(view_in_node)[0]
-            node_to_change = nodes_to_change[0]
-
-            with ctx.graph_module.graph.inserting_after(node_to_change):
-                # input node
-                new_args = [
-                    node_to_change,
-                ]
-                # sizes of inserted as_strided_0 node
-                new_args.append(arg_view_in_node.meta["output_shapes"][0])
-                # strides of inserted as_strided_0 node
-                new_args.append(arg_view_in_node.meta["output_strides"][0])
-                new_kwargs = None
-                as_strided_0 = ctx.graph_module.graph.create_node(
-                    node_to_change.op,
-                    torch.ops.aten.as_strided.default,
-                    tuple(new_args),
-                    new_kwargs,
-                    "as_strided_0",
-                    node_to_change.type,
-                )
-                as_strided_0.meta = copy.copy(arg_view_in_node.meta)
-                # reset output_strides in case it can be propagated later
-                as_strided_0.meta["output_strides"] = None
-
-            # connect as_stride_0 node to original node_to_change's user
-            list(node_to_change.users.keys())[0].replace_input_with(
-                node_to_change, as_strided_0
+        arg_prefix_view_node = helper_get_node_args(prefix_view_node)[0]
+        as_strided_node = insert_as_strided_after(ctx, inserting_point,
+                                                  arg_prefix_view_node)
+        list(inserting_point.users.keys())[0].replace_input_with(
+                inserting_point, as_strided_node
             )
 
-            graph_changed = True
-
-    ctx.graph_module.recompile()
-
-    # another metadata (only strides) propagation needed due to newly inserted node
-    if graph_changed:
+        ctx.graph_module.recompile()
+        # another metadata (only strides) propagation needed due to newly
+        # inserted node
         pass_fake_propagation(ctx)
+        graph_changed = True
+
     return graph_changed
 
 

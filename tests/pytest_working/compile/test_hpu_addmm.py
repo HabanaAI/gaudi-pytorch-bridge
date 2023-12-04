@@ -12,7 +12,6 @@
 import pytest
 import torch
 
-
 @pytest.mark.parametrize(
     "dtype", [torch.float, torch.bfloat16, torch.int8, torch.int32, torch.long]
 )
@@ -27,6 +26,39 @@ def test_addmm(dtype, n, m, p):
     def fn(input, mat1, mat2):
         return torch.addmm(input, mat1, mat2)
 
+    compiled_fn_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn_cpu = torch.compile(fn)
+
+    if dtype.is_floating_point:
+        input = torch.randn(input_shape, dtype=dtype)
+        mat1 = torch.randn(mat1_shape, dtype=dtype)
+        mat2 = torch.randn(mat2_shape, dtype=dtype)
+    else:
+        input = torch.randint(low=-128, high=127, size=input_shape, dtype=dtype)
+        mat1 = torch.randint(low=-128, high=127, size=mat1_shape, dtype=dtype)
+        mat2 = torch.randint(low=-128, high=127, size=mat2_shape, dtype=dtype)
+
+    expected = compiled_fn_cpu(input.cpu(), mat1.cpu(), mat2.cpu())
+    result = compiled_fn_hpu(input, mat1, mat2)
+    assert torch.equal(result.cpu(), expected)
+
+
+@pytest.mark.parametrize(
+    "dtype", [torch.float, torch.bfloat16, torch.int8, torch.int32, torch.long]
+)
+@pytest.mark.parametrize("n", [1])
+@pytest.mark.parametrize("m", [5])
+@pytest.mark.parametrize("p", [5])
+def test_inplace_addmm_with_view_input(dtype, n, m, p):
+    input_shape = (p, n)
+    mat1_shape = (n, m)
+    mat2_shape = (m, p)
+
+    def fn(input, mat1, mat2):
+        input = torch.permute(input, [1, 0])
+        return input.addmm_(mat1, mat2)
+
+    torch._dynamo.reset()
     compiled_fn_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
     compiled_fn_cpu = torch.compile(fn)
 

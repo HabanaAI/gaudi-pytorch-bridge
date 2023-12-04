@@ -265,7 +265,14 @@ def fn_multi3(a):
     c = b.mul(1.0)
     return b, c.t()
 
-@pytest.mark.parametrize("func", [fn_multi, fn_multi2, fn_multi3])
+def fn_multi4(a):
+    b = a.t()
+    c = b.mul(1.0)
+    z1 = c.t()
+    z2 = z1.t()
+    return z1, z2
+
+@pytest.mark.parametrize("func", [fn_multi, fn_multi2, fn_multi3, fn_multi4])
 def test_hpu_non_contiguous_more_outputs(func):
     import habana_frameworks.torch.core as htcore
 

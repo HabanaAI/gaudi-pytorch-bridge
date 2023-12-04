@@ -28,3 +28,22 @@ def test_alias(shape, dtype):
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
 
     assert torch.equal(hpu_output, cpu_output)
+
+# add cases for SW-163523
+@pytest.mark.parametrize("shape", [(1, 2), (2, 3, 4)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int8, torch.int32])
+def test_alias_with_view_input(shape, dtype):
+    def fn(input):
+        input = torch.ops.aten.transpose(input, 0, 1)
+        return torch.ops.aten.alias(input)
+
+    torch._dynamo.reset()
+    cpu_input = torch.randn(shape, dtype=dtype) if dtype.is_floating_point else torch.randint(low=-128, high=127, size=shape, dtype=dtype)
+    hpu_input = cpu_input.to("hpu")
+    cpu_compiled_fn = torch.compile(fn)
+    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    cpu_output = cpu_compiled_fn(cpu_input)
+    hpu_output = hpu_compiled_fn(hpu_input).cpu()
+
+    assert torch.equal(hpu_output, cpu_output)
