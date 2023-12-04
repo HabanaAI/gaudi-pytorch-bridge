@@ -134,23 +134,37 @@ void RMSNormBackward::AddNode(
       inverse_rms_reshaped.get()};
 
   if (use_stages) {
-    int numTpc = 8;
+    int num_tpc = 8;
 
     auto type{habana::HPURegistrar::get_device().type()};
     if (type == synDeviceGaudi2)
-      numTpc = 24;
+      num_tpc = 24;
     else if (type == synDeviceGaudi3)
-      numTpc = 64;
+      num_tpc = 64;
 
-    int W = data_in.pt_t.sizes()[data_in.pt_t.sizes().size() - 2];
-    int grad_gamma_partial_dim0 = std::min(numTpc, W);
+    int data_width_size = data_in_new_sizes[data_in_new_sizes.size() - 2];
+    int part_grad_width_size = std::min(num_tpc, data_width_size);
+
+    if (bwd_mode ==
+        static_cast<int>(RmsNormBwdMode_t::STATIC_CASE_GC_SLICE_ENABLED)) {
+      constexpr int chunk_size = 512;
+      int sram_width_size = std::min(chunk_size, data_width_size);
+      int width_index_space_div_calc_step1 =
+          num_tpc * ((data_width_size + sram_width_size - 1) / sram_width_size);
+      int width_chunk_size =
+          (std::max(1, data_width_size / width_index_space_div_calc_step1) +
+           (3)) &
+          (-4);
+      part_grad_width_size =
+          ((data_width_size + width_chunk_size - 1) / width_chunk_size);
+    }
 
     ns_RmsNorm::ParamsV2 params{};
     params.bwdStage = 1;
     params.bwdMode = static_cast<RmsNormBwdMode_t>(bwd_mode);
 
     std::vector<int64_t> grad_gamma_partial_sizes{
-        grad_gamma_partial_dim0, data_in.pt_t.sizes().vec().back()};
+        part_grad_width_size, data_in.pt_t.sizes().vec().back()};
 
     std::vector<NodeAttr::NodeOutputAttr> output_attrs_stage1 = {
         {data_in_new_sizes, data_in.pt_t.scalar_type()}, // grad_out

@@ -24,7 +24,8 @@ from test_utils import (
 )
 
 rms_norm_test_case_list = [
-    # Input shape (D, H, W, C) or (N, D, H, W, C), eps
+    # Input shape, eps
+    ((2048, 1, 2560), 0.000001),
     ((64, 16, 8, 16), 0.00001),
     ((32, 16, 8, 16), 0.00003),
     ((1, 1, 32, 64), 0.00003),
@@ -99,6 +100,7 @@ def test_rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, dtype):
     torch.testing.assert_close(
         gamma_hpu.grad.to(torch.float32).to(cpu), grad_gamma_ref, rtol=tol, atol=tol
     )
+
     torch.testing.assert_close(
         input_hpu.grad.to(torch.float32).to(cpu), grad_input_ref, rtol=tol, atol=tol
     )
