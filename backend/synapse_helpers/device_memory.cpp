@@ -321,8 +321,6 @@ synStatus device_memory::free_with_stream(void* free_ptr) {
   if (nullptr == free_ptr) {
     return status;
   }
-  PT_DEVMEM_DEBUG(
-      "free_with_stream for ptr", reinterpret_cast<uint64_t>(free_ptr));
 
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
     auto h = mem_handle::reinterpret_from_pointer(
@@ -338,7 +336,6 @@ synStatus device_memory::free_with_stream(void* free_ptr) {
     bool is_stream_uses_empty = true;
     if (ptr_and_size.ptr_ != nullptr) {
       is_stream_uses_empty = suballoc_->is_stream_uses_empty(ptr_and_size.ptr_);
-      PT_DEVMEM_DEBUG("free_with_stream ptr", ptr_and_size.ptr_);
       deallocate(ptr_and_size.ptr_);
     }
     if (is_stream_uses_empty) {
@@ -1027,11 +1024,6 @@ device_ptr device_memory::get_pointer(mem_handle h) {
 
     auto ptr_size = handle2pointer_.GetPtrSize(h.id());
     if (ptr_size.ptr_ == nullptr) {
-      PT_DEVMEM_DEBUG(
-          "Need to allocate buffer for tensor handle ",
-          ptr_size.ptr_,
-          " of size: ",
-          ptr_size.size_);
       alloc(&ptr_size.ptr_, ptr_size.size_, ptr_size.stream_);
       handle2pointer_.SetPtrSize(h.id(), ptr_size);
     }

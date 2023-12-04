@@ -114,7 +114,6 @@ graph graph::create(
   PT_SYNHELPER_BEGIN;
   graph syn_graph(device, std::move(name));
 
-  PT_SYNHELPER_DEBUG("Graph Create.");
   syn_graph.dry_run_ = dry_run;
   syn_graph.eager_mode_ = eager_mode;
   if (syn_graph.dry_run_ == false) {
@@ -155,7 +154,6 @@ graph graph::create_for_refinement(device& device, std::string name) {
   PT_SYNHELPER_BEGIN;
   graph syn_graph(device, std::move(name));
 
-  PT_SYNHELPER_DEBUG("Graph Create.");
   synStatus status = synSuccess;
   status = synGraphCreate(&syn_graph.graph_handle_, syn_graph.device_.type());
   HABANA_ASSERT(
@@ -170,7 +168,6 @@ graph graph::create_for_refinement(device& device, std::string name) {
 
 std::vector<synTensorHandleMap> graph::duplicate() {
   PT_SYNHELPER_BEGIN;
-  PT_SYNHELPER_DEBUG("Graph Duplicate.");
 
   HABANA_ASSERT(
       eager_mode_,

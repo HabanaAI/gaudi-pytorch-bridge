@@ -93,9 +93,6 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
       continue;
 
     // Set the deterministic val
-    PT_BRIDGE_DEBUG(
-        "Deterministic value in BuildGraph: ",
-        node->i(torch::jit::attr::deterministic));
     HabanaKernel->setDeterministic(node->i(torch::jit::attr::deterministic));
 
     // override the persistence logic if any kernel sets it as persistent

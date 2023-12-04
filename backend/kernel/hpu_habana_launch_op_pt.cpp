@@ -2093,9 +2093,6 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     TORCH_CHECK(HabanaKernel, op, " isn't registered in KernelRegistry!");
 
     // Set the deterministic val
-    PT_BRIDGE_DEBUG(
-        "Deterministic value in BuildGraph: ",
-        node->i(torch::jit::attr::deterministic));
     HabanaKernel->setDeterministic(node->i(torch::jit::attr::deterministic));
 
     // Set kernel execution mode
@@ -2266,9 +2263,6 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         HabanaOperatorPtr csHabanaKernel =
             KernelRegistry().get(device_id, op, getNodeScalarType(node));
 
-        PT_BRIDGE_DEBUG(
-            "Deterministic value in BuildGraph: ",
-            node->i(torch::jit::attr::deterministic));
         HabanaKernel->setDeterministic(
             node->i(torch::jit::attr::deterministic));
 

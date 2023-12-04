@@ -588,9 +588,6 @@ bool HabanaLaunchOpPT::RunHybridSif(
     TORCH_CHECK(habana_op, op, " isn't registered in KernelRegistry!");
 
     // Set the deterministic val
-    PT_BRIDGE_DEBUG(
-        "Deterministic value in BuildGraph: ",
-        node->i(torch::jit::attr::deterministic));
     habana_op->setDeterministic(node->i(torch::jit::attr::deterministic));
 
     bool is_mapped_flag{true};

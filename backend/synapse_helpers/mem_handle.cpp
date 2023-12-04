@@ -57,13 +57,6 @@ device_ptr mem_handle::reinterpret_to_pointer(const mem_handle& h) {
 
   combined =
       create_memhandle_from_bucket_index_and_handle_index(type, combined);
-  PT_SYNHELPER_DEBUG(
-      "reinterpret_to_pointer h.id::",
-      id,
-      " offset::",
-      offset,
-      " ptr::",
-      synapse_helpers::uint64_to_hex_string(combined));
   return combined;
 }
 
@@ -87,13 +80,6 @@ mem_handle mem_handle::reinterpret_from_pointer(device_ptr ptr) {
   uint64_t offset = inside_val & ((1ULL << offset_bits) - 1);
   id = create_memhandle_from_bucket_index_and_handle_index(type, id);
 
-  PT_SYNHELPER_DEBUG(
-      "reinterpret_from_pointer  h.id::",
-      id,
-      " offset::",
-      offset,
-      " Ptr::",
-      uint64_to_hex_string(ptr));
   return mem_handle(id, offset);
 }
 namespace {
@@ -129,8 +115,6 @@ bucket_type HandlesMap::getBucketIndexForGivenTensorSize(size_t size) {
   for (int bucket_index = 0; bucket_index < (int)bucketInfo.size();
        bucket_index++) {
     if (bucketInfo[bucket_index].max_offsets > size) {
-      PT_SYNHELPER_DEBUG(
-          "Selecting bucket index::", bucket_index, " for Size::", size);
       return (bucket_type)bucket_index;
     }
   }
@@ -157,7 +141,6 @@ mem_handle::id_t HandlesMap::Insert(size_t size, hpuStream_t stream) {
     check_id_overflow(id, size, offset_bits);
     free_handles_[bucket_index].pop();
     handles_[bucket_index][id] = Record(size, stream);
-    PT_SYNHELPER_DEBUG("Reuse handleid ::", id, " Size::", size);
     return create_memhandle_from_bucket_index_and_handle_index(
         bucket_index, id);
   } else {
@@ -168,8 +151,6 @@ mem_handle::id_t HandlesMap::Insert(size_t size, hpuStream_t stream) {
     handles_[bucket_index].emplace_back(size, stream);
     auto id_inside_bucket = handles_[bucket_index].size() - 1;
     check_id_overflow(id_inside_bucket, size, offset_bits);
-    PT_SYNHELPER_DEBUG(
-        "Insert new handleid ::", id_inside_bucket, " Size::", size);
     return create_memhandle_from_bucket_index_and_handle_index(
         bucket_index, id_inside_bucket);
   }
@@ -178,13 +159,6 @@ mem_handle::id_t HandlesMap::Insert(size_t size, hpuStream_t stream) {
 HandlesMap::PtrSize HandlesMap::GetPtrSize(mem_handle::id_t id) const {
   bucket_type bucket_index = get_bucket_index(id);
   uint64_t handle_index = get_handle_index(id);
-  PT_SYNHELPER_DEBUG(
-      "GetPtrSize id::",
-      id,
-      " bucket Type::",
-      bucket_index,
-      " handle_index::",
-      handle_index);
   CheckId(handle_index, bucket_index);
   return handles_[bucket_index][handle_index].ptr_size_;
 }
@@ -192,13 +166,6 @@ HandlesMap::PtrSize HandlesMap::GetPtrSize(mem_handle::id_t id) const {
 void HandlesMap::SetPtrSize(mem_handle::id_t id, HandlesMap::PtrSize ptr_size) {
   bucket_type bucket_index = get_bucket_index(id);
   uint64_t handle_index = get_handle_index(id);
-  PT_SYNHELPER_DEBUG(
-      "SetPtrSize id::",
-      id,
-      " bucket Type::",
-      bucket_index,
-      " handle_index::",
-      handle_index);
   CheckId(handle_index, bucket_index);
   handles_[bucket_index][handle_index].ptr_size_ = ptr_size;
 }
@@ -206,22 +173,10 @@ void HandlesMap::SetPtrSize(mem_handle::id_t id, HandlesMap::PtrSize ptr_size) {
 void HandlesMap::Erase(mem_handle::id_t id) {
   bucket_type bucket_index = get_bucket_index(id);
   uint64_t handle_index = get_handle_index(id);
-  PT_SYNHELPER_DEBUG(
-      "Erase id::",
-      id,
-      " bucket Type::",
-      bucket_index,
-      " handle_index::",
-      handle_index);
   CheckId(handle_index, bucket_index);
   handles_[bucket_index][handle_index].active_ = false;
   handles_[bucket_index][handle_index].ptr_size_.size_ = 0;
   handles_[bucket_index][handle_index].ptr_size_.ptr_ = nullptr;
-  PT_SYNHELPER_DEBUG(
-      "Free handle h.id:",
-      handle_index,
-      " active::",
-      handles_[bucket_index][handle_index].active_);
   free_handles_[bucket_index].push(handle_index);
 }
 

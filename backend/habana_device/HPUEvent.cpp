@@ -68,7 +68,6 @@ void HPUEvent::record(const c10::hpu::HPUStream& stream) {
   if (!is_created_) {
     createEvent(stream.device_index());
     created_with_stream_ = stream.stream();
-    PT_DEVICE_DEBUG("event id::", id_);
   }
 
   TORCH_CHECK(

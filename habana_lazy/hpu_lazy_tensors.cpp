@@ -184,7 +184,6 @@ Data::~Data() {
   auto context = HbContextArena::Get();
   context->UnregisterTensor(this);
   data_ptr = nullptr;
-  PT_BRIDGE_DEBUG("~Data, unique_id: ", unique_id);
 }
 
 int64_t Data::GetNextTensorId() {
@@ -199,7 +198,6 @@ int64_t Data::GetNextTensorId() {
   auto id = AccThread::Get().inAccThreadContext()
       ? acc_id_generator.fetch_add(1)
       : id_generator.fetch_add(1);
-  PT_LAZY_DEBUG("Creating Data with unique_id: ", id);
   return id;
 }
 

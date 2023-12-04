@@ -121,10 +121,6 @@ RecipeArgumentSpec::RecipeArgumentSpec(
 
     hash_code =
         at::hash_combine(hash_code, node->i(torch::jit::attr::deterministic));
-    PT_BRIDGE_DEBUG(
-        "Jit Sysnapse Cache deterministic: ",
-        node->i(torch::jit::attr::deterministic));
-    PT_BRIDGE_DEBUG("Node Name: ", node->kind().toQualString());
   }
 }
 

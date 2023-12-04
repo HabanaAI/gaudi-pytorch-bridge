@@ -622,7 +622,7 @@ void device::create_stream(hpuStream_t& hpu_stream, bool high_priority) {
 synapse_helpers::hpuEvent_t device::create_event(bool flags) {
   std::unique_lock<std::mutex> lock(usr_event_mutex_);
   synapse_helpers::hpuEvent_t id = get_event_index();
-  PT_SYNHELPER_DEBUG("Create_event for id::", id, " flasg::", flags);
+  PT_SYNHELPER_DEBUG("Create_event for id::", id, " flags::", flags);
   std::array<synEventHandle, END_TYPE_> event_array;
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_GENERIC_STREAM)) {
     for (size_t i = 0; i < END_TYPE_; ++i) {

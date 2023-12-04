@@ -93,7 +93,6 @@ Node::Node(c10::Symbol op, bool _is_input)
           habana::HPURegistrar::get_hpu_global_config().getDeterministic() ||
           at::globalContext().deterministicAlgorithms()) {
   /*Need to set this node if the deterministic mode is ON*/
-  PT_BRIDGE_DEBUG("Deterministic value During Node Creation: ", deterministic);
   SetModuleName(*(habana_lazy::ir::getCurrentModuleName()));
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DEBUG_NAMES)) {
     static std::atomic<uint64_t> next_id = 0;
@@ -343,7 +342,6 @@ size_t Node::get_hash() {
     m_node_hash = at::hash_combine(m_node_hash, m_meta_data.get_hash());
 
     m_node_hash = at::hash_combine(m_node_hash, deterministic);
-    PT_BRIDGE_DEBUG("Caching calculation deterministic: ", deterministic);
   }
   return m_node_hash;
 }
