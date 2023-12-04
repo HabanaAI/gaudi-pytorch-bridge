@@ -37,7 +37,7 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = 
     # Make it a float mask that can be added to the S tensor (S = q@k.transpose)
     if recompute :
         if requires_backward:
-            assert not attn_mask, "In recompute mode, Attention mask(attn_mask !=None) is supported only in inference case"
+            assert attn_mask is None, "In recompute mode, Attention mask(attn_mask !=None) is supported only in inference case"
 
     if is_causal:
         seq_len_N_t = q.size(-2)
