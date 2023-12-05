@@ -2527,9 +2527,9 @@ install_pytorch_whls() {
     __clean_pytorch_dev_py_deps
     #temporary workaround for pytorch-fork migration to separate component SW-162985
     if [ $(ls ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/ | wc -l) != 1 ]; then
-        pyfork_revision=$(cd ${PYTORCH_FORK_ROOT} && git rev-parse --short HEAD)
-        echo "installing pyfork version ${pyfork_revision}"
-        $__pip_cmd install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*${pyfork_revision}*.whl
+        pyfork_revision=$(cd ${PYTORCH_FORK_ROOT} && git rev-parse HEAD)
+        echo "installing pyfork version ${pyfork_revision:0:7}"
+        $__pip_cmd install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*${pyfork_revision:0:7}*.whl
     else
         $__pip_cmd install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*.whl
     fi
