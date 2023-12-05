@@ -187,6 +187,25 @@ def test_bool_comparison(src_dtype, op_name, is_view):
     assert torch.allclose(result_cpu, result_hpu.to("cpu"), rtol=0, atol=0)
 
 
+def test_to_hpu():
+    cpu_tensor = torch.randn(2, 3, 4)
+    hpu_tensor = cpu_tensor.to("hpu")
+    assert torch.equal(cpu_tensor, hpu_tensor.to("cpu"))
+
+
+def test_to_hpu0():
+    cpu_tensor = torch.randn(2, 3, 4)
+    hpu_tensor = cpu_tensor.to("hpu:0")
+    assert torch.equal(cpu_tensor, hpu_tensor.to("cpu"))
+
+
+@pytest.mark.xfail(reason="Guadi doesn't support hpu:X notition")
+def test_to_hpux():
+    cpu_tensor = torch.randn(2, 3, 4)
+    hpu_tensor = cpu_tensor.to("hpu:1")
+    assert torch.equal(cpu_tensor, hpu_tensor.to("cpu"))
+
+
 @pytest.mark.parametrize("dim", [0, 1, 2, [0, 1], [0, 2], [1, 2], [0, 1, 2]])
 @pytest.mark.parametrize("unbiased", [True, False])
 @pytest.mark.parametrize("keepdim", [False, True])
