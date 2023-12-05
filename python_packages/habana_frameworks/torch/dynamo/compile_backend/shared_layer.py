@@ -52,6 +52,11 @@ hpu_supported_op_list = {
     # is no aten::instance_norm_backward that could be overridden by hpu implementation
     "instance_norm_backward",
     "clamp",
+    # Quantization
+    "quantize_per_tensor",
+    "dequantize_per_tensor",
+    "quantize_per_channel",
+    "dequantize_per_channel",
 }
 
 hpu_supported_ops_restricted = dict()
