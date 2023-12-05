@@ -627,6 +627,7 @@ void OpBackend::CreateShapeTensorInput(
         std::string(),
         hostDataPtr);
     st.set_intermediate_shape_tensor();
+    graph.increment_shape_tensors();
     m_shape_tensors.emplace_back(std::move(st));
     inputs.emplace_back(m_shape_tensors.back().get());
   }

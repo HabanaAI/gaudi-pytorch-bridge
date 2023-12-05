@@ -131,7 +131,8 @@ class PtTensorInfo {
       const std::string& sn,
       const uint64_t tensor_id,
       const synTensor handle = nullptr,
-      const synTensorType stt = DATA_TENSOR);
+      const synTensorType stt = DATA_TENSOR,
+      const std::vector<int64_t> shape = {});
 
   PtTensorInfo(std::istream& is);
   // access functions for read write data members

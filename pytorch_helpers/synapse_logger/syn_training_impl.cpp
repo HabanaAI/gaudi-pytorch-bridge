@@ -88,6 +88,7 @@ SYN_API_PTR(synGraphCreateEager);
 SYN_API_PTR(synGraphSetAttribute);
 SYN_API_PTR(synGraphGetAttribute);
 SYN_API_PTR(synGraphDuplicate);
+SYN_API_PTR(synGraphInferShapes);
 SYN_API_PTR(synGraphDestroy);
 SYN_API_PTR(synMemsetD32Async);
 SYN_API_PTR(synMemsetD8Async);
@@ -127,6 +128,7 @@ SYN_API_PTR(synTensorRetrieveLaunchAmount);
 SYN_API_PTR(synTensorRetrieveLaunchIds);
 SYN_API_PTR(synTensorRetrieveLaunchInfoById);
 SYN_API_PTR(synTensorRetrieveLaunchInfoByIdExt);
+SYN_API_PTR(synTensorGetGeometry);
 SYN_API_PTR(synTensorSetGeometry);
 SYN_API_PTR(synTensorSetDeviceDataType);
 SYN_API_PTR(synTensorSetHostPtr);
@@ -193,6 +195,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synGraphSetAttribute);
   SYN_API_INIT_PTR(synGraphGetAttribute);
   SYN_API_INIT_PTR(synGraphDuplicate);
+  SYN_API_INIT_PTR(synGraphInferShapes);
   SYN_API_INIT_PTR(synGraphDestroy);
   SYN_API_INIT_PTR(synMemsetD32Async);
   SYN_API_INIT_PTR(synMemsetD8Async);
@@ -232,6 +235,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synTensorRetrieveLaunchIds);
   SYN_API_INIT_PTR(synTensorRetrieveLaunchInfoById);
   SYN_API_INIT_PTR(synTensorRetrieveLaunchInfoByIdExt);
+  SYN_API_INIT_PTR(synTensorGetGeometry);
   SYN_API_INIT_PTR(synTensorSetGeometry);
   SYN_API_INIT_PTR(synTensorSetDeviceDataType);
   SYN_API_INIT_PTR(synTensorSetHostPtr);
@@ -1460,6 +1464,14 @@ synStatus SYN_API_CALL synGraphDuplicate(
   return status;
 }
 
+synStatus SYN_API_CALL synGraphInferShapes(synGraphHandle graphHandle) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(graphHandle));
+  synStatus status = lib_synapse::synGraphInferShapes(graphHandle);
+  API_LOG_RESULT();
+  return status;
+}
+
 synStatus SYN_API_CALL synGraphDestroy(const synGraphHandle graphHandle) {
   LOG_TRACE("SYN_API", "{}", __FUNCTION__);
   API_LOG_CALL(ARG(graphHandle));
@@ -1824,6 +1836,19 @@ synStatus SYN_API_CALL synTensorRetrieveLaunchInfoByIdExt(
       pRecipeHandle,
       numOfTensors,
       tensorsLaunchInfo);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synTensorGetGeometry(
+    const synTensor tensor,
+    synTensorGeometry* geometry,
+    synGeometryType geometryType) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(tensor), ARG(geometry), ARG(geometryType));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synTensorGetGeometry, tensor, geometry, geometryType);
   API_LOG_RESULT();
   return status;
 }
