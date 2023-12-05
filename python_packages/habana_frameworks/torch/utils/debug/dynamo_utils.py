@@ -1,5 +1,5 @@
-import functools
 import itertools
+import torch
 from collections import defaultdict
 
 
@@ -18,30 +18,38 @@ class FxGraphAnalyzer:
     id_iter = itertools.count()
     registered_contexts = dict()
 
-    def __init__(self):
+    def __init__(self, reset_dynamo=False):
+        self.reset_dynamo = reset_dynamo
         self.id = next(FxGraphAnalyzer.id_iter)
-        self.ops = defaultdict(FxGraphAnalyzer.OpCount)
+        self.graphs = list()
 
     def __enter__(self):
         FxGraphAnalyzer.registered_contexts[self.id] = self
+        if self.reset_dynamo:
+            torch._dynamo.reset()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         FxGraphAnalyzer.registered_contexts.pop(self.id)
 
-    def count_ops(self, nodes, ctx, in_submodule=False):
+    def count_ops(self, nodes, ctx, in_submodule=False, ops_in_graph=None):
+        if ops_in_graph is None:
+            ops_in_graph = defaultdict(FxGraphAnalyzer.OpCount)
         for n in nodes:
-            if 'output_device' not in n.meta or n.meta['output_device'] is None or n.meta['output_device'].type != 'hpu':
-                continue
-
             if n.op == "call_module":
-                submod = ctx.graph_module.get_submodule(n.target)
-                self.count_ops(submod.graph.nodes, ctx, in_submodule=True)
-            elif n.op == "call_function":
+                submodule = ctx.graph_module.get_submodule(n.target)
+                self.count_ops(submodule.graph.nodes, ctx, True, ops_in_graph)
+            elif n.op in {"call_function", "call_method"}:
+                if 'output_device' not in n.meta or n.meta['output_device'] is None or n.meta['output_device'].type != 'hpu':
+                    continue
+                target_name = n._pretty_print_target(n.target)
                 if in_submodule:
-                    self.ops[str(n.target)].graph_count += 1
+                    ops_in_graph[target_name].graph_count += 1
                 else:
-                    self.ops[str(n.target)].eager_count += 1
+                    ops_in_graph[target_name].eager_count += 1
+
+        if not in_submodule:
+            self.graphs.append(dict(ops_in_graph))
 
     def get_ops_summary(self):
-        return self.ops
+        return self.graphs

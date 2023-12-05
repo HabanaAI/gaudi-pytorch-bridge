@@ -1,8 +1,6 @@
 import torch
-import habana_frameworks.torch
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-import os
 
 
 @torch.compile(backend="aot_hpu_training_backend")
@@ -21,46 +19,45 @@ def fn2(x, y):
     return res * res
 
 
-def assert_helper(ops_summary, op, graph_count, eager_count):
-    assert op in ops_summary
-    assert ops_summary[op].graph_count == graph_count
-    assert ops_summary[op].eager_count == eager_count
+def assert_helper(ops_summary, op, count_list):
+    assert len(ops_summary) == len(count_list)
+    for single_graph_summary, graph_eager_count in zip(ops_summary, count_list):
+        if graph_eager_count is None:
+            assert op not in single_graph_summary
+        else:
+            graph_count, eager_count = graph_eager_count
+            assert op in single_graph_summary
+            assert single_graph_summary[op].graph_count == graph_count
+            assert single_graph_summary[op].eager_count == eager_count
 
 
 def test_simple():
     original = configuration_flags["use_eager_fallback"]
     configuration_flags["use_eager_fallback"] = True
-    torch._dynamo.reset()
-    with FxGraphAnalyzer() as fga:
+    with FxGraphAnalyzer(reset_dynamo=True) as fga:
         t1 = torch.tensor([6], device="hpu")
         t2 = torch.tensor([2], device="hpu")
         fn(t1, t2, "hpu")
 
-    # Should be:
-    # 'aten.randint.low': {graph_count = 1, eager_count = 0},
-    # 'aten.add.Tensor': {graph_count = 2, eager_count = 0}})
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary, "aten.randint.low", 1, 0)
-    assert_helper(ops_summary, "aten.add.Tensor", 2, 0)
-
-    configuration_flags["use_eager_fallback"] = original
+    assert_helper(ops_summary, 'torch.ops.aten.randint.low', [(1, 0)])
+    assert_helper(ops_summary, 'torch.ops.aten.add.Tensor', [(2, 0)])
 
 
 def test_cpu():
-    torch._dynamo.reset()
-    with FxGraphAnalyzer() as fga:
+    with FxGraphAnalyzer(reset_dynamo=True) as fga:
         t1 = torch.tensor([6], device="cpu")
         t2 = torch.tensor([2], device="cpu")
         fn(t1, t2, "cpu")
 
-    assert not fga.get_ops_summary()
+    assert len(fga.get_ops_summary()) == 1
+    assert not fga.get_ops_summary()[0]
 
 
 def test_multiple():
     original = configuration_flags["use_eager_fallback"]
     configuration_flags["use_eager_fallback"] = True
-    torch._dynamo.reset()
-    with FxGraphAnalyzer() as fga:
+    with FxGraphAnalyzer(reset_dynamo=True) as fga:
         t1 = torch.tensor([6], device="hpu")
         t2 = torch.tensor([2], device="hpu")
         with FxGraphAnalyzer() as fga2:
@@ -69,26 +66,30 @@ def test_multiple():
             fn(t1, t2, "hpu")
         fn(t1.to("cpu"), t2.to("cpu"), "cpu")
 
-    # ops_summary should be:
-    # 'aten.randint.low': {graph_count = 1, eager_count = 0},
-    # 'aten.add.Tensor': {graph_count = 3, eager_count = 0},
-    # 'aten.mul.Tensor': {graph_count = 2, eager_count = 0}}
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary, "aten.randint.low", 1, 0)
-    assert_helper(ops_summary, "aten.add.Tensor", 3, 0)
-    assert_helper(ops_summary, "aten.mul.Tensor", 2, 0)
+    assert_helper(ops_summary, 'torch.ops.aten.randint.low', [None, (1, 0), None])
+    assert_helper(ops_summary, 'torch.ops.aten.add.Tensor', [(1, 0), (2, 0), None])
+    assert_helper(ops_summary, 'torch.ops.aten.mul.Tensor', [(2, 0), None, None])
 
-    # ops_summary2 should be:
-    # 'aten.add.Tensor': {graph_count = 1, eager_count = 0},
-    # 'aten.mul.Tensor': {graph_count = 2, eager_count = 0}}
     ops_summary2 = fga2.get_ops_summary()
-    assert_helper(ops_summary2, "aten.add.Tensor", 1, 0)
-    assert_helper(ops_summary2, "aten.mul.Tensor", 2, 0)
+    assert_helper(ops_summary2, 'torch.ops.aten.add.Tensor', [(1, 0)])
+    assert_helper(ops_summary2, 'torch.ops.aten.mul.Tensor', [(2, 0)])
 
-    # ops_summary3 should be:
-    # 'aten.randint.low': {graph_count = 1, eager_count = 0},
-    # 'aten.add.Tensor': {graph_count = 2, eager_count = 0}})
     ops_summary3 = fga3.get_ops_summary()
-    assert_helper(ops_summary3, "aten.randint.low", 1, 0)
-    assert_helper(ops_summary3, "aten.add.Tensor", 2, 0)
-    configuration_flags["use_eager_fallback"] = original
+    assert_helper(ops_summary3, 'torch.ops.aten.randint.low', [(1, 0)])
+    assert_helper(ops_summary3, 'torch.ops.aten.add.Tensor', [(2, 0)])
+
+
+def test_bulitin():
+    @torch.compile(backend='aot_hpu_training_backend')
+    def clone_fn(x):
+        return x.add_(x)
+
+    t = torch.tensor([1337], device='hpu')
+    with FxGraphAnalyzer(reset_dynamo=True) as fga:
+        clone_fn(t)
+
+    ops_summary = fga.get_ops_summary()
+    assert_helper(ops_summary, 'torch.ops.aten.add.Tensor', [(1, 0), None])
+    assert_helper(ops_summary, 'copy_', [None, (1, 0)])
+    assert_helper(ops_summary, 'torch.clone', [None, (1, 0)])
