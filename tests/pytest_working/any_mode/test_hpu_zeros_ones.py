@@ -30,9 +30,6 @@ if not is_gaudi1():
 @pytest.mark.parametrize("dtype", dtypes)
 @pytest.mark.parametrize("op", [torch.zeros, torch.ones])
 def test_op(size, dtype, op):
-    if op == torch.ones and dtype == torch.float8_e4m3fn:
-        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-166156")
-
     def fn(size, dtype, device):
         return op(size, dtype=dtype, device=device)
 

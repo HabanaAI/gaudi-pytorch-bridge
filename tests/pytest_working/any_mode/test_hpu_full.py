@@ -39,7 +39,7 @@ test_data = [
 if not is_gaudi1():
     test_data += [
         (torch.float8_e5m2, 16.0),
-        # (torch.float8_e4m3fn, 16.0), https://jira.habana-labs.com/browse/SW-166156
+        (torch.float8_e4m3fn, 16.0),
     ]
 
 
