@@ -631,3 +631,29 @@ def test_op_sort():
         h_result = compiled_fn(t_h)
         print(h_result.to("cpu"))
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+def test_constant_pad_default():
+    def raw_function(x):
+        m = nn.ConstantPad1d((1, 1), 2.6)
+        pad_x = m(x)
+        return pad_x
+    input_shapes = [
+        (128),
+        (747691),
+        (865548),
+        (1034307)
+    ]
+
+    compiled_fn = torch.compile(
+        raw_function, backend="aot_hpu_training_backend", dynamic=None
+    )
+
+    for s in input_shapes:
+        t = torch.randn(s, requires_grad=True)
+        result = raw_function(t)
+        t_h = t.to("hpu")
+        h_result = compiled_fn(t_h)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+        grad = torch.ones_like(h_result)
+        h_result.backward(grad)
+

@@ -135,7 +135,9 @@ def optimize_graph(
 
         torch.fx.Graph.eliminate_dead_code = dummy_dce_raise
 
-    is_dynamic = get_dynamic_config_value()
+    # In all the three stages of partitioner, dynamicity has to be detected
+    # from graph_module.
+    is_dynamic = is_module_dynamic(graph_module)
 
     ctx = OptimizerContext(
         graph_module,
@@ -180,7 +182,6 @@ def get_passes(stage: OptimizationPassPlacement):
             # These passes will be ran once, they always get and produce a flat graph without submodules.
             pass_graph_print,
             pass_fake_propagation,
-            pass_update_dynamic_shape_ctx,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
             pass_mark_placement,
             pass_graph_print,
@@ -311,17 +312,6 @@ def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
 
     return True
 
-def pass_update_dynamic_shape_ctx(ctx: OptimizerContext) -> bool:
-    """
-    Update dynamic shape status in OptimizerContext.
-
-    Initially dynamic shape status is set based on the user configuration.
-    This pass update the dynamic shape status based on symbolic graph inputs.
-    if any of the graph input is symbolic, then the OptimizerContext
-    is updated as dynamic.
-    """
-    ctx.is_dynamic = is_module_dynamic(ctx.graph_module)
-    return False
 
 def pass_graph_print(ctx: OptimizerContext) -> bool:
     """
