@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "backend/helpers/cast_sequence.h"
 #include "generated/backend/_foreach_add.h"
 #include "generated/backend/add.h"
 #include "generated/backend/rsub.h"
@@ -101,8 +102,9 @@ static auto BuildBinary(
   std::vector<synapse_helpers::tensor> mul, cast;
 
   if (add_casts) {
+    auto result_cast_type = habana_helpers::DataTypeToCastType(result_type);
     for (auto i = 0u; i < inputs.size(); ++i) {
-      if (result_type == dtypes[i]) {
+      if (result_cast_type == habana_helpers::DataTypeToCastType(dtypes[i])) {
         continue;
       }
       cast.push_back(OpBackend::BuildCast(

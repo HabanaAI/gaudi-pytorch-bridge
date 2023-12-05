@@ -41,8 +41,6 @@ FAILING_EAGER_TESTS=(
     "HpuOpTest.divroundTrueBFloat16"
     "HpuOpTest.divroundTrueDouble"
     "HpuOpTest.flip_i8"
-    "HpuOpTest.foreachAdd"
-    "HpuOpTest.foreachMul"
     "HpuOpTest.index"
     "HpuOpTest.logcumsumexp_out"
     "HpuOpTest.logsumexp_0d_keepdim"
