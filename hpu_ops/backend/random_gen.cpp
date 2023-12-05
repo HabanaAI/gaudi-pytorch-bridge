@@ -78,6 +78,7 @@ static std::shared_ptr<void> RandomUniformParams(
   */
   switch (type) {
     case at::ScalarType::Float:
+    case at::ScalarType::Double:
       params->low = from.has_value() ? *from : 0;
       params->high = to.has_value() ? *to : 1 << 24;
       break;
