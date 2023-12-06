@@ -316,6 +316,8 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
   habana_lazy::alltoall_hpu_lazy_out(
       t_input, comm_->GetId(), t_output, outputSplitSizes, inputSplitSizes);
   if (cast_tensor) {
+    PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::alltoall_base");
+    habana_lazy::HbLazyTensor::StepMarker();
     outputTensor.copy_(t_output.to(data_type));
   }
   std::vector<at::Tensor> out_tensors = {outputTensor};
