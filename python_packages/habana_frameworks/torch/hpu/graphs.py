@@ -268,7 +268,8 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
                                               inputs=autograd_inputs,
                                               grad_outputs=tuple(o for o in static_grad_outputs if o is not None),
                                               only_inputs=True,
-                                              allow_unused=allow_unused_input)
+                                              allow_unused=allow_unused_input,
+                                              materialize_grads=allow_unused_input)
 
         static_grad_inputs = []
         grad_idx = 0
