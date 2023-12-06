@@ -22,7 +22,7 @@ FALLBACK_CHECK(
     int64_t dim_,
     bool descending) {
   bool isStable = stable.has_value() ? stable.value() : false;
-  auto dim = self.dim() - dim_ - 1;
+  auto dim = at::maybe_wrap_dim(dim_, self.dim());
 
   if (dim == 0) {
     return !isStable;
