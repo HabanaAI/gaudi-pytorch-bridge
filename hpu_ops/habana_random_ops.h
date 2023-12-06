@@ -27,9 +27,17 @@ namespace habana {
 DEFINE_OP(HabanaBernoulli)
 DEFINE_OP(HabanaRand)
 DEFINE_OP(HabanaRandn)
+DEFINE_OP(HabanaRandint)
 DEFINE_OP(HabanaSeedGenerator)
 
+struct HabanaMultinomial : OpBackend {
+  HabanaMultinomial(int device_id, c10::ScalarType scalar_type);
+  void CustomHandler(synapse_helpers::graph&, at::Stack&) override;
+};
+
 OUTMETA_DECL(HabanaRandOutputMeta);
+OUTMETA_DECL(HabanaRandintOutputMeta);
+OUTMETA_DECL(HabanaMultinomialOutputMeta);
 OUTMETA_DECL(HabanaSeedGeneratorOutputMeta);
 
 } // namespace habana

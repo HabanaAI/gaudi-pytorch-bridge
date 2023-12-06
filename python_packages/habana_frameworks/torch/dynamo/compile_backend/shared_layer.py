@@ -51,8 +51,15 @@ hpu_supported_op_list = {
     "clamp",
 }
 
+hpu_supported_ops_restricted = dict()
+
 if bc.get_pt_hpu_wrap_random_ops_compile():
     hpu_supported_op_list.update(["rand", "randn"])
+    hpu_supported_ops_restricted.update(
+        {
+            "randint": ("dtype", {torch.int, torch.long, None}),
+        }
+    )
 
 hpu_fallback_op_list = {
     # Random OPs.
@@ -61,11 +68,8 @@ hpu_fallback_op_list = {
     "initial_seed",
     "get_rng_state",
     "set_rng_state",
-    "randint",
-    "randint_like",
     "randperm",
     "poisson",
-    "multinomial",
     # Other
     "slice_backward",  # SW-146680
     "addcmul",
@@ -73,9 +77,14 @@ hpu_fallback_op_list = {
 }
 
 
-def check_for_default_op_support(op_name):
+def check_for_default_op_support(op_name, node):
     if op_name in hpu_supported_op_list:
         return True
+    if op_name in hpu_supported_ops_restricted:
+        restrictions = hpu_supported_ops_restricted[op_name]
+        parameter = node.val_kwargs.get(restrictions[0])
+        if parameter in restrictions[1]:
+            return True
     return False
 
 
@@ -140,7 +149,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
             logger.debug(
                 "Fallback required - check_for_default_fallback. Node: ", node.target
             )
-        elif not check_for_default_op_support(op_name):
+        elif not check_for_default_op_support(op_name, node):
             for arg in args:
                 arg_types.append(type(arg))
             normalized_args = torch.fx.operator_schemas.normalize_function(

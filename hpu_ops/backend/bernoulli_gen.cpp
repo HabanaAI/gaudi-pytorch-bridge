@@ -74,7 +74,7 @@ HabanaBernoulli::HabanaBernoulli(int device_id, c10::ScalarType scalar_type)
           device_id,
           "habana_bernoulli",
           scalar_type,
-          {0},
+          {1},
           {},
           {},
           false) {}
@@ -82,10 +82,15 @@ HabanaBernoulli::HabanaBernoulli(int device_id, c10::ScalarType scalar_type)
 void HabanaBernoulli::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto outshape = stack_tensor(stack, 0).sizes();
+  const auto& input = stack_tensor(stack, 1);
 
   syn_out(0) = std::move(bernoulli_impl(
-      this, graph, syn_in(0), syn_in(1), outshape, ScalarType())[0]);
+      this,
+      graph,
+      syn_in(1),
+      syn_in(0),
+      input.sizes().vec(),
+      input.scalar_type())[0]);
 }
 } // namespace habana
 

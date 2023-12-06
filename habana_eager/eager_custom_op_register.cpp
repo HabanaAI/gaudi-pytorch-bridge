@@ -1212,11 +1212,15 @@ TORCH_LIBRARY(hpu, m) {
       "strided_view_ds_h2d(Tensor self, Tensor size, Tensor stride, Tensor offset) -> (Tensor)");
   m.def(
       "strided_view_orig_ds_h2d(Tensor self, Tensor size, Tensor stride) -> (Tensor)");
-  m.def("hpu::habana_bernoulli(Tensor self, Tensor seed) -> Tensor");
+  m.def("hpu::habana_bernoulli(Tensor seed, Tensor self) -> Tensor");
   m.def(
-      "hpu::habana_rand(SymInt[] size, Tensor seed, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+      "hpu::habana_rand(Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def(
-      "hpu::habana_randn(SymInt[] size, Tensor seed, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+      "hpu::habana_randn(Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_randint(Tensor seed, SymInt low, SymInt high, SymInt[] size, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_multinomial(Tensor see, Tensor self, int num_samples, bool replacement=False) -> Tensor");
   m.def(
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
 }

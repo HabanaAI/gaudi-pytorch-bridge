@@ -19,6 +19,8 @@ RANDOM_OPS = (
         "aten.bernoulli.default": torch.ops.hpu.habana_bernoulli,
         "aten.rand.default": torch.ops.hpu.habana_rand,
         "aten.randn.default": torch.ops.hpu.habana_randn,
+        "aten.randint.low": torch.ops.hpu.habana_randint,
+        "aten.multinomial.default": torch.ops.hpu.habana_multinomial,
     }
     if bc.get_pt_hpu_wrap_random_ops_compile()
     else {}
@@ -31,7 +33,7 @@ def is_random_op(node):
 
 def random_op_inputs(node, seed):
     op = RANDOM_OPS[str(node.target)]
-    args = (node.args[0], seed)
+    args = (seed,) + node.args
     kwargs = node.kwargs
 
     return (op, args, kwargs)

@@ -348,6 +348,7 @@ def randngen(
     )
     return torch.normal(mean, stddev, generator=generator)
 
+
 @register_custom_decomposition(aten.sort.default, hpu_backend_decompositions_common)
 def sort(
     a: utils.Tensor,
@@ -356,6 +357,7 @@ def sort(
 ) -> utils.Tuple[utils.Tensor, utils.Tensor]:
     k = a.size(dim) if a.dim() > 0 else 1
     return torch.topk(a, k, dim, descending)
+
 
 @register_custom_decomposition(
     torch.ops.aten.squeeze.dim, hpu_backend_decompositions_common
@@ -390,6 +392,10 @@ def native_dropout(input, p, train=None):
         return (input, torch.ones_like(input, dtype=torch.bool))
 
 
+# Random op decompositions mainly based on pytorch/torch/_inductor/decomposition.py
+# and pytorch/torch/_decomp/decompositions_for_rng.py
+
+
 @register_custom_decomposition(
     torch.ops.aten.rand_like.default, hpu_backend_decompositions_common
 )
@@ -418,6 +424,49 @@ def randn_like(self, *, dtype=None, device=None, memory_format=None, **kwargs):
 def rand_generator(size, **kwargs):
     kwargs.pop("generator", None)
     return torch.rand(size, **kwargs)
+
+
+@register_custom_decomposition(
+    aten.randint_like.default, hpu_backend_decompositions_common
+)
+def randint_like(self, high, *, dtype=None, device=None, memory_format=None, **kwargs):
+    return aten.randint.low(
+        0,
+        high,
+        [*self.size()],
+        dtype=dtype or self.dtype,
+        device=device or self.device,
+        **kwargs,
+    ).to(memory_format=get_like_layout(self, memory_format))
+
+
+@register_custom_decomposition(
+    aten.randint_like.low_dtype, hpu_backend_decompositions_common
+)
+def randint_like_low(
+    self, low, high, *, dtype=None, device=None, memory_format=None, **kwargs
+):
+    return aten.randint.low(
+        low,
+        high,
+        [*self.size()],
+        dtype=dtype or self.dtype,
+        device=device or self.device,
+        **kwargs,
+    ).to(memory_format=get_like_layout(self, memory_format))
+
+
+@register_custom_decomposition(aten.randint.default, hpu_backend_decompositions_common)
+def randint(high, size, **kwargs):
+    return aten.randint.low(0, high, size, **kwargs)
+
+
+@register_custom_decomposition(
+    aten.randint.low_generator, hpu_backend_decompositions_common
+)
+def randint_low_generator(*args, **kwargs):
+    kwargs.pop("generator", None)
+    return aten.randint.low(*args, **kwargs)
 
 
 def get_hpu_decompositions(is_training: bool):

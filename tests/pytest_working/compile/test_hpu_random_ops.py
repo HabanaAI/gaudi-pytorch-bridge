@@ -11,6 +11,7 @@
 ###############################################################################
 import torch
 import pytest
+import numpy as np
 
 from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs
 
@@ -166,22 +167,98 @@ def test_randn(shape, dtype, is_like):
     check_ops_executed_in_jit_ir("habana_randn")
 
 
+@pytest.mark.parametrize("shape", [(20, 40), (5, 10, 15)])
+@pytest.mark.parametrize("low, high", [(2, 200), (-50, 20), (None, 10000)])
+@pytest.mark.parametrize("is_like", [False, True])
+@pytest.mark.parametrize("dtype", [torch.int, torch.long])
+def test_randint(shape, low, high, is_like, dtype):
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    args = (high,)
+    if low:
+        args = (low, high)
+    else:
+        low = 0
+    if is_like:
+        input = torch.empty(shape, dtype=dtype, device="hpu")
+        args = (input,) + args
+        op = torch.randint_like
+    else:
+        args = args + (shape,)
+        op = torch.randint
+
+    compiled_fn = torch.compile(op, backend="aot_hpu_training_backend")
+
+    result_1 = compiled_fn(*args, dtype=dtype, device="hpu").cpu()
+    result_2 = compiled_fn(*args, dtype=dtype, device="hpu").cpu()
+    assert result_1.dtype == dtype
+    assert not torch.equal(result_1, result_2)
+
+    assert torch.all(result_1 < high) and torch.all(result_1 >= low)
+    assert torch.all(result_2 < high) and torch.all(result_2 >= low)
+
+    check_ops_executed_in_jit_ir("habana_randint")
+
+
+@pytest.mark.parametrize("shape", [(10,), (8, 10)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("replacement", [True, False])
+def test_multinomial(shape, dtype, replacement):
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+
+    compiled_fn = torch.compile(torch.multinomial, backend="aot_hpu_training_backend")
+
+    input = torch.rand(shape, dtype=dtype).to("hpu")
+    num_samples = 100 if replacement else 5
+
+    result_1 = compiled_fn(input, num_samples, replacement).cpu()
+    result_2 = compiled_fn(input, num_samples, replacement).cpu()
+    assert result_1.dtype == torch.long
+    assert not torch.equal(result_1, result_2)
+
+    assert torch.all(result_1 >= 0) and torch.all(result_1 < shape[-1])
+    assert torch.all(result_2 >= 0) and torch.all(result_2 < shape[-1])
+
+    if replacement and len(shape) == 1:
+        input = input.cpu()
+        original_prob = input / torch.sum(input)
+        result_1_prob = torch.bincount(result_1) / num_samples
+        result_2_prob = torch.bincount(result_2) / num_samples
+
+        diff_1 = torch.abs(result_1_prob - original_prob)
+        diff_2 = torch.abs(result_2_prob - original_prob)
+        standard_error = torch.sqrt((original_prob * (1 - original_prob)) / num_samples)
+
+        assert np.alltrue((3 * standard_error > diff_1).numpy())
+        assert np.alltrue((3 * standard_error > diff_2).numpy())
+
+    check_ops_executed_in_jit_ir("habana_multinomial")
+
+
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
 def test_various_ops(dtype):
     torch._dynamo.reset()
     clear_t_compile_logs()
 
-    def fn(input_a, input_b, shape_c):
+    def fn(input_a, input_b, shape_c, multinomial_input):
         a = torch.bernoulli(input_a)
         b = torch.rand_like(a)
         c = torch.bernoulli(input_b)
         d = torch.randn_like(c)
         e = torch.rand(shape_c, dtype=dtype, device="hpu")
         f = torch.randn(shape_c, dtype=dtype, device="hpu")
+        g = torch.randint(10, 300, shape_c, dtype=torch.int, device="hpu").to(dtype)
+        h = torch.multinomial(multinomial_input, shape_c[-1], replacement=True).to(
+            dtype
+        )
         ab = torch.mul(a, b)
         cd = torch.div(c, d)
         ef = torch.add(e, f)
-        result = torch.addmm(ab, cd, ef)
+        efg = torch.sub(ef, g)
+        efgh = torch.add(efg, h)
+        result = torch.addmm(ab, cd, efgh)
         return result
 
     compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
@@ -191,20 +268,31 @@ def test_various_ops(dtype):
     shape_c = (8, 12)
     input_a = torch.empty(shape_a, dtype=dtype).uniform_(0, 1).to("hpu")
     input_b = torch.empty(shape_b, dtype=dtype).uniform_(0, 1).to("hpu")
+    multinomial_input = torch.rand(shape_c[-1], dtype=dtype).to("hpu")
+
+    args = (input_a, input_b, shape_c, multinomial_input)
 
     torch.manual_seed(9876543)
-    result_1 = compiled_fn(input_a, input_b, shape_c).cpu()
-    result_2 = compiled_fn(input_a, input_b, shape_c).cpu()
-    result_3 = compiled_fn(input_a, input_b, shape_c).cpu()
+    result_1 = compiled_fn(*args).cpu()
+    result_2 = compiled_fn(*args).cpu()
+    result_3 = compiled_fn(*args).cpu()
     assert not torch.equal(result_1, result_2)
     assert not torch.equal(result_1, result_3)
 
     torch.manual_seed(9876543)
-    result_1a = compiled_fn(input_a, input_b, shape_c).cpu()
-    result_2a = compiled_fn(input_a, input_b, shape_c).cpu()
-    result_3a = compiled_fn(input_a, input_b, shape_c).cpu()
+    result_1a = compiled_fn(*args).cpu()
+    result_2a = compiled_fn(*args).cpu()
+    result_3a = compiled_fn(*args).cpu()
     assert torch.equal(result_1, result_1a)
     assert torch.equal(result_2, result_2a)
     assert torch.equal(result_3, result_3a)
 
-    check_ops_executed_in_jit_ir({"habana_bernoulli", "habana_rand", "habana_randn"})
+    check_ops_executed_in_jit_ir(
+        {
+            "habana_bernoulli",
+            "habana_rand",
+            "habana_randn",
+            "habana_randint",
+            "habana_multinomial",
+        }
+    )
