@@ -482,6 +482,7 @@ void* device_memory::workspace_alloc(
         towl::emitDeviceMemorySummary("Post-Recipe-Decrease-Workspace");
         v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
       }
+      memory_reporter_event_create(device_, MEM_DEFRAGMENT_START);
       bool defragmentation_done = false;
       if (v_ptr == nullptr && device_.IsMemorydefragmentationEnabled()) {
         MemoryStats stats;
@@ -496,6 +497,9 @@ void* device_memory::workspace_alloc(
 
       if (defragmentation_done) {
         v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
+        memory_reporter_event_create(device_, MEM_DEFRAGMENT_SUCCESS);
+      } else {
+        memory_reporter_event_create(device_, MEM_DEFRAGMENT_FAIL);
       }
 
       if (v_ptr != nullptr) {
@@ -1035,6 +1039,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
     PT_DEVMEM_DEBUG("Memory Stats", stats.DebugString());
     PT_DEVMEM_DEBUG("Allocation failed for size::", size);
     /* defragment memory now*/
+    memory_reporter_event_create(device_, MEM_DEFRAGMENT_START);
     bool defragmentation_done = false;
     if (device_.IsMemorydefragmentationEnabled()) {
       PT_DEVMEM_DEBUG(
@@ -1044,6 +1049,9 @@ device_ptr device_memory::get_pointer(mem_handle h) {
     if (defragmentation_done) {
       std::tie(ptr, size) = get_and_alloc_mem();
       update_on_defragment_ = true;
+      memory_reporter_event_create(device_, MEM_DEFRAGMENT_SUCCESS);
+    } else {
+      memory_reporter_event_create(device_, MEM_DEFRAGMENT_FAIL);
     }
 
     habana_lazy::log_dev_mem_stats(

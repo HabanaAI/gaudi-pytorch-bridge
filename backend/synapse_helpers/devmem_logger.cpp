@@ -1145,6 +1145,15 @@ void memory_reporter_event_create(
       case MEM_REPORTER_USER_CALL:
         event_name = "USER_REQUEST_EVENT";
         break;
+      case MEM_DEFRAGMENT_START:
+        event_name = "DEFRAGMENT_START";
+        break;
+      case MEM_DEFRAGMENT_SUCCESS:
+        event_name = "DEFRAGMENT_SUCCESS";
+        break;
+      case MEM_DEFRAGMENT_FAIL:
+        event_name = "DEFRAGMENT_FAIL";
+        break;
     }
     auto& dmd = deviceMallocData::singleton();
     dmd.create_memory_reporter_event(device, event_name);

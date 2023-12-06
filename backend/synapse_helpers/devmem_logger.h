@@ -41,6 +41,9 @@ enum mem_reporter_type {
   MEM_REPORTER_ALLOC_FAILS, /* report event when alloc fails */
   MEM_REPORTER_OOM, /* report event when oom */
   MEM_REPORTER_USER_CALL, /* report event when user request */
+  MEM_DEFRAGMENT_START, /* repoort event when defragmentation start */
+  MEM_DEFRAGMENT_SUCCESS, /* repoort event when defragmentation success */
+  MEM_DEFRAGMENT_FAIL, /* repoort event when defragmentation fail */
 };
 
 class deviceMallocData final {
