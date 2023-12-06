@@ -53,11 +53,19 @@ sizes_vec AddMMOutshape(const at::Stack& stack) {
 
 OutputMetaDataVector AddMMMeta(const at::Stack& stack) {
   OutputMetaData meta;
+  // Take output tensor dtype
+  c10::optional<at::Tensor> output_tensor = c10::nullopt;
+  c10::optional<c10::ScalarType> output_type = c10::nullopt;
+  if (stack.at(stack.size() - 1).isTensor()) {
+    output_tensor = stack.at(stack.size() - 1).toTensor();
+    output_type = stack.at(stack.size() - 1).toTensor().scalar_type();
+  }
   meta.dtype = habana_helpers::DTypeHelper::get_compute_dtype(
       stack,
-      c10::nullopt,
+      output_tensor,
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
-      false);
+      false,
+      output_type);
   meta.shape = AddMMOutshape(stack)[0];
   return {meta};
 }

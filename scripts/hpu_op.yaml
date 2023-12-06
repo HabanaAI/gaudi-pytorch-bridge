@@ -2520,6 +2520,7 @@ equal:
 eq.Scalar_out:
   dtypes: [BFloat16, Float, Int, Long, Char, Byte]
   guid: equal_fwd
+  output_meta: CompareMeta
   scalar_ids: [1]
   promote_to_common_type: [self, other]
   safe_cast_check: false
@@ -3143,6 +3144,7 @@ gt.Scalar_out:
     Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Half]
   guid: greater_fwd
+  output_meta: CompareMeta
   scalar_ids: [1]
   promote_to_common_type: [self, other]
   safe_cast_check: false
@@ -3548,8 +3550,8 @@ index_add_:
 
 index_copy:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
@@ -3558,18 +3560,18 @@ index_copy:
 
 index_copy_:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
   inplace_ids: [0]
 
 index_copy.out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
 

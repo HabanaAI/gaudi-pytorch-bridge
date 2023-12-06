@@ -962,13 +962,18 @@ synDataType pytorch_to_synapse_type(const c10::ScalarType pt_type) {
 
 c10::ScalarType synapse_to_pytorch_type(const synDataType type) {
   static const auto map = std::unordered_map<synDataType, c10::ScalarType>{
-      {synDataType::syn_type_uint8, c10::ScalarType::Byte},
-      {synDataType::syn_type_int8, c10::ScalarType::Char},
-      {synDataType::syn_type_int16, c10::ScalarType::Short},
-      {synDataType::syn_type_int32, c10::ScalarType::Int},
-      {synDataType::syn_type_float, c10::ScalarType::Float},
-      {synDataType::syn_type_fp16, c10::ScalarType::Half},
-      {synDataType::syn_type_bf16, c10::ScalarType::BFloat16},
+    {synDataType::syn_type_uint8, c10::ScalarType::Byte},
+        {synDataType::syn_type_int8, c10::ScalarType::Char},
+        {synDataType::syn_type_int16, c10::ScalarType::Short},
+        {synDataType::syn_type_int32, c10::ScalarType::Int},
+        {synDataType::syn_type_float, c10::ScalarType::Float},
+        {synDataType::syn_type_fp16, c10::ScalarType::Half},
+        {synDataType::syn_type_bf16, c10::ScalarType::BFloat16},
+        {synDataType::syn_type_int64, c10::ScalarType::Long},
+#if HAVE_FP8_SUPPORT
+        {synDataType::syn_type_fp8_152, c10::ScalarType::Float8_e5m2},
+        {synDataType::syn_type_fp8_143, c10::ScalarType::Float8_e4m3fn},
+#endif
   };
 
   auto result = map.find(type);

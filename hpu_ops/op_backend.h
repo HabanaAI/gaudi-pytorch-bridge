@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include <absl/functional/any_invocable.h>
 #include "backend/habana_operator.h"
 
 #pragma once
@@ -208,6 +209,23 @@ class OpBackend : public HabanaOperator {
       synapse_helpers::graph& graph,
       const at::Stack& stack);
   void HandleHwScaling(const at::Stack&, const size_t);
+
+  static synapse_helpers::tensor BuildBoolCast(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      const at::IntArrayRef sizes,
+      const at::ScalarType& from,
+      c10::optional<int> final_result_index = c10::nullopt);
+
+  static synapse_helpers::tensor BuildRegularCast(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      const at::IntArrayRef sizes,
+      const at::ScalarType& from,
+      const at::ScalarType& to,
+      c10::optional<int> final_result_index);
 
  protected:
   std::vector<synapse_helpers::tensor> BuildOp(
@@ -523,5 +541,14 @@ class OpBackend : public HabanaOperator {
   std::unordered_map<size_t, synapse_helpers::tensor_or_ref> syn_inputs_cast_;
 
   OutputMetaDataVector m_output_metadata;
+
+  // Those are lambdas that shall be executed after
+  // node has been added in AllocateAndAddSynapseNode.
+  // They are utilised ba HandleOutFn to insert cast
+  // before output tensor provided by user
+  // and the result of executed kernel
+  // as there might be some discrepancies
+  // between kernel supported type and user tensor type.
+  std::vector<absl::AnyInvocable<void()>> m_post_add_node_functions;
 };
 } // namespace habana

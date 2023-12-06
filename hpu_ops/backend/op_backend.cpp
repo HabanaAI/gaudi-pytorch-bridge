@@ -29,16 +29,21 @@
 namespace sh = synapse_helpers;
 
 namespace {
+
+auto GetPrecisionString(
+    const c10::ScalarType& dtype,
+    const std::string_view& prefix) {
+  return synapse_helpers::graph::name_suffix_from_type(
+      habana_helpers::pytorch_to_synapse_type(dtype),
+      habana_helpers::isLongTypeSupported(prefix));
+}
+
 auto BuildCastGuid(const c10::ScalarType& src, const c10::ScalarType& dst) {
   using namespace std::literals;
   static const std::string_view prefix = "cast_"sv;
-  auto get_prec_str = [](const c10::ScalarType& dtype) {
-    return synapse_helpers::graph::name_suffix_from_type(
-        habana_helpers::pytorch_to_synapse_type(dtype),
-        habana_helpers::isLongTypeSupported(prefix));
-  };
-  const auto srcStr = get_prec_str(src);
-  const auto dstStr = get_prec_str(dst);
+
+  const auto srcStr = GetPrecisionString(src, prefix);
+  const auto dstStr = GetPrecisionString(dst, prefix);
   const auto guid =
       std::string{prefix}.append(srcStr).append("_to_"sv).append(dstStr);
   HABANA_ASSERT(
@@ -185,6 +190,29 @@ void OpBackend::HandleFn(sh::graph& graph) {
 }
 
 void OpBackend::HandleOutFn(sh::graph& graph, const at::Stack& stack) {
+  auto _shouldCastToOutputTensorDtype =
+      [](const synDataType& outputType, const c10::ScalarType& metadataType) {
+        using namespace std::literals;
+        static const std::string_view cast_prefix = "cast_"sv;
+
+        if (outputType == syn_type_na) {
+          return false;
+        }
+
+        if (metadataType == c10::ScalarType::Float8_e4m3fn ||
+            metadataType == c10::ScalarType::Float8_e5m2)
+          return false;
+
+        if (outputType == synDataType::syn_type_fp8_152 ||
+            outputType == synDataType::syn_type_fp8_143)
+          return false;
+
+        return GetPrecisionString(
+                   habana_helpers::synapse_to_pytorch_type(outputType),
+                   cast_prefix) !=
+            GetPrecisionString(metadataType, cast_prefix);
+      };
+
   if (!m_is_outfn) {
     return;
   }
@@ -195,12 +223,66 @@ void OpBackend::HandleOutFn(sh::graph& graph, const at::Stack& stack) {
   unsigned syn_inputs_size = p_context_->syn_inputs_.size();
 
   for (int i = m_num_out_tensors; i > 0; --i) {
+    auto output_tensor_index = m_num_out_tensors - i;
     p_context_->pt_outputs_.emplace_back(stack.at(stack_size - i).toTensor());
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
             p_context_->syn_inputs_.at(syn_inputs_size - i),
             graph,
             m_output_metadata.at(m_num_out_tensors - i).external));
+
+    if (_shouldCastToOutputTensorDtype(
+            p_context_->syn_outputs_[output_tensor_index].ref().type(),
+            m_output_metadata[output_tensor_index].dtype)) {
+      PT_BRIDGE_DEBUG(
+          "Inserting cast from operator output type: ",
+          m_output_metadata[output_tensor_index].dtype,
+          "to output tensor type: ",
+          habana_helpers::synapse_to_pytorch_type(
+              p_context_->syn_outputs_[output_tensor_index].ref().type()))
+
+      const auto& output_metadata = m_output_metadata[output_tensor_index];
+      auto output_syn_tensor =
+          std::move(p_context_->syn_outputs_[output_tensor_index]);
+
+      p_context_->syn_outputs_.pop_back();
+      auto intermediate_output_tensor = habana_helpers::create_tensor(
+          output_metadata.shape,
+          output_metadata.strides,
+          graph,
+          false,
+          false,
+          HPURegistrar::get_device().id(),
+          output_metadata.dtype);
+      p_context_->syn_outputs_.emplace_back(
+          std::move(intermediate_output_tensor));
+
+      absl::AnyInvocable<void()> addCastBeforeOutputTensor =
+          [this,
+           &graph,
+           &output_metadata,
+           output_tensor_index,
+           output_syn_tensor = std::move(output_syn_tensor)]() mutable {
+            auto casted_tensor =
+                std::move(p_context_->syn_outputs_[output_tensor_index]);
+            p_context_->syn_outputs_[output_tensor_index] =
+                std::move(output_syn_tensor);
+
+            auto return_syn_tensor = CastHelper(
+                graph,
+                casted_tensor.ref().get(),
+                output_metadata.shape,
+                output_metadata.dtype,
+                habana_helpers::synapse_to_pytorch_type(
+                    p_context_->syn_outputs_[output_tensor_index].ref().type()),
+                output_tensor_index);
+
+            p_context_->syn_outputs_[output_tensor_index] =
+                std::move(return_syn_tensor);
+          };
+
+      m_post_add_node_functions.push_back(std::move(addCastBeforeOutputTensor));
+    }
   }
 
   // Remove the out tensors from syn inputs
@@ -594,6 +676,11 @@ void OpBackend::AllocateAndAddSynapseNode(
   }
 
   AddNode(graph, stack);
+
+  for (auto& f : m_post_add_node_functions)
+    f();
+
+  m_post_add_node_functions.clear();
 }
 
 void OpBackend::CreateShapeTensorInput(
@@ -835,7 +922,33 @@ std::vector<sh::tensor> OpBackend::BuildNode(
   return outputs;
 }
 
-sh::tensor OpBackend::BuildCast(
+sh::tensor OpBackend::BuildBoolCast(
+    OpBackend* op,
+    sh::graph& graph,
+    synTensor syn_in,
+    const at::IntArrayRef sizes,
+    const at::ScalarType& from,
+    c10::optional<int> final_result_index) {
+  // We want either 0x00 or 0x01 stored in bytes when casting from or to Bool.
+  auto zero_tensor = OpBackend::BuildConstant(op, graph, 0, from);
+
+  auto eq = OpBackend::BuildNode(
+      op,
+      graph,
+      {get_guid_with_precision("equal_fwd", from),
+       {syn_in, zero_tensor.get()},
+       {{sizes, c10::ScalarType::Bool}}});
+
+  auto ne = OpBackend::BuildNode(
+      op,
+      graph,
+      {"not_fwd_i8",
+       {eq[0].get()},
+       {{sizes, c10::ScalarType::Bool, final_result_index}}});
+  return std::move(ne[0]);
+}
+
+sh::tensor OpBackend::BuildRegularCast(
     OpBackend* op,
     sh::graph& graph,
     synTensor syn_in,
@@ -843,26 +956,6 @@ sh::tensor OpBackend::BuildCast(
     const at::ScalarType& from,
     const at::ScalarType& to,
     c10::optional<int> final_result_index) {
-  // We want either 0x00 or 0x01 stored in bytes when casting from or to Bool.
-  bool handle_from_bool =
-      from == at::kBool && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0;
-  if (handle_from_bool || to == at::kBool) {
-    auto zero_tensor = OpBackend::BuildConstant(op, graph, 0, from);
-
-    auto eq = OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("equal_fwd", from),
-         {syn_in, zero_tensor.get()},
-         {{sizes, c10::ScalarType::Bool}}});
-
-    auto ne = OpBackend::BuildNode(
-        op,
-        graph,
-        {"not_fwd_i8", {eq[0].get()}, {{sizes, to, final_result_index}}});
-    return std::move(ne[0]);
-  }
-
   // Verify from and to types correctness
   BuildCastGuid(from, to);
 
@@ -900,6 +993,36 @@ sh::tensor OpBackend::BuildCast(
 
   HABANA_ASSERT(!casts.empty(), "Empty vector of casts.");
   return std::move(casts.back());
+};
+
+sh::tensor OpBackend::BuildCast(
+    OpBackend* op,
+    sh::graph& graph,
+    synTensor syn_in,
+    const at::IntArrayRef sizes,
+    const at::ScalarType& from,
+    const at::ScalarType& to,
+    c10::optional<int> final_result_index) {
+  PT_BRIDGE_DEBUG("Performing cast from:\t", from, "\t\tto:\t", to);
+  bool handle_from_bool =
+      from == at::kBool && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0;
+  if (!(handle_from_bool || to == at::kBool))
+    return OpBackend::BuildRegularCast(
+        op, graph, syn_in, sizes, from, to, final_result_index);
+
+  auto boolResult = OpBackend::BuildBoolCast(
+      op,
+      graph,
+      syn_in,
+      sizes,
+      from,
+      to == at::kBool ? final_result_index : c10::nullopt);
+
+  if (to == at::kBool || to == at::kChar)
+    return boolResult;
+
+  return OpBackend::BuildRegularCast(
+      op, graph, boolResult.get(), sizes, at::kBool, to, final_result_index);
 }
 
 sh::tensor OpBackend::BuildConstant(
