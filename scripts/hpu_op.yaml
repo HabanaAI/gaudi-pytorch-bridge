@@ -4243,6 +4243,14 @@ _masked_scale:
   op_backend: MaskedScale
   out_ids: [0]
 
+masked_scatter:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char]
+    Gaudi2: [BFloat16, Float, Half, Int, Char]
+    Gaudi3: [BFloat16, Float, Half, Int, Char]
+  op_backend: MaskedScatter
+  out_ids: [0]
+
 masked_scatter_:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char]
