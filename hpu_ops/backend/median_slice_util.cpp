@@ -49,7 +49,7 @@ std::vector<synapse_helpers::tensor> Median_Slice_Helper(
   if (useDsVariant) {
     sliceDs.dims = outshape.size();
     for (unsigned d = 0; d < sliceDs.dims; ++d) {
-      sliceDs.steps[0] = 1;
+      sliceDs.steps[d] = 1;
     }
   }
 
