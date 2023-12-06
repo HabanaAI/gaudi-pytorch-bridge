@@ -35,7 +35,7 @@ class FusedRMSNorm(torch.autograd.Function):
         gamma,
         eps,
         use_stages=True,
-        bwd_mode=RmsNormBwdMode.DEFAULT,
+        bwd_mode=0,
     ):
         (root_mean_square_norm, inverse_root_mean_square) = torch.ops.hpu.rms_norm(
             data_in, gamma, eps
