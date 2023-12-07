@@ -23,6 +23,37 @@ namespace habana {
 
 namespace sh = synapse_helpers;
 
+static bool is_gaudi1_and_should_cast_from_BF16(
+    c10::optional<OpBackend::TensorsPair> tensor_pair_opt) {
+  // Gaudi1 doesn't provide LegalizeInputTraits, so we need to manually
+  // cast to correct, supported dtype
+  auto device_type{habana::HPURegistrar::get_device().type()};
+  if (device_type != synDeviceGaudi)
+    return false;
+  if (tensor_pair_opt.has_value())
+    return tensor_pair_opt->pt_t.scalar_type() == c10::ScalarType::BFloat16;
+  return false;
+}
+
+static synTensor cast_if_necessary_or_default(
+    OpBackend* op,
+    sh::graph& graph,
+    c10::optional<OpBackend::TensorsPair> source_opt,
+    synTensor& default_val,
+    std::optional<sh::tensor>& storage) {
+  if (is_gaudi1_and_should_cast_from_BF16(source_opt)) {
+    storage = OpBackend::BuildCast(
+        op,
+        graph,
+        source_opt->syn_t,
+        source_opt->pt_t.sizes().vec(),
+        c10::ScalarType::BFloat16,
+        c10::ScalarType::Float);
+    return storage->get();
+  }
+  return default_val;
+}
+
 namespace {
 namespace BNFwd {
 
@@ -256,7 +287,7 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
 
   c10::IntArrayRef rm_size = get_rm_size(input.pt_t);
   std::optional<sh::tensor> weightStorageOpt;
-  const auto [weight] = get_or_create_tensor<TENSOR_IDX>(
+  auto [weight] = get_or_create_tensor<TENSOR_IDX>(
       op,
       graph,
       weight_opt,
@@ -264,9 +295,13 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
       c10::ScalarType::Float,
       1,
       weightStorageOpt);
+  weight = cast_if_necessary_or_default(
+      &op, graph, weight_opt, weight, weightStorageOpt);
   std::optional<sh::tensor> biasStorageOpt;
-  const auto [bias] = get_or_create_tensor<TENSOR_IDX>(
+  auto [bias] = get_or_create_tensor<TENSOR_IDX>(
       op, graph, bias_opt, rm_size, c10::ScalarType::Float, 0, biasStorageOpt);
+  bias = cast_if_necessary_or_default(
+      &op, graph, bias_opt, bias, biasStorageOpt);
   std::optional<sh::tensor> runningMeanStorageOpt;
   auto [running_mean, running_mean_storage_or_idx] =
       get_or_create_tensor<TENSOR_IDX, STORAGE_IDX>(
@@ -277,6 +312,8 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
           c10::ScalarType::Float,
           0,
           runningMeanStorageOpt);
+  running_mean = cast_if_necessary_or_default(
+      &op, graph, running_mean_opt, running_mean, runningMeanStorageOpt);
   std::optional<sh::tensor> runningVarStorageOpt;
   auto [running_var, running_var_storage_or_idx] =
       get_or_create_tensor<TENSOR_IDX, STORAGE_IDX>(
@@ -287,7 +324,8 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
           c10::ScalarType::Float,
           get_running_var_def_value(op),
           runningVarStorageOpt);
-
+  running_var = cast_if_necessary_or_default(
+      &op, graph, running_var_opt, running_var, runningVarStorageOpt);
   auto input_dim = input.pt_t.sizes().size();
   bool is_functional = is_batch_norm_functional(op);
 
@@ -373,7 +411,7 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
       0,
       runningMeanStorageOpt);
   std::optional<sh::tensor> runningVarStorageOpt;
-  const auto [running_var] = get_or_create_tensor<TENSOR_IDX>(
+  auto [running_var] = get_or_create_tensor<TENSOR_IDX>(
       op,
       graph,
       running_var_opt,
@@ -381,6 +419,8 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
       c10::ScalarType::Float,
       get_running_var_def_value(op),
       runningVarStorageOpt);
+  running_var = cast_if_necessary_or_default(
+      &op, graph, running_var_opt, running_var, runningVarStorageOpt);
 
   auto input_dim = input.pt_t.sizes().size();
 
@@ -720,7 +760,7 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   c10::IntArrayRef rm_size = get_rm_size(input.pt_t);
   std::optional<sh::tensor> weightStorageOpt;
-  const auto [weight] = get_or_create_tensor<TENSOR_IDX>(
+  auto [weight] = get_or_create_tensor<TENSOR_IDX>(
       *this,
       graph,
       weight_opt,
@@ -730,7 +770,8 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
       weightStorageOpt);
 
   synTensor saved_mean, saved_istd;
-  std::optional<sh::tensor> saved_mean_storage, saved_istd_storage;
+  std::optional<sh::tensor> saved_mean_storage, saved_istd_storage,
+      weight_storage;
   if (!is_training(training, running_mean_opt.has_value())) {
     std::optional<sh::tensor> runningMeanStorageOpt;
     const auto [running_mean] = get_or_create_tensor<TENSOR_IDX>(
@@ -773,9 +814,22 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
                                        .at(0));
     saved_istd = (*saved_istd_storage).get();
   } else {
-    saved_mean = (*saved_mean_opt).syn_t;
-    saved_istd = (*saved_istd_opt).syn_t;
+    saved_mean = cast_if_necessary_or_default(
+        this,
+        graph,
+        saved_mean_opt,
+        saved_mean_opt.has_value() ? (*saved_mean_opt).syn_t : saved_mean,
+        saved_mean_storage);
+
+    saved_istd = cast_if_necessary_or_default(
+        this,
+        graph,
+        saved_istd_opt,
+        saved_istd_opt.has_value() ? (*saved_istd_opt).syn_t : saved_istd,
+        saved_istd_storage);
   }
+  weight = cast_if_necessary_or_default(
+      this, graph, weight_opt, weight, weight_storage);
 
   size_t size; // Will be initialized by below call
   const auto params = FillBatchNormBwdParams(stack, size);

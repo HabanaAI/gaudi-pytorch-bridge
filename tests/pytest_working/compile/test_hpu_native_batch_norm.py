@@ -35,8 +35,6 @@ def test_hpu_native_batch_norm_legit_no_training(dtype, params):
 @pytest.mark.parametrize("shape", [[4, 3, 8]], ids=format_tc)
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 def test_hpu_native_batch_norm_bwd(shape, dtype):
-    if is_gaudi1 and dtype == torch.bfloat16:
-        pytest.xfail("[SW-167045] - segfault - GLUE_INCOMPATIBLE_DATA_TYPE")
     def fn(input, weight, bias, running_mean, running_var):
         native_batch_norm = torch.native_batch_norm(input, weight, bias, running_mean=running_mean, running_var=running_var, training=True, momentum=0.1, eps=1e-5)
         grad = torch.ones_like(native_batch_norm[0])

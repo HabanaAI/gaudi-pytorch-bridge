@@ -59,6 +59,7 @@ hpu_supported_op_list = {
     "dequantize_per_tensor",
     "quantize_per_channel",
     "dequantize_per_channel",
+    "_native_batch_norm_legit_functional",
 }
 
 hpu_supported_ops_restricted = dict()
