@@ -32,7 +32,13 @@ def _data_ptr(t) -> int:
         return 0
 
 def _get_device_type() -> int:
-    return _experimental_C.get_device_type()
+    if _is_available():
+        try:
+            return _experimental_C.get_device_type()
+        except:
+            return -1
+    else:
+        return -1
 
 def _is_fp16_supported() -> bool:
     return _get_device_type() != synDeviceType.synDeviceGaudi

@@ -17,8 +17,12 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/helpers/tensor_info.h"
-#include "backend/synapse_helpers/device.h"
 #include "common/utils.h"
+
+int GetDeviceType() {
+  auto& device = habana::HPURegistrar::get_device();
+  return device.type();
+}
 
 intptr_t GetDataPtr(const at::Tensor& t) {
   void* data_ptr = common::GetDataPtrFromTensor(t);
@@ -73,9 +77,7 @@ void RecordParam(
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("get_device_type", []() {
-    return synapse_helpers::device::get_device_type();
-  });
+  m.def("get_device_type", []() { return GetDeviceType(); });
   m.def(
       "data_ptr",
       [](const at::Tensor& t) { return GetDataPtr(t); },

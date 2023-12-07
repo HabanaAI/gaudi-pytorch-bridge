@@ -485,25 +485,6 @@ int device::get_total_device_count() {
   return count;
 }
 
-int device::get_device_type() {
-  auto deviceTypes = get_supported_devices();
-  // This call can be made prior to device acquire so
-  // creating a synapse session, so SynApi will become available
-  auto sessionPtr = get_or_create_session();
-  for (auto deviceType : deviceTypes) {
-    uint32_t count;
-    synStatus status = synDeviceGetCountByDeviceType(&count, deviceType);
-    if (status != synSuccess) {
-      return synDeviceTypeInvalid;
-    }
-    if (count > 0) {
-      return deviceType;
-    }
-  }
-  PT_SYNHELPER_WARN("Invalid device.");
-  return synDeviceTypeInvalid;
-}
-
 void device::cleanup() {
   if (cleanup_done_) {
     return;

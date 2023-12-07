@@ -45,12 +45,6 @@ print("data_ptr", htexp._data_ptr(x))
 device_type = htexp._get_device_type()
 if device_type == htexp.synDeviceType.synDeviceGaudi:
     print("gaudi")
-elif device_type == htexp.synDeviceType.synDeviceGaudi2:
-    print("gaudi2")
-elif device_type == htexp.synDeviceType.synDeviceGaudi3:
-    print("gaudi3")
-else:
-    print("Invalid")
 
 print("set_profiler_tracer_memory", htexp._set_profiler_tracer_memory(0))
 
