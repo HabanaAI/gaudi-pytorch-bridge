@@ -1132,6 +1132,13 @@ at::Tensor roi_align_backward(
       {{output_shape}}};
   return hpu_op.call();
 }
+
+at::Tensor dropout(const at::Tensor& input, double p, bool train) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("dropout :", DUMP_3ARGS(input, p, train));
+
+  return std::get<0>(at::native_dropout(input, p, train));
+}
 } // namespace
 
 namespace habana::eager {
@@ -1297,6 +1304,10 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::scaled_triangular_softmax_retain",
       scaled_triangular_softmax_retain);
+}
+
+TORCH_LIBRARY_IMPL(aten, HPU, m) {
+  m.impl("dropout", dropout);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

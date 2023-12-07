@@ -13,6 +13,7 @@
 
 #include "generated/lazy/_fused_dropout.h"
 #include "generated/lazy/bernoulli.h"
+#include "generated/lazy/native_dropout.h"
 #include "generated/lazy/poisson.h"
 #include "generated/lazy/random.h"
 #include "generated/lazy/uniform.h"
@@ -64,4 +65,43 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     at::Tensor&) {
   ConvertGeneratorToSeedTensor(get_inputs().rbegin()[1]);
 }
+
+unsigned NativeDropoutEarlyExitCondition(
+    const at::Tensor& input,
+    double,
+    c10::optional<bool> train) {
+  if (input.numel() == 0) {
+    return 1;
+  }
+  if (train.has_value() && !*train) {
+    return 2;
+  }
+  return 0;
+}
+
+::std::tuple<at::Tensor, at::Tensor> NativeDropoutEarlyExit(
+    unsigned eePath,
+    const at::Tensor& input,
+    double,
+    c10::optional<bool>) {
+  if (eePath == 1) {
+    return std::make_tuple(input, at::empty_like(input, input.options()));
+  } else {
+    return std::make_tuple(
+        input.clone(),
+        at::ones_like(
+            input,
+            input.options().dtype(c10::CppTypeToScalarType<bool>::value)));
+  }
+}
+
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
+    habana_lazy::LazyOp,
+    NativeDropoutFE,
+    std::tuple<at::Tensor, at::Tensor>) {
+  c10::IValue fakeGenToSeed = c10::optional<at::Generator>{};
+  ConvertGeneratorToSeedTensor(fakeGenToSeed);
+  get_inputs().back() = fakeGenToSeed;
+}
+
 } // namespace habana

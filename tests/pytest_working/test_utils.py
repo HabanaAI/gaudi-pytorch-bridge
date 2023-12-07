@@ -43,7 +43,12 @@ def is_lazy():
 
 
 def evaluate_fwd_kernel(
-    kernel, kernel_params, check_results=True, atol=0.001, rtol=1.0e-3, copy_kernel=True
+    kernel,
+    kernel_params,
+    check_results=True,
+    atol=0.001,
+    rtol=1.0e-3,
+    copy_kernel=True,
 ):
     """Run given kernel with tensor_list as arguments on HPU and
     then CPU. Optionally check results and return them if user wants
@@ -55,7 +60,10 @@ def evaluate_fwd_kernel(
     # we are still safe because we already copied tensors to HPU before running
     # CPU kernel.
     hpu_result = run_kernel_on_device(
-        device=hpu, kernel=kernel, kernel_params=kernel_params, copy_kernel=copy_kernel
+        device=hpu,
+        kernel=kernel,
+        kernel_params=kernel_params,
+        copy_kernel=copy_kernel,
     )
 
     cpu_result = run_kernel_on_device(
@@ -180,7 +188,8 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
             continue
 
     hpu_tensors = [
-        tensor.to(cpu) if tensor is not None else tensor for tensor in hpu_tensors
+        tensor.to(cpu) if tensor is not None else tensor
+        for tensor in hpu_tensors
     ]
 
     for i in range(len(hpu_tensors)):
@@ -294,7 +303,9 @@ def run_kernel_on_device(
             if isinstance(v, torch.Tensor):
                 kernel_params_local[k] = v.to(device)
             elif (
-                isinstance(v, tuple) and (len(v) > 0) and isinstance(v[0], torch.Tensor)
+                isinstance(v, tuple)
+                and (len(v) > 0)
+                and isinstance(v[0], torch.Tensor)
             ):
                 if device == cpu:
                     # HPU does not support dtype=long, therefore use dtype=int
@@ -311,7 +322,9 @@ def run_kernel_on_device(
                 else:
                     kernel_params_local[k] = tuple([i.to(device) for i in v])
             elif (
-                isinstance(v, list) and (len(v) > 0) and isinstance(v[0], torch.Tensor)
+                isinstance(v, list)
+                and (len(v) > 0)
+                and isinstance(v[0], torch.Tensor)
             ):
                 kernel_params_local[k] = [i.to(device) for i in v]
             else:
@@ -323,7 +336,9 @@ def run_kernel_on_device(
             for tensor in tensor_list
         ]
 
-    result = kernel(**kernel_params_local) if kernel_params else kernel(*tensor_list)
+    result = (
+        kernel(**kernel_params_local) if kernel_params else kernel(*tensor_list)
+    )
 
     return _convert_to_tensor_list(result)
 
@@ -415,7 +430,9 @@ class TcLimitedFormatter:
                 assert val
                 ret = self.format_tc_common(val[0], limit_array)
             for i in range(1, len(val)):
-                ret = "{}x{}".format(ret, self.format_tc_common(val[i], limit_array))
+                ret = "{}x{}".format(
+                    ret, self.format_tc_common(val[i], limit_array)
+                )
             return "[{}]".format(ret)
         elif isinstance(val, list):
             if len(val) == 0:
@@ -480,7 +497,7 @@ def clear_t_compile_logs():
     fallback_logger.set_store_data(True)
 
 
-def check_ops_executed_in_jit_ir(op_names):
+def check_ops_executed_in_jit_ir(op_names, verbose=False):
     import re
     from habana_frameworks.torch.dynamo.compile_backend.passes import (
         logger as graph_logger,
@@ -492,8 +509,9 @@ def check_ops_executed_in_jit_ir(op_names):
     graphs_data = graph_logger.data
     fallback_data = fallback_logger.data
 
-    fallback_ops = []
-    pattern = r"[PT_COMPILE] Node: (\w+) requires fallback: (\w+)"
+    fallback_ops = set()
+    non_fallback_ops = set()
+    pattern = r"\[PT_COMPILE\] Node: (\w+) requires fallback: (\w+)"
 
     for log in fallback_data:
         m = re.match(pattern, log)
@@ -501,10 +519,11 @@ def check_ops_executed_in_jit_ir(op_names):
             op = m.group(1)
             fallback = m.group(2)
             if fallback == "True":
-                fallback_ops.append(op)
+                fallback_ops.add(op)
+            elif fallback == "False":
+                non_fallback_ops.add(op)
 
-    if not isinstance(op_names, set):
-        op_names = {op_names}
+    all_ops = fallback_ops.union(non_fallback_ops)
 
     nodes_in_graphs = set()
     pattern = r"::(\w+)\("
@@ -516,10 +535,24 @@ def check_ops_executed_in_jit_ir(op_names):
                 if m:
                     nodes_in_graphs.add(m.group(1))
 
+    if not isinstance(op_names, set):
+        op_names = {op_names}
+
+    if verbose:
+        print(f"{op_names = }")
+        print(f"{fallback_ops = }")
+        print(f"{non_fallback_ops = }")
+        print(f"{all_ops = }")
+        print(f"{nodes_in_graphs = }")
+
     op_names.difference_update(nodes_in_graphs)
+
+    if verbose:
+        print(f"{op_names = }")
 
     graph_logger.set_store_data(False)
     fallback_logger.set_store_data(False)
 
+    assert all_ops, "No ops detected"
     assert not fallback_ops, f"These ops fell back to eager: {fallback_ops}"
     assert not op_names, f"Ops {op_names} were not found in the JIT IR graph"

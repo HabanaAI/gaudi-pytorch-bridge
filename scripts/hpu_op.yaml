@@ -568,16 +568,37 @@ _foreach_zero_:
   op_backend: ForeachZero
 
 _fused_dropout:
-  output_meta: FusedDropoutMeta
-  custom_fill_params: FillFusedDropoutParams
+  output_meta: FusedNativeDropoutMeta
+  custom_fill_params: FillFusedNativeDropoutParams
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_frontend: GeneratorToSeed
-  op_backend: FusedDropout
+  op_backend: FusedNativeDropout
   out_ids: [0, 0]
   schema_args: "(Tensor self, float p, Tensor? seed) -> (Tensor, Tensor)"
+
+native_dropout:
+  output_meta: FusedNativeDropoutMeta
+  custom_fill_params: FillFusedNativeDropoutParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  early_exit: NativeDropoutEarlyExit
+  op_frontend: NativeDropoutFE
+  op_backend: FusedNativeDropout
+  out_ids: [0, 0]
+  schema_args: "(Tensor input, float p, Tensor? seed) -> (Tensor, Tensor)"
+
+native_dropout_backward:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+  op_backend: NativeDropoutBackward
+  out_ids: [0]
 
 as_strided:
   override_fn: as_strided_hpu

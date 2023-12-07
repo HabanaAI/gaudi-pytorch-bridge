@@ -12,6 +12,7 @@
  */
 #include "generated/eager/_fused_dropout.h"
 #include "generated/eager/bernoulli.h"
+#include "generated/eager/native_dropout.h"
 #include "generated/eager/poisson.h"
 #include "generated/eager/random.h"
 #include "generated/eager/uniform.h"
@@ -53,4 +54,43 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
     at::Tensor&) {
   ConvertGeneratorToSeedTensor(m_symbol, get_inputs().rbegin()[1]);
 }
+
+unsigned NativeDropoutEarlyExitCondition(
+    const at::Tensor& input,
+    double,
+    c10::optional<bool> train) {
+  if (input.numel() == 0) {
+    return 1;
+  }
+  if (train.has_value() && !*train) {
+    return 2;
+  }
+  return 0;
+}
+
+::std::tuple<at::Tensor, at::Tensor> NativeDropoutEarlyExit(
+    unsigned eePath,
+    const at::Tensor& input,
+    double,
+    c10::optional<bool>) {
+  if (eePath == 1) {
+    return std::make_tuple(input, at::empty_like(input, input.options()));
+  } else {
+    return std::make_tuple(
+        input.clone(),
+        at::ones_like(
+            input,
+            input.options().dtype(c10::CppTypeToScalarType<bool>::value)));
+  }
+}
+
+HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
+    eager::EagerOp,
+    NativeDropoutFE,
+    std::tuple<at::Tensor, at::Tensor>) {
+  c10::IValue fakeGenToSeed = c10::optional<at::Generator>{};
+  ConvertGeneratorToSeedTensor(m_symbol, fakeGenToSeed);
+  get_inputs().back() = fakeGenToSeed;
+}
+
 } // namespace habana
