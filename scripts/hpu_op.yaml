@@ -7701,7 +7701,7 @@ var.correction_out:
   op_backend: Var
 
 var_mean:
-  custom_output_shape: StdVarMeanComputeOutShape
+  output_meta: StdVarMeanMeta
   dtypes: [BFloat16, Float]
   op_backend: VarMean
   out_ids: [0, 0]
