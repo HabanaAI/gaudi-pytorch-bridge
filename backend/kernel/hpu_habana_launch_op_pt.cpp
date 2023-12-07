@@ -234,10 +234,10 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
        (front_end_type == habana_helpers::HabanaFrontendTypes::COMPILE));
   enable_2stage_pipeline_ =
       jit_graph_and_meta_data_->get_is_pipeline_supported();
-  // To Do - To also enable 4-stage pipeline for dynamic shapes
   enable_4stage_pipeline_ = enable_2stage_pipeline_ &&
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE) &&
-      !refine_ds_enabled_ && frontend_type_eager_or_compile;
+      frontend_type_eager_or_compile;
+  PT_DYNAMIC_SHAPE_DEBUG("Enable 4 stage pipeline = ", enable_4stage_pipeline_);
 }
 
 HabanaLaunchOpPT::~HabanaLaunchOpPT() {
@@ -1387,6 +1387,24 @@ at::Tensor createDynamicTensor(
   auto allocator = habana::getHABANADeviceAllocator();
   constexpr c10::DispatchKeySet hpu_ks(c10::DispatchKey::HPU);
   auto dtype = c10::ScalarType::Float;
+
+  at::Tensor tensor = at::detail::empty_generic(
+      at::asIntArrayRefUnchecked({0}), allocator, hpu_ks, dtype, c10::nullopt);
+
+  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  tmeta->set_tensor_type(type);
+  tensor.unsafeGetTensorImpl()->set_sizes_contiguous(size);
+  PT_EAGER_DEBUG(
+      "Created dynamic tensor of type:", type, ", size:", tensor.sizes());
+  return tensor;
+}
+
+at::Tensor createDynamicTensor(
+    const std::vector<int64_t>& size,
+    synTensorType type,
+    c10::ScalarType dtype) {
+  auto allocator = habana::getHABANADeviceAllocator();
+  constexpr c10::DispatchKeySet hpu_ks(c10::DispatchKey::HPU);
 
   at::Tensor tensor = at::detail::empty_generic(
       at::asIntArrayRefUnchecked({0}), allocator, hpu_ks, dtype, c10::nullopt);
@@ -2873,11 +2891,10 @@ torch::jit::Stack HabanaLaunchOpPT::CreateStack(
         }
       } else {
         if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
-          new_tensor = at::empty(
-                           dynamic_shapes.at(i).get_dims(),
-                           tensor.options().dtype(),
-                           tensor.suggest_memory_format())
-                           .to(at::kHPU);
+          auto original_dtype =
+              c10::typeMetaToScalarType(tensor.options().dtype());
+          new_tensor = createDynamicTensor(
+              dynamic_shapes.at(i).get_dims(), tensor_type, original_dtype);
         } else {
           new_tensor = habana_lazy::empty_hpu_lazy(
               dynamic_shapes.at(i).get_dims(),
@@ -3010,7 +3027,8 @@ void HabanaLaunchOpPT::CreateFirstDynamicBucket() {
   }
 }
 
-void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
+void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
+    HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution) {
   PT_BRIDGE_BEGIN;
 
   std::shared_ptr<RecipeArgumentSpec> rargpsh_graph =
@@ -3161,52 +3179,69 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
         }
       }
 
-      if (!dry_run_) {
-        rv.launch(
-            hpu_stream_,
-            input_refs,
-            intermediate_tensors_ptr_sh_,
-            *aten_outputs_ptr_sh_,
-            syn_launch_info_,
-            external_tensor_info_indexes_,
-            dma_inputs_);
+      if (!enable_4stage_pipeline_) {
+        if (!dry_run_) {
+          rv.launch(
+              hpu_stream_,
+              input_refs,
+              intermediate_tensors_ptr_sh_,
+              *aten_outputs_ptr_sh_,
+              syn_launch_info_,
+              external_tensor_info_indexes_,
+              dma_inputs_);
+        }
+
+        // Update the stack from the recipe itself
+        UpdateRecipeOutputs();
+        ReturnCachedRecipe(rv);
+
+        RefinementEngine::GetEngine().AddGraphKey(
+            rargpsh_graph->graphHashCode());
+        PT_DYNAMIC_SHAPE_DEBUG(
+            current_dbipsh_->digest_str(), current_dbipsh_->history_str());
+        PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: dynamic shapes");
+
+        current_dbipsh_->get_statistics()->LogSelectedRecipe(
+            cur_rargpsh->hashCode(), 0);
+        current_dbipsh_->get_statistics()->LogShapes(
+            jit_ir_graph_, graph_input_info.act_input_tshapes);
+
+        auto t_ns_base{current_dbipsh_->GetTimeBase(current_bucket_id_)};
+        auto t_ns{current_dbipsh_->GetTime(current_bucket_id_)};
+
+        current_dbipsh_->get_statistics()->LogLaunchBase(t_ns_base, 0);
+        current_dbipsh_->get_statistics()->LogLaunch(t_ns, 0);
+        current_dbipsh_->get_statistics()->LogLaunchPerf(t_ns_base, t_ns, 0);
+        if (t_ns && t_ns_base) {
+          habana_helpers::DynamicBucketInfo::update_improvement_map(
+              cur_rargpsh->hashCode(), (t_ns < t_ns_base));
+        }
+        current_dbipsh_->get_statistics()->GetDigest(
+            cur_rargpsh->graphHashCode(),
+            current_bucket_id_,
+            cur_ds_token_,
+            cur_rargpsh->hashCode(),
+            true);
+
+        current_dbipsh_->get_statistics()->DumpAndNextStep();
+        ClearMembers();
+        ClearStatics();
+      } else {
+        PT_DYNAMIC_SHAPE_DEBUG("Cache hit pipeline flow");
+        current_dbipsh_->get_statistics()->LogSelectedRecipe(
+            cur_rargpsh->hashCode(), 0);
+        current_dbipsh_->get_statistics()->LogShapes(
+            jit_ir_graph_, graph_input_info.act_input_tshapes);
+        current_dbipsh_->get_statistics()->GetDigest(
+            cur_rargpsh->graphHashCode(),
+            current_bucket_id_,
+            cur_ds_token_,
+            cur_rargpsh->hashCode(),
+            true);
+        current_dbipsh_->get_statistics()->DumpAndNextStep();
+        execution_control_.cached_task(graph_key_with_perm_);
+        pipeline_execution(!enable_4stage_pipeline_);
       }
-
-      // Update the stack from the recipe itself
-      UpdateRecipeOutputs();
-      ReturnCachedRecipe(rv);
-
-      RefinementEngine::GetEngine().AddGraphKey(rargpsh_graph->graphHashCode());
-      PT_DYNAMIC_SHAPE_DEBUG(
-          current_dbipsh_->digest_str(), current_dbipsh_->history_str());
-      PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: dynamic shapes");
-
-      current_dbipsh_->get_statistics()->LogSelectedRecipe(
-          cur_rargpsh->hashCode(), 0);
-      current_dbipsh_->get_statistics()->LogShapes(
-          jit_ir_graph_, graph_input_info.act_input_tshapes);
-
-      auto t_ns_base{current_dbipsh_->GetTimeBase(current_bucket_id_)};
-      auto t_ns{current_dbipsh_->GetTime(current_bucket_id_)};
-
-      current_dbipsh_->get_statistics()->LogLaunchBase(t_ns_base, 0);
-      current_dbipsh_->get_statistics()->LogLaunch(t_ns, 0);
-      current_dbipsh_->get_statistics()->LogLaunchPerf(t_ns_base, t_ns, 0);
-      if (t_ns && t_ns_base) {
-        habana_helpers::DynamicBucketInfo::update_improvement_map(
-            cur_rargpsh->hashCode(), (t_ns < t_ns_base));
-      }
-      current_dbipsh_->get_statistics()->GetDigest(
-          cur_rargpsh->graphHashCode(),
-          current_bucket_id_,
-          cur_ds_token_,
-          cur_rargpsh->hashCode(),
-          true);
-
-      current_dbipsh_->get_statistics()->DumpAndNextStep();
-      ClearMembers();
-      ClearStatics();
-
       PT_BRIDGE_END;
       return;
     } else {
@@ -3216,18 +3251,10 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
     }
   }
 
-  CompileAndRunDynamicGraph(graph_input_info);
+  CompileAndRunDynamicGraph(graph_input_info, pipeline_execution);
   ival_hash_to_input_index_map_.clear();
 
   habana_helpers::DynamicBucketInfo::inc_original_recipe_count();
-  current_dbipsh_->get_statistics()->GetDigest(
-      cur_rargpsh->graphHashCode(),
-      current_bucket_id_,
-      cur_ds_token_,
-      cur_rargpsh->hashCode(),
-      false);
-
-  current_dbipsh_->get_statistics()->DumpAndNextStep();
   PT_BRIDGE_END;
 }
 
@@ -3702,11 +3729,11 @@ void HabanaLaunchOpPT::run(
   auto& device = HPURegistrar::get_device();
 
   // Check whether dynamic shape is needed
-  size_t graph_key_with_perm = graph_key_;
+  graph_key_with_perm_ = graph_key_;
   size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
-  graph_key_with_perm = at::hash_combine(graph_key_with_perm, sym_hash_code);
+  graph_key_with_perm_ = at::hash_combine(graph_key_with_perm_, sym_hash_code);
   size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-  graph_key_with_perm = at::hash_combine(graph_key_with_perm, perm_hash_code);
+  graph_key_with_perm_ = at::hash_combine(graph_key_with_perm_, perm_hash_code);
 
   const auto eager_mode =
       (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER);
@@ -3729,7 +3756,7 @@ void HabanaLaunchOpPT::run(
       "JIT IR graph_hash_code : ",
       graph_key_,
       ", hash_code with data layout : ",
-      graph_key_with_perm,
+      graph_key_with_perm_,
       "is dynamic : ",
       refine_ds_enabled_);
 
@@ -3776,14 +3803,14 @@ void HabanaLaunchOpPT::run(
       // currently only eager backend supports pipelining
       // can be merged once non-eager backends support pipelining
       if (enable_graph_caching_ && !compile_mode) {
-        ExecuteSynapseCache(graph_key_with_perm);
+        ExecuteSynapseCache(graph_key_with_perm_);
       } else {
         PT_LAZY_EAGER_DEBUG(
             "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
         if (!is_enable_4stage_pipeline) {
-          ExecuteSynapseCache(graph_key_with_perm);
+          ExecuteSynapseCache(graph_key_with_perm_);
         } else {
-          execution_control_.cached_task(graph_key_with_perm);
+          execution_control_.cached_task(graph_key_with_perm_);
           pipeline_execution(false);
         }
       }
@@ -4047,17 +4074,17 @@ void HabanaLaunchOpPT::run(
     return;
   }
   // shape agnostic caching :: end
-  if (!eager_mode && ref_input_shape_map_.count(graph_key_with_perm) &&
+  if (!eager_mode && ref_input_shape_map_.count(graph_key_with_perm_) &&
       refine_ds_enabled_) {
     PT_DYNAMIC_SHAPE_DEBUG(
         "JIT IR graph_hash_code : ",
         graph_key_,
         ", hash_code with data layout : ",
-        graph_key_with_perm,
+        graph_key_with_perm_,
         "\nStarting dynamic shape flow");
 
     jit_graph_and_meta_data_->clear_cached_graph_info();
-    ProcessHabanaFusedOpWithDS();
+    ProcessHabanaFusedOpWithDS(pipeline_execution);
     PT_BRIDGE_END;
     return;
   }
@@ -4068,7 +4095,7 @@ void HabanaLaunchOpPT::run(
   // with incorrect shapes.
 
   if (!eager_mode && habana_helpers::GetRefineDynamicShapeStatus()) {
-    CreateStaticCompilationDBI(graph_key_with_perm);
+    CreateStaticCompilationDBI(graph_key_with_perm_);
   }
 
   constexpr bool dry_run__ = false;
@@ -4086,11 +4113,9 @@ void HabanaLaunchOpPT::run(
   aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
 
   if ((eager_mode || compile_mode) &&
-      !GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT) &&
       jit_graph_and_meta_data_->get_is_pipeline_supported()) {
     PT_LAZY_EAGER_DEBUG(
         "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-
     bool is_permute_data_cached = jit_graph_and_meta_data_->is_permute_set();
     if (is_permute_data_cached) {
       ApplyOutputPermutationsFromCache();
@@ -4557,7 +4582,8 @@ void HabanaLaunchOpPT::handle_pass_exception(
 // Handle running passes and calls CompileAndExecute.
 // Also handles fallback and failures.
 void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
-    DynamicShapeInfo& graph_input_info) {
+    DynamicShapeInfo& graph_input_info,
+    HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution) {
   auto& device = HPURegistrar::get_device();
   habana_helpers::CompilationPass last_compilation_pass =
       habana_helpers::CompilationPass::STATIC;
@@ -4624,41 +4650,93 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
   syn_graph->set_dynamic_graph(is_dynamic_graph);
   EvictSynapseRecipe(graph_input_info.current_bucket_id);
   BuildSynapseGraph(syn_graph);
-  CompileSynapseGraph();
-  aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
-  ConstructPatchingTableAndAtenOutputs();
-  UpdateSynapsePermutations();
-  StoreCompiledInformation();
-  ExecuteSynapseGraph();
 
-  current_dbipsh_->get_statistics()->LogCompilation(
-      jit_ir,
-      jit_ir_graph_,
-      graph_input_info.min_policy,
-      graph_input_info.max_policy,
-      ranges,
-      current_dbipsh_->GetRecipeKeyForBucket(
-          graph_input_info.current_bucket_id),
-      result,
-      last_compilation_pass);
-  current_dbipsh_->get_statistics()->LogShapes(
-      jit_ir_graph_, graph_input_info.act_input_tshapes);
-  bool refine_candidate = false;
-  if (last_compilation_pass != habana_helpers::CompilationPass::STATIC) {
-    refine_candidate =
-        (current_dbipsh_->GetMFUBucket() == graph_input_info.current_bucket_id);
-  }
-  current_dbipsh_->get_statistics()->LogUsedBucket(
-      graph_input_info.current_bucket_id,
-      jit_ir_graph_,
-      ranges,
-      refine_candidate);
-  current_dbipsh_->get_statistics()->LogSelectedRecipe(
-      current_dbipsh_->GetRecipeKeyForBucket(
-          graph_input_info.current_bucket_id),
-      0);
-  if (!syn_graph_ptr_->is_empty()) {
-    current_dbipsh_->get_statistics()->LogRecipeMemory(cur_rvalpsh);
+  if (enable_4stage_pipeline_) {
+    current_dbipsh_->get_statistics()->LogCompilation(
+        jit_ir,
+        jit_ir_graph_,
+        graph_input_info.min_policy,
+        graph_input_info.max_policy,
+        ranges,
+        current_dbipsh_->GetRecipeKeyForBucket(
+            graph_input_info.current_bucket_id),
+        result,
+        last_compilation_pass);
+    current_dbipsh_->get_statistics()->LogShapes(
+        jit_ir_graph_, graph_input_info.act_input_tshapes);
+    current_dbipsh_->get_statistics()->LogUsedBucket(
+        graph_input_info.current_bucket_id,
+        jit_ir_graph_,
+        ranges,
+        // setting refine candidate false here since for
+        // refinement pipelining is disabled
+        false);
+    current_dbipsh_->get_statistics()->LogSelectedRecipe(
+        current_dbipsh_->GetRecipeKeyForBucket(
+            graph_input_info.current_bucket_id),
+        0);
+    current_dbipsh_->get_statistics()->GetDigest(
+        cur_rargpsh->graphHashCode(),
+        current_bucket_id_,
+        cur_ds_token_,
+        cur_rargpsh->hashCode(),
+        false);
+    current_dbipsh_->get_statistics()->DumpAndNextStep();
+    bool is_permute_data_cached = jit_graph_and_meta_data_->is_permute_set();
+    if (is_permute_data_cached) {
+      ApplyOutputPermutationsFromCache();
+    } else {
+      permutation_info_saver_ =
+          std::make_unique<PermutationInfoSaver>(jit_graph_and_meta_data_);
+    }
+    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
+    PT_DYNAMIC_SHAPE_DEBUG("Cache miss pipeline flow");
+    pipeline_execution(true);
+  } else {
+    CompileSynapseGraph();
+    aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
+    ConstructPatchingTableAndAtenOutputs();
+    UpdateSynapsePermutations();
+    StoreCompiledInformation();
+    ExecuteSynapseGraph();
+
+    current_dbipsh_->get_statistics()->LogCompilation(
+        jit_ir,
+        jit_ir_graph_,
+        graph_input_info.min_policy,
+        graph_input_info.max_policy,
+        ranges,
+        current_dbipsh_->GetRecipeKeyForBucket(
+            graph_input_info.current_bucket_id),
+        result,
+        last_compilation_pass);
+    current_dbipsh_->get_statistics()->LogShapes(
+        jit_ir_graph_, graph_input_info.act_input_tshapes);
+    bool refine_candidate = false;
+    if (last_compilation_pass != habana_helpers::CompilationPass::STATIC) {
+      refine_candidate =
+          (current_dbipsh_->GetMFUBucket() ==
+           graph_input_info.current_bucket_id);
+    }
+    current_dbipsh_->get_statistics()->LogUsedBucket(
+        graph_input_info.current_bucket_id,
+        jit_ir_graph_,
+        ranges,
+        refine_candidate);
+    current_dbipsh_->get_statistics()->LogSelectedRecipe(
+        current_dbipsh_->GetRecipeKeyForBucket(
+            graph_input_info.current_bucket_id),
+        0);
+    if (!syn_graph_ptr_->is_empty()) {
+      current_dbipsh_->get_statistics()->LogRecipeMemory(cur_rvalpsh);
+    }
+    current_dbipsh_->get_statistics()->GetDigest(
+        cur_rargpsh->graphHashCode(),
+        current_bucket_id_,
+        cur_ds_token_,
+        cur_rargpsh->hashCode(),
+        false);
+    current_dbipsh_->get_statistics()->DumpAndNextStep();
   }
 }
 

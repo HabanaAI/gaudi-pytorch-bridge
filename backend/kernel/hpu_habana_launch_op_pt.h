@@ -30,6 +30,10 @@ IValPtrShared GetPrimListConstructNodeOuputIValue(
 // Api to create shape or H2d tensors with zero memory allocations.
 // Information in shape tensor is embedded in tensor meta data
 at::Tensor createDynamicTensor(const std::vector<int64_t>&, synTensorType);
+at::Tensor createDynamicTensor(
+    const std::vector<int64_t>& size,
+    synTensorType type,
+    c10::ScalarType dtype);
 
 struct DynamicShapeInfo {
   habana_helpers::InpTensorShapes act_input_tshapes;
@@ -326,7 +330,7 @@ class HabanaLaunchOpPT {
   // hpu_op_workspace_size_--------------------///-----------------------------------///-----------------------------------///----------------Write--------------///-----------Read
   // hpu_op_ntensorbytes_----------------------///-----------------------------------///-----------------------------------///----------------Write--------------///-----------Read
   std::shared_ptr<synapse_helpers::graph> syn_graph_ptr_ = nullptr;
-
+  std::unique_ptr<VecOfIValPtrSh> aten_outputs_ptr_sh_{nullptr};
   static void RunHybridSif(
       std::shared_ptr<torch::jit::Graph> jit_ir_graph,
       torch::jit::Stack& inputs,
@@ -355,6 +359,7 @@ class HabanaLaunchOpPT {
   std::string id_str_ = std::string();
   std::string op_strs_ = std::string();
   size_t graph_key_ = 0;
+  size_t graph_key_with_perm_ = 0;
   std::vector<std::vector<int64_t>> out_shapes{};
 
   size_t prim_nodes_ival_counter{0};
@@ -601,8 +606,6 @@ class HabanaLaunchOpPT {
 
   std::optional<std::vector<at::Tensor>> allocated_outputs_;
 
-  std::unique_ptr<VecOfIValPtrSh> aten_outputs_ptr_sh_{nullptr};
-
   // Count for intermediate synapse tensors in a graph
   // intermediates syn tensors can be both persistent and non-persistent
   int64_t intermediate_syn_tensors_count_{0};
@@ -655,7 +658,8 @@ class HabanaLaunchOpPT {
   OutputMetaDataVector nodeOutputMetaData(torch::jit::Node* node);
   void CreateValueToIvalueMapForInputs();
   void InitiateSynlaunchTimeCapture(RecipeValueSpec& rv);
-  void ProcessHabanaFusedOpWithDS();
+  void ProcessHabanaFusedOpWithDS(
+      HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution);
   void CreateFirstDynamicBucket();
   void DumpStaticCompilationStatistics(
       size_t graph_key_with_perm,
@@ -855,7 +859,9 @@ class HabanaLaunchOpPT {
   void handle_pass_exception(
       DynamicShapeInfo& graph_input_info,
       const PassException& e);
-  void CompileAndRunDynamicGraph(DynamicShapeInfo& graph_input_info);
+  void CompileAndRunDynamicGraph(
+      DynamicShapeInfo& graph_input_info,
+      HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution);
   torch::jit::Stack CreateStack(
       const torch::jit::Stack& stack,
       habana_helpers::InpTensorShapes& dynamic_shapes);
