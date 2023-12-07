@@ -215,39 +215,6 @@ class TrainingArguments:
         },
     )
 
-    hmp: bool = field(
-        default=False,
-        metadata={"help": "Enable Habana 16-bit(mixed) precision mode through HMP library"},
-    )
-
-    hmp_bf16: str = field(
-        default='',
-        metadata={
-            "help": "Path to BF16 ops list in HMP O1 mode"
-        },
-    )
-
-    hmp_fp32: str = field(
-        default='',
-        metadata={
-            "help": "Path to FP32 ops list in HMP O1 mode"
-        },
-    )
-
-    hmp_opt_level: str = field(
-        default='O1',
-        metadata={
-            "help": "Choose optimization level for HMP"
-        },
-    )
-
-    hmp_verbose: bool = field(
-        default='False',
-        metadata={
-            "help": "Enable verbose mode for HMP"
-        },
-    )
-
     local_rank: int = field(default=-1, metadata={"help": "For distributed training: local_rank"})
 
     tpu_num_cores: Optional[int] = field(

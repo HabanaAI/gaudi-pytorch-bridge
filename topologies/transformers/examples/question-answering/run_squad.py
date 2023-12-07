@@ -374,24 +374,14 @@ def train(args, train_dataset, model, tokenizer, trainMetaData):
                             else:
                                 FusedNorm.clip_norm(model.parameters())
                         else:
-                            if args.hmp:
-                                from habana_frameworks.torch.hpex import hmp
-                                with hmp.disable_casts():
-                                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-                            else:
-                                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                            torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                     else:
                         torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                 if args.logging_steps == 1:
                     tp_probe_tensors_iteration_end(model, device, outputs[1].detach().to(
                         'cpu'), loss.item(), trainMetaData.ParamsDump, False)
 
-                if args.use_habana and args.hmp and not (args.use_fused_adam):
-                    from habana_frameworks.torch.hpex import hmp
-                    with hmp.disable_casts():
-                        optimizer.step()
-                else:
-                    optimizer.step()
+                optimizer.step()
                 scheduler.step()  # Update learning rate schedule
                 if args.use_jit_trace:
                     for param in model_trace.parameters():
@@ -922,11 +912,6 @@ def main():
         "See details at https://nvidia.github.io/apex/amp.html",
     )
     parser.add_argument("--use_jit_trace", action='store_true', default=False, help='run with torch jit trace mode')
-    parser.add_argument('--hmp', dest='hmp', action='store_true', help='enable hmp mode')
-    parser.add_argument('--hmp_bf16', default='', help='path to bf16 ops list in hmp O1 mode')
-    parser.add_argument('--hmp_fp32', default='', help='path to fp32 ops list in hmp O1 mode')
-    parser.add_argument('--hmp_opt_level', default='O1', help='choose optimization level for hmp')
-    parser.add_argument('--hmp_verbose', action='store_true', help='enable verbose mode for hmp')
     parser.add_argument("--server_ip", type=str, default="", help="Can be used for distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="Can be used for distant debugging.")
     parser.add_argument("--threads", type=int, default=1, help="multiple threads for converting example to features")
@@ -1029,12 +1014,6 @@ def main():
             import habana_frameworks.torch.distributed.hccl
             torch.distributed.init_process_group(args.dist_backend, rank=args.local_rank, world_size=args.world_size)
             args.n_gpu = 1
-
-        if args.hmp:
-            print(args.hmp_bf16)
-            from habana_frameworks.torch.hpex import hmp
-            hmp.convert(opt_level=args.hmp_opt_level, bf16_file_path=args.hmp_bf16,
-                        fp32_file_path=args.hmp_fp32, isVerbose=args.hmp_verbose)
 
     elif args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")

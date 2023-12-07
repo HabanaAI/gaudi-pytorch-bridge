@@ -455,12 +455,6 @@ class Trainer:
             if not is_apex_available():
                 raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
             model, optimizer = amp.initialize(model, optimizer, opt_level=self.args.fp16_opt_level)
-        
-        if self.args.hmp:
-            print(self.args.hmp_bf16)
-            from habana_frameworks.torch.hpex import hmp
-            hmp.convert(opt_level=self.args.hmp_opt_level, bf16_file_path=self.args.hmp_bf16,
-                     fp32_file_path=self.args.hmp_fp32, isVerbose=self.args.hmp_verbose)
 
         if self.args.use_jit_trace:
             model.train()
@@ -631,24 +625,14 @@ class Trainer:
                                 else:
                                     FusedNorm.clip_norm(model.parameters())
                             else:
-                                if self.args.hmp:
-                                    from habana_frameworks.torch.hpex import hmp
-                                    with hmp.disable_casts():
-                                        torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.max_grad_norm)
-                                else:
-                                    torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.max_grad_norm)
+                                torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.max_grad_norm)
                         else:
                             torch.nn.utils.clip_grad_norm_(model.parameters(), self.args.max_grad_norm)
 
                     if is_torch_tpu_available():
                         xm.optimizer_step(optimizer)
                     else:
-                        if self.args.use_habana and self.args.hmp and not(self.args.use_fused_adam):
-                            from habana_frameworks.torch.hpex import hmp
-                            with hmp.disable_casts():
-                                optimizer.step()
-                        else:
-                            optimizer.step()
+                        optimizer.step()
 
                     scheduler.step()
                     if self.args.use_jit_trace:
