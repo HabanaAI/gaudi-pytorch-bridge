@@ -22,7 +22,6 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
-from habana_frameworks.torch import _hpex_C as tex
 
 from .constants import dist_group_type
 from .recipe import DelayedScaling, Format
@@ -156,6 +155,7 @@ def get_amax_buffer_key(fp8_meta: Dict[str, Any], forward: bool = True) -> str:
 
 def add_amax_to_global_buffer(fp8_meta: Dict[str, Any], forward: bool = True) -> None:
     """Append 1D tensor `amax` to global buffer."""
+
     global _global_fp8_buffer
     buffer_key = get_amax_buffer_key(fp8_meta, forward=forward)
     # NOTE: For hybrid mode amax_history is the same as for forward. To limit the number
@@ -261,6 +261,7 @@ def restore_fp8_meta_tensors(fp8_meta: Dict[str, Any]) -> None:
 
 def copy_amax_from_global_buffer(fp8_meta: Dict[str, Any], forward: bool = True) -> None:
     """Populate current amax with the correct location from buffer."""
+
     fp8_meta_tensor_key = get_meta_tensor_key_bool(forward=forward)
     buffer_position_key = get_buffer_position_key(forward=forward)
     if buffer_position_key not in fp8_meta:
@@ -284,6 +285,7 @@ def copy_amax_from_global_buffer(fp8_meta: Dict[str, Any], forward: bool = True)
 
 def set_amax_buffer_key_deletion(fp8_meta: Dict[str, Any], forward: bool = True) -> None:
     """Delete this amax key from global buffer during autocast end."""
+
     if get_run_id_key(forward=forward) not in fp8_meta:
         return
     global _buffer_delete_key_fwd, _buffer_delete_key_bwd

@@ -149,3 +149,41 @@ def safely_set_viewless_tensor_data(tensor: torch.Tensor, new_data_tensor: torch
 def cast_if_needed(tensor: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
     """Cast tensor to dtype"""
     return tensor if tensor is None or tensor.dtype == dtype else tensor.to(dtype)
+
+
+# Each tensor here is shape (N, ) holding all scaling
+# data for a single FP8 block, e.g. LayerNormLinear
+class FP8TensorMeta:
+    scale = torch.Tensor()
+    scale_inv = torch.Tensor()
+    amax_history = torch.Tensor()
+    amax_history_index = torch.Tensor()
+
+
+# NOTE: Ideally FP8FwdTensors and FP8BwdTensors classes should derive from IntEnum,
+# but torch.compile doesn't support enums yet.
+
+
+# Used as named indices on the `scale`, `scale_inv`,
+# and `amax` tensors in the `FP8TensorMeta` class.
+class FP8FwdTensors:
+    GEMM1_INPUT = 0
+    GEMM1_WEIGHT = 1
+    GEMM2_INPUT = 2
+    GEMM2_WEIGHT = 3
+    GEMM3_INPUT = 4
+    GEMM3_WEIGHT = 5
+    GEMM4_INPUT = 6
+    GEMM4_WEIGHT = 7
+    GEMM5_INPUT = 8
+    GEMM5_WEIGHT = 9
+
+
+# Used as named indices on the `scale`, `scale_inv`,
+# and `amax` tensors in the `FP8TensorMeta` class.
+class FP8BwdTensors:
+    GRAD_OUTPUT1 = 0
+    GRAD_OUTPUT2 = 1
+    GRAD_OUTPUT3 = 2
+    GRAD_OUTPUT4 = 3
+    GRAD_OUTPUT5 = 4

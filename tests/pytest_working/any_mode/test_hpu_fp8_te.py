@@ -16,14 +16,26 @@ import habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 as fp8
 import numpy as np
 import pytest
 import torch
-from habana_frameworks.torch import _hpex_C as tex
+from compile.test_dynamo_utils import use_eager_fallback
 from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import (
     cast_from_fp8,
     cast_to_fp8,
     fp8_gelu,
 )
 from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import DelayedScaling, Format
-from test_utils import _is_simulator, is_gaudi1
+from habana_frameworks.torch.hpex.experimental.transformer_engine.utils import FP8FwdTensors, FP8TensorMeta
+from test_utils import (
+    _is_simulator,
+    check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
+    is_gaudi1,
+    is_pytest_mode_compile,
+    is_pytest_mode_eager,
+)
+
+pytestmark = [
+    pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 doesn't support fp8"),
+]
 
 
 class EnvironmentVariableSetter:
@@ -74,30 +86,45 @@ def _assert_amax_history_equal(a, b):
 @pytest.mark.parametrize("stochastic_rounding", [True, False])
 @pytest.mark.parametrize("scale", [1.0, 8.0])
 @pytest.mark.parametrize("format", [torch.float8_e5m2, torch.float8_e4m3fn], ids=["e5m2", "e4m3fn"])
-def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, scale, format):
+@pytest.mark.parametrize("measure_amax", [True, False], ids=["with_amax", "no_amax"])
+def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, scale, format, measure_amax):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
     input_value = 18.5
     input_data = torch.tensor([input_value] * 1000, dtype=dtype, device=device)
 
-    meta = tex.FP8TensorMeta()
+    meta = FP8TensorMeta()
     meta.scale = torch.full((1,), scale, dtype=torch.float32, device=device)
     meta.scale_inv = torch.full((1,), 1 / scale, dtype=torch.float32, device=device)
     meta.amax_history = torch.zeros(1, 1, dtype=torch.float32, device=device)
-    cast_out = cast_to_fp8(
-        input_data,
-        meta,
-        tex.FP8FwdTensors.GEMM1_INPUT,
-        format,
-        stochastic_rounding=stochastic_rounding,
-    )
 
-    upcasted = cast_from_fp8(
-        cast_out,
-        meta,
-        tex.FP8FwdTensors.GEMM1_INPUT,
-        torch.float32,
-    )
+    def fn(inp, meta, format):
+        casted = cast_to_fp8(
+            inp,
+            meta,
+            FP8FwdTensors.GEMM1_INPUT,
+            format,
+            stochastic_rounding=stochastic_rounding,
+            measure_amax=measure_amax,
+        )
+
+        upcasted = cast_from_fp8(
+            casted,
+            meta,
+            FP8FwdTensors.GEMM1_INPUT,
+            inp.dtype,
+        )
+
+        return casted, upcasted
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, dynamic=False, backend="hpu_backend")
+
+    with use_eager_fallback():
+        casted, upcasted = fn(input_data, meta, format)
+
     mean = torch.mean(upcasted).cpu()
     # When stochastic rounding is turned off, input will be rounded to the nearest representable value
     # in given format (20.0 for e5m2, 18.0 for e4m3). With stochastic rounding, it rounds up or down
@@ -109,7 +136,10 @@ def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
         assert mean > input_value - max_diff
     else:
         expected = 20.0 if format == torch.float8_e5m2 else 18.0
-        assert expected == mean
+        assert torch.allclose(torch.tensor(expected, dtype=mean.dtype), mean)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "cast_from_fp8"})
 
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
@@ -122,27 +152,37 @@ def test_te_gelu_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
         pytest.skip(reason="FP8 not supported on Gaudi1")
     if dtype == torch.float32:
         pytest.skip("SW-144156 fp8_gelu compilation fails with segfault (fp32 dtype)")
-    input_data = torch.tensor([value] * 1000, dtype=dtype, device=device)
+    if (is_pytest_mode_eager() or is_pytest_mode_compile()) and rounded_value == 20.0 and not stochastic_rounding:
+        pytest.xfail("SW-188508")
 
-    meta = tex.FP8TensorMeta()
+    input_data = torch.tensor([value] * 1000, dtype=dtype, device=device)
+    meta = FP8TensorMeta()
     meta.scale = torch.full((1,), scale, dtype=torch.float32, device=device)
     meta.scale_inv = torch.full((1,), 0.0, dtype=torch.float32, device=device)
     meta.amax_history = torch.zeros(1, 1, dtype=torch.float32, device=device)
-    gelu_out, retain = fp8_gelu(
-        input_data,
-        meta,
-        tex.FP8FwdTensors.GEMM1_INPUT,
-        torch.float8_e5m2,
-        stochastic_rounding=stochastic_rounding,
-    )
+    meta.amax_history_index = torch.zeros(1, dtype=torch.float32, device=device)
 
-    upcasted = cast_from_fp8(
-        gelu_out,
-        meta,
-        tex.FP8FwdTensors.GEMM1_INPUT,
-        torch.float32,
-    )
-    mean = torch.mean(upcasted).cpu()
+    def fn(inp, meta):
+        gelu_out, _ = fp8_gelu(
+            inp,
+            meta,
+            FP8FwdTensors.GEMM1_INPUT,
+            torch.float8_e5m2,
+            stochastic_rounding=stochastic_rounding,
+        )
+
+        upcasted = cast_from_fp8(
+            gelu_out,
+            meta,
+            FP8FwdTensors.GEMM1_INPUT,
+            torch.float32,
+        )
+        return gelu_out, upcasted
+
+    gelu_out, upcasted = fn(input_data, meta)
+
+    mean = torch.mean(upcasted).cpu()  # xfail as upcasted is fp32 SW-188508
+
     # When stochastic rounding is turned off, input will be rounded to the nearest representable value
     # in given format (20.0 for e5m2, 18.0 for e4m3). With stochastic rounding, it rounds up or down
     # with the probability dependent on the distance between original value to the closest fp8 numbers,
@@ -194,13 +234,78 @@ class MyLinear(torch.nn.Module):
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
             torch.init.uniform_(self.bias, -bound, bound)
 
-    def forward(self, input: torch.Tensor, weight: torch.Tensor = None) -> torch.Tensor:
-        return torch.nn.functional.linear(input, weight if weight is not None else self.weight, self.bias)
+    def forward(self, input: torch.Tensor, weight: torch.Tensor = None, bias: torch.Tensor = None) -> torch.Tensor:
+        return torch.nn.functional.linear(
+            input,
+            weight if weight is not None else self.weight,
+            bias if bias is not None else self.bias,
+        )
 
     def extra_repr(self) -> str:
         return "in_features={}, out_features={}, bias={}".format(
             self.in_features, self.out_features, self.bias is not None
         )
+
+
+def fwd_step(linear, inp, *args, fp8_enabled=True, fp8_recipe=None, skip_fp8_context=False, **kwargs):
+    if inp.device.type == "cpu" or skip_fp8_context:
+        out = linear(inp, *args, **kwargs)
+    else:
+        with te.fp8_autocast(enabled=fp8_enabled, fp8_recipe=fp8_recipe):
+            out = linear(inp, *args, **kwargs)
+
+    return out
+
+
+def bwd_step(out, loss_multiplier=None, optimizer=None):
+    loss = out.sum()
+    if loss_multiplier is not None:
+        loss *= loss_multiplier
+
+    loss.backward()
+    if optimizer is not None:
+        optimizer.step()
+
+
+def train_step(linear, inp, *args, loss_multiplier=None, skip_bwd=False, optimizer=None, **kwargs) -> torch.Tensor:
+    out = fwd_step(linear, inp, *args, **kwargs)
+
+    if not skip_bwd:
+        bwd_step(out, loss_multiplier, optimizer)
+
+    return out
+
+
+def wrap_in_compile_if_needed(fn, eager_fallbacks=None):
+    if not is_pytest_mode_compile():
+        return fn
+
+    clear_t_compile_logs()
+    torch._dynamo.reset()
+    fn = torch.compile(fn, backend="hpu_backend")
+
+    # #### TODO remove this after solving index_put eager fallback issue SW-188040 and SW-169434
+    if eager_fallbacks is not None:
+
+        def _fn(*args, **kwargs):
+            with use_eager_fallback():
+                fn(*args, **kwargs)
+
+        return _fn
+
+    return fn
+
+
+def get_train_step_function(eager_fallbacks=None):
+    return wrap_in_compile_if_needed(train_step, eager_fallbacks)
+
+
+def get_train_step_fwd_function(eager_fallbacks=None):
+    return wrap_in_compile_if_needed(fwd_step, eager_fallbacks)
+
+
+def get_train_step_bwd_function(eager_fallbacks=None):
+    return wrap_in_compile_if_needed(bwd_step, eager_fallbacks)
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32], ids=["bf16", "fp32"])
@@ -247,15 +352,13 @@ def test_te_linear_fp8_disabled(dtype, sizes, use_bias, skip_weight_param_alloca
             ref_b = te_linear.bias.clone().detach()
             ref_b.requires_grad = True
 
-    with te.fp8_autocast(enabled=False, fp8_recipe=fp8_recipe):
-        te_out = te_linear(te_in, weight=te_w, bias=te_b if use_bias else None)
+    train_step = get_train_step_function()
 
-    te_loss = te_out.sum()
-    te_loss.backward()
+    te_out = train_step(te_linear, te_in, te_w, te_b if use_bias else None, fp8_enabled=False)
     te_grad_in = te_in.grad.cpu()
-    te_grad_w = te_w.grad.cpu() if te_w is not None else te_linear.weight.grad
+    te_grad_w = te_w.grad.cpu() if te_w is not None else te_linear.weight.grad.cpu()
     if use_bias:
-        te_grad_b = te_b.grad.cpu() if te_b is not None else te_linear.bias.grad
+        te_grad_b = te_b.grad.cpu() if te_b is not None else te_linear.bias.grad.cpu()
     te_out = te_out.cpu()
 
     # Calculate reference
@@ -332,6 +435,15 @@ def _calculate_cpu_reference(fp8_format, inp_size, weight_size, fp32_in_val, fp3
     return out, grad_in, grad_w, linear
 
 
+def _cast_node_name(fp8_format):
+    return "cast_to_fp8_v2" if fp8_format == Format.E5M2 else "cast_to_fp8_hybrid"
+
+
+def _verify_executed_ops(fp8_format):
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir({_cast_node_name(fp8_format), "fp8_gemm_v2"})
+
+
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32], ids=["bf16", "fp32"])
 @pytest.mark.parametrize("size_A", [16, 128])
@@ -357,10 +469,11 @@ def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add, fp8_format):
     w_hpu = torch.full(weight_size, fp32_w_val, dtype=dtype, device=device, requires_grad=True)
 
     hpu_linear = te.Linear(size_A, size_A, bias=False, skip_weight_param_allocation=True)
-    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-        hpu_out = hpu_linear(in_hpu, weight=w_hpu)
-    hpu_loss = hpu_out.sum()
-    hpu_loss.backward()
+
+    train_step = get_train_step_function()
+
+    hpu_out = train_step(hpu_linear, in_hpu, w_hpu, fp8_recipe=fp8_recipe).cpu()
+
     grad_in_hpu = in_hpu.grad.clone().cpu().detach()
     grad_w_hpu = w_hpu.grad.clone().cpu().detach()
     hpu_out = hpu_out.cpu().detach()
@@ -368,6 +481,8 @@ def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add, fp8_format):
     assert torch.equal(hpu_out, ref_out), "Data mismatch"
     assert torch.equal(grad_in_hpu, grad_in_cpu), "Data mismatch"
     assert torch.equal(grad_w_hpu, grad_w_cpu), "Data mismatch"
+
+    _verify_executed_ops(fp8_format)
 
 
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
@@ -398,18 +513,15 @@ def test_te_linear_out_of_scale(dtype, fp8_format, out_of_scale_tensor):
     device = torch.device("hpu:0")
     fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False)
 
+    train_step = get_train_step_function()
+
     def _train_step(inp, w, linear):
         inp.grad = None
         w.grad = None
-        if inp.device.type == "cpu":
-            out = linear(inp, weight=w)
-        else:
-            with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-                out = linear(inp, weight=w)
-        loss = out.sum()
-        if out_of_scale_tensor == "grad":
-            loss = loss * 2**17
-        loss.backward()
+        loss_multiplier = 2**17 if out_of_scale_tensor == "grad" else None
+
+        out = train_step(linear, inp, w, fp8_recipe=fp8_recipe, loss_multiplier=loss_multiplier)
+
         grad_in = inp.grad.clone().to(torch.float).cpu().detach()
         grad_w = w.grad.clone().to(torch.float).cpu().detach()
         out = out.to(torch.float).cpu().detach()
@@ -490,9 +602,11 @@ def test_te_linear_out_of_scale(dtype, fp8_format, out_of_scale_tensor):
     assert torch.equal(grad_in_1, grad_in_ref)
     assert torch.equal(grad_w_1, grad_w_ref)
 
+    _verify_executed_ops(fp8_format)
+
 
 # params: list of tuples (amax_history_len, iterations)
-def _changed_history_size(params):
+def _changed_history_size(params=None, eager_fallbacks=None):
     torch.manual_seed(123)
     fp8_format = Format.E5M2
 
@@ -519,35 +633,55 @@ def _changed_history_size(params):
             expected = expected_amaxes[-(i + 1)]
             assert expected in amax_history, f"value: {expected} not in amax_history: {amax_history}"
 
+    train_step = get_train_step_function(eager_fallbacks=eager_fallbacks)
+
     for amax_history_len, iterations in params:
         fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=amax_history_len, reduce_amax=False)
         for _ in range(iterations):
             inp = next(gen)
-            with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-                linear(inp).cpu()
-                expected_amaxes.append(torch.amax(inp))
+            train_step(linear, inp, fp8_recipe=fp8_recipe)
+            expected_amaxes.append(torch.amax(inp).cpu())
 
         verify_amax_history(expected_amaxes, linear)
 
+    _verify_executed_ops(fp8_format)
 
+
+@pytest.mark.xfail(pytest.mode == "compile", reason="SW-188040", strict=True)
 def test_shorter_history_size():
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+
     # Test simple case with shrinking amax history
-    _changed_history_size([(5, 3), (2, 1), (2, 1)])
+    _changed_history_size([(3, 5), (2, 1), (2, 1)])
 
 
+@pytest.mark.xfail(pytest.mode == "compile", reason="SW-188034", strict=True)
+def test_shorter_history_size_fallback():
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
+
+    eager_fallbacks = {"index_put"}
+
+    # Test simple case with shrinking amax history
+    _changed_history_size([(5, 3), (2, 1), (2, 1)], eager_fallbacks=eager_fallbacks)
+
+
+@pytest.mark.xfail(pytest.mode == "compile", reason="SW-188040", strict=True)
 def test_shorter_history_size_index_in_the_middle():
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+
     # Test case, where index is lower than new amax_history length,
     # So the new amax history needs to be constructed from two slices
     _changed_history_size([(5, 7), (4, 1)])
 
 
+@pytest.mark.xfail(pytest.mode == "compile", reason="SW-188040", strict=True)
 def test_longer_history_size():
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+
     # Changing history size to a longer one
     _changed_history_size([(4, 6), (8, 4), (8, 1)])
 
@@ -572,324 +706,23 @@ def test_fp8_linear_with_amp(device, lp_dtype, fp8_format):
     w_hpu = torch.randn(weight_size, dtype=hp_dtype, device=device)
 
     linear_1 = te.Linear(in_features, out_features, bias=False, skip_weight_param_allocation=True)
-    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-        out_no_autocast = linear_1(in_hpu, weight=w_hpu)
+
+    train_step = get_train_step_function()
+    out_no_autocast = train_step(linear_1, in_hpu, weight=w_hpu, skip_bwd=True, fp8_recipe=fp8_recipe)
+
+    out_no_autocast.cpu()
 
     linear_2 = te.Linear(in_features, out_features, bias=False, skip_weight_param_allocation=True)
 
     with torch.autocast(device_type=device.type, dtype=lp_dtype):
-        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-            out_autocast = linear_2(in_hpu, weight=w_hpu)
+        out_autocast = train_step(linear_2, in_hpu, weight=w_hpu, skip_bwd=True, fp8_recipe=fp8_recipe)
 
     out_autocast.cpu()
 
     assert out_no_autocast.dtype == hp_dtype
     assert out_autocast.dtype == lp_dtype
 
-
-@pytest.mark.parametrize("device", [torch.device("hpu:0")])
-@pytest.mark.parametrize("dtype", [torch.float32])
-@pytest.mark.parametrize("amax_history_len", [1, 2, 3])
-@pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
-def test_te_linear_hpu_graph(device, dtype, amax_history_len, fp8_format, hpu_graph=True):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
-    if _is_simulator() and amax_history_len < 3:
-        pytest.skip(reason="No need to run this long-running test on simulator")
-    input1 = torch.tensor([1, 2, 3, 4], dtype=dtype, device=device)
-    input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device)
-    input3 = torch.tensor([100, 200, 300, 400], dtype=dtype, device=device)
-
-    fp8_recipe = DelayedScaling(
-        fp8_format=fp8_format,
-        amax_history_len=amax_history_len,
-        amax_compute_algo="max",
-        margin=0,
-        reduce_amax=False,
-    )
-
-    my_linear = te.Linear(4, 3, bias=True, params_dtype=dtype)
-
-    inputs = [
-        input1,
-        input2,
-        input3,
-        input2,
-        input1,
-        input2,
-        input3,
-        input3,
-        input1,
-        input1,
-        input3,
-    ]
-    outputs = []
-
-    if hpu_graph:
-        # Run one iteration before capturing, because scales are not computed during first iteration (it's a different graph)
-        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-            my_linear(input1).cpu()
-
-        recorded_input = torch.zeros_like(input1)
-        recorded_model_graph = ht.hpu.HPUGraph()
-        s = ht.hpu.Stream()
-        with ht.hpu.stream(s):
-            recorded_model_graph.capture_begin()
-            with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-                recorded_out_fp8 = my_linear(recorded_input)
-            recorded_model_graph.capture_end()
-
-        # Run recorded graph n times
-        for input in inputs:
-            recorded_input.copy_(input)
-            recorded_model_graph.replay()
-            out = recorded_out_fp8.detach()
-            outputs.append(out.cpu())
-    else:
-        for input in inputs:
-            with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-                out = my_linear(input)
-                outputs.append(out.cpu())
-
-    clamped_output = [outputs[1], outputs[2]]
-
-    def was_clamped(x, scale):
-        return torch.eq(x, clamped_output[scale]).all()
-
-    def wasnt_clamped(x):
-        return not was_clamped(x, 0) and not was_clamped(x, 1)
-
-    assert wasnt_clamped(outputs[3])
-    assert wasnt_clamped(outputs[4])
-    # 5th input is bigger than 4th, so output should have been clamped using scale from input 0
-    # In case amax_history longer than 1, fifth output should not have been clamped (amax should be remembered from 3rd iteration)
-    assert was_clamped(outputs[5], 0) if amax_history_len == 1 else wasnt_clamped(outputs[5])
-    # 6th input is bigger than 5th, so output should have been clamped using scale from input 1
-    assert was_clamped(outputs[6], 1)
-    assert wasnt_clamped(outputs[7])
-    assert wasnt_clamped(outputs[8])
-    assert wasnt_clamped(outputs[9])
-    # 10th input is bigger than 9th, so output should have been clamped using scale from input 0
-    # If up to two last amax values are remembered - when the big input comes after two small ones, clamping should be observed
-    assert was_clamped(outputs[10], 0) if amax_history_len <= 2 else wasnt_clamped(outputs[10])
-
-
-@pytest.mark.parametrize("device", [torch.device("hpu:0")])
-@pytest.mark.parametrize("dtype", [torch.float32])
-@pytest.mark.parametrize("amax_history_len", [1, 2, 3])
-@pytest.mark.parametrize("zero_grad", [False], ids=["no_zero_grad"])
-@pytest.mark.parametrize("graphed_callables", [True, False], ids=["make_graphed_callables", "ModuleCacher"])
-@pytest.mark.parametrize("restore_fp8_meta", [True], ids=["fp8_meta_restored"])
-@pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
-def test_te_linear_module_cacher(
-    device, dtype, amax_history_len, zero_grad, graphed_callables, restore_fp8_meta, fp8_format
-):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
-    if _is_simulator() and amax_history_len < 3:
-        pytest.skip(reason="No need to run this long-running test on simulator")
-    import habana_frameworks.torch as ht
-
-    # Prepare te linear module
-    torch.manual_seed(12345)
-
-    input0 = torch.tensor([0.1, 0.2, 0.3, 0.4], dtype=dtype, device=device)
-    input1 = torch.tensor([1, 2, 3, 4], dtype=dtype, device=device)
-    input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device)
-    input3 = torch.tensor([100, 200, 300, 400], dtype=dtype, device=device)
-
-    fp8_recipe = DelayedScaling(
-        fp8_format=fp8_format,
-        amax_history_len=amax_history_len,
-        amax_compute_algo="max",
-        margin=0,
-        reduce_amax=False,
-    )
-
-    torch.manual_seed(12345)
-    my_linear_ref = te.Linear(4, 3, bias=True, params_dtype=dtype)
-    torch.manual_seed(12345)
-    my_linear_test = te.Linear(4, 3, bias=True, params_dtype=dtype)
-
-    inputs = [input1, input2, input3, input2, input1, input2, input3, input3, input1, input1, input3]
-
-    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-        # Run one iteration before capturing, because scales are not computed during first iteration (it's a different graph)
-        out_ref = my_linear_ref(input0)
-        loss_ref = out_ref.sum()
-        loss_ref.backward()
-        out_test = my_linear_test(input0)
-        loss_test = out_test.sum()
-        loss_test.backward()
-
-        grad_w_ref = my_linear_ref.weight.grad.clone().to(torch.float).cpu().detach()
-        grad_b_ref = my_linear_ref.bias.grad.clone().to(torch.float).cpu().detach()
-        grad_w_test = my_linear_test.weight.grad.clone().to(torch.float).cpu().detach()
-        grad_b_test = my_linear_test.bias.grad.clone().to(torch.float).cpu().detach()
-        assert np.array_equal(
-            out_test.cpu().to(torch.float).detach().numpy(),
-            out_ref.cpu().to(torch.float).detach().numpy(),
-            equal_nan=True,
-        ), f"Out data mismatch at init run"
-        assert np.array_equal(
-            grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True
-        ), f"Grad weight data mismatch at init run"
-        assert np.array_equal(
-            grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True
-        ), f"Grad bias data mismatch at init run"
-        if zero_grad:
-            my_linear_ref.zero_grad(set_to_none=False)
-            my_linear_test.zero_grad(set_to_none=False)
-
-        # Wrap the modules in hpu_graph wrapper
-        if restore_fp8_meta:
-            fp8_meta = my_linear_test.save_fp8_meta()
-        x = torch.zeros_like(input1)
-        if graphed_callables:
-            my_linear_test = ht.hpu.make_graphed_callables(my_linear_test, (x,))
-        else:
-            my_linear_test = ht.hpu.ModuleCacher(max_graphs=10)(model=my_linear_test, inplace=True)
-            out_x = my_linear_test(x).cpu()
-        if restore_fp8_meta:
-            my_linear_test.load_fp8_meta(fp8_meta)
-        if zero_grad:
-            my_linear_test.zero_grad()
-
-        if restore_fp8_meta:
-            assert np.array_equal(
-                my_linear_test.fp8_meta["scaling_fwd"].scale.cpu().to(torch.float).detach().numpy(),
-                my_linear_ref.fp8_meta["scaling_fwd"].scale.cpu().to(torch.float).detach().numpy(),
-            ), f"fp8_meta scaling_fwd data mismatch at init run"
-            assert np.array_equal(
-                my_linear_test.fp8_meta["scaling_bwd"].scale.cpu().to(torch.float).detach().numpy(),
-                my_linear_ref.fp8_meta["scaling_bwd"].scale.cpu().to(torch.float).detach().numpy(),
-            ), f"fp8_meta scaling_bwd data mismatch at init run"
-
-        # Run recorded graph n times
-        for i in range(0, 4):
-            out_test = my_linear_test(inputs[i])
-            loss_test = out_test.sum()
-            loss_test.backward()
-            grad_w_test = my_linear_test.weight.grad.clone().to(torch.float).cpu().detach()
-            grad_b_test = my_linear_test.bias.grad.clone().to(torch.float).cpu().detach()
-            if zero_grad:
-                my_linear_test.zero_grad()
-
-            out_ref = my_linear_ref(inputs[i])
-            loss_ref = out_ref.sum()
-            loss_ref.backward()
-            grad_w_ref = my_linear_ref.weight.grad.clone().to(torch.float).cpu().detach()
-            grad_b_ref = my_linear_ref.bias.grad.clone().to(torch.float).cpu().detach()
-            if zero_grad:
-                my_linear_ref.zero_grad()
-
-            if restore_fp8_meta:
-                assert np.array_equal(
-                    my_linear_test.fp8_meta["scaling_fwd"].scale.cpu().to(torch.float).detach().numpy(),
-                    my_linear_ref.fp8_meta["scaling_fwd"].scale.cpu().to(torch.float).detach().numpy(),
-                ), f"fp8_meta scaling_fwd data mismatch at {i}"
-                assert np.array_equal(
-                    my_linear_test.fp8_meta["scaling_bwd"].scale.cpu().to(torch.float).detach().numpy(),
-                    my_linear_ref.fp8_meta["scaling_bwd"].scale.cpu().to(torch.float).detach().numpy(),
-                ), f"fp8_meta scaling_bwd data mismatch at {i}"
-            assert np.array_equal(
-                out_test.cpu().to(torch.float).detach().numpy(),
-                out_ref.cpu().to(torch.float).detach().numpy(),
-                equal_nan=True,
-            ), f"Out data mismatch at {i}"
-            assert np.array_equal(
-                grad_w_test.numpy(), grad_w_ref.numpy(), equal_nan=True
-            ), f"Grad weight data mismatch at {i}"
-            assert np.array_equal(
-                grad_b_test.numpy(), grad_b_ref.numpy(), equal_nan=True
-            ), f"Grad bias data mismatch at {i}"
-
-
-@pytest.mark.parametrize("dtype", [torch.bfloat16])
-@pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
-def test_module_cacher_with_dilation(dtype, fp8_format):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
-    import habana_frameworks.torch as ht
-
-    torch.manual_seed(12345)
-    device = torch.device("hpu:0")
-
-    input0 = torch.tensor([0.1, 0.2, 0.3, 0.4], dtype=dtype, device=device, requires_grad=True)
-    input1 = torch.tensor([1, 2, 3, 4], dtype=dtype, device=device, requires_grad=True)
-    input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device, requires_grad=True)
-
-    fp8_recipe = DelayedScaling(
-        fp8_format=fp8_format,
-        amax_history_len=1,
-        amax_compute_algo="max",
-        reduce_amax=False,
-        interval=1,
-    )
-
-    # Prepare te linear module and optimizer
-    my_linear = te.Linear(4, 3, bias=True, params_dtype=dtype)
-    optimizer = torch.optim.SGD(my_linear.parameters(), lr=0.1)
-
-    def train_step(model, input, optimizer):
-        out = model(input)
-        loss = out.sum()
-        loss.backward()
-        optimizer.step()
-
-        # Force computations
-        model.fp8_meta["scaling_fwd"].amax_history.cpu()
-
-    with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-        # Run one iteration before capturing, because scales are not computed during first iteration (it's a different graph)
-        train_step(my_linear, input0, optimizer)
-
-        # Wrap the modules in hpu_graph wrapper twice - once with measurement, once no measurement
-        fp8.set_measurement_mode(True, True)
-        fp8_meta = my_linear.save_fp8_meta()
-        x = torch.zeros_like(input0)
-        my_linear_with_measure = ht.hpu.ModuleCacher(max_graphs=10)(model=my_linear, inplace=False)
-        train_step(my_linear_with_measure, x, optimizer)
-        my_linear_with_measure.load_fp8_meta(fp8_meta)
-
-        fp8.set_measurement_mode(True, False)
-        fp8_meta = my_linear.save_fp8_meta()
-        x = torch.zeros_like(input0)
-        my_linear_no_measure = ht.hpu.ModuleCacher(max_graphs=10)(model=my_linear, inplace=False)
-        train_step(my_linear_no_measure, x, optimizer)
-        my_linear_no_measure.load_fp8_meta(fp8_meta)
-
-        # Run alternately with amax measurement on and off, remember amax history and weight
-        weights = []
-        amax_0 = my_linear.fp8_meta["scaling_fwd"].amax_history.cpu().detach()
-        weights.append(my_linear.weight.cpu().detach())
-
-        train_step(my_linear_no_measure, input1, optimizer)
-        amax_1 = my_linear.fp8_meta["scaling_fwd"].amax_history.cpu().detach()
-        weights.append(my_linear.weight.cpu().detach())
-
-        train_step(my_linear_with_measure, input1, optimizer)
-        amax_2 = my_linear.fp8_meta["scaling_fwd"].amax_history.cpu().detach()
-        weights.append(my_linear.weight.cpu().detach())
-
-        train_step(my_linear_no_measure, input2, optimizer)
-        amax_3 = my_linear.fp8_meta["scaling_fwd"].amax_history.cpu().detach()
-        weights.append(my_linear.weight.cpu().detach())
-
-        train_step(my_linear_with_measure, input2, optimizer)
-        amax_4 = my_linear.fp8_meta["scaling_fwd"].amax_history.cpu().detach()
-        weights.append(my_linear.weight.cpu().detach())
-
-    # The following asserts verify that amax history is updated every other step
-    # (when my_linear_with_measure is called) and is not updated on other steps
-    assert torch.equal(amax_0[0][0], amax_1[0][0])
-    assert torch.not_equal(amax_1[0][0], amax_2[0][0])
-    assert torch.equal(amax_2[0][0], amax_3[0][0])
-    assert torch.not_equal(amax_3[0][0], amax_4[0][0])
-
-    # The following asserts verify that weights are actually updated on the original model every step
-    for i in range(len(weights) - 1):
-        assert not torch.equal(weights[i], weights[i + 1])
+    _verify_executed_ops(fp8_format)
 
 
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
@@ -918,35 +751,32 @@ def test_te_minimize_memory(fp8_format, device=torch.device("hpu:0"), dtype=torc
     torch.manual_seed(12345)
     min_linear = te.Linear(4, 3, bias=True, params_dtype=dtype, minimize_memory=True)
 
-    inputs = [input1, input2, input3, input2]
+    inputs = [input1, input2, input3, input2, input1, input2, input3, input3, input1, input1, input3]
+    train_step = get_train_step_function()
 
     torch.manual_seed(12345)
     ref_outputs = []
     ref_grads = []
     for input in inputs:
-        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-            out = ref_linear(input)
-            loss = out.sum()
-            loss.backward()
-            ref_outputs.append(out.cpu())
-            ref_grads.append(input.grad.clone().cpu().detach())
-            input.grad = None
+        out = train_step(ref_linear, input, fp8_recipe=fp8_recipe)
+        ref_outputs.append(out.cpu())
+        ref_grads.append(input.grad.clone().cpu().detach())
+        input.grad = None
 
     torch.manual_seed(12345)
     min_outputs = []
     min_grads = []
     for input in inputs:
-        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-            out = min_linear(input)
-            loss = out.sum()
-            loss.backward()
-            min_outputs.append(out.cpu())
-            min_grads.append(input.grad.clone().cpu().detach())
-            input.grad = None
+        out = train_step(min_linear, input, fp8_recipe=fp8_recipe)
+        min_outputs.append(out.cpu())
+        min_grads.append(input.grad.clone().cpu().detach())
+        input.grad = None
 
     for i in range(len(min_outputs)):
         assert torch.equal(ref_outputs[i], min_outputs[i])
         assert torch.equal(ref_grads[i], min_grads[i])
+
+    _verify_executed_ops(fp8_format)
 
 
 # This test simulates scenario with deepspeed pipelining
@@ -978,6 +808,7 @@ def test_te_multiple_fwd_multiple_bwd(
     )
 
     inputs = [input3, input2, input1]
+    train_step = get_train_step_function()
 
     # Reference - fwd -> bwd -> fwd -> bwd ...
     torch.manual_seed(12345)
@@ -986,33 +817,34 @@ def test_te_multiple_fwd_multiple_bwd(
     ref_outputs = []
     ref_grads = []
     for i, input in enumerate(inputs):
-        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-            out = ref_linear(input, is_first_microbatch=is_first_microbatch(i))
-            loss = out.sum()
-            loss.backward()
-            ref_outputs.append(out.cpu())
-            ref_grads.append(input.grad.clone().cpu().detach())
-            input.grad = None
+        out = train_step(ref_linear, input, is_first_microbatch=is_first_microbatch(i), fp8_recipe=fp8_recipe)
+        ref_outputs.append(out.cpu())
+        ref_grads.append(input.grad.clone().cpu().detach())
+        input.grad = None
 
     # Tested configuration - fwd -> fwd -> ... -> bwd -> bwd -> ...
     torch.manual_seed(12345)
     test_linear = te.Linear(4, 3, bias=True, params_dtype=dtype, minimize_memory=minimize_memory)
 
+    fwd_step = get_train_step_fwd_function()
+    bwd_step = get_train_step_bwd_function()
     test_outputs = []
     test_grads = []
     for i, input in enumerate(inputs):
-        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-            out = test_linear(input, is_first_microbatch=is_first_microbatch(i))
-            test_outputs.append(out.cpu())
+        out = fwd_step(
+            test_linear,
+            input,
+            is_first_microbatch=is_first_microbatch(i),
+            fp8_recipe=fp8_recipe,
+        )
+        test_outputs.append(out.cpu())
 
     for i in reversed(range(len(test_outputs))):
         output = test_outputs[i]
         input = inputs[i]
-        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-            loss = output.sum()
-            loss.backward()
-            test_grads.append(inputs[i].grad.clone().cpu().detach())
-            inputs[i].grad = None
+        bwd_step(output)
+        test_grads.append(inputs[i].grad.clone().cpu().detach())
+        inputs[i].grad = None
 
     # Note that in above loop gradients are appended to the list in reversed order, hence the following reverse
     test_grads.reverse()
@@ -1022,6 +854,8 @@ def test_te_multiple_fwd_multiple_bwd(
         assert torch.equal(ref_grads[i], test_grads[i]), f"grad mismatch at i: {i}"
 
     assert torch.equal(ref_linear.weight.grad.cpu(), test_linear.weight.grad.cpu()), f"weight gradient mismatch"
+
+    _verify_executed_ops(fp8_format)
 
 
 # Verify if the weight caching is working well for micro batches case
@@ -1053,23 +887,16 @@ def test_linear_weight_caching_in_microbatches_case(fp8_format):
     ref_linear = te.Linear(4, 3, bias=True, params_dtype=dtype)
     ref_optimizer = torch.optim.SGD(ref_linear.parameters(), lr=0.1)
 
-    def train_step(model, input, optimizer=None):
-        out = model(input)
-        loss = out.sum()
-        loss.backward()
-        if optimizer is not None:
-            optimizer.step()
+    train_step = get_train_step_function()
 
-        # Force computations
-        model.fp8_meta["scaling_fwd"].amax_history.cpu()
-        return out
-
-    def train_step_with_microbatches(model, input, is_first_microbatch, optimizer=None):
-        out = model(input, is_first_microbatch=is_first_microbatch)
-        loss = out.sum()
-        loss.backward()
-        if optimizer is not None:
-            optimizer.step()
+    def _train_step(model, input, is_first_microbatch=None, optimizer=None):
+        out = train_step(
+            model,
+            input,
+            optimizer=optimizer,
+            is_first_microbatch=is_first_microbatch,
+            fp8_recipe=fp8_recipe,
+        )
 
         # Force computations
         model.fp8_meta["scaling_fwd"].amax_history.cpu()
@@ -1077,14 +904,14 @@ def test_linear_weight_caching_in_microbatches_case(fp8_format):
 
     ref_outs = []
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-        ref_outs.append(train_step(ref_linear, input0))
-        ref_outs.append(train_step(ref_linear, input1))
-        ref_outs.append(train_step(ref_linear, input2))
-        ref_outs.append(train_step(ref_linear, input3, optimizer=ref_optimizer))
-        ref_outs.append(train_step(ref_linear, input0))
-        ref_outs.append(train_step(ref_linear, input1))
-        ref_outs.append(train_step(ref_linear, input2))
-        ref_outs.append(train_step(ref_linear, input3, optimizer=ref_optimizer))
+        ref_outs.append(_train_step(ref_linear, input0))
+        ref_outs.append(_train_step(ref_linear, input1))
+        ref_outs.append(_train_step(ref_linear, input2))
+        ref_outs.append(_train_step(ref_linear, input3, optimizer=ref_optimizer))
+        ref_outs.append(_train_step(ref_linear, input0))
+        ref_outs.append(_train_step(ref_linear, input1))
+        ref_outs.append(_train_step(ref_linear, input2))
+        ref_outs.append(_train_step(ref_linear, input3, optimizer=ref_optimizer))
 
     # Prepare tested linear module and optimizer
     torch.manual_seed(12345)
@@ -1096,21 +923,19 @@ def test_linear_weight_caching_in_microbatches_case(fp8_format):
         # Notice we set is_first_microbatch on first and second microbatch (after optimizer step). First call is obvious
         # (weight has been updated), and second is done to cast using amax value from the previous cast (updated weight).
         # It is possible that we don't need that in full topology
-        test_outs.append(train_step_with_microbatches(test_linear, input0, is_first_microbatch=True))
-        test_outs.append(train_step_with_microbatches(test_linear, input1, is_first_microbatch=True))
-        test_outs.append(train_step_with_microbatches(test_linear, input2, is_first_microbatch=False))
-        test_outs.append(
-            train_step_with_microbatches(test_linear, input3, optimizer=test_optimizer, is_first_microbatch=False)
-        )
-        test_outs.append(train_step_with_microbatches(test_linear, input0, is_first_microbatch=True))
-        test_outs.append(train_step_with_microbatches(test_linear, input1, is_first_microbatch=True))
-        test_outs.append(train_step_with_microbatches(test_linear, input2, is_first_microbatch=False))
-        test_outs.append(
-            train_step_with_microbatches(test_linear, input3, optimizer=test_optimizer, is_first_microbatch=False)
-        )
+        test_outs.append(_train_step(test_linear, input0, is_first_microbatch=True))
+        test_outs.append(_train_step(test_linear, input1, is_first_microbatch=True))
+        test_outs.append(_train_step(test_linear, input2, is_first_microbatch=False))
+        test_outs.append(_train_step(test_linear, input3, optimizer=test_optimizer, is_first_microbatch=False))
+        test_outs.append(_train_step(test_linear, input0, is_first_microbatch=True))
+        test_outs.append(_train_step(test_linear, input1, is_first_microbatch=True))
+        test_outs.append(_train_step(test_linear, input2, is_first_microbatch=False))
+        test_outs.append(_train_step(test_linear, input3, optimizer=test_optimizer, is_first_microbatch=False))
 
     for i in range(len(ref_outs)):
         assert torch.equal(ref_outs[i], test_outs[i]), f"Mismatch on element: {i}"
+
+    _verify_executed_ops(fp8_format)
 
 
 @pytest.mark.parametrize("interval", [1, 4])
@@ -1184,7 +1009,7 @@ def test_measurement_auto_mode_outside_fp8_autocast_context():
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16])
 @pytest.mark.parametrize("amax_history_len", [1, 3, 5])
-@pytest.mark.parametrize("interval", [1, 3, 5])
+@pytest.mark.parametrize("interval", [5, 3, 1])
 @pytest.mark.parametrize("manual", [True, False])
 @pytest.mark.parametrize("reduce_amax", [True, False])
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
@@ -1241,10 +1066,16 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
     def update_amax(input, outs):
         for i, out in enumerate(outs):
             out.grad.detach()
-            refs[i]["fwd_amax"] = torch.roll(refs[i]["fwd_amax"], 1, dims=0)
+
+            def roll(inp):
+                #  NOTE: This is a custom version of roll, can be replaced by torch.roll when SW-169298 is resolved
+                # torch.roll fails causing SW-188344
+                return torch.concat((torch.zeros([1, inp.shape[1]], device=inp.device), inp[:-1]))
+
+            refs[i]["fwd_amax"] = roll(refs[i]["fwd_amax"])
             refs[i]["fwd_amax"][0][0] = torch.max(torch.abs(input))
             refs[i]["fwd_amax"][0][1] = torch.max(torch.abs(my_linears[i].weight))
-            refs[i]["bwd_amax"] = torch.roll(refs[i]["bwd_amax"], 1, dims=0)
+            refs[i]["bwd_amax"] = roll(refs[i]["bwd_amax"])
             refs[i]["bwd_amax"][0][0] = torch.max(torch.abs(out.grad))
 
     def update_scale():
@@ -1257,14 +1088,16 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
             ref["bwd_scale"] = fp8._default_sf_compute(amax, ref["bwd_scale"], fp8_format.value.max_bwd, margin)
             ref["bwd_scale_inv"] = 1.0 / ref["bwd_scale"]
 
+    fwd_step = get_train_step_fwd_function()
+    bwd_step = get_train_step_bwd_function()
+
     def train_step(models, input, c):
         outs = []
         for i, model in enumerate(models):
-            outs.append(model(input))
+            outs.append(fwd_step(model, input, skip_fp8_context=True))
             outs[i].retain_grad()
         for i, model in reversed(list(enumerate(models))):
-            loss = outs[i].sum()
-            loss.backward()
+            bwd_step(outs[i])
 
             # Force computations
             model.fp8_meta["scaling_fwd"].amax_history.cpu()
@@ -1332,6 +1165,8 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
                 else:
                     assert len(fp8.get_global_fp8_buffer()) == 0, f"global fp8 buffer must contain 0 entries {suffix}"
 
+    _verify_executed_ops(fp8_format)
+
 
 @pytest.mark.parametrize("init_before_load", [True, False])
 @pytest.mark.parametrize("amax_history_len", [1, 4])
@@ -1354,15 +1189,12 @@ def test_save_load_module(init_before_load, amax_history_len, fp8_format):
 
     in_hpu = torch.randn(inp_size, dtype=dtype, device=device)
 
-    def train_step(model, optimizer, input=None):
+    train_step = get_train_step_function()
+
+    def _train_step(model, optimizer, input=None):
         if input is None:
             input = torch.randn_like(in_hpu)
-        with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-            out = model(input)
-        loss = out.sum()
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
+        out = train_step(model, input, optimizer=optimizer, fp8_recipe=fp8_recipe)
 
         # Force computations
         model.fp8_meta["scaling_fwd"].amax_history.cpu()
@@ -1373,22 +1205,24 @@ def test_save_load_module(init_before_load, amax_history_len, fp8_format):
         result = te.Linear(in_features, out_features, bias=False)
         optimizer = torch.optim.SGD(result.parameters(), lr=0.1)
         if init:
-            train_step(result, optimizer)
-            train_step(result, optimizer)
+            _train_step(result, optimizer)
+            _train_step(result, optimizer)
         return result, optimizer
 
     # Create ref module, save state, perform train step
     linear_ref, optimizer_ref = create_module_and_optimizer(True)
     state = deepcopy(linear_ref.state_dict())
-    out_ref = train_step(linear_ref, optimizer_ref, in_hpu)
+    out_ref = _train_step(linear_ref, optimizer_ref, in_hpu)
 
     # Tested configuration - create module, load from state, perform train step
     linear_tested, optimizer_tested = create_module_and_optimizer(init_before_load)
     linear_tested.load_state_dict(state)
-    out_tested = train_step(linear_tested, optimizer_tested, in_hpu)
+    out_tested = _train_step(linear_tested, optimizer_tested, in_hpu)
 
     assert torch.equal(out_ref, out_tested)
     _assert_amax_history_equal(linear_ref, linear_tested)
+
+    _verify_executed_ops(fp8_format)
 
 
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
@@ -1397,6 +1231,9 @@ def test_gradient_checkpointing(fp8_format):
         pytest.skip(reason="FP8 not supported on Gaudi1")
     from habana_frameworks.torch.hpex.experimental.transformer_engine.distributed import activation_checkpointing
     from torch.utils.checkpoint import checkpoint
+
+    fwd_step = get_train_step_fwd_function()
+    bwd_step = get_train_step_bwd_function()
 
     class Subnet(torch.nn.Module):
         def __init__(self, hidden_dim):
@@ -1421,7 +1258,8 @@ def test_gradient_checkpointing(fp8_format):
         def forward(self, x, use_gradient_checkpoint=False):
             x = self.fc1(x)
             if use_gradient_checkpoint:
-                x = checkpoint(self.subnet.__call__, x, use_reentrant=True)
+                with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
+                    x = checkpoint(self.subnet.__call__, x, use_reentrant=True, debug=False)
             else:
                 x = self.subnet(x)
             x = self.fc2(x)
@@ -1445,10 +1283,11 @@ def test_gradient_checkpointing(fp8_format):
     for _ in range(4):
         optim.zero_grad()
         x = torch.rand_like(sample_x)
-        y = model(x, True)
+        y = fwd_step(model, x, fp8_recipe=fp8_recipe, use_gradient_checkpoint=True)
+
         ref = model.subnet.fc.fp8_meta["scaling_fwd"].scale.cpu()
-        loss = torch.sum(y)
-        loss.backward()
+        bwd_step(y)
+
         res = model.subnet.fc.fp8_meta["scaling_fwd"].scale.cpu()
         optim.step()
         assert torch.allclose(res, ref)

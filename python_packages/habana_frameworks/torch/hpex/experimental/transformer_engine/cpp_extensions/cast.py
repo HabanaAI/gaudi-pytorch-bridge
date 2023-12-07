@@ -18,15 +18,15 @@
 from typing import Union
 
 import torch
-from habana_frameworks.torch import _hpex_C as tex
 
+from ..utils import FP8BwdTensors, FP8FwdTensors, FP8TensorMeta
 from ._utils import select_amax_and_exec
 
 
 def cast_to_fp8(
     inp: torch.Tensor,
-    fp8_meta_tensor: tex.FP8TensorMeta,
-    fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
+    fp8_meta_tensor: FP8TensorMeta,
+    fp8_tensor: Union[FP8FwdTensors, FP8BwdTensors],
     otype: torch.dtype,
     stochastic_rounding=False,
     measure_amax=True,
@@ -44,15 +44,14 @@ def cast_to_fp8(
         fp8_tensor,
         measure_amax=measure_amax,
     )
-
     return cast_out
 
 
 def cast_to_fp8_hybrid(
     inp: torch.Tensor,
-    e5m2_meta_tensor: tex.FP8TensorMeta,
-    e4m3_meta_tensor: tex.FP8TensorMeta,
-    fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
+    e5m2_meta_tensor: FP8TensorMeta,
+    e4m3_meta_tensor: FP8TensorMeta,
+    fp8_tensor: Union[FP8FwdTensors, FP8BwdTensors],
     measure_amax=True,
 ) -> torch.Tensor:
     """Cast input to both fp8 formats"""
@@ -74,8 +73,8 @@ def cast_to_fp8_hybrid(
 
 def cast_from_fp8(
     inp: torch.Tensor,
-    fp8_meta_tensor: tex.FP8TensorMeta,
-    fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
+    fp8_meta_tensor: FP8TensorMeta,
+    fp8_tensor: Union[FP8FwdTensors, FP8BwdTensors],
     otype: torch.dtype,
 ) -> torch.Tensor:
     """Cast input from FP8"""
