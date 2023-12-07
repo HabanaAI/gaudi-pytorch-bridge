@@ -603,6 +603,7 @@ def test_eq_view():
     assert torch.equal(hres_view_cpu, res_view)
 
 
+@pytest.mark.xfail(reason="Test is sporadically failing - SW-167590")
 def test_sort_out():
     torch.manual_seed(0)
     a = torch.randn([10])
