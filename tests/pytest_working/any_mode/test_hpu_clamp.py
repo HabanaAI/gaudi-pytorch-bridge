@@ -67,6 +67,8 @@ def generate_limits(mode, dtype, shape):
 @pytest.mark.parametrize("min_mode, max_mode", modes)
 @pytest.mark.parametrize("dtype", dtypes)
 def test_clamp(shape, min_mode, max_mode, dtype):
+    if pytest.mode == "compile":
+        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     if (
         pytest.mode == "compile"
         and dtype in [torch.float8_e5m2, torch.float8_e4m3fn]

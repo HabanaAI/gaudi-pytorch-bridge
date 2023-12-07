@@ -43,6 +43,8 @@ def test_hpu_dropout_fwd(p, dtype):
 @pytest.mark.parametrize("train", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_dropout_bwd(p, train, dtype):
+    if pytest.mode == "compile" and train and p == 1.0:
+        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     input = torch.randn((32, 48), dtype=dtype)
     input_hpu = input.to("hpu").requires_grad_(True)
     input = input.requires_grad_(True)

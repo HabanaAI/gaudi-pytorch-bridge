@@ -21,7 +21,6 @@ import os
 # Can't import torch module because PT_HPU_LAZY_MODE is set in pytest_configure. If any function needs torch module it must be imported locally
 
 
-
 @pytest.fixture(autouse=True)
 def reset_seed(seed=0xC001A1):
     import torch
@@ -61,6 +60,7 @@ def pytest_configure(config):
         os.environ["PT_HPU_LAZY_MODE"] = "1"
     elif pytest.mode == "compile":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
+        os.environ["PT_HPU_USE_EAGER_FALLBACK"] = "0"
 
     # import torch after flag is set
     import habana_frameworks.torch  # noqa

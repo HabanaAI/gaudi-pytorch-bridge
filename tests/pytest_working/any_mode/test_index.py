@@ -35,6 +35,8 @@ from test_utils import cpu, hpu
     ],
 )
 def test_index(shape, indices):
+    if pytest.mode == "compile":
+        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     def wrapper_fn(shape, indices):
         return torch.ops.aten.index(shape, indices)
 

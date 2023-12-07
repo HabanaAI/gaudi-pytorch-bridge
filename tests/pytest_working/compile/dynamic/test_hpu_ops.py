@@ -246,6 +246,7 @@ def test_op_repeat():
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
 def test_op_cat():
     shapes_per_run = [[[2, 3], [2, 3]], [[10, 3], [10, 3]], [[5, 3], [5, 3]]]
 

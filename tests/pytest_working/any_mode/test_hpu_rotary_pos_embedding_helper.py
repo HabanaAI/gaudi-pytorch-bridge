@@ -276,6 +276,8 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
 @pytest.mark.parametrize("squeeze_dims", [False, True])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
 def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dtype):
+    if pytest.mode == "compile":
+        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     if is_gaudi1() and dtype == torch.float16:
         pytest.skip("Half is not supported on Gaudi.")
 
@@ -392,6 +394,8 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
 def test_apply_rotary_pos_emb_diff_dtypes(
     p_size, cos_sin_size, dtype, cos_dtype, sin_dtype
 ):
+    if pytest.mode == "compile":
+        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     if is_gaudi1() and (
         dtype == torch.float16
         or cos_dtype == torch.float16

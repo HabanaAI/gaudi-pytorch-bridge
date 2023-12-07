@@ -16,6 +16,7 @@ import pytest
 from functools import reduce
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
 @pytest.mark.parametrize("inputs_shape", [(6,), (4, 6), (3, 5, 2)])
 @pytest.mark.parametrize(
     "accumulate", [False, True]

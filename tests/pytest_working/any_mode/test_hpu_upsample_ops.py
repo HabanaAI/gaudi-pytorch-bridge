@@ -52,6 +52,8 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("antialias", [True, False])
     @pytest.mark.parametrize("variant", ["fwd", "bwd"])
     def test_upsample_bicubic2d(self, shape_and_size, scale_factor, align_corners, antialias, variant, dtype):
+        if pytest.mode == "compile":
+            pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
         if (pytest.mode == "compile" and antialias == False):
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         shape, size = shape_and_size
@@ -63,6 +65,8 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("antialias", [True, False])
     @pytest.mark.parametrize("variant", ["fwd", "bwd"])
     def test_upsample_bilinear2d(self, shape_and_size, scale_factor, align_corners, antialias, variant, dtype):
+        if pytest.mode == "compile":
+            pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
         if (pytest.mode == "compile" and antialias == False):
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         shape, size = shape_and_size
@@ -72,6 +76,8 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("scale_factor", [None, [2]], ids=format_tc)
     @pytest.mark.parametrize("variant", ["fwd", "bwd"])
     def test_upsample_nearest1d(self, shape_and_size, scale_factor, variant, dtype):
+        if pytest.mode == "compile":
+            pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
         shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
 

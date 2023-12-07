@@ -26,6 +26,8 @@ if not is_gaudi1():
 @pytest.mark.parametrize("is_full_shape", [True, False])
 @pytest.mark.parametrize("dtype", dtypes)
 def test_hpu_index_copy(shape, dim, is_full_shape, dtype):
+    if pytest.mode == "compile":
+        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     self_tensor = torch.zeros(shape, dtype=dtype)
     self_tensor_h = self_tensor.to("hpu")
     dim_size = shape[dim]

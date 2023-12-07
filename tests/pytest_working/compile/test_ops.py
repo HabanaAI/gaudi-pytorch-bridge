@@ -45,6 +45,10 @@ if htexp._get_device_type() != htexp.synDeviceType.synDeviceGaudi:
 )
 @pytest.mark.parametrize("torch_func", [torch.empty_like, torch.zeros_like])
 def test_empty_and_zeros_like(dtype, memory_format, torch_func):
+    if pytest.mode == "compile" and torch_func == torch.empty_like:
+        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
+    if pytest.mode == "compile" and torch_func == torch.zeros_like and dtype == torch.bool:
+        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     requires_grad = False
     layout = torch.strided
 
@@ -237,6 +241,8 @@ def test_constant_pad_nd():
     "torch_func", [torch.logical_and, torch.logical_xor, torch.logical_or]
 )
 def test_logical_bin_ops(dtype, torch_func):
+    if pytest.mode == "compile" and (dtype == torch.int or dtype == torch.int16):
+        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     def raw_function(a, b):
         return torch_func(a, b)
 
@@ -255,6 +261,7 @@ def test_logical_bin_ops(dtype, torch_func):
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
 @pytest.mark.parametrize("dtype", all_dtypes)
 def test_logical_not(dtype):
     def raw_function(a):

@@ -1,6 +1,8 @@
 import torch
 import habana_frameworks.torch
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
+from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+import os
 
 
 @torch.compile(backend="aot_hpu_training_backend")
@@ -26,6 +28,8 @@ def assert_helper(ops_summary, op, graph_count, eager_count):
 
 
 def test_simple():
+    original = configuration_flags["use_eager_fallback"]
+    configuration_flags["use_eager_fallback"] = True
     torch._dynamo.reset()
     with FxGraphAnalyzer() as fga:
         t1 = torch.tensor([6], device="hpu")
@@ -39,6 +43,8 @@ def test_simple():
     assert_helper(ops_summary, "aten.randint.low", 1, 0)
     assert_helper(ops_summary, "aten.add.Tensor", 2, 0)
 
+    configuration_flags["use_eager_fallback"] = original
+
 
 def test_cpu():
     torch._dynamo.reset()
@@ -51,6 +57,8 @@ def test_cpu():
 
 
 def test_multiple():
+    original = configuration_flags["use_eager_fallback"]
+    configuration_flags["use_eager_fallback"] = True
     torch._dynamo.reset()
     with FxGraphAnalyzer() as fga:
         t1 = torch.tensor([6], device="hpu")
@@ -83,3 +91,4 @@ def test_multiple():
     ops_summary3 = fga3.get_ops_summary()
     assert_helper(ops_summary3, "aten.randint.low", 1, 0)
     assert_helper(ops_summary3, "aten.add.Tensor", 2, 0)
+    configuration_flags["use_eager_fallback"] = original

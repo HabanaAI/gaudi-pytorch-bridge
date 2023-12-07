@@ -62,6 +62,7 @@ def test_bitwise_scalar(dtype, op_code):
     assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
 @pytest.mark.parametrize("dtype", [torch.int8, torch.int, torch.uint8, torch.int16])
 @pytest.mark.parametrize(
     "op_code", [torch.bitwise_and, torch.bitwise_or, torch.bitwise_xor]

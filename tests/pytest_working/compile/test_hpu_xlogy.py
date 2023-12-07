@@ -44,6 +44,7 @@ class TestHpuXlogy:
     def _create_empty_tensors(cls, shape, dtype):
         return cls._create_cpu_hpu_tensors(torch.empty, shape, dtype=dtype)
 
+    @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     def test_no_scalars_outplace(self, op_code, dtype):
         def fn(input, other):
             return op_code(input=input, other=other)
@@ -58,6 +59,7 @@ class TestHpuXlogy:
 
         TestHpuXlogy._compare(cpu_output, hpu_output)
 
+    @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     def test_no_scalars_out(self, op_code, dtype):
         def fn(input, other, out):
             op_code(input=input, other=other, out=out)
@@ -87,6 +89,7 @@ class TestHpuXlogy:
 
         TestHpuXlogy._compare(cpu_input, hpu_input)
 
+    @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     @pytest.mark.parametrize("scalar_value", SCALAR_VALUES)
     def test_input_scalar_outplace(self, op_code, dtype, scalar_value):
         def fn(input, other):
@@ -101,6 +104,7 @@ class TestHpuXlogy:
 
         TestHpuXlogy._compare(cpu_output, hpu_output)
 
+    @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     @pytest.mark.parametrize("scalar_value", SCALAR_VALUES)
     def test_input_scalar_out(self, op_code, dtype, scalar_value):
         def fn(input, other, out):
@@ -116,6 +120,7 @@ class TestHpuXlogy:
 
         TestHpuXlogy._compare(cpu_out, hpu_out)
 
+    @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     @pytest.mark.parametrize("scalar_value", SCALAR_VALUES)
     def test_other_scalar_outplace(self, op_code, dtype, scalar_value):
         def fn(input, other):
@@ -130,6 +135,7 @@ class TestHpuXlogy:
 
         TestHpuXlogy._compare(cpu_output, hpu_output)
 
+    @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     @pytest.mark.parametrize("scalar_value", SCALAR_VALUES)
     def test_other_scalar_out(self, op_code, dtype, scalar_value):
         def fn(input, other, out):

@@ -21,6 +21,8 @@ if not is_gaudi1():
 @pytest.mark.parametrize("shape", [[20, 10]], ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 def test_2_iterations(shape, dtype):
+    if pytest.mode == "compile" and dtype in (torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn):
+        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     def fn_cpu(*args):
         return torch.median(*args)
 

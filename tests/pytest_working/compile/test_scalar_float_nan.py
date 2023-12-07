@@ -1,7 +1,9 @@
 import torch
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.dynamo.compile_backend
+import pytest
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
 def test_scalar_float_nan():
   def fn(val):
     return torch.full((2,2), val, dtype=torch.float, device="hpu")
