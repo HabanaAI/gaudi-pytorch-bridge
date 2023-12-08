@@ -3097,9 +3097,10 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       // 3. Launch
       // 4. Update outputs
       current_dbipsh_->IncrementHitCount(current_bucket_id_);
-      if (cur_rvalpsh->get_refined()) {
+      RecipeValueSpec& rv = *cur_rvalpsh;
+      if (rv.get_refined()) {
         habana_helpers::DynamicBucketInfo::inc_num_refined_recipe_hits();
-        if (cur_rvalpsh->get_refined_wirt()) {
+        if (rv.get_refined_wirt()) {
           habana_helpers::DynamicBucketInfo::inc_num_refined_recipe_wirt_hits();
         }
       } else {
@@ -3107,7 +3108,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
       }
 
       std::unordered_map<int64_t, at::Tensor> tidx_to_tensor_map;
-      RecipeValueSpec& rv = *cur_rvalpsh;
       rv.update_hit_count();
 
       if (rv.dynamic_graph) {
@@ -3153,7 +3153,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS() {
             current_bucket_id_, jit_ir_graph_, ranges, refine_candidate);
       }
 
-      cur_rvalpsh = GetCachedRecipe(cur_rargpsh);
       UpdatePatchingInformation(true, tidx_to_tensor_map);
 
       {

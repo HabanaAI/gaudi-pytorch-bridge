@@ -52,6 +52,7 @@ void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
     pt_stack = nullptr;
     pt_stack_sh.clear();
     num_tensor_inputs = 0;
+    cur_rvalpsh = nullptr;
   }
 
   jit_graph_and_meta_data_->clear_cached_graph_info();
@@ -61,7 +62,6 @@ void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
 
   value_to_ivalue.clear();
   syn_graph_ptr_ = nullptr;
-  cur_rvalpsh = nullptr;
   intermediate_tensors_ptr_sh_ = nullptr;
   aten_outputs_ptr_sh_ = nullptr;
 
