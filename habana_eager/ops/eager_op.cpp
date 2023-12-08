@@ -85,8 +85,13 @@ std::mutex EagerOpBase::m_mutex;
 
 void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
   auto stack = convert_ivalues_to_backend_tensors(m_inputs, m_symbol);
-
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
+    for (const at::IValue& ivalue : stack) {
+      if (ivalue.isTensor()) {
+        auto hb_tmeta{habana::get_tensor_extra_meta(ivalue.toTensor())};
+        hb_tmeta->set_tensor_pipelined();
+      }
+    }
     SingleTonEagerContext::getInstance()
         .ScheduleWorkAndUpdateLoweringThreadHandle(
             EagerLoweringTask,

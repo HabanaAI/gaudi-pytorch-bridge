@@ -137,6 +137,12 @@ inline TensorImpl* resize_impl_hpu_(
     [[maybe_unused]] bool device_guard = true) {
   HABANA_ASSERT(
       self != nullptr, "Trying to resize tensor with non-existing TensorImpl");
+  if (auto tmeta = self->get_backend_meta()) {
+    auto hb_tmeta = dynamic_cast<habana::TensorExtraMeta*>(tmeta);
+    if (hb_tmeta->is_tensor_pipelined()) {
+      habana::TryJoinPendingEagerPipelineThreads();
+    }
+  }
   if (self->sizes() == size && (!stride || self->strides() == stride)) {
     return self;
   }

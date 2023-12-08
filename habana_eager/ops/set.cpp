@@ -32,6 +32,9 @@ at::Tensor& set_source_Storage_storage_offset(
       ? c10::optional<at::IntArrayRef>(C10_AS_INTARRAYREF_SLOW(stride))
       : c10::nullopt;
 
+  auto hb_tmeta{habana::get_tensor_extra_meta(self)};
+  hb_tmeta->set_tensor_pipelined();
+
   self.unsafeGetTensorImpl()->set_storage_offset(int_storage_offset);
   at::native::resize_impl_hpu_(
       self.unsafeGetTensorImpl(), C10_AS_INTARRAYREF_SLOW(size), stride_opt);

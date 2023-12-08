@@ -299,12 +299,18 @@ StorageExtraMeta* get_storage_base_meta(const at::Tensor& tensor) {
 
 bool is_view_lowering(const at::Tensor& tensor) {
   auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  if (tmeta == nullptr)
+    return false;
   if (!tmeta->is_view_tensor())
     return false;
   if (tmeta->is_maybe_grad_view())
     return false;
   auto base_smeta{habana::get_storage_base_meta(tensor)};
+  if (base_smeta == nullptr)
+    return false;
   auto smeta{habana::get_storage_extra_meta(tensor)};
+  if (smeta == nullptr)
+    return false;
   return (
       (base_smeta->get_memory_permutation().size() != 0) ||
       (smeta->get_memory_permutation().size() != 0));
