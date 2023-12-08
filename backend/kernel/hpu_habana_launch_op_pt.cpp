@@ -1310,6 +1310,18 @@ void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
   }
 }
 
+#define HANDLE_LIST_OF(T, isFn, toFn)                      \
+  if (ivptrsh->isFn()) {                                   \
+    c10::List<T> list;                                     \
+    for (const auto& value_in : node_ins) {                \
+      ivptrsh = value_to_ivalue[value_in];                 \
+      HABANA_ASSERT(ivptrsh->isFn());                      \
+      list.emplace_back(ivptrsh->toFn());                  \
+    }                                                      \
+    IValPtrShared out_ival = std::make_shared<IVal>(list); \
+    return out_ival;                                       \
+  }
+
 IValPtrShared GetPrimListConstructNodeOuputIValue(
     torch::jit::Node* node,
     CValuePtrToIValuePtrMap& value_to_ivalue) {
@@ -1340,43 +1352,10 @@ IValPtrShared GetPrimListConstructNodeOuputIValue(
 
   auto ivptrsh = value_to_ivalue[node_ins[0]];
 
-  // Handle construction of list consisting tensor only
-  if (ivptrsh->isTensor()) {
-    c10::List<at::Tensor> tensorList;
-    for (const auto& value_in : node_ins) {
-      ivptrsh = value_to_ivalue[value_in];
-      // Constructed list should be homogenous
-      HABANA_ASSERT(ivptrsh->isTensor());
-      tensorList.emplace_back(ivptrsh->toTensor());
-    }
-    IValPtrShared out_ival = std::make_shared<IVal>(tensorList);
-    return out_ival;
-  }
-  //  Handle construction of list consisting ints only
-  if (ivptrsh->isInt()) {
-    c10::List<int64_t> intList;
-    for (const auto& value_in : node_ins) {
-      ivptrsh = value_to_ivalue[value_in];
-      // Constructed list should be homogenous
-      HABANA_ASSERT(ivptrsh->isInt());
-      intList.emplace_back(ivptrsh->toInt());
-    }
-    IValPtrShared out_ival = std::make_shared<IVal>(intList);
-    return out_ival;
-  }
-
-  //  Handle construction of list consisting bools only
-  if (ivptrsh->isBool()) {
-    c10::List<bool> boolList;
-    for (const auto& value_in : node_ins) {
-      ivptrsh = value_to_ivalue[value_in];
-      // Constructed list should be homogenous
-      HABANA_ASSERT(ivptrsh->isBool());
-      boolList.emplace_back(ivptrsh->toBool());
-    }
-    IValPtrShared out_ival = std::make_shared<IVal>(boolList);
-    return out_ival;
-  }
+  HANDLE_LIST_OF(at::Tensor, isTensor, toTensor)
+  HANDLE_LIST_OF(int64_t, isInt, toInt)
+  HANDLE_LIST_OF(double, isDouble, toDouble)
+  HANDLE_LIST_OF(bool, isBool, toBool)
 
   HABANA_ASSERT(false, "Unsupported list type in prim::ListConstruct");
 }

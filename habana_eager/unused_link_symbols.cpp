@@ -300,6 +300,22 @@ at::Tensor& recv_hpu_lazy_(
   EAGER_NOT_SUPPORTED;
 }
 
+std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_lazy(
+    [[maybe_unused]] const at::Tensor& input,
+    [[maybe_unused]] const c10::optional<at::Tensor>& scale,
+    [[maybe_unused]] bool stochastic_rounding,
+    [[maybe_unused]] at::Tensor& out,
+    [[maybe_unused]] at::Tensor& amax) {
+  EAGER_NOT_SUPPORTED;
+}
+
+at::Tensor cast_from_fp8_lazy(
+    [[maybe_unused]] const at::Tensor& input,
+    [[maybe_unused]] const c10::optional<at::Tensor>& scale,
+    [[maybe_unused]] at::ScalarType out_dtype) {
+  EAGER_NOT_SUPPORTED;
+}
+
 } // namespace habana_lazy
 
 void optimizer_adagrad_hpu_wrap(
@@ -346,22 +362,6 @@ optimizer_sparse_sgd_with_valid_count_hpu_wrap(
     [[maybe_unused]] const Tensor& valid_count_tensor,
     [[maybe_unused]] float mom,
     [[maybe_unused]] bool nesterov) {
-  EAGER_NOT_SUPPORTED;
-}
-
-std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_wrap(
-    [[maybe_unused]] const at::Tensor& input,
-    [[maybe_unused]] const c10::optional<at::Tensor>& scale,
-    [[maybe_unused]] bool stochastic_rounding,
-    [[maybe_unused]] at::Tensor& out,
-    [[maybe_unused]] at::Tensor& amax) {
-  EAGER_NOT_SUPPORTED;
-}
-
-at::Tensor cast_from_fp8_wrap(
-    [[maybe_unused]] const at::Tensor& input,
-    [[maybe_unused]] const c10::optional<at::Tensor>& scale,
-    [[maybe_unused]] at::ScalarType out_dtype) {
   EAGER_NOT_SUPPORTED;
 }
 

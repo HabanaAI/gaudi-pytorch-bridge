@@ -577,6 +577,30 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype);
+std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_lazy(
+    const at::Tensor& input,
+    double scale,
+    bool stochastic_rounding,
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype);
+std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_list_lazy(
+    const at::Tensor& input,
+    c10::ArrayRef<double> scale,
+    bool stochastic_rounding,
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype);
+at::Tensor cast_from_fp8_lazy(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    at::ScalarType out_dtype);
+at::Tensor cast_from_fp8_scalar_lazy(
+    const at::Tensor& input,
+    double scale,
+    at::ScalarType out_dtype);
+at::Tensor cast_from_fp8_scalar_list_lazy(
+    const at::Tensor& input,
+    c10::ArrayRef<double> scale,
+    at::ScalarType out_dtype);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale_152,
@@ -614,10 +638,6 @@ fp8_cast_transpose_bgrad_dgelu_lazy(
     at::Tensor& transposed,
     at::Tensor& bgrad,
     at::Tensor& amax);
-at::Tensor cast_from_fp8_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    at::ScalarType out_dtype);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout_lazy(
     const at::Tensor& input,
     double p,
@@ -687,6 +707,28 @@ at::Tensor fp8_gemm_v2_lazy(
     at::ScalarType out_dtype,
     const c10::optional<at::Tensor>& A_scale_inv,
     const c10::optional<at::Tensor>& B_scale_inv,
+    const c10::optional<at::Tensor>& bias,
+    bool accumulate);
+at::Tensor fp8_gemm_v2_lazy_scalar(
+    const at::Tensor& A,
+    bool trans_A,
+    const at::Tensor& B,
+    bool trans_B,
+    const c10::optional<at::Tensor>& D,
+    at::ScalarType out_dtype,
+    double A_scale_inv,
+    double B_scale_inv,
+    const c10::optional<at::Tensor>& bias,
+    bool accumulate);
+at::Tensor fp8_gemm_v2_lazy_scalar_list(
+    const at::Tensor& A,
+    bool trans_A,
+    const at::Tensor& B,
+    bool trans_B,
+    const c10::optional<at::Tensor>& D,
+    at::ScalarType out_dtype,
+    c10::ArrayRef<double> A_scale_inv,
+    c10::ArrayRef<double> B_scale_inv,
     const c10::optional<at::Tensor>& bias,
     bool accumulate);
 at::Tensor& fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out);

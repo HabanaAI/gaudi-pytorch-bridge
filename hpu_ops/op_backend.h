@@ -465,6 +465,18 @@ class OpBackend : public HabanaOperator {
     return sg.stack[pos].toOptional<at::ScalarType>();
   }
 
+  std::variant<TensorsPair, c10::IValue> getNextInputInternal(
+      StackGetter& sg,
+      std::variant<TensorsPair, c10::IValue>*) {
+    auto pos = sg.CheckGetAndIncrStackPos();
+    if (sg.stack[pos].isTensor()) {
+      int syn_pos = sg.GetAndIncrSynPos();
+      return TensorsPair{sg.stack[pos].toTensor(), syn_in(syn_pos)};
+    } else {
+      return sg.stack[pos];
+    }
+  }
+
 #define GET_NEXT_INPUT_INTERNAL(T, isFn, toFn, Tstr)                         \
   T getNextInputInternal(StackGetter& sg, T*) {                              \
     auto pos = sg.CheckGetAndIncrStackPos();                                 \

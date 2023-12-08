@@ -80,6 +80,26 @@ void CastToFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 /********** CastToFp8V2 **********/
 
+static void HandleScale(
+    habana::OpBackend* op,
+    synapse_helpers::graph& graph,
+    const c10::IValue& scale,
+    const int device_id,
+    std::vector<synapse_helpers::tensor>& maybe_const_scale,
+    std::vector<synTensor>& syn_inputs) {
+  if (scale.isDouble()) {
+    maybe_const_scale.emplace_back(
+        op->BuildConstantTensor(op, graph, scale.toDouble()));
+    syn_inputs.push_back(maybe_const_scale.back().get());
+  } else if (scale.isDoubleList() and not op->isOutputInfMode()) {
+    maybe_const_scale.emplace_back(op->AllocateConstantSynapseTensor(
+        graph, device_id, scale.toDoubleVector()));
+    syn_inputs.push_back(maybe_const_scale.back().get());
+  } else {
+    syn_inputs.push_back(nullptr);
+  }
+}
+
 sizes_vec CastToFp8V2OutputShape(const at::Stack& stack) {
   auto input_sv = stack[0].toTensor().sizes().vec();
   bool is_amax = stack[3].toBool();
@@ -114,7 +134,7 @@ void CastToFp8V2::AddNode(
   TORCH_CHECK(stack.size() == 5, "CastToFp8V2 must have 5 input arguments");
 
   auto self = stack_tensor(stack, 0);
-  auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
+  auto scale = stack[1];
   bool is_amax = stack[3].toBool();
   auto src_type = self.scalar_type();
   auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[4]);
@@ -124,8 +144,17 @@ void CastToFp8V2::AddNode(
 
   auto out_shapes = CastToFp8V2OutputShape(stack);
   std::vector<synTensor> syn_inputs{syn_in(0)};
-  if (scale.defined()) {
+  std::vector<synapse_helpers::tensor> maybe_const_scale;
+  if (scale.isTensor()) {
     syn_inputs.push_back(syn_in(1));
+  } else {
+    HandleScale(
+        this,
+        graph,
+        scale,
+        p_context_->device_id_,
+        maybe_const_scale,
+        syn_inputs);
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {out_shapes[0], dst_type, 0, DATA_TENSOR, dst_syn_type}};
@@ -463,7 +492,7 @@ void CastFromFp8::AddNode(
   TORCH_CHECK(stack.size() == 3, "CastFromFp8 must have 3 input arguments");
 
   auto self = stack_tensor(stack, 0);
-  auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
+  auto scale = stack[1];
   auto dst_type = stack[2].toScalarType();
   auto sizes = self.sizes();
 
@@ -472,8 +501,17 @@ void CastFromFp8::AddNode(
       : "convert_from_fp8_bf16";
 
   std::vector<synTensor> syn_inputs{syn_in(0)};
-  if (scale.defined()) {
+  std::vector<synapse_helpers::tensor> maybe_const_scale;
+  if (scale.isTensor()) {
     syn_inputs.push_back(syn_in(1));
+  } else {
+    HandleScale(
+        this,
+        graph,
+        scale,
+        p_context_->device_id_,
+        maybe_const_scale,
+        syn_inputs);
   }
 
   auto casted = OpBackend::BuildNode(
@@ -938,23 +976,39 @@ void Fp8GemmV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   bool trans_B = getNextInput<bool>(stackGetter);
   auto DOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto out_type = getNextInput<c10::ScalarType>(stackGetter);
-  auto scaleAOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto scaleBOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto scaleAOpt =
+      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+  auto scaleBOpt =
+      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
   auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   bool accumulate = getNextInput<bool>(stackGetter);
 
   std::string guid = get_guid_with_precision("fp8_gemm", out_type);
 
   std::vector<synTensor> syn_inputs = {A.syn_t, B.syn_t};
-  if (scaleAOpt) {
-    syn_inputs.push_back(scaleAOpt->syn_t);
+  std::vector<synapse_helpers::tensor> maybe_const_scale;
+
+  if (std::holds_alternative<TensorsPair>(scaleAOpt)) {
+    syn_inputs.push_back(std::get<TensorsPair>(scaleAOpt).syn_t);
   } else {
-    syn_inputs.push_back(nullptr);
+    HandleScale(
+        this,
+        graph,
+        std::get<c10::IValue>(scaleAOpt),
+        p_context_->device_id_,
+        maybe_const_scale,
+        syn_inputs);
   }
-  if (scaleBOpt) {
-    syn_inputs.push_back(scaleBOpt->syn_t);
+  if (std::holds_alternative<TensorsPair>(scaleBOpt)) {
+    syn_inputs.push_back(std::get<TensorsPair>(scaleBOpt).syn_t);
   } else {
-    syn_inputs.push_back(nullptr);
+    HandleScale(
+        this,
+        graph,
+        std::get<c10::IValue>(scaleBOpt),
+        p_context_->device_id_,
+        maybe_const_scale,
+        syn_inputs);
   }
   if (biasOpt) {
     syn_inputs.push_back(biasOpt->syn_t);
@@ -1512,6 +1566,12 @@ static const auto& CastKernelRegistry =
         .add("hpu::cast_to_fp8", KERNEL_FN_GLOBAL(habana::CastToFp8))
         .add("hpu::cast_to_fp8_v2", KERNEL_FN_GLOBAL(habana::CastToFp8V2))
         .add(
+            "hpu::cast_to_fp8_v2.scalar",
+            KERNEL_FN_GLOBAL(habana::CastToFp8V2))
+        .add(
+            "hpu::cast_to_fp8_v2.scalar_list",
+            KERNEL_FN_GLOBAL(habana::CastToFp8V2))
+        .add(
             "hpu::cast_to_fp8_hybrid",
             KERNEL_FN_GLOBAL(habana::CastToFp8Hybrid))
         .add("hpu::cast_to_fp8_q", KERNEL_FN_GLOBAL(habana::CastToFp8Q))
@@ -1525,6 +1585,10 @@ static const auto& CastKernelRegistry =
             "hpu::fp8_cast_transpose_bgrad_dgelu",
             KERNEL_FN_GLOBAL(habana::Fp8CastTransposeBgradDgelu))
         .add("hpu::cast_from_fp8", KERNEL_FN_GLOBAL(habana::CastFromFp8))
+        .add("hpu::cast_from_fp8.scalar", KERNEL_FN_GLOBAL(habana::CastFromFp8))
+        .add(
+            "hpu::cast_from_fp8.scalar_list",
+            KERNEL_FN_GLOBAL(habana::CastFromFp8))
         .add("hpu::fp8_dropout", KERNEL_FN_GLOBAL(habana::Fp8Dropout))
         .add("hpu::fp8_gelu", KERNEL_FN_GLOBAL(habana::Fp8Gelu))
         .add("hpu::fp8_gelu_v2", KERNEL_FN_GLOBAL(habana::Fp8GeluV2))
@@ -1533,6 +1597,10 @@ static const auto& CastKernelRegistry =
         .add("hpu::fp8_layernorm", KERNEL_FN_GLOBAL(habana::Fp8Layernorm))
         .add("hpu::fp8_gemm", KERNEL_FN_GLOBAL(habana::Fp8Gemm))
         .add("hpu::fp8_gemm_v2", KERNEL_FN_GLOBAL(habana::Fp8GemmV2))
+        .add("hpu::fp8_gemm_v2.scalar", KERNEL_FN_GLOBAL(habana::Fp8GemmV2))
+        .add(
+            "hpu::fp8_gemm_v2.scalar_list",
+            KERNEL_FN_GLOBAL(habana::Fp8GemmV2))
         .add("hpu::fp8_transpose", KERNEL_FN_GLOBAL(habana::Fp8Transpose))
         .add("hpu::fp8_permute", KERNEL_FN_GLOBAL(habana::Fp8Permute))
         .add("hpu::fp8_reshape", KERNEL_FN_GLOBAL(habana::Fp8Reshape))

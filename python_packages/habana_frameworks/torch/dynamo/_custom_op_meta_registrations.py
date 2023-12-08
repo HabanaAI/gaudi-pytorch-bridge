@@ -41,13 +41,31 @@ def meta_cast_to_fp8(input, scale, stochastic, out, amax):
     return out, amax
 
 
-@register_meta([torch.ops.hpu.cast_to_fp8_v2.default])
-def meta_cast_to_fp8_v2(input, scale=None, stochastic=False, is_amax=False, dtype=None):
+def meta_cast_to_fp8_v2_common(input, is_amax, dtype):
     out_dtype = dtype if dtype else torch.int8
     out = input.new_empty(input.shape, dtype=out_dtype)
     amax_shape = () if is_amax else 0
     amax = input.new_empty(amax_shape, dtype=torch.float32)
     return out, amax
+
+
+@register_meta([torch.ops.hpu.cast_to_fp8_v2.default])
+def meta_cast_to_fp8_v2(input, scale=None, stochastic=False, is_amax=False, dtype=None):
+    return meta_cast_to_fp8_v2_common(input, is_amax, dtype)
+
+
+@register_meta([torch.ops.hpu.cast_to_fp8_v2.scalar])
+def meta_cast_to_fp8_v2_scalar(
+    input, scale, stochastic=False, is_amax=False, dtype=None
+):
+    return meta_cast_to_fp8_v2_common(input, is_amax, dtype)
+
+
+@register_meta([torch.ops.hpu.cast_to_fp8_v2.scalar_list])
+def meta_cast_to_fp8_v2_scalar_list(
+    input, scale, stochastic=False, is_amax=False, dtype=None
+):
+    return meta_cast_to_fp8_v2_common(input, is_amax, dtype)
 
 
 @register_meta([torch.ops.hpu.cast_to_fp8_hybrid.default])
@@ -87,6 +105,16 @@ def meta_fp8_cast_transpose_bgrad_dgelu(
 
 @register_meta([torch.ops.hpu.cast_from_fp8.default])
 def meta_cast_from_fp8(input, scale, out_dtype):
+    return input.new_empty(input.shape, dtype=out_dtype)
+
+
+@register_meta([torch.ops.hpu.cast_from_fp8.scalar])
+def meta_cast_from_fp8_scalar(input, scale, out_dtype):
+    return input.new_empty(input.shape, dtype=out_dtype)
+
+
+@register_meta([torch.ops.hpu.cast_from_fp8.scalar_list])
+def meta_cast_from_fp8_scalar_list(input, scale, out_dtype):
     return input.new_empty(input.shape, dtype=out_dtype)
 
 
@@ -156,6 +184,21 @@ def meta_fp8_gemm(
     return out
 
 
+def meta_fp8_gemm_v2_common(
+    A,
+    trans_A,
+    B,
+    trans_B,
+    out_dtype,
+):
+    batch_dims = A.dim() - 2
+    dim_a = batch_dims + (1 if trans_A else 0)
+    dim_b = batch_dims + (0 if trans_B else 1)
+    out_shape = list(A.shape[0:batch_dims]) + [A.shape[dim_a], B.shape[dim_b]]
+    out = A.new_empty(out_shape, dtype=out_dtype)
+    return out
+
+
 @register_meta([torch.ops.hpu.fp8_gemm_v2.default])
 def meta_fp8_gemm_v2(
     A,
@@ -169,12 +212,39 @@ def meta_fp8_gemm_v2(
     bias,
     accumulate,
 ):
-    batch_dims = A.dim() - 2
-    dim_a = batch_dims + (1 if trans_A else 0)
-    dim_b = batch_dims + (0 if trans_B else 1)
-    out_shape = list(A.shape[0:batch_dims]) + [A.shape[dim_a], B.shape[dim_b]]
-    out = A.new_empty(out_shape, dtype=out_dtype)
-    return out
+    return meta_fp8_gemm_v2_common(A, trans_A, B, trans_B, out_dtype)
+
+
+@register_meta([torch.ops.hpu.fp8_gemm_v2.scalar])
+def meta_fp8_gemm_v2_scalar(
+    A,
+    trans_A,
+    B,
+    trans_B,
+    D,
+    out_dtype,
+    A_scale_inv,
+    B_scale_inv,
+    bias,
+    accumulate,
+):
+    return meta_fp8_gemm_v2_common(A, trans_A, B, trans_B, out_dtype)
+
+
+@register_meta([torch.ops.hpu.fp8_gemm_v2.scalar_list])
+def meta_fp8_gemm_v2_scalar_list(
+    A,
+    trans_A,
+    B,
+    trans_B,
+    D,
+    out_dtype,
+    A_scale_inv,
+    B_scale_inv,
+    bias,
+    accumulate,
+):
+    return meta_fp8_gemm_v2_common(A, trans_A, B, trans_B, out_dtype)
 
 
 def to_list_if_necessary(input, size):

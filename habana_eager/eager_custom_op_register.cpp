@@ -64,9 +64,10 @@ at::Tensor cast_to_fp8_q(
   return output;
 }
 
-std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2(
+template <class T>
+static std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_common(
     const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
+    T scale,
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype) {
@@ -85,6 +86,36 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2(
       habana::CastToFp8V2OutputShape};
   hpu_op.set_scalar_types({dtype.value(), at::ScalarType::Float});
   return hpu_op.call();
+}
+
+std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    bool stochastic_rounding,
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
+  return cast_to_fp8_v2_common(
+      input, scale, stochastic_rounding, is_amax, dtype);
+}
+
+std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar(
+    const at::Tensor& input,
+    double scale,
+    bool stochastic_rounding,
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
+  return cast_to_fp8_v2_common(
+      input, scale, stochastic_rounding, is_amax, dtype);
+}
+
+std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_list(
+    const at::Tensor& input,
+    c10::ArrayRef<double> scale,
+    bool stochastic_rounding,
+    bool is_amax,
+    c10::optional<at::ScalarType> dtype) {
+  return cast_to_fp8_v2_common(
+      input, scale, stochastic_rounding, is_amax, dtype);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid(
@@ -221,9 +252,10 @@ fp8_cast_transpose_bgrad_dgelu(
   return hpu_op.call(result);
 }
 
-at::Tensor cast_from_fp8(
+template <class T>
+static at::Tensor cast_from_fp8_common(
     const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
+    T scale,
     at::ScalarType out_dtype) {
   PT_EAGER_TRACE;
   PT_OP_INFO("cast_from_fp8 :", DUMP_3ARGS(input, scale, out_dtype));
@@ -236,6 +268,27 @@ at::Tensor cast_from_fp8(
       "hpu::cast_from_fp8", {input, scale, out_dtype}};
   hpu_op.set_scalar_types({out_dtype});
   return hpu_op.call();
+}
+
+at::Tensor cast_from_fp8(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& scale,
+    at::ScalarType out_dtype) {
+  return cast_from_fp8_common(input, scale, out_dtype);
+}
+
+at::Tensor cast_from_fp8_scalar(
+    const at::Tensor& input,
+    double scale,
+    at::ScalarType out_dtype) {
+  return cast_from_fp8_common(input, scale, out_dtype);
+}
+
+at::Tensor cast_from_fp8_scalar_list(
+    const at::Tensor& input,
+    c10::ArrayRef<double> scale,
+    at::ScalarType out_dtype) {
+  return cast_from_fp8_common(input, scale, out_dtype);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout(
@@ -420,15 +473,16 @@ at::Tensor& fp8_gemm(
   return hpu_op.call(out);
 }
 
-at::Tensor fp8_gemm_v2(
+template <class T>
+static at::Tensor fp8_gemm_v2_common(
     const at::Tensor& A,
     bool trans_A,
     const at::Tensor& B,
     bool trans_B,
     const c10::optional<at::Tensor>& D,
     at::ScalarType out_dtype,
-    const c10::optional<at::Tensor>& A_scale_inv,
-    const c10::optional<at::Tensor>& B_scale_inv,
+    T A_scale_inv,
+    T B_scale_inv,
     const c10::optional<at::Tensor>& bias,
     bool accumulate) {
   PT_EAGER_TRACE;
@@ -465,6 +519,78 @@ at::Tensor fp8_gemm_v2(
       habana::Fp8GemmV2OutputShape};
   hpu_op.set_scalar_types({out_dtype});
   return hpu_op.call();
+}
+
+at::Tensor fp8_gemm_v2(
+    const at::Tensor& A,
+    bool trans_A,
+    const at::Tensor& B,
+    bool trans_B,
+    const c10::optional<at::Tensor>& D,
+    at::ScalarType out_dtype,
+    const c10::optional<at::Tensor>& A_scale_inv,
+    const c10::optional<at::Tensor>& B_scale_inv,
+    const c10::optional<at::Tensor>& bias,
+    bool accumulate) {
+  return fp8_gemm_v2_common(
+      A,
+      trans_A,
+      B,
+      trans_B,
+      D,
+      out_dtype,
+      A_scale_inv,
+      B_scale_inv,
+      bias,
+      accumulate);
+}
+
+at::Tensor fp8_gemm_v2_scalar(
+    const at::Tensor& A,
+    bool trans_A,
+    const at::Tensor& B,
+    bool trans_B,
+    const c10::optional<at::Tensor>& D,
+    at::ScalarType out_dtype,
+    double A_scale_inv,
+    double B_scale_inv,
+    const c10::optional<at::Tensor>& bias,
+    bool accumulate) {
+  return fp8_gemm_v2_common(
+      A,
+      trans_A,
+      B,
+      trans_B,
+      D,
+      out_dtype,
+      A_scale_inv,
+      B_scale_inv,
+      bias,
+      accumulate);
+}
+
+at::Tensor fp8_gemm_v2_scalar_list(
+    const at::Tensor& A,
+    bool trans_A,
+    const at::Tensor& B,
+    bool trans_B,
+    const c10::optional<at::Tensor>& D,
+    at::ScalarType out_dtype,
+    c10::ArrayRef<double> A_scale_inv,
+    c10::ArrayRef<double> B_scale_inv,
+    const c10::optional<at::Tensor>& bias,
+    bool accumulate) {
+  return fp8_gemm_v2_common(
+      A,
+      trans_A,
+      B,
+      trans_B,
+      D,
+      out_dtype,
+      A_scale_inv,
+      B_scale_inv,
+      bias,
+      accumulate);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu(
@@ -1148,11 +1274,19 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_from_fp8(Tensor input, Tensor? scale, ScalarType out_dtype) -> Tensor");
   m.def(
+      "hpu::cast_from_fp8.scalar(Tensor input, float scale, ScalarType out_dtype) -> Tensor");
+  m.def(
+      "hpu::cast_from_fp8.scalar_list(Tensor input, float[] scale, ScalarType out_dtype) -> Tensor");
+  m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
   m.def(
       "hpu::cast_to_fp8_q(Tensor input, ScalarType dtype, int exp_bias) -> Tensor");
   m.def(
       "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor)");
+  m.def(
+      "hpu::cast_to_fp8_v2.scalar(Tensor input, float scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor)");
+  m.def(
+      "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor)");
   m.def(
       "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)");
   m.def(
@@ -1179,6 +1313,10 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
   m.def(
       "hpu::fp8_gemm_v2(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate) -> Tensor");
+  m.def(
+      "hpu::fp8_gemm_v2.scalar(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float A_scale_inv, float B_scale_inv, Tensor? bias, bool accumulate) -> Tensor");
+  m.def(
+      "hpu::fp8_gemm_v2.scalar_list(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float[] A_scale_inv, float[] B_scale_inv, Tensor? bias, bool accumulate) -> Tensor");
   m.def(
       "hpu::fp8_index_copy_(Tensor(a!) self, int dim, Tensor index, Tensor source) -> Tensor(a!)");
   m.def(
@@ -1254,9 +1392,13 @@ TORCH_LIBRARY(hpu, m) {
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_from_fp8", cast_from_fp8);
+  m.impl("hpu::cast_from_fp8.scalar", cast_from_fp8_scalar);
+  m.impl("hpu::cast_from_fp8.scalar_list", cast_from_fp8_scalar_list);
   m.impl("hpu::cast_to_fp8", cast_to_fp8);
   m.impl("hpu::cast_to_fp8_q", cast_to_fp8_q);
   m.impl("hpu::cast_to_fp8_v2", cast_to_fp8_v2);
+  m.impl("hpu::cast_to_fp8_v2.scalar", cast_to_fp8_v2_scalar);
+  m.impl("hpu::cast_to_fp8_v2.scalar_list", cast_to_fp8_v2_scalar_list);
   m.impl("hpu::cast_to_fp8_hybrid", cast_to_fp8_hybrid);
   m.impl("hpu::conv2d_fp8", conv2d_fp8);
   m.impl("hpu::custom_softmax", custom_softmax);
@@ -1271,6 +1413,8 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_gelu_v2", fp8_gelu_v2);
   m.impl("hpu::fp8_gemm", fp8_gemm);
   m.impl("hpu::fp8_gemm_v2", fp8_gemm_v2);
+  m.impl("hpu::fp8_gemm_v2.scalar", fp8_gemm_v2_scalar);
+  m.impl("hpu::fp8_gemm_v2.scalar_list", fp8_gemm_v2_scalar_list);
   m.impl("hpu::fp8_index_copy_", fp8_index_copy_);
   m.impl("hpu::fp8_index_select_v2", fp8_index_select_v2);
   m.impl("hpu::fp8_kv_reorder_", fp8_kv_reorder);

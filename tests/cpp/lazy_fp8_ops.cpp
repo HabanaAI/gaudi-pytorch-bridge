@@ -13,6 +13,7 @@
 
 #include <cmath>
 #include "backend/habana_device/HPUGuardImpl.h"
+#include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "hpu_ops/util.h"
 
@@ -83,7 +84,8 @@ class Fp8GeluTest
 
     const auto [gelu_scaled, retain, amax] = fp8_gelu_v2_wrap(
         input.to("hpu"), scale_hpu, stochastic, is_amax, c10::nullopt);
-    auto gelu_unscaled = cast_from_fp8_wrap(gelu_scaled, scale_inv_hpu, dtype);
+    auto gelu_unscaled =
+        habana_lazy::cast_from_fp8_lazy(gelu_scaled, scale_inv_hpu, dtype);
 
     double rtol = stochastic ? 0.26 : 0.0;
     double atol = 0.01;

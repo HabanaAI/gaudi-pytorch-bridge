@@ -12,6 +12,7 @@
  */
 #pragma once
 #include <synapse_api_types.h>
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/habana_types.h"
 #include "backend/helpers/layout.h"
@@ -560,6 +561,76 @@ class HabanaOperator {
   synapse_helpers::tensor AllocateConstantSynapseTensor(
       synapse_helpers::graph& graph,
       const c10::Scalar& value);
+
+  template <class T, class U>
+  static void CopyVecToHostPtr(const std::vector<T>& vec, void* host_ptr) {
+    if constexpr (std::is_same<T, U>::value) {
+      std::copy(vec.begin(), vec.end(), static_cast<T*>(host_ptr));
+    } else {
+      std::vector<U> vec_temp(vec.size());
+      std::transform(vec.begin(), vec.end(), vec_temp.begin(), [](const T& v) {
+        return static_cast<U>(v);
+      });
+      std::copy(vec_temp.begin(), vec_temp.end(), static_cast<U*>(host_ptr));
+    }
+  }
+
+  // Allocate constant synapse tensor for handling vectors
+  template <class T>
+  synapse_helpers::tensor AllocateConstantSynapseTensor(
+      synapse_helpers::graph& graph,
+      int device_id,
+      const std::vector<T>& vec) {
+    auto& device = habana::HPURegistrar::get_device(device_id).syn_device();
+
+    void* host_ptr{nullptr};
+    at::ScalarType vec_type{};
+
+    const bool is_int64_support_enabled =
+        GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT);
+
+    constexpr bool is_long = std::is_same<T, int64_t>::value;
+    constexpr bool is_double = std::is_same<T, double>::value;
+
+    if constexpr (is_long) {
+      vec_type =
+          is_int64_support_enabled ? at::ScalarType::Long : at::ScalarType::Int;
+    } else if constexpr (is_double) {
+      vec_type = at::ScalarType::Float;
+    } else {
+      vec_type = c10::CppTypeToScalarType<T>::value;
+    }
+
+    const auto& host_ptr_size = elementSize(vec_type) * vec.size();
+    auto status = device.get_host_memory().malloc(&host_ptr, host_ptr_size);
+    HABANA_ASSERT(status == synSuccess, Logger::synStatusToStr(status));
+
+    if (is_long and not is_int64_support_enabled) {
+      CopyVecToHostPtr<T, int>(vec, host_ptr);
+    } else if (is_double) {
+      CopyVecToHostPtr<T, float>(vec, host_ptr);
+    } else {
+      std::copy(vec.begin(), vec.end(), static_cast<T*>(host_ptr));
+    }
+
+    auto const_syn_tensor = habana_helpers::create_const_tensor(
+        {static_cast<int64_t>(vec.size())},
+        {1},
+        graph,
+        false,
+        device_id,
+        vec_type,
+        host_ptr,
+        host_ptr_size);
+
+    // Free host_ptr here only since copy_buffer is set true for const tensor
+    device.get_host_memory().free(host_ptr);
+
+    // Increment count for const tensors created for scalars
+    graph.increment_const_tensors();
+
+    return const_syn_tensor;
+  }
 
   synapse_helpers::tensor& AllocateSeed(
       synapse_helpers::graph& graph,

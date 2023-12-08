@@ -12,6 +12,7 @@
 import torch
 import pytest
 import numpy as np
+from enum import Enum
 from fp8_utils import (
     simulateFp8Precision,
     FP8_MAX,
@@ -36,29 +37,56 @@ pytestmark = [
 fp8_dtypes = [torch.float8_e5m2, torch.float8_e4m3fn]
 
 
+class ScaleMode(Enum):
+    TENSOR = 1
+    SCALAR = 2
+    TENSOR_CHANNEL = 3
+    SCALAR_CHANNEL = 4
+
+
 @pytest.mark.parametrize("shape", [(64, 48)])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 @pytest.mark.parametrize("stochastic", [True, False])
 @pytest.mark.parametrize("is_amax", [True, False])
-@pytest.mark.parametrize("is_scale", [True, False])
+@pytest.mark.parametrize(
+    "scale_mode",
+    [
+        ScaleMode.TENSOR,
+        ScaleMode.SCALAR,
+        ScaleMode.TENSOR_CHANNEL,
+        ScaleMode.SCALAR_CHANNEL,
+        None,
+    ],
+)
 @pytest.mark.parametrize("out_dtype", fp8_dtypes)
-def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, is_scale, out_dtype):
+def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, scale_mode, out_dtype):
     hpu = torch.device("hpu")
     input_pos = torch.rand(shape, dtype=dtype) * 30 + 10
     input_neg = -input_pos
     input = torch.cat((input_pos, input_neg))
-    full_shape = (shape[0] * 2, shape[1])
 
-    scale_val = 1.3 if is_scale else 1.0
-    scale = torch.tensor(scale_val, dtype=torch.float)
+    if not scale_mode:
+        scale = torch.tensor(1.0)
+        scale_hpu = None
+    elif scale_mode in [ScaleMode.TENSOR, ScaleMode.SCALAR]:
+        scale_val = 1.3
+        scale = torch.tensor(scale_val)
+        scale_hpu = scale.to("hpu") if scale_mode == ScaleMode.TENSOR else scale_val
+    elif scale_mode in [ScaleMode.TENSOR_CHANNEL, ScaleMode.SCALAR_CHANNEL]:
+        scale_arr = (
+            (np.random.rand(shape[-1]) * 2.0 + 0.5).astype(np.float32)
+        ).tolist()
+        scale = torch.tensor(scale_arr)
+        scale_hpu = (
+            scale.to("hpu") if scale_mode == ScaleMode.TENSOR_CHANNEL else scale_arr
+        )
     scale_inv = scale.reciprocal()
     scaled_input_low_precision = simulateFp8Precision(
         input * scale.to(dtype), out_dtype
     )
     unscaled_input = scaled_input_low_precision * scale_inv.to(dtype)
 
-    scale_hpu = scale.to(hpu) if is_scale else None
-    scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
+    scale_inv_hpu = scale_inv.to(hpu) if scale_mode else None
 
     def fn(input, scale, scale_inv, stochastic, is_amax, out_dtype, dtype):
         casted, amax = torch.ops.hpu.cast_to_fp8_v2(
@@ -185,14 +213,26 @@ def test_cast_to_fp8_hybrid(
         check_ops_executed_in_jit_ir({"cast_to_fp8_hybrid", "cast_from_fp8"})
 
 
+scale_modes = [
+    (ScaleMode.TENSOR, ScaleMode.TENSOR),
+    (ScaleMode.TENSOR, None),
+    (ScaleMode.SCALAR, ScaleMode.SCALAR),
+    (ScaleMode.SCALAR, None),
+    (None, ScaleMode.TENSOR),
+    (None, ScaleMode.SCALAR),
+    (None, ScaleMode.TENSOR_CHANNEL),
+    (None, ScaleMode.SCALAR_CHANNEL),
+    (None, None),
+]
+
+
 @pytest.mark.parametrize(
     "shapeA, shapeB",
     [((2, 3, 4, 2), (2, 3, 4, 8)), ((24, 12), (24, 36))],
 )
 @pytest.mark.parametrize("bias", [True, False])
 @pytest.mark.parametrize("accumulate", [True, False])
-@pytest.mark.parametrize("scaleA", [True, False])
-@pytest.mark.parametrize("scaleB", [True, False])
+@pytest.mark.parametrize("scaleA, scaleB", scale_modes)
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 @pytest.mark.parametrize("fp8_dtype", fp8_dtypes)
 def test_fp8_gemm_v2(
@@ -213,13 +253,32 @@ def test_fp8_gemm_v2(
     scaleBInv = None
 
     variant = "143" if fp8_dtype == torch.float8_e4m3fn else "152"
-    if scaleA:
+    if scaleA == ScaleMode.TENSOR:
         scaleA_hpu = (FP8_MAX[variant] / max_A).to(hpu)
         scaleAInv = torch.reciprocal(scaleA_hpu)
+    elif scaleA == ScaleMode.SCALAR:
+        scaleA_hpu = (FP8_MAX[variant] / max_A).item()
+        scaleAInv = 1 / scaleA_hpu
+        if not scaleB:
+            scaleBInv = 1.0
 
-    if scaleB:
+    if scaleB == ScaleMode.TENSOR:
         scaleB_hpu = (FP8_MAX[variant] / max_B).to(hpu)
         scaleBInv = torch.reciprocal(scaleB_hpu)
+    elif scaleB == ScaleMode.SCALAR:
+        scaleB_hpu = (FP8_MAX[variant] / max_B).item()
+        scaleBInv = 1 / scaleB_hpu
+        if not scaleA:
+            scaleAInv = 1.0
+    elif scaleB == ScaleMode.TENSOR_CHANNEL:
+        scaleB_hpu = (FP8_MAX[variant] / max_B).expand(shapeB[-1]).to(hpu)
+        scaleBInv = torch.reciprocal(scaleB_hpu)
+    elif scaleB == ScaleMode.SCALAR_CHANNEL:
+        scaleB_h = (FP8_MAX[variant] / max_B).expand(shapeB[-1])
+        scaleBInv = (1 / scaleB_h).numpy().tolist()
+        scaleB_hpu = scaleB_h.numpy().tolist()
+        if not scaleA:
+            scaleAInv = [1.0]
 
     rank = len(shapeA)
     out_shape = shapeA[0 : (rank - 2)] + (shapeA[-1],) + (shapeB[-1],)
