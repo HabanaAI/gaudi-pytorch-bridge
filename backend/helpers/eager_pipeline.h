@@ -81,7 +81,7 @@ class ThreadPoolControl {
   /**
    * Handle to last scheduled work in thread pool.
    */
-  std::future<void> m_thread_handle GUARDED_BY(m_thread_handle_mutex);
+  std::future<void> m_thread_handle ABSL_GUARDED_BY(m_thread_handle_mutex);
 
   /**
    * Guarding accesses to thread handle.

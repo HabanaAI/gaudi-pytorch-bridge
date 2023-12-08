@@ -392,7 +392,7 @@ class HabanaLaunchOpPT {
   };
 
   static std::unordered_map<int, std::pair<size_t, std::vector<constInfo_t>>>
-      m_const_checksum_map GUARDED_BY(checksum_map_mtx);
+      m_const_checksum_map ABSL_GUARDED_BY(checksum_map_mtx);
   static std::mutex checksum_map_mtx;
   static void InsertConstantChecksum(int id, size_t checksum) {
     std::lock_guard<std::mutex> lock(checksum_map_mtx); // Acquire the lock

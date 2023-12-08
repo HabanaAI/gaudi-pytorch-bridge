@@ -18,6 +18,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(BUILD_TESTING OFF)
 
+set(ABSL_PROPAGATE_CXX_STD ON)
 add_subdirectory($ENV{THIRD_PARTIES_ROOT}/abseil-cpp absl SYSTEM)
 
 include(ExportAbseil)
