@@ -121,8 +121,12 @@ struct StorageExtraMeta {
   }
 
   void set_memory_permutation(
-      synapse_helpers::layouts::MemoryPermutation permutation) {
-    memory_permutation_ = std::move(permutation);
+      const synapse_helpers::layouts::MemoryPermutation& permutation) {
+    // That strange condition has been added because we have data race between
+    // main thread (which read) and launch thread (write). In launch thread we
+    // have redundant calls to set permutation which we don't have to change.
+    if (permutation != memory_permutation_)
+      memory_permutation_ = permutation;
   }
 
   void set_base_tensor_size(std::vector<int64_t> s) {
