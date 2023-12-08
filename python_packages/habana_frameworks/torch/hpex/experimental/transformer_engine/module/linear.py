@@ -33,6 +33,7 @@ from ..fp8 import (
     is_hybrid_mode,
     is_fp8_enabled,
     get_fp8_te_dtype,
+    get_fp8_te_sr,
 )
 from ..utils import (
     divide,
@@ -111,6 +112,7 @@ class _Linear(torch.autograd.Function):
                 fp8_meta[meta_fwd_key],
                 tex.FP8FwdTensors.GEMM1_INPUT,
                 fp8_dtype_forward,
+                stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
                 measure_amax=amax_measure_state["enabled"]
             )
 
@@ -120,6 +122,7 @@ class _Linear(torch.autograd.Function):
                     fp8_meta[meta_fwd_key],
                     tex.FP8FwdTensors.GEMM1_WEIGHT,
                     fp8_dtype_forward,
+                    stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
                     measure_amax=amax_measure_state["enabled"]
                 )
                 if weight_fp8_fwd is None:
@@ -284,6 +287,7 @@ class _Linear(torch.autograd.Function):
                 weight_fp8, _ = torch.ops.hpu.cast_to_fp8_v2(
                     weight,
                     fwd_scales[tex.FP8FwdTensors.GEMM1_WEIGHT],
+                    stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=True),
                     is_amax=False,
                     dtype=fp8_dtype_backward,
                 )

@@ -27,13 +27,14 @@ def fp8_gelu(
     fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
     otype: torch.dtype,
     retain: torch.Tensor = None,
+    stochastic_rounding = False,
     measure_amax = True
 ) -> torch.Tensor:
     """GeLU with FP8 output"""
 
     fp8_meta_tensor.scale_inv[fp8_tensor] = torch.reciprocal(fp8_meta_tensor.scale[fp8_tensor])
     def operator():
-        return torch.ops.hpu.fp8_gelu_v2(inp, fp8_meta_tensor.scale[fp8_tensor], False, measure_amax)
+        return torch.ops.hpu.fp8_gelu_v2(inp, fp8_meta_tensor.scale[fp8_tensor], stochastic_rounding, measure_amax)
     out, retain = select_amax_and_exec(
         operator,
         fp8_meta_tensor,

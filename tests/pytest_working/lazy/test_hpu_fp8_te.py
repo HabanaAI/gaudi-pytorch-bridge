@@ -12,6 +12,8 @@ import math
 import habana_frameworks.torch as ht
 import habana_frameworks.torch.hpex.experimental.transformer_engine as te
 import habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 as fp8
+
+import os
 import numpy as np
 import pytest
 import torch
@@ -26,6 +28,28 @@ from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import 
     Format,
 )
 from test_utils import is_gaudi1
+
+class EnvironmentVariableSetter:
+    """
+    Allows temporary change of environment variable.
+    Requires str environment variable name. Value type will be casted to str.
+    """
+    def __init__(self, env_name: str, value):
+        # '_stored_key' is defined to prevent misuse.
+        self._stored_key = None
+        self._env_name = env_name
+        self._value = value
+
+    def __enter__(self):
+        self._stored_key = os.environ.get(self._env_name)
+        os.environ[self._env_name] = str(self._value)
+
+    def __exit__(self, *args):
+        if self._stored_key is None:
+            if self._env_name in os.environ:
+                del os.environ[self._env_name]
+        else:
+            os.environ[self._env_name] = self._stored_key
 
 def _get_inp_weigth_bias_size(batch, in_features, out_features):
     inp_size = (batch, in_features)
@@ -45,10 +69,11 @@ def _assert_amax_history_equal(a, b):
 
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32], ids=["bf16", "fp32"])
+@pytest.mark.parametrize("stochastic_rounding", [True, False])
 @pytest.mark.parametrize("scale", [1.0, 8.0])
 @pytest.mark.parametrize("format", [torch.float8_e5m2, torch.float8_e4m3fn], ids=["e5m2", "e4m3fn"])
-def test_te_cast(device, dtype, scale, format):
+def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, scale, format):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
     input_value = 18.5
@@ -63,6 +88,7 @@ def test_te_cast(device, dtype, scale, format):
         meta,
         tex.FP8FwdTensors.GEMM1_INPUT,
         format,
+        stochastic_rounding=stochastic_rounding,
     )
 
     upcasted = cast_from_fp8(
@@ -72,16 +98,26 @@ def test_te_cast(device, dtype, scale, format):
         torch.float32,
     )
     mean = torch.mean(upcasted).cpu()
-    expected = 20.0 if format == torch.float8_e5m2 else 18.0
-    assert expected == mean
+    # When stochastic rounding is turned off, input will be rounded to the nearest representable value
+    # in given format (20.0 for e5m2, 18.0 for e4m3). With stochastic rounding, it rounds up or down
+    # with the probability dependent on the distance between original value to the closest fp8 numbers,
+    # so the mean result should be close to the input value (max diff has been chosen experimentally).
+    if stochastic_rounding:
+        max_diff = 0.8 if format == torch.float8_e5m2 else 0.4
+        assert mean < input_value+max_diff
+        assert mean > input_value-max_diff
+    else:
+        expected = 20.0 if format == torch.float8_e5m2 else 18.0
+        assert expected == mean
 
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32], ids=["bf16", "fp32"])
+@pytest.mark.parametrize("stochastic_rounding", [True, False])
 @pytest.mark.parametrize("scale", [1.0, 16.0])
 @pytest.mark.parametrize("value, rounded_value", [(18.5, 20.0), (-18.5, 0.0)])
-def test_te_gelu(
-    device, dtype, scale, value, rounded_value
+def test_te_gelu_with_stochastic_rounding(
+    device, dtype, stochastic_rounding, scale, value, rounded_value
 ):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
@@ -98,6 +134,7 @@ def test_te_gelu(
         meta,
         tex.FP8FwdTensors.GEMM1_INPUT,
         torch.float8_e5m2,
+        stochastic_rounding=stochastic_rounding,
     )
 
     upcasted = cast_from_fp8(
@@ -107,7 +144,15 @@ def test_te_gelu(
         torch.float32,
     )
     mean = torch.mean(upcasted).cpu()
-    assert mean == torch.nn.functional.gelu(torch.tensor(rounded_value))
+    # When stochastic rounding is turned off, input will be rounded to the nearest representable value
+    # in given format (20.0 for e5m2, 18.0 for e4m3). With stochastic rounding, it rounds up or down
+    # with the probability dependent on the distance between original value to the closest fp8 numbers,
+    # so the mean result should be close to the input value (max diff has been chosen experimentally).
+    if stochastic_rounding:
+        assert mean <= torch.nn.functional.gelu(torch.tensor(value + 1.0))
+        assert mean >= torch.nn.functional.gelu(torch.tensor(value - 1.0))
+    else:
+        assert mean == torch.nn.functional.gelu(torch.tensor(rounded_value))
     assert meta.scale_inv.item() == 1.0 / scale
 
 
@@ -249,6 +294,7 @@ def test_te_linear_fp8_disabled(dtype, sizes, use_bias, skip_weight_param_alloca
 def _fp8_quantize(inp: torch.Tensor, fp8_dtype: torch.dtype):
     return inp.to(fp8_dtype).to(inp.dtype)
 
+
 def _calculate_cpu_reference(fp8_format, inp_size, weight_size, fp32_in_val, fp32_w_val, dtype):
     # reference values
     in_cpu = torch.full(
@@ -327,6 +373,26 @@ def test_te_linear_fp8(device, dtype, size_A, size_B, bias_add, fp8_format):
     assert torch.equal(hpu_out, ref_out), "Data mismatch"
     assert torch.equal(grad_in_hpu, grad_in_cpu), "Data mismatch"
     assert torch.equal(grad_w_hpu, grad_w_cpu), "Data mismatch"
+
+
+@pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
+@pytest.mark.parametrize("force_sr_bwd_flag", [True, False, None], ids=["force_sr_1", "force_sr_0", "no_force_sr"])
+def test_te_force_sr_bwd_flag(fp8_format, force_sr_bwd_flag):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
+    fp8_recipe = DelayedScaling(
+        fp8_format=fp8_format, amax_history_len=16, amax_compute_algo="max", reduce_amax=False
+    )
+
+    expected = force_sr_bwd_flag if force_sr_bwd_flag is not None else fp8_format == Format.HYBRID
+
+    if force_sr_bwd_flag is not None:
+        with EnvironmentVariableSetter("PT_TE_FORCE_SR_BWD", "1" if force_sr_bwd_flag else "0"):
+            actual = fp8.get_fp8_te_sr(fp8_recipe, False)
+    else:
+        actual = fp8.get_fp8_te_sr(fp8_recipe, False)
+
+    assert expected == actual
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32], ids=["bf16", "fp32"])

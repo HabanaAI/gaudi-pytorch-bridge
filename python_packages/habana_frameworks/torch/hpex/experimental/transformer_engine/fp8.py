@@ -572,6 +572,24 @@ def get_fp8_te_dtype(
     return torch.float8_e5m2
 
 
+def get_fp8_te_sr(
+    fp8_recipe: DelayedScaling, fprop_tensor: bool = True
+) -> bool:
+    """Get fp8 stochastic rounding flag according to recipe, tensor and env flag"""
+    # Always disabled in fwd pass
+    if fprop_tensor:
+        return False
+
+    # Force flag has the priority
+    import os
+    force_sr_bwd = os.getenv('PT_TE_FORCE_SR_BWD')
+    if force_sr_bwd is not None:
+        return force_sr_bwd.lower() in ['true', '1']
+
+    # If force flag not set, decide based on recipe format
+    return fp8_recipe.fp8_format == Format.HYBRID
+
+
 def reduce_tensor_across_group_op_max(
     tensor: torch.Tensor, group: dist_group_type
 ) -> None:

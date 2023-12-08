@@ -38,6 +38,7 @@ from ..fp8 import (
     get_fp8_group,
     get_default_fp8_recipe,
     get_fp8_te_dtype,
+    get_fp8_te_sr,
     is_first_fp8_module,
     set_fp8_context_id,
     get_fp8_context_id,
@@ -546,13 +547,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         grad_output_mat = grad_output.view((-1, grad_output.shape[-1]))
         gather_grad_output = row_parallel_mode and ctx.sequence_parallel
 
-        # No-FP8 case: bgrad is fused with wgrad for this case.
-        if not ctx.fp8:
-            if gather_grad_output:
-                grad_output_mat, _ = gather_along_first_dim(
-                    grad_output_mat, ctx.tp_group
-                )
-            return grad_output_mat, None, None
+        assert ctx.fp8
 
         fp8_dtype_backward = get_fp8_te_dtype(
             ctx.fp8_meta["recipe"], fprop_tensor=False
@@ -575,6 +570,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                 ctx.fp8_meta[get_meta_tensor_key(MetaTensorType.BACKWARD)],
                 grad_tensor,
                 fp8_dtype_backward,
+                stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
                 measure_amax=amax_measure_state["enabled"]
             )
             grad_output_c, _ = gather_along_first_dim(grad_output_c, ctx.tp_group)
@@ -591,6 +587,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             ctx.fp8_meta[get_meta_tensor_key(MetaTensorType.BACKWARD)],
             grad_tensor,
             fp8_dtype_backward,
+            stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
             measure_amax=amax_measure_state["enabled"]
         )
 

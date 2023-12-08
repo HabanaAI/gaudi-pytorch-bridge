@@ -26,11 +26,12 @@ def cast_to_fp8(
     fp8_meta_tensor: tex.FP8TensorMeta,
     fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
     otype: torch.dtype,
+    stochastic_rounding = False,
     measure_amax = True
 ) -> torch.Tensor:
     """Cast input to FP8"""
     def operator():
-        return torch.ops.hpu.cast_to_fp8_v2(inp, fp8_meta_tensor.scale[fp8_tensor], False, measure_amax, dtype=otype)
+        return torch.ops.hpu.cast_to_fp8_v2(inp, fp8_meta_tensor.scale[fp8_tensor], stochastic_rounding, measure_amax, dtype=otype)
     cast_out, = select_amax_and_exec(
         operator,
         fp8_meta_tensor,
@@ -39,6 +40,7 @@ def cast_to_fp8(
         )
 
     return cast_out
+
 
 def cast_to_fp8_hybrid(
     inp: torch.Tensor,
@@ -64,6 +66,7 @@ def cast_to_fp8_hybrid(
         measure_amax=measure_amax,
     )
     return out_e5m2, out_e4m3
+
 
 def cast_from_fp8(
     inp: torch.Tensor,
