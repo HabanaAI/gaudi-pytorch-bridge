@@ -533,6 +533,7 @@ class HabanaDataLoader:
         return len(self.dataloader)
 
 def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
+
     assert len(imgs) > 0, "Got empty list of images"
     if lbls is not None:
         assert len(imgs) == len(lbls), f"Got {len(imgs)} images but {len(lbls)} lables"
@@ -553,7 +554,6 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
             nbs *= batch_size
         imgs = list(itertools.chain(*(100 * [imgs])))[: nbs * kwargs["num_device"]]
         lbls = list(itertools.chain(*(100 * [lbls])))[: nbs * kwargs["num_device"]]
-    device="gaudi2"
     num_threads=1
     if mode == "eval":
         reminder = len(imgs) % kwargs["num_device"]
@@ -574,6 +574,7 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
     if kwargs["benchmark"]:
         if mode == "train" or mode=="test":
             pipeline = "BenchmarkPipeline_Train"
+            num_threads=3 #Reader, Crop are CPU heavy ops, so kept 3 threads
         else:
             raise ValueError("Unsupported mode {} for benchmark!".format(mode))
 
@@ -583,32 +584,26 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
 
     elif mode == "train":
         pipeline = "TrainPipeline"
+        num_threads=3 #Reader, RBC are CPU heavy ops, so kept 3 threads
         if kwargs["dim"] == 2:
             pipe_kwargs.update({"batch_size_2d": batch_size // kwargs["nvol"]})
             batch_size = kwargs["nvol"]
         pipe_kwargs.update({'augment': kwargs['augment'], 'set_aug_seed': kwargs['set_aug_seed']})
     elif mode == "eval":
         pipeline = "EvalPipeline"
-        device="cpu"
-        num_threads=2 #as of now it is only supported for "cpu"
+        num_threads=2 #Only Reader will run on CPU, so 2 threads
     else:
         pipeline = "TestPipeline"
-        device="cpu"
-        num_threads=2 #as of now it is only supported for "cpu"
+        num_threads=2 #Only Reader will run on CPU, so 2 threads
 
     num_instances = kwargs["num_device"]
     instance_id = int(os.getenv("LOCAL_RANK", "0"))
 
-    from habana_frameworks.medialoaders.torch.mediapipe_unet_3d import Unet3dMediaPipe
-    pipeline = Unet3dMediaPipe(a_device=device, a_batch_size=batch_size, a_prefetch_count=3,
-                               a_num_instances=num_instances, a_instance_id=instance_id,
-                               a_pipeline=pipeline,a_num_threads=num_threads, **pipe_kwargs)
+    from habana_frameworks.medialoaders.torch.mediapipe_unet_3d_cpp_bf16 import Unet3dMediaPipe
+    pipe = Unet3dMediaPipe(a_device="cpu", a_batch_size=batch_size, a_prefetch_count=3,
+                            a_num_instances=num_instances, a_instance_id=instance_id,
+                            a_pipeline=pipeline,a_num_threads=num_threads, **pipe_kwargs)
 
-    if device == "cpu":
-        from habana_frameworks.mediapipe.plugins.iterator_pytorch import CPUUnet3DPytorchIterator
-        iterator = CPUUnet3DPytorchIterator(mediapipe=pipeline)
-        return iterator
-    else:
-        from habana_frameworks.mediapipe.plugins.iterator_pytorch import HPUUnet3DPytorchIterator
-        iterator = HPUUnet3DPytorchIterator(mediapipe=pipeline)
-        return iterator
+    from habana_frameworks.mediapipe.plugins.iterator_pytorch import CPUHPUUnet3DPytorchIterator
+    iterator = CPUHPUUnet3DPytorchIterator(mediapipe=pipe)
+    return iterator
