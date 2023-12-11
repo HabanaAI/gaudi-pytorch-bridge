@@ -9,7 +9,7 @@
 # was provided.
 #
 ###############################################################################
-import build_profiles.profile_getter as profiles
+import build_profiles.profiles as profiles
 
 
 def test_check_profile_integrity(capsys):

@@ -11,7 +11,7 @@
 ###############################################################################
 import os
 
-import build_profiles.profile_getter as profiles
+import build_profiles.profiles as profiles
 import pytest
 from build_profiles.version import Version
 
@@ -30,10 +30,16 @@ def teardown_module():
 
 
 def test_get_version_literal_and_source():
-    assert profiles.get_version_literal_and_source("current") == profiles.VersionLiteralAndSource("1.2.3", "build")
-    assert profiles.get_version_literal_and_source("previous") == profiles.VersionLiteralAndSource("1.0.0", "pypi")
+    assert profiles.get_version_literal_and_source(
+        "current"
+    ) == profiles.VersionLiteralAndSource("1.2.3", "build")
+    assert profiles.get_version_literal_and_source(
+        "previous"
+    ) == profiles.VersionLiteralAndSource("1.0.0", "pypi")
     assert profiles.get_version_literal_and_source("rc") is None
-    assert profiles.get_version_literal_and_source("nightly") == profiles.VersionLiteralAndSource(
+    assert profiles.get_version_literal_and_source(
+        "nightly"
+    ) == profiles.VersionLiteralAndSource(
         "nightly", r"https://download.pytorch.org/whl/nightly/cpu"
     )
 
@@ -64,7 +70,9 @@ def test_get_args_for_profile():
     with pytest.raises(RuntimeError, match=r".*both.*pt_versions.*wheels"):
         profiles.get_args_for_profile("test4")
 
-    with pytest.raises(RuntimeError, match=r".*internal.*does not specify any valid pt-versions.*"):
+    with pytest.raises(
+        RuntimeError, match=r".*internal.*does not specify any valid pt-versions.*"
+    ):
         profiles.get_args_for_profile("test5")
 
     assert profiles.get_args_for_profile("test6") == [
@@ -80,35 +88,53 @@ def test_get_args_for_profile():
 
 
 def test_get_available_versions():
-    assert [x.version for x in sorted(profiles.get_available_versions())] == sorted(["1.0.0", "1.2.3"])
+    assert [x.version for x in sorted(profiles.get_available_versions())] == sorted(
+        ["1.0.0", "1.2.3"]
+    )
 
 
 def test_get_required_pt():
     assert (
         profiles.get_required_pt(
-            profiles.get_version_literal_and_source("current").version, profiles.RequirementPurpose.RUNTIME
+            profiles.get_version_literal_and_source("current").version,
+            profiles.RequirementPurpose.RUNTIME,
         )
         == "pytorch==1.2.3"
     )
     assert (
         profiles.get_required_pt(
-            profiles.get_version_literal_and_source("nightly").version, profiles.RequirementPurpose.RUNTIME
+            profiles.get_version_literal_and_source("nightly").version,
+            profiles.RequirementPurpose.RUNTIME,
         )
         == "pt-nightly-cpu"
     )
     assert (
         profiles.get_required_pt(
-            profiles.get_version_literal_and_source("current").version, profiles.RequirementPurpose.BUILD
+            profiles.get_version_literal_and_source("current").version,
+            profiles.RequirementPurpose.BUILD,
         )
         == "pytorch==1.2.3"
     )
 
 
 def test_get_wheel_install_requires():
-    assert profiles.get_wheel_install_requires([Version("1.2.3")]) == "pytorch >= 1.2.3, <= 1.2.3"
-    assert profiles.get_wheel_install_requires([Version("1.0.3"), Version("1.2.3")]) == "pytorch >= 1.0.3, <= 1.2.3"
     assert (
-        profiles.get_wheel_install_requires([Version("1.0.3"), Version("2.2.4-rc2"), Version("2.2.3")])
+        profiles.get_wheel_install_requires([Version("1.2.3")])
+        == "pytorch >= 1.2.3, <= 1.2.3"
+    )
+    assert (
+        profiles.get_wheel_install_requires([Version("1.0.3"), Version("1.2.3")])
+        == "pytorch >= 1.0.3, <= 1.2.3"
+    )
+    assert (
+        profiles.get_wheel_install_requires(
+            [Version("1.0.3"), Version("2.2.4-rc2"), Version("2.2.3")]
+        )
         == "pytorch >= 1.0.3, <= 2.2.4rc2"
     )
-    assert profiles.get_wheel_install_requires([Version("1.2.3"), Version("9.9.9", label="nightly")]) == ""
+    assert (
+        profiles.get_wheel_install_requires(
+            [Version("1.2.3"), Version("9.9.9", label="nightly")]
+        )
+        == ""
+    )
