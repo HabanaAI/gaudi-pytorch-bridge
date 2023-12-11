@@ -56,8 +56,6 @@ GraphExec::GraphExec(
       m_has_randoms(has_randoms) {
   PT_EAGER_TRACE;
 
-  habana::eager::JoinPendingPipelineThreads();
-
   m_graph_name = "graph_recipe_" + std::to_string(recipe_id);
   bool ds_refine = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD);
 
@@ -223,7 +221,6 @@ torch::jit::Stack GraphExec::launch(
     if (backend_outputs.size() > 0) {
       maybe_backend_outputs = backend_outputs;
     }
-    habana::eager::JoinPendingPipelineThreads();
     torch::jit::Stack ret_stack =
         LaunchRecipe(std::move(backend_inputs), maybe_backend_outputs);
     return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);
