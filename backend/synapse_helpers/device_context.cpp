@@ -228,6 +228,46 @@ hcclResult_t device_context::prepare_stream(
   return hcclSuccess;
 }
 
+std::vector<synapse_helpers::shared_event> device_context::
+    prepare_stream_and_get_events(
+        synStreamHandle stream_handle,
+        synapse_helpers::device_ptr input_address) {
+  PT_DISTRIBUTED_DEBUG(
+      "Calling device_context::prepare_stream_and_get_events(stream_handle=",
+      stream_handle,
+      ", input_address=",
+      input_address,
+      ")");
+
+  if (stream_objects_.find(stream_handle) == stream_objects_.end() ||
+      stream_objects_.at(stream_handle) == nullptr) {
+    PT_DISTRIBUTED_FATAL("Stream handle not recognized! (", stream_handle, ")");
+  }
+
+  HABANA_ASSERT(nullptr != device_);
+
+  std::vector<synapse_helpers::device_ptr> addresses;
+  addresses.push_back(input_address);
+
+  return device_->get_wait_events_on_stream(
+      addresses, *stream_objects_[stream_handle]);
+}
+
+synapse_helpers::stream& device_context::get_stream_fromhandle(
+    synStreamHandle stream_handle) {
+  PT_DISTRIBUTED_DEBUG(
+      "Calling device_context::prepare_stream_and_get_events(stream_handle=",
+      stream_handle,
+      ")");
+
+  if (stream_objects_.find(stream_handle) == stream_objects_.end() ||
+      stream_objects_.at(stream_handle) == nullptr) {
+    PT_DISTRIBUTED_FATAL("Stream handle not recognized! (", stream_handle, ")");
+  }
+
+  return *stream_objects_[stream_handle];
+}
+
 hcclResult_t device_context::submit_events(
     synStreamHandle stream_handle,
     synapse_helpers::device_ptr output_address,

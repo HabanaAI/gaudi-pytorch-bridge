@@ -269,6 +269,10 @@ class device {
 
   void add_wait_event_on_stream(const std::string& event_id, stream& stream);
 
+  std::vector<shared_event> get_wait_events_on_stream(
+      const std::vector<device_ptr>& input_tensors,
+      stream& stream);
+
   void submit_future(device_ptr device_addr, std::shared_future<bool> fut);
 
   /** \brief Records event on a given stream and signals wait for this event on

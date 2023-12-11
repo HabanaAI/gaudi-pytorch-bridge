@@ -66,6 +66,8 @@ class stream_event_manager {
   void enqueue_wait_event(device_ptr device_address, stream& stream);
   void enqueue_wait_event(const std::string& event_id, stream& stream);
 
+  shared_event get_wait_event(device_ptr device_address, stream& stream);
+
   /*! \brief Invokes blocking EventSynchronize for a given tenor pointer in
    * device memory space \param device_address identifier of Event - tensor
    * pointer in device memory space

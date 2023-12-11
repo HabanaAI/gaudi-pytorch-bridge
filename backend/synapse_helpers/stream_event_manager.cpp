@@ -267,6 +267,27 @@ void stream_event_manager::enqueue_wait_event(
   }
 }
 
+shared_event stream_event_manager::get_wait_event(
+    device_ptr device_address,
+    stream& stream) {
+  PT_SYNHELPER_DEBUG(
+      "stream ",
+      stream,
+      " waits for event mapped to device address ",
+      reinterpret_cast<void*>(device_address));
+
+  wait_for_future(device_address);
+  std::lock_guard<std::mutex> lock_guard(mut_);
+  shared_event event;
+  {
+    auto it = events_by_addr_.find(device_address);
+    if (it != events_by_addr_.end()) {
+      event = it->second;
+    }
+  }
+  return event;
+}
+
 void stream_event_manager::enqueue_wait_event(
     const std::string& event_id,
     stream& stream) {

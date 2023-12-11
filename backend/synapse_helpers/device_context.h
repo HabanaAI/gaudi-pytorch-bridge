@@ -77,6 +77,12 @@ class device_context : std::enable_shared_from_this<device_context> {
       synStreamHandle stream_handle,
       synapse_helpers::device_ptr input_address);
 
+  std::vector<synapse_helpers::shared_event> prepare_stream_and_get_events(
+      synStreamHandle stream_handle,
+      synapse_helpers::device_ptr input_address);
+
+  synapse_helpers::stream& get_stream_fromhandle(synStreamHandle stream_handle);
+
   hcclResult_t submit_events(
       synStreamHandle stream_handle,
       synapse_helpers::device_ptr output_address,

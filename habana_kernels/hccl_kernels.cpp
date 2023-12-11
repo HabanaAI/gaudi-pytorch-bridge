@@ -181,9 +181,24 @@ void collective(
     synapse_helpers::device_ptr output_storage_ptr =
         (synapse_helpers::device_ptr)outputs.at(i)->get_buffer_start();
 
-    deviceCtxt->prepare_stream(collective_stream, input_storage_ptr);
-    if (input_storage_ptr != output_storage_ptr) {
-      deviceCtxt->prepare_stream(collective_stream, output_storage_ptr);
+    std::vector<synapse_helpers::shared_event> event_lists = {};
+    if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SFG)) {
+      // Prepare stream and get event lists
+      event_lists = deviceCtxt->prepare_stream_and_get_events(
+          collective_stream, input_storage_ptr);
+      if (input_storage_ptr != output_storage_ptr) {
+        std::vector<synapse_helpers::shared_event> out_event_lists =
+            deviceCtxt->prepare_stream_and_get_events(
+                collective_stream, output_storage_ptr);
+        event_lists.insert(
+            event_lists.end(), out_event_lists.begin(), out_event_lists.end());
+      }
+    } else {
+      // Prepare stream and send stream_wait_event
+      deviceCtxt->prepare_stream(collective_stream, input_storage_ptr);
+      if (input_storage_ptr != output_storage_ptr) {
+        deviceCtxt->prepare_stream(collective_stream, output_storage_ptr);
+      }
     }
 
     auto pr = std::make_shared<std::promise<bool>>();
@@ -195,6 +210,7 @@ void collective(
                  collective_stream = collective_stream,
                  async = async,
                  deviceCtxt = deviceCtxt,
+                 event_lists = event_lists,
                  output_storage_ptr = output_storage_ptr,
                  done_cb = done_cb,
                  pr = pr]() mutable {
@@ -208,6 +224,12 @@ void collective(
           ", stream = ",
           collective_stream);
 
+      if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SFG)) {
+        auto& stream = deviceCtxt->get_stream_fromhandle(collective_stream);
+        for (auto& event : event_lists) {
+          event->stream_wait_event(stream);
+        }
+      }
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
       struct ResourceHolder {
