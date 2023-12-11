@@ -685,3 +685,43 @@ def test_op_arange():
         h_result = compiled_fn(t1_h, s[1], device_hpu)
         os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "0"
         assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+
+def test_conv_ds_default():
+    class conv(torch.nn.Module):
+        def __init__(self):
+            super(conv, self).__init__()
+            self.layer = torch.nn.Conv2d(1, 4, kernel_size=3, stride=1, padding=0)
+
+        def forward(self, x):
+            out = self.layer(x)
+            return out
+
+    model = conv()
+    model.eval()
+
+    #cpu
+    torch.manual_seed(1234)
+    x = torch.rand(8, 1, 16, 16)
+    with torch.no_grad():
+        output = model(x)
+
+    #hpu
+    import habana_frameworks.torch.core as htcore
+    import numpy
+    model_hpu = model.to("hpu")
+    x_hpu = x.to("hpu")
+    def raw_function(tensor):
+        return model_hpu(tensor)
+
+    compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend", dynamic=True)
+    with torch.no_grad():
+        with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
+            x_hpu = x_hpu.to(torch.bfloat16)
+            output_hpu = compiled_function(x_hpu)
+            output_hpu = output_hpu.to(torch.float32)
+
+    #check results
+    output_hpu_cpu = output_hpu.to("cpu")
+    numpy.testing.assert_allclose(
+        output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1
+    )
