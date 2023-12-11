@@ -3049,8 +3049,8 @@ gelu_backward:
   custom_fill_params: FillGeluBwdParams
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float]
+    Gaudi3: [BFloat16, Float]
   guid: cgelu_bwd
 
   out_ids: [0]
