@@ -39,7 +39,6 @@ from typing import (
 )
 
 import op_stats_generator
-
 from build_profiles import profiles
 from build_profiles.profiles import VersionLiteralAndSource
 from build_profiles.version import Version, is_wheel_version
@@ -353,7 +352,20 @@ def _is_compatible_wheel_with_matching_version(path: str, pt_ver: Union[str, Ver
     name, version, _, _, platform = filename.split("-")
     if name != "torch" or "linux" not in platform:
         return False
-    return Version(version).significant_matches(pt_ver)
+    return pt_ver.significant_matches(Version(version))
+
+
+def _list_files_in_directory(directory: str):
+    return os.listdir(directory) if os.path.exists(directory) else []
+
+
+def _find_compatible_wheels_in_directory(path: str, pt_ver: Union[str, Version]):
+    files = _list_files_in_directory(path)
+    compatible_wheels = filter(
+        lambda wheel: _is_compatible_wheel_with_matching_version(wheel, pt_ver),
+        files,
+    )
+    return [os.path.join(path, wheel) for wheel in compatible_wheels]
 
 
 def locate_fork_wheel(pt_ver: Union[str, Version]) -> str:
@@ -365,31 +377,31 @@ def locate_fork_wheel(pt_ver: Union[str, Version]) -> str:
     Returns:
         str: the path to where the wheel is located
     """
-    fork_build_dir = os.getenv("PYTORCH_FORK_RELEASE_BUILD")
-    expected_location = os.path.join(fork_build_dir, "pkgs")
+    fork_wheel_dir = os.path.join(os.getenv("PYTORCH_FORK_RELEASE_BUILD"), "pkgs")
+    qnpu_wheel_dir = os.path.join(os.getenv("PYTORCH_MODULES_RELEASE_BUILD"), "pkgs")
 
-    if not os.path.exists(expected_location):
-        compatible_wheels = []
-    else:
-        compatible_wheels = list(
-            filter(
-                lambda wheel: _is_compatible_wheel_with_matching_version(wheel, pt_ver),
-                os.listdir(expected_location),
-            )
-        )
+    wheel_paths = _find_compatible_wheels_in_directory(
+        fork_wheel_dir, pt_ver
+    ) + _find_compatible_wheels_in_directory(qnpu_wheel_dir, pt_ver)
 
-    if len(compatible_wheels) > 1:
+    if len(wheel_paths) > 1:
         raise NotImplementedError(
-            f"More than one wheel matches the desired version {pt_ver}. Found the following wheels in "
-            f"{expected_location}: {compatible_wheels} (disambiguating on distribution and ABI is not yet supported)"
+            f"""More than one wheel matches the desired version {pt_ver}.
+            Searched through {fork_wheel_dir} and {qnpu_wheel_dir}
+            and found the following wheels:
+            {wheel_paths}
+            """
         )
-    if not compatible_wheels:
+    if not wheel_paths:
         raise FileNotFoundError(
-            f"No wheel matches the desired version {pt_ver}. Found the following wheels in {expected_location}: "
-            f"{compatible_wheels}. Please download or compile PT-fork"
+            f"""No torch wheel matches the desired version: {pt_ver}.
+            Found the following files in {fork_wheel_dir}: {_list_files_in_directory(fork_wheel_dir)}
+              and the following files in {qnpu_wheel_dir}: {_list_files_in_directory(qnpu_wheel_dir)}
+            Please download or compile a supported version of PT-fork.
+            """
         )
-    assert len(compatible_wheels) == 1
-    return os.path.join(expected_location, compatible_wheels[0])
+    assert len(wheel_paths) == 1
+    return wheel_paths[0]
 
 
 # TODO: support RC builds
@@ -1918,9 +1930,7 @@ def prepare_wheel_specs(args, preinstalled_pt_version: VersionAndSource):
                             pt_versions.add(
                                 _to_version_and_source(version_literal_and_source)
                             )
-                    except (
-                        KeyError
-                    ):  # if not given by name, try finding profile by PT version
+                    except KeyError:  # if not given by name, try finding profile by PT version
                         supported = get_supported_pt_version(
                             Version(requested), supported_pt_versions
                         )
