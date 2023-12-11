@@ -381,8 +381,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
   m.def(
       "enable_const_section_serialization",
-      [](const char* path, bool clear_path) {
-        habana_helpers::EnableConstSectionSerialization(path, clear_path);
+      [](const char* path, bool clear_path, bool use_compression) {
+        habana_helpers::EnableConstSectionSerialization(
+            path, clear_path, use_compression);
       });
   m.def("enable_matmul3d_2d_reshape", []() {
     habana_helpers::EnableMatmul3d2dReshape();

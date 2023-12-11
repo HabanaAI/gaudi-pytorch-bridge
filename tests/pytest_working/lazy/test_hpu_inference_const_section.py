@@ -37,7 +37,7 @@ def test_const_serialization_cache():
     htorch.core.hpu_set_env()
 
     serial_path = "/tmp/const_section_test/"
-    htorch.hpu.enable_const_section_serialization(serial_path, True)
+    htorch.hpu.enable_const_section_serialization(serial_path, True, True)
 
     model = Net()
     model = model.to("hpu")

@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <zlib.h>
 #include <string>
 #include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -149,6 +150,49 @@ void ConstSectionDataSerialize::serializePerRecipe(
   outputFile.close();
 }
 
+void ConstSectionDataSerialize::compress_and_serialize(
+    void* data,
+    int data_size,
+    std::ofstream& outputFile) {
+  z_stream zs;
+  memset(&zs, 0, sizeof(zs));
+  int window_bits = 15 | 16; /*The base two logarithm of the window size (the
+                                size of the history buffer).*/
+  int mem_level =
+      8; /*The memory usage level, ranging from 1 to 9. A higher value uses more
+            memory for optimization. 8 is the default.*/
+  if (deflateInit2(
+          &zs,
+          Z_BEST_COMPRESSION,
+          Z_DEFLATED,
+          window_bits,
+          mem_level,
+          Z_DEFAULT_STRATEGY) != Z_OK) {
+    throw std::runtime_error("deflateInit2 failed while compressing.");
+  }
+
+  zs.next_in = static_cast<Bytef*>(const_cast<void*>(data));
+  zs.avail_in = data_size;
+
+  int ret;
+  char outbuffer[data_size];
+
+  do {
+    zs.next_out = reinterpret_cast<Bytef*>(outbuffer);
+    zs.avail_out = sizeof(outbuffer);
+
+    ret = deflate(&zs, Z_FINISH);
+
+    outputFile.write(outbuffer, zs.total_out - outputFile.tellp());
+  } while (ret == Z_OK);
+
+  deflateEnd(&zs);
+
+  if (ret != Z_STREAM_END) {
+    throw std::runtime_error("Error while compressing: " + std::to_string(ret));
+  }
+}
+
 void ConstSectionDataSerialize::serialize(
     void* data,
     int data_size,
@@ -170,10 +214,47 @@ void ConstSectionDataSerialize::serialize(
       getSerializedFullPath(const_id),
       " size: ",
       data_size);
-
-  outputFile.write(reinterpret_cast<const char*>(data), data_size);
+  if (habana_helpers::IsCompressionEnabled()) {
+    compress_and_serialize(data, data_size, outputFile);
+  } else {
+    outputFile.write(reinterpret_cast<const char*>(data), data_size);
+  }
   outputFile.close();
   m_isSerialized = true;
+}
+
+void ConstSectionDataSerialize::decompress_and_deserialize(
+    void* data,
+    int data_size,
+    std::ifstream& inputFile) {
+  z_stream zs;
+  memset(&zs, 0, sizeof(zs));
+  int window_bits = 16;
+  if (inflateInit2(&zs, window_bits + MAX_WBITS) != Z_OK) {
+    throw std::runtime_error("inflateInit2 failed while decompressing.");
+  }
+  std::vector<char> compressedData(
+      (std::istreambuf_iterator<char>(inputFile)),
+      std::istreambuf_iterator<char>());
+  zs.next_in =
+      reinterpret_cast<Bytef*>(const_cast<char*>(compressedData.data()));
+  zs.avail_in = inputFile.tellg();
+
+  zs.next_out = static_cast<Bytef*>(data);
+  zs.avail_out = data_size;
+
+  int ret;
+
+  do {
+    ret = inflate(&zs, Z_NO_FLUSH);
+  } while (ret == Z_OK);
+
+  inflateEnd(&zs);
+
+  if (ret != Z_STREAM_END) {
+    throw std::runtime_error(
+        "Error while decompressing: " + std::to_string(ret));
+  }
 }
 
 void ConstSectionDataSerialize::deserializePerRecipe(
@@ -238,7 +319,11 @@ void ConstSectionDataSerialize::deserialize(
         getSerializedFullPath(const_id),
         " size: ",
         data_size);
-    inputFile.read(reinterpret_cast<char*>(data), data_size);
+    if (habana_helpers::IsCompressionEnabled()) {
+      decompress_and_deserialize(data, data_size, inputFile);
+    } else {
+      inputFile.read(reinterpret_cast<char*>(data), data_size);
+    }
     inputFile.close();
   }
 }

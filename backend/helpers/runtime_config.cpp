@@ -24,6 +24,8 @@ bool enable_quantization = false;
 std::string const_section_serialize_path = "";
 // if true, remove all existingconst section files in given path.
 bool clear_const_section_path = false;
+// if true, compress the constant tensor data before serializing onto the disk
+bool enable_compression = false;
 
 // if true enables recompute based fused SDPA
 bool enabled_recomputeFSDPA = true;
@@ -48,9 +50,13 @@ bool IsQuantizationEnabled() {
   return enable_quantization;
 }
 
-void EnableConstSectionSerialization(const char* path, bool clear_path) {
+void EnableConstSectionSerialization(
+    const char* path,
+    bool clear_path,
+    bool use_compression) {
   const_section_serialize_path = std::string(path);
   clear_const_section_path = clear_path;
+  enable_compression = use_compression;
 }
 
 bool IsInferenceMode() {
@@ -67,6 +73,10 @@ bool IsConstSectionSerialization() {
 
 bool ShouldClearConstSectionPath() {
   return habana_helpers::clear_const_section_path;
+}
+
+bool IsCompressionEnabled() {
+  return habana_helpers::enable_compression;
 }
 
 bool enable_matmul3d_2d_reshape{GET_ENV_FLAG_NEW(PT_HPU_MATMUL3D_2D_RESHAPE)};

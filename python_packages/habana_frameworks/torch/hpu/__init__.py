@@ -212,12 +212,12 @@ def disable_quantization():
     _hpu_C.disable_quantization()
 
 
-def enable_const_section_serialization(path, clear_path):
-    _hpu_C.enable_const_section_serialization(str(path), clear_path)
+def enable_const_section_serialization(path, clear_path, use_compression):
+    _hpu_C.enable_const_section_serialization(str(path), clear_path, use_compression)
 
 
 def disable_const_section_serialization():
-    _hpu_C.enable_const_section_serialization("", False)
+    _hpu_C.enable_const_section_serialization("", False, False)
 
 
 def enable_matmul3d_2d_reshape():

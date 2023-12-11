@@ -81,6 +81,15 @@ class ConstSectionDataSerialize {
       const size_t key);
   bool isSerialized(int const_id);
 
+  void compress_and_serialize(
+      void* data,
+      int data_size,
+      std::ofstream& outputFile);
+  void decompress_and_deserialize(
+      void* data,
+      int data_size,
+      std::ifstream& inputFile);
+
   std::string getSerializedFullPath(int const_id);
   std::string getSerializedRecipeFullPath(int const_id, const size_t key);
 

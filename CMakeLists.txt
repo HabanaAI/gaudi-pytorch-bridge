@@ -44,6 +44,7 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 find_package(Python REQUIRED COMPONENTS Interpreter Development NumPy)
 find_package(Torch REQUIRED)
+find_package(ZLIB REQUIRED)
 
 include(pt_ver)
 set_up_pt_ver_mechanism()
@@ -191,6 +192,7 @@ target_link_libraries(habana_pytorch_plugin
   habana_pytorch_frontend_ops
   torch
   absl::hash
+  ZLIB::ZLIB
 )
 
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
@@ -309,6 +311,7 @@ target_link_libraries(habana_pytorch2_plugin
   absl::hash
   npu::hllogger
   npu::fmt
+  ZLIB::ZLIB
 )
 
 # Create symlink to latest build from tests dir

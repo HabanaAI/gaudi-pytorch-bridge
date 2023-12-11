@@ -25,10 +25,14 @@ void EnableQuantization();
 void DisableQuantization();
 bool IsQuantizationEnabled();
 
-void EnableConstSectionSerialization(const char* path, bool clear_path);
+void EnableConstSectionSerialization(
+    const char* path,
+    bool clear_path,
+    bool use_compression = false);
 bool IsConstSectionSerialization();
 std::string GetConstSectionSerializationPath();
 bool ShouldClearConstSectionPath();
+bool IsCompressionEnabled();
 
 void EnableMatmul3d2dReshape();
 void DisableMatmul3d2dReshape();
