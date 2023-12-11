@@ -11,7 +11,7 @@ namespace {
 torch::ScalarType toTorchDType(mediaPytFwProxyDtype media_dtype) {
   switch (media_dtype) {
     case MEDIA_PYTFWPROXY_BFLOAT16:
-      return torch::kFloat16;
+      return torch::kBFloat16;
     case MEDIA_PYTFWPROXY_FLOAT32:
       return torch::kFloat32;
     case MEDIA_PYTFWPROXY_UINT8:
