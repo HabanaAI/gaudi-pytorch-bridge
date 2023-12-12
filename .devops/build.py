@@ -288,12 +288,16 @@ def run(*args, venv=".") -> None:
 
 def outof(*args, venv=".") -> str:
     log.debug(f"In {venv} capturing output of `{' '.join(args)}`")
-    # must run through shell because otherwise changing PATH has no effect
-    result = sp.check_output(
-        " ".join(args), encoding="ascii", env=prepare_env(venv), shell=True
-    )
-    log.debug(f"====\n{result}====")
-    return result
+    try:
+        # must run through shell because otherwise changing PATH has no effect
+        result = sp.check_output(
+            " ".join(args), encoding="ascii", env=prepare_env(venv), shell=True
+        )
+        log.debug(f"====\n{result}====")
+        return result
+    except sp.CalledProcessError as cpe:
+        log.warning(cpe)
+        return cpe.output
 
 
 def remove_venv(venv_dir):
@@ -340,7 +344,13 @@ def query_installed_pt_ver(venv_dir, venv_python, label=None) -> Optional[Versio
     ).strip()
     if installed_pt_ver == "None":
         return None
-    return Version(installed_pt_ver, label=label)
+    try:
+        return Version(installed_pt_ver, label=label)
+    except Exception:
+        log.critical(
+            f"Unable to determine installed torch version. Output was: {installed_pt_ver}"
+        )
+        sys.exit(1)
 
 
 def _is_compatible_wheel_with_matching_version(path: str, pt_ver: Union[str, Version]):
@@ -1306,15 +1316,19 @@ def get_current_pt_version() -> Optional[Version]:
 
         log.debug(f"PyTorch path: {pt.__path__}")
         return Version(pt.__version__)
-    except ImportError as e:
+    except ModuleNotFoundError as e:
         log.debug(e)
         return None
 
 
 def print_current_pt_version_and_exit():
     log.name = "get-pt-version"
-    print(get_current_pt_version())
-    sys.exit(0)
+    try:
+        print(get_current_pt_version())
+        sys.exit(0)
+    except Exception as e:
+        print(f"Unexpected error when detecting PT version using {sys.executable}: {e}")
+        sys.exit(1)
 
 
 def is_running_in_venv():
