@@ -40,14 +40,16 @@ macro(detect_pt_version)
     PT_VER_RUN_RESULT PT_VER_COMPILE_RESULT "${PROJECT_BINARY_DIR}" SOURCES
     "${CMAKE_CURRENT_BINARY_DIR}/pt_version_printer.cpp"
     CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${TORCH_INCLUDE_DIRS}"
-    RUN_OUTPUT_VARIABLE PT_VERSIONS
+    RUN_OUTPUT_STDOUT_VARIABLE PT_VERSIONS
+    RUN_OUTPUT_STDERR_VARIABLE PT_VERSIONS_STDERR
     COMPILE_OUTPUT_VARIABLE PT_VER_COMPILE_OUTPUT)
 
   if(NOT ${PT_VER_COMPILE_RESULT})
-    message(
-      FATAL_ERROR
-        "Could not compile exec for PyTorch version detection. Output: ${PT_VER_COMPILE_OUTPUT}"
-    )
+    message(FATAL_ERROR "Could not compile exec for PyTorch version detection. Output: \n${PT_VER_COMPILE_OUTPUT}")
+  endif()
+
+  if(NOT PT_VERSIONS_STDERR STREQUAL "")
+    message(FATAL_ERROR "Errors while running PyTorch version detection tool: \n${PT_VERSIONS_STDERR}")
   endif()
 
   list(GET PT_VERSIONS 0 TORCH_VERSION_MAJOR)
@@ -60,7 +62,6 @@ macro(detect_pt_version)
 
   message(STATUS "PyTorch version detected: ${TORCH_VERSION}")
 endmacro(detect_pt_version)
-
 
 macro(find_most_recent_pt_ver)
   execute_process(

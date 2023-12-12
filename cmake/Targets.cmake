@@ -12,14 +12,14 @@
 
 function(find_keyword KEYWORD RESULT_VAR)
   set(${RESULT_VAR}
-    FALSE
-    PARENT_SCOPE)
+      FALSE
+      PARENT_SCOPE)
 
   foreach(arg IN LISTS ARGN)
     if(arg STREQUAL ${KEYWORD})
       set(${RESULT_VAR}
-        TRUE
-        PARENT_SCOPE)
+          TRUE
+          PARENT_SCOPE)
       break()
     endif()
   endforeach()
@@ -42,6 +42,18 @@ function(set_up_warnings TARGET_NAME)
   endif()
 endfunction()
 
+function(attach_sanitizers_if_requested TARGET_NAME)
+  if(SANITIZER)
+    target_compile_options(${TARGET_NAME} PRIVATE -fsanitize=address -fsanitize=undefined -fno-sanitize=vptr
+                                                 -fsanitize-address-use-after-scope -Og)
+    target_link_options(${TARGET_NAME} PRIVATE -fsanitize=address -fsanitize=leak -fsanitize=undefined)
+  endif()
+
+  if(THREAD_SANITIZER)
+    target_compile_options(${TARGET_NAME} PRIVATE -O0 -g3 -fsanitize=thread)
+  endif()
+endfunction()
+
 function(add_habana_library TARGET_NAME)
   add_library(${TARGET_NAME} ${ARGN})
   add_library(npu::${TARGET_NAME} ALIAS ${TARGET_NAME})
@@ -50,6 +62,7 @@ function(add_habana_library TARGET_NAME)
 
   if(NOT IS_INTERFACE)
     set_up_warnings(${TARGET_NAME})
+    attach_sanitizers_if_requested(${TARGET_NAME})
   endif()
 endfunction()
 
@@ -61,5 +74,15 @@ function(add_habana_executable TARGET_NAME)
 
   if(NOT IS_INTERFACE)
     set_up_warnings(${TARGET_NAME})
+    attach_sanitizers_if_requested(${TARGET_NAME})
   endif()
 endfunction()
+
+
+if(SANITIZER)
+  message("Building sanitizers configuration")
+endif()
+
+if(THREAD_SANITIZER)
+  message("Building thread sanitizer configuration")
+endif()

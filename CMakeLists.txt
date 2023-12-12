@@ -54,17 +54,6 @@ unset(CMAKE_CONFIGURABLE_FILE_CONTENT)
 
 include(Targets)
 
-if(SANITIZER)
-  message("Building sanitizers configuration")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fsanitize=undefined -fno-sanitize=vptr -fsanitize-address-use-after-scope -Og")
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -fsanitize=leak")
-endif(SANITIZER)
-
-if(THREAD_SANITIZER)
-  message("Building thread sanitizer configuration")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g3 -fsanitize=thread")
-endif(THREAD_SANITIZER)
-
 find_program(CCACHE ccache)
 
 if(CCACHE)

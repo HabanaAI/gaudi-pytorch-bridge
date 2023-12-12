@@ -273,7 +273,7 @@ list(APPEND eager_tests_src
   eager_kernel_tests.cpp
 )
 
-add_executable(
+add_habana_executable(
   test_pt_integration
   ${lazy_tests_src}
   ${hpu_ops_tests_src}
@@ -298,7 +298,7 @@ if("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
     eager_custom_kernel_tests.cpp
   )
 
-  add_executable(
+  add_habana_executable(
     test_pt2_integration
     ${hpu_ops_tests_src}
     ${misc_tests_src}
