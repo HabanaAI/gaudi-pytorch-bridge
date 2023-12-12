@@ -754,6 +754,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
     rv.set_graph_name(GetSynapseGraphName());
   }
   rv.sif_tidx_to_tinfo_map = sif_tidx_to_tinfo_map;
+  rv.disabled_jit_ir_ops_ = disabled_jit_ir_ops_;
 
   if (rv.recipe) {
     rv.patch_launch_info(syn_launch_info_, external_tensor_info_indexes_);

@@ -14,11 +14,15 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace serialization {
 
 // generic part
+
+void serialize(std::ostream& os, const char* input);
+void serialize(std::ostream& os, std::string const& input);
 
 template <typename POD>
 void serialize(std::ostream& os, const POD& input) {
@@ -31,6 +35,14 @@ void serialize(std::ostream& os, const POD& input) {
 
 template <typename T>
 void serialize(std::ostream& os, std::vector<T> const& input) {
+  serialize(os, static_cast<int>(input.size()));
+  for (auto const& elem : input) {
+    serialize(os, elem);
+  }
+}
+
+template <typename T>
+void serialize(std::ostream& os, std::unordered_set<T> const& input) {
   serialize(os, static_cast<int>(input.size()));
   for (auto const& elem : input) {
     serialize(os, elem);
@@ -63,9 +75,6 @@ void serialize(std::ostream& os, std::unordered_map<T1, T2> const& input) {
     serialize(os, elem.second);
   }
 }
-
-void serialize(std::ostream& os, const char* input);
-void serialize(std::ostream& os, std::string const& input);
 
 // PT part
 void serialize(std::ostream& os, c10::Device const& input);

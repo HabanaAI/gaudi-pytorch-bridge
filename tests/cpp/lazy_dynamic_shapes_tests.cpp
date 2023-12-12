@@ -951,6 +951,34 @@ TEST_F(LazyDynamicShapesTest, RepeatTest2) {
   }
 }
 
+void runWeightNormTest() {
+  std::vector<int> in_sizes{64, 32};
+  for (int i = 0; i < in_sizes.size(); i++) {
+    at::Tensor v_in = at::randn({512, 32, in_sizes[i]});
+    at::Tensor g_in = at::randn({1, 1, in_sizes[i]});
+    int64_t dim(2);
+
+    at::Tensor output = at::_weight_norm(v_in, g_in, dim);
+
+    at::Tensor h_v_in = v_in.to(at::device(at::kHPU));
+    at::Tensor h_g_in = g_in.to(at::device(at::kHPU));
+    at::Tensor h_output = at::_weight_norm(h_v_in, h_g_in, dim);
+
+    at::Tensor h_output_cpu = h_output.to(at::device(at::kCPU));
+    EXPECT_EQ(allclose(h_output_cpu, output, 0.0001), true);
+  }
+}
+TEST_F(LazyDynamicShapesTest, WeightNormTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+  SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, "/tmp/WeightNormTest_dumps", 1);
+  runWeightNormTest();
+
+  // Rerun using disk caching
+  runWeightNormTest();
+  SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, recipe_cache_path, 1);
+}
+
 TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest) {
   GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int A = 2;

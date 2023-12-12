@@ -407,6 +407,8 @@ struct RecipeValueSpec {
   std::vector<PtTensorInfoShared> dtensorinfos;
   habana_helpers::CollectiveKernelInfos collective_kernels_info;
   std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
+  std::unordered_set<std::string> disabled_jit_ir_ops_;
+
   uint64_t workspace_size;
 
   size_t id{0};

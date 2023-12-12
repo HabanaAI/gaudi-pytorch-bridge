@@ -3154,6 +3154,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
 
           habana::ShapeInference::ResetSifTensorId();
           constexpr bool dynamic_shapes_true = true;
+          if (rv.disabled_jit_ir_ops_.size())
+            disabled_jit_ir_ops_ = rv.disabled_jit_ir_ops_;
           RunHybridSif<dynamic_shapes_true>(tidx_to_tensor_map);
           PT_DYNAMIC_SHAPE_DEBUG("HybridSif_END");
         } else {

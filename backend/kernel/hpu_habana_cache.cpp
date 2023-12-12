@@ -399,6 +399,7 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
       sif_tidx_to_tinfo_map.insert(
           {sif_tensor_indices[idx], dtensorinfos.at(idx)});
     }
+    deserialize(is, disabled_jit_ir_ops_);
   }
 }
 
@@ -454,6 +455,7 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
       sif_tensor_indices.push_back(tinfo_to_sif_tidx_map[tinfo]);
     }
     serialize(os, sif_tensor_indices);
+    serialize(os, disabled_jit_ir_ops_);
   }
 }
 

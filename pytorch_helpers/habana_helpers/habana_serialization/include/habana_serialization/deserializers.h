@@ -14,11 +14,17 @@
 #include <sstream>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace serialization {
 
 // generic part
+
+void deserialize(std::istream& is, char*& input);
+
+void deserialize(std::istream& is, std::string& output);
+
 template <typename POD>
 void deserialize(std::istream& is, POD& output) {
   // this only works on built in data types (PODs)
@@ -36,6 +42,17 @@ void deserialize(std::istream& is, std::vector<T>& output) {
     T elem;
     deserialize(is, elem);
     output.push_back(elem);
+  }
+}
+
+template <typename T>
+void deserialize(std::istream& is, std::unordered_set<T>& output) {
+  int size;
+  deserialize(is, size);
+  for (int i = 0; i < size; ++i) {
+    T elem;
+    deserialize(is, elem);
+    output.insert(elem);
   }
 }
 
@@ -77,10 +94,6 @@ void deserialize(std::istream& is, std::unordered_map<T1, T2>& output) {
     output[elem1] = elem2;
   }
 }
-
-void deserialize(std::istream& is, char*& input);
-
-void deserialize(std::istream& is, std::string& output);
 
 // PT part
 void deserialize_device(std::istream& is, c10::TensorOptions& input);
