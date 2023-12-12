@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -20,13 +20,31 @@
 
 namespace habana {
 
+std::vector<int64_t> fillDims(const at::Tensor& self) {
+  std::vector<int64_t> dims;
+  auto input_size = self.sizes().vec().size();
+  dims.reserve(input_size);
+  for (size_t i = 0; i < input_size; i++)
+    dims.push_back(i);
+  return dims;
+}
+
+std::vector<int64_t> getDimsVector(
+    const at::Stack& stack,
+    const at::Tensor& self) {
+  // the second condition is true when no other arguments except input are
+  // passed to e.g. var_mean
+  return stack.at(1).isNone() || stack.at(1).isBool() ||
+          stack.at(1).toIntVector().empty()
+      ? fillDims(self)
+      : stack.at(1).toIntVector();
+}
+
 OutputMetaDataVector StdVarMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
-  std::vector<int64_t> dims;
+  auto dims = getDimsVector(stack, self);
   bool keepdim = false;
   if (!stack.at(1).isBool()) {
-    dims = stack.at(1).isNone() ? std::vector<int64_t>{}
-                                : stack.at(1).toIntVector();
     keepdim = stack.at(3).toBool();
   }
   int ndims = self.sizes().vec().size();
@@ -44,32 +62,46 @@ OutputMetaDataVector StdVarMeanMeta(const at::Stack& stack) {
   return {meta, meta};
 }
 
-static int prepareDivisor(
+std::vector<synapse_helpers::tensor> slice_size_helper(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
     const at::Tensor& self,
-    const at::IntArrayRef dims,
-    const int correction) {
-  const auto input_shape = self.sizes().vec();
-  const auto dimsVec = dims.vec();
-  const auto num_dim = dimsVec.size();
+    const std::vector<synTensor>& input,
+    const at::IntArrayRef dims) {
+  auto intermediate_shape = self.sizes().vec();
+  auto rank = intermediate_shape.size();
+  std::vector<synapse_helpers::tensor> slice_axis_output;
+  auto slice_output = input;
 
-  int divisor{1};
-  switch (num_dim) {
-    case 0:
-      divisor = self.numel();
-      break;
-    case 1:
-      divisor = input_shape.size() == 0 ? 1 : input_shape[dims.front()];
-      break;
-    default:
-      for (unsigned i = 0; i < dimsVec.size() && i < dims.size() &&
-           dims[i] < static_cast<int64_t>(input_shape.size());
-           i++) {
-        divisor *= input_shape[dims[i]];
-      }
-      break;
+  if (rank == 1)
+    return OpBackend::BuildNode(
+        op, graph, {"size_i32", input, {{{1}, c10::ScalarType::Int}}});
+
+  for (uint64_t i = 0; i < rank; i++) {
+    if (std::find(dims.begin(), dims.end(), i) == dims.end()) {
+      intermediate_shape[i] = 1;
+
+      synSliceAxisParamsV2 slice_params{};
+      slice_params.axis = rank - i - 1;
+      slice_params.begin = 0;
+      slice_params.end = 1;
+
+      slice_axis_output = OpBackend::BuildNode(
+          op,
+          graph,
+          {"slice_axis",
+           slice_output,
+           {{intermediate_shape, self.scalar_type()}},
+           &slice_params,
+           sizeof(slice_params)});
+      slice_output[0] = slice_axis_output[0].get();
+    }
   }
 
-  return divisor - correction;
+  return OpBackend::BuildNode(
+      op,
+      graph,
+      {"size_i32", {slice_output[0]}, {{{1}, c10::ScalarType::Int}}});
 }
 
 // checking dim is continuous to avoid reduce_sum
@@ -181,12 +213,26 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
       sum.emplace_back(std::move(reshape_tensor));
     }
   }
-  const int divisor = prepareDivisor(self, dims, correction);
-  auto divisor_tensor =
-      OpBackend::BuildConstant(op, graph, divisor, at::kFloat);
 
-  auto reciprocal = OpBackend::BuildNode(
-      op, graph, {"reciprocal_fwd_f32", {divisor_tensor.get()}, {{1}}});
+  std::vector<synapse_helpers::tensor> reciprocal;
+  auto slice_size_output = slice_size_helper(op, graph, self, input, dims);
+  if (correction) {
+    auto correction_tensor =
+        OpBackend::BuildConstant(op, graph, correction, at::kFloat);
+    auto diff = OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("sub_fwd", op->ScalarType()),
+         {slice_size_output[0].get(), correction_tensor.get()},
+         {{{1}, op->ScalarType()}}});
+    reciprocal = OpBackend::BuildNode(
+        op, graph, {"reciprocal_fwd_f32", {diff.at(0).get()}, {{1}}});
+  } else {
+    reciprocal = OpBackend::BuildNode(
+        op,
+        graph,
+        {"reciprocal_fwd_f32", {slice_size_output.at(0).get()}, {{1}}});
+  }
 
   auto div = OpBackend::BuildNode(
       op,
@@ -231,8 +277,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
 
 void Var::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto dim =
-      stack.at(1).isNone() ? std::vector<int64_t>{} : stack.at(1).toIntVector();
+  auto dim = getDimsVector(stack, self);
   const int correction = stack.at(2).isNone() ? 0 : stack.at(2).toInt();
   const bool keepdim = stack.at(3).toBool();
 
@@ -257,18 +302,17 @@ void Var::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 void VarMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
 
-  std::vector<int64_t> dim;
   int correction = 0;
   bool keepdim = false;
   if (stack.at(1).isBool()) {
     // this argument is for 'unbiased', convert its value for 'correction'
     correction = static_cast<int>(stack.at(1).toBool());
   } else {
-    dim = stack.at(1).isNone() ? std::vector<int64_t>{}
-                               : stack.at(1).toIntVector();
     correction = stack.at(2).isNone() ? 0 : stack.at(2).toInt();
     keepdim = stack.at(3).toBool();
   }
+
+  auto dim = getDimsVector(stack, self);
 
   auto meta = StdVarMeanMeta(stack);
   auto mean_shape = ReductionOutputShape(self, dim, true)[0];
@@ -302,8 +346,7 @@ void VarMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 void Std::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto dim =
-      stack.at(1).isNone() ? std::vector<int64_t>{} : stack.at(1).toIntVector();
+  auto dim = getDimsVector(stack, self);
   const int correction = stack.at(2).isNone() ? 0 : stack.at(2).toInt();
   const bool keepdim = stack.at(3).toBool();
 
@@ -327,8 +370,7 @@ void Std::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 void StdMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto dim =
-      stack.at(1).isNone() ? std::vector<int64_t>{} : stack.at(1).toIntVector();
+  auto dim = getDimsVector(stack, self);
   const int correction = stack.at(2).isNone() ? 0 : stack.at(2).toInt();
   const bool keepdim = stack.at(3).toBool();
 
