@@ -28,12 +28,12 @@ namespace synapse_helpers {
 namespace {
 
 int ResolveDeviceIndex(int device_index) {
-  synDeviceInfo device_info;
-  auto status = ::synDeviceGetInfo(device_index, &device_info);
+  synDeviceInfoV2 device_info;
+  auto status = ::synDeviceGetInfoV2(device_index, &device_info);
   if (status == synFail) {
     throw HlMlMemoryReporter::Error("synDeviceGetInfo", EINVAL);
   }
-  return device_info.deviceId;
+  return device_info.deviceIndex;
 }
 
 } // namespace

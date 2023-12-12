@@ -106,6 +106,7 @@ SYN_API_PTR(synDestroy);
 SYN_API_PTR(synDeviceRelease);
 SYN_API_PTR(synDeviceGetMemoryInfo);
 SYN_API_PTR(synDeviceGetInfo);
+SYN_API_PTR(synDeviceGetInfoV2);
 SYN_API_PTR(synProfilerStart);
 SYN_API_PTR(synProfilerStop);
 SYN_API_PTR(synProfilerGetTrace);
@@ -213,6 +214,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDeviceRelease);
   SYN_API_INIT_PTR(synDeviceGetMemoryInfo);
   SYN_API_INIT_PTR(synDeviceGetInfo);
+  SYN_API_INIT_PTR(synDeviceGetInfoV2);
   SYN_API_INIT_PTR(synProfilerStart);
   SYN_API_INIT_PTR(synProfilerStop);
   SYN_API_INIT_PTR(synProfilerGetTrace);
@@ -1643,6 +1645,16 @@ synDeviceGetInfo(const synDeviceId deviceId, synDeviceInfo* pDeviceInfo) {
 
   API_LOG_CALL(ARG(deviceId), ARG(pDeviceInfo));
   synStatus status = lib_synapse::synDeviceGetInfo(deviceId, pDeviceInfo);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL
+synDeviceGetInfoV2(const synDeviceId deviceId, synDeviceInfoV2* pDeviceInfo) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+
+  API_LOG_CALL(ARG(deviceId), ARG(pDeviceInfo));
+  synStatus status = lib_synapse::synDeviceGetInfoV2(deviceId, pDeviceInfo);
   API_LOG_RESULT();
   return status;
 }

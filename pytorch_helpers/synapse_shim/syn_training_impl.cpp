@@ -472,6 +472,11 @@ synDeviceGetInfo(const synDeviceId deviceId, synDeviceInfo* pDeviceInfo) {
 }
 
 synStatus SYN_API_CALL
+synDeviceGetInfoV2(const synDeviceId deviceId, synDeviceInfoV2* pDeviceInfo) {
+  return syn_api->synDeviceGetInfoV2(deviceId, pDeviceInfo);
+}
+
+synStatus SYN_API_CALL
 synProfilerStart(const synTraceType type, const synDeviceId deviceId) {
   return syn_api->synProfilerStart(type, deviceId);
 }

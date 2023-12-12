@@ -73,6 +73,7 @@
   visitor(synDeviceRelease);                   \
   visitor(synDeviceGetMemoryInfo);             \
   visitor(synDeviceGetInfo);                   \
+  visitor(synDeviceGetInfoV2);                 \
   visitor(synProfilerStart);                   \
   visitor(synProfilerStop);                    \
   visitor(synProfilerGetTrace);                \
