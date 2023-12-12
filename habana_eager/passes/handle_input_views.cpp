@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -55,30 +55,52 @@ struct HandleInputViewsPass {
 
       if (habana::is_view_lowering(input_tensor) ||
           !input_tensor.is_contiguous()) {
-        auto& first_use{input->uses()[0]};
-        torch::jit::Node* user{first_use.user};
+        auto& uses = input->uses();
+        auto& first_use = uses[0];
+        torch::jit::Node* first_user = first_use.user;
+        auto& last_use = uses[uses.size() - 1];
+        torch::jit::Node* last_user = last_use.user;
 
-        static const std::set<c10::Symbol> view_ops_symbols{
+        static const std::array<c10::Symbol, 4> view_ops_symbols{
             c10::Symbol::fromQualString("aten::as_strided"),
             c10::Symbol::fromQualString("aten::slice_scatter"),
             c10::Symbol::fromQualString("aten::select_scatter"),
             c10::Symbol::fromQualString("aten::as_strided_scatter")};
 
-        if (view_ops_symbols.find(user->kind()) != view_ops_symbols.end()) {
+        if (std::find(
+                view_ops_symbols.begin(),
+                view_ops_symbols.end(),
+                first_user->kind()) != view_ops_symbols.end()) {
           // Moving for next input as view for this one are already handled in
           // graph
           continue;
         }
-        auto view_params{std::make_unique<habana::eager::ViewParam>()};
-        view_params->setParam(input_tensor);
+        habana::eager::ViewParam view_params;
+        view_params.setParam(input_tensor);
+
+        bool needs_strided_insert = false;
+        if ((uses.size() > 1) && (last_use.offset == 0)) {
+          std::string_view node_name = last_user->kind().toQualString();
+          if (node_name.back() == '_') {
+            needs_strided_insert = true;
+          }
+        }
+
         m_input_base_sizes_to_set[input_idx] = std::vector<int64_t>();
         insert_strided_view_node(
             input_tensor,
-            user,
+            first_user,
             input,
             view_params,
             m_input_base_sizes_to_set.at(input_idx));
         changed |= true;
+
+        if (needs_strided_insert) {
+          insert_strided_insert_node(
+              input_tensor, input, last_user->output(0), view_params);
+
+          replace_with_out_of_place_op(last_user);
+        }
       }
     }
 
@@ -89,18 +111,18 @@ struct HandleInputViewsPass {
       at::Tensor input_tensor,
       torch::jit::Node* node,
       torch::jit::Value* value_in,
-      std::unique_ptr<habana::eager::ViewParam>& p,
+      const habana::eager::ViewParam& p,
       std::vector<int64_t>& base_sizes_to_set) {
     PT_EAGER_TRACE;
     torch::jit::WithInsertPoint insert_point(node);
 
     auto op_strided_view = c10::Symbol::fromQualString("aten::as_strided");
     auto value_sizes =
-        m_graph->insertConstant(torch::jit::IValue(p->getViewSizes()));
+        m_graph->insertConstant(torch::jit::IValue(p.getViewSizes()));
     auto value_strides =
-        m_graph->insertConstant(torch::jit::IValue(p->getViewStrides()));
+        m_graph->insertConstant(torch::jit::IValue(p.getViewStrides()));
     auto value_offset =
-        m_graph->insertConstant(torch::jit::IValue(p->getViewOffset()));
+        m_graph->insertConstant(torch::jit::IValue(p.getViewOffset()));
 
     auto jit_node = m_graph->create(
         op_strided_view,
@@ -108,7 +130,7 @@ struct HandleInputViewsPass {
         1);
 
     jit_node->output(0)->setType(c10::TensorType::createContiguous(
-        input_tensor.scalar_type(), input_tensor.device(), p->getViewSizes()));
+        input_tensor.scalar_type(), input_tensor.device(), p.getViewSizes()));
 
     base_sizes_to_set = habana::get_base_tensor_size(input_tensor);
 
@@ -120,6 +142,77 @@ struct HandleInputViewsPass {
     m_graph->insertNode(jit_node);
 
     value_in->replaceAllUsesAfterNodeWith(jit_node, jit_node->output(0));
+  }
+
+  void insert_strided_insert_node(
+      at::Tensor input_tensor,
+      torch::jit::Value* value_in,
+      torch::jit::Value* value_out,
+      const habana::eager::ViewParam& p) {
+    PT_EAGER_TRACE;
+
+    auto op_strided_insert =
+        c10::Symbol::fromQualString("hpu::strided_insert_");
+    auto value_strides =
+        m_graph->insertConstant(torch::jit::IValue(p.getViewStrides()));
+    auto value_offset =
+        m_graph->insertConstant(torch::jit::IValue(p.getViewOffset()));
+
+    auto jit_node = m_graph->create(
+        op_strided_insert,
+        {value_in, value_out, value_strides, value_offset},
+        1);
+
+    jit_node->input(0)->setType(c10::TensorType::createContiguous(
+        input_tensor.scalar_type(),
+        input_tensor.device(),
+        {p.getTotalElements()}));
+
+    jit_node->input(1)->setType(c10::TensorType::createContiguous(
+        input_tensor.scalar_type(), input_tensor.device(), p.getViewSizes()));
+
+    jit_node->output(0)->setType(c10::TensorType::createContiguous(
+        input_tensor.scalar_type(),
+        input_tensor.device(),
+        {p.getTotalElements()}));
+
+    m_graph->insertNode(jit_node);
+
+    value_out->replaceAllUsesAfterNodeWith(jit_node, jit_node->output(0));
+  }
+
+  void replace_with_out_of_place_op(torch::jit::Node* node) {
+    PT_EAGER_TRACE;
+    torch::jit::WithInsertPoint insert_point(node);
+
+    std::string_view inplace_name = node->kind().toQualString();
+    std::string_view new_name = inplace_name;
+    new_name.remove_suffix(1);
+
+    PT_EAGER_DEBUG(
+        "[replace_with_out_of_place_op] Op Name: ",
+        inplace_name,
+        " is replaced by: ",
+        new_name);
+
+    auto new_node =
+        m_graph->create(c10::Symbol::fromQualString(std::string(new_name)));
+    for (size_t i = 0; i < node->inputs().size(); ++i) {
+      new_node->addInput(node->input(i));
+    }
+    new_node->setScope(node->scope());
+    new_node->copyAttributes(*node);
+    for (size_t i = 0; i < node->outputs().size(); ++i) {
+      if (i > 0) {
+        new_node->addOutput();
+      }
+      new_node->output(i)->copyMetadata(node->output(i));
+    }
+    m_graph->insertNode(new_node);
+    for (size_t i = 0; i < node->outputs().size(); ++i) {
+      node->output(i)->replaceAllUsesWith(new_node->output(i));
+    }
+    node->destroy();
   }
 
  private:

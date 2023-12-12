@@ -21,37 +21,39 @@ namespace eager {
 
 namespace {
 
+using namespace std::literals;
+
 /* In general, inplace ops  read from input tensor and then write to the same
 tensor.
 The below list of ops ignore the values in the input tensor and overwrite the
 contents*/
-std::unordered_set<std::string> underscored_ops_reported_as_non_inplace = {
-    "aten::zero_",
-    "aten::_foreach_zero_",
-    "aten::fill_",
-    "hpu::bernoulli_",
-    "hpu::uniform_",
-    "hpu::random_",
-    "hpu::normal_",
-    "hpu::geometric_",
-    "hpu::log_normal_",
-    "hpu::exponential_",
-    "hpu::rrelu_with_noise_"};
+std::unordered_set<std::string_view> underscored_ops_reported_as_non_inplace = {
+    "aten::zero_"sv,
+    "aten::_foreach_zero_"sv,
+    "aten::fill_"sv,
+    "hpu::bernoulli_"sv,
+    "hpu::uniform_"sv,
+    "hpu::random_"sv,
+    "hpu::normal_"sv,
+    "hpu::geometric_"sv,
+    "hpu::log_normal_"sv,
+    "hpu::exponential_"sv,
+    "hpu::rrelu_with_noise_"sv};
 
 /* below ops modify the o/p dtype in their out of place variant or
  * convert out variant to regular one that may result in dtype promotion
  * thereby requiring cast node*/
-std::unordered_set<std::string> ops_needing_cast = {
-    "aten::eq",          "aten::ne",
-    "aten::ge",          "aten::le",
-    "aten::gt",          "aten::lt",
-    "aten::logical_and", "aten::logical_or",
-    "aten::logical_xor", "aten::logical_not",
-    "aten::add",         "aten::sub",
-    "aten::mul",         "aten::div",
-    "aten::remainder",   "aten::floor_divide_",
-    "aten::clamp",       "aten::clamp_max",
-    "aten::clamp_min",
+std::unordered_set<std::string_view> ops_needing_cast = {
+    "aten::eq"sv,          "aten::ne"sv,
+    "aten::ge"sv,          "aten::le"sv,
+    "aten::gt"sv,          "aten::lt"sv,
+    "aten::logical_and"sv, "aten::logical_or"sv,
+    "aten::logical_xor"sv, "aten::logical_not"sv,
+    "aten::add"sv,         "aten::sub"sv,
+    "aten::mul"sv,         "aten::div"sv,
+    "aten::remainder"sv,   "aten::floor_divide_"sv,
+    "aten::clamp"sv,       "aten::clamp_max"sv,
+    "aten::clamp_min"sv,
 };
 
 bool check_if_op_doesnt_use_input(const JitNode* node) {
@@ -117,7 +119,11 @@ void insert_strided_view_node(
   auto sizes = habana::get_base_tensor_size(input);
   jit_node->input(0)->setType(c10::TensorType::createContiguous(
       input.scalar_type(), input.device(), sizes));
-  PT_EAGER_DEBUG("update graph view input's sizes: ", input.sizes(), " to base sizes: ", sizes);
+  PT_EAGER_DEBUG(
+      "update graph view input's sizes: ",
+      input.sizes(),
+      " to base sizes: ",
+      sizes);
 
   set_deterministic(jit_node);
   if (consumer_op_doesnt_use_input) {

@@ -578,3 +578,10 @@ def check_op_in_fuser_fused_ops(op_names):
                 return True
 
     return False
+
+
+def place_on_hpu(cpu_tensors):
+    hpu_tensors = {}
+    for key, value in cpu_tensors.items():
+        hpu_tensors[key] = value.to("hpu")
+    return hpu_tensors

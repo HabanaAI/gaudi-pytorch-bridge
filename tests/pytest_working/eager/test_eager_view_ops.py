@@ -18,7 +18,7 @@ import habana_frameworks.torch.internal.bridge_config as bc
 import numpy as np
 import pytest
 import torch
-from test_utils import cpu, hpu
+from test_utils import cpu, hpu, place_on_hpu
 
 Verbose = False
 
@@ -359,7 +359,6 @@ def test_view_cache2():
 @pytest.mark.xfail(reason="RuntimeError: Wrong PT plugin library loaded in the system. Expected was EAGER, got LAZY")
 def test_view_layout1():
     def fn(x, dev):
-
         m = torch.nn.Conv2d(2, 3, 3, stride=2).to(dev)
         x = m(x)
         x = x[:]
@@ -600,13 +599,6 @@ def test_fill():
         input_hpu.t_().fill_(10)
 
         assert torch.equal(input_hpu.cpu(), input)
-
-
-def place_on_hpu(cpu_tensors):
-    hpu_tensors = {}
-    for key, value in cpu_tensors.items():
-        hpu_tensors[key] = value.to("hpu")
-    return hpu_tensors
 
 
 # This test case shall start failing as soon as you fix the JIRA issue:
