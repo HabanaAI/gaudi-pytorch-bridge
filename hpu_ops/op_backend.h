@@ -222,7 +222,6 @@ class OpBackend : public HabanaOperator {
   synTensor syn_in(size_t index);
   synapse_helpers::tensor& syn_out(size_t index);
   synapse_helpers::tensor_or_ref& SynInput(size_t index) override;
-  void EraseSynInput(int index);
   synTensor syn_seed();
 
   synapse_helpers::tensor CastHelper(

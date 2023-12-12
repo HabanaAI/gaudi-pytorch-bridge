@@ -49,49 +49,6 @@ static int64_t get_arange_depth(
   return num_elements;
 }
 
-static int64_t get_arange_depth_ds(
-    const float start,
-    const float end,
-    const float step) {
-  TORCH_CHECK(step != 0.0, "step value can not be 0.");
-  TORCH_CHECK(!((start > end) && (step > 0)), "step must be negative.");
-  TORCH_CHECK(!((start < end) && (step < 0)), "step must be positive.");
-
-  int64_t num_elements = static_cast<int64_t>(ceil((end - start) / step));
-  return num_elements;
-}
-
-size_t GetMInMaxSifOffset(bool dry_run, size_t data_size) {
-  size_t sif_offset = 0;
-  if (dry_run &&
-      habana::ShapeInference::GetCurrentPass() ==
-          habana::ShapeInfo::InferencePass::MIN_SHAPE) {
-    sif_offset = data_size;
-  }
-  return sif_offset;
-}
-
-template <typename T>
-std::vector<T> GetArangeH2DParams(at::Tensor& params_t, bool dry_run) {
-  std::vector<T> params_data;
-  size_t data_size = params_t.sizes()[0];
-  auto tmeta{get_tensor_extra_meta(params_t)};
-  void* host_ptr = nullptr;
-  if (dry_run) {
-    host_ptr = tmeta->get_compile_host_ptr();
-  } else {
-    host_ptr = tmeta->get_host_ptr();
-  }
-
-  T* h2d_data = static_cast<T*>(host_ptr);
-  size_t sif_offset = GetMInMaxSifOffset(dry_run, data_size);
-  h2d_data = h2d_data + sif_offset;
-  for (size_t i = 0; i < data_size; i++) {
-    params_data.push_back(static_cast<T>(*h2d_data++));
-  }
-  return params_data;
-}
-
 sizes_vec ArangeOutputShape(const at::Stack& stack) {
   return {{get_arange_depth(
       stack.at(0).toScalar(), stack.at(1).toScalar(), stack.at(2).toScalar())}};
@@ -140,32 +97,19 @@ synapse_helpers::tensor ArangeCommon(
     size_t size,
     c10::optional<int> final_result_index) {
   std::vector<synTensor> inputs = {};
-  if (syn_in0.has_value() && can_use_dynamic_shapes(start, end, step)) {
+  if (can_use_dynamic_shapes(start, end, step)) {
     // It is assumend that syn_in1 and syn_in0 are non empty optionals when
-    // can_use_dynamic_shapes returns ture for arange.start_out
-    // syn_in1 is empty for arange.start_step
-    if (syn_in1.has_value()) {
-      inputs.emplace_back(syn_in1.value());
-    }
-    if (syn_in0.has_value()) {
-      inputs.emplace_back(syn_in0.value());
-    }
-
-    auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
-    const bool is_cast_not_required = c10::isFloatingType(internal_out_dtype) ||
-        internal_out_dtype == c10::ScalarType::Int ||
-        (internal_out_dtype == c10::ScalarType::Long &&
-         common::IsInt64Supported());
-    auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
-    auto range_guid = get_guid_with_precision("range", scalar_type);
-    NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
-
+    // can_use_dynamic_shapes returns ture
+    inputs.emplace_back(syn_in1.value());
+    inputs.emplace_back(syn_in0.value());
+    const bool is_cast_not_required =
+        habana_helpers::getInternalDtype(out_dtype) == c10::ScalarType::Int;
+    NodeAttr::NodeOutputAttr out_attr = {outshape, c10::ScalarType::Int};
     if (is_cast_not_required)
-      out_attr.final_result_index = final_result_index;
+      out_attr.final_result_index = 0;
 
     auto arange_i32 = OpBackend::BuildNode(
-        op, graph, {range_guid, std::move(inputs), {out_attr}});
-
+        op, graph, {"range_i32", std::move(inputs), {out_attr}});
     if (is_cast_not_required) {
       return std::move(arange_i32[0]);
     } else {
@@ -262,10 +206,11 @@ void Arange::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto start = stack.at(0).toScalar();
   auto end = stack.at(1).toScalar();
   auto step = stack.at(2).toScalar();
-  std::optional<synTensor> syn_in0 = (p_context_->syn_inputs_.size())
+
+  std::optional<synTensor> syn_in0 = can_use_dynamic_shapes(start, end, step)
       ? std::make_optional(syn_in(0))
       : std::nullopt;
-  std::optional<synTensor> syn_in1 = (p_context_->syn_inputs_.size())
+  std::optional<synTensor> syn_in1 = can_use_dynamic_shapes(start, end, step)
       ? std::make_optional(syn_in(1))
       : std::nullopt;
   syn_out(0) = ArangeCommon(
@@ -290,13 +235,13 @@ OutputMetaDataVector ArangeDefaultEndMeta(const at::Stack& stack) {
   const c10::Scalar end = stack.at(0).toScalar();
   const int64_t depth = get_arange_depth(defaultStart, end, defaultStep);
   const bool setToIntegralDType = end.isIntegral(true);
-  return {ArangeDefaultCommonMeta(
+  return ArangeDefaultCommonMeta(
       depth,
       stack.at(1),
       stack.at(2),
       stack.at(3),
       stack.at(4),
-      setToIntegralDType)};
+      setToIntegralDType);
 }
 
 OutputMetaDataVector ArangeDefaultStartEndMeta(const at::Stack& stack) {
@@ -306,77 +251,30 @@ OutputMetaDataVector ArangeDefaultStartEndMeta(const at::Stack& stack) {
   const int64_t depth = get_arange_depth(start, end, defaultStep);
   const bool setToIntegralDType =
       end.isIntegral(true) && start.isIntegral(true);
-  return {ArangeDefaultCommonMeta(
+  return ArangeDefaultCommonMeta(
       depth,
       stack.at(2),
       stack.at(3),
       stack.at(4),
       stack.at(5),
-      setToIntegralDType)};
+      setToIntegralDType);
 }
 
 OutputMetaDataVector ArangeDefaultStartEndStepMeta(const at::Stack& stack) {
-  int64_t depth;
-  bool setToIntegralDType = true; // DS Compile
+  const c10::Scalar start = stack.at(0).toScalar();
+  const c10::Scalar step = stack.at(2).toScalar();
+  const c10::Scalar end = stack.at(1).toScalar();
+  const int64_t depth = get_arange_depth(start, end, step);
+  const bool setToIntegralDType =
+      end.isIntegral(true) && start.isIntegral(true) && step.isIntegral(true);
 
-  if (!stack[0].isTensor()) {
-    const c10::Scalar start = stack.at(0).toScalar();
-    const c10::Scalar step = stack.at(2).toScalar();
-    const c10::Scalar end = stack.at(1).toScalar();
-    depth = get_arange_depth(start, end, step);
-    const bool setToIntegralDType =
-        end.isIntegral(true) && start.isIntegral(true) && step.isIntegral(true);
-
-    return {ArangeDefaultCommonMeta(
-        depth,
-        stack.at(3),
-        stack.at(4),
-        stack.at(5),
-        stack.at(6),
-        setToIntegralDType)};
-  } else {
-    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
-      // Lazy Flow
-      auto output_shape_tensor = stack[1].toTensor();
-      depth = output_shape_tensor.sizes()[0];
-      setToIntegralDType =
-          (output_shape_tensor.scalar_type() == c10::ScalarType::Long) ||
-          (output_shape_tensor.scalar_type() == c10::ScalarType::Int);
-      return {ArangeDefaultCommonMeta(
-          depth,
-          stack.at(2),
-          stack.at(3),
-          stack.at(4),
-          stack.at(5),
-          setToIntegralDType)};
-    } else {
-      // DS Compile Flow
-      std::vector<int32_t> params_data;
-      at::Tensor params_t = stack[0].toTensor();
-      if ((habana::ShapeInference::GetCurrentPass() ==
-           habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
-          (habana::ShapeInference::GetCurrentPass() ==
-           habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
-        params_data = GetArangeH2DParams<int32_t>(params_t, true);
-      } else {
-        params_data = GetArangeH2DParams<int32_t>(params_t, false);
-      }
-
-      PT_KERNEL_DEBUG("ArangeOutputShape params_data:", params_data);
-      depth = get_arange_depth_ds(
-          static_cast<float>(params_data[0]),
-          static_cast<float>(params_data[1]),
-          static_cast<float>(params_data[2]));
-
-      return {ArangeDefaultCommonMeta(
-          depth,
-          stack.at(2),
-          stack.at(3),
-          stack.at(4),
-          stack.at(5),
-          setToIntegralDType)};
-    }
-  }
+  return ArangeDefaultCommonMeta(
+      depth,
+      stack.at(3),
+      stack.at(4),
+      stack.at(5),
+      stack.at(6),
+      setToIntegralDType);
 }
 
 std::shared_ptr<void> FillArangeDefaultCommonParams(
@@ -396,20 +294,6 @@ std::shared_ptr<void> FillArangeDefaultCommonParams(
     params->limit.i = end.to<int>();
     params->delta.i = step.to<int>();
   }
-  return params;
-}
-
-std::shared_ptr<void> FillArangeDefaultCommonParamsDS(
-    const int32_t start,
-    const int32_t end,
-    const int32_t step,
-    // c10::ScalarType out_dtype,
-    size_t& size) {
-  // auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
-  PARAMS_STUB(ns_RangeKernel::Params);
-  params->start.i = start;
-  params->limit.i = end;
-  params->delta.i = step;
   return params;
 }
 
@@ -449,49 +333,17 @@ std::shared_ptr<void> FillArangeDefaultStartEndParams(
 std::shared_ptr<void> FillArangeDefaultStartEndStepParams(
     const at::Stack& stack,
     size_t& size) {
-  if (!stack[0].isTensor()) {
-    const c10::Scalar start = stack.at(0).toScalar();
-    const c10::Scalar step = stack.at(2).toScalar();
-    const c10::Scalar end = stack.at(1).toScalar();
+  const c10::Scalar start = stack.at(0).toScalar();
+  const c10::Scalar step = stack.at(2).toScalar();
+  const c10::Scalar end = stack.at(1).toScalar();
 
-    const bool setToIntegralDType =
-        end.isIntegral(true) && start.isIntegral(true) && step.isIntegral(true);
-    const auto out_dtype = stack.at(3).toOptional<at::ScalarType>().value_or(
-        setToIntegralDType ? at::ScalarType::Long
-                           : torch::get_default_dtype_as_scalartype());
+  const bool setToIntegralDType =
+      end.isIntegral(true) && start.isIntegral(true) && step.isIntegral(true);
+  const auto out_dtype = stack.at(3).toOptional<at::ScalarType>().value_or(
+      setToIntegralDType ? at::ScalarType::Long
+                         : torch::get_default_dtype_as_scalartype());
 
-    return FillArangeDefaultCommonParams(start, end, step, out_dtype, size);
-  } else {
-    const auto meta = ArangeDefaultStartEndStepMeta(stack);
-    const auto out_dtype = meta[0].dtype;
-    if (c10::isFloatingType(out_dtype)) {
-      std::vector<float> params_data;
-      at::Tensor params_t = stack[0].toTensor();
-      if ((habana::ShapeInference::GetCurrentPass() ==
-           habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
-          (habana::ShapeInference::GetCurrentPass() ==
-           habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
-        params_data = GetArangeH2DParams<float>(params_t, true);
-      } else {
-        params_data = GetArangeH2DParams<float>(params_t, false);
-      }
-      return FillArangeDefaultCommonParams(
-          params_data[0], params_data[1], params_data[2], out_dtype, size);
-    } else {
-      std::vector<int32_t> params_data;
-      at::Tensor params_t = stack[0].toTensor();
-      if ((habana::ShapeInference::GetCurrentPass() ==
-           habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
-          (habana::ShapeInference::GetCurrentPass() ==
-           habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
-        params_data = GetArangeH2DParams<int32_t>(params_t, true);
-      } else {
-        params_data = GetArangeH2DParams<int32_t>(params_t, false);
-      }
-      return FillArangeDefaultCommonParams(
-          params_data[0], params_data[1], params_data[2], out_dtype, size);
-    }
-  }
+  return FillArangeDefaultCommonParams(start, end, step, out_dtype, size);
 }
 
 synapse_helpers::tensor ArangeDefaultCommon(
@@ -560,72 +412,11 @@ void ArangeDefaultStartEndStep::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   const auto meta = OutputMeta(stack);
-  const auto outshape = meta[0].shape;
-  const auto out_dtype = meta[0].dtype;
+
   size_t params_size = 0; // Will be set in FillArangeDefaultParams function
   auto params = FillParams(stack, params_size);
 
-  const auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
-
-  c10::Scalar start, end, step;
-  if (!stack[0].isTensor()) {
-    start = stack.at(0).toScalar();
-    end = stack.at(1).toScalar();
-    step = stack.at(2).toScalar();
-    syn_out(0) = ArangeDefaultCommon(this, graph, meta, params, params_size);
-  } else {
-    if (c10::isFloatingType(internal_out_dtype)) {
-      std::vector<float> params_data;
-      at::Tensor params_t = stack[0].toTensor();
-      if ((habana::ShapeInference::GetCurrentPass() ==
-           habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
-          (habana::ShapeInference::GetCurrentPass() ==
-           habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
-        params_data = GetArangeH2DParams<float>(params_t, true);
-      } else {
-        params_data = GetArangeH2DParams<float>(params_t, false);
-      }
-      start = params_data[0];
-      end = params_data[1];
-      step = params_data[2];
-    } else {
-      std::vector<int32_t> params_data;
-      at::Tensor params_t = stack[0].toTensor();
-      if ((habana::ShapeInference::GetCurrentPass() ==
-           habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
-          (habana::ShapeInference::GetCurrentPass() ==
-           habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
-        params_data = GetArangeH2DParams<int32_t>(params_t, true);
-      } else {
-        params_data = GetArangeH2DParams<int32_t>(params_t, false);
-      }
-      start = params_data[0];
-      end = params_data[1];
-      step = params_data[2];
-    }
-
-    std::optional<synTensor> syn_in0 = syn_in(0);
-    std::optional<synTensor> syn_in1 = std::nullopt;
-
-    if (p_context_->syn_inputs_.size() == 2) {
-      EraseSynInput(1);
-    }
-
-    syn_out(0) = ArangeCommon(
-        this,
-        graph,
-        start,
-        end,
-        step,
-        internal_out_dtype,
-        syn_in0,
-        syn_in1,
-        guid_,
-        outshape,
-        params,
-        params_size,
-        0);
-  }
+  syn_out(0) = ArangeDefaultCommon(this, graph, meta, params, params_size);
 }
 
 } // namespace habana

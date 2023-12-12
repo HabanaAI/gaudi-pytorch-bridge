@@ -356,7 +356,6 @@ static auto& BasicDSOpsRegistry =
     habana::graph::DSOpsRegistry()
         .add("aten::view", DSOP_MID_BACKEND(ViewOperatorDS))
         .add("hpu::view_neg", DSOP_MID_BACKEND(ViewOperatorDS))
-        .add("aten::arange", DSOP_MID_BACKEND(ArangeOperatorDS))
         .add("aten::repeat", DSOP_MID_BACKEND(RepeatOperatorDS))
         .add("aten::topk", DSOP_MID_BACKEND(TopkOperatorDS))
         .add("aten::as_strided", DSOP_MID_BACKEND(AsStridedOperatorDS))

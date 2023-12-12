@@ -130,13 +130,6 @@ sh::tensor_or_ref& OpBackend::SynInput(size_t index) {
   return p_context_->syn_inputs_.at(index);
 }
 
-void OpBackend::EraseSynInput(int index) {
-  if (p_context_->syn_inputs_.begin() + index !=
-      p_context_->syn_inputs_.end()) {
-    p_context_->syn_inputs_.erase(p_context_->syn_inputs_.begin() + index);
-  }
-}
-
 OutputMetaDataVector OpBackend::OutputMeta(const at::Stack& stack) const {
   if (m_output_meta_fn) {
     return m_output_meta_fn(stack);
