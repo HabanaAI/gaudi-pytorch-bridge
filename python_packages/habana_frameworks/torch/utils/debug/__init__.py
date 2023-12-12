@@ -147,11 +147,25 @@ if is_lazy():
     from habana_frameworks.torch.utils import _debug_lazy_C
     def _bridge_cleanup():
         _debug_lazy_C.bridge_cleanup()
+
+    def get_tensor_info(tensor):
+        if "hpu" not in str(tensor.device):
+            return None
+        return _debug_lazy_C.get_tensor_info(tensor)
 else:
     from habana_frameworks.torch.utils import _debug_eager_C
     def _bridge_cleanup():
         _debug_eager_C.bridge_cleanup()
 
+    def get_tensor_info(tensor):
+        if "hpu" not in str(tensor.device):
+            return None
+        
+        if not tensor.has_storage():
+            return None
+
+        storage = tensor.storage()
+        return (storage.data_ptr(), storage.nbytes())
 
 
 def _dump_memory_reporter() -> None:

@@ -12,6 +12,7 @@
  */
 #include <torch/extension.h>
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "habana_lazy/view_utils.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -21,5 +22,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     } catch (const c10::Error& e) {
     }
     habana::HabanaLaunchOpPT::cleanUp();
+  });
+  m.def("get_tensor_info", [](const at::Tensor& t) -> pybind11::object {
+    auto base_tensor = habana_lazy::HbLazyTensorViews::get_base_tensor(t);
+    if (not base_tensor.has_storage()) {
+      return pybind11::none();
+    }
+
+    auto data_ptr = (std::uintptr_t)base_tensor.storage().data();
+    auto size = base_tensor.storage().nbytes();
+    return pybind11::make_tuple(data_ptr, size);
   });
 }
