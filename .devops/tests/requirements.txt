@@ -1,3 +1,4 @@
 jsonschema
+pkginfo
 pyfakefs
 pytest

@@ -1357,6 +1357,9 @@ run_pytorch_modules_tests()
     cpp_tests)
         __test_type="cpp_tests"
         ;;
+    infra)
+        __test_type="infra"
+        ;;
     *)
         echo "Test suite type \"$__suite_type\" is not allowed"
         usage $__scriptname
@@ -1418,17 +1421,25 @@ run_pytorch_modules_tests()
         pushd $HABANA_SOFTWARE_STACK/pytorch-integration/tests/
         echo "python tests:"
         ${__pytorch_modules_tests_exe} --collect-only
+        __test_status=$((__test_status | $?))
 
         echo "cpp tests:"
         ${__cpp_tests_exe} --gtest_list_tests
+        __test_status=$((__test_status | $?))
 
         if [ $__pt_major_version -eq 2 ]; then
             echo "cpp eager tests:"
             ${__cpp_tests_exe_eager} --gtest_list_tests
+            __test_status=$((__test_status | $?))
         fi
-
-        __test_status=$?
         popd
+
+        echo "infra tests:"
+        pushd $PYTORCH_MODULES_ROOT_PATH/.devops/
+        ${__pytorch_modules_tests_exe} tests/ --collect-only
+        __test_status=$((__test_status | $?))
+        popd
+
         return $__test_status
     fi
 
@@ -1443,6 +1454,13 @@ run_pytorch_modules_tests()
             __test_status=$((__test_status | $?))
             popd
         fi
+    fi
+
+    if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" || "$__suite_type" = "infra" ]]; then
+      pushd $PYTORCH_MODULES_ROOT_PATH/.devops/
+      (set -x; eval ${__pytorch_modules_tests_exe} tests/ -v $__failures $__py_filter --junit-xml="${__xml}_infra_pytest.xml" --junit-prefix="Infra." ${__marker})
+      __test_status=$((__test_status | $?))
+      popd
     fi
 
     # return error code of the tests
@@ -1985,7 +2003,7 @@ install_requirements_pytest()
 {
     $__pip_cmd uninstall -y wrapt requests gast
     $__sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytest-$__python_cmd.txt)
+    cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytest-$__python_cmd.txt -r ${PYTORCH_MODULES_ROOT_PATH}/.devops/tests/requirements.txt)
     if ! __running_in_venv; then
         cmd+=(--user)
     fi
