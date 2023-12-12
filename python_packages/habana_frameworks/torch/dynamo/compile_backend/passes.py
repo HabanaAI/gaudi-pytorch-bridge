@@ -261,7 +261,7 @@ def helper_is_view_node(node):
 
 def helper_get_node_args(node: torch.fx.Node):
     """
-    This helper function get inputs to specific node. It should supports
+    This helper function get inputs to specific node. It should support
     various corner cases.
     """
     args = node.args
@@ -951,7 +951,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
 
     for node in ctx.graph_module.graph.nodes:
         placement = None
-        if node.op == "placeholder" or node.op == "output" or node.op == "get_attr":
+        if node.op in ["placeholder", "output", "get_attr"]:
             placement = "eager"
         elif node.op == "call_function" and "to_copy" in node.target.__name__:
             input_node = None
@@ -963,7 +963,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             assert input_node is not None
 
             # Internal HPU copies should be placed in the clusters.
-            if input_node.meta["output_device"].type == "hpu" and node.meta["output_device"].type == "hpu":
+            if all([n.meta["output_device"].type == "hpu" for n in [input_node, node]]):
                 placement = "hpu_cluster"
             else:
                 placement = "eager"
@@ -1824,15 +1824,9 @@ def wrap_random_ops(input_module: torch.fx.GraphModule):
     - feeds habana wrappers with generated seed tensors.
     """
 
-    random_count = 0
-    random_ops = []
+    random_ops = [node for node in input_module.graph.nodes if is_random_op(node)]
 
-    for node in input_module.graph.nodes:
-        if is_random_op(node):
-            random_count += 1
-            random_ops.append(node)
-
-    if random_count == 0:
+    if len(random_ops) == 0:
         return
 
     with input_module.graph.inserting_before():
@@ -1841,9 +1835,9 @@ def wrap_random_ops(input_module: torch.fx.GraphModule):
 
     with input_module.graph.inserting_after(counter_pl):
         seeds = input_module.graph.call_function(
-            torch.ops.hpu.habana_seed_generator, (counter_pl, seed_pl, random_count), {}
+            torch.ops.hpu.habana_seed_generator, (counter_pl, seed_pl, len(random_ops)), {}
         )
-        add_inplace = input_module.graph.call_function(torch.ops.aten.add_, (counter_pl, random_count), {})
+        add_inplace = input_module.graph.call_function(torch.ops.aten.add_, (counter_pl, len(random_ops)), {})
 
     for i, node in enumerate(random_ops):
         with input_module.graph.inserting_before(node):
