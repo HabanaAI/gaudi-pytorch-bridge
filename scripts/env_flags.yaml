@@ -253,6 +253,10 @@ PT_HPU_ERROR_HANDLER:
   type: bool
   default: true
 
+PT_HPU_USE_EAGER_OP_SYNC:
+  type: bool
+  default: false
+
 PT_HPU_ENABLE_PERMUTE_WITH_STRIDED_VIEW:
   type: bool
   default: true
