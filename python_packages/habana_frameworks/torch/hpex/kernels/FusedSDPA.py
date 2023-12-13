@@ -23,6 +23,49 @@ def check_dbg_env_var(v):
         env_var_set = True
     return env_var_set
 
+def is_gqa(q, k):
+    gqa = False
+    dims = q.dim()
+    if dims == 4:
+        q_heads = q.shape[1]
+        kv_heads = k.shape[1]
+        gqa = (q_heads != kv_heads) and kv_heads != 1
+    return gqa
+
+def gqa_input_reshape_bwd(q, v, grad_in):
+    new_shape = (q.shape[0], q.shape[1], q.shape[2], q.shape[3], v.shape[-1])
+    return grad_in.reshape(new_shape)
+
+def gqa_input_reshape_fwd(q, k, v, attention_mask):
+    q_heads = q.shape[1]
+    kv_heads = k.shape[1]
+
+    q_heads_per_group = q_heads // kv_heads
+    groups = kv_heads
+
+    bs, heads, seq_len, h_dim = q.shape
+    new_q_shape = (bs, groups, q_heads_per_group, seq_len, h_dim)
+    q = q.reshape(new_q_shape)
+
+    bs, heads, seq_len, h_dim = k.shape
+    new_k_shape = (bs, groups, 1, seq_len, h_dim)
+    k = k.reshape(new_k_shape)
+
+    bs, heads, seq_len, h_dim = v.shape
+    new_v_shape = (bs, groups, 1, seq_len, h_dim)
+    v = v.reshape(new_v_shape)
+
+    # add groups dim and set to 1
+    if attention_mask is not None:
+        attention_mask = attention_mask.unsqueeze(1)
+
+    return q, k, v, attention_mask
+
+def gqa_output_reshape(tensor):
+        bs, groups, heads_per_group, seq_len, h_dim = tensor.shape
+        new_shape = (bs, groups*heads_per_group, seq_len, h_dim)
+        return tensor.reshape(new_shape)
+
 def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = False, scale = None):
 
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
@@ -52,19 +95,28 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = 
             is_causal = False
             recompute = False
 
+    gqa = is_gqa(q,k)
+    if gqa:
+        q, k, v, attn_mask = gqa_input_reshape_fwd(q, k, v, attn_mask)
+
     if recompute:
         out, m, linv, seed = torch.ops.hpu.sdpa_recomp_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, requires_backward)
+        if gqa:
+            out = gqa_output_reshape(out)
         if not requires_backward:
             return out
         ctx.save_for_backward(q, k, v, attn_mask, m, linv, seed)
     else:
-       out, P, dm = torch.ops.hpu.sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal)
-       ctx.save_for_backward(q, k, v, P, dm)
+        out, P, dm = torch.ops.hpu.sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal)
+        if gqa:
+            out = gqa_output_reshape(out)
+        ctx.save_for_backward(q, k, v, P, dm)
 
     ctx.dropout_p = dropout_p
     ctx.scale = scale
     ctx.is_causal = is_causal
     ctx.recompute = recompute
+    ctx.gqa = gqa
 
     if recompute:
         return out
@@ -72,6 +124,8 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = 
     if not check_dbg_env_var('FSDPA_DBG_USE_DROPOUT_STUB'):
         return out
     else:
+        if gqa:
+            dm = gqa_output_reshape(dm)
         return out, dm
 
 def sdpa_bwd_wrapper(ctx, dout, *args):
@@ -79,13 +133,25 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
         q, k, v, attn_mask, m, linv, seed = ctx.saved_tensors
         scale = ctx.scale
         dropout_p = ctx.dropout_p
+        if ctx.gqa:
+            dout = gqa_input_reshape_bwd(q, v, dout)
         dq, dk, dv = torch.ops.hpu.sdpa_recomp_bwd(dout,q,k,v, attn_mask, m, linv, seed, dropout_p, scale)
+        if ctx.gqa:
+            dq = gqa_output_reshape(dq)
+            dk = gqa_output_reshape(dk)
+            dv = gqa_output_reshape(dv)
         return dq, dk, dv, None, None, None, None, None
     else:
         q, k, v, P, dm = ctx.saved_tensors
         scale = ctx.scale
         dropout_p = ctx.dropout_p
+        if ctx.gqa:
+            dout = gqa_input_reshape_bwd(q, v, dout)
         dq, dk, dv = torch.ops.hpu.sdpa_bwd(dout,q,k,v,P, dm, dropout_p, scale)
+        if ctx.gqa:
+            dq = gqa_output_reshape(dq)
+            dk = gqa_output_reshape(dk)
+            dv = gqa_output_reshape(dv)
         return dq, dk, dv, None, None, None, None, None
 
 
