@@ -132,10 +132,6 @@ hpu_backend_decompositions_common = get_decompositions(
         aten.logspace.default,
         aten.logspace.out,
         aten.logsumexp.default,
-        aten.masked_fill.Tensor,
-        aten.masked_fill.Scalar,
-        aten.masked_fill.Scalar_out,
-        aten.masked_fill.Tensor_out,
         aten.masked_fill_.Scalar,
         aten.masked_fill_.Tensor,
         aten.mish.default,
@@ -314,6 +310,48 @@ def full_like(
         pin_memory=pin_memory,
         requires_grad=requires_grad,
     )
+
+# Decomposition based on https://github.com/pytorch/pytorch/blob/v2.1.0/torch/_refs/__init__.py#L5313
+# The only change is that now cpu scalar can also be moved to the HPU device
+@register_custom_decomposition(aten.masked_fill, hpu_backend_decompositions_common)
+def masked_fill(a: utils.TensorLikeType, mask: utils.TensorLikeType, value: utils.TensorOrNumberLikeType):
+    python_type = utils.dtype_to_type(a.dtype)
+    if isinstance(value, utils.Number):
+        value_type = type(value)
+    else:
+        # NOTE: Could not use value = item(value) as it resulted in
+        # RuntimeError: Cannot cast FakeTensor(cpu) to number
+        value_ndim = value.ndim
+        torch._check(
+            value_ndim == 0,
+            lambda: f"only supports a 0-dimensional value tensor, but got tensor with {value_ndim} dimension",
+        )
+        # `masked_fill` allows cpu scalar to be moved to hpu, cuda and xpu but not otherwise.
+        is_cpu_scalar = a.device.type in ["hpu", "cuda", "xpu"] and value.device.type == "cpu"
+        torch._check(
+            is_cpu_scalar or value.device == a.device,
+            lambda: "Expected `value` to be on same device as `a`",
+        )
+        value_type = utils.dtype_to_type(value.dtype)
+
+    if value_type is complex:
+        # only downcasting from complex to lower type is not allowed.
+        # We allow casting `value` to lower type for other case
+        # Eg. float -> int.
+        # Ref: https://github.com/pytorch/pytorch/issues/79195
+        torch._check(
+            utils.is_weakly_lesser_type(value_type, python_type),
+            lambda: f"could not convert to type {python_type} without overflow",
+        )
+
+    # Since `where` allows type-promotion,
+    # cast value to correct type before passing to `where`
+    value = utils.wrappers._maybe_convert_to_dtype(value, a.dtype)
+    r = torch.where(mask, value, a)  # type: ignore[arg-type]
+
+    # aten.mask_fill always return a new contiguous tensor
+    # contiguous() is needed to correctly model the output stride
+    return r.contiguous()
 
 
 @register_custom_decomposition(aten.bernoulli.p, hpu_backend_decompositions_common)
