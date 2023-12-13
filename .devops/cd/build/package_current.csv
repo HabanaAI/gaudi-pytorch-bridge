@@ -9,6 +9,7 @@ COMMENT,FILE,SOURCE_DIR,TARGET_DIR,NEW_NAME,RECURSIVE,PRESERVE_LINKS,CREATE_LINK
 ,*.whl,${PYTORCH_AUDIO_BUILD}/pkgs,${TARGET_DIR},,,,,,
 ,*.whl,${PYTORCH_TEXT_BUILD}/pkgs,${TARGET_DIR},,,,,,
 ,*.whl,${PYTORCH_DATA_BUILD}/pkgs,${TARGET_DIR},,,,,,
+,*.whl,${HABANA_QUANTIZATION_TOOLKIT_BUILD}/pkgs,${TARGET_DIR},,,,,,
 ,requirements-pytorch-python3.8_base.txt,${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements,${TARGET_DIR},requirements-pytorch.txt,,,,,ubuntu20.04|amzn2|rhel8.6|debian10.10|tencentos3.1
 ,requirements-pytorch-python3.10_base.txt,${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements,${TARGET_DIR},requirements-pytorch.txt,,,,,ubuntu22.04
 ,install.sh,${PYTORCH_MODULES_ROOT_PATH}/.devops/cd/scripts,${TARGET_DIR},,,,,,
