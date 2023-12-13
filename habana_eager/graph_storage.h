@@ -14,7 +14,7 @@
 #include <vector>
 
 #include <torch/csrc/jit/ir/ir.h>
-#include "habana_eager/graph_exec.h"
+#include "habana_eager/graph_execs_group.h"
 
 namespace habana {
 namespace graph {
@@ -43,7 +43,7 @@ class GraphStorage {
   GraphStorage(GraphStorage&&) = delete;
   GraphStorage& operator=(GraphStorage&&) = delete;
 
-  std::vector<habana::graph::GraphExec> m_storage_vec;
+  std::vector<GraphExecsGroup> m_storage_vec;
 };
 
 } // namespace graph

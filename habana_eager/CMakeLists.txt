@@ -57,6 +57,7 @@ add_habana_library(habana_pytorch2_frontend OBJECT
           eager_exec.cpp
           eager_view.cpp
           eager_context.cpp
+          graph_execs_group.cpp
           graph_exec.cpp
           graph_storage.cpp
           graph_dynamic.cpp

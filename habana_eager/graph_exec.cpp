@@ -27,13 +27,10 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/thread_pool/thread_pool.h"
 
+#include "habana_eager/eager_view.h"
+
 namespace habana {
 namespace graph {
-
-size_t generate_graph_index(size_t recipe_id) {
-  static const size_t graph_index_prefix = 100000;
-  return graph_index_prefix + recipe_id;
-}
 
 void GraphExec::LaunchRecipeTask(
     GraphExec* gexec,
@@ -51,7 +48,7 @@ GraphExec::GraphExec(
     bool inference,
     bool has_preallocated_outputs,
     bool has_randoms)
-    : m_graph_index(generate_graph_index(recipe_id)),
+    : m_graph_index(recipe_id),
       m_graph(graph),
       m_dynamic(dynamic),
       m_inference(inference),
@@ -167,7 +164,7 @@ std::string GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
 void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
   PT_EAGER_TRACE;
   PT_EAGER_DEBUG("Jit for ", m_graph_name, " before passes\n", *m_graph);
-  pass::SanitizeGraphInput(m_graph);
+
   pass::HandleInputViews(m_graph, example_inputs, m_input_new_base_sizes);
   pass::ReplaceGetItemWithListUnpack(m_graph);
   pass::HandleTupleOnOutput(m_graph);

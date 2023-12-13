@@ -33,17 +33,19 @@ size_t GraphStorage::add_new_recipe(
     bool has_randoms) {
   PT_EAGER_TRACE;
   habana::eager::JoinPendingPipelineThreads();
-  size_t output_recipe_id{m_storage_vec.size()};
+  size_t output_recipe_group_id{m_storage_vec.size()};
   m_storage_vec.emplace_back(
-      output_recipe_id,
+      output_recipe_group_id,
       graph,
       example_inputs,
       dynamic,
       inference,
       has_preallocated_outputs,
       has_randoms);
-  PT_EAGER_DEBUG("Recipe added to storage. recipe_id: ", output_recipe_id);
-  return output_recipe_id;
+  PT_EAGER_DEBUG(
+      "Recipe group added to storage. recipe_group_id: ",
+      output_recipe_group_id);
+  return output_recipe_group_id;
 }
 
 torch::jit::Stack GraphStorage::launch_recipe(
@@ -51,9 +53,9 @@ torch::jit::Stack GraphStorage::launch_recipe(
     torch::jit::Stack& inputs,
     std::vector<at::Tensor>& outputs) {
   PT_EAGER_TRACE;
-  PT_EAGER_DEBUG("Launching recipe_id: ", recipe_id);
+  PT_EAGER_DEBUG("Launching from recipe_group_id: ", recipe_id);
   HABANA_ASSERT(recipe_id < m_storage_vec.size());
-  GraphExec& gexec = m_storage_vec.at(recipe_id);
+  GraphExecsGroup& gexec = m_storage_vec.at(recipe_id);
   return gexec.launch(inputs, outputs);
 }
 
