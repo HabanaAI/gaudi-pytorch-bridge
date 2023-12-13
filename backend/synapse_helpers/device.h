@@ -365,6 +365,7 @@ class device {
 
   static std::shared_ptr<session> get_or_create_session();
   static int get_total_device_count();
+  static int get_device_type();
 
   host_memory& get_host_memory() {
     return host_memory_;
