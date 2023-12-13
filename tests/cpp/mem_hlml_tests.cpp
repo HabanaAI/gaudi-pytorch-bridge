@@ -50,14 +50,14 @@ struct MemHlMlReporterTests : public ::testing::Test {
     return "/dev/shm" HLML_SHM_DEVICE_NAME_PREFIX "15";
   }
 
-  void AssertTimestamp(std::uint64_t expected) {
+  void AssertTimestamp(std::uint64_t expected, int threshold = 2) {
     // Checks timestamp with error tolerance up to 1 second.
     auto actual = ReadData().timestamp;
     auto diff = expected - actual;
     if (actual > expected) {
       diff = actual - expected;
     }
-    ASSERT_LT(diff, 2);
+    ASSERT_LT(diff, threshold);
   }
 
   std::shared_ptr<HlMlMemoryReporter> memory_reporter;
@@ -112,8 +112,8 @@ struct MemHlMlUpdaterTests : public MemHlMlReporterTests {
     MemHlMlReporterTests::TearDown();
   }
 
-  void WaitForUpdate() {
-    sleep(HlMlMemoryUpdater::INTERVAL);
+  void WaitForUpdate(int factor = 1) {
+    sleep(factor * HlMlMemoryUpdater::INTERVAL);
   }
 
   volatile std::uint64_t memory_value = 0xaa00;
@@ -126,14 +126,13 @@ TEST_F(MemHlMlUpdaterTests, InitialValue) {
   AssertTimestamp(time(NULL));
 }
 
-TEST_F(MemHlMlUpdaterTests, DISABLED_UpdatingValueInBackground) {
-  // TODO: Reenable after fixed SW-160346 (flaky test)
+TEST_F(MemHlMlUpdaterTests, UpdatingValueInBackground) {
   memory_value = 0xbbcc;
-  WaitForUpdate();
+  WaitForUpdate(2);
   ASSERT_EQ(memory_value, ReadData().used_mem_in_bytes);
-  AssertTimestamp(time(NULL));
+  AssertTimestamp(time(NULL), 3);
   memory_value = 0xddee;
-  WaitForUpdate();
-  AssertTimestamp(time(NULL));
+  WaitForUpdate(2);
+  AssertTimestamp(time(NULL), 3);
   ASSERT_EQ(memory_value, ReadData().used_mem_in_bytes);
 }
