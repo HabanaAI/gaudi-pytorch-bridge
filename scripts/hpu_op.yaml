@@ -4506,7 +4506,7 @@ mean.out:
   op_template: reduction
 
 median:
-  custom_output_shape: MedianOutputShape
+  output_meta: MedianOutputMeta
   dtypes:
     Gaudi: [Float, Int]
     Gaudi2: [Float, Int]
@@ -4515,7 +4515,7 @@ median:
   out_ids: [0]
 
 median.dim:
-  custom_output_shape: MediandimOutputShape
+  output_meta: MedianDimOutputMeta
   dtypes:
     Gaudi: [Float, Int]
     Gaudi2: [Float, Int]
@@ -4524,7 +4524,7 @@ median.dim:
   out_ids: [0, 0]
 
 median.dim_values:
-  custom_output_shape: MediandimOutputShape
+  output_meta: MedianDimOutputMeta
   dtypes:
     Gaudi: [Float, Int]
     Gaudi2: [Float, Int]

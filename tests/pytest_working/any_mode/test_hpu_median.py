@@ -9,42 +9,127 @@
 # was provided.
 #
 ###############################################################################
-import torch
 import pytest
-from test_utils import is_gaudi1, compare_tensors, format_tc
+import torch
+from test_utils import compare_tensors, format_tc, is_gaudi1
+import habana_frameworks.torch.internal.bridge_config as bc
 
-dtypes = [torch.float32, torch.bfloat16, torch.int]
+
+basic_dtypes = extended_dtypes = [torch.float32, torch.bfloat16, torch.int]
 if not is_gaudi1():
-    dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
+    extended_dtypes = basic_dtypes + [torch.float8_e5m2, torch.float8_e4m3fn]
+
+
+@pytest.fixture(autouse=True)
+def skip_unsupported_compile(request):
+    dtype = request.node.callspec.params["dtype"]
+    if pytest.mode == "compile" and dtype in (
+        torch.bfloat16,
+        torch.float8_e5m2,
+        torch.float8_e4m3fn,
+    ):
+        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
+
+
+def get_hpu_fn(fn):
+    if pytest.mode == "compile":
+        return torch.compile(fn, backend="aot_hpu_training_backend")
+    else:
+        return fn
+
+
+def create_rand_tensors(shape, dtype):
+    if dtype == torch.int:
+        cpu_tensor = torch.randint(low=-127, high=127, size=shape, dtype=dtype)
+    else:
+        cpu_tensor = torch.randn(shape).to(dtype)
+    if dtype in (torch.float8_e5m2, torch.float8_e4m3fn):
+        cpu_tensor = cpu_tensor.float()
+    return cpu_tensor, cpu_tensor.to("hpu")
+
+
+def create_empty_tensors(shape, dtype):
+    cpu_tensor = torch.empty(shape, dtype=dtype)
+    return cpu_tensor, cpu_tensor.to("hpu")
+
+
+@pytest.mark.parametrize("shape", [(20, 10), (2, 4, 6, 8)], ids=format_tc)
+@pytest.mark.parametrize("dtype", extended_dtypes, ids=format_tc)
+def test_median(dtype, shape):
+    def fn(input):
+        return torch.median(input=input)
+
+    cpu_input, hpu_input = create_rand_tensors(shape, dtype)
+    hpu_fn = get_hpu_fn(fn)
+
+    cpu_output = fn(cpu_input)
+    hpu_output = hpu_fn(hpu_input)
+
+    compare_tensors(hpu_output, cpu_output, atol=0.0, rtol=0.0)
+
+
+@pytest.mark.parametrize("shape", [(20, 10), (2, 4, 6, 8)], ids=format_tc)
+@pytest.mark.parametrize("dtype", basic_dtypes, ids=format_tc)
+@pytest.mark.parametrize("dim", [0, -1], ids=format_tc)
+@pytest.mark.parametrize("keepdim", [True, False], ids=format_tc)
+def test_median_dim(dtype, shape, dim, keepdim):
+    def fn(input, dim, keepdim):
+        return torch.median(input=input, dim=dim, keepdim=keepdim)
+
+    cpu_input, hpu_input = create_rand_tensors(shape, dtype)
+    hpu_fn = get_hpu_fn(fn)
+
+    cpu_output = fn(cpu_input, dim, keepdim)
+    hpu_output = hpu_fn(hpu_input, dim, keepdim)
+
+    compare_tensors(hpu_output.values, cpu_output.values, atol=0.0, rtol=0.0)
+    compare_tensors(hpu_output.indices, cpu_output.indices, atol=0.0, rtol=0.0)
+
+
+@pytest.mark.parametrize("shape", [(20, 10), (2, 4, 6, 8)], ids=format_tc)
+@pytest.mark.parametrize("dtype", basic_dtypes, ids=format_tc)
+@pytest.mark.parametrize("dim", [0, -1], ids=format_tc)
+@pytest.mark.parametrize("keepdim", [True, False], ids=format_tc)
+def test_median_dim_out(dtype, shape, dim, keepdim):
+    if pytest.mode == "lazy" and not bc.get_pt_enable_int64_support():
+        pytest.skip(reason="index exceed int32 range which is unsupported")
+
+    def fn(input, dim, keepdim, out):
+        torch.median(input, dim=dim, keepdim=keepdim, out=out)
+
+    expected_shape = list(shape)
+    if keepdim:
+        expected_shape[dim] = 1
+    else:
+        expected_shape.pop(dim)
+
+    cpu_input, hpu_input = create_rand_tensors(shape, dtype)
+    cpu_value, hpu_value = create_empty_tensors(expected_shape, dtype)
+    cpu_index, hpu_index = create_empty_tensors(expected_shape, torch.int64)
+    cpu_out = cpu_value, cpu_index
+    hpu_out = hpu_value, hpu_index
+    hpu_fn = get_hpu_fn(fn)
+
+    fn(cpu_input, dim, keepdim, out=cpu_out)
+    hpu_fn(hpu_input, dim, keepdim, out=hpu_out)
+
+    compare_tensors(hpu_out[0], cpu_out[0], atol=0.0, rtol=0.0)
+    compare_tensors(hpu_out[1], cpu_out[1], atol=0.0, rtol=0.0)
 
 
 @pytest.mark.parametrize("shape", [[1], [20, 10]], ids=format_tc)
-@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
+@pytest.mark.parametrize("dtype", extended_dtypes, ids=format_tc)
 def test_2_iterations(shape, dtype):
-    if pytest.mode == "compile" and dtype in (torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn):
-        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
-    def fn_cpu(*args):
+    def fn(*args):
         return torch.median(*args)
 
-    fn_hpu = fn_cpu
-    if pytest.mode == "compile":
-        fn_hpu = torch.compile(fn_hpu, backend="aot_hpu_training_backend")
+    hpu_fn = get_hpu_fn(fn)
 
     for iter in range(2):
         actual_shape = [d * (iter + 1) for d in shape]
-        if dtype == torch.int:
-            input = torch.randint(
-                low=-100, high=100, size=actual_shape, dtype=dtype
-            )
-        else:
-            input = torch.randn(actual_shape).to(dtype)
+        cpu_input, hpu_input = create_rand_tensors(actual_shape, dtype)
 
-        input_h = input.to("hpu")
+    res_hpu = hpu_fn(hpu_input)
+    res_cpu = fn(cpu_input)
 
-        if dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
-            input = input.float()
-
-        res_hpu = fn_hpu(input_h)
-        res_cpu = fn_cpu(input)
-
-        compare_tensors(res_hpu, res_cpu, atol=0.0, rtol=0.0)
+    compare_tensors(res_hpu, res_cpu, atol=0.0, rtol=0.0)

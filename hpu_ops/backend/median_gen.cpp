@@ -20,9 +20,11 @@ constexpr size_t index_of_reduction_axis = 1;
 constexpr size_t index_of_keepdim = 2;
 constexpr int descending_order = 0;
 
-sizes_vec MedianOutputShape(const at::Stack& stack) {
-  static_cast<void>(stack);
-  return {{}};
+OutputMetaDataVector MedianOutputMeta(const at::Stack& stack) {
+  OutputMetaData meta;
+  meta.shape = {};
+  meta.dtype = stack_tensor(stack, 0).scalar_type();
+  return {meta};
 }
 
 sizes_vec MediandimOutputShape(const at::Stack& stack) {
@@ -46,6 +48,22 @@ sizes_vec MediandimOutputShape(const at::Stack& stack) {
     outshape.erase(itr);
   }
   return {outshape, outshape};
+}
+
+OutputMetaDataVector MedianDimOutputMeta(const at::Stack& stack) {
+  auto medianDimShapes = MediandimOutputShape(stack);
+  auto self = stack_tensor(stack, index_of_self);
+
+  OutputMetaData valuesMeta, indicesMeta;
+
+  valuesMeta.shape = medianDimShapes[0];
+  valuesMeta.dtype = self.scalar_type();
+
+  indicesMeta.shape = medianDimShapes[1];
+  indicesMeta.dtype =
+      common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
+
+  return {valuesMeta, indicesMeta};
 }
 
 void Median::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -91,9 +109,9 @@ void Median::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       0 /*median variant*/,
       false);
 
-  auto output_shape = MedianOutputShape(stack)[0];
-  auto median_output = ReshapeHelper(
-      graph, median_value[0].get(), output_shape, ScalarType(), 0);
+  auto meta = MedianOutputMeta(stack)[0];
+  auto median_output =
+      ReshapeHelper(graph, median_value[0].get(), meta.shape, meta.dtype, 0);
   syn_out(0) = std::move(median_output);
 }
 
@@ -118,12 +136,10 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       stack[index_of_reduction_axis].toInt(),
       self.dim(),
       /*wrap_scalar=*/true);
+  auto meta = MedianDimOutputMeta(stack);
 
   std::vector<int64_t> topk_outshape;
   topk_outshape = self_size;
-
-  auto indices_dtype =
-      common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
 
   auto topk = TopK_Helper(
       this,
@@ -148,7 +164,7 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph,
       {topk[0].get()},
       slice_outshape,
-      ScalarType(),
+      meta[0].dtype,
       self_size[reduction_axis],
       self.ndimension(),
       reduction_axis,
@@ -161,7 +177,7 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph,
       {topk[1].get()},
       slice_outshape,
-      indices_dtype,
+      meta[1].dtype,
       self_size[reduction_axis],
       self.ndimension(),
       reduction_axis,
@@ -175,10 +191,10 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   } else {
     auto output_shape = MediandimOutputShape(stack)[0];
     auto reshaped_median_value = ReshapeHelper(
-        graph, median_value[0].get(), output_shape, ScalarType(), 0);
+        graph, median_value[0].get(), meta[0].shape, meta[0].dtype, 0);
 
     auto reshaped_median_index = ReshapeHelper(
-        graph, median_index[0].get(), output_shape, indices_dtype, 1);
+        graph, median_index[0].get(), meta[1].shape, meta[1].dtype, 1);
 
     syn_out(0) = std::move(reshaped_median_value);
     syn_out(1) = std::move(reshaped_median_index);
