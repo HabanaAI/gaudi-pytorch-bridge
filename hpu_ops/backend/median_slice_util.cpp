@@ -11,17 +11,6 @@
  *******************************************************************************
  */
 #include "hpu_ops/median_slice_util.h"
-#include <gc_interface.h>
-
-// SW-166179 - request to move what is copied below to public API
-// Copied from ../synapse/src/graph_compiler/habana_nodes/h2d_tensors.h
-using TSize = uint64_t;
-struct dynamic_slice_dma_h2d_tensor_t {
-  TSize dims;
-  TSize steps[gcapi::MAX_TENSOR_DIM];
-  TSize starts[gcapi::MAX_TENSOR_DIM];
-};
-// End of copy from ../synapse/src/graph_compiler/habana_nodes/h2d_tensors.h
 
 namespace habana {
 
@@ -40,7 +29,7 @@ std::vector<synapse_helpers::tensor> Median_Slice_Helper(
   if (!final_node)
     node_index = c10::nullopt;
 
-  dynamic_slice_dma_h2d_tensor_t sliceDs{};
+  synDynamicSliceDmaH2dTensor sliceDs{};
   bool useDsVariant = graph.is_dynamic_graph() || graph.is_eager_mode();
 
   // TODO: SW-166787 enable it
