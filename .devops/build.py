@@ -138,10 +138,9 @@ def call_with_error_logging(cmd):
 
 
 def ensure_icecc_setup():
-    if "Ubuntu 20.04" not in sp.check_output(
-        "lsb_release -d".split(), encoding="ascii"
-    ):
-        log.fatal("--use-icecc flag only supported for Ubuntu 20.04")
+    lsb_release = sp.check_output("lsb_release -d".split(), encoding="ascii")
+    if "Ubuntu" not in lsb_release and "Debian" not in lsb_release:
+        log.fatal("--use-icecc flag only supported for dpkg-based distros")
         sys.exit(1)
 
     icecc_installed = call_with_error_logging("dpkg -s icecc") == 0
