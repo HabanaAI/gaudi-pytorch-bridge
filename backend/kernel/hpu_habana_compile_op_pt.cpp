@@ -33,6 +33,17 @@ void CompileSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
 }
 }; // namespace HabanaLaunchOpPipeline
 
+void HabanaLaunchOpPT::CompileSynapseGraphAndPatchTable() {
+  PT_BRIDGE_BEGIN;
+
+  CompileSynapseGraph();
+  ConstructPatchingTableAndAtenOutputs();
+  UpdateSynapsePermutations();
+  StoreCompiledInformation();
+
+  PT_BRIDGE_END;
+}
+
 void HabanaLaunchOpPT::CompileSynapse() {
   PT_BRIDGE_BEGIN;
 
@@ -40,24 +51,11 @@ void HabanaLaunchOpPT::CompileSynapse() {
     return;
   }
 
-  CompileSynapseGraph();
+  if (execution_control_.is_shape_agnostic_cache_hit_)
+    CompileSynapseGraph();
+  else
+    CompileSynapseGraphAndPatchTable();
 
-  if (get_enable_shape_agnostic_caching_() &&
-      get_is_shape_agnostic_supported()) {
-    if (execution_control_.is_shape_agnostic_cache_miss_) {
-      ConstructPatchingTableAndAtenOutputs();
-      UpdateSynapsePermutations();
-      StoreCompiledInformation();
-
-      StoreShapeAgnosticGraph();
-      get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(
-          get_cur_rvalpsh());
-    }
-  } else {
-    ConstructPatchingTableAndAtenOutputs();
-    UpdateSynapsePermutations();
-    StoreCompiledInformation();
-  }
   PT_BRIDGE_END;
 }
 } // namespace habana

@@ -70,7 +70,10 @@ namespace HabanaLaunchOpPipeline {
 
 class PipelineCallBase {
  public:
-  virtual void operator()(bool) {
+  virtual void operator()() {
+    PT_BRIDGE_FATAL("HabanaLaunchOpPT has been used without pipeline wrapper");
+  }
+  virtual void compile_sync() {
     PT_BRIDGE_FATAL("HabanaLaunchOpPT has been used without pipeline wrapper");
   }
 };
@@ -79,18 +82,20 @@ PipelineCallBase NoPipeline;
 
 class PipelineCall : public PipelineCallBase {
  public:
-  virtual void operator()(bool sync_needed) override {
-    sync_with_compile_stage_ = sync_needed;
+  virtual void operator()() override {
+    HABANA_ASSERT(!is_called_);
+    is_called_ = true;
   }
   bool is_called() {
-    return sync_with_compile_stage_.has_value();
+    return is_called_;
   }
-  bool is_sync_needed() {
-    return sync_with_compile_stage_.value();
+  void compile_sync() override {
+    habana_helpers::Singleton_CompileThreadPool::getInstance()
+        .JoinPendingThread();
   }
 
  private:
-  std::optional<bool> sync_with_compile_stage_{};
+  bool is_called_ = false;
 };
 
 void LoweringTask(
@@ -99,6 +104,8 @@ void LoweringTask(
     std::optional<std::vector<at::Tensor>> allocated_outputs,
     std::optional<std::vector<std::vector<int64_t>>> output_shapes) {
   PipelineCall pipeline_call;
+
+  bool sync_with_compile_stage = !launch_op->get_enable_4stage_pipeline();
 
   launch_op->run(stack, allocated_outputs, output_shapes, false, pipeline_call);
 
@@ -113,7 +120,7 @@ void LoweringTask(
   habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
       HabanaLaunchOpPipeline::CompileSynapseTask, std::move(launch_op));
 
-  if (pipeline_call.is_sync_needed())
+  if (sync_with_compile_stage)
     habana_helpers::Singleton_CompileThreadPool::getInstance()
         .JoinPendingThread();
 }
@@ -3208,7 +3215,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
             true);
         current_dbipsh_->get_statistics()->DumpAndNextStep();
         execution_control_.cached_task(graph_key_with_perm_);
-        pipeline_execution(!enable_4stage_pipeline_);
+        pipeline_execution();
       }
       PT_BRIDGE_END;
       return;
@@ -3794,7 +3801,7 @@ void HabanaLaunchOpPT::run(
           ExecuteSynapseCache(graph_key_with_perm_);
         } else {
           execution_control_.cached_task(graph_key_with_perm_);
-          pipeline_execution(false);
+          pipeline_execution();
         }
       }
       PT_BRIDGE_END;
@@ -3953,13 +3960,24 @@ void HabanaLaunchOpPT::run(
 
       jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
 
+      // TODO do we need sync ????
+      pipeline_execution.compile_sync();
+      CompileSynapseGraphAndPatchTable();
+      // TODO turn on this condition
+      // if (jit_graph_and_meta_data_->get_is_shape_agnostic_supported())
+      {
+        StoreShapeAgnosticGraph();
+        get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(
+            recipe_launcher_->rvs_);
+      }
+
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-      execution_control_.sag_cache_miss();
+      execution_control_.no_compile();
       // In case of SAG cache miss we have to wait till a compile thread sets
       // permutation for outputs (In case of SAG cache hit, that info is taken
       // from SAG recipe (from dtensorinfos))
-      pipeline_execution(true);
+      pipeline_execution();
       return;
     } else {
       PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
@@ -4043,7 +4061,8 @@ void HabanaLaunchOpPT::run(
 
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
-      pipeline_execution(!is_enable_4stage_pipeline);
+      execution_control_.sag_cache_hit();
+      pipeline_execution();
     }
     PT_BRIDGE_END;
     return;
@@ -4098,14 +4117,15 @@ void HabanaLaunchOpPT::run(
     }
     jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
 
-    pipeline_execution(
-        !is_permute_data_cached || enable_caching_ ||
-        !is_enable_4stage_pipeline);
+    if (!is_permute_data_cached || enable_caching_) {
+      // TODO may be we don't need sync with compile thread
+      pipeline_execution.compile_sync();
+      execution_control_.no_compile();
+      CompileSynapseGraphAndPatchTable();
+    }
+    pipeline_execution();
   } else {
-    CompileSynapseGraph();
-    ConstructPatchingTableAndAtenOutputs();
-    UpdateSynapsePermutations();
-    StoreCompiledInformation();
+    CompileSynapseGraphAndPatchTable();
     ExecuteSynapseGraph();
 
     jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
@@ -4663,12 +4683,12 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     }
     jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
     PT_DYNAMIC_SHAPE_DEBUG("Cache miss pipeline flow");
-    pipeline_execution(true);
+    pipeline_execution.compile_sync();
+    execution_control_.no_compile();
+    CompileSynapseGraphAndPatchTable();
+    pipeline_execution();
   } else {
-    CompileSynapseGraph();
-    ConstructPatchingTableAndAtenOutputs();
-    UpdateSynapsePermutations();
-    StoreCompiledInformation();
+    CompileSynapseGraphAndPatchTable();
     ExecuteSynapseGraph();
 
     current_dbipsh_->get_statistics()->LogCompilation(

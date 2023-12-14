@@ -101,14 +101,17 @@ class PermutationInfoSaver {
 
 struct ExecutionControl {
   std::optional<size_t> graph_key_with_perm_{};
-  bool is_shape_agnostic_cache_miss_ = false;
+  bool is_shape_agnostic_cache_hit_ = false;
   bool no_compile_ = false;
   void cached_task(size_t graph_key_with_perm) {
     graph_key_with_perm_ = graph_key_with_perm;
     no_compile_ = true;
   }
-  void sag_cache_miss() {
-    is_shape_agnostic_cache_miss_ = true;
+  void sag_cache_hit() {
+    is_shape_agnostic_cache_hit_ = true;
+  }
+  void no_compile() {
+    no_compile_ = true;
   }
 };
 
@@ -172,6 +175,7 @@ class HabanaLaunchOpPT {
       std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> info);
   bool is_hccl_send_mark_step();
   void CompileSynapse();
+  void CompileSynapseGraphAndPatchTable();
   void CompileSynapseGraph();
   void ConstructPatchingTableAndAtenOutputs();
   void UpdateSynapsePermutations();
