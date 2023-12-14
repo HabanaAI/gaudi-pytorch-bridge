@@ -53,7 +53,6 @@ void HabanaLaunchOpPT::CompileSynapse() {
     }
   } else {
     CompileSynapseGraph();
-    aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
     ConstructPatchingTableAndAtenOutputs();
     UpdateSynapsePermutations();
     StoreCompiledInformation();
