@@ -47,13 +47,6 @@ at::Tensor habana_lazy::empty_hpu_lazy(
   TORCH_CHECK(
       options.pinned_memory() == false,
       "habana allocator doesn't supported pinned memory");
-
-  auto index = options.device_opt().value_or(at::kHPU).index();
-  TORCH_CHECK(
-      index == 0 || index == -1,
-      "\"hpu:X\" notation is not supported by Gaudi PyTorch"
-      "intergration bridge. Please change to \"hpu\" without index");
-
   c10::Allocator* allocator = habana::getHABANADeviceAllocator();
   HABANA_ASSERT(habana_helpers::is_supported_type(type));
 
