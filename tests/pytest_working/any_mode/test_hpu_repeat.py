@@ -44,7 +44,7 @@ def test_hpu_repeat(shape, repeats, dtype):
         return self.repeat(repeats)
 
     if pytest.mode == "compile":
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="aot_hpu_training_backend", dynamic=False)
 
     result_h = fn(self_h, repeats)
 

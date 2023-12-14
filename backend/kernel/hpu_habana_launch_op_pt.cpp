@@ -3574,7 +3574,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
         dma_inputs_);
   }
 
-  if (habana_helpers::GetRefineDynamicShapeStatus()) {
+  if (habana_helpers::GetRefineDynamicShapeStatus() || refine_ds_enabled_) {
     CreateStaticCompilationDBI(graph_key_with_perm);
   }
 
@@ -4088,7 +4088,8 @@ void HabanaLaunchOpPT::run(
   // input_refs will get overwritten by outputs and we will create bucket
   // with incorrect shapes.
 
-  if (!eager_mode && habana_helpers::GetRefineDynamicShapeStatus()) {
+  if (!eager_mode &&
+      (habana_helpers::GetRefineDynamicShapeStatus() || refine_ds_enabled_)) {
     CreateStaticCompilationDBI(graph_key_with_perm_);
   }
 

@@ -33,7 +33,7 @@ def skip_unsupported_compile(request):
 
 def get_hpu_fn(fn):
     if pytest.mode == "compile":
-        return torch.compile(fn, backend="aot_hpu_training_backend")
+        return torch.compile(fn, backend="aot_hpu_training_backend", dynamic=False)
     else:
         return fn
 

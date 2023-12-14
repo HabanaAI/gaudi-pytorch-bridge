@@ -55,7 +55,7 @@ class TestHpuScatterReduce:
             )
 
         compiled_cpu_fn = torch.compile(fn)
-        compiled_hpu_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_hpu_fn = torch.compile(fn, backend="aot_hpu_training_backend", dynamic=False)
 
         input_shape = shapes[0]
         index_shape = shapes[1]
