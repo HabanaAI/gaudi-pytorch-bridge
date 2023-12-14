@@ -2938,6 +2938,7 @@ unsupported_data_types = [
     "ArrayRef",
     "std::array",
     "at::MemoryFormat",
+    "at::Generator",
 ]
 
 

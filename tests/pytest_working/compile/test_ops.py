@@ -432,3 +432,18 @@ def test_normal_tt(shape_in):
     torch.manual_seed(123)
     hpu_res2 = compiled_hpu(mean, std, g)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
+
+@pytest.mark.parametrize("n", [32, 1])
+@pytest.mark.parametrize("g", [None])
+@pytest.mark.parametrize("dtype", [torch.int32, torch.bfloat16, torch.int64])
+def test_randperm(n, g, dtype):
+    def fn(n, g, dtype):
+        return torch.randperm(n, generator=g, dtype=dtype, device="hpu")
+    seed = 1234
+    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    torch.manual_seed(seed)
+    hpu_res1 = compiled_hpu(n, g, dtype)
+    torch.manual_seed(seed)
+    hpu_res2 = compiled_hpu(n, g, dtype)
+    assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
+

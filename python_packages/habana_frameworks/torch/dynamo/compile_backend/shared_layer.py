@@ -69,7 +69,6 @@ hpu_fallback_op_list = {
     "initial_seed",
     "get_rng_state",
     "set_rng_state",
-    "randperm",
     "poisson",
     # Other
     "slice_backward",  # SW-146680

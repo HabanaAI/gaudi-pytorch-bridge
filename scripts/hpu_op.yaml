@@ -5610,13 +5610,44 @@ random_.to:
   op_backend: RandomSeedTensorInput
   schema_args: "(Tensor(a!) self, int to, Tensor seed) -> Tensor(a!)"
 
-randperm.generator_out:
+randperm:
+  output_meta: RandPermMeta
   dtypes:
     Gaudi: [Int]
     Gaudi2: [Int]
     Gaudi3: [Int]
-  override_fn: randperm_hpu_lazy
-  acc_thread: true
+  guid: randperm
+  op_backend: RandPermOp
+  out_ids: [0]
+  lazy:
+    override_fn: randperm_nogen_hpu_lazy
+    acc_thread: true
+
+randperm.generator:
+  output_meta: RandPermMeta
+  dtypes:
+    Gaudi: [Int]
+    Gaudi2: [Int]
+    Gaudi3: [Int]
+  guid: randperm
+  op_frontend: GeneratorToSeed
+  op_backend: RandPermOp
+  out_ids: [0]
+  schema_args: "(SymInt n, Tensor seed, ScalarType? dtype, Layout? layout, Device? device, bool? pin_memory) -> Tensor"
+
+randperm.generator_out:
+  output_meta: RandPermMeta
+  dtypes:
+    Gaudi: [Int]
+    Gaudi2: [Int]
+    Gaudi3: [Int]
+  guid: randperm
+  op_frontend: GeneratorToSeedOut
+  op_backend: RandPermOp
+  lazy:
+    override_fn: randperm_hpu_lazy
+    acc_thread: true
+  schema_args: "(SymInt n, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
 reciprocal:
   promote_int_to_float: [self]
