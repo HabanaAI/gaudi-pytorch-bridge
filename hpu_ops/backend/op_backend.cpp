@@ -844,7 +844,9 @@ sh::tensor OpBackend::BuildCast(
     const at::ScalarType& to,
     c10::optional<int> final_result_index) {
   // We want either 0x00 or 0x01 stored in bytes when casting from or to Bool.
-  if (to == at::kBool || from == at::kBool) {
+  bool handle_from_bool =
+      from == at::kBool && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0;
+  if (handle_from_bool || to == at::kBool) {
     auto zero_tensor = OpBackend::BuildConstant(op, graph, 0, from);
 
     auto eq = OpBackend::BuildNode(
