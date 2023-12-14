@@ -23,16 +23,34 @@ from packaging.version import Version
 from torch.fx.experimental.proxy_tensor import py_sym_types
 
 from .shared_layer import is_eager_fallback_required
-from .partitioner import HabanaPartitioner
 from .recipe_compiler import get_callable_recipe
 from .logger import get_compile_backend_logger
 from .random_utils import is_random_op, random_op_inputs
 from .symbolic_execution import SymExprNodeManager
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 
-
-
 logger = get_compile_backend_logger()
+
+# Copy of partitoner module from native pytroch-fork along with the
+# mentioend PR changes are kept in .partitioner.py file. Below code will
+# be rolled back to .partitioner.py file once the below PR is merged.
+# PR: https://github.com/pytorch/pytorch/pull/115621
+from typing import Mapping
+from torch.fx.passes.operator_support import OperatorSupport
+from .partitioner import CapabilityBasedPartitioner
+
+class HabanaClusterOperatorSupport(OperatorSupport):
+    def is_node_supported(self, submodules: Mapping[str, torch.nn.Module], node: torch.fx.Node) -> bool:
+        return node.meta["placement"] == "hpu_cluster"
+
+
+class HabanaPartitioner(CapabilityBasedPartitioner):
+    def __init__(self, graph_module: torch.fx.GraphModule):
+        super().__init__(
+            graph_module,
+            HabanaClusterOperatorSupport(),
+            allows_single_node_partition=True,
+        )
 
 def _is_cpu_scalar_or_symbolic_scalar(node: torch.fx.Node) -> bool:
     if node.type in [int, float]:
