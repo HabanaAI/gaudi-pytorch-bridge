@@ -63,7 +63,7 @@ void habana::HabanaLaunchOpPT::ClearMembers(bool is_shape_inference) {
   value_to_ivalue.clear();
   syn_graph_ptr_ = nullptr;
   intermediate_tensors_ptr_sh_ = nullptr;
-  aten_outputs_ptr_sh_ = nullptr;
+  aten_outputs_.clear();
 
   habana_kernels.clear();
 
@@ -674,7 +674,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
         output_tensorinfos.push_back(it->second);
         output_tensorinfo_map.erase(ivpsh);
       }
-      aten_outputs_ptr_sh_->push_back(ivpsh);
+      aten_outputs_.push_back(ivpsh);
       output_idx++;
     }
     TORCH_CHECK(
@@ -821,7 +821,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
         hpu_stream_,
         input_refs,
         intermediate_tensors_ptr,
-        *aten_outputs_ptr_sh_,
+        aten_outputs_,
         syn_launch_info_,
         external_tensor_info_indexes_);
   }
@@ -1006,7 +1006,7 @@ void habana::HabanaLaunchOpPT::OrderOutputTinfos(RecipeValueSpec& rv) {
     }
 
     // add ivpsh to outputs
-    aten_outputs_ptr_sh_->push_back(ivpsh);
+    aten_outputs_.push_back(ivpsh);
     output_idx++;
   }
 
@@ -1269,7 +1269,7 @@ void habana::HabanaLaunchOpPT::UpdateRecipeOutputs() {
 
   // Update the stack from the recipe itself
   torch::jit::drop(*pt_stack, num_inputs);
-  for (const auto& ivpsh : *aten_outputs_ptr_sh_) {
+  for (const auto& ivpsh : aten_outputs_) {
     pt_stack->insert(pt_stack->end(), *ivpsh);
   }
 }

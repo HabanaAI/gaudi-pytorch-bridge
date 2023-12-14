@@ -3160,7 +3160,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
               hpu_stream_,
               input_refs,
               intermediate_tensors_ptr_sh_,
-              *aten_outputs_ptr_sh_,
+              aten_outputs_,
               syn_launch_info_,
               external_tensor_info_indexes_,
               dma_inputs_);
@@ -3568,7 +3568,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
         hpu_stream_,
         input_refs,
         intermediate_tensors_ptr_sh_,
-        *aten_outputs_ptr_sh_,
+        aten_outputs_,
         syn_launch_info_,
         external_tensor_info_indexes_,
         dma_inputs_);
@@ -3658,14 +3658,13 @@ void HabanaLaunchOpPT::UpdatePatchingInformation(
 
   // The aten_output_num is the total number of outputs
   size_t aten_output_num = rv.get_aten_output_num();
-
-  aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>(aten_output_num);
+  aten_outputs_.resize(aten_output_num);
   if (!is_ds_patching_update) {
     rv.update_patching_table(
         input_refs,
         intermediate_tensors_ptr_sh_,
         dma_inputs_,
-        *aten_outputs_ptr_sh_,
+        aten_outputs_,
         m_map_shape.m_actual_shapes,
         local_tidx_to_tensor_map,
         allocated_outputs_,
@@ -3677,7 +3676,7 @@ void HabanaLaunchOpPT::UpdatePatchingInformation(
         input_refs,
         intermediate_tensors_ptr_sh_,
         dma_inputs_,
-        *aten_outputs_ptr_sh_,
+        aten_outputs_,
         m_map_shape.m_actual_shapes,
         local_tidx_to_tensor_map,
         allocated_outputs_);
@@ -3948,8 +3947,6 @@ void HabanaLaunchOpPT::run(
 
       jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
 
-      aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
-
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
       execution_control_.sag_cache_miss();
@@ -4081,8 +4078,6 @@ void HabanaLaunchOpPT::run(
   if (enable_shape_agnostic_caching_) {
     syn_graph_ptr_->copy_graph_handle_to_duplicate();
   }
-
-  aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
 
   if ((eager_mode || compile_mode) &&
       jit_graph_and_meta_data_->get_is_pipeline_supported()) {
@@ -4278,7 +4273,6 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
       BuildSynapseGraph(syn_graph);
       CompileSynapseGraph();
-      aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
       ConstructPatchingTableAndAtenOutputs();
       UpdateSynapsePermutations();
     } catch (std::exception& e) {
@@ -4666,7 +4660,6 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     pipeline_execution(true);
   } else {
     CompileSynapseGraph();
-    aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
     ConstructPatchingTableAndAtenOutputs();
     UpdateSynapsePermutations();
     StoreCompiledInformation();

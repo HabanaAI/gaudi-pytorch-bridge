@@ -45,15 +45,15 @@ void HabanaLaunchOpPT::CompileSynapse() {
   if (get_enable_shape_agnostic_caching_() &&
       get_is_shape_agnostic_supported()) {
     if (execution_control_.is_shape_agnostic_cache_miss_) {
-      StoreShapeAgnosticGraph();
       ConstructPatchingTableAndAtenOutputs();
       UpdateSynapsePermutations();
       StoreCompiledInformation();
+
+      StoreShapeAgnosticGraph();
       get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(
           get_cur_rvalpsh());
     }
   } else {
-    aten_outputs_ptr_sh_ = std::make_unique<VecOfIValPtrSh>();
     ConstructPatchingTableAndAtenOutputs();
     UpdateSynapsePermutations();
     StoreCompiledInformation();
