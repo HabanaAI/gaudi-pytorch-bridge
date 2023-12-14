@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -118,4 +118,25 @@ TEST_F(HpuOpTest, sum_4d_2d_keepdim_cmpt) {
 
   Compare(expected, result);
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
+}
+
+TEST_F(HpuOpTest, sum_0d_keepdim_out) {
+  GenerateInputs(1);
+  auto scalar = c10::Scalar(GenerateScalar<float>());
+  torch::ScalarType dtype = torch::kFloat;
+
+  auto scalarCpu = torch::scalar_tensor(
+      scalar, torch::TensorOptions().device("cpu").dtype(dtype));
+  auto scalarHpu = scalarCpu.to("hpu");
+
+  auto outCpu = torch::empty_like(scalarCpu);
+  auto outHpu = torch::empty_like(scalarHpu);
+
+  int64_t dim = 0;
+  auto expected =
+      torch::sum_outf(scalarCpu, dim, true /*keepdim*/, c10::nullopt, outCpu);
+  auto result =
+      torch::sum_outf(scalarHpu, dim, true /*keepdim*/, c10::nullopt, outHpu);
+
+  Compare(expected, result);
 }
