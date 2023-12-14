@@ -368,9 +368,9 @@ void SDPARecompBwd::AddNode(
   auto m = getNextInput<TensorsPair>(stackGetter);
   auto linv = getNextInput<TensorsPair>(stackGetter);
   auto seed = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto is_causal = getNextInput<bool>(stackGetter);
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
-  bool is_causal = true;
   ns_Sdpa::Params params{};
   params.scale = scale;
   params.dropout.ratio = p;

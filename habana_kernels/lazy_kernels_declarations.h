@@ -822,6 +822,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
     const at::Tensor& m,
     const at::Tensor& linv,
     const c10::optional<at::Tensor>& seed,
+    const bool is_causal,
     const double p,
     const double scale);
 at::Tensor scaled_triangular_softmax_lazy(

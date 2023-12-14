@@ -7242,6 +7242,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
     const at::Tensor& m,
     const at::Tensor& linv,
     const c10::optional<at::Tensor>& seed,
+    const bool is_causal,
     const double p,
     const double scale) {
   PT_LAZY_OP_TRACE;
@@ -7249,7 +7250,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
 
   LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
       "hpu::sdpa_recomp_bwd",
-      {grad, q, k, v, attention_mask, m, linv, seed, p, scale},
+      {grad, q, k, v, attention_mask, m, linv, seed, is_causal, p, scale},
       SDPARecompBwdOutputShape};
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_bwd, hpu_op)

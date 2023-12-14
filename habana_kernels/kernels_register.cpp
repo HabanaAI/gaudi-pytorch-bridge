@@ -1810,16 +1810,18 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
     const at::Tensor& m,
     const at::Tensor& linv,
     const c10::optional<at::Tensor>& seed,
+    const bool is_causal,
     const double p,
     const double scale) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "sdpa_recomp_bwd :",
-      DUMP_10ARGS(grad, q, k, v, attention_mask, m, linv, seed, p, scale));
+      DUMP_11ARGS(
+          grad, q, k, v, attention_mask, m, linv, seed, is_causal, p, scale));
 
   return sdpa_recomp_bwd_lazy(
-      grad, q, k, v, attention_mask, m, linv, seed, p, scale);
+      grad, q, k, v, attention_mask, m, linv, seed, is_causal, p, scale);
 }
 
 at::Tensor scaled_triangular_softmax_wrap(
@@ -2419,7 +2421,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::sdpa_recomp_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal, bool requires_backward) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor ? seed, float p, float scale) -> (Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor ? seed, bool is_causal, float p, float scale) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor");
   m.def(
