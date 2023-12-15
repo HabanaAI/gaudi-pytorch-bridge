@@ -36,15 +36,16 @@ def calc_difference(a, b):
     rmse = np.sqrt(mse)
     return {'abs_max': abs_max.item(), 'abs_min': abs_min.item(), 'mse': mse.item(), 'rmse': rmse.item()}
 
-def calc_similarity(a, b, threshold=1.0,):
+def calc_similarity(a, b, threshold=0.0,):
     norm_a = np.linalg.norm(a)
     norm_b = np.linalg.norm(b)
 
     norm_relative = np.divide(norm_a, norm_b)
     angle = np.arccos(min(np.dot(a, b) / norm_a / norm_b, 1.0)) / np.pi * 180
     angle = np.around(angle, 2)
-    cosine_similarity = np.greater(threshold, angle)
-    return {'norm_a': norm_a.item(), 'norm_b': norm_b.item(), 'norm_relative': norm_relative.item(), 'angle': angle.item(), 'cosine_similarity': cosine_similarity}
+    cosine_similarity = np.less_equal(angle, threshold)
+    all_close = np.allclose(a, b)
+    return {'norm_a': norm_a.item(), 'norm_b': norm_b.item(), 'norm_relative': norm_relative.item(), 'angle': angle.item(), 'cosine_similarity': cosine_similarity, 'all_close': all_close}
 
 class DivergenceAnalyzer:
     def __init__(self, cfg, use_cache=True):
@@ -203,62 +204,67 @@ class DivergenceAnalyzer:
         cursor1 = conn1.cursor()
         cursor2 = conn2.cursor()
 
-        # Get a list of tables in both databases
+        # Get list of tables in both databases
         cursor1.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables1 = cursor1.fetchall()
         cursor2.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables2 = cursor2.fetchall()
 
-        # Check if the number of tables is the same in both databases
+        # Check whether the number of tables is the same in both databases
         if len(tables1) != len(tables2):
             self.log("[WARNING] Databases have different number of tables")
             return False
 
-        # Check if the tables have the same names in both databases
+        # Check whether the tables have the same names in both databases
         if sorted(tables1) != sorted(tables2):
             self.log("[WARNING] Databases have different table names")
             return False
+
         '''
         This is thr format in which data is preset in DB file
         Data is from synapse/src/data_serialize/sql_db_serializer.cpp
-            "ROW_INDEX      int     not NULL,"
-            "ID             int     not NULL,"
-            "GRAPH_GROUP    int     not NULL,"
-            "ITERATION      int     not NULL,"
-            "NAME           text    not NULL,"
-            "TYPE           int     not NULL,"
-            "DATA_TYPE      int     not NULL,"
-            "COMPRESSION    int     not NULL,"
-            "VALIDATION     int     not NULL," -> If this is valid tensor(0->valid)
-            "CONST_TENSOR   int     not NULL,"
-            "SHAPE          blob,"
-            "PERMUTATION    blob,"
-            "DATA_ID        int     not NULL," -> Hash of the data present in tensor
+            0 "ROW_INDEX      int     not NULL,"
+            1 "GRAPH_NAME     text    not NULL,"
+            2 "RECIPE_ID      int     not NULL,"
+            3 "NAME           text    not NULL,"
+            4 "ID             int     not NULL,"
+            5 "ITERATION      int     not NULL,"
+            6 "TYPE           int     not NULL,"
+            7 "DATA_TYPE      int     not NULL,"
+            8 "COMPRESSION    int     not NULL,"
+            9 "VALIDATION     int     not NULL,"
+            10 "CONST_TENSOR   int     not NULL,"
+            11 "SHAPE          blob,"
+            12 "PERMUTATION    blob,"
+            13 "DATA_ID        int     not NULL,"
+            14 "CONSTRAINT tensor_pk PRIMARY KEY (RECIPE_ID,ROW_INDEX,ID,ITERATION),"
+            15 "FOREIGN KEY(DATA_ID) references DATA(ID));",
         '''
-        valid_idx = 8
-        name_idx = 4
-        data_idx = -1
-        # Check if the data in each table is the same in both databases
+        idx_name = 3
+        idx_validation = 9
+        idx_data = 13
+
+        # Check whether the data in each table is the same in both databases
         for table_name in tables1[2:]:
             cursor1.execute(f"SELECT * FROM \"{table_name[0]}\"")
-            rows1 = cursor1.fetchall()
+            rows_table1 = cursor1.fetchall()
             cursor2.execute(f"SELECT * FROM \"{table_name[0]}\"")
-            rows2 = cursor2.fetchall()
-
-            if len(rows1) != len(rows2):
+            rows_table2 = cursor2.fetchall()
+            if len(rows_table1) != len(rows_table2):
                 self.log("[WARNING]", table_name[0] + " has different tensor numbers in static and dynamic not comparing")
             else:
-                row1_data = [item[data_idx] for item in rows1]
-                row2_data = [item[data_idx] for item in rows2]
+                data_ids_table1 = [item[idx_data] for item in rows_table1]
+                data_ids_table2 = [item[idx_data] for item in rows_table2]
 
-                if row1_data != row2_data:
+                if data_ids_table1 != data_ids_table2:
                     if self.mismatch_map is None:
                         self.mismatch_map = {}
-                    self.mismatch_map[table_name[0]] = []
-                    for r1, r2 in zip(rows1, rows2):
+                    graph_name = rows_table1[0][1]
+                    self.mismatch_map[graph_name] = []
+                    for r1, r2 in zip(rows_table1, rows_table2):
                         # Check if tensor is valid and data is different
-                        if((r1[valid_idx] == 0) and (r2[valid_idx] == 0 ) and (r1[data_idx] != r2[data_idx])):
-                            self.mismatch_map[table_name[0]].append(r1[name_idx])
+                        if((r1[idx_validation] == 0) and (r2[idx_validation] == 0 ) and (r1[idx_data] != r2[idx_data])):
+                            self.mismatch_map[graph_name].append(r1[idx_name])
 
     def compare_dumps(self):
         data_dict = self.collect_available_dumps()
@@ -386,7 +392,7 @@ class DivergenceAnalyzer:
         outfile = f'{self.logdir}/{mode}_out.txt'
 
         if verbose:
-            self.log(f'[INFO] Running in [{mode}] mode {cmd}')
+            self.log(f'[INFO] Running in [{mode} mode] {cmd}')
         else:
             outfile = '/dev/null'
 
