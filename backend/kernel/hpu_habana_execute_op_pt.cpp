@@ -23,6 +23,15 @@ void ExecuteSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
 }
 } // namespace HabanaLaunchOpPipeline
 
+namespace {
+void SynapseGraphDestroyTask(synGraphHandle graphHandle) {
+  PT_SYNHELPER_DEBUG("Graph destroy.");
+  if (graphHandle != nullptr) {
+    synGraphDestroy(graphHandle);
+  }
+}
+} // namespace
+
 void HabanaLaunchOpPT::ExecuteSynapse() {
   PT_BRIDGE_BEGIN;
   if (execution_control_.no_compile_) {
@@ -34,7 +43,11 @@ void HabanaLaunchOpPT::ExecuteSynapse() {
 
   if (get_enable_shape_agnostic_caching_() &&
       get_is_shape_agnostic_supported()) {
-    synGraphDestroy(syn_graph_ptr_->get_duplicate_graph_handle());
+    auto graphHandle = syn_graph_ptr_->get_duplicate_graph_handle();
+    if (graphHandle != nullptr) {
+      habana_helpers::Singleton_GarbageCollectionThreadPool::getInstance()
+          .Enqueue(SynapseGraphDestroyTask, std::move(graphHandle));
+    }
   }
 
   ClearStatics();

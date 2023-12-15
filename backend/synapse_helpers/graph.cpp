@@ -27,6 +27,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 
+#include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/device.h"
@@ -834,10 +835,18 @@ uint64_t graph::recipe_handle::get_recipe_host_mem_size() {
   return recipe_size_;
 }
 
+namespace {
+void SynapseRecipeDestroyTask(synRecipeHandle recipeHandle) {
+  if (recipeHandle && synRecipeDestroy(recipeHandle) != synStatus::synSuccess) {
+    PT_SYNHELPER_WARN("Failed to destroy recipe: ", recipeHandle);
+  }
+}
+} // namespace
+
 graph::recipe_handle::~recipe_handle() {
-  if (syn_recipe_handle_ &&
-      synRecipeDestroy(syn_recipe_handle_) != synStatus::synSuccess) {
-    PT_SYNHELPER_WARN("Failed to destroy recipe!");
+  if (syn_recipe_handle_) {
+    habana_helpers::Singleton_GarbageCollectionThreadPool::getInstance()
+        .Enqueue(SynapseRecipeDestroyTask, std::move(syn_recipe_handle_));
   }
 }
 

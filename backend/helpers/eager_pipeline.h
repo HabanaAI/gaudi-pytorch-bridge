@@ -109,4 +109,26 @@ class Singleton_ExecThreadPool {
   Singleton_ExecThreadPool& operator=(const Singleton_ExecThreadPool&) = delete;
 };
 
+/**
+ * Exposes thread pool that is used for garbage collection.
+ */
+class Singleton_GarbageCollectionThreadPool {
+ public:
+  /**
+   * Returns reference to ThreadPoolControl that is controlling garbage
+   * collector thread pool.
+   */
+  static ThreadPoolControl& getInstance() {
+    static ThreadPoolControl thread_pool_control_obj;
+    return thread_pool_control_obj;
+  }
+
+ private:
+  Singleton_GarbageCollectionThreadPool() = default;
+  Singleton_GarbageCollectionThreadPool(
+      const Singleton_GarbageCollectionThreadPool&) = delete;
+  Singleton_GarbageCollectionThreadPool& operator=(
+      const Singleton_GarbageCollectionThreadPool&) = delete;
+};
+
 } // namespace habana_helpers
