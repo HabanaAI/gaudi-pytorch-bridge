@@ -166,6 +166,7 @@ class EagerExec {
 };
 
 std::vector<at::IValue> convert_ivalues_to_backend_tensors(
-    std::vector<at::IValue>& ivalues);
+    std::vector<at::IValue>& ivalues,
+    std::optional<at::Symbol> symbol = std::nullopt);
 } // namespace eager
 } // namespace habana

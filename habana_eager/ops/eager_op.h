@@ -102,7 +102,7 @@ class EagerOpBase {
             process_EagerOpBase_input(std::forward<U>(out_shapes), inputs)},
         m_out_index{out_index},
         m_inputs(std::forward<T>(inputs)) {
-    validate_inputs(m_inputs);
+    validate_inputs(m_inputs, qualstring);
   }
 
  protected:
@@ -118,7 +118,9 @@ class EagerOpBase {
       m_output_meta_fn;
   EagerOpMetaData m_eager_op_meta_data;
 
-  void validate_inputs(const std::vector<at::IValue>& inputs);
+  void validate_inputs(
+      const std::vector<at::IValue>& inputs,
+      const std::string& qualstring);
   static std::mutex m_mutex;
 };
 

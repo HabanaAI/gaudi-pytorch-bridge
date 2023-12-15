@@ -37,7 +37,9 @@ void EagerLoweringTask(
   hlexec.launch();
 }
 
-void EagerOpBase::validate_inputs(const std::vector<at::IValue>& inputs) {
+void EagerOpBase::validate_inputs(
+    const std::vector<at::IValue>& inputs,
+    const std::string& qualstring) {
   for (size_t idx = 0; idx < inputs.size(); ++idx) {
     auto& t = inputs[idx];
     if (!t.isTensor()) {
@@ -49,7 +51,17 @@ void EagerOpBase::validate_inputs(const std::vector<at::IValue>& inputs) {
       continue;
     }
 
-    if (tensor.device().type() == c10::DeviceType::HPU) {
+    /* The 3rd input for the masked fill, if placed on the CPU, should be
+     * converted to Scalar. This is an exception for the masked_fill operation.
+     * Pytorch accepts the 3rd input on the CPU when the operation is performed
+     * on cuda/xpu */
+    std::string maskedFillPrefix = "aten::masked_fill";
+    if ((tensor.device().type() == c10::DeviceType::HPU) ||
+        (idx == 2 &&
+         std::equal(
+             std::begin(maskedFillPrefix),
+             std::end(maskedFillPrefix),
+             std::begin(qualstring)))) {
       continue;
     }
 
@@ -72,7 +84,7 @@ void EagerOpBase::validate_inputs(const std::vector<at::IValue>& inputs) {
 std::mutex EagerOpBase::m_mutex;
 
 void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
-  auto stack = convert_ivalues_to_backend_tensors(m_inputs);
+  auto stack = convert_ivalues_to_backend_tensors(m_inputs, m_symbol);
 
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
     SingleTonEagerContext::getInstance()

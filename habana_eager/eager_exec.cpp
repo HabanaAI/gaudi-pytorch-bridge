@@ -151,7 +151,8 @@ std::vector<std::vector<int64_t>> OutputSpecsOrTensors::get_shapes() {
 }
 
 std::vector<at::IValue> convert_ivalues_to_backend_tensors(
-    std::vector<at::IValue>& ivalues) {
+    std::vector<at::IValue>& ivalues,
+    std::optional<at::Symbol> symbol) {
   std::vector<at::IValue> stack;
   stack.reserve(ivalues.size());
   traversing_ivalues<ProcessList::asList>(
@@ -162,7 +163,7 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
           // scalars
           [&stack](const at::Scalar& s) { stack.push_back(s); },
           // tensors
-          [&stack](const at::Tensor& t) {
+          [&stack, &symbol](const at::Tensor& t) {
             if (t.device().type() == c10::DeviceType::HPU) {
               if (habana::get_tensor_extra_meta(t)->is_shape_tensor()) {
                 stack.push_back(t);
@@ -177,6 +178,23 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
               return;
             }
 
+            // In eager flow the symbol has value
+            if (symbol.has_value()) {
+              std::string qualstring(symbol.value().toQualString());
+              std::string maskedFillPrefix = "aten::masked_fill";
+              /* The 3rd input for the masked fill, if placed on the CPU, should
+               * be converted to Scalar. This is an exception for the
+               * masked_fill operation. Pytorch accepts the 3rd input on the CPU
+               * when the operation is performed on cuda/xpu */
+              if (stack.size() == 2 &&
+                  std::equal(
+                      std::begin(maskedFillPrefix),
+                      std::end(maskedFillPrefix),
+                      std::begin(qualstring))) {
+                stack.push_back(t.item());
+                return;
+              }
+            }
             HABANA_ASSERT(t.device().type() == c10::DeviceType::HPU)
           },
           [&stack](const c10::ArrayRef<torch::jit::IValue>& list) {
