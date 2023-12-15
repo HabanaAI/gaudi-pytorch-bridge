@@ -2629,9 +2629,10 @@ TEST_F(LazyDynamicShapesTest, MatMulOutTest) {
 cat_out Op vaiant has issue.
 It will be enable after fix of jira: SW-120927
 */
-TEST_F(LazyDynamicShapesTest, DISABLED_CatOutTest) {
-  torch::Tensor A = torch::randn({1, 8}, torch::dtype(torch::kFloat));
-  torch::Tensor B = torch::randn({1, 1}, torch::dtype(torch::kFloat));
+TEST_F(LazyDynamicShapesTest, CatOutTest) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  torch::Tensor A = torch::randn({2, 8}, torch::dtype(torch::kFloat));
+  torch::Tensor B = torch::randn({4, 8}, torch::dtype(torch::kFloat));
   torch::Tensor out1 = torch::empty(0, at::kFloat);
 
   torch::Tensor hA = A.to(torch::kHPU);
@@ -2642,8 +2643,8 @@ TEST_F(LazyDynamicShapesTest, DISABLED_CatOutTest) {
   torch::cat_outf({hA, hB}, 0, h_out1);
   EXPECT_EQ(allclose(h_out1.to(torch::kCPU), out1, 0.001, 0.001), true);
 
-  torch::Tensor X = torch::randn({1, 64566}, torch::dtype(torch::kFloat));
-  torch::Tensor Y = torch::randn({1, 599836}, torch::dtype(torch::kFloat));
+  torch::Tensor X = torch::randn({4, 64566}, torch::dtype(torch::kFloat));
+  torch::Tensor Y = torch::randn({8, 64566}, torch::dtype(torch::kFloat));
   torch::Tensor out2 = torch::empty(0, at::kFloat);
 
   torch::Tensor hX = X.to(torch::kHPU);
