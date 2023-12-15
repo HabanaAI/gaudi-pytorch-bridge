@@ -1420,8 +1420,6 @@ Conv2dFp8::Conv2dFp8(int device_id, c10::ScalarType scalar_type)
 }
 
 void Conv2dFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 8, "Conv2dFp8 must have 8 input arguments");
-
   StackGetter stackGetter(stack, "Conv2dFp8::AddNode");
   auto input = getNextInput<TensorsPair>(stackGetter);
   auto weight = getNextInput<TensorsPair>(stackGetter);
@@ -1432,6 +1430,8 @@ void Conv2dFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto groups = getNextInput<int>(stackGetter);
   auto pt_dtype = getNextInput<c10::optional<c10::ScalarType>>(stackGetter)
                       .value_or(at::ScalarType::BFloat16);
+  auto scale_input = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto scale_weight = getNextInput<c10::optional<TensorsPair>>(stackGetter);
 
   TORCH_CHECK(
       input.pt_t.dim() == 4 and weight.pt_t.dim() == 4,
@@ -1461,12 +1461,48 @@ void Conv2dFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   NodeAttr nodeAttr{
       guid_, syn_inputs, {nodeOutputAttr}, &params, sizeof(params)};
 
+  const bool is_scale = scale_input or scale_weight;
+  c10::optional<int> final_result_index =
+      is_scale ? c10::nullopt : c10::make_optional<int>(0);
+
   auto conv = OpBackend::BuildNode(
       this,
       graph,
-      {guid_, syn_inputs, {{out_shape, pt_dtype, 0}}, &params, sizeof(params)});
+      {guid_,
+       syn_inputs,
+       {{out_shape, pt_dtype, final_result_index}},
+       &params,
+       sizeof(params)});
 
-  syn_out(0) = std::move(conv[0]);
+  if (not is_scale) {
+    syn_out(0) = std::move(conv[0]);
+    return;
+  }
+
+  std::vector<synapse_helpers::tensor> scale;
+  synTensor syn_scale;
+
+  if (scale_input and scale_weight) {
+    scale = OpBackend::BuildNode(
+        this,
+        graph,
+        {get_guid_with_precision("mult_fwd", scale_input->pt_t.scalar_type()),
+         {scale_input->syn_t, scale_weight->syn_t},
+         {{scale_weight->pt_t.sizes().vec(),
+           scale_input->pt_t.scalar_type()}}});
+    syn_scale = scale[0].get();
+  } else {
+    syn_scale = scale_input ? scale_input->syn_t : scale_weight->syn_t;
+  }
+
+  auto scaled_conv = OpBackend::BuildNode(
+      this,
+      graph,
+      {get_guid_with_precision("mult_fwd", pt_dtype),
+       {conv[0].get(), syn_scale},
+       {{out_shape, pt_dtype, 0}}});
+
+  syn_out(0) = std::move(scaled_conv[0]);
 }
 
 } // namespace habana

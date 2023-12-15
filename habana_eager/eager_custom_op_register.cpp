@@ -1012,16 +1012,36 @@ at::Tensor conv2d_fp8(
     at::IntArrayRef padding,
     at::IntArrayRef dilation,
     int64_t groups,
-    c10::optional<at::ScalarType> out_dtype) {
+    c10::optional<at::ScalarType> out_dtype,
+    const c10::optional<at::Tensor>& scale_input,
+    const c10::optional<at::Tensor>& scale_weight) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "conv2d_fp8 :",
-      DUMP_8ARGS(
-          input, weight, bias, stride, padding, dilation, groups, out_dtype));
+      DUMP_10ARGS(
+          input,
+          weight,
+          bias,
+          stride,
+          padding,
+          dilation,
+          groups,
+          out_dtype,
+          scale_input,
+          scale_weight));
 
   habana::eager::EagerOp<at::Tensor> hpu_op{
       "hpu::conv2d_fp8",
-      {input, weight, bias, stride, padding, dilation, groups, out_dtype},
+      {input,
+       weight,
+       bias,
+       stride,
+       padding,
+       dilation,
+       groups,
+       out_dtype,
+       scale_input,
+       scale_weight},
       habana::Conv2dFp8OutputShape};
   hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::BFloat16)});
   return hpu_op.call();
@@ -1129,7 +1149,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None) -> Tensor");
+      "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None, Tensor? scale_input=None, Tensor? scale_weight=None) -> Tensor");
   m.def("hpu::custom_softmax(Tensor input, int flavor) -> Tensor");
   m.def(
       "hpu::fp8_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale=None, Tensor? retain=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");

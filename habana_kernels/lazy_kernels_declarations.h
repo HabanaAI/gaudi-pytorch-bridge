@@ -875,5 +875,7 @@ at::Tensor conv2d_fp8_lazy(
     at::IntArrayRef padding,
     at::IntArrayRef dilation,
     int64_t groups,
-    c10::optional<at::ScalarType> out_dtype);
+    c10::optional<at::ScalarType> out_dtype,
+    const c10::optional<at::Tensor>& scale_input,
+    const c10::optional<at::Tensor>& scale_weight);
 } // namespace habana_lazy

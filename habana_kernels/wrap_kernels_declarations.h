@@ -490,15 +490,6 @@ at::Tensor scaled_masked_triangular_softmax_wrap(
     int64_t mode,
     c10::optional<at::ScalarType> out_dtype);
 at::Tensor& in_place_interleave_wrap(at::Tensor& self);
-at::Tensor conv2d_fp8_wrap(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias,
-    at::IntArrayRef stride,
-    at::IntArrayRef padding,
-    at::IntArrayRef dilation,
-    int64_t groups,
-    c10::optional<at::ScalarType> out_dtype);
 
 namespace vision {
 namespace ops {

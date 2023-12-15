@@ -33,6 +33,7 @@ hpu_supported_op_list = {
     "cast_to_fp8_hybrid",
     "cast_to_fp8_q",
     "cast_from_fp8",
+    "conv2d_fp8",
     "fp8_gemm_v2",
     "kv_reorder",
     "in_place_interleave",
@@ -164,8 +165,22 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
             if normalized_args is not None:
                 args, kwargs = normalized_args
                 try:
-                    concrete_args = tuple(arg if not isinstance(arg, (torch.SymInt, torch.SymFloat, torch.SymBool)) else arg.node.hint for arg in args)
-                    concrete_kwargs = {key : val if not isinstance(val, (torch.SymInt, torch.SymFloat, torch.SymBool)) else val.node.hint for key, val in kwargs.items()}
+                    concrete_args = tuple(
+                        arg
+                        if not isinstance(
+                            arg, (torch.SymInt, torch.SymFloat, torch.SymBool)
+                        )
+                        else arg.node.hint
+                        for arg in args
+                    )
+                    concrete_kwargs = {
+                        key: val
+                        if not isinstance(
+                            val, (torch.SymInt, torch.SymFloat, torch.SymBool)
+                        )
+                        else val.node.hint
+                        for key, val in kwargs.items()
+                    }
                     do_fallback = check_cpu_fallback_op(
                         op_name, concrete_args, arg_types, concrete_kwargs
                     )

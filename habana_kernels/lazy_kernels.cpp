@@ -21,6 +21,7 @@
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/tensor_utils.h"
+#include "backend/synapse_helpers/device_helpers.h"
 #include "common/dump_args.h"
 #include "habana_helpers/frontend_utils.h"
 #include "habana_kernels/basic_kernels.h"
@@ -64,6 +65,11 @@
 
 using namespace habana;
 using namespace at;
+
+#define FP8_CHECK                                                              \
+  TORCH_CHECK(                                                                 \
+      synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type()), \
+      "FP8 data type is not available on this device.")
 
 namespace {
 void AddMemcpy(const Tensor& src, Tensor& dst) {
@@ -7414,10 +7420,21 @@ at::Tensor conv2d_fp8_lazy(
     at::IntArrayRef padding,
     at::IntArrayRef dilation,
     int64_t groups,
-    c10::optional<at::ScalarType> out_dtype) {
+    c10::optional<at::ScalarType> out_dtype,
+    const c10::optional<at::Tensor>& scale_input,
+    const c10::optional<at::Tensor>& scale_weight) {
   LazyOp<at::Tensor> hpu_op{
       "hpu::conv2d_fp8",
-      {input, weight, bias, stride, padding, dilation, groups, out_dtype},
+      {input,
+       weight,
+       bias,
+       stride,
+       padding,
+       dilation,
+       groups,
+       out_dtype,
+       scale_input,
+       scale_weight},
       Conv2dFp8OutputShape};
   hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::BFloat16)});
 

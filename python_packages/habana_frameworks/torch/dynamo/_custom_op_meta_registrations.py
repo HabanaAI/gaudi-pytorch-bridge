@@ -177,6 +177,40 @@ def meta_fp8_gemm_v2(
     return out
 
 
+def to_list_if_necessary(input, size):
+    return input if hasattr(input, "__iter__") else [input] * size
+
+
+@register_meta([torch.ops.hpu.conv2d_fp8.default])
+def meta_conv2d_fp8(
+    input,
+    weight,
+    bias=None,
+    stride=1,
+    padding=0,
+    dilation=1,
+    groups=1,
+    out_dtype=None,
+    scale_input=None,
+    scale_weight=None,
+):
+    shape_in = input.shape
+    shape_wt = weight.shape
+    stride = to_list_if_necessary(stride, 2)
+    padding = to_list_if_necessary(padding, 2)
+    dilation = to_list_if_necessary(dilation, 2)
+    output_dtype = out_dtype if out_dtype else torch.bfloat16
+
+    out_shape = [shape_in[0], shape_wt[0]]
+
+    for sh_in, sh_wt, s, p, d in zip(
+        shape_in[2:], shape_wt[2:], stride, padding, dilation
+    ):
+        out_shape.append(int((sh_in + 2 * p - d * (sh_wt - 1) - 1) / s + 1))
+
+    return input.new_empty(out_shape, dtype=output_dtype)
+
+
 @register_meta([torch.ops.hpu.fp8_transpose.default])
 def meta_fp8_transpose(input, dims, out):
     return out
@@ -352,7 +386,9 @@ def meta_rotary_pos_embedding_backward(grad_in, sin, cos, offset, mode):
 def meta_rms_norm(data_in, gamma, epsilon):
     inverse_root_mean_square_shape = list(data_in.shape)
     inverse_root_mean_square_shape[-1] = 1
-    return data_in.new_empty(data_in.shape), data_in.new_empty(inverse_root_mean_square_shape, dtype=torch.float32)
+    return data_in.new_empty(data_in.shape), data_in.new_empty(
+        inverse_root_mean_square_shape, dtype=torch.float32
+    )
 
 
 @register_meta([torch.ops.hpu.rms_norm_backward.default])
