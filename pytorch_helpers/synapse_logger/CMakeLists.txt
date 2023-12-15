@@ -58,7 +58,8 @@ add_library(py_pytorch_synapse_logger_wrap OBJECT ${CMAKE_CURRENT_BINARY_DIR}/py
 set_target_properties(py_pytorch_synapse_logger_wrap PROPERTIES CXX_CLANG_TIDY "" CXX_INCLUDE_WHAT_YOU_USE "")
 target_compile_features(py_pytorch_synapse_logger_wrap PRIVATE cxx_std_11)
 target_compile_options(py_pytorch_synapse_logger_wrap PRIVATE -fno-exceptions -w)
-target_include_directories(py_pytorch_synapse_logger_wrap PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${PYTHON_INCLUDE_DIR} ${NumPy_INCLUDE_DIR})
+target_include_directories(py_pytorch_synapse_logger_wrap PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(py_pytorch_synapse_logger_wrap PRIVATE Python::Python Python::NumPy)
 
 add_habana_library(_py_pytorch_synapse_logger SHARED ${SYNAPSE_LOGGER_SRCS})
 target_compile_features(_py_pytorch_synapse_logger PRIVATE cxx_std_11)
@@ -66,18 +67,19 @@ set_target_properties(_py_pytorch_synapse_logger PROPERTIES PREFIX "")
 target_compile_options(_py_pytorch_synapse_logger PRIVATE -fno-exceptions)
 target_compile_definitions(_py_pytorch_synapse_logger PUBLIC -DBINARY_NAME="_py_pytorch_synapse_logger.so")
 target_include_directories(_py_pytorch_synapse_logger PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(
-  _py_pytorch_synapse_logger SYSTEM PRIVATE ${PYTHON_INCLUDE_DIR} ${NumPy_INCLUDE_DIR}
-                                            $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(_py_pytorch_synapse_logger SYSTEM
+                           PRIVATE $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>)
 
 separate_debug_symbols(_py_pytorch_synapse_logger)
-target_link_libraries(_py_pytorch_synapse_logger
-  PRIVATE
-  $<TARGET_OBJECTS:py_pytorch_synapse_logger_wrap>
-  ${CMAKE_DL_LIBS}
-  absl::strings
-  absl::str_format
-  absl::variant)
+target_link_libraries(
+  _py_pytorch_synapse_logger
+  PRIVATE Python::Python
+          Python::NumPy
+          $<TARGET_OBJECTS:py_pytorch_synapse_logger_wrap>
+          ${CMAKE_DL_LIBS}
+          absl::strings
+          absl::str_format
+          absl::variant)
 
 set_target_properties(pytorch_synapse_logger _py_pytorch_synapse_logger py_pytorch_synapse_logger_wrap PROPERTIES
   CXX_STANDARD 17

@@ -94,6 +94,7 @@ target_link_libraries(habana_pytorch_backend
   pytorch_synapse_helpers
   c10
   PRIVATE
+  Python::Python
   habana_serialization
   torch
   nlohmann_json::nlohmann_json
@@ -112,7 +113,7 @@ target_include_directories(
   PUBLIC $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
   $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>
   $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>
-  ${PYTHON_INCLUDE_DIRS})
+)
 
 target_compile_definitions(habana_pytorch_backend PUBLIC GENERIC_HELPERS)
 target_compile_features(habana_pytorch_backend PUBLIC cxx_std_14) # still required as this is transitive

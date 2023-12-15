@@ -88,7 +88,7 @@ target_include_directories(habana_pytorch2_frontend SYSTEM
   $<TARGET_PROPERTY:SynapseUtils,INTERFACE_INCLUDE_DIRECTORIES>
   $<TARGET_PROPERTY:tpc_kernels,INTERFACE_INCLUDE_DIRECTORIES>
   $<TARGET_PROPERTY:hcl,INTERFACE_INCLUDE_DIRECTORIES>
-  ${PYTHON_INCLUDE_DIRS})
+)
 
 target_compile_definitions(habana_pytorch2_frontend PUBLIC GENERIC_HELPERS)
 set_target_properties(habana_pytorch2_frontend PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
@@ -96,6 +96,7 @@ target_include_directories(habana_pytorch2_frontend PRIVATE ${PROJECT_SOURCE_DIR
 target_include_directories(habana_pytorch2_frontend PRIVATE ${CMAKE_BINARY_DIR})
 target_link_libraries(habana_pytorch2_frontend
   PRIVATE
+  Python::Python
   habana_serialization
   pytorch_synapse_utils_shim
   torch

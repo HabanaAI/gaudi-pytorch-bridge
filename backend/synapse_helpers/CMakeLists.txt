@@ -51,7 +51,7 @@ add_habana_library(
 target_include_directories(
   pytorch_synapse_helpers
   PUBLIC ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR}
-  PRIVATE ${PYTHON_INCLUDE_DIR})
+)
 
 target_include_directories(
   pytorch_synapse_helpers SYSTEM
@@ -76,7 +76,9 @@ target_link_libraries(
   npu::hllogger
   npu::fmt
   npu::specs_embedded
-  PRIVATE torch
+  PRIVATE
+  Python::Python
+  torch
 )
 target_compile_features(pytorch_synapse_helpers PUBLIC cxx_std_14) # still required as this is transitive
 set_target_properties(

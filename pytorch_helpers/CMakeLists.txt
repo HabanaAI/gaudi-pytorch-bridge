@@ -34,9 +34,6 @@ if (BUILD_DIST)
  add_subdirectory(synapse_shim)
  endif()
  add_subdirectory(habana_helpers)
-
- find_package(NumPy)
-
  add_subdirectory(synapse_logger)
 else ()
  list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -48,7 +45,6 @@ else ()
  endif()
  add_subdirectory(habana_helpers)
 
- find_package(NumPy)
  find_program(SWIG swig)
  add_subdirectory(synapse_logger)
 endif ()

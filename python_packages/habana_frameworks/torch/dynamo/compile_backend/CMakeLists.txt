@@ -18,7 +18,7 @@ install(TARGETS _recipe_compiler_C LIBRARY DESTINATION habana_torch_plugin/dynam
 add_custom_command(
   OUTPUT ${CMAKE_BINARY_DIR}/generated/check_kernel_support/op_def.cpp
   COMMAND
-    ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
+    ${Python_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
       --output_dir=${CMAKE_BINARY_DIR}/generated
       --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
       ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h

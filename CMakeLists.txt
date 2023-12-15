@@ -42,7 +42,7 @@ endif(UPSTREAM_COMPILE)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
-find_package(PythonLibs REQUIRED)
+find_package(Python REQUIRED COMPONENTS Interpreter Development NumPy)
 find_package(Torch REQUIRED)
 
 include(pt_ver)
@@ -180,6 +180,7 @@ target_compile_features(habana_pytorch_plugin PRIVATE cxx_std_17)
 # Link against LibTorch and synapse
 target_link_libraries(habana_pytorch_plugin
   PRIVATE
+  Python::Python
   habana_serialization
   tensor_comparator_core
   nlohmann_json::nlohmann_json
@@ -191,7 +192,6 @@ target_link_libraries(habana_pytorch_plugin
 )
 
 target_include_directories(habana_pytorch_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
-target_include_directories(habana_pytorch_plugin SYSTEM PRIVATE ${PYTHON_INCLUDE_DIR})
 
 # Create symlink to latest build from tests dir
 # TODO: make it play nicely with building multiple versions in build.py
@@ -292,11 +292,11 @@ add_habana_library(habana_pytorch2_plugin SHARED
 )
 
 target_include_directories(habana_pytorch2_plugin PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/pytorch_helpers ${CMAKE_BINARY_DIR})
-target_include_directories(habana_pytorch2_plugin SYSTEM PRIVATE ${PYTHON_INCLUDE_DIR})
 target_compile_features(habana_pytorch2_plugin PRIVATE cxx_std_17)
 # Link against LibTorch and synapse
 target_link_libraries(habana_pytorch2_plugin
   PRIVATE
+  Python::Python
   habana_serialization
   tensor_comparator_core
   nlohmann_json::nlohmann_json
@@ -339,7 +339,7 @@ function(build_or_install_wheel PACKAGE)
   get_filename_component(name ${PACKAGE} NAME)
   set(OUTPUT "${CMAKE_BINARY_DIR}/pkgs/${name}")
 
-  set(PIP ${PYTHON_EXECUTABLE} -m pip)
+  set(PIP ${Python_EXECUTABLE} -m pip)
 
   if(INSTALL_PKGS)
     set(PIPARGS install -U ${PACKAGE}/)

@@ -1386,24 +1386,7 @@ def get_cmake_configurations(args) -> Dict[str, str]:
 def add_python_env_flags(cmake_flags: CMakeFlags, build_env: BuildEnv) -> CMakeFlags:
     venv_python = get_python_exec(build_env)
 
-    cmake_flags.set_if_missing("PYTHON_EXECUTABLE", venv_python)
-
-    py_include_dirs = outof(
-        venv_python,
-        "-c",
-        '"from distutils.sysconfig import get_python_inc; ' 'print(get_python_inc())"',
-        venv=build_env.venv_dir,
-    ).strip()
-    cmake_flags.set_if_missing("PYTHON_INCLUDE_DIR", py_include_dirs)
-
-    py_lib = outof(
-        venv_python,
-        "-c",
-        '"import distutils.sysconfig as sysconfig; '
-        "print(sysconfig.get_config_var('LIBDIR'))\"",
-        venv=build_env.venv_dir,
-    ).strip()
-    cmake_flags.set_if_missing("PYTHON_LIBRARY", py_lib)
+    cmake_flags.set_if_missing("Python_EXECUTABLE", venv_python)
 
     return cmake_flags
 

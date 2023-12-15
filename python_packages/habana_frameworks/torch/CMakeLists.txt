@@ -17,18 +17,23 @@ set(CMAKE_INSTALL_RPATH "$ORIGIN/lib")
 add_habana_library(bindings INTERFACE)
 target_include_directories(
   bindings INTERFACE "${CMAKE_SOURCE_DIR}" $<TARGET_PROPERTY:Synapse,INTERFACE_INCLUDE_DIRECTORIES>
-  "${CMAKE_BINARY_DIR}"
-  "${PYTHON_INCLUDE_DIR}")
+                     "${CMAKE_BINARY_DIR}")
 
-find_package(Torch REQUIRED)
 find_library(TORCH_PYTHON_LIBRARY torch_python PATHS "${TORCH_INSTALL_PREFIX}/lib")
 
 include(pt_ver)
 set_up_pt_ver_mechanism()
 
 target_compile_options(bindings INTERFACE -fopenmp -fpermissive)
-target_link_libraries(bindings INTERFACE npu::fmt npu::hllogger npu::hcl npu::specs_external npu::specs_embedded
-  pytorch_helpers)
+target_link_libraries(
+  bindings
+  INTERFACE npu::fmt
+            npu::hllogger
+            npu::hcl
+            npu::specs_external
+            npu::specs_embedded
+            pytorch_helpers
+            Python::Python)
 
 add_subdirectory(internal/bridge_config)
 add_subdirectory(activity_profiler/csrc)

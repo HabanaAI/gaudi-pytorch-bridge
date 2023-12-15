@@ -283,58 +283,34 @@ add_habana_executable(
 target_compile_definitions(test_pt_integration PRIVATE LAZY_TESTS)
 set_target_properties(test_pt_integration PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
 
-if("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
-  # Remove tests unrelated or not working with PT2
-  list(REMOVE_ITEM misc_tests_src
-    graph_optimize_passes.cpp
+# Remove tests unrelated or not working with PT2
+list(REMOVE_ITEM misc_tests_src
+  graph_optimize_passes.cpp
 
-    # Doesn't compile
-    linear_2d_bwd.cpp
-    matmul_bwd.cpp
-    linear_test.cpp
-    nms_tests.cpp
-    sif_tests.cpp
-    common_functions_custom_kernel_tests.cpp
-    eager_custom_kernel_tests.cpp
-  )
+  # Doesn't compile
+  linear_2d_bwd.cpp
+  matmul_bwd.cpp
+  linear_test.cpp
+  nms_tests.cpp
+  sif_tests.cpp
+  common_functions_custom_kernel_tests.cpp
+  eager_custom_kernel_tests.cpp
+)
 
-  add_habana_executable(
-    test_pt2_integration
-    ${hpu_ops_tests_src}
-    ${misc_tests_src}
-    ${eager_tests_src})
-  target_compile_definitions(test_pt2_integration PRIVATE EAGER_TESTS)
-  set_target_properties(test_pt2_integration PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
-endif()
-
-find_package(Python COMPONENTS Interpreter Development)
-
-find_library(PYTHON3_LIB python3)
-
-if(NOT PYTHON3_LIB)
-  message(STATUS "python3 library not found!!!")
-
-  # NOTE: Ubuntu 22.04 requires python3.10 version
-  find_library(PYTHON3_LIB python3.10)
-endif()
-
-if(NOT PYTHON3_LIB)
-  message(STATUS "python3.10 library not found!!!")
-
-  # NOTE: Currently depending on python3.8 exclusively, in case version upgrade
-  # please change accordingly
-  find_library(PYTHON3_LIB python3.8)
-endif()
-
-if(NOT PYTHON3_LIB)
-  message(FATAL_ERROR "This ENV does not have python3, python3.8 or python3.10 lib, which is essential!!!")
-endif()
+add_habana_executable(
+  test_pt2_integration
+  ${hpu_ops_tests_src}
+  ${misc_tests_src}
+  ${eager_tests_src})
+target_compile_definitions(test_pt2_integration PRIVATE EAGER_TESTS)
+set_target_properties(test_pt2_integration PROPERTIES COMPILE_OPTIONS "-Wno-deprecated-declarations")
 
 configure_file(pattern.json ${CMAKE_BINARY_DIR}/pattern.json COPYONLY)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
 target_link_libraries(
   test_pt_integration
-  PRIVATE "${PYTHON3_LIB}"
+  PRIVATE
+  Python::Python
   torch
   habana_pytorch_backend
   habana_pytorch_plugin
@@ -355,26 +331,25 @@ add_custom_command(
   COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:test_pt_integration>
   ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:test_pt_integration>)
 
-if("${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR}" VERSION_GREATER_EQUAL "2.0")
-  target_link_libraries(
-    test_pt2_integration
-    PRIVATE "${PYTHON3_LIB}"
-    torch
-    habana_pytorch_backend
-    habana_pytorch2_plugin
-    gtest
-    gtest_main
-    util
-    pthread
-    stdc++
-    stdc++fs
-    nlohmann_json::nlohmann_json
-    absl::strings
-    dl
-    npu::hllogger)
-  add_custom_command(
-    TARGET test_pt2_integration
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:test_pt2_integration>
-    ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:test_pt2_integration>)
-endif()
+target_link_libraries(
+  test_pt2_integration
+  PRIVATE
+  Python::Python
+  torch
+  habana_pytorch_backend
+  habana_pytorch2_plugin
+  gtest
+  gtest_main
+  util
+  pthread
+  stdc++
+  stdc++fs
+  nlohmann_json::nlohmann_json
+  absl::strings
+  dl
+  npu::hllogger)
+add_custom_command(
+  TARGET test_pt2_integration
+  POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:test_pt2_integration>
+  ${CMAKE_SOURCE_DIR}/tests/$<TARGET_FILE_NAME:test_pt2_integration>)

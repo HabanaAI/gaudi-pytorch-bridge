@@ -54,7 +54,7 @@ add_custom_command(OUTPUT
                      ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops7.cpp
                      ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops8.cpp
                      ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops9.cpp
-                   COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
+                   COMMAND ${Python_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gen_op.py
                      --output_dir=${CMAKE_BINARY_DIR}/generated
                      --yaml=${CMAKE_SOURCE_DIR}/scripts/hpu_op.yaml
                      ${CMAKE_SOURCE_DIR}/habana_kernels/wrap_kernels_declarations.h
