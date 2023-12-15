@@ -58,7 +58,7 @@ static int prepareDivisor(
       divisor = self.numel();
       break;
     case 1:
-      divisor = input_shape[dims.front()];
+      divisor = input_shape.size() == 0 ? 1 : input_shape[dims.front()];
       break;
     default:
       for (unsigned i = 0; i < dimsVec.size() && i < dims.size() &&
@@ -102,6 +102,9 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
     const bool take_sqrt,
     const bool mean_op) {
   auto input_shape = self.sizes().vec();
+  if (input_shape.size() == 0) {
+    input_shape.push_back(1);
+  }
   const int ndims = input_shape.size();
   auto dimsVec = dims.vec();
 
