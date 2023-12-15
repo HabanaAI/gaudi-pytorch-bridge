@@ -19,7 +19,7 @@ def is_torch_at_least(major: int = 2, minor: int = 0):
     torch_version = torch.__version__.split(".")
     torch_major = int(torch_version[0])
     torch_minor = int(torch_version[1])
-    return major >= torch_major and minor >= torch_minor
+    return major <= torch_major and minor <= torch_minor
 
 
 def is_device(device_name):
