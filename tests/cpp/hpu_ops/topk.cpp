@@ -16,6 +16,10 @@
 
 #define HPU_TOPK_OUT_TEST(name, op_code, dtype, sorted, largest)              \
   TEST_F(HpuOpTest, name) {                                                   \
+    /* Test sporadically failing on Gaudi3: SW-162282 */                      \
+    if (isGaudi3()) {                                                         \
+      GTEST_SKIP() << "Test skipped on Gaudi3.";                              \
+    }                                                                         \
     GenerateInputs(1, {{8, 24, 24, 3}}, dtype);                               \
     auto k = 5;                                                               \
     auto dim = 0;                                                             \
