@@ -8,6 +8,7 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 #define SIZE(...) __VA_ARGS__
 #define DTYPE torch::kFloat
@@ -22,6 +23,10 @@
 
 #define HPU_MEDIAN_DIM_TEST(name, in_size, axis, keepdim)         \
   TEST_F(HpuOpTest, name) {                                       \
+    /* Test sporadically failing on Gaudi3: SW-165423 */          \
+    if (isGaudi3()) {                                             \
+      GTEST_SKIP() << "Test skipped on Gaudi3.";                  \
+    }                                                             \
     GenerateInputs(1, {{in_size}}, {DTYPE});                      \
     auto expected = torch::median(GetCpuInput(0), axis, keepdim); \
     auto result = torch::median(GetHpuInput(0), axis, keepdim);   \
@@ -31,6 +36,10 @@
 #define HPU_MEDIAN_DIM_VALUES_TEST(                                         \
     name, in_size, expected_size, axis, keepdim)                            \
   TEST_F(HpuOpTest, name) {                                                 \
+    /* Test sporadically failing on Gaudi3: SW-167683 */                    \
+    if (isGaudi3()) {                                                       \
+      GTEST_SKIP() << "Test skipped on Gaudi3.";                            \
+    }                                                                       \
     GenerateInputs(1, {{in_size}}, {DTYPE});                                \
     auto expected_value = torch::empty({expected_size}, DTYPE);             \
     auto expected_index = torch::empty({expected_size}, torch::kLong);      \
