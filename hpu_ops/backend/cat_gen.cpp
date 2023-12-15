@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "common/utils.h"
 #include "generated/backend/cat.h"
 
 namespace sh = synapse_helpers;
@@ -18,7 +19,7 @@ namespace sh = synapse_helpers;
 namespace habana {
 OutputMetaDataVector CatMeta(const at::Stack& stack) {
   auto tensors_ = stack[0].toTensorVector();
-  auto dim_ = stack[1].toInt();
+  auto dim = stack[1].toInt();
 
   TORCH_CHECK(tensors_.size() > 0, "Empty tensors list!");
   const at::Tensor& first_tensor = tensors_[0];
@@ -29,7 +30,7 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
   std::vector<int64_t> out_size;
   if (tensors.size() > 0) {
     const at::Tensor& first_valid_tensor = tensors[0];
-    int64_t dim = at::maybe_wrap_dim(dim_, first_valid_tensor.dim());
+    dim = at::maybe_wrap_dim(dim, first_valid_tensor.dim());
 
     out_size = first_valid_tensor.sizes().vec();
     out_size[dim] = 0;
@@ -53,13 +54,13 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
 void CatHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto in_tensors = stack[0].toTensorList().vec();
+  const auto in_tensors = stack[0].toTensorList().vec();
   TORCH_CHECK(in_tensors.size() > 0, "Empty tensors list!");
-  auto dim_ = stack[1].toInt();
+  auto dim = stack[1].toInt();
 
-  auto md = OutputMeta(stack)[0];
-  auto cal_out_size = md.shape;
-  auto out_tensor_type = md.dtype;
+  const auto md = OutputMeta(stack)[0];
+  const auto cal_out_size = md.shape;
+  const auto out_tensor_type = md.dtype;
 
   std::vector<size_t> valid_indices;
   valid_indices.reserve(in_tensors.size());
@@ -79,7 +80,7 @@ void CatHabanaOperator::AddNode(
   }
 
   int64_t first_valid_tensor_dim = in_tensors[valid_indices[0]].dim();
-  int64_t dim = at::maybe_wrap_dim(dim_, first_valid_tensor_dim);
+  dim = at::maybe_wrap_dim(dim, first_valid_tensor_dim);
 
   std::vector<sh::tensor> cat_input_shTensor;
   std::vector<synTensor> cat_input_synTensor;
@@ -94,9 +95,9 @@ void CatHabanaOperator::AddNode(
           in_tensors[i].sizes(),
           in_tensors[i].scalar_type(),
           out_tensor_type));
-      cat_input_synTensor.emplace_back(cat_input_shTensor.back().get());
+      cat_input_synTensor.push_back(cat_input_shTensor.back().get());
     } else {
-      cat_input_synTensor.emplace_back(syn_in(i));
+      cat_input_synTensor.push_back(syn_in(i));
     }
   }
 

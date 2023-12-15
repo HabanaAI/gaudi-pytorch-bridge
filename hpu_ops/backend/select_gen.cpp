@@ -1,51 +1,58 @@
-/******************************************************************************
- * Copyright (C) 2023 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "generated/backend/select.h"
-#include "habana_kernels/index_kernels.h"
-namespace habana {
 
-sizes_vec SliceOutputShape(const at::Stack& stack) {
+namespace {
+
+habana::sizes_vec SliceOutputShape(const at::Stack& stack) {
   auto self = stack[0].toTensor();
   auto dim = stack[1].toInt();
   auto index = stack[2].toInt();
 
-  auto start_val = index;
-  auto end_val = index + 1;
-  auto step = 1;
   int64_t ndim = self.dim();
   if (ndim == 0) {
     TORCH_CHECK_INDEX(false, "slice() cannot be applied to a 0-dim tensor.");
   }
-  dim = at::maybe_wrap_dim(dim, ndim);
   std::vector<int64_t> sizes(self.sizes().begin(), self.sizes().end());
+
+  if (index < 0) {
+    index += sizes[dim];
+  }
+
+  auto start_val = index;
+  auto end_val = index + 1;
+  auto step = 1;
+
+  dim = at::maybe_wrap_dim(dim, ndim);
 
   TORCH_CHECK(step > 0, "slice step must be positive");
 
   if (start_val == INT64_MAX) {
     start_val = 0;
+  } else if (start_val < 0) {
+    start_val = 0;
+  } else if (start_val > sizes[dim]) {
+    start_val = sizes[dim];
   }
-  if (start_val < 0) {
-    start_val += sizes[dim];
-  }
+
   if (end_val < 0) {
     end_val += sizes[dim];
   }
-  if (start_val < 0) {
-    start_val = 0;
-  } else if (start_val >= sizes[dim]) {
-    start_val = sizes[dim];
-  }
+
   if (end_val < start_val) {
     end_val = start_val;
-  } else if (end_val >= sizes[dim]) {
+  } else if (end_val > sizes[dim] + 1) {
     end_val = sizes[dim];
   }
 
@@ -54,6 +61,9 @@ sizes_vec SliceOutputShape(const at::Stack& stack) {
 
   return {sizes};
 }
+} // namespace
+
+namespace habana {
 
 sizes_vec SelectHpuOutputShape(const at::Stack& stack) {
   auto self = stack[0].toTensor();
@@ -89,6 +99,10 @@ void SelectHpu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto dim = stack.at(1).toInt();
   auto index = stack.at(2).toInt();
+
+  if (index < 0) {
+    index += self.size(dim);
+  }
 
   auto start = index;
   auto end = index + 1;
