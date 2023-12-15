@@ -31,6 +31,13 @@ at::Tensor empty(
   auto device = device_opt.value_or(at::kHPU);
   TORCH_INTERNAL_ASSERT(device.is_hpu());
 
+  auto index = device.index();
+  if (index != 0 && index != -1) {
+    TORCH_WARN_ONCE(
+        "\"hpu:X\" notation is not supported by Gaudi PyTorch "
+        "intergration bridge. Please change to \"hpu\" without index");
+  }
+
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
       layout_or_default(layout_opt) == at::Layout::Strided);
 
@@ -61,6 +68,12 @@ at::Tensor empty_strided(
 
   auto device = device_opt.value_or(at::kHPU);
   TORCH_INTERNAL_ASSERT(device.is_hpu());
+  auto index = device.index();
+  if (index != 0 && index != -1) {
+    TORCH_WARN_ONCE(
+        "\"hpu:X\" notation is not supported by Gaudi PyTorch "
+        "intergration bridge. Please change to \"hpu\" without index");
+  }
 
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
       layout_or_default(layout_opt) == at::Layout::Strided);
