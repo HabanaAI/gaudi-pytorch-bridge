@@ -38,6 +38,7 @@ class ThreadPoolControl {
    */
   void JoinPendingThread() {
     try {
+      habana_helpers::AutoNoGIL gil_release;
       m_thread_pool_obj.waitWorkComplete();
     } catch (const std::exception& e) {
       PT_BRIDGE_WARN("Exception caught in thread...\n", e.what());

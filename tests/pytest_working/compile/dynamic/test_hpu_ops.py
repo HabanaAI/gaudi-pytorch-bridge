@@ -613,6 +613,46 @@ def test_constant_pad_1d_output_preallocate():
         grad = torch.ones_like(h_result)
         h_result.backward(grad)
 
+def test_graph_pipelining():
+    input = [(2, 3, 4, 4), (2, 3, 6, 6), (2, 3, 8, 8)]
+
+    def raw_function(input_tensor):
+        out1 = torch.relu(input_tensor)
+        out2 = torch.add(input_tensor, out1)
+        return out2
+
+    compiled_fn = torch.compile(
+        raw_function, backend="aot_hpu_training_backend", dynamic=True
+    )
+    for s in input:
+        t = torch.randn(s, requires_grad=False)
+        result = raw_function(t)
+        t_hpu = t.to("hpu")
+        h_result = compiled_fn(t_hpu)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+def test_graph_BatchNorm_pipelining():
+    input = [(2, 3, 4, 4), (2, 3, 6, 6), (2, 3, 8, 8), (2, 3, 10, 10), (2, 3, 12, 12)]
+    def raw_function(input_tensor):
+        batch_norm = torch.nn.BatchNorm2d(num_features=3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)
+        out = batch_norm(input_tensor)
+        return out
+    def raw_function_hpu(input_tensor):
+        batch_norm = torch.nn.BatchNorm2d(num_features=3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False).to("hpu")
+        out = batch_norm(input_tensor)
+        return out
+
+    compiled_fn = torch.compile(
+        raw_function_hpu, backend="aot_hpu_training_backend", dynamic=None
+    )
+    for s in input:
+        t = torch.randn(s, requires_grad=False)
+        result = raw_function(t)
+        t_hpu = t.to("hpu")
+        h_result = compiled_fn(t_hpu)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
 def test_op_sort():
     sizes = [(2, 3), (10, 3), (5, 3)]
 

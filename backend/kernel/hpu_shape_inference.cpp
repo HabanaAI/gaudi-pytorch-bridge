@@ -72,6 +72,13 @@ uint64_t ShapeInference::UpdateShapeInfo(
       default:
         HABANA_ASSERT("Unidentidied Shape inference pass");
     }
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "PASS:",
+        ShapeInference::m_shape_info->m_pass,
+        ", Tensor ID : ",
+        tensor_id,
+        ", Shape : ",
+        shape);
   }
   return tensor_id;
 }
@@ -107,6 +114,13 @@ uint64_t ShapeInference::UpdateShapeInfo(
       default:
         HABANA_ASSERT("Unidentidied Shape inference pass");
     }
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "PASS:",
+        ShapeInference::m_shape_info->m_pass,
+        ", Tensor ID : ",
+        tensor_id,
+        ", Shape : ",
+        shape);
   }
   return tensor_id;
 }
