@@ -559,10 +559,10 @@ uint64_t graph::query_workspace_size(
 }
 
 void graph::query_recipe_tensor_info(
-    std::shared_ptr<graph::recipe_handle> recipe_handle,
+    const graph::recipe_handle& recipe_handle,
     std::vector<synRetrievedLaunchTensorInfo>& tensor_info_vec) {
   auto status = synTensorRetrieveLaunchInfoById(
-      recipe_handle->syn_recipe_handle_,
+      recipe_handle.syn_recipe_handle_,
       tensor_info_vec.size(),
       tensor_info_vec.data());
   HABANA_ASSERT(

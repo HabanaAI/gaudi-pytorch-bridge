@@ -169,7 +169,7 @@ class graph {
       bool use_int64 = false);
 
   static void query_recipe_tensor_info(
-      std::shared_ptr<graph::recipe_handle> recipe_handle,
+      const graph::recipe_handle& recipe_handle,
       std::vector<synRetrievedLaunchTensorInfo>& tensor_info_vec);
 
   static uint64_t query_workspace_size(

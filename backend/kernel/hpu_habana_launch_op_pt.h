@@ -148,6 +148,8 @@ class HabanaLaunchOpPT {
       std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
 
   void UpdatePatchingInformation(
+      RecipeValueSpec& rv,
+      bool is_graph_empty,
       // do not update output shapes
       bool is_ds_patching_update = false,
       std::optional<
@@ -175,13 +177,16 @@ class HabanaLaunchOpPT {
       std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> info);
   bool is_hccl_send_mark_step();
   void CompileSynapse();
-  void CompileSynapseGraphAndPatchTable();
-  void CompileSynapseGraph();
-  void ConstructPatchingTableAndAtenOutputs();
-  void UpdateSynapsePermutations();
+  std::shared_ptr<RecipeValueSpec> CompileSynapseGraphAndPatchTable();
+  std::shared_ptr<synapse_helpers::graph::recipe_handle> CompileSynapseGraph();
+  void ConstructPatchingTableAndAtenOutputs(
+      RecipeValueSpec& rv,
+      const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe);
+  void UpdateSynapsePermutations(
+      RecipeValueSpec& rvs,
+      const synapse_helpers::graph::recipe_handle& recipe);
   void ApplyOutputPermutationsFromCache();
-  void StoreShapeAgnosticGraph();
-  void StoreCompiledInformation();
+  void StoreCompiledInformation(std::shared_ptr<RecipeValueSpec>& rvs);
   void ExecuteSynapse();
   void ExecuteSynapseGraph();
   void ExecuteSynapseCache(size_t graph_key_with_perm);
@@ -202,10 +207,6 @@ class HabanaLaunchOpPT {
 
   at::ArrayRef<torch::jit::IValue> get_input_refs() const {
     return input_refs;
-  }
-
-  std::shared_ptr<RecipeValueSpec> get_cur_rvalpsh() const {
-    return recipe_launcher_->rvs_;
   }
 
   std::shared_ptr<RecipeArgumentSpec> get_cur_rargpsh() const {
@@ -718,15 +719,14 @@ class HabanaLaunchOpPT {
       bool is_restride_cl);
   void handleMetaOps(torch::jit::Node* node);
 
-  std::shared_ptr<RecipeLauncher> GetCachedRecipe(
+  std::shared_ptr<RecipeHolder> GetCachedRecipe(
       std::shared_ptr<RecipeArgumentSpec>& spec_key) {
-    auto rvpsh{RecipeCacheLRU::get_cache().get(spec_key)};
-    if (nullptr != rvpsh && nullptr == rvpsh->rvs_->jit_graph_) {
-      rvpsh->rvs_->jit_graph_ = jit_ir_graph_;
+    auto rh{RecipeCacheLRU::get_cache().get(spec_key)};
+    if (nullptr != rh && nullptr == rh->rvs_->jit_graph_) {
+      rh->rvs_->jit_graph_ = jit_ir_graph_;
     }
-    return rvpsh;
+    return rh;
   }
-  void ReturnCachedRecipe(RecipeValueSpec& rv);
 
   void DuplicateSynapseGraph(
       std::vector<std::pair<synTensor, std::vector<int64_t>>>&

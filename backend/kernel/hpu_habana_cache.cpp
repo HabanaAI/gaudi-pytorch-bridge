@@ -46,7 +46,6 @@ size_t RecipeValueSpec::recipe_count = 0;
 size_t RecipeValueSpec::dynamic_recipe_count = 0;
 size_t RecipeValueSpec::total_recipe_ntbytes = 0;
 size_t RecipeValueSpec::compile_count = 0;
-size_t RecipeValueSpec::launch_count = 0;
 
 HbCas::HbCas(bool with_grad, at::ArrayRef<c10::IValue> inputs) {
   p_cas = std::make_shared<torch::jit::CompleteArgumentSpec>(with_grad, inputs);
@@ -231,8 +230,8 @@ std::ostream& operator<<(std::ostream& O, const RecipeLauncher& v) {
   O << " <addr : " << v.recipe_.get() << "> "
     << " <use_count : " << v.recipe_.use_count() << "> "
     << "\n";
+  O << " <num_launches : " << v.num_launches << ">" << '\n';
   O << "----   RecipeLauncher :: end \n";
-  O << *(v.rvs_);
   return O;
 }
 
@@ -240,8 +239,7 @@ std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v) {
   O << '\n'
     << "---- recipe details :: begin" << '\n'
     << " <id : " << v.id << "> "
-    << " <iteration : " << v.iter_idx << "> "
-    << " <num_launches : " << v.num_launches << ">" << '\n';
+    << " <iteration : " << v.iter_idx << "> ";
   O << " #inputs                        : " << v.num_inputs << '\n';
   O << " #induplicates                  : " << v.num_induplicates << '\n'
     << " #dma_inputs                    : " << v.num_dma_inputs << '\n'
@@ -341,20 +339,10 @@ int RecipeValueSpec::update_hit_count() {
   return rv_hit_count;
 }
 
-RecipeLauncher::RecipeLauncher(std::istream& is) {
+RecipeHolder::RecipeHolder(std::istream& is) {
   using namespace serialization;
-  bool valid_recipe_handle = false;
-  deserialize(is, valid_recipe_handle);
-
-  if (valid_recipe_handle) {
-    recipe_ = std::make_shared<synapse_helpers::graph::recipe_handle>();
-    deserialize(is, recipe_->recipe_name_);
-    deserialize(is, recipe_->graph_is_empty_);
-    recipe_->in_execution_phase_ = false;
-  }
-  deserialize(is, workspace_size_);
-  deserialize(is, ntensorbytes_);
   rvs_ = std::make_shared<RecipeValueSpec>(is);
+  rl_ = std::make_shared<RecipeLauncher>(is, *rvs_);
 }
 
 RecipeValueSpec::RecipeValueSpec(std::istream& is) {
@@ -394,7 +382,8 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
   deserialize(is, count);
   deserialize(is, total_recipe_ntbytes);
   // deserialize(is, get_use_flag());
-  collective_kernels_info.Deserialize(is, dtensorinfos);
+  collective_kernels_info =
+      std::make_shared<habana_helpers::CollectiveKernelInfos>(is, dtensorinfos);
 
   if (dynamic_graph) {
     std::vector<int64_t> sif_tensor_indices;
@@ -408,6 +397,12 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
   }
 }
 
+void RecipeHolder::Serialize(std::ostream& os) const {
+  using namespace serialization;
+  rvs_->Serialize(os);
+  rl_->Serialize(os);
+}
+
 void RecipeLauncher::Serialize(std::ostream& os) const {
   using namespace serialization;
   serialize(os, recipe_ != nullptr);
@@ -417,7 +412,6 @@ void RecipeLauncher::Serialize(std::ostream& os) const {
   }
   serialize(os, workspace_size_);
   serialize(os, ntensorbytes_);
-  rvs_->Serialize(os);
 }
 
 void RecipeValueSpec::Serialize(std::ostream& os) const {
@@ -453,7 +447,8 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
   serialize(os, is_refined_wirt);
   serialize(os, count);
   serialize(os, total_recipe_ntbytes);
-  collective_kernels_info.Serialize(os, dtensorinfos);
+
+  collective_kernels_info->Serialize(os, dtensorinfos);
 
   if (dynamic_graph) {
     std::unordered_map<PtTensorInfoShared, int64_t> tinfo_to_sif_tidx_map;
@@ -1272,10 +1267,11 @@ void RecipeValueSpec::patch_launch_info(
   }
 }
 
-void RecipeValueSpec::MaybePrintDebugInfo(
+namespace {
+void MaybePrintDebugInfo(
     const at::ArrayRef<torch::jit::IValue>& input_refs,
     const std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
-    const VecOfIValPtrSh& aten_outputs) const {
+    const VecOfIValPtrSh& aten_outputs) {
   PT_BRIDGE_BEGIN;
   if (hl_logger::logLevelAtLeast(
           HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_DEBUG)) {
@@ -1289,14 +1285,8 @@ void RecipeValueSpec::MaybePrintDebugInfo(
         aten_outputs.size());
 
     for (size_t idx{0}; idx < input_refs.size(); idx++) {
-      ValPtr vp = (jit_graph_ ? jit_graph_->inputs().at(idx) : nullptr);
       PT_BRIDGE_DEBUG(
-          "Input[",
-          idx,
-          "]",
-          (vp ? (": %" + vp->debugName()) : std::string()),
-          " -> ",
-          habana_helpers::DebugString(input_refs[idx]));
+          "Input[", idx, "] -> ", habana_helpers::DebugString(input_refs[idx]));
     }
     if (intermediate_tensors_ptr) {
       size_t idx{0};
@@ -1309,21 +1299,15 @@ void RecipeValueSpec::MaybePrintDebugInfo(
     if (!aten_outputs.empty()) {
       size_t idx{0};
       for (auto& a : aten_outputs) {
-        ValPtr vp = (jit_graph_ ? jit_graph_->outputs().at(idx) : nullptr);
         PT_BRIDGE_DEBUG(
-            "Output[",
-            idx,
-            "]",
-            (vp ? (": %" + vp->debugName()) : std::string()),
-            " -> ",
-            habana_helpers::DebugString(a));
+            "Output[", idx, "] -> ", habana_helpers::DebugString(a));
         idx += 1;
       }
     }
-    PT_BRIDGE_DEBUG(*this);
   }
   PT_BRIDGE_END;
 }
+} // namespace
 
 size_t get_active_graph_unique_key(const std::string& name) {
   static uint64_t graph_key_suffix_ = -1;
@@ -1332,11 +1316,44 @@ size_t get_active_graph_unique_key(const std::string& name) {
   return (graph_key_suffix_ + str_hash(name));
 }
 
-RecipeLauncher::RecipeLauncher(std::shared_ptr<RecipeValueSpec> rvs)
-    : rvs_(std::move(rvs)) {}
+RecipeLauncher::RecipeLauncher(
+    const RecipeValueSpec& rvs,
+    std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe) {
+  ntensorbytes_ = rvs.CalculateNtensorbytes();
+  id_ = rvs.id;
+  num_inputs_ = rvs.num_inputs;
+  num_outputs_ = rvs.num_outputs;
+  num_input_to_outduplicates_ = rvs.num_input_to_outduplicates;
+  num_intermediate_to_outduplicates_ = rvs.num_intermediate_to_outduplicates;
+  graph_name_ = rvs.get_graph_name();
+  collective_kernels_info_ = rvs.collective_kernels_info;
 
-RecipeLauncher::RecipeLauncher()
-    : rvs_(std::make_shared<RecipeValueSpec>(nullptr)) {}
+  SetRecipe(recipe);
+}
+
+RecipeLauncher::RecipeLauncher(std::istream& is, const RecipeValueSpec& rvs) {
+  id_ = rvs.id;
+  num_inputs_ = rvs.num_inputs;
+  num_outputs_ = rvs.num_outputs;
+  num_input_to_outduplicates_ = rvs.num_input_to_outduplicates;
+  num_intermediate_to_outduplicates_ = rvs.num_intermediate_to_outduplicates;
+  graph_name_ = rvs.get_graph_name();
+
+  collective_kernels_info_ = rvs.collective_kernels_info;
+
+  using namespace serialization;
+  bool valid_recipe_handle = false;
+  deserialize(is, valid_recipe_handle);
+
+  if (valid_recipe_handle) {
+    recipe_ = std::make_shared<synapse_helpers::graph::recipe_handle>();
+    deserialize(is, recipe_->recipe_name_);
+    deserialize(is, recipe_->graph_is_empty_);
+    recipe_->in_execution_phase_ = false;
+  }
+  deserialize(is, workspace_size_);
+  deserialize(is, ntensorbytes_);
+}
 
 void RecipeLauncher::Launch(
     synapse_helpers::hpuStream_t hpu_stream,
@@ -1348,7 +1365,7 @@ void RecipeLauncher::Launch(
     const VecOfIValPtrSh& dma_inputs) {
   PT_BRIDGE_BEGIN;
   TORCH_CHECK(!aten_outputs.empty());
-  rvs_->MaybePrintDebugInfo(input_refs, intermediate_tensors_ptr, aten_outputs);
+  MaybePrintDebugInfo(input_refs, intermediate_tensors_ptr, aten_outputs);
 
   auto& device = HPURegistrar::get_device().syn_device();
   auto& stream_handle = device.get_stream(hpu_stream);
@@ -1363,7 +1380,7 @@ void RecipeLauncher::Launch(
     // Get the reference to the tensor it is operating on to prevent
     // it from being deallocated while the operation is still in flight.
     std::vector<synapse_helpers::device_ptr> inDevPtr;
-    inDevPtr.reserve(rvs_->num_inputs);
+    inDevPtr.reserve(num_inputs_);
     for (auto& input : input_refs) {
       if (input.isTensor()) {
         at::Tensor tensor = input.toTensor();
@@ -1396,9 +1413,8 @@ void RecipeLauncher::Launch(
     }
 
     outDevPtr.reserve(
-        rvs_->num_inputs + rvs_->num_outputs +
-        rvs_->num_input_to_outduplicates +
-        rvs_->num_intermediate_to_outduplicates);
+        num_inputs_ + num_outputs_ + num_input_to_outduplicates_ +
+        num_intermediate_to_outduplicates_);
     for (auto& output : aten_outputs) {
       if (output && output->isTensor()) {
         at::Tensor tensor = output->toTensor();
@@ -1447,9 +1463,9 @@ void RecipeLauncher::Launch(
                 device.get_device_memory().get_memory_reporter();
             reporter->getGraphStats()->addGraph(
                 active_graph_key_,
-                rvs_->id,
-                rvs_->num_inputs,
-                rvs_->num_outputs,
+                id_,
+                num_inputs_,
+                num_outputs_,
                 ntensorbytes_,
                 workspace_size_,
                 workspace_size_);
@@ -1466,7 +1482,7 @@ void RecipeLauncher::Launch(
             stream_handle,
             active_graph_key_);
         habana_lazy::log_dev_mem_stats(
-            "Post-Launch", rvs_->get_graph_name(), workspace_size_);
+            "Post-Launch", graph_name_, workspace_size_);
       } else {
         PT_BRIDGE_DEBUG("Skipping recipe launch. empty recipe");
       }
@@ -1528,7 +1544,7 @@ void RecipeLauncher::Launch(
       device.register_producer_on_stream(
           std::move(outDevPtr), stream_handle, cleanup_callback);
       // Launch collective ops
-      rvs_->collective_kernels_info.Launch(true, cleanup_callback);
+      collective_kernels_info_->Launch(true, cleanup_callback);
     } else {
       // Use wrapper for resources that must survive async part of the compute.
       struct ResourceHolder {
@@ -1586,7 +1602,7 @@ void RecipeLauncher::Launch(
             hpu_stream);
       }
       // Launch collective ops
-      rvs_->collective_kernels_info.Launch(true, cleanup_callback);
+      collective_kernels_info_->Launch(true, cleanup_callback);
     }
 
   } else {
@@ -1601,9 +1617,9 @@ void RecipeLauncher::Launch(
               device.get_device_memory().get_memory_reporter();
           reporter->getGraphStats()->addGraph(
               active_graph_key_,
-              rvs_->id,
-              rvs_->num_inputs,
-              rvs_->num_outputs,
+              id_,
+              num_inputs_,
+              num_outputs_,
               ntensorbytes_,
               workspace_size_,
               workspace_size_);
@@ -1620,13 +1636,13 @@ void RecipeLauncher::Launch(
           stream_handle);
 
       habana_lazy::log_dev_mem_stats(
-          "Post-Launch", rvs_->get_graph_name(), workspace_size_);
+          "Post-Launch", graph_name_, workspace_size_);
     }
     TORCH_HABANA_CHECK(
         synStreamSynchronize(stream_handle), "synStreamSynchronize failed");
 
     // Launch collective ops
-    rvs_->collective_kernels_info.Launch(false, [] {});
+    collective_kernels_info_->Launch(false, [] {});
 
     if (synapse_helpers::memory_reporter_enable() && active_graph_key_ > 0) {
       auto& device = HPURegistrar::get_device();
@@ -1636,14 +1652,13 @@ void RecipeLauncher::Launch(
     }
   }
 
-  rvs_->num_launches++;
-  rvs_->increment_launch_count();
+  num_launches++;
   PT_BRIDGE_END;
 }
 
 void RecipeCacheLRU::add(
     std::shared_ptr<RecipeArgumentSpec>& key,
-    std::shared_ptr<RecipeLauncher>& val) {
+    std::shared_ptr<RecipeHolder>& val) {
   std::lock_guard<std::mutex> lg(mutex_);
 
   insert(key, val);
@@ -1655,7 +1670,7 @@ void RecipeCacheLRU::add(
 
 void RecipeCacheLRU::insert(
     std::shared_ptr<RecipeArgumentSpec>& key,
-    std::shared_ptr<RecipeLauncher>& val) {
+    std::shared_ptr<RecipeHolder>& val) {
   TORCH_CHECK(
       map_.size() == list_.size(),
       "lru cache corruption, map size ",
@@ -1689,14 +1704,14 @@ void RecipeCacheLRU::insert(
   } else {
     list_.push_front(std::pair<
                      std::shared_ptr<RecipeArgumentSpec>,
-                     std::shared_ptr<RecipeLauncher>>(key, val));
+                     std::shared_ptr<RecipeHolder>>(key, val));
     map_.emplace(key, list_.begin());
 
-    RecipeValueSpec::total_recipe_ntbytes += val->ntensorbytes_;
+    RecipeValueSpec::total_recipe_ntbytes += val->rl_->ntensorbytes_;
   }
 }
 
-std::shared_ptr<RecipeLauncher> RecipeCacheLRU::get(
+std::shared_ptr<RecipeHolder> RecipeCacheLRU::get(
     std::shared_ptr<RecipeArgumentSpec>& key) {
   std::lock_guard<std::mutex> lg(mutex_);
   if (exists(key)) {
@@ -1715,7 +1730,6 @@ std::shared_ptr<RecipeLauncher> RecipeCacheLRU::get(
     // increment the use_count so that the recipe is not removed from cache
     // it is the responsibility of the caller of get function to
     // decrement the use count after the execution is completed
-    list_.front().second->rvs_->increment_use_count();
 
     return list_.front().second;
   } else if (disk_cache_) {
@@ -1725,7 +1739,6 @@ std::shared_ptr<RecipeLauncher> RecipeCacheLRU::get(
           "recipe was not found in LRU cache, but was found on disk, key:",
           key->hashCode());
       insert(key, val);
-      val->rvs_->increment_use_count();
       return val;
     }
   }
@@ -1746,24 +1759,24 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& num_recipes, bool mem_exhausted) {
     auto lit = list_.end();
     lit--;
 
-    while (lit->second->rvs_->is_in_use() && lit != list_.begin()) {
+    while (lit->second->is_in_use() && lit != list_.begin()) {
       PT_BRIDGE_DEBUG(
           "recipe is in use, key ",
           lit->first->hashCode(),
           ", size ",
-          synapse_helpers::get_mem_str(lit->second->ntensorbytes_));
+          synapse_helpers::get_mem_str(lit->second->rl_->ntensorbytes_));
       lit--;
     }
 
     // delete the recipe only if it is not in use
     // otherwise the caller need to wait
-    if (!lit->second->rvs_->is_in_use()) {
+    if (!lit->second->is_in_use()) {
       if (mem_exhausted) {
         PT_BRIDGE_DEBUG(
             "memory exhausted : removing recipe, key ",
             lit->first->hashCode(),
             ", size ",
-            synapse_helpers::get_mem_str(lit->second->ntensorbytes_));
+            synapse_helpers::get_mem_str(lit->second->rl_->ntensorbytes_));
       } else {
         PT_BRIDGE_DEBUG(
             "lru max size ",
@@ -1771,11 +1784,11 @@ bool RecipeCacheLRU::drop_lru_impl(size_t& num_recipes, bool mem_exhausted) {
             " reached : removing recipe, key ",
             lit->first->hashCode(),
             ", size ",
-            synapse_helpers::get_mem_str(lit->second->ntensorbytes_));
+            synapse_helpers::get_mem_str(lit->second->rl_->ntensorbytes_));
       }
 
       lit->second->rvs_->decrement_recipe_count();
-      RecipeValueSpec::total_recipe_ntbytes -= lit->second->ntensorbytes_;
+      RecipeValueSpec::total_recipe_ntbytes -= lit->second->rl_->ntensorbytes_;
 
       // Drop the entry from map_ and list_
       dropped_recipe.first = lit->first;
@@ -1937,9 +1950,9 @@ void DynamicBucketInfoMap::Deserialize(std::istream& is) {
 
 size_t RecipeCacheLRU::Size() const {
   size_t size = 0;
-  for (auto const& [recipeArgumentSpec, RecipeLauncher] : list_) {
+  for (auto const& [recipeArgumentSpec, RecipeHolder] : list_) {
     size += recipeArgumentSpec->Size();
-    size += RecipeLauncher->Size();
+    size += RecipeHolder->Size();
   }
   return size;
 }
@@ -1973,7 +1986,7 @@ void RecipeCacheLRU::Deserialize(std::string recipe_cache_path) {
 size_t RecipeCacheLRU::SynapseRecipeSize() const {
   size_t size = 0;
   for (auto const& p : list_) {
-    size += p.second->recipe_->get_recipe_host_mem_size();
+    size += p.second->rl_->recipe_->get_recipe_host_mem_size();
   }
   return size;
 }
@@ -2054,17 +2067,17 @@ DiskCache::DiskCache(std::string cache_path)
 }
 
 void DiskCache::Add(
-    const RecipeLauncher& val,
+    const RecipeHolder& val,
     const RecipeArgumentSpec& argSpec) // NOLINT
 {
   std::stringstream ss;
   val.Serialize(ss);
   auto hashCode = std::to_string(argSpec.hashCode());
-  recipe_cache_.store(hashCode + cache_id_suffix_, val.recipe_, ss);
-  if (val.recipe_ && !val.recipe_->recipe_name_.empty()) {
+  recipe_cache_.store(hashCode + cache_id_suffix_, val.rl_->recipe_, ss);
+  if (val.rl_->recipe_ && !val.rl_->recipe_->recipe_name_.empty()) {
     PT_BRIDGE_DEBUG(
         "Storing in disc cache: recipe:key: ",
-        val.recipe_->recipe_name_,
+        val.rl_->recipe_->recipe_name_,
         ":",
         hashCode);
   } else {
@@ -2075,8 +2088,8 @@ void DiskCache::Add(
       GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_DUMP_DEBUG);
   if (dump_debug_info) {
     static int debug_id = 0;
-    std::string recipe_name = val.recipe_
-        ? val.recipe_->recipe_name_
+    std::string recipe_name = val.rl_->recipe_
+        ? val.rl_->recipe_->recipe_name_
         : "recipe " + std::to_string(debug_id++);
     std::string hash_content_filepath = recipe_cache_.get_cache_path() + "/" +
         hashCode + cache_id_suffix_ + "_" + recipe_name + ".hash_content";
@@ -2093,22 +2106,21 @@ void DiskCache::flush() {
   recipe_cache_.flush();
 }
 
-std::shared_ptr<RecipeLauncher> DiskCache::Find(
-    const RecipeArgumentSpec& spec) {
+std::shared_ptr<RecipeHolder> DiskCache::Find(const RecipeArgumentSpec& spec) {
   std::stringstream ss;
   auto res = recipe_cache_.lookup(
       std::to_string(spec.hashCode()) + cache_id_suffix_, ss);
   if (res) {
-    auto val = std::make_shared<RecipeLauncher>(ss);
+    auto val = std::make_shared<RecipeHolder>(ss);
     if (*res != nullptr) {
-      if (!val->recipe_) {
+      if (!val->rl_->recipe_) {
         PT_BRIDGE_WARN(
             "Unexpected nullptr recipe came from cache entry for hash ",
             std::to_string(spec.hashCode()));
         return nullptr;
       }
-      val->recipe_->syn_recipe_handle_ = *res;
-      val->recipe_->in_execution_phase_ = true;
+      val->rl_->recipe_->syn_recipe_handle_ = *res;
+      val->rl_->recipe_->in_execution_phase_ = true;
     }
     return val;
   }

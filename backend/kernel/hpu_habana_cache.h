@@ -224,7 +224,9 @@ struct RecipeArgumentSpecEqual {
 // subgraph
 struct RecipeValueSpec {
   RecipeValueSpec(std::shared_ptr<torch::jit::Graph> g = nullptr)
-      : jit_graph_(g) {
+      : collective_kernels_info(
+            std::make_shared<habana_helpers::CollectiveKernelInfos>()),
+        jit_graph_(g) {
     count++;
     id = count;
   }
@@ -234,21 +236,6 @@ struct RecipeValueSpec {
   ~RecipeValueSpec();
 
   friend std::ostream& operator<<(std::ostream& O, const RecipeValueSpec& v);
-
-  bool is_in_use() const {
-    return (use_count > 0);
-  }
-
-  void increment_use_count() {
-    ++use_count;
-  }
-
-  void decrement_use_count() {
-    auto prev_use_count = use_count--;
-    HABANA_ASSERT(
-        prev_use_count > 0,
-        " trying to decrement use count which is already 0!");
-  }
 
   std::string header_str();
   std::string build_header_str() const;
@@ -288,10 +275,6 @@ struct RecipeValueSpec {
   void patch_launch_info(
       std::vector<synLaunchTensorInfo>& syn_launch_info_vec,
       std::vector<size_t>& external_tensor_info_indexes) const;
-  void MaybePrintDebugInfo(
-      const at::ArrayRef<torch::jit::IValue>& input_refs,
-      const std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
-      const VecOfIValPtrSh& aten_outputs) const;
 
   void create_outdup(
       size_t ti_idx,
@@ -312,12 +295,6 @@ struct RecipeValueSpec {
   }
   static size_t get_compile_count() {
     return compile_count;
-  }
-  static void increment_launch_count() {
-    launch_count++;
-  }
-  static size_t get_launch_count() {
-    return launch_count;
   }
 
   bool get_refined() {
@@ -387,7 +364,6 @@ struct RecipeValueSpec {
   size_t Size() const {
     size_t size = sizeof(*this);
     size += tensor_ids_.size() * sizeof(decltype(tensor_ids_)::value_type);
-    size += collective_kernels_info.Size();
     for (const auto& tensor_info : dtensorinfos) {
       size += tensor_info->Size();
     }
@@ -395,7 +371,8 @@ struct RecipeValueSpec {
   }
 
   std::vector<PtTensorInfoShared> dtensorinfos;
-  habana_helpers::CollectiveKernelInfos collective_kernels_info;
+  std::shared_ptr<habana_helpers::CollectiveKernelInfos>
+      collective_kernels_info;
   std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
   std::unordered_set<std::string> disabled_jit_ir_ops_;
 
@@ -412,7 +389,6 @@ struct RecipeValueSpec {
   size_t num_input_to_outduplicates{0};
   size_t num_intermediate_to_outduplicates{0};
   size_t num_output_to_outduplicates{0};
-  size_t num_launches{0};
 
   size_t key{0};
   size_t graph_key{0};
@@ -441,9 +417,8 @@ struct RecipeValueSpec {
   static size_t dynamic_recipe_count;
   static size_t total_recipe_ntbytes;
   static size_t compile_count;
-  static size_t launch_count;
 
-  size_t CalculateNtensorbytes() {
+  size_t CalculateNtensorbytes() const {
     size_t ntensorbytes = 0;
     for (auto& ti : dtensorinfos) {
       if (!ti->is_duplicate()) {
@@ -452,15 +427,13 @@ struct RecipeValueSpec {
     }
     return ntensorbytes;
   }
-
- private:
-  std::atomic<size_t> use_count{0};
 };
 
 struct RecipeLauncher {
-  RecipeLauncher(std::shared_ptr<RecipeValueSpec> rvs);
-  RecipeLauncher();
-  RecipeLauncher(std::istream& is);
+  RecipeLauncher(
+      const RecipeValueSpec& rvs,
+      std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe = nullptr);
+  RecipeLauncher(std::istream& is, const RecipeValueSpec& rvs);
   void Launch(
       synapse_helpers::hpuStream_t hpu_stream,
       const at::ArrayRef<torch::jit::IValue>& input_refs,
@@ -477,34 +450,59 @@ struct RecipeLauncher {
   // Multiple recipes can be queued up, so each recipe would need
   // a dedicated time slot for itself
   std::shared_ptr<synapse_helpers::TimeSlot> time_slot_;
-  std::shared_ptr<RecipeValueSpec> rvs_;
+
+  void SetRecipe(
+      std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe) {
+    recipe_ = std::move(recipe);
+    if (recipe_) {
+      workspace_size_ = synapse_helpers::graph::query_workspace_size(*recipe_);
+    }
+  }
 
   size_t Size() const {
-    return rvs_->Size();
+    return collective_kernels_info_->Size();
   }
 
   void Serialize(std::ostream& os) const;
 
-  void CalculateNtensorbytes() {
-    ntensorbytes_ = rvs_->CalculateNtensorbytes();
-  }
-
-  void populate_syn_tensor_ids() {
-    if (!recipe_) {
-      PT_BRIDGE_DEBUG("Empty recipie. No need to retrive tensor ids.");
-      return;
-    }
-    rvs_->populate_syn_tensor_ids(*recipe_);
-  }
+  size_t id_ = 0;
+  size_t num_inputs_ = 0;
+  size_t num_outputs_ = 0;
+  size_t num_input_to_outduplicates_ = 0;
+  size_t num_intermediate_to_outduplicates_ = 0;
+  size_t num_launches = 0;
+  std::string graph_name_;
+  std::shared_ptr<habana_helpers::CollectiveKernelInfos>
+      collective_kernels_info_;
 
   friend std::ostream& operator<<(std::ostream& O, const RecipeLauncher& v);
+};
+
+struct RecipeHolder {
+  RecipeHolder(
+      std::shared_ptr<RecipeLauncher> rl,
+      std::shared_ptr<RecipeValueSpec> rvs)
+      : rl_(rl), rvs_(rvs){};
+  RecipeHolder(std::istream& is);
+  std::shared_ptr<RecipeLauncher> rl_;
+  std::shared_ptr<RecipeValueSpec> rvs_;
+
+  void Serialize(std::ostream& os) const;
+
+  bool is_in_use() const {
+    return rl_.use_count() > 1;
+  }
+
+  size_t Size() const {
+    return rl_->Size() + rvs_->Size();
+  }
 };
 
 class DiskCache {
  public:
   DiskCache(std::string cache_path);
-  void Add(const RecipeLauncher& val, const RecipeArgumentSpec& spec);
-  std::shared_ptr<RecipeLauncher> Find(const RecipeArgumentSpec& spec);
+  void Add(const RecipeHolder& val, const RecipeArgumentSpec& spec);
+  std::shared_ptr<RecipeHolder> Find(const RecipeArgumentSpec& spec);
   // in case RecipeValueSpec creation failed, DiskCache is leaving lock files on
   // disk. This ensures a cleanup.
   void flush();
@@ -557,13 +555,12 @@ class RecipeCacheLRU {
     return ret_flag;
   }
 
-  std::
-      pair<std::shared_ptr<RecipeArgumentSpec>, std::shared_ptr<RecipeLauncher>>
-          dropped_recipe;
+  std::pair<std::shared_ptr<RecipeArgumentSpec>, std::shared_ptr<RecipeHolder>>
+      dropped_recipe;
   void add(
       std::shared_ptr<RecipeArgumentSpec>& key,
-      std::shared_ptr<RecipeLauncher>& val);
-  std::shared_ptr<RecipeLauncher> get(std::shared_ptr<RecipeArgumentSpec>& key);
+      std::shared_ptr<RecipeHolder>& val);
+  std::shared_ptr<RecipeHolder> get(std::shared_ptr<RecipeArgumentSpec>& key);
   bool drop_lru(size_t& num_recipes);
   void remove_oldest();
   void ResetDiskCache();
@@ -590,7 +587,7 @@ class RecipeCacheLRU {
   bool drop_lru_impl(size_t& recipe_count, bool mem_exhausted = false);
   void insert(
       std::shared_ptr<RecipeArgumentSpec>& key,
-      std::shared_ptr<RecipeLauncher>& val);
+      std::shared_ptr<RecipeHolder>& val);
   void InitDiskCache();
 
   static std::mutex mutex_;
@@ -601,14 +598,14 @@ class RecipeCacheLRU {
 
   std::list<std::pair<
       std::shared_ptr<RecipeArgumentSpec>,
-      std::shared_ptr<RecipeLauncher>>>
+      std::shared_ptr<RecipeHolder>>>
       list_;
 
   std::unordered_map<
       std::shared_ptr<RecipeArgumentSpec>,
       std::list<std::pair<
           std::shared_ptr<RecipeArgumentSpec>,
-          std::shared_ptr<RecipeLauncher>>>::iterator,
+          std::shared_ptr<RecipeHolder>>>::iterator,
       RecipeArgumentSpecHash,
       RecipeArgumentSpecEqual>
       map_;

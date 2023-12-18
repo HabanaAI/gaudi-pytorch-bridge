@@ -2931,7 +2931,7 @@ void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
         auto dropped_val = RecipeCacheLRU::get_cache().dropped_recipe.second;
         // Update the eviction threshold left after removing this recipe
         eviction_threshold_left -=
-            dropped_val->recipe_->get_recipe_host_mem_size();
+            dropped_val->rl_->recipe_->get_recipe_host_mem_size();
         auto dropped_dbi =
             DynamicBucketInfoMap::get_instance().get(dropped_arg);
         if (dropped_dbi != nullptr) {
@@ -3071,9 +3071,10 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
   if (enable_graph_caching_) {
     current_dbipsh_->SetRecipeKeyForBucket(
         graph_input_info.current_bucket_id, cur_rargpsh->hashCode());
-    recipe_launcher_ = GetCachedRecipe(cur_rargpsh);
+    auto recipe_holder = GetCachedRecipe(cur_rargpsh);
 
-    if (ABSL_PREDICT_TRUE(recipe_launcher_)) {
+    if (ABSL_PREDICT_TRUE(recipe_holder)) {
+      recipe_launcher_ = recipe_holder->rl_;
       // Cache hit for a dynamic bucket
       // Steps:
       // 1. Infer shapes of all persistent tensors which are not input
@@ -3081,7 +3082,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
       // 3. Launch
       // 4. Update outputs
       current_dbipsh_->IncrementHitCount(current_bucket_id_);
-      RecipeValueSpec& rv = *recipe_launcher_->rvs_;
+      RecipeValueSpec& rv = *recipe_holder->rvs_;
       if (rv.get_refined()) {
         habana_helpers::DynamicBucketInfo::inc_num_refined_recipe_hits();
         if (rv.get_refined_wirt()) {
@@ -3143,7 +3144,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
             current_bucket_id_, jit_ir_graph_, ranges, refine_candidate);
       }
 
-      UpdatePatchingInformation(true, tidx_to_tensor_map);
+      UpdatePatchingInformation(
+          rv, !recipe_launcher_->recipe_, true, tidx_to_tensor_map);
 
       {
         std::lock_guard<std::mutex> lg(current_dbipsh_->get_refine_mutex());
@@ -3167,7 +3169,6 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
 
         // Update the stack from the recipe itself
         UpdateRecipeOutputs();
-        ReturnCachedRecipe(rv);
 
         RefinementEngine::GetEngine().AddGraphKey(
             rargpsh_graph->graphHashCode());
@@ -3322,12 +3323,6 @@ void RecipeValueSpec::create_outdup(
   aten_outputs.at(output_idx) = ivpsh;
 }
 
-void HabanaLaunchOpPT::ReturnCachedRecipe(RecipeValueSpec& rv) {
-  PT_BRIDGE_BEGIN;
-  rv.decrement_use_count();
-  PT_BRIDGE_END;
-}
-
 // shape agnostic : duplicate synapse graph
 void HabanaLaunchOpPT::DuplicateSynapseGraph(
     std::vector<std::pair<synTensor, std::vector<int64_t>>>&
@@ -3437,16 +3432,6 @@ static void ResetDuplicateTensorShapes(
   }
 }
 
-// shape agnostic : store shape agnostic graph
-void HabanaLaunchOpPT::StoreShapeAgnosticGraph() {
-  auto& rvs = *recipe_launcher_->rvs_;
-  rvs.shape_agnostic_synapse_graph_ =
-      std::make_unique<synapse_helpers::graph>(std::move(*syn_graph_ptr_));
-
-  rvs.shape_agnostic_synapse_graph_->set_build_phase(true);
-  HABANA_ASSERT(rvs.shape_agnostic_synapse_graph_->get_is_valid());
-}
-
 // shape agnostic : validate Inputs and Outputs and disable shape agnostic if
 // not supported
 void HabanaLaunchOpPT::ValidateInputsAndOutputsAndDisableSA(
@@ -3536,7 +3521,6 @@ void HabanaLaunchOpPT::update_syn_launch_info(
 // call this function for recipe caching (graph/eager)
 void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
   PT_BRIDGE_BEGIN;
-  RecipeValueSpec& rv = *recipe_launcher_->rvs_;
 
   if (habana_helpers::IsInferenceMode()) {
     for (size_t j = 0; j < pt_stack_sh.size(); j++) {
@@ -3597,7 +3581,6 @@ void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
     UpdateRecipeOutputs();
   }
   PT_BRIDGE_DEBUG("Returning cached recipe : ", cur_rargpsh->hashCode());
-  ReturnCachedRecipe(rv);
 
   ClearStatics();
   PT_BRIDGE_END;
@@ -3660,14 +3643,14 @@ void HabanaLaunchOpPT::DumpStaticCompilationStatistics(
 }
 
 void HabanaLaunchOpPT::UpdatePatchingInformation(
+    RecipeValueSpec& rv,
+    bool is_graph_empty,
     bool is_ds_patching_update,
     std::optional<
         std::reference_wrapper<const std::unordered_map<int64_t, at::Tensor>>>
         local_tidx_to_tensor_map,
     const std::unordered_map<synTensor, synTensor>& synapse_orig_to_new_handle,
     const bool is_shape_agnostic_graph) {
-  RecipeValueSpec& rv = *recipe_launcher_->rvs_;
-
   intermediate_tensors_ptr_sh_ = std::make_shared<VecOfIValPtrSh>();
 
   // The aten_output_num is the total number of outputs
@@ -3696,9 +3679,7 @@ void HabanaLaunchOpPT::UpdatePatchingInformation(
         allocated_outputs_);
   }
   if (!dry_run_) {
-    if (recipe_launcher_->recipe_ ||
-        (rv.shape_agnostic_synapse_graph_ &&
-         !rv.shape_agnostic_synapse_graph_->is_empty())) {
+    if (!is_graph_empty) {
       rv.patch_launch_info(syn_launch_info_, external_tensor_info_indexes_);
     } else {
       PT_BRIDGE_DEBUG("Skipping patch_launch_info for empty recipe");
@@ -3778,15 +3759,16 @@ void HabanaLaunchOpPT::run(
         enable_graph_caching_ || enable_eager_caching_,
         " something went wrong! either eager or graph recipe caching should be enabled");
     PT_BRIDGE_DEBUG("Getting cached recipe : ", cur_rargpsh->hashCode());
-    recipe_launcher_ = GetCachedRecipe(cur_rargpsh);
+    auto recipe_holder = GetCachedRecipe(cur_rargpsh);
 
-    if (ABSL_PREDICT_TRUE(recipe_launcher_)) {
+    if (ABSL_PREDICT_TRUE(recipe_holder)) {
+      recipe_launcher_ = recipe_holder->rl_;
+      auto& rvs = *recipe_holder->rvs_;
       emitCacheEvent(
           habana_helpers::EventDispatcher::Topic::CACHE_HIT,
           std::to_string(cur_rargpsh->hashCode()));
 
-      RecipeValueSpec& rv = *recipe_launcher_->rvs_;
-      rv.update_hit_count();
+      rvs.update_hit_count();
 
       PT_BRIDGE_DEBUG(
           id_str_,
@@ -3794,13 +3776,13 @@ void HabanaLaunchOpPT::run(
           "HabanaOp recipe cache hit :: key ",
           cur_rargpsh->hashCode(),
           "\n",
-          rv.header_str(),
+          rvs.header_str(),
           "\n",
-          rv.digest_str());
+          rvs.digest_str());
       PT_IRGRAPH_DEBUG("HabanaOp recipe cache hit :: static shapes");
       PT_TEST_DEBUG("HabanaOp recipe cache hit :: static path");
 
-      UpdatePatchingInformation();
+      UpdatePatchingInformation(rvs, !recipe_launcher_->recipe_);
 
       // currently only eager backend supports pipelining
       // can be merged once non-eager backends support pipelining
@@ -3966,13 +3948,16 @@ void HabanaLaunchOpPT::run(
 
       // TODO do we need sync ????
       pipeline_execution.compile_sync();
-      CompileSynapseGraphAndPatchTable();
+      auto rvs = CompileSynapseGraphAndPatchTable();
       // TODO turn on this condition
       // if (jit_graph_and_meta_data_->get_is_shape_agnostic_supported())
       {
-        StoreShapeAgnosticGraph();
-        get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(
-            recipe_launcher_->rvs_);
+        rvs->shape_agnostic_synapse_graph_ =
+            std::make_unique<synapse_helpers::graph>(
+                std::move(*syn_graph_ptr_));
+        rvs->shape_agnostic_synapse_graph_->set_build_phase(
+            true); // TODO remove it
+        get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(rvs);
       }
 
       PT_LAZY_EAGER_DEBUG(
@@ -4028,10 +4013,10 @@ void HabanaLaunchOpPT::run(
         RunHybridSif<dynamic_shapes_false>(local_tidx_to_tensor_map);
       }
 
-      recipe_launcher_ = std::make_unique<RecipeLauncher>(rvs);
-
       constexpr bool is_shape_agnostic_graph = true;
       UpdatePatchingInformation(
+          rv,
+          syn_graph_ptr_->is_empty(),
           false,
           local_tidx_to_tensor_map,
           synapse_orig_to_new_handle,
@@ -4044,7 +4029,7 @@ void HabanaLaunchOpPT::run(
             "[SHAPE AGNOSTIC] Cache hit Synapse shape inference failed !");
       }
 
-      recipe_launcher_->CalculateNtensorbytes();
+      recipe_launcher_ = std::make_unique<RecipeLauncher>(rv);
 
       // Once SAG supports control edges, we'll have to double-check if we need
       // additional control edge processing here
@@ -4271,6 +4256,8 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       synapse_helpers::graph::create_for_refinement(
           device.syn_device(), name_));
 
+  std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
+  auto rvs = std::make_shared<RecipeValueSpec>();
   // Compile the graph
   {
     CreateValueToIvalueMapForInputs();
@@ -4287,9 +4274,9 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
       SynBuildCache cache;
       BuildSynapseGraph(syn_graph, cache);
-      CompileSynapseGraph();
-      ConstructPatchingTableAndAtenOutputs();
-      UpdateSynapsePermutations();
+      recipe = CompileSynapseGraph();
+      ConstructPatchingTableAndAtenOutputs(*rvs, recipe);
+      UpdateSynapsePermutations(*rvs, *recipe);
     } catch (std::exception& e) {
       error_str = e.what();
       PT_DYNAMIC_SHAPE_DEBUG(
@@ -4311,20 +4298,22 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   PT_DYNAMIC_SHAPE_DEBUG("Compilation completed");
 
   // Add the <key,value> pair to the map
-  recipe_launcher_->rvs_->dynamic_graph = syn_graph->is_dynamic_graph();
-  recipe_launcher_->rvs_->set_op_strs(cur_rargpsh->get_op_strs());
-  RecipeCacheLRU::get_cache().add(cur_rargpsh, recipe_launcher_);
+  rvs->dynamic_graph = syn_graph->is_dynamic_graph();
+  rvs->set_op_strs(cur_rargpsh->get_op_strs());
+  recipe_launcher_ = std::make_unique<RecipeLauncher>(*rvs, recipe);
+  auto recipe_holder = std::make_shared<RecipeHolder>(recipe_launcher_, rvs);
+  RecipeCacheLRU::get_cache().add(cur_rargpsh, recipe_holder);
   DynamicBucketInfoMap::get_instance().add(cur_rargpsh, current_dbipsh_);
 
   new_recipe_key = cur_rargpsh->hashCode();
   // Add the recipe to the corresponding bucket
-  new_bucket.SetSynapseRecipePtr(recipe_launcher_->rvs_);
+  new_bucket.SetSynapseRecipePtr(rvs);
 
   PT_DYNAMIC_SHAPE_DEBUG(
       "HabanaOp recipe cache :: adding new recipe to cache ::",
-      recipe_launcher_->rvs_->header_str(),
+      rvs->header_str(),
       "\n",
-      recipe_launcher_->rvs_->digest_str(),
+      rvs->digest_str(),
       "\n",
       "--------------------");
 

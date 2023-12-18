@@ -119,9 +119,10 @@ void habana::HabanaLaunchOpPT::ApplyOutputPermutationsFromCache() {
  * so that the permutation is taken into account when copying the tensor back to
  * the host or passing it to the next graph.
  */
-void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
+void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
+    RecipeValueSpec& rvs,
+    const synapse_helpers::graph::recipe_handle& recipe) {
   PT_LAZY_TRACE;
-  auto& rvs = *recipe_launcher_->rvs_;
 
   if (syn_graph_ptr_->is_empty()) {
     PT_BRIDGE_DEBUG("Empty synapse graph. Skip UpdateSynapsePermutations.");
@@ -193,8 +194,7 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations() {
       }
     }
     // querying synapse output tensors permutations:
-    synapse_helpers::graph::query_recipe_tensor_info(
-        recipe_launcher_->recipe_, tensor_info_vec);
+    synapse_helpers::graph::query_recipe_tensor_info(recipe, tensor_info_vec);
 
     // updating the BE tensor and the cache record with the permutation
     for (auto& info : tensor_info_vec) {
@@ -590,18 +590,14 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
   synapse_helpers::ReleaseFreeMemory();
 }
 
-void habana::HabanaLaunchOpPT::CompileSynapseGraph() {
+std::shared_ptr<synapse_helpers::graph::recipe_handle> habana::
+    HabanaLaunchOpPT::CompileSynapseGraph() {
   TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
-
-  if (!recipe_launcher_) {
-    recipe_launcher_ = std::make_shared<RecipeLauncher>();
-  }
 
   if (syn_graph_ptr_->is_empty()) {
     PT_BRIDGE_DEBUG("Empty synapse graph. Nothing to compile.");
     // No need to allocate for lazy eager shape agnostic cache hit scenario
-    recipe_launcher_->recipe_ = nullptr;
-    return;
+    return nullptr;
   }
 
   std::chrono::steady_clock::time_point t_start;
@@ -612,7 +608,6 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph() {
       std::chrono::duration_cast<std::chrono::nanoseconds>(t_compile).count();
 
   RecipeValueSpec::increment_compile_count();
-  recipe_launcher_->recipe_ = recipe;
 
   PT_EAGER_DEBUG(
       "[SHAPE AGNOSTIC] cur recipe syn recipe handle : ",
@@ -621,17 +616,13 @@ void habana::HabanaLaunchOpPT::CompileSynapseGraph() {
   if (habana_helpers::IsInferenceMode()) {
     HabanaLaunchOpPT::PostCompilationStepForConstTensors(*recipe);
   }
-
-  // TODO move it to RecipeLauncher
-  recipe_launcher_->workspace_size_ =
-      synapse_helpers::graph::query_workspace_size(*recipe);
+  return recipe;
 }
 
-void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
+void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs(
+    RecipeValueSpec& rv,
+    const std::shared_ptr<synapse_helpers::graph::recipe_handle>& recipe) {
   TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
-  TORCH_CHECK(recipe_launcher_, "Recipe Launcher pointer is null");
-  TORCH_CHECK(recipe_launcher_->rvs_, "Recipe pointer is null");
-  RecipeValueSpec& rv = *recipe_launcher_->rvs_;
   if (syn_graph_ptr_->is_empty() && collective_kernels_info.Empty()) {
     PT_BRIDGE_DEBUG(
         "Empty synapse graph. No need to construct the patching table.");
@@ -661,7 +652,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
         shape_tensor_tinfos.end());
   }
 
-  rv.collective_kernels_info = std::move(collective_kernels_info);
+  *rv.collective_kernels_info = std::move(collective_kernels_info);
 
   // tinfos for outputs are populated during compile
   // need to be reordered only when the tensor handles are released
@@ -728,8 +719,6 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
     OrderOutputTinfos(rv);
   }
 
-  recipe_launcher_->CalculateNtensorbytes();
-
   // At this point, tinfos for inputs, input duplicates, dma_inputs,
   // intermediates, outputs and output duplicates are populated
   auto total_tinfos = rv.num_inputs + rv.num_induplicates + rv.num_dma_inputs +
@@ -760,8 +749,6 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
       " are not adding up to #dtensorinfos ",
       rv.dtensorinfos.size());
 
-  recipe_launcher_->populate_syn_tensor_ids();
-
   if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED ||
       (refine_ds_enabled_ && current_dbipsh_)) {
     TORCH_CHECK(cur_rargpsh != nullptr, "Encountered null cur_rargpsh");
@@ -776,18 +763,20 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs() {
   rv.sif_tidx_to_tinfo_map = sif_tidx_to_tinfo_map;
   rv.disabled_jit_ir_ops_ = disabled_jit_ir_ops();
 
-  if (recipe_launcher_->recipe_) {
+  if (recipe) {
+    rv.populate_syn_tensor_ids(*recipe);
     rv.patch_launch_info(syn_launch_info_, external_tensor_info_indexes_);
   } else {
-    PT_BRIDGE_DEBUG("Skipping patch_launch_info for empty recipe");
+    PT_BRIDGE_DEBUG(
+        "Skipping patch_launch_info and retrieving tensor ids for empty recipe");
   }
 }
 
-void habana::HabanaLaunchOpPT::StoreCompiledInformation() {
+void habana::HabanaLaunchOpPT::StoreCompiledInformation(
+    std::shared_ptr<RecipeValueSpec>& rvs) {
   TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
   TORCH_CHECK(recipe_launcher_, "Recipe pointer is null");
-  RecipeValueSpec& rv = *recipe_launcher_->rvs_;
-  if (syn_graph_ptr_->is_empty() && rv.collective_kernels_info.Empty()) {
+  if (syn_graph_ptr_->is_empty() && rvs->collective_kernels_info->Empty()) {
     return;
   }
 
@@ -809,24 +798,24 @@ void habana::HabanaLaunchOpPT::StoreCompiledInformation() {
   if (enable_caching_) {
     // Add the <key,value> pair to the map
     if (refine_ds_enabled_ && current_dbipsh_) {
-      rv.dynamic_graph = syn_graph_ptr_->is_dynamic_graph();
+      rvs->dynamic_graph = syn_graph_ptr_->is_dynamic_graph();
       // Add the recipe to the corresponding bucket
-      current_dbipsh_->SetSynapseRecipePtr(
-          current_bucket_id_, recipe_launcher_->rvs_);
+      current_dbipsh_->SetSynapseRecipePtr(current_bucket_id_, rvs);
     }
-    RecipeCacheLRU::get_cache().add(cur_rargpsh, recipe_launcher_);
+    auto rh = std::make_shared<RecipeHolder>(recipe_launcher_, rvs);
+    RecipeCacheLRU::get_cache().add(cur_rargpsh, rh);
     PT_BRIDGE_DEBUG(
-        "HabanaOp recipe cache :: adding new recipe to cache :: ", rv.key);
+        "HabanaOp recipe cache :: adding new recipe to cache :: ", rvs->key);
   }
 
-  rv.update_hit_count();
+  rvs->update_hit_count();
 }
 
 void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
   TORCH_CHECK(syn_graph_ptr_, "Synapse graph pointer is null");
   TORCH_CHECK(recipe_launcher_, "Recipe pointer is null");
-  RecipeValueSpec& rv = *recipe_launcher_->rvs_;
-  if (syn_graph_ptr_->is_empty() && rv.collective_kernels_info.Empty()) {
+  if (syn_graph_ptr_->is_empty() &&
+      recipe_launcher_->collective_kernels_info_->Empty()) {
     PT_BRIDGE_DEBUG("Empty synapse graph. Will update outputs directly.");
     UpdateOutputs();
     return;
@@ -834,8 +823,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
 
   [[maybe_unused]] auto& device = HPURegistrar::get_device();
 
-  PT_BRIDGE_DEBUG(
-      "HabanaOp recipe cache :: launching new recipe", rv.header_str());
+  PT_BRIDGE_DEBUG("HabanaOp recipe cache :: launching new recipe");
 
   std::shared_ptr<VecOfIValPtrSh> intermediate_tensors_ptr = nullptr;
 
@@ -859,20 +847,14 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
         external_tensor_info_indexes_);
   }
 
-  rv.collective_kernels_info.ClearAllPtAndSynTensors();
+  // TODO: must be run only one time
+  recipe_launcher_->collective_kernels_info_->ClearAllPtAndSynTensors();
 
   if (enable_graph_caching_ && refine_ds_enabled_ && current_dbipsh_) {
     PT_DYNAMIC_SHAPE_DEBUG(
         current_dbipsh_->digest_str(),
         current_dbipsh_->history_str(),
-        "Recipe Header::",
-        rv.header_str(),
-        "\n",
-        rv.digest_str(),
-        "\n",
         "--------------------");
-  } else {
-    PT_BRIDGE_DEBUG(rv.digest_str());
   }
 
   if (!jit_graph_and_meta_data_->get_is_pipeline_supported()) {

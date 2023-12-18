@@ -33,15 +33,22 @@ void CompileSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
 }
 }; // namespace HabanaLaunchOpPipeline
 
-void HabanaLaunchOpPT::CompileSynapseGraphAndPatchTable() {
+std::shared_ptr<RecipeValueSpec> HabanaLaunchOpPT::
+    CompileSynapseGraphAndPatchTable() {
   PT_BRIDGE_BEGIN;
 
-  CompileSynapseGraph();
-  ConstructPatchingTableAndAtenOutputs();
-  UpdateSynapsePermutations();
-  StoreCompiledInformation();
+  auto recipe = CompileSynapseGraph();
+  auto rvs = std::make_shared<RecipeValueSpec>();
+
+  ConstructPatchingTableAndAtenOutputs(*rvs, recipe);
+  UpdateSynapsePermutations(*rvs, *recipe);
+
+  recipe_launcher_ = std::make_unique<RecipeLauncher>(*rvs, recipe);
+
+  StoreCompiledInformation(rvs);
 
   PT_BRIDGE_END;
+  return rvs;
 }
 
 void HabanaLaunchOpPT::CompileSynapse() {
@@ -52,7 +59,7 @@ void HabanaLaunchOpPT::CompileSynapse() {
   }
 
   if (execution_control_.is_shape_agnostic_cache_hit_)
-    CompileSynapseGraph();
+    recipe_launcher_->SetRecipe(CompileSynapseGraph());
   else
     CompileSynapseGraphAndPatchTable();
 

@@ -103,7 +103,6 @@ bool habana::CompileGraphWithRange(
     std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh) {
   bool ret{true};
 
-  rvpsh->increment_use_count();
   PT_DYNAMIC_SHAPE_DEBUG(
       "BucketRefinement: Will use the following recipe for compilation",
       rvpsh->header_str());
@@ -113,7 +112,6 @@ bool habana::CompileGraphWithRange(
   PrintStack(input_stack);
 
   auto mp_g_ = rvpsh->jit_graph_;
-  rvpsh->decrement_use_count();
 
   PT_DYNAMIC_SHAPE_DEBUG("Triggering compilation of the following graph");
   if (mp_g_) {

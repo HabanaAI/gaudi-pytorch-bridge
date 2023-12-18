@@ -34,6 +34,19 @@ class CollectiveKernelInfos {
     size_t Size() const;
   };
 
+  CollectiveKernelInfos() = default;
+
+  CollectiveKernelInfos(
+      std::istream& is,
+      const std::vector<PtTensorInfoShared>& dtensorinfos) {
+    Deserialize(is, dtensorinfos);
+  }
+
+  CollectiveKernelInfos(const CollectiveKernelInfos&) = default;
+  CollectiveKernelInfos& operator=(const CollectiveKernelInfos&) = default;
+  CollectiveKernelInfos(CollectiveKernelInfos&&) = default;
+  CollectiveKernelInfos& operator=(CollectiveKernelInfos&&) = default;
+
   void Serialize(
       std::ostream& os,
       const std::vector<PtTensorInfoShared>& dtensorinfos) const;
