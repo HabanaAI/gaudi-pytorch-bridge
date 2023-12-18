@@ -21,7 +21,7 @@ from fp8_utils import (
     FP8_NAMES,
     variant_from_dtype,
 )
-from test_utils import hpu, is_gaudi1, compare_tensors, is_torch_at_least
+from test_utils import hpu, is_gaudi1, compare_tensors
 import habana_frameworks.torch.core as htcore
 from habana_frameworks.torch.hpex.kernels.Fp8Ops import (
     cast_to_fp8,
@@ -121,8 +121,6 @@ def test_cast_to_fp8(
 @pytest.mark.parametrize("is_scale", [True, False])
 @pytest.mark.parametrize("is_amax", [True, False])
 def test_cast_to_fp8_transpose_optional(shape, dtype, is_scale, is_amax):
-    if is_torch_at_least(2,1):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-160938")
     torch.manual_seed(12345)
     hpu = torch.device("hpu")
     input_pos = torch.rand(shape, dtype=dtype) * 30 + 10
@@ -156,8 +154,6 @@ def test_cast_to_fp8_transpose_optional(shape, dtype, is_scale, is_amax):
 @pytest.mark.parametrize("is_scale", [True, False])
 @pytest.mark.parametrize("is_amax", [True, False])
 def test_cast_to_fp8_optional(shape, dtype, is_scale, is_amax):
-    if is_scale and is_torch_at_least(2,1):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-160938")
     torch.manual_seed(12345)
     hpu = torch.device("hpu")
     input_pos = torch.rand(shape, dtype=dtype) * 30 + 10
@@ -189,8 +185,6 @@ def test_cast_to_fp8_optional(shape, dtype, is_scale, is_amax):
 @pytest.mark.parametrize("stochastic", [True, False])
 @pytest.mark.parametrize("out_dtype", FP8_NAMES_LEGACY)
 def test_fp8_cast_transpose_bgrad(shape, scale, dtype, stochastic, out_dtype):
-    if not stochastic and dtype == torch.bfloat16 and is_torch_at_least(2,1):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-160938")
     check_native_fp8(out_dtype)
     out_dtype = dtype_from_string(out_dtype)
     torch.manual_seed(12345)
@@ -229,8 +223,6 @@ def test_fp8_cast_transpose_bgrad(shape, scale, dtype, stochastic, out_dtype):
 @pytest.mark.parametrize("is_scale", [True, False])
 @pytest.mark.parametrize("is_amax", [True, False])
 def test_fp8_cast_transpose_bgrad_optional(shape, dtype, is_scale, is_amax):
-    if is_scale and dtype == torch.bfloat16 and is_torch_at_least(2,1):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-160938")
     torch.manual_seed(12345)
     hpu = torch.device("hpu")
     input_pos = torch.rand(shape, dtype=dtype) * 30 + 10
@@ -338,8 +330,6 @@ def test_fp8_cast_transpose_bgrad_dgelu(
 def test_fp8_cast_transpose_bgrad_dgelu_optional(
     shape, dtype, retain, is_scale, is_amax
 ):
-    if is_scale and dtype == torch.bfloat16 and is_torch_at_least(2,1):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-160938")
     torch.manual_seed(12345)
     hpu = torch.device("hpu")
     full_shape = (shape[0] * 2, shape[1])
@@ -398,8 +388,6 @@ def test_fp8_cast_transpose_bgrad_dgelu_optional(
 @pytest.mark.parametrize("is_amax", [True, False])
 @pytest.mark.parametrize("out_dtype", FP8_NAMES_LEGACY)
 def test_fp8_gelu(shape, scale, dtype, stochastic, is_scale, is_amax, out_dtype):
-    if is_scale and not stochastic and dtype == torch.bfloat16 and is_torch_at_least(2,1):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-160938")
     check_native_fp8(out_dtype)
     out_dtype = dtype_from_string(out_dtype)
     torch.manual_seed(12345)
@@ -448,8 +436,6 @@ def test_fp8_gelu(shape, scale, dtype, stochastic, is_scale, is_amax, out_dtype)
 @pytest.mark.parametrize("is_amax", [True, False])
 @pytest.mark.parametrize("out_dtype", FP8_NAMES_LEGACY)
 def test_fp8_gelu_v2(shape, scale, dtype, stochastic, is_scale, is_amax, out_dtype):
-    if is_scale and not stochastic and dtype == torch.bfloat16 and is_torch_at_least(2,1):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-160938")
     check_native_fp8(out_dtype)
     out_dtype = dtype_from_string(out_dtype)
     torch.manual_seed(12345)
@@ -537,8 +523,6 @@ def test_fp8_fast_softmax(
 @pytest.mark.parametrize("is_amax", [True, False])
 @pytest.mark.parametrize("out_dtype", FP8_NAMES_LEGACY)
 def test_fp8_bgrad_dgelu_optional(shape, dtype, retain, is_scale, is_amax, out_dtype):
-    if is_scale and dtype == torch.bfloat16 and is_torch_at_least(2,1):
-        pytest.xfail("https://jira.habana-labs.com/browse/SW-160938")
     check_native_fp8(out_dtype)
     out_dtype = dtype_from_string(out_dtype)
     torch.manual_seed(12345)

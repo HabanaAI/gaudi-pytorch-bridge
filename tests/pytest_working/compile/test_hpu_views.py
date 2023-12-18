@@ -12,7 +12,6 @@
 import pytest
 import torch
 import torch.nn.functional as F
-from test_utils import is_torch_at_least
 
 
 def test_hpu_multilevel_noncontiguous_views():

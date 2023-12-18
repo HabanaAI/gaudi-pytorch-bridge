@@ -12,7 +12,6 @@
 import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
-from test_utils import is_torch_at_least
 from pytest_working.test_utils import is_gaudi1
 
 @pytest.mark.parametrize("shape", [[8, 16, 16], [1, 8, 16, 16]])

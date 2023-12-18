@@ -13,7 +13,6 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.core as htcore
-from test_utils import is_torch_at_least
 
 @pytest.mark.parametrize("op_code", [torch.any, torch.mean, torch.prod, torch.var_mean])
 def test_reduction(op_code):

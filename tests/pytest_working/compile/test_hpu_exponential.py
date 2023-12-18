@@ -13,7 +13,6 @@ import torch
 import pytest
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.dynamo.compile_backend
-from test_utils import is_torch_at_least
 
 # Exponential op on HPU and CPU devices will always give different results.
 # This test checks if:

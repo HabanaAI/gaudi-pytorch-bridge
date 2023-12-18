@@ -13,7 +13,6 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.core as htcore
-from test_utils import is_torch_at_least
 
 @pytest.mark.parametrize("dtype", [None, torch.float, torch.bfloat16])
 @pytest.mark.parametrize("k", [4, 6])

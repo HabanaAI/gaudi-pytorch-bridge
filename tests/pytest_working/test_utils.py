@@ -2,6 +2,7 @@ import os
 from collections.abc import Mapping
 from contextlib import contextmanager
 from copy import deepcopy
+from packaging.version import Version
 from typing import Callable, Dict, Optional
 
 import habana_frameworks.torch.hpu as hthpu
@@ -15,12 +16,8 @@ hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 
 
-def is_torch_at_least(major: int = 2, minor: int = 0):
-    torch_version = torch.__version__.split(".")
-    torch_major = int(torch_version[0])
-    torch_minor = int(torch_version[1])
-    return major <= torch_major and minor <= torch_minor
-
+def is_torch_at_least(req_ver_str: str):
+    return Version(torch.__version__) >= Version(req_ver_str)
 
 def is_device(device_name):
     return hthpu.get_device_name() == device_name

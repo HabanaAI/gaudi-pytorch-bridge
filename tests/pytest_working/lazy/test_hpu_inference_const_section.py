@@ -15,7 +15,6 @@ import os
 import numpy as np
 import habana_frameworks.torch as htorch
 from habana_frameworks.torch.core.quantization import _mark_params_as_const, _check_params_as_const
-from test_utils import is_torch_at_least
 import shutil
 import pytest
 

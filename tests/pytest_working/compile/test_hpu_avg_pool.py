@@ -12,7 +12,7 @@
 import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
-from test_utils import is_torch_at_least, format_tc
+from test_utils import format_tc
 
 @pytest.mark.parametrize("shape", [[2, 7], [2, 2, 7]], ids=format_tc)
 @pytest.mark.parametrize("kernel_size_and_padding", [(1, 0), (2, 0), (2,1), (3, 1)], ids=format_tc)

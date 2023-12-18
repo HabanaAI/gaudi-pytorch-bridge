@@ -14,7 +14,7 @@ import torch
 import pytest
 import torch.nn as nn
 import habana_frameworks.torch.dynamo.compile_backend
-from test_utils import is_gaudi1, is_torch_at_least
+from test_utils import is_gaudi1
 
 
 def test_op_addr():

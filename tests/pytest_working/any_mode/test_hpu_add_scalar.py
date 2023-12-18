@@ -14,7 +14,7 @@ import torch
 import pytest
 import random
 
-from test_utils import is_gaudi1, is_torch_at_least
+from test_utils import is_gaudi1
 
 supported_dtypes = [torch.float, torch.bfloat16, torch.long, torch.int, torch.short]
 if not is_gaudi1():
