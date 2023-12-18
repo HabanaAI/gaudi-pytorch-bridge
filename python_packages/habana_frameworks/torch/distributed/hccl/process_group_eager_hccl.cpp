@@ -116,10 +116,38 @@ ProcessGroupEagerHCCL::ProcessGroupEagerHCCL(
   PT_EAGER_DEBUG(
       "Create ProcessGroupEagerHCCL, rank = ", rank, " size = ", size);
   always_support_int64_ = true;
+  comm_ = habana::HcclCommunicator::Create(
+      rank,
+      size,
+      [store, rank](
+          int64_t comm_id, hcclUniqueId* hcclID) { // Use hcclID as store key?
+        std::string storeKey = std::to_string(comm_id);
+        if (rank == 0) {
+          auto vec = std::vector<uint8_t>(
+              reinterpret_cast<uint8_t*>(hcclID),
+              reinterpret_cast<uint8_t*>(hcclID) + sizeof(hcclUniqueId));
+          store->set(storeKey, vec);
+        } else {
+          auto vec = store->get(storeKey);
+          TORCH_CHECK(vec.size() == sizeof(hcclUniqueId));
+          std::memcpy(hcclID, vec.data(), vec.size());
+        }
+      });
 };
 
 void ProcessGroupEagerHCCL::destroy() {
   if (comm_) {
+    // Consider adding additional suffix based on process group identifier
+    // in case of multi process group scenarios
+    std::string barrier_key = std::string("ProcessGroupEagerHCCL::destroy");
+    auto worker_count = store_->add(barrier_key, 1);
+    if (getRank() == 0) {
+      while (worker_count != size_) {
+        worker_count = store_->add(barrier_key, 0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+    }
+
     habana_helpers::AutoNoGIL gil_release;
     comm_->flush_stream();
     comm_.reset();
@@ -128,7 +156,6 @@ void ProcessGroupEagerHCCL::destroy() {
 
 ProcessGroupEagerHCCL::~ProcessGroupEagerHCCL() {
   PT_DISTRIBUTED_BEGIN;
-  goodbyeHandshake();
   destroy();
   PT_DISTRIBUTED_END;
 };
@@ -455,7 +482,25 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
       // issue std::terminate (abort), what will be observed in DFA report.
 
       auto gil_release = pybind11::gil_scoped_release();
-      habana::HcclCommunicator::FlushAllStreams();
+
+      const int hccl_comms_num = habana::HcclCommunicator::Count();
+      PT_DISTRIBUTED_DEBUG("PG cleanup: HCCL comms count: ", hccl_comms_num);
+
+      for (int hccl_comm_id = 0; hccl_comm_id < hccl_comms_num;
+           hccl_comm_id++) {
+        std::shared_ptr<habana::HcclCommunicator> hccl_comm =
+            habana::HcclCommunicator::Get(hccl_comm_id);
+
+        if (hccl_comm) {
+          PT_DISTRIBUTED_DEBUG(
+              "PG cleanup: flushing HCCL comm with id=", hccl_comm_id);
+          hccl_comm->flush_stream();
+        } else {
+          PT_DISTRIBUTED_DEBUG(
+              "PG cleanup: HCCL comm with given id has been already destroyed, id=",
+              hccl_comm_id);
+        }
+      }
     }
 
     // Destroying default PG when it hasn't been destroyed by user.
