@@ -60,7 +60,6 @@ TEST_F(HpuOpTest, arange_start_step) {
   auto expected = torch::arange(start, end, step);
   auto result =
       torch::arange(start, end, step, torch::TensorOptions().device("hpu"));
-
   Compare(expected, result);
 }
 

@@ -1088,6 +1088,7 @@ arange.start:
 arange.start_step:
   output_meta: ArangeDefaultStartEndStepMeta
   op_backend: ArangeDefaultStartEndStep
+  op_frontend: LazyArange
   guid: range
   dtypes:
     Gaudi: [Float, BFloat16, Long, Int, Short, Char, Byte]
@@ -1095,7 +1096,7 @@ arange.start_step:
     Gaudi3: [Float, BFloat16, Long, Int, Short, Char, Byte, Half]
   custom_fill_params: FillArangeDefaultStartEndStepParams
   out_ids: [0]
-
+  schema_args: "(Tensor h2d_tensor, Tensor shape_tensor,*, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> (Tensor)"
 
 arange.start_out:
   op_backend: Arange
