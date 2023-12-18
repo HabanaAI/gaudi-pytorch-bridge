@@ -762,6 +762,16 @@ void LayerNormHabanaOperator::AddNode(
   }
 }
 
+std::shared_ptr<void> FillNativeLayerNormBwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  const auto normalized_ndim = stack.at(2).toIntList().size();
+  PARAMS_STUB(ns_LayerNormKernel::ParamsPt);
+  params->epsValid = false;
+  params->normalizedShapeDims = normalized_ndim;
+  return params;
+}
+
 sizes_vec LayerNormBwdOutputShape(const at::Stack& stack) {
   auto input = stack[1].toTensor();
   auto input_size = input.sizes().vec();
@@ -792,92 +802,117 @@ void LayerNormBwdHabanaOperator::AddNode(
   auto mean = getNextInput<TensorsPair>(stackGetter);
   auto rstd = getNextInput<TensorsPair>(stackGetter);
   auto weightOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  getNextInput<c10::optional<TensorsPair>>(stackGetter); // biasOpt
-  auto output_mask = getNextInput<c10::List<bool>>(stackGetter);
-
-  const auto input_shape = input.pt_t.sizes();
-  const auto input_ndim = input.pt_t.dim();
-  const int normalized_ndim = normalized_shape.size();
-  const int axis = input_ndim - normalized_ndim;
-  int64_t m =
-      c10::multiply_integers(input_shape.cbegin(), input_shape.cbegin() + axis);
-  int64_t n =
-      c10::multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
-  std::array<int64_t, 4> sizes_as_4D = {1, 1, m, n};
-
-  std::vector<sh::tensor> storage;
-  // Manual handling of reserved size - maximum number of calls to
-  // storage.push_back
-  storage.reserve(8);
-
-  for (int i = 0; i < 2; ++i) {
-    const auto& src = (i == 0) ? grad_out : input;
-    storage.push_back(
-        ReshapeHelper(graph, src.syn_t, sizes_as_4D, src.pt_t.scalar_type()));
-  }
-
-  synTensor grad_out_as_4D = storage[0].get();
-  synTensor input_as_4D = storage[1].get();
-
-  std::vector<int64_t> weightShape = {};
-  synTensor synWeight = CreateLayerNormBiasWeightTensor(
-      this,
-      graph,
-      storage,
-      weightOpt,
-      {c10::multiply_integers(
-          normalized_shape.cbegin(), normalized_shape.cend())},
-      1.0f,
-      weightShape);
-
-  std::array<int64_t, 4> mean_rstd_as_4D = {1, 1, m, 1};
-  std::array<unsigned, 2> storage_indices = {};
-  for (size_t i = 0; i < storage_indices.size(); ++i) {
-    const auto& src = (i == 0) ? mean : rstd;
-    storage.push_back(ReshapeHelper(
-        graph, src.syn_t, mean_rstd_as_4D, src.pt_t.scalar_type()));
-
-    if (src.pt_t.scalar_type() != c10::kFloat) {
-      storage.push_back(CastHelper(
-          graph,
-          storage.back().get(),
-          mean_rstd_as_4D,
-          src.pt_t.scalar_type(),
-          c10::kFloat));
-    }
-    storage_indices[i] = storage.size() - 1;
-  }
-
-  synTensor mean_as_4D = storage[storage_indices[0]].get();
-  synTensor rstd_as_4D = storage[storage_indices[1]].get();
 
   auto metas = LayerNormBwdMeta(stack);
 
-  ns_LayerNormKernel::Params params;
-  params.epsValid = false;
+  if (GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) {
+    size_t size = 0;
+    const auto params = FillParams(stack, size);
 
-  auto lnbwd = BuildOp(
-      graph,
-      guid_,
-      {input_as_4D, grad_out_as_4D, mean_as_4D, rstd_as_4D, synWeight},
-      {{sizes_as_4D, metas[0].dtype},
-       {weightShape, c10::kFloat},
-       {weightShape, c10::kFloat}},
-      &params,
-      sizeof(params));
-
-  for (size_t i = 1; i < lnbwd.size(); ++i) {
-    if (metas[i].dtype != c10::kFloat) {
-      lnbwd[i] = CastHelper(
-          graph, lnbwd[i].get(), weightShape, c10::kFloat, metas[i].dtype);
+    std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
+    for (size_t i = 0; i < metas.size(); ++i) {
+      node_output_attr.push_back({metas[i].shape, metas[i].dtype, i});
     }
-  }
 
-  static std::array<int, 3> outIds = {0, 2, 1};
-  for (size_t i = 0; i < outIds.size(); ++i) {
-    auto reshaped = ReshapeHelper(
-        graph, lnbwd[i].get(), metas[i].shape, metas[i].dtype, outIds[i]);
-    syn_out(outIds[i]) = std::move(reshaped);
+    auto lnbwd = BuildOp(
+        graph,
+        guid_,
+        {grad_out.syn_t,
+         input.syn_t,
+         mean.syn_t,
+         rstd.syn_t,
+         weightOpt ? weightOpt.value().syn_t : nullptr},
+        {node_output_attr},
+        params.get(),
+        size);
+
+    for (size_t i = 0; i < lnbwd.size(); ++i) {
+      syn_out(i) = std::move(lnbwd[i]);
+    }
+
+  } else {
+    const auto input_shape = input.pt_t.sizes();
+    const auto input_ndim = input.pt_t.dim();
+    const int normalized_ndim = normalized_shape.size();
+    const int axis = input_ndim - normalized_ndim;
+    int64_t m = c10::multiply_integers(
+        input_shape.cbegin(), input_shape.cbegin() + axis);
+    int64_t n =
+        c10::multiply_integers(input_shape.cbegin() + axis, input_shape.cend());
+    std::array<int64_t, 4> sizes_as_4D = {1, 1, m, n};
+
+    std::vector<sh::tensor> storage;
+    // Manual handling of reserved size - maximum number of calls to
+    // storage.push_back
+    storage.reserve(8);
+
+    for (int i = 0; i < 2; ++i) {
+      const auto& src = (i == 0) ? grad_out : input;
+      storage.push_back(
+          ReshapeHelper(graph, src.syn_t, sizes_as_4D, src.pt_t.scalar_type()));
+    }
+
+    synTensor grad_out_as_4D = storage[0].get();
+    synTensor input_as_4D = storage[1].get();
+
+    std::vector<int64_t> weightShape = {};
+    synTensor synWeight = CreateLayerNormBiasWeightTensor(
+        this,
+        graph,
+        storage,
+        weightOpt,
+        {c10::multiply_integers(
+            normalized_shape.cbegin(), normalized_shape.cend())},
+        1.0f,
+        weightShape);
+
+    std::array<int64_t, 4> mean_rstd_as_4D = {1, 1, m, 1};
+    std::array<unsigned, 2> storage_indices = {};
+    for (size_t i = 0; i < storage_indices.size(); ++i) {
+      const auto& src = (i == 0) ? mean : rstd;
+      storage.push_back(ReshapeHelper(
+          graph, src.syn_t, mean_rstd_as_4D, src.pt_t.scalar_type()));
+
+      if (src.pt_t.scalar_type() != c10::kFloat) {
+        storage.push_back(CastHelper(
+            graph,
+            storage.back().get(),
+            mean_rstd_as_4D,
+            src.pt_t.scalar_type(),
+            c10::kFloat));
+      }
+      storage_indices[i] = storage.size() - 1;
+    }
+
+    synTensor mean_as_4D = storage[storage_indices[0]].get();
+    synTensor rstd_as_4D = storage[storage_indices[1]].get();
+
+    ns_LayerNormKernel::Params params;
+    params.epsValid = false;
+
+    auto lnbwd = BuildOp(
+        graph,
+        get_guid_with_precision("layer_norm_bwd", metas[0].dtype),
+        {input_as_4D, grad_out_as_4D, mean_as_4D, rstd_as_4D, synWeight},
+        {{sizes_as_4D, metas[0].dtype},
+         {weightShape, c10::kFloat},
+         {weightShape, c10::kFloat}},
+        &params,
+        sizeof(params));
+
+    for (size_t i = 1; i < lnbwd.size(); ++i) {
+      if (metas[i].dtype != c10::kFloat) {
+        lnbwd[i] = CastHelper(
+            graph, lnbwd[i].get(), weightShape, c10::kFloat, metas[i].dtype);
+      }
+    }
+
+    static std::array<int, 3> outIds = {0, 2, 1};
+    for (size_t i = 0; i < outIds.size(); ++i) {
+      auto reshaped = ReshapeHelper(
+          graph, lnbwd[i].get(), metas[i].shape, metas[i].dtype, outIds[i]);
+      syn_out(outIds[i]) = std::move(reshaped);
+    }
   }
 }
 
