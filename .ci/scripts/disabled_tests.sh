@@ -1,9 +1,7 @@
 FAILING_EAGER_TESTS=(
     "HpuOpTest.right_shift_scal_ten_i32"
-    "HpuOpTest.erfc*"
     "TestStream.*"
     "BCEWithLogitsTest*"
-    "sanity/HuberLossHpuOpTest.huber_loss*"
     "TypePromotion/TensorListPromotion.cat/*"
     "DebugUtilsTest.GraphDotDump1"
     "div_scalar_mode_out/DivideScalarModeOutHpuOpTest.div_out_scalar_mode/0"
