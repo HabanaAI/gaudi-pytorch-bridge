@@ -41,7 +41,7 @@ def test_equal(data1, data2):
     "shape_in, shape_out",
     [((2, 3), (4, 6)), ((4, 6), (2, 3)), ((2, 3, 4, 5), (3, 4, 5, 6))],
 )
-@pytest.mark.parametrize("blocking_flag", [False, True])
+@pytest.mark.parametrize("blocking_flag", [True, False])
 def test_resize_inplace(shape_in, shape_out, blocking_flag):
     num_elements = np.multiply.reduce(shape_in)
     cpu_tensor = torch.Tensor(

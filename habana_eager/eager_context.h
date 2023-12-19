@@ -65,7 +65,7 @@ class SingleTonEagerContext {
   static void CreateInstance();
 };
 
-void JoinPendingPipelineThreads();
+extern "C" void JoinPendingPipelineThreads();
 
 } // namespace eager
 } // namespace habana
