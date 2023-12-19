@@ -32,7 +32,7 @@
   },
   "pt_versions": {
     "current": {
-      "version": "2.1.0",
+      "version": "2.1.1",
       "default_source": "build",
       "extras": {
         "torchvision": "0.16.0",
@@ -46,7 +46,7 @@
       "default_source": "build"
     },
     "next": {
-      "version": "2.1.1",
+      "version": "2.1.2",
       "default_source": "build",
       "extras": {
         "torchvision": "0.16.0",
