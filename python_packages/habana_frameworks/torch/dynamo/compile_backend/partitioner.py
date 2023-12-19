@@ -103,7 +103,7 @@ class Partition:
 
     def add_node(self, node: Node):
         if node not in self.nodes:
-            self.nodes.add(node)
+            self.nodes.append(node)
 
     def remove_node(self, node: Node):
         self.nodes.remove(node)
