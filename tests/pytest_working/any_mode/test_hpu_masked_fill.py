@@ -12,20 +12,45 @@
 import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
-from test_utils import format_tc
+from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+from test_utils import format_tc, is_gaudi3, setup_teardown_env_fixture
 
 #This test checks if the masked_fill op will accept a value tensor on the CPU while the input tensor is on the HPU
 @pytest.mark.parametrize("shape", [(2,7)], ids=format_tc)
 @pytest.mark.parametrize("value", [2])
 @pytest.mark.parametrize("scalar_value", [True, False])
+@pytest.mark.parametrize("dynamic", [False, True])
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
-def test_hpu_masked_mixed_devices(shape, value, scalar_value, dtype):
-    def fn(input, mask, value):
-        input.masked_fill_(mask, value)
-    mask = torch.randint(low=0, high=2, size=shape, dtype=torch.bool, device="hpu")
-    input = torch.rand(shape, dtype=dtype, device="hpu")
-    value = value if scalar_value else torch.tensor(value, dtype=dtype, device="cpu")
+@pytest.mark.parametrize(
+    "setup_teardown_env_fixture",
+    [{"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 1}],
+    indirect=True,
+)
+class TestHpuMaskedMixedDevices:
+    @classmethod
+    def setup_class(self):
+        #For scalar tensor there is a fallback to eager
+        self.original_configuration = configuration_flags["use_eager_fallback"]
+        configuration_flags["use_eager_fallback"] = True
 
-    wrapped_fn = torch.compile(fn, backend="aot_hpu_training_backend") if pytest.mode == "compile" else fn
-    wrapped_fn(input, mask, value)
-    assert (input.device.type == "hpu")
+    @classmethod
+    def teardown_class(self):
+        configuration_flags["use_eager_fallback"] = self.original_configuration
+
+    @staticmethod
+    def test_hpu_masked_mixed_devices(shape, value, scalar_value, dynamic, dtype, setup_teardown_env_fixture):
+        if dynamic and (is_gaudi3() or not pytest.mode == "compile"):
+            pytest.skip("Not supported test configuration")
+
+        def fn(input, mask, value):
+            input.masked_fill_(mask, value)
+
+        wrapped_fn = torch.compile(fn, backend="aot_hpu_training_backend") if pytest.mode == "compile" else fn
+        iters = 3 if dynamic else 1
+        for i in range(iters):
+            modified_shape = [(dim*(i+1)) for dim in shape]
+            mask = torch.randint(low=0, high=2, size=modified_shape, dtype=torch.bool, device="hpu")
+            input = torch.rand(modified_shape, dtype=dtype, device="hpu")
+            value = value if scalar_value else torch.tensor(value, dtype=dtype, device="cpu")
+            wrapped_fn(input, mask, value)
+            assert (input.device.type == "hpu")
