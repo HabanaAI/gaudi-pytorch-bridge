@@ -1020,7 +1020,13 @@ void Fp8GemmV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         DOpt,
         "Accumulation tensor must be provided at index 4 for Fp8GemmV2, when accumulate is true");
     syn_inputs.push_back(DOpt->syn_t);
+  } else {
+    syn_inputs.push_back(nullptr);
   }
+
+  // GC pass FUSE_CONVERT_MME inserts this last input, but it needs
+  // it to be explicitly filled with nullptr before.
+  syn_inputs.push_back(nullptr);
 
   synGEMMParams params{trans_A, trans_B};
 

@@ -351,6 +351,72 @@ def test_fp8_gemm_v2(
         check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "fp8_gemm_v2"})
 
 
+@pytest.mark.parametrize("scaleA", [16, 14])
+@pytest.mark.parametrize("scaleB", [0.0625, 0.23])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+def test_fp8_gemm_v2_scalar_optimization(scaleA, scaleB, dtype):
+    shapeA = (12, 24)
+    shapeB = (24, 36)
+    fp8_dtype = torch.float8_e4m3fn
+    A = (torch.rand(shapeA, dtype=dtype) * 10 + 30.0).to(fp8_dtype).to(dtype)
+    A_hpu = A.to(fp8_dtype).to("hpu")
+
+    B = (torch.rand(shapeB, dtype=dtype) * 10 + 30.0).to(fp8_dtype).to(dtype)
+    B_hpu = B.to(fp8_dtype).to("hpu")
+
+    fn = torch.ops.hpu.fp8_gemm_v2
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    result = fn(
+        A_hpu,
+        False,
+        B_hpu,
+        False,
+        None,
+        dtype,
+        scaleA,
+        scaleB,
+        None,
+        False,
+    )
+
+    result_ref = torch.matmul(A, B) * (scaleA * scaleB)
+
+    compare_tensors(result, result_ref, atol=1e-3, rtol=1e-2)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("fp8_gemm_v2")
+
+
+# For manual testing with below flags
+# ENABLE_EXPERIMENTAL_FLAGS=true FUSE_CONVERT_TO_MME=1 PT_HPU_INFERENCE_MODE=1
+# Post synapse graphs should contain raw GEMM node with exp_bias set on inputs and output.
+@pytest.mark.parametrize("scale_a", [16.0, 1.0, 0.0625, 0.00390625])
+@pytest.mark.parametrize("scale_b", [16.0, 1.0, 0.0625, 0.00390625])
+@pytest.mark.parametrize("scale_out", [16.0, 1.0, 0.0625, 256.0])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+def DISABLED_test_fp8_gemm_v2_bias_optimization(scale_a, scale_b, scale_out, dtype):
+    a = (torch.rand(4, 8)*5).to(torch.float8_e4m3fn).to("hpu")
+    b = (torch.rand(8, 12)*5).to(torch.float8_e4m3fn).to("hpu")
+
+    scale_a_t = torch.tensor(scale_a).to("hpu")
+    scale_b_t = torch.tensor(scale_b).to("hpu")
+    scale_out_t = torch.tensor(scale_out).to("hpu")
+
+    res_fp8_scalar, _ = torch.ops.hpu.cast_to_fp8_v2(torch.ops.hpu.fp8_gemm_v2(a, False, b, False, None, dtype, scale_a, scale_b, None, False), scale_out, False, False, torch.float8_e4m3fn)
+
+    res_scalar_cpu = res_fp8_scalar.cpu().float()
+
+    res_fp8_tensor, _ = torch.ops.hpu.cast_to_fp8_v2(torch.ops.hpu.fp8_gemm_v2(a, False, b, False, None, dtype, scale_a_t, scale_b_t, None, False), scale_out_t, False, False, torch.float8_e4m3fn)
+
+    rtol = 1e-3 if dtype == torch.float else 1e-2
+    compare_tensors(res_fp8_tensor, res_scalar_cpu, atol=1e-2, rtol=rtol)
+
+
 @pytest.mark.parametrize("shape", [(8, 2, 2, 5)])
 @pytest.mark.parametrize("dtype", [torch.bfloat16] + fp8_dtypes)
 def test_in_place_interleave(shape, dtype):
