@@ -737,3 +737,10 @@ PT_HPU_ENABLE_EAGER_JIT_CACHE:
   type: bool
   default: true
   doc: "This flag enable/Disable Eager Jit Cache. by default this is enabled."
+
+PT_HPU_STOCHASTIC_ROUNDING_MODE:
+  type: unsigned
+  default: 1
+  doc: "Mode of stochastic_rounding in cast_to_fp8 ops.\n
+0 - maps round_mode to CAST_ROUND_SR,\n
+1 - maps round_mode to CAST_ROUND_SFTZ - stochastic flush to zero."

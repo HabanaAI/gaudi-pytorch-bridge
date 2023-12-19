@@ -129,10 +129,13 @@ def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, scale_mode, axis, out
         scale_shape,
     )
 
+    uncasted_cpu = uncasted.cpu()
+
     if stochastic:
-        assert torch.allclose(uncasted.cpu(), unscaled_input, rtol=0.26, atol=0.0)
+        assert torch.allclose(uncasted_cpu, unscaled_input, rtol=0.26, atol=0.0)
+        assert not torch.equal(uncasted_cpu, unscaled_input)
     else:
-        assert torch.equal(uncasted.cpu(), unscaled_input)
+        assert torch.equal(uncasted_cpu, unscaled_input)
 
     if is_amax:
         assert amax.cpu() == torch.max(input.abs())
@@ -141,6 +144,25 @@ def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, scale_mode, axis, out
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "cast_from_fp8"})
+
+
+# casting bf16 to f8 uses SFTZ rounding mode, which applies
+# stochastic rounding also when rounding number between
+# 0.0 and f8 min denormal value.
+def test_sftz_rounding_mode():
+    input_dtype = torch.bfloat16
+    target_dtype = torch.float8_e5m2
+    shape = (100, 100)
+    min_subnormal = pow(2, -16)
+    value = min_subnormal / 3.0
+
+    input = torch.full(shape, value, dtype=input_dtype).to("hpu")
+    result, _ = torch.ops.hpu.cast_to_fp8_v2(input, None, True, False, target_dtype)
+    result_cpu = result.cpu().float()
+
+    expected_results = torch.tensor((0.0, min_subnormal))
+    assert torch.equal(result_cpu.unique(), expected_results)
+    assert torch.allclose(torch.mean(result_cpu), torch.tensor(value), atol=0.0, rtol=0.1)
 
 
 @pytest.mark.parametrize("shape", [(16, 24, 8), (64, 48)])

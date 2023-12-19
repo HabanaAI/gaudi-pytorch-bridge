@@ -74,5 +74,6 @@ OUTMETA_DECL(CastToFp8QMeta)
 
 const synDataType fp8_syn_type =
     GET_ENV_FLAG_NEW(PT_USE_FP8_143) ? syn_type_fp8_143 : syn_type_fp8_152;
+const bool is_sr_sftz = GET_ENV_FLAG_NEW(PT_HPU_STOCHASTIC_ROUNDING_MODE) == 1;
 
 } // namespace habana

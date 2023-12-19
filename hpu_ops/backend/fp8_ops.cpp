@@ -32,6 +32,22 @@ static auto GetFp8Dtypes(const at::IValue& dtype) {
       dtype.toOptional<at::ScalarType>().value_or(at::ScalarType::Char));
 }
 
+static ns_CastKernel::Params GetCastParams(
+    const bool stochastic,
+    const at::ScalarType& from_dtype,
+    const at::ScalarType& to_dtype) {
+  ns_CastKernel::Params params{};
+  if (stochastic) {
+    const bool is_sftz_available = is_sr_sftz and
+        from_dtype == at::ScalarType::BFloat16 and
+        to_dtype == at::ScalarType::Float8_e5m2;
+    params.round_mode = is_sftz_available ? CAST_ROUND_SFTZ : CAST_ROUND_SR;
+  } else {
+    params.round_mode = CAST_ROUND_HALF_NE;
+  }
+  return params;
+}
+
 /********** CastToFp8 **********/
 
 CastToFp8::CastToFp8(int device_id, c10::ScalarType scalar_type)
@@ -59,8 +75,7 @@ void CastToFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   std::string guid = src_type == at::ScalarType::Float ? "convert_to_fp8_f32"
                                                        : "convert_to_fp8_bf16";
 
-  ns_CastKernel::Params params{};
-  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+  auto params = GetCastParams(stochastic_rounding, src_type, dst_type);
 
   std::vector<synTensor> syn_inputs{syn_in(0)};
   if (scale.defined()) {
@@ -114,15 +129,6 @@ sizes_vec CastToFp8V2OutputShape(const at::Stack& stack) {
   return {input_sv, std::vector<int64_t>{is_amax ? 1 : 0}};
 }
 
-std::shared_ptr<void> FillCastToFp8V2Params(
-    const at::Stack& stack,
-    size_t& size) {
-  PARAMS_STUB(ns_CastKernel::Params);
-  bool stochastic_rounding = stack[2].toBool();
-  params->round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
-  return params;
-}
-
 CastToFp8V2::CastToFp8V2(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
@@ -133,7 +139,6 @@ CastToFp8V2::CastToFp8V2(int device_id, c10::ScalarType scalar_type)
           {},
           false) {
   SetComputeOutputShapes(CastToFp8V2OutputShape);
-  SetFillParams(FillCastToFp8V2Params);
 }
 
 void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
@@ -141,6 +146,7 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1];
+  bool stochastic_rounding = stack[2].toBool();
   bool is_amax = stack[3].toBool();
   auto src_type = self.scalar_type();
   auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[4]);
@@ -169,11 +175,10 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
     output_attrs.push_back({out_shapes[1], at::ScalarType::Float, 1});
   }
 
-  size_t size; // Will be initialized by below call
-  const auto& params = FillCastToFp8V2Params(stack, size);
+  auto params = GetCastParams(stochastic_rounding, src_type, dst_type);
 
   auto casted = OpBackend::BuildNode(
-      this, graph, {guid, syn_inputs, output_attrs, params.get(), size});
+      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
 
   syn_out(0) = std::move(casted[0]);
   if (is_amax) {
@@ -301,6 +306,7 @@ void Fp8CastTranspose::AddNode(sh::graph& graph, const at::Stack& stack) {
       stack.size() == 6, "Fp8CastTranspose must have 6 input arguments");
 
   auto self = stack_tensor(stack, 0);
+  auto src_type = self.scalar_type();
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[2].toBool();
   auto sizes = self.sizes();
@@ -315,10 +321,9 @@ void Fp8CastTranspose::AddNode(sh::graph& graph, const at::Stack& stack) {
       sizes == out.sizes(), "Input and output must have the same shape");
 
   std::string guid =
-      get_guid_with_precision("convert_to_fp8_transpose", self.scalar_type());
+      get_guid_with_precision("convert_to_fp8_transpose", src_type);
 
-  ns_CastKernel::Params params{};
-  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+  auto params = GetCastParams(stochastic_rounding, src_type, dst_type);
 
   std::vector<synTensor> syn_inputs{syn_in(0)};
   if (scale.defined()) {
@@ -362,6 +367,7 @@ void Fp8CastTransposeBgrad::AddNode(sh::graph& graph, const at::Stack& stack) {
       stack.size() == 7, "Fp8CastTransposeBgrad must have 7 input arguments");
 
   auto self = stack_tensor(stack, 0);
+  auto src_type = self.scalar_type();
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[2].toBool();
   auto sizes = self.sizes();
@@ -376,11 +382,10 @@ void Fp8CastTransposeBgrad::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
 
-  std::string guid = get_guid_with_precision(
-      "convert_to_fp8_transpose_bgrad", self.scalar_type());
+  std::string guid =
+      get_guid_with_precision("convert_to_fp8_transpose_bgrad", src_type);
 
-  ns_CastKernel::Params params{};
-  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+  auto params = GetCastParams(stochastic_rounding, src_type, dst_type);
 
   std::vector<synTensor> syn_inputs{syn_in(0)};
   if (scale.defined()) {
@@ -389,7 +394,7 @@ void Fp8CastTransposeBgrad::AddNode(sh::graph& graph, const at::Stack& stack) {
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {sizes, dst_type, 0, DATA_TENSOR, dst_syn_type},
       {transposed.sizes(), dst_type, 1, DATA_TENSOR, dst_syn_type},
-      {bgrad.sizes(), self.scalar_type(), 2}};
+      {bgrad.sizes(), src_type, 2}};
   if (is_amax) {
     output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 3});
   }
@@ -429,6 +434,7 @@ void Fp8CastTransposeBgradDgelu::AddNode(
       "Fp8CastTransposeBgradDgelu must have 9 input arguments");
 
   auto self = stack_tensor(stack, 0);
+  auto src_type = self.scalar_type();
   auto scale = stack[2].toOptional<torch::Tensor>().value_or(torch::Tensor());
   auto retain = stack[3].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[4].toBool();
@@ -444,11 +450,10 @@ void Fp8CastTransposeBgradDgelu::AddNode(
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
 
-  std::string guid = get_guid_with_precision(
-      "convert_to_fp8_transpose_bgrad_dgelu", self.scalar_type());
+  std::string guid =
+      get_guid_with_precision("convert_to_fp8_transpose_bgrad_dgelu", src_type);
 
-  ns_CastKernel::Params params{};
-  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+  auto params = GetCastParams(stochastic_rounding, src_type, dst_type);
 
   std::vector<synTensor> syn_inputs{syn_in(0), syn_in(1)};
   int retain_id = 3;
@@ -464,7 +469,7 @@ void Fp8CastTransposeBgradDgelu::AddNode(
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {sizes, dst_type, 0, DATA_TENSOR, dst_syn_type},
       {transposed.sizes(), dst_type, 1, DATA_TENSOR, dst_syn_type},
-      {bgrad.sizes(), self.scalar_type(), 2}};
+      {bgrad.sizes(), src_type, 2}};
   if (is_amax) {
     output_attrs.push_back({amax.sizes(), at::ScalarType::Float, 3});
   }
@@ -608,8 +613,7 @@ void Fp8Gelu::AddNode(sh::graph& graph, const at::Stack& stack) {
   std::string guid =
       src_type == at::ScalarType::Float ? "fp8_gelu_f32" : "fp8_gelu_bf16";
 
-  ns_CastKernel::Params params{};
-  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+  auto params = GetCastParams(stochastic_rounding, src_type, dst_type);
 
   std::vector<synTensor> syn_inputs{syn_in(0)};
   if (scale.defined()) {
@@ -666,8 +670,7 @@ void Fp8GeluV2::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   std::string guid = get_guid_with_precision("fp8_gelu", src_dtype);
 
-  ns_CastKernel::Params params{};
-  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+  auto params = GetCastParams(stochastic_rounding, src_dtype, dst_type);
 
   auto output_shapes = Fp8GeluV2OutputShape(stack);
 
@@ -727,8 +730,7 @@ void Fp8BgradDgelu::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   std::string guid = get_guid_with_precision("fp8_bgrad_dgelu", ScalarType());
 
-  ns_CastKernel::Params params{};
-  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+  auto params = GetCastParams(stochastic_rounding, ScalarType(), dst_type);
 
   std::vector<synTensor> syn_inputs{grad.syn_t, input.syn_t};
   if (scaleOpt) {
