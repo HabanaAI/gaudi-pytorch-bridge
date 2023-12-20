@@ -2235,6 +2235,7 @@ cumprod.out:
   custom_fill_params: FillCumsumParams
   dtypes: [BFloat16, Float, Int]
   guid: cumprod_fwd
+  output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
 
 cumprod_:
@@ -2262,6 +2263,7 @@ cumsum.out:
     Gaudi2: [BFloat16, Float, Long, Int, Half]
     Gaudi3: [BFloat16, Float, Long, Int, Half]
   guid: cumsum_fwd
+  output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
 
 cumsum_:
@@ -5026,6 +5028,7 @@ ne.Scalar_out:
     Gaudi3: [BFloat16, Float, Int, Long, Byte, Char, Half]
   scalar_ids: [1]
   op_backend: NE
+  output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
 
