@@ -122,7 +122,8 @@ extern PipelineCallBase NoPipeline;
 void LoweringTask(
     std::unique_ptr<HabanaLaunchOpPT>&& launch_op,
     torch::jit::Stack& stack,
-    std::optional<std::vector<at::Tensor>> allocated_outputs);
+    std::optional<std::vector<at::Tensor>> allocated_outputs,
+    std::optional<std::vector<std::vector<int64_t>>> output_shapes = {});
 } // namespace HabanaLaunchOpPipeline
 
 // Forward declaration
@@ -156,6 +157,7 @@ class HabanaLaunchOpPT {
   void run(
       torch::jit::Stack& stack,
       std::optional<std::vector<at::Tensor>> allocated_outputs = {},
+      std::optional<std::vector<std::vector<int64_t>>> output_shapes = {},
       bool dry_run = false,
       HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution =
           HabanaLaunchOpPipeline::NoPipeline);

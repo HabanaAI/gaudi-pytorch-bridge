@@ -96,10 +96,11 @@ class PipelineCall : public PipelineCallBase {
 void LoweringTask(
     std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op,
     torch::jit::Stack& stack,
-    std::optional<std::vector<at::Tensor>> allocated_outputs) {
+    std::optional<std::vector<at::Tensor>> allocated_outputs,
+    std::optional<std::vector<std::vector<int64_t>>> output_shapes) {
   PipelineCall pipeline_call;
 
-  launch_op->run(stack, allocated_outputs, false, pipeline_call);
+  launch_op->run(stack, allocated_outputs, output_shapes, false, pipeline_call);
 
   if (!pipeline_call.is_called()) {
     PT_BRIDGE_DEBUG(
@@ -218,16 +219,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       enable_caching_,
       ", enable_shape_agnostic_caching_ : ",
       enable_shape_agnostic_caching_);
-
-  if (enable_shape_agnostic_caching_) {
-    out_shapes = optimized_jit_graph_and_meta_data->get_output_shapes();
-    HABANA_ASSERT(
-        out_shapes.size() == jit_ir_graph_->outputs().size(),
-        "number of output shapes for patching ",
-        out_shapes.size(),
-        " is not equal to #outputs in jit graph ",
-        jit_ir_graph_->outputs().size());
-  }
 
   auto frontend_type_eager_or_compile =
       ((front_end_type == habana_helpers::HabanaFrontendTypes::EAGER) ||
@@ -3696,9 +3687,22 @@ void HabanaLaunchOpPT::UpdatePatchingInformation(
 void HabanaLaunchOpPT::run(
     torch::jit::Stack& stack,
     std::optional<std::vector<at::Tensor>> allocated_outputs,
+    std::optional<std::vector<std::vector<int64_t>>> output_shapes,
     bool dry_run,
     HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution) {
   PT_BRIDGE_BEGIN;
+
+  if (enable_shape_agnostic_caching_) {
+    HABANA_ASSERT(output_shapes.has_value());
+    out_shapes = std::move(*output_shapes);
+    HABANA_ASSERT(
+        out_shapes.size() == jit_ir_graph_->outputs().size(),
+        "number of output shapes for patching ",
+        out_shapes.size(),
+        " is not equal to #outputs in jit graph ",
+        jit_ir_graph_->outputs().size());
+  }
+
   static int idx{1};
   ProcessInputStack(stack);
   allocated_outputs_ = std::move(allocated_outputs);

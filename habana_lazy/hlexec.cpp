@@ -65,7 +65,7 @@ struct HabanaLaunchOpLauncher : Launcher {
   }
 
   void Run(torch::jit::Stack& stack, bool dry_run) override {
-    return habana_launch_op_.run(stack, {}, dry_run);
+    return habana_launch_op_.run(stack, {}, {}, dry_run);
   }
 
   habana::HabanaLaunchOpPT habana_launch_op_;

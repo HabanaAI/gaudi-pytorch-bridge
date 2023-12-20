@@ -193,14 +193,6 @@ struct OptimizedJITGraphAndMetaData {
     return hpu_stream;
   }
 
-  std::vector<std::vector<int64_t>> get_output_shapes() {
-    return output_shapes;
-  }
-
-  void set_output_shapes(std::vector<std::vector<int64_t>> shapes) {
-    output_shapes = shapes;
-  }
-
   std::shared_ptr<habana::RecipeValueSpec> get_shape_agnostic_recipe() {
     return cur_shape_agnostic_rvalpsh;
   }
@@ -297,7 +289,6 @@ struct OptimizedJITGraphAndMetaData {
   bool is_control_edge_processing_required = false;
   bool is_syn_graph_empty{false};
   synapse_helpers::hpuStream_t hpu_stream = 0;
-  std::vector<std::vector<int64_t>> output_shapes{};
   std::shared_ptr<habana::RecipeValueSpec> cur_shape_agnostic_rvalpsh{nullptr};
   bool is_shape_agnostic_supported = true;
   bool is_synapse_sif_required = false;

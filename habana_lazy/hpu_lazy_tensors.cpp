@@ -1073,12 +1073,6 @@ void LaunchSyncTensorsGraph(
     optimized_path_jit_ir_and_mdata->SetHPUStream(stream_info.stream);
     bool isDynamic = habana_helpers::GetRefineDynamicShapeStatus();
     optimized_path_jit_ir_and_mdata->SetDynamicGraph(isDynamic);
-    if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-        GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
-      // Setting output shapes for the lazy eager shape agnostic graph
-      optimized_path_jit_ir_and_mdata->set_output_shapes(
-          lazy_eager_info.out_shapes);
-    }
 
     habana::HabanaLaunchOpPT habanaLoweringOp{optimized_path_jit_ir_and_mdata};
     if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EXECUTION_THREAD_NO_WAIT)) {
@@ -1122,13 +1116,6 @@ void LaunchSyncTensorsGraph(
         launch_info.hlexec.set_lazy_front_end_info(
             lazy_eager_info.lazyFrontEndInfo);
         launch_info.hlexec.GetOrCreate(launch_info.po_data, launch_info.stack);
-
-        if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-            GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
-          // Setting output shapes for the lazy eager shape agnostic graph
-          launch_info.hlexec.GetJITGraphMetaDataPtr()->set_output_shapes(
-              lazy_eager_info.out_shapes);
-        }
       }
       // Dump the JIT graph with PT_IRGRAPH_DEBUG
       PT_IRGRAPH_DEBUG(launch_info.hlexec.get_graph()->toString());
@@ -1408,12 +1395,6 @@ void HbLazyTensor::SyncTensorsGraphInternal(
       hlexec.set_lazy_front_end_info(lazyFrontEndInfo);
 
       hlexec.GetOrCreate(po_data, stack);
-
-      if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
-          GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH)) {
-        // Setting output shapes for the lazy eager shape agnostic graph
-        hlexec.GetJITGraphMetaDataPtr()->set_output_shapes(out_shapes);
-      }
     } else {
       for (const auto& in : po_data.inputs) {
         std::shared_ptr<Data> d = in.m_data_ptr.lock();

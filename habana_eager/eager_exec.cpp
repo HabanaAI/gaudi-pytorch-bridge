@@ -298,7 +298,6 @@ void EagerExec::launch() {
       cache.Add(key, graph_and_meta);
     }
   }
-  graph_and_meta->set_output_shapes(m_outputs.get_shapes());
 
   for (const auto& val : stack) {
     if (!val.isTensor()) {
@@ -327,7 +326,8 @@ void EagerExec::launch() {
     HabanaLaunchOpPipeline::LoweringTask(
         std::move(habana_launch_op),
         habana_launch_op->get_input_stack(),
-        m_outputs.get_tensors());
+        m_outputs.get_tensors(),
+        m_outputs.get_shapes());
   } catch (const std::exception& e) {
     PT_EAGER_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
     throw;
