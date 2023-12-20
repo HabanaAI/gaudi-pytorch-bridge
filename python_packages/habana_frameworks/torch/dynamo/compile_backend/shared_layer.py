@@ -39,6 +39,7 @@ hpu_supported_op_list = {
     "in_place_interleave",
     "custom_softmax",
     "scaled_masked_triangular_softmax",
+    "softmax_fp8",
     "rotary_pos_embedding",
     "rotary_pos_embedding_backward",
     "rms_norm",

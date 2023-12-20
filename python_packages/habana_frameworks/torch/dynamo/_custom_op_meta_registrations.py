@@ -525,6 +525,17 @@ def meta_scaled_masked_triangular_softmax(
     return self.new_empty(self.shape, dtype=dtype)
 
 
+@register_meta([torch.ops.hpu.softmax_fp8.default])
+def meta_softmax_fp8(
+    input, dim, input_scale=None, output_scale=None
+):
+    if input_scale is None:
+        dtype = torch.bfloat16
+    else:
+        dtype = torch.float8_e4m3fn
+    return input.new_empty(input.shape, dtype=dtype)
+
+
 @register_meta([torch.ops.hpu.in_place_interleave_.default])
 def meta_in_place_interleave_(self):
     return self

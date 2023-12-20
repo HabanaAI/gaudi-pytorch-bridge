@@ -909,6 +909,11 @@ at::Tensor scaled_masked_triangular_softmax_lazy(
     bool use_max,
     int64_t mode,
     c10::optional<at::ScalarType> out_dtype);
+at::Tensor softmax_fp8_lazy(
+    const at::Tensor& input,
+    int64_t dim,
+    const c10::optional<at::Tensor>& input_scale,
+    const c10::optional<at::Tensor>& output_scale);
 at::Tensor conv2d_fp8_lazy(
     const at::Tensor& input,
     const at::Tensor& weight,

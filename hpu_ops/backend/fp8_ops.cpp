@@ -1538,6 +1538,59 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(scaled_conv[0]);
 }
 
+/********** SoftmaxFp8 **********/
+
+SoftmaxFp8::SoftmaxFp8(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "softmax_fwd", scalar_type, {0}, {}, {}, false) {}
+
+void SoftmaxFp8::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 4, "SoftmaxFp8 must have 4 input arguments");
+
+  StackGetter stackGetter(stack, "SoftmaxFp8::AddNode");
+  auto self = getNextInput<TensorsPair>(stackGetter);
+  int dim = getNextInput<int>(stackGetter);
+  auto input_scale_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto output_scale_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  dim = at::maybe_wrap_dim(dim, self.pt_t.dim(), /*wrap_scalar=*/true);
+
+  TORCH_CHECK(
+      self.pt_t.scalar_type() == at::ScalarType::BFloat16,
+      "Input tensor must be of torch.bfloat16 dtype.");
+
+  TORCH_CHECK(
+      (input_scale_opt && output_scale_opt) ||
+          (!input_scale_opt && !output_scale_opt),
+      "Output and input scales must be both given or None.");
+
+  ns_Softmax::Params params{static_cast<int>(self.pt_t.dim() - dim - 1)};
+  std::vector<synTensor> syn_inputs{self.syn_t};
+
+  if (input_scale_opt) {
+    TORCH_CHECK(
+        input_scale_opt->pt_t.scalar_type() == at::ScalarType::Float and
+            output_scale_opt->pt_t.scalar_type() == at::ScalarType::Float,
+        "Output and input scales must be of torch.float dtype.");
+    syn_inputs.push_back(input_scale_opt->syn_t);
+    syn_inputs.push_back(output_scale_opt->syn_t);
+  }
+
+  auto result = OpBackend::BuildNode(
+      this,
+      graph,
+      {"softmax_fwd_hf8",
+       std::move(syn_inputs),
+       {{self.pt_t.sizes().vec(),
+         input_scale_opt ? at::ScalarType::Float8_e4m3fn
+                         : at::ScalarType::BFloat16,
+         0}},
+       &params,
+       sizeof(params)});
+
+  syn_out(0) = std::move(result[0]);
+}
+
 } // namespace habana
 
 static const auto& CastKernelRegistry =
@@ -1596,4 +1649,5 @@ static const auto& CastKernelRegistry =
         .add(
             "hpu::in_place_interleave",
             KERNEL_FN_GLOBAL(habana::InPlaceInterleave))
-        .add("hpu::conv2d_fp8", KERNEL_FN_GLOBAL(habana::Conv2dFp8));
+        .add("hpu::conv2d_fp8", KERNEL_FN_GLOBAL(habana::Conv2dFp8))
+        .add("hpu::softmax_fp8", KERNEL_FN_GLOBAL(habana::SoftmaxFp8));

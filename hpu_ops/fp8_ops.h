@@ -56,6 +56,7 @@ DEFINE_OP(Fp8RepeatV2)
 DEFINE_OP(Fp8IndexSelectV2)
 HPU_OP_BACKEND(InPlaceInterleaveCommon)
 DEFINE_OP(Conv2dFp8)
+DEFINE_OP(SoftmaxFp8)
 
 OUTSHAPE_DECL(CastToFp8V2OutputShape)
 OUTSHAPE_DECL(CastToFp8HybridOutputShape)
