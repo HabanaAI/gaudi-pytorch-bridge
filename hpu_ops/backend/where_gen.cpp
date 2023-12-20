@@ -56,13 +56,18 @@ void WhereBackend::AddNode(
   std::vector<synTensor> inputs = {syn_in(0), syn_in(1), syn_in(2)};
 
   if (habana_helpers::getInternalDtype(self.scalar_type()) != result_type) {
-    cast.emplace_back(CastHelper(
-        graph, syn_in(1), self.sizes(), self.scalar_type(), result_type));
+    cast.emplace_back(BuildCast(
+        this, graph, syn_in(1), self.sizes(), self.scalar_type(), result_type));
     inputs[1] = cast[0].get();
   } else if (
       habana_helpers::getInternalDtype(other.scalar_type()) != result_type) {
-    cast.emplace_back(CastHelper(
-        graph, syn_in(2), other.sizes(), other.scalar_type(), result_type));
+    cast.emplace_back(BuildCast(
+        this,
+        graph,
+        syn_in(2),
+        other.sizes(),
+        other.scalar_type(),
+        result_type));
     inputs[2] = cast[0].get();
   }
 

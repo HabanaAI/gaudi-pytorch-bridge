@@ -59,8 +59,8 @@ void OneHot::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     if (output_type == at::kHalf || output_type == at::kFloat) {
       target_type = c10::ScalarType::Int;
     }
-    cast =
-        CastHelper(graph, syn_in(0), input.sizes(), output_type, target_type);
+    cast = BuildCast(
+        this, graph, syn_in(0), input.sizes(), output_type, target_type);
   }
 
   auto input_feature_map = (cast.has_value()) ? cast->get() : syn_in(0);
@@ -72,7 +72,13 @@ void OneHot::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       &oneHotParams,
       sizeof(oneHotParams));
 
-  syn_out(0) = CastHelper(
-      graph, result[0].get(), meta.shape, output_type, c10::ScalarType::Int, 0);
+  syn_out(0) = BuildCast(
+      this,
+      graph,
+      result[0].get(),
+      meta.shape,
+      output_type,
+      c10::ScalarType::Int,
+      0);
 }
 } // namespace habana

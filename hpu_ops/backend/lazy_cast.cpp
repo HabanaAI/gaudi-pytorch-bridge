@@ -52,7 +52,7 @@ void LazyCast::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         BuildOp(graph, "identity", {syn_in(0)}, {{sizes, ScalarType(), 0}});
     syn_out(0) = std::move(out.at(0));
   } else {
-    auto out = CastHelper(graph, syn_in(0), sizes, src_type, dst_type, 0);
+    auto out = BuildCast(this, graph, syn_in(0), sizes, src_type, dst_type, 0);
     syn_out(0) = std::move(out);
   }
 }

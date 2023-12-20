@@ -72,10 +72,11 @@ void ScatterOperator::AddNode(
   if ((self.scalar_type() != c10::ScalarType::Int) &&
       (int_types.find(self.scalar_type()) != int_types.end())) {
     // TPC scatter has support only for bf16, fp32 and i32
-    auto cast_self =
-        CastHelper(graph, syn_in(0), outshape, self.scalar_type(), torch::kInt);
+    auto cast_self = BuildCast(
+        this, graph, syn_in(0), outshape, self.scalar_type(), torch::kInt);
 
-    auto cast_src_or_val = CastHelper(
+    auto cast_src_or_val = BuildCast(
+        this,
         graph,
         src_or_val,
         stack.at(3).isTensor() ? stack_tensor(stack, 3).sizes() : outshape,
@@ -92,7 +93,8 @@ void ScatterOperator::AddNode(
         &params,
         sizeof(params));
 
-    auto result_bool = CastHelper(
+    auto result_bool = BuildCast(
+        this,
         graph,
         scatterkernel[0].get(),
         outshape,

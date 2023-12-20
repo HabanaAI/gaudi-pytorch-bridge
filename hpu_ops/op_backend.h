@@ -242,14 +242,6 @@ class OpBackend : public HabanaOperator {
   synapse_helpers::tensor_or_ref& SynInput(size_t index) override;
   synTensor syn_seed();
 
-  synapse_helpers::tensor CastHelper(
-      synapse_helpers::graph& graph,
-      synTensor syn_in,
-      at::IntArrayRef sizes,
-      const at::ScalarType& from,
-      const at::ScalarType& to,
-      c10::optional<int> final_result_index = c10::nullopt);
-
   synapse_helpers::tensor ConstantHelper(
       synapse_helpers::graph& graph,
       const at::Scalar& val,

@@ -66,7 +66,8 @@ void CumsumHabanaOperator::AddNode(
     return OpBackend::AddNode(graph, stack);
   }
 
-  auto cast = CastHelper(graph, syn_in(0), meta.shape, ScalarType(), dtype);
+  auto cast =
+      BuildCast(this, graph, syn_in(0), meta.shape, ScalarType(), dtype);
   size_t size = 0;
   const auto& params = FillCumsumParams(stack, size);
   update_guid_dtype(guid_, dtype);

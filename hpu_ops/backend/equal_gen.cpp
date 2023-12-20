@@ -33,8 +33,13 @@ void Equal::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         {syn_in(0), syn_in(1)},
         {{self_size, result_type}});
 
-    auto cast_i8_to_f32 = CastHelper(
-        graph, eq[0].get(), self_size, result_type, c10::ScalarType::Float);
+    auto cast_i8_to_f32 = BuildCast(
+        this,
+        graph,
+        eq[0].get(),
+        self_size,
+        result_type,
+        c10::ScalarType::Float);
 
     auto reshape = ReshapeHelper(
         graph, cast_i8_to_f32.get(), reshape_outshape, c10::ScalarType::Float);
@@ -49,8 +54,14 @@ void Equal::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         params.get(),
         size);
 
-    auto cast_f32_to_i8 = CastHelper(
-        graph, reduce_prod[0].get(), 1, c10::ScalarType::Float, result_type, 0);
+    auto cast_f32_to_i8 = BuildCast(
+        this,
+        graph,
+        reduce_prod[0].get(),
+        1,
+        c10::ScalarType::Float,
+        result_type,
+        0);
 
     syn_out(0) = std::move(cast_f32_to_i8);
 

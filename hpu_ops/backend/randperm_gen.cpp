@@ -115,7 +115,8 @@ void RandPermOp::AddNode(
       auto castop = BuildNode(this, graph, std::move(castnode));
       syn_out(0) = std::move(castop[0]);
     } else {
-      auto castop = CastHelper(
+      auto castop = BuildCast(
+          this,
           graph,
           randperm[0].get(),
           meta.shape,

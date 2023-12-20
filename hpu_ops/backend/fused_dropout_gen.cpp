@@ -81,8 +81,8 @@ void NativeDropoutBackward::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto mask_syn_t = mask.syn_t;
   std::optional<sh::tensor> storage;
   if (mask_dtype != grad_dtype) {
-    storage = CastHelper(
-        graph, mask_syn_t, mask.pt_t.sizes(), mask_dtype, grad_dtype);
+    storage = BuildCast(
+        this, graph, mask_syn_t, mask.pt_t.sizes(), mask_dtype, grad_dtype);
     mask_syn_t = storage->get();
   }
 

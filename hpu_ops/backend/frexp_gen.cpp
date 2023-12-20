@@ -54,7 +54,8 @@ void Frexp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   syn_out(0) = std::move(frexp[1]);
   if (castIsNeededForExponent) {
-    syn_out(1) = CastHelper(
+    syn_out(1) = BuildCast(
+        this,
         graph,
         frexp[0].get(),
         meta[1].shape,

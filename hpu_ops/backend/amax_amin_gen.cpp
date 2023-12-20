@@ -117,11 +117,23 @@ void Aminmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         dim_vec,
         keepdim);
 
-    auto cast1 = CastHelper(
-        graph, amin_max[0].get(), output_shape, torch::kInt32, torch::kBool, 0);
+    auto cast1 = BuildCast(
+        this,
+        graph,
+        amin_max[0].get(),
+        output_shape,
+        torch::kInt32,
+        torch::kBool,
+        0);
 
-    auto cast2 = CastHelper(
-        graph, amin_max[1].get(), output_shape, torch::kInt32, torch::kBool, 1);
+    auto cast2 = BuildCast(
+        this,
+        graph,
+        amin_max[1].get(),
+        output_shape,
+        torch::kInt32,
+        torch::kBool,
+        1);
 
     syn_out(0) = std::move(cast1);
     syn_out(1) = std::move(cast2);

@@ -1019,8 +1019,13 @@ void UpSampleNearest2DOperator::AddNode(
   if (meta.dtype == c10::ScalarType::Byte) {
     // u8 to f32
     intermediateDtype = c10::ScalarType::Float;
-    cast = std::make_unique<synapse_helpers::tensor>(CastHelper(
-        graph, input[0], self.sizes().vec(), meta.dtype, intermediateDtype));
+    cast = std::make_unique<synapse_helpers::tensor>(BuildCast(
+        this,
+        graph,
+        input[0],
+        self.sizes().vec(),
+        meta.dtype,
+        intermediateDtype));
     input = {cast->get()};
     final_index = c10::nullopt;
   }
@@ -1039,8 +1044,14 @@ void UpSampleNearest2DOperator::AddNode(
       final_index);
   if (meta.dtype == c10::ScalarType::Byte) {
     // f32 to u8
-    resize[0] = CastHelper(
-        graph, resize[0].get(), meta.shape, intermediateDtype, meta.dtype, 0);
+    resize[0] = BuildCast(
+        this,
+        graph,
+        resize[0].get(),
+        meta.shape,
+        intermediateDtype,
+        meta.dtype,
+        0);
   }
   syn_out(0) = std::move(resize.at(0));
 }

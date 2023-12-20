@@ -87,7 +87,8 @@ void CatHabanaOperator::AddNode(
   for (size_t i : valid_indices) {
     if (habana_helpers::pytorch_to_synapse_type(in_tensors[i].scalar_type()) !=
         habana_helpers::pytorch_to_synapse_type(out_tensor_type)) {
-      cat_input_shTensor.emplace_back(CastHelper(
+      cat_input_shTensor.emplace_back(BuildCast(
+          this,
           graph,
           syn_in(i),
           in_tensors[i].sizes(),

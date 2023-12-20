@@ -874,7 +874,8 @@ void LayerNormBwdHabanaOperator::AddNode(
           graph, src.syn_t, mean_rstd_as_4D, src.pt_t.scalar_type()));
 
       if (src.pt_t.scalar_type() != c10::kFloat) {
-        storage.push_back(CastHelper(
+        storage.push_back(BuildCast(
+            this,
             graph,
             storage.back().get(),
             mean_rstd_as_4D,
@@ -902,8 +903,13 @@ void LayerNormBwdHabanaOperator::AddNode(
 
     for (size_t i = 1; i < lnbwd.size(); ++i) {
       if (metas[i].dtype != c10::kFloat) {
-        lnbwd[i] = CastHelper(
-            graph, lnbwd[i].get(), weightShape, c10::kFloat, metas[i].dtype);
+        lnbwd[i] = BuildCast(
+            this,
+            graph,
+            lnbwd[i].get(),
+            weightShape,
+            c10::kFloat,
+            metas[i].dtype);
       }
     }
 
@@ -966,8 +972,8 @@ void WeightNormOp::AddNode(
 
   std::vector<synapse_helpers::tensor> normOp;
   if (dtype != v_in.scalar_type()) {
-    auto cast_bf16_to_float =
-        CastHelper(graph, syn_in(0), v_in.sizes(), v_in.scalar_type(), dtype);
+    auto cast_bf16_to_float = BuildCast(
+        this, graph, syn_in(0), v_in.sizes(), v_in.scalar_type(), dtype);
 
     normOp.emplace_back(NormCommon(
         this,
@@ -1073,7 +1079,8 @@ void WeightNormBwdOp::AddNode(
   std::vector<synapse_helpers::tensor> norms_cast;
   synTensor saved_norms_syn_tensor = syn_in(3);
   if (saved_norms.scalar_type() != commonOutDtype) {
-    norms_cast.emplace_back(CastHelper(
+    norms_cast.emplace_back(BuildCast(
+        this,
         graph,
         saved_norms_syn_tensor,
         saved_norms.sizes(),
@@ -1396,7 +1403,8 @@ void NativeGroupNormBwdHabanaOperator::AddNode(
 
   const auto bn_bwd_grad =
       grad_out.pt_t.scalar_type() != input.pt_t.scalar_type()
-      ? CastHelper(
+      ? BuildCast(
+            this,
             graph,
             grad_weight_mult_reshape.get(),
             bn_input_shape,

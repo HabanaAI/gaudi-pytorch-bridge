@@ -414,8 +414,8 @@ void MaxPool3DWithIndicesOut::AddNode(
         ReshapeHelper(graph, maxpool3d.at(1).get(), meta.shape, meta.dtype, 0);
   }
   syn_out(0) = std::move(maxpool3d_1);
-  syn_out(1) = CastHelper(
-      graph, maxpool3d_0.get(), meta.shape, index_type, at::kLong, 1);
+  syn_out(1) = BuildCast(
+      this, graph, maxpool3d_0.get(), meta.shape, index_type, at::kLong, 1);
 }
 
 void MaxPool3DWithIndicesBwd::AddNode(
@@ -425,7 +425,8 @@ void MaxPool3DWithIndicesBwd::AddNode(
   size_t size = 0;
   const auto params = FillSpatialReduction3DParamsBwd(stack, size);
 
-  auto cast_input = CastHelper(
+  auto cast_input = BuildCast(
+      this,
       graph,
       syn_in(2),
       stack.back().toTensor().sizes(),
@@ -502,8 +503,14 @@ void MaxPool2DWithIndices::AddNode(
         ReshapeHelper(graph, maxpool2d[1].get(), meta.shape, meta.dtype, 0);
   }
   syn_out(0) = std::move(maxpool2d_1);
-  syn_out(1) = CastHelper(
-      graph, maxpool2d_0.get(), meta.shape, retain_tensor_type, at::kLong, 1);
+  syn_out(1) = BuildCast(
+      this,
+      graph,
+      maxpool2d_0.get(),
+      meta.shape,
+      retain_tensor_type,
+      at::kLong,
+      1);
 }
 
 // Since the out varriant intices tensor has some issue

@@ -268,7 +268,8 @@ void OpBackend::HandleOutFn(sh::graph& graph, const at::Stack& stack) {
             p_context_->syn_outputs_[output_tensor_index] =
                 std::move(output_syn_tensor);
 
-            auto return_syn_tensor = CastHelper(
+            auto return_syn_tensor = BuildCast(
+                this,
                 graph,
                 casted_tensor.ref().get(),
                 output_metadata.shape,
@@ -389,7 +390,8 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
     cast_inserted = true;
 
     // Insert cast on the input with lower dtype
-    auto cast = CastHelper(
+    auto cast = BuildCast(
+        this,
         graph,
         syn_in(i - offset),
         stack.at(i).isTensor() ? stack_tensor(stack, i).sizes() : 1,
@@ -443,17 +445,6 @@ std::vector<sh::tensor> OpBackend::BuildOp(
        params,
        param_size,
        std::move(name)});
-}
-
-sh::tensor OpBackend::CastHelper(
-    sh::graph& graph,
-    synTensor syn_in,
-    at::IntArrayRef sizes,
-    const at::ScalarType& from,
-    const at::ScalarType& to,
-    c10::optional<int> final_result_index) {
-  return OpBackend::BuildCast(
-      this, graph, syn_in, sizes, from, to, final_result_index);
 }
 
 sh::tensor OpBackend::ConstantHelper(

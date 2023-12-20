@@ -480,10 +480,10 @@ if make_changes_in_folders.count("tpc_fuser") > 0 and (make_changes_in_file == "
                     words = words.split("{{")[1]
                     addNode_shape = words.split(",")[0]
 
-            elif line.find("CastHelper(") != -1 or line.find("BuildCast(") != -1:
+            elif line.find("BuildCast(") != -1:
                 cast_helper_found = True
                 print ("WARNING - Cast helper needs to be coded")
-                addNode_new_var_iter, addNode_var = assignVar(line, "CastHelper(", "BuildCast(", addNode_new_var_iter)
+                addNode_new_var_iter, addNode_var = assignVar(line, "BuildCast(", "", addNode_new_var_iter)
                 op_info["op"].append("cast")
                 op_info["params"].append("")
 
