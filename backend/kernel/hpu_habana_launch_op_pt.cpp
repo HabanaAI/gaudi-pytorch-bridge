@@ -4056,19 +4056,8 @@ void HabanaLaunchOpPT::run(
 
       recipe_launcher_->CalculateNtensorbytes();
 
-      if (refine_ds_enabled_ ||
-          (not jit_graph_and_meta_data_
-                   ->get_jit_cached_graph_info_available_flag()) ||
-          jit_graph_and_meta_data_->get_is_control_edge_processing_required()) {
-        std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>
-            memory_reuse_pairs;
-        control_edges::ProcessControlEdges(
-            *jit_ir_graph_,
-            *jit_graph_and_meta_data_,
-            jit_to_synapse_node_idx_map,
-            memory_reuse_pairs,
-            syn_graph_ptr_.get());
-      }
+      // Once SAG supports control edges, we'll have to double-check if we need
+      // additional control edge processing here
 
       syn_graph_ptr_->set_build_phase(true);
       jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
