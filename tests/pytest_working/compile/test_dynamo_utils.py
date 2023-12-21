@@ -3,6 +3,15 @@ from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 
 
+from contextlib import contextmanager
+
+@contextmanager
+def use_eager_fallback():
+    original = configuration_flags["use_eager_fallback"]
+    configuration_flags["use_eager_fallback"] = True
+    yield
+    configuration_flags["use_eager_fallback"] = original
+
 @torch.compile(backend="aot_hpu_training_backend")
 def fn(x, y, device):
     res = x + y
@@ -32,17 +41,15 @@ def assert_helper(ops_summary, op, count_list):
 
 
 def test_simple():
-    original = configuration_flags["use_eager_fallback"]
-    configuration_flags["use_eager_fallback"] = True
-    with FxGraphAnalyzer(reset_dynamo=True) as fga:
-        t1 = torch.tensor([6], device="hpu")
-        t2 = torch.tensor([2], device="hpu")
-        fn(t1, t2, "hpu")
+    with use_eager_fallback():
+        with FxGraphAnalyzer(reset_dynamo=True) as fga:
+            t1 = torch.tensor([6], device="hpu")
+            t2 = torch.tensor([2], device="hpu")
+            fn(t1, t2, "hpu")
 
     ops_summary = fga.get_ops_summary()
     assert_helper(ops_summary, 'torch.ops.aten.randint.low', [(1, 0)])
     assert_helper(ops_summary, 'torch.ops.aten.add.Tensor', [(2, 0)])
-
 
 def test_cpu():
     with FxGraphAnalyzer(reset_dynamo=True) as fga:
@@ -55,16 +62,15 @@ def test_cpu():
 
 
 def test_multiple():
-    original = configuration_flags["use_eager_fallback"]
-    configuration_flags["use_eager_fallback"] = True
-    with FxGraphAnalyzer(reset_dynamo=True) as fga:
-        t1 = torch.tensor([6], device="hpu")
-        t2 = torch.tensor([2], device="hpu")
-        with FxGraphAnalyzer() as fga2:
-            fn2(t1, t2)
-        with FxGraphAnalyzer() as fga3:
-            fn(t1, t2, "hpu")
-        fn(t1.to("cpu"), t2.to("cpu"), "cpu")
+    with use_eager_fallback():
+        with FxGraphAnalyzer(reset_dynamo=True) as fga:
+            t1 = torch.tensor([6], device="hpu")
+            t2 = torch.tensor([2], device="hpu")
+            with FxGraphAnalyzer() as fga2:
+                fn2(t1, t2)
+            with FxGraphAnalyzer() as fga3:
+                fn(t1, t2, "hpu")
+            fn(t1.to("cpu"), t2.to("cpu"), "cpu")
 
     ops_summary = fga.get_ops_summary()
     assert_helper(ops_summary, 'torch.ops.aten.randint.low', [None, (1, 0), None])
