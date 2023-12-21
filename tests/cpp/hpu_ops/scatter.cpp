@@ -128,7 +128,7 @@ TEST_P(ScatterDTypeSupportTest, ScatterValueOut) {
   auto output = torch::clone(input);
   auto indices = torch::tensor({1, 3}, options.dtype(index_dtype));
 
-  torch::scatter_out(output, input, 0, indices, 8);
+  torch::scatter_out(output, input, 0, indices, 8).to(torch::kCPU);
   const auto& op_fallback_frequency =
       habana::HpuFallbackHelper::get()->get_op_count();
   EXPECT_EQ(

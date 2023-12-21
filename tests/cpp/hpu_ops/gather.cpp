@@ -88,7 +88,6 @@ class HpuOpTest : public HpuOpTestUtil {};
 Gather2DOutTest(gather_out_int8, int8);
 Gather2DOutTest(gather_out_uint8, uint8);
 Gather3DOutTest(gather_out_int16, int16);
-Gather3DOutTest(gather_out_int64, int64);
 Gather3DOutTest(gather_out_bfloat16, bfloat16);
 Gather4DOutTest(gather_out_float, float);
 Gather4DOutTest(gather_out_byte, byte);
@@ -120,6 +119,5 @@ INSTANTIATE_TEST_SUITE_P(
         torch::kBFloat16,
         torch::kFloat32,
         torch::kInt32,
-        torch::kInt64,
         torch::kInt8,
         torch::kInt16));
