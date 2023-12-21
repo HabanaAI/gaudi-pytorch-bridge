@@ -1104,24 +1104,24 @@ void HabanaLaunchOpPT::handleRestrideNode(
   HABANA_ASSERT(value_to_ivalue[value_in]->isTensor());
   auto tensor = value_to_ivalue[value_in]->toTensor();
   auto is_5d_layout = tensor.dim() == 5 ? true : false;
-  bool is_jit_cached_graph_info_available =
-      jit_graph_and_meta_data_->get_jit_cached_graph_info_available_flag();
 
-  if (is_jit_cached_graph_info_available == false) {
-    bool is_in_graph_outputs = isInGraphOutputs(value_out);
-    jit_graph_and_meta_data_->set_is_in_graph_outputs(is_in_graph_outputs);
-  }
-  auto is_in_graph_outputs = jit_graph_and_meta_data_->get_is_in_graph_outputs(
-      restride_node_out_val_counter);
+  auto is_in_graph_outputs =
+      jit_graph_and_meta_data_->syn_build_cache_
+          .get_or_compute_val<&SynBuildCache::is_in_graph_outputs>(
+              [this, value_out]() { return isInGraphOutputs(value_out); },
+              restride_node_out_val_counter);
+
   restride_node_out_val_counter++;
 
   if ((tensor.dim() == 4) || (tensor.dim() == 5)) {
-    if (is_jit_cached_graph_info_available == false) {
-      auto new_pos = toIValue(node->input(1))->toIntVector();
-      jit_graph_and_meta_data_->set_new_pos(new_pos);
-    }
     std::vector<int64_t>& new_pos =
-        jit_graph_and_meta_data_->get_new_pos(restride_node_swap_counter);
+        jit_graph_and_meta_data_->syn_build_cache_
+            .get_or_compute<&SynBuildCache::new_positions>(
+                [this, node]() {
+                  return toIValue(node->input(1))->toIntVector();
+                },
+                restride_node_swap_counter);
+
     restride_node_swap_counter++;
 
     auto sizes = tensor.sizes().vec();
@@ -1420,12 +1420,11 @@ void HabanaLaunchOpPT::handlePrimConstantNode(torch::jit::Node* node) {
       ivptrsh = std::make_shared<IVal>(toIValue(value).value());
     }
     if (value->type()->kind() == c10::TypeKind::TensorType) {
-      if (is_jit_cached_graph_info_available == false) {
-        auto ivptrshUpdated = castConstantTensor(ivptrsh);
-        jit_graph_and_meta_data_->set_prim_nodes_ival(ivptrshUpdated);
-      }
-      auto ivptrsh_updated = jit_graph_and_meta_data_->get_prim_nodes_ival(
-          prim_nodes_ival_counter);
+      auto ivptrsh_updated =
+          jit_graph_and_meta_data_->syn_build_cache_
+              .get_or_compute<&SynBuildCache::prim_nodes_ivals>(
+                  [this, &ivptrsh]() { return castConstantTensor(ivptrsh); },
+                  prim_nodes_ival_counter);
       value_to_ivalue[value] = ivptrsh_updated;
       std::string irn{"%intermediate_"};
       irn += std::to_string(intermediate_index);
@@ -1450,12 +1449,10 @@ void HabanaLaunchOpPT::handlePrimConstantNode(torch::jit::Node* node) {
       ivalue_to_tensor_info_map[ivptrsh_updated] = ti;
       aten_intermediates.push_back(tensor);
     } else {
-      if (is_jit_cached_graph_info_available == false) {
-        jit_graph_and_meta_data_->set_prim_nodes_ival(ivptrsh);
-      } else {
-        ivptrsh = jit_graph_and_meta_data_->get_prim_nodes_ival(
-            prim_nodes_ival_counter);
-      }
+      ivptrsh =
+          jit_graph_and_meta_data_->syn_build_cache_
+              .get_or_compute<&SynBuildCache::prim_nodes_ivals>(
+                  [&ivptrsh]() { return ivptrsh; }, prim_nodes_ival_counter);
       value_to_ivalue[value] = ivptrsh;
     }
     prim_nodes_ival_counter++;
@@ -2156,14 +2153,12 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // Create/attach the synapse inputs from aten tensors
     GetSynapseInputs(HabanaKernel, node);
 
-    // setup the config params for the kernels
-    if (is_jit_cached_graph_info_available == false) {
-      auto outputs_metadata = nodeOutputMetaData(node);
-      jit_graph_and_meta_data_->set_outputs_metadata(outputs_metadata);
-    }
     PT_BRIDGE_DEBUG(DumpNodeInputs(node, value_to_ivalue));
     OutputMetaDataVector& outputs_metadata =
-        jit_graph_and_meta_data_->get_outputs_metadata(outputs_metadata_index);
+        jit_graph_and_meta_data_->syn_build_cache_
+            .get_or_compute<&SynBuildCache::outputs_metadata>(
+                [this, node]() { return nodeOutputMetaData(node); },
+                outputs_metadata_index);
     outputs_metadata_index++;
 
     if (!dry_run_ && allocated_outputs_iter.has_value()) {
@@ -3983,7 +3978,7 @@ void HabanaLaunchOpPT::run(
           intermediate_syn_tensors_count_);
       syn_graph_ptr_->set_num_of_inter_tensors(intermediate_syn_tensors_count_);
 
-      jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
+      jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
 
       // TODO do we need sync ????
       pipeline_execution.compile_sync();
@@ -4071,7 +4066,7 @@ void HabanaLaunchOpPT::run(
       // additional control edge processing here
 
       syn_graph_ptr_->set_build_phase(true);
-      jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
+      jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
 
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
@@ -4130,7 +4125,7 @@ void HabanaLaunchOpPT::run(
       permutation_info_saver_ =
           std::make_unique<PermutationInfoSaver>(jit_graph_and_meta_data_);
     }
-    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
+    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
 
     if (!is_permute_data_cached || enable_caching_) {
       // TODO may be we don't need sync with compile thread
@@ -4143,7 +4138,7 @@ void HabanaLaunchOpPT::run(
     CompileSynapseGraphAndPatchTable();
     ExecuteSynapseGraph();
 
-    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
+    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
     ClearStatics();
   }
 
@@ -4696,7 +4691,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       permutation_info_saver_ =
           std::make_unique<PermutationInfoSaver>(jit_graph_and_meta_data_);
     }
-    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag(true);
+    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
     PT_DYNAMIC_SHAPE_DEBUG("Cache miss pipeline flow");
     pipeline_execution.compile_sync();
     execution_control_.no_compile();

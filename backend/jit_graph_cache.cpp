@@ -316,32 +316,7 @@ void OptimizedJITGraphAndMetaData::SetOptimizedLazyEagerFlag(bool flag) {
   isOptimizedLazyEager = flag;
 }
 
-void OptimizedJITGraphAndMetaData::set_jit_cached_graph_info_available_flag(
-    bool flag) {
-  isJITCachedGraphInfoAvailable = flag;
-}
-
-bool OptimizedJITGraphAndMetaData::get_jit_cached_graph_info_available_flag() {
-  return isJITCachedGraphInfoAvailable;
-}
-
-void OptimizedJITGraphAndMetaData::set_outputs_metadata(
-    habana::OutputMetaDataVector meta_data) {
-  outputs_metadata.emplace_back(meta_data);
-}
-
-habana::OutputMetaDataVector& OptimizedJITGraphAndMetaData::
-    get_outputs_metadata(size_t index) {
-  HABANA_ASSERT(
-      index < outputs_metadata.size(),
-      " index = ",
-      index,
-      " outputs_metadata.size() = ",
-      outputs_metadata.size());
-  return outputs_metadata[index];
-}
-
-void OptimizedJITGraphAndMetaData::clear_cached_outputs_tensors() {
+void SynBuildCache::clear_cached_outputs_tensors() {
   for (auto& metadatas : outputs_metadata) {
     for (auto& metadata : metadatas) {
       if (metadata.allocated_tensor.has_value()) {
@@ -351,50 +326,21 @@ void OptimizedJITGraphAndMetaData::clear_cached_outputs_tensors() {
   }
 }
 
-void OptimizedJITGraphAndMetaData::clear_cached_graph_info() {
+void SynBuildCache::clear_cached_graph_info() {
   outputs_metadata.clear();
   prim_nodes_ivals.clear();
   new_positions.clear();
   is_in_graph_outputs.clear();
   is_control_edge_processing_required = false;
-  set_jit_cached_graph_info_available_flag(false);
+  is_complete_ = false;
 }
 
-void OptimizedJITGraphAndMetaData::set_prim_nodes_ival(IValPtrShared ival) {
-  prim_nodes_ivals.emplace_back(ival);
-}
-
-IValPtrShared OptimizedJITGraphAndMetaData::get_prim_nodes_ival(size_t index) {
-  HABANA_ASSERT(index < prim_nodes_ivals.size());
-  return prim_nodes_ivals[index];
-}
-
-void OptimizedJITGraphAndMetaData::set_new_pos(std::vector<int64_t> pos) {
-  new_positions.emplace_back(pos);
-}
-
-std::vector<int64_t>& OptimizedJITGraphAndMetaData::get_new_pos(size_t index) {
-  HABANA_ASSERT(index < new_positions.size());
-  return new_positions[index];
-}
-
-void OptimizedJITGraphAndMetaData::set_is_in_graph_outputs(
-    bool is_graph_output) {
-  is_in_graph_outputs.emplace_back(is_graph_output);
-}
-
-bool OptimizedJITGraphAndMetaData::get_is_in_graph_outputs(size_t index) {
-  HABANA_ASSERT(index < is_in_graph_outputs.size());
-  return is_in_graph_outputs[index];
-}
-
-void OptimizedJITGraphAndMetaData::set_is_control_edge_processing_required(
-    bool is_c_edge_required) {
-  is_control_edge_processing_required = is_c_edge_required;
+void OptimizedJITGraphAndMetaData::set_is_control_edge_processing_required() {
+  syn_build_cache_.set_is_control_edge_processing_required();
 }
 
 bool OptimizedJITGraphAndMetaData::get_is_control_edge_processing_required() {
-  return is_control_edge_processing_required;
+  return syn_build_cache_.get_is_control_edge_processing_required();
 }
 
 void OptimizedJITGraphAndMetaData::SetFrontendType(

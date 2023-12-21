@@ -575,8 +575,8 @@ void ControlEdgesProcessor::ProcessCustomOptControlEdges(
             auto list_input_node = list_input_val->node();
             auto c_edge = NodeRequiresControlEdge(list_input_node);
             if (c_edge != ControlEdgeType::None) {
-              jit_graph_and_meta_data_.set_is_control_edge_processing_required(
-                  true);
+              jit_graph_and_meta_data_
+                  .set_is_control_edge_processing_required();
               // Prepare blocking nodes list.
               PrepareBlockingNodeList(
                   list_input_node,
@@ -617,7 +617,7 @@ void ControlEdgesProcessor::ProcessControlEdges() {
   for (auto* const node : graph_nodes) {
     auto c_edge = NodeRequiresControlEdge(node);
     if (c_edge != ControlEdgeType::None) {
-      jit_graph_and_meta_data_.set_is_control_edge_processing_required(true);
+      jit_graph_and_meta_data_.set_is_control_edge_processing_required();
       // Prepare blocking nodes list.
       PrepareBlockingNodeList(
           node, c_edge, blocking_nodes_vec_, blocking_syn_nodes_vec_);
@@ -708,7 +708,7 @@ void ControlEdgesProcessor::ProcessControlEdgesForMemoryReuse(
                blocking_node, blocked_node) &&
            (blocking_node != blocked_node))) {
         // Set flag in JIT cache.
-        jit_graph_and_meta_data_.set_is_control_edge_processing_required(true);
+        jit_graph_and_meta_data_.set_is_control_edge_processing_required();
         blocking_nodes_vec.emplace_back(blocking_node);
         AddSynNodes(
             blocking_syn_nodes_vec_,
@@ -718,7 +718,7 @@ void ControlEdgesProcessor::ProcessControlEdgesForMemoryReuse(
     }
 
     if (blocking_syn_nodes_vec_.size()) {
-      jit_graph_and_meta_data_.set_is_control_edge_processing_required(true);
+      jit_graph_and_meta_data_.set_is_control_edge_processing_required();
       AddSynNodes(
           blocked_syn_nodes_vec_, blocked_node, jit_to_synapse_node_idx_map_);
       if (blocked_syn_nodes_vec_.size()) {

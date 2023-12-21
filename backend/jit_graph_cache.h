@@ -37,57 +37,64 @@ void ComputeGraphHashCode(
 
 size_t GetDataChecksum(void* data, size_t dataSize);
 
-/**
- * JitGraphCache
- * ----------------
- *
- * Description
- * -----------
- *  This cache holds the optimized JIT graph given an JIT graph.
- *  The execution trigger on lazy mode will do a post-order traversal
- *  of accumulated nodes and create a JIT sub-graph for execution.
- *  If this subgraph has been used before, this cache will return the
- *  optimized JIT graph.
- *
- * Why do we need this cache?
- * --------------------------
- *  The overall goal is to make the critical path of subgraph
- *  execution as fast as possible by avoiding the following on
- *  a cache hit -
- *   - Subgraph (post order) to JIT IR creation
- *   - Optimizing JIT IR graph via JIT compiler
- *   - Creating and compiling a synapse graph via graph compiler
- *
- *  PyTorch TorchScript JIT compiler is triggered on a cache lookup
- *  that is shape unaware.
- *  Consider the following two graphs -
- *  Graph 1:                    Graph 2:
- *    a = tensor(2 x 3)           a' = tensor(200 x 300)
- *    b = tensor(2 x 3)           b' = tensor(200 x 300)
- *    c = a + b                   c' = a' + b'
- *  On JIT IR, its a cache hit (both graphs are on 2D tensors)
- *  On synapse, its a cache miss (tensor shapes are different)
- *
- *  Hence, we need two level of caching. This cache is for the
- *  JIR IR, which detects a cache hit with ArgumentSpec only.
- *
- *  During execution trigger of a lazy subgraph, the expected flow -
- *   - given a sungraph (post order) and its inputs
- *     - do we have a optimized JIT IR graph already?
- *       - If yes,
- *           get the cached optimized JIT graph
- *       - If no,
- *           create a JIT graph from subgraph (post order)
- *           optimize the JIT graph with JIT compiler passes
- *           cache the optimized JIT graph against the subgraph
- *             (post order) and input (dimensions, data types)
- *
- *     - call habana lowering with optimized JIT graph
- *     [This flow below is from the TorchScript lowering bridge code]
- *       - do we have a recipe cached against this optimized JIT graph?
- *         - If Yes, invoke recipe
- *         - If no, create aynspase graphm compile and invoke recipe
- */
+//  SynBuildCache class contains information which are calculated during build
+//  synapse graph and can be reused for build that graph again. We store in
+//  order to speed up build process
+
+class SynBuildCache {
+ public:
+  template <auto SynBuildCache::*member, typename Func>
+  auto& get_or_compute(Func&& comp_func, size_t index) {
+    static_assert(
+        std::is_member_pointer_v<decltype(member)>,
+        "member must be a member pointer");
+
+    if (!is_complete_) {
+      HABANA_ASSERT(index == (this->*member).size())
+      (this->*member).emplace_back(comp_func());
+    }
+    return (this->*member).at(index);
+  }
+
+  template <auto SynBuildCache::*member, typename Func>
+  auto get_or_compute_val(Func&& comp_func, size_t index) {
+    static_assert(
+        std::is_member_pointer_v<decltype(member)>,
+        "member must be a member pointer");
+
+    if (!is_complete_) {
+      HABANA_ASSERT(index == (this->*member).size())
+      (this->*member).emplace_back(comp_func());
+    }
+    return (this->*member).at(index);
+  }
+
+  void clear_cached_outputs_tensors();
+  void clear_cached_graph_info();
+
+  void set_is_control_edge_processing_required() {
+    is_control_edge_processing_required = true;
+  }
+
+  bool get_is_control_edge_processing_required() {
+    return is_control_edge_processing_required;
+  }
+
+  void complete() {
+    is_complete_ = true;
+  }
+
+  bool is_complete() const {
+    return is_complete_;
+  }
+
+  bool is_complete_ = false;
+  std::vector<habana::OutputMetaDataVector> outputs_metadata{};
+  VecOfIValPtrSh prim_nodes_ivals{};
+  std::vector<std::vector<int64_t>> new_positions{};
+  std::vector<bool> is_in_graph_outputs{};
+  bool is_control_edge_processing_required = false;
+};
 
 struct OptimizedJITGraphAndMetaData {
   OptimizedJITGraphAndMetaData();
@@ -145,31 +152,23 @@ struct OptimizedJITGraphAndMetaData {
 
   void SetOptimizedLazyEagerFlag(bool flag);
 
-  void set_jit_cached_graph_info_available_flag(bool flag);
+  void set_jit_cached_graph_info_available_flag() {
+    syn_build_cache_.complete();
+  };
 
-  bool get_jit_cached_graph_info_available_flag();
+  bool get_jit_cached_graph_info_available_flag() {
+    return syn_build_cache_.is_complete();
+  };
 
-  void set_outputs_metadata(habana::OutputMetaDataVector meta_data);
+  void clear_cached_outputs_tensors() {
+    syn_build_cache_.clear_cached_outputs_tensors();
+  };
 
-  habana::OutputMetaDataVector& get_outputs_metadata(size_t index);
+  void clear_cached_graph_info() {
+    syn_build_cache_.clear_cached_graph_info();
+  };
 
-  void clear_cached_outputs_tensors();
-
-  void clear_cached_graph_info();
-
-  void set_prim_nodes_ival(IValPtrShared ival);
-
-  IValPtrShared get_prim_nodes_ival(size_t index);
-
-  void set_new_pos(std::vector<int64_t> pos);
-
-  std::vector<int64_t>& get_new_pos(size_t index);
-
-  void set_is_in_graph_outputs(bool is_graph_output);
-
-  bool get_is_in_graph_outputs(size_t index);
-
-  void set_is_control_edge_processing_required(bool is_c_edge_required);
+  void set_is_control_edge_processing_required();
 
   bool get_is_control_edge_processing_required();
 
@@ -270,6 +269,8 @@ struct OptimizedJITGraphAndMetaData {
     permutation_info_ = std::move(permutation_info);
   }
 
+  SynBuildCache syn_build_cache_;
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -281,12 +282,6 @@ struct OptimizedJITGraphAndMetaData {
   std::vector<bool> node_bcast_details;
   std::string op_name = std::string();
   bool isOptimizedLazyEager = false;
-  bool isJITCachedGraphInfoAvailable = false;
-  std::vector<habana::OutputMetaDataVector> outputs_metadata{};
-  VecOfIValPtrSh prim_nodes_ivals{};
-  std::vector<std::vector<int64_t>> new_positions{};
-  std::vector<bool> is_in_graph_outputs{};
-  bool is_control_edge_processing_required = false;
   bool is_syn_graph_empty{false};
   synapse_helpers::hpuStream_t hpu_stream = 0;
   std::shared_ptr<habana::RecipeValueSpec> cur_shape_agnostic_rvalpsh{nullptr};
@@ -302,7 +297,54 @@ struct OptimizedJITGraphAndMetaData {
 
 /**
  * JitGraphCache
+ * ----------------
  *
+ * Description
+ * -----------
+ *  This cache holds the optimized JIT graph given an JIT graph.
+ *  The execution trigger on lazy mode will do a post-order traversal
+ *  of accumulated nodes and create a JIT sub-graph for execution.
+ *  If this subgraph has been used before, this cache will return the
+ *  optimized JIT graph.
+ *
+ * Why do we need this cache?
+ * --------------------------
+ *  The overall goal is to make the critical path of subgraph
+ *  execution as fast as possible by avoiding the following on
+ *  a cache hit -
+ *   - Subgraph (post order) to JIT IR creation
+ *   - Optimizing JIT IR graph via JIT compiler
+ *   - Creating and compiling a synapse graph via graph compiler
+ *
+ *  PyTorch TorchScript JIT compiler is triggered on a cache lookup
+ *  that is shape unaware.
+ *  Consider the following two graphs -
+ *  Graph 1:                    Graph 2:
+ *    a = tensor(2 x 3)           a' = tensor(200 x 300)
+ *    b = tensor(2 x 3)           b' = tensor(200 x 300)
+ *    c = a + b                   c' = a' + b'
+ *  On JIT IR, its a cache hit (both graphs are on 2D tensors)
+ *  On synapse, its a cache miss (tensor shapes are different)
+ *
+ *  Hence, we need two level of caching. This cache is for the
+ *  JIR IR, which detects a cache hit with ArgumentSpec only.
+ *
+ *  During execution trigger of a lazy subgraph, the expected flow -
+ *   - given a sungraph (post order) and its inputs
+ *     - do we have a optimized JIT IR graph already?
+ *       - If yes,
+ *           get the cached optimized JIT graph
+ *       - If no,
+ *           create a JIT graph from subgraph (post order)
+ *           optimize the JIT graph with JIT compiler passes
+ *           cache the optimized JIT graph against the subgraph
+ *             (post order) and input (dimensions, data types)
+ *
+ *     - call habana lowering with optimized JIT graph
+ *     [This flow below is from the TorchScript lowering bridge code]
+ *       - do we have a recipe cached against this optimized JIT graph?
+ *         - If Yes, invoke recipe
+ *         - If no, create aynspase graphm compile and invoke recipe
  */
 class JitGraphCache {
  public:
