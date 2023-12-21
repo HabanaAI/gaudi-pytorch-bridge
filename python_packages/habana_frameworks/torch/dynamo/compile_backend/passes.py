@@ -218,6 +218,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_graph_print,
             pass_eagerize_leaf_views,
             pass_replace_sym_size,
+            pass_inference_fuse_linear,
             pass_propose_partitions,
             pass_merge_paths,
             # This is final pass that creates final submoduled graph.
@@ -314,6 +315,35 @@ def helper_handle_noncontiguous_output(node: torch.fx.Node, result: torch.Tensor
     if node.target.__name__ in node_target_list:
         result = result.contiguous()
     return result
+
+
+def helper_post_pass_finalize(input_module: torch.fx.GraphModule, uses_aot: bool):
+    """
+    Run this pass iff the input graph changed for each submodule
+    for each pass
+    """
+    # Clean up the graph and log the situation.
+    if uses_aot:
+        input_module.graph.eliminate_dead_code()
+    else:
+        # Running DCE on graph that might not be functionalized in unsafe:
+        # https://github.com/pytorch/pytorch/issues/68301
+        logger.warning("Disallowed to run DCE in non-aot mode.")
+    input_module.graph.lint()
+    input_module.recompile()
+
+    return input_module
+
+
+def helper_is_node_supported(node: torch.fx.Node) -> bool:
+    """
+    Returns true if the node is on HPU and is part of
+    the proposed fused partition
+    """
+    return (
+        node.meta["output_device"].type == "hpu" and
+        node.meta["placement"] == "hpu_cluster"
+    )
 
 
 def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
@@ -1784,3 +1814,101 @@ def pass_summarize_graph(ctx: OptimizerContext):
         debug_context.count_ops(ctx.graph_module.graph.nodes, ctx)
 
     return False
+
+def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
+    """
+    Runs iff inference mode is set for the input GraphModule
+    This pass goes through the input GraphModule and fuses all instances of
+    t + mm or t + addmm back to linear. It also removes redundant reshapes added
+    for the t + mm or t + addmm pattern. It returns a status indicating if the
+    module changed
+    """
+    graph_changed = False
+
+    if ctx.is_training:
+        return graph_changed
+
+    for node in ctx.graph_module.graph.nodes:
+        if (
+            node.op != "call_function" or
+            node.target != torch.ops.aten.t.default or
+            not helper_is_node_supported(node=node)
+        ):
+            continue
+        to_remove = []
+        for u in node.users:
+            if (
+                u.op != "call_function" or
+                not helper_is_node_supported(node=u)
+            ):
+                break
+            if u.target == torch.ops.aten.addmm.default:
+                bias, inp, _ = list(u.args)
+                weight = list(node.args)[0]
+                new_args = (inp, weight, bias)
+            elif u.target == torch.ops.aten.mm.default:
+                inp, _ = list(u.args)
+                weight = list(node.args)[0]
+                new_args = (inp, weight)
+            else:
+                continue
+
+            graph_changed = True
+            new_op = torch.ops.aten.linear
+            with ctx.graph_module.graph.inserting_after(u):
+                new_node = ctx.graph_module.graph.create_node(
+                    "call_function",
+                    new_op,
+                    args=new_args,
+                    kwargs=u.kwargs,
+                )
+                u.replace_all_uses_with(new_node, propagate_meta=True)
+                to_remove.append(u)
+        for u in to_remove:
+            ctx.graph_module.graph.erase_node(u)
+
+    if not graph_changed:
+        return graph_changed
+
+    ctx.graph_module = helper_post_pass_finalize(input_module=ctx.graph_module, uses_aot=ctx.uses_aot)
+
+    """
+    The following sub-graph rewriter removes the redundant reshapes that are added
+    by aot autograd as part of lowering linear to t + mm/addmm as the above rewriter
+    has replaced the pattern with linear
+    """
+    for node in ctx.graph_module.graph.nodes:
+        if (
+            node.op != "call_function" or
+            node.target != torch.ops.aten.linear or
+            not helper_is_node_supported(node=node)
+        ):
+            continue
+        before = node.args[0]
+        after = next(iter(node.users))
+        cond_after = False
+        if (
+            len(node.users) == 1 and
+            after.target == torch.ops.aten.view.default and
+            helper_is_node_supported(after)
+        ):
+            cond_after = True
+        cond_before = False
+        if (
+            len(before.users) == 1 and
+            before.target == torch.ops.aten.view.default and
+            helper_is_node_supported(before)
+        ):
+            cond_before = True
+        if (
+            cond_after and
+            cond_before
+        ):
+            real_input = before.args[0]
+            new_args = list(node.args)
+            new_args[0] = real_input
+            node.args = tuple(new_args)
+            after.replace_all_uses_with(node)
+            ctx.graph_module = helper_post_pass_finalize(input_module=ctx.graph_module, uses_aot=ctx.uses_aot)
+
+    return graph_changed
