@@ -3,7 +3,7 @@ def isPromote = env.IS_PROMOTE.toBoolean() || env.TRIGGER_BUILD.startsWith("Prom
 src = library("pipeline-library@$stableBranch")
 
 def user_install = env.runInDocker == 'true' ? '' : '--user'
-def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'AEON', 'HL_THUNK', 'COMPLEX_GUID', 'SWTOOLS_SDK', 'SYNAPSE_PROFILER', 'TPC_KERNELS', 'SCAL']
+def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'AEON', 'HL_THUNK', 'COMPLEX_GUID', 'SWTOOLS_SDK', 'SYNAPSE_PROFILER', 'TPC_KERNELS', 'SCAL', 'PT_FORK']
 def clangFormatValidation = [
     'clang-format validation': { util ->
         try {
@@ -33,12 +33,12 @@ def lightningHabanaFork = [
     }
 ]
 def pytorchFork = [
-    'Build Pytorchfork modules': { util ->
-        util.runBuildShell('build_pytorch_fork -c --dist')
+    'Install Pytorchfork modules': { util ->
         util.runShellCommandWrapper("""
             set -xe
             __clean_pytorch_dev_py_deps
             pip install -U \${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*torch*.whl ${user_install}
+            rm \${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*torch*.whl
         """)
     }
 ]
