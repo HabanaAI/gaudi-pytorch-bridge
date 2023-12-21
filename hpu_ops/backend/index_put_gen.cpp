@@ -377,7 +377,6 @@ void IndexPutBoolEager::AddNode(
   auto max_size = broadcast_size(indices, self);
   auto indices_scalar_type =
       common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
-
   std::vector<synapse_helpers::tensor> nonzero;
   auto shape_tensor_shape = at::DimVector{5};
 
@@ -395,6 +394,7 @@ void IndexPutBoolEager::AddNode(
     new_shape.insert(new_shape.end(), missing, 1);
     return this->ReshapeHelper(graph, st, new_shape, t.scalar_type());
   };
+  int64_t slice_numel;
 
   for (size_t i = 0; i < indices.size(); i++) {
     NonZeroParams_t index_params;
@@ -409,7 +409,6 @@ void IndexPutBoolEager::AddNode(
             : syn_in(i + 1),
         max_size,
         index_params.dtype);
-
     index_params.sizes = max_size;
     index_params.numel = std::accumulate(
         std::begin(max_size), std::end(max_size), 1, std::multiplies<size_t>());
@@ -420,16 +419,27 @@ void IndexPutBoolEager::AddNode(
         bcastOpInd.get(),
         c10::nullopt,
         c10::nullopt,
-        true);
-    nonzero_out_shape = nonzero[0].pt_shape();
-    auto flattened_size = std::accumulate(
-        std::begin(nonzero_out_shape),
-        std::end(nonzero_out_shape),
-        1,
-        std::multiplies<size_t>());
+        false);
 
-    std::vector<int64_t> expanded_size = {flattened_size, 1};
-    cat_input_tensor.emplace_back(std::move(nonzero.at(0)));
+    nonzero_out_shape = nonzero[0].pt_shape();
+    synSliceParamsV2 slice_params{};
+    slice_numel = index_params.numel;
+    slice_params.axes[0] = 1; // always slice on the row of 2D indices (index
+                              // vector for each dim is one col)
+    slice_params.starts[0] = 0;
+    slice_params.ends[0] = slice_numel;
+    slice_params.steps[0] = 1;
+    int64_t slice_output_shape_second_dim_size =
+        (1 == nonzero_out_shape.size()) ? 1 : nonzero_out_shape[1];
+    auto slice = BuildOp(
+        graph,
+        get_guid_with_precision("slice", indices_scalar_type),
+        {nonzero[0].get()},
+        {{{slice_numel, slice_output_shape_second_dim_size},
+          indices_scalar_type}},
+        &slice_params,
+        sizeof(slice_params));
+    cat_input_tensor.emplace_back(std::move(slice.at(0)));
     cat_input_synTensor.emplace_back(
         cat_input_tensor[cat_input_tensor.size() - 1].get());
     cat_input_index.emplace_back(
@@ -441,7 +451,6 @@ void IndexPutBoolEager::AddNode(
   cat_dim = cat_out_size.size() > 0
       ? (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1
       : 0; // If tensor is empty then dim of the concatenated tensor will be 0
-
   synConcatenateParams concat_params{};
   concat_params.axis = static_cast<unsigned int>(cat_dim);
   auto catop1 = BuildOp(
@@ -456,8 +465,7 @@ void IndexPutBoolEager::AddNode(
   auto cat_pt_shape = catop.pt_shape();
   // Calculate the dimensionality of updates for broadcasting
   auto rank_inp = static_cast<size_t>(self.ndimension());
-  auto rank_idx =
-      static_cast<size_t>(nonzero_out_shape[1]); // catop.pt_shape()[1];
+  auto rank_idx = static_cast<size_t>(nonzero_out_shape[1]);
   auto values_scalar_type = values.scalar_type();
   std::vector<int64_t> value_upd_dim;
   if (values.numel() >
@@ -466,7 +474,8 @@ void IndexPutBoolEager::AddNode(
     auto values_sizes = values.sizes().vec();
     if (indices[0].dim() != self.dim() &&
         values.dim() != (1 + (self.dim() - indices[0].dim()))) {
-      value_upd_dim.push_back(nonzero_out_shape[0]);
+      value_upd_dim.push_back(slice_numel); // NOTE: we might fail for indices
+                                            // with varying dimensions
       for (size_t i = rank_idx; i < rank_inp; i++)
         value_upd_dim.push_back(self_sizes[i]);
     } else {
@@ -474,7 +483,8 @@ void IndexPutBoolEager::AddNode(
         value_upd_dim.push_back(values_sizes[i]);
     }
   } else { // We are assuming uses passes value shapes correctly for scatter
-    value_upd_dim.push_back(nonzero_out_shape[0]);
+    value_upd_dim.push_back(
+        slice_numel); // NOTE: we might fail for indices with varying dimensions
     for (size_t i = rank_idx; i < rank_inp; i++)
       value_upd_dim.push_back(self_sizes[i]);
   }

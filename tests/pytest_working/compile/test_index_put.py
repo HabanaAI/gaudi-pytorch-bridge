@@ -42,3 +42,33 @@ def test_index_put_bool_mask_only(inputs_shape, accumulate):
     )
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
+
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
+@pytest.mark.parametrize("inputs_shape", [(3, 5, 2)])
+@pytest.mark.parametrize("ind_shape", [(3, 5)])
+@pytest.mark.parametrize(
+    "accumulate", [False]
+)
+def test_index_put_bool_adv_indexing(inputs_shape, ind_shape, accumulate):
+    def fn(tensor, bool_mask, value, accumulate):
+        #tensor.index_put([bool_mask], value, accumulate)
+        tensor[bool_mask, :] = value
+        return tensor
+    self_numel = reduce(lambda x, y: x*y, list(inputs_shape))
+    indices_numel = reduce(lambda x, y: x*y, list(ind_shape))
+    tensor = torch.arange(self_numel).view(inputs_shape)
+    mask_in = torch.arange(indices_numel).view(ind_shape)
+    bool_mask = mask_in > indices_numel/3
+    values = torch.tensor([-100])
+
+    torch._dynamo.reset()
+    compiled_cpu = torch.compile(fn)
+    cpu_res = compiled_cpu(tensor, bool_mask, values, accumulate)
+
+    torch._dynamo.reset()
+    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_res = compiled_hpu(
+        tensor.to("hpu"), bool_mask.to("hpu"), values.to("hpu"), accumulate
+    )
+
+    assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
