@@ -75,22 +75,6 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = 
     # Check if recompute variant is enabled
     recompute = ht.recompute_sdp_enabled()
 
-    # Work around to handle is_causal in case source seq len < target seq len.
-    # Create the triangular mask and pass it as usual attention mask. So clear is_causal flag.
-    # Make it a float mask that can be added to the S tensor (S = q@k.transpose)
-    if is_causal:
-        seq_len_N_t = q.size(-2)
-        seq_len_N_s = k.size(-2)
-        if seq_len_N_s < seq_len_N_t:
-            assert recompute == False, "Recompute is supported only if is_causal = True and source seq Len >= target seq Len"
-            LNG = -3.0e38 #Close to -ve max for bfloat or float
-            if q.dtype == torch.float16:
-                LNG = -6.5e4
-            inv_causal_mask = torch.ones(seq_len_N_t, seq_len_N_s, dtype=q.dtype, device = q.device).triu(diagonal=1)
-            attn_mask =  inv_causal_mask * LNG
-            is_causal = False
-            recompute = False
-
     gqa = is_gqa(q,k)
     if gqa:
         q, k, v, attn_mask = gqa_input_reshape_fwd(q, k, v, attn_mask)
