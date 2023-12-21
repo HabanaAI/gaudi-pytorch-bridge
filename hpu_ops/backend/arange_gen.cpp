@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -37,15 +37,28 @@ static int64_t get_arange_depth(
     const c10::Scalar _start,
     const c10::Scalar _end,
     const c10::Scalar _step) {
-  const float start = _start.to<float>();
-  const float end = _end.to<float>();
-  const float step = _step.to<float>();
+  const double start = _start.toDouble();
+  const double end = _end.toDouble();
+  const double step = _step.toDouble();
 
   TORCH_CHECK(step != 0.0, "step value can not be 0.");
   TORCH_CHECK(!((start > end) && (step > 0)), "step must be negative.");
   TORCH_CHECK(!((start < end) && (step < 0)), "step must be positive.");
+  TORCH_CHECK(
+      std::isfinite(start) && std::isfinite(end),
+      "unsupported range: ",
+      start,
+      " -> ",
+      end);
 
-  int64_t num_elements = static_cast<int64_t>(ceil((end - start) / step));
+  double elements = std::ceil((end - start) / step);
+
+  TORCH_CHECK(
+      elements >= 0 &&
+          elements <= static_cast<double>(std::numeric_limits<int64_t>::max()),
+      "invalid number of elements, possible overflow");
+
+  int64_t num_elements = static_cast<int64_t>(elements);
   return num_elements;
 }
 
