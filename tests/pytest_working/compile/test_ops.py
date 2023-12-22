@@ -44,8 +44,6 @@ if not is_gaudi1():
 )
 @pytest.mark.parametrize("torch_func", [torch.empty_like, torch.zeros_like], ids=format_tc)
 def test_empty_and_zeros_like(dtype, memory_format, torch_func):
-    if pytest.mode == "compile" and torch_func == torch.empty_like:
-        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     if pytest.mode == "compile" and torch_func == torch.zeros_like and dtype == torch.bool:
         pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     requires_grad = False
