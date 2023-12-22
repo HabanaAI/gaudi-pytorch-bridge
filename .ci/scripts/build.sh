@@ -1743,7 +1743,7 @@ run_habana_lightning_tests()
             shift
             __suite_type="$1"
             ;;
-	     --dut )
+        --dut )
             shift
             __dut="$1"
             ;;
@@ -1832,7 +1832,7 @@ run_pytorch_lightning_qa_tests()
             shift
             __suite_type="$1"
             ;;
-	     --dut )
+        --dut )
             shift
             __dut="$1"
             ;;
@@ -1934,7 +1934,7 @@ run_lightning_habana_fw_tests()
             shift
             __suite_type="$1"
             ;;
-	     --dut )
+        --dut )
             shift
             __dut="$1"
             ;;
@@ -2196,6 +2196,13 @@ build_pytorch_text()
     local __set_py_vers="false"
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_text_version
+    local __repository="pytorch/text"
+    local __github="https://github.com/${__repository}"
+    local __curl_api="curl -s -o /dev/null -I -w %{http_code} https://api.github.com/repos/${__repository}"
+    local __tag_response
+    local __branch_response
+    local __sha_response
+
     # parameter while-loop
     while [ -n "$1" ];
     do
@@ -2244,9 +2251,25 @@ build_pytorch_text()
     # checkout github torchaudio repo
     if [ -z ${__pt_text_version} ]; then
         __pt_text_version=$($__profile_getter_path --get-extras-version torchtext current)
+        echo "get torchtext from ${__github}: ($__pt_text_version)"
+        # check if __pt_text_version is valid and clone the required branch/tag/sha
+        __tag_response=$($curl_api/git/refs/tags/$__pt_text_version)
+        __branch_response=$($curl_api/branches/$__pt_text_version)
+        __sha_response=$($curl_api/git/commits/$__pt_text_version)
+        if [[ $__branch_response -eq 200 || $__tag_response -eq 200 ]]; then
+            # enable --single-branch to clone only required branch/tag
+            git clone $__github --branch $__pt_text_version --single-branch --depth 1 .
+        elif [[ $__sha_response -eq 200 ]]; then
+            # enable --not-checkout to clone without downloading working-tree
+            git clone --no-checkout $__github .
+            git checkout $__pt_text_version
+        else
+            echo "__pt_text_version:$__pt_text_version is not Valid..."
+            exit 1
+        fi
+    else
+        :
     fi
-    echo "get torchtext from github (tag: $__pt_text_version)"
-    git clone https://github.com/pytorch/text --branch v$__pt_text_version --single-branch --depth 1 .
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
@@ -2286,6 +2309,13 @@ build_pytorch_data()
     local __set_py_vers="false"
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_data_version
+    local __repository="pytorch/data"
+    local __github="https://github.com/${__repository}"
+    local __curl_api="curl -s -o /dev/null -I -w %{http_code} https://api.github.com/repos/${__repository}"
+    local __tag_response
+    local __branch_response
+    local __sha_response
+
     # parameter while-loop
     while [ -n "$1" ];
     do
@@ -2329,12 +2359,28 @@ build_pytorch_data()
     mkdir -p $PYTORCH_DATA_ROOT
     pushd $PYTORCH_DATA_ROOT
 
-    # checkout github torchaudio repo
+    # checkout github torchdata repo
     if [ -z ${__pt_data_version} ]; then
         __pt_data_version=$($__profile_getter_path --get-extras-version torchdata current)
+        echo "get torchdata from ${__github}: ($__pt_data_version)"
+        # check if __pt_data_version is valid and clone the required branch/tag/sha
+        __tag_response=$($curl_api/git/refs/tags/$__pt_data_version)
+        __branch_response=$($curl_api/branches/$__pt_data_version)
+        __sha_response=$($curl_api/git/commits/$__pt_data_version)
+        if [[ $__branch_response -eq 200 || $__tag_response -eq 200 ]]; then
+            # enable --single-branch to clone only required branch/tag
+            git clone $__github --branch $__pt_data_version --single-branch --depth 1 .
+        elif [[ $__sha_response -eq 200 ]]; then
+            # enable --not-checkout to clone without downloading working-tree
+            git clone --no-checkout $__github .
+            git checkout $__pt_data_version
+        else
+            echo "__pt_data_version:$__pt_data_version is not Valid..."
+            exit 1
+        fi
+    else
+        :
     fi
-    echo "get torchdata from github (tag: $__pt_data_version)"
-    git clone https://github.com/pytorch/data --branch v$__pt_data_version --single-branch --depth 1 .
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
@@ -2374,6 +2420,13 @@ build_pytorch_audio()
     local __set_py_vers="false"
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_audio_version
+    local __repository="pytorch/audio"
+    local __github="https://github.com/${__repository}"
+    local __curl_api="curl -s -o /dev/null -I -w %{http_code} https://api.github.com/repos/${__repository}"
+    local __tag_response
+    local __branch_response
+    local __sha_response
+
     # parameter while-loop
     while [ -n "$1" ];
     do
@@ -2420,9 +2473,25 @@ build_pytorch_audio()
     # checkout github torchaudio repo
     if [ -z ${__pt_audio_version} ]; then
         __pt_audio_version=$($__profile_getter_path --get-extras-version torchaudio current)
+        echo "get torchaudio from ${__github}: ($__pt_audio_version)"
+        # check if __pt_audio_version is valid and clone the required branch/tag/sha
+        __tag_response=$($curl_api/git/refs/tags/$__pt_audio_version)
+        __branch_response=$($curl_api/branches/$__pt_audio_version)
+        __sha_response=$($curl_api/git/commits/$__pt_audio_version)
+        if [[ $__branch_response -eq 200 || $__tag_response -eq 200 ]]; then
+            # enable --single-branch to clone only required branch/tag
+            git clone $__github --branch $__pt_audio_version --single-branch --depth 1 .
+        elif [[ $__sha_response -eq 200 ]]; then
+            # enable --not-checkout to clone without downloading working-tree
+            git clone --no-checkout $__github .
+            git checkout $__pt_audio_version
+        else
+            echo "__pt_audio_version:$__pt_audio_version is not Valid..."
+            exit 1
+        fi
+    else
+        :
     fi
-    echo "get torchaudio from github (tag: $__pt_audio_version)"
-    git clone https://github.com/pytorch/audio --branch v$__pt_audio_version --single-branch --depth 1 .
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
@@ -2462,6 +2531,13 @@ build_pytorch_vision()
     local __set_py_vers="false"
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_vision_version
+    local __repository="pytorch/vision"
+    local __github="https://github.com/${__repository}"
+    local __curl_api="curl -s -o /dev/null -I -w %{http_code} https://api.github.com/repos/${__repository}"
+    local __tag_response
+    local __branch_response
+    local __sha_response
+
     # parameter while-loop
     while [ -n "$1" ];
     do
@@ -2508,9 +2584,25 @@ build_pytorch_vision()
     # checkout github torch vision repo
     if [ -z ${__pt_vision_version} ]; then
         __pt_vision_version=$($__profile_getter_path --get-extras-version torchvision current)
+        echo "get torchtext from ${__github}: ($__pt_vision_version)"
+        # check if __pt_vision_version is valid and clone the required branch/tag/sha
+        __tag_response=$($curl_api/git/refs/tags/$__pt_vision_version)
+        __branch_response=$($curl_api/branches/$__pt_vision_version)
+        __sha_response=$($curl_api/git/commits/$__pt_vision_version)
+        if [[ $__branch_response -eq 200 || $__tag_response -eq 200 ]]; then
+            # enable --single-branch to clone only required branch/tag
+            git clone $__github --branch $__pt_vision_version --single-branch --depth 1 .
+        elif [[ $__sha_response -eq 200 ]]; then
+            # enable --not-checkout to clone without downloading working-tree
+            git clone --no-checkout $__github .
+            git checkout $__pt_vision_version
+        else
+            echo "__pt_vision_version:$__pt_vision_version is not Valid..."
+            exit 1
+        fi
+    else
+        :
     fi
-    echo "get torch vision from github (tag: $__pt_vision_version)"
-    git clone https://github.com/pytorch/vision --branch v$__pt_vision_version --single-branch --depth 1 .
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
