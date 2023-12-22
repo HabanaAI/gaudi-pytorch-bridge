@@ -11,6 +11,7 @@ import habana_frameworks.torch.utils.debug as htdebug
 import numpy as np
 import pytest
 import torch
+import types
 
 hpu = torch.device("hpu")
 cpu = torch.device("cpu")
@@ -454,6 +455,8 @@ class TcLimitedFormatter:
             return ret
         elif val is None:
             return "_None_"
+        elif isinstance(val, types.MethodDescriptorType):
+            return val.__name__
         else:
             s = str(val)
 

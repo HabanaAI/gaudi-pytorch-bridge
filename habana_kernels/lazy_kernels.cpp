@@ -146,7 +146,9 @@ bool is_inplace(at::Symbol symbol) {
           "hpu::normal_",
           "hpu::geometric_",
           "aten::zero_",
-          "hpu::bernoulli_"};
+          "hpu::bernoulli_",
+          "hpu::exponential_",
+          "hpu::log_normal_"};
   if (underscored_ops_reported_as_non_inplace.find({node_name}) !=
       underscored_ops_reported_as_non_inplace.end()) {
     return false;
