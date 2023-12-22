@@ -148,7 +148,10 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
-  HABANA_ASSERT(7 == aten_arange_node->inputs().size());
+  if (aten_arange_node->inputs().size() != 7) {
+    return false;
+  }
+  // HABANA_ASSERT(7 == aten_arange_node->inputs().size());
   static const auto hpu_arange_symbol{
       c10::Symbol::fromQualString("hpu::arange")};
   auto arange_shape = aten_arange_node->inputs().at(0);

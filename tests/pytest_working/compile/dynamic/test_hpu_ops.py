@@ -835,7 +835,6 @@ def test_conv_ds_default():
     )
 
 def test_op_arange():
-    os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "1"
     input_shapes = [
         [(2, 3), (0, 6, 2)],
         [(10, 3), (0, 18, 6)],
@@ -852,14 +851,15 @@ def test_op_arange():
     compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
 
     for s in input_shapes:
+        os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "1"
         t1 = torch.randn(s[0], requires_grad = False)
         device_cpu = "cpu"
         device_hpu = "hpu"
         result = raw_function(t1, s[1], device_cpu)
         t1_h = t1.to("hpu")
         h_result = compiled_fn(t1_h, s[1], device_hpu)
-        os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "0"
         assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+        os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "0"
 
 def test_op_square_inplace_output():
     import copy

@@ -385,13 +385,13 @@ TEST_F(LazyDynamicFallbackTest, DynamicMaxPoolBkwdTest) {
 
 TEST_F(LazyDynamicFallbackTest, ArangeTest) {
   GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
-  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
-  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   // std::vector<int> start_sizes{1, 1, 1, 1};
   std::vector<int> start_sizes{0, 0, 0, 0, 0};
   std::vector<int> end_sizes{5, 10, 15, 20, 25};
   std::vector<int> step_sizes{1, 2, 3, 4, 5};
   for (int i = 0; i < start_sizes.size(); i++) {
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
+    SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
     torch::Scalar start = start_sizes[i];
     torch::Scalar end = end_sizes[i];
     torch::Scalar step = step_sizes[i];
@@ -409,20 +409,20 @@ TEST_F(LazyDynamicFallbackTest, ArangeTest) {
     auto h_a = torch::arange(start, end, step, hb_options);
     auto h_cout = h_a.to(torch::kCPU);
     auto a = torch::arange(start, end, step, cpu_options);
+    UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
     EXPECT_EQ(allclose(h_cout, a), true);
   }
-  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
-  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
 }
 
 TEST_F(LazyDynamicFallbackTest, ArangeTestFloat) {
   GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
-  SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
-  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   std::vector<int> start_sizes{0, 0, 0, 0, 0};
   std::vector<int> end_sizes{5, 10, 15, 20, 25};
   std::vector<int> step_sizes{1, 2, 3, 4, 5};
   for (int i = 0; i < start_sizes.size(); i++) {
+    SET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES, true, 1);
+    SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
     torch::Scalar start = start_sizes[i];
     torch::Scalar end = end_sizes[i];
     torch::Scalar step = step_sizes[i];
@@ -440,10 +440,10 @@ TEST_F(LazyDynamicFallbackTest, ArangeTestFloat) {
     auto h_a = torch::arange(start, end, step, hb_options);
     auto h_cout = h_a.to(torch::kCPU);
     auto a = torch::arange(start, end, step, cpu_options);
+    UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
+    UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
     EXPECT_EQ(allclose(h_cout, a), true);
   }
-  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
-  UNSET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES);
 }
 
 TEST_F(LazyDynamicFallbackTest, UniqueGraph_Broadcast) {
