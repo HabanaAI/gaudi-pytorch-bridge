@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -112,16 +112,16 @@ InferOutputMetaRetType RoiAlignBwdOperator::InferOutputMeta(
         make_operator<CastOperator>(rois.device().index(), "cast_bf16_to_f32");
     torch::jit::Stack castOp_stack = {
         inputs[1].toTensor(), c10::ScalarType::Float};
-    auto cast_op_out = out.call_InferOutputMeta(cast_op, castOp_stack);
+    out.call_InferOutputMeta(cast_op, castOp_stack);
   }
 
   auto quad_tree_op = make_operator<habana::QuadTreeFwdImplOperator>(
       this->p_context_->device_id_, c10::ScalarType::Float);
-  auto quad_tree_op_out = out.call_InferOutputMeta(quad_tree_op, inputs);
+  out.call_InferOutputMeta(quad_tree_op, inputs);
 
   auto roi_bwd_impl_op = make_operator<habana::RoiAlignBwdImplOperator>(
       this->p_context_->device_id_, inputs[0].toTensor().scalar_type());
-  auto roi_bwd_impl_op_out = out.call_InferOutputMeta(roi_bwd_impl_op, inputs);
+  auto& roi_bwd_impl_op_out = out.call_InferOutputMeta(roi_bwd_impl_op, inputs);
   auto roi_bwd_impl_op_tensor = roi_bwd_impl_op_out.GetOutputTensor()[0];
   out.MoveToOutput(std::move(roi_bwd_impl_op_tensor));
 

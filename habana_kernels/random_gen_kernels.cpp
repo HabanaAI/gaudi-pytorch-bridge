@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -123,14 +123,14 @@ InferOutputMetaRetType RandpermOperatorHT::InferOutputMeta(
       this->p_context_->device_id_, scalar_type);
   torch::jit::Stack stack{
       IValue(host_tensor), IValue(arangeOutput), IValue(output)};
-  auto arange_op_out = out.call_InferOutputMeta(arangeOp, stack);
+  out.call_InferOutputMeta(arangeOp, stack);
 
   stack.clear();
   stack.emplace_back(IValue(arangeOutput));
   auto randShuffleOp = make_operator<RandomShuffleOperator>(
       this->p_context_->device_id_, scalar_type);
 
-  auto randShuffle_op_out = out.call_InferOutputMeta(randShuffleOp, stack);
+  auto& randShuffle_op_out = out.call_InferOutputMeta(randShuffleOp, stack);
   auto randShuffle_op_tensor = randShuffle_op_out.GetOutputTensor()[0];
 
   out.MoveToOutput(std::move(randShuffle_op_tensor));

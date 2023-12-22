@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -417,7 +417,7 @@ void ConvolutionBackwardOverrideable::AddNode(
 
       IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
     } else {
-      AddUndefindedOutputTensor();
+      AddUndefinedOutputTensor();
     }
 
     if (output_mask_in[1]) {
@@ -432,7 +432,7 @@ void ConvolutionBackwardOverrideable::AddNode(
 
       IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
     } else {
-      AddUndefindedOutputTensor();
+      AddUndefinedOutputTensor();
     }
   } else {
     if (output_mask_in[0]) {
@@ -452,7 +452,7 @@ void ConvolutionBackwardOverrideable::AddNode(
 
       IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
     } else {
-      AddUndefindedOutputTensor();
+      AddUndefinedOutputTensor();
     }
 
     if (output_mask_in[1]) {
@@ -467,7 +467,7 @@ void ConvolutionBackwardOverrideable::AddNode(
 
       IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
     } else {
-      AddUndefindedOutputTensor();
+      AddUndefinedOutputTensor();
     }
   }
 
@@ -478,7 +478,7 @@ void ConvolutionBackwardOverrideable::AddNode(
         this, graph, is_conv_3d, grad_output, {syn_in(0)}, syn_out(2));
     syn_out(2) = std::move(biasRes);
   } else {
-    AddUndefindedOutputTensor();
+    AddUndefinedOutputTensor();
   }
 }
 

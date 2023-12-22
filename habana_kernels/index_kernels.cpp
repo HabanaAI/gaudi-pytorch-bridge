@@ -2326,7 +2326,7 @@ InferOutputMetaRetType ArangeOperatorHT::InferOutputMeta(
       auto castOp = make_operator<CastOutOperator>(
           this->p_context_->device_id_, "cast_i32_to_i8");
       torch::jit::Stack stack = {IValue(output_range), IValue(result)};
-      auto castOp_out = out.call_InferOutputMeta(castOp, stack);
+      auto& castOp_out = out.call_InferOutputMeta(castOp, stack);
       auto out_tensor = castOp_out.GetOutputTensor(0);
       out.MoveToOutput(std::move(out_tensor));
     }

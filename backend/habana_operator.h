@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,31 +11,26 @@
  *******************************************************************************
  */
 #pragma once
+#include <ATen/Tensor.h>
+#include <absl/types/any.h>
+#include <c10/util/ArrayRef.h>
 #include <synapse_api_types.h>
+#include <torch/csrc/jit/ir/ir.h>
+#include <functional>
+#include <memory>
+#include <string_view>
+#include <vector>
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/habana_types.h"
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_info.h"
-#include "backend/helpers/tensor_shape.h"
 #include "backend/synapse_helpers/device_types.h"
 #include "backend/synapse_helpers/graph.h"
 #include "backend/synapse_helpers/habana_tensor.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_helpers/logging.h"
 #include "include/habanalabs/hpu_custom_op.h"
-
-#include <ATen/Tensor.h>
-#include <c10/util/ArrayRef.h>
-#include <torch/csrc/jit/ir/ir.h>
-
-#include <absl/types/any.h>
-
-#include <functional>
-#include <iostream>
-#include <memory>
-#include <string_view>
-#include <vector>
 
 using OptionalIntArrayRef = at::OptionalIntArrayRef;
 
@@ -46,9 +41,6 @@ using OptionalIntArrayRef = at::OptionalIntArrayRef;
 // value is used in eager caching and so per op, unique string
 // is required.
 const std::string NO_TPC = "[NoTPCKernel]";
-
-// For compound Ops, there is not GUID, so null string used
-const std::string NULL_GUID("");
 
 // Set empty size and strides for 0d Tensor
 #define SET_SIZE_STRIDE_0D(self)                     \
@@ -108,8 +100,6 @@ using RegisterCustomFunc =
 
 const size_t NO_INPUTS = 0xFFFFFFFF;
 
-enum ShapeTensorType { kShapeTensorNone = 0, kShapeTensor, kDeviceShapeTensor };
-
 struct TensorMetaData {
   std::vector<int64_t> sizes;
   std::vector<int64_t> strides;
@@ -136,60 +126,88 @@ using IdxTensorTuple = std::tuple<int32_t, at::Tensor>;
 using InferOutputMetaRetTypePtr = std::shared_ptr<InferOutputMetaRetType>;
 class InferOutputMetaRetType {
  public:
-  InferOutputMetaRetType(bool flag = false) : empty_flag(flag) {}
-  bool empty() {
-    return empty_flag;
-  }
-  void set_empty(bool flag = true) {
-    empty_flag = flag;
-  }
-  void AddOutputTensor(const TensorMetaData& data);
-  void AddUndefindedOutputTensor() {
-    ++num_undefined_outputs;
-  }
-  void AddIntermediateTensor(const TensorMetaData& data);
-  void AddShapeTensor(const TensorMetaData& data);
-  void AddDupTensor(const TensorMetaData& data);
-  const IdxTensorTuple& GetOutputTensor(size_t index);
-  const IdxTensorTuple& GetShapeTensor(size_t index);
-  void MoveToOutput(IdxTensorTuple&& data);
-  void RemoveOutput(size_t index);
-  size_t GetKernelSize() {
-    return kernel_outputs.size();
-  }
-  InferOutputMetaRetType& GetKernel(size_t index) {
-    return *kernel_outputs.at(index);
-  }
-  const std::vector<InferOutputMetaRetTypePtr>& GetKernels() const {
-    return kernel_outputs;
-  }
-  const std::vector<IdxTensorTuple>& GetOutputTensor() const {
-    return output_tensors;
-  }
-  const std::vector<IdxTensorTuple>& GetShapeTensor() const {
-    return shape_tensors;
-  }
-  unsigned GetNumUndefinedOutputTensors() const {
-    return num_undefined_outputs;
+  explicit InferOutputMetaRetType(bool flag = false) : empty_flag_(flag) {}
+
+  InferOutputMetaRetType(const InferOutputMetaRetType&) = default;
+  InferOutputMetaRetType& operator=(const InferOutputMetaRetType&) = default;
+  InferOutputMetaRetType(InferOutputMetaRetType&&) = default;
+  InferOutputMetaRetType& operator=(InferOutputMetaRetType&&) = default;
+  ~InferOutputMetaRetType() = default;
+
+  bool empty() const {
+    return empty_flag_;
   }
 
-  InferOutputMetaRetType call_InferOutputMeta(
+  void set_empty(const bool flag = true) {
+    empty_flag_ = flag;
+  }
+
+  void AddOutputTensor(const TensorMetaData& data);
+
+  void AddUndefinedOutputTensor() {
+    ++num_undefined_outputs_;
+  }
+
+  void AddIntermediateTensor(const TensorMetaData& data);
+
+  void AddShapeTensor(const TensorMetaData& data);
+
+  void AddDupTensor(const TensorMetaData& data);
+
+  const IdxTensorTuple& GetOutputTensor(size_t index) const;
+
+  const IdxTensorTuple& GetShapeTensor(size_t index) const;
+
+  void MoveToOutput(IdxTensorTuple&& data);
+
+  void RemoveOutput(size_t index);
+
+  size_t GetKernelSize() const {
+    return kernel_outputs_.size();
+  }
+
+  InferOutputMetaRetType& GetKernel(size_t index) const {
+    return *kernel_outputs_.at(index);
+  }
+
+  const std::vector<InferOutputMetaRetTypePtr>& GetKernels() const {
+    return kernel_outputs_;
+  }
+
+  const std::vector<IdxTensorTuple>& GetOutputTensor() const {
+    return output_tensors_;
+  }
+
+  const std::vector<IdxTensorTuple>& GetShapeTensor() const {
+    return shape_tensors_;
+  }
+
+  unsigned GetNumUndefinedOutputTensors() const {
+    return num_undefined_outputs_;
+  }
+
+  InferOutputMetaRetType& call_InferOutputMeta(
       HabanaOperatorPtr kernel,
       torch::jit::Stack& inputs);
 
   const std::vector<InferOutputMetaRetTypePtr>& GetKernelOutputs() const {
-    return kernel_outputs;
+    return kernel_outputs_;
   }
 
  private:
   void AddTensor(const TensorMetaData& data, std::vector<IdxTensorTuple>& v);
-  std::vector<IdxTensorTuple> output_tensors;
-  std::vector<IdxTensorTuple> shape_tensors;
-  std::vector<IdxTensorTuple> dup_tensors;
-  unsigned num_undefined_outputs = 0;
 
-  std::vector<InferOutputMetaRetTypePtr> kernel_outputs;
-  bool empty_flag{false};
+  std::vector<IdxTensorTuple> output_tensors_;
+
+  std::vector<IdxTensorTuple> shape_tensors_;
+
+  std::vector<IdxTensorTuple> dup_tensors_;
+
+  unsigned num_undefined_outputs_{0};
+
+  std::vector<InferOutputMetaRetTypePtr> kernel_outputs_;
+
+  bool empty_flag_{false};
 };
 
 struct PtInputIdxAndSynHelpTensor {
@@ -237,8 +255,7 @@ struct KernelMetaData {
   std::vector<synapse_helpers::layouts::SynapseLayoutFormat>
       synapse_output_layout;
   std::vector<size_t> tpc_input_order;
-  bool changes_dims;
-  KernelMetaData() : changes_dims(false) {}
+  bool changes_dims{};
 };
 
 class OutputMetaData {

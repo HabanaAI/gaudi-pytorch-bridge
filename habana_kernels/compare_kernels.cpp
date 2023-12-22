@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -133,7 +133,7 @@ InferOutputMetaRetType CompareOutWrapperOperator::InferOutputMeta(
   if (inputs[1].isTensor()) { // Both inputs are tensors
     compareOp = make_operator<CompareOutOperator>(
         this->p_context_->device_id_, this->scalarType_, guid_);
-    auto compareOp_out = out.call_InferOutputMeta(compareOp, inputs);
+    auto& compareOp_out = out.call_InferOutputMeta(compareOp, inputs);
     auto compareOp_out_tensor = compareOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(compareOp_out_tensor));
     return out;
@@ -145,7 +145,7 @@ InferOutputMetaRetType CompareOutWrapperOperator::InferOutputMeta(
     auto const_shape_tensor = habana::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    auto constOp_out = out.call_InferOutputMeta(constOp, constOp_stack);
+    auto& constOp_out = out.call_InferOutputMeta(constOp, constOp_stack);
 
     // replace 2nd scalar input with a tensor in stack
     inputs.erase(inputs.cbegin() + 1);
@@ -153,7 +153,7 @@ InferOutputMetaRetType CompareOutWrapperOperator::InferOutputMeta(
         inputs.cbegin() + 1, std::get<1>(constOp_out.GetOutputTensor(0)));
     compareOp = make_operator<CompareOutOperator>(
         this->p_context_->device_id_, this->scalarType_, guid_);
-    auto compareOp_out = out.call_InferOutputMeta(compareOp, inputs);
+    auto& compareOp_out = out.call_InferOutputMeta(compareOp, inputs);
     auto compareOp_out_tensor = compareOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(compareOp_out_tensor));
     return out;

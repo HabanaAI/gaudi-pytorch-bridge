@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -15,18 +15,14 @@
 #include "backend/create_pt_tensor.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/helpers/create_tensor.h"
-#include "backend/helpers/graph.h"
 #include "backend/helpers/runtime_config.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/kernel_recipe_signature.h"
 #include "backend/lazy_to_backend.h"
 #include "backend/synapse_helpers/device.h"
-#include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/layout_utils.h"
-#include "backend/synapse_helpers/tensor_builder_base.h"
 #include "habana_helpers/logging.h"
-#include "habana_kernels/lazy_kernels_declarations.h"
 #include "hpu_ops/op_logger.h"
 
 static const synDataType fp8_syn_type =
@@ -641,8 +637,7 @@ synapse_helpers::tensor_or_ref& habana::HabanaOperator::SetSynapseOutput(
 
 habana::InferOutputMetaRetType habana::HabanaOperator::InferOutputMeta(
     torch::jit::Stack&) {
-  InferOutputMetaRetType ret(true);
-  return ret;
+  return InferOutputMetaRetType(true);
 }
 
 void habana::HabanaOperator::AddNodeToSynapseGraph(
@@ -854,52 +849,52 @@ void habana::InferOutputMetaRetType::AddTensor(
 
 void habana::InferOutputMetaRetType::AddOutputTensor(
     const TensorMetaData& data) {
-  AddTensor(data, output_tensors);
+  AddTensor(data, output_tensors_);
 }
 
 void habana::InferOutputMetaRetType::AddIntermediateTensor(
     const TensorMetaData& data) {
-  InferOutputMetaRetType output;
-  output.AddOutputTensor(data);
-  kernel_outputs.emplace_back(std::make_shared<InferOutputMetaRetType>(output));
+  auto& output =
+      kernel_outputs_.emplace_back(std::make_shared<InferOutputMetaRetType>());
+  output->AddOutputTensor(data);
 }
 
 void habana::InferOutputMetaRetType::AddShapeTensor(
     const TensorMetaData& data) {
-  AddTensor(data, shape_tensors);
+  AddTensor(data, shape_tensors_);
 }
 
 void habana::InferOutputMetaRetType::AddDupTensor(
     const habana::TensorMetaData& data) {
-  AddTensor(data, dup_tensors);
+  AddTensor(data, dup_tensors_);
 }
 
-habana::InferOutputMetaRetType habana::InferOutputMetaRetType::
+habana::InferOutputMetaRetType& habana::InferOutputMetaRetType::
     call_InferOutputMeta(HabanaOperatorPtr kernel, torch::jit::Stack& inputs) {
   HABANA_ASSERT(kernel.get() != nullptr, "kernel cannot be null");
-  auto output = kernel->InferOutputMeta(inputs);
-  kernel_outputs.emplace_back(
-      std::make_shared<habana::InferOutputMetaRetType>(output));
-  return output;
+  auto& output = kernel_outputs_.emplace_back(
+      std::make_shared<habana::InferOutputMetaRetType>(
+          kernel->InferOutputMeta(inputs)));
+  return *output;
 }
 
 const habana::IdxTensorTuple& habana::InferOutputMetaRetType::GetOutputTensor(
-    size_t index) {
-  HABANA_ASSERT(index <= output_tensors.size(), "index out of range");
-  return output_tensors.at(index);
+    size_t index) const {
+  HABANA_ASSERT(index <= output_tensors_.size(), "index out of range");
+  return output_tensors_.at(index);
 }
 
 const habana::IdxTensorTuple& habana::InferOutputMetaRetType::GetShapeTensor(
-    size_t index) {
-  HABANA_ASSERT(index <= shape_tensors.size(), "index out of range");
-  return shape_tensors.at(index);
+    size_t index) const {
+  HABANA_ASSERT(index <= shape_tensors_.size(), "index out of range");
+  return shape_tensors_.at(index);
 }
 
 void habana::InferOutputMetaRetType::MoveToOutput(
     habana::IdxTensorTuple&& data) {
-  output_tensors.emplace_back(std::move(data));
+  output_tensors_.emplace_back(std::move(data));
 }
 
 void habana::InferOutputMetaRetType::RemoveOutput(size_t index) {
-  output_tensors.erase(output_tensors.begin() + index);
+  output_tensors_.erase(output_tensors_.begin() + index);
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -173,7 +173,7 @@ InferOutputMetaRetType ReduceOperator::InferOutputMeta(
     std::vector<c10::IValue> stack;
     stack.emplace_back(IValue(self));
     stack.emplace_back(IValue(shape));
-    auto reshape_out = out.call_InferOutputMeta(ReshapeOp, stack);
+    auto& reshape_out = out.call_InferOutputMeta(ReshapeOp, stack);
     self_reshaped = std::get<1>(reshape_out.GetOutputTensor(0));
 
     int64_t reshaped_in_dim_data[reshaped_in_dim_size];
@@ -224,7 +224,7 @@ InferOutputMetaRetType ReduceOperator::InferOutputMeta(
     stack.emplace_back(IValue(self_reshaped));
     stack.emplace_back(IValue(output.sizes()));
     // reshape output
-    auto reshape1_out = out.call_InferOutputMeta(ReshapeOp, stack);
+    out.call_InferOutputMeta(ReshapeOp, stack);
     // since reshape is directly realized at synapse guid level
     auto& reshape = out.GetKernel(out.GetKernelSize() - 1);
     reshape.RemoveOutput(0);

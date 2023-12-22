@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,18 +10,10 @@
  *
  *******************************************************************************
  */
+#include "habana_kernels/loss_kernels.h"
 #include <ATen/core/Reduction.h>
 #include <perf_lib_layer_params.h>
-
-#include "backend/create_pt_tensor.h"
-#include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/create_tensor.h"
-#include "backend/synapse_helpers/layout_utils.h"
-#include "backend/synapse_helpers/recipe.h"
-#include "habana_helpers/frontend_utils.h"
-#include "habana_helpers/logging.h"
 #include "habana_kernels/binary_kernels.h"
-#include "habana_kernels/loss_kernels.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "habana_kernels/threshold_kernels.h"
@@ -151,48 +143,49 @@ InferOutputMetaRetType KlDivOperator::InferOutputMeta(
   HabanaOperatorPtr log_exp_op;
   HabanaOperatorPtr threshold_op;
   InferOutputMetaRetType out;
-  InferOutputMetaRetType out_log_exp_op;
-  InferOutputMetaRetType out_threshold_op;
+  InferOutputMetaRetType* out_log_exp_op{nullptr};
+  InferOutputMetaRetType* out_threshold_op{nullptr};
   if (log_target) {
     log_exp_op =
         make_operator<ExpOperator>(self.device().index(), self.scalar_type());
     stack = {IValue(target)};
-    out_log_exp_op = out.call_InferOutputMeta(log_exp_op, stack);
+    out_log_exp_op = &out.call_InferOutputMeta(log_exp_op, stack);
     stack.clear();
   } else {
     log_exp_op =
         make_operator<LogOperator>(self.device().index(), self.scalar_type());
     stack = {IValue(target)};
-    out_log_exp_op = out.call_InferOutputMeta(log_exp_op, stack);
+    out_log_exp_op = &out.call_InferOutputMeta(log_exp_op, stack);
     stack.clear();
 
     threshold_op = make_operator<ThresholdBackwardOperator>(
         self.device().index(), self.scalar_type());
     stack = {
-        IValue(std::get<1>(out_log_exp_op.GetOutputTensor(0))),
+        IValue(std::get<1>(out_log_exp_op->GetOutputTensor(0))),
         IValue(target),
         IValue(0.0f)};
-    out_threshold_op = out.call_InferOutputMeta(threshold_op, stack);
+    out_threshold_op = &out.call_InferOutputMeta(threshold_op, stack);
     stack.clear();
   }
 
   auto sub_op =
       make_operator<SubOperator>(self.device().index(), self.scalar_type());
   stack = {
-      (log_target) ? IValue(target)
-                   : IValue(std::get<1>(out_threshold_op.GetOutputTensor(0))),
+      log_target ? IValue(target)
+                 // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+                 : IValue(std::get<1>(out_threshold_op->GetOutputTensor(0))),
       IValue(self),
       IValue(1)};
-  auto out_sub_op = out.call_InferOutputMeta(sub_op, stack);
+  auto& out_sub_op = out.call_InferOutputMeta(sub_op, stack);
   stack.clear();
 
   auto mul_op1 =
       make_operator<MulOperator>(self.device().index(), self.scalar_type());
   stack = {
-      (log_target) ? IValue(std::get<1>(out_log_exp_op.GetOutputTensor(0)))
+      (log_target) ? IValue(std::get<1>(out_log_exp_op->GetOutputTensor(0)))
                    : IValue(target),
       IValue(std::get<1>(out_sub_op.GetOutputTensor(0)))};
-  auto out_mul_op1 = out.call_InferOutputMeta(mul_op1, stack);
+  auto& out_mul_op1 = out.call_InferOutputMeta(mul_op1, stack);
   stack.clear();
 
   if (reduction != at::Reduction::Reduction::None) {
@@ -204,7 +197,7 @@ InferOutputMetaRetType KlDivOperator::InferOutputMeta(
     stack = {
         IValue(std::get<1>(out_mul_op1.GetOutputTensor(0))),
         IValue(self.scalar_type())};
-    auto out_sum_mean_op = out.call_InferOutputMeta(sum_mean_op, stack);
+    auto& out_sum_mean_op = out.call_InferOutputMeta(sum_mean_op, stack);
     stack.clear();
 
     auto out_tensor = out_sum_mean_op.GetOutputTensor(0);
@@ -330,12 +323,12 @@ InferOutputMetaRetType KlDivBwdOperator::InferOutputMeta(
   torch::jit::Stack stack;
   HabanaOperatorPtr exp_op;
   InferOutputMetaRetType out;
-  InferOutputMetaRetType out_exp_op;
+  InferOutputMetaRetType* out_exp_op{nullptr};
   if (log_target) {
     exp_op =
         make_operator<ExpOperator>(self.device().index(), self.scalar_type());
     stack = {IValue(target)};
-    out_exp_op = out.call_InferOutputMeta(exp_op, stack);
+    out_exp_op = &out.call_InferOutputMeta(exp_op, stack);
     stack.clear();
   }
 
@@ -352,7 +345,7 @@ InferOutputMetaRetType KlDivBwdOperator::InferOutputMeta(
         : static_cast<HabanaOperatorPtr>(make_operator<ReduceMeanBwdOperator>(
               self.device().index(), self.scalar_type()));
     stack = {IValue(grad_out), IValue(size_arr), IValue(0)};
-    auto out_sum_mean_op = out.call_InferOutputMeta(sum_mean_op, stack);
+    auto& out_sum_mean_op = out.call_InferOutputMeta(sum_mean_op, stack);
     stack.clear();
 
     auto shape1 = self.sizes().vec();
@@ -361,7 +354,7 @@ InferOutputMetaRetType KlDivBwdOperator::InferOutputMeta(
     stack = {
         IValue(std::get<1>(out_sum_mean_op.GetOutputTensor(0))),
         IValue(shape1)};
-    auto out_reshape_op = out.call_InferOutputMeta(reshape_op, stack);
+    auto& out_reshape_op = out.call_InferOutputMeta(reshape_op, stack);
     stack.clear();
 
     auto mul_op1 =
@@ -369,15 +362,15 @@ InferOutputMetaRetType KlDivBwdOperator::InferOutputMeta(
 
     stack = {
         IValue(std::get<1>(out_reshape_op.GetOutputTensor(0))),
-        (log_target) ? IValue(std::get<1>(out_exp_op.GetOutputTensor(0)))
+        (log_target) ? IValue(std::get<1>(out_exp_op->GetOutputTensor(0)))
                      : IValue(target)};
-    auto out_mul_op1 = out.call_InferOutputMeta(mul_op1, stack);
+    auto& out_mul_op1 = out.call_InferOutputMeta(mul_op1, stack);
     stack.clear();
 
     auto mul_op3 =
         make_operator<MulOperator>(self.device().index(), self.scalar_type());
     stack = {IValue(std::get<1>(out_mul_op1.GetOutputTensor(0))), IValue(-1)};
-    auto out_mul_op3 = out.call_InferOutputMeta(mul_op3, stack);
+    auto& out_mul_op3 = out.call_InferOutputMeta(mul_op3, stack);
     stack.clear();
 
     auto out_tensor = out_mul_op3.GetOutputTensor(0);
@@ -387,15 +380,15 @@ InferOutputMetaRetType KlDivBwdOperator::InferOutputMeta(
         make_operator<MulOperator>(self.device().index(), self.scalar_type());
     stack = {
         IValue(grad_out),
-        (log_target) ? IValue(std::get<1>(out_exp_op.GetOutputTensor(0)))
+        (log_target) ? IValue(std::get<1>(out_exp_op->GetOutputTensor(0)))
                      : IValue(target)};
-    auto out_mul_op2 = out.call_InferOutputMeta(mul_op2, stack);
+    auto& out_mul_op2 = out.call_InferOutputMeta(mul_op2, stack);
     stack.clear();
 
     auto mul_op4 =
         make_operator<MulOperator>(self.device().index(), self.scalar_type());
     stack = {IValue(std::get<1>(out_mul_op2.GetOutputTensor(0))), IValue(-1)};
-    auto out_mul_op4 = out.call_InferOutputMeta(mul_op4, stack);
+    auto& out_mul_op4 = out.call_InferOutputMeta(mul_op4, stack);
     stack.clear();
 
     auto out_tensor = out_mul_op4.GetOutputTensor(0);
@@ -404,6 +397,7 @@ InferOutputMetaRetType KlDivBwdOperator::InferOutputMeta(
   return out;
 }
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static auto& LossKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::kl_div", KERNEL_FN(KlDivOperator))

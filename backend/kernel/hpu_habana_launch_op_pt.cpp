@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -700,7 +700,6 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
     torch::jit::Node* node,
     InferOutputMetaRetType& op_output_shape) {
   auto output_nodes = node->outputs();
-  auto habana_kernel_meta_data = habana_op->GetKernelMetaData();
 
   bool shape_inf_flag = enable_fast_shape_inf_ &&
       syn_graph_ptr_->is_dynamic_graph() &&

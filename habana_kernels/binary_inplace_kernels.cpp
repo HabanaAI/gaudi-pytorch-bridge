@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -119,7 +119,7 @@ habana::InferOutputMetaRetType habana::BinaryInplaceOperatorWithAlpha::
     auto mulOp = make_operator<habana::MulOperator>(
         this->p_context_->device_id_, this->scalarType_);
     torch::jit::Stack mulOp_stack{inputs[1], inputs[2]};
-    auto mulOp_out = out.call_InferOutputMeta(mulOp, mulOp_stack);
+    auto& mulOp_out = out.call_InferOutputMeta(mulOp, mulOp_stack);
     auto out_tensor = mulOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(out_tensor));
   }
@@ -196,7 +196,7 @@ habana::InferOutputMetaRetType habana::BinaryInplaceWrapperOperatorWithAlpha::
 
   if (inputs[0].isTensor() &&
       inputs[1].isTensor()) { // First 2 inputs are both tensors
-    auto binaryOp_out = out.call_InferOutputMeta(binaryOp, inputs);
+    auto& binaryOp_out = out.call_InferOutputMeta(binaryOp, inputs);
     auto out_tensor = binaryOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(out_tensor));
   } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
@@ -208,11 +208,11 @@ habana::InferOutputMetaRetType habana::BinaryInplaceWrapperOperatorWithAlpha::
     auto const_shape_tensor = habana::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    auto constOp_out = out.call_InferOutputMeta(constOp, constOp_stack);
+    auto& constOp_out = out.call_InferOutputMeta(constOp, constOp_stack);
     auto const_out_tensor = constOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(const_out_tensor));
 
-    auto binaryOp_out = out.call_InferOutputMeta(binaryOp, inputs);
+    auto& binaryOp_out = out.call_InferOutputMeta(binaryOp, inputs);
     auto out_tensor = binaryOp_out.GetOutputTensor(0);
   }
   return out;
@@ -341,7 +341,7 @@ habana::InferOutputMetaRetType habana::BinaryInplaceWrapperOperator::
       this->p_context_->device_id_, guid_, this->scalarType_);
 
   if (inputs[0].isTensor() && inputs[1].isTensor()) { // Both inputs are tensors
-    auto binaryOp_out = out.call_InferOutputMeta(binaryOp, inputs);
+    auto& binaryOp_out = out.call_InferOutputMeta(binaryOp, inputs);
     auto out_tensor = binaryOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(out_tensor));
   } else if (inputs[0].isTensor() && inputs[1].isScalar()) { // 2nd input is a
@@ -353,11 +353,11 @@ habana::InferOutputMetaRetType habana::BinaryInplaceWrapperOperator::
     auto const_shape_tensor = habana::createPTTensor(
         arg1, {1}, arg1.options(), at::MemoryFormat::Contiguous, false);
     torch::jit::Stack constOp_stack = {IValue(const_shape_tensor), inputs[1]};
-    auto constOp_out = out.call_InferOutputMeta(constOp, constOp_stack);
+    auto& constOp_out = out.call_InferOutputMeta(constOp, constOp_stack);
     auto const_out_tensor = constOp_out.GetOutputTensor(0);
     out.MoveToOutput(std::move(const_out_tensor));
 
-    auto binaryOp_out = out.call_InferOutputMeta(binaryOp, inputs);
+    auto& binaryOp_out = out.call_InferOutputMeta(binaryOp, inputs);
     auto out_tensor = binaryOp_out.GetOutputTensor(0);
   }
   return out;
