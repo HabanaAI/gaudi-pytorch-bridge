@@ -158,10 +158,23 @@ class EagerOp : public EagerOpBase {
     }
 
     if (self.sizes() != out_shape) {
-      if (self.numel() == 0 || self.sizes().empty())
+      if (!(self.numel() == 0 || self.sizes().empty())) {
         PT_EAGER_WARN(
             "Got a non-empty out tensor for out operation. Out shape: ",
             self.sizes());
+        TORCH_WARN(
+            "An output with one or more elements was resized since it had ",
+            "shape ",
+            self.sizes(),
+            ", which does not match the required ",
+            "output shape ",
+            c10::ArrayRef<int64_t>(out_shape),
+            ". ",
+            "This behavior is deprecated, and in a future PyTorch release outputs ",
+            "will not be resized unless they have zero elements. You can explicitly ",
+            "reuse an out tensor t by resizing it, inplace, to zero elements with ",
+            "t.resize_(0).");
+      }
       THHTensor_resizeNd(
           self.unsafeGetTensorImpl(),
           out_shape.size(),
