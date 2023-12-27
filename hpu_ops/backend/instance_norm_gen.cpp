@@ -15,11 +15,14 @@
 #include "hpu_ops/instance_norm.h"
 
 namespace habana {
+namespace {
+constexpr size_t INPUT_BATCH_INDEX = 0;
+constexpr size_t INPUT_CHANNEL_INDEX = 1;
+} // namespace
+
+namespace sh = synapse_helpers;
 
 OutputMetaDataVector InstanceNorm::InstanceNormMeta(const at::Stack& stack) {
-  constexpr size_t INPUT_BATCH_INDEX = 0;
-  constexpr size_t INPUT_CHANNEL_INDEX = 1;
-
   OutputMetaDataVector meta(3);
   const auto& input = stack.at(0).toTensor();
 
@@ -56,8 +59,13 @@ void InstanceNorm::AddNode(
 
   TORCH_CHECK(stack[3].isDouble(), "Input type expected to be double");
 
-  auto input = stack[0].toTensor();
-  auto is_norm_3d = input.sizes().vec().size() == 5;
+  StackGetter stackGetter(stack, "InstanceNormFwd::AddNode");
+  auto input = getNextInput<TensorsPair>(stackGetter);
+  auto weight = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto bias = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  const auto eps = getNextInput<double>(stackGetter);
+
+  auto is_norm_3d = input.pt_t.sizes().vec().size() == 5;
 
   kernel_meta_data_.synapse_input_layout.assign(
       {is_norm_3d ? synapse_helpers::layouts::SynapseLayoutFormat::WHDCN
@@ -70,10 +78,31 @@ void InstanceNorm::AddNode(
        synapse_helpers::layouts::SynapseLayoutFormat::CN,
        synapse_helpers::layouts::SynapseLayoutFormat::CN});
 
-  std::string guid =
-      get_guid_with_precision("instance_norm_fwd", input.scalar_type());
+  std::vector<synTensor> inputs = {input.syn_t};
 
-  const auto eps = stack[3].toDouble();
+  std::optional<sh::tensor> biasTensorStorage = bias
+      ? std::nullopt
+      : std::make_optional(ConstantHelper(
+            graph,
+            0.0f,
+            c10::ScalarType::Float,
+            input.pt_t.sizes().vec()[INPUT_CHANNEL_INDEX]));
+
+  inputs.push_back(
+      biasTensorStorage.has_value() ? biasTensorStorage.value().get()
+                                    : bias.value().syn_t);
+
+  std::optional<sh::tensor> weightTensorStorage = weight
+      ? std::nullopt
+      : std::make_optional(ConstantHelper(
+            graph,
+            1.0f,
+            c10::ScalarType::Float,
+            input.pt_t.sizes().vec()[INPUT_CHANNEL_INDEX]));
+
+  inputs.push_back(
+      weightTensorStorage.has_value() ? weightTensorStorage.value().get()
+                                      : weight.value().syn_t);
 
   // Note: TPC kernel doesnt support running mean and variance computation. we
   // just pass random momentum value as a place holder
@@ -82,8 +111,8 @@ void InstanceNorm::AddNode(
   };
   auto instanceNorm = BuildOp(
       graph,
-      std::move(guid),
-      {syn_in(0), syn_in(2), syn_in(1)},
+      guid_,
+      std::move(inputs),
       {{meta[0].shape, meta[0].dtype, 0},
        {meta[1].shape, c10::ScalarType::Float, 1},
        {meta[2].shape, c10::ScalarType::Float, 2}},

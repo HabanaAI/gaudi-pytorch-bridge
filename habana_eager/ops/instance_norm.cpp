@@ -34,8 +34,8 @@ constexpr size_t INPUT_CHANNEL_INDEX = 1;
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_fwd_eager_hpu(
     const at::Tensor& input,
-    const at::Tensor& weight,
-    const at::Tensor& bias,
+    const c10::optional<at::Tensor>& weight,
+    const c10::optional<at::Tensor>& bias,
     double eps) {
   PT_OP_INFO("instance_norm_eager: ", DUMP_4ARGS(input, weight, bias, eps));
 
@@ -54,7 +54,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_fwd_eager_hpu(
     meta.at(2).dtype = c10::ScalarType::Float;
     return meta;
   };
-
   habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
       "hpu::instance_norm", {input, weight, bias, eps}};
   hpu_op.SetOutputMetaFn(InstanceNormMeta);
@@ -67,10 +66,10 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_bwd_eager_hpu(
     const at::Tensor& grad_in,
     const at::Tensor& mean,
     const at::Tensor& istd,
-    const at::Tensor& gamma) {
+    const c10::optional<at::Tensor>& gamma_opt) {
   PT_OP_INFO(
       "instance_norm_backward_eager: ",
-      DUMP_5ARGS(input, grad_in, mean, istd, gamma));
+      DUMP_5ARGS(input, grad_in, mean, istd, gamma_opt));
 
   auto InstanceNormBackwardMeta = [](const at::Stack& stack) {
     const auto& input = stack.at(0).toTensor();
@@ -84,7 +83,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> instance_norm_bwd_eager_hpu(
     return meta;
   };
   habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
-      "hpu::instance_norm_backward", {input, grad_in, mean, istd, gamma}};
+      "hpu::instance_norm_backward", {input, grad_in, mean, istd, gamma_opt}};
 
   hpu_op.SetOutputMetaFn(InstanceNormBackwardMeta);
   return hpu_op.call();
@@ -97,9 +96,9 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
 
 TORCH_LIBRARY_FRAGMENT(hpu, m) {
   m.def(
-      "instance_norm(Tensor input, Tensor weight, Tensor bias, float eps) -> (Tensor, Tensor, Tensor)");
+      "instance_norm(Tensor input, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "instance_norm_backward(Tensor input, Tensor grad_in, Tensor mean, Tensor istd, Tensor gamma) -> (Tensor, Tensor, Tensor)");
+      "instance_norm_backward(Tensor input, Tensor grad_in, Tensor mean, Tensor istd, Tensor? gamma) -> (Tensor, Tensor, Tensor)");
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor>
@@ -108,28 +107,30 @@ dispatch_instance_norm_backward_hpu(
     const at::Tensor& grad_in,
     const at::Tensor& mean,
     const at::Tensor& istd,
-    const at::Tensor& gamma) {
+    const c10::optional<at::Tensor>& gamma_opt) {
   PT_OP_INFO(
       "Dispatch hpu::instance_norm_backward: ",
-      DUMP_5ARGS(input, grad_in, mean, istd, gamma));
+      DUMP_5ARGS(input, grad_in, mean, istd, gamma_opt));
+
   static auto op = torch::Dispatcher::singleton()
                        .findSchemaOrThrow("hpu::instance_norm_backward", "")
                        .typed<decltype(dispatch_instance_norm_backward_hpu)>();
-  return op.call(input, grad_in, mean, istd, gamma);
+  return op.call(input, grad_in, mean, istd, gamma_opt);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> dispatch_instance_norm_hpu(
     const at::Tensor& input,
-    const at::Tensor& weight,
-    const at::Tensor& bias,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
     double eps) {
   PT_OP_INFO(
-      "Dispatch hpu::instance_norm: ", DUMP_4ARGS(input, weight, bias, eps));
+      "Dispatch hpu::instance_norm: ",
+      DUMP_4ARGS(input, weight_opt, bias_opt, eps));
 
   static auto op = torch::Dispatcher::singleton()
                        .findSchemaOrThrow("hpu::instance_norm", "")
                        .typed<decltype(dispatch_instance_norm_hpu)>();
-  return op.call(input, weight, bias, eps);
+  return op.call(input, weight_opt, bias_opt, eps);
 }
 
 class InstanceNormAutogradHPU
@@ -138,29 +139,17 @@ class InstanceNormAutogradHPU
   static at::Tensor forward(
       torch::autograd::AutogradContext* ctx,
       const at::Tensor& input,
-      const at::Tensor& weight, // gamma
-      const at::Tensor& bias, // beta
+      const c10::optional<at::Tensor>& weight_opt, // gamma
+      const c10::optional<at::Tensor>& bias_opt, // beta
       double eps) {
-    auto input_maybe_reshaped = input;
-    const auto is_3d = input.dim() == 3;
-    if (is_3d) {
-      auto new_shape = input.sizes().vec();
-      new_shape.push_back(1);
-      input_maybe_reshaped = at::reshape(input, new_shape);
-    }
+    ctx->saved_data["weight_opt"] = weight_opt.has_value();
+    ctx->saved_data["bias_opt"] = bias_opt.has_value();
 
-    at::Tensor output;
+    auto [output, mean, istd] =
+        dispatch_instance_norm_hpu(input, weight_opt, bias_opt, eps);
 
-    auto [output_maybe_reshaped, mean, istd] =
-        dispatch_instance_norm_hpu(input, weight, bias, eps);
-
-    if (is_3d) {
-      output = at::reshape(output_maybe_reshaped, input.sizes());
-    } else {
-      output = output_maybe_reshaped;
-    }
-
-    ctx->save_for_backward({input, mean, istd, weight});
+    ctx->save_for_backward(
+        {input, mean, istd, weight_opt.value_or(at::Tensor())});
     return output;
   }
 
@@ -171,31 +160,20 @@ class InstanceNormAutogradHPU
     auto input = saved[0];
     auto mean = saved[1];
     auto istd = saved[2];
-    auto gamma = saved[3];
+    auto gamma_opt = saved[3];
 
-    auto input_maybe_reshaped = input;
-    auto grad_in_maybe_reshaped = grad_in[0];
-    const auto is_3d = input.dim() == 3;
-    if (is_3d) {
-      auto new_shape = input.sizes().vec();
-      new_shape.push_back(1);
-      input_maybe_reshaped = at::reshape(input, new_shape);
-      grad_in_maybe_reshaped = at::reshape(grad_in[0], new_shape);
-    }
+    const auto isWeight = ctx->saved_data["weight_opt"].toBool();
+    const auto isBias = ctx->saved_data["bias_opt"].toBool();
 
-    at::Tensor grad_out;
-
-    auto [grad_out_maybe_reshaped, grad_beta, grad_gamma] =
+    auto [grad_out, grad_beta, grad_gamma] =
         dispatch_instance_norm_backward_hpu(
-            input_maybe_reshaped, grad_in_maybe_reshaped, mean, istd, gamma);
+            input, grad_in[0], mean, istd, gamma_opt);
 
-    if (is_3d) {
-      grad_out = at::reshape(grad_out_maybe_reshaped, input.sizes());
-    } else {
-      grad_out = grad_out_maybe_reshaped;
-    }
-
-    return {grad_out, grad_gamma, grad_beta, at::Tensor()};
+    return {
+        grad_out,
+        isBias ? grad_beta : at::Tensor(),
+        isWeight ? grad_gamma : at::Tensor(),
+        at::Tensor()};
   }
 };
 
@@ -209,21 +187,12 @@ at::Tensor instance_norm_autograd_wrap(
     double momentum,
     double eps,
     bool cudnn_enabled) {
-  auto weight =
-      weight_opt.value_or(at::ones(input.sizes().vec()[INPUT_CHANNEL_INDEX])
-                              .to(torch::kFloat32)
-                              .to(torch::kHPU));
-  auto bias =
-      bias_opt.value_or(at::zeros(input.sizes().vec()[INPUT_CHANNEL_INDEX])
-                            .to(torch::kFloat32)
-                            .to(torch::kHPU));
-
   PT_OP_INFO(
       " instance_norm:",
       DUMP_9ARGS(
           input,
-          weight,
-          bias,
+          weight_opt,
+          bias_opt,
           running_mean_opt,
           running_var_opt,
           use_input_stats,
@@ -231,7 +200,7 @@ at::Tensor instance_norm_autograd_wrap(
           eps,
           cudnn_enabled));
 
-  return InstanceNormAutogradHPU::apply(input, weight, bias, eps);
+  return InstanceNormAutogradHPU::apply(input, weight_opt, bias_opt, eps);
 }
 
 TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {

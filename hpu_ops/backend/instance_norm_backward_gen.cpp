@@ -15,11 +15,14 @@
 #include "hpu_ops/instance_norm_backward.h"
 
 namespace habana {
+namespace {
+constexpr size_t INPUT_CHANNEL_INDEX = 1;
+} // namespace
+
+namespace sh = synapse_helpers;
 
 OutputMetaDataVector InstanceNormBackward::InstanceNormBackwardMeta(
     const at::Stack& stack) {
-  constexpr size_t INPUT_CHANNEL_INDEX = 1;
-
   OutputMetaDataVector meta(3);
   const auto& input = stack.at(0).toTensor();
 
@@ -52,8 +55,14 @@ void InstanceNormBackward::AddNode(
     const at::Stack& stack) {
   auto meta = InstanceNormBackwardMeta(stack);
 
-  auto input = stack[0].toTensor();
-  auto is_norm_3d = input.sizes().vec().size() == 5;
+  StackGetter stackGetter(stack, "InstanceNormBwd::AddNode");
+  auto input = getNextInput<TensorsPair>(stackGetter);
+  auto grad_in = getNextInput<TensorsPair>(stackGetter);
+  auto mean = getNextInput<TensorsPair>(stackGetter);
+  auto istd = getNextInput<TensorsPair>(stackGetter);
+  auto gamma = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+
+  auto is_norm_3d = input.pt_t.sizes().vec().size() == 5;
 
   kernel_meta_data_.synapse_input_layout.assign(
       {is_norm_3d ? synapse_helpers::layouts::SynapseLayoutFormat::WHDCN
@@ -69,8 +78,20 @@ void InstanceNormBackward::AddNode(
        synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
        synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
 
-  std::string guid =
-      get_guid_with_precision("instance_norm_bwd", input.scalar_type());
+  std::vector<synTensor> inputs = {
+      input.syn_t, grad_in.syn_t, mean.syn_t, istd.syn_t};
+
+  std::optional<sh::tensor> gammaTensorStorage = gamma
+      ? std::nullopt
+      : std::make_optional(ConstantHelper(
+            graph,
+            1.0f,
+            c10::ScalarType::Float,
+            input.pt_t.sizes().vec()[INPUT_CHANNEL_INDEX]));
+
+  inputs.push_back(
+      gammaTensorStorage.has_value() ? gammaTensorStorage.value().get()
+                                     : gamma.value().syn_t);
 
   // Note: TPC kernel doesnt support running mean and variance computation. we
   // just pass random momentum value as a place holder
@@ -79,8 +100,8 @@ void InstanceNormBackward::AddNode(
   };
   auto InstanceNormBackward = BuildOp(
       graph,
-      std::move(guid),
-      {syn_in(0), syn_in(1), syn_in(2), syn_in(3), syn_in(4)},
+      guid_,
+      std::move(inputs),
       {{meta[0].shape, meta[0].dtype, 0},
        {meta[1].shape, meta[1].dtype, 1},
        {meta[2].shape, meta[1].dtype, 2}},
