@@ -23,8 +23,12 @@ _meta_lib_dont_use_me_use_register_meta_for_hpu = torch.library.Library(
 @register_meta([torch.ops.hpu.instance_norm.default])
 def instance_norm(input, weight_opt, bias_opt, eps):
     out = torch.empty_like(input)
-    mean_tensor = input.new_empty((input.shape[0], input.shape[1]), dtype=torch.float32)
-    istd_tensor = input.new_empty((input.shape[0], input.shape[1]), dtype=torch.float32)
+    mean_tensor = input.new_empty(
+        (input.shape[0], input.shape[1]), dtype=torch.float32
+    )
+    istd_tensor = input.new_empty(
+        (input.shape[0], input.shape[1]), dtype=torch.float32
+    )
     return [out, mean_tensor, istd_tensor]
 
 
@@ -50,7 +54,9 @@ def meta_cast_to_fp8_v2_common(input, is_amax, dtype):
 
 
 @register_meta([torch.ops.hpu.cast_to_fp8_v2.default])
-def meta_cast_to_fp8_v2(input, scale=None, stochastic=False, is_amax=False, dtype=None):
+def meta_cast_to_fp8_v2(
+    input, scale=None, stochastic=False, is_amax=False, dtype=None
+):
     return meta_cast_to_fp8_v2_common(input, is_amax, dtype)
 
 
@@ -63,7 +69,7 @@ def meta_cast_to_fp8_v2_scalar(
 
 @register_meta([torch.ops.hpu.cast_to_fp8_v2.scalar_list])
 def meta_cast_to_fp8_v2_scalar_list(
-    input, scale, stochastic=False, is_amax=False, dtype=None
+    input, scale, stochastic=False, is_amax=False, dtype=None, scalar_shape=None
 ):
     return meta_cast_to_fp8_v2_common(input, is_amax, dtype)
 
@@ -133,7 +139,9 @@ def meta_fp8_gelu(input, scale, stochastic, out, retain, amax):
 
 
 @register_meta([torch.ops.hpu.fp8_bgrad_dgelu.default])
-def meta_fp8_bgrad_dgelu(grad, input, scale, retain, stochastic, is_amax, dtype):
+def meta_fp8_bgrad_dgelu(
+    grad, input, scale, retain, stochastic, is_amax, dtype
+):
     out_dtype = dtype if dtype else torch.int8
     out = input.new_empty(input.shape, dtype=out_dtype)
     bgrad = input.new_empty(input.shape[1], dtype=input.dtype)
@@ -302,7 +310,9 @@ def meta_optimizer_lamb_fused_norm(grads, scale):
 
 
 @register_meta([torch.ops.hpu.optimizer_resource_apply_momentum.default])
-def meta_optimizer_resource_apply_momentum(params_momentum_buf_list, dp_list, momentum):
+def meta_optimizer_resource_apply_momentum(
+    params_momentum_buf_list, dp_list, momentum
+):
     return
 
 
@@ -421,7 +431,13 @@ def meta_fp8_index_select_v2(self, dim, index):
 
 @register_meta([torch.ops.hpu.scaled_masked_triangular_softmax.default])
 def meta_scaled_masked_triangular_softmax(
-    self, start_end, inv_scale_attn, grouped_batch_size, use_max, mode, out_dtype=None
+    self,
+    start_end,
+    inv_scale_attn,
+    grouped_batch_size,
+    use_max,
+    mode,
+    out_dtype=None,
 ):
     dtype = out_dtype if out_dtype else self.dtype
     return self.new_empty(self.shape, dtype=dtype)
@@ -462,7 +478,9 @@ def meta_rms_norm(data_in, gamma, epsilon):
 
 
 @register_meta([torch.ops.hpu.rms_norm_backward.default])
-def meta_rms_norm_backward(grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode):
+def meta_rms_norm_backward(
+    grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode
+):
     return data_in.new_empty(data_in.shape), gamma.new_empty(gamma.shape)
 
 

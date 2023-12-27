@@ -2241,11 +2241,11 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
   m.def(
-      "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor)");
+      "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
   m.def(
-      "hpu::cast_to_fp8_v2.scalar(Tensor input, float scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor)");
+      "hpu::cast_to_fp8_v2.scalar(Tensor input, float scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
   m.def(
-      "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor)");
+      "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
   m.def(
       "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)");
   m.def(

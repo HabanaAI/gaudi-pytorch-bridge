@@ -580,7 +580,8 @@ class HabanaOperator {
   synapse_helpers::tensor AllocateConstantSynapseTensor(
       synapse_helpers::graph& graph,
       int device_id,
-      const std::vector<T>& vec) {
+      const std::vector<T>& vec,
+      at::OptionalIntArrayRef sizes) {
     auto& device = habana::HPURegistrar::get_device(device_id).syn_device();
 
     void* host_ptr{nullptr};
@@ -614,7 +615,7 @@ class HabanaOperator {
     }
 
     auto const_syn_tensor = habana_helpers::create_const_tensor(
-        {static_cast<int64_t>(vec.size())},
+        sizes ? *sizes : at::IntArrayRef{static_cast<int64_t>(vec.size())},
         {1},
         graph,
         false,

@@ -6227,16 +6227,18 @@ static std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_common(
     T scale,
     bool stochastic_rounding,
     bool is_amax,
-    c10::optional<at::ScalarType> dtype) {
+    c10::optional<at::ScalarType> dtype,
+    OptionalIntArrayRef scale_shape) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "cast_to_fp8_v2:",
-      DUMP_5ARGS(input, scale, stochastic_rounding, is_amax, dtype));
+      DUMP_6ARGS(
+          input, scale, stochastic_rounding, is_amax, dtype, scale_shape));
   FP8_CHECK
   LazyOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
       "hpu::cast_to_fp8_v2",
-      {input, scale, stochastic_rounding, is_amax, dtype},
+      {input, scale, stochastic_rounding, is_amax, dtype, scale_shape},
       CastToFp8V2OutputShape};
   auto out_dtype = dtype.has_value() ? dtype.value() : at::ScalarType::Char;
   hpu_op.set_scalar_types({out_dtype, at::ScalarType::Float});
@@ -6249,9 +6251,10 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
     bool is_amax,
-    c10::optional<at::ScalarType> dtype) {
+    c10::optional<at::ScalarType> dtype,
+    OptionalIntArrayRef scale_shape) {
   return cast_to_fp8_v2_common(
-      input, scale, stochastic_rounding, is_amax, dtype);
+      input, scale, stochastic_rounding, is_amax, dtype, scale_shape);
 }
 
 std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_lazy(
@@ -6259,9 +6262,10 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_lazy(
     double scale,
     bool stochastic_rounding,
     bool is_amax,
-    c10::optional<at::ScalarType> dtype) {
+    c10::optional<at::ScalarType> dtype,
+    OptionalIntArrayRef scale_shape) {
   return cast_to_fp8_v2_common(
-      input, scale, stochastic_rounding, is_amax, dtype);
+      input, scale, stochastic_rounding, is_amax, dtype, scale_shape);
 }
 
 std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_list_lazy(
@@ -6269,9 +6273,10 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_list_lazy(
     c10::ArrayRef<double> scale,
     bool stochastic_rounding,
     bool is_amax,
-    c10::optional<at::ScalarType> dtype) {
+    c10::optional<at::ScalarType> dtype,
+    OptionalIntArrayRef scale_shape) {
   return cast_to_fp8_v2_common(
-      input, scale, stochastic_rounding, is_amax, dtype);
+      input, scale, stochastic_rounding, is_amax, dtype, scale_shape);
 }
 
 template <class T>

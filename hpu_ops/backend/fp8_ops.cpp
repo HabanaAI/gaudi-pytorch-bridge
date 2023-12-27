@@ -14,6 +14,8 @@
 #include "hpu_ops/fp8_ops.h"
 #include "habana_kernels/random_gen_kernels.h"
 
+namespace sh = synapse_helpers;
+
 namespace habana {
 
 static auto GetFp8Dtypes(const at::ScalarType& dtype) {
@@ -36,7 +38,7 @@ CastToFp8::CastToFp8(int device_id, c10::ScalarType scalar_type)
   SetNumOutTensors(2);
 }
 
-void CastToFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void CastToFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 5, "CastToFp8 must have 5 input arguments");
 
   auto self = stack_tensor(stack, 0);
@@ -82,18 +84,23 @@ void CastToFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 static void HandleScale(
     habana::OpBackend* op,
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     const c10::IValue& scale,
     const int device_id,
-    std::vector<synapse_helpers::tensor>& maybe_const_scale,
-    std::vector<synTensor>& syn_inputs) {
+    std::vector<sh::tensor>& maybe_const_scale,
+    std::vector<synTensor>& syn_inputs,
+    c10::IValue scale_shape_ival) {
   if (scale.isDouble()) {
     maybe_const_scale.emplace_back(
         op->BuildConstantTensor(op, graph, scale.toDouble()));
     syn_inputs.push_back(maybe_const_scale.back().get());
   } else if (scale.isDoubleList() and not op->isOutputInfMode()) {
     maybe_const_scale.emplace_back(op->AllocateConstantSynapseTensor(
-        graph, device_id, scale.toDoubleVector()));
+        graph,
+        device_id,
+        scale.toDoubleVector(),
+        scale_shape_ival.isNone() ? at::OptionalIntArrayRef{}
+                                  : scale_shape_ival.toIntVector()));
     syn_inputs.push_back(maybe_const_scale.back().get());
   } else {
     syn_inputs.push_back(nullptr);
@@ -128,10 +135,8 @@ CastToFp8V2::CastToFp8V2(int device_id, c10::ScalarType scalar_type)
   SetFillParams(FillCastToFp8V2Params);
 }
 
-void CastToFp8V2::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 5, "CastToFp8V2 must have 5 input arguments");
+void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
+  TORCH_CHECK(stack.size() == 6, "CastToFp8V2 must have 6 input arguments");
 
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1];
@@ -144,7 +149,7 @@ void CastToFp8V2::AddNode(
 
   auto out_shapes = CastToFp8V2OutputShape(stack);
   std::vector<synTensor> syn_inputs{syn_in(0)};
-  std::vector<synapse_helpers::tensor> maybe_const_scale;
+  std::vector<sh::tensor> maybe_const_scale;
   if (scale.isTensor()) {
     syn_inputs.push_back(syn_in(1));
   } else {
@@ -154,7 +159,8 @@ void CastToFp8V2::AddNode(
         scale,
         p_context_->device_id_,
         maybe_const_scale,
-        syn_inputs);
+        syn_inputs,
+        stack[5]);
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {out_shapes[0], dst_type, 0, DATA_TENSOR, dst_syn_type}};
@@ -194,9 +200,7 @@ CastToFp8Hybrid::CastToFp8Hybrid(int device_id, c10::ScalarType scalar_type)
   SetComputeOutputShapes(CastToFp8HybridOutputShape);
 }
 
-void CastToFp8Hybrid::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void CastToFp8Hybrid::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 5, "CastToFp8Hybrid must have 5 input arguments");
 
   StackGetter stackGetter(stack, "CastToFp8Hybrid::AddNode");
@@ -250,18 +254,16 @@ CastToFp8Q::CastToFp8Q(int device_id, c10::ScalarType scalar_type)
   SetOutputMetaFn(CastToFp8QMeta);
 }
 
-void CastToFp8Q::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void CastToFp8Q::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 3, "CastToFp8Q must have 4 input arguments");
   using namespace std::literals;
 
   auto self = stack_tensor(stack, 0);
   auto dtype = stack[1].toScalarType();
 
-  const auto from_dtype_str = synapse_helpers::graph::name_suffix_from_type(
+  const auto from_dtype_str = sh::graph::name_suffix_from_type(
       habana_helpers::pytorch_to_synapse_type(self.scalar_type()));
-  const auto to_dtype_str = synapse_helpers::graph::name_suffix_from_type(
+  const auto to_dtype_str = sh::graph::name_suffix_from_type(
       habana_helpers::pytorch_to_synapse_type(dtype));
   const auto guid = std::string{"cast_"sv}
                         .append(from_dtype_str)
@@ -293,9 +295,7 @@ Fp8CastTranspose::Fp8CastTranspose(int device_id, c10::ScalarType scalar_type)
   SetNumOutTensors(3);
 }
 
-void Fp8CastTranspose::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8CastTranspose::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(
       stack.size() == 6, "Fp8CastTranspose must have 6 input arguments");
 
@@ -356,9 +356,7 @@ Fp8CastTransposeBgrad::Fp8CastTransposeBgrad(
   SetNumOutTensors(4);
 }
 
-void Fp8CastTransposeBgrad::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8CastTransposeBgrad::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(
       stack.size() == 7, "Fp8CastTransposeBgrad must have 7 input arguments");
 
@@ -423,7 +421,7 @@ Fp8CastTransposeBgradDgelu::Fp8CastTransposeBgradDgelu(
 }
 
 void Fp8CastTransposeBgradDgelu::AddNode(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     const at::Stack& stack) {
   TORCH_CHECK(
       stack.size() == 9,
@@ -486,9 +484,7 @@ void Fp8CastTransposeBgradDgelu::AddNode(
 CastFromFp8::CastFromFp8(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "cast_from_fp8", scalar_type, {0}, {}, {}, false) {}
 
-void CastFromFp8::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 3, "CastFromFp8 must have 3 input arguments");
 
   auto self = stack_tensor(stack, 0);
@@ -501,7 +497,7 @@ void CastFromFp8::AddNode(
       : "convert_from_fp8_bf16";
 
   std::vector<synTensor> syn_inputs{syn_in(0)};
-  std::vector<synapse_helpers::tensor> maybe_const_scale;
+  std::vector<sh::tensor> maybe_const_scale;
   if (scale.isTensor()) {
     syn_inputs.push_back(syn_in(1));
   } else {
@@ -511,7 +507,8 @@ void CastFromFp8::AddNode(
         scale,
         p_context_->device_id_,
         maybe_const_scale,
-        syn_inputs);
+        syn_inputs,
+        c10::IValue{});
   }
 
   auto casted = OpBackend::BuildNode(
@@ -540,9 +537,7 @@ Fp8Dropout::Fp8Dropout(int device_id, c10::ScalarType scalar_type)
   SetComputeOutputShapes(Fp8DropoutOutputShape);
 }
 
-void Fp8Dropout::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8Dropout::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 6, "Fp8Dropout must have 6 input arguments");
 
   StackGetter stackGetter(stack, "Fp8Dropout::AddNode");
@@ -591,7 +586,7 @@ Fp8Gelu::Fp8Gelu(int device_id, c10::ScalarType scalar_type)
   SetNumOutTensors(3);
 }
 
-void Fp8Gelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void Fp8Gelu::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 6, "Fp8Gelu must have 6 input arguments");
 
   auto self = stack_tensor(stack, 0);
@@ -656,7 +651,7 @@ Fp8GeluV2::Fp8GeluV2(int device_id, c10::ScalarType scalar_type)
   SetComputeOutputShapes(Fp8GeluV2OutputShape);
 }
 
-void Fp8GeluV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void Fp8GeluV2::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 5, "Fp8GeluV2 must have 5 input arguments");
 
   StackGetter stackGetter(stack, "Fp8GeluV2::AddNode");
@@ -715,9 +710,7 @@ Fp8BgradDgelu::Fp8BgradDgelu(int device_id, c10::ScalarType scalar_type)
           {},
           false) {}
 
-void Fp8BgradDgelu::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8BgradDgelu::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 7, "Fp8BgradDgelu must have 7 input arguments");
 
   StackGetter stackGetter(stack, "Fp8eBgradDgelu::AddNode");
@@ -780,9 +773,7 @@ Fp8FastSoftmax::Fp8FastSoftmax(int device_id, c10::ScalarType scalar_type)
           {},
           false) {}
 
-void Fp8FastSoftmax::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8FastSoftmax::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 7, "Fp8FastSoftmax must have 7 input arguments");
 
   StackGetter stackGetter(stack, "Fp8FastSoftmax::AddNode");
@@ -829,9 +820,7 @@ Fp8Layernorm::Fp8Layernorm(int device_id, c10::ScalarType scalar_type)
   SetNumOutTensors(4);
 }
 
-void Fp8Layernorm::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8Layernorm::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 10, "Fp8Layernorm must have 10 input arguments");
 
   auto self = stack_tensor(stack, 0);
@@ -885,7 +874,7 @@ void Fp8Layernorm::AddNode(
 Fp8Gemm::Fp8Gemm(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_gemm", scalar_type, {}, {}, {}, true) {}
 
-void Fp8Gemm::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 11, "Fp8Gemm must have 11 input arguments");
 
   StackGetter stackGetter(stack, "Fp8Gemm::AddNode");
@@ -966,7 +955,7 @@ Fp8GemmV2::Fp8GemmV2(int device_id, c10::ScalarType scalar_type)
   SetComputeOutputShapes(Fp8GemmV2OutputShape);
 }
 
-void Fp8GemmV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 10, "Fp8GemmV2 must have 10 input arguments");
 
   StackGetter stackGetter(stack, "Fp8Gemm::AddNode");
@@ -986,7 +975,7 @@ void Fp8GemmV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   std::string guid = get_guid_with_precision("fp8_gemm", out_type);
 
   std::vector<synTensor> syn_inputs = {A.syn_t, B.syn_t};
-  std::vector<synapse_helpers::tensor> maybe_const_scale;
+  std::vector<sh::tensor> maybe_const_scale;
 
   if (std::holds_alternative<TensorsPair>(scaleAOpt)) {
     syn_inputs.push_back(std::get<TensorsPair>(scaleAOpt).syn_t);
@@ -997,7 +986,8 @@ void Fp8GemmV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         std::get<c10::IValue>(scaleAOpt),
         p_context_->device_id_,
         maybe_const_scale,
-        syn_inputs);
+        syn_inputs,
+        c10::IValue{});
   }
   if (std::holds_alternative<TensorsPair>(scaleBOpt)) {
     syn_inputs.push_back(std::get<TensorsPair>(scaleBOpt).syn_t);
@@ -1008,7 +998,8 @@ void Fp8GemmV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         std::get<c10::IValue>(scaleBOpt),
         p_context_->device_id_,
         maybe_const_scale,
-        syn_inputs);
+        syn_inputs,
+        c10::IValue{});
   }
   if (biasOpt) {
     syn_inputs.push_back(biasOpt->syn_t);
@@ -1049,9 +1040,7 @@ void Fp8GemmV2::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 Fp8Transpose::Fp8Transpose(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_transpose", scalar_type, {}, {}, {}, true) {}
 
-void Fp8Transpose::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8Transpose::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto out = stack_tensor(stack, 1);
 
   synTransposeParams params{};
@@ -1076,9 +1065,7 @@ void Fp8Transpose::AddNode(
 Fp8Permute::Fp8Permute(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_permute", scalar_type, {}, {}, {}, true) {}
 
-void Fp8Permute::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8Permute::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto dims = stack[1].toIntList().vec();
   auto out = stack_tensor(stack, 2);
   auto dims_size = dims.size();
@@ -1113,9 +1100,7 @@ Fp8Reshape::Fp8Reshape(int device_id, c10::ScalarType scalar_type)
   SetComputeOutputShapes(Fp8ReshapeOutputShape);
 }
 
-void Fp8Reshape::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8Reshape::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto shape = stack[1].toIntList().vec();
 
   std::vector<synTensor> inputs = {syn_in(0)};
@@ -1136,7 +1121,7 @@ void Fp8Reshape::AddNode(
 Fp8Copy_::Fp8Copy_(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_copy_", scalar_type, {}, {0}, {}, false) {}
 
-void Fp8Copy_::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void Fp8Copy_::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 2, "Fp8Copy_ must have 2 input arguments");
 
   std::string guid_suffix = fp8_syn_type == syn_type_fp8_143 ? "hf8" : "f8";
@@ -1156,9 +1141,7 @@ void Fp8Copy_::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 Fp8KvReorder::Fp8KvReorder(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_kv_reorder", scalar_type, {}, {0}, {}, false) {}
 
-void Fp8KvReorder::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8KvReorder::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 4, "Fp8KvReorder must have 4 input arguments");
 
   StackGetter stackGetter(stack, "Fp8KvReorder::AddNode");
@@ -1199,9 +1182,7 @@ Fp8IndexCopy_::Fp8IndexCopy_(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_index_copy_", scalar_type, {}, {0}, {}, false) {
 }
 
-void Fp8IndexCopy_::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8IndexCopy_::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 4, "Fp8IndexCopy_ must have 4 input arguments");
 
   StackGetter stackGetter(stack, "IndexCopy::AddNode");
@@ -1251,9 +1232,7 @@ Fp8RepeatV2::Fp8RepeatV2(int device_id, c10::ScalarType scalar_type)
   SetComputeOutputShapes(Fp8RepeatV2OutputShape);
 }
 
-void Fp8RepeatV2::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8RepeatV2::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(stack.size() == 2, "Fp8RepeatV2 must have 2 input arguments");
 
   StackGetter stackGetter(stack, "Fp8RepeatV2::AddNode");
@@ -1263,7 +1242,7 @@ void Fp8RepeatV2::AddNode(
   std::string guid_suffix = fp8_syn_type == syn_type_fp8_143 ? "hf8" : "f8";
 
   synTensor self_reshaped_st = self.syn_t;
-  std::optional<synapse_helpers::tensor> self_reshaped_storage;
+  std::optional<sh::tensor> self_reshaped_storage;
   if (static_cast<int64_t>(repeats.size()) > self.pt_t.ndimension()) {
     int64_t num_new_dimensions = repeats.size() - self.pt_t.dim();
     std::vector<int64_t> padded_size(num_new_dimensions, 1);
@@ -1335,9 +1314,7 @@ Fp8IndexSelectV2::Fp8IndexSelectV2(int device_id, c10::ScalarType scalar_type)
   SetComputeOutputShapes(Fp8IndexSelectV2OutputShape);
 }
 
-void Fp8IndexSelectV2::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void Fp8IndexSelectV2::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(
       stack.size() == 3, "Fp8IndexSelectV2 must have 3 input arguments");
 
@@ -1393,7 +1370,7 @@ struct InPlaceInterleave_ : InPlaceInterleaveCommon {
 };
 
 void InPlaceInterleaveCommon::AddNode(
-    synapse_helpers::graph& graph,
+    sh::graph& graph,
     const at::Stack& stack) {
   TORCH_CHECK(
       stack.size() == 1, "InPlaceInterleave must have 1 input argument");
@@ -1406,7 +1383,7 @@ void InPlaceInterleaveCommon::AddNode(
   TORCH_CHECK(shape[0] % 4 == 0, "Batch size has to be a multiple of 4.");
 
   std::string guid_suffix =
-      synapse_helpers::graph::name_suffix_from_type(dst_syn_type).data();
+      sh::graph::name_suffix_from_type(dst_syn_type).data();
   auto output = BuildNode(
       this,
       graph,
@@ -1479,7 +1456,7 @@ Conv2dFp8::Conv2dFp8(int device_id, c10::ScalarType scalar_type)
   SetComputeOutputShapes(Conv2dFp8OutputShape);
 }
 
-void Conv2dFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(stack, "Conv2dFp8::AddNode");
   auto input = getNextInput<TensorsPair>(stackGetter);
   auto weight = getNextInput<TensorsPair>(stackGetter);
@@ -1504,10 +1481,10 @@ void Conv2dFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
 
   SetSynapseLayouts(
-      {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-       synapse_helpers::layouts::SynapseLayoutFormat::SRCK,
-       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE},
-      {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+      {sh::layouts::SynapseLayoutFormat::WHCN,
+       sh::layouts::SynapseLayoutFormat::SRCK,
+       sh::layouts::SynapseLayoutFormat::DONT_CARE},
+      {sh::layouts::SynapseLayoutFormat::WHCN});
 
   auto out_shape = Conv2dFp8OutputShape(stack)[0];
   std::vector<synTensor> syn_inputs{input.syn_t, weight.syn_t};
@@ -1539,7 +1516,7 @@ void Conv2dFp8::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     return;
   }
 
-  std::vector<synapse_helpers::tensor> scale;
+  std::vector<sh::tensor> scale;
   synTensor syn_scale;
 
   if (scale_input and scale_weight) {
