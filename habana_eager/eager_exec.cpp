@@ -332,9 +332,6 @@ void EagerExec::launch() {
     PT_EAGER_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
     throw;
   }
-  if (GET_ENV_FLAG_NEW(PT_HPU_USE_EAGER_OP_SYNC)) {
-    stream.synchronize();
-  }
 }
 
 std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
