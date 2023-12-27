@@ -376,6 +376,15 @@ bool Value::IsInplace() const {
   }
   return false;
 }
+bool Value::IsAllReduce() const {
+  if (mp_node && !mp_node->is_control_edge()) {
+    std::string node_name = (std::string)mp_node->op().toQualString();
+    if (strcmp(node_name.c_str(), "hccl::allreduce_") == 0) {
+      return true;
+    }
+  }
+  return false;
+}
 
 int64_t Value::GetHbLazyTensorUniqueId() const {
   std::shared_ptr<habana_lazy::Data> d = m_data_ptr.lock();

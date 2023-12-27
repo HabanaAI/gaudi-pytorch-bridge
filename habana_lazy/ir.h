@@ -348,6 +348,7 @@ struct Value final {
   bool IsInplaceOnInput() const;
 
   bool IsInplace() const;
+  bool IsAllReduce() const;
 
   int64_t GetHbLazyTensorUniqueId() const;
 

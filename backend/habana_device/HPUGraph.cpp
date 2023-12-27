@@ -315,11 +315,13 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
 
         // exclude view tensors &  Inplace tensors
         bool isInplaceOutTensor = false;
+        bool isAllReduceTensor = false;
         if ((out_tensor.getDataPtr()->stride_params.has_value()) ||
             (single_graph->output_vals_[outIdx].IsInplace()) ||
             (out_tensor.IsCollective()) ||
             (isExists(input_lazyt_id_set, out_tensor.getTensorUniqueId()))) {
           isInplaceOutTensor = true;
+          isAllReduceTensor = single_graph->output_vals_[outIdx].IsAllReduce();
         }
 
         // Check if any of the following SingleHPUGraphs use this output as an
@@ -327,7 +329,7 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
         size_t last_use = 0;
         bool is_inter_dependent = false;
         // if its not an useroutput or if its not inplace
-        if (!isInplaceOutTensor &&
+        if ((!isInplaceOutTensor or isAllReduceTensor) &&
             !isExists(user_out_tensors_idx_set, outIdx)) {
           for (size_t j = graphIdx + 1; j < captured_graphs.size(); j++) {
             auto next_graph = captured_graphs[j];
@@ -354,7 +356,8 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
         // Can start freeing memory for output tensors that have no dependency.
         // SetHpuGraphOutTensor mark to false so that next replay it can be
         // freed
-        if (!isInplaceOutTensor && !is_inter_dependent &&
+        // Or if its an all_reduce output
+        if ((!isInplaceOutTensor or isAllReduceTensor) && !is_inter_dependent &&
             !isExists(user_out_tensors_idx_set, outIdx)) {
           out_tensor.SetHpuGraphOutTensor(false);
           out_tensor.SetTensorDataNullOpt();
