@@ -30,15 +30,14 @@ void Rrelu_with_noise::AddNode(
   size_t size = 0;
   if (training) {
     std::optional<synapse_helpers::tensor> noiseStorageOpt;
-    auto [noise_in, noise_in_storage_or_idx] =
-        get_or_create_tensor<TENSOR_IDX, STORAGE_IDX>(
-            *this,
-            graph,
-            noiseIn,
-            (*noiseIn).pt_t.numel(),
-            ScalarType(),
-            0,
-            noiseStorageOpt);
+    auto [noise_in_storage_or_idx] = get_or_create_tensor<STORAGE_IDX>(
+        *this,
+        graph,
+        noiseIn,
+        (*noiseIn).pt_t.numel(),
+        ScalarType(),
+        0,
+        noiseStorageOpt);
     PARAMS_STUB(ns_RandomUniform::Params);
     params->low = lower;
     params->high = upper;
