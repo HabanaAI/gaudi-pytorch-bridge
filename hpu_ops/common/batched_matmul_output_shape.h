@@ -1,0 +1,29 @@
+/******************************************************************************
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+#pragma once
+
+#include <c10/util/ArrayRef.h>
+#include <variant>
+
+namespace habana {
+
+using ShapeVecT = std::vector<int64_t>;
+using ShapeRefT = c10::ArrayRef<int64_t>;
+
+ShapeVecT getBatchMatmulOutShape(
+    ShapeRefT inShapeA,
+    ShapeRefT inShapeB,
+    bool transposeA,
+    bool transposeB);
+
+} // namespace habana

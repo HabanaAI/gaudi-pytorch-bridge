@@ -13,6 +13,7 @@
 
 #include "hpu_ops/fp8_ops.h"
 #include "habana_kernels/random_gen_kernels.h"
+#include "hpu_ops/common/batched_matmul_output_shape.h"
 
 namespace sh = synapse_helpers;
 
@@ -889,14 +890,13 @@ void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   bool accumulate = getNextInput<bool>(stackGetter);
 
-  int64_t rank = A.pt_t.dim();
-  std::vector<int64_t> A_shape = A.pt_t.sizes().vec();
-  std::vector<int64_t> B_shape = B.pt_t.sizes().vec();
-  std::vector<int64_t> out_shape{A_shape.begin(), A_shape.begin() + rank - 2};
-  int A_dim = rank - 2 + (trans_A ? 1 : 0);
-  int B_dim = rank - 2 + (trans_B ? 0 : 1);
-  out_shape.push_back(A_shape[A_dim]);
-  out_shape.push_back(B_shape[B_dim]);
+  std::vector<int64_t> out_shape;
+  try {
+    out_shape = getBatchMatmulOutShape(
+        A.pt_t.sizes(), B.pt_t.sizes(), trans_A, trans_B);
+  } catch (const std::invalid_argument& e) {
+    TORCH_CHECK(false, e.what());
+  }
 
   std::string guid = get_guid_with_precision("fp8_gemm", out_type);
 
@@ -938,16 +938,12 @@ sizes_vec Fp8GemmV2OutputShape(const at::Stack& stack) {
   auto B = stack_tensor(stack, 2);
   bool trans_B = stack[3].toBool();
 
-  int64_t rank = A.dim();
-  std::vector<int64_t> A_shape = A.sizes().vec();
-  std::vector<int64_t> B_shape = B.sizes().vec();
-  std::vector<int64_t> out_shape{A_shape.begin(), A_shape.begin() + rank - 2};
-  int A_dim = rank - 2 + (trans_A ? 1 : 0);
-  int B_dim = rank - 2 + (trans_B ? 0 : 1);
-  out_shape.push_back(A_shape[A_dim]);
-  out_shape.push_back(B_shape[B_dim]);
-
-  return {out_shape};
+  try {
+    return {getBatchMatmulOutShape(A.sizes(), B.sizes(), trans_A, trans_B)};
+  } catch (const std::invalid_argument& e) {
+    TORCH_CHECK(false, e.what());
+    return {};
+  }
 }
 
 Fp8GemmV2::Fp8GemmV2(int device_id, c10::ScalarType scalar_type)

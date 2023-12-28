@@ -237,7 +237,6 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/randperm_gen.cpp
           backend/reduce_std_var_gen.cpp
           backend/reduction_template.cpp
-          common/reduction_template.cpp
           backend/reflection_pad_gen.cpp
           backend/replication_pad_bwd_gen.cpp
           backend/replication_pad_gen.cpp
@@ -281,6 +280,8 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/pool_helpers.cpp
           backend/zero_gen.cpp
           backend/new_zeros_gen.cpp
+          common/batched_matmul_output_shape.cpp
+          common/reduction_template.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op0.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op1.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op2.cpp
@@ -331,7 +332,7 @@ add_habana_library(habana_pytorch_frontend_ops OBJECT
           lazy/bernoulli_gen.cpp
           lazy/binarycrossentropy_gen.cpp
           lazy/binaryscalar2tensor.cpp
-	        lazy/bitwise_gen.cpp
+          lazy/bitwise_gen.cpp
           lazy/bitwise_shift_gen.cpp
           lazy/compare_gen.cpp
           lazy/convolution_overrideable_gen.cpp

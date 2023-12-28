@@ -271,13 +271,19 @@ scale_modes = [
 
 @pytest.mark.parametrize(
     "shapeA, shapeB",
-    [((2, 3, 4, 2), (2, 3, 4, 8)), ((24, 12), (24, 36))],
+    [
+        ((2, 1, 4, 2), (1, 3, 4, 8)),
+        ((24, 12), (24, 36)),
+        ((2, 1, 4, 2), (4, 8)),
+        ((4, 2), (3, 4, 8)),
+    ],
+    ids=format_tc,
 )
 @pytest.mark.parametrize("bias", [True, False])
 @pytest.mark.parametrize("accumulate", [True, False])
 @pytest.mark.parametrize("scaleA, scaleB", scale_modes)
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
-@pytest.mark.parametrize("fp8_dtype", fp8_dtypes)
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("fp8_dtype", fp8_dtypes, ids=format_tc)
 def test_fp8_gemm_v2(
     shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, fp8_dtype
 ):
@@ -323,8 +329,9 @@ def test_fp8_gemm_v2(
         if not scaleA:
             scaleAInv = [1.0]
 
-    rank = len(shapeA)
-    out_shape = shapeA[0 : (rank - 2)] + (shapeA[-1],) + (shapeB[-1],)
+    result_ref = torch.matmul(A.transpose(-2, -1), B)
+
+    out_shape = result_ref.shape
     bias_tensor = torch.rand(out_shape, dtype=dtype) * 10 + 30.0
     bias_tensor_hpu = bias_tensor.to(hpu) if bias else None
 
@@ -380,8 +387,6 @@ def test_fp8_gemm_v2(
         bias_tensor_hpu,
         accumulate,
     )
-
-    result_ref = torch.matmul(A.transpose(-2, -1), B)
 
     if bias:
         result_ref = result_ref + bias_tensor
