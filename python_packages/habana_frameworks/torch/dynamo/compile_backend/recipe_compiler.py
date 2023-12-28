@@ -144,7 +144,7 @@ def get_symbolic_metadata(graph_module, outputs_metadata):
     input_index = 0
     pexpr = PythonPrinter().doprint
     for node in graph_module.graph.nodes:
-        if node.op is "placeholder":
+        if node.op == "placeholder":
             tmeta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
             if isinstance(tmeta_val, py_sym_types):
                 val_str = pexpr(tmeta_val)
