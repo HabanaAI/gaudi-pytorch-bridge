@@ -27,7 +27,7 @@ class CollectiveOperator : public habana::HabanaOperator {
         device_id_(device_id),
         scalar_type_(scalar_type){};
   virtual void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) = 0;
 
@@ -61,7 +61,7 @@ class HcclBroadcastOperator : public CollectiveOperator {
   void Deserialize(std::istream& is) override;
 
   void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
@@ -85,7 +85,7 @@ class HcclAllreduceOperator : public CollectiveOperator {
   void Deserialize(std::istream& is) override;
 
   void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
@@ -109,7 +109,7 @@ class HcclReduceOperator : public CollectiveOperator {
   void Deserialize(std::istream& is) override;
 
   void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
@@ -134,7 +134,7 @@ class HcclAllToAllOutOperator : public CollectiveOperator {
   void Deserialize(std::istream& is) override;
 
   void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
@@ -160,7 +160,7 @@ class HcclAllgatherOutOperator : public CollectiveOperator {
   void Deserialize(std::istream& is) override;
 
   void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
@@ -183,7 +183,7 @@ class HcclReduceScatterOutOperator : public CollectiveOperator {
   void Deserialize(std::istream& is) override;
 
   void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
@@ -206,7 +206,7 @@ class HcclSendOperator : public CollectiveOperator {
   void Deserialize(std::istream& is) override;
 
   void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 
@@ -230,7 +230,7 @@ class HcclRecvOperator : public CollectiveOperator {
   void Deserialize(std::istream& is) override;
 
   void RunCollective(
-      const std::vector<PtTensorInfoShared>& inputs,
+      std::vector<PtTensorInfoShared>& inputs,
       bool async,
       synapse_helpers::event_done_callback done_cb) override;
 

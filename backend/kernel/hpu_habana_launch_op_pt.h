@@ -591,7 +591,8 @@ class HabanaLaunchOpPT {
 
   std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>
       jit_to_synapse_node_idx_map;
-  habana_helpers::CollectiveKernelInfos collective_kernels_info;
+  std::vector<std::shared_ptr<habana_helpers::collective_kernel_info>>
+      collective_kernels_info;
 
   // Execution mode based on frontend type
   habana_helpers::HabanaFrontendTypes execution_mode_{
