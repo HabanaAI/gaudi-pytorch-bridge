@@ -35,10 +35,10 @@
       "version": "2.1.1",
       "default_source": "build",
       "extras": {
-        "torchvision": "0.16.0",
-        "torchaudio": "2.1.0",
-        "torchtext": "0.16.0",
-        "torchdata": "0.7.0"
+        "torchvision": "v0.16.0",
+        "torchaudio": "v2.1.0",
+        "torchtext": "v0.16.0",
+        "torchdata": "v0.7.0"
       }
     },
     "previous": {
@@ -49,10 +49,10 @@
       "version": "2.1.2",
       "default_source": "build",
       "extras": {
-        "torchvision": "0.16.0",
-        "torchaudio": "2.1.0",
-        "torchtext": "0.16.0",
-        "torchdata": "0.7.0"
+        "torchvision": "v0.16.0",
+        "torchaudio": "v2.1.0",
+        "torchtext": "v0.16.0",
+        "torchdata": "v0.7.0"
       }
     },
     "rc": {

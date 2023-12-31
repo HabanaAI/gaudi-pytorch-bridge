@@ -2185,6 +2185,25 @@ restore_python_version()
     fi
 }
 
+get_github_repo()
+{
+  # clone github repo and checkout required branch/tag/sha-id
+  if [[ "$#" -ne 2 ]]; then
+    # Check if the correct number of parameters is provided
+    echo -e "\n Usage: get_github_repo repository revision \n"
+    echo -e "repository    -   Name of the repository for Ex:pytorch/data"
+    echo -e "revision      -   provide branch/tag/sha-id for Ex: main;v0.16.2;53ca583fd5e5d53004b7a73654ba7ac5afcb715b"
+    exit 1
+  fi
+  # assign parameters to variables
+  local __repository="${1}"
+  local __revision="${2}"
+  # Enable --not-checkout to clone without downloading working-tree.
+  git clone --no-checkout "https://github.com/${__repository}" .
+  # Checkout required branch/tag/sha-id if found.
+  git checkout ${__revision} || { echo "Error: Checkout Failed! Provided revision: $__revision is not valid"; exit 1 ;}
+}
+
 build_pytorch_text()
 {
     SECONDS=0
@@ -2241,12 +2260,12 @@ build_pytorch_text()
     mkdir -p $PYTORCH_TEXT_ROOT
     pushd $PYTORCH_TEXT_ROOT
 
-    # checkout github torchaudio repo
+    # checkout github torchtext repo
     if [ -z ${__pt_text_version} ]; then
         __pt_text_version=$($__profile_getter_path --get-extras-version torchtext current)
     fi
     echo "get torchtext from github (tag: $__pt_text_version)"
-    git clone https://github.com/pytorch/text --branch v$__pt_text_version --single-branch --depth 1 .
+    get_github_repo "pytorch/text" "${__pt_text_version}"
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
@@ -2329,12 +2348,12 @@ build_pytorch_data()
     mkdir -p $PYTORCH_DATA_ROOT
     pushd $PYTORCH_DATA_ROOT
 
-    # checkout github torchaudio repo
+    # checkout github torchdata repo
     if [ -z ${__pt_data_version} ]; then
         __pt_data_version=$($__profile_getter_path --get-extras-version torchdata current)
     fi
     echo "get torchdata from github (tag: $__pt_data_version)"
-    git clone https://github.com/pytorch/data --branch v$__pt_data_version --single-branch --depth 1 .
+    get_github_repo "pytorch/data" "${__pt_data_version}"
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
@@ -2422,7 +2441,7 @@ build_pytorch_audio()
         __pt_audio_version=$($__profile_getter_path --get-extras-version torchaudio current)
     fi
     echo "get torchaudio from github (tag: $__pt_audio_version)"
-    git clone https://github.com/pytorch/audio --branch v$__pt_audio_version --single-branch --depth 1 .
+    get_github_repo "pytorch/audio" "${__pt_audio_version}"
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
@@ -2510,7 +2529,7 @@ build_pytorch_vision()
         __pt_vision_version=$($__profile_getter_path --get-extras-version torchvision current)
     fi
     echo "get torch vision from github (tag: $__pt_vision_version)"
-    git clone https://github.com/pytorch/vision --branch v$__pt_vision_version --single-branch --depth 1 .
+    get_github_repo "pytorch/vision" "${__pt_vision_version}"
     git submodule update --init --recursive
 
     if [ -n "$__configure" ]; then
