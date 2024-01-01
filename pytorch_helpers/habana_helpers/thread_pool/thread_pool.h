@@ -134,9 +134,13 @@ class ThreadPoolBase {
 
   bool propagate_exception_ = false;
 
+  std::atomic<uint64_t> active_task_count_{0};
+
   void main_loop() {
-    while (!stop_)
+    while (!stop_) {
       executePendingTask(std::move(tasks_.pop()));
+      --active_task_count_;
+    }
   }
   void executePendingTask(Task&& task);
 };
@@ -148,6 +152,7 @@ template <
     typename T,
     typename std::enable_if_t<std::is_same_v<T, move_only_function_void>, bool>>
 void ThreadPoolBase<Queue, Task>::enqueue(F&& f, Args&&... args) {
+  ++active_task_count_;
   RethrowIfException();
   auto task = [args = std::make_tuple(std::forward<Args>(args)...),
                func = std::move(f)]() mutable {
@@ -164,6 +169,7 @@ template <
     typename std::
         enable_if_t<std::is_same_v<T, std::packaged_task<void()>>, bool>>
 std::future<void> ThreadPoolBase<Queue, Task>::enqueue(F&& f, Args&&... args) {
+  ++active_task_count_;
   auto packed_func = [args = std::make_tuple(std::forward<Args>(args)...),
                       func = std::move(f)]() mutable {
     std::apply([&](auto&&... x) { func(std::forward<Args>(x)...); }, args);
@@ -180,8 +186,11 @@ template <
     typename std::enable_if_t<std::is_same_v<T, move_only_function_void>, bool>>
 void ThreadPoolBase<Queue, Task>::waitWorkComplete() {
   RethrowIfException();
+  if (active_task_count_ == 0)
+    return;
   std::promise<void> last_task;
   std::future<void> work_compelete = last_task.get_future();
+  ++active_task_count_;
   tasks_.push([&last_task]() { last_task.set_value(); });
   work_compelete.wait();
   RethrowIfException();
