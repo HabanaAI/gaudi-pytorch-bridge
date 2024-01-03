@@ -178,8 +178,9 @@ namespace {
 OutputMetaDataVector populate_node_output_metadata(
     const torch::jit::Node* node) {
   OutputMetaDataVector output_metadata{};
+  // If node output is tensor list
   // tensorList and Unpack pair is supported
-  if (node->output(0)->type() == torch::ListType::ofTensors() &&
+  if (*node->output(0)->type() == *torch::ListType::ofTensors() &&
       node->outputs().size() == 1) {
     auto unpack_node =
         jitgraph_utils::GetUnpackNodeFromTensorList(node->output(0));
