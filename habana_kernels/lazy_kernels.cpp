@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -3511,7 +3511,7 @@ Tensor slice_backward_hpu_lazy(
   const auto grad_output_sizes = grad_output.sizes();
   if (std::find(grad_output_sizes.begin(), grad_output_sizes.end(), 0) !=
       grad_output_sizes.end()) {
-    return torch::zeros(input_sizes).to(torch::kHPU);
+    return torch::zeros(input_sizes, at::TensorOptions(at::kHPU));
   } else {
     return at::native::slice_backward(
         grad_output, input_sizes, dim, start, end, step);
