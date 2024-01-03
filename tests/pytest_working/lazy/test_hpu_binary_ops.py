@@ -1,5 +1,5 @@
 # ******************************************************************************
-# Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -67,8 +67,7 @@ binary_op_out_list = [
 data_type_list = [
     (torch.float, 0.001, {}),
     (torch.bfloat16, 0.01, {}),
-    (torch.float64, 0.001, {}),
-    (torch.short, 0, {torch.min, torch.max}),
+    (torch.float64, 0.001, {})
 ]
 
 

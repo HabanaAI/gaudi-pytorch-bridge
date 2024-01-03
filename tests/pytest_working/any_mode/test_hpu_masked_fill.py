@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -49,7 +49,7 @@ class TestHpuMaskedMixedDevices:
         iters = 3 if dynamic else 1
         for i in range(iters):
             modified_shape = [(dim*(i+1)) for dim in shape]
-            mask = torch.randint(low=0, high=2, size=modified_shape, dtype=torch.bool, device="hpu")
+            mask = torch.randint(low=0, high=2, size=modified_shape, dtype=torch.bool, device="cpu").to("hpu")
             input = torch.rand(modified_shape, dtype=dtype, device="hpu")
             value = value if scalar_value else torch.tensor(value, dtype=dtype, device="cpu")
             wrapped_fn(input, mask, value)

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -165,9 +165,11 @@ def test_bool_comparison(src_dtype, op_name, is_view):
             return x
 
         # Map False -> 0 and True -> Random value in [2, 255]
-        true_vals = torch.randint(2, 255, x.shape, dtype=torch.uint8, device=x.device)
-        false_vals = torch.zeros((), dtype=torch.uint8, device=x.device)
-        x_int = torch.where(x, true_vals, false_vals)
+        # randint on CPU, because "aten::random_.from is not yet supported on HPU"
+        true_vals = torch.randint(2, 255, x.shape, dtype=torch.uint8, device="cpu")
+        false_vals = torch.zeros((), dtype=torch.uint8, device="cpu")
+        # where on CPU, because "aten::where.self is not yet supported on HPU"
+        x_int = torch.where(x.to("cpu"), true_vals, false_vals).to(x.device)
 
         if is_view:
             ret = x_int.view(torch.bool)

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -19,12 +19,12 @@ import habana_frameworks.torch.dynamo.compile_backend
 @pytest.mark.parametrize("p", [None, 'fro', 'nuc', 0, 1, 2])
 @pytest.mark.parametrize("dtype", [None, torch.float, torch.bfloat16])
 def test_hpu_norm(shape, dim, keepdim, p, dtype):
-    if pytest.mode == "compile":
-        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
     if (len(shape) == 0 and dim != 0):
         pytest.skip("Unsupported test configuration")
     if (p == 'nuc' and (len(shape) == 0 or (not isinstance(dim, tuple) or len(dim) != 2))):
         pytest.skip("Unsupported test configuration")
+    if p == 'nuc' and shape == (3, 3) and dim == (-1, -2):
+        pytest.skip("Unsupported test configuration (aten::_linalg_svd.U is not yet supported on HPU)")
     def fn(input):
         if (p == 'fro' or p == 'nuc'):
             return torch.norm(input, p=p, dim=dim, keepdim=keepdim)

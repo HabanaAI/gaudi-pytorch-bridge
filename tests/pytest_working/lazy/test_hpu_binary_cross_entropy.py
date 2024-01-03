@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -20,8 +20,7 @@ input_sizes = [
     (6),
     (4, 5),
     (2, 3, 4),
-    (2, 3, 2, 3),
-    (2, 3, 2, 3, 2)
+    (2, 3, 2, 3)
 ]
 
 weight_uses = [

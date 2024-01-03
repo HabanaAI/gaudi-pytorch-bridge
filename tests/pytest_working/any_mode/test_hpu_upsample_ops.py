@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -52,8 +52,11 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("antialias", [True, False])
     @pytest.mark.parametrize("variant", ["fwd", "bwd"])
     def test_upsample_bicubic2d(self, shape_and_size, scale_factor, align_corners, antialias, variant, dtype):
-        if pytest.mode == "compile":
-            pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
+        if antialias and (
+            (shape_and_size == ((2, 2, 3, 3), (6, 6)) and scale_factor == None)
+            or (shape_and_size == ((2, 2, 3, 3), None) and scale_factor == [1, 2])
+        ):
+            pytest.skip("Unsupported test configuration (aten::_upsample_bicubic2d_aa.out is not yet supported on HPU)")
         if (pytest.mode == "compile" and antialias == False):
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         shape, size = shape_and_size
@@ -65,8 +68,11 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("antialias", [True, False])
     @pytest.mark.parametrize("variant", ["fwd", "bwd"])
     def test_upsample_bilinear2d(self, shape_and_size, scale_factor, align_corners, antialias, variant, dtype):
-        if pytest.mode == "compile":
-            pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
+        if antialias and (
+            (shape_and_size == ((2, 2, 3, 3), (6, 6)) and scale_factor == None)
+            or (shape_and_size == ((2, 2, 3, 3), None) and scale_factor == [1, 2])
+        ):
+            pytest.skip("Unsupported test configuration (aten::_upsample_bilinear2d_aa.out is not yet supported on HPU)")
         if (pytest.mode == "compile" and antialias == False):
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         shape, size = shape_and_size

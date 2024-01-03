@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -51,6 +51,9 @@ backup_env = pytest.StashKey[Mapping]()
 def pytest_configure(config):
     pytest.mode = config.getoption("--mode")
     assert pytest.mode.lower() in ["eager", "lazy", "compile"]
+
+    # CPU fallbacks are not allowed in simple tests
+    os.environ["PT_HPU_PLACE_ON_CPU"] = "none"
 
     config.stash[backup_env] = os.environ
 

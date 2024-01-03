@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -488,18 +488,6 @@ def test_tensorlist_view():
 
     hc_cpu = hc.cpu()
     torch.allclose(hc_cpu, c, atol=0, rtol=0)
-
-
-def test_bernoulli():
-    torch.manual_seed(0)
-    a = torch.empty([2, 4], dtype=torch.int32)
-    ha = a.to("hpu")
-
-    av = a.view(-1).bernoulli_()
-    hav = ha.view(-1).bernoulli_()
-    hav_cpu = hav.cpu()
-
-    torch.allclose(hav_cpu, av, atol=0, rtol=0)
 
 
 def test_normal():

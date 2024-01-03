@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -27,6 +27,8 @@ if not is_gaudi1():
 @pytest.mark.parametrize("dtype", dtypes)
 @pytest.mark.parametrize("out_dtype", [torch.float, torch.bfloat16])
 def test_hpu_linear(input_shape, weight_shape, is_bias, dtype, out_dtype):
+    if out_dtype == torch.bfloat16 and dtype == torch.float32 and input_shape != (4,):
+        pytest.skip("Configuration not supported (aten::mv.out is not yet supported on HPU)")
     if len(input_shape) == 2 and len(weight_shape) == 1 and is_bias:
         pytest.skip("PyTorch doesn't support this configuration")
 

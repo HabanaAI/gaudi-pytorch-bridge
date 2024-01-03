@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -19,6 +19,9 @@ import pytest
     "dtype", [torch.bfloat16, torch.float, torch.short, torch.int]
 )
 def test_hpu_mv_ops(shapes, dtype):
+    if pytest.mode in ["lazy", "eager"] and dtype in [torch.short, torch.int]:
+        pytest.skip(reason=f"aten::addmv.out for {dtype} is not yet supported on HPU")
+
     def fn(mat, vec):
         return torch.mv(mat, vec)
 

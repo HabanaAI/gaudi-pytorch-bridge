@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -76,6 +76,9 @@ def test_median_dim(dtype, shape, dim, keepdim):
     def fn(input, dim, keepdim):
         return torch.median(input=input, dim=dim, keepdim=keepdim)
 
+    if pytest.mode == "eager" and dtype == torch.bfloat16:
+        pytest.skip(reason="aten::median.dim_values with bf16 is not yet supported on HPU")
+
     cpu_input, hpu_input = create_rand_tensors(shape, dtype)
     hpu_fn = get_hpu_fn(fn)
 
@@ -93,6 +96,9 @@ def test_median_dim(dtype, shape, dim, keepdim):
 def test_median_dim_out(dtype, shape, dim, keepdim):
     if pytest.mode == "lazy" and not bc.get_pt_enable_int64_support():
         pytest.skip(reason="index exceed int32 range which is unsupported")
+
+    if pytest.mode == "eager" and dtype == torch.bfloat16:
+        pytest.skip(reason="aten::median.dim_values with bf16 is not yet supported on HPU")
 
     def fn(input, dim, keepdim, out):
         torch.median(input, dim=dim, keepdim=keepdim, out=out)
