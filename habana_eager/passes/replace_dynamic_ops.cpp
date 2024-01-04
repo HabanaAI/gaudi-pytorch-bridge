@@ -240,6 +240,7 @@ void HandleDynamicInputPatching(
     auto dtensor_indexes = dtensor_info.second;
     dtensor_list.clear();
     scalar_list.clear();
+    tensor_list.clear();
     for (auto it : dtensor_indexes) {
       stack.emplace_back(dmeta->ds_stack[it]);
       dtensor_list.emplace_back(&(dmeta->ds_stack[it]));

@@ -15,6 +15,8 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "backend/backend_meta.h"
+#include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_eager/graph_dynamic.h"
@@ -260,9 +262,9 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
 
   std::vector<int64_t> tensor_indexes;
   if (!m_input_new_base_sizes->empty()) {
+    auto as_strided_node_ip_0 = aten_as_strided_node->input(0)->debugName();
     for (auto& input_base_sizes_pair : *m_input_new_base_sizes) {
       int64_t input_idx{input_base_sizes_pair.first};
-      auto as_strided_node_ip_0 = aten_as_strided_node->input(0)->debugName();
       auto graph_inputs_idx = graph->inputs().at(input_idx)->debugName();
       if (strcmp(as_strided_node_ip_0.c_str(), graph_inputs_idx.c_str()) == 0) {
         tensor_indexes.push_back(input_idx);
@@ -356,6 +358,15 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   auto v_st_strides_tensor = graph->addInput(as_strided_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
 
+  // Due to InputView handling case the self tensor size is set to base tensor
+  // in LaunchRecipe and it is set contiguous, Now since this base tensor goes
+  // as self tensor in backend(ratio case or otherwise), hence we need to do
+  // claculation the same way here and pass to backend. Identify if it is base
+  // tensor view case and apply the same logic in frontend.
+  if (!tensor_indexes.empty()) {
+    auto base_sizes_to_set = habana::get_base_tensor_size(self);
+    self_strides = habana_helpers::calculate_strides(base_sizes_to_set);
+  }
   if (IsStridedRatioUndefined(self_strides, values_strides)) {
     auto tmeta{get_tensor_extra_meta(h2d_tensor_strides)};
     tmeta->set_H2D_data_for_bucketing();
@@ -438,18 +449,24 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
     // Patch from tensor sizes and strides
     auto stack_idx = tensor_list[0].at(0);
     auto stack_tensor = orig_stack[stack_idx].toTensor();
+    auto* impl = stack_tensor.unsafeGetTensorImpl();
     std::vector<uint64_t> h2d_data = GetH2DTensorHostData<uint64_t>(dtensor);
     updated_h2d_data.reserve(h2d_data.size());
     // update offset value
     {
-      auto base_sizes_to_set = habana::get_base_tensor_size(stack_tensor);
-      auto* impl = stack_tensor.unsafeGetTensorImpl();
       auto offset = impl->storage_offset();
       updated_h2d_data.push_back(static_cast<uint64_t>(offset));
+      // Update offset ShapeTensor if present
+      if (dtensor_list.size() == 3) {
+        auto dtensor = dtensor_list[2]->toTensor();
+        c10::SmallVector<int64_t, NUM_TENSOR_DIMS> new_shape(1, offset);
+        dtensor.unsafeGetTensorImpl()->set_sizes_contiguous(new_shape);
+        PT_EAGER_DEBUG("Updated offset shape tensor size:", dtensor.sizes());
+      }
     }
     // Update strides
     {
-      std::vector<int64_t> values_strides = stack_tensor.strides().vec();
+      std::vector<int64_t> values_strides = impl->strides().vec();
       for (auto it = values_strides.rbegin(); it != values_strides.rend();
            ++it) {
         updated_h2d_data.push_back(static_cast<uint64_t>(*it));
@@ -470,8 +487,9 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
     // Update size ShapeTensor
     {
       auto dtensor = dtensor_list[0]->toTensor();
-      std::vector<int64_t> values_sizes = stack_tensor.sizes().vec();
-      dtensor.unsafeGetTensorImpl()->set_sizes_contiguous(stack_tensor.sizes());
+      std::vector<int64_t> values_sizes = impl->sizes().vec();
+      PT_EAGER_DEBUG("Output ShapeTensor updated size ", values_sizes);
+      dtensor.unsafeGetTensorImpl()->set_sizes_contiguous(values_sizes);
     }
   } else {
     SymIntData& scalar_idx = scalar_idx_list[1];

@@ -387,6 +387,41 @@ def test_op_as_strided_plus_view():
         h = h_result.to("cpu")
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
+def test_op_multiple_as_strided_with_views():
+    inputs = [(4, 2, 3, 8), (4, 3, 4, 8)]
+    shapes = [(4, -1, 8), (4, -1, 8)]
+
+    def raw_function(input_tensor, shape):
+        t0 = torch.relu(input_tensor)
+        t0_1 = t0.view(shape)
+        t = t0_1.shape
+        sizes = [int(t[0] / 2), 2]
+        strides = [4, 1]
+        offset = 0
+        strided_tensor1 = torch.as_strided(
+                t0_1, sizes, strides, storage_offset=offset
+        )
+        out1 = torch.relu(strided_tensor1)
+        sizes2 = [int(t[0] / 4), 2]
+        strides2 = [2, 1]
+        strided_tensor2 = torch.as_strided(
+                out1, sizes2, strides2, storage_offset=offset
+        )
+        out2 = torch.relu(strided_tensor2)
+        return out2
+
+    compiled_fn = torch.compile(
+        raw_function, backend="aot_hpu_training_backend", dynamic=True
+    )
+
+    for s1, s2 in zip(inputs, shapes):
+        t1 = torch.randn(s1, requires_grad=False)
+        result = raw_function(t1, s2)
+        t1_hpu = t1.to("hpu")
+        h_result = compiled_fn(t1_hpu, s2)
+        h = h_result.to("cpu")
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
 @pytest.mark.skip(reason="[SW-153208] RuntimeError: undefined value s1")
 def test_op_chunk():
     input_shapes = [
@@ -739,6 +774,7 @@ def test_conv_ds_default():
     numpy.testing.assert_allclose(
         output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1
     )
+
 def test_op_arange():
     os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "1"
     input_shapes = [
