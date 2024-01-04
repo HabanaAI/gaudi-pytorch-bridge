@@ -1261,13 +1261,18 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
             and (node.op != "output")
         )
 
-    def helper_is_decomposed_node(node):
+    def helper_is_decomposed_from_inplace_node(node):
         if node.op != "call_function":
             return False
         node_target = node.target.__name__
-        if 'original_aten' not in node.meta:
+        if (
+            ('original_aten' not in node.meta)
+            or ('from_node' not in node.meta)
+            ):
             return False
-        return node_target != node.meta['original_aten'].__name__
+
+        return (node_target != node.meta['original_aten'].__name__
+            and (node.meta['from_node'][0][0].endswith("_")))
 
     def helper_calculate_default_strides(sizes):
         # Calculate default strides for given size
@@ -1422,7 +1427,7 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
         if not (helper_is_compute_node(node) or
                 # for aten.addr node, it will be decomposed into view ops +
                 # other ops, here need to filter out those decomposed nodes
-                helper_is_decomposed_node(node)):
+                helper_is_decomposed_from_inplace_node(node)):
             continue
 
         # Step 1: find the leaf view node pair (t_1 and t_2 in below graph) and
@@ -1512,7 +1517,7 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
             if (
                 is_call_function_node(prefix_view_node)
                 and (helper_is_view_node(prefix_view_node) and not
-                     helper_is_decomposed_node(prefix_view_node))
+                     helper_is_decomposed_from_inplace_node(prefix_view_node))
                 and prefix_view_node.target == leaf_view_nodes_first.target
                 and prefix_view_node not in nodes_queue_to_search
             ):

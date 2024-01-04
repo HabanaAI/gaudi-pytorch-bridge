@@ -227,6 +227,7 @@ hpu_backend_decompositions_common = get_decompositions(
         aten.special_xlog1py.other_scalar_out,
         aten.stack.default,
         aten.stack.out,
+        aten.t,
         aten.tanh_backward.default,
         aten.tanh_backward.grad_input,
         aten.threshold.out,
