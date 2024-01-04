@@ -32,6 +32,7 @@ size_t GraphStorage::add_new_recipe(
     bool has_preallocated_outputs,
     bool has_randoms) {
   PT_EAGER_TRACE;
+  habana::eager::JoinPendingPipelineThreads();
   size_t output_recipe_group_id{m_storage_vec.size()};
   m_storage_vec.emplace_back(
       output_recipe_group_id,
