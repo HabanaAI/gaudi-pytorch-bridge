@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -61,13 +61,15 @@ int64_t UpdateDynamicTensorDSStack(
     torch::jit::IValue& iv_tensor,
     const std::vector<int64_t>& scalar_indexes,
     const std::vector<int64_t>& tensor_indexes,
-    std::shared_ptr<DynamicGraphMetaData> dmeta);
+    std::shared_ptr<DynamicGraphMetaData> dmeta,
+    const c10::SmallVector<int64_t, 8>& lookup_data = {});
 
 int64_t CreateSTAndInsertToDSStack(
     const std::vector<int64_t>& st_size,
     const std::vector<int64_t>& scalar_indexes,
     const std::vector<int64_t>& tensor_indexes,
-    std::shared_ptr<DynamicGraphMetaData> dmeta);
+    std::shared_ptr<DynamicGraphMetaData> dmeta,
+    const c10::SmallVector<int64_t, 8>& lookup_data = {});
 
 void UpdateH2DPatchingData(
     at::Tensor& dtensor,
@@ -338,6 +340,23 @@ class RandpermGeneratorOperatorDS : public DynamicOp {
   bool ReplaceWithDynamicHPUOp(
       torch::jit::Node*,
       torch::jit::Stack& org_stack,
+      GraphInputIndexMap& org_stack_index_map,
+      ValueIvalueMap& value_ivalue_map,
+      std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
+  static void UpdateDynamicInputs(
+      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
+      c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      std::vector<c10::IValue>& stack,
+      LaunchDynamicShapes& launch_shapes);
+};
+
+class ExapndOperatorDS : public DynamicOp {
+ public:
+  ExapndOperatorDS() : DynamicOp() {}
+  bool ReplaceWithDynamicHPUOp(
+      torch::jit::Node*,
+      torch::jit::Stack& in_stack,
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;

@@ -52,7 +52,10 @@ def test_static_fallback():
     As tensors with more than 5 dimensions
     are not supported
     """
-    inputs = [((16, 9, 32, 16, 16), [4, 4, 3, 3, 2, 16, 16, 16]), ((16, 27, 36, 25, 16), [4, 4, 3, 9, 2, 18, 25, 16])]
+    inputs = [
+        ((16, 9, 32, 16, 16), [4, 4, 3, 3, 2, 16, 16, 16]),
+        ((16, 27, 36, 25, 16), [4, 4, 3, 9, 2, 18, 25, 16]),
+    ]
 
     def raw_function(tensor1, list1):
         view1 = tensor1.view(torch.Size(list1))
@@ -141,7 +144,11 @@ def test_op_reshape_symlnt():
 
 
 def test_op_view():
-    input_shapes = [[(3, 6, 4), (3, 24)], [(3, 8, 4), (3, 32)], [(3, 10, 4), (3, 40)]]
+    input_shapes = [
+        [(3, 6, 4), (3, 24)],
+        [(3, 8, 4), (3, 32)],
+        [(3, 10, 4), (3, 40)],
+    ]
 
     def raw_function(t1, x2):
         t = t1.shape
@@ -187,7 +194,11 @@ def test_op_cat():
 
 
 def test_op_view_static():
-    input_shapes = [[(3, 6, 4), (3, 24)], [(3, 8, 4), (3, 32)], [(3, 10, 4), (3, 40)]]
+    input_shapes = [
+        [(3, 6, 4), (3, 24)],
+        [(3, 8, 4), (3, 32)],
+        [(3, 10, 4), (3, 40)],
+    ]
 
     def raw_function(t1, x2):
         t = t1.shape
@@ -343,6 +354,22 @@ def test_op_unbind():
         t1_hpu = t1.to("hpu")
         h_result = compiled_fn(t1_hpu)
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
+def test_op_expand():
+    shapes = [[-1, 4], [3, 10], [3, 5], [-1, 6]]
+
+    def raw_function(input, shape):
+        return input.expand(shape).abs()
+
+    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+
+    for shape in shapes:
+        input = torch.randn(3, 1)
+        result = raw_function(input, shape)
+        input_hpu = input.to("hpu")
+        result_hpu = compiled_fn(input_hpu, shape)
+        assert torch.allclose(result_hpu.to("cpu"), result, atol=0, rtol=0)
 
 
 def test_op_as_strided_ratio_flow():
@@ -695,18 +722,32 @@ def test_graph_pipelining():
 
 
 def test_graph_BatchNorm_pipelining():
-    input = [(2, 3, 4, 4), (2, 3, 6, 6), (2, 3, 8, 8), (2, 3, 10, 10), (2, 3, 12, 12)]
+    input = [
+        (2, 3, 4, 4),
+        (2, 3, 6, 6),
+        (2, 3, 8, 8),
+        (2, 3, 10, 10),
+        (2, 3, 12, 12),
+    ]
 
     def raw_function(input_tensor):
         batch_norm = torch.nn.BatchNorm2d(
-            num_features=3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False
+            num_features=3,
+            eps=1e-05,
+            momentum=0.1,
+            affine=True,
+            track_running_stats=False,
         )
         out = batch_norm(input_tensor)
         return out
 
     def raw_function_hpu(input_tensor):
         batch_norm = torch.nn.BatchNorm2d(
-            num_features=3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False
+            num_features=3,
+            eps=1e-05,
+            momentum=0.1,
+            affine=True,
+            track_running_stats=False,
         ).to("hpu")
         out = batch_norm(input_tensor)
         return out
@@ -797,11 +838,20 @@ def test_conv_ds_default():
 
     # check results
     output_hpu_cpu = output_hpu.to("cpu")
-    numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1)
+    numpy.testing.assert_allclose(
+        output_hpu_cpu.detach().numpy(),
+        output.detach().numpy(),
+        atol=0.1,
+        rtol=0.1,
+    )
 
 
 def test_op_arange():
-    input_shapes = [[(2, 3), (0, 6, 2)], [(10, 3), (0, 18, 6)], [(5, 3), (0, 12, 4)]]
+    input_shapes = [
+        [(2, 3), (0, 6, 2)],
+        [(10, 3), (0, 18, 6)],
+        [(5, 3), (0, 12, 4)],
+    ]
 
     def raw_function(t1, arg, device):
         t = t1.shape
