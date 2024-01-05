@@ -1,4 +1,0 @@
-jsonschema
-pkginfo
-pyfakefs
-pytest

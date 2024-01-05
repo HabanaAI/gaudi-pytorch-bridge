@@ -7,6 +7,9 @@ hypothesis==6.54.4
 jira==3.4.1
 junitparser==2.2.0
 matplotlib==3.5.3
+pkginfo
+pyfakefs
+jsonschema
 psutil==5.9.1
 py-cpuinfo==8.0.0
 pylint==2.15.0

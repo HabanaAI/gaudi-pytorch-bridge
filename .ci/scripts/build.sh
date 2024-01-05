@@ -2003,7 +2003,7 @@ install_requirements_pytest()
 {
     $__pip_cmd uninstall -y wrapt requests gast
     $__sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytest-$__python_cmd.txt -r ${PYTORCH_MODULES_ROOT_PATH}/.devops/tests/requirements.txt)
+    cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytest-$__python_cmd.txt)
     if ! __running_in_venv; then
         cmd+=(--user)
     fi
