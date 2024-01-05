@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -408,7 +408,7 @@ class Expand : public ir::Node {
  public:
   Expand() = delete;
   Expand(const at::Tensor& self, at::IntArrayRef sizes, bool implicit)
-      : Node(c10::Symbol::fromQualString("hpu::expand")) {
+      : Node(c10::Symbol::fromQualString("aten::expand")) {
     auto hl_self = habana_lazy::GetHbLazyTensor(self);
     hl_self = HbLazyTensorViews::HandleViewsOrUpdate(self, hl_self);
     AddInput(hl_self.GetIrValue());

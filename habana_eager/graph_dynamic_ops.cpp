@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -160,7 +160,8 @@ int64_t UpdateDynamicTensorDSStack(
     torch::jit::IValue& iv_tensor,
     const std::vector<int64_t>& scalar_indexes,
     const std::vector<int64_t>& tensor_indexes,
-    std::shared_ptr<DynamicGraphMetaData> dmeta) {
+    std::shared_ptr<DynamicGraphMetaData> dmeta,
+    const c10::SmallVector<int64_t, 8>& lookup_data) {
   int64_t stack_index = dmeta->ds_stack.size();
   dmeta->ds_stack.push_back(iv_tensor);
 
@@ -168,6 +169,7 @@ int64_t UpdateDynamicTensorDSStack(
   // original stack.
   habana::graph::SymIntData STValue;
   STValue.values = scalar_indexes;
+  STValue.lookup_data = lookup_data;
   dmeta->ds_tensor_to_scalar_map[stack_index] = STValue;
   dmeta->ds_tensor_to_tensor_map[stack_index] = tensor_indexes;
   PT_EAGER_DEBUG("Dynamic tensor inserted to stack at index:", stack_index);
@@ -178,11 +180,12 @@ int64_t CreateSTAndInsertToDSStack(
     const std::vector<int64_t>& st_size,
     const std::vector<int64_t>& scalar_indexes,
     const std::vector<int64_t>& tensor_indexes,
-    std::shared_ptr<DynamicGraphMetaData> dmeta) {
+    std::shared_ptr<DynamicGraphMetaData> dmeta,
+    const c10::SmallVector<int64_t, 8>& lookup_data) {
   auto iv_st_tensor =
       torch::jit::IValue(createDynamicTensor(st_size, SHAPE_TENSOR));
   int64_t stack_index = UpdateDynamicTensorDSStack(
-      iv_st_tensor, scalar_indexes, tensor_indexes, dmeta);
+      iv_st_tensor, scalar_indexes, tensor_indexes, dmeta, lookup_data);
   return stack_index;
 }
 
@@ -343,23 +346,74 @@ bool TopkOperatorDS::ReplaceWithDynamicHPUOp(
   return true;
 }
 
+bool ExapndOperatorDS::ReplaceWithDynamicHPUOp(
+    torch::jit::Node* node,
+    torch::jit::Stack& stack,
+    GraphInputIndexMap& stack_index_map,
+    ValueIvalueMap& value_ivalue_map,
+    std::shared_ptr<DynamicGraphMetaData> dmeta) {
+  torch::jit::Graph* graph = node->owningGraph();
+  torch::jit::Value* sizes = node->input(1);
+  std::vector<int64_t> values;
+  std::vector<int64_t> scalar_ids;
+  GetValuesAndScalarIndexesFromListConstruct(
+      sizes->node(), stack, stack_index_map, values, scalar_ids);
+  CreateAndInsertDynamicNodeToGraph(
+      node->owningGraph(),
+      node,
+      node->kind(),
+      {node->inputs()},
+      value_ivalue_map)
+      ->replaceInput(1, graph->addInput());
+  at::IntArrayRef self_sizes =
+      value_ivalue_map[node->input(0)]->toTensor().sizes();
+
+  for (size_t i{}; i < values.size(); ++i)
+    if (values[i] == -1)
+      values[i] = self_sizes[i];
+
+  std::vector<int64_t> dtensor_indexes{CreateSTAndInsertToDSStack(
+      values, scalar_ids, {}, dmeta, {values.begin(), values.end()})};
+
+  InputPatchPair patch_info(
+      &ExapndOperatorDS::UpdateDynamicInputs, dtensor_indexes);
+  dmeta->ds_input_patching_list.push_back(patch_info);
+  return true;
+}
+
+void ExapndOperatorDS::UpdateDynamicInputs(
+    c10::SmallVectorImpl<at::IValue*>& ivals,
+    c10::SmallVectorImpl<SymIntData>& scalars,
+    [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& temp_unused,
+    std::vector<at::IValue>& stack) {
+  at::IntArrayRef values = scalars[0].values;
+  std::vector<int64_t> sizes(values.size(), 1);
+  for (size_t i{}; i < values.size(); ++i) {
+    bool isNegativeOrMaxLong = values[i] == -1 || values[i] == LONG_MAX;
+    sizes[i] = isNegativeOrMaxLong ? scalars[0].lookup_data[i]
+                                   : stack[values[i]].toInt();
+  }
+  ivals[0]->toTensor().unsafeGetTensorImpl()->set_sizes_contiguous(sizes);
+}
+
 habana::graph::RegisterDSOps& DSOpsRegistry() {
   static habana::graph::RegisterDSOps* Registry =
       new habana::graph::RegisterDSOps();
   return *Registry;
 }
 
-#define DSOP_MID_BACKEND(className) \
-  []() { return std::make_shared<className>(); }
+#define DSOP_MID_BACKEND(op, className) \
+  add(#op, []() { return std::make_shared<className>(); })
 
-static auto& BasicDSOpsRegistry =
+static const auto& BasicDSOpsRegistry =
     habana::graph::DSOpsRegistry()
-        .add("aten::view", DSOP_MID_BACKEND(ViewOperatorDS))
-        .add("hpu::view_neg", DSOP_MID_BACKEND(ViewOperatorDS))
-        .add("aten::arange.start_step", DSOP_MID_BACKEND(ArangeOperatorDS))
-        .add("aten::repeat", DSOP_MID_BACKEND(RepeatOperatorDS))
-        .add("aten::topk", DSOP_MID_BACKEND(TopkOperatorDS))
-        .add("aten::as_strided", DSOP_MID_BACKEND(AsStridedOperatorDS))
-        .add("hpu::strided_insert", DSOP_MID_BACKEND(StridedInsertOperatorDS));
+        .DSOP_MID_BACKEND(aten::view, ViewOperatorDS)
+        .DSOP_MID_BACKEND(hpu::view_neg, ViewOperatorDS)
+        .DSOP_MID_BACKEND(aten::expand, ExapndOperatorDS)
+        .DSOP_MID_BACKEND(aten::arange.start_step, ArangeOperatorDS)
+        .DSOP_MID_BACKEND(aten::repeat, RepeatOperatorDS)
+        .DSOP_MID_BACKEND(aten::topk, TopkOperatorDS)
+        .DSOP_MID_BACKEND(aten::as_strided, AsStridedOperatorDS)
+        .DSOP_MID_BACKEND(hpu::strided_insert, StridedInsertOperatorDS);
 } // namespace graph
 } // namespace habana

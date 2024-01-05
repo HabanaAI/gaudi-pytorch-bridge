@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -1015,7 +1015,7 @@ Tensor HbLazyTensorViews::add_expand_lazy(
     auto hl_params_shape = GetOrCreateHbLazyTensor(expand_shape, c10::kHPU);
     auto hl_false = GetIrValueForScalar(implicit);
     node = ir::Node::Create(
-        Symbol::fromQualString("hpu::expand_ds"),
+        Symbol::fromQualString("aten::expand"),
         {hl_self.GetIrValue(), hl_params_shape.GetIrValue(), hl_false});
   } else {
     node = std::make_shared<ir::Expand>(self, size, implicit);
