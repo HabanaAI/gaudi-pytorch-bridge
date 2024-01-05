@@ -71,8 +71,6 @@ GraphExec::GraphExec(
       m_has_randoms(has_randoms) {
   PT_EAGER_TRACE;
 
-  habana::eager::JoinPendingPipelineThreads();
-
   m_graph_name = "graph_recipe_" + std::to_string(recipe_id);
   bool ds_refine = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD);
 
