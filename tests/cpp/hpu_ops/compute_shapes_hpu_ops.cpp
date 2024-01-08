@@ -37,7 +37,7 @@ TEST_F(HpuOpComputeShapeTest, bce_usual_3D_sum_cmptopshp) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpComputeShapeTest, DISABLED_bce_usual_3D_sum_out_cmptopshp) {
+TEST_F(HpuOpComputeShapeTest, bce_usual_3D_sum_out_cmptopshp) {
   const std::vector<int64_t> size = {8, 3, 2};
   GenerateInputs(3, {size, size, {8, 3, 1}});
   torch::ScalarType dtype = torch::kFloat;
@@ -46,14 +46,14 @@ TEST_F(HpuOpComputeShapeTest, DISABLED_bce_usual_3D_sum_out_cmptopshp) {
   auto result = torch::empty_like(GetHpuInput(0));
   expected = torch::binary_cross_entropy_outf(
       torch::sigmoid(GetCpuInput(0)),
-      /*target*/ GetCpuInput(1),
+      /*target*/ torch::sigmoid(GetCpuInput(1)),
       /*weight*/ GetCpuInput(2),
       at::Reduction::Sum,
       expected);
   result = torch::binary_cross_entropy_outf(
       torch::sigmoid(GetHpuInput(0)),
-      /*target*/ GetHpuInput(1),
-      /*weight*/ GetCpuInput(2),
+      /*target*/ torch::sigmoid(GetHpuInput(1)),
+      /*weight*/ GetHpuInput(2),
       at::Reduction::Sum,
       result);
 
