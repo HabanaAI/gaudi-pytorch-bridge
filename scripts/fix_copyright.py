@@ -2,7 +2,7 @@
 # coding: utf-8
 
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -90,7 +90,6 @@ def _patch_file(f):
     result = 0
     while contents[0] == "\n":  # remove blank lines from the top
         contents = contents[1:]
-        print("lol")
         result = 1
     script_header = list()  # shebang or other stuff that goes above the copyright definition.
     for l in contents[:3]:
@@ -117,7 +116,7 @@ def _patch_file(f):
     try:
         p = i.index("(C)")
     except ValueError:
-        raise PatchError(f"Unexpected start of file {f}, expected copyright sign '(C)'")
+        raise PatchError(f, f"Unexpected start of file {f}, expected copyright sign '(C)'")
     years = i[p + 1]
     if "-" in years:
         created, modified = years.split("-")
@@ -137,11 +136,11 @@ def _patch_file(f):
         if l == "\n":
             end_of_cpr = i + 5
             break
-        if "*/" in l:
+        if "*/" in l or "####################" in l:
             end_of_cpr = i + 6
             break
     if end_of_cpr is None:
-        raise PatchError(f"Failed to identify end of copyright header in first 20 lines of {f}")
+        raise PatchError(f, f"Failed to identify end of copyright header in first 20 lines of {f}")
     cpr = prepare_copyright(created, modified, formatting)
     prev = "".join(contents[:end_of_cpr])
     if cpr == prev:
@@ -168,8 +167,7 @@ def patch_file(f, prefix, verbose):
             click.echo(f"FAILED {fname}", err=True)
         return 2
     except PatchError as e:
-        fname = e.file, e if verbose else ""
-        click.echo(f"FAILED {fname}", err=True)
+        click.echo(f"FAILED {e}", err=True)
         return 2
 
 
@@ -205,7 +203,7 @@ def patch_files(file_names, prefix, verbose, git):
     Don't fully trust this tool. Make sure to always review that the updates were correct.
 
     Examples:
-    
+
     \b
     Process files staged from commit, write missing copyright headers.
         fix_copyright.py --prefix --git=staged
