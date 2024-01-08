@@ -8,6 +8,7 @@ from functools import wraps
 from typing import List
 
 import habana_frameworks.torch as htorch
+import habana_frameworks.torch.core as htcore
 import torch
 from habana_frameworks.torch import _hpu_C
 from habana_frameworks.torch.utils.debug import _hg_print as hpu_graph_print
@@ -565,7 +566,10 @@ def wrapped_hpugraph_forward(
           if `disable_tensor_cache` is True.
         - if 'dry_run' do a trial run to find out the tensors which can be freed.
         - If `bypass_hpu_graphs=True` is present in kwargs the original fwd is called instead
+        - If 'warmup_mode=True' is present in kwargs, we will skip replay for all iterations after the first one
     """
+    warmup_mode = kwargs.pop("warmup_mode", False)
+
     if kwargs.pop("bypass_hpu_graphs", False):
         return orig_fwd(*args, **kwargs)
     inputs = (args, kwargs)
@@ -580,7 +584,6 @@ def wrapped_hpugraph_forward(
 
     # Enable dry run if tensor cache is disabled
     dry_run = True if disable_tensor_cache else dry_run
-
     if cached is None:
         if max_graphs is not None and len(cache) == max_graphs:
             return orig_fwd(*args, **kwargs)
@@ -617,6 +620,11 @@ def wrapped_hpugraph_forward(
             cache[h] = CachedParams(graph_inputs, graph_outputs, graph, tinfo_list, asynchronous)
 
         return outputs
+
+    if warmup_mode:
+        hpu_graph_print("In warmup mode, skipping replay")
+        htcore.mark_step()
+        return cached.graph_outputs
 
     # use replayv1 here
     if not disable_tensor_cache:
