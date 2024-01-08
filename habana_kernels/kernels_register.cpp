@@ -2259,11 +2259,11 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_cast_transpose_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale, Tensor? retain, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) bgrad, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
   m.def(
-      "hpu::cast_from_fp8(Tensor input, Tensor? scale, ScalarType out_dtype) -> Tensor");
+      "hpu::cast_from_fp8(Tensor input, Tensor? scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor");
   m.def(
-      "hpu::cast_from_fp8.scalar(Tensor input, float scale, ScalarType out_dtype) -> Tensor");
+      "hpu::cast_from_fp8.scalar(Tensor input, float scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor");
   m.def(
-      "hpu::cast_from_fp8.scalar_list(Tensor input, float[] scale, ScalarType out_dtype) -> Tensor");
+      "hpu::cast_from_fp8.scalar_list(Tensor input, float[] scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor");
   m.def(
       "hpu::fp8_dropout(Tensor input, float p, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
   m.def(
@@ -2279,11 +2279,11 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
   m.def(
-      "hpu::fp8_gemm_v2(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate) -> Tensor");
+      "hpu::fp8_gemm_v2(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, Tensor? A_scale_inv=None, Tensor? B_scale_inv=None, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor");
   m.def(
-      "hpu::fp8_gemm_v2.scalar(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float A_scale_inv, float B_scale_inv, Tensor? bias, bool accumulate) -> Tensor");
+      "hpu::fp8_gemm_v2.scalar(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float A_scale_inv, float B_scale_inv, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor");
   m.def(
-      "hpu::fp8_gemm_v2.scalar_list(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float[] A_scale_inv, float[] B_scale_inv, Tensor? bias, bool accumulate) -> Tensor");
+      "hpu::fp8_gemm_v2.scalar_list(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float[] A_scale_inv, float[] B_scale_inv, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor");
   m.def("hpu::fp8_transpose(Tensor input, Tensor(a!) out) -> Tensor(a!)");
   m.def(
       "hpu::fp8_permute(Tensor input, int[] dims, Tensor(a!) out) -> Tensor(a!)");

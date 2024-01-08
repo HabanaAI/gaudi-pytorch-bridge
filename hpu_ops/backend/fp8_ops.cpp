@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -19,7 +19,8 @@ namespace sh = synapse_helpers;
 
 namespace habana {
 
-static auto GetFp8Dtypes(const at::ScalarType& dtype) {
+namespace {
+auto GetFp8Dtypes(const at::ScalarType& dtype) {
   auto syn_dtype = dtype == at::ScalarType::Char
       ? fp8_syn_type
       : habana_helpers::pytorch_to_synapse_type(dtype);
@@ -27,10 +28,84 @@ static auto GetFp8Dtypes(const at::ScalarType& dtype) {
   return std::make_pair(dtype, syn_dtype);
 }
 
-static auto GetFp8Dtypes(const at::IValue& dtype) {
+auto GetFp8Dtypes(const at::IValue& dtype) {
   return GetFp8Dtypes(
       dtype.toOptional<at::ScalarType>().value_or(at::ScalarType::Char));
 }
+
+void ValidateScaleShape(
+    const c10::IValue& scale,
+    const c10::IValue& scale_shape) {
+  if (scale.isNone() or scale.isDouble() or scale_shape.isNone()) {
+    return;
+  }
+
+  int64_t scale_numel = 0;
+  int64_t shape_numel = 1;
+  if (scale.isTensor()) {
+    scale_numel = scale.toTensor().numel();
+  } else if (scale.isDoubleList()) {
+    scale_numel = scale.toDoubleVector().size();
+  }
+  for (auto d : scale_shape.toIntVector()) {
+    shape_numel *= d;
+  }
+  TORCH_CHECK(
+      scale_numel == shape_numel,
+      "Number of scale elements (",
+      scale_numel,
+      ") is not equal to number of scale_shape elements (",
+      shape_numel,
+      ").");
+}
+
+void HandleScaleTensor(
+    habana::OpBackend* op,
+    sh::graph& graph,
+    const at::Tensor& scale,
+    synTensor syn_scale,
+    std::vector<sh::tensor>& maybe_reshaped_scale,
+    std::vector<synTensor>& syn_inputs,
+    const c10::IValue& scale_shape_ival = c10::IValue{}) {
+  if (scale.numel() > 1 and not scale_shape_ival.isNone() and
+      scale.sizes().vec() != scale_shape_ival.toIntVector()) {
+    maybe_reshaped_scale.emplace_back(OpBackend::BuildReshape(
+        op,
+        graph,
+        syn_scale,
+        scale_shape_ival.toIntVector(),
+        scale.scalar_type()));
+    syn_inputs.push_back(maybe_reshaped_scale.back().get());
+  } else {
+    syn_inputs.push_back(syn_scale);
+  }
+}
+
+void HandleScaleScalar(
+    habana::OpBackend* op,
+    sh::graph& graph,
+    const c10::IValue& scale,
+    const int device_id,
+    std::vector<sh::tensor>& maybe_const_scale,
+    std::vector<synTensor>& syn_inputs,
+    const c10::IValue& scale_shape_ival = c10::IValue{}) {
+  if (scale.isDouble()) {
+    maybe_const_scale.emplace_back(
+        op->BuildConstantTensor(op, graph, scale.toDouble()));
+    syn_inputs.push_back(maybe_const_scale.back().get());
+  } else if (scale.isDoubleList() and not op->isOutputInfMode()) {
+    maybe_const_scale.emplace_back(op->AllocateConstantSynapseTensor(
+        graph,
+        device_id,
+        scale.toDoubleVector(),
+        scale_shape_ival.isNone() ? at::OptionalIntArrayRef{}
+                                  : scale_shape_ival.toIntVector()));
+    syn_inputs.push_back(maybe_const_scale.back().get());
+  } else {
+    syn_inputs.push_back(nullptr);
+  }
+}
+} // namespace
 
 static ns_CastKernel::Params GetCastParams(
     const bool stochastic,
@@ -98,31 +173,6 @@ void CastToFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 /********** CastToFp8V2 **********/
 
-static void HandleScale(
-    habana::OpBackend* op,
-    sh::graph& graph,
-    const c10::IValue& scale,
-    const int device_id,
-    std::vector<sh::tensor>& maybe_const_scale,
-    std::vector<synTensor>& syn_inputs,
-    c10::IValue scale_shape_ival) {
-  if (scale.isDouble()) {
-    maybe_const_scale.emplace_back(
-        op->BuildConstantTensor(op, graph, scale.toDouble()));
-    syn_inputs.push_back(maybe_const_scale.back().get());
-  } else if (scale.isDoubleList() and not op->isOutputInfMode()) {
-    maybe_const_scale.emplace_back(op->AllocateConstantSynapseTensor(
-        graph,
-        device_id,
-        scale.toDoubleVector(),
-        scale_shape_ival.isNone() ? at::OptionalIntArrayRef{}
-                                  : scale_shape_ival.toIntVector()));
-    syn_inputs.push_back(maybe_const_scale.back().get());
-  } else {
-    syn_inputs.push_back(nullptr);
-  }
-}
-
 sizes_vec CastToFp8V2OutputShape(const at::Stack& stack) {
   auto input_sv = stack[0].toTensor().sizes().vec();
   bool is_amax = stack[3].toBool();
@@ -150,24 +200,34 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
   bool is_amax = stack[3].toBool();
   auto src_type = self.scalar_type();
   auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[4]);
+  auto scale_shape = stack[5];
+
+  ValidateScaleShape(scale, scale_shape);
 
   std::string guid = src_type == at::ScalarType::Float ? "convert_to_fp8_f32"
                                                        : "convert_to_fp8_bf16";
 
   auto out_shapes = CastToFp8V2OutputShape(stack);
   std::vector<synTensor> syn_inputs{syn_in(0)};
-  std::vector<sh::tensor> maybe_const_scale;
+  std::vector<sh::tensor> adjusted_scale;
   if (scale.isTensor()) {
-    syn_inputs.push_back(syn_in(1));
+    HandleScaleTensor(
+        this,
+        graph,
+        scale.toTensor(),
+        syn_in(1),
+        adjusted_scale,
+        syn_inputs,
+        scale_shape);
   } else {
-    HandleScale(
+    HandleScaleScalar(
         this,
         graph,
         scale,
         p_context_->device_id_,
-        maybe_const_scale,
+        adjusted_scale,
         syn_inputs,
-        stack[5]);
+        scale_shape);
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {out_shapes[0], dst_type, 0, DATA_TENSOR, dst_syn_type}};
@@ -491,30 +551,40 @@ CastFromFp8::CastFromFp8(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "cast_from_fp8", scalar_type, {0}, {}, {}, false) {}
 
 void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 3, "CastFromFp8 must have 3 input arguments");
+  TORCH_CHECK(stack.size() == 4, "CastFromFp8 must have 4 input arguments");
 
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1];
   auto dst_type = stack[2].toScalarType();
+  auto scale_shape = stack[3];
   auto sizes = self.sizes();
+
+  ValidateScaleShape(scale, scale_shape);
 
   std::string guid = dst_type == at::ScalarType::Float
       ? "convert_from_fp8_f32"
       : "convert_from_fp8_bf16";
 
   std::vector<synTensor> syn_inputs{syn_in(0)};
-  std::vector<sh::tensor> maybe_const_scale;
+  std::vector<sh::tensor> adjusted_scale;
   if (scale.isTensor()) {
-    syn_inputs.push_back(syn_in(1));
+    HandleScaleTensor(
+        this,
+        graph,
+        scale.toTensor(),
+        syn_in(1),
+        adjusted_scale,
+        syn_inputs,
+        scale_shape);
   } else {
-    HandleScale(
+    HandleScaleScalar(
         this,
         graph,
         scale,
         p_context_->device_id_,
-        maybe_const_scale,
+        adjusted_scale,
         syn_inputs,
-        c10::IValue{});
+        scale_shape);
   }
 
   auto casted = OpBackend::BuildNode(
@@ -954,7 +1024,7 @@ Fp8GemmV2::Fp8GemmV2(int device_id, c10::ScalarType scalar_type)
 }
 
 void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 10, "Fp8GemmV2 must have 10 input arguments");
+  TORCH_CHECK(stack.size() == 11, "Fp8GemmV2 must have 10 input arguments");
 
   StackGetter stackGetter(stack, "Fp8Gemm::AddNode");
   auto A = getNextInput<TensorsPair>(stackGetter);
@@ -969,36 +1039,51 @@ void Fp8GemmV2::AddNode(sh::graph& graph, const at::Stack& stack) {
       getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
   auto biasOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   bool accumulate = getNextInput<bool>(stackGetter);
+  auto scale_shape = getNextInput<c10::IValue>(stackGetter);
 
   std::string guid = get_guid_with_precision("fp8_gemm", out_type);
 
   std::vector<synTensor> syn_inputs = {A.syn_t, B.syn_t};
-  std::vector<sh::tensor> maybe_const_scale;
+  std::vector<sh::tensor> adjusted_scale;
 
   if (std::holds_alternative<TensorsPair>(scaleAOpt)) {
-    syn_inputs.push_back(std::get<TensorsPair>(scaleAOpt).syn_t);
+    auto scaleA = std::get<TensorsPair>(scaleAOpt);
+    HandleScaleTensor(
+        this, graph, scaleA.pt_t, scaleA.syn_t, adjusted_scale, syn_inputs);
   } else {
-    HandleScale(
+    HandleScaleScalar(
         this,
         graph,
         std::get<c10::IValue>(scaleAOpt),
         p_context_->device_id_,
-        maybe_const_scale,
-        syn_inputs,
-        c10::IValue{});
+        adjusted_scale,
+        syn_inputs);
   }
+
   if (std::holds_alternative<TensorsPair>(scaleBOpt)) {
-    syn_inputs.push_back(std::get<TensorsPair>(scaleBOpt).syn_t);
-  } else {
-    HandleScale(
+    auto scaleB = std::get<TensorsPair>(scaleBOpt);
+    ValidateScaleShape(scaleB.pt_t, scale_shape);
+    HandleScaleTensor(
         this,
         graph,
-        std::get<c10::IValue>(scaleBOpt),
-        p_context_->device_id_,
-        maybe_const_scale,
+        scaleB.pt_t,
+        scaleB.syn_t,
+        adjusted_scale,
         syn_inputs,
-        c10::IValue{});
+        scale_shape);
+  } else {
+    auto scaleB = std::get<c10::IValue>(scaleBOpt);
+    ValidateScaleShape(scaleB, scale_shape);
+    HandleScaleScalar(
+        this,
+        graph,
+        scaleB,
+        p_context_->device_id_,
+        adjusted_scale,
+        syn_inputs,
+        scale_shape);
   }
+
   if (biasOpt) {
     syn_inputs.push_back(biasOpt->syn_t);
   } else {

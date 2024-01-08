@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -84,8 +84,8 @@ class Fp8GeluTest
 
     const auto [gelu_scaled, retain, amax] = fp8_gelu_v2_wrap(
         input.to("hpu"), scale_hpu, stochastic, is_amax, c10::nullopt);
-    auto gelu_unscaled =
-        habana_lazy::cast_from_fp8_lazy(gelu_scaled, scale_inv_hpu, dtype);
+    auto gelu_unscaled = habana_lazy::cast_from_fp8_lazy(
+        gelu_scaled, scale_inv_hpu, dtype, c10::nullopt);
 
     double rtol = stochastic ? 0.26 : 0.0;
     double atol = 0.01;

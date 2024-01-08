@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -601,15 +601,18 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_list_lazy(
 at::Tensor cast_from_fp8_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
-    at::ScalarType out_dtype);
+    at::ScalarType out_dtype,
+    OptionalIntArrayRef scale_shape);
 at::Tensor cast_from_fp8_scalar_lazy(
     const at::Tensor& input,
     double scale,
-    at::ScalarType out_dtype);
+    at::ScalarType out_dtype,
+    OptionalIntArrayRef scale_shape);
 at::Tensor cast_from_fp8_scalar_list_lazy(
     const at::Tensor& input,
     c10::ArrayRef<double> scale,
-    at::ScalarType out_dtype);
+    at::ScalarType out_dtype,
+    OptionalIntArrayRef scale_shape);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale_152,
@@ -717,7 +720,8 @@ at::Tensor fp8_gemm_v2_lazy(
     const c10::optional<at::Tensor>& A_scale_inv,
     const c10::optional<at::Tensor>& B_scale_inv,
     const c10::optional<at::Tensor>& bias,
-    bool accumulate);
+    bool accumulate,
+    OptionalIntArrayRef B_scale_shape);
 at::Tensor fp8_gemm_v2_lazy_scalar(
     const at::Tensor& A,
     bool trans_A,
@@ -728,7 +732,8 @@ at::Tensor fp8_gemm_v2_lazy_scalar(
     double A_scale_inv,
     double B_scale_inv,
     const c10::optional<at::Tensor>& bias,
-    bool accumulate);
+    bool accumulate,
+    OptionalIntArrayRef B_scale_shape);
 at::Tensor fp8_gemm_v2_lazy_scalar_list(
     const at::Tensor& A,
     bool trans_A,
@@ -739,7 +744,8 @@ at::Tensor fp8_gemm_v2_lazy_scalar_list(
     c10::ArrayRef<double> A_scale_inv,
     c10::ArrayRef<double> B_scale_inv,
     const c10::optional<at::Tensor>& bias,
-    bool accumulate);
+    bool accumulate,
+    OptionalIntArrayRef B_scale_shape);
 at::Tensor& fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out);
 at::Tensor& fp8_permute_lazy(
     const at::Tensor& input,

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -401,6 +401,10 @@ class OpBackend : public HabanaOperator {
       return synPos++;
     }
 
+    void MoveSynPos(size_t offset) {
+      synPos += offset;
+    }
+
     const at::Stack& stack;
 
    private:
@@ -415,6 +419,16 @@ class OpBackend : public HabanaOperator {
   }
 
  private:
+  c10::IValue getNextInputInternal(StackGetter& sg, c10::IValue*) {
+    auto pos = sg.CheckGetAndIncrStackPos();
+    if (sg.stack[pos].isTensor()) {
+      sg.MoveSynPos(1);
+    } else if (sg.stack[pos].isTensorList()) {
+      sg.MoveSynPos(sg.stack[pos].toTensorList().size());
+    }
+    return sg.stack[pos];
+  }
+
   TensorsPair getNextInputInternal(StackGetter& sg, TensorsPair*) {
     auto pos = sg.CheckGetAndIncrStackPos();
     TORCH_CHECK(

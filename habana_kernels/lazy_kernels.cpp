@@ -6263,9 +6263,9 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_lazy(
     bool stochastic_rounding,
     bool is_amax,
     c10::optional<at::ScalarType> dtype,
-    OptionalIntArrayRef scale_shape) {
+    OptionalIntArrayRef) {
   return cast_to_fp8_v2_common(
-      input, scale, stochastic_rounding, is_amax, dtype, scale_shape);
+      input, scale, stochastic_rounding, is_amax, dtype, c10::nullopt);
 }
 
 std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_list_lazy(
@@ -6283,13 +6283,17 @@ template <class T>
 static at::Tensor cast_from_fp8_common(
     const at::Tensor& input,
     T scale,
-    at::ScalarType out_dtype) {
+    at::ScalarType out_dtype,
+    OptionalIntArrayRef scale_shape) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO("cast_from_fp8:", DUMP_3ARGS(input, scale, out_dtype));
+  PT_OP_INFO(
+      "cast_from_fp8:", DUMP_4ARGS(input, scale, out_dtype, scale_shape));
   FP8_CHECK
   LazyOp<at::Tensor> hpu_op{
-      "hpu::cast_from_fp8", {input, scale, out_dtype}, {input.sizes().vec()}};
+      "hpu::cast_from_fp8",
+      {input, scale, out_dtype, scale_shape},
+      {input.sizes().vec()}};
   hpu_op.set_scalar_types({out_dtype});
   RUN_MAYBE_WITH_ACC_THREAD(cast_from_fp8, hpu_op)
 }
@@ -6297,22 +6301,25 @@ static at::Tensor cast_from_fp8_common(
 at::Tensor cast_from_fp8_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
-    at::ScalarType out_dtype) {
-  return cast_from_fp8_common(input, scale, out_dtype);
+    at::ScalarType out_dtype,
+    OptionalIntArrayRef scale_shape) {
+  return cast_from_fp8_common(input, scale, out_dtype, scale_shape);
 }
 
 at::Tensor cast_from_fp8_scalar_lazy(
     const at::Tensor& input,
     double scale,
-    at::ScalarType out_dtype) {
-  return cast_from_fp8_common(input, scale, out_dtype);
+    at::ScalarType out_dtype,
+    OptionalIntArrayRef) {
+  return cast_from_fp8_common(input, scale, out_dtype, c10::nullopt);
 }
 
 at::Tensor cast_from_fp8_scalar_list_lazy(
     const at::Tensor& input,
     c10::ArrayRef<double> scale,
-    at::ScalarType out_dtype) {
-  return cast_from_fp8_common(input, scale, out_dtype);
+    at::ScalarType out_dtype,
+    OptionalIntArrayRef scale_shape) {
+  return cast_from_fp8_common(input, scale, out_dtype, scale_shape);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid_lazy(
@@ -6624,7 +6631,8 @@ static at::Tensor fp8_gemm_v2_common(
     T A_scale_inv,
     T B_scale_inv,
     const c10::optional<at::Tensor>& bias,
-    bool accumulate) {
+    bool accumulate,
+    OptionalIntArrayRef B_scale_shape) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
@@ -6639,7 +6647,8 @@ static at::Tensor fp8_gemm_v2_common(
        A_scale_inv,
        B_scale_inv,
        bias,
-       accumulate},
+       accumulate,
+       B_scale_shape},
       Fp8GemmV2OutputShape};
   hpu_op.set_scalar_types({out_dtype});
   RUN_MAYBE_WITH_ACC_THREAD(fp8_gemm_v2, hpu_op)
@@ -6655,7 +6664,8 @@ at::Tensor fp8_gemm_v2_lazy(
     const c10::optional<at::Tensor>& A_scale_inv,
     const c10::optional<at::Tensor>& B_scale_inv,
     const c10::optional<at::Tensor>& bias,
-    bool accumulate) {
+    bool accumulate,
+    OptionalIntArrayRef B_scale_shape) {
   return fp8_gemm_v2_common(
       A,
       trans_A,
@@ -6666,7 +6676,8 @@ at::Tensor fp8_gemm_v2_lazy(
       A_scale_inv,
       B_scale_inv,
       bias,
-      accumulate);
+      accumulate,
+      B_scale_shape);
 }
 
 at::Tensor fp8_gemm_v2_lazy_scalar(
@@ -6679,7 +6690,8 @@ at::Tensor fp8_gemm_v2_lazy_scalar(
     double A_scale_inv,
     double B_scale_inv,
     const c10::optional<at::Tensor>& bias,
-    bool accumulate) {
+    bool accumulate,
+    OptionalIntArrayRef) {
   return fp8_gemm_v2_common(
       A,
       trans_A,
@@ -6690,7 +6702,8 @@ at::Tensor fp8_gemm_v2_lazy_scalar(
       A_scale_inv,
       B_scale_inv,
       bias,
-      accumulate);
+      accumulate,
+      c10::nullopt);
 }
 
 at::Tensor fp8_gemm_v2_lazy_scalar_list(
@@ -6703,7 +6716,8 @@ at::Tensor fp8_gemm_v2_lazy_scalar_list(
     c10::ArrayRef<double> A_scale_inv,
     c10::ArrayRef<double> B_scale_inv,
     const c10::optional<at::Tensor>& bias,
-    bool accumulate) {
+    bool accumulate,
+    OptionalIntArrayRef B_scale_shape) {
   return fp8_gemm_v2_common(
       A,
       trans_A,
@@ -6714,7 +6728,8 @@ at::Tensor fp8_gemm_v2_lazy_scalar_list(
       A_scale_inv,
       B_scale_inv,
       bias,
-      accumulate);
+      accumulate,
+      B_scale_shape);
 }
 
 at::Tensor& fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out) {
