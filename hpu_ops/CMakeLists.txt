@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -229,6 +229,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/optimizer_lamb_gen.cpp
           backend/optimizer_lars_gen.cpp
           backend/optimizer_resource_apply_momentum_gen.cpp
+          backend/pdist_gen.cpp
           backend/poission_gen.cpp
           backend/pow_gen.cpp
           backend/prelu_gen.cpp

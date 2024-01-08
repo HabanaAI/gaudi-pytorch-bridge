@@ -1,4 +1,4 @@
-# ******************************************************************************
+###############################################################################
 # Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
@@ -8,7 +8,7 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-# ******************************************************************************
+###############################################################################
 _assert_async:
   guid: assert_async
   out_ids: [0]
@@ -578,6 +578,16 @@ _fused_dropout:
   op_backend: FusedNativeDropout
   out_ids: [0, 0]
   schema_args: "(Tensor self, float p, Tensor? seed) -> (Tensor, Tensor)"
+
+_pdist_forward:
+  output_meta: PdistFwdMeta
+  custom_fill_params: FillPdistFwdParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: pdist_fwd
+  out_ids: [0]
 
 native_dropout:
   output_meta: FusedNativeDropoutMeta
