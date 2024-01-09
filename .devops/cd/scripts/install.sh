@@ -18,17 +18,12 @@ if [ -z $SKIP_INSTALL_DEPENDENCIES ]; then
   python${MIN_PYTHON_VER} -m pip install mpi4py=="${PYTHON_MPI_VERSION}" ${PIP_PYTHON_OPTIONS}
 fi
 
-grep -ivE "^#|lightning" ./requirements-pytorch.txt | grep . > ./requirements-no-lightning-pytorch.txt
-grep -v ^# ./requirements-pytorch.txt | grep "lightning" | grep . > ./requirements-lightning-pytorch.txt
-
-python${MIN_PYTHON_VER} -m pip install -r ./requirements-no-lightning-pytorch.txt --no-warn-script-location --disable-pip-version-check ${PIP_PYTHON_OPTIONS}
 if [ -z $HABANALABS_LOCAL_DIR ]; then
     python${MIN_PYTHON_VER} -m pip install habana-pyhlml=="${HABANA_RELEASE_VERSION}"."${HABANA_RELEASE_ID}" ${PIP_PYTHON_OPTIONS} ${EXTRA_INDEX_URL}
 else
     python${MIN_PYTHON_VER} -m pip install ${HABANALABS_LOCAL_DIR}/habana_pyhlml-${HABANA_RELEASE_VERSION}.${HABANA_RELEASE_ID}*.whl ${PIP_PYTHON_OPTIONS} --disable-pip-version-check
 fi
-python${MIN_PYTHON_VER} -m pip install ./*.whl ${PIP_PYTHON_OPTIONS} --disable-pip-version-check
-python${MIN_PYTHON_VER} -m pip install -r ./requirements-lightning-pytorch.txt --no-warn-script-location --disable-pip-version-check ${PIP_PYTHON_OPTIONS}
+python${MIN_PYTHON_VER} -m pip install ./*.whl -r requirements-pytorch.txt ${PIP_PYTHON_OPTIONS} --disable-pip-version-check --no-warn-script-location
 
 python${MIN_PYTHON_VER} -m pip uninstall -y pillow
 python${MIN_PYTHON_VER} -m pip uninstall -y pillow-simd
