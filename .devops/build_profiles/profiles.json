@@ -46,7 +46,7 @@
       "default_source": "build"
     },
     "next": {
-      "version": "2.1.2",
+      "version": "2.2.0",
       "default_source": "build",
       "extras": {
         "torchvision": "v0.16.0",

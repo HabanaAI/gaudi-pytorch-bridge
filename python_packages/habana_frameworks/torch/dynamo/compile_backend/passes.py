@@ -1323,7 +1323,10 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
     if ctx.uses_aot and torch._guards.TracingContext.get():
         fw_metadata = torch._guards.TracingContext.get().fw_metadata
         # there exist inplace or alias
-        is_input_mutation_in_graph = fw_metadata.num_mutated_inputs > 0
+        if(Version(torch.__version__) > Version('2.1.2')):
+            is_input_mutation_in_graph = fw_metadata.num_mutated_inp_runtime_indices > 0
+        else:
+            is_input_mutation_in_graph = fw_metadata.num_mutated_inputs > 0
         is_only_output_alias_in_graph = (not is_input_mutation_in_graph
                                          and fw_metadata.num_outputs_aliased > 0)
 

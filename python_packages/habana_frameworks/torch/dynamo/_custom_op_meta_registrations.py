@@ -12,7 +12,7 @@
 
 import torch
 from torch._decomp import global_decomposition_table
-from torch._ops import OpOverload
+from torch._ops import OpOverload, HigherOrderOperator
 from torch._meta_registrations import register_meta
 
 _meta_lib_dont_use_me_use_register_meta_for_hpu = torch.library.Library(
@@ -590,6 +590,8 @@ def activate_hpu_custom_op_meta():
                 activate_meta_table[opo] = registry[opo]
 
     for op_overload, fn in activate_meta_table.items():
+        if isinstance(op_overload, HigherOrderOperator):
+            continue
         assert isinstance(op_overload, OpOverload)
 
         if "hpu::" not in op_overload.name():
