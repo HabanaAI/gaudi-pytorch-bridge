@@ -151,7 +151,6 @@ exp2                                   Yes      Yes      No        No       No  
 expm1                                  Yes      No       No        No       No     torch
 flatten                                Yes      Yes      Yes       No       No     torch
 flip                                   Yes      Yes      Yes       Yes      Yes    torch
-float_power                            Yes      Yes      No        No       No     torch
 floor                                  Yes      Yes      No        No       No     torch
 floor_divide                           Yes      Yes      No        No       No     torch
 fmod                                   Yes      Yes      Yes       No       No     torch
