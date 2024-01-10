@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -28,15 +28,12 @@ OutputMetaDataVector LinearBackwardMeta(const at::Stack& stack) {
 
   input_meta.shape = input.sizes().vec();
   input_meta.dtype = input.scalar_type();
-  input_meta.mem_format = input.suggest_memory_format();
 
   weight_meta.shape = weight.sizes().vec();
   weight_meta.dtype = weight.scalar_type();
-  weight_meta.mem_format = weight.suggest_memory_format();
 
   bias_meta.shape = bias_grad_shape;
   bias_meta.dtype = weight.scalar_type();
-  bias_meta.mem_format = weight.suggest_memory_format();
 
   return {input_meta, weight_meta, bias_meta};
 }

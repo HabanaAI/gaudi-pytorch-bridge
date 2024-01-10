@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+* Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 * All Rights Reserved.
 *
 * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -22,7 +22,6 @@ OutputMetaDataVector LinearMeta(const at::Stack& stack) {
   meta.dtype = input.scalar_type();
   meta.shape = input.sizes().vec();
   meta.shape[input.dim() - 1] = weight.sizes().vec()[0];
-  meta.mem_format = input.suggest_memory_format();
   return {meta};
 }
 } // namespace habana
