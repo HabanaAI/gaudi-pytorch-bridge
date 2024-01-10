@@ -38,27 +38,36 @@ TEST_F(HpuOpTest, log_sigmoid_fwd_out) {
   // No need to compare second o/p(i.e, buffer). See Note above.
 }
 
-TEST_F(HpuOpTest, DISABLED_log_sigmoid_bwd) {
-  GenerateInputs(3);
-
-  auto expected = torch::log_sigmoid_backward(
-      GetCpuInput(0), GetCpuInput(1), GetCpuInput(2));
-  auto result = torch::log_sigmoid_backward(
-      GetHpuInput(0), GetHpuInput(1), GetHpuInput(2));
+TEST_F(HpuOpTest, log_sigmoid_bwd) {
+  GenerateInputs(1);
+  at::Tensor cpu_fwd_result, hpu_fwd_result, cpu_buffer, hpu_buffer;
+  auto cpu_input = GetCpuInput(0);
+  auto hpu_input = GetHpuInput(0);
+  std::tie(cpu_fwd_result, cpu_buffer) = torch::log_sigmoid_forward(cpu_input);
+  std::tie(hpu_fwd_result, hpu_buffer) = torch::log_sigmoid_forward(hpu_input);
+  auto cpu_grad = torch::ones_like(cpu_fwd_result);
+  auto hpu_grad = torch::ones_like(hpu_fwd_result);
+  auto expected = torch::log_sigmoid_backward(cpu_grad, cpu_input, cpu_buffer);
+  auto result = torch::log_sigmoid_backward(hpu_grad, hpu_input, hpu_buffer);
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, DISABLED_log_sigmoid_bwd_out) {
-  GenerateInputs(3);
+TEST_F(HpuOpTest, log_sigmoid_bwd_out) {
+  GenerateInputs(1);
 
   torch::ScalarType dtype = torch::kFloat;
+  at::Tensor cpu_fwd_result, hpu_fwd_result, cpu_buffer, hpu_buffer;
+  auto cpu_input = GetCpuInput(0);
+  auto hpu_input = GetHpuInput(0);
+  std::tie(cpu_fwd_result, cpu_buffer) = torch::log_sigmoid_forward(cpu_input);
+  std::tie(hpu_fwd_result, hpu_buffer) = torch::log_sigmoid_forward(hpu_input);
+  auto cpu_grad = torch::ones_like(cpu_fwd_result);
+  auto hpu_grad = torch::ones_like(hpu_fwd_result);
   auto expected = torch::empty(0, dtype);
   auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
 
-  torch::log_sigmoid_backward_outf(
-      GetCpuInput(0), GetCpuInput(1), GetCpuInput(2), expected);
-  torch::log_sigmoid_backward_outf(
-      GetHpuInput(0), GetHpuInput(1), GetHpuInput(2), result);
+  torch::log_sigmoid_backward_outf(cpu_grad, cpu_input, cpu_buffer, expected);
+  torch::log_sigmoid_backward_outf(hpu_grad, hpu_input, hpu_buffer, result);
 
   Compare(expected, result);
 }
