@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "util.h"
@@ -86,11 +89,8 @@ TEST_F(HpuOpTest, logspace_out_5) {
 
   Compare(expected, result);
 }
-/**
- * Default tolerance will fail for BFloat16
- * Issue Raised: https://jira.habana-labs.com/browse/SW-70506
- */
-TEST_F(HpuOpTest, DISABLED_logspace_out_6) {
+
+TEST_F(HpuOpTest, logspace_out_6) {
   at::Scalar start = 10.0f;
   at::Scalar end = 0.0f;
   int steps = 20;
@@ -101,6 +101,5 @@ TEST_F(HpuOpTest, DISABLED_logspace_out_6) {
   auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
   torch::logspace_outf(start, end, steps, base, expected);
   torch::logspace_outf(start, end, steps, base, result);
-
-  Compare(expected, result);
+  Compare(expected, result, 2e-2, 1e-5);
 }
