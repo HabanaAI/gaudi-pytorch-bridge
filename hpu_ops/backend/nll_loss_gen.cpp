@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -194,6 +194,16 @@ void NllLoss2DFwd::AddNode(
   }
 
   syn_out(0) = std::move(nll_loss[0]);
+
+  if (isOutputInfMode()) {
+    auto self = stack_tensor(stack, 0);
+    GetOutputInfMeta().AddOutputTensor(TensorMetaData(
+        meta.shape,
+        habana::HabanaOperator::CalculateStrides(
+            meta.shape, self.suggest_memory_format()),
+        self.scalar_type(),
+        self.suggest_memory_format()));
+  }
 }
 
 void NllLossBwd::AddNode(
