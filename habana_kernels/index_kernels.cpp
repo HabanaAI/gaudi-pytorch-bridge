@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -1075,29 +1075,43 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
   for (int i = rank_idx; i < rank_inp; i++)
     value_upd_dim.push_back(self.sizes().vec()[i]);
   auto values_scalar_type = values.scalar_type();
-  auto bcastOp =
-      make_operator<BroadcastOperator>(device_id, values_scalar_type);
-  stack = {IValue(values), IValue(value_upd_dim), IValue(false)};
-  bcastOp->SetSynapseInput(p_context_->syn_inputs_[indices.size() + 1]);
-  bcastOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
-  auto broadcasted_values = bcastOp->GetOutputs()[0];
+  // value_upd_dim is the final shape we want for values tensor to match
+  // scatter_nd_onnx requirements. Either broadcast of reshape input values
+  // tensor to get that shape.
+  std::shared_ptr<HabanaOperator> values_bcast_or_reshape_op;
+  if (values.dim() <= static_cast<int>(value_upd_dim.size())) {
+    values_bcast_or_reshape_op =
+        make_operator<BroadcastOperator>(device_id, values_scalar_type);
+    stack = {IValue(values), IValue(value_upd_dim), IValue(false)};
+  } else {
+    values_bcast_or_reshape_op =
+        make_operator<ReshapeOperator>(device_id, values_scalar_type);
+    stack = {IValue(values), IValue(value_upd_dim)};
+  }
+
+  values_bcast_or_reshape_op->SetSynapseInput(
+      p_context_->syn_inputs_[indices.size() + 1]);
+  values_bcast_or_reshape_op->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
   stack.clear();
+
   std::shared_ptr<HabanaOperator> reshape_or_identity_op;
   if ((int)indices.size() == self.dim()) {
     reshape_or_identity_op =
         make_operator<ReshapeOperator>(device_id, values_scalar_type);
     std::vector<int64_t> reshape_bcast_size(
         {concatenated_indices.sizes().vec()[0]});
-    stack = {IValue(bcastOp->GetOutputs()[0]), IValue(reshape_bcast_size)};
+    stack = {
+        IValue(values_bcast_or_reshape_op->GetOutputs()[0]),
+        IValue(reshape_bcast_size)};
 
-    reshape_or_identity_op->SetSynapseInput(bcastOp->GetSynOutputs()[0]);
+    reshape_or_identity_op->SetSynapseInput(
+        values_bcast_or_reshape_op->GetSynOutputs()[0]);
     reshape_or_identity_op->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
-    // auto reshape_or_identity_values =
-    // reshape_or_identity_op->GetOutputs()[0];
     stack.clear();
   } else {
-    reshape_or_identity_op = bcastOp;
+    reshape_or_identity_op = values_bcast_or_reshape_op;
   }
   std::shared_ptr<HabanaOperator> scatter_op;
   auto self_scalar_type = self.scalar_type();

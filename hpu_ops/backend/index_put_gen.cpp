@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -291,7 +291,6 @@ void IndexPutEager::AddNode(
   cat_dim = cat_out_size.size() > 0
       ? (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1
       : 0; // if tensor is empty then dim of the concatenated tensor will be 0
-
   synConcatenateParams concat_params{};
   concat_params.axis = static_cast<unsigned int>(cat_dim);
   auto catop1 = BuildOp(
@@ -306,7 +305,6 @@ void IndexPutEager::AddNode(
   // Calculate the dimensionality of updates for broadcasting
   auto rank_inp = static_cast<size_t>(self.ndimension());
   auto rank_idx = static_cast<size_t>(catop.pt_shape()[1]);
-
   std::vector<int64_t> value_upd_dim{catop.pt_shape()[0]};
   if (((int)indices.size() == self.dim()) && (values.numel() > 1)) {
     value_upd_dim.clear();
@@ -316,14 +314,25 @@ void IndexPutEager::AddNode(
   for (size_t i = rank_idx; i < rank_inp; ++i)
     value_upd_dim.push_back(self.sizes().vec()[i]);
   auto values_scalar_type = values.scalar_type();
-
-  auto bcastOp = BroadcastHelper(
-      graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type);
+  std::vector<synapse_helpers::tensor> values_bcast_or_reshape_sh_tensor;
+  // value_upd_dim is the final shape we want for values tensor to match
+  // scatter_nd_onnx requirements. Either broadcast of reshape input values
+  // tensor to get that shape.
+  if (values.dim() <= (int)value_upd_dim.size()) {
+    values_bcast_or_reshape_sh_tensor.emplace_back(BroadcastHelper(
+        graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type));
+  } else {
+    values_bcast_or_reshape_sh_tensor.emplace_back(ReshapeHelper(
+        graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type));
+  }
   auto self_scalar_type = self.scalar_type();
   if ((int)indices.size() == self.dim()) {
     std::vector<int64_t> reshape_bcast_size({catop.pt_shape()[0]});
     auto reshape_val_op = ReshapeHelper(
-        graph, bcastOp.get(), reshape_bcast_size, values_scalar_type);
+        graph,
+        values_bcast_or_reshape_sh_tensor[0].get(),
+        reshape_bcast_size,
+        values_scalar_type);
     if (!accumulate) {
       auto scatter_op = BuildOp(
           graph,
@@ -347,7 +356,7 @@ void IndexPutEager::AddNode(
       auto scatter_op = BuildOp(
           graph,
           get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-          {syn_in(0), catop.get(), bcastOp.get()},
+          {syn_in(0), catop.get(), values_bcast_or_reshape_sh_tensor[0].get()},
           {NodeAttr::NodeOutputAttr{self.sizes().vec(), self_scalar_type, 0}});
       syn_out(0) = std::move(scatter_op[0]);
     } else {
@@ -356,7 +365,7 @@ void IndexPutEager::AddNode(
           graph,
           self,
           catop,
-          bcastOp,
+          values_bcast_or_reshape_sh_tensor[0],
           syn_in(0),
           rank_idx,
           indices_scalar_type);
