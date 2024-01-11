@@ -26,6 +26,7 @@ The below list of ops ignore the values in the input tensor and overwrite the
 contents*/
 std::unordered_set<std::string> underscored_ops_reported_as_non_inplace = {
     "aten::zero_",
+    "aten::_foreach_zero_",
     "aten::fill_",
     "hpu::bernoulli_",
     "hpu::uniform_",
