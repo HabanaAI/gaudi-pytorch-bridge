@@ -548,11 +548,14 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
       }
     }
   }
-  synRecipeSectionHostBuffersClear(
-      recipe.syn_recipe_handle_,
-      constSectionIds.data(),
-      constSectionIds.size());
-  constSectionIds.clear();
+
+  if (constSectionIds.size()) {
+    synRecipeSectionHostBuffersClear(
+        recipe.syn_recipe_handle_,
+        constSectionIds.data(),
+        constSectionIds.size());
+    constSectionIds.clear();
+  }
   // Call TcMalloc extension to release memory
   synapse_helpers::ReleaseFreeMemory();
 }
