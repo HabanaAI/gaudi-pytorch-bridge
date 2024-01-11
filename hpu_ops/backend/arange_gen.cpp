@@ -114,9 +114,9 @@ std::shared_ptr<void> FillArangeParamsInternal(
   PARAMS_STUB(ns_RangeKernel::Params);
   if (can_use_dynamic_shapes(start, end, step) ||
       !c10::isFloatingType(out_scalar_type)) {
-    params->start.i = start.to<int>();
-    params->limit.i = end.to<int>();
-    params->delta.i = step.to<int>();
+    params->start.i = static_cast<int>(ceil(start.to<float>()));
+    params->limit.i = static_cast<int>(ceil(end.to<float>()));
+    params->delta.i = static_cast<int>(ceil(step.to<float>()));
   } else {
     params->start.f = start.to<float>();
     params->limit.f = end.to<float>();
