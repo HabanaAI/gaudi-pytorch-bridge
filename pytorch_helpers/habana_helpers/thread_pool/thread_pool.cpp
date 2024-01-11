@@ -24,6 +24,7 @@ ThreadPoolBase<Queue, Task>::ThreadPoolBase(bool propagate_exception)
       ex_ptr_(nullptr),
       propagate_exception_(propagate_exception) {
   thread_ = std::thread(&ThreadPoolBase<Queue, Task>::main_loop, this);
+  original_pid_ = getpid();
 }
 
 template <template <typename> typename Queue, typename Task>

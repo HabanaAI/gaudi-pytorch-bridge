@@ -132,6 +132,8 @@ class ThreadPoolBase {
   std::atomic_bool stop_;
   std::exception_ptr ex_ptr_;
 
+  pid_t original_pid_;
+
   bool propagate_exception_ = false;
 
   std::atomic<uint64_t> active_task_count_{0};
@@ -188,6 +190,12 @@ void ThreadPoolBase<Queue, Task>::waitWorkComplete() {
   RethrowIfException();
   if (active_task_count_ == 0)
     return;
+
+  // We try to detect case when process has been forked. In that case working
+  // thread doesn't exist
+  if (original_pid_ != getpid())
+    return;
+
   std::promise<void> last_task;
   std::future<void> work_compelete = last_task.get_future();
   ++active_task_count_;
