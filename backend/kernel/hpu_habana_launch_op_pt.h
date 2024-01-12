@@ -455,6 +455,11 @@ class HabanaLaunchOpPT {
               id,
               " for recipe: ",
               _key);
+          PT_BRIDGE_DEBUG(
+              "For tensor with const_id: ",
+              id,
+              " moving the data pointer to: ",
+              info.data_ptr.value().get())
           auto old_data_ptr =
               _tensor.storage().set_data_ptr(std::move(info.data_ptr.value()));
           _tensor.storage().set_nbytes(info.section_size);
@@ -501,7 +506,7 @@ class HabanaLaunchOpPT {
       }
     }
     HABANA_ASSERT(
-        false, " No checksum found for const_id: ", id, " for recipe: ", _key);
+        false, "No checksum found for const_id: ", id, " for recipe: ", _key);
     return 0;
   }
 
@@ -518,6 +523,7 @@ class HabanaLaunchOpPT {
     return false;
   }
 
+  void update_syn_launch_info(uint64_t oldAddress, uint64_t newAdress);
   // TIV : absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>
   // objects TIVs for launcing the recipe
 

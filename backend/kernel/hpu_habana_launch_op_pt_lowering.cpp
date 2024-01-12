@@ -355,15 +355,17 @@ void habana::HabanaLaunchOpPT::HandleRecipeWithNewChecksum(
   bool reallocation_required =
       (anyChecksumExists or (_old_size != _section_size));
   if (reallocation_required) {
+    tmeta->set_nbytes_inference(_old_size);
+    at::DataPtr data = _tensor.storage().allocator()->allocate(_section_size);
     PT_BRIDGE_DEBUG(
         "Needed reallocation (bridge) old_size ",
         _old_size,
         " != ",
         _section_size,
         " Checksum: ",
-        _checksum);
-    tmeta->set_nbytes_inference(_old_size);
-    at::DataPtr data = _tensor.storage().allocator()->allocate(_section_size);
+        _checksum,
+        " Allocated data_ptr: ",
+        data.get());
     auto old_data_ptr = _tensor.storage().set_data_ptr(std::move(data));
     _tensor.storage().set_nbytes(_section_size);
     ivalue_to_tensor_info_map[_src]->set_buffer(

@@ -3522,6 +3522,18 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseCacheTask(
   hbLaunchOp->ExecuteSynapseCache(graph_key_with_perm);
 }
 
+void HabanaLaunchOpPT::update_syn_launch_info(
+    uint64_t oldAddress,
+    uint64_t newAddress) {
+  for (auto& info : syn_launch_info_) {
+    if (info.pTensorAddress == oldAddress) {
+      info.pTensorAddress = newAddress;
+      return;
+    }
+  }
+  HABANA_ASSERT(false, "No such tensor address found in launch info");
+}
+
 // call this function for recipe caching (graph/eager)
 void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
   PT_BRIDGE_BEGIN;
@@ -3546,10 +3558,10 @@ void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
           // ", recipe_checksum, " current checksum on device: ",
           // m_const_checksum_map[const_id].first)
           if (m_const_checksum_map[const_id].first != recipe_checksum) {
+            uint64_t oldAddress = reinterpret_cast<uint64_t>(
+                pt_tensor.storage().data_ptr().get());
             GetConstPtrForRecipe(const_id, cur_rargpsh->hashCode(), pt_tensor);
             InsertConstantChecksum(const_id, recipe_checksum);
-            // hbLaunchOp->ivalue_to_tensor_info_map[ivpsh]->set_buffer(
-            //    (void*)(pt_tensor.storage().data_ptr().get()));
             PT_BRIDGE_DEBUG(
                 "Tensor with const_id: ",
                 const_id,
@@ -3557,6 +3569,9 @@ void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
                 recipe_checksum,
                 " for cache hit on key ",
                 cur_rargpsh->hashCode());
+            uint64_t newAddress = reinterpret_cast<uint64_t>(
+                pt_tensor.storage().data_ptr().get());
+            update_syn_launch_info(oldAddress, newAddress);
           }
         }
       }
