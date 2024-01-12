@@ -117,8 +117,25 @@ struct HandleDynamicOpsPass {
     dumpValueIValueMap();
   }
 
+  bool checkDSMaxTensorDimSupport() {
+    // Checks that all input tensors in the stack
+    // have less than "SYN_MAX_TENSOR_DIM" dimensions
+    for (auto val_ivalue : m_value_ivalue_map) {
+      if (val_ivalue.second->isTensor()) {
+        if (val_ivalue.second->toTensor().dim() > SYN_MAX_TENSOR_DIM)
+          return false;
+      }
+    }
+    return true;
+  }
+
   bool processBlock(torch::jit::Block* block, torch::jit::Stack& org_stack) {
-    bool changed{false};
+    // Dynamic shapes is only supported for tensors
+    // having dimensions less than or equal to "SYN_MAX_TENSOR_DIM"
+    if (!checkDSMaxTensorDimSupport())
+      return false;
+
+    bool changed{true};
     GraphInputIndexMap org_stack_index_map;
     createGraphInputStackIndexMap(org_stack_index_map);
     HABANA_ASSERT(m_graph->inputs().size() == org_stack.size());
@@ -147,11 +164,9 @@ struct HandleDynamicOpsPass {
   bool processBlocks(
       at::ArrayRef<torch::jit::Block*> blocks,
       torch::jit::Stack& org_stack) {
-    bool changed{false};
-    for (auto block : blocks) {
-      changed |= processBlock(block, org_stack);
-    }
-
+    bool changed{true};
+    for (auto block : blocks)
+      changed &= processBlock(block, org_stack);
     return changed;
   }
 
@@ -161,7 +176,7 @@ struct HandleDynamicOpsPass {
   std::map<int64_t, std::vector<int64_t>>* m_input_new_base_sizes;
 };
 
-void HandleDynamicOps(
+bool HandleDynamicOps(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
@@ -173,6 +188,7 @@ void HandleDynamicOps(
   if (changed) {
     PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
   }
+  return changed;
 }
 
 void HandlePostDynamic(

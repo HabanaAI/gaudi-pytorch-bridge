@@ -14,9 +14,40 @@ import torch
 import pytest
 import torch.nn as nn
 import habana_frameworks.torch.dynamo.compile_backend
+from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from test_utils import is_gaudi1
 import os
 
+def test_static_fallback():
+    """
+    Should fail if static fallback fails
+    As tensors with more than 5 dimensions
+    are not supported
+    """
+    inputs = [((16,9,32,16,16), [4,4,3,3,2,16,16,16]),
+              ((16,27,36,25,16), [4,4,3,9,2,18,25,16])]
+
+    configuration_flags["use_eager_fallback"] = True
+
+    def raw_function(tensor1, list1):
+        view1 = tensor1.view(torch.Size(list1))
+        result = torch.sum(view1, (0, 2, 4), False)
+        return result
+
+    compiled_fn = torch.compile(
+        raw_function, backend="aot_hpu_training_backend", dynamic=True
+    )
+
+    for inp in inputs:
+        # CPU
+        tensor1 = torch.randn(inp[0])
+        result = raw_function(tensor1, inp[1])
+
+        #HPU
+        tensor1_h = tensor1.to("hpu")
+        result_h = compiled_fn(tensor1_h, inp[1])
+
+        assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
 
 def test_op_addr():
     input_shapes = [(6, 6), (8, 8), (10, 10)]
