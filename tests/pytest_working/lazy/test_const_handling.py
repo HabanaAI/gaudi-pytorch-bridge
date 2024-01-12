@@ -17,7 +17,43 @@ import pytest
 
 from contextlib import contextmanager
 
-def test_same_graph_with_diff_const():
+# Fixture to set the environment variable
+@pytest.fixture
+def set_env_variable():
+    variable_name_weight_packing = "ENABLE_WEIGHT_PACKING_CONSTANT_FOLDING"
+    original_value_weight_packing = os.environ.get(variable_name_weight_packing)
+
+    variable_name_constant_folding = "ENABLE_CONSTANT_FOLDING"
+    original_value_constant_folding= os.environ.get(variable_name_constant_folding)
+
+    variable_name_experimental_flags = "ENABLE_EXPERIMENTAL_FLAGS"
+    original_value_experimental_flags= os.environ.get(variable_name_experimental_flags)
+
+    # Set the environment variable to the desired value
+    os.environ[variable_name_weight_packing] = "1"
+    os.environ[variable_name_constant_folding] = "1"
+    os.environ[variable_name_experimental_flags] = "1"
+
+    # Yield to provide the value for the test
+    yield "1"
+
+    # Teardown: Restore the original value after the test
+    if original_value_weight_packing is not None:
+        os.environ[variable_name_weight_packing] = original_value_weight_packing
+    else:
+        del os.environ[variable_name_weight_packing]
+
+    if original_value_constant_folding is not None:
+        os.environ[variable_name_constant_folding] = original_value_constant_folding
+    else:
+        del os.environ[variable_name_constant_folding]
+
+    if original_value_experimental_flags is not None:
+        os.environ[variable_name_experimental_flags] = original_value_experimental_flags
+    else:
+        del os.environ[variable_name_experimental_flags]
+
+def test_same_graph_with_diff_const(set_env_variable):
     # Define the input tensor
     input_tensor = torch.randn(1, 3, 32, 32)  # Assuming input size of (batch_size, channels, height, width)
 
@@ -44,18 +80,21 @@ def test_same_graph_with_diff_const():
         output1 = conv1(input_tensor)
         output2 = conv2(input_tensor)
 
+    import habana_frameworks.torch.core as htcore
+    htcore.hpu_set_env()
+
     #Run test on HPU
     hpu = torch.device("hpu")
     cpu = torch.device("cpu")
     input_tensor_hpu = input_tensor.to(hpu)
     conv1_hpu = conv1.to(hpu)
     conv2_hpu = conv2.to(hpu)
-    from habana_frameworks.torch.core.quantization import _mark_params_as_const
+    from habana_frameworks.torch.core.quantization import _mark_params_as_const, _check_params_as_const
     _mark_params_as_const(conv1_hpu)
     _mark_params_as_const(conv2_hpu)
+    _check_params_as_const(conv1_hpu)
+    _check_params_as_const(conv2_hpu)
 
-    import habana_frameworks.torch.core as htcore
-    htcore.hpu_set_env()
     with torch.no_grad():
         output1_hpu = conv1_hpu(input_tensor_hpu)
         htcore.mark_step()
