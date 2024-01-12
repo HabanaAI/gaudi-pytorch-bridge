@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,6 +13,18 @@
 #include "generated/backend/masked_fill.h"
 
 namespace habana {
+
+OutputMetaDataVector MaskedFillMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto mask_shape = stack_tensor(stack, 1).sizes();
+
+  OutputMetaData meta{};
+
+  meta.dtype = self.scalar_type();
+  meta.shape = at::infer_size(self.sizes(), mask_shape);
+
+  return {meta};
+}
 
 void MaskedFill::AddNode(
     synapse_helpers::graph& graph,
@@ -34,8 +46,10 @@ void MaskedFill::AddNode(
     inputs[1] = cast->get();
   }
 
-  auto result = BuildOp(
-      graph, guid_, std::move(inputs), {{self.sizes(), ScalarType(), 0}});
+  auto out_shape = MaskedFillMeta(stack)[0].shape;
+
+  auto result =
+      BuildOp(graph, guid_, std::move(inputs), {{out_shape, ScalarType(), 0}});
 
   syn_out(0) = std::move(result[0]);
 }

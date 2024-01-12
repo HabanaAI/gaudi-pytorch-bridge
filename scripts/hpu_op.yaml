@@ -4312,6 +4312,7 @@ masked_fill_.Tensor:
   inplace_ids: [0]
 
 masked_fill.Scalar:
+  output_meta: MaskedFillMeta
   dtypes:
     Gaudi:
       self: [BFloat16, Float, Int, Char]
@@ -4331,6 +4332,7 @@ masked_fill.Scalar:
   out_ids: [0]
 
 masked_fill.Tensor:
+  output_meta: MaskedFillMeta
   dtypes:
     Gaudi:
       self: [BFloat16, Float, Int, Char]
