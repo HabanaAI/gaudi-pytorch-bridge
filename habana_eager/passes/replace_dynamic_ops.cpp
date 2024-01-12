@@ -106,9 +106,31 @@ struct HandleDynamicOpsPass {
   }
 
   void propagateShape(torch::jit::Stack& org_stack) {
-    // Run SIF
     std::unordered_map<CValPtr, torch::jit::IValue> value_ivalue_map;
+    // Before running SIF, keeping track of all tensors that were
+    // zero-dimensional since during HybridSIF run for some ops,
+    // InferOutputMeta is invoked, where all
+    // zero-dimensional tensors are made one-dimensional
+    std::vector<int> zero_dim_tensor_inds;
+    zero_dim_tensor_inds.reserve(org_stack.size());
+    int index = 0;
+    for (auto& inp : org_stack) {
+      if (inp.isTensor()) {
+        if (inp.toTensor().dim() == 0)
+          zero_dim_tensor_inds.push_back(index);
+      }
+      index++;
+    }
+    // Run SIF
     HabanaLaunchOpPT::RunHybridSif(m_graph, org_stack, value_ivalue_map);
+    // Post SIF run, Reverting all changed tensors
+    // back to zero-dimensional shape
+    for (auto index : zero_dim_tensor_inds) {
+      auto tensor_ = org_stack.at(index).toTensor();
+      if (tensor_.dim() == 1)
+        SET_SIZE_STRIDE_0D(tensor_);
+    }
+
     for (auto val_ivalue : value_ivalue_map) {
       m_value_ivalue_map[val_ivalue.first] =
           std::make_shared<IVal>(val_ivalue.second);

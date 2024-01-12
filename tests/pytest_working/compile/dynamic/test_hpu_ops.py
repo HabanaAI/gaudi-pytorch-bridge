@@ -49,6 +49,32 @@ def test_static_fallback():
 
         assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
 
+def test_op_ones_like():
+    """
+    Checks that cached shape of an input zero-dim tensor during the graph compilation in the 
+    dynamic flow does not change to one-dim for ones_like op
+    """
+    def raw_function(t1):
+        t2 = torch.ones_like(t1)
+        t1 = torch.detach(t1)
+        return t1, t2
+
+    compiled_fn = torch.compile(
+        raw_function, backend="aot_hpu_training_backend", dynamic=True
+    )
+
+    for _ in range(2):
+        #CPU
+        t1 = torch.empty(size=[]).uniform_(-1, 1)
+        result1, result2 = raw_function(t1)
+
+        #HPU
+        t1_h = t1.to("hpu")
+        result1_h, result2_h = compiled_fn(t1_h)
+
+        assert torch.allclose(result1_h.to("cpu"), result1, atol=0.001, rtol=0.001)
+        assert torch.allclose(result2_h.to("cpu"), result2, atol=0.001, rtol=0.001)
+
 def test_op_addr():
     input_shapes = [(6, 6), (8, 8), (10, 10)]
 
