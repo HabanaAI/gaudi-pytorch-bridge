@@ -315,14 +315,10 @@ def to_list_if_necessary(input, size):
 def meta_conv2d_fp8_common(
     input,
     weight,
-    bias=None,
     stride=1,
     padding=0,
     dilation=1,
-    groups=1,
     out_dtype=None,
-    scale_input=None,
-    scale_weight=None,
 ):
     shape_in = input.shape
     shape_wt = weight.shape
@@ -353,7 +349,7 @@ def meta_conv2d_fp8(
     scale_weight=None,
 ):
     return meta_conv2d_fp8_common(
-        input, weight, bias, stride, padding, dilation, groups, out_dtype, scale_input, scale_weight
+        input, weight, stride, padding, dilation, out_dtype
     )
 
 
@@ -371,25 +367,7 @@ def meta_conv2d_fp8_scalar(
     scale_weight=None,
 ):
     return meta_conv2d_fp8_common(
-        input, weight, bias, stride, padding, dilation, groups, out_dtype, scale_input, scale_weight
-    )
-
-
-@register_meta([torch.ops.hpu.conv2d_fp8.scalar_list])
-def meta_conv2d_fp8_scalar_list(
-    input,
-    weight,
-    bias=None,
-    stride=1,
-    padding=0,
-    dilation=1,
-    groups=1,
-    out_dtype=None,
-    scale_input=None,
-    scale_weight=None,
-):
-    return meta_conv2d_fp8_common(
-        input, weight, bias, stride, padding, dilation, groups, out_dtype, scale_input, scale_weight
+        input, weight, stride, padding, dilation, out_dtype
     )
 
 

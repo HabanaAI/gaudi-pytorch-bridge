@@ -2362,8 +2362,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None, Tensor? scale_input=None, Tensor? scale_weight=None) -> Tensor");
   m.def(
       "hpu::conv2d_fp8.scalar(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None, float scale_input=1.0, float scale_weight=1.0) -> Tensor");
-  m.def(
-      "hpu::conv2d_fp8.scalar_list(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None, float[] scale_input=[1.0], float[] scale_weight=[1.0]) -> Tensor");
   m.def("hpu::habana_bernoulli(Tensor self, Tensor seed) -> Tensor");
   m.def(
       "hpu::habana_rand(SymInt[] size, Tensor seed, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
@@ -2445,7 +2443,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::in_place_interleave_", in_place_interleave_wrap);
   m.impl("hpu::conv2d_fp8", conv2d_fp8_lazy);
   m.impl("hpu::conv2d_fp8.scalar", conv2d_fp8_lazy_scalar);
-  m.impl("hpu::conv2d_fp8.scalar_list", conv2d_fp8_lazy_scalar_list);
 }
 
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {

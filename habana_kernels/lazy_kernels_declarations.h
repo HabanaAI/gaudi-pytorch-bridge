@@ -937,7 +937,6 @@ at::Tensor softmax_fp8_lazy(
 
 CONV2D_FP8_LAZY(conv2d_fp8_lazy, const c10::optional<at::Tensor>&)
 CONV2D_FP8_LAZY(conv2d_fp8_lazy_scalar, double)
-CONV2D_FP8_LAZY(conv2d_fp8_lazy_scalar_list, c10::ArrayRef<double>)
 
 #undef CONV2D_FP8_LAZY
 

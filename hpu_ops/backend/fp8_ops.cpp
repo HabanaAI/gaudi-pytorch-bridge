@@ -89,41 +89,25 @@ void HandleScaleScalar(
     const int device_id,
     std::vector<sh::tensor>& maybe_const_scale,
     std::vector<synTensor>& syn_inputs,
-    const c10::IValue& scale_shape_ival = c10::IValue{},
-    std::vector<int64_t>* p_store_constant_shape = nullptr) {
+    const c10::IValue& scale_shape_ival = c10::IValue{}) {
   if (scale.isDouble()) {
     maybe_const_scale.emplace_back(
         op->BuildConstantTensor(op, graph, scale.toDouble()));
     syn_inputs.push_back(maybe_const_scale.back().get());
-    if (p_store_constant_shape) {
-      *p_store_constant_shape = {1};
-    }
   } else if (scale.isDoubleList() and not op->isOutputInfMode()) {
-    auto scale_vec = scale.toDoubleVector();
-    std::vector<int64_t> shape_vec;
     maybe_const_scale.emplace_back(op->AllocateConstantSynapseTensor(
         graph,
         device_id,
-        scale_vec,
-        scale_shape_ival.isNone()
-            ? at::OptionalIntArrayRef{}
-            : (shape_vec = scale_shape_ival.toIntVector())));
+        scale.toDoubleVector(),
+        scale_shape_ival.isNone() ? at::OptionalIntArrayRef{}
+                                  : scale_shape_ival.toIntVector()));
     syn_inputs.push_back(maybe_const_scale.back().get());
-    if (p_store_constant_shape) {
-      *p_store_constant_shape = scale_shape_ival.isNone()
-          ? std::vector<int64_t>{static_cast<int64_t>(scale_vec.size())}
-          : shape_vec;
-    }
   } else {
     syn_inputs.push_back(nullptr);
-    if (p_store_constant_shape) {
-      p_store_constant_shape->clear();
-    }
   }
 }
-} // namespace
 
-static ns_CastKernel::Params GetCastParams(
+ns_CastKernel::Params GetCastParams(
     const bool stochastic,
     const at::ScalarType& from_dtype,
     const at::ScalarType& to_dtype) {
@@ -138,6 +122,7 @@ static ns_CastKernel::Params GetCastParams(
   }
   return params;
 }
+} // namespace
 
 /********** CastToFp8 **********/
 
@@ -1495,7 +1480,7 @@ void InPlaceInterleaveCommon::AddNode(
 
 /********** Conv2dFp8 **********/
 
-static int64_t ComputeOutputSize(
+static int64_t ComputeConv2dOutputSize(
     const int64_t input_dim,
     const int64_t padding,
     const int64_t dilation,
@@ -1514,7 +1499,7 @@ sizes_vec Conv2dFp8OutputShape(const at::Stack& stack) {
 
   std::vector<int64_t> out_shape{shape_in[0], shape_wt[0]};
   for (int i = 0; i < 2; ++i) {
-    out_shape.push_back(ComputeOutputSize(
+    out_shape.push_back(ComputeConv2dOutputSize(
         shape_in[i + 2], padding[i], dilation[i], shape_wt[i + 2], stride[i]));
   }
 
@@ -1544,14 +1529,7 @@ static synConvolutionParams FillConv2dFp8Params(
 }
 
 Conv2dFp8::Conv2dFp8(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "spatial_convolution",
-          scalar_type,
-          {0},
-          {},
-          {},
-          false) {
+    : OpBackend(device_id, "conv2d_fp8", scalar_type, {0}, {}, {}, false) {
   SetComputeOutputShapes(Conv2dFp8OutputShape);
 }
 
@@ -1559,118 +1537,78 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(stack, "Conv2dFp8::AddNode");
   auto input = getNextInput<TensorsPair>(stackGetter);
   auto weight = getNextInput<TensorsPair>(stackGetter);
-  auto bias = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto bias_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto stride = getNextInput<std::vector<int64_t>>(stackGetter);
   auto padding = getNextInput<std::vector<int64_t>>(stackGetter);
   auto dilation = getNextInput<std::vector<int64_t>>(stackGetter);
   auto groups = getNextInput<int>(stackGetter);
-  auto pt_dtype = getNextInput<c10::optional<c10::ScalarType>>(stackGetter)
-                      .value_or(at::ScalarType::BFloat16);
-  auto scale_input =
+  auto out_dtype = getNextInput<c10::optional<c10::ScalarType>>(stackGetter)
+                       .value_or(at::ScalarType::BFloat16);
+  auto scale_input_opt =
       getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
-  auto scale_weight =
+  auto scale_weight_opt =
       getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
-
-  bool has_scale_input = std::holds_alternative<TensorsPair>(scale_input) ||
-      !std::get<c10::IValue>(scale_input).isNone();
-  bool has_scale_weight = std::holds_alternative<TensorsPair>(scale_weight) ||
-      !std::get<c10::IValue>(scale_weight).isNone();
 
   TORCH_CHECK(
       input.pt_t.dim() == 4 and weight.pt_t.dim() == 4,
       "Input and weight must be 4D tensors");
-  if (bias) {
+  if (bias_opt) {
     TORCH_CHECK(
-        bias->pt_t.dim() == 1 and
-            bias->pt_t.sizes()[0] == weight.pt_t.sizes()[0],
+        bias_opt->pt_t.dim() == 1 and
+            bias_opt->pt_t.sizes()[0] == weight.pt_t.sizes()[0],
         "Bias must be 1D tensor with size equal to weight dim0");
   }
 
   SetSynapseLayouts(
       {sh::layouts::SynapseLayoutFormat::WHCN,
        sh::layouts::SynapseLayoutFormat::SRCK,
+       sh::layouts::SynapseLayoutFormat::DONT_CARE,
+       sh::layouts::SynapseLayoutFormat::DONT_CARE,
+       sh::layouts::SynapseLayoutFormat::DONT_CARE,
        sh::layouts::SynapseLayoutFormat::DONT_CARE},
       {sh::layouts::SynapseLayoutFormat::WHCN});
 
   auto out_shape = Conv2dFp8OutputShape(stack)[0];
-  std::vector<synTensor> syn_inputs{input.syn_t, weight.syn_t};
-  if (bias) {
-    syn_inputs.push_back(bias->syn_t);
-  }
   auto params = FillConv2dFp8Params(
       weight.pt_t.sizes().vec(), stride, padding, dilation, groups);
 
-  const bool is_scale = has_scale_input or has_scale_weight;
-  c10::optional<int> final_result_index =
-      is_scale ? c10::nullopt : c10::make_optional<int>(0);
+  std::vector<synTensor> syn_inputs{input.syn_t, weight.syn_t};
+  syn_inputs.push_back(bias_opt ? bias_opt->syn_t : nullptr);
+  std::vector<sh::tensor> adjusted_scale;
+
+  for (int i = 0; i < 2; ++i) {
+    const auto& scale = (i == 0) ? scale_input_opt : scale_weight_opt;
+    if (std::holds_alternative<TensorsPair>(scale)) {
+      auto scale_tp = std::get<TensorsPair>(scale);
+      TORCH_CHECK(
+          scale_tp.pt_t.numel() == 1,
+          "Multi-element scale tensors are not supported yet.");
+      syn_inputs.push_back(scale_tp.syn_t);
+    } else {
+      HandleScaleScalar(
+          this,
+          graph,
+          std::get<c10::IValue>(scale),
+          p_context_->device_id_,
+          adjusted_scale,
+          syn_inputs);
+    }
+  }
+
+  // GC pass FUSE_CONVERT_MME inserts this last input, but it needs
+  // it to be explicitly filled with nullptr before.
+  syn_inputs.push_back(nullptr);
 
   auto conv = OpBackend::BuildNode(
       this,
       graph,
-      {guid_,
+      {get_guid_with_precision("conv2d_fp8", out_dtype),
        std::move(syn_inputs),
-       {{out_shape, pt_dtype, final_result_index}},
+       {{out_shape, out_dtype, 0}},
        &params,
        sizeof(params)});
 
-  if (not is_scale) {
-    syn_out(0) = std::move(conv[0]);
-    return;
-  }
-
-  syn_inputs.reserve(2);
-  std::vector<sh::tensor> storage;
-  storage.reserve(3);
-  std::vector<std::vector<int64_t>> scale_shapes;
-  scale_shapes.reserve(2);
-  std::vector<c10::ScalarType> scale_dtypes;
-  scale_dtypes.reserve(2);
-
-  for (int i = 0; i < 2; ++i) {
-    const auto& scale = (i == 0) ? scale_input : scale_weight;
-    if (std::holds_alternative<TensorsPair>(scale)) {
-      auto scale_tp = std::get<TensorsPair>(scale);
-      syn_inputs.push_back(scale_tp.syn_t);
-      scale_shapes.push_back(scale_tp.pt_t.sizes().vec());
-      scale_dtypes.push_back(scale_tp.pt_t.scalar_type());
-    } else {
-      auto scale_iv = std::get<c10::IValue>(scale);
-      if (!scale_iv.isNone()) {
-        scale_shapes.push_back({});
-        scale_dtypes.push_back(c10::ScalarType::Float);
-        HandleScaleScalar(
-            this,
-            graph,
-            scale_iv,
-            p_context_->device_id_,
-            storage,
-            syn_inputs,
-            c10::IValue{},
-            &scale_shapes.back());
-      }
-    }
-  }
-
-  if (syn_inputs.size() == 2) {
-    storage.push_back(std::move(OpBackend::BuildNode(
-        this,
-        graph,
-        {get_guid_with_precision("mult_fwd", scale_dtypes[0]),
-         std::move(syn_inputs),
-         {{(scale_shapes[0] == scale_shapes[1]) ? scale_shapes[0] : out_shape,
-           scale_dtypes[0]}}})[0]));
-    syn_inputs = {storage.back().get()};
-  }
-
-  syn_inputs.insert(syn_inputs.begin(), conv[0].get());
-  auto scaled_conv = OpBackend::BuildNode(
-      this,
-      graph,
-      {get_guid_with_precision("mult_fwd", pt_dtype),
-       std::move(syn_inputs),
-       {{out_shape, pt_dtype, 0}}});
-
-  syn_out(0) = std::move(scaled_conv[0]);
+  syn_out(0) = std::move(conv[0]);
 }
 
 /********** SoftmaxFp8 **********/
@@ -1852,6 +1790,5 @@ static const auto& CastKernelRegistry =
             KERNEL_FN_GLOBAL(habana::InPlaceInterleave))
         .add("hpu::conv2d_fp8", KERNEL_FN_GLOBAL(habana::Conv2dFp8))
         .add("hpu::conv2d_fp8.scalar", KERNEL_FN_GLOBAL(habana::Conv2dFp8))
-        .add("hpu::conv2d_fp8.scalar_list", KERNEL_FN_GLOBAL(habana::Conv2dFp8))
         .add("hpu::softmax_fp8", KERNEL_FN_GLOBAL(habana::SoftmaxFp8))
         .add("hpu::sum_fp8", KERNEL_FN_GLOBAL(habana::SumFp8));
