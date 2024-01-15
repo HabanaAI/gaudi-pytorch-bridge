@@ -1012,6 +1012,7 @@ amax.out:
     Gaudi3: [Float, BFloat16, Int, Long, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_max_fwd
   op_template: reduction
+  promote_int_to_long: False
 
 amin:
   dtypes:
@@ -1030,6 +1031,7 @@ amin.out:
     Gaudi3: [Float, BFloat16, Int, Long, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_min_fwd
   op_template: reduction
+  promote_int_to_long: False
 
 aminmax:
   output_meta: AminmaxMeta

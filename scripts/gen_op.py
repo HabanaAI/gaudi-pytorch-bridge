@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ###############################################################################
-# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -582,6 +582,9 @@ class Op(object):
     def promote_int_to_float(self):
         return self.op.get("promote_int_to_float", [])
 
+    def promote_int_to_long(self):
+        return self.op.get("promote_int_to_long", [])
+
     def safe_cast_check(self):
         return self.op.get("safe_cast_check", None)
 
@@ -978,11 +981,12 @@ def frontend(
     promote_int_to_float = ctxop.promote_int_to_float()
     is_reduction = ctxop.get_op_template() == "reduction"
     safe_cast_check = ctxop.safe_cast_check()
+    skip_promote_int_to_long_for_reduction = is_reduction and type(ctxop.promote_int_to_long()) is bool and not ctxop.promote_int_to_long()
 
     promote_types = promote_to_common_type or promote_int_to_float
     use_compute_type = promote_types or is_reduction
     dtype_helper_inputs = []
-    type_promo_variant = ""
+    type_promo_variant = "None"
 
     if use_compute_type:
         if promote_types:
@@ -997,8 +1001,9 @@ def frontend(
                 type_promo_variant = "PromoteToCommon"
                 dtype_helper_inputs = promote_to_common_type
         else:
-            type_promo_variant = "Reduction"
             dtype_helper_inputs = ["self"]
+            if not skip_promote_int_to_long_for_reduction:
+                type_promo_variant = "Reduction"
 
         safe_cast = is_inplace_or_out_op(fname)
         if safe_cast_check is not None:
