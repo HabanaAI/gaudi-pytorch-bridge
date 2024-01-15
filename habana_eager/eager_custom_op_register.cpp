@@ -1172,7 +1172,8 @@ at::Tensor in_place_interleave(const at::Tensor& self) {
   return hpu_op.call();
 }
 
-at::Tensor conv2d_fp8(
+template <class T>
+at::Tensor conv2d_fp8_common(
     const at::Tensor& input,
     const at::Tensor& weight,
     const c10::optional<at::Tensor>& bias,
@@ -1181,8 +1182,8 @@ at::Tensor conv2d_fp8(
     at::IntArrayRef dilation,
     int64_t groups,
     c10::optional<at::ScalarType> out_dtype,
-    const c10::optional<at::Tensor>& scale_input,
-    const c10::optional<at::Tensor>& scale_weight) {
+    T scale_input,
+    T scale_weight) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "conv2d_fp8 :",
@@ -1214,6 +1215,35 @@ at::Tensor conv2d_fp8(
   hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::BFloat16)});
   return hpu_op.call();
 }
+
+#define CONV2D_FP8(FNAME, SCALE_T)             \
+  at::Tensor FNAME(                            \
+      const at::Tensor& input,                 \
+      const at::Tensor& weight,                \
+      const c10::optional<at::Tensor>& bias,   \
+      at::IntArrayRef stride,                  \
+      at::IntArrayRef padding,                 \
+      at::IntArrayRef dilation,                \
+      int64_t groups,                          \
+      c10::optional<at::ScalarType> out_dtype, \
+      SCALE_T scale_input,                     \
+      SCALE_T scale_weight) {                  \
+    return conv2d_fp8_common(                  \
+        input,                                 \
+        weight,                                \
+        bias,                                  \
+        stride,                                \
+        padding,                               \
+        dilation,                              \
+        groups,                                \
+        out_dtype,                             \
+        scale_input,                           \
+        scale_weight);                         \
+  }
+
+CONV2D_FP8(conv2d_fp8, const c10::optional<at::Tensor>&)
+CONV2D_FP8(conv2d_fp8_scalar, double)
+CONV2D_FP8(conv2d_fp8_scalar_list, c10::ArrayRef<double>)
 
 at::Tensor custom_softmax(const at::Tensor& input, int64_t flavor) {
   PT_EAGER_TRACE;
@@ -1515,6 +1545,10 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None, Tensor? scale_input=None, Tensor? scale_weight=None) -> Tensor");
+  m.def(
+      "hpu::conv2d_fp8.scalar(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None, float scale_input=1.0, float scale_weight=1.0) -> Tensor");
+  m.def(
+      "hpu::conv2d_fp8.scalar_list(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None, float[] scale_input=[1.0], float[] scale_weight=[1.0]) -> Tensor");
   m.def("hpu::custom_softmax(Tensor input, int flavor) -> Tensor");
   m.def(
       "hpu::fp8_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale=None, Tensor? retain=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
@@ -1629,6 +1663,8 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_to_fp8_v2.scalar_list", cast_to_fp8_v2_scalar_list);
   m.impl("hpu::cast_to_fp8_hybrid", cast_to_fp8_hybrid);
   m.impl("hpu::conv2d_fp8", conv2d_fp8);
+  m.impl("hpu::conv2d_fp8.scalar", conv2d_fp8_scalar);
+  m.impl("hpu::conv2d_fp8.scalar_list", conv2d_fp8_scalar_list);
   m.impl("hpu::custom_softmax", custom_softmax);
   m.impl("hpu::fp8_bgrad_dgelu", fp8_bgrad_dgelu);
   m.impl("hpu::fp8_cast_transpose", fp8_cast_transpose);

@@ -921,17 +921,26 @@ at::Tensor softmax_fp8_lazy(
     const c10::optional<at::Tensor>& input_scale,
     const c10::optional<at::Tensor>& output_scale,
     const c10::optional<at::Tensor>& inv_attn_heads);
-at::Tensor conv2d_fp8_lazy(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const c10::optional<at::Tensor>& bias,
-    at::IntArrayRef stride,
-    at::IntArrayRef padding,
-    at::IntArrayRef dilation,
-    int64_t groups,
-    c10::optional<at::ScalarType> out_dtype,
-    const c10::optional<at::Tensor>& scale_input,
-    const c10::optional<at::Tensor>& scale_weight);
+
+#define CONV2D_FP8_LAZY(FNAME, SCALE_T)        \
+  at::Tensor FNAME(                            \
+      const at::Tensor& input,                 \
+      const at::Tensor& weight,                \
+      const c10::optional<at::Tensor>& bias,   \
+      at::IntArrayRef stride,                  \
+      at::IntArrayRef padding,                 \
+      at::IntArrayRef dilation,                \
+      int64_t groups,                          \
+      c10::optional<at::ScalarType> out_dtype, \
+      SCALE_T scale_input,                     \
+      SCALE_T scale_weight);
+
+CONV2D_FP8_LAZY(conv2d_fp8_lazy, const c10::optional<at::Tensor>&)
+CONV2D_FP8_LAZY(conv2d_fp8_lazy_scalar, double)
+CONV2D_FP8_LAZY(conv2d_fp8_lazy_scalar_list, c10::ArrayRef<double>)
+
+#undef CONV2D_FP8_LAZY
+
 at::Tensor quantize_per_tensor_lazy(
     const at::Tensor& input,
     double scale,

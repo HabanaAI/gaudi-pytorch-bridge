@@ -7547,7 +7547,8 @@ at::Tensor& in_place_interleave_lazy(at::Tensor& self) {
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(in_place_interleave, op, self)
 }
 
-at::Tensor conv2d_fp8_lazy(
+template <class T>
+at::Tensor conv2d_fp8_lazy_common(
     const at::Tensor& input,
     const at::Tensor& weight,
     const c10::optional<at::Tensor>& bias,
@@ -7556,8 +7557,8 @@ at::Tensor conv2d_fp8_lazy(
     at::IntArrayRef dilation,
     int64_t groups,
     c10::optional<at::ScalarType> out_dtype,
-    const c10::optional<at::Tensor>& scale_input,
-    const c10::optional<at::Tensor>& scale_weight) {
+    T scale_input,
+    T scale_weight) {
   LazyOp<at::Tensor> hpu_op{
       "hpu::conv2d_fp8",
       {input,
@@ -7756,5 +7757,34 @@ at::Tensor sum_fp8_lazy(
   hpu_op.set_scalar_types({out_dtype.value_or(self.scalar_type())});
   return hpu_op.call();
 }
+
+#define CONV2D_FP8_LAZY(FNAME, SCALE_T)        \
+  at::Tensor FNAME(                            \
+      const at::Tensor& input,                 \
+      const at::Tensor& weight,                \
+      const c10::optional<at::Tensor>& bias,   \
+      at::IntArrayRef stride,                  \
+      at::IntArrayRef padding,                 \
+      at::IntArrayRef dilation,                \
+      int64_t groups,                          \
+      c10::optional<at::ScalarType> out_dtype, \
+      SCALE_T scale_input,                     \
+      SCALE_T scale_weight) {                  \
+    return conv2d_fp8_lazy_common(             \
+        input,                                 \
+        weight,                                \
+        bias,                                  \
+        stride,                                \
+        padding,                               \
+        dilation,                              \
+        groups,                                \
+        out_dtype,                             \
+        scale_input,                           \
+        scale_weight);                         \
+  }
+
+CONV2D_FP8_LAZY(conv2d_fp8_lazy, const c10::optional<at::Tensor>&)
+CONV2D_FP8_LAZY(conv2d_fp8_lazy_scalar, double)
+CONV2D_FP8_LAZY(conv2d_fp8_lazy_scalar_list, c10::ArrayRef<double>)
 
 } // namespace habana_lazy
