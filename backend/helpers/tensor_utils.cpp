@@ -377,6 +377,16 @@ void habana_helpers::copy_data_to_host(
   if (src.nbytes() == 0) {
     return;
   }
+
+  auto tmeta{habana::get_tensor_extra_meta(src)};
+  if (tmeta->has_valid_const_id()) {
+    HABANA_ASSERT(
+        tmeta->get_host_ptr() != nullptr, "Host pointer can not be invalid");
+    std::memcpy(
+        dst.data_ptr(), tmeta->get_host_ptr(), habana_helpers::GetNBytes(src));
+    return;
+  }
+
   if (non_blocking && device.IsStreamASyncEnabled()) {
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the

@@ -173,3 +173,38 @@ def test_same_const_across_recipes(set_env_variable):
        output1_repeat_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
 
     htcore.hpu_reset_env()
+
+def test_user_access_to_modified_tensor(set_env_variable):
+    #Define input tensors
+    input_tensor = torch.randn(1, 3, 32, 32)
+
+    #Define kernel size, stride, and padding for the convolutional layers
+    kernel_size = 3
+    stride = 1
+    padding = 1
+
+    #Create the original convolutional layer
+    conv_layer = torch.nn.Conv2d(3, 6, kernel_size, stride, padding)
+
+    weight_copy = conv_layer.weight.clone()
+
+    hpu = torch.device("hpu")
+    cpu = torch.device("cpu")
+
+    import habana_frameworks.torch.core as htcore
+    htcore.hpu_set_env()
+
+    input_tensor_hpu = input_tensor.to(hpu)
+    conv_layer_hpu = conv_layer.to(hpu)
+    from habana_frameworks.torch.core.quantization import _mark_params_as_const, _check_params_as_const
+    _mark_params_as_const(conv_layer_hpu)
+    _check_params_as_const(conv_layer_hpu)
+
+    with torch.no_grad():
+        output_hpu = conv_layer_hpu(input_tensor_hpu)
+
+    output_hpu_cpu = output_hpu.to(cpu)
+    htcore.mark_step()
+    weight_hpu_cpu = conv_layer_hpu.weight.to(cpu)
+    numpy.testing.assert_allclose(
+       weight_hpu_cpu.detach().numpy(), weight_copy.detach().numpy(), atol=0.001, rtol=0.001)
