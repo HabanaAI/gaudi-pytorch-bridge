@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "generated/backend/scatter.h"
@@ -28,6 +31,21 @@ void ScatterOperator::AddNode(
   auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
   ns_ScatterKernel::Params params{};
   params.axis = get_dim_in_tpc_order(dim, self.dim());
+
+  synTensor index_val;
+  std::unique_ptr<synapse_helpers::tensor> index_casted;
+  if (common::IsInt64Supported()) {
+    index_casted = std::make_unique<synapse_helpers::tensor>(BuildCast(
+        this,
+        graph,
+        syn_in(1),
+        index.sizes(),
+        index.scalar_type(),
+        torch::kInt));
+    index_val = index_casted->get();
+  } else {
+    index_val = syn_in(1);
+  }
 
   synTensor src_or_val;
   std::unique_ptr<synapse_helpers::tensor> tmp_tensor;
@@ -84,7 +102,7 @@ void ScatterOperator::AddNode(
         torch::kInt);
 
     std::vector<synTensor> syn_input_tensors = {
-        cast_self.get(), syn_in(1), cast_src_or_val.get()};
+        cast_self.get(), index_val, cast_src_or_val.get()};
     auto scatterkernel = BuildOp(
         graph,
         get_guid_with_precision("scatter_fwd", c10::ScalarType::Int),
@@ -104,7 +122,7 @@ void ScatterOperator::AddNode(
     syn_out(0) = std::move(result_bool);
   } else {
     std::vector<synTensor> syn_input_tensors = {
-        syn_in(0), syn_in(1), src_or_val};
+        syn_in(0), index_val, src_or_val};
     auto scatterkernel = BuildOp(
         graph,
         get_guid_with_precision("scatter_fwd", ScalarType()),
