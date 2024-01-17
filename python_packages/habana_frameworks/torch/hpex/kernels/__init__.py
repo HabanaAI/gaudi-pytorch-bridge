@@ -16,7 +16,7 @@ if not is_lazy():
     import warnings
 
     warnings.warn(
-        f"CustomNms, RoiAlignFunction, ScaledMaskedSoftmax, FusedSDPA from {__name__} are no yet supported in eager mode"
+        f"CustomNms, RoiAlignFunction, ScaledMaskedSoftmax from {__name__} are no yet supported in eager mode"
     )
 
 from .CustomNms import CustomNms

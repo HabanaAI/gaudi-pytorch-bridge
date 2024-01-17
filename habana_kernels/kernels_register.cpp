@@ -2326,14 +2326,15 @@ TORCH_LIBRARY(hpu, m) {
   // op at python interface directly with the wrapper function to let Pytorch
   // Infer the schema at operator level. So no m.impl() def is needed for this
   // operator. For BE, Register a schema with seed.
-  m.def("hpu::sdpa_fwd", sdpa_fwd_wrap);
-  // sdpa_fwd_be schema is for sdpa op BE interface which takes an optional seed
+  m.def(
+      "hpu::sdpa_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal) -> (Tensor, Tensor, Tensor)"); // sdpa_fwd_be schema is for sdpa op BE interface which takes an optional seed
   // tensor as well.
   m.def(
       "hpu::sdpa_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, float p, float scale) -> (Tensor, Tensor, Tensor)");
-  m.def("hpu::sdpa_recomp_fwd", sdpa_recomp_fwd_wrap);
+  m.def(
+      "hpu::sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
       "hpu::sdpa_recomp_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal, bool requires_backward) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
@@ -2422,8 +2423,10 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::rms_norm", rms_norm_wrap);
   m.impl("hpu::rms_norm_backward", rms_norm_backward_wrap);
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm_wrap);
+  m.impl("hpu::sdpa_fwd", sdpa_fwd_wrap);
   m.impl("hpu::sdpa_bwd", sdpa_bwd_wrap);
   m.impl("hpu::sdpa_recomp_bwd", sdpa_recomp_bwd_wrap);
+  m.impl("hpu::sdpa_recomp_fwd", sdpa_recomp_fwd_wrap);
   m.impl("hpu::scaled_triangular_softmax", scaled_triangular_softmax_wrap);
   m.impl(
       "hpu::scaled_triangular_softmax_retain",

@@ -18,10 +18,12 @@
 #include "common/dump_args.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/logging.h"
+#include "habana_kernels/random_gen_kernels.h"
 #include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/masked_batch_gemm.h"
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
+#include "hpu_ops/sdpa_gen.h"
 
 namespace {
 using habana::to_string; // For DUMP_*ARGS
@@ -1523,6 +1525,129 @@ at::Tensor dequantize_per_channel(
   hpu_op.set_scalar_types({type});
   return hpu_op.call();
 }
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const double p,
+    const double scale,
+    const bool is_causal,
+    const bool requires_backward) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "sdpa_recomp_fwd :",
+      DUMP_8ARGS(
+          q, k, v, attention_mask, p, scale, is_causal, requires_backward));
+  c10::optional<at::Tensor> seed_opt;
+
+  if (p > 0.0) {
+    c10::optional<at::Generator> gen;
+    int seed = habana::get_seed_hpu(gen);
+    at::TensorOptions o;
+    o = o.dtype(at::kInt).device(at::kHPU);
+    seed_opt = at::tensor(seed, o);
+  }
+
+  habana::eager::EagerOp<
+      std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>>
+      hpu_op{
+          "hpu::sdpa_recomp_fwd_be",
+          {q,
+           k,
+           v,
+           attention_mask,
+           seed_opt,
+           p,
+           scale,
+           is_causal,
+           requires_backward},
+          habana::SDPARecompFwdOutputShape};
+  hpu_op.set_scalar_types(
+      {q.scalar_type(),
+       q.scalar_type(),
+       c10::ScalarType::Float,
+       c10::ScalarType::Int});
+  return hpu_op.call();
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd(
+    const at::Tensor& grad,
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const at::Tensor& m,
+    const at::Tensor& linv,
+    const c10::optional<at::Tensor>& seed,
+    const bool is_causal,
+    const double p,
+    const double scale) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "sdpa_recomp_bwd :",
+      DUMP_11ARGS(
+          grad, q, k, v, attention_mask, m, linv, seed, is_causal, p, scale));
+
+  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
+      "hpu::sdpa_recomp_bwd",
+      {grad, q, k, v, attention_mask, m, linv, seed, is_causal, p, scale},
+      habana::SDPARecompBwdOutputShape};
+  return hpu_op.call();
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd(
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const double p,
+    const double scale,
+    const bool is_causal) {
+  PT_EAGER_TRACE;
+
+  PT_OP_INFO(
+      "sdpa_fwd :", DUMP_7ARGS(q, k, v, attention_mask, p, scale, is_causal));
+
+  c10::optional<at::Tensor> seed_opt;
+
+  if (p > 0.0) {
+    c10::optional<at::Generator> gen;
+    int seed = habana::get_seed_hpu(gen);
+    at::TensorOptions o;
+    o = o.dtype(at::kInt).device(at::kHPU);
+    seed_opt = at::tensor(seed, o);
+  }
+  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
+      "hpu::sdpa_fwd_be",
+      {q, k, v, attention_mask, seed_opt, p, scale, is_causal},
+      habana::SDPAFwdOutputShape};
+  hpu_op.set_scalar_types(
+      {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
+
+  return hpu_op.call();
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd(
+    const at::Tensor& grad,
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const at::Tensor& P,
+    const c10::optional<at::Tensor>& dm,
+    const double p,
+    const double scale) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("sdpa_bwd :", DUMP_8ARGS(grad, q, k, v, P, dm, p, scale));
+  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
+      "hpu::sdpa_bwd",
+      {grad, q, k, v, P, dm, p, scale},
+      habana::SDPABwdOutputShape};
+
+  return hpu_op.call();
+}
+
 } // namespace
 
 namespace habana::eager {
@@ -1654,6 +1779,18 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
   m.def(
       "hpu::sum_fp8(Tensor self, int[1]? dim=None, bool keepdim=False, ScalarType? out_dtype=None) -> Tensor");
+  m.def(
+      "hpu::sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward) -> (Tensor, Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::sdpa_recomp_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal, bool requires_backward) -> (Tensor, Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor ? seed, bool is_causal, float p, float scale) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::sdpa_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::sdpa_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, float p, float scale) -> (Tensor, Tensor, Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -1713,6 +1850,11 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::scaled_masked_triangular_softmax",
       scaled_masked_triangular_softmax);
   m.impl("hpu::scaled_triangular_softmax", scaled_triangular_softmax);
+  m.impl("hpu::softmax_fp8", softmax_fp8);
+  m.impl("hpu::sdpa_recomp_fwd", sdpa_recomp_fwd);
+  m.impl("hpu::sdpa_recomp_bwd", sdpa_recomp_bwd);
+  m.impl("hpu::sdpa_fwd", sdpa_fwd);
+  m.impl("hpu::sdpa_bwd", sdpa_bwd);
   m.impl(
       "hpu::scaled_triangular_softmax_retain",
       scaled_triangular_softmax_retain);
