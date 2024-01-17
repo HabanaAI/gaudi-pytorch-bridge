@@ -331,14 +331,6 @@ void SynBuildCache::clear_cached_graph_info() {
   is_complete_ = false;
 }
 
-void OptimizedJITGraphAndMetaData::set_is_control_edge_processing_required() {
-  syn_build_cache_.set_is_control_edge_processing_required();
-}
-
-bool OptimizedJITGraphAndMetaData::get_is_control_edge_processing_required() {
-  return syn_build_cache_.get_is_control_edge_processing_required();
-}
-
 void OptimizedJITGraphAndMetaData::SetFrontendType(
     habana_helpers::HabanaFrontendTypes type) {
   frontend_type = type;

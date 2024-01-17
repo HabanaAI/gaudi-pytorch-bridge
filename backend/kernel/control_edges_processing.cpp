@@ -363,14 +363,12 @@ class ControlEdgesProcessor {
    */
   ControlEdgesProcessor(
       torch::jit::Graph& jit_ir_graph,
-      habana::OptimizedJITGraphAndMetaData& jit_graph_and_meta_data,
       std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>&
           jit_to_synapse_node_idx_map,
       std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>&
           memory_reuse_pairs,
       synapse_helpers::graph* const syn_graph_ptr)
       : jit_ir_graph_{jit_ir_graph},
-        jit_graph_and_meta_data_{jit_graph_and_meta_data},
         jit_to_synapse_node_idx_map_{jit_to_synapse_node_idx_map},
         memory_reuse_pairs_{memory_reuse_pairs},
         syn_graph_ptr_{syn_graph_ptr} {}
@@ -381,7 +379,7 @@ class ControlEdgesProcessor {
   /**
    * Performs very control edges processing.
    */
-  void ProcessControlEdges();
+  bool ProcessControlEdges();
 
  private:
   /**
@@ -390,12 +388,10 @@ class ControlEdgesProcessor {
    */
   torch::jit::Graph&
       jit_ir_graph_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
-
   /**
-   * Optimized JIT graph and its metadata.
+   *  bool to store whether the control edges have been added or not
    */
-  habana::OptimizedJITGraphAndMetaData&
-      jit_graph_and_meta_data_; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+  bool control_edge_has_been_added_ = false;
 
   /**
    * Synapse node IDs for each JIT node.
@@ -575,8 +571,7 @@ void ControlEdgesProcessor::ProcessCustomOptControlEdges(
             auto list_input_node = list_input_val->node();
             auto c_edge = NodeRequiresControlEdge(list_input_node);
             if (c_edge != ControlEdgeType::None) {
-              jit_graph_and_meta_data_
-                  .set_is_control_edge_processing_required();
+              control_edge_has_been_added_ = true;
               // Prepare blocking nodes list.
               PrepareBlockingNodeList(
                   list_input_node,
@@ -606,7 +601,7 @@ void ControlEdgesProcessor::ProcessCustomOptControlEdges(
   }
 }
 
-void ControlEdgesProcessor::ProcessControlEdges() {
+bool ControlEdgesProcessor::ProcessControlEdges() {
   const habana::control_edges::GraphAffinityAnalyzer affinity_analysis{
       jit_ir_graph_};
 
@@ -617,7 +612,7 @@ void ControlEdgesProcessor::ProcessControlEdges() {
   for (auto* const node : graph_nodes) {
     auto c_edge = NodeRequiresControlEdge(node);
     if (c_edge != ControlEdgeType::None) {
-      jit_graph_and_meta_data_.set_is_control_edge_processing_required();
+      control_edge_has_been_added_ = true;
       // Prepare blocking nodes list.
       PrepareBlockingNodeList(
           node, c_edge, blocking_nodes_vec_, blocking_syn_nodes_vec_);
@@ -694,6 +689,7 @@ void ControlEdgesProcessor::ProcessControlEdges() {
 
   // Process dependencies for custom optimizer.
   ProcessCustomOptControlEdges(graph_nodes);
+  return control_edge_has_been_added_;
 }
 
 void ControlEdgesProcessor::ProcessControlEdgesForMemoryReuse(
@@ -708,7 +704,7 @@ void ControlEdgesProcessor::ProcessControlEdgesForMemoryReuse(
                blocking_node, blocked_node) &&
            (blocking_node != blocked_node))) {
         // Set flag in JIT cache.
-        jit_graph_and_meta_data_.set_is_control_edge_processing_required();
+        control_edge_has_been_added_ = true;
         blocking_nodes_vec.emplace_back(blocking_node);
         AddSynNodes(
             blocking_syn_nodes_vec_,
@@ -718,7 +714,7 @@ void ControlEdgesProcessor::ProcessControlEdgesForMemoryReuse(
     }
 
     if (blocking_syn_nodes_vec_.size()) {
-      jit_graph_and_meta_data_.set_is_control_edge_processing_required();
+      control_edge_has_been_added_ = true;
       AddSynNodes(
           blocked_syn_nodes_vec_, blocked_node, jit_to_synapse_node_idx_map_);
       if (blocked_syn_nodes_vec_.size()) {
@@ -817,17 +813,15 @@ void ProcessStridedInsertAtOutput(
   }
 }
 
-void ProcessControlEdges(
+bool ProcessControlEdges(
     torch::jit::Graph& jit_ir_graph,
-    habana::OptimizedJITGraphAndMetaData& jit_graph_and_meta_data,
     std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>&
         jit_to_synapse_node_idx_map,
     std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>&
         memory_reuse_pairs,
     synapse_helpers::graph* const syn_graph_ptr) {
-  ControlEdgesProcessor{
+  return ControlEdgesProcessor{
       jit_ir_graph,
-      jit_graph_and_meta_data,
       jit_to_synapse_node_idx_map,
       memory_reuse_pairs,
       syn_graph_ptr}

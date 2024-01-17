@@ -644,6 +644,7 @@ class HabanaLaunchOpPT {
   // Currently this funciton is used for shape inference as well
   void BuildSynapseGraph(
       std::shared_ptr<synapse_helpers::graph>& syn_graph,
+      SynBuildCache& syn_build_cache,
       bool is_shape_inference = false);
 
   void setSynapsePermuteFlag(
@@ -706,10 +707,15 @@ class HabanaLaunchOpPT {
   void ProcessShapeTensorsCS(
       const InferOutputMetaRetType& output,
       std::vector<IdxTensorTuple>& intermediate_shape_tensor_cs);
-  void handlePrimNodes(torch::jit::Node* node);
-  void handlePrimConstantNode(torch::jit::Node* node);
+  void handlePrimNodes(torch::jit::Node* node, SynBuildCache& syn_build_cache);
+  void handlePrimConstantNode(
+      torch::jit::Node* node,
+      SynBuildCache& syn_build_cache);
   void handlePrimListConstructNode(torch::jit::Node* node);
-  void handleRestrideNode(torch::jit::Node* node, bool is_restride_cl);
+  void handleRestrideNode(
+      torch::jit::Node* node,
+      SynBuildCache& syn_build_cache,
+      bool is_restride_cl);
   void handleMetaOps(torch::jit::Node* node);
 
   std::shared_ptr<RecipeLauncher> GetCachedRecipe(

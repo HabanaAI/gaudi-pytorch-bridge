@@ -1096,6 +1096,7 @@ IValPtrShared castConstantTensor(IValPtrShared ival) {
 
 void HabanaLaunchOpPT::handleRestrideNode(
     torch::jit::Node* node,
+    SynBuildCache& syn_build_cache,
     bool is_restride_cl) {
   auto value_in = node->input(0);
   auto value_out = node->output(0);
@@ -1105,21 +1106,17 @@ void HabanaLaunchOpPT::handleRestrideNode(
   auto is_5d_layout = tensor.dim() == 5 ? true : false;
 
   auto is_in_graph_outputs =
-      jit_graph_and_meta_data_->syn_build_cache_
-          .get_or_compute_val<&SynBuildCache::is_in_graph_outputs>(
-              [this, value_out]() { return isInGraphOutputs(value_out); },
-              restride_node_out_val_counter);
+      syn_build_cache.get_or_compute<&SynBuildCache::is_in_graph_outputs>(
+          [this, value_out]() { return isInGraphOutputs(value_out); },
+          restride_node_out_val_counter);
 
   restride_node_out_val_counter++;
 
   if ((tensor.dim() == 4) || (tensor.dim() == 5)) {
     std::vector<int64_t>& new_pos =
-        jit_graph_and_meta_data_->syn_build_cache_
-            .get_or_compute<&SynBuildCache::new_positions>(
-                [this, node]() {
-                  return toIValue(node->input(1))->toIntVector();
-                },
-                restride_node_swap_counter);
+        syn_build_cache.get_or_compute_ref<&SynBuildCache::new_positions>(
+            [this, node]() { return toIValue(node->input(1))->toIntVector(); },
+            restride_node_swap_counter);
 
     restride_node_swap_counter++;
 
@@ -1298,10 +1295,12 @@ void HabanaLaunchOpPT::handleRestrideNode(
   }
 }
 
-void HabanaLaunchOpPT::handlePrimNodes(torch::jit::Node* node) {
+void HabanaLaunchOpPT::handlePrimNodes(
+    torch::jit::Node* node,
+    SynBuildCache& syn_build_cache) {
   PT_BRIDGE_TRACE;
   if (node->kind() == torch::jit::prim::Constant) {
-    handlePrimConstantNode(node);
+    handlePrimConstantNode(node, syn_build_cache);
   } else if (node->kind() == torch::jit::prim::ListConstruct) {
     handlePrimListConstructNode(node);
   } else if (node->kind() == torch::jit::prim::ListUnpack) {
@@ -1409,10 +1408,11 @@ void HabanaLaunchOpPT::handlePrimListConstructNode(torch::jit::Node* node) {
   value_to_ivalue[node_vals[0]] = ival;
 }
 
-void HabanaLaunchOpPT::handlePrimConstantNode(torch::jit::Node* node) {
+void HabanaLaunchOpPT::handlePrimConstantNode(
+    torch::jit::Node* node,
+    SynBuildCache& syn_build_cache) {
   auto node_vals = node->outputs();
-  bool is_jit_cached_graph_info_available =
-      jit_graph_and_meta_data_->get_jit_cached_graph_info_available_flag();
+  bool is_jit_cached_graph_info_available = syn_build_cache.is_complete();
   for (const auto value : node_vals) {
     IValPtrShared ivptrsh = nullptr;
     if (is_jit_cached_graph_info_available == false) {
@@ -1420,10 +1420,9 @@ void HabanaLaunchOpPT::handlePrimConstantNode(torch::jit::Node* node) {
     }
     if (value->type()->kind() == c10::TypeKind::TensorType) {
       auto ivptrsh_updated =
-          jit_graph_and_meta_data_->syn_build_cache_
-              .get_or_compute<&SynBuildCache::prim_nodes_ivals>(
-                  [this, &ivptrsh]() { return castConstantTensor(ivptrsh); },
-                  prim_nodes_ival_counter);
+          syn_build_cache.get_or_compute<&SynBuildCache::prim_nodes_ivals>(
+              [this, &ivptrsh]() { return castConstantTensor(ivptrsh); },
+              prim_nodes_ival_counter);
       value_to_ivalue[value] = ivptrsh_updated;
       std::string irn{"%intermediate_"};
       irn += std::to_string(intermediate_index);
@@ -1449,9 +1448,8 @@ void HabanaLaunchOpPT::handlePrimConstantNode(torch::jit::Node* node) {
       aten_intermediates.push_back(tensor);
     } else {
       ivptrsh =
-          jit_graph_and_meta_data_->syn_build_cache_
-              .get_or_compute<&SynBuildCache::prim_nodes_ivals>(
-                  [&ivptrsh]() { return ivptrsh; }, prim_nodes_ival_counter);
+          syn_build_cache.get_or_compute<&SynBuildCache::prim_nodes_ivals>(
+              [&ivptrsh]() { return ivptrsh; }, prim_nodes_ival_counter);
       value_to_ivalue[value] = ivptrsh;
     }
     prim_nodes_ival_counter++;
@@ -2007,6 +2005,7 @@ void HabanaLaunchOpPT::RevertH2DMinMaxData() {
 
 void HabanaLaunchOpPT::BuildSynapseGraph(
     std::shared_ptr<synapse_helpers::graph>& syn_graph,
+    SynBuildCache& syn_build_cache,
     bool is_shape_inference) {
   PT_BRIDGE_BEGIN;
   // figure out the right device id
@@ -2018,7 +2017,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   syn_graph_ptr_ = syn_graph;
 
   if (current_dbipsh_) {
-    jit_graph_and_meta_data_->clear_cached_graph_info();
+    syn_build_cache.clear_cached_graph_info();
     prim_nodes_ival_counter = 0;
     restride_node_swap_counter = 0;
     restride_node_out_val_counter = 0;
@@ -2031,9 +2030,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
   // This is an optimization pass to mark all the nodes with sepcial layout
   // like weights which have HWCK Only activated in lazy mode for now
-  bool is_jit_cached_graph_info_available =
-      jit_graph_and_meta_data_->get_jit_cached_graph_info_available_flag();
-  if (is_jit_cached_graph_info_available == false) {
+  if (!syn_build_cache.is_complete()) {
     persistence_marker_pass_data_ptr_ =
         PersistenceMarkerPass(this).VisitGraph(jit_ir_graph_);
   }
@@ -2075,7 +2072,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
     // Prim nodes require special handling and are a special case
     if (node->kind().is_prim()) {
-      handlePrimNodes(node);
+      handlePrimNodes(node, syn_build_cache);
       continue;
     }
 
@@ -2083,7 +2080,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         (strcmp(node_qual_str, "hpu::restride") == 0)) {
       bool is_restride_cl =
           (strcmp(node_qual_str, "hpu::restride_cl") == 0) ? true : false;
-      handleRestrideNode(node, is_restride_cl);
+      handleRestrideNode(node, syn_build_cache, is_restride_cl);
       continue;
     }
 
@@ -2154,10 +2151,9 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
     PT_BRIDGE_DEBUG(DumpNodeInputs(node, value_to_ivalue));
     OutputMetaDataVector& outputs_metadata =
-        jit_graph_and_meta_data_->syn_build_cache_
-            .get_or_compute<&SynBuildCache::outputs_metadata>(
-                [this, node]() { return nodeOutputMetaData(node); },
-                outputs_metadata_index);
+        syn_build_cache.get_or_compute_ref<&SynBuildCache::outputs_metadata>(
+            [this, node]() { return nodeOutputMetaData(node); },
+            outputs_metadata_index);
     outputs_metadata_index++;
 
     if (!dry_run_ && allocated_outputs_iter.has_value()) {
@@ -2647,19 +2643,18 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     }
   }
 
-  if (refine_ds_enabled_ ||
-      (not jit_graph_and_meta_data_
-               ->get_jit_cached_graph_info_available_flag()) ||
-      jit_graph_and_meta_data_->get_is_control_edge_processing_required()) {
+  if (refine_ds_enabled_ || !syn_build_cache.is_complete() ||
+      syn_build_cache.get_is_control_edge_processing_required()) {
     // Process control edges
-    control_edges::ProcessControlEdges(
+    bool control_edge_processing_required = control_edges::ProcessControlEdges(
         *jit_ir_graph_,
-        *jit_graph_and_meta_data_,
         jit_to_synapse_node_idx_map,
         memory_reuse_pairs,
         syn_graph_ptr_.get());
+    if (control_edge_processing_required)
+      syn_build_cache.set_is_control_edge_processing_required();
   }
-
+  syn_build_cache.complete();
   PT_BRIDGE_END;
 }
 
@@ -3807,8 +3802,6 @@ void HabanaLaunchOpPT::run(
 
       UpdatePatchingInformation();
 
-      jit_graph_and_meta_data_->clear_cached_outputs_tensors();
-
       // currently only eager backend supports pipelining
       // can be merged once non-eager backends support pipelining
       if (enable_graph_caching_ && !compile_mode) {
@@ -3839,12 +3832,6 @@ void HabanaLaunchOpPT::run(
   }
   // eager and graph recipe caching :: end
 
-  bool is_jit_cached_graph_info_available =
-      jit_graph_and_meta_data_->get_jit_cached_graph_info_available_flag();
-  if (is_jit_cached_graph_info_available == false) {
-    jit_graph_and_meta_data_->clear_cached_graph_info();
-  }
-
   CreateValueToIvalueMapForInputs();
   ProcessGraphForConstantTensors(*jit_ir_graph_, value_to_ivalue);
 
@@ -3870,8 +3857,7 @@ void HabanaLaunchOpPT::run(
 
       constexpr bool is_shape_agnostic_graph = true;
       syn_graph->set_shape_agnostic_graph(is_shape_agnostic_graph);
-      BuildSynapseGraph(syn_graph);
-      jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
+      BuildSynapseGraph(syn_graph, jit_graph_and_meta_data_->syn_build_cache_);
 
       if (syn_graph_ptr_->is_empty()) {
         PT_LAZY_EAGER_DEBUG(
@@ -4082,7 +4068,6 @@ void HabanaLaunchOpPT::run(
         graph_key_with_perm_,
         "\nStarting dynamic shape flow");
 
-    jit_graph_and_meta_data_->clear_cached_graph_info();
     ProcessHabanaFusedOpWithDS(pipeline_execution);
     PT_BRIDGE_END;
     return;
@@ -4105,8 +4090,7 @@ void HabanaLaunchOpPT::run(
       std::make_shared<synapse_helpers::graph>(habana_helpers::create_graph(
           device.id(), GetSynapseGraphName(), dry_run__, use_eager_compiler));
   m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
-  BuildSynapseGraph(syn_graph);
-  jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
+  BuildSynapseGraph(syn_graph, jit_graph_and_meta_data_->syn_build_cache_);
   if (enable_shape_agnostic_caching_) {
     syn_graph_ptr_->copy_graph_handle_to_duplicate();
   }
@@ -4301,8 +4285,8 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       new_recipe_key = cur_rargpsh->hashCode();
 
       m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
-      BuildSynapseGraph(syn_graph);
-      jit_graph_and_meta_data_->clear_cached_graph_info();
+      SynBuildCache cache;
+      BuildSynapseGraph(syn_graph, cache);
       CompileSynapseGraph();
       ConstructPatchingTableAndAtenOutputs();
       UpdateSynapsePermutations();
@@ -4360,8 +4344,8 @@ void HabanaLaunchOpPT::run_pass() {
       habana_helpers::create_graph(device.id(), GetSynapseGraphName(), true));
   syn_graph->set_dynamic_graph(true);
   CreateValueToIvalueMapForInputs();
-  BuildSynapseGraph(syn_graph, true);
-  jit_graph_and_meta_data_->clear_cached_graph_info();
+  SynBuildCache cache;
+  BuildSynapseGraph(syn_graph, cache, true);
   //
   // clear the data that has been setup as part of the above
   // method
@@ -4647,8 +4631,8 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       habana_helpers::create_graph(device.id(), GetSynapseGraphName()));
   syn_graph->set_dynamic_graph(is_dynamic_graph);
   EvictSynapseRecipe(graph_input_info.current_bucket_id);
-  BuildSynapseGraph(syn_graph);
-  jit_graph_and_meta_data_->clear_cached_graph_info();
+  SynBuildCache cache;
+  BuildSynapseGraph(syn_graph, cache);
 
   if (enable_4stage_pipeline_) {
     current_dbipsh_->get_statistics()->LogCompilation(

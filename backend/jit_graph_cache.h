@@ -44,7 +44,7 @@ size_t GetDataChecksum(void* data, size_t dataSize);
 class SynBuildCache {
  public:
   template <auto SynBuildCache::*member, typename Func>
-  auto& get_or_compute(Func&& comp_func, size_t index) {
+  auto& get_or_compute_ref(Func&& comp_func, size_t index) {
     static_assert(
         std::is_member_pointer_v<decltype(member)>,
         "member must be a member pointer");
@@ -57,7 +57,7 @@ class SynBuildCache {
   }
 
   template <auto SynBuildCache::*member, typename Func>
-  auto get_or_compute_val(Func&& comp_func, size_t index) {
+  auto get_or_compute(Func&& comp_func, size_t index) {
     static_assert(
         std::is_member_pointer_v<decltype(member)>,
         "member must be a member pointer");
@@ -82,6 +82,7 @@ class SynBuildCache {
 
   void complete() {
     is_complete_ = true;
+    clear_cached_outputs_tensors();
   }
 
   bool is_complete() const {
@@ -151,22 +152,6 @@ struct OptimizedJITGraphAndMetaData {
   bool GetOptimizedLazyEagerFlag();
 
   void SetOptimizedLazyEagerFlag(bool flag);
-
-  void set_jit_cached_graph_info_available_flag() {
-    syn_build_cache_.complete();
-  };
-
-  bool get_jit_cached_graph_info_available_flag() {
-    return syn_build_cache_.is_complete();
-  };
-
-  void clear_cached_outputs_tensors() {
-    syn_build_cache_.clear_cached_outputs_tensors();
-  };
-
-  void clear_cached_graph_info() {
-    syn_build_cache_.clear_cached_graph_info();
-  };
 
   void set_is_control_edge_processing_required();
 

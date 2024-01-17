@@ -80,14 +80,15 @@ void ProcessStridedInsertAtOutput(
  * accessing shared params.
  *
  * @param jit_ir_graph
- * @param jit_graph_and_meta_data
  * @param jit_to_synapse_node_idx_map
  * @param memory_reuse_pairs
  * @param syn_graph_ptr
+ *
+ * @return whether the control edges have been added
+ *
  */
-void ProcessControlEdges(
+bool ProcessControlEdges(
     torch::jit::Graph& jit_ir_graph,
-    habana::OptimizedJITGraphAndMetaData& jit_graph_and_meta_data,
     std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>&
         jit_to_synapse_node_idx_map,
     std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>&
