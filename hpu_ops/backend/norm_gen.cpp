@@ -601,6 +601,34 @@ void LayerNormHabanaOperator::AddNode(
   auto metas = LayerNormHabanaMeta(stack);
 
   if (GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) {
+    const auto input_dim = stack_tensor(stack, 0).dim();
+
+    if (input_dim == 5) {
+      SetSynapseLayouts(
+          {sh::layouts::SynapseLayoutFormat::WHDCN,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE},
+          {sh::layouts::SynapseLayoutFormat::WHDCN,
+           sh::layouts::SynapseLayoutFormat::WHDCN,
+           sh::layouts::SynapseLayoutFormat::WHDCN});
+    } else if (input_dim == 4) {
+      SetSynapseLayouts(
+          {sh::layouts::SynapseLayoutFormat::WHCN,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE},
+          {sh::layouts::SynapseLayoutFormat::WHCN,
+           sh::layouts::SynapseLayoutFormat::WHCN,
+           sh::layouts::SynapseLayoutFormat::WHCN});
+    } else if (input_dim == 3) {
+      SetSynapseLayouts(
+          {sh::layouts::SynapseLayoutFormat::WHN,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE},
+          {sh::layouts::SynapseLayoutFormat::WHN,
+           sh::layouts::SynapseLayoutFormat::WHN,
+           sh::layouts::SynapseLayoutFormat::WHN});
+    }
+
     size_t size = 0;
     const auto params = FillParams(stack, size);
 
@@ -806,6 +834,40 @@ void LayerNormBwdHabanaOperator::AddNode(
   auto metas = LayerNormBwdMeta(stack);
 
   if (GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) {
+    const auto input_dim = stack_tensor(stack, 0).dim();
+
+    if (input_dim == 5) {
+      SetSynapseLayouts(
+          {sh::layouts::SynapseLayoutFormat::WHDCN,
+           sh::layouts::SynapseLayoutFormat::WHDCN,
+           sh::layouts::SynapseLayoutFormat::WHDCN,
+           sh::layouts::SynapseLayoutFormat::WHDCN,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE},
+          {sh::layouts::SynapseLayoutFormat::WHDCN,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE});
+    } else if (input_dim == 4) {
+      SetSynapseLayouts(
+          {sh::layouts::SynapseLayoutFormat::WHCN,
+           sh::layouts::SynapseLayoutFormat::WHCN,
+           sh::layouts::SynapseLayoutFormat::WHCN,
+           sh::layouts::SynapseLayoutFormat::WHCN,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE},
+          {sh::layouts::SynapseLayoutFormat::WHCN,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE});
+    } else if (input_dim == 3) {
+      SetSynapseLayouts(
+          {sh::layouts::SynapseLayoutFormat::WHN,
+           sh::layouts::SynapseLayoutFormat::WHN,
+           sh::layouts::SynapseLayoutFormat::WHN,
+           sh::layouts::SynapseLayoutFormat::WHN,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE},
+          {sh::layouts::SynapseLayoutFormat::WHN,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE,
+           sh::layouts::SynapseLayoutFormat::DONT_CARE});
+    }
+
     size_t size = 0;
     const auto params = FillParams(stack, size);
 
@@ -936,9 +998,7 @@ OutputMetaDataVector WeightNormMeta(const at::Stack& stack) {
   return metaVec;
 }
 
-void WeightNormOp::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
   const auto metas = WeightNormMeta(stack);
   auto v_in = stack_tensor(stack, 0);
   auto g_in = stack_tensor(stack, 1);
@@ -1025,9 +1085,7 @@ OutputMetaDataVector WeightNormBwdMeta(const at::Stack& stack) {
   return metaVec;
 }
 
-void WeightNormBwdOp::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void WeightNormBwdOp::AddNode(sh::graph& graph, const at::Stack& stack) {
   const torch::Tensor& grad_w = stack_tensor(stack, 0);
   const torch::Tensor& saved_v = stack_tensor(stack, 1);
   const torch::Tensor& saved_g = stack_tensor(stack, 2);
@@ -1063,7 +1121,7 @@ void WeightNormBwdOp::AddNode(
   // ...but saved_norms might be Float when saved_g and saved_v are half.
   // To consider:  saved_norms.to(..., True );
 
-  std::vector<synapse_helpers::tensor> norms_cast;
+  std::vector<sh::tensor> norms_cast;
   synTensor saved_norms_syn_tensor = syn_in(3);
   if (saved_norms.scalar_type() != commonOutDtype) {
     norms_cast.emplace_back(BuildCast(
@@ -1075,14 +1133,14 @@ void WeightNormBwdOp::AddNode(
         commonOutDtype));
     saved_norms_syn_tensor = norms_cast[0].get();
   }
-  std::vector<synapse_helpers::tensor> per_dim_sums;
-  std::vector<synapse_helpers::tensor> divOp21;
-  std::vector<synapse_helpers::tensor> mulOp22;
-  std::vector<synapse_helpers::tensor> divOp23;
-  std::vector<synapse_helpers::tensor> mulOp24;
-  std::vector<synapse_helpers::tensor> subOp25;
-  std::vector<synapse_helpers::tensor> grad_v;
-  std::vector<synapse_helpers::tensor> grad_g;
+  std::vector<sh::tensor> per_dim_sums;
+  std::vector<sh::tensor> divOp21;
+  std::vector<sh::tensor> mulOp22;
+  std::vector<sh::tensor> divOp23;
+  std::vector<sh::tensor> mulOp24;
+  std::vector<sh::tensor> subOp25;
+  std::vector<sh::tensor> grad_v;
+  std::vector<sh::tensor> grad_g;
   std::vector<int64_t> bcast_size = metas[1].shape;
 
   auto outsize_mulOp11 = at::infer_size(grad_w.sizes(), saved_v.sizes());
