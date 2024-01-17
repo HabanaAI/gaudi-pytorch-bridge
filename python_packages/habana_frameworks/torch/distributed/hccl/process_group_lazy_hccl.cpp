@@ -46,7 +46,8 @@ bool resizeTensor(
     auto btensor_type = tensors[i].scalar_type();
     changed[i] = false;
     if ((at::kChar == btensor_type || at::kByte == btensor_type ||
-         at::kBool == btensor_type) &&
+         at::kBool == btensor_type || at::kFloat8_e5m2 == btensor_type ||
+         at::kFloat8_e4m3fn == btensor_type) &&
         tensors[i].numel() % 2 != 0) {
       changed[i] = true;
       sizeList[i] = tensors[i].sizes().vec();

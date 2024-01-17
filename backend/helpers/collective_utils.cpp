@@ -70,6 +70,12 @@ size_t getHCCLSliceSize(collectiveKind_t kind) {
 }
 
 hcclDataType_t getHCCLDataType(at::ScalarType type) {
+  // HCL doesn't have definition for fp8 types, use hcclUint8 instead
+  // assume later function getCountDatatype() will set correct data type
+  // TODO: removed this once HCL adds fp8 types
+  if (at::kFloat8_e5m2 == type || at::kFloat8_e4m3fn == type) {
+    return hcclUint8;
+  }
   auto it = hcclDataType.find(type);
   TORCH_CHECK(
       it != hcclDataType.end(),

@@ -214,6 +214,16 @@ def all_gather(rank,world_size):
     dist.all_gather(op_tensor_list, a)
     check_res("all gather",rank,op_tensor_list,torch.FloatTensor(exp))
 
+    op_tensor_list = [torch.tensor(output, dtype=torch.float8_e5m2).to('hpu') for i in range(world_size)]
+    a = torch.tensor(input, dtype=torch.float8_e5m2).to('hpu')
+    dist.all_gather(op_tensor_list, a)
+    check_res("all gather",rank,op_tensor_list,torch.tensor(exp, dtype=torch.float8_e5m2))
+
+    op_tensor_list = [torch.tensor(output, dtype=torch.float8_e4m3fn).to('hpu') for i in range(world_size)]
+    a = torch.tensor(input, dtype=torch.float8_e4m3fn).to('hpu')
+    dist.all_gather(op_tensor_list, a)
+    check_res("all gather",rank,op_tensor_list,torch.tensor(exp, dtype=torch.float8_e4m3fn))
+
     op_tensor_list = [torch.DoubleTensor(output).to('hpu') for i in range(world_size)]
     a = torch.DoubleTensor(input).to('hpu')
     dist.all_gather(op_tensor_list, a)

@@ -50,6 +50,12 @@ std::map<at::ScalarType, hcclDataType_t> hcclDataType = {
 };
 
 hcclDataType_t getHCCLDataType(at::ScalarType type) {
+  // HCL doesn't have definition for fp8 types, use hcclUint8 instead
+  // assume later function getCountDatatype() will set correct data type
+  // TODO: removed this once HCL adds fp8 types
+  if (at::kFloat8_e5m2 == type || at::kFloat8_e4m3fn == type) {
+    return hcclUint8;
+  }
   type = habana_helpers::getInternalDtype(type);
   auto it = hcclDataType.find(type);
   TORCH_CHECK(
@@ -76,6 +82,8 @@ void getCountDatatype(
       break;
     case at::kChar:
     case at::kByte:
+    case at::kFloat8_e5m2:
+    case at::kFloat8_e4m3fn:
       numel = (numel * sizeof(char)) / sizeof(uint16_t);
       tensor_data_type = getHCCLDataType(at::kBFloat16);
       break;
