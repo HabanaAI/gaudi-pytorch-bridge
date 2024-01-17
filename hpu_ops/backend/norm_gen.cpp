@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -944,6 +944,11 @@ void WeightNormOp::AddNode(
   auto g_in = stack_tensor(stack, 1);
   auto dim = stack.at(2).toInt();
 
+  const auto& v_in_dtype = metas[0].dtype;
+  const auto& g_in_dtype = metas[1].dtype;
+  const auto& v_in_shape = metas[0].shape;
+  const auto& g_in_shape = metas[1].shape;
+
   /*
   NOTE:
   We use the CPU implementation that follows the "non-fused" (ie., assumes
@@ -957,62 +962,44 @@ void WeightNormOp::AddNode(
       " and g_in is on ",
       g_in.device());
 
-  std::vector<int64_t> dim_to_norm;
+  std::vector<int64_t> dims_to_norm;
+  dims_to_norm.reserve(v_in.ndimension());
   for (int64_t i = 0; i < v_in.ndimension(); ++i) {
     if (i != dim) // skip given dimension
-      dim_to_norm.push_back(i);
+      dims_to_norm.push_back(i);
   }
 
   at::Scalar ord = 2.0;
 
-  // align with cuda behavior, keep norm in 'Float' when g is 'BFloat16'
-  const auto dtype = (g_in.scalar_type() == at::ScalarType::BFloat16)
-      ? at::ScalarType::Float
-      : g_in.scalar_type();
-
-  std::vector<synapse_helpers::tensor> normOp;
-  if (dtype != v_in.scalar_type()) {
-    auto cast_bf16_to_float = BuildCast(
-        this, graph, syn_in(0), v_in.sizes(), v_in.scalar_type(), dtype);
-
-    normOp.emplace_back(NormCommon(
-        this,
-        graph,
-        cast_bf16_to_float.get(),
-        dtype,
-        v_in,
-        dim_to_norm,
-        false,
-        ord,
-        {{metas[1].shape, dtype, 1}},
-        false));
-  } else {
-    normOp.emplace_back(NormCommon(
-        this,
-        graph,
-        syn_in(0),
-        metas[1].dtype,
-        v_in,
-        dim_to_norm,
-        false,
-        ord,
-        {{metas[1].shape, metas[1].dtype, 1}},
-        false));
-  }
+  auto normOp = NormCommon(
+      this,
+      graph,
+      g_in_dtype != v_in_dtype
+          ? BuildCast(
+                this, graph, syn_in(0), v_in.sizes(), v_in_dtype, g_in_dtype)
+                .get()
+          : syn_in(0),
+      g_in_dtype,
+      v_in,
+      dims_to_norm,
+      false,
+      ord,
+      {{g_in_shape, g_in_dtype, 1}},
+      false);
 
   auto divOp = BuildOp(
       graph,
-      get_guid_with_precision("div_fwd", ScalarType()),
-      {syn_in(1), normOp[0].get()},
-      {{metas[1].shape, metas[1].dtype}});
+      get_guid_with_precision("div_fwd", v_in_dtype),
+      {syn_in(1), normOp.get()},
+      {{g_in_shape, g_in_dtype}});
   auto mulOp = BuildOp(
       graph,
-      get_guid_with_precision("mult_fwd", ScalarType()),
+      get_guid_with_precision("mult_fwd", v_in_dtype),
       {syn_in(0), divOp.at(0).get()},
-      {{metas[0].shape, metas[0].dtype, 0}});
+      {{v_in_shape, v_in_dtype, 0}});
 
   syn_out(0) = std::move(mulOp[0]);
-  syn_out(1) = std::move(normOp[0]);
+  syn_out(1) = std::move(normOp);
 }
 
 OutputMetaDataVector WeightNormBwdMeta(const at::Stack& stack) {

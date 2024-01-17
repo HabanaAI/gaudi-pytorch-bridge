@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -16,8 +16,6 @@ from torch import nn
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_weight_norm_fwd_bwd(dtype):
-    if dtype == torch.bfloat16:
-        pytest.xfail("Wrong results when calcualting with bf16 on HPU: SW-164173")
     in_numel = 20
     out_numel = 7
     dim = 0
