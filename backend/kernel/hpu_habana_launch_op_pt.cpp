@@ -3872,6 +3872,7 @@ void HabanaLaunchOpPT::run(
       constexpr bool is_shape_agnostic_graph = true;
       syn_graph->set_shape_agnostic_graph(is_shape_agnostic_graph);
       BuildSynapseGraph(syn_graph);
+      jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
 
       if (syn_graph_ptr_->is_empty()) {
         PT_LAZY_EAGER_DEBUG(
@@ -3978,8 +3979,6 @@ void HabanaLaunchOpPT::run(
           intermediate_syn_tensors_count_);
       syn_graph_ptr_->set_num_of_inter_tensors(intermediate_syn_tensors_count_);
 
-      jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
-
       // TODO do we need sync ????
       pipeline_execution.compile_sync();
       CompileSynapseGraphAndPatchTable();
@@ -4066,8 +4065,6 @@ void HabanaLaunchOpPT::run(
       // additional control edge processing here
 
       syn_graph_ptr_->set_build_phase(true);
-      jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
-
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
       execution_control_.sag_cache_hit();
@@ -4110,6 +4107,7 @@ void HabanaLaunchOpPT::run(
           device.id(), GetSynapseGraphName(), dry_run__, use_eager_compiler));
   m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
   BuildSynapseGraph(syn_graph);
+  jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
   if (enable_shape_agnostic_caching_) {
     syn_graph_ptr_->copy_graph_handle_to_duplicate();
   }
@@ -4125,7 +4123,6 @@ void HabanaLaunchOpPT::run(
       permutation_info_saver_ =
           std::make_unique<PermutationInfoSaver>(jit_graph_and_meta_data_);
     }
-    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
 
     if (!is_permute_data_cached || enable_caching_) {
       // TODO may be we don't need sync with compile thread
@@ -4137,8 +4134,6 @@ void HabanaLaunchOpPT::run(
   } else {
     CompileSynapseGraphAndPatchTable();
     ExecuteSynapseGraph();
-
-    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
     ClearStatics();
   }
 
@@ -4308,6 +4303,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
 
       m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
       BuildSynapseGraph(syn_graph);
+      jit_graph_and_meta_data_->clear_cached_graph_info();
       CompileSynapseGraph();
       ConstructPatchingTableAndAtenOutputs();
       UpdateSynapsePermutations();
@@ -4366,6 +4362,7 @@ void HabanaLaunchOpPT::run_pass() {
   syn_graph->set_dynamic_graph(true);
   CreateValueToIvalueMapForInputs();
   BuildSynapseGraph(syn_graph, true);
+  jit_graph_and_meta_data_->clear_cached_graph_info();
   //
   // clear the data that has been setup as part of the above
   // method
@@ -4652,6 +4649,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
   syn_graph->set_dynamic_graph(is_dynamic_graph);
   EvictSynapseRecipe(graph_input_info.current_bucket_id);
   BuildSynapseGraph(syn_graph);
+  jit_graph_and_meta_data_->clear_cached_graph_info();
 
   if (enable_4stage_pipeline_) {
     current_dbipsh_->get_statistics()->LogCompilation(
@@ -4691,7 +4689,6 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
       permutation_info_saver_ =
           std::make_unique<PermutationInfoSaver>(jit_graph_and_meta_data_);
     }
-    jit_graph_and_meta_data_->set_jit_cached_graph_info_available_flag();
     PT_DYNAMIC_SHAPE_DEBUG("Cache miss pipeline flow");
     pipeline_execution.compile_sync();
     execution_control_.no_compile();
