@@ -68,12 +68,12 @@ HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(
 
 unsigned NativeDropoutEarlyExitCondition(
     const at::Tensor& input,
-    double,
+    double p,
     c10::optional<bool> train) {
   if (input.numel() == 0) {
     return 1;
   }
-  if (train.has_value() && !*train) {
+  if ((train.has_value() && !*train) || (p == 0.0)) {
     return 2;
   }
   return 0;
