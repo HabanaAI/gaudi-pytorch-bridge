@@ -6786,7 +6786,18 @@ void handle_collective(const at::Tensor& tensor) {
   if (!is_hpu_tensor(tensor))
     return;
 
-  GetHbLazyTensor(tensor);
+  auto hl_t = GetHbLazyTensor(tensor);
+  // also check for tensor's parent in case it's a view tensor. GetHbLazyTensor
+  // will trigger markstep if parent tensor is produced from a collective op.
+  // This markstep should be triggered before handleViews, otherwise in between
+  // op processing markstep will be triggered which can cause some side effects.
+  while (hl_t.getDataPtr()->stride_params.has_value()) {
+    auto& params = hl_t.getDataPtr()->stride_params.value();
+    auto parent_or_base =
+        (params.optype == kStridedOpDefault) ? params.base : params.parent;
+    hl_t = GetHbLazyTensor(
+        HbLazyTensorViews::get_recent_base_tensor(parent_or_base));
+  }
 }
 
 template <typename It, typename Sentinel>
