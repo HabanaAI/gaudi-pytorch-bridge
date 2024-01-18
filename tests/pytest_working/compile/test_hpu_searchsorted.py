@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,25 +10,18 @@
 #
 ###############################################################################
 import numpy as np
-import torch
 import pytest
+import torch
 
-@pytest.mark.xfail(
-    reason="torch._dynamo.exc.TorchRuntimeError. Remove xfail when SW-150162 is done."
-)
-@pytest.mark.parametrize(
-    "dtype", [torch.float, torch.bfloat16, torch.int32, torch.long]
-)
+
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int32, torch.long])
 @pytest.mark.parametrize("out_int32", [True, False])
 @pytest.mark.parametrize("right", [True, False])
 def test_searchsorted(dtype, out_int32, right):
     torch.manual_seed(0)
-    import habana_frameworks.torch.core as htcore
 
     def fn(sorted_sequence, values):
-        return torch.searchsorted(
-            sorted_sequence, values, out_int32=out_int32, right=right
-        )
+        return torch.searchsorted(sorted_sequence, values, out_int32=out_int32, right=right)
 
     hpu_compiled_function = torch.compile(fn, backend="aot_hpu_training_backend")
     cpu_compiled_function = torch.compile(fn)

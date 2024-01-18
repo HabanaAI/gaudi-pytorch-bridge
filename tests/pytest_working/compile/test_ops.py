@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -40,9 +40,7 @@ if htexp._get_device_type() != htexp.synDeviceType.synDeviceGaudi:
 
 
 @pytest.mark.parametrize("dtype", all_dtypes)
-@pytest.mark.parametrize(
-    "memory_format", [torch.channels_last, torch.contiguous_format]
-)
+@pytest.mark.parametrize("memory_format", [torch.channels_last, torch.contiguous_format])
 @pytest.mark.parametrize("torch_func", [torch.empty_like, torch.zeros_like])
 def test_empty_and_zeros_like(dtype, memory_format, torch_func):
     if pytest.mode == "compile" and torch_func == torch.empty_like:
@@ -64,39 +62,32 @@ def test_empty_and_zeros_like(dtype, memory_format, torch_func):
     tensor = torch.randn(4, 3, 2, 5)
 
     compiled_cpu = torch.compile(fn)
-    cpu_res = compiled_cpu(
-        tensor, dtype, layout, requires_grad, memory_format, torch_func
-    )
+    cpu_res = compiled_cpu(tensor, dtype, layout, requires_grad, memory_format, torch_func)
 
     compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
-    hpu_res = compiled_hpu(
-        tensor.to("hpu"), dtype, layout, requires_grad, memory_format, torch_func
-    )
+    hpu_res = compiled_hpu(tensor.to("hpu"), dtype, layout, requires_grad, memory_format, torch_func)
 
     assert cpu_res.size() == hpu_res.size()
     assert cpu_res.dtype == hpu_res.dtype
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-150162")
 @pytest.mark.parametrize(
-    "dtype, layout, device",
-    [(torch.int, torch.strided, torch.device("hpu")), (None, None, None)],
+    "dtype, layout, device_none",
+    [(torch.float32, torch.strided, False), (None, None, True)],
 )
-def test_new_empty_strided(dtype, layout, device):
+def test_new_empty_strided(dtype, layout, device_none):
     def fn(tensor, size, stride, dtype, layout, device):
-        return tensor.new_empty_strided(
-            size=size, stride=stride, dtype=dtype, layout=layout, device=device
-        )
+        return tensor.new_empty_strided(size=size, stride=stride, dtype=dtype, layout=layout, device=device)
 
     tensor = torch.randn(4, 3, 2, 5)
     size = (5, 4, 3)
     stride = (2, 3, 5)
 
     compiled_cpu = torch.compile(fn)
-    cpu_result = compiled_cpu(tensor, size, stride, dtype, layout, device)
+    cpu_result = compiled_cpu(tensor, size, stride, dtype, layout, None if device_none else "cpu")
 
     compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
-    hpu_result = compiled_hpu(tensor.to("hpu"), size, stride, dtype, layout, device)
+    hpu_result = compiled_hpu(tensor.to("hpu"), size, stride, dtype, layout, None if device_none else "hpu")
 
     assert hpu_result.size() == cpu_result.size()
     assert hpu_result.dtype == cpu_result.dtype
@@ -126,12 +117,7 @@ def run_test(aten_name, dtype):
         result_hpu = compiled_hpu(
             opinfo.op,
             t_inp.to("hpu"),
-            (
-                *(
-                    arg.to("hpu") if isinstance(arg, torch.Tensor) else arg
-                    for arg in t_args
-                ),
-            ),
+            (*(arg.to("hpu") if isinstance(arg, torch.Tensor) else arg for arg in t_args),),
             t_kwargs,
         )
 
@@ -237,12 +223,11 @@ def test_constant_pad_nd():
 
 
 @pytest.mark.parametrize("dtype", all_dtypes)
-@pytest.mark.parametrize(
-    "torch_func", [torch.logical_and, torch.logical_xor, torch.logical_or]
-)
+@pytest.mark.parametrize("torch_func", [torch.logical_and, torch.logical_xor, torch.logical_or])
 def test_logical_bin_ops(dtype, torch_func):
     if pytest.mode == "compile" and (dtype == torch.int or dtype == torch.int16):
         pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
+
     def raw_function(a, b):
         return torch_func(a, b)
 
@@ -321,6 +306,7 @@ def test_nonzero(shape_in):
 
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
 
+
 @pytest.mark.parametrize(
     "init_val, dtype",
     [
@@ -341,28 +327,30 @@ def test_local_scalar_dense(init_val, dtype):
     hpu_res = compiled_hpu(cpu_tensor.to("hpu"))
 
     if dtype in [torch.double, torch.bfloat16]:
-        assert torch.isclose(
-            torch.tensor([hpu_res]), cpu_tensor.to(torch.float), atol=0.001, rtol=0.001
-        )
+        assert torch.isclose(torch.tensor([hpu_res]), cpu_tensor.to(torch.float), atol=0.001, rtol=0.001)
     else:
         assert hpu_res == init_val
+
 
 @pytest.mark.parametrize("shape_in", [(4, 4)])
 def test_rand(shape_in):
     def fn(shape_in, g):
         return torch.rand(shape_in, generator=g, device="hpu")
+
     torch.manual_seed(123)
-    g = None#torch.Generator()
+    g = None  # torch.Generator()
     compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
     hpu_res1 = compiled_hpu(shape_in, g)
     torch.manual_seed(123)
     hpu_res2 = compiled_hpu(shape_in, g)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
 
+
 @pytest.mark.parametrize("shape_in", [(4, 3)])
 def test_randn(shape_in):
     def fn(shape_in, g):
         return torch.randn(shape_in, generator=g, device="hpu")
+
     g = None
     compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
     torch.manual_seed(123)
@@ -371,10 +359,12 @@ def test_randn(shape_in):
     hpu_res2 = compiled_hpu(shape_in, g)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
 
+
 @pytest.mark.parametrize("shape_in", [(4,)])
 def test_normal_ff(shape_in):
     def fn(mean, stddev, shape_in, g):
         return torch.normal(mean, stddev, shape_in, generator=g, device="hpu")
+
     g = None
     compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
     torch.manual_seed(123)
@@ -393,12 +383,14 @@ def test_normal_ff(shape_in):
     hpu_res6 = compiled_hpu(0.0, 2.0, shape_in, g)
     assert torch.equal(hpu_res5.to("cpu"), hpu_res6.to("cpu"))
 
+
 @pytest.mark.parametrize("shape_in", [(4,)])
 def test_normal_tf(shape_in):
     def fn(mean, g):
         return torch.normal(mean, 1.0, generator=g)
+
     g = None
-    mean=torch.rand(shape_in, dtype=torch.float, device="hpu")
+    mean = torch.rand(shape_in, dtype=torch.float, device="hpu")
     compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
     torch.manual_seed(123)
     hpu_res1 = compiled_hpu(mean, g)
@@ -406,12 +398,14 @@ def test_normal_tf(shape_in):
     hpu_res2 = compiled_hpu(mean, g)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
 
+
 @pytest.mark.parametrize("shape_in", [(4,)])
 def test_normal_ft(shape_in):
     def fn(std, g):
         return torch.normal(0.5, std, generator=g)
+
     g = None
-    std=torch.rand(shape_in, dtype=torch.float, device="hpu")
+    std = torch.rand(shape_in, dtype=torch.float, device="hpu")
     compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
     torch.manual_seed(123)
     hpu_res1 = compiled_hpu(std, g)
@@ -419,13 +413,15 @@ def test_normal_ft(shape_in):
     hpu_res2 = compiled_hpu(std, g)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
 
+
 @pytest.mark.parametrize("shape_in", [(4,)])
 def test_normal_tt(shape_in):
     def fn(mean, std, g):
         return torch.normal(mean, std, generator=g)
-    mean=torch.rand(shape_in, dtype=torch.float, device="hpu")
+
+    mean = torch.rand(shape_in, dtype=torch.float, device="hpu")
     g = None
-    std=torch.rand(shape_in, dtype=torch.float, device="hpu")
+    std = torch.rand(shape_in, dtype=torch.float, device="hpu")
     compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
     torch.manual_seed(123)
     hpu_res1 = compiled_hpu(mean, std, g)
@@ -433,12 +429,14 @@ def test_normal_tt(shape_in):
     hpu_res2 = compiled_hpu(mean, std, g)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
 
+
 @pytest.mark.parametrize("n", [32, 1])
 @pytest.mark.parametrize("g", [None])
 @pytest.mark.parametrize("dtype", [torch.int32, torch.bfloat16, torch.int64])
 def test_randperm(n, g, dtype):
     def fn(n, g, dtype):
         return torch.randperm(n, generator=g, dtype=dtype, device="hpu")
+
     seed = 1234
     compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
     torch.manual_seed(seed)
@@ -446,4 +444,3 @@ def test_randperm(n, g, dtype):
     torch.manual_seed(seed)
     hpu_res2 = compiled_hpu(n, g, dtype)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
-
