@@ -526,8 +526,10 @@ at::Tensor hpu_wrap::repeat_interleave(
       PARAMS2(repeats, output_size),
       Tensor)
 #if IS_PYTORCH_AT_LEAST(2, 2)
-  auto out_size =
-      output_size.has_value() ? output_size.value().expect_int() : 0;
+  std::optional<int64_t> out_size;
+  if (output_size.has_value()) {
+    out_size = output_size.value().expect_int();
+  }
   return repeat_inlv_hpu_lazy(repeats, out_size);
 #else
   return repeat_inlv_hpu_lazy(repeats, output_size);
