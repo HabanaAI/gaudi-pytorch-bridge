@@ -224,6 +224,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/nll_loss_gen.cpp
           backend/nonzero_gen.cpp
           backend/unique2_gen.cpp
+          backend/unique_gen.cpp
           backend/norm_gen.cpp
           backend/normal_gen.cpp
           backend/one_hot_gen.cpp

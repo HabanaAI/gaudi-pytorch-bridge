@@ -7463,11 +7463,6 @@ uniform_:
   op_backend: RandomSeedTensorInput
   schema_args: "(Tensor(a!) self, float from=0, float to=1, *, Tensor seed) -> Tensor(a!)"
 
-_unique:
-  override_fn: _unique_hpu_lazy
-  fallback_check: [UniqueFallbackCheck, sorted]
-  dtypes: [BFloat16, Float, Int]
-
 unique_dim:
   override_fn: unique_dim_hpu_lazy
   fallback_check: [UniqueFallbackCheck, sorted]

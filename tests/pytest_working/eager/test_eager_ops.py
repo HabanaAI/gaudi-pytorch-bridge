@@ -14,7 +14,7 @@
 import numpy as np
 import pytest
 import torch
-from test_utils import is_gaudi1
+from test_utils import format_tc, is_gaudi1
 
 
 @pytest.mark.parametrize(
@@ -23,7 +23,7 @@ from test_utils import is_gaudi1
         ((2,), (1,)),
         ((2, 3), (2, 3)),
         ((6,), (6, 0)),
-    ],
+    ], ids=format_tc
 )
 def test_equal(data1, data2):
     cpu_tensor1 = torch.Tensor(data1).type(torch.float32)
@@ -40,7 +40,7 @@ def test_equal(data1, data2):
 
 @pytest.mark.parametrize(
     "shape_in, shape_out",
-    [((2, 3), (4, 6)), ((4, 6), (2, 3)), ((2, 3, 4, 5), (3, 4, 5, 6))],
+    [((2, 3), (4, 6)), ((4, 6), (2, 3)), ((2, 3, 4, 5), (3, 4, 5, 6))], ids=format_tc
 )
 @pytest.mark.parametrize("blocking_flag", [True, False])
 def test_resize_inplace(shape_in, shape_out, blocking_flag):
@@ -614,6 +614,213 @@ def test_unique2(tensor_in, return_inverse, return_sorted, return_counts):
             assert torch.equal(counts, t3)
     else:
         assert isinstance(counts, type(None))
+
+@pytest.mark.parametrize(
+    "tensor_in",
+    [
+        torch.tensor(
+            [[11, 33, 22], [44, 55, 66], [77, 99, 99], [77, 99, 99]],
+            dtype=torch.int32,
+        ),
+        torch.tensor([[11, 33, 11]], dtype=torch.int32),
+        torch.tensor(
+            [
+                [11.0, 33.0, 22.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+            ],
+            dtype=torch.float32,
+        ),
+        torch.tensor([[11.0, 33.0, 11.0]], dtype=torch.float32),
+        torch.empty((0, 4), dtype=torch.float32),
+        torch.empty((0, 4), dtype=torch.int32),
+        torch.randn([2, 4, 5, 7], dtype=torch.float32),
+        torch.randint(-1000, 1000, (2, 4, 5, 7), dtype=torch.int32),
+        torch.tensor(
+            [[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]],
+            dtype=torch.float32,
+        ),
+        torch.tensor(
+            [[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32
+        ),
+    ],
+)
+@pytest.mark.parametrize("return_inverse", [True, False])
+@pytest.mark.parametrize("return_sorted", [True, False])
+@pytest.mark.parametrize("return_counts", [True, False])
+def test_unique2_delegate(tensor_in, return_inverse, return_sorted, return_counts):
+    self = tensor_in
+    unique_cpu = torch.unique(
+        self,
+        return_inverse=return_inverse,
+        sorted=return_sorted,
+        return_counts=return_counts,
+    )
+    unique_hpu = torch.unique(
+        self.to("hpu"),
+        return_inverse=return_inverse,
+        sorted=return_sorted,
+        return_counts=return_counts,
+    )
+    
+    if return_counts and return_inverse:
+        feature_map_cpu, inverse_cpu, counts_cpu = unique_cpu
+        feature_map, inverse, counts = unique_hpu
+    if return_counts and not return_inverse:
+        feature_map_cpu, counts_cpu = unique_cpu
+        feature_map, counts = unique_hpu
+    if not return_counts and return_inverse:
+        feature_map_cpu, inverse_cpu = unique_cpu
+        feature_map, inverse = unique_hpu
+    if not return_counts and not return_inverse:
+        feature_map_cpu = unique_cpu
+        feature_map = unique_hpu
+   
+    feature_map = feature_map.to("cpu")
+    if return_inverse:
+        inverse = inverse.to("cpu")
+    if return_counts:
+        counts = counts.to("cpu")
+    # # NOTE - unique is nondeterministic when returning an unsorted result,
+    # # the tensors are sorted for further comparison to succeed
+    if not return_sorted:
+        feature_map_cpu = feature_map_cpu.sort()[0]
+        feature_map = feature_map.sort()[0]
+    assert torch.allclose(feature_map, feature_map_cpu)
+    if return_inverse:
+        #     # NOTE - unique is nondeterministic when returning an unsorted result,
+        #     # the inverse tensor will not be valid in such case, hence the disabled assertion
+        if return_sorted:
+            assert torch.equal(inverse, inverse_cpu)
+    if return_counts:
+        #     # NOTE - unique is nondeterministic when returning an unsorted result,
+        #     # the inverse tensor will not be valid in such case, hence the disabled assertion
+        if return_sorted:
+            assert torch.equal(counts, counts_cpu)
+
+@pytest.mark.parametrize(
+    "tensor_in",
+    [
+        torch.tensor(
+            [[11, 33, 22], [44, 55, 66], [77, 99, 99], [77, 99, 99]],
+            dtype=torch.int32,
+        ),
+        torch.tensor([[11, 33, 11]], dtype=torch.int32),
+        torch.tensor(
+            [
+                [11.0, 33.0, 22.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+                [44.0, 55.0, 66.0],
+            ],
+            dtype=torch.float32,
+        ),
+        torch.tensor([[11.0, 33.0, 11.0]], dtype=torch.float32),
+        torch.empty((0, 4), dtype=torch.float32),
+        torch.empty((0, 4), dtype=torch.int32),
+        torch.randn([2, 4, 5, 7], dtype=torch.float32),
+        torch.randint(-1000, 1000, (2, 4, 5, 7), dtype=torch.int32),
+        torch.tensor(
+            [[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]],
+            dtype=torch.float32,
+        ),
+        torch.tensor(
+            [[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32
+        ),
+    ],
+)
+@pytest.mark.parametrize("return_inverse", [True, False])
+@pytest.mark.parametrize("return_sorted", [True, False])
+@pytest.mark.parametrize("return_counts", [True, False])
+def test_unique2_tensor_delegate(tensor_in, return_inverse, return_sorted, return_counts):
+    self = tensor_in
+    unique_cpu = torch.Tensor.unique(
+        self,
+        return_inverse=return_inverse,
+        sorted=return_sorted,
+        return_counts=return_counts,
+    )
+    unique_hpu = torch.Tensor.unique(
+        self.to("hpu"),
+        return_inverse=return_inverse,
+        sorted=return_sorted,
+        return_counts=return_counts,
+    )
+   
+    if return_counts and return_inverse:
+        feature_map_cpu, inverse_cpu, counts_cpu = unique_cpu
+        feature_map, inverse, counts = unique_hpu
+    if return_counts and not return_inverse:
+        feature_map_cpu, counts_cpu = unique_cpu
+        feature_map, counts = unique_hpu
+    if not return_counts and return_inverse:
+        feature_map_cpu, inverse_cpu = unique_cpu
+        feature_map, inverse = unique_hpu
+    if not return_counts and not return_inverse:
+        feature_map_cpu = unique_cpu
+        feature_map = unique_hpu
+
+    feature_map = feature_map.to("cpu")
+    if return_inverse:
+        inverse = inverse.to("cpu")
+    if return_counts:
+        counts = counts.to("cpu")
+    # # NOTE - unique is nondeterministic when returning an unsorted result,
+    # # the tensors are sorted for further comparison to succeed
+    if not return_sorted:
+        feature_map_cpu = feature_map_cpu.sort()[0]
+        feature_map = feature_map.sort()[0]
+    assert torch.allclose(feature_map, feature_map_cpu)
+    if return_inverse:
+        #     # NOTE - unique is nondeterministic when returning an unsorted result,
+        #     # the inverse tensor will not be valid in such case, hence the disabled assertion
+        if return_sorted:
+            assert torch.equal(inverse, inverse_cpu)
+    if return_counts:
+        #     # NOTE - unique is nondeterministic when returning an unsorted result,
+        #     # the inverse tensor will not be valid in such case, hence the disabled assertion
+        if return_sorted:
+            assert torch.equal(counts, counts_cpu)
+     
+@pytest.mark.parametrize(
+    "tensor_in",
+    [
+        torch.tensor([[11, 33, 22], [44, 55, 66], [77, 99, 99], [77, 99, 99]], dtype=torch.int32),
+        torch.tensor([[11, 33, 11]], dtype=torch.int32),
+        torch.tensor(
+            [[11.0, 33.0, 22.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0], [44.0, 55.0, 66.0]], dtype=torch.float32
+        ),
+        torch.tensor([[11.0, 33.0, 11.0]], dtype=torch.float32),
+        torch.empty((0, 4), dtype=torch.float32),
+        torch.empty((0, 4), dtype=torch.int32),
+        torch.randn([2, 4, 5, 7], dtype=torch.float32),
+        torch.randint(-1000, 1000, (2, 4, 5, 7), dtype=torch.int32),
+        torch.tensor([[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
+        torch.tensor([[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
+    ],
+)
+@pytest.mark.parametrize("return_inverse", [True, False])
+@pytest.mark.parametrize("return_sorted", [True, False])
+def test_unique(tensor_in, return_inverse, return_sorted):
+    self = tensor_in
+    unique_cpu = torch._unique(self, return_inverse=return_inverse, sorted=return_sorted)
+    t1, t2 = unique_cpu
+    feature_map, inverse = torch._unique(self.to("hpu"), return_inverse=return_inverse, sorted=return_sorted)
+    feature_map = feature_map.to("cpu")
+    # NOTE - unique is nondeterministic when returning an unsorted result,
+    # the tensors are sorted for further comparison to succeed
+    if not return_sorted:
+        t1 = t1.sort()[0]
+        feature_map = feature_map.sort()[0]
+    assert torch.allclose(feature_map, t1)
+    if return_inverse:
+        # NOTE - unique is nondeterministic when returning an unsorted result,
+        # the inverse tensor will not be valid in such case, hence the disabled assertion
+        if return_sorted:
+            assert torch.equal(inverse.to("cpu"), t2)
+    else:
+        assert isinstance(inverse, type(None))
 
 
 # For Scalars to() operator and item() are going with different paths for scalars

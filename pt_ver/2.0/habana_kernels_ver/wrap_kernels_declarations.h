@@ -59,6 +59,10 @@ at::Tensor& _index_put_impl_(
     bool accumulate,
     bool unsafe);
 at::Tensor nonzero(const at::Tensor& self);
+::std::tuple<at::Tensor, at::Tensor> _unique(
+    const at::Tensor& self,
+    bool sorted = true,
+    bool return_inverse = false);
 ::std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2(
     const at::Tensor& self,
     bool sorted = true,

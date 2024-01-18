@@ -20,6 +20,7 @@
 #include "habana_eager/ops/masked_select.h"
 #include "habana_eager/ops/nonzero.h"
 #include "habana_eager/ops/set.h"
+#include "habana_eager/ops/unique.h"
 #include "habana_eager/ops/unique2.h"
 #include "habana_eager/ops/view.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
@@ -189,6 +190,13 @@ at::Tensor& hpu_wrap::_index_put_impl_(
 
   return habana::eager::_index_put_impl_eager(
       self, indices, values, accumulate, unsafe);
+}
+
+::std::tuple<at::Tensor, at::Tensor> hpu_wrap::_unique(
+    const at::Tensor& self,
+    bool sorted,
+    bool return_inverse) {
+  return habana::eager::_unique_eager(self, sorted, return_inverse);
 }
 
 at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {

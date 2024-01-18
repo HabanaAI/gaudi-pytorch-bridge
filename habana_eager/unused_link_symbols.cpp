@@ -160,6 +160,13 @@ at::Tensor nonzero_hpu_lazy(const at::Tensor&) {
   EAGER_NOT_SUPPORTED;
 }
 
+::std::tuple<at::Tensor, at::Tensor> _unique_hpu_lazy(
+    const at::Tensor&,
+    bool,
+    bool) {
+  EAGER_NOT_SUPPORTED;
+}
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor> unique2_hpu_lazy(
     const at::Tensor&,
     bool,

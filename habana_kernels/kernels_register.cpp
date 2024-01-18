@@ -263,6 +263,13 @@ at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {
   return nonzero_hpu_lazy(self);
 }
 
+::std::tuple<at::Tensor, at::Tensor> hpu_wrap::_unique(
+    const at::Tensor& self,
+    bool sorted,
+    bool return_inverse) {
+  return _unique_hpu_lazy(self, sorted, return_inverse);
+}
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::_unique2(
     const at::Tensor& self,
     bool sorted,

@@ -265,7 +265,9 @@ tril                                   Yes      Yes      No        No       No  
 triu                                   Yes      Yes      No        No       No     torch
 trunc                                  Yes      Yes      No        No       No     torch
 unbind                                 Yes      Yes      Yes       No       No     torch
-unique                                 Yes      Yes      No        No       No     torch
+unique                                 Yes      No       Yes       No       No     torch
+_unique                                Yes      No       Yes       No       No     torch
+_unique2                               Yes      No       Yes       No       No     torch
 unsqueeze                              Yes      Yes      Yes       No       No     torch
 var                                    Yes      Yes      No        No       No     torch
 var_mean                               Yes      Yes      No        No       No     torch
@@ -589,7 +591,7 @@ trunc\_                                Yes      Yes      No        No       No  
 unbind                                 Yes      Yes      Yes       No       No     torch.Tensor
 unsqueeze                              Yes      Yes      Yes       No       No     torch.Tensor
 uniform\_                              Yes      Yes      No        No       No     torch.Tensor
-unique                                 Yes      Yes      No        No       No     torch.Tensor
+unique                                 Yes      No       Yes       No       No     torch.Tensor
 var                                    Yes      Yes      No        No       No     torch.Tensor
 vdot                                   Yes      Yes      No        No       No     torch.Tensor
 view                                   Yes      No       No        No       No     torch.Tensor

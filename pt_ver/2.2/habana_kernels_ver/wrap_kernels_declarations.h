@@ -64,6 +64,10 @@ at::Tensor nonzero(const at::Tensor& self);
     bool sorted = true,
     bool return_inverse = false,
     bool return_counts = false);
+::std::tuple<at::Tensor, at::Tensor> _unique(
+    const at::Tensor& self,
+    bool sorted = true,
+    bool return_inverse = false);
 at::Tensor repeat_interleave(
     const at::Tensor& self,
     c10::optional<c10::SymInt> output_size);
