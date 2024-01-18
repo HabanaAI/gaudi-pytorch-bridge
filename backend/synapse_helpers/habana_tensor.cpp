@@ -635,12 +635,32 @@ tensor tensor::create_placeholder(
     const std::string& suffix,
     synTensorType tensor_type,
     bool tensor_id_inc_flag) {
+  return create_placeholder(
+      syn_device,
+      pt_shape,
+      pt_stride,
+      synDataType::syn_type_na,
+      persistent,
+      suffix,
+      tensor_type,
+      tensor_id_inc_flag);
+}
+
+tensor tensor::create_placeholder(
+    synDeviceId syn_device,
+    const std::vector<int64_t>& pt_shape,
+    const std::vector<int64_t>& pt_stride,
+    synDataType data_type,
+    bool persistent,
+    const std::string& suffix,
+    synTensorType tensor_type,
+    bool tensor_id_inc_flag) {
   auto tensor_id = detail::tensor_name_generator::get_tensor_id();
   auto name =
       detail::tensor_name_generator::generate(suffix, tensor_id_inc_flag);
   tensor tensor{
       syn_device,
-      synDataType::syn_type_na,
+      data_type,
       0,
       shape_t{0_D},
       shape_t{0_D},

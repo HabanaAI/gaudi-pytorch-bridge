@@ -196,20 +196,21 @@ synapse_helpers::tensor create_tensor(
         habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
   }
 
+  auto syn_dtype =
+      pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type()));
+  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
         tensor.device().index(),
         tensor.sizes().vec(),
         calculate_strides(tensor.sizes().vec()),
+        syn_dtype,
         persistent,
         name,
         DATA_TENSOR);
   }
-
-  auto syn_dtype =
-      pytorch_to_synapse_type(dtype.value_or(tensor.scalar_type()));
-  auto tmeta{habana::get_tensor_extra_meta(tensor)};
 
   std::vector<int64_t> min, max;
   if (graph.is_dynamic_graph()) {
@@ -388,6 +389,7 @@ synapse_helpers::tensor create_tensor(
         tensor.device().index(),
         tensor.sizes().vec(),
         calculate_strides(tensor.sizes().vec()),
+        synType,
         persistent,
         name);
   }
@@ -789,6 +791,7 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section(
         tensor.device_id(),
         tensor.pt_shape(),
         tensor.pt_strides(),
+        tensor.type(),
         tensor.is_persistent());
   }
 
@@ -842,7 +845,11 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
-        tensor.device_id(), sizes, strides, tensor.is_persistent());
+        tensor.device_id(),
+        sizes,
+        strides,
+        tensor.type(),
+        tensor.is_persistent());
   }
 
   TORCH_CHECK(
