@@ -101,8 +101,13 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
 
     # https://github.com/pytorch/pytorch/issues/75465
     # bool has issue with JIT scalar representation
-    if op_name == "full" and isinstance(node.args[1], bool):
-        return True
+    # in the bool_fallback_list key is op_name and value is a list of
+    # arguments that cannot be of type bool
+    bool_fallback_list: Dict[str, List[int]] = {"full": [1], "mul": [1]}
+    if op_name in bool_fallback_list:
+        for idx in bool_fallback_list[op_name]:
+            if isinstance(node.args[idx], bool):
+                return True
 
     if is_dynamic:
         #The key is op_name and value is a list of inputs that cannot be ndims tensors
