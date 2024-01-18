@@ -28,6 +28,16 @@
 namespace c10 {
 namespace hpu {
 
+static JoinEagerThreads join_eager_threads_cb = nullptr;
+void setJoinEagerThreadsCB(JoinEagerThreads cb) {
+  join_eager_threads_cb = cb;
+}
+void joinEagerThreadsCB() {
+  if (join_eager_threads_cb != nullptr) {
+    join_eager_threads_cb();
+  }
+}
+
 namespace {
 
 // Global stream state and constants
@@ -105,6 +115,8 @@ bool HPUStream::query() const {
         return false;
       }
     }
+  } else if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+    joinEagerThreadsCB();
   }
   if (hpu_stream_id == 0) {
     return device.query_default_stream();
@@ -143,6 +155,8 @@ void HPUStream::synchronize() const {
       PT_IRGRAPH_DEBUG("step marker due to HPUStream::synchronize userthread");
       habana_lazy::HbLazyTensor::StepMarkerFinish(!is_main_thread);
     }
+  } else if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+    joinEagerThreadsCB();
   }
   if (hpu_stream_id == 0) {
     device.synchronize_default_stream();
@@ -207,7 +221,22 @@ void setCurrentHPUStream(HPUStream stream) {
   if (*current_streams != stream.id()) {
     if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1) {
       habana_lazy::HbLazyTensor::StepMarkerBind();
+    } else if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+      joinEagerThreadsCB();
+
+      if (*current_streams == 0) {
+        auto& device = habana::HPURegistrar::get_device().syn_device();
+        synapse_helpers::hpuEvent_t id = device.create_event(false);
+        device.record_event(id, *current_streams);
+        device.wait_event(id, stream.id());
+        device.delete_event(id, false);
+      }
     }
+    PT_DEVICE_DEBUG(
+        "STREAM:: setCurrentHPUStream current stream::",
+        *current_streams,
+        " To stream::",
+        stream.id());
 
     *current_streams = stream.id();
   }

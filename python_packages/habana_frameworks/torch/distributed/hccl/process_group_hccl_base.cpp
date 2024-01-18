@@ -827,9 +827,6 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
           static_cast<int64_t>(i % num_devices),
           opts.timeout};
       work = _broadcast_oop(outputs_multi_dev, inputs_multi_dev, broadcastOpts);
-      if (i != num_reduces - 1) {
-        work->wait();
-      }
     }
     return work;
   }

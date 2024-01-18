@@ -42,7 +42,10 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
   class WorkEager : public Work,
                     public std::enable_shared_from_this<WorkEager> {
    public:
-    WorkEager(const std::vector<at::Tensor>& outputs);
+    WorkEager(
+        const std::vector<at::Tensor>& outputs,
+        std::shared_ptr<hcclComm_t> hccl_comm_,
+        std::shared_ptr<hccl_integration::device_context> deviceCtx);
     WorkEager();
     WorkEager(const WorkEager& w) = delete;
     virtual ~WorkEager();
@@ -54,6 +57,11 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
     c10::intrusive_ptr<c10::ivalue::Future> getFuture() override;
 
    protected:
+    std::vector<at::Tensor> outputs_;
+    std::shared_ptr<hcclComm_t> hccl_comm_;
+    std::shared_ptr<hccl_integration::device_context> deviceCtx_;
+    // Time point representing when the work started.
+    std::chrono::time_point<std::chrono::steady_clock> workStartTime_;
     c10::intrusive_ptr<at::ivalue::Future> future_;
     friend class ProcessGroupEagerHCCL;
   };

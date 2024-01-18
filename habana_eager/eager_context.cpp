@@ -16,6 +16,7 @@
 #include <future>
 #include <memory>
 #include <mutex>
+#include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/eager_pipeline.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
@@ -33,6 +34,7 @@ void SingleTonEagerContext::CreateInstance() {
   instance_.reset(new SingleTonEagerContext());
   habana::hpu_registrar().register_eager_context(
       []() { instance_.reset(nullptr); });
+  c10::hpu::setJoinEagerThreadsCB(habana::eager::JoinPendingPipelineThreads);
 }
 
 void SingleTonEagerContext::JoinPendingLoweringThread() {

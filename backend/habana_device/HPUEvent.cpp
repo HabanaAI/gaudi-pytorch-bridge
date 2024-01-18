@@ -14,6 +14,7 @@
 //#include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/HPUEvent.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "habana_eager/eager_context.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 
 namespace at {
@@ -94,6 +95,8 @@ void HPUEvent::record(const c10::hpu::HPUStream& stream) {
       habana_lazy::HbLazyTensor::StepMarker(
           {}, nullptr, {}, (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SFG) == true));
     }
+  } else if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+    c10::hpu::joinEagerThreadsCB();
   }
 
   device.record_event(id_, stream.stream());

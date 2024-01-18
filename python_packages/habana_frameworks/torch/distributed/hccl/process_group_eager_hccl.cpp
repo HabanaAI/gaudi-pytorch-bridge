@@ -161,8 +161,14 @@ ProcessGroupEagerHCCL::~ProcessGroupEagerHCCL() {
 };
 
 ProcessGroupEagerHCCL::WorkEager::WorkEager(
-    const std::vector<at::Tensor>& outputs)
-    : future_(c10::make_intrusive<at::ivalue::Future>(
+    const std::vector<at::Tensor>& outputs,
+    std::shared_ptr<hcclComm_t> hccl_comm,
+    std::shared_ptr<hccl_integration::device_context> deviceCtx)
+    : outputs_(outputs),
+      hccl_comm_(hccl_comm),
+      deviceCtx_(deviceCtx),
+      workStartTime_(std::chrono::steady_clock::now()),
+      future_(c10::make_intrusive<at::ivalue::Future>(
           c10::ListType::create(c10::TensorType::get()))) {
   future_->markCompleted(at::IValue(outputs));
 }
@@ -173,18 +179,25 @@ ProcessGroupEagerHCCL::WorkEager::WorkEager()
   future_->markCompleted();
 }
 
-ProcessGroupEagerHCCL::WorkEager::~WorkEager() {}
+ProcessGroupEagerHCCL::WorkEager::~WorkEager() {
+  outputs_.clear();
+}
 
 bool ProcessGroupEagerHCCL::WorkEager::isCompleted() {
-  return true;
+  return exception() || wait(); // check for the completion of work;
 }
 
 bool ProcessGroupEagerHCCL::WorkEager::isSuccess() const {
+  if (exception()) {
+    // Already detected an exception.
+    return false;
+  }
   return true;
 }
 
 bool ProcessGroupEagerHCCL::WorkEager::wait(std::chrono::milliseconds timeout
                                             [[maybe_unused]]) {
+  synchronize();
   return true;
 }
 
@@ -192,7 +205,15 @@ void ProcessGroupEagerHCCL::WorkEager::abort() {
   HABANA_ASSERT(false, __FUNCTION__, " not implemented");
 }
 
-void ProcessGroupEagerHCCL::WorkEager::synchronize() {}
+void ProcessGroupEagerHCCL::WorkEager::synchronize() {
+  for (size_t i = 0; i < outputs_.size(); ++i) {
+    deviceCtx_->synchronize_output(
+        (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get(),
+        (c10::hpu::getCurrentHPUStream()).stream());
+  }
+  outputs_.clear();
+  deviceCtx_.reset();
+}
 
 c10::intrusive_ptr<c10::ivalue::Future> ProcessGroupEagerHCCL::WorkEager::
     getFuture() {
@@ -207,12 +228,12 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
 
   habana::eager::JoinPendingPipelineThreads();
 
+  auto deviceCtxt = comm_->getDeviceCtxt();
   for (auto& input_output : collective_ctx.tensors()) {
     at::Tensor& tensor = input_output.first;
     TORCH_CHECK(
         tensor.get_device() == 0,
         "All tensors are expected to be assigned to device with id 0");
-    auto deviceCtxt = comm_->getDeviceCtxt();
     synStreamHandle collective_stream = comm_->getCommStream();
 
     synapse_helpers::device_ptr tensor_storage_ptr =
@@ -250,7 +271,8 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
         });
   }
 
-  auto work = c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(tensors);
+  auto work = c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(
+      tensors, comm_->GetHcclHandle(), deviceCtxt);
   return work;
 }
 
@@ -266,6 +288,7 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
   CollectiveContext collective_ctx(inputs, outputs);
 
   habana::eager::JoinPendingPipelineThreads();
+  auto deviceCtxt = comm_->getDeviceCtxt();
 
   for (auto& input_output : collective_ctx.tensors()) {
     at::Tensor& input = input_output.first;
@@ -282,7 +305,6 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
     TORCH_CHECK(
         input.get_device() == 0 && output.get_device() == 0,
         "All tensors are expected to be assigned to device with id 0");
-    auto deviceCtxt = comm_->getDeviceCtxt();
     synStreamHandle collective_stream = comm_->getCommStream();
 
     synapse_helpers::device_ptr input_storage_ptr =
@@ -335,7 +357,8 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
         });
   }
 
-  auto work = c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(outputs);
+  auto work = c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(
+      outputs, comm_->GetHcclHandle(), deviceCtxt);
   return work;
 }
 

@@ -73,6 +73,8 @@
  * priority
  */
 
+typedef void (*JoinEagerThreads)(void);
+
 namespace c10 {
 namespace hpu {
 
@@ -195,10 +197,12 @@ class HPUStream {
 
   // Deleted for now; use HPUEvent::block instead
   // void synchronize_with(const HPUEvent& event) const;
-
  private:
   Stream stream_;
 };
+
+void setJoinEagerThreadsCB(JoinEagerThreads cb);
+void joinEagerThreadsCB();
 
 /**
  * Get a new stream from the HPU stream pool.  You can think of this
