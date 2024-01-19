@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -287,24 +287,6 @@ def test_op_unbind():
         t1_hpu = t1.to("hpu")
         h_result = compiled_fn(t1_hpu)
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
-
-
-def test_op_expand():
-    shapes = [[-1, 4], [3, 10], [3, 5], [-1, 6]]
-
-    def raw_function(input, shape):
-        return input.expand(shape).abs()
-
-    compiled_fn = torch.compile(
-        raw_function, backend="aot_hpu_training_backend", dynamic=True
-    )
-
-    for shape in shapes:
-        input = torch.randn(3, 1)
-        result = raw_function(input, shape)
-        input_hpu = input.to("hpu")
-        result_hpu = compiled_fn(input_hpu, shape)
-        assert torch.allclose(result_hpu.to("cpu"), result, atol=0, rtol=0)
 
 
 def test_op_as_strided_ratio_flow():
@@ -605,13 +587,11 @@ def test_dynamicity_static_dynamic_and_automatic():
 
     # Automatic Dynamicity Defaut = None
     torch._dynamo.reset()
-    compiled_function_training = torch.compile(
-        raw_function, backend="aot_hpu_training_backend"
-    )
+    compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
 
-    for s1, s1_1, s2 in zip(inputs, inputs1, shapes):
-        t = torch.randn(s1, requires_grad=False)
-        t2 = torch.randn(s1_1, requires_grad=False)
+    for s1 , s1_1 , s2 in zip(inputs, inputs1, shapes):
+        t = torch.randn(s1, requires_grad = False)
+        t2 = torch.randn(s1_1, requires_grad = False)
         t_h = t.to("hpu")
         t2_h = t2.to("hpu")
         result_compile_train = compiled_function_training(t_h, s2, t2_h)
@@ -620,13 +600,11 @@ def test_dynamicity_static_dynamic_and_automatic():
 
     # Static Compile Dynamicity False
     torch._dynamo.reset()
-    compiled_function_training = torch.compile(
-        raw_function, backend="aot_hpu_training_backend", dynamic=False
-    )
+    compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=False)
 
-    for s1, s1_1, s2 in zip(inputs, inputs1, shapes):
-        t = torch.randn(s1, requires_grad=False)
-        t2 = torch.randn(s1_1, requires_grad=False)
+    for s1 , s1_1 , s2 in zip(inputs, inputs1, shapes):
+        t = torch.randn(s1, requires_grad = False)
+        t2 = torch.randn(s1_1, requires_grad = False)
         t_h = t.to("hpu")
         t2_h = t2.to("hpu")
         result_compile_train = compiled_function_training(t_h, s2, t2_h)
@@ -635,13 +613,11 @@ def test_dynamicity_static_dynamic_and_automatic():
 
     # Dynamic Compile Dynamicity=True
     torch._dynamo.reset()
-    compiled_function_training = torch.compile(
-        raw_function, backend="aot_hpu_training_backend", dynamic=True
-    )
+    compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
 
-    for s1, s1_1, s2 in zip(inputs, inputs1, shapes):
-        t = torch.randn(s1, requires_grad=False)
-        t2 = torch.randn(s1_1, requires_grad=False)
+    for s1 , s1_1 , s2 in zip(inputs, inputs1, shapes):
+        t = torch.randn(s1, requires_grad = False)
+        t2 = torch.randn(s1_1, requires_grad = False)
         t_h = t.to("hpu")
         t2_h = t2.to("hpu")
         result_compile_train = compiled_function_training(t_h, s2, t2_h)

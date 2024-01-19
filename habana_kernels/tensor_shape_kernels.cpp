@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -858,12 +858,7 @@ void SplitWithSizeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   HabanaOperator::SetPTOutputs(splits);
 }
 
-TORCH_LIBRARY_FRAGMENT(aten, m) {
-  m.def(
-      "expand.ds(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
-}
-
-static const auto& TensorShapeKernelsKernelRegistry =
+static auto& TensorShapeKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::permute", KERNEL_FN_GLOBAL(PermuteOperator))
         .add("hpu::permute", KERNEL_FN_GLOBAL(PermuteOperator))
@@ -874,7 +869,8 @@ static const auto& TensorShapeKernelsKernelRegistry =
         .add("aten::transpose.int", KERNEL_FN_GLOBAL(TransposeOperator))
         .add("aten::reshape", KERNEL_FN_GLOBAL(ReshapeOperator))
         .add("aten::flatten", KERNEL_FN_GLOBAL(FlattenOperator))
-        .add("aten::expand.ds", KERNEL_FN_GLOBAL(BroadcastOperator))
+        .add("hpu::expand", KERNEL_FN_GLOBAL(BroadcastOperator))
+        .add("hpu::expand_ds", KERNEL_FN_GLOBAL(BroadcastOperator))
         .add("aten::view", KERNEL_FN_GLOBAL(ViewOperator))
         .add("hpu::view", KERNEL_FN_GLOBAL(ViewOperator))
         .add("hpu::view_neg", KERNEL_FN_GLOBAL(ViewOperator))

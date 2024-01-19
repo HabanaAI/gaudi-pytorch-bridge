@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -30,7 +30,6 @@ using ValueIvalueMap = std::unordered_map<CValPtr, IValPtrShared>;
 
 struct SymIntData {
   std::vector<int64_t> values;
-  c10::SmallVector<int64_t, 8> lookup_data;
 };
 
 using InputPatchFnPtr = std::function<void(
