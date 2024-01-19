@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -57,4 +57,13 @@ at::DeleterFnPtr PinnedMemoryAllocator::raw_deleter() const {
   return &PinnedMemoryAllocator::deleter;
 }
 
+#if IS_PYTORCH_AT_LEAST(2, 3)
+void PinnedMemoryAllocator::copy_data(
+    [[maybe_unused]] void* dest,
+    [[maybe_unused]] const void* src,
+    [[maybe_unused]] std::size_t count) const {
+  TORCH_CHECK_NOT_IMPLEMENTED(
+      false, "Not implemented for PinnedMemoryAllocator");
+}
+#endif
 } // namespace habana

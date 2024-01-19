@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -18,6 +18,7 @@
 #include "backend/habana_device/HPUStream.h"
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 #include <map>
 
@@ -70,6 +71,9 @@ class HPUDeviceAllocator final : public at::Allocator {
       bool show_leaked_callstacks);
   static void memstat_devmem_stop_collect(const char* msg);
   static void dump_memory_reporter();
+#if IS_PYTORCH_AT_LEAST(2, 3)
+  void copy_data(void* dest, const void* src, std::size_t count) const override;
+#endif
 };
 
 } // namespace habana

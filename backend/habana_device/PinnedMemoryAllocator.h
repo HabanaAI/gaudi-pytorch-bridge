@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -15,6 +15,7 @@
 #include <c10/core/Allocator.h>
 #include <synapse_api_types.h>
 #include "backend/synapse_helpers/device.h"
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 namespace habana {
 
@@ -29,6 +30,9 @@ class PinnedMemoryAllocator final : public at::Allocator {
   at::DeleterFnPtr raw_deleter() const override;
   static void deleter(void* ptr);
 
+#if IS_PYTORCH_AT_LEAST(2, 3)
+  void copy_data(void* dest, const void* src, std::size_t count) const override;
+#endif
   // user must manually set active device before calling allocator functions
   static synDeviceId allocator_active_device_id;
 };

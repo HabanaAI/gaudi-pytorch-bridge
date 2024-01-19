@@ -19,7 +19,6 @@
 #include <vector>
 
 #include <iostream>
-#include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/HPUStream.h"
 #include "habana_lazy/hpu_lazy_tensors.h"

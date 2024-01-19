@@ -14,7 +14,6 @@
 #include <ATen/Tensor.h>
 #include <torch/library.h>
 
-#include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/tensor_utils.h"
 #include "common/dump_args.h"
 #include "habana_eager/ops/eager_op.h"

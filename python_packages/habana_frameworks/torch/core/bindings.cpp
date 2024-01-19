@@ -13,7 +13,6 @@
 #include <pybind11/chrono.h>
 #include <torch/extension.h>
 #include "backend/backend_meta.h"
-#include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/kernel/hpu_habana_cache.h"
 #include "habana_kernels/fallback_helper.h"

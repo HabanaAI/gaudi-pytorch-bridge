@@ -17,7 +17,6 @@
 #include <torch/torch.h>
 #include <algorithm>
 #include <memory>
-#include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/habana_device/tensor_builder.h"

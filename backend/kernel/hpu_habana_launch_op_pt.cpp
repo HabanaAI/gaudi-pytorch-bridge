@@ -27,7 +27,6 @@
 #include <typeinfo>
 #include <unordered_map>
 #include "backend/backend_meta.h"
-#include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/compilation_statistics.h"
 #include "backend/helpers/create_tensor.h"

@@ -13,7 +13,6 @@
 
 #include "backend/habana_device/HPUDevice.h"
 #include <memory>
-#include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/scalar_cache.h"

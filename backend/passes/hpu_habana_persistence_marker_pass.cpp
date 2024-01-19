@@ -22,7 +22,6 @@
 
 #include <torch/csrc/api/include/torch/version.h>
 
-#include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/control_edges_processing.h"
 #include "backend/passes/hpu_habana_persistence_marker_pass.h"

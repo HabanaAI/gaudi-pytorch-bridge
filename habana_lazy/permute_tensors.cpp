@@ -14,7 +14,6 @@
 #include "habana_lazy/permute_tensors.h"
 #include <c10/core/Storage.h>
 #include <cstddef>
-#include "backend/habana_device/HPUAllocator.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels.h"
