@@ -12,7 +12,6 @@
  */
 
 #include "habana_eager/graph_weight_permute.h"
-#include "habana_eager/eager_context.h"
 #include "habana_eager/graph_exec.h"
 #include "habana_eager/ops/copy_from.h"
 #include "habana_helpers/logging.h"
@@ -29,9 +28,6 @@ PermuteWeightTensor::PermuteWeightTensor(const torch::Tensor& weight)
 
 void PermuteWeightTensor::PermuteIfNeeded() {
   if (ShouldPermuteWeight()) {
-    // Permutation is done on CPU and is not scheduled on pipeline - we need to
-    // synchronize to make sure input tensors are computed.
-    habana::eager::JoinPendingPipelineThreads();
     PT_EAGER_TRACE;
     HABANA_ASSERT(
         m_tensor_dim == 4 || m_tensor_dim == 5,
