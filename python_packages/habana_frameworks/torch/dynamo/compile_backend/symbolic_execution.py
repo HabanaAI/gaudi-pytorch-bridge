@@ -17,7 +17,9 @@ import torch
 
 from sympy import sympify
 from sympy.printing.printer import Printer
+from .logger import get_compile_backend_logger
 
+logger = get_compile_backend_logger()
 
 class CSEVariable:
     """A CSEVariable is just a name for an expression but it is useful to be able to annotate them on a backend dependent basis
@@ -97,6 +99,7 @@ class PythonPrinter(ExprPrinter):
         return f"math.floor({self.paren(self._print(expr.args[0]))})"
 
 class SymExprNodeManager():
+    node_name = "symexpr_py"
     def __init__(self, graph_module: torch.fx.GraphModule):
         self._graph_module = graph_module
         self._sym_expr_to_node_map = {}
@@ -119,7 +122,7 @@ class SymExprNodeManager():
             size = sympy_expr.subs(sym_value_pair)
             return int(size)
 
-        node_name = "symexpr_py"
+        node_name = SymExprNodeManager.node_name
         with self._graph_module.graph.inserting_after(self._insert_point_node):
             new_kwargs = None
             new_node = self._graph_module.graph.create_node(
@@ -139,6 +142,14 @@ class SymExprNodeManager():
     def set_insert_point(self, node):
         self._insert_point_node = node
 
+    def get_match_sym_placeholder(self, sym_size_expr):
+        pexpr = PythonPrinter().doprint
+        sym_expr_str = pexpr(sym_size_expr)
+        matched_node = None
+        if sym_expr_str in self._sym_placeholder_dict:
+            matched_node = self._sym_placeholder_dict[sym_expr_str]
+        return matched_node
+
     def get_or_create(self, sym_size_expr, node_type):
         pexpr = PythonPrinter().doprint
         sym_expr_str = pexpr(sym_size_expr)
@@ -150,6 +161,7 @@ class SymExprNodeManager():
             node_args = []
             for sym in sympy_expr_symbols:
                 node_args.append(self._sym_placeholder_dict[pexpr(sym)])
+            logger.debug("symexpr_python call_function creating for expr:", sym_expr_str)
             new_node = self._create_symexpr_py_node(sympy_expr, sympy_expr_symbols,
                                                     node_args, node_type)
             self._sym_expr_to_node_map[sym_expr_str] = new_node

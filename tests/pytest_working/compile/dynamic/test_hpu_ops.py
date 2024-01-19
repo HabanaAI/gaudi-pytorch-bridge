@@ -27,6 +27,7 @@ def test_static_fallback():
     inputs = [((16,9,32,16,16), [4,4,3,3,2,16,16,16]),
               ((16,27,36,25,16), [4,4,3,9,2,18,25,16])]
 
+    is_eager_fallback = configuration_flags["use_eager_fallback"]
     configuration_flags["use_eager_fallback"] = True
 
     def raw_function(tensor1, list1):
@@ -48,6 +49,7 @@ def test_static_fallback():
         result_h = compiled_fn(tensor1_h, inp[1])
 
         assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
+    configuration_flags["use_eager_fallback"] = is_eager_fallback
 
 def test_op_ones_like():
     """
@@ -858,3 +860,33 @@ def test_op_arange():
         h_result = compiled_fn(t1_h, s[1], device_hpu)
         os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "0"
         assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+
+def test_op_square_inplace_output():
+    import copy
+    # Currently pow is falling to eager.
+    # This test is to validate the dynamic shape arguments which
+    # used to create as_strided node when graph output is an inplace
+    # op output.
+    is_eager_fallback = configuration_flags["use_eager_fallback"]
+    configuration_flags["use_eager_fallback"] = True
+
+    sizes = [(3, 32, 32), (1303, 32, 48), (2440, 32, 51)]
+
+    def raw_function(x):
+        t1 = torch.permute(x, [0, 2, 1])
+        t2 = t1.square_()
+        t3 = torch.permute(t2, [0, 2, 1])
+        return t3
+
+    compiled_fn = torch.compile(
+        raw_function, backend="aot_hpu_training_backend", dynamic=None
+    )
+
+    for s in sizes:
+        t = torch.randn(s).to(torch.int32)
+        t_c = copy.deepcopy(t)
+        result1  = raw_function(t_c)
+        t_h = t.to("hpu")
+        h_result1  = compiled_fn(t_h)
+        assert torch.allclose(h_result1.to("cpu"), result1, atol=0.001, rtol=0.001)
+    configuration_flags["use_eager_fallback"] = is_eager_fallback

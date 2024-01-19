@@ -627,8 +627,13 @@ def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
             self._mode = fake_mode
 
         def run_node(self, node: torch.fx.Node):
-            result = super().run_node(node)
-            args, kwargs = self.fetch_args_kwargs_from_env(node)
+            args = kwargs = result = None
+            if SymExprNodeManager.node_name in node.name:
+                result = node.meta['val']
+                args, kwargs = self.fetch_args_kwargs_from_env(node)
+            else:
+                result = super().run_node(node)
+                args, kwargs = self.fetch_args_kwargs_from_env(node)
             node.val_args = args
             node.val_kwargs = kwargs
             fill_propagated_tensor_metadata_to_node(result, node)
@@ -1300,16 +1305,63 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
             return [None]
         return node_list
 
+    def get_as_strided_src_sizes_and_strides(gm, meta_val, symbolic_sizes, symbolic_strides):
+        py_node_manager = SymExprNodeManager(gm)
+
+        for node in gm.graph.nodes:
+            if node.op == "placeholder":
+                tmeta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+                if isinstance(tmeta_val, py_sym_types):
+                    py_node_manager.add_sym_placeholder(tmeta_val, node)
+                py_node_manager.set_insert_point(node)
+
+        def convert_symexpr_to_py_node(symbolic_shape):
+            var_shape = ()
+            logger.debug("convert_symexpr_to_py_node symbolic_shape:", symbolic_shape)
+            for dim_size in symbolic_shape:
+                if isinstance(dim_size, int):
+                    var_shape = var_shape + (dim_size,)
+                elif isinstance(dim_size, torch.SymInt):
+                    var_node = py_node_manager.get_match_sym_placeholder(dim_size)
+                    if var_node is None:
+                        var_node = py_node_manager.get_or_create(dim_size, int)
+                        var_node.meta['val'] = dim_size
+                        var_node.meta["placement"] = "eager"
+                        var_node.meta["output_device"] = torch.device("cpu")
+                        var_node.meta["output_dtypes"] = [None]
+                        var_node.meta["output_layouts"] = [None]
+                        var_node.meta["output_shapes"] = [None]
+                    var_shape = var_shape + (var_node,)
+            return var_shape
+
+        # Process sizes
+        var_sizes = convert_symexpr_to_py_node(symbolic_sizes)
+        # Process strides
+        var_strides = convert_symexpr_to_py_node(symbolic_strides)
+        return var_sizes, var_strides
+
     def insert_as_strided_after(ctx, node_insert_point, node_src_meta):
         with ctx.graph_module.graph.inserting_after(node_insert_point):
             # input node
             new_args = [
                 node_insert_point,
             ]
+
+            src_sizes = node_src_meta.meta["output_shapes"][0]
+            src_strides = node_src_meta.meta["output_strides"][0]
+            if ctx.is_dynamic:
+                meta_val = node_src_meta.meta.get('val', node.meta.get('tensor_meta', None))
+                src_sizes, src_strides = get_as_strided_src_sizes_and_strides(
+                    ctx.graph_module,
+                    meta_val,
+                    node_src_meta.meta["output_shapes"][0],
+                    node_src_meta.meta["output_strides"][0]
+            )
+
             # sizes of inserted as_strided node
-            new_args.append(node_src_meta.meta["output_shapes"][0])
+            new_args.append(src_sizes)
             # strides of inserted as_strided node
-            new_args.append(node_src_meta.meta["output_strides"][0])
+            new_args.append(src_strides)
             new_kwargs = None
             as_strided_custom = ctx.graph_module.graph.create_node(
                 node_insert_point.op,
