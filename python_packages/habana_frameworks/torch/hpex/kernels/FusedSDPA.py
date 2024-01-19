@@ -55,9 +55,13 @@ def gqa_input_reshape_fwd(q, k, v, attention_mask):
     new_v_shape = (bs, groups, 1, seq_len, h_dim)
     v = v.reshape(new_v_shape)
 
-    # add groups dim and set to 1
     if attention_mask is not None:
-        attention_mask = attention_mask.unsqueeze(1)
+        bs, heads, seq_len_t, seq_len_s = attention_mask.shape
+        if heads == q_heads: # attention mask shape = [batch size, q_heads, *, *]
+            new_attn_mask_shape = (bs, groups, q_heads_per_group, seq_len_t, seq_len_s)
+            attention_mask = attention_mask.reshape(new_attn_mask_shape)
+        else: #attention mask shape = [batch size, 1, *, *]
+            attention_mask = attention_mask.unsqueeze(1) # add groups dim and set to 1
 
     return q, k, v, attention_mask
 
