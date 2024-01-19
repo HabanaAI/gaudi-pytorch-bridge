@@ -870,3 +870,17 @@ def test_inplace_slice_logical_op(logical_op):
     logical_op(hpu_input_slice, hpu_other_slice)
 
     assert torch.equal(hpu_input_slice.cpu(), cpu_input_slice)
+
+def test_inplace_binary_strided_insert():
+    cpu_self = torch.tensor([[1, 2], [3, 4]], dtype=torch.int8)
+    cpu_other = torch.tensor([[2, 2], [2, 2]])
+    cpu_self = cpu_self.as_strided([2, 2], [1, 2])
+
+    hpu_self = cpu_self.to("hpu")
+    hpu_other = cpu_other.to("hpu")
+    hpu_self = hpu_self.as_strided([2, 2], [1, 2])
+
+    cpu_self.add_(cpu_other)
+    hpu_self.add_(hpu_other)
+
+    assert torch.equal(hpu_self.cpu(), cpu_self)

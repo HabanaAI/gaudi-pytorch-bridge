@@ -37,8 +37,9 @@ std::unordered_set<std::string> underscored_ops_reported_as_non_inplace = {
     "hpu::exponential_",
     "hpu::rrelu_with_noise_"};
 
-/* below ops modify the o/p dtype in their out of place variant thereby
- * requiring cast node*/
+/* below ops modify the o/p dtype in their out of place variant or
+ * convert out variant to regular one that may result in dtype promotion
+ * thereby requiring cast node*/
 std::unordered_set<std::string> ops_needing_cast = {
     "aten::eq",
     "aten::ne",
@@ -50,6 +51,11 @@ std::unordered_set<std::string> ops_needing_cast = {
     "aten::logical_or",
     "aten::logical_xor",
     "aten::logical_not",
+    "aten::add",
+    "aten::sub",
+    "aten::mul",
+    "aten::div",
+    "aten::remainder",
 };
 
 bool check_if_op_doesnt_use_input(const JitNode* node) {
