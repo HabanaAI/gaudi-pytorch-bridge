@@ -290,6 +290,7 @@ using tuple_4_tensors_4_int64_tensor = std::tuple<Tensor,Tensor,Tensor,Tensor,in
 using tuple_2_tensors_2_int64_tensor = std::tuple<Tensor,Tensor,int64_t,int64_t,Tensor>;
 using tuple_4_tensors_2_int64_3_tensor = std::tuple<Tensor,Tensor,Tensor,Tensor,int64_t,int64_t,Tensor,Tensor,Tensor>;
 using tuple_4_tensors_2_int64 = std::tuple<Tensor,Tensor,Tensor,Tensor,int64_t,int64_t>;
+using tuple_3_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>;
 using tuple_5_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>;
 {fallback_fallthrough}
 TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {{
@@ -2364,6 +2365,10 @@ def generate_autocast_ops(fgens, args, out_dir):
         (
             "::std::tuple<at::Tensor,at::Tensor,at::Tensor,at::Tensor,int64_t,int64_t,at::Tensor,at::Tensor,at::Tensor>",
             "tuple_4_tensors_2_int64_3_tensor",
+        ),
+        (
+            "::std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>",
+            "tuple_3_vectors",
         ),
         (
             "::std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>",
