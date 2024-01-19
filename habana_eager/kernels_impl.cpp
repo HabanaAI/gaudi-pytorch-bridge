@@ -1,6 +1,6 @@
 
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -172,7 +172,19 @@ at::Tensor& hpu_wrap::_index_put_impl_(
     return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
         OpSupportLevel::Value::unsupported_dtype,
         PARAMS2(self, indices, values, accumulate, unsafe));
+  } else if (accumulate == false) {
+    auto indices_size = indices.size();
+    for (size_t i = 0; i < indices_size; ++i) {
+      auto const& opt_tensor = indices[i];
+      if (opt_tensor.has_value() && opt_tensor.value().defined() &&
+          opt_tensor.value().numel() > self.sizes()[i]) {
+        return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
+            OpSupportLevel::Value::unsupported_args,
+            PARAMS2(self, indices, values, accumulate, unsafe));
+      }
+    }
   }
+
   return habana::eager::_index_put_impl_eager(
       self, indices, values, accumulate, unsafe);
 }
