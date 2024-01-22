@@ -78,6 +78,7 @@ orchestratorConfig:
     - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_distributed
     - testToLaunch: fairseq_fork/Tests/Test_fairseq_fork_gaudi_hls_asic_pytorch_fairseq_topology_u22
     - testToLaunch: model_garden/Tests/Test_model_garden_gaudi2_asic_pytorch_perf_singlenode_u22
+    - testToLaunch: mlperf_inference/Tests/Test_mlperf_inference_gaudi2_asic_8cards_promote_u22
   PromoteU22Config_stageSilentMode: true
   codeCoverageConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
