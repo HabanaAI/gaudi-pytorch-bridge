@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -62,7 +62,7 @@ void All::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   if (self.numel() == 0) {
     auto false_tensor =
-        ConstantHelper(graph, true, c10::ScalarType::Bool, 1, 0);
+        ConstantHelper(graph, true, c10::ScalarType::Bool, {}, 0);
     syn_out(0) = std::move(false_tensor);
   } else {
     auto out = AllCommon(

@@ -1046,7 +1046,10 @@ aminmax.out:
 
 any.all_out:
   output_meta: AllAnyMeta
-  dtypes: [Char]
+  dtypes:
+    Gaudi: [Char, Float, BFloat16, Int]
+    Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
+    Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
   op_backend: Any
 
 any:
