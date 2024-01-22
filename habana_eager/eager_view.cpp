@@ -45,6 +45,10 @@ std::unordered_set<std::string> ops_needing_cast = {
     "aten::le",
     "aten::gt",
     "aten::lt",
+    "aten::logical_and",
+    "aten::logical_or",
+    "aten::logical_xor",
+    "aten::logical_not",
 };
 
 bool check_if_op_doesnt_use_input(const JitNode* node) {

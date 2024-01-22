@@ -845,3 +845,28 @@ def test_sag_view_section_id_2():
     out2 = torch.mul(b[:3], c[:3])
     hout2 = torch.mul(hb[:3], hc[:3])
     assert torch.equal(hout2.cpu(), out2)
+
+@pytest.mark.parametrize("logical_op", [torch.ops.aten.logical_and_, torch.ops.aten.logical_or_, torch.ops.aten.logical_xor_])
+def test_inplace_slice_logical_op(logical_op):
+    dtype = torch.float32
+    seed = 4776
+    shape = 1024
+    repeats = 3
+    slice_shape = shape * repeats
+    slice_param = slice(None, None, repeats)
+
+    torch.manual_seed(seed)
+    cpu_input = torch.rand(slice_shape, dtype=dtype)
+    cpu_other = torch.rand(slice_shape, dtype=dtype)
+    cpu_input_slice = cpu_input[slice_param]
+    cpu_other_slice = cpu_other[slice_param]
+    logical_op(cpu_input_slice, cpu_other_slice)
+
+    torch.manual_seed(seed)
+    hpu_input = torch.rand(slice_shape, dtype=dtype).to('hpu')
+    hpu_other = torch.rand(slice_shape, dtype=dtype).to('hpu')
+    hpu_input_slice = hpu_input[slice_param]
+    hpu_other_slice = hpu_other[slice_param]
+    logical_op(hpu_input_slice, hpu_other_slice)
+
+    assert torch.equal(hpu_input_slice.cpu(), cpu_input_slice)
