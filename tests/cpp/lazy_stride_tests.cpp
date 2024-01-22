@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -124,7 +124,7 @@ TEST_F(LazyStridesTest, SimpleStrideTest) {
   EXPECT_EQ(c7.strides() == h7_c.strides(), true);
 }
 
-TEST_F(LazyStridesTest, DISABLED_NonContigiousStrides) {
+TEST_F(LazyStridesTest, NonContigiousStrides) {
   const int A = 2;
   const int B = 3;
   const int C = 4;
@@ -154,11 +154,13 @@ TEST_F(LazyStridesTest, DISABLED_NonContigiousStrides) {
             << '\n';
 
   std::cout << "PTI_DBG ::"
-            << " h1_c.shape : " << h1_c.sizes()
-            << " h1_c.strides : " << h1_c.strides() << '\n';
+            << " h1_c.shape : " << h1_c.sizes() << '\n';
 
   EXPECT_EQ(c1.sizes() == h1_c.sizes(), true);
-  EXPECT_EQ(c1.strides() == h1_c.strides(), true);
+  EXPECT_EQ(c1.sizes() == h1.sizes(), true);
+  // Comparing c1 and h1 strides, beacuse h1_c strides might not match as tensor
+  // storage is managed differently.
+  EXPECT_EQ(c1.strides() == h1.strides(), true);
 }
 
 TEST_F(LazyStridesTest, ZeroElementStrides) {
