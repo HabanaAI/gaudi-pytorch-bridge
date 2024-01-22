@@ -38,6 +38,9 @@ deviceMallocData::deviceMallocData() {
   std::string node_id = std::getenv("RANK") ? std::getenv("RANK") : "0";
   filename = absl::StrFormat(
       "%s_%s", GET_ENV_FLAG_NEW(PT_HABANA_MEM_LOG_FILENAME), node_id);
+  memory_reporter_name = absl::StrFormat(
+      "memory.reporter_%s.json", node_id);
+
   auto log_level = (mem_log_level)GET_ENV_FLAG_NEW(PT_HABANA_MEM_LOG_LEVEL);
   print_free_bt = false;
   print_alloc_bt = false;
@@ -91,7 +94,7 @@ deviceMallocData::deviceMallocData() {
     SET_ENV_FLAG_NEW(PT_HPU_POOL_LOG_FRAGMENTATION_INFO, true, 1);
     // TODO: support .txt and .json, default .json support
     memory_reporter_out.open(
-        "memory.reporter.json", std::ofstream::out | std::ofstream::trunc);
+        memory_reporter_name.c_str() , std::ofstream::out | std::ofstream::trunc);
     memory_reporter_out << "[\n";
   }
   fragment_json_enabled_ = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_FRAGMENT_JSON);

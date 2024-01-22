@@ -58,6 +58,7 @@ class deviceMallocData final {
   unsigned int iteration_number;
 
   std::string filename;
+  std::string memory_reporter_name;
   const char* fragment_csv_file = "habana_log.fragment.csv";
   bool take_bt = false;
   bool print_free_bt = false;
