@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -29,6 +29,7 @@ DEFINE_OP(HabanaRand)
 DEFINE_OP(HabanaRandn)
 DEFINE_OP(HabanaRandint)
 DEFINE_OP(HabanaSeedGenerator)
+DEFINE_OP(HabanaRandPermOp)
 
 struct HabanaMultinomial : OpBackend {
   HabanaMultinomial(int device_id, c10::ScalarType scalar_type);
@@ -39,5 +40,5 @@ OUTMETA_DECL(HabanaRandOutputMeta);
 OUTMETA_DECL(HabanaRandintOutputMeta);
 OUTMETA_DECL(HabanaMultinomialOutputMeta);
 OUTMETA_DECL(HabanaSeedGeneratorOutputMeta);
-
+OUTMETA_DECL(HabanaRandPermMeta);
 } // namespace habana

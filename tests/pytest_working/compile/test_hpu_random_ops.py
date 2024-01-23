@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -296,3 +296,33 @@ def test_various_ops(dtype):
             "habana_multinomial",
         }
     )
+
+@pytest.mark.parametrize("n", [(5), (8), (17)])
+@pytest.mark.parametrize("dtype", [torch.long])
+def test_randperm(n, dtype):
+    torch._dynamo.reset()
+    clear_t_compile_logs()
+    def fn(shape):
+        return torch.randperm(shape, dtype=dtype, device="hpu")
+    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    torch.manual_seed(1234)
+    result_1 = compiled_fn(n).cpu()
+    result_2 = compiled_fn(n).cpu()
+
+    torch.manual_seed(1234)
+    result_1a = compiled_fn(n).cpu()
+    result_2a = compiled_fn(n).cpu()
+
+    torch.manual_seed(12345)
+    result_1b = compiled_fn(n).cpu()
+    result_2b = compiled_fn(n).cpu()
+
+    assert result_1.dtype == dtype
+    assert not torch.equal(result_1, result_1b)
+    assert not torch.equal(result_2, result_2b)
+
+    assert torch.equal(result_1, result_1a)
+    assert torch.equal(result_2, result_2a)
+
+    check_ops_executed_in_jit_ir("habana_randperm")

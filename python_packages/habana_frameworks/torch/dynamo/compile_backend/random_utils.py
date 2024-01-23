@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -21,6 +21,7 @@ RANDOM_OPS = (
         "aten.randn.default": torch.ops.hpu.habana_randn,
         "aten.randint.low": torch.ops.hpu.habana_randint,
         "aten.multinomial.default": torch.ops.hpu.habana_multinomial,
+        "aten.randperm.default": torch.ops.hpu.habana_randperm,
     }
     if bc.get_pt_hpu_wrap_random_ops_compile()
     else {}

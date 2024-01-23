@@ -67,6 +67,7 @@ if bc.get_pt_hpu_wrap_random_ops_compile():
     hpu_supported_ops_restricted.update(
         {
             "randint": ("dtype", {torch.int, torch.long, None}),
+            "randperm": ("dtype", {torch.long}),
         }
     )
 
