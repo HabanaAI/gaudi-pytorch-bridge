@@ -1,5 +1,5 @@
 # ******************************************************************************
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -37,9 +37,7 @@ class FusedRMSNorm(torch.autograd.Function):
         use_stages=True,
         bwd_mode=0,
     ):
-        (root_mean_square_norm, inverse_root_mean_square) = torch.ops.hpu.rms_norm(
-            data_in, gamma, eps
-        )
+        (root_mean_square_norm, inverse_root_mean_square) = torch.ops.hpu.rms_norm(data_in, gamma, eps)
         ctx.save_for_backward(inverse_root_mean_square, data_in, gamma)
         ctx.use_stages = use_stages
         ctx.bwd_mode = bwd_mode

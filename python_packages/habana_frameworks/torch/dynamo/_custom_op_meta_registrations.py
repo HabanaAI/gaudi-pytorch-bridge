@@ -554,7 +554,14 @@ def meta_rotary_pos_embedding_backward(grad_in, sin, cos, offset, mode):
 def meta_rms_norm(data_in, gamma, epsilon):
     inverse_root_mean_square_shape = list(data_in.shape)
     inverse_root_mean_square_shape[-1] = 1
-    return data_in.new_empty(data_in.shape), data_in.new_empty(inverse_root_mean_square_shape, dtype=torch.float32)
+
+    data_in_dtype = data_in.dtype
+    if data_in_dtype != gamma.dtype:
+        data_in_dtype = torch.float32
+
+    return data_in.new_empty(data_in.shape, dtype=data_in_dtype), data_in.new_empty(
+        inverse_root_mean_square_shape, dtype=torch.float32
+    )
 
 
 @register_meta([torch.ops.hpu.rms_norm_backward.default])

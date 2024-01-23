@@ -7239,7 +7239,11 @@ std::tuple<at::Tensor, at::Tensor> rms_norm_lazy(
       {data_in, gamma, epsilon},
       {{data_in.sizes().vec(), inverse_root_mean_square_sizes}}};
 
-  op.set_scalar_types({data_in.scalar_type(), c10::ScalarType::Float});
+  const auto data_in_dtype = (data_in.scalar_type() != gamma.scalar_type())
+      ? c10::ScalarType::Float
+      : data_in.scalar_type();
+
+  op.set_scalar_types({data_in_dtype, c10::ScalarType::Float});
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(rms_norm, op)
 }

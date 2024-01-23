@@ -943,12 +943,16 @@ std::tuple<at::Tensor, at::Tensor> rms_norm(
   std::vector<int64_t> inverse_root_mean_square_sizes{data_in.sizes().vec()};
   inverse_root_mean_square_sizes.back() = 1;
 
+  const auto data_in_dtype = (data_in.scalar_type() != gamma.scalar_type())
+      ? c10::ScalarType::Float
+      : data_in.scalar_type();
+
   habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
       "hpu::rms_norm",
       {data_in, gamma, epsilon},
       {data_in.sizes().vec(), inverse_root_mean_square_sizes},
       0};
-  hpu_op.set_scalar_types({data_in.scalar_type(), c10::ScalarType::Float});
+  hpu_op.set_scalar_types({data_in_dtype, c10::ScalarType::Float});
 
   return hpu_op.call();
 }

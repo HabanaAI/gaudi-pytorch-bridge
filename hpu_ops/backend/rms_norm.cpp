@@ -54,8 +54,13 @@ void RMSNorm::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       data_in.pt_t.sizes().vec()};
   inverse_root_mean_square_sizes.back() = 1;
 
+  const auto data_in_dtype =
+      (data_in.pt_t.scalar_type() != gamma.pt_t.scalar_type())
+      ? c10::ScalarType::Float
+      : data_in.pt_t.scalar_type();
+
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
-      {data_in.pt_t.sizes(), data_in.pt_t.scalar_type(), 0},
+      {data_in.pt_t.sizes(), data_in_dtype, 0},
       {inverse_root_mean_square_sizes, c10::ScalarType::Float, 1}};
 
   auto output = OpBackend::BuildNode(
