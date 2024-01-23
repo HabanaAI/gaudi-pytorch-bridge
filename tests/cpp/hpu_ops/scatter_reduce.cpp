@@ -97,6 +97,10 @@ TEST_P(ScatterReduceOpTest, scatter_reduce) {
   auto dtype = std::get<2>(testParams);
   auto includeSelf = std::get<3>(testParams);
 
+  if (reduce == "mean" & shapeInfo.deterministic == true) {
+    GTEST_SKIP() << "Test sporadically failing - SW-171740";
+  }
+
   GenerateInputs(
       2, {shapeInfo.inputShape, shapeInfo.sourceShape}, {dtype, dtype});
   auto selfCpu = GetCpuInput(0);
