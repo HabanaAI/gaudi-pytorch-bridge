@@ -181,6 +181,7 @@ inline constexpr std::string_view to_string(const ParamType& t) {
 }
 
 static constexpr int INVALID_CONST_ID = -1;
+static constexpr size_t INVALID_CHECKSUM = 0;
 struct TensorExtraMeta : public BaseTensorExtraMeta {
   c10::intrusive_ptr<BaseTensorExtraMeta> clone(
       const c10::intrusive_ptr<BaseTensorExtraMeta>& ptr) const override {
@@ -245,6 +246,10 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
 
   bool has_valid_const_id() const {
     return (const_id_ != INVALID_CONST_ID);
+  }
+
+  bool has_valid_checksum() const {
+    return (host_checksum_ != INVALID_CHECKSUM);
   }
 
   void set_tensor_type(synTensorType tensor_type) {
@@ -393,6 +398,14 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     const_id_ = id;
   }
 
+  size_t get_host_checksum() const {
+    return host_checksum_;
+  }
+
+  void set_host_checksum(size_t _checksum) {
+    host_checksum_ = _checksum;
+  }
+
   void clone_host_buffer_info(const TensorExtraMeta& tmeta) {
     if (tmeta.get_compile_host_ptr()) {
       set_id(tmeta.get_id());
@@ -466,6 +479,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   HostDataType dt_type_{HostDataType::INVALID_T};
   ShapeTensorStruct shape_tensor_struct_{};
   bool is_redundant_ = false;
+  size_t host_checksum_{INVALID_CHECKSUM};
   int id_{-1};
   int const_id_{INVALID_CONST_ID};
   int total_elem_{0};

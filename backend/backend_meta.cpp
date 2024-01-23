@@ -15,6 +15,7 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/helpers/runtime_config.h"
+#include "backend/jit_graph_cache.h"
 #include "backend_meta.h"
 #if HAVE_TORCH_BACKEND_META_SUPPORT
 // detecting that there is a torch patch in place that introduces
@@ -136,6 +137,9 @@ void TensorExtraMeta::set_const_tensor(
       while (!copyDone) {
         std::this_thread::yield();
       }
+      auto checksum = GetDataChecksum(
+          tmeta->get_host_ptr(), habana_helpers::GetNBytes(tensor));
+      tmeta->set_host_checksum(checksum);
     }
     tmeta->set_data_in_host_memory(true);
     PT_LAZY_DEBUG(

@@ -780,7 +780,8 @@ class HabanaLaunchOpPT {
   void PostCompilationStepForConstTensors(
       synapse_helpers::graph::recipe_handle& recipe);
 
-  void HandleRecipeWithNewChecksum(
+  void HandleTensorWithZeroSize(std::shared_ptr<c10::IValue> _src, size_t _key);
+  void HandleTensorWithNewChecksum(
       std::shared_ptr<c10::IValue> _src,
       size_t _section_size,
       size_t _checksum,
@@ -788,12 +789,12 @@ class HabanaLaunchOpPT {
       char* _section_data_ptr,
       size_t _old_size,
       int device_id);
-  void HandleRecipeWithExistingChecksumInCache(
+  void HandleTensorWithExistingChecksumInCache(
       int _const_id,
       size_t _checksum,
       size_t _key,
       at::Tensor& _tensor);
-  void HandleRecipeWithChecksumOnDevice(
+  void HandleTensorWithChecksumOnDevice(
       int _const_id,
       size_t _checksum,
       size_t _key);

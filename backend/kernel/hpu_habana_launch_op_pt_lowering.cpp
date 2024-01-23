@@ -337,7 +337,23 @@ static void getTensorSectionId(
   isInput = true;
 }
 
-void habana::HabanaLaunchOpPT::HandleRecipeWithNewChecksum(
+void habana::HabanaLaunchOpPT::HandleTensorWithZeroSize(
+    std::shared_ptr<c10::IValue> _src,
+    size_t _key) {
+  auto& _tensor = _src->toTensor();
+  auto tmeta{get_tensor_extra_meta(_tensor)};
+  auto const_id = tmeta->get_const_id();
+  auto checksum = 0;
+  InsertConstantChecksum(const_id, checksum);
+  PushConstantChecksumInfo(const_id, checksum, _key, 0 /*_section_size*/);
+  at::DataPtr data = _tensor.storage().allocator()->allocate(0);
+  auto old_data_ptr = _tensor.storage().set_data_ptr(std::move(data));
+  _tensor.storage().set_nbytes(0);
+  ivalue_to_tensor_info_map[_src]->set_buffer(
+      (void*)(_tensor.storage().data_ptr().get()));
+}
+
+void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
     std::shared_ptr<c10::IValue> _src,
     size_t _section_size,
     size_t _checksum,
@@ -352,8 +368,13 @@ void habana::HabanaLaunchOpPT::HandleRecipeWithNewChecksum(
   // or if old_size is same as section_size but checksum is new
   bool anyChecksumExists =
       (m_const_checksum_map.find(const_id) != m_const_checksum_map.end());
+  HABANA_ASSERT(
+      tmeta->has_valid_checksum(),
+      "Tmeta does not have a valid checksum for const_id: ",
+      const_id);
+  auto host_checksum = tmeta->get_host_checksum();
   bool reallocation_required =
-      (anyChecksumExists or (_old_size != _section_size));
+      (anyChecksumExists or (_checksum != host_checksum));
   if (reallocation_required) {
     tmeta->set_nbytes_inference(_old_size);
     at::DataPtr data = _tensor.storage().allocator()->allocate(_section_size);
@@ -379,6 +400,12 @@ void habana::HabanaLaunchOpPT::HandleRecipeWithNewChecksum(
   }
   InsertConstantChecksum(const_id, _checksum);
   PushConstantChecksumInfo(const_id, _checksum, _key, _section_size);
+  // If synapse has not modified the tensor data (old size same as section size)
+  //  And no other recipe has a checksum before this then no need to copy the
+  //  new data
+  if (_checksum == host_checksum and !anyChecksumExists) {
+    return;
+  }
   auto& device = HPURegistrar::get_device(_device_id);
   std::atomic<bool> copyDone{false};
   device.copy_data_to_device(
@@ -396,7 +423,7 @@ void habana::HabanaLaunchOpPT::HandleRecipeWithNewChecksum(
   }
 }
 
-void habana::HabanaLaunchOpPT::HandleRecipeWithExistingChecksumInCache(
+void habana::HabanaLaunchOpPT::HandleTensorWithExistingChecksumInCache(
     int _const_id,
     size_t _checksum,
     size_t _key,
@@ -413,7 +440,7 @@ void habana::HabanaLaunchOpPT::HandleRecipeWithExistingChecksumInCache(
       _key);
 }
 
-void habana::HabanaLaunchOpPT::HandleRecipeWithChecksumOnDevice(
+void habana::HabanaLaunchOpPT::HandleTensorWithChecksumOnDevice(
     int _const_id,
     size_t _checksum,
     size_t _key) {
@@ -518,7 +545,7 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                 checksum);
             if (!checksum_found) {
               auto old_size = tensor.get_host_ptr_size();
-              HandleRecipeWithNewChecksum(
+              HandleTensorWithNewChecksum(
                   iter->first,
                   section_size,
                   checksum,
@@ -532,10 +559,10 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                 new_extra_smeta->set_dont_allow_permutation(allow);
               }
             } else if (m_const_checksum_map[const_id].first == checksum) {
-              HandleRecipeWithChecksumOnDevice(
+              HandleTensorWithChecksumOnDevice(
                   const_id, checksum, cur_rargpsh->hashCode());
             } else {
-              HandleRecipeWithExistingChecksumInCache(
+              HandleTensorWithExistingChecksumInCache(
                   const_id, checksum, cur_rargpsh->hashCode(), src);
             }
 
@@ -545,6 +572,8 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
             HABANA_ASSERT(
                 status == synStatus::synSuccess,
                 Logger::synStatusToStr(status));
+          } else {
+            HandleTensorWithZeroSize(iter->first, cur_rargpsh->hashCode());
           }
         }
       }
