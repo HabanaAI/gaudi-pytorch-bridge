@@ -815,6 +815,7 @@ bool device_memory::defragment_memory(
   }
 
   if (not region) {
+    lock.unlock();
     PT_DEVMEM_WARN(
         "Defragmentation cannot be started. There is not enough free memory.");
     habana_helpers::EmitEvent(
@@ -905,6 +906,7 @@ bool device_memory::defragment_memory(
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::high_resolution_clock::now() - timestamp_init)
             .count();
+    lock.unlock();
     habana_helpers::EmitEvent(
         habana_helpers::EventDispatcher::Topic::MEMORY_DEFRAGMENTATION,
         habana_helpers::EventDispatcher::EventParams(
