@@ -15,7 +15,7 @@ import torch
 
 from .config import configuration_flags
 from .logger import get_compile_backend_logger
-from typing import Dict, List, Set
+from typing import Dict, List
 
 logger = get_compile_backend_logger()
 from ._shared_layer_C import check_cpu_fallback_op
@@ -115,38 +115,21 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
             if isinstance(node.args[idx], bool):
                 return True
 
-    if is_dynamic:
-        #The key is op_name and value is a list of inputs that cannot be ndims tensors
-        not_allowed_ndims_input_op_list: Dict["str", List[int]] = {"view": [0], "sum": [0]}
-        not_allowed_ndims_output_op_list: Set["str"] = {"view"}
-        SYN_MAX_TENSOR_DIM = 5
-
-        # [SW-121751] - scalar_tensor implementation
-        # workaround for: https://github.com/pytorch/pytorch/issues/108745
-        # ticket for cleanup once root issue is resolved: [SW-162298]
-        # because order of operations returned from torch compile is not
-        # deterministic, the same computations may return slightly different
-        # graphs, which leads to cache misses in dynamic runs. scalar_tensor is
-        # particularly prone to this happening as in most cases it's inputs are
-        # constant and known beforehand, so this call might appear anywhere from
-        # first line of fused function up to just before it's output is used.
-        # To workaround this issue we fallback to eager for dynamic runs, which
-        # shouldn't have big impacts on performance.
-        # also workaround for: https://jira.habana-labs.com/browse/SW-162350
-        # Slice op is not yet supported for dynamic shape in torch compile
-        if (op_name == "scalar_tensor" or op_name == "slice"):
-            return True
-
-        if op_name in not_allowed_ndims_output_op_list:
-            for output_shape in node.meta["output_shapes"]:
-                if len(output_shape) > SYN_MAX_TENSOR_DIM:
-                    return True
-
-        if op_name in not_allowed_ndims_input_op_list:
-            for idx in not_allowed_ndims_input_op_list[op_name]:
-                for output_shape in node.all_input_nodes[idx].meta["output_shapes"]:
-                    if len(output_shape) > SYN_MAX_TENSOR_DIM:
-                        return True
+    # [SW-121751] - scalar_tensor implementation
+    # workaround for: https://github.com/pytorch/pytorch/issues/108745
+    # ticket for cleanup once root issue is resolved: [SW-162298]
+    # because order of operations returned from torch compile is not
+    # deterministic, the same computations may return slightly different
+    # graphs, which leads to cache misses in dynamic runs. scalar_tensor is
+    # particularly prone to this happening as in most cases it's inputs are
+    # constant and known beforehand, so this call might appear anywhere from
+    # first line of fused function up to just before it's output is used.
+    # To workaround this issue we fallback to eager for dynamic runs, which
+    # shouldn't have big impacts on performance.
+    # also workaround for: https://jira.habana-labs.com/browse/SW-162350
+    # Slice op is not yet supported for dynamic shape in torch compile
+    if (op_name == "scalar_tensor" or op_name == "slice") and is_dynamic:
+        return True
 
     # representing scalar float value NaN in JIT fails, by being pasted as
     # literal nan and interpreted as reference to global variable nan imported

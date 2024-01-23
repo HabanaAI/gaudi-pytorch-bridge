@@ -21,16 +21,6 @@ from test_utils import is_gaudi3, setup_teardown_env_fixture
     indirect=True,
 )
 class TestHpuNdimsDynamic:
-    @classmethod
-    def setup_class(self):
-        #fallback to eager is expected
-        self.original_configuration = configuration_flags["use_eager_fallback"]
-        configuration_flags["use_eager_fallback"] = True
-
-    @classmethod
-    def teardown_class(self):
-        configuration_flags["use_eager_fallback"] = self.original_configuration
-
     @staticmethod
     def test_ndims_dynamic(setup_teardown_env_fixture):
         if is_gaudi3():
