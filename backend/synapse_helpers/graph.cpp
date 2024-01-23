@@ -39,6 +39,7 @@
 #include "backend/synapse_helpers/util.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/stat_collection.h"
+#include "habana_helpers/towl.h"
 #include "habana_lazy/memlog.h"
 #include "util/time_measure.h"
 
@@ -680,7 +681,7 @@ void graph::launch(
 
   habana_lazy::log_dev_mem_stats(
       "Post-Workspace", recipe_handle.recipe_name_, workspace_size);
-
+  towl::emitDeviceMemorySummary("Post-Workspace");
   if (synapse_helpers::memory_reporter_enable() && active_graph_key > 0) {
     synapse_helpers::MemoryReporter* reporter =
         device.get_device_memory().get_memory_reporter();
@@ -718,6 +719,8 @@ void graph::launch(
       ++index;
       ++iter;
     }
+    towl::emitRecipeLaunch(
+        recipe_handle, workspace_size, addresses, inputs_and_outputs_info);
 
     PT_SYNHELPER_DEBUG(
         "in graph::launch, launch handle string:\n",
@@ -735,6 +738,7 @@ void graph::launch(
         "Post-Tensors",
         recipe_handle.recipe_name_,
         device.get_device_memory().get_total_memory_required(addresses));
+    towl::emitDeviceMemorySummary("Post-Tensors");
 
     uint32_t flags{0};
     std::vector<synEventHandle> event_handles;

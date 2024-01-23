@@ -27,6 +27,22 @@ static void createModuleLoggers(LoggerType) {}
 
 // all the following functions are optional and any/all of them can be omitted
 
+static void createModuleLoggerOnDemandForTowl() {
+  hl_logger::LoggerCreateParams default_params;
+
+  if (GET_ENV_FLAG_NEW(PT_TOWL_LOG_SEPARATED_FILE)) {
+    default_params.logFileName = "towl_log.txt";
+  } else {
+    default_params.logFileName = "pytorch_log.txt";
+  }
+  default_params.rotateLogfileOnOpen = true;
+  default_params.logFileAmount = GET_ENV_FLAG_NEW(PT_TOWL_LOG_FILE_AMOUNT);
+  default_params.logFileSize = 3u * 1024u * 1024ul * 1024u;
+  default_params.logFileBufferSize = 4u * 1024u * 1024u;
+  default_params.defaultLoggingLevel = HLLOG_LEVEL_DEBUG;
+  default_params.forceDefaultLoggingLevel = true;
+  hl_logger::createLoggersOnDemand({LoggerType::PT_TOWL}, default_params);
+}
 // on-demand loggers
 // log files created when the first message is logged into such logger
 // this is a recommended way of loggers creation
@@ -54,7 +70,13 @@ static void createModuleLoggersOnDemand(LoggerType) {
   trace_params.logFileName = "pytorch_log.txt";
   trace_params.defaultLoggingLevel = HLLOG_LEVEL_TRACE;
   trace_params.forceDefaultLoggingLevel = true;
+
   hl_logger::createLoggerOnDemand(LoggerType::PT_TRACE, trace_params);
+  // Guarded by additional flag to not enable towl logger
+  // by using common flags like LOG_LEVEL_ALL_PT
+  if (true or GET_ENV_FLAG_NEW(PT_TOWL_LOG_ENABLE)) {
+    createModuleLoggerOnDemandForTowl();
+  }
 }
 
 // a callback when a dtor of your module is called (e.g. close an app, dlclose,
@@ -115,6 +137,7 @@ HLLOG_DEFINE_MODULE_LOGGER(
     PT_HPUGRAPH,
     PT_CONST_SECTION,
     PT_PYTHON,
+    PT_TOWL,
     LOG_MAX)
 // -------------- HL LOG ----------------
 

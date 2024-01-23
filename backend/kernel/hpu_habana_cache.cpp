@@ -25,6 +25,7 @@
 #include "backend/synapse_helpers/event.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
+#include "habana_helpers/towl.h"
 #include "habana_kernels/hccl_kernels.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_lazy/memlog.h"
@@ -1491,6 +1492,7 @@ void RecipeLauncher::Launch(
       auto resource_holder = std::shared_ptr<ResourceHolder>(
           new ResourceHolder(), [](ResourceHolder* resource_holder) {
             auto recipe_counter_ptr = resource_holder->recipe_counter_ptr;
+            auto recipe_handle = resource_holder->recipe_id_;
             delete resource_holder;
             recipe_counter_ptr->decrease_and_notify();
             if (synapse_helpers::memory_reporter_enable() &&
@@ -1501,6 +1503,7 @@ void RecipeLauncher::Launch(
               reporter->getGraphStats()->removeLiveGraph(
                   resource_holder->active_graph_key_);
             }
+            towl::emitRecipeFinished(*recipe_handle);
             PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
           });
       // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
@@ -1537,6 +1540,7 @@ void RecipeLauncher::Launch(
       auto resource_holder = std::shared_ptr<ResourceHolder>(
           new ResourceHolder(), [](ResourceHolder* resource_holder) {
             auto recipe_counter_ptr = resource_holder->recipe_counter_ptr;
+            auto recipe_handle = resource_holder->recipe_id_;
             delete resource_holder;
             recipe_counter_ptr->decrease_and_notify();
             if (synapse_helpers::memory_reporter_enable() &&
@@ -1547,6 +1551,7 @@ void RecipeLauncher::Launch(
               reporter->getGraphStats()->removeLiveGraph(
                   resource_holder->active_graph_key_);
             }
+            towl::emitRecipeFinished(*recipe_handle);
             PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
           });
       // recipe_id_ needs to be passed to done_cb to ensure its lifetime until

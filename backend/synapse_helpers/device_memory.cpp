@@ -21,7 +21,7 @@
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/memory_defragmentation.h"
 #include "habana_helpers/logging.h"
-
+#include "habana_helpers/towl.h"
 #include "habana_lazy/memlog.h"
 
 namespace synapse_helpers {
@@ -271,15 +271,7 @@ synStatus device_memory::alloc(
       *v_ptr = reinterpret_cast<void*>(ptr);
       log_synDeviceMemStats(*this);
     }
-    PT_DEVMEM_DEBUG(
-        "device_memory::allocS ptr=",
-        to_hexstring(*v_ptr),
-        " size=",
-        size,
-        " (",
-        to_hexstring(size),
-        ") stream=",
-        stream);
+    towl::emitDeviceMemoryAllocated(*v_ptr, size, 0);
   }
 
   return status;
@@ -302,21 +294,14 @@ synStatus device_memory::malloc(
     status = alloc((void**)&ptr, size);
     *v_ptr = reinterpret_cast<void*>(ptr);
   }
-  PT_DEVMEM_DEBUG(
-      "device_memory::mallocS ptr=",
-      to_hexstring(*v_ptr),
-      " size=",
-      size,
-      " (",
-      to_hexstring(size),
-      ") stream=",
-      stream);
+  towl::emitDeviceMemoryAllocated(*v_ptr, size, stream);
   log_synDeviceMalloc(ptr, size, status);
   record(*v_ptr, size, true);
   return status;
 }
 
 synStatus device_memory::free_with_stream(void* free_ptr) {
+  towl::emitDeviceMemoryDeallocated(free_ptr);
   synStatus status{synStatus::synSuccess};
   if (nullptr == free_ptr) {
     return status;
@@ -344,22 +329,10 @@ synStatus device_memory::free_with_stream(void* free_ptr) {
       log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
       record(free_ptr, 0, false);
     } // TODO fixme if there are other stream, need to erase the h_id
-    PT_DEVMEM_DEBUG(
-        "device_memory::free_with_stream ptr=",
-        to_hexstring(free_ptr),
-        " size=",
-        ptr_and_size.size_,
-        " (",
-        to_hexstring(ptr_and_size.size_),
-        ")");
   } else {
     status = deallocate(free_ptr);
     log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
     record(free_ptr, 0, false);
-    PT_DEVMEM_DEBUG(
-        "device_memory::free_with_stream ptr=",
-        to_hexstring(free_ptr),
-        " size=NA (NA)");
   }
   return status;
 }
@@ -379,14 +352,7 @@ synStatus device_memory::malloc(void** v_ptr, uint64_t size) {
     *v_ptr = reinterpret_cast<void*>(ptr);
   }
 
-  PT_DEVMEM_DEBUG(
-      "device_memory::malloc_ ptr=",
-      to_hexstring(*v_ptr),
-      " size=",
-      size,
-      " (",
-      to_hexstring(size),
-      ")");
+  towl::emitDeviceMemoryAllocated(*v_ptr, size, 0);
   log_synDeviceMalloc(ptr, size, status);
   record(*v_ptr, size, true);
   return status;
@@ -399,6 +365,7 @@ synStatus device_memory::free(void* free_ptr) {
   }
 
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
+    towl::emitDeviceMemoryDeallocated(free_ptr);
     auto h = mem_handle::reinterpret_from_pointer(
         reinterpret_cast<uint64_t>(free_ptr));
     if (h.offset() != 0) {
@@ -413,14 +380,6 @@ synStatus device_memory::free(void* free_ptr) {
     if (ptr_and_size.ptr_ != nullptr) {
       deallocate(ptr_and_size.ptr_);
     }
-    PT_DEVMEM_DEBUG(
-        "device_memory::free ptr=",
-        to_hexstring(free_ptr),
-        " size=",
-        ptr_and_size.size_,
-        " (",
-        to_hexstring(ptr_and_size.size_),
-        ")");
   } else {
     status = deallocate(free_ptr);
   }
@@ -466,6 +425,7 @@ void* device_memory::workspace_alloc(
 
       habana_lazy::log_dev_mem_stats(
           "Post-Recipe-Decrease-Workspace", "", req_size);
+      towl::emitDeviceMemorySummary("Post-Recipe-Decrease-Workspace");
 
       PT_DEVMEM_DEBUG(
           "requested size > size, free the buffer and reallocte current size::",
@@ -506,6 +466,8 @@ void* device_memory::workspace_alloc(
 
       if (v_ptr == nullptr) {
         habana_lazy::log_dev_mem_stats("OOM-Workspace", "", req_size);
+        towl::emitDeviceMemorySummary("OOM-Workspace");
+
         while (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT) {
           recipe_counter.wait_for_next_decrease_call();
         }
@@ -517,6 +479,7 @@ void* device_memory::workspace_alloc(
         habana_lazy::log_dev_mem_stats(
             "Post-Recipe-Decrease-Workspace", "", req_size);
 
+        towl::emitDeviceMemorySummary("Post-Recipe-Decrease-Workspace");
         v_ptr = extend_high_memory_alloc(block_align(req_size), ws_size);
       }
       bool defragmentation_done = false;
@@ -605,6 +568,7 @@ void device_memory::check_and_limit_recipe_execution(size_t size) {
     } while (counter_state > DEFAULT_RECIPE_COUNT);
 
     habana_lazy::log_dev_mem_stats("Post-Recipe-Decrease-Lock-Addr", "", size);
+    towl::emitDeviceMemorySummary("Post-Recipe-Decrease-Lock-Addr");
   }
 }
 
@@ -1044,6 +1008,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
         "Allocation failed, stats before waiting for recipies to finish.");
 
     habana_lazy::log_dev_mem_stats("OOM-Tensor", "", size);
+    towl::emitDeviceMemorySummary("OOM-Tensor");
 
     // check and wait for recipe execution to complete
     uint64_t counter_state{0};
@@ -1060,6 +1025,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
       } while (counter_state > DEFAULT_RECIPE_COUNT && ptr == nullptr);
 
       habana_lazy::log_dev_mem_stats("Post-Recipe-Decrease-Tensor", "", size);
+      towl::emitDeviceMemorySummary("Post-Recipe-Decrease-Tensor");
     }
   }
 
@@ -1082,10 +1048,12 @@ device_ptr device_memory::get_pointer(mem_handle h) {
 
     habana_lazy::log_dev_mem_stats(
         "Post-Defrag", defragmentation_done ? "True" : "False", size);
+    towl::emitDeviceMemorySummary("Post-Defrag");
   }
 
   if (ptr == nullptr) {
     habana_lazy::log_dev_mem_stats("OOM-FATAL", "", size);
+    towl::emitDeviceMemorySummary("OOM-FATAL");
     suballoc_->print_pool_stats();
     synapse_helpers::memstats_dump(device_, "Allocation failed.");
     log_synDeviceAllocFail(device_, false, size);

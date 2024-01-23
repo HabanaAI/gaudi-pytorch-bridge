@@ -92,20 +92,22 @@ void recipe::launch(
   syn_info.reserve(input_names_.size() + output_names_.size());
 
   size_t tensor_idx{0};
-  for (size_t i = 0; i < input_names_.size(); ++i)
+  for (size_t i = 0; i < input_names_.size(); ++i) {
     syn_info.emplace_back(synLaunchTensorInfoExt{
         input_names_[i].c_str(),
         reinterpret_cast<uint64_t>(in_buffers[i]),
         DATA_TENSOR,
         {0},
         tensor_ids.get()[tensor_idx++]});
-  for (size_t i = 0; i < output_names_.size(); ++i)
+  }
+  for (size_t i = 0; i < output_names_.size(); ++i) {
     syn_info.emplace_back(synLaunchTensorInfoExt{
         output_names_[i].c_str(),
         reinterpret_cast<uint64_t>(out_buffers[i]),
         DATA_TENSOR,
         {0},
         tensor_ids.get()[tensor_idx++]});
+  }
 
   std::vector<shared_event> ext_events;
   synapse_helpers::graph::launch(

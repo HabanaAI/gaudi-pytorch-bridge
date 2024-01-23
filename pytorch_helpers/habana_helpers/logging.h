@@ -66,6 +66,7 @@ enum class LoggerType {
   PT_HPUGRAPH,
   PT_CONST_SECTION,
   PT_PYTHON,
+  PT_TOWL,
   LOG_MAX // Don't use it
 };
 } // namespace HlLogger
@@ -123,6 +124,7 @@ inline std::string DebugString(const HlLogger::LoggerType& mod) {
       {HlLogger::LoggerType::PT_HPUGRAPH, "PT_HPUGRAPH"},
       {HlLogger::LoggerType::PT_CONST_SECTION, "PT_CONST_SECTION"},
       {HlLogger::LoggerType::PT_PYTHON, "PT_PYTHON"},
+      {HlLogger::LoggerType::PT_TOWL, "PT_TOWL"},
       // {HlLogger::LoggerType::LOG_MAX, "LOG_MAX"},
   };
   if (auto result = names.find(mod); result != names.end())

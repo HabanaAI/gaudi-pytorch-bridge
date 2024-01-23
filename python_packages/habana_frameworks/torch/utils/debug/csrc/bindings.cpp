@@ -16,6 +16,7 @@
 #include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/kernel/hpu_habana_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "habana_helpers/towl.h"
 #include "habana_kernels/fallback_helper.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/memlog.h"
@@ -158,6 +159,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES);
   });
   m.def("hb_print", [](const char* msg) { PT_CUSTOM_DEBUG(msg); });
+  m.def("towl_configure", [](bool flag, std::string config) {
+    towl::configure(flag, config);
+  });
   m.doc() = "This module registers hpu host debug API";
   m.def(
       "mem_log", [](std::string msg) { habana_lazy::log_dev_mem_stats(msg); });

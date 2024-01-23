@@ -695,6 +695,21 @@ PT_LOG_FILE_AMOUNT:
   default: 5
   doc: "Determine number of files for logging rotation"
 
+PT_TOWL_LOG_FILE_AMOUNT:
+  type: unsigned
+  default: 100
+
+PT_TOWL_LOG_ENABLE:
+  type: bool
+  default: false
+
+PT_TOWL_LOG_SEPARATED_FILE:
+  type: bool
+  default: true
+
+PT_TOWL_LOG_CONFIG:
+  default: "rank=0"
+
 PT_HPU_ACC_THREAD_VERSION:
   type: int
   default: 0

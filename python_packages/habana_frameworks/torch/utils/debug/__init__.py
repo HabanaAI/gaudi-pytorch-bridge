@@ -171,3 +171,5 @@ else:
 def _dump_memory_reporter() -> None:
     _debug_C.dump_memory_reporter()
 
+def _towl_configure(flag : bool, config=""):
+    _debug_C.towl_configure(flag, config)
