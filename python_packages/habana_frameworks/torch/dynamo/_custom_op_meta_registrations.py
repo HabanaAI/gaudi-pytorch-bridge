@@ -513,7 +513,7 @@ def meta_scaled_masked_triangular_softmax(
 
 
 @register_meta([torch.ops.hpu.softmax_fp8.default])
-def meta_softmax_fp8(input, dim, input_scale=None, output_scale=None):
+def meta_softmax_fp8(input, dim, input_scale=None, output_scale=None, inv_attn_heads=None):
     if input_scale is None:
         dtype = torch.bfloat16
     else:

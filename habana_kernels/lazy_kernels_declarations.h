@@ -919,7 +919,8 @@ at::Tensor softmax_fp8_lazy(
     const at::Tensor& input,
     int64_t dim,
     const c10::optional<at::Tensor>& input_scale,
-    const c10::optional<at::Tensor>& output_scale);
+    const c10::optional<at::Tensor>& output_scale,
+    const c10::optional<at::Tensor>& inv_attn_heads);
 at::Tensor conv2d_fp8_lazy(
     const at::Tensor& input,
     const at::Tensor& weight,

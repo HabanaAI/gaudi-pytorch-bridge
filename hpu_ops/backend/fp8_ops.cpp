@@ -1628,19 +1628,31 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 /********** SoftmaxFp8 **********/
 
+#define ADD_1D_OPTIONAL_FLOAT_TENSOR(input_opt, input_name)     \
+  if (input_opt) {                                              \
+    TORCH_CHECK(                                                \
+        input_opt->pt_t.scalar_type() == at::ScalarType::Float, \
+        "Input ",                                               \
+        input_name,                                             \
+        " must be of torch.float dtype.");                      \
+    syn_inputs.push_back(input_opt->syn_t);                     \
+  } else {                                                      \
+    syn_inputs.push_back(nullptr);                              \
+  }
+
 SoftmaxFp8::SoftmaxFp8(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "softmax_fwd", scalar_type, {0}, {}, {}, false) {}
 
 void SoftmaxFp8::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 4, "SoftmaxFp8 must have 4 input arguments");
-
   StackGetter stackGetter(stack, "SoftmaxFp8::AddNode");
   auto self = getNextInput<TensorsPair>(stackGetter);
   int dim = getNextInput<int>(stackGetter);
   auto input_scale_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto output_scale_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto inv_attn_heads_opt =
+      getNextInput<c10::optional<TensorsPair>>(stackGetter);
   dim = at::maybe_wrap_dim(dim, self.pt_t.dim(), /*wrap_scalar=*/true);
 
   TORCH_CHECK(
@@ -1655,14 +1667,9 @@ void SoftmaxFp8::AddNode(
   ns_Softmax::Params params{static_cast<int>(self.pt_t.dim() - dim - 1)};
   std::vector<synTensor> syn_inputs{self.syn_t};
 
-  if (input_scale_opt) {
-    TORCH_CHECK(
-        input_scale_opt->pt_t.scalar_type() == at::ScalarType::Float and
-            output_scale_opt->pt_t.scalar_type() == at::ScalarType::Float,
-        "Output and input scales must be of torch.float dtype.");
-    syn_inputs.push_back(input_scale_opt->syn_t);
-    syn_inputs.push_back(output_scale_opt->syn_t);
-  }
+  ADD_1D_OPTIONAL_FLOAT_TENSOR(input_scale_opt, "input_scale");
+  ADD_1D_OPTIONAL_FLOAT_TENSOR(inv_attn_heads_opt, "inv_attn_heads");
+  ADD_1D_OPTIONAL_FLOAT_TENSOR(output_scale_opt, "output_scale");
 
   auto result = OpBackend::BuildNode(
       this,
