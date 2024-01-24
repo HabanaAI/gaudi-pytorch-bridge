@@ -6433,7 +6433,7 @@ select.int:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
   override_fn: select_hpu_lazy
   acc_thread: true
   guid: select
