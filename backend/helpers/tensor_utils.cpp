@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,33 +10,22 @@
  *
  *******************************************************************************
  */
+#include "backend/helpers/tensor_utils.h"
 #include <ATen/InferSize.h>
+#include <c10/core/ScalarType.h>
 #include <perf_lib_layer_params.h>
 #include <algorithm>
-#include <mutex>
 #include "backend/backend_meta.h"
-#include "backend/synapse_helpers/graph.h"
-
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/habana_device/tensor_builder.h"
+#include "backend/helpers/get_n_bytes.h"
+#include "backend/helpers/tensor_info.h"
+#include "backend/synapse_helpers/device_helpers.h"
+#include "common/utils.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
-
-#include "backend/helpers/graph.h"
-
-#include "backend/helpers/tensor_utils.h"
-
-#include "backend/create_pt_tensor.h"
-#include "backend/habana_operator.h"
-#include "backend/helpers/get_n_bytes.h"
-#include "backend/lazy_to_backend.h"
-#include "habana_kernels/kernel_utils.h"
-
-#include "backend/synapse_helpers/device_helpers.h"
-#include "backend/synapse_helpers/env_flags.h"
-#include "backend/synapse_helpers/util.h"
+#include "pytorch_helpers/habana_helpers/logging_pt.h" // IWYU pragma: keep // NOLINT
 
 using namespace torch;
 
@@ -387,6 +376,29 @@ void habana_helpers::copy_data_to_host(
     return;
   }
 
+  auto src_data_ptr = src.data_ptr();
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0 && src.storage_offset() != 0) {
+    // HPU is implicitly casting Long to Int and Double to Float without showing
+    // this information to torch This results in data_ptr offset being computed
+    // incorrectly. This is to adjust to this.
+    switch (src.scalar_type()) {
+      case c10::ScalarType::Long:
+        if (!common::IsInt64Supported()) {
+          src_data_ptr = reinterpret_cast<void*>(
+              reinterpret_cast<uint8_t*>(src_data_ptr) -
+              src.storage_offset() * sizeof(long) / 2);
+        }
+        break;
+      case c10::ScalarType::Double:
+        src_data_ptr = reinterpret_cast<void*>(
+            reinterpret_cast<uint8_t*>(src_data_ptr) -
+            src.storage_offset() * sizeof(double) / 2);
+        break;
+      default:
+        break;
+    }
+  }
+
   if (non_blocking && device.IsStreamASyncEnabled()) {
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
@@ -394,7 +406,7 @@ void habana_helpers::copy_data_to_host(
     const at::Tensor srcRef = src;
     const at::Tensor dstRef = dst;
     device.copy_data_to_host(
-        reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+        reinterpret_cast<synapse_helpers::device_ptr>(src_data_ptr),
         dst.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(
             src.storage().data_ptr().get()),
@@ -405,7 +417,7 @@ void habana_helpers::copy_data_to_host(
   } else {
     std::atomic<bool> copyDone{false};
     device.copy_data_to_host(
-        reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+        reinterpret_cast<synapse_helpers::device_ptr>(src_data_ptr),
         dst.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(
             src.storage().data_ptr().get()),

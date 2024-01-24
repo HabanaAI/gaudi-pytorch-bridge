@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -42,3 +42,9 @@ def test_memcpy_with_cast(src_dtype, dst_dtype, devices):
         atol=1e-3,
         rtol=1e-3,
     )
+
+
+@pytest.mark.parametrize("dtype", [torch.double, torch.int64])
+def test_dma_unsupported_type(dtype):
+    input_cpu_ = torch.randint(0, 1024, (2, 2)).to(dtype)
+    assert torch.all(torch.eq(input_cpu_[1], input_cpu_.to("hpu")[1].to("cpu")))
