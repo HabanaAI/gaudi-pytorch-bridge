@@ -244,7 +244,7 @@ class PtTensorInfo {
   const char* get_syn_namec_str() const {
     return syn_name_.c_str();
   }
-  unsigned get_numel() const {
+  uint64_t get_numel() const {
     return numel_;
   }
   unsigned get_size() const {
@@ -384,7 +384,7 @@ class PtTensorInfo {
   std::string ir_name_;
   std::string syn_name_;
 
-  unsigned numel_{0};
+  uint64_t numel_{0};
   unsigned size_{0};
 
   // Will hold the index of parent tensor info for aliases
