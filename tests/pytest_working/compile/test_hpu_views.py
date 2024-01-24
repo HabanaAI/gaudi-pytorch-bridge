@@ -153,6 +153,27 @@ def test_hpu_eagerize_split_getitem():
     assert torch.allclose(res, hres.cpu(), atol=0.001, rtol=0.001)
 
 
+def test_hpu_t_with_1D_input():
+    def fn(a):
+        b = a.t()
+        b.add_(1.0)
+        d = b.view(-1)
+        d.add_(2.0)
+        return d[:]
+
+    # CPU
+    x = torch.randn([10])
+    hx = x.to("hpu")
+
+    res = fn(x)
+
+    # HPU
+    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    hres = compiled_fn(hx)
+    assert torch.allclose(res, hres.cpu(), atol=0.001, rtol=0.001)
+
+
 def fn(a):
     b = a.t()
     c = b.mul(1.0)
