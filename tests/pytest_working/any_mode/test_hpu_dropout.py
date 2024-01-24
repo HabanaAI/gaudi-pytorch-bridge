@@ -56,12 +56,11 @@ def hpu_dropout_fwd(shape, p, dtype, train, native, dropout_fun):
         expected_ops_in_compile_mode = set() if native else {"clone"}
         assert torch.equal(input, out)
     elif p == 1.0:
-        expected_ops_in_compile_mode = {"full"}
+        expected_ops_in_compile_mode = {"native_dropout"}
         assert torch.equal(out, torch.zeros(shape, dtype=dtype, device="hpu"))
     else:
         expected_ops_in_compile_mode = {
-            "habana_bernoulli",
-            "habana_seed_generator",
+            "native_dropout",
         }
         nonzeros_p = torch.count_nonzero(out) / input.numel()
         assert torch.abs(nonzeros_p - (1.0 - p)) < 0.02
@@ -152,8 +151,7 @@ def test_hpu_dropout_bwd(p, train, dtype, native):
         assert torch.equal(input_hpu_grad_c, input_grad)
     else:
         expected_ops_in_compile_mode = {
-            "habana_bernoulli",
-            "habana_seed_generator",
+            "native_dropout",
         }
         unique_hpu = torch.unique(input_hpu_grad_c)
         unique_cpu = torch.unique(input_grad)

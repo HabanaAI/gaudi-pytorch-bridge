@@ -413,23 +413,6 @@ def squeeze(input):
     return torch.squeeze(input, dim_list)
 
 
-# Decomposition based on https://github.com/pytorch/pytorch/blob/v2.1.0/torch/_decomp/decompositions.py#L1055
-# with bernoulli instead of rand_like
-@register_custom_decomposition(
-    aten.native_dropout.default, hpu_backend_decompositions_common
-)
-def native_dropout(input, p, train=None):
-    if train and p != 0:
-        if p == 1:
-            return (torch.zeros_like(input), torch.zeros_like(input, dtype=torch.bool))
-        p1m = 1.0 - p
-        bool_mask = torch.ops.aten.bernoulli(torch.ops.aten.empty_like(input), p1m)
-        res = bool_mask * input * float(1.0 / p1m)
-        return (res, bool_mask)
-    else:
-        return (input, torch.ones_like(input, dtype=torch.bool))
-
-
 # Random op decompositions mainly based on pytorch/torch/_inductor/decomposition.py
 # and pytorch/torch/_decomp/decompositions_for_rng.py
 
