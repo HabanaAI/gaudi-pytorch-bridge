@@ -42,17 +42,19 @@ static void addShapeToBcastShape(ShapeVecT& bcastShape, ShapeRefT inputShape) {
   size_t offset = bcastShape.size() - inputShape.size();
   for (size_t dim = 0; dim < inputShape.size(); ++dim) {
     size_t bcastI = offset + dim;
-    if (bcastShape[bcastI] == 1)
-      bcastShape[bcastI] = inputShape[dim];
-    else if (
-        (bcastShape[bcastI] != inputShape[dim]) && (inputShape[dim] != 1)) {
-      std::stringstream errorMsg;
-      errorMsg << "Broadcast of shape " << inputShape
-               << " not possible at index " << dim << ". Dimension "
-               << inputShape[dim]
-               << " incompatible with output shape dimension "
-               << bcastShape[bcastI];
-      throw std::invalid_argument(errorMsg.str());
+    if (bcastShape[bcastI]) {
+      if ((bcastShape[bcastI] == 1) || (inputShape[dim] == 0))
+        bcastShape[bcastI] = inputShape[dim];
+      else if (
+          (bcastShape[bcastI] != inputShape[dim]) && (inputShape[dim] != 1)) {
+        std::stringstream errorMsg;
+        errorMsg << "Broadcast of shape " << inputShape
+                 << " not possible at index " << dim << ". Dimension "
+                 << inputShape[dim]
+                 << " incompatible with output shape dimension "
+                 << bcastShape[bcastI];
+        throw std::invalid_argument(errorMsg.str());
+      }
     }
   }
 }
