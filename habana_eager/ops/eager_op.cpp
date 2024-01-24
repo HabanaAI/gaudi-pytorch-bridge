@@ -85,6 +85,8 @@ void EagerOpBase::validate_inputs(
 std::mutex EagerOpBase::m_mutex;
 
 void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
+  std::optional<std::vector<at::Tensor>> allocated_outputs =
+      out_spec_or_tensors.get_tensors();
   auto stack = convert_ivalues_to_backend_tensors(m_inputs, m_symbol);
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
     for (const at::IValue& ivalue : stack) {
@@ -93,6 +95,17 @@ void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
         hb_tmeta->set_tensor_pipelined();
       }
     }
+
+    std::vector<at::Tensor>::iterator allocated_outputs_iter;
+    if (allocated_outputs.has_value()) {
+      allocated_outputs_iter = allocated_outputs->begin();
+      for (; allocated_outputs_iter < allocated_outputs->end();
+           allocated_outputs_iter++) {
+        auto hb_tmeta{habana::get_tensor_extra_meta(*allocated_outputs_iter)};
+        hb_tmeta->set_tensor_pipelined();
+      }
+    }
+
     SingleTonEagerContext::getInstance()
         .ScheduleWorkAndUpdateLoweringThreadHandle(
             EagerLoweringTask,

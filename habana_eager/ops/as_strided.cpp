@@ -15,7 +15,7 @@
 #include <ATen/native/Resize.h>
 #include "habana_eager/ops/view.h"
 #include "habana_kernels/kernel_utils.h"
-
+#include "pytorch_helpers/habana_helpers/misc_utils.h"
 namespace habana {
 namespace eager {
 at::Tensor as_strided_hpu(
@@ -30,6 +30,15 @@ at::Tensor as_strided_hpu(
       self.key_set(),
       self.dtype());
   at::native::setStrided(result, size, stride, storage_offset);
+  if (auto backend_meta =
+          (const_cast<c10::TensorImpl*>(self.unsafeGetTensorImpl()))
+              ->get_backend_meta()) {
+    auto hb_backend_meta = dynamic_cast<habana::TensorExtraMeta*>(backend_meta);
+    if (hb_backend_meta->is_tensor_pipelined()) {
+      habana::TryJoinPendingEagerPipelineThreads();
+    }
+  }
+
   habana::eager::view_propagate_permutation(self, result);
   habana_helpers::set_output_hw_scaling_meta(self, result);
   return result;
