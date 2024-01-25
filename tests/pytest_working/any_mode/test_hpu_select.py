@@ -12,7 +12,7 @@
 import pytest
 import torch
 import habana_frameworks.torch.dynamo.compile_backend
-from test_utils import format_tc, setup_teardown_env_fixture, is_pytest_mode_compile, is_pytest_mode_eager
+from test_utils import format_tc, is_pytest_mode_compile, is_pytest_mode_eager
 
 select_backward_test_case_list = [
     # size, dim, index
@@ -31,19 +31,8 @@ select_backward_test_case_list = [
 ]
 
 
-@pytest.mark.usefixtures("setup_teardown_env_fixture")
 @pytest.mark.parametrize("size, dim, index", select_backward_test_case_list, ids=format_tc)
 @pytest.mark.parametrize("dtype", ["float32", "bfloat16", "int32", "long", "float64"])
-@pytest.mark.parametrize(
-    "setup_teardown_env_fixture",
-    [
-        {
-            # TODO: for some reason when run in CI this setting is ignored and test fails
-            "PT_ENABLE_INT64_SUPPORT": "true",  # W/A for eager/compile not working well with Long SW-168607
-        }
-    ],
-    indirect=True,
-)
 def test_select(size, dim, index, dtype):
     dtype = getattr(torch, dtype)
 
@@ -59,9 +48,6 @@ def test_select(size, dim, index, dtype):
 
     cpu_fn = torch.compile(fn) if is_pytest_mode_compile() else fn
     hpu_fn = torch.compile(fn, backend="aot_hpu_training_backend") if is_pytest_mode_compile() else fn
-
-    if (dtype == torch.float64 or dtype == torch.long) and (is_pytest_mode_compile() or is_pytest_mode_eager()):
-        pytest.xfail("SW-171704")
 
     if size == (16, 8) and dim == 1 and index == 7:
         pytest.xfail("SW-165317")
