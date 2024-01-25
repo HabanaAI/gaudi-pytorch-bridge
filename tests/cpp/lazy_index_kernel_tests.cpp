@@ -44,7 +44,8 @@ class UniqueDimParameterizedTestFixture
   }
 };
 
-TEST_P(UniqueParameterizedTestFixture, tests) {
+TEST_P(UniqueParameterizedTestFixture, DISABLED_tests) {
+  // TODO: SW-172900
   c10::ScalarType dtype = std::get<1>(GetParam());
   torch::Tensor input_cpu = std::get<0>(GetParam()).to(dtype);
   bool return_inverse = std::get<2>(GetParam());

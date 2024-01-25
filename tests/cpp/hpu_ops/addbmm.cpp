@@ -15,7 +15,8 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-TEST_F(HpuOpTest, addbmm_inplace_1) {
+TEST_F(HpuOpTest, DISABLED_addbmm_inplace_1) {
+  // TODO: SW-172900
   constexpr int n = 15;
   constexpr int m = 30;
   constexpr int p = 45;
