@@ -1056,6 +1056,10 @@ at::Tensor& kv_reorder_(
 
   habana::eager::EagerOp<at::Tensor&> hpu_op{
       "hpu::kv_reorder_", {self, start, end, beam_idx}, {{self.sizes().vec()}}};
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::Inplace,
+       "hpu::kv_reorder_",
+       decltype(habana::eager::EagerOpMetaData::out_indices_){0}});
   return hpu_op.call(self);
 }
 

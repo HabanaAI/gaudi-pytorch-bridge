@@ -49,3 +49,30 @@ def test_kv_reorder(shape, dtype):
         subset.copy_(updated)
 
     compare_tensors(input_hpu, input_cpu, atol=0.0, rtol=0.0)
+
+
+@pytest.mark.parametrize("shape", [(3, 4, 8, 64, 28)])
+@pytest.mark.parametrize("dtype", dtypes)
+def test_kv_reorder_with_view(shape, dtype):
+    input_cpu = torch.randint(0, 100, shape).to(dtype).transpose(2,3)
+    start_cpu = torch.randint(0, 4, (shape[0],), dtype=torch.int32)
+    end_cpu = torch.randint(0, 4, (shape[0],), dtype=torch.int32)
+    beam_idx_cpu = torch.randint(0, 4, (shape[0], 4), dtype=torch.int32)
+
+    input_hpu = input_cpu.to(hpu)
+    start_hpu = start_cpu.to(hpu)
+    end_hpu = (start_cpu + end_cpu).to(hpu)
+    beam_to_hpu = torch.sum(beam_idx_cpu * torch.tensor([[64, 16, 4, 1]]), axis=-1)
+    beam_idx_hpu = beam_to_hpu.to(hpu).to(torch.uint8)
+
+    def fn(input, start, end, beam_idx):
+        return torch.ops.hpu.kv_reorder_(input, start, end, beam_idx)
+
+    fn(input_hpu, start_hpu, end_hpu, beam_idx_hpu)
+
+    for i in range(shape[0]):
+        subset = torch.narrow(input_cpu[i], -2, start_cpu[i], end_cpu[i])
+        updated = subset.index_select(0, beam_idx_cpu[i])
+        subset.copy_(updated)
+
+    compare_tensors(input_hpu, input_cpu, atol=0.001, rtol=0.001)
