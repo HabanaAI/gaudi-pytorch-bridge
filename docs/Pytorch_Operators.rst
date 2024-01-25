@@ -64,6 +64,7 @@ mse_loss                               Yes      Yes      No        No       No  
 nll_loss                               Yes      Yes      No        No       No     torch.nn.functional
 one_hot                                Yes      Yes      Yes       No       No     torch.nn.functional
 pad                                    Yes      Yes      No        No       No     torch.nn.functional
+pixel_shuffle                          Yes      Yes      Yes       Yes      Yes    torch.nn.functional
 relu                                   Yes      Yes      No        No       No     torch.nn.functional
 relu\_                                 Yes      Yes      No        No       No     torch.nn.functional
 rrelu                                  Yes      Yes      No        No       No     torch.nn.functional
@@ -218,6 +219,7 @@ normal                                 Yes      Yes      No        No       No  
 not_equal                              Yes      Yes      Yes       Yes      Yes    torch
 ones                                   Yes      Yes      Yes       Yes      Yes    torch
 ones_like                              Yes      Yes      Yes       Yes      Yes    torch
+pixel_shuffle                          Yes      Yes      Yes       Yes      Yes    torch
 poisson                                Yes      Yes      No        No       No     torch
 pow                                    Yes      Yes      No        No       No     torch
 prod                                   Yes      Yes      No        No       No     torch
@@ -312,6 +314,7 @@ MaxPool3d                              Yes      Yes      No        No       No  
 Mish                                   Yes      Yes      No        No       No     torch.nn
 MSELoss                                Yes      Yes      No        No       No     torch.nn
 NLLLoss                                Yes      Yes      No        No       No     torch.nn
+PixelShuffle                           Yes      Yes      Yes       Yes      Yes    torch.nn
 ReLU                                   Yes      Yes      No        No       No     torch.nn
 ReflectionPad1d                        Yes      No       No        No       No     torch.nn
 ReflectionPad2d                        Yes      No       No        No       No     torch.nn

@@ -231,6 +231,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/optimizer_resource_apply_momentum_gen.cpp
           backend/pdist_gen.cpp
           backend/poission_gen.cpp
+          backend/pixel_shuffle_gen.cpp
           backend/pow_gen.cpp
           backend/prelu_gen.cpp
           backend/quant_dequant_ops.cpp
