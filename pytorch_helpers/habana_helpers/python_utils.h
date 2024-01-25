@@ -24,10 +24,14 @@ struct AutoNoGIL {
       save_state = PyEval_SaveThread();
     }
   }
-  ~AutoNoGIL() {
+  void Acquire() {
     if (save_state) {
       PyEval_RestoreThread(save_state);
     }
+    save_state = nullptr;
+  }
+  ~AutoNoGIL() {
+    Acquire();
   }
   PyThreadState* save_state = nullptr;
 };

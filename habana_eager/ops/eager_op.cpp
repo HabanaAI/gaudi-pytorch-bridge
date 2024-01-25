@@ -17,6 +17,7 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_eager/eager_context.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 #include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 
 namespace habana {
@@ -109,7 +110,11 @@ void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
         m_symbol, std::move(stack), std::move(out_spec_or_tensors), false};
 
     hlexec.set_eager_op_info(std::move(m_eager_op_meta_data));
+
+    habana_helpers::AutoNoGIL gil_release;
     std::lock_guard lock(m_mutex);
+    gil_release.Acquire();
+
     hlexec.launch();
   }
 }
