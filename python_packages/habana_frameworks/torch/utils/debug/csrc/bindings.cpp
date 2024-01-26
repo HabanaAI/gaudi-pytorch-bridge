@@ -159,6 +159,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES);
   });
   m.def("hb_print", [](const char* msg) { PT_CUSTOM_DEBUG(msg); });
+  m.def("towl_print", [](const std::string &msg) { towl::emitPythonString(msg); });
   m.def("towl_configure", [](bool flag, std::string config) {
     towl::configure(flag, config);
   });

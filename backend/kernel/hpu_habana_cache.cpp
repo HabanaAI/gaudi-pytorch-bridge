@@ -1503,7 +1503,7 @@ void RecipeLauncher::Launch(
               reporter->getGraphStats()->removeLiveGraph(
                   resource_holder->active_graph_key_);
             }
-            towl::emitRecipeFinished(*recipe_handle);
+            towl::emitRecipeFinished(recipe_handle.get());
             PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
           });
       // recipe_id_ needs to be passed to done_cb to ensure its lifetime until
@@ -1551,7 +1551,7 @@ void RecipeLauncher::Launch(
               reporter->getGraphStats()->removeLiveGraph(
                   resource_holder->active_graph_key_);
             }
-            towl::emitRecipeFinished(*recipe_handle);
+            towl::emitRecipeFinished(recipe_handle.get());
             PT_LAZY_DEBUG("call decrease and notify of recipe_counter");
           });
       // recipe_id_ needs to be passed to done_cb to ensure its lifetime until

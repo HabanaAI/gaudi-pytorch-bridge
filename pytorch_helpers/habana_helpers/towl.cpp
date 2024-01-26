@@ -47,8 +47,10 @@ int GetRankFromEnv() {
  *  rank=int            - logs only under given rank (determined by env RANK)
  *  any_rank=[0|1]      - ignore `rank` option and always log events
  */
+
 struct Config {
-  bool log_devmem = true;
+  bool log_devmem_buf = true;
+  bool log_devmem_summary = true;
   bool log_recipe = true;
   bool log_python = true;
   int rank = -1;
@@ -69,6 +71,7 @@ struct Config {
         value = field.substr(pos + 1, field.size() - pos - 1);
       }
 
+      PT_TOWL_WARN("Field ", key, " ", value);
       keyvals.emplace_back(key, value);
     };
 
@@ -78,6 +81,7 @@ struct Config {
       for (; end < config_str.size(); ++end) {
         if (config_str[end] == ':') {
           addField(config_str.substr(begin, end - begin));
+          begin = end + 1;
         }
       }
       addField(config_str.substr(begin, end - begin));
@@ -87,8 +91,17 @@ struct Config {
       for (auto& kv : keyvals) {
         auto& key = kv.first;
         auto& value = kv.second;
-        if (key == "log_devmem") {
-          config.log_devmem = value == "1";
+        if (key == "log_all") {
+          bool flag = value == "1";
+          PT_TOWL_WARN("log_all ", flag, value);
+          config.log_devmem_buf = flag;
+          config.log_devmem_summary = flag;
+          config.log_recipe = flag;
+          config.log_python = flag;
+        } else if (key == "log_devmem_buf") {
+          config.log_devmem_buf = value == "1";
+        } else if (key == "log_devmem_summary") {
+          config.log_devmem_summary = value == "1";
         } else if (key == "log_python") {
           config.log_python = value == "1";
         } else if (key == "log_recipe") {
@@ -126,7 +139,9 @@ struct Config {
     TowlEnabled::flag = config.any_rank or config.rank == my_rank;
 
     PT_TOWL_WARN("Enable ", TowlEnabled::flag);
-    PT_TOWL_WARN("Config log_devmem=", config.log_devmem);
+    PT_TOWL_WARN("Config string: ", config_str);
+    PT_TOWL_WARN("Config log_devmem_buf=", config.log_devmem_buf);
+    PT_TOWL_WARN("Config log_devmem_summary=", config.log_devmem_summary);
     PT_TOWL_WARN("Config log_recipe=", config.log_recipe);
     PT_TOWL_WARN("Config log_python=", config.log_python);
     PT_TOWL_WARN(
@@ -150,13 +165,13 @@ void emitDeviceMemoryAllocated(
     void* ptr,
     std::size_t size,
     std::uint64_t stream) {
-  if (not config.log_devmem)
+  if (not config.log_devmem_buf)
     return;
   PT_TOWL_DEBUG("devmem.malloc ", ptr, " size ", size, " stream ", stream);
 }
 
 void emitDeviceMemoryDeallocated(void* ptr) {
-  if (not config.log_devmem)
+  if (not config.log_devmem_buf)
     return;
   PT_TOWL_DEBUG("devmem.free ", ptr);
 }
@@ -180,10 +195,16 @@ const char* getTensorTypeName(synTensorType tp) {
 }
 
 void emitRecipeFinished(
-    const synapse_helpers::graph::recipe_handle& recipe_handle) {
+    const synapse_helpers::graph::recipe_handle* recipe_handle) {
   if (not config.log_recipe)
     return;
-  PT_TOWL_DEBUG("recipe.finished ", recipe_handle.syn_recipe_handle_);
+
+  void* ptr = 0x0;
+  if (recipe_handle) {
+    ptr = recipe_handle->syn_recipe_handle_;
+  }
+
+  PT_TOWL_DEBUG("recipe.finished ", ptr);
 }
 void emitRecipeLaunch(
     [[maybe_unused]] const synapse_helpers::graph::recipe_handle& recipe_handle,
@@ -229,7 +250,7 @@ void emitPythonString(const std::string& s) {
 }
 
 void emitDeviceMemorySummary(const char* tag) {
-  if (not config.log_devmem)
+  if (not config.log_devmem_summary)
     return;
 
   auto& device = habana::HPURegistrar::get_device();

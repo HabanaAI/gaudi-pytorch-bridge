@@ -35,7 +35,7 @@ void emitRecipeLaunch(
     const std::vector<std::uint64_t>& addresses,
     const std::vector<synLaunchTensorInfo>& tensors);
 void emitRecipeFinished(
-    const synapse_helpers::graph::recipe_handle& recipe_handle);
+    const synapse_helpers::graph::recipe_handle* recipe_handle);
 
 void emitPythonString(const std::string& s);
 
@@ -69,7 +69,7 @@ _MAKE_TOWL_ENTRYPOINT(
     (recipe_handle, workspace_size, locked_addresses, tensors))
 _MAKE_TOWL_ENTRYPOINT(
     emitRecipeFinished,
-    (const synapse_helpers::graph::recipe_handle& recipe_handle),
+    (const synapse_helpers::graph::recipe_handle* recipe_handle),
     (recipe_handle));
 _MAKE_TOWL_ENTRYPOINT(emitPythonString, (const std::string& s), (s));
 _MAKE_TOWL_ENTRYPOINT(emitDeviceMemorySummary, (const char* tag), (tag));

@@ -238,7 +238,6 @@ synStatus device_memory::deallocate(void* ptr) {
     auto status{synDeviceFree(device_.id(), ptr_address, 0)};
     PT_DEVMEM_DEBUG(Logger::formatStatusMsg(status), "SynDeviceFree Failed.");
   }
-  PT_DEVMEM_DEBUG("device_memory::deallocate ptr=", to_hexstring(ptr));
   log_synDeviceMemStats(*this);
   return status;
 }
@@ -271,7 +270,6 @@ synStatus device_memory::alloc(
       *v_ptr = reinterpret_cast<void*>(ptr);
       log_synDeviceMemStats(*this);
     }
-    towl::emitDeviceMemoryAllocated(*v_ptr, size, 0);
   }
 
   return status;
@@ -301,7 +299,6 @@ synStatus device_memory::malloc(
 }
 
 synStatus device_memory::free_with_stream(void* free_ptr) {
-  towl::emitDeviceMemoryDeallocated(free_ptr);
   synStatus status{synStatus::synSuccess};
   if (nullptr == free_ptr) {
     return status;
@@ -327,11 +324,13 @@ synStatus device_memory::free_with_stream(void* free_ptr) {
       handle2pointer_.Erase(id);
       log_synDeviceMemStats(*this);
       log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
+      towl::emitDeviceMemoryDeallocated(free_ptr);
       record(free_ptr, 0, false);
     } // TODO fixme if there are other stream, need to erase the h_id
   } else {
     status = deallocate(free_ptr);
     log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
+    towl::emitDeviceMemoryDeallocated(free_ptr);
     record(free_ptr, 0, false);
   }
   return status;
@@ -365,7 +364,6 @@ synStatus device_memory::free(void* free_ptr) {
   }
 
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent) {
-    towl::emitDeviceMemoryDeallocated(free_ptr);
     auto h = mem_handle::reinterpret_from_pointer(
         reinterpret_cast<uint64_t>(free_ptr));
     if (h.offset() != 0) {
@@ -384,6 +382,7 @@ synStatus device_memory::free(void* free_ptr) {
     status = deallocate(free_ptr);
   }
   log_synDeviceFree(reinterpret_cast<uint64_t>(free_ptr), status);
+  towl::emitDeviceMemoryDeallocated(free_ptr);
   record(free_ptr, 0, false);
   return status;
 }

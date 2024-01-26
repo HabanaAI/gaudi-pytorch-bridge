@@ -173,3 +173,6 @@ def _dump_memory_reporter() -> None:
 
 def _towl_configure(flag : bool, config=""):
     _debug_C.towl_configure(flag, config)
+
+def _towl_print(text : str):
+    _debug_C.towl_print(text)
