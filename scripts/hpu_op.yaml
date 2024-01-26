@@ -6790,7 +6790,6 @@ special_xlog1py:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
-  guid: log1p_fwd
   op_backend: XlogYOperator
   out_ids: [0]
 
@@ -6800,7 +6799,6 @@ special_xlog1py.other_scalar:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
-  guid: log1p_fwd
   op_frontend: LazyXlogY
   op_backend: XlogYOperator
   out_ids: [0]
@@ -6811,7 +6809,6 @@ special_xlog1py.other_scalar_out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
-  guid: log1p_fwd
   op_frontend: LazyXlogY
   op_backend: XlogYOperator
 
@@ -6821,7 +6818,6 @@ special_xlog1py.out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
-  guid: log1p_fwd
   op_backend: XlogYOperator
 
 special_xlog1py.self_scalar:
@@ -6830,7 +6826,6 @@ special_xlog1py.self_scalar:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
-  guid: log1p_fwd
   op_frontend: LazyXlogY
   op_backend: XlogYOperator
   out_ids: [1]
@@ -6841,7 +6836,6 @@ special_xlog1py.self_scalar_out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
-  guid: log1p_fwd
   op_frontend: LazyXlogY
   op_backend: XlogYOperator
 
