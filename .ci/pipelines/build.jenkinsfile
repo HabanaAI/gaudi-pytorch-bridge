@@ -63,7 +63,7 @@ def buildCommands = [
     'Pytorch modules': 'build_pytorch_modules -c'
 ]
 
-def testDependencies = ['CORAL_SIM', 'TPCSIM', 'TPC_FUSER', 'TPC_LLVM', 'HCL', 'MEDIA', 'CODEC', 'RDMA_CORE']
+def testDependencies = ['CORAL_SIM', 'TPCSIM', 'TPC_FUSER', 'TPC_LLVM', 'HCL', 'MEDIA', 'CODEC', 'RDMA_CORE', 'DEEPSPEED_FORK']
 def requiredArtifact = [
     'SWTOOLS_SDK': ['bin', 'shared'],
     'SYNAPSE': ['test', 'shared', 'header'],
