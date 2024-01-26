@@ -328,7 +328,7 @@ def helper_post_pass_finalize(input_module: torch.fx.GraphModule, uses_aot: bool
     else:
         # Running DCE on graph that might not be functionalized in unsafe:
         # https://github.com/pytorch/pytorch/issues/68301
-        logger.warning("Disallowed to run DCE in non-aot mode.")
+        logger.warn("Disallowed to run DCE in non-aot mode.")
     input_module.graph.lint()
     input_module.recompile()
 
