@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ###############################################################################
-# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -2111,10 +2111,8 @@ get_github_repo()
   # assign parameters to variables
   local __repository="${1}"
   local __revision="${2}"
-  # Enable --not-checkout to clone without downloading working-tree.
-  git clone --no-checkout "https://github.com/${__repository}" .
-  # Checkout required branch/tag/sha-id if found.
-  git checkout ${__revision} || { echo "Error: Checkout Failed! Provided revision: $__revision is not valid"; exit 1 ;}
+  # Clone only last state of given branch
+  git clone --depth 1 --branch ${__revision} "https://github.com/${__repository}" . || { echo "Error: Checkout Failed! Provided revision: $__revision is not valid"; exit 1 ;}
 }
 
 build_pytorch_text()
