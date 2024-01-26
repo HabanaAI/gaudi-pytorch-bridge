@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly
@@ -13,15 +13,16 @@
 namespace habana {
 
 void HpuFallbackHelper::enumerate_fallback() {
-  const char* fallback_list = std::getenv("PT_HPU_PLACE_ON_CPU");
+  std::string fallback_list = GET_ENV_FLAG_NEW(PT_HPU_PLACE_ON_CPU);
 
-  if (fallback_list) {
-    std::stringstream ss(fallback_list);
+  if (!fallback_list.empty()) {
+    std::stringstream ss(fallback_list.c_str());
     while (ss.good()) {
+      enable_fallback = false;
       std::string substr;
       std::getline(ss, substr, ',');
       if (substr == "none") {
-        enable_fallback = false;
+        m_ops_placed_on_cpu.clear();
         return;
       }
       m_ops_placed_on_cpu.insert(substr);

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -759,3 +759,14 @@ PT_HPU_STOCHASTIC_ROUNDING_MODE:
   doc: "Mode of stochastic_rounding in cast_to_fp8 ops.\n
 0 - maps round_mode to CAST_ROUND_SR,\n
 1 - maps round_mode to CAST_ROUND_SFTZ - stochastic flush to zero."
+
+PT_HPU_PLACE_ON_CPU:
+  default: ""
+  doc: "A comma-separated operator list can be set through this env to enable
+fallback operators to the CPU.\n
+1) If PT_HPU_PLACE_ON_CPU is empty, fallback will be allowed for each\n
+operator.\n
+2) If PT_HPU_PLACE_ON_CPU contains `none`, fallback won't be allowed for any\n
+operators.\n
+3) Otherwise, fallback will be allowed for each operator defined in\n
+PT_HPU_PLACE_ON_CPU."

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2020-2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -33,8 +33,6 @@
 
 namespace habana_lazy_test {
 
-const char* const place_on_cpu_env = getenv("PT_HPU_PLACE_ON_CPU");
-
 class EnvHelper {
   bool m_defined = false;
   unsigned m_saved = 0;
@@ -47,6 +45,7 @@ class EnvHelper {
   bool m_eager_view_handling_enable = false;
   std::optional<bool> m_shape_agnostic_enable{};
   bool m_acc_par_mode_enable = true;
+  std::string place_on_cpu_env = GET_ENV_FLAG_NEW(PT_HPU_PLACE_ON_CPU);
 
  private:
   uint64_t InitSeed();
@@ -108,15 +107,15 @@ class EnvHelper {
   }
 
   void DisableCpuFallback() {
-    if (!place_on_cpu_env) {
-      setenv("PT_HPU_PLACE_ON_CPU", "none", 0);
+    if (place_on_cpu_env.find("none") == std::string::npos) {
+      SET_ENV_FLAG_NEW(PT_HPU_PLACE_ON_CPU, "none", 1);
       habana::HpuFallbackHelper::get()->enumerate_fallback();
     }
   }
 
   void EnableCpuFallback() {
-    if (!place_on_cpu_env) {
-      unsetenv("PT_HPU_PLACE_ON_CPU");
+    if (!place_on_cpu_env.empty()) {
+      SET_ENV_FLAG_NEW(PT_HPU_PLACE_ON_CPU, "", 1);
       habana::HpuFallbackHelper::get()->enumerate_fallback();
     }
   }
@@ -183,11 +182,7 @@ class EnvHelper {
       UNSET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE);
     }
 
-    if (place_on_cpu_env) {
-      setenv("PT_HPU_PLACE_ON_CPU", place_on_cpu_env, 1);
-    } else {
-      unsetenv("PT_HPU_PLACE_ON_CPU");
-    }
+    SET_ENV_FLAG_NEW(PT_HPU_PLACE_ON_CPU, place_on_cpu_env.c_str(), 1);
     habana::HpuFallbackHelper::get()->enumerate_fallback();
   }
 
