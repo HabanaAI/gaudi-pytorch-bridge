@@ -54,14 +54,15 @@ class HabanaGraphModule(torch.nn.Module):
     def __call__(self, *args):
         outputs = []
         inputs = tuple(args)
-        if self._dynamic and enable_dynamic_output_preallocate:
+
+        ds_output_prealloc = self._dynamic and enable_dynamic_output_preallocate
+        if ds_output_prealloc:
             self._symbol_evaluator.clear_symbolic_value_dict()
 
         for md in self._outputs_metadata:
             size = md[0]
-            if self._dynamic and enable_dynamic_output_preallocate:
+            if ds_output_prealloc:
                 size = self._symbol_evaluator.calculate_shape(md[0], inputs)
-
             outputs.append(torch.empty(size, dtype=md[1], device="hpu"))
 
         from ._recipe_compiler_C import graph_compile, graph_launch
@@ -212,20 +213,26 @@ def get_outputs_metadata(graph_module):
 def get_outputs_metadata_dynamic(graph_module):
     """
     Returns a list of metadata of outputs from the graph, in the form of
-    tuples((sympy shape expr, str shape expr), dtype), in the order in which
-    they appear in the graph.
+    tuples((sympy shape expr of each dims,
+            string expr of each dims,
+            token number of the expr of each dims,
+            total number of dims), dtype),
+    in the order in which they appear in the graph.
     """
     outputs_metadata = []
+    sym_expr_list = []
     for node in graph_module.graph.nodes:
         if node.op == "output":
             for i in node.all_input_nodes:
                 assert len(i.meta["output_shapes"]) == len(i.meta["output_dtypes"])
                 for shape, dtype in zip(i.meta["output_shapes"], i.meta["output_dtypes"]):
                     dynamic_shape_sympy = []
+                    dynamic_shape_sym_expr_token = []
                     dynamic_shape_str = []
                     for sz in shape:
                         if isinstance(sz, int):
                             dynamic_shape_sympy.append(sz)
+                            dynamic_shape_sym_expr_token.append(sys.maxsize)
                             dynamic_shape_str.append(sz)
                         elif isinstance(sz, torch.SymInt):
                             pexpr = PythonPrinter().doprint
@@ -233,9 +240,17 @@ def get_outputs_metadata_dynamic(graph_module):
                             sz_sympy = sympify(sz_str)
                             dynamic_shape_sympy.append(sz_sympy)
                             dynamic_shape_str.append(sz_str)
+                            if not sz_str in sym_expr_list:
+                                sym_expr_list.append(sz_str)
+
+                            sym_expr_token = sym_expr_list.index(sz_str)
+                            dynamic_shape_sym_expr_token.append(sym_expr_token)
                         else:
                             logger.debug("Symbolic type not supported:", sz)
                             assert False
-                    outputs_metadata.append(((dynamic_shape_sympy, dynamic_shape_str), dtype))
+
+                    dim_size = len(dynamic_shape_sympy)
+                    outputs_metadata.append(((dynamic_shape_sympy, dynamic_shape_str,
+                                              dynamic_shape_sym_expr_token, dim_size), dtype))
 
     return outputs_metadata

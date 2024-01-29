@@ -176,7 +176,7 @@ class SymbolicShapeEvaluator:
     def clear_symbolic_value_dict(self):
         self._symbolic_value_dict = {}
 
-    def calculate_symbol_size(self, expr_sympy, expr_str, input_stack):
+    def calculate_symbol_size(self, expr_sympy, expr_str, expr_token, input_stack):
         def get_symbolic_value(sym_meta, inputs):
             input_idx = sym_meta[0]
             dim = sym_meta[1]
@@ -190,11 +190,12 @@ class SymbolicShapeEvaluator:
                 assert False, "Wrong input type to look for dimention value"
             return value
 
+        if expr_token in self._symbolic_value_dict:
+            return self._symbolic_value_dict[expr_token]
+
         size = 0
         sym_meta = self._symbolic_metadata[expr_str]
-        if expr_str in self._symbolic_value_dict:
-            return self._symbolic_value_dict[expr_str]
-        elif sym_meta[0] is not sys.maxsize:
+        if sym_meta[0] is not sys.maxsize:
             size = get_symbolic_value(sym_meta, input_stack)
         else:
             pexpr = PythonPrinter().doprint
@@ -207,18 +208,33 @@ class SymbolicShapeEvaluator:
                 sym_value_pair.append((sub_sym, value))
             size = expr_sympy.subs(sym_value_pair)
 
-        self._symbolic_value_dict[expr_str] = size
+        self._symbolic_value_dict[expr_token] = size
         return size
 
     def calculate_shape(self, out_shape_meta, input_stack):
         """
         Return the concrete size after evaluating the symbolic expression.
+
+        Args:
+            out_shape_meta (tuple) : Output shape meta data for one output
+            tensor includes:
+                1. sympy expression of each output dims in tuple format
+                2. String format of symbolic expr of each dims in a tuple format
+                3. Token number of the symbolic expressions in each dims
+                4. Total number of dimensions.
+            input_stack (tuple) : Input arguments for the submodule graph
+        Returns:
+            Calculated output size.
         """
-        concrete_size = []
-        for idx, sz in enumerate(out_shape_meta[0]):
-            if isinstance(sz, sympy.Expr):
-                value = self.calculate_symbol_size(sz, out_shape_meta[1][idx], input_stack)
-                concrete_size.append(value)
-            else:
-                concrete_size.append(sz)
+        idx = 0
+        concrete_size = [None] * out_shape_meta[3]
+        output_shape_sympy = out_shape_meta[0]
+        for sz in output_shape_sympy:
+            value = sz
+            if out_shape_meta[2][idx] is not sys.maxsize:
+                value = self.calculate_symbol_size(sz, out_shape_meta[1][idx],
+                                                   out_shape_meta[2][idx], input_stack)
+            concrete_size[idx] = value
+            idx += 1
+
         return concrete_size
