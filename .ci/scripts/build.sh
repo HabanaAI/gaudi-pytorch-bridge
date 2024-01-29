@@ -2111,8 +2111,16 @@ get_github_repo()
   # assign parameters to variables
   local __repository="${1}"
   local __revision="${2}"
-  # Clone only last state of given branch
-  git clone --depth 1 --branch ${__revision} "https://github.com/${__repository}" . || { echo "Error: Checkout Failed! Provided revision: $__revision is not valid"; exit 1 ;}
+  # For branch fast path can be chosen, for revision need to fetch whole repo
+  if [[ ${__revision} =~ ^[0-9a-f]{7,40}$ ]]; then
+    # Enable --not-checkout to clone without downloading working-tree.
+    git clone --no-checkout "https://github.com/${__repository}" .
+    # Checkout required sha-id if found.
+    git checkout ${__revision} || { echo "Error: Checkout Failed! Provided revision: $__revision is not valid"; exit 1 ;}
+  else
+    # Clone only last state of given branch
+    git clone --depth 1 --branch ${__revision} "https://github.com/${__repository}" . || { echo "Error: Checkout Failed! Provided revision: $__revision is not valid"; exit 1 ;}
+  fi
 }
 
 build_pytorch_text()
