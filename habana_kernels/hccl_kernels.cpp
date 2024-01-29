@@ -15,6 +15,7 @@
 #include <c10/util/Exception.h>
 #include <torch_ver/csrc/distributed/c10d/Types.hpp>
 #include <torch_ver/csrc/distributed/c10d/Utils.hpp>
+#include "backend/helpers/collective_utils.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/synapse_helpers/hccl_communicator.h"
 #include "common/utils.h"
@@ -130,11 +131,6 @@ bool is_valid_reduction_dtype(hcclDataType_t data_type) {
     return true;
   }
   return false;
-}
-
-size_t getHCCLSliceSizeMB() {
-  static const size_t slice_size = GET_ENV_FLAG_NEW(PT_HCCL_SLICE_SIZE_MB);
-  return slice_size * 1024 * 1024;
 }
 
 // HCCL op mapping
@@ -516,7 +512,9 @@ void HcclAllreduceOperator::RunCollective(
         size_t num_elements = input->get_numel();
         size_t element_size =
             c10::elementSize(habana_helpers::getInternalDtype(scalar_type));
-        size_t chunk_size = getHCCLSliceSizeMB() / element_size;
+        size_t chunk_size = habana_helpers::getHCCLSliceSize(
+                                habana_helpers::collectiveAllReduce, true) /
+            element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
@@ -597,7 +595,9 @@ void HcclReduceOperator::RunCollective(
         size_t num_elements = input->get_numel();
         size_t element_size =
             c10::elementSize(habana_helpers::getInternalDtype(scalar_type));
-        size_t chunk_size = getHCCLSliceSizeMB() / element_size;
+        size_t chunk_size = habana_helpers::getHCCLSliceSize(
+                                habana_helpers::collectiveReduce, true) /
+            element_size;
         size_t data_offset = 0;
         while (num_elements > 0) {
           size_t num_elements_in_current_chunk =
