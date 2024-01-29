@@ -115,20 +115,9 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
             if isinstance(node.args[idx], bool):
                 return True
 
-    # [SW-121751] - scalar_tensor implementation
-    # workaround for: https://github.com/pytorch/pytorch/issues/108745
-    # ticket for cleanup once root issue is resolved: [SW-162298]
-    # because order of operations returned from torch compile is not
-    # deterministic, the same computations may return slightly different
-    # graphs, which leads to cache misses in dynamic runs. scalar_tensor is
-    # particularly prone to this happening as in most cases it's inputs are
-    # constant and known beforehand, so this call might appear anywhere from
-    # first line of fused function up to just before it's output is used.
-    # To workaround this issue we fallback to eager for dynamic runs, which
-    # shouldn't have big impacts on performance.
-    # also workaround for: https://jira.habana-labs.com/browse/SW-162350
+    # workaround for: https://jira.habana-labs.com/browse/SW-162350
     # Slice op is not yet supported for dynamic shape in torch compile
-    if (op_name == "scalar_tensor" or op_name == "slice") and is_dynamic:
+    if op_name == "slice" and is_dynamic:
         return True
 
     # representing scalar float value NaN in JIT fails, by being pasted as
