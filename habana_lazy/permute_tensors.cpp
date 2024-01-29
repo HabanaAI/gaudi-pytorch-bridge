@@ -197,8 +197,13 @@ void PermuteTensors::permuteWeightToRSCKInMemory(torch::Tensor& weight) {
   torch::Tensor weight_cpu = weight.to(c10::kCPU);
   if (weight.scalar_type() == c10::ScalarType::BFloat16) {
     permuteWeightTensorDataToRSCK<c10::BFloat16>(weight_cpu);
-  } else {
+  } else if (weight.scalar_type() == c10::ScalarType::Half) {
+    permuteWeightTensorDataToRSCK<c10::Half>(weight_cpu);
+  } else if (weight.scalar_type() == c10::ScalarType::Float) {
     permuteWeightTensorDataToRSCK<float>(weight_cpu);
+  } else {
+    HABANA_ASSERT(
+        false && "PermuteWeightTensorDataToRSCK doesn't support used dtype");
   }
   copy_hpu_lazy_(weight, weight_cpu, false);
 
@@ -214,9 +219,15 @@ void PermuteTensors::permuteWeightToQRSCKInMemory(torch::Tensor& weight) {
   torch::Tensor weight_cpu = weight.to(c10::kCPU);
   if (weight.scalar_type() == c10::ScalarType::BFloat16) {
     restrideWeightTensorDataToQRSCK<c10::BFloat16>(weight_cpu);
-  } else {
+  } else if (weight.scalar_type() == c10::ScalarType::Half) {
+    restrideWeightTensorDataToQRSCK<c10::Half>(weight_cpu);
+  } else if (weight.scalar_type() == c10::ScalarType::Float) {
     restrideWeightTensorDataToQRSCK<float>(weight_cpu);
+  } else {
+    HABANA_ASSERT(
+        false && "PermuteWeightTensorDataToQRSCK doesn't support used dtype");
   }
+
   copy_hpu_lazy_(weight, weight_cpu, false);
 
   habana_helpers::print_tensor_debug(weight);
