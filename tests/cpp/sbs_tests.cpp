@@ -449,10 +449,7 @@ TEST_P(SBSWithParamsTest, CrossEntropySBSTest) {
   auto target = torch::randint(0, 3, {16, 16, 14}, torch::kLong);
   torch::Tensor htarget = target.to(torch::kHPU);
   IncrementNumberOfCopiesToHPU();
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
-    IncrementNumberOfCopiesToHPU(); // as part of permuteWeight we copy weight
-                                    // to device again.
-  }
+
   torch::Tensor houtConv =
       torch::conv2d(tHabanaX, tHabanaW, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::nn::CrossEntropyLoss loss;
@@ -511,10 +508,7 @@ void SBSWithParamsTest::ConvolutionSBSTest(bool channelLast, bool random) {
             torch::dtype(torch::kFloat).requires_grad(false));
   torch::Tensor tHabanaW = weight_tensor.to(torch::kHPU);
   IncrementNumberOfCopiesToHPU();
-  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_WEIGHT_CPU_PERMUTE)) {
-    IncrementNumberOfCopiesToHPU(); // as part of permuteWeight we copy weight
-                                    // to device again.
-  }
+
   torch::Tensor houtConv =
       torch::conv2d(tHabanaX, tHabanaW, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   UpdateOpCounters();
