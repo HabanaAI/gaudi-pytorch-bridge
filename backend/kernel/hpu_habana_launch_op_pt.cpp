@@ -22,9 +22,7 @@
 #include <torch/csrc/jit/ir/constants.h>
 #include <torch/csrc/jit/runtime/interpreter.h>
 #include <algorithm>
-#include <iomanip>
 #include <sstream>
-#include <typeinfo>
 #include <unordered_map>
 #include "backend/backend_meta.h"
 #include "backend/habana_device/tensor_builder.h"
@@ -41,7 +39,7 @@
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/kernel/refinement_engine.h"
 #include "backend/passes/hpu_habana_persistence_marker_pass.h"
-#include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/env_flags.h" // IWYU pragma: keep // NOLINT
 #include "backend/synapse_helpers/tcmalloc_helper.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
@@ -55,9 +53,6 @@
 using namespace torch::jit;
 using namespace jitgraph_utils;
 namespace habana {
-std::unordered_set<std::string> HabanaLaunchOpPT::disabled_jit_ir_ops_ = {};
-std::unordered_map<size_t, habana_helpers::InpTensorShapes>
-    HabanaLaunchOpPT::ref_input_shape_map_ = {};
 std::unordered_map<
     int,
     std::pair<size_t, std::vector<HabanaLaunchOpPT::constInfo_t>>>
@@ -125,8 +120,19 @@ void LoweringTask(
 }
 } // namespace HabanaLaunchOpPipeline
 
+std::unordered_map<size_t, habana_helpers::InpTensorShapes>& HabanaLaunchOpPT::
+    ref_input_shape_map() {
+  static std::unordered_map<size_t, habana_helpers::InpTensorShapes> map;
+  return map;
+};
+
+std::unordered_set<std::string>& HabanaLaunchOpPT::disabled_jit_ir_ops() {
+  static std::unordered_set<std::string> set;
+  return set;
+};
+
 void HabanaLaunchOpPT::cleanUp() {
-  ref_input_shape_map_ = {};
+  ref_input_shape_map() = {};
   DynamicBucketInfoMap::get_instance().clear();
   RecipeCacheLRU::get_cache().clear();
 }
@@ -2250,7 +2256,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     static std::unordered_set<std::string> empty_cs_jit_ir_ops_;
 
     habana::InferOutputMetaRetType kernel_output_cs(true);
-    if (!disabled_jit_ir_ops_.count(node_qual_str)) {
+    if (!disabled_jit_ir_ops().count(node_qual_str)) {
       // Either the InferOutputMeta flow is getting validated or
       // fast shape inference is running for dynamic shapes or
       // shape agnostic flow is enabled for eager.
@@ -2293,10 +2299,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
             }
           } catch (std::exception& e) {
             kernel_output_cs.set_empty();
-            if (disabled_jit_ir_ops_.count(node_qual_str) == 0) {
+            if (disabled_jit_ir_ops().count(node_qual_str) == 0) {
               PT_DYNAMIC_SHAPE_DEBUG(
                   "DISABLED_InferOutputMeta_JIT_IR_OP: ", node_qual_str);
-              disabled_jit_ir_ops_.insert(node_qual_str);
+              disabled_jit_ir_ops().insert(node_qual_str);
             }
             TORCH_CHECK(
                 false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE),
@@ -2729,7 +2735,7 @@ void HabanaLaunchOpPT::ProcessDynamicBucketInputShapesWithH2D(
 void HabanaLaunchOpPT::CreateStaticCompilationDBI(size_t graph_key_with_perm) {
   std::string path = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
 
-  if (!ref_input_shape_map_.count(graph_key_with_perm)) {
+  if (!ref_input_shape_map().count(graph_key_with_perm)) {
     habana_helpers::InpTensorShapes input_tshapes;
     CreateDynamicBucketInputShapes(input_tshapes);
     ProcessDynamicBucketInputShapesWithH2D(input_tshapes);
@@ -2741,7 +2747,7 @@ void HabanaLaunchOpPT::CreateStaticCompilationDBI(size_t graph_key_with_perm) {
         "\nRecording the reference input shapes::",
         input_tshapes,
         "\n--------------------");
-    ref_input_shape_map_.emplace(graph_key_with_perm, input_tshapes);
+    ref_input_shape_map().emplace(graph_key_with_perm, input_tshapes);
     if (path != "") {
       CreateFirstDynamicBucket();
       DumpStaticCompilationStatistics(graph_key_with_perm, true);
@@ -2976,7 +2982,7 @@ void HabanaLaunchOpPT::CreateFirstDynamicBucket() {
     // Create bucket 0
     DynamicShapeInfo graph_input_info;
     graph_input_info.act_input_tshapes =
-        ref_input_shape_map_.at(rargpsh_graph->hashCode());
+        ref_input_shape_map().at(rargpsh_graph->hashCode());
     PT_DYNAMIC_SHAPE_DEBUG(
         "Reference input shapes::",
         graph_input_info.act_input_tshapes,
@@ -3127,8 +3133,12 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
 
           habana::ShapeInference::ResetSifTensorId();
           constexpr bool dynamic_shapes_true = true;
-          if (rv.disabled_jit_ir_ops_.size())
-            disabled_jit_ir_ops_ = rv.disabled_jit_ir_ops_;
+          if (rv.disabled_jit_ir_ops_.size()) {
+            disabled_jit_ir_ops() = rv.disabled_jit_ir_ops_;
+          } else {
+            disabled_jit_ir_ops().insert(
+                rv.disabled_jit_ir_ops_.begin(), rv.disabled_jit_ir_ops_.end());
+          }
           RunHybridSif<dynamic_shapes_true>(tidx_to_tensor_map);
           PT_DYNAMIC_SHAPE_DEBUG("HybridSif_END");
         } else {
@@ -3610,7 +3620,7 @@ void HabanaLaunchOpPT::DumpStaticCompilationStatistics(
   habana_helpers::ResultShapes ranges;
 
   habana_helpers::InpTensorShapes input_tshapes =
-      ref_input_shape_map_.at(graph_key_with_perm);
+      ref_input_shape_map().at(graph_key_with_perm);
   if (is_compile) {
     current_dbipsh_->get_statistics()->LogCompilation(
         jit_ir_graph_->toString(),
@@ -4072,7 +4082,7 @@ void HabanaLaunchOpPT::run(
     return;
   }
   // shape agnostic caching :: end
-  if (!eager_mode && ref_input_shape_map_.count(graph_key_with_perm_) &&
+  if (!eager_mode && ref_input_shape_map().count(graph_key_with_perm_) &&
       refine_ds_enabled_) {
     PT_DYNAMIC_SHAPE_DEBUG(
         "JIT IR graph_hash_code : ",

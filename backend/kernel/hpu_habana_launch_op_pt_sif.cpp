@@ -448,7 +448,7 @@ void HabanaLaunchOpPT::RunHybridSif(
       }
     }};
 
-    if (!disabled_jit_ir_ops_.count(op_name)) {
+    if (!disabled_jit_ir_ops().count(op_name)) {
       // Set output meta data if auto-gen op
       if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
         op->SetOutputMetadata(outputs_metadata);
@@ -485,7 +485,7 @@ void HabanaLaunchOpPT::RunHybridSif(
           }
         } catch (std::exception& e) {
           PT_DYNAMIC_SHAPE_DEBUG("Catch Exception SIF failed: ", e.what());
-          disabled_jit_ir_ops_.insert(op_name);
+          disabled_jit_ir_ops().insert(op_name);
           propagate_shape();
         }
       }
@@ -646,7 +646,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
           habana::ShapeInference::GetSifTensorId());
     }};
 
-    if (!disabled_jit_ir_ops_.count(op_name)) {
+    if (!disabled_jit_ir_ops().count(op_name)) {
       // Set output meta data if auto-gen op
       if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
         op->SetOutputMetadata(outputs_metadata);

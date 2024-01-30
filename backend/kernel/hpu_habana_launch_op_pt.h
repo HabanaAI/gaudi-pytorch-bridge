@@ -167,8 +167,8 @@ class HabanaLaunchOpPT {
 
   static void cleanUp();
 
-  static std::unordered_map<size_t, habana_helpers::InpTensorShapes>
-      ref_input_shape_map_;
+  static std::unordered_map<size_t, habana_helpers::InpTensorShapes>&
+  ref_input_shape_map();
 
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);
   void set_lazy_front_end_info(
@@ -893,7 +893,7 @@ class HabanaLaunchOpPT {
   // for JIT OPs whenever possible, otherwise falls back to
   // AllocateAndAddSynapseNode for the output shape computation.
 
-  static std::unordered_set<std::string> disabled_jit_ir_ops_;
+  static std::unordered_set<std::string>& disabled_jit_ir_ops();
 
   torch::jit::Stack create_stack_for_node(
       const torch::jit::Node* node,
