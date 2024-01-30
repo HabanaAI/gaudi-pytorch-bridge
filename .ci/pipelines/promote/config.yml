@@ -21,18 +21,6 @@ orchestratorConfig:
     silentMode: true
 # Streams and Events validation <End>
 # PyTorch Operators and feature validation <End>
-# deepspeed-fork <Start>
-  - testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_sim_test
-  - testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi_sim_test
-  - testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi_hls_asic_unit_tests_promote
-  - testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_unit_tests_promote
-  - testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_8cards_test
-  - testToLaunch: deepspeed_examples_fork/Tests/Test_deepspeed_examples_fork_gaudi2_asic_8cards_test
-# deepspeed-fork <End>
-  - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_bert_suite
-  - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_resnet50_suite
-  - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_bloom7b_suite
-  - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_unet_suite
 # PT perf 8 card jobs in K8S container mode <Start>
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_pytorch_framework_ut_promote
     silentMode: true
@@ -90,26 +78,16 @@ orchestratorConfig:
       silentMode: true
     # deepspeed-fork <Start>
     - testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_sim_test_u22
-      silentMode: true
     - testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi_sim_test_u22
-      silentMode: true
     - testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi_hls_asic_unit_tests_promote_u22
-      silentMode: true
     - testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_unit_tests_promote_u22
-      silentMode: true
     - testToLaunch: deepspeed_fork/Tests/Test_deepspeed_fork_gaudi2_asic_8cards_test_u22
-      silentMode: true
     - testToLaunch: deepspeed_examples_fork/Tests/Test_deepspeed_examples_fork_gaudi2_asic_8cards_test_u22
-      silentMode: true
     # deepspeed-fork <End>
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_bert_suite_u22
-      silentMode: true
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_resnet50_suite_u22
-      silentMode: true
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_bloom7b_suite_u22
-      silentMode: true
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_unet_suite_u22
-      silentMode: true
   codeCoverageConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   coverityConfig:
