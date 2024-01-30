@@ -34,7 +34,8 @@ std::unordered_set<std::string> underscored_ops_reported_as_non_inplace = {
     "hpu::normal_",
     "hpu::geometric_",
     "hpu::log_normal_",
-    "hpu::exponential_"};
+    "hpu::exponential_",
+    "hpu::rrelu_with_noise_"};
 
 /* below ops modify the o/p dtype in their out of place variant thereby
  * requiring cast node*/
