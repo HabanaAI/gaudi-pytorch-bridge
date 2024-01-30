@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include <perf_lib_layer_params.h>
+#include "backend/helpers/cast_sequence.h"
 #include "generated/backend/_weight_norm_interface.h"
 #include "generated/backend/_weight_norm_interface_backward.h"
 #include "generated/backend/linalg_vector_norm.h"
@@ -567,7 +568,9 @@ static synTensor CreateLayerNormBiasWeightTensor(
     std::vector<int64_t>& weightOrBias_shape) {
   if (weightOrBiasOpt) {
     synTensor synWeightOrBias = weightOrBiasOpt->syn_t;
-    if (weightOrBiasOpt->pt_t.scalar_type() != c10::kFloat) {
+    if (habana_helpers::DataTypeToCastType(
+            weightOrBiasOpt->pt_t.scalar_type()) !=
+        habana_helpers::DataTypeToCastType(c10::kFloat)) {
       storage.push_back(OpBackend::BuildCast(
           op,
           graph,
@@ -964,7 +967,8 @@ void LayerNormBwdHabanaOperator::AddNode(
         sizeof(params));
 
     for (size_t i = 1; i < lnbwd.size(); ++i) {
-      if (metas[i].dtype != c10::kFloat) {
+      if (habana_helpers::DataTypeToCastType(metas[i].dtype) !=
+          habana_helpers::DataTypeToCastType(c10::kFloat)) {
         lnbwd[i] = BuildCast(
             this,
             graph,
