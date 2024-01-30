@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -45,4 +45,8 @@ def test_hpu_minimum_maximum(shape, op, dtype):
 
     cpu_output = op(cpu_input, cpu_other)
     hpu_output = fn(hpu_input, hpu_other).cpu()
+
+    if dtype in (torch.float8_e5m2, torch.float8_e4m3fn):
+        hpu_output = hpu_output.float()
+
     assert torch.equal(cpu_output, hpu_output)
