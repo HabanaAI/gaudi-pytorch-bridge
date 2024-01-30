@@ -131,7 +131,8 @@ def hpu_initialize(model=None, optimizer=None, args=None):
         hpu.enable_inference_mode()
         hpu.enable_matmul3d_2d_reshape()
     if model is not None:
-        #_mark_params_as_const(model=model)
+        _mark_params_as_const(model=model)
+        _check_params_as_const(model=model)
         _read_min_max_overwrite()
         _set_quantization_attributes(model)
         with _e_handler():

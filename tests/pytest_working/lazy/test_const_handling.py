@@ -89,9 +89,11 @@ def test_same_graph_with_diff_const(set_env_variable):
     input_tensor_hpu = input_tensor.to(hpu)
     conv1_hpu = conv1.to(hpu)
     conv2_hpu = conv2.to(hpu)
-    from habana_frameworks.torch.core.quantization import _mark_params_as_const, _check_params_as_const
-    _mark_params_as_const(conv1_hpu)
-    _mark_params_as_const(conv2_hpu)
+
+    htcore.hpu_initialize(conv1_hpu)
+    htcore.hpu_initialize(conv2_hpu)
+
+    from habana_frameworks.torch.core.quantization import _check_params_as_const
     _check_params_as_const(conv1_hpu)
     _check_params_as_const(conv2_hpu)
 
@@ -146,8 +148,10 @@ def test_same_const_across_recipes(set_env_variable):
     input_tensor1_hpu = input_tensor1.to(hpu)
     input_tensor2_hpu = input_tensor2.to(hpu)
     conv_layer1_hpu = conv_layer1.to(hpu)
-    from habana_frameworks.torch.core.quantization import _mark_params_as_const, _check_params_as_const
-    _mark_params_as_const(conv_layer1_hpu)
+
+    htcore.hpu_initialize(conv_layer1_hpu)
+
+    from habana_frameworks.torch.core.quantization import _check_params_as_const
     _check_params_as_const(conv_layer1_hpu)
 
     with torch.no_grad():
@@ -196,8 +200,10 @@ def test_user_access_to_modified_tensor(set_env_variable):
 
     input_tensor_hpu = input_tensor.to(hpu)
     conv_layer_hpu = conv_layer.to(hpu)
-    from habana_frameworks.torch.core.quantization import _mark_params_as_const, _check_params_as_const
-    _mark_params_as_const(conv_layer_hpu)
+
+    htcore.hpu_initialize(conv_layer_hpu)
+
+    from habana_frameworks.torch.core.quantization import _check_params_as_const
     _check_params_as_const(conv_layer_hpu)
 
     with torch.no_grad():
@@ -208,3 +214,56 @@ def test_user_access_to_modified_tensor(set_env_variable):
     weight_hpu_cpu = conv_layer_hpu.weight.to(cpu)
     numpy.testing.assert_allclose(
        weight_hpu_cpu.detach().numpy(), weight_copy.detach().numpy(), atol=0.001, rtol=0.001)
+    htcore.hpu_reset_env()
+
+def test_zero_sized_tensor(set_env_variable):
+    class Model(nn.Module):
+        def __init__(self):
+            super(Model, self).__init__()
+
+            # Define two parameters 'a' and 'b'
+            self.a = nn.Parameter(torch.randn(1, requires_grad=True))
+            self.b = nn.Parameter(torch.randn(1, requires_grad=True))
+
+            # Define a linear layer with input size 1 and output size 1
+            self.linear_layer = nn.Linear(1, 1)
+
+        def forward(self, x):
+            # Perform the multiplication of 'a' and 'b' in the forward pass
+            result = self.a * self.b
+            result = result * x
+
+            # Pass the result through the linear layer
+            output = self.linear_layer(result)
+
+            return output
+
+    # Create an instance of the Model
+    model = Model()
+
+    # Input tensor
+    input_tensor = torch.randn(1, 1)
+
+    # Forward pass
+    output = model(input_tensor)
+
+    hpu = torch.device("hpu")
+    cpu = torch.device("cpu")
+
+    import habana_frameworks.torch.core as htcore
+    htcore.hpu_set_env()
+
+    input_tensor_hpu = input_tensor.to(hpu)
+    model_hpu = model.to(hpu)
+
+    htcore.hpu_initialize(model_hpu)
+
+    with torch.no_grad():
+        output_hpu = model_hpu(input_tensor_hpu)
+
+    output_hpu_cpu = output_hpu.to(cpu)
+    htcore.mark_step()
+    numpy.testing.assert_allclose(
+       output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001)
+    htcore.hpu_reset_env()
+

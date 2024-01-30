@@ -65,7 +65,8 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
     model_hpu = model.to(hpu)
     x_hpu = x.to(hpu)
     x2_hpu = x2.to(hpu)
-    htcore.hpu_initialize(model_hpu)
+    #Hpu initialize has mark_params_as_const and _check_params_as_const which doesn't work for compile
+    #htcore.hpu_initialize(model_hpu)
     print("Infer on HPU....................................", flush=True)
     def raw_function(tensor):
         return model_hpu(tensor)

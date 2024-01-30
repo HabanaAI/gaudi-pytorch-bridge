@@ -14,7 +14,6 @@ import torch
 import os
 import numpy as np
 import habana_frameworks.torch as htorch
-from habana_frameworks.torch.core.quantization import _mark_params_as_const, _check_params_as_const
 import shutil
 import pytest
 
@@ -32,7 +31,7 @@ class Net(torch.nn.Module):
 
 def test_const_serialization_cache():
     torch.manual_seed(123456)
-    htorch.hpu.enable_inference_mode()
+    htorch.core.hpu_set_env()
 
     serial_path = "/tmp/const_section_test/"
     htorch.hpu.enable_const_section_serialization(serial_path, True)
@@ -40,8 +39,7 @@ def test_const_serialization_cache():
     model = Net()
     model = model.to('hpu')
 
-    _mark_params_as_const(model)
-    _check_params_as_const(model)
+    htorch.core.hpu_initialize(model)
 
     X = torch.randn((3, 3, 16))
 
@@ -64,5 +62,6 @@ def test_const_serialization_cache():
 
     # clear config
     shutil.rmtree(serial_path)
+    htorch.core.hpu_reset_env()
     htorch.hpu.disable_inference_mode()
     htorch.hpu.disable_const_section_serialization()
