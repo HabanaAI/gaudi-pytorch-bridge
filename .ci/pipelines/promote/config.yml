@@ -30,9 +30,11 @@ orchestratorConfig:
 #  sanitizerConfig:
 #  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   PromoteU22Config:
-    - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite_u22
+    - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite_u22
       silentMode: true
-    - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_perf_u22
+    - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite_u22
+      silentMode: true
+    - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite_u22
       silentMode: true
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology_group_1_u22
     - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_distributed_u22
@@ -88,6 +90,18 @@ orchestratorConfig:
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_resnet50_suite_u22
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_bloom7b_suite_u22
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_unet_suite_u22
+  # Streams and Events validation <Start>
+    - testToLaunch: habanaqa_framework_features/Tests/Test_habanaqa_framework_features_gaudi2_asic_streams_events_pt_u22
+      silentMode: true
+    - testToLaunch: habanaqa_framework_features/Tests/Test_habanaqa_framework_features_gaudi_sim_streams_events_pt_u22
+      silentMode: true
+    - testToLaunch: habanaqa_framework_features/Tests/Test_habanaqa_framework_features_gaudi3_sim_streams_events_pt_u22
+      silentMode: true
+  # Streams and Events validation <End>
+  # PT perf 8 card jobs in K8S container mode <Start>
+    - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_pytorch_framework_ut_promote_u22
+      silentMode: true
+  # PT perf 8 card jobs in K8S container mode <End>
   codeCoverageConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   coverityConfig:
