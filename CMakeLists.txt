@@ -1,5 +1,5 @@
-# ##############################################################################
-# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+###############################################################################
+# Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -8,7 +8,7 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-# ##############################################################################
+###############################################################################
 
 cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
 
@@ -287,7 +287,6 @@ add_habana_library(habana_pytorch2_plugin SHARED
   hpu_ops/lazy/threshold_gen.cpp
   hpu_ops/lazy/topk_util.cpp
   hpu_ops/lazy/unique_gen.cpp
-  hpu_ops/lazy/unique2_gen.cpp
   hpu_ops/lazy/upsample_gen.cpp
   hpu_ops/lazy/xlogy_gen.cpp
   ${habana_pytorch2_plugin_glob_files}

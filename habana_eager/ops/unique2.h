@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,13 +11,14 @@
  *******************************************************************************
  */
 
-#include "generated/lazy/_unique2.h"
+#pragma once
+
 namespace habana {
-FALLBACK_CHECK(Unique2FallbackCheck, const at::Tensor& self) {
-  // Fallback as TPC can support only upto 4D(1D to 4D)
-  if (self.dim() > 4) {
-    return false;
-  } else
-    return true;
-};
+namespace eager {
+std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2_eager(
+    const at::Tensor& self,
+    bool sorted,
+    bool return_inverse,
+    bool return_counts);
+} // namespace eager
 } // namespace habana

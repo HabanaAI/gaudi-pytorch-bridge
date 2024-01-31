@@ -164,6 +164,14 @@ at::Tensor nonzero_hpu_lazy(const at::Tensor&) {
   EAGER_NOT_SUPPORTED;
 }
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor> unique2_hpu_lazy(
+    const at::Tensor&,
+    bool,
+    bool,
+    bool) {
+  EAGER_NOT_SUPPORTED;
+}
+
 at::Tensor append_to_batch_h2d_list(const at::Tensor&) {
   EAGER_NOT_SUPPORTED;
 }

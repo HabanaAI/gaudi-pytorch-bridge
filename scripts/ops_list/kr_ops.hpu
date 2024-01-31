@@ -1079,6 +1079,7 @@ RegisterKernel::add op = hpu::topk.values
 RegisterKernel::add op = hpu::uniform_
 RegisterKernel::add op = hpu::_unique
 RegisterKernel::add op = hpu::_unique2
+RegisterKernel::add op = hpu::_unique2_eager
 RegisterKernel::add op = hpu::unique_dim
 RegisterKernel::add op = hpu::upsample_nearest2d_backward
 RegisterKernel::add op = hpu::view

@@ -654,15 +654,6 @@ set_.source_Storage_storage_offset:
 _local_scalar_dense:
   override_fn: _local_scalar_dense_hpu
 
-_unique2:
-  dtypes:
-    Gaudi: [Float, Int]
-    Gaudi2: [Float, Int]
-    Gaudi3: [Float, Int]
-  override_fn: unique2_hpu_lazy
-  fallback_check: [Unique2FallbackCheck, self]
-  acc_thread: true
-
 abs:
   dtypes:
     Gaudi: [BFloat16, Float, Int]

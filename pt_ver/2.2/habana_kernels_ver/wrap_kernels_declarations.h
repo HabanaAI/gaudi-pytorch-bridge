@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -59,6 +59,11 @@ at::Tensor& _index_put_impl_(
     bool accumulate,
     bool unsafe);
 at::Tensor nonzero(const at::Tensor& self);
+::std::tuple<at::Tensor, at::Tensor, at::Tensor> _unique2(
+    const at::Tensor& self,
+    bool sorted = true,
+    bool return_inverse = false,
+    bool return_counts = false);
 at::Tensor repeat_interleave(
     const at::Tensor& self,
     c10::optional<c10::SymInt> output_size);

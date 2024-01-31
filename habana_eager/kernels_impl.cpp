@@ -1,4 +1,3 @@
-
 /*******************************************************************************
  * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
@@ -20,6 +19,7 @@
 #include "habana_eager/ops/index_put.h"
 #include "habana_eager/ops/nonzero.h"
 #include "habana_eager/ops/set.h"
+#include "habana_eager/ops/unique2.h"
 #include "habana_eager/ops/view.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
@@ -206,6 +206,15 @@ at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self));
   }
   return habana::eager::nonzero_eager(self);
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::_unique2(
+    const at::Tensor& self,
+    bool sorted,
+    bool return_inverse,
+    bool return_counts) {
+  return habana::eager::_unique2_eager(
+      self, sorted, return_inverse, return_counts);
 }
 
 at::Tensor& hpu_wrap::nonzero_out(const at::Tensor& self, at::Tensor& out) {

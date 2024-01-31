@@ -1,5 +1,5 @@
-# ##############################################################################
-# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+###############################################################################
+# Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -8,7 +8,7 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-# ##############################################################################
+###############################################################################
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
@@ -37,6 +37,7 @@ add_habana_library(habana_pytorch2_frontend OBJECT
           ops/instance_norm.cpp
           ops/local_scalar_dense.cpp
           ops/nonzero.cpp
+          ops/unique2.cpp
           ops/set.cpp
           ops/view.cpp
           ops/pin_memory.cpp

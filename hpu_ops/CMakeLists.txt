@@ -223,6 +223,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/ne_gen.cpp
           backend/nll_loss_gen.cpp
           backend/nonzero_gen.cpp
+          backend/unique2_gen.cpp
           backend/norm_gen.cpp
           backend/normal_gen.cpp
           backend/one_hot_gen.cpp
@@ -359,7 +360,6 @@ add_habana_library(habana_pytorch_frontend_ops OBJECT
           lazy/threshold_gen.cpp
           lazy/topk_gen.cpp
           lazy/topk_util.cpp
-          lazy/unique2_gen.cpp
           lazy/unique_gen.cpp
           lazy/upsample_gen.cpp
           lazy/xlogy_gen.cpp
