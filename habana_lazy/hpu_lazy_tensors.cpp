@@ -835,7 +835,6 @@ void HbLazyTensor::SyncLiveTensorsGraph(
         device, is_allreduce, bucket_recent_id);
   }
   if (tensors.size()) {
-    StaleLazyTensorKeeper::getInstance().mark_end_of_accumulation();
     SyncTensorsGraph(&tensors, lazy_front_end_info, async, false);
   }
 
@@ -986,10 +985,6 @@ void PostLaunch(
 
   context->MarkTensorsExecuted(device, executing_indices);
   context->ClearOpAccmulationFlag(device, accumulated_indices);
-
-  // release those launched stale lazy tensor
-  auto snapshot = StaleLazyTensorKeeper::getInstance().extract_snapshot();
-  snapshot.reset();
 
   SBSDebug::getInstance().CompareTensors(*tensors);
 
@@ -1619,8 +1614,9 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   auto aten_t = AtenFromHbLazyTensor(
       hl_src_updated, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
 
-  // loop over the shallow copy vectors to collect the ones that are in use, and
-  // put those in-used data to the data keeper.
+  // loop over the shallow copy vectors to collect the ones that are in use
+  // all non deep speed systems need vector length of 1. Deep speed zero
+  // needs 2. Keeping an additional buffer to initialize vector of length 3
   c10::SmallVector<at::Tensor, 3> tensors_in_use;
   auto& dst_tensor_opt = dest->getDataPtr()->tensor_shallow_copy;
   if (dst_tensor_opt.has_value()) {
@@ -1628,7 +1624,7 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
     for (auto& t : t_vec) {
       auto hl_t = GetHbLazyTensor(t);
       if (hl_t.IsOpAccumulationInProgress()) {
-        StaleLazyTensorKeeper::getInstance().add(std::move(hl_t));
+        tensors_in_use.emplace_back(t);
       }
     }
 
