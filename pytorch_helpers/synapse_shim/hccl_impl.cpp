@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -81,16 +81,6 @@ hcclResult_t hcclReduce(
     synStreamHandle stream_handle) {
   return hccl_api->hcclReduce(
       sendbuff, recvbuff, count, datatype, op, root, comm, stream_handle);
-}
-
-hcclResult_t hcclBcast(
-    void* buff,
-    size_t count,
-    hcclDataType_t datatype,
-    int root,
-    hcclComm_t comm,
-    synStreamHandle stream_handle) {
-  return hccl_api->hcclBcast(buff, count, datatype, root, comm, stream_handle);
 }
 
 hcclResult_t hcclBroadcast(
