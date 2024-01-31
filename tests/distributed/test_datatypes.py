@@ -4,6 +4,10 @@ import os
 import numpy
 import torch
 import torch.distributed as dist
+from habana_frameworks.torch.utils.library_loader import load_habana_module
+
+load_habana_module()
+
 from mpi4py import MPI
 
 comm = MPI.COMM_WORLD
@@ -243,6 +247,40 @@ def all_gather(rank, world_size):
     check_res("all gather", rank, op_tensor_list, torch.LongTensor(exp))
 
 
+def all_gather_into_tensor(rank, world_size):
+    output = [0, 0, 0, 0, 0] * world_size
+    input = [1 * rank, 2 * rank, 3 * rank, 4 * rank, 5 * rank]
+    exp_list = [[1 * i, 2 * i, 3 * i, 4 * i, 5 * i] for i in range(world_size)]
+    exp = []
+    for e in exp_list:
+        exp.extend(e)
+
+    op_tensor_list = torch.BFloat16Tensor(output).to("hpu")
+    a = torch.BFloat16Tensor(input).to("hpu")
+    dist.all_gather_into_tensor(op_tensor_list, a)
+    check_res("all gather into tensor", rank, op_tensor_list, torch.BFloat16Tensor(exp))
+
+    op_tensor_list = torch.FloatTensor(output).to("hpu")
+    a = torch.FloatTensor(input).to("hpu")
+    dist.all_gather_into_tensor(op_tensor_list, a)
+    check_res("all gather into tensor", rank, op_tensor_list, torch.FloatTensor(exp))
+
+    op_tensor_list = torch.tensor(output, dtype=torch.float8_e5m2).to("hpu")
+    a = torch.tensor(input, dtype=torch.float8_e5m2).to("hpu")
+    dist.all_gather_into_tensor(op_tensor_list, a)
+    check_res("all gather into tensor", rank, op_tensor_list, torch.tensor(exp, dtype=torch.float8_e5m2))
+
+    op_tensor_list = torch.tensor(output, dtype=torch.float8_e4m3fn).to("hpu")
+    a = torch.tensor(input, dtype=torch.float8_e4m3fn).to("hpu")
+    dist.all_gather_into_tensor(op_tensor_list, a)
+    check_res("all gather into tensor", rank, op_tensor_list, torch.tensor(exp, dtype=torch.float8_e4m3fn))
+
+    op_tensor_list = torch.CharTensor(output).to("hpu")
+    a = torch.CharTensor(input).to("hpu")
+    dist.all_gather_into_tensor(op_tensor_list, a)
+    check_res("all gather into tensor", rank, op_tensor_list, torch.CharTensor(exp))
+
+
 myhost = os.uname()[1]
 
 
@@ -258,6 +296,7 @@ os.environ["LOCAL_RANK"] = str(rank)
 dist.init_process_group("hccl", rank=rank, world_size=world_size)
 
 all_gather(rank, world_size)
+all_gather_into_tensor(rank, world_size)
 broadcast(rank)
 send_recv(rank)
 alltoall(rank)

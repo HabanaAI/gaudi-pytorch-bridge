@@ -39,7 +39,7 @@ namespace {
     }                                                 \
   }
 
-bool resizeTensor(
+bool resizeOddTensor(
     std::vector<at::Tensor>& tensors,
     std::unique_ptr<bool[]>& changed,
     std::vector<std::vector<int64_t>>& sizeList,
@@ -51,7 +51,7 @@ bool resizeTensor(
     if ((at::kChar == btensor_type || at::kByte == btensor_type ||
          at::kBool == btensor_type || at::kFloat8_e5m2 == btensor_type ||
          at::kFloat8_e4m3fn == btensor_type) &&
-        tensors[i].numel() % 2 != 0) {
+        (tensors[i].numel() % 2 != 0)) {
       changed[i] = true;
       sizeList[i] = tensors[i].sizes().vec();
       strideList[i] = tensors[i].strides().vec();
@@ -62,13 +62,107 @@ bool resizeTensor(
   return change;
 }
 
-void restoreTensorsize(
+bool resizeTensor(
+    std::vector<at::Tensor>& tensors,
+    std::unique_ptr<bool[]>& changed,
+    std::vector<std::vector<int64_t>>& sizeList,
+    std::vector<std::vector<int64_t>>& strideList,
+    int extra_num_elems) {
+  if (extra_num_elems == 1) {
+    return resizeOddTensor(tensors, changed, sizeList, strideList);
+  }
+
+  // Below for the case: extra_num_elems > 1
+  bool change = false;
+  for (size_t i = 0; i < tensors.size(); i++) {
+    auto btensor_type = tensors[i].scalar_type();
+    changed[i] = false;
+    if (at::kChar == btensor_type || at::kByte == btensor_type ||
+        at::kBool == btensor_type || at::kFloat8_e5m2 == btensor_type ||
+        at::kFloat8_e4m3fn == btensor_type) {
+      changed[i] = true;
+      sizeList[i] = tensors[i].sizes().vec();
+      strideList[i] = tensors[i].strides().vec();
+      tensors[i] = tensors[i].resize_(tensors[i].numel() + extra_num_elems);
+      change = true;
+    }
+  }
+  return change;
+}
+
+void restoreOddTensorsize(
     std::vector<at::Tensor>& tensors,
     std::unique_ptr<bool[]>& changed,
     std::vector<std::vector<int64_t>>& sizeList,
     std::vector<std::vector<int64_t>>& strideList) {
   for (size_t i = 0; i < tensors.size(); i++) {
     if (changed[i] == true) {
+      tensors[i] = tensors[i].resize_(sizeList[i]);
+      tensors[i].unsafeGetTensorImpl()->set_sizes_and_strides(
+          sizeList[i], strideList[i]);
+    }
+  }
+}
+
+void restoreTensorsize(
+    std::vector<at::Tensor>& tensors,
+    std::unique_ptr<bool[]>& changed,
+    std::vector<std::vector<int64_t>>& sizeList,
+    std::vector<std::vector<int64_t>>& strideList,
+    int extra_num_elems,
+    int ori_input_size = -1) {
+  if (extra_num_elems == 1) {
+    return restoreOddTensorsize(tensors, changed, sizeList, strideList);
+  }
+
+  // Below for the case: extra_num_elems > 1
+  for (size_t i = 0; i < tensors.size(); i++) {
+    if (changed[i] == true) {
+      // Here restore logic is like below, typically for output tensor:
+      //
+      // Considering we have input tensor with shape [63] on two ranks.
+      // Originally output tensor should have shape [126]. Hovever, after
+      // resize, each input tensor has shape [64] and output tensor shape
+      // [128]. So for output tensor, there are two extra elements added,
+      // specifically the positions are 63 and 127.
+      //
+      // For restore stage, simply resizing is not enough since the extra
+      // element is at pos 63. Instead separate copy is used below to recover
+      // output correctly. To do this, a temporary buffer is required,
+      // see `resized_out` in below code. Firstly, copy elements from
+      // ori_out[0, 1, ..., 62] to resized_out[0, 1,..., 62]. And then copy
+      // elements from ori_out[64, 65, ..., 126] to
+      // resized_out[63, 64, ..., 125]. After all these done, copy elements
+      // from resized_out back to original output tensor. Now, output tensor
+      // should have all updated elements at index 0~125 and is safe to do
+      // resize.
+      TORCH_CHECK(
+          ori_input_size != -1,
+          "original input tensor size should be provided.");
+
+      auto resized_out = at::empty_like(tensors[i], tensors[i].scalar_type());
+      TORCH_CHECK(tensors[i].sizes().size() == 1, "only support 1D tensor");
+      auto resized_input_size = ori_input_size + 1;
+      for (int n = 0; n < extra_num_elems; ++n) {
+        auto dst = at::as_strided(
+            resized_out,
+            {ori_input_size},
+            resized_out.strides(),
+            n * ori_input_size);
+        auto src = at::as_strided(
+            tensors[i],
+            {ori_input_size},
+            tensors[i].strides(),
+            n * resized_input_size);
+        dst.copy_(src);
+      }
+      tensors[i].copy_(resized_out);
+
+      // need step marker here to ensure later resize_ has no conflict with
+      // above two as_strided operations.
+      PT_IRGRAPH_DEBUG("step marker due to restore tensor size");
+      habana_lazy::HbLazyTensor::StepMarker();
+
       tensors[i] = tensors[i].resize_(sizeList[i]);
       tensors[i].unsafeGetTensorImpl()->set_sizes_and_strides(
           sizeList[i], strideList[i]);
@@ -189,13 +283,13 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::broadcast(
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
-  resizeTensor(tensors, changed, sizeList, strideList);
+  resizeOddTensor(tensors, changed, sizeList, strideList);
   HOST_SYNC()
   for (auto& t : tensors) {
     habana_lazy::broadcast_hpu_lazy_(t, opts.rootRank, comm_->GetId());
   }
   habana_lazy::HbLazyTensor::StepMarker();
-  restoreTensorsize(tensors, changed, sizeList, strideList);
+  restoreOddTensorsize(tensors, changed, sizeList, strideList);
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
 
@@ -268,12 +362,13 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
     changed[i] = std::make_unique<bool[]>(outputTensors[i].size());
     sizeList[i].resize(outputTensors[i].size());
     strideList[i].resize(outputTensors[i].size());
-    resizeTensor(outputTensors[i], changed[i], sizeList[i], strideList[i]);
+    resizeOddTensor(outputTensors[i], changed[i], sizeList[i], strideList[i]);
   }
   std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
   std::vector<std::vector<int64_t>> in_strideList(tensor_size);
-  change = resizeTensor(inputTensors, in_changed, in_sizeList, in_strideList);
+  change =
+      resizeOddTensor(inputTensors, in_changed, in_sizeList, in_strideList);
   auto output_flattened = habana_helpers::flatten_for_scatter_gather(
       outputTensors, inputTensors, size_);
   HOST_SYNC()
@@ -299,7 +394,8 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
     habana_lazy::HbLazyTensor::StepMarker();
   }
   for (size_t i = 0; i < outputTensors.size(); i++) {
-    restoreTensorsize(outputTensors[i], changed[i], sizeList[i], strideList[i]);
+    restoreOddTensorsize(
+        outputTensors[i], changed[i], sizeList[i], strideList[i]);
   }
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(output_list_flat);
 };
@@ -313,11 +409,76 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_allgather_base(
   TORCH_CHECK(
       inputBuffer.numel() * size_ == outputBuffer.numel(),
       "incompatible buffer sizes");
+
+  auto ori_input_size = inputBuffer.numel();
+
+  // size compatible with resize method api and with singularity of allgather
+  // base
+  auto inputs = std::vector<at::Tensor>{inputBuffer};
+  auto outputs = std::vector<at::Tensor>{outputBuffer};
+
+  auto tensor_size{1};
+  std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> in_strideList(tensor_size);
+
+  std::unique_ptr<bool[]> out_changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> out_sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> out_strideList(tensor_size);
+
+  // Case 1 with even world size:
+  //    rank 0: input [63] -> resize to [64]
+  //    rank 1: input [63] -> resize to [64]
+  //
+  //    rank 0: output [126] -> no resize happen
+  //    rank 1: output [126] -> no resize happen
+  // actually require resize output tensor to [128]
+  //
+  // Case 2 with odd world size:
+  //    rank 0: input [63] -> resize to [64]
+  //    rank 1: input [63] -> resize to [64]
+  //    rank 2: input [63] -> resize to [64]
+  //
+  //    rank 0: output [189] -> resize to [190]
+  //    rank 1: output [189] -> resize to [190]
+  //    rank 2: output [189] -> resize to [190]
+  // resize happens, but got wrong size, should be [192] rather than [190]
+  bool changed =
+      resizeOddTensor(inputs, in_changed, in_sizeList, in_strideList);
+  // if no resize on input, keep current logic
+  int out_resize_extra_num_elems = changed ? size_ : 1;
+  changed |= resizeTensor(
+      outputs,
+      out_changed,
+      out_sizeList,
+      out_strideList,
+      out_resize_extra_num_elems);
+
   HOST_SYNC()
+  PT_DISTRIBUTED_DEBUG(
+      "Calling ProcessGroupLazyHCCL::_allgather_base :: ",
+      " in sizes :: ",
+      inputBuffer.sizes(),
+      " out sizes :: ",
+      outputBuffer.sizes());
   habana_lazy::allgather_hpu_lazy_out(
       inputBuffer, comm_->GetId(), outputBuffer);
-  std::vector<at::Tensor> out_tensors = {outputBuffer};
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
+
+  if (changed) {
+    PT_IRGRAPH_DEBUG(
+        "step marker due to ProcessGroupLazyHCCL::_allgather_base");
+    habana_lazy::HbLazyTensor::StepMarker();
+  }
+
+  restoreOddTensorsize(inputs, in_changed, in_sizeList, in_strideList);
+  restoreTensorsize(
+      outputs,
+      out_changed,
+      out_sizeList,
+      out_strideList,
+      out_resize_extra_num_elems,
+      ori_input_size);
+  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather_coalesced(
@@ -522,13 +683,13 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::send(
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
-  resizeTensor(tensors, changed, sizeList, strideList);
+  resizeOddTensor(tensors, changed, sizeList, strideList);
   for (size_t index = 0; index < tensors.size(); ++index) {
     auto& tensor = tensors[index];
     permutedSendTensorsToDense(tensor);
     habana_lazy::send_hpu_lazy_(tensor, dstRank, tag, comm_->GetId());
   }
-  restoreTensorsize(tensors, changed, sizeList, strideList);
+  restoreOddTensorsize(tensors, changed, sizeList, strideList);
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
 
@@ -540,12 +701,12 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::recv(
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
-  resizeTensor(tensors, changed, sizeList, strideList);
+  resizeOddTensor(tensors, changed, sizeList, strideList);
   for (size_t index = 0; index < tensors.size(); ++index) {
     habana_lazy::recv_hpu_lazy_(
         tensors.at(index), srcRank, tag, comm_->GetId());
   }
-  restoreTensorsize(tensors, changed, sizeList, strideList);
+  restoreOddTensorsize(tensors, changed, sizeList, strideList);
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
 };
 
