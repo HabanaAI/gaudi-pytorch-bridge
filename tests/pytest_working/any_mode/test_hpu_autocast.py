@@ -1,5 +1,5 @@
 # ******************************************************************************
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,12 +13,14 @@ import os
 import pathlib
 
 import pytest
-from test_utils import is_gaudi1
 import torch
+
+from test_utils import is_pytest_mode_compile
 
 
 # Tests must be executed in separate pytest runs, because habana modules
 # have to be reloaded before setting custom list of ops
+
 
 def load_modules(custom_autocast=False):
     if custom_autocast:
@@ -29,16 +31,12 @@ def load_modules(custom_autocast=False):
 
 def assert_dtype(tensors, dtype):
     for tensor in tensors:
-        assert (
-            tensor.dtype == dtype
-        ), f"Wrong dtype. Got {tensor.dtype}, expected {dtype}."
+        assert tensor.dtype == dtype, f"Wrong dtype. Got {tensor.dtype}, expected {dtype}."
 
 
 def assert_device(tensors, device):
     for tensor in tensors:
-        assert (
-            tensor.device == device
-        ), f"Wrong device. Got {tensor.device}, expected {device}."
+        assert tensor.device == device, f"Wrong device. Got {tensor.device}, expected {device}."
 
 
 def assert_tensors_equal(tensors, tensor_refs):
@@ -55,18 +53,23 @@ def test_autocast():
     ah_bf16 = ah.to(dtype)
     bh = b.to(device)
     bh_bf16 = bh.to(dtype)
-    with torch.autocast(device_type=device, dtype=dtype):
-        mm = torch.mm(ah, bh)
-        ls = torch.log_softmax(mm, 0)
-        ls2 = torch.log_softmax(ah, 0)
-        add = torch.add(mm, mm)
-        add_float = torch.add(ah, bh)
 
-    mm_ref = torch.mm(ah_bf16, bh_bf16)
-    ls_ref = torch.log_softmax(mm_ref, 0)
-    ls2_ref = torch.log_softmax(ah_bf16, 0)
-    add_ref = torch.add(mm_ref, mm_ref)
-    add_float_ref = torch.add(ah, bh)
+    def fn(a, b, a_f32, b_f32):
+        mm = torch.mm(a, b)
+        ls = torch.log_softmax(mm, 0)
+        ls2 = torch.log_softmax(a, 0)
+        add = torch.add(mm, mm)
+        add_float = torch.add(a_f32, b_f32)
+        return mm, ls, ls2, add, add_float
+
+    if is_pytest_mode_compile():
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    with torch.autocast(device_type=device, dtype=dtype):
+        mm, ls, ls2, add, add_float = fn(ah, bh, ah, bh)
+
+    mm_ref, ls_ref, ls2_ref, add_ref, add_float_ref = fn(ah_bf16, bh_bf16, ah, bh)
 
     assert_dtype((mm, ls, ls2, add), dtype)
     assert_dtype((add_float,), torch.float)
@@ -74,9 +77,48 @@ def test_autocast():
         (mm, ls, ls2, add, add_float, mm_ref, ls_ref, ls2_ref, add_ref, add_float_ref),
         ah.device,
     )
-    assert_tensors_equal(
-        (mm, ls, ls2, add, add_float), (mm_ref, ls_ref, ls2_ref, add_ref, add_float_ref)
-    )
+    assert_tensors_equal((mm, ls, ls2, add, add_float), (mm_ref, ls_ref, ls2_ref, add_ref, add_float_ref))
+
+
+@pytest.mark.parametrize("is_mask", [True, False])
+def test_sdpa(is_mask):
+    device = "hpu"
+    high_dtype = torch.float
+    low_dtype = torch.bfloat16
+
+    qkv_shape = (1, 5, 16, 24)
+    mask_shape = (1, 1, 16, 16)
+    query = torch.ones(qkv_shape, dtype=high_dtype, device=device)
+    key = torch.ones(qkv_shape, dtype=high_dtype, device=device)
+    value = torch.ones(qkv_shape, dtype=high_dtype, device=device)
+    proj = torch.eye(qkv_shape[-1], dtype=high_dtype, device=device)
+    if is_mask:
+        attn_mask = torch.ones(mask_shape, dtype=high_dtype, device=device)
+        attn_mask_low = attn_mask.to(low_dtype)
+    else:
+        attn_mask = None
+        attn_mask_low = None
+    dropout_p = 0
+    is_causal = False
+
+    def fn(query, proj, key, value, attn_mask):
+        q = query @ proj
+        k = key @ proj
+        v = value @ proj
+        attn_output = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask, dropout_p, is_causal)
+        return attn_output
+
+    if is_pytest_mode_compile():
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    with torch.no_grad(), torch.autocast(device_type=device):
+        attn_output = fn(query, proj, key, value, attn_mask)
+
+    attn_output_ref = fn(query.to(low_dtype), proj.to(low_dtype), key.to(low_dtype), value.to(low_dtype), attn_mask_low)
+
+    assert_dtype((attn_output, attn_output_ref), low_dtype)
+    assert torch.equal(attn_output, attn_output_ref)
 
 
 # Below test is meant to run manually with envs set:
@@ -105,9 +147,5 @@ def test_autocast_custom_list():
 
     assert_dtype((add, mm), dtype)
     assert_dtype((matmul, matmul2), torch.float)
-    assert_device(
-        (add, mm, matmul, matmul2, add_ref, mm_ref, matmul_ref, matmul2_ref), ah.device
-    )
-    assert_tensors_equal(
-        (add, mm, matmul, matmul2), (add_ref, mm_ref, matmul_ref, matmul2_ref)
-    )
+    assert_device((add, mm, matmul, matmul2, add_ref, mm_ref, matmul_ref, matmul2_ref), ah.device)
+    assert_tensors_equal((add, mm, matmul, matmul2), (add_ref, mm_ref, matmul_ref, matmul2_ref))
