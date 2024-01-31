@@ -1,5 +1,5 @@
-# ******************************************************************************
-# Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+###############################################################################
+# Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -8,7 +8,7 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-# ******************************************************************************
+###############################################################################
 
 import argparse
 import glob
@@ -17,9 +17,7 @@ import urllib.request
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cpu", "-c", help="CPU ops file", required=True)
-parser.add_argument(
-    "--gpu", "--cuda", "-g", help="GPU/CUDA ops file", required=True
-)
+parser.add_argument("--gpu", "--cuda", "-g", help="GPU/CUDA ops file", required=True)
 parser.add_argument("--hpu", "-hh", help="HPU ops file", required=True)
 parser.add_argument("--filter", "-f", action="store_true")
 parser.add_argument("--verbose", "-v", action="store_true")
@@ -47,7 +45,6 @@ def filter(op, filtered_out):
 def read_ops(args, file, all_ops):
     filtered_out = set()
     ops = set()
-    max_len = 0
     with open(file, "r") as read_obj:
         for line in read_obj:
             op = line.strip()
@@ -57,20 +54,19 @@ def read_ops(args, file, all_ops):
 
             ops.add(op)
             all_ops.add(op)
-            max_len = max(max_len, len(op))
 
     if args.verbose:
         for filt in sorted(filtered_out):
             print(filt)
 
-    return max_len, sorted(ops), all_ops
+    return sorted(ops), all_ops
 
 
 def read_registration_declarations(args, python_path):
+    filtered_out = set()
     reg_decl = {}
     with open(
-        python_path
-        + "/site-packages/torch/include/ATen/RegistrationDeclarations.h",
+        python_path + "/torch/include/ATen/RegistrationDeclarations.h",
         "r",
     ) as read_obj:
         for line in read_obj:
@@ -93,23 +89,20 @@ def read_registration_declarations(args, python_path):
                     dispatch = check_key("dispatch")
                     default = check_key("default")
 
-                    dide = (
-                        "D"
-                        + ("T" if dispatch else "F")
-                        + "_D"
-                        + ("T" if default else "F")
-                        + ";"
-                    )
+                    dide = "D" + ("T" if dispatch else "F") + "_D" + ("T" if default else "F") + ";"
                     compound = not dispatch and default
+
+                    if args.filter:
+                        op, filtered_out = filter(op, filtered_out)
 
                     reg_decl[op] = {
                         "compound": bool_to_yes(compound),
                         "di_de": dide,
                     }
 
-                    opf, filtered_out = filter(op, set())
-                    if opf not in reg_decl:
-                        reg_decl[opf] = reg_decl[op]
+    if args.verbose:
+        for filt in sorted(filtered_out):
+            print(filt)
 
     return reg_decl
 
@@ -142,7 +135,7 @@ def read_http_operators_supported(args, url):
 
     ops = sorted(ops)
     if args.verbose:
-        print("Ops read from: {}".format(url))
+        print(f"Ops read from: {url}")
         for op in ops:
             print(op)
 
@@ -153,7 +146,7 @@ def read_preambler_data(args, prea_path):
     ops = {}
     for filename in glob.iglob(prea_path + "/**/*.csv", recursive=True):
         if args.verbose:
-            print("Reading preambler data: {}".format(filename))
+            print(f"Reading preambler data: {filename}")
         with open(filename, "r") as read_obj:
             for line in read_obj:
                 pattern = ",Torch,"
@@ -199,16 +192,21 @@ def read_preambler_data(args, prea_path):
 
 
 def prioritize(args, ops_summary, reg_decl):
-    def int_from_dict(dict, key1, key2, na):
+    def int_from_dict(dict, key1, key2):
         if key1 in dict:
-            return 1 if dict[key1][key2] == bool_to_yes(True) else 0
+            if dict[key1][key2] == "DT_DF;":
+                return 0
+            elif dict[key1][key2] == "DT_DT;":
+                return 1
+            else:
+                return 2
         else:
-            return na
+            return 3
 
     def key_fun(v):
         return (
             int(v["HPU"]),
-            int_from_dict(reg_decl, v["name"], "compound", 2),
+            int_from_dict(reg_decl, v["name"], "di_de"),
             int(not v["missing"]),
             -len(v["topos_list"]),
             v["name"],
@@ -220,34 +218,37 @@ def prioritize(args, ops_summary, reg_decl):
 def main():
     args = parser.parse_args()
     key_list = ["CPU", "GPU", "HPU"]
-    max_len = 0
     ops = {}
     all_ops_set = set()
     for key in key_list:
         file = getattr(args, key.lower())
-        max_len_part, ops[key], all_ops_set = read_ops(args, file, all_ops_set)
-        max_len = max(max_len, max_len_part)
+        ops[key], all_ops_set = read_ops(args, file, all_ops_set)
         if args.verbose:
-            print("{} {} {}".format(max_len, len(ops[key]), len(all_ops_set)))
-    all_ops = sorted(all_ops_set)
+            print(f"len(ops['{key}']) = {len(ops[key])} {len(all_ops_set) = }")
 
     if args.python_path:
         reg_decl = read_registration_declarations(args, args.python_path)
+        all_ops_set.update(list(reg_decl.keys()))
+        if args.verbose:
+            print(f"{len(reg_decl) = } {len(all_ops_set) = }")
     else:
         reg_decl = {}
+
+    all_ops = sorted(all_ops_set)
+
+    max_len = 0
+    for op in all_ops:
+        max_len = max(max_len, len(op))
 
     if args.npu_stack:
         ops_in_topos = read_preambler_data(
             args,
-            args.npu_stack
-            + "/habanaqa/tests/graph_compiler/preambler/results/pytorch_sng",
+            args.npu_stack + "/habanaqa/tests/graph_compiler/preambler/results/pytorch_sng",
         )
     else:
         ops_in_topos = {}
 
-    tert_ops = read_http_operators_supported(
-        args, "https://pytorch.org/TensorRT/indices/supported_ops.html"
-    )
+    tert_ops = read_http_operators_supported(args, "https://pytorch.org/TensorRT/indices/supported_ops.html")
 
     ops_summary = []
     for op in all_ops:
@@ -262,9 +263,7 @@ def main():
             op_key = op_key.replace(".Tensor", "")
 
         entry["in_topos"] = op_key in ops_in_topos
-        entry["topos_list"] = (
-            sorted(ops_in_topos[op_key]) if entry["in_topos"] else []
-        )
+        entry["topos_list"] = sorted(ops_in_topos[op_key]) if entry["in_topos"] else []
         ops_summary.append(entry)
 
     ops_decl_only = []
@@ -314,14 +313,7 @@ def main():
     if args.prioritize:
         ops_summary = prioritize(args, ops_summary, reg_decl)
 
-    print(
-        "{0:<{1}}{2}{3}".format(
-            "OP;",
-            max_len + 1,
-            keys_str,
-            " COMPOUND; DI_DE; MISSING; TERT; IN_TOPOS; COUNT; TOPOS_LIST",
-        )
-    )
+    print(f"{'OP;':<{max_len + 1}}{keys_str} COMPOUND; DI_DE; MISSING; TERT; IN_TOPOS; COUNT; TOPOS_LIST")
     for entry in ops_summary:
         op = entry["name"]
 
