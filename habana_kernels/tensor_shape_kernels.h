@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2020 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #pragma once
 #include "backend/habana_operator.h"
@@ -112,7 +115,7 @@ class TOperator : public TransposeOperator {
   virtual habana::InferOutputMetaRetType InferOutputMeta(
       torch::jit::Stack& inputs) override {
     inputs.insert(inputs.begin() + 1, c10::IValue(0));
-    inputs.insert(inputs.begin() + 2, c10::IValue(1));
+    inputs.insert(inputs.begin() + 2, c10::IValue(-1));
     return TransposeOperator::InferOutputMeta(inputs);
   }
 
@@ -123,13 +126,13 @@ class TOperator : public TransposeOperator {
     TORCH_CHECK(
         inputs.size() == 1, "aten::t Operation expects 1 arguments as input")
     inputs.insert(inputs.begin() + 1, c10::IValue(0));
-    inputs.insert(inputs.begin() + 2, c10::IValue(1));
+    inputs.insert(inputs.begin() + 2, c10::IValue(-1));
     TransposeOperator::AllocateAndAddSynapseNode(
         graph, inputs, output_metadata);
   }
   static std::tuple<std::vector<int64_t>, std::vector<int64_t>>
   compute_output_shape(const at::Tensor& self) {
-    return TransposeOperator::compute_output_shape(self, 0, 1);
+    return TransposeOperator::compute_output_shape(self, 0, -1);
   }
 };
 

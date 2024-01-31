@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -318,3 +318,23 @@ def test_hpu_non_contiguous_more_outputs(func):
         assert torch.allclose(res_eager_cpu[i], res_eager_cpu2[i], atol = 0.001, rtol = 0.001)
         assert torch.allclose(res_eager_cpu[i], res_eager_hpu[i].cpu(), atol = 0.001, rtol = 0.001)
         assert res_eager_cpu[i].size() == res_eager_hpu[i].size()
+
+
+# add cases for SW-172609
+@pytest.mark.parametrize("shape", [(5,), (1, 2)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int32])
+def test_t_compilation(shape, dtype):
+    def fn(input):
+        input = torch.ops.aten.t(input)
+        return input.add(0)
+
+    torch._dynamo.reset()
+    cpu_input = torch.randn(shape, dtype=dtype) if dtype.is_floating_point else torch.randint(low=-128, high=127, size=shape, dtype=dtype)
+    hpu_input = cpu_input.to("hpu")
+    cpu_compiled_fn = torch.compile(fn)
+    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+
+    cpu_output = cpu_compiled_fn(cpu_input)
+    hpu_output = hpu_compiled_fn(hpu_input)
+
+    assert torch.allclose(hpu_output.cpu(), cpu_output, atol = 0.001, rtol = 0.001)
