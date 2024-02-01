@@ -132,8 +132,6 @@ CastToFp8::CastToFp8(int device_id, c10::ScalarType scalar_type)
 }
 
 void CastToFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 5, "CastToFp8 must have 5 input arguments");
-
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[2].toBool();
@@ -145,6 +143,9 @@ void CastToFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   bool is_amax = amax.numel() != 0;
 
+  TORCH_CHECK(
+      src_type == at::ScalarType::Float or src_type == at::ScalarType::BFloat16,
+      "CastToFp8 input must be of float or bfloat16 dtype.");
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
 
@@ -193,8 +194,6 @@ CastToFp8V2::CastToFp8V2(int device_id, c10::ScalarType scalar_type)
 }
 
 void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 6, "CastToFp8V2 must have 6 input arguments");
-
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1];
   bool stochastic_rounding = stack[2].toBool();
@@ -202,6 +201,10 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto src_type = self.scalar_type();
   auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[4]);
   auto scale_shape = stack[5];
+
+  TORCH_CHECK(
+      src_type == at::ScalarType::Float or src_type == at::ScalarType::BFloat16,
+      "CastToFp8V2 input must be of float or bfloat16 dtype.");
 
   ValidateScaleShape(scale, scale_shape);
 
@@ -268,17 +271,19 @@ CastToFp8Hybrid::CastToFp8Hybrid(int device_id, c10::ScalarType scalar_type)
 }
 
 void CastToFp8Hybrid::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 5, "CastToFp8Hybrid must have 5 input arguments");
-
   StackGetter stackGetter(stack, "CastToFp8Hybrid::AddNode");
   auto self = getNextInput<TensorsPair>(stackGetter);
   auto scale_152 = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto scale_143 = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto stochastic_rounding = getNextInput<bool>(stackGetter);
   auto is_amax = getNextInput<bool>(stackGetter);
+  auto src_type = self.pt_t.scalar_type();
 
-  std::string guid =
-      get_guid_with_precision("convert_to_fp8_hybrid", self.pt_t.scalar_type());
+  TORCH_CHECK(
+      src_type == at::ScalarType::Float or src_type == at::ScalarType::BFloat16,
+      "CastToFp8Hybrid input must be of float or bfloat16 dtype.");
+
+  std::string guid = get_guid_with_precision("convert_to_fp8_hybrid", src_type);
 
   auto out_shapes = CastToFp8HybridOutputShape(stack);
   std::vector<synTensor> syn_inputs{self.syn_t};
@@ -363,9 +368,6 @@ Fp8CastTranspose::Fp8CastTranspose(int device_id, c10::ScalarType scalar_type)
 }
 
 void Fp8CastTranspose::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(
-      stack.size() == 6, "Fp8CastTranspose must have 6 input arguments");
-
   auto self = stack_tensor(stack, 0);
   auto src_type = self.scalar_type();
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
@@ -378,6 +380,9 @@ void Fp8CastTranspose::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   bool is_amax = amax.numel() != 0;
 
+  TORCH_CHECK(
+      src_type == at::ScalarType::Float or src_type == at::ScalarType::BFloat16,
+      "Fp8CastTranspose input must be of float or bfloat16 dtype.");
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
 
@@ -424,9 +429,6 @@ Fp8CastTransposeBgrad::Fp8CastTransposeBgrad(
 }
 
 void Fp8CastTransposeBgrad::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(
-      stack.size() == 7, "Fp8CastTransposeBgrad must have 7 input arguments");
-
   auto self = stack_tensor(stack, 0);
   auto src_type = self.scalar_type();
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
@@ -440,6 +442,9 @@ void Fp8CastTransposeBgrad::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   bool is_amax = amax.numel() != 0;
 
+  TORCH_CHECK(
+      src_type == at::ScalarType::Float or src_type == at::ScalarType::BFloat16,
+      "Fp8CastTransposeBgrad input must be of float or bfloat16 dtype.");
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
 
@@ -490,10 +495,6 @@ Fp8CastTransposeBgradDgelu::Fp8CastTransposeBgradDgelu(
 void Fp8CastTransposeBgradDgelu::AddNode(
     sh::graph& graph,
     const at::Stack& stack) {
-  TORCH_CHECK(
-      stack.size() == 9,
-      "Fp8CastTransposeBgradDgelu must have 9 input arguments");
-
   auto self = stack_tensor(stack, 0);
   auto src_type = self.scalar_type();
   auto scale = stack[2].toOptional<torch::Tensor>().value_or(torch::Tensor());
@@ -508,6 +509,9 @@ void Fp8CastTransposeBgradDgelu::AddNode(
 
   bool is_amax = amax.numel() != 0;
 
+  TORCH_CHECK(
+      src_type == at::ScalarType::Float or src_type == at::ScalarType::BFloat16,
+      "Fp8CastTransposeBgradDgelu input must be of float or bfloat16 dtype.");
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
 
@@ -562,6 +566,10 @@ void CastFromFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   ValidateScaleShape(scale, scale_shape);
 
+  TORCH_CHECK(
+      dst_type == at::ScalarType::Float or dst_type == at::ScalarType::BFloat16,
+      "CastFromFp8 output dtype must be equal to float or bfloat16.");
+
   std::string guid = dst_type == at::ScalarType::Float
       ? "convert_from_fp8_f32"
       : "convert_from_fp8_bf16";
@@ -615,8 +623,6 @@ Fp8Dropout::Fp8Dropout(int device_id, c10::ScalarType scalar_type)
 }
 
 void Fp8Dropout::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 6, "Fp8Dropout must have 6 input arguments");
-
   StackGetter stackGetter(stack, "Fp8Dropout::AddNode");
   auto self = getNextInput<TensorsPair>(stackGetter);
   double p = getNextInput<double>(stackGetter);
@@ -626,9 +632,13 @@ void Fp8Dropout::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[5]);
   auto sizes = self.pt_t.sizes().vec();
   std::vector<int64_t> amax_size{1};
+  auto src_type = self.pt_t.scalar_type();
 
-  std::string guid =
-      get_guid_with_precision("dropout_fp8", self.pt_t.scalar_type());
+  TORCH_CHECK(
+      src_type == at::ScalarType::Float or src_type == at::ScalarType::BFloat16,
+      "Fp8Dropout input must be of float or bfloat16 dtype.");
+
+  std::string guid = get_guid_with_precision("dropout_fp8", src_type);
 
   ns_DropoutFp8::Params params{};
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
@@ -664,8 +674,6 @@ Fp8Gelu::Fp8Gelu(int device_id, c10::ScalarType scalar_type)
 }
 
 void Fp8Gelu::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 6, "Fp8Gelu must have 6 input arguments");
-
   auto self = stack_tensor(stack, 0);
   auto scale = stack[1].toOptional<torch::Tensor>().value_or(torch::Tensor());
   bool stochastic_rounding = stack[2].toBool();
@@ -678,6 +686,9 @@ void Fp8Gelu::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   bool is_amax = amax.numel() != 0;
 
+  TORCH_CHECK(
+      src_type == at::ScalarType::Float or src_type == at::ScalarType::BFloat16,
+      "Fp8Gelu input must be of float or bfloat16 dtype.");
   TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
 
@@ -728,21 +739,21 @@ Fp8GeluV2::Fp8GeluV2(int device_id, c10::ScalarType scalar_type)
 }
 
 void Fp8GeluV2::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 5, "Fp8GeluV2 must have 5 input arguments");
-
   StackGetter stackGetter(stack, "Fp8GeluV2::AddNode");
   auto self = getNextInput<TensorsPair>(stackGetter);
   auto scaleOpt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   bool stochastic_rounding = getNextInput<bool>(stackGetter);
   bool is_amax = getNextInput<bool>(stackGetter);
   auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[4]);
-
   auto src_dtype = self.pt_t.scalar_type();
 
+  TORCH_CHECK(
+      src_dtype == at::ScalarType::Float or
+          src_dtype == at::ScalarType::BFloat16,
+      "Fp8GeluV2 input must be of float or bfloat16 dtype.");
+
   std::string guid = get_guid_with_precision("fp8_gelu", src_dtype);
-
   auto params = GetCastParams(stochastic_rounding, src_dtype, dst_type);
-
   auto output_shapes = Fp8GeluV2OutputShape(stack);
 
   std::vector<synTensor> syn_inputs{self.syn_t};
@@ -786,8 +797,6 @@ Fp8BgradDgelu::Fp8BgradDgelu(int device_id, c10::ScalarType scalar_type)
           false) {}
 
 void Fp8BgradDgelu::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 7, "Fp8BgradDgelu must have 7 input arguments");
-
   StackGetter stackGetter(stack, "Fp8eBgradDgelu::AddNode");
   auto grad = getNextInput<TensorsPair>(stackGetter);
   auto input = getNextInput<TensorsPair>(stackGetter);
@@ -796,12 +805,18 @@ void Fp8BgradDgelu::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto stochastic_rounding = getNextInput<bool>(stackGetter);
   auto is_amax = getNextInput<bool>(stackGetter);
   auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[6]);
+  auto src_dtype = ScalarType();
 
   auto out_sizes = Fp8BgradDgeluOutputShape(stack);
 
-  std::string guid = get_guid_with_precision("fp8_bgrad_dgelu", ScalarType());
+  TORCH_CHECK(
+      src_dtype == at::ScalarType::Float or
+          src_dtype == at::ScalarType::BFloat16,
+      "Fp8BgradDgelu input must be of float or bfloat16 dtype.");
 
-  auto params = GetCastParams(stochastic_rounding, ScalarType(), dst_type);
+  std::string guid = get_guid_with_precision("fp8_bgrad_dgelu", src_dtype);
+
+  auto params = GetCastParams(stochastic_rounding, src_dtype, dst_type);
 
   std::vector<synTensor> syn_inputs{grad.syn_t, input.syn_t};
   if (scaleOpt) {
@@ -814,7 +829,7 @@ void Fp8BgradDgelu::AddNode(sh::graph& graph, const at::Stack& stack) {
   }
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {out_sizes[0], dst_type, 0, DATA_TENSOR, dst_syn_type},
-      {out_sizes[1], ScalarType(), 1}};
+      {out_sizes[1], src_dtype, 1}};
   if (is_amax) {
     output_attrs.push_back({out_sizes[2], at::ScalarType::Float, 2});
   }
@@ -848,8 +863,6 @@ Fp8FastSoftmax::Fp8FastSoftmax(int device_id, c10::ScalarType scalar_type)
           false) {}
 
 void Fp8FastSoftmax::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 7, "Fp8FastSoftmax must have 7 input arguments");
-
   StackGetter stackGetter(stack, "Fp8FastSoftmax::AddNode");
   auto input = getNextInput<TensorsPair>(stackGetter);
   auto mask = getNextInput<TensorsPair>(stackGetter);
@@ -858,10 +871,16 @@ void Fp8FastSoftmax::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto stochastic_rounding = getNextInput<bool>(stackGetter);
   auto is_amax = getNextInput<bool>(stackGetter);
   auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[6]);
+  auto src_dtype = ScalarType();
+
+  TORCH_CHECK(
+      src_dtype == at::ScalarType::Float or
+          src_dtype == at::ScalarType::BFloat16,
+      "Fp8FastSoftmax input must be of float or bfloat16 dtype.");
 
   auto out_sizes = Fp8FastSoftmaxOutputShape(stack);
 
-  std::string guid = get_guid_with_precision("fp8_fast_softmax", ScalarType());
+  std::string guid = get_guid_with_precision("fp8_fast_softmax", src_dtype);
 
   // reuse params structure from LayerNormFp8
   ns_LayerNormFp8::Params params{};
@@ -895,8 +914,6 @@ Fp8Layernorm::Fp8Layernorm(int device_id, c10::ScalarType scalar_type)
 }
 
 void Fp8Layernorm::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 10, "Fp8Layernorm must have 10 input arguments");
-
   auto self = stack_tensor(stack, 0);
   float eps = static_cast<float>(stack[3].toDouble());
   auto scale = stack[4].toOptional<torch::Tensor>().value_or(torch::Tensor());
@@ -907,14 +924,18 @@ void Fp8Layernorm::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto istd = stack_tensor(stack, 8);
   auto amax = stack_tensor(stack, 9);
   auto [dst_type, dst_syn_type] = GetFp8Dtypes(out.scalar_type());
+  auto src_dtype = self.scalar_type();
 
   bool is_amax = amax.numel() != 0;
 
   TORCH_CHECK(
+      src_dtype == at::ScalarType::Float or
+          src_dtype == at::ScalarType::BFloat16,
+      "Fp8Layernorm input must be of float or bfloat16 dtype.");
+  TORCH_CHECK(
       sizes == out.sizes(), "Input and output must have the same shape");
 
-  std::string guid =
-      get_guid_with_precision("layer_norm_fp8_fwd", self.scalar_type());
+  std::string guid = get_guid_with_precision("layer_norm_fp8_fwd", src_dtype);
 
   ns_LayerNormFp8::Params params{};
   params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
@@ -949,8 +970,6 @@ Fp8Gemm::Fp8Gemm(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "fp8_gemm", scalar_type, {}, {}, {}, true) {}
 
 void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
-  TORCH_CHECK(stack.size() == 11, "Fp8Gemm must have 11 input arguments");
-
   StackGetter stackGetter(stack, "Fp8Gemm::AddNode");
   auto A = getNextInput<TensorsPair>(stackGetter);
   bool trans_A = getNextInput<bool>(stackGetter);
