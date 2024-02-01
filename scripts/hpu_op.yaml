@@ -3867,11 +3867,29 @@ linear_backward:
   guid: linear_temp_bwd
   out_ids: [0, 0, 0]
 
+linspace.Tensor_Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Half, Long]
+  op_backend: LinspaceOut
+  output_meta: LinspaceMeta
+  out_ids: [0]
+
+linspace.Scalar_Tensor:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Half, Long]
+  op_backend: LinspaceOut
+  output_meta: LinspaceMeta
+  out_ids: [0]
+
 linspace.out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Half, Long]
   op_backend: LinspaceOut
   output_meta: LinspaceMeta
 
