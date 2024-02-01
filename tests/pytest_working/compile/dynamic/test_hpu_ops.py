@@ -890,3 +890,30 @@ def test_op_square_inplace_output():
         h_result1  = compiled_fn(t_h)
         assert torch.allclose(h_result1.to("cpu"), result1, atol=0.001, rtol=0.001)
     configuration_flags["use_eager_fallback"] = is_eager_fallback
+
+@pytest.mark.skip(reason="SW-173289")
+def test_op_split():
+    input_shapes = [
+        (6, 3, 5),
+        (8, 3, 5),
+        (10, 3, 5),
+        (12, 3, 5)
+    ]
+
+    def raw_function(t1, t2):
+        t2 = t1.add(t2)
+        chunks = torch.split(t2, 2)
+        t3 = chunks[0].add(chunks[0])
+        return t3
+
+    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+
+    for s in input_shapes:
+        t1 = torch.randn(s, requires_grad=False)
+        t2 = torch.randn(s, requires_grad=False)
+        result = raw_function(t1, t2)
+        t1_h = t1.to("hpu")
+        t2_h = t2.to("hpu")
+        h_result = compiled_fn(t1_h, t2_h)
+        for i, _ in enumerate(result):
+            assert torch.allclose(h_result[i].to("cpu"), result[i], atol=0.001, rtol=0.001)
