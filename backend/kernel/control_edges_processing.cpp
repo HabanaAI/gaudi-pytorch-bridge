@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -179,9 +179,9 @@ class GraphAffinityAnalyzer {
   /**
    * Construct analyzer and preprocesses graph.
    *
-   * @param graph_inputs List of root nodes in the forest of graphs.
+   * @param graph
    */
-  GraphAffinityAnalyzer(const ArrayOfNodes& graph_inputs);
+  GraphAffinityAnalyzer(const torch::jit::Graph& graph);
 
   GraphAffinityAnalyzer(const GraphAffinityAnalyzer&) = delete;
   GraphAffinityAnalyzer& operator=(const GraphAffinityAnalyzer&) = delete;
@@ -240,7 +240,7 @@ class GraphAffinityAnalyzer {
   // ancestor-descendant relationship between any pair of nodes. This
   // relationship helps to avoid control edges induced graph cycles Specifically
   // the blocked node should NOT be an ancestor of blocking node
-  void PreprocessControlEdges(const ArrayOfNodes& graph_inputs);
+  void PreprocessControlEdges(const torch::jit::Graph& graph);
 
   /**
    * Traversing the graph using DFS algorithm.
@@ -249,7 +249,7 @@ class GraphAffinityAnalyzer {
    *
    * @param node Currently traversed node.
    */
-  void Dfs(torch::jit::Node* node);
+  void Dfs(const torch::jit::Node* node);
 
   /**
    * Checks if node 1 is an ancestor of node2.
@@ -259,8 +259,8 @@ class GraphAffinityAnalyzer {
       const torch::jit::Node* const node2) const;
 };
 
-GraphAffinityAnalyzer::GraphAffinityAnalyzer(const ArrayOfNodes& graph_inputs) {
-  PreprocessControlEdges(graph_inputs);
+GraphAffinityAnalyzer::GraphAffinityAnalyzer(const torch::jit::Graph& graph) {
+  PreprocessControlEdges(graph);
 }
 
 bool GraphAffinityAnalyzer::IsControlEdgeCycle(
@@ -268,8 +268,14 @@ bool GraphAffinityAnalyzer::IsControlEdgeCycle(
     const std::vector<torch::jit::Node*>& blocking_nodes_vec) const {
   for (auto& blocking_node : blocking_nodes_vec) {
     // check if blocked node is an ancestor of blocking node
-    HABANA_ASSERT(dfs_time_map_.find(blocking_node) != dfs_time_map_.end());
-    HABANA_ASSERT(dfs_time_map_.find(blocked_node) != dfs_time_map_.end());
+    TORCH_CHECK(
+        dfs_time_map_.find(blocking_node) != dfs_time_map_.end(),
+        blocking_node,
+        blocking_node->kind().toQualString());
+    TORCH_CHECK(
+        dfs_time_map_.find(blocked_node) != dfs_time_map_.end(),
+        blocked_node,
+        blocked_node->kind().toQualString());
 
     if ((dfs_time_map_.at(blocking_node).in >
          dfs_time_map_.at(blocked_node).in) &&
@@ -290,10 +296,10 @@ bool GraphAffinityAnalyzer::IsAncestorOrDescendant(
 }
 
 void GraphAffinityAnalyzer::PreprocessControlEdges(
-    const ArrayOfNodes& graph_inputs) {
+    const torch::jit::Graph& graph) {
   PT_LAZY_TRACE;
 
-  for (auto input_val : graph_inputs) {
+  for (auto input_val : graph.inputs()) {
     // initialize the first and second values for prim::param input nodes
     dfs_time_map_.insert(
         {input_val->node(), {0, std::numeric_limits<size_t>::max()}});
@@ -305,9 +311,16 @@ void GraphAffinityAnalyzer::PreprocessControlEdges(
       }
     }
   }
+
+  // handle ops like full and arange that dont take input tensors
+  for (auto node : graph.nodes()) {
+    if (dfs_time_map_.find(node) == dfs_time_map_.end()) {
+      Dfs(node);
+    }
+  }
 }
 
-void GraphAffinityAnalyzer::Dfs(torch::jit::Node* node) {
+void GraphAffinityAnalyzer::Dfs(const torch::jit::Node* node) {
   dfs_time_map_[node].in = dfs_cnt_++;
 
   for (auto& out : node->outputs()) {
@@ -595,7 +608,7 @@ void ControlEdgesProcessor::ProcessCustomOptControlEdges(
 
 void ControlEdgesProcessor::ProcessControlEdges() {
   const habana::control_edges::GraphAffinityAnalyzer affinity_analysis{
-      jit_ir_graph_.inputs()};
+      jit_ir_graph_};
 
   ProcessControlEdgesForMemoryReuse(affinity_analysis, blocking_nodes_vec_);
 
