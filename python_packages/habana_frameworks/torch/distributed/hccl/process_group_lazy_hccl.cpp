@@ -412,6 +412,16 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter(
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputTensors);
 };
 
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_reduce_scatter_base(
+    at::Tensor& outputTensor,
+    at::Tensor& inputTensor,
+    const ReduceScatterOptions& opts) {
+  habana_lazy::reduce_scatter_hpu_lazy_out(
+      inputTensor, (uint8_t)opts.reduceOp, comm_->GetId(), outputTensor);
+  std::vector<at::Tensor> out_tensors = {outputTensor};
+  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
+};
+
 void ProcessGroupLazyHCCL::permutedSendTensorsToDense(at::Tensor& tensor) {
   auto self_hb_tensor = habana_lazy::GetHbLazyTensor(tensor);
   auto self_internal_tesor = self_hb_tensor.EvaluateTensorData();
