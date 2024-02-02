@@ -2879,35 +2879,35 @@ floor_:
   op_validator: check-node-with-shared-layer
 
 floor_divide.out:
+  custom_fill_params: FillFloorDivideParams
   broadcast: true
   dtypes: [BFloat16, Float, Int, Byte, Char, Long]
-  guid: div
-  op_backend: FloorDivideOperator
+  guid: floor_divide_fwd
   promote_to_common_type: [self, other]
 
 floor_divide:
+  custom_fill_params: FillFloorDivideParams
   broadcast: true
   dtypes: [BFloat16, Float, Int, Byte, Char, Long]
-  guid: div
-  op_backend: FloorDivideOperator
+  guid: floor_divide_fwd
   promote_to_common_type: [self, other]
-  out_ids: [0]
-
-floor_divide.Scalar:
-  broadcast: true
-  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
-  guid: div
-  op_backend: FloorDivideOperator
-  promote_to_common_type: [self, other]
-  scalar_ids: [1]
   out_ids: [0]
 
 floor_divide_.Tensor:
+  custom_fill_params: FillFloorDivideParams
   dtypes: [BFloat16, Float, Int, Byte, Char, Long]
-  guid: div
-  op_backend: FloorDivideOperator
+  guid: floor_divide_fwd
   promote_to_common_type: [self, other]
   inplace_ids: [0]
+
+floor_divide.Scalar:
+  custom_fill_params: FillFloorDivideParams
+  broadcast: true
+  dtypes: [BFloat16, Float, Int, Byte, Char, Long]
+  guid: floor_divide_fwd
+  promote_to_common_type: [self, other]
+  scalar_ids: [1]
+  out_ids: [0]
 
 frac:
   dtypes: [BFloat16, Float]
