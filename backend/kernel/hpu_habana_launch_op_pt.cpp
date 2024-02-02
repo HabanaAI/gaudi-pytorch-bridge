@@ -33,6 +33,7 @@
 #include "backend/helpers/graph.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jitgraph_utils.h"
+#include "backend/kernel/constant_information.h"
 #include "backend/kernel/control_edges_processing.h"
 #include "backend/kernel/hpu_habana_compile_op_pt.h"
 #include "backend/kernel/hpu_habana_meta_op_list.h"
@@ -53,11 +54,6 @@
 using namespace torch::jit;
 using namespace jitgraph_utils;
 namespace habana {
-std::unordered_map<
-    int,
-    std::pair<size_t, std::vector<HabanaLaunchOpPT::constInfo_t>>>
-    HabanaLaunchOpPT::m_const_checksum_map;
-std::mutex HabanaLaunchOpPT::checksum_map_mtx;
 //--------------------------------------
 
 namespace HabanaLaunchOpPipeline {
@@ -245,10 +241,6 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
 
 HabanaLaunchOpPT::~HabanaLaunchOpPT() {
   PT_BRIDGE_DEBUG("Destroying : ", GetSynapseGraphName());
-}
-
-void HabanaLaunchOpPT::clearRecipeCacheForConst() {
-  m_const_checksum_map.clear();
 }
 
 bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
@@ -3501,12 +3493,6 @@ void HabanaLaunchOpPT::MaybePrintDuplicateGraphInformation(
   }
 }
 
-void habana::HabanaLaunchOpPT::ExecuteSynapseCacheTask(
-    size_t graph_key_with_perm,
-    std::shared_ptr<HabanaLaunchOpPT> hbLaunchOp) {
-  hbLaunchOp->ExecuteSynapseCache(graph_key_with_perm);
-}
-
 void HabanaLaunchOpPT::update_syn_launch_info(
     uint64_t oldAddress,
     uint64_t newAddress) {
@@ -3529,28 +3515,29 @@ void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
       if (ivpsh.get()->isTensor()) {
         auto pt_tensor = ivpsh.get()->toTensor();
         if (habana::is_tensor_const_with_valid_const_id(pt_tensor)) {
-          auto const_id = habana::get_tensor_const_id(pt_tensor);
-          HABANA_ASSERT(
-              m_const_checksum_map.find(const_id) != m_const_checksum_map.end(),
-              " No checksum exists for const_id: ",
-              const_id,
-              " in the map");
-          auto recipe_checksum =
-              GetConstCheckSumForRecipe(const_id, cur_rargpsh->hashCode());
-          // PT_BRIDGE_DEBUG("[Cache hit] const_id:  ", const_id, " recipe
-          // checksum:
-          // ", recipe_checksum, " current checksum on device: ",
-          // m_const_checksum_map[const_id].first)
-          if (m_const_checksum_map[const_id].first != recipe_checksum) {
+          ConstantInformation::id_t const_id{
+              habana::get_tensor_const_id(pt_tensor)};
+          auto& constant_information = ConstantInformationValue();
+          auto checksum_and_recipe_checksum =
+              constant_information.GetConstCheckSumForRecipe(
+                  const_id,
+                  ConstantInformation::key_t{cur_rargpsh->hashCode()});
+          if (checksum_and_recipe_checksum.const_checksum_ !=
+              checksum_and_recipe_checksum.const_checksum_for_recipe_) {
             uint64_t oldAddress = reinterpret_cast<uint64_t>(
                 pt_tensor.storage().data_ptr().get());
-            GetConstPtrForRecipe(const_id, cur_rargpsh->hashCode(), pt_tensor);
-            InsertConstantChecksum(const_id, recipe_checksum);
+            constant_information.GetConstPtrForRecipe(
+                const_id,
+                ConstantInformation::key_t{cur_rargpsh->hashCode()},
+                pt_tensor);
+            constant_information.Insert(
+                const_id,
+                checksum_and_recipe_checksum.const_checksum_for_recipe_);
             PT_BRIDGE_DEBUG(
                 "Tensor with const_id: ",
                 const_id,
                 " has moved data pointer for the data corresponding to checksum: ",
-                recipe_checksum,
+                checksum_and_recipe_checksum.const_checksum_for_recipe_,
                 " for cache hit on key ",
                 cur_rargpsh->hashCode());
             uint64_t newAddress = reinterpret_cast<uint64_t>(

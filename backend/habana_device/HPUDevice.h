@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,6 +12,7 @@
  */
 #pragma once
 #include <c10/core/Device.h>
+#include "backend/kernel/constant_information.h"
 #include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
@@ -191,6 +192,10 @@ class HPUDevice {
   habana_helpers::ThreadPool* raw_lowering_thread_{nullptr};
 
   habana_helpers::ThreadPool& create_lowering_thread();
+
+  // Holding this is required for proper destruction order
+  std::shared_ptr<ConstantInformation> constant_information{
+      ConstantInformationPtr()};
 };
 
 } // namespace habana

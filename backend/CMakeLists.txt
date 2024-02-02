@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -18,6 +18,7 @@ add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synaps
   backend_meta.cpp
   habana_operator.cpp
   scalar_cache.cpp
+  kernel/constant_information.cpp
   kernel/control_edges_processing.cpp
   kernel/ds_graph_recompile.cpp
   kernel/hpu_habana_launch_op_pt.cpp

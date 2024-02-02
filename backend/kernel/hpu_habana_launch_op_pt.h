@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -190,9 +190,6 @@ class HabanaLaunchOpPT {
   void ExecuteSynapse();
   void ExecuteSynapseGraph();
   void ExecuteSynapseCache(size_t graph_key_with_perm);
-  static void ExecuteSynapseCacheTask(
-      size_t graph_key_with_perm,
-      std::shared_ptr<HabanaLaunchOpPT> hbLaunchOp);
   // To clear the static variables
   void ClearStatics(bool is_shape_inference = false);
 
@@ -246,8 +243,6 @@ class HabanaLaunchOpPT {
     return is_shape_agnostic_supported_;
   }
 
-  static void clearRecipeCacheForConst();
-
   // A map holding the ival hash and inputidx. 1-1 map for all inputs
   std::unordered_map<int64_t, int64_t> ival_hash_to_input_index_map_ = {};
 
@@ -282,8 +277,6 @@ class HabanaLaunchOpPT {
   // value_to_ivalue---------------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///-----------Read
   // pt_to_synapse_tensors---------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///------------NA
   // ivalue_to_tensor_info_map-----------------///-----------------------------------///---------------Write---------------///---------------Write---------------///------------NA
-  // m_const_checksum_map----------------------///-----------------------------------///-----------------NA----------------///---------------Write---------------///------------NA
-  // checksum_map_mtx--------------------------///-----------------------------------///-----------------NA----------------///---------------Write---------------///------------NA
   // input_tivs--------------------------------///-----------------------------------///---------------Write---------------///---------------Write---------------///------------NA
   // output_tensorinfos------------------------///-----------------------------------///-----------------NA----------------///---------------Write---------------///------------NA
   // input_tiv_map-----------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
@@ -382,147 +375,6 @@ class HabanaLaunchOpPT {
 
   std::unordered_map<IValPtrShared, PtTensorInfoShared>
       ivalue_to_tensor_info_map;
-
-  struct constInfo_t {
-    size_t checksum; // checksum on the device
-    std::vector<size_t> recipe_key; // multiple recipe can share a key
-    uint64_t section_size;
-    std::optional<at::DataPtr> data_ptr;
-    constInfo_t(size_t _checksum, size_t _key, uint64_t _size)
-        : checksum(_checksum), section_size(_size) {
-      recipe_key.emplace_back(_key);
-    }
-  };
-
-  static std::unordered_map<int, std::pair<size_t, std::vector<constInfo_t>>>
-      m_const_checksum_map ABSL_GUARDED_BY(checksum_map_mtx);
-  static std::mutex checksum_map_mtx;
-  static void InsertConstantChecksum(int id, size_t checksum) {
-    std::lock_guard<std::mutex> lock(checksum_map_mtx); // Acquire the lock
-    if (m_const_checksum_map.find(id) == m_const_checksum_map.end()) {
-      m_const_checksum_map[id] = std::make_pair(
-          checksum,
-          std::vector<constInfo_t>{}); // Insert value in a single line
-    } else {
-      m_const_checksum_map[id].first = checksum;
-    }
-  }
-
-  static void PushConstantChecksumInfo(
-      int id,
-      size_t _checksum,
-      size_t _key,
-      uint64_t _size) {
-    std::lock_guard<std::mutex> lock(checksum_map_mtx); // Acquire the lock
-    PT_BRIDGE_DEBUG(
-        "[PushConstantCheckSumInfo] :: const_id: ",
-        id,
-        " checksum: ",
-        _checksum,
-        " size: ",
-        _size,
-        " key: ",
-        _key);
-    // constInfo_t info(_checksum, _key, _size);
-    // The call for this function is made only after the check that key exists
-    m_const_checksum_map[id].second.emplace_back(_checksum, _key, _size);
-  }
-
-  static void AddRecipeForSharedChecksum(
-      int id,
-      size_t _checksum,
-      size_t _key) {
-    // The call for this function is made only after the check that key exists
-    std::lock_guard<std::mutex> lock(checksum_map_mtx); // Acquire the lock
-    for (auto& info : m_const_checksum_map[id].second) {
-      if (info.checksum == _checksum) {
-        info.recipe_key.emplace_back(_key);
-        return;
-      }
-    }
-  }
-
-  static void GetConstPtrForRecipe(int id, size_t _key, at::Tensor& _tensor) {
-    // The call for this function is made only after the check that key exists
-    auto current_checksum_on_device = m_const_checksum_map[id].first;
-    for (auto& info : m_const_checksum_map[id].second) {
-      for (auto key : info.recipe_key) {
-        if (key == _key) {
-          // auto device = _tensor.device();
-          // at::DataPtr ptr(info.data_ptr, device);
-          HABANA_ASSERT(
-              info.data_ptr.has_value(),
-              "There is no pointer assosciated with const_id: ",
-              id,
-              " for recipe: ",
-              _key);
-          PT_BRIDGE_DEBUG(
-              "For tensor with const_id: ",
-              id,
-              " moving the data pointer to: ",
-              info.data_ptr.value().get())
-          auto old_data_ptr =
-              _tensor.storage().set_data_ptr(std::move(info.data_ptr.value()));
-          _tensor.storage().set_nbytes(info.section_size);
-          StorePrevDataPtr(
-              id, std::move(old_data_ptr), current_checksum_on_device);
-          info.data_ptr.reset();
-          return;
-        }
-      }
-    }
-    HABANA_ASSERT(
-        false, "Constant information not found in the map for id: ", id);
-  }
-
-  static void StorePrevDataPtr(int id, at::DataPtr _ptr, size_t _checksum) {
-    // The call for this function is made only after the check that key exists
-    std::lock_guard<std::mutex> lock(checksum_map_mtx); // Acquire the lock
-    for (auto& info : m_const_checksum_map[id].second) {
-      if (info.checksum == _checksum) {
-        info.data_ptr = std::move(_ptr);
-        PT_BRIDGE_DEBUG(
-            "[StorePrevDataPtr] :: const_id: ",
-            id,
-            " checksum: ",
-            info.checksum,
-            " size: ",
-            info.section_size,
-            " key: ",
-            info.recipe_key,
-            " ptr: ",
-            info.data_ptr.value().get());
-        return;
-      }
-    }
-    HABANA_ASSERT(false, "No such checksum found in the map, const_id: ", id);
-  }
-
-  static size_t GetConstCheckSumForRecipe(int id, size_t _key) {
-    for (auto& info : m_const_checksum_map[id].second) {
-      for (auto key : info.recipe_key) {
-        if (key == _key) {
-          return info.checksum;
-        }
-      }
-    }
-    HABANA_ASSERT(
-        false, "No checksum found for const_id: ", id, " for recipe: ", _key);
-    return 0;
-  }
-
-  static bool DoesCheckSumExist(int id, size_t _checksum) {
-    if (m_const_checksum_map.find(id) == m_const_checksum_map.end()) {
-      return false;
-    }
-
-    for (auto& info : m_const_checksum_map[id].second) {
-      if (info.checksum == _checksum) {
-        return true;
-      }
-    }
-    return false;
-  }
 
   void update_syn_launch_info(uint64_t oldAddress, uint64_t newAdress);
   // TIV : absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>
@@ -786,24 +638,26 @@ class HabanaLaunchOpPT {
   void PostCompilationStepForConstTensors(
       synapse_helpers::graph::recipe_handle& recipe);
 
-  void HandleTensorWithZeroSize(std::shared_ptr<c10::IValue> _src, size_t _key);
+  void HandleTensorWithZeroSize(
+      std::shared_ptr<c10::IValue> src,
+      ConstantInformation::key_t key);
   void HandleTensorWithNewChecksum(
-      std::shared_ptr<c10::IValue> _src,
-      size_t _section_size,
-      size_t _checksum,
-      size_t _key,
-      char* _section_data_ptr,
-      size_t _old_size,
+      std::shared_ptr<c10::IValue> src,
+      size_t section_size,
+      ConstantInformation::checksum_t checksum,
+      ConstantInformation::key_t key,
+      char* section_data_ptr,
+      size_t old_size,
       int device_id);
   void HandleTensorWithExistingChecksumInCache(
-      int _const_id,
-      size_t _checksum,
-      size_t _key,
-      at::Tensor& _tensor);
+      ConstantInformation::id_t const_id,
+      ConstantInformation::checksum_t checksum,
+      ConstantInformation::key_t key,
+      at::Tensor& tensor);
   void HandleTensorWithChecksumOnDevice(
-      int _const_id,
-      size_t _checksum,
-      size_t _key);
+      ConstantInformation::id_t const_id,
+      ConstantInformation::checksum_t checksum,
+      ConstantInformation::key_t key);
   void EvictSynapseRecipe(size_t& dsi_bucket_id);
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
   void OrderInputs();
