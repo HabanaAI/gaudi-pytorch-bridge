@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -132,6 +132,10 @@ sh::tensor_or_ref& OpBackend::SynInput(size_t index) {
     return it->second;
   }
   return p_context_->syn_inputs_.at(index);
+}
+
+const sh::tensor_or_ref& OpBackend::ReadSynInput(size_t index) {
+  return SynInput(index);
 }
 
 void OpBackend::EraseSynInput(int index) {

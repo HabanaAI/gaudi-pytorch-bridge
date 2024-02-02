@@ -103,6 +103,8 @@ class OpBackend : public HabanaOperator {
     m_output_metadata = std::move(meta_vec);
   }
 
+  const synapse_helpers::tensor_or_ref& ReadSynInput(size_t index);
+
  protected:
   std::vector<int> ScalarId() const {
     return m_scalar_ids;

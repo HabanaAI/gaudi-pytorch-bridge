@@ -5989,7 +5989,7 @@ repeat:
 
 replication_pad1d:
   output_meta: ReplicationPad1DMeta
-  custom_fill_params: FillReplicationPad1dParams
+  custom_fill_params: FillReplicationPad1dFwdParams
   guid: pad_fwd
   dtypes:
     Gaudi: [BFloat16, Float, Int]
@@ -6001,7 +6001,7 @@ replication_pad1d:
 
 replication_pad1d.out:
   output_meta: ReplicationPad1DMeta
-  custom_fill_params: FillReplicationPad1dParams
+  custom_fill_params: FillReplicationPad1dFwdParams
   guid: pad_fwd
   dtypes:
     Gaudi: [BFloat16, Float, Int]
@@ -6011,7 +6011,7 @@ replication_pad1d.out:
 
 replication_pad2d:
   output_meta: ReplicationPad2DMeta
-  custom_fill_params: FillReplicationPad2dParams
+  custom_fill_params: FillReplicationPad2dFwdParams
   guid: pad_fwd
   dtypes:
     Gaudi: [BFloat16, Float, Int]
@@ -6023,7 +6023,7 @@ replication_pad2d:
 
 replication_pad2d.out:
   output_meta: ReplicationPad2DMeta
-  custom_fill_params: FillReplicationPad2dParams
+  custom_fill_params: FillReplicationPad2dFwdParams
   guid: pad_fwd
   dtypes:
     Gaudi: [BFloat16, Float, Int]
@@ -6033,7 +6033,7 @@ replication_pad2d.out:
 
 replication_pad3d:
   output_meta: ReplicationPad3DMeta
-  custom_fill_params: FillReplicationPad3dParams
+  custom_fill_params: FillReplicationPad3dFwdParams
   guid: pad_fwd
   dtypes:
     Gaudi: [BFloat16, Float, Int]
@@ -6045,7 +6045,7 @@ replication_pad3d:
 
 replication_pad3d.out:
   output_meta: ReplicationPad3DMeta
-  custom_fill_params: FillReplicationPad3dParams
+  custom_fill_params: FillReplicationPad3dFwdParams
   guid: pad_fwd
   dtypes:
     Gaudi: [BFloat16, Float, Int]
@@ -6058,39 +6058,39 @@ replication_pad1d_backward:
   custom_fill_params: FillReplicationPad1dBwdParams
   dtype: [BFloat16, Float, Int]
   out_ids: [0]
-  op_backend: ReplicationPadBwdOp
+  op_backend: ReplicationPad1dBwdOp
 
 replication_pad1d_backward.grad_input:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad1dBwdParams
   dtype: [BFloat16, Float, Int]
-  op_backend: ReplicationPadBwdOp
+  op_backend: ReplicationPad1dBwdOp
 
 replication_pad2d_backward:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad2dBwdParams
   dtype: [BFloat16, Float, Int]
   out_ids: [0]
-  op_backend: ReplicationPadBwdOp
+  op_backend: ReplicationPad2dBwdOp
 
 replication_pad2d_backward.grad_input:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad2dBwdParams
   dtype: [BFloat16, Float, Int]
-  op_backend: ReplicationPadBwdOp
+  op_backend: ReplicationPad2dBwdOp
 
 replication_pad3d_backward:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad3dBwdParams
   dtype: [BFloat16, Float, Int]
   out_ids: [0]
-  op_backend: ReplicationPadBwdOp
+  op_backend: ReplicationPad3dBwdOp
 
 replication_pad3d_backward.grad_input:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad3dBwdParams
   dtype: [BFloat16, Float, Int]
-  op_backend: ReplicationPadBwdOp
+  op_backend: ReplicationPad3dBwdOp
 
 resize_:
   output_meta: ResizeOutputMeta

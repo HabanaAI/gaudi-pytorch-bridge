@@ -284,6 +284,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/new_zeros_gen.cpp
           common/batched_matmul_output_shape.cpp
           common/reduction_template.cpp
+          common/replication_pad.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op0.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op1.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op2.cpp
