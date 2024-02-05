@@ -93,3 +93,30 @@ TEST_F(LazyDynamicDualFallbackTest, ExpandTest2) {
   }
   UNSET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE);
 }
+
+TEST_F(LazyDynamicDualFallbackTest, DynamicBatchedNms) {
+  torch::manual_seed(0);
+  // Generate random scores for each box
+  std::vector<int> num_boxes{10, 12};
+  std::vector<std::vector<int>> refs{
+      {7, 1, 5, 0, 6, 8, 4}, {11, 5, 4, 3, 2, 8, 1, 0, 7, 10}};
+  for (int i = 0; i < num_boxes.size(); i++) {
+    torch::Tensor scores = torch::rand({num_boxes[i]});
+    torch::Tensor hscores = scores.to(torch::kHPU);
+
+    // Generate boxes of random sizes
+    torch::Tensor boxes = torch::rand({num_boxes[i], 4}) * 256;
+    // ensure x2 > x1 and y2 > y1
+    auto tlist = boxes.split(2, 1);
+    tlist[1] = tlist[1] + tlist[0];
+    auto new_boxes = torch::cat({tlist[0], tlist[1]}, 1);
+    torch::Tensor hboxes = new_boxes.to(torch::kHPU);
+    torch::Tensor classes_i = torch::rand({20}).to(torch::kHPU);
+    torch::Tensor hclasses = torch::slice(classes_i, 0, 0, num_boxes[i], 1);
+    auto nms_boxid = batched_nms_hpu_lazy(hboxes, hscores, hclasses, 0.2);
+
+    auto ref_out = torch::tensor(refs[i]).to(torch::kLong);
+    bool equal = ref_out.allclose(nms_boxid.to(torch::kCPU), 0, 0);
+    EXPECT_EQ(equal, true);
+  }
+}

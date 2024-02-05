@@ -405,6 +405,9 @@ void BatchedNMSOperator::AllocateAndAddSynapseNode(
   TORCH_CHECK(
       (scores.sizes()[0] * max_classes) == shape_tensor_2_size,
       "Shape tensor 2 calculation mismatch for batched_nms");
+  TORCH_CHECK(
+      scores.sizes()[0] == indexes.sizes()[0],
+      "Number of categories and scores missmatch for batched_nms");
 
   auto box_id_out = habana::createPTTensor(
       indexes,
