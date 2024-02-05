@@ -43,7 +43,7 @@ def test_hpu_masked_scale(dtype, scale, shape):
     cpu_output = cpu_input * cpu_mask * factor
     cpu_output = torch.tensor(cpu_output, dtype=dtype)
 
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_inference_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
     hpu_output = hpu_compiled_fn(hpu_input, hpu_mask, scale).cpu()
 
     atol = 1e-08

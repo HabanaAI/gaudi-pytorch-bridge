@@ -30,7 +30,7 @@ class MyModule(torch.nn.Module):
 def func(x: torch.Tensor, m: torch.nn.Module, device: str):
     m.eval()
     if device == 'hpu':
-        m = torch.compile(m, backend="aot_hpu_inference_backend")
+        m = torch.compile(m, backend="hpu_backend")
         m = m.to(torch.device(device))
     else:
         m = torch.compile(m, backend="eager")

@@ -172,7 +172,7 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
     def raw_function(tensor):
         model_hpu(tensor)
 
-    compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+    compiled_function = torch.compile(raw_function, backend="hpu_backend")
     with torch.inference_mode():
         output_hpu = compiled_function(x_hpu)
 

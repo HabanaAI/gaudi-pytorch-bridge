@@ -246,22 +246,6 @@ hpu_backend_decompositions_common = get_decompositions(
     ]
 )
 
-# List of built-in pytorch framework decompositions we would like to use in HPU
-# backend in training only.
-hpu_backend_decompositions_training = get_decompositions(
-    [
-        # no entries for now
-    ]
-)
-
-# List of built-in pytorch framework decompositions we would like to use in HPU
-# backend in inference only.
-hpu_backend_decompositions_inference = get_decompositions(
-    [
-        # no entries for now
-    ]
-)
-
 
 # This function should be used to attach additional custom decompositions on top of builtin ones above.
 def register_custom_decomposition(ops, decomposition_list):
@@ -272,9 +256,7 @@ def register_custom_decomposition(ops, decomposition_list):
     return torch._decomp.register_decomposition(ops, decomposition_list)
 
 
-def get_like_layout(
-    tensor: torch.Tensor, memory_format: Optional[torch.memory_format]
-) -> torch.memory_format:
+def get_like_layout(tensor: torch.Tensor, memory_format: Optional[torch.memory_format]) -> torch.memory_format:
     if memory_format in (torch.preserve_format, None):
         return utils.suggest_memory_format(tensor)
     else:
@@ -307,6 +289,7 @@ def full_like(
         requires_grad=requires_grad,
     )
 
+
 @register_custom_decomposition(aten.diagonal, hpu_backend_decompositions_common)
 def diagonal(
     self: utils.TensorLikeType,
@@ -321,9 +304,7 @@ def diagonal(
     dim1 = utils.canonicalize_dim(idx=dim1, rank=num_dims)
     dim2 = utils.canonicalize_dim(idx=dim2, rank=num_dims)
 
-    torch._check(
-        dim1 != dim2, lambda: f"diagonal dimensions cannot be identical {dim1}, {dim2}"
-    )
+    torch._check(dim1 != dim2, lambda: f"diagonal dimensions cannot be identical {dim1}, {dim2}")
 
     storage_offset = self.storage_offset()
 
@@ -347,6 +328,7 @@ def diagonal(
     result = self.as_strided(size=sizes, stride=strides, storage_offset=storage_offset)
 
     return result
+
 
 @register_custom_decomposition(aten.bernoulli.p, hpu_backend_decompositions_common)
 def bernoulli(input, p, *, generator=None):
@@ -391,16 +373,12 @@ def sort(
     return torch.topk(a, k, dim, descending)
 
 
-@register_custom_decomposition(
-    torch.ops.aten.squeeze.dim, hpu_backend_decompositions_common
-)
+@register_custom_decomposition(torch.ops.aten.squeeze.dim, hpu_backend_decompositions_common)
 def squeeze(input, dim):
     return torch.squeeze(input, [dim])
 
 
-@register_custom_decomposition(
-    torch.ops.aten.squeeze.default, hpu_backend_decompositions_common
-)
+@register_custom_decomposition(torch.ops.aten.squeeze.default, hpu_backend_decompositions_common)
 def squeeze(input):
     inp_size = len(input.size())
     dim_list = list(range(0, inp_size))
@@ -411,9 +389,7 @@ def squeeze(input):
 # and pytorch/torch/_decomp/decompositions_for_rng.py
 
 
-@register_custom_decomposition(
-    torch.ops.aten.rand_like.default, hpu_backend_decompositions_common
-)
+@register_custom_decomposition(torch.ops.aten.rand_like.default, hpu_backend_decompositions_common)
 def rand_like(self, *, dtype=None, device=None, memory_format=None, **kwargs):
     return torch.rand(
         [*self.size()],
@@ -423,9 +399,7 @@ def rand_like(self, *, dtype=None, device=None, memory_format=None, **kwargs):
     ).to(memory_format=get_like_layout(self, memory_format))
 
 
-@register_custom_decomposition(
-    torch.ops.aten.randn_like.default, hpu_backend_decompositions_common
-)
+@register_custom_decomposition(torch.ops.aten.randn_like.default, hpu_backend_decompositions_common)
 def randn_like(self, *, dtype=None, device=None, memory_format=None, **kwargs):
     return torch.randn(
         [*self.size()],
@@ -441,9 +415,7 @@ def rand_generator(size, **kwargs):
     return torch.rand(size, **kwargs)
 
 
-@register_custom_decomposition(
-    aten.randint_like.default, hpu_backend_decompositions_common
-)
+@register_custom_decomposition(aten.randint_like.default, hpu_backend_decompositions_common)
 def randint_like(self, high, *, dtype=None, device=None, memory_format=None, **kwargs):
     return aten.randint.low(
         0,
@@ -455,12 +427,8 @@ def randint_like(self, high, *, dtype=None, device=None, memory_format=None, **k
     ).to(memory_format=get_like_layout(self, memory_format))
 
 
-@register_custom_decomposition(
-    aten.randint_like.low_dtype, hpu_backend_decompositions_common
-)
-def randint_like_low(
-    self, low, high, *, dtype=None, device=None, memory_format=None, **kwargs
-):
+@register_custom_decomposition(aten.randint_like.low_dtype, hpu_backend_decompositions_common)
+def randint_like_low(self, low, high, *, dtype=None, device=None, memory_format=None, **kwargs):
     return aten.randint.low(
         low,
         high,
@@ -476,53 +444,45 @@ def randint(high, size, **kwargs):
     return aten.randint.low(0, high, size, **kwargs)
 
 
-@register_custom_decomposition(
-    aten.randint.low_generator, hpu_backend_decompositions_common
-)
+@register_custom_decomposition(aten.randint.low_generator, hpu_backend_decompositions_common)
 def randint_low_generator(*args, **kwargs):
     kwargs.pop("generator", None)
     return aten.randint.low(*args, **kwargs)
 
 
-@register_custom_decomposition(
-        aten.split.Tensor, hpu_backend_decompositions_common)
+@register_custom_decomposition(aten.split.Tensor, hpu_backend_decompositions_common)
 def split(self, split_size, dim=0):
-    if dim <0:
+    if dim < 0:
         dim += self.dim()
-    assert (dim < self.dim() and dim >=0) , " given dimension value is out of range"
+    assert dim < self.dim() and dim >= 0, " given dimension value is out of range"
     cur_size = self.size(dim)
-    assert (type(split_size) == int or type(split_size) == list
-            or type(split_size) == torch.SymInt), "split_size_or_sections is not a int value or list"
-    #create a new list based on split_size(int)
-    if type(split_size) != list :
-        split_size = [split_size] * (cur_size//split_size)
-        if cur_size != sum(split_size) :
+    assert (
+        type(split_size) == int or type(split_size) == list or type(split_size) == torch.SymInt
+    ), "split_size_or_sections is not a int value or list"
+    # create a new list based on split_size(int)
+    if type(split_size) != list:
+        split_size = [split_size] * (cur_size // split_size)
+        if cur_size != sum(split_size):
             split_size.append(cur_size - sum(split_size))
     # create a new list based on split list for calculating start and end indices
     new_split = [0] + split_size
     split_len = len(new_split)
-    result = [None] * (split_len-1)
-    
+    result = [None] * (split_len - 1)
+
     # accumulate the list that will help us to fetch start and end index
     new_split = list(accumulate(new_split))
-    
+
     for idx in range(1, split_len):
         # workaround for: https://jira.habana-labs.com/browse/SW-162350
         # Slice op is not yet supported for dynamic shape in torch compile
-        result[idx-1] = aten.slice(self, dim, new_split[idx-1], new_split[idx], 1)
+        result[idx - 1] = aten.slice(self, dim, new_split[idx - 1], new_split[idx], 1)
     return tuple(result)
 
-def get_hpu_decompositions(is_training: bool):
+
+def get_hpu_decompositions():
     if configuration_flags["use_decompositions"]:
-        if is_training:
-            return {
-                **hpu_backend_decompositions_common,
-                **hpu_backend_decompositions_training,
-            }
-        else:
-            return {
-                **hpu_backend_decompositions_common,
-                **hpu_backend_decompositions_inference,
-            }
+        return {
+            **hpu_backend_decompositions_common,
+        }
     else:
         return None

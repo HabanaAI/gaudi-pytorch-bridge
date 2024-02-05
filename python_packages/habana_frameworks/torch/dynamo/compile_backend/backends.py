@@ -29,17 +29,36 @@ from .compilers import (
 )
 
 @register_backend
-def aot_hpu_training_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor],
-                             mode: Optional[str] = None):
+def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor],
+                mode: Optional[str] = None):
     """
-    This function implements interface for HPU training backend.
+    This function implements interface for HPU training/inference backend.
     """
 
     # Create AOT Autograd instance and feed it with Habana compile function.
     return aot_autograd(
         fw_compiler=hpu_training_compiler_fw,
         bw_compiler=hpu_training_compiler_bw,
-        decompositions=get_hpu_decompositions(is_training=True),
+        inference_compiler=hpu_inference_compiler,
+        decompositions=get_hpu_decompositions(),
+        keep_inference_input_mutations = configuration_flags["keep_input_mutations"]
+    )(graph_module, example_inputs)
+
+
+@register_backend
+def aot_hpu_training_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor],
+                             mode: Optional[str] = None):
+    """
+    This function implements interface for HPU training backend.
+
+    Deprecated - use only 'hpu_backend'
+    """
+
+    # Create AOT Autograd instance and feed it with Habana compile function.
+    return aot_autograd(
+        fw_compiler=hpu_training_compiler_fw,
+        bw_compiler=hpu_training_compiler_bw,
+        decompositions=get_hpu_decompositions(),
         keep_inference_input_mutations = configuration_flags["keep_input_mutations"]
     )(graph_module, example_inputs)
 
@@ -48,28 +67,15 @@ def aot_hpu_inference_backend(graph_module: torch.fx.GraphModule, example_inputs
                               mode: Optional[str] = None):
     """
     This function implements interface for HPU inference backend.
+
+    Deprecated - use only 'hpu_backend'
     """
 
     # Create AOT Autograd instance and feed it with Habana compile function.
     return aot_autograd(
         fw_compiler=hpu_inference_compiler,
         bw_compiler=hpu_inference_compiler_raise,
-        decompositions=get_hpu_decompositions(is_training=False),
-        keep_inference_input_mutations = configuration_flags["keep_input_mutations"]
-    )(graph_module, example_inputs)
-
-@register_backend
-def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor],
-                mode: Optional[str] = None):
-    """
-    This function implements interface for HPU training backend.
-    """
-
-    # Create AOT Autograd instance and feed it with Habana compile function.
-    return aot_autograd(
-        fw_compiler=hpu_training_compiler_fw,
-        bw_compiler=hpu_training_compiler_bw,
-        decompositions=get_hpu_decompositions(is_training=True),
+        decompositions=get_hpu_decompositions(),
         keep_inference_input_mutations = configuration_flags["keep_input_mutations"]
     )(graph_module, example_inputs)
 

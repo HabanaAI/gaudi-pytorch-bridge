@@ -68,7 +68,7 @@ def test_device_partition_cpuinput():
         raw_function, backend="hpu_backend"
     )
     compiled_function_inference = torch.compile(
-        raw_function, backend="aot_hpu_inference_backend"
+        raw_function, backend="hpu_backend"
     )
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
@@ -101,7 +101,7 @@ def test_device_partition_hpuinput():
         raw_function, backend="hpu_backend"
     )
     compiled_function_inference = torch.compile(
-        raw_function, backend="aot_hpu_inference_backend"
+        raw_function, backend="hpu_backend"
     )
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
@@ -130,7 +130,7 @@ def test_leaf_views_1():
 
         return torch.transpose(tmp5, 0, 1), tmp3.to("cpu")
 
-    compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+    compiled_function = torch.compile(raw_function, backend="hpu_backend")
 
     input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
     input_tensor2 = torch.rand(8, 1, 32, 32).to("hpu")
@@ -162,7 +162,7 @@ def test_leaf_views_1_dynamic():
         return torch.transpose(tmp5, 0, 1), tmp3.to("cpu")
 
     compiled_function = torch.compile(
-        raw_function, backend="aot_hpu_inference_backend", dynamic=True
+        raw_function, backend="hpu_backend", dynamic=True
     )
 
     input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
@@ -195,7 +195,7 @@ def test_leaf_views_1_really_dynamic():
         return torch.transpose(tmp5, 0, 1), tmp3.to("cpu")
 
     compiled_function = torch.compile(
-        raw_function, backend="aot_hpu_inference_backend", dynamic=True
+        raw_function, backend="hpu_backend", dynamic=True
     )
 
     input_tensor1 = torch.rand(8, 1, 16, 16).to("hpu")
@@ -231,7 +231,7 @@ def test_leaf_views_2():
         x = x[:, :]
         return x.t()
 
-    compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+    compiled_function = torch.compile(raw_function, backend="hpu_backend")
 
     a1 = torch.ones([2, 4], requires_grad=False).to("hpu")
 
@@ -248,7 +248,7 @@ def test_leaf_views_3():
         d = b[:]
         return c, d
 
-    compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+    compiled_function = torch.compile(raw_function, backend="hpu_backend")
 
     a1 = torch.ones([2, 4], requires_grad=False).to("hpu")
 

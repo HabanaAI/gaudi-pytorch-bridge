@@ -821,7 +821,7 @@ def test_conv_ds_default():
     def raw_function(tensor):
         return model_hpu(tensor)
 
-    compiled_function = torch.compile(raw_function, backend="aot_hpu_inference_backend", dynamic=True)
+    compiled_function = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
     with torch.no_grad():
         with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
             x_hpu = x_hpu.to(torch.bfloat16)
