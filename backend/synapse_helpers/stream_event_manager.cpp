@@ -54,16 +54,15 @@ void stream_event_manager::add_future(
 void stream_event_manager::wait_for_future(device_ptr device_address) {
   PT_SYNHELPER_TRACE;
   std::shared_future<bool> fut;
-  absl::flat_hash_map<device_ptr, std::shared_future<bool>>::iterator it;
   {
     std::lock_guard<std::mutex> lock(future_mut_);
-    it = future_by_addr_.find(device_address);
+    auto it = future_by_addr_.find(device_address);
     if (it == future_by_addr_.end()) {
       return;
     }
     fut = it->second;
   }
-  HABANA_ASSERT(it->second.valid());
+  HABANA_ASSERT(fut.valid());
   // Release GIL if going to wait. This thread might already acquired GIL and
   // the second thread will be waiting
   {
