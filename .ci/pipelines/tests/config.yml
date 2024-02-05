@@ -4,6 +4,7 @@ testJobConfig:
       gaudi:
         hwType:
           sim:
+            jobTimeout: 180
       gaudi2:
         hwType:
           sim:
