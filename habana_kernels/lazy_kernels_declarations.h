@@ -171,11 +171,6 @@ at::Tensor& index_put_hpu_lazy_(
     const c10::List<c10::optional<at::Tensor>>& indices,
     const at::Tensor& value,
     bool accumulate);
-at::Tensor& index_fill_hpu_lazy_(
-    at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index,
-    const at::Scalar& value);
 at::Tensor slice_hpu_lazy(
     const at::Tensor& self,
     int64_t dim,

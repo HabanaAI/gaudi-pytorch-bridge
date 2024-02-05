@@ -179,6 +179,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/huber_loss_gen.cpp
           backend/index_gen.cpp
           backend/index_copy_gen.cpp
+          backend/index_fill_gen.cpp
           backend/index_put_gen.cpp
           backend/index_select_gen.cpp
           backend/instance_norm_gen.cpp

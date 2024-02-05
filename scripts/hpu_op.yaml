@@ -3655,6 +3655,41 @@ index_copy.out:
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
 
+
+index_fill_.int_Scalar:
+  output_meta: IndexFillMeta
+  custom_fill_params: FillIndexCopyParams
+  op_backend: IndexFill
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float, Int, Char, Byte, Short]
+      index: [Int]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
+      index: [Int, Long]
+    Gaudi3:
+      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
+      index: [Int, Long]
+  guid: index_copy_fwd
+  inplace_ids: [0]
+
+index_fill.int_Scalar:
+  output_meta: IndexFillMeta
+  custom_fill_params: FillIndexCopyParams
+  op_backend: IndexFill
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float, Int, Char, Byte, Short]
+      index: [Int]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
+      index: [Int, Long]
+    Gaudi3:
+      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
+      index: [Int, Long]
+  guid: index_copy_fwd
+  out_ids: [0]
+
 index_select:
   out_ids: [0]
   hw_scaling_ids: [0]

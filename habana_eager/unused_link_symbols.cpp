@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -124,15 +124,6 @@ Tensor& hpu_wrap::index_add_out(
     at::Tensor& out) {
   FALLBACK_UNSUPPORTED_OP2_O(
       index_add, PARAMS2(self, dim, index, source, alpha, out), out);
-}
-
-Tensor& hpu_wrap::index_fill_(
-    at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index,
-    const at::Scalar& value) {
-  FALLBACK_UNSUPPORTED_OP2_O(
-      index_fill_, PARAMS2(self, dim, index, value), int_Scalar);
 }
 
 Tensor& hpu_wrap::masked_select_out(

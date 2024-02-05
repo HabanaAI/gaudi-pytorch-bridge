@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -44,11 +44,6 @@ at::Tensor& index_add_out(
     const at::Tensor& source,
     const at::Scalar& alpha,
     at::Tensor& out);
-at::Tensor& index_fill_(
-    at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index,
-    const at::Scalar& value);
 at::Tensor& nonzero_out(const at::Tensor& self, at::Tensor& out);
 ::std::tuple<at::Tensor, at::Tensor> batch_norm_stats(
     const at::Tensor& input,
