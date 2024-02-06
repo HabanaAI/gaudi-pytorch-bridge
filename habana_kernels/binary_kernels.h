@@ -138,4 +138,14 @@ class SubOperator : public BinaryWrapperOperatorWithAlpha {
     scalarType_ = scalarType;
   }
 };
+
+class RemainderOperator : public BinaryWrapperOperatorWithAlpha {
+ public:
+  RemainderOperator(int device_id, c10::ScalarType scalarType)
+      : BinaryWrapperOperatorWithAlpha(
+            device_id,
+            get_guid_with_precision("rem_fwd", scalarType)) {
+    scalarType_ = scalarType;
+  }
+};
 } // namespace habana

@@ -770,3 +770,8 @@ operator.\n
 operators.\n
 3) Otherwise, fallback will be allowed for each operator defined in\n
 PT_HPU_PLACE_ON_CPU."
+
+PT_HPU_ENABLE_NEGATIVE_INDEXING:
+  type: bool
+  default: false
+  doc: "Enable negative values for indexing in index_put, gather ops."

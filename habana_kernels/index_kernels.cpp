@@ -1026,7 +1026,7 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
   auto device_id = this->p_context_->device_id_;
   auto indices_scalar_type = indices[0].scalar_type();
   std::vector<Tensor> cat_input;
-  auto cat_op = make_operator<CatOperator>(device_id, indices_scalar_type);
+  auto pre_cat_op = make_operator<CatOperator>(device_id, indices_scalar_type);
   Stack stack;
   for (size_t i = 0; i < indices.size(); i++) {
     // broadcast index tensor to largest index tensor size
@@ -1053,13 +1053,85 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     ReshapeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
 
     cat_input.emplace_back(std::move(ReshapeOp->GetOutputs()[0]));
-    cat_op->SetSynapseInput(ReshapeOp->GetSynOutputs()[0]);
+    pre_cat_op->SetSynapseInput(ReshapeOp->GetSynOutputs()[0]);
   }
 
   // Create index tensor of shape [num_updates, dimensionality of indices]
+  // Handle conversion of negative indices to positive indices since some
+  // TPC guids like 'gather' doesn't support negative indexing as of now.
+  // positive_index_tensor = (input_index_tensor +
+  // numel(self_sizes[indexing_dim])) % numel(self_sizes[indexing_dim])
+  std::shared_ptr<HabanaOperator> concatinated_pos_indices_op;
   stack = {IValue(cat_input), IValue(-1)};
-  cat_op->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
-  auto concatenated_indices = cat_op->GetOutputs()[0];
+  if (accumulate && GET_ENV_FLAG_NEW(PT_HPU_ENABLE_NEGATIVE_INDEXING)) {
+    pre_cat_op->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
+    auto pre_concatenated_indices = pre_cat_op->GetOutputs()[0];
+    auto pre_concatenated_indices_shape =
+        pre_concatenated_indices.sizes().vec();
+    stack.clear();
+    // Compute const factor for each dimension for handling negative indices
+    // based on corresponding dim size of self tensor
+    auto self_shape = self.sizes().vec();
+    std::vector<int> const_factor_v;
+    for (size_t i = 0; i < indices.size(); i++)
+      const_factor_v.push_back(self_shape[i]);
+
+    std::vector<Tensor> cat_input_neg_ind;
+    auto neg_to_pos_const_constructor_op =
+        make_operator<CatOperator>(device_id, indices_scalar_type);
+
+    for (size_t i = 0; i < const_factor_v.size(); i++) {
+      auto constOp =
+          make_operator<ConstantOperator>(device_id, indices_scalar_type);
+      auto const_shape_tensor = habana::createPTTensor(
+          indices[0],
+          {pre_concatenated_indices_shape[0], 1},
+          indices[0].options(),
+          at::MemoryFormat::Contiguous,
+          false);
+      Stack stack = {IValue(const_shape_tensor), IValue(const_factor_v[i])};
+      constOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
+      stack.clear();
+      cat_input_neg_ind.emplace_back(std::move(constOp->GetOutputs()[0]));
+      neg_to_pos_const_constructor_op->SetSynapseInput(
+          constOp->GetSynOutputs()[0]);
+    }
+
+    stack = {IValue(cat_input_neg_ind), IValue(-1)};
+    neg_to_pos_const_constructor_op->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+
+    auto add_to_pre_concat_ind_op =
+        make_operator<AddOperator>(device_id, indices_scalar_type);
+    stack = {
+        IValue(pre_concatenated_indices),
+        IValue(neg_to_pos_const_constructor_op->GetOutputs()[0]),
+        IValue(1)};
+    add_to_pre_concat_ind_op->SetSynapseInput(pre_cat_op->GetSynOutputs()[0]);
+    add_to_pre_concat_ind_op->SetSynapseInput(
+        neg_to_pos_const_constructor_op->GetSynOutputs()[0]);
+
+    add_to_pre_concat_ind_op->AllocateAndAddSynapseNode(
+        graph, stack, OutputMetaDataVector(1));
+    stack.clear();
+    concatinated_pos_indices_op =
+        make_operator<RemainderOperator>(device_id, indices_scalar_type);
+    stack = {
+        IValue(add_to_pre_concat_ind_op->GetOutputs()[0]),
+        IValue(neg_to_pos_const_constructor_op->GetOutputs()[0]),
+        IValue(1)};
+    concatinated_pos_indices_op->SetSynapseInput(
+        add_to_pre_concat_ind_op->GetSynOutputs()[0]);
+    concatinated_pos_indices_op->SetSynapseInput(
+        neg_to_pos_const_constructor_op->GetSynOutputs()[0]);
+  } else {
+    concatinated_pos_indices_op = pre_cat_op;
+  }
+  concatinated_pos_indices_op->AllocateAndAddSynapseNode(
+      graph, stack, OutputMetaDataVector(1));
+  auto concatenated_indices = concatinated_pos_indices_op->GetOutputs()[0];
   stack.clear();
 
   // Calculate the dimensionality of updates for broadcasting
@@ -1124,7 +1196,8 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
         IValue(concatenated_indices),
         IValue(reshape_or_identity_op->GetOutputs()[0])};
     scatter_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-    scatter_op->SetSynapseInput(cat_op->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(
+        concatinated_pos_indices_op->GetSynOutputs()[0]);
     scatter_op->SetSynapseInput(reshape_or_identity_op->GetSynOutputs()[0]);
 
     scatter_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
@@ -1180,9 +1253,11 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     stack.clear();
     auto mul_factor_const_t = ReshapeOp2->GetOutputs()[0];
     auto mul_op = make_operator<MulOperator>(device_id, indices_scalar_type);
-    stack = {IValue(cat_op->GetOutputs()[0]), IValue(mul_factor_const_t)};
+    stack = {
+        IValue(concatinated_pos_indices_op->GetOutputs()[0]),
+        IValue(mul_factor_const_t)};
 
-    mul_op->SetSynapseInput(cat_op->GetSynOutputs()[0]);
+    mul_op->SetSynapseInput(concatinated_pos_indices_op->GetSynOutputs()[0]);
     mul_op->SetSynapseInput(
         ReshapeOp2->GetSynOutputs()[0]); // const_tensor for mul_factor
 
@@ -1219,7 +1294,8 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
     //  auto grouped_indices =
     //     at::index_select(concatenated_indices, 0, permutation);
     stack = {IValue(concatenated_indices), IValue(0), IValue(permutation)};
-    index_select_op->SetSynapseInput(cat_op->GetSynOutputs()[0]);
+    index_select_op->SetSynapseInput(
+        concatinated_pos_indices_op->GetSynOutputs()[0]);
     index_select_op->SetSynapseInput(sort_op->GetSynOutputs()[1]);
     index_select_op->AllocateAndAddSynapseNode(
         graph, stack, OutputMetaDataVector(1));
@@ -1246,7 +1322,8 @@ void IndexPutOperator::AllocateAndAddSynapseNodeNonBoolIndices(
         IValue(reshape_or_identity_op->GetOutputs()[0])};
 
     scatter_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-    scatter_op->SetSynapseInput(cat_op->GetSynOutputs()[0]);
+    scatter_op->SetSynapseInput(
+        concatinated_pos_indices_op->GetSynOutputs()[0]);
     scatter_op->SetSynapseInput(index_select_op->GetSynOutputs()[0]);
     scatter_op->SetSynapseInput(reshape_op->GetSynOutputs()[0]);
     scatter_op->SetSynapseInput(reshape_or_identity_op->GetSynOutputs()[0]);

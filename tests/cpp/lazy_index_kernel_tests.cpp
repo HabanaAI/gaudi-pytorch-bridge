@@ -997,3 +997,40 @@ TEST_F(LazyIndexKernelTest, IndexMultiDimTest) {
   bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
   EXPECT_EQ(equal, true);
 }
+
+TEST_F(LazyIndexKernelTest, IndexPutNegativeIndicesTest) {
+  torch::Tensor input_cpu = torch::arange(16).reshape({4, 4});
+  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+  torch::Tensor value_cpu = torch::tensor(-100);
+  torch::Tensor value_hpu = value_cpu.to(torch::kHPU);
+
+  std::vector<torch::Tensor> vec_cpu{
+      torch::tensor({0, 1, 2}), torch::tensor({0, -2, -1})};
+
+  c10::List<c10::optional<at::Tensor>> indices_cpu{};
+  indices_cpu.reserve(vec_cpu.size());
+  for (const auto& t : vec_cpu) {
+    indices_cpu.push_back(c10::make_optional(t));
+  }
+
+  c10::List<c10::optional<at::Tensor>> indices_list{};
+  indices_list.reserve(vec_cpu.size());
+  for (const auto& t : vec_cpu) {
+    indices_list.push_back(c10::make_optional(t.to(torch::kHPU)));
+  }
+  auto out_cpu1 =
+      at::_index_put_impl_(input_cpu, indices_cpu, value_cpu, true, false);
+  setenv("PT_HPU_ENABLE_NEGATIVE_INDEXING", "true", 1);
+  auto out_hpu1 =
+      at::_index_put_impl_(input_hpu, indices_list, value_hpu, true, false);
+  bool equal1 = out_cpu1.allclose(out_hpu1.to(torch::kCPU), 0.001, 0.001);
+  unsetenv("PT_HPU_ENABLE_NEGATIVE_INDEXING");
+  EXPECT_EQ(equal1, true);
+
+  auto out_cpu2 =
+      at::_index_put_impl_(input_cpu, indices_cpu, value_cpu, false, false);
+  auto out_hpu2 =
+      at::_index_put_impl_(input_hpu, indices_list, value_hpu, false, false);
+  bool equal2 = out_cpu2.allclose(out_hpu2.to(torch::kCPU), 0.001, 0.001);
+  EXPECT_EQ(equal2, true);
+}
