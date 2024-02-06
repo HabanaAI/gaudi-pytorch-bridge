@@ -348,8 +348,8 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   }
   // Fill num_strides at 0 index
   scalar_indexes.insert(scalar_indexes.begin(), LONG_MAX);
-  h2d_values.insert(
-      h2d_values.begin(), static_cast<uint64_t>(values_strides.size()));
+  auto num_strides = (values_strides.size() == 0) ? 1 : values_strides.size();
+  h2d_values.insert(h2d_values.begin(), static_cast<uint64_t>(num_strides));
 
   at::Tensor h2d_tensor_strides = createDynamicTensor(
       {static_cast<int64_t>(h2d_values.size()) * 2}, HOST_TO_DEVICE_TENSOR);
