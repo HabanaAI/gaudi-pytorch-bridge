@@ -37,7 +37,7 @@ def test_parallel_graphs():
 
         return tensor_one + tensor_two
 
-    compiled_fnc = torch.compile(raw_fnc, backend="aot_hpu_training_backend")
+    compiled_fnc = torch.compile(raw_fnc, backend="hpu_backend")
 
     tensor_one = torch.randn(2, 2, 2, 2).to(device="hpu")
     tensor_two = torch.randn(2, 2, 2, 2).to(device="hpu")
@@ -65,7 +65,7 @@ def test_device_partition_cpuinput():
         return tmp5 + tmp15
 
     compiled_function_training = torch.compile(
-        raw_function, backend="aot_hpu_training_backend"
+        raw_function, backend="hpu_backend"
     )
     compiled_function_inference = torch.compile(
         raw_function, backend="aot_hpu_inference_backend"
@@ -98,7 +98,7 @@ def test_device_partition_hpuinput():
         return tmp5 + tmp15
 
     compiled_function_training = torch.compile(
-        raw_function, backend="aot_hpu_training_backend"
+        raw_function, backend="hpu_backend"
     )
     compiled_function_inference = torch.compile(
         raw_function, backend="aot_hpu_inference_backend"

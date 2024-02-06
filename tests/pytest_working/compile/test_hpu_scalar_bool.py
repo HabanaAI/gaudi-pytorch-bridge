@@ -35,7 +35,7 @@ class TestHpuScalarBool:
         hpu_input = cpu_input.to("hpu")
         torch._dynamo.reset()
 
-        hpu_wrapped_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend")
 
         cpu_output = fn(cpu_input, True)
         hpu_output = hpu_wrapped_fn(hpu_input, True).cpu()

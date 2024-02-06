@@ -167,7 +167,7 @@ def test_simple_sgd_convnet():
             raw_function_test, backend="aot_hpu_inference_backend"
         )
         compiled_function_train = torch.compile(
-            raw_function_train, backend="aot_hpu_training_backend"
+            raw_function_train, backend="hpu_backend"
         )
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
@@ -261,7 +261,7 @@ def test_simple_sgd_convnet_with_device_pingpong():
             raw_function_test, backend="aot_hpu_inference_backend"
         )
         compiled_function_train = torch.compile(
-            raw_function_train, backend="aot_hpu_training_backend"
+            raw_function_train, backend="hpu_backend"
         )
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
@@ -348,7 +348,7 @@ def test_simple_adam_convnet():
             raw_function_test, backend="aot_hpu_inference_backend"
         )
         compiled_function_train = torch.compile(
-            raw_function_train, backend="aot_hpu_training_backend"
+            raw_function_train, backend="hpu_backend"
         )
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
@@ -442,7 +442,7 @@ def test_simple_adam_convnet_with_device_pingpong():
             raw_function_test, backend="aot_hpu_inference_backend"
         )
         compiled_function_train = torch.compile(
-            raw_function_train, backend="aot_hpu_training_backend"
+            raw_function_train, backend="hpu_backend"
         )
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")

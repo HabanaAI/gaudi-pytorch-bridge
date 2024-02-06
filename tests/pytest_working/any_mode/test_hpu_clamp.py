@@ -96,7 +96,7 @@ def test_clamp(shape, min_mode, max_mode, dtype):
 
     if pytest.mode == "compile":
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     result_cpu = torch.clamp(input, min, max)
     result_hpu = fn(input_h, min_h, max_h)

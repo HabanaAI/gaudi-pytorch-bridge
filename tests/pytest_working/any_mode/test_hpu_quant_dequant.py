@@ -78,7 +78,7 @@ def test_quantize_per_tensor(
         torch._dynamo.reset()
         fn = torch.compile(
             fn,
-            backend="aot_hpu_training_backend",
+            backend="hpu_backend",
         )
 
     result_hpu = fn(
@@ -126,7 +126,7 @@ def test_dequantize_per_tensor(
         torch._dynamo.reset()
         fn = torch.compile(
             fn,
-            backend="aot_hpu_training_backend",
+            backend="hpu_backend",
         )
 
     result_hpu = fn(input_hpu, scale_hpu, zero_point_hpu, orig_dtype)
@@ -188,7 +188,7 @@ def test_quantize_per_channel(shape, axis, dtype, out_dtype):
         torch._dynamo.reset()
         fn = torch.compile(
             fn,
-            backend="aot_hpu_training_backend",
+            backend="hpu_backend",
         )
 
     result_hpu = fn(
@@ -236,7 +236,7 @@ def test_dequantize_per_channel(shape, axis, dtype, orig_dtype):
         torch._dynamo.reset()
         fn = torch.compile(
             fn,
-            backend="aot_hpu_training_backend",
+            backend="hpu_backend",
         )
 
     result_hpu = fn(input_hpu, scales_hpu, zero_points_hpu, axis, orig_dtype)

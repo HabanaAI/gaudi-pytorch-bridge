@@ -44,7 +44,7 @@ def test_hpu_glu(shape, dim, backward):
         fn = fn_fwd
 
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(cpu_input, dim)
     hpu_output = hpu_compiled_fn(hpu_input, dim).cpu()

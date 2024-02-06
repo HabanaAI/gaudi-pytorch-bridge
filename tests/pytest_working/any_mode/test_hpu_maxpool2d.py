@@ -48,7 +48,7 @@ def test_hpu_maxpool2d_bwd(
         kernel_size, stride, padding, dilation, return_indices, ceil_mode
     )
     hpu_wrapped_fn = torch.compile(
-        maxpool2d, backend="aot_hpu_training_backend"
+        maxpool2d, backend="hpu_backend"
     ) if pytest.mode == "compile" else maxpool2d
 
     cpu_wrapped_fn = torch.compile(

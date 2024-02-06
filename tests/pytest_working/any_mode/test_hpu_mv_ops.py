@@ -37,7 +37,7 @@ def test_hpu_mv_ops(shapes, dtype):
     hpu_vec = cpu_vec.to("hpu")
     cpu_wrapped_fn = torch.compile(fn) if (pytest.mode == "compile") else fn
     hpu_wrapped_fn = (
-        torch.compile(fn, backend="aot_hpu_training_backend")
+        torch.compile(fn, backend="hpu_backend")
         if (pytest.mode == "compile")
         else fn
     )

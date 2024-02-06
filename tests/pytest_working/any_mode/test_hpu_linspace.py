@@ -31,7 +31,7 @@ def test_hpu_linspace(start, end, steps):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        hpu_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        hpu_fn = torch.compile(fn, backend="hpu_backend")
     else:
         hpu_fn = fn
 

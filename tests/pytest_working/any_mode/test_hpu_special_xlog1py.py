@@ -63,7 +63,7 @@ class TestHpuSpecialXlog1py:
                 cpu_out = torch.empty_like(cpu_input)
                 hpu_out = torch.empty_like(hpu_input)
         hpu_wrapped_fn = (
-            torch.compile(fn, backend="aot_hpu_training_backend")
+            torch.compile(fn, backend="hpu_backend")
             if is_pytest_mode_compile()
             else fn
         )

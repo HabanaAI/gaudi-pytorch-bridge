@@ -26,7 +26,7 @@ def test_addmm(dtype, n, m, p):
     def fn(input, mat1, mat2):
         return torch.addmm(input, mat1, mat2)
 
-    compiled_fn_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn_hpu = torch.compile(fn, backend="hpu_backend")
     compiled_fn_cpu = torch.compile(fn)
 
     if dtype.is_floating_point:
@@ -59,7 +59,7 @@ def test_inplace_addmm_with_view_input(dtype, n, m, p):
         return input.addmm_(mat1, mat2)
 
     torch._dynamo.reset()
-    compiled_fn_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn_hpu = torch.compile(fn, backend="hpu_backend")
     compiled_fn_cpu = torch.compile(fn)
 
     if dtype.is_floating_point:

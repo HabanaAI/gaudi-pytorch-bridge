@@ -243,7 +243,7 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
         clear_t_compile_logs()
         torch._dynamo.reset()
         output_fwd = torch.compile(
-            RotaryPosEmbeddingHelperV1.apply, backend="aot_hpu_training_backend"
+            RotaryPosEmbeddingHelperV1.apply, backend="hpu_backend"
         )
 
     p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, offset)
@@ -310,7 +310,7 @@ def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dty
         clear_t_compile_logs()
         torch._dynamo.reset()
         output_fwd = torch.compile(
-            RotaryPosEmbeddingHelperV2.apply, backend="aot_hpu_training_backend"
+            RotaryPosEmbeddingHelperV2.apply, backend="hpu_backend"
         )
 
     p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, position_ids_hpu)
@@ -364,7 +364,7 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
         clear_t_compile_logs()
         torch._dynamo.reset()
         output_fwd = torch.compile(
-            apply_rotary_pos_emb, backend="aot_hpu_training_backend"
+            apply_rotary_pos_emb, backend="hpu_backend"
         )
 
     output_hpu = output_fwd(
@@ -428,7 +428,7 @@ def test_apply_rotary_pos_emb_diff_dtypes(
         clear_t_compile_logs()
         torch._dynamo.reset()
         output_fwd = torch.compile(
-            RotaryPosEmbeddingHelperV2.apply, backend="aot_hpu_training_backend"
+            RotaryPosEmbeddingHelperV2.apply, backend="hpu_backend"
         )
 
     p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, position_ids_hpu)
@@ -483,7 +483,7 @@ def test_apply_rotary_pos_emb_chatglm_fwd(p_size, cos_sin_size, dtype):
         clear_t_compile_logs()
         torch._dynamo.reset()
         output_fwd = torch.compile(
-            apply_rotary_pos_emb, backend="aot_hpu_training_backend"
+            apply_rotary_pos_emb, backend="hpu_backend"
         )
 
     output_hpu = output_fwd(p_hpu, rope_cache_hpu)
@@ -535,7 +535,7 @@ def test_apply_rotary_pos_emb_chatglm_fwd_bwd(p_size, cos_sin_size, dtype):
         clear_t_compile_logs()
         torch._dynamo.reset()
         output_fwd = torch.compile(
-            RotaryPosEmbeddingHelperV3.apply, backend="aot_hpu_training_backend"
+            RotaryPosEmbeddingHelperV3.apply, backend="hpu_backend"
         )
 
     p_embed = output_fwd(p_hpu, rope_cache_hpu)

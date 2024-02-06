@@ -24,7 +24,7 @@ def test_instance_norm(dtype):
         m = torch.nn.functional.instance_norm(input_tensor)
         return m
 
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
     result = compiled_fn(input_tensor)
     expected = compiled_fn(input_tensor.to("cpu"))
 
@@ -46,7 +46,7 @@ def test_instance_norm_fwd_bwd(dtype):
         m = torch.nn.functional.instance_norm(input_tensor)
         return m
 
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
     result = compiled_fn(input_tensor_hpu)
     expected = compiled_fn(input_tensor)
 

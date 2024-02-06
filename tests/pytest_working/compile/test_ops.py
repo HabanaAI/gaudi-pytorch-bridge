@@ -63,7 +63,7 @@ def test_empty_and_zeros_like(dtype, memory_format, torch_func):
     compiled_cpu = torch.compile(fn)
     cpu_res = compiled_cpu(tensor, dtype, layout, requires_grad, memory_format, torch_func)
 
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     hpu_res = compiled_hpu(tensor.to("hpu"), dtype, layout, requires_grad, memory_format, torch_func)
 
     assert cpu_res.size() == hpu_res.size()
@@ -85,7 +85,7 @@ def test_new_empty_strided(dtype, layout, device_none):
     compiled_cpu = torch.compile(fn)
     cpu_result = compiled_cpu(tensor, size, stride, dtype, layout, None if device_none else "cpu")
 
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     hpu_result = compiled_hpu(tensor.to("hpu"), size, stride, dtype, layout, None if device_none else "hpu")
 
     assert hpu_result.size() == cpu_result.size()
@@ -112,7 +112,7 @@ def run_test(aten_name, dtype):
         compiled_cpu = torch.compile(fn)
         result_cpu = compiled_cpu(opinfo.op, t_inp, t_args, t_kwargs)
 
-        compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_hpu = torch.compile(fn, backend="hpu_backend")
         result_hpu = compiled_hpu(
             opinfo.op,
             t_inp.to("hpu"),
@@ -176,7 +176,7 @@ def test_expand(dtype):
     compiled_cpu = torch.compile(fn)
     cpu_res = compiled_cpu(tensor, (3, 4))
 
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     hpu_res = compiled_hpu(tensor.to("hpu"), (3, 4))
 
     assert cpu_res.size() == hpu_res.size()
@@ -198,7 +198,7 @@ def test_unsqueeze(dtype, dim):
     compiled_cpu = torch.compile(raw_function)
     cpu_res = compiled_cpu(cpu_tensor)
 
-    compiled_hpu = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(raw_function, backend="hpu_backend")
     hpu_res = compiled_hpu(hpu_tensor)
 
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
@@ -215,7 +215,7 @@ def test_constant_pad_nd():
     compiled_cpu = torch.compile(raw_function)
     cpu_res = compiled_cpu(cpu_tensor, "cpu")
 
-    compiled_hpu = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(raw_function, backend="hpu_backend")
     hpu_res = compiled_hpu(hpu_tensor, "hpu")
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
@@ -260,7 +260,7 @@ def test_logical_bin_ops(dtype, torch_func):
     compiled_cpu = torch.compile(torch_func)
     cpu_res = compiled_cpu(cpu_tensor_a, cpu_tensor_b)
 
-    compiled_hpu = torch.compile(torch_func, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(torch_func, backend="hpu_backend")
     hpu_res = compiled_hpu(hpu_tensor_a, hpu_tensor_b)
 
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
@@ -277,7 +277,7 @@ def test_logical_not(dtype):
     compiled_cpu = torch.compile(torch.logical_not)
     cpu_res = compiled_cpu(cpu_tensor)
 
-    compiled_hpu = torch.compile(torch.logical_not, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(torch.logical_not, backend="hpu_backend")
     hpu_res = compiled_hpu(hpu_tensor)
 
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
@@ -288,7 +288,7 @@ def test_cat():
     def raw_function(t1, t2):
         return torch.cat((t1, t2))
 
-    compiled_fnc = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_fnc = torch.compile(raw_function, backend="hpu_backend")
 
     t1 = torch.rand(8, 8)
     t2 = torch.rand(8, 8)
@@ -320,7 +320,7 @@ def test_nonzero(shape_in):
     compiled_cpu = torch.compile(fn)
     cpu_res = compiled_cpu(cpu_tensor)
 
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     hpu_res = compiled_hpu(hpu_tensor)
 
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
@@ -342,7 +342,7 @@ def test_local_scalar_dense(init_val, dtype):
     def fn(tensor):
         return torch.ops.aten._local_scalar_dense(tensor)
 
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     hpu_res = compiled_hpu(cpu_tensor.to("hpu"))
 
     if dtype in [torch.double, torch.bfloat16]:
@@ -357,7 +357,7 @@ def test_rand(shape_in):
 
     torch.manual_seed(123)
     g = None  # torch.Generator()
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     hpu_res1 = compiled_hpu(shape_in, g)
     torch.manual_seed(123)
     hpu_res2 = compiled_hpu(shape_in, g)
@@ -369,7 +369,7 @@ def test_randn(shape_in):
         return torch.randn(shape_in, generator=g, device="hpu")
 
     g = None
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     torch.manual_seed(123)
     hpu_res1 = compiled_hpu(shape_in, g)
     torch.manual_seed(123)
@@ -382,7 +382,7 @@ def test_normal_ff(shape_in):
         return torch.normal(mean, stddev, shape_in, generator=g, device="hpu")
 
     g = None
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     torch.manual_seed(123)
     hpu_res1 = compiled_hpu(0.0, 1.0, shape_in, g)
     torch.manual_seed(123)
@@ -406,7 +406,7 @@ def test_normal_tf(shape_in):
 
     g = None
     mean = torch.rand(shape_in, dtype=torch.float, device="hpu")
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     torch.manual_seed(123)
     hpu_res1 = compiled_hpu(mean, g)
     torch.manual_seed(123)
@@ -420,7 +420,7 @@ def test_normal_ft(shape_in):
 
     g = None
     std = torch.rand(shape_in, dtype=torch.float, device="hpu")
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     torch.manual_seed(123)
     hpu_res1 = compiled_hpu(std, g)
     torch.manual_seed(123)
@@ -435,7 +435,7 @@ def test_normal_tt(shape_in):
     mean = torch.rand(shape_in, dtype=torch.float, device="hpu")
     g = None
     std = torch.rand(shape_in, dtype=torch.float, device="hpu")
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     torch.manual_seed(123)
     hpu_res1 = compiled_hpu(mean, std, g)
     torch.manual_seed(123)
@@ -450,7 +450,7 @@ def test_randperm(n, g, dtype):
         return torch.randperm(n, generator=g, dtype=dtype, device="hpu")
 
     seed = 1234
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     torch.manual_seed(seed)
     hpu_res1 = compiled_hpu(n, g, dtype)
     torch.manual_seed(seed)

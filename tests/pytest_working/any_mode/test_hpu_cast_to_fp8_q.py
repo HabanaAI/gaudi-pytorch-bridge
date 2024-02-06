@@ -62,8 +62,8 @@ def test_cast_to_fp8_exp_bias(exp_bias, dtype, fp8_dtype, cut_graph):
         if is_pytest_mode_compile():
             clear_t_compile_logs()
             torch._dynamo.reset()
-            fn1 = torch.compile(fn1, backend="aot_hpu_training_backend")
-            fn2 = torch.compile(fn2, backend="aot_hpu_training_backend")
+            fn1 = torch.compile(fn1, backend="hpu_backend")
+            fn2 = torch.compile(fn2, backend="hpu_backend")
 
         a_s, b_s = fn1(a, b)
         a_s.cpu()
@@ -83,7 +83,7 @@ def test_cast_to_fp8_exp_bias(exp_bias, dtype, fp8_dtype, cut_graph):
         if is_pytest_mode_compile():
             clear_t_compile_logs()
             torch._dynamo.reset()
-            fn = torch.compile(fn, backend="aot_hpu_training_backend")
+            fn = torch.compile(fn, backend="hpu_backend")
 
         result_scaled, result_ref = fn(a, b)
 
@@ -105,7 +105,7 @@ def test_t():
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     res = fn(input_hpu)
     assert torch.allclose(res.cpu(), input.t(), rtol=0.125, atol=0.0)
@@ -124,7 +124,7 @@ def test_transpose():
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     res = fn(input_hpu)
     assert torch.allclose(res.cpu(), input.transpose(1, 3), rtol=0.125, atol=0.0)
@@ -143,7 +143,7 @@ def test_permute():
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     res = fn(input_hpu)
     assert torch.allclose(res.cpu(), input.permute((2, 3, 1, 0)), rtol=0.125, atol=0.0)
@@ -162,7 +162,7 @@ def test_reshape():
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     res = fn(input_hpu)
     assert torch.allclose(
@@ -183,7 +183,7 @@ def test_expand():
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     res = fn(input_hpu)
     assert torch.allclose(res.cpu(), input.expand((10, 4, 20)), rtol=0.125, atol=0.0)
@@ -203,7 +203,7 @@ def test_squeeze(axis):
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     res = fn(input_hpu)
     assert torch.allclose(res.cpu(), input.squeeze(axis), rtol=0.125, atol=0.0)
@@ -225,7 +225,7 @@ def test_select():
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     res1, res2, res3 = fn(input_hpu)
     res1_ref = input[3]
@@ -254,7 +254,7 @@ def test_copy():
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     res = fn(input_hpu, output_hpu)
     assert torch.allclose(res.cpu(), input, rtol=0.125, atol=0.0)
@@ -283,9 +283,9 @@ def test_copy_cut():
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        fn1 = torch.compile(fn1, backend="aot_hpu_training_backend")
-        fn2 = torch.compile(fn2, backend="aot_hpu_training_backend")
-        fn3 = torch.compile(fn3, backend="aot_hpu_training_backend")
+        fn1 = torch.compile(fn1, backend="hpu_backend")
+        fn2 = torch.compile(fn2, backend="hpu_backend")
+        fn3 = torch.compile(fn3, backend="hpu_backend")
 
     input_scaled, output_scaled = fn1(input_hpu, output_hpu)
     input_scaled.cpu()
@@ -312,7 +312,7 @@ def test_index_copy():
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     res = fn(a_hpu, b_hpu, index_hpu)
     res.cpu()

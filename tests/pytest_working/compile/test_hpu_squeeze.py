@@ -23,7 +23,7 @@ def test_hpu_squeeze(shape):
         return torch.squeeze(shape).relu()
     torch._dynamo.reset()
     shape = torch.zeros(shape).to("hpu")
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
     expected = fn(shape).to("cpu")
     result = compiled_fn(shape).to("hpu").to("cpu")
     assert torch.equal(result, expected)
@@ -36,7 +36,7 @@ def test_hpu_squeeze_dim(shape, dim):
 
     torch._dynamo.reset()
     shape = torch.zeros(shape).to("hpu")
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
     expected = fn(shape, dim).to("cpu")
     result = compiled_fn(shape, dim).to("hpu").to("cpu")
     assert torch.equal(result, expected)
@@ -49,7 +49,7 @@ def test_hpu_squeeze_dims(shape, dims):
 
     torch._dynamo.reset()
     shape = torch.zeros(shape).to("hpu")
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
     expected = fn(shape, dims).to("cpu")
     result = compiled_fn(shape, dims).to("hpu").to("cpu")
     assert torch.equal(result, expected)
@@ -65,7 +65,7 @@ def test_hpu_squeeze_dim0(shape, dim):
     input = (torch.randn(shape) * 5.0)
     input_hpu = input.to("hpu")
 
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
     result_cpu = fn(input, dim)
     result_hpu = compiled_fn(input_hpu, dim)
 

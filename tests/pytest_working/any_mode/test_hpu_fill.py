@@ -72,7 +72,7 @@ def test_hpu_fill(N, C, fill_val, is_masked, is_inplace, fill_with_scalar):
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        hpu_fn = torch.compile(hpu_fn, backend="aot_hpu_training_backend")
+        hpu_fn = torch.compile(hpu_fn, backend="hpu_backend")
 
     real_result = hpu_fn(*hpu_args)
 

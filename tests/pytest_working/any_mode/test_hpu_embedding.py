@@ -45,7 +45,7 @@ def test_hpu_embedding(shapes, dtype):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = torch.embedding(cpu_input, cpu_indices)
     hpu_output = fn(hpu_input, hpu_indices)
@@ -83,7 +83,7 @@ def test_hpu_embedding_bwd(shapes, dtype):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        hpu_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        hpu_fn = torch.compile(fn, backend="hpu_backend")
     else:
         hpu_fn = fn
 

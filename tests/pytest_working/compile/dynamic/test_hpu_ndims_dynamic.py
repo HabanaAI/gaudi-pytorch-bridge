@@ -39,7 +39,7 @@ class TestHpuNdimsDynamic:
         torch._dynamo.reset()
 
         cpu_wrapped_fn = torch.compile(fn)
-        hpu_wrapped_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend")
 
         cpu_output = []
         hpu_output = []

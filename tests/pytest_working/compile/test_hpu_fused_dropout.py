@@ -26,7 +26,7 @@ def test_exponential(shape, ratio, dtype):
     def fn(input):
         return torch._fused_dropout(input, ratio)
 
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input_1 = cpu_input.to("hpu")

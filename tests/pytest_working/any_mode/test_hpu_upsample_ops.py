@@ -40,7 +40,7 @@ class TestHpuUpsample:
 
         torch._dynamo.reset()
         cpu_wrapped_fn = torch.compile(upsample_fn) if pytest.mode == "compile" else upsample_fn
-        hpu_wrapped_fn = torch.compile(upsample_fn, backend="aot_hpu_training_backend") if pytest.mode == "compile" else upsample_fn
+        hpu_wrapped_fn = torch.compile(upsample_fn, backend="hpu_backend") if pytest.mode == "compile" else upsample_fn
 
         cpu_output = cpu_wrapped_fn(cpu_input)
         hpu_output = hpu_wrapped_fn(hpu_input).cpu()

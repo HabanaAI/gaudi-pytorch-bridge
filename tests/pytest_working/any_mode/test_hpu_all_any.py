@@ -43,7 +43,7 @@ def check(cpu_input, use_out, op):
     cpu_output = fn(cpu_input, use_out, "cpu", op)
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        hpu_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        hpu_fn = torch.compile(fn, backend="hpu_backend")
     hpu_output = hpu_fn(hpu_input, use_out, "hpu", op).cpu()
     compare_tensors([hpu_output], [cpu_output], atol=0, rtol=0)
 

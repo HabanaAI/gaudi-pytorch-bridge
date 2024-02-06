@@ -85,7 +85,7 @@ def test_scaled_masked_triangular_softmax(
         torch._dynamo.reset()
         hpu_op = torch.compile(
             torch.ops.hpu.scaled_masked_triangular_softmax,
-            backend="aot_hpu_training_backend",
+            backend="hpu_backend",
         )
 
     result = hpu_op(
@@ -156,7 +156,7 @@ def test_scaled_masked_triangular_softmax_next_token(
         torch._dynamo.reset()
         hpu_op = torch.compile(
             torch.ops.hpu.scaled_masked_triangular_softmax,
-            backend="aot_hpu_training_backend",
+            backend="hpu_backend",
         )
 
     result = hpu_op(

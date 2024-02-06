@@ -48,7 +48,7 @@ def test_hpu_lerp(shape, scalar_weight, dtype):
         hpu_weight = cpu_weight.to("hpu")
 
     cpu_compiled_fn = torch.compile(fn) if pytest.mode == "compile" else fn
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend") if pytest.mode == "compile" else fn
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
 
     cpu_output = cpu_compiled_fn(cpu_start, cpu_end, cpu_weight)
     hpu_output = hpu_compiled_fn(hpu_start, hpu_end, hpu_weight).cpu()

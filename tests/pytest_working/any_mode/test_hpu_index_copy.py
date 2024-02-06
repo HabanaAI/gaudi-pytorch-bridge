@@ -56,7 +56,7 @@ def test_hpu_index_copy(shape, dim, is_full_shape, dtype):
         # before each test: https://github.com/pytorch/pytorch/issues/107444
         # Sometimes our tests fail without reset, probably due to some cache leftovers.
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     fn(self_tensor_h, dim, index_tensor_h, updates_tensor_h)
 

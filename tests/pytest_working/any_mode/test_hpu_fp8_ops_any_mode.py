@@ -116,7 +116,7 @@ def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, scale_mode, axis, out
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     casted, amax, uncasted = fn(
         input.to(hpu),
@@ -217,7 +217,7 @@ def test_cast_to_fp8_hybrid(shape, dtype, stochastic, is_amax, is_scale_152, is_
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     casted_152, casted_143, amax, uncasted_152, uncasted_143 = fn(
         input.to(hpu),
@@ -358,7 +358,7 @@ def test_fp8_gemm_v2(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, fp
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     result = fn(
         A_hpu,
@@ -424,7 +424,7 @@ def test_fp8_gemm_v2_scale_shape(scale_mode, axis, in_dtype, out_dtype):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     result = fn(
         A_hpu,
@@ -468,7 +468,7 @@ def test_fp8_gemm_v2_scalar_optimization(scaleA, scaleB, dtype):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     result = fn(
         A_hpu,
@@ -543,7 +543,7 @@ def test_in_place_interleave(shape, dtype):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     fn(input_hpu)
 
@@ -605,7 +605,7 @@ def test_conv2d_fp8(N, C, H, W, out_channels, scaleA, scaleB, kernel, stride, pa
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     conv_args = [input_hpu, weight_hpu, bias_hpu, stride, padding, 1, 1, out_dtype]
     if scaleA_hpu is not None or scaleB_hpu is not None:
@@ -652,7 +652,7 @@ def test_conv2d_fp8_scalar_optimization(scaleA, scaleB, out_dtype, fp8_dtype):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     conv = fn(input_hpu, weight_hpu, None, stride, padding, 1, 1, out_dtype, scaleA, scaleB)
     conv_ref = torch.nn.functional.conv2d(input_cpu, weight_cpu, None, stride, padding, 1, 1) * (scaleA * scaleB)
@@ -725,7 +725,7 @@ def test_softmax_fp8(shape, dim, is_scale):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     result = fn(input_hpu, dim, scale_input_hpu, scale_output_hpu)
 

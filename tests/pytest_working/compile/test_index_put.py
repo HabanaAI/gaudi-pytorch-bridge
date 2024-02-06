@@ -36,7 +36,7 @@ def test_index_put_bool_mask_only(inputs_shape, accumulate):
     cpu_res = compiled_cpu(tensor, bool_mask, values, accumulate)
 
     torch._dynamo.reset()
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     hpu_res = compiled_hpu(
         tensor.to("hpu"), bool_mask.to("hpu"), values.to("hpu"), accumulate
     )
@@ -66,7 +66,7 @@ def test_index_put_bool_adv_indexing(inputs_shape, ind_shape, accumulate):
     cpu_res = compiled_cpu(tensor, bool_mask, values, accumulate)
 
     torch._dynamo.reset()
-    compiled_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_hpu = torch.compile(fn, backend="hpu_backend")
     hpu_res = compiled_hpu(
         tensor.to("hpu"), bool_mask.to("hpu"), values.to("hpu"), accumulate
     )

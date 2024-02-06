@@ -28,7 +28,7 @@ def test_hpu_multilevel_noncontiguous_views():
     result1, result2 = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hresult1, hresult2 = compiled_fn(hx)
     assert torch.allclose(result1, hresult1.cpu(), atol=0.001, rtol=0.001)
@@ -49,7 +49,7 @@ def test_hpu_multilevel_noncontiguous_views_inplace():
     result1, result2 = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hresult1, hresult2 = compiled_fn(hx)
     assert torch.allclose(result1, hresult1.cpu(), atol=0.001, rtol=0.001)
@@ -71,7 +71,7 @@ def test_hpu_multilevel_noncontiguous_views2():
     result1, result2 = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hresult1, hresult2 = compiled_fn(hx)
     hresult1_cpu = hresult1.cpu()
@@ -94,7 +94,7 @@ def test_hpu_multilevel_views_inplace():
     res = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hres = compiled_fn(hx)
     assert torch.allclose(res, hres.cpu(), atol=0.001, rtol=0.001)
@@ -120,7 +120,7 @@ def test_hpu_leaf_views_test():
 
         return tmp20.to("cpu"), tmp21.to("cpu"), tmp22.to("cpu")
 
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     x = torch.randn([5, 5])
     y = torch.randn([5, 5])
@@ -147,7 +147,7 @@ def test_hpu_eagerize_split_getitem():
     res = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hres = compiled_fn(hx)
     assert torch.allclose(res, hres.cpu(), atol=0.001, rtol=0.001)
@@ -168,7 +168,7 @@ def test_hpu_t_with_1D_input():
     res = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hres = compiled_fn(hx)
     assert torch.allclose(res, hres.cpu(), atol=0.001, rtol=0.001)
@@ -255,7 +255,7 @@ def test_hpu_non_contiguous_outputs(func):
     from torch._dynamo.backends.common import aot_autograd
     aot_backend = aot_autograd(fw_compiler=inner_compiler)
 
-    compiled_func_hpu = torch.compile(func, backend="aot_hpu_training_backend")
+    compiled_func_hpu = torch.compile(func, backend="hpu_backend")
     compiled_func_cpu = torch.compile(func, backend=aot_backend)
 
     x = torch.randn([2, 3])
@@ -304,7 +304,7 @@ def test_hpu_non_contiguous_more_outputs(func):
     from torch._dynamo.backends.common import aot_autograd
     aot_backend = aot_autograd(fw_compiler=inner_compiler)
 
-    compiled_func_hpu = torch.compile(func, backend="aot_hpu_training_backend")
+    compiled_func_hpu = torch.compile(func, backend="hpu_backend")
     compiled_func_cpu = torch.compile(func, backend=aot_backend)
 
     x = torch.randn([2, 3])

@@ -64,7 +64,7 @@ def test_autocast():
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     with torch.autocast(device_type=device, dtype=dtype):
         mm, ls, ls2, add, add_float = fn(ah, bh, ah, bh)
@@ -110,7 +110,7 @@ def test_sdpa(is_mask):
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     with torch.no_grad(), torch.autocast(device_type=device):
         attn_output = fn(query, proj, key, value, attn_mask)

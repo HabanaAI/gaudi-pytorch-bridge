@@ -41,7 +41,7 @@ def hpu_dropout_fwd(shape, p, dtype, train, native, dropout_fun):
         clear_t_compile_logs()
         torch._dynamo.reset()
         dropout_fwd = torch.compile(
-            dropout_fwd, backend="aot_hpu_training_backend"
+            dropout_fwd, backend="hpu_backend"
         )
 
     out = dropout_fwd(input)
@@ -133,7 +133,7 @@ def test_hpu_dropout_bwd(p, train, dtype, native):
         clear_t_compile_logs()
         torch._dynamo.reset()
         dropout_bwd = torch.compile(
-            dropout_bwd, backend="aot_hpu_training_backend"
+            dropout_bwd, backend="hpu_backend"
         )
 
     result = dropout_bwd(input, p, train)

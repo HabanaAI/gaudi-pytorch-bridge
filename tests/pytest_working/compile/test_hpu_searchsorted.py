@@ -23,7 +23,7 @@ def test_searchsorted(dtype, out_int32, right):
     def fn(sorted_sequence, values):
         return torch.searchsorted(sorted_sequence, values, out_int32=out_int32, right=right)
 
-    hpu_compiled_function = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_function = torch.compile(fn, backend="hpu_backend")
     cpu_compiled_function = torch.compile(fn)
 
     cpu_sorted_sequence, _ = torch.sort(torch.randn((10, 10)).to(dtype))

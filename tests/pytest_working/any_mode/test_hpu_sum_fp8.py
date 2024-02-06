@@ -38,7 +38,7 @@ def test_sum_fp8(dim, keep_dim, dtype, out_dtype):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     result = fn(input_hpu, dim, keep_dim, out_dtype)
 

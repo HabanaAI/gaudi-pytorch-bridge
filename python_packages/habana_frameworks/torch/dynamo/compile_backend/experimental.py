@@ -23,7 +23,7 @@ def enable_compiled_autograd():
     This should be called before any invocations of torch.compile
     """
     def compiler_fn(gm):
-        return torch.compile(gm, backend='aot_hpu_training_backend', fullgraph=True)
+        return torch.compile(gm, backend='hpu_backend', fullgraph=True)
 
     torch._C._dynamo.compiled_autograd.set_autograd_compiler(
             functools.partial(compiled_autograd.AutogradCompilerInstance, compiler_fn)

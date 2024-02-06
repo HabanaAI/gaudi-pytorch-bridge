@@ -49,7 +49,7 @@ def test_hpu_compile_binary_cross_entropy_fwd(input_size, weight_use, reduction)
         return torch.nn.functional.binary_cross_entropy(input, target, weight=weight, reduction=reduction)
 
     fn_cpu = torch.compile(fn, dynamic=True)
-    fn_hpu = torch.compile(fn, dynamic=True, backend="aot_hpu_training_backend")
+    fn_hpu = torch.compile(fn, dynamic=True, backend="hpu_backend")
 
     input = torch.randn(input_size, requires_grad=True, dtype=torch.float32)
     target = torch.rand(input_size, requires_grad=True, dtype=torch.float32)
@@ -78,7 +78,7 @@ def test_hpu_compile_binary_cross_entropy_bwd(input_size, weight_use, reduction)
         return input.grad, target.grad
 
     fn_cpu = torch.compile(fn)
-    fn_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    fn_hpu = torch.compile(fn, backend="hpu_backend")
 
     input = torch.sigmoid(torch.randn(input_size, dtype=torch.float32))
     target = torch.rand(input_size, dtype=torch.float32)
@@ -109,7 +109,7 @@ def test_hpu_compile_binary_cross_entropy_logits_fwd(input_size, weight_use, red
         return torch.nn.functional.binary_cross_entropy_with_logits(input, target, weight=weight, reduction=reduction)
 
     fn_cpu = torch.compile(fn)
-    fn_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    fn_hpu = torch.compile(fn, backend="hpu_backend")
 
     input = torch.randn(input_size, requires_grad=True, dtype=torch.float32)
     target = torch.rand(input_size, requires_grad=True, dtype=torch.float32)
@@ -138,7 +138,7 @@ def test_hpu_compile_binary_cross_entropy_logits_bwd(input_size, weight_use, red
         return input.grad, target.grad
 
     fn_cpu = torch.compile(fn)
-    fn_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    fn_hpu = torch.compile(fn, backend="hpu_backend")
 
     input = torch.sigmoid(torch.randn(input_size, dtype=torch.float32))
     target = torch.rand(input_size, dtype=torch.float32)

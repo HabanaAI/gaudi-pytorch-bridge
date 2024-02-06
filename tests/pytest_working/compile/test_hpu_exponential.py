@@ -28,7 +28,7 @@ def test_exponential(shape, lambd, dtype):
         return input.exponential_(lambd)
 
     torch._dynamo.reset()
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input_1 = cpu_input.to("hpu")

@@ -30,7 +30,7 @@ def test_linear(dtype):
         model = model.to("hpu")
 
         # HPU
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
         hresult = compiled_fn(model, h_input)
 
         assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)

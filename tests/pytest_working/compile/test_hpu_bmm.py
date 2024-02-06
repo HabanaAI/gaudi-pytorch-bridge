@@ -27,7 +27,7 @@ def test_hpu_bmm(shapes, dtype):
     hpu_mat2 = cpu_mat2.to("hpu")
 
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(cpu_input, cpu_mat2)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_mat2).cpu()

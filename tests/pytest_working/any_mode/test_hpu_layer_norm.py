@@ -35,7 +35,7 @@ def test_layer_norm(dim, dtype):
     if pytest.mode == "compile":
         torch._dynamo.reset()
         clear_t_compile_logs()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     input_size = torch.randint(1, 4, size=(dim,)).tolist()
     normalized_shape = input_size[1:dim]

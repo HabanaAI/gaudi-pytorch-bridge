@@ -40,7 +40,7 @@ def test_hpu_add_scalar(dtype):
         return torch.add(a, b)
 
     if pytest.mode == "compile":
-        op = torch.compile(op, backend="aot_hpu_training_backend")
+        op = torch.compile(op, backend="hpu_backend")
 
     result = op(input, other)
     result_hpu = op(input_hpu, other)
@@ -57,7 +57,7 @@ def test_hpu_add_scalar_inplace(dtype):
         return a.add_(b)
 
     if pytest.mode == "compile":
-        op = torch.compile(op, backend="aot_hpu_training_backend")
+        op = torch.compile(op, backend="hpu_backend")
 
     op(input, other)
     op(input_hpu, other)
@@ -76,7 +76,7 @@ def test_hpu_add_scalar_out(dtype):
         return torch.add(a, b, out=out)
 
     if pytest.mode == "compile":
-        op = torch.compile(op, backend="aot_hpu_training_backend")
+        op = torch.compile(op, backend="hpu_backend")
 
     op(input, other, out)
     op(input_hpu, other, out_hpu)

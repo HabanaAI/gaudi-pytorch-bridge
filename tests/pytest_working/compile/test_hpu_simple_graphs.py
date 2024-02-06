@@ -22,7 +22,7 @@ def test_relu_cpuinput():
         return torch.relu(x)
 
     compiled_function_training = torch.compile(
-        raw_function, backend="aot_hpu_training_backend"
+        raw_function, backend="hpu_backend"
     )
     compiled_function_inference = torch.compile(
         raw_function, backend="aot_hpu_inference_backend"
@@ -45,7 +45,7 @@ def test_relu_hpuinput():
         return torch.relu(x)
 
     compiled_function_training = torch.compile(
-        raw_function, backend="aot_hpu_training_backend"
+        raw_function, backend="hpu_backend"
     )
     compiled_function_inference = torch.compile(
         raw_function, backend="aot_hpu_inference_backend"
@@ -68,7 +68,7 @@ def test_relu_hpuinput_mixed():
         return torch.relu(tmp1)
 
     compiled_function_training = torch.compile(
-        raw_function, backend="aot_hpu_training_backend"
+        raw_function, backend="hpu_backend"
     )
     compiled_function_inference = torch.compile(
         raw_function, backend="aot_hpu_inference_backend"
@@ -95,7 +95,7 @@ def test_output_middle_node():
         tmp3 = torch.relu(tmp2)
         return tmp2
 
-    compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_function_training = torch.compile(raw_function, backend="hpu_backend")
     compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
@@ -118,7 +118,7 @@ def test_output_first_and_last_node():
         tmp3 = torch.relu(tmp2)
         return tmp1, tmp3
 
-    compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_function_training = torch.compile(raw_function, backend="hpu_backend")
     compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
@@ -144,7 +144,7 @@ def test_output_reverse_order_node():
         tmp3 = torch.relu(tmp2)
         return tmp3, tmp2, tmp1
 
-    compiled_function_training = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_function_training = torch.compile(raw_function, backend="hpu_backend")
     compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
@@ -282,7 +282,7 @@ def test_remove_detach():
         x = x / 3
         return F.relu(x)
 
-    compiled_function = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_function = torch.compile(raw_function, backend="hpu_backend")
     input_tensor = torch.rand(2, 2).to("hpu")
     tensor_raw = raw_function(input_tensor)
     tensor_compiled = compiled_function(input_tensor)
@@ -299,9 +299,9 @@ def test_split_with_sizes():
         x = torch.split(x, [1, 4])[1]
         return x
 
-    compiled_function = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_function = torch.compile(raw_function, backend="hpu_backend")
     compiled_function_s = torch.compile(
-        raw_function_second_part, backend="aot_hpu_training_backend"
+        raw_function_second_part, backend="hpu_backend"
     )
 
     input_tensor = torch.arange(10).reshape(5, 2).to(device="hpu")

@@ -44,7 +44,7 @@ def test_binary(func, shape_a, shape_b, alpha, dtype):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     input = generate_tensor(shape_a, dtype)
     other = generate_tensor(shape_b, dtype)

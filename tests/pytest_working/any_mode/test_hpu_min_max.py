@@ -34,7 +34,7 @@ def common_test(shape, dim, keep_dim, op, dtype):
         input = input.float()
 
     if pytest.mode == "compile":
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     if dim:
         res_hpu = fn(input_h, dim, keep_dim)

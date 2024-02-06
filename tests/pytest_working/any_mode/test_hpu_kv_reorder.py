@@ -39,7 +39,7 @@ def test_kv_reorder(shape, dtype):
         return torch.ops.hpu.kv_reorder_(input, start, end, beam_idx)
 
     if pytest.mode == "compile":
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     fn(input_hpu, start_hpu, end_hpu, beam_idx_hpu)
 

@@ -56,7 +56,7 @@ def test_hpu_roi_align(
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     result_cpu = torchvision.ops.roi_align(
         input, boxes, output_size, spatial_scale, sampling_ratio, aligned
@@ -99,7 +99,7 @@ def test_hpu_roi_align_bwd(
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     result_cpu = torchvision.ops.roi_align(
         input, boxes, output_size, spatial_scale, sampling_ratio, aligned

@@ -24,7 +24,7 @@ class TestHpuXlogy:
     @staticmethod
     def _compile(fn):
         torch._dynamo.reset()
-        return torch.compile(fn), torch.compile(fn, backend="aot_hpu_training_backend")
+        return torch.compile(fn), torch.compile(fn, backend="hpu_backend")
 
     @staticmethod
     def _compare(expected_cpu, actual_hpu):

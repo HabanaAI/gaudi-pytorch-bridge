@@ -30,7 +30,7 @@ def test_hpu_mm(N, M, P, dtype):
     torch._dynamo.reset()
 
     cpu_wrapped_fn = torch.compile(fn) if pytest.mode == "compile" else fn
-    hpu_wrapped_fn = torch.compile(fn, backend="aot_hpu_training_backend") if pytest.mode == "compile" else fn
+    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
 
     cpu_output = cpu_wrapped_fn(cpu_mat1, cpu_mat2)
     hpu_output = hpu_wrapped_fn(hpu_mat1, hpu_mat2).cpu()

@@ -36,7 +36,7 @@ def test_hpu_copy_(shape, dtype):
         return self
 
     if pytest.mode == "compile":
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     fn(self_h, src_h)
 

@@ -29,7 +29,7 @@ def test_memcpy_with_cast(src_dtype, dst_dtype, devices):
     if pytest.mode == "lazy":
         func = memcpy_with_cast
     elif pytest.mode == "compile":
-        func = torch.compile(memcpy_with_cast, backend="aot_hpu_training_backend")
+        func = torch.compile(memcpy_with_cast, backend="hpu_backend")
     elif pytest.mode == "eager":
         func = memcpy_with_cast
 

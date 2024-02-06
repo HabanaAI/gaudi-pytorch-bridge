@@ -13,7 +13,7 @@ import torch
 import pytest
 import pickle
 import os
-from habana_frameworks.torch.dynamo.compile_backend.backends import aot_hpu_training_backend
+from habana_frameworks.torch.dynamo.compile_backend.backends import hpu_backend
 from torch._dynamo.backends.registry import register_backend
 
 @pytest.mark.skip(reason="Test is non-deterministic. TODO create deterministic one.")
@@ -28,7 +28,7 @@ def test_reordered_outputs_with_cache():
         return out1, x2, out2
 
     hpu_input = torch.rand([5, 5], device='hpu')
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hpu_output = hpu_compiled_fn(hpu_input)
     hpu_output_cached_recipe = hpu_compiled_fn(hpu_input)

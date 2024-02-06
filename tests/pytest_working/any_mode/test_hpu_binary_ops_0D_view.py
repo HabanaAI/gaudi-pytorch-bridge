@@ -35,7 +35,7 @@ def test_binary_op_0D_view(op, dtype):
     result_cpu = fn(input_cpu, other_cpu, factors_cpu)
 
     if pytest.mode == "compile":
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     result_hpu = fn(input_hpu, other_hpu, factors_hpu)
 

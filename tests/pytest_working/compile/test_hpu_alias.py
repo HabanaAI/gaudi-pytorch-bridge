@@ -22,7 +22,7 @@ def test_alias(shape, dtype):
     cpu_input = torch.randn(shape, dtype=dtype) if dtype.is_floating_point else torch.randint(low=-128, high=127, size=shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
@@ -41,7 +41,7 @@ def test_alias_with_view_input(shape, dtype):
     cpu_input = torch.randn(shape, dtype=dtype) if dtype.is_floating_point else torch.randint(low=-128, high=127, size=shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()

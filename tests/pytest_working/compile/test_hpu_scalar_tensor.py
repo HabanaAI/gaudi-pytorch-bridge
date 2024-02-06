@@ -21,7 +21,7 @@ def test_scalar_tensor(dtype):
 
     def fn(val, device):
         return torch.scalar_tensor(val, device=device)
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     val = random.random()
     result = compiled_fn(val, "hpu")

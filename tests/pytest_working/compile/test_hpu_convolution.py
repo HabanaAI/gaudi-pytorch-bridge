@@ -32,7 +32,7 @@ def test_hpu_convolution(dtype):
     cpu_bias = torch.rand(bias_shape, dtype=dtype)
     hpu_bias = cpu_bias.to("hpu")
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(cpu_input, cpu_weight, cpu_bias)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_weight, hpu_bias)

@@ -41,7 +41,7 @@ def test_hpu_minimum_maximum(shape, op, dtype):
         cpu_other = cpu_other.float()
 
     if pytest.mode == "compile":
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = op(cpu_input, cpu_other)
     hpu_output = fn(hpu_input, hpu_other).cpu()

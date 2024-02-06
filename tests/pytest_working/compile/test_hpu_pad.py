@@ -61,7 +61,7 @@ def check(padding, shape, dtype, reflection_pad, backward=False):
 
     cpu_compiled_fn = torch.compile(fn)
     torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(reflection_pad, cpu_input, padding)
     hpu_output = hpu_compiled_fn(reflection_pad, hpu_input, padding).cpu()

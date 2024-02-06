@@ -26,7 +26,7 @@ def test_graph_simple():
         tmp1 = t3 - 1
         return torch.relu(tmp1)
 
-    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in input_shapes:
         # CPU
@@ -51,7 +51,7 @@ def test_graph_control_flow_static():
             out_hpu = torch.add(t2, t1)
         return out_hpu
 
-    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
     i = 0
     for s in sizes:
         t1 = torch.tensor(s)
@@ -82,7 +82,7 @@ def test_graph_mult_module_split():
         t6 = torch.add(t5, t5)
         return t6
 
-    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in input_shapes:
         t1 = torch.randn(s[0], requires_grad = False)
@@ -108,7 +108,7 @@ def test_graph_fx_recompilations():
         t3 = torch.add(t1, t2)
         return torch.sub(t3, t1)
 
-    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in input_shapes:
         t1 = torch.randn(s, requires_grad = False)

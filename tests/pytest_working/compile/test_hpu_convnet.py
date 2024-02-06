@@ -48,7 +48,7 @@ def test_simple_sgd_convnet():
             return out
 
     model = LeNet5().to("hpu")
-    model = torch.compile(model, backend="aot_hpu_training_backend")
+    model = torch.compile(model, backend="hpu_backend")
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
     criterion = torch.nn.CrossEntropyLoss()
 

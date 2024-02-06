@@ -69,7 +69,7 @@ def test_batch_norm_deterministic(input_shape):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     assert len(input_shape) >= 2
     input = torch.rand(input_shape)

@@ -26,7 +26,7 @@ def test_hpu_view_copy():
             a.copy_(b.view(a.shape))
             return a
 
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
 
         x = torch.randn([5, 10])
         hx = x.to("hpu")
@@ -51,7 +51,7 @@ def test_hpu_copy_expand():
             a.copy_(b)
             return a
 
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
 
         x = torch.randn([5, 10])
         y = torch.randn([5, 1])
@@ -79,7 +79,7 @@ def test_hpu_copy_keepmutation():
             a.copy_(b)
             return a
 
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
 
         x = torch.randn([5, 10])
         hx = x.to("hpu")
@@ -113,7 +113,7 @@ def test_hpu_inplace_copies():
         x = fn(x)
 
         # HPU
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
         hx = compiled_fn(hx)
 
         assert torch.allclose(hx.cpu(), x, atol=0.001, rtol=0.001)
@@ -139,7 +139,7 @@ def test_hpu_expand():
         res = fn(x)
 
         # HPU
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
         hres = compiled_fn(hx)
 
         assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)

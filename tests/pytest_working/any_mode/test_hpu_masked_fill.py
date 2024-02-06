@@ -53,7 +53,7 @@ class TestHpuMaskedMixedDevices:
         def fn(input, mask, value):
             input.masked_fill_(mask, value)
 
-        wrapped_fn = torch.compile(fn, backend="aot_hpu_training_backend") if pytest.mode == "compile" else fn
+        wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
         iters = 3 if dynamic else 1
         for i in range(iters):
             modified_shape = [(dim * (i + 1)) for dim in shape]
@@ -79,7 +79,7 @@ def test_masked_fill(self_shape, mask_shape, value, scalar_value, dtype):
     if is_pytest_mode_compile():
         torch._dynamo.reset()
         clear_t_compile_logs()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     self = torch.randint(low=-50, high=50, size=self_shape).to(dtype)
     mask = torch.randint(low=0, high=2, size=mask_shape, dtype=torch.bool)

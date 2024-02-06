@@ -36,7 +36,7 @@ def test_op(size, dtype, op):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     result = fn(size, dtype=dtype, device="hpu")
 

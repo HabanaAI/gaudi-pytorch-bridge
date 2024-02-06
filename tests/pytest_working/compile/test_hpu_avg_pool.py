@@ -28,7 +28,7 @@ def test_hpu_avg_pool1d(shape, kernel_size_and_padding, stride, dtype):
     hpu_input = cpu_input.to("hpu")
     torch._dynamo.reset()
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
@@ -48,7 +48,7 @@ def test_hpu_adaptive_avg_pool1d(shape, output_size, dtype):
 
     torch._dynamo.reset()
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     torch._dynamo.reset()
     cpu_output = cpu_compiled_fn(cpu_input)
@@ -79,7 +79,7 @@ def test_hpu_avg_pool3d(shape, kernel_size_and_padding, stride, ceil_mode, count
     hpu_input = cpu_input.to("hpu")
     torch._dynamo.reset()
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
@@ -98,7 +98,7 @@ def test_hpu_avg_pool2d(shape, kernel_size_and_padding, stride, dtype):
     hpu_input = cpu_input.to("hpu")
     torch._dynamo.reset()
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
@@ -124,7 +124,7 @@ def test_hpu_avg_pool2d_bwd(shape, kernel_size_and_padding, stride, dtype):
     hpu_input.requires_grad = True
     torch._dynamo.reset()
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
@@ -141,7 +141,7 @@ def test_hpu_adaptive_avg_pool3d(shape, output_size, dtype):
     hpu_input = cpu_input.to("hpu")
 
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).to("cpu")
@@ -163,7 +163,7 @@ def test_hpu_adaptive_avg_pool2d_bwd(shape, output_size, dtype):
     hpu_input.requires_grad = True
     torch._dynamo.reset()
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
@@ -181,7 +181,7 @@ def test_hpu_adaptive_avg_pool2d(shape, output_size, dtype):
     torch._dynamo.reset()
 
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).to("cpu")

@@ -32,7 +32,7 @@ def test_hpu_logsigmoid(shape, bwd, dtype):
 
     torch._dynamo.reset()
     hpu_wrapped_fn = (
-        torch.compile(wrapped_fn, backend="aot_hpu_training_backend")
+        torch.compile(wrapped_fn, backend="hpu_backend")
         if pytest.mode == "compile"
         else wrapped_fn
     )

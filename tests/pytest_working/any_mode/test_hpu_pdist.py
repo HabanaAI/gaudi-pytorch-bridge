@@ -40,7 +40,7 @@ def common_hpu_pdist(shape, dtype, p):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn_h = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn_h = torch.compile(fn, backend="hpu_backend")
     else:
         fn_h = fn
 

@@ -40,7 +40,7 @@ def test_rrelu(shape_in, range, dtype, inference):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        m = torch.compile(m, backend="aot_hpu_training_backend")
+        m = torch.compile(m, backend="hpu_backend")
 
     result_fwd_hpu = m(hpu_tensor)
 

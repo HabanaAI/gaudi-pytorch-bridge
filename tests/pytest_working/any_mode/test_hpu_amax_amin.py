@@ -32,7 +32,7 @@ def test_hpu_amax_amin(op, shapes, dim, dtype):
     torch._dynamo.reset()
 
     cpu_wrapped_fn = torch.compile(fn) if pytest.mode == "compile" else fn
-    hpu_wrapped_fn = torch.compile(fn, backend="aot_hpu_training_backend") if pytest.mode == "compile" else fn
+    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
     cpu_output = cpu_wrapped_fn(cpu_input, dim)
     hpu_output = hpu_wrapped_fn(hpu_input, dim).cpu()
     assert torch.allclose(cpu_output, hpu_output)

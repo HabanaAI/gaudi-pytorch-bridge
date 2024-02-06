@@ -27,7 +27,7 @@ def test_reduction(op_code):
     result = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hresult = compiled_fn(hx)
 
@@ -52,7 +52,7 @@ def test_reduction_dim(op_code, dim, keepdim):
 
     # HPU
     torch._dynamo.reset()
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hresult = compiled_fn(hx, dim, keepdim)
 
@@ -79,7 +79,7 @@ def test_hpu_std(input, dim, correction, keepdim, setup_teardown_env_fixture):
     cpu_input = torch.rand(input)
     hpu_input = cpu_input.to("hpu")
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend", dynamic=None)
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend", dynamic=None)
 
     cpu_output = cpu_compiled_fn(cpu_input, dim, correction, keepdim)
     hpu_output = hpu_compiled_fn(hpu_input, dim, correction, keepdim)
@@ -104,7 +104,7 @@ def test_hpu_std_var_mean(input, dim, correction, keepdim, dtype, setup_teardown
     hpu_input = cpu_input.to("hpu")
     torch._dynamo.reset()
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend", dynamic=None)
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend", dynamic=None)
 
     cpu_output_var, cpu_output_mean = cpu_compiled_fn(cpu_input, dim, correction, keepdim)
     hpu_output_var, hpu_output_mean = hpu_compiled_fn(hpu_input, dim, correction, keepdim)

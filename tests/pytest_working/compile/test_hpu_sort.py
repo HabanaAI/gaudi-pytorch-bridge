@@ -27,7 +27,7 @@ def test_sort(dim, descending):
         result1, result2 = fn(x, dim, descending)
 
         # HPU
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
 
         hresult1, hresult2 = compiled_fn(hx, dim, descending)
 
@@ -48,7 +48,7 @@ def test_sort_stable(dim, descending, stable):
         result1, result2 = fn(x, dim, descending, stable)
 
         # HPU
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
 
         hresult1, hresult2 = compiled_fn(hx, dim, descending, stable)
 
@@ -69,7 +69,7 @@ def test_sort_stable_bf16(dim, descending, stable):
         result1, result2 = fn(x, dim, descending, stable)
 
         # HPU
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
 
         hresult1, hresult2 = compiled_fn(hx, dim, descending, stable)
 

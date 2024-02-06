@@ -30,7 +30,7 @@ def test_topk(k, dim, largest, sorted, dtype):
     result1, result2 = fn(x, k, dim, largest, sorted)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hresult1, hresult2 = compiled_fn(hx, k, dim, largest, sorted)
 

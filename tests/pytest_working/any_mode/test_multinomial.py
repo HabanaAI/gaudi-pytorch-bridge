@@ -34,7 +34,7 @@ def test_multinomial(size, dtype, replacement):
     if pytest.mode == "compile":
         torch._dynamo.reset()
         clear_t_compile_logs()
-        op = torch.compile(torch.multinomial, backend="aot_hpu_training_backend")
+        op = torch.compile(torch.multinomial, backend="hpu_backend")
 
     input = torch.rand(size, dtype=dtype).to("hpu")
     result = op(input, 3, replacement=replacement).cpu()
@@ -52,7 +52,7 @@ def test_multinomial_output(dtype):
     if pytest.mode == "compile":
         torch._dynamo.reset()
         clear_t_compile_logs()
-        op = torch.compile(torch.multinomial, backend="aot_hpu_training_backend")
+        op = torch.compile(torch.multinomial, backend="hpu_backend")
 
     N = 1000
     input = torch.rand((10,), dtype=dtype).to("hpu")
@@ -79,7 +79,7 @@ def test_multinomial_multiple_calls(size, dtype, replacement):
     if pytest.mode == "compile":
         torch._dynamo.reset()
         clear_t_compile_logs()
-        op = torch.compile(torch.multinomial, backend="aot_hpu_training_backend")
+        op = torch.compile(torch.multinomial, backend="hpu_backend")
 
     input = torch.rand(size, dtype=dtype).to("hpu")
     result = op(input, 4, replacement=replacement).cpu()

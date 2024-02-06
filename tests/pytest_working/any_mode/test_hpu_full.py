@@ -55,7 +55,7 @@ def test_full(size, dtype, fill_value):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     result = fn(size, fill_value=fill_value, dtype=dtype, device="hpu")
 

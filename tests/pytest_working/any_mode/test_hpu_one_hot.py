@@ -32,7 +32,7 @@ def test_hpu_one_hot(shape, classes, dtype):
     cpu_input = torch.arange(*arange, dtype=getattr(torch, dtype)).view(*view) % mod
     hpu_input = cpu_input.to("hpu")
     cpu_compiled_fn = torch.compile(fn) if pytest.mode == "compile" else fn
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend") if pytest.mode == "compile" else fn
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
     torch._dynamo.reset()
 
     cpu_output = cpu_compiled_fn(cpu_input, classes)

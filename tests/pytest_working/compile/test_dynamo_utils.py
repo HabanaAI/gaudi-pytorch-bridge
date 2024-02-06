@@ -12,7 +12,7 @@ def use_eager_fallback():
     yield
     configuration_flags["use_eager_fallback"] = original
 
-@torch.compile(backend="aot_hpu_training_backend")
+@torch.compile(backend="hpu_backend")
 def fn(x, y, device):
     res = x + y
     eager_fallback_res = torch.randint(
@@ -21,7 +21,7 @@ def fn(x, y, device):
     return res + eager_fallback_res
 
 
-@torch.compile(backend="aot_hpu_training_backend")
+@torch.compile(backend="hpu_backend")
 def fn2(x, y):
     res = x + y
     res = res * x
@@ -87,7 +87,7 @@ def test_multiple():
 
 
 def test_bulitin():
-    @torch.compile(backend='aot_hpu_training_backend')
+    @torch.compile(backend='hpu_backend')
     def clone_fn(x):
         return x.add_(x)
 

@@ -29,7 +29,7 @@ def test_hpu_addmv(shapes, alpha, beta, dtype):
     cpu_vec = torch.rand(vec_shape, dtype=dtype)
     hpu_vec = cpu_vec.to("hpu")
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = cpu_compiled_fn(cpu_input, cpu_mat, cpu_vec)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_mat, hpu_vec).cpu()

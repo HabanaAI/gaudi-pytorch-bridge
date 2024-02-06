@@ -28,7 +28,7 @@ def test_bernoulli(shape, dtype):
         c = torch.mul(a, b)
         return c
 
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     input_a = torch.empty(shape, dtype=dtype).uniform_(0, 1).to("hpu")
     input_b = torch.empty(shape, dtype=dtype).uniform_(0, 1).to("hpu")
@@ -48,7 +48,7 @@ def test_bernoulli_determinism_one_graph():
     def fn(input):
         return torch.bernoulli(input)
 
-    fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    fn = torch.compile(fn, backend="hpu_backend")
 
     input = torch.empty((3, 4, 5), dtype=torch.float).uniform_(0, 1).to("hpu")
 
@@ -78,8 +78,8 @@ def test_bernoulli_determinism_two_graphs():
         a = torch.bernoulli(input)
         return a * 2
 
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
-    compiled_fn2 = torch.compile(fn2, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    compiled_fn2 = torch.compile(fn2, backend="hpu_backend")
 
     input = torch.empty((3, 4, 5), dtype=torch.float).uniform_(0, 1).to("hpu")
 
@@ -112,7 +112,7 @@ def test_rand(shape, dtype, is_like):
     def fn(input):
         return op(input, dtype=dtype, device="hpu")
 
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     result_1 = compiled_fn(input).cpu()
     result_2 = compiled_fn(input).cpu()
@@ -141,7 +141,7 @@ def test_randn(shape, dtype, is_like):
     def fn(shape):
         return op(shape, dtype=dtype, device="hpu")
 
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     result_1 = compiled_fn(input).cpu()
     result_2 = compiled_fn(input).cpu()
@@ -188,7 +188,7 @@ def test_randint(shape, low, high, is_like, dtype):
         args = args + (shape,)
         op = torch.randint
 
-    compiled_fn = torch.compile(op, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(op, backend="hpu_backend")
 
     result_1 = compiled_fn(*args, dtype=dtype, device="hpu").cpu()
     result_2 = compiled_fn(*args, dtype=dtype, device="hpu").cpu()
@@ -208,7 +208,7 @@ def test_multinomial(shape, dtype, replacement):
     torch._dynamo.reset()
     clear_t_compile_logs()
 
-    compiled_fn = torch.compile(torch.multinomial, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(torch.multinomial, backend="hpu_backend")
 
     input = torch.rand(shape, dtype=dtype).to("hpu")
     num_samples = 100 if replacement else 5
@@ -261,7 +261,7 @@ def test_various_ops(dtype):
         result = torch.addmm(ab, cd, efgh)
         return result
 
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     shape_a = (4, 12)
     shape_b = (4, 8)
@@ -304,7 +304,7 @@ def test_randperm(n, dtype):
     clear_t_compile_logs()
     def fn(shape):
         return torch.randperm(shape, dtype=dtype, device="hpu")
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     torch.manual_seed(1234)
     result_1 = compiled_fn(n).cpu()

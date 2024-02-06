@@ -24,7 +24,7 @@ def test_hpu_vdot(shapes, dtype):
     cpu_b = torch.rand(shapes, dtype=getattr(torch, dtype))
     hpu_b = cpu_b.to("hpu")
     cpu_compiled_fn = torch.compile(fn)
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
     torch._dynamo.reset()
 
     cpu_output = cpu_compiled_fn(cpu_a, cpu_b)

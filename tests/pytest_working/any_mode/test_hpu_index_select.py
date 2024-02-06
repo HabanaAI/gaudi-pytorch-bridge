@@ -41,7 +41,7 @@ def test_hpu_index_select(shape, dim, index, dtype):
         return torch.index_select(input, dim, index)
 
     if pytest.mode == "compile":
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     result_hpu = fn(input_hpu, dim, index_hpu)
     result_cpu = torch.index_select(input_cpu, dim, index_cpu)

@@ -29,7 +29,7 @@ def test_index(shape, dtype):
 
     if pytest.mode == "compile":
         f_cpu = torch.compile(wrapper_fn)
-        f_hpu = torch.compile(wrapper_fn, backend="aot_hpu_training_backend")
+        f_hpu = torch.compile(wrapper_fn, backend="hpu_backend")
     else:
         f_cpu = wrapper_fn
         f_hpu = wrapper_fn

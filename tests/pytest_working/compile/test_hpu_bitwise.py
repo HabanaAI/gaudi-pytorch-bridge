@@ -30,7 +30,7 @@ def test_bitwise_tensor(dtype, op_code):
     result = fn(x, y)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hresult = compiled_fn(hx, hy)
 
@@ -55,7 +55,7 @@ def test_bitwise_scalar(dtype, op_code):
     result = fn(x, y)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hresult = compiled_fn(hx, hy)
 
@@ -81,7 +81,7 @@ def test_bitwise_scalar_tensor(dtype, op_code):
     result = fn(x, y)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hresult = compiled_fn(hx, hy)
 
@@ -102,7 +102,7 @@ def test_bitwise_not(dtype):
     result = fn(x)
 
     # HPU
-    compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hresult = compiled_fn(hx)
 

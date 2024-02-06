@@ -46,7 +46,7 @@ def test_hpu_take(shape, repeats, dtypes_inputs, dtypes_indicies):
 
     if pytest.mode == "compile":
         f_cpu = torch.compile(fn)
-        f_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+        f_hpu = torch.compile(fn, backend="hpu_backend")
     else:
         f_cpu = fn
         f_hpu = fn

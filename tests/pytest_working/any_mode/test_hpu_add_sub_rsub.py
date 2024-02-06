@@ -72,7 +72,7 @@ def test_hpu(scalar, shape, alpha, dtype, op):
 
     cpu_compiled_fn = torch.compile(fn, dynamic=True) if pytest.mode == "compile" else fn
     torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend", dynamic=True) if pytest.mode == "compile" else fn
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend", dynamic=True) if pytest.mode == "compile" else fn
 
     cpu_output = cpu_compiled_fn(cpu_input_tensor, cpu_other, alpha)
     hpu_output = hpu_compiled_fn(hpu_input_tensor, hpu_other, alpha).cpu()

@@ -27,7 +27,7 @@ def test_remainder_tensor():
         result = fn(x, y)
 
         # HPU
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
 
         hresult = compiled_fn(hx, hy)
         assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)
@@ -44,7 +44,7 @@ def test_remainder_scalar():
         result = fn(x, y)
 
         # HPU
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
 
         hresult = compiled_fn(hx, y)
         assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)
@@ -61,7 +61,7 @@ def test_remainder_scalar_tensor():
         result = fn(x, y)
 
         # HPU
-        compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
 
         hresult = compiled_fn(x, hy)
         assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)

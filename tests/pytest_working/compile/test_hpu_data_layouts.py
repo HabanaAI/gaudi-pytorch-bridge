@@ -20,7 +20,7 @@ import torch
 def test_data_layout_prop(use_eager_conv):
     conv_op = torch.nn.Conv2d(16, 33, 3, stride=2)
     if not use_eager_conv:
-        conv_op = torch.compile(conv_op, backend="aot_hpu_training_backend")
+        conv_op = torch.compile(conv_op, backend="hpu_backend")
 
     def raw_function(x):
         maxpool = torch.nn.MaxPool2d(kernel_size=2, stride=2).to(device="hpu")
@@ -28,7 +28,7 @@ def test_data_layout_prop(use_eager_conv):
         x = maxpool(x)
         return x
 
-    compiled_function = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_function = torch.compile(raw_function, backend="hpu_backend")
 
     tensor = torch.randn(20, 16, 50, 100).to(device="hpu")
     conv_op = conv_op.to(device="hpu")

@@ -73,7 +73,7 @@ def test_rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, data_in_dtype, gamma_
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        output_fwd = torch.compile(FusedRMSNorm.apply, backend="aot_hpu_training_backend")
+        output_fwd = torch.compile(FusedRMSNorm.apply, backend="hpu_backend")
 
     root_mean_square_norm = output_fwd(data_in_hpu, gamma_hpu, eps, use_stages, bwd_mode.value)
     loss = root_mean_square_norm.sum()

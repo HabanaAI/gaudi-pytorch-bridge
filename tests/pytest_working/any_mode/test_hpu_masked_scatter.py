@@ -33,7 +33,7 @@ def test_hpu_masked_scatter(shape, is_inplace):
     torch._dynamo.reset()
 
     cpu_wrapped_fn = torch.compile(fn) if pytest.mode == "compile" else fn
-    hpu_wrapped_fn = torch.compile(fn, backend="aot_hpu_training_backend") if pytest.mode == "compile" else fn
+    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
 
     cpu_result = cpu_wrapped_fn(*cpu_args)
     hpu_result = hpu_wrapped_fn(*hpu_args)

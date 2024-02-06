@@ -13,7 +13,7 @@ import os
 import torch
 
 
-@torch.compile(backend="aot_hpu_training_backend")
+@torch.compile(backend="hpu_backend")
 def hpu_fn(x):
     return x + x
 

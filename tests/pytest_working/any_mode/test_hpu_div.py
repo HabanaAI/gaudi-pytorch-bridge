@@ -38,7 +38,7 @@ def test_hpu_div_scalar_mode(shape, scalar, rounding_mode, dtype):
         hpu_other = scalar
 
     cpu_compiled_fn = fn
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend") if pytest.mode == "compile" else fn
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
 
     cpu_output = cpu_compiled_fn(cpu_input, cpu_other, rounding_mode)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_other, rounding_mode).cpu()

@@ -44,7 +44,7 @@ def test_weight_norm_fwd_bwd(dtype):
         output.backward(grad)
         return output, input.grad
 
-    model_compile_hpu = torch.compile(fn, backend="aot_hpu_training_backend")
+    model_compile_hpu = torch.compile(fn, backend="hpu_backend")
     model_compile_cpu = torch.compile(fn)
 
     output_hpu, x_grad_hpu = model_compile_hpu(x_hpu, g_hpu, w_cpu, "hpu")
