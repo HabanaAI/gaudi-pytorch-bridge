@@ -102,22 +102,52 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
   return true;
 }
 
+void ViewOperatorDS::UpdateDynamicInputs(
+    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
+    [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
+  HABANA_ASSERT(
+      dtensor_list.size() == scalar_idx_list.size(),
+      "Dtensor and SymIntData count not matching");
+  auto dtensor = dtensor_list[0]->toTensor();
+  SymIntData& st_values = scalar_idx_list[0];
+  UpdateShapeTensorSize(dtensor, st_values.values, orig_stack, launch_shapes);
+  auto new_shape = launch_shapes.patch_values.back();
+  auto has_neg_size = false;
+  for (auto val : new_shape) {
+    if (val < 0) {
+      has_neg_size = true;
+      break;
+    }
+  }
+  if (has_neg_size) {
+    // if the sizes are negative, remove the tensor and sizes
+    // The actual tensor and sizes are inserted in ResolveNegativeSizes
+    launch_shapes.ds_tensors.pop_back();
+    launch_shapes.patch_values.pop_back();
+  }
+}
+
 void ViewOperatorDS::ResolveNegativeSizes(
     torch::jit::Node* node,
-    std::unordered_map<CValPtr, torch::jit::IValue>& value_ivalue_map) {
+    std::unordered_map<CValPtr, torch::jit::IValue>& value_ivalue_map,
+    LaunchDynamicShapes& launch_shapes) {
   auto view_st_value = node->inputs().at(1);
   auto view_out_value = node->outputs().at(0);
   auto cos_t_shapes = value_ivalue_map[view_out_value].toTensor().sizes().vec();
   auto ivsh_view_st = value_ivalue_map[view_st_value];
-  ivsh_view_st.toTensor().unsafeGetTensorImpl()->set_sizes_contiguous(
-      cos_t_shapes);
+  launch_shapes.ds_tensors.push_back(ivsh_view_st.toTensor());
+  launch_shapes.patch_values.push_back(cos_t_shapes);
 }
 
 void ArangeOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
-    std::vector<c10::IValue>& orig_stack) {
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_idx_list.size(),
       "Dtensor and SymIntData count not matching");
@@ -139,7 +169,9 @@ void ArangeOperatorDS::UpdateDynamicInputs(
     }
   }
   std::reverse(updated_h2d_data.begin(), updated_h2d_data.end());
-  UpdateH2DTensorData(dtensor, updated_h2d_data);
+  std::vector<int64_t> cast_data(
+      updated_h2d_data.begin(), updated_h2d_data.end());
+  UpdateH2DPatchingData(dtensor, cast_data, launch_shapes);
 }
 
 bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
@@ -436,7 +468,8 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
-    std::vector<c10::IValue>& orig_stack) {
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_idx_list.size(),
       "Dtensor and SymIntData count not matching");
@@ -455,20 +488,10 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
     auto* impl = stack_tensor.unsafeGetTensorImpl();
     std::vector<uint64_t> h2d_data = GetH2DTensorHostData<uint64_t>(dtensor);
     updated_h2d_data.reserve(h2d_data.size());
-    // update offset value
+    // Update strides and offset
+    auto offset = impl->storage_offset();
     {
-      auto offset = impl->storage_offset();
       updated_h2d_data.push_back(static_cast<uint64_t>(offset));
-      // Update offset ShapeTensor if present
-      if (dtensor_list.size() == 3) {
-        auto dtensor = dtensor_list[2]->toTensor();
-        c10::SmallVector<int64_t, NUM_TENSOR_DIMS> new_shape(1, offset);
-        dtensor.unsafeGetTensorImpl()->set_sizes_contiguous(new_shape);
-        PT_EAGER_DEBUG("Updated offset shape tensor size:", dtensor.sizes());
-      }
-    }
-    // Update strides
-    {
       std::vector<int64_t> values_strides = impl->strides().vec();
       for (auto it = values_strides.rbegin(); it != values_strides.rend();
            ++it) {
@@ -485,14 +508,26 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
       for (size_t idx = 0; idx < (h2d_data.size() >> 1); idx++) {
         updated_h2d_data.push_back(updated_h2d_data[idx]);
       }
-      UpdateH2DTensorData<uint64_t>(dtensor, updated_h2d_data);
+      std::vector<int64_t> cast_data(
+          updated_h2d_data.begin(), updated_h2d_data.end());
+      UpdateH2DPatchingData(dtensor, cast_data, launch_shapes);
+    }
+    // Update offset ShapeTensor if present
+    if (dtensor_list.size() == 3) {
+      auto dtensor = dtensor_list[2]->toTensor();
+      c10::SmallVector<int64_t, NUM_TENSOR_DIMS> new_shape(1, offset);
+      std::vector<int64_t> return_shapes(new_shape.begin(), new_shape.end());
+      launch_shapes.ds_tensors.push_back(dtensor);
+      launch_shapes.patch_values.push_back(return_shapes);
+      PT_EAGER_DEBUG("Updated offset shape tensor size:", dtensor.sizes());
     }
     // Update size ShapeTensor
     {
       auto dtensor = dtensor_list[0]->toTensor();
       std::vector<int64_t> values_sizes = impl->sizes().vec();
       PT_EAGER_DEBUG("Output ShapeTensor updated size ", values_sizes);
-      dtensor.unsafeGetTensorImpl()->set_sizes_contiguous(values_sizes);
+      launch_shapes.ds_tensors.push_back(dtensor);
+      launch_shapes.patch_values.push_back(values_sizes);
     }
   } else {
     SymIntData& scalar_idx = scalar_idx_list[1];
@@ -508,32 +543,17 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
       }
     }
 
-    UpdateH2DTensorData<uint64_t>(dtensor, updated_h2d_data);
-
-    for (size_t i = 0; i < dtensor_list.size(); i++) {
+    std::vector<int64_t> cast_data(
+        updated_h2d_data.begin(), updated_h2d_data.end());
+    UpdateH2DPatchingData(dtensor, cast_data, launch_shapes);
+    for (int i = dtensor_list.size() - 1; i >= 0; i--) {
       if (i == 1)
         continue;
       auto dtensor = dtensor_list[i]->toTensor();
       SymIntData st_values = scalar_idx_list[i];
-      UpdateShapeTensorSize(dtensor, st_values.values, orig_stack);
+      UpdateShapeTensorSize(
+          dtensor, st_values.values, orig_stack, launch_shapes);
     }
-  }
-  // offset patching in case stridedratio flow is used
-  // Need to update the stride information also to be patched
-  // in case of dynamic cache hit
-  // Read the relevant data from updated_h2d_data and update the tmeta
-  // @TODO - Check if need to recalculate the stride ratio also
-  if (dtensor_list.size() == 3) {
-    auto dtensor_offset = dtensor_list[2]->toTensor();
-    auto tmeta_offset{get_tensor_extra_meta(dtensor_offset)};
-    auto num_strides = updated_h2d_data[0];
-    std::vector<int64_t> actual_strides;
-    for (size_t i = 2; i < (2 + num_strides); ++i) {
-      actual_strides.push_back(updated_h2d_data[i]);
-    }
-    // Since strides here are reversed, make it unreverse
-    std::reverse(actual_strides.begin(), actual_strides.end());
-    tmeta_offset->get_shape_struct().set_strides_tensor_shape(actual_strides);
   }
 }
 
@@ -675,7 +695,8 @@ void StridedInsertOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
-    std::vector<c10::IValue>& orig_stack) {
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_idx_list.size(),
       "Dtensor and SymIntData count not matching");
@@ -699,7 +720,9 @@ void StridedInsertOperatorDS::UpdateDynamicInputs(
           static_cast<uint64_t>(GetSymintValue(orig_stack, stack_index)));
     }
   }
-  UpdateH2DTensorData<uint64_t>(dtensor, updated_h2d_data);
+  std::vector<int64_t> cast_data(
+      updated_h2d_data.begin(), updated_h2d_data.end());
+  UpdateH2DPatchingData(dtensor, cast_data, launch_shapes);
 
   // offset patching in case stridedratio flow is used
   // Need to update the stride information also to be patched
@@ -707,19 +730,10 @@ void StridedInsertOperatorDS::UpdateDynamicInputs(
   // Read the relevant data from updated_h2d_data and update the tmeta
   // @TODO - Check if need to recalculate the stride ratio also
   if (dtensor_list.size() == 2) {
-    auto dtensor = dtensor_list[1]->toTensor();
-    SymIntData st_values = scalar_idx_list[1];
-    UpdateShapeTensorSize(dtensor, st_values.values, orig_stack);
     auto dtensor_offset = dtensor_list[1]->toTensor();
-    auto tmeta_offset{get_tensor_extra_meta(dtensor_offset)};
-    auto num_strides = updated_h2d_data[0];
-    std::vector<int64_t> actual_strides;
-    for (size_t i = 2; i < (2 + num_strides); ++i) {
-      actual_strides.push_back(updated_h2d_data[i]);
-    }
-    // Since strides here are reversed, make it unreverse
-    std::reverse(actual_strides.begin(), actual_strides.end());
-    tmeta_offset->get_shape_struct().set_strides_tensor_shape(actual_strides);
+    SymIntData st_values = scalar_idx_list[1];
+    UpdateShapeTensorSize(
+        dtensor_offset, st_values.values, orig_stack, launch_shapes);
   }
 }
 

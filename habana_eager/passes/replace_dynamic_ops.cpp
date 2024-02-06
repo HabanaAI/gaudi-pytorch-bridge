@@ -242,7 +242,8 @@ void HandlePostDynamic(
 void ResolveNegativeSTSizes(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,
-    std::shared_ptr<DynamicGraphMetaData> dmeta) {
+    std::shared_ptr<DynamicGraphMetaData> dmeta,
+    LaunchDynamicShapes& launch_shapes) {
   PT_EAGER_TRACE;
   std::unordered_map<CValPtr, torch::jit::IValue> m_value_ivalue_map;
   HabanaLaunchOpPT::RunHybridSif(graph, stack, m_value_ivalue_map);
@@ -255,13 +256,14 @@ void ResolveNegativeSTSizes(
     DynamicOpPtr dsOp = DSOpsRegistry().get(node_name);
     if (!dsOp)
       continue;
-    dsOp->ResolveNegativeSizes(node, m_value_ivalue_map);
+    dsOp->ResolveNegativeSizes(node, m_value_ivalue_map, launch_shapes);
   }
 }
 
 void HandleDynamicInputPatching(
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
+    LaunchDynamicShapes& launch_shapes,
     bool is_first_launch) {
   PT_EAGER_TRACE;
 
@@ -287,7 +289,8 @@ void HandleDynamicInputPatching(
     }
 
     if (!is_first_launch) {
-      dtensor_info.first(dtensor_list, scalar_list, tensor_list, stack);
+      dtensor_info.first(
+          dtensor_list, scalar_list, tensor_list, stack, launch_shapes);
     }
   }
 

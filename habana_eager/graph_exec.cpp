@@ -32,11 +32,60 @@
 namespace habana {
 namespace graph {
 
+void PatchDynamicTensors(LaunchDynamicShapes& launch_shapes) {
+  size_t num_tensors = launch_shapes.ds_tensors.size();
+  PT_DYNAMIC_SHAPE_DEBUG("Num DS tensors to be patched = ", num_tensors);
+  for (size_t i = 0; i < num_tensors; i++) {
+    auto tensor = launch_shapes.ds_tensors[i];
+    std::vector<int64_t> patch_data = launch_shapes.patch_values[i];
+    auto tmeta{habana::get_tensor_extra_meta(tensor)};
+    if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
+      habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
+      if (h2d_dt_type == habana::HostDataType::INT32_T) {
+        std::vector<int32_t> h2d_data(patch_data.begin(), patch_data.end());
+        UpdateH2DTensorData<int32_t>(tensor, h2d_data);
+      } else if (h2d_dt_type == habana::HostDataType::UINT32_T) {
+        std::vector<uint32_t> h2d_data(patch_data.begin(), patch_data.end());
+        UpdateH2DTensorData<uint32_t>(tensor, h2d_data);
+      } else if (h2d_dt_type == habana::HostDataType::UINT64_T) {
+        std::vector<uint64_t> h2d_data(patch_data.begin(), patch_data.end());
+        UpdateH2DTensorData<uint64_t>(tensor, h2d_data);
+      }
+    } else if (tmeta->get_tensor_type() == SHAPE_TENSOR) {
+      tensor.unsafeGetTensorImpl()->set_sizes_contiguous(patch_data);
+      // If the tmeta contains data, it means it we need to patch
+      // it with actual strides as well in tmeta. But Actual stride
+      // information is present in previous H2D tensor(while filling tensors
+      // in stridedView and StridedInsert we have made sure that offset tensor
+      // follows H2D), get the H2D tensor and fill the strides value from it.
+      if (tmeta->get_shape_struct().has_shape_tensor_data()) {
+        auto tensor_H2D = launch_shapes.ds_tensors[i - 1];
+        auto tmeta_H2D{habana::get_tensor_extra_meta(tensor_H2D)};
+        HABANA_ASSERT(
+            tmeta_H2D->get_tensor_type() == HOST_TO_DEVICE_TENSOR,
+            "Invalid tensor used for updating actual stride value");
+        std::vector<int64_t> updated_h2d_data =
+            launch_shapes.patch_values[i - 1];
+        auto num_strides = updated_h2d_data[0];
+        std::vector<int64_t> actual_strides;
+        for (int64_t i = 2; i < (2 + num_strides); ++i) {
+          actual_strides.push_back(updated_h2d_data[i]);
+        }
+        // Since strides here are reversed, make it unreverse
+        std::reverse(actual_strides.begin(), actual_strides.end());
+        tmeta->get_shape_struct().set_strides_tensor_shape(actual_strides);
+      }
+    }
+  }
+}
+
 void GraphExec::LaunchRecipeTask(
     GraphExec* gexec,
     torch::jit::Stack&& inputs,
-    std::vector<at::Tensor>&& outputs) {
+    std::vector<at::Tensor>&& outputs,
+    LaunchDynamicShapes launch_shapes) {
   PT_EAGER_TRACE_WITH_NAME(gexec->m_graph_name);
+  PatchDynamicTensors(launch_shapes);
   gexec->LaunchRecipe(std::move(inputs), outputs);
 }
 
@@ -151,15 +200,20 @@ std::vector<at::IValue> GraphExec::ProcessDynamicStack(
     bool is_first_launch) {
   PT_EAGER_TRACE;
   torch::jit::Stack new_stack;
+  LaunchDynamicShapes launch_shapes;
   new_stack.reserve(
       orig_stack.size() + m_dgraph_meta->ds_input_patching_list.size());
   new_stack.insert(new_stack.end(), orig_stack.begin(), orig_stack.end());
-  pass::HandleDynamicInputPatching(new_stack, m_dgraph_meta, is_first_launch);
+  pass::HandleDynamicInputPatching(
+      new_stack, m_dgraph_meta, launch_shapes, is_first_launch);
   HABANA_ASSERT(
       m_graph->inputs().size() == new_stack.size(),
       "Graph inputs size not patching with stack size!!");
   if (!is_first_launch && m_dgraph_meta->negative_size_nodes.size())
-    pass::ResolveNegativeSTSizes(m_graph, new_stack, m_dgraph_meta);
+    pass::ResolveNegativeSTSizes(
+        m_graph, new_stack, m_dgraph_meta, launch_shapes);
+  if (!is_first_launch)
+    m_ds_patch_data.launch_shapes.push(launch_shapes);
   return new_stack;
 }
 
@@ -217,8 +271,8 @@ torch::jit::Stack GraphExec::launch(
   if (IsDynamicGraph()) {
     PT_EAGER_INFO("Launch dynamic recipe. is_first_launch: ", is_first_launch);
     torch::jit::Stack original_stack = stack;
-    stack = ProcessDynamicStack(original_stack, is_first_launch);
     is_first_launch = false;
+    stack = ProcessDynamicStack(original_stack, is_first_launch);
 
     // [TODO] Disable hybrid sif until SW-153320
     habana_helpers::SetHybridSIFTorchCompile(false);
@@ -241,14 +295,20 @@ torch::jit::Stack GraphExec::launch(
 
   m_is_pipeline_supported = m_is_pipeline_supported && !backend_outputs.empty();
   m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
+  LaunchDynamicShapes launch_shapes;
+  if (!m_ds_patch_data.launch_shapes.empty()) {
+    launch_shapes = m_ds_patch_data.launch_shapes.front();
+    m_ds_patch_data.launch_shapes.pop();
+  }
   if (m_is_pipeline_supported) {
+    // Check if condition needed specific to dynamic
     habana::eager::SingleTonEagerContext::getInstance()
         .ScheduleWorkAndUpdateLoweringThreadHandle(
             LaunchRecipeTask,
             this,
             std::move(backend_inputs),
-            std::move(backend_outputs));
-
+            std::move(backend_outputs),
+            std::move(launch_shapes));
     return {};
   } else {
     std::optional<std::vector<at::Tensor>> maybe_backend_outputs;
@@ -256,6 +316,7 @@ torch::jit::Stack GraphExec::launch(
       maybe_backend_outputs = backend_outputs;
     }
     habana::eager::JoinPendingPipelineThreads();
+    PatchDynamicTensors(launch_shapes);
     torch::jit::Stack ret_stack =
         LaunchRecipe(std::move(backend_inputs), maybe_backend_outputs);
     return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);

@@ -22,6 +22,7 @@
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_eager/graph_dynamic.h"
+#include "habana_eager/graph_dynamic_ops.h"
 
 namespace habana {
 namespace graph {
@@ -44,7 +45,8 @@ class GraphExec {
   static void LaunchRecipeTask(
       GraphExec* gexec,
       torch::jit::Stack&& inputs,
-      std::vector<at::Tensor>&& outputs);
+      std::vector<at::Tensor>&& outputs,
+      LaunchDynamicShapes launch_shapes);
 
   void ResetSeed();
 
@@ -80,6 +82,7 @@ class GraphExec {
   bool is_first_launch = true;
   bool m_is_pipeline_supported = false;
   std::shared_ptr<DynamicGraphMetaData> m_dgraph_meta = nullptr;
+  DynamicPatchingData m_ds_patch_data;
 
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData> m_graph_and_meta;
   std::set<int> m_graph_inputs_to_permute;

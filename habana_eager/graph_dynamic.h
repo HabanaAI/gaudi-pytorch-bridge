@@ -14,6 +14,7 @@
 #pragma once
 
 #include <memory>
+#include <queue>
 #include <string>
 #include <vector>
 
@@ -32,11 +33,20 @@ struct SymIntData {
   std::vector<int64_t> values;
 };
 
+struct LaunchDynamicShapes {
+  std::vector<at::Tensor> ds_tensors;
+  std::vector<std::vector<int64_t>> patch_values;
+};
+
+struct DynamicPatchingData {
+  std::queue<LaunchDynamicShapes> launch_shapes;
+};
 using InputPatchFnPtr = std::function<void(
     c10::SmallVectorImpl<torch::jit::IValue*>&,
     c10::SmallVectorImpl<habana::graph::SymIntData>&,
     c10::SmallVectorImpl<std::vector<int64_t>>&,
-    std::vector<c10::IValue>&)>;
+    std::vector<c10::IValue>&,
+    LaunchDynamicShapes&)>;
 using InputPatchPair = std::pair<InputPatchFnPtr, std::vector<int64_t>>;
 
 struct DynamicGraphMetaData {

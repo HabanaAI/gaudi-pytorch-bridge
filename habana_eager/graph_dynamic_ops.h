@@ -54,7 +54,8 @@ torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
 void UpdateShapeTensorSize(
     at::Tensor& dtensor,
     std::vector<int64_t>& stack_idxs,
-    std::vector<c10::IValue>& orig_stack);
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes);
 
 int64_t UpdateDynamicTensorDSStack(
     torch::jit::IValue& iv_tensor,
@@ -67,6 +68,11 @@ int64_t CreateSTAndInsertToDSStack(
     const std::vector<int64_t>& scalar_indexes,
     const std::vector<int64_t>& tensor_indexes,
     std::shared_ptr<DynamicGraphMetaData> dmeta);
+
+void UpdateH2DPatchingData(
+    at::Tensor& dtensor,
+    std::vector<int64_t>& data,
+    LaunchDynamicShapes& launch_shapes);
 
 template <typename T>
 void UpdateH2DTensorData(at::Tensor& dtensor, std::vector<T>& data) {
@@ -118,13 +124,15 @@ class DynamicOp {
   virtual void ResolveNegativeSizes(
       [[maybe_unused]] torch::jit::Node* node,
       [[maybe_unused]] std::unordered_map<CValPtr, torch::jit::IValue>&
-          value_ivalue_map) {}
+          value_ivalue_map,
+      [[maybe_unused]] LaunchDynamicShapes& launch_shapes) {}
 
   static void UpdateDynamicInputs(
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
-      std::vector<c10::IValue>& orig_stack);
+      std::vector<c10::IValue>& orig_stack,
+      LaunchDynamicShapes& launch_shapes);
 
   std::vector<at::Tensor> getInputTensers(
       const torch::jit::Node* node,
@@ -207,13 +215,14 @@ class ViewOperatorDS : public DynamicOp {
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
   void ResolveNegativeSizes(
       torch::jit::Node* node,
-      std::unordered_map<CValPtr, torch::jit::IValue>& value_ivalue_map)
-      override;
+      std::unordered_map<CValPtr, torch::jit::IValue>& value_ivalue_map,
+      LaunchDynamicShapes& launch_shapes) override;
   static void UpdateDynamicInputs(
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
-      std::vector<c10::IValue>& stack);
+      std::vector<c10::IValue>& stack,
+      LaunchDynamicShapes& launch_shapes);
 };
 
 class ArangeOperatorDS : public DynamicOp {
@@ -229,7 +238,8 @@ class ArangeOperatorDS : public DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
-      std::vector<c10::IValue>& stack);
+      std::vector<c10::IValue>& stack,
+      LaunchDynamicShapes& launch_shapes);
 };
 
 class RepeatOperatorDS : public DynamicOp {
@@ -245,7 +255,8 @@ class RepeatOperatorDS : public DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
-      std::vector<c10::IValue>& stack);
+      std::vector<c10::IValue>& stack,
+      LaunchDynamicShapes& launch_shapes);
 };
 
 class TopkOperatorDS : public DynamicOp {
@@ -261,7 +272,8 @@ class TopkOperatorDS : public DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
-      std::vector<c10::IValue>& stack);
+      std::vector<c10::IValue>& stack,
+      LaunchDynamicShapes& launch_shapes);
 };
 
 class AsStridedOperatorDS : public DynamicOp {
@@ -277,7 +289,8 @@ class AsStridedOperatorDS : public DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
-      std::vector<c10::IValue>& stack);
+      std::vector<c10::IValue>& stack,
+      LaunchDynamicShapes& launch_shapes);
 };
 
 class StridedInsertOperatorDS : public DynamicOp {
@@ -293,7 +306,8 @@ class StridedInsertOperatorDS : public DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
-      std::vector<c10::IValue>& stack);
+      std::vector<c10::IValue>& stack,
+      LaunchDynamicShapes& launch_shapes);
 };
 } // namespace graph
 } // namespace habana

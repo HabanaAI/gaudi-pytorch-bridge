@@ -136,7 +136,8 @@ torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
 void UpdateShapeTensorSize(
     at::Tensor& dtensor,
     std::vector<int64_t>& stack_idxs,
-    std::vector<c10::IValue>& orig_stack) {
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
   c10::SmallVector<int64_t, NUM_TENSOR_DIMS> new_shape(stack_idxs.size(), 1);
 
   for (size_t idx = 0; idx < stack_idxs.size(); ++idx) {
@@ -152,8 +153,20 @@ void UpdateShapeTensorSize(
     }
   }
 
-  dtensor.unsafeGetTensorImpl()->set_sizes_contiguous(new_shape);
   PT_EAGER_DEBUG("Updated dynamic shape tensor size:", dtensor.sizes());
+  std::vector<int64_t> cast_shapes(new_shape.begin(), new_shape.end());
+  launch_shapes.ds_tensors.push_back(dtensor);
+  launch_shapes.patch_values.push_back(cast_shapes);
+}
+
+void UpdateH2DPatchingData(
+    at::Tensor& dtensor,
+    std::vector<int64_t>& data,
+    LaunchDynamicShapes& launch_shapes) {
+  PT_EAGER_DEBUG("Input data for updating H2D tensor:", data);
+  launch_shapes.ds_tensors.push_back(dtensor);
+  launch_shapes.patch_values.push_back(data);
+  return;
 }
 
 int64_t UpdateDynamicTensorDSStack(
@@ -210,7 +223,8 @@ void DynamicOp::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
-    std::vector<c10::IValue>& orig_stack) {
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_list.size(),
       "Dtensor and SymIntData count not matching");
@@ -218,7 +232,7 @@ void DynamicOp::UpdateDynamicInputs(
   for (int idx = 0; idx < tensor_count; idx++) {
     auto dtensor = dtensor_list[idx]->toTensor();
     SymIntData& st_values = scalar_list[idx];
-    UpdateShapeTensorSize(dtensor, st_values.values, orig_stack);
+    UpdateShapeTensorSize(dtensor, st_values.values, orig_stack, launch_shapes);
   }
 }
 
@@ -273,7 +287,8 @@ void RepeatOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
-    std::vector<c10::IValue>& orig_stack) {
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
   HABANA_ASSERT(
       dtensor_list.size() == scalar_idx_list.size(),
       "Dtensor and SymIntData count not matching");
@@ -296,7 +311,9 @@ void RepeatOperatorDS::UpdateDynamicInputs(
   }
 
   std::reverse(updated_h2d_data.begin(), updated_h2d_data.end());
-  UpdateH2DTensorData(dtensor, updated_h2d_data);
+  std::vector<int64_t> cast_data(
+      updated_h2d_data.begin(), updated_h2d_data.end());
+  UpdateH2DPatchingData(dtensor, cast_data, launch_shapes);
 }
 
 bool TopkOperatorDS::ReplaceWithDynamicHPUOp(
