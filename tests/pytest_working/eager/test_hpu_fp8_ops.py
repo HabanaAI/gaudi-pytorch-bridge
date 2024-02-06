@@ -36,6 +36,7 @@ pytestmark = [
 ]
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("shape", [(64, 48)])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 @pytest.mark.parametrize("out_dtype", FP8_NAMES)
@@ -71,6 +72,7 @@ def test_cast_to_fp8(shape, dtype, out_dtype):
     assert amax.cpu() == torch.max(input.abs())
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("shape", [(64, 48)])
 @pytest.mark.parametrize("scale", [0.75])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])

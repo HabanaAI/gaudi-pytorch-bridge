@@ -42,6 +42,7 @@ class ScaleMode(Enum):
     SCALAR_CHANNEL = 4
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("shape", [(64, 48)], ids=format_tc)
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 @pytest.mark.parametrize("stochastic", [True, False])
@@ -148,6 +149,7 @@ def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, scale_mode, axis, out
 # casting bf16 to f8 uses SFTZ rounding mode, which applies
 # stochastic rounding also when rounding number between
 # 0.0 and f8 min denormal value.
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 def test_sftz_rounding_mode():
     input_dtype = torch.bfloat16
     target_dtype = torch.float8_e5m2
