@@ -475,11 +475,20 @@ class HabanaOperator {
   // destructor
   virtual ~HabanaOperator();
 
-  virtual std::vector<at::Tensor>& GetOutputs() const {
+  virtual std::vector<at::Tensor>& GetOutputs() {
     return p_context_->pt_outputs_;
   }
 
-  virtual std::deque<synapse_helpers::tensor_or_ref>& GetSynOutputs() const {
+  virtual const std::vector<at::Tensor>& GetOutputs() const {
+    return p_context_->pt_outputs_;
+  }
+
+  virtual std::deque<synapse_helpers::tensor_or_ref>& GetSynOutputs() {
+    return p_context_->syn_outputs_;
+  }
+
+  virtual const std::deque<synapse_helpers::tensor_or_ref>& GetSynOutputs()
+      const {
     return p_context_->syn_outputs_;
   }
 

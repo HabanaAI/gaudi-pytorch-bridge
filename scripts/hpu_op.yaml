@@ -6096,7 +6096,13 @@ resize_:
   output_meta: ResizeOutputMeta
   guid: memcpy
   inplace_ids: [0]
-  op_backend: ResizeHabanaOperator
+  op_backend: ResizeOpBackend
+
+_resize_output_:
+  output_meta: ResizeOutputMeta
+  guid: memcpy
+  inplace_ids: [0]
+  op_backend: ResizeOutputOpBackend
 
 roll:
   dtypes:

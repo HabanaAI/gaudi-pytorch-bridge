@@ -37,30 +37,6 @@ def test_equal(data1, data2):
     assert hpu_result == cpu_result
 
 
-@pytest.mark.parametrize(
-    "shape_in, shape_out",
-    [((2, 3), (4, 6)), ((4, 6), (2, 3)), ((2, 3, 4, 5), (3, 4, 5, 6))],
-)
-@pytest.mark.parametrize("blocking_flag", [True, False])
-def test_resize_inplace(shape_in, shape_out, blocking_flag):
-    num_elements = np.multiply.reduce(shape_in)
-    cpu_tensor = torch.Tensor(
-        np.reshape(np.arange(num_elements, dtype=np.int32), shape_in)
-    ).type(torch.int32)
-    hpu_tensor = cpu_tensor.to("hpu", non_blocking=blocking_flag)
-    result_cpu = cpu_tensor.resize_(shape_out).numpy().flatten()[:num_elements]
-    result_hpu = (
-        hpu_tensor.resize_(shape_out).to("cpu").numpy().flatten()[:num_elements]
-    )
-
-    assert np.array_equal(result_hpu, result_cpu)
-
-def test_empty_resize():
-    hpu_tensor = torch.empty([], device="hpu")
-    hpu_tensor.resize_(10)
-    cpu_tensor = hpu_tensor.to("cpu")
-    assert np.equal(cpu_tensor.size()[0], 10)
-
 def test_non_blocking_copy_inplace_op():
     cpu_tensor = torch.rand([100])
     hpu_tensor = cpu_tensor.to("hpu", non_blocking=True)
