@@ -884,3 +884,15 @@ def test_inplace_binary_strided_insert():
     hpu_self.add_(hpu_other)
 
     assert torch.equal(hpu_self.cpu(), cpu_self)
+
+def test_zero_size():
+    cpu_tensor = torch.randn([1])
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    cpu_tensor = cpu_tensor[1::2]
+    hpu_tensor = hpu_tensor[1::2]
+
+    cpu_tensor *= -1.
+    hpu_tensor *= -1.
+
+    assert torch.allclose(cpu_tensor, hpu_tensor.to("cpu"), atol=0.001, rtol=0.001)
