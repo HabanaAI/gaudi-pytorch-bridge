@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -578,7 +578,7 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
               at::ScalarType::Bool,
               at::ScalarType::Char,
               at::ScalarType::Float,
-              at::ScalarType::Long}},
+              at::ScalarType::Long FP8_DTYPES}},
         },
         {
             "threshold_backward",
