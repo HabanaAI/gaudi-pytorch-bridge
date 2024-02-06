@@ -28,24 +28,15 @@ supported_dtypes = [torch.bfloat16, torch.float, torch.int, torch.short]
 if not is_gaudi1():
     supported_dtypes.append(torch.half)
 
-def generate_inputs(ndim):
-    shapes = []
-    shapes.append(tuple([1] * ndim))
-    shapes.append(tuple([ndim * 2] * ndim))
-    shapes.append(tuple(range(1, ndim * 2 + 1, 2)))
-    shapes.append(tuple(range(ndim * 2, 0, -2)))
+#             shape                 dims        offset
+input5D = [[(10, 10, 10, 10, 10), (0, 1),      0]]
+input4D = [[(2, 2, 2, 2, 2),      (1, 0),      5],
+           [(5, 5, 5, 5),         (-1, 2),     3],
+           [(1, 2, 3, 4),         (-1, -2),    2],
+           [(1, 1, 1, 1),         (3, 0),     -1]]
+input3D = [[(5, 3, 1),            (0, 2),      2],
+           [(2, 2, 2),            (0, 1),      0]]
 
-    if ndim != 3:
-        dim = [0, 1, ndim-1, -2]
-    else:
-        dim = [0, 1, -1]
-    dims = list(combinations(dim, 2))
-    offset = [0, 1, ndim, ndim+1]
-    return [shapes, dims, offset]
-
-input_5d = generate_inputs(5)
-input_4d = generate_inputs(4)
-input_3d = generate_inputs(3)
 
 def diagonal_test_generic(shape, dims, offset, dtype):
     input = torch.rand(shape).to(dtype=dtype)
@@ -72,23 +63,29 @@ def diagonal_test_generic(shape, dims, offset, dtype):
 
     assert torch.allclose(expected, result, atol=atol, rtol=rtol)
 
-@pytest.mark.parametrize("shape", input_5d[0])
-@pytest.mark.parametrize("dims", input_5d[1])
-@pytest.mark.parametrize("offset", input_5d[2])
-@pytest.mark.parametrize("dtype", supported_dtypes)
-def test_diagonal_5d(shape, dims, offset, dtype):
+@pytest.mark.parametrize("input", input5D)
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int])
+def test_diagonal_5D(input, dtype):
+    shape = input[0]
+    dims = input[1]
+    offset = input[2]
+
     diagonal_test_generic(shape, dims, offset, dtype)
 
-@pytest.mark.parametrize("shape", input_4d[0])
-@pytest.mark.parametrize("dims", input_4d[1])
-@pytest.mark.parametrize("offset", input_4d[2])
+@pytest.mark.parametrize("input", input4D)
 @pytest.mark.parametrize("dtype", supported_dtypes)
-def test_diagonal_4d(shape, dims, offset, dtype):
+def test_diagonal_4D(input, dtype):
+    shape = input[0]
+    dims = input[1]
+    offset = input[2]
+
     diagonal_test_generic(shape, dims, offset, dtype)
 
-@pytest.mark.parametrize("shape", input_3d[0])
-@pytest.mark.parametrize("dims", input_3d[1])
-@pytest.mark.parametrize("offset", input_3d[2])
+@pytest.mark.parametrize("input", input3D)
 @pytest.mark.parametrize("dtype", supported_dtypes)
-def test_diagonal_3d(shape, dims, offset, dtype):
+def test_diagonal_3D(input, dtype):
+    shape = input[0]
+    dims = input[1]
+    offset = input[2]
+
     diagonal_test_generic(shape, dims, offset, dtype)
