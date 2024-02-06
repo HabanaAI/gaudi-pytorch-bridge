@@ -70,4 +70,40 @@ std::shared_ptr<void> FillGatherParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
+void GatherElementsOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const auto self = stack.at(0).toTensor();
+  const auto index = stack.at(2).toTensor();
+
+  synTensor index_val;
+  std::unique_ptr<synapse_helpers::tensor> index_casted;
+  if (common::IsInt64Supported() &&
+      index.scalar_type() == c10::ScalarType::Long) {
+    index_casted = std::make_unique<synapse_helpers::tensor>(BuildCast(
+        this,
+        graph,
+        syn_in(1),
+        index.sizes(),
+        index.scalar_type(),
+        torch::kInt));
+    index_val = index_casted->get();
+  } else {
+    index_val = syn_in(1);
+  }
+
+  auto meta = GatherMeta(stack)[0];
+
+  size_t params_size = 0;
+  const auto& gather_params = FillGatherParams(stack, params_size);
+  auto gatherOp = BuildOp(
+      graph,
+      get_guid_with_precision("gather_elements_fwd", ScalarType()),
+      {syn_in(0), index_val},
+      {{meta.shape, meta.dtype, 0}},
+      gather_params.get(),
+      params_size);
+  syn_out(0) = std::move(gatherOp[0]);
+}
+
 } // namespace habana

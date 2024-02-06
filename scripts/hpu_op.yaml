@@ -1596,9 +1596,9 @@ bitwise_and.Tensor:
 bitwise_and.Tensor_out:
   output_meta: BitwiseLogicalMetaOut
   dtypes:
-    Gaudi: [Int, Long, Short, Byte, Char]
-    Gaudi2: [Int, Long, Short, Byte, Char]
-    Gaudi3: [Int, Long, Short, Byte, Char]
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
 
 bitwise_and_.Tensor:
@@ -1699,9 +1699,9 @@ bitwise_or.Tensor:
 bitwise_or.Tensor_out:
   output_meta: BitwiseLogicalMetaOut
   dtypes:
-    Gaudi: [Int, Long, Short, Byte, Char]
-    Gaudi2: [Int, Long, Short, Byte, Char]
-    Gaudi3: [Int, Long, Short, Byte, Char]
+    Gaudi: [Int, Short, Byte, Char]
+    Gaudi2: [Int, Short, Byte, Char]
+    Gaudi3: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
 
 bitwise_or_.Tensor:
@@ -2964,6 +2964,7 @@ gather:
     Gaudi3:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int, Long]
+  op_backend: GatherElementsOperator
   guid: gather_elements_fwd
   out_ids: [0]
 
@@ -2980,6 +2981,7 @@ gather.out:
     Gaudi3:
       self: [BFloat16, Float, Int, Short, Byte, Char, Half]
       index: [Int, Long]
+  op_backend: GatherElementsOperator
   guid: gather_elements_fwd
 
 ge.Scalar_out:
