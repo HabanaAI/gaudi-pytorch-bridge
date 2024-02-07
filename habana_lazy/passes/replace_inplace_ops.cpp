@@ -31,6 +31,7 @@ static const std::unordered_map<std::string, std::string> inPlaceToOutOfPlace =
         // Idemponent transformation inplace -> inplace, it is quick fix for
         // invalid detection of graph inputs in some cases.
         {"aten::zero_", "aten::zero_"},
+        {"aten::index_copy_", "aten::index_copy"},
 };
 
 bool isInplaceOp(const Node* node) {
