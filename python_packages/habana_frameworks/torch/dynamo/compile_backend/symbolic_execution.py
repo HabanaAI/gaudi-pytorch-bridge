@@ -13,10 +13,11 @@
 import copy
 import sys
 import sympy
+import re
 import torch
-
 from sympy import sympify
 from sympy.printing.printer import Printer
+from symengine import sympify as sympify_engine
 from .logger import get_compile_backend_logger
 
 logger = get_compile_backend_logger()
@@ -108,32 +109,56 @@ class SymExprNodeManager():
 
     def _create_symexpr_py_node(
         self,
-        sympy_expr,
-        sympy_symbols,
+        symbolic_expr,
+        symbolic_expr_symbols,
         py_node_args,
-        node_type):
-
-        def symexpr_python(*arguments, sympy_expr=copy.deepcopy(sympy_expr),
-                            expr_symbols=copy.deepcopy(sympy_symbols)):
-            sym_value_pair = []
-            for idx, sub_sym in enumerate(expr_symbols):
-                value = arguments[idx]
-                sym_value_pair.append((sub_sym, value))
-            size = sympy_expr.subs(sym_value_pair)
-            return int(size)
+        node_type,
+        is_symengine):
 
         node_name = SymExprNodeManager.node_name
-        with self._graph_module.graph.inserting_after(self._insert_point_node):
-            new_kwargs = None
-            new_node = self._graph_module.graph.create_node(
-                "call_function",
-                symexpr_python,
-                tuple(py_node_args),
-                new_kwargs,
-                node_name,
-                node_type
-            )
-            return new_node
+        if is_symengine:
+            def symexpr_python(*arguments, sym_expr=copy.deepcopy(symbolic_expr),
+                                sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols)):
+                sym_value_dict = {}
+                for idx, sub_sym in enumerate(sym_expr_symbols):
+                    value = arguments[idx]
+                    sym_value_dict[sub_sym]=value
+                size_e = sym_expr.subs(sym_value_dict)
+                return int(size_e)
+
+            with self._graph_module.graph.inserting_after(self._insert_point_node):
+                new_kwargs = None
+                new_node = self._graph_module.graph.create_node(
+                    "call_function",
+                    symexpr_python,
+                    tuple(py_node_args),
+                    new_kwargs,
+                    node_name,
+                    node_type
+                )
+                return new_node
+        else:
+            def symexpr_python(*arguments, sym_expr=copy.deepcopy(symbolic_expr),
+                                sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols)):
+                sym_value_pair = []
+                for idx, sub_sym in enumerate(sym_expr_symbols):
+                    value = arguments[idx]
+                    sym_value_pair.append((sub_sym, value))
+                size = sym_expr.subs(sym_value_pair)
+                return int(size)
+
+            node_name = SymExprNodeManager.node_name
+            with self._graph_module.graph.inserting_after(self._insert_point_node):
+                new_kwargs = None
+                new_node = self._graph_module.graph.create_node(
+                    "call_function",
+                    symexpr_python,
+                    tuple(py_node_args),
+                    new_kwargs,
+                    node_name,
+                    node_type
+                )
+                return new_node
 
     def add_sym_placeholder(self, meta_val, node):
         sym_str = PythonPrinter().doprint(meta_val)
@@ -153,17 +178,32 @@ class SymExprNodeManager():
     def get_or_create(self, sym_size_expr, node_type):
         pexpr = PythonPrinter().doprint
         sym_expr_str = pexpr(sym_size_expr)
+
         if sym_expr_str in self._sym_expr_to_node_map:
             new_node = self._sym_expr_to_node_map[sym_expr_str]
         else:
             sympy_expr = sympify(sym_expr_str)
-            sympy_expr_symbols = sympy_expr.free_symbols
+            logger.debug("Python callable creating for sympy expr: %s", sympy_expr)
+            symbolic_expr = sympy_expr
+            symbolic_expr_symbols = {}
+            is_symengine_expr = True
+
+            try:
+                symengine_expr_str = ExprPrinter().doprint(sympy_expr)
+                symbolic_expr = sympify_engine(symengine_expr_str)
+                symbolic_expr_symbols = symbolic_expr.free_symbols
+
+            except:
+                symbolic_expr_symbols = sympy_expr.free_symbols
+                is_symengine_expr = False
+
             node_args = []
-            for sym in sympy_expr_symbols:
+            for sym in symbolic_expr_symbols:
                 node_args.append(self._sym_placeholder_dict[pexpr(sym)])
-            logger.debug("symexpr_python call_function creating for expr:", sym_expr_str)
-            new_node = self._create_symexpr_py_node(sympy_expr, sympy_expr_symbols,
-                                                    node_args, node_type)
+            logger.debug("Python callable creating for final expr: %s, symbols: %s, is symengin:",
+                         symbolic_expr, symbolic_expr_symbols, is_symengine_expr)
+            new_node = self._create_symexpr_py_node(symbolic_expr, symbolic_expr_symbols,
+                                                    node_args, node_type, is_symengine_expr)
             self._sym_expr_to_node_map[sym_expr_str] = new_node
 
         return new_node
