@@ -147,6 +147,7 @@ function pytorch_usage()
         echo -e "  -x,  --xml PATH                     Output XML file to PATH - available in ST mode only"
         echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests, cpp_lazy, cpp_eager]. Default: all"
+        echo -e "  -c,  --test-case JUNITID            Run specific test based on JUnit ID"
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
         echo -e "  -h,  --help                         Prints this help"
     fi
@@ -1192,6 +1193,8 @@ run_pytorch_modules_tests()
     local __suite_type="all"
     local __dut="gaudi"
     local __hllog=3
+    local __test_case=""
+    local __pytest_mode="all"
 
     source ${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/disabled_tests.sh
     local __disable_failing_eager_tests="--gtest_filter=-"`echo ${FAILING_EAGER_TESTS[@]} | tr ' ' ':'`
@@ -1241,6 +1244,15 @@ run_pytorch_modules_tests()
             shift
             __marker="-m \"$1\""
             ;;
+        -c  | --test-case )
+            shift
+            if [[ "$1" =~ \  ]]; then
+               echo "Test case can't contain white space and only one test case can be provided."
+               usage $__scriptname
+               return 1
+            fi
+            __test_case="$1"
+            ;;
         -h  | --help )
             usage $__scriptname
             return 0
@@ -1279,6 +1291,64 @@ run_pytorch_modules_tests()
         return 1 # error
         ;;
     esac
+
+    #JUnitID for pytes tests has format
+    #Pytest{Eager | Compile | Lazy}.pytest_working.{compile | eager | lazy | any_mode}.<test file>.<test name>[parameters]
+    #JUnitID for gtest tests has format
+    #Cpp{Eager | Lazy}.<test suite>.<test case>[parameters]
+    if [ $__test_case ]; then
+        local __test_string_regex="^([a-zA-Z0-9\._-]*)(\[.*\])?$"
+        local __test_string=""
+        local __test_parameters=""
+        if ! [[ $__test_case =~ $__test_string_regex ]]; then
+            echo "Incorrect JUnit ID provided"
+            return 1
+        fi
+        __test_string=${BASH_REMATCH[1]}
+
+        if [ ${BASH_REMATCH[2]} ]; then
+            __test_parameters=${BASH_REMATCH[2]}
+        fi
+        __test_string=(${__test_string//./ })
+
+        case ${__test_string[0]} in
+        CppEager)
+            echo "Specified test belongs to suite CppEager. Changing suite_type to cpp_eager"
+            __suite_type="cpp_eager"
+            __cpp_filter=${__test_string[@]:1}
+            __cpp_filter="--gtest_filter=${__cpp_filter// /.}"
+            echo $__cpp_filter
+            ;;
+        CppLazy)
+            echo "Specified test belongs to suite CppLazy. Changing suite_type to cpp_lazy"
+            __suite_type="cpp_lazy"
+            __cpp_filter=${__test_string[@]:1}
+            __cpp_filter="--gtest_filter=${__cpp_filter// /.}"
+            ;;
+        PytestLazy)
+            echo "Specified test belongs to suite PytestLazy. Changing suite_type to py_test with mode lazy"
+            __suite_type="py_tests"
+            __pytest_mode="lazy"
+            __py_filter="${__test_string[@]:4}${__test_parameters}"
+            __py_filter="-k \"${__py_filter// /:}\""
+            ;;
+        PytestEager)
+            echo "Specified test belongs to suite PytestEager. Changing suite_type to py_test with mode eager"
+            __suite_type="py_tests"
+            __pytest_mode="eager"
+            __py_filter="${__test_string[@]:4}${__test_parameters}"
+            __py_filter="-k \"${__py_filter// /:}\""
+            ;;
+        PytestCompile)
+            echo "Specified test belongs to suite PytestCompile. Changing suite_type to py_test with mode compile"
+            __suite_type="py_tests"
+            __pytest_mode=compile
+            __py_filter="${__test_string[@]:4}${__test_parameters}"
+            __py_filter="-k \"${__py_filter// /:}\""
+            ;;
+        esac
+    fi
+
 
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${__ld_lib}
     if [ ! -n "$__print_tests" ]; then
@@ -1325,9 +1395,14 @@ run_pytorch_modules_tests()
         fi
     fi
 
-    if [ "$__suite_type" != "py_tests" ] && [ "$__suite_type" != "cpp_lazy" ] && [ -f "$__xml/test_pt2_integration.xml" ]; then
+    if [ -f "$__xml/test_pt2_integration.xml" ]; then
         # Workaround for jenkins skipping duplicated test names within "AllTests" scope
         sed -i -E 's/classname="(.+)"/classname="CppEager.\1"/g' $__xml/test_pt2_integration.xml
+    fi
+
+    if [ -f "$__xml/test_pt_integration.xml" ]; then
+        # Workaround for jenkins skipping duplicated test names within "AllTests" scope
+        sed -i -E 's/classname="(.+)"/classname="CppLazy.\1"/g' $__xml/test_pt_integration.xml
     fi
 
     if [ -n "$__print_tests" ]; then
@@ -1359,12 +1434,18 @@ run_pytorch_modules_tests()
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
         if [ "$__dut" != "gaudi3" ]; then
             pushd $HABANA_SOFTWARE_STACK/pytorch-integration/tests/
-            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_lazy_pytest.xml" --mode="lazy" --junit-prefix="Lazy." ${__marker})
-            __test_status=$((__test_status | $?))
-            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_compile_pytest.xml" --mode="compile" --junit-prefix="Compile." ${__marker})
-            __test_status=$((__test_status | $?))
-            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_eager_pytest.xml" --mode="eager" --junit-prefix="Eager." ${__marker})
-            __test_status=$((__test_status | $?))
+            if [[ "$__pytest_mode" = "lazy" || "$__pytest_mode" = "all" ]] ; then
+                (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_lazy_pytest.xml" --mode="lazy" --junit-prefix="PytestLazy" ${__marker})
+                __test_status=$((__test_status | $?))
+            fi
+            if [[ "$__pytest_mode" = "compile" || "$__pytest_mode" = "all" ]] ; then
+                (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_compile_pytest.xml" --mode="compile" --junit-prefix="PytestCompile" ${__marker})
+                __test_status=$((__test_status | $?))
+            fi
+            if [[ "$__pytest_mode" = "eager" || "$__pytest_mode" = "all" ]] ; then
+                (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_eager_pytest.xml" --mode="eager" --junit-prefix="PytestEager" ${__marker})
+                __test_status=$((__test_status | $?))
+            fi
             popd
         fi
     fi

@@ -425,7 +425,8 @@ class TcLimitedFormatter:
                         self.counter += 1
                     elif i > limit_array and i < len(val) - limit_array:
                         continue
-                ret = "{},{}".format(ret, self.format_tc_common(current_value, limit_array))
+
+                ret = "{}x{}".format(ret, self.format_tc_common(current_value, limit_array))
             ret = "{}]".format(ret)
             if limit_str is not None and len(ret) > limit_str:
                 ret = ret[0:limit_str] + "___{}".format(self.counter)
