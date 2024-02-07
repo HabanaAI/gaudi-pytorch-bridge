@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -364,6 +364,11 @@ at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
     if (!same_data_type) {
       self_ = _hpu_cast(self, dst.options(), c10::MemoryFormat::Contiguous);
     }
+
+    auto dstShape = dst.sizes();
+    if (dstShape.vec() != self_.sizes().vec())
+      self_ = self_.broadcast_to(dstShape);
+
     result = add_strided_insert(dst, self_);
   } else {
     // Since _copy_from is neither inplace nor an out variant but pytorch
