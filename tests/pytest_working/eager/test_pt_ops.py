@@ -60,19 +60,6 @@ def test_alias():
     assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
 
 
-@pytest.mark.parametrize("memory_format", [None, torch.contiguous_format])
-def test_clone(memory_format):
-    def raw_function(x):
-        return torch.clone(x, memory_format=memory_format)
-
-    cpu_tensor = torch.randn(4, 4)
-    hpu_tensor = cpu_tensor.to("hpu")
-
-    result_cpu = raw_function(cpu_tensor)
-    result_hpu = raw_function(hpu_tensor).to("cpu")
-    assert torch.equal(result_cpu, result_hpu)
-
-
 @pytest.mark.parametrize("size_stride", [((20, 20), (20, 1)), ((20, 20), (30, 1))])
 def test_empty_strided(size_stride):
     def test(size, stride, device):

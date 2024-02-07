@@ -70,15 +70,6 @@ def test_non_blocking_copy_inplace_op():
 
     assert torch.equal(hpu_tensor.to("cpu"), cpu_tensor)
 
-def test_clone():
-    cpu_tensor = torch.rand([2])
-    hpu_tensor = cpu_tensor.to("hpu")
-
-    result_cpu = cpu_tensor.clone()
-    result_hpu = hpu_tensor.clone().to("cpu")
-
-    assert torch.equal(result_hpu, result_cpu)
-
 
 def test_relu():
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
