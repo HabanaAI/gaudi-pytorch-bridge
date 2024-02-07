@@ -4374,13 +4374,13 @@ masked_fill_.Scalar:
       mask: [Int, Char]
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
-      self: [BFloat16, Float, Int, Char, Half]
+      self: [BFloat16, Float, Int, Char, Half, Long]
       mask: [Int, Char]
-      value: [BFloat16, Float, Int, Char, Half]
+      value: [BFloat16, Float, Int, Char, Half, Long]
     Gaudi3:
-      self: [BFloat16, Float, Int, Char, Half]
+      self: [BFloat16, Float, Int, Char, Half, Long]
       mask: [Int, Char]
-      value: [BFloat16, Float, Int, Char, Half]
+      value: [BFloat16, Float, Int, Char, Half, Long]
   guid: where
   op_backend: MaskedFill
   inplace_ids: [0]
@@ -4393,13 +4393,13 @@ masked_fill_.Tensor:
       mask: [Int, Char]
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
-      self: [BFloat16, Float, Int, Char, Half]
+      self: [BFloat16, Float, Int, Char, Half, Long]
       mask: [Int, Char]
-      value: [BFloat16, Float, Int, Char, Half]
+      value: [BFloat16, Float, Int, Char, Half, Long]
     Gaudi3:
-      self: [BFloat16, Float, Int, Char, Half]
+      self: [BFloat16, Float, Int, Char, Half, Long]
       mask: [Int, Char]
-      value: [BFloat16, Float, Int, Char, Half]
+      value: [BFloat16, Float, Int, Char, Half, Long]
   guid: where
   op_backend: MaskedFill
   inplace_ids: [0]
@@ -4412,13 +4412,13 @@ masked_fill.Scalar:
       mask: [Int, Char]
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
-      self: [BFloat16, Float, Int, Char, Half]
+      self: [BFloat16, Float, Int, Char, Half, Long]
       mask: [Int, Char]
-      value: [BFloat16, Float, Int, Char, Half]
+      value: [BFloat16, Float, Int, Char, Half, Long]
     Gaudi3:
-      self: [BFloat16, Float, Int, Char, Half]
+      self: [BFloat16, Float, Int, Char, Half, Long]
       mask: [Int, Char]
-      value: [BFloat16, Float, Int, Char, Half]
+      value: [BFloat16, Float, Int, Char, Half, Long]
   guid: where
   op_backend: MaskedFill
   scalar_ids: [2]
@@ -4432,13 +4432,13 @@ masked_fill.Tensor:
       mask: [Int, Char]
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
-      self: [BFloat16, Float, Int, Char, Half]
+      self: [BFloat16, Float, Int, Char, Half, Long]
       mask: [Int, Char]
-      value: [BFloat16, Float, Int, Char, Half]
+      value: [BFloat16, Float, Int, Char, Half, Long]
     Gaudi3:
-      self: [BFloat16, Float, Int, Char, Half]
+      self: [BFloat16, Float, Int, Char, Half, Long]
       mask: [Int, Char]
-      value: [BFloat16, Float, Int, Char, Half]
+      value: [BFloat16, Float, Int, Char, Half, Long]
   guid: where
   op_backend: MaskedFill
   out_ids: [0]

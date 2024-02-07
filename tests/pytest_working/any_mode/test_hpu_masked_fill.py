@@ -94,5 +94,5 @@ def test_masked_fill(self_shape, mask_shape, value, scalar_value, dtype):
 
     compare_tensors(result, expected, atol=0.0, rtol=0.0)
     if is_pytest_mode_compile():
-        ops = {"where", "scalar_tensor"} if scalar_value else {"where"}
+        ops = {"masked_fill"}
         check_ops_executed_in_jit_ir(ops)
