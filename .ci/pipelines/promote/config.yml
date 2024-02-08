@@ -61,6 +61,9 @@ orchestratorConfig:
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_unet_suite
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llama7b_hqt_suite
       silentMode: true
+    # Quantization toolkit tests
+    - testToLaunch: habana_quantization_toolkit/Tests/Test_habana_quantization_toolkit_gaudi2_asic_test
+      silentMode: true
   # Streams and Events validation <Start>
     - testToLaunch: habanaqa_framework_features/Tests/Test_habanaqa_framework_features_gaudi2_asic_streams_events_pt
       silentMode: true
