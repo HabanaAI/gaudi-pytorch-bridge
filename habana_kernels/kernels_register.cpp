@@ -1679,13 +1679,16 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const c10::optional<at::Tensor>& attention_mask,
     const double p,
     const double scale,
-    const bool is_causal) {
+    const bool is_causal,
+    c10::string_view softmax_mode) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
-      "sdpa_fwd :", DUMP_7ARGS(q, k, v, attention_mask, p, scale, is_causal));
+      "sdpa_fwd :",
+      DUMP_8ARGS(q, k, v, attention_mask, p, scale, is_causal, softmax_mode));
 
-  return sdpa_fwd_lazy(q, k, v, attention_mask, p, scale, is_causal);
+  return sdpa_fwd_lazy(
+      q, k, v, attention_mask, p, scale, is_causal, softmax_mode);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
@@ -1712,16 +1715,33 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_wrap(
     const double p,
     const double scale,
     const bool is_causal,
-    const bool requires_backward) {
+    const bool requires_backward,
+    c10::string_view softmax_mode) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "sdpa_recomp_fwd :",
-      DUMP_8ARGS(
-          q, k, v, attention_mask, p, scale, is_causal, requires_backward));
+      DUMP_9ARGS(
+          q,
+          k,
+          v,
+          attention_mask,
+          p,
+          scale,
+          is_causal,
+          requires_backward,
+          softmax_mode));
 
   return sdpa_recomp_fwd_lazy(
-      q, k, v, attention_mask, p, scale, is_causal, requires_backward);
+      q,
+      k,
+      v,
+      attention_mask,
+      p,
+      scale,
+      is_causal,
+      requires_backward,
+      softmax_mode);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
@@ -2327,16 +2347,16 @@ TORCH_LIBRARY(hpu, m) {
   // Infer the schema at operator level. So no m.impl() def is needed for this
   // operator. For BE, Register a schema with seed.
   m.def(
-      "hpu::sdpa_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal) -> (Tensor, Tensor, Tensor)"); // sdpa_fwd_be schema is for sdpa op BE interface which takes an optional seed
+      "hpu::sdpa_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, str softmax_mode) -> (Tensor, Tensor, Tensor)"); // sdpa_fwd_be schema is for sdpa op BE interface which takes an optional seed
   // tensor as well.
   m.def(
-      "hpu::sdpa_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal) -> (Tensor, Tensor, Tensor)");
+      "hpu::sdpa_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal, str softmax_mode) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, float p, float scale) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward) -> (Tensor, Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::sdpa_recomp_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal, bool requires_backward) -> (Tensor, Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
       "hpu::sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor ? seed, bool is_causal, float p, float scale) -> (Tensor, Tensor, Tensor)");
   m.def(

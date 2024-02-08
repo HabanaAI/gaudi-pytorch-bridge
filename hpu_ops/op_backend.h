@@ -522,6 +522,7 @@ class OpBackend : public HabanaOperator {
       isIntList,
       toIntList().vec,
       "int list")
+  GET_NEXT_INPUT_INTERNAL(c10::string_view, isString, toStringView, "string")
 #undef GET_NEXT_INPUT_INTERNAL
 
  private:

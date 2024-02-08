@@ -70,28 +70,33 @@ def gqa_output_reshape(tensor):
         new_shape = (bs, groups*heads_per_group, seq_len, h_dim)
         return tensor.reshape(new_shape)
 
-def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = False, scale = None):
+def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = False, scale = None, softmax_mode='None'):
 
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
+
+
     if scale == None:
         scale = 1.0/math.sqrt(q.size(-1))
 
     # Check if recompute variant is enabled
     recompute = ht.recompute_sdp_enabled()
 
+    if requires_backward:
+        assert softmax_mode == 'None', "Optimized softmax mode is supported only in inference"
+
     gqa = is_gqa(q,k)
     if gqa:
         q, k, v, attn_mask = gqa_input_reshape_fwd(q, k, v, attn_mask)
 
     if recompute:
-        out, m, linv, seed = torch.ops.hpu.sdpa_recomp_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, requires_backward)
+        out, m, linv, seed = torch.ops.hpu.sdpa_recomp_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, requires_backward, softmax_mode)
         if gqa:
             out = gqa_output_reshape(out)
         if not requires_backward:
             return out
         ctx.save_for_backward(q, k, v, attn_mask, m, linv, seed)
     else:
-        out, P, dm = torch.ops.hpu.sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal)
+        out, P, dm = torch.ops.hpu.sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, softmax_mode)
         if gqa:
             out = gqa_output_reshape(out)
         ctx.save_for_backward(q, k, v, P, dm)
@@ -142,9 +147,9 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
 
 class FusedSDPA(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = False, scale = None):
+    def forward(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = False, scale = None, softmax_mode='None'):
         return sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = attn_mask,
-                     dropout_p=dropout_p, is_causal = is_causal, scale = scale)
+                     dropout_p=dropout_p, is_causal = is_causal, scale = scale, softmax_mode=softmax_mode)
 
 
     @staticmethod

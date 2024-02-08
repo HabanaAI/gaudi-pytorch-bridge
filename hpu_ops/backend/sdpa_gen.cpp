@@ -145,14 +145,22 @@ void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
   auto is_causal = getNextInput<bool>(stackGetter);
+  auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
 
-  ns_Sdpa::Params params{};
+  SdpaSoftmaxMode_t sfmx_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
+  if (softmax_mode == "fast") {
+    sfmx_mode = SdpaSoftmaxMode_t::SDPA_SOFTMAX_HF8_1C;
+  }
+
+  ns_Sdpa::ParamsV2 params{};
   params.scale = scale;
   params.dropout.ratio = p;
   if (is_causal) {
     params.is_causal = true;
   }
   params.is_inference = false;
+  params.softmax_mode = sfmx_mode;
+
   std::string guid = get_guid_with_precision("sdpa_fwd", q.pt_t.scalar_type());
   auto out_shapes = SDPAFwdOutputShape(stack);
 
@@ -196,10 +204,11 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
 
-  ns_Sdpa::Params params{};
+  ns_Sdpa::ParamsV2 params{};
   params.scale = scale;
   params.dropout.ratio = p;
   params.is_inference = false;
+  params.softmax_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
 
   std::string guid = get_guid_with_precision("sdpa_bwd", q.pt_t.scalar_type());
   auto out_shapes = SDPABwdOutputShape(stack);
@@ -309,14 +318,22 @@ void SDPARecompFwd::AddNode(
   auto scale = getNextInput<double>(stackGetter);
   auto is_causal = getNextInput<bool>(stackGetter);
   auto requires_backward = getNextInput<bool>(stackGetter);
+  auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
 
-  ns_Sdpa::Params params{};
+  SdpaSoftmaxMode_t sfmx_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
+  if (softmax_mode == "fast") {
+    sfmx_mode = SdpaSoftmaxMode_t::SDPA_SOFTMAX_HF8_1C;
+  }
+
+  ns_Sdpa::ParamsV2 params{};
   params.scale = scale;
   params.dropout.ratio = p;
   if (is_causal) {
     params.is_causal = true;
   }
   params.is_inference = !requires_backward;
+  params.softmax_mode = sfmx_mode;
+
   std::string guid =
       get_guid_with_precision("sdpa_recomp_fwd", q.pt_t.scalar_type());
   auto out_shapes = SDPARecompFwdOutputShape(stack);
@@ -371,13 +388,14 @@ void SDPARecompBwd::AddNode(
   auto is_causal = getNextInput<bool>(stackGetter);
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
-  ns_Sdpa::Params params{};
+  ns_Sdpa::ParamsV2 params{};
   params.scale = scale;
   params.dropout.ratio = p;
   if (is_causal) {
     params.is_causal = true;
   }
   params.is_inference = false;
+  params.softmax_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
 
   std::string guid =
       get_guid_with_precision("sdpa_recomp_bwd", q.pt_t.scalar_type());
