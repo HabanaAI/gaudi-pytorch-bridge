@@ -18,6 +18,7 @@ namespace habana {
 synapse_helpers::tensor RandPermCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
+    std::optional<synTensor> arange_synin,
     synTensor seed_tensor,
     c10::ScalarType out_dtype,
     std::vector<int64_t> out_shape,
@@ -40,8 +41,8 @@ synapse_helpers::tensor RandPermCommon(
       end,
       step,
       tpc_supported_randperm_dtype,
-      std::nullopt, // TBD: NOTE: This needs to be changed for torch.compile DS
-      std::nullopt, // TBD: NOTE: This needs to be changed for torch.compile DS
+      arange_synin,
+      std::nullopt,
       get_guid_with_precision("range", tpc_supported_randperm_dtype),
       out_shape,
       params,
@@ -143,7 +144,8 @@ void RandPermOp::AddNode(
     seedTensor = syn_seed();
   }
 
-  syn_out(0) = RandPermCommon(this, graph, seedTensor, out_dtype, out_shape, n);
+  syn_out(0) = RandPermCommon(
+      this, graph, std::nullopt, seedTensor, out_dtype, out_shape, n);
 }
 
 //===----------------------------------------------------------------------===//
@@ -172,15 +174,120 @@ void HabanaRandPermOp::AddNode(
   const auto meta = HabanaRandPermMeta(stack)[0];
   auto out_dtype = meta.dtype;
   auto out_shape = meta.shape;
-  syn_out(0) = RandPermCommon(this, graph, syn_in(0), out_dtype, out_shape, n);
+  syn_out(0) = RandPermCommon(
+      this, graph, std::nullopt, syn_in(0), out_dtype, out_shape, n);
 }
 
 HabanaRandPermOp::HabanaRandPermOp(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "randperm", scalar_type, {0}, {}, {}, false) {
   SetOutputMetaFn(HabanaRandPermMeta);
 }
+
+size_t GetMInMaxSifOffsetRP(bool dry_run, size_t data_size) {
+  size_t sif_offset = 0;
+  if (dry_run &&
+      habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::MIN_SHAPE) {
+    sif_offset = data_size;
+  }
+  return sif_offset;
+}
+
+template <typename T>
+std::vector<T> GetArangeH2DParams(at::Tensor& params_t, bool dry_run) {
+  std::vector<T> params_data;
+  size_t data_size = params_t.sizes()[0];
+  auto tmeta{get_tensor_extra_meta(params_t)};
+  void* host_ptr = nullptr;
+  if (dry_run) {
+    host_ptr = tmeta->get_compile_host_ptr();
+  } else {
+    host_ptr = tmeta->get_host_ptr();
+  }
+
+  T* h2d_data = static_cast<T*>(host_ptr);
+  size_t sif_offset = GetMInMaxSifOffsetRP(dry_run, data_size);
+  h2d_data = h2d_data + sif_offset;
+  for (size_t i = 0; i < data_size; i++) {
+    params_data.push_back(static_cast<T>(*h2d_data++));
+  }
+  return params_data;
+}
+
+OutputMetaDataVector HabanaRandPermMetaDS(const at::Stack& stack) {
+  OutputMetaData meta;
+  // DS Compile Flow
+  std::vector<int32_t> params_data;
+  at::Tensor params_t = stack[1].toTensor();
+  if ((habana::ShapeInference::GetCurrentPass() ==
+       habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
+      (habana::ShapeInference::GetCurrentPass() ==
+       habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
+    params_data = GetArangeH2DParams<int32_t>(params_t, true);
+  } else {
+    params_data = GetArangeH2DParams<int32_t>(params_t, false);
+  }
+  meta.shape = {params_data[1]};
+  unsigned dtype_index = 3;
+  meta.dtype = stack.at(dtype_index)
+                   .toOptional<at::ScalarType>()
+                   .value_or(c10::ScalarType::Long);
+  return {meta};
+}
+
+void HabanaRandPermOpDS::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  HABANA_ASSERT(
+      stack.at(0).isTensor(),
+      "For a custom schema(Randperm) seed tensor should be the",
+      "first argument.");
+  const auto meta = HabanaRandPermMetaDS(stack)[0];
+  size_t size = 0;
+#if 1
+  c10::ScalarType tpc_supported_randperm_dtype =
+      ((GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) &&
+        (meta.dtype == c10::ScalarType::Long))
+           ? c10::ScalarType::Long
+           : c10::ScalarType::Int);
+#else
+  c10::ScalarType tpc_supported_randperm_dtype = c10::ScalarType::Int;
+#endif
+
+  auto out_dtype = meta.dtype;
+  auto out_shape = meta.shape;
+  auto params =
+      FillArangeParamsInternal(0, 1, 1, tpc_supported_randperm_dtype, size);
+  std::vector<int32_t> params_data;
+  at::Tensor params_t = stack[1].toTensor();
+  if ((habana::ShapeInference::GetCurrentPass() ==
+       habana::ShapeInfo::InferencePass::MIN_SHAPE) ||
+      (habana::ShapeInference::GetCurrentPass() ==
+       habana::ShapeInfo::InferencePass::MAX_SHAPE)) {
+    params_data = GetArangeH2DParams<int32_t>(params_t, true);
+  } else {
+    params_data = GetArangeH2DParams<int32_t>(params_t, false);
+  }
+  int end = params_data[1];
+  if (p_context_->syn_inputs_.size() == 3) {
+    EraseSynInput(2);
+  }
+  syn_out(0) = RandPermCommon(
+      this, graph, syn_in(1), syn_in(0), out_dtype, out_shape, end);
+}
+
+HabanaRandPermOpDS::HabanaRandPermOpDS(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(device_id, "random_uniform", scalar_type, {0}, {}, {}, false) {
+  SetOutputMetaFn(HabanaRandPermMetaDS);
+}
+
 } // namespace habana
 
-static const auto& HabanaRandomKernelRegistry = habana::KernelRegistry().add(
-    "hpu::habana_randperm",
-    KERNEL_FN_GLOBAL(habana::HabanaRandPermOp));
+static const auto& HabanaRandomKernelRegistry =
+    habana::KernelRegistry()
+        .add("hpu::habana_randperm", KERNEL_FN_GLOBAL(habana::HabanaRandPermOp))
+        .add(
+            "hpu::habana_randperm_ht",
+            KERNEL_FN_GLOBAL(habana::HabanaRandPermOpDS));

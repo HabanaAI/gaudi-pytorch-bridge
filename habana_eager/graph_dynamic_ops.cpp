@@ -377,6 +377,9 @@ static auto& BasicDSOpsRegistry =
         .add("aten::repeat", DSOP_MID_BACKEND(RepeatOperatorDS))
         .add("aten::topk", DSOP_MID_BACKEND(TopkOperatorDS))
         .add("aten::as_strided", DSOP_MID_BACKEND(AsStridedOperatorDS))
-        .add("hpu::strided_insert", DSOP_MID_BACKEND(StridedInsertOperatorDS));
+        .add("hpu::strided_insert", DSOP_MID_BACKEND(StridedInsertOperatorDS))
+        .add(
+            "hpu::habana_randperm",
+            DSOP_MID_BACKEND(RandpermGeneratorOperatorDS));
 } // namespace graph
 } // namespace habana

@@ -737,5 +737,115 @@ void StridedInsertOperatorDS::UpdateDynamicInputs(
   }
 }
 
+void RandpermGeneratorOperatorDS::UpdateDynamicInputs(
+    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
+    [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
+  HABANA_ASSERT(
+      dtensor_list.size() == scalar_idx_list.size(),
+      "Dtensor and SymIntData count not matching");
+  HABANA_ASSERT(dtensor_list.size() == 1, "Tensor count should be 1");
+  auto dtensor = dtensor_list[0]->toTensor();
+  SymIntData& scalar_idx = scalar_idx_list[0];
+
+  std::vector<int32_t> updated_h2d_data;
+  for (unsigned int idx = 0; idx < scalar_idx.values.size(); idx++) {
+    auto stack_index = scalar_idx.values[idx];
+    if (stack_index == LONG_MAX) {
+      std::vector<int32_t> h2d_data = GetH2DTensorHostData<int32_t>(dtensor);
+      std::reverse(h2d_data.begin(), h2d_data.end());
+      updated_h2d_data.push_back(h2d_data[idx]);
+    } else {
+      updated_h2d_data.push_back(
+          static_cast<int32_t>(GetSymintValue(orig_stack, stack_index)));
+    }
+  }
+  std::reverse(updated_h2d_data.begin(), updated_h2d_data.end());
+  std::vector<int64_t> cast_data(
+      updated_h2d_data.begin(), updated_h2d_data.end());
+  UpdateH2DPatchingData(dtensor, cast_data, launch_shapes);
+}
+
+bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
+    torch::jit::Node* aten_randperm_node,
+    torch::jit::Stack& org_stack,
+    GraphInputIndexMap& org_stack_index_map,
+    ValueIvalueMap& value_ivalue_map,
+    std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
+  HABANA_ASSERT(6 == aten_randperm_node->inputs().size());
+  static const auto hpu_arange_symbol{
+      c10::Symbol::fromQualString("hpu::habana_randperm_ht")};
+  // pos-0 : seed tensor, pos-1: 'n'
+  auto arange_shape = aten_randperm_node->inputs().at(1);
+  auto graph{aten_randperm_node->owningGraph()};
+  // pos-0 : seed tensor, pos-1: 'n'
+  auto end = aten_randperm_node->inputs().at(1);
+
+  std::vector<int64_t> scalar_indexes;
+  std::vector<int64_t> h2d_values;
+
+  int64_t step_idx = LONG_MAX;
+  int64_t step_value = 1;
+  scalar_indexes.push_back(step_idx);
+  h2d_values.push_back(static_cast<uint64_t>(step_value));
+
+  int64_t end_idx = LONG_MAX;
+  int64_t end_value = 0;
+  GetValueAndScalarIndexFromInput(
+      end, org_stack, org_stack_index_map, end_value, end_idx);
+  scalar_indexes.push_back(end_idx);
+  h2d_values.push_back(static_cast<uint64_t>(end_value));
+
+  int64_t start_idx = LONG_MAX;
+  int64_t start_value = 0;
+  scalar_indexes.push_back(start_idx);
+  h2d_values.push_back(static_cast<uint64_t>(start_value));
+
+  // Step2: Create H2D tensor and insert to graph inputs.
+  auto arange_h2d_name =
+      GetDynamicTensorName(arange_shape->debugName(), HOST_TO_DEVICE_TENSOR);
+  int64_t stack_index = CreateH2DAndInsertToDSStack<int32_t>(
+      h2d_values, scalar_indexes, HostDataType::INT32_T, m_dmeta);
+  auto v_h2d_tensor = graph->addInput(arange_h2d_name);
+
+  // Step3: Register patching function and tensor lists
+  std::vector<int64_t> dtensor_indexes{stack_index};
+  InputPatchPair patch_info(
+      &RandpermGeneratorOperatorDS::UpdateDynamicInputs, dtensor_indexes);
+  m_dmeta->ds_input_patching_list.push_back(patch_info);
+
+  // Use actual reshape sizes and avoid sizes with dims "-1"
+  auto out_tensors = getOutputTensers(aten_randperm_node, value_ivalue_map);
+  auto inferred_st_sizes = out_tensors[0].sizes().vec();
+
+  // Step2: Create shape tensor and insert to graph inputs.
+  auto arange_st_name = GetDynamicTensorName(end->debugName(), SHAPE_TENSOR);
+  int64_t stack_index_2 =
+      CreateSTAndInsertToDSStack(inferred_st_sizes, {end_idx}, {}, m_dmeta);
+  auto arange_st_tensor = graph->addInput(arange_st_name);
+
+  // Step3: Register patching function and tensor lists
+  std::vector<int64_t> dtensor_indexes_2{stack_index_2};
+  InputPatchPair patch_info_2(
+      &DynamicOp::UpdateDynamicInputs, dtensor_indexes_2);
+  m_dmeta->ds_input_patching_list.push_back(patch_info_2);
+  // Step4: Create hpu::arange_start_step node and insert to the graph
+  CreateAndInsertDynamicNodeToGraph(
+      graph,
+      aten_randperm_node,
+      hpu_arange_symbol,
+      {aten_randperm_node->input(0),
+       v_h2d_tensor,
+       arange_st_tensor,
+       aten_randperm_node->input(2),
+       aten_randperm_node->input(3),
+       aten_randperm_node->input(4),
+       aten_randperm_node->input(5)},
+      value_ivalue_map);
+  return true;
+}
+
 } // namespace graph
 } // namespace habana
