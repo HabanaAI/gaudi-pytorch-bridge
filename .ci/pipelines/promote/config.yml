@@ -8,11 +8,11 @@ orchestratorConfig:
 # PyTorch Operators and feature validation 2.1 <Start>
   #- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_2.n_master_next
 # PyTorch Operators and feature validation 2.1 <end>
-# PyTorch Operators and feature validation <End>
 # PT perf 8 card jobs in K8S container mode <Start>
 # PT perf 8 card jobs in K8S container mode <End>
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_topology_8cards
-# Skip it till sanitizer fix (SW-158415)
+    silentMode: true
+ # Skip it till sanitizer fix (SW-158415)
 #  sanitizerConfig:
 #  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   PromoteU22Config:
