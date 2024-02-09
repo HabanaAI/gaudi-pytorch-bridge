@@ -1,7 +1,6 @@
 orchestratorConfig:
   cron: "H H/3 * * *"
   testConfig:
-  - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
 # PyTorch full graph tests
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_hls_asic_perf
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_perf
@@ -11,8 +10,6 @@ orchestratorConfig:
 # PyTorch Operators and feature validation 2.1 <end>
 # PyTorch Operators and feature validation <End>
 # PT perf 8 card jobs in K8S container mode <Start>
-  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_pytorch_framework_ut_promote
-    silentMode: true
 # PT perf 8 card jobs in K8S container mode <End>
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_topology_8cards
 # Skip it till sanitizer fix (SW-158415)
@@ -21,7 +18,6 @@ orchestratorConfig:
   PromoteU22Config:
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite_u22
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite_u22
-      silentMode: true
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite_u22
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology_group_1_u22
     - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_distributed_u22
