@@ -5,7 +5,6 @@ orchestratorConfig:
 # PyTorch full graph tests
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_hls_asic_perf
   - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_perf
-  - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_topology
 # Dtype validation <End>
 # PyTorch Operators and feature validation 2.1 <Start>
   #- testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_training_suite_2.n_master_next
@@ -48,7 +47,6 @@ orchestratorConfig:
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_topology_functionality_u22
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_functionality_u22
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_topology_u22
-      silentMode: true
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_distributed_u22
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8x_promote_u22
     - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_distributed_u22
