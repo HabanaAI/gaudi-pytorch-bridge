@@ -13,6 +13,7 @@
 
 #pragma once
 
+#include <ATen/core/function_schema.h>
 #include <pybind11/chrono.h>
 #include <pybind11/functional.h>
 #include <pybind11/stl.h>
@@ -21,7 +22,7 @@
 namespace py = pybind11;
 extern std::unordered_map<
     std::string,
-    std::function<bool(py::object args, py::dict kwargs)>>
+    std::function<bool(c10::FunctionSchema&, bool, py::args&, const py::dict&)>>
     fallback_support_check_map;
 
 extern std::set<std::string> hpu_shared_layer_unsupported_ops;
