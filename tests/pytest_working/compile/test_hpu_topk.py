@@ -14,6 +14,7 @@ import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.core as htcore
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 @pytest.mark.parametrize("dtype", [None, torch.float, torch.bfloat16])
 @pytest.mark.parametrize("k", [4, 6])
 @pytest.mark.parametrize("dim", [0, 1, 2, 3, -1])

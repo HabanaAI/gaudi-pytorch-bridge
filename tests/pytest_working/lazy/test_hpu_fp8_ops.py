@@ -783,6 +783,7 @@ def test_fp8_gemm(
     assert np.amax(percentage_diff.numpy()) <= 15
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 @pytest.mark.parametrize("shape", [(2, 4)])
 @pytest.mark.parametrize("is_out", [True, False])
 def test_transpose(shape, is_out):

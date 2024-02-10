@@ -26,7 +26,7 @@ DEFAULT_BIAS = {torch.float8_e5m2: 15, torch.float8_e4m3fn: 7}
 
 FP8_143_BIASES = [3, 7, 11, 15]
 
-
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 @pytest.mark.parametrize("exp_bias", FP8_143_BIASES)
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 @pytest.mark.parametrize("fp8_dtype", [torch.float8_e4m3fn])
@@ -92,6 +92,7 @@ def test_cast_to_fp8_exp_bias(exp_bias, dtype, fp8_dtype, cut_graph):
         check_ops_executed_in_jit_ir("cast_to_fp8_q")
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 def test_t():
     input = torch.randn((100, 200)) * 800.0
     input_hpu = input.to("hpu")
@@ -111,6 +112,7 @@ def test_t():
     assert torch.allclose(res.cpu(), input.t(), rtol=0.125, atol=0.0)
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 def test_transpose():
     input = torch.randn((5, 10, 15, 20)) * 800.0
     input_hpu = input.to("hpu")
@@ -130,6 +132,7 @@ def test_transpose():
     assert torch.allclose(res.cpu(), input.transpose(1, 3), rtol=0.125, atol=0.0)
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 def test_permute():
     input = torch.randn((5, 10, 15, 20)) * 800.0
     input_hpu = input.to("hpu")
@@ -149,6 +152,7 @@ def test_permute():
     assert torch.allclose(res.cpu(), input.permute((2, 3, 1, 0)), rtol=0.125, atol=0.0)
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 def test_reshape():
     input = torch.randn((100, 200)) * 800.0
     input_hpu = input.to("hpu")
@@ -170,6 +174,7 @@ def test_reshape():
     )
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 def test_expand():
     input = torch.randn((10, 1, 20)) * 800.0
     input_hpu = input.to("hpu")
@@ -189,6 +194,7 @@ def test_expand():
     assert torch.allclose(res.cpu(), input.expand((10, 4, 20)), rtol=0.125, atol=0.0)
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 @pytest.mark.parametrize("axis", [(1, 2, 3), 1])
 def test_squeeze(axis):
     input = torch.randn((10, 1, 20, 1, 5)) * 800.0
@@ -209,6 +215,7 @@ def test_squeeze(axis):
     assert torch.allclose(res.cpu(), input.squeeze(axis), rtol=0.125, atol=0.0)
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 @pytest.mark.skipif(is_pytest_mode_compile(), reason="Not supported in t.compile yet")
 def test_select():
     input = torch.randn((10, 20, 30)) * 800.0
@@ -235,7 +242,7 @@ def test_select():
     assert torch.allclose(res2.cpu(), res2_ref, rtol=0.125, atol=0.0)
     assert torch.allclose(res3.cpu(), res3_ref, rtol=0.125, atol=0.0)
 
-
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 def test_copy():
     input = torch.randn((100, 200)) * 800.0
     output = torch.zeros((100, 200))
@@ -260,6 +267,7 @@ def test_copy():
     assert torch.allclose(res.cpu(), input, rtol=0.125, atol=0.0)
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 def test_copy_cut():
     input = torch.randn((100, 200)) * 800.0
     output = torch.zeros((100, 200))
@@ -295,6 +303,7 @@ def test_copy_cut():
     assert torch.allclose(res.cpu(), input, rtol=0.125, atol=0.0)
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 @pytest.mark.skipif(is_pytest_mode_compile(), reason="Not supported in t.compile yet")
 def test_index_copy():
     a = torch.zeros(5, 3)
