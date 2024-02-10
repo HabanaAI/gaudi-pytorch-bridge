@@ -35,7 +35,8 @@ testsMap:
       - TPC_FUSER
       - TPC_LLVM
     stages:
-      Run RN50 Eager bf16 1c training functional:
-        filter: -t rn50_eager_1c
+      # Reason: https://jira.habana-labs.com/browse/SW-174553
+      # Run RN50 Eager bf16 1c training functional:
+      #   filter: -t rn50_eager_1c
       Run RN50 Graph bf16 1c training functional:
         filter: -t rn50_graph_1c
