@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -176,6 +176,8 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
 
   std::vector<c10::optional<at::Tensor>> indices;
+  // if the non-null indices are not all adjacent, transpose self and indices
+  // together so that they're adjacent at the front
   for (const auto& index_opt : indices_ival) {
     auto o1 = index_opt.toOptional<at::Tensor>();
     if (o1.has_value() && o1.value().defined()) {
@@ -185,7 +187,6 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       indices.emplace_back(c10::nullopt);
     }
   }
-
   auto self_sizes = self.sizes().vec();
   std::vector<at::Tensor> indices_list;
   int64_t i = 0;
@@ -196,7 +197,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
     if (input.has_value() &&
         (input.value().scalar_type() != c10::ScalarType::Bool)) {
       index_all_elems[i] = false;
-      index_t_sizes[i] = input.value().numel();
+      index_t_sizes[i] = input.value().sizes()[0];
     } else if (!input.has_value()) {
       index_t_sizes[i] = self_sizes[i];
       index_all_elems[i] = true;
@@ -208,114 +209,21 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
   for (; i < self.dim(); i++) {
     index_all_elems[i] = true;
   }
-
-  // Implement the repeat and repeat_interleaves logic so that the
-  // indices, are interpreted as columns of the tuple which rows
-  // become coordinates of the self tensor to update by values.
-  // Each "explicit indice" shape is represented by the unique
-  // sequence of indexes passed in the indice tensor for the given
-  // dim of the self tensor. If there are two or more exactly the
-  // same shapes in the indices list, they must share the same
-  // repeat/repeat_interleave schema.
-  // The above does not concern non-explicit indices. All appearances
-  // of such indices should be adjusted with more repeats.
-  // The algoritms starts with applying the repeat_interleave schema
-  // for the first indice, and if for the next indice a new schema is
-  // required the 1st repeat_interleave is replaced by the repeat and
-  // so on. For example for four different indices:
-  // self[2x1, :, 1x, 1x2]
-  // where: 2x1 = [[0], [1]], 1x = [0], 1x2 = [0, 1]
-  // the algorithm should:
-  // 2x1 -> ri, ri, ri, ri
-  // :   -> r,  ri, ri, ri
-  // 1x  -> r,  r,  ri, ri
-  // 1x2 -> r,  r,  r,  r
-  // where ri is repeat_interleave and r is repeat
-  // example indices data, where each of the columns
-  // represets the repeated tensor data):
-  // 2x1  :  1x  1x2
-  //  0,  0,  0,  0   c0
-  //  0,  0,  0,  1   c1
-  //  0,  1,  0,  0   c2
-  //  0,  1,  0,  1   c3
-  //  1,  0,  0,  0   c4
-  //  1,  0,  0,  1   c5
-  //  1,  1,  0,  0   c6
-  //  1,  1,  0,  1   c7
-  // The above schema represents eight coordinates c0-7 to
-  // update in the self tensor.
-  // TODO:
-  // adjust this algorithm to larger dim tensors as the r/ri logic
-  // is applied dim wise and not on the flattened shape.
   int64_t repeats_needed[self.dim()];
   int64_t repeat_interleaves_needed[self.dim()];
-  int repeat_index = 0;
-  // Array holding a schape that was already processed through the r/ri logic
-  // keep the index of the indice in order to copy schema if necessary from
-  // repeats_needed and repeat_interleaves_needed arrays.
-  std::vector<std::pair<std::vector<int64_t>, int64_t>> explicit_indice_handled;
   for (i = 0; i < self.dim(); i++) {
     repeats_needed[i] = 1;
     repeat_interleaves_needed[i] = 1;
-    // Array required for saving shapes in order not to r/ri
-    // if such operation was already performed on the saved shape.
-    std::vector<std::vector<int64_t>> shapes_handled;
 
-    if (!index_all_elems[i]) {
-      auto shape_to_find = indices[i].value().sizes().vec();
-      auto it = std::find_if(
-          std::begin(explicit_indice_handled),
-          std::end(explicit_indice_handled),
-          [&](auto const& e) { return e.first == shape_to_find; });
-      if (it != std::end(explicit_indice_handled)) {
-        // If the r/ri schema was already performed for the
-        // current indice shape, just copy it.
-        repeats_needed[i] = repeats_needed[it->second];
-        repeat_interleaves_needed[i] = repeat_interleaves_needed[it->second];
-        continue;
-      }
-      // if the current indice is explicit, then save it in order
-      // not to apply r/ri, if the same shape exists in the indice array input.
-      shapes_handled.push_back(shape_to_find);
+    for (int j = 0; j < i; j++) {
+      repeats_needed[i] *=
+          (index_all_elems[j]) ? self_sizes[j] : index_t_sizes[j];
     }
-
-    for (int j = 0; j < self.dim(); ++j) {
-      if (i == j)
-        continue;
-
-      if (index_all_elems[j]) {
-        if (repeat_index >= j)
-          repeats_needed[i] *= self_sizes[j];
-        else
-          repeat_interleaves_needed[i] *= self_sizes[j];
-      } else {
-        // if the shape is explicit
-        auto it = std::find(
-            std::begin(shapes_handled),
-            std::end(shapes_handled),
-            indices[j].value().sizes().vec());
-        if (it != std::end(shapes_handled))
-          // and already handled, don't r/ri the i indice
-          continue;
-
-        shapes_handled.push_back(indices[j].value().sizes().vec());
-
-        if (repeat_index >= j)
-          repeats_needed[i] *= index_t_sizes[j];
-        else
-          repeat_interleaves_needed[i] *= index_t_sizes[j];
-      }
+    for (int j = i + 1; j < self.dim(); j++) {
+      repeat_interleaves_needed[i] *=
+          (index_all_elems[j]) ? self_sizes[j] : index_t_sizes[j];
     }
-
-    if (!index_all_elems[i])
-      // save the handled
-      explicit_indice_handled.emplace_back(indices[i].value().sizes().vec(), i);
-
-    // update the repeat index for any handled indice so one more repeat is
-    // applied in the next iteration.
-    ++repeat_index;
   }
-
   // Now create all indices tensors and insert into list using repeats_needed
   // and repeat_interleaves_needed. Note that in Boolean mask indexing method we
   // have to create indices from the mask using nonzero and squeeze as done in
@@ -353,7 +261,6 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
       indices_list.push_back(it_repeat_interleave.repeat(repeats_needed[dim]));
     }
   }
-
   return std::make_tuple(self, std::move(indices_list));
 }
 
