@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -78,28 +78,41 @@ static std::shared_ptr<void> RandomUniformParams(
   */
   params->low = from.has_value() ? *from : 0;
   switch (type) {
-    case at::ScalarType::Float:
-    case at::ScalarType::Double:
+    case at::ScalarType::Float: // [-(2^24), 2^24]
+    case at::ScalarType::Double: // [-(2^53), 2^53]
       params->high = to.has_value() ? *to : 1 << 24;
       break;
-    case at::ScalarType::BFloat16:
-      params->high = to.has_value() ? *to : 1 << 8;
+    case at::ScalarType::Half: // [-(2^11), 2^11]
+      params->high = to.has_value() ? *to : 1 << 11;
+      break;
+    case at::ScalarType::Short:
+      params->high = to.has_value() ? *to : 1 << 15;
       break;
     case at::ScalarType::Int:
       params->high = to.has_value()
           ? *to
-          : static_cast<float>(std::numeric_limits<int>::max());
+          : static_cast<float>(std::numeric_limits<int32_t>::max());
+      break;
+    case at::ScalarType::BFloat16: // [-(2^8), 2^8]
+    case at::ScalarType::Byte:
+      params->high = to.has_value() ? *to : 1 << 8;
+      break;
+    case at::ScalarType::Char:
+      params->high = to.has_value() ? *to : 1 << 7;
       break;
     case at::ScalarType::Long:
       params->high = to.has_value()
           ? *to
           : static_cast<float>(std::numeric_limits<int64_t>::max());
       break;
+    case at::ScalarType::Bool:
+      params->low = 0;
+      params->high = 2;
+      break;
     default:
       TORCH_CHECK(false, "Got unsupported type for random uniform: ", type);
       break;
   }
-
   PT_KERNEL_DEBUG(__func__, " low: ", params->low, " high: ", params->high);
 
   return params;
@@ -322,6 +335,7 @@ void RandomSeedTensorInput::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto outshape = stack_tensor(stack, 0).sizes();
+  auto dtype = ScalarType();
   // The following kernels have an optional tesor input before seed tensor
   // (also optional) input. Eg stddev tensor. If we are not passing this tensor
   // to TPC we should set it as null. This is because TPC requires that all
@@ -342,44 +356,69 @@ void RandomSeedTensorInput::AddNode(
   inputs.push_back(syn_in(1)); // insert seed tensor
   CreateShapeTensorInput(
       graph,
-      ScalarType() == c10::ScalarType::Int ? at::kFloat : ScalarType(),
+      (dtype == c10::ScalarType::Int || dtype == c10::ScalarType::Short)
+          ? at::kFloat
+          : dtype,
       outshape,
       inputs);
   size_t size = 0;
   auto rand_params = FillParams(stack, size);
 
-  if (ScalarType() == c10::ScalarType::Int) {
-    auto rand = BuildOp(
-        graph,
-        update_guid_dtype(guid_, "f32"),
-        std::move(inputs),
-        {{outshape}},
-        rand_params.get(),
-        size);
+  std::string cast_guid{};
+  // supported kernels at the moment are: bf16/f32/f16/i32/i16
+  // update guid_ if the dtype is not supported by kernel
+  switch (dtype) {
+    case at::ScalarType::Byte:
+      cast_guid = "cast_f32_to_u8";
+      update_guid_dtype(guid_, "f32");
+      break;
+    case at::ScalarType::Char:
+    case at::ScalarType::Bool:
+      cast_guid = "cast_f32_to_i8";
+      update_guid_dtype(guid_, "f32");
+      break;
+    case at::ScalarType::Int:
+      // i32 kernel seems to be broken, the random
+      // operation needs to be performed on float type
+      cast_guid = "cast_f32_to_i32";
+      update_guid_dtype(guid_, "f32");
+      break;
+    case at::ScalarType::Short:
+      // i16 kernel seems to be broken, the random
+      // operation needs to be performed on float type
+      cast_guid = "cast_f32_to_i16";
+      update_guid_dtype(guid_, "f32");
+      break;
+    default:
+      break;
+  };
 
+  if (cast_guid != "") {
+    auto rand = BuildOp(
+        graph, guid_, std::move(inputs), {{outshape}}, rand_params.get(), size);
     PARAMS_STUB(ns_CastKernel::Params);
     // Round down so that the upper limit is not included in the generated seq.
     // The assumption is that the float vaues dont include the upper limit.
     params->round_mode = CAST_ROUND_DOWN;
     auto cast = BuildOp(
         graph,
-        "cast_f32_to_i32",
+        cast_guid,
         {rand[0].get()},
-        {{outshape, ScalarType(), 0}},
+        {{outshape, dtype, 0}},
         params.get(),
         size);
     syn_out(0) = std::move(cast[0]);
-    return;
+  } else {
+    // execute random
+    auto rand = BuildOp(
+        graph,
+        guid_,
+        std::move(inputs),
+        {{outshape, dtype, 0}},
+        rand_params.get(),
+        size);
+    syn_out(0) = std::move(rand[0]);
   }
-
-  auto rand = BuildOp(
-      graph,
-      guid_,
-      std::move(inputs),
-      {{outshape, ScalarType(), 0}},
-      rand_params.get(),
-      size);
-  syn_out(0) = std::move(rand[0]);
 }
 
 OutputMetaDataVector HabanaRandOutputMeta(const at::Stack& stack) {

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -224,24 +224,26 @@ TEST_F(HpuOpTest, bernoulli_out_scalar2) {
   EXPECT_FALSE(out1.equal(out3));
 }
 
-TEST_F(HpuOpTest, random_) {
-  GenerateInputs(1);
+TEST_F(HpuOpTest, random_f32) {
+  GenerateInputs(1, torch::kFloat32);
   SetSeed();
   auto result1 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
 
-  GenerateInputs(1);
+  GenerateInputs(1, torch::kFloat32);
   SetSeed();
   auto result2 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
 
   EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
 }
 
-TEST_F(HpuOpTest, random_from) {
-  GenerateInputs(1);
+TEST_F(HpuOpTest, random_from_f32) {
+  GenerateInputs(1, torch::kFloat32);
   SetSeed();
   auto result1 = GetHpuInput(0).random_(9, 10);
 
-  GenerateInputs(1);
+  GenerateInputs(1, torch::kFloat32);
   SetSeed();
   auto result2 = GetHpuInput(0).random_(9, 10);
 
@@ -252,17 +254,329 @@ TEST_F(HpuOpTest, random_from) {
       << "Seed=" << GetSeed() << "\n";
 }
 
-TEST_F(HpuOpTest, random_to) {
-  GenerateInputs(1, torch::kInt);
+TEST_F(HpuOpTest, random_to_f32) {
+  GenerateInputs(1, torch::kFloat32);
   SetSeed();
   auto result1 = GetHpuInput(0).random_(1000);
 
-  GenerateInputs(1, torch::kInt);
+  GenerateInputs(1, torch::kFloat32);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(1000);
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().lt(1 << 24).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_i32) {
+  GenerateInputs(1, torch::kInt32);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
+
+  GenerateInputs(1, torch::kInt32);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu()
+                  .lt(std::numeric_limits<int32_t>::max())
+                  .all()
+                  .item()
+                  .toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_from_i32) {
+  GenerateInputs(1, torch::kInt32);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(-10, 10);
+
+  GenerateInputs(1, torch::kInt32);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(-10, 10);
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().ge(-10).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().lt(10).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_to_i32) {
+  GenerateInputs(1, torch::kInt32);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(1000);
+
+  GenerateInputs(1, torch::kInt32);
   SetSeed();
   auto result2 = GetHpuInput(0).random_(1000);
 
   EXPECT_TRUE(result1.equal(result2));
   EXPECT_TRUE(result1.cpu().lt(1000).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_i16) {
+  GenerateInputs(1, torch::kInt16);
+  SetSeed();
+  auto result1 = GetHpuInput(0)
+                     .random_(at::detail::getDefaultCPUGenerator())
+                     .to(torch::kInt32);
+
+  GenerateInputs(1, torch::kInt16);
+  SetSeed();
+  auto result2 = GetHpuInput(0)
+                     .random_(at::detail::getDefaultCPUGenerator())
+                     .to(torch::kInt32);
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu()
+                  .lt(std::numeric_limits<int16_t>::max())
+                  .all()
+                  .item()
+                  .toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_from_i16) {
+  GenerateInputs(1, torch::kInt16);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(-10, 10).to(torch::kInt32);
+
+  GenerateInputs(1, torch::kInt16);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(-10, 10).to(torch::kInt32);
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().ge(-10).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().lt(10).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_to_i16) {
+  GenerateInputs(1, torch::kInt16);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(1000).to(torch::kInt32);
+
+  GenerateInputs(1, torch::kInt16);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(1000).to(torch::kInt32);
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().lt(1000).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_i8) {
+  GenerateInputs(1, torch::kChar);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
+
+  GenerateInputs(1, torch::kChar);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().le(127).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_from_i8) {
+  GenerateInputs(1, torch::kChar);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(-10, 10);
+
+  GenerateInputs(1, torch::kChar);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(-10, 10);
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().ge(-10).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().lt(10).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_to_i8) {
+  GenerateInputs(1, torch::kChar);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(127);
+
+  GenerateInputs(1, torch::kChar);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(127);
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().lt(127).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_u8) {
+  GenerateInputs(1, torch::kByte);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
+
+  GenerateInputs(1, torch::kByte);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
+
+  std::cout << result2.cpu() << "\n";
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().le(255).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_from_u8) {
+  GenerateInputs(1, torch::kByte);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(0, 20);
+
+  GenerateInputs(1, torch::kByte);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(0, 20);
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().lt(20).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_to_u8) {
+  GenerateInputs(1, torch::kByte);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(255);
+
+  GenerateInputs(1, torch::kByte);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(255);
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().lt(255).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_half) {
+  if (isGaudi()) {
+    GTEST_SKIP() << "Test skipped on Gaudi.";
+  }
+  GenerateInputs(1, torch::kHalf);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
+
+  GenerateInputs(1, torch::kHalf);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().le((1 << 11)).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_from_half) {
+  if (isGaudi()) {
+    GTEST_SKIP() << "Test skipped on Gaudi.";
+  }
+  GenerateInputs(1, torch::kHalf);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(-10, 10);
+
+  GenerateInputs(1, torch::kHalf);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(-10, 10);
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().ge(-10).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().lt(10).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_to_half) {
+  if (isGaudi()) {
+    GTEST_SKIP() << "Test skipped on Gaudi.";
+  }
+  GenerateInputs(1, torch::kHalf);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(1000);
+
+  GenerateInputs(1, torch::kHalf);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(1000);
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().lt(1000).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_bf16) {
+  GenerateInputs(1, torch::kBFloat16);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
+
+  GenerateInputs(1, torch::kBFloat16);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().le(255).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_from_bf16) {
+  GenerateInputs(1, torch::kBFloat16);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(-10, 10);
+
+  GenerateInputs(1, torch::kBFloat16);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(-10, 10);
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().ge(-10).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().lt(10).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+}
+
+TEST_F(HpuOpTest, random_to_bf16) {
+  GenerateInputs(1, torch::kBFloat16);
+  SetSeed();
+  auto result1 = GetHpuInput(0).random_(127);
+
+  GenerateInputs(1, torch::kBFloat16);
+  SetSeed();
+  auto result2 = GetHpuInput(0).random_(127);
+
+  EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.cpu().lt(127).all().item().toBool())
+      << "Seed=" << GetSeed() << "\n";
+  EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
       << "Seed=" << GetSeed() << "\n";
 }
 
