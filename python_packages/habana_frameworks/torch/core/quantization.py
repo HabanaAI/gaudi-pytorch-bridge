@@ -78,7 +78,7 @@ def _handle_quant_stats(model=None):
                 pass
 
 _const_id = -1
-def _mark_params_as_const(model=None) -> None:
+def _mark_params_as_const(model=None, console_prints=False) -> None:
     if model is None:
         return
     for param, param_t in model.state_dict().items():
@@ -86,6 +86,11 @@ def _mark_params_as_const(model=None) -> None:
             param_t_meta = _core_C.get_new_tensor_extra_meta(param_t)
         except (RuntimeError):
             param_t_meta = _core_C.get_tensor_extra_meta(param_t)
+            if param_t_meta.const_id != -1:
+                param_t_meta.is_const_tensor = True
+                if console_prints:
+                    print("Metadata already exists, const_id '{}'".format(param_t_meta.const_id))
+                continue
         global _const_id
         _const_id = _const_id + 1
         param_t_meta.is_const_tensor = True
@@ -93,7 +98,8 @@ def _mark_params_as_const(model=None) -> None:
         param_t_meta_copy = _core_C.get_tensor_extra_meta(param_t)
         is_const = param_t_meta_copy.is_const_tensor
         id = param_t_meta_copy.const_id
-        # print("Tensor '{}' is_const '{}' id '{}'".format(param, is_const, id))
+        if console_prints:
+            print("Tensor '{}' is_const '{}' id '{}'".format(param, is_const, id))
 
 def _get_marked_const_count() -> int:
     global _const_id

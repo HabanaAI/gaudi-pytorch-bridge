@@ -267,3 +267,53 @@ def test_zero_sized_tensor(set_env_variable):
        output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001)
     htcore.hpu_reset_env()
 
+
+def test_same_param_two_models(set_env_variable):
+    random_weights = torch.rand(32, 3, 3, 3)
+    # First convolutional layer with 16 filters and a different bias
+    conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1)
+    conv1.weight = nn.Parameter(random_weights)
+    conv1.bias = nn.Parameter(torch.rand(32))
+
+    import random
+    random.seed(65986)
+    # Second convolutional layer with 32 filters and a different bias
+    conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=1, padding=2)
+    conv2.weight = conv1.weight
+    conv2.bias = nn.Parameter(torch.rand(32))
+
+    input = torch.rand(1, 3, 64, 64)
+
+    output1 = conv1(input)
+    output2 = conv2(input)
+
+    hpu = torch.device("hpu")
+    cpu = torch.device("cpu")
+
+    import habana_frameworks.torch.core as htcore
+    htcore.hpu_set_env()
+
+    conv1_hpu = conv1.to(hpu)
+    conv2_hpu = conv2.to(hpu)
+    from habana_frameworks.torch.core.quantization import _check_params_as_const
+    htcore.hpu_initialize(conv1_hpu)
+    _check_params_as_const(conv1_hpu)
+    htcore.hpu_initialize(conv2_hpu)
+    _check_params_as_const(conv2_hpu)
+
+    input_hpu = input.to(hpu)
+
+    with torch.no_grad():
+        output1_hpu = conv1_hpu(input_hpu)
+
+    output1_hpu_cpu = output1_hpu.to(cpu)
+    numpy.testing.assert_allclose(
+        output1_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
+
+    with torch.no_grad():
+        output2_hpu = conv2_hpu(input_hpu)
+
+    output2_hpu_cpu = output2_hpu.to(cpu)
+    numpy.testing.assert_allclose(
+        output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
+    htcore.hpu_reset_env()
