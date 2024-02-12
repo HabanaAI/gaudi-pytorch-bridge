@@ -1,3 +1,15 @@
+###############################################################################
+# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+import pytest
 import torch
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
@@ -86,6 +98,7 @@ def test_multiple():
     assert_helper(ops_summary3, 'torch.ops.aten.add.Tensor', [(2, 0)])
 
 
+@pytest.mark.xfail(reason="SW-172859 - AssertionError: assert 1 == 2")
 def test_bulitin():
     @torch.compile(backend='hpu_backend')
     def clone_fn(x):

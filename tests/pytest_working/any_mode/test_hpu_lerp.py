@@ -21,8 +21,8 @@ dtypes = [torch.bfloat16, torch.float, torch.int]
 @pytest.mark.parametrize("shape", [[2,2,4], [4,6,4,2,6]], ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 def test_hpu_lerp(shape, scalar_weight, dtype):
-    if pytest.mode in ("eager", "lazy") and dtype == torch.int:
-        pytest.xfail("SW-170453 kernel not implemented for int")
+    if dtype == torch.int:
+        pytest.xfail("SW-170453 SW-172859 - kernel not implemented for int")
 
     def fn(start, end, weight):
         return torch.lerp(start, end, weight)

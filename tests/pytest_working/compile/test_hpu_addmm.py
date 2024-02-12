@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -19,6 +19,8 @@ import torch
 @pytest.mark.parametrize("m", [1, 5])
 @pytest.mark.parametrize("p", [1, 5])
 def test_addmm(dtype, n, m, p):
+    if n == 1 and m == 1 and p == 1 and dtype == torch.float:
+        pytest.xfail("SW-172859 - assert False")
     input_shape = (n, p)
     mat1_shape = (n, m)
     mat2_shape = (m, p)

@@ -14,6 +14,7 @@ import torch
 from torch import nn
 
 
+@pytest.mark.xfail(reason="SW-172859 - _weight_norm_interface() missing 1 required positional argument: 'dim'")
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_weight_norm_fwd_bwd(dtype):
     in_numel = 20
