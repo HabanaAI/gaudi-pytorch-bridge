@@ -594,7 +594,7 @@ def meta_rotary_pos_embedding(input, sin, cos, position_ids, offset, mode):
 
 
 @register_meta([torch.ops.hpu.rotary_pos_embedding_backward.default])
-def meta_rotary_pos_embedding_backward(grad_in, sin, cos, offset, mode):
+def meta_rotary_pos_embedding_backward(grad_in, sin, cos, position_ids, offset, mode):
     return grad_in.new_empty(grad_in.shape)
 
 

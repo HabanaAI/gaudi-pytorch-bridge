@@ -1,5 +1,5 @@
 # ******************************************************************************
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -39,23 +39,6 @@ def match_data_types(
             sin = sin.to(p_dtype)
 
     return (input, cos, sin)
-
-
-def recalculate_params(
-    cos: torch.Tensor,
-    sin: torch.Tensor,
-    position_ids: torch.LongTensor,
-    offset: int = 0,
-    mode: RotaryPosEmbeddingMode = RotaryPosEmbeddingMode.BLOCKWISE,
-):
-    if mode == RotaryPosEmbeddingMode.BLOCKWISE:
-        if position_ids is not None:
-            cos = cos.squeeze(1).squeeze(0)  # [seq_len, dim]
-            sin = sin.squeeze(1).squeeze(0)  # [seq_len, dim]
-            cos = cos[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
-            sin = sin[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
-
-    return cos, sin, offset
 
 
 def apply_rotary_pos_emb(
@@ -130,11 +113,9 @@ def apply_rotary_pos_emb_bwd(
     offset: int = 0,
     mode: RotaryPosEmbeddingMode = RotaryPosEmbeddingMode.BLOCKWISE,
 ) -> torch.Tensor:
-    cos, sin, offset = recalculate_params(cos, sin, position_ids, offset, mode)
-
     p_grad_in, cos, sin = match_data_types(p_grad_in, cos, sin)
 
-    return torch.ops.hpu.rotary_pos_embedding_backward(p_grad_in, sin, cos, offset, mode.value)
+    return torch.ops.hpu.rotary_pos_embedding_backward(p_grad_in, sin, cos, position_ids, offset, mode.value)
 
 
 class RotaryPosEmbeddingHelperV1(torch.autograd.Function):
@@ -179,7 +160,7 @@ class RotaryPosEmbeddingHelperV2(torch.autograd.Function):
 def parse_rope_cache(p, rope_cache):
     sq, np = p.size(0), p.size(2)
     rot_dim = rope_cache.shape[-2] * 2
-    p, p_pass = p[..., :rot_dim], p[..., rot_dim:].clone()
+    p, p_pass = p[..., :rot_dim], p[..., rot_dim:]
     rope_cache = rope_cache[:sq]
     p_shaped2 = p.reshape(sq, -1, np, rot_dim // 2, 2)
     p_shaped = p.reshape(sq, -1, np, rot_dim)
@@ -201,7 +182,10 @@ class RotaryPosEmbeddingHelperV3(torch.autograd.Function):
 
         ctx.save_for_backward(rope_cache)
         res = torch.ops.hpu.rotary_pos_embedding(p_shaped, sin, cos, None, 0, RotaryPosEmbeddingMode.PAIRWISE.value)
-        return torch.cat((res, p_pass), dim=-1)
+        if p_pass.shape[-1] == 0:
+            return res
+        else:
+            return torch.cat((res, p_pass), dim=-1)
 
     @staticmethod
     def backward(ctx, p_grad_in):
@@ -209,4 +193,7 @@ class RotaryPosEmbeddingHelperV3(torch.autograd.Function):
         p_shaped, p_pass, sin, cos = parse_rope_cache(p_grad_in, rope_cache)
 
         p_embed_grad = apply_rotary_pos_emb_bwd(p_shaped, cos, sin, None, 0, RotaryPosEmbeddingMode.PAIRWISE)
-        return torch.cat((p_embed_grad, p_pass), dim=-1), None
+        if p_pass.shape[-1] == 0:
+            return p_embed_grad, None
+        else:
+            return torch.cat((p_embed_grad, p_pass), dim=-1), None

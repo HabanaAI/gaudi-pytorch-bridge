@@ -1,5 +1,5 @@
 # ******************************************************************************
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -9,10 +9,9 @@
 # was provided.
 #
 # ******************************************************************************
-import warnings
-
 import pytest
 import torch
+from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from habana_frameworks.torch.hpex.kernels import (
     RotaryPosEmbeddingHelperV1,
     RotaryPosEmbeddingHelperV2,
@@ -25,9 +24,13 @@ from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, cpu, 
 apply_rotary_pos_emb_v1_test_case_list = [
     # p_size, cos_sin_size, offset
     ((64, 8, 64), (64, 1, 64), 0),
-    ((64, 8, 64), (64, 1, 64), 2),
+    ((64, 8, 64), (64, 1, 64), 3),
     ((8, 1, 32, 8), (8, 1, 1, 8), 0),
+    ((8, 2, 32, 8), (8, 1, 1, 8), 2),
     ((8, 1, 32, 8), (8, 1, 1, 8), 2),
+    ((32, 8, 32), (32, 1, 32), 2),
+    ((52, 8, 52), (52, 1, 52), 2),
+    ((64, 8, 64), (64, 1, 64), 2),
 ]
 
 apply_rotary_pos_emb_v2_test_case_list = [
@@ -37,6 +40,7 @@ apply_rotary_pos_emb_v2_test_case_list = [
     ((1, 6, 4, 6), (1, 1, 32, 6)),
     ((1, 6, 4, 6), (1, 1, 6, 6)),
     ((2, 32, 108, 128), (1, 1, 108, 128)),
+    ((2, 64, 108, 128), (1, 1, 108, 128)),
 ]
 
 apply_rotary_pos_emb_gptj_test_case_list = [
@@ -243,55 +247,67 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
 )
 @pytest.mark.parametrize("squeeze_dims", [False, True])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
-def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dtype):
-    if pytest.mode == "compile":
-        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
-    if is_gaudi1() and dtype == torch.float16:
-        pytest.skip("Half is not supported on Gaudi.")
+class TestHpuApplyRotaryPosEmbV2FwdBwd:
+    @classmethod
+    def setup_class(self):
+        # Index requires fallback to eager
+        self.original_configuration = configuration_flags["use_eager_fallback"]
+        configuration_flags["use_eager_fallback"] = True
 
-    torch.manual_seed(12345)
+    @classmethod
+    def teardown_class(self):
+        configuration_flags["use_eager_fallback"] = self.original_configuration
 
-    # Initial shapes for p, cos/sin, position_ids
-    # query_shape=[bs, num_attention_heads, seq_len, rotary_ndim]
-    # cos_shape=[1, 1, max_position_embeddings, rotary_ndim]
-    # position_ids_shape=[bs, seq_len]
-    p, cos, sin, position_ids = prepare_test_data(p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.BLOCKWISE)
+    @staticmethod
+    def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dtype):
+        if is_gaudi1() and dtype == torch.float16:
+            pytest.skip("Half is not supported on Gaudi.")
 
-    # Compute reference gradients on CPU using autograd
-    p_embed_ref = apply_rotary_pos_emb_v2_ref(p, cos, sin, position_ids, squeeze_dims)
-    loss_ref = p_embed_ref.sum()
-    loss_ref.backward()
+        torch.manual_seed(12345)
 
-    grad_p_ref = p.grad.clone().detach()
+        # Initial shapes for p, cos/sin, position_ids
+        # query_shape=[bs, num_attention_heads, seq_len, rotary_ndim]
+        # cos_shape=[1, 1, max_position_embeddings, rotary_ndim]
+        # position_ids_shape=[bs, seq_len]
+        p, cos, sin, position_ids = prepare_test_data(p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.BLOCKWISE)
 
-    # Compute gradients on HPU
-    p_hpu = p.clone().to(dtype).to(hpu)
-    p_hpu.retain_grad()
-    cos_hpu = cos.to(dtype).to(hpu)
-    sin_hpu = sin.to(dtype).to(hpu)
-    position_ids_hpu = position_ids.to(hpu)
+        # Compute reference gradients on CPU using autograd
+        p_embed_ref = apply_rotary_pos_emb_v2_ref(p, cos, sin, position_ids, squeeze_dims)
+        loss_ref = p_embed_ref.sum()
+        loss_ref.backward()
 
-    output_fwd = RotaryPosEmbeddingHelperV2.apply
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        output_fwd = torch.compile(RotaryPosEmbeddingHelperV2.apply, backend="hpu_backend")
+        grad_p_ref = p.grad.clone().detach()
 
-    p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, position_ids_hpu)
-    loss = p_embed.sum()
-    loss.backward()
+        # Compute gradients on HPU
+        p_hpu = p.clone().to(dtype).to(hpu)
+        p_hpu.retain_grad()
+        cos_hpu = cos.to(dtype).to(hpu)
+        sin_hpu = sin.to(dtype).to(hpu)
+        position_ids_hpu = position_ids.to(hpu)
 
-    if dtype == torch.float32:
-        tol = 0.001
-    else:
-        tol = 0.012
+        output_fwd = RotaryPosEmbeddingHelperV2.apply
+        if is_pytest_mode_compile():
+            clear_t_compile_logs()
+            torch._dynamo.reset()
+            output_fwd = torch.compile(RotaryPosEmbeddingHelperV2.apply, backend="hpu_backend")
 
-    torch.testing.assert_close(p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol)
+        p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, position_ids_hpu)
+        loss = p_embed.sum()
+        loss.backward()
 
-    torch.testing.assert_close(p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol)
+        if dtype == torch.float32:
+            tol = 0.001
+        else:
+            tol = 0.012
 
-    if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir({"rotary_pos_embedding", "rotary_pos_embedding_backward"})
+        torch.testing.assert_close(p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol)
+
+        torch.testing.assert_close(p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol)
+
+        if is_pytest_mode_compile():
+            check_ops_executed_in_jit_ir(
+                {"rotary_pos_embedding", "rotary_pos_embedding_backward"}, {"index", "index_1"}
+            )
 
 
 @pytest.mark.parametrize(
@@ -341,51 +357,63 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
 @pytest.mark.parametrize("cos_dtype", [torch.float16, torch.float32, torch.bfloat16])
 @pytest.mark.parametrize("sin_dtype", [torch.float16, torch.float32, torch.bfloat16])
-def test_apply_rotary_pos_emb_diff_dtypes(p_size, cos_sin_size, dtype, cos_dtype, sin_dtype):
-    if pytest.mode == "compile":
-        pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
-    if is_gaudi1() and (dtype == torch.float16 or cos_dtype == torch.float16 or sin_dtype == torch.float16):
-        pytest.skip("Half is not supported on Gaudi.")
+class TestHpuApplyRotaryPosEmbDiffDTypes:
+    @classmethod
+    def setup_class(self):
+        # Index requires fallback to eager
+        self.original_configuration = configuration_flags["use_eager_fallback"]
+        configuration_flags["use_eager_fallback"] = True
 
-    torch.manual_seed(12345)
+    @classmethod
+    def teardown_class(self):
+        configuration_flags["use_eager_fallback"] = self.original_configuration
 
-    p, cos, sin, position_ids = prepare_test_data(p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.BLOCKWISE)
+    @staticmethod
+    def test_apply_rotary_pos_emb_diff_dtypes(p_size, cos_sin_size, dtype, cos_dtype, sin_dtype):
+        if is_gaudi1() and (dtype == torch.float16 or cos_dtype == torch.float16 or sin_dtype == torch.float16):
+            pytest.skip("Half is not supported on Gaudi.")
 
-    # Compute reference gradients on CPU using autograd
-    p_embed_ref = apply_rotary_pos_emb_v2_ref(p, cos, sin, position_ids, False)
-    loss_ref = p_embed_ref.sum()
-    loss_ref.backward()
+        torch.manual_seed(12345)
 
-    grad_p_ref = p.grad.clone().detach()
+        p, cos, sin, position_ids = prepare_test_data(p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.BLOCKWISE)
 
-    # Compute gradients on HPU
-    p_hpu = p.clone().to(dtype).to(hpu)
-    p_hpu.retain_grad()
-    cos_hpu = cos.to(cos_dtype).to(hpu)
-    sin_hpu = sin.to(sin_dtype).to(hpu)
-    position_ids_hpu = position_ids.to(hpu)
+        # Compute reference gradients on CPU using autograd
+        p_embed_ref = apply_rotary_pos_emb_v2_ref(p, cos, sin, position_ids, False)
+        loss_ref = p_embed_ref.sum()
+        loss_ref.backward()
 
-    output_fwd = RotaryPosEmbeddingHelperV2.apply
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        output_fwd = torch.compile(RotaryPosEmbeddingHelperV2.apply, backend="hpu_backend")
+        grad_p_ref = p.grad.clone().detach()
 
-    p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, position_ids_hpu)
-    loss = p_embed.sum()
-    loss.backward()
+        # Compute gradients on HPU
+        p_hpu = p.clone().to(dtype).to(hpu)
+        p_hpu.retain_grad()
+        cos_hpu = cos.to(cos_dtype).to(hpu)
+        sin_hpu = sin.to(sin_dtype).to(hpu)
+        position_ids_hpu = position_ids.to(hpu)
 
-    if dtype == torch.float32:
-        tol = 0.002
-    else:
-        tol = 0.012
+        output_fwd = RotaryPosEmbeddingHelperV2.apply
+        if is_pytest_mode_compile():
+            clear_t_compile_logs()
+            torch._dynamo.reset()
+            output_fwd = torch.compile(RotaryPosEmbeddingHelperV2.apply, backend="hpu_backend")
 
-    torch.testing.assert_close(p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol)
+        p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, position_ids_hpu)
+        loss = p_embed.sum()
+        loss.backward()
 
-    torch.testing.assert_close(p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol)
+        if dtype == torch.float32:
+            tol = 0.002
+        else:
+            tol = 0.012
 
-    if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir({"rotary_pos_embedding", "rotary_pos_embedding_backward"})
+        torch.testing.assert_close(p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol)
+
+        torch.testing.assert_close(p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol)
+
+        if is_pytest_mode_compile():
+            check_ops_executed_in_jit_ir(
+                {"rotary_pos_embedding", "rotary_pos_embedding_backward"}, {"index", "index_1"}
+            )
 
 
 @pytest.mark.parametrize(
