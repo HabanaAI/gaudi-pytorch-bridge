@@ -37,6 +37,8 @@
 #include "python_packages/habana_frameworks/torch/distributed/hccl/process_group_hccl_base.hpp"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 
+#include "process_group_registry.hpp"
+
 namespace c10d {
 
 namespace {
@@ -111,10 +113,16 @@ class CollectiveContext {
 ProcessGroupEagerHCCL::ProcessGroupEagerHCCL(
     const c10::intrusive_ptr<Store>& store,
     int rank,
-    int size)
-    : ProcessGroupHcclBase(store, rank, size) {
-  PT_EAGER_DEBUG(
-      "Create ProcessGroupEagerHCCL, rank = ", rank, " size = ", size);
+    int size,
+    std::string group_name)
+    : ProcessGroupHcclBase(store, rank, size, group_name) {
+  PT_DISTRIBUTED_DEBUG(
+      "Created ProcessGroupEagerHCCL name:",
+      group_name_,
+      ", size:",
+      size,
+      ", rank:",
+      rank);
   always_support_int64_ = true;
   comm_ = habana::HcclCommunicator::Create(
       rank,
@@ -136,28 +144,35 @@ ProcessGroupEagerHCCL::ProcessGroupEagerHCCL(
 };
 
 void ProcessGroupEagerHCCL::destroy() {
-  if (comm_) {
-    // Consider adding additional suffix based on process group identifier
-    // in case of multi process group scenarios
-    std::string barrier_key = std::string("ProcessGroupEagerHCCL::destroy");
-    auto worker_count = store_->add(barrier_key, 1);
-    if (getRank() == 0) {
-      while (worker_count != size_) {
-        worker_count = store_->add(barrier_key, 0);
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      }
-    }
+  PT_DISTRIBUTED_DEBUG(
+      "Destroy ProcessGroupEagerHCCL name:",
+      group_name_,
+      ", size:",
+      size_,
+      ", rank:",
+      rank_);
 
+  hostBarrier();
+
+  if (comm_) {
     habana_helpers::AutoNoGIL gil_release;
     comm_->flush_stream();
     comm_.reset();
   }
+
+  destroyHandshake();
 }
 
 ProcessGroupEagerHCCL::~ProcessGroupEagerHCCL() {
-  PT_DISTRIBUTED_BEGIN;
+  PT_DISTRIBUTED_DEBUG(
+      "~ProcessGroupEagerHCCL name:",
+      group_name_,
+      ", size:",
+      size_,
+      ", rank:",
+      rank_);
+  habana_helpers::AutoNoGIL gil_release;
   destroy();
-  PT_DISTRIBUTED_END;
 };
 
 ProcessGroupEagerHCCL::WorkEager::WorkEager(
@@ -410,91 +425,17 @@ void ProcessGroupEagerHCCL::clearPermutesFromRecvTensors(
 
 } // namespace c10d
 
-class ProcessGroupEagerHCCLRegistry {
- public:
-  using intrptr_t = c10::intrusive_ptr<::c10d::ProcessGroupEagerHCCL>;
-  using weakptr_t = c10::weak_intrusive_ptr<::c10d::ProcessGroupEagerHCCL>;
-  static ProcessGroupEagerHCCLRegistry& instance() {
-    std::call_once(init_once_flag_, []() {
-      instance_.reset(new ProcessGroupEagerHCCLRegistry());
-      habana::HPURegistrar::get_hpu_registrar()
-          .register_process_group_finalizer(habana::CallFinally([]() {
-            PT_DISTRIBUTED_DEBUG("ProcessGroupEagerHCCLRegistry finalizer");
-            instance_.reset();
-          }));
-    });
-
-    return *instance_;
-  }
-
-  static intrptr_t create(
-      const c10::intrusive_ptr<c10d::Store>& store,
-      int rank,
-      int size) {
-    intrptr_t r{};
-    r = r.make(store, rank, size);
-    ProcessGroupEagerHCCLRegistry::instance().insert(r);
-    return r;
-  }
-
-  ~ProcessGroupEagerHCCLRegistry() {
-    cleanup();
-  }
-
- private:
-  std::vector<weakptr_t> groups_;
-  std::once_flag job_thread_once_flag_;
-  std::mutex groups_mutex_;
-  static std::once_flag init_once_flag_;
-  static std::unique_ptr<ProcessGroupEagerHCCLRegistry> instance_;
-
-  void cleanup() {
-    PT_DISTRIBUTED_DEBUG("Clearing distributed process groups");
-    size_t count{0};
-    {
-      std::unique_lock<std::mutex> lock{groups_mutex_};
-      for (auto& wpg : groups_) {
-        auto wp{wpg.lock()};
-        if (wp) {
-          wp->destroy();
-          ++count;
-        }
-      }
-    }
-    PT_DISTRIBUTED_DEBUG(
-        "Cleared ",
-        count,
-        " remaining distributed process groups out of ",
-        groups_.size());
-  }
-
-  void insert(intrptr_t& new_pg) {
-    std::unique_lock<std::mutex> lock{groups_mutex_};
-    for (auto& wpg : groups_) {
-      auto wp{wpg.lock()};
-      if (!wp) {
-        wp = new_pg;
-        return;
-      }
-    }
-    groups_.push_back(weakptr_t(new_pg));
-  }
-};
-
-std::once_flag ProcessGroupEagerHCCLRegistry::init_once_flag_;
-std::unique_ptr<ProcessGroupEagerHCCLRegistry>
-    ProcessGroupEagerHCCLRegistry::instance_;
-
 namespace py = pybind11;
 
-template <typename T, typename... TOptions>
-using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>, TOptions...>;
+template <typename T, typename T_BASE>
+using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>, T_BASE>;
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   intrusive_ptr_class_<::c10d::ProcessGroupEagerHCCL, c10d::ProcessGroup>
       processGroupHccl(module, "ProcessGroupHCCL");
 
-  processGroupHccl.def(py::init(&ProcessGroupEagerHCCLRegistry::create));
+  processGroupHccl.def(py::init(
+      &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupEagerHCCL>::create));
 
   py::cpp_function cleanup = []() {
     {

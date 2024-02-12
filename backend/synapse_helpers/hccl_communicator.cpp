@@ -110,7 +110,7 @@ HcclCommunicator::HcclCommunicator(
       broadcastUniqueHCCLID_fn_(broadcastUniqueHCCLID_fn) {}
 
 void HcclCommunicator::Init() {
-  hcclUniqueId hccl_id;
+  hcclUniqueId hccl_id = {{0}, 0};
   PT_LAZY_DEBUG("HcclCommunicator init. id = ", id_);
   if (rank_ == 0) {
     hcclResult_t result{hcclGetUniqueId(&hccl_id)};

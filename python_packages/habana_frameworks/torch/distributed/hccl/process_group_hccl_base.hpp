@@ -13,18 +13,18 @@
 
 #pragma once
 
+#include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
+#include <torch/csrc/distributed/c10d/Store.hpp>
+#include <torch/csrc/distributed/c10d/Types.hpp>
+#include <torch/csrc/distributed/c10d/Utils.hpp>
 #include <torch/extension.h>
-#include <torch_ver/csrc/distributed/c10d/ProcessGroup.hpp>
-#include <torch_ver/csrc/distributed/c10d/Store.hpp>
-#include <torch_ver/csrc/distributed/c10d/Types.hpp>
-#include <torch_ver/csrc/distributed/c10d/Utils.hpp>
 #include <chrono>
 #include <mutex>
 #include <thread>
 #include <unordered_map>
 #include "backend/synapse_helpers/device_context.h"
 
-using Work = c10d_ver::Work;
+using Work = c10d::Work;
 
 namespace c10d {
 
@@ -34,7 +34,8 @@ class TORCH_API ProcessGroupHcclBase : public ProcessGroup {
   ProcessGroupHcclBase(
       const c10::intrusive_ptr<Store>& store,
       int rank,
-      int size);
+      int size,
+      std::string group_name);
 
   virtual ~ProcessGroupHcclBase();
   const std::string getBackendName() const override {
@@ -151,6 +152,7 @@ class TORCH_API ProcessGroupHcclBase : public ProcessGroup {
       std::vector<at::Tensor>& inputTensors,
       const BroadcastOptions& opts);
   void hostBarrier();
+  void destroyHandshake();
 
   virtual void permutedSendTensorsToDense(std::vector<at::Tensor>& tensors) = 0;
   virtual void clearPermutesFromRecvTensors(
@@ -160,6 +162,7 @@ class TORCH_API ProcessGroupHcclBase : public ProcessGroup {
   bool always_support_int64_;
   c10::intrusive_ptr<Store> store_;
   size_t barrier_cnt_;
+  std::string group_name_;
 };
 
 } // namespace c10d

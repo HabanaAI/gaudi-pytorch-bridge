@@ -137,15 +137,17 @@ bool is_valid_hccl_dtype(hcclDataType_t data_type) {
 ProcessGroupHcclBase::ProcessGroupHcclBase(
     const c10::intrusive_ptr<Store>& store,
     int rank,
-    int size)
+    int size,
+    std::string group_name)
     : ProcessGroup(rank, size),
       always_support_int64_(false),
       store_(store),
-      barrier_cnt_(0) {
+      barrier_cnt_(0),
+      group_name_{group_name} {
   this->emulate_distributed_ = GET_ENV_FLAG_NEW(PT_HPU_EMULATE_DISTRIBUTED);
 }
 
-ProcessGroupHcclBase::~ProcessGroupHcclBase() {}
+ProcessGroupHcclBase::~ProcessGroupHcclBase() = default;
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
     std::vector<at::Tensor>& tensors,
@@ -1184,7 +1186,9 @@ void ProcessGroupHcclBase::hostBarrier() {
   if (this->emulate_distributed_) {
     return;
   }
-  PT_DISTRIBUTED_BEGIN;
+
+  PT_DISTRIBUTED_DEBUG(
+      "Enter hostBarrier group_name:", group_name_, ", rank:", rank_);
 
   constexpr int64_t kSynchronizeBusyWaitMillis = 1;
   // Minumum three keys are required to avoid race condition
@@ -1215,7 +1219,34 @@ void ProcessGroupHcclBase::hostBarrier() {
   }
 
   barrier_cnt_ = (barrier_cnt_ + 1) % kNumBarrierKeys;
-  PT_DISTRIBUTED_END;
+
+  PT_DISTRIBUTED_DEBUG(
+      "Exit hostBarrier group_name:", group_name_, ", rank:", rank_);
+}
+
+void ProcessGroupHcclBase::destroyHandshake() {
+  /**
+   * This handshake ensures that rank 0 that hosts store service finishes its
+   * job as last.
+   */
+  if (this->emulate_distributed_) {
+    return;
+  }
+
+  PT_DISTRIBUTED_DEBUG(
+      "Enter destroyHandshake group_name:", group_name_, ", rank:", rank_);
+  std::string barrier_key = std::string("ProcessGroup::destroy");
+
+  auto worker_count = store_->add(barrier_key, 1);
+  if (getRank() == 0) {
+    while (worker_count != size_) {
+      worker_count = store_->add(barrier_key, 0);
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  }
+
+  PT_DISTRIBUTED_DEBUG(
+      "Exit destroyHandshake group_name:", group_name_, ", rank:", rank_);
 }
 
 } // namespace c10d

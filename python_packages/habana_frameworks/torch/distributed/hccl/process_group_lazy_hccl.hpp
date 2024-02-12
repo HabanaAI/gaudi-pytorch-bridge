@@ -33,7 +33,8 @@ class TORCH_API ProcessGroupLazyHCCL : public ProcessGroup {
   ProcessGroupLazyHCCL(
       const c10::intrusive_ptr<Store>& store,
       int rank,
-      int size);
+      int size,
+      std::string group_name);
   virtual ~ProcessGroupLazyHCCL();
 
   class WorkLazy : public Work, public std::enable_shared_from_this<WorkLazy> {
@@ -127,12 +128,16 @@ class TORCH_API ProcessGroupLazyHCCL : public ProcessGroup {
 
   c10::intrusive_ptr<Work> barrier(
       const BarrierOptions& opts = BarrierOptions()) override;
+  void destroy();
 
  private:
   void hostBarrier();
+  void destroyHandshake();
   void permutedSendTensorsToDense(at::Tensor& tensor);
   c10::intrusive_ptr<Store> store_;
   size_t barrier_cnt_;
+  std::string group_name_;
+  bool emulate_distributed_;
 
  protected:
   std::shared_ptr<habana::HcclCommunicator> comm_;

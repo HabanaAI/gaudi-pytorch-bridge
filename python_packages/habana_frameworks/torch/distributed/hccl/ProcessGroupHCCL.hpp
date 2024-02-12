@@ -78,7 +78,11 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
     friend class ProcessGroupHCCL;
   };
 
-  ProcessGroupHCCL(const c10::intrusive_ptr<Store>& store, int rank, int size);
+  ProcessGroupHCCL(
+      const c10::intrusive_ptr<Store>& store,
+      int rank,
+      int size,
+      std::string group_name);
 
   virtual ~ProcessGroupHCCL();
 

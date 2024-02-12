@@ -24,6 +24,9 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/tensor_impl.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
+
+#include "process_group_registry.hpp"
 
 namespace c10d {
 
@@ -77,9 +80,20 @@ void restoreTensorsize(
 ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
     const c10::intrusive_ptr<Store>& store,
     int rank,
-    int size)
-    : ProcessGroup(rank, size), store_(store), barrier_cnt_(0) {
-  PT_LAZY_DEBUG("Create ProcessGroupLazyHCCL, rank = ", rank, " size = ", size);
+    int size,
+    std::string group_name)
+    : ProcessGroup(rank, size),
+      store_(store),
+      barrier_cnt_(0),
+      group_name_(group_name) {
+  PT_DISTRIBUTED_DEBUG(
+      "Created ProcessGroupLazyHCCL name:",
+      group_name_,
+      ", size:",
+      size,
+      ", rank:",
+      rank);
+  emulate_distributed_ = GET_ENV_FLAG_NEW(PT_HPU_EMULATE_DISTRIBUTED);
   comm_ = habana::HcclCommunicator::Create(
       rank,
       size,
@@ -100,10 +114,36 @@ ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
 };
 
 ProcessGroupLazyHCCL::~ProcessGroupLazyHCCL() {
-  PT_LAZY_DEBUG("Destroy ProcessGroupLazyHCCL");
-  hostBarrier();
-  comm_.reset();
+  PT_DISTRIBUTED_DEBUG(
+      "~ProcessGroupLazyHCCL name:",
+      group_name_,
+      ", size:",
+      size_,
+      ", rank:",
+      rank_);
+  habana_helpers::AutoNoGIL gil_release;
+  destroy();
 };
+
+void ProcessGroupLazyHCCL::destroy() {
+  PT_DISTRIBUTED_DEBUG(
+      "Destroy ProcessGroupLazyHCCL name:",
+      group_name_,
+      ", size:",
+      size_,
+      ", rank:",
+      rank_);
+
+  hostBarrier();
+
+  if (comm_) {
+    habana_helpers::AutoNoGIL gil_release;
+    comm_->flush_stream();
+    comm_.reset();
+  }
+
+  destroyHandshake();
+}
 
 ProcessGroupLazyHCCL::WorkLazy::WorkLazy(const std::vector<at::Tensor>& outputs)
     : outputs_(outputs),
@@ -432,11 +472,17 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::recvAnysource(
       "recvAnysource is currently not supported with HCCL");
 };
 
-constexpr int64_t kSynchronizeBusyWaitMillis = 1;
-// Minumum three keys are required to avoid race condition
-constexpr int64_t kNumBarrierKeys = 3;
 void ProcessGroupLazyHCCL::hostBarrier() {
-  PT_DISTRIBUTED_BEGIN;
+  if (this->emulate_distributed_) {
+    return;
+  }
+
+  PT_DISTRIBUTED_DEBUG(
+      "Enter hostBarrier group_name:", group_name_, ", rank:", rank_);
+
+  constexpr int64_t kSynchronizeBusyWaitMillis = 1;
+  // Minumum three keys are required to avoid race condition
+  constexpr int64_t kNumBarrierKeys = 3;
 
   auto hccl_rank = getRank();
   std::string barrier_key = std::string("HOST_BARRIER:");
@@ -463,13 +509,40 @@ void ProcessGroupLazyHCCL::hostBarrier() {
   }
 
   barrier_cnt_ = (barrier_cnt_ + 1) % kNumBarrierKeys;
-  PT_DISTRIBUTED_END;
+
+  PT_DISTRIBUTED_DEBUG(
+      "Exit hostBarrier group_name:", group_name_, ", rank:", rank_);
+}
+
+void ProcessGroupLazyHCCL::destroyHandshake() {
+  /**
+   * This handshake ensures that rank 0 that hosts store service finishes its
+   * job as last.
+   */
+  if (this->emulate_distributed_) {
+    return;
+  }
+
+  PT_DISTRIBUTED_DEBUG(
+      "Enter destroyHandshake group_name:", group_name_, ", rank:", rank_);
+  std::string barrier_key = std::string("ProcessGroup::destroy");
+
+  auto worker_count = store_->add(barrier_key, 1);
+  if (getRank() == 0) {
+    while (worker_count != size_) {
+      worker_count = store_->add(barrier_key, 0);
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  }
+
+  PT_DISTRIBUTED_DEBUG(
+      "Exit destroyHandshake group_name:", group_name_, ", rank:", rank_);
 }
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::barrier(
     const BarrierOptions& opts [[maybe_unused]]) {
   hostBarrier();
-  PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::barrier");
+  PT_DISTRIBUTED_DEBUG("step marker due to ProcessGroupLazyHCCL::barrier");
   habana_lazy::HbLazyTensor::StepMarker();
 
   std::vector<at::Tensor> tensors;
@@ -480,13 +553,55 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::barrier(
 
 namespace py = pybind11;
 
-template <typename T, typename... TOptions>
-using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>, TOptions...>;
+template <typename T, typename T_BASE>
+using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>, T_BASE>;
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   intrusive_ptr_class_<::c10d::ProcessGroupLazyHCCL, c10d::ProcessGroup>
       processGroupHccl(module, "ProcessGroupHCCL");
 
-  processGroupHccl.def(
-      py::init<const c10::intrusive_ptr<c10d::Store>&, int, int>());
+  processGroupHccl.def(py::init(
+      &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupLazyHCCL>::create));
+
+  py::cpp_function cleanup = []() {
+    {
+      // Flushing all streams in order to ensure that all events have been
+      // handled (all tensors connected with pending events are deallocated)
+      // before Python interpreter finalization. If tensor is deallocated when
+      // interpreter is down or is going down (finalizing) then cPython may
+      // issue std::terminate (abort), what will be observed in DFA report.
+
+      auto gil_release = pybind11::gil_scoped_release();
+
+      const int hccl_comms_num = habana::HcclCommunicator::Count();
+      PT_DISTRIBUTED_DEBUG("PG cleanup: HCCL comms count: ", hccl_comms_num);
+
+      for (int hccl_comm_id = 0; hccl_comm_id < hccl_comms_num;
+           hccl_comm_id++) {
+        std::shared_ptr<habana::HcclCommunicator> hccl_comm =
+            habana::HcclCommunicator::Get(hccl_comm_id);
+
+        if (hccl_comm) {
+          PT_DISTRIBUTED_DEBUG(
+              "PG cleanup: flushing HCCL comm with id=", hccl_comm_id);
+          hccl_comm->flush_stream();
+        } else {
+          PT_DISTRIBUTED_DEBUG(
+              "PG cleanup: HCCL comm with given id has been already destroyed, id=",
+              hccl_comm_id);
+        }
+      }
+    }
+
+    // Destroying default PG when it hasn't been destroyed by user.
+
+    py::object dist = py::module_::import("torch.distributed");
+    py::object destroy_process_group = dist.attr("destroy_process_group");
+    py::object default_pg = dist.attr("GroupMember").attr("WORLD");
+    if (!default_pg.is(py::none())) {
+      PT_DISTRIBUTED_DEBUG("Destroying process groups at exit");
+      destroy_process_group();
+    }
+  };
+  py::module::import("atexit").attr("register")(cleanup);
 };

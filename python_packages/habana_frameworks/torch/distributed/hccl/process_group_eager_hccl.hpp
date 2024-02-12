@@ -18,17 +18,17 @@
 #include <pybind11/pybind11.h>
 #include <torch/extension.h>
 
-#include <torch_ver/csrc/distributed/c10d/ProcessGroup.hpp>
-#include <torch_ver/csrc/distributed/c10d/Store.hpp>
-#include <torch_ver/csrc/distributed/c10d/Types.hpp>
-#include <torch_ver/csrc/distributed/c10d/Utils.hpp>
+#include <torch/csrc/distributed/c10d/ProcessGroup.hpp>
+#include <torch/csrc/distributed/c10d/Store.hpp>
+#include <torch/csrc/distributed/c10d/Types.hpp>
+#include <torch/csrc/distributed/c10d/Utils.hpp>
 #include <functional>
 
 #include "backend/synapse_helpers/hccl_communicator.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "process_group_hccl_base.hpp"
 
-using Work = c10d_ver::Work;
+using Work = c10d::Work;
 
 namespace c10d {
 class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
@@ -36,7 +36,8 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
   ProcessGroupEagerHCCL(
       const c10::intrusive_ptr<Store>& store,
       int rank,
-      int size);
+      int size,
+      std::string group_name);
   virtual ~ProcessGroupEagerHCCL();
 
   class WorkEager : public Work,

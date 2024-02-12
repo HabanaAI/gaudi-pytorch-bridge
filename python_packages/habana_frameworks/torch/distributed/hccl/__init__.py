@@ -111,14 +111,15 @@ def initialize_distributed_hpu(world_size=None, rank=None, local_rank=None) -> T
 initialize_distributed_hpu()
 
 
-def _create_process_group_hccl(store, rank, size, timeout):
+def _create_process_group_hccl(backend_opts, pg_opts):
     return ProcessGroupHCCL(
-        store,
-        rank,
-        size)
+        backend_opts.store,
+        backend_opts.group_rank,
+        backend_opts.group_size,
+        backend_opts.group_id)
 
 
-torch.distributed.Backend.register_backend("hccl", _create_process_group_hccl, devices=['hpu'])
+torch.distributed.Backend.register_backend("hccl", _create_process_group_hccl, devices=['hpu'], extended_api=True)
 
 
 def _disallow_collectives_in_graph():
