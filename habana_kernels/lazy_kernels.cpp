@@ -6342,20 +6342,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(cast_to_fp8_hybrid, hpu_op)
 }
 
-at::Tensor cast_to_fp8_q_lazy(
-    const at::Tensor& input,
-    at::ScalarType dtype,
-    int64_t exp_bias) {
-  PT_LAZY_OP_TRACE;
-
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::cast_to_fp8_q", {input, dtype, exp_bias}, {input.sizes().vec()}};
-  hpu_op.set_scalar_types({dtype});
-  auto output = hpu_op.call();
-  habana_helpers::set_tensor_exp_bias(output, exp_bias);
-  return output;
-}
-
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,

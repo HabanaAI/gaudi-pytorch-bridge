@@ -3160,7 +3160,6 @@ hpu::cast_from_fp8.scalar;                                           NO;  NO;  Y
 hpu::cast_from_fp8.scalar_list;                                      NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 hpu::cast_to_fp8;                                                    NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 hpu::cast_to_fp8_hybrid;                                             NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
-hpu::cast_to_fp8_q;                                                  NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 hpu::cast_to_fp8_v2;                                                 NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 hpu::cast_to_fp8_v2.scalar;                                          NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 hpu::cast_to_fp8_v2.scalar_list;                                     NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;

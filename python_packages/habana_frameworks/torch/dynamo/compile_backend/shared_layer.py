@@ -36,7 +36,6 @@ hpu_supported_op_list = {
     # Custom ops
     "cast_from_fp8",
     "cast_to_fp8_hybrid",
-    "cast_to_fp8_q",
     "cast_to_fp8_v2",
     "conv2d_fp8",
     "custom_softmax",

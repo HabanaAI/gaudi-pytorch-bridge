@@ -236,10 +236,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid_wrap(
     const c10::optional<at::Tensor>& scale_143,
     bool stochastic_rounding,
     bool is_amax);
-at::Tensor cast_to_fp8_q_wrap(
-    const at::Tensor& input,
-    at::ScalarType dtype,
-    int64_t exp_bias);
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose_wrap(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,

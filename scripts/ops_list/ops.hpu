@@ -638,7 +638,6 @@ aten::linalg_vector_norm
 aten::xlogy.OutTensor
 aten::upsample_nearest1d
 aten::convolution_overrideable
-hpu::cast_to_fp8_q
 aten::threshold_
 aten::elu_backward.grad_input
 aten::t
