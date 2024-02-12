@@ -77,10 +77,14 @@ void LinspaceOut::AddNode(
   int64_t step = stack[2].isScalar() ? stack[2].toScalar().to<float>()
                                      : stack[2].toTensor().item<int64_t>();
 
-  auto dtype = ScalarType() == c10::ScalarType::Long ||
-          ScalarType() == c10::ScalarType::Int
+  // For Scalar_Tensor/Tensor_Scalar variants, int/int64 need to be cast to float32
+  bool is_tensor_variant = !stack.at(3).isTensor();
+  auto dtype = is_tensor_variant &&
+          (ScalarType() == c10::ScalarType::Long ||
+           ScalarType() == c10::ScalarType::Int)
       ? c10::ScalarType::Float
       : ScalarType();
+
   if (step == 0) {
     // return empty tensor if zero step
     auto result =

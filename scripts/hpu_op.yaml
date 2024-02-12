@@ -3932,9 +3932,9 @@ linspace.Scalar_Tensor:
 
 linspace.out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Half, Long]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
   op_backend: LinspaceOut
   output_meta: LinspaceMeta
 
