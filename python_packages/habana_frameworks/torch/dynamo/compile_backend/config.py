@@ -30,6 +30,12 @@ use_decompositions = _get_bool_from_env("PT_HPU_COMPILE_USE_DECOMPS", "1")
 verbose = _get_bool_from_env("PT_HPU_COMPILE_VERBOSE", "0")
 keep_input_mutations = _get_bool_from_env("PT_HPU_KEEP_INPUT_MUTATIONS", "0")
 use_eager_fallback = _get_bool_from_env("PT_HPU_USE_EAGER_FALLBACK", "1")
+# enables graph freezing and constant folding for inference
+# based on the method present in torch/_inductor/freezing.py
+use_graph_freezing = _get_bool_from_env("PT_HPU_COMPILE_GRAPH_FREEZE", "0")
+# enables discarding the module parameters for memory efficiency
+# note that it does not work if module needs to be recompiled
+discard_frozen_params = _get_bool_from_env("PT_HPU_COMPILE_DISCARD_FROZEN_PARAMS", "0")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])

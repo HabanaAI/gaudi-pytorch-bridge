@@ -18,9 +18,10 @@ import torch
 
 
 class OptimizationPassPlacement(Enum):
-    PRE_PARTITIONER = 1
-    PARTITIONER = 2
-    POST_PARTITIONER = 3
+    PRE_PLACEMENT = 1
+    PRE_PARTITIONER = 2
+    PARTITIONER = 3
+    POST_PARTITIONER = 4
 
 
 @dataclass

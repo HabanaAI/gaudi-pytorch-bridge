@@ -115,7 +115,7 @@ void PermuteWeightTensor::PermuteIfNeeded() {
 
 bool PermuteWeightTensor::ShouldPermuteWeight() {
   // For conv1d (tensor_dim == 3) permutation is not needed
-  if (m_tensor_dim == 3) {
+  if (m_tensor_dim <= 3) {
     return false;
   }
   HABANA_ASSERT(

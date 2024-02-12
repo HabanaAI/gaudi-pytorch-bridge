@@ -28,10 +28,13 @@ class MyModule(torch.nn.Module):
         return torch.topk(torch.sum(self.linear(add).relu(), dim=-1), 3)
 
 
-def func(x: torch.Tensor, m: torch.nn.Module, device: str):
+def func(x: torch.Tensor, m: torch.nn.Module, device: str, freeze: bool = False):
     m.eval()
     if device == "hpu":
-        m = torch.compile(m, backend="hpu_backend")
+        if freeze:
+            m = torch.compile(m, backend="hpu_backend", options={"use_graph_freezing": True})
+        else:
+            m = torch.compile(m, backend="hpu_backend")
         m = m.to(torch.device(device))
     else:
         m = torch.compile(m, backend="eager")
@@ -61,6 +64,38 @@ def test_linear():
 
     ops_summary = fga.get_ops_summary()
     assert_helper(ops_summary=ops_summary, op="torch.ops.aten.linear", count_list=[(1, 0)])
+
+    out_cpu = func(x=x_c, m=m_c, device="cpu")
+    assert torch.allclose(out_cpu[0].float(), out_hpu[0].to(device=torch.device("cpu")), rtol=1e-3, atol=1e-3)
+
+
+"""
+graph freezing when enabled with torch.compile will try to constant fold all
+operations done on constant parameters in the FX graph
+the following test checks if the freezing pass is eliminating the cast and transpose
+operations on the param input to the FX graph
+"""
+
+
+def test_graph_freeze():
+    torch.manual_seed(123)
+    x = torch.randn((5, 4), dtype=torch.float, device=torch.device("cpu"))
+    x_c = x.clone().detach()
+    m = MyModule()
+    m_c = copy.deepcopy(m)
+
+    with FxGraphAnalyzer(reset_dynamo=False) as fga:
+        out_hpu_no_freeze = func(x=x, m=m, device="hpu", freeze=False)
+
+    ops_summary = fga.get_ops_summary()
+    assert_helper(ops_summary=ops_summary, op="torch.ops.aten._to_copy.default", count_list=[(4, 0)])
+    assert_helper(ops_summary=ops_summary, op="torch.ops.aten.transpose.int", count_list=[(1, 0)])
+
+    with FxGraphAnalyzer(reset_dynamo=False) as fga:
+        out_hpu = func(x=x, m=m, device="hpu", freeze=True)
+
+    ops_summary = fga.get_ops_summary()
+    assert_helper(ops_summary=ops_summary, op="torch.ops.aten._to_copy.default", count_list=[(2, 0)])
 
     out_cpu = func(x=x_c, m=m_c, device="cpu")
     assert torch.allclose(out_cpu[0].float(), out_hpu[0].to(device=torch.device("cpu")), rtol=1e-3, atol=1e-3)

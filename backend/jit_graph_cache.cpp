@@ -220,7 +220,7 @@ size_t ComputeSymSizeHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
   size_t sym_hash_code = 0;
   uint32_t cnt = 0;
   for (auto& input : input_refs) {
-    if (!input.isTensor()) {
+    if (!input.isTensor() && input.isScalar()) {
       // Add the hashing for SymInts/SymFloats
       auto scalar_input = input.toScalar();
       size_t symsize_hash{0};

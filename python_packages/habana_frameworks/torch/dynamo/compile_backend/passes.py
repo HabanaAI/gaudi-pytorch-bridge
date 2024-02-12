@@ -186,7 +186,7 @@ def get_passes(stage: OptimizationPassPlacement):
           for some debug levels? Or to add dependencies between passes instead of order?
           Could be overkill tho.
     """
-    if stage == OptimizationPassPlacement.PRE_PARTITIONER:
+    if stage == OptimizationPassPlacement.PRE_PLACEMENT:
         return [
             # These passes will be ran once, they always get and produce a flat graph without submodules.
             pass_graph_print,
@@ -198,15 +198,19 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_mark_placement,
             pass_graph_print,
         ]
-    elif stage == OptimizationPassPlacement.PARTITIONER:
+    elif stage == OptimizationPassPlacement.PRE_PARTITIONER:
         return [
-            # These passes will prepare proper placement for some corner-cases.
+            # These passes will run additional placement enabling changes.
             pass_handle_negative_dims,
             pass_handle_view_before_inplace_compute_ops,
             pass_graph_print,
             pass_eagerize_leaf_views,
             pass_replace_sym_size,
             pass_inference_fuse_linear,
+        ]
+    elif stage == OptimizationPassPlacement.PARTITIONER:
+        return [
+            # These passes will prepare proper placement for some corner-cases.
             pass_propose_partitions,
             pass_merge_paths,
             # This is final pass that creates final submoduled graph.
@@ -1747,7 +1751,7 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
     fragmentation.
     """
 
-    assert ctx.stage == OptimizationPassPlacement.PARTITIONER
+    assert ctx.stage == OptimizationPassPlacement.PRE_PARTITIONER
     assert ctx.graph_module is not None
 
     graph_changed = False
@@ -1987,7 +1991,7 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
     """
     graph_changed = False
 
-    if ctx.is_training:
+    if ctx.is_training or ctx.is_backward:
         return graph_changed
 
     for node in ctx.graph_module.graph.nodes:
@@ -2059,6 +2063,7 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
             new_args[0] = real_input
             node.args = tuple(new_args)
             after.replace_all_uses_with(node)
+            node.meta.update(after.meta)
             ctx.graph_module = helper_post_pass_finalize(input_module=ctx.graph_module, uses_aot=ctx.uses_aot)
 
     return graph_changed

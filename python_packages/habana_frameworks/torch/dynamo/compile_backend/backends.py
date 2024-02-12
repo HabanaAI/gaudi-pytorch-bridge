@@ -10,6 +10,7 @@
 #
 ###############################################################################
 
+from functools import partial
 from typing import List, Optional
 
 import torch
@@ -35,12 +36,14 @@ def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.T
     """
     options = kwargs["options"] if "options" in kwargs else None
 
+    inference_compiler = partial(hpu_inference_compiler, dyn_graph_module=graph_module)
+
     # Create AOT Autograd instance and feed it with Habana compile function.
     with hpu_backend_config.patch(options):
         return aot_autograd(
             fw_compiler=hpu_backend_config.patch(options)(hpu_training_compiler_fw),
             bw_compiler=hpu_backend_config.patch(options)(hpu_training_compiler_bw),
-            inference_compiler=hpu_backend_config.patch(options)(hpu_inference_compiler),
+            inference_compiler=hpu_backend_config.patch(options)(inference_compiler),
             decompositions=get_hpu_decompositions(),
             keep_inference_input_mutations=hpu_backend_config.keep_input_mutations,
         )(graph_module, example_inputs)
@@ -74,9 +77,12 @@ def aot_hpu_inference_backend(graph_module: torch.fx.GraphModule, example_inputs
     """
     options = kwargs["options"] if "options" in kwargs else None
 
+    inference_compiler = partial(hpu_inference_compiler, dyn_graph_module=graph_module)
+    backend = partial(aot_autograd, inference_compiler=inference_compiler)
+
     # Create AOT Autograd instance and feed it with Habana compile function.
     with hpu_backend_config.patch(options):
-        return aot_autograd(
+        return backend(
             fw_compiler=hpu_backend_config.patch(options)(hpu_inference_compiler),
             bw_compiler=hpu_inference_compiler_raise,
             decompositions=get_hpu_decompositions(),
