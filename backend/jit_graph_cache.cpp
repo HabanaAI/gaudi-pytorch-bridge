@@ -15,9 +15,8 @@
 #define XXH_STATIC_LINKING_ONLY
 #define XXH_IMPLEMENTATION
 #include <utilities/xxhash.h>
-// WeightIdentificationPass
 #include "backend/lazy_to_backend.h"
-#include "habana_lazy/passes/pass_utils.cpp"
+#include "habana_eager/passes/detect_weights_tensors.cpp"
 
 #include <torch/csrc/api/include/torch/jit.h>
 
@@ -26,16 +25,13 @@ namespace habana {
 size_t GetWeightHash(
     const at::ArrayRef<torch::jit::IValue>& input_refs,
     const std::shared_ptr<torch::jit::Graph>& irgraph) {
-  habana_lazy::WeightIdentificationPass w_pass;
+  std::set<int> graph_weights;
+  graph::pass::DetectWeightTensors(irgraph, graph_weights);
   size_t hash_code = 0;
-  w_pass.markWeightTensors(
-      const_cast<std::shared_ptr<torch::jit::Graph>&>(irgraph));
-  auto weights = w_pass.getWeightTensors();
   HABANA_ASSERT(input_refs.size() == irgraph->inputs().size());
 
   for (size_t i = 0; i < input_refs.size(); ++i) {
-    auto value_input = irgraph->inputs().at(i);
-    if (weights.count(value_input)) {
+    if (graph_weights.count(i)) {
       hash_code =
           at::hash_combine(hash_code, habana::mod_exp(static_cast<int64_t>(i)));
       HABANA_ASSERT(input_refs[i].isTensor());
