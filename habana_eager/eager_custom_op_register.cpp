@@ -1346,6 +1346,43 @@ at::Tensor sum_fp8(
   return hpu_op.call();
 }
 
+// accumulate_grads_ is a wrapper for native inductor.accumulate_grad_ op.
+// It extracts gradients from variables and assigns respective new_grads to them
+// or increment by them, depending if gradients are defined.
+void accumulate_grads_(
+    at::TensorList variables,
+    const at::TensorList new_grads) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("accumulate_grads_ :", DUMP_2ARGS(variables, new_grads));
+
+  TORCH_CHECK(
+      variables.size() == new_grads.size(),
+      "Inputs to hpu::accumulate_grads_ must be of the same size, got: ",
+      variables.size(),
+      " and ",
+      new_grads.size());
+
+  if (variables.empty()) {
+    PT_BRIDGE_WARN("hpu::accumulate_grads_ received empty inputs.");
+    return;
+  }
+
+  if (variables[0].mutable_grad().defined()) {
+    std::vector<at::Tensor> current_grads_list;
+    current_grads_list.reserve(variables.size());
+    for (auto& variable : variables) {
+      current_grads_list.push_back(variable.mutable_grad());
+    }
+    habana::eager::EagerOp<void> hpu_op{
+        "hpu::custom_foreach_add_", {current_grads_list, new_grads}};
+    hpu_op.call(current_grads_list);
+  } else {
+    for (size_t i = 0; i < variables.size(); ++i) {
+      variables[i].mutable_grad() = new_grads[i];
+    }
+  }
+}
+
 /***********************************************************************************
  * Native ops
  **********************************************************************************/
@@ -1875,9 +1912,12 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, float p, float scale) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::habana_randperm(Tensor seed, SymInt n, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def("hpu::accumulate_grads_(Tensor[] variables, Tensor[] new_grads) -> ()");
+  m.def("hpu::custom_foreach_add_(Tensor(a!)[] self, Tensor[] other) -> ()");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
+  m.impl("hpu::accumulate_grads_", accumulate_grads_);
   m.impl("hpu::cast_from_fp8", cast_from_fp8);
   m.impl("hpu::cast_from_fp8.scalar", cast_from_fp8_scalar);
   m.impl("hpu::cast_from_fp8.scalar_list", cast_from_fp8_scalar_list);

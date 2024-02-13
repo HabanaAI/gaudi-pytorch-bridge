@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -764,7 +764,8 @@ bool EagerExec::is_eager_compiler_supported_for_graph(
   for (auto it = graph->nodes().begin(); it != graph->nodes().end(); ++it) {
     const auto& opname = std::string((*it)->kind().toQualString());
     if ((opname.find("hpu::optimizer") != std::string::npos) ||
-        (opname.find("hpu::fused_norm_lazy") != std::string::npos)) {
+        (opname.find("hpu::fused_norm_lazy") != std::string::npos) ||
+        (opname.find("hpu::custom_foreach_add_") != std::string::npos)) {
       return false;
     }
   }

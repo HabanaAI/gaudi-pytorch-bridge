@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -208,6 +208,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_fake_propagation,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
             pass_mark_placement,
+            pass_accumulate_grads,
             pass_graph_print,
         ]
     elif stage == OptimizationPassPlacement.PARTITIONER:
@@ -540,15 +541,13 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         output_contiguous = [None]
 
         node.type = float
-    elif result is None:
-        device = torch.device("cpu")
+    elif str(node.target) == "inductor.accumulate_grad_.default":
+        device = torch.device("hpu")
         dtypes = [None]
         layouts = [None]
         output_shapes = [None]
         output_strides = [None]
         output_contiguous = [None]
-
-        node.type = type(None)
     else:
         devices = []
         for res in result:
@@ -963,6 +962,47 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         node.meta["placement"] = placement
 
     return True
+
+
+def pass_accumulate_grads(ctx: OptimizerContext) -> bool:
+    """
+    This pass collects inputs (variable, new_grad) from inductor.accumulate_grad_ nodes
+    in the graph, and passes them as TensorLists to the custom op hpu.accumulate_grads_.
+    hpu.accumulate_grads_ op is executed eagerly.
+    All accumulate_grad_ nodes are then removed.
+    """
+    assert ctx.graph_module is not None
+
+    graph = ctx.graph_module.graph
+
+    variables = []
+    grads = []
+    accumulate_grad_nodes = []
+
+    for node in graph.nodes:
+        if str(node.target) == "inductor.accumulate_grad_.default":
+            variables.append(node.args[0])
+            grads.append(node.args[1])
+            accumulate_grad_nodes.append(node)
+
+    if variables:
+        last_accumulate_grad = accumulate_grad_nodes[-1]
+        with graph.inserting_before(last_accumulate_grad):
+            accumulate_grads_ = graph.call_function(torch.ops.hpu.accumulate_grads_, (variables, grads), {})
+            accumulate_grads_.meta["placement"] = "eager"
+            accumulate_grads_.meta["output_device"] = last_accumulate_grad.meta["output_device"]
+            last_accumulate_grad.replace_all_uses_with(accumulate_grads_, propagate_meta=False)
+        for accumulate_grad in accumulate_grad_nodes:
+            graph.erase_node(accumulate_grad)
+
+        graph.lint()
+        ctx.graph_module.recompile()
+
+        logger.debug(f"inductor.accumulate_grad_ nodes were wrapped into hpu.accumulate_grads op.")
+
+        return True
+
+    return False
 
 
 def pass_merge_paths(ctx: OptimizerContext) -> bool:

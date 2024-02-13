@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -253,4 +253,15 @@ void BinaryWithAlpha::AddNode(
   syn_out(0) = std::move(op[0]);
 }
 
+// The same as the native aten.foreach_add_, but we need to disable
+// eager compiler for its usage only in accumulate_grads_ op.
+struct CustomForeachAdd : ForeachBinary {
+  CustomForeachAdd(int device_id, c10::ScalarType scalar_type)
+      : ForeachBinary(device_id, "add_fwd", scalar_type, {}, {0}, {}, false) {}
+};
+
 } // namespace habana
+
+static const auto& ForeachKernelRegistry = habana::KernelRegistry().add(
+    "hpu::custom_foreach_add_",
+    KERNEL_FN_GLOBAL(habana::CustomForeachAdd));
