@@ -74,9 +74,9 @@
   (env_flags::new_style::unset_env_flag_new<env_flags::new_style::e>(#e))
 #define IS_ENV_FLAG_DEFINED_NEW(e) \
   (env_flags::new_style::is_defined_new<env_flags::new_style::e>(#e))
-#define PARSE_ENV_FLAG_NEW(e, v)                     \
-  (env_flags::new_style::parse_env_by_type<decltype( \
-       env_flags::new_style::e::actual_value)>(#e, v))
+#define PARSE_ENV_FLAG_NEW(e, v)            \
+  (env_flags::new_style::parse_env_by_type< \
+      decltype(env_flags::new_style::e::actual_value)>(#e, v))
 
 // ****************************************************************************
 
@@ -330,7 +330,8 @@ void update_is_defined(const char* name) {
 template <class E>
 bool is_defined_new(const char* name) {
   static std::once_flag flag;
-  std::call_once(flag, update_is_defined<E>, name);
+  if (!E::is_defined)
+    std::call_once(flag, update_is_defined<E>, name);
   return E::is_defined;
 }
 
