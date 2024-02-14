@@ -90,9 +90,15 @@ unsigned NativeDropoutEarlyExitCondition(
   } else {
     return std::make_tuple(
         input.clone(),
-        at::ones_like(
-            input,
-            input.options().dtype(c10::CppTypeToScalarType<bool>::value)));
+        at::full(
+            {1},
+            1,
+            {},
+            c10::CppTypeToScalarType<bool>::value,
+            input.options().layout_opt(),
+            input.options().device_opt(),
+            input.options().pinned_memory_opt())
+            .expand(input.sizes()));
   }
 }
 
