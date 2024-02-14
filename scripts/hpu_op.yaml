@@ -6025,12 +6025,17 @@ remainder.Scalar_out:
   # op_validator: check-node-with-shared-layer
 
 repeat:
+  output_meta: RepeatMeta
+  guid: tile_fwd
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char]
-    Gaudi2: [BFloat16, Float, Int, Half, Char, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Half, Char, Float8_e5m2, Float8_e4m3fn]
-  override_fn: repeat_hpu
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Char, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Char, Float8_e5m2, Float8_e4m3fn]
+  op_backend: RepeatOp
+  lazy:
+    override_fn: repeat_hpu
   acc_thread: true
+  out_ids: [0]
 
 replication_pad1d:
   output_meta: ReplicationPad1DMeta

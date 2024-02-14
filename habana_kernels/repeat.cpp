@@ -131,7 +131,6 @@ void RepeatOperatorHT::AllocateAndAddSynapseNode(
       "Input arg2 & arg3 expected to be shape tensor for RepeatHTOperator");
   auto input = inputs[0].toTensor();
   auto param_tensor = inputs[1].toTensor();
-
   auto repeat_shape = ComputeRepeatShapefromH2DTensor(param_tensor);
   int64_t size = static_cast<int64_t>(repeat_shape.size());
 
@@ -384,7 +383,6 @@ void RepeatInlvOperatorHT::AllocateAndAddSynapseNode(
 
 static auto& RepeatKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::repeat", KERNEL_FN(RepeatOperator))
         .add("hpu::repeat_inlv", KERNEL_FN(RepeatInlvOperator))
         .add("hpu::repeat_inlv_ht", KERNEL_FN(RepeatInlvOperatorHT))
         .add("hpu::repeat_ht", KERNEL_FN(RepeatOperatorHT));

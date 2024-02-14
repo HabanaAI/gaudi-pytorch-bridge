@@ -242,6 +242,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/reduce_std_var_gen.cpp
           backend/reduction_template.cpp
           backend/reflection_pad_gen.cpp
+          backend/repeat_gen.cpp
           backend/replication_pad_bwd_gen.cpp
           backend/replication_pad_gen.cpp
           backend/resize_gen.cpp

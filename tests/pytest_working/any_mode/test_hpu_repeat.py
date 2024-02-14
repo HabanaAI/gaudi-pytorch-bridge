@@ -18,7 +18,7 @@ from test_utils import compare_tensors, is_gaudi1
 
 dtypes = [torch.float32, torch.bfloat16, torch.int]
 if not is_gaudi1():
-    dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
+    dtypes += [torch.int64, torch.float8_e5m2, torch.float8_e4m3fn]
 
 
 @pytest.mark.parametrize(
