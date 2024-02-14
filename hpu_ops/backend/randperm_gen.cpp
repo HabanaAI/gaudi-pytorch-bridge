@@ -24,8 +24,7 @@ synapse_helpers::tensor RandPermCommon(
     int n) {
   size_t size = 0;
   c10::ScalarType tpc_supported_randperm_dtype =
-      ((GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) &&
-        (out_dtype == c10::ScalarType::Long))
+      ((common::IsInt64Supported() && (out_dtype == c10::ScalarType::Long))
            ? c10::ScalarType::Long
            : c10::ScalarType::Int);
 
@@ -122,8 +121,8 @@ OutputMetaDataVector RandPermMeta(const at::Stack& stack) {
                      .value_or(c10::ScalarType::Long);
   } else {
     c10::ScalarType randperm_dtype =
-        (GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT) ? c10::ScalarType::Long
-                                                   : c10::ScalarType::Int);
+        (common::IsInt64Supported() ? c10::ScalarType::Long
+                                    : c10::ScalarType::Int);
     meta.dtype = randperm_dtype;
   }
   return {meta};

@@ -29,6 +29,7 @@
 #include "backend/synapse_helpers/graph.h"
 #include "backend/synapse_helpers/habana_tensor.h"
 #include "backend/synapse_helpers/layout_utils.h"
+#include "common/utils.h"
 #include "habana_helpers/logging.h"
 #include "include/habanalabs/hpu_custom_op.h"
 
@@ -613,8 +614,7 @@ class HabanaOperator {
     void* host_ptr{nullptr};
     at::ScalarType vec_type{};
 
-    const bool is_int64_support_enabled =
-        GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT);
+    const bool is_int64_support_enabled = common::IsInt64Supported();
 
     constexpr bool is_long = std::is_same<T, int64_t>::value;
     constexpr bool is_double = std::is_same<T, double>::value;
@@ -727,9 +727,9 @@ class RegisterKernel {
       const at::OperatorName& opname,
       c10::ScalarType node_type) {
     return kernels_.count(opname) ? kernels_[opname](device_id, node_type)
-                                  : user_cutom_ops_.count(opname)
-            ? user_cutom_ops_[opname](device_id, opname.name)
-            : nullptr;
+        : user_cutom_ops_.count(opname)
+        ? user_cutom_ops_[opname](device_id, opname.name)
+        : nullptr;
   }
 
   RegisterKernel() = default;
