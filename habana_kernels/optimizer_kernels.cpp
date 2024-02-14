@@ -518,10 +518,10 @@ void OptimizerFusedSGDOperator::AllocateAndAddSynapseNode(
 
   torch::jit::Stack stack;
   size_t device_id = gradients.get(0).device().index();
-  auto scalar_type = gradients.get(0).scalar_type();
 
   for (unsigned int i = 0; i < num_params; i++) {
-    auto op = make_operator<OptimizerSGDOperator>(device_id, scalar_type);
+    auto op =
+        make_operator<OptimizerSGDOperator>(device_id, at::ScalarType::Float);
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params]);
@@ -753,11 +753,10 @@ void OptimizerFusedSGDMomentumOperator::AllocateAndAddSynapseNode(
 
   torch::jit::Stack stack;
   size_t device_id = gradients.get(0).device().index();
-  auto scalar_type = gradients.get(0).scalar_type();
 
   for (unsigned int i = 0; i < num_params; i++) {
-    auto op =
-        make_operator<OptimizerSGDMomentumOperator>(device_id, scalar_type);
+    auto op = make_operator<OptimizerSGDMomentumOperator>(
+        device_id, at::ScalarType::Float);
     op->SetSynapseInput(p_context_->syn_inputs_[i]);
     op->SetSynapseInput(p_context_->syn_inputs_[num_params + i]);
     op->SetSynapseInput(p_context_->syn_inputs_[2 * num_params + i]);
