@@ -15,6 +15,9 @@
 
 namespace habana {
 
+// stack index of is_amax_s flag for fp8 measurement
+static constexpr int is_amax_s_idx = 15;
+
 SDPAFwd::SDPAFwd(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "sdpa_fwd", scalar_type, {0, 0, 0}, {}, {}, false) {}
 
@@ -27,6 +30,16 @@ SDPARecompFwd::SDPARecompFwd(int device_id, c10::ScalarType scalar_type)
           "sdpa_recomp_fwd",
           scalar_type,
           {0, 0, 0, 0},
+          {},
+          {},
+          false) {}
+
+Fp8SDPARecompFwd::Fp8SDPARecompFwd(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "fp8_sdpa_recomp_fwd",
+          scalar_type,
+          {0, 0, 0, 0, 0},
           {},
           {},
           false) {}
@@ -135,12 +148,13 @@ sizes_vec SDPABwdOutputShape(const at::Stack& stack) {
 }
 
 static void fillSdpaParams(
-    ns_Sdpa::ParamsV2& params,
+    ns_Sdpa::ParamsV3& params,
     double p,
     double scale,
     bool is_causal,
     bool is_inference,
-    c10::string_view softmax_mode = "") {
+    c10::string_view softmax_mode = "",
+    unsigned int flags = 0) {
   SdpaSoftmaxMode_t sfmx_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
   if (softmax_mode == "fast") {
     sfmx_mode = SdpaSoftmaxMode_t::SDPA_SOFTMAX_HF8_1C;
@@ -150,6 +164,7 @@ static void fillSdpaParams(
   params.is_causal = is_causal;
   params.is_inference = is_inference;
   params.softmax_mode = sfmx_mode;
+  params.flags = flags;
 }
 
 void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -169,7 +184,7 @@ void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto is_causal = getNextInput<bool>(stackGetter);
   auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
 
-  ns_Sdpa::ParamsV2 params{};
+  ns_Sdpa::ParamsV3 params{};
   fillSdpaParams(params, p, scale, is_causal, false, softmax_mode);
 
   std::string guid = get_guid_with_precision("sdpa_fwd", q.pt_t.scalar_type());
@@ -212,7 +227,7 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
 
-  ns_Sdpa::ParamsV2 params{};
+  ns_Sdpa::ParamsV3 params{};
   fillSdpaParams(params, p, scale, false /*is_causal*/, false /*is_inference*/);
 
   std::string guid = get_guid_with_precision("sdpa_bwd", q.pt_t.scalar_type());
@@ -297,6 +312,13 @@ sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
   return {out_shape, softmax_stats_shape, softmax_stats_shape, {1}};
 }
 
+sizes_vec Fp8SDPARecompFwdOutputShape(const at::Stack& stack) {
+  sizes_vec out_shape = SDPARecompFwdOutputShape(stack);
+  // insert amax_s shape
+  out_shape.push_back({1});
+  return out_shape;
+}
+
 sizes_vec SDPARecompBwdOutputShape(const at::Stack& stack) {
   auto q = stack_tensor(stack, 1);
   auto k = stack_tensor(stack, 2);
@@ -331,7 +353,7 @@ void SDPARecompFwd::AddNode(
   auto requires_backward = getNextInput<bool>(stackGetter);
   auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
 
-  ns_Sdpa::ParamsV2 params{};
+  ns_Sdpa::ParamsV3 params{};
   fillSdpaParams(
       params,
       p,
@@ -375,6 +397,87 @@ void SDPARecompFwd::AddNode(
   }
 }
 
+void Fp8SDPARecompFwd::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  StackGetter stackGetter(stack, "Fp8SDPARecompFwd::AddNode");
+  auto q = getNextInput<TensorsPair>(stackGetter);
+  auto k = getNextInput<TensorsPair>(stackGetter);
+  auto v = getNextInput<TensorsPair>(stackGetter);
+  auto attention_mask = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto seed = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto p = getNextInput<double>(stackGetter);
+  auto scale = getNextInput<double>(stackGetter);
+  auto is_causal = getNextInput<bool>(stackGetter);
+  auto requires_backward = getNextInput<bool>(stackGetter);
+  auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
+  auto is_amax_s = stack.at(is_amax_s_idx).toBool();
+
+  ns_Sdpa::ParamsV3 params{};
+  unsigned int flags = 0;
+  if (is_amax_s) {
+    flags = SdpaFlags_t::SDPA_FLAGS_AMAX_S;
+  }
+
+  fillSdpaParams(
+      params,
+      p,
+      scale,
+      is_causal,
+      !requires_backward /*is_inference*/,
+      softmax_mode,
+      flags);
+
+  std::string guid =
+      get_guid_with_precision("sdpa_recomp_fwd", q.pt_t.scalar_type());
+  auto out_shapes = Fp8SDPARecompFwdOutputShape(stack);
+
+  std::vector<synTensor> syn_inputs = {q.syn_t, k.syn_t, v.syn_t};
+  if (attention_mask) {
+    syn_inputs.push_back(attention_mask.value().syn_t);
+  } else {
+    syn_inputs.push_back(nullptr);
+  }
+  if (p > 0.0) {
+    syn_inputs.push_back(seed.value().syn_t);
+  } else {
+    syn_inputs.push_back(nullptr);
+  }
+
+  std::vector<NodeAttr::NodeOutputAttr> output_attrs;
+  output_attrs.push_back({out_shapes[0], q.pt_t.scalar_type(), 0});
+
+  // when amax_s is needed, we need to have all outputs since amax_s is
+  // at the end of the output vector. If any preceding output is not
+  // valid, like softmax stats, seed etc  in inference, we still
+  // need to have outputs for these. These will then be dummy outputs
+  // with shape {1}
+  if (requires_backward || is_amax_s) {
+    output_attrs.push_back({out_shapes[1], q.pt_t.scalar_type(), 1});
+    output_attrs.push_back({out_shapes[2], c10::ScalarType::Float, 2});
+    if (p > 0.0 || is_amax_s) {
+      output_attrs.push_back({out_shapes[3], at::ScalarType::Int, 3});
+    }
+  }
+  if (is_amax_s) {
+    output_attrs.push_back({out_shapes[4], c10::ScalarType::Float, 4});
+  }
+
+  auto output = OpBackend::BuildNode(
+      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
+  syn_out(0) = std::move(output[0]);
+  if (requires_backward || is_amax_s) {
+    syn_out(1) = std::move(output[1]);
+    syn_out(2) = std::move(output[2]);
+    if (p > 0.0 || is_amax_s) {
+      syn_out(3) = std::move(output[3]);
+    }
+  }
+  if (is_amax_s) {
+    syn_out(4) = std::move(output[4]);
+  }
+}
+
 void SDPARecompBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -390,7 +493,7 @@ void SDPARecompBwd::AddNode(
   auto is_causal = getNextInput<bool>(stackGetter);
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
-  ns_Sdpa::ParamsV2 params{};
+  ns_Sdpa::ParamsV3 params{};
   fillSdpaParams(params, p, scale, is_causal, false /*is_inference*/);
 
   std::string guid =
@@ -440,4 +543,7 @@ static const auto& SDPAKernelRegistry =
         .add(
             "hpu::sdpa_recomp_fwd_dropout_seed",
             KERNEL_FN_GLOBAL(habana::SDPARecompFwd))
+        .add(
+            "hpu::fp8_sdpa_recomp_fwd_be",
+            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
         .add("hpu::sdpa_recomp_bwd", KERNEL_FN_GLOBAL(habana::SDPARecompBwd));

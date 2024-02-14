@@ -1816,6 +1816,62 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_wrap(
       softmax_mode);
 }
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor>
+fp8_sdpa_recomp_fwd_wrap(
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const double p,
+    const double scale,
+    const bool is_causal,
+    const bool requires_backward,
+    c10::string_view softmax_mode,
+    const c10::optional<at::Tensor>& d_scale_q,
+    const c10::optional<at::Tensor>& d_scale_k,
+    const c10::optional<at::Tensor>& d_scale_v,
+    const c10::optional<at::Tensor>& q_scale_s,
+    const c10::optional<at::Tensor>& q_scale_o,
+    const bool is_amax_s) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "fp8_sdpa_recomp_fwd :",
+      DUMP_15ARGS(
+          q,
+          k,
+          v,
+          attention_mask,
+          p,
+          scale,
+          is_causal,
+          requires_backward,
+          softmax_mode,
+          d_scale_q,
+          d_scale_k,
+          d_scale_v,
+          q_scale_s,
+          q_scale_o,
+          is_amax_s));
+
+  return fp8_sdpa_recomp_fwd_lazy(
+      q,
+      k,
+      v,
+      attention_mask,
+      p,
+      scale,
+      is_causal,
+      requires_backward,
+      softmax_mode,
+      d_scale_q,
+      d_scale_k,
+      d_scale_v,
+      q_scale_s,
+      q_scale_o,
+      is_amax_s);
+}
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
     const at::Tensor& grad,
     const at::Tensor& q,
@@ -2441,6 +2497,10 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor ? seed, bool is_causal, float p, float scale) -> (Tensor, Tensor, Tensor)");
   m.def(
+      "hpu::fp8_sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, bool is_amax_s ) -> (Tensor, Tensor, Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::fp8_sdpa_recomp_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, bool is_amax_s ) -> (Tensor, Tensor, Tensor, Tensor, Tensor)");
+  m.def(
       "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor");
   m.def(
       "hpu::scaled_triangular_softmax_retain(Tensor self, float inv_scale_attn) -> (Tensor, Tensor, Tensor)");
@@ -2533,6 +2593,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::sdpa_bwd", sdpa_bwd_wrap);
   m.impl("hpu::sdpa_recomp_bwd", sdpa_recomp_bwd_wrap);
   m.impl("hpu::sdpa_recomp_fwd", sdpa_recomp_fwd_wrap);
+  m.impl("hpu::fp8_sdpa_recomp_fwd", fp8_sdpa_recomp_fwd_wrap);
   m.impl("hpu::scaled_triangular_softmax", scaled_triangular_softmax_wrap);
   m.impl(
       "hpu::scaled_triangular_softmax_retain",

@@ -33,6 +33,11 @@ struct SDPARecompFwd : OpBackend {
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
+struct Fp8SDPARecompFwd : OpBackend {
+  Fp8SDPARecompFwd(int device_id, c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
+
 struct SDPARecompBwd : OpBackend {
   SDPARecompBwd(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
@@ -41,6 +46,7 @@ struct SDPARecompBwd : OpBackend {
 OUTSHAPE_DECL(SDPAFwdOutputShape)
 OUTSHAPE_DECL(SDPABwdOutputShape)
 OUTSHAPE_DECL(SDPARecompFwdOutputShape)
+OUTSHAPE_DECL(Fp8SDPARecompFwdOutputShape)
 OUTSHAPE_DECL(SDPARecompBwdOutputShape)
 
 } // namespace habana

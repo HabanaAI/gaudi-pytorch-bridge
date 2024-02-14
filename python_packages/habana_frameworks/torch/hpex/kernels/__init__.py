@@ -16,13 +16,14 @@ if not is_lazy():
     import warnings
 
     warnings.warn(
-        f"CustomNms, RoiAlignFunction, ScaledMaskedSoftmax from {__name__} are no yet supported in eager mode"
+        f"CustomNms, RoiAlignFunction, ScaledMaskedSoftmax, fp8_fused_sdpa from {__name__} are no yet supported in eager mode"
     )
 
 from .CTCLoss import CTCLoss
 from .CustomNms import CustomNms
 from .CustomRoiAlign import RoiAlignFunction
 from .CustomSoftmax import CustomSoftmax
+from .Fp8FusedSDPA import fp8_fused_sdpa
 from .FusedSDPA import FusedSDPA
 from .RotaryPosEmbeddingHelper import (
     RotaryPosEmbeddingHelperV1,
