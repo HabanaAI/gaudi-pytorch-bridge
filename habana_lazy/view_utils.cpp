@@ -807,6 +807,7 @@ bool HbLazyTensorViews::HandleViewsD2D(
     }
     // update orig tensor map
     GetHbLazyTensor(orig_t).getDataPtr()->recent_base = out;
+    GetHbLazyTensor(recent_orig_t, true, false).SetOpAccumulationInProgress();
     GetHbLazyTensor(src_).SetOpAccumulationInProgress();
   }
   return true;
