@@ -28,11 +28,17 @@ OutputMetaDataVector AllAnyMeta(const at::Stack& stack) {
 
 OutputMetaDataVector AllAnyDimMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
-  auto dim = stack.at(1).toInt();
   const bool keepdim = stack.at(2).toBool();
 
   OutputMetaData meta;
-  meta.shape = ReductionOutputShape(self, dim, keepdim)[0];
+  if (stack.at(1).isInt()) {
+    auto dim = stack.at(1).toInt();
+    meta.shape = ReductionOutputShape(self, dim, keepdim)[0];
+  } else {
+    auto dims = stack.at(1).toIntList().vec();
+    meta.shape = ReductionOutputShape(self, dims, keepdim)[0];
+  }
+
   meta.dtype = at::kBool;
   return {meta};
 }
@@ -73,6 +79,24 @@ static synapse_helpers::tensor AnyCommonFunc(
 
   return OpBackend::BuildCast(
       op, graph, reduce_sum[0].get(), outshape, dtype, at::kBool, 0);
+}
+
+void AnyDims::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto dims = stack.at(1).toIntList().vec();
+  bool keepdim = stack.at(2).toBool();
+
+  auto any_out = AnyCommonFunc(
+      this,
+      graph,
+      syn_in(0),
+      self,
+      dims,
+      keepdim,
+      AllAnyDimMeta(stack)[0].shape);
+  syn_out(0) = std::move(any_out);
+
+  return;
 }
 
 void AnyDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

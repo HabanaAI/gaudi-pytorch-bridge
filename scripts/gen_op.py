@@ -1737,6 +1737,7 @@ def is_tensor_api(fndef):
 # that we still need to register in the new Eager flow.
 # In order to do it, we overwrite them to default=False, dispatch=True
 non_mandatory_ops_whitelist = [
+    "any",
     "complex",
     "convolution_overrideable",
     "convolution_backward_overrideable",
