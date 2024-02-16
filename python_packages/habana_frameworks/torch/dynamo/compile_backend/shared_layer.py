@@ -29,6 +29,7 @@ hpu_supported_op_list = {
     "copy",
     "getitem",
     "slice_scatter",
+    "select_scatter",
     # instance_norm_backward needs to be explicitly added to that list because there
     # is no aten::instance_norm_backward that could be overridden by hpu implementation
     "instance_norm_backward",
