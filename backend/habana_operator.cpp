@@ -423,6 +423,17 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
       // fp8 ops synTensors must have manually set syn_type_fp8_152/143 type
       p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
           input, graph, is_persistent, false, fp8_syn_type));
+    } else if (
+        // int4/uint4 tensors are exposed to Pytorch via torch.int type,
+        // therefor for int4 ops synTensors must have manually set
+        // syn_type_int4/uint4 type
+        (guid_ == "convert_from_int4_i32" ||
+         guid_ == "convert_from_uint4_i32") &&
+        input.scalar_type() == c10::ScalarType::Int) {
+      auto syn_type =
+          guid_ == "convert_from_int4_i32" ? syn_type_int4 : syn_type_uint4;
+      p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
+          input, graph, is_persistent, false, syn_type));
     } else {
       p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
           input, graph, is_persistent, false, c10::nullopt, idx, idx));

@@ -6350,6 +6350,43 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(cast_to_fp8_hybrid, hpu_op)
 }
 
+at::Tensor convert_from_int4_common(
+    const std::string& op_name,
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& zero_point,
+    at::ScalarType out_dtype) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(op_name + " :", DUMP_4ARGS(input, scale, zero_point, out_dtype));
+
+  auto output_shape = input.sizes().vec();
+  output_shape.back() *= 8;
+
+  LazyOp<at::Tensor> hpu_op{
+      "hpu::" + op_name, {input, scale, zero_point, out_dtype}, {output_shape}};
+  hpu_op.set_scalar_types({out_dtype});
+  RUN_MAYBE_WITH_ACC_THREAD(convert_from_int4, hpu_op)
+}
+
+at::Tensor convert_from_int4_lazy(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& zero_point,
+    at::ScalarType out_dtype) {
+  return convert_from_int4_common(
+      "convert_from_int4", input, scale, zero_point, out_dtype);
+}
+
+at::Tensor convert_from_uint4_lazy(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& zero_point,
+    at::ScalarType out_dtype) {
+  return convert_from_int4_common(
+      "convert_from_uint4", input, scale, zero_point, out_dtype);
+}
+
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,

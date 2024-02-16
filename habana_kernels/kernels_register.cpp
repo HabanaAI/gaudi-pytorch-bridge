@@ -2544,6 +2544,10 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)");
   m.def(
+      "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
+  m.def(
+      "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
+  m.def(
       "hpu::fp8_cast_transpose(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
   m.def(
       "hpu::fp8_cast_transpose_bgrad(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) bgrad, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
@@ -2697,6 +2701,8 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_to_fp8_v2.scalar", cast_to_fp8_v2_scalar_lazy);
   m.impl("hpu::cast_to_fp8_v2.scalar_list", cast_to_fp8_v2_scalar_list_lazy);
   m.impl("hpu::cast_to_fp8_hybrid", cast_to_fp8_hybrid_wrap);
+  m.impl("hpu::convert_from_int4", convert_from_int4_lazy);
+  m.impl("hpu::convert_from_uint4", convert_from_uint4_lazy);
   m.impl("hpu::fp8_cast_transpose", fp8_cast_transpose_wrap);
   m.impl("hpu::fp8_cast_transpose_bgrad", fp8_cast_transpose_bgrad_wrap);
   m.impl(

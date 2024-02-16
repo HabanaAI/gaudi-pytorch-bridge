@@ -1408,6 +1408,42 @@ void accumulate_grads_(
   }
 }
 
+at::Tensor convert_from_int4_common(
+    const std::string& op_name,
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& zero_point,
+    at::ScalarType out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(op_name + " :", DUMP_4ARGS(input, scale, zero_point, out_dtype));
+
+  auto output_shape = input.sizes().vec();
+  output_shape.back() *= 8;
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::" + op_name, {input, scale, zero_point, out_dtype}, {output_shape}};
+  hpu_op.set_scalar_types({out_dtype});
+  return hpu_op.call();
+}
+
+at::Tensor convert_from_int4(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& zero_point,
+    at::ScalarType out_dtype) {
+  return convert_from_int4_common(
+      "convert_from_int4", input, scale, zero_point, out_dtype);
+}
+
+at::Tensor convert_from_uint4(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& zero_point,
+    at::ScalarType out_dtype) {
+  return convert_from_int4_common(
+      "convert_from_uint4", input, scale, zero_point, out_dtype);
+}
+
 /***********************************************************************************
  * Native ops
  **********************************************************************************/
@@ -1932,6 +1968,10 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)");
   m.def(
+      "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
+  m.def(
+      "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
+  m.def(
       "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None, Tensor? scale_input=None, Tensor? scale_weight=None) -> Tensor");
   m.def(
       "hpu::conv2d_fp8.scalar(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None, float scale_input=1.0, float scale_weight=1.0) -> Tensor");
@@ -2092,6 +2132,8 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_to_fp8_v2.scalar", cast_to_fp8_v2_scalar);
   m.impl("hpu::cast_to_fp8_v2.scalar_list", cast_to_fp8_v2_scalar_list);
   m.impl("hpu::cast_to_fp8_hybrid", cast_to_fp8_hybrid);
+  m.impl("hpu::convert_from_int4", convert_from_int4);
+  m.impl("hpu::convert_from_uint4", convert_from_uint4);
   m.impl("hpu::conv2d_fp8", conv2d_fp8);
   m.impl("hpu::conv2d_fp8.scalar", conv2d_fp8_scalar);
   m.impl("hpu::custom_softmax", custom_softmax);

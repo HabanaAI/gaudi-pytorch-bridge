@@ -379,18 +379,25 @@ synapse_helpers::tensor create_tensor(
   PT_BRIDGE_DEBUG("[create_tensor-2] name: ", name);
   PT_BRIDGE_DEBUG("[create_tensor-2] inference_name: ", inference_name);
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
+  auto tensor_shape = tensor.sizes().vec();
+
+  // int4/uint4 data comes to the bridge packed into int32 tensors,
+  // so the real tensor shape must have FCD dimension multiplied by 8
+  if (synType == syn_type_int4 || synType == syn_type_uint4) {
+    tensor_shape.back() *= 8;
+  }
+
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
-    tensor_id =
-        habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
+    tensor_id = habana::ShapeInference::UpdateShapeInfo(graph, tensor_shape);
   }
 
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
         tensor.device().index(),
-        tensor.sizes().vec(),
-        calculate_strides(tensor.sizes().vec()),
+        tensor_shape,
+        calculate_strides(tensor_shape),
         synType,
         persistent,
         name);
@@ -429,13 +436,12 @@ synapse_helpers::tensor create_tensor(
         graph.get_graph_handle());
     synapse_helpers::tensor syn_tensor =
         absl::get<synapse_helpers::tensor>(std::move(variant));
-    syn_tensor.set_pt_info(
-        tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
+    syn_tensor.set_pt_info(tensor_shape, calculate_strides(tensor_shape));
     PT_DYNAMIC_SHAPE_DEBUG("create_tensor ", syn_tensor);
     return syn_tensor;
   }
 
-  std::vector<int64_t> strides = calculate_strides(tensor.sizes().vec());
+  std::vector<int64_t> strides = calculate_strides(tensor_shape);
   uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
   auto [permutation, dont_allow_permutation] =
       get_tensor_memory_permutation(tensor);
@@ -452,7 +458,7 @@ synapse_helpers::tensor create_tensor(
   }
 
   auto builder =
-      synapse_helpers::tensor_builder(tensor.sizes(), strides, synType)
+      synapse_helpers::tensor_builder(tensor_shape, strides, synType)
           .set_offset(syn_offset)
           .mark_persistence(persistent)
           .mark_external(external)
@@ -495,8 +501,7 @@ synapse_helpers::tensor create_tensor(
       graph.get_graph_handle());
   synapse_helpers::tensor syn_tensor =
       absl::get<synapse_helpers::tensor>(std::move(variant));
-  syn_tensor.set_pt_info(
-      tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
+  syn_tensor.set_pt_info(tensor_shape, calculate_strides(tensor_shape));
   PT_DYNAMIC_SHAPE_DEBUG("create_tensor ", syn_tensor);
   return syn_tensor;
 }

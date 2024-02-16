@@ -80,6 +80,22 @@ def meta_cast_to_fp8_hybrid(input, scale_152=None, scale_143=None, stochastic=Fa
     return out_152, out_143, amax
 
 
+def meta_convert_from_int4_common(input, out_dtype):
+    output_shape = list(input.shape)
+    output_shape[-1] *= 8
+    return input.new_empty(output_shape, dtype=out_dtype)
+
+
+@register_meta([torch.ops.hpu.convert_from_int4.default])
+def meta_convert_from_int4(input, scale, zero_point, out_dtype):
+    return meta_convert_from_int4_common(input, out_dtype)
+
+
+@register_meta([torch.ops.hpu.convert_from_uint4.default])
+def meta_convert_from_uint4(input, scale, zero_point, out_dtype):
+    return meta_convert_from_int4_common(input, out_dtype)
+
+
 @register_meta([torch.ops.hpu.fp8_cast_transpose.default])
 def meta_fp8_cast_transpose(input, scale, stochastic, out, transposed, amax):
     return out, transposed, amax
