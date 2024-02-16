@@ -105,11 +105,7 @@ class DivergenceAnalyzer:
 
     @staticmethod
     def get_synrec_path():
-        possible_paths = [
-            "/root/repos/synapse/scripts/synrec.py",
-            "/root/synapse/scripts/synrec.py",
-        ]
-
+        possible_paths = []
         if os.environ.get('SYNAPSE_ROOT'):
             possible_paths.append(
                 os.path.join(
@@ -118,6 +114,10 @@ class DivergenceAnalyzer:
                     "synrec.py"
                 )
             )
+        possible_paths.append("/root/repos/synapse/scripts/synrec.py")
+        possible_paths.append("/root/synapse/scripts/synrec.py")
+        possible_paths.append("/software/synrec/synrec.py")
+
 
         for path in possible_paths:
             if os.path.isfile(path):
