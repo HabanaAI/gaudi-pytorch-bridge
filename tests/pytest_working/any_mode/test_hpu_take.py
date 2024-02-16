@@ -13,7 +13,7 @@ import pytest
 import torch
 from test_utils import format_tc
 
-dtypes_inputs = [torch.float32, torch.bfloat16]
+dtypes_inputs = [torch.float32, torch.bfloat16, torch.int32]
 dtypes_indicies = [torch.int32, torch.long]
 
 
@@ -34,7 +34,10 @@ def test_hpu_take(shape, repeats, dtypes_inputs, dtypes_indicies):
             reason="Indicies tensor of dtype int32 is supported only in eager and lazy mode on hpu"
         )
 
-    input_tensor = torch.rand(shape, dtype=dtypes_inputs)
+    if dtypes_inputs == torch.int32:
+        input_tensor = torch.randint(size=shape, low=-10, high=10, dtype=dtypes_inputs)
+    else:
+        input_tensor = torch.rand(shape, dtype=dtypes_inputs)
     # CPU torch.take only accepts indicies as a LongTensor
     indicies = torch.randint(0, input_tensor.numel() - 1, repeats, dtype=torch.long)
 

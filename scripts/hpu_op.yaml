@@ -7165,7 +7165,7 @@ t:
 take:
   output_meta: TakeMeta
   dtypes:
-    self: [BFloat16, Float]
+    self: [BFloat16, Float, Int]
     index: [Int, Long]
   guid: take_fwd
   out_ids: [0]
@@ -7173,7 +7173,7 @@ take:
 take.out:
   output_meta: TakeMeta
   dtypes:
-    self: [BFloat16, Float]
+    self: [BFloat16, Float, Int]
     index: [Int, Long]
   guid: take_fwd
 
