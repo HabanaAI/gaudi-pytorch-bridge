@@ -32,6 +32,10 @@ class ShapeInfTensorId {
     return unique_id;
   }
 
+  void set(int64_t id) {
+    unique_id = id;
+  }
+
   void increment(int64_t val) {
     unique_id += val;
   }
@@ -162,6 +166,10 @@ class ShapeInference {
 
   static int64_t GetSifTensorId() {
     return sif_tensor_id.get();
+  }
+
+  static void SetSifTensorId(int64_t id) {
+    sif_tensor_id.set(id);
   }
 
   static void IncrementSifTensorId(int64_t cnt = 1) {

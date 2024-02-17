@@ -2253,9 +2253,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       if (GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE) ||
           (enable_fast_shape_inf_ && syn_graph->is_dynamic_graph()) ||
           enable_shape_agnostic_caching_) {
-        PT_DYNAMIC_SHAPE_DEBUG(
-            "Current sif tensor id = ",
-            habana::ShapeInference::GetSifTensorId());
+        auto cur_sif_tid = habana::ShapeInference::GetSifTensorId();
+        PT_DYNAMIC_SHAPE_DEBUG("Current sif tensor id = ", cur_sif_tid);
         HabanaOperatorPtr csHabanaKernel =
             KernelRegistry().get(device_id, op, getNodeScalarType(node));
 
@@ -2289,6 +2288,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
             }
           } catch (std::exception& e) {
             kernel_output_cs.set_empty();
+            // Restore the sif tensor id
+            habana::ShapeInference::SetSifTensorId(cur_sif_tid);
             if (disabled_jit_ir_ops().count(node_qual_str) == 0) {
               PT_DYNAMIC_SHAPE_DEBUG(
                   "DISABLED_InferOutputMeta_JIT_IR_OP: ", node_qual_str);

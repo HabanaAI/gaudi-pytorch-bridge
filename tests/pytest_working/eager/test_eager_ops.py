@@ -14,6 +14,7 @@
 import numpy as np
 import pytest
 import torch
+from test_utils import is_gaudi1
 
 
 @pytest.mark.parametrize(
@@ -771,3 +772,32 @@ def test_sag_zst_1d():
     e = torch.mul(d, 2)
 
     assert torch.equal(e.cpu(), torch.mul(d.cpu(), 2))
+
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_conv_bwd_view():
+    for N, C, H, W, C2 in [
+        [2, 4, 7, 7, 3],
+        [2, 4, 10, 10, 3],
+    ]:
+        grad_output = torch.rand([N, C2, H, W]).to("hpu")
+        input = torch.rand([N, C, H, W]).to("hpu")
+        input_strided = input.as_strided((N, C, H, W), (N*C*H , C*H, 1, W))
+        weight = torch.rand([C2, C, 1, 1]).to("hpu")
+
+        # convolution_backward_overrideable is not implemented on CPU
+        # just check if it works without validating the results
+        result = torch.ops.aten.convolution_backward_overrideable(
+            grad_output,
+            input_strided,
+            weight,
+            stride=[1, 1],
+            padding=[0, 0],
+            dilation=[1, 1],
+            transposed=False,
+            output_padding=[0, 0],
+            groups=1,
+            output_mask=[True, True, False],
+        )
+
+        r_cpu = result[0].cpu()
+        assert r_cpu.dim() == 4
