@@ -18,7 +18,6 @@ from fp8_utils import (
     check_native_fp8,
     FP8_MAX,
     FP8_NAMES_LEGACY,
-    FP8_NAMES,
     variant_from_dtype,
 )
 from test_utils import hpu, is_gaudi1, compare_tensors
@@ -27,7 +26,6 @@ from habana_frameworks.torch.hpex.kernels.Fp8Ops import (
     cast_to_fp8,
     cast_to_fp8_v2,
     fp8_gemm,
-    fp8_gemm_v2,
     fp8_transpose,
     cast_from_fp8,
     fp8_gelu,
@@ -840,6 +838,7 @@ def test_fp8_kv_reorder(shape):
     np.testing.assert_equal(input_hpu.cpu().numpy(), reference.numpy())
 
 
+@pytest.mark.skip(reason="Deprecated op")
 @pytest.mark.parametrize("shape", [(5, 7), (6, 4, 8), (6, 4, 8, 12)])
 @pytest.mark.parametrize("dim", [0, 1])
 @pytest.mark.parametrize("is_full_shape", [True, False])
@@ -878,6 +877,7 @@ def test_hpu_index_copy(shape, dim, is_full_shape, dtype):
     compare_tensors(self_tensor_h, self_tensor, atol=0.0, rtol=0.0)
 
 
+@pytest.mark.skip(reason="Deprecated op")
 @pytest.mark.parametrize(
     "shape, repeats",
     [
@@ -905,6 +905,7 @@ def test_hpu_repeat(shape, repeats):
     compare_tensors(out_h, out, atol=0.0, rtol=0.0)
 
 
+@pytest.mark.skip(reason="Deprecated op")
 @pytest.mark.parametrize(
     "shape, dim, index",
     [

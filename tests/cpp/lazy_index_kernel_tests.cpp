@@ -107,6 +107,9 @@ INSTANTIATE_TEST_CASE_P(
             true)));
 
 TEST_P(UniqueDimParameterizedTestFixture, tests) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   c10::ScalarType dtype = std::get<1>(GetParam());
   int64_t dim = std::get<2>(GetParam());
   bool return_inverse = std::get<3>(GetParam());

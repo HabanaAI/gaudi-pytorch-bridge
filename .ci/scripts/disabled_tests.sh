@@ -20,7 +20,6 @@ FAILING_EAGER_TESTS=(
     "EagerKernelTest.BroadCastIndexTest1"
     "EagerKernelTest.IndexTest"
     "EnvFlags.GetEnv"
-    "fp8_gelu_v2/Fp8GeluTest.fp8_gelu_v2/*"
     "HabanaSerializationRecipeTest.serializeDeserializeRecipeTest1"
     "HabanaSerializationRecipeTest.serializeDeserializeRecipeTest2"
     "HpuOpTest._masked_scale1"
