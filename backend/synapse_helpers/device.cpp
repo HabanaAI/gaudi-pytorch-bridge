@@ -400,7 +400,29 @@ synapse_error_v<device_handle> device::create(
       acquired_device_type = dinfo.deviceType;
     }
   } else {
+    bool device_detected = false;
     for (auto const& device_type : allowed_device_types) {
+      uint32_t device_count = 0;
+      synStatus getCountStatus =
+          synDeviceGetCountByDeviceType(&device_count, device_type);
+      if (getCountStatus != synSuccess) {
+        PT_SYNHELPER_FATAL(
+            "Unable to count devices of type ",
+            device_type,
+            "(",
+            Logger::formatStatusMsg(getCountStatus),
+            ")");
+      }
+      if (device_count == 0) {
+        continue;
+      }
+      device_detected = true;
+      PT_SYNHELPER_DEBUG(
+          "Detected ",
+          device_count,
+          " devices for device_type: ",
+          device_type,
+          ". Trying to acquire...");
       status = synDeviceAcquireByDeviceType(&new_device_id, device_type);
       if (status == synSuccess) {
         PT_SYNHELPER_DEBUG(
@@ -411,10 +433,15 @@ synapse_error_v<device_handle> device::create(
         break;
       } else {
         PT_SYNHELPER_DEBUG(
-            Logger::formatStatusMsg(status),
             "Device acquire failed for device_type: ",
-            device_type);
+            device_type,
+            " with status ",
+            Logger::formatStatusMsg(status));
       }
+    }
+    if (!device_detected) {
+      return synapse_error{
+          "Device acquire failed. No devices found.", synNoDeviceFound};
     }
   }
 
