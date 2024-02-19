@@ -30,3 +30,4 @@ def enable_compiled_autograd():
         )
 
     torch._dynamo.reset()
+    torch._dynamo.config.optimize_ddp = "python_reducer"

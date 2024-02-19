@@ -717,8 +717,8 @@ def pass_wa_fix_output(ctx: OptimizerContext) -> bool:
         logger.warn(
             "It seems graph wasn't functionalized, fixing empty output node."
         )
-        ctx.graph_module.graph.erase_node(output_node)
         ctx.graph_module.graph.node_copy(output_node)
+        ctx.graph_module.graph.erase_node(output_node)
         ctx.graph_module.recompile()
         graph_changed = True
 
