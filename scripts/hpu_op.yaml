@@ -3608,13 +3608,13 @@ index_copy:
       index: [Int]
       source: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2:
-      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
       index: [Int, Long]
-      source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+      source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
     Gaudi3:
-      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
       index: [Int, Long]
-      source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+      source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
   out_ids: [0]
@@ -3627,13 +3627,13 @@ index_copy_:
       index: [Int]
       source: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2:
-      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
       index: [Int, Long]
-      source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+      source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
     Gaudi3:
-      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
       index: [Int, Long]
-      source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+      source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
   inplace_ids: [0]
@@ -3645,13 +3645,13 @@ index_copy.out:
       index: [Int]
       source: [BFloat16, Float, Int, Char, Byte, Short]
     Gaudi2:
-      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
       index: [Int, Long]
-      source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+      source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
     Gaudi3:
-      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
       index: [Int, Long]
-      source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+      source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
 

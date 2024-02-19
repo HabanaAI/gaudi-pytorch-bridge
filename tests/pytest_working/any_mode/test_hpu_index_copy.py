@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,15 +10,14 @@
 #
 ###############################################################################
 
-import torch
-import pytest
 import numpy as np
+import pytest
+import torch
 from test_utils import compare_tensors, is_gaudi1
-
 
 dtypes = [torch.float32, torch.bfloat16, torch.int]
 if not is_gaudi1():
-    dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
+    dtypes += [torch.float8_e5m2, torch.float8_e4m3fn, torch.long]
 
 
 @pytest.mark.parametrize("shape", [(5, 7), (6, 4, 3)])
