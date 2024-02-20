@@ -2083,8 +2083,8 @@ convolution_overrideable:
   output_meta: ConvolutionOverrideableMeta
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
+    Gaudi3: [BFloat16, Float]
   op_frontend: ConvolutionOverrideableFE
   op_backend: ConvolutionOverrideable
   out_ids: [0]
@@ -2093,8 +2093,8 @@ convolution:
   output_meta: ConvolutionOverrideableMeta
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
+    Gaudi3: [BFloat16, Float]
   op_frontend: ConvolutionOverrideableFE
   op_backend: ConvolutionOverrideable
   out_ids: [0]
@@ -2103,8 +2103,8 @@ convolution_backward_overrideable:
   output_meta: ConvolutionOverrideableMetaBwd
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
+    Gaudi3: [BFloat16, Float]
   op_frontend: ConvolutionBackwardOverrideableFE
   op_backend: ConvolutionBackwardOverrideable
   out_ids: [0, 0, 0]
@@ -2113,8 +2113,8 @@ convolution_backward:
   output_meta: ConvolutionOverrideableMetaBwd
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float]  # Half to be added after fixing SW-106630
+    Gaudi3: [BFloat16, Float]
   op_frontend: ConvolutionBackwardOverrideableFE
   op_backend: ConvolutionBackwardOverrideable
   # guid is specified here to distinguish between convolution_backward_overrideable
