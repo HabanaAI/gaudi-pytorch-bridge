@@ -32,13 +32,13 @@
   },
   "pt_versions": {
     "current": {
-      "version": "2.1.1",
+      "version": "2.2.0",
       "default_source": "build",
       "extras": {
-        "torchvision": "v0.16.0",
-        "torchaudio": "v2.1.0",
-        "torchtext": "v0.16.0",
-        "torchdata": "v0.7.0"
+        "torchvision": "v0.17.0",
+        "torchaudio": "v2.2.0",
+        "torchtext": "v0.17.0",
+        "torchdata": "v0.7.1"
       }
     },
     "previous": {
@@ -46,7 +46,7 @@
       "default_source": "build"
     },
     "next": {
-      "version": "2.2.0",
+      "version": "2.2.1",
       "default_source": "build",
       "extras": {
         "torchvision": "v0.17.0",
