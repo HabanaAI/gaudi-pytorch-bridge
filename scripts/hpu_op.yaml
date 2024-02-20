@@ -602,16 +602,6 @@ native_dropout:
   out_ids: [0, 0]
   schema_args: "(Tensor input, float p, Tensor? seed) -> (Tensor, Tensor)"
 
-pixel_shuffle:
-  output_meta: PixelShuffleMeta
-  custom_fill_params: FillPixelShuffleParams
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Short]
-    Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Short]
-  out_ids: [0]
-  guid: pixel_shuffle
-
 native_dropout_backward:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
