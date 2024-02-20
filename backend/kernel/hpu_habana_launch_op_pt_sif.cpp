@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -18,6 +18,7 @@
 #include "backend/jitgraph_utils.h"
 #include "backend/kernel/ds_graph_recompile.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/kernel/hpu_habana_launch_op_pt_sif_utils.h"
 #include "backend/kernel/hpu_habana_meta_op_list.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -342,32 +343,120 @@ void HabanaLaunchOpPT::visit_prim_node(
   }
 }
 
-void HabanaLaunchOpPT::RunHybridSif(
-    std::shared_ptr<torch::jit::Graph> jit_ir_graph,
-    torch::jit::Stack& inputs,
-    CValPtrtoIValueMap& val_to_ival_map) {
-  PT_BRIDGE_BEGIN;
-  auto graph_inputs = jit_ir_graph->inputs();
-  TORCH_CHECK(inputs.size() == graph_inputs.size(), "Input size mismatch");
-  for (size_t i = 0; i < graph_inputs.size(); i++) {
-    auto input = graph_inputs[i];
-    val_to_ival_map[input] = inputs[i];
+namespace {
+void mapOutputTensors(
+    const torch::jit::Node* node,
+    const HabanaOperatorPtr& habana_op,
+    const InferOutputMetaRetType& output_shape_info,
+    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
+  auto op_backend = std::dynamic_pointer_cast<OpBackend>(habana_op);
+  size_t nr_of_excluded_outputs = 0;
+  if (op_backend) {
+    nr_of_excluded_outputs = op_backend->GetSynImplicitOutputs().size();
   }
 
-  PT_DYNAMIC_SHAPE_DEBUG(
-      "SIF JIT_IR_Graph_BEGIN\n",
-      jit_ir_graph->toString(),
-      "JIT_IR_Graph_END\n");
+  auto nr_of_node_outputs = node->outputs().size();
+  auto output_tensors = output_shape_info.GetOutputTensor();
+  if (not(nr_of_node_outputs ==
+          (output_tensors.size() +
+           output_shape_info.GetNumUndefinedOutputTensors() -
+           nr_of_excluded_outputs)) and
+      output_shape_info.GetKernelOutputs().size()) {
+    output_tensors =
+        output_shape_info.GetKernelOutputs().at(0)->GetOutputTensor();
+  }
 
-  // Figure out the right device id
-  auto& device = HPURegistrar::get_device();
-  synDeviceId device_id = device.id();
-  std::string syn_sif_graph = "syn_sif_graph";
+  TORCH_CHECK(
+      nr_of_node_outputs ==
+          (output_tensors.size() +
+           output_shape_info.GetNumUndefinedOutputTensors() -
+           nr_of_excluded_outputs),
+      "Output size mismatch");
+
+  int output_iter = 0;
+  for (size_t i = 0; i < nr_of_node_outputs; ++i) {
+    auto output = node->outputs().at(i);
+    HABANA_ASSERT(val_to_ival_map.count(output) == 0);
+    if (op_backend) {
+      if (not op_backend->GetOutputMetaData()[i].undefined) {
+        val_to_ival_map[output] =
+            IVal(std::get<1>(output_tensors[output_iter++]));
+      }
+    } else {
+      val_to_ival_map[output] =
+          IVal(std::get<1>(output_tensors[output_iter++]));
+    }
+  }
+}
+
+auto propagateShape(
+    torch::jit::Node* node,
+    torch::jit::Stack& op_input_stack,
+    const HabanaOperatorPtr& habana_op,
+    synapse_helpers::graph& syn_graph,
+    OutputMetaDataVector& outputs_metadata,
+    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
+  PT_BRIDGE_BEGIN;
+
+  // Create the synapse inputs from aten tensors
+  create_synapse_inputs(node, habana_op, syn_graph, val_to_ival_map);
+
+  habana_op->AllocateAndAddSynapseNode(
+      syn_graph, op_input_stack, outputs_metadata);
+
+  // process outputs
+  auto output_nodes = node->outputs();
+
+  if (output_nodes.at(0)->type() == torch::ListType::ofTensors() &&
+      output_nodes.size() == 1) {
+    auto unpack_node =
+        jitgraph_utils::GetUnpackNodeFromTensorList(node->output(0));
+    HABANA_ASSERT(
+        unpack_node != nullptr,
+        "TensorList is not input to ListUnpack node. Node: ",
+        node->kind().toQualString());
+    output_nodes = unpack_node->outputs();
+  }
+
+  size_t output_idx = 0;
+  for (auto& out_tensor_pt : habana_op->GetOutputs()) {
+    val_to_ival_map.emplace(
+        output_nodes[output_idx], torch::jit::IValue(out_tensor_pt));
+  }
+
+  for (const auto& pt_input_idx_and_sh_tensor :
+       habana_op->GetSynImplicitOutputs()) {
+    val_to_ival_map.emplace(
+        node->inputs()[pt_input_idx_and_sh_tensor.pt_input_idx],
+        torch::jit::IValue(
+            habana_op->GetInputs()[pt_input_idx_and_sh_tensor.syn_input_idx]));
+  }
+
+  PT_BRIDGE_END;
+}
+} // namespace
+
+void HabanaLaunchOpPT::RunHybridSif(
+    std::shared_ptr<torch::jit::Graph> graph,
+    torch::jit::Stack& inputs,
+    CValPtrtoIValueMap& val_to_ival_map) {
+  using namespace sif_utils;
+
+  PT_BRIDGE_BEGIN;
+
+  TORCH_CHECK(inputs.size() == graph->inputs().size(), "Inputs size mismatch");
+
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "SIF JIT_IR_Graph_BEGIN\n", graph->toString(), "JIT_IR_Graph_END\n");
+
+  const auto& device = HPURegistrar::get_device();
 
   auto syn_graph =
-      habana_helpers::create_graph(device.id(), syn_sif_graph, true);
+      habana_helpers::create_graph(device.id(), "syn_sif_graph", true);
 
-  for (auto* node : jit_ir_graph->nodes()) {
+  mapGraphInputsToInputsOnStack(graph, inputs, val_to_ival_map);
+
+  for (auto node : graph->nodes()) {
     std::string op_name(node->kind().toQualString());
 
     PT_DYNAMIC_SHAPE_DEBUG(" Visiting op ", op_name, " for node ", *node);
@@ -385,125 +474,55 @@ void HabanaLaunchOpPT::RunHybridSif(
       continue;
     }
 
-    // Get node scalar type, Default value Float if no tensor is found
-    c10::ScalarType node_type = c10::ScalarType::Float;
-    for (auto input : node->inputs()) {
-      if (val_to_ival_map.count(input) && val_to_ival_map[input].isTensor()) {
-        node_type = val_to_ival_map[input].toTensor().scalar_type();
-        break;
-      }
-    }
+    auto node_type = getNodeScalarTypeFromInputs(node, val_to_ival_map);
 
     // Get kernel context
     const auto& op = node->schema().operator_name();
     HabanaOperatorPtr habana_op =
-        KernelRegistry().get(device_id, op, node_type);
+        KernelRegistry().get(device.id(), op, node_type);
 
     TORCH_CHECK(habana_op, op, " isn't registered in KernelRegistry!");
 
     // Set the deterministic val
     habana_op->setDeterministic(node->i(torch::jit::attr::deterministic));
 
-    bool is_mapped_flag{true};
-    torch::jit::Stack op_input_stack;
-    for (auto ni_val : node->inputs()) {
-      if (val_to_ival_map.count(ni_val) == 0) {
-        is_mapped_flag = false;
-        continue;
-      }
-      op_input_stack.push_back(val_to_ival_map[ni_val]);
-    }
-    HABANA_ASSERT(
-        is_mapped_flag, "Cannot proceed with unmapped input for ", op_name);
+    auto op_input_stack = createInputStackForNode(node, val_to_ival_map);
 
     // Setup the config params for the kernels
     auto outputs_metadata = populate_node_output_metadata(node);
 
-    auto propagate_shape{[&]() -> void {
-      PT_BRIDGE_BEGIN;
-
-      // Create the synapse inputs from aten tensors
-      create_synapse_inputs(node, habana_op, syn_graph, val_to_ival_map);
-
-      habana_op->AllocateAndAddSynapseNode(
-          syn_graph, op_input_stack, outputs_metadata);
-
-      // process outputs
-      {
-        auto output_nodes = node->outputs();
-
-        if (node->output(0)->type() == torch::ListType::ofTensors() &&
-            node->outputs().size() == 1) {
-          auto unpack_node =
-              jitgraph_utils::GetUnpackNodeFromTensorList(node->output(0));
-          HABANA_ASSERT(
-              unpack_node != nullptr,
-              "TensorList is not input to ListUnpack node. Node: ",
-              node->kind().toQualString());
-          output_nodes = unpack_node->outputs();
-        }
-
-        size_t output_idx = 0;
-        for (auto& out_tensor_pt : habana_op->GetOutputs()) {
-          val_to_ival_map.emplace(
-              output_nodes[output_idx], torch::jit::IValue(out_tensor_pt));
-        }
-
-        for (const auto& pt_input_idx_and_sh_tensor :
-             habana_op->GetSynImplicitOutputs()) {
-          val_to_ival_map.emplace(
-              node->inputs()[pt_input_idx_and_sh_tensor.pt_input_idx],
-              torch::jit::IValue(
-                  habana_op
-                      ->GetInputs()[pt_input_idx_and_sh_tensor.syn_input_idx]));
-        }
-      }
-    }};
-
-    if (!disabled_jit_ir_ops().count(op_name)) {
+    if (not disabled_jit_ir_ops().count(op_name)) {
       // Set output meta data if auto-gen op
       if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
         op->SetOutputMetadata(outputs_metadata);
       }
       auto output_shape_info = habana_op->InferOutputMeta(op_input_stack);
-      if (output_shape_info.empty()) {
-        propagate_shape();
-      } else {
+      if (not output_shape_info.empty()) {
         // Output shape info based flow
         try {
-          size_t exclude_outputs = 0;
-          if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
-            exclude_outputs = op->GetSynImplicitOutputs().size();
-          }
-
-          auto output_tensors = output_shape_info.GetOutputTensor();
-          if (!(node->outputs().size() ==
-                (output_tensors.size() - exclude_outputs))) {
-            if (output_shape_info.GetKernelOutputs().size()) {
-              output_tensors =
-                  output_shape_info.GetKernelOutputs().at(0)->GetOutputTensor();
-            }
-          }
-
-          TORCH_CHECK(
-              node->outputs().size() ==
-                  (output_tensors.size() - exclude_outputs),
-              "Output size mismatch");
-
-          for (size_t i = 0; i < node->outputs().size(); ++i) {
-            auto output = node->outputs().at(i);
-            HABANA_ASSERT(val_to_ival_map.count(output) == 0);
-            val_to_ival_map[output] = IVal(std::get<1>(output_tensors[i]));
-          }
+          mapOutputTensors(node, habana_op, output_shape_info, val_to_ival_map);
         } catch (std::exception& e) {
           PT_DYNAMIC_SHAPE_DEBUG("Catch Exception SIF failed: ", e.what());
           disabled_jit_ir_ops().insert(op_name);
-          propagate_shape();
+          propagateShape(
+              node,
+              op_input_stack,
+              habana_op,
+              syn_graph,
+              outputs_metadata,
+              val_to_ival_map);
         }
+        continue;
       }
-    } else {
-      propagate_shape();
     }
+
+    propagateShape(
+        node,
+        op_input_stack,
+        habana_op,
+        syn_graph,
+        outputs_metadata,
+        val_to_ival_map);
   }
   PT_BRIDGE_END;
 }

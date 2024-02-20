@@ -26,6 +26,7 @@ add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synaps
   kernel/hpu_habana_execute_op_pt.cpp
   kernel/hpu_habana_launch_op_pt_lowering.cpp
   kernel/hpu_habana_launch_op_pt_sif.cpp
+  kernel/hpu_habana_launch_op_pt_sif_utils.cpp
   kernel/hpu_habana_cache.cpp
   kernel/hpu_shape_inference.cpp
   kernel/refinement_engine.cpp

@@ -109,6 +109,10 @@ class OpBackend : public HabanaOperator {
     return m_num_syn_nodes;
   }
 
+  const OutputMetaDataVector& GetOutputMetaData() const {
+    return m_output_metadata;
+  }
+
  protected:
   std::vector<int> ScalarId() const {
     return m_scalar_ids;
@@ -181,10 +185,6 @@ class OpBackend : public HabanaOperator {
   void SetOutputMetaFn(
       std::function<OutputMetaDataVector(const at::Stack&)> fn) {
     m_output_meta_fn = std::move(fn);
-  }
-
-  const OutputMetaDataVector& GetOutputMetaData() const {
-    return m_output_metadata;
   }
 
   const OutputMetaData& GetOutputMetaData(int i) const {
