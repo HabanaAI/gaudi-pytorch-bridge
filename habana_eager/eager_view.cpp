@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -14,6 +14,7 @@
 #include "habana_eager/eager_view.h"
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 
 namespace habana {
 namespace eager {
@@ -138,16 +139,28 @@ bool is_view(const at::Tensor& t) {
   return (habana::is_view_lowering(t) || (!t.is_contiguous()));
 }
 
+bool is_schema_incompatible_between_hpu_aten(const std::string_view op_name) {
+  /* Below ops have an incompatible signature between hpu and aten.
+  The conversion from old kind to OutOfPlace should take place within the HPU */
+  static std::unordered_set<std::string_view> ops_replace_within_hpu = {
+      "hpu::index"};
+  return ops_replace_within_hpu.find(op_name) != ops_replace_within_hpu.end();
+}
+
 static JitNode* replace_with_out_of_place_op(
     JitGraph& graph,
     JitNode* node,
     const EagerOpMetaData& eager_op_meta_data) {
   torch::jit::WithInsertPoint insert_point(node);
-  const std::string& new_kind = eager_op_meta_data.op_name_;
+  const auto old_kind = node->kind().toQualString();
+  const std::string& new_kind =
+      is_schema_incompatible_between_hpu_aten(old_kind)
+      ? old_kind
+      : eager_op_meta_data.op_name_;
 
   PT_EAGER_DEBUG(
       "[replace_with_out_of_place_op] Op Name: ",
-      node->kind().toQualString(),
+      old_kind,
       " is replaced by: ",
       new_kind);
 
