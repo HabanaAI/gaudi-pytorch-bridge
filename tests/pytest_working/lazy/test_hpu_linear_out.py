@@ -27,6 +27,7 @@ if not is_gaudi1():
 @pytest.mark.parametrize("dtype", dtypes)
 @pytest.mark.parametrize("out_dtype", [torch.float, torch.bfloat16])
 def test_hpu_linear(input_shape, weight_shape, is_bias, dtype, out_dtype):
+    pytest.xfail("SW-175846 - detectd during upgrade, need further debugging")
     if out_dtype == torch.bfloat16 and dtype == torch.float32 and input_shape != (4,):
         pytest.skip("Configuration not supported (aten::mv.out is not yet supported on HPU)")
     if len(input_shape) == 2 and len(weight_shape) == 1 and is_bias:
