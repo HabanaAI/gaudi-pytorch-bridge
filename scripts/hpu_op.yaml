@@ -5687,9 +5687,9 @@ pow.Tensor_Scalar:
 pow.Tensor_Scalar_out:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Half, Int, Short, Char]
+    Gaudi3: [BFloat16, Float, Half, Int, Short, Char]
   guid: pow_fwd
   op_backend: PowOp
   scalar_ids: [1]
