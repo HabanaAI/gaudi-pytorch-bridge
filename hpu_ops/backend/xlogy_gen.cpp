@@ -39,19 +39,60 @@ OutputMetaDataVector XlogYMeta(const at::Stack& stack) {
   return {meta};
 }
 
+bool ShouldCastToOutputType(
+    c10::ScalarType dtype,
+    c10::ScalarType output_dtype) {
+  return isIntegralType(dtype, true) ||
+      (dtype == at::kFloat && output_dtype == at::kBFloat16) ||
+      (output_dtype == at::kFloat && dtype == at::kBFloat16);
+}
+
 void XlogYOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   auto meta = XlogYMeta(stack)[0];
   auto other = stack_tensor(stack, 1);
-  auto logyShape = other.sizes().vec();
-  auto logyDtype = other.scalar_type();
+
+  auto xlogy = BuildOp(
+      graph,
+      get_guid_with_precision("xlogy_fwd", meta.dtype),
+      {syn_in(0),
+       ShouldCastToOutputType(other.scalar_type(), meta.dtype)
+           ? OpBackend::BuildCast(
+                 this,
+                 graph,
+                 syn_in(1),
+                 other.sizes().vec(),
+                 other.scalar_type(),
+                 meta.dtype)
+                 .get()
+           : syn_in(1)},
+      {{meta.shape, meta.dtype, 0}});
+
+  syn_out(0) = std::move(xlogy[0]);
+}
+
+void Xlog1PyOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto meta = XlogYMeta(stack)[0];
+  auto other = stack_tensor(stack, 1);
 
   auto logy = BuildOp(
       graph,
-      get_guid_with_precision("log1p_fwd", logyDtype),
-      {syn_in(1)},
-      {{logyShape, logyDtype}});
+      get_guid_with_precision("log1p_fwd", meta.dtype),
+      {ShouldCastToOutputType(other.scalar_type(), meta.dtype)
+           ? OpBackend::BuildCast(
+                 this,
+                 graph,
+                 syn_in(1),
+                 other.sizes().vec(),
+                 other.scalar_type(),
+                 meta.dtype)
+                 .get()
+           : syn_in(1)},
+      {{other.sizes().vec(), meta.dtype}});
+
   auto xlogy = BuildOp(
       graph,
       get_guid_with_precision("mult", meta.dtype),

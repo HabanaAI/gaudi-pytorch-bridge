@@ -13,7 +13,7 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 
-SUPPORTED_DTYPES = [torch.float, torch.bfloat16]
+SUPPORTED_DTYPES = [torch.float, torch.bfloat16, torch.int, torch.long]
 TENSOR_SHAPE = [2, 3, 4]
 SCALAR_VALUES = [2.3, float('nan'), 0]
 
@@ -32,13 +32,20 @@ class TestHpuXlogy:
 
     @staticmethod
     def _create_cpu_hpu_tensors(creator, shape, dtype):
-        cpu_tensor = creator(shape, dtype=dtype)
+        if creator == torch.randint:
+            cpu_tensor = creator(low=0, high=10, size=shape, dtype=dtype)
+        else:
+            cpu_tensor = creator(shape, dtype=dtype)
+
         hpu_tensor = cpu_tensor.to("hpu")
         return cpu_tensor, hpu_tensor
 
     @classmethod
     def _create_rand_tensors(cls, shape, dtype):
-        return cls._create_cpu_hpu_tensors(torch.rand, shape, dtype=dtype)
+        if dtype in (torch.int, torch.long):
+            return cls._create_cpu_hpu_tensors(torch.randint, shape, dtype=dtype)
+        else:
+            return cls._create_cpu_hpu_tensors(torch.rand, shape, dtype=dtype)
 
     @classmethod
     def _create_empty_tensors(cls, shape, dtype):

@@ -6938,7 +6938,7 @@ special_xlog1py:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
-  op_backend: XlogYOperator
+  op_backend: Xlog1PyOperator
   out_ids: [0]
 
 special_xlog1py.other_scalar:
@@ -6948,25 +6948,25 @@ special_xlog1py.other_scalar:
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
   op_frontend: LazyXlogY
-  op_backend: XlogYOperator
+  op_backend: Xlog1PyOperator
   out_ids: [0]
 
 special_xlog1py.other_scalar_out:
   output_meta: XlogYMeta
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Long]
+    Gaudi3: [BFloat16, Float, Int, Long]
   op_frontend: LazyXlogY
-  op_backend: XlogYOperator
+  op_backend: Xlog1PyOperator
 
 special_xlog1py.out:
   output_meta: XlogYMeta
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
-  op_backend: XlogYOperator
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Long]
+    Gaudi3: [BFloat16, Float, Int, Long]
+  op_backend: Xlog1PyOperator
 
 special_xlog1py.self_scalar:
   output_meta: XlogYMeta
@@ -6975,17 +6975,17 @@ special_xlog1py.self_scalar:
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
   op_frontend: LazyXlogY
-  op_backend: XlogYOperator
+  op_backend: Xlog1PyOperator
   out_ids: [1]
 
 special_xlog1py.self_scalar_out:
   output_meta: XlogYMeta
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Long]
+    Gaudi3: [BFloat16, Float, Int, Long]
   op_frontend: LazyXlogY
-  op_backend: XlogYOperator
+  op_backend: Xlog1PyOperator
 
 special_entr:
   promote_int_to_float: [self]
@@ -7972,11 +7972,12 @@ where.self_out:
 
 xlogy.OutTensor:
   output_meta: XlogYMeta
+  op_backend: XlogYOperator
   guid: xlogy_fwd
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Long]
+    Gaudi3: [BFloat16, Float, Int, Long]
   # op_validator: check-node-with-shared-layer
 
 xlogy.OutScalar_Self:
