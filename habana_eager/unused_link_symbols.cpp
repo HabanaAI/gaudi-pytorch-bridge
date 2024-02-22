@@ -133,10 +133,6 @@ Tensor& hpu_wrap::masked_select_out(
   FALLBACK_UNSUPPORTED_OP2_O(masked_select, PARAMS2(self, mask, out), out);
 }
 
-Tensor hpu_wrap::masked_select(const at::Tensor& self, const at::Tensor& mask) {
-  FALLBACK_UNSUPPORTED_OP2(masked_select, PARAMS2(self, mask));
-}
-
 // *************************************************
 // BELOW is list of symbols needed to link new frontend plugin but not relevant
 // for eager execution. They will be removed once backend dependencies

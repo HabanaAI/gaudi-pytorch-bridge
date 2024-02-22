@@ -18,6 +18,7 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/empty.h"
 #include "habana_eager/ops/index_put.h"
+#include "habana_eager/ops/masked_select.h"
 #include "habana_eager/ops/nonzero.h"
 #include "habana_eager/ops/set.h"
 #include "habana_eager/ops/view.h"
@@ -220,4 +221,23 @@ at::Tensor& hpu_wrap::nonzero_out(const at::Tensor& self, at::Tensor& out) {
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, out));
   }
   return habana::eager::nonzero_out_eager(self, out);
+}
+
+at::Tensor hpu_wrap::masked_select(
+    const at::Tensor& self,
+    const at::Tensor& mask) {
+  PT_EAGER_TRACE;
+  if ((self.scalar_type() != c10::ScalarType::Float) &&
+      (self.scalar_type() != c10::ScalarType::Int) &&
+      (self.scalar_type() != c10::ScalarType::Long) &&
+      (self.scalar_type() != c10::ScalarType::Char) &&
+      (self.scalar_type() != c10::ScalarType::Bool) &&
+      (self.scalar_type() != c10::ScalarType::BFloat16) &&
+      !(self.scalar_type() == c10::ScalarType::Half &&
+        habana::HPURegistrar::get_device().type() !=
+            synDeviceType::synDeviceGaudi)) {
+    return dispatch_fallback<ATEN_OP(masked_select)>::call(
+        OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, mask));
+  }
+  return habana::eager::masked_select_eager(self, mask);
 }
