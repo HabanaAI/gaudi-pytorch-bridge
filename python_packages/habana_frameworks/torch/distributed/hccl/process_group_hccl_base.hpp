@@ -29,7 +29,7 @@ using Work = c10d::Work;
 namespace c10d {
 
 // Now continue on other work in the current stream.
-class TORCH_API ProcessGroupHcclBase : public ProcessGroup {
+class TORCH_API ProcessGroupHcclBase : public Backend {
  public:
   ProcessGroupHcclBase(
       const c10::intrusive_ptr<Store>& store,

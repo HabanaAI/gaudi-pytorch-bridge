@@ -82,7 +82,7 @@ ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
     int rank,
     int size,
     std::string group_name)
-    : ProcessGroup(rank, size),
+    : Backend(rank, size),
       store_(store),
       barrier_cnt_(0),
       group_name_(group_name) {
@@ -567,7 +567,7 @@ template <typename T, typename T_BASE>
 using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>, T_BASE>;
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
-  intrusive_ptr_class_<::c10d::ProcessGroupLazyHCCL, c10d::ProcessGroup>
+  intrusive_ptr_class_<::c10d::ProcessGroupLazyHCCL, c10d::Backend>
       processGroupHccl(module, "ProcessGroupHCCL");
 
   processGroupHccl.def(py::init(

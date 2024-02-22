@@ -139,7 +139,7 @@ ProcessGroupHcclBase::ProcessGroupHcclBase(
     int rank,
     int size,
     std::string group_name)
-    : ProcessGroup(rank, size),
+    : Backend(rank, size),
       always_support_int64_(false),
       store_(store),
       barrier_cnt_(0),

@@ -28,7 +28,7 @@
 using Work = c10d_ver::Work;
 
 namespace c10d {
-class TORCH_API ProcessGroupLazyHCCL : public ProcessGroup {
+class TORCH_API ProcessGroupLazyHCCL : public Backend {
  public:
   ProcessGroupLazyHCCL(
       const c10::intrusive_ptr<Store>& store,

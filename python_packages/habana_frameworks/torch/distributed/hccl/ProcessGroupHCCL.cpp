@@ -597,7 +597,7 @@ template <typename T, typename T_BASE>
 using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>, T_BASE>;
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
-  intrusive_ptr_class_<::c10d::ProcessGroupHCCL, c10d::ProcessGroup>
+  intrusive_ptr_class_<::c10d::ProcessGroupHCCL, c10d::Backend>
       processGroupHccl(module, "ProcessGroupHCCL");
 
   processGroupHccl.def(py::init(
