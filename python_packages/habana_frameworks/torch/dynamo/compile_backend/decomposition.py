@@ -449,6 +449,13 @@ def randint_low_generator(*args, **kwargs):
     return aten.randint.low(*args, **kwargs)
 
 
+# pytorch decomposes aten.cdist op to at::_euclidean_dist in some cases
+# For hpu we prefer to call _cdist_forward in all cases
+@register_custom_decomposition(aten._euclidean_dist, hpu_backend_decompositions_common)
+def euclidean_dist(x1, x2):
+    return torch.ops.aten._cdist_forward(x1, x2, 2.0, 1)
+
+
 def get_hpu_decompositions():
     if configuration_flags["use_decompositions"]:
         return {

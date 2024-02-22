@@ -1471,6 +1471,19 @@ at::Tensor dropout(const at::Tensor& input, double p, bool train) {
   return std::get<0>(at::native_dropout(input, p, train));
 }
 
+// pytorch decomposes this op to at::_euclidean_dist in some cases
+// For hpu we prefer to call _cdist_forward in all cases
+at::Tensor cdist(
+    const at::Tensor& x1,
+    const at::Tensor& x2,
+    const double p,
+    c10::optional<int64_t> compute_mode) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("cdist :", DUMP_4ARGS(x1, x2, p, compute_mode));
+
+  return _cdist_forward(x1, x2, p, compute_mode);
+}
+
 at::Tensor quantize_per_tensor(
     const at::Tensor& input,
     double scale,
@@ -1986,6 +1999,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
 }
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
+  m.impl("cdist", cdist);
   m.impl("dropout", dropout);
 }
 

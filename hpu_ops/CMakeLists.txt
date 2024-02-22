@@ -135,6 +135,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/bitwise_shift_gen.cpp
           backend/bmm_gen.cpp
           backend/cat_gen.cpp
+          backend/cdist_gen.cpp
           backend/channelshuffle_gen.cpp
           backend/clamp_gen.cpp
           backend/clone_gen.cpp
