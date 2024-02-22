@@ -2782,12 +2782,12 @@ exponential.functional:
 
 eye.out:
   output_meta: EyeMeta
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Int]
   op_backend: EyeOpOut
 
 eye.m_out:
   output_meta: EyeMeta
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Int]
   op_backend: EyeOpOut
 
 fill.Scalar:
