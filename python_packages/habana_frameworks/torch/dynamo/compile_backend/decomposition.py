@@ -19,7 +19,7 @@ from torch._decomp import get_decompositions
 
 aten = torch.ops.aten
 
-from .config import configuration_flags
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from .logger import get_compile_backend_logger
 
 logger = get_compile_backend_logger()
@@ -501,7 +501,7 @@ def split(self, split_size, dim=0):
 
 
 def get_hpu_decompositions():
-    if configuration_flags["use_decompositions"]:
+    if hpu_backend_config.use_decompositions:
         return {
             **hpu_backend_decompositions_common,
         }

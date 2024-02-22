@@ -13,7 +13,7 @@
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
 
-from .config import configuration_flags
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from .logger import get_compile_backend_logger
 from typing import Dict, List
 
@@ -203,7 +203,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
     logger.debug("Node: %s requires fallback: %s", node, do_fallback)
 
     assert (
-        configuration_flags["use_eager_fallback"] or do_fallback == False
+        hpu_backend_config.use_eager_fallback or do_fallback == False
     ), f"Node: {node} requires fallback: {do_fallback}"
 
     return do_fallback

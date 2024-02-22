@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -20,7 +20,7 @@ import habana_frameworks.torch.internal.bridge_config as bc
 from sympy import sympify
 from torch.fx.experimental.proxy_tensor import py_sym_types
 
-from .config import configuration_flags
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from .logger import get_compile_backend_logger, dump_fx_graph
 from .random_utils import is_random_op
 from .symbolic_execution import PythonPrinter, SymbolicShapeEvaluator
@@ -109,7 +109,7 @@ def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule, is_training=
         outputs_metadata = get_outputs_metadata_dynamic(graph_module)
         symbolic_metadata = get_symbolic_metadata(graph_module, outputs_metadata)
 
-    if configuration_flags["use_compiled_recipes"]:
+    if hpu_backend_config.use_compiled_recipes:
         return HabanaGraphModule(
             jit_ir,
             graph_module,

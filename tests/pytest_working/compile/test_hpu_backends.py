@@ -20,6 +20,31 @@ def fn(x):
     return x + x
 
 
+# this test checks only that mode arg provided to torch_compile is not throwing in case of 'hpu_backend'
+# there is no actual effect of this parameter in our case
+def test_compile_mode_nothrow():
+    def fn(x):
+        return x + x
+
+    compiled_fn = torch.compile(fn, backend="hpu_backend", mode="anything")
+    compiled_fn(torch.tensor(2.0).to("hpu"))
+
+
+def test_compile_config_use_compiled_recipes():
+    def fn(x):
+        return x + x
+
+    input = torch.tensor(2.0).to("hpu")
+    with patch(
+        "habana_frameworks.torch.dynamo.compile_backend.recipe_compiler.HabanaGraphModule.__call__", return_value=None
+    ) as mock_my_function:
+        # when use_compiled_recipes=False, HabanaGraphModule should not be used at all
+        torch.compile(fn, backend="hpu_backend", options={"use_compiled_recipes": False})(input)
+        mock_my_function.assert_not_called()
+        torch.compile(fn, backend="hpu_backend")(input)  # default for use_compiled_recipes is True
+        mock_my_function.assert_called()
+
+
 # testing if inner compiler is called as expected
 class TestInnerCompiler:
     def test_inference_compiler_called(self):
