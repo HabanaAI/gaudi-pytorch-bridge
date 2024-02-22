@@ -2577,3 +2577,17 @@ install_pytorch_whls() {
     fi
     $__pip_cmd install -U ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/*.whl
 }
+
+dsa_debugger()
+{
+    if [ -z "$PYTORCH_MODULES_ROOT_PATH" ]
+    then
+        echo "PYTORCH_MODULES_ROOT_PATH path is not defined"
+        return 1
+    fi
+
+    local __dsa_debugger_py="$__python_cmd $PYTORCH_MODULES_ROOT_PATH/python_packages/habana_frameworks/torch/utils/debug/dsa_debugger.py"
+    ${__dsa_debugger_py} "$@"
+
+    return $?
+}
