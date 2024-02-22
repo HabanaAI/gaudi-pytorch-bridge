@@ -32,6 +32,7 @@ cpu = torch.device("cpu")
 def is_torch_at_least(req_ver_str: str):
     return Version(torch.__version__) >= Version(req_ver_str)
 
+
 def is_device(device_name):
     return hthpu.get_device_name() == device_name
 
@@ -76,9 +77,7 @@ def evaluate_fwd_kernel(
         copy_kernel=copy_kernel,
     )
 
-    cpu_result = run_kernel_on_device(
-        device=cpu, kernel=kernel, kernel_params=kernel_params
-    )
+    cpu_result = run_kernel_on_device(device=cpu, kernel=kernel, kernel_params=kernel_params)
 
     if check_results:
         compare_tensors(hpu_result, cpu_result, atol=atol, rtol=rtol)
@@ -197,10 +196,7 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
         if cpu_tensors[i] is None and hpu_tensors[i] is None:
             continue
 
-    hpu_tensors = [
-        tensor.to(cpu) if tensor is not None else tensor
-        for tensor in hpu_tensors
-    ]
+    hpu_tensors = [tensor.to(cpu) if tensor is not None else tensor for tensor in hpu_tensors]
 
     for i in range(len(hpu_tensors)):
         if cpu_tensors[i] is None and hpu_tensors[i] is None:
@@ -208,14 +204,12 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
 
         hpu_tensors[i] = (
             hpu_tensors[i].float()
-            if hpu_tensors[i].dtype
-            in [torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
+            if hpu_tensors[i].dtype in [torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
             else hpu_tensors[i]
         )
         cpu_tensors[i] = (
             cpu_tensors[i].float()
-            if cpu_tensors[i].dtype
-            in [torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
+            if cpu_tensors[i].dtype in [torch.bfloat16, torch.float8_e5m2, torch.float8_e4m3fn]
             else cpu_tensors[i]
         )
         if assert_enable:
@@ -265,9 +259,7 @@ def env_var_in_scope(vars=None):
                     del os.environ[key]
 
 
-def generic_setup_teardown_env(
-    temp_test_env: Dict, callback: Optional[Callable] = None
-):
+def generic_setup_teardown_env(temp_test_env: Dict, callback: Optional[Callable] = None):
     htdebug._bridge_cleanup()
     assert isinstance(temp_test_env, Mapping)
 
@@ -293,9 +285,7 @@ def _assert_tensors_on_device(tensor_list, device):
         assert t.device.type == device.type
 
 
-def run_kernel_on_device(
-    device, kernel, tensor_list=None, kernel_params=None, copy_kernel=True
-):
+def run_kernel_on_device(device, kernel, tensor_list=None, kernel_params=None, copy_kernel=True):
     # print("tensor_list", tensor_list)
     # print("kernel_params", kernel_params)
     if copy_kernel:
@@ -312,50 +302,30 @@ def run_kernel_on_device(
         for k, v in kernel_params.items():
             if isinstance(v, torch.Tensor):
                 kernel_params_local[k] = v.to(device)
-            elif (
-                isinstance(v, tuple)
-                and (len(v) > 0)
-                and isinstance(v[0], torch.Tensor)
-            ):
+            elif isinstance(v, tuple) and (len(v) > 0) and isinstance(v[0], torch.Tensor):
                 if device == cpu:
                     # HPU does not support dtype=long, therefore use dtype=int
                     # in test-cases and convert it to dtype=long for CPU (CPU
                     # works for dtype=long only)
                     kernel_params_local[k] = tuple(
-                        [
-                            i.to(device, dtype=torch.long)
-                            if i.type() == "torch.IntTensor"
-                            else i.to(device)
-                            for i in v
-                        ]
+                        [i.to(device, dtype=torch.long) if i.type() == "torch.IntTensor" else i.to(device) for i in v]
                     )
                 else:
                     kernel_params_local[k] = tuple([i.to(device) for i in v])
-            elif (
-                isinstance(v, list)
-                and (len(v) > 0)
-                and isinstance(v[0], torch.Tensor)
-            ):
+            elif isinstance(v, list) and (len(v) > 0) and isinstance(v[0], torch.Tensor):
                 kernel_params_local[k] = [i.to(device) for i in v]
             else:
                 kernel_params_local[k] = kernel_params[k]
 
     elif tensor_list:
-        tensor_list = [
-            tensor.to(device) if tensor is not None else tensor
-            for tensor in tensor_list
-        ]
+        tensor_list = [tensor.to(device) if tensor is not None else tensor for tensor in tensor_list]
 
-    result = (
-        kernel(**kernel_params_local) if kernel_params else kernel(*tensor_list)
-    )
+    result = kernel(**kernel_params_local) if kernel_params else kernel(*tensor_list)
 
     return _convert_to_tensor_list(result)
 
 
-def _run_inplace_kernel_on_device(
-    device, in_out_tensor, kernel_name, tensor_list=None, kernel_params=None
-):
+def _run_inplace_kernel_on_device(device, in_out_tensor, kernel_name, tensor_list=None, kernel_params=None):
     assert isinstance(in_out_tensor, torch.Tensor)
     if kernel_params and tensor_list:
         raise RuntimeError("Pass tensors using kernel_params")
@@ -440,9 +410,7 @@ class TcLimitedFormatter:
                 assert val
                 ret = self.format_tc_common(val[0], limit_array)
             for i in range(1, len(val)):
-                ret = "{}x{}".format(
-                    ret, self.format_tc_common(val[i], limit_array)
-                )
+                ret = "{}x{}".format(ret, self.format_tc_common(val[i], limit_array))
             return "[{}]".format(ret)
         elif isinstance(val, list):
             if len(val) == 0:
@@ -457,9 +425,7 @@ class TcLimitedFormatter:
                         self.counter += 1
                     elif i > limit_array and i < len(val) - limit_array:
                         continue
-                ret = "{},{}".format(
-                    ret, self.format_tc_common(current_value, limit_array)
-                )
+                ret = "{},{}".format(ret, self.format_tc_common(current_value, limit_array))
             ret = "{}]".format(ret)
             if limit_str is not None and len(ret) > limit_str:
                 ret = ret[0:limit_str] + "___{}".format(self.counter)
@@ -515,7 +481,7 @@ def clear_t_compile_logs():
     fallback_logger.set_store_data(True)
 
 
-def check_ops_executed_in_jit_ir(op_names, verbose=False):
+def check_ops_executed_in_jit_ir(op_names, allowed_fallback_ops={}, verbose=False):
     import re
     from habana_frameworks.torch.dynamo.compile_backend.passes import (
         logger as graph_logger,
@@ -558,12 +524,19 @@ def check_ops_executed_in_jit_ir(op_names, verbose=False):
 
     if verbose:
         print(f"{op_names = }")
+        print(f"{allowed_fallback_ops = }")
         print(f"{fallback_ops = }")
         print(f"{non_fallback_ops = }")
         print(f"{all_ops = }")
         print(f"{nodes_in_graphs = }")
 
     op_names.difference_update(nodes_in_graphs)
+
+    fallback_ops = (
+        fallback_ops - set(allowed_fallback_ops.values())
+        if isinstance(allowed_fallback_ops, dict)
+        else fallback_ops - allowed_fallback_ops
+    )
 
     if verbose:
         print(f"{op_names = }")
@@ -607,9 +580,7 @@ def check_op_in_fuser_fused_ops(op_names):
     assert len(fused_op_dump_file_names) > 0
 
     for fused_op_dump_file_name in fused_op_dump_file_names:
-        with open(
-            path.join(get_fuser_debug_logs_path(), fused_op_dump_file_name)
-        ) as fused_op_dump_file:
+        with open(path.join(get_fuser_debug_logs_path(), fused_op_dump_file_name)) as fused_op_dump_file:
             fused_op_data = json.load(fused_op_dump_file)
 
         for node in fused_op_data["nodes"]:
