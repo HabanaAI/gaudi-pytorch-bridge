@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -16,117 +16,66 @@
 
 namespace habana {
 
-// Calculations imported from:
-// npu-stack/complex_guid_lib/mlir/lib/Optimizer/Transforms/ComplexGuid/ArithmEngine/CalcOutputShape.cpp
-
-static ShapeRefT extendShape(
-    ShapeVecT& extendedShape,
-    ShapeRefT inShape,
-    int shapeId) {
-  switch (inShape.size()) {
-    case 0:
-      extendedShape = {1, 1};
-      return extendedShape;
-    case 1:
-      if (shapeId == 0)
-        extendedShape = {1, inShape[0]};
-      else
-        extendedShape = {inShape[0], 1};
-      return extendedShape;
-    default:
-      return inShape;
-  }
-}
-
-static void addShapeToBcastShape(ShapeVecT& bcastShape, ShapeRefT inputShape) {
-  size_t offset = bcastShape.size() - inputShape.size();
-  for (size_t dim = 0; dim < inputShape.size(); ++dim) {
-    size_t bcastI = offset + dim;
-    if (bcastShape[bcastI]) {
-      if ((bcastShape[bcastI] == 1) || (inputShape[dim] == 0))
-        bcastShape[bcastI] = inputShape[dim];
-      else if (
-          (bcastShape[bcastI] != inputShape[dim]) && (inputShape[dim] != 1)) {
-        std::stringstream errorMsg;
-        errorMsg << "Broadcast of shape " << inputShape
-                 << " not possible at index " << dim << ". Dimension "
-                 << inputShape[dim]
-                 << " incompatible with output shape dimension "
-                 << bcastShape[bcastI];
-        throw std::invalid_argument(errorMsg.str());
-      }
-    }
-  }
-}
-
+// From documentation of torch.matmul
+// If both tensors are 1-dimensional, the dot product (scalar) is returned.
+// If both arguments are 2-dimensional, the matrix-matrix product is returned.
+// If the first argument is 1-dimensional and the second argument is
+// 2-dimensional, a 1 is prepended to its dimension for the purpose of the
+// matrix multiply. After the matrix multiply, the prepended dimension is
+// removed.
+// If both arguments are at least 1-dimensional and at least one
+// argument is N-dimensional (where N > 2), then a batched matrix multiply is
+// returned. The non-matrix (i.e. batch) dimensions are broadcasted (and thus
+// must be broadcastable).
 ShapeVecT getBatchMatmulOutShape(
     ShapeRefT inShapeA,
     ShapeRefT inShapeB,
     bool transposeA,
     bool transposeB) {
-  // From documentation of numpy.matmul:
-  // If both arguments are 2-D they are multiplied like conventional matrices.
-  // If either argument is N-D, N > 2, it is treated as a stack of matrices
-  // residing in the last two indexes and broadcast accordingly.
-  // If the first argument is 1-D, it is promoted to a matrix by prepending a 1
-  // to its dimensions. After matrix multiplication the prepended 1 is removed.
-  // If the second argument is 1-D, it is promoted to a matrix by appending a 1
-  // to its dimensions. After matrix multiplication the appended 1 is removed.
-  ShapeVecT extendedShapeA;
-  ShapeRefT shapeA = extendShape(extendedShapeA, inShapeA, 0);
-  ShapeVecT extendedShapeB;
-  ShapeRefT shapeB = extendShape(extendedShapeB, inShapeB, 1);
+  ShapeVecT outputShape;
+  const auto rankA = inShapeA.size();
+  const auto rankB = inShapeB.size();
 
-  ShapeVecT batchShape;
-  if ((shapeA.size() > 2) || (shapeB.size() > 2)) {
-    ShapeVecT batchShapeA = ShapeVecT(shapeA.begin(), shapeA.end() - 2);
-    ShapeVecT batchShapeB = ShapeVecT(shapeB.begin(), shapeB.end() - 2);
+  int64_t commonDimA = 0;
+  int64_t commonDimB = 0;
 
-    if (batchShapeA.size() >= batchShapeB.size()) {
-      addShapeToBcastShape(batchShapeA, batchShapeB);
-      batchShape = std::move(batchShapeA);
-    } else {
-      addShapeToBcastShape(batchShapeB, batchShapeA);
-      batchShape = std::move(batchShapeB);
-    }
+  if (rankB > 1) {
+    int64_t dimB = transposeB ? rankB - 2 : rankB - 1;
+    commonDimB = transposeB ? rankB - 1 : rankB - 2;
+    outputShape.push_back(inShapeB[dimB]);
+  }
+  if (rankA > 1) {
+    int64_t dimA = transposeA ? rankA - 1 : rankA - 2;
+    commonDimA = transposeA ? rankA - 2 : rankA - 1;
+    outputShape.push_back(inShapeA[dimA]);
   }
 
-  constexpr size_t ULTIMATE_DIM_OFFSET = 1;
-  constexpr size_t PENULTIMATE_DIM_OFFSET = 2;
-  size_t outputDimArevIndex =
-      transposeA ? ULTIMATE_DIM_OFFSET : PENULTIMATE_DIM_OFFSET;
-  size_t outputDimBrevIndex =
-      transposeB ? PENULTIMATE_DIM_OFFSET : ULTIMATE_DIM_OFFSET;
-  size_t commonDimArevIndex =
-      transposeA ? PENULTIMATE_DIM_OFFSET : ULTIMATE_DIM_OFFSET;
-  size_t commonDimBrevIndex =
-      transposeB ? ULTIMATE_DIM_OFFSET : PENULTIMATE_DIM_OFFSET;
+  auto commonSizeA = inShapeA[commonDimA];
+  auto commonSizeB = inShapeB[commonDimB];
 
-  size_t outputDimAindex = shapeA.size() - outputDimArevIndex;
-  size_t outputDimBindex = shapeB.size() - outputDimBrevIndex;
-
-  size_t commonDimAindex = shapeA.size() - commonDimArevIndex;
-  size_t commonDimBindex = shapeB.size() - commonDimBrevIndex;
-
-  if (shapeA[commonDimAindex] != shapeB[commonDimBindex]) {
+  if (commonSizeA != commonSizeB) {
     std::stringstream errorMsg;
-    errorMsg << "Matmul common dims incompatible: " << shapeA[commonDimAindex]
-             << " vs " << shapeB[commonDimBindex];
+    errorMsg
+        << "Common dimension sizes of matmul inputs should be the same. Got "
+        << commonSizeA << " and " << commonSizeB;
     throw std::invalid_argument(errorMsg.str());
   }
 
-  ShapeVecT outputShape;
-  outputShape.reserve(batchShape.size() + 2);
-  outputShape.insert(outputShape.end(), batchShape.begin(), batchShape.end());
-  outputShape.emplace_back(shapeA[outputDimAindex]);
-  outputShape.emplace_back(shapeB[outputDimBindex]);
-
-  if (batchShape.empty()) {
-    if (shapeA.size() == 1)
-      outputShape.erase(outputShape.begin());
-    else if (shapeB.size() == 1)
-      outputShape.pop_back();
+  auto maxRank = std::max(rankA, rankB);
+  for (size_t i = 3; i <= maxRank; i++) {
+    int64_t dimA = i > rankA ? 1 : inShapeA[rankA - i];
+    int64_t dimB = i > rankB ? 1 : inShapeB[rankB - i];
+    if (dimA != dimB and dimA != 1 and dimB != 1) {
+      std::stringstream errorMsg;
+      errorMsg
+          << "Batch dimension " << maxRank - i
+          << " of matmul inputs should be the same or at least one of them should be equal to 1. Got "
+          << dimA << " and " << dimB;
+      throw std::invalid_argument(errorMsg.str());
+    }
+    outputShape.push_back(dimA == dimB ? dimA : dimA * dimB);
   }
+  std::reverse(outputShape.begin(), outputShape.end());
 
   return outputShape;
 }

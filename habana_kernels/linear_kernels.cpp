@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -27,6 +27,7 @@
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_kernels/reduction_kernels.h"
+#include "hpu_ops/common/batched_matmul_output_shape.h"
 
 using namespace torch;
 
@@ -164,34 +165,6 @@ void habana::BmmOutOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &params, sizeof(params));
 }
 
-std::vector<int64_t> compute_matmul_output_shape(
-    c10::ArrayRef<int64_t> self_sizes,
-    c10::ArrayRef<int64_t> other_sizes,
-    int64_t self_dims,
-    int64_t other_dims,
-    bool self_transposed,
-    bool other_transposed) {
-  std::vector<int64_t> output_shape;
-  if (other_dims > 1) {
-    int64_t other_dim = other_transposed ? other_dims - 2 : other_dims - 1;
-    output_shape.push_back(other_sizes[other_dim]);
-  }
-  if (self_dims > 1) {
-    int64_t self_dim = self_transposed ? self_dims - 1 : self_dims - 2;
-    output_shape.push_back(self_sizes[self_dim]);
-  }
-
-  int64_t max_dim = std::max(self_dims, other_dims);
-  for (int64_t i = 3; i <= max_dim; i++) {
-    int64_t self_dim = i > self_dims ? 1 : self_sizes[self_dims - i];
-    int64_t other_dim = i > other_dims ? 1 : other_sizes[other_dims - i];
-    output_shape.push_back(std::max(self_dim, other_dim));
-  }
-  std::reverse(output_shape.begin(), output_shape.end());
-
-  return output_shape;
-}
-
 std::vector<int64_t> habana::BmmOperator::compute_output_shape(
     const Tensor& self,
     const Tensor& mat2,
@@ -236,13 +209,8 @@ std::vector<int64_t> habana::BmmOperator::compute_output_shape(
         *(mat2_end_iter - 2))
   }
 
-  return compute_matmul_output_shape(
-      self_sizes,
-      mat2_sizes,
-      self_dims,
-      mat2_dims,
-      mat1_transposed,
-      mat2_transposed);
+  return habana::getBatchMatmulOutShape(
+      self_sizes, mat2_sizes, mat1_transposed, mat2_transposed);
 }
 
 void habana::BmmOperator::AllocateAndAddSynapseNode(
@@ -484,13 +452,8 @@ std::vector<int64_t> habana::MatMulOperator::compute_output_shape(
     The non-matrix (i.e. batch) dimensions are broadcasted (and thus must be
   broadcastable). e.g., (j, 1, n, m) x (k, m, p) => (j, k, n, p)
   */
-  return compute_matmul_output_shape(
-      self.sizes(),
-      other.sizes(),
-      self.dim(),
-      other.dim(),
-      false,
-      other_transposed);
+  return habana::getBatchMatmulOutShape(
+      self.sizes(), other.sizes(), false, other_transposed);
 }
 
 bool habana::MatMulOperator::is_gmemm_with_transpose_possible(

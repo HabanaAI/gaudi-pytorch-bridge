@@ -404,6 +404,87 @@ def test_fp8_gemm_v2(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, fp
         check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "fp8_gemm_v2"})
 
 
+@pytest.mark.parametrize(
+    "shape_a, shape_b",
+    [
+        ((10,), (10,)),
+        ((2, 10), (10,)),
+        ((10,), (10, 2)),
+        ((4, 8, 16), (16,)),
+        ((8,), (2, 4, 8, 16)),
+    ],
+    ids=format_tc,
+)
+@pytest.mark.parametrize("bias", [True, False])
+@pytest.mark.parametrize("scale", [True, False])
+@pytest.mark.parametrize("transpose_a", [True, False])
+@pytest.mark.parametrize("transpose_b", [True, False])
+@pytest.mark.parametrize("fp8_dtype", fp8_dtypes, ids=format_tc)
+def test_fp8_gemm_v2_1d(shape_a, shape_b, bias, scale, transpose_a, transpose_b, fp8_dtype):
+    hpu = torch.device("hpu")
+    dtype = torch.bfloat16
+
+    def generate_input(shape, transpose):
+        input = (torch.rand(shape, dtype=dtype) * 10 + 30.0).to(fp8_dtype)
+        if transpose:
+            if len(shape) == 1:
+                pytest.skip("Configuration not supported")
+            input_hpu = input.transpose(-2, -1).to(hpu)
+        else:
+            input_hpu = input.to(hpu)
+
+        return input.to(dtype), input_hpu
+
+    A, A_hpu = generate_input(shape_a, transpose_a)
+    B, B_hpu = generate_input(shape_b, transpose_b)
+
+    scaleA = 1.0
+    scaleB = 1.0
+    scaleA_hpu = None
+    scaleB_hpu = None
+
+    if scale:
+        scaleA = torch.tensor(3.14, dtype=dtype)
+        scaleB = torch.tensor(0.75, dtype=dtype)
+        scaleA_hpu = scaleA.to("hpu")
+        scaleB_hpu = scaleB.to("hpu")
+
+    result_ref = torch.matmul(A, B) * torch.mul(scaleA, scaleB)
+
+    out_shape = result_ref.shape
+    bias_tensor = torch.rand(out_shape, dtype=dtype) * 10 + 30.0
+    bias_tensor_hpu = bias_tensor.to(hpu) if bias else None
+
+    fn = torch.ops.hpu.fp8_gemm_v2
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="hpu_backend")
+
+    result = fn(
+        A_hpu,
+        transpose_a,
+        B_hpu,
+        transpose_b,
+        None,
+        dtype,
+        scaleA_hpu,
+        scaleB_hpu,
+        bias_tensor_hpu,
+        False,
+    ).cpu()
+
+    if bias:
+        result_ref = result_ref + bias_tensor
+
+    percentage_diff = torch.abs((((result - result_ref) / result_ref) * 100).to(torch.int))
+    assert np.amax(percentage_diff.numpy()) <= 15
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("fp8_gemm_v2")
+
+
 @pytest.mark.parametrize("scale_mode", [ScaleMode.TENSOR_CHANNEL, ScaleMode.SCALAR_CHANNEL])
 @pytest.mark.parametrize("axis", [0, 1])
 @pytest.mark.parametrize("in_dtype", [torch.float8_e5m2, torch.float8_e4m3fn])

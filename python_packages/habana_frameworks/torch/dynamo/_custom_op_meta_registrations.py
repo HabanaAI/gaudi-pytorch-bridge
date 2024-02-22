@@ -163,35 +163,15 @@ def meta_fp8_gemm(
     return out
 
 
-# Calculations imported from:
-# pytorch-integration/hpu_ops/common/batched_matmul_output_shape.cpp
-# and translated to python
-
-
-def gemm_extend_shape(tensor, shape_id):
-    dims = tensor.dim()
-    if dims == 0:
-        return [1, 1]
-    elif dims == 1:
-        return [1, tensor.shape[0]] if shape_id == 0 else [tensor.shape[0], 1]
-    else:
-        return list(tensor.shape)
-
-
-def add_shape_to_bcast_shape(bcast_shape, shape):
-    offset = len(bcast_shape) - len(shape)
-    for dim in range(len(shape)):
-        bcast_i = offset + dim
-        if bcast_shape[bcast_i] == 1:
-            bcast_shape[bcast_i] = shape[dim]
-        else:
-            torch._check(
-                bcast_shape[bcast_i] == shape[dim] or shape[dim] == 1,
-                lambda: f"Broadcast of shape {shape} not possible at index {dim}. Dimension {shape[dim]} incompatible with output shape dimension {bcast_shape[bcast_i]}",
-            )
-    return bcast_shape
-
-
+# From documentation of torch.matmul
+# If both tensors are 1-dimensional, the dot product (scalar) is returned.
+# If both arguments are 2-dimensional, the matrix-matrix product is returned.
+# If the first argument is 1-dimensional and the second argument is 2-dimensional,
+# a 1 is prepended to its dimension for the purpose of the matrix multiply.
+# After the matrix multiply, the prepended dimension is removed.
+# If both arguments are at least 1-dimensional and at least one argument is N-dimensional
+# (where N > 2), then a batched matrix multiply is returned.
+# The non-matrix (i.e. batch) dimensions are broadcasted (and thus must be broadcastable).
 def meta_fp8_gemm_v2_common(
     A,
     trans_A,
@@ -199,54 +179,46 @@ def meta_fp8_gemm_v2_common(
     trans_B,
     out_dtype,
 ):
-    # From documentation of numpy.matmul:
-    # If both arguments are 2-D they are multiplied like conventional matrices.
-    # If either argument is N-D, N > 2, it is treated as a stack of matrices
-    # residing in the last two indexes and broadcast accordingly.
-    # If the first argument is 1-D, it is promoted to a matrix by prepending a 1
-    # to its dimensions. After matrix multiplication the prepended 1 is removed.
-    # If the second argument is 1-D, it is promoted to a matrix by appending a 1
-    # to its dimensions. After matrix multiplication the appended 1 is removed.
-    shape_A = gemm_extend_shape(A, 0)
-    shape_B = gemm_extend_shape(B, 1)
+    out_shape = []
+    rank_a = A.dim()
+    rank_b = B.dim()
+    shape_a = A.shape
+    shape_b = B.shape
 
-    batch_shape = []
-    if len(shape_A) > 2 or len(shape_B) > 2:
-        batch_shape_A = shape_A[:-2]
-        batch_shape_B = shape_B[:-2]
+    common_dim_a = 0
+    common_dim_b = 0
 
-        if len(batch_shape_A) >= len(batch_shape_B):
-            batch_shape = add_shape_to_bcast_shape(batch_shape_A, batch_shape_B)
-        else:
-            batch_shape = add_shape_to_bcast_shape(batch_shape_B, batch_shape_A)
+    if rank_b > 1:
+        dim_b = rank_b - 2 if trans_B else rank_b - 1
+        common_dim_b = rank_b - 1 if trans_B else rank_b - 2
+        out_shape.append(shape_b[dim_b])
 
-    ULTIMATE_DIM_OFFSET = 1
-    PENULTIMATE_DIM_OFFSET = 2
-    output_dimA_rev_index = ULTIMATE_DIM_OFFSET if trans_A else PENULTIMATE_DIM_OFFSET
-    output_dimB_rev_index = PENULTIMATE_DIM_OFFSET if trans_B else ULTIMATE_DIM_OFFSET
-    common_dimA_rev_index = PENULTIMATE_DIM_OFFSET if trans_A else ULTIMATE_DIM_OFFSET
-    common_dimB_rev_index = ULTIMATE_DIM_OFFSET if trans_B else PENULTIMATE_DIM_OFFSET
+    if rank_a > 1:
+        dim_a = rank_a - 1 if trans_A else rank_a - 2
+        common_dim_a = rank_a - 2 if trans_A else rank_a - 1
+        out_shape.append(shape_a[dim_a])
 
-    output_dimA_index = len(shape_A) - output_dimA_rev_index
-    output_dimB_index = len(shape_B) - output_dimB_rev_index
+    common_size_a = shape_a[common_dim_a]
+    common_size_b = shape_b[common_dim_b]
 
-    commonDimAindex = len(shape_A) - common_dimA_rev_index
-    commonDimBindex = len(shape_B) - common_dimB_rev_index
+    assert (
+        common_size_a == common_size_b
+    ), f"common dimension of fp8_gemm_v2 inputs should have the same size, got {common_size_a} and {common_size_b}."
 
-    torch._check(
-        shape_A[commonDimAindex] == shape_B[commonDimBindex],
-        lambda: f"Matmul common dims incompatible: {shape_A[commonDimAindex]} vs {shape_B[commonDimBindex]}",
-    )
+    max_rank = max(rank_a, rank_b)
+    for i in range(3, max_rank + 1):
+        dim_a = 1 if i > rank_a else shape_a[rank_a - i]
+        dim_b = 1 if i > rank_b else shape_b[rank_b - i]
 
-    out_shape = batch_shape
-    out_shape.append(shape_A[output_dimA_index])
-    out_shape.append(shape_B[output_dimB_index])
+        assert dim_a == dim_b or dim_a == 1 or dim_b == 1, (
+            f"batch dimension {max_rank - i} "
+            "of fp8_gemm_v2 inputs must be the same or at least one of them must be equal to 1. "
+            "Got {dim_a} and {dim_b}."
+        )
 
-    if len(out_shape) == 2:
-        if len(A.shape) == 1:
-            del out_shape[0]
-        elif len(B.shape) == 1:
-            del out_shape[1]
+        out_shape.append(dim_a if dim_a == dim_b else dim_a * dim_b)
+
+    out_shape.reverse()
 
     out = A.new_empty(out_shape, dtype=out_dtype)
     return out
@@ -343,9 +315,7 @@ def meta_conv2d_fp8(
     scale_input=None,
     scale_weight=None,
 ):
-    return meta_conv2d_fp8_common(
-        input, weight, stride, padding, dilation, out_dtype
-    )
+    return meta_conv2d_fp8_common(input, weight, stride, padding, dilation, out_dtype)
 
 
 @register_meta([torch.ops.hpu.conv2d_fp8.scalar])
@@ -361,9 +331,7 @@ def meta_conv2d_fp8_scalar(
     scale_input=None,
     scale_weight=None,
 ):
-    return meta_conv2d_fp8_common(
-        input, weight, stride, padding, dilation, out_dtype
-    )
+    return meta_conv2d_fp8_common(input, weight, stride, padding, dilation, out_dtype)
 
 
 @register_meta([torch.ops.hpu.fp8_transpose.default])
