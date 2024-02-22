@@ -36,6 +36,7 @@ add_habana_library(habana_pytorch2_frontend OBJECT
           ops/index_put.cpp
           ops/instance_norm.cpp
           ops/local_scalar_dense.cpp
+          ops/masked_select.cpp
           ops/nonzero.cpp
           ops/unique2.cpp
           ops/set.cpp
