@@ -54,8 +54,8 @@ class TestInnerCompiler:
         with patch("habana_frameworks.torch.dynamo.compile_backend.compilers.hpu_compiler_inner") as mock_my_function:
             res = fn(x)
             mock_my_function.assert_called_once()
-            # inference is called with _, _, is_training=False, is_backward=False, uses_aot=True
-            assert mock_my_function.call_args.args[2:5] == (False, False, True)
+            # inference is called with _, _, is_training=False, is_backward=False
+            assert mock_my_function.call_args.args[2:5] == (False, False)
 
     def test_fwd_compiler_called(self):
         x = torch.tensor(2.0, requires_grad=True).to("hpu")
@@ -63,8 +63,8 @@ class TestInnerCompiler:
         with patch("habana_frameworks.torch.dynamo.compile_backend.compilers.hpu_compiler_inner") as mock_my_function:
             res = fn(x)
             mock_my_function.assert_called_once()
-            # fwd training is called with _, _, is_training=True, is_backward=False, uses_aot=True
-            assert mock_my_function.call_args.args[2:5] == (True, False, True)
+            # fwd training is called with _, _, is_training=True, is_backward=False
+            assert mock_my_function.call_args.args[2:5] == (True, False)
 
     def test_bwd_compiler_called(self):
         x = torch.tensor(2.0, requires_grad=True).to("hpu")
@@ -80,5 +80,5 @@ class TestInnerCompiler:
         ) as mock_my_function:
             res.backward()
             mock_my_function.assert_called_once()
-            # bwd training is called with _, _, is_training=True, is_backward=True, uses_aot=True
-            assert mock_my_function.call_args.args[2:5] == (True, True, True)
+            # bwd training is called with _, _, is_training=True, is_backward=True
+            assert mock_my_function.call_args.args[2:5] == (True, True)

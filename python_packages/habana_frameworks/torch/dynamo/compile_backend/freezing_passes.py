@@ -27,7 +27,7 @@ from .passes import helper_post_pass_finalize
 logger = get_compile_backend_logger()
 
 
-def helper_post_pass_placeholder_update(input_module: torch.fx.GraphModule, uses_aot: bool):
+def helper_post_pass_placeholder_update(input_module: torch.fx.GraphModule):
     """
     Run this pass to remove placeholder nodes which are not attached to any
     nodes in the FX graph
@@ -53,7 +53,7 @@ def helper_post_pass_placeholder_update(input_module: torch.fx.GraphModule, uses
     return input_module, erased_indices
 
 
-def helper_post_pass_placement_update(input_module: torch.fx.GraphModule, uses_aot: bool):
+def helper_post_pass_placement_update(input_module: torch.fx.GraphModule):
     """
     Run this pass after the constant folding to update placement
     meta for newly added "get_attr" nodes
@@ -84,9 +84,7 @@ class HbConstantFolder(ConstantFolder):
 
 
 @torch.utils._python_dispatch._disable_current_modes()
-def constant_fold(
-    gm: torch.fx.GraphModule, uses_aot: bool, constraint_fn: Optional[Callable[[torch.fx.Node], bool]] = None
-):
+def constant_fold(gm: torch.fx.GraphModule, constraint_fn: Optional[Callable[[torch.fx.Node], bool]] = None):
     """
     Based on the constant_fold method present in torch/_inductor/constant_folding.py - cannot use the original method due to
     additional meta data handling which is HPU backend specific
@@ -97,7 +95,6 @@ def constant_fold(
 
     Args:
         gm (torch.fx.GraphModule): The aot_autograd constructed GraphModule to be constant folded.
-        uses_aot (bool): Uses AOT compilation backend
         constraint_fn (Callable[[torch.fx.Node], bool]): Currently unused
     """
     cf = HbConstantFolder(gm, skip_constructors=True)
@@ -118,14 +115,13 @@ def constant_fold(
     for node in erased_params:
         gm.graph.erase_node(node)
 
-    gm = helper_post_pass_placement_update(input_module=gm, uses_aot=uses_aot)
-    gm = helper_post_pass_finalize(input_module=gm, uses_aot=uses_aot)
+    gm = helper_post_pass_placement_update(input_module=gm)
+    gm = helper_post_pass_finalize(input_module=gm)
 
 
 def freeze(
     dynamo_gm: torch.fx.GraphModule,
     aot_autograd_gm: torch.fx.GraphModule,
-    uses_aot: bool,
     example_inputs: List[torch._subclasses.FakeTensor] = None,
 ) -> Tuple[torch.fx.GraphModule, List[int]]:
     """
@@ -146,7 +142,6 @@ def freeze(
     Args:
         dynamo_gm (torch.fx.GraphModule): The Dynamo constructed GraphModule.
         aot_autograd_gm (torch.fx.GraphModule): The aot_autograd constructed GraphModule to be frozen.
-        uses_aot (bool): Uses AOT compilation backend
         example_inputs (List[torch.Tensor]): A list of example input tensors to be used in the freezing process.
 
     Returns:
@@ -181,7 +176,7 @@ def freeze(
     # TODO - further restrict cse ? right now needed to dedup aliasing ops
     cse_graph = fx_graph_cse(aot_autograd_gm.graph)
     aot_autograd_gm.graph = cse_graph
-    aot_autograd_gm = helper_post_pass_finalize(input_module=aot_autograd_gm, uses_aot=uses_aot)
+    aot_autograd_gm = helper_post_pass_finalize(input_module=aot_autograd_gm)
 
     aot_example_inputs = [example_inputs[ind] for ind in preserved_arg_indices]
     fake_mode = detect_fake_mode(aot_example_inputs)
@@ -194,7 +189,7 @@ def freeze(
             with mock.patch.object(fake_mode, "allow_non_fake_inputs", True):
                 # Disabling autocast in fake tensor propagation as autocasting has been
                 # already done and all dtypes has been already deduced.
-                constant_fold(gm=aot_autograd_gm, uses_aot=uses_aot)
+                constant_fold(gm=aot_autograd_gm)
     except Exception as e:
         logger.warn(
             "Got exception in constant folding:\n%s",
@@ -207,15 +202,13 @@ def freeze(
         invalidate_eager_modules()
         discard_traced_gm_params(dynamo_gm)
 
-    aot_autograd_gm, removed_indices = helper_post_pass_placeholder_update(
-        input_module=aot_autograd_gm, uses_aot=uses_aot
-    )
+    aot_autograd_gm, removed_indices = helper_post_pass_placeholder_update(input_module=aot_autograd_gm)
     preserved_arg_indices_updated = []
     for idx, arg_idx in enumerate(preserved_arg_indices):
         if idx not in removed_indices:
             preserved_arg_indices_updated.append(arg_idx)
 
-    aot_autograd_gm = helper_post_pass_finalize(input_module=aot_autograd_gm, uses_aot=uses_aot)
+    aot_autograd_gm = helper_post_pass_finalize(input_module=aot_autograd_gm)
 
     logger.debug(
         "Post constant folding and CSE frozen graph:\n%s",

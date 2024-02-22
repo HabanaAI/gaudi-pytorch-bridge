@@ -12,7 +12,7 @@
 
 import logging
 from functools import partial
-from typing import List, Optional
+from typing import List
 
 import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
@@ -21,12 +21,7 @@ from torch._dynamo.backends.registry import register_backend
 
 logger = logging.getLogger(__name__)
 
-from .compilers import (
-    hpu_inference_compiler,
-    hpu_inference_compiler_noaot,
-    hpu_training_compiler_bw,
-    hpu_training_compiler_fw,
-)
+from .compilers import hpu_inference_compiler, hpu_training_compiler_bw, hpu_training_compiler_fw
 from .decomposition import get_hpu_decompositions
 from .partition_fn import hpu_partition
 
@@ -50,15 +45,3 @@ def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.T
             keep_inference_input_mutations=hpu_backend_config.keep_input_mutations,
             partition_fn=hpu_partition,
         )(graph_module, example_inputs)
-
-
-@register_backend
-def hpu_inference_backend(
-    graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], mode: Optional[str] = None
-):
-    """
-    This function implements interface for HPU inference backend without AOT.
-    """
-
-    # Create AOT Autograd instance and feed it with Habana compile function.
-    return hpu_inference_compiler_noaot(graph_module, example_inputs)

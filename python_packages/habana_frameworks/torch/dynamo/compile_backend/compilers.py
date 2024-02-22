@@ -30,7 +30,6 @@ def hpu_freezing_compiler_inner(
     example_inputs: List[torch.Tensor],
     is_training: bool,
     is_backward: bool,
-    uses_aot: bool,
 ):
     """
     This function will be called for each input FX graph. This will only process
@@ -40,13 +39,13 @@ def hpu_freezing_compiler_inner(
     assert not is_training and not is_backward
 
     # Perform optimizations on a graph before running passes for preparing the partitioner.
-    optimize_pre_placement(graph_module, example_inputs, is_training, is_backward, uses_aot)
+    optimize_pre_placement(graph_module, example_inputs, is_training, is_backward)
 
     # Perform optimizations on a graph before the partitioner.
-    optimize_pre_partitioner(graph_module, example_inputs, is_training, is_backward, uses_aot)
+    optimize_pre_partitioner(graph_module, example_inputs, is_training, is_backward)
 
     graph_module, non_param_input_ids = freeze(
-        dynamo_gm=dyn_graph_module, aot_autograd_gm=graph_module, uses_aot=uses_aot, example_inputs=example_inputs
+        dynamo_gm=dyn_graph_module, aot_autograd_gm=graph_module, example_inputs=example_inputs
     )
     optimized_example_inputs = [example_inputs[i] for i in non_param_input_ids]
     fake_mode = detect_fake_mode(optimized_example_inputs)
@@ -61,34 +60,27 @@ def hpu_freezing_compiler_inner(
 
     with mock.patch.object(fake_mode, "allow_non_fake_inputs", True):
         # Partition the module based on propagated device placement data.
-        partition_module(graph_module, optimized_example_inputs, is_training, is_backward, uses_aot)
+        partition_module(graph_module, optimized_example_inputs, is_training, is_backward)
 
         # Perform optimizations on a graph after the partitioner.
-        optimize_post_partitioner(graph_module, optimized_example_inputs, is_training, is_backward, uses_aot)
+        optimize_post_partitioner(graph_module, optimized_example_inputs, is_training, is_backward)
 
-        if uses_aot:
-            # Return the module in boxed format required by AOT Autograd.
-            boxed_function = functorch.compile.make_boxed_func(graph_module.forward)
+        # Return the module in boxed format required by AOT Autograd.
+        boxed_function = functorch.compile.make_boxed_func(graph_module.forward)
 
-            def wrapper(args):
-                args_new = [args[i] for i in non_param_input_ids]
-                args.clear()
-                return boxed_function(args_new)
+        def wrapper(args):
+            args_new = [args[i] for i in non_param_input_ids]
+            args.clear()
+            return boxed_function(args_new)
 
-            wrapper._boxed_call = True
+        wrapper._boxed_call = True
 
-            return wrapper
-        else:
-            return graph_module.forward
+        return wrapper
 
 
 @log_function_start_end
 def hpu_compiler_inner(
-    graph_module: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
-    is_training: bool,
-    is_backward: bool,
-    uses_aot: bool,
+    graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], is_training: bool, is_backward: bool
 ):
     """
     This function will be called for each input FX graph. There will be at least
@@ -97,36 +89,33 @@ def hpu_compiler_inner(
     """
 
     # Perform optimizations on a graph before running passes for preparing the partitioner.
-    optimize_pre_placement(graph_module, example_inputs, is_training, is_backward, uses_aot)
+    optimize_pre_placement(graph_module, example_inputs, is_training, is_backward)
 
     # Perform optimizations on a graph before the partitioner.
-    optimize_pre_partitioner(graph_module, example_inputs, is_training, is_backward, uses_aot)
+    optimize_pre_partitioner(graph_module, example_inputs, is_training, is_backward)
 
     # Partition the module based on propagated device placement data.
-    partition_module(graph_module, example_inputs, is_training, is_backward, uses_aot)
+    partition_module(graph_module, example_inputs, is_training, is_backward)
 
     # Perform optimizations on a graph after the partitioner.
-    optimize_post_partitioner(graph_module, example_inputs, is_training, is_backward, uses_aot)
+    optimize_post_partitioner(graph_module, example_inputs, is_training, is_backward)
 
-    if uses_aot:
-        # Return the module in boxed format required by AOT Autograd.
-        return functorch.compile.make_boxed_func(graph_module.forward)
-    else:
-        return graph_module.forward
+    # Return the module in boxed format required by AOT Autograd.
+    return functorch.compile.make_boxed_func(graph_module.forward)
 
 
 def hpu_training_compiler_fw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
     """
     Just passthrough for forward pass training compilation.
     """
-    return hpu_compiler_inner(graph_module, example_inputs, True, False, True)
+    return hpu_compiler_inner(graph_module, example_inputs, True, False)
 
 
 def hpu_training_compiler_bw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
     """
     Just passthrough for backward pass training compilation.
     """
-    return hpu_compiler_inner(graph_module, example_inputs, True, True, True)
+    return hpu_compiler_inner(graph_module, example_inputs, True, True)
 
 
 def hpu_inference_compiler(
@@ -136,13 +125,6 @@ def hpu_inference_compiler(
     Just passthrough for forward inference compilation.
     """
     if hpu_backend_config.use_graph_freezing:
-        return hpu_freezing_compiler_inner(graph_module, dyn_graph_module, example_inputs, False, False, True)
+        return hpu_freezing_compiler_inner(graph_module, dyn_graph_module, example_inputs, False, False)
     else:
-        return hpu_compiler_inner(graph_module, example_inputs, False, False, True)
-
-
-def hpu_inference_compiler_noaot(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
-    """
-    Just passthrough for forward inference compilation.
-    """
-    return hpu_compiler_inner(graph_module, example_inputs, False, False, False)
+        return hpu_compiler_inner(graph_module, example_inputs, False, False)

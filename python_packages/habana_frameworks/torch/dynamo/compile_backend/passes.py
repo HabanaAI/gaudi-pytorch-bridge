@@ -166,7 +166,6 @@ def optimize_graph(
     example_inputs: List[torch.Tensor],
     is_training: bool,
     is_backward: bool,
-    uses_aot: bool,
 ) -> bool:
     """
     This function rans optimizations of specified stage, if anything in the
@@ -178,22 +177,6 @@ def optimize_graph(
     For example:
     PT_HPU_DISABLE_pass_eagerize_leaf_views=True
     """
-    if not uses_aot:
-        # If backend used by the user does not use AOT then we cannot be sure whether
-        # it is properly functionalized, meaning we should not call eliminate_dead_code
-        # over it as it is not sound usage of Dead Code Elimination:
-        # https://github.com/pytorch/pytorch/issues/68301
-        # To satisfy above, we will monkey patch this function for optimizer scope so no
-        # pass can do this silently in non-aot mode.
-        original_dce_func = torch.fx.Graph.eliminate_dead_code
-
-        def dummy_dce_raise(*args, **kwargs):
-            raise Exception(
-                "Tried to call DCE in possibly non-functionalized graph." "Make sure you add proper check in your code"
-            )
-
-        torch.fx.Graph.eliminate_dead_code = dummy_dce_raise
-
     # In all the three stages of partitioner, dynamicity has to be detected
     # from graph_module.
     is_dynamic = is_module_dynamic(graph_module)
@@ -204,7 +187,6 @@ def optimize_graph(
         is_training,
         is_backward,
         is_dynamic,
-        uses_aot,
         stage,
         None,
     )
@@ -239,10 +221,6 @@ def optimize_graph(
                     stage,
                     t.elapsed,
                 )
-
-    if not uses_aot:
-        # Bring back original state.
-        torch.fx.Graph.eliminate_dead_code = original_dce_func
 
     return graph_changed
 
@@ -288,7 +266,6 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_fuse_partitions,
             pass_make_symints_available,
             pass_graph_print,
-            # Workarounds after partitioner phase.
             pass_wa_fix_output,
         ]
     elif stage == OptimizationPassPlacement.POST_PARTITIONER:
@@ -383,18 +360,13 @@ def helper_handle_noncontiguous_output(node: torch.fx.Node, result: torch.Tensor
     return result
 
 
-def helper_post_pass_finalize(input_module: torch.fx.GraphModule, uses_aot: bool):
+def helper_post_pass_finalize(input_module: torch.fx.GraphModule):
     """
     Run this pass iff the input graph changed for each submodule
     for each pass
     """
     # Clean up the graph and log the situation.
-    if uses_aot:
-        input_module.graph.eliminate_dead_code()
-    else:
-        # Running DCE on graph that might not be functionalized in unsafe:
-        # https://github.com/pytorch/pytorch/issues/68301
-        logger.warn("Disallowed to run DCE in non-aot mode.")
+    input_module.graph.eliminate_dead_code()
     input_module.graph.lint()
     input_module.recompile()
 
@@ -442,12 +414,7 @@ def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
 
     if graph_changed:
         # Clean up the graph and log the situation.
-        if ctx.uses_aot:
-            ctx.graph_module.graph.eliminate_dead_code()
-        else:
-            # Running DCE on graph that might not be functionalized in unsafe:
-            # https://github.com/pytorch/pytorch/issues/68301
-            logger.warning("Disallowed to run DCE in non-aot mode.")
+        ctx.graph_module.graph.eliminate_dead_code()
         ctx.graph_module.recompile()
 
     return True
@@ -709,7 +676,7 @@ def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
     with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):
         # Disabling autocast in fake tensor propagation as autocasting has been
         # already done and all dtypes has been already deduced.
-        if not fake_mode or not ctx.uses_aot:
+        if not fake_mode:
             fake_mode = torch._subclasses.FakeTensorMode(allow_non_fake_inputs=True)
             TensorInfoPropagation(ctx.graph_module, fake_mode).propagate(*ctx.example_inputs)
         else:
@@ -981,13 +948,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
 
     if graph_changed:
         # Clean up the graph and log the situation.
-        if ctx.uses_aot:
-            ctx.graph_module.graph.eliminate_dead_code()
-        else:
-            # Running DCE on graph that might not be functionalized in unsafe:
-            # https://github.com/pytorch/pytorch/issues/68301
-            logger.warn("Disallowed to run DCE in non-aot mode.")
-
+        ctx.graph_module.graph.eliminate_dead_code()
         ctx.graph_module.recompile()
         logger.debug("Detected mixed devices. Workaround applied.")
 
@@ -1401,12 +1362,7 @@ def pass_handle_negative_dims(ctx: OptimizerContext) -> bool:
 
     if graph_changed:
         ctx.graph_module.recompile()
-        if ctx.uses_aot:
-            ctx.graph_module.graph.eliminate_dead_code()
-        else:
-            # Running DCE on graph that might not be functionalized in unsafe:
-            # https://github.com/pytorch/pytorch/issues/68301
-            logger.warn("Disallowed to run DCE in non-aot mode.")
+        ctx.graph_module.graph.eliminate_dead_code()
     return graph_changed
 
 
@@ -1633,7 +1589,7 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
     is_only_output_alias_in_graph = False
     input_mutations_nodes = []
     # see usage of torch._guards.TracingContext at _functorch/aot_autograd.py.
-    if ctx.uses_aot and torch._guards.TracingContext.get():
+    if torch._guards.TracingContext.get():
         fw_metadata = torch._guards.TracingContext.get().fw_metadata
         # there exist inplace or alias
         if Version(torch.__version__) > Version("2.1.2"):
@@ -2305,7 +2261,7 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
     if not graph_changed:
         return graph_changed
 
-    ctx.graph_module = helper_post_pass_finalize(input_module=ctx.graph_module, uses_aot=ctx.uses_aot)
+    ctx.graph_module = helper_post_pass_finalize(input_module=ctx.graph_module)
 
     """
     The following sub-graph rewriter removes the redundant reshapes that are added
@@ -2334,6 +2290,6 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
             node.args = tuple(new_args)
             after.replace_all_uses_with(node)
             node.meta.update(after.meta)
-            ctx.graph_module = helper_post_pass_finalize(input_module=ctx.graph_module, uses_aot=ctx.uses_aot)
+            ctx.graph_module = helper_post_pass_finalize(input_module=ctx.graph_module)
 
     return graph_changed

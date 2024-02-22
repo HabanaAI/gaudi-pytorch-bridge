@@ -31,6 +31,5 @@ class OptimizerContext:
     is_training: bool
     is_backward: bool
     is_dynamic: bool
-    uses_aot: bool
     stage: OptimizationPassPlacement
     current_partitions: List
