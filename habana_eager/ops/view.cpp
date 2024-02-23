@@ -16,12 +16,54 @@
 #include <ATen/TensorUtils.h>
 #include "backend/backend_meta.h"
 #include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "habana_eager/eager_context.h"
+#include "habana_eager/ops/eager_op.h"
 #include "habana_kernels/kernel_utils.h"
-
 namespace habana {
 namespace eager {
+// TODO: move to generic lowering code for StorageExtraMeta
+void view_Execute_Empty_Task() {}
+
+void view_Compile_Empty_Task() {
+  habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
+      view_Execute_Empty_Task);
+
+  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+    habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+  }
+}
+
+void view_Lowering_Task(const at::Tensor& src, const at::Tensor& dst) {
+  habana::eager::view_propagate_permutation(src, dst);
+  habana_helpers::set_output_hw_scaling_meta(src, dst);
+  habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
+      view_Compile_Empty_Task);
+  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+    habana_helpers::Singleton_CompileThreadPool::getInstance()
+        .JoinPendingThread();
+  }
+}
+
+void Pipeline_Or_Direct_view(const at::Tensor& self, const at::Tensor& result) {
+  bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
+  if (pipeline_flag) {
+    auto src_backend = HbEagerTensorPool::get_backend_tensor(self);
+    auto dst_backend = HbEagerTensorPool::get_backend_tensor(result);
+    // Set pipeline metadata on the dst hpu tensor
+    auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
+    dst_hb_tmeta->set_tensor_pipelined();
+    habana::eager::SingleTonEagerContext::getInstance()
+        .ScheduleWorkAndUpdateLoweringThreadHandle(
+            view_Lowering_Task, std::move(src_backend), std::move(dst_backend));
+  } else {
+    habana::eager::JoinPendingPipelineThreads();
+    habana::eager::view_propagate_permutation(self, result);
+    habana_helpers::set_output_hw_scaling_meta(self, result);
+  }
+}
+
 at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
   PT_EAGER_TRACE;
   auto inferred_size = at::infer_size_dv(size, self.numel());
@@ -33,9 +75,7 @@ at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
       "not compatible with input tensor's size and stride (at least one dimension"
       " spans across two contiguous subspaces). Use .reshape(...) instead.");
   auto out = alias_with_sizes_and_strides(self, inferred_size, *stride);
-
-  view_propagate_permutation(self, out);
-  habana_helpers::set_output_hw_scaling_meta(self, out);
+  Pipeline_Or_Direct_view(self, out);
   return out;
 }
 
@@ -62,15 +102,13 @@ void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t) {
       ? input_smeta->get_base_tensor_size()
       : base_t.sizes();
   output_smeta->set_base_tensor_size(base_sizes.vec());
-
   output_tmeta->set_view_tensor();
 }
 
 at::Tensor alias(const at::Tensor& self) {
   PT_EAGER_TRACE;
   auto out = alias_with_sizes_and_strides(self, self.sizes(), self.strides());
-  view_propagate_permutation(self, out);
-  habana_helpers::set_output_hw_scaling_meta(self, out);
+  Pipeline_Or_Direct_view(self, out);
   return out;
 }
 
