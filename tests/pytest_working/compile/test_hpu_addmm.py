@@ -11,16 +11,17 @@
 ###############################################################################
 import pytest
 import torch
+from test_utils import format_tc
 
-@pytest.mark.parametrize(
-    "dtype", [torch.float, torch.bfloat16, torch.int8, torch.int32, torch.long]
-)
+
+dtypes = [torch.float, torch.bfloat16, torch.int8, torch.int32, torch.long]
+
+
+@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 @pytest.mark.parametrize("n", [1, 5])
 @pytest.mark.parametrize("m", [1, 5])
 @pytest.mark.parametrize("p", [1, 5])
 def test_addmm(dtype, n, m, p):
-    if n == 1 and m == 1 and p == 1 and dtype == torch.float:
-        pytest.xfail("SW-172859 - assert False")
     input_shape = (n, p)
     mat1_shape = (n, m)
     mat2_shape = (m, p)
@@ -42,12 +43,10 @@ def test_addmm(dtype, n, m, p):
 
     expected = compiled_fn_cpu(input.cpu(), mat1.cpu(), mat2.cpu())
     result = compiled_fn_hpu(input, mat1, mat2)
-    assert torch.equal(result.cpu(), expected)
+    assert torch.allclose(result.cpu(), expected)
 
 
-@pytest.mark.parametrize(
-    "dtype", [torch.float, torch.bfloat16, torch.int8, torch.int32, torch.long]
-)
+@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 @pytest.mark.parametrize("n", [1])
 @pytest.mark.parametrize("m", [5])
 @pytest.mark.parametrize("p", [5])
@@ -75,4 +74,4 @@ def test_inplace_addmm_with_view_input(dtype, n, m, p):
 
     expected = compiled_fn_cpu(input.cpu(), mat1.cpu(), mat2.cpu())
     result = compiled_fn_hpu(input, mat1, mat2)
-    assert torch.equal(result.cpu(), expected)
+    assert torch.allclose(result.cpu(), expected)

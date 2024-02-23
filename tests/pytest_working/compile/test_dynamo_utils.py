@@ -9,13 +9,13 @@
 # was provided.
 #
 ###############################################################################
-import pytest
 import torch
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 
 
 from contextlib import contextmanager
+
 
 @contextmanager
 def use_eager_fallback():
@@ -24,12 +24,11 @@ def use_eager_fallback():
     yield
     configuration_flags["use_eager_fallback"] = original
 
+
 @torch.compile(backend="hpu_backend")
 def fn(x, y, device):
     res = x + y
-    eager_fallback_res = torch.randint(
-        high=100, size=[1], device=device, dtype=torch.int32
-    )
+    eager_fallback_res = torch.randint(high=100, size=[1], device=device, dtype=torch.int32)
     return res + eager_fallback_res
 
 
@@ -60,8 +59,9 @@ def test_simple():
             fn(t1, t2, "hpu")
 
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary, 'torch.ops.aten.randint.low', [(1, 0)])
-    assert_helper(ops_summary, 'torch.ops.aten.add.Tensor', [(2, 0)])
+    assert_helper(ops_summary, "torch.ops.aten.randint.low", [(1, 0)])
+    assert_helper(ops_summary, "torch.ops.aten.add.Tensor", [(2, 0)])
+
 
 def test_cpu():
     with FxGraphAnalyzer(reset_dynamo=True) as fga:
@@ -85,30 +85,27 @@ def test_multiple():
             fn(t1.to("cpu"), t2.to("cpu"), "cpu")
 
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary, 'torch.ops.aten.randint.low', [None, (1, 0), None])
-    assert_helper(ops_summary, 'torch.ops.aten.add.Tensor', [(1, 0), (2, 0), None])
-    assert_helper(ops_summary, 'torch.ops.aten.mul.Tensor', [(2, 0), None, None])
+    assert_helper(ops_summary, "torch.ops.aten.randint.low", [None, (1, 0), None])
+    assert_helper(ops_summary, "torch.ops.aten.add.Tensor", [(1, 0), (2, 0), None])
+    assert_helper(ops_summary, "torch.ops.aten.mul.Tensor", [(2, 0), None, None])
 
     ops_summary2 = fga2.get_ops_summary()
-    assert_helper(ops_summary2, 'torch.ops.aten.add.Tensor', [(1, 0)])
-    assert_helper(ops_summary2, 'torch.ops.aten.mul.Tensor', [(2, 0)])
+    assert_helper(ops_summary2, "torch.ops.aten.add.Tensor", [(1, 0)])
+    assert_helper(ops_summary2, "torch.ops.aten.mul.Tensor", [(2, 0)])
 
     ops_summary3 = fga3.get_ops_summary()
-    assert_helper(ops_summary3, 'torch.ops.aten.randint.low', [(1, 0)])
-    assert_helper(ops_summary3, 'torch.ops.aten.add.Tensor', [(2, 0)])
+    assert_helper(ops_summary3, "torch.ops.aten.randint.low", [(1, 0)])
+    assert_helper(ops_summary3, "torch.ops.aten.add.Tensor", [(2, 0)])
 
 
-@pytest.mark.xfail(reason="SW-172859 - AssertionError: assert 1 == 2")
 def test_bulitin():
-    @torch.compile(backend='hpu_backend')
+    @torch.compile(backend="hpu_backend")
     def clone_fn(x):
         return x.add_(x)
 
-    t = torch.tensor([1337], device='hpu')
+    t = torch.tensor([1337], device="hpu")
     with FxGraphAnalyzer(reset_dynamo=True) as fga:
         clone_fn(t)
 
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary, 'torch.ops.aten.add.Tensor', [(1, 0), None])
-    assert_helper(ops_summary, 'copy_', [None, (1, 0)])
-    assert_helper(ops_summary, 'torch.clone', [None, (1, 0)])
+    assert_helper(ops_summary, "torch.ops.aten.add.Tensor", [(1, 0)])

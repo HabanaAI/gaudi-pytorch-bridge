@@ -11,19 +11,15 @@
 ###############################################################################
 import torch
 import pytest
-import random
-import habana_frameworks.torch.dynamo.compile_backend
 from test_utils import format_tc
 
 dtypes = [torch.bfloat16, torch.float, torch.int]
 
+
 @pytest.mark.parametrize("scalar_weight", [False, True])
-@pytest.mark.parametrize("shape", [[2,2,4], [4,6,4,2,6]], ids=format_tc)
+@pytest.mark.parametrize("shape", [[2, 2, 4], [4, 6, 4, 2, 6]], ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 def test_hpu_lerp(shape, scalar_weight, dtype):
-    if dtype == torch.int:
-        pytest.xfail("SW-170453 SW-172859 - kernel not implemented for int")
-
     def fn(start, end, weight):
         return torch.lerp(start, end, weight)
 
@@ -47,11 +43,19 @@ def test_hpu_lerp(shape, scalar_weight, dtype):
             cpu_weight = torch.rand(shape, dtype=dtype)
         hpu_weight = cpu_weight.to("hpu")
 
+    if dtype == torch.int:
+        cpu_start = cpu_start.to(torch.float32)
+        cpu_end = cpu_end.to(torch.float32)
+        cpu_weight = cpu_weight if scalar_weight else cpu_weight.to(torch.float32)
+
     cpu_compiled_fn = torch.compile(fn) if pytest.mode == "compile" else fn
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
 
     cpu_output = cpu_compiled_fn(cpu_start, cpu_end, cpu_weight)
     hpu_output = hpu_compiled_fn(hpu_start, hpu_end, hpu_weight).cpu()
+
+    if dtype == torch.int:
+        cpu_output = cpu_output.to(torch.int)
 
     tol = 1e-5 if dtype != torch.bfloat16 else 1e-1
 
