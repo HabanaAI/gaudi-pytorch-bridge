@@ -37,7 +37,7 @@ class graph {
  public:
   graph() = delete;
   ~graph();
-  graph(const graph&) noexcept;
+  graph(const graph&) = delete;
   graph& operator=(const graph&) = delete;
   graph(graph&&) noexcept;
   graph& operator=(graph&&) = delete;
@@ -50,7 +50,8 @@ class graph {
 
   static graph create_for_refinement(device& device, std::string name);
 
-  std::vector<synTensorHandleMap> duplicate();
+  static std::tuple<graph, std::vector<synTensorHandleMap>> duplicate(
+      graph& other);
 
   bool inferShapes();
 
@@ -110,14 +111,6 @@ class graph {
 
   void set_is_empty_value(bool flag) {
     graph_is_empty_ = flag;
-  }
-
-  void set_build_phase(bool flag) {
-    in_build_phase_ = flag;
-  }
-
-  bool get_build_phase() {
-    return in_build_phase_;
   }
 
   struct recipe_handle {
@@ -236,14 +229,6 @@ class graph {
     return dry_run_;
   }
 
-  synGraphHandle get_duplicate_graph_handle() const {
-    return duplicate_graph_handle_;
-  }
-
-  void copy_graph_handle_to_duplicate() {
-    duplicate_graph_handle_ = graph_handle_;
-  }
-
   uint32_t get_num_of_tensors() const {
     return numTensors;
   }
@@ -318,6 +303,9 @@ class graph {
 
   graph(device& device, std::string name);
 
+  std::vector<synTensorHandleMap> duplicate(
+      synGraphHandle& duplicate_graph_handle);
+
   void collect_dst_synapse_nodes(
       graph::Op2NodeContainer::mapped_type& dst_synapse_node_ids,
       const std::string& dst_node);
@@ -341,7 +329,6 @@ class graph {
   absl::optional<std::string> current_op_name_;
   bool dry_run_{false};
   bool dynamic_graph_{false};
-  synGraphHandle duplicate_graph_handle_{};
   uint32_t numTensors = 0;
   uint32_t numConstTensors = 0;
   uint32_t numInterTensors = 0;
@@ -349,7 +336,6 @@ class graph {
   uint32_t numNodes = 0;
   bool is_shape_agnostic_graph_{false};
   bool eager_mode_{false};
-  bool donot_destroy_original_graph_{false};
 };
 
 } // namespace synapse_helpers

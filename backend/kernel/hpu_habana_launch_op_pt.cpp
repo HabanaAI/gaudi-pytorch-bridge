@@ -3317,12 +3317,10 @@ void RecipeValueSpec::create_outdup(
 }
 
 // shape agnostic : duplicate synapse graph
-void HabanaLaunchOpPT::DuplicateSynapseGraph(
+void HabanaLaunchOpPT::ConstructDuplicateShapeMap(
+    const std::vector<synTensorHandleMap>& tensorsMap,
     std::vector<std::pair<synTensor, std::vector<int64_t>>>&
         duplicate_tensors_shape_map) {
-  auto tensorsMap = syn_graph_ptr_->duplicate();
-  MaybePrintDuplicateGraphInformation(syn_graph_ptr_, tensorsMap, false);
-
   // Get all persistent tensors info i.e. graph inputs/outputs
   std::vector<PtTensorInfoShared> tensors_info;
   for (size_t i = 0; i < jit_ir_graph_->inputs().size(); ++i) {
@@ -3467,7 +3465,7 @@ void HabanaLaunchOpPT::ValidateInputsAndOutputsAndDisableSA(
 
 // shape agnostic : print duplicate graph information
 void HabanaLaunchOpPT::MaybePrintDuplicateGraphInformation(
-    const std::shared_ptr<synapse_helpers::graph>& graph_ptr,
+    const synapse_helpers::graph& graph_ptr,
     const std::vector<synTensorHandleMap>& tensors_map,
     bool is_cache_hit) {
   PT_EAGER_DEBUG(
@@ -3476,13 +3474,11 @@ void HabanaLaunchOpPT::MaybePrintDuplicateGraphInformation(
       " duplicate graph information ====");
   PT_EAGER_DEBUG(
       "[SHAPE AGNOSTIC] original graph handle : ",
-      graph_ptr->get_graph_handle(),
-      " duplicate graph handle : ",
-      graph_ptr->get_duplicate_graph_handle(),
+      graph_ptr.get_graph_handle(),
       " numTensors :",
-      graph_ptr->get_num_of_tensors(),
+      graph_ptr.get_num_of_tensors(),
       " numNodes :",
-      graph_ptr->get_num_of_nodes());
+      graph_ptr.get_num_of_nodes());
 
   for (size_t i = 0; i < tensors_map.size(); i++) {
     PT_EAGER_DEBUG(
@@ -3818,8 +3814,7 @@ void HabanaLaunchOpPT::run(
       HABANA_ASSERT(
           eager_mode == true,
           "eager_mode is expected true for supporting shape agnostic graph");
-      is_shape_agnostic_supported_ =
-          jit_graph_and_meta_data_->get_is_shape_agnostic_supported();
+      is_shape_agnostic_supported_ = true;
       constexpr bool dry_run__ = false;
       auto syn_graph =
           std::make_shared<synapse_helpers::graph>(habana_helpers::create_graph(
@@ -3828,6 +3823,7 @@ void HabanaLaunchOpPT::run(
       constexpr bool is_shape_agnostic_graph = true;
       syn_graph->set_shape_agnostic_graph(is_shape_agnostic_graph);
       BuildSynapseGraph(syn_graph, jit_graph_and_meta_data_->syn_build_cache_);
+      syn_graph_ptr_->set_num_of_inter_tensors(intermediate_syn_tensors_count_);
 
       if (syn_graph_ptr_->is_empty()) {
         PT_LAZY_EAGER_DEBUG(
@@ -3836,9 +3832,16 @@ void HabanaLaunchOpPT::run(
         return;
       }
 
+      auto original_syn_graph = std::move(*syn_graph_ptr_);
+      auto [duplicate_graph, tensorsMap] =
+          synapse_helpers::graph::duplicate(original_syn_graph);
+      syn_graph_ptr_ =
+          std::make_shared<synapse_helpers::graph>(std::move(duplicate_graph));
+      MaybePrintDuplicateGraphInformation(*syn_graph_ptr_, tensorsMap, false);
+
       std::vector<std::pair<synTensor, std::vector<int64_t>>>
           duplicate_tensors_shape_map;
-      DuplicateSynapseGraph(duplicate_tensors_shape_map);
+      ConstructDuplicateShapeMap(tensorsMap, duplicate_tensors_shape_map);
 
       if (syn_graph_ptr_->get_num_of_shape_tensors() > 0) {
         jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
@@ -3932,7 +3935,6 @@ void HabanaLaunchOpPT::run(
           sif_tidx_to_tinfo_map.size(),
           " intermediate tensors size : ",
           intermediate_syn_tensors_count_);
-      syn_graph_ptr_->set_num_of_inter_tensors(intermediate_syn_tensors_count_);
 
       // TODO do we need sync ????
       pipeline_execution.compile_sync();
@@ -3942,9 +3944,7 @@ void HabanaLaunchOpPT::run(
       {
         rvs->shape_agnostic_synapse_graph_ =
             std::make_unique<synapse_helpers::graph>(
-                std::move(*syn_graph_ptr_));
-        rvs->shape_agnostic_synapse_graph_->set_build_phase(
-            true); // TODO remove it
+                std::move(original_syn_graph));
         get_jit_graph_and_meta_data()->set_shape_agnostic_recipe(rvs);
       }
 
@@ -3959,11 +3959,12 @@ void HabanaLaunchOpPT::run(
     } else {
       PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
       is_shape_agnostic_supported_ = true;
-      syn_graph_ptr_ = std::make_shared<synapse_helpers::graph>(
-          *(rvs->shape_agnostic_synapse_graph_.get()));
 
-      auto tensorsMap = syn_graph_ptr_->duplicate();
-      MaybePrintDuplicateGraphInformation(syn_graph_ptr_, tensorsMap, true);
+      auto [duplicate_graph, tensorsMap] = synapse_helpers::graph::duplicate(
+          *rvs->shape_agnostic_synapse_graph_);
+      syn_graph_ptr_ =
+          std::make_shared<synapse_helpers::graph>(std::move(duplicate_graph));
+      MaybePrintDuplicateGraphInformation(*syn_graph_ptr_, tensorsMap, true);
 
       RecipeValueSpec& rv = *rvs;
       rv.update_hit_count();
@@ -4022,7 +4023,6 @@ void HabanaLaunchOpPT::run(
       // Once SAG supports control edges, we'll have to double-check if we need
       // additional control edge processing here
 
-      syn_graph_ptr_->set_build_phase(true);
       PT_LAZY_EAGER_DEBUG(
           "[LAZY EAGER MT] Enqueue new task to the Compile and Execute Thread");
       execution_control_.sag_cache_hit();
@@ -4064,9 +4064,6 @@ void HabanaLaunchOpPT::run(
           device.id(), GetSynapseGraphName(), dry_run__, use_eager_compiler));
   m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
   BuildSynapseGraph(syn_graph, jit_graph_and_meta_data_->syn_build_cache_);
-  if (enable_shape_agnostic_caching_) {
-    syn_graph_ptr_->copy_graph_handle_to_duplicate();
-  }
 
   if ((eager_mode || compile_mode) &&
       jit_graph_and_meta_data_->get_is_pipeline_supported()) {

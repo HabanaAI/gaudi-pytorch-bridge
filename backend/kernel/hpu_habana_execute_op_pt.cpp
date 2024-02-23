@@ -43,8 +43,9 @@ void HabanaLaunchOpPT::ExecuteSynapse() {
 
   if (get_enable_shape_agnostic_caching_() &&
       get_is_shape_agnostic_supported()) {
-    auto graphHandle = syn_graph_ptr_->get_duplicate_graph_handle();
+    auto graphHandle = syn_graph_ptr_->get_graph_handle();
     if (graphHandle != nullptr) {
+      syn_graph_ptr_->set_is_valid(false);
       habana_helpers::Singleton_GarbageCollectionThreadPool::getInstance()
           .Enqueue(SynapseGraphDestroyTask, std::move(graphHandle));
     }

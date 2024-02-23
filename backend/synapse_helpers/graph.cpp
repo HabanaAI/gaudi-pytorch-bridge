@@ -168,7 +168,8 @@ graph graph::create_for_refinement(device& device, std::string name) {
   return syn_graph;
 }
 
-std::vector<synTensorHandleMap> graph::duplicate() {
+std::vector<synTensorHandleMap> graph::duplicate(
+    synGraphHandle& duplicate_graph_handle) {
   PT_SYNHELPER_BEGIN;
 
   HABANA_ASSERT(
@@ -180,7 +181,7 @@ std::vector<synTensorHandleMap> graph::duplicate() {
     // graph
     auto status = synGraphDuplicate(
         graph_handle_,
-        &duplicate_graph_handle_,
+        &duplicate_graph_handle,
         nullptr,
         &numTensors,
         nullptr,
@@ -196,7 +197,7 @@ std::vector<synTensorHandleMap> graph::duplicate() {
 
   auto status = synGraphDuplicate(
       graph_handle_,
-      &duplicate_graph_handle_,
+      &duplicate_graph_handle,
       tensorsMap.data(),
       &numTensors,
       nodesMap.data(),
@@ -217,7 +218,7 @@ bool graph::inferShapes() {
   PT_SYNHELPER_DEBUG("Infer Shapes on Duplicate Graph.");
   synStatus status = synSuccess;
   if (eager_mode_) {
-    status = synGraphInferShapes(duplicate_graph_handle_);
+    status = synGraphInferShapes(graph_handle_);
   } else {
     HABANA_ASSERT(
         0 && "Infer Shapes API is not supposed to be used in lazy mode");
@@ -297,24 +298,25 @@ void graph::setTensorSectionOffset(synTensor tensor_handle, uint64_t offset) {
   PT_SYNHELPER_END;
 }
 
-graph::graph(const graph& other) noexcept
-    : device_{other.device_},
-      name_{other.name_},
-      is_valid_{other.is_valid_},
-      in_build_phase_(other.in_build_phase_),
-      in_execution_phase_(other.in_execution_phase_),
-      graph_handle_(other.graph_handle_),
-      dry_run_(other.dry_run_),
-      numInterTensors(other.numInterTensors),
-      is_shape_agnostic_graph_(other.is_shape_agnostic_graph_),
-      eager_mode_(other.eager_mode_) {
-  numTensors = other.numTensors;
-  numShapeTensors = other.numShapeTensors;
-  numNodes = other.numNodes;
-  graph_is_empty_ = other.graph_is_empty_;
-  // Setting the below flag to true so that the synapse graph
-  // is destroyed only when original graph gets destroyed
-  donot_destroy_original_graph_ = true;
+std::tuple<graph, std::vector<synTensorHandleMap>> graph::duplicate(
+    graph& other) {
+  graph dup_graph(other.device_, other.name_);
+  auto tensor_handle_map = other.duplicate(dup_graph.graph_handle_);
+  dup_graph.is_valid_ = other.is_valid_;
+  dup_graph.in_build_phase_ = other.in_build_phase_;
+  dup_graph.in_execution_phase_ = other.in_execution_phase_;
+  dup_graph.dry_run_ = other.dry_run_;
+  dup_graph.numInterTensors = other.numInterTensors;
+  dup_graph.is_shape_agnostic_graph_ = other.is_shape_agnostic_graph_;
+  dup_graph.eager_mode_ = other.eager_mode_;
+  dup_graph.dynamic_graph_ = dup_graph.dynamic_graph_;
+  dup_graph.numTensors = other.numTensors;
+  dup_graph.numConstTensors = other.numConstTensors;
+  dup_graph.numInterTensors = other.numInterTensors;
+  dup_graph.numShapeTensors = other.numShapeTensors;
+  dup_graph.numNodes = other.numNodes;
+  dup_graph.graph_is_empty_ = other.graph_is_empty_;
+  return {std::move(dup_graph), std::move(tensor_handle_map)};
 }
 
 graph::graph(graph&& other) noexcept
@@ -326,8 +328,11 @@ graph::graph(graph&& other) noexcept
       graph_is_empty_(other.graph_is_empty_),
       graph_handle_(other.graph_handle_),
       dry_run_(other.dry_run_),
+      dynamic_graph_(other.dynamic_graph_),
       numTensors(other.numTensors),
+      numConstTensors(other.numConstTensors),
       numInterTensors(other.numInterTensors),
+      numShapeTensors(other.numShapeTensors),
       numNodes(other.numNodes),
       is_shape_agnostic_graph_(other.is_shape_agnostic_graph_),
       eager_mode_(other.eager_mode_) {
@@ -338,7 +343,7 @@ graph::graph(graph&& other) noexcept
 graph::~graph() {
   if (is_valid_) {
     PT_SYNHELPER_DEBUG("Graph destroy.");
-    if (graph_handle_ != nullptr && !donot_destroy_original_graph_) {
+    if (graph_handle_ != nullptr) {
       synGraphDestroy(graph_handle_);
     }
 
@@ -480,26 +485,8 @@ std::shared_ptr<graph::recipe_handle> graph::compile() {
 
   auto name = get_unique_recipe_name(name_, eager_mode_);
 
-  if (eager_mode_ && is_shape_agnostic_graph_) {
-    status = synGraphCompile(
-        &recipe_handle->syn_recipe_handle_,
-        duplicate_graph_handle_,
-        name.c_str(),
-        nullptr);
-    PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] duplicate graph name : ",
-        name.c_str(),
-        " graph handle : ",
-        duplicate_graph_handle_,
-        " compiled recipe handle : ",
-        recipe_handle->syn_recipe_handle_);
-  } else {
-    status = synGraphCompile(
-        &recipe_handle->syn_recipe_handle_,
-        graph_handle_,
-        name.c_str(),
-        nullptr);
-  }
+  status = synGraphCompile(
+      &recipe_handle->syn_recipe_handle_, graph_handle_, name.c_str(), nullptr);
 
   HABANA_ASSERT(
       status == synStatus::synSuccess,
