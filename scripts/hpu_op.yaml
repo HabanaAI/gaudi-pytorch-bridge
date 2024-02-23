@@ -6691,8 +6691,8 @@ select.int:
   output_meta: SelectHpuMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
   override_fn: select_hpu_lazy
   acc_thread: true
   guid: select
