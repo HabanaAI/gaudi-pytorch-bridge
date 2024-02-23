@@ -19,9 +19,10 @@ namespace habana {
 namespace graph {
 namespace pass {
 
-void RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph) {
+bool RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph) {
   PT_EAGER_TRACE;
   auto nodes = graph->nodes();
+
   std::unordered_set<torch::jit::Node*> detach_nodes;
   for (auto it = nodes.begin(); it != nodes.end(); ++it) {
     auto node = *it;
@@ -40,6 +41,8 @@ void RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph) {
   if (!detach_nodes.empty()) {
     PT_EAGER_INFO(__PRETTY_FUNCTION__, ": \n", *graph);
   }
+
+  return !detach_nodes.empty();
 }
 
 } // namespace pass

@@ -51,13 +51,14 @@ struct AddAttributeAlphaPass {
   std::shared_ptr<torch::jit::Graph> m_graph;
 };
 
-void AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph) {
+bool AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph) {
   PT_EAGER_TRACE;
   AddAttributeAlphaPass pass{graph};
   bool changed{pass.run()};
   if (changed) {
     PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
   }
+  return changed;
 }
 
 } // namespace pass

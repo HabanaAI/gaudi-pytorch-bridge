@@ -22,6 +22,8 @@
 #include "habana_eager/eager_view.h"
 #include "habana_helpers/logging_pt.h"
 
+#include "pytorch_helpers/visualize/visualize.h"
+
 namespace habana {
 namespace graph {
 namespace pass {
@@ -220,7 +222,7 @@ struct HandleInputViewsPass {
   std::map<int64_t, std::vector<int64_t>> m_input_base_sizes_to_set;
 };
 
-void HandleInputViews(
+bool HandleInputViews(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
     std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map) {
@@ -231,6 +233,7 @@ void HandleInputViews(
     PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
   }
   input_base_sizes_map = pass.get_base_sizes_to_set_during_launch();
+  return changed;
 }
 
 } // namespace pass

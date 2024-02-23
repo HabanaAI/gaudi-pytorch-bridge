@@ -79,7 +79,7 @@ TEST(EnvFlags, GetEnv) {
   // Env str var not defined get default value
   std::string env_str_val = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
   PT_TEST_DEBUG("PT_HPU_GRAPH_DUMP_PREFIX=", env_str_val);
-  EXPECT_EQ(env_str_val, ".");
+  EXPECT_EQ(env_str_val, ".graph_dumps");
 
   SET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX, "./tmp_path", 1);
 
@@ -208,7 +208,7 @@ TEST_P(EnvFlagsTestFixture, StringTest) {
   std::string val_0 = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
   int run_instance = GetParam();
   if (!run_instance) // first run
-    ASSERT_EQ(val_0, ".");
+    ASSERT_EQ(val_0, ".graph_dumps");
   else // second and last run
     ASSERT_EQ(val_0, ".tmp_prefix_1_");
 

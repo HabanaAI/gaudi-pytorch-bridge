@@ -112,4 +112,13 @@ void DumpCachedGraph(const GraphPtr& graph, size_t hash) {
   }
 }
 
+void DumpEagerOrCompileGraph(
+    const GraphPtr& graph,
+    const std::string& graph_name) {
+  std::stringstream ss;
+  std::string folder = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
+  ss << folder << "/" << graph_name << ".pbtxt";
+  DumpGraph(graph, ss.str());
+}
+
 } // namespace visualize

@@ -113,6 +113,7 @@ add_habana_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/dtype_helpers.cpp
   pytorch_helpers/habana_helpers/towl.cpp
   pytorch_helpers/serialize/export.cpp
+  pytorch_helpers/visualize/visualize.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_kernels.cpp
   habana_kernels/binary_inplace_kernels.cpp
@@ -169,7 +170,6 @@ add_habana_library(habana_pytorch_plugin SHARED
   habana_lazy/permute_tensors.cpp
   habana_lazy/sbs_debug.cpp
   habana_lazy/sbs_runner.cpp
-  habana_lazy/visualize.cpp
   habana_lazy/lazy_storage.cpp
   habana_lazy/lazy_graph_hash_builder.cpp
   habana_lazy/view_utils.cpp
@@ -220,6 +220,7 @@ add_habana_library(habana_pytorch2_plugin SHARED
   pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp
   pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
   pytorch_helpers/habana_helpers/towl.cpp
+  pytorch_helpers/visualize/visualize.cpp
   pytorch_helpers/serialize/export.cpp
   habana_kernels/basic_kernels.cpp
   habana_kernels/binary_inplace_kernels.cpp
@@ -274,7 +275,6 @@ add_habana_library(habana_pytorch2_plugin SHARED
   habana_lazy/sbs_runner.cpp
   habana_lazy/tensor_impl.cpp
   habana_lazy/view_utils.cpp
-  habana_lazy/visualize.cpp
   hpu_ops/lazy/binarycrossentropy_gen.cpp
   hpu_ops/lazy/binaryscalar2tensor.cpp
   hpu_ops/lazy/bitwise_gen.cpp

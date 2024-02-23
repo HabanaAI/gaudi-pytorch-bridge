@@ -40,4 +40,9 @@ void DumpCachedGraph(const GraphPtr& graph, size_t hash);
 // Generic JIT IR dump function
 void DumpGraph(const GraphPtr& graph, const std::string& filename);
 
+// Dump JIT IR eager graph
+void DumpEagerOrCompileGraph(
+    const GraphPtr& graph,
+    const std::string& graph_name);
+
 } // namespace visualize

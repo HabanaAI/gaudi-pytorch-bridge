@@ -18,6 +18,7 @@
 #
 # All defined values are supported - e. g. UINT64_MAX, INT64_MAX
 
+
 GC_KERNEL_PATH:
   default: ""
 
@@ -25,7 +26,17 @@ PT_HABANA_MEM_LOG_FILENAME:
   default: "habana_log.livealloc.log"
 
 PT_HPU_GRAPH_DUMP_PREFIX:
-  default: "."
+  default: ".graph_dumps"
+
+PT_HPU_GRAPH_DUMP_MODE:
+  default: ""
+  doc: "Specify in which mode should bridge dump intermediate graphs. Allowed values: <compile | eager | all>\n
+
+  This flag takes effect only in non-lazy mode, meaning `PT_HPU_LAZY_MODE=0`\n
+  - `all` dumps both FX and JIT graphs from compile mode and JIT graphs from eager mode\n
+  - `compile` dumps both FX and JIT graphs from compile mode\n
+  - `compile_fx` dumps only FX graphs from compile mode\n
+  - `eager` dumps JIT graphs from eager mode"
 
 PT_COMPILATION_STATS_PATH:
   default: ""

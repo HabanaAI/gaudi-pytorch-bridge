@@ -17,15 +17,15 @@ namespace habana {
 namespace graph {
 namespace pass {
 void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph);
-void HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph);
-void AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph);
+bool HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph);
+bool AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph);
 void DetectWeightTensors(
     std::shared_ptr<torch::jit::Graph> graph,
     std::set<int>& graph_inputs_to_permute);
-void GetOutputsOrderInGraph(
+bool GetOutputsOrderInGraph(
     std::shared_ptr<torch::jit::Graph> graph,
     std::vector<size_t>& outputs_order);
-void ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph);
+bool ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph);
 bool HandleDynamicOps(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,
@@ -44,8 +44,8 @@ void ResolveNegativeSTSizes(
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
     LaunchDynamicShapes& launch_shapes);
-void RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph);
-void HandleInputViews(
+bool RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph);
+bool HandleInputViews(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
     std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map);

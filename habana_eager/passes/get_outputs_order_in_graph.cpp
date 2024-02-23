@@ -11,6 +11,8 @@
  *******************************************************************************
  */
 
+#include <algorithm>
+
 #include <c10/util/ArrayRef.h>
 
 #include <torch/csrc/jit/ir/ir.h>
@@ -54,13 +56,14 @@ struct GetOutputsOrderInGraphPass {
   std::vector<size_t> m_outputs_order;
 };
 
-void GetOutputsOrderInGraph(
+bool GetOutputsOrderInGraph(
     std::shared_ptr<torch::jit::Graph> graph,
     std::vector<size_t>& outputs_order) {
   PT_EAGER_TRACE;
   GetOutputsOrderInGraphPass pass{graph};
   pass.run();
   outputs_order = pass.get_outputs_order();
+  return !std::is_sorted(outputs_order.begin(), outputs_order.end());
 }
 
 } // namespace pass

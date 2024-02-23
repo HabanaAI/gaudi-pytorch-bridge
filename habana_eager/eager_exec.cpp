@@ -26,6 +26,7 @@
 #include "habana_eager/ops/eager_op.h"
 #include "passes/handle_views_insert_permute.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
+#include "pytorch_helpers/visualize/visualize.h"
 
 namespace habana {
 namespace eager {
@@ -333,12 +334,24 @@ void EagerExec::launch() {
     graph_and_meta->set_param_jit_val_to_ivalue_map(jit_val_to_ivalue_map);
   } else {
     PT_EAGER_DEBUG("Eager Op JIT graph cache miss for key ", key);
+    auto dump_graphs =
+        std::string(GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_MODE)) == "all" ||
+        std::string(GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_MODE)) == "eager";
     CValPtrMap jit_val_map; // map for capturing node params jit values
     auto graph{create_eager_graph(orig_inputs, jit_val_map)};
+    if (dump_graphs)
+      visualize::DumpEagerOrCompileGraph(
+          graph,
+          m_graph_name + "_" + std::to_string(key) + "_eager_preprocess");
+
     auto eager_compiler_supported =
         is_eager_compiler_supported_for_graph(graph);
     post_process_eager_graph(graph, jit_val_map);
     prune_duplicate_graph_inputs(parent_vec, graph);
+    if (dump_graphs)
+      visualize::DumpEagerOrCompileGraph(
+          graph,
+          m_graph_name + "_" + std::to_string(key) + "_eager_postprocess");
 
     at::ArrayRef<torch::jit::IValue> input_refs =
         torch::jit::last(stack, graph->inputs().size());

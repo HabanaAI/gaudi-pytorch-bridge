@@ -20,6 +20,7 @@ from typing import List, Optional
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
+from habana_frameworks.torch.utils.visualization import graph_visualizer
 from packaging.version import Version
 from torch.fx.experimental.proxy_tensor import py_sym_types
 
@@ -163,14 +164,22 @@ def optimize_graph(
     )
 
     graph_changed = False
-    for optimization_pass in get_passes(stage):
-        pass_name = optimization_pass.__name__
-        env_name = "PT_HPU_DISABLE_" + pass_name
-        if os.getenv(env_name, "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
-            logger.debug("pass %s was disabled by env at stage %s", pass_name, stage)
-        else:
-            logger.debug("running %s pass at stage %s", pass_name, stage)
-            graph_changed = optimization_pass(ctx) or graph_changed
+    visualization_mode = bc.get_pt_hpu_graph_dump_mode()
+    visualisation_enabled = visualization_mode in ["all", "compile", "compile_fx"]
+    with graph_visualizer(
+        active_stage=stage, final_stage=OptimizationPassPlacement.POST_PARTITIONER, disable=not visualisation_enabled
+    ) as gv:
+        for optimization_pass in get_passes(stage):
+            pass_name = optimization_pass.__name__
+            env_name = "PT_HPU_DISABLE_" + pass_name
+            if os.getenv(env_name, "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
+                logger.debug("pass %s was disabled by env at stage %s", pass_name, stage)
+            else:
+                logger.debug("running %s pass at stage %s", pass_name, stage)
+                current_graph_changed = optimization_pass(ctx)
+                graph_changed = current_graph_changed or graph_changed
+                if current_graph_changed:
+                    gv.visualize_graph(graph_module, optimization_pass.__name__)
 
     if not uses_aot:
         # Bring back original state.

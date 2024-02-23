@@ -62,6 +62,10 @@ class GraphExec {
       std::optional<std::vector<at::Tensor>> maybe_outputs = {});
 
   void RunGraphPasses(torch::jit::Stack& example_inputs);
+  void RunPass(
+      std::function<bool()> pass,
+      bool dump_graphs,
+      const std::string& pass_name);
   std::string LogRecipeInfo(torch::jit::Stack& example_inputs);
   void HandleWeightPermutation(torch::jit::Stack& stack);
   bool IsDynamicGraph();

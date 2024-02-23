@@ -19,7 +19,7 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
-#include "habana_lazy/visualize.h"
+#include "pytorch_helpers/visualize/visualize.h"
 
 #include "habana_kernels/lazy_kernels.h"
 

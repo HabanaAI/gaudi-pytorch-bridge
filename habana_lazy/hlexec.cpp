@@ -35,7 +35,7 @@
 #include "passes/replace_inplace_ops.h"
 #include "passes/replace_views_with_reshapes.h"
 #include "passes/transform_graph.h"
-#include "visualize.h"
+#include "pytorch_helpers/visualize/visualize.h"
 
 namespace habana_lazy {
 namespace exec {

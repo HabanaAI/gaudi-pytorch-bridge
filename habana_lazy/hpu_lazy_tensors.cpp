@@ -30,8 +30,8 @@
 #include "habana_lazy/ops/hpu_input.h"
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view_utils.h"
-#include "habana_lazy/visualize.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
+#include "pytorch_helpers/visualize/visualize.h"
 
 using namespace habana_lazy;
 

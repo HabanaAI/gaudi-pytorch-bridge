@@ -65,13 +65,14 @@ struct HandleTupleOnOutputPass {
   std::shared_ptr<torch::jit::Graph> m_graph;
 };
 
-void HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph) {
+bool HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph) {
   PT_EAGER_TRACE;
   HandleTupleOnOutputPass pass{graph};
   bool changed{pass.run()};
   if (changed) {
     PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
   }
+  return changed;
 }
 
 } // namespace pass

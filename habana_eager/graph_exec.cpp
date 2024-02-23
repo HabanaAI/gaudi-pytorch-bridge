@@ -28,6 +28,7 @@
 #include "habana_helpers/thread_pool/thread_pool.h"
 
 #include "habana_eager/eager_view.h"
+#include "pytorch_helpers/visualize/visualize.h"
 
 namespace habana {
 namespace graph {
@@ -232,17 +233,63 @@ std::string GraphExec::LogRecipeInfo(torch::jit::Stack& example_inputs) {
   return "";
 }
 
+void GraphExec::RunPass(
+    std::function<bool()> pass,
+    bool dump_graphs,
+    const std::string& pass_name) {
+  auto graph_changed = pass();
+  if (graph_changed && dump_graphs)
+    visualize::DumpEagerOrCompileGraph(
+        m_graph,
+        m_graph_name + "_" + std::to_string(m_graph_index) + "_jit_after_" +
+            pass_name);
+}
+
 void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
   PT_EAGER_TRACE;
   PT_EAGER_DEBUG("Jit for ", m_graph_name, " before passes\n", *m_graph);
+  auto dump_graphs =
+      std::string(GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_MODE)) == "all" ||
+      std::string(GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_MODE)) == "compile";
 
-  pass::HandleInputViews(m_graph, example_inputs, m_input_new_base_sizes);
-  pass::ReplaceGetItemWithListUnpack(m_graph);
-  pass::HandleTupleOnOutput(m_graph);
-  pass::AddAttributeAlpha(m_graph);
-  pass::RemoveDetachOp(m_graph);
+  if (dump_graphs)
+    visualize::DumpEagerOrCompileGraph(
+        m_graph,
+        m_graph_name + "_" + std::to_string(m_graph_index) +
+            "_jit_graph_before_passes");
+
+  RunPass(
+      [this, &example_inputs]() {
+        return pass::HandleInputViews(
+            this->m_graph, example_inputs, this->m_input_new_base_sizes);
+      },
+      dump_graphs,
+      "HandleInputViews");
+  RunPass(
+      [this]() { return pass::ReplaceGetItemWithListUnpack(this->m_graph); },
+      dump_graphs,
+      "ReplaceGetItemWithListUnpack");
+  RunPass(
+      [this]() { return pass::HandleTupleOnOutput(this->m_graph); },
+      dump_graphs,
+      "HandleTupleOnOutput");
+  RunPass(
+      [this]() { return pass::AddAttributeAlpha(this->m_graph); },
+      dump_graphs,
+      "AddAttributeAlpha");
+  RunPass(
+      [this]() { return pass::RemoveDetachOp(this->m_graph); },
+      dump_graphs,
+      "RemoveDetachOp");
+
   if (m_has_preallocated_outputs) {
-    pass::GetOutputsOrderInGraph(m_graph, m_outputs_order);
+    RunPass(
+        [this]() {
+          return pass::GetOutputsOrderInGraph(
+              this->m_graph, this->m_outputs_order);
+        },
+        dump_graphs,
+        "GetOutputsOrderInGraph");
   }
 }
 
