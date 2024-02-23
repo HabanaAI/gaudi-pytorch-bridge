@@ -975,35 +975,35 @@ alias:
 all:
   output_meta: AllAnyMeta
   dtypes:
-    Gaudi: [Char]
-    Gaudi2: [Char]
-    Gaudi3: [Char]
+    Gaudi: [Char, Float, BFloat16, Int]
+    Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
+    Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
   out_ids: [0]
   op_backend: All
 
 all.all_out:
   output_meta: AllAnyMeta
   dtypes:
-    Gaudi: [Char]
-    Gaudi2: [Char]
-    Gaudi3: [Char]
+    Gaudi: [Char, Float, BFloat16, Int]
+    Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
+    Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
   op_backend: All
 
 all.dim:
   output_meta: AllAnyDimMeta
   dtypes:
-    Gaudi: [Char]
-    Gaudi2: [Char]
-    Gaudi3: [Char]
+    Gaudi: [Char, Float, BFloat16, Int]
+    Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
+    Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
   op_backend: AllDim
   out_ids: [0]
 
 all.out:
   output_meta: AllAnyDimMeta
   dtypes:
-    Gaudi: [Char]
-    Gaudi2: [Char]
-    Gaudi3: [Char]
+    Gaudi: [Char, Float, BFloat16, Int]
+    Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
+    Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
   op_backend: AllDim
 
 amax:

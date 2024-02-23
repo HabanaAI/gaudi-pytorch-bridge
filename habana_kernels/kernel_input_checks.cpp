@@ -243,9 +243,15 @@ const std::unordered_map<std::string, std::vector<std::set<at::ScalarType>>>
         },
         {
             "all",
-            {{
-                at::ScalarType::Bool,
-            }},
+            {{at::ScalarType::Double,
+              at::ScalarType::BFloat16,
+              at::ScalarType::Short,
+              at::ScalarType::Byte,
+              at::ScalarType::Int,
+              at::ScalarType::Bool,
+              at::ScalarType::Char,
+              at::ScalarType::Float,
+              at::ScalarType::Long}},
         },
         {
             "embedding_bag_sum_fwd",
