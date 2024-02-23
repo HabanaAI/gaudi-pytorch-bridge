@@ -2439,6 +2439,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::sum_fp8(Tensor self, int[1]? dim=None, bool keepdim=False, ScalarType? out_dtype=None) -> Tensor");
   m.def(
       "hpu::habana_randperm(Tensor seed, SymInt n, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_native_dropout(Tensor seed, Tensor input, float p, bool? train)-> (Tensor, Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
