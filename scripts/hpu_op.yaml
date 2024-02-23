@@ -2555,7 +2555,7 @@ eq.Scalar_out:
   handle_bool_inputs: true
 
 eq.Tensor_out:
-  dtypes: [BFloat16, Float, Int, Char, Byte, Long]
+  dtypes: [BFloat16, Float, Int, Char, Byte, Long, Short, Half]
   guid: equal_fwd
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
