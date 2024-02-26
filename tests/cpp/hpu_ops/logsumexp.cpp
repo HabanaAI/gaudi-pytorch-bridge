@@ -1,13 +1,16 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
-#include "../utils/device_type_util.h"
+
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -83,9 +86,6 @@ TEST_F(HpuOpTest, logsumexp_0d) {
 
 // 0d input keepdim: true
 TEST_F(HpuOpTest, logsumexp_0d_keepdim) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   auto tensor1 = torch::tensor(50.0);
   auto tensor2 = torch::tensor(50.0, "hpu");
   const std::vector<int64_t> dim{0};

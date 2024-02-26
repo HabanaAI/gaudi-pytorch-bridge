@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
@@ -767,9 +768,6 @@ TEST_F(LazyIndexKernelTest, AdvanceIndexTest) {
 */
 
 TEST_F(LazyIndexKernelTest, LinspaceOutPosToNeFraction) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   const int64_t constStepsValue = 45;
   torch::Scalar start = 0.70f;
   torch::Scalar end = -0.03f;
@@ -786,9 +784,6 @@ TEST_F(LazyIndexKernelTest, LinspaceOutPosToNeFraction) {
 }
 
 TEST_F(LazyIndexKernelTest, LinspaceOutSameStartEnd) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::Scalar start = -100.0f;
   torch::Scalar end = -100.0f;
   int64_t step = 100; // wrong value
@@ -909,9 +904,6 @@ TEST_F(LazyIndexKernelTest, IndexOutTest) {
 }
 
 TEST_F(LazyIndexKernelTest, IndexMixedTest1) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::Tensor input_cpu = torch::arange(36).reshape({4, 3, 3});
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 
@@ -980,9 +972,6 @@ TEST_F(LazyIndexKernelTest, IndexMixedTest2) {
 }
 
 TEST_F(LazyIndexKernelTest, IndexMultiDimTest) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::Tensor input_cpu = torch::arange(36).reshape({4, 3, 3});
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 

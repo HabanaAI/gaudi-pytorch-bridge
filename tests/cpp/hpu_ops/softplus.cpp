@@ -1,14 +1,16 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
-#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
@@ -67,9 +69,6 @@ TEST_F(HpuOpTest, softplus_out_bf16) {
 // Bwd
 
 TEST_F(HpuOpTest, softplus_bwd_f32) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   GenerateInputs(2, {{2, 3, 4}, {2, 3, 4}});
 
   float beta = 1.5f;
@@ -83,9 +82,6 @@ TEST_F(HpuOpTest, softplus_bwd_f32) {
 }
 
 TEST_F(HpuOpTest, softplus_bwd_bf16) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   GenerateInputs(2, {{2, 3, 4}, {2, 3, 4}}, torch::kBFloat16);
 
   float beta = 1.5f;

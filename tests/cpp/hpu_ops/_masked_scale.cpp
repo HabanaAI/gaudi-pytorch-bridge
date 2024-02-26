@@ -1,22 +1,21 @@
-/******************************************************************************
- * Copyright (C) 2022 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
-#include "../utils/device_type_util.h"
 #include "util.h"
 
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, _masked_scale1) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   GenerateInputs(2, {{28}, {28}});
   float scale = 5.6;
 
@@ -26,9 +25,6 @@ TEST_F(HpuOpTest, _masked_scale1) {
 }
 
 TEST_F(HpuOpTest, _masked_scale2) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   GenerateInputs(2, {{1, 1, 8}, {1, 1, 8}}, {torch::kBFloat16});
   float scale = 0.6;
 

@@ -1,21 +1,20 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
-#include "../utils/device_type_util.h"
 #include "util.h"
 
 #define TENSOR_OUTPLACE_TEST(op)                               \
   TEST_F(HpuOpTest, op##_other_tensor) {                       \
-    if (isGaudi3()) {                                          \
-      GTEST_SKIP() << "Test skipped on Gaudi3.";               \
-    }                                                          \
     GenerateInputs(2);                                         \
     auto expected = torch::op(GetCpuInput(0), GetCpuInput(1)); \
     auto result = torch::op(GetHpuInput(0), GetHpuInput(1));   \
@@ -24,9 +23,6 @@
 
 #define OTHER_SCALAR_OUTPLACE_TEST(op)                \
   TEST_F(HpuOpTest, op##_other_scalar) {              \
-    if (isGaudi3()) {                                 \
-      GTEST_SKIP() << "Test skipped on Gaudi3.";      \
-    }                                                 \
     GenerateInputs(1);                                \
     float other = -1.4;                               \
     auto expected = torch::op(GetCpuInput(0), other); \
@@ -36,9 +32,6 @@
 
 #define TENSOR_OUT_TEST(op)                                                   \
   TEST_F(HpuOpTest, op##_other_tensor_out) {                                  \
-    if (isGaudi3()) {                                                         \
-      GTEST_SKIP() << "Test skipped on Gaudi3.";                              \
-    }                                                                         \
     GenerateInputs(2);                                                        \
     torch::ScalarType dtype = torch::kFloat;                                  \
     auto expected = torch::empty(0, dtype);                                   \
@@ -50,9 +43,6 @@
 
 #define OTHER_SCALAR_OUT_TEST(op)                                             \
   TEST_F(HpuOpTest, op##_other_scalar_out) {                                  \
-    if (isGaudi3()) {                                                         \
-      GTEST_SKIP() << "Test skipped on Gaudi3.";                              \
-    }                                                                         \
     GenerateInputs(1);                                                        \
     torch::ScalarType dtype = torch::kFloat;                                  \
     float other = -0.12345;                                                   \
@@ -65,9 +55,6 @@
 
 #define SELF_SCALAR_OUTPLACE_TEST(op)                \
   TEST_F(HpuOpTest, op##_self_scalar) {              \
-    if (isGaudi3()) {                                \
-      GTEST_SKIP() << "Test skipped on Gaudi3.";     \
-    }                                                \
     GenerateInputs(1);                               \
     float self = 2.3;                                \
     auto expected = torch::op(self, GetCpuInput(0)); \
@@ -77,9 +64,6 @@
 
 #define SELF_SCALAR_OUT_TEST(op)                                              \
   TEST_F(HpuOpTest, op##_self_scalar_out) {                                   \
-    if (isGaudi3()) {                                                         \
-      GTEST_SKIP() << "Test skipped on Gaudi3.";                              \
-    }                                                                         \
     GenerateInputs(1);                                                        \
     float self = 1;                                                           \
     torch::ScalarType dtype = torch::kFloat;                                  \
@@ -92,9 +76,6 @@
 
 #define OTHER_SCALAR_INPLACE_TEST(op)            \
   TEST_F(HpuOpTest, op##other_scalar_) {         \
-    if (isGaudi3()) {                            \
-      GTEST_SKIP() << "Test skipped on Gaudi3."; \
-    }                                            \
     GenerateInputs(1);                           \
     float self = 2.3;                            \
     GetCpuInput(0).op(self);                     \
@@ -104,9 +85,6 @@
 
 #define OTHER_TENSOR_INPLACE_TEST(op)            \
   TEST_F(HpuOpTest, op##other_tensor_) {         \
-    if (isGaudi3()) {                            \
-      GTEST_SKIP() << "Test skipped on Gaudi3."; \
-    }                                            \
     GenerateInputs(2);                           \
     GetCpuInput(0).op(GetCpuInput(1));           \
     GetHpuInput(0).op(GetHpuInput(1));           \
@@ -135,9 +113,6 @@ INPLACE_TEST(xlogy_)
 // Below testcase fails for default tolerance
 // hence tuned atol & rtol to 1e-2
 TEST_F(HpuOpTest, xlogy_self_scalar_bf16) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   GenerateInputs(1, torch::kBFloat16);
   float self = 2.3;
   auto expected = torch::xlogy(self, GetCpuInput(0));
@@ -146,9 +121,6 @@ TEST_F(HpuOpTest, xlogy_self_scalar_bf16) {
 }
 
 TEST_F(HpuOpTest, xlogy_other_scalar_bf16) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   GenerateInputs(1, torch::kBFloat16);
   float other = 2.3;
   auto expected = torch::xlogy(GetCpuInput(0), other);

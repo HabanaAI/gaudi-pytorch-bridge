@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+
 #include <ATen/ExpandUtils.h>
 #include <gtest/gtest.h>
 #include <math.h>
@@ -21,7 +22,6 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/linear_kernels.h"
 #include "habana_lazy_test_infra.h"
-#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 
@@ -44,9 +44,6 @@ class EagerKernelCacheTest : public habana_lazy_test::LazyTest {
 };
 
 TEST_F(EagerKernelTest, LinspaceOutCache) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   const int64_t constStepsValue = 11;
   torch::Scalar start = 0.0f;
   torch::Scalar end = 10.0f;
@@ -68,9 +65,6 @@ TEST_F(EagerKernelTest, LinspaceOutCache) {
 }
 
 TEST_F(EagerKernelTest, DISABLED_LinspaceOutNeToPosStep1) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   const int64_t constStepsValue = 12; // set incorrect size
   torch::Scalar start = -100.0f;
   torch::Scalar end = 200.0f;
@@ -603,9 +597,6 @@ TEST_F(EagerKernelTest, LogSoftMaxTestBackward) {
 }
 
 TEST_F(EagerKernelTest, DISABLED_SumDimIntOut) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::Tensor A = torch::randn({2, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
 

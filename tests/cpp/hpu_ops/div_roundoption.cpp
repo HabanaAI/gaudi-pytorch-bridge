@@ -1,14 +1,16 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
-#include "../utils/device_type_util.h"
 #include "util.h"
 
 // Limits for generated values of variants of Int
@@ -21,9 +23,6 @@
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, divroundTrueDouble) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   GenerateInputs(2, torch::kDouble);
   c10::optional<c10::string_view> mode = c10::nullopt;
   auto expected = torch::div(GetCpuInput(0), GetCpuInput(1), mode);
@@ -33,9 +32,6 @@ TEST_F(HpuOpTest, divroundTrueDouble) {
 }
 
 TEST_F(HpuOpTest, divroundTrueBFloat16) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   GenerateInputs(2, torch::kBFloat16);
   c10::optional<c10::string_view> mode = c10::nullopt;
   auto expected = torch::div(GetCpuInput(0), GetCpuInput(1), mode);
@@ -46,9 +42,6 @@ TEST_F(HpuOpTest, divroundTrueBFloat16) {
 }
 
 TEST_F(HpuOpTest, divroundFloor) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   GenerateInputs(2);
   torch::ScalarType dtype = torch::kFloat;
 
@@ -240,9 +233,6 @@ TEST_F(HpuOpTest, div_inplace_f32int) {
 }
 
 TEST_F(HpuOpTest, div_inplace_bf16int8) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   GenerateInputs(2, {torch::kBFloat16, torch::kInt8});
   c10::optional<c10::string_view> mode = c10::nullopt;
 

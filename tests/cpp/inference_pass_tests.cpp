@@ -1,12 +1,16 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
+
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
 #include <torch/csrc/jit/testing/file_check.h>
@@ -74,6 +78,9 @@ TEST_F(LazyInferencePassTest, AddMmTest) {
 }
 
 TEST_F(LazyInferencePassTest, ConvInferenceTest) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   if (false == GET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE))
     SET_ENV_FLAG_NEW(PT_HPU_INFERENCE_MODE, true, 1);
 

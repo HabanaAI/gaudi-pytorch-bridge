@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "../utils/device_type_util.h"
@@ -14,9 +17,6 @@
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, copysign_out_tensor) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::set_default_dtype(c10::scalarTypeToTypeMeta(at::kFloat));
   GenerateInputs(2);
 
@@ -31,9 +31,6 @@ TEST_F(HpuOpTest, copysign_out_tensor) {
 }
 
 TEST_F(HpuOpTest, copysign_out_bf16) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::set_default_dtype(c10::scalarTypeToTypeMeta(at::kFloat));
   GenerateInputs(2, {torch::kBFloat16, torch::kFloat});
 
@@ -48,9 +45,6 @@ TEST_F(HpuOpTest, copysign_out_bf16) {
 }
 
 TEST_F(HpuOpTest, copysign_out_int) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::set_default_dtype(c10::scalarTypeToTypeMeta(at::kBFloat16));
   GenerateInputs(2, torch::kInt);
 
@@ -81,9 +75,6 @@ TEST_F(HpuOpTest, copysign_out_z) {
 }
 
 TEST_F(HpuOpTest, copysign_out_bc) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::set_default_dtype(c10::scalarTypeToTypeMeta(at::kFloat));
   GenerateInputs(2, {{1, 3, 4}, {2, 3, 4}});
 
@@ -142,9 +133,6 @@ TEST_F(HpuOpTest, copysign_scalar_int) {
 }
 
 TEST_F(HpuOpTest, copysign_bc) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::set_default_dtype(c10::scalarTypeToTypeMeta(at::kFloat));
   GenerateInputs(2, {torch::kBFloat16, torch::kBFloat16});
 
@@ -155,9 +143,6 @@ TEST_F(HpuOpTest, copysign_bc) {
 }
 
 TEST_F(HpuOpTest, copysign_) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::set_default_dtype(c10::scalarTypeToTypeMeta(at::kFloat));
   GenerateInputs(2);
 

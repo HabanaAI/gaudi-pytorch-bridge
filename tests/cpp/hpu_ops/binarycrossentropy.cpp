@@ -1,15 +1,18 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
-#include "../utils/device_type_util.h"
 #include "util.h"
+
 class HpuOpTest : public HpuOpTestUtil {};
 /*
 NOTE:
@@ -20,9 +23,6 @@ reduction modes(Mean,Sum and None)
 */
 
 TEST_F(HpuOpTest, bce_usual_3D_sum) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   const std::vector<int64_t> size = {8, 3, 2};
   GenerateInputs(3, {size, size, {8, 3, 1}});
   torch::ScalarType dtype = torch::kFloat;
@@ -111,9 +111,6 @@ TEST_F(HpuOpTest, bce_bwd_3D_mean) {
   Compare(expected, result);
 }
 TEST_F(HpuOpTest, bce_out_3D_sum) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   const std::vector<int64_t> size = {8, 3, 2};
   GenerateInputs(3, {size, size, {8, 3, 1}});
   torch::ScalarType dtype = torch::kFloat;
@@ -162,9 +159,6 @@ TEST_F(HpuOpTest, bce_out_2D_none) {
 }
 
 TEST_F(HpuOpTest, bce_out_4D_mean) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   const std::vector<int64_t> size = {9, 7, 5, 2};
   GenerateInputs(3, {size, size, size});
 
@@ -193,9 +187,6 @@ BCE out variant - For higher dimension, 5D Input Mismatch Results
 Issue raised: https://jira.habana-labs.com/browse/SW-73402
 */
 TEST_F(HpuOpTest, bce_out_5D_sum) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   const std::vector<int64_t> size = {1, 2, 3, 4, 2};
   GenerateInputs(3, {size, size, size});
   torch::ScalarType dtype = torch::kFloat;
@@ -220,9 +211,6 @@ TEST_F(HpuOpTest, bce_out_5D_sum) {
 }
 
 TEST_F(HpuOpTest, bce_out_5D_mean) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   const std::vector<int64_t> size = {1, 6, 5, 9, 8};
   GenerateInputs(2, {size, size});
   torch::ScalarType dtype = torch::kFloat;
@@ -309,9 +297,6 @@ is compared with Hpu. Since default tolerance is not supported, we have tuned
 the tolerance values.
 */
 TEST_F(HpuOpTest, bce_out_3D_none_bf16) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::ScalarType dtype = torch::kBFloat16;
 
   const std::vector<int64_t> size = {5, 2, 7};

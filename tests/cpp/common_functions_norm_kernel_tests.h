@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,7 +10,7 @@
  *
  *******************************************************************************
  */
-#include "utils/device_type_util.h"
+
 #include "utils/dtype_supported_on_device.h"
 #include "utils/dynamic_shape_supported_on_device.h"
 #include "utils/hint_tolerance_values.h"
@@ -53,15 +53,6 @@ std::vector<AtTensorPair> native_layer_norm_test(
     if (!IsDtypeSupportedOnCurrentDevice(torch::DTYPE) ||                     \
         !IsDynamicShapeSupportedOnCurrentDevice()) {                          \
       GTEST_SKIP();                                                           \
-    }                                                                         \
-    if (NativeLayerNormTestMode::MODE == NativeLayerNormTestMode::Backward && \
-        isGaudi3()) {                                                         \
-      GTEST_SKIP() << "Test skipped on Gaudi3.";                              \
-    }                                                                         \
-    if (NativeLayerNormTestMode::MODE ==                                      \
-            NativeLayerNormTestMode::BackwardGal &&                           \
-        isGaudi3()) {                                                         \
-      GTEST_SKIP() << "Test skipped on Gaudi3.";                              \
     }                                                                         \
     for (int dsi = 0; dsi < DSVAL; ++dsi) {                                   \
       auto results = native_layer_norm_test(                                  \

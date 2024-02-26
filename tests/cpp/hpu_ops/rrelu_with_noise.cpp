@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 
-#include "../utils/device_type_util.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "util.h"
 
@@ -149,9 +148,6 @@ TEST_F(HpuOpTest, rrelu_with_noise_backward) {
 }
 
 TEST_F(HpuOpTest, rrelu_with_noise_backward_train) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   GenerateInputs(3);
   float lower = GenerateScalar<float>(0.1, 0.3);
   float upper = GenerateScalar<float>(0.6, 0.9);

@@ -1,3 +1,16 @@
+/*******************************************************************************
+ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+
 #include <gtest/gtest.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/torch.h>
@@ -9,6 +22,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
 #include "habana_lazy_test_infra.h"
+#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 using namespace at;
@@ -135,6 +149,9 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward) {
 }
 
 TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward1) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   torch::Tensor input =
       torch::rand({32, 64, 24, 20}, torch::requires_grad(false));
   torch::Tensor hinput = input.to(torch::kHPU);

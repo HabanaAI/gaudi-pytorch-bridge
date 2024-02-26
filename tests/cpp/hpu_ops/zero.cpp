@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -23,7 +23,7 @@ bool IsUnsupported(torch::ScalarType dtype) {
   device_guard.getDevice();
   const auto device_type = habana::HPURegistrar::get_device().type();
   if (!IsDtypeSupportedOnCurrentDevice(dtype) ||
-      (dtype == torch::kLong && device_type != synDeviceGaudi2)) {
+      (dtype == torch::kLong && device_type == synDeviceGaudi)) {
     return true;
   }
   return false;

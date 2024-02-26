@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 
-#include "../utils/device_type_util.h"
 #include "util.h"
 
 typedef const std::function<
@@ -123,9 +122,6 @@ class HpuOpTest : public HpuOpTestUtil {
 };
 
 TEST_F(HpuOpTest, foreachAdd) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   FunctionOneList foreach_add_scalar = std::bind(
       static_cast<std::vector<at::Tensor> (*)(
           at::TensorList, const at::Scalar&)>(at::_foreach_add),
@@ -206,9 +202,6 @@ TEST_F(HpuOpTest, foreachAddInplace) {
 }
 
 TEST_F(HpuOpTest, foreachMul) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   FunctionOneList foreach_mul_scalar = std::bind(
       static_cast<std::vector<at::Tensor> (*)(
           at::TensorList, const at::Scalar&)>(at::_foreach_mul),
