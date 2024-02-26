@@ -532,11 +532,8 @@ def check_ops_executed_in_jit_ir(op_names, allowed_fallback_ops={}, verbose=Fals
 
     op_names.difference_update(nodes_in_graphs)
 
-    fallback_ops = (
-        fallback_ops - set(allowed_fallback_ops.values())
-        if isinstance(allowed_fallback_ops, dict)
-        else fallback_ops - allowed_fallback_ops
-    )
+    if allowed_fallback_ops:
+        fallback_ops = fallback_ops - allowed_fallback_ops
 
     if verbose:
         print(f"{op_names = }")
