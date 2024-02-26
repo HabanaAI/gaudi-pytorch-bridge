@@ -1404,7 +1404,7 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
             src_sizes = node_src_meta.meta["output_shapes"][0]
             src_strides = node_src_meta.meta["output_strides"][0]
             if ctx.is_dynamic:
-                meta_val = node_src_meta.meta.get('val', node.meta.get('tensor_meta', None))
+                meta_val = node_src_meta.meta.get('val', node_src_meta.meta.get('tensor_meta', None))
                 src_sizes, src_strides = get_as_strided_src_sizes_and_strides(
                     ctx.graph_module,
                     meta_val,
