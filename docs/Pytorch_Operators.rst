@@ -138,7 +138,7 @@ cumprod                                Yes      Yes      Yes       No       No  
 diag                                   Yes      Yes      No        No       No     torch
 div                                    Yes      Yes      Yes       Yes      No     torch
 divide                                 Yes      Yes      Yes       Yes      No     torch
-dot                                    Yes      Yes      No        No       No     torch
+dot                                    Yes      Yes      Yes       No       No     torch
 empty                                  Yes      Yes      Yes       Yes      Yes    torch
 empty_like                             Yes      Yes      Yes       Yes      Yes    torch
 empty_strided                          Yes      Yes      Yes       Yes      Yes    torch
@@ -421,7 +421,7 @@ cumsum                                 Yes      Yes      Yes       No       No  
 diag                                   Yes      Yes      No        No       No     torch.Tensor
 div                                    Yes      Yes      Yes       Yes      No     torch.Tensor
 div\_                                  Yes      Yes      Yes       Yes      No     torch.Tensor
-dot                                    Yes      Yes      No        No       No     torch.Tensor
+dot                                    Yes      Yes      Yes       No       No     torch.Tensor
 fill\_                                 Yes      Yes      Yes       No       No     torch.Tensor
 eq                                     Yes      Yes      Yes       Yes      No     torch.Tensor
 eq\_                                   Yes      Yes      Yes       Yes      No     torch.Tensor

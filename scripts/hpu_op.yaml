@@ -2464,18 +2464,18 @@ div.Scalar_out:
 dot:
   output_meta: DotMeta
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn, Int]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn, Int]
   guid: dot_fwd
   out_ids: [0]
 
 dot.out:
   output_meta: DotMeta
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn, Int]
+    Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn, Int]
   guid: dot_fwd
 
 elu:

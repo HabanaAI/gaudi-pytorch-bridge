@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -11,6 +11,7 @@
 
 #define TENSOR_TYPE_float torch::kFloat
 #define TENSOR_TYPE_bfloat16 torch::kBFloat16
+#define TENSOR_TYPE_int32 torch::kInt32
 
 #define GET_TENSOR_TYPE(type) TENSOR_TYPE_##type
 
@@ -37,7 +38,9 @@
 class HpuOpTest : public HpuOpTestUtil {};
 HPU_DOT_OUT_TEST(float);
 HPU_DOT_OUT_TEST(bfloat16);
+HPU_DOT_OUT_TEST(int32);
 HPU_DOT_TEST(float_1, float, 5);
 HPU_DOT_TEST(bfloat16_1, bfloat16, 5);
 HPU_DOT_TEST(float_2, float, 10);
 HPU_DOT_TEST(bfloat16_2, bfloat16, 12);
+HPU_DOT_TEST(int32, int32, 10);
