@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -58,26 +58,37 @@ static auto PrepareRois(
   return rois_outputs;
 }
 
+OutputMetaDataVector ComputeRoiAlignMetadata(const at::Stack& stack) {
+  auto dim0 = stack[1].toTensor().size(0);
+  auto dim1 = stack[0].toTensor().size(1);
+  auto dim2 = stack[3].toInt();
+  auto dim3 = stack[4].toInt();
+
+  return {OutputMetaData(
+      stack[0].toTensor().scalar_type(), {dim0, dim1, dim2, dim3})};
+}
+
 RoiAlign::RoiAlign(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "roialign_fwd", scalar_type, {0}, {}, {}, false) {}
+    : OpBackend(device_id, "roialign_fwd", scalar_type, {0}, {}, {}, false) {
+  SetOutputMetaFn(ComputeRoiAlignMetadata);
+}
 
 void RoiAlign::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(stack, "RoiAlign::AddNode");
   auto input = getNextInput<TensorsPair>(stackGetter);
   auto rois = getNextInput<TensorsPair>(stackGetter);
   auto spatial_scale = getNextInput<double>(stackGetter);
-  auto output_h = getNextInput<int>(stackGetter);
-  auto output_w = getNextInput<int>(stackGetter);
+  getNextInput<int>(stackGetter);
+  getNextInput<int>(stackGetter);
   auto sampling_ratio = getNextInput<int>(stackGetter);
   auto aligned = getNextInput<bool>(stackGetter);
 
-  const auto& dtype = ScalarType();
+  const auto output_meta = ComputeRoiAlignMetadata(stack)[0];
+  const auto& dtype = output_meta.dtype;
+  const auto& output_shape = output_meta.shape;
 
   auto rois_outputs =
       PrepareRois(this, graph, rois.syn_t, rois.pt_t.sizes().vec(), dtype);
-
-  std::vector<int64_t> output_shape{
-      rois.pt_t.size(0), input.pt_t.size(1), output_h, output_w};
 
   ns_RoiAlignKernel::ParamsAlignment roi_params{};
   roi_params.mode = RoiAlignMode_t::ROI_ALIGN_AVG;
@@ -107,8 +118,20 @@ void RoiAlign::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(output[0]);
 }
 
+OutputMetaDataVector ComputeRoiAlignBackwardMetadata(const at::Stack& stack) {
+  OutputMetaData meta;
+  meta.shape.reserve(4);
+  for (size_t i = 5; i < 9; ++i) {
+    meta.shape.push_back(stack[i].toInt());
+  }
+  meta.dtype = stack[0].toTensor().scalar_type();
+  return {meta};
+}
+
 RoiAlignBackward::RoiAlignBackward(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "roialign_bwd", scalar_type, {0}, {}, {}, false) {}
+    : OpBackend(device_id, "roialign_bwd", scalar_type, {0}, {}, {}, false) {
+  SetOutputMetaFn(ComputeRoiAlignBackwardMetadata);
+}
 
 void RoiAlignBackward::AddNode(
     synapse_helpers::graph& graph,
@@ -120,18 +143,20 @@ void RoiAlignBackward::AddNode(
   getNextInput<int>(stackGetter);
   getNextInput<int>(stackGetter);
   auto batch_size = getNextInput<int>(stackGetter);
-  auto channels = getNextInput<int>(stackGetter);
-  auto height = getNextInput<int>(stackGetter);
-  auto width = getNextInput<int>(stackGetter);
+  getNextInput<int>(stackGetter);
+  getNextInput<int>(stackGetter);
+  getNextInput<int>(stackGetter);
   auto sampling_ratio = getNextInput<int>(stackGetter);
   auto aligned = getNextInput<bool>(stackGetter);
 
   const auto rois_shape = rois.pt_t.sizes().vec();
-  const auto& dtype = ScalarType();
+
+  const auto output_meta = ComputeRoiAlignBackwardMetadata(stack)[0];
+  const auto& dtype = output_meta.dtype;
+  const auto& output_shape = output_meta.shape;
 
   auto rois_outputs = PrepareRois(this, graph, rois.syn_t, rois_shape, dtype);
 
-  std::vector<int64_t> output_shape{batch_size, channels, height, width};
   std::vector<int64_t> quad_tree_output_shape{
       batch_size, 256, rois_shape[0] + 1};
   auto quad_shape_tensor =
@@ -189,7 +214,7 @@ void RoiAlignBackward::AddNode(
       graph,
       guid_,
       std::move(inputs),
-      {{quad_tree_output_shape, dtype, 0}},
+      {{output_shape, dtype, 0}},
       &roi_params,
       sizeof(roi_params));
 

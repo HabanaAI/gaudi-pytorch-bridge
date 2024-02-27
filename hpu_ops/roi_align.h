@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -22,10 +22,12 @@ struct RoiAlign : OpBackend {
   RoiAlign(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
+OUTMETA_DECL(ComputeRoiAlignMetadata)
 
 struct RoiAlignBackward : OpBackend {
   RoiAlignBackward(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
+OUTMETA_DECL(ComputeRoiAlignBackwardMetadata)
 
 } // namespace habana
