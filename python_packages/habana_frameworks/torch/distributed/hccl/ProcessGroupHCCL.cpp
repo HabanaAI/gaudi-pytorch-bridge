@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -245,6 +245,19 @@ c10::intrusive_ptr<ProcessGroupHCCL::WorkHCCL> ProcessGroupHCCL::initWork(
         deviceCtxts) {
   return c10::make_intrusive<ProcessGroupHCCL::WorkHCCL>(
       outputs, devices, hccl_comms, deviceCtxts);
+}
+
+c10::intrusive_ptr<Work> ProcessGroupHCCL::initWork(
+    std::vector<at::Tensor>& outputs) {
+  std::vector<int> devices;
+  for (auto it = hccl_communicator_.begin(); it != hccl_communicator_.end();
+       it++) {
+    devices.push_back(it->first);
+  }
+  std::vector<int> res;
+  auto deviceCtxts = getDeviceCtxtList(devices);
+  auto comms = getCommList(devices);
+  return initWork(outputs, res, comms, deviceCtxts);
 }
 
 // Get the list of devices from list of tensors

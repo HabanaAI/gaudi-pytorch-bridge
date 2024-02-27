@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -154,6 +154,8 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
   void hostBarrier();
   void destroyHandshake();
 
+  virtual c10::intrusive_ptr<Work> initWork(
+      std::vector<at::Tensor>& outputs) = 0;
   virtual void permutedSendTensorsToDense(std::vector<at::Tensor>& tensors) = 0;
   virtual void clearPermutesFromRecvTensors(
       std::vector<at::Tensor>& tensors) = 0;

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -232,6 +232,13 @@ c10::intrusive_ptr<c10::ivalue::Future> ProcessGroupEagerHCCL::WorkEager::
     getFuture() {
   return future_;
 };
+
+c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::initWork(
+    std::vector<at::Tensor>& outputs) {
+  auto deviceCtxt = comm_->getDeviceCtxt();
+  return c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(
+      outputs, comm_->GetHcclHandle(), deviceCtxt);
+}
 
 c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
     std::vector<at::Tensor>& tensors,

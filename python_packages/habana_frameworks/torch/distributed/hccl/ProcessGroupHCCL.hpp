@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -111,6 +111,8 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
       std::vector<std::shared_ptr<hcclComm_t>>& hccl_comms_,
       std::vector<std::shared_ptr<hccl_integration::device_context>>&
           deviceCtxts);
+
+  c10::intrusive_ptr<Work> initWork(std::vector<at::Tensor>& outputs) override;
 
   void permutedSendTensorsToDense(std::vector<at::Tensor>& tensors) override;
   void clearPermutesFromRecvTensors(std::vector<at::Tensor>& tensors) override;

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -490,10 +490,70 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather_coalesced(
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
-    [[maybe_unused]] std::vector<std::vector<at::Tensor>>& outputTensors,
-    [[maybe_unused]] std::vector<at::Tensor>& inputTensors,
-    [[maybe_unused]] const GatherOptions& opts) {
-  throw std::runtime_error("gather is currently not supported with HCCL");
+    std::vector<std::vector<at::Tensor>>& outputTensors,
+    std::vector<at::Tensor>& inputTensors,
+    const GatherOptions& opts) {
+  bool change = false;
+  size_t tensor_size = outputTensors.empty() ? 0 : outputTensors[0].size();
+  std::unique_ptr<std::unique_ptr<bool[]>[]> changed(
+      new std::unique_ptr<bool[]>[tensor_size]());
+  std::vector<std::vector<std::vector<int64_t>>> sizeList(tensor_size);
+  std::vector<std::vector<std::vector<int64_t>>> strideList(tensor_size);
+  for (size_t i = 0; i < outputTensors.size(); i++) {
+    changed[i] = std::make_unique<bool[]>(outputTensors[i].size());
+    sizeList[i].resize(outputTensors[i].size());
+    strideList[i].resize(outputTensors[i].size());
+    change = resizeOddTensor(
+        outputTensors[i], changed[i], sizeList[i], strideList[i]);
+  }
+  size_t in_tensor_size = inputTensors.size();
+  std::unique_ptr<bool[]> in_changed(new bool[in_tensor_size]);
+  std::vector<std::vector<int64_t>> in_sizeList(in_tensor_size);
+  std::vector<std::vector<int64_t>> in_strideList(in_tensor_size);
+  resizeOddTensor(inputTensors, in_changed, in_sizeList, in_strideList);
+  HOST_SYNC()
+
+  static auto invalidArgument = [](const std::string& msg) {
+    C10_THROW_ERROR(ValueError, "ProcessGroupLazyHCCL::gather: " + msg);
+  };
+
+  std::vector<at::Tensor> outputs;
+  c10::intrusive_ptr<Work> work;
+  if (getRank() == opts.rootRank) {
+    TORCH_CHECK(outputTensors.size() == 1, "Requires a single element list");
+    TORCH_CHECK(
+        outputTensors[0].size() == static_cast<size_t>(getSize()),
+        "Output list should be same size as process group");
+    assertTypeAndSizesMatch(
+        invalidArgument,
+        outputTensors[0],
+        inputTensors[0].options(),
+        inputTensors[0].sizes());
+    outputs = outputTensors[0];
+    int numRanks = getSize();
+    for (int r = 0; r < numRanks; r++) {
+      if (r == getRank()) {
+        outputs[r].copy_(inputTensors[0]);
+        work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
+      } else {
+        std::vector<at::Tensor> recvTensor;
+        recvTensor.push_back(outputs[r]);
+        work = recv(recvTensor, r, 0 /*tag*/);
+      }
+    }
+  } else {
+    TORCH_CHECK(outputTensors.size() == 0, "Requires empty output on non-root");
+    work = send(inputTensors, opts.rootRank, 0 /*tag*/);
+  }
+  if (change) {
+    PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::gather");
+    habana_lazy::HbLazyTensor::StepMarker();
+  }
+  for (size_t i = 0; i < outputTensors.size(); i++) {
+    restoreOddTensorsize(
+        outputTensors[i], changed[i], sizeList[i], strideList[i]);
+  }
+  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall(
