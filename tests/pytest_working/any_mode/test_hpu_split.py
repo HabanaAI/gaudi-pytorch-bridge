@@ -57,5 +57,5 @@ def test_split(shape, size, dim, dtype):
         assert res_hpu.dtype == dtype
 
     if is_pytest_mode_compile():
-        op = "split_with_sizes" if type(size) == list else "split"
+        op = "split_with_sizes" if type(size) == list else "slice"
         check_ops_executed_in_jit_ir(op)

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -891,29 +891,29 @@ def test_op_square_inplace_output():
         assert torch.allclose(h_result1.to("cpu"), result1, atol=0.001, rtol=0.001)
     configuration_flags["use_eager_fallback"] = is_eager_fallback
 
-@pytest.mark.skip(reason="SW-173289")
-def test_op_split():
+
+@pytest.mark.parametrize("split_dim", [0,1,2,-1,-2,-3])
+@pytest.mark.parametrize("split_size", [1,2,3])
+def test_op_split(split_size, split_dim):
     input_shapes = [
-        (6, 3, 5),
-        (8, 3, 5),
-        (10, 3, 5),
-        (12, 3, 5)
+        (16, 12, 12),
+        (10, 6, 5),
+        (24, 24, 20)
     ]
 
-    def raw_function(t1, t2):
-        t2 = t1.add(t2)
-        chunks = torch.split(t2, 2)
-        t3 = chunks[0].add(chunks[0])
-        return t3
+    def raw_function(t2):
+        res = torch.split(t2, split_size, split_dim)
+        return res
 
-    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+    # workaround for: https://jira.habana-labs.com/browse/SW-162350
+    # Slice op is not yet supported for dynamic shape in torch compile
+    # to support functionality of `split op` we are decomposing to `slice op`
+    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=False)
 
     for s in input_shapes:
         t1 = torch.randn(s, requires_grad=False)
-        t2 = torch.randn(s, requires_grad=False)
-        result = raw_function(t1, t2)
+        result = raw_function(t1)
         t1_h = t1.to("hpu")
-        t2_h = t2.to("hpu")
-        h_result = compiled_fn(t1_h, t2_h)
-        for i, _ in enumerate(result):
+        h_result = compiled_fn(t1_h)
+        for i in range(len(result)):
             assert torch.allclose(h_result[i].to("cpu"), result[i], atol=0.001, rtol=0.001)

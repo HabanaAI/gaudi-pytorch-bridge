@@ -11,6 +11,7 @@
 ###############################################################################
 
 from typing import Optional
+from itertools import accumulate
 
 import torch
 import torch._prims_common as utils
@@ -454,6 +455,35 @@ def randint_low_generator(*args, **kwargs):
 @register_custom_decomposition(aten._euclidean_dist, hpu_backend_decompositions_common)
 def euclidean_dist(x1, x2):
     return torch.ops.aten._cdist_forward(x1, x2, 2.0, 1)
+
+
+@register_custom_decomposition(aten.split.Tensor, hpu_backend_decompositions_common)
+def split(self, split_size, dim=0):
+    if dim < 0:
+        dim += self.dim()
+    assert dim < self.dim() and dim >= 0, " given dimension value is out of range"
+    cur_size = self.size(dim)
+    assert (
+        type(split_size) == int or type(split_size) == list or type(split_size) == torch.SymInt
+    ), "split_size_or_sections is not a int value or list"
+    # create a new list based on split_size(int)
+    if type(split_size) != list:
+        split_size = [split_size] * (cur_size // split_size)
+        if cur_size != sum(split_size):
+            split_size.append(cur_size - sum(split_size))
+    # create a new list based on split list for calculating start and end indices
+    new_split = [0] + split_size
+    split_len = len(new_split)
+    result = [None] * (split_len - 1)
+
+    # accumulate the list that will help us to fetch start and end index
+    new_split = list(accumulate(new_split))
+
+    for idx in range(1, split_len):
+        # workaround for: https://jira.habana-labs.com/browse/SW-162350
+        # Slice op is not yet supported for dynamic shape in torch compile
+        result[idx - 1] = aten.slice(self, dim, new_split[idx - 1], new_split[idx], 1)
+    return tuple(result)
 
 
 def get_hpu_decompositions():
