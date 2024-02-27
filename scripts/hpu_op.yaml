@@ -2556,7 +2556,10 @@ eq.Scalar_out:
   handle_bool_inputs: true
 
 eq.Tensor_out:
-  dtypes: [BFloat16, Float, Int, Char, Byte, Long, Short, Half]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
+    Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
   guid: equal_fwd
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
