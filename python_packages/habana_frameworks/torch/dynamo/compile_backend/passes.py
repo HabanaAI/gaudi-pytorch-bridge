@@ -369,6 +369,14 @@ def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
     graph_changed = False
     py_node_manager = SymExprNodeManager(ctx.graph_module)
 
+    def _is_sym_size_node(node):
+        return (
+            node.target in [
+                torch.ops.aten.sym_size,
+                torch.ops.aten.sym_size.int
+            ]
+        )
+
     def process_symsize(node):
         in_node = node.args[0]
         sym_size_dim = node.args[1]
@@ -386,7 +394,7 @@ def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
                 py_node_manager.add_sym_placeholder(tmeta_val, node)
             py_node_manager.set_insert_point(node)
 
-        if node.target == torch.ops.aten.sym_size:
+        if _is_sym_size_node(node):
             process_symsize(node)
             graph_changed = True
 
