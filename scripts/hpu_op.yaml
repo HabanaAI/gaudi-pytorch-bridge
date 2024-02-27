@@ -6771,6 +6771,7 @@ sgn_:
   op_validator: check-node-with-shared-layer
 
 sigmoid.out:
+  custom_fill_params: FillSigmoidParams
   promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
@@ -6780,6 +6781,7 @@ sigmoid.out:
   op_validator: check-node-with-shared-layer
 
 sigmoid:
+  custom_fill_params: FillSigmoidParams
   promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
@@ -6790,6 +6792,7 @@ sigmoid:
   op_validator: check-node-with-shared-layer
 
 sigmoid_:
+  custom_fill_params: FillSigmoidParams
   promote_int_to_float: [self]
   dtypes:
     Gaudi: [BFloat16, Float]
