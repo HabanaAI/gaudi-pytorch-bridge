@@ -309,27 +309,27 @@ def set_device(device: _device_t) -> None:
 
     if current_module_id >= 0:
         if int(current_module_id) != int(requested_module_id):
-            raise AssertionError(
-                f"Requested module_id={requested_module_id} is different from current_module_id={current_module_id}"
-                f" which was previously set."
-            )
+            requested_module_id = current_module_id
 
-    if (
-        current_module_id == -1
-        and HABANA_VISIBLE_MODULES_VAR not in os.environ
-        and device_count() < 8
-    ):
+        for index in range(device_count()):
+            if available_modules[index] == current_module_id:
+                device_idx = index
+                break
+
+        assert (
+            available_modules[device_idx] == current_module_id
+        ), f"Requested module_id={available_modules[device_idx]} is different from current_module_id={current_module_id} which was previously set."
+
+    if current_module_id == -1 and HABANA_VISIBLE_MODULES_VAR not in os.environ and device_count() < 8:
         # As HLS_MODULE_ID is not set and HABANA_VISIBLE_MODULES is not provided
         # by user:
         # - the only supported device idx is 0
         # - Module ID (HLS_MODULE_ID) can't be set as we don't know what Module
         #   IDs are available in system. In a result device will be allocated by
         #   type
-        assert (
-            device_idx == 0
-        ), f"As {HABANA_VISIBLE_MODULES_VAR} is not provided, the only supported device idx is 0."
+        assert device_idx == 0, f"As {HABANA_VISIBLE_MODULES_VAR} is not provided, the only supported device idx is 0."
     else:
-        os.environ[HLS_MODULE_ID_VAR] = available_modules[device_idx]
+        os.environ[HLS_MODULE_ID_VAR] = str(available_modules[device_idx])
 
     set_device.current_device_idx = device_idx
 
@@ -346,8 +346,7 @@ class device(object):
         env_device_idx = _get_module_id_from_environ()
         if device_idx != 0 and device_idx != env_device_idx:
             raise AssertionError(
-                f"Requested device_id={device_idx} is different from env_device_id={env_device_idx}"
-            )
+                f"Requested device_id={device_idx} is different from env_device_id={env_device_idx}")
         self.idx = env_device_idx
         self.prev_idx = -1
 
@@ -403,7 +402,8 @@ def utilization(device: Optional[Union[Device, int]] = None) -> int:
     try:
         import pyhlml  # type: ignore[import]
     except ModuleNotFoundError:
-        raise ModuleNotFoundError("pyhlml module not found, please install pyhlml")
+        raise ModuleNotFoundError(
+            "pyhlml module not found, please install pyhlml")
     pyhlml.hlmlInit()
     pyhlml_device = pyhlml.hlmlDeviceGetHandleByIndex(device_idx)
     usage = pyhlml.hlmlDeviceGetUtilizationRates(pyhlml_device)
@@ -414,9 +414,11 @@ def utilization(device: Optional[Union[Device, int]] = None) -> int:
 def _create_tensor_alias(name, dtype):
     def tensor_alias(*args, **kwargs):
         if "device" in kwargs:
-            raise TypeError(f"hpu.{name}() got an unexpected keyword argument 'device'")
+            raise TypeError(
+                f"hpu.{name}() got an unexpected keyword argument 'device'")
         if "dtype" in kwargs:
-            raise TypeError(f"hpu.{name}() got an unexpected keyword argument 'dtype'")
+            raise TypeError(
+                f"hpu.{name}() got an unexpected keyword argument 'dtype'")
         kwargs["device"] = "hpu"
         kwargs["dtype"] = dtype
         return torch.tensor(*args, **kwargs)
