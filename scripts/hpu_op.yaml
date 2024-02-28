@@ -4429,11 +4429,11 @@ masked_fill_.Scalar:
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
       self: [BFloat16, Float, Int, Char, Half, Long]
-      mask: [Int, Char]
+      mask: [Int, Char, Long]
       value: [BFloat16, Float, Int, Char, Half, Long]
     Gaudi3:
       self: [BFloat16, Float, Int, Char, Half, Long]
-      mask: [Int, Char]
+      mask: [Int, Char, Long]
       value: [BFloat16, Float, Int, Char, Half, Long]
   guid: where
   op_backend: MaskedFill
@@ -4448,11 +4448,11 @@ masked_fill_.Tensor:
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
       self: [BFloat16, Float, Int, Char, Half, Long]
-      mask: [Int, Char]
+      mask: [Int, Char, Long]
       value: [BFloat16, Float, Int, Char, Half, Long]
     Gaudi3:
       self: [BFloat16, Float, Int, Char, Half, Long]
-      mask: [Int, Char]
+      mask: [Int, Char, Long]
       value: [BFloat16, Float, Int, Char, Half, Long]
   guid: where
   op_backend: MaskedFill
@@ -4467,11 +4467,11 @@ masked_fill.Scalar:
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
       self: [BFloat16, Float, Int, Char, Half, Long]
-      mask: [Int, Char]
+      mask: [Int, Char, Long]
       value: [BFloat16, Float, Int, Char, Half, Long]
     Gaudi3:
       self: [BFloat16, Float, Int, Char, Half, Long]
-      mask: [Int, Char]
+      mask: [Int, Char, Long]
       value: [BFloat16, Float, Int, Char, Half, Long]
   guid: where
   op_backend: MaskedFill
@@ -4487,11 +4487,11 @@ masked_fill.Tensor:
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
       self: [BFloat16, Float, Int, Char, Half, Long]
-      mask: [Int, Char]
+      mask: [Int, Char, Long]
       value: [BFloat16, Float, Int, Char, Half, Long]
     Gaudi3:
       self: [BFloat16, Float, Int, Char, Half, Long]
-      mask: [Int, Char]
+      mask: [Int, Char, Long]
       value: [BFloat16, Float, Int, Char, Half, Long]
   guid: where
   op_backend: MaskedFill
@@ -6393,10 +6393,10 @@ scatter.value:
       self: [BFloat16, Float, Int, Short, Byte, Char]
       index: [Int, Long]
     Gaudi2:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
       index: [Int, Long]
     Gaudi3:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
       index: [Int, Long]
   op_backend: ScatterOperator
   out_ids: [0]
@@ -6407,10 +6407,10 @@ scatter_.value:
       self: [BFloat16, Float, Int, Short, Byte, Char]
       index: [Int, Long]
     Gaudi2:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
       index: [Int, Long]
     Gaudi3:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
       index: [Int, Long]
   op_backend: ScatterOperator
   inplace_ids: [0]
@@ -6422,13 +6422,13 @@ scatter.value_out:
       index: [Int, Long]
       out: [BFloat16, Float, Int, Short, Byte, Char]
     Gaudi2:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
       index: [Int, Long]
-      out: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      out: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
     Gaudi3:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
       index: [Int, Long]
-      out: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      out: [BFloat16, Float, Int, Short, Byte, Char, Half, Long]
   op_backend: ScatterOperator
 
 scatter_add:
