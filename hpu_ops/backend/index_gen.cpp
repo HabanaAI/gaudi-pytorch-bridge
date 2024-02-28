@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -348,7 +348,6 @@ void IndexHabanaOperator::AddNode(
 
     synConcatenateParams concat_params{};
     concat_params.axis = dim;
-
     auto catop1 = BuildOp(
         graph,
         "concat",
@@ -656,13 +655,9 @@ void IndexHabanaOperator::AddNode(
         cat_input_index.emplace_back(
             cat_input_tensor[cat_input_tensor.size() - 1].pt_shape());
       } else if (!index_all_elems[dim]) {
-        //"explicit_index_pos - 1" used below because we already incremented
-        // explicit_index_pos
-        auto t_sz = indices.get(explicit_index_pos - 1).sizes().vec();
-        std::vector<int64_t> expanded_size{1};
-        for (auto s : t_sz) {
-          expanded_size.push_back(s);
-        }
+        //"explicit_index_pos - 1" used below because it's already been incremented
+        std::vector<int64_t> expanded_size {1};
+        expanded_size.push_back(indices.get(explicit_index_pos - 1).numel());
         cat_input_tensor.emplace_back(ReshapeHelper(
             graph,
             syn_in(explicit_index_pos), // no "-1" as indices tensors start from

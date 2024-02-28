@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -23,7 +23,6 @@ from test_utils import cpu, hpu
         pytest.param((5, 5, 5, 5), ([1, 2, 3],)),
         pytest.param((5, 5, 5, 5, 5), ([1, 2, 3], [0, 2, 3], [0, 2, 4], [2, 3, 4])),
         pytest.param((5, 5), (None, [1, 2, 3],)),
-        #pytest.param((2, 3, 4), (None, None,)), THIS CASE DOES NOT WORK IN PYTORCH ITSELF
         pytest.param((2, 3, 4), ([1, 0], [0], None,)),
         pytest.param((2, 3, 8, 8), ([[[1], [0]]],)),
         pytest.param((4, 3, 8, 8), (None, [1, 2], None,)),
@@ -32,6 +31,10 @@ from test_utils import cpu, hpu
         pytest.param((4, 3, 8, 8), ([0, 1, 2], None, None, [1, 2, 7])),
         pytest.param((2, 3, 8, 8, 8), (None, None, [1, 2, 7], None, [3, 6, 7])),
         pytest.param((2, 3, 8, 8, 8), (None, None, None, [1, 2, 7], [3, 6, 7])),
+        pytest.param((2, 3, 4), ([[1], [0]], [0], None,)),
+        pytest.param((3, 2, 2, 3), (None, [[0, 1]], None, [[[0, 1]],[[0, 1]]])),
+        pytest.param((3, 2, 2, 3), (None, [[0, 1]], [0], [[[0, 1]],[[0, 1]]])),
+        pytest.param((2, 3, 8, 8, 8), (None, [[0], [1], [2]], [[[7]]], None, [3, 6, 7])),
     ],
 )
 def test_index(shape, indices):

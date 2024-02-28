@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -346,6 +346,11 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
     }
     num_index_tensors = (int)indices_ival.size();
   }
+
+  auto broadcast_to_this_size = broadcast_size(indices);
+  for (auto& tensor : indices)
+    tensor = at::broadcast_to(tensor, broadcast_to_this_size);
+
   //"self" is not yet permuted for advanced indexing, but it has to be
   // considered permuted while using self's sizes in computations
   return std::make_tuple(
