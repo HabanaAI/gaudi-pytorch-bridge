@@ -19,7 +19,7 @@ from test_utils import (
     is_pytest_mode_compile,
 )
 
-dtypes = [torch.float32, torch.bfloat16, torch.int]
+dtypes = [torch.float32, torch.bfloat16, torch.int, torch.int8, torch.uint8, torch.bool]
 fp8_dtypes = [torch.float8_e5m2, torch.float8_e4m3fn]
 if not is_gaudi1():
     dtypes += fp8_dtypes

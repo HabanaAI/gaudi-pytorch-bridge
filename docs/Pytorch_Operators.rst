@@ -230,6 +230,7 @@ reshape                                Yes      Yes      Yes       Yes      Yes 
 resolve_conj                           Yes      Yes      No        No       No     torch
 resolve_neg                            Yes      Yes      No        No       No     torch
 result_type                            Yes      Yes      Yes       No       No     torch
+roll                                   Yes      Yes      Yes       Yes      Yes    torch
 round                                  Yes      Yes      No        No       No     torch
 rsqrt                                  Yes      Yes      No        No       No     torch
 rsub                                   Yes      Yes      No        No       No     torch
@@ -540,6 +541,7 @@ remainder                              Yes      No       Yes       Yes      No  
 remainder\_                            No       No       Yes       Yes      No     torch.Tensor
 repeat                                 Yes      Yes      Yes       Yes      Yes    torch.Tensor
 reshape                                Yes      Yes      Yes       Yes      Yes    torch.Tensor
+roll                                   Yes      Yes      Yes       Yes      Yes    torch.Tensor
 round                                  Yes      Yes      No        No       No     torch.Tensor
 round\_                                Yes      Yes      No        No       No     torch.Tensor
 rsqrt                                  Yes      Yes      No        No       No     torch.Tensor

@@ -6199,9 +6199,9 @@ _resize_output_:
 
 roll:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Short, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Char, Short, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Byte, Float, Int, Char, Short]
+    Gaudi2: [BFloat16, Byte, Float, Int, Char, Short, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Byte, Float, Int, Char, Short, Float8_e5m2, Float8_e4m3fn]
   out_ids: [0]
   op_backend: RollHabanaOperator
 

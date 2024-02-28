@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -62,6 +62,20 @@ TEST_F(HpuOpTest, roll_5d) {
 TEST_F(HpuOpTest, roll_bf16) {
   constexpr unsigned int dim0 = 4, dim1 = 3;
   GenerateInputs(1, {{dim0, dim1}}, {torch::kBFloat16});
+
+  std::srand((unsigned int)-1);
+  std::array<int64_t, 2> shift = {-1 * std::rand(), std::rand()};
+  std::array<int64_t, 2> axis = {0, 1};
+
+  auto expected = torch::roll(GetCpuInput(0), shift, axis);
+  auto result = torch::roll(GetHpuInput(0), shift, axis);
+
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, roll_u8) {
+  constexpr unsigned int dim0 = 4, dim1 = 5;
+  GenerateInputs(1, {{dim0, dim1}}, {torch::kUInt8});
 
   std::srand((unsigned int)-1);
   std::array<int64_t, 2> shift = {-1 * std::rand(), std::rand()};
