@@ -27,9 +27,6 @@ def test_static_fallback():
     inputs = [((16,9,32,16,16), [4,4,3,3,2,16,16,16]),
               ((16,27,36,25,16), [4,4,3,9,2,18,25,16])]
 
-    is_eager_fallback = configuration_flags["use_eager_fallback"]
-    configuration_flags["use_eager_fallback"] = True
-
     def raw_function(tensor1, list1):
         view1 = tensor1.view(torch.Size(list1))
         result = torch.sum(view1, (0, 2, 4), False)
@@ -49,11 +46,10 @@ def test_static_fallback():
         result_h = compiled_fn(tensor1_h, inp[1])
 
         assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
-    configuration_flags["use_eager_fallback"] = is_eager_fallback
 
 def test_op_ones_like():
     """
-    Checks that cached shape of an input zero-dim tensor during the graph compilation in the 
+    Checks that cached shape of an input zero-dim tensor during the graph compilation in the
     dynamic flow does not change to one-dim for ones_like op
     """
     def raw_function(t1):
