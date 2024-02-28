@@ -266,8 +266,8 @@ aten::fake_quantize_per_channel_affine_cachemask
 aten::multi_margin_loss_backward.grad_input
 aten::_assert_async.msg
 aten::logit_backward.grad_input
-aten::_foreach_minimum_.List
 aten::ge.Tensor_out
+aten::_foreach_minimum_.List
 aten::ge.Tensor
 aten::scatter.value
 aten::_foreach_norm.Scalar
@@ -322,6 +322,7 @@ aten::max_pool2d_with_indices_backward
 aten::_foreach_abs
 aten::addmm
 aten::min.dim
+aten::any.dims_out
 aten::binary_cross_entropy.out
 aten::_cudnn_rnn
 aten::_foreach_addcdiv.ScalarList
@@ -377,12 +378,14 @@ aten::_transform_bias_rescale_qkv
 aten::triangular_solve.X
 aten::linalg_ldl_solve
 aten::triu_
+aten::_mixed_dtypes_linear
 aten::remainder.Tensor_out
 aten::argmax.out
 aten::aminmax.out
 aten::addmm_
 aten::logit.out
 aten::_foreach_lgamma
+aten::_weight_int4pack_mm
 aten::exp.out
 aten::scatter_add.out
 aten::linalg_ldl_solve.out
@@ -450,6 +453,7 @@ aten::atan2_
 aten::is_pinned
 aten::trunc.out
 aten::frexp.Tensor_out
+aten::_foreach_add.Tensor
 aten::amin
 aten::dequantize.self
 aten::min.unary_out
@@ -625,6 +629,7 @@ aten::addr
 aten::_fake_quantize_learnable_per_channel_affine_backward
 aten::lu_unpack
 aten::adaptive_max_pool3d_backward.grad_input
+aten::_convert_weight_to_int4pack
 aten::linspace.out
 aten::sigmoid
 aten::sign.out
@@ -636,6 +641,7 @@ aten::avg_pool3d_backward.grad_input
 aten::linalg_inv_ex.inverse
 aten::cudnn_affine_grid_generator_backward
 aten::_compute_linear_combination.out
+aten::_foreach_div_.Tensor
 aten::erfinv.out
 aten::ormqr
 aten::special_bessel_j1.out
@@ -759,6 +765,7 @@ aten::_adaptive_avg_pool3d
 aten::pow.Tensor_Tensor
 aten::_foreach_trunc
 aten::std.correction
+aten::all.dims_out
 aten::_foreach_div.List
 aten::_linalg_svd
 aten::_foreach_add_.Scalar
@@ -862,6 +869,7 @@ aten::_unique
 aten::addr.out
 aten::adaptive_avg_pool3d_backward.grad_input
 aten::dense_dim
+aten::all.dims
 aten::silu_backward
 aten::maximum.out
 aten::grid_sampler_2d_backward
@@ -1086,6 +1094,7 @@ aten::nanmedian.dim_values
 aten::special_bessel_y0.out
 aten::bucketize.Tensor_out
 aten::max.dim
+aten::_foreach_div.Tensor
 aten::_nested_view_from_buffer
 aten::_slow_conv2d_backward.output_mask
 aten::linalg_eig
@@ -1114,11 +1123,11 @@ aten::scatter.value_reduce_out
 aten::_addmm_activation.out
 aten::clamp_max.Tensor_out
 aten::floor
-aten::_unsafe_index.Tensor
 aten::_foreach_exp
 aten::clamp.out
 aten::_fft_c2r
 aten::_softmax_backward_data.out
+aten::_foreach_add_.Tensor
 aten::mm
 aten::_convert_indices_from_coo_to_csr
 aten::_foreach_sub.Scalar
@@ -1160,6 +1169,7 @@ aten::_foreach_sinh_
 aten::scatter.reduce_out
 aten::histc
 aten::special_shifted_chebyshev_polynomial_u.out
+aten::any.dims
 aten::_foreach_addcmul_.ScalarList
 aten::heaviside.out
 aten::tril.out

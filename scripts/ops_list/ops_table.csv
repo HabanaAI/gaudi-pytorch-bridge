@@ -94,6 +94,7 @@ aten::_convert_indices_from_coo_to_csr;                              YES; YES; N
 aten::_convert_indices_from_coo_to_csr.out;                          YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_convert_indices_from_csr_to_coo;                              YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
 aten::_convert_indices_from_csr_to_coo.out;                          YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::_convert_weight_to_int4pack;                                   NO;  YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_convolution;                                                  NO;  NO;  NO;  NO;       DT_DT; NO;      YES;  NO;           0;
 aten::_convolution.deprecated;                                       NO;  NO;  NO;  YES;      DF_DT; NO;      YES;  NO;           0;
 aten::_convolution.out;                                              NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
@@ -186,9 +187,12 @@ aten::_foreach_add.Scalar;                                           YES; YES; Y
 aten::_foreach_add.ScalarList;                                       YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::_foreach_add.ScalarList_out;                                   NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::_foreach_add.Scalar_out;                                       NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::_foreach_add.Tensor;                                           YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::_foreach_add.Tensor_out;                                       NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::_foreach_add_.List;                                            YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::_foreach_add_.Scalar;                                          YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::_foreach_add_.ScalarList;                                      YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
+aten::_foreach_add_.Tensor;                                          YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_foreach_addcdiv.Scalar;                                       YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_foreach_addcdiv.ScalarList;                                   YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_foreach_addcdiv.ScalarList_out;                               NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
@@ -249,9 +253,12 @@ aten::_foreach_div.Scalar;                                           YES; YES; N
 aten::_foreach_div.ScalarList;                                       YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_foreach_div.ScalarList_out;                                   NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::_foreach_div.Scalar_out;                                       NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::_foreach_div.Tensor;                                           YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::_foreach_div.Tensor_out;                                       NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::_foreach_div_.List;                                            YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_foreach_div_.Scalar;                                          YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_foreach_div_.ScalarList;                                      YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::_foreach_div_.Tensor;                                          YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_foreach_erf;                                                  YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::_foreach_erf.out;                                              NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::_foreach_erf_;                                                 YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
@@ -460,6 +467,7 @@ aten::_masked_softmax;                                               YES; YES; N
 aten::_masked_softmax.out;                                           NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::_masked_softmax_backward;                                      YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_masked_softmax_backward.out;                                  NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::_mixed_dtypes_linear;                                          NO;  YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_mkldnn_reshape;                                               NO;  NO;  NO;  NO;       DT_DF; NO;      NO;   NO;           0;
 aten::_mkldnn_reshape.out;                                           NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::_mkldnn_transpose;                                             NO;  NO;  NO;  NO;       DT_DF; NO;      NO;   NO;           0;
@@ -679,7 +687,7 @@ aten::_unique.out;                                                   NO;  NO;  N
 aten::_unique2;                                                      YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::_unique2.out;                                                  NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::_unpack_dual;                                                  NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
-aten::_unsafe_index.Tensor;                                          YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::_unsafe_index.Tensor;                                          NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::_unsafe_index_put;                                             NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::_unsafe_view;                                                  NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::_unsafe_view.out;                                              NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
@@ -722,6 +730,7 @@ aten::_values;                                                       NO;  NO;  N
 aten::_values_copy;                                                  NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::_values_copy.out;                                              NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::_version;                                                      NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
+aten::_weight_int4pack_mm;                                           NO;  YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::_weight_norm;                                                  NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
 aten::_weight_norm_differentiable_backward;                          NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
 aten::_weight_norm_interface;                                        YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
@@ -795,6 +804,8 @@ aten::all.all_out;                                                   YES; YES; Y
 aten::all.dim;                                                       YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::all.dimname;                                                   NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
 aten::all.dimname_out;                                               NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
+aten::all.dims;                                                      YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
+aten::all.dims_out;                                                  YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
 aten::all.out;                                                       YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::allclose;                                                      NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::alpha_dropout;                                                 NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
@@ -812,6 +823,8 @@ aten::any.all_out;                                                   YES; YES; Y
 aten::any.dim;                                                       YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::any.dimname;                                                   NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
 aten::any.dimname_out;                                               NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
+aten::any.dims;                                                      YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
+aten::any.dims_out;                                                  YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
 aten::any.out;                                                       YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::arange;                                                        NO;  NO;  YES; NO;       DT_DT; NO;      YES;  NO;           0;
 aten::arange.out;                                                    NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
@@ -1807,6 +1820,12 @@ aten::linear.out;                                                    NO;  NO;  N
 aten::linear_backward;                                               NO;  NO;  YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::linear_backward.out;                                           NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::linspace;                                                      NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::linspace.Scalar_Tensor;                                        NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::linspace.Scalar_Tensor_out;                                    NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::linspace.Tensor_Scalar;                                        NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::linspace.Tensor_Scalar_out;                                    NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::linspace.Tensor_Tensor;                                        NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::linspace.Tensor_Tensor_out;                                    NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::linspace.out;                                                  YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::log;                                                           YES; YES; YES; NO;       DT_DT; NO;      YES;  NO;           0;
 aten::log.out;                                                       YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
@@ -1859,6 +1878,12 @@ aten::logit_;                                                        YES; YES; Y
 aten::logit_backward;                                                YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::logit_backward.grad_input;                                     YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::logspace;                                                      NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::logspace.Scalar_Tensor;                                        NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::logspace.Scalar_Tensor_out;                                    NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::logspace.Tensor_Scalar;                                        NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::logspace.Tensor_Scalar_out;                                    NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::logspace.Tensor_Tensor;                                        NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
+aten::logspace.Tensor_Tensor_out;                                    NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::logspace.out;                                                  YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::logsumexp;                                                     NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::logsumexp.names;                                               NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
@@ -1891,6 +1916,7 @@ aten::masked_fill_.Tensor;                                           YES; YES; Y
 aten::masked_scatter;                                                NO;  NO;  YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::masked_scatter.out;                                            NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::masked_scatter_;                                               YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
+aten::masked_scatter_backward;                                       NO;  NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::masked_select;                                                 YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::masked_select.out;                                             YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::masked_select_backward;                                        NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
@@ -2069,7 +2095,7 @@ aten::nanquantile.scalar;                                            NO;  NO;  N
 aten::nanquantile.scalar_out;                                        NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
 aten::nansum;                                                        YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::nansum.out;                                                    YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
-aten::narrow;                                                        NO;  NO;  NO;  YES;      DF_DT; NO;      YES;  NO;           0;
+aten::narrow;                                                        NO;  NO;  NO;  NO;       DT_DT; NO;      YES;  NO;           0;
 aten::narrow.Tensor;                                                 NO;  NO;  NO;  YES;      DF_DT; NO;      YES;  NO;           0;
 aten::narrow_copy;                                                   YES; NO;  NO;  NO;       DT_DT; NO;      NO;   NO;           0;
 aten::narrow_copy.out;                                               YES; NO;  NO;  NO;       DT_DF; NO;      NO;   NO;           0;

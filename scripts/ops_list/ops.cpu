@@ -276,8 +276,8 @@ aten::multi_margin_loss_backward.grad_input
 aten::quantize_per_tensor.tensors
 aten::_assert_async.msg
 aten::logit_backward.grad_input
-aten::_foreach_minimum_.List
 aten::ge.Tensor_out
+aten::_foreach_minimum_.List
 aten::ge.Tensor
 aten::scatter.value
 aten::_foreach_norm.Scalar
@@ -335,6 +335,7 @@ quantized::embedding_byte
 aten::_foreach_abs
 aten::addmm
 aten::min.dim
+aten::any.dims_out
 aten::binary_cross_entropy.out
 aten::_foreach_addcdiv.ScalarList
 aten::rrelu_with_noise_
@@ -464,6 +465,7 @@ aten::fractional_max_pool3d_backward.grad_input
 aten::atan2_
 aten::trunc.out
 aten::frexp.Tensor_out
+aten::_foreach_add.Tensor
 mkldnn::_convolution_pointwise.binary
 aten::amin
 aten::dequantize.self
@@ -656,6 +658,7 @@ aten::signbit
 aten::avg_pool3d_backward.grad_input
 aten::linalg_inv_ex.inverse
 aten::_compute_linear_combination.out
+aten::_foreach_div_.Tensor
 aten::erfinv.out
 aten::ormqr
 aten::special_bessel_j1.out
@@ -783,6 +786,7 @@ aten::_adaptive_avg_pool3d
 aten::pow.Tensor_Tensor
 aten::_foreach_trunc
 aten::std.correction
+aten::all.dims_out
 aten::_foreach_div.List
 aten::_linalg_svd
 aten::_foreach_add_.Scalar
@@ -889,6 +893,7 @@ aten::addr.out
 aten::adaptive_avg_pool3d_backward.grad_input
 aten::dense_dim
 quantized::embedding_4bit
+aten::all.dims
 aten::silu_backward
 aten::maximum.out
 aten::grid_sampler_2d_backward
@@ -1114,6 +1119,7 @@ aten::nanmedian.dim_values
 aten::special_bessel_y0.out
 aten::bucketize.Tensor_out
 aten::max.dim
+aten::_foreach_div.Tensor
 aten::_nested_view_from_buffer
 aten::_slow_conv2d_backward.output_mask
 aten::linalg_eig
@@ -1143,12 +1149,12 @@ aten::clamp_max.Tensor_out
 aten::histogram.bin_ct
 aten::floor
 quantized::max_pool2d
-aten::_unsafe_index.Tensor
 aten::_foreach_exp
 aten::quantized_gru.input
 aten::clamp.out
 aten::_fft_c2r
 aten::_softmax_backward_data.out
+aten::_foreach_add_.Tensor
 aten::mm
 mkldnn::_convolution_transpose_pointwise
 aten::_convert_indices_from_coo_to_csr
@@ -1189,6 +1195,7 @@ aten::_foreach_sinh_
 aten::scatter.reduce_out
 aten::histc
 aten::special_shifted_chebyshev_polynomial_u.out
+aten::any.dims
 aten::_foreach_addcmul_.ScalarList
 aten::heaviside.out
 aten::tril.out

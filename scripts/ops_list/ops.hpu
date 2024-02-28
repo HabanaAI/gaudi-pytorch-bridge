@@ -60,7 +60,6 @@ aten::randperm
 aten::prod.dim_int
 aten::count_nonzero.dim_IntList
 aten::bernoulli_.Tensor
-hpu::conv2d_fp8.scalar_list
 aten::replication_pad3d.out
 aten::isposinf.out
 aten::fmod_.Scalar
@@ -211,9 +210,9 @@ aten::replication_pad1d
 aten::sum
 aten::logit_backward.grad_input
 aten::ge.Tensor_out
+aten::as_strided_
 aten::ge.Tensor
 aten::scatter.value
-aten::as_strided_
 aten::embedding
 aten::randperm.generator_out
 aten::squeeze.dim
@@ -282,6 +281,7 @@ aten::hardswish_backward
 aten::gt_.Scalar
 aten::le.Tensor
 aten::leaky_relu_backward.grad_input
+aten::_cdist_forward
 quantized_decomposed::quantize_per_tensor
 aten::_foreach_tanh_
 aten::acosh
@@ -292,6 +292,7 @@ aten::index_select
 aten::transpose.int
 aten::hardswish_
 aten::frac.out
+aten::_resize_output_
 aten::random_.to
 aten::reflection_pad2d
 aten::fmod.Tensor_out
@@ -355,6 +356,7 @@ aten::is_pinned
 aten::trunc.out
 aten::frexp.Tensor_out
 aten::amin
+aten::logspace
 aten::index_copy_
 aten::special_entr
 aten::upsample_nearest3d.out
@@ -603,10 +605,12 @@ aten::binary_cross_entropy_with_logits
 aten::hardtanh_backward
 aten::exp2_
 hpu::cast_to_fp8
+aten::linspace.Scalar_Tensor
 aten::__ilshift__.Scalar
 aten::any.out
 aten::take
 aten::addmv_
+hpu::ctc_loss_custom_backward
 aten::cat.out
 aten::alias
 aten::reflection_pad3d_backward.grad_input
@@ -638,6 +642,7 @@ aten::linalg_vector_norm
 aten::xlogy.OutTensor
 aten::upsample_nearest1d
 aten::convolution_overrideable
+aten::linspace.Tensor_Scalar
 aten::threshold_
 aten::elu_backward.grad_input
 aten::t
@@ -685,6 +690,7 @@ aten::ne.Tensor
 aten::bitwise_right_shift_.Tensor
 aten::le.Scalar_out
 aten::max.dim_max
+aten::index_fill.int_Scalar
 aten::acos.out
 aten::replication_pad1d_backward
 aten::log.out
@@ -852,6 +858,7 @@ aten::bitwise_left_shift_.Tensor
 aten::_foreach_expm1_
 aten::clamp_max.out
 aten::__ilshift__.Tensor
+hpu::ctc_loss_custom
 aten::arange
 aten::cumsum
 aten::cat

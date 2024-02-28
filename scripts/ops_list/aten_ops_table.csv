@@ -85,9 +85,9 @@ aten::mm;                                YES
 aten::mul.Scalar;                        YES
 aten::mul.Tensor;                        YES
 aten::native_batch_norm;                 YES
-aten::native_dropout;                    NO
-aten::native_group_norm;                 NO
-aten::native_group_norm_backward;        NO
+aten::native_dropout;                    YES
+aten::native_group_norm;                 YES
+aten::native_group_norm_backward;        YES
 aten::native_layer_norm;                 YES
 aten::native_layer_norm_backward;        YES
 aten::ne.Scalar;                         YES
