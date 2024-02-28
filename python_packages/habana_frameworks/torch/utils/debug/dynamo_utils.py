@@ -1,7 +1,11 @@
+import atexit
 import itertools
 from collections import defaultdict
 
 import torch
+from habana_frameworks.torch.dynamo.compile_backend.logger import get_compile_backend_logger
+
+logger = get_compile_backend_logger()
 
 
 class FxGraphAnalyzer:
@@ -17,12 +21,16 @@ class FxGraphAnalyzer:
             return str(self)
 
     id_iter = itertools.count()
-    registered_contexts = dict()
+    registered_contexts: dict = dict()
 
     def __init__(self, reset_dynamo=False):
         self.reset_dynamo = reset_dynamo
         self.id = next(FxGraphAnalyzer.id_iter)
         self.graphs = list()
+        atexit.register(self._at_exit_callback)
+
+    def __del__(self):
+        atexit.unregister(self._at_exit_callback)
 
     def __enter__(self):
         FxGraphAnalyzer.registered_contexts[self.id] = self
@@ -32,6 +40,19 @@ class FxGraphAnalyzer:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         FxGraphAnalyzer.registered_contexts.pop(self.id)
+
+    def _at_exit_callback(self):
+        def check_for_eager(graph_ops):
+            return any(map(lambda elem: elem.eager_count, graph_ops.values()))
+
+        fallback_ops = list(filter(check_for_eager, self.get_ops_summary()))
+        if fallback_ops:
+            logs = "ops in graph with eager fallbacks:\n"
+            for graph_ops in fallback_ops:
+                for k, v in graph_ops.items():
+                    if v.eager_count > 0:
+                        logs += str(k) + " " + str(v) + "\n"
+            logger.critical(logs)
 
     def count_ops(self, nodes, ctx, in_submodule=False, ops_in_graph=None):
         if ops_in_graph is None:

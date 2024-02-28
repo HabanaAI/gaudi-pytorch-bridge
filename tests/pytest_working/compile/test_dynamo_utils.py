@@ -13,6 +13,7 @@ from contextlib import contextmanager
 
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+from habana_frameworks.torch.dynamo.compile_backend.shared_layer import hpu_fallback_op_list
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 
 
@@ -22,6 +23,17 @@ def use_eager_fallback():
     configuration_flags["use_eager_fallback"] = True
     yield
     configuration_flags["use_eager_fallback"] = original
+
+
+@contextmanager
+def use_randint_eager_fallback():
+    revert = False
+    if "randint" not in hpu_fallback_op_list:
+        revert = True
+        hpu_fallback_op_list.add("randint")
+    yield
+    if revert:
+        hpu_fallback_op_list.remove("randint")
 
 
 @torch.compile(backend="hpu_backend")
@@ -52,13 +64,14 @@ def assert_helper(ops_summary, op, count_list):
 
 def test_simple():
     with use_eager_fallback():
-        with FxGraphAnalyzer(reset_dynamo=True) as fga:
-            t1 = torch.tensor([6], device="hpu")
-            t2 = torch.tensor([2], device="hpu")
-            fn(t1, t2, "hpu")
+        with use_randint_eager_fallback():
+            with FxGraphAnalyzer(reset_dynamo=True) as fga:
+                t1 = torch.tensor([6], device="hpu")
+                t2 = torch.tensor([2], device="hpu")
+                fn(t1, t2, "hpu")
 
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary, "torch.ops.aten.randint.low", [(1, 0)])
+    assert_helper(ops_summary, "torch.ops.aten.randint.low", [(0, 1)])
     assert_helper(ops_summary, "torch.ops.aten.add.Tensor", [(2, 0)])
 
 

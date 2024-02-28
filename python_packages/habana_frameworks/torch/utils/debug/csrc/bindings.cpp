@@ -28,6 +28,7 @@ enum log_level {
   INFO = HLLOG_LEVEL_INFO,
   WARN = HLLOG_LEVEL_WARN,
   ERROR = HLLOG_LEVEL_ERROR,
+  CRITICAL = HLLOG_LEVEL_CRITICAL
 };
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -181,6 +182,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .value("info", INFO)
       .value("warn", WARN)
       .value("error", ERROR)
+      .value("critical", CRITICAL)
       .export_values();
   m.def("is_log_python_enabled", [](log_level level) {
     return hl_logger::logLevelAtLeast(HlLogger::LoggerType::PT_PYTHON, level);
@@ -200,7 +202,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         PT_PYTHON_WARN(message);
         break;
       case HLLOG_LEVEL_ERROR:
-        PT_PYTHON_FATAL(message);
+        PT_PYTHON_ERROR(message);
+        break;
+      case HLLOG_LEVEL_CRITICAL:
+        PT_PYTHON_CRITICAL(message);
         break;
       default:
         PT_PYTHON_FATAL("Received an unknown log level: ", level);

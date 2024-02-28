@@ -57,6 +57,9 @@ class Logger:
     def error(self, *args):
         self.log(_debug_C.log_level.error, args)
 
+    def critical(self, *args):
+        self.log(_debug_C.log_level.critical, args)
+
     def set_store_data(self, enable):
         self.store_data = enable
         self.data = []
