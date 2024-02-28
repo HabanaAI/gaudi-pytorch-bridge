@@ -31,18 +31,21 @@ void FloorDivideOperator::AddNode(
       "or for actual floor division, use torch.div(a, b, rounding_mode=\'floor\'). (function operator())");
 
   const at::Tensor self = stack_tensor(stack, 0);
-  const at::Tensor other = stack_tensor(stack, 1);
+  const auto other = stack.at(1);
   const std::string rounding_mode = "floor";
-  std::vector<at::Tensor> tensors = {self, other};
 
-  const at::ScalarType& final_result_type = at::result_type(self, other);
+  const at::ScalarType& final_result_type = other.isScalar()
+      ? at::result_type(self, other.toScalar())
+      : at::result_type(self, other.toTensor());
 
   const at::ScalarType& computation_type =
       (c10::ScalarType::BFloat16 == final_result_type)
       ? c10::ScalarType::BFloat16
       : COMMON_COMPUTATION_TYPE_TPC;
 
-  auto shape_out = BinaryOperator::compute_output_shape(self, other);
+  auto shape_out = other.isScalar()
+      ? self.sizes().vec()
+      : BinaryOperator::compute_output_shape(self, other.toTensor());
 
   auto divOp = BuildOp(
       graph,
