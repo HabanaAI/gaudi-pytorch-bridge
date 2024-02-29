@@ -2914,7 +2914,10 @@ frac.out:
   op_backend: Frac
 
 frexp.Tensor:
-  dtypes: [Float, BFloat16]
+  dtypes:
+    Gaudi: [Float, BFloat16]
+    Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
   output_meta: FrexpMeta
   op_backend: Frexp
   guid: frexp
@@ -2922,7 +2925,10 @@ frexp.Tensor:
 
 frexp.Tensor_out:
   output_meta: FrexpMeta
-  dtypes: [Float, BFloat16]
+  dtypes:
+    Gaudi: [Float, BFloat16]
+    Gaudi2: [Float, BFloat16, Half]
+    Gaudi3: [Float, BFloat16, Half]
   guid: frexp
   op_backend: Frexp
 

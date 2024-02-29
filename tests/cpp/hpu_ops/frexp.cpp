@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -8,12 +8,19 @@
  ******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
-class HpuOpTest : public HpuOpTestUtil {};
+class FrexpHpuOpTest : public HpuOpTestUtil,
+                       public testing::WithParamInterface<c10::ScalarType> {};
 
-TEST_F(HpuOpTest, frexp) {
-  GenerateInputs(1, {{10}}, torch::kBFloat16);
+TEST_P(FrexpHpuOpTest, frexp) {
+  const auto& dtype = GetParam();
+  if (isGaudi() && dtype == torch::kFloat16) {
+    GTEST_SKIP() << "Half dtype not supported on Gaudi1";
+  }
+
+  GenerateInputs(1, {{10}}, dtype);
 
   auto expected = torch::frexp(GetCpuInput(0));
   auto result = torch::frexp(GetHpuInput(0));
@@ -22,7 +29,12 @@ TEST_F(HpuOpTest, frexp) {
   Compare(std::get<1>(expected), std::get<1>(result));
 }
 
-TEST_F(HpuOpTest, frexp_out) {
+INSTANTIATE_TEST_SUITE_P(
+    Frexp,
+    FrexpHpuOpTest,
+    testing::Values(torch::kFloat, torch::kFloat16, torch::kBFloat16));
+
+TEST_F(FrexpHpuOpTest, frexp_out) {
   GenerateInputs(1, {{10}});
 
   auto expected_mantissa = torch::empty(0, torch::kFloat32);
