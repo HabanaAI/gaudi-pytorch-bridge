@@ -520,6 +520,42 @@ class HbLazyTensor {
   bool is_strided = false;
 };
 
+struct Holder {
+  Holder(HbLazyTensor&& lt, bool flag) : tensor(lt), marker(flag) {}
+  HbLazyTensor tensor;
+  bool marker;
+};
+
+struct Snapshot {
+  std::vector<HbLazyTensor> tensors;
+};
+
+class StaleLazyTensorKeeper {
+ public:
+  static StaleLazyTensorKeeper& getInstance() {
+    static StaleLazyTensorKeeper instance;
+    return instance;
+  }
+
+  void add(HbLazyTensor&& t) {
+    Holder holder(std::move(t), false);
+    std::lock_guard<std::mutex> lock(mutex);
+    kept_alive.push_back(std::move(holder));
+  }
+
+  void mark_end_of_accumulation() {
+    Holder holder(HbLazyTensor(), true);
+    std::lock_guard<std::mutex> lock(mutex);
+    kept_alive.push_back(std::move(holder));
+  }
+
+  std::shared_ptr<Snapshot> extract_snapshot();
+
+ private:
+  std::mutex mutex;
+  std::list<Holder> kept_alive;
+};
+
 // The HbContextArena holds per device live information and statistics,
 // among which the Habana tensors which are currently alive in the system.
 // This is used to create computation checkpoints in order to flush pending
