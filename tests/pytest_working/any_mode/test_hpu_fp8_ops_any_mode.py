@@ -138,6 +138,7 @@ def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, scale_mode, axis, out
 
     if is_amax:
         assert amax.cpu() == torch.max(input.abs())
+        assert amax.dim() == 0
     else:
         assert amax.numel() == 0
 
@@ -258,6 +259,7 @@ def test_cast_to_fp8_hybrid(shape, dtype, stochastic, is_amax, is_scale_152, is_
 
     if is_amax:
         assert amax.cpu() == torch.max(input.abs())
+        assert amax.dim() == 0
     else:
         assert amax.numel() == 0
 
