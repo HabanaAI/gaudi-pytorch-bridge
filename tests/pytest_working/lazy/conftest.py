@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,6 +12,10 @@
 
 import pytest
 import os
+
+# TODO: remove after SW-175380 is fixed
+os.environ["PT_HPU_STOCHASTIC_ROUNDING_MODE"] = "0"
+
 from test_utils import generic_setup_teardown_env
 
 def setup_teardown_env():

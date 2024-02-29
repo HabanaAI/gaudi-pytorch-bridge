@@ -42,7 +42,6 @@ class ScaleMode(Enum):
     SCALAR_CHANNEL = 4
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("shape", [(64, 48)], ids=format_tc)
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 @pytest.mark.parametrize("stochastic", [True, False])
@@ -146,10 +145,29 @@ def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, scale_mode, axis, out
         check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "cast_from_fp8"})
 
 
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("stochastic", [True, False])
+@pytest.mark.parametrize("out_dtype", fp8_dtypes, ids=format_tc)
+def test_cast_to_fp8_v2_out_of_range(dtype, stochastic, out_dtype):
+    if out_dtype == torch.float8_e5m2:
+        input = torch.tensor([100000, 60000, -60000, -100000], dtype=dtype).to("hpu")
+        min = torch.finfo(out_dtype).min
+        max = torch.finfo(out_dtype).max
+    else:
+        input = torch.tensor([1000, 300, -300, -1000], dtype=dtype).to("hpu")
+        min = -240.0
+        max = 240.0
+    expected = torch.tensor([max, max, min, min], dtype=out_dtype).to("hpu")
+
+    result, _ = torch.ops.hpu.cast_to_fp8_v2(input, None, stochastic, False, out_dtype)
+
+    assert torch.equal(result, expected)
+
+
 # casting bf16 to f8 uses SFTZ rounding mode, which applies
 # stochastic rounding also when rounding number between
 # 0.0 and f8 min denormal value.
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-175380")
 def test_sftz_rounding_mode():
     input_dtype = torch.bfloat16
     target_dtype = torch.float8_e5m2

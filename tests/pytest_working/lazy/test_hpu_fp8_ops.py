@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -43,7 +43,6 @@ ht.disable_dynamic_shape()
 pytestmark = pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 doesn't support fp8")
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("shape", [(4, 8)])
 @pytest.mark.parametrize("scale", [1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
@@ -178,7 +177,6 @@ def test_cast_to_fp8_optional(shape, dtype, is_scale, is_amax):
         assert amax.cpu()[1][2] == torch.max(input.abs())
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("shape", [(64, 48)])
 @pytest.mark.parametrize("scale", [0.75])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
@@ -256,7 +254,6 @@ def test_fp8_cast_transpose_bgrad_optional(shape, dtype, is_scale, is_amax):
         assert amax.cpu()[1][2] == torch.max(input.abs())
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("shape", [(64, 48)])
 @pytest.mark.parametrize("scale", [1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
@@ -381,7 +378,6 @@ def test_fp8_cast_transpose_bgrad_dgelu_optional(
         assert amax.cpu()[1][2] == torch.max(gelu_bwd.abs())
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("shape", [(64, 48)])
 @pytest.mark.parametrize("scale", [0.75])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
@@ -430,7 +426,6 @@ def test_fp8_gelu(shape, scale, dtype, stochastic, is_scale, is_amax, out_dtype)
     assert torch.equal(retain.cpu(), retain_cpu)
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("shape", [(64, 48)])
 @pytest.mark.parametrize("scale", [0.75, 1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
@@ -781,7 +776,6 @@ def test_fp8_gemm(
     assert np.amax(percentage_diff.numpy()) <= 15
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-174552")
 @pytest.mark.parametrize("shape", [(2, 4)])
 @pytest.mark.parametrize("is_out", [True, False])
 def test_transpose(shape, is_out):

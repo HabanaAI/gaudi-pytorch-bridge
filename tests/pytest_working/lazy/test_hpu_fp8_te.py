@@ -1,4 +1,4 @@
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -68,7 +68,6 @@ def _assert_amax_history_equal(a, b):
     _assert("scaling_bwd")
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32], ids=["bf16", "fp32"])
 @pytest.mark.parametrize("stochastic_rounding", [True, False])
@@ -331,7 +330,6 @@ def _calculate_cpu_reference(fp8_format, inp_size, weight_size, fp32_in_val, fp3
     return out, grad_in, grad_w, linear
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32], ids=["bf16", "fp32"])
 @pytest.mark.parametrize("size_A", [16, 128])
@@ -397,7 +395,6 @@ def test_te_force_sr_bwd_flag(fp8_format, force_sr_bwd_flag):
     assert expected == actual
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32], ids=["bf16", "fp32"])
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 @pytest.mark.parametrize("out_of_scale_tensor", ["input", "weight", "grad"])
@@ -799,7 +796,6 @@ def test_te_linear_module_cacher(device, dtype, amax_history_len, zero_grad, gra
             assert np.array_equal(grad_b_test.numpy(),
                                   grad_b_ref.numpy(), equal_nan=True), f"Grad bias data mismatch at {i}"
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("dtype", [torch.bfloat16])
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 def test_module_cacher_with_dilation(dtype, fp8_format):
@@ -1013,7 +1009,6 @@ def test_te_multiple_fwd_multiple_bwd(minimize_memory, microbatches_approach, fp
 
 
 # Verify if the weight caching is working well for micro batches case
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 def test_linear_weight_caching_in_microbatches_case(fp8_format):
     if is_gaudi1():
@@ -1167,7 +1162,6 @@ def test_measurement_auto_mode_outside_fp8_autocast_context():
 
     assert fp8.get_manual_measurement_mode() == None
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-173891")
 @pytest.mark.parametrize("dtype", [torch.bfloat16])
 @pytest.mark.parametrize("amax_history_len", [1, 5, 10])
 @pytest.mark.parametrize("interval", [1, 5, 10])
