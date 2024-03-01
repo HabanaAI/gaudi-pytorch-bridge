@@ -24,8 +24,7 @@ LazyMaxPool<std::tuple<at::Tensor, at::Tensor>>::LazyMaxPool(
     : habana_lazy::LazyOp<std::tuple<at::Tensor, at::Tensor>>(
           qualstring,
           inputs,
-          out_shapes_fn,
-          -1) {}
+          out_shapes_fn) {}
 
 template <>
 std::tuple<at::Tensor, at::Tensor> LazyMaxPool<
