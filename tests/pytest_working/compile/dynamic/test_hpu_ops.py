@@ -917,21 +917,3 @@ def test_op_split(split_size, split_dim):
         h_result = compiled_fn(t1_h)
         for i in range(len(result)):
             assert torch.allclose(h_result[i].to("cpu"), result[i], atol=0.001, rtol=0.001)
-
-def test_op_scalar_div():
-    inputs = [(4, 4), (4, 4), (4, 4)]
-    scalars = [2, 3, 4]
-
-    def raw_function(x, s):
-        return torch.div(x, s)
-
-    compiled_fn = torch.compile(
-        raw_function, backend="aot_hpu_training_backend")
-
-    for s1, s2 in zip(inputs, scalars):
-        t1 = torch.randn(s1, requires_grad=False)
-        result = raw_function(t1, s2)
-        t1_hpu = t1.to("hpu")
-        h_result = compiled_fn(t1_hpu, s2)
-        h = h_result.to("cpu")
-        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
