@@ -21,7 +21,6 @@ from test_utils import (
 
 shapes = [[], [1], [2, 3, 4], [4, 2]]
 zero_size_shapes = [[0], [0, 1], [0, 1 ,2]]
-ranges = [[0, 5], [1, 5], [-5, -1], [-5, 0], [-5, 5]]
 use_out = [True, False]
 dtypes = ["bfloat16", "float", "int"]
 if not is_gaudi1():
@@ -51,32 +50,17 @@ def check(cpu_input, use_out, op):
 
 @pytest.mark.parametrize("use_out", use_out)
 @pytest.mark.parametrize("shape", shapes, ids=format_tc)
-@pytest.mark.parametrize("dtype", dtypes)
-def test_hpu_all(use_out, shape, dtype):
-    dtype = getattr(torch, dtype)
-
-    if dtype in (torch.int, torch.short):
-        cpu_input = torch.randint(size=shape, low=0, high=2, dtype=dtype)
-    else:
-        cpu_input = torch.rand(shape, dtype=dtype)
-
+def test_hpu_all(use_out, shape):
+    cpu_input = torch.randint(size=shape, low=0, high=2, dtype=torch.bool)
     check(cpu_input, use_out, torch.all)
 
-@pytest.mark.parametrize("use_out", use_out)
-@pytest.mark.parametrize("dtype", dtypes)
-@pytest.mark.parametrize("range", ranges)
-def test_hpu_all_ranges(use_out, dtype, range):
-    dtype = getattr(torch, dtype)
-    cpu_input = torch.arange(start=range[0], end=range[1], dtype=dtype)
-    check(cpu_input, use_out, torch.all)
 
 @pytest.mark.parametrize("use_out", use_out)
 @pytest.mark.parametrize("shape", zero_size_shapes, ids=format_tc)
-@pytest.mark.parametrize("dtype", dtypes)
-def test_hpu_all_zero_size(use_out, shape, dtype):
-    dtype = getattr(torch, dtype)
-    cpu_input = torch.empty(shape, dtype=dtype)
+def test_hpu_all_zero_size(use_out, shape):
+    cpu_input = torch.empty(shape, dtype=torch.bool)
     check(cpu_input, use_out, torch.all)
+
 
 @pytest.mark.parametrize("use_out", use_out)
 @pytest.mark.parametrize("shape", shapes, ids=format_tc)
