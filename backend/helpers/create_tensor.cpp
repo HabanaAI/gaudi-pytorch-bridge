@@ -244,7 +244,9 @@ synapse_helpers::tensor create_tensor(
           VecToString(permutation));
     }
 
+    uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
     auto builder = synapse_helpers::tensor_builder(max, max_stride, syn_dtype)
+                       .set_offset(syn_offset)
                        .mark_persistence(persistent)
                        .mark_external(external)
                        .with_dynamic_shape(dynamic_shape)
@@ -413,7 +415,9 @@ synapse_helpers::tensor create_tensor(
     for (size_t d = max.size() - 1; d > 0; --d) {
       max_stride[d - 1] = max_stride[d] * max[d];
     }
+    uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
     auto builder = synapse_helpers::tensor_builder(max, max_stride, synType)
+                       .set_offset(syn_offset)
                        .mark_persistence(persistent)
                        .mark_external(external)
                        .with_dynamic_shape(dynamic_shape);
@@ -432,6 +436,7 @@ synapse_helpers::tensor create_tensor(
   }
 
   std::vector<int64_t> strides = calculate_strides(tensor.sizes().vec());
+  uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
   auto [permutation, dont_allow_permutation] =
       get_tensor_memory_permutation(tensor);
   if (!permutation.empty()) {
@@ -448,6 +453,7 @@ synapse_helpers::tensor create_tensor(
 
   auto builder =
       synapse_helpers::tensor_builder(tensor.sizes(), strides, synType)
+          .set_offset(syn_offset)
           .mark_persistence(persistent)
           .mark_external(external)
           .with_permutation(permutation)

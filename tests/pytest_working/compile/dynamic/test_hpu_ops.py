@@ -18,6 +18,33 @@ from habana_frameworks.torch.dynamo.compile_backend.config import configuration_
 from test_utils import is_gaudi1
 import os
 
+
+def test_slice_op() :
+    input_shapes = [[8, 31, 26], [8, 33, 22], [8, 36, 24]]
+
+    is_eager_fallback = configuration_flags["use_eager_fallback"]
+    configuration_flags["use_eager_fallback"] = True
+
+    def raw_function(t1):
+        slice1 = t1[4:8, :, :]
+        slice2 = t1[0:4, :, :]
+        t2 = torch.mul(slice1, slice2)
+        return t2
+
+    compiled_fn = torch.compile(
+        raw_function, backend="hpu_backend", dynamic=True)
+
+    for s in input_shapes:
+        #CPU
+        t1 = torch.randn(s)
+        result = raw_function(t1)
+        #HPU
+        t1_h = t1.to("hpu")
+        result_h = compiled_fn(t1_h)
+
+        assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
+    configuration_flags["use_eager_fallback"] = is_eager_fallback
+
 def test_static_fallback():
     """
     Should fail if static fallback fails
