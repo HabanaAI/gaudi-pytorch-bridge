@@ -52,6 +52,21 @@ class HabanaPartitioner(CapabilityBasedPartitioner):
             allows_single_node_partition=True,
         )
 
+def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -> bool:
+    # This is list of scalar OPs
+    scalar_ops = [
+        "topk",
+        "arange",
+        "randperm",
+    ]
+    copy_required = True
+    if node.op == "call_function":
+        node_target = node.target.__name__.split(".")[0]
+        if node_arg.type in [int, float] and node_target in scalar_ops:
+             assert node_arg.meta["output_device"] == torch.device('cpu')
+             copy_required = False
+    return copy_required
+
 def _is_cpu_scalar_or_symbolic_scalar(node: torch.fx.Node) -> bool:
     if node.type in [int, float]:
         assert node.meta["output_device"] == torch.device('cpu')
@@ -847,7 +862,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
                 if (
                     isinstance(arg, torch.fx.Node)
                     and arg.meta["output_device"].type != "hpu"
-                    and not _is_cpu_scalar_or_symbolic_scalar(arg)
+                    and _is_cpu_scalar_copy_required(node, arg)
                 ):
                     nodes_to_fix_list.append(node)
                     break
