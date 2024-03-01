@@ -307,8 +307,7 @@ bool is_view_lowering(const at::Tensor& tensor) {
     return false;
   if (!tmeta->is_view_tensor())
     return false;
-  if (tmeta->is_maybe_grad_view())
-    return false;
+
   auto base_smeta{habana::get_storage_base_meta(tensor)};
   if (base_smeta == nullptr)
     return false;
@@ -336,8 +335,9 @@ std::vector<int64_t> get_base_tensor_size(const at::Tensor& tensor) {
 
   auto elem_size =
       c10::elementSize(habana_helpers::getInternalDtype(tensor.scalar_type()));
-  auto total_num_elements = (int64_t)(
-      habana_helpers::GetNBytes(tensor.unsafeGetTensorImpl()) / elem_size);
+  auto total_num_elements =
+      (int64_t)(habana_helpers::GetNBytes(tensor.unsafeGetTensorImpl()) /
+                elem_size);
   std::vector<int64_t> base_size({total_num_elements});
   return base_size;
 }

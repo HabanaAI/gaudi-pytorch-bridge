@@ -164,7 +164,6 @@ class EagerExec {
       CValPtrMap& params_jit_val_map);
   bool is_eager_compiler_supported_for_graph(
       std::shared_ptr<torch::jit::Graph>& graph);
-  void mark_maybe_grad_view();
   bool m_is_pipeline_supported = true;
 };
 

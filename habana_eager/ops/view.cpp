@@ -91,10 +91,6 @@ void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t) {
 
   HABANA_ASSERT(output_smeta);
 
-  TORCH_CHECK(
-      !input_tmeta->is_maybe_grad_view(),
-      " Multilevel views on bucket grad view neither expected,  nor supported");
-
   // propagate the base size unconditionally.
   // This is important in multilevel views. Example: the first view can be
   // contiguous whereas the second one can be non-contiguous
