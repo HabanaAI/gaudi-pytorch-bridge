@@ -200,7 +200,7 @@ matmul                                 Yes      Yes      No        No       No  
 max                                    Yes      Yes      Yes       No       No     torch
 maximum                                Yes      Yes      Yes       No       No     torch
 mean                                   Yes      Yes      No        No       No     torch
-median                                 Yes      Yes      No        No       No     torch
+median                                 Yes      Yes      Yes       No       No     torch
 meshgrid                               Yes      Yes      No        No       No     torch
 min                                    Yes      Yes      Yes       No       No     torch
 minimum                                Yes      Yes      Yes       No       No     torch
@@ -505,7 +505,7 @@ matmul                                 Yes      Yes      No        No       No  
 max                                    Yes      Yes      No        No       No     torch.Tensor
 maximum                                Yes      Yes      Yes       No       No     torch.Tensor
 mean                                   Yes      Yes      No        No       No     torch.Tensor
-median                                 Yes      Yes      No        No       No     torch.Tensor
+median                                 Yes      Yes      Yes       No       No     torch.Tensor
 min                                    Yes      Yes      Yes       No       No     torch.Tensor
 minimum                                Yes      Yes      Yes       No       No     torch.Tensor
 mm                                     Yes      Yes      No        No       No     torch.Tensor

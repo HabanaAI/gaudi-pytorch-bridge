@@ -4717,27 +4717,27 @@ mean.out:
 median:
   output_meta: MedianOutputMeta
   dtypes:
-    Gaudi: [Float, Int]
-    Gaudi2: [Float, Int]
-    Gaudi3: [Float, Int]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
   op_backend: Median
   out_ids: [0]
 
 median.dim:
   output_meta: MedianDimOutputMeta
   dtypes:
-    Gaudi: [Float, Int]
-    Gaudi2: [Float, Int]
-    Gaudi3: [Float, Int]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
   op_backend: Mediandim
   out_ids: [0, 0]
 
 median.dim_values:
   output_meta: MedianDimOutputMeta
   dtypes:
-    Gaudi: [Float, Int]
-    Gaudi2: [Float, Int]
-    Gaudi3: [Float, Int]
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Half, Int]
+    Gaudi3: [BFloat16, Float, Half, Int]
   op_backend: Mediandim
 
 min:

@@ -17,7 +17,7 @@ import habana_frameworks.torch.internal.bridge_config as bc
 
 basic_dtypes = extended_dtypes = [torch.float32, torch.bfloat16, torch.int]
 if not is_gaudi1():
-    extended_dtypes = basic_dtypes + [torch.float8_e5m2, torch.float8_e4m3fn]
+    extended_dtypes = basic_dtypes + [torch.float8_e5m2, torch.float8_e4m3fn, torch.float16]
 
 
 @pytest.fixture(autouse=True)
@@ -76,9 +76,6 @@ def test_median_dim(dtype, shape, dim, keepdim):
     def fn(input, dim, keepdim):
         return torch.median(input=input, dim=dim, keepdim=keepdim)
 
-    if pytest.mode == "eager" and dtype == torch.bfloat16:
-        pytest.skip(reason="aten::median.dim_values with bf16 is not yet supported on HPU")
-
     cpu_input, hpu_input = create_rand_tensors(shape, dtype)
     hpu_fn = get_hpu_fn(fn)
 
@@ -96,9 +93,6 @@ def test_median_dim(dtype, shape, dim, keepdim):
 def test_median_dim_out(dtype, shape, dim, keepdim):
     if pytest.mode == "lazy" and not bc.get_pt_enable_int64_support():
         pytest.skip(reason="index exceed int32 range which is unsupported")
-
-    if pytest.mode == "eager" and dtype == torch.bfloat16:
-        pytest.skip(reason="aten::median.dim_values with bf16 is not yet supported on HPU")
 
     def fn(input, dim, keepdim, out):
         torch.median(input, dim=dim, keepdim=keepdim, out=out)
