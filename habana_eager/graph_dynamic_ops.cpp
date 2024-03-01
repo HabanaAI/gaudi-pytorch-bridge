@@ -360,6 +360,69 @@ bool TopkOperatorDS::ReplaceWithDynamicHPUOp(
   return true;
 }
 
+// Dynamic shape (DS) support for select_scatter using shape tensor
+bool SelectScatterOperatorDS::ReplaceWithDynamicHPUOp(
+    torch::jit::Node* aten_select_scatter_node,
+    torch::jit::Stack& org_stack,
+    GraphInputIndexMap& org_stack_index_map,
+    ValueIvalueMap& value_ivalue_map,
+    std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
+  // 4 inputs in select_scatter
+  // input: Tensor
+  // src: Tensor
+  // dim: Scalar
+  // index: Scalar
+  HABANA_ASSERT(4 == aten_select_scatter_node->inputs().size());
+  static const auto hpu_select_scatter_symbol{c10::Symbol::fromQualString("hpu::select_scatter")};
+
+  // 2 scalars: dim and index
+  auto dim = aten_select_scatter_node->inputs().at(2);
+  auto index = aten_select_scatter_node->inputs().at(3);
+  auto graph{aten_select_scatter_node->owningGraph()};
+
+  // Step 1: Collect shape and scalar for index and dim node
+  int64_t index_idx = LONG_MAX;
+  int64_t index_value = 0;
+  GetValueAndScalarIndexFromInput(
+      index, org_stack, org_stack_index_map, index_value, index_idx);
+  PT_EAGER_DEBUG("ST index data:", index_value);
+
+  int64_t dim_idx = LONG_MAX;
+  int64_t dim_value = 0;
+  GetValueAndScalarIndexFromInput(
+      dim, org_stack, org_stack_index_map, dim_value, dim_idx);
+  PT_EAGER_DEBUG("ST dim data:", dim_value);
+
+  // Step2: Create shape tensor and insert to graph inputs.
+  auto index_st_name = GetDynamicTensorName(index->debugName(), SHAPE_TENSOR);
+  int64_t stack_index =
+      CreateSTAndInsertToDSStack({index_value}, {index_idx}, {}, m_dmeta);
+  auto index_st_tensor = graph->addInput(index_st_name);
+
+  auto dim_st_name = GetDynamicTensorName(dim->debugName(), SHAPE_TENSOR);
+  int64_t dim_index =
+      CreateSTAndInsertToDSStack({dim_value}, {dim_idx}, {}, m_dmeta);
+  auto dim_st_tensor = graph->addInput(dim_st_name);
+
+  // Step3: Register patching function and tensor lists
+  std::vector<int64_t> dtensor_indexes{stack_index, dim_index};
+  InputPatchPair patch_info(&DynamicOp::UpdateDynamicInputs, dtensor_indexes);
+  m_dmeta->ds_input_patching_list.push_back(patch_info);
+
+  // Step4: Create hpu::select_scatter node and insert to the graph
+  CreateAndInsertDynamicNodeToGraph(
+      graph,
+      aten_select_scatter_node,
+      hpu_select_scatter_symbol,
+      {aten_select_scatter_node->input(0),
+       aten_select_scatter_node->input(1),
+       dim_st_tensor,
+       index_st_tensor},
+      value_ivalue_map);
+
+  return true;
+}
+
 habana::graph::RegisterDSOps& DSOpsRegistry() {
   static habana::graph::RegisterDSOps* Registry =
       new habana::graph::RegisterDSOps();
@@ -380,6 +443,7 @@ static auto& BasicDSOpsRegistry =
         .add("hpu::strided_insert", DSOP_MID_BACKEND(StridedInsertOperatorDS))
         .add(
             "hpu::habana_randperm",
-            DSOP_MID_BACKEND(RandpermGeneratorOperatorDS));
+            DSOP_MID_BACKEND(RandpermGeneratorOperatorDS))
+	.add("aten::select_scatter", DSOP_MID_BACKEND(SelectScatterOperatorDS));
 } // namespace graph
 } // namespace habana

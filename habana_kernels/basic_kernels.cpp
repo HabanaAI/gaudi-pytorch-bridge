@@ -826,7 +826,7 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     output = mdata.allocated_tensor.value();
     AllocateSynapseOutput(graph, output, mdata);
   } else {
-    Tensor output = habana::createPTTensor(
+    output = habana::createPTTensor(
         self,
         shape,
         self.options(),
@@ -839,8 +839,12 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     AddNodeToSynapseGraph(graph, nullptr, 0);
   } else {
     // Allocate Shape tensor
+    // DS for select_scatter and slice_scatter op leverages
+    // DS support for slice_insert with shape tensor only
+    // Adds a new shape tensor to graph builder context with context params
+    // Returns address of created syn_tensor (no need to explicitly capture this)
     if (graph.is_dynamic_graph()) {
-      AllocateSynapseShapeTensor(graph, output);
+      AllocateSynapseShapeTensor(graph, output, SHAPE_TENSOR);
     }
     auto paramsList = inputs[2].toIntList();
 
@@ -867,15 +871,30 @@ void SliceScatterOperator::AllocateAndAddSynapseNode(
       graph, inputs_mod, output_metadata);
 }
 
-// func: select_scatter(Tensor self, Tensor src, int dim, int index) -> Tensor
+// func: select_scatter(Tensor self, Tensor src, SymInt? dim, SymInt index) -> Tensor
+// select_scatter supports dynamic shape (DS) using shape tensors
 void SelectScatterOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
     const OutputMetaDataVector& output_metadata) {
   // select = slice -> squeeze
-  // consequently select_scatter = unsqueeze->slice_scatter
+  // consequently select_scatter = unsqueeze -> slice_scatter
+  // slice_scatter = slice_insert
+  // There are 4 inputs: input, src, dim, index
   auto insert_t = inputs[1].toTensor();
-  auto dim = inputs[2].toInt();
+
+  // dim is the third input
+  // dim is a shape tensor if dynamic shape is enabled
+  bool is_dim_shape_tensor = inputs[2].isTensor();
+  int dim = 0;
+  if (is_dim_shape_tensor)
+      dim = inputs[2].toTensor().sizes().vec()[0];
+  else
+      // dim is integer if dynamic shape is disabled or
+      // the first iteration if DS is enabled
+      dim = inputs[2].toInt();
+
+  // Unsqueeze requires src and dim
   auto unsqueezeOp = make_operator<UnsqueezeOperator>(
       insert_t.device().index(), insert_t.scalar_type());
   unsqueezeOp->SetSynapseInput(p_context_->syn_inputs_[1]);
@@ -883,11 +902,19 @@ void SelectScatterOperator::AllocateAndAddSynapseNode(
   unsqueezeOp->AllocateAndAddSynapseNode(
       graph, unsqueeze_inputs, OutputMetaDataVector(1));
 
-  auto index = inputs[3].toInt();
+  // index is the fourth input
+  // index is a shape tensor if dynamic shape is enabled
+  int index = 0;
+  bool is_index_shape_tensor = inputs[3].isTensor();
+  if (is_index_shape_tensor)
+      index = inputs[3].toTensor().sizes().vec()[0];
+  else
+      // index is integer if dynamic shape is disabled or
+      // the first iteration if DS is enabled
+      index = inputs[3].toInt();
   int64_t start = index;
   int64_t end = index + 1;
   int64_t step = 1;
-
   Stack inputs_mod = {
       inputs[0],
       IValue(unsqueezeOp->GetOutputs()[0]),
@@ -896,6 +923,8 @@ void SelectScatterOperator::AllocateAndAddSynapseNode(
       IValue(end),
       IValue(step)};
 
+  // slice_scatter requires input, output of unsqueeze op,
+  // start, end, step
   auto slicescatterOp = make_operator<SliceScatterOperator>(
       insert_t.device().index(), insert_t.scalar_type());
   slicescatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
@@ -1879,6 +1908,7 @@ static auto& BasicKernelsKernelRegistry =
         .add("aten::as_strided", KERNEL_FN_GLOBAL(StridedViewOperator))
         .add("aten::slice_scatter", KERNEL_FN_GLOBAL(SliceScatterOperator))
         .add("aten::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
+	.add("hpu::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
         .add(
             "aten::as_strided_scatter",
             KERNEL_FN_GLOBAL(AsStridedScatterOperator));

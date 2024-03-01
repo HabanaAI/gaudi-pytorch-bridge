@@ -225,6 +225,17 @@ class ViewOperatorDS : public DynamicOp {
       LaunchDynamicShapes& launch_shapes);
 };
 
+class SelectScatterOperatorDS : public DynamicOp {
+ public:
+  SelectScatterOperatorDS() : DynamicOp() {}
+  bool ReplaceWithDynamicHPUOp(
+      torch::jit::Node*,
+      torch::jit::Stack& org_stack,
+      GraphInputIndexMap& org_stack_index_map,
+      ValueIvalueMap& value_ivalue_map,
+      std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
+};
+
 class ArangeOperatorDS : public DynamicOp {
  public:
   ArangeOperatorDS() : DynamicOp() {}
