@@ -200,6 +200,29 @@ void OpBackend::HandleFn(sh::graph& graph) {
 }
 
 void OpBackend::HandleOutFn(sh::graph& graph, const at::Stack& stack) {
+  auto _shouldCastToOutputTensorDtype =
+      [](const synDataType& outputType, const c10::ScalarType& metadataType) {
+        using namespace std::literals;
+        static const std::string_view cast_prefix = "cast_"sv;
+
+        if (outputType == syn_type_na) {
+          return false;
+        }
+
+        if (metadataType == c10::ScalarType::Float8_e4m3fn ||
+            metadataType == c10::ScalarType::Float8_e5m2)
+          return false;
+
+        if (outputType == synDataType::syn_type_fp8_152 ||
+            outputType == synDataType::syn_type_fp8_143)
+          return false;
+
+        return GetPrecisionString(
+                   habana_helpers::synapse_to_pytorch_type(outputType),
+                   cast_prefix) !=
+            GetPrecisionString(metadataType, cast_prefix);
+      };
+
   if (!m_is_outfn) {
     return;
   }
@@ -210,12 +233,67 @@ void OpBackend::HandleOutFn(sh::graph& graph, const at::Stack& stack) {
   unsigned syn_inputs_size = p_context_->syn_inputs_.size();
 
   for (int i = m_num_out_tensors; i > 0; --i) {
+    auto output_tensor_index = m_num_out_tensors - i;
     p_context_->pt_outputs_.emplace_back(stack.at(stack_size - i).toTensor());
     p_context_->syn_outputs_.emplace_back(
         habana_helpers::duplicate_tensor_in_memory_section(
             p_context_->syn_inputs_.at(syn_inputs_size - i),
             graph,
             m_output_metadata.at(m_num_out_tensors - i).external));
+
+    if (_shouldCastToOutputTensorDtype(
+            p_context_->syn_outputs_[output_tensor_index].ref().type(),
+            m_output_metadata[output_tensor_index].dtype)) {
+      PT_BRIDGE_DEBUG(
+          "Inserting cast from operator output type: ",
+          m_output_metadata[output_tensor_index].dtype,
+          "to output tensor type: ",
+          habana_helpers::synapse_to_pytorch_type(
+              p_context_->syn_outputs_[output_tensor_index].ref().type()))
+
+      const auto& output_metadata = m_output_metadata[output_tensor_index];
+      auto output_syn_tensor =
+          std::move(p_context_->syn_outputs_[output_tensor_index]);
+
+      p_context_->syn_outputs_.pop_back();
+      auto intermediate_output_tensor = habana_helpers::create_tensor(
+          output_metadata.shape,
+          output_metadata.strides,
+          graph,
+          false,
+          false,
+          HPURegistrar::get_device().id(),
+          output_metadata.dtype);
+      p_context_->syn_outputs_.emplace_back(
+          std::move(intermediate_output_tensor));
+
+      absl::AnyInvocable<void()> addCastBeforeOutputTensor =
+          [this,
+           &graph,
+           &output_metadata,
+           output_tensor_index,
+           output_syn_tensor = std::move(output_syn_tensor)]() mutable {
+            auto casted_tensor =
+                std::move(p_context_->syn_outputs_[output_tensor_index]);
+            p_context_->syn_outputs_[output_tensor_index] =
+                std::move(output_syn_tensor);
+
+            auto return_syn_tensor = BuildCast(
+                this,
+                graph,
+                casted_tensor.ref().get(),
+                output_metadata.shape,
+                output_metadata.dtype,
+                habana_helpers::synapse_to_pytorch_type(
+                    p_context_->syn_outputs_[output_tensor_index].ref().type()),
+                output_tensor_index);
+
+            p_context_->syn_outputs_[output_tensor_index] =
+                std::move(return_syn_tensor);
+          };
+
+      m_post_add_node_functions.push_back(std::move(addCastBeforeOutputTensor));
+    }
   }
 
   // Remove the out tensors from syn inputs
@@ -257,122 +335,14 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
 }
 
 void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
-  auto _shouldCastToOutputTensorDtype =
-      [](const synDataType& outputType, const c10::ScalarType& metadataType) {
-        using namespace std::literals;
-        static const std::string_view cast_prefix = "cast_"sv;
-
-        if (outputType == syn_type_na) {
-          return false;
-        }
-
-        if (metadataType == c10::ScalarType::Float8_e4m3fn ||
-            metadataType == c10::ScalarType::Float8_e5m2)
-          return false;
-
-        if (outputType == synDataType::syn_type_fp8_152 ||
-            outputType == synDataType::syn_type_fp8_143)
-          return false;
-
-        return GetPrecisionString(
-                   habana_helpers::synapse_to_pytorch_type(outputType),
-                   cast_prefix) !=
-            GetPrecisionString(metadataType, cast_prefix);
-      };
-
-  at::Stack op_inputs = stack;
-  if (m_is_outfn) {
-    op_inputs = {stack.begin(), stack.end() - m_num_out_tensors};
-    // Handle special cast at output(s) for outfn type
-    for (int i = m_num_out_tensors; i > 0; --i) {
-      const auto output_tensor_index = m_num_out_tensors - i;
-      const auto pt_dtype = stack.at(stack.size() - i).toTensor().scalar_type();
-      const auto syn_dtype = !isOutputInfMode()
-          ? p_context_->syn_outputs_[output_tensor_index].ref().type()
-          : habana_helpers::pytorch_to_synapse_type(pt_dtype);
-      const bool is_cast_reqd = _shouldCastToOutputTensorDtype(
-          syn_dtype, m_output_metadata[output_tensor_index].dtype);
-      m_cast_reqd_out_tensors.push_back(is_cast_reqd);
-      if (is_cast_reqd) {
-        PT_BRIDGE_DEBUG(
-            "Inserting cast from operator output type: ",
-            m_output_metadata[output_tensor_index].dtype,
-            "to output tensor type: ",
-            habana_helpers::synapse_to_pytorch_type(syn_dtype))
-
-        const auto& output_metadata = m_output_metadata[output_tensor_index];
-        absl::AnyInvocable<void()> addCastBeforeOutputTensor;
-        if (!isOutputInfMode()) {
-          auto output_syn_tensor =
-              std::move(p_context_->syn_outputs_[output_tensor_index]);
-          p_context_->syn_outputs_.pop_back();
-          auto intermediate_output_tensor = habana_helpers::create_tensor(
-              output_metadata.shape,
-              output_metadata.strides,
-              graph,
-              false,
-              false,
-              HPURegistrar::get_device().id(),
-              output_metadata.dtype);
-          p_context_->syn_outputs_.emplace_back(
-              std::move(intermediate_output_tensor));
-
-          addCastBeforeOutputTensor = [this,
-                                       &graph,
-                                       &output_metadata,
-                                       output_tensor_index,
-                                       output_syn_tensor = std::move(
-                                           output_syn_tensor)]() mutable {
-            auto casted_tensor =
-                std::move(p_context_->syn_outputs_[output_tensor_index]);
-            p_context_->syn_outputs_[output_tensor_index] =
-                std::move(output_syn_tensor);
-
-            auto return_syn_tensor = BuildCast(
-                this,
-                graph,
-                casted_tensor.ref().get(),
-                output_metadata.shape,
-                output_metadata.dtype,
-                habana_helpers::synapse_to_pytorch_type(
-                    p_context_->syn_outputs_[output_tensor_index].ref().type()),
-                output_tensor_index);
-
-            p_context_->syn_outputs_[output_tensor_index] =
-                std::move(return_syn_tensor);
-          };
-        } else { // shape inference mode
-          addCastBeforeOutputTensor = [this,
-                                       &graph,
-                                       &output_metadata,
-                                       output_tensor_index,
-                                       syn_dtype]() mutable {
-            auto casted_tensor = sh::tensor::create_placeholder(
-                output_metadata.shape,
-                HabanaOperator::CalculateStrides(
-                    output_metadata.shape, at::MemoryFormat::Contiguous));
-
-            BuildCast(
-                this,
-                graph,
-                casted_tensor.get(),
-                output_metadata.shape,
-                output_metadata.dtype,
-                habana_helpers::synapse_to_pytorch_type(syn_dtype),
-                output_tensor_index);
-          };
-        }
-
-        m_post_add_node_functions.push_back(
-            std::move(addCastBeforeOutputTensor));
-      }
-    }
-  }
-
   if (!m_promote_type && !m_promote_int_to_float) {
     return;
   }
 
+  at::Stack op_inputs = stack;
+  if (m_is_outfn) {
+    op_inputs = {stack.begin(), stack.end() - m_num_out_tensors};
+  }
   m_scalar_type = habana_helpers::DTypeHelper::get_compute_dtype(
       op_inputs,
       c10::nullopt,
@@ -554,20 +524,11 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
     if (m_is_outfn) { // out place fn
       for (int i = m_num_out_tensors; i > 0; --i) {
         const auto& t = stack.at(stack.size() - i).toTensor();
-        // If cast is required at output, add it as an intermediate tensor
-        // Else, add it is as final output
-        const bool is_cast_reqd =
-            m_cast_reqd_out_tensors.at(m_num_out_tensors - i);
-        const auto& md = TensorMetaData(
+        m_output_inf_meta.AddOutputTensor(TensorMetaData(
             t.sizes().vec(),
             t.strides().vec(),
             t.scalar_type(),
-            t.suggest_memory_format());
-        if (is_cast_reqd) { // add it as an intermediate tensor
-          m_output_inf_meta.AddIntermediateTensor(md);
-        } else {
-          m_output_inf_meta.AddOutputTensor(md);
-        }
+            t.suggest_memory_format()));
       }
     } else if (!m_inplace_ids.empty()) { // in place fn
       for (int inplace_id : m_inplace_ids) {
@@ -638,14 +599,6 @@ InferOutputMetaRetType OpBackend::InferOutputMeta(at::Stack& stack) {
   }
 
   AddNode(graph, stack);
-
-  m_cast_reqd_out_tensors.clear();
-
-  for (auto& f : m_post_add_node_functions)
-    f();
-
-  m_post_add_node_functions.clear();
-
   m_output_inf_mode = false;
 
   return m_output_inf_meta;
@@ -725,8 +678,6 @@ void OpBackend::AllocateAndAddSynapseNode(
 
   AddNode(graph, stack);
 
-  m_cast_reqd_out_tensors.clear();
-
   for (auto& f : m_post_add_node_functions)
     f();
 
@@ -801,7 +752,6 @@ std::vector<sh::tensor> OpBackend::BuildNode(
     std::vector<sh::tensor> out;
     out.reserve(output_attrs_size);
 
-    int out_idx = 0;
     for (const auto& attr : node_attr.output_attrs) {
       const auto& attr_strides = HabanaOperator::CalculateStrides(
           attr.sizes.vec(), at::MemoryFormat::Contiguous);
@@ -816,14 +766,8 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       }
       // AddShapeTensor call is independent of AddOutputTensor and
       // AddIntermediateOutputTensor. That is why no else if.
-      bool is_persistent = attr.final_result_index.has_value();
-      if (op->m_is_outfn &&
-          op->m_cast_reqd_out_tensors.size()) { // out place fn && cast reqd
-        is_persistent =
-            is_persistent && !op->m_cast_reqd_out_tensors.at(out_idx);
-      }
-      is_persistent = is_persistent || attr.inplace_out_ptr.has_value();
-      if (is_persistent) {
+      if (attr.final_result_index.has_value() ||
+          attr.inplace_out_ptr.has_value()) {
         meta.AddOutputTensor(md);
       } else {
         meta.AddIntermediateTensor(md);
@@ -832,7 +776,6 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       // create dummy tensor with only sizes and strides info
       out.emplace_back(
           sh::tensor::create_placeholder(attr.sizes.vec(), attr_strides));
-      out_idx++;
     }
 
     return out;

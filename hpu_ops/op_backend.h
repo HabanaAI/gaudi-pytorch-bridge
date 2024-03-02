@@ -538,7 +538,6 @@ class OpBackend : public HabanaOperator {
   bool m_promote_int_to_float = false;
   int m_num_out_tensors = 1;
   std::vector<int> m_hw_scaling_ids;
-  std::vector<bool> m_cast_reqd_out_tensors;
 
   // For shape inference of outputs/intermediates
   bool m_output_inf_mode = false;

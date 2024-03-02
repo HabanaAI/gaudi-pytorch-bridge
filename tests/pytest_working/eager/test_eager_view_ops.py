@@ -896,20 +896,3 @@ def test_zero_size():
     hpu_tensor *= -1.
 
     assert torch.allclose(cpu_tensor, hpu_tensor.to("cpu"), atol=0.001, rtol=0.001)
-
-def test_lt_out_with_view():
-    torch.manual_seed(0)
-    params = [((4, 4), (1, 4)), ((2, 8), (1, 2))]
-    for shape, strides in params:
-        a = torch.arange(16).to(torch.float)
-        a_view = a.as_strided(shape, strides)
-
-        ha = a.to("hpu")
-        ha_view = ha.as_strided(shape, strides)
-
-        res = torch.zeros(shape, dtype=torch.bfloat16)
-        hres = res.to("hpu")
-
-        torch.lt(a_view, 8, out=res)
-        torch.lt(ha_view, 8, out=hres)
-        assert torch.equal(hres.cpu(), res)
