@@ -7355,20 +7355,25 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
-  c10::optional<at::Tensor> seed_opt;
-
   if (p > 0.0) {
     c10::optional<Generator> gen;
-    seed_opt = habana::get_seed_tensor_hpu(gen);
+    auto seed = habana::get_seed_tensor_hpu(gen);
+    LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
+        "hpu::sdpa_fwd_dropout_seed",
+        {seed, q, k, v, attention_mask, p, scale, is_causal, softmax_mode},
+        SDPAFwdOutputShape};
+    hpu_op.set_scalar_types(
+        {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
+    RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
+  } else {
+    LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
+        "hpu::sdpa_fwd",
+        {q, k, v, attention_mask, p, scale, is_causal, softmax_mode},
+        SDPAFwdOutputShape};
+    hpu_op.set_scalar_types(
+        {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
+    RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
   }
-  LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
-      "hpu::sdpa_fwd_be",
-      {q, k, v, attention_mask, seed_opt, p, scale, is_causal, softmax_mode},
-      SDPAFwdOutputShape};
-  hpu_op.set_scalar_types(
-      {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
-
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_fwd, hpu_op)
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
@@ -7401,33 +7406,48 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
     c10::string_view softmax_mode) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-
-  c10::optional<at::Tensor> seed_opt;
-
   if (p > 0.0) {
     c10::optional<Generator> gen;
-    seed_opt = habana::get_seed_tensor_hpu(gen);
+    auto seed = habana::get_seed_tensor_hpu(gen);
+    LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
+        "hpu::sdpa_recomp_fwd_dropout_seed",
+        {seed,
+         q,
+         k,
+         v,
+         attention_mask,
+         p,
+         scale,
+         is_causal,
+         requires_backward,
+         softmax_mode},
+        SDPARecompFwdOutputShape};
+    hpu_op.set_scalar_types(
+        {q.scalar_type(),
+         q.scalar_type(),
+         c10::ScalarType::Float,
+         c10::ScalarType::Int});
+    RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
+  } else {
+    LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
+        "hpu::sdpa_recomp_fwd",
+        {q,
+         k,
+         v,
+         attention_mask,
+         p,
+         scale,
+         is_causal,
+         requires_backward,
+         softmax_mode},
+        SDPARecompFwdOutputShape};
+    hpu_op.set_scalar_types(
+        {q.scalar_type(),
+         q.scalar_type(),
+         c10::ScalarType::Float,
+         c10::ScalarType::Int});
+    RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
   }
-  LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
-      "hpu::sdpa_recomp_fwd_be",
-      {q,
-       k,
-       v,
-       attention_mask,
-       seed_opt,
-       p,
-       scale,
-       is_causal,
-       requires_backward,
-       softmax_mode},
-      SDPARecompFwdOutputShape};
-  hpu_op.set_scalar_types(
-      {q.scalar_type(),
-       q.scalar_type(),
-       c10::ScalarType::Float,
-       c10::ScalarType::Int});
-
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(

@@ -2404,16 +2404,25 @@ TORCH_LIBRARY(hpu, m) {
   // Infer the schema at operator level. So no m.impl() def is needed for this
   // operator. For BE, Register a schema with seed.
   m.def(
-      "hpu::sdpa_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, str softmax_mode) -> (Tensor, Tensor, Tensor)"); // sdpa_fwd_be schema is for sdpa op BE interface which takes an optional seed
-  // tensor as well.
+      "hpu::sdpa_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, str softmax_mode) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::sdpa_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal, str softmax_mode) -> (Tensor, Tensor, Tensor)");
+      "hpu::sdpa_fwd_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, str softmax_mode) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::sdpa_fwd_non_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, str softmax_mode) -> (Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::sdpa_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, str softmax_mode) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, float p, float scale) -> (Tensor, Tensor, Tensor)");
   m.def(
+
       "hpu::sdpa_recomp_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::sdpa_recomp_fwd_be(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor? seed, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode) -> (Tensor, Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_fwd_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode) -> (Tensor, Tensor, Tensor, Tensor)");
+  // for torch.compile to insert seed tensor
+  m.def(
+      "hpu::sdpa_recomp_fwd_non_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode) -> (Tensor, Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::sdpa_recomp_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
       "hpu::sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor ? seed, bool is_causal, float p, float scale) -> (Tensor, Tensor, Tensor)");
   m.def(

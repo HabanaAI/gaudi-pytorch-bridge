@@ -23,6 +23,8 @@ RANDOM_OPS = (
         "aten.multinomial.default": torch.ops.hpu.habana_multinomial,
         "aten.randperm.default": torch.ops.hpu.habana_randperm,
         "aten.native_dropout.default": torch.ops.hpu.habana_native_dropout,
+        "hpu.sdpa_recomp_fwd_dropout.default":torch.ops.hpu.sdpa_recomp_fwd_dropout_seed,
+        "hpu.sdpa_fwd_dropout.default":torch.ops.hpu.sdpa_fwd_dropout_seed,
     }
     if bc.get_pt_hpu_wrap_random_ops_compile()
     else {}
@@ -31,7 +33,6 @@ RANDOM_OPS = (
 
 def is_random_op(node):
     return str(node.target) in RANDOM_OPS
-
 
 def random_op_inputs(node, seed):
     op = RANDOM_OPS[str(node.target)]

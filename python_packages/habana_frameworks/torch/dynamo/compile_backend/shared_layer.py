@@ -56,6 +56,17 @@ hpu_supported_op_list = {
     # Torchvision
     "roi_align",
     "_roi_align_backward",
+    # Scaled Dot Product Attention
+    "sdpa_recomp_fwd",
+    "sdpa_recomp_fwd_dropout",
+    "sdpa_recomp_fwd_non_dropout",
+    "sdpa_recomp_fwd_dropout_seed",
+    "sdpa_recomp_bwd",
+    "sdpa_fwd",
+    "sdpa_fwd_dropout",
+    "sdpa_fwd_non_dropout",
+    "sdpa_fwd_dropout_seed",
+    "sdpa_bwd",
 }
 
 hpu_supported_ops_restricted = dict()

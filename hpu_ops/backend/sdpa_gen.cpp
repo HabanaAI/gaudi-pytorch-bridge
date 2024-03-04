@@ -42,10 +42,10 @@ SDPARecompBwd::SDPARecompBwd(int device_id, c10::ScalarType scalar_type)
           false) {}
 
 sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
-  auto q = stack_tensor(stack, 0);
-  auto k = stack_tensor(stack, 1);
-  auto v = stack_tensor(stack, 2);
-
+  int q_index = (stack.size() == 9) ? 1 : 0;
+  auto q = stack_tensor(stack, q_index);
+  auto k = stack_tensor(stack, q_index + 1);
+  auto v = stack_tensor(stack, q_index + 2);
   int64_t rank = q.dim();
   std::vector<int64_t> q_shape = q.sizes().vec();
   std::vector<int64_t> k_shape = k.sizes().vec();
@@ -88,7 +88,6 @@ sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
 
   qkt_shape.push_back(q_shape[L_dim]);
   qkt_shape.push_back(k_shape[S_dim]);
-
   return {out_shape, qkt_shape, qkt_shape};
 }
 
@@ -135,31 +134,43 @@ sizes_vec SDPABwdOutputShape(const at::Stack& stack) {
   return {q_shape, k_shape, v_shape};
 }
 
+static void fillSdpaParams(
+    ns_Sdpa::ParamsV2& params,
+    double p,
+    double scale,
+    bool is_causal,
+    bool is_inference,
+    c10::string_view softmax_mode = "") {
+  SdpaSoftmaxMode_t sfmx_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
+  if (softmax_mode == "fast") {
+    sfmx_mode = SdpaSoftmaxMode_t::SDPA_SOFTMAX_HF8_1C;
+  }
+  params.scale = scale;
+  params.dropout.ratio = p;
+  params.is_causal = is_causal;
+  params.is_inference = is_inference;
+  params.softmax_mode = sfmx_mode;
+}
+
 void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(stack, "SDPAFwd::AddNode");
+  bool seed_present = (stack.size() == 9);
+  synTensor seed_tensor = nullptr;
+  if (seed_present) {
+    auto seed = getNextInput<TensorsPair>(stackGetter);
+    seed_tensor = seed.syn_t;
+  }
   auto q = getNextInput<TensorsPair>(stackGetter);
   auto k = getNextInput<TensorsPair>(stackGetter);
   auto v = getNextInput<TensorsPair>(stackGetter);
   auto attention_mask = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto seed = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
   auto is_causal = getNextInput<bool>(stackGetter);
   auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
 
-  SdpaSoftmaxMode_t sfmx_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
-  if (softmax_mode == "fast") {
-    sfmx_mode = SdpaSoftmaxMode_t::SDPA_SOFTMAX_HF8_1C;
-  }
-
   ns_Sdpa::ParamsV2 params{};
-  params.scale = scale;
-  params.dropout.ratio = p;
-  if (is_causal) {
-    params.is_causal = true;
-  }
-  params.is_inference = false;
-  params.softmax_mode = sfmx_mode;
+  fillSdpaParams(params, p, scale, is_causal, false, softmax_mode);
 
   std::string guid = get_guid_with_precision("sdpa_fwd", q.pt_t.scalar_type());
   auto out_shapes = SDPAFwdOutputShape(stack);
@@ -170,11 +181,8 @@ void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   } else {
     syn_inputs.push_back(nullptr);
   }
-  if (p > 0.0) {
-    syn_inputs.push_back(seed.value().syn_t);
-  } else {
-    syn_inputs.push_back(nullptr);
-  }
+
+  syn_inputs.push_back(seed_tensor);
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
       {out_shapes[0], q.pt_t.scalar_type(), 0},
@@ -205,10 +213,7 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto scale = getNextInput<double>(stackGetter);
 
   ns_Sdpa::ParamsV2 params{};
-  params.scale = scale;
-  params.dropout.ratio = p;
-  params.is_inference = false;
-  params.softmax_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
+  fillSdpaParams(params, p, scale, false /*is_causal*/, false /*is_inference*/);
 
   std::string guid = get_guid_with_precision("sdpa_bwd", q.pt_t.scalar_type());
   auto out_shapes = SDPABwdOutputShape(stack);
@@ -236,10 +241,11 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 //============= ComputeShape and AddNode for SDPA recompute variant=========
 sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
-  auto q = stack_tensor(stack, 0);
-  auto k = stack_tensor(stack, 1);
-  auto v = stack_tensor(stack, 2);
-  auto requires_backward = stack.at(8).toBool();
+  int q_index = (stack.size() == 10) ? 1 : 0;
+  auto q = stack_tensor(stack, q_index);
+  auto k = stack_tensor(stack, q_index + 1);
+  auto v = stack_tensor(stack, q_index + 2);
+  auto requires_backward = stack.at(q_index + 7).toBool();
 
   int64_t rank = q.dim();
   std::vector<int64_t> q_shape = q.sizes().vec();
@@ -309,30 +315,30 @@ void SDPARecompFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   StackGetter stackGetter(stack, "SDPARecompFwd::AddNode");
+  bool seed_present = (stack.size() == 10);
+  synTensor seed_tensor = nullptr;
+  if (seed_present) {
+    auto seed = getNextInput<TensorsPair>(stackGetter);
+    seed_tensor = seed.syn_t;
+  }
   auto q = getNextInput<TensorsPair>(stackGetter);
   auto k = getNextInput<TensorsPair>(stackGetter);
   auto v = getNextInput<TensorsPair>(stackGetter);
   auto attention_mask = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto seed = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
   auto is_causal = getNextInput<bool>(stackGetter);
   auto requires_backward = getNextInput<bool>(stackGetter);
   auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
 
-  SdpaSoftmaxMode_t sfmx_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
-  if (softmax_mode == "fast") {
-    sfmx_mode = SdpaSoftmaxMode_t::SDPA_SOFTMAX_HF8_1C;
-  }
-
   ns_Sdpa::ParamsV2 params{};
-  params.scale = scale;
-  params.dropout.ratio = p;
-  if (is_causal) {
-    params.is_causal = true;
-  }
-  params.is_inference = !requires_backward;
-  params.softmax_mode = sfmx_mode;
+  fillSdpaParams(
+      params,
+      p,
+      scale,
+      is_causal,
+      !requires_backward /*is_inference*/,
+      softmax_mode);
 
   std::string guid =
       get_guid_with_precision("sdpa_recomp_fwd", q.pt_t.scalar_type());
@@ -344,11 +350,7 @@ void SDPARecompFwd::AddNode(
   } else {
     syn_inputs.push_back(nullptr);
   }
-  if (p > 0.0) {
-    syn_inputs.push_back(seed.value().syn_t);
-  } else {
-    syn_inputs.push_back(nullptr);
-  }
+  syn_inputs.push_back(seed_tensor);
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs;
   output_attrs.push_back({out_shapes[0], q.pt_t.scalar_type(), 0});
@@ -389,13 +391,7 @@ void SDPARecompBwd::AddNode(
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
   ns_Sdpa::ParamsV2 params{};
-  params.scale = scale;
-  params.dropout.ratio = p;
-  if (is_causal) {
-    params.is_causal = true;
-  }
-  params.is_inference = false;
-  params.softmax_mode = SdpaSoftmaxMode_t::SDPA_DEFAULT_SOFTMAX;
+  fillSdpaParams(params, p, scale, is_causal, false /*is_inference*/);
 
   std::string guid =
       get_guid_with_precision("sdpa_recomp_bwd", q.pt_t.scalar_type());
@@ -433,7 +429,15 @@ void SDPARecompBwd::AddNode(
 
 static const auto& SDPAKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::sdpa_fwd_be", KERNEL_FN_GLOBAL(habana::SDPAFwd))
+        .add("hpu::sdpa_fwd_dropout_seed", KERNEL_FN_GLOBAL(habana::SDPAFwd))
+        .add("hpu::sdpa_fwd_non_dropout", KERNEL_FN_GLOBAL(habana::SDPAFwd))
+        .add("hpu::sdpa_fwd", KERNEL_FN_GLOBAL(habana::SDPAFwd))
         .add("hpu::sdpa_bwd", KERNEL_FN_GLOBAL(habana::SDPABwd))
-        .add("hpu::sdpa_recomp_fwd_be", KERNEL_FN_GLOBAL(habana::SDPARecompFwd))
+        .add("hpu::sdpa_recomp_fwd", KERNEL_FN_GLOBAL(habana::SDPARecompFwd))
+        .add(
+            "hpu::sdpa_recomp_fwd_non_dropout",
+            KERNEL_FN_GLOBAL(habana::SDPARecompFwd))
+        .add(
+            "hpu::sdpa_recomp_fwd_dropout_seed",
+            KERNEL_FN_GLOBAL(habana::SDPARecompFwd))
         .add("hpu::sdpa_recomp_bwd", KERNEL_FN_GLOBAL(habana::SDPARecompBwd));
