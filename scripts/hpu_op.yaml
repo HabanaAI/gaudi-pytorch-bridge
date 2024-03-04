@@ -5774,8 +5774,8 @@ randperm:
   output_meta: RandPermMeta
   dtypes:
     Gaudi: [Int, Long]
-    Gaudi2: [Int, Long, Half]
-    Gaudi3: [Int, Long, Half]
+    Gaudi2: [Int, Long]
+    Gaudi3: [Int, Long]
   guid: randperm
   op_backend: RandPermOp
   out_ids: [0]
@@ -5787,8 +5787,8 @@ randperm.generator:
   output_meta: RandPermMeta
   dtypes:
     Gaudi: [Int, Long]
-    Gaudi2: [Int, Long, Half]
-    Gaudi3: [Int, Long, Half]
+    Gaudi2: [Int, Long]
+    Gaudi3: [Int, Long]
   guid: randperm
   op_frontend: GeneratorToSeed
   op_backend: RandPermOp
@@ -5799,8 +5799,8 @@ randperm.generator_out:
   output_meta: RandPermMeta
   dtypes:
     Gaudi: [Int, Long]
-    Gaudi2: [Int, Long, Half]
-    Gaudi3: [Int, Long, Half]
+    Gaudi2: [Int, Long]
+    Gaudi3: [Int, Long]
   guid: randperm
   op_frontend: GeneratorToSeedOut
   op_backend: RandPermOp
