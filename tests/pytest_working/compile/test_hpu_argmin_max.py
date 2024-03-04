@@ -39,7 +39,7 @@ class TestHpuArgMinMax:
 
         assert torch.equal(hpu_output, cpu_output)
 
-    @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+    @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int32, torch.int8, torch.uint8])
     def test_argmin(self, shape, dim, keepdim, dtype):
         TestHpuArgMinMax._common_test_argmin_max(shape, dim, keepdim, torch.argmin, dtype)
 

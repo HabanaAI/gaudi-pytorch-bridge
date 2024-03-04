@@ -1176,9 +1176,9 @@ argmax.out:
 argmin:
   output_meta: ArgMinMaxMeta
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Char, Byte, Int]
+    Gaudi2: [BFloat16, Float, Half, Char, Byte, Int]
+    Gaudi3: [BFloat16, Float, Half, Char, Byte, Int]
   guid: argmin_fwd
   op_backend: ArgMinMax
   out_ids: [0]
@@ -1187,8 +1187,8 @@ argmin.out:
   output_meta: ArgMinMaxMeta
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi2: [BFloat16, Float, Half, Char, Byte, Int]
+    Gaudi3: [BFloat16, Float, Half, Char, Byte, Int]
   guid: argmin_fwd
   op_backend: ArgMinMax
 
