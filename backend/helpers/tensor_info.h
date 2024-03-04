@@ -247,7 +247,7 @@ class PtTensorInfo {
   uint64_t get_numel() const {
     return numel_;
   }
-  unsigned get_size() const {
+  uint64_t get_size() const {
     return size_;
   }
   synapse_helpers::device_ptr get_offset() const {
@@ -385,7 +385,7 @@ class PtTensorInfo {
   std::string syn_name_;
 
   uint64_t numel_{0};
-  unsigned size_{0};
+  uint64_t size_{0};
 
   // Will hold the index of parent tensor info for aliases
   bool is_duplicate_{false};

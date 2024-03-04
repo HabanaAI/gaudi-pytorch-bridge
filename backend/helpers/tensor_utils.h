@@ -100,7 +100,7 @@ void copy_data_within_device(
     const at::Tensor& dst,
     bool non_blocking);
 
-void copy_scalar_to_device(void* src_ptr, const at::Tensor& dst, uint32_t size);
+void copy_scalar_to_device(void* src_ptr, const at::Tensor& dst, uint64_t size);
 
 void copy_scalars_to_device(
     const std::vector<std::pair<at::Tensor, at::Tensor>>& tensors_list);

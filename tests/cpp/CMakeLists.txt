@@ -252,6 +252,7 @@ list(APPEND misc_tests_src
   sif_tests.cpp
   synapse_helpers_memory_test.cpp
   synapse_helpers_tensor_test.cpp
+  synapse_helpers_tensor_info_test.cpp
   synapse_helpers_graph_test.cpp
   tensor_usage.cpp
   type_promotion_tests.cpp

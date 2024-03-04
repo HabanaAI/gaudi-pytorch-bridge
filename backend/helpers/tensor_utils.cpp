@@ -196,7 +196,7 @@ std::vector<int64_t> habana_helpers::infer_size(
 void habana_helpers::copy_scalar_to_device(
     void* src_ptr,
     const at::Tensor& dst,
-    uint32_t size) {
+    uint64_t size) {
   auto device_id = dst.device().index();
   auto& device = habana::HPURegistrar::get_device(device_id);
   if (device.IsStreamASyncEnabled()) {
