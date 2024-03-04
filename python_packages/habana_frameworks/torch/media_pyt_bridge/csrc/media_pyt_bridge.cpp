@@ -16,9 +16,9 @@ torch::ScalarType toTorchDType(mediaPytFwProxyDtype media_dtype) {
       return torch::kFloat32;
     case MEDIA_PYTFWPROXY_UINT8:
       return torch::kUInt8;
-    case MEDIA_PYTFWPROXY_UINT32:
+    case MEDIA_PYTFWPROXY_INT32:
       return torch::kInt32;
-    case MEDIA_PYTFWPROXY_UINT64:
+    case MEDIA_PYTFWPROXY_INT64:
       return torch::kInt64;
     default:
       PT_BRIDGE_FATAL("Unsupported mediaPytFwProxyDtype dtype = ", media_dtype);
