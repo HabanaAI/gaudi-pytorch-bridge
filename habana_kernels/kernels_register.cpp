@@ -537,11 +537,16 @@ struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
       at::Tensor input,
       int64_t dim,
       c10::optional<at::ScalarType> dtype) {
-    Tensor converted = dtype.has_value() ? input.toType(dtype.value()) : input;
+    bool need_fp8_to_fp32_cast =
+        input.scalar_type() == at::ScalarType::Float8_e5m2 ||
+        input.scalar_type() == at::ScalarType::Float8_e4m3fn;
+    Tensor converted = dtype.has_value() ? input.toType(dtype.value())
+        : need_fp8_to_fp32_cast          ? input.toType(at::ScalarType::Float)
+                                         : input;
     auto result = torch::_softmax(converted, dim, false);
     ctx->save_for_backward({result, input});
     ctx->saved_data["dim"] = dim;
-    return result;
+    return need_fp8_to_fp32_cast ? result.toType(input.scalar_type()) : result;
   }
 
   static torch::autograd::variable_list backward(
@@ -551,9 +556,19 @@ struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
     auto output = saved_vars[0];
     auto input = saved_vars[1];
     auto dim = ctx->saved_data["dim"].toInt();
+    bool need_fp8_to_fp32_cast =
+        input.scalar_type() == at::ScalarType::Float8_e5m2 ||
+        input.scalar_type() == at::ScalarType::Float8_e4m3fn;
     auto result = torch::_softmax_backward_data(
-        grad_output[0], output, dim, input.scalar_type());
-    return {result, torch::Tensor(), torch::Tensor()};
+        need_fp8_to_fp32_cast ? grad_output[0].toType(at::ScalarType::Float)
+                              : grad_output[0],
+        output,
+        dim,
+        input.scalar_type());
+    return {
+        need_fp8_to_fp32_cast ? result.toType(input.scalar_type()) : result,
+        torch::Tensor(),
+        torch::Tensor()};
   }
 };
 
