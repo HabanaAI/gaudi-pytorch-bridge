@@ -610,21 +610,20 @@ void graph::launch(
 
   PT_SYNHELPER_DEBUG("STREAM:: Launch recipe with stream::", compute_stream);
 
-  auto table_checker{
-      [&recipe_handle](const synLaunchTensorInfo& info) -> bool {
-        if (info.tensorName == nullptr || info.tensorName[0] == '\0') {
-          PT_SYNHELPER_WARN(
-              recipe_handle.recipe_name_,
-              " null address:",
-              (info.pTensorAddress == 0),
-              " null name:",
-              (info.tensorName == nullptr),
-              " ",
-              ((info.tensorName == nullptr) ? "" : info.tensorName));
-          return true;
-        }
-        return false;
-      }};
+  auto table_checker{[&recipe_handle](const synLaunchTensorInfo& info) -> bool {
+    if (info.tensorName == nullptr || info.tensorName[0] == '\0') {
+      PT_SYNHELPER_WARN(
+          recipe_handle.recipe_name_,
+          " null address:",
+          (info.pTensorAddress == 0),
+          " null name:",
+          (info.tensorName == nullptr),
+          " ",
+          ((info.tensorName == nullptr) ? "" : info.tensorName));
+      return true;
+    }
+    return false;
+  }};
   PT_SYNHELPER_DEBUG("checking input_output patching table");
   HABANA_ASSERT(
       std::find_if(
@@ -756,6 +755,11 @@ void graph::launch(
       "synLaunch failed. synStatus=",
       Logger::formatStatusMsg(status))
   PT_SYNHELPER_END;
+
+  char* sync_launch = getenv("PT_HPU_SYNC_LAUNCH");
+  if (sync_launch != nullptr && atoi(sync_launch) == 1) {
+    device.synchronize();
+  }
 
   return;
 }
