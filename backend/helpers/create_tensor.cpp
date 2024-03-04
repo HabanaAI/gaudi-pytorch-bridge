@@ -715,6 +715,16 @@ synapse_helpers::tensor create_const_tensor(
     void* host_ptr,
     const uint64_t host_ptr_size,
     const std::string& name) {
+  if (graph.is_dry_run()) {
+    // For dry run mode, just create a placeholder tensor
+    return synapse_helpers::tensor::create_placeholder(
+        devid,
+        shape.vec(),
+        stride.vec(),
+        pytorch_to_synapse_type(dtype),
+        persistent,
+        name);
+  }
   auto builder =
       synapse_helpers::tensor_builder(
           shape, stride, pytorch_to_synapse_type(dtype))
