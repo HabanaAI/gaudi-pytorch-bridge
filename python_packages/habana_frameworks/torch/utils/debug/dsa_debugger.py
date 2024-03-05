@@ -89,6 +89,8 @@ class DivergenceAnalyzer:
         self.hls_dumpdir_dynamic = os.path.join(self.hls_local_dir, "DynamicSynRec")
         self.dict_cache = None
         self.mismatch_map = None
+        self.mismatch_static = None
+        self.mismatch_dynamic = None
         self.use_cache = use_cache
 
         if not self.is_master_slave_config():
@@ -169,7 +171,9 @@ class DivergenceAnalyzer:
 
     def get_commands(self):
         synrec_path = self.get_synrec_path()
-        default_config = "PT_HPU_LAZY_ACC_PAR_MODE=0 PT_HPU_PGM_ENABLE_CACHE=0 PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES=1"
+        default_config = "PT_HPU_LAZY_ACC_PAR_MODE=0 PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES=1"
+        if self.cfg.cache == 0:
+            default_config = default_config + " PT_HPU_PGM_ENABLE_CACHE=0"
         do_split = " -s" if self.cfg.parallel else ""
         ranks = "--ranks " + str(self.cfg.rank)
         dump_dir_static = self.dumpdir_static
@@ -292,6 +296,8 @@ class DivergenceAnalyzer:
         idx_tensor_name = 5
         idx_validation = 10
         idx_data = 14
+        idx_iter = 7
+        idx_launch = 2
 
         # Check whether the data in each table is the same in both databases
         cursor1.execute(f"SELECT * FROM TENSORS")
@@ -311,7 +317,9 @@ class DivergenceAnalyzer:
         tensor_names_static = [item[idx_tensor_name] for item in tensors_static[:compare_len]]
         tensor_names_dynamic = [item[idx_tensor_name] for item in tensors_dynamic[:compare_len]]
         if not tensor_names_static == tensor_names_dynamic:
-            self.log("[ERROR] DB has different Tensor name for tensor in static and dynamic not comparing")
+            self.log("[ERROR] DB has different Tensor name for tensor in static and dynamic not comparing.")
+            if self.cfg.cache == True:
+                self.log("[ERROR] Check with --cache 0.")
             exit(0)
 
         data_ids_table1 = [item[idx_data] for item in tensors_static[:compare_len]]
@@ -328,10 +336,18 @@ class DivergenceAnalyzer:
                     if "graph_dumps" in graph_name:
                         if self.mismatch_map is None:
                             self.mismatch_map = {}
+                            self.mismatch_static = []
+                            self.mismatch_dynamic = []
                         if graph_name not in self.mismatch_map.keys():
                             self.mismatch_map[graph_name] = set()
                             self.log(f"[INFO] Mismatch found in graph {graph_name}")
                         self.mismatch_map[graph_name].add(t_dynamic[idx_tensor_name])
+                        self.mismatch_static.append(
+                            [t_static[idx_graph_name], t_static[idx_tensor_name], t_static[idx_iter]]
+                        )
+                        self.mismatch_dynamic.append(
+                            [t_dynamic[idx_graph_name], t_dynamic[idx_tensor_name], t_dynamic[idx_iter]]
+                        )
 
     def dump_stats(self):
         if self.mismatch_map is not None:
@@ -422,39 +438,44 @@ class DivergenceAnalyzer:
         csv_outfile = open(path_csv, "w")
         is_first_row = True
 
-        for graph_name, tensors in self.mismatch_map.items():
-            for tensor in tensors:
-                _graph_name = graph_name.split("/")[-1]
-                self.log(f'Analyzing graph:", {_graph_name}, "-> Tensor:", {tensor}', console=False)
+        for static_list, dynamic_list in zip(self.mismatch_static, self.mismatch_dynamic):
+            _graph_name_dynamic = dynamic_list[0]
+            tensor_dynamic = dynamic_list[1]
+            iteration_dynamic = dynamic_list[2]
+            _graph_name_static = static_list[0]
+            tensor_static = static_list[1]
+            iteration_static = static_list[2]
+            self.log(f'Analyzing graph:", {_graph_name_dynamic}, "-> Tensor:", {tensor_dynamic}', console=False)
+            self.log(f'\tDynamic graph:", {_graph_name_dynamic}, "-> Tensor:", {tensor_dynamic}', console=False)
+            self.log(f'\tStatic  graph:", {_graph_name_static}, "-> Tensor:", {tensor_static}', console=False)
+            if self.cfg.parallel:
+                path_static, path_dynamic, path_json = get_path(data_dict, _graph_name_dynamic)
+            else:
+                path_static = data_dict["Static"]["db"]
+                path_dynamic = data_dict["Dynamic"]["db"]
+                path_json = data_dict["Static"]["json"]
 
-                if self.cfg.parallel:
-                    path_static, path_dynamic, path_json = get_path(data_dict, _graph_name)
-                else:
-                    path_static = data_dict["Static"]["db"]
-                    path_dynamic = data_dict["Dynamic"]["db"]
-                    path_json = data_dict["Static"]["json"]
+            if not self.cfg.no_stats:
+                # FIXME: Check if command ran successfully and found the graph and tensor in db file
+                cmd_static = f"{json_tests_bin} db_parser -d {path_static} -g {_graph_name_static} -t {tensor_static} -i {iteration_static} -o {output_static}"
+                cmd_dynamic = f"{json_tests_bin} db_parser -d {path_dynamic} -g {_graph_name_dynamic} -t {tensor_dynamic} -i {iteration_dynamic} -o {output_dynamic}"
 
-                if not self.cfg.no_stats:
-                    # FIXME: Check if command ran successfully and found the graph and tensor in db file
-                    cmd_static = f"{json_tests_bin} db_parser -d {path_static} -g '{graph_name}' -t '{tensor}' -o {output_static}"
-                    cmd_dynamic = f"{json_tests_bin} db_parser -d {path_dynamic} -g '{graph_name}' -t '{tensor}' -o {output_dynamic}"
+                self.run(cmd_static, mode="static", verbose=False)
+                self.run(cmd_dynamic, mode="dynamic", verbose=False)
 
-                    self.run(cmd_static, mode="static", verbose=False)
-                    self.run(cmd_dynamic, mode="dynamic", verbose=False)
+            row = {}
+            row.update(self.get_node(path_json, _graph_name_dynamic, tensor_dynamic))
+            if not self.cfg.no_stats:
+                row.update(process_outputs())
 
-                row = {}
-                row.update(self.get_node(path_json, graph_name, tensor))
-                if not self.cfg.no_stats:
-                    row.update(process_outputs())
+            if is_first_row:
+                writer = csv.DictWriter(csv_outfile, row.keys())
+                writer.writeheader()
+                is_first_row = False
+            if not self.cfg.no_stats and row["abs_max"] > self.cfg.thresh:
+                writer.writerow(row)
 
-                if is_first_row:
-                    writer = csv.DictWriter(csv_outfile, row.keys())
-                    writer.writeheader()
-                    is_first_row = False
-                if not self.cfg.no_stats and row["abs_max"] > self.cfg.thresh:
-                    writer.writerow(row)
-
-                progbar.update(1)
+            progbar.update(1)
 
         csv_outfile.close()
 
@@ -622,6 +643,12 @@ def get_args():
         help="Add this flag to run in parallel mode, Dynamic in 1 process, and Static in another process. The dumps are compared on the fly and deleted if matching.",
     )
     parser.add_argument(
+        "--cache",
+        type=int,
+        default=1,
+        help="Configure the enablement/disablement of recipe cache. In parallel/8x disabled by default",
+    )
+    parser.add_argument(
         "--thresh", type=float, default=0.001, help="The threshold above which dumps the stats in CSV file"
     )
     parser.add_argument(
@@ -670,6 +697,9 @@ def main(args):
 
     if divergence_analyzer.is_master_slave_config():
         args.parallel = 1
+
+    if args.parallel == 1:
+        args.cache = 0
 
     if args.cmd is not None:
         if args.parallel:
