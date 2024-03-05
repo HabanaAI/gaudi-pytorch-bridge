@@ -128,7 +128,7 @@ InferOutputMetaRetType RandpermOperatorHT::InferOutputMeta(
   stack.clear();
   stack.emplace_back(IValue(arangeOutput));
   auto randShuffleOp = make_operator<RandomShuffleOperator>(
-      this->p_context_->device_id_, scalar_type);
+      this->p_context_->device_id_, at::ScalarType::Int);
 
   auto& randShuffle_op_out = out.call_InferOutputMeta(randShuffleOp, stack);
   auto randShuffle_op_tensor = randShuffle_op_out.GetOutputTensor()[0];
@@ -170,9 +170,11 @@ void RandpermOperatorHT::AllocateAndAddSynapseNode(
   arangeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
-  // create RandomShuffle operator
+  // Create RandomShuffle operator in int32 precision which is the only
+  // supported by the tpc_kernel. If the inputs have different dtype, they will
+  // be automatically casted to int32 dtype.
   auto randShuffleOp = make_operator<RandomShuffleOperator>(
-      this->p_context_->device_id_, scalar_type);
+      this->p_context_->device_id_, at::ScalarType::Int);
   stack.emplace_back(IValue(arangeOutput));
   randShuffleOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
   randShuffleOp->SetSynapseInput(p_context_->syn_inputs_[1]);
@@ -220,9 +222,11 @@ void RandpermOperator::AllocateAndAddSynapseNode(
   arangeOp->AllocateAndAddSynapseNode(graph, stack, OutputMetaDataVector(1));
   stack.clear();
 
-  // create RandomShuffle operator
+  // Create RandomShuffle operator in int32 precision which is the only
+  // supported by the tpc_kernel. If the inputs have different dtype, they will
+  // be automatically casted to int32 dtype.
   auto randShuffleOp = make_operator<RandomShuffleOperator>(
-      this->p_context_->device_id_, scalar_type);
+      this->p_context_->device_id_, at::ScalarType::Int);
   stack.emplace_back(IValue(arangeOutput));
   randShuffleOp->SetSynapseInput(arangeOp->GetSynOutputs()[0]);
   randShuffleOp->SetSynapseInput(p_context_->syn_inputs_[0]);
