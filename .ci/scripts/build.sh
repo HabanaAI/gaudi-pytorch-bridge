@@ -19,7 +19,6 @@ function pytorch_functions_help()
     echo -e "build_pytorch_modules          -   Build habana pytorch intergation modules"
     echo -e "build_pytorch_dist             -   Build habana pytorch distrubuted modules"
     echo -e "build_pytorch_tb_plugin        -   Build habana pytorch tensorboard plugin"
-    echo -e "build_habana_lightning_plugins -   Build habana lightning plugin"
     echo -e "build_lightning_habana_fork    -   Build lightning habana fork"
     echo -e "build_pytorch_data             -   Build habana pytorch data"
     echo -e "build_pytorch_text             -   Build habana pytorch text"
@@ -49,21 +48,6 @@ function pytorch_usage()
         echo -e "       --build-version        Build version used for whl creation"
         echo -e "       --pytorch-next         Build pytorch-next instead of pytorch-fork"
         echo -e "       --pt-version           Build for given pytorch version"
-        echo -e "       --py-version           Python version"
-        echo -e "  -h,  --help                 Prints this help"
-    fi
-
-    if [ $1 == "build_habana_lightning_plugins" ]; then
-        echo -e "\n usage: $1 [options]\n"
-
-        echo -e "options:\n"
-        echo -e "  -j,  --jobs <val>           Max jobs used for compilation"
-        echo -e "  -c,  --clean                clean up temporary files from 'build' command"
-        echo -e "  -a,  --build-all            Python only code, option ignored"
-        echo -e "  -r,  --release              Python only code, option ignored"
-        echo -e "  -d,  --debug                Python only code, option ignored"
-        echo -e "       --install              will install the package"
-        echo -e "       --dist                 create a wheel distribution/default"
         echo -e "       --py-version           Python version"
         echo -e "  -h,  --help                 Prints this help"
     fi
@@ -949,76 +933,6 @@ build_pytorch_tb_plugin()
     return $__result
 }
 
-
-build_habana_lightning_plugins()
-{
-    SECONDS=0
-    local __scriptname=$(__get_func_name)
-    local __env_vars=""
-    local __configure=""
-    local __whl_params=" bdist_wheel"
-    local __result
-    local __set_py_vers="false"
-    # parameter while-loop
-    while [ -n "$1" ];
-    do
-        case $1 in
-        -j  | --jobs )
-            __env_vars+=" MAX_JOBS=$2"
-            ;;
-        -c  | --configure )
-             __configure="yes"
-            ;;
-        -r  | --release )
-            ;;
-        -d  | --debug )
-            ;;
-        --dist )
-            __whl_params=" bdist_wheel"
-            ;;
-        --install )
-            __whl_params=" install"
-            ;;
-        --py-version )
-            set_python_version $2
-            __set_py_vers="true"
-            ;;
-        -h  | --help )
-            usage $__scriptname
-            restore_python_version
-            return 0
-            ;;
-        esac
-        shift
-    done
-
-    pushd $HABANA_LIGHTNING_PLUGINS_ROOT
-
-    if [ -n "$__configure" ]; then
-        eval ${__env_vars} $__python_cmd setup.py clean
-        git clean -fd
-    fi
-
-    echo "Build parameters for habana lightning plugins ${__whl_params}"
-
-    (set -x;eval ${__env_vars} $__python_cmd setup.py ${__whl_params})
-    __result=$?
-    if [ $__result -ne 0 ]; then
-        echo "Pytorch lightning build failed!"
-    fi
-
-    popd
-    if [[ "$__whl_params" = " bdist_wheel" ]]; then
-        PTL_WHL_PATH="$HABANA_LIGHTNING_PLUGINS_ROOT/dist/"
-        rm -rf $HABANA_LIGHTNING_PLUGINS_BUILD/pkgs
-        mkdir -p $HABANA_LIGHTNING_PLUGINS_BUILD/pkgs
-        cp -f ${PTL_WHL_PATH}/*.whl $HABANA_LIGHTNING_PLUGINS_BUILD/pkgs
-    fi
-
-    printf "\nElapsed time: %02u:%02u:%02u \n\n" $(($SECONDS / 3600)) $((($SECONDS / 60) % 60)) $(($SECONDS % 60))
-    restore_python_version
-    return $__result
-}
 
 build_lightning_habana_fork()
 {
