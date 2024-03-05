@@ -27,6 +27,7 @@ hpu_supported_op_list = {
     "as_strided_scatter",
     "clamp",
     "copy",
+    "full",
     "getitem",
     "slice_scatter",
     "select_scatter",
@@ -60,19 +61,6 @@ hpu_supported_op_list = {
     "quantize_per_channel",
     "dequantize_per_channel",
     "_native_batch_norm_legit_functional",
-    "clone",
-    "copy_",
-    # view ops
-    "view",
-    "_unsafe_view",
-    "slice",
-    "squeeze",
-    "split",
-    "convolution",
-    "convolution_backward",
-    #G3
-    "max_pool2d_with_indices_backward",
-    "sum"
 }
 
 hpu_supported_ops_restricted = dict()
@@ -182,29 +170,24 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
             if normalized_args is not None:
                 args, kwargs = normalized_args
                 try:
-                    # Extracts unerlying values from sym nodes
-                    def convert(val):
-                        if isinstance(val, (torch.SymInt, torch.SymFloat, torch.SymBool)):
-                            return val.node.hint
-                        # if list, then check if it contains any sym node
-                        elif isinstance(val, list):
-                            return [convert(i) for i in val]
-                        return val
                     concrete_args = tuple(
-                        convert(arg) for arg in args
+                        arg
+                        if not isinstance(
+                            arg, (torch.SymInt, torch.SymFloat, torch.SymBool)
+                        )
+                        else arg.node.hint
+                        for arg in args
                     )
                     concrete_kwargs = {
-                        key: convert(val)
+                        key: val
+                        if not isinstance(
+                            val, (torch.SymInt, torch.SymFloat, torch.SymBool)
+                        )
+                        else val.node.hint
                         for key, val in kwargs.items()
                     }
-                    # Sometimes we get only number, but tensor is required
-                    allow_numbers_as_tensors = torch._C._should_allow_numbers_as_tensors(node.target._schema.name.split("::")[-1].split(".")[0])
                     do_fallback = check_cpu_fallback_op(
-                        op_name,
-                        node.target._schema,
-                        allow_numbers_as_tensors,
-                        *concrete_args,
-                        **concrete_kwargs
+                        op_name, concrete_args, arg_types, concrete_kwargs
                     )
                     if do_fallback:
                         logger.debug(

@@ -20,17 +20,15 @@ namespace py = pybind11;
 
 bool check_cpu_fallback_op(
     std::string op,
-    c10::FunctionSchema schema,
-    bool allow_numbers_as_tensors,
-    py::args args,
-    const py::kwargs& kwargs) {
+    py::object args,
+    [[maybe_unused]] py::list arg_types,
+    py::dict kwargs) {
   if (hpu_shared_layer_unsupported_ops.find(op) !=
       hpu_shared_layer_unsupported_ops.end()) {
     return false;
   }
   if (fallback_support_check_map.find(op) != fallback_support_check_map.end()) {
-    bool check_kernel_support = fallback_support_check_map[op](
-        schema, allow_numbers_as_tensors, args, kwargs);
+    bool check_kernel_support = fallback_support_check_map[op](args, kwargs);
     return not check_kernel_support;
   }
   return true;

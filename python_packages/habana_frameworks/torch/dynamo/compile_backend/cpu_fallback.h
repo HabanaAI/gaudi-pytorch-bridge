@@ -13,10 +13,8 @@
 
 #pragma once
 
-#include <ATen/core/function_schema.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <torch/csrc/distributed/rpc/python_rpc_handler.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
 #include <torch/csrc/jit/tensorexpr/tensorexpr_init.h>
 #include <torch/csrc/utils/python_symnode.h>
@@ -166,18 +164,15 @@ void pushIValueToStack(torch::jit::Stack& stack, pybind11::handle item) {
 }
 
 template <typename SharedOp>
-bool check_support(
-    c10::FunctionSchema& schema,
-    bool allow_numbers_as_tensors,
-    py::args& args,
-    const py::kwargs& kwargs) {
+bool check_support(py::object args, py::dict kwargs) {
+  at::Tensor self;
   torch::jit::Stack stack;
-  {
-    torch::jit::ToIValueAllowNumbersAsTensors g(allow_numbers_as_tensors);
-    //  Acquire GIL for py::args and py::kwargs processing.
-    py::gil_scoped_acquire ag;
-    stack =
-        torch::jit::createStackForSchema(schema, args, kwargs, c10::nullopt);
+  stack.reserve(PySequence_Size(args.ptr()));
+  for (auto item : args) {
+    pushIValueToStack(stack, item);
+  }
+  for (auto item : kwargs) {
+    pushIValueToStack(stack, item.second);
   }
   static SharedOp shared_op;
   return shared_op.func(stack);
