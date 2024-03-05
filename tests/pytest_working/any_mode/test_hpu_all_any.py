@@ -35,11 +35,14 @@ input_any_op = [
 ]
 
 
+ranges = [[0, 5], [1, 5], [-5, -1], [-5, 0], [-5, 5]]
 use_out = [True, False]
-dtypes = [torch.bfloat16, torch.float, torch.int]
+dtypes_any = [torch.bfloat16, torch.float, torch.int, torch.bool]
+dtypes_all = dtypes_any + [torch.short]
 if not is_gaudi1():
-    dtypes.append(torch.float16)
-    dtypes.append(torch.short)
+    dtypes_any.append(torch.float16)
+    dtypes_any.append(torch.short)
+    dtypes_all.append(torch.float16)
 
 
 def fn(input_tensor, use_out, output_device, op, dim):
@@ -70,26 +73,42 @@ def check(cpu_input, use_out, op, dim):
 
 @pytest.mark.parametrize("use_out", use_out)
 @pytest.mark.parametrize("shape", input_all_op, ids=format_tc)
-def test_hpu_all(use_out, shape):
-    cpu_input = torch.randint(size=shape, low=0, high=2, dtype=torch.bool)
+@pytest.mark.parametrize("dtype", dtypes_all)
+def test_hpu_all(use_out, shape, dtype):
+    if dtype in (torch.int, torch.short, torch.bool):
+        cpu_input = torch.randint(size=shape, low=0, high=2, dtype=dtype)
+    else:
+        cpu_input = torch.rand(shape, dtype=dtype)
+
+    check(cpu_input, use_out, torch.all, None)
+
+
+@pytest.mark.parametrize("use_out", use_out)
+@pytest.mark.parametrize("dtype", dtypes_all)
+@pytest.mark.parametrize("range", ranges)
+def test_hpu_all_ranges(use_out, dtype, range):
+    if dtype == torch.bool:
+        pytest.skip(reason="Test not suitable for bool dtype")
+    cpu_input = torch.arange(start=range[0], end=range[1], dtype=dtype)
     check(cpu_input, use_out, torch.all, None)
 
 
 @pytest.mark.parametrize("use_out", use_out)
 @pytest.mark.parametrize("shape", zero_size_shapes, ids=format_tc)
-def test_hpu_all_zero_size(use_out, shape):
-    cpu_input = torch.empty(shape, dtype=torch.bool)
+@pytest.mark.parametrize("dtype", dtypes_all)
+def test_hpu_all_zero_size(use_out, shape, dtype):
+    cpu_input = torch.empty(shape, dtype=dtype)
     check(cpu_input, use_out, torch.all, None)
 
 
 @pytest.mark.parametrize("use_out", use_out)
 @pytest.mark.parametrize("input", input_any_op, ids=format_tc)
-@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
+@pytest.mark.parametrize("dtype", dtypes_any, ids=format_tc)
 def test_hpu_any(use_out, input, dtype):
     shape = input[0]
     dim = input[1]
 
-    if dtype in (torch.int, torch.short):
+    if dtype in (torch.int, torch.short, torch.bool):
         cpu_input = torch.randint(size=shape, low=0, high=2, dtype=dtype)
     else:
         cpu_input = torch.rand(shape, dtype=dtype)

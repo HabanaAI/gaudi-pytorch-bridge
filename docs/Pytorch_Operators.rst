@@ -94,7 +94,7 @@ addmm                                  Yes      Yes      No        No       No  
 addmv                                  Yes      Yes      No        No       No     torch
 addmv\_                                Yes      Yes      No        No       No     torch
 addr                                   Yes      Yes      No        No       No     torch
-all                                    No       No       No        Yes      Yes    torch
+all                                    Yes      Yes      Yes       No       Yes    torch
 amax                                   Yes      Yes      Yes       No       No     torch
 amin                                   Yes      Yes      Yes       No       No     torch
 aminmax                                Yes      Yes      Yes       Yes      No     torch
@@ -393,7 +393,7 @@ addmv                                  Yes      Yes      No        No       No  
 addmv\_                                Yes      Yes      No        No       No     torch.Tensor
 addr                                   Yes      Yes      No        No       No     torch.Tensor
 addr\_                                 Yes      Yes      No        No       No     torch.Tensor
-all                                    No       No       No        Yes      Yes    torch.Tensor
+all                                    Yes      Yes      Yes       No       Yes    torch.Tensor
 amax                                   Yes      Yes      No        No       No     torch.Tensor
 amin                                   Yes      Yes      No        No       No     torch.Tensor
 aminmax                                Yes      Yes      Yes       Yes      No     torch.Tensor

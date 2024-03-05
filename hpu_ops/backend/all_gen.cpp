@@ -15,31 +15,54 @@ static auto AllCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,
     const at::Tensor& self,
-    const synTensor& syn_in,
-    at::IntArrayRef dim,
-    bool keepdim,
-    at::IntArrayRef final_shape) {
-  auto cast_f32 = OpBackend::BuildCast(
-      op,
-      graph,
-      syn_in,
-      self.sizes(),
-      self.scalar_type(),
-      c10::ScalarType::Float);
+    synTensor input,
+    const at::IntArrayRef dim,
+    const bool keepdim,
+    const at::IntArrayRef final_shape) {
+  std::vector<synapse_helpers::tensor> reduced;
+  auto dtype = self.scalar_type();
+  auto isIntegralInput = c10::isIntegralType(dtype, true);
+  auto reduce_prod_node = [&](const std::vector<synTensor>& input_reduce) {
+    return HandleReductionDimAndKeepdim(
+        op,
+        graph,
+        self,
+        input_reduce,
+        dim,
+        keepdim,
+        get_guid_with_precision("reduce_prod_fwd", dtype),
+        {{final_shape, dtype}});
+  };
 
-  op->SetScalarType(at::kFloat);
-  auto reduce_prod = HandleReductionDimAndKeepdim(
-      op,
-      graph,
-      self,
-      {cast_f32.get()},
-      dim,
-      keepdim,
-      "reduce_prod_fwd_f32",
-      {{final_shape, at::kFloat}});
+  if (isIntegralInput) {
+    dtype = at::kFloat;
+    std::unique_ptr<synapse_helpers::tensor> cast;
+    if (!op->isOutputInfMode()) {
+      cast = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
+          op, graph, input, self.sizes(), self.scalar_type(), dtype));
+      input = cast->get();
+    }
+    op->SetScalarType(dtype);
+    reduced = reduce_prod_node({input});
+  } else {
+    auto abs = OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("abs_fwd", dtype),
+         {input},
+         {{self.sizes().vec(), dtype}}});
+
+    auto ceil = OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("ceil_fwd", dtype),
+         {abs[0].get()},
+         {{self.sizes().vec(), dtype}}});
+    reduced = reduce_prod_node({ceil[0].get()});
+  }
 
   return OpBackend::BuildCast(
-      op, graph, reduce_prod[0].get(), final_shape, at::kFloat, at::kBool, 0);
+      op, graph, reduced[0].get(), final_shape, dtype, at::kBool, 0);
 }
 
 void AllDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -47,15 +70,21 @@ void AllDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const int64_t dim = stack.at(1).toInt();
   const bool keepdim = stack.at(2).toBool();
 
-  auto out = AllCommon(
-      this,
-      graph,
-      self,
-      syn_in(0),
-      dim,
-      keepdim,
-      AllAnyDimMeta(stack)[0].shape);
-  syn_out(0) = std::move(out);
+  if (self.numel() == 0) {
+    auto false_tensor =
+        ConstantHelper(graph, true, c10::ScalarType::Bool, {}, 0);
+    syn_out(0) = std::move(false_tensor);
+  } else {
+    auto out = AllCommon(
+        this,
+        graph,
+        self,
+        syn_in(0),
+        dim,
+        keepdim,
+        AllAnyDimMeta(stack)[0].shape);
+    syn_out(0) = std::move(out);
+  }
 }
 
 void All::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
