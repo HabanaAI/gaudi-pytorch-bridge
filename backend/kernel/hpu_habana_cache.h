@@ -671,3 +671,4 @@ void ClearDynamicBucketRecipeInfo();
 
 CREATE_OSTREAM_FORMATTER(habana::RecipeArgumentSpec);
 CREATE_OSTREAM_FORMATTER(habana::RecipeValueSpec);
+CREATE_OSTREAM_FORMATTER(habana::RecipeLauncher);

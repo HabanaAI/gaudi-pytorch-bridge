@@ -222,7 +222,8 @@ RecipeValueSpec::~RecipeValueSpec() {
 }
 
 std::ostream& operator<<(std::ostream& O, const RecipeLauncher& v) {
-  O << "----   RecipeLauncher :: begin \n";
+  O << "\n----   RecipeLauncher :: begin \n";
+  O << " <id : " << v.id_ << ">\n";
   O << " ntensorbytes : " << synapse_helpers::get_mem_str(v.ntensorbytes_)
     << '\n';
   O << " workspace    : " << synapse_helpers::get_mem_str(v.workspace_size_)
@@ -230,8 +231,14 @@ std::ostream& operator<<(std::ostream& O, const RecipeLauncher& v) {
   O << " <addr : " << v.recipe_.get() << "> "
     << " <use_count : " << v.recipe_.use_count() << "> "
     << "\n";
-  O << " <num_launches : " << v.num_launches << ">" << '\n';
-  O << "----   RecipeLauncher :: end \n";
+  O << " <num_launches : " << v.num_launches << ">\n";
+  O << " #inputs                        : " << v.num_inputs_ << '\n'
+    << " #outputs                       : " << v.num_outputs_ << '\n'
+    << " #input_to_outduplicates        : " << v.num_input_to_outduplicates_
+    << '\n'
+    << " #intermediate_to_outduplicates : "
+    << v.num_intermediate_to_outduplicates_ << '\n';
+  O << "----   RecipeLauncher :: end";
   return O;
 }
 
@@ -1271,7 +1278,8 @@ namespace {
 void MaybePrintDebugInfo(
     const at::ArrayRef<torch::jit::IValue>& input_refs,
     const std::shared_ptr<VecOfIValPtrSh>& intermediate_tensors_ptr,
-    const VecOfIValPtrSh& aten_outputs) {
+    const VecOfIValPtrSh& aten_outputs,
+    const RecipeLauncher& rl) {
   PT_BRIDGE_BEGIN;
   if (hl_logger::logLevelAtLeast(
           HlLogger::LoggerType::PT_BRIDGE, HLLOG_LEVEL_DEBUG)) {
@@ -1304,6 +1312,7 @@ void MaybePrintDebugInfo(
         idx += 1;
       }
     }
+    PT_BRIDGE_DEBUG(rl);
   }
   PT_BRIDGE_END;
 }
@@ -1365,7 +1374,8 @@ void RecipeLauncher::Launch(
     const VecOfIValPtrSh& dma_inputs) {
   PT_BRIDGE_BEGIN;
   TORCH_CHECK(!aten_outputs.empty());
-  MaybePrintDebugInfo(input_refs, intermediate_tensors_ptr, aten_outputs);
+  MaybePrintDebugInfo(
+      input_refs, intermediate_tensors_ptr, aten_outputs, *this);
 
   auto& device = HPURegistrar::get_device().syn_device();
   auto& stream_handle = device.get_stream(hpu_stream);
