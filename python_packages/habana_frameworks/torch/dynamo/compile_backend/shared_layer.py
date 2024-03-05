@@ -31,6 +31,7 @@ hpu_supported_op_list = {
     "getitem",
     "slice_scatter",
     "select_scatter",
+    "_native_batch_norm_legit_functional",
     # instance_norm_backward needs to be explicitly added to that list because there
     # is no aten::instance_norm_backward that could be overridden by hpu implementation
     "instance_norm_backward",
@@ -55,12 +56,6 @@ hpu_supported_op_list = {
     # Torchvision
     "roi_align",
     "_roi_align_backward",
-    # Quantization
-    "quantize_per_tensor",
-    "dequantize_per_tensor",
-    "quantize_per_channel",
-    "dequantize_per_channel",
-    "_native_batch_norm_legit_functional",
 }
 
 hpu_supported_ops_restricted = dict()

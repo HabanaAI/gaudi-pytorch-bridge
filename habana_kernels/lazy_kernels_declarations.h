@@ -952,64 +952,6 @@ CONV2D_FP8_LAZY(conv2d_fp8_lazy_scalar, double)
 
 #undef CONV2D_FP8_LAZY
 
-at::Tensor quantize_per_tensor_lazy(
-    const at::Tensor& input,
-    double scale,
-    int64_t zero_point,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type);
-at::Tensor quantize_per_tensor_tensor_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const at::Tensor& zero_point,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type);
-at::Tensor quantize_per_tensor_tensor2_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const at::Tensor& zero_point,
-    const at::Tensor& quant_min,
-    const at::Tensor& quant_max,
-    at::ScalarType type);
-at::Tensor dequantize_per_tensor_lazy(
-    const at::Tensor& input,
-    double scale,
-    int64_t zero_point,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type);
-at::Tensor dequantize_per_tensor_tensor_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const at::Tensor& zero_point,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type);
-at::Tensor dequantize_per_tensor_tensor2_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const at::Tensor& zero_point,
-    const at::Tensor& quant_min,
-    const at::Tensor& quant_max,
-    at::ScalarType type);
-at::Tensor quantize_per_channel_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scales,
-    const at::Tensor& zero_points,
-    int64_t axis,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type);
-at::Tensor dequantize_per_channel_lazy(
-    const at::Tensor& input,
-    const at::Tensor& scales,
-    const at::Tensor& zero_points,
-    int64_t axis,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type);
 at::Tensor sum_fp8_lazy(
     const at::Tensor& self,
     at::OptionalIntArrayRef dim,
