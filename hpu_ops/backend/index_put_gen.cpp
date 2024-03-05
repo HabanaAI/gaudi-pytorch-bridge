@@ -94,6 +94,34 @@ static std::vector<int64_t> CalcCatOutSize(
   return out_size;
 }
 
+static bool CheckAndGetCastGuid(
+    std::string guid,
+    at::ScalarType dtype,
+    std::string& cast_guid,
+    at::ScalarType& cast_dtype) {
+  cast_guid = "";
+  switch (dtype) {
+    case at::ScalarType::Short:
+      if (guid == "scatter_nd_fwd" || guid == "scatter_nd_onnx_fwd") {
+        cast_guid = "cast_i32_to_i16";
+        cast_dtype = at::ScalarType::Int;
+        return true;
+      }
+      break;
+
+    case at::ScalarType::Byte:
+      if (guid == "scatter_nd_fwd") {
+        cast_guid = "cast_i32_to_u8";
+        cast_dtype = at::ScalarType::Int;
+        return true;
+      }
+      break;
+    default:
+      break;
+  }
+  return false;
+}
+
 static synapse_helpers::tensor HandleIndexPutWithAcc(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -235,19 +263,54 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
     scatter_params.origIndicesShape[j] =
         static_cast<int>(scatter_indices_shape[static_cast<size_t>(i)]);
   }
-  auto scatter_op = OpBackend::BuildNode(
-      op,
-      graph,
-      {get_guid_with_precision("scatter_nd_fwd", self_scalar_type),
-       {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
-       {NodeAttr::NodeOutputAttr{self.sizes().vec(), self_scalar_type}},
-       &scatter_params,
-       sizeof(scatter_params)});
+  // scatter_nd_fwd has no support for int16 and u8 , hence we need to cast
+  std::string cast_guid{};
+  auto scatter_nd_fwd_dtype = self_scalar_type;
+  at::ScalarType cast_dtype = self_scalar_type;
+  bool cast_needed = false;
+  if ((cast_needed = CheckAndGetCastGuid(
+           "scatter_nd_fwd", self_scalar_type, cast_guid, cast_dtype))) {
+    scatter_nd_fwd_dtype = cast_dtype;
+  }
+  std::vector<synapse_helpers::tensor> next_node;
+  if (cast_needed) {
+    auto scatter_op = OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("scatter_nd_fwd", scatter_nd_fwd_dtype),
+        {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
+        {NodeAttr::NodeOutputAttr{self.sizes().vec(), scatter_nd_fwd_dtype}},
+        &scatter_params,
+        sizeof(scatter_params)});
+    size_t size = 0;
+    PARAMS_STUB(ns_CastKernel::Params);
+    size = sizeof(params);
+    params->round_mode = CAST_ROUND_DEFAULT;
+    next_node = OpBackend::BuildNode(
+        op,
+        graph,
+        {cast_guid,
+         {scatter_op[0].get()},
+         {NodeAttr::NodeOutputAttr{self.sizes().vec(), self_scalar_type}},
+         params.get(),
+         size});
+
+  } else {
+      next_node = OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("scatter_nd_fwd", scatter_nd_fwd_dtype),
+        {gatherOp[0].get(), reshape_sort1_op.get(), reshape_val_op.get()},
+        {NodeAttr::NodeOutputAttr{self.sizes().vec(), scatter_nd_fwd_dtype}},
+        &scatter_params,
+        sizeof(scatter_params)});
+
+  }
   auto addOp = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("add_fwd", self_scalar_type),
-       {syn_in_0, scatter_op.at(0).get()},
+      {get_guid_with_precision("add_fwd", self_scalar_type), // original dtype
+       {syn_in_0, next_node.at(0).get()}, // cast node
        {{self.sizes().vec(), self_scalar_type, 0}}});
   return std::move(addOp[0]);
 }
@@ -326,6 +389,16 @@ void IndexPutEager::AddNode(
         graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type));
   }
   auto self_scalar_type = self.scalar_type();
+  // scatter_nd_fwd has no support for int16 and u8 , hence we need to cast
+  std::string cast_guid{};
+  auto scatter_nd_onnx_fwd_dtype = self_scalar_type;
+  at::ScalarType cast_dtype = self_scalar_type;
+  bool cast_needed = false;
+  if ((cast_needed = CheckAndGetCastGuid(
+           "scatter_nd_onnx_fwd", self_scalar_type, cast_guid, cast_dtype))) {
+    scatter_nd_onnx_fwd_dtype = cast_dtype;
+  }
+
   if ((int)indices.size() == self.dim()) {
     std::vector<int64_t> reshape_bcast_size({catop.pt_shape()[0]});
     auto reshape_val_op = ReshapeHelper(
@@ -333,13 +406,39 @@ void IndexPutEager::AddNode(
         values_bcast_or_reshape_sh_tensor[0].get(),
         reshape_bcast_size,
         values_scalar_type);
+
+     std::vector<synapse_helpers::tensor> next_node;
+
     if (!accumulate) {
-      auto scatter_op = BuildOp(
-          graph,
-          get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-          {syn_in(0), catop.get(), reshape_val_op.get()},
-          {NodeAttr::NodeOutputAttr{self.sizes().vec(), self_scalar_type, 0}});
-      syn_out(0) = std::move(scatter_op[0]);
+      if (cast_needed) {
+        auto scatter_op = BuildOp(
+            graph,
+            get_guid_with_precision(
+                "scatter_nd_onnx_fwd",
+                scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
+            {syn_in(0), catop.get(), reshape_val_op.get()},
+            {NodeAttr::NodeOutputAttr{
+                self.sizes().vec(), scatter_nd_onnx_fwd_dtype}});
+        next_node = BuildOp(
+            graph,
+            cast_guid,
+            {scatter_op[0].get()},
+            {{self.sizes().vec(), self_scalar_type, 0}},
+             0);
+
+        } else {
+        next_node = BuildOp(
+            graph,
+            get_guid_with_precision(
+                "scatter_nd_onnx_fwd",
+                scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
+            {syn_in(0), catop.get(), reshape_val_op.get()},
+            {NodeAttr::NodeOutputAttr{
+                self.sizes().vec(), self_scalar_type, 0}});
+
+      }
+      syn_out(0) = std::move(next_node[0]);
+
     } else {
       syn_out(0) = HandleIndexPutWithAcc(
           this,
@@ -353,12 +452,39 @@ void IndexPutEager::AddNode(
     }
   } else {
     if (!accumulate) {
-      auto scatter_op = BuildOp(
-          graph,
-          get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-          {syn_in(0), catop.get(), values_bcast_or_reshape_sh_tensor[0].get()},
-          {NodeAttr::NodeOutputAttr{self.sizes().vec(), self_scalar_type, 0}});
-      syn_out(0) = std::move(scatter_op[0]);
+
+      std::vector<synapse_helpers::tensor> next_node;
+      if (cast_needed) {
+        auto scatter_op = BuildOp(
+            graph,
+            get_guid_with_precision(
+                "scatter_nd_onnx_fwd", scatter_nd_onnx_fwd_dtype),
+            {syn_in(0),
+             catop.get(),
+             values_bcast_or_reshape_sh_tensor[0].get()},
+            {NodeAttr::NodeOutputAttr{
+                self.sizes().vec(), scatter_nd_onnx_fwd_dtype}});
+
+        next_node = BuildOp(
+            graph,
+            cast_guid,
+            {scatter_op[0].get()},
+            {NodeAttr::NodeOutputAttr{
+                self.sizes().vec(), self_scalar_type, 0}});
+
+      } else {
+        next_node = BuildOp(
+            graph,
+            get_guid_with_precision(
+                "scatter_nd_onnx_fwd", scatter_nd_onnx_fwd_dtype),
+            {syn_in(0),
+             catop.get(),
+             values_bcast_or_reshape_sh_tensor[0].get()},
+            {NodeAttr::NodeOutputAttr{
+                self.sizes().vec(), scatter_nd_onnx_fwd_dtype, 0}});
+      }
+      syn_out(0) = std::move(next_node[0]);
+
     } else {
       syn_out(0) = HandleIndexPutWithAcc(
           this,

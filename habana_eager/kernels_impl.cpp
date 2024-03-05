@@ -168,6 +168,9 @@ at::Tensor& hpu_wrap::_index_put_impl_(
       (self.scalar_type() != c10::ScalarType::Char) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
+      (self.scalar_type() != c10::ScalarType::Short) &&
+      (self.scalar_type() != c10::ScalarType::Byte) &&
+      (self.scalar_type() != c10::ScalarType::Double) &&
       !(self.scalar_type() == c10::ScalarType::Half &&
         habana::HPURegistrar::get_device().type() !=
             synDeviceType::synDeviceGaudi)) {
