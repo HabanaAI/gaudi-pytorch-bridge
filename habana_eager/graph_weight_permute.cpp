@@ -85,6 +85,13 @@ bool PermuteWeightTensor::ShouldPermuteWeight() {
       m_tensor_dim == 4 || m_tensor_dim == 5,
       "Unexpected tensor dimensions: ",
       m_tensor_dim);
+
+  auto tmeta{habana::get_tensor_extra_meta(m_weight)};
+  if (tmeta == nullptr)
+    return false;
+  if (tmeta->is_view_tensor())
+    return false;
+
   MemoryPermutation current_perm{m_storage_meta->get_memory_permutation()};
   MemoryPermutation required_perm{
       (m_tensor_dim == 4) ? weight_rsck_in_memory : weight_qrsck_in_memory};

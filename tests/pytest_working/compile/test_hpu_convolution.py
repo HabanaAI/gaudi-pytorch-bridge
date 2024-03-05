@@ -39,3 +39,35 @@ def test_hpu_convolution(dtype):
 
     rtol = 1e-2 if dtype == torch.bfloat16 else 1e-5
     assert torch.allclose(cpu_output, hpu_output.cpu(), rtol=rtol)
+
+
+def test_hpu_convolution_grad_with_view():
+    def run(device):
+        m = torch.nn.Conv2d(5, 6, (2, 2), stride=(1, 1), bias=False).to(device)
+        m.weight = torch.nn.Parameter(torch.arange(1.0*120).reshape([30, 2, 2]).to(device).view([6,5,2,2]))
+
+        def fn(x):
+            x = x.view([2,5,3,4])
+            return m(x)
+
+        if device == "hpu":
+            backend = "hpu_backend"
+            fn = torch.compile(fn, backend=backend)
+
+        x = torch.arange(1.0*120).reshape([10,3,4]).to(device)
+        x.requires_grad_()
+
+        res = fn(x)
+
+        grad_in = torch.ones(2, 36).to(device).view(2,6,2,3)
+        res.backward(grad_in)
+
+        res = [p.grad for p in m.parameters()]
+        res.append(x.grad)
+        return res
+
+    cpu_grads = run("cpu")
+    hpu_grads = run("hpu")
+
+    for cpu_grad, hpu_grad in zip(cpu_grads, hpu_grads):
+        assert torch.allclose(cpu_grad, hpu_grad.cpu())
