@@ -49,6 +49,9 @@ bool HandleInputViews(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
     std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map);
+bool MarkParamsAsConst(
+    std::shared_ptr<torch::jit::Graph> graph,
+    torch::jit::Stack& example_inputs);
 } // namespace pass
 } // namespace graph
 } // namespace habana

@@ -63,8 +63,20 @@ at::Tensor HbEagerTensorPool::get_backend_tensor(
   // Shallow copy from frontend_tensor. Updates the TensorImpl metadata
   // (size/stride/...) and increases the refcount by pointing to the same
   // storageImpl.
+
+  auto const_id = INVALID_CONST_ID;
+  auto is_frontend_tensor_const = habana::is_tensor_const(frontend_tensor);
+  if (is_frontend_tensor_const) {
+    const_id = habana::get_tensor_const_id(frontend_tensor);
+  }
+
   backend_tensor.unsafeGetTensorImpl()->shallow_copy_from(
       frontend_tensor.getIntrusivePtr());
+
+  if (!habana::is_tensor_const(backend_tensor) and is_frontend_tensor_const) {
+    habana::set_tensor_const(
+        backend_tensor, is_frontend_tensor_const, const_id);
+  }
 
   HABANA_ASSERT(
       backend_tensor.unsafeGetTensorImpl() !=

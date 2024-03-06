@@ -5,15 +5,11 @@ import numpy
 import pytest
 import torch
 import torch.nn.functional as F
+from test_utils import env_var_in_scope
+from torch.fx import symbolic_trace
 
 torch.manual_seed(0)
 
-from contextlib import contextmanager
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, cast
-
-import torch._dynamo as dynamo
-from torch._functorch.aot_autograd import aot_module_simplified
-from torch.fx import symbolic_trace
 
 batch_norm_test_case_list_2d = [
     # N, H, W, C
@@ -45,7 +41,6 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
         def _forward_impl(self, x):
             y = self.conv2(x)
             z = self.bn2(y)
-            # a = self.conv2(z)
             return z
 
         def forward(self, x):
@@ -73,12 +68,14 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
     x2_hpu = x2.to(hpu)
     # Hpu initialize has mark_params_as_const and _check_params_as_const which doesn't work for compile
     # htcore.hpu_initialize(model_hpu)
+
     print("Infer on HPU....................................", flush=True)
 
     def raw_function(tensor):
         return model_hpu(tensor)
 
     compiled_function = torch.compile(raw_function, backend="hpu_backend")
+
     with torch.no_grad():
         with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
             x_hpu = x_hpu.to(torch.bfloat16)
@@ -90,6 +87,75 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
             x2_hpu = x2_hpu.to(torch.bfloat16)
             output2_hpu = compiled_function(x2_hpu)
             output2_hpu = output2_hpu.to(torch.float32)
+    output_hpu_cpu = output_hpu.to(cpu)
+    output2_hpu_cpu = output2_hpu.to(cpu)
+    numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1)
+    numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.1, rtol=0.1)
+    htcore.hpu_reset_env()
+
+
+def test_hpu_const_marking():
+    hpu = torch.device("hpu")
+    cpu = torch.device("cpu")
+
+    class CustomModel(torch.nn.Module):
+        def __init__(self):
+            super(CustomModel, self).__init__()
+            self.conv = torch.nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1)
+            self.relu = torch.nn.ReLU(inplace=True)
+            self.linear = torch.nn.Linear(64 * 32 * 32, 10)  # Assuming input image size of 32x32
+            self.train(False)
+            self.eval()
+
+        def forward(self, x):
+            # Input: x - Tensor with shape [batch_size, channels, height, width]
+            x = self.conv(x)  # Convolutional layer
+            x = self.relu(x)  # ReLU activation
+            x = x.view(x.size(0), -1)  # Flatten the output for the linear layer
+            x = self.linear(x)  # Linear layer
+            return x
+
+    model = CustomModel()
+    model.eval()
+
+    x = torch.randn(4, 3, 32, 32, dtype=torch.float32, requires_grad=False)
+    x2 = torch.randn(4, 3, 32, 32, dtype=torch.float32, requires_grad=False)
+    print("Infer on CPU....................................", flush=True)
+
+    with torch.no_grad():
+        output = model(x)
+        output2 = model(x2)
+
+    import habana_frameworks.torch.core as htcore
+
+    model = htcore.hpu_set_env(model)
+    model_hpu = model.to(hpu)
+    x_hpu = x.to(hpu)
+    x2_hpu = x2.to(hpu)
+
+    num_params = 0
+    for param, param_t in model_hpu.state_dict().items():
+        num_params = num_params + 1
+
+    print("Infer on HPU....................................", flush=True)
+
+    def raw_function(tensor):
+        return model_hpu(tensor)
+
+    compiled_function = torch.compile(raw_function, backend="hpu_backend", options={"use_graph_freezing": True})
+    with env_var_in_scope({"PT_HPU_CHECK_NUM_CONSTS": num_params}):
+        with torch.no_grad():
+            with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
+                x_hpu = x_hpu.to(torch.bfloat16)
+                output_hpu = compiled_function(x_hpu)
+                output_hpu = output_hpu.to(torch.float32)
+
+    with torch.no_grad():
+        with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=True):
+            x2_hpu = x2_hpu.to(torch.bfloat16)
+            output2_hpu = compiled_function(x2_hpu)
+            output2_hpu = output2_hpu.to(torch.float32)
+
     output_hpu_cpu = output_hpu.to(cpu)
     output2_hpu_cpu = output2_hpu.to(cpu)
     numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1)

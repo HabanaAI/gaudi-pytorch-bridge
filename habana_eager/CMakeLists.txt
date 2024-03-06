@@ -55,6 +55,7 @@ add_habana_library(habana_pytorch2_frontend OBJECT
           passes/replace_getitem_with_list_unpack.cpp
           passes/sanitize_graph_input.cpp
           passes/replace_dynamic_ops.cpp
+          passes/mark_params_as_const.cpp
           eager_custom_op_register.cpp
           eager_tensor.cpp
           eager_exec.cpp

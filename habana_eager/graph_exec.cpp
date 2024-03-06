@@ -246,7 +246,12 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
         m_graph,
         m_graph_name + "_" + std::to_string(m_graph_index) +
             "_jit_graph_before_passes");
-
+  RunPass(
+      [this, &example_inputs]() {
+        return pass::MarkParamsAsConst(this->m_graph, example_inputs);
+      },
+      dump_graphs,
+      "MarkParamsAsConst");
   RunPass(
       [this, &example_inputs]() {
         return pass::HandleInputViews(

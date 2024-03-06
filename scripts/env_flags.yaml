@@ -787,3 +787,8 @@ PT_HPU_ENABLE_NEGATIVE_INDEXING:
   type: bool
   default: false
   doc: "Enable negative values for indexing in index_put, gather ops."
+
+PT_HPU_CHECK_NUM_CONSTS:
+  type: unsigned
+  default: 0
+  doc: "Compare num of parameters marked as const with this value in torch.compile mode"
