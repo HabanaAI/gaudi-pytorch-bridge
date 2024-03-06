@@ -2565,7 +2565,10 @@ equal:
   out_ids: [0]
 
 eq.Scalar_out:
-  dtypes: [BFloat16, Float, Int, Long, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
+    Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
   guid: equal_fwd
   output_meta: CompareMeta
   scalar_ids: [1]
@@ -2585,7 +2588,10 @@ eq.Tensor_out:
   handle_bool_inputs: true
 
 eq_.Scalar:
-  dtypes: [BFloat16, Float, Int, Char, Byte, Long]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
+    Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
   guid: equal_fwd
   scalar_ids: [1]
   inplace_ids: [0]
@@ -2594,7 +2600,10 @@ eq_.Scalar:
   handle_bool_inputs: true
 
 eq_.Tensor:
-  dtypes: [BFloat16, Float, Int, Char, Byte, Long]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
+    Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
   guid: equal_fwd
   inplace_ids: [0]
   promote_to_common_type: [self, other]
@@ -2604,8 +2613,8 @@ eq_.Tensor:
 eq.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half, Long]
+    Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
+    Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
   guid: equal_fwd
   op_frontend: CompareScalarToTensor
   output_meta: CompareMeta
@@ -2617,8 +2626,8 @@ eq.Scalar:
 eq.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half, Long]
+    Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
+    Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
   guid: equal_fwd
   output_meta: CompareMeta
   out_ids: [0]
