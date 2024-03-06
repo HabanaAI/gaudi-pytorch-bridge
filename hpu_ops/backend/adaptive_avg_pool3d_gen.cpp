@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include "generated/backend/_adaptive_avg_pool3d.h"
+#include "generated/backend/_adaptive_avg_pool3d_backward.h"
 #include "generated/backend/adaptive_avg_pool3d.h"
 namespace habana {
 
@@ -24,6 +25,19 @@ std::shared_ptr<void> FillAdaptiveAvgPool3dParamsFwd(
       outputSize.size() == 1 ? params->outputBatch : outputSize[1];
   params->outputWidth =
       outputSize.size() == 1 ? params->outputBatch : outputSize[2];
+  return params;
+}
+
+std::shared_ptr<void> FillAdaptiveAvgPool3dParamsBwd(
+    const at::Stack& stack,
+    size_t& size) {
+  const auto& input = stack_tensor(stack, 1);
+  auto inputShape = input.sizes().vec();
+  auto rank = input.dim();
+  PARAMS_STUB(ns_AdaptiveAvgPool3D::Params);
+  params->outputBatch = inputShape[rank - 3];
+  params->outputHeight = inputShape[rank - 2];
+  params->outputWidth = inputShape[rank - 1];
   return params;
 }
 
@@ -50,12 +64,20 @@ OutputMetaDataVector AdaptiveAvgPool3dMeta(const at::Stack& stack) {
   return {meta};
 }
 
-void AdaptiveAvgPool3dFwd::AddNode(
+OutputMetaDataVector AdaptiveAvgPool3dBwdMeta(const at::Stack& stack) {
+  const auto& input = stack_tensor(stack, 1);
+  OutputMetaData meta;
+  meta.shape = input.sizes().vec();
+  meta.dtype = input.scalar_type();
+  return {meta};
+}
+
+void AdaptiveAvgPool3dFwdBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   size_t size = 0;
-  const auto& params = FillAdaptiveAvgPool3dParamsFwd(stack, size);
-  auto meta = AdaptiveAvgPool3dMeta(stack)[0];
+  const auto& params = FillParams(stack, size);
+  auto meta = OutputMeta(stack)[0];
   auto intermediateOutShape = meta.shape;
   auto self = stack_tensor(stack, 0);
   auto reshapeRequired = (self.dim() == 4);

@@ -1440,7 +1440,7 @@ _adaptive_avg_pool3d:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: adaptive_avg_pool_3d_fwd
-  op_backend: AdaptiveAvgPool3dFwd
+  op_backend: AdaptiveAvgPool3dFwdBwd
   synapse_layouts:
   - [WHDCN, WHDCN]
   - [WHDCN]
@@ -1454,10 +1454,24 @@ adaptive_avg_pool3d.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: adaptive_avg_pool_3d_fwd
-  op_backend: AdaptiveAvgPool3dFwd
+  op_backend: AdaptiveAvgPool3dFwdBwd
   synapse_layouts:
   - [WHDCN, WHDCN]
   - [WHDCN]
+
+_adaptive_avg_pool3d_backward:
+  custom_fill_params: FillAdaptiveAvgPool3dParamsBwd
+  output_meta: AdaptiveAvgPool3dBwdMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: adaptive_avg_pool_3d_bwd
+  op_backend: AdaptiveAvgPool3dFwdBwd
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+  out_ids: [1]
 
 atanh:
   dtypes:
