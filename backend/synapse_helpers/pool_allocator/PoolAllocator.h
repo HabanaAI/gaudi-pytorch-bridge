@@ -32,7 +32,6 @@ enum PoolStrategyType {
 // complete model for static pooling
 #define DEFAULT_POOL_SIZE 24ULL * 1024 * 1024 * 1024 // 24GByte
 #define POOLING_TYPE strategy_bump
-#define DEFAULT_ALIGNMENT 128ULL
 
 #define allocateHostMemory new
 #define freeHostMemory delete

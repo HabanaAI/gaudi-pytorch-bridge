@@ -123,5 +123,6 @@ class device_memory {
   void init_hlml_memory();
   std::shared_ptr<HlMlMemoryReporter> m_hlml_memory_reporter;
   std::shared_ptr<HlMlMemoryUpdater> m_hlml_memory_updater;
+  size_t alignment_;
 };
 } // namespace synapse_helpers

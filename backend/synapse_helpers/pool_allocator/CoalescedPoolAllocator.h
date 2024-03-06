@@ -63,9 +63,10 @@ class StaticCoalescedPooling : public PoolingStrategy {
   uint64_t getContigousChunkSize(Chunk* chunk) const;
   Chunk* defragment_on_reuse(void* ptr, uint64_t size) const;
   mutable std::mutex sp_mutex;
+  size_t header_bytes;
 
  public:
-  StaticCoalescedPooling();
+  StaticCoalescedPooling(device& device);
   bool pool_create(synDeviceId deviceID, uint64_t size) const override;
   void pool_destroy() const override;
   void* pool_alloc_chunk(uint64_t size, bool is_workspace) const override;

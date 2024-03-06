@@ -50,6 +50,7 @@ device_memory::device_memory(device& device) : device_{device} {
   pool_strategy_ =
       (pool_allocator::PoolStrategyType)GET_ENV_FLAG_NEW(PT_HPU_POOL_STRATEGY);
   enable_mem_threshold_check = false;
+  alignment_ = device_.get_device_memory_alignment();
   switch (pool_strategy_) {
     case pool_allocator::strategy_bump:
       try {
@@ -79,7 +80,7 @@ device_memory::device_memory(device& device) : device_{device} {
       try {
         PT_DEVMEM_DEBUG("startegy_static_coalesce :: ", pool_size_);
         suballoc_ = new pool_allocator::SubAllocator(
-            new pool_allocator::StaticCoalescedPooling);
+            new pool_allocator::StaticCoalescedPooling(device_));
         if (suballoc_ == nullptr) {
           PT_DEVMEM_FATAL("unable to create pool allocator");
         }
@@ -174,7 +175,7 @@ void device_memory::reset_pool() {
 }
 
 size_t device_memory::block_align(size_t n) {
-  return (n + DEFAULT_ALIGNMENT - 1) & ~(DEFAULT_ALIGNMENT - 1);
+  return (n + alignment_ - 1) & ~(alignment_ - 1);
 }
 
 bool device_memory::is_allocated(const device_ptr address) const {
@@ -208,6 +209,11 @@ synStatus device_memory::alloc(void** v_ptr, uint64_t size, bool is_workspace) {
     }
     log_synDeviceMemStats(*this);
     *v_ptr = reinterpret_cast<void*>(ptr);
+    PT_DEVMEM_DEBUG(
+        "device_memory::allocate ptr=",
+        to_hexstring(ptr),
+        " aligned size::",
+        block_align(size));
   } else {
     status = synDeviceMalloc(device_.id(), size, 0, 0, &ptr);
 
@@ -258,6 +264,11 @@ synStatus device_memory::alloc(
     }
     log_synDeviceMemStats(*this);
     *v_ptr = reinterpret_cast<void*>(ptr);
+    PT_DEVMEM_DEBUG(
+        "device_memory::allocate ptr=",
+        to_hexstring(ptr),
+        " aligned size::",
+        block_align(size));
   } else {
     status = synDeviceMalloc(device_.id(), size, 0, 0, &ptr);
 
@@ -411,7 +422,7 @@ void* device_memory::workspace_alloc(
     size_t& ws_size,
     size_t req_size) {
   if (pool_strategy_ != pool_allocator::startegy_coalesce_stringent) {
-    size_t chunk_size = DEFAULT_ALIGNMENT * 1024 * 1024;
+    size_t chunk_size = alignment_ * 1024 * 1024;
     size_t num_chunks = (req_size / chunk_size) + 1;
     size_t actual_size = num_chunks * chunk_size;
     if (ws_size >= actual_size) {
@@ -490,8 +501,7 @@ void* device_memory::workspace_alloc(
             "Workspace extension failed. Attempt to defragment memory.");
         PT_DEVMEM_DEBUG(
             "Memory Stats in case workspace failure", stats.DebugString());
-        defragmentation_done =
-            defragment_memory(DEFAULT_ALIGNMENT, req_size, true);
+        defragmentation_done = defragment_memory(alignment_, req_size, true);
       }
 
       if (defragmentation_done) {
@@ -562,7 +572,7 @@ void device_memory::check_and_limit_recipe_execution(size_t size) {
   auto& recipe_counter = device_.get_active_recipe_counter();
   PT_DEVMEM_DEBUG("Recipes in queue::", recipe_counter.get_count());
   if (recipe_counter.get_count() > DEFAULT_RECIPE_COUNT &&
-      (size > DEFAULT_ALIGNMENT && !suballoc_->is_memory_available(size))) {
+      (size > alignment_ && !suballoc_->is_memory_available(size))) {
     uint64_t counter_state{0};
     do {
       counter_state = recipe_counter.wait_for_next_decrease_call();
@@ -1043,7 +1053,7 @@ device_ptr device_memory::get_pointer(mem_handle h) {
     if (device_.IsMemorydefragmentationEnabled()) {
       PT_DEVMEM_DEBUG(
           "Memory allocation failed. Attempt to defragment memory.");
-      defragmentation_done = defragment_memory(DEFAULT_ALIGNMENT, size, false);
+      defragmentation_done = defragment_memory(alignment_, size, false);
     }
     if (defragmentation_done) {
       std::tie(ptr, size) = get_and_alloc_mem();
@@ -1078,6 +1088,9 @@ device_ptr device_memory::get_pointer(mem_handle h) {
     PT_DEVMEM_FATAL("Trying to access out of bounds of resource");
   }
 
+  if (reinterpret_cast<device_ptr>(ptr) % alignment_ != 0) {
+    PT_DEVMEM_FATAL("address not aligned");
+  }
   return reinterpret_cast<device_ptr>(ptr) + offset;
 }
 

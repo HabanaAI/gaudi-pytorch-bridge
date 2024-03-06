@@ -236,10 +236,12 @@ void dumpEnvSettings() {
 device::device(
     std::shared_ptr<session> synapse_session,
     synDeviceId device_id,
-    synDeviceType device_type)
+    synDeviceType device_type,
+    size_t memory_alignment)
     : synapse_session_(std::move(synapse_session)),
       type_{device_type},
       id_{device_id},
+      device_memory_alignment_{memory_alignment},
       event_handle_cache_{*this, 0},
       time_event_handle_cache_{*this, EVENT_COLLECT_TIME},
       memory_mapper_{*this},
@@ -436,8 +438,23 @@ synapse_error_v<device_handle> device::create(
         habana_helpers::EventDispatcher::Topic::DEVICE_ACQUIRED);
   }
 
-  std::shared_ptr<device> device_ptr{
-      new device(synapse_session, new_device_id, acquired_device_type)};
+  uint64_t alignmentInfo[] = {0};
+  const synDeviceAttribute attributes[] = {
+      DEVICE_ATTRIBUTE_ADDRESS_ALIGNMENT_SIZE};
+  status = synDeviceGetAttribute(alignmentInfo, attributes, 1, new_device_id);
+  if (synStatus::synSuccess != status) {
+    PT_SYNHELPER_FATAL(
+        Logger::formatStatusMsg(status),
+        "Cannot obtain device memory alignment info.");
+  }
+  PT_SYNHELPER_DEBUG("Device memory alignment::", alignmentInfo[0]);
+  // ensure alignment is of power of 2
+  if ((alignmentInfo[0] > 0) &&
+      ((alignmentInfo[0] & (alignmentInfo[0] - 1)) != 0)) {
+    PT_SYNHELPER_FATAL("Incorrect device memory alignment.");
+  }
+  std::shared_ptr<device> device_ptr{new device(
+      synapse_session, new_device_id, acquired_device_type, alignmentInfo[0])};
 
   uint64_t free_mem, total_mem;
   status = synDeviceGetMemoryInfo(device_ptr->id(), &free_mem, &total_mem);

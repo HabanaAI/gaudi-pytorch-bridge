@@ -22,10 +22,6 @@
 
 namespace synapse_helpers {
 namespace pool_allocator {
-const std::size_t CoalescedStringentPooling::SmallAllocs::kAlignment;
-const std::size_t CoalescedStringentPooling::SmallAllocs::kSize;
-const std::size_t CoalescedStringentPooling::SmallAllocs::kThreshold;
-const std::size_t CoalescedStringentPooling::SmallAllocs::kUnits;
 
 Bin* BinUtils::BinFromIndex(uint64_t index) const {
   Bin* bin = const_cast<Bin*>(
@@ -104,9 +100,13 @@ CoalescedStringentPooling::CoalescedStringentPooling(device& device)
   free_chunks_size = 0;
   max_pool_size = DEFAULT_POOL_SIZE;
   prealloc_pool = nullptr;
-  bin_utils = new BinUtils();
   small_allocs_ = nullptr;
   defragmenter_state_started_ = 0;
+  alignment = device_.get_device_memory_alignment();
+  kMinAllocationBits = std::log2(alignment) + 1;
+  kMinAllocationSize = 1 << kMinAllocationBits;
+  bin_utils = new BinUtils(kMinAllocationSize, kMinAllocationBits);
+  header_bytes = alignment;
 }
 
 CoalescedStringentPooling::~CoalescedStringentPooling() {
@@ -181,9 +181,9 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   log_synDevicePoolCreate(
       free_mem, GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_ACQUIRE_PERC), p->basememptr);
 
-  // 0x80 bytes left for future use - header maintence in device memory instead
-  // of host
-  p->memptr = p->basememptr + 0x80;
+  // alignemnt bytes left for future use - header maintence in device memory
+  // instead of host
+  p->memptr = p->basememptr + header_bytes;
   p->next = p->memptr;
   p->end = p->basememptr + size;
   p->start = nullptr;
@@ -231,7 +231,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   Chunk* chunk = new Chunk();
   chunk->memptr = (uint64_t)p->next;
   chunk->extra_space = 0;
-  chunk->size = max_pool_size - 0x80;
+  chunk->size = max_pool_size - header_bytes;
   chunk->used = false;
   chunk->next = nullptr;
   chunk->prev = nullptr;
@@ -252,19 +252,23 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
 
   stats.pool_id = pool_id;
   stats.memory_limit = max_pool_size;
-  stats.bytes_in_use += 0x80;
-  bytes_in_use += 0x80;
-  stats.pre_allocate_size += 0x80;
+  stats.bytes_in_use += header_bytes;
+  bytes_in_use += header_bytes;
+  stats.pre_allocate_size += header_bytes;
+  size_t small_alloc_size = 6 * 1024 * alignment;
   const auto chunk_ptr = static_cast<int8_t*>(alloc_chunk(
-      SmallAllocs::kSize, 0 /*default stream*/, false /*use_stream*/));
+      small_alloc_size, 0 /*default stream*/, false /*use_stream*/));
   const auto free_chunk = [this](int8_t* ptr) { delete_chunk(ptr); };
 
   small_allocs_ = std::make_unique<SmallAllocs>(
       std::unique_ptr<int8_t, std::function<void(int8_t*)>>(
-          chunk_ptr, free_chunk));
+          chunk_ptr, free_chunk),
+      alignment,
+      bin_utils->BinNumToSize(0),
+      small_alloc_size);
   stats.num_allocs = 0;
-  stats.bytes_in_use += SmallAllocs::kSize;
-  bytes_in_use += SmallAllocs::kSize;
+  stats.bytes_in_use += small_alloc_size;
+  bytes_in_use += small_alloc_size;
 
   static bool is_realtime_logger_enable =
       GET_ENV_FLAG_NEW(PT_ENABLE_REALTIME_MEMORY_LOGGING);
@@ -689,7 +693,7 @@ void* CoalescedStringentPooling::alloc_chunk(
     bool use_stream) const {
   void* ptr = nullptr;
 
-  if (size % DEFAULT_ALIGNMENT != 0) {
+  if (size % alignment != 0) {
     PT_DEVMEM_FATAL(
         "CS_POOL:: alloc_chunk requested size not aligned to default size::",
         size);
@@ -906,7 +910,7 @@ std::vector<std::pair<void*, size_t>> CoalescedStringentPooling::
     get_memory_info() const {
   std::vector<std::pair<void*, size_t>> regions_info;
   Chunk* chunk = prealloc_pool->start;
-  regions_info.emplace_back((void*)chunk->memptr, max_pool_size - 0x80);
+  regions_info.emplace_back((void*)chunk->memptr, max_pool_size - header_bytes);
 
   return regions_info;
 }
@@ -929,8 +933,8 @@ std::tuple<void*, size_t, size_t> CoalescedStringentPooling::
 
   return {
       small_allocs_->GetChunkPtr(),
-      SmallAllocs::kSize,
-      SmallAllocs::kThreshold};
+      small_allocs_->GetkSize(),
+      small_allocs_->GetkThreshold()};
 }
 
 size_t CoalescedStringentPooling::allocated_size(const void* ptr) const {
@@ -1073,11 +1077,22 @@ void CoalescedStringentPooling::record_stream(void* ptr, hpuStream_t stream)
 }
 
 CoalescedStringentPooling::SmallAllocs::SmallAllocs(
-    std::unique_ptr<int8_t, std::function<void(int8_t*)>> chunk_ptr)
-    : chunk_ptr_(std::move(chunk_ptr)), map_(kUnits, false), size_{0} {
-  static_assert(
-      kThreshold <= BinUtils::BinNumToSize(0),
-      "Threshold smaller then smallest bin size");
+    std::unique_ptr<int8_t, std::function<void(int8_t*)>> chunk_ptr,
+    size_t alignment,
+    size_t bin_zero_size,
+    size_t kSize)
+    : chunk_ptr_(std::move(chunk_ptr)) {
+  kAlignment_ = alignment;
+  kSize_ = kSize;
+  kThreshold_ = 2 * kAlignment_;
+  HABANA_ASSERT(kSize_ % kAlignment_ == 0, "kAlignment must divide kSize");
+  kUnits_ = kSize_ / kAlignment_;
+  for (size_t i = kUnits_; i--;) {
+    size_.push_back(0);
+    map_.push_back(false);
+  }
+  HABANA_ASSERT(
+      kThreshold_ <= bin_zero_size, "Threshold smaller then smallest bin size");
   ValidateEmpty();
 }
 
@@ -1099,8 +1114,8 @@ size_t CoalescedStringentPooling::SmallAllocs::UnitsOccupied() const {
 void CoalescedStringentPooling::SmallAllocs::Reset() {
   if (chunk_ptr_ != nullptr) {
     ValidateEmpty();
-    map_.assign(kUnits, false);
-    size_.fill(0);
+    map_.assign(kUnits_, false);
+    std::fill(size_.begin(), size_.end(), 0);
     chunk_ptr_.reset();
   }
 }
@@ -1122,7 +1137,7 @@ bool CoalescedStringentPooling::SmallAllocs::IsAllocated(
     return false;
   }
 
-  if (ptr >= chunk_ptr + kSize) {
+  if (ptr >= chunk_ptr + kSize_) {
     return false;
   }
 
@@ -1133,13 +1148,15 @@ size_t CoalescedStringentPooling::SmallAllocs::Offset(const void* ptr) const {
   return static_cast<const int8_t*>(ptr) - chunk_ptr_.get();
 }
 
-size_t CoalescedStringentPooling::SmallAllocs::ToUnits(size_t offset_in_bytes) {
-  HABANA_ASSERT(offset_in_bytes % kAlignment == 0);
-  return offset_in_bytes / kAlignment;
+size_t CoalescedStringentPooling::SmallAllocs::ToUnits(
+    size_t offset_in_bytes) const {
+  HABANA_ASSERT(offset_in_bytes % kAlignment_ == 0);
+  return offset_in_bytes / kAlignment_;
 }
 
-size_t CoalescedStringentPooling::SmallAllocs::ToBytes(size_t offset_in_units) {
-  return offset_in_units * kAlignment;
+size_t CoalescedStringentPooling::SmallAllocs::ToBytes(
+    size_t offset_in_units) const {
+  return offset_in_units * kAlignment_;
 }
 
 size_t CoalescedStringentPooling::SmallAllocs::Size(const void* ptr) const {
@@ -1149,12 +1166,12 @@ size_t CoalescedStringentPooling::SmallAllocs::Size(const void* ptr) const {
 }
 
 void* CoalescedStringentPooling::SmallAllocs::Allocate(size_t size) {
-  if (size >= kThreshold) {
+  if (size >= kThreshold_) {
     return nullptr;
   }
 
   HABANA_ASSERT(chunk_ptr_.get() != nullptr);
-  HABANA_ASSERT(size < kSize);
+  HABANA_ASSERT(size < kSize_);
 
   const auto size_in_units = ToUnits(size);
   HABANA_ASSERT(size_in_units > 0);
@@ -1256,8 +1273,8 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
     int total_chunks = 0;
     int total_extra_spaced_chunks = 0;
     int free_chunks = 0;
-    uint64_t occupied_size = 0x80;
-    uint64_t total_size = 0x80;
+    uint64_t occupied_size = header_bytes;
+    uint64_t total_size = header_bytes;
     uint64_t total_exta_size = 0;
     uint64_t free_chunks_size = 0;
     uint64_t cntgs_free_chunks_size = 0;

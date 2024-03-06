@@ -460,6 +460,10 @@ class device {
 
   void mark_host_event_complete(uint64_t addr);
 
+  size_t get_device_memory_alignment() {
+    return device_memory_alignment_;
+  }
+
  private:
   friend class stream;
   static synapse_error_v<device_handle> create(
@@ -467,7 +471,8 @@ class device {
   device(
       std::shared_ptr<session> synapse_session,
       synDeviceId device_id,
-      synDeviceType device_type);
+      synDeviceType device_type,
+      size_t alignment);
 
   void synchronize_event(shared_event& event) {
     sem_.synchronize_event(event);
@@ -477,6 +482,7 @@ class device {
 
   synDeviceType type_;
   device_id id_;
+  size_t device_memory_alignment_;
 
   // WARNING: ordering of members is critical
   // note that there are inter-dependencies between devices' members that

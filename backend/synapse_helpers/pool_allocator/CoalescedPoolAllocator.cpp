@@ -23,7 +23,7 @@
 namespace synapse_helpers {
 namespace pool_allocator {
 
-StaticCoalescedPooling::StaticCoalescedPooling() {
+StaticCoalescedPooling::StaticCoalescedPooling(device& device) {
   pool_id = 0;
   chunk_count = 0;
   allocted_chunk_size = 0;
@@ -32,6 +32,7 @@ StaticCoalescedPooling::StaticCoalescedPooling() {
   free_chunks_size = 0;
   max_pool_size = DEFAULT_POOL_SIZE;
   prealloc_pool = nullptr;
+  header_bytes = device.get_device_memory_alignment();
 }
 
 bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
@@ -87,9 +88,9 @@ bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
     return false;
   }
 
-  // 0x80 bytes left for future use - header maintence in device memory instead
-  // of host
-  p->memptr = p->basememptr + 0x80;
+  // alignemnt bytes left for future use - header maintence in device memory
+  // instead of host
+  p->memptr = p->basememptr + header_bytes;
   p->next = p->memptr;
   p->end = p->basememptr + size;
   p->start = nullptr;
@@ -117,7 +118,7 @@ bool StaticCoalescedPooling::pool_create(synDeviceId deviceID, uint64_t size)
   log_DRAM_size(max_pool_size);
   stats.pool_id = pool_id;
   stats.memory_limit = max_pool_size;
-  stats.bytes_in_use += 0x80;
+  stats.bytes_in_use += header_bytes;
   return true;
 }
 
@@ -954,8 +955,8 @@ void StaticCoalescedPooling::get_stats(MemoryStats* mem_stats) const {
     int total_chunks = 0;
     int total_extra_spaced_chunks = 0;
     int free_chunks = 0;
-    uint64_t occupied_size = 0x80;
-    uint64_t total_size = 0x80;
+    uint64_t occupied_size = header_bytes;
+    uint64_t total_size = header_bytes;
     uint64_t total_exta_size = 0;
     uint64_t free_chunks_size = 0;
     uint64_t min_chunk_size = 0;

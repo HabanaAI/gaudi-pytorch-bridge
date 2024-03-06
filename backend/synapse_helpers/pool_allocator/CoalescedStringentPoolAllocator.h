@@ -26,6 +26,10 @@
 namespace synapse_helpers {
 namespace pool_allocator {
 
+static const uint64_t kInvalidBinNum = -1;
+// The largest bin'd chunk size is 256 << 21 = 512MB.
+static const uint64_t kNumBins = 21;
+
 // Bin: collection of similar-sized free chunks.
 struct Bin {
   // All chunks in this bin have >= bin_size memory.
@@ -49,6 +53,8 @@ struct Bin {
 
 class BinUtils {
   std::array<char, sizeof(Bin) * kNumBins> bins_space;
+  size_t kMinAllocationSize;
+  size_t kMinAllocationBits;
   inline uint64_t Log2FloorNonZero(uint64_t n) const {
     uint64_t r = 0;
     while (n > 0) {
@@ -59,11 +65,13 @@ class BinUtils {
   }
 
  public:
-  BinUtils() {}
+  BinUtils(size_t minAllocationsize, size_t minAllocationBits)
+      : kMinAllocationSize{minAllocationsize},
+        kMinAllocationBits{minAllocationBits} {}
 
   // Map from bin size to Bin
   Bin* BinFromIndex(uint64_t index) const;
-  static constexpr size_t BinNumToSize(uint64_t index) {
+  size_t BinNumToSize(uint64_t index) {
     return kMinAllocationSize << index; /* kMinAllocationSize = 1 << 8 = 256 */
   }
   uint64_t BinIndexForSize(size_t bytes) const;
@@ -136,6 +144,10 @@ class CoalescedStringentPooling : public PoolingStrategy {
   mutable bool defragmenter_state_started_ = false;
   mutable MemoryStats stats;
   device& device_;
+  mutable size_t alignment;
+  mutable size_t kMinAllocationBits;
+  mutable size_t kMinAllocationSize;
+  size_t header_bytes;
 
   void* alloc_chunk(uint64_t size, hpuStream_t stream, bool use_stream = false)
       const;
@@ -164,15 +176,12 @@ class CoalescedStringentPooling : public PoolingStrategy {
 
   class SmallAllocs {
    public:
-    static const std::size_t kAlignment = DEFAULT_ALIGNMENT;
-    static const std::size_t kSize = 16 * 1024 * kAlignment;
-    static const std::size_t kThreshold = 2 * kAlignment;
-    static_assert(kAlignment <= kThreshold, "");
-    static_assert(kSize % kAlignment == 0, "kAlignment must divide kSize");
-    static const std::size_t kUnits = kSize / kAlignment;
-
     SmallAllocs() = delete;
-    SmallAllocs(std::unique_ptr<int8_t, std::function<void(int8_t*)>>);
+    SmallAllocs(
+        std::unique_ptr<int8_t, std::function<void(int8_t*)>>,
+        size_t,
+        size_t,
+        size_t);
     ~SmallAllocs();
     SmallAllocs(SmallAllocs&& rhs) noexcept;
     SmallAllocs& operator=(SmallAllocs&& rhs) noexcept;
@@ -183,16 +192,26 @@ class CoalescedStringentPooling : public PoolingStrategy {
     void Reset();
     size_t UnitsOccupied() const;
     void* GetChunkPtr();
+    size_t GetkSize() {
+      return kSize_;
+    }
+    size_t GetkThreshold() {
+      return kThreshold_;
+    }
 
    private:
     void ValidateEmpty() const;
     size_t Offset(const void* ptr) const;
-    static size_t ToUnits(size_t offset_in_bytes);
-    static size_t ToBytes(size_t offset_in_units);
+    size_t ToUnits(size_t offset_in_bytes) const;
+    size_t ToBytes(size_t offset_in_units) const;
 
     std::unique_ptr<int8_t, std::function<void(int8_t*)>> chunk_ptr_;
     std::vector<bool> map_;
-    std::array<size_t, kUnits> size_;
+    std::vector<size_t> size_;
+    std::size_t kAlignment_;
+    std::size_t kSize_;
+    std::size_t kThreshold_;
+    std::size_t kUnits_;
   };
 
   mutable std::unique_ptr<SmallAllocs> small_allocs_;
