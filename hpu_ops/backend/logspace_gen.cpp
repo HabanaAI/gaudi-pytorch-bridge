@@ -74,15 +74,18 @@ void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   int64_t len = stack[2].toScalar().to<int64_t>();
   float base = stack[3].toScalar().to<float>();
 
-  auto outType =
-      c10::isIntegralType(meta.dtype, true) ? at::kFloat : meta.dtype;
+  auto castNeeded = c10::isIntegralType(meta.dtype, true);
+  auto outType = castNeeded ? at::kFloat : meta.dtype;
+  c10::optional<int> finalIndex =
+      castNeeded ? c10::nullopt : c10::make_optional<int>(0);
 
   if (len == 0) {
     auto result = habana::OpBackend::BuildOp(
         graph, "memset", {}, {{meta.shape, outType, 0}});
     syn_out(0) = std::move(result[0]);
   } else if (base == 1.f) {
-    auto result = ConstantHelper(graph, 1.f, outType, meta.shape, 0);
+    auto result = ConstantHelper(
+        graph, 1.f, castNeeded ? at::kInt : outType, meta.shape, 0);
     syn_out(0) = std::move(result);
   } else {
     std::vector<synapse_helpers::tensor> range;
@@ -107,9 +110,14 @@ void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         graph,
         get_guid_with_precision("pow_fwd", outType),
         {constant.get(), range[0].get()},
-        {{meta.shape, outType, 0}});
+        {{meta.shape, outType, finalIndex}});
 
-    syn_out(0) = std::move(pow[0]);
+    auto result = castNeeded
+        ? BuildCast(
+              this, graph, pow[0].get(), meta.shape, outType, torch::kInt32, 0)
+        : std::move(pow[0]);
+
+    syn_out(0) = std::move(result);
   }
 }
 } // namespace habana

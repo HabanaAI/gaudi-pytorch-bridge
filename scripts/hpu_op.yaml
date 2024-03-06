@@ -4372,13 +4372,13 @@ logit_backward.grad_input:
   op_validator: check-node-with-shared-layer
 
 logspace:
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Int]
   op_backend: LogSpace
   output_meta: LogspaceMeta
   out_ids: [0]
 
 logspace.out:
-  dtypes: [BFloat16, Float]
+  dtypes: [BFloat16, Float, Int]
   op_backend: LogSpace
   output_meta: LogspaceOutMeta
 

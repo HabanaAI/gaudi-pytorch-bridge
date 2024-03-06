@@ -203,7 +203,7 @@ logical_not                            No       No       No        Yes      Yes 
 logical_or                             Yes      Yes      No        Yes      Yes    torch
 logical_xor                            Yes      Yes      No        Yes      Yes    torch
 logit                                  Yes      Yes      No        No       No     torch
-logspace                               Yes      Yes      No        No       No     torch
+logspace                               Yes      Yes      Yes       No       No     torch
 logsumexp                              Yes      Yes      No        No       No     torch
 lt                                     Yes      Yes      Yes       Yes      No     torch
 masked_fill                            Yes      Yes      Yes       Yes      Yes    torch
