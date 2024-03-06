@@ -178,11 +178,7 @@ void CastToFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 sizes_vec CastToFp8V2OutputShape(const at::Stack& stack) {
   auto input_sv = stack[0].toTensor().sizes().vec();
   bool is_amax = stack[3].toBool();
-  std::vector<int64_t> amax_shape{};
-  if (not is_amax) {
-    amax_shape.push_back(0);
-  }
-  return {input_sv, amax_shape};
+  return {input_sv, std::vector<int64_t>{is_amax ? 1 : 0}};
 }
 
 CastToFp8V2::CastToFp8V2(int device_id, c10::ScalarType scalar_type)
@@ -259,11 +255,7 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
 sizes_vec CastToFp8HybridOutputShape(const at::Stack& stack) {
   auto input_sv = stack[0].toTensor().sizes().vec();
   bool is_amax = stack[4].toBool();
-  std::vector<int64_t> amax_shape{};
-  if (not is_amax) {
-    amax_shape.push_back(0);
-  }
-  return {input_sv, input_sv, amax_shape};
+  return {input_sv, input_sv, std::vector<int64_t>{is_amax ? 1 : 0}};
 }
 
 CastToFp8Hybrid::CastToFp8Hybrid(int device_id, c10::ScalarType scalar_type)
