@@ -46,8 +46,8 @@ def test_hpu_amax_amin_bool(dtype):
             return x
 
         # Map False -> 0 and True -> Random value in [2, 255]
-        true_vals = torch.randint(2, 255, x.shape).to(torch.uint8)
-        false_vals = torch.zeros(()).to(torch.uint8)
+        true_vals = torch.randint(2, 255, x.shape).to(torch.uint8).to(hpu)
+        false_vals = torch.zeros(()).to(torch.uint8).to(hpu)
         x_int = torch.where(x, true_vals, false_vals)
 
         ret = x_int.view(torch.bool)

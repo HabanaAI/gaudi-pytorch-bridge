@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -87,18 +87,17 @@ FALLBACK_CHECK(
     return false;
   }
 
-  // After type promotion, it should pick one of these guids
-  //  where_fwd_i8
-  //  where_fwd_i32
-  //  where_fwd_bf16
-  //  where_fwd_f32
-  //  where_fwd_f16 only for Gaudi2/Gaudi3
   auto result_type = at::result_type(self, other);
   switch (result_type) {
     case torch::kBool:
     case torch::kInt32:
     case torch::kBFloat16:
     case torch::kFloat32:
+    case torch::kUInt8:
+    case torch::kInt16:
+    case torch::kInt8:
+      return true;
+    // When Int64 isn't supported kInt64 is actually of type Int32
     case torch::kInt64:
       return true;
     case torch::kHalf: {
