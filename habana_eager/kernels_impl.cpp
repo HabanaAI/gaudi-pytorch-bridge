@@ -150,7 +150,7 @@ void optimizer_sgd_momentum_hpu_wrap(
       "hpu::optimizer_sgd_momentum",
       {gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov}};
   hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::InplaceOut,
+      {habana::eager::eagerOpKind::Inplace,
        "hpu::optimizer_sgd_momentum",
        {1, 2}});
   hpu_op.call({weights, momentum});
