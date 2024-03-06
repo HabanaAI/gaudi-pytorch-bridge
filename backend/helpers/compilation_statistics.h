@@ -40,7 +40,8 @@ class CompilationStatistics {
    */
   static std::unique_ptr<CompilationStatistics> Create(
       const std::string& id,
-      uint64_t count);
+      uint64_t count,
+      size_t hash_code);
 
   virtual ~CompilationStatistics();
 

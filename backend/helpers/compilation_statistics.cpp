@@ -115,7 +115,8 @@ class CompilationStatisticsNoOp : public CompilationStatistics {
 
 std::unique_ptr<CompilationStatistics> CompilationStatistics::Create(
     const std::string& id,
-    uint64_t global_count) {
+    uint64_t global_count,
+    size_t hash_code) {
   std::unique_ptr<CompilationStatistics> result;
   std::string path = GET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
   if (path != "") {
@@ -127,10 +128,20 @@ std::unique_ptr<CompilationStatistics> CompilationStatistics::Create(
         UNSET_ENV_FLAG_NEW(PT_COMPILATION_STATS_PATH);
       }
     }
-    std::string node_id{
-        std::getenv("RANK") ? (std::string("_") + std::getenv("RANK")) : ""};
 
-    path += std::string("/") + std::string(id) + node_id + ".json";
+    // The file name of compilation stat dump starts
+    // with the 'id' i.e. SynapseGraphName/recipe_id
+    path += std::string("/") + std::string(id);
+
+    // Add RANK i.e HLS_MODULE_ID to the file name.
+    // For 1x device, it defaults to '0'.
+    std::string node_id{
+        std::getenv("RANK") ? (std::string("_") + std::getenv("RANK")) : "_0"};
+    path += node_id;
+
+    // Add graph_hash_code to the file name
+    path += std::string("_") + std::to_string(hash_code) + ".json";
+
     result = std::unique_ptr<CompilationStatistics>(
         new CompilationStatistics{path, global_count});
   } else {

@@ -2959,7 +2959,9 @@ void HabanaLaunchOpPT::CreateFirstDynamicBucket() {
     DynamicBucketInfoMap::get_instance().add(rargpsh_graph, current_dbipsh_);
     current_dbipsh_->create_statistics(
         habana_helpers::CompilationStatistics::Create(
-            GetSynapseGraphName(), current_dbipsh_->getCount()));
+            GetSynapseGraphName(),
+            current_dbipsh_->getCount(),
+            rargpsh_graph->hashCode()));
 
     // Create bucket 0
     DynamicShapeInfo graph_input_info;
