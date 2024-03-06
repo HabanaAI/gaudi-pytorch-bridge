@@ -102,7 +102,8 @@ class HPUGraph(object):
         r"""
         Destroys and free up memory of captured HPU graph.
         """
-        _hpu_C.destroy(self.hpu_graph)
+        if _hpu_C.destroy is not None:
+            _hpu_C.destroy(self.hpu_graph)
 
     def __del__(self):
         self.reset()
