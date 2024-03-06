@@ -508,7 +508,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                     )
                 self.fp8_meta["update_amax_fwd"] = self.get_amax_measure_state()
             else:
-                self.fp8_meta["update_amax_fwd"] = False
+                self.fp8_meta["update_amax_fwd"] = {}
 
             # Activation recomputation is used and this is the first forward phase.
             if (
