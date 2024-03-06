@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -61,7 +61,7 @@ static std::shared_ptr<void> ClampParams(
 }
 
 template <typename ScalarType>
-static std::shared_ptr<void> FillClampParamsAndFixOverlapping(
+static std::shared_ptr<void> FillClampParamsAndSetMinMax(
     const at::Stack& stack,
     size_t& size) {
   ScalarType min = stack[1].isScalar()
@@ -69,9 +69,6 @@ static std::shared_ptr<void> FillClampParamsAndFixOverlapping(
       : -std::numeric_limits<ScalarType>::max();
   ScalarType max = stack[2].isScalar() ? stack[2].toScalar().to<ScalarType>()
                                        : std::numeric_limits<ScalarType>::max();
-  if (max < min) {
-    min = max;
-  }
   return ClampParams(min, max, size);
 }
 
@@ -82,9 +79,9 @@ std::shared_ptr<void> FillClampParams(const at::Stack& stack, size_t& size) {
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   if (c10::isFloatingType(result_type)) {
-    return FillClampParamsAndFixOverlapping<float>(stack, size);
+    return FillClampParamsAndSetMinMax<float>(stack, size);
   } else {
-    return FillClampParamsAndFixOverlapping<int>(stack, size);
+    return FillClampParamsAndSetMinMax<int>(stack, size);
   }
 }
 
