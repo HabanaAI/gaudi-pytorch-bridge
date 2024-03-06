@@ -95,6 +95,11 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
       std::vector<at::Tensor>& inputTensors,
       const GatherOptions& opts = GatherOptions()) override;
 
+  c10::intrusive_ptr<Work> alltoall(
+      std::vector<at::Tensor>& outputTensors,
+      std::vector<at::Tensor>& inputTensors,
+      const AllToAllOptions& opts = AllToAllOptions()) override;
+
   c10::intrusive_ptr<Work> alltoall_base(
       at::Tensor& outputTensor,
       at::Tensor& inputTensor,

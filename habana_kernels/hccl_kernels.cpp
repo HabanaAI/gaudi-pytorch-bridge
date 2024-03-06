@@ -709,7 +709,7 @@ void HcclAllToAllOutOperator::RunCollective(
          output_t = p_context_->pt_outputs_[0],
          inputSplitSizes_ = inputSplitSizes,
          outputSplitSizes_ = inputSplitSizes](
-            PtTensorInfoShared& input,
+            __attribute__((unused)) PtTensorInfoShared& input,
             __attribute__((unused)) PtTensorInfoShared& output,
             const void* send_buffer,
             void* recv_buffer,
@@ -728,14 +728,14 @@ void HcclAllToAllOutOperator::RunCollective(
           c10d::computeLengthsAndOffsets(
               outputSplitSizes_, output_t, &recv_lengths, &recv_offsets);
 
-          size_t ele_size = input->get_numel();
+          size_t ele_size = input_t.element_size();
           auto type = getHCCLDataType(scalar_type);
           int64_t count = input_t.numel();
           getCountDatatype(scalar_type, count, type);
           adjustElementcount_int64(
               scalar_type, send_lengths, recv_lengths, ele_size);
-          hcclResult_t hccl_result{hcclSuccess};
           hcclGroupStart();
+          hcclResult_t hccl_result{hcclSuccess};
           for (const auto r : c10::irange(numRanks)) {
             if (send_lengths[r] != 0) {
               hccl_result = hcclSend(

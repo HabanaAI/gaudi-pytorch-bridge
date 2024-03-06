@@ -337,6 +337,82 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
   throw std::runtime_error("gather is currently not supported with HCCL");
 };
 
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall(
+    std::vector<at::Tensor>& outputTensors,
+    std::vector<at::Tensor>& inputTensors,
+    [[maybe_unused]] const AllToAllOptions& opts) {
+  HABANA_ASSERT(
+      inputTensors.size() && outputTensors.size(),
+      "ProcessGroupLazyHCCL::alltoall input and output tensors must have at least one element");
+  auto data_type = outputTensors[0].scalar_type();
+
+  bool cast_tensor = !(
+      data_type == c10::ScalarType::Float ||
+      data_type == c10::ScalarType::BFloat16 ||
+      data_type == c10::ScalarType::Int || data_type == c10::ScalarType::Long);
+  at::Tensor t_output;
+  at::Tensor t_input;
+  if (!cast_tensor) {
+    t_output = {outputTensors[0]};
+    t_input = {inputTensors[0]};
+  } else {
+    t_output = {outputTensors[0].to(c10::ScalarType::Float)};
+    t_input = {inputTensors[0].to(c10::ScalarType::Float)};
+  }
+
+  size_t tensor_size = inputTensors.size();
+  // Collecting 1st tensor dim size to split concatenated output later
+  std::vector<int64_t> inputSizeList = {inputTensors[0].size(0)};
+  std::vector<int64_t> outputSizeList = {outputTensors[0].size(0)};
+
+  for (size_t i = 1; i < tensor_size; i++) {
+    HABANA_ASSERT(
+        inputTensors[0].dim() == inputTensors[i].dim(),
+        "ProcessGroupLazyHCCL::alltoall input tensors must have matching number of dimensions");
+    HABANA_ASSERT(
+        outputTensors[0].dim() == outputTensors[i].dim(),
+        "ProcessGroupLazyHCCL::alltoall input tensors must have matching number of dimensions");
+    HABANA_ASSERT(
+        inputTensors[0].scalar_type() == inputTensors[i].scalar_type(),
+        "ProcessGroupLazyHCCL::alltoall input tensors must have the same dtype");
+    HABANA_ASSERT(
+        outputTensors[0].scalar_type() == outputTensors[i].scalar_type(),
+        "ProcessGroupLazyHCCL::alltoall input tensors must have the same dtype");
+    inputSizeList.push_back(inputTensors[i].size(0));
+    outputSizeList.push_back(outputTensors[i].size(0));
+    if (!cast_tensor) {
+      t_input = at::cat({t_input, inputTensors[i]});
+      t_output = at::cat({t_output, outputTensors[i]});
+    } else {
+      t_input = at::cat({t_input, inputTensors[i].to(c10::ScalarType::Float)});
+      t_output =
+          at::cat({t_output, outputTensors[i].to(c10::ScalarType::Float)});
+    }
+  }
+
+  habana_lazy::alltoall_hpu_lazy_out(
+      t_input, comm_->GetId(), t_output, outputSizeList, inputSizeList);
+  habana_lazy::HbLazyTensor::StepMarker();
+  PT_IRGRAPH_DEBUG("step marker due to ProcessGroupLazyHCCL::alltoall");
+  // torch::tensor_split as second argument takes indexes where the splits
+  // should be applied, so we need to pass there split sizes vector without the
+  // last element
+  std::vector<at::Tensor> outputSplitted = torch::tensor_split(
+      t_output,
+      std::vector<int64_t>(outputSizeList.begin(), outputSizeList.end() - 1));
+
+  for (size_t idx = 0; idx < outputTensors.size(); idx++) {
+    if (!cast_tensor) {
+      outputTensors[idx].copy_(outputSplitted[idx]);
+    } else {
+      outputTensors[idx].copy_(outputSplitted[idx].to(data_type));
+    }
+  }
+
+  std::vector<at::Tensor> out_tensors = {outputTensors};
+  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
+};
+
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
     at::Tensor& outputTensor,
     at::Tensor& inputTensor,
