@@ -17,7 +17,6 @@
 #include "generated/backend/random.h"
 #include "generated/backend/uniform.h"
 #include "habana_kernels/random_gen_kernels.h"
-#include "hpu_ops/habana_random_ops.h"
 
 namespace habana {
 const unsigned SIZE_INDEX = 2;
@@ -64,7 +63,9 @@ OutputMetaDataVector NormalMeta(const at::Stack& stack) {
   return {meta};
 }
 
-static std::shared_ptr<void> RandomUniformParams(
+namespace {
+
+std::shared_ptr<void> RandomUniformParams(
     at::ScalarType type,
     at::optional<float> from,
     at::optional<float> to,
@@ -118,6 +119,8 @@ static std::shared_ptr<void> RandomUniformParams(
   return params;
 }
 
+} // namespace
+
 std::shared_ptr<void> FillRandomParams(const at::Stack& stack, size_t& size) {
   return RandomUniformParams(
       stack_tensor(stack, 0).scalar_type(), c10::nullopt, c10::nullopt, size);
@@ -148,6 +151,22 @@ std::shared_ptr<void> FillUniformParams(const at::Stack& stack, size_t& size) {
       c10::make_optional<float>(stack.at(1).toDouble()),
       c10::make_optional<float>(stack.at(2).toDouble()),
       size);
+}
+
+std::shared_ptr<void> FillPhiloxUniformParams(
+    const at::Stack& stack,
+    size_t& size) {
+  PARAMS_STUB(ns_PhiloxRandomUniform::ParamsV3);
+  auto low = stack.at(1).toDouble();
+  auto high = stack.at(2).toDouble();
+  if (stack_tensor(stack, 0).scalar_type() == at::ScalarType::Int) {
+    params->low_i = static_cast<int>(low);
+    params->high_i = static_cast<int>(high);
+  } else {
+    params->low = static_cast<float>(low);
+    params->high = static_cast<float>(high);
+  }
+  return params;
 }
 
 std::shared_ptr<void> FillNormal2Params(const at::Stack& stack, size_t& size) {
@@ -367,31 +386,33 @@ void RandomSeedTensorInput::AddNode(
   std::string cast_guid{};
   // supported kernels at the moment are: bf16/f32/f16/i32/i16
   // update guid_ if the dtype is not supported by kernel
-  switch (dtype) {
-    case at::ScalarType::Byte:
-      cast_guid = "cast_f32_to_u8";
-      update_guid_dtype(guid_, "f32");
-      break;
-    case at::ScalarType::Char:
-    case at::ScalarType::Bool:
-      cast_guid = "cast_f32_to_i8";
-      update_guid_dtype(guid_, "f32");
-      break;
-    case at::ScalarType::Int:
-      // i32 kernel seems to be broken, the random
-      // operation needs to be performed on float type
-      cast_guid = "cast_f32_to_i32";
-      update_guid_dtype(guid_, "f32");
-      break;
-    case at::ScalarType::Short:
-      // i16 kernel seems to be broken, the random
-      // operation needs to be performed on float type
-      cast_guid = "cast_f32_to_i16";
-      update_guid_dtype(guid_, "f32");
-      break;
-    default:
-      break;
-  };
+  if (guid_.find("philox_random_uniform") == std::string::npos) {
+    switch (dtype) {
+      case at::ScalarType::Byte:
+        cast_guid = "cast_f32_to_u8";
+        update_guid_dtype(guid_, "f32");
+        break;
+      case at::ScalarType::Char:
+      case at::ScalarType::Bool:
+        cast_guid = "cast_f32_to_i8";
+        update_guid_dtype(guid_, "f32");
+        break;
+      case at::ScalarType::Int:
+        // i32 kernel seems to be broken, the random
+        // operation needs to be performed on float type
+        cast_guid = "cast_f32_to_i32";
+        update_guid_dtype(guid_, "f32");
+        break;
+      case at::ScalarType::Short:
+        // i16 kernel seems to be broken, the random
+        // operation needs to be performed on float type
+        cast_guid = "cast_f32_to_i16";
+        update_guid_dtype(guid_, "f32");
+        break;
+      default:
+        break;
+    };
+  }
 
   if (cast_guid != "") {
     auto rand = BuildOp(
@@ -420,169 +441,4 @@ void RandomSeedTensorInput::AddNode(
     syn_out(0) = std::move(rand[0]);
   }
 }
-
-OutputMetaDataVector HabanaRandOutputMeta(const at::Stack& stack) {
-  OutputMetaData meta;
-  meta.shape = stack[1].toIntVector();
-  meta.dtype =
-      stack[2].toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
-  meta.layout = stack[3].toOptional<at::Layout>().value_or(at::kStrided);
-  return {meta};
-}
-
-HabanaRand::HabanaRand(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "random_uniform", scalar_type, {0}, {}, {}, false) {
-  SetOutputMetaFn(HabanaRandOutputMeta);
-}
-
-void HabanaRand::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto output_shape = stack[1].toIntVector();
-  auto dtype =
-      stack[2].toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
-
-  ns_RandomUniform::Params params{};
-  params.low = 0.0;
-  params.high = 1.0;
-
-  std::vector<synTensor> inputs{syn_in(0)};
-
-  CreateShapeTensorInput(graph, dtype, output_shape, inputs);
-
-  auto rand = BuildOp(
-      graph,
-      get_guid_with_precision("random_uniform", dtype),
-      std::move(inputs),
-      {{output_shape, dtype, 0}},
-      &params,
-      sizeof(params));
-  syn_out(0) = std::move(rand[0]);
-}
-
-HabanaRandn::HabanaRandn(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "random_normal", scalar_type, {0}, {}, {}, false) {
-  SetOutputMetaFn(HabanaRandOutputMeta);
-}
-
-void HabanaRandn::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto output_shape = stack[1].toIntVector();
-  auto dtype =
-      stack[2].toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
-
-  ns_RandomNormal::Params params{};
-  params.mean = 0.0;
-  params.stddev = 1.0;
-
-  std::vector<synTensor> inputs{nullptr, syn_in(0)};
-
-  CreateShapeTensorInput(graph, dtype, output_shape, inputs);
-
-  auto rand = BuildOp(
-      graph,
-      get_guid_with_precision("random_normal", dtype),
-      std::move(inputs),
-      {{output_shape, dtype, 0}},
-      &params,
-      sizeof(params));
-  syn_out(0) = std::move(rand[0]);
-}
-
-OutputMetaDataVector HabanaRandintOutputMeta(const at::Stack& stack) {
-  OutputMetaData meta;
-  meta.shape = stack[3].toIntList().vec();
-  meta.dtype =
-      stack[4].toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
-  meta.layout = stack[5].toOptional<at::Layout>().value_or(at::kStrided);
-  return {meta};
-}
-
-HabanaRandint::HabanaRandint(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "random_uniform", scalar_type, {0}, {}, {}, false) {
-  SetOutputMetaFn(HabanaRandintOutputMeta);
-}
-
-void HabanaRandint::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto low = stack[1].toInt();
-  auto high = stack[2].toInt();
-  auto output_shape = stack[3].toIntVector();
-  auto dtype =
-      stack[4].toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
-
-  ns_RandomUniform::ParamsV2 params{};
-  params.low.i = low;
-  params.high.i = high;
-
-  std::vector<synTensor> inputs{syn_in(0)};
-
-  CreateShapeTensorInput(graph, dtype, output_shape, inputs);
-
-  auto randint = BuildOp(
-      graph,
-      get_guid_with_precision("random_uniform", dtype),
-      std::move(inputs),
-      {{output_shape, dtype, 0}},
-      &params,
-      sizeof(params));
-  syn_out(0) = std::move(randint[0]);
-}
-
-OutputMetaDataVector HabanaSeedGeneratorOutputMeta(const at::Stack& stack) {
-  OutputMetaData meta;
-  meta.shape = {stack[2].toInt()};
-  meta.dtype = at::ScalarType::Int;
-  return {meta};
-}
-
-HabanaSeedGenerator::HabanaSeedGenerator(
-    int device_id,
-    c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "philox_random_uniform",
-          scalar_type,
-          {0},
-          {},
-          {},
-          false) {
-  SetOutputMetaFn(HabanaSeedGeneratorOutputMeta);
-}
-
-void HabanaSeedGenerator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  ns_PhiloxRandomUniform::ParamsV3 params{};
-  params.low_i = 0;
-  params.high_i = std::numeric_limits<int32_t>::max();
-  auto philox_dtype = at::ScalarType::Int;
-
-  std::vector<int64_t> output_shape{stack[2].toInt()};
-
-  std::vector<synTensor> inputs{syn_in(0), syn_in(1)};
-
-  CreateShapeTensorInput(graph, philox_dtype, output_shape, inputs);
-
-  auto rand = BuildOp(
-      graph,
-      get_guid_with_precision("philox_random_uniform", philox_dtype),
-      std::move(inputs),
-      {{output_shape, philox_dtype, 0}},
-      &params,
-      sizeof(params));
-
-  syn_out(0) = std::move(rand[0]);
-}
 } // namespace habana
-
-static const auto& HabanaRandomKernelRegistry =
-    habana::KernelRegistry()
-        .add("hpu::habana_rand", KERNEL_FN_GLOBAL(habana::HabanaRand))
-        .add("hpu::habana_randn", KERNEL_FN_GLOBAL(habana::HabanaRandn))
-        .add("hpu::habana_randint", KERNEL_FN_GLOBAL(habana::HabanaRandint))
-        .add(
-            "hpu::habana_seed_generator",
-            KERNEL_FN_GLOBAL(habana::HabanaSeedGenerator));

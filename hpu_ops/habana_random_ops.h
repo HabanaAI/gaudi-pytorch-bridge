@@ -22,26 +22,35 @@
     void AddNode(synapse_helpers::graph&, const at::Stack&) override; \
   };
 
+#define DEFINE_RANDOM_OP(op)                        \
+  struct op : HabanaRandBase {                      \
+    op(int device_id, c10::ScalarType scalar_type); \
+  };
+
 namespace habana {
 
 DEFINE_OP(HabanaBernoulli)
-DEFINE_OP(HabanaRand)
-DEFINE_OP(HabanaRandn)
-DEFINE_OP(HabanaRandint)
-DEFINE_OP(HabanaSeedGenerator)
 DEFINE_OP(HabanaRandPermOp)
 DEFINE_OP(HabanaNativeDropoutOp)
 DEFINE_OP(HabanaRandPermOpDS)
+
+struct HabanaRandBase : OpBackend {
+  HabanaRandBase(
+      int device_id,
+      c10::ScalarType scalar_type,
+      std::string_view kernel_name);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
+
+DEFINE_RANDOM_OP(HabanaRand)
+DEFINE_RANDOM_OP(HabanaRandn)
+DEFINE_RANDOM_OP(HabanaRandint)
+DEFINE_RANDOM_OP(HabanaUniform)
+DEFINE_RANDOM_OP(HabanaSeedGenerator)
 
 struct HabanaMultinomial : OpBackend {
   HabanaMultinomial(int device_id, c10::ScalarType scalar_type);
   void CustomHandler(synapse_helpers::graph&, at::Stack&) override;
 };
 
-OUTMETA_DECL(HabanaRandOutputMeta);
-OUTMETA_DECL(HabanaRandintOutputMeta);
-OUTMETA_DECL(HabanaMultinomialOutputMeta);
-OUTMETA_DECL(HabanaSeedGeneratorOutputMeta);
-OUTMETA_DECL(HabanaRandPermMeta);
-OUTMETA_DECL(HabanaRandPermMetaDS);
 } // namespace habana

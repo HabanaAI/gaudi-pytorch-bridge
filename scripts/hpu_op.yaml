@@ -7483,7 +7483,7 @@ unbind.int:
   acc_thread: true
 
 uniform_:
-  custom_fill_params: FillUniformParams
+  custom_fill_params: FillPhiloxUniformParams
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int]

@@ -2480,7 +2480,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_randint(Tensor seed, SymInt low, SymInt high, SymInt[] size, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def(
-      "hpu::habana_multinomial(Tensor see, Tensor self, int num_samples, bool replacement=False) -> Tensor");
+      "hpu::habana_multinomial(Tensor seed, Tensor self, int num_samples, bool replacement=False) -> Tensor");
+  m.def(
+      "hpu::habana_uniform(Tensor seed, Tensor self, float from=0, float to=1) -> Tensor");
   m.def(
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
   m.def(

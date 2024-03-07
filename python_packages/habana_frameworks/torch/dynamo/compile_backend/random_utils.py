@@ -24,6 +24,7 @@ RANDOM_OPS = (
         "aten.native_dropout.default": torch.ops.hpu.habana_native_dropout,
         "hpu.sdpa_recomp_fwd_dropout.default": torch.ops.hpu.sdpa_recomp_fwd_dropout_seed,
         "hpu.sdpa_fwd_dropout.default": torch.ops.hpu.sdpa_fwd_dropout_seed,
+        "aten.uniform.default": torch.ops.hpu.habana_uniform,
     }
     if bc.get_pt_hpu_wrap_random_ops_compile()
     else {}
@@ -37,6 +38,7 @@ def is_random_op(node):
 def random_op_inputs(node, seed):
     op = RANDOM_OPS[str(node.target)]
     args = (seed,) + node.args
-    kwargs = node.kwargs
+    kwargs = node.kwargs.copy()
+    kwargs.pop("generator", None)
 
     return (op, args, kwargs)
