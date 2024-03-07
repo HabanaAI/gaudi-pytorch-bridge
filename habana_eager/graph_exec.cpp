@@ -89,21 +89,6 @@ void GraphExec::LaunchRecipeTask(
   gexec->LaunchRecipe(std::move(inputs), outputs);
 }
 
-bool DynamicSupportedDevice() {
-  constexpr uint32_t maxStringLength{1024};
-  char deviceName[maxStringLength];
-  auto status = synDeviceGetName(deviceName, maxStringLength, 0);
-  if (status != synSuccess) {
-    PT_SYNHELPER_DEBUG(
-        Logger::formatStatusMsg(status), "Failed to get device name.");
-  }
-  if ((strcmp(deviceName, "GAUDI3") == 0) ||
-      (strcmp(deviceName, "GRECO") == 0)) {
-    return false;
-  }
-  return true;
-}
-
 GraphExec::GraphExec(
     size_t recipe_id,
     std::shared_ptr<torch::jit::Graph> graph,
@@ -114,7 +99,7 @@ GraphExec::GraphExec(
     bool has_randoms)
     : m_graph_index(recipe_id),
       m_graph(graph),
-      m_dynamic(dynamic && DynamicSupportedDevice()),
+      m_dynamic(dynamic),
       m_inference(inference),
       m_has_preallocated_outputs(has_preallocated_outputs),
       m_has_randoms(has_randoms) {

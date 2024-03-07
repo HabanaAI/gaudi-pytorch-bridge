@@ -156,21 +156,6 @@ void CheckDynamicMinMaxPolicyOrder() {
   }
 }
 
-void DisableDynamicShapeGaudi3() {
-  constexpr uint32_t maxStringLength{1024};
-  char deviceName[maxStringLength];
-  auto status = synDeviceGetName(deviceName, maxStringLength, 0);
-  if (status != synSuccess) {
-    PT_SYNHELPER_DEBUG(
-        Logger::formatStatusMsg(status), "Failed to get device name.");
-  }
-
-  if ((strcmp(deviceName, "GAUDI3") == 0) ||
-      (strcmp(deviceName, "GRECO") == 0)) {
-    habana_helpers::DisableRefineDynamicShape();
-  }
-}
-
 int GetSystemRamInKB(void) {
   FILE* meminfo = fopen("/proc/meminfo", "r");
   if (meminfo != NULL) {
@@ -264,7 +249,6 @@ device::device(
   // create default stream
   create_default_stream();
   ReleaseFreeMemory();
-  DisableDynamicShapeGaudi3();
   dumpEnvSettings();
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SFG)) {
     HABANA_ASSERT(
