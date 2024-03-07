@@ -73,22 +73,11 @@ def weight_norm_fwd_bwd(layer_name, device, w, x, g_in, dim):
         b_grad = model.layer.bias.grad.to("cpu")
     return x_grad, wg_grad, wv_grad, b_grad
 
-<<<<<<< HEAD:tests/test_hpu_weight_norm.py
-@pytest.mark.xfail(reason="Results mismatch")
-@pytest.mark.parametrize("layer_name", ["linear",
-                                        pytest.param("convolution", marks=[pytest.mark.xfail(reason="Graph compile fail")])])
-=======
 
+@pytest.mark.xfail(reason="Results mismatch")
 @pytest.mark.parametrize(
-    "layer_name",
-    [
-        "linear",
-        pytest.param(
-            "convolution", marks=[pytest.mark.xfail(reason="Graph compile fail")]
-        ),
-    ],
+    "layer_name", ["linear", pytest.param("convolution", marks=[pytest.mark.xfail(reason="Graph compile fail")])]
 )
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_weight_norm.py
 def test_weight_norm(layer_name):
     if layer_name == "linear":
         x = torch.randn(s_i)
@@ -101,12 +90,8 @@ def test_weight_norm(layer_name):
         w = torch.randn(K, C, R, S)
 
     for dim in range(w.dim()):
-        x_grad_c, wg_grad_c, wv_grad_c, b_grad_c = weight_norm_fwd_bwd(
-            layer_name, cpu, w, x, g_in, dim
-        )
-        x_grad_h, wg_grad_h, wv_grad_h, b_grad_h = weight_norm_fwd_bwd(
-            layer_name, hpu, w, x, g_in, dim
-        )
+        x_grad_c, wg_grad_c, wv_grad_c, b_grad_c = weight_norm_fwd_bwd(layer_name, cpu, w, x, g_in, dim)
+        x_grad_h, wg_grad_h, wv_grad_h, b_grad_h = weight_norm_fwd_bwd(layer_name, hpu, w, x, g_in, dim)
 
         assert torch.allclose(x_grad_c, x_grad_h, rtol=rtol, atol=atol)
         assert torch.allclose(wg_grad_c, wg_grad_h, rtol=rtol, atol=atol)

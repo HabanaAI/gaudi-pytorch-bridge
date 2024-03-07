@@ -15,9 +15,7 @@ import pytest
 
 
 @pytest.mark.parametrize("shapes", [([2, 3], [3])])
-@pytest.mark.parametrize(
-    "dtype", [torch.bfloat16, torch.float, torch.short, torch.int]
-)
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float, torch.short, torch.int])
 def test_hpu_mv_ops(shapes, dtype):
     if pytest.mode in ["lazy", "eager"] and dtype in [torch.short, torch.int]:
         pytest.skip(reason=f"aten::addmv.out for {dtype} is not yet supported on HPU")
@@ -36,11 +34,7 @@ def test_hpu_mv_ops(shapes, dtype):
     hpu_mat = cpu_mat.to("hpu")
     hpu_vec = cpu_vec.to("hpu")
     cpu_wrapped_fn = torch.compile(fn) if (pytest.mode == "compile") else fn
-    hpu_wrapped_fn = (
-        torch.compile(fn, backend="hpu_backend")
-        if (pytest.mode == "compile")
-        else fn
-    )
+    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if (pytest.mode == "compile") else fn
 
     cpu_output = cpu_wrapped_fn(cpu_mat, cpu_vec)
     hpu_output = hpu_wrapped_fn(hpu_mat, hpu_vec).cpu()

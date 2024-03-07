@@ -41,28 +41,11 @@ def fp8_gemm(
 
     if out is None:
         out = torch.ops.hpu.fp8_gemm_v2(
-            B,
-            transb,
-            A,
-            transa,
-            None,
-            out_dtype,
-            B_scale_inv,
-            A_scale_inv,
-            bias if use_bias else None,
-            accumulate)
+            B, transb, A, transa, None, out_dtype, B_scale_inv, A_scale_inv, bias if use_bias else None, accumulate
+        )
     else:
         torch.ops.hpu.fp8_gemm(
-            B,
-            transb,
-            A,
-            transa,
-            out,
-            out_dtype,
-            B_scale_inv,
-            A_scale_inv,
-            bias if use_bias else None,
-            accumulate,
-            out)
+            B, transb, A, transa, out, out_dtype, B_scale_inv, A_scale_inv, bias if use_bias else None, accumulate, out
+        )
 
     return out

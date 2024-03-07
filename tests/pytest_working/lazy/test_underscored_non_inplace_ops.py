@@ -21,12 +21,16 @@ from test_utils import format_tc
     [
         (torch.Tensor.bernoulli_, {}),
         (torch.Tensor.exponential_, {}),
-        (torch.Tensor.geometric_, {"p":0.2},),
+        (
+            torch.Tensor.geometric_,
+            {"p": 0.2},
+        ),
         (torch.Tensor.log_normal_, {}),
         (torch.Tensor.normal_, {}),
         (torch.Tensor.random_, {}),
         (torch.Tensor.uniform_, {}),
-    ], ids=format_tc
+    ],
+    ids=format_tc,
 )
 def test_underscored_non_inplace_op(op, kwargs):
     try:

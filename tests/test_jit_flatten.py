@@ -23,9 +23,7 @@ class Net(nn.Module):
 
 @pytest.mark.skip("Skipping since flatten is not part of fusionlist")
 @pytest.mark.parametrize("in_tensors", data_list)
-@pytest.mark.xfail(
-    reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'"
-)
+@pytest.mark.xfail(reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'")
 def test_jit_flatten(in_tensors):
     with torch.jit.optimized_execution(True):
         htcore.disable()
@@ -42,9 +40,7 @@ def test_jit_flatten(in_tensors):
         torch._C._jit_set_profiling_executor(False)
         hpu_t1 = in_tensors[0].to(hpu)
         hpu_t2 = in_tensors[1].to(hpu)
-        model_trace_hpu = torch.jit.load(
-            "cpu_trace.pt", map_location=torch.device("hpu")
-        )
+        model_trace_hpu = torch.jit.load("cpu_trace.pt", map_location=torch.device("hpu"))
         FileCheck().check_count("= prim::HabanaFusedOp_0", 2, exactly=True).run(
             str(model_trace_hpu.graph_for(hpu_t1, hpu_t2))
         )

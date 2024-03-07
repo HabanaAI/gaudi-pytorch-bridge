@@ -20,12 +20,12 @@ if not is_gaudi1():
     dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
 
 
-shapes1d = [[5,6], [5,6,7]]
-paddings1d = [1,3,5, (2,3), (5,4)]
-shapes2d = [[7,6,8], [6,7,8,6]]
-paddings2d = [1,3,5, (2,3,4,5), (5,4,3,3)]
-shapes3d = [[6,7,8,6], [6,7,6,8,6]]
-paddings3d = [1,3,5, (2,3,4,5,4,2), (5,4,3,4,2,3)]
+shapes1d = [[5, 6], [5, 6, 7]]
+paddings1d = [1, 3, 5, (2, 3), (5, 4)]
+shapes2d = [[7, 6, 8], [6, 7, 8, 6]]
+paddings2d = [1, 3, 5, (2, 3, 4, 5), (5, 4, 3, 3)]
+shapes3d = [[6, 7, 8, 6], [6, 7, 6, 8, 6]]
+paddings3d = [1, 3, 5, (2, 3, 4, 5, 4, 2), (5, 4, 3, 4, 2, 3)]
 
 
 def fn_fwd(reflection_pad, input_tensor, padding):
@@ -78,6 +78,7 @@ def check(padding, shape, dtype, reflection_pad, backward=False):
 @pytest.mark.parametrize("pad_fn", [torch.nn.ReflectionPad1d, torch.nn.ReplicationPad1d])
 def test_hpu_pad1d(padding, shape, dtype, pad_fn):
     check(padding, shape, dtype, pad_fn)
+
 
 @pytest.mark.parametrize("padding", paddings1d, ids=format_tc)
 @pytest.mark.parametrize("shape", shapes1d, ids=format_tc)

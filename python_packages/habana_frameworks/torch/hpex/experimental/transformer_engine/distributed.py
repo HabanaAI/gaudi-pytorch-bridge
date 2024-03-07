@@ -36,9 +36,7 @@ _FP8_ACTIVATION_RECOMPUTE_ENABLED = False
 _FP8_ACTIVATION_RECOMPUTE_PHASE = False
 
 
-def set_tensor_model_parallel_attributes(
-    tensor: torch.Tensor, is_parallel: bool, dim: int, stride: int
-) -> None:
+def set_tensor_model_parallel_attributes(tensor: torch.Tensor, is_parallel: bool, dim: int, stride: int) -> None:
     """set attributes needed for TP"""
     for attribute in _MODEL_PARALLEL_ATTRIBUTE_DEFAULTS:
         assert not hasattr(tensor, attribute)
@@ -70,9 +68,7 @@ def initialize_affine_weight_hpu(
 ) -> None:
     """Initialize affine weight for model parallel on HPU."""
 
-    set_tensor_model_parallel_attributes(
-        tensor=weight, is_parallel=True, dim=partition_dim, stride=stride
-    )
+    set_tensor_model_parallel_attributes(tensor=weight, is_parallel=True, dim=partition_dim, stride=stride)
 
     if get_rng_state_tracker is None:
         init_method(weight)
@@ -102,9 +98,7 @@ def split_tensor_into_1d_equal_chunks(
     return data
 
 
-def gather_split_1d_tensor(
-    tensor: torch.Tensor, tp_group: dist_group_type
-) -> torch.Tensor:
+def gather_split_1d_tensor(tensor: torch.Tensor, tp_group: dist_group_type) -> torch.Tensor:
     """Opposite of above function, gather values from model parallel ranks."""
     numel_gathered = torch.numel(tensor) * get_distributed_world_size(tp_group)
     gathered = torch.empty(
@@ -178,9 +172,7 @@ class CheckpointFunction(torch.autograd.Function):
         ctx.fwd_cuda_rng_state_tracker = get_cuda_rng_tracker().get_states()
 
         with torch.no_grad():
-            with activation_recompute_forward(
-                activation_recompute=True, recompute_phase=False
-            ):
+            with activation_recompute_forward(activation_recompute=True, recompute_phase=False):
                 outputs = run_function(*args, **kwargs)
 
         # Divide hidden states across model parallel group and only keep
@@ -189,9 +181,7 @@ class CheckpointFunction(torch.autograd.Function):
             ctx.input_0_shape = args[0].data.shape
             safely_set_viewless_tensor_data(
                 args[0],
-                split_tensor_into_1d_equal_chunks(
-                    args[0].data, tp_group, new_buffer=True
-                ),
+                split_tensor_into_1d_equal_chunks(args[0].data, tp_group, new_buffer=True),
             )
 
         # Store everything.
@@ -203,24 +193,17 @@ class CheckpointFunction(torch.autograd.Function):
         return outputs
 
     @staticmethod
-    def backward(
-        ctx, *args: Tuple[Union[torch.Tensor, None], ...]
-    ) -> Tuple[Union[torch.Tensor, None], ...]:
+    def backward(ctx, *args: Tuple[Union[torch.Tensor, None], ...]) -> Tuple[Union[torch.Tensor, None], ...]:
         """Call backward function with activation recomputation."""
         if not torch.autograd._is_checkpoint_valid():
-            raise RuntimeError(
-                "Checkpointing is not compatible with .grad(), "
-                "please use .backward() if possible"
-            )
+            raise RuntimeError("Checkpointing is not compatible with .grad(), " "please use .backward() if possible")
         inputs = ctx.saved_tensors
         get_cuda_rng_tracker = ctx.get_cuda_rng_tracker
 
         if ctx.distribute_saved_activations:
             safely_set_viewless_tensor_data(
                 inputs[0],
-                gather_split_1d_tensor(inputs[0].data, ctx.tp_group).view(
-                    ctx.input_0_shape
-                ),
+                gather_split_1d_tensor(inputs[0].data, ctx.tp_group).view(ctx.input_0_shape),
             )
 
         # Store the current states.
@@ -235,9 +218,7 @@ class CheckpointFunction(torch.autograd.Function):
         # Compute the forward pass.
         detached_inputs = detach_variable(inputs)
         with torch.enable_grad():
-            with activation_recompute_forward(
-                activation_recompute=True, recompute_phase=True
-            ):
+            with activation_recompute_forward(activation_recompute=True, recompute_phase=True):
                 outputs = ctx.run_function(*detached_inputs, **ctx.kwargs)
 
         # Set the states back to what it was at the start of this function.
@@ -247,10 +228,7 @@ class CheckpointFunction(torch.autograd.Function):
         if isinstance(outputs, torch.Tensor):
             outputs = (outputs,)
         torch.autograd.backward(outputs, args)
-        grads = tuple(
-            inp.grad if isinstance(inp, torch.Tensor) else inp
-            for inp in detached_inputs
-        )
+        grads = tuple(inp.grad if isinstance(inp, torch.Tensor) else inp for inp in detached_inputs)
         return (None, None, None, None, None) + grads
 
 
@@ -321,18 +299,12 @@ def reduce_scatter_along_first_dim(
         return input_, None
 
     dim_size = list(input_.size())
-    assert (
-        dim_size[0] % world_size == 0
-    ), "First dimension of the tensor should be divisible by tensor parallel size"
+    assert dim_size[0] % world_size == 0, "First dimension of the tensor should be divisible by tensor parallel size"
 
     dim_size[0] = dim_size[0] // world_size
 
-    output = torch.empty(
-        dim_size, dtype=input_.dtype, device="hpu"
-    )
-    handle = torch.distributed.reduce_scatter_tensor(
-        output, input_.contiguous(), group=tp_group, async_op=async_op
-    )
+    output = torch.empty(dim_size, dtype=input_.dtype, device="hpu")
+    handle = torch.distributed.reduce_scatter_tensor(output, input_.contiguous(), group=tp_group, async_op=async_op)
     return output, handle
 
 
@@ -349,12 +321,8 @@ def gather_along_first_dim(
     dim_size = list(input_.size())
     dim_size[0] = dim_size[0] * world_size
 
-    output = torch.empty(
-        dim_size, dtype=input_.dtype, device="hpu"
-    )
-    handle = torch.distributed.all_gather_into_tensor(
-        output, input_.contiguous(), group=tp_group, async_op=async_op
-    )
+    output = torch.empty(dim_size, dtype=input_.dtype, device="hpu")
+    handle = torch.distributed.all_gather_into_tensor(output, input_.contiguous(), group=tp_group, async_op=async_op)
 
     return output, handle
 
@@ -372,12 +340,8 @@ def gather_along_last_dim(
     dim_size = list(input_.size())
     dim_size[-1] = dim_size[-1] * world_size
 
-    output = torch.empty(
-        dim_size, dtype=input_.dtype, device="hpu"
-    )
-    handle = torch.distributed.all_gather_into_tensor(
-        output, input_.contiguous(), group=tp_group, async_op=async_op
-    )
+    output = torch.empty(dim_size, dtype=input_.dtype, device="hpu")
+    handle = torch.distributed.all_gather_into_tensor(output, input_.contiguous(), group=tp_group, async_op=async_op)
 
     return output, handle
 

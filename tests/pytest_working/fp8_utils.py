@@ -15,24 +15,14 @@ import pytest
 
 IS_NATIVE_FP8 = hasattr(torch, "float8_e5m2")
 FP8_NAMES = ["143", "152"]
-FP8_NAMES_LEGACY = FP8_NAMES + [
-    None
-]  # None falls back to simulating fp8 with torch.int8
+FP8_NAMES_LEGACY = FP8_NAMES + [None]  # None falls back to simulating fp8 with torch.int8
 
-MASK_FLOAT32_152 = torch.tensor(
-    2145386496, dtype=torch.int
-)  # 0 11111111 11000000000000000000000b
-MASK_FLOAT32_143 = torch.tensor(
-    2146435072, dtype=torch.int
-)  # 0 11111111 11100000000000000000000b
+MASK_FLOAT32_152 = torch.tensor(2145386496, dtype=torch.int)  # 0 11111111 11000000000000000000000b
+MASK_FLOAT32_143 = torch.tensor(2146435072, dtype=torch.int)  # 0 11111111 11100000000000000000000b
 MASK_FLOAT32 = {"152": MASK_FLOAT32_152, "143": MASK_FLOAT32_143}
 
-MASK_ROUND_FLOAT32_152 = torch.tensor(
-    1048575, dtype=torch.int
-)  # 0 00000000 00011111111111111111111b
-MASK_ROUND_FLOAT32_143 = torch.tensor(
-    524287, dtype=torch.int
-)  # 0 00000000 00001111111111111111111b
+MASK_ROUND_FLOAT32_152 = torch.tensor(1048575, dtype=torch.int)  # 0 00000000 00011111111111111111111b
+MASK_ROUND_FLOAT32_143 = torch.tensor(524287, dtype=torch.int)  # 0 00000000 00001111111111111111111b
 MASK_ROUND_FLOAT32 = {"152": MASK_ROUND_FLOAT32_152, "143": MASK_ROUND_FLOAT32_143}
 
 EXCESSIVE_BITS_FLOAT32_152 = torch.tensor(21, dtype=torch.int)

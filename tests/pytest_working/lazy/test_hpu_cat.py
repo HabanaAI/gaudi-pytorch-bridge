@@ -75,11 +75,7 @@ cat_op_list = [
             "out": torch.empty(0),
             "dim": 3,
         },
-        marks=[
-            pytest.mark.skip(
-                reason="segv, Dimension out of range (expected to be in range of [-1, 0], but got 3)"
-            )
-        ],
+        marks=[pytest.mark.skip(reason="segv, Dimension out of range (expected to be in range of [-1, 0], but got 3)")],
     ),
     (
         torch.cat,
@@ -143,9 +139,7 @@ def test_hpu_cat_fwd_bwd(cat_op, kernel_params_fwd):
     for i in range(0, len(tensors)):
         shape[dim] += tensors[i].size()[dim]
     bwd_tensors = [torch.randn(tuple(shape))]
-    evaluate_fwd_bwd_kernel(
-        kernel=cat_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
-    )
+    evaluate_fwd_bwd_kernel(kernel=cat_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
 
 
 @pytest.mark.parametrize("split_op, kernel_params_fwd", split_op_list)

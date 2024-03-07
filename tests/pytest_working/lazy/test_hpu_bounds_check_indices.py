@@ -23,6 +23,7 @@ from test_utils import cpu, generic_setup_teardown_env, hpu
 
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
+
 @pytest.fixture(autouse=True, scope="module")
 def setup_teardown_env():
     yield from generic_setup_teardown_env({"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 0})
@@ -193,21 +194,11 @@ def assert_array_not_equal(x, y):
 )
 def test_bounds_check(T, B, max_L, bounds_check_mode, weighted, test_case, dtype):
     if test_case != test_case.CHECK_INDICES_NOT_THE_SAME:
-        rows_per_table = torch.tensor(
-            np.random.randint(low=1, high=1000, size=(T,))
-        ).long()
+        rows_per_table = torch.tensor(np.random.randint(low=1, high=1000, size=(T,))).long()
         Ls = np.random.randint(low=0, high=max_L, size=(T, B))
-        indices = [
-            np.random.randint(low=0, high=rows_per_table[t], size=Ls[t, b])
-            for t in range(T)
-            for b in range(B)
-        ]
+        indices = [np.random.randint(low=0, high=rows_per_table[t], size=Ls[t, b]) for t in range(T) for b in range(B)]
         indices = torch.tensor(np.concatenate(indices, axis=0)).to(dtype)
-        weights = (
-            torch.rand(indices.shape, dtype=torch.float, device=indices.device)
-            if weighted
-            else None
-        )
+        weights = torch.rand(indices.shape, dtype=torch.float, device=indices.device) if weighted else None
         offsets = torch.tensor([0] + np.cumsum(Ls.flatten()).tolist()).to(dtype)
 
         rows_per_table = rows_per_table.to(hpu)
@@ -312,8 +303,6 @@ def test_bounds_check(T, B, max_L, bounds_check_mode, weighted, test_case, dtype
                 torch.testing.assert_close(offsets[-1].item(), indices.numel())
 
             if bounds_check_mode == BoundsCheckMode.WARNING:
-                unittest.TestCase().assertGreaterEqual(
-                    warning.item(), min(2, offsets.numel() - 1)
-                )
+                unittest.TestCase().assertGreaterEqual(warning.item(), min(2, offsets.numel() - 1))
         else:
             np.testing.assert_array_less(torch.min(indices).to(cpu), 0)

@@ -18,8 +18,9 @@ dtypes = [torch.bfloat16, torch.float, torch.int, torch.short, torch.int8]
 if not is_gaudi1():
     dtypes.append(torch.float16)
 
-@pytest.mark.parametrize("shape", [[2,3,4], [5], [5,2,3,4]], ids=format_tc)
-@pytest.mark.parametrize("scale", [0.2, 0.5, 2., 5.])
+
+@pytest.mark.parametrize("shape", [[2, 3, 4], [5], [5, 2, 3, 4]], ids=format_tc)
+@pytest.mark.parametrize("scale", [0.2, 0.5, 2.0, 5.0])
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 def test_hpu_masked_scale(dtype, scale, shape):
     def fn(input_tensor, mask, scale):
@@ -36,7 +37,7 @@ def test_hpu_masked_scale(dtype, scale, shape):
     hpu_mask = cpu_mask.to("hpu")
 
     # _masked_scale is unsupported on CPU, therefore computations are made in test itself
-    factor = 1./ (1.0 - 1.0 / scale)
+    factor = 1.0 / (1.0 - 1.0 / scale)
     if dtype not in (torch.bfloat16, torch.float, torch.float16):
         factor = int(factor)
 

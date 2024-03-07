@@ -70,9 +70,7 @@ for input, expected in input_and_expected:
 @pytest.mark.parametrize("bias_add", [True, False])
 def test_linear_fp8(device, dtype, size, bias_add):
     # calculate cpu reference
-    quantized_data = torch.tensor(
-        expected_data, dtype=dtype, device=torch.device("cpu"), requires_grad=True
-    )
+    quantized_data = torch.tensor(expected_data, dtype=dtype, device=torch.device("cpu"), requires_grad=True)
     t1 = quantized_data.reshape([-1, size])
     t2 = quantized_data.reshape([-1, size])
     t1.retain_grad()
@@ -107,9 +105,7 @@ def test_linear_fp8(device, dtype, size, bias_add):
     t1_h = input_data.reshape([-1, size])
     t2_h = input_data.reshape([-1, size])
     if bias_add:
-        bias_h = torch.full(
-            (bias_size, 1), 0.01, dtype=dtype, device=device, requires_grad=True
-        ).reshape([bias_size])
+        bias_h = torch.full((bias_size, 1), 0.01, dtype=dtype, device=device, requires_grad=True).reshape([bias_size])
         bias_h.retain_grad()
     else:
         bias_h = None
@@ -132,9 +128,7 @@ def test_linear_fp8(device, dtype, size, bias_add):
     assert np.array_equal(grad_t1_hpu, grad_t1_cpu, equal_nan=True), "Data mismatch"
     assert np.array_equal(grad_t2_hpu, grad_t2_cpu, equal_nan=True), "Data mismatch"
     if bias_add:
-        assert np.array_equal(
-            grad_bias_hpu, grad_bias_cpu, equal_nan=True
-        ), "Data mismatch"
+        assert np.array_equal(grad_bias_hpu, grad_bias_cpu, equal_nan=True), "Data mismatch"
 
 
 @pytest.mark.parametrize("device", [torch.device("hpu:0")])
@@ -143,9 +137,7 @@ def test_linear_fp8(device, dtype, size, bias_add):
 @pytest.mark.parametrize("batched", [True, False])
 def test_matmul_fp8(device, dtype, size, batched):
     # calculate cpu reference
-    quantized_data = torch.tensor(
-        expected_data, dtype=dtype, device=torch.device("cpu"), requires_grad=True
-    )
+    quantized_data = torch.tensor(expected_data, dtype=dtype, device=torch.device("cpu"), requires_grad=True)
     t1 = quantized_data.reshape([-1, size])
     t2 = quantized_data.reshape([size, -1])
     if batched:
@@ -195,15 +187,11 @@ def test_matmul_fp8(device, dtype, size, batched):
 @pytest.mark.parametrize("stochastic_rounding", [True, False])
 @pytest.mark.parametrize("seed", [0, 12342])
 @pytest.mark.parametrize("env_flag", [0, 1])
-def test_cast_with_stochastic_rounding(
-    device, dtype, stochastic_rounding, seed, env_flag
-):
+def test_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, seed, env_flag):
     with env_var_in_scope({"ENABLE_CONTIGUOUS_CAST_REMOVAL": env_flag}):
         input_value = 18.5
         input_data = torch.tensor([input_value] * 1000, dtype=dtype, device=device)
-        casted = cast_to_fp8(
-            input_data, stochastic_rounding=stochastic_rounding, seed=seed
-        )
+        casted = cast_to_fp8(input_data, stochastic_rounding=stochastic_rounding, seed=seed)
         upcasted = casted.to(dtype)
         mean = torch.mean(upcasted).cpu()
         # When stochastic rounding is turned off, 18.5 will be rounded to 20.0 with default rounding mode

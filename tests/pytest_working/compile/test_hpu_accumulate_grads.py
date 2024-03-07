@@ -35,7 +35,6 @@ def is_op_found_in_ir(ns, op):
 
 
 class ExampleLinear(torch.nn.Module):
-
     def __init__(self):
         super().__init__()
         # Initialize the weight at 1

@@ -20,6 +20,7 @@ from test_utils import (
     format_tc,
 )
 
+
 @pytest.mark.parametrize(
     "shapes",
     [((3, 5, 5), (5)), ((3, 5, 5), (5, 5)), ((3, 5, 5), (1, 5, 5))],

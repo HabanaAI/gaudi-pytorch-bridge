@@ -40,7 +40,11 @@ class FxGraphAnalyzer:
                 submodule = ctx.graph_module.get_submodule(n.target)
                 self.count_ops(submodule.graph.nodes, ctx, True, ops_in_graph)
             elif n.op in {"call_function", "call_method"}:
-                if 'output_device' not in n.meta or n.meta['output_device'] is None or n.meta['output_device'].type != 'hpu':
+                if (
+                    "output_device" not in n.meta
+                    or n.meta["output_device"] is None
+                    or n.meta["output_device"].type != "hpu"
+                ):
                     continue
                 target_name = n._pretty_print_target(n.target)
                 if in_submodule:

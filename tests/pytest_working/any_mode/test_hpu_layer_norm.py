@@ -12,13 +12,7 @@
 
 import pytest
 import torch
-from test_utils import (
-    check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
-    is_gaudi1,
-    is_pytest_mode_compile,
-    format_tc
-)
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, is_gaudi1, is_pytest_mode_compile, format_tc
 
 dtypes = [torch.float, torch.bfloat16]
 

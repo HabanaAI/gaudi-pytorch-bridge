@@ -13,6 +13,7 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 
+
 @pytest.mark.parametrize("shapes", [([1, 3], [2], [3]), ([4, 9], [4], [9])])
 @pytest.mark.parametrize("alpha", [0.5, 1, 2])
 @pytest.mark.parametrize("beta", [0.5, 1, 2])
@@ -34,6 +35,7 @@ def test_hpu_addr(shapes, alpha, beta, dtype):
     cpu_output = cpu_compiled_fn(cpu_input, cpu_vec1, cpu_vec2)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_vec1, hpu_vec2).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+
 
 @pytest.mark.parametrize("shapes", [([3, 2], [2], [3]), ([9, 4], [4], [9])])
 @pytest.mark.parametrize("alpha", [0.5])

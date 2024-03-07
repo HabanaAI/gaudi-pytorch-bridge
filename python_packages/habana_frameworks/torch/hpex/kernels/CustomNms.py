@@ -11,22 +11,11 @@ class CustomNms:
         self.bnms = _hpex_C.batched_nms
         super(CustomNms, self).__init__()
 
-    def nms(
-        self,
-        boxes: torch.Tensor,
-        scores: torch.Tensor,
-        iou_threshold: float = 0.5
-    ):
+    def nms(self, boxes: torch.Tensor, scores: torch.Tensor, iou_threshold: float = 0.5):
 
         assert boxes.shape[-1] == 4
         keep = self.nms(boxes, scores, iou_threshold)
         return keep
 
-    def batched_nms(
-        self,
-        boxes: torch.Tensor,
-        scores: torch.Tensor,
-        idxs: torch.Tensor,
-        iou_threshold: float = 0.5
-    ):
+    def batched_nms(self, boxes: torch.Tensor, scores: torch.Tensor, idxs: torch.Tensor, iou_threshold: float = 0.5):
         return self.bnms(boxes, scores, idxs, iou_threshold)

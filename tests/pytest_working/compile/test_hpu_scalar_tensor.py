@@ -17,10 +17,12 @@ import pytest
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_scalar_tensor(dtype):
     import habana_frameworks.torch.core as htcore
+
     torch.empty(0, device="hpu")  # To initialize HPU device
 
     def fn(val, device):
         return torch.scalar_tensor(val, device=device)
+
     compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     val = random.random()

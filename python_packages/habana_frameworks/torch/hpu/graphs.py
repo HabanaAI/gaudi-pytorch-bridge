@@ -11,11 +11,13 @@ import habana_frameworks.torch as htorch
 from habana_frameworks.torch import _hpu_C
 from habana_frameworks.torch.utils.debug import _hg_print as hpu_graph_print
 
+
 def stringify(*args):
     string = ""
-    for item in args :
+    for item in args:
         string = string + " " + str(item)
     return string
+
 
 class HPUGraph(object):
     r"""
@@ -24,6 +26,7 @@ class HPUGraph(object):
     .. warning::
         This API is in beta and may change in future releases.
     """
+
     def __init__(self):
         self.hpu_graph = _hpu_C.HPUGraph()
 
@@ -104,7 +107,8 @@ class HPUGraph(object):
         self.reset()
 
     def get_user_input_match_indices(self):
-        return(_hpu_C.get_user_input_match_indices(self.hpu_graph))
+        return _hpu_C.get_user_input_match_indices(self.hpu_graph)
+
 
 class graph(object):
     r"""
@@ -119,12 +123,10 @@ class graph(object):
     .. warning::
         This API is in beta and may change in future releases.
     """
+
     default_capture_stream = None
 
-    def __init__(self,
-                 hpu_graph,
-                 stream=None,
-                 dry_run=False):
+    def __init__(self, hpu_graph, stream=None, dry_run=False):
         # Lazy-init of default_capture_stream helps avoid circular-import errors.
         # Not thread safe, but graphs already have the general (explicitly documented)
         # restriction that only one capture may be underway at a time in the process.
@@ -146,17 +148,23 @@ class graph(object):
         self.capture_stream.is_capture = True
         self.hpu_graph.capture_begin(self.dry_run)
 
-
     def __exit__(self, exc_type, exc_value, traceback):
         self.hpu_graph.capture_end()
-        self.capture_stream.is_capture =False
+        self.capture_stream.is_capture = False
         self.stream_ctx.__exit__(exc_type, exc_value, traceback)
         # returning None should propagate exceptions from either capture_end or stream_ctx.__exit__()
 
-def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input=False,
-    asynchronous=False, disable_tensor_cache=False, dry_run=False):
 
-    '''
+def make_graphed_callables(
+    callables,
+    sample_args,
+    warmups=0,
+    allow_unused_input=False,
+    asynchronous=False,
+    disable_tensor_cache=False,
+    dry_run=False,
+):
+    """
     callables (torch.nn.Module or Python function, or tuple of these) – Callable or callables to graph.
         If you pass a tuple of callables, their order in the tuple must be the same order they’ll run in the live workload.
 
@@ -178,8 +186,18 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
     dry_run (bool): If True, avoid actual launch of recipe.
         Defaults to False.
 
-    '''
-    printvar = stringify("make_graphed_callables", "Warmups", warmups, "allow_unused_input", allow_unused_input, "asynchronous", asynchronous, "disable_tensor_cache", disable_tensor_cache)
+    """
+    printvar = stringify(
+        "make_graphed_callables",
+        "Warmups",
+        warmups,
+        "allow_unused_input",
+        allow_unused_input,
+        "asynchronous",
+        asynchronous,
+        "disable_tensor_cache",
+        disable_tensor_cache,
+    )
     hpu_graph_print(printvar)
     just_one_callable = False
 
@@ -190,21 +208,23 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
 
     for c, args in zip(callables, sample_args):
         if isinstance(c, torch.nn.Module):
-            assert len(c._backward_hooks) == 0 and len(c._forward_hooks) == 0 and len(c._forward_pre_hooks) == 0, \
-                "Modules must not have hooks registered at the time they are passed. However, registering hooks " + \
-                 "on modules after passing them through make_graphed_callables is allowed."
-            assert all(b.requires_grad is False for b in c.buffers()), "In any :class:`~torch.nn.Module` passed to " + \
-                 ":func:`~make_graphed_callables`, only parameters may be trainable. All buffers must have " + \
-                  "``requires_grad=False``."
-        assert all(isinstance(arg, torch.Tensor) for arg in args), "In the beta API, sample_args " + \
-            "for each callable must be a tuple of Tensors. Other types and keywordargs are not allowed."
-
+            assert len(c._backward_hooks) == 0 and len(c._forward_hooks) == 0 and len(c._forward_pre_hooks) == 0, (
+                "Modules must not have hooks registered at the time they are passed. However, registering hooks "
+                + "on modules after passing them through make_graphed_callables is allowed."
+            )
+            assert all(b.requires_grad is False for b in c.buffers()), (
+                "In any :class:`~torch.nn.Module` passed to "
+                + ":func:`~make_graphed_callables`, only parameters may be trainable. All buffers must have "
+                + "``requires_grad=False``."
+            )
+        assert all(isinstance(arg, torch.Tensor) for arg in args), (
+            "In the beta API, sample_args "
+            + "for each callable must be a tuple of Tensors. Other types and keywordargs are not allowed."
+        )
 
     per_callable_len_user_args = [len(args) for args in sample_args]
-    per_callable_module_params = [tuple(c.parameters()) if isinstance(c, torch.nn.Module) else ()
-                                  for c in callables]
-    per_callable_static_input_surfaces = [sample_args[i] + per_callable_module_params[i]
-                                           for i in range(len(callables))]
+    per_callable_module_params = [tuple(c.parameters()) if isinstance(c, torch.nn.Module) else () for c in callables]
+    per_callable_static_input_surfaces = [sample_args[i] + per_callable_module_params[i] for i in range(len(callables))]
 
     fwd_graphs = [htorch.hpu.HPUGraph() for _ in range(len(callables))]
     bwd_graphs = [htorch.hpu.HPUGraph() for _ in range(len(callables))]
@@ -212,26 +232,24 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
     if warmups > 0:
         htorch.hpu.synchronize()
         with htorch.hpu.stream(htorch.hpu.Stream()):
-            for func, args, static_input_surface in zip(callables,
-                                                        sample_args,
-                                                        per_callable_static_input_surfaces):
+            for func, args, static_input_surface in zip(callables, sample_args, per_callable_static_input_surfaces):
                 for _ in range(warmups):
                     outputs = func(*args)
                     outputs = (outputs,) if isinstance(outputs, torch.Tensor) else outputs
-                    grad_inputs = torch.autograd.grad(outputs=outputs,
-                                                    inputs=tuple(i for i in static_input_surface if i.requires_grad),
-                                                    grad_outputs=tuple(torch.empty_like(o) for o in outputs),
-                                                    only_inputs=True,
-                                                    allow_unused=allow_unused_input)
+                    grad_inputs = torch.autograd.grad(
+                        outputs=outputs,
+                        inputs=tuple(i for i in static_input_surface if i.requires_grad),
+                        grad_outputs=tuple(torch.empty_like(o) for o in outputs),
+                        only_inputs=True,
+                        allow_unused=allow_unused_input,
+                    )
                 del outputs, grad_inputs
 
     htorch.hpu.synchronize()
     # Capture forward graphs
     per_callable_static_outputs = []
     per_callable_output_was_tensor = []
-    for func, args, fwd_graph in zip(callables,
-                                     sample_args,
-                                     fwd_graphs):
+    for func, args, fwd_graph in zip(callables, sample_args, fwd_graphs):
         with htorch.hpu.graph(fwd_graph, dry_run=True if disable_tensor_cache else dry_run):
             if disable_tensor_cache:
                 fwd_graph.mark_user_inputs(args)
@@ -246,30 +264,33 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
     per_callable_static_grad_outputs = []
     per_callable_static_grad_inputs = []
     bwd_mark_user_inputs_len = []
-    for static_input_surface, args, static_outputs, bwd_graph, module_params in \
-            zip(reversed(per_callable_static_input_surfaces),
-                reversed(sample_args),
-                reversed(per_callable_static_outputs),
-                reversed(bwd_graphs),
-                reversed(per_callable_module_params)):
+    for static_input_surface, args, static_outputs, bwd_graph, module_params in zip(
+        reversed(per_callable_static_input_surfaces),
+        reversed(sample_args),
+        reversed(per_callable_static_outputs),
+        reversed(bwd_graphs),
+        reversed(per_callable_module_params),
+    ):
         # assert all(o.requires_grad for o in static_outputs), "Outputs of graphed callables must require grad."
-        static_grad_outputs = tuple(
-            torch.empty_like(o) if o.requires_grad else None for o in static_outputs
-        )
+        static_grad_outputs = tuple(torch.empty_like(o) if o.requires_grad else None for o in static_outputs)
 
         with htorch.hpu.graph(bwd_graph, dry_run=True if disable_tensor_cache else dry_run):
             autograd_inputs = tuple(i for i in static_input_surface if i.requires_grad)
             if disable_tensor_cache:
-                mark_user_inputs_list = (get_user_input_tensor_list(static_grad_outputs, ()) + get_user_input_tensor_list(args, ()))
+                mark_user_inputs_list = get_user_input_tensor_list(
+                    static_grad_outputs, ()
+                ) + get_user_input_tensor_list(args, ())
                 bwd_graph.mark_user_inputs(mark_user_inputs_list)
                 bwd_mark_user_inputs_len.append(len(get_user_input_tensor_list(static_grad_outputs, ())))
 
-            grad_inputs = torch.autograd.grad(outputs=tuple(o for o in static_outputs if o.requires_grad),
-                                              inputs=autograd_inputs,
-                                              grad_outputs=tuple(o for o in static_grad_outputs if o is not None),
-                                              only_inputs=True,
-                                              allow_unused=allow_unused_input,
-                                              materialize_grads=allow_unused_input)
+            grad_inputs = torch.autograd.grad(
+                outputs=tuple(o for o in static_outputs if o.requires_grad),
+                inputs=autograd_inputs,
+                grad_outputs=tuple(o for o in static_grad_outputs if o is not None),
+                only_inputs=True,
+                allow_unused=allow_unused_input,
+                materialize_grads=allow_unused_input,
+            )
 
         static_grad_inputs = []
         grad_idx = 0
@@ -286,19 +307,23 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
 
     if disable_tensor_cache:
         per_callable_input_surfaces_optim = []
-        for fwd_graph, static_input_surface, len_user_args in zip(fwd_graphs, per_callable_static_input_surfaces, per_callable_len_user_args):
+        for fwd_graph, static_input_surface, len_user_args in zip(
+            fwd_graphs, per_callable_static_input_surfaces, per_callable_len_user_args
+        ):
             len_module_params = len(per_callable_static_input_surfaces) - len_user_args
             matched_input_index = fwd_graph.get_user_input_match_indices()
             input_surface_list = list(static_input_surface)
             for i in range(len_user_args):
                 if i in matched_input_index:
-                    input_surface_list[i+len_module_params] = torch.empty(0)
+                    input_surface_list[i + len_module_params] = torch.empty(0)
             static_input_surface = tuple(input_surface_list)
             per_callable_input_surfaces_optim.append(static_input_surface)
         per_callable_static_input_surfaces = per_callable_input_surfaces_optim
 
         per_callable_grad_outputs_optim = []
-        for bwd_graph, static_grad_outputs, bwd_uin_len in zip(bwd_graphs, reversed(per_callable_static_grad_outputs), reversed(bwd_mark_user_inputs_len)):
+        for bwd_graph, static_grad_outputs, bwd_uin_len in zip(
+            bwd_graphs, reversed(per_callable_static_grad_outputs), reversed(bwd_mark_user_inputs_len)
+        ):
             matched_input_index = bwd_graph.get_user_input_match_indices()
             grad_outputs_list = list(static_grad_outputs)
             for i in range(bwd_uin_len):
@@ -311,17 +336,19 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
     per_callable_static_grad_outputs = list(reversed(per_callable_static_grad_outputs))
     per_callable_static_grad_inputs = list(reversed(per_callable_static_grad_inputs))
 
-    def make_graphed_autograd_function(fwd_graph,
-                                       bwd_graph,
-                                       module_params,
-                                       len_user_args,
-                                       output_was_tensor,
-                                       static_input_surface,
-                                       static_outputs,
-                                       static_grad_outputs,
-                                       static_grad_inputs,
-                                       asynchronous,
-                                       disable_tensor_cache):
+    def make_graphed_autograd_function(
+        fwd_graph,
+        bwd_graph,
+        module_params,
+        len_user_args,
+        output_was_tensor,
+        static_input_surface,
+        static_outputs,
+        static_grad_outputs,
+        static_grad_inputs,
+        asynchronous,
+        disable_tensor_cache,
+    ):
         class Graphed(torch.autograd.Function):
             @staticmethod
             def forward(ctx, *inputs):
@@ -331,12 +358,12 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
                     for i in range(len_user_args):
                         if i not in matched_input_index:
                             static_input_surface[i].copy_(inputs[i])
-                        marked_inputs = marked_inputs + (inputs[i], )
+                        marked_inputs = marked_inputs + (inputs[i],)
                     ctx.save_for_backward(*marked_inputs)
                     fwd_graph.replayV3(marked_inputs, asynchronous)
                     assert isinstance(static_outputs, tuple)
                     return tuple(o.detach() for o in static_outputs)
-                else :
+                else:
                     for i in range(len_user_args):
                         # if static_input_surface[i].data_ptr() != inputs[i].data_ptr():
                         #     static_input_surface[i].copy_(inputs[i])
@@ -356,7 +383,7 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
                         if g is not None:
                             if i not in matched_input_index:
                                 g.copy_(grad)
-                            marked_grads = marked_grads + (grad, )
+                            marked_grads = marked_grads + (grad,)
                             i = i + 1
 
                     bwd_graph.replayV3((marked_grads) + (ctx.saved_tensors), asynchronous)
@@ -380,19 +407,22 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
 
     ret = []
     for i, func in enumerate(callables):
-        graphed = make_graphed_autograd_function(fwd_graphs[i],
-                                                 bwd_graphs[i],
-                                                 per_callable_module_params[i],
-                                                 per_callable_len_user_args[i],
-                                                 per_callable_output_was_tensor[i],
-                                                 per_callable_static_input_surfaces[i],
-                                                 per_callable_static_outputs[i],
-                                                 per_callable_static_grad_outputs[i],
-                                                 per_callable_static_grad_inputs[i],
-                                                 asynchronous,
-                                                 disable_tensor_cache)
+        graphed = make_graphed_autograd_function(
+            fwd_graphs[i],
+            bwd_graphs[i],
+            per_callable_module_params[i],
+            per_callable_len_user_args[i],
+            per_callable_output_was_tensor[i],
+            per_callable_static_input_surfaces[i],
+            per_callable_static_outputs[i],
+            per_callable_static_grad_outputs[i],
+            per_callable_static_grad_inputs[i],
+            asynchronous,
+            disable_tensor_cache,
+        )
 
         if isinstance(func, torch.nn.Module):
+
             def make_graphed_forward(func, graph_training_state, graphed, orig_fwd):
                 def new_fwd(*user_args):
                     if func.training == graph_training_state:
@@ -400,7 +430,9 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
                     else:
                         return orig_fwd(*user_args)
                     return new_fw
+
                 return new_fwd
+
             func.forward = make_graphed_forward(func, func.training, graphed, func.forward)
             ret.append(func)
         else:
@@ -409,6 +441,7 @@ def make_graphed_callables(callables, sample_args, warmups=0, allow_unused_input
         return ret[0]
 
     return tuple(ret)
+
 
 class CachedParams:
     def __init__(self, graph_inputs, graph_outputs, graph, out_tinfo_list=None, asynchronous=False):
@@ -442,6 +475,7 @@ def copy_to(dst, src):
     elif torch.is_tensor(dst):
         dst.copy_(src, non_blocking=True)
 
+
 def get_user_input_tensor_list(inputs, tlist):
     if isinstance(inputs, dict):
         for inp in inputs.items():
@@ -450,8 +484,9 @@ def get_user_input_tensor_list(inputs, tlist):
         for inp in inputs:
             tlist = get_user_input_tensor_list(inp, tlist)
     elif torch.is_tensor(inputs):
-        tlist = tlist + (inputs, )
+        tlist = tlist + (inputs,)
     return tlist
+
 
 def is_seq_of_tensor(obj):
     if isinstance(obj, collections.abc.Sequence) and not isinstance(obj, str):
@@ -463,6 +498,7 @@ def is_seq_of_tensor(obj):
         return True
     else:
         return False
+
 
 def extract_tensors(data):
     """
@@ -477,19 +513,22 @@ def extract_tensors(data):
     elif isinstance(data, dict):
         for value in data.values():
             tensors.extend(extract_tensors(value))
-    elif hasattr(data, '__dict__'):
+    elif hasattr(data, "__dict__"):
         for value in data.__dict__.values():
             tensors.extend(extract_tensors(value))
     return tensors
+
 
 def get_tensor_info(tensor):
     """
     Returns a dictionary with shape, dtype, and device information for a PyTorch tensor.
     """
-    return {'shape': tensor.shape, 'dtype': tensor.dtype, 'device': tensor.device}
+    return {"shape": tensor.shape, "dtype": tensor.dtype, "device": tensor.device}
 
 
-def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs):
+def wrapped_hpugraph_forward(
+    cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs
+):
     """
     Wrapped forward method that captures and replays the HPU graph.
 
@@ -516,17 +555,17 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
         - if 'dry_run' do a trial run to find out the tensors which can be freed.
         - If `bypass_hpu_graphs=True` is present in kwargs the original fwd is called instead
     """
-    if kwargs.pop('bypass_hpu_graphs', False):
+    if kwargs.pop("bypass_hpu_graphs", False):
         return orig_fwd(*args, **kwargs)
     inputs = (args, kwargs)
 
     h = input_hash(inputs)
     cached = cache.get(h)
 
-    cached_tlist =  extract_tensors(kwargs.pop('cache_tensors_list', []))
+    cached_tlist = extract_tensors(kwargs.pop("cache_tensors_list", []))
     # Read from env variable.
     env_tensor_cache = os.environ.get("PT_HPUGRAPH_DISABLE_TENSOR_CACHE")
-    disable_tensor_cache =  disable_tensor_cache if env_tensor_cache is None else env_tensor_cache == "1"
+    disable_tensor_cache = disable_tensor_cache if env_tensor_cache is None else env_tensor_cache == "1"
 
     # Enable dry run if tensor cache is disabled
     dry_run = True if disable_tensor_cache else dry_run
@@ -549,19 +588,19 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
             if not disable_tensor_cache:
                 graph_inputs = inputs
                 tinfo_list = None
-                if (dry_run):
+                if dry_run:
                     graph.replay(asynchronous)
             else:
                 tlist = extract_tensors(outputs)
                 tinfo_list = [get_tensor_info(t) for t in tlist]
-                tlist =  cached_tlist +  tlist
+                tlist = cached_tlist + tlist
                 graph.mark_user_outputs(tlist)
                 saved_inputs = []
                 for i in range(len(input_tensor_list)):
-                    if i not in matched_input_index :
+                    if i not in matched_input_index:
                         saved_inputs.append(input_tensor_list[i])
                 graph_inputs = tuple(saved_inputs)
-                if (dry_run):
+                if dry_run:
                     graph.replayV3(get_user_input_tensor_list(inputs, ()), asynchronous)
 
             cache[h] = CachedParams(graph_inputs, graph_outputs, graph, tinfo_list, asynchronous)
@@ -578,7 +617,7 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
         input_tensor_list = get_user_input_tensor_list(inputs, ())
         saved_inputs = []
         for i in range(len(input_tensor_list)):
-            if i not in matched_input_index :
+            if i not in matched_input_index:
                 saved_inputs.append(input_tensor_list[i])
         graph_inputs = tuple(saved_inputs)
         copy_to(cached.graph_inputs, graph_inputs)
@@ -587,6 +626,7 @@ def wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tens
     # Enable this line to see the graph counts and memory stats
     # print("Graph count: ", len(cache), htorch.hpu.memory.memory_stats())
     return out
+
 
 def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=None):
     """
@@ -621,8 +661,12 @@ def wrap_in_hpu_graph_func(func, asynchronous=False, disable_tensor_cache=False,
     orig_fwd = func
 
     def forward(*args, **kwargs):
-        return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs)
+        return wrapped_hpugraph_forward(
+            cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs
+        )
+
     return forward
+
 
 def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dry_run=False, max_graphs=None):
     """
@@ -658,20 +702,24 @@ def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dr
 
     @wraps(orig_fwd)
     def forward(*args, **kwargs):
-        return wrapped_hpugraph_forward(cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs)
+        return wrapped_hpugraph_forward(
+            cache, stream, orig_fwd, args, kwargs, disable_tensor_cache, asynchronous, dry_run, max_graphs
+        )
 
     module.forward = forward
 
     # Can call model.clear_cache to release the HPU graph memory cached
     def clear_cache():
         cache.clear()
+
     module.clear_cache = clear_cache
 
     return module
 
+
 class TensorPacker:
     def __init__(self, is_out_pack=False, verbose=False):
-        self._is_out_pack = is_out_pack # Whether the pack/unpack is for output of graph forward
+        self._is_out_pack = is_out_pack  # Whether the pack/unpack is for output of graph forward
         self._verbose = verbose
 
     class Index:
@@ -679,7 +727,7 @@ class TensorPacker:
             self.value = value
 
         def __repr__(self):
-            return '#{0:d}'.format(self.value)
+            return "#{0:d}".format(self.value)
 
     def pack(self, outs):
         tensor_list = []
@@ -709,7 +757,7 @@ class TensorPacker:
 
         else:
             if self._verbose:
-                print('[WARNING] Variable of type {0} will not be dynamic'.format(type(outs)))
+                print("[WARNING] Variable of type {0} will not be dynamic".format(type(outs)))
             return outs
 
         return metadata
@@ -743,6 +791,7 @@ class TensorPacker:
 
         return data
 
+
 class GraphModel(torch.nn.Module):
     def __init__(self, model, allow_unused_input=False, asynchronous=False, disable_tensor_cache=False, dry_run=False):
         super(GraphModel, self).__init__()
@@ -774,26 +823,29 @@ class GraphModel(torch.nn.Module):
         full_args = GraphModel.get_full_args(self.func_parameters, *args, **kwargs)
         self.input_id = input_hash(full_args)
         tensor_args, self.input_meta = self.input_packer.pack(full_args)
-        self.hpu_graph = make_graphed_callables(self, tensor_args, allow_unused_input=self.allow_unused_input,
-         asynchronous=self.asynchronous, disable_tensor_cache=self.disable_tensor_cache, dry_run=self.dry_run)
+        self.hpu_graph = make_graphed_callables(
+            self,
+            tensor_args,
+            allow_unused_input=self.allow_unused_input,
+            asynchronous=self.asynchronous,
+            disable_tensor_cache=self.disable_tensor_cache,
+            dry_run=self.dry_run,
+        )
 
     def assert_not_dataparallel(self):
-        assert not isinstance(self.model, torch.nn.parallel.DataParallel) and \
-            not isinstance(self.model, torch.nn.parallel.DistributedDataParallel), (
-            "Use DataParallel/DistributedDataParallel only after wrapping with ModuleCacher"
-        )
+        assert not isinstance(self.model, torch.nn.parallel.DataParallel) and not isinstance(
+            self.model, torch.nn.parallel.DistributedDataParallel
+        ), "Use DataParallel/DistributedDataParallel only after wrapping with ModuleCacher"
 
     @staticmethod
     def process_function_signature(function):
         func_parameters = collections.OrderedDict(inspect.signature(function).parameters)
 
-        UNSUPPORTED = [
-            inspect.Parameter.POSITIONAL_ONLY,
-            inspect.Parameter.VAR_POSITIONAL
-        ]
+        UNSUPPORTED = [inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.VAR_POSITIONAL]
         for key in list(func_parameters):
-            assert func_parameters[key].kind not in UNSUPPORTED, \
-                "Unsupported argument type : {0}".format(func_parameters[key].kind)
+            assert func_parameters[key].kind not in UNSUPPORTED, "Unsupported argument type : {0}".format(
+                func_parameters[key].kind
+            )
             if func_parameters[key].kind == inspect.Parameter.VAR_KEYWORD:
                 print("[WARNING] Variable keyword arguments will not be supported.")
                 del func_parameters[key]
@@ -815,10 +867,24 @@ class GraphModel(torch.nn.Module):
     def full_input_hash(forward_params, *args, **kwargs):
         return input_hash(GraphModel.get_full_args(forward_params, *args, **kwargs))
 
+
 class ModuleCacher(torch.nn.Module):
     def __getstate__(self):
-        return self.max_graphs, self.dry_run, self.disable_tensor_cache, self.log_frequency, self.verbose, self.have_grad_accumulation, \
-            self.asynchronous, self.allow_unused_input, self.use_lfu, self.hpugraph_tracing, self.forward_params, self.inplace, self.orig_model
+        return (
+            self.max_graphs,
+            self.dry_run,
+            self.disable_tensor_cache,
+            self.log_frequency,
+            self.verbose,
+            self.have_grad_accumulation,
+            self.asynchronous,
+            self.allow_unused_input,
+            self.use_lfu,
+            self.hpugraph_tracing,
+            self.forward_params,
+            self.inplace,
+            self.orig_model,
+        )
 
     def __setstate__(self, state):
         self.__init__(state[0])
@@ -882,7 +948,9 @@ class ModuleCacher(torch.nn.Module):
 
     def cache_insert(self, input_id, *args, **kwargs):
         self.hpugraph_tracing = True
-        graph_model = GraphModel(self.orig_model, self.allow_unused_input, self.asynchronous, self.disable_tensor_cache, self.dry_run)
+        graph_model = GraphModel(
+            self.orig_model, self.allow_unused_input, self.asynchronous, self.disable_tensor_cache, self.dry_run
+        )
         graph_model.init_hpu_graph(*args, **kwargs)
         self.model_dict[input_id] = graph_model
         ret = self.cache_replay(input_id, *args, **kwargs)
@@ -895,7 +963,12 @@ class ModuleCacher(torch.nn.Module):
         use_cache = self.model.training and torch.is_grad_enabled() and self.use_lazy_mode
 
         if self.have_grad_accumulation and self.forward_cnt == 0:
-            input_id = input_hash((input_id, self.forward_cnt+1,))
+            input_id = input_hash(
+                (
+                    input_id,
+                    self.forward_cnt + 1,
+                )
+            )
 
         if self.verbose and self.iteration_cnt % self.log_frequency == 0:
             self.log_stats()
@@ -910,7 +983,7 @@ class ModuleCacher(torch.nn.Module):
         if self.model.training:
             self.uncached_train_hits += 1
         else:
-            self.uncached_eval_hits +=1
+            self.uncached_eval_hits += 1
         return self.model.orig_forward(*args, **kwargs)
 
     def capture_start(self):
@@ -920,7 +993,9 @@ class ModuleCacher(torch.nn.Module):
         self.input_count_dict[input_id] = self.input_count_dict.get(input_id, 0) + 1
 
     def capture_end(self):
-        self.priority_keys = sorted(self.input_count_dict.keys(), key=lambda x:self.input_count_dict[x], reverse=True)[:self.max_graphs]
+        self.priority_keys = sorted(self.input_count_dict.keys(), key=lambda x: self.input_count_dict[x], reverse=True)[
+            : self.max_graphs
+        ]
         self.is_capturing = False
         if self.verbose:
             self.log_stats()
@@ -933,7 +1008,12 @@ class ModuleCacher(torch.nn.Module):
         use_cache = self.model.training and torch.is_grad_enabled() and self.use_lazy_mode and not self.is_capturing
 
         if self.have_grad_accumulation and self.forward_cnt == 0:
-            input_id = input_hash((input_id, self.forward_cnt+1,))
+            input_id = input_hash(
+                (
+                    input_id,
+                    self.forward_cnt + 1,
+                )
+            )
 
         if self.is_capturing:
             self.record(input_id)
@@ -943,7 +1023,7 @@ class ModuleCacher(torch.nn.Module):
 
         if use_cache:
             if input_id in self.model_dict:
-               return self.cache_replay(input_id, *args, **kwargs)
+                return self.cache_replay(input_id, *args, **kwargs)
 
             if input_id in self.priority_keys:
                 return self.cache_insert(input_id, *args, **kwargs)
@@ -951,11 +1031,22 @@ class ModuleCacher(torch.nn.Module):
         if self.model.training:
             self.uncached_train_hits += 1
         else:
-            self.uncached_eval_hits +=1
+            self.uncached_eval_hits += 1
         return self.model.orig_forward(*args, **kwargs)
 
-    def __call__(self, model, use_lfu=False, inplace=True, allow_unused_input=False, asynchronous=False, have_grad_accumulation=False, log_frequency=100, verbose=False,
-        disable_tensor_cache=False, dry_run=False):
+    def __call__(
+        self,
+        model,
+        use_lfu=False,
+        inplace=True,
+        allow_unused_input=False,
+        asynchronous=False,
+        have_grad_accumulation=False,
+        log_frequency=100,
+        verbose=False,
+        disable_tensor_cache=False,
+        dry_run=False,
+    ):
         model.is_hpugraph_tracing = self.is_hpugraph_tracing
         self.inplace = inplace
         if not inplace:
@@ -978,9 +1069,9 @@ class ModuleCacher(torch.nn.Module):
         self.verbose = verbose
         self.log_frequency = log_frequency
         env_tensor_cache = os.environ.get("PT_HPUGRAPH_DISABLE_TENSOR_CACHE")
-        self.disable_tensor_cache =  disable_tensor_cache if env_tensor_cache is None else env_tensor_cache == "1"
+        self.disable_tensor_cache = disable_tensor_cache if env_tensor_cache is None else env_tensor_cache == "1"
         env_dry_run = os.environ.get("PT_HPUGRAPH_ENABLE_DRY_RUN")
-        self.dry_run =  dry_run if env_dry_run is None else env_dry_run == "1"
+        self.dry_run = dry_run if env_dry_run is None else env_dry_run == "1"
         return self.model
 
     def log_stats(self):
@@ -998,15 +1089,17 @@ class ModuleCacher(torch.nn.Module):
         print("    Total cached hits         :-", sum(self.cached_hits_dict.values()))
         print("    Uncached train hits       :-", self.uncached_train_hits)
         print("    Uncached eval hits        :-", self.uncached_eval_hits)
-        print("    Total forwards executed   :-", sum(self.cached_hits_dict.values()) +
-              self.uncached_train_hits + self.uncached_eval_hits)
+        print(
+            "    Total forwards executed   :-",
+            sum(self.cached_hits_dict.values()) + self.uncached_train_hits + self.uncached_eval_hits,
+        )
         if self.use_lfu and self.input_count_dict:
             print("    Input hash v. count         :", self.input_count_dict)
-
 
     def __del__(self):
         if self.verbose:
             self.log_stats()
+
 
 def is_current_stream_capturing():
     current_stream = torch.hpu.current_stream()

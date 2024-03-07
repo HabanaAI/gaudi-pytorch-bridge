@@ -17,16 +17,18 @@ import habana_frameworks.torch.utils.experimental as exp
 import time
 import numpy as np
 
+
 def test_record_stream():
-    #exp._reset_device_memory()
+    # exp._reset_device_memory()
     t = torch.FloatTensor([1.0, 2.0, 3.0, 4.0]).pin_memory(device="hpu")
-    result = torch.FloatTensor(t.size()).to('hpu')
-    stream =  ht.hpu.Stream()
+    result = torch.FloatTensor(t.size()).to("hpu")
+    stream = ht.hpu.Stream()
     ptr = [None]
+
     # Performs the CPU->HPU copy in a background stream
     def perform_copy():
-        with  ht.hpu.stream(stream):
-            tmp = torch.FloatTensor(t.size()).to('hpu')
+        with ht.hpu.stream(stream):
+            tmp = torch.FloatTensor(t.size()).to("hpu")
             tmp.copy_(t, non_blocking=True)
             ptr[0] = tmp.data_ptr()
         ht.hpu.current_stream().wait_stream(stream)
@@ -36,8 +38,8 @@ def test_record_stream():
         del tmp
 
     perform_copy()
-    with  ht.hpu.stream(stream):
-        tmp2 = torch.FloatTensor(t.size()).to('hpu')
+    with ht.hpu.stream(stream):
+        tmp2 = torch.FloatTensor(t.size()).to("hpu")
         tmp2.zero_()
         assert tmp2.data_ptr() != ptr[0], f"allocation re-used to soon"
 
@@ -48,11 +50,12 @@ def test_record_stream():
     # in that side stream after result.copy_(tmp) in the main stream finishes.
     ht.hpu.current_stream().synchronize()
     with ht.hpu.stream(stream):
-        tmp3 = torch.FloatTensor(t.size()).to('hpu')
-    #assert tmp3.data_ptr() == ptr[0], f"allocation not re-used"
+        tmp3 = torch.FloatTensor(t.size()).to("hpu")
+    # assert tmp3.data_ptr() == ptr[0], f"allocation not re-used"
+
 
 def test_record_stream_on_shifted_view():
-    #exp._reset_device_memory()
+    # exp._reset_device_memory()
     # See issue #27366
 
     # This test detects unexpected block reallocation. For reliable test,
@@ -60,7 +63,7 @@ def test_record_stream_on_shifted_view():
     # reuse free blocks which were allocated from another stream.
     stream_alloc = ht.hpu.Stream()
     with ht.hpu.stream(stream_alloc):
-        base = torch.FloatTensor([10, 10]).to('hpu')
+        base = torch.FloatTensor([10, 10]).to("hpu")
 
     # Record another stream on a shifted view tensor.
     view = base[5:]
@@ -80,10 +83,11 @@ def test_record_stream_on_shifted_view():
     stream_alloc.synchronize()
 
     with ht.hpu.stream(stream_alloc):
-        try_realloc = torch.FloatTensor([10, 10]).to('hpu')
+        try_realloc = torch.FloatTensor([10, 10]).to("hpu")
 
     assert try_realloc.data_ptr() != data_ptr
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     test_record_stream()
     test_record_stream_on_shifted_view()

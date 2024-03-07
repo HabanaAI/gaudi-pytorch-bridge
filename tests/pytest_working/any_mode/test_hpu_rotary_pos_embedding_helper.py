@@ -114,12 +114,8 @@ def apply_rotary_pos_emb_v2_ref(
         """
         gather_indices = position_ids[:, None, :, None]
         gather_indices = gather_indices.repeat(1, cos.shape[1], 1, cos.shape[3])
-        cos = torch.gather(
-            cos.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices
-        )
-        sin = torch.gather(
-            sin.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices
-        )
+        cos = torch.gather(cos.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices)
+        sin = torch.gather(sin.repeat(gather_indices.shape[0], 1, 1, 1), 2, gather_indices)
 
     return (p * cos) + (rotate_half(p) * sin)
 
@@ -132,9 +128,7 @@ def rotate_every_two(x: torch.Tensor) -> torch.Tensor:
     return x.flatten(-2)  # in einsum notation: rearrange(x, '... d j -> ... (d j)')
 
 
-def apply_rotary_pos_emb_gptj_ref(
-    tensor: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor
-) -> torch.Tensor:
+def apply_rotary_pos_emb_gptj_ref(tensor: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
     """
     Based on apply_rotary_pos_emb() from the GPTJAttention class in GPT-J model.
     Note that the original version has sin and cos swapped with each other.
@@ -142,9 +136,7 @@ def apply_rotary_pos_emb_gptj_ref(
     return (tensor * cos) + (rotate_every_two(tensor) * sin)
 
 
-def apply_rotary_pos_emb_chatglm_ref(
-    x: torch.Tensor, rope_cache: torch.Tensor
-) -> torch.Tensor:
+def apply_rotary_pos_emb_chatglm_ref(x: torch.Tensor, rope_cache: torch.Tensor) -> torch.Tensor:
     """
     Based on apply_rotary_pos_emb() from ChatGLM model.
     """
@@ -189,9 +181,7 @@ def prepare_test_data(p_size, cos_sin_size, offset, mode):
             cos = torch.cat((off, cos, cos), dim=-1)
             sin = torch.cat((off, sin, sin), dim=-1)
 
-        position_ids = torch.randint(0, p_size[2], (p_size[0], p_size[2])).to(
-            torch.long
-        )
+        position_ids = torch.randint(0, p_size[2], (p_size[0], p_size[2])).to(torch.long)
 
         return p, cos, sin, position_ids
     else:
@@ -200,12 +190,8 @@ def prepare_test_data(p_size, cos_sin_size, offset, mode):
         sin = torch.rand(cos_sin_size)
 
         output_size = 2 * sin.shape[2]
-        sin = torch.repeat_interleave(sin, 2, dim=2, output_size=output_size).unsqueeze(
-            2
-        )
-        cos = torch.repeat_interleave(cos, 2, dim=2, output_size=output_size).unsqueeze(
-            2
-        )
+        sin = torch.repeat_interleave(sin, 2, dim=2, output_size=output_size).unsqueeze(2)
+        cos = torch.repeat_interleave(cos, 2, dim=2, output_size=output_size).unsqueeze(2)
 
     return p, cos, sin
 
@@ -221,9 +207,7 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
 
     torch.manual_seed(12345)
 
-    p, cos, sin, _ = prepare_test_data(
-        p_size, cos_sin_size, offset, RotaryPosEmbeddingMode.BLOCKWISE
-    )
+    p, cos, sin, _ = prepare_test_data(p_size, cos_sin_size, offset, RotaryPosEmbeddingMode.BLOCKWISE)
 
     # Compute reference gradients on CPU using autograd
     p_embed_ref = apply_rotary_pos_emb_v1_ref(p, cos, sin, offset)
@@ -242,9 +226,7 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        output_fwd = torch.compile(
-            RotaryPosEmbeddingHelperV1.apply, backend="hpu_backend"
-        )
+        output_fwd = torch.compile(RotaryPosEmbeddingHelperV1.apply, backend="hpu_backend")
 
     p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, offset)
     loss = p_embed.sum()
@@ -255,18 +237,12 @@ def test_apply_rotary_pos_emb_v1_fwd_bwd(p_size, cos_sin_size, offset, dtype):
     else:
         tol = 0.012
 
-    torch.testing.assert_close(
-        p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol
-    )
+    torch.testing.assert_close(p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol)
 
-    torch.testing.assert_close(
-        p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol
-    )
+    torch.testing.assert_close(p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol)
 
     if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir(
-            {"rotary_pos_embedding", "rotary_pos_embedding_backward"}
-        )
+        check_ops_executed_in_jit_ir({"rotary_pos_embedding", "rotary_pos_embedding_backward"})
 
 
 @pytest.mark.parametrize(
@@ -287,9 +263,7 @@ def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dty
     # query_shape=[bs, num_attention_heads, seq_len, rotary_ndim]
     # cos_shape=[1, 1, max_position_embeddings, rotary_ndim]
     # position_ids_shape=[bs, seq_len]
-    p, cos, sin, position_ids = prepare_test_data(
-        p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.BLOCKWISE
-    )
+    p, cos, sin, position_ids = prepare_test_data(p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.BLOCKWISE)
 
     # Compute reference gradients on CPU using autograd
     p_embed_ref = apply_rotary_pos_emb_v2_ref(p, cos, sin, position_ids, squeeze_dims)
@@ -309,9 +283,7 @@ def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dty
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        output_fwd = torch.compile(
-            RotaryPosEmbeddingHelperV2.apply, backend="hpu_backend"
-        )
+        output_fwd = torch.compile(RotaryPosEmbeddingHelperV2.apply, backend="hpu_backend")
 
     p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, position_ids_hpu)
     loss = p_embed.sum()
@@ -322,18 +294,12 @@ def test_apply_rotary_pos_emb_v2_fwd_bwd(p_size, cos_sin_size, squeeze_dims, dty
     else:
         tol = 0.012
 
-    torch.testing.assert_close(
-        p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol
-    )
+    torch.testing.assert_close(p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol)
 
-    torch.testing.assert_close(
-        p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol
-    )
+    torch.testing.assert_close(p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol)
 
     if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir(
-            {"rotary_pos_embedding", "rotary_pos_embedding_backward"}
-        )
+        check_ops_executed_in_jit_ir({"rotary_pos_embedding", "rotary_pos_embedding_backward"})
 
 
 @pytest.mark.parametrize(
@@ -347,9 +313,7 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
 
     torch.manual_seed(12345)
 
-    p, cos, sin = prepare_test_data(
-        p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.PAIRWISE
-    )
+    p, cos, sin = prepare_test_data(p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.PAIRWISE)
 
     # Compute reference output values
     output_ref = apply_rotary_pos_emb_gptj_ref(p, cos, sin)
@@ -363,22 +327,16 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        output_fwd = torch.compile(
-            apply_rotary_pos_emb, backend="hpu_backend"
-        )
+        output_fwd = torch.compile(apply_rotary_pos_emb, backend="hpu_backend")
 
-    output_hpu = output_fwd(
-        p_hpu, cos_hpu, sin_hpu, None, 0, RotaryPosEmbeddingMode.PAIRWISE
-    )
+    output_hpu = output_fwd(p_hpu, cos_hpu, sin_hpu, None, 0, RotaryPosEmbeddingMode.PAIRWISE)
 
     if dtype == torch.float32:
         tol = 0.001
     else:
         tol = 0.012
 
-    torch.testing.assert_close(
-        output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol
-    )
+    torch.testing.assert_close(output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol)
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("rotary_pos_embedding")
@@ -391,23 +349,15 @@ def test_apply_rotary_pos_emb_gptj_fwd(p_size, cos_sin_size, dtype):
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
 @pytest.mark.parametrize("cos_dtype", [torch.float16, torch.float32, torch.bfloat16])
 @pytest.mark.parametrize("sin_dtype", [torch.float16, torch.float32, torch.bfloat16])
-def test_apply_rotary_pos_emb_diff_dtypes(
-    p_size, cos_sin_size, dtype, cos_dtype, sin_dtype
-):
+def test_apply_rotary_pos_emb_diff_dtypes(p_size, cos_sin_size, dtype, cos_dtype, sin_dtype):
     if pytest.mode == "compile":
         pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
-    if is_gaudi1() and (
-        dtype == torch.float16
-        or cos_dtype == torch.float16
-        or sin_dtype == torch.float16
-    ):
+    if is_gaudi1() and (dtype == torch.float16 or cos_dtype == torch.float16 or sin_dtype == torch.float16):
         pytest.skip("Half is not supported on Gaudi.")
 
     torch.manual_seed(12345)
 
-    p, cos, sin, position_ids = prepare_test_data(
-        p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.BLOCKWISE
-    )
+    p, cos, sin, position_ids = prepare_test_data(p_size, cos_sin_size, 0, RotaryPosEmbeddingMode.BLOCKWISE)
 
     # Compute reference gradients on CPU using autograd
     p_embed_ref = apply_rotary_pos_emb_v2_ref(p, cos, sin, position_ids, False)
@@ -427,9 +377,7 @@ def test_apply_rotary_pos_emb_diff_dtypes(
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        output_fwd = torch.compile(
-            RotaryPosEmbeddingHelperV2.apply, backend="hpu_backend"
-        )
+        output_fwd = torch.compile(RotaryPosEmbeddingHelperV2.apply, backend="hpu_backend")
 
     p_embed = output_fwd(p_hpu, cos_hpu, sin_hpu, position_ids_hpu)
     loss = p_embed.sum()
@@ -440,18 +388,12 @@ def test_apply_rotary_pos_emb_diff_dtypes(
     else:
         tol = 0.012
 
-    torch.testing.assert_close(
-        p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol
-    )
+    torch.testing.assert_close(p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol)
 
-    torch.testing.assert_close(
-        p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol
-    )
+    torch.testing.assert_close(p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol)
 
     if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir(
-            {"rotary_pos_embedding", "rotary_pos_embedding_backward"}
-        )
+        check_ops_executed_in_jit_ir({"rotary_pos_embedding", "rotary_pos_embedding_backward"})
 
 
 @pytest.mark.parametrize(
@@ -482,9 +424,7 @@ def test_apply_rotary_pos_emb_chatglm_fwd(p_size, cos_sin_size, dtype):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        output_fwd = torch.compile(
-            apply_rotary_pos_emb, backend="hpu_backend"
-        )
+        output_fwd = torch.compile(apply_rotary_pos_emb, backend="hpu_backend")
 
     output_hpu = output_fwd(p_hpu, rope_cache_hpu)
 
@@ -493,9 +433,7 @@ def test_apply_rotary_pos_emb_chatglm_fwd(p_size, cos_sin_size, dtype):
     else:
         tol = 0.012
 
-    torch.testing.assert_close(
-        output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol
-    )
+    torch.testing.assert_close(output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol)
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("rotary_pos_embedding")
@@ -534,9 +472,7 @@ def test_apply_rotary_pos_emb_chatglm_fwd_bwd(p_size, cos_sin_size, dtype):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        output_fwd = torch.compile(
-            RotaryPosEmbeddingHelperV3.apply, backend="hpu_backend"
-        )
+        output_fwd = torch.compile(RotaryPosEmbeddingHelperV3.apply, backend="hpu_backend")
 
     p_embed = output_fwd(p_hpu, rope_cache_hpu)
     loss = p_embed.sum()
@@ -547,15 +483,9 @@ def test_apply_rotary_pos_emb_chatglm_fwd_bwd(p_size, cos_sin_size, dtype):
     else:
         tol = 0.012
 
-    torch.testing.assert_close(
-        p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol
-    )
+    torch.testing.assert_close(p_embed.to(torch.float32).to(cpu), p_embed_ref, rtol=tol, atol=tol)
 
-    torch.testing.assert_close(
-        p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol
-    )
+    torch.testing.assert_close(p_hpu.grad.to(torch.float32).to(cpu), grad_p_ref, rtol=tol, atol=tol)
 
     if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir(
-            {"rotary_pos_embedding", "rotary_pos_embedding_backward"}
-        )
+        check_ops_executed_in_jit_ir({"rotary_pos_embedding", "rotary_pos_embedding_backward"})

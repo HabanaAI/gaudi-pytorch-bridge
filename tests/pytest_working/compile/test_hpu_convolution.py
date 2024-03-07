@@ -13,6 +13,7 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 
+
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 def test_hpu_convolution(dtype):
     def fn(input, weight, bias):
@@ -20,9 +21,9 @@ def test_hpu_convolution(dtype):
 
     minibatch, in_channels, out_channels, groups, W = 4, 8, 6, 2, 2
     stride = padding = dilation = output_padding = (1,)
-    transposed=False
+    transposed = False
     input_shape = (minibatch, in_channels, W)
-    weight_shape = (out_channels, int(in_channels/groups), W)
+    weight_shape = (out_channels, int(in_channels / groups), W)
     bias_shape = (out_channels,)
 
     cpu_input = torch.rand(input_shape, dtype=dtype)
@@ -44,22 +45,22 @@ def test_hpu_convolution(dtype):
 def test_hpu_convolution_grad_with_view():
     def run(device):
         m = torch.nn.Conv2d(5, 6, (2, 2), stride=(1, 1), bias=False).to(device)
-        m.weight = torch.nn.Parameter(torch.arange(1.0*120).reshape([30, 2, 2]).to(device).view([6,5,2,2]))
+        m.weight = torch.nn.Parameter(torch.arange(1.0 * 120).reshape([30, 2, 2]).to(device).view([6, 5, 2, 2]))
 
         def fn(x):
-            x = x.view([2,5,3,4])
+            x = x.view([2, 5, 3, 4])
             return m(x)
 
         if device == "hpu":
             backend = "hpu_backend"
             fn = torch.compile(fn, backend=backend)
 
-        x = torch.arange(1.0*120).reshape([10,3,4]).to(device)
+        x = torch.arange(1.0 * 120).reshape([10, 3, 4]).to(device)
         x.requires_grad_()
 
         res = fn(x)
 
-        grad_in = torch.ones(2, 36).to(device).view(2,6,2,3)
+        grad_in = torch.ones(2, 36).to(device).view(2, 6, 2, 3)
         res.backward(grad_in)
 
         res = [p.grad for p in m.parameters()]

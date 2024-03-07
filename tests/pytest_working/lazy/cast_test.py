@@ -41,9 +41,7 @@ def get_name(param):
     return str(param).replace("torch.", "")
 
 
-@pytest.mark.parametrize(
-    "dtype1, dtype2", itertools.product(dtype, dtype), ids=get_name
-)
+@pytest.mark.parametrize("dtype1, dtype2", itertools.product(dtype, dtype), ids=get_name)
 def test_cast(dtype1, dtype2):
     device = "hpu"
     print(dtype1, dtype2)

@@ -14,6 +14,7 @@ from contextlib import contextmanager
 import datetime
 import json
 import os
+
 os.environ["PT_HPU_ENABLE_CACHE_METRICS"] = "1"
 import pytest
 import torch
@@ -28,7 +29,7 @@ import torch.multiprocessing as pt_mp
 def set_multiprocess_start_method():
     # set spawn start method to not inherit already imported modules in child
     # processes used in metrics tests
-    multiprocessing.set_start_method('spawn')
+    multiprocessing.set_start_method("spawn")
 
 
 def compute_single_step(shape, device, sum_loops=1):
@@ -63,7 +64,7 @@ class TestMetricsAPI:
     def test_graph_compilation_metric_different_shapes_in_loop(self, gc_metric, rc_metric):
         with env_var_in_scope({"PT_HPU_ENABLE_CACHE_METRICS": "1"}):
             shapes = [[10, 20, x] for x in range(1, 11)]
-            device = torch.device('hpu')
+            device = torch.device("hpu")
             torch.random.manual_seed(42)
             last_total_time = 0
             for curr_iter, shape in enumerate(shapes):
@@ -79,7 +80,7 @@ class TestMetricsAPI:
 
     def test_graph_compilation_metric_same_shape_in_loop(self, gc_metric, rc_metric):
         with env_var_in_scope({"PT_HPU_ENABLE_CACHE_METRICS": "1"}):
-            device = torch.device('hpu')
+            device = torch.device("hpu")
             shape = [1, 2, 3, 4]
             torch.random.manual_seed(42)
             total_time_of_last_iter = -1
@@ -99,15 +100,14 @@ class TestMetricsAPI:
     @staticmethod
     def _worker_metric_zero_at_beginning(q, metric_name):
         from habana_frameworks.torch.hpu import metric_global
+
         metric = metric_global(metric_name)
         metric_dict = dict(metric.stats())
         q.put(metric_dict)
 
-    @pytest.mark.parametrize("metric_name",
-                             [("graph_compilation"),
-                              ("cpu_fallback"),
-                              ("memory_defragmentation"),
-                              ("recipe_cache")])
+    @pytest.mark.parametrize(
+        "metric_name", [("graph_compilation"), ("cpu_fallback"), ("memory_defragmentation"), ("recipe_cache")]
+    )
     def test_metric_zero_at_beginning(self, metric_name):
         """
         Spawns fresh process and verifies if metric are equal 0 at beginning.
@@ -137,9 +137,8 @@ class TestMetricsAPI:
             assert metric_dict["MaxTime"] == 0
             assert metric_dict["TotalSuccessful"] == 0
 
-
     def test_graph_compilation_check_gc_global_metric_with_additional_event_handlers(self, gc_metric):
-        device = torch.device('hpu')
+        device = torch.device("hpu")
         shape = [3, 2, 1]
         torch.random.manual_seed(42)
 
@@ -157,11 +156,10 @@ class TestMetricsAPI:
 
         print(f"GC metric: {gc_metric.stats()}")
 
-
     def test_graph_compilation_check_gc_details(self, gc_metric, rc_metric):
         with env_var_in_scope({"PT_HPU_METRICS_GC_DETAILS": "1"}):
             shapes = [[10, 20, x] for x in range(1, 5)]
-            device = torch.device('hpu')
+            device = torch.device("hpu")
             torch.random.manual_seed(42)
             last_recipe_number = 0
             for curr_iter, shape in enumerate(shapes):
@@ -178,7 +176,7 @@ class TestMetricsAPI:
 
     def test_metric_context_manager(self, gc_metric):
         shapes = [[10, 30, x] for x in range(1, 11)]
-        device = torch.device('hpu')
+        device = torch.device("hpu")
 
         torch.random.manual_seed(42)
 
@@ -256,6 +254,7 @@ class TestMetricsDump:
         as parameter, so each run can be executed with separate set of
         environmental variables.
         """
+
         def runner_func(worker_function, *args, env={}, **kwargs):
             with env_var_in_scope(env):
                 p = Process(target=worker_function, args=args, kwargs=kwargs)
@@ -266,7 +265,7 @@ class TestMetricsDump:
 
     @staticmethod
     def _sample_worker_process():
-        device = torch.device('hpu')
+        device = torch.device("hpu")
         torch.random.manual_seed(42)
 
         compute_single_step([3, 2, 1], device)
@@ -276,19 +275,22 @@ class TestMetricsDump:
         m = metric_global("graph_compilation")
         print(f"name={m.name()}, stats={m.stats()}")
 
-    @pytest.mark.parametrize("base_name,multinode,expected_base_name",
-                             [("metric_file", False, "metric_file"),
-                              ("metric_file.txt", False, "metric_file.txt"),
-                              ("metric_file", True, "metric_file-rank0"),
-                              ("metric_file.json", True, "metric_file-rank0.json"),
-                              ("metric_file.txt.json", True, "metric_file.txt-rank0.json")])
+    @pytest.mark.parametrize(
+        "base_name,multinode,expected_base_name",
+        [
+            ("metric_file", False, "metric_file"),
+            ("metric_file.txt", False, "metric_file.txt"),
+            ("metric_file", True, "metric_file-rank0"),
+            ("metric_file.json", True, "metric_file-rank0.json"),
+            ("metric_file.txt.json", True, "metric_file.txt-rank0.json"),
+        ],
+    )
     def test_metric_file_with_correct_name_is_created(self, runner, tmp_path, base_name, multinode, expected_base_name):
         metric_file_user_input = f"{tmp_path}/{base_name}"
         metric_file_target = f"{tmp_path}/{expected_base_name}"
 
         assert not os.path.exists(metric_file_target)
-        env_vars = {"PT_HPU_METRICS_FILE": metric_file_user_input,
-                    "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit"}
+        env_vars = {"PT_HPU_METRICS_FILE": metric_file_user_input, "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit"}
         if multinode:
             env_vars["RANK"] = "0"
 
@@ -302,7 +304,7 @@ class TestMetricsDump:
             "Metric name": "metric_name",
             "Generated on": "generated_on",
             "Triggered by": "triggered_by",
-            "Statistics": "statistics"
+            "Statistics": "statistics",
         }
 
         while curr_line < len(lines):
@@ -359,9 +361,11 @@ class TestMetricsDump:
     @pytest.mark.parametrize("format", ["json", "text"])
     def test_metric_dump_on_process_exit(self, runner, tmp_path, format):
         metric_file = f"{tmp_path}/metric.{format}"
-        env_vars = {"PT_HPU_METRICS_FILE": metric_file,
-                    "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
-                    "PT_HPU_METRICS_FILE_FORMAT": format}
+        env_vars = {
+            "PT_HPU_METRICS_FILE": metric_file,
+            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit",
+            "PT_HPU_METRICS_FILE_FORMAT": format,
+        }
 
         runner(TestMetricsDump._sample_worker_process, env=env_vars)
         with open(metric_file, "r") as f:
@@ -381,9 +385,11 @@ class TestMetricsDump:
     @pytest.mark.parametrize("format", ["json", "text"])
     def test_metric_dump_on_metric_change_and_process_exit(self, runner, tmp_path, format):
         metric_file = f"{tmp_path}/metric.{format}"
-        env_vars = {"PT_HPU_METRICS_FILE": metric_file,
-                    "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit,metric_change",
-                    "PT_HPU_METRICS_FILE_FORMAT": format}
+        env_vars = {
+            "PT_HPU_METRICS_FILE": metric_file,
+            "PT_HPU_METRICS_DUMP_TRIGGERS": "process_exit,metric_change",
+            "PT_HPU_METRICS_FILE_FORMAT": format,
+        }
 
         runner(TestMetricsDump._sample_worker_process, env=env_vars)
         with open(metric_file, "r") as f:
@@ -412,7 +418,8 @@ class TestMetricsDump:
         assert metric_on_process_exit["triggered_by"] == "process_exit"
         assert int(metric_on_process_exit["statistics"]["TotalNumber"]) == 3
         assert int(metric_on_process_exit["statistics"]["TotalTime"]) == int(
-            last_metric_on_metric_change["statistics"]["TotalTime"])
+            last_metric_on_metric_change["statistics"]["TotalTime"]
+        )
 
     def test_metric_if_defaults_are_correct(self, runner, tmp_path):
         metric_file = f"{tmp_path}/metric.json"
@@ -448,9 +455,10 @@ class TestMetricsDump:
     def worker_process_for_mp(rank, world_size, call_initialize_dist_hpu):
         if call_initialize_dist_hpu:
             import habana_frameworks.torch.distributed.hccl as hccl
+
             hccl.initialize_distributed_hpu(world_size, rank, rank)
 
-        device = torch.device('hpu')
+        device = torch.device("hpu")
         torch.random.manual_seed(42)
         compute_single_step([3, 2, 1], device)
 
@@ -471,8 +479,9 @@ class TestMetricsDump:
 
         world_size = 2
 
-        runner(TestMetricsDump._sample_worker_running_processes_via_torch_mp,
-               world_size, call_init_dist_hpu, env=env_vars)
+        runner(
+            TestMetricsDump._sample_worker_running_processes_via_torch_mp, world_size, call_init_dist_hpu, env=env_vars
+        )
 
         for rank in range(world_size):
             if call_init_dist_hpu:
@@ -493,13 +502,14 @@ class TestMetricsDump:
             assert int(metric["statistics"]["TotalTime"]) > 0
 
         if call_init_dist_hpu:
-            assert not os.path.exists(metric_file), \
-                "When 'initialize_distributed_hpu' is called then metrics should" \
+            assert not os.path.exists(metric_file), (
+                "When 'initialize_distributed_hpu' is called then metrics should"
                 " be stored in files with suffix 'rankX'"
+            )
 
     @staticmethod
     def _sample_worker_process_with_manual_metric_dump(metric_file, metric_format):
-        device = torch.device('hpu')
+        device = torch.device("hpu")
         torch.random.manual_seed(42)
 
         compute_single_step([3, 2, 1], device)

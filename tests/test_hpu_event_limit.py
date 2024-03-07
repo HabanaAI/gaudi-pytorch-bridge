@@ -1,12 +1,9 @@
 import habana_frameworks.torch as ht
-<<<<<<< HEAD:tests/test_hpu_event_limit.py
-import datetime;
 import pytest
-=======
 import torch
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_event_limit.py
 
 pytestmark = pytest.mark.skip(reason="Too long/hang")
+
 
 def create_events(enable_timing):
     in_shape = (10, 2)
@@ -18,9 +15,7 @@ def create_events(enable_timing):
     for _ in range(1000000):
         startEv = ht.hpu.Event(enable_timing)
         endEv = ht.hpu.Event(enable_timing)
-        assert (
-            endEv.query() is True
-        ), "Event query on unrecorded event returned False (expected True)"
+        assert endEv.query() is True, "Event query on unrecorded event returned False (expected True)"
 
         events.append((startEv, endEv))
 

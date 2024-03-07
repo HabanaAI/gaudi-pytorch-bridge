@@ -1,13 +1,11 @@
 import os
 
-<<<<<<< HEAD:tests/test_jit_matmul.py
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
-=======
+
 import habana_frameworks.torch.core as htcore
 import pytest
 import torch
 from test_utils import compare_tensors, env_var_in_scope, hpu
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_jit_matmul.py
 
 
 def matmul_func(x, y):
@@ -22,9 +20,7 @@ test_case_list = [
 
 
 @pytest.mark.parametrize("D1, D2", test_case_list)
-@pytest.mark.xfail(
-    reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'"
-)
+@pytest.mark.xfail(reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'")
 def test_matmul(D1, D2):
     with env_var_in_scope(
         {
@@ -51,9 +47,7 @@ def test_matmul(D1, D2):
             htcore.enable()
             torch._C._jit_set_profiling_mode(False)
             torch._C._jit_set_profiling_executor(False)
-            model_trace_hpu = torch.jit.trace(
-                matmul_func, (hpu_mat1, hpu_mat2), check_trace=False
-            )
+            model_trace_hpu = torch.jit.trace(matmul_func, (hpu_mat1, hpu_mat2), check_trace=False)
             model_trace_hpu.graph_for(hpu_mat1, hpu_mat2)
             # print(model_trace_hpu_graph)
             hpu_out = model_trace_hpu(hpu_mat1, hpu_mat2)

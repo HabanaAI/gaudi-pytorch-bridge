@@ -21,7 +21,7 @@ from build_profiles.profiles import (
     RequirementPurpose,
     get_version_literal_and_source,
     get_cmakelists_supported_vers,
-    get_extras_version
+    get_extras_version,
 )
 
 if __name__ == "__main__":
@@ -44,9 +44,12 @@ if __name__ == "__main__":
     )
     actions.add_argument("--check", action="store_true", help="Checks profile file integrity")
     actions.add_argument(
-        "--get-extras-version", action="store", nargs=2,
+        "--get-extras-version",
+        action="store",
+        nargs=2,
         metavar=("package_name", "pt_version_id"),
-        help="Prints version of requested extra package (e.g. torchaudio) for given pt_version_id (e.g. current)")
+        help="Prints version of requested extra package (e.g. torchaudio) for given pt_version_id (e.g. current)",
+    )
     parser.add_argument("--profiles", action="store", help="Allows providing of custom profile json")
     args = parser.parse_args()
 

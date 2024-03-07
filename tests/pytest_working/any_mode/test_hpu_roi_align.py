@@ -40,30 +40,22 @@ def get_rois(input_shape, num_rois):
 @pytest.mark.parametrize("sampling_ratio", [0, 2])
 @pytest.mark.parametrize("aligned", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
-def test_hpu_roi_align(
-    input_shape, rois_shape, spatial_scale, output_size, sampling_ratio, aligned, dtype
-):
+def test_hpu_roi_align(input_shape, rois_shape, spatial_scale, output_size, sampling_ratio, aligned, dtype):
     input = torch.randn(input_shape)
     input_hpu = input.to(dtype).to("hpu")
     boxes = get_rois(input_shape, rois_shape[0])
     boxes_hpu = boxes.to(dtype).to("hpu")
 
     def fn(input, boxes, output_size, spatial_scale, sampling_ratio, aligned):
-        return torchvision.ops.roi_align(
-            input, boxes, output_size, spatial_scale, sampling_ratio, aligned
-        )
+        return torchvision.ops.roi_align(input, boxes, output_size, spatial_scale, sampling_ratio, aligned)
 
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
         fn = torch.compile(fn, backend="hpu_backend")
 
-    result_cpu = torchvision.ops.roi_align(
-        input, boxes, output_size, spatial_scale, sampling_ratio, aligned
-    )
-    result_hpu = fn(
-        input_hpu, boxes_hpu, output_size, spatial_scale, sampling_ratio, aligned
-    )
+    result_cpu = torchvision.ops.roi_align(input, boxes, output_size, spatial_scale, sampling_ratio, aligned)
+    result_hpu = fn(input_hpu, boxes_hpu, output_size, spatial_scale, sampling_ratio, aligned)
 
     tol = 1e-5 if dtype == torch.float else 0.1
 
@@ -80,9 +72,7 @@ def test_hpu_roi_align(
 @pytest.mark.parametrize("sampling_ratio", [0, 2])
 @pytest.mark.parametrize("aligned", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
-def test_hpu_roi_align_bwd(
-    input_shape, rois_shape, spatial_scale, output_size, sampling_ratio, aligned, dtype
-):
+def test_hpu_roi_align_bwd(input_shape, rois_shape, spatial_scale, output_size, sampling_ratio, aligned, dtype):
     input = torch.randn(input_shape)
     input_hpu = input.to(dtype).to("hpu").requires_grad_(True)
     input.requires_grad = True
@@ -90,9 +80,7 @@ def test_hpu_roi_align_bwd(
     boxes_hpu = boxes.to(dtype).to("hpu")
 
     def fn(input, boxes, output_size, spatial_scale, sampling_ratio, aligned):
-        res = torchvision.ops.roi_align(
-            input, boxes, output_size, spatial_scale, sampling_ratio, aligned
-        )
+        res = torchvision.ops.roi_align(input, boxes, output_size, spatial_scale, sampling_ratio, aligned)
         loss = res.sum()
         loss.backward()
         return input.grad
@@ -101,15 +89,11 @@ def test_hpu_roi_align_bwd(
         torch._dynamo.reset()
         fn = torch.compile(fn, backend="hpu_backend")
 
-    result_cpu = torchvision.ops.roi_align(
-        input, boxes, output_size, spatial_scale, sampling_ratio, aligned
-    )
+    result_cpu = torchvision.ops.roi_align(input, boxes, output_size, spatial_scale, sampling_ratio, aligned)
     loss = result_cpu.sum()
     loss.backward()
     grad_cpu = input.grad
-    grad_hpu = fn(
-        input_hpu, boxes_hpu, output_size, spatial_scale, sampling_ratio, aligned
-    )
+    grad_hpu = fn(input_hpu, boxes_hpu, output_size, spatial_scale, sampling_ratio, aligned)
 
     tol = 1e-5 if dtype == torch.float else 0.1
 

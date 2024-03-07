@@ -39,7 +39,7 @@ def test_hpu_linear():
         result = out_hpu.to(cpu)
         print(f"Result HPU:\n{result}")
         compare_tensors(result, out_cpu, atol=0.001, rtol=1.0e-3)
-    except (RuntimeError):
+    except RuntimeError:
         print("Exiting after printing Fused Graph post fusion pass")
 
 

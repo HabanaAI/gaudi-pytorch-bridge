@@ -13,6 +13,7 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 
+
 @pytest.mark.parametrize("N, C", [(3, 5)])
 @pytest.mark.parametrize("reduction", ["mean", "sum", "none"])
 @pytest.mark.parametrize("dtype", [torch.float])
@@ -33,6 +34,7 @@ def test_hpu_nll_loss_fwd(N, C, reduction, dtype):
     cpu_output = cpu_wrapped_fn(cpu_input, cpu_target)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+
 
 @pytest.mark.parametrize("N, C", [(3, 5)])
 @pytest.mark.parametrize("reduction", ["mean", "sum", "none"])
@@ -58,6 +60,7 @@ def test_hpu_nll_loss_bwd(N, C, reduction, dtype):
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
 
+
 @pytest.mark.parametrize("N, C, H, W", [(14, 4, 192, 160)])
 @pytest.mark.parametrize("reduction", ["mean", "sum", "none"])
 @pytest.mark.parametrize("dtype", [torch.float])
@@ -76,6 +79,7 @@ def test_hpu_nll_loss2d_fwd(N, C, H, W, reduction, dtype):
     cpu_output = cpu_wrapped_fn(cpu_input, cpu_target)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+
 
 @pytest.mark.parametrize("N, C, H, W", [(14, 4, 192, 160)])
 @pytest.mark.parametrize("reduction", ["mean", "sum", "none"])

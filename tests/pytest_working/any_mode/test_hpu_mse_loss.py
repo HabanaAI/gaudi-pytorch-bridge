@@ -13,6 +13,7 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 
+
 @pytest.mark.parametrize("shape", [(3, 4, 5)])
 @pytest.mark.parametrize("reduction", ["mean", "sum", "none"])
 @pytest.mark.parametrize("dtype", [torch.float])
@@ -31,6 +32,7 @@ def test_hpu_mse_loss(shape, reduction, dtype):
     cpu_output = cpu_wrapped_fn(cpu_input, cpu_target)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+
 
 @pytest.mark.parametrize("shape", [(3, 4, 5)])
 @pytest.mark.parametrize("reduction", ["mean", "sum", "none"])

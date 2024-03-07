@@ -153,19 +153,11 @@ def test_aminmax_multi_output_view_row():
     cpu_max_tensor = torch.randn([2, 5])
     hpu_max_tensor = cpu_max_tensor.to("hpu")
 
-    cpu_min_tensor[1], cpu_max_tensor[1] = cpu_tensor.aminmax(
-        dim=0, keepdim=True
-    )
-    hpu_min_tensor[1], hpu_max_tensor[1] = hpu_tensor.aminmax(
-        dim=0, keepdim=True
-    )
+    cpu_min_tensor[1], cpu_max_tensor[1] = cpu_tensor.aminmax(dim=0, keepdim=True)
+    hpu_min_tensor[1], hpu_max_tensor[1] = hpu_tensor.aminmax(dim=0, keepdim=True)
 
-    assert torch.allclose(
-        hpu_min_tensor.cpu(), cpu_min_tensor, atol=0.001, rtol=0.001
-    )
-    assert torch.allclose(
-        hpu_max_tensor.cpu(), cpu_max_tensor, atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(hpu_min_tensor.cpu(), cpu_min_tensor, atol=0.001, rtol=0.001)
+    assert torch.allclose(hpu_max_tensor.cpu(), cpu_max_tensor, atol=0.001, rtol=0.001)
 
 
 def test_aminmax_multi_output_view_col():
@@ -178,19 +170,11 @@ def test_aminmax_multi_output_view_col():
     cpu_max_tensor = torch.randn([10])
     hpu_max_tensor = cpu_max_tensor.to("hpu")
 
-    cpu_min_tensor[0::2], cpu_max_tensor[0::2] = cpu_tensor.aminmax(
-        dim=0, keepdim=True
-    )
-    hpu_min_tensor[0::2], hpu_max_tensor[0::2] = hpu_tensor.aminmax(
-        dim=0, keepdim=True
-    )
+    cpu_min_tensor[0::2], cpu_max_tensor[0::2] = cpu_tensor.aminmax(dim=0, keepdim=True)
+    hpu_min_tensor[0::2], hpu_max_tensor[0::2] = hpu_tensor.aminmax(dim=0, keepdim=True)
 
-    assert torch.allclose(
-        hpu_min_tensor.cpu(), cpu_min_tensor, atol=0.001, rtol=0.001
-    )
-    assert torch.allclose(
-        hpu_max_tensor.cpu(), cpu_max_tensor, atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(hpu_min_tensor.cpu(), cpu_min_tensor, atol=0.001, rtol=0.001)
+    assert torch.allclose(hpu_max_tensor.cpu(), cpu_max_tensor, atol=0.001, rtol=0.001)
 
 
 def test_aminmax_multi_output_view_col2():
@@ -203,19 +187,11 @@ def test_aminmax_multi_output_view_col2():
     cpu_max_tensor = torch.randn([10])
     hpu_max_tensor = cpu_max_tensor.to("hpu")
 
-    torch.aminmax(
-        cpu_tensor, dim=0, out=[cpu_min_tensor[::2], cpu_max_tensor[::2]]
-    )
-    torch.aminmax(
-        hpu_tensor, dim=0, out=[hpu_min_tensor[::2], hpu_max_tensor[::2]]
-    )
+    torch.aminmax(cpu_tensor, dim=0, out=[cpu_min_tensor[::2], cpu_max_tensor[::2]])
+    torch.aminmax(hpu_tensor, dim=0, out=[hpu_min_tensor[::2], hpu_max_tensor[::2]])
 
-    assert torch.allclose(
-        hpu_min_tensor.cpu(), cpu_min_tensor, atol=0.001, rtol=0.001
-    )
-    assert torch.allclose(
-        hpu_max_tensor.cpu(), cpu_max_tensor, atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(hpu_min_tensor.cpu(), cpu_min_tensor, atol=0.001, rtol=0.001)
+    assert torch.allclose(hpu_max_tensor.cpu(), cpu_max_tensor, atol=0.001, rtol=0.001)
 
 
 def test_d2d_noncontiguous_views_src():
@@ -231,9 +207,7 @@ def test_d2d_noncontiguous_views_src():
     hpu_dst_tensor.copy_(hpu_src_tensor_view)
     cpu_dst_tensor.copy_(cpu_src_tensor_view)
 
-    assert torch.allclose(
-        hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001)
 
 
 def test_d2d_noncontiguous_views_dst():
@@ -249,9 +223,7 @@ def test_d2d_noncontiguous_views_dst():
     hpu_dst_tensor_view.copy_(hpu_src_tensor)
     cpu_dst_tensor_view.copy_(cpu_src_tensor)
 
-    assert torch.allclose(
-        hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001)
 
 
 def test_d2d_noncontiguous_views_src_dst():
@@ -270,9 +242,7 @@ def test_d2d_noncontiguous_views_src_dst():
     hpu_dst_tensor_view.copy_(hpu_src_tensor_view)
     cpu_dst_tensor_view.copy_(cpu_src_tensor_view)
 
-    assert torch.allclose(
-        hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001)
 
 
 def test_d2h_noncontiguous_views():
@@ -282,9 +252,7 @@ def test_d2h_noncontiguous_views():
     cpu_src_tensor_view = cpu_src_tensor[::2]
     hpu_src_tensor_view = hpu_src_tensor[::2]
 
-    assert torch.allclose(
-        hpu_src_tensor_view.cpu(), cpu_src_tensor_view, atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(hpu_src_tensor_view.cpu(), cpu_src_tensor_view, atol=0.001, rtol=0.001)
 
 
 def test_h2d_noncontiguous_views():
@@ -292,9 +260,7 @@ def test_h2d_noncontiguous_views():
     cpu_src_tensor_view = cpu_src_tensor[::2]
     hpu_src_tensor = cpu_src_tensor_view.to("hpu")
 
-    assert torch.allclose(
-        hpu_src_tensor.cpu(), cpu_src_tensor_view, atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(hpu_src_tensor.cpu(), cpu_src_tensor_view, atol=0.001, rtol=0.001)
 
 
 def test_h2d_chlast():
@@ -318,9 +284,7 @@ def test_h2d_dst_noncontiguous_view():
 
     cpu_src_tensor[::2].copy_(cpu_src_tensor2)
 
-    assert torch.allclose(
-        hpu_src_tensor.cpu(), cpu_src_tensor, atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(hpu_src_tensor.cpu(), cpu_src_tensor, atol=0.001, rtol=0.001)
 
 
 def test_d2d_dst_view():
@@ -336,9 +300,7 @@ def test_d2d_dst_view():
 
     cpu_src_tensor_view.copy_(cpu_src_tensor2)
 
-    assert torch.allclose(
-        hpu_src_tensor.cpu(), cpu_src_tensor, atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(hpu_src_tensor.cpu(), cpu_src_tensor, atol=0.001, rtol=0.001)
 
 
 def test_topk_transpose():
@@ -393,9 +355,7 @@ def test_view_cache2():
     assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)
 
 
-@pytest.mark.xfail(
-    reason="RuntimeError: Wrong PT plugin library loaded in the system. Expected was EAGER, got LAZY"
-)
+@pytest.mark.xfail(reason="RuntimeError: Wrong PT plugin library loaded in the system. Expected was EAGER, got LAZY")
 def test_view_layout1():
     def fn(x, dev):
 
@@ -431,9 +391,7 @@ def test_d2d_src_dst_view_different_dtype():
     cpu_dst_tensor_view.copy_(cpu_src_tensor[0::2, 0::2])
     hpu_dst_tensor_view.copy_(hpu_src_tensor[0::2, 0::2])
 
-    assert torch.allclose(
-        hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(hpu_dst_tensor.cpu(), cpu_dst_tensor, atol=0.001, rtol=0.001)
 
 
 def test_copy_inplace_2d_noncontiguous_view():
@@ -649,31 +607,34 @@ def place_on_hpu(cpu_tensors):
         hpu_tensors[key] = value.to("hpu")
     return hpu_tensors
 
+
 # This test case shall start failing as soon as you fix the JIRA issue:
 # https://jira.habana-labs.com/browse/SW-152023
 @pytest.mark.xfail(reason="We are to fix SW-152023 to get pass")
 def test_view_split_op_int64_default():
     assert bc.get_pt_enable_int64_support() == False
-    t = torch.tensor([1,2,3,4,5,6], dtype=torch.int64)
-    t1 = t.to('hpu')
-    assert list(t1[1:3].to('cpu')) == list(t[1:3])
+    t = torch.tensor([1, 2, 3, 4, 5, 6], dtype=torch.int64)
+    t1 = t.to("hpu")
+    assert list(t1[1:3].to("cpu")) == list(t[1:3])
+
 
 def test_view_split_op_int64_enabled():
-    with bc.env_setting('PT_ENABLE_INT64_SUPPORT', True):
+    with bc.env_setting("PT_ENABLE_INT64_SUPPORT", True):
         assert bc.get_pt_enable_int64_support() == True
-        t = torch.tensor([1,2,3,4,5,6], dtype=torch.int64)
-        t1 = t.to('hpu')
-        assert list(t1[1:3].to('cpu')) == list(t[1:3])
+        t = torch.tensor([1, 2, 3, 4, 5, 6], dtype=torch.int64)
+        t1 = t.to("hpu")
+        assert list(t1[1:3].to("cpu")) == list(t[1:3])
+
 
 # This test case shall start failing as soon as you fix the JIRA issue:
 # https://jira.habana-labs.com/browse/SW-152023
 @pytest.mark.xfail(reason="We are to fix SW-152023 to get pass")
 def test_view_split_op_int64_disabled():
-    with bc.env_setting('PT_ENABLE_INT64_SUPPORT', False):
+    with bc.env_setting("PT_ENABLE_INT64_SUPPORT", False):
         assert bc.get_pt_enable_int64_support() == False
-        t = torch.tensor([1,2,3,4,5,6], dtype=torch.int64)
-        t1 = t.to('hpu')
-        assert list(t1[1:3].to('cpu')) == list(t[1:3])
+        t = torch.tensor([1, 2, 3, 4, 5, 6], dtype=torch.int64)
+        t1 = t.to("hpu")
+        assert list(t1[1:3].to("cpu")) == list(t[1:3])
 
 
 @pytest.mark.parametrize("inout", ["in", "out", "inplace"])
@@ -685,49 +646,33 @@ def test_view(ttl, inout):
     @dataclass
     class TestData:
         num_views: int
-        command: Callable[
-            [Dict[str, torch.Tensor], List[torch.Tensor]], torch.Tensor
-        ]
+        command: Callable[[Dict[str, torch.Tensor], List[torch.Tensor]], torch.Tensor]
 
         num_tensors: int = 1
         view_base_shape: List[int] = complex_default([3, 5])
         tensor_shape: List[int] = complex_default([3])
         normalize: bool = True
-        make_view: Callable[[torch.Tensor], torch.Tensor] = lambda t: t[
-            1, 0:5:2
-        ]
+        make_view: Callable[[torch.Tensor], torch.Tensor] = lambda t: t[1, 0:5:2]
         store_result: str = "t1"
 
     test_data = {}
 
-    test_data[("tensor", "in")] = TestData(
-        num_views=1, command=lambda ts, vs: vs[1].logit(eps=0.01)
-    )
+    test_data[("tensor", "in")] = TestData(num_views=1, command=lambda ts, vs: vs[1].logit(eps=0.01))
 
     test_data[("tensor", "out")] = TestData(
         num_views=2,
         command=lambda ts, vs: torch.logit(vs[1], eps=0.01, out=vs[2]),
     )
 
-    test_data[("tensor", "inplace")] = TestData(
-        num_views=1, command=lambda ts, vs: vs[1].logit_(eps=0.01)
-    )
+    test_data[("tensor", "inplace")] = TestData(num_views=1, command=lambda ts, vs: vs[1].logit_(eps=0.01))
 
-    test_data[("boolout", "in")] = TestData(
-        num_views=2, command=lambda ts, vs: vs[1].ge(vs[2])
-    )
+    test_data[("boolout", "in")] = TestData(num_views=2, command=lambda ts, vs: vs[1].ge(vs[2]))
 
-    test_data[("boolout", "out")] = TestData(
-        num_views=3, command=lambda ts, vs: torch.lt(vs[1], vs[2], out=vs[3])
-    )
+    test_data[("boolout", "out")] = TestData(num_views=3, command=lambda ts, vs: torch.lt(vs[1], vs[2], out=vs[3]))
 
-    test_data[("boolout", "inplace")] = TestData(
-        num_views=2, command=lambda ts, vs: vs[1].eq_(vs[2])
-    )
+    test_data[("boolout", "inplace")] = TestData(num_views=2, command=lambda ts, vs: vs[1].eq_(vs[2]))
 
-    test_data[("fill", "inplace")] = TestData(
-        num_views=1, command=lambda ts, vs: vs[1].fill_(-5)
-    )
+    test_data[("fill", "inplace")] = TestData(num_views=1, command=lambda ts, vs: vs[1].fill_(-5))
 
     test_data[("tlist", "in")] = TestData(
         num_views=2,
@@ -753,18 +698,12 @@ def test_view(ttl, inout):
     def add_cpu_tensors(first_value, num, shape, label):
         for i in range(num):
             stop_value = first_value + np.prod(shape)
-            cpu_tensors[f"{label}{i+1}"] = torch.Tensor(
-                np.arange(first_value, stop_value).reshape(shape)
-            )
+            cpu_tensors[f"{label}{i+1}"] = torch.Tensor(np.arange(first_value, stop_value).reshape(shape))
             first_value = stop_value
         return first_value
 
-    next_first_value = add_cpu_tensors(
-        1, td.num_views, td.view_base_shape, "vb"
-    )
-    next_first_value = add_cpu_tensors(
-        next_first_value, td.num_tensors, td.tensor_shape, "t"
-    )
+    next_first_value = add_cpu_tensors(1, td.num_views, td.view_base_shape, "vb")
+    next_first_value = add_cpu_tensors(next_first_value, td.num_tensors, td.tensor_shape, "t")
     if td.normalize:
         for key in cpu_tensors.keys():
             cpu_tensors[key] /= next_first_value - 1
@@ -788,12 +727,13 @@ def test_view(ttl, inout):
             print(f"{key = }")
             print(f"{result_cpu = }")
             print(f"result_hpu = {result_hpu.cpu()}")
-        assert torch.allclose(
-            result_hpu.cpu(), result_cpu, atol=0.001, rtol=0.001
-        )
+        assert torch.allclose(result_hpu.cpu(), result_cpu, atol=0.001, rtol=0.001)
 
 
-@pytest.mark.parametrize("shift_op", [torch.ops.aten.__ilshift__, torch.ops.aten.__lshift__, torch.ops.aten.__irshift__, torch.ops.aten.__rshift__])
+@pytest.mark.parametrize(
+    "shift_op",
+    [torch.ops.aten.__ilshift__, torch.ops.aten.__lshift__, torch.ops.aten.__irshift__, torch.ops.aten.__rshift__],
+)
 @pytest.mark.parametrize("transpose", [False, True])
 def test_shift(shift_op, transpose):
     a = torch.tensor([[1, 2, 4], [1, 2, 4]], dtype=torch.int64)
@@ -806,8 +746,9 @@ def test_shift(shift_op, transpose):
 
     assert torch.allclose(ha_out.cpu(), a_out)
 
+
 def test_sag_view_section_id_1():
-    #1 different tensor view inputs
+    # 1 different tensor view inputs
     a = torch.rand(5)
     b = torch.rand(5)
     ha = a.to("hpu")
@@ -817,26 +758,27 @@ def test_sag_view_section_id_1():
     hout1 = torch.mul(ha[:3], hb[:3])
     assert torch.equal(hout1.cpu(), out1)
 
-    #2 same tensor views inputs
+    # 2 same tensor views inputs
     c = torch.rand(10)
     hc = c.to("hpu")
 
-    #view1 is first 5 elements and view2 is last 5 elements of same tensor
+    # view1 is first 5 elements and view2 is last 5 elements of same tensor
     out2 = torch.mul(c[:5], c[5:])
     hout2 = torch.mul(hc[:5], hc[5:])
     assert torch.equal(hout2.cpu(), out2)
 
+
 def test_sag_view_section_id_2():
-    #1 same tensor views inputs
+    # 1 same tensor views inputs
     a = torch.rand(10, dtype=torch.bfloat16)
     ha = a.to("hpu")
 
-    #view1 is first 5 elements and view2 is last 5 elements of same tensor
+    # view1 is first 5 elements and view2 is last 5 elements of same tensor
     out1 = torch.mul(a[:5], a[5:])
     hout1 = torch.mul(ha[:5], ha[5:])
     assert torch.equal(hout1.cpu(), out1)
 
-    #2 different tensor view inputs
+    # 2 different tensor view inputs
     b = torch.rand(5, dtype=torch.bfloat16)
     c = torch.rand(5, dtype=torch.bfloat16)
     hb = b.to("hpu")
@@ -846,7 +788,10 @@ def test_sag_view_section_id_2():
     hout2 = torch.mul(hb[:3], hc[:3])
     assert torch.equal(hout2.cpu(), out2)
 
-@pytest.mark.parametrize("logical_op", [torch.ops.aten.logical_and_, torch.ops.aten.logical_or_, torch.ops.aten.logical_xor_])
+
+@pytest.mark.parametrize(
+    "logical_op", [torch.ops.aten.logical_and_, torch.ops.aten.logical_or_, torch.ops.aten.logical_xor_]
+)
 def test_inplace_slice_logical_op(logical_op):
     dtype = torch.float32
     seed = 4776
@@ -863,13 +808,14 @@ def test_inplace_slice_logical_op(logical_op):
     logical_op(cpu_input_slice, cpu_other_slice)
 
     torch.manual_seed(seed)
-    hpu_input = torch.rand(slice_shape, dtype=dtype).to('hpu')
-    hpu_other = torch.rand(slice_shape, dtype=dtype).to('hpu')
+    hpu_input = torch.rand(slice_shape, dtype=dtype).to("hpu")
+    hpu_other = torch.rand(slice_shape, dtype=dtype).to("hpu")
     hpu_input_slice = hpu_input[slice_param]
     hpu_other_slice = hpu_other[slice_param]
     logical_op(hpu_input_slice, hpu_other_slice)
 
     assert torch.equal(hpu_input_slice.cpu(), cpu_input_slice)
+
 
 def test_inplace_binary_strided_insert():
     cpu_self = torch.tensor([[1, 2], [3, 4]], dtype=torch.int8)
@@ -885,6 +831,7 @@ def test_inplace_binary_strided_insert():
 
     assert torch.equal(hpu_self.cpu(), cpu_self)
 
+
 def test_zero_size():
     cpu_tensor = torch.randn([1])
     hpu_tensor = cpu_tensor.to("hpu")
@@ -892,10 +839,11 @@ def test_zero_size():
     cpu_tensor = cpu_tensor[1::2]
     hpu_tensor = hpu_tensor[1::2]
 
-    cpu_tensor *= -1.
-    hpu_tensor *= -1.
+    cpu_tensor *= -1.0
+    hpu_tensor *= -1.0
 
     assert torch.allclose(cpu_tensor, hpu_tensor.to("cpu"), atol=0.001, rtol=0.001)
+
 
 def test_lt_out_with_view():
     torch.manual_seed(0)

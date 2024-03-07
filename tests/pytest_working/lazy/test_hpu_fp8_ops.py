@@ -47,13 +47,9 @@ pytestmark = pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 doesn't support fp8"
 @pytest.mark.parametrize("scale", [1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 @pytest.mark.parametrize("stochastic", [True, False])
-@pytest.mark.parametrize(
-    "transposed, allocate_out", [(True, True), (True, False), (False, False)]
-)
+@pytest.mark.parametrize("transposed, allocate_out", [(True, True), (True, False), (False, False)])
 @pytest.mark.parametrize("out_dtype", FP8_NAMES_LEGACY)
-def test_cast_to_fp8(
-    shape, scale, dtype, stochastic, transposed, allocate_out, out_dtype
-):
+def test_cast_to_fp8(shape, scale, dtype, stochastic, transposed, allocate_out, out_dtype):
     check_native_fp8(out_dtype)
     out_dtype = dtype_from_string(out_dtype)
     torch.manual_seed(12345)
@@ -101,9 +97,7 @@ def test_cast_to_fp8(
             )
         assert torch.equal(casted.cpu().t().to(dtype), casted_t.cpu().to(dtype))
     else:
-        casted = cast_to_fp8(
-            input.to(hpu), scale.to(hpu), amax[1][2], stochastic, out_dtype
-        )
+        casted = cast_to_fp8(input.to(hpu), scale.to(hpu), amax[1][2], stochastic, out_dtype)
     uncasted = cast_from_fp8(casted, scale_inv.to(hpu), dtype)
 
     if stochastic:
@@ -135,9 +129,7 @@ def test_cast_to_fp8_transpose_optional(shape, dtype, is_scale, is_amax):
     amax_tensor = amax[1][2] if is_amax else None
     scale_hpu = scale.to(hpu) if is_scale else None
     scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
-    casted, casted_t = fp8_cast_transpose_fused(
-        input.to(hpu), scale_hpu, amax_tensor, False
-    )
+    casted, casted_t = fp8_cast_transpose_fused(input.to(hpu), scale_hpu, amax_tensor, False)
     uncasted = cast_from_fp8(casted, scale_inv_hpu, dtype)
 
     assert torch.equal(casted.cpu().t(), casted_t.cpu())
@@ -238,9 +230,7 @@ def test_fp8_cast_transpose_bgrad_optional(shape, dtype, is_scale, is_amax):
     scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
     amax = torch.empty((2, 3), dtype=torch.float).to(hpu)
     amax_tensor = amax[1][2] if is_amax else None
-    bgrad, casted, casted_t = fp8_cast_transpose_bgrad_fused(
-        input_hpu, scale_hpu, amax_tensor, False
-    )
+    bgrad, casted, casted_t = fp8_cast_transpose_bgrad_fused(input_hpu, scale_hpu, amax_tensor, False)
 
     reduced = torch.sum(input_hpu, 0)
     uncasted = cast_from_fp8(casted, scale_inv_hpu, dtype)
@@ -260,9 +250,7 @@ def test_fp8_cast_transpose_bgrad_optional(shape, dtype, is_scale, is_amax):
 @pytest.mark.parametrize("stochastic", [True, False])
 @pytest.mark.parametrize("retain", [True, False])
 @pytest.mark.parametrize("out_dtype", FP8_NAMES_LEGACY)
-def test_fp8_cast_transpose_bgrad_dgelu(
-    shape, scale, dtype, stochastic, retain, out_dtype
-):
+def test_fp8_cast_transpose_bgrad_dgelu(shape, scale, dtype, stochastic, retain, out_dtype):
     check_native_fp8(out_dtype)
     out_dtype = dtype_from_string(out_dtype)
     torch.manual_seed(12345)
@@ -282,10 +270,7 @@ def test_fp8_cast_transpose_bgrad_dgelu(
     retain_tensor = None
     if retain:
         retain_tensor = (
-            torch.tanh(
-                torch.sqrt(torch.tensor(2 / np.pi, dtype=dtype))
-                * (input + 0.044715 * torch.pow(input, 3))
-            )
+            torch.tanh(torch.sqrt(torch.tensor(2 / np.pi, dtype=dtype)) * (input + 0.044715 * torch.pow(input, 3)))
             .to(dtype)
             .to(hpu)
         )
@@ -325,9 +310,7 @@ def test_fp8_cast_transpose_bgrad_dgelu(
 @pytest.mark.parametrize("retain", [True, False])
 @pytest.mark.parametrize("is_scale", [True, False])
 @pytest.mark.parametrize("is_amax", [True, False])
-def test_fp8_cast_transpose_bgrad_dgelu_optional(
-    shape, dtype, retain, is_scale, is_amax
-):
+def test_fp8_cast_transpose_bgrad_dgelu_optional(shape, dtype, retain, is_scale, is_amax):
     torch.manual_seed(12345)
     hpu = torch.device("hpu")
     full_shape = (shape[0] * 2, shape[1])
@@ -346,10 +329,7 @@ def test_fp8_cast_transpose_bgrad_dgelu_optional(
     retain_tensor = None
     if retain:
         retain_tensor = (
-            torch.tanh(
-                torch.sqrt(torch.tensor(2 / np.pi, dtype=dtype))
-                * (input + 0.044715 * torch.pow(input, 3))
-            )
+            torch.tanh(torch.sqrt(torch.tensor(2 / np.pi, dtype=dtype)) * (input + 0.044715 * torch.pow(input, 3)))
             .to(dtype)
             .to(hpu)
         )
@@ -402,8 +382,7 @@ def test_fp8_gelu(shape, scale, dtype, stochastic, is_scale, is_amax, out_dtype)
     scaled_gelu_low_precision = simulateFp8Precision(gelu_res * scale, out_dtype)
     result_cpu = scaled_gelu_low_precision * scale_inv
     retain_cpu = torch.tanh(
-        torch.sqrt(torch.tensor(2 / np.pi, dtype=dtype))
-        * (input + 0.044715 * torch.pow(input, 3))
+        torch.sqrt(torch.tensor(2 / np.pi, dtype=dtype)) * (input + 0.044715 * torch.pow(input, 3))
     ).to(dtype)
 
     scale_hpu = scale.to(hpu) if is_scale else None
@@ -411,9 +390,7 @@ def test_fp8_gelu(shape, scale, dtype, stochastic, is_scale, is_amax, out_dtype)
     amax = torch.empty((2, 3), dtype=torch.float).to(hpu)
     amax_tensor = amax[1][2] if is_amax else None
     retain = torch.empty((shape[0] * 2, shape[1]), dtype=dtype).to(hpu)
-    gelu_scaled = fp8_gelu(
-        input.to(hpu), scale_hpu, amax_tensor, stochastic, retain, out_dtype
-    )
+    gelu_scaled = fp8_gelu(input.to(hpu), scale_hpu, amax_tensor, stochastic, retain, out_dtype)
     gelu_unscaled = cast_from_fp8(gelu_scaled, scale_inv_hpu, dtype).cpu()
 
     if stochastic:
@@ -450,15 +427,12 @@ def test_fp8_gelu_v2(shape, scale, dtype, stochastic, is_scale, is_amax, out_dty
     scaled_gelu_low_precision = simulateFp8Precision(gelu_res * scale, out_dtype)
     result_cpu = scaled_gelu_low_precision * scale_inv
     retain_cpu = torch.tanh(
-        torch.sqrt(torch.tensor(2 / np.pi, dtype=dtype))
-        * (input + 0.044715 * torch.pow(input, 3))
+        torch.sqrt(torch.tensor(2 / np.pi, dtype=dtype)) * (input + 0.044715 * torch.pow(input, 3))
     ).to(dtype)
 
     scale_hpu = scale.to(hpu) if is_scale else None
     scale_inv_hpu = scale_inv.to(hpu) if is_scale else None
-    gelu_scaled, retain, amax = torch.ops.hpu.fp8_gelu_v2(
-        input.to(hpu), scale_hpu, stochastic, is_amax, out_dtype
-    )
+    gelu_scaled, retain, amax = torch.ops.hpu.fp8_gelu_v2(input.to(hpu), scale_hpu, stochastic, is_amax, out_dtype)
     gelu_unscaled = cast_from_fp8(gelu_scaled, scale_inv_hpu, dtype).cpu()
 
     if stochastic:
@@ -478,9 +452,7 @@ def test_fp8_gelu_v2(shape, scale, dtype, stochastic, is_scale, is_amax, out_dty
 @pytest.mark.parametrize("is_scale", [True, False])
 @pytest.mark.parametrize("is_amax", [True, False])
 @pytest.mark.parametrize("out_dtype", FP8_NAMES_LEGACY)
-def test_fp8_fast_softmax(
-    shape, scale, dtype, stochastic, is_scale, is_amax, out_dtype
-):
+def test_fp8_fast_softmax(shape, scale, dtype, stochastic, is_scale, is_amax, out_dtype):
     check_native_fp8(out_dtype)
     out_dtype = dtype_from_string(out_dtype)
     torch.manual_seed(12345)
@@ -540,10 +512,7 @@ def test_fp8_bgrad_dgelu_optional(shape, dtype, retain, is_scale, is_amax, out_d
     retain_tensor = None
     if retain:
         retain_tensor = (
-            torch.tanh(
-                torch.sqrt(torch.tensor(2 / np.pi, dtype=dtype))
-                * (input + 0.044715 * torch.pow(input, 3))
-            )
+            torch.tanh(torch.sqrt(torch.tensor(2 / np.pi, dtype=dtype)) * (input + 0.044715 * torch.pow(input, 3)))
             .to(dtype)
             .to(hpu)
         )
@@ -592,9 +561,7 @@ def test_fp8_dropout(shape, scale, dtype, is_scale, is_amax, out_dtype):
     scale_hpu = scale.to(hpu) if is_scale else None
     scale_inv = scale.reciprocal()
 
-    dropout_scaled, mask, amax = torch.ops.hpu.fp8_dropout(
-        input.to(hpu), ratio, scale_hpu, False, is_amax, out_dtype
-    )
+    dropout_scaled, mask, amax = torch.ops.hpu.fp8_dropout(input.to(hpu), ratio, scale_hpu, False, is_amax, out_dtype)
     dropout_unscaled = cast_from_fp8(dropout_scaled, scale_inv.to(hpu), dtype).cpu()
 
     scaled_input_low_precision = simulateFp8Precision(
@@ -603,9 +570,7 @@ def test_fp8_dropout(shape, scale, dtype, is_scale, is_amax, out_dtype):
     result_ref = torch.where(mask.cpu().to(torch.bool), scaled_input_low_precision, 0.0)
 
     scaled_input_high_prec = input * dropout_scale
-    dropout_high_prec = torch.where(
-        mask.cpu().to(torch.bool), scaled_input_high_prec, 0.0
-    )
+    dropout_high_prec = torch.where(mask.cpu().to(torch.bool), scaled_input_high_prec, 0.0)
 
     ones = torch.count_nonzero(mask.cpu())
     ratio_res = 1.0 - ones / mask.numel()
@@ -623,9 +588,7 @@ def test_fp8_dropout(shape, scale, dtype, is_scale, is_amax, out_dtype):
 @pytest.mark.parametrize("is_scale", [True, False])
 @pytest.mark.parametrize("is_amax", [True, False])
 @pytest.mark.parametrize("out_dtype", FP8_NAMES_LEGACY)
-def test_layernorm_fp8_fwd(
-    shape, scale, dtype, stochastic, is_scale, is_amax, out_dtype
-):
+def test_layernorm_fp8_fwd(shape, scale, dtype, stochastic, is_scale, is_amax, out_dtype):
     check_native_fp8(out_dtype)
     out_dtype = dtype_from_string(out_dtype)
     torch.manual_seed(12345)
@@ -644,9 +607,7 @@ def test_layernorm_fp8_fwd(
     scale_inv = scale.reciprocal()
     scale_inv = scale.reciprocal()
 
-    norm_cpu, mean_cpu, rstd_cpu = torch.native_layer_norm(
-        input, (full_shape[1],), weight, bias, eps
-    )
+    norm_cpu, mean_cpu, rstd_cpu = torch.native_layer_norm(input, (full_shape[1],), weight, bias, eps)
     mean_cpu = mean_cpu.reshape((full_shape[0],))
     rstd_cpu = rstd_cpu.reshape((full_shape[0],))
 
@@ -684,14 +645,10 @@ def test_layernorm_fp8_fwd(
 
     result_atol = 0.01 if dtype == torch.float else 0.65
     if stochastic:
-        assert torch.allclose(
-            norm_hpu_unscaled, result_norm_cpu, rtol=0.26, atol=result_atol
-        )
+        assert torch.allclose(norm_hpu_unscaled, result_norm_cpu, rtol=0.26, atol=result_atol)
     else:
         rtol = 0.01 if dtype == torch.bfloat16 else 0.0
-        assert torch.allclose(
-            norm_hpu_unscaled, result_norm_cpu, rtol=rtol, atol=result_atol
-        )
+        assert torch.allclose(norm_hpu_unscaled, result_norm_cpu, rtol=rtol, atol=result_atol)
 
 
 @pytest.mark.parametrize(
@@ -705,9 +662,7 @@ def test_layernorm_fp8_fwd(
 @pytest.mark.parametrize("scaleB", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 @pytest.mark.parametrize("fp8_dtype", FP8_NAMES_LEGACY)
-def test_fp8_gemm(
-    shapeA, shapeB, bias, out_tensor, accumulate, scaleA, scaleB, dtype, fp8_dtype
-):
+def test_fp8_gemm(shapeA, shapeB, bias, out_tensor, accumulate, scaleA, scaleB, dtype, fp8_dtype):
     check_native_fp8(fp8_dtype)
     fp8_dtype = dtype_from_string(fp8_dtype)
     torch.manual_seed(12345)
@@ -770,9 +725,7 @@ def test_fp8_gemm(
     else:
         result = maybe_result.cpu()
 
-    percentage_diff = torch.abs(
-        (((result - result_ref) / result_ref) * 100).to(torch.int)
-    )
+    percentage_diff = torch.abs((((result - result_ref) / result_ref) * 100).to(torch.int))
     assert np.amax(percentage_diff.numpy()) <= 15
 
 
@@ -817,9 +770,7 @@ def test_fp8_kv_reorder(shape):
     input_hpu = cast_to_fp8(input_cpu.to(hpu))
     start_hpu = start_cpu.to(hpu)
     end_hpu = (start_cpu + end_cpu).to(hpu)
-    beam_idx_hpu = torch.sum(
-        beam_idx_cpu.to(hpu) * torch.tensor([[64, 16, 4, 1]]).to(hpu), axis=-1
-    ).to(torch.uint8)
+    beam_idx_hpu = torch.sum(beam_idx_cpu.to(hpu) * torch.tensor([[64, 16, 4, 1]]).to(hpu), axis=-1).to(torch.uint8)
 
     torch.ops.hpu.fp8_kv_reorder_(input_hpu, start_hpu, end_hpu, beam_idx_hpu)
 
@@ -865,9 +816,7 @@ def test_hpu_index_copy(shape, dim, is_full_shape, dtype):
     htcore.mark_step()
     self_tensor_h = cast_from_fp8(self_tensor_h, out_dtype=torch.float, scale=None)
 
-    self_tensor = cast_from_fp8(
-        cast_to_fp8(self_tensor.to("hpu")), out_dtype=torch.float, scale=None
-    ).to("cpu")
+    self_tensor = cast_from_fp8(cast_to_fp8(self_tensor.to("hpu")), out_dtype=torch.float, scale=None).to("cpu")
     compare_tensors(self_tensor_h, self_tensor, atol=0.0, rtol=0.0)
 
 
@@ -893,9 +842,7 @@ def test_hpu_repeat(shape, repeats):
     out_h = torch.ops.hpu.fp8_repeat_v2(self_h, repeats)
 
     out_h = cast_from_fp8(out_h, out_dtype=torch.float, scale=None)
-    out = cast_from_fp8(
-        cast_to_fp8(out.to("hpu")), out_dtype=torch.float, scale=None
-    ).to("cpu")
+    out = cast_from_fp8(cast_to_fp8(out.to("hpu")), out_dtype=torch.float, scale=None).to("cpu")
     compare_tensors(out_h, out, atol=0.0, rtol=0.0)
 
 
@@ -919,7 +866,5 @@ def test_hpu_index_select(shape, dim, index):
     out_h = torch.ops.hpu.fp8_index_select_v2(self_h, dim, index_h)
 
     out_h = cast_from_fp8(out_h, out_dtype=torch.float, scale=None)
-    out = cast_from_fp8(
-        cast_to_fp8(out.to("hpu")), out_dtype=torch.float, scale=None
-    ).to("cpu")
+    out = cast_from_fp8(cast_to_fp8(out.to("hpu")), out_dtype=torch.float, scale=None).to("cpu")
     compare_tensors(out_h, out, atol=0.0, rtol=0.0)

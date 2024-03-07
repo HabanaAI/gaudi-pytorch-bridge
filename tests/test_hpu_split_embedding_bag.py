@@ -136,21 +136,16 @@ def test_split_embedding_bag(
 ):
 
     common_args_dict["host_weights"] = torch.rand(host_weights_numel)
-    common_args_dict["weights_offsets"] = torch.tensor(
-        weights_offsets, dtype=torch.int64
-    )
+    common_args_dict["weights_offsets"] = torch.tensor(weights_offsets, dtype=torch.int64)
     common_args_dict["D_offsets"] = torch.tensor(D_offsets, dtype=torch.int32)
     T = common_args_dict["D_offsets"].size(dim=0) - 1
-    common_args_dict["offsets"] = torch.linspace(
-        0, indices_numel, T * out_rows + 1, dtype=torch.int32
-    )
+    common_args_dict["offsets"] = torch.linspace(0, indices_numel, T * out_rows + 1, dtype=torch.int32)
 
     common_args_dict["indices"] = torch.randint(
         low=0,
         high=min(
             [
-                common_args_dict["weights_offsets"][idx]
-                // common_args_dict["D_offsets"][idx + 1]
+                common_args_dict["weights_offsets"][idx] // common_args_dict["D_offsets"][idx + 1]
                 for idx in range(1, len(weights_offsets))
             ]
         ),

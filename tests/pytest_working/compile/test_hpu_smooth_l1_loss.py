@@ -13,6 +13,7 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 
+
 @pytest.mark.parametrize("shape", [(3, 4, 5)])
 @pytest.mark.parametrize("beta", [0.5, 1, 2])
 @pytest.mark.parametrize("reduction", ["mean", "sum", "none"])
@@ -31,6 +32,7 @@ def test_hpu_smooth_l1_loss(shape, beta, reduction, dtype):
     cpu_output = cpu_compiled_fn(cpu_input, cpu_target)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+
 
 @pytest.mark.parametrize("shape", [(3, 4, 5)])
 @pytest.mark.parametrize("beta", [0.5, 1, 2])

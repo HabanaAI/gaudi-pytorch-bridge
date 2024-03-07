@@ -93,6 +93,7 @@ from collections import deque
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
+
 class Partition:
     def __init__(self, id: Optional[int] = None, nodes: Optional[Iterable[Node]] = None):
         self.id = id
@@ -111,33 +112,30 @@ class Partition:
     def size(self):
         return len(self.nodes)
 
-class CapabilityBasedPartitioner:
 
-    def __init__(self,
-                 graph_module: GraphModule,
-                 operator_support: OperatorSupportBase,
-                 allows_single_node_partition: bool = False,
-                 non_compute_ops: Optional[Sequence[str]] = None,
-                 allowed_single_node_partition_ops: Optional[Sequence[str]] = None,
-                 ) -> None:
+class CapabilityBasedPartitioner:
+    def __init__(
+        self,
+        graph_module: GraphModule,
+        operator_support: OperatorSupportBase,
+        allows_single_node_partition: bool = False,
+        non_compute_ops: Optional[Sequence[str]] = None,
+        allowed_single_node_partition_ops: Optional[Sequence[str]] = None,
+    ) -> None:
         self.graph_module = graph_module
         self.operator_support = operator_support
         self.allows_single_node_partition = allows_single_node_partition
         self.non_compute_ops = non_compute_ops if non_compute_ops is not None else []
         self.allowed_single_node_partition_ops = (
-            allowed_single_node_partition_ops
-            if allowed_single_node_partition_ops is not None
-            else []
+            allowed_single_node_partition_ops if allowed_single_node_partition_ops is not None else []
         )
 
     def __is_node_supported(self, node: Node) -> bool:
-        return (
-            self.operator_support.is_node_supported(dict(self.graph_module.named_modules()), node)
-        )
+        return self.operator_support.is_node_supported(dict(self.graph_module.named_modules()), node)
 
     def propose_partitions(self) -> List[Partition]:
         # assumptions: nodes in candidate list is sorted in topological order
-        assignment: Dict[Node, int] = {}   # mapping from node to partition_id
+        assignment: Dict[Node, int] = {}  # mapping from node to partition_id
         partitions_by_id: Dict[int, Partition] = {}  # mapping from partition_id to partition
         new_partition_id = itertools.count()
 
@@ -155,7 +153,7 @@ class CapabilityBasedPartitioner:
             visited: Set[Node] = set()
 
             def dfs_iter_find_cycle(root_node):
-                stack : Deque[Node] = deque()
+                stack: Deque[Node] = deque()
                 stack.append(root_node)
 
                 while stack:
@@ -251,16 +249,17 @@ class CapabilityBasedPartitioner:
         for node in self.graph_module.graph.nodes:
             is_tuple_output = True
             for user in node.users:
-                if user.op != "call_function" or \
-                   _get_qualified_name(user.target) != "_operator.getitem":     # type: ignore[arg-type]
+                if (
+                    user.op != "call_function" or _get_qualified_name(user.target) != "_operator.getitem"
+                ):  # type: ignore[arg-type]
                     is_tuple_output = False
                     break
 
             # node has tuple outputs, re-assign all following getitem node into node's partition
             if is_tuple_output:
-                id = assignment.get(node, None)     # type: ignore[arg-type]
+                id = assignment.get(node, None)  # type: ignore[arg-type]
                 for user in node.users:
-                    if assignment.get(user, None) != id:    # type: ignore[arg-type]
+                    if assignment.get(user, None) != id:  # type: ignore[arg-type]
                         nodes_reassignment[user] = id  # type: ignore[assignment]
         for node, id in nodes_reassignment.items():
             merge_single_node(node, id)
@@ -301,8 +300,9 @@ class CapabilityBasedPartitioner:
         non_compute_ops = set(self.non_compute_ops)
 
         def is_non_compute_node(node: Node):
-            return node.op == "call_function" and \
-                _get_qualified_name(node.target) in non_compute_ops  # type: ignore[arg-type]
+            return (
+                node.op == "call_function" and _get_qualified_name(node.target) in non_compute_ops
+            )  # type: ignore[arg-type]
 
         # cache transparent nodes
         transparent_input_nodes: Dict[Node, bool] = {}
@@ -344,9 +344,10 @@ class CapabilityBasedPartitioner:
             # the set.
             remove_node: Set[Node] = set()
             for node in partition.nodes:
-                if is_non_compute_node(node) and \
-                    (is_transparent_input_node(node, partition.nodes, remove_node) or
-                     is_transparent_output_node(node, partition.nodes, remove_node)):
+                if is_non_compute_node(node) and (
+                    is_transparent_input_node(node, partition.nodes, remove_node)
+                    or is_transparent_output_node(node, partition.nodes, remove_node)
+                ):
                     remove_node.add(node)
 
             if len(remove_node) != 0:

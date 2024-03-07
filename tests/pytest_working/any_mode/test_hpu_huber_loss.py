@@ -14,8 +14,9 @@ import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 from test_utils import format_tc
 
+
 @pytest.mark.parametrize("shape", [(2, 3), (1, 2, 3, 4)], ids=format_tc)
-@pytest.mark.parametrize("reduction", ['none', 'mean', 'sum'], ids=format_tc)
+@pytest.mark.parametrize("reduction", ["none", "mean", "sum"], ids=format_tc)
 @pytest.mark.parametrize("delta", [1.0, 0.5])
 @pytest.mark.parametrize("backward", [False, True])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)

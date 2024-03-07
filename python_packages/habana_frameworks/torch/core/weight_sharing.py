@@ -18,7 +18,7 @@ class HabanaParameterWrapper(torch.nn.Parameter):
         except KeyError:
             HabanaParameterWrapper.db[id(self)] = self
             self_ = self
-        if name == '__torch_function__':
+        if name == "__torch_function__":
             return HabanaParameterWrapper.__torch_function__
         return object.__getattribute__(self_, name)
 
@@ -38,11 +38,14 @@ class HabanaParameterWrapper(torch.nn.Parameter):
             for k, v in kwargs.items():
                 if type(v) == HabanaParameterWrapper:
                     kwargs[k] = HabanaParameterWrapper.db[id(v)]
-        new_args = [None]* len(args)
+        new_args = [None] * len(args)
         for i in range(len(args)):
             arg = args[i]
             if type(arg) is list:
-                new_args[i] = [HabanaParameterWrapper.db[id(inner_arg)] if type(inner_arg) == HabanaParameterWrapper else inner_arg for inner_arg in arg]
+                new_args[i] = [
+                    HabanaParameterWrapper.db[id(inner_arg)] if type(inner_arg) == HabanaParameterWrapper else inner_arg
+                    for inner_arg in arg
+                ]
             else:
                 new_args[i] = HabanaParameterWrapper.db[id(arg)] if type(arg) == HabanaParameterWrapper else arg
         if func.__name__ == "__set__":
@@ -72,7 +75,7 @@ def wrapped__getattr__(self, name: str) -> Union[torch.Tensor, torch.nn.Module]:
             update_habana_parameter(result)
             self.checked_parameters.add(name)
     except:
-        self.checked_parameters = set(['name'])
+        self.checked_parameters = set(["name"])
         update_habana_parameter(result)
     return result
 
@@ -109,6 +112,7 @@ def wrapped_to(self, *args, **kwargs):
             for name, param in module._parameters.items():
                 fn(module, name, param, cnt)
                 cnt += 1
+
         walk(self, fn)
 
     def collect_shared_parameters(module, name, param, cnt):
@@ -154,8 +158,9 @@ def wrapped_to(self, *args, **kwargs):
 
     shared_parameters = {}
     collected_parameters = []
-    weight_sharing_exception = Exception("Weight sharing unsuccessful. "
-                                         "You can disable weight sharing by setting: EXPERIMENTAL_WEIGHT_SHARING=0")
+    weight_sharing_exception = Exception(
+        "Weight sharing unsuccessful. " "You can disable weight sharing by setting: EXPERIMENTAL_WEIGHT_SHARING=0"
+    )
 
     # Convert all parameters to habana parameters
     for_all_parameters_in_submodules(convert_to_habana_parameters)
@@ -196,15 +201,19 @@ def wrapped_to(self, *args, **kwargs):
     if len(collected_parameters_before) != len(collected_parameters_after):
         raise weight_sharing_exception
     for i in range(len(collected_parameters_before)):
-        if id(collected_parameters_before[i]) in HabanaParameterWrapper.db and id(collected_parameters_before[i]) != id(collected_parameters_after[i]):
+        if id(collected_parameters_before[i]) in HabanaParameterWrapper.db and id(collected_parameters_before[i]) != id(
+            collected_parameters_after[i]
+        ):
             HabanaParameterWrapper.db[id(collected_parameters_before[i])] = collected_parameters_after[i]
 
     for key, value in HabanaParameterWrapper.db.items():
+
         def get_value(value):
             if id(value) in HabanaParameterWrapper.db and id(HabanaParameterWrapper.db[id(value)]) != id(value):
                 return get_value(HabanaParameterWrapper.db[id(value)])
             else:
                 return value
+
         HabanaParameterWrapper.db[key] = get_value(value)
 
     # Recreate shared parameters

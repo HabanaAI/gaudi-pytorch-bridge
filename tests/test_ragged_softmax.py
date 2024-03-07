@@ -18,18 +18,12 @@ from habana_frameworks.torch.hpex.kernels.Softmax import triu_masked_softmax
 device = torch.device("hpu")
 
 
-@pytest.mark.xfail(
-    reason="synNodeCreateWithId failed for node: ragged_softmax_fwd__f32"
-)
+@pytest.mark.xfail(reason="synNodeCreateWithId failed for node: ragged_softmax_fwd__f32")
 def test_ragged_softmax():
     # Reference calculations
     a = torch.randn((4, 4), requires_grad=True)
-    b = torch.tensor(
-        [[1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 0], [1, 1, 1, 1]], dtype=torch.int32
-    )
-    ref = torch.softmax(
-        a.masked_fill(torch.logical_not(b.to(torch.bool)), -10000), dim=-1
-    )
+    b = torch.tensor([[1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 0], [1, 1, 1, 1]], dtype=torch.int32)
+    ref = torch.softmax(a.masked_fill(torch.logical_not(b.to(torch.bool)), -10000), dim=-1)
     ref.backward(torch.eye(4))
 
     # Masking + Softmax using ragged softmax

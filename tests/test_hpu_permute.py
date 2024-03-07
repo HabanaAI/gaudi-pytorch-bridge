@@ -16,14 +16,9 @@ test_case_list = [
     [(132, 176, 136), (146, 175, 146)]
 ]
 
-<<<<<<< HEAD:tests/test_hpu_permute.py
+
 @pytest.mark.xfail
 @pytest.mark.skipif(not is_lazy(), reason="Lazy only test")
-@pytest.mark.skip(reason="Tests is chaning env variables")
-=======
-
-@pytest.mark.skipif(not is_lazy())
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_permute.py
 @pytest.mark.parametrize("dyn_shape", test_case_list)
 def test_hpu_permute(dyn_shape):
     def fun(img, lbl, dev):

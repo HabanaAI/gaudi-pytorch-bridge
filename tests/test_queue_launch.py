@@ -60,9 +60,7 @@ def test_graph_training1():
     # print_grads(module1)
     iterations = 150
     real_inputs = [torch.full_like(x, 0.45) for _ in range(iterations)]
-    real_targets = [
-        torch.full((N, D_out), 0.36, device="hpu") for _ in range(iterations)
-    ]
+    real_targets = [torch.full((N, D_out), 0.36, device="hpu") for _ in range(iterations)]
     ht.core.mark_step()
     loss = 0
     start = time.time()

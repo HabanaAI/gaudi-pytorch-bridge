@@ -45,13 +45,11 @@ repos:
       # - id: git-check  # hopefully to be added once we fix whitespace issues
       - id: script-must-have-extension
         exclude: ^topologies/
-  # TODO: fix issues and enable when time allows: https://jira.habana-labs.com/browse/SW-121814
-  # - repo: https://github.com/psf/black
-  #   rev: 22.12.0
-  #   hooks:
-  #       - id: black
-  #         args: ["--line-length=120"]
-  #         exclude: ^topologies/
+  - repo: https://github.com/psf/black
+    rev: 24.2.0
+    hooks:
+        - id: black
+          exclude: ^topologies/
   # TODO: fix issues and enable when time allows: https://jira.habana-labs.com/browse/SW-121808
   # - repo: https://github.com/PyCQA/flake8
   #   rev: 6.0.0
@@ -108,12 +106,6 @@ repos:
         files: \.ya?ml$
         # TODO: fix issues and stop excluding .ci when time allows: https://jira.habana-labs.com/browse/SW-121821
         exclude: ^(.ci|topologies)/
-  - repo: https://github.com/psf/black
-    rev: 22.3.0
-    hooks:
-      - id: black
-        language_version: python3
-        exclude: ^(pytorch_helpers|topologies|pytorch_helpers)/.*
   - repo: https://github.com/pycqa/flake8
     rev: 3.9.2
     hooks:

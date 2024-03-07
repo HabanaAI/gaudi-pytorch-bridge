@@ -13,6 +13,7 @@
 import torch
 from typing import List
 
+
 @torch.compile(dynamic=False, backend="hpu_inference_backend")
 def consolidated_inplace_copies(dsts: List[torch.Tensor], srcs: List[torch.Tensor], len: int):
     """

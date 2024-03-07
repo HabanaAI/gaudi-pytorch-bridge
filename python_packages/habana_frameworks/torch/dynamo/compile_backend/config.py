@@ -16,4 +16,5 @@ configuration_flags = {
     "use_decompositions": True,
     "verbose": False,
     "keep_input_mutations": False,
-    "use_eager_fallback": True}
+    "use_eager_fallback": True,
+}

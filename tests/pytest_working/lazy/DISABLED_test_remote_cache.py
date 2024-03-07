@@ -95,6 +95,7 @@ def optimizer(network):
     opt = torch.optim.SGD(network.parameters(), lr=0.001)
     return opt
 
+
 # terminate called after throwing an instance of 'c10::Error'
 #   what():  Host barrier Key error
 # Exception raised from hostBarrier at ../../../../../../repos/pytorch-integration/python_packages/habana_frameworks/torch/distributed/hccl/process_group_hccl_base.cpp:1033 (most recent call first):
@@ -106,7 +107,7 @@ def optimizer(network):
 # frame #5: c10d::ProcessGroupHCCL::~ProcessGroupHCCL() + 0xd (0x7f80afb17e9d in /home/jenkins/6bfb6a4b/workspace/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/.venv/lib/python3.8/site-packages/habana_frameworks/torch/distributed/_hccl_C.so)
 # frame #6: c10d::Reducer::~Reducer() + 0x448 (0x7f80cfe8f0e8 in /home/jenkins/6bfb6a4b/workspace/pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite_master_next/.venv/lib/python3.8/site-packages/torch/lib/libtorch_cpu.so)
 @pytest.mark.skip(reason="may crash device during teardown")
-class TestRemoteCache():
+class TestRemoteCache:
     # Rank 0 compiles and others reuse
     def test_zero_to_all(rank, world_size, network, optimizer):
 

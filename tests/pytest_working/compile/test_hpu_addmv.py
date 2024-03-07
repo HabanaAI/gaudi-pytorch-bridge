@@ -13,6 +13,7 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 
+
 @pytest.mark.parametrize("shapes", [([2], [2, 3], [3]), ([4], [4, 9], [9])])
 @pytest.mark.parametrize("alpha", [0.5, 1, 2])
 @pytest.mark.parametrize("beta", [0.5, 1, 2])

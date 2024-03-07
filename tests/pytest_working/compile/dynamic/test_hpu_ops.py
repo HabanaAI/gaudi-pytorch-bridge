@@ -19,7 +19,7 @@ from test_utils import is_gaudi1
 import os
 
 
-def test_slice_op() :
+def test_slice_op():
     input_shapes = [[8, 31, 26], [8, 33, 22], [8, 36, 24]]
 
     is_eager_fallback = configuration_flags["use_eager_fallback"]
@@ -31,19 +31,19 @@ def test_slice_op() :
         t2 = torch.mul(slice1, slice2)
         return t2
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True)
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in input_shapes:
-        #CPU
+        # CPU
         t1 = torch.randn(s)
         result = raw_function(t1)
-        #HPU
+        # HPU
         t1_h = t1.to("hpu")
         result_h = compiled_fn(t1_h)
 
         assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
     configuration_flags["use_eager_fallback"] = is_eager_fallback
+
 
 def test_static_fallback():
     """
@@ -51,54 +51,52 @@ def test_static_fallback():
     As tensors with more than 5 dimensions
     are not supported
     """
-    inputs = [((16,9,32,16,16), [4,4,3,3,2,16,16,16]),
-              ((16,27,36,25,16), [4,4,3,9,2,18,25,16])]
+    inputs = [((16, 9, 32, 16, 16), [4, 4, 3, 3, 2, 16, 16, 16]), ((16, 27, 36, 25, 16), [4, 4, 3, 9, 2, 18, 25, 16])]
 
     def raw_function(tensor1, list1):
         view1 = tensor1.view(torch.Size(list1))
         result = torch.sum(view1, (0, 2, 4), False)
         return result
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for inp in inputs:
         # CPU
         tensor1 = torch.randn(inp[0])
         result = raw_function(tensor1, inp[1])
 
-        #HPU
+        # HPU
         tensor1_h = tensor1.to("hpu")
         result_h = compiled_fn(tensor1_h, inp[1])
 
         assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
+
 
 def test_op_ones_like():
     """
     Checks that cached shape of an input zero-dim tensor during the graph compilation in the
     dynamic flow does not change to one-dim for ones_like op
     """
+
     def raw_function(t1):
         t2 = torch.ones_like(t1)
         t1 = torch.detach(t1)
         return t1, t2
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for _ in range(2):
-        #CPU
+        # CPU
         t1 = torch.empty(size=[]).uniform_(-1, 1)
         result1, result2 = raw_function(t1)
 
-        #HPU
+        # HPU
         t1_h = t1.to("hpu")
         result1_h, result2_h = compiled_fn(t1_h)
 
         assert torch.allclose(result1_h.to("cpu"), result1, atol=0.001, rtol=0.001)
         assert torch.allclose(result2_h.to("cpu"), result2, atol=0.001, rtol=0.001)
+
 
 def test_op_addr():
     input_shapes = [(6, 6), (8, 8), (10, 10)]
@@ -107,9 +105,7 @@ def test_op_addr():
         out = torch.addr(t1, t2, t3)
         return out
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in input_shapes:
         # CPU
@@ -133,9 +129,7 @@ def test_op_reshape_symlnt():
         t3 = torch.add(t2, x2)
         return t3
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
     t1 = torch.randn((3, 6, 4), requires_grad=False)
     t2 = torch.randn((3, 24), requires_grad=False)
     result = raw_function(t1, t2)
@@ -156,9 +150,7 @@ def test_op_view():
         t3 = torch.add(t2, x2)
         return t3
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in input_shapes:
         t1 = torch.randn(s[0], requires_grad=False)
@@ -184,20 +176,17 @@ def test_op_cat():
     compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in input_shapes:
-        t1 = torch.randn(s, requires_grad = False)
-        t2 = torch.randn(s, requires_grad = False)
+        t1 = torch.randn(s, requires_grad=False)
+        t2 = torch.randn(s, requires_grad=False)
         result = raw_function(t1, t2)
         t1_h = t1.to("hpu")
         t2_h = t2.to("hpu")
         h_result = compiled_fn(t1_h, t2_h)
-        assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
 
 def test_op_view_static():
-    input_shapes = [
-        [(3, 6, 4), (3, 24)],
-        [(3, 8, 4), (3, 32)],
-        [(3, 10, 4), (3, 40)]
-    ]
+    input_shapes = [[(3, 6, 4), (3, 24)], [(3, 8, 4), (3, 32)], [(3, 10, 4), (3, 40)]]
 
     def raw_function(t1, x2):
         t = t1.shape
@@ -210,13 +199,13 @@ def test_op_view_static():
     compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=False)
 
     for s in input_shapes:
-        t1 = torch.randn(s[0], requires_grad = False)
-        t2 = torch.randn(s[1], requires_grad = False)
+        t1 = torch.randn(s[0], requires_grad=False)
+        t2 = torch.randn(s[1], requires_grad=False)
         result = raw_function(t1, t2)
         t1_h = t1.to("hpu")
         t2_h = t2.to("hpu")
         h_result = compiled_fn(t1_h, t2_h)
-        assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
 @pytest.mark.skip(reason="https://github.com/pytorch/pytorch/issues/104025")
@@ -229,9 +218,7 @@ def test_op_topk():
         hpu_value0 = out_hpu[0]
         return hpu_value0
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in sizes:
         t = torch.randn(s)
@@ -251,9 +238,7 @@ def test_op_topk_static_k():
         hpu_value1 = out_hpu[1]
         return hpu_value0, hpu_value1
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
     i = 0
     for s in sizes:
         t = torch.randn(s)
@@ -274,9 +259,7 @@ def test_dynamic_shape_topk_static_same_k():
         hpu_value0 = out_hpu[0]
         return hpu_value0
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
     i = 0
     for s in sizes:
         t = torch.randn(s, requires_grad=False)
@@ -295,9 +278,7 @@ def test_repeat_static():
         out = input_tensor.repeat(sizes)
         return out
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in input:
         t = torch.randn(s, requires_grad=False)
@@ -316,9 +297,7 @@ def test_op_repeat():
         out = input_tensor.repeat([d1, d1, d1])
         return out
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in input:
         t = torch.randn(s, requires_grad=False)
@@ -335,9 +314,7 @@ def test_op_cat():
     def raw_function(inputs, dim=0):
         return torch.cat(inputs, dim)
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for shapes in shapes_per_run:
         inputs = [torch.randn(s, requires_grad=True) for s in shapes]
@@ -349,9 +326,7 @@ def test_op_cat():
         result_hpu.backward(grad)
 
 
-@pytest.mark.skip(
-    reason="[SW-154110] aten::unbind.int isn't registered in KernelRegistry!"
-)
+@pytest.mark.skip(reason="[SW-154110] aten::unbind.int isn't registered in KernelRegistry!")
 def test_op_unbind():
     input = [(1, 4), (1, 6), (1, 8)]
 
@@ -359,9 +334,7 @@ def test_op_unbind():
         out = torch.unbind(input_tensor, 0)
         return out
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in input:
         t1 = torch.randn(s, requires_grad=False)
@@ -379,15 +352,11 @@ def test_op_as_strided_ratio_flow():
         sizes = [int(t[0] * t[1] / 2), 2]
         strides = [2, 1]
         offset = 0
-        strided_tensor = torch.as_strided(
-            input_tensor, sizes, strides, storage_offset=offset
-        )
+        strided_tensor = torch.as_strided(input_tensor, sizes, strides, storage_offset=offset)
         out = torch.add(strided_tensor, strided_tensor)
         return out
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
     for s in input_shapes:
         t1 = torch.randn(s, requires_grad=False)
         result = raw_function(t1)
@@ -404,15 +373,11 @@ def test_op_as_strided():
         sizes = [int(t[0] / 2), 2]
         strides = [2, 1]
         offset = 0
-        strided_tensor = torch.as_strided(
-            input_tensor, sizes, strides, storage_offset=offset
-        )
+        strided_tensor = torch.as_strided(input_tensor, sizes, strides, storage_offset=offset)
         out = torch.add(strided_tensor, strided_tensor)
         return out
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
     for s in input:
         t1 = torch.randn(s, requires_grad=False)
         result = raw_function(t1)
@@ -430,15 +395,14 @@ def test_op_as_strided_1():
         out = torch.add(strided_tensor, strided_tensor)
         return out
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
     for s1, s2 in zip(inputs, sizes):
         t1 = torch.randn(s1, requires_grad=False)
         result = raw_function(t1, s2)
         t1_hpu = t1.to("hpu")
         h_result = compiled_fn(t1_hpu, s2)
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
 
 def test_op_as_strided_plus_view():
     inputs = [(4, 2, 3, 8), (4, 3, 4, 8)]
@@ -451,15 +415,11 @@ def test_op_as_strided_plus_view():
         sizes = [int(t[0] / 2), 2]
         strides = [4, 1]
         offset = 0
-        strided_tensor = torch.as_strided(
-                t0_1, sizes, strides, storage_offset=offset
-        )
+        strided_tensor = torch.as_strided(t0_1, sizes, strides, storage_offset=offset)
         out = torch.relu(strided_tensor)
         return out
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s1, s2 in zip(inputs, shapes):
         t1 = torch.randn(s1, requires_grad=False)
@@ -468,6 +428,7 @@ def test_op_as_strided_plus_view():
         h_result = compiled_fn(t1_hpu, s2)
         h = h_result.to("cpu")
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
 
 def test_op_multiple_as_strided_with_views():
     inputs = [(4, 2, 3, 8), (4, 3, 4, 8)]
@@ -480,21 +441,15 @@ def test_op_multiple_as_strided_with_views():
         sizes = [int(t[0] / 2), 2]
         strides = [4, 1]
         offset = 0
-        strided_tensor1 = torch.as_strided(
-                t0_1, sizes, strides, storage_offset=offset
-        )
+        strided_tensor1 = torch.as_strided(t0_1, sizes, strides, storage_offset=offset)
         out1 = torch.relu(strided_tensor1)
         sizes2 = [int(t[0] / 4), 2]
         strides2 = [2, 1]
-        strided_tensor2 = torch.as_strided(
-                out1, sizes2, strides2, storage_offset=offset
-        )
+        strided_tensor2 = torch.as_strided(out1, sizes2, strides2, storage_offset=offset)
         out2 = torch.relu(strided_tensor2)
         return out2
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s1, s2 in zip(inputs, shapes):
         t1 = torch.randn(s1, requires_grad=False)
@@ -503,6 +458,7 @@ def test_op_multiple_as_strided_with_views():
         h_result = compiled_fn(t1_hpu, s2)
         h = h_result.to("cpu")
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
 
 @pytest.mark.skip(reason="[SW-153208] RuntimeError: undefined value s1")
 def test_op_chunk():
@@ -516,9 +472,7 @@ def test_op_chunk():
         out = torch.chunk(input_tensor, 3, 2)  # chunks=3, dim=2
         return out
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
     for s in input_shapes:
         t1 = torch.randn(s, requires_grad=False)
         result = raw_function(t1)
@@ -536,9 +490,7 @@ def test_op_bernoulli_half_static():
         out = torch.bernoulli(input_tensor)
         return out
 
-    compiled_function_training = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_function_training = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
     t = torch.randn(input, requires_grad=False)
     t_half = t.to(torch.half)
     t_hpu = t_half.to("hpu")
@@ -553,9 +505,7 @@ def test_op_bernoulli_half():
         out = torch.bernoulli(input_tensor)
         return out
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
     for s in input:
         t = torch.randn(s, requires_grad=False)
         t_half = t.to(torch.half)
@@ -576,9 +526,7 @@ def test_op_adaptiveAvgPool2d():
         m = nn.AdaptiveAvgPool2d((7, 7))
         return m(t)
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
     for s in input_shapes:
         t = torch.randn(s, requires_grad=False)
         result = raw_function(t)
@@ -596,9 +544,7 @@ def test_view_negative_dim():
         out = t.view(shape)
         return out
 
-    compiled_function_training = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_function_training = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s1, s2 in zip(inputs, shapes):
         t = torch.randn(s1, requires_grad=False)
@@ -622,9 +568,7 @@ def test_view_negative_dim_1():
         out1 = torch.relu(out)
         return out1
 
-    compiled_function_training = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_function_training = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s1, s1_1, s2 in zip(inputs, inputs1, shapes):
         t = torch.randn(s1, requires_grad=False)
@@ -635,6 +579,7 @@ def test_view_negative_dim_1():
         out_c = raw_function(t, s2)
         assert torch.allclose(result_compile_train.to("cpu"), out_c)
 
+
 def test_view_negative_dim_pure_static():
     inputs = [(4, 7, 7, 8), (4, 10, 10, 8)]
     shapes = [(4, -1, 8), (4, -1, 8)]
@@ -644,9 +589,7 @@ def test_view_negative_dim_pure_static():
         out = t.view(shape)
         return out
 
-    compiled_function_training = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=False
-    )
+    compiled_function_training = torch.compile(raw_function, backend="hpu_backend", dynamic=False)
 
     for s1, s2 in zip(inputs, shapes):
         t = torch.randn(s1, requires_grad=False)
@@ -654,6 +597,7 @@ def test_view_negative_dim_pure_static():
         result_compile_train = compiled_function_training(t_h, s2)
         out_c = raw_function(t, s2)
         assert torch.allclose(result_compile_train.to("cpu"), out_c)
+
 
 def test_dynamicity_static_dynamic_and_automatic():
     inputs = [(2, 2, 2, 3), (2, 3, 3, 3), (2, 4, 4, 3)]
@@ -671,9 +615,9 @@ def test_dynamicity_static_dynamic_and_automatic():
     torch._dynamo.reset()
     compiled_function_training = torch.compile(raw_function, backend="hpu_backend")
 
-    for s1 , s1_1 , s2 in zip(inputs, inputs1, shapes):
-        t = torch.randn(s1, requires_grad = False)
-        t2 = torch.randn(s1_1, requires_grad = False)
+    for s1, s1_1, s2 in zip(inputs, inputs1, shapes):
+        t = torch.randn(s1, requires_grad=False)
+        t2 = torch.randn(s1_1, requires_grad=False)
         t_h = t.to("hpu")
         t2_h = t2.to("hpu")
         result_compile_train = compiled_function_training(t_h, s2, t2_h)
@@ -684,9 +628,9 @@ def test_dynamicity_static_dynamic_and_automatic():
     torch._dynamo.reset()
     compiled_function_training = torch.compile(raw_function, backend="hpu_backend", dynamic=False)
 
-    for s1 , s1_1 , s2 in zip(inputs, inputs1, shapes):
-        t = torch.randn(s1, requires_grad = False)
-        t2 = torch.randn(s1_1, requires_grad = False)
+    for s1, s1_1, s2 in zip(inputs, inputs1, shapes):
+        t = torch.randn(s1, requires_grad=False)
+        t2 = torch.randn(s1_1, requires_grad=False)
         t_h = t.to("hpu")
         t2_h = t2.to("hpu")
         result_compile_train = compiled_function_training(t_h, s2, t2_h)
@@ -697,14 +641,15 @@ def test_dynamicity_static_dynamic_and_automatic():
     torch._dynamo.reset()
     compiled_function_training = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
-    for s1 , s1_1 , s2 in zip(inputs, inputs1, shapes):
-        t = torch.randn(s1, requires_grad = False)
-        t2 = torch.randn(s1_1, requires_grad = False)
+    for s1, s1_1, s2 in zip(inputs, inputs1, shapes):
+        t = torch.randn(s1, requires_grad=False)
+        t2 = torch.randn(s1_1, requires_grad=False)
         t_h = t.to("hpu")
         t2_h = t2.to("hpu")
         result_compile_train = compiled_function_training(t_h, s2, t2_h)
         out_c = raw_function(t, s2, t2)
         assert torch.allclose(result_compile_train.to("cpu"), out_c)
+
 
 def test_constant_pad_1d_output_preallocate():
     def raw_function(x, device):
@@ -712,15 +657,14 @@ def test_constant_pad_1d_output_preallocate():
         pad_x = m(x)
         out = torch.add(pad_x, pad_x)
         return out
+
     input_shapes = [
         (8),
         (16),
         (12),
     ]
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in input_shapes:
         t = torch.randn(s, requires_grad=True)
@@ -731,6 +675,7 @@ def test_constant_pad_1d_output_preallocate():
         grad = torch.ones_like(h_result)
         h_result.backward(grad)
 
+
 def test_graph_pipelining():
     input = [(2, 3, 4, 4), (2, 3, 6, 6), (2, 3, 8, 8)]
 
@@ -739,9 +684,7 @@ def test_graph_pipelining():
         out2 = torch.add(input_tensor, out1)
         return out2
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
     for s in input:
         t = torch.randn(s, requires_grad=False)
         result = raw_function(t)
@@ -749,20 +692,25 @@ def test_graph_pipelining():
         h_result = compiled_fn(t_hpu)
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
+
 def test_graph_BatchNorm_pipelining():
     input = [(2, 3, 4, 4), (2, 3, 6, 6), (2, 3, 8, 8), (2, 3, 10, 10), (2, 3, 12, 12)]
+
     def raw_function(input_tensor):
-        batch_norm = torch.nn.BatchNorm2d(num_features=3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False)
-        out = batch_norm(input_tensor)
-        return out
-    def raw_function_hpu(input_tensor):
-        batch_norm = torch.nn.BatchNorm2d(num_features=3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False).to("hpu")
+        batch_norm = torch.nn.BatchNorm2d(
+            num_features=3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False
+        )
         out = batch_norm(input_tensor)
         return out
 
-    compiled_fn = torch.compile(
-        raw_function_hpu, backend="hpu_backend", dynamic=None
-    )
+    def raw_function_hpu(input_tensor):
+        batch_norm = torch.nn.BatchNorm2d(
+            num_features=3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=False
+        ).to("hpu")
+        out = batch_norm(input_tensor)
+        return out
+
+    compiled_fn = torch.compile(raw_function_hpu, backend="hpu_backend", dynamic=None)
     for s in input:
         t = torch.randn(s, requires_grad=False)
         result = raw_function(t)
@@ -779,9 +727,7 @@ def test_op_sort():
         hpu_value0 = out_hpu[0]
         return hpu_value0
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in sizes:
         t = torch.randn(s)
@@ -791,21 +737,16 @@ def test_op_sort():
         print(h_result.to("cpu"))
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
+
 def test_constant_pad_default():
     def raw_function(x):
         m = nn.ConstantPad1d((1, 1), 2.6)
         pad_x = m(x)
         return pad_x
-    input_shapes = [
-        (128),
-        (747691),
-        (865548),
-        (1034307)
-    ]
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=None
-    )
+    input_shapes = [(128), (747691), (865548), (1034307)]
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=None)
 
     for s in input_shapes:
         t = torch.randn(s, requires_grad=True)
@@ -830,17 +771,19 @@ def test_conv_ds_default():
     model = conv()
     model.eval()
 
-    #cpu
+    # cpu
     torch.manual_seed(1234)
     x = torch.rand(8, 1, 16, 16)
     with torch.no_grad():
         output = model(x)
 
-    #hpu
+    # hpu
     import habana_frameworks.torch.core as htcore
     import numpy
+
     model_hpu = model.to("hpu")
     x_hpu = x.to("hpu")
+
     def raw_function(tensor):
         return model_hpu(tensor)
 
@@ -851,18 +794,13 @@ def test_conv_ds_default():
             output_hpu = compiled_function(x_hpu)
             output_hpu = output_hpu.to(torch.float32)
 
-    #check results
+    # check results
     output_hpu_cpu = output_hpu.to("cpu")
-    numpy.testing.assert_allclose(
-        output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1
-    )
+    numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1)
+
 
 def test_op_arange():
-    input_shapes = [
-        [(2, 3), (0, 6, 2)],
-        [(10, 3), (0, 18, 6)],
-        [(5, 3), (0, 12, 4)]
-    ]
+    input_shapes = [[(2, 3), (0, 6, 2)], [(10, 3), (0, 18, 6)], [(5, 3), (0, 12, 4)]]
 
     def raw_function(t1, arg, device):
         t = t1.shape
@@ -875,17 +813,19 @@ def test_op_arange():
 
     for s in input_shapes:
         os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "1"
-        t1 = torch.randn(s[0], requires_grad = False)
+        t1 = torch.randn(s[0], requires_grad=False)
         device_cpu = "cpu"
         device_hpu = "hpu"
         result = raw_function(t1, s[1], device_cpu)
         t1_h = t1.to("hpu")
         h_result = compiled_fn(t1_h, s[1], device_hpu)
-        assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
         os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "0"
+
 
 def test_op_square_inplace_output():
     import copy
+
     # Currently pow is falling to eager.
     # This test is to validate the dynamic shape arguments which
     # used to create as_strided node when graph output is an inplace
@@ -901,28 +841,22 @@ def test_op_square_inplace_output():
         t3 = torch.permute(t2, [0, 2, 1])
         return t3
 
-    compiled_fn = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=None
-    )
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=None)
 
     for s in sizes:
         t = torch.randn(s).to(torch.int32)
         t_c = copy.deepcopy(t)
-        result1  = raw_function(t_c)
+        result1 = raw_function(t_c)
         t_h = t.to("hpu")
-        h_result1  = compiled_fn(t_h)
+        h_result1 = compiled_fn(t_h)
         assert torch.allclose(h_result1.to("cpu"), result1, atol=0.001, rtol=0.001)
     configuration_flags["use_eager_fallback"] = is_eager_fallback
 
 
-@pytest.mark.parametrize("split_dim", [0,1,2,-1,-2,-3])
-@pytest.mark.parametrize("split_size", [1,2,3])
+@pytest.mark.parametrize("split_dim", [0, 1, 2, -1, -2, -3])
+@pytest.mark.parametrize("split_size", [1, 2, 3])
 def test_op_split(split_size, split_dim):
-    input_shapes = [
-        (16, 12, 12),
-        (10, 6, 5),
-        (24, 24, 20)
-    ]
+    input_shapes = [(16, 12, 12), (10, 6, 5), (24, 24, 20)]
 
     def raw_function(t2):
         res = torch.split(t2, split_size, split_dim)
@@ -941,6 +875,7 @@ def test_op_split(split_size, split_dim):
         for i in range(len(result)):
             assert torch.allclose(h_result[i].to("cpu"), result[i], atol=0.001, rtol=0.001)
 
+
 def test_op_scalar_div():
     inputs = [(4, 4), (4, 4), (4, 4)]
     scalars = [2, 3, 4]
@@ -948,8 +883,7 @@ def test_op_scalar_div():
     def raw_function(x, s):
         return torch.div(x, s)
 
-    compiled_fn = torch.compile(
-        raw_function, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend")
 
     for s1, s2 in zip(inputs, scalars):
         t1 = torch.randn(s1, requires_grad=False)

@@ -20,9 +20,7 @@ def gelu_test(a, b):
     return e
 
 
-@pytest.mark.xfail(
-    reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'disable'"
-)
+@pytest.mark.xfail(reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'disable'")
 def test_gelu():
     fi = getframeinfo(currentframe())
     src = fi.filename
@@ -31,12 +29,8 @@ def test_gelu():
     hpu = torch.device("hpu")
     cpu = torch.device("cpu")
 
-    u_cpu = torch.tensor(
-        [[5.0, 5.0, -6.0, 7.0]], dtype=torch.float32, requires_grad=True
-    )
-    v_cpu = torch.tensor(
-        [[-3.0, -3.0, 4.0, 4.0]], dtype=torch.float32, requires_grad=True
-    )
+    u_cpu = torch.tensor([[5.0, 5.0, -6.0, 7.0]], dtype=torch.float32, requires_grad=True)
+    v_cpu = torch.tensor([[-3.0, -3.0, 4.0, 4.0]], dtype=torch.float32, requires_grad=True)
 
     with torch.jit.optimized_execution(True):
         htcore.disable()

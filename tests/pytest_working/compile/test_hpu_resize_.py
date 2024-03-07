@@ -14,6 +14,7 @@ import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 from test_utils import format_tc
 
+
 @pytest.mark.parametrize("dest_shape", [[1, 2], [4, 1, 2]], ids=format_tc)
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 def test_hpu_resize_(dest_shape, dtype):

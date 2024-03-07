@@ -23,10 +23,7 @@ from torch.nn.parameter import Parameter
 
 from habana_frameworks.torch import _hpex_C as tex
 
-from .base import (
-    _prepare_backward,
-    TransformerEngineBaseModule
-)
+from .base import _prepare_backward, TransformerEngineBaseModule
 from ..fp8 import (
     MetaTensorType,
     get_meta_tensor_key,
@@ -102,8 +99,9 @@ class _Linear(torch.autograd.Function):
 
         hybrid_mode = is_hybrid_mode(fp8_meta)
         if hybrid_mode:
-            assert (weight_fp8_fwd is None) == (weight_fp8_bwd is None), \
-                "Internal TE errror: Either both fp8 weight placeholders need to be None, or both need to be passed"
+            assert (weight_fp8_fwd is None) == (
+                weight_fp8_bwd is None
+            ), "Internal TE errror: Either both fp8 weight placeholders need to be None, or both need to be passed"
 
         meta_fwd_key = get_meta_tensor_key(MetaTensorType.FORWARD)
         if not hybrid_mode:
@@ -113,7 +111,7 @@ class _Linear(torch.autograd.Function):
                 tex.FP8FwdTensors.GEMM1_INPUT,
                 fp8_dtype_forward,
                 stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-                measure_amax=amax_measure_state["enabled"]
+                measure_amax=amax_measure_state["enabled"],
             )
 
             if update_fp8_weights:
@@ -123,12 +121,14 @@ class _Linear(torch.autograd.Function):
                     tex.FP8FwdTensors.GEMM1_WEIGHT,
                     fp8_dtype_forward,
                     stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-                    measure_amax=amax_measure_state["enabled"]
+                    measure_amax=amax_measure_state["enabled"],
                 )
                 if weight_fp8_fwd is None:
                     weight_fp8_fwd = casted
                 else:
-                    assert weight.shape == weight_fp8_fwd.shape, "Module initialized with different shape than received weight"
+                    assert (
+                        weight.shape == weight_fp8_fwd.shape
+                    ), "Module initialized with different shape than received weight"
                     weight_fp8_fwd.copy_(casted)
 
             inputmat_fp8_for_bwd = inputmat
@@ -141,15 +141,16 @@ class _Linear(torch.autograd.Function):
             meta_hybrid_key = get_meta_tensor_key(MetaTensorType.HYBRID)
             fp8_dtype_backward = get_fp8_te_dtype(fp8_meta["recipe"], fprop_tensor=False)
 
-            assert fp8_dtype_backward == torch.float8_e5m2 and fp8_dtype_forward == torch.float8_e4m3fn, \
-                "Only E4M3 fwd E5M2 bwd hybrid mode supported"
+            assert (
+                fp8_dtype_backward == torch.float8_e5m2 and fp8_dtype_forward == torch.float8_e4m3fn
+            ), "Only E4M3 fwd E5M2 bwd hybrid mode supported"
 
             inputmat_bwd, inputmat_fwd = cast_to_fp8_hybrid(
                 inputmat_no_fp8,
                 fp8_meta[meta_hybrid_key],
                 fp8_meta[meta_fwd_key],
                 tex.FP8FwdTensors.GEMM1_INPUT,
-                measure_amax=amax_measure_state["enabled"]
+                measure_amax=amax_measure_state["enabled"],
             )
 
             if update_fp8_weights:
@@ -158,13 +159,15 @@ class _Linear(torch.autograd.Function):
                     fp8_meta[meta_hybrid_key],
                     fp8_meta[meta_fwd_key],
                     tex.FP8FwdTensors.GEMM1_WEIGHT,
-                    measure_amax=amax_measure_state["enabled"]
+                    measure_amax=amax_measure_state["enabled"],
                 )
                 if weight_fp8_fwd is None:
                     weight_fp8_fwd = casted_fwd
                     weight_fp8_bwd = casted_bwd
                 else:
-                    assert weight.shape == weight_fp8_bwd.shape, "Module initialized with different shape than received weight"
+                    assert (
+                        weight.shape == weight_fp8_bwd.shape
+                    ), "Module initialized with different shape than received weight"
                     weight_fp8_fwd.copy_(casted_fwd)
                     weight_fp8_bwd.copy_(casted_bwd)
 
@@ -174,11 +177,7 @@ class _Linear(torch.autograd.Function):
             scale_cache_key = meta_hybrid_key
 
         # TODO: Column Parallel Linear
-        bias_dtype = (
-            torch.bfloat16
-            if activation_dtype == torch.float32
-            else activation_dtype
-        )
+        bias_dtype = torch.bfloat16 if activation_dtype == torch.float32 else activation_dtype
         bias = cast_if_needed(bias, bias_dtype) if use_bias else bias
 
         out = fp8_gemm(
@@ -231,18 +230,15 @@ class _Linear(torch.autograd.Function):
         # [*, in_features] -> [*, out_features] except first dimension changes for SP
         return out.view(-1, *inp.shape[1:-1], out.shape[-1])
 
-
     @staticmethod
-    def backward(
-        ctx, grad_output: torch.Tensor
-    ) -> Tuple[Union[torch.Tensor, None], ...]:
+    def backward(ctx, grad_output: torch.Tensor) -> Tuple[Union[torch.Tensor, None], ...]:
         with _prepare_backward(
             ctx.fp8,
             ctx.fp8_meta,
             ctx.amax_measure_state,
             ctx.is_scale_update_required,
             ctx.sequence_parallel,
-            ctx.tp_group
+            ctx.tp_group,
         ):
             (
                 inputmat,
@@ -269,18 +265,14 @@ class _Linear(torch.autograd.Function):
                         inputmap_fp8, ctx.tp_group, async_op=ctx.requires_dgrad
                     )
                 else:
-                    inputmat_total, handle = gather_along_first_dim(
-                        inputmat, ctx.tp_group, async_op=ctx.requires_dgrad
-                    )
+                    inputmat_total, handle = gather_along_first_dim(inputmat, ctx.tp_group, async_op=ctx.requires_dgrad)
             else:
                 inputmat_fp8_total = inputmap_fp8
                 inputmat_total = inputmat
                 handle = None
 
             assert ctx.fp8
-            fp8_dtype_backward = get_fp8_te_dtype(
-                ctx.fp8_meta["recipe"], fprop_tensor=False
-            )
+            fp8_dtype_backward = get_fp8_te_dtype(ctx.fp8_meta["recipe"], fprop_tensor=False)
 
             if weight_fp8 is None:
                 # If weight_fp8 was not remembered from fwd pass, recompute it
@@ -307,9 +299,7 @@ class _Linear(torch.autograd.Function):
                 if ctx.parallel_mode == "column" and ctx.sequence_parallel:
                     if handle is not None:
                         handle.wait()
-                    dgrad, handle = reduce_scatter_along_first_dim(
-                        dgrad, ctx.tp_group, async_op=True
-                    )
+                    dgrad, handle = reduce_scatter_along_first_dim(dgrad, ctx.tp_group, async_op=True)
                 elif ctx.parallel_mode == "column" and ctx.tensor_parallel:
                     dgrad, handle = allreduce(dgrad, ctx.tp_group, async_op=True)
 
@@ -320,14 +310,12 @@ class _Linear(torch.autograd.Function):
                     inputmat_fp8_total,
                     fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
                     grad_output_c,
-                    ctx.fp8_meta[meta_bwd_key].scale_inv[
-                        tex.FP8BwdTensors.GRAD_OUTPUT1
-                    ],
+                    ctx.fp8_meta[meta_bwd_key].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
                     ctx.activation_dtype,
                     accumulate=False,
                     out=None,
                     transa=False,
-                    transb=True
+                    transb=True,
                 )
 
             # Column Parallel Linear
@@ -453,9 +441,7 @@ class Linear(TransformerEngineBaseModule):
             self.set_tensor_parallel_group(tp_group)
 
         self.parallel_mode = parallel_mode
-        assert (
-            self.parallel_mode in GemmParallelModes
-        ), f"parallel_mode {parallel_mode} not supported"
+        assert self.parallel_mode in GemmParallelModes, f"parallel_mode {parallel_mode} not supported"
 
         assert not sequence_parallel, "sequence_parallel not supported"
 
@@ -504,7 +490,6 @@ class Linear(TransformerEngineBaseModule):
                 self.bias.zero_()
 
         self.fp8_weight_shapes.append(torch.Size((self.out_features, self.in_features)))
-
 
         # For RPL, bias has to be added after TP collectives
         # So it cannot be fused with the GEMM
@@ -579,9 +564,7 @@ class Linear(TransformerEngineBaseModule):
 
         with self.prepare_forward(inp, is_first_microbatch, num_gemms=1) as (inp, is_scale_update_required):
             # Fetch the fp8 weight placeholder (for linear/gemm)
-            weight1_fp8_fwd, weight1_fp8_bwd = self.get_fp8_weights_scratchpad(
-                is_first_microbatch
-            )
+            weight1_fp8_fwd, weight1_fp8_bwd = self.get_fp8_weights_scratchpad(is_first_microbatch)
 
             out = _Linear.apply(
                 weight_tensor,

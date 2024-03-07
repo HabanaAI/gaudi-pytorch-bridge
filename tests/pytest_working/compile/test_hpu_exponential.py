@@ -20,7 +20,8 @@ import habana_frameworks.torch.dynamo.compile_backend
 # 2. Exponential op will return the same values for the same seed
 # 3. Exponential op will return different values for different seed
 
-@pytest.mark.parametrize("shape", [(2,3), (2,3,4)])
+
+@pytest.mark.parametrize("shape", [(2, 3), (2, 3, 4)])
 @pytest.mark.parametrize("lambd", [1.0, 1.5])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
 def test_exponential(shape, lambd, dtype):

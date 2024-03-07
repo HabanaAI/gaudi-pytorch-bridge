@@ -28,8 +28,8 @@ def test_hpu_masked_scatter(shape, is_inplace):
     mask = torch.randn(shape[1]) < 0
     cpu_source = torch.randn(shape)
 
-    cpu_args=[cpu_tensor, mask, cpu_source, is_inplace]
-    hpu_args=[cpu_tensor.to(hpu), mask.to(hpu), cpu_source.to(hpu), is_inplace]
+    cpu_args = [cpu_tensor, mask, cpu_source, is_inplace]
+    hpu_args = [cpu_tensor.to(hpu), mask.to(hpu), cpu_source.to(hpu), is_inplace]
     torch._dynamo.reset()
 
     cpu_wrapped_fn = torch.compile(fn) if pytest.mode == "compile" else fn

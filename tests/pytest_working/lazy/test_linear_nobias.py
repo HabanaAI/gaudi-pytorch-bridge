@@ -14,6 +14,7 @@ import torch
 import pytest
 from test_utils import compare_tensors
 
+
 @pytest.mark.xfail
 def test_linear_nobias():
     out_features = 16
@@ -27,9 +28,7 @@ def test_linear_nobias():
     output = m(input)
     print('..............................output size = ',output.size())
     """
-    residual = torch.randn((seqlen, bsz, s1, out_features), requires_grad=True).to(
-        torch.float
-    )
+    residual = torch.randn((seqlen, bsz, s1, out_features), requires_grad=True).to(torch.float)
     rh = residual.detach().to("hpu")
     a = torch.randn((seqlen, bsz, s1, in_features), requires_grad=True).to(torch.float)
     ah = a.detach().to("hpu")

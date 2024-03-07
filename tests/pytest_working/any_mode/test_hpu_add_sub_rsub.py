@@ -46,11 +46,7 @@ def set_precision(dtype):
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 @pytest.mark.parametrize("op", [torch.add, torch.sub, torch.rsub])
 def test_hpu(scalar, shape, alpha, dtype, op):
-    if pytest.mode == "compile"\
-       and scalar != None\
-       and alpha > 1\
-       and not dtype.is_floating_point\
-       and op == torch.rsub:
+    if pytest.mode == "compile" and scalar != None and alpha > 1 and not dtype.is_floating_point and op == torch.rsub:
         pytest.xfail("SW-162443")
 
     def fn(input_tensor, other, alpha):
@@ -67,7 +63,7 @@ def test_hpu(scalar, shape, alpha, dtype, op):
         # comparison is always done with float (even for integral dtype) due to this issue:
         # https://github.com/pytorch/pytorch/issues/113944
         # Incompatible python int type (int64) with torch.int and torch.short.
-        cpu_other = float(scalar) # if dtype in (torch.bfloat16, torch.float, torch.float16) else scalar
+        cpu_other = float(scalar)  # if dtype in (torch.bfloat16, torch.float, torch.float16) else scalar
         hpu_other = cpu_other
 
     cpu_compiled_fn = torch.compile(fn, dynamic=True) if pytest.mode == "compile" else fn

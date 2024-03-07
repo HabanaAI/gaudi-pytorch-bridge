@@ -61,9 +61,7 @@ def test_hpu_adaptive_avgpool(N, H, W, C, Ho, Wo, dtype, tol, use_batch):
     kernel = F.adaptive_avg_pool2d
 
     # don't check resuluts because indices can have different values
-    hpu_result, cpu_result = evaluate_fwd_kernel(
-        kernel=kernel, kernel_params=kernel_params, check_results=False
-    )
+    hpu_result, cpu_result = evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params, check_results=False)
     compare_tensors(hpu_result[0], cpu_result[0], atol=tol, rtol=tol)
 
 
@@ -102,9 +100,7 @@ def test_hpu_chlast_pool(N, H, W, C, Ho, Wo):
     kernel = F.adaptive_avg_pool2d
 
     # don't check results because indices can have different values
-    hpu_result, cpu_result = evaluate_fwd_kernel(
-        kernel=kernel, kernel_params=kernel_params, check_results=False
-    )
+    hpu_result, cpu_result = evaluate_fwd_kernel(kernel=kernel, kernel_params=kernel_params, check_results=False)
     compare_tensors(hpu_result[0], cpu_result[0], atol=0.001, rtol=1.0e-3)
 
 

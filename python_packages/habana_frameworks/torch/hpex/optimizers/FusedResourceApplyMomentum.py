@@ -18,12 +18,10 @@ import habana_frameworks.torch.core as htcore
 
 hpu = torch.device("hpu")
 
-def resource_apply_momentum(params_momentum_buffer_list: List[Tensor],
-        d_p_list: List[Tensor],
-        *,
-        momentum: float,
-        lr: float,
-        nesterov: bool):
+
+def resource_apply_momentum(
+    params_momentum_buffer_list: List[Tensor], d_p_list: List[Tensor], *, momentum: float, lr: float, nesterov: bool
+):
 
     # grads may not be present always and hence the list may be empty.
     # eg. during warmup steps.
@@ -32,19 +30,16 @@ def resource_apply_momentum(params_momentum_buffer_list: List[Tensor],
     # Check if it is first iteration
     if params_momentum_buffer_list[1] is None:
         for i, d_p in enumerate(d_p_list):
-            param = params_momentum_buffer_list[2*i]
+            param = params_momentum_buffer_list[2 * i]
             if momentum != 0:
                 buf = torch.clone(d_p).detach()
-                params_momentum_buffer_list[2*i+1] = buf
+                params_momentum_buffer_list[2 * i + 1] = buf
                 d_p = buf
             param.add_(d_p)
 
     else:
-        torch.ops.hpu.optimizer_resource_apply_momentum(
-        params_momentum_buffer_list,
-        d_p_list,
-        momentum
-        )
+        torch.ops.hpu.optimizer_resource_apply_momentum(params_momentum_buffer_list, d_p_list, momentum)
+
 
 class FusedResourceApplyMomentum(Optimizer):
     r"""Implements stochastic gradient descent (optionally with momentum).
@@ -60,8 +55,7 @@ class FusedResourceApplyMomentum(Optimizer):
 
     """
 
-    def __init__(self, params, lr, momentum=0,
-                 weight_decay=0, nesterov=False):
+    def __init__(self, params, lr, momentum=0, weight_decay=0, nesterov=False):
         if lr < 0.0:
             raise ValueError(f"Invalid learning rate: {lr}")
         if momentum < 0.0:
@@ -69,8 +63,7 @@ class FusedResourceApplyMomentum(Optimizer):
         if weight_decay < 0.0:
             raise ValueError(f"Invalid weight_decay value: {weight_decay}")
 
-        defaults = dict(lr=lr, momentum=momentum,
-                        weight_decay=weight_decay, nesterov=nesterov)
+        defaults = dict(lr=lr, momentum=momentum, weight_decay=weight_decay, nesterov=nesterov)
         if nesterov and (momentum <= 0):
             raise ValueError("Nesterov momentum requires a momentum")
         super(FusedResourceApplyMomentum, self).__init__(params, defaults)
@@ -78,7 +71,7 @@ class FusedResourceApplyMomentum(Optimizer):
     def __setstate__(self, state):
         super(FusedResourceApplyMomentum, self).__setstate__(state)
         for group in self.param_groups:
-            group.setdefault('nesterov', False)
+            group.setdefault("nesterov", False)
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -96,39 +89,35 @@ class FusedResourceApplyMomentum(Optimizer):
         for group in self.param_groups:
             params_with_grad_momentum = []
             d_p_list = []
-            weight_decay = group['weight_decay']
-            momentum = group['momentum']
-            nesterov = group['nesterov']
-            lr = group['lr']
+            weight_decay = group["weight_decay"]
+            momentum = group["momentum"]
+            nesterov = group["nesterov"]
+            lr = group["lr"]
 
-            for p in group['params']:
+            for p in group["params"]:
                 if p.grad is not None:
                     params_with_grad_momentum.append(p)
                     d_p_list.append(p.grad)
 
                     state = self.state[p]
-                    if 'momentum_buffer' not in state:
+                    if "momentum_buffer" not in state:
                         params_with_grad_momentum.append(None)
                     else:
-                        params_with_grad_momentum.append(state['momentum_buffer'])
+                        params_with_grad_momentum.append(state["momentum_buffer"])
 
             htcore.step_closure._mark_step_if_lazy()
-            resource_apply_momentum(params_with_grad_momentum,
-                  d_p_list,
-                  momentum=momentum,
-                  lr=lr,
-                  nesterov=nesterov)
+            resource_apply_momentum(params_with_grad_momentum, d_p_list, momentum=momentum, lr=lr, nesterov=nesterov)
             htcore.step_closure._mark_step_if_lazy()
 
             # update momentum_buffers in state
             # Parse the interleaved params_with_grad_momentum list and do the
             # state update as per the code below:
-            #for p, momentum_buffer in zip(params_with_grad, momentum_buffer_list):
+            # for p, momentum_buffer in zip(params_with_grad, momentum_buffer_list):
             #   state = self.state[p]
             #   state['momentum_buffer'] = momentum_buffer
-            l = int(len(params_with_grad_momentum)/2)
+            l = int(len(params_with_grad_momentum) / 2)
 
             for i in range(l):
-                state = self.state[params_with_grad_momentum[2*i]]
-                state['momentum_buffer'] = params_with_grad_momentum[2*i+1]
+                state = self.state[params_with_grad_momentum[2 * i]]
+                state["momentum_buffer"] = params_with_grad_momentum[2 * i + 1]
         return loss

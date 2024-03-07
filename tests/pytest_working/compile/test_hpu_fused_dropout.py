@@ -19,6 +19,7 @@ import habana_frameworks.torch.dynamo.compile_backend
 # 2. Fused dropout op will return the same values for the same seed
 # 3. Fused dropout op will return different values for different seed
 
+
 @pytest.mark.parametrize("shape", [(2, 3, 4), (2, 3, 4, 5)])
 @pytest.mark.parametrize("ratio", [0.5, 0.75])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])

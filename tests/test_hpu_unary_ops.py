@@ -117,40 +117,26 @@ def test_hpu_unary_op(N, H, W, C, unary_op, dtype, tol):
     if unary_op == torch.norm:
         kernel_params = {"input": torch.randn(N, C, H, W).to(dtype), "p": 6.0}
     elif unary_op == torch.rsqrt:
-        kernel_params = {
-            "input": torch.add(torch.rand(N, C, H, W, requires_grad=True), 1).to(dtype)
-        }
+        kernel_params = {"input": torch.add(torch.rand(N, C, H, W, requires_grad=True), 1).to(dtype)}
     elif unary_op == torch.log or unary_op == torch.log2:
-        kernel_params = {
-            "input": torch.arange(1, 100, 0.1, dtype=dtype, requires_grad=True)
-        }
+        kernel_params = {"input": torch.arange(1, 100, 0.1, dtype=dtype, requires_grad=True)}
     else:
         kernel_params = {"input": torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
 
-    evaluate_fwd_kernel(
-        kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol
-    )
+    evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize("unary_op, out", unary_special_op_list)
 @pytest.mark.parametrize("dtype, tol", full_type_list)
 def test_hpu_special_unary_op(unary_op, out, dtype, tol):
     kernel_params = (
-        {
-            "input": torch.tensor(
-                [0.0, -0.0, math.inf, -math.inf, math.nan, +1.0, -1.0]
-            ).to(dtype)
-        }
+        {"input": torch.tensor([0.0, -0.0, math.inf, -math.inf, math.nan, +1.0, -1.0]).to(dtype)}
         if any(dtype == dt_tuple[0] for dt_tuple in full_float_list)
         else {"input": torch.tensor([0, 1, -1]).to(dtype)}
     )
     if out is not None:
-        kernel_params[out] = torch.empty(
-            kernel_params["input"].size(), dtype=torch.bool
-        )
-    evaluate_fwd_kernel(
-        kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol
-    )
+        kernel_params[out] = torch.empty(kernel_params["input"].size(), dtype=torch.bool)
+    evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
@@ -159,9 +145,7 @@ def test_hpu_special_unary_op(unary_op, out, dtype, tol):
     [
         pytest.param(
             op,
-            marks=pytest.mark.xfail(reason="results mismatch")
-            if op in (torch.sgn, torch.nn.functional.gelu)
-            else [],
+            marks=pytest.mark.xfail(reason="results mismatch") if op in (torch.sgn, torch.nn.functional.gelu) else [],
         )
         for op in unary_op_list
     ],
@@ -176,20 +160,14 @@ def test_hpu_unary_op_fwd_bwd(N, H, W, C, unary_op, dtype, tol):
         }
         bwd_tensors = [torch.tensor(1).to(dtype)]
     elif unary_op == torch.rsqrt:
-        kernel_params_fwd = {
-            "input": torch.add(torch.rand(N, C, H, W, requires_grad=True), 1).to(dtype)
-        }
+        kernel_params_fwd = {"input": torch.add(torch.rand(N, C, H, W, requires_grad=True), 1).to(dtype)}
         bwd_tensors = [torch.randn(N, C, H, W).to(dtype)]
     elif unary_op == torch.log or unary_op == torch.log2:
-        kernel_params_fwd = {
-            "input": torch.arange(1, 100, 0.1, dtype=dtype, requires_grad=True)
-        }
+        kernel_params_fwd = {"input": torch.arange(1, 100, 0.1, dtype=dtype, requires_grad=True)}
         bwd_tensors = [torch.arange(1, 100, 0.1, dtype=dtype)]
     else:
         # TODO: extend that test to all features
-        kernel_params_fwd = {
-            "input": torch.randn(N, C, H, W, requires_grad=True).to(dtype)
-        }
+        kernel_params_fwd = {"input": torch.randn(N, C, H, W, requires_grad=True).to(dtype)}
         bwd_tensors = [torch.randn(N, C, H, W).to(dtype)]
 
     evaluate_fwd_bwd_kernel(
@@ -269,18 +247,14 @@ def test_hpu_lp_norm_op_fwd_bwd(N, H, W, C, lp_norm_op, value):
 @pytest.mark.parametrize("dtype, tol", data_type_list)
 def test_hpu_unary_op_erf(N, H, W, C, unary_op, dtype, tol):
     kernel_params = {"input": torch.randn(N, C, H, W).to(dtype)}
-    evaluate_fwd_kernel(
-        kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol
-    )
+    evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=tol, rtol=tol)
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 @pytest.mark.parametrize("unary_op", [torch.norm])
 def test_hpu_unary_op_frobenius_norm(N, H, W, C, unary_op):
     kernel_params = {"input": torch.randn(N, C, H, W)}
-    evaluate_fwd_kernel(
-        kernel=unary_op, kernel_params=kernel_params, atol=0.001, rtol=0.001
-    )
+    evaluate_fwd_kernel(kernel=unary_op, kernel_params=kernel_params, atol=0.001, rtol=0.001)
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)

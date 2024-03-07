@@ -17,9 +17,7 @@ in_t = torch.randn(1, 1, 9, 9)
 ft_t = torch.randn(1, 1, 3, 3)
 
 
-@pytest.mark.xfail(
-    reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'"
-)
+@pytest.mark.xfail(reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'")
 @pytest.mark.parametrize("in_t, ft_t", [(in_t, ft_t)])
 def test_jit_conv_perm(in_t, ft_t):
     m = torch.jit.trace(conv_relu_func, (in_t, ft_t))

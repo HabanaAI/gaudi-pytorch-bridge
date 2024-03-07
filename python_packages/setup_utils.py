@@ -24,6 +24,7 @@ class SkipBuildExt(build_ext):
     def run(self):
         pass
 
+
 def InstallCMakeLibs(module_namespace, wheel_name, wheel_build_dir, wheel_pt_vers, ignore_func):
     class _InstallCMakeLibs(install_lib):
         def __init__(self, dist):
@@ -48,11 +49,13 @@ def InstallCMakeLibs(module_namespace, wheel_name, wheel_build_dir, wheel_pt_ver
             install_dir = os.path.abspath(self.install_dir)
 
             pt_modules_bin_dir = os.path.join(install_dir, module_namespace)
-            for pt_ver in wheel_pt_vers.split(','):
-                shutil.copytree(os.path.join(wheel_build_dir, f"pt{pt_ver.replace('.', '_')}", wheel_name),
-                                os.path.join(pt_modules_bin_dir),  # TODO multiversion
-                                ignore=ignore_func,
-                                dirs_exist_ok=True)
+            for pt_ver in wheel_pt_vers.split(","):
+                shutil.copytree(
+                    os.path.join(wheel_build_dir, f"pt{pt_ver.replace('.', '_')}", wheel_name),
+                    os.path.join(pt_modules_bin_dir),  # TODO multiversion
+                    ignore=ignore_func,
+                    dirs_exist_ok=True,
+                )
             return list(glob(install_dir + "/**", recursive=True))
 
     return _InstallCMakeLibs
@@ -65,20 +68,18 @@ class PrebuiltPtExtension(Extension):
 
 
 def get_version():
-    version = os.getenv('RELEASE_VERSION')
+    version = os.getenv("RELEASE_VERSION")
     if not version:
         version = "0.0.0"
-    build_number = os.getenv('RELEASE_BUILD_NUMBER')
+    build_number = os.getenv("RELEASE_BUILD_NUMBER")
     if build_number:
-        return version + '.' + build_number
+        return version + "." + build_number
     else:
         try:
             import subprocess
+
             root = os.environ["PYTORCH_MODULES_ROOT_PATH"]
-            sha = (
-                subprocess.check_output(
-                    ["git", "-C", root, "rev-parse", "--short", "HEAD"])
-                .decode("ascii").strip())
+            sha = subprocess.check_output(["git", "-C", root, "rev-parse", "--short", "HEAD"]).decode("ascii").strip()
             return f"{version}+git{sha}"
         except Exception as e:
             print("Error getting version: {}".format(e), file=sys.stderr)

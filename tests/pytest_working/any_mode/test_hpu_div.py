@@ -19,7 +19,8 @@ dtypes = [torch.bfloat16, torch.float]
 if not is_gaudi1():
     dtypes.append(torch.float16)
 
-@pytest.mark.parametrize("shape", [[2,2,3], [4,2,5,2], [2,1,3,3,2]])
+
+@pytest.mark.parametrize("shape", [[2, 2, 3], [4, 2, 5, 2], [2, 1, 3, 3, 2]])
 @pytest.mark.parametrize("scalar", [None, 1.3, 2.123, 5.947812, 13.13541])
 @pytest.mark.parametrize("rounding_mode", ["floor", "trunc"])
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)

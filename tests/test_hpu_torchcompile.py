@@ -90,12 +90,8 @@ def test_simple_convolution_mixed():
 
         tensor = torch.rand(8, 1, 32, 32).to("hpu")
 
-        compiled_function_1 = torch.compile(
-            raw_function_1, backend="aot_hpu_inference_backend"
-        )
-        compiled_function_2 = torch.compile(
-            raw_function_2, backend="aot_hpu_inference_backend"
-        )
+        compiled_function_1 = torch.compile(raw_function_1, backend="aot_hpu_inference_backend")
+        compiled_function_2 = torch.compile(raw_function_2, backend="aot_hpu_inference_backend")
 
         res_eager = raw_function_2(raw_function_1(tensor))
         res_graph_to_eager = raw_function_2(compiled_function_1(tensor))
@@ -163,22 +159,14 @@ def test_simple_sgd_convnet():
 
             return loss
 
-        compiled_function_test = torch.compile(
-            raw_function_test, backend="aot_hpu_inference_backend"
-        )
-        compiled_function_train = torch.compile(
-            raw_function_train, backend="hpu_backend"
-        )
+        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
+        compiled_function_train = torch.compile(raw_function_train, backend="hpu_backend")
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
         input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")
 
-        loss_nocompile0, result_nocompile0 = raw_function_test(
-            input_tensor1, input_tensor2
-        )
-        loss_compile0, result_compile0 = compiled_function_test(
-            input_tensor1, input_tensor2
-        )
+        loss_nocompile0, result_nocompile0 = raw_function_test(input_tensor1, input_tensor2)
+        loss_compile0, result_compile0 = compiled_function_test(input_tensor1, input_tensor2)
 
         assert torch.allclose(loss_nocompile0, loss_compile0, rtol=1e-03)
         assert torch.allclose(result_nocompile0, result_compile0, rtol=1e-03)
@@ -257,22 +245,14 @@ def test_simple_sgd_convnet_with_device_pingpong():
 
             return loss
 
-        compiled_function_test = torch.compile(
-            raw_function_test, backend="aot_hpu_inference_backend"
-        )
-        compiled_function_train = torch.compile(
-            raw_function_train, backend="hpu_backend"
-        )
+        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
+        compiled_function_train = torch.compile(raw_function_train, backend="hpu_backend")
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
         input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")
 
-        loss_nocompile0, result_nocompile0 = raw_function_test(
-            input_tensor1, input_tensor2
-        )
-        loss_compile0, result_compile0 = compiled_function_test(
-            input_tensor1, input_tensor2
-        )
+        loss_nocompile0, result_nocompile0 = raw_function_test(input_tensor1, input_tensor2)
+        loss_compile0, result_compile0 = compiled_function_test(input_tensor1, input_tensor2)
 
         assert torch.allclose(loss_nocompile0, loss_compile0, rtol=1e-03)
         assert torch.allclose(result_nocompile0, result_compile0, rtol=1e-03)
@@ -344,22 +324,14 @@ def test_simple_adam_convnet():
 
             return loss
 
-        compiled_function_test = torch.compile(
-            raw_function_test, backend="aot_hpu_inference_backend"
-        )
-        compiled_function_train = torch.compile(
-            raw_function_train, backend="hpu_backend"
-        )
+        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
+        compiled_function_train = torch.compile(raw_function_train, backend="hpu_backend")
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
         input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")
 
-        loss_nocompile0, result_nocompile0 = raw_function_test(
-            input_tensor1, input_tensor2
-        )
-        loss_compile0, result_compile0 = compiled_function_test(
-            input_tensor1, input_tensor2
-        )
+        loss_nocompile0, result_nocompile0 = raw_function_test(input_tensor1, input_tensor2)
+        loss_compile0, result_compile0 = compiled_function_test(input_tensor1, input_tensor2)
 
         assert torch.allclose(loss_nocompile0, loss_compile0, rtol=1e-03)
         assert torch.allclose(result_nocompile0, result_compile0, rtol=1e-03)
@@ -438,22 +410,14 @@ def test_simple_adam_convnet_with_device_pingpong():
 
             return loss
 
-        compiled_function_test = torch.compile(
-            raw_function_test, backend="aot_hpu_inference_backend"
-        )
-        compiled_function_train = torch.compile(
-            raw_function_train, backend="hpu_backend"
-        )
+        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
+        compiled_function_train = torch.compile(raw_function_train, backend="hpu_backend")
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
         input_tensor2 = torch.randint(0, 9, (8,)).to("hpu")
 
-        loss_nocompile0, result_nocompile0 = raw_function_test(
-            input_tensor1, input_tensor2
-        )
-        loss_compile0, result_compile0 = compiled_function_test(
-            input_tensor1, input_tensor2
-        )
+        loss_nocompile0, result_nocompile0 = raw_function_test(input_tensor1, input_tensor2)
+        loss_compile0, result_compile0 = compiled_function_test(input_tensor1, input_tensor2)
 
         assert torch.allclose(loss_nocompile0, loss_compile0, rtol=1e-03)
         assert torch.allclose(result_nocompile0, result_compile0, rtol=1e-03)
@@ -476,9 +440,7 @@ def test_simple_view():
         def raw_function(x):
             return torch.relu(x)
 
-        compiled_function_inference = torch.compile(
-            raw_function, backend="aot_hpu_inference_backend"
-        )
+        compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
 
         input_tensor = torch.rand(3, 3, device="cpu").to("hpu")
 
@@ -498,9 +460,7 @@ def test_simple_view():
 
 @pytest.mark.xfail(reason="AttributeError: 'NoneType' object has no attribute 'reset'")
 def test_cache_metrics_enabled_and_graph_compilaton():
-    with env_var_in_scope(
-        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_ENABLE_CACHE_METRICS": "1"}
-    ):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_ENABLE_CACHE_METRICS": "1"}):
         from habana_frameworks.torch.hpu.metrics import metric_global
 
         gc_metric = metric_global("graph_compilation")
@@ -513,9 +473,7 @@ def test_cache_metrics_enabled_and_graph_compilaton():
         def raw_function(x):
             return torch.relu(x)
 
-        compiled_function_inference = torch.compile(
-            raw_function, backend="aot_hpu_inference_backend"
-        )
+        compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
         input_tensor = torch.rand(3, 3, device="cpu").to("hpu")
         last_total_time = 0
         for curr_iter in range(5):
@@ -530,9 +488,7 @@ def test_cache_metrics_enabled_and_graph_compilaton():
 
 @pytest.mark.xfail(reason="AttributeError: 'NoneType' object has no attribute 'reset'")
 def test_metrics_eager_mode():
-    with env_var_in_scope(
-        {"PT_HPU_LAZY_MODE": "0", "PT_HPU_ENABLE_CACHE_METRICS": "1"}
-    ):
+    with env_var_in_scope({"PT_HPU_LAZY_MODE": "0", "PT_HPU_ENABLE_CACHE_METRICS": "1"}):
         from habana_frameworks.torch.hpu.metrics import metric_global
 
         rc_metric = metric_global("recipe_cache")
@@ -563,9 +519,6 @@ def test_metrics_eager_mode():
             gc_metric_dict = dict(gc_metric.stats())
             rc_metric_dict = dict(rc_metric.stats())
             # eager compilation not supported on Gaudi1
-            assert (
-                gc_metric_dict["TotalNumber"] == 0
-                or htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
-            )
+            assert gc_metric_dict["TotalNumber"] == 0 or htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
             assert rc_metric_dict["TotalMiss"] == 0
             assert rc_metric_dict["TotalHit"] == 0

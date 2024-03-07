@@ -196,9 +196,7 @@ def testInfo():
     print("s1==s2 :: ", s1 == s2)
     # print(s1==3)
     # breakpoint()
-    print(
-        f"s1.device_index={s1.device_index()} , Default stream id={d.id()} s1.id()={s1.id()} s2.id()={s2.id()}"
-    )
+    print(f"s1.device_index={s1.device_index()} , Default stream id={d.id()} s1.id()={s1.id()} s2.id()={s2.id()}")
 
 
 def testProfiling():
@@ -210,9 +208,7 @@ def testProfiling():
     ht.hpu.Stream()
     startEv = ht.hpu.Event(enable_timing=True)
     endEv = ht.hpu.Event(enable_timing=True)
-    assert (
-        endEv.query() is True
-    ), "Event query on unrecorded event returned False (expected True)"
+    assert endEv.query() is True, "Event query on unrecorded event returned False (expected True)"
     print(f"Before record :endEv info={repr(endEv)}")
     startEv.record()
     time.sleep(0.5)
@@ -234,9 +230,7 @@ def testProfiling2():
     s2 = ht.hpu.Stream()
     startEv = ht.hpu.Event(enable_timing=True)
     endEv = ht.hpu.Event(enable_timing=True)
-    assert (
-        endEv.query() is True
-    ), "Event query on unrecorded event returned False (expected True)"
+    assert endEv.query() is True, "Event query on unrecorded event returned False (expected True)"
     print(f"Before record :endEv info={repr(endEv)}")
     # startEv.record()
     with ht.hpu.stream(s1):
@@ -445,9 +439,7 @@ def testStreamWaitEventWAR():
     s0.record_event(e1)
     d0.wait_event(e1)
     tD_h = tC_h.to("cpu")
-    np.testing.assert_allclose(
-        tD.detach().numpy(), tD_h.detach().numpy(), atol=0, rtol=0
-    )
+    np.testing.assert_allclose(tD.detach().numpy(), tD_h.detach().numpy(), atol=0, rtol=0)
 
     print("Starting testStreamWaitEventWAR TEST - Finished")
 
@@ -584,9 +576,7 @@ def testStreamUseDifferentStreamForEachOP():
         y = torch.empty_like(tA)
         with ht.hpu.stream(s1):
             y = tC_h.to("cpu")
-        np.testing.assert_allclose(
-            y.detach().numpy(), tC.detach().numpy(), atol=0, rtol=0
-        )
+        np.testing.assert_allclose(y.detach().numpy(), tC.detach().numpy(), atol=0, rtol=0)
         count = count + 1
     print("Finshed testStreamUseDifferentStreamForEachOP TEST")
 
@@ -622,9 +612,7 @@ def testStreamUseDifferentStreamForEachOPNonBlocking():
         with ht.hpu.stream(s1):
             y.copy_(tC_h, non_blocking=True)
         s1.synchronize()
-        np.testing.assert_allclose(
-            y.detach().numpy(), tC.detach().numpy(), atol=0, rtol=0
-        )
+        np.testing.assert_allclose(y.detach().numpy(), tC.detach().numpy(), atol=0, rtol=0)
         count = count + 1
     print("Finshed testStreamUseDifferentStreamForEachOP TEST")
 
@@ -641,9 +629,7 @@ def testCopyNonBlocking():
             b = b.to("cpu")
         else:
             a = a.to("cpu")
-        np.testing.assert_allclose(
-            a.detach().numpy(), b.detach().numpy(), atol=0, rtol=0
-        )
+        np.testing.assert_allclose(a.detach().numpy(), b.detach().numpy(), atol=0, rtol=0)
         print("copy done")
 
     # 10MB copies
@@ -677,9 +663,7 @@ def testProfiling_default_stream():
     d = ht.hpu.default_stream()
     startEv = ht.hpu.Event(enable_timing=True)
     endEv = ht.hpu.Event(enable_timing=True)
-    assert (
-        endEv.query() is True
-    ), "Event query on unrecorded event returned False (expected True)"
+    assert endEv.query() is True, "Event query on unrecorded event returned False (expected True)"
     print(f"Before record :endEv info={repr(endEv)}")
     tA_h = torch.add(tA_h, tB_h)
     tA_h = torch.add(tA_h, tB_h)

@@ -54,7 +54,7 @@ def test_kv_reorder(shape, dtype):
 @pytest.mark.parametrize("shape", [(3, 4, 8, 64, 28)])
 @pytest.mark.parametrize("dtype", dtypes)
 def test_kv_reorder_with_view(shape, dtype):
-    input_cpu = torch.randint(0, 100, shape).to(dtype).transpose(2,3)
+    input_cpu = torch.randint(0, 100, shape).to(dtype).transpose(2, 3)
     start_cpu = torch.randint(0, 4, (shape[0],), dtype=torch.int32)
     end_cpu = torch.randint(0, 4, (shape[0],), dtype=torch.int32)
     beam_idx_cpu = torch.randint(0, 4, (shape[0], 4), dtype=torch.int32)

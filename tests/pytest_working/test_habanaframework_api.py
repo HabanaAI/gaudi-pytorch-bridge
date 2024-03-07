@@ -7,9 +7,7 @@ from test_utils import env_var_in_scope, hpu
 
 
 # Use torch_hpu APIs, equivalent to torch.cuda APIs
-@pytest.mark.xfail(
-    reason="libhlml.so: cannot open shared object file: No such file or directory"
-)
+@pytest.mark.xfail(reason="libhlml.so: cannot open shared object file: No such file or directory")
 def test_basic_apis():
     print("hpu available", htorch.hpu.is_available())
     print("hpu device count", htorch.hpu.device_count())
@@ -43,21 +41,22 @@ def test_device_synchronize_api():
     tB_h = torch.full((1000,), 1, device="hpu")  # noqa
     htorch.hpu.synchronize()  # Need verify with the log
 
+
 def test_get_device_index_api():
     try:
-        htorch.hpu._get_device_index('hpu0', optional=True)
+        htorch.hpu._get_device_index("hpu0", optional=True)
     except Exception as err:
         assert err != "Invalid device string"
         pass
 
-    #with self.assertRaisesRegex(ValueError, "Expected a hpu device"):
+    # with self.assertRaisesRegex(ValueError, "Expected a hpu device"):
     try:
-        cpu_device = torch.device('cpu')
+        cpu_device = torch.device("cpu")
         htorch.hpu._get_device_index(cpu_device, optional=True)
     except Exception as err:
         assert err != "Expected a hpu device"
 
-    index = htorch.hpu._get_device_index('hpu:1')
+    index = htorch.hpu._get_device_index("hpu:1")
     assert index == 1
     index = htorch.hpu._get_device_index(torch.device("hpu:2"))
     assert index == 2

@@ -73,9 +73,7 @@ class InnerNet(nn.Module):
         x = torch.flatten(x, 1)
         if self.dyn_ops:
             # dynamic section
-            mask = torch.tensor(
-                [True] * self.idx + [False] * (x.shape[0] - self.idx)
-            ).to(x.device)
+            mask = torch.tensor([True] * self.idx + [False] * (x.shape[0] - self.idx)).to(x.device)
             x1 = x[mask, :] * 3
             x2 = x[~mask, :] * 2
             x1 = torch.sum(x1, dim=[-1])
@@ -92,9 +90,7 @@ class Net(nn.Module):
         super(Net, self).__init__()
         innernet = InnerNet(dyn_ops, reuse_relu, sz)
         if wrap_inner:
-            self.innernet = detect_recompilation_auto_model(
-                innernet, mdlname="InnerNet", waittime=0.25
-            )
+            self.innernet = detect_recompilation_auto_model(innernet, mdlname="InnerNet", waittime=0.25)
         else:
             self.innernet = innernet
 
@@ -156,10 +152,7 @@ def read_file_and_stripcols(flname):
 
 
 def change_module_name(modules):
-    return [
-        "/".join(filter(lambda x: len(x) > 0, ["InnerNet"] + k.split("innernet/")[1:]))
-        for k in modules
-    ]
+    return ["/".join(filter(lambda x: len(x) > 0, ["InnerNet"] + k.split("innernet/")[1:])) for k in modules]
 
 
 def match_fl1(fl1, dyn_inps, dyn_ops, reuse_relu, wrap_inner):
@@ -257,9 +250,7 @@ def match_fl1(fl1, dyn_inps, dyn_ops, reuse_relu, wrap_inner):
     passed = passed and helper1(fl1lines[1 : 1 + len(modules)], 0)
     if dyn_ops:
         if dyn_inps:
-            passed = passed and (
-                len(fl1lines) == 1 + len(modules) * 2 + 3 * (2, 1)[wrap_inner]
-            )
+            passed = passed and (len(fl1lines) == 1 + len(modules) * 2 + 3 * (2, 1)[wrap_inner])
             st0 = 1 + len(modules)
             end0 = st0 + 2 * (2, 1)[wrap_inner]
             st1 = 1 + 2 * len(modules) + 2 * (2, 1)[wrap_inner]
@@ -282,9 +273,7 @@ def match_fl1(fl1, dyn_inps, dyn_ops, reuse_relu, wrap_inner):
             end0 = st0 + len(modules)
             passed = passed and helper1(fl1lines[st0:end0], 3)
         else:
-            passed = passed and (
-                len(fl1lines) == 1 + len(modules) + 4 * (2, 1)[wrap_inner]
-            )
+            passed = passed and (len(fl1lines) == 1 + len(modules) + 4 * (2, 1)[wrap_inner])
             # step 1,2,3,4 will see only 2 modules (with dyn ops) recompile
 
             def fn(idx):
@@ -324,20 +313,12 @@ def gen_expected2(dyn_inps, dyn_ops, reuse_relu, wrap_inner):
     def mapper(x):
         if dyn_inps:
             if dyn_ops:
-                return (
-                    (5 if x == "InnerNet" else 2)
-                    if wrap_inner
-                    else (5 if x == "Net" or x == "Net/innernet" else 2)
-                )
+                return (5 if x == "InnerNet" else 2) if wrap_inner else (5 if x == "Net" or x == "Net/innernet" else 2)
             else:
                 return 2
         else:
             if dyn_ops:
-                return (
-                    (5 if x == "InnerNet" else 1)
-                    if wrap_inner
-                    else (5 if x == "Net" or x == "Net/innernet" else 1)
-                )
+                return (5 if x == "InnerNet" else 1) if wrap_inner else (5 if x == "Net" or x == "Net/innernet" else 1)
             else:
                 return 1
 
@@ -462,16 +443,12 @@ class SampleDatasetComplex(SampleDataset):
 def test_dataloader_basic_fns():
     assert (2,) == get_shape(torch.tensor([1, 2]))
     assert ((2,), (3,)) == get_shape([torch.tensor([1, 2]), torch.tensor([1, 2, 3])])
-    assert ((2,), ((1, 3),)) == get_shape(
-        [torch.tensor([1, 2]), {1: torch.tensor([1, 2, 3])}]
-    )
+    assert ((2,), ((1, 3),)) == get_shape([torch.tensor([1, 2]), {1: torch.tensor([1, 2, 3])}])
 
 
 def test_dataloader_simple():
     dataset = SampleDataset([[3, 10, 10], [3, 20, 20], [3, 30, 30]], 1000)
-    dataloader = DataLoader(
-        dataset, batch_size=4, collate_fn=collate_batch, shuffle=True
-    )
+    dataloader = DataLoader(dataset, batch_size=4, collate_fn=collate_batch, shuffle=True)
     report = data_dynamicity(dataloader)
     expected = {(4, 3, 30, 30): 194, (4, 3, 20, 20): 50, (4, 3, 10, 10): 6}
     assert report == expected

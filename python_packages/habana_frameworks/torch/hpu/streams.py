@@ -7,6 +7,7 @@ from habana_frameworks.torch import _hpu_C
 from ._utils import _get_device_index
 import ctypes
 
+
 class Stream(object):
     r"""Wrapper around a HPU stream.
 
@@ -33,7 +34,7 @@ class Stream(object):
 
             self.device = device
             self.isHighPriorityStream = priority < 0
-            self.stream = _hpu_C.get_stream(self.isHighPriorityStream,self.device)
+            self.stream = _hpu_C.get_stream(self.isHighPriorityStream, self.device)
         self.is_capture = False
 
     def query(self):
@@ -43,25 +44,21 @@ class Stream(object):
             A boolean indicating if all kernels in this stream are completed."""
         return _hpu_C.query(self.stream)
 
-
     def synchronize(self):
-        r"""Wait for all the kernels in this stream to complete.
-
-        """
+        r"""Wait for all the kernels in this stream to complete."""
         _hpu_C.synchronize(self.stream)
 
     def __repr__(self):
         info = get_stream_info(self.stream)
-        return ('<ht.hpu.Stream device={0} stream={1:#x}>'
-                .format(info[0], info[1]))
+        return "<ht.hpu.Stream device={0} stream={1:#x}>".format(info[0], info[1])
 
     def __eq__(self, other):
         r"""Check if other HPU stream is same as this stream
         Args:
             other HPU Stream
         """
-        assert isinstance(other, Stream),"other stream should also be of type HPU Stream"
-        return _hpu_C.stream_eq(self.stream,other.stream)
+        assert isinstance(other, Stream), "other stream should also be of type HPU Stream"
+        return _hpu_C.stream_eq(self.stream, other.stream)
 
     def device_index(self):
         return self.device
@@ -69,7 +66,7 @@ class Stream(object):
     def id(self):
         return _hpu_C.id(self.stream)
 
-    def record_event(self,event=None):
+    def record_event(self, event=None):
         r"""Records an event.
 
         Args:
@@ -82,9 +79,9 @@ class Stream(object):
         if event is None:
             event = htorch.hpu.Event()
         else:
-            assert isinstance(event,htorch.hpu.events.Event),"Provided evt is not of type Event"
+            assert isinstance(event, htorch.hpu.events.Event), "Provided evt is not of type Event"
 
-        _hpu_C.event_record(event.event,self.stream)
+        _hpu_C.event_record(event.event, self.stream)
         return event
 
     def wait_event(self, event):
@@ -110,7 +107,7 @@ class Stream(object):
         .. note:: This function returns without waiting for currently enqueued
            kernels in :attr:`stream`: only future operations are affected.
         """
-        assert isinstance(stream,Stream),"Provided stream is not of type Stream"
+        assert isinstance(stream, Stream), "Provided stream is not of type Stream"
         if self != stream:
             self.wait_event(stream.record_event())
 
@@ -132,10 +129,10 @@ class StreamContext(object):
     def __enter__(self):
 
         cur_stream = self.stream
-        # Return if stream is None 
+        # Return if stream is None
         if cur_stream is None:
             return
-        self.prev_stream =_hpu_C.get_current_stream()
+        self.prev_stream = _hpu_C.get_current_stream()
         htorch.hpu.set_stream(cur_stream)
 
     def __exit__(self, type: Any, value: Any, traceback: Any):
@@ -144,6 +141,7 @@ class StreamContext(object):
         if cur_stream is None:
             return
         htorch.hpu.set_stream(self.prev_stream)  # type: ignore[arg-type]
+
 
 def stream(stream) -> StreamContext:
     r"""Wrapper around the Context-manager StreamContext that
@@ -157,6 +155,7 @@ def stream(stream) -> StreamContext:
 
     return StreamContext(stream.stream)
 
+
 def set_stream(in_stream):
     r"""Sets the current stream.This is a wrapper API to set the stream.
         Usage of this function is discouraged in favor of the ``stream``
@@ -167,27 +166,30 @@ def set_stream(in_stream):
     """
     if in_stream is None:
         return
-    if isinstance(in_stream,Stream):
+    if isinstance(in_stream, Stream):
         stream = in_stream.stream
     else:
         stream = in_stream
     _hpu_C.set_current_stream(stream)
+
 
 def current_stream():
     r"""Gets the current stream.
     Args:
         None.
     """
-    return Stream(provided_stream = _hpu_C.get_current_stream())
+    return Stream(provided_stream=_hpu_C.get_current_stream())
+
 
 def default_stream():
     r"""Gets the default stream on HPU device.This is a wrapper API to get the stream.
     Args:
         None.
     """
-    return Stream(provided_stream = _hpu_C.get_default_stream())
+    return Stream(provided_stream=_hpu_C.get_default_stream())
 
-def get_stream_info(stream:Stream):
+
+def get_stream_info(stream: Stream):
     r"""Gets the info for HPU stream.
     Args:
         stream.
@@ -196,6 +198,7 @@ def get_stream_info(stream:Stream):
         stream = stream.stream
 
     return _hpu_C.get_stream_info(stream)
+
 
 def record_stream(self, stream):
     _hpu_C.record_stream(self, stream.stream)

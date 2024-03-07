@@ -14,7 +14,8 @@ import pytest
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.dynamo.compile_backend
 
-@pytest.mark.parametrize("shape", [(1,), (2,3), (2,3,4), (4, 8, 16, 32)])
+
+@pytest.mark.parametrize("shape", [(1,), (2, 3), (2, 3, 4), (4, 8, 16, 32)])
 @pytest.mark.parametrize("approximate", ["none", "tanh"])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
 def test_gelu(shape, approximate, dtype):

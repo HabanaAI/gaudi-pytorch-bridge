@@ -13,6 +13,7 @@
 import pytest
 import os
 
+
 @pytest.fixture(autouse=True, scope="package")
 def setup_teardown_env():
     if 1 == int(os.environ.get("PT_HPU_LAZY_MODE", 1)):

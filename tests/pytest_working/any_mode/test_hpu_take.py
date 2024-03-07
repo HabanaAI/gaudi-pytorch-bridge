@@ -30,9 +30,7 @@ dtypes_indicies = [torch.int32, torch.long]
 @pytest.mark.parametrize("dtypes_indicies", dtypes_indicies, ids=format_tc)
 def test_hpu_take(shape, repeats, dtypes_inputs, dtypes_indicies):
     if pytest.mode == "compile" and dtypes_indicies == torch.int32:
-        pytest.skip(
-            reason="Indicies tensor of dtype int32 is supported only in eager and lazy mode on hpu"
-        )
+        pytest.skip(reason="Indicies tensor of dtype int32 is supported only in eager and lazy mode on hpu")
 
     if dtypes_inputs == torch.int32:
         input_tensor = torch.randint(size=shape, low=-10, high=10, dtype=dtypes_inputs)

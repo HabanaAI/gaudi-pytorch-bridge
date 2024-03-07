@@ -34,9 +34,7 @@ def run_model(args):
     channel_size_list = torch.randint(4, 20, (20,))
 
     if args.resume_checkpoint:
-        htdebug.load_ds_checkpoint(
-            "{0:s}/ds_ckt_epoch_{1:d}".format(args.save_dir, args.start_idx - 1)
-        )
+        htdebug.load_ds_checkpoint("{0:s}/ds_ckt_epoch_{1:d}".format(args.save_dir, args.start_idx - 1))
 
     for idx, c in enumerate(range(args.start_idx, args.end_idx)):
         X = torch.randn((3, channel_size_list[c], 16))
@@ -54,9 +52,7 @@ def run_model(args):
         optim.step()
         htcore.mark_step()
         if args.save_checkpoint:
-            htdebug.save_ds_checkpoint(
-                "{0:s}/ds_ckt_epoch_{1:d}".format(args.save_dir, idx + args.start_idx)
-            )
+            htdebug.save_ds_checkpoint("{0:s}/ds_ckt_epoch_{1:d}".format(args.save_dir, idx + args.start_idx))
 
 
 def add_op(input_shape):

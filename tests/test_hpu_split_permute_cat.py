@@ -26,9 +26,7 @@ split_permute_cat_test_case_list = [
 ]
 
 
-def split_permute_cat_ref(
-    input: torch.Tensor, indices: torch.Tensor, F: int, D: int
-) -> torch.Tensor:
+def split_permute_cat_ref(input: torch.Tensor, indices: torch.Tensor, F: int, D: int) -> torch.Tensor:
     split = input.split([D] * F, dim=1)
     return torch.cat([split[i] for i in indices], dim=1)
 
@@ -45,6 +43,4 @@ def test_split_permute_cat_case(B, F, D, dtype):
     output_ref = split_permute_cat_ref(input.to(torch.float), indices, F, D)
     output_ref_tensor = torch.tensor(output_ref)
 
-    torch.testing.assert_close(
-        output.to(torch.float).to(cpu).numpy(), output_ref_tensor.numpy()
-    )
+    torch.testing.assert_close(output.to(torch.float).to(cpu).numpy(), output_ref_tensor.numpy())

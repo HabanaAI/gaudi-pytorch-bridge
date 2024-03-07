@@ -18,8 +18,7 @@ from test_utils import setup_teardown_env_fixture, format_tc
 
 
 @pytest.mark.parametrize(
-    "shapes",
-    [[(2, 9, 8), (2, 3, 16), (2, 3, 56)], [(1, 2, 9, 8), (1, 3, 3, 16), (1, 7, 3, 56)]], ids=format_tc
+    "shapes", [[(2, 9, 8), (2, 3, 16), (2, 3, 56)], [(1, 2, 9, 8), (1, 3, 3, 16), (1, 7, 3, 56)]], ids=format_tc
 )
 @pytest.mark.parametrize("kernel_size", [(4, 3)])
 @pytest.mark.parametrize("stride", [(2, 1)])
@@ -44,16 +43,10 @@ def test_hpu_maxpool2d_bwd(
     dtype,
     setup_teardown_env_fixture,
 ):
-    maxpool2d = torch.nn.MaxPool2d(
-        kernel_size, stride, padding, dilation, return_indices, ceil_mode
-    )
-    hpu_wrapped_fn = torch.compile(
-        maxpool2d, backend="hpu_backend"
-    ) if pytest.mode == "compile" else maxpool2d
+    maxpool2d = torch.nn.MaxPool2d(kernel_size, stride, padding, dilation, return_indices, ceil_mode)
+    hpu_wrapped_fn = torch.compile(maxpool2d, backend="hpu_backend") if pytest.mode == "compile" else maxpool2d
 
-    cpu_wrapped_fn = torch.compile(
-        maxpool2d
-    ) if pytest.mode == "compile" else maxpool2d
+    cpu_wrapped_fn = torch.compile(maxpool2d) if pytest.mode == "compile" else maxpool2d
 
     torch._dynamo.reset()
     for shape in shapes:

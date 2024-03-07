@@ -20,7 +20,6 @@ cpu = torch.device("cpu")
 
 
 class TorchNVLAMB(torch.optim.Optimizer):
-
     """Implements a pure pytorch variant of FuseLAMB optimizer from apex.optimizers.FusedLAMB.
     :class:`apex.optimizers.FusedLAMB`'s usage is identical to any ordinary Pytorch optimizer::
 
@@ -98,9 +97,7 @@ class TorchNVLAMB(torch.optim.Optimizer):
         )
         super().__init__(params, defaults)
         self.fused = fused
-        self.adam_w_mode = (
-            1 if adam_w_mode else 0
-        )  # dummy for now, always use adam_w mode (wd is excluded from EMA)
+        self.adam_w_mode = 1 if adam_w_mode else 0  # dummy for now, always use adam_w mode (wd is excluded from EMA)
         self.set_grad_none = set_grad_none
         self.use_nvlamb = use_nvlamb
 
@@ -130,9 +127,7 @@ class TorchNVLAMB(torch.optim.Optimizer):
                     continue
                 grad = p.grad.data
                 if grad.is_sparse:
-                    raise RuntimeError(
-                        "Lamb does not support sparse gradients, consider SparseAdam instad."
-                    )
+                    raise RuntimeError("Lamb does not support sparse gradients, consider SparseAdam instad.")
                 global_grad_norm.add_(grad.pow(2).sum())
 
         global_grad_norm = global_grad_norm.sqrt()
@@ -199,11 +194,7 @@ class TorchNVLAMB(torch.optim.Optimizer):
                     adam_step.add_(p.data, alpha=group["weight_decay"])
                 # || u_t ||
                 adam_norm = adam_step.norm()
-                if (
-                    (group["weight_decay"] != 0 or self.use_nvlamb)
-                    and adam_norm > 0
-                    and weight_norm > 0
-                ):
+                if (group["weight_decay"] != 0 or self.use_nvlamb) and adam_norm > 0 and weight_norm > 0:
                     trust_ratio = weight_norm / adam_norm
                 else:
                     trust_ratio = 1

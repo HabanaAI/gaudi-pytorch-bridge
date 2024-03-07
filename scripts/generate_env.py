@@ -125,24 +125,14 @@ def create_comment(text):
 
 def generate_bindings_get(flag):
     python_name = "get_" + flag.lower()
-    cpp_bindings = (
-        'm.def("'
-        + python_name
-        + '", []() { return GET_ENV_FLAG_NEW('
-        + flag
-        + "); });\n"
-    )
-    python_bindings = (
-        "def " + python_name + "():\n    return bc." + python_name + "()\n"
-    )
+    cpp_bindings = 'm.def("' + python_name + '", []() { return GET_ENV_FLAG_NEW(' + flag + "); });\n"
+    python_bindings = "def " + python_name + "():\n    return bc." + python_name + "()\n"
     return cpp_bindings, python_bindings
 
 
 def generate_bindings_set(dictionary, flag):
     python_name = "set_" + flag.lower()
-    python_bindings = (
-        "def " + python_name + "(value):\n    bc." + python_name + "(value)\n"
-    )
+    python_bindings = "def " + python_name + "(value):\n    bc." + python_name + "(value)\n"
     if "type" not in dictionary[flag]:
         cpp_bindings = (
             'm.def("'
@@ -198,13 +188,7 @@ def generate_env(dictionary):
             cpp_comment, py_comment = create_comment(dictionary[flag]["doc"])
 
         if "type" not in dictionary[flag]:
-            cpp_line += (
-                "ENV_STRING_STRUCT_DEFINITION("
-                + flag
-                + ', "'
-                + str(dictionary[flag]["default"])
-                + '");'
-            )
+            cpp_line += "ENV_STRING_STRUCT_DEFINITION(" + flag + ', "' + str(dictionary[flag]["default"]) + '");'
             cpp_definition_line += "ENV_STRING_STRUCT_STATIC_DEFINITION(" + flag + ");"
         else:
             cpp_line += (
@@ -216,13 +200,7 @@ def generate_env(dictionary):
                 + value_to_str(dictionary[flag]["default"])
                 + ");"
             )
-            cpp_definition_line += (
-                "ENV_STRUCT_STATIC_DEFINITION("
-                + flag
-                + ", "
-                + str(dictionary[flag]["type"])
-                + ");"
-            )
+            cpp_definition_line += "ENV_STRUCT_STATIC_DEFINITION(" + flag + ", " + str(dictionary[flag]["type"]) + ");"
 
         cpp_binding_line, python_binding_line = generate_bindings(dictionary, flag)
 
@@ -266,9 +244,7 @@ def main():
         cpp_output.write("#pragma once\n\n")
         cpp_output.write(cpp_code)
 
-    with open(
-        args.output_dir + "/env_flags_definition_generated.cpp", "w"
-    ) as cpp_output:
+    with open(args.output_dir + "/env_flags_definition_generated.cpp", "w") as cpp_output:
         cpp_output.write(copyright_header)
         cpp_output.write(cpp_definition)
 
@@ -280,11 +256,7 @@ def main():
         py_output.write(python_copyright_header)
         py_output.write(python_code)
 
-    print(
-        "Environmental variables have been generated: "
-        + args.output_dir
-        + "/env_flags_generated.h"
-    )
+    print("Environmental variables have been generated: " + args.output_dir + "/env_flags_generated.h")
     print(
         "Environmental variables definition have been generated: "
         + args.output_dir

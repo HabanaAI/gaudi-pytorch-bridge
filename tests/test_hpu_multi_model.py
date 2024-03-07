@@ -1,10 +1,3 @@
-<<<<<<< HEAD:tests/test_hpu_multi_model.py
-import torch, pytest
-from torch import nn
-import torch.nn.functional as F
-import habana_frameworks.torch as ht
-=======
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/lazy/test_hpu_multi_model.py
 import math
 import time
 

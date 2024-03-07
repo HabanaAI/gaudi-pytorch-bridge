@@ -181,9 +181,7 @@ def test_hpu_addcmul_out_op(N, H, W, C, value, Nout, Hout, Wout, Cout):
     hpu_outtensor = outtensorHPU.to(hpu)
 
     torch.addcmul(input, tensor1, tensor2, value=value, out=outtensor)
-    torch.addcmul(
-        hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor
-    )
+    torch.addcmul(hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor)
 
     compare_tensors(hpu_tensor_input, input, atol=0.001, rtol=1.0e-3)
 
@@ -197,16 +195,10 @@ def test_hpu_addcmul_out_op(N, H, W, C, value, Nout, Hout, Wout, Cout):
     ],
 )
 @pytest.mark.parametrize("in_type, t1_type, t2_type, out_type", dtype_list)
-def test_hpu_addcmul_out_op_dtype(
-    N, H, W, C, value, Nout, Hout, Wout, Cout, in_type, t1_type, t2_type, out_type
-):
+def test_hpu_addcmul_out_op_dtype(N, H, W, C, value, Nout, Hout, Wout, Cout, in_type, t1_type, t2_type, out_type):
     input = torch.randint(element_val_min, element_val_max, (N, C, H, W), dtype=in_type)
-    tensor1 = torch.randint(
-        element_val_min, element_val_max, (N, C, H, W), dtype=t1_type
-    )
-    tensor2 = torch.randint(
-        element_val_min, element_val_max, (N, C, H, W), dtype=t2_type
-    )
+    tensor1 = torch.randint(element_val_min, element_val_max, (N, C, H, W), dtype=t1_type)
+    tensor2 = torch.randint(element_val_min, element_val_max, (N, C, H, W), dtype=t2_type)
     outtensor = torch.empty((N, C, H, W), dtype=out_type)
     outtensorHPU = torch.empty((N, C, H, W), dtype=out_type)
 
@@ -216,9 +208,7 @@ def test_hpu_addcmul_out_op_dtype(
     hpu_outtensor = outtensorHPU.to(hpu)
 
     torch.addcmul(input, tensor1, tensor2, value=value, out=outtensor)
-    torch.addcmul(
-        hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor
-    )
+    torch.addcmul(hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor)
 
     compare_tensors(hpu_tensor_input, input, atol=0.001, rtol=1.0e-3)
 

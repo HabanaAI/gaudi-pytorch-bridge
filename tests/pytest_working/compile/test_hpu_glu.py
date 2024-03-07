@@ -15,7 +15,7 @@ import habana_frameworks.torch.dynamo.compile_backend
 from test_utils import format_tc
 
 
-@pytest.mark.parametrize("shape", [[2,2,4], [4,6,4,2,6]], ids=format_tc)
+@pytest.mark.parametrize("shape", [[2, 2, 4], [4, 6, 4, 2, 6]], ids=format_tc)
 @pytest.mark.parametrize("dim", [-1, 0, 2])
 @pytest.mark.parametrize("backward", [False, True])
 def test_hpu_glu(shape, dim, backward):

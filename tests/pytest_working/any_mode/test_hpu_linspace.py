@@ -17,14 +17,15 @@ from test_utils import (
     is_pytest_mode_compile,
     clear_t_compile_logs,
     check_ops_executed_in_jit_ir,
-    is_torch_at_least
+    is_torch_at_least,
 )
+
 
 @pytest.mark.parametrize("start", [0.1664, 0.6964, 4.124])
 @pytest.mark.parametrize("end", [1.2032, 2.0438, 2.5345])
 @pytest.mark.parametrize("steps", [0, 1, 6, 13])
 def test_hpu_linspace(start, end, steps):
-    def fn(start, end, steps, device='cpu'):
+    def fn(start, end, steps, device="cpu"):
         return torch.linspace(start, end, steps, device=device)
 
     expected_result = fn(start, end, steps)
@@ -46,15 +47,20 @@ def test_hpu_linspace(start, end, steps):
         else:
             check_ops_executed_in_jit_ir("arange")
 
-@pytest.mark.skipif(not is_torch_at_least("2.2.0a0"), reason="Scalar_Tensor and Tensor_scalar variants only support PyTorch version >= 2.2.0")
+
+@pytest.mark.skipif(
+    not is_torch_at_least("2.2.0a0"),
+    reason="Scalar_Tensor and Tensor_scalar variants only support PyTorch version >= 2.2.0",
+)
 @pytest.mark.parametrize("start", [0.1664, 1, 10])
 @pytest.mark.parametrize("end", [1.2032, 5])
 @pytest.mark.parametrize("steps", [0, 1, 5])
 @pytest.mark.parametrize("dtype", [torch.float, torch.int64])
-@pytest.mark.parametrize("variant", [1, 2]) # [start, end] => 0: Tensor, Scalar; 1: Scalar, Tensor
+@pytest.mark.parametrize("variant", [1, 2])  # [start, end] => 0: Tensor, Scalar; 1: Scalar, Tensor
 def test_hpu_linspace_tensor_input(start, end, steps, dtype, variant):
     pytest.xfail("SW-175846 - detectd during upgrade, need further debugging")
-    def linspace(start, end, steps, device='cpu'):
+
+    def linspace(start, end, steps, device="cpu"):
         return torch.linspace(start, end, steps, device=device)
 
     if variant == 1:
@@ -62,7 +68,7 @@ def test_hpu_linspace_tensor_input(start, end, steps, dtype, variant):
     if variant == 2:
         end = torch.tensor(end, dtype=dtype)
 
-    args=[start, end, steps]
+    args = [start, end, steps]
     fn = linspace
     hpu_fn = linspace
 

@@ -65,6 +65,4 @@ def test_hpu_lazy_data_ptr(input_tensor):
     # TBD: This can be enabled only after as_strided patch makes views to share
     # storage
     # assert(t3_h_data_ptr == t3_view_data_ptr)
-    assert np.allclose(
-        out_cpu_to_compare, out_h_cpu_to_compare, atol=0, rtol=0
-    ), "Data mismatch"
+    assert np.allclose(out_cpu_to_compare, out_h_cpu_to_compare, atol=0, rtol=0), "Data mismatch"

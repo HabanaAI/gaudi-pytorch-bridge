@@ -61,6 +61,7 @@ def test_hpu_linear_fwd_bwd(N, C, K, dtype, tol):
         rtol=tol,
     )
 
+
 @pytest.mark.xfail(reason="Results mismatch")
 @pytest.mark.parametrize("N, C, K", test_case_list)
 def test_hpu_linear_no_bias(N, C, K):
@@ -75,9 +76,8 @@ def test_hpu_linear_no_bias_fwd_bwd(N, C, K):
     kernel = nn.Linear(in_features=C, out_features=K, bias=False)
     kernel_params_fwd = {"input": torch.randn(N, C)}
     bwd_tensors = [torch.randn(N, K)]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel, kernel_params_fwd=kernel_params_fwd, tensor_list_bwd=bwd_tensors
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel, kernel_params_fwd=kernel_params_fwd, tensor_list_bwd=bwd_tensors)
+
 
 @pytest.mark.xfail
 @pytest.mark.parametrize("N, H, W, C", test_case_list_bmm)

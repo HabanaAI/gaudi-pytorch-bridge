@@ -10,11 +10,11 @@ from pytest_working.test_utils import env_var_in_scope
 
 
 def _zero1_with_ddp_worker(rank, world_size):
-    os.environ['RANK'] = str(rank)
+    os.environ["RANK"] = str(rank)
 
     import habana_frameworks.torch.core as htcore
 
-    device = torch.device('hpu')
+    device = torch.device("hpu")
 
     torch.manual_seed(rank)
     input = torch.randn(2000, 2000)
@@ -39,7 +39,8 @@ def _zero1_with_ddp_worker(rank, world_size):
         lr=0.01,
         overlap_with_ddp=False,
         weight_decay=1e-2,
-        eps=1e-8)
+        eps=1e-8,
+    )
 
     for i in range(10):
         # forward pass
@@ -66,30 +67,24 @@ def test_distributed_single_rank_emulation():
     world_size = 8
 
     env_vars = {
-        'MASTER_ADDR': 'localhost',
-        'MASTER_PORT': '29500',
-        'PT_HPU_EMULATE_DISTRIBUTED': 1,
-        'PT_HPU_EMULATE_DISTRIBUTED_SINGLE_RANK': working_rank,
+        "MASTER_ADDR": "localhost",
+        "MASTER_PORT": "29500",
+        "PT_HPU_EMULATE_DISTRIBUTED": 1,
+        "PT_HPU_EMULATE_DISTRIBUTED_SINGLE_RANK": working_rank,
     }
 
     with env_var_in_scope(env_vars):
-        mp.spawn(_zero1_with_ddp_worker,
-                 args=(world_size,),
-                 nprocs=world_size,
-                 join=True)
+        mp.spawn(_zero1_with_ddp_worker, args=(world_size,), nprocs=world_size, join=True)
 
 
 def test_distributed_emulation_skip_collective_only():
     env_vars = {
-        'MASTER_ADDR': 'localhost',
-        'MASTER_PORT': '29500',
-        'PT_HPU_EMULATE_DISTRIBUTED': 1,
+        "MASTER_ADDR": "localhost",
+        "MASTER_PORT": "29500",
+        "PT_HPU_EMULATE_DISTRIBUTED": 1,
     }
 
     world_size = 8
 
     with env_var_in_scope(env_vars):
-        mp.spawn(_zero1_with_ddp_worker,
-                 args=(world_size,),
-                 nprocs=world_size,
-                 join=True)
+        mp.spawn(_zero1_with_ddp_worker, args=(world_size,), nprocs=world_size, join=True)

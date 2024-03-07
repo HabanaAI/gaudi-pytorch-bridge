@@ -42,12 +42,8 @@ class FusedEMA:
         if not 0.0 <= decay:
             raise ValueError("Invalid decay value: {}".format(decay))
 
-        self.ema = deepcopy(
-            model.module if is_parallel(model) else model
-        ).eval()  # FP32 EMA
-        self.decay = lambda x: decay * (
-            1 - math.exp(-x / 2000)
-        )  # decay exponential ramp (to help early epochs) #decay
+        self.ema = deepcopy(model.module if is_parallel(model) else model).eval()  # FP32 EMA
+        self.decay = lambda x: decay * (1 - math.exp(-x / 2000))  # decay exponential ramp (to help early epochs) #decay
         self.updates = updates
         self.updated_ema = list(self.ema.state_dict().values())
         if is_lazy():

@@ -96,9 +96,7 @@ class HabanaGraphModule(torch.nn.Module):
                 return
 
 
-def get_callable_recipe(
-    jit_ir, graph_module: torch.fx.GraphModule, is_training=False, is_dynamic=False
-):
+def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule, is_training=False, is_dynamic=False):
     """
     Calls backend to create compiled recipe or just returns unchanged module to
     run it eagerly depending on config.
@@ -150,10 +148,7 @@ def get_symbolic_metadata(graph_module, outputs_metadata):
                 shape = node.meta["output_shapes"][0]
                 for dim, sz in enumerate(shape):
                     sz_str = pexpr(sz)
-                    if (
-                        isinstance(sz, torch.SymInt)
-                        and sz_str not in input_symbolic_dict
-                    ):
+                    if isinstance(sz, torch.SymInt) and sz_str not in input_symbolic_dict:
                         input_symbolic_dict[sz_str] = (input_index, dim)
             else:
                 logger.debug(
@@ -202,9 +197,7 @@ def get_outputs_metadata(graph_module):
         if node.op == "output":
             for i in node.all_input_nodes:
                 assert len(i.meta["output_shapes"]) == len(i.meta["output_dtypes"])
-                for shape, dtype in zip(
-                    i.meta["output_shapes"], i.meta["output_dtypes"]
-                ):
+                for shape, dtype in zip(i.meta["output_shapes"], i.meta["output_dtypes"]):
                     outputs_metadata.append((shape, dtype))
 
     return outputs_metadata
@@ -250,7 +243,8 @@ def get_outputs_metadata_dynamic(graph_module):
                             assert False
 
                     dim_size = len(dynamic_shape_sympy)
-                    outputs_metadata.append(((dynamic_shape_sympy, dynamic_shape_str,
-                                              dynamic_shape_sym_expr_token, dim_size), dtype))
+                    outputs_metadata.append(
+                        ((dynamic_shape_sympy, dynamic_shape_str, dynamic_shape_sym_expr_token, dim_size), dtype)
+                    )
 
     return outputs_metadata

@@ -54,9 +54,7 @@ def permute_sparse_data_ref(
     else:
         permuted_lengths = torch.index_select(lengths.view(T, -1), 0, permute)
         original_segment_lengths = lengths.view(T, -1).sum(dim=1, dtype=torch.int32)
-        original_segment_start = [0] + list(
-            accumulate(original_segment_lengths.view(-1))
-        )
+        original_segment_start = [0] + list(accumulate(original_segment_lengths.view(-1)))
 
         permuted_indices = []
         permuted_weights = []
@@ -97,24 +95,15 @@ permute_test_case_list = [
     (8, 3, 4, 8, False, False, True),
 ]
 
-<<<<<<< HEAD:tests/test_hpu_permute_sparse_data.py
+
 @pytest.mark.xfail(reason="RuntimeError: synNodeCreateWithId failed")
 @pytest.mark.parametrize("B, T, L, W, has_weight, is_1D, long_index", permute_test_case_list)
-=======
-
-@pytest.mark.parametrize(
-    "B, T, L, W, has_weight, is_1D, long_index", permute_test_case_list
-)
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_permute_sparse_data.py
 def test_permute_sparse_data_case(B, T, L, W, has_weight, is_1D, long_index):
     index_dtype = torch.int64 if long_index else torch.int32
     length_splits: Optional[List[torch.Tensor]] = None
     if is_1D:
         batch_sizes = [random.randint(a=1, b=B) for i in range(W)]
-        length_splits = [
-            torch.randint(low=1, high=L, size=(T, batch_sizes[i])).type(index_dtype)
-            for i in range(W)
-        ]
+        length_splits = [torch.randint(low=1, high=L, size=(T, batch_sizes[i])).type(index_dtype) for i in range(W)]
         lengths = torch.cat(length_splits, dim=1)
     else:
         lengths = torch.randint(low=1, high=L, size=(T, B)).type(index_dtype)
@@ -127,9 +116,7 @@ def test_permute_sparse_data_case(B, T, L, W, has_weight, is_1D, long_index):
     ).type(index_dtype)
     if is_1D:
         permute_list = []
-        offset_w = [0] + list(
-            accumulate([length_split.numel() for length_split in length_splits])
-        )
+        offset_w = [0] + list(accumulate([length_split.numel() for length_split in length_splits]))
         for t in range(T):
             for w in range(W):
                 for b in range(batch_sizes[w]):
@@ -175,15 +162,9 @@ def test_permute_sparse_data_case(B, T, L, W, has_weight, is_1D, long_index):
             weights.to(hpu) if has_weight else None,
         )
 
-    torch.testing.assert_close(
-        permuted_indices.to(cpu).numpy(), permuted_indices_ref.numpy()
-    )
-    torch.testing.assert_close(
-        permuted_lengths.to(cpu).numpy(), permuted_lengths_ref.numpy()
-    )
+    torch.testing.assert_close(permuted_indices.to(cpu).numpy(), permuted_indices_ref.numpy())
+    torch.testing.assert_close(permuted_lengths.to(cpu).numpy(), permuted_lengths_ref.numpy())
     if has_weight:
-        torch.testing.assert_close(
-            permuted_weights.to(cpu).numpy(), permuted_weights_ref.numpy()
-        )
+        torch.testing.assert_close(permuted_weights.to(cpu).numpy(), permuted_weights_ref.numpy())
     else:
         assert permuted_weights is None and permuted_weights_ref is None

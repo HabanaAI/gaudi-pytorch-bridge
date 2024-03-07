@@ -21,42 +21,26 @@ input_sizes = [
     (4, 5),
     (2, 3, 4),
     (2, 3, 2, 3),
-    (2, 3, 2, 3, 2)
+    (2, 3, 2, 3, 2),
 ]
 
-weight_uses = [
-    True, False
-]
+weight_uses = [True, False]
 
-reductions = [
-    "none", "mean", "sum"
-]
+reductions = ["none", "mean", "sum"]
 
-bwd_reductions = [
-    "mean", "sum"
-]
+bwd_reductions = ["mean", "sum"]
 
-dtypes = [
-    torch.float32,
-    torch.bfloat16
-]
+dtypes = [torch.float32, torch.bfloat16]
 
 if not is_gaudi1():
     dtypes.append(torch.float16)
 
-atol_for_dtype = {
-    torch.float32:0.001,
-    torch.float16:0.005,
-    torch.bfloat16:0.05
-}
+atol_for_dtype = {torch.float32: 0.001, torch.float16: 0.005, torch.bfloat16: 0.05}
 
-rtol_for_dtype = {
-    torch.float32:0.001,
-    torch.float16:0.001,
-    torch.bfloat16:0.01
-}
+rtol_for_dtype = {torch.float32: 0.001, torch.float16: 0.001, torch.bfloat16: 0.01}
 
 hpu = torch.device("hpu")
+
 
 def gen_inputs(size, weight_use, dtype, force_f32_for_cpu=False):
     input = torch.sigmoid(torch.randn(size, dtype=torch.float32 if force_f32_for_cpu else dtype))
@@ -71,8 +55,8 @@ def gen_inputs(size, weight_use, dtype, force_f32_for_cpu=False):
     target.requires_grad = True
     weight_h = weight.to(dtype).to(hpu) if weight is not None else None
 
-    c = {'in': input, 't':target, 'w': weight}
-    h = {'in': input_h, 't':target_h, 'w': weight_h}
+    c = {"in": input, "t": target, "w": weight}
+    h = {"in": input_h, "t": target_h, "w": weight_h}
 
     return c, h
 
@@ -85,9 +69,11 @@ def test_hpu_compile_binary_cross_entropy_fwd(input_size, weight_use, reduction,
     if type(input_size) == tuple and len(input_size) == 5:
         pytest.xfail("Binary cross entropy Op doesn't support 5D inputs on hpu - [SW-163929]")
     if weight_use:
-        pytest.xfail("Due to improper handling of SymInts in PT 2.1, test fails on cpu when weights are used. Used to work on PT 2.0 - [SW-165520]")
+        pytest.xfail(
+            "Due to improper handling of SymInts in PT 2.1, test fails on cpu when weights are used. Used to work on PT 2.0 - [SW-165520]"
+        )
 
-    def fn(input, target, weight=None, reduction='none'):
+    def fn(input, target, weight=None, reduction="none"):
         return torch.nn.functional.binary_cross_entropy(input, target, weight=weight, reduction=reduction)
 
     fn_cpu = torch.compile(fn, dynamic=True)
@@ -95,10 +81,12 @@ def test_hpu_compile_binary_cross_entropy_fwd(input_size, weight_use, reduction,
 
     c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=True)
 
-    entropy = fn_cpu(c['in'], c['t'], weight=c['w'], reduction=reduction)
-    entropy_h = fn_hpu(h['in'], h['t'], weight=h['w'], reduction=reduction)
+    entropy = fn_cpu(c["in"], c["t"], weight=c["w"], reduction=reduction)
+    entropy_h = fn_hpu(h["in"], h["t"], weight=h["w"], reduction=reduction)
 
-    assert torch.allclose(entropy, entropy_h.cpu().to(torch.float32), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
+    assert torch.allclose(
+        entropy, entropy_h.cpu().to(torch.float32), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype]
+    )
 
 
 @pytest.mark.parametrize("input_size", input_sizes)
@@ -106,8 +94,10 @@ def test_hpu_compile_binary_cross_entropy_fwd(input_size, weight_use, reduction,
 @pytest.mark.parametrize("reduction", bwd_reductions)
 @pytest.mark.parametrize("dtype", dtypes)
 def test_hpu_compile_binary_cross_entropy_bwd(input_size, weight_use, reduction, dtype):
-    def fn(input, target, weight=None, reduction='none'):
-        entropy = torch.nn.functional.binary_cross_entropy_with_logits(input, target, weight=weight, reduction=reduction)
+    def fn(input, target, weight=None, reduction="none"):
+        entropy = torch.nn.functional.binary_cross_entropy_with_logits(
+            input, target, weight=weight, reduction=reduction
+        )
         grad = torch.ones_like(entropy)
         entropy.backward(grad)
         return input.grad, target.grad
@@ -117,11 +107,15 @@ def test_hpu_compile_binary_cross_entropy_bwd(input_size, weight_use, reduction,
 
     c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=True)
 
-    input_grad, target_grad = fn_cpu(c['in'], c['t'], weight=c['w'], reduction=reduction)
-    input_grad_h, target_grad_h = fn_hpu(h['in'], h['t'], weight=h['w'], reduction=reduction)
+    input_grad, target_grad = fn_cpu(c["in"], c["t"], weight=c["w"], reduction=reduction)
+    input_grad_h, target_grad_h = fn_hpu(h["in"], h["t"], weight=h["w"], reduction=reduction)
 
-    assert torch.allclose(input_grad, input_grad_h.cpu().to(torch.float32), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
-    assert torch.allclose(target_grad, target_grad_h.cpu().to(torch.float32), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
+    assert torch.allclose(
+        input_grad, input_grad_h.cpu().to(torch.float32), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype]
+    )
+    assert torch.allclose(
+        target_grad, target_grad_h.cpu().to(torch.float32), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype]
+    )
 
 
 @pytest.mark.parametrize("input_size", input_sizes)
@@ -129,7 +123,7 @@ def test_hpu_compile_binary_cross_entropy_bwd(input_size, weight_use, reduction,
 @pytest.mark.parametrize("reduction", reductions)
 @pytest.mark.parametrize("dtype", dtypes)
 def test_hpu_compile_binary_cross_entropy_logits_fwd(input_size, weight_use, reduction, dtype):
-    def fn(input, target, weight=None, reduction='none'):
+    def fn(input, target, weight=None, reduction="none"):
         return torch.nn.functional.binary_cross_entropy_with_logits(input, target, weight=weight, reduction=reduction)
 
     fn_cpu = torch.compile(fn)
@@ -137,8 +131,8 @@ def test_hpu_compile_binary_cross_entropy_logits_fwd(input_size, weight_use, red
 
     c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=False)
 
-    entropy = fn_cpu(c['in'], c['t'], weight=c['w'], reduction=reduction)
-    entropy_h = fn_hpu(h['in'], h['t'], weight=h['w'], reduction=reduction)
+    entropy = fn_cpu(c["in"], c["t"], weight=c["w"], reduction=reduction)
+    entropy_h = fn_hpu(h["in"], h["t"], weight=h["w"], reduction=reduction)
 
     assert torch.allclose(entropy, entropy_h.cpu(), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
 
@@ -148,8 +142,10 @@ def test_hpu_compile_binary_cross_entropy_logits_fwd(input_size, weight_use, red
 @pytest.mark.parametrize("reduction", bwd_reductions)
 @pytest.mark.parametrize("dtype", dtypes)
 def test_hpu_compile_binary_cross_entropy_logits_bwd(input_size, weight_use, reduction, dtype):
-    def fn(input, target, weight=None, reduction='none'):
-        entropy = torch.nn.functional.binary_cross_entropy_with_logits(input, target, weight=weight, reduction=reduction)
+    def fn(input, target, weight=None, reduction="none"):
+        entropy = torch.nn.functional.binary_cross_entropy_with_logits(
+            input, target, weight=weight, reduction=reduction
+        )
         grad = torch.ones_like(entropy)
         entropy.backward(grad)
         return input.grad, target.grad
@@ -159,8 +155,8 @@ def test_hpu_compile_binary_cross_entropy_logits_bwd(input_size, weight_use, red
 
     c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=False)
 
-    input_grad, target_grad = fn_cpu(c['in'], c['t'], weight=c['w'], reduction=reduction)
-    input_grad_h, target_grad_h = fn_hpu(h['in'], h['t'], weight=h['w'], reduction=reduction)
+    input_grad, target_grad = fn_cpu(c["in"], c["t"], weight=c["w"], reduction=reduction)
+    input_grad_h, target_grad_h = fn_hpu(h["in"], h["t"], weight=h["w"], reduction=reduction)
 
     assert torch.allclose(input_grad, input_grad_h.cpu(), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
     assert torch.allclose(target_grad, target_grad_h.cpu(), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])

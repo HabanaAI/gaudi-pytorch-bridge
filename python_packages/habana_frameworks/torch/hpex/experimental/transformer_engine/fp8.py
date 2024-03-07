@@ -46,8 +46,9 @@ _reason_for_no_fp8 = ""
 def _check_fp8_support() -> Tuple[bool, str]:
     """Return if fp8 support is available"""
     from habana_frameworks.torch.hpu import get_device_name
+
     if get_device_name() == "GAUDI":
-       return False, "FP8 not supported on Gaudi, Gaudi2 or higher required"
+        return False, "FP8 not supported on Gaudi, Gaudi2 or higher required"
     return True, ""
 
 
@@ -163,7 +164,9 @@ def add_amax_to_global_buffer(fp8_meta: Dict[str, Any], forward: bool = True) ->
     buffer_position_key = get_buffer_position_key(forward=forward)
 
     if buffer_key not in _global_fp8_buffer:
-        _global_fp8_buffer[buffer_key] = [fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index][0]]
+        _global_fp8_buffer[buffer_key] = [
+            fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index][0]
+        ]
     else:
         _global_fp8_buffer[buffer_key].append(
             fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index][0]
@@ -225,9 +228,7 @@ def get_old_fp8_meta_tensors_for_recompute(fp8_meta: Dict[str, Any]) -> None:
 
     # Retrieve stashed amaxes and scales from phase 1 pre forward.
     buffer_position_key = "global_fp8_buffer_pos_fwd_recompute"
-    stashed_fp8_meta = _fp8_tensors_recompute_buffer[
-        fp8_meta[buffer_position_key]
-    ].popleft()
+    stashed_fp8_meta = _fp8_tensors_recompute_buffer[fp8_meta[buffer_position_key]].popleft()
 
     # Replace amaxes and scales with stashed values for phase 2 forward
     def _restore_meta(stashed, t: MetaTensorType):
@@ -244,6 +245,7 @@ def get_old_fp8_meta_tensors_for_recompute(fp8_meta: Dict[str, Any]) -> None:
 
 def restore_fp8_meta_tensors(fp8_meta: Dict[str, Any]) -> None:
     """Restore latest scaling factors and amaxes after recompute forward run."""
+
     def _restore_updated_meta(t: MetaTensorType):
         key = get_meta_tensor_key(t)
         key_suffix = get_key_suffix(t)
@@ -253,9 +255,7 @@ def restore_fp8_meta_tensors(fp8_meta: Dict[str, Any]) -> None:
         fp8_meta[key].scale_inv = fp8_meta[f"updated_scale_inv_{key_suffix}"]
 
 
-def copy_amax_from_global_buffer(
-    fp8_meta: Dict[str, Any], forward: bool = True
-) -> None:
+def copy_amax_from_global_buffer(fp8_meta: Dict[str, Any], forward: bool = True) -> None:
     """Populate current amax with the correct location from buffer."""
     fp8_meta_tensor_key = get_meta_tensor_key_bool(forward=forward)
     buffer_position_key = get_buffer_position_key(forward=forward)
@@ -265,22 +265,20 @@ def copy_amax_from_global_buffer(
     amax_buffer_key = get_amax_buffer_key(fp8_meta, forward=forward)
     assert amax_buffer_key in _global_fp8_buffer, "TE internal error."
 
-    fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index][0] = _global_fp8_buffer[amax_buffer_key][
-        fp8_meta[buffer_position_key]
-    ]
+    fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index][0] = (
+        _global_fp8_buffer[amax_buffer_key][fp8_meta[buffer_position_key]]
+    )
 
     # NOTE: For hybrid mode amax_history is the same as for forward. To limit the number
     # of reduce operation, only fwd amax_history was reduced. Now the reduction result needs to be copied also to hybrid
     if forward and is_hybrid_mode(fp8_meta):
         hybrid_key = get_meta_tensor_key(MetaTensorType.HYBRID)
-        fp8_meta[hybrid_key].amax_history[fp8_meta[hybrid_key].amax_history_index][0] = _global_fp8_buffer[amax_buffer_key][
-            fp8_meta[buffer_position_key]
-        ]
+        fp8_meta[hybrid_key].amax_history[fp8_meta[hybrid_key].amax_history_index][0] = _global_fp8_buffer[
+            amax_buffer_key
+        ][fp8_meta[buffer_position_key]]
 
 
-def set_amax_buffer_key_deletion(
-    fp8_meta: Dict[str, Any], forward: bool = True
-) -> None:
+def set_amax_buffer_key_deletion(fp8_meta: Dict[str, Any], forward: bool = True) -> None:
     """Delete this amax key from global buffer during autocast end."""
     if get_run_id_key(forward=forward) not in fp8_meta:
         return
@@ -372,7 +370,7 @@ def new_fp8_context_id() -> int:
     return _FP8_AUTOCAST_COUNTER
 
 
-def set_fp8_autocast_counter(value: int=0):
+def set_fp8_autocast_counter(value: int = 0):
     global _FP8_AUTOCAST_COUNTER
     _FP8_AUTOCAST_COUNTER = value
 
@@ -506,10 +504,7 @@ def _compute_scaling_factor(
     return recipe.scaling_factor_compute_algo(amax, scale, fp8_max, recipe)
 
 
-def update_amax_history_index(
-    fp8_meta: Dict[str, Any],
-    fp8_meta_tensor_key: str
-):
+def update_amax_history_index(fp8_meta: Dict[str, Any], fp8_meta_tensor_key: str):
     if fp8_meta["recipe"].amax_history_len > 1:
         fp8_meta[fp8_meta_tensor_key].amax_history_index.add_(1)
         fp8_meta[fp8_meta_tensor_key].amax_history_index.remainder_(fp8_meta["recipe"].amax_history_len)
@@ -521,6 +516,7 @@ def amax_and_scale_update(
     perform_scale_update: bool,
 ) -> None:
     """Updates fp8 amaxes/scales for fwd | bwd."""
+
     def _update(meta_tensor_type: MetaTensorType):
         fp8_meta_tensor_key = get_meta_tensor_key(meta_tensor_type)
         fp8_max_key = get_fp8_max_key(meta_tensor_type)
@@ -561,20 +557,14 @@ def amax_and_scale_update(
         _update(MetaTensorType.BACKWARD)
 
 
-def get_fp8_te_dtype(
-    fp8_recipe: DelayedScaling, fprop_tensor: bool = True
-) -> torch.dtype:
+def get_fp8_te_dtype(fp8_recipe: DelayedScaling, fprop_tensor: bool = True) -> torch.dtype:
     """Get fp8 data type according to recipe and tensor"""
-    if fp8_recipe.fp8_format == Format.E4M3 or (
-        fp8_recipe.fp8_format == Format.HYBRID and fprop_tensor
-    ):
+    if fp8_recipe.fp8_format == Format.E4M3 or (fp8_recipe.fp8_format == Format.HYBRID and fprop_tensor):
         return torch.float8_e4m3fn
     return torch.float8_e5m2
 
 
-def get_fp8_te_sr(
-    fp8_recipe: DelayedScaling, fprop_tensor: bool = True
-) -> bool:
+def get_fp8_te_sr(fp8_recipe: DelayedScaling, fprop_tensor: bool = True) -> bool:
     """Get fp8 stochastic rounding flag according to recipe, tensor and env flag"""
     # Always disabled in fwd pass
     if fprop_tensor:
@@ -582,17 +572,16 @@ def get_fp8_te_sr(
 
     # Force flag has the priority
     import os
-    force_sr_bwd = os.getenv('PT_TE_FORCE_SR_BWD')
+
+    force_sr_bwd = os.getenv("PT_TE_FORCE_SR_BWD")
     if force_sr_bwd is not None:
-        return force_sr_bwd.lower() in ['true', '1']
+        return force_sr_bwd.lower() in ["true", "1"]
 
     # If force flag not set, decide based on recipe format
     return fp8_recipe.fp8_format == Format.HYBRID
 
 
-def reduce_tensor_across_group_op_max(
-    tensor: torch.Tensor, group: dist_group_type
-) -> None:
+def reduce_tensor_across_group_op_max(tensor: torch.Tensor, group: dist_group_type) -> None:
     """Reduce tensor across given group."""
     if torch.distributed.is_initialized():
         torch.distributed.all_reduce(
@@ -632,16 +621,10 @@ def delete_key_from_amax_buffer(forward: bool = True) -> None:
 
     global _global_fp8_buffer, _buffer_delete_key_fwd, _buffer_delete_key_bwd
     if forward:
-        if (
-            _buffer_delete_key_fwd is not None
-            and _buffer_delete_key_fwd in _global_fp8_buffer
-        ):
+        if _buffer_delete_key_fwd is not None and _buffer_delete_key_fwd in _global_fp8_buffer:
             del _global_fp8_buffer[_buffer_delete_key_fwd]
             _buffer_delete_key_fwd = None
     else:
-        if (
-            _buffer_delete_key_bwd is not None
-            and _buffer_delete_key_bwd in _global_fp8_buffer
-        ):
+        if _buffer_delete_key_bwd is not None and _buffer_delete_key_bwd in _global_fp8_buffer:
             del _global_fp8_buffer[_buffer_delete_key_bwd]
             _buffer_delete_key_bwd = None

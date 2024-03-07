@@ -35,6 +35,7 @@ def _distributed_emulation_patch_store_barrier():
 
     import torch.distributed.rendezvous
     from torch.distributed import TCPStore as TCPStore_orig
+
     sys.modules["torch.distributed.rendezvous"].TCPStore = partial(TCPStore_orig, wait_for_workers=False)
 
 
@@ -42,6 +43,7 @@ def is_distributed_emulation_enabled():
     if os.environ.get("PT_HPU_EMULATE_DISTRIBUTED", "False").lower() in ["true", "1"]:
         return True
     return False
+
 
 def distributed_emulation_apply_if_enabled():
     hpu_emulate_distributed_single_rank = os.environ.get("PT_HPU_EMULATE_DISTRIBUTED_SINGLE_RANK", None)

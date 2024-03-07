@@ -24,9 +24,7 @@ def testCaptureInplay():
     x = Variable(torch.full((1, 1), 1, device="hpu"))
     print("expected_result - ", expected_result)
     print(x)
-    assert np.allclose(
-        x.detach().to("cpu"), expected_result, atol=0, rtol=0
-    ), "Data mismatch"
+    assert np.allclose(x.detach().to("cpu"), expected_result, atol=0, rtol=0), "Data mismatch"
 
     with ht.hpu.stream(s):
         g.capture_begin()
@@ -38,9 +36,7 @@ def testCaptureInplay():
     g.replay()  # expected to be x += 1 = 3
     print(x)
     expected_result += 1
-    assert np.allclose(
-        x.detach().to("cpu"), expected_result, atol=0, rtol=0
-    ), "Data mismatch"
+    assert np.allclose(x.detach().to("cpu"), expected_result, atol=0, rtol=0), "Data mismatch"
 
 
 if __name__ == "__main__":

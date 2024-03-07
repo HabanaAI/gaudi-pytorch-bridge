@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from functools import lru_cache
 
+
 class RaggedSoftmax(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input, dim, half_to_float, valid_count):
@@ -16,9 +17,11 @@ class RaggedSoftmax(torch.autograd.Function):
         grad_input = torch._softmax_backward_data(grad_output, ctx.output, ctx.dim, ctx.input_dtype)
         return grad_input, None, None, None
 
+
 @lru_cache(maxsize=None)
 def valid_counts(p, q, device):
-    return torch.cat(p * [torch.arange(1, q+1)]).to(device)
+    return torch.cat(p * [torch.arange(1, q + 1)]).to(device)
+
 
 def triu_masked_softmax(input):
     assert input.dim() >= 2

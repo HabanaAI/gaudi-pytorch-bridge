@@ -11,6 +11,7 @@
 ###############################################################################
 
 import os
+
 os.environ["PT_HPU_ENABLE_CACHE_METRICS"] = "1"
 import torch
 import pytest
@@ -33,15 +34,15 @@ class TestMemoryDefragmentationMetrics:
         md_stats = dict(md_metric.stats())
         print(md_stats)
         assert len(md_metric.stats()) == 4
-        assert md_stats['TotalNumber'] == 2
-        assert md_stats['TotalSuccessful'] == 1
-        assert md_stats['MaxTime'] >= 100
+        assert md_stats["TotalNumber"] == 2
+        assert md_stats["TotalSuccessful"] == 1
+        assert md_stats["MaxTime"] >= 100
         torch.ops.test_ops.trigger_test_metrics()
         md_stats = dict(md_metric.stats())
         print(md_stats)
         assert len(md_metric.stats()) == 4
-        assert md_stats['TotalNumber'] == 4
-        assert md_stats['TotalSuccessful'] == 2
+        assert md_stats["TotalNumber"] == 4
+        assert md_stats["TotalSuccessful"] == 2
 
 
 class TestCacheMetrics:
@@ -57,11 +58,11 @@ class TestCacheMetrics:
         rc_stats = dict(rc_metric.stats())
         print(rc_stats)
         assert len(rc_metric.stats()) == 4
-        assert rc_stats['TotalHit'] == 3
-        assert rc_stats['TotalMiss'] == 1
-        assert rc_stats['RecipeHit']['123'] == 1
-        assert rc_stats['RecipeMiss']['123'] == 1
-        assert rc_stats['RecipeHit']['456'] == 2
+        assert rc_stats["TotalHit"] == 3
+        assert rc_stats["TotalMiss"] == 1
+        assert rc_stats["RecipeHit"]["123"] == 1
+        assert rc_stats["RecipeMiss"]["123"] == 1
+        assert rc_stats["RecipeHit"]["456"] == 2
 
 
 class TestCpuFallbackMetrics:
@@ -77,15 +78,15 @@ class TestCpuFallbackMetrics:
         cf_stats = dict(cf_metric.stats())
         print(cf_stats)
         assert len(cf_metric.stats()) == 2
-        assert cf_stats['TotalNumber'] == 2
-        assert len(cf_stats['FallbackOps'].items()) == 2
-        assert cf_stats['FallbackOps']['metrics_trigger_fallback_op'] == 1
-        assert cf_stats['FallbackOps']['metrics_trigger_fallback_op_2'] == 1
+        assert cf_stats["TotalNumber"] == 2
+        assert len(cf_stats["FallbackOps"].items()) == 2
+        assert cf_stats["FallbackOps"]["metrics_trigger_fallback_op"] == 1
+        assert cf_stats["FallbackOps"]["metrics_trigger_fallback_op_2"] == 1
         torch.ops.test_ops.trigger_test_metrics()
         cf_stats = dict(cf_metric.stats())
         print(cf_stats)
         assert len(cf_metric.stats()) == 2
-        assert cf_stats['TotalNumber'] == 4
-        assert len(cf_stats['FallbackOps'].items()) == 2
-        assert cf_stats['FallbackOps']['metrics_trigger_fallback_op'] == 2
-        assert cf_stats['FallbackOps']['metrics_trigger_fallback_op_2'] == 2
+        assert cf_stats["TotalNumber"] == 4
+        assert len(cf_stats["FallbackOps"].items()) == 2
+        assert cf_stats["FallbackOps"]["metrics_trigger_fallback_op"] == 2
+        assert cf_stats["FallbackOps"]["metrics_trigger_fallback_op_2"] == 2

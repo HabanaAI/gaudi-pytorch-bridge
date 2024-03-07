@@ -13,6 +13,7 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 
+
 @pytest.mark.parametrize("shape_and_dim", [((2, 3, 4), -1), ((2, 3, 4), -2)])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int])
 def test_hpu_gather(shape_and_dim, dtype):
@@ -20,8 +21,12 @@ def test_hpu_gather(shape_and_dim, dtype):
         return torch.gather(input, dim, indices)
 
     shape, dim = shape_and_dim
-    max_index = shape[-1]-1
-    cpu_input = torch.rand(shape, dtype=dtype) if dtype.is_floating_point else torch.randint(low=-127, high=127, size=shape, dtype=dtype)
+    max_index = shape[-1] - 1
+    cpu_input = (
+        torch.rand(shape, dtype=dtype)
+        if dtype.is_floating_point
+        else torch.randint(low=-127, high=127, size=shape, dtype=dtype)
+    )
     hpu_input = cpu_input.to("hpu")
     cpu_indices = torch.randint(low=0, high=max_index, size=shape, dtype=torch.int64)
     hpu_indices = cpu_indices.to("hpu")

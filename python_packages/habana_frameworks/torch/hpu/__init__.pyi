@@ -1,5 +1,6 @@
 import torch
 from typing import Optional, Union, List
+
 _device_t = Union[torch.device, str, int, None]
 
 def init() -> None: ...

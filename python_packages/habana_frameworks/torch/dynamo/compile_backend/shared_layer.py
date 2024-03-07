@@ -147,43 +147,29 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
 
         if check_for_default_fallback(op_name, node, is_dynamic):
             do_fallback = True
-            logger.debug(
-                "Fallback required - check_for_default_fallback. Node: ", node.target
-            )
+            logger.debug("Fallback required - check_for_default_fallback. Node: ", node.target)
         elif not check_for_default_op_support(op_name, node):
             for arg in args:
                 arg_types.append(type(arg))
-            normalized_args = torch.fx.operator_schemas.normalize_function(
-                node.target, args, kwargs, arg_types
-            )
+            normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
             if normalized_args is None:
                 args = args[::-1]
                 arg_types = arg_types[::-1]
-                normalized_args = torch.fx.operator_schemas.normalize_function(
-                    node.target, args, kwargs, arg_types
-                )
+                normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)
             if normalized_args is not None:
                 args, kwargs = normalized_args
                 try:
                     concrete_args = tuple(
-                        arg
-                        if not isinstance(
-                            arg, (torch.SymInt, torch.SymFloat, torch.SymBool)
-                        )
-                        else arg.node.hint
+                        arg if not isinstance(arg, (torch.SymInt, torch.SymFloat, torch.SymBool)) else arg.node.hint
                         for arg in args
                     )
                     concrete_kwargs = {
-                        key: val
-                        if not isinstance(
-                            val, (torch.SymInt, torch.SymFloat, torch.SymBool)
+                        key: (
+                            val if not isinstance(val, (torch.SymInt, torch.SymFloat, torch.SymBool)) else val.node.hint
                         )
-                        else val.node.hint
                         for key, val in kwargs.items()
                     }
-                    do_fallback = check_cpu_fallback_op(
-                        op_name, concrete_args, arg_types, concrete_kwargs
-                    )
+                    do_fallback = check_cpu_fallback_op(op_name, concrete_args, arg_types, concrete_kwargs)
                     if do_fallback:
                         logger.debug(
                             "Fallback required - check_cpu_fallback_op. Node: ",

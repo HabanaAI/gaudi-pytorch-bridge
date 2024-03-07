@@ -14,12 +14,13 @@ import pytest
 
 from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs
 
+
 @pytest.mark.parametrize("n", [(5), (8), (17)])
 @pytest.mark.parametrize("dtype", [torch.long])
 def test_randperm(n, dtype):
     def fn(shape):
         return torch.randperm(shape, dtype=dtype, device="hpu")
-    
+
     torch.manual_seed(1234)
     result_1 = fn(n).cpu()
     result_2 = fn(n).cpu()

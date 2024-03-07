@@ -16,6 +16,7 @@ from itertools import combinations
 
 from test_utils import is_gaudi1
 
+
 def set_precision(dtype):
     atol = 0
     rtol = 0
@@ -24,23 +25,25 @@ def set_precision(dtype):
         rtol = 1.0e-4
     return atol, rtol
 
+
 supported_dtypes = [torch.bfloat16, torch.float, torch.int, torch.short]
 if not is_gaudi1():
     supported_dtypes.append(torch.half)
 
 #             shape                 dims        offset
-input5D = [[(10, 10, 10, 10, 10), (0, 1),      0]]
-input4D = [[(2, 2, 2, 2, 2),      (1, 0),      5],
-           [(5, 5, 5, 5),         (-1, 2),     3],
-           [(1, 2, 3, 4),         (-1, -2),    2],
-           [(1, 1, 1, 1),         (3, 0),     -1]]
-input3D = [[(5, 3, 1),            (0, 2),      2],
-           [(2, 2, 2),            (0, 1),      0]]
+input5D = [[(10, 10, 10, 10, 10), (0, 1), 0]]
+input4D = [
+    [(2, 2, 2, 2, 2), (1, 0), 5],
+    [(5, 5, 5, 5), (-1, 2), 3],
+    [(1, 2, 3, 4), (-1, -2), 2],
+    [(1, 1, 1, 1), (3, 0), -1],
+]
+input3D = [[(5, 3, 1), (0, 2), 2], [(2, 2, 2), (0, 1), 0]]
 
 
 def diagonal_test_generic(shape, dims, offset, dtype):
     input = torch.rand(shape).to(dtype=dtype)
-    input_hpu = input.to('hpu')
+    input_hpu = input.to("hpu")
 
     atol, rtol = set_precision(dtype)
 
@@ -59,9 +62,10 @@ def diagonal_test_generic(shape, dims, offset, dtype):
 
     expected = cpu_compiled_fn(input, offset, dim1, dim2)
     result_hpu = hpu_compiled_fn(input_hpu, offset, dim1, dim2)
-    result = result_hpu.to('cpu')
+    result = result_hpu.to("cpu")
 
     assert torch.allclose(expected, result, atol=atol, rtol=rtol)
+
 
 @pytest.mark.parametrize("input", input5D)
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int])
@@ -72,6 +76,7 @@ def test_diagonal_5D(input, dtype):
 
     diagonal_test_generic(shape, dims, offset, dtype)
 
+
 @pytest.mark.parametrize("input", input4D)
 @pytest.mark.parametrize("dtype", supported_dtypes)
 def test_diagonal_4D(input, dtype):
@@ -80,6 +85,7 @@ def test_diagonal_4D(input, dtype):
     offset = input[2]
 
     diagonal_test_generic(shape, dims, offset, dtype)
+
 
 @pytest.mark.parametrize("input", input3D)
 @pytest.mark.parametrize("dtype", supported_dtypes)

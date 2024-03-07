@@ -60,9 +60,7 @@ def test_hpu_foreach_mul(self_value, other_name, other_value):
     )
 
 
-@pytest.mark.parametrize(
-    "self_value", [generate_tensor_list(self_shapes, self_dtypes_float)]
-)
+@pytest.mark.parametrize("self_value", [generate_tensor_list(self_shapes, self_dtypes_float)])
 @pytest.mark.parametrize(
     "kernel",
     [
@@ -108,9 +106,7 @@ def test_hpu_foreach(self_value, kernel):
 
 
 @pytest.mark.parametrize("hpu_self", [generate_tensor_list(self_shapes, self_dtypes)])
-@pytest.mark.parametrize(
-    "hpu_other", [2, scalar_list, generate_tensor_list(other_shapes, other_dtypes)]
-)
+@pytest.mark.parametrize("hpu_other", [2, scalar_list, generate_tensor_list(other_shapes, other_dtypes)])
 def test_hpu_foreach_mul_inplace(hpu_self, hpu_other):
     cpu_self = []
     for self in hpu_self:

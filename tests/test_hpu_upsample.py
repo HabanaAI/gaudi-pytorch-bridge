@@ -43,21 +43,15 @@ def test_interpolate2(N, H, W, C, scale_factor):
     hpu_result = torch.nn.functional.interpolate(
         in_tensor.to(hpu), scale_factor=(scale_factor, scale_factor), mode="nearest"
     )
-    cpu_result = torch.nn.functional.interpolate(
-        in_tensor, scale_factor=(scale_factor, scale_factor), mode="nearest"
-    )
+    cpu_result = torch.nn.functional.interpolate(in_tensor, scale_factor=(scale_factor, scale_factor), mode="nearest")
     compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=0.001)
 
 
 @pytest.mark.parametrize("N, H, W, C, scale_h, scale_w", test_case_list3)
 def test_interpolate3(N, H, W, C, scale_h, scale_w):
     in_tensor = torch.randn(N, C, H, W)
-    hpu_result = torch.nn.functional.interpolate(
-        in_tensor.to(hpu), scale_factor=(scale_h, scale_w), mode="nearest"
-    )
-    cpu_result = torch.nn.functional.interpolate(
-        in_tensor, scale_factor=(scale_h, scale_w), mode="nearest"
-    )
+    hpu_result = torch.nn.functional.interpolate(in_tensor.to(hpu), scale_factor=(scale_h, scale_w), mode="nearest")
+    cpu_result = torch.nn.functional.interpolate(in_tensor, scale_factor=(scale_h, scale_w), mode="nearest")
     compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=0.001)
 
 
@@ -65,12 +59,8 @@ def test_interpolate3(N, H, W, C, scale_h, scale_w):
 def test_interpolate_chnlast(N, H, W, C, scale_h, scale_w):
     in_tensor = torch.randn(N, C, H, W)
     in_tensor = in_tensor.to(memory_format=torch.channels_last)
-    hpu_result = torch.nn.functional.interpolate(
-        in_tensor.to(hpu), scale_factor=(scale_h, scale_w), mode="nearest"
-    )
-    cpu_result = torch.nn.functional.interpolate(
-        in_tensor, scale_factor=(scale_h, scale_w), mode="nearest"
-    )
+    hpu_result = torch.nn.functional.interpolate(in_tensor.to(hpu), scale_factor=(scale_h, scale_w), mode="nearest")
+    cpu_result = torch.nn.functional.interpolate(in_tensor, scale_factor=(scale_h, scale_w), mode="nearest")
     compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=0.001)
 
 
@@ -101,18 +91,14 @@ def test_hpu_interpolate_nearest2d_fwd_bwd(N, H, W, C, out_h, out_w, kernel_op):
             out_w,
         )
     ]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params)
 
 
 @pytest.mark.parametrize("N, H, W, C, out_h, out_w", test_case_list4)
 @pytest.mark.parametrize("kernel_op", op_list)
 def test_hpu_interpolate_nearest2d_fwd_bwd_chnlast(N, H, W, C, out_h, out_w, kernel_op):
     kernel_params = {
-        "input": torch.randn(N, C, H, W, requires_grad=True).to(
-            memory_format=torch.channels_last
-        ),
+        "input": torch.randn(N, C, H, W, requires_grad=True).to(memory_format=torch.channels_last),
         "size": (out_h, out_w),
         "mode": "nearest",
     }
@@ -124,9 +110,7 @@ def test_hpu_interpolate_nearest2d_fwd_bwd_chnlast(N, H, W, C, out_h, out_w, ker
             out_w,
         ).to(memory_format=torch.channels_last)
     ]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params)
 
 
 # upsample nearest 3d test case lists
@@ -161,18 +145,12 @@ def test_up_sample_3d_scale_fwd_bwd(N, D, H, W, C, scale, kernel_op):
     H_out = H * scale
     W_out = W * scale
     bwd_tensors = [torch.ones(N, C, D_out, H_out, W_out)]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel_op, kernel_params_fwd=kernel_params, tensor_list_bwd=bwd_tensors
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel_op, kernel_params_fwd=kernel_params, tensor_list_bwd=bwd_tensors)
 
 
-@pytest.mark.parametrize(
-    "N, D, H, W, C, scale_d, scale_h, scale_w", test_case_upsample_3d_scales
-)
+@pytest.mark.parametrize("N, D, H, W, C, scale_d, scale_h, scale_w", test_case_upsample_3d_scales)
 @pytest.mark.parametrize("kernel_op", op_list)
-def test_up_sample_3d_scales_fwd_bwd(
-    N, D, H, W, C, scale_d, scale_h, scale_w, kernel_op
-):
+def test_up_sample_3d_scales_fwd_bwd(N, D, H, W, C, scale_d, scale_h, scale_w, kernel_op):
     kernel_params = {
         "input": torch.randn(N, C, D, H, W, requires_grad=True),
         "scale_factor": (scale_d, scale_h, scale_w),
@@ -182,14 +160,10 @@ def test_up_sample_3d_scales_fwd_bwd(
     H_out = H * scale_h
     W_out = W * scale_w
     bwd_tensors = [torch.randn(N, C, D_out, H_out, W_out)]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel_op, kernel_params_fwd=kernel_params, tensor_list_bwd=bwd_tensors
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel_op, kernel_params_fwd=kernel_params, tensor_list_bwd=bwd_tensors)
 
 
-@pytest.mark.parametrize(
-    "N, D, H, W, C, out_d, out_h, out_w", test_case_upsample_3d_out
-)
+@pytest.mark.parametrize("N, D, H, W, C, out_d, out_h, out_w", test_case_upsample_3d_out)
 @pytest.mark.parametrize("kernel_op", op_list)
 def test_up_sample_3d_out_fwd_bwd(N, D, H, W, C, out_d, out_h, out_w, kernel_op):
     kernel_params = {
@@ -198,9 +172,7 @@ def test_up_sample_3d_out_fwd_bwd(N, D, H, W, C, out_d, out_h, out_w, kernel_op)
         "mode": "nearest",
     }
     bwd_tensors = [torch.randn(N, C, out_d, out_h, out_w)]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel_op, kernel_params_fwd=kernel_params, tensor_list_bwd=bwd_tensors
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel_op, kernel_params_fwd=kernel_params, tensor_list_bwd=bwd_tensors)
 
 
 if __name__ == "__main__":

@@ -31,8 +31,6 @@ def test_optimizer_lamb_fused_norm_sw_162999():
     result = torch.ops.hpu.optimizer_lamb_fused_norm(hpu_grads, 1.0)
     reference = reference_lamb_norm(cpu_grads, 1.0)
 
-    unrelated_tensor = torch.tensor(1.0, device='hpu')
+    unrelated_tensor = torch.tensor(1.0, device="hpu")
 
     compare_tensors(result, reference, atol=1e-08, rtol=1e-05)
-
-

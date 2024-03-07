@@ -41,4 +41,3 @@ def test_hpu_lazy_view_resize():
     src_resized_hpu[1] = 10
 
     assert torch.allclose(src_resized_cpu, src_resized_hpu, atol=0, rtol=0), "Data mismatch"
-

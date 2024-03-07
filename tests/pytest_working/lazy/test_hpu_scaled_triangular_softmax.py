@@ -43,11 +43,7 @@ def test_scaled_triangular_softmax_retain(shape, inv_scale_attn, dtype):
     torch.manual_seed(12345)
     input = torch.rand(shape, dtype=dtype).to("hpu")
 
-    res, exp_sum_recpr, max = torch.ops.hpu.scaled_triangular_softmax_retain(
-        input, inv_scale_attn
-    )
-    res_ref = torch.ops.hpu.scaled_triangular_softmax(
-        input, inv_scale_attn, exp_sum_recpr, max
-    )
+    res, exp_sum_recpr, max = torch.ops.hpu.scaled_triangular_softmax_retain(input, inv_scale_attn)
+    res_ref = torch.ops.hpu.scaled_triangular_softmax(input, inv_scale_attn, exp_sum_recpr, max)
 
     assert torch.equal(res, res_ref)

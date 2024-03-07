@@ -22,6 +22,7 @@ from .logger import get_compile_backend_logger
 
 logger = get_compile_backend_logger()
 
+
 class CSEVariable:
     """A CSEVariable is just a name for an expression but it is useful to be able to annotate them on a backend dependent basis
     The backends can inherit from this class and overload the "create_cse_var" Kernel to do that.
@@ -41,6 +42,7 @@ class CSEVariable:
 
     def update_on_args(self, name, args, kwargs):
         pass
+
 
 class ExprPrinter(Printer):
     @staticmethod
@@ -79,6 +81,7 @@ class ExprPrinter(Printer):
     def _print_CleanDiv(self, expr):
         return self._print_FloorDiv(expr)
 
+
 class PythonPrinter(ExprPrinter):
     def _print_ModularIndexing(self, expr):
         x, div, mod = expr.args
@@ -99,47 +102,42 @@ class PythonPrinter(ExprPrinter):
         assert len(expr.args) == 1
         return f"math.floor({self.paren(self._print(expr.args[0]))})"
 
-class SymExprNodeManager():
+
+class SymExprNodeManager:
     node_name = "symexpr_py"
+
     def __init__(self, graph_module: torch.fx.GraphModule):
         self._graph_module = graph_module
         self._sym_expr_to_node_map = {}
         self._sym_placeholder_dict = {}
         self._insert_point_node = None
 
-    def _create_symexpr_py_node(
-        self,
-        symbolic_expr,
-        symbolic_expr_symbols,
-        py_node_args,
-        node_type,
-        is_symengine):
+    def _create_symexpr_py_node(self, symbolic_expr, symbolic_expr_symbols, py_node_args, node_type, is_symengine):
 
         node_name = SymExprNodeManager.node_name
         if is_symengine:
-            def symexpr_python(*arguments, sym_expr=copy.deepcopy(symbolic_expr),
-                                sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols)):
+
+            def symexpr_python(
+                *arguments, sym_expr=copy.deepcopy(symbolic_expr), sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols)
+            ):
                 sym_value_dict = {}
                 for idx, sub_sym in enumerate(sym_expr_symbols):
                     value = arguments[idx]
-                    sym_value_dict[sub_sym]=value
+                    sym_value_dict[sub_sym] = value
                 size_e = sym_expr.subs(sym_value_dict)
                 return int(size_e)
 
             with self._graph_module.graph.inserting_after(self._insert_point_node):
                 new_kwargs = None
                 new_node = self._graph_module.graph.create_node(
-                    "call_function",
-                    symexpr_python,
-                    tuple(py_node_args),
-                    new_kwargs,
-                    node_name,
-                    node_type
+                    "call_function", symexpr_python, tuple(py_node_args), new_kwargs, node_name, node_type
                 )
                 return new_node
         else:
-            def symexpr_python(*arguments, sym_expr=copy.deepcopy(symbolic_expr),
-                                sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols)):
+
+            def symexpr_python(
+                *arguments, sym_expr=copy.deepcopy(symbolic_expr), sym_expr_symbols=copy.deepcopy(symbolic_expr_symbols)
+            ):
                 sym_value_pair = []
                 for idx, sub_sym in enumerate(sym_expr_symbols):
                     value = arguments[idx]
@@ -151,12 +149,7 @@ class SymExprNodeManager():
             with self._graph_module.graph.inserting_after(self._insert_point_node):
                 new_kwargs = None
                 new_node = self._graph_module.graph.create_node(
-                    "call_function",
-                    symexpr_python,
-                    tuple(py_node_args),
-                    new_kwargs,
-                    node_name,
-                    node_type
+                    "call_function", symexpr_python, tuple(py_node_args), new_kwargs, node_name, node_type
                 )
                 return new_node
 
@@ -200,13 +193,19 @@ class SymExprNodeManager():
             node_args = []
             for sym in symbolic_expr_symbols:
                 node_args.append(self._sym_placeholder_dict[pexpr(sym)])
-            logger.debug("Python callable creating for final expr: %s, symbols: %s, is symengin:",
-                         symbolic_expr, symbolic_expr_symbols, is_symengine_expr)
-            new_node = self._create_symexpr_py_node(symbolic_expr, symbolic_expr_symbols,
-                                                    node_args, node_type, is_symengine_expr)
+            logger.debug(
+                "Python callable creating for final expr: %s, symbols: %s, is symengin:",
+                symbolic_expr,
+                symbolic_expr_symbols,
+                is_symengine_expr,
+            )
+            new_node = self._create_symexpr_py_node(
+                symbolic_expr, symbolic_expr_symbols, node_args, node_type, is_symengine_expr
+            )
             self._sym_expr_to_node_map[sym_expr_str] = new_node
 
         return new_node
+
 
 class SymbolicShapeEvaluator:
     def __init__(self, symbolic_metadata):
@@ -272,8 +271,7 @@ class SymbolicShapeEvaluator:
         for sz in output_shape_sympy:
             value = sz
             if out_shape_meta[2][idx] is not sys.maxsize:
-                value = self.calculate_symbol_size(sz, out_shape_meta[1][idx],
-                                                   out_shape_meta[2][idx], input_stack)
+                value = self.calculate_symbol_size(sz, out_shape_meta[1][idx], out_shape_meta[2][idx], input_stack)
             concrete_size[idx] = value
             idx += 1
 

@@ -14,55 +14,57 @@ import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.core as htcore
 
+
 def test_remainder_tensor():
-        def fn(input, other):
-            return torch.remainder(input, other)
+    def fn(input, other):
+        return torch.remainder(input, other)
 
-        # CPU
-        x = torch.randn([12, 10, 8, 6])
-        y = torch.randn([12, 10, 8, 6])
-        hx = x.to('hpu')
-        hy = y.to('hpu')
+    # CPU
+    x = torch.randn([12, 10, 8, 6])
+    y = torch.randn([12, 10, 8, 6])
+    hx = x.to("hpu")
+    hy = y.to("hpu")
 
-        result = fn(x, y)
+    result = fn(x, y)
 
-        # HPU
-        compiled_fn = torch.compile(fn, backend="hpu_backend")
+    # HPU
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-        hresult = compiled_fn(hx, hy)
-        assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)
+    hresult = compiled_fn(hx, hy)
+    assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
+
 
 def test_remainder_scalar():
-        def fn(input, other):
-            return torch.remainder(input, other)
+    def fn(input, other):
+        return torch.remainder(input, other)
 
-        # CPU
-        x = torch.randn([12, 10, 8, 6])
-        y = 5.0
-        hx = x.to('hpu')
+    # CPU
+    x = torch.randn([12, 10, 8, 6])
+    y = 5.0
+    hx = x.to("hpu")
 
-        result = fn(x, y)
+    result = fn(x, y)
 
-        # HPU
-        compiled_fn = torch.compile(fn, backend="hpu_backend")
+    # HPU
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-        hresult = compiled_fn(hx, y)
-        assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)
+    hresult = compiled_fn(hx, y)
+    assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
+
 
 def test_remainder_scalar_tensor():
-        def fn(input, other):
-            return torch.remainder(input, other)
+    def fn(input, other):
+        return torch.remainder(input, other)
 
-        # CPU
-        x = 5.0
-        y = torch.randn([12, 10, 8, 6])
-        hy = y.to('hpu')
+    # CPU
+    x = 5.0
+    y = torch.randn([12, 10, 8, 6])
+    hy = y.to("hpu")
 
-        result = fn(x, y)
+    result = fn(x, y)
 
-        # HPU
-        compiled_fn = torch.compile(fn, backend="hpu_backend")
+    # HPU
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-        hresult = compiled_fn(x, hy)
-        assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)
-
+    hresult = compiled_fn(x, hy)
+    assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)

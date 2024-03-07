@@ -29,16 +29,12 @@ def test_hpu_cumsum_op_cache_issue(N, H, W, C):
     dim1 = 1
     cpu_out_cumsum_tensor_1 = torch.cumsum(in_tensor, dim1)
     hpu_out_cumsum_tensor_1 = torch.cumsum(in_tensor.to(hpu), dim1)
-    compare_tensors(
-        hpu_out_cumsum_tensor_1, cpu_out_cumsum_tensor_1, atol=0.001, rtol=0.001
-    )
+    compare_tensors(hpu_out_cumsum_tensor_1, cpu_out_cumsum_tensor_1, atol=0.001, rtol=0.001)
 
     dim2 = -1
     cpu_out_cumsum_tensor_2 = torch.cumsum(in_tensor, dim2)
     hpu_out_cumsum_tensor_2 = torch.cumsum(in_tensor.to(hpu), dim2)
-    compare_tensors(
-        hpu_out_cumsum_tensor_2, cpu_out_cumsum_tensor_2, atol=0.001, rtol=0.001
-    )
+    compare_tensors(hpu_out_cumsum_tensor_2, cpu_out_cumsum_tensor_2, atol=0.001, rtol=0.001)
 
 
 if __name__ == "__main__":

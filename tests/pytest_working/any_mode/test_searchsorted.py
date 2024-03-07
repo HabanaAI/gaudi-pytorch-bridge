@@ -27,9 +27,7 @@ dtypes = [
 @pytest.mark.parametrize("right", [True, False])
 @pytest.mark.parametrize("out_int32", [True, False])
 @pytest.mark.parametrize("dtype", dtypes)
-@pytest.mark.parametrize(
-    "sequence_shape, input_shape", [((10,), (10,)), ((5, 5), (5, 2))]
-)
+@pytest.mark.parametrize("sequence_shape, input_shape", [((10,), (10,)), ((5, 5), (5, 2))])
 def test_searchsorted_input(right, out_int32, dtype, sequence_shape, input_shape):
     if dtype == torch.float16 and is_gaudi1():
         pytest.skip("Half is not supported on Gaudi.")

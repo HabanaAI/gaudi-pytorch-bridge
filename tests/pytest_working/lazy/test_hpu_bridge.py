@@ -18,26 +18,20 @@ reinf_test_case_list = [
     (1, 4, None)
 ]
 
-mul_test_case_list = [
-    ((torch.FloatTensor(2, 3, 4)), (torch.FloatTensor(2, 3, 4)), "./cpu_trace.pt")
-]
+mul_test_case_list = [((torch.FloatTensor(2, 3, 4)), (torch.FloatTensor(2, 3, 4)), "./cpu_trace.pt")]
 
 
 hpu = torch.device("hpu")
 cpu = torch.device("cpu")
 
 
-@pytest.mark.skip(
-    reason="Resnet tracing erroring out due to PT framework converting trace inputs to double"
-)
+@pytest.mark.skip(reason="Resnet tracing erroring out due to PT framework converting trace inputs to double")
 @pytest.mark.parametrize("N, C, H, W, trace_file", resnet_test_case_list)
 def test_resnet18_jit_hpu(N, C, H, W, trace_file):
     input_tensor = torch.FloatTensor(N, C, H, W).to(hpu)
     resnet18 = ResNet(BasicBlock, [2, 2, 2, 2])
     try:
-        model_trace = get_model_trace_from_device(
-            resnet18, input_tensor, None, hpu, True, False, None
-        )
+        model_trace = get_model_trace_from_device(resnet18, input_tensor, None, hpu, True, False, None)
         print("-----------------Start ResNet--------------------------------\n")
         print("-------------HPU Graph------------------------")
         print(model_trace.graph_for(input_tensor))
@@ -53,9 +47,7 @@ def test_mul_jit_hpu(tensor_a, tensor_b, trace_file):
     try:
         tensor_a.to(hpu)
         tensor_b.to(hpu)
-        model_trace = get_model_trace_from_device(
-            mul_op, tensor_a, tensor_b, hpu, True, True, trace_file
-        )
+        model_trace = get_model_trace_from_device(mul_op, tensor_a, tensor_b, hpu, True, True, trace_file)
         print("-------------------Start Mul-----------------------------\n")
         print("-------------HPU Graph------------------------")
         print(model_trace.graph_for(tensor_a, tensor_b))
@@ -70,9 +62,7 @@ def test_mul_jit_hpu(tensor_a, tensor_b, trace_file):
 def test_mnist_jit_hpu(N, C, H, W, trace_file):
     input_tensor = torch.FloatTensor(N, C, H, W).to(hpu)
     try:
-        model_trace = get_model_trace_from_device(
-            MnistNet(), input_tensor, None, hpu, True, False, None
-        )
+        model_trace = get_model_trace_from_device(MnistNet(), input_tensor, None, hpu, True, False, None)
         print("-----------------Start MNIST---------------------------\n")
         print("-------------HPU Graph------------------------")
         print(model_trace.graph_for(input_tensor))
@@ -87,9 +77,7 @@ def test_mnist_jit_hpu(N, C, H, W, trace_file):
 def test_reinf_jit_hpu(H, W, trace_file):
     input_tensor = torch.FloatTensor(H, W).to(hpu)
     try:
-        model_trace = get_model_trace_from_device(
-            Policy(), input_tensor, None, hpu, True, False, None
-        )
+        model_trace = get_model_trace_from_device(Policy(), input_tensor, None, hpu, True, False, None)
         print("----------------Start Reinf Learning---------------------------\n")
         print("-------------HPU Graph------------------------")
         print(model_trace.graph_for(input_tensor))

@@ -66,11 +66,13 @@ def test_pipeline_ops_out():
     assert torch.allclose(result_hpu2, result_cpu2, atol=0.001, rtol=0.001)
     assert torch.allclose(result_hpu3, result_cpu3, atol=0.001, rtol=0.001)
 
+
 def test_pipeline_four_stage():
     sag_flag_backup = os.environ.get("PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH", "1")
     pipeline_flag_backup = os.environ.get("PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE", "0")
-    os.environ['PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH'] = "false"
-    os.environ['PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE'] = "true"
+    os.environ["PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH"] = "false"
+    os.environ["PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE"] = "true"
+
     def my_func(x1, x2, x3):
         y = x1.add(x2)
 
@@ -113,5 +115,5 @@ def test_pipeline_four_stage():
 
     result_hpu = result_hpu.to("cpu")
     assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
-    os.environ['PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH'] = sag_flag_backup
-    os.environ['PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE'] = pipeline_flag_backup
+    os.environ["PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH"] = sag_flag_backup
+    os.environ["PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE"] = pipeline_flag_backup

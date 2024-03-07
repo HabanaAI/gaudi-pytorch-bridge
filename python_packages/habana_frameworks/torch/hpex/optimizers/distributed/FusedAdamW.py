@@ -55,17 +55,11 @@ class FusedAdamW(object):
         if not 0.0 <= eps:
             raise ValueError("Invalid epsilon value: {}".format(eps))
         if not 0.0 <= betas[0] < 1.0:
-            raise ValueError(
-                "Invalid beta parameter at index 0: {}".format(betas[0])
-            )
+            raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
         if not 0.0 <= betas[1] < 1.0:
-            raise ValueError(
-                "Invalid beta parameter at index 1: {}".format(betas[1])
-            )
+            raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
         if not 0.0 <= weight_decay:
-            raise ValueError(
-                "Invalid weight_decay value: {}".format(weight_decay)
-            )
+            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
 
         # Habana impl. does not support True for these as of now
         amsgrad = False
@@ -109,18 +103,12 @@ class FusedAdamW(object):
             state = self.state[param]
             state["step"] = torch.tensor(0.0)
             # Exponential moving average of gradient values
-            state["exp_avg"] = torch.zeros_like(
-                param, memory_format=torch.preserve_format
-            )
+            state["exp_avg"] = torch.zeros_like(param, memory_format=torch.preserve_format)
             # Exponential moving average of squared gradient values
-            state["exp_avg_sq"] = torch.zeros_like(
-                param, memory_format=torch.preserve_format
-            )
+            state["exp_avg_sq"] = torch.zeros_like(param, memory_format=torch.preserve_format)
             if self.amsgrad:
                 # Maintains max of all exp. moving avg. of sq. grad. values
-                state["max_exp_avg_sq"] = torch.zeros_like(
-                    param, memory_format=torch.preserve_format
-                )
+                state["max_exp_avg_sq"] = torch.zeros_like(param, memory_format=torch.preserve_format)
 
         state = self.state[param]
 
@@ -135,9 +123,7 @@ class FusedAdamW(object):
         # record the step after step update
         state_steps.append(state["step"].item())
         with torch.no_grad():
-            raise RuntimeError(
-                "This AdamW optimizer does not support step_param() as of now"
-            )
+            raise RuntimeError("This AdamW optimizer does not support step_param() as of now")
 
     def step(self, gradients: List[Optional[Tensor]]):
         params = self.param_group["params"]
@@ -167,18 +153,12 @@ class FusedAdamW(object):
                     state = self.state[param]
                     state["step"] = torch.tensor(0.0)
                     # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros_like(
-                        param, memory_format=torch.preserve_format
-                    )
+                    state["exp_avg"] = torch.zeros_like(param, memory_format=torch.preserve_format)
                     # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros_like(
-                        param, memory_format=torch.preserve_format
-                    )
+                    state["exp_avg_sq"] = torch.zeros_like(param, memory_format=torch.preserve_format)
                     if self.amsgrad:
                         # Maintains max of all exp. moving avg. of sq. grad. values
-                        state["max_exp_avg_sq"] = torch.zeros_like(
-                            param, memory_format=torch.preserve_format
-                        )
+                        state["max_exp_avg_sq"] = torch.zeros_like(param, memory_format=torch.preserve_format)
 
                 state = self.state[param]
 
@@ -203,9 +183,9 @@ class FusedAdamW(object):
         bias_correction2 = 1.0 - pow(beta2, state_steps[0])
         step_size = step_size * math.sqrt(bias_correction2) / bias_correction1
         neg_step = -step_size
-        neg_step_t = torch.tensor(
-            [neg_step], dtype=torch.float, requires_grad=False
-        ).to(params[0].device, non_blocking=True)
+        neg_step_t = torch.tensor([neg_step], dtype=torch.float, requires_grad=False).to(
+            params[0].device, non_blocking=True
+        )
         self.neg_step_list.append(neg_step_t)
         eps = self.defaults["eps"]  # group["eps"],
 
@@ -228,9 +208,9 @@ class FusedAdamW(object):
                     modified_wd,
                 )
         else:
-            modified_wd_t = torch.tensor(
-                [modified_wd], dtype=torch.float, requires_grad=False
-            ).to(params[0].device, non_blocking=True)
+            modified_wd_t = torch.tensor([modified_wd], dtype=torch.float, requires_grad=False).to(
+                params[0].device, non_blocking=True
+            )
             self.modified_wd_list.append(modified_wd_t)
 
             with torch.no_grad():

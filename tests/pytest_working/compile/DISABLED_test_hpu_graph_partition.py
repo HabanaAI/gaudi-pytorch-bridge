@@ -64,12 +64,8 @@ def test_device_partition_cpuinput():
 
         return tmp5 + tmp15
 
-    compiled_function_training = torch.compile(
-        raw_function, backend="hpu_backend"
-    )
-    compiled_function_inference = torch.compile(
-        raw_function, backend="hpu_backend"
-    )
+    compiled_function_training = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function_inference = torch.compile(raw_function, backend="hpu_backend")
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
 
@@ -97,12 +93,8 @@ def test_device_partition_hpuinput():
 
         return tmp5 + tmp15
 
-    compiled_function_training = torch.compile(
-        raw_function, backend="hpu_backend"
-    )
-    compiled_function_inference = torch.compile(
-        raw_function, backend="hpu_backend"
-    )
+    compiled_function_training = torch.compile(raw_function, backend="hpu_backend")
+    compiled_function_inference = torch.compile(raw_function, backend="hpu_backend")
 
     tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1)).to("hpu")
 
@@ -137,9 +129,7 @@ def test_leaf_views_1():
     input_tensor3 = torch.rand(8, 1, 32, 32).to("cpu")
 
     result1, result2 = raw_function(input_tensor1, input_tensor2, input_tensor3)
-    result1_compiled, result2_compiled = compiled_function(
-        input_tensor1, input_tensor2, input_tensor3
-    )
+    result1_compiled, result2_compiled = compiled_function(input_tensor1, input_tensor2, input_tensor3)
 
     assert torch.allclose(result1.cpu(), result1_compiled.cpu())
     assert torch.allclose(result2.cpu(), result2_compiled.cpu())
@@ -161,18 +151,14 @@ def test_leaf_views_1_dynamic():
 
         return torch.transpose(tmp5, 0, 1), tmp3.to("cpu")
 
-    compiled_function = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_function = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
     input_tensor2 = torch.rand(8, 1, 32, 32).to("hpu")
     input_tensor3 = torch.rand(8, 1, 32, 32).to("cpu")
 
     result1, result2 = raw_function(input_tensor1, input_tensor2, input_tensor3)
-    result1_compiled, result2_compiled = compiled_function(
-        input_tensor1, input_tensor2, input_tensor3
-    )
+    result1_compiled, result2_compiled = compiled_function(input_tensor1, input_tensor2, input_tensor3)
 
     assert torch.allclose(result1.cpu(), result1_compiled.cpu())
     assert torch.allclose(result2.cpu(), result2_compiled.cpu())
@@ -194,18 +180,14 @@ def test_leaf_views_1_really_dynamic():
 
         return torch.transpose(tmp5, 0, 1), tmp3.to("cpu")
 
-    compiled_function = torch.compile(
-        raw_function, backend="hpu_backend", dynamic=True
-    )
+    compiled_function = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     input_tensor1 = torch.rand(8, 1, 16, 16).to("hpu")
     input_tensor2 = torch.rand(8, 1, 16, 16).to("hpu")
     input_tensor3 = torch.rand(8, 1, 16, 16).to("cpu")
 
     result1, result2 = raw_function(input_tensor1, input_tensor2, input_tensor3)
-    result1_compiled, result2_compiled = compiled_function(
-        input_tensor1, input_tensor2, input_tensor3
-    )
+    result1_compiled, result2_compiled = compiled_function(input_tensor1, input_tensor2, input_tensor3)
 
     assert torch.allclose(result1.cpu(), result1_compiled.cpu())
     assert torch.allclose(result2.cpu(), result2_compiled.cpu())
@@ -215,9 +197,7 @@ def test_leaf_views_1_really_dynamic():
     input_tensor3 = torch.rand(16, 2, 32, 32).to("cpu")
 
     result1, result2 = raw_function(input_tensor1, input_tensor2, input_tensor3)
-    result1_compiled, result2_compiled = compiled_function(
-        input_tensor1, input_tensor2, input_tensor3
-    )
+    result1_compiled, result2_compiled = compiled_function(input_tensor1, input_tensor2, input_tensor3)
 
     assert torch.allclose(result1.cpu(), result1_compiled.cpu())
     assert torch.allclose(result2.cpu(), result2_compiled.cpu())

@@ -14,6 +14,7 @@ import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 from test_utils import format_tc
 
+
 @pytest.mark.parametrize("input_shape", [(1, 2, 3, 4), (2, 4, 4, 2)], ids=format_tc)
 @pytest.mark.parametrize("align_corners", [False, True])
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)

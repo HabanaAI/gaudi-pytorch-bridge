@@ -14,6 +14,7 @@ import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 from test_utils import format_tc
 
+
 @pytest.mark.parametrize("n", [8, 16])
 @pytest.mark.parametrize("m", [4, None])
 @pytest.mark.parametrize("dtype", [torch.float, torch.int32], ids=format_tc)

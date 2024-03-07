@@ -74,11 +74,8 @@ gather_data_type_list = [
     torch.float64,
 ]
 
-<<<<<<< HEAD:tests/test_hpu_shapes.py
-@pytest.mark.xfail
-=======
 
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_shapes.py
+@pytest.mark.xfail
 @pytest.mark.parametrize("N, W, C", [(8, 4, 28)])
 def test_hpu_view_insert(N, W, C):
     """
@@ -107,9 +104,7 @@ def test_hpu_view_insert(N, W, C):
     bboxes_in[:, :, :2] = scale_xy * bboxes_in[:, :, :2]
     bboxes_in[:, :, 2:] = scale_wh * bboxes_in[:, :, 2:]
 
-    bboxes_in[:, :, :2] = (
-        bboxes_in[:, :, :2] * dboxes_xywh[:, :, 2:] + dboxes_xywh[:, :, :2]
-    )
+    bboxes_in[:, :, :2] = bboxes_in[:, :, :2] * dboxes_xywh[:, :, 2:] + dboxes_xywh[:, :, :2]
     bboxes_in[:, :, 2:] = bboxes_in[:, :, 2:].exp() * dboxes_xywh[:, :, 2:]
 
     # Transform format to ltrb
@@ -137,9 +132,7 @@ def test_hpu_view_insert(N, W, C):
     hbboxes_in[:, :, :2] = scale_xy * hbboxes_in[:, :, :2]
     hbboxes_in[:, :, 2:] = scale_wh * hbboxes_in[:, :, 2:]
 
-    hbboxes_in[:, :, :2] = (
-        hbboxes_in[:, :, :2] * hdboxes_xywh[:, :, 2:] + hdboxes_xywh[:, :, :2]
-    )
+    hbboxes_in[:, :, :2] = hbboxes_in[:, :, :2] * hdboxes_xywh[:, :, 2:] + hdboxes_xywh[:, :, :2]
     hbboxes_in[:, :, 2:] = hbboxes_in[:, :, 2:].exp() * hdboxes_xywh[:, :, 2:]
 
     # Transform format to ltrb
@@ -237,9 +230,7 @@ def test_hpu_index_select(N, H, W, C, dim):
 
     dim_list[dim] = 2
     bwd_tensors = [torch.randn(tuple(dim_list))]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
@@ -255,9 +246,7 @@ def test_hpu_index_put_simple(N, H, W, C, dtype, acc):
         tv = torch.randn((ti[0].shape[0]))
     else:
         in_t = torch.randint(16, tuple(dim_list), dtype=dtype)
-        tbool = (
-            torch.randint_like(in_t, 0, 128) > 8
-        )  # keep values small to avoid mismatches due to overflow and acc
+        tbool = torch.randint_like(in_t, 0, 128) > 8  # keep values small to avoid mismatches due to overflow and acc
         ti = tbool.nonzero().unbind(1)
         tv = torch.randint(16, (ti[0].shape[0],), dtype=dtype)
     kernel_params_fwd = {
@@ -390,9 +379,7 @@ def test_hpu_index_add(N, H, W, C, dim):
     }
 
     bwd_tensors = [torch.randn(tuple(dim_list))]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
 
 
 @pytest.mark.parametrize("N, H, I, S", test_case_scatter_add)
@@ -497,6 +484,7 @@ def test_hpu_broadcast(test_case_list):
     thpu_out = torch.broadcast_tensors(t1.to(hpu), t2.to(hpu), t3.to(hpu))
     compare_tensors(thpu_out, tcpu_out, atol=0, rtol=0)
 
+
 @pytest.mark.xfail(reason="Int out of range for cast")
 @pytest.mark.parametrize("start, end, step, dtype", arange_test_case_list)
 @pytest.mark.parametrize("op", [torch.arange])
@@ -566,9 +554,7 @@ def test_hpu_gather_op(N, C, gather_op, dtype):
     elif dtype is torch.bfloat16:
         kernel_params_fwd["input"] = torch.randn(N, C, dtype=dtype)
     else:
-        kernel_params_fwd["input"] = torch.arange(0, N * C, 1, dtype=dtype).reshape(
-            N, C
-        )
+        kernel_params_fwd["input"] = torch.arange(0, N * C, 1, dtype=dtype).reshape(N, C)
     kernel_params_fwd["dim"] = 0
     kernel_params_fwd["index"] = torch.randint(N, [C, C])
     evaluate_fwd_kernel(kernel=gather_op, kernel_params=kernel_params_fwd)
@@ -604,9 +590,7 @@ def test_hpu_index_put_mrcnn(N, C, acc):
     input_tensor = torch.randn(tuple(dim_list), requires_grad=True)
     print("input_tensor shape '{}'".format(input_tensor.shape))
     input_tensor_hpu = input_tensor.to(hpu)
-    out_cpu = torch.index_put(
-        input=input_tensor, indices=[mask], values=value_tensor_cpu, accumulate=acc
-    )
+    out_cpu = torch.index_put(input=input_tensor, indices=[mask], values=value_tensor_cpu, accumulate=acc)
     out_hpu = torch.index_put(
         input=input_tensor_hpu,
         indices=[mask_hpu],
@@ -654,39 +638,20 @@ def test_hpu_index_put_mrcnn3(N, C, acc):
     print("input_tensor shape '{}'".format(input_tensor.shape))
     print("value_tensor shape '{}'".format(value_tensor_cpu.shape))
     input_tensor_hpu = input_tensor.to(hpu)
-<<<<<<< HEAD:tests/test_hpu_shapes.py
     out_cpu = torch.index_put(input=input_tensor, indices=[mask], values=value_tensor_cpu, accumulate=acc)
     out_hpu = torch.index_put(input=input_tensor_hpu, indices=[mask_hpu], values=value_tensor_hpu, accumulate=acc)
-    np.testing.assert_allclose(out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True)
+    np.testing.assert_allclose(
+        out_hpu.to(cpu).detach().numpy(), out_cpu.detach().numpy(), atol=0.01, rtol=0.01, equal_nan=True
+    )
+
 
 @pytest.mark.skip(reason="crash")
-@pytest.mark.parametrize("N, C", [(64, 32768),])
-=======
-    out_cpu = torch.index_put(
-        input=input_tensor, indices=[mask], values=value_tensor_cpu, accumulate=acc
-    )
-    out_hpu = torch.index_put(
-        input=input_tensor_hpu,
-        indices=[mask_hpu],
-        values=value_tensor_hpu,
-        accumulate=acc,
-    )
-    np.testing.assert_allclose(
-        out_hpu.to(cpu).detach().numpy(),
-        out_cpu.detach().numpy(),
-        atol=0.01,
-        rtol=0.01,
-        equal_nan=True,
-    )
-
-
 @pytest.mark.parametrize(
     "N, C",
     [
         (64, 32768),
     ],
 )
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_shapes.py
 @pytest.mark.parametrize("acc", [False])
 def test_hpu_index_put_transformer2(N, C, acc):
     dim_list = [N, C]
@@ -699,9 +664,7 @@ def test_hpu_index_put_transformer2(N, C, acc):
     input_tensor = torch.randn(tuple(dim_list), requires_grad=True)
     print("input_tensor shape '{}'".format(input_tensor.shape))
     input_tensor_hpu = input_tensor.to(hpu)
-    out_cpu = torch.index_put(
-        input=input_tensor, indices=[mask], values=value_tensor, accumulate=acc
-    )
+    out_cpu = torch.index_put(input=input_tensor, indices=[mask], values=value_tensor, accumulate=acc)
     out_hpu = torch.index_put(
         input=input_tensor_hpu,
         indices=[mask_hpu],
@@ -740,9 +703,7 @@ def test_hpu_index_put_transformer3(N, acc):
     print("mask type {}".format(mask.dtype))
     print("value shape {}".format(value_tensor.shape))
     print("value type {}".format(value_tensor.dtype))
-    out_cpu = torch.index_put(
-        input=input_tensor, indices=[mask], values=value_tensor, accumulate=acc
-    )
+    out_cpu = torch.index_put(input=input_tensor, indices=[mask], values=value_tensor, accumulate=acc)
     out_hpu = torch.index_put(
         input=input_tensor_hpu,
         indices=[mask_hpu],
@@ -776,9 +737,7 @@ def test_hpu_index_put_transformer1(N, C, acc):
     input_tensor = input_tensor > 3
     print("input_tensor shape '{}'".format(input_tensor.shape))
     input_tensor_hpu = input_tensor.to(hpu)
-    out_cpu = torch.index_put(
-        input=input_tensor, indices=[mask], values=value_tensor, accumulate=acc
-    )
+    out_cpu = torch.index_put(input=input_tensor, indices=[mask], values=value_tensor, accumulate=acc)
     out_hpu = torch.index_put(
         input=input_tensor_hpu,
         indices=[mask_hpu],
@@ -1039,13 +998,9 @@ def test_hpu_index_put_point(acc):
     tensor = torch.rand([24, 512, 128], dtype=torch.float32)
     value_hpu = value.to(hpu)
     tensor_hpu = tensor.to(hpu)
-    out_cpu = torch.index_put(
-        input=tensor, indices=indices, values=value, accumulate=acc
-    )
+    out_cpu = torch.index_put(input=tensor, indices=indices, values=value, accumulate=acc)
     print(out_cpu.shape)
-    out_hpu = torch.index_put(
-        input=tensor_hpu, indices=indices_hpu, values=value_hpu, accumulate=acc
-    )
+    out_hpu = torch.index_put(input=tensor_hpu, indices=indices_hpu, values=value_hpu, accumulate=acc)
     np.testing.assert_allclose(
         out_hpu.to(cpu).detach().numpy(),
         out_cpu.detach().numpy(),
@@ -1095,12 +1050,8 @@ def test_hpu_masked_scatter(N, C, dtype):
     input_tensor = torch.randn(tuple(dim_list), requires_grad=True).to(dtype)
     print("input_tensor shape '{}'".format(input_tensor.shape))
     input_tensor_hpu = input_tensor.to(hpu)
-    out_cpu = torch.masked_scatter(
-        input=input_tensor, mask=mask, source=value_tensor_cpu
-    )
-    out_hpu = torch.masked_scatter(
-        input=input_tensor_hpu, mask=mask_hpu, source=value_tensor_hpu
-    )
+    out_cpu = torch.masked_scatter(input=input_tensor, mask=mask, source=value_tensor_cpu)
+    out_hpu = torch.masked_scatter(input=input_tensor_hpu, mask=mask_hpu, source=value_tensor_hpu)
     np.testing.assert_allclose(
         out_hpu.to(cpu).detach().to(torch.float).numpy(),
         out_cpu.detach().to(torch.float).numpy(),

@@ -13,9 +13,7 @@ def multiple_funcs(tensor_a, tensor_b, tensor_c):
     return tensor_q
 
 
-@pytest.mark.xfail(
-    reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'"
-)
+@pytest.mark.xfail(reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'")
 def test_jit_multiple_dbg():
     trace_file_name = "test_jit_multiple_dbg_cpu_trace.pt"
     hpu = torch.device("hpu")

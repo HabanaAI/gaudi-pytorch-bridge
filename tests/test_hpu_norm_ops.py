@@ -15,11 +15,10 @@ from test_utils import (
 
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
+
 @pytest.fixture(autouse=True, scope="module")
 def setup_teardown_env():
-    yield from generic_setup_teardown_env(
-        {"PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION": "1"}
-    )
+    yield from generic_setup_teardown_env({"PT_HABANA_ENABLE_GRAPHMODE_LAYERNORM_FUSION": "1"})
 
 
 # N - batch
@@ -54,11 +53,8 @@ instance_norm3d_test_case_list = [
     (1, 320, 8, 8, 8),
 ]
 
-<<<<<<< HEAD:tests/test_hpu_norm_ops.py
-@pytest.mark.xfail(reason="segv")
-=======
 
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_norm_ops.py
+@pytest.mark.xfail(reason="segv")
 @pytest.mark.parametrize("N, H, W, C", layer_norm_test_case_list)
 @pytest.mark.parametrize("split_dim", [1, 2, 3])
 def test_hpu_native_layer_norm(N, H, W, C, split_dim):
@@ -131,21 +127,13 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
         def __init__(self):
             super(bn, self).__init__()
             self.conv2 = torch.nn.Conv2d(C, C, kernel_size=3, stride=1, bias=True)
-            self.conv2.weight = torch.nn.Parameter(
-                0.2 * torch.ones_like(self.conv2.weight)
-            )
+            self.conv2.weight = torch.nn.Parameter(0.2 * torch.ones_like(self.conv2.weight))
             self.conv2.bias = torch.nn.Parameter(0.5 * torch.ones_like(self.conv2.bias))
             self.bn2 = torch.nn.BatchNorm2d(C)
-            self.bn2.weight = torch.nn.Parameter(
-                0.12 * torch.ones_like(self.bn2.weight)
-            )
+            self.bn2.weight = torch.nn.Parameter(0.12 * torch.ones_like(self.bn2.weight))
             self.bn2.bias = torch.nn.Parameter(0.15 * torch.ones_like(self.bn2.bias))
-            self.bn2.running_mean = torch.nn.Parameter(
-                0.01 * torch.ones_like(self.bn2.running_mean)
-            )
-            self.bn2.running_var = torch.nn.Parameter(
-                0.9 * torch.ones_like(self.bn2.running_var)
-            )
+            self.bn2.running_mean = torch.nn.Parameter(0.01 * torch.ones_like(self.bn2.running_mean))
+            self.bn2.running_var = torch.nn.Parameter(0.9 * torch.ones_like(self.bn2.running_var))
             self.train(False)
             self.eval()
 
@@ -177,9 +165,7 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
         output_hpu = compiled_function(x_hpu)
 
     output_hpu_cpu = output_hpu.to(cpu)
-    numpy.testing.assert_allclose(
-        output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001
-    )
+    numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001)
 
 
 @pytest.mark.xfail(reason="Results mismatch")
@@ -195,21 +181,13 @@ def test_hpu_conv_and_batch_norm_2d_fwd_only(N, H, W, C):
         def __init__(self):
             super(bn, self).__init__()
             self.conv2 = torch.nn.Conv2d(C, C, kernel_size=3, stride=1, bias=False)
-            self.conv2.weight = torch.nn.Parameter(
-                0.2 * torch.ones_like(self.conv2.weight)
-            )
+            self.conv2.weight = torch.nn.Parameter(0.2 * torch.ones_like(self.conv2.weight))
             # self.conv2.bias = torch.nn.Parameter(0.5 * torch.ones_like(self.conv2.bias))
             self.bn2 = torch.nn.BatchNorm2d(C)
-            self.bn2.weight = torch.nn.Parameter(
-                0.12 * torch.ones_like(self.bn2.weight)
-            )
+            self.bn2.weight = torch.nn.Parameter(0.12 * torch.ones_like(self.bn2.weight))
             self.bn2.bias = torch.nn.Parameter(0.15 * torch.ones_like(self.bn2.bias))
-            self.bn2.running_mean = torch.nn.Parameter(
-                0.01 * torch.ones_like(self.bn2.running_mean)
-            )
-            self.bn2.running_var = torch.nn.Parameter(
-                0.9 * torch.ones_like(self.bn2.running_var)
-            )
+            self.bn2.running_mean = torch.nn.Parameter(0.01 * torch.ones_like(self.bn2.running_mean))
+            self.bn2.running_var = torch.nn.Parameter(0.9 * torch.ones_like(self.bn2.running_var))
             self.train(False)
             self.eval()
 
@@ -238,9 +216,7 @@ def test_hpu_conv_and_batch_norm_2d_fwd_only(N, H, W, C):
             output_hpu = model_hpu(x_hpu)
     output_hpu = output_hpu.to(torch.float32)
     output_hpu_cpu = output_hpu.to(cpu)
-    numpy.testing.assert_allclose(
-        output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001
-    )
+    numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001)
 
 
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
@@ -290,9 +266,7 @@ def test_hpu_batch_norm_2d_fwd_only(N, H, W, C):
     model_hpu.eval()
     output_hpu_cpu = output_hpu.to(cpu)
 
-    numpy.testing.assert_allclose(
-        output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001
-    )
+    numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001)
 
 
 @pytest.mark.parametrize("N, C, D, H, W", batch_norm_test_case_list_3d)
@@ -367,18 +341,14 @@ def test_hpu_batch_norm_2d_eval_fwd_bwd(N, H, W, C):
     x_hpu = x.to(hpu)
     output_hpu = model_hpu(x_hpu)
     output_hpu_cpu = output_hpu.to(cpu)
-    numpy.testing.assert_allclose(
-        output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001
-    )
+    numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001)
 
 
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_batch_norm_2d_chlast_fwd_bwd(N, H, W, C):
     kernel = torch.nn.BatchNorm2d(C)
     in_tensor = torch.randn(N, C, H, W, requires_grad=True)
-    kernel_params_fwd = {
-        "input": in_tensor.contiguous(memory_format=torch.channels_last)
-    }
+    kernel_params_fwd = {"input": in_tensor.contiguous(memory_format=torch.channels_last)}
     bwd_tensor = torch.randn(N, C, H, W)
     bwd_tensors = [bwd_tensor.contiguous(memory_format=torch.channels_last)]
     evaluate_fwd_bwd_kernel(
@@ -394,9 +364,7 @@ def test_hpu_batch_norm_2d_chlast_withcache_fwd_bwd(N, H, W, C):
     for _ in range(2):
         kernel = torch.nn.BatchNorm2d(C)
         in_tensor = torch.randn(N, C, H, W, requires_grad=True)
-        kernel_params_fwd = {
-            "input": in_tensor.contiguous(memory_format=torch.channels_last)
-        }
+        kernel_params_fwd = {"input": in_tensor.contiguous(memory_format=torch.channels_last)}
         bwd_tensor = torch.randn(N, C, H, W)
         bwd_tensors = [bwd_tensor.contiguous(memory_format=torch.channels_last)]
         evaluate_fwd_bwd_kernel(
@@ -528,9 +496,7 @@ def test_hpu_instance_norm_3d_fwd_bwd(N, C, D, H, W):
 
 
 # Instance Norm bwd is not suported in legacy eager mode
-@pytest.mark.skipif(
-    not is_lazy(), reason="Instance Norm bwd is not suported in legacy eager mode"
-)
+@pytest.mark.skipif(not is_lazy(), reason="Instance Norm bwd is not suported in legacy eager mode")
 @pytest.mark.parametrize("N, C, D, H, W", instance_norm3d_test_case_list)
 def test_hpu_instance_norm_3d_chlast_fwd_bwd(N, C, D, H, W):
 
@@ -543,9 +509,7 @@ def test_hpu_instance_norm_3d_chlast_fwd_bwd(N, C, D, H, W):
     out_cpu = kernel(input_nchw)
 
     # hpu forward
-    input_nhwc_hpu = (
-        input_nchw.contiguous(memory_format=torch.channels_last_3d).to(hpu).detach()
-    )
+    input_nhwc_hpu = input_nchw.contiguous(memory_format=torch.channels_last_3d).to(hpu).detach()
     input_nhwc_hpu.requires_grad = True
     kernel_hpu = kernel_copy.to(hpu)
     out_hpu = kernel_hpu(input_nhwc_hpu)
@@ -557,9 +521,7 @@ def test_hpu_instance_norm_3d_chlast_fwd_bwd(N, C, D, H, W):
     input_nchw_bwd = input_nchw.grad
 
     # hpu bwd
-    out_hpu.backward(
-        out_cpu_bwd.contiguous(memory_format=torch.channels_last_3d).to(hpu)
-    )
+    out_hpu.backward(out_cpu_bwd.contiguous(memory_format=torch.channels_last_3d).to(hpu))
     tt = input_nhwc_hpu.grad.to(cpu)
 
     numpy.testing.assert_allclose(

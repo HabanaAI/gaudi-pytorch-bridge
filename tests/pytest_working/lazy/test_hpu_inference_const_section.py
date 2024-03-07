@@ -17,17 +17,19 @@ import habana_frameworks.torch as htorch
 import shutil
 import pytest
 
-class Net(torch.nn.Module):
-  def __init__(self):
-    super().__init__()
-    self.fc1 = torch.nn.Linear(16, 32)
-    self.fc2 = torch.nn.Linear(32, 2)
 
-  def forward(self, x):
-    x = self.fc1(x)
-    x = self.fc2(x)
-    x = torch.mean(x, dim=1)
-    return x
+class Net(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = torch.nn.Linear(16, 32)
+        self.fc2 = torch.nn.Linear(32, 2)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.fc2(x)
+        x = torch.mean(x, dim=1)
+        return x
+
 
 def test_const_serialization_cache():
     torch.manual_seed(123456)
@@ -37,7 +39,7 @@ def test_const_serialization_cache():
     htorch.hpu.enable_const_section_serialization(serial_path, True)
 
     model = Net()
-    model = model.to('hpu')
+    model = model.to("hpu")
 
     htorch.core.hpu_initialize(model)
 
@@ -46,7 +48,7 @@ def test_const_serialization_cache():
     with torch.no_grad():
         out = model(X)
         htorch.core.mark_step()
-        out_serialize = out.to('cpu')
+        out_serialize = out.to("cpu")
 
     # check for 4 const weights serialized files
     num_files = len(os.listdir(os.path.join(serial_path, "0")))
@@ -56,7 +58,7 @@ def test_const_serialization_cache():
     with torch.no_grad():
         out = model(X)
         htorch.core.mark_step()
-        out_deserialize = out.to('cpu')
+        out_deserialize = out.to("cpu")
 
     np.array_equal(out_serialize.detach().numpy(), out_deserialize.detach().numpy(), equal_nan=True)
 

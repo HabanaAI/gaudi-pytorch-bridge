@@ -39,9 +39,7 @@ if not is_gaudi1():
 
 
 @pytest.mark.parametrize("dtype", all_dtypes, ids=format_tc)
-@pytest.mark.parametrize(
-    "memory_format", [torch.channels_last, torch.contiguous_format], ids=format_tc
-)
+@pytest.mark.parametrize("memory_format", [torch.channels_last, torch.contiguous_format], ids=format_tc)
 @pytest.mark.parametrize("torch_func", [torch.empty_like, torch.zeros_like], ids=format_tc)
 def test_empty_and_zeros_like(dtype, memory_format, torch_func):
     if pytest.mode == "compile" and torch_func == torch.zeros_like and dtype == torch.bool:
@@ -71,8 +69,7 @@ def test_empty_and_zeros_like(dtype, memory_format, torch_func):
 
 
 @pytest.mark.parametrize(
-    "dtype, layout, device_none",
-    [(torch.float32, torch.strided, False), (None, None, True)], ids=format_tc
+    "dtype, layout, device_none", [(torch.float32, torch.strided, False), (None, None, True)], ids=format_tc
 )
 def test_new_empty_strided(dtype, layout, device_none):
     def fn(tensor, size, stride, dtype, layout, device):
@@ -239,14 +236,12 @@ logical_ops_not_supported_dtypes = {
     torch.logical_and: [torch.int16],
     torch.logical_or: [torch.long, torch.int, torch.int16],
     torch.logical_xor: [torch.long, torch.int, torch.int16],
-    torch.logical_not: [torch.bfloat16, torch.float, torch.long, torch.int, torch.int16]
+    torch.logical_not: [torch.bfloat16, torch.float, torch.long, torch.int, torch.int16],
 }
 
 
 @pytest.mark.parametrize("dtype", logical_dtypes, ids=format_tc)
-@pytest.mark.parametrize(
-    "torch_func", [torch.logical_and, torch.logical_xor, torch.logical_or], ids=format_tc
-)
+@pytest.mark.parametrize("torch_func", [torch.logical_and, torch.logical_xor, torch.logical_or], ids=format_tc)
 def test_logical_bin_ops(dtype, torch_func):
     if dtype in logical_ops_not_supported_dtypes[torch_func]:
         pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
@@ -305,7 +300,7 @@ def test_cat():
 @pytest.mark.parametrize("dtype", all_dtypes, ids=format_tc)
 def test_unbind_opdbtest(dtype):
     results = run_test("unbind", dtype)
-    for (a, b) in results:
+    for a, b in results:
         assert torch.allclose(a, b.cpu(), atol=0.001, rtol=0.001)
 
 
@@ -334,7 +329,8 @@ def test_nonzero(shape_in):
         (12345.678, torch.bfloat16),
         (1234567, torch.int),
         (True, torch.bool),
-    ], ids=format_tc
+    ],
+    ids=format_tc,
 )
 def test_local_scalar_dense(init_val, dtype):
     cpu_tensor = torch.Tensor([init_val]).type(dtype)
@@ -350,6 +346,7 @@ def test_local_scalar_dense(init_val, dtype):
     else:
         assert hpu_res == init_val
 
+
 @pytest.mark.parametrize("shape_in", [(4, 4)], ids=format_tc)
 def test_rand(shape_in):
     def fn(shape_in, g):
@@ -363,6 +360,7 @@ def test_rand(shape_in):
     hpu_res2 = compiled_hpu(shape_in, g)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
 
+
 @pytest.mark.parametrize("shape_in", [(4, 3)], ids=format_tc)
 def test_randn(shape_in):
     def fn(shape_in, g):
@@ -375,6 +373,7 @@ def test_randn(shape_in):
     torch.manual_seed(123)
     hpu_res2 = compiled_hpu(shape_in, g)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
+
 
 @pytest.mark.parametrize("shape_in", [(4,)], ids=format_tc)
 def test_normal_ff(shape_in):
@@ -399,6 +398,7 @@ def test_normal_ff(shape_in):
     hpu_res6 = compiled_hpu(0.0, 2.0, shape_in, g)
     assert torch.equal(hpu_res5.to("cpu"), hpu_res6.to("cpu"))
 
+
 @pytest.mark.parametrize("shape_in", [(4,)], ids=format_tc)
 def test_normal_tf(shape_in):
     def fn(mean, g):
@@ -412,6 +412,7 @@ def test_normal_tf(shape_in):
     torch.manual_seed(123)
     hpu_res2 = compiled_hpu(mean, g)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
+
 
 @pytest.mark.parametrize("shape_in", [(4,)], ids=format_tc)
 def test_normal_ft(shape_in):
@@ -427,6 +428,7 @@ def test_normal_ft(shape_in):
     hpu_res2 = compiled_hpu(std, g)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
 
+
 @pytest.mark.parametrize("shape_in", [(4,)], ids=format_tc)
 def test_normal_tt(shape_in):
     def fn(mean, std, g):
@@ -441,6 +443,7 @@ def test_normal_tt(shape_in):
     torch.manual_seed(123)
     hpu_res2 = compiled_hpu(mean, std, g)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
+
 
 @pytest.mark.parametrize("n", [32, 1], ids=format_tc)
 @pytest.mark.parametrize("g", [None])

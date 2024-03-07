@@ -40,17 +40,14 @@ def test_slice_backward(size, dim, start, end, step, dtype):
 
     fwd_output_cpu = torch.ops.aten.slice(fwd_input_cpu, dim, start, end, step)
 
-    bwd_output_cpu = torch.ops.aten.slice_backward(
-        fwd_output_cpu, fwd_input_cpu.size(), dim, start, end, step
-    )
+    bwd_output_cpu = torch.ops.aten.slice_backward(fwd_output_cpu, fwd_input_cpu.size(), dim, start, end, step)
 
     fwd_output_hpu = fwd_output_cpu.to(hpu)
 
-    bwd_output_hpu = torch.ops.aten.slice_backward(
-        fwd_output_hpu, fwd_input_cpu.size(), dim, start, end, step
-    )
+    bwd_output_hpu = torch.ops.aten.slice_backward(fwd_output_hpu, fwd_input_cpu.size(), dim, start, end, step)
 
     assert torch.equal(bwd_output_cpu, bwd_output_hpu.to(cpu))
+
 
 @pytest.mark.parametrize("size", slice_backward_test_case_list[0], ids=format_tc)
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16], ids=format_tc)
@@ -59,7 +56,7 @@ def test_slice_backward_autograd(size, dtype):
 
     def fn(tensor, device):
         tensor = tensor.to(device)
-        tensor[..., tensor.shape[-1]:].sum().backward()
+        tensor[..., tensor.shape[-1] :].sum().backward()
         return tensor
 
     bwd_output_cpu = fn(fwd_input_cpu, cpu)

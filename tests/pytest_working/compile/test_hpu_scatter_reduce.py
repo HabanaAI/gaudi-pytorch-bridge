@@ -50,9 +50,7 @@ class TestHpuScatterReduce:
         hpu.setDeterministic(deterministic)
 
         def fn(t1, dim, t2, t3, reduce):
-            return torch.scatter_reduce(
-                t1, dim, t2, t3, reduce=reduce, include_self=include_self
-            )
+            return torch.scatter_reduce(t1, dim, t2, t3, reduce=reduce, include_self=include_self)
 
         compiled_cpu_fn = torch.compile(fn)
         compiled_hpu_fn = torch.compile(fn, backend="hpu_backend", dynamic=False)
@@ -65,9 +63,7 @@ class TestHpuScatterReduce:
         cpu_index = (
             torch.randint(low=0, high=max_range, size=index_shape, dtype=torch.int64)
             if deterministic
-            else torch.arange(0, np.prod(index_shape), 1, dtype=torch.int64).reshape(
-                index_shape
-            )
+            else torch.arange(0, np.prod(index_shape), 1, dtype=torch.int64).reshape(index_shape)
         )
         cpu_source = torch.rand(source_shape, dtype=dtype)
         hpu_input = cpu_input.to("hpu")

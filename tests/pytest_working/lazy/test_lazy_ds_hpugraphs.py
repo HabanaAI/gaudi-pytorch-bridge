@@ -29,9 +29,7 @@ class Model(torch.nn.Module):
         super(Model, self).__init__()
         self.Linear1 = torch.nn.Linear(inp_size, inner_size)
         self.Linear2 = torch.nn.Linear(inner_size, out_size)
-        self.h = torch.nn.ModuleList(
-            [torch.nn.Linear(inp_size, inp_size) for i in range(20)]
-        )
+        self.h = torch.nn.ModuleList([torch.nn.Linear(inp_size, inp_size) for i in range(20)])
 
     def forward(self, inp):
         for i, (block) in enumerate(self.h):
@@ -41,6 +39,7 @@ class Model(torch.nn.Module):
         res = self.Linear1(inp)
         ht.core.mark_step()
         return self.Linear2(res)
+
 
 @pytest.mark.xfail(reason="Results mismatch")
 def test_graph_training():
@@ -89,6 +88,8 @@ input_shapes = [
 ]
 
 from test_utils import setup_teardown_env_fixture
+
+
 @pytest.mark.skip(reason="Tests in this file are chaning env variables")
 @pytest.mark.parametrize(
     "setup_teardown_env_fixture",

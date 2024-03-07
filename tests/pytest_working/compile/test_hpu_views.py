@@ -179,40 +179,48 @@ def fn(a):
     c = b.mul(1.0)
     return c
 
+
 def fn2(a):
     b = a.t()
     b.mul_(1.0)
     return b
+
 
 def fn3(a):
     b = a.t()
     c = b.mul(1.0)
     return c.t()
 
+
 def fn4(a):
     b = a.t()
     b.mul_(1.0)
     return b.t()
+
 
 def fn5(a):
     b = torch.as_strided(a, (3, 2), (1, 3), 0)
     c = b.mul(1.0)
     return c
 
+
 def fn6(a):
     b = a.view((3, 2), (1, 3))
     c = b.mul(1.0)
     return c
+
 
 def fn7(a):
     b = a.transpose(0, 1)
     c = b.mul(1.0)
     return c
 
+
 def fn8(a):
     b = a.transpose(0, 1)
     c = b.mul(1.0)
     return c.transpose(0, 1)
+
 
 def fn9(a):
     b = a.transpose(0, 1)
@@ -221,11 +229,13 @@ def fn9(a):
     e = d.mul(1.0)
     return e
 
+
 def fn10(a):
     b = a.transpose(0, 1)
     c = b.transpose(0, 1)
     d = c.mul(1.0)
     return c
+
 
 def fn11(a):
     b = a.transpose(0, 1)
@@ -233,10 +243,12 @@ def fn11(a):
     d = c.mul(1.0)
     return c
 
+
 def fn12(a):
     b = a.permute((1, 0))
     c = b.mul(1.0)
     return c
+
 
 def fn13(a):
     b = a.permute((1, 0))
@@ -244,29 +256,32 @@ def fn13(a):
     d = c.mul(1.0)
     return d
 
+
 @pytest.mark.parametrize("func", [fn, fn2, fn3, fn4, fn5, fn6, fn7, fn8, fn9, fn10, fn12, fn13])
 def test_hpu_non_contiguous_outputs(func):
     import habana_frameworks.torch.core as htcore
 
     def inner_compiler(fx_module: torch.fx.GraphModule, example_inputs):
         from functorch.compile import make_boxed_func
+
         return make_boxed_func(fx_module.forward)
 
     from torch._dynamo.backends.common import aot_autograd
+
     aot_backend = aot_autograd(fw_compiler=inner_compiler)
 
     compiled_func_hpu = torch.compile(func, backend="hpu_backend")
     compiled_func_cpu = torch.compile(func, backend=aot_backend)
 
     x = torch.randn([2, 3])
-    hx = x.to('hpu')
+    hx = x.to("hpu")
 
     res_eager_cpu = func(x)
     res_eager_cpu2 = compiled_func_cpu(x)
     res_eager_hpu = compiled_func_hpu(hx)
 
-    assert torch.allclose(res_eager_cpu, res_eager_cpu2, atol = 0.001, rtol = 0.001)
-    assert torch.allclose(res_eager_cpu, res_eager_hpu.cpu(), atol = 0.001, rtol = 0.001)
+    assert torch.allclose(res_eager_cpu, res_eager_cpu2, atol=0.001, rtol=0.001)
+    assert torch.allclose(res_eager_cpu, res_eager_hpu.cpu(), atol=0.001, rtol=0.001)
     assert res_eager_cpu.size() == res_eager_hpu.size()
 
 
@@ -275,16 +290,19 @@ def fn_multi(a):
     c = b.mul(1.0)
     return c, c.t()
 
+
 def fn_multi2(a):
     b = a.t()
     c = b.mul(1.0)
     d = c.mul(2.0)
     return d, c, c.t()
 
+
 def fn_multi3(a):
     b = a.t()
     c = b.mul(1.0)
     return b, c.t()
+
 
 def fn_multi4(a):
     b = a.t()
@@ -293,30 +311,33 @@ def fn_multi4(a):
     z2 = z1.t()
     return z1, z2
 
+
 @pytest.mark.parametrize("func", [fn_multi, fn_multi2, fn_multi3, fn_multi4])
 def test_hpu_non_contiguous_more_outputs(func):
     import habana_frameworks.torch.core as htcore
 
     def inner_compiler(fx_module: torch.fx.GraphModule, example_inputs):
         from functorch.compile import make_boxed_func
+
         return make_boxed_func(fx_module.forward)
 
     from torch._dynamo.backends.common import aot_autograd
+
     aot_backend = aot_autograd(fw_compiler=inner_compiler)
 
     compiled_func_hpu = torch.compile(func, backend="hpu_backend")
     compiled_func_cpu = torch.compile(func, backend=aot_backend)
 
     x = torch.randn([2, 3])
-    hx = x.to('hpu')
+    hx = x.to("hpu")
 
     res_eager_cpu = func(x)
     res_eager_cpu2 = compiled_func_cpu(x)
     res_eager_hpu = compiled_func_hpu(hx)
 
     for i in range(len(res_eager_cpu)):
-        assert torch.allclose(res_eager_cpu[i], res_eager_cpu2[i], atol = 0.001, rtol = 0.001)
-        assert torch.allclose(res_eager_cpu[i], res_eager_hpu[i].cpu(), atol = 0.001, rtol = 0.001)
+        assert torch.allclose(res_eager_cpu[i], res_eager_cpu2[i], atol=0.001, rtol=0.001)
+        assert torch.allclose(res_eager_cpu[i], res_eager_hpu[i].cpu(), atol=0.001, rtol=0.001)
         assert res_eager_cpu[i].size() == res_eager_hpu[i].size()
 
 
@@ -329,7 +350,11 @@ def test_t_compilation(shape, dtype):
         return input.add(0)
 
     torch._dynamo.reset()
-    cpu_input = torch.randn(shape, dtype=dtype) if dtype.is_floating_point else torch.randint(low=-128, high=127, size=shape, dtype=dtype)
+    cpu_input = (
+        torch.randn(shape, dtype=dtype)
+        if dtype.is_floating_point
+        else torch.randint(low=-128, high=127, size=shape, dtype=dtype)
+    )
     hpu_input = cpu_input.to("hpu")
     cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
@@ -337,4 +362,4 @@ def test_t_compilation(shape, dtype):
     cpu_output = cpu_compiled_fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input)
 
-    assert torch.allclose(hpu_output.cpu(), cpu_output, atol = 0.001, rtol = 0.001)
+    assert torch.allclose(hpu_output.cpu(), cpu_output, atol=0.001, rtol=0.001)

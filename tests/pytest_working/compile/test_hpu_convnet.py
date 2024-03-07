@@ -13,6 +13,7 @@ import torch
 import pytest
 import habana_frameworks.torch.core as htcore
 
+
 def test_simple_sgd_convnet():
     class LeNet5(torch.nn.Module):
         def __init__(self):

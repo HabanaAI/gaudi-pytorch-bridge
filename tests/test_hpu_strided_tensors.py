@@ -118,6 +118,7 @@ def test_hpu_lazy_slice_fwd_4D(N, C, H, W, bs):
         htcore.mark_step()
     compare_tensors(t1_h, t1, atol=0, rtol=0)
 
+
 @pytest.mark.xfail
 @pytest.mark.parametrize("N, const", test_case_list_1D)
 def test_hpu_lazy_slice_fwd_1D(N, const):
@@ -148,9 +149,7 @@ def test_hpu_lazy_slice_fwd_5D(N, C, D, H, W, bs):
         pad = bs - rem
     input_tensor = (a + pad, b, c, d, e)
     t1 = torch.zeros(input_tensor, requires_grad=False)
-    t_in = torch.ones(input_tensor, requires_grad=False).contiguous(
-        memory_format=torch.channels_last_3d
-    )
+    t_in = torch.ones(input_tensor, requires_grad=False).contiguous(memory_format=torch.channels_last_3d)
 
     hpu = test_utils.hpu
     t1_h = t1.detach().to(hpu)

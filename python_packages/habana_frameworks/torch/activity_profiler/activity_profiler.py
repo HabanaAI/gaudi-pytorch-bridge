@@ -20,26 +20,29 @@ def register_habana_activity_profiler():
 
     class habana_profile(torch.profiler.profile):
         def __init__(
-                self,
-                *,
-                activities: Optional[Iterable[torch.profiler.ProfilerActivity]] = None,
-                debug_activities: Optional[Iterable[DebugActivity]] = None,
-                schedule: Optional[Callable[[int], torch.profiler.ProfilerAction]] = None,
-                on_trace_ready: Optional[Callable[..., Any]] = None,
-                record_shapes: bool = False,
-                profile_memory: bool = False,
-                with_stack: bool = False,
-                with_flops: bool = False,
-                with_modules: bool = False,
-                experimental_config: Optional[torch._C._profiler._ExperimentalConfig] = None,
-                use_cuda: Optional[bool] = None):
+            self,
+            *,
+            activities: Optional[Iterable[torch.profiler.ProfilerActivity]] = None,
+            debug_activities: Optional[Iterable[DebugActivity]] = None,
+            schedule: Optional[Callable[[int], torch.profiler.ProfilerAction]] = None,
+            on_trace_ready: Optional[Callable[..., Any]] = None,
+            record_shapes: bool = False,
+            profile_memory: bool = False,
+            with_stack: bool = False,
+            with_flops: bool = False,
+            with_modules: bool = False,
+            experimental_config: Optional[torch._C._profiler._ExperimentalConfig] = None,
+            use_cuda: Optional[bool] = None
+        ):
 
             self.hpu_profiling_active = torch.profiler.ProfilerActivity.HPU in activities
             activities = [self._exchange_activity(activity) for activity in activities]
             synapse_logger = debug_activities is not None and DebugActivity.SYNAPSE_FUNCTION_CALLS in debug_activities
             bridge_profile = debug_activities is not None and DebugActivity.BRIDGE_FUNCTION_CALLS in debug_activities
             mandatory_events = self._get_mandatory_events()
-            hpu_profiler._setup_activity_profiler_sources(synapse_logger, bridge_profile, profile_memory, mandatory_events)
+            hpu_profiler._setup_activity_profiler_sources(
+                synapse_logger, bridge_profile, profile_memory, mandatory_events
+            )
 
             super().__init__(
                 activities=activities,
@@ -51,7 +54,7 @@ def register_habana_activity_profiler():
                 with_flops=with_flops,
                 with_modules=with_modules,
                 experimental_config=experimental_config,
-                use_cuda=use_cuda
+                use_cuda=use_cuda,
             )
 
         def _exchange_activity(self, activity):
@@ -69,7 +72,7 @@ def register_habana_activity_profiler():
                 "synEventSynchronize",
                 "synLaunchWithExternalEvents",
                 "hpu_lazy",
-                "synMemCopyAsync"
+                "synMemCopyAsync",
             ]
 
         def start_trace(self):

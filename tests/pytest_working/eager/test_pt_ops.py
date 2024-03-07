@@ -72,8 +72,7 @@ def test_empty_strided(size_stride):
 
     result_cpu = test(size, stride, cpu_device)
     result_hpu = test(size, stride, hpu_device)
-    assert (result_hpu.size() == result_cpu.size()
-            and result_hpu.dtype == result_cpu.dtype)
+    assert result_hpu.size() == result_cpu.size() and result_hpu.dtype == result_cpu.dtype
 
 
 @pytest.mark.parametrize("memory_format", [None, torch.contiguous_format])
@@ -88,9 +87,7 @@ def test_empty_memory_format(size, memory_format):
 
     result_cpu = test(size, cpu_device, memory_format)
     result_hpu = test(size, hpu_device, memory_format)
-    assert (
-        result_hpu.size() == result_cpu.size() and result_hpu.dtype == result_cpu.dtype
-    )
+    assert result_hpu.size() == result_cpu.size() and result_hpu.dtype == result_cpu.dtype
 
 
 def test_to_copy_dtype():
@@ -142,8 +139,18 @@ def test_bool_comparison(src_dtype, op_name, is_view):
         def ge_(self, other):
             return self.ge_(other)
 
-        op_maps = {'eq': eq, "eq_": eq_, "lt": lt, "lt_": lt_, "le": le,
-                   "le_": le_, "gt": gt, "gt_": gt_, "ge": ge, "ge_": ge_}
+        op_maps = {
+            "eq": eq,
+            "eq_": eq_,
+            "lt": lt,
+            "lt_": lt_,
+            "le": le,
+            "le_": le_,
+            "gt": gt,
+            "gt_": gt_,
+            "ge": ge,
+            "ge_": ge_,
+        }
 
         return op_maps[op_name]
 
@@ -190,17 +197,20 @@ def test_var_dim(dim, unbiased, keepdim):
     result_hpu = raw_function(hpu_tensor).to("cpu")
     assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
 
+
 @pytest.mark.parametrize("n", [32, 1])
 def test_randperm(n):
     def fn(n, g):
         return torch.randperm(n, generator=g, device="hpu")
+
     seed = 1234
     torch.manual_seed(seed)
-    g = None#torch.Generator()
+    g = None  # torch.Generator()
     hpu_res1 = fn(n, g)
     torch.manual_seed(seed)
     hpu_res2 = fn(n, g)
     assert torch.equal(hpu_res1.to("cpu"), hpu_res2.to("cpu"))
+
 
 @pytest.mark.parametrize("dim", [-1, 0])
 def test_unsqueeze(dim):
@@ -217,10 +227,11 @@ def test_unsqueeze(dim):
     result_hpu = raw_function(hpu_tensor).to("cpu")
     assert torch.allclose(result_cpu, result_hpu, rtol=1e-3, atol=1e-3)
 
+
 def test_index_put_bool():
-        tensor1 = torch.zeros(size = [2, 3, 7], dtype=torch.bfloat16)
-        tensor2 = torch.ones(size = [2, 3] , dtype=torch.bool)
-        tensor1 = tensor1.to("hpu")
-        tensor2 = tensor2.to("hpu")
-        tensor1[tensor2, :] = 7.0
-        assert torch.all(torch.eq(tensor1, 7.0))
+    tensor1 = torch.zeros(size=[2, 3, 7], dtype=torch.bfloat16)
+    tensor2 = torch.ones(size=[2, 3], dtype=torch.bool)
+    tensor1 = tensor1.to("hpu")
+    tensor2 = tensor2.to("hpu")
+    tensor1[tensor2, :] = 7.0
+    assert torch.all(torch.eq(tensor1, 7.0))

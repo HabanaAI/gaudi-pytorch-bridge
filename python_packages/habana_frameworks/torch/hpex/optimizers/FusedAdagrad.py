@@ -26,11 +26,7 @@ class FusedAdagrad(Optimizer):
         if not 0.0 <= weight_decay:
             raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
         if not 0.0 <= initial_accumulator_value:
-            raise ValueError(
-                "Invalid initial_accumulator_value value: {}".format(
-                    initial_accumulator_value
-                )
-            )
+            raise ValueError("Invalid initial_accumulator_value value: {}".format(initial_accumulator_value))
         if not 0.0 <= eps:
             raise ValueError("Invalid epsilon value: {}".format(eps))
 
@@ -52,9 +48,7 @@ class FusedAdagrad(Optimizer):
                 state["sum"] = torch.full_like(p, fill_value=initial_accumulator_value)
 
             group["lr_t"] = torch.tensor([lr], requires_grad=False).to(hpu)
-            group["step_t"] = torch.tensor(
-                [0], dtype=torch.int32, requires_grad=False
-            ).to(hpu, non_blocking=True)
+            group["step_t"] = torch.tensor([0], dtype=torch.int32, requires_grad=False).to(hpu, non_blocking=True)
         htcore.step_closure._mark_step_if_lazy()
 
     def step(self, closure: Callable = None):
@@ -80,9 +74,7 @@ class FusedAdagrad(Optimizer):
                 grad = p.grad.data
                 weight = p.data
                 if grad.is_sparse:
-                    raise RuntimeError(
-                        "Adagrad does not support sparse gradients, please consider SparseAdagrad"
-                    )
+                    raise RuntimeError("Adagrad does not support sparse gradients, please consider SparseAdagrad")
 
                 state = self.state[p]
                 wt_var = state["sum"]

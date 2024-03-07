@@ -16,6 +16,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
+
 def is_lazy():
     return os.getenv("PT_HPU_LAZY_MODE", "1") != "0"
 

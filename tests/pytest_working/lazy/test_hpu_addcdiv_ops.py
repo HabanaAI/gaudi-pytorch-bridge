@@ -166,9 +166,7 @@ def test_hpu_addcdiv_out_op(N, H, W, C, value, Nout, Hout, Wout, Cout):
     hpu_outtensor = outtensorHPU.to(hpu)
 
     torch.addcdiv(input, tensor1, tensor2, value=value, out=outtensor)
-    torch.addcdiv(
-        hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor
-    )
+    torch.addcdiv(hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor)
 
     compare_tensors(hpu_tensor_input, input, atol=0.001, rtol=1.0e-3)
 
@@ -189,9 +187,7 @@ def test_hpu_addcdiv_out_op_size(N, H, W, C, value, Nout, Hout, Wout, Cout):
     hpu_outtensor = outtensorHPU.to(hpu)
 
     torch.addcdiv(input, tensor1, tensor2, value=value, out=outtensor)
-    torch.addcdiv(
-        hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor
-    )
+    torch.addcdiv(hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor)
 
     compare_tensors(hpu_tensor_input, input, atol=0.001, rtol=1.0e-3)
 
@@ -210,9 +206,7 @@ def test_hpu_addcdiv_out_op_size_outsize_0(N, H, W, C, value):
     hpu_outtensor = torch.empty(0, device=hpu)
 
     torch.addcdiv(input, tensor1, tensor2, value=value, out=outtensor)
-    torch.addcdiv(
-        hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor
-    )
+    torch.addcdiv(hpu_tensor_input, hpu_tensor1, hpu_tensor2, value=value, out=hpu_outtensor)
 
     compare_tensors(hpu_tensor_input, input, atol=0.001, rtol=1.0e-3)
 

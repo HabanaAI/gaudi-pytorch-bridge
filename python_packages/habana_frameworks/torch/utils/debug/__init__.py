@@ -13,6 +13,7 @@ from habana_frameworks.torch.utils import _debug_C
 from habana_frameworks.torch.utils.debug.logger import Logger
 from habana_frameworks.torch.utils.internal import is_lazy
 
+
 def _get_fallback_op_count() -> dict:
     return _debug_C.get_fallback_op_count()
 
@@ -120,8 +121,10 @@ def load_ds_checkpoint(path) -> None:
 def save_ds_checkpoint(path) -> None:
     _debug_C.save_ds_checkpoint(path)
 
+
 def _is_enabled_synapse_layout_handling() -> bool:
     return True
+
 
 def clear_dynamic_bucket_recipe_info() -> None:
     return _debug_C.clear_dynamic_bucket_recipe_info()
@@ -145,6 +148,7 @@ def _hg_print(msg) -> None:
 
 if is_lazy():
     from habana_frameworks.torch.utils import _debug_lazy_C
+
     def _bridge_cleanup():
         _debug_lazy_C.bridge_cleanup()
 
@@ -152,15 +156,17 @@ if is_lazy():
         if "hpu" not in str(tensor.device):
             return None
         return _debug_lazy_C.get_tensor_info(tensor)
+
 else:
     from habana_frameworks.torch.utils import _debug_eager_C
+
     def _bridge_cleanup():
         _debug_eager_C.bridge_cleanup()
 
     def get_tensor_info(tensor):
         if "hpu" not in str(tensor.device):
             return None
-        
+
         if not tensor.has_storage():
             return None
 
@@ -171,8 +177,10 @@ else:
 def _dump_memory_reporter() -> None:
     _debug_C.dump_memory_reporter()
 
-def _towl_configure(flag : bool, config=""):
+
+def _towl_configure(flag: bool, config=""):
     _debug_C.towl_configure(flag, config)
 
-def _towl_print(text : str):
+
+def _towl_print(text: str):
     _debug_C.towl_print(text)

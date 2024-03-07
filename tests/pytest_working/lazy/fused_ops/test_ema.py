@@ -40,13 +40,9 @@ def copy_attr(a, b, include=(), exclude=()):
 class EMA:
     def __init__(self, model, decay, updates=0):
         # Create EMA
-        self.ema = deepcopy(
-            model.module if is_parallel(model) else model
-        ).eval()  # FP32 EMA
+        self.ema = deepcopy(model.module if is_parallel(model) else model).eval()  # FP32 EMA
         self.updates = updates  # number of EMA updates
-        self.decay = lambda x: decay * (
-            1 - math.exp(-x / 2000)
-        )  # decay exponential ramp (to help early epochs)
+        self.decay = lambda x: decay * (1 - math.exp(-x / 2000))  # decay exponential ramp (to help early epochs)
         for p in self.ema.parameters():
             p.requires_grad_(False)
             p.detach().cpu()
@@ -57,9 +53,7 @@ class EMA:
             self.updates += 1
             d = self.decay(self.updates)
 
-            msd = (
-                model.module.state_dict() if is_parallel(model) else model.state_dict()
-            )  # model state_dict
+            msd = model.module.state_dict() if is_parallel(model) else model.state_dict()  # model state_dict
             for k, v in self.ema.state_dict().items():
                 if v.dtype.is_floating_point:
                     v *= d

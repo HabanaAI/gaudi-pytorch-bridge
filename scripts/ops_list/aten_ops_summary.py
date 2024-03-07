@@ -70,18 +70,12 @@ def main():
     args = parser.parse_args()
     ops = read_ops(args, args.hpu)
 
-    max_len, aten_ops = read_http_aten_ops_supported(
-        args, "https://pytorch.org/docs/master/ir.html"
-    )
+    max_len, aten_ops = read_http_aten_ops_supported(args, "https://pytorch.org/docs/master/ir.html")
 
     print("{0:<{1}} {2}".format("ATEN IR OP;", max_len + 1, "SUPPORTED"))
     for aten_op in aten_ops:
         supported = aten_op in ops
-        print(
-            "{0:<{1}} {2}".format(
-                aten_op + ";", max_len + 1, bool_to_yes(supported)
-            )
-        )
+        print("{0:<{1}} {2}".format(aten_op + ";", max_len + 1, bool_to_yes(supported)))
 
 
 if __name__ == "__main__":

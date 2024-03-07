@@ -14,13 +14,14 @@ import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 from test_utils import format_tc
 
+
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, None], ids=format_tc)
 def test_hpu_nansum(dtype):
     def fn(input):
         return torch.nansum(input, dtype=dtype)
 
     input_dtype = torch.bfloat16 if dtype == torch.float else torch.float
-    cpu_input = torch.tensor([1., 2., float('nan'), 4.], dtype=input_dtype)
+    cpu_input = torch.tensor([1.0, 2.0, float("nan"), 4.0], dtype=input_dtype)
     hpu_input = cpu_input.to("hpu")
 
     torch._dynamo.reset()

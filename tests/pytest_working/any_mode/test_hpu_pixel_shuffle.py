@@ -28,9 +28,7 @@ from test_utils import (
     ids=format_tc,
 )
 @pytest.mark.parametrize("dynamic", [False, True])
-@pytest.mark.parametrize(
-    "dtype", [torch.float, torch.bfloat16, torch.int, torch.int8], ids=format_tc
-)
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int, torch.int8], ids=format_tc)
 @pytest.mark.parametrize(
     "setup_teardown_env_fixture",
     [{"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 1}],

@@ -1,6 +1,7 @@
 import torch
 from habana_frameworks.torch import _hpex_C
 
+
 def random_seed(x: torch.tensor) -> torch.tensor:
     # Error checking
     dtype = x.dtype
@@ -13,6 +14,7 @@ def random_seed(x: torch.tensor) -> torch.tensor:
     else:
         try:
             from habana_frameworks.torch import _hpex_C
+
             return _hpex_C.random_seed(x)
         except ImportError:
             raise ImportError("Please install habana_torch.")

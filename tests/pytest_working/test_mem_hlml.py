@@ -18,8 +18,9 @@ import mmap
 import struct
 
 SHM_PREFIX_PATH = "/dev/shm"
-SHM_SIZE = 3 * 8 # 3 * uint64_t
+SHM_SIZE = 3 * 8  # 3 * uint64_t
 SHM_VERSION = 1
+
 
 class SharedObject:
     def __init__(self):
@@ -30,7 +31,7 @@ class SharedObject:
 
     def __enter__(self):
         with open(self._path, "rb") as fd:
-            self._mem = mmap.mmap(fd.fileno(), 3*8, prot=mmap.PROT_READ)
+            self._mem = mmap.mmap(fd.fileno(), 3 * 8, prot=mmap.PROT_READ)
         return self
 
     def __exit__(self, _exv, _extp, _extb):
@@ -45,12 +46,14 @@ class SharedObject:
     def read_memory(self):
         return self.read_values()[2]
 
+
 def test_hlml_created():
     # provoke initialization
     torch.Tensor([1]).to("hpu")
     with SharedObject() as so:
         version, _timestamp, _value = so.read_values()
         assert version == SHM_VERSION
+
 
 def test_hlml_timestamp_is_updated():
     # provoke initialization
@@ -66,7 +69,7 @@ def test_hlml_memory_is_updated():
     # provoke initialization
     torch.Tensor([1]).to("hpu")
 
-    SIZE = 1024*1024*2
+    SIZE = 1024 * 1024 * 2
 
     with SharedObject() as so:
         memory0 = so.read_memory()
@@ -74,7 +77,7 @@ def test_hlml_memory_is_updated():
         t1 = torch.zeros(SIZE).to("hpu")
         time.sleep(3)
         memory1 = so.read_memory()
-        assert (memory0 + 2*SIZE) <= memory1
+        assert (memory0 + 2 * SIZE) <= memory1
         del t0
         time.sleep(3)
         memory2 = so.read_memory()

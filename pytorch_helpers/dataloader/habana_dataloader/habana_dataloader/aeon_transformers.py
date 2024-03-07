@@ -2,8 +2,9 @@
 
 from torchvision import transforms
 
+
 class HabanaAeonTransforms:
-    def __init__(self, torch_transforms, is_train = True):
+    def __init__(self, torch_transforms, is_train=True):
         if not isinstance(torch_transforms, transforms.Compose):
             raise ValueError("torch_transforms should be of type torchvision.transforms")
         self.transforms = torch_transforms.transforms
@@ -13,7 +14,11 @@ class HabanaAeonTransforms:
 
     def _parse_transforms(self):
         for t in self.transforms:
-            if isinstance(t, transforms.RandomResizedCrop) or isinstance(t, transforms.CenterCrop) or isinstance(t, transforms.Resize):
+            if (
+                isinstance(t, transforms.RandomResizedCrop)
+                or isinstance(t, transforms.CenterCrop)
+                or isinstance(t, transforms.Resize)
+            ):
                 self._handle_resize_crop(t)
             elif isinstance(t, transforms.RandomHorizontalFlip):
                 self._handle_random_horizontal_flip(t)
@@ -25,7 +30,11 @@ class HabanaAeonTransforms:
                 raise ValueError("Unsupported transform: " + str(type(t)))
 
     def _handle_resize_crop(self, t):
-        if not isinstance(t, transforms.RandomResizedCrop) and not isinstance(t, transforms.CenterCrop) and not isinstance(t, transforms.Resize):
+        if (
+            not isinstance(t, transforms.RandomResizedCrop)
+            and not isinstance(t, transforms.CenterCrop)
+            and not isinstance(t, transforms.Resize)
+        ):
             raise ValueError("not a Crop/Resize transform")
         if isinstance(t, transforms.CenterCrop) or isinstance(t, transforms.Resize):
             self.is_val = True
@@ -75,5 +84,3 @@ class HabanaAeonTransforms:
         if (self.is_train and self.is_val) or (not self.is_train and not self.is_val):
             raise ValueError("Could not determine if running on train or validation mode")
         return self.transforms_config, self.is_train
-
-

@@ -10,11 +10,14 @@
 #
 ###############################################################################
 
+
 class MetricNotFound(Exception):
     pass
 
+
 class InvalidMetricDumpFileFormat(Exception):
     pass
+
 
 class InvalidMetricDumpTrigger(Exception):
     pass

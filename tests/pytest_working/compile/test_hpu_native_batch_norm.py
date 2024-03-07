@@ -3,16 +3,9 @@ import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 from test_utils import is_gaudi1, format_tc
 
+
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
-@pytest.mark.parametrize("params", [
-    (
-        {
-            "dims" : (2, 3, 4, 5),
-            "momentum" : 0.999,
-            "eps" : 1e-5
-        }
-    )
-], ids=format_tc)
+@pytest.mark.parametrize("params", [({"dims": (2, 3, 4, 5), "momentum": 0.999, "eps": 1e-5})], ids=format_tc)
 def test_hpu_native_batch_norm_legit_no_training(dtype, params):
     def fn(input, weight, bias, running_mean, running_var, momentum, eps):
         return torch._native_batch_norm_legit_no_training(input, weight, bias, running_mean, running_var, momentum, eps)
@@ -28,15 +21,33 @@ def test_hpu_native_batch_norm_legit_no_training(dtype, params):
     running_var = torch.randn(params["dims"][1])
 
     cpu_out = inductor_compiled_fn(input, weight, bias, running_mean, running_var, params["momentum"], params["eps"])
-    hpu_out = aot_hpu_compiled_fn(input.to("hpu"), weight.to("hpu"), bias.to("hpu"), running_mean.to("hpu"), running_var.to("hpu"), params["momentum"], params["eps"])
+    hpu_out = aot_hpu_compiled_fn(
+        input.to("hpu"),
+        weight.to("hpu"),
+        bias.to("hpu"),
+        running_mean.to("hpu"),
+        running_var.to("hpu"),
+        params["momentum"],
+        params["eps"],
+    )
 
     assert torch.allclose(cpu_out[0], hpu_out[0].to("cpu"), equal_nan=True)
+
 
 @pytest.mark.parametrize("shape", [[4, 3, 8]], ids=format_tc)
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 def test_hpu_native_batch_norm_bwd(shape, dtype):
     def fn(input, weight, bias, running_mean, running_var):
-        native_batch_norm = torch.native_batch_norm(input, weight, bias, running_mean=running_mean, running_var=running_var, training=True, momentum=0.1, eps=1e-5)
+        native_batch_norm = torch.native_batch_norm(
+            input,
+            weight,
+            bias,
+            running_mean=running_mean,
+            running_var=running_var,
+            training=True,
+            momentum=0.1,
+            eps=1e-5,
+        )
         grad = torch.ones_like(native_batch_norm[0])
         native_batch_norm[0].backward(grad)
         return input.grad

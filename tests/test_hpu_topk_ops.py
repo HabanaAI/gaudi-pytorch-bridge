@@ -116,27 +116,7 @@ def test_hpu_sort_fwdbwd_op(N, C, sort_op, dim, descending):
 
 
 if __name__ == "__main__":
-    test_hpu_topk_op(
-        *test_case_list[0],
-        topk_op_list[0],
-        topk_values_list[0][0],
-        topk_values_list[0][1]
-    )
-    test_hpu_topk_out_op(
-        *test_case_list[0],
-        topk_op_list[0],
-        topk_values_list[0][0],
-        topk_values_list[0][1]
-    )
-    test_hpu_sort_op(
-        *test_case_list[0],
-        sort_op_list[0],
-        sort_values_list[0][0],
-        sort_values_list[0][1]
-    )
-    test_hpu_topk_op2(
-        *test_case_list2[0],
-        topk_op_list[0],
-        topk_values_list[0][0],
-        topk_values_list[0][1]
-    )
+    test_hpu_topk_op(*test_case_list[0], topk_op_list[0], topk_values_list[0][0], topk_values_list[0][1])
+    test_hpu_topk_out_op(*test_case_list[0], topk_op_list[0], topk_values_list[0][0], topk_values_list[0][1])
+    test_hpu_sort_op(*test_case_list[0], sort_op_list[0], sort_values_list[0][0], sort_values_list[0][1])
+    test_hpu_topk_op2(*test_case_list2[0], topk_op_list[0], topk_values_list[0][0], topk_values_list[0][1])

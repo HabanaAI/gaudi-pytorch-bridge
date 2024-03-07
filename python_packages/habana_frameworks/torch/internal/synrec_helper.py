@@ -17,20 +17,21 @@ import os
 # Cannot be called twice in a row.
 # Can be used after calling "synrec -w ..." or after synrec_stop()
 def synrec_start():
-    if (os.getenv("SYNREC_INIT", 0) == 0):
+    if os.getenv("SYNREC_INIT", 0) == 0:
         raise Exception("synrec_start: Synrec not initialized.")
-    if (os.environ["SYNREC"] == "1"):
+    if os.environ["SYNREC"] == "1":
         raise Exception("synrec_start: Synrec record already started.")
     htcore.mark_step()
     ht.hpu.synchronize()
     os.environ["SYNREC"] = "1"
 
+
 # Cannot be called twice in a row.
 # Can be used after calling "synrec" (without -w flag) or after synrec_start()
 def synrec_stop():
-    if (os.getenv("SYNREC_INIT", 0) == 0):
+    if os.getenv("SYNREC_INIT", 0) == 0:
         raise Exception("synrec_stop: Synrec not initialized.")
-    if (os.environ["SYNREC"] == "0"):
+    if os.environ["SYNREC"] == "0":
         raise Exception("synrec_start: Synrec record already stopped.")
     htcore.mark_step()
     ht.hpu.synchronize()

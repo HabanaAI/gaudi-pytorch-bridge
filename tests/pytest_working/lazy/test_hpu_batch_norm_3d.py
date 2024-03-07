@@ -17,6 +17,7 @@ import torch.nn.functional as F
 import pytest
 from test_utils import setup_teardown_env_fixture
 
+
 class Fp32GroupNorm(nn.GroupNorm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

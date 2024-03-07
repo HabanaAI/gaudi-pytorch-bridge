@@ -22,7 +22,7 @@ RANDOM_OPS = (
         "aten.randint.low": torch.ops.hpu.habana_randint,
         "aten.multinomial.default": torch.ops.hpu.habana_multinomial,
         "aten.randperm.default": torch.ops.hpu.habana_randperm,
-        "aten.native_dropout.default": torch.ops.hpu.habana_native_dropout
+        "aten.native_dropout.default": torch.ops.hpu.habana_native_dropout,
     }
     if bc.get_pt_hpu_wrap_random_ops_compile()
     else {}

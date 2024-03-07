@@ -19,9 +19,11 @@ from habana_frameworks.torch.utils.internal import is_lazy
 _DEVICE_CONTEXTS = dict()
 _DEVICE_CONTEXTS_LOCK = threading.Lock()
 
+
 class _DeviceContext(object):
     def __init__(self, device):
         self.device = device
+
 
 def _get_device_context(device=None):
     if device is None:
@@ -34,6 +36,7 @@ def _get_device_context(device=None):
             _DEVICE_CONTEXTS[device] = devctx
         return devctx
 
+
 @lazy_only
 def add_step_closure(closure, args=()):
     devctx = _get_device_context()
@@ -43,6 +46,7 @@ def add_step_closure(closure, args=()):
         devctx.step_closures = step_closures
     step_closures.append(lambda a=args: closure(*a))
 
+
 def _run_step_closures():
     devctx = _get_device_context()
     step_closures = getattr(devctx, "step_closures", None)
@@ -51,14 +55,17 @@ def _run_step_closures():
         for closure in step_closures:
             closure()
 
+
 def _mark_step_if_lazy(device_str=""):
     if is_lazy():
         mark_step(device_str)
 
+
 @lazy_only
-def mark_step(device_str="", sync = False):
+def mark_step(device_str="", sync=False):
     htcore._mark_step(device_str, sync)
     _run_step_closures()
+
 
 @lazy_only
 def iter_mark_step(device_str=""):

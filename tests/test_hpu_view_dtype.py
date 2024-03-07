@@ -12,13 +12,8 @@
 
 import pytest
 import torch
-<<<<<<< HEAD:tests/test_hpu_view_dtype.py
-import pytest
 from test_utils import hpu, cpu
-=======
-from test_utils import cpu, hpu
 
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_view_dtype.py
 
 # Tests input tensors
 def func1(dev, sdtype, ddtype):
@@ -51,9 +46,7 @@ def func3(dev, sdtype, ddtype):
 
 @pytest.mark.xfail(reason="Results mismatch")
 @pytest.mark.parametrize("func", [func1, func2, func3])
-@pytest.mark.parametrize(
-    "dtype1, dtype2", [(torch.float32, torch.int32), (torch.bfloat16, torch.int32)]
-)
+@pytest.mark.parametrize("dtype1, dtype2", [(torch.float32, torch.int32), (torch.bfloat16, torch.int32)])
 def test_hpu_view(func, dtype1, dtype2):
     cpu_result = func(cpu, dtype1, dtype2)
     hpu_result = func(hpu, dtype1, dtype2)

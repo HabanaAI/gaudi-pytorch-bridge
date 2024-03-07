@@ -17,8 +17,9 @@ from test_utils import (
     is_pytest_mode_compile,
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
-    format_tc
+    format_tc,
 )
+
 
 @pytest.mark.parametrize("start", [0, 1, 6])
 @pytest.mark.parametrize("end", [5, 8, 12])
@@ -26,7 +27,7 @@ from test_utils import (
 @pytest.mark.parametrize("base", [1, 2, 10])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 def test_hpu_logspace(start, end, steps, base, dtype):
-    def fn(start, end, steps, base, dtype, device='cpu'):
+    def fn(start, end, steps, base, dtype, device="cpu"):
         return torch.logspace(start, end, steps, base=float(base), dtype=dtype, device=device)
 
     cpu_output = fn(start, end, steps, base, dtype)

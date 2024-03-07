@@ -33,13 +33,9 @@ class FusedAdamW(Optimizer):
         if lr < 0.0:
             raise ValueError("Invalid learning rate: {} - should be >= 0.0".format(lr))
         if not 0.0 <= betas[0] < 1.0:
-            raise ValueError(
-                "Invalid beta parameter: {} - should be in [0.0, 1.0[".format(betas[0])
-            )
+            raise ValueError("Invalid beta parameter: {} - should be in [0.0, 1.0[".format(betas[0]))
         if not 0.0 <= betas[1] < 1.0:
-            raise ValueError(
-                "Invalid beta parameter: {} - should be in [0.0, 1.0[".format(betas[1])
-            )
+            raise ValueError("Invalid beta parameter: {} - should be in [0.0, 1.0[".format(betas[1]))
         if not 0.0 <= eps:
             raise ValueError("Invalid epsilon value: {} - should be >= 0.0".format(eps))
         defaults = dict(
@@ -89,21 +85,15 @@ class FusedAdamW(Optimizer):
                 grad = p.grad.data
                 weight = p.data
                 if grad.is_sparse:
-                    raise RuntimeError(
-                        "Adam does not support sparse gradients, please consider SparseAdam"
-                    )
+                    raise RuntimeError("Adam does not support sparse gradients, please consider SparseAdam")
 
                 state = self.state[p]
                 if len(state) == 0:
                     state["step"] = 0
                     # Exponential moving average of gradient values
-                    state["exp_avg"] = (
-                        torch.zeros(p.data.shape).to(p.dtype).to(p.device)
-                    )
+                    state["exp_avg"] = torch.zeros(p.data.shape).to(p.dtype).to(p.device)
                     # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = (
-                        torch.zeros(p.data.shape).to(p.dtype).to(p.device)
-                    )
+                    state["exp_avg_sq"] = torch.zeros(p.data.shape).to(p.dtype).to(p.device)
 
                 exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
 
@@ -123,9 +113,7 @@ class FusedAdamW(Optimizer):
                 if "bias_correction" in group.keys():
                     bias_correction_key = "bias_correction"
                 else:
-                    print(
-                        "FusedAdamW: key 'bias_correction' not found. using 'correct_bias' instead"
-                    )
+                    print("FusedAdamW: key 'bias_correction' not found. using 'correct_bias' instead")
                     print("This might occur when loading old checkpoints.")
                     bias_correction_key = "correct_bias"
 
@@ -135,9 +123,7 @@ class FusedAdamW(Optimizer):
                 if bias_correction:
                     bias_correction1 = 1.0 - pow(beta1, group["step"])
                     bias_correction2 = 1.0 - pow(beta2, group["step"])
-                    step_size = (
-                        step_size * math.sqrt(bias_correction2) / bias_correction1
-                    )
+                    step_size = step_size * math.sqrt(bias_correction2) / bias_correction1
 
                 neg_step = -step_size
                 neg_step_t = (
@@ -166,9 +152,7 @@ class FusedAdamW(Optimizer):
                     )
                 else:
                     modified_wd_t = (
-                        torch.tensor(
-                            [modified_wd], dtype=torch.float, requires_grad=False
-                        )
+                        torch.tensor([modified_wd], dtype=torch.float, requires_grad=False)
                         .to(wt_list[0].dtype)
                         .to(wt_list[0].device, non_blocking=True)
                     )

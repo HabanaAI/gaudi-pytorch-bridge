@@ -17,7 +17,6 @@ from habana_frameworks.torch import core as htcore
 
 
 class FusedLamb(Optimizer):
-
     """Implements a version of LAMB optimizer customized for HABANA devices.
     :class:`FusedLamb`'s usage is identical to any ordinary Pytorch optimizer::
 
@@ -119,20 +118,12 @@ class FusedLamb(Optimizer):
                         continue
                     grad = p.grad.data
                     if grad.is_sparse:
-                        raise RuntimeError(
-                            "Lamb does not support sparse gradients, consider SparseAdam instead."
-                        )
-                    grad_list_norm.append(
-                        grad if self.dtype is None else grad.to(dtype=self.dtype)
-                    )
+                        raise RuntimeError("Lamb does not support sparse gradients, consider SparseAdam instead.")
+                    grad_list_norm.append(grad if self.dtype is None else grad.to(dtype=self.dtype))
 
-            clip_global_grad_norm = torch.ops.hpu.optimizer_lamb_fused_norm(
-                grad_list_norm, max_grad_norm
-            )
+            clip_global_grad_norm = torch.ops.hpu.optimizer_lamb_fused_norm(grad_list_norm, max_grad_norm)
         else:
-            clip_global_grad_norm = torch.tensor(
-                [1.0], dtype=torch.float32, device=self.device
-            )
+            clip_global_grad_norm = torch.tensor([1.0], dtype=torch.float32, device=self.device)
 
         for group in self.param_groups:
             beta1, beta2 = group["betas"]

@@ -35,9 +35,7 @@ def test_jit_gt(in_tensors):
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
         model = Net()
-        model_trace = torch.jit.trace(
-            model, [in_tensors[0], in_tensors[1]], check_trace=False
-        )
+        model_trace = torch.jit.trace(model, [in_tensors[0], in_tensors[1]], check_trace=False)
         torch.jit.save(model_trace, "cpu_trace.pt")
         cpu_result = model(in_tensors[0], in_tensors[1])
 
@@ -48,9 +46,7 @@ def test_jit_gt(in_tensors):
     hpu_t2 = in_tensors[1].to(hpu)
     model_trace_hpu = torch.jit.load("cpu_trace.pt", map_location=torch.device("hpu"))
     model_trace_hpu_graph = model_trace_hpu.graph_for(hpu_t1)
-    FileCheck().check_count("= prim::HabanaFusedOp_0", 2, exactly=True).run(
-        str(model_trace_hpu_graph)
-    )
+    FileCheck().check_count("= prim::HabanaFusedOp_0", 2, exactly=True).run(str(model_trace_hpu_graph))
     out = model_trace_hpu(hpu_t1, hpu_t2)
     hpu_result = out.to(cpu)
     compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.0e-3)

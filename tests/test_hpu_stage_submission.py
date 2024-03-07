@@ -1,19 +1,12 @@
 import torch
-<<<<<<< HEAD:tests/test_hpu_stage_submission.py
-import pytest
 from test_utils import env_var_in_scope, hpu, cpu
 import pytest
 
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
-=======
-from test_utils import cpu, env_var_in_scope, hpu
 
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/lazy/test_hpu_stage_submission.py
 
 class Net(torch.nn.Module):
-    def __init__(
-        self, input_dim, output_dim, hidden_dim=16, hidden_layers=10, threshold=0.35
-    ):
+    def __init__(self, input_dim, output_dim, hidden_dim=16, hidden_layers=10, threshold=0.35):
         super(Net, self).__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -22,10 +15,7 @@ class Net(torch.nn.Module):
         self.hidden_layers = hidden_layers
         self.fc_in = torch.nn.Linear(self.input_dim, self.hidden_dim)
         self.fc_h = torch.nn.ModuleList(
-            [
-                torch.nn.Linear(self.hidden_dim, self.hidden_dim)
-                for _ in range(self.hidden_layers)
-            ]
+            [torch.nn.Linear(self.hidden_dim, self.hidden_dim) for _ in range(self.hidden_layers)]
         )
         self.fc_out = torch.nn.Linear(self.hidden_dim, self.output_dim)
 
@@ -43,9 +33,7 @@ class Net(torch.nn.Module):
 
 @pytest.mark.skip(reason="Tests is chaning env variables")
 def test_hpu_lazy_stage_submission():
-    with env_var_in_scope(
-        {"PT_HPU_MAX_COMPOUND_OP_SIZE": "15", "PT_HPU_ENABLE_STAGE_SUBMISSION": "1"}
-    ):
+    with env_var_in_scope({"PT_HPU_MAX_COMPOUND_OP_SIZE": "15", "PT_HPU_ENABLE_STAGE_SUBMISSION": "1"}):
         x = torch.rand(8, 3, 24, device=hpu)
         net = Net(24, 4).to(hpu)
         y = net(x)

@@ -49,21 +49,14 @@ def index_add(device, seed, st, scenario):
         htcore.mark_step()
     return r.to("cpu")
 
-<<<<<<< HEAD:tests/test_hpu_index_add_duplicate_indices.py
-@pytest.mark.parametrize("scenario", [
-    pytest.param(0, marks=[pytest.mark.xfail(reason="results mismatch")]),
-    pytest.param(1, marks=[pytest.mark.xfail(reason="results mismatch")])
-])
-=======
 
 @pytest.mark.parametrize(
     "scenario",
     [
         pytest.param(0, marks=[pytest.mark.xfail(reason="results mismatch")]),
-        1,
+        pytest.param(1, marks=[pytest.mark.xfail(reason="results mismatch")]),
     ],
 )
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_index_add_duplicate_indices.py
 def test_index_add_duplicate_indices(scenario):
     N = 20
     mms = 0

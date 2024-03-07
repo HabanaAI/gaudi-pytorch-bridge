@@ -1,6 +1,7 @@
 import torch
 from test_utils import env_var_in_scope
 import pytest
+
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
 hpu = torch.device("hpu")

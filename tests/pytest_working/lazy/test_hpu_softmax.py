@@ -48,9 +48,7 @@ def test_hpu_log_softmax_5D_fwd_bwd(N, C, D, H, W, kernel_op, dim):
         "dim": dim,
     }
     bwd_tensors = [torch.randn(N, C, D, H, W)]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params)
 
 
 @pytest.mark.parametrize("N, C, dim", test_case_list)
@@ -65,9 +63,7 @@ def test_hpu_log_softmax(N, C, kernel_op, dim):
 def test_hpu_log_softmax_fwd_bwd(N, C, kernel_op, dim):
     kernel_params = {"input": torch.randn(N, C, requires_grad=True), "dim": dim}
     bwd_tensors = [torch.randn(N, C)]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params)
 
 
 @pytest.mark.xfail(reason="softmax_kernel_impl not implemented for '<dtype>'")

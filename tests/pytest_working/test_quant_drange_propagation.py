@@ -7,35 +7,43 @@ import torch.nn as nn
 from habana_frameworks.torch import hpu
 from habana_frameworks.torch.utils.library_loader import load_habana_module
 
+
 def is_lazy():
     return int(os.environ.get("PT_HPU_LAZY_MODE", 1)) == 1
 
 
 embedding_dim = 5
+
+
 class Net1(nn.Module):
     def __init__(self):
         super(Net1, self).__init__()
-        self.gelu_impl = nn.GELU(approximate='tanh')
+        self.gelu_impl = nn.GELU(approximate="tanh")
         self.layer_norm = nn.LayerNorm(embedding_dim)
+
     def forward(self, x, y):
         x = torch.bmm(x, y)
         x = self.gelu_impl(x)
         x = self.layer_norm(x)
         return x
 
+
 class Net2(nn.Module):
     def __init__(self):
         super(Net2, self).__init__()
+
     def forward(self, x):
         x = torch.permute(x, (2, 0, 1))
         x = torch.reshape(x, (-1,))
         return x
+
 
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
         self.net1 = Net1()
         self.net2 = Net2()
+
     def forward(self, x, y):
         x = self.net1(x, y)
         x = self.net2(x)
@@ -43,19 +51,15 @@ class Net(nn.Module):
 
 
 def populate_drange(model=None) -> None:
-    drange = {
-      "net1.bmm.0": 2.0,
-      "net1.gelu_impl.0": 2.1,
-      "net1.layer_norm.0": 2.2
-    }
+    drange = {"net1.bmm.0": 2.0, "net1.gelu_impl.0": 2.1, "net1.layer_norm.0": 2.2}
     if hpu.is_available():
-        model._buffers['ranges'] = dict({'inputs' : dict(), 'outputs' : dict(), 'weights' : dict()})
+        model._buffers["ranges"] = dict({"inputs": dict(), "outputs": dict(), "weights": dict()})
         for name, max_value in drange.items():
             nmin = name + ".min_val"
-            model._buffers['ranges']['outputs'][nmin] = torch.tensor(0)
+            model._buffers["ranges"]["outputs"][nmin] = torch.tensor(0)
             model._non_persistent_buffers_set.discard(nmin)
             nmax = name + ".max_val"
-            model._buffers['ranges']['outputs'][nmax] = torch.tensor(max_value)
+            model._buffers["ranges"]["outputs"][nmax] = torch.tensor(max_value)
             model._non_persistent_buffers_set.discard(nmax)
 
 
@@ -77,6 +81,7 @@ def test_dranges_passed_from_bridge_to_synapse():
     populate_drange(model)
 
     import habana_frameworks.torch.core as htcore
+
     htcore.hpu_initialize(model)
 
     test_out_hpu = model(mat1_in_hpu, mat2_in_hpu)

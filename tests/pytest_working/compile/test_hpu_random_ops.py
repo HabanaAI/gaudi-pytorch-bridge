@@ -250,9 +250,7 @@ def test_various_ops(dtype):
         e = torch.rand(shape_c, dtype=dtype, device="hpu")
         f = torch.randn(shape_c, dtype=dtype, device="hpu")
         g = torch.randint(10, 300, shape_c, dtype=torch.int, device="hpu").to(dtype)
-        h = torch.multinomial(multinomial_input, shape_c[-1], replacement=True).to(
-            dtype
-        )
+        h = torch.multinomial(multinomial_input, shape_c[-1], replacement=True).to(dtype)
         ab = torch.mul(a, b)
         cd = torch.div(c, d)
         ef = torch.add(e, f)
@@ -297,13 +295,16 @@ def test_various_ops(dtype):
         }
     )
 
+
 @pytest.mark.parametrize("n", [(5), (8), (17)])
 @pytest.mark.parametrize("dtype", [torch.long])
 def test_randperm(n, dtype):
     torch._dynamo.reset()
     clear_t_compile_logs()
+
     def fn(shape):
         return torch.randperm(shape, dtype=dtype, device="hpu")
+
     compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     torch.manual_seed(1234)

@@ -5,27 +5,15 @@ import numpy as np
 import pytest
 import torch
 import torch.nn as nn
-<<<<<<< HEAD:tests/test_jit_dropout.py
-from test_utils import hpu, cpu
-import habana_frameworks.torch.core as htcore
-from test_utils import env_var_in_scope
+from test_utils import hpu, cpu, env_var_in_scope
 
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
-test_case_list = [
-  (384, 768)
-]
-=======
-from test_utils import cpu, env_var_in_scope, hpu
-
 test_case_list = [(384, 768)]
 
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_jit_dropout.py
 
 @pytest.mark.parametrize("D1, D2", test_case_list)
-@pytest.mark.xfail(
-    reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'"
-)
+@pytest.mark.xfail(reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'")
 def test_dropout(D1, D2):
     with env_var_in_scope(
         {
@@ -55,9 +43,7 @@ def test_dropout(D1, D2):
             grad_out = torch.randn((D1, D2), requires_grad=False)
             hpu_out.backward(grad_out.detach().to(hpu))
             # Determine the sample dropout probability
-            dropout_prob_sample = (
-                1.0 - float(np.nonzero(output1)[0].size) / np.cumprod(shape)[-1]
-            )
+            dropout_prob_sample = 1.0 - float(np.nonzero(output1)[0].size) / np.cumprod(shape)[-1]
             np.testing.assert_almost_equal(dp, dropout_prob_sample, decimal=2)
 
 

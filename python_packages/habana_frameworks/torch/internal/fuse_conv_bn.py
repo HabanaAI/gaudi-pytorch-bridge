@@ -6,16 +6,19 @@ import os
 import torch.fx as fx
 import torch.nn as nn
 
+
 def check_for_inference_mode(model):
     if model.training:
-        raise("Fusion only applicable for eval")
+        raise ("Fusion only applicable for eval")
+
 
 def check_for_model_device(model):
     # Iterate over the parameters of the model
     for param in model.parameters():
         # Check if the parameter is on the CPU
         if not param.is_cpu:
-            raise('The next parameter is not on the CPU.')
+            raise ("The next parameter is not on the CPU.")
+
 
 def fuse_conv_bn_eval(conv, bn):
     """
@@ -24,11 +27,12 @@ def fuse_conv_bn_eval(conv, bn):
     """
     fused_conv = copy.deepcopy(conv)
 
-    fused_conv.weight, fused_conv.bias = \
-        fuse_conv_bn_weights(fused_conv.weight, fused_conv.bias,
-                             bn.running_mean, bn.running_var, bn.eps, bn.weight, bn.bias)
+    fused_conv.weight, fused_conv.bias = fuse_conv_bn_weights(
+        fused_conv.weight, fused_conv.bias, bn.running_mean, bn.running_var, bn.eps, bn.weight, bn.bias
+    )
 
     return fused_conv
+
 
 def fuse_conv_bn_weights(conv_w, conv_b, bn_rm, bn_rv, bn_eps, bn_w, bn_b):
     if conv_b is None:
@@ -44,16 +48,18 @@ def fuse_conv_bn_weights(conv_w, conv_b, bn_rm, bn_rv, bn_eps, bn_w, bn_b):
 
     return torch.nn.Parameter(conv_w), torch.nn.Parameter(conv_b)
 
-def _parent_name(target : str) -> Tuple[str, str]:
+
+def _parent_name(target: str) -> Tuple[str, str]:
     """
     Splits a ``qualname`` into parent path and last atom.
     For example, `foo.bar.baz` -> (`foo.bar`, `baz`)
     """
-    *parent, name = target.rsplit('.', 1)
-    return parent[0] if parent else '', name
+    *parent, name = target.rsplit(".", 1)
+    return parent[0] if parent else "", name
+
 
 def replace_node_module(node: fx.Node, modules: Dict[str, Any], new_module: torch.nn.Module):
-    assert(isinstance(node.target, str))
+    assert isinstance(node.target, str)
     parent_name, name = _parent_name(node.target)
     setattr(modules[parent_name], name, new_module)
 
@@ -94,7 +100,7 @@ def fuse(model: torch.nn.Module) -> torch.nn.Module:
         # The FX IR contains several types of nodes, which generally represent
         # call sites to modules, functions, or methods. The type of node is
         # determined by `Node.op`.
-        if node.op != 'call_module': # If our current node isn't calling a Module then we can ignore it.
+        if node.op != "call_module":  # If our current node isn't calling a Module then we can ignore it.
             continue
         # For call sites, `Node.target` represents the module/function/method
         # that's being called. Here, we check `Node.target` to see if it's a

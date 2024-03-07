@@ -49,9 +49,7 @@ def test_hpu_squeeze(shape, dims, dtype, modify_view):
     tol = 0 if dtype == torch.int else 0.001
 
     compare_tensors(result_hpu, result, tol, tol)
-    compare_tensors(
-        input_hpu, input, tol, tol
-    )  # this will ensure that the view base is also updated
+    compare_tensors(input_hpu, input, tol, tol)  # this will ensure that the view base is also updated
 
 
 @pytest.mark.parametrize("shape", [(1,), (4,)])
@@ -81,6 +79,4 @@ def test_hpu_squeeze_dim0(shape, dim, dtype, modify_view):
     tol = 0 if dtype == torch.int else 0.001
 
     compare_tensors(result_hpu, result, tol, tol)
-    compare_tensors(
-        input_hpu, input, tol, tol
-    )  # this will ensure that the view base is also updated
+    compare_tensors(input_hpu, input, tol, tol)  # this will ensure that the view base is also updated

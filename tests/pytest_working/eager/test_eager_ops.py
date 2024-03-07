@@ -45,14 +45,10 @@ def test_equal(data1, data2):
 @pytest.mark.parametrize("blocking_flag", [True, False])
 def test_resize_inplace(shape_in, shape_out, blocking_flag):
     num_elements = np.multiply.reduce(shape_in)
-    cpu_tensor = torch.Tensor(
-        np.reshape(np.arange(num_elements, dtype=np.int32), shape_in)
-    ).type(torch.int32)
+    cpu_tensor = torch.Tensor(np.reshape(np.arange(num_elements, dtype=np.int32), shape_in)).type(torch.int32)
     hpu_tensor = cpu_tensor.to("hpu", non_blocking=blocking_flag)
     result_cpu = cpu_tensor.resize_(shape_out).numpy().flatten()[:num_elements]
-    result_hpu = (
-        hpu_tensor.resize_(shape_out).to("cpu").numpy().flatten()[:num_elements]
-    )
+    result_hpu = hpu_tensor.resize_(shape_out).to("cpu").numpy().flatten()[:num_elements]
 
     assert np.array_equal(result_hpu, result_cpu)
 
@@ -144,9 +140,7 @@ def test_pow_variants():
     hpu_tensor = cpu_tensor.to("hpu")
     cpu_out = torch.zeros(cpu_tensor.shape)
     hpu_out = torch.zeros(hpu_tensor.shape).to("hpu")
-    hpu_tensor_exp = cpu_tensor.to(
-        "hpu"
-    )  # duplicate input is specific case tested separately
+    hpu_tensor_exp = cpu_tensor.to("hpu")  # duplicate input is specific case tested separately
     torch.pow(hpu_tensor, hpu_tensor_exp, out=hpu_out)
     torch.pow(cpu_tensor, cpu_tensor, out=cpu_out)
 
@@ -247,9 +241,7 @@ def test_eager_frexp_out():
     torch.frexp(cpu_tensor, out=cpu_outtensor)
     torch.frexp(hpu_tensor, out=hpu_outtensor)
 
-    assert torch.allclose(
-        cpu_outtensor[0], hpu_outtensor[0].to("cpu"), atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(cpu_outtensor[0], hpu_outtensor[0].to("cpu"), atol=0.001, rtol=0.001)
     assert torch.equal(cpu_outtensor[1], hpu_outtensor[1].to("cpu"))
 
 
@@ -271,9 +263,7 @@ def test_eager_max_out():
     torch.max(cpu_tensor, 0, out=cpu_outtensor)
     torch.max(hpu_tensor, 0, out=hpu_outtensor)
 
-    assert torch.allclose(
-        cpu_outtensor[0], hpu_outtensor[0].to("cpu"), atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(cpu_outtensor[0], hpu_outtensor[0].to("cpu"), atol=0.001, rtol=0.001)
     assert torch.equal(cpu_outtensor[1], hpu_outtensor[1].to("cpu"))
 
 
@@ -303,9 +293,7 @@ def test_batch_norm():
     cpu_grad_outputs = torch.randn(N, C, H, W)
     (cpu_input_grad, cpu_weight_grad, cpu_bias_grad) = torch.autograd.grad(
         outputs=cpu_res,
-        inputs=[
-            v for k, v in cpu_inputs.items() if k in ["input", "bias", "weight"]
-        ],
+        inputs=[v for k, v in cpu_inputs.items() if k in ["input", "bias", "weight"]],
         grad_outputs=cpu_grad_outputs,
     )
 
@@ -316,9 +304,7 @@ def test_batch_norm():
     hpu_grad_outputs = cpu_grad_outputs.to("hpu")
     (hpu_input_grad, hpu_weight_grad, hpu_bias_grad) = torch.autograd.grad(
         outputs=hpu_res,
-        inputs=[
-            v for k, v in hpu_inputs.items() if k in ["input", "bias", "weight"]
-        ],
+        inputs=[v for k, v in hpu_inputs.items() if k in ["input", "bias", "weight"]],
         grad_outputs=hpu_grad_outputs,
     )
 
@@ -382,9 +368,7 @@ def test_addcdiv():
     hpu_tensor3 = cpu_tensor3.to("hpu")
     val = 1.5
     result_cpu = torch.addcdiv(cpu_tensor1, cpu_tensor2, cpu_tensor3, value=val)
-    result_hpu = torch.addcdiv(
-        hpu_tensor1, hpu_tensor2, hpu_tensor3, value=val
-    ).to("cpu")
+    result_hpu = torch.addcdiv(hpu_tensor1, hpu_tensor2, hpu_tensor3, value=val).to("cpu")
     assert torch.allclose(result_hpu, result_cpu, atol=1e-6, rtol=1e-6)
 
 
@@ -397,9 +381,7 @@ def test_addcmul():
     hpu_tensor3 = cpu_tensor3.to("hpu")
     val = 1.5
     result_cpu = torch.addcmul(cpu_tensor1, cpu_tensor2, cpu_tensor3, value=val)
-    result_hpu = torch.addcmul(
-        hpu_tensor1, hpu_tensor2, hpu_tensor3, value=val
-    ).to("cpu")
+    result_hpu = torch.addcmul(hpu_tensor1, hpu_tensor2, hpu_tensor3, value=val).to("cpu")
     assert torch.allclose(result_hpu, result_cpu, atol=1e-6, rtol=1e-6)
 
 
@@ -475,17 +457,13 @@ def test_where_variants():
     condition = torch.randn(1, 7) > 0
 
     where_cpu = torch.where(condition, self, other)
-    where_hpu = torch.where(
-        condition.to("hpu"), self.to("hpu"), other.to("hpu")
-    ).to("cpu")
+    where_hpu = torch.where(condition.to("hpu"), self.to("hpu"), other.to("hpu")).to("cpu")
     assert torch.equal(where_hpu, where_cpu)
 
     where_out_cpu = torch.zeros(self.shape)
     where_out_hpu = torch.zeros(self.shape).to("hpu")
     torch.where(condition, self, other, out=where_out_cpu)
-    torch.where(
-        condition.to("hpu"), self.to("hpu"), other.to("hpu"), out=where_out_hpu
-    )
+    torch.where(condition.to("hpu"), self.to("hpu"), other.to("hpu"), out=where_out_hpu)
     assert torch.equal(where_out_hpu.to("cpu"), where_out_cpu)
 
 
@@ -497,9 +475,7 @@ def test_index_put_long():
         torch.tensor([0, 1]).to("hpu"),
         torch.tensor([0, 1]).to("hpu"),
     ] = -100
-    cpu_tensor[
-        torch.tensor([0, 2]), torch.tensor([0, 1]), torch.tensor([0, 1])
-    ] = -100
+    cpu_tensor[torch.tensor([0, 2]), torch.tensor([0, 1]), torch.tensor([0, 1])] = -100
     assert torch.equal(hpu_tensor.to("cpu"), cpu_tensor)
 
 
@@ -592,9 +568,7 @@ def test_nonzero(shape_in, zero_input):
             [[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]],
             dtype=torch.float32,
         ),
-        torch.tensor(
-            [[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32
-        ),
+        torch.tensor([[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
     ],
 )
 @pytest.mark.parametrize("return_inverse", [True, False])
@@ -645,15 +619,11 @@ def test_unique2(tensor_in, return_inverse, return_sorted, return_counts):
 # For Scalars to() operator and item() are going with different paths for scalars
 # copy h2d is done via copy_from_ operator, but item() is calling local_scalar_dense
 # both should support INT64 downcasting
-@pytest.mark.parametrize(
-    "init_val, dtype", [(1234567, torch.int64), (12345.678, torch.double)]
-)
+@pytest.mark.parametrize("init_val, dtype", [(1234567, torch.int64), (12345.678, torch.double)])
 def test_local_scalar_dense(init_val, dtype):
     hpu_tensor = torch.Tensor([init_val]).type(dtype).to("hpu")
     if dtype == torch.double:
-        assert np.allclose(
-            [hpu_tensor.item()], [init_val], atol=0.001, rtol=0.001
-        )
+        assert np.allclose([hpu_tensor.item()], [init_val], atol=0.001, rtol=0.001)
     else:
         assert hpu_tensor.item() == init_val
 
@@ -681,12 +651,8 @@ def test_sag_permute_add(setup_teardown_env_fixture):
     permute_hpu2 = torch.permute(hpu_tensor2, (2, 0, 1)).contiguous()
     result_hpu2 = torch.add(permute_hpu2, 3)
 
-    assert torch.allclose(
-        result_hpu.to("cpu"), result_cpu, atol=0.001, rtol=0.001
-    )
-    assert torch.allclose(
-        result_hpu2.to("cpu"), result_cpu2, atol=0.001, rtol=0.001
-    )
+    assert torch.allclose(result_hpu.to("cpu"), result_cpu, atol=0.001, rtol=0.001)
+    assert torch.allclose(result_hpu2.to("cpu"), result_cpu2, atol=0.001, rtol=0.001)
 
 
 @pytest.mark.skip(reason="Tests in this file are chaning env variables")
@@ -696,29 +662,17 @@ def test_sag_permute_add(setup_teardown_env_fixture):
     indirect=True,
 )
 def test_sag_conv_relu(setup_teardown_env_fixture):
-    input_a = torch.arange(
-        27, dtype=torch.float32, requires_grad=False
-    ).reshape(1, 3, 3, 3)
-    input_b = torch.arange(
-        64, dtype=torch.float32, requires_grad=False
-    ).reshape(1, 4, 4, 4)
+    input_a = torch.arange(27, dtype=torch.float32, requires_grad=False).reshape(1, 3, 3, 3)
+    input_b = torch.arange(64, dtype=torch.float32, requires_grad=False).reshape(1, 4, 4, 4)
 
-    weight_a = torch.arange(
-        27, dtype=torch.float32, requires_grad=False
-    ).reshape(3, 3, 3, 1)
-    weight_b = torch.arange(
-        64, dtype=torch.float32, requires_grad=False
-    ).reshape(4, 4, 4, 1)
+    weight_a = torch.arange(27, dtype=torch.float32, requires_grad=False).reshape(3, 3, 3, 1)
+    weight_b = torch.arange(64, dtype=torch.float32, requires_grad=False).reshape(4, 4, 4, 1)
 
     # cpu
-    conv_a = torch.nn.functional.conv2d(
-        input_a, weight_a, bias=None, stride=1, padding=0, dilation=1, groups=1
-    )
+    conv_a = torch.nn.functional.conv2d(input_a, weight_a, bias=None, stride=1, padding=0, dilation=1, groups=1)
     out_a = torch.relu(conv_a)
 
-    conv_b = torch.nn.functional.conv2d(
-        input_b, weight_b, bias=None, stride=1, padding=0, dilation=1, groups=1
-    )
+    conv_b = torch.nn.functional.conv2d(input_b, weight_b, bias=None, stride=1, padding=0, dilation=1, groups=1)
     out_b = torch.relu(conv_b)
 
     # hpu
@@ -765,32 +719,18 @@ def test_sag_conv_relu(setup_teardown_env_fixture):
     indirect=True,
 )
 def test_sag_conv_relu_relu(setup_teardown_env_fixture):
-    input_a = torch.arange(
-        27, dtype=torch.float32, requires_grad=False
-    ).reshape(1, 3, 3, 3)
-    input_b = torch.arange(
-        64, dtype=torch.float32, requires_grad=False
-    ).reshape(1, 4, 4, 4)
-    input_c = torch.arange(
-        27, dtype=torch.float32, requires_grad=False
-    ).reshape(1, 3, 3, 3)
+    input_a = torch.arange(27, dtype=torch.float32, requires_grad=False).reshape(1, 3, 3, 3)
+    input_b = torch.arange(64, dtype=torch.float32, requires_grad=False).reshape(1, 4, 4, 4)
+    input_c = torch.arange(27, dtype=torch.float32, requires_grad=False).reshape(1, 3, 3, 3)
 
-    weight_a = torch.arange(
-        27, dtype=torch.float32, requires_grad=False
-    ).reshape(3, 3, 3, 1)
-    weight_b = torch.arange(
-        64, dtype=torch.float32, requires_grad=False
-    ).reshape(4, 4, 4, 1)
+    weight_a = torch.arange(27, dtype=torch.float32, requires_grad=False).reshape(3, 3, 3, 1)
+    weight_b = torch.arange(64, dtype=torch.float32, requires_grad=False).reshape(4, 4, 4, 1)
 
     # cpu
-    conv_a = torch.nn.functional.conv2d(
-        input_a, weight_a, bias=None, stride=1, padding=0, dilation=1, groups=1
-    )
+    conv_a = torch.nn.functional.conv2d(input_a, weight_a, bias=None, stride=1, padding=0, dilation=1, groups=1)
     out_a = torch.relu(conv_a)
 
-    conv_b = torch.nn.functional.conv2d(
-        input_b, weight_b, bias=None, stride=1, padding=0, dilation=1, groups=1
-    )
+    conv_b = torch.nn.functional.conv2d(input_b, weight_b, bias=None, stride=1, padding=0, dilation=1, groups=1)
     out_b = torch.relu(conv_b)
 
     out_c = torch.relu(input_c)
@@ -928,6 +868,7 @@ def test_sag_zst_1d():
 
     assert torch.equal(e.cpu(), torch.mul(d.cpu(), 2))
 
+
 @pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_conv_bwd_view():
     for N, C, H, W, C2 in [
@@ -936,7 +877,7 @@ def test_sag_conv_bwd_view():
     ]:
         grad_output = torch.rand([N, C2, H, W]).to("hpu")
         input = torch.rand([N, C, H, W]).to("hpu")
-        input_strided = input.as_strided((N, C, H, W), (N*C*H , C*H, 1, W))
+        input_strided = input.as_strided((N, C, H, W), (N * C * H, C * H, 1, W))
         weight = torch.rand([C2, C, 1, 1]).to("hpu")
 
         # convolution_backward_overrideable is not implemented on CPU

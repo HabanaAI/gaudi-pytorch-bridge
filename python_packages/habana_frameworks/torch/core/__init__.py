@@ -30,14 +30,16 @@ from .quantization import hpu_initialize
 from .quantization import hpu_reset_env
 
 # expose habana_frameworks.torch.hpu as torch.hpu
-torch._register_device_module('hpu', hpu)
+torch._register_device_module("hpu", hpu)
 
 # wrap some torch functionalitis required to work with HPU
 overwrite_torch_functions()
 
+
 # enable profiler and weight sharing if required
 def _enable_profiler_if_needed():
     import os
+
     if "HABANA_PROFILE" not in os.environ:
         os.environ["HABANA_PROFILE"] = "profile_api_light"
 
@@ -50,6 +52,7 @@ def _enable_weight_sharing_if_needed():
 
     if check_env_flag("EXPERIMENTAL_WEIGHT_SHARING", "1"):
         from .weight_sharing import enable_weight_sharing
+
         enable_weight_sharing()
 
 

@@ -20,6 +20,7 @@ from test_utils import (
     format_tc,
 )
 
+
 @pytest.mark.parametrize("shape_in", [(4,), (4, 4), (4, 4, 4), (4, 4, 4, 4)])
 @pytest.mark.parametrize("range", [(0.3, 0.7), (0.3, 0.3)])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)

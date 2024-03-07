@@ -15,7 +15,7 @@ import habana_frameworks.torch.dynamo.compile_backend
 
 SUPPORTED_DTYPES = [torch.float, torch.bfloat16, torch.int, torch.long]
 TENSOR_SHAPE = [2, 3, 4]
-SCALAR_VALUES = [2.3, float('nan'), 0]
+SCALAR_VALUES = [2.3, float("nan"), 0]
 
 
 @pytest.mark.parametrize("dtype", SUPPORTED_DTYPES, ids=[str(dtype) for dtype in SUPPORTED_DTYPES])

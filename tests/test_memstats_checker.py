@@ -9,9 +9,7 @@ import torch
 
 def test_mem_stats_file_created():
     a = torch.ones([20, 30, 400, 50]).to("hpu")
-    htdebug._memstat_devmem_start_collect(
-        "htcore.memstat_devmem_start_collect...", False
-    )
+    htdebug._memstat_devmem_start_collect("htcore.memstat_devmem_start_collect...", False)
 
     def run_iter():
         b = torch.transpose(a, 2, 3)

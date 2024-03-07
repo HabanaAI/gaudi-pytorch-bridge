@@ -33,8 +33,8 @@ def select_amax_and_exec(
     operator,
     fp8_meta_tensor: tex.FP8TensorMeta,
     fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
-    fp8_meta_tensor2:  Optional[tex.FP8TensorMeta] = None,
-    measure_amax=True
+    fp8_meta_tensor2: Optional[tex.FP8TensorMeta] = None,
+    measure_amax=True,
 ):
     outputs = operator()
 

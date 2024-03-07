@@ -20,9 +20,7 @@ class Net(nn.Module):
         return nn.functional.relu(z)
 
 
-@pytest.mark.xfail(
-    reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'"
-)
+@pytest.mark.xfail(reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'")
 @pytest.mark.parametrize("in_tensor", data_list)
 def test_jit_neg(in_tensor):
     with torch.jit.optimized_execution(True):
@@ -41,9 +39,7 @@ def test_jit_neg(in_tensor):
     hpu_t = in_tensor.to(hpu)
     model_trace_hpu = torch.jit.load("cpu_trace.pt", map_location=torch.device("hpu"))
     model_trace_hpu_graph = model_trace_hpu.graph_for(hpu_t)
-    FileCheck().check_count("= prim::HabanaFusedOp_0", 2, exactly=True).run(
-        str(model_trace_hpu_graph)
-    )
+    FileCheck().check_count("= prim::HabanaFusedOp_0", 2, exactly=True).run(str(model_trace_hpu_graph))
     out = model_trace_hpu(hpu_t)
     hpu_result = out.to(cpu)
     compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.0e-3)

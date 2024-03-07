@@ -4,6 +4,7 @@ import pytest
 import os
 import numpy
 import copy
+
 torch.manual_seed(0)
 
 from contextlib import contextmanager
@@ -21,10 +22,12 @@ batch_norm_test_case_list_2d = [
 
 from torch import _dynamo as torchdynamo
 
+
 @pytest.mark.parametrize("N, H, W, C", batch_norm_test_case_list_2d)
 def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
     hpu = torch.device("hpu")
     cpu = torch.device("cpu")
+
     class bn(torch.nn.Module):
         def __init__(self):
             super(bn, self).__init__()
@@ -38,11 +41,13 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
             self.bn2.running_var = torch.nn.Parameter(0.9 * torch.ones_like(self.bn2.running_var))
             self.train(False)
             self.eval()
+
         def _forward_impl(self, x):
             y = self.conv2(x)
             z = self.bn2(y)
-            #a = self.conv2(z)
+            # a = self.conv2(z)
             return z
+
         def forward(self, x):
             return self._forward_impl(x)
 
@@ -55,19 +60,21 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
     print("Infer on CPU....................................", flush=True)
 
     with torch.no_grad():
-            output = model(x)
-            output2 = model(x2)
+        output = model(x)
+        output2 = model(x2)
     import habana_frameworks.torch.core as htcore
+
     model = htcore.hpu_set_env(model)
-    symbolic_traced : torch.fx.GraphModule = symbolic_trace(model)
+    symbolic_traced: torch.fx.GraphModule = symbolic_trace(model)
     # High-level intermediate representation (IR) - Graph representation
     print(symbolic_traced.forward)
     model_hpu = model.to(hpu)
     x_hpu = x.to(hpu)
     x2_hpu = x2.to(hpu)
-    #Hpu initialize has mark_params_as_const and _check_params_as_const which doesn't work for compile
-    #htcore.hpu_initialize(model_hpu)
+    # Hpu initialize has mark_params_as_const and _check_params_as_const which doesn't work for compile
+    # htcore.hpu_initialize(model_hpu)
     print("Infer on HPU....................................", flush=True)
+
     def raw_function(tensor):
         return model_hpu(tensor)
 
@@ -85,10 +92,6 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
             output2_hpu = output2_hpu.to(torch.float32)
     output_hpu_cpu = output_hpu.to(cpu)
     output2_hpu_cpu = output2_hpu.to(cpu)
-    numpy.testing.assert_allclose(
-        output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1
-    )
-    numpy.testing.assert_allclose(
-        output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.1, rtol=0.1
-    )
+    numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1)
+    numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.1, rtol=0.1)
     htcore.hpu_reset_env()

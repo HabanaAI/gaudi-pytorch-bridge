@@ -19,10 +19,10 @@ def setup_teardown_env():
     if 1 == int(os.environ.get("PT_HPU_LAZY_MODE", 1)):
         pytest.skip("This test requires PT_HPU_LAZY_MODE=0")
     import habana_frameworks.torch.hpu as hthpu
+
     ds_org_status = hthpu.get_dynamic_shape_status()
     hthpu.enable_dynamic_shape()
 
     yield
-    if (ds_org_status == False):
+    if ds_org_status == False:
         hthpu.disable_dynamic_shape()
-

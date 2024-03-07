@@ -25,9 +25,7 @@ if not is_gaudi1():
     dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
 
 
-@pytest.mark.parametrize(
-    "shapes", [([3, 4], [3, 4]), ([3, 4], [6, 4]), ([3, 4], [2, 3, 8])]
-)
+@pytest.mark.parametrize("shapes", [([3, 4], [3, 4]), ([3, 4], [6, 4]), ([3, 4], [2, 3, 8])])
 @pytest.mark.parametrize("dtype", dtypes)
 def test_hpu_embedding(shapes, dtype):
     def fn(input, indices):
@@ -37,9 +35,7 @@ def test_hpu_embedding(shapes, dtype):
     cpu_input = torch.rand(input_shape).to(dtype)
     hpu_input = cpu_input.to("hpu")
     max_index = input_shape[1] - 1
-    cpu_indices = torch.randint(
-        low=0, high=max_index, size=indices_shape, dtype=torch.int
-    )
+    cpu_indices = torch.randint(low=0, high=max_index, size=indices_shape, dtype=torch.int)
     hpu_indices = cpu_indices.to("hpu")
 
     if is_pytest_mode_compile():
@@ -58,9 +54,7 @@ def test_hpu_embedding(shapes, dtype):
         check_ops_executed_in_jit_ir("embedding")
 
 
-@pytest.mark.parametrize(
-    "shapes", [([3, 4], [3, 4]), ([3, 4], [6, 4]), ([3, 4], [2, 3, 8])]
-)
+@pytest.mark.parametrize("shapes", [([3, 4], [3, 4]), ([3, 4], [6, 4]), ([3, 4], [2, 3, 8])])
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
 def test_hpu_embedding_bwd(shapes, dtype):
     def fn(input, indices):
@@ -75,9 +69,7 @@ def test_hpu_embedding_bwd(shapes, dtype):
     cpu_input.requires_grad = True
     hpu_input.requires_grad = True
     max_index = input_shape[1] - 1
-    cpu_indices = torch.randint(
-        low=0, high=max_index, size=indices_shape, dtype=torch.int
-    )
+    cpu_indices = torch.randint(low=0, high=max_index, size=indices_shape, dtype=torch.int)
     hpu_indices = cpu_indices.to("hpu")
 
     if is_pytest_mode_compile():

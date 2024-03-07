@@ -14,10 +14,11 @@ import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 
+
 class TestHpuScalarBool:
     @classmethod
     def setup_class(self):
-        #For mul op there is expected fallback to eager
+        # For mul op there is expected fallback to eager
         self.original_configuration = configuration_flags["use_eager_fallback"]
         configuration_flags["use_eager_fallback"] = True
 
@@ -30,8 +31,7 @@ class TestHpuScalarBool:
         def fn(input, scalar):
             return torch.mul(input, scalar)
 
-
-        cpu_input = torch.randint(low=0, high=2, size=(2,2), dtype=torch.bool)
+        cpu_input = torch.randint(low=0, high=2, size=(2, 2), dtype=torch.bool)
         hpu_input = cpu_input.to("hpu")
         torch._dynamo.reset()
 

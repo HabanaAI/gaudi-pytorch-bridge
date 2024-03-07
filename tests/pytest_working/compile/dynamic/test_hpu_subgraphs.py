@@ -14,12 +14,9 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 
+
 def test_graph_simple():
-    input_shapes = [
-        (3, 6, 4),
-        (3, 8, 4),
-        (3, 10, 4)
-    ]
+    input_shapes = [(3, 6, 4), (3, 8, 4), (3, 10, 4)]
 
     def raw_function(t1, t2):
         t3 = torch.mul(t1, t2)
@@ -30,15 +27,16 @@ def test_graph_simple():
 
     for s in input_shapes:
         # CPU
-        t1 = torch.randn(s, requires_grad = False)
-        t2 = torch.randn(s, requires_grad = False)
+        t1 = torch.randn(s, requires_grad=False)
+        t2 = torch.randn(s, requires_grad=False)
         result = raw_function(t1, t2)
 
         # HPU
         t1_h = t1.to("hpu")
         t2_h = t2.to("hpu")
         h_result = compiled_fn(t1_h, t2_h)
-        assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
 
 def test_graph_control_flow_static():
     sizes = [5, 10, 15, 18, 16]
@@ -61,14 +59,11 @@ def test_graph_control_flow_static():
         t2_h = t2.to("hpu")
         h_result = compiled_fn(t1_h, t2_h)
         i = i + 1
-        assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
 
 def test_graph_mult_module_split():
-    input_shapes = [
-        [(3, 6, 4, 2), (3, 48)],
-        [(3, 8, 4, 2), (3, 64)],
-        [(3, 10, 4, 2), (3, 80)]
-    ]
+    input_shapes = [[(3, 6, 4, 2), (3, 48)], [(3, 8, 4, 2), (3, 64)], [(3, 10, 4, 2), (3, 80)]]
 
     def raw_function(t1, x2):
         t1 = torch.relu(t1)
@@ -85,13 +80,14 @@ def test_graph_mult_module_split():
     compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in input_shapes:
-        t1 = torch.randn(s[0], requires_grad = False)
-        t2 = torch.randn(s[1], requires_grad = False)
+        t1 = torch.randn(s[0], requires_grad=False)
+        t2 = torch.randn(s[1], requires_grad=False)
         result = raw_function(t1, t2)
         t1_h = t1.to("hpu")
         t2_h = t2.to("hpu")
         h_result = compiled_fn(t1_h, t2_h)
-        assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
 
 def test_graph_fx_recompilations():
     input_shapes = [
@@ -101,7 +97,7 @@ def test_graph_fx_recompilations():
         (1, 24, 18, 3),
         (8, 24, 9, 3),
         (7, 24, 5, 3),
-        (2, 24, 4, 3)
+        (2, 24, 4, 3),
     ]
 
     def raw_function(t1, t2):
@@ -111,10 +107,10 @@ def test_graph_fx_recompilations():
     compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for s in input_shapes:
-        t1 = torch.randn(s, requires_grad = False)
-        t2 = torch.randn(s, requires_grad = False)
+        t1 = torch.randn(s, requires_grad=False)
+        t2 = torch.randn(s, requires_grad=False)
         result = raw_function(t1, t2)
         t1_h = t1.to("hpu")
         t2_h = t2.to("hpu")
         h_result = compiled_fn(t1_h, t2_h)
-        assert torch.allclose(h_result.to("cpu"), result, atol = 0.001, rtol = 0.001)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)

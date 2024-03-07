@@ -19,9 +19,7 @@ test_case_list = [((0, 512), (30522, 768)), ((0, 512), (512, 768)), ((0, 1), (2,
 
 
 @pytest.mark.parametrize("indices, weight", test_case_list)
-@pytest.mark.xfail(
-    reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'"
-)
+@pytest.mark.xfail(reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'")
 def test_embedding(indices, weight):
     with env_var_in_scope(
         {
@@ -56,9 +54,7 @@ def test_embedding(indices, weight):
             htcore.enable()
             torch._C._jit_set_profiling_mode(False)
             torch._C._jit_set_profiling_executor(False)
-            model_trace_hpu = torch.jit.trace(
-                embedding_func, (hpu_x, hpu_y), check_trace=False
-            )
+            model_trace_hpu = torch.jit.trace(embedding_func, (hpu_x, hpu_y), check_trace=False)
             model_trace_hpu.graph_for(hpu_x, hpu_y)
             # print("Fused graph on HPU: ")
             # print(model_trace_hpu_graph)

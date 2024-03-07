@@ -14,12 +14,8 @@ import datetime
 import json
 import multiprocessing
 import os
-<<<<<<< HEAD:tests/test_metrics.py
-os.environ["PT_HPU_ENABLE_CACHE_METRICS"] = "1"
-=======
 from multiprocessing import Process, Queue
 
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_metrics.py
 import pytest
 import torch
 import torch.multiprocessing as pt_mp
@@ -32,9 +28,7 @@ from habana_frameworks.torch.hpu.metrics import (
 from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
 from test_utils import env_var_in_scope, hpu
 
-pytestmark = pytest.mark.skip(
-    reason="Some of these tests don't free device and other tests are failing."
-)
+pytestmark = pytest.mark.skip(reason="Some of these tests don't free device and other tests are failing.")
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -93,16 +87,13 @@ class TestMetricsAPI:
             compute_single_step(shape, device)
             gc_metric_dict = dict(gc_metric.stats())
             assert gc_metric_dict["TotalNumber"] == 1
-            assert (
-                gc_metric_dict["TotalTime"] == total_time_of_last_iter
-                or total_time_of_last_iter == -1
-            )
+            assert gc_metric_dict["TotalTime"] == total_time_of_last_iter or total_time_of_last_iter == -1
 
     @pytest.mark.skip(reason="Tests is chaning env variables")
     def test_graph_compilation_metric_different_shapes_in_loop(self, gc_metric, rc_metric):
         with env_var_in_scope({"PT_HPU_ENABLE_CACHE_METRICS": "1"}):
             shapes = [[10, 20, x] for x in range(1, 11)]
-            device = torch.device('hpu')
+            device = torch.device("hpu")
             torch.random.manual_seed(42)
 
             last_total_time = 0
@@ -120,7 +111,7 @@ class TestMetricsAPI:
     @pytest.mark.skip(reason="Tests is chaning env variables")
     def test_graph_compilation_metric_same_shape_in_loop(self, gc_metric, rc_metric):
         with env_var_in_scope({"PT_HPU_ENABLE_CACHE_METRICS": "1"}):
-            device = torch.device('hpu')
+            device = torch.device("hpu")
             shape = [1, 2, 3, 4]
             torch.random.manual_seed(42)
             total_time_of_last_iter = -1
@@ -145,18 +136,9 @@ class TestMetricsAPI:
         metric_dict = dict(metric.stats())
         q.put(metric_dict)
 
-<<<<<<< HEAD:tests/test_metrics.py
-    @pytest.mark.parametrize("metric_name",
-                             [("graph_compilation"),
-                              ("cpu_fallback"),
-                              ("memory_defragmentation"),
-                              ("recipe_cache")])
-=======
     @pytest.mark.parametrize(
-        "metric_name",
-        [("graph_compilation"), ("cpu_fallback"), ("memory_defragmentation")],
+        "metric_name", [("graph_compilation"), ("cpu_fallback"), ("memory_defragmentation"), ("recipe_cache")]
     )
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_metrics.py
     def test_metric_zero_at_beginning(self, metric_name):
         """
         Spawns fresh process and verifies if metric are equal 0 at beginning.
@@ -189,21 +171,15 @@ class TestMetricsAPI:
             assert metric_dict["MaxTime"] == 0
             assert metric_dict["TotalSuccessful"] == 0
 
-    def test_graph_compilation_check_gc_global_metric_with_additional_event_handlers(
-        self, gc_metric
-    ):
+    def test_graph_compilation_check_gc_global_metric_with_additional_event_handlers(self, gc_metric):
         device = hpu
         shape = [3, 2, 1]
         torch.random.manual_seed(42)
 
         ed = EventDispatcher.instance()
 
-        ed.subscribe(
-            EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda1 <<< {p}")
-        )
-        ed.subscribe(
-            EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda2 <<< {p}")
-        )
+        ed.subscribe(EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda1 <<< {p}"))
+        ed.subscribe(EventId.GRAPH_COMPILATION, lambda ts, p: print(f">>> lambda2 <<< {p}"))
 
         compute_single_step(shape, device)
 
@@ -294,9 +270,7 @@ class TestMetricsDump:
             ("metric_file.txt.json", True, "metric_file.txt-rank0.json"),
         ],
     )
-    def test_metric_file_with_correct_name_is_created(
-        self, runner, tmp_path, base_name, multinode, expected_base_name
-    ):
+    def test_metric_file_with_correct_name_is_created(self, runner, tmp_path, base_name, multinode, expected_base_name):
         metric_file_user_input = f"{tmp_path}/{base_name}"
         metric_file_target = f"{tmp_path}/{expected_base_name}"
 
@@ -337,9 +311,7 @@ class TestMetricsDump:
 
             if value == "":  # new sub-object
                 curr_root[key] = {}
-                curr_line = TestMetricsDump._parse_text_obj(
-                    lines, curr_line + 1, curr_root[key], curr_root_indent + 1
-                )
+                curr_line = TestMetricsDump._parse_text_obj(lines, curr_line + 1, curr_root[key], curr_root_indent + 1)
             else:
                 curr_root[key] = value
                 curr_line += 1
@@ -354,9 +326,7 @@ class TestMetricsDump:
 
         while num_processed_lines < len(lines):
             root = {}
-            num_processed_lines = TestMetricsDump._parse_text_obj(
-                lines, num_processed_lines, root, 0
-            )
+            num_processed_lines = TestMetricsDump._parse_text_obj(lines, num_processed_lines, root, 0)
             num_processed_lines += 1
             if root:
                 metrics.append(root)
@@ -401,9 +371,7 @@ class TestMetricsDump:
         assert datetime.datetime.fromisoformat(metric["generated_on"])
 
     @pytest.mark.parametrize("format", ["json", "text"])
-    def test_metric_dump_on_metric_change_and_process_exit(
-        self, runner, tmp_path, format
-    ):
+    def test_metric_dump_on_metric_change_and_process_exit(self, runner, tmp_path, format):
         metric_file = f"{tmp_path}/metric.{format}"
         env_vars = {
             "PT_HPU_METRICS_FILE": metric_file,
@@ -423,18 +391,11 @@ class TestMetricsDump:
         for idx, metric_on_metric_change in enumerate(gc_only[:3]):
             assert metric_on_metric_change["metric_name"] == "graph_compilation"
             assert metric_on_metric_change["triggered_by"] == "metric_change"
-            assert int(metric_on_metric_change["statistics"]["TotalNumber"]) == (
-                idx + 1
-            )
-            assert (
-                int(metric_on_metric_change["statistics"]["TotalTime"])
-                > prev_total_time
-            )
+            assert int(metric_on_metric_change["statistics"]["TotalNumber"]) == (idx + 1)
+            assert int(metric_on_metric_change["statistics"]["TotalTime"]) > prev_total_time
             prev_total_time = int(metric_on_metric_change["statistics"]["TotalTime"])
 
-            curr_generated_on = datetime.datetime.fromisoformat(
-                metric_on_metric_change["generated_on"]
-            )
+            curr_generated_on = datetime.datetime.fromisoformat(metric_on_metric_change["generated_on"])
             if prev_generated_on is not None:
                 assert curr_generated_on > prev_generated_on
             prev_generated_on = curr_generated_on
@@ -490,9 +451,7 @@ class TestMetricsDump:
         compute_single_step([3, 2, 1], device)
 
     @staticmethod
-    def _sample_worker_running_processes_via_torch_mp(
-        world_size, call_initialize_dist_hpu
-    ):
+    def _sample_worker_running_processes_via_torch_mp(world_size, call_initialize_dist_hpu):
         pt_mp.start_processes(
             TestMetricsDump.worker_process_for_mp,
             nprocs=world_size,
@@ -502,9 +461,7 @@ class TestMetricsDump:
         )
 
     @pytest.mark.parametrize("call_init_dist_hpu", [True, False])
-    def test_metric_run_processes_via_torch_mp(
-        self, runner, tmp_path, call_init_dist_hpu
-    ):
+    def test_metric_run_processes_via_torch_mp(self, runner, tmp_path, call_init_dist_hpu):
         metric_file = f"{tmp_path}/metric.json"
         env_vars = {"PT_HPU_METRICS_FILE": metric_file}
 

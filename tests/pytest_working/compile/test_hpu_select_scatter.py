@@ -16,13 +16,13 @@ import pytest
 import torch
 from test_utils import cpu, hpu
 
+
 @pytest.mark.parametrize(
     "shape, shape_src, dim, index",
     [
         pytest.param((2, 2), (2), 0, 0),
     ],
 )
-
 def test_select_scatter(shape, shape_src, dim, index):
     # Created a mini graph for testing
     # add op -> select_scatter op -> mul op
@@ -38,9 +38,7 @@ def test_select_scatter(shape, shape_src, dim, index):
     input_tensor = torch.rand(shape, requires_grad=False, device=cpu)
     src_tensor = torch.rand(shape_src, requires_grad=False, device=cpu)
 
-    y_cpu = f_cpu(
-        input_tensor, src_tensor, dim, index
-    )
+    y_cpu = f_cpu(input_tensor, src_tensor, dim, index)
     y_hpu = f_hpu(input_tensor.to(hpu), src_tensor.to(hpu), dim, index)
 
     assert torch.allclose(y_cpu, y_hpu.to(cpu), atol=0.001, rtol=0.001)

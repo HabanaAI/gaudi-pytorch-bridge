@@ -13,5 +13,8 @@ class ScaledMaskedSoftmax(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         (softmax_result,) = ctx.saved_tensors
-        grad_input = torch._softmax_backward_data(grad_output, softmax_result, softmax_result.dim() - 1, torch.bfloat16) * ctx.scale
+        grad_input = (
+            torch._softmax_backward_data(grad_output, softmax_result, softmax_result.dim() - 1, torch.bfloat16)
+            * ctx.scale
+        )
         return grad_input, None, None

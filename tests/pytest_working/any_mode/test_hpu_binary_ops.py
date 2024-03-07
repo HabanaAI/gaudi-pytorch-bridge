@@ -32,9 +32,7 @@ def generate_tensor(shape, dtype):
 
 
 @pytest.mark.parametrize("func", [torch.add, torch.sub, torch.rsub])
-@pytest.mark.parametrize(
-    "shape_a, shape_b", [[(), ()], [(1,), (2,)], [(4, 4), (1, 1)], [(16, 12), (16, 12)]]
-)
+@pytest.mark.parametrize("shape_a, shape_b", [[(), ()], [(1,), (2,)], [(4, 4), (1, 1)], [(16, 12), (16, 12)]])
 @pytest.mark.parametrize("alpha", [1, 3])
 @pytest.mark.parametrize("dtype", dtypes)
 def test_binary(func, shape_a, shape_b, alpha, dtype):

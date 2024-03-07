@@ -37,6 +37,7 @@ def rotary_embedding_fwd_ref(input, sin, cos, offset):
 
     return input * cos + rotate_half(input) * sin
 
+
 @pytest.mark.xfail(reason="RuntimeError: No such operator hpu::rotary_embedding")
 @pytest.mark.parametrize("D, W, H, offset", rotary_embedding_test_case_list)
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
@@ -66,6 +67,4 @@ def test_rotary_embedding_fwd_case(D, W, H, offset, dtype):
     else:
         tol = 0.1
 
-    torch.testing.assert_close(
-        output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol
-    )
+    torch.testing.assert_close(output_hpu.to(torch.float32).to(cpu), output_ref, rtol=tol, atol=tol)

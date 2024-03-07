@@ -15,6 +15,7 @@ from test_dynamo_utils import assert_helper
 
 import copy
 
+
 class MyModule(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -24,12 +25,12 @@ class MyModule(torch.nn.Module):
     def forward(self, x):
         param = self.param
         add = torch.ops.aten.add.Tensor(x, param.t())
-        return torch.topk(torch.sum(
-            self.linear(add).relu(), dim=-1), 3)
+        return torch.topk(torch.sum(self.linear(add).relu(), dim=-1), 3)
+
 
 def func(x: torch.Tensor, m: torch.nn.Module, device: str):
     m.eval()
-    if device == 'hpu':
+    if device == "hpu":
         m = torch.compile(m, backend="hpu_backend")
         m = m.to(torch.device(device))
     else:
@@ -40,23 +41,26 @@ def func(x: torch.Tensor, m: torch.nn.Module, device: str):
         output = m(x)
         return output
 
+
 """
 aot_autograd will lower aten.linear to t + mm/addmm
 the following test checks if the pass to fuse t + mm/addmm sub-graphs
 back to linear is working as expected and generating correct output on HPU
 """
+
+
 def test_linear():
     torch.manual_seed(123)
-    x = torch.randn((5, 4), dtype=torch.float, device=torch.device('cpu'))
+    x = torch.randn((5, 4), dtype=torch.float, device=torch.device("cpu"))
     x_c = x.clone().detach()
     m = MyModule()
     m_c = copy.deepcopy(m)
 
     with FxGraphAnalyzer(reset_dynamo=False) as fga:
-        out_hpu = func(x=x, m=m, device='hpu')
+        out_hpu = func(x=x, m=m, device="hpu")
 
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary=ops_summary, op='torch.ops.aten.linear', count_list=[(1, 0)])
+    assert_helper(ops_summary=ops_summary, op="torch.ops.aten.linear", count_list=[(1, 0)])
 
-    out_cpu = func(x=x_c, m=m_c, device='cpu')
-    assert torch.allclose(out_cpu[0].float(), out_hpu[0].to(device=torch.device('cpu')), rtol=1e-3, atol=1e-3)
+    out_cpu = func(x=x_c, m=m_c, device="cpu")
+    assert torch.allclose(out_cpu[0].float(), out_hpu[0].to(device=torch.device("cpu")), rtol=1e-3, atol=1e-3)

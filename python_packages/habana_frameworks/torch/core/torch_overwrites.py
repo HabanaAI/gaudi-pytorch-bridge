@@ -49,26 +49,12 @@ def _pre_fwd_hook(module, input):
                 ns = str(_name_stack[-1])
                 if ns in _module_dict.keys():
                     _module_dict[ns] += 1
-                    new_name = (
-                        _name_stack[-1]
-                        + "/"
-                        + module.custom_name
-                        + "."
-                        + str(_module_dict[ns])
-                    )
+                    new_name = _name_stack[-1] + "/" + module.custom_name + "." + str(_module_dict[ns])
                 else:
                     _module_dict[ns] = 0
-                    new_name = (
-                        _name_stack[-1] + "/" + module.custom_name
-                        if _name_stack
-                        else module.custom_name
-                    )
+                    new_name = _name_stack[-1] + "/" + module.custom_name if _name_stack else module.custom_name
             else:
-                new_name = (
-                    _name_stack[-1] + "/" + module.custom_name
-                    if _name_stack
-                    else module.custom_name
-                )
+                new_name = _name_stack[-1] + "/" + module.custom_name if _name_stack else module.custom_name
 
             _name_stack.append(new_name)
             htdebug._set_module_name(new_name)
@@ -102,11 +88,7 @@ def _post_fwd_hook(module, input, output):
                     output.names_hook = True
             else:
                 for o in output:
-                    if (
-                        isinstance(o, Tensor)
-                        and o.requires_grad
-                        and not _names_hook_already_registered(o)
-                    ):
+                    if isinstance(o, Tensor) and o.requires_grad and not _names_hook_already_registered(o):
                         o.register_hook(_gen_grad_hook(grad_name))
                         o.names_hook = True
         except:
@@ -127,11 +109,11 @@ def overwrite_torch_functions():
 
     @wraps(torch.distributed.distributed_c10d._get_pg_default_device)
     def wrap_get_pg_default_device(group):
-      backend_name = group._get_backend_name() if group is not None else torch.distributed.get_backend()
-      if backend_name == "hccl":
-        return torch.device("hpu")
+        backend_name = group._get_backend_name() if group is not None else torch.distributed.get_backend()
+        if backend_name == "hccl":
+            return torch.device("hpu")
 
-      return get_pg_default_device_orig(group)
+        return get_pg_default_device_orig(group)
 
     torch.distributed.distributed_c10d._get_pg_default_device = wrap_get_pg_default_device
 
@@ -174,9 +156,7 @@ def overwrite_torch_functions():
 
     @wraps(torch.nn.modules.Module.add_module)
     def wrap_add_module(self, name, module):
-        if isinstance(module, torch.nn.Module) and not _names_hook_already_registered(
-            module
-        ):
+        if isinstance(module, torch.nn.Module) and not _names_hook_already_registered(module):
             try:
                 module.custom_name = name
                 module.register_forward_pre_hook(_pre_fwd_hook)
@@ -200,9 +180,7 @@ def overwrite_torch_functions():
     init_process_group_orig = torch.distributed.init_process_group
 
     @wraps(torch.distributed.new_group)
-    def wrap_new_group(
-        ranks=None, timeout=default_pg_timeout, backend=None, pg_options=None
-    ):
+    def wrap_new_group(ranks=None, timeout=default_pg_timeout, backend=None, pg_options=None):
         nonlocal ranks_cache
         cache_enable = environ.get("PT_ENABLE_COMM_GROUP_CACHE", "False")
         if cache_enable.lower() == "true":
@@ -215,9 +193,7 @@ def overwrite_torch_functions():
             if ranks_tuple in ranks_cache:
                 return ranks_cache[ranks_tuple]
             else:
-                ranks_cache[ranks_tuple] = new_group_orig(
-                    ranks, timeout, backend, pg_options
-                )
+                ranks_cache[ranks_tuple] = new_group_orig(ranks, timeout, backend, pg_options)
                 return ranks_cache[ranks_tuple]
         else:
             return new_group_orig(ranks, timeout, backend, pg_options)
@@ -251,9 +227,7 @@ def overwrite_torch_functions():
             ranks_tuple = tuple(list(range(0, actual_world_size)))
             if ranks_tuple in ranks_cache:
                 return ranks_cache[ranks_tuple]
-            ranks_cache[
-                ranks_tuple
-            ] = torch.distributed.distributed_c10d._get_default_group()
+            ranks_cache[ranks_tuple] = torch.distributed.distributed_c10d._get_default_group()
             return ranks_cache[ranks_tuple]
         else:
             return init_process_group_orig(
@@ -277,12 +251,8 @@ def overwrite_torch_functions():
     # Ie9b966962fca23e5118047c3e7a47545d4c87f11 needs to be merged to resolve https://github.com/pytorch/pytorch/issues/107460
     # torch compile will have issues with log/metric attributes until then.
     @wraps(torch.nn.Module.__setattr__)
-    def wrap_set_attr(
-        self, name: str, value: Union[torch.Tensor, "torch.nn.Module"]
-    ) -> None:
-        if isinstance(value, torch.nn.Module) and not _names_hook_already_registered(
-            value
-        ):
+    def wrap_set_attr(self, name: str, value: Union[torch.Tensor, "torch.nn.Module"]) -> None:
+        if isinstance(value, torch.nn.Module) and not _names_hook_already_registered(value):
             try:
                 value.custom_name = name
                 value.register_forward_pre_hook(_pre_fwd_hook)
@@ -312,16 +282,10 @@ def overwrite_torch_functions():
                 irecv_aux.dummy_mode_seq = 0  # it doesn't exist yet, so initialize it
 
             dummy_folder_path = (
-                environ.get("P2P_DUMMY_MODE_PATH")
-                if environ.get("P2P_DUMMY_MODE_PATH") != None
-                else "./"
+                environ.get("P2P_DUMMY_MODE_PATH") if environ.get("P2P_DUMMY_MODE_PATH") != None else "./"
             )
             tensor_file = (
-                dummy_folder_path
-                + str(distributed_c10d.get_rank())
-                + "_"
-                + str(irecv_aux.dummy_mode_seq)
-                + ".pt"
+                dummy_folder_path + str(distributed_c10d.get_rank()) + "_" + str(irecv_aux.dummy_mode_seq) + ".pt"
             )
 
             if dummy_mode == 1:
@@ -346,9 +310,7 @@ def overwrite_torch_functions():
                         tensor = torch.load(tensor_file).to("hpu")
                     else:
                         raise Exception(
-                            "Attempting to run HPU Dummy Mode but needed file "
-                            + tensor_file
-                            + " does not exist!"
+                            "Attempting to run HPU Dummy Mode but needed file " + tensor_file + " does not exist!"
                         )
 
             irecv_aux.dummy_mode_seq += 1

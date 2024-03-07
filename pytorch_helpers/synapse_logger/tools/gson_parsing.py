@@ -28,19 +28,19 @@ log = logging.getLogger("synapse_logger.gson_parsing")
 
 class syn_type:
     syn_type_na = 0  # // invalid
-    syn_type_fixed = 2 ** 0  # // 8-bit integer
+    syn_type_fixed = 2**0  # // 8-bit integer
     syn_type_int8 = syn_type_fixed  # // alias to syn_type_fixed
-    syn_type_bf16 = 2 ** 1  # // 16-bit float- 8 bits exponent 7 bits mantisa 1 bit sign
-    syn_type_single = 2 ** 2  # // 32-bit floating point
+    syn_type_bf16 = 2**1  # // 16-bit float- 8 bits exponent 7 bits mantisa 1 bit sign
+    syn_type_single = 2**2  # // 32-bit floating point
     syn_type_float = syn_type_single  # // alias to syn_type_single
-    syn_type_int16 = 2 ** 3  # // 16-bit integer
-    syn_type_int32 = 2 ** 4  # // 32-bit integer
-    syn_type_uint8 = 2 ** 5  # // 8-bit unsigned integer
-    syn_type_int4 = 2 ** 6  # // 4-bit signed integer
-    syn_type_uint4 = 2 ** 7  # // 4-bit unsigned integer
-    syn_type_fp16 = 2 ** 8  # // 16-bit floating point
-    syn_type_uint16 = 2 ** 9  # // 16-bit unsigned integer
-    syn_type_uint32 = 2 ** 10  # // 32-bit unsigned integer
+    syn_type_int16 = 2**3  # // 16-bit integer
+    syn_type_int32 = 2**4  # // 32-bit integer
+    syn_type_uint8 = 2**5  # // 8-bit unsigned integer
+    syn_type_int4 = 2**6  # // 4-bit signed integer
+    syn_type_uint4 = 2**7  # // 4-bit unsigned integer
+    syn_type_fp16 = 2**8  # // 16-bit floating point
+    syn_type_uint16 = 2**9  # // 16-bit unsigned integer
+    syn_type_uint32 = 2**10  # // 32-bit unsigned integer
 
 
 syn_types = {
@@ -70,6 +70,7 @@ hcl_collective_ops = {
     6: "eHCLAll2AllV",
 }
 
+
 class synDeviceType(Enum):
     synDeviceGoya = 0
     synDeviceGoya2 = synDeviceGreco = 1
@@ -79,6 +80,7 @@ class synDeviceType(Enum):
     synDeviceEmulator = 6
     synDeviceTypeInvalid = 7
     synDeviceTypeSize = 8
+
 
 hcl_ops = {0: "eHCLOpNone", 1: "eHCLSum", 2: "eHCLProd"}
 

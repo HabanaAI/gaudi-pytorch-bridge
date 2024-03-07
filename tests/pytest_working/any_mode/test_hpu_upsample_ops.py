@@ -14,12 +14,14 @@ import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 from test_utils import format_tc
 
+
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
 class TestHpuUpsample:
     @staticmethod
     def _common_test(variant, shape, size, scale_factor, align_corners, antialias, mode, dtype):
-        if ((size != None and scale_factor != None) or (size == None and scale_factor == None)):
+        if (size != None and scale_factor != None) or (size == None and scale_factor == None):
             pytest.skip("Unsupported test configuration")
+
         def upsample_fwd_fn(input):
             return torch.nn.functional.interpolate(input, size, scale_factor, mode, align_corners, None, antialias)
 
@@ -57,7 +59,7 @@ class TestHpuUpsample:
             or (shape_and_size == ((2, 2, 3, 3), None) and scale_factor == [1, 2])
         ):
             pytest.skip("Unsupported test configuration (aten::_upsample_bicubic2d_aa.out is not yet supported on HPU)")
-        if (pytest.mode == "compile" and antialias == False):
+        if pytest.mode == "compile" and antialias == False:
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, align_corners, antialias, "bicubic", dtype)
@@ -72,8 +74,10 @@ class TestHpuUpsample:
             (shape_and_size == ((2, 2, 3, 3), (6, 6)) and scale_factor == None)
             or (shape_and_size == ((2, 2, 3, 3), None) and scale_factor == [1, 2])
         ):
-            pytest.skip("Unsupported test configuration (aten::_upsample_bilinear2d_aa.out is not yet supported on HPU)")
-        if (pytest.mode == "compile" and antialias == False):
+            pytest.skip(
+                "Unsupported test configuration (aten::_upsample_bilinear2d_aa.out is not yet supported on HPU)"
+            )
+        if pytest.mode == "compile" and antialias == False:
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, align_corners, antialias, "bilinear", dtype)
@@ -91,7 +95,7 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("scale_factor", [None, [1, 2]], ids=format_tc)
     @pytest.mark.parametrize("variant", ["fwd", "bwd"])
     def test_upsample_nearest2d(self, shape_and_size, scale_factor, variant, dtype):
-        if (pytest.mode == "compile"):
+        if pytest.mode == "compile":
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
@@ -100,7 +104,7 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("scale_factor", [None, [1, 2, 3]], ids=format_tc)
     @pytest.mark.parametrize("variant", ["fwd", "bwd"])
     def test_upsample_nearest3d(self, shape_and_size, scale_factor, variant, dtype):
-        if (pytest.mode == "compile"):
+        if pytest.mode == "compile":
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)

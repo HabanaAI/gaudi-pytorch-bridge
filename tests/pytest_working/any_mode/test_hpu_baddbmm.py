@@ -14,6 +14,7 @@ import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 from test_utils import format_tc
 
+
 @pytest.mark.parametrize("alpha", [0.5, 1.0])
 @pytest.mark.parametrize("beta", [0.5, 1.0])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)

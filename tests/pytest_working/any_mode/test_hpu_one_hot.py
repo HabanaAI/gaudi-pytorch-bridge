@@ -21,6 +21,7 @@ shapes_data = [
     ((0, 16), (2, 2, 2, 2), 5),
 ]
 
+
 @pytest.mark.parametrize("classes", [6, 50])
 @pytest.mark.parametrize("dtype", ["long"])
 @pytest.mark.parametrize("shape", shapes_data, ids=format_tc)

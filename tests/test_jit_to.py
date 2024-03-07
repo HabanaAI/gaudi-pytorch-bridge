@@ -21,9 +21,7 @@ class Net(nn.Module):
         return y
 
 
-@pytest.mark.xfail(
-    reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'"
-)
+@pytest.mark.xfail(reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'")
 @pytest.mark.parametrize("in_t", data_list)
 def test_jit_to(in_t):
     with torch.jit.optimized_execution(True):

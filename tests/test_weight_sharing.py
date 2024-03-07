@@ -1,14 +1,7 @@
 import numpy as np
-<<<<<<< HEAD:tests/test_weight_sharing.py
 import pytest
-=======
 import torch
-
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_weight_sharing.py
-try:
-    import habana_frameworks.torch.core as htcore
-except ImportError:
-    raise AssertionError("Could Not import habana_frameworks.torch.core")
+import habana_frameworks.torch.core as htcore
 
 
 @pytest.mark.xfail
@@ -110,33 +103,21 @@ def test_hpu_weight_sharing_in_exported_parameter():
     exported = model.a
     assert model.a.device.type == "cpu"
     assert exported.device.type == "cpu"
-    assert np.equal(
-        model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 1
-    )
+    assert np.equal(model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 1)
     exported.data += 1
-    assert np.equal(
-        model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 2
-    )
+    assert np.equal(model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 2)
     model.a.data += 1
-    assert np.equal(
-        model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 3
-    )
+    assert np.equal(model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 3)
 
     # hpu with exported parameter
     model.to("hpu")
     assert model.a.device.type == "hpu"
     assert exported.device.type == "hpu"
-    assert np.equal(
-        model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 3
-    )
+    assert np.equal(model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 3)
     exported.data += 1
-    assert np.equal(
-        model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 4
-    )
+    assert np.equal(model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 4)
     model.a.data += 1
-    assert np.equal(
-        model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 5
-    )
+    assert np.equal(model.a.cpu().detach() == exported.cpu().detach(), model.a.cpu().detach() == 5)
 
 
 def test_hpu_workaround_for_cpu_caching_without_weight_sharing_submodule():
@@ -200,19 +181,9 @@ def test_hpu_workaround_for_cpu_caching_without_weight_sharing_submodule():
         == stats_external2_after["id"]
     )
 
-    assert (
-        stats_model_parameter_before["device"]
-        == stats_external_before["device"]
-        == stats_external2_before["device"]
-    )
-    assert (
-        stats_model_parameter_after["device"]
-        == stats_external_after["device"]
-        == stats_external2_after["device"]
-    )
-    assert (
-        stats_model_parameter_before["device"] != stats_model_parameter_after["device"]
-    )
+    assert stats_model_parameter_before["device"] == stats_external_before["device"] == stats_external2_before["device"]
+    assert stats_model_parameter_after["device"] == stats_external_after["device"] == stats_external2_after["device"]
+    assert stats_model_parameter_before["device"] != stats_model_parameter_after["device"]
 
     assert (
         stats_model_parameter_before["data_device"]
@@ -224,10 +195,7 @@ def test_hpu_workaround_for_cpu_caching_without_weight_sharing_submodule():
         == stats_external_after["data_device"]
         == stats_external2_after["data_device"]
     )
-    assert (
-        stats_model_parameter_before["data_device"]
-        != stats_model_parameter_after["data_device"]
-    )
+    assert stats_model_parameter_before["data_device"] != stats_model_parameter_after["data_device"]
 
     assert (
         stats_model_parameter_before["type"]
@@ -295,19 +263,9 @@ def test_hpu_workaround_for_cpu_caching_without_weight_sharing():
         == stats_external2_after["id"]
     )
 
-    assert (
-        stats_model_parameter_before["device"]
-        == stats_external_before["device"]
-        == stats_external2_before["device"]
-    )
-    assert (
-        stats_model_parameter_after["device"]
-        == stats_external_after["device"]
-        == stats_external2_after["device"]
-    )
-    assert (
-        stats_model_parameter_before["device"] != stats_model_parameter_after["device"]
-    )
+    assert stats_model_parameter_before["device"] == stats_external_before["device"] == stats_external2_before["device"]
+    assert stats_model_parameter_after["device"] == stats_external_after["device"] == stats_external2_after["device"]
+    assert stats_model_parameter_before["device"] != stats_model_parameter_after["device"]
 
     assert (
         stats_model_parameter_before["data_device"]
@@ -319,10 +277,7 @@ def test_hpu_workaround_for_cpu_caching_without_weight_sharing():
         == stats_external_after["data_device"]
         == stats_external2_after["data_device"]
     )
-    assert (
-        stats_model_parameter_before["data_device"]
-        != stats_model_parameter_after["data_device"]
-    )
+    assert stats_model_parameter_before["data_device"] != stats_model_parameter_after["data_device"]
 
     assert (
         stats_model_parameter_before["type"]

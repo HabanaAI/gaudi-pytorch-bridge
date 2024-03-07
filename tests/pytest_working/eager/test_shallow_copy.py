@@ -2,6 +2,7 @@ import habana_frameworks.torch.core as htcore
 import pytest
 import torch
 
+
 def test_simple():
     def func(dev):
         base = torch.tensor([1, 2, 3, 4, 5, 6], device=dev)
@@ -74,7 +75,7 @@ def test_shallow_copy_free2():
             htcore.mark_step()
         return b
 
-    a = torch.randn([2,3])
+    a = torch.randn([2, 3])
     ha = a.to("hpu")
 
     b = torch.randn([6])
@@ -133,24 +134,25 @@ def test_shallow_copy_free4():
     hres1, hres2 = fn(hparam, hds_tensor, param2, "hpu")
     hres1_cpu = hres1.cpu()
     hres2_cpu = hres2.cpu()
-    assert(torch.allclose(res1, hres1_cpu, atol = 0.001, rtol = 0.001))
-    assert(torch.allclose(res2, hres2_cpu, atol = 0.001, rtol = 0.001))
+    assert torch.allclose(res1, hres1_cpu, atol=0.001, rtol=0.001)
+    assert torch.allclose(res2, hres2_cpu, atol=0.001, rtol=0.001)
+
 
 def test_shallow_copy_param_free():
     def fn_copy(param, dst_tensor, dev):
         dst_tensor.copy_(param)
-        param.data = torch.empty(0, dtype = torch.float , device=dev)
+        param.data = torch.empty(0, dtype=torch.float, device=dev)
         return dst_tensor
 
         y = x.add(1.0)
-        x.data = torch.empty(0, dtype = x.dtype).to(dev)
+        x.data = torch.empty(0, dtype=x.dtype).to(dev)
         z = y.add(1.0)
         return y
 
     a = torch.randn([2, 3])
-    ha = a.to('hpu')
+    ha = a.to("hpu")
     dst_a = torch.randn([2, 3])
-    hdst_a = dst_a.to('hpu')
+    hdst_a = dst_a.to("hpu")
 
     class test_module(torch.nn.Module):
         def __init__(self, tensor):
@@ -169,10 +171,11 @@ def test_shallow_copy_param_free():
     h_module = test_module(tensor=ha)
     h_module.eval()
     from habana_frameworks.torch.core.quantization import _mark_params_as_const, _check_params_as_const
+
     _mark_params_as_const(h_module)
 
     with torch.no_grad():
-        dst_a = fn_copy(module.get_param(), dst_a, 'cpu')
-        hdst_a = fn_copy(h_module.get_param(), hdst_a, 'hpu')
+        dst_a = fn_copy(module.get_param(), dst_a, "cpu")
+        hdst_a = fn_copy(h_module.get_param(), hdst_a, "hpu")
 
-        assert(torch.allclose(dst_a, hdst_a.cpu()))
+        assert torch.allclose(dst_a, hdst_a.cpu())

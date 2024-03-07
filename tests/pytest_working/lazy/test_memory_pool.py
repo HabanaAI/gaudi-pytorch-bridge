@@ -249,10 +249,9 @@ def pool_coalesce_stringent(device, pool_id):
         # dp0 memory must be reused
         # assert(check_data_pointers(dp0, dp1) is True)
 
+
 @pytest.mark.skip(reason="Tests in this file are chaning env variables")
-@pytest.mark.parametrize(
-    "setup_teardown_env_fixture", [{"PT_HPU_POOL_STRATEGY": "5"}], indirect=True
-)
+@pytest.mark.parametrize("setup_teardown_env_fixture", [{"PT_HPU_POOL_STRATEGY": "5"}], indirect=True)
 def test_memory_pool(setup_teardown_env_fixture):
     pool_used = os.environ.get("PT_HPU_POOL_STRATEGY")
     if pool_used != "5":

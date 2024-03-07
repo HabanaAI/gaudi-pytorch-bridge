@@ -37,9 +37,7 @@ def _get_modules_directory(library_list=list()):
     """
 
     def get_packaged_libs():
-        return os.path.abspath(
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")
-        )
+        return os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib"))
 
     locations = []
     locations.append(get_packaged_libs())
@@ -50,59 +48,62 @@ def _get_modules_directory(library_list=list()):
 
     return None
 
+
 def is_habana_avaialble():
     from subprocess import check_output, STDOUT
-    cmd = 'hl-smi -v'
+
+    cmd = "hl-smi -v"
     status = False
     enable_console = True
-    if os.environ.get("ENABLE_CONSOLE") == 'false':
+    if os.environ.get("ENABLE_CONSOLE") == "false":
         enable_console = False
-        os.environ["ENABLE_CONSOLE"] = 'true'
+        os.environ["ENABLE_CONSOLE"] = "true"
     try:
         result = check_output(cmd, stderr=STDOUT, shell=True).decode()
-        if result.find('Habana') != -1:
+        if result.find("Habana") != -1:
             status = True
     except Exception as e:
         # Workaround to mitigate hl-smi usage on simulators
-        if os.environ.get("ENABLE_EXEUTION_ON_GAUDI_SIM") in ['true', 'True', '1']:
+        if os.environ.get("ENABLE_EXEUTION_ON_GAUDI_SIM") in ["true", "True", "1"]:
             print("Enabling Gaudi Simulator As Habana Device !!")
-            p = subprocess.Popen(['pgrep', 'coral'],
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p = subprocess.Popen(["pgrep", "coral"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             num_cards = sum(1 for _ in p.stdout)
             if num_cards >= 1:
                 status = True
             else:
                 status = False
     if enable_console == False:
-        os.environ["ENABLE_CONSOLE"] = 'false'
+        os.environ["ENABLE_CONSOLE"] = "false"
     return status
+
 
 def is_habana_available():
     from subprocess import check_output, STDOUT
-    cmd = 'hl-smi -v'
+
+    cmd = "hl-smi -v"
     status = False
     enable_console = True
-    if os.environ.get("ENABLE_CONSOLE") == 'false':
+    if os.environ.get("ENABLE_CONSOLE") == "false":
         enable_console = False
-        os.environ["ENABLE_CONSOLE"] = 'true'
+        os.environ["ENABLE_CONSOLE"] = "true"
     try:
         result = check_output(cmd, stderr=STDOUT, shell=True).decode()
-        if result.find('Habana') != -1:
+        if result.find("Habana") != -1:
             status = True
     except Exception as e:
         # Workaround to mitigate hl-smi usage on simulators
-        if os.environ.get("ENABLE_EXEUTION_ON_GAUDI_SIM") in ['true', 'True', '1']:
+        if os.environ.get("ENABLE_EXEUTION_ON_GAUDI_SIM") in ["true", "True", "1"]:
             print("Enabling Gaudi Simulator As Habana Device !!")
-            p = subprocess.Popen(['pgrep', 'coral'],
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p = subprocess.Popen(["pgrep", "coral"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             num_cards = sum(1 for _ in p.stdout)
             if num_cards >= 1:
                 status = True
             else:
                 status = False
     if enable_console == False:
-        os.environ["ENABLE_CONSOLE"] = 'false'
+        os.environ["ENABLE_CONSOLE"] = "false"
     return status
+
 
 def _load_habana_module(library_list):
     """Load habana libs"""
@@ -112,15 +113,15 @@ def _load_habana_module(library_list):
 
     print("Loading Habana modules from {}".format(habana_modules_directory))
     for module in library_list:
-        torch.ops.load_library(
-            os.path.abspath(os.path.join(habana_modules_directory, module))
-        )
+        torch.ops.load_library(os.path.abspath(os.path.join(habana_modules_directory, module)))
         sys.path.insert(0, habana_modules_directory)
 
     atexit.register(_hpu_C.cleanup)
 
+
 def load_habana_module():
     _load_habana_module(_mandatory_libs)
+
 
 def load_habana_profiler():
     _load_habana_module(_profiler_libs)

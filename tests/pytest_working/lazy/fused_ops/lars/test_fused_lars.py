@@ -133,6 +133,4 @@ def test_lars():
         prc = pr.to("cpu")
         ptc = pt.to("cpu")
         print(" Cosine similarity angle= ", cosine_sim(prc, ptc))
-        np.testing.assert_allclose(
-            prc.detach().numpy(), ptc.detach().numpy(), rtol, atol
-        )
+        np.testing.assert_allclose(prc.detach().numpy(), ptc.detach().numpy(), rtol, atol)

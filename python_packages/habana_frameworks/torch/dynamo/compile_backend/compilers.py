@@ -27,7 +27,7 @@ def hpu_compiler_inner(
     example_inputs: List[torch.Tensor],
     is_training: bool,
     is_backward: bool,
-    uses_aot: bool
+    uses_aot: bool,
 ):
     """
     This function will be called for each input FX graph. There will be at least
@@ -50,6 +50,7 @@ def hpu_compiler_inner(
     else:
         return graph_module.forward
 
+
 def hpu_training_compiler_fw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
     """
     Just passthrough for forward pass training compilation.
@@ -69,6 +70,7 @@ def hpu_inference_compiler(graph_module: torch.fx.GraphModule, example_inputs: L
     Just passthrough for forward inference compilation.
     """
     return hpu_compiler_inner(graph_module, example_inputs, False, False, True)
+
 
 def hpu_inference_compiler_noaot(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
     """

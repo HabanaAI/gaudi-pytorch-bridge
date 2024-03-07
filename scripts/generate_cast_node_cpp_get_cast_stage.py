@@ -159,9 +159,7 @@ class CastOpWeight:
         max_bits = tuple([max(b[0], b[1]) for b in zip(self.max_bits, other.max_bits)])
         min_int_mant = min(self.min_int_mant, other.min_int_mant)
         num_identities = self.num_identities + other.num_identities
-        max_mant_inc_after_sign_change = max(
-            self.max_mant_inc_after_sign_change, other.max_mant_inc_after_sign_change
-        )
+        max_mant_inc_after_sign_change = max(self.max_mant_inc_after_sign_change, other.max_mant_inc_after_sign_change)
         mant_bits_begin_end = [
             self.mant_bits_begin_end[0],
             other.mant_bits_begin_end[1],
@@ -169,9 +167,7 @@ class CastOpWeight:
 
         if self.min_bits[sign_id] != self.max_bits[sign_id]:
             max_mant_inc = max(mant_bits_begin_end[1] - mant_bits_begin_end[0], 0)
-            max_mant_inc_after_sign_change = max(
-                max_mant_inc_after_sign_change, max_mant_inc
-            )
+            max_mant_inc_after_sign_change = max(max_mant_inc_after_sign_change, max_mant_inc)
 
         return CastOpWeight(
             min_bits,
@@ -185,13 +181,9 @@ class CastOpWeight:
 
     def __gt__(self, other):
         if self.min_bits[mant_id] != other.min_bits[mant_id]:
-            return (
-                self.min_bits[mant_id] < other.min_bits[mant_id]
-            )  # less is deliberate
+            return self.min_bits[mant_id] < other.min_bits[mant_id]  # less is deliberate
         elif self.min_bits[sign_id] != other.min_bits[sign_id]:
-            return (
-                self.min_bits[sign_id] < other.min_bits[sign_id]
-            )  # less is deliberate
+            return self.min_bits[sign_id] < other.min_bits[sign_id]  # less is deliberate
         elif self.min_bits[exp_id] != other.min_bits[exp_id]:
             return self.min_bits[exp_id] < other.min_bits[exp_id]  # less is deliberate
         elif self.min_int_mant != other.min_int_mant:
@@ -199,18 +191,13 @@ class CastOpWeight:
             # over   bf16 ->  i8 -> i16 (max_bits = 1,8,15, min_int_mant = 7)
             # and vice versa
             return self.min_int_mant < other.min_int_mant  # less is deliberate
-        elif (
-            self.max_mant_inc_after_sign_change != other.max_mant_inc_after_sign_change
-        ):
+        elif self.max_mant_inc_after_sign_change != other.max_mant_inc_after_sign_change:
             # prefer i8 -> i32 -> u32, changing -1 to big positive number
             # over   i8 -> u8 -> u32,  changing -1 to 255
             # and similarly
             # even prefer i16 -> i32 -> i64 -> u64
             # over shorter i16 -> u32 -> u64
-            return (
-                self.max_mant_inc_after_sign_change
-                > other.max_mant_inc_after_sign_change
-            )
+            return self.max_mant_inc_after_sign_change > other.max_mant_inc_after_sign_change
         elif self.num_steps != other.num_steps:
             return self.num_steps > other.num_steps
         elif self.max_bits[exp_id] != other.max_bits[exp_id]:
@@ -280,11 +267,7 @@ def print_mapping_table(weights, device):
 
     print("\n{}// TODO: SW-35847 Remove indirect casting".format(ident))
     print("{}using LineT = EnumMappingTable<CastType, CastStage>;".format(ident))
-    print(
-        "{}static const EnumMappingTable<CastType, LineT> cast_stage_matrix_{} = {{".format(
-            ident, device
-        )
-    )
+    print("{}static const EnumMappingTable<CastType, LineT> cast_stage_matrix_{} = {{".format(ident, device))
     print("{}// clang-format off".format(next_ident))
 
     line = "{0}//         {1:<{2}} to:  ".format(next_ident, " ", max_len_local)
@@ -439,9 +422,7 @@ def main():
 
     for device, file in files_with_cast_kernels.items():
         print("\n======== {} ========\n".format(device))
-        casts[device], weights[device] = generate_casts(
-            args.npu_stack_directory + file, device
-        )
+        casts[device], weights[device] = generate_casts(args.npu_stack_directory + file, device)
 
     for device in devices:
         print_source(casts[device], weights[device], device)

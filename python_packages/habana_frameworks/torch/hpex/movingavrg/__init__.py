@@ -15,4 +15,4 @@ from habana_frameworks.torch.utils.internal import is_lazy
 if not is_lazy():
     raise ImportError(f"{__name__} is no yet supported in eager mode")
 
-from.FusedEMA import FusedEMA
+from .FusedEMA import FusedEMA

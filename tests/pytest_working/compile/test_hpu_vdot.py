@@ -13,6 +13,7 @@ import torch
 import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 
+
 @pytest.mark.parametrize("shapes", [2, 10])
 @pytest.mark.parametrize("dtype", ["float", "bfloat16"])
 def test_hpu_vdot(shapes, dtype):

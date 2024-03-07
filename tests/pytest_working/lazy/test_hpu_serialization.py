@@ -29,4 +29,3 @@ def test_save_with_grad():
 
     # save should succeed without exception
     torch.save(weights, "model.th")
-

@@ -32,9 +32,7 @@ class Net(nn.Module):
         return y
 
 
-@pytest.mark.xfail(
-    reason="module 'habana_frameworks.torch.core' has no attribute 'disable'"
-)
+@pytest.mark.xfail(reason="module 'habana_frameworks.torch.core' has no attribute 'disable'")
 @pytest.mark.parametrize("in_tensors", data_list)
 def test_jit_bmm(in_tensors):
     with torch.jit.optimized_execution(True):

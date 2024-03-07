@@ -15,7 +15,9 @@
 import pytest
 import torch
 from test_utils import cpu, hpu
-torch._dynamo.config.specialize_int=False
+
+torch._dynamo.config.specialize_int = False
+
 
 # shape_src should be of the same size as torch.select(input_shape, dim,index)
 # This equates to the second dimension of input_shape for dim=0
@@ -24,13 +26,8 @@ torch._dynamo.config.specialize_int=False
 @pytest.mark.parametrize("index", [0])
 @pytest.mark.skip(reason="SW-176493")
 def test_select_scatter(shape_src, dim, index):
-    input_shapes = [
-        (2, 2),
-        (4, 2),
-        (3, 2),
-        (5, 2)
-        (6, 2)
-    ]
+    input_shapes = [(2, 2), (4, 2), (3, 2), (5, 2)(6, 2)]
+
     # Created a mini graph for testing
     # add op -> select_scatter op -> mul op
     def wrapper_fn(t, t_src, dim, indices):
@@ -46,9 +43,7 @@ def test_select_scatter(shape_src, dim, index):
         input_tensor = torch.rand(shape, requires_grad=False, device=cpu)
         src_tensor = torch.rand(shape_src, requires_grad=False, device=cpu)
 
-        y_cpu = f_cpu(
-            input_tensor, src_tensor, dim, index
-        )
+        y_cpu = f_cpu(input_tensor, src_tensor, dim, index)
         y_hpu = f_hpu(input_tensor.to(hpu), src_tensor.to(hpu), dim, index)
 
         assert torch.allclose(y_cpu, y_hpu.to(cpu), atol=0.001, rtol=0.001)

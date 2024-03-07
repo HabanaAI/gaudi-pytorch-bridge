@@ -52,6 +52,4 @@ grid_params_list = [
 
 @pytest.mark.parametrize("kernel_params_fwd", grid_params_list)
 def test_hpu_grid_op(kernel_params_fwd):
-    evaluate_fwd_kernel(
-        kernel=nn.functional.grid_sample, kernel_params=kernel_params_fwd
-    )
+    evaluate_fwd_kernel(kernel=nn.functional.grid_sample, kernel_params=kernel_params_fwd)

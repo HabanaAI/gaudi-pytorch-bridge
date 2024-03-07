@@ -37,15 +37,10 @@ dtype_list = [
 @pytest.mark.parametrize("self_shape, dims", params_list)
 @pytest.mark.parametrize("dtype", dtype_list)
 def test_hpu_count_nonzero(self_shape, dims, dtype):
-    if (
-        dtype == torch.float16
-        and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
-    ):
+    if dtype == torch.float16 and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi:
         pytest.skip("Half is not supported on Gaudi.")
 
-    input = torch.randn(self_shape).to(dtype) * torch.randint(
-        low=0, high=2, size=self_shape
-    ).to(torch.short)
+    input = torch.randn(self_shape).to(dtype) * torch.randint(low=0, high=2, size=self_shape).to(torch.short)
 
     kernel_params = {
         "input": input,
@@ -59,15 +54,10 @@ def test_hpu_count_nonzero(self_shape, dims, dtype):
 @pytest.mark.parametrize("self_shape, dims", params_list)
 @pytest.mark.parametrize("dtype", dtype_list)
 def test_hpu_count_nonzero_tensor(self_shape, dims, dtype):
-    if (
-        dtype == torch.float16
-        and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
-    ):
+    if dtype == torch.float16 and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi:
         pytest.skip("Half is not supported on Gaudi.")
 
-    cpu_input = torch.randn(self_shape).to(dtype) * torch.randint(
-        low=0, high=2, size=self_shape
-    ).to(torch.int)
+    cpu_input = torch.randn(self_shape).to(dtype) * torch.randint(low=0, high=2, size=self_shape).to(torch.int)
     hpu_input = cpu_input.to(hpu)
 
     cpu_result = cpu_input.count_nonzero(dims)

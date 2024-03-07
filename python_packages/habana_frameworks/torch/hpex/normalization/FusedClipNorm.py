@@ -37,12 +37,10 @@ class FusedClipNorm:
                 if p.grad is not None:
                     norm_list.append(p.grad)
         if len(norm_list) == 0:
-            return torch.tensor(0.)
+            return torch.tensor(0.0)
 
         with torch.no_grad():
-            total_norm = self.fused_clip_norm(
-                norm_list, self.max_norm_t, self.norm_type
-            )
+            total_norm = self.fused_clip_norm(norm_list, self.max_norm_t, self.norm_type)
 
         htcore.step_closure._mark_step_if_lazy()
 

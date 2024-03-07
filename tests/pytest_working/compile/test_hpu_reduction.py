@@ -15,6 +15,7 @@ import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.core as htcore
 from test_utils import setup_teardown_env_fixture, format_tc
 
+
 @pytest.mark.parametrize("op_code", [torch.any, torch.mean, torch.prod, torch.var_mean])
 def test_reduction(op_code):
     def fn(input):
@@ -22,7 +23,7 @@ def test_reduction(op_code):
 
     # CPU
     x = torch.randn([12, 10, 8, 6])
-    hx = x.to('hpu')
+    hx = x.to("hpu")
 
     result = fn(x)
 
@@ -32,10 +33,11 @@ def test_reduction(op_code):
     hresult = compiled_fn(hx)
 
     if isinstance(result, tuple):
-        for (a, b) in zip(result, hresult):
-            assert torch.allclose(a, b.cpu(), atol = 0.001, rtol = 0.001)
+        for a, b in zip(result, hresult):
+            assert torch.allclose(a, b.cpu(), atol=0.001, rtol=0.001)
     else:
-        assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)
+        assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
+
 
 @pytest.mark.parametrize("op_code", [torch.any, torch.mean, torch.prod, torch.var_mean])
 @pytest.mark.parametrize("dim", [0, 1, 2, 3, -1])
@@ -46,7 +48,7 @@ def test_reduction_dim(op_code, dim, keepdim):
 
     # CPU
     x = torch.randn([12, 10, 8, 6])
-    hx = x.to('hpu')
+    hx = x.to("hpu")
 
     result = fn(x, dim, keepdim)
 
@@ -57,10 +59,10 @@ def test_reduction_dim(op_code, dim, keepdim):
     hresult = compiled_fn(hx, dim, keepdim)
 
     if isinstance(result, tuple):
-        for (a, b) in zip(result, hresult):
-            assert torch.allclose(a, b.cpu(), atol = 0.001, rtol = 0.001)
+        for a, b in zip(result, hresult):
+            assert torch.allclose(a, b.cpu(), atol=0.001, rtol=0.001)
     else:
-        assert torch.allclose(result, hresult.cpu(), atol = 0.001, rtol = 0.001)
+        assert torch.allclose(result, hresult.cpu(), atol=0.001, rtol=0.001)
 
 
 @pytest.mark.parametrize("input", [(4, 2, 6), (4, 3, 3, 2), (5, 3, 3, 2, 2)], ids=format_tc)
@@ -83,7 +85,7 @@ def test_hpu_std(input, dim, correction, keepdim, setup_teardown_env_fixture):
 
     cpu_output = cpu_compiled_fn(cpu_input, dim, correction, keepdim)
     hpu_output = hpu_compiled_fn(hpu_input, dim, correction, keepdim)
-    assert torch.allclose(cpu_output, hpu_output.cpu(), atol = 0.001, rtol = 0.001)
+    assert torch.allclose(cpu_output, hpu_output.cpu(), atol=0.001, rtol=0.001)
 
 
 @pytest.mark.parametrize("input", [(4, 2, 6), (4, 3, 3, 2), (5, 3, 3, 2, 2)], ids=format_tc)
@@ -108,5 +110,5 @@ def test_hpu_std_var_mean(input, dim, correction, keepdim, dtype, setup_teardown
 
     cpu_output_var, cpu_output_mean = cpu_compiled_fn(cpu_input, dim, correction, keepdim)
     hpu_output_var, hpu_output_mean = hpu_compiled_fn(hpu_input, dim, correction, keepdim)
-    assert torch.allclose(cpu_output_var, hpu_output_var.cpu(), atol = 0.001, rtol = 0.001)
-    assert torch.allclose(cpu_output_mean, hpu_output_mean.cpu(), atol = 0.001, rtol = 0.001)
+    assert torch.allclose(cpu_output_var, hpu_output_var.cpu(), atol=0.001, rtol=0.001)
+    assert torch.allclose(cpu_output_mean, hpu_output_mean.cpu(), atol=0.001, rtol=0.001)

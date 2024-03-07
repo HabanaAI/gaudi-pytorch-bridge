@@ -15,10 +15,11 @@ import pytest
 import numpy as np
 import habana_frameworks.torch.core as htcore
 
+
 @pytest.fixture
 def set_env_variable():
     variable_name_experimental_flags = "ENABLE_EXPERIMENTAL_FLAGS"
-    original_value_experimental_flags= os.environ.get(variable_name_experimental_flags)
+    original_value_experimental_flags = os.environ.get(variable_name_experimental_flags)
 
     # Set the environment variable to the desired value
     os.environ[variable_name_experimental_flags] = "1"
@@ -32,18 +33,24 @@ def set_env_variable():
     else:
         del os.environ[variable_name_experimental_flags]
 
+
 FP8_MAX_152 = torch.tensor(57344 * 0.9, dtype=torch.float)
 FP8_MAX_143 = torch.tensor(240 * 0.9, dtype=torch.float)
 FP8_MAX = {"152": FP8_MAX_152, "143": FP8_MAX_143}
+
+
 def variant_from_dtype(dtype):
     return "152" if (dtype is None or dtype is torch.float8_e5m2) else "143"
 
+
 from test_utils import hpu, is_gaudi2
+
 pytestmark = pytest.mark.skipif(not is_gaudi2(), reason="Only Gaudi2 supports fp8")
 
+
 def test_fp8_quant_model(set_env_variable):
-    scaling_param = 'act_maxabs_pts_weight_maxabs_pts_pow2_hw'
-    quant_mod = 'linear'
+    scaling_param = "act_maxabs_pts_weight_maxabs_pts_pow2_hw"
+    quant_mod = "linear"
     fp8_dtype = torch.float8_e4m3fn
     dtype = torch.float
     out_tensor = False
@@ -78,7 +85,18 @@ def test_fp8_quant_model(set_env_variable):
             casted_input, _ = torch.ops.hpu.cast_to_fp8_v2(input, self.input_scale_inv, False, False, fp8_dtype)
             casted_other, _ = torch.ops.hpu.cast_to_fp8_v2(other, self.other_scale_inv, False, False, fp8_dtype)
 
-            result = torch.ops.hpu.fp8_gemm_v2(casted_input, False, casted_other, False, None, torch.bfloat16, self.input_matmul_scale, self.other_scale, None, False)
+            result = torch.ops.hpu.fp8_gemm_v2(
+                casted_input,
+                False,
+                casted_other,
+                False,
+                None,
+                torch.bfloat16,
+                self.input_matmul_scale,
+                self.other_scale,
+                None,
+                False,
+            )
 
             return result
 
@@ -100,7 +118,7 @@ def test_fp8_quant_model(set_env_variable):
 
     variant = variant_from_dtype(fp8_dtype)
 
-    if scaling_param == 'without_scale':
+    if scaling_param == "without_scale":
         scaleA_hpu = torch.tensor(1.0, dtype=dtype, device=hpu)
         scaleB_hpu = torch.tensor(1.0, dtype=dtype, device=hpu)
     else:
@@ -109,8 +127,8 @@ def test_fp8_quant_model(set_env_variable):
         scaleB_hpu = (torch.tensor(FP8_MAX[variant]).to(hpu) / max_B).to(hpu)
 
     if scale_as_tensor_list:
-        scaleA_hpu = (torch.ones(A_hpu.shape).to(hpu) * scaleA_hpu)
-        scaleB_hpu = (torch.ones([B_hpu.shape[-1]]).to(hpu) * scaleB_hpu.reshape([1]))
+        scaleA_hpu = torch.ones(A_hpu.shape).to(hpu) * scaleA_hpu
+        scaleB_hpu = torch.ones([B_hpu.shape[-1]]).to(hpu) * scaleB_hpu.reshape([1])
 
     scaleAInv = torch.reciprocal(scaleA_hpu)
     scaleBInv = torch.reciprocal(scaleB_hpu)

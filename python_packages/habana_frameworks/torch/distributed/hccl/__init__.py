@@ -3,9 +3,10 @@ import torch
 from typing import Tuple
 
 from habana_frameworks.torch.hpu import HABANA_VISIBLE_MODULES_VAR, HLS_MODULE_ID_VAR
-from habana_frameworks.torch.utils.experimental.distributed_emulation import \
-    distributed_emulation_apply_if_enabled,\
-    is_distributed_emulation_enabled
+from habana_frameworks.torch.utils.experimental.distributed_emulation import (
+    distributed_emulation_apply_if_enabled,
+    is_distributed_emulation_enabled,
+)
 
 _lazy_mode = int(os.environ.get("PT_HPU_LAZY_MODE", "1"))
 _lazy_collectives_enabled = os.environ.get("PT_HPU_ENABLE_LAZY_COLLECTIVES", "False").lower() in ["true", "1"]
@@ -38,7 +39,9 @@ def _setup_module_id(local_rank=-1, world_size=1):
 
     if HABANA_VISIBLE_MODULES_VAR in os.environ.keys():
         visible_modules = os.environ[HABANA_VISIBLE_MODULES_VAR].split(",")
-        assert local_rank < len(visible_modules), f"""There is not enough devices
+        assert local_rank < len(
+            visible_modules
+        ), f"""There is not enough devices
         available for training. Please verify if {HABANA_VISIBLE_MODULES_VAR}
         is set correctly."""
         os.environ[HLS_MODULE_ID_VAR] = visible_modules[local_rank]
@@ -56,9 +59,9 @@ def _setup_user_overrides(world_size=None, rank=None, local_rank=None):
 
 def _setup_environment_from_mpi():
     OMPI_VARIABLES_MAPPING = {
-        'OMPI_COMM_WORLD_LOCAL_RANK': 'LOCAL_RANK',
-        'OMPI_COMM_WORLD_SIZE': 'WORLD_SIZE',
-        'OMPI_COMM_WORLD_RANK': 'RANK'
+        "OMPI_COMM_WORLD_LOCAL_RANK": "LOCAL_RANK",
+        "OMPI_COMM_WORLD_SIZE": "WORLD_SIZE",
+        "OMPI_COMM_WORLD_RANK": "RANK",
     }
 
     if all(key in os.environ.keys() for key in OMPI_VARIABLES_MAPPING.values()):
@@ -72,16 +75,16 @@ def _setup_environment_from_mpi():
 
     # This generally should be set outside but in case they are not,
     # we at least be still able to run in single node (ScaleUp) scenarios
-    if os.getenv('MASTER_ADDR') is None:
-        os.environ['MASTER_ADDR'] = "localhost"
-    if os.getenv('MASTER_PORT') is None:
-        os.environ['MASTER_PORT'] = "12345"
+    if os.getenv("MASTER_ADDR") is None:
+        os.environ["MASTER_ADDR"] = "localhost"
+    if os.getenv("MASTER_PORT") is None:
+        os.environ["MASTER_PORT"] = "12345"
 
 
 def _read_values_from_env():
-    world_size = int(os.getenv('WORLD_SIZE', 1))
-    rank = int(os.getenv('RANK', -1))
-    local_rank = int(os.environ.get('LOCAL_RANK', -1))
+    world_size = int(os.getenv("WORLD_SIZE", 1))
+    rank = int(os.getenv("RANK", -1))
+    local_rank = int(os.environ.get("LOCAL_RANK", -1))
     return world_size, rank, local_rank
 
 
@@ -112,19 +115,14 @@ initialize_distributed_hpu()
 
 
 def _create_process_group_hccl(backend_opts, pg_opts):
-    return ProcessGroupHCCL(
-        backend_opts.store,
-        backend_opts.group_rank,
-        backend_opts.group_size,
-        backend_opts.group_id)
+    return ProcessGroupHCCL(backend_opts.store, backend_opts.group_rank, backend_opts.group_size, backend_opts.group_id)
 
 
-torch.distributed.Backend.register_backend("hccl", _create_process_group_hccl, devices=['hpu'], extended_api=True)
+torch.distributed.Backend.register_backend("hccl", _create_process_group_hccl, devices=["hpu"], extended_api=True)
 
 
 def _disallow_collectives_in_graph():
-    """ W/A for issue in PT 2.0.1: https://github.com/pytorch/pytorch/issues/102478
-    """
+    """W/A for issue in PT 2.0.1: https://github.com/pytorch/pytorch/issues/102478"""
     try:
         import torch._dynamo
     except ImportError:
@@ -145,16 +143,18 @@ def _disallow_collectives_in_graph():
         "recv",
         "reduce",
         "scatter",
-        "send"]
+        "send",
+    ]
 
     try:
-        for dist_func in [getattr(dist, dist_member) for dist_member in dir(dist)
-                          if inspect.isfunction(getattr(dist, dist_member))]:
+        for dist_func in [
+            getattr(dist, dist_member) for dist_member in dir(dist) if inspect.isfunction(getattr(dist, dist_member))
+        ]:
             for coll_name in COLLECTIVE_BASE_NAMES:
                 if coll_name in dist_func.__name__:
                     try:
                         torch._dynamo.decorators._disallow_in_graph_helper(False)(dist_func)
-                    except: # torch < 2.1
+                    except:  # torch < 2.1
                         torch._dynamo.disallow_in_graph(dist_func)
                     break
     except torch._dynamo.exc.IncorrectUsage:

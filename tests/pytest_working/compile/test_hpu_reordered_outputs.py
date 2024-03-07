@@ -16,6 +16,7 @@ import os
 from habana_frameworks.torch.dynamo.compile_backend.backends import hpu_backend
 from torch._dynamo.backends.registry import register_backend
 
+
 @pytest.mark.skip(reason="Test is non-deterministic. TODO create deterministic one.")
 def test_reordered_outputs_with_cache():
     def fn(inp):
@@ -27,7 +28,7 @@ def test_reordered_outputs_with_cache():
 
         return out1, x2, out2
 
-    hpu_input = torch.rand([5, 5], device='hpu')
+    hpu_input = torch.rand([5, 5], device="hpu")
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     hpu_output = hpu_compiled_fn(hpu_input)
@@ -35,4 +36,3 @@ def test_reordered_outputs_with_cache():
 
     for out, out_cached in zip(hpu_output, hpu_output_cached_recipe):
         assert torch.equal(out.cpu(), out_cached.cpu())
-

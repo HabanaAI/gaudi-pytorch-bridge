@@ -14,9 +14,7 @@ cpu = torch.device("cpu")
 in_t = torch.randn(8, 10)
 
 
-@pytest.mark.xfail(
-    reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'"
-)
+@pytest.mark.xfail(reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'")
 def test_jit_transpose():
     with torch.jit.optimized_execution(True):
         htcore.disable()

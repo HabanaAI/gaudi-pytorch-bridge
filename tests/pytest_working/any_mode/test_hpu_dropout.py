@@ -25,8 +25,8 @@ from test_utils import (
 def hpu_dropout_fwd(shape, p, dtype, train, native, dropout_fun):
     # This loop will help us to verify dropout p value
     # for every seed and its(p) deviation with final result
-    for _ in range(0,10):
-        torch.manual_seed(random.randint(-10000,10000))
+    for _ in range(0, 10):
+        torch.manual_seed(random.randint(-10000, 10000))
         input = torch.randn(shape, requires_grad=True, dtype=dtype).to("hpu")
         dropout_fwd = dropout_fun
 
@@ -39,15 +39,11 @@ def hpu_dropout_fwd(shape, p, dtype, train, native, dropout_fun):
                 elif (train and p == 0.0) or not train:
                     fallback_expected_ops = {"full"}
             if fallback_expected_ops:
-                pytest.skip(
-                    f"Expected fallback to eager for op[s]: {fallback_expected_ops}"
-                )
+                pytest.skip(f"Expected fallback to eager for op[s]: {fallback_expected_ops}")
 
             clear_t_compile_logs()
             torch._dynamo.reset()
-            dropout_fwd = torch.compile(
-                dropout_fwd, backend="hpu_backend"
-            )
+            dropout_fwd = torch.compile(dropout_fwd, backend="hpu_backend")
 
         out = dropout_fwd(input)
 
@@ -71,9 +67,7 @@ def hpu_dropout_fwd(shape, p, dtype, train, native, dropout_fun):
             assert torch.abs(nonzeros_p - (1.0 - p)) < 0.04
 
             nonzeros_idx = out != 0.0
-            assert torch.allclose(
-                out[nonzeros_idx], input[nonzeros_idx] * (1.0 / (1.0 - p))
-            )
+            assert torch.allclose(out[nonzeros_idx], input[nonzeros_idx] * (1.0 / (1.0 - p)))
 
         if is_pytest_mode_compile():
             check_ops_executed_in_jit_ir(expected_ops_in_compile_mode)
@@ -114,8 +108,8 @@ def test_hpu_native_dropout_fwd(p, train, shape, dtype):
 def test_hpu_dropout_bwd(p, train, dtype, native):
     # This loop will help us to verify dropout p value
     # for every seed and its(p) deviation with final result
-    for _ in range(0,10):
-        torch.manual_seed(random.randint(-10000,10000))
+    for _ in range(0, 10):
+        torch.manual_seed(random.randint(-10000, 10000))
         input = torch.randn((32, 48), dtype=dtype)
         input_hpu = input.to("hpu").requires_grad_(True)
         input = input.requires_grad_(True)
@@ -135,15 +129,11 @@ def test_hpu_dropout_bwd(p, train, dtype, native):
                 # TODO: Check and fix it:
                 fallback_expected_ops.add("full")
             if fallback_expected_ops:
-                pytest.skip(
-                    f"Expected fallback to eager for op[s]: {fallback_expected_ops}"
-                )
+                pytest.skip(f"Expected fallback to eager for op[s]: {fallback_expected_ops}")
 
             clear_t_compile_logs()
             torch._dynamo.reset()
-            dropout_bwd = torch.compile(
-                dropout_bwd, backend="hpu_backend"
-            )
+            dropout_bwd = torch.compile(dropout_bwd, backend="hpu_backend")
 
         result = dropout_bwd(input, p, train)
         result.backward()

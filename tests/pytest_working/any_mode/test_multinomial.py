@@ -85,9 +85,7 @@ def test_multinomial_multiple_calls(size, dtype, replacement):
     result = op(input, 4, replacement=replacement).cpu()
     next_result = op(input, 4, replacement=replacement).cpu()
 
-    assert not torch.all(
-        result == next_result
-    ), "Two consequtive multinomial op call should give different results."
+    assert not torch.all(result == next_result), "Two consequtive multinomial op call should give different results."
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("habana_multinomial")

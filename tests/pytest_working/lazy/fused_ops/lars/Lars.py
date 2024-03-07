@@ -45,11 +45,7 @@ class Lars(Optimizer):
                             torch.greater(param_norm, 0),
                             torch.where(
                                 torch.greater(grad_norm, 0),
-                                (
-                                    self.eeta
-                                    * param_norm
-                                    / (grad_norm + weight_decay * param_norm + self.eps)
-                                ),
+                                (self.eeta * param_norm / (grad_norm + weight_decay * param_norm + self.eps)),
                                 1.0,
                             ),
                             1.0,

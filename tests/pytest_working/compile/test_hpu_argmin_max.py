@@ -18,7 +18,6 @@ import habana_frameworks.torch.dynamo.compile_backend
 @pytest.mark.parametrize("dim", [0, 1, 2, -1])
 @pytest.mark.parametrize("keepdim", [True, False])
 class TestHpuArgMinMax:
-
     @staticmethod
     def _common_test_argmin_max(shape, dim, keepdim, op_code, dtype):
         def fn(input, dim, keepdim):

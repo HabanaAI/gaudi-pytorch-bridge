@@ -42,24 +42,20 @@ permute_test_case_list = [
     pytest.param(
         10,
         8,
-        marks=[
-            pytest.mark.xfail(
-                reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32"
-            )
-        ]
-        if is_gaudi1()
-        else [],
+        marks=(
+            [pytest.mark.xfail(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")]
+            if is_gaudi1()
+            else []
+        ),
     ),
     pytest.param(
         12,
         16,
-        marks=[
-            pytest.mark.xfail(
-                reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32"
-            )
-        ]
-        if is_gaudi1()
-        else [],
+        marks=(
+            [pytest.mark.xfail(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")]
+            if is_gaudi1()
+            else []
+        ),
     ),
 ]
 
@@ -67,9 +63,7 @@ permute_test_case_list = [
 @pytest.mark.parametrize("T, W", permute_test_case_list)
 def test_expand_into_jagged_permute_case(T, W):
     length_per_w = [random.randint(5000, 10000) for i in range(W)]
-    length_1d = list(
-        itertools.chain.from_iterable(itertools.repeat(x, T) for x in length_per_w)
-    )
+    length_1d = list(itertools.chain.from_iterable(itertools.repeat(x, T) for x in length_per_w))
     permute_list = list(range(T * W))
     random.shuffle(permute_list)
     permuted_length_1d = [length_1d[r] for r in permute_list]
@@ -94,6 +88,4 @@ def test_expand_into_jagged_permute_case(T, W):
     )
     output_permute_ref_tensor = torch.tensor(output_permute_ref)
 
-    torch.testing.assert_close(
-        output_permute.to(cpu).numpy(), output_permute_ref_tensor.numpy()
-    )
+    torch.testing.assert_close(output_permute.to(cpu).numpy(), output_permute_ref_tensor.numpy())

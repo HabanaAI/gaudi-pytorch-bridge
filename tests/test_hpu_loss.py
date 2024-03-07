@@ -68,9 +68,7 @@ def test_hpu_nllloss_fwd_bwd(N, C, ignore_index):
         "ignore_index": ignore_index_val,
     }
     bwd_tensors = [torch.randn(1)]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
 
 
 @pytest.mark.parametrize("N, C", test_case_list)
@@ -99,9 +97,7 @@ def test_hpu_mseloss_fwd_bwd(N, C, mode):
         bwd_tensors = [torch.randn(N, C)]
     else:
         bwd_tensors = [torch.randn(1)]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
 
 
 @pytest.mark.parametrize("N, C, beta", test_case_list1)
@@ -133,9 +129,7 @@ def test_hpu_smooth_l1_loss_fwd_bwd(N, C, beta, mode):
         bwd_tensors = [torch.randn(N, C)]
     else:
         bwd_tensors = [torch.ones(1)]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
 
 
 @pytest.mark.parametrize("N, C", test_case_list)
@@ -157,9 +151,7 @@ def test_hpu_bceloss_fwd_bwd(N, C):
         "target": torch.randn(N, 1),
     }
     bwd_tensors = [torch.randn(1)]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
 
 
 @pytest.mark.parametrize("N, C, H, W", test_case_list_4d)
@@ -180,9 +172,7 @@ def test_hpu_bceloss_fwd_bwd4d(N, C, H, W):
         "target": torch.randn(N, C, H, W),
     }
     bwd_tensors = [torch.randn(1)]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
 
 
 @pytest.mark.parametrize("N, C, H, W", test_case_list_4d)
@@ -198,9 +188,7 @@ def test_hpu_bcelogitsloss_fwd_bwd(N, C, H, W, mode):
         bwd_tensors = [torch.randn(N, C, H, W)]
     else:
         bwd_tensors = [torch.randn(1)]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
 
 
 # test for channelslast & reduction=none will be added in next patch
@@ -251,9 +239,7 @@ def test_hpu_nllloss2d_fwd_bwd(N, C, H, W, ignore_index):
         "ignore_index": ignore_index_val,
     }
     bwd_tensors = [torch.randn(1)]
-    evaluate_fwd_bwd_kernel(
-        kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd
-    )
+    evaluate_fwd_bwd_kernel(kernel=kernel, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params_fwd)
 
 
 @pytest.mark.parametrize("N, C, H, W", [(32, 81, 8, 1091)])

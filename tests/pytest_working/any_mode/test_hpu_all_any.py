@@ -11,16 +11,11 @@
 ###############################################################################
 import torch
 import pytest
-from test_utils import (
-    compare_tensors,
-    format_tc,
-    is_gaudi1,
-    is_pytest_mode_compile
-)
+from test_utils import compare_tensors, format_tc, is_gaudi1, is_pytest_mode_compile
 
 
 shapes = [[], [1], [2, 3, 4], [4, 2]]
-zero_size_shapes = [[0], [0, 1], [0, 1 ,2]]
+zero_size_shapes = [[0], [0, 1], [0, 1, 2]]
 use_out = [True, False]
 dtypes = ["bfloat16", "float", "int"]
 if not is_gaudi1():

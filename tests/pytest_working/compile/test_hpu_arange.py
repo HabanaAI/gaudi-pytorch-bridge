@@ -21,7 +21,8 @@ import habana_frameworks.torch.core as htcore
 @pytest.mark.parametrize("end", [40, 100])
 def test_arange(dtype, layout, start, step, end):
     if step is not None and start is None:
-        pytest.skip('Invalid case')
+        pytest.skip("Invalid case")
+
     def fn(start, layout, step, end, device):
         if step is not None:
             return torch.arange(start=start, step=step, end=end, device=device, dtype=dtype, layout=layout)
@@ -29,6 +30,7 @@ def test_arange(dtype, layout, start, step, end):
             return torch.arange(start=start, end=end, device=device, dtype=dtype, layout=layout)
         else:
             return torch.arange(end=end, device=device, dtype=dtype, layout=layout)
+
     compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     expected = fn(start, layout, step, end, "cpu")

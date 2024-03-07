@@ -55,9 +55,7 @@ def test_hpu_transpose(t_op, kernel_params_fwd):
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
-@pytest.mark.parametrize(
-    "transpose_inplace_op, kernel_params_fwd", transpose_inplace_op_list
-)
+@pytest.mark.parametrize("transpose_inplace_op, kernel_params_fwd", transpose_inplace_op_list)
 def test_hpu_transpose_inplace(N, H, W, C, transpose_inplace_op, kernel_params_fwd):
     in_out_tensor = torch.randn(N, C, H, W)
     kernel_params_fwd = {"dim0": 0, "dim1": 2}
@@ -86,13 +84,9 @@ def test_hpu_transpose_inplace(N, H, W, C, transpose_inplace_op, kernel_params_f
 @pytest.mark.parametrize("t_inplace_op", t_inplace_op_list)
 def test_hpu_t_inplace(H, W, t_inplace_op):
     in_out_tensor = torch.randint(1, 24, (H, W), dtype=torch.int)
-    evaluate_fwd_inplace_kernel(
-        in_out_tensor=in_out_tensor, kernel_name="t_", kernel_params=None
-    )
+    evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name="t_", kernel_params=None)
     in_out_tensor = torch.randint(1, 24, (1,), dtype=torch.int)
-    evaluate_fwd_inplace_kernel(
-        in_out_tensor=in_out_tensor, kernel_name="t_", kernel_params=None
-    )
+    evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name="t_", kernel_params=None)
 
 
 @pytest.mark.parametrize("N, H, W, C", test_case_list)

@@ -24,10 +24,10 @@ def set_env_variable():
     original_value_weight_packing = os.environ.get(variable_name_weight_packing)
 
     variable_name_constant_folding = "ENABLE_CONSTANT_FOLDING"
-    original_value_constant_folding= os.environ.get(variable_name_constant_folding)
+    original_value_constant_folding = os.environ.get(variable_name_constant_folding)
 
     variable_name_experimental_flags = "ENABLE_EXPERIMENTAL_FLAGS"
-    original_value_experimental_flags= os.environ.get(variable_name_experimental_flags)
+    original_value_experimental_flags = os.environ.get(variable_name_experimental_flags)
 
     # Set the environment variable to the desired value
     os.environ[variable_name_weight_packing] = "1"
@@ -52,6 +52,7 @@ def set_env_variable():
         os.environ[variable_name_experimental_flags] = original_value_experimental_flags
     else:
         del os.environ[variable_name_experimental_flags]
+
 
 def test_same_graph_with_diff_const(set_env_variable):
     # Define the input tensor
@@ -81,9 +82,10 @@ def test_same_graph_with_diff_const(set_env_variable):
         output2 = conv2(input_tensor)
 
     import habana_frameworks.torch.core as htcore
+
     htcore.hpu_set_env()
 
-    #Run test on HPU
+    # Run test on HPU
     hpu = torch.device("hpu")
     cpu = torch.device("cpu")
     input_tensor_hpu = input_tensor.to(hpu)
@@ -94,6 +96,7 @@ def test_same_graph_with_diff_const(set_env_variable):
     htcore.hpu_initialize(conv2_hpu)
 
     from habana_frameworks.torch.core.quantization import _check_params_as_const
+
     _check_params_as_const(conv1_hpu)
     _check_params_as_const(conv2_hpu)
 
@@ -102,15 +105,13 @@ def test_same_graph_with_diff_const(set_env_variable):
         htcore.mark_step()
 
     output1_hpu_cpu = output1_hpu.to(cpu)
-    numpy.testing.assert_allclose(
-        output1_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
+    numpy.testing.assert_allclose(output1_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
 
     with torch.no_grad():
         output2_hpu = conv2_hpu(input_tensor_hpu)
         htcore.mark_step()
     output2_hpu_cpu = output2_hpu.to(cpu)
-    numpy.testing.assert_allclose(
-        output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
+    numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
 
     htcore.hpu_reset_env()
 
@@ -143,6 +144,7 @@ def test_same_const_across_recipes(set_env_variable):
     cpu = torch.device("cpu")
 
     import habana_frameworks.torch.core as htcore
+
     htcore.hpu_set_env()
 
     input_tensor1_hpu = input_tensor1.to(hpu)
@@ -152,6 +154,7 @@ def test_same_const_across_recipes(set_env_variable):
     htcore.hpu_initialize(conv_layer1_hpu)
 
     from habana_frameworks.torch.core.quantization import _check_params_as_const
+
     _check_params_as_const(conv_layer1_hpu)
 
     with torch.no_grad():
@@ -169,25 +172,25 @@ def test_same_const_across_recipes(set_env_variable):
     output1_repeat_hpu_cpu = output1_repeat_hpu.to(cpu)
     htcore.mark_step()
 
+    numpy.testing.assert_allclose(output1_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
+    numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
     numpy.testing.assert_allclose(
-        output1_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
-    numpy.testing.assert_allclose(
-        output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
-    numpy.testing.assert_allclose(
-       output1_repeat_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
+        output1_repeat_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001
+    )
 
     htcore.hpu_reset_env()
 
+
 def test_user_access_to_modified_tensor(set_env_variable):
-    #Define input tensors
+    # Define input tensors
     input_tensor = torch.randn(1, 3, 32, 32)
 
-    #Define kernel size, stride, and padding for the convolutional layers
+    # Define kernel size, stride, and padding for the convolutional layers
     kernel_size = 3
     stride = 1
     padding = 1
 
-    #Create the original convolutional layer
+    # Create the original convolutional layer
     conv_layer = torch.nn.Conv2d(3, 6, kernel_size, stride, padding)
 
     weight_copy = conv_layer.weight.clone()
@@ -196,6 +199,7 @@ def test_user_access_to_modified_tensor(set_env_variable):
     cpu = torch.device("cpu")
 
     import habana_frameworks.torch.core as htcore
+
     htcore.hpu_set_env()
 
     input_tensor_hpu = input_tensor.to(hpu)
@@ -204,6 +208,7 @@ def test_user_access_to_modified_tensor(set_env_variable):
     htcore.hpu_initialize(conv_layer_hpu)
 
     from habana_frameworks.torch.core.quantization import _check_params_as_const
+
     _check_params_as_const(conv_layer_hpu)
 
     with torch.no_grad():
@@ -212,9 +217,9 @@ def test_user_access_to_modified_tensor(set_env_variable):
     output_hpu_cpu = output_hpu.to(cpu)
     htcore.mark_step()
     weight_hpu_cpu = conv_layer_hpu.weight.to(cpu)
-    numpy.testing.assert_allclose(
-       weight_hpu_cpu.detach().numpy(), weight_copy.detach().numpy(), atol=0.001, rtol=0.001)
+    numpy.testing.assert_allclose(weight_hpu_cpu.detach().numpy(), weight_copy.detach().numpy(), atol=0.001, rtol=0.001)
     htcore.hpu_reset_env()
+
 
 def test_zero_sized_tensor(set_env_variable):
     class Model(nn.Module):
@@ -251,6 +256,7 @@ def test_zero_sized_tensor(set_env_variable):
     cpu = torch.device("cpu")
 
     import habana_frameworks.torch.core as htcore
+
     htcore.hpu_set_env()
 
     input_tensor_hpu = input_tensor.to(hpu)
@@ -263,8 +269,7 @@ def test_zero_sized_tensor(set_env_variable):
 
     output_hpu_cpu = output_hpu.to(cpu)
     htcore.mark_step()
-    numpy.testing.assert_allclose(
-       output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001)
+    numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001)
     htcore.hpu_reset_env()
 
 
@@ -276,6 +281,7 @@ def test_same_param_two_models(set_env_variable):
     conv1.bias = nn.Parameter(torch.rand(32))
 
     import random
+
     random.seed(65986)
     # Second convolutional layer with 32 filters and a different bias
     conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=1, padding=2)
@@ -291,11 +297,13 @@ def test_same_param_two_models(set_env_variable):
     cpu = torch.device("cpu")
 
     import habana_frameworks.torch.core as htcore
+
     htcore.hpu_set_env()
 
     conv1_hpu = conv1.to(hpu)
     conv2_hpu = conv2.to(hpu)
     from habana_frameworks.torch.core.quantization import _check_params_as_const
+
     htcore.hpu_initialize(conv1_hpu)
     _check_params_as_const(conv1_hpu)
     htcore.hpu_initialize(conv2_hpu)
@@ -307,13 +315,11 @@ def test_same_param_two_models(set_env_variable):
         output1_hpu = conv1_hpu(input_hpu)
 
     output1_hpu_cpu = output1_hpu.to(cpu)
-    numpy.testing.assert_allclose(
-        output1_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
+    numpy.testing.assert_allclose(output1_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001)
 
     with torch.no_grad():
         output2_hpu = conv2_hpu(input_hpu)
 
     output2_hpu_cpu = output2_hpu.to(cpu)
-    numpy.testing.assert_allclose(
-        output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
+    numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
     htcore.hpu_reset_env()

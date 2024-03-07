@@ -87,13 +87,12 @@ class MetricJsonWriter(MetricWriter):
         self._first_obj_written = False
 
     def write(self, name, stats, dump_trigger, timestamp):
-        """Writes object to JSON file.
-        """
+        """Writes object to JSON file."""
         obj_to_write = {
             "metric_name": name,
             "triggered_by": dump_trigger,
             "generated_on": timestamp,
-            "statistics": dict(stats)
+            "statistics": dict(stats),
         }
 
         if self._first_obj_written:
@@ -115,22 +114,20 @@ class MetricJsonWriter(MetricWriter):
 
 
 class MetricTextWriter(MetricWriter):
-    """Writes Metric stats into TEXT file.
-    """
+    """Writes Metric stats into TEXT file."""
 
     def __init__(self, name):
         super().__init__(name)
 
     def write(self, name, stats, dump_trigger, timestamp):
-        """Writes object to TEXT file.
-        """
+        """Writes object to TEXT file."""
         lines_to_write = [
             f"Metric name: {name}\n",
             f"Triggered by: {dump_trigger}\n",
             f"Generated on: {timestamp}\n",
             f"Statistics:\n",
             *[f"\t{stat_name}: {stat_value}\n" for stat_name, stat_value in stats],
-            "\n"
+            "\n",
         ]
 
         self._handle.writelines(lines_to_write)
@@ -188,9 +185,7 @@ class MetricSaver:
             self._metric_file_base_name = file_name
         else:
             use_env = True
-            self._metric_file_base_name = self._get_env(self.METRIC_FILE_ENV_VAR,
-                                                        self.METRIC_FILE_ENV_VAR_ALT,
-                                                        None)
+            self._metric_file_base_name = self._get_env(self.METRIC_FILE_ENV_VAR, self.METRIC_FILE_ENV_VAR_ALT, None)
 
         self._saver_enabled = True if self._metric_file_base_name else False
 
@@ -213,16 +208,16 @@ class MetricSaver:
             return default_value
 
     def _get_metric_dump_trigger_from_env(self):
-        dump_trigger = self._get_env(self.METRIC_DUMP_TRIGGER_ENV_VAR,
-                                     self.METRIC_DUMP_TRIGGER_ENV_VAR_ALT,
-                                     self.METRIC_DUMP_TRIGGER_DEFAULT)
+        dump_trigger = self._get_env(
+            self.METRIC_DUMP_TRIGGER_ENV_VAR, self.METRIC_DUMP_TRIGGER_ENV_VAR_ALT, self.METRIC_DUMP_TRIGGER_DEFAULT
+        )
         dump_trigger = [MetricDumpTrigger[trigger] for trigger in dump_trigger.split(",")]
         return dump_trigger
 
     def _get_metric_dump_format_from_env(self):
-        metric_file_format = self._get_env(self.METRIC_FILE_FORMAT_ENV_VAR,
-                                           self.METRIC_FILE_FORMAT_ENV_VAR_ALT,
-                                           self.METRIC_FILE_FORMAT_DEFAULT)
+        metric_file_format = self._get_env(
+            self.METRIC_FILE_FORMAT_ENV_VAR, self.METRIC_FILE_FORMAT_ENV_VAR_ALT, self.METRIC_FILE_FORMAT_DEFAULT
+        )
         metric_file_format = MetricDumpFormat[metric_file_format]
         return metric_file_format
 
@@ -251,7 +246,9 @@ class MetricSaver:
     def metric_change_callback(self):
         def callback(timestamp, metric_name, stats):
             if MetricDumpTrigger.metric_change in self._metric_dump_triggers and self._metric_writer is not None:
-                self._get_metric_writer().write(metric_name, stats, MetricDumpTrigger.metric_change, timestamp=timestamp)
+                self._get_metric_writer().write(
+                    metric_name, stats, MetricDumpTrigger.metric_change, timestamp=timestamp
+                )
 
         return callback
 
@@ -261,8 +258,7 @@ class MetricSaver:
     def process_trigger(self, trigger, metrics=[]):
         if trigger in self._metric_dump_triggers:
             for metric in metrics:
-                self._get_metric_writer().write(metric.name(), metric.stats(
-                ), trigger, timestamp=datetime.now())
+                self._get_metric_writer().write(metric.name(), metric.stats(), trigger, timestamp=datetime.now())
 
     def close(self):
         self._metric_writer.close()

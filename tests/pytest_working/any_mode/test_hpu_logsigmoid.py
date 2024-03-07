@@ -14,6 +14,7 @@ import pytest
 import habana_frameworks.torch.dynamo.compile_backend
 from test_utils import format_tc
 
+
 @pytest.mark.parametrize("shape", [(4), (2, 2), (2, 3, 4)], ids=format_tc)
 @pytest.mark.parametrize("bwd", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
@@ -31,11 +32,7 @@ def test_hpu_logsigmoid(shape, bwd, dtype):
     wrapped_fn = backward if bwd else forward
 
     torch._dynamo.reset()
-    hpu_wrapped_fn = (
-        torch.compile(wrapped_fn, backend="hpu_backend")
-        if pytest.mode == "compile"
-        else wrapped_fn
-    )
+    hpu_wrapped_fn = torch.compile(wrapped_fn, backend="hpu_backend") if pytest.mode == "compile" else wrapped_fn
 
     cpu_output = wrapped_fn(cpu_input)
     hpu_output = hpu_wrapped_fn(hpu_input).cpu()

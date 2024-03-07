@@ -90,12 +90,8 @@ def test_optimizer_lamb_norm_views():
     compare_tensors(grad_denom_hpu, grad_denom_cpu, atol=1e-08, rtol=1e-05)
 
 
-def reference_optimizer_lamb_phase2(
-    weights, adam_norms, weight_norms, adam_steps, neg_step, weight_decay, use_lamb
-):
-    for weight, adam_norm, weight_norm, adam_step in zip(
-        weights, adam_norms, weight_norms, adam_steps
-    ):
+def reference_optimizer_lamb_phase2(weights, adam_norms, weight_norms, adam_steps, neg_step, weight_decay, use_lamb):
+    for weight, adam_norm, weight_norm, adam_step in zip(weights, adam_norms, weight_norms, adam_steps):
         if (weight_decay != 0 or use_lamb) and adam_norm > 0 and weight_norm > 0:
             trust_ratio = weight_norm / adam_norm
         else:
@@ -111,7 +107,7 @@ def reference_optimizer_lamb_phase2(
 )
 @pytest.mark.parametrize("weight_shapes", [[(5, 4)], [(2, 3, 3), (4, 2)]])
 @pytest.mark.parametrize("use_lamb", [True, False])
-@pytest.mark.parametrize("weight_decay", [0, 0.1])    
+@pytest.mark.parametrize("weight_decay", [0, 0.1])
 def test_optimizer_lamb_phase2(weight_dtype, weight_shapes, weight_decay, use_lamb):
     lr = 0.1
     n = len(weight_shapes)
@@ -285,15 +281,11 @@ def test_lamb0():
 
     optimizer_grouped_parameters = [
         {
-            "params": [
-                p for n, p in param_optimizer if not any(nd in n for nd in no_decay)
-            ],
+            "params": [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
             "weight_decay": 0.01,
         },
         {
-            "params": [
-                p for n, p in param_optimizer if any(nd in n for nd in no_decay)
-            ],
+            "params": [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],
             "weight_decay": 0.0,
         },
     ]
@@ -334,6 +326,7 @@ class MNISTNet(nn.Module):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return F.log_softmax(x, dim=1)
+
 
 @pytest.mark.xfail(reason="Results mismatch")
 @pytest.mark.parametrize("count, lr", [(3, 0.001), (2, 0.01)])

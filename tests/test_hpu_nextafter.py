@@ -88,10 +88,7 @@ def test_hpu_inplace_nextafter_compare(input_shape, other_shape, dtype, zeros):
     ],
 )
 def test_hpu_nextafter(input_shape, other_shape, dtype, view_dtype):
-    if (
-        dtype == torch.float16
-        and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi
-    ):
+    if dtype == torch.float16 and htexp._get_device_type() == htexp.synDeviceType.synDeviceGaudi:
         pytest.skip("Half is not supported on Gaudi.")
 
     if view_dtype == torch.int16:
@@ -113,19 +110,11 @@ def test_hpu_nextafter(input_shape, other_shape, dtype, view_dtype):
     # input and other is equal
     correct_mask = torch.where((other == input) & (difference == 0), True, correct_mask)
     # direction from input to other is away from zero
-    correct_mask = torch.where(
-        (other > input) & (input > 0) & (difference == 1), True, correct_mask
-    )
-    correct_mask = torch.where(
-        (other < input) & (input < 0) & (difference == 1), True, correct_mask
-    )
+    correct_mask = torch.where((other > input) & (input > 0) & (difference == 1), True, correct_mask)
+    correct_mask = torch.where((other < input) & (input < 0) & (difference == 1), True, correct_mask)
     # direction from input to other is towards zero
-    correct_mask = torch.where(
-        (other > input) & (input < 0) & (difference == -1), True, correct_mask
-    )
-    correct_mask = torch.where(
-        (other < input) & (input > 0) & (difference == -1), True, correct_mask
-    )
+    correct_mask = torch.where((other > input) & (input < 0) & (difference == -1), True, correct_mask)
+    correct_mask = torch.where((other < input) & (input > 0) & (difference == -1), True, correct_mask)
 
     # each result element should fall into one case
     assert torch.all(correct_mask)

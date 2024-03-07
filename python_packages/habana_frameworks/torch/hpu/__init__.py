@@ -345,8 +345,7 @@ class device(object):
         device_idx = _get_device_index(device, optional=True)
         env_device_idx = _get_module_id_from_environ()
         if device_idx != 0 and device_idx != env_device_idx:
-            raise AssertionError(
-                f"Requested device_id={device_idx} is different from env_device_id={env_device_idx}")
+            raise AssertionError(f"Requested device_id={device_idx} is different from env_device_id={env_device_idx}")
         self.idx = env_device_idx
         self.prev_idx = -1
 
@@ -402,8 +401,7 @@ def utilization(device: Optional[Union[Device, int]] = None) -> int:
     try:
         import pyhlml  # type: ignore[import]
     except ModuleNotFoundError:
-        raise ModuleNotFoundError(
-            "pyhlml module not found, please install pyhlml")
+        raise ModuleNotFoundError("pyhlml module not found, please install pyhlml")
     pyhlml.hlmlInit()
     pyhlml_device = pyhlml.hlmlDeviceGetHandleByIndex(device_idx)
     usage = pyhlml.hlmlDeviceGetUtilizationRates(pyhlml_device)
@@ -414,11 +412,9 @@ def utilization(device: Optional[Union[Device, int]] = None) -> int:
 def _create_tensor_alias(name, dtype):
     def tensor_alias(*args, **kwargs):
         if "device" in kwargs:
-            raise TypeError(
-                f"hpu.{name}() got an unexpected keyword argument 'device'")
+            raise TypeError(f"hpu.{name}() got an unexpected keyword argument 'device'")
         if "dtype" in kwargs:
-            raise TypeError(
-                f"hpu.{name}() got an unexpected keyword argument 'dtype'")
+            raise TypeError(f"hpu.{name}() got an unexpected keyword argument 'dtype'")
         kwargs["device"] = "hpu"
         kwargs["dtype"] = dtype
         return torch.tensor(*args, **kwargs)

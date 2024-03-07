@@ -22,8 +22,7 @@ def worker_fn(_, filestore_file, cache_pg=True):
     import habana_frameworks.torch.distributed.hccl
 
     store = dist.FileStore(filestore_file, -1)
-    dist.init_process_group(
-        backend='hpu:hccl', rank=0, world_size=1, store=store)
+    dist.init_process_group(backend="hpu:hccl", rank=0, world_size=1, store=store)
 
     new_pg = dist.new_group(ranks=[0], backend="hccl")
     new_pg2 = dist.new_group(ranks=[0], backend="hccl")
@@ -34,8 +33,8 @@ def worker_fn(_, filestore_file, cache_pg=True):
 
 
 def parse_file_store(file_store_path):
-    """ Parses FileStore file content and returns each record as separate tuple
-        in list.
+    """Parses FileStore file content and returns each record as separate tuple
+    in list.
     """
     records = []
 
@@ -43,16 +42,16 @@ def parse_file_store(file_store_path):
         buff = f.read()
         processed_bytes = 0
         while processed_bytes < len(buff):
-            name_len, = struct.unpack('i', buff[processed_bytes:(processed_bytes+4)])
+            (name_len,) = struct.unpack("i", buff[processed_bytes : (processed_bytes + 4)])
             processed_bytes += 4
 
-            name = buff[processed_bytes:(processed_bytes+name_len)]
+            name = buff[processed_bytes : (processed_bytes + name_len)]
             processed_bytes += name_len
 
-            payload_len, = struct.unpack('i', buff[processed_bytes:(processed_bytes+4)])
+            (payload_len,) = struct.unpack("i", buff[processed_bytes : (processed_bytes + 4)])
             processed_bytes += 4
 
-            records.append((name, buff[processed_bytes:processed_bytes+payload_len]))
+            records.append((name, buff[processed_bytes : processed_bytes + payload_len]))
             processed_bytes += payload_len  # skip payload
 
     return records
@@ -79,8 +78,9 @@ def test_process_group_destroy_order(tmp_path, cache_pg_objects):
     except FileNotFoundError:
         pass
 
-    torch.multiprocessing.spawn(worker_fn, args=(filestore_file, cache_pg_objects), nprocs=1,
-                                join=True, daemon=False, start_method='spawn')
+    torch.multiprocessing.spawn(
+        worker_fn, args=(filestore_file, cache_pg_objects), nprocs=1, join=True, daemon=False, start_method="spawn"
+    )
 
     records = parse_file_store(filestore_file)
     records_keys = [r[0].decode("utf-8") for r in records]
@@ -92,8 +92,9 @@ def test_process_group_destroy_order(tmp_path, cache_pg_objects):
     host_barrier_key_name = "0HOST_BARRIER:1"
     destroy_key_name = "ProcessGroup::destroy"
 
-    expected_keys_in_store = product([second_pg_prefix, first_pg_prefix, default_pg_prefix], [
-                                     host_barrier_key_name, destroy_key_name])
+    expected_keys_in_store = product(
+        [second_pg_prefix, first_pg_prefix, default_pg_prefix], [host_barrier_key_name, destroy_key_name]
+    )
     expected_keys_in_store = ["".join(key_tuple) for key_tuple in expected_keys_in_store]
 
     records_order_in_store = [records_keys.index(key) for key in expected_keys_in_store]

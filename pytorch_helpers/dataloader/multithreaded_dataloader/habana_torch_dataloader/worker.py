@@ -27,7 +27,7 @@ if IS_WINDOWS:
             self.manager_pid = os.getppid()
 
             # mypy cannot detect this code is windows only
-            self.kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)  # type: ignore
+            self.kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore
             self.kernel32.OpenProcess.argtypes = (DWORD, BOOL, DWORD)
             self.kernel32.OpenProcess.restype = HANDLE
             self.kernel32.WaitForSingleObject.argtypes = (HANDLE, DWORD)
@@ -47,7 +47,9 @@ if IS_WINDOWS:
                 # Value obtained from https://msdn.microsoft.com/en-us/library/windows/desktop/ms687032.aspx
                 self.manager_dead = self.kernel32.WaitForSingleObject(self.manager_handle, 0) == 0
             return not self.manager_dead
+
 else:
+
     class ManagerWatchdog(object):  # type: ignore[no-redef]
         def __init__(self):
             self.manager_pid = os.getppid()
@@ -57,6 +59,7 @@ else:
             if not self.manager_dead:
                 self.manager_dead = os.getppid() != self.manager_pid
             return not self.manager_dead
+
 
 _worker_info = None
 
@@ -78,8 +81,8 @@ class WorkerInfo(object):
     def __repr__(self):
         items = []
         for k in self.__keys:
-            items.append('{}={}'.format(k, getattr(self, k)))
-        return '{}({})'.format(self.__class__.__name__, ', '.join(items))
+            items.append("{}={}".format(k, getattr(self, k)))
+        return "{}({})".format(self.__class__.__name__, ", ".join(items))
 
 
 def get_worker_info():
@@ -112,14 +115,27 @@ def get_worker_info():
 
 
 r"""Dummy class used to signal the end of an IterableDataset"""
-_IterableDatasetStopIteration = namedtuple('_IterableDatasetStopIteration', ['worker_id'])
+_IterableDatasetStopIteration = namedtuple("_IterableDatasetStopIteration", ["worker_id"])
 
 r"""Dummy class used to resume the fetching when worker reuse is enabled"""
-_ResumeIteration = namedtuple('_ResumeIteration', [])
+_ResumeIteration = namedtuple("_ResumeIteration", [])
 
-def _worker_loop(dataset_kind, dataset, index_queue, data_queue, done_event,
-                 auto_collation, collate_fn, drop_last, seed, init_fn, worker_id,
-                 num_workers, persistent_workers):
+
+def _worker_loop(
+    dataset_kind,
+    dataset,
+    index_queue,
+    data_queue,
+    done_event,
+    auto_collation,
+    collate_fn,
+    drop_last,
+    seed,
+    init_fn,
+    worker_id,
+    num_workers,
+    persistent_workers,
+):
     # See NOTE [ Data Loader Multiprocessing Shutdown Logic ] for details on the
     # logic of this function.
 
@@ -136,8 +152,7 @@ def _worker_loop(dataset_kind, dataset, index_queue, data_queue, done_event,
         torch.manual_seed(seed)
 
         global _worker_info
-        _worker_info = WorkerInfo(id=worker_id, num_workers=num_workers,
-                                  seed=seed, dataset=dataset)
+        _worker_info = WorkerInfo(id=worker_id, num_workers=num_workers, seed=seed, dataset=dataset)
 
         from torch.utils.data import _DatasetKind
 
@@ -149,8 +164,7 @@ def _worker_loop(dataset_kind, dataset, index_queue, data_queue, done_event,
 
             fetcher = _DatasetKind.create_fetcher(dataset_kind, dataset, auto_collation, collate_fn, drop_last)
         except Exception:
-            init_exception = ExceptionWrapper(
-                where="in DataLoader worker process {}".format(worker_id))
+            init_exception = ExceptionWrapper(where="in DataLoader worker process {}".format(worker_id))
 
         # When using Iterable mode, some worker can exit earlier than others due
         # to the IterableDataset behaving differently for different workers.
@@ -178,8 +192,7 @@ def _worker_loop(dataset_kind, dataset, index_queue, data_queue, done_event,
                 data_queue.put((r, None))
                 iteration_end = False
                 # Recreate the fetcher for worker-reuse policy
-                fetcher = _DatasetKind.create_fetcher(
-                    dataset_kind, dataset, auto_collation, collate_fn, drop_last)
+                fetcher = _DatasetKind.create_fetcher(dataset_kind, dataset, auto_collation, collate_fn, drop_last)
                 continue
             elif r is None:
                 # Received the final signal
@@ -209,8 +222,7 @@ def _worker_loop(dataset_kind, dataset, index_queue, data_queue, done_event,
                         # It is important that we don't store exc_info in a variable.
                         # `ExceptionWrapper` does the correct thing.
                         # See NOTE [ Python Traceback Reference Cycle Problem ]
-                        data = ExceptionWrapper(
-                            where="in DataLoader worker process {}".format(worker_id))
+                        data = ExceptionWrapper(where="in DataLoader worker process {}".format(worker_id))
             # TODO: need to resolve this for now just boycotting
             try:
                 data_queue.put((idx, data))

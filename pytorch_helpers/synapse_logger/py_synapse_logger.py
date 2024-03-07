@@ -14,33 +14,41 @@
 # the SWIG interface file instead.
 
 from sys import version_info as _swig_python_version_info
+
 if _swig_python_version_info >= (2, 7, 0):
+
     def swig_import_helper():
         import importlib
-        pkg = __name__.rpartition('.')[0]
-        mname = '.'.join((pkg, '_py_synapse_logger')).lstrip('.')
+
+        pkg = __name__.rpartition(".")[0]
+        mname = ".".join((pkg, "_py_synapse_logger")).lstrip(".")
         try:
             return importlib.import_module(mname)
         except ImportError:
-            return importlib.import_module('_py_synapse_logger')
+            return importlib.import_module("_py_synapse_logger")
+
     _py_synapse_logger = swig_import_helper()
     del swig_import_helper
 elif _swig_python_version_info >= (2, 6, 0):
+
     def swig_import_helper():
         from os.path import dirname
         import imp
+
         fp = None
         try:
-            fp, pathname, description = imp.find_module('_py_synapse_logger', [dirname(__file__)])
+            fp, pathname, description = imp.find_module("_py_synapse_logger", [dirname(__file__)])
         except ImportError:
             import _py_synapse_logger
+
             return _py_synapse_logger
         try:
-            _mod = imp.load_module('_py_synapse_logger', fp, pathname, description)
+            _mod = imp.load_module("_py_synapse_logger", fp, pathname, description)
         finally:
             if fp is not None:
                 fp.close()
         return _mod
+
     _py_synapse_logger = swig_import_helper()
     del swig_import_helper
 else:
@@ -57,17 +65,18 @@ try:
 except ImportError:
     import __builtin__
 
+
 def _swig_setattr_nondynamic(self, class_type, name, value, static=1):
-    if (name == "thisown"):
+    if name == "thisown":
         return self.this.own(value)
-    if (name == "this"):
-        if type(value).__name__ == 'SwigPyObject':
+    if name == "this":
+        if type(value).__name__ == "SwigPyObject":
             self.__dict__[name] = value
             return
     method = class_type.__swig_setmethods__.get(name, None)
     if method:
         return method(self, value)
-    if (not static):
+    if not static:
         if _newclass:
             object.__setattr__(self, name, value)
         else:
@@ -81,7 +90,7 @@ def _swig_setattr(self, class_type, name, value):
 
 
 def _swig_getattr(self, class_type, name):
-    if (name == "thisown"):
+    if name == "thisown":
         return self.this.own()
     method = class_type.__swig_getmethods__.get(name, None)
     if method:
@@ -94,36 +103,55 @@ def _swig_repr(self):
         strthis = "proxy of " + self.this.__repr__()
     except __builtin__.Exception:
         strthis = ""
-    return "<%s.%s; %s >" % (self.__class__.__module__, self.__class__.__name__, strthis,)
+    return "<%s.%s; %s >" % (
+        self.__class__.__module__,
+        self.__class__.__name__,
+        strthis,
+    )
+
 
 try:
     _object = object
     _newclass = 1
 except __builtin__.Exception:
+
     class _object:
         pass
+
     _newclass = 0
 
 
 def dump_reference(ref, ref_type, vec):
     return _py_synapse_logger.dump_reference(ref, ref_type, vec)
+
+
 dump_reference = _py_synapse_logger.dump_reference
+
 
 def command(x):
     return _py_synapse_logger.command(x)
+
+
 command = _py_synapse_logger.command
+
 
 def put_log(what):
     return _py_synapse_logger.put_log(what)
+
+
 put_log = _py_synapse_logger.put_log
+
 
 def start_hw_profile():
     return _py_synapse_logger.start_hw_profile()
+
+
 start_hw_profile = _py_synapse_logger.start_hw_profile
+
 
 def stop_hw_profile():
     return _py_synapse_logger.stop_hw_profile()
+
+
 stop_hw_profile = _py_synapse_logger.stop_hw_profile
 # This file is compatible with both classic and new-style classes.
-
-

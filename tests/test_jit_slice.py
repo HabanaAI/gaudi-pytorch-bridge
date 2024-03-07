@@ -15,9 +15,7 @@ def slice_func(x):
 test_case_list = [(5, 5)]
 
 
-@pytest.mark.xfail(
-    reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'"
-)
+@pytest.mark.xfail(reason="AttributeError: module 'habana_frameworks.torch.core' has no attribute 'enable'")
 @pytest.mark.parametrize("D1, D2", test_case_list)
 def test_slice_backward(D1, D2):
     in_t = torch.randn(5, 5, requires_grad=True)

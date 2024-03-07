@@ -20,12 +20,14 @@ from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, Even
 from .saver import MetricSaver, MetricDumpFormat, MetricDumpTrigger
 from .exceptions import MetricNotFound
 
+
 def bool_helper(value):
     value = value.lower()
-    if value in ('y', 'yes', 't', 'true', 'on', '1'):
+    if value in ("y", "yes", "t", "true", "on", "1"):
         return True
     else:
         return False
+
 
 class MetricManager(object):
     def __init__(self) -> None:
@@ -36,18 +38,15 @@ class MetricManager(object):
         atexit.register(self._at_exit_callback)
 
         def mark_step_event_callback_fn(timestamp, event_params):
-            self._metric_saver.process_trigger(MetricDumpTrigger.mark_step,
-                                               self._global_metrics)
+            self._metric_saver.process_trigger(MetricDumpTrigger.mark_step, self._global_metrics)
 
         def dev_acquired_event_callback_fn(timestamp, event_params):
             self._metric_saver.enable()
 
         ed = EventDispatcher.instance()
-        self._mark_step_event_handle = ed.subscribe(EventId.MARK_STEP,
-                                                    mark_step_event_callback_fn)
+        self._mark_step_event_handle = ed.subscribe(EventId.MARK_STEP, mark_step_event_callback_fn)
 
-        self._dev_acquired_event_handle = ed.subscribe(EventId.DEVICE_ACQUIRED,
-                                                       dev_acquired_event_callback_fn)
+        self._dev_acquired_event_handle = ed.subscribe(EventId.DEVICE_ACQUIRED, dev_acquired_event_callback_fn)
 
     def __del__(self):
         atexit.unregister(self._at_exit_callback)
@@ -102,8 +101,7 @@ class Metric(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def name(self) -> str:
-        """Returns metric name.
-        """
+        """Returns metric name."""
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -115,25 +113,21 @@ class Metric(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def reset(self) -> None:
-        """Resets collected statistics.
-        """
+        """Resets collected statistics."""
         raise NotImplementedError
 
     @abc.abstractmethod
     def start(self) -> None:
-        """Starts collecting statistics.
-        """
+        """Starts collecting statistics."""
         raise NotImplementedError
 
     @abc.abstractmethod
     def stop(self) -> None:
-        """Stops collecting statistics.
-        """
+        """Stops collecting statistics."""
         raise NotImplementedError
 
     def on_metric_change(self, callback) -> None:
-        """Registers callback called on every metric change.
-        """
+        """Registers callback called on every metric change."""
         self._metric_change_callback = callback
 
     def notify(self, timestamp, event_params):
@@ -158,7 +152,6 @@ class MemoryDefragmentationMetric(Metric):
         self.start()
 
     def _get_event_callback_fn(self):
-
         def callback(timestamp, event_params):
             event_params = dict(event_params)
             self._total_defragmentation_count += 1
@@ -166,6 +159,7 @@ class MemoryDefragmentationMetric(Metric):
                 self._total_successful_defragmentation_count += 1
                 self._defragmentation_time.append(int(event_params[self._DEFRAGMENTATION_MILLISECONDS_EVENT_NAME]))
             self.notify(timestamp, event_params)
+
         return callback
 
     def name(self):
@@ -184,10 +178,15 @@ class MemoryDefragmentationMetric(Metric):
         return [
             (self._TOTAL_DEFRAGMENTATION_TAG, self._total_defragmentation_count),
             (self._TOTAL_DEFRAGMENTATION_SUCCESSFUL_TAG, self._total_successful_defragmentation_count),
-            (self._TOTAL_DEFRAGMENTATION_MEAN_TAG, mean(self._defragmentation_time) if len(self._defragmentation_time) > 0 else 0),
-            (self._TOTAL_DEFRAGMENTATION_MAX_TAG, max(self._defragmentation_time) if len(self._defragmentation_time) > 0 else 0)
+            (
+                self._TOTAL_DEFRAGMENTATION_MEAN_TAG,
+                mean(self._defragmentation_time) if len(self._defragmentation_time) > 0 else 0,
+            ),
+            (
+                self._TOTAL_DEFRAGMENTATION_MAX_TAG,
+                max(self._defragmentation_time) if len(self._defragmentation_time) > 0 else 0,
+            ),
         ]
-
 
     def reset(self):
         self._total_defragmentation_count = 0
@@ -209,7 +208,7 @@ class RecipeCacheMetric(Metric):
         self.total_cache_hit = 0
         self.total_recipe_cache_hit = {}
         self.total_cache_miss = 0
-        self.total_recipe_cache_miss =  {}
+        self.total_recipe_cache_miss = {}
         self._ed = EventDispatcher.instance()
         self._handle_hit = None
         self._handle_miss = None
@@ -222,6 +221,7 @@ class RecipeCacheMetric(Metric):
             recipe_id = event_params[self._RECIPE_ID_EVENT_NAME]
             self.total_recipe_cache_hit[recipe_id] = self.total_recipe_cache_hit.get(recipe_id, 0) + 1
             self.notify(timestamp, event_params)
+
         return callback
 
     def _get_miss_event_callback_fn(self):
@@ -231,6 +231,7 @@ class RecipeCacheMetric(Metric):
             recipe_id = event_params[self._RECIPE_ID_EVENT_NAME]
             self.total_recipe_cache_miss[recipe_id] = self.total_recipe_cache_miss.get(recipe_id, 0) + 1
             self.notify(timestamp, event_params)
+
         return callback
 
     def name(self):
@@ -251,14 +252,18 @@ class RecipeCacheMetric(Metric):
             self._handle_miss = None
 
     def stats(self):
-        return [(self._TOTAL_CACHE_HIT_TAG, self.total_cache_hit), (self._RECIPE_CACHE_HIT_TAG, self.total_recipe_cache_hit),
-                (self._TOTAL_CACHE_MISS_TAG, self.total_cache_miss), (self._RECIPE_CACHE_MISS_TAG, self.total_recipe_cache_miss)]
+        return [
+            (self._TOTAL_CACHE_HIT_TAG, self.total_cache_hit),
+            (self._RECIPE_CACHE_HIT_TAG, self.total_recipe_cache_hit),
+            (self._TOTAL_CACHE_MISS_TAG, self.total_cache_miss),
+            (self._RECIPE_CACHE_MISS_TAG, self.total_recipe_cache_miss),
+        ]
 
     def reset(self):
         self.total_cache_hit = 0
         self.total_recipe_cache_hit = {}
         self.total_cache_miss = 0
-        self.total_recipe_cache_miss =  {}
+        self.total_recipe_cache_miss = {}
 
     def __del__(self):
         self.stop()
@@ -283,6 +288,7 @@ class CpuFallbackMetric(Metric):
             op_name = event_params[self._OP_NAME_EVENT_NAME]
             self._total_op_fallback_count[op_name] = self._total_op_fallback_count.get(op_name, 0) + 1
             self.notify(timestamp, event_params)
+
         return callback
 
     def name(self):
@@ -298,7 +304,10 @@ class CpuFallbackMetric(Metric):
             self._handle = None
 
     def stats(self):
-        return [(self._TOTAL_FALLBACKS_TAG, self._total_fallback_count), (self._FALLBACK_OPS_TAG, self._total_op_fallback_count)]
+        return [
+            (self._TOTAL_FALLBACKS_TAG, self._total_fallback_count),
+            (self._FALLBACK_OPS_TAG, self._total_op_fallback_count),
+        ]
 
     def reset(self):
         self._total_fallback_count = 0
@@ -333,6 +342,7 @@ class GraphCompilationMetric(Metric):
             self._recipe_names.append(event_params[self._RECIPE_PARAM_NAME])
             self._recipe_durations.append(int(event_params[self._DURATION_EVENT_PARAM_NAME]))
             self.notify(timestamp, event_params)
+
         return callback_fn
 
     def name(self):
@@ -351,11 +361,16 @@ class GraphCompilationMetric(Metric):
         result = {
             self._TOTAL_NUMBER_TAG: self._total_num_of_compilation,
             self._TOTAL_TIME_TAG: self._total_time_of_compilation,
-            self._AVG_TIME_TAG: float(self._total_time_of_compilation) /
-            self._total_num_of_compilation if self._total_num_of_compilation > 0 else 0
+            self._AVG_TIME_TAG: (
+                float(self._total_time_of_compilation) / self._total_num_of_compilation
+                if self._total_num_of_compilation > 0
+                else 0
+            ),
         }
         if "PT_HPU_METRICS_GC_DETAILS" in os.environ and bool_helper(os.getenv("PT_HPU_METRICS_GC_DETAILS")):
-            result[self._RECIPE_PARAM_NAME] = list(map(lambda name, duration : (name, duration), self._recipe_names, self._recipe_durations))
+            result[self._RECIPE_PARAM_NAME] = list(
+                map(lambda name, duration: (name, duration), self._recipe_names, self._recipe_durations)
+            )
         return [(tag, value) for tag, value in result.items()]
 
     def reset(self):
@@ -383,8 +398,7 @@ _init_metric_mgr()
 
 
 def metric_global(name: str) -> Metric:
-    """Returns global metric by name.
-    """
+    """Returns global metric by name."""
     return _metric_mgr.get_global_metric(name)
 
 
@@ -392,14 +406,14 @@ def metric_global(name: str) -> Metric:
 def metric_localcontext(name: str) -> Metric:
     """Context-manager metric API.
 
-      Metric collection will start when entering the scope, and stop when exits
-      the scope.
+    Metric collection will start when entering the scope, and stop when exits
+    the scope.
 
-      Example usage:
-      ```python
-      with metric_localcontext("graph_compilation") as gc_local_metric:
-        # do some work
-        print(gc_local_metric)
+    Example usage:
+    ```python
+    with metric_localcontext("graph_compilation") as gc_local_metric:
+      # do some work
+      print(gc_local_metric)
     """
     metric = _metric_mgr.get_local_metric(name)
 
@@ -410,6 +424,5 @@ def metric_localcontext(name: str) -> Metric:
 
 
 def metrics_dump(file_name: str, format: MetricDumpFormat = MetricDumpFormat.json) -> None:
-    """Stores global metrics in given file.
-    """
+    """Stores global metrics in given file."""
     _metric_mgr.store_global_metrics(file_name, format=format)

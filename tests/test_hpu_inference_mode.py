@@ -32,9 +32,7 @@ def test_hpu_inference_mode():
         # Inplace Operation on Normal tensor.
         b_tensor.add_(2)
         b_tensor_vc_updated_i = b_tensor._version
-        assert b_tensor.is_inference() is False and (
-            b_tensor_vc_updated_i == b_tensor_vc_updated + 1
-        )
+        assert b_tensor.is_inference() is False and (b_tensor_vc_updated_i == b_tensor_vc_updated + 1)
 
         # Inplace Operation on Inference tensor.
         k_tensor = torch.randn(4, 4, 64, device=hpu)
@@ -45,10 +43,7 @@ def test_hpu_inference_mode():
 
         # View Op on Normal tensor.
         l_tensor = b_tensor.view(-1)
-        assert (
-            l_tensor.is_inference() is False
-            and b_tensor_vc_updated_i == l_tensor._version
-        )
+        assert l_tensor.is_inference() is False and b_tensor_vc_updated_i == l_tensor._version
 
         # View Op on Inference tensor.
         m_tensor = torch.randn(4, 4, 64, device=hpu)
@@ -69,10 +64,7 @@ def test_hpu_inference_mode():
     except:  # noqa
         assert p_tensor.is_inference() is True
     else:
-        assert (
-            False
-            and "Able to do inplace op on inference tensor outside on inference mode"
-        )
+        assert False and "Able to do inplace op on inference tensor outside on inference mode"
 
     # View Op on Inference tensor outside of inference_mode
     r_tensor = p_tensor.view(-1)

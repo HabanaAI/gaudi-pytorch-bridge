@@ -59,15 +59,11 @@ class FusedSGD(Optimizer):
                     if p.grad is None:
                         continue
                     state = self.state[p]
-                    state["momentum_buffer"] = torch.zeros_like(p).to(
-                        hpu, non_blocking=True
-                    )
+                    state["momentum_buffer"] = torch.zeros_like(p).to(hpu, non_blocking=True)
 
         self.lr_list = []
         self.lr_t = None
-        self.step_t = torch.tensor([0], dtype=torch.int32, requires_grad=False).to(
-            hpu, non_blocking=True
-        )
+        self.step_t = torch.tensor([0], dtype=torch.int32, requires_grad=False).to(hpu, non_blocking=True)
 
         htcore.step_closure._mark_step_if_lazy()
 
@@ -87,9 +83,7 @@ class FusedSGD(Optimizer):
         self.lr_list.clear()
 
         for group in self.param_groups:
-            self.lr_t = torch.tensor(
-                [group["lr"]], dtype=torch.float, requires_grad=False
-            ).to(hpu, non_blocking=True)
+            self.lr_t = torch.tensor([group["lr"]], dtype=torch.float, requires_grad=False).to(hpu, non_blocking=True)
             self.lr_list.append(self.lr_t)
             if group["momentum"] == 0:
                 grad_list, d_p_list = [], []
@@ -100,9 +94,7 @@ class FusedSGD(Optimizer):
                     grad = p.grad.data
                     weight = p.data
                     if grad.is_sparse:
-                        raise RuntimeError(
-                            "SGD does not support sparse gradients, please consider SparseSGD"
-                        )
+                        raise RuntimeError("SGD does not support sparse gradients, please consider SparseSGD")
 
                     grad_list.append(grad)
                     d_p_list.append(weight)
@@ -125,15 +117,13 @@ class FusedSGD(Optimizer):
                     grad = p.grad.data
                     weight = p.data
                     if grad.is_sparse:
-                        raise RuntimeError(
-                            "SGD does not support sparse gradients, please consider SparseSGD"
-                        )
+                        raise RuntimeError("SGD does not support sparse gradients, please consider SparseSGD")
 
                     grad_list.append(grad)
                     d_p_list.append(weight)
                     state = self.state[p]
-                    if 'momentum_buffer' not in state:
-                        state["momentum_buffer"] = torch.zeros(grad.shape).to('hpu')
+                    if "momentum_buffer" not in state:
+                        state["momentum_buffer"] = torch.zeros(grad.shape).to("hpu")
                     momentum_buffer_list.append(state["momentum_buffer"])
 
                 _hpex_C.fused_sgd_momentum(

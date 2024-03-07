@@ -52,8 +52,8 @@ def test_hpu_fill(N, C, fill_val, is_masked, is_inplace, fill_with_scalar):
     hpu_tensor = cpu_tensor.to(hpu)
     ref_fn = fn(is_masked, is_inplace)
     hpu_fn = fn(is_masked, is_inplace)
-    cpu_args=[cpu_tensor]
-    hpu_args=[hpu_tensor]
+    cpu_args = [cpu_tensor]
+    hpu_args = [hpu_tensor]
 
     if is_masked:
         mask = torch.randn(C) < 0

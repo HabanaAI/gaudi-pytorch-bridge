@@ -16,6 +16,7 @@ from test_utils import compare_tensors, generic_setup_teardown_env
 
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
+
 @pytest.fixture(autouse=True, scope="module")
 def setup_teardown_env():
     yield from generic_setup_teardown_env(

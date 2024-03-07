@@ -32,22 +32,24 @@ test_shapes_dtypes = [
     ((1), (2), torch.int8),
 ]
 
+
 @pytest.mark.parametrize("self_shape, mask_shape, dtype", test_shapes_dtypes, ids=format_tc)
 class TestHpuMaskedSelect:
-  @staticmethod
-  def test_hpu_masked_select(self_shape, mask_shape, dtype):
-    if is_gaudi1() and dtype == torch.half:
-        pytest.skip("Half is not supported on Gaudi.")
-    def fn(input, mask):
-      return torch.masked_select(input, mask)
+    @staticmethod
+    def test_hpu_masked_select(self_shape, mask_shape, dtype):
+        if is_gaudi1() and dtype == torch.half:
+            pytest.skip("Half is not supported on Gaudi.")
 
-    cpu_input = torch.zeros(self_shape, dtype=dtype).random_()
-    cpu_mask = torch.zeros(mask_shape, dtype=torch.bool).random_()
+        def fn(input, mask):
+            return torch.masked_select(input, mask)
 
-    hpu_input = cpu_input.to('hpu')
-    hpu_mask = cpu_mask.to('hpu')
+        cpu_input = torch.zeros(self_shape, dtype=dtype).random_()
+        cpu_mask = torch.zeros(mask_shape, dtype=torch.bool).random_()
 
-    cpu_result = fn(cpu_input, cpu_mask)
-    hpu_result = fn(hpu_input, hpu_mask)
+        hpu_input = cpu_input.to("hpu")
+        hpu_mask = cpu_mask.to("hpu")
 
-    torch.allclose(cpu_result, hpu_result.cpu())
+        cpu_result = fn(cpu_input, cpu_mask)
+        hpu_result = fn(hpu_input, hpu_mask)
+
+        torch.allclose(cpu_result, hpu_result.cpu())

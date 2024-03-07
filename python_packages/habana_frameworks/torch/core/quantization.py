@@ -30,38 +30,42 @@ def _e_handler():
     except Exception as e:
         pass
 
+
 def _record_quant_param(name, min, max) -> None:
     if hpu.is_available():
         _experimental_C.record_quant_param(name, min, max)
 
+
 def _read_min_max_overwrite():
-    range_path = environ.get('PT_INFERENCE_RANGE_FILE')
+    range_path = environ.get("PT_INFERENCE_RANGE_FILE")
     if range_path:
         with open(range_path) as file:
             for line in file:
-                line = line[line.find('/')+1:len(line)]
+                line = line[line.find("/") + 1 : len(line)]
                 line = line.split()
                 _record_quant_param(line[0], float(line[1]), float(line[2]))
+
 
 def adjust_name(name):
     # name = name.replace(".bmm.",".baddbmm.")
     # name = name.replace(".bmm2.",".bmm.")
-    name = name.replace(".min_val","")
-    name = name.replace(".max_val","")
-    name = name.replace("layernorm.norm","layernorm")
+    name = name.replace(".min_val", "")
+    name = name.replace(".max_val", "")
+    name = name.replace("layernorm.norm", "layernorm")
     # print(f"[name after adjustment] := {name}", flush=True)
     return name
+
 
 def _handle_quant_stats(model=None):
     if model is not None:
         min_calibration_data = dict()
         max_calibration_data = dict()
         placeholder_dict = dict()
-        for name, param in model._buffers['ranges']['outputs'].items():
-            if name.endswith('.min_val'):
+        for name, param in model._buffers["ranges"]["outputs"].items():
+            if name.endswith(".min_val"):
                 name = adjust_name(name)
                 min_calibration_data[name] = param.item()
-            if name.endswith('.max_val'):
+            if name.endswith(".max_val"):
                 name = adjust_name(name)
                 max_calibration_data[name] = param.item()
         for name, param in placeholder_dict.items():
@@ -77,14 +81,17 @@ def _handle_quant_stats(model=None):
             except:
                 pass
 
+
 _const_id = -1
+
+
 def _mark_params_as_const(model=None, console_prints=False) -> None:
     if model is None:
         return
     for param, param_t in model.state_dict().items():
         try:
             param_t_meta = _core_C.get_new_tensor_extra_meta(param_t)
-        except (RuntimeError):
+        except RuntimeError:
             param_t_meta = _core_C.get_tensor_extra_meta(param_t)
             if param_t_meta.const_id != -1:
                 param_t_meta.is_const_tensor = True
@@ -101,11 +108,13 @@ def _mark_params_as_const(model=None, console_prints=False) -> None:
         if console_prints:
             print("Tensor '{}' is_const '{}' id '{}'".format(param, is_const, id))
 
+
 def _get_marked_const_count() -> int:
     global _const_id
-    count = (_const_id + 1)
+    count = _const_id + 1
     # print("Total number of marked const tensors: '{}'".format(count))
     return count
+
 
 def _check_params_as_const(model=None) -> None:
     if model is None:
@@ -114,13 +123,18 @@ def _check_params_as_const(model=None) -> None:
         param_t_meta_copy = _core_C.get_tensor_extra_meta(param_t)
         is_const = param_t_meta_copy.is_const_tensor
 
+
 def _set_quantization_attributes(model):
-    if "HB_QUANTIZATION" in model._buffers and \
-        "quantization" in model._buffers["HB_QUANTIZATION"] and \
-        model._buffers["HB_QUANTIZATION"]["quantization"] == True :
-            hpu.enable_quantization()
+    if (
+        "HB_QUANTIZATION" in model._buffers
+        and "quantization" in model._buffers["HB_QUANTIZATION"]
+        and model._buffers["HB_QUANTIZATION"]["quantization"] == True
+    ):
+        hpu.enable_quantization()
+
 
 _set_env = 1
+
 
 def hpu_set_env(model=None):
     global _set_env
@@ -130,6 +144,7 @@ def hpu_set_env(model=None):
     if model is not None:
         modified_model = fuse_conv_bn.fuse(model)
         return modified_model
+
 
 def hpu_initialize(model=None, optimizer=None, args=None):
     global _set_env
@@ -143,6 +158,7 @@ def hpu_initialize(model=None, optimizer=None, args=None):
         _set_quantization_attributes(model)
         with _e_handler():
             _handle_quant_stats(model)
+
 
 def hpu_reset_env():
     hpu.disable_inference_mode()

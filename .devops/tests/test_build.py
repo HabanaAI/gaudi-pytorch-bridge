@@ -26,9 +26,7 @@ MODULES_BUILD_DIR = "/tmp/PYTORCH_MODULES_RELEASE_BUILD/"
 def test_locating_torch_wheel(fs, monkeypatch):
     monkeypatch.setenv("PYTORCH_FORK_RELEASE_BUILD", FORK_BUILD_DIR)
     monkeypatch.setenv("PYTORCH_MODULES_RELEASE_BUILD", MODULES_BUILD_DIR)
-    whl_in_fork_pkgs = (
-        FORK_BUILD_DIR + "/pkgs/torch-2.1.0a0+git0ec8fb6-cp310-cp310-linux_x86_64.whl"
-    )
+    whl_in_fork_pkgs = FORK_BUILD_DIR + "/pkgs/torch-2.1.0a0+git0ec8fb6-cp310-cp310-linux_x86_64.whl"
     fs.create_file(whl_in_fork_pkgs)
     pt_ver = Version("2.1.0")
 

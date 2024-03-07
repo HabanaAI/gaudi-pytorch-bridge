@@ -11,7 +11,7 @@
 ###############################################################################
 
 import torch
-import math # for sqrt etc
+import math  # for sqrt etc
 import os
 import habana_frameworks.torch.hpu as ht
 
@@ -19,9 +19,10 @@ import habana_frameworks.torch.hpu as ht
 # https://docs.habana.ai/en/latest/PyTorch/Python_Packages.html#hpex-kernels-fusedsdpa
 def check_dbg_env_var(v):
     env_var_set = False
-    if int(os.getenv(v, 0)) == 1 :
+    if int(os.getenv(v, 0)) == 1:
         env_var_set = True
     return env_var_set
+
 
 def is_gqa(q, k):
     gqa = False
@@ -32,9 +33,11 @@ def is_gqa(q, k):
         gqa = (q_heads != kv_heads) and kv_heads != 1
     return gqa
 
+
 def gqa_input_reshape_bwd(q, v, grad_in):
     new_shape = (q.shape[0], q.shape[1], q.shape[2], q.shape[3], v.shape[-1])
     return grad_in.reshape(new_shape)
+
 
 def gqa_input_reshape_fwd(q, k, v, attention_mask):
     q_heads = q.shape[1]
@@ -57,39 +60,42 @@ def gqa_input_reshape_fwd(q, k, v, attention_mask):
 
     if attention_mask is not None:
         bs, heads, seq_len_t, seq_len_s = attention_mask.shape
-        if heads == q_heads: # attention mask shape = [batch size, q_heads, *, *]
+        if heads == q_heads:  # attention mask shape = [batch size, q_heads, *, *]
             new_attn_mask_shape = (bs, groups, q_heads_per_group, seq_len_t, seq_len_s)
             attention_mask = attention_mask.reshape(new_attn_mask_shape)
-        else: #attention mask shape = [batch size, 1, *, *]
-            attention_mask = attention_mask.unsqueeze(1) # add groups dim and set to 1
+        else:  # attention mask shape = [batch size, 1, *, *]
+            attention_mask = attention_mask.unsqueeze(1)  # add groups dim and set to 1
 
     return q, k, v, attention_mask
 
-def gqa_output_reshape(tensor):
-        bs, groups, heads_per_group, seq_len, h_dim = tensor.shape
-        new_shape = (bs, groups*heads_per_group, seq_len, h_dim)
-        return tensor.reshape(new_shape)
 
-def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = False, scale = None, softmax_mode='None'):
+def gqa_output_reshape(tensor):
+    bs, groups, heads_per_group, seq_len, h_dim = tensor.shape
+    new_shape = (bs, groups * heads_per_group, seq_len, h_dim)
+    return tensor.reshape(new_shape)
+
+
+def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None, softmax_mode="None"):
 
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
 
-
     if scale == None:
-        scale = 1.0/math.sqrt(q.size(-1))
+        scale = 1.0 / math.sqrt(q.size(-1))
 
     # Check if recompute variant is enabled
     recompute = ht.recompute_sdp_enabled()
 
     if requires_backward:
-        assert softmax_mode == 'None', "Optimized softmax mode is supported only in inference"
+        assert softmax_mode == "None", "Optimized softmax mode is supported only in inference"
 
-    gqa = is_gqa(q,k)
+    gqa = is_gqa(q, k)
     if gqa:
         q, k, v, attn_mask = gqa_input_reshape_fwd(q, k, v, attn_mask)
 
     if recompute:
-        out, m, linv, seed = torch.ops.hpu.sdpa_recomp_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, requires_backward, softmax_mode)
+        out, m, linv, seed = torch.ops.hpu.sdpa_recomp_fwd(
+            q, k, v, attn_mask, dropout_p, scale, is_causal, requires_backward, softmax_mode
+        )
         if gqa:
             out = gqa_output_reshape(out)
         if not requires_backward:
@@ -110,12 +116,13 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = 
     if recompute:
         return out
 
-    if not check_dbg_env_var('FSDPA_DBG_USE_DROPOUT_STUB'):
+    if not check_dbg_env_var("FSDPA_DBG_USE_DROPOUT_STUB"):
         return out
     else:
         if gqa:
             dm = gqa_output_reshape(dm)
         return out, dm
+
 
 def sdpa_bwd_wrapper(ctx, dout, *args):
     if ctx.recompute:
@@ -125,7 +132,7 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
         is_causal = ctx.is_causal
         if ctx.gqa:
             dout = gqa_input_reshape_bwd(q, v, dout)
-        dq, dk, dv = torch.ops.hpu.sdpa_recomp_bwd(dout,q,k,v, attn_mask, m, linv, seed, is_causal, dropout_p, scale)
+        dq, dk, dv = torch.ops.hpu.sdpa_recomp_bwd(dout, q, k, v, attn_mask, m, linv, seed, is_causal, dropout_p, scale)
         if ctx.gqa:
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
@@ -137,7 +144,7 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
         dropout_p = ctx.dropout_p
         if ctx.gqa:
             dout = gqa_input_reshape_bwd(q, v, dout)
-        dq, dk, dv = torch.ops.hpu.sdpa_bwd(dout,q,k,v,P, dm, dropout_p, scale)
+        dq, dk, dv = torch.ops.hpu.sdpa_bwd(dout, q, k, v, P, dm, dropout_p, scale)
         if ctx.gqa:
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
@@ -147,13 +154,19 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
 
 class FusedSDPA(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, q, k, v, attn_mask = None, dropout_p=0.0, is_causal = False, scale = None, softmax_mode='None'):
-        return sdpa_fwd_wrapper(ctx, q, k, v, attn_mask = attn_mask,
-                     dropout_p=dropout_p, is_causal = is_causal, scale = scale, softmax_mode=softmax_mode)
-
+    def forward(ctx, q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None, softmax_mode="None"):
+        return sdpa_fwd_wrapper(
+            ctx,
+            q,
+            k,
+            v,
+            attn_mask=attn_mask,
+            dropout_p=dropout_p,
+            is_causal=is_causal,
+            scale=scale,
+            softmax_mode=softmax_mode,
+        )
 
     @staticmethod
     def backward(ctx, dout, *args):
         return sdpa_bwd_wrapper(ctx, dout, *args)
-
-

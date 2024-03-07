@@ -895,7 +895,9 @@ class Flow:
                         replacements = space.get_args(entry, ("pStreamHandle",))
                         out(Flow.call(entry, replacements))
                     elif func_def.name == "synDeviceGetNextStreamAffinity":
-                        v = space.add(entry["result"]["streamAffinityMask"], "availAffinity", f"affinity{no}", local=True)
+                        v = space.add(
+                            entry["result"]["streamAffinityMask"], "availAffinity", f"affinity{no}", local=True
+                        )
                         args["pStreamHandle"] = entry["result"]["streamAffinityMask"]
                         replacements = space.get_args(entry, ("streamAffinityMask",))
                         out(Flow.call(entry, replacements))

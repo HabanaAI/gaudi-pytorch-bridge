@@ -26,12 +26,9 @@ import random
 
 import habana_frameworks.torch.core as htcore
 import numpy as np
-<<<<<<< HEAD:tests/test_hpu_scatter_add_generic.py
 import pytest
-=======
 import torch
 
->>>>>>> 1c8e3092c... [SW-140881] python tests for PT, part 6:tests/pytest_working/test_hpu_scatter_add_generic.py
 
 @pytest.mark.xfail(reason="Results mismatch")
 def test_scatter_add():

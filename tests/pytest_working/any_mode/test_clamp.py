@@ -28,9 +28,7 @@ extra_shapes_list = [
 
 
 @pytest.mark.parametrize("dtype", dtypes)
-@pytest.mark.parametrize(
-    "input_shape, min_shape, max_shape", base_shape_list + extra_shapes_list
-)
+@pytest.mark.parametrize("input_shape, min_shape, max_shape", base_shape_list + extra_shapes_list)
 @pytest.mark.parametrize("scalar", [True, False])
 @pytest.mark.parametrize("use_out", [False, True])
 def test_hpu_clamp(dtype, input_shape, min_shape, max_shape, scalar, use_out):
@@ -61,9 +59,7 @@ def test_hpu_clamp(dtype, input_shape, min_shape, max_shape, scalar, use_out):
 
 
 @pytest.mark.parametrize("dtype", dtypes)
-@pytest.mark.parametrize(
-    "input_shape, min_shape, max_shape", base_shape_list + extra_shapes_list
-)
+@pytest.mark.parametrize("input_shape, min_shape, max_shape", base_shape_list + extra_shapes_list)
 @pytest.mark.parametrize("scalar", [True, False])
 def test_hpu_clamp_(dtype, input_shape, min_shape, max_shape, scalar):
     input = (torch.randn(input_shape) * 100).to(dtype)
@@ -96,9 +92,7 @@ def test_hpu_clamp_(dtype, input_shape, min_shape, max_shape, scalar):
 @pytest.mark.parametrize("scalar", [True, False])
 @pytest.mark.parametrize("use_out", [False, True])
 @pytest.mark.parametrize("kernel", [torch.clamp_max, torch.clamp_min])
-def test_hpu_clamp_min_max(
-    dtype, input_shape, min_shape, max_shape, scalar, use_out, kernel
-):
+def test_hpu_clamp_min_max(dtype, input_shape, min_shape, max_shape, scalar, use_out, kernel):
     input = (torch.randn(input_shape) * 100).to(dtype)
     kernel_params = {
         "input": input,
@@ -131,9 +125,7 @@ def test_hpu_clamp_min_max(
 @pytest.mark.parametrize("input_shape, min_shape, max_shape", base_shape_list)
 @pytest.mark.parametrize("scalar", [True, False])
 @pytest.mark.parametrize("kernel_name", ["clamp_max_", "clamp_min_"])
-def test_hpu_clamp_min_max_inplace(
-    dtype, input_shape, min_shape, max_shape, scalar, kernel_name
-):
+def test_hpu_clamp_min_max_inplace(dtype, input_shape, min_shape, max_shape, scalar, kernel_name):
     input = (torch.randn(input_shape) * 100).to(dtype)
     kernel_params = {}
     if kernel_name == "clamp_max_":

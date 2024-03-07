@@ -63,12 +63,10 @@ class TestEventDispatcher:
 
         assert all([c.hit_count == 1 for c in callbacks])
 
-    @pytest.mark.xfail        
+    @pytest.mark.xfail
     def test_subscribe_and_partially_unsubscribe(self, evt_disp):
         callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
-        handles = [
-            evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback) for c in callbacks
-        ]
+        handles = [evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback) for c in callbacks]
 
         # unsubscribe even callbacks
         for h in handles[::2]:
@@ -89,9 +87,7 @@ class TestEventDispatcher:
     @pytest.mark.xfail
     def test_subscribe_and_unsubscribe_all(self, evt_disp):
         callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
-        handles = [
-            evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback) for c in callbacks
-        ]
+        handles = [evt_disp.subscribe(EventId.GRAPH_COMPILATION, c.callback) for c in callbacks]
 
         for h in handles:
             evt_disp.unsubscribe(h)
@@ -124,9 +120,7 @@ class TestEventDispatcher:
 
     def test_publish_then_unsubscribe_some_and_publish_again(self, evt_disp):
         callbacks = [CallbackFn(f"Handler {i}!") for i in range(10)]
-        handles = [
-            evt_disp.subscribe(EventId.CUSTOM_EVENT, c.callback) for c in callbacks
-        ]
+        handles = [evt_disp.subscribe(EventId.CUSTOM_EVENT, c.callback) for c in callbacks]
 
         evt_disp.publish(EventId.CUSTOM_EVENT, [], datetime.datetime.now())
 

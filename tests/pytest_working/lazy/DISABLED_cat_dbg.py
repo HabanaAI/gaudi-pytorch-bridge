@@ -37,9 +37,7 @@ def test_jit_cat_dbg(in_tensors):
         torch._C._jit_set_profiling_executor(False)
         torch._C._jit_set_profiling_mode(False)
 
-        model_trace = torch.jit.trace(
-            test_cat, [in_tensors[0], in_tensors[1], in_tensors[2]]
-        )
+        model_trace = torch.jit.trace(test_cat, [in_tensors[0], in_tensors[1], in_tensors[2]])
 
         torch.jit.save(model_trace, trace_file_name)
         cpu_result = test_cat(in_tensors[0], in_tensors[1], in_tensors[2])
@@ -50,9 +48,7 @@ def test_jit_cat_dbg(in_tensors):
         hpu_t1 = in_tensors[0].to(hpu)
         hpu_t2 = in_tensors[1].to(hpu)
         hpu_t3 = in_tensors[2].to(hpu)
-        model_trace_hpu = torch.jit.load(
-            trace_file_name, map_location=torch.device("hpu")
-        )
+        model_trace_hpu = torch.jit.load(trace_file_name, map_location=torch.device("hpu"))
         out = model_trace_hpu(hpu_t1, hpu_t2, hpu_t3)
         hpu_result = out.to(cpu)
         compare_tensors(hpu_result, cpu_result, atol=0.001, rtol=1.0e-3)

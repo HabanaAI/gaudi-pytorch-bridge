@@ -12,13 +12,14 @@
 
 import torch
 
+
 def test_foreach_zero_with_view():
     l1_hpu = []
     l1 = []
-    t1_hpu = torch.arange(-3, 15).int().to("hpu").as_strided((3,3), (6, 2))
-    t2_hpu = torch.arange(-3, 15).int().to("hpu").as_strided((3,3), (3, 1))
-    t1 = torch.arange(-3, 15).int().as_strided((3,3), (6, 2))
-    t2 = torch.arange(-3, 15).int().as_strided((3,3), (3, 1))
+    t1_hpu = torch.arange(-3, 15).int().to("hpu").as_strided((3, 3), (6, 2))
+    t2_hpu = torch.arange(-3, 15).int().to("hpu").as_strided((3, 3), (3, 1))
+    t1 = torch.arange(-3, 15).int().as_strided((3, 3), (6, 2))
+    t2 = torch.arange(-3, 15).int().as_strided((3, 3), (3, 1))
 
     l1_hpu.append(t1_hpu)
     l1_hpu.append(t2_hpu)

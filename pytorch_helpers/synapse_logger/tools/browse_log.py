@@ -290,9 +290,11 @@ class Graph:
 
     def tensor_shapes(self, ptrs):
         tensor_shapes = (
-            (tensor.name, tensor.shape, tensor.syn_type)
-            if "tensor" in tensor.name
-            else ("null", (0,), syn_types[0])  # some spatial_convolution inputs are called 'nullXXX'
+            (
+                (tensor.name, tensor.shape, tensor.syn_type)
+                if "tensor" in tensor.name
+                else ("null", (0,), syn_types[0])
+            )  # some spatial_convolution inputs are called 'nullXXX'
             for tensor in self.tensors.values()
         )
         return tensor_shapes

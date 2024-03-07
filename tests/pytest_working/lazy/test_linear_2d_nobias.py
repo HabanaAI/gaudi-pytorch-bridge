@@ -14,6 +14,7 @@ import torch
 import pytest
 from test_utils import compare_tensors
 
+
 @pytest.mark.xfail(reason="Results mismatch")
 def test_linear_2d_nobias():
     out_features = 16

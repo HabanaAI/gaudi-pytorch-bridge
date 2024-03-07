@@ -39,6 +39,7 @@ from typing import Mapping
 from torch.fx.passes.operator_support import OperatorSupport
 from .partitioner import CapabilityBasedPartitioner
 
+
 class HabanaClusterOperatorSupport(OperatorSupport):
     def is_node_supported(self, submodules: Mapping[str, torch.nn.Module], node: torch.fx.Node) -> bool:
         return node.meta["placement"] == "hpu_cluster"
@@ -52,6 +53,7 @@ class HabanaPartitioner(CapabilityBasedPartitioner):
             allows_single_node_partition=True,
         )
 
+
 def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -> bool:
     # This is list of scalar OPs
     scalar_ops = [
@@ -63,16 +65,18 @@ def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -
     if node.op == "call_function":
         node_target = node.target.__name__.split(".")[0]
         if node_arg.type in [int, float] and node_target in scalar_ops:
-             assert node_arg.meta["output_device"] == torch.device('cpu')
-             copy_required = False
+            assert node_arg.meta["output_device"] == torch.device("cpu")
+            copy_required = False
     return copy_required
+
 
 def _is_cpu_scalar_or_symbolic_scalar(node: torch.fx.Node) -> bool:
     if node.type in [int, float]:
-        assert node.meta["output_device"] == torch.device('cpu')
+        assert node.meta["output_device"] == torch.device("cpu")
         return True
     else:
         return False
+
 
 def _is_legacy_pt():
     if Version(Version(torch.__version__).base_version) < Version("2.1"):
@@ -93,15 +97,15 @@ def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
     for node in input_module.graph.nodes:
         if node.op == "placeholder":
             meta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
-            if (
-                isinstance(meta_val, FakeTensor)
-                and meta_val._has_symbolic_sizes_strides
-            ) or isinstance(meta_val, py_sym_types):
+            if (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides) or isinstance(
+                meta_val, py_sym_types
+            ):
                 is_dynamic = True
                 break
 
     logger.debug("Module dynamicity %s", is_dynamic)
     return is_dynamic
+
 
 def get_dynamic_config_value():
     """
@@ -120,6 +124,7 @@ def get_dynamic_config_value():
         is_dynamic = not config.assume_static_by_default
 
     return is_dynamic
+
 
 class OptimizationPassPlacement(Enum):
     PRE_PARTITIONER = 1
@@ -168,8 +173,7 @@ def optimize_graph(
 
         def dummy_dce_raise(*args, **kwargs):
             raise Exception(
-                "Tried to call DCE in possibly non-functionalized graph."
-                "Make sure you add proper check in your code"
+                "Tried to call DCE in possibly non-functionalized graph." "Make sure you add proper check in your code"
             )
 
         torch.fx.Graph.eliminate_dead_code = dummy_dce_raise
@@ -321,12 +325,12 @@ def helper_handle_noncontiguous_output(node: torch.fx.Node, result: torch.Tensor
     complete since besides `torch/_refs/__init__.py`, there are still some ops
     whose meta function is defined at `pytorch/torch/_meta_registrations.py`.
     """
-    if node.op != 'call_function':
+    if node.op != "call_function":
         return result
 
     node_target_list = [
-        'round.default',
-        'round.decimals',
+        "round.default",
+        "round.decimals",
     ]
     if node.target.__name__ in node_target_list:
         result = result.contiguous()
@@ -356,10 +360,7 @@ def helper_is_node_supported(node: torch.fx.Node) -> bool:
     Returns true if the node is on HPU and is part of
     the proposed fused partition
     """
-    return (
-        node.meta["output_device"].type == "hpu" and
-        node.meta["placement"] == "hpu_cluster"
-    )
+    return node.meta["output_device"].type == "hpu" and node.meta["placement"] == "hpu_cluster"
 
 
 def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
@@ -370,12 +371,7 @@ def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
     py_node_manager = SymExprNodeManager(ctx.graph_module)
 
     def _is_sym_size_node(node):
-        return (
-            node.target in [
-                torch.ops.aten.sym_size,
-                torch.ops.aten.sym_size.int
-            ]
-        )
+        return node.target in [torch.ops.aten.sym_size, torch.ops.aten.sym_size.int]
 
     def process_symsize(node):
         in_node = node.args[0]
@@ -389,7 +385,7 @@ def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
 
     for node in ctx.graph_module.graph.nodes:
         if node.op == "placeholder":
-            tmeta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+            tmeta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
             if isinstance(tmeta_val, py_sym_types):
                 py_node_manager.add_sym_placeholder(tmeta_val, node)
             py_node_manager.set_insert_point(node)
@@ -464,9 +460,7 @@ def pass_make_symints_available(ctx: OptimizerContext) -> bool:
 
     for node in ctx.graph_module.graph.nodes:
         if node.op == "call_module":
-            missing_symint_list = get_missing_symbolic_int_input_nodes(
-                symint_list, node
-            )
+            missing_symint_list = get_missing_symbolic_int_input_nodes(symint_list, node)
             if missing_symint_list == ():
                 continue
 
@@ -660,7 +654,7 @@ def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
         def run_node(self, node: torch.fx.Node):
             args = kwargs = result = None
             if SymExprNodeManager.node_name in node.name:
-                result = node.meta['val']
+                result = node.meta["val"]
                 args, kwargs = self.fetch_args_kwargs_from_env(node)
             else:
                 result = super().run_node(node)
@@ -672,10 +666,7 @@ def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
             return result
 
         def propagate(self, *args):
-            fake_args = [
-                self._mode.from_tensor(a) if isinstance(a, torch.Tensor) else a
-                for a in args
-            ]
+            fake_args = [self._mode.from_tensor(a) if isinstance(a, torch.Tensor) else a for a in args]
             return self.propagate_dont_convert_inputs(*fake_args)
 
         def propagate_dont_convert_inputs(self, *args):
@@ -683,20 +674,14 @@ def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
                 return super().run(*args)
 
     fake_mode = detect_fake_mode(ctx.example_inputs)
-    with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(
-        enabled=False, device_type="cpu"
-    ):
+    with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):
         # Disabling autocast in fake tensor propagation as autocasting has been
         # already done and all dtypes has been already deduced.
         if not fake_mode or not ctx.uses_aot:
             fake_mode = torch._subclasses.FakeTensorMode(allow_non_fake_inputs=True)
-            TensorInfoPropagation(ctx.graph_module, fake_mode).propagate(
-                *ctx.example_inputs
-            )
+            TensorInfoPropagation(ctx.graph_module, fake_mode).propagate(*ctx.example_inputs)
         else:
-            TensorInfoPropagation(
-                ctx.graph_module, fake_mode
-            ).propagate_dont_convert_inputs(*ctx.example_inputs)
+            TensorInfoPropagation(ctx.graph_module, fake_mode).propagate_dont_convert_inputs(*ctx.example_inputs)
 
     return True
 
@@ -723,9 +708,7 @@ def pass_wa_fix_output(ctx: OptimizerContext) -> bool:
         if n.op == "output":
             output_node = n
     if last_node_after_output is not None:
-        logger.warn(
-            "It seems graph wasn't functionalized, fixing empty output node."
-        )
+        logger.warn("It seems graph wasn't functionalized, fixing empty output node.")
         ctx.graph_module.graph.node_copy(output_node)
         ctx.graph_module.graph.erase_node(output_node)
         ctx.graph_module.recompile()
@@ -793,14 +776,10 @@ def pass_fake_propagation_legacy(ctx: OptimizerContext) -> bool:
             fake_mode = torch._subclasses.FakeTensorMode()
             fake_inputs = deepcopy_to_fake_tensor(ctx.example_inputs, fake_mode)
 
-    with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(
-        enabled=False, device_type="cpu"
-    ):
+    with torch.autocast(enabled=False, device_type="hpu"), torch.autocast(enabled=False, device_type="cpu"):
         # Disabling autocast in fake tensor propagation as autocasting has been
         # already done and all dtypes has been already deduced.
-        LegacyTensorInfoPropagation(
-            ctx.graph_module, fakemode_already_enabled, fake_mode
-        ).propagate(*fake_inputs)
+        LegacyTensorInfoPropagation(ctx.graph_module, fakemode_already_enabled, fake_mode).propagate(*fake_inputs)
 
     return True
 
@@ -877,10 +856,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
 
     for node in nodes_to_fix_list:
         for arg in node.args:
-            if (
-                isinstance(arg, torch.fx.Node)
-                and arg.meta["output_device"].type != "hpu"
-            ):
+            if isinstance(arg, torch.fx.Node) and arg.meta["output_device"].type != "hpu":
                 with ctx.graph_module.graph.inserting_before(node):
                     input_copy_node = ctx.graph_module.graph.call_function(
                         torch.ops.aten._to_copy.default,
@@ -888,21 +864,11 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
                         {"device": torch.device("hpu")},
                     )
                     input_copy_node.meta["output_device"] = torch.device("hpu")
-                    input_copy_node.meta["output_dtypes"] = [
-                        arg.meta["output_dtypes"][0]
-                    ]
-                    input_copy_node.meta["output_layouts"] = [
-                        arg.meta["output_layouts"][0]
-                    ]
-                    input_copy_node.meta["output_shapes"] = [
-                        arg.meta["output_shapes"][0]
-                    ]
-                    input_copy_node.meta["output_strides"] = [
-                        arg.meta["output_strides"][0]
-                    ]
-                    input_copy_node.meta["output_contiguous"] = [
-                        arg.meta["output_contiguous"][0]
-                    ]
+                    input_copy_node.meta["output_dtypes"] = [arg.meta["output_dtypes"][0]]
+                    input_copy_node.meta["output_layouts"] = [arg.meta["output_layouts"][0]]
+                    input_copy_node.meta["output_shapes"] = [arg.meta["output_shapes"][0]]
+                    input_copy_node.meta["output_strides"] = [arg.meta["output_strides"][0]]
+                    input_copy_node.meta["output_contiguous"] = [arg.meta["output_contiguous"][0]]
                     node.replace_input_with(arg, input_copy_node)
                 graph_changed = True
 
@@ -945,16 +911,11 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
             assert input_node is not None
 
             # Internal HPU copies should be placed in the clusters.
-            if (
-                input_node.meta["output_device"].type == "hpu"
-                and node.meta["output_device"].type == "hpu"
-            ):
+            if input_node.meta["output_device"].type == "hpu" and node.meta["output_device"].type == "hpu":
                 placement = "hpu_cluster"
             else:
                 placement = "eager"
-        elif node.op == "call_function" and is_eager_fallback_required(
-            node, is_dynamic=ctx.is_dynamic
-        ):
+        elif node.op == "call_function" and is_eager_fallback_required(node, is_dynamic=ctx.is_dynamic):
             placement = "eager"
         elif node.meta["output_device"].type == "hpu":
             # Current assumption is that if OP outputs HPU tensor, then all its inputs are also on HPU.
@@ -979,7 +940,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         # ...it happens that placeholder nodes might be reused between FWD and BWD.
         # They are always placed in eager though, so it should not be an issue.
         if "placement" in node.meta:
-            logger.debug("Node {} of type {} has had it's placement already set" ,node, node.op)
+            logger.debug("Node {} of type {} has had it's placement already set", node, node.op)
             assert node.meta["placement"] == placement
 
         node.meta["placement"] = placement
@@ -1036,9 +997,7 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
     assert ctx.graph_module is not None
     assert ctx.current_partitions is not None
 
-    logger.debug(
-        f"Merging parallel graph path. Partition cnt: {len(ctx.current_partitions)}"
-    )
+    logger.debug(f"Merging parallel graph path. Partition cnt: {len(ctx.current_partitions)}")
 
     graph_changed = False
 
@@ -1181,9 +1140,10 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
 
     return graph_changed
 
+
 class resolve_negative_dim:
     is_dynamic = False
-    node_name = ''
+    node_name = ""
     view_dim_index = 0
     py_node_manager = None
 
@@ -1198,13 +1158,13 @@ class resolve_negative_dim:
 
         from torch.fx.experimental.proxy_tensor import py_sym_types
         from torch._subclasses.fake_tensor import FakeTensor
+
         if node_name in negative_dim_ops:
-            if node_name == 'view':
+            if node_name == "view":
                 node_arg0 = node.args[0]
-                meta_val = node_arg0.meta.get('val', node.meta.get('tensor_meta', None))
-                if (
-                    (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides)
-                    or isinstance(meta_val, py_sym_types)
+                meta_val = node_arg0.meta.get("val", node.meta.get("tensor_meta", None))
+                if (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides) or isinstance(
+                    meta_val, py_sym_types
                 ):
                     resolve_negative_dim.is_dynamic = True
                 in_args_1 = node.args[1]
@@ -1220,14 +1180,14 @@ class resolve_negative_dim:
         if node.args[0].meta["output_device"].type == "hpu":
             new_args1 = []
             if not cls.is_dynamic:
-                meta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+                meta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
                 new_args1 = list(meta_val.size())
             else:
                 sym_size_expr = node.meta["output_shapes"][0][cls.view_dim_index]
-                meta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+                meta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
                 value = copy.copy(meta_val.shape[cls.view_dim_index])
                 new_node = cls.py_node_manager.get_or_create(sym_size_expr, int)
-                new_node.meta['val'] = value
+                new_node.meta["val"] = value
                 new_node.meta["placement"] = "eager"
                 new_node.meta["output_device"] = torch.device("cpu")
                 for arg in node.args[1]:
@@ -1238,7 +1198,10 @@ class resolve_negative_dim:
             with ctx.graph_module.graph.inserting_before(node):
                 view_new_node = ctx.graph_module.graph.call_function(
                     torch.ops.aten.view.default,
-                    (node.args[0], new_args1,),
+                    (
+                        node.args[0],
+                        new_args1,
+                    ),
                     {},
                 )
                 node.replace_all_uses_with(view_new_node, propagate_meta=True)
@@ -1248,9 +1211,10 @@ class resolve_negative_dim:
         return True
 
     def __new__(cls, ctx, node):
-        if cls.node_name == 'view':
+        if cls.node_name == "view":
             return cls.__resolve_view_shapes(ctx, node)
         return False
+
 
 def pass_handle_negative_dims(ctx: OptimizerContext) -> bool:
     """
@@ -1265,7 +1229,7 @@ def pass_handle_negative_dims(ctx: OptimizerContext) -> bool:
 
     for node in ctx.graph_module.graph.nodes:
         if node.op == "placeholder":
-            tmeta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+            tmeta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
             if isinstance(tmeta_val, py_sym_types):
                 py_node_manager.add_sym_placeholder(tmeta_val, node)
         if node.op == "call_function":
@@ -1330,26 +1294,19 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
                                                    |
                                                  [1, 3] -> b
     """
+
     def helper_is_compute_node(node):
         # return false if node is a view node, input node or output node
-        return (
-            (not helper_is_view_node(node))
-            and (node.op != "placeholder")
-            and (node.op != "output")
-        )
+        return (not helper_is_view_node(node)) and (node.op != "placeholder") and (node.op != "output")
 
     def helper_is_decomposed_from_inplace_node(node):
         if node.op != "call_function":
             return False
         node_target = node.target.__name__
-        if (
-            ('original_aten' not in node.meta)
-            or ('from_node' not in node.meta)
-            ):
+        if ("original_aten" not in node.meta) or ("from_node" not in node.meta):
             return False
 
-        return (node_target != node.meta['original_aten'].__name__
-            and (node.meta['from_node'][0][0].endswith("_")))
+        return node_target != node.meta["original_aten"].__name__ and (node.meta["from_node"][0][0].endswith("_"))
 
     def helper_calculate_default_strides(sizes):
         # Calculate default strides for given size
@@ -1365,14 +1322,11 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
         if "output_shapes" not in node.meta or "output_contiguous" not in node.meta:
             return False
 
-        contiguous_strides = helper_calculate_default_strides(
-            node.meta["output_shapes"][0]
-        )
+        contiguous_strides = helper_calculate_default_strides(node.meta["output_shapes"][0])
         if not contiguous_strides:
             return False
         actual_strides = node.meta["output_strides"][0]
-        return node.meta["output_contiguous"][0] or (contiguous_strides ==
-                                                     list(actual_strides))
+        return node.meta["output_contiguous"][0] or (contiguous_strides == list(actual_strides))
 
     def helper_get_node_users(node):
         if not isinstance(node, torch.fx.Node):
@@ -1387,7 +1341,7 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
 
         for node in gm.graph.nodes:
             if node.op == "placeholder":
-                tmeta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
+                tmeta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
                 if isinstance(tmeta_val, py_sym_types):
                     py_node_manager.add_sym_placeholder(tmeta_val, node)
                 py_node_manager.set_insert_point(node)
@@ -1402,7 +1356,7 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
                     var_node = py_node_manager.get_match_sym_placeholder(dim_size)
                     if var_node is None:
                         var_node = py_node_manager.get_or_create(dim_size, int)
-                        var_node.meta['val'] = dim_size
+                        var_node.meta["val"] = dim_size
                         var_node.meta["placement"] = "eager"
                         var_node.meta["output_device"] = torch.device("cpu")
                         var_node.meta["output_dtypes"] = [None]
@@ -1427,13 +1381,13 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
             src_sizes = node_src_meta.meta["output_shapes"][0]
             src_strides = node_src_meta.meta["output_strides"][0]
             if ctx.is_dynamic:
-                meta_val = node_src_meta.meta.get('val', node_src_meta.meta.get('tensor_meta', None))
+                meta_val = node_src_meta.meta.get("val", node_src_meta.meta.get("tensor_meta", None))
                 src_sizes, src_strides = get_as_strided_src_sizes_and_strides(
                     ctx.graph_module,
                     meta_val,
                     node_src_meta.meta["output_shapes"][0],
-                    node_src_meta.meta["output_strides"][0]
-            )
+                    node_src_meta.meta["output_strides"][0],
+                )
 
             # sizes of inserted as_strided node
             new_args.append(src_sizes)
@@ -1482,12 +1436,11 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
     if ctx.uses_aot and torch._guards.TracingContext.get():
         fw_metadata = torch._guards.TracingContext.get().fw_metadata
         # there exist inplace or alias
-        if(Version(torch.__version__) > Version('2.1.2')):
+        if Version(torch.__version__) > Version("2.1.2"):
             is_input_mutation_in_graph = fw_metadata.num_mutated_inp_runtime_indices > 0
         else:
             is_input_mutation_in_graph = fw_metadata.num_mutated_inputs > 0
-        is_only_output_alias_in_graph = (not is_input_mutation_in_graph
-                                         and fw_metadata.num_outputs_aliased > 0)
+        is_only_output_alias_in_graph = not is_input_mutation_in_graph and fw_metadata.num_outputs_aliased > 0
 
     if not is_input_mutation_in_graph and not is_only_output_alias_in_graph:
         return graph_changed
@@ -1496,9 +1449,7 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
     ctx.graph_module.graph.lint()
 
     # get output nodes in graph
-    fw_output_node = [
-        node for node in ctx.graph_module.graph.nodes if node.op == "output"
-    ][0]
+    fw_output_node = [node for node in ctx.graph_module.graph.nodes if node.op == "output"][0]
     fw_outputs = fw_output_node.args[0]
 
     # Step 0: fast path for the case where only detach node exists in graph.
@@ -1512,24 +1463,17 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
     #     t: f32[5, 10] = torch.ops.aten.t.default(arg0_1);  arg0_1 = None
     #     alias: f32[5, 10] = torch.ops.aten.alias.default(t);  t = None
     #     return (alias,)
-    is_alias_node = lambda node: (
-        is_call_function_node(node) and 'alias' in node.target.__name__
-    )
+    is_alias_node = lambda node: (is_call_function_node(node) and "alias" in node.target.__name__)
 
     if is_only_output_alias_in_graph:
         for out_node in fw_outputs:
             if not is_alias_node(out_node):
                 continue
             prefix_node = helper_get_node_args(out_node)[0]
-            if (is_call_function_node(prefix_node)
-                and not is_output_contiguous_strides(prefix_node)
-                ):
-                as_strided_node = insert_as_strided_after(ctx, out_node,
-                                                          prefix_node)
+            if is_call_function_node(prefix_node) and not is_output_contiguous_strides(prefix_node):
+                as_strided_node = insert_as_strided_after(ctx, out_node, prefix_node)
                 # connect as_stride node as input of following users
-                list(out_node.users.keys())[0].replace_input_with(
-                    out_node, as_strided_node
-                )
+                list(out_node.users.keys())[0].replace_input_with(out_node, as_strided_node)
                 graph_changed = True
 
         if graph_changed:
@@ -1548,10 +1492,13 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
         # we don't need to check placement ('hpu_cluster') as it doesn't matter
         # what strides compute node generates, the later inserted as_strided
         # node should use the correct strides
-        if not (helper_is_compute_node(node) or
-                # for aten.addr node, it will be decomposed into view ops +
-                # other ops, here need to filter out those decomposed nodes
-                helper_is_decomposed_from_inplace_node(node)):
+        if not (
+            helper_is_compute_node(node)
+            or
+            # for aten.addr node, it will be decomposed into view ops +
+            # other ops, here need to filter out those decomposed nodes
+            helper_is_decomposed_from_inplace_node(node)
+        ):
             continue
 
         # Step 1: find the leaf view node pair (t_1 and t_2 in below graph) and
@@ -1596,10 +1543,11 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
         # record leaf view nodes
         leaf_view_nodes_first = next_node
         leaf_view_nodes_second = helper_get_node_users(leaf_view_nodes_first)[0]
-        if (leaf_view_nodes_second is None
+        if (
+            leaf_view_nodes_second is None
             or leaf_view_nodes_second.op == "output"
             or not helper_is_view_node(leaf_view_nodes_second)
-            ):
+        ):
             logger.debug("Not found valid leaf view node pair.")
             break
 
@@ -1620,9 +1568,9 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
                     nodes_queue_to_search.insert(0, prefix_view_node_args[2])
                 else:
                     # insert input args at the front of queue
-                    node_args = [n for n in prefix_view_node_args
-                                             if isinstance(n, torch.fx.Node)
-                                             and n.op != "placeholder"]
+                    node_args = [
+                        n for n in prefix_view_node_args if isinstance(n, torch.fx.Node) and n.op != "placeholder"
+                    ]
                     nodes_queue_to_search[0:0] = node_args
 
                 if not nodes_queue_to_search:
@@ -1640,17 +1588,18 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
 
             if (
                 is_call_function_node(prefix_view_node)
-                and (helper_is_view_node(prefix_view_node) and not
-                     helper_is_decomposed_from_inplace_node(prefix_view_node))
+                and (
+                    helper_is_view_node(prefix_view_node)
+                    and not helper_is_decomposed_from_inplace_node(prefix_view_node)
+                )
                 and prefix_view_node.target == leaf_view_nodes_first.target
                 and prefix_view_node not in nodes_queue_to_search
             ):
                 # additional check if leaf view node and prefix view node has
                 # matched parameters
-                if (leaf_view_nodes_second in fw_outputs
-                    and not check_same_target_and_parameters(
-                        leaf_view_nodes_second, prefix_view_node)
-                    ):
+                if leaf_view_nodes_second in fw_outputs and not check_same_target_and_parameters(
+                    leaf_view_nodes_second, prefix_view_node
+                ):
                     prefix_view_node = None
                 # found
                 break
@@ -1661,20 +1610,15 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
 
         # Step 3: decide whther to insert as_strided node by checking contiguity
         # of nodes
-        if (not is_output_contiguous_strides(prefix_view_node)
-            and is_output_contiguous_strides(anchor_node)
-            ):
-            prefix_view_node_insert_point_pair = [prefix_view_node,
-                                                  leaf_view_nodes_first]
+        if not is_output_contiguous_strides(prefix_view_node) and is_output_contiguous_strides(anchor_node):
+            prefix_view_node_insert_point_pair = [prefix_view_node, leaf_view_nodes_first]
             break
         else:
             # debug purpose
-            prefix_view_node_output_contiguity = 'True' if is_output_contiguous_strides(prefix_view_node) else 'False'
-            anchor_node_output_contiguity = 'True' if is_output_contiguous_strides(anchor_node) else 'False'
-            logger.debug("prefix_view_node contiguity: %s",
-                         prefix_view_node_output_contiguity)
-            logger.debug("anchor_node contiguity: %s",
-                         anchor_node_output_contiguity)
+            prefix_view_node_output_contiguity = "True" if is_output_contiguous_strides(prefix_view_node) else "False"
+            anchor_node_output_contiguity = "True" if is_output_contiguous_strides(anchor_node) else "False"
+            logger.debug("prefix_view_node contiguity: %s", prefix_view_node_output_contiguity)
+            logger.debug("anchor_node contiguity: %s", anchor_node_output_contiguity)
 
     # Step 4: insert as_strided node and then recompile graph
     if prefix_view_node_insert_point_pair:
@@ -1683,11 +1627,8 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
 
         # node which has original strides information
         arg_prefix_view_node = helper_get_node_args(prefix_view_node)[0]
-        as_strided_node = insert_as_strided_after(ctx, inserting_point,
-                                                  arg_prefix_view_node)
-        list(inserting_point.users.keys())[0].replace_input_with(
-                inserting_point, as_strided_node
-            )
+        as_strided_node = insert_as_strided_after(ctx, inserting_point, arg_prefix_view_node)
+        list(inserting_point.users.keys())[0].replace_input_with(inserting_point, as_strided_node)
 
         ctx.graph_module.recompile()
         # another metadata (only strides) propagation needed due to newly
@@ -1742,10 +1683,9 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
         if node.meta["pass_meta_color"] == "red":
             found_hpu_dst = False
             for dst in node.users:
-                if (
-                    dst.meta["placement"] == "hpu_cluster"
-                    and dst.meta["pass_meta_color"] != "red"
-                ) or (dst.meta["pass_meta_color"] == "blue"):
+                if (dst.meta["placement"] == "hpu_cluster" and dst.meta["pass_meta_color"] != "red") or (
+                    dst.meta["pass_meta_color"] == "blue"
+                ):
                     found_hpu_dst = True
                     break
 
@@ -1766,10 +1706,7 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
             # Move non-red (HPU path) edges to the new node.
             nodes_to_change = []
             for dst in node.users:
-                if (
-                    dst.meta["pass_meta_color"] != "red"
-                    and dst.meta["placement"] == "hpu_cluster"
-                ):
+                if dst.meta["pass_meta_color"] != "red" and dst.meta["placement"] == "hpu_cluster":
                     nodes_to_change.append(dst)
             for dst in nodes_to_change:
                 dst.replace_input_with(node, new_node)
@@ -1823,16 +1760,12 @@ def wrap_random_ops(input_module: torch.fx.GraphModule):
         seeds = input_module.graph.call_function(
             torch.ops.hpu.habana_seed_generator, (counter_pl, seed_pl, random_count), {}
         )
-        add_inplace = input_module.graph.call_function(
-            torch.ops.aten.add_, (counter_pl, random_count), {}
-        )
+        add_inplace = input_module.graph.call_function(torch.ops.aten.add_, (counter_pl, random_count), {})
 
     for i, node in enumerate(random_ops):
         with input_module.graph.inserting_before(node):
             seed = input_module.graph.call_function(torch.select, (seeds, 0, i), {})
-            random_node = input_module.graph.call_function(
-                *random_op_inputs(node, seed)
-            )
+            random_node = input_module.graph.call_function(*random_op_inputs(node, seed))
             node.replace_all_uses_with(random_node, propagate_meta=True)
             input_module.graph.erase_node(node)
 
@@ -1910,7 +1843,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
             # Submodule dynamicity has to recheck and set to the collable.
             is_submod_dynamic = is_module_dynamic(submod)
             if refine_dynamic:
-                is_submod_dynamic = is_submod_dynamic or  get_dynamic_config_value()
+                is_submod_dynamic = is_submod_dynamic or get_dynamic_config_value()
 
             callable_recipe = get_callable_recipe(
                 jit_ir_function,
@@ -1944,6 +1877,7 @@ def pass_summarize_graph(ctx: OptimizerContext):
 
     return False
 
+
 def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
     """
     Runs iff inference mode is set for the input GraphModule
@@ -1959,19 +1893,16 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
 
     for node in ctx.graph_module.graph.nodes:
         if (
-            node.op != "call_function" or
+            node.op != "call_function"
+            or
             # aten.t is decomposed into aten.transpose.int
-            (node.target != torch.ops.aten.transpose.int
-             or str(node.meta.get("original_aten", "")) != "aten.t.default") or
-            not helper_is_node_supported(node=node)
+            (node.target != torch.ops.aten.transpose.int or str(node.meta.get("original_aten", "")) != "aten.t.default")
+            or not helper_is_node_supported(node=node)
         ):
             continue
         to_remove = []
         for u in node.users:
-            if (
-                u.op != "call_function" or
-                not helper_is_node_supported(node=u)
-            ):
+            if u.op != "call_function" or not helper_is_node_supported(node=u):
                 break
             if u.target == torch.ops.aten.addmm.default:
                 bias, inp, _ = list(u.args)
@@ -2010,31 +1941,20 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
     """
     for node in ctx.graph_module.graph.nodes:
         if (
-            node.op != "call_function" or
-            node.target != torch.ops.aten.linear or
-            not helper_is_node_supported(node=node)
+            node.op != "call_function"
+            or node.target != torch.ops.aten.linear
+            or not helper_is_node_supported(node=node)
         ):
             continue
         before = node.args[0]
         after = next(iter(node.users))
         cond_after = False
-        if (
-            len(node.users) == 1 and
-            after.target == torch.ops.aten.view.default and
-            helper_is_node_supported(after)
-        ):
+        if len(node.users) == 1 and after.target == torch.ops.aten.view.default and helper_is_node_supported(after):
             cond_after = True
         cond_before = False
-        if (
-            len(before.users) == 1 and
-            before.target == torch.ops.aten.view.default and
-            helper_is_node_supported(before)
-        ):
+        if len(before.users) == 1 and before.target == torch.ops.aten.view.default and helper_is_node_supported(before):
             cond_before = True
-        if (
-            cond_after and
-            cond_before
-        ):
+        if cond_after and cond_before:
             real_input = before.args[0]
             new_args = list(node.args)
             new_args[0] = real_input
