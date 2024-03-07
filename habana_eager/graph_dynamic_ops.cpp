@@ -423,6 +423,97 @@ bool SelectScatterOperatorDS::ReplaceWithDynamicHPUOp(
   return true;
 }
 
+// Dynamic shape (DS) support for slice_scatter using shape tensor
+bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
+    torch::jit::Node* aten_slice_scatter_node,
+    torch::jit::Stack& org_stack,
+    GraphInputIndexMap& org_stack_index_map,
+    ValueIvalueMap& value_ivalue_map,
+    std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
+  // 4 inputs in slice_scatter
+  // input: Tensor
+  // src: Tensor
+  // dim: Scalar
+  // start: Scalar
+  // end: Scalar
+  // step: Scalar
+  HABANA_ASSERT(6 == aten_slice_scatter_node->inputs().size());
+  static const auto hpu_slice_scatter_symbol{c10::Symbol::fromQualString("hpu::slice_scatter")};
+
+  // 4 scalars: dim, start, end, step
+  auto dim = aten_slice_scatter_node->inputs().at(2);
+  auto start = aten_slice_scatter_node->inputs().at(3);
+  auto end = aten_slice_scatter_node->inputs().at(4);
+  auto step = aten_slice_scatter_node->inputs().at(5);
+  auto graph{aten_slice_scatter_node->owningGraph()};
+
+  // Step 1: Collect shape and scalar for step, end, start and dim node
+  int64_t step_idx = LONG_MAX;
+  int64_t step_value = 0;
+  GetValueAndScalarIndexFromInput(
+      step, org_stack, org_stack_index_map, step_value, step_idx);
+  PT_EAGER_DEBUG("ST step data:", step_value);
+
+  int64_t end_idx = LONG_MAX;
+  int64_t end_value = 0;
+  GetValueAndScalarIndexFromInput(
+      end, org_stack, org_stack_index_map, end_value, end_idx);
+  PT_EAGER_DEBUG("ST end data:", end_value);
+
+  int64_t start_idx = LONG_MAX;
+  int64_t start_value = 0;
+  GetValueAndScalarIndexFromInput(
+      start, org_stack, org_stack_index_map, start_value, start_idx);
+  PT_EAGER_DEBUG("ST start data:", start_value);
+
+  int64_t dim_idx = LONG_MAX;
+  int64_t dim_value = 0;
+  GetValueAndScalarIndexFromInput(
+      dim, org_stack, org_stack_index_map, dim_value, dim_idx);
+  PT_EAGER_DEBUG("ST dim data:", dim_value);
+
+  // Step2: Create shape tensor and insert to graph inputs.
+  auto step_st_name = GetDynamicTensorName(step->debugName(), SHAPE_TENSOR);
+  int64_t step_index =
+      CreateSTAndInsertToDSStack({step_value}, {step_idx}, {}, m_dmeta);
+  auto step_st_tensor = graph->addInput(step_st_name);
+
+  auto end_st_name = GetDynamicTensorName(end->debugName(), SHAPE_TENSOR);
+  int64_t end_index =
+      CreateSTAndInsertToDSStack({end_value}, {end_idx}, {}, m_dmeta);
+  auto end_st_tensor = graph->addInput(end_st_name);
+
+  auto start_st_name = GetDynamicTensorName(start->debugName(), SHAPE_TENSOR);
+  int64_t start_index =
+      CreateSTAndInsertToDSStack({start_value}, {start_idx}, {}, m_dmeta);
+  auto start_st_tensor = graph->addInput(start_st_name);
+
+  auto dim_st_name = GetDynamicTensorName(dim->debugName(), SHAPE_TENSOR);
+  int64_t dim_index =
+      CreateSTAndInsertToDSStack({dim_value}, {dim_idx}, {}, m_dmeta);
+  auto dim_st_tensor = graph->addInput(dim_st_name);
+
+  // Step3: Register patching function and tensor lists
+  std::vector<int64_t> dtensor_indexes{step_index, end_index, start_index, dim_index};
+  InputPatchPair patch_info(&DynamicOp::UpdateDynamicInputs, dtensor_indexes);
+  m_dmeta->ds_input_patching_list.push_back(patch_info);
+
+  // Step4: Create hpu::slice_scatter node and insert to the graph
+  CreateAndInsertDynamicNodeToGraph(
+      graph,
+      aten_slice_scatter_node,
+      hpu_slice_scatter_symbol,
+      {aten_slice_scatter_node->input(0),
+       aten_slice_scatter_node->input(1),
+       dim_st_tensor,
+       start_st_tensor,
+       end_st_tensor,
+       step_st_tensor},
+      value_ivalue_map);
+
+  return true;
+}
+
 habana::graph::RegisterDSOps& DSOpsRegistry() {
   static habana::graph::RegisterDSOps* Registry =
       new habana::graph::RegisterDSOps();
@@ -441,6 +532,7 @@ static auto& BasicDSOpsRegistry =
         .add("aten::topk", DSOP_MID_BACKEND(TopkOperatorDS))
         .add("aten::as_strided", DSOP_MID_BACKEND(AsStridedOperatorDS))
         .add("hpu::strided_insert", DSOP_MID_BACKEND(StridedInsertOperatorDS))
-	.add("aten::select_scatter", DSOP_MID_BACKEND(SelectScatterOperatorDS));
+	.add("aten::select_scatter", DSOP_MID_BACKEND(SelectScatterOperatorDS))
+	.add("aten::slice_scatter", DSOP_MID_BACKEND(SliceScatterOperatorDS));
 } // namespace graph
 } // namespace habana

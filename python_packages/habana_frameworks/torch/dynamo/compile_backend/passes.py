@@ -58,12 +58,7 @@ class HabanaPartitioner(CapabilityBasedPartitioner):
 
 def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -> bool:
     # This is list of scalar OPs
-    scalar_ops = [
-        "topk",
-        "arange",
-        "randperm",
-        "select_scatter",
-    ]
+    scalar_ops = ["topk", "arange", "randperm", "select_scatter", "slice_scatter"]
     copy_required = True
     if node.op == "call_function":
         node_target = node.target.__name__.split(".")[0]
