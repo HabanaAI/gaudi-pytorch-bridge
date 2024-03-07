@@ -1,7 +1,7 @@
+import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
 import torch
-import habana_frameworks.torch.core as htcore
 
 
 @pytest.mark.xfail

@@ -1,8 +1,9 @@
 import os
+
+import habana_frameworks.torch.core as htcore
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-import habana_frameworks.torch.core as htcore
 
 torch.manual_seed(0)
 device = torch.device("hpu")

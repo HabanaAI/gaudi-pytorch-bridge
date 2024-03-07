@@ -1,13 +1,7 @@
 import numpy as np
 import pytest
 import torch
-from test_utils import (
-    compare_tensors,
-    cpu,
-    evaluate_fwd_bwd_kernel,
-    evaluate_fwd_kernel,
-    hpu,
-)
+from test_utils import compare_tensors, cpu, evaluate_fwd_bwd_kernel, evaluate_fwd_kernel, hpu
 
 # N - batch
 # H - input height

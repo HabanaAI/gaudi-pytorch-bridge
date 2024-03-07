@@ -10,5 +10,5 @@
 #
 ###############################################################################
 
-from .metrics import metric_global, metric_localcontext, metrics_dump
 from .exceptions import *
+from .metrics import metric_global, metric_localcontext, metrics_dump

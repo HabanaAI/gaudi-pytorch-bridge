@@ -1,7 +1,7 @@
-import torch
-import pytest
 import habana_frameworks.torch.dynamo.compile_backend
-from test_utils import is_gaudi1, format_tc
+import pytest
+import torch
+from test_utils import format_tc, is_gaudi1
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)

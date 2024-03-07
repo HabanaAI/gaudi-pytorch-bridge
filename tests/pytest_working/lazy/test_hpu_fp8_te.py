@@ -8,12 +8,11 @@
 # was provided.
 
 import math
+import os
 
 import habana_frameworks.torch as ht
 import habana_frameworks.torch.hpex.experimental.transformer_engine as te
 import habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 as fp8
-
-import os
 import numpy as np
 import pytest
 import torch
@@ -23,10 +22,7 @@ from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions
     cast_to_fp8,
     fp8_gelu,
 )
-from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import (
-    DelayedScaling,
-    Format,
-)
+from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import DelayedScaling, Format
 from test_utils import is_gaudi1
 
 

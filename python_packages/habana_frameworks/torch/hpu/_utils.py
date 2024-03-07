@@ -1,7 +1,8 @@
-import torch
-from typing import Optional, Any
 import os
+from typing import Any, Optional
+
 import habana_frameworks.torch.hpu as hpu
+import torch
 
 HABANA_VISIBLE_MODULES_VAR = "HABANA_VISIBLE_MODULES"
 HLS_MODULE_ID_VAR = "HLS_MODULE_ID"

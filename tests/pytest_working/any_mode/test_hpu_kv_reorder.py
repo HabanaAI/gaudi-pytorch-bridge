@@ -9,12 +9,11 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-import numpy as np
-from test_utils import hpu, is_gaudi1, compare_tensors
 import habana_frameworks.torch.core as htcore
-
+import numpy as np
+import pytest
+import torch
+from test_utils import compare_tensors, hpu, is_gaudi1
 
 dtypes = [torch.float32, torch.bfloat16, torch.int]
 if not is_gaudi1():

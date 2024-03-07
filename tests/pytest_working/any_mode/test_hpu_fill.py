@@ -12,11 +12,7 @@
 
 import pytest
 import torch
-from test_utils import (
-    compare_tensors,
-    hpu,
-    is_pytest_mode_compile,
-)
+from test_utils import compare_tensors, hpu, is_pytest_mode_compile
 
 test_case_list = [
     # N, C, fill_val,

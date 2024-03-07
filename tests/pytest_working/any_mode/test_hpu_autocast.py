@@ -14,9 +14,7 @@ import pathlib
 
 import pytest
 import torch
-
 from test_utils import is_pytest_mode_compile
-
 
 # Tests must be executed in separate pytest runs, because habana modules
 # have to be reloaded before setting custom list of ops

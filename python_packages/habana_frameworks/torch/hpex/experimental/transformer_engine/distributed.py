@@ -17,14 +17,14 @@
 
 """Methods needed for distributed training (DP/TP)."""
 from contextlib import contextmanager
-from typing import Any, Dict, Union, Optional, Callable, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import torch
 from torch.utils.checkpoint import detach_variable
 
-from .utils import safely_set_viewless_tensor_data
 from .constants import dist_group_type
 from .fp8 import is_fp8_enabled
+from .utils import safely_set_viewless_tensor_data
 
 _MODEL_PARALLEL_ATTRIBUTE_DEFAULTS = {
     "tensor_model_parallel": False,

@@ -170,7 +170,7 @@ def test_shallow_copy_param_free():
     module.eval()
     h_module = test_module(tensor=ha)
     h_module.eval()
-    from habana_frameworks.torch.core.quantization import _mark_params_as_const, _check_params_as_const
+    from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
 
     _mark_params_as_const(h_module)
 

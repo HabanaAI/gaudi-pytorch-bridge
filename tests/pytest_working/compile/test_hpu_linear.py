@@ -9,10 +9,10 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.dynamo.compile_backend
+import pytest
+import torch
 
 out_features = 10
 in_features = 7

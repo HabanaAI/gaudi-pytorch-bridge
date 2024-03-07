@@ -14,7 +14,6 @@ import pytest
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import pytest
 from test_utils import setup_teardown_env_fixture
 
 

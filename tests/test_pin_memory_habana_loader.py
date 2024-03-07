@@ -1,6 +1,6 @@
+import glob
 import os
 
-import glob
 import numpy as np
 import pytest
 import torchvision.datasets as datasets
@@ -40,8 +40,8 @@ def test_hpu_pin_memory():
 
 @pytest.mark.skip(reason="slow test")
 def test_hpu_habana_unet_dataloader():
-    import torch
     import habana_frameworks.torch.utils.experimental as htexp
+    import torch
 
     DeviceType = htexp._get_device_type()
     device = torch.device("hpu")

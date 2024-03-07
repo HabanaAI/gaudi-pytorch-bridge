@@ -12,8 +12,9 @@
 
 import argparse
 import glob
-import inflection
 import urllib.request
+
+import inflection
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cpu", "-c", help="CPU ops file", required=True)

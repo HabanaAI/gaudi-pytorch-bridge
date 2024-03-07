@@ -9,13 +9,9 @@
 # was provided.
 #
 ###############################################################################
-import torch
 import pytest
-from test_utils import (
-    compare_tensors,
-    hpu,
-    format_tc,
-)
+import torch
+from test_utils import compare_tensors, format_tc, hpu
 
 
 @pytest.mark.parametrize("shape", [[10, 20]], ids=format_tc)

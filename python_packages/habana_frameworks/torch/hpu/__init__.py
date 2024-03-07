@@ -10,17 +10,17 @@
 #
 ###############################################################################
 
+import contextlib
 import os
-from torch.types import Device
-from torch.utils.checkpoint import DefaultDeviceType
 import threading
 import warnings
 from typing import Any, List, Optional, Union
-import contextlib
 
 import torch
 from habana_frameworks.torch import _hpu_C
 from habana_frameworks.torch.utils.internal import is_lazy
+from torch.types import Device
+from torch.utils.checkpoint import DefaultDeviceType
 
 from ._utils import (
     HABANA_VISIBLE_MODULES_VAR,

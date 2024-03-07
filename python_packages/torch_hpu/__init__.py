@@ -1,7 +1,7 @@
-import torch
 import warnings
-
 from typing import Optional, Union
+
+import torch
 
 _device_t = Union[torch.device, str, int, None]
 

@@ -78,17 +78,16 @@
 # POSSIBILITY OF SUCH DAMAGE.
 ###############################################################################
 
-from typing import Dict, List, Set, Iterable, Sequence, Optional, Deque
-from torch.fx.passes.utils.fuser_utils import fuse_by_partitions
+import itertools
+import logging
+from collections import deque
+from copy import copy
+from typing import Deque, Dict, Iterable, List, Optional, Sequence, Set
 
 from torch.fx.graph_module import GraphModule
 from torch.fx.node import Node, _get_qualified_name
 from torch.fx.passes.operator_support import OperatorSupportBase
-
-import logging
-import itertools
-from copy import copy
-from collections import deque
+from torch.fx.passes.utils.fuser_utils import fuse_by_partitions
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)

@@ -9,9 +9,9 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
 import habana_frameworks.torch.core as htcore
+import pytest
+import torch
 
 
 @pytest.mark.parametrize("dtype", [None, torch.float, torch.bfloat16, torch.int8, torch.int32, torch.long])

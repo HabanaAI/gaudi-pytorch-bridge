@@ -9,11 +9,11 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-import numpy as np
-from test_utils import hpu, is_gaudi2
 import habana_frameworks.torch.hpu as ht
+import numpy as np
+import pytest
+import torch
+from test_utils import hpu, is_gaudi2
 
 pytestmark = pytest.mark.skipif(not is_gaudi2(), reason="Only Gaudi2 supports masked_batch_gemm op")
 

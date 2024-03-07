@@ -10,11 +10,12 @@
 #
 ###############################################################################
 
+from typing import List, Optional
+
+import habana_frameworks.torch.core as htcore
 import torch
 from torch import Tensor
-from typing import List, Optional
 from torch.optim.optimizer import Optimizer
-import habana_frameworks.torch.core as htcore
 
 hpu = torch.device("hpu")
 

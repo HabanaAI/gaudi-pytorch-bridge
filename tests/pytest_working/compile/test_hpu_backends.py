@@ -10,9 +10,10 @@
 #
 ###############################################################################
 
+from unittest.mock import patch
+
 import pytest
 import torch
-from unittest.mock import patch
 
 
 @torch.compile(backend="hpu_backend")

@@ -14,12 +14,7 @@ from operator import add
 
 import pytest
 import torch
-from test_utils import (
-    compare_tensors,
-    evaluate_fwd_bwd_kernel,
-    evaluate_fwd_kernel,
-    hpu,
-)
+from test_utils import compare_tensors, evaluate_fwd_bwd_kernel, evaluate_fwd_kernel, hpu
 
 # used as limit for randint
 element_val_min = -630

@@ -11,9 +11,7 @@ import numpy as np
 import pytest
 import torch
 import torch.nn as nn
-from habana_frameworks.torch.hpex.experimental.fp8_autocast.Fp8Autocast import (
-    Fp8Autocast as fp8_autocast,
-)
+from habana_frameworks.torch.hpex.experimental.fp8_autocast.Fp8Autocast import Fp8Autocast as fp8_autocast
 from habana_frameworks.torch.hpex.kernels.CastToFp8 import cast_to_fp8
 from pytest_working.test_utils import env_var_in_scope
 

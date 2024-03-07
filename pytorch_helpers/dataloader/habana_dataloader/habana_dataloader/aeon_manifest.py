@@ -1,6 +1,6 @@
 import os
-import tempfile
 import random
+import tempfile
 
 
 def _is_valid_image(image):

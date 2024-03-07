@@ -9,11 +9,11 @@
 # was provided.
 #
 ###############################################################################
+import habana_frameworks.torch.dynamo.compile_backend
+import numpy as np
 import pytest
 import torch
-import numpy as np
-import habana_frameworks.torch.dynamo.compile_backend
-from test_utils import format_tc, is_pytest_mode_compile, is_gaudi1
+from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
 
 test_shapes_dtypes = [
     ((2, 2, 2, 2, 2), (2, 2, 1, 2), torch.float32),

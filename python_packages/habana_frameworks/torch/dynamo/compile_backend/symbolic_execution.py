@@ -11,13 +11,15 @@
 ###############################################################################
 
 import copy
-import sys
-import sympy
 import re
+import sys
+
+import sympy
 import torch
+from symengine import sympify as sympify_engine
 from sympy import sympify
 from sympy.printing.printer import Printer
-from symengine import sympify as sympify_engine
+
 from .logger import get_compile_backend_logger
 
 logger = get_compile_backend_logger()

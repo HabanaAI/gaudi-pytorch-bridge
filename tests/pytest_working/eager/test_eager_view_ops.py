@@ -10,14 +10,15 @@
 #
 ###############################################################################
 
+import copy
+from dataclasses import dataclass, field
+from typing import Callable, Dict, List
+
+import habana_frameworks.torch.internal.bridge_config as bc
 import numpy as np
 import pytest
 import torch
-import copy
-import habana_frameworks.torch.internal.bridge_config as bc
 from test_utils import cpu, hpu
-from dataclasses import dataclass, field
-from typing import Callable, List, Dict
 
 Verbose = False
 

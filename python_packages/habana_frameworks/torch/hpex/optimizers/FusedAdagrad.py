@@ -1,9 +1,8 @@
 from typing import Callable, Iterable
 
 import torch
-from torch.optim import Optimizer
-
 from habana_frameworks.torch import core as htcore
+from torch.optim import Optimizer
 
 hpu = torch.device("hpu")
 cpu = torch.device("cpu")

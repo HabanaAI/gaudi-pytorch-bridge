@@ -10,7 +10,6 @@
 #
 ###############################################################################
 import habana_frameworks.torch.core as htcore
-
 import pytest
 import torch
 from test_utils import is_gaudi1

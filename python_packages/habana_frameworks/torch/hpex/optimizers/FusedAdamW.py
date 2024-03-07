@@ -14,10 +14,9 @@ import math
 from typing import Callable, Iterable, Tuple
 
 import torch
-from torch.optim import Optimizer
-
 from habana_frameworks.torch import core as htcore
 from habana_frameworks.torch.utils.internal import is_lazy
+from torch.optim import Optimizer
 
 
 class FusedAdamW(Optimizer):

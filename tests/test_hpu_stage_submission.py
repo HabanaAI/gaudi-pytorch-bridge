@@ -1,6 +1,6 @@
-import torch
-from test_utils import env_var_in_scope, hpu, cpu
 import pytest
+import torch
+from test_utils import cpu, env_var_in_scope, hpu
 
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 

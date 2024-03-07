@@ -7,24 +7,25 @@
 #       --dl-type='MP' --dl-workers=5 --profile 2>&1 | tee 8-worker-dl.log
 #
 
+import argparse
+import cProfile
+import json
+import os
+import pathlib
+import pstats
+import sys
+import time
+
 import torch
 import torch.utils.data as torch_data
-import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-import pathlib
-import os
-import time
-import sys
-import cProfile, pstats
-import json
-import argparse
+import torchvision.transforms as transforms
 
 # DATA_LOADER_AEON_LIB_PATH='/home/janand/trees/npu-stack/tf_aeon/lib_python/aeon.so'
 DATA_LOADER_AEON_LIB_PATH = "/home/janand/trees/npu-stack/dev/data_loader/build/lib/aeon.so"
 sys.path.append(os.path.dirname(os.environ["DATA_LOADER_AEON_LIB_PATH"]))
 # from aeon_config import *
 from aeon import DataLoader
-
 from mpi4py import MPI
 
 global mpi_comm

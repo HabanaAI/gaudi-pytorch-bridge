@@ -7,20 +7,20 @@ functions to be run in multiprocessing. E.g., the data loading worker loop is
 in `./_utils/worker.py`.
 """
 
-import threading
 import itertools
-import warnings
-from typing import Any, Callable, TypeVar, Generic, Sequence, List, Optional
-
 import multiprocessing as python_multiprocessing
+import queue
+import threading
+import warnings
+from typing import Any, Callable, Generic, List, Optional, Sequence, TypeVar
+
 import torch
 import torch.multiprocessing as multiprocessing
 from torch._utils import ExceptionWrapper
-import queue
-
-from torch.utils.data.dataset import IterableDataset, Dataset
-from torch.utils.data.sampler import Sampler, SequentialSampler, RandomSampler, BatchSampler
 from torch.utils.data import _utils
+from torch.utils.data.dataset import Dataset, IterableDataset
+from torch.utils.data.sampler import BatchSampler, RandomSampler, Sampler, SequentialSampler
+
 from . import worker
 
 T_co = TypeVar("T_co", covariant=True)
@@ -951,8 +951,8 @@ class _MultiProcessingDataLoaderIter(_BaseDataLoaderIter):
                 raise RuntimeError("DataLoader worker (pid(s) {}) exited unexpectedly".format(pids_str)) from e
             if isinstance(e, queue.Empty):
                 return (False, None)
-            import tempfile
             import errno
+            import tempfile
 
             try:
                 # Raise an exception if we are this close to the FDs limit.

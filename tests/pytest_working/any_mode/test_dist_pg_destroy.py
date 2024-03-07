@@ -10,16 +10,17 @@
 #
 ###############################################################################
 
-from itertools import product
 import os
-import pytest
 import struct
+from itertools import product
+
+import pytest
 import torch
 
 
 def worker_fn(_, filestore_file, cache_pg=True):
-    import torch.distributed as dist
     import habana_frameworks.torch.distributed.hccl
+    import torch.distributed as dist
 
     store = dist.FileStore(filestore_file, -1)
     dist.init_process_group(backend="hpu:hccl", rank=0, world_size=1, store=store)

@@ -10,10 +10,10 @@
 #
 ###############################################################################
 
-import torch
-import pytest
 import random
 
+import pytest
+import torch
 from test_utils import is_gaudi1
 
 supported_dtypes = [torch.float, torch.bfloat16, torch.long, torch.int, torch.short]

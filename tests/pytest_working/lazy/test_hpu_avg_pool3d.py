@@ -10,10 +10,11 @@
 #
 ###############################################################################
 
+import math
+
+import pytest
 import torch
 import torch.nn.functional as F
-import pytest
-import math
 from test_utils import evaluate_fwd_kernel
 
 avg_pool3d_test_case_list = [

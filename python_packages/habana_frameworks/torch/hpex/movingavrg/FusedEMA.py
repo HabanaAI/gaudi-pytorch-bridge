@@ -13,8 +13,8 @@
 import math
 from copy import deepcopy
 
-import torch
 import habana_frameworks.torch.core as htcore
+import torch
 from habana_frameworks.torch.utils.internal import is_lazy
 from torch import nn
 

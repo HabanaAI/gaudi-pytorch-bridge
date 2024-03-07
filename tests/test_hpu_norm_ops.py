@@ -4,14 +4,7 @@ from copy import deepcopy
 import numpy
 import pytest
 import torch
-from test_utils import (
-    cpu,
-    evaluate_fwd_bwd_kernel,
-    generic_setup_teardown_env,
-    hpu,
-    is_lazy,
-)
-
+from test_utils import cpu, evaluate_fwd_bwd_kernel, generic_setup_teardown_env, hpu, is_lazy
 
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 

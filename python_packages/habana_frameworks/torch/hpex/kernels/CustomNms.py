@@ -1,5 +1,6 @@
-import torch
 from typing import List
+
+import torch
 from habana_frameworks.torch import _hpex_C
 
 

@@ -16,43 +16,26 @@
 # - Removed unused code paths
 
 """Linear API"""
-from typing import Union, Optional, Callable, Tuple, List, Dict, Any
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
+from habana_frameworks.torch import _hpex_C as tex
 from torch.nn.parameter import Parameter
 
-from habana_frameworks.torch import _hpex_C as tex
-
-from .base import _prepare_backward, TransformerEngineBaseModule
-from ..fp8 import (
-    MetaTensorType,
-    get_meta_tensor_key,
-    is_hybrid_mode,
-    is_fp8_enabled,
-    get_fp8_te_dtype,
-    get_fp8_te_sr,
-)
-from ..utils import (
-    divide,
-    get_default_init_method,
-    cast_if_needed,
-)
+from ..constants import GemmParallelModes, dist_group_type
+from ..cpp_extensions import cast_to_fp8, cast_to_fp8_hybrid, fp8_gemm
 from ..distributed import (
-    set_tensor_model_parallel_attributes,
-    get_distributed_world_size,
     allreduce,
-    initialize_affine_weight_hpu,
-    reduce_scatter_along_first_dim,
     gather_along_first_dim,
     gather_along_last_dim,
+    get_distributed_world_size,
+    initialize_affine_weight_hpu,
+    reduce_scatter_along_first_dim,
+    set_tensor_model_parallel_attributes,
 )
-from ..cpp_extensions import (
-    fp8_gemm,
-    cast_to_fp8,
-    cast_to_fp8_hybrid,
-)
-from ..constants import GemmParallelModes, dist_group_type
-
+from ..fp8 import MetaTensorType, get_fp8_te_dtype, get_fp8_te_sr, get_meta_tensor_key, is_fp8_enabled, is_hybrid_mode
+from ..utils import cast_if_needed, divide, get_default_init_method
+from .base import TransformerEngineBaseModule, _prepare_backward
 
 __all__ = ["Linear"]
 

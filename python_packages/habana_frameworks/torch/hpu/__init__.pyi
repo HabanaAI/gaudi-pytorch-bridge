@@ -1,5 +1,6 @@
+from typing import List, Optional, Union
+
 import torch
-from typing import Optional, Union, List
 
 _device_t = Union[torch.device, str, int, None]
 

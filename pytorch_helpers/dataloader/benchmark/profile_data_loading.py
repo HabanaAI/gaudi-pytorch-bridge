@@ -1,15 +1,16 @@
 # Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
 
-import torch
-import torch.utils.data as torch_data
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
-import pathlib
 import os
+import pathlib
 import time
+
+import habana_torch_dataloader
 import matplotlib
 import matplotlib.pyplot as plt
-import habana_torch_dataloader
+import torch
+import torch.utils.data as torch_data
+import torchvision.datasets as datasets
+import torchvision.transforms as transforms
 
 X = []
 Y = []

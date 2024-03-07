@@ -2,11 +2,12 @@
 # Copyright (C) 2020-2021 Habana Labs, Ltd. an Intel Company
 # ******************************************************************************
 
-import os
-import sys
-import torch
 import atexit
+import os
 import subprocess
+import sys
+
+import torch
 from habana_frameworks.torch import _hpu_C
 
 _mandatory_libs = ["libhabana_pytorch_plugin.so"]
@@ -50,7 +51,7 @@ def _get_modules_directory(library_list=list()):
 
 
 def is_habana_avaialble():
-    from subprocess import check_output, STDOUT
+    from subprocess import STDOUT, check_output
 
     cmd = "hl-smi -v"
     status = False
@@ -78,7 +79,7 @@ def is_habana_avaialble():
 
 
 def is_habana_available():
-    from subprocess import check_output, STDOUT
+    from subprocess import STDOUT, check_output
 
     cmd = "hl-smi -v"
     status = False

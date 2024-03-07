@@ -10,12 +10,13 @@
 #
 ###############################################################################
 
+from typing import Dict, List
+
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
-
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+
 from .logger import get_compile_backend_logger
-from typing import Dict, List
 
 logger = get_compile_backend_logger()
 from ._shared_layer_C import check_cpu_fallback_op

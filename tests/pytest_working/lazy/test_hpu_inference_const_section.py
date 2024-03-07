@@ -10,12 +10,13 @@
 #
 # ******************************************************************************
 
-import torch
 import os
-import numpy as np
-import habana_frameworks.torch as htorch
 import shutil
+
+import habana_frameworks.torch as htorch
+import numpy as np
 import pytest
+import torch
 
 
 class Net(torch.nn.Module):

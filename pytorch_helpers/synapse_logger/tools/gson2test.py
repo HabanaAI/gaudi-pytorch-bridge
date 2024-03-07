@@ -7,18 +7,19 @@
 # Proprietary and confidential.
 #
 # ******************************************************************************
+import argparse
 import json
-from collections import OrderedDict, defaultdict
-from collections.abc import Mapping
+import logging
 import os
 import sys
-import logging
+from collections import OrderedDict, defaultdict
+from collections.abc import Mapping
 from enum import Enum
-from shutil import copy2
-import argparse
-from gson_parsing import func_def_from_pretty_function, gson_iterator, syn_types, hcl_collective_ops, hcl_ops
 from io import StringIO
+from shutil import copy2
+
 from browse_log import is_call
+from gson_parsing import func_def_from_pretty_function, gson_iterator, hcl_collective_ops, hcl_ops, syn_types
 
 log = logging.getLogger("synapse_logger.gson2test")
 

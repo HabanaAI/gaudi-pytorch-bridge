@@ -17,8 +17,9 @@ from statistics import mean
 from typing import Sequence, Tuple
 
 from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
-from .saver import MetricSaver, MetricDumpFormat, MetricDumpTrigger
+
 from .exceptions import MetricNotFound
+from .saver import MetricDumpFormat, MetricDumpTrigger, MetricSaver
 
 
 def bool_helper(value):

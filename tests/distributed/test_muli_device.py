@@ -1,11 +1,11 @@
-import os
-import torch
-import torch.distributed as dist
 import multiprocessing
-import torch.nn as nn
-from torch.nn.parallel import DistributedDataParallel as DDP
+import os
 
 import habana_frameworks.torch.core as htcore
+import torch
+import torch.distributed as dist
+import torch.nn as nn
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 device = torch.device("hpu")
 torch.manual_seed(0)

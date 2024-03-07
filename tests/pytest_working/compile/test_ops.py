@@ -13,7 +13,7 @@ import habana_frameworks.torch.dynamo.compile_backend  # noqa: F401
 import pytest
 import torch
 import torch.nn as nn
-from test_utils import generic_setup_teardown_env, is_gaudi1, format_tc
+from test_utils import format_tc, generic_setup_teardown_env, is_gaudi1
 from torch.testing._internal.common_methods_invocations import op_db
 
 all_dtypes = [

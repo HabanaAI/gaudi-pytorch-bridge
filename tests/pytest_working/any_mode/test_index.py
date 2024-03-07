@@ -14,6 +14,7 @@ import pytest
 import torch
 from test_utils import cpu, hpu
 
+
 # optional on list cause fail
 @pytest.mark.parametrize(
     "shape, indices",

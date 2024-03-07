@@ -10,9 +10,9 @@
 #
 ###############################################################################
 
-import torch
-import pytest
 import habana_frameworks.torch.dynamo.compile_backend
+import pytest
+import torch
 
 
 def test_graph_simple():

@@ -8,7 +8,8 @@
 # was provided.
 
 """Utilities for C++ extensions"""
-from typing import Union, Optional
+from typing import Optional, Union
+
 import torch
 from habana_frameworks.torch import _hpex_C as tex
 

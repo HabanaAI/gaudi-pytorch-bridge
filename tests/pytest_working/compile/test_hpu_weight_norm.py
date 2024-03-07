@@ -11,8 +11,8 @@
 ###############################################################################
 import pytest
 import torch
-from torch import nn
 from test_utils import format_tc
+from torch import nn
 
 
 @pytest.mark.skip(

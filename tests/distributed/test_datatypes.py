@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 import os
+
+import numpy
 import torch
 import torch.distributed as dist
-import numpy
-
-
 from mpi4py import MPI
 
 comm = MPI.COMM_WORLD

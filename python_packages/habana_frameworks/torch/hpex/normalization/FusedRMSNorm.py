@@ -9,8 +9,9 @@
 # was provided.
 #
 # ******************************************************************************
-import torch
 from enum import Enum
+
+import torch
 
 
 class RmsNormBwdMode(Enum):

@@ -11,19 +11,19 @@
 ###############################################################################
 
 import datetime
+import threading
 from collections import deque
 from functools import wraps
 from os import environ, path
-from typing import Union, Optional, Generator
+from typing import Generator, Optional, Union
 
 import habana_frameworks.torch.hpu as ht
 import habana_frameworks.torch.hpu.random as rand_hpu
 import habana_frameworks.torch.utils.debug as htdebug
-from habana_frameworks.torch.utils.internal import is_lazy
 import torch
+from habana_frameworks.torch.utils.internal import is_lazy
 from torch.distributed.constants import default_pg_timeout
 from torch.functional import Tensor
-import threading
 
 _name_stack = deque()
 _module_dict = dict()
@@ -124,10 +124,8 @@ def overwrite_torch_functions():
     @wraps(torch.manual_seed)
     def wrap_manual_seed(seed):
         if not is_lazy():
+            from habana_frameworks.torch.dynamo.compile_backend import _recipe_compiler_C
             from habana_frameworks.torch.utils import _debug_eager_C
-            from habana_frameworks.torch.dynamo.compile_backend import (
-                _recipe_compiler_C,
-            )
 
             _debug_eager_C.join_pending_pipeline_threads()
             _recipe_compiler_C.reset_seeds()

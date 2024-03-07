@@ -10,13 +10,13 @@
 #
 ###############################################################################
 import os
-import torch
-import pytest
+
 import habana_frameworks.torch.dynamo.compile_backend
-from torch.testing._internal.common_methods_invocations import op_db
-from torch.testing._internal.common_methods_invocations import ReductionOpInfo
-from torch.testing._internal.common_device_type import ops
+import pytest
+import torch
 from test_utils import hpu
+from torch.testing._internal.common_device_type import ops
+from torch.testing._internal.common_methods_invocations import ReductionOpInfo, op_db
 
 
 @pytest.mark.parametrize("op", [torch.amin, torch.amax])

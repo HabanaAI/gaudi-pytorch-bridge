@@ -10,12 +10,11 @@
 #
 ###############################################################################
 
-import torch
+import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
-import habana_frameworks.torch.core as htcore
+import torch
 from test_utils import compare_tensors, hpu
-
 
 matmul_lazy_list = [
     # size1, size2

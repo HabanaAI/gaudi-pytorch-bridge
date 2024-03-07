@@ -1,9 +1,9 @@
 from typing import Tuple
 
 import numpy as np
-from test_utils import hpu, cpu, is_gaudi1
 import pytest
 import torch
+from test_utils import cpu, hpu, is_gaudi1
 
 
 def util_calc_l2_error(t1, t2) -> torch.tensor:

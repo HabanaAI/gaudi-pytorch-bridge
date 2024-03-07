@@ -11,15 +11,10 @@
 ###############################################################################
 
 import numpy as np
+import pytest
 import torch
 from habana_frameworks.torch.hpex.kernels import CustomSoftmax
-from test_utils import (
-    hpu,
-    check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
-    is_pytest_mode_compile,
-)
-import pytest
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, hpu, is_pytest_mode_compile
 
 
 def test_custom_softmax():

@@ -16,8 +16,10 @@
 
 """Python interface for cast extensions"""
 from typing import Union
+
 import torch
 from habana_frameworks.torch import _hpex_C as tex
+
 from ._utils import select_amax_and_exec
 
 

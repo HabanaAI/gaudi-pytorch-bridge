@@ -15,9 +15,7 @@ import importlib.util
 import os
 import shutil
 import sys
-
 from types import ModuleType
-
 
 OUTPUT_FILES = [
     "consolidate_ops_list.csv",

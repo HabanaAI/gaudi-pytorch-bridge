@@ -11,13 +11,14 @@
 #
 ###############################################################################
 import argparse
-import os
 import csv
-import glob
-import yaml
-import pandas as pd
 import datetime
+import glob
 import json
+import os
+
+import pandas as pd
+import yaml
 
 
 def match_any(l, match):

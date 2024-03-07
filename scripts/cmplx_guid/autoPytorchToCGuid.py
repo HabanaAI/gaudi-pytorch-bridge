@@ -1,8 +1,9 @@
-import os
-import sys
-import random
 import itertools
 import math
+import os
+import random
+import sys
+
 import numpy as np
 
 is_release = True

@@ -1,22 +1,22 @@
 # Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
 
-from pathlib import Path
-import json
-import inspect
 import copy
-import os
+import inspect
 import itertools
+import json
+import os
+from enum import Enum
+from pathlib import Path
 from typing import Any, Callable, Optional, Tuple
 
+import habana_frameworks.torch.utils.experimental as htexp
+import torch.distributed as dist
 import torch.utils.data
 import torchvision.datasets
-from enum import Enum
-import habana_frameworks.torch.utils.experimental as htexp
 
 from .aeon_config import get_aeon_config
-from .aeon_ssd_configurator import AeonSSDConfigurator
 from .aeon_manifest import generate_aeon_manifest
-import torch.distributed as dist
+from .aeon_ssd_configurator import AeonSSDConfigurator
 
 
 def _is_distributed():
@@ -323,10 +323,11 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                     self.aeon_fallback_activated = True
 
             if isGaudi(self.DeviceType) or (self.aeon_fallback_activated):
-                from .aeon_config import get_aeon_config
-                from .aeon_transformers import HabanaAeonTransforms
-                from .aeon_manifest import generate_aeon_manifest
                 import habana_dataloader.habana_dl_app
+
+                from .aeon_config import get_aeon_config
+                from .aeon_manifest import generate_aeon_manifest
+                from .aeon_transformers import HabanaAeonTransforms
 
                 self._aeon_dl_handle_vars(keyword_args)
                 torch_transforms = self.dataset.transform

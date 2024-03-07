@@ -10,23 +10,22 @@
 #
 ###############################################################################
 
-import torch
-
 from typing import List, Optional
+
+import torch
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from torch._dynamo.backends.common import aot_autograd
 from torch._dynamo.backends.registry import register_backend
 
-from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
-
-from .decomposition import get_hpu_decompositions
-
 from .compilers import (
-    hpu_training_compiler_fw,
-    hpu_training_compiler_bw,
     hpu_inference_compiler,
-    hpu_inference_compiler_raise,
     hpu_inference_compiler_noaot,
+    hpu_inference_compiler_raise,
+    hpu_training_compiler_bw,
+    hpu_training_compiler_fw,
 )
+from .config import configuration_flags
+from .decomposition import get_hpu_decompositions
 
 
 @register_backend

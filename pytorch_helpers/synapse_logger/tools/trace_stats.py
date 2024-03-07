@@ -1,8 +1,8 @@
-import json
-import sys
-import os
 import argparse
+import json
+import os
 import re
+import sys
 
 
 def get_fw_time(path, tid, start_time, end_time):

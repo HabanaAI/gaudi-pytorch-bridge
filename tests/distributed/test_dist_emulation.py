@@ -1,12 +1,13 @@
 import copy
 import os
+
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn as nn
+from pytest_working.test_utils import env_var_in_scope
 from torch.distributed.optim import ZeroRedundancyOptimizer
 from torch.nn.parallel import DistributedDataParallel as DDP
-from pytest_working.test_utils import env_var_in_scope
 
 
 def _zero1_with_ddp_worker(rank, world_size):

@@ -9,10 +9,11 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-import pickle
 import os
+import pickle
+
+import pytest
+import torch
 from habana_frameworks.torch.dynamo.compile_backend.backends import hpu_backend
 from torch._dynamo.backends.registry import register_backend
 

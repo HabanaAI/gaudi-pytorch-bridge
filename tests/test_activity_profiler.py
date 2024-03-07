@@ -1,7 +1,8 @@
 import os
+
+import pytest
 import torch
 import torchvision
-import pytest
 from test_utils import _is_simulator
 
 os.environ["PT_HPU_LAZY_MODE"] = "1"

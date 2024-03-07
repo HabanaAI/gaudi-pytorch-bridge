@@ -10,10 +10,11 @@
 #
 ###############################################################################
 import os
-import torch
-import pytest
-import numpy as np
+
 import habana_frameworks.torch.core as htcore
+import numpy as np
+import pytest
+import torch
 
 
 @pytest.fixture

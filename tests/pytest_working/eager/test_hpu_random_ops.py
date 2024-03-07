@@ -9,9 +9,8 @@
 # was provided.
 #
 ###############################################################################
-import torch
 import pytest
-
+import torch
 from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs
 
 

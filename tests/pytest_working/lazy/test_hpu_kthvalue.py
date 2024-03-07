@@ -11,9 +11,9 @@
 # ******************************************************************************
 
 
-import torch
 import pytest
-from test_utils import evaluate_fwd_kernel, compare_tensors
+import torch
+from test_utils import compare_tensors, evaluate_fwd_kernel
 
 kthvalue_params_list = [
     ((8, 2), 3, 0),

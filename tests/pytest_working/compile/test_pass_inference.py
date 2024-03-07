@@ -9,11 +9,11 @@
 # was provided.
 #
 ###############################################################################
+import copy
+
 import torch
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from test_dynamo_utils import assert_helper
-
-import copy
 
 
 class MyModule(torch.nn.Module):

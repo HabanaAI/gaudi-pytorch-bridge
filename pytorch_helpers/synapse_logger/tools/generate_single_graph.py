@@ -1,11 +1,10 @@
-import sys
 import glob
 import os.path
 import re
-
-from tempfile import mkstemp
-from shutil import move, copymode
+import sys
 from os import fdopen, remove
+from shutil import copymode, move
+from tempfile import mkstemp
 
 
 def replace(file_path, pattern, subst):

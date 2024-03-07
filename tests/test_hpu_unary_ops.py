@@ -14,11 +14,7 @@ import math
 import pytest
 import torch
 import torch.nn.functional as F
-from test_utils import (
-    evaluate_fwd_bwd_kernel,
-    evaluate_fwd_inplace_kernel,
-    evaluate_fwd_kernel,
-)
+from test_utils import evaluate_fwd_bwd_kernel, evaluate_fwd_inplace_kernel, evaluate_fwd_kernel
 
 # N - batch
 # H - input height

@@ -1,13 +1,13 @@
+import json
+import os
+import string
 from dataclasses import dataclass
 from random import shuffle
-import string
-import os
-import json
 from sys import stdout
-import torch.distributed as dist
 
-from torchvision import transforms
+import torch.distributed as dist
 import torch.utils.data as data
+from torchvision import transforms
 
 
 def _is_distributed():

@@ -9,11 +9,11 @@
 # was provided.
 #
 ###############################################################################
-import torch
 import pytest
-from torch._dynamo import compiled_autograd
-from test_utils import compare_tensors, clear_t_compile_logs, is_torch_at_least
+import torch
 from test_dynamo_utils import use_eager_fallback
+from test_utils import clear_t_compile_logs, compare_tensors, is_torch_at_least
+from torch._dynamo import compiled_autograd
 
 
 def compiler_fn(gm):
@@ -21,9 +21,7 @@ def compiler_fn(gm):
 
 
 def is_op_found_in_ir(ns, op):
-    from habana_frameworks.torch.dynamo.compile_backend.passes import (
-        logger as graph_logger,
-    )
+    from habana_frameworks.torch.dynamo.compile_backend.passes import logger as graph_logger
 
     target = f"call_function[target=torch.ops.{ns}.{op}]"
 

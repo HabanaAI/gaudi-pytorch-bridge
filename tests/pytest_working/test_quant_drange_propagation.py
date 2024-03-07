@@ -1,8 +1,9 @@
+import json
 import os
 import sys
-import json
-import torch
+
 import pytest
+import torch
 import torch.nn as nn
 from habana_frameworks.torch import hpu
 from habana_frameworks.torch.utils.library_loader import load_habana_module

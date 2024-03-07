@@ -1,11 +1,13 @@
 import collections
-import torch
-import warnings
-from typing import Any, Dict, Union, Optional
-import habana_frameworks.torch as htorch
-from habana_frameworks.torch import _hpu_C
-from ._utils import _get_device_index
 import ctypes
+import warnings
+from typing import Any, Dict, Optional, Union
+
+import habana_frameworks.torch as htorch
+import torch
+from habana_frameworks.torch import _hpu_C
+
+from ._utils import _get_device_index
 
 
 class Stream(object):

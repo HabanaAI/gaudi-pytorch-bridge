@@ -9,12 +9,13 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-import numpy as np
 from enum import Enum
-from test_utils import is_gaudi1, compare_tensors
+
 import habana_frameworks.torch.core as htcore
+import numpy as np
+import pytest
+import torch
+from test_utils import compare_tensors, is_gaudi1
 
 
 class Mode(Enum):

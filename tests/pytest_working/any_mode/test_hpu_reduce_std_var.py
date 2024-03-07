@@ -9,9 +9,9 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
 import habana_frameworks.torch.dynamo.compile_backend  # noqa # pylint: disable=unused-import
+import pytest
+import torch
 from test_utils import format_tc, is_pytest_mode_compile
 
 

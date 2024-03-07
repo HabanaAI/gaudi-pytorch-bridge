@@ -10,10 +10,9 @@
 #
 ###############################################################################
 
-import torch
 import pytest
-from test_utils import evaluate_fwd_kernel, compare_tensors, hpu, is_gaudi1
-
+import torch
+from test_utils import compare_tensors, evaluate_fwd_kernel, hpu, is_gaudi1
 
 dtypes = [
     torch.float,

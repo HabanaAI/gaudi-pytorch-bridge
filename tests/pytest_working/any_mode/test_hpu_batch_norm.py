@@ -13,14 +13,14 @@
 import pytest
 import torch
 from test_utils import (
-    is_pytest_mode_compile,
-    clear_t_compile_logs,
-    check_ops_executed_in_jit_ir,
-    get_fuser_debug_logs_path,
-    clear_fuser_debug_logs,
-    setup_teardown_env_fixture,
     check_op_in_fuser_fused_ops,
+    check_ops_executed_in_jit_ir,
+    clear_fuser_debug_logs,
+    clear_t_compile_logs,
+    get_fuser_debug_logs_path,
+    is_pytest_mode_compile,
     is_pytest_mode_eager,
+    setup_teardown_env_fixture,
 )
 
 

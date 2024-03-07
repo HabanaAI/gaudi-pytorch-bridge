@@ -10,15 +10,10 @@
 #
 ###############################################################################
 
-import torch
-import pytest
 import habana_frameworks.torch.dynamo.compile_backend
-from test_utils import (
-    is_pytest_mode_compile,
-    check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
-    format_tc,
-)
+import pytest
+import torch
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc, is_pytest_mode_compile
 
 
 @pytest.mark.parametrize(

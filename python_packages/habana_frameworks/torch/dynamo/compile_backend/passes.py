@@ -10,24 +10,24 @@
 #
 ###############################################################################
 
-import os
-import copy
-import torch
 import contextlib
-import habana_frameworks.torch.internal.bridge_config as bc
-
+import copy
+import os
+from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional
-from dataclasses import dataclass
+
+import habana_frameworks.torch.internal.bridge_config as bc
+import torch
+from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from packaging.version import Version
 from torch.fx.experimental.proxy_tensor import py_sym_types
 
-from .shared_layer import is_eager_fallback_required
-from .recipe_compiler import get_callable_recipe
 from .logger import get_compile_backend_logger
 from .random_utils import is_random_op, random_op_inputs
+from .recipe_compiler import get_callable_recipe
+from .shared_layer import is_eager_fallback_required
 from .symbolic_execution import SymExprNodeManager
-from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 
 logger = get_compile_backend_logger()
 
@@ -36,7 +36,9 @@ logger = get_compile_backend_logger()
 # be rolled back to .partitioner.py file once the below PR is merged.
 # PR: https://github.com/pytorch/pytorch/pull/115621
 from typing import Mapping
+
 from torch.fx.passes.operator_support import OperatorSupport
+
 from .partitioner import CapabilityBasedPartitioner
 
 
@@ -633,8 +635,8 @@ def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
     This function contains FakeMode propagation implementation for PT2.1+
     """
 
-    from torch._subclasses.fake_tensor import FakeTensorMode
     from torch._dynamo.utils import detect_fake_mode
+    from torch._subclasses.fake_tensor import FakeTensorMode
 
     class TensorInfoPropagation(torch.fx.Interpreter):
         """
@@ -726,7 +728,7 @@ def pass_fake_propagation_legacy(ctx: OptimizerContext) -> bool:
     This function contains FakeMode propagation implementation for PT2.0
     """
 
-    from torch._dynamo.utils import fake_mode_from_tensors, deepcopy_to_fake_tensor
+    from torch._dynamo.utils import deepcopy_to_fake_tensor, fake_mode_from_tensors
     from torch.utils._python_dispatch import _get_current_dispatch_mode_stack
 
     class LegacyTensorInfoPropagation(torch.fx.Interpreter):
@@ -1216,8 +1218,8 @@ class resolve_negative_dim:
             "view",
         ]
 
-        from torch.fx.experimental.proxy_tensor import py_sym_types
         from torch._subclasses.fake_tensor import FakeTensor
+        from torch.fx.experimental.proxy_tensor import py_sym_types
 
         if node_name in negative_dim_ops:
             if node_name == "view":
@@ -1846,6 +1848,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
         """
 
         import copy
+
         from torch._functorch.compile_utils import strip_overloads
         from torch._functorch.compilers import _disable_jit_autocast
 

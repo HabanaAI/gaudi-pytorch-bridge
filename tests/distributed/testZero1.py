@@ -4,27 +4,23 @@
 
 import os
 import time
+
+import habana_frameworks.torch.core as htcore
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn as nn
-from torch.distributed.optim import ZeroRedundancyOptimizer
-from torch.nn.parallel import DistributedDataParallel as DDP
 from habana_frameworks.torch.hpex.optimizers import FusedAdamW
-from torch.distributed.algorithms.ddp_comm_hooks.ddp_zero_hook import (
-    hook_with_zero_step_interleaved,
-)
-from torch.distributed.algorithms.ddp_comm_hooks.default_hooks import (
-    allreduce_hook,
-)
-
-import habana_frameworks.torch.core as htcore
 
 # To register a functional optimizer, import the optimizer and
 # invoke register_functional_optim(key,optimizer) from torch.distributed.optim.utils
 # to register the optimizer
 from habana_frameworks.torch.hpex.optimizers.distributed import FusedAdamW as FunctionalFusedAdamW
+from torch.distributed.algorithms.ddp_comm_hooks.ddp_zero_hook import hook_with_zero_step_interleaved
+from torch.distributed.algorithms.ddp_comm_hooks.default_hooks import allreduce_hook
+from torch.distributed.optim import ZeroRedundancyOptimizer
 from torch.distributed.optim.utils import register_functional_optim
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 register_functional_optim(FunctionalFusedAdamW, FunctionalFusedAdamW)
 

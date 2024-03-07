@@ -1,5 +1,6 @@
+from typing import Any, Union
+
 import torch
-from typing import Union, Any
 
 
 def wrapped__new__(cls, data=None, requires_grad=True):

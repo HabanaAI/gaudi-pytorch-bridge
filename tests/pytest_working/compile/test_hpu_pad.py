@@ -9,10 +9,10 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-from test_utils import format_tc, is_gaudi1
 import habana_frameworks.torch.dynamo.compile_backend
+import pytest
+import torch
+from test_utils import format_tc, is_gaudi1
 
 dtypes = [torch.bfloat16, torch.float, torch.int, torch.short]
 dtypes_bwd = [torch.bfloat16, torch.float]

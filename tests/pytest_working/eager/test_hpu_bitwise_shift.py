@@ -10,8 +10,8 @@
 #
 ###############################################################################
 
-import torch
 import pytest
+import torch
 from test_utils import evaluate_fwd_kernel
 
 shapes = [

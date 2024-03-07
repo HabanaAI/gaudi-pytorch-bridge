@@ -1,9 +1,11 @@
 import collections
-import torch
 import warnings
-from typing import Any, Dict, Union, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
+
 import habana_frameworks.torch.hpu as hpu
+import torch
 from habana_frameworks.torch import _hpu_C
+
 from ._utils import _get_device_index
 
 _device_t = Union[torch.device, str, int, None]

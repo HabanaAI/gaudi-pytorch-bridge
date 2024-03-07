@@ -12,7 +12,7 @@
 
 import pytest
 import torch
-from test_utils import evaluate_fwd_kernel, evaluate_fwd_inplace_kernel
+from test_utils import evaluate_fwd_inplace_kernel, evaluate_fwd_kernel
 
 dtypes = [torch.float, torch.bfloat16, torch.long, torch.int]
 

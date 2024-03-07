@@ -1,11 +1,13 @@
-import torch
-import sys, traceback
 import faulthandler
+import sys
+import traceback
+
+import torch
 import torch.distributed as dist
 
 faulthandler.enable(all_threads=True)
-import os
 import contextlib
+import os
 
 from habana_frameworks.torch.utils.library_loader import load_habana_module
 

@@ -1,5 +1,6 @@
-import habana_frameworks.torch.utils.profiler as htprofiler
 import warnings
+
+import habana_frameworks.torch.utils.profiler as htprofiler
 
 
 def setup_profiler() -> None:

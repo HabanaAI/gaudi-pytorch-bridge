@@ -9,9 +9,9 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
 import habana_frameworks.torch.dynamo.compile_backend
+import pytest
+import torch
 
 
 @pytest.mark.parametrize("shapes", [([2], [2, 3], [3]), ([4], [4, 9], [9])])

@@ -16,5 +16,5 @@
 
 """Python interface for C++ extensions"""
 from .activation import fp8_gelu
-from .cast import cast_to_fp8, cast_from_fp8, cast_to_fp8_hybrid
+from .cast import cast_from_fp8, cast_to_fp8, cast_to_fp8_hybrid
 from .gemm import fp8_gemm

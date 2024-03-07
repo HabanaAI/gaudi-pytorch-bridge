@@ -1,12 +1,10 @@
-import torch
-import torch.nn as nn
-from test_utils import compare_tensors
 import os
 from inspect import currentframe, getframeinfo
 
 import habana_frameworks.torch.core as htcore
 import pytest
 import torch
+import torch.nn as nn
 from test_utils import compare_tensors
 
 data_list = [

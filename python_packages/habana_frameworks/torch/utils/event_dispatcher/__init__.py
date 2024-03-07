@@ -10,4 +10,4 @@
 #
 ###############################################################################
 
-from habana_frameworks.torch.utils._event_dispatcher_C import EventId, EventDispatcher
+from habana_frameworks.torch.utils._event_dispatcher_C import EventDispatcher, EventId

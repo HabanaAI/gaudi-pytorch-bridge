@@ -9,8 +9,9 @@
 # was provided.
 #
 # ******************************************************************************
+from typing import List, Optional, Tuple
+
 import torch
-from typing import Optional, Tuple, List
 from habana_frameworks.torch import _hpex_C
 
 # The file implements operators included in the FBGEMM (Facebook GEneral Matrix Multiplication) library.

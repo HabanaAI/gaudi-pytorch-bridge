@@ -10,8 +10,8 @@
 #
 ###############################################################################
 
-import torch
 import pytest
+import torch
 
 IS_NATIVE_FP8 = hasattr(torch, "float8_e5m2")
 FP8_NAMES = ["143", "152"]

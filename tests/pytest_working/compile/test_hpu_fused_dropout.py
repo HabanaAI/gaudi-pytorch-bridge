@@ -9,9 +9,9 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
 import habana_frameworks.torch.dynamo.compile_backend
+import pytest
+import torch
 
 # Fused dropout op on HPU and CPU devices will always give different results.
 # This test checks if:

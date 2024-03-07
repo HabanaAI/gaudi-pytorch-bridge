@@ -10,10 +10,11 @@
 #
 ###############################################################################
 
+import habana_frameworks.torch._core_C as htcore
+import habana_frameworks.torch.hpu as hpu
 import pytest
 import torch
-import habana_frameworks.torch.hpu as hpu
-import habana_frameworks.torch._core_C as htcore
+
 torch.manual_seed(2)
 def test_graph():
     input = [(2, 3, 4, 4), (2, 3, 6, 6), (2, 3, 8, 8), (2, 3, 10, 10), (2, 3, 2, 2)]

@@ -12,21 +12,23 @@
 ###############################################################################
 
 from __future__ import print_function
-from abc import ABC, abstractmethod
+
 import argparse
 import collections.abc
-import lark
 import json
 import os
+import pkgutil
 import re
 import sys
-import yaml
-import torch
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from functools import wraps
-from yaml import CLoader as Loader
+
+import lark
+import torch
+import yaml
 from packaging.version import Version
-import pkgutil
+from yaml import CLoader as Loader
 
 
 def namedtuple_with_defaults(typename, field_names, default_values=()):
@@ -2594,9 +2596,9 @@ def generate_native_functions_from_yaml(native_yaml_path, tags_yaml_path):
 
 
 from torchgen import local
+from torchgen.api.translate import translate
 from torchgen.api.types import CppSignatureGroup
 from torchgen.api.unboxing import convert_arguments
-from torchgen.api.translate import translate
 
 
 @local.parametrize(use_const_ref_for_mutable_tensors=False, use_ilistref_for_tensor_lists=False)

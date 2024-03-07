@@ -1,6 +1,6 @@
+import habana_frameworks.torch
 import pytest
 import torch
-import habana_frameworks.torch
 from test_utils import format_tc
 
 

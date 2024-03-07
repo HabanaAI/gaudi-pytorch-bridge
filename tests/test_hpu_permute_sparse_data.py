@@ -16,10 +16,7 @@ from typing import List, Optional, Tuple
 
 import pytest
 import torch
-from habana_frameworks.torch.hpex.kernels.fbgemm import (
-    permute_1D_sparse_data,
-    permute_2D_sparse_data,
-)
+from habana_frameworks.torch.hpex.kernels.fbgemm import permute_1D_sparse_data, permute_2D_sparse_data
 from test_utils import cpu, hpu
 
 

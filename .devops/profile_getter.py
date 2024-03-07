@@ -14,14 +14,15 @@ from __future__ import annotations
 
 import argparse
 import sys
+
 from build_profiles.profiles import (
-    get_profiles_json,
-    check_profile_file_integrity,
-    get_required_pt,
     RequirementPurpose,
-    get_version_literal_and_source,
+    check_profile_file_integrity,
     get_cmakelists_supported_vers,
     get_extras_version,
+    get_profiles_json,
+    get_required_pt,
+    get_version_literal_and_source,
 )
 
 if __name__ == "__main__":

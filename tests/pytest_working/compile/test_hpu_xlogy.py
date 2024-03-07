@@ -9,9 +9,9 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
 import habana_frameworks.torch.dynamo.compile_backend
+import pytest
+import torch
 
 SUPPORTED_DTYPES = [torch.float, torch.bfloat16, torch.int, torch.long]
 TENSOR_SHAPE = [2, 3, 4]

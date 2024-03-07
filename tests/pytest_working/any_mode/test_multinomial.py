@@ -10,16 +10,10 @@
 #
 ###############################################################################
 
+import numpy as np
 import pytest
 import torch
-from test_utils import (
-    is_gaudi1,
-    is_pytest_mode_compile,
-    check_ops_executed_in_jit_ir,
-    clear_t_compile_logs,
-)
-import numpy as np
-
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, is_gaudi1, is_pytest_mode_compile
 
 multinomial_dtypes = [torch.float, torch.bfloat16]
 if not is_gaudi1():

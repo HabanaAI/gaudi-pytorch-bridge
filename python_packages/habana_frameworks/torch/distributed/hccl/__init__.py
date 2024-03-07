@@ -1,7 +1,7 @@
 import os
-import torch
 from typing import Tuple
 
+import torch
 from habana_frameworks.torch.hpu import HABANA_VISIBLE_MODULES_VAR, HLS_MODULE_ID_VAR
 from habana_frameworks.torch.utils.experimental.distributed_emulation import (
     distributed_emulation_apply_if_enabled,
@@ -128,8 +128,9 @@ def _disallow_collectives_in_graph():
     except ImportError:
         # dynamo not supported
         return
-    import torch.distributed as dist
     import inspect
+
+    import torch.distributed as dist
 
     COLLECTIVE_BASE_NAMES = [
         "all_gather",

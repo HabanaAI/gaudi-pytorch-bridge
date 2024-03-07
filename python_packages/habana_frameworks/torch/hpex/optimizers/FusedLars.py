@@ -11,14 +11,14 @@
 ###############################################################################
 
 import os
+
 import torch
+from habana_frameworks.torch import _hpex_C
+from habana_frameworks.torch import core as htcore
 from torch import nn
 from torch.autograd import Variable
 from torch.nn.parameter import Parameter
 from torch.optim.optimizer import Optimizer
-
-from habana_frameworks.torch import core as htcore
-from habana_frameworks.torch import _hpex_C
 
 
 class FusedLars(Optimizer):

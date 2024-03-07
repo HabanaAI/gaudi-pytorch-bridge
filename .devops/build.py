@@ -25,18 +25,7 @@ from collections import defaultdict, namedtuple
 from contextlib import contextmanager
 from dataclasses import astuple, dataclass
 from io import StringIO
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    List,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
 
 import op_stats_generator
 from build_profiles import profiles

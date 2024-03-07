@@ -9,26 +9,18 @@
 # was provided.
 #
 # ******************************************************************************
-import torch
-import pytest
 import warnings
-from test_utils import (
-    cpu,
-    hpu,
-    is_gaudi1,
-    check_ops_executed_in_jit_ir,
-    is_pytest_mode_compile,
-    clear_t_compile_logs,
-)
 
-
+import pytest
+import torch
 from habana_frameworks.torch.hpex.kernels import (
-    RotaryPosEmbeddingMode,
     RotaryPosEmbeddingHelperV1,
     RotaryPosEmbeddingHelperV2,
     RotaryPosEmbeddingHelperV3,
+    RotaryPosEmbeddingMode,
     apply_rotary_pos_emb,
 )
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, cpu, hpu, is_gaudi1, is_pytest_mode_compile
 
 apply_rotary_pos_emb_v1_test_case_list = [
     # p_size, cos_sin_size, offset

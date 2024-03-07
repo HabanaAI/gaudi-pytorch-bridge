@@ -13,8 +13,9 @@
 
 
 import argparse
-import os
 import csv
+import os
+
 import yaml
 
 

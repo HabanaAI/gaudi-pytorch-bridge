@@ -10,8 +10,8 @@
 #
 ###############################################################################
 
-from typing import Optional
 from itertools import accumulate
+from typing import Optional
 
 import torch
 import torch._prims_common as utils
@@ -20,6 +20,7 @@ from torch._decomp import get_decompositions
 aten = torch.ops.aten
 
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+
 from .logger import get_compile_backend_logger
 
 logger = get_compile_backend_logger()

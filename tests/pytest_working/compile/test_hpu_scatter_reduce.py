@@ -10,8 +10,8 @@
 #
 ###############################################################################
 
-import habana_frameworks.torch.hpu as hpu
 import habana_frameworks.torch.dynamo.compile_backend  # noqa # pylint: disable=unused-import
+import habana_frameworks.torch.hpu as hpu
 import numpy as np
 import pytest
 import torch

@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 import torch
 import torch.nn as nn
-from test_utils import hpu, cpu, env_var_in_scope
+from test_utils import cpu, env_var_in_scope, hpu
 
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 

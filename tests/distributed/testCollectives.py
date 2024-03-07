@@ -1,10 +1,12 @@
 # pytest testCollectives.py -sv
 
+import cProfile
 import os
+import pstats
 import time
-import torch
+
 import pytest
-import cProfile, pstats
+import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 

@@ -11,19 +11,17 @@
 ###############################################################################
 
 import os
-import pytest
-import torch
 
 import habana_frameworks.torch.internal.bridge_config as bc
-
+import pytest
+import torch
 from test_utils import (
+    check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
     compare_tensors,
     is_gaudi1,
     is_pytest_mode_compile,
-    clear_t_compile_logs,
-    check_ops_executed_in_jit_ir,
 )
-
 
 test_data = [
     (torch.float, 2.5),

@@ -16,16 +16,16 @@
 # - Minor code adaptations
 
 """FP8 utilities for TransformerEngine"""
-from contextlib import contextmanager
 from collections import deque
+from contextlib import contextmanager
 from enum import Enum
-from typing import Callable, List, Optional, Dict, Any, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 from habana_frameworks.torch import _hpex_C as tex
-from .recipe import DelayedScaling, Format
 
 from .constants import dist_group_type
+from .recipe import DelayedScaling, Format
 
 _FP8_ENABLED = False
 _FP8_RECIPE = None

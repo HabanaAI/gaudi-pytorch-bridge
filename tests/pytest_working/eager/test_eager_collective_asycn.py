@@ -1,19 +1,20 @@
-import os
 import argparse
+import os
+from copy import deepcopy
+from typing import List
+
+import habana_frameworks.torch.hpu
 import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from typing import List
-from torchvision import datasets, transforms
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Linear
 from torch.optim import SGD
 from torch.optim.lr_scheduler import StepLR
-import torch.multiprocessing as mp
-import torch.distributed as dist
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from copy import deepcopy
-import habana_frameworks.torch.hpu
+from torchvision import datasets, transforms
 
 
 def setup(rank, world_size):

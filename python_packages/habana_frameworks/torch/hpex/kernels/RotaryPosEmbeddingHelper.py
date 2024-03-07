@@ -9,9 +9,10 @@
 # was provided.
 #
 # ******************************************************************************
-import torch
 from enum import Enum
 from typing import Tuple
+
+import torch
 
 
 class RotaryPosEmbeddingMode(Enum):

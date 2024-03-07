@@ -9,9 +9,9 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
 import habana_frameworks.torch.hpu as ht
+import pytest
+import torch
 
 
 @pytest.mark.parametrize("shape", [(4, 10, 10), (4, 8, 8), (6, 128, 128)])

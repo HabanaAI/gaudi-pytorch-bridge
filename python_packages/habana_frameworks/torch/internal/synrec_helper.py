@@ -10,9 +10,11 @@
 #
 ###############################################################################
 
+import os
+
 import habana_frameworks.torch as ht
 import habana_frameworks.torch.core as htcore
-import os
+
 
 # Cannot be called twice in a row.
 # Can be used after calling "synrec -w ..." or after synrec_stop()

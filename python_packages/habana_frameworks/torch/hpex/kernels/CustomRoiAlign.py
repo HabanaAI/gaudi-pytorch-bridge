@@ -1,6 +1,7 @@
 import torch
-from torch.nn.modules.utils import _pair
 from habana_frameworks.torch import _hpex_C
+from torch.nn.modules.utils import _pair
+
 
 # This class is deprecated and shall be removed in future releases
 class RoiAlignFunction(torch.autograd.Function):

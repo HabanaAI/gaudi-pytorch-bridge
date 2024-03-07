@@ -10,11 +10,11 @@
 #
 ###############################################################################
 
-import torch
 from typing import Iterable
-from habana_frameworks.torch import _hpex_C
 
 import habana_frameworks.torch.core as htcore
+import torch
+from habana_frameworks.torch import _hpex_C
 
 
 class FusedClipNorm:

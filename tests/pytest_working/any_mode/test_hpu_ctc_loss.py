@@ -10,18 +10,18 @@
 #
 ###############################################################################
 
+import pytest
 import torch
 import torch.nn as nn
-import pytest
-from test_utils import (
-    compare_tensors,
-    hpu,
-    check_ops_executed_in_jit_ir,
-    is_pytest_mode_compile,
-    clear_t_compile_logs,
-    env_var_in_scope,
-)
 from habana_frameworks.torch.hpex.kernels import CTCLoss
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
+    compare_tensors,
+    env_var_in_scope,
+    hpu,
+    is_pytest_mode_compile,
+)
 
 # Unit tests for Connectionist Temporal Classification loss
 # Tests were parameterized by T, C, N, S, S_min

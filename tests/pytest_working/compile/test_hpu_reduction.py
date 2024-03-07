@@ -9,11 +9,11 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.core as htcore
-from test_utils import setup_teardown_env_fixture, format_tc
+import habana_frameworks.torch.dynamo.compile_backend
+import pytest
+import torch
+from test_utils import format_tc, setup_teardown_env_fixture
 
 
 @pytest.mark.parametrize("op_code", [torch.any, torch.mean, torch.prod, torch.var_mean])

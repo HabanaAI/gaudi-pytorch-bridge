@@ -1,6 +1,6 @@
+import pytest
 import torch
 import torch_hpu
-import pytest
 
 torch_hpu.is_available()
 

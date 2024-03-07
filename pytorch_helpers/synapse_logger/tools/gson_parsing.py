@@ -19,9 +19,9 @@ containing line number and dict entry from trace.
 """
 
 import json
-from collections import namedtuple, OrderedDict
-from enum import Enum
 import logging
+from collections import OrderedDict, namedtuple
+from enum import Enum
 
 log = logging.getLogger("synapse_logger.gson_parsing")
 

@@ -13,8 +13,8 @@
 import os
 
 os.environ["PT_HPU_ENABLE_CACHE_METRICS"] = "1"
-import torch
 import pytest
+import torch
 from habana_frameworks.torch.hpu.metrics import metric_global
 from habana_frameworks.torch.utils.library_loader import load_habana_module
 

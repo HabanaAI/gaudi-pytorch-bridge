@@ -10,9 +10,8 @@
 #
 ###############################################################################
 
-import torch
 import habana_frameworks.torch.internal.bridge_config as bc
-
+import torch
 
 RANDOM_OPS = (
     {

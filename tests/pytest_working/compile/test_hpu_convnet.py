@@ -9,9 +9,9 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
 import habana_frameworks.torch.core as htcore
+import pytest
+import torch
 
 
 def test_simple_sgd_convnet():

@@ -13,12 +13,13 @@
 #
 ###############################################################################
 
-import click
-import sys
+import datetime
+import io
 import os
 import subprocess as sp
-import io
-import datetime
+import sys
+
+import click
 
 current_year = datetime.date.today().year
 

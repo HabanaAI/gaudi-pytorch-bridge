@@ -11,14 +11,12 @@
 ###############################################################################
 
 import math
-from typing import Callable, Iterable, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 import torch
-from torch.optim import Optimizer
-
-from typing import List, Dict, Optional, Tuple
-from torch import Tensor
 from habana_frameworks.torch.utils.internal import is_lazy
+from torch import Tensor
+from torch.optim import Optimizer
 
 # The following Function is a modified version of _FunctionalFuseAdamW from
 # torch/distributed/optim/functional_adamw.py

@@ -1,5 +1,5 @@
-import torch
 import habana_frameworks.torch.core as htcore
+import torch
 
 s0 = 4
 s1 = 3

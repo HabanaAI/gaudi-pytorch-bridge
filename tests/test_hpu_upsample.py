@@ -1,12 +1,7 @@
 import pytest
 import torch
 import torch.nn.functional as F
-from test_utils import (
-    compare_tensors,
-    evaluate_fwd_bwd_kernel,
-    evaluate_fwd_kernel,
-    hpu,
-)
+from test_utils import compare_tensors, evaluate_fwd_bwd_kernel, evaluate_fwd_kernel, hpu
 
 op_list = [
     # op

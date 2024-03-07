@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
 
-import os
-import sys
+import argparse
+import json
 import multiprocessing
 import multiprocessing.pool
-
-import json
-import argparse
+import os
+import pathlib
 import signal
+import sys
+import time
 
+import numpy as np
 import torch
 import torch.multiprocessing as mpt
-import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-import pathlib
-import os
-import time
-import sys
-import numpy as np
+import torchvision.transforms as transforms
 
 # global settings
 

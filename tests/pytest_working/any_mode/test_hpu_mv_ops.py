@@ -10,8 +10,8 @@
 #
 ###############################################################################
 import habana_frameworks.torch.dynamo.compile_backend
-import torch
 import pytest
+import torch
 
 
 @pytest.mark.parametrize("shapes", [([2, 3], [3])])

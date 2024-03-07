@@ -10,10 +10,11 @@
 #
 ###############################################################################
 
-import pytest
 import os
-import torch
+
 import habana_frameworks.torch.hpu as hpu
+import pytest
+import torch
 
 TRAIN_CMD = f"python {os.path.abspath(__file__)}"
 DEBUG_MODE = os.getenv("ENABLE_DIVERGENCE_ANALYSER_TESTS_DEBUG")

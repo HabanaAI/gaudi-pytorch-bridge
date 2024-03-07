@@ -1,9 +1,10 @@
-import time
-import math
-from types import MethodType
 import inspect
+import math
+import time
+from types import MethodType
+
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 TAG = "[DETECT_RECOMPILE_AUTO]"
 STEP_COUNT = "step_count"
@@ -242,9 +243,9 @@ def _parse(lines):
 
 
 def _wrap_fn(old_fn, tag1, write_to, level=0, waittime=1):
-    from habana_frameworks.torch.hpu.metrics import metric_localcontext
     import habana_frameworks.torch.core as htcore
     import torch
+    from habana_frameworks.torch.hpu.metrics import metric_localcontext
 
     def forward(self, *args, **kwargs):
         assert not torch.distributed.is_initialized(), "Expected 1x run, but torch being used in distributed fashion"

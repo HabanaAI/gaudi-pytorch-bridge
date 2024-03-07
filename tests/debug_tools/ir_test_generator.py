@@ -4,9 +4,10 @@ Utility that does code generation using the Log IR
 
 import queue
 import random as r
+import re
+
 from ir_graph_generator import *
 from ir_graph_visualizer import *
-import re
 
 
 class SubGraphTestCaseException(BaseException):
@@ -355,7 +356,8 @@ def generate_tests(file_name, marker, graph, depth=0):
 
 
 if __name__ == "__main__":
-    import argparse, os
+    import argparse
+    import os
 
     home = os.environ["HOME"]
     parser = argparse.ArgumentParser("python ir_test_generator")

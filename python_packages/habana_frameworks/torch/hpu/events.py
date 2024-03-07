@@ -1,8 +1,9 @@
 import collections
-import torch
 import warnings
-from typing import Any, Dict, Union, Optional
+from typing import Any, Dict, Optional, Union
+
 import habana_frameworks.torch as htorch
+import torch
 from habana_frameworks.torch import _hpu_C
 
 

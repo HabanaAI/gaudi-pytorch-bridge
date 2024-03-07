@@ -10,8 +10,8 @@
 #
 ###############################################################################
 
-import torch
 import pytest
+import torch
 from test_utils import compare_tensors
 
 

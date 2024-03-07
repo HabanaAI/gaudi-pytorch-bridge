@@ -10,21 +10,20 @@
 #
 ###############################################################################
 
-import torch
 import logging
-import sys
 import os
-import sympy
-import habana_frameworks.torch.internal.bridge_config as bc
+import sys
 
+import habana_frameworks.torch.internal.bridge_config as bc
+import sympy
+import torch
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from sympy import sympify
 from torch.fx.experimental.proxy_tensor import py_sym_types
 
-from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
-from .logger import get_compile_backend_logger, dump_fx_graph
+from .logger import dump_fx_graph, get_compile_backend_logger
 from .random_utils import is_random_op
 from .symbolic_execution import PythonPrinter, SymbolicShapeEvaluator
-
 
 logger = get_compile_backend_logger()
 enable_dynamic_output_preallocate = bc.get_pt_hpu_enable_dynamic_output_preallocate()

@@ -11,12 +11,12 @@
 ###############################################################################
 
 import abc
-from enum import Enum
 import json
 import os
 from datetime import datetime
+from enum import Enum
 
-from .exceptions import InvalidMetricDumpTrigger, InvalidMetricDumpFileFormat
+from .exceptions import InvalidMetricDumpFileFormat, InvalidMetricDumpTrigger
 
 
 class MetricWriter(metaclass=abc.ABCMeta):

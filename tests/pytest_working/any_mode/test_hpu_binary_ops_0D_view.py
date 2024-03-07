@@ -9,10 +9,9 @@
 # was provided.
 #
 ###############################################################################
-import torch
 import pytest
+import torch
 from test_utils import compare_tensors
-
 
 dtypes = [torch.float32, torch.bfloat16]
 

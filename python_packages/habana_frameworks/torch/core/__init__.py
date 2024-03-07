@@ -18,16 +18,12 @@ import torch
 from habana_frameworks.torch import hpu
 from habana_frameworks.torch.utils.internal import is_lazy
 
-from .torch_overwrites import overwrite_torch_functions
-
+# expose common APIs
+from .quantization import hpu_initialize, hpu_reset_env, hpu_set_env
 
 # expose lazy-only APIs
 from .step_closure import add_step_closure, iter_mark_step, mark_step
-
-# expose common APIs
-from .quantization import hpu_set_env
-from .quantization import hpu_initialize
-from .quantization import hpu_reset_env
+from .torch_overwrites import overwrite_torch_functions
 
 # expose habana_frameworks.torch.hpu as torch.hpu
 torch._register_device_module("hpu", hpu)
@@ -60,7 +56,7 @@ if is_lazy():
     _enable_weight_sharing_if_needed()
 else:
     # Initialize torch.compile backend in non-lazy mode.
-    import habana_frameworks.torch.dynamo.compile_backend
     import habana_frameworks.torch.dynamo._custom_op_meta_registrations
+    import habana_frameworks.torch.dynamo.compile_backend
 
 _enable_profiler_if_needed()

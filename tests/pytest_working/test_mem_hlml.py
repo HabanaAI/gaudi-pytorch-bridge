@@ -10,12 +10,13 @@
 #
 ###############################################################################
 
-import torch
-import os
-import habana_frameworks.torch as ht
-import time
 import mmap
+import os
 import struct
+import time
+
+import habana_frameworks.torch as ht
+import torch
 
 SHM_PREFIX_PATH = "/dev/shm"
 SHM_SIZE = 3 * 8  # 3 * uint64_t

@@ -10,16 +10,11 @@
 #
 ###############################################################################
 
+import numpy as np
+import pytest
 import torch
 import torchvision
-import pytest
-import numpy as np
-from test_utils import (
-    clear_t_compile_logs,
-    check_ops_executed_in_jit_ir,
-    compare_tensors,
-    is_pytest_mode_compile,
-)
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compare_tensors, is_pytest_mode_compile
 
 
 def get_rois(input_shape, num_rois):

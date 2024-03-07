@@ -10,10 +10,11 @@
 #
 ###############################################################################
 
-import numpy as np
-import torch
-import pytest
 from functools import reduce
+
+import numpy as np
+import pytest
+import torch
 
 
 @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")

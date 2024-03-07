@@ -9,10 +9,10 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.dynamo.compile_backend
+import pytest
+import torch
 
 # Exponential op on HPU and CPU devices will always give different results.
 # This test checks if:

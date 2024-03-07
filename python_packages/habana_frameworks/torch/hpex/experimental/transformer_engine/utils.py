@@ -18,8 +18,9 @@
 """Utility functions for Transformer Engine modules"""
 import math
 from typing import Any, Callable, Optional, Tuple
-import torch
+
 import habana_frameworks.torch as htorch
+import torch
 
 
 def get_default_init_method() -> Callable:

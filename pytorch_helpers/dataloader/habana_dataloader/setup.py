@@ -11,10 +11,11 @@
 #
 ###############################################################################
 
-from setuptools import setup
-from setup_utils import get_version, PrebuiltPtExtension, SkipBuildExt, InstallCMakeLibs
 import os
 import shutil
+
+from setup_utils import InstallCMakeLibs, PrebuiltPtExtension, SkipBuildExt, get_version
+from setuptools import setup
 
 release_build_dir_var = "PYTORCH_MODULES_RELEASE_BUILD"
 release_build_dir = os.getenv(release_build_dir_var)

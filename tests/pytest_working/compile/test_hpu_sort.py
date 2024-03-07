@@ -9,10 +9,10 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.dynamo.compile_backend
+import pytest
+import torch
 
 
 @pytest.mark.parametrize("dim", [0, 1, 2, 3, -1])

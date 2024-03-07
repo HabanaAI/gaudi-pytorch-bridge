@@ -9,11 +9,11 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-from test_utils import is_gaudi1, format_tc
 import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.utils.experimental as htexp
+import pytest
+import torch
+from test_utils import format_tc, is_gaudi1
 
 dtypes = [torch.bfloat16, torch.float]
 if not is_gaudi1():

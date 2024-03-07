@@ -9,9 +9,9 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
 import habana_frameworks.torch.dynamo.compile_backend
+import pytest
+import torch
 
 shapes = [(3, 1, 7, 4, 1), (1, 5, 1, 1, 8)]
 dims = [(0, 3), (-1, 2), (1, -2, 0)]

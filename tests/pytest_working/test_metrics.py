@@ -10,19 +10,20 @@
 #
 ###############################################################################
 
-from contextlib import contextmanager
 import datetime
 import json
 import os
+from contextlib import contextmanager
 
 os.environ["PT_HPU_ENABLE_CACHE_METRICS"] = "1"
-import pytest
-import torch
-from habana_frameworks.torch.hpu.metrics import metric_global, metric_localcontext, MetricNotFound, metrics_dump
-from habana_frameworks.torch.utils.event_dispatcher import *
 import multiprocessing
 from multiprocessing import Process, Queue
+
+import pytest
+import torch
 import torch.multiprocessing as pt_mp
+from habana_frameworks.torch.hpu.metrics import MetricNotFound, metric_global, metric_localcontext, metrics_dump
+from habana_frameworks.torch.utils.event_dispatcher import *
 
 
 @pytest.fixture(scope="module", autouse=True)

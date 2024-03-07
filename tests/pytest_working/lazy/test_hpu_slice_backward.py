@@ -10,10 +10,10 @@
 #
 # ******************************************************************************
 
-import torch
-import pytest
-from test_utils import cpu, hpu, format_tc
 import habana_frameworks.torch.hpu as ht
+import pytest
+import torch
+from test_utils import cpu, format_tc, hpu
 
 slice_backward_test_case_list = [
     # size, dim, start, end, step

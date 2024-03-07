@@ -10,11 +10,12 @@
 #
 ###############################################################################
 
+import os
+
+import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-import os
-import habana_frameworks.torch.dynamo.compile_backend
-from test_utils import setup_teardown_env_fixture, format_tc
+from test_utils import format_tc, setup_teardown_env_fixture
 
 
 @pytest.mark.parametrize(

@@ -1,16 +1,16 @@
 # Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
 
-import setuptools
 import os
 
+import setuptools
 
 root = os.path.join(os.environ["PYTORCH_MODULES_ROOT_PATH"])
 
 
 def get_version():
     try:
-        import subprocess
         import re
+        import subprocess
 
         describe = (
             subprocess.check_output(["git", "-C", root, "describe", "--abbrev=7", "--tags", "--dirty"])

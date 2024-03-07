@@ -10,16 +10,12 @@
 #
 ###############################################################################
 
-import torch
-import functorch
-
 from typing import List
 
-from .internal import (
-    optimize_pre_partitioner,
-    partition_module,
-    optimize_post_partitioner,
-)
+import functorch
+import torch
+
+from .internal import optimize_post_partitioner, optimize_pre_partitioner, partition_module
 
 
 def hpu_compiler_inner(

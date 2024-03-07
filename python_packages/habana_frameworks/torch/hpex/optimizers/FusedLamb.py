@@ -11,9 +11,8 @@
 ###############################################################################
 
 import torch
-from torch.optim import Optimizer
-
 from habana_frameworks.torch import core as htcore
+from torch.optim import Optimizer
 
 
 class FusedLamb(Optimizer):

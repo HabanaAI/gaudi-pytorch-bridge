@@ -12,6 +12,6 @@
 # was provided.
 
 """Transformer Engine bindings for pyTorch"""
-from .module import Linear
-from .fp8 import fp8_autocast
 from .distributed import checkpoint
+from .fp8 import fp8_autocast
+from .module import Linear

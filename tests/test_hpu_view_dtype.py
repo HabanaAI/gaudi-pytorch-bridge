@@ -12,7 +12,7 @@
 
 import pytest
 import torch
-from test_utils import hpu, cpu
+from test_utils import cpu, hpu
 
 
 # Tests input tensors

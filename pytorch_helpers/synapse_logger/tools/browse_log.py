@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 import argparse
-import textwrap
-import sys
-import os
-import logging
-import pickle
-from copy import deepcopy
 import collections
-from gson_parsing import gson_iterator, syn_types, zip_launch_info, descriptor_byte_size
+import logging
+import os
+import pickle
+import sys
+import textwrap
+from copy import deepcopy
+
+from gson_parsing import descriptor_byte_size, gson_iterator, syn_types, zip_launch_info
 
 log = logging.getLogger(__name__)
 

@@ -10,12 +10,13 @@
 ###############################################################################
 
 import os
-import torch
-import torch.nn as nn
+from contextlib import contextmanager
+
 import numpy
 import pytest
+import torch
+import torch.nn as nn
 
-from contextlib import contextmanager
 
 # Fixture to set the environment variable
 @pytest.fixture

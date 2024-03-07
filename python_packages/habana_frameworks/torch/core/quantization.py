@@ -14,10 +14,9 @@ import contextlib
 from os import environ
 
 import torch
-from habana_frameworks.torch import hpu
-from habana_frameworks.torch import _core_C
-from habana_frameworks.torch.utils import _experimental_C
+from habana_frameworks.torch import _core_C, hpu
 from habana_frameworks.torch.internal import fuse_conv_bn
+from habana_frameworks.torch.utils import _experimental_C
 from torch.fx import symbolic_trace
 
 from .torch_overwrites import _names_hook_already_registered

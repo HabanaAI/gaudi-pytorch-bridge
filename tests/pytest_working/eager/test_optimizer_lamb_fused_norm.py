@@ -1,5 +1,5 @@
-import torch
 import habana_frameworks.torch
+import torch
 from test_utils import compare_tensors, cpu, hpu
 
 

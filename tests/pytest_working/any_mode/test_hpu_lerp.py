@@ -9,8 +9,8 @@
 # was provided.
 #
 ###############################################################################
-import torch
 import pytest
+import torch
 from test_utils import format_tc
 
 dtypes = [torch.bfloat16, torch.float, torch.int]

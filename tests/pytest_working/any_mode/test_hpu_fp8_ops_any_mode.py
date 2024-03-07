@@ -9,18 +9,19 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-import numpy as np
 from enum import Enum
-from fp8_utils import simulateFp8Precision, FP8_MAX
+
+import numpy as np
+import pytest
+import torch
+from fp8_utils import FP8_MAX, simulateFp8Precision
 from test_utils import (
-    clear_t_compile_logs,
     check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
     compare_tensors,
+    format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
-    format_tc,
 )
 
 Verbose = False

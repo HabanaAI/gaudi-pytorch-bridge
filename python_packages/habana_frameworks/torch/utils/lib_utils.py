@@ -1,6 +1,7 @@
-from typing import Pattern
-import habana_frameworks.torch as hftorch
 import os
+from typing import Pattern
+
+import habana_frameworks.torch as hftorch
 
 
 def _check_hftorch_path():

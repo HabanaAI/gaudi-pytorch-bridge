@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 import os
+import timeit
+
 import torch
 import torch.distributed as dist
-import timeit
+from habana_frameworks.torch.utils.library_loader import load_habana_module
 from torch._utils_internal import TEST_MASTER_ADDR as MASTER_ADDR
 from torch._utils_internal import TEST_MASTER_PORT as MASTER_PORT
-from habana_frameworks.torch.utils.library_loader import load_habana_module
 
 load_habana_module()
 

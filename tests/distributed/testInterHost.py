@@ -1,15 +1,14 @@
 import os
+import random
 import time
 
-import torch
-import random
-import numpy as np
-import torch.nn.functional as F
-import torch.distributed as dist
 import habana_frameworks.torch.core as htcore
-
-from mpi4py import MPI
+import numpy as np
+import torch
+import torch.distributed as dist
+import torch.nn.functional as F
 from habana_frameworks.torch.utils.library_loader import load_habana_module
+from mpi4py import MPI
 
 os.environ["PT_HPU_LAZY_MODE"] = "1"
 ITER = 100

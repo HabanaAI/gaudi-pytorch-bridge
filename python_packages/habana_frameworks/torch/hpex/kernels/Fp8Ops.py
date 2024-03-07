@@ -9,9 +9,10 @@
 # was provided.
 #
 ###############################################################################
-import torch
 from typing import Optional, Tuple, Union
+
 import habana_frameworks.torch.core
+import torch
 
 
 def cast_to_fp8(

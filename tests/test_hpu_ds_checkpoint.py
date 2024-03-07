@@ -2,9 +2,9 @@ import os
 
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.utils.debug as htdebug
+import pytest
 import torch
 from pytest_working.test_utils import env_var_in_scope
-import pytest
 
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 

@@ -11,6 +11,7 @@
 ###############################################################################
 import argparse
 from collections import namedtuple
+
 import matplotlib.pyplot as plt
 from gson_parsing import gson_iterator
 

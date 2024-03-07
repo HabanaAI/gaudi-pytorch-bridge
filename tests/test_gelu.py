@@ -1,10 +1,9 @@
 import os
 from inspect import currentframe, getframeinfo
-from test_utils import hpu, cpu
-import pytest
 
 import pytest
 import torch
+from test_utils import cpu, hpu
 
 try:
     import habana_frameworks.torch.core as htcore

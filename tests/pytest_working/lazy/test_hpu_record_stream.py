@@ -9,13 +9,14 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-import habana_frameworks.torch.core as htcore
-import habana_frameworks.torch as ht
-import habana_frameworks.torch.utils.experimental as exp
 import time
+
+import habana_frameworks.torch as ht
+import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.utils.experimental as exp
 import numpy as np
+import pytest
+import torch
 
 
 def test_record_stream():

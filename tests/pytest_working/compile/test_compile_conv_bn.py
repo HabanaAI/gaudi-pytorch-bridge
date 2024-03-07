@@ -1,19 +1,19 @@
+import copy
+import os
+
+import numpy
+import pytest
 import torch
 import torch.nn.functional as F
-import pytest
-import os
-import numpy
-import copy
 
 torch.manual_seed(0)
 
 from contextlib import contextmanager
-from typing import Type, Dict, Any, Tuple, Iterable, Optional, List, cast
-
-from torch.fx import symbolic_trace
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, cast
 
 import torch._dynamo as dynamo
 from torch._functorch.aot_autograd import aot_module_simplified
+from torch.fx import symbolic_trace
 
 batch_norm_test_case_list_2d = [
     # N, H, W, C

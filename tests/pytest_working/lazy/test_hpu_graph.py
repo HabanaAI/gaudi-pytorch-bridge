@@ -11,14 +11,14 @@
 ###############################################################################
 
 import copy
-import torch
+
 import habana_frameworks.torch as ht
-from test_utils import compare_tensors, _kernel_copy_to_device
-import pytest
-from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import Format, DelayedScaling
 import habana_frameworks.torch.hpex.experimental.transformer_engine as te
 import numpy as np
-from test_utils import is_gaudi1
+import pytest
+import torch
+from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import DelayedScaling, Format
+from test_utils import _kernel_copy_to_device, compare_tensors, is_gaudi1
 
 g = ht.hpu.HPUGraph()
 s = ht.hpu.Stream()

@@ -1,6 +1,7 @@
-import torch
 from enum import Enum
+
 import habana_frameworks.torch.utils._activity_profiler_C as hpu_profiler
+import torch
 
 
 class DebugActivity(Enum):

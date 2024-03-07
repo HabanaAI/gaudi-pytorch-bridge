@@ -1,14 +1,15 @@
-import os
 import argparse
+import os
+from typing import List
+
+import habana_frameworks.torch
+import habana_frameworks.torch as ht
 import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from typing import List
-import torch.distributed as dist
-import torch.multiprocessing as mp
-import habana_frameworks.torch as ht
-import habana_frameworks.torch
 
 device_hpu = torch.device("hpu")
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import json
 import argparse
+import json
 
 
 def list_ops_with_send_size(json_path, json_out_path):

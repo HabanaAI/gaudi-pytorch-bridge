@@ -7,12 +7,13 @@
 # Proprietary and confidential.
 #
 # ******************************************************************************
-import sys
-import json
-import collections
 import argparse
-import gson_parsing
+import collections
+import json
 import logging
+import sys
+
+import gson_parsing
 
 HOROVOD_PID_OFFSET = 10000
 SYNAPSE_PID = 1

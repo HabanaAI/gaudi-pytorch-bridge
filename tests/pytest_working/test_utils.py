@@ -11,19 +11,18 @@
 ###############################################################################
 
 import os
+import types
 from collections.abc import Mapping
 from contextlib import contextmanager
 from copy import deepcopy
-from packaging.version import Version
 from typing import Callable, Dict, Optional
 
 import habana_frameworks.torch.hpu as hthpu
-from contextlib import contextmanager
 import habana_frameworks.torch.utils.debug as htdebug
 import numpy as np
 import pytest
 import torch
-import types
+from packaging.version import Version
 
 hpu = torch.device("hpu")
 cpu = torch.device("cpu")
@@ -471,12 +470,8 @@ def is_pytest_mode_eager():
 
 
 def clear_t_compile_logs():
-    from habana_frameworks.torch.dynamo.compile_backend.passes import (
-        logger as graph_logger,
-    )
-    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
-        logger as fallback_logger,
-    )
+    from habana_frameworks.torch.dynamo.compile_backend.passes import logger as graph_logger
+    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import logger as fallback_logger
 
     graph_logger.set_store_data(True)
     fallback_logger.set_store_data(True)
@@ -484,12 +479,9 @@ def clear_t_compile_logs():
 
 def check_ops_executed_in_jit_ir(op_names, allowed_fallback_ops={}, verbose=False):
     import re
-    from habana_frameworks.torch.dynamo.compile_backend.passes import (
-        logger as graph_logger,
-    )
-    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import (
-        logger as fallback_logger,
-    )
+
+    from habana_frameworks.torch.dynamo.compile_backend.passes import logger as graph_logger
+    from habana_frameworks.torch.dynamo.compile_backend.shared_layer import logger as fallback_logger
 
     graphs_data = graph_logger.data
     fallback_data = fallback_logger.data
@@ -561,13 +553,12 @@ def clear_fuser_debug_logs():
 
 
 def check_op_in_fuser_fused_ops(op_names):
-    from os import path, listdir
+    from os import listdir, path
 
     assert path.exists(get_fuser_debug_logs_path())
 
-    from re import fullmatch
-
     import json
+    from re import fullmatch
 
     fused_op_dump_file_names = [
         name

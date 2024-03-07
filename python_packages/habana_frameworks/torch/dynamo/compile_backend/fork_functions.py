@@ -10,8 +10,9 @@
 #
 ###############################################################################
 
-import torch
 from typing import List
+
+import torch
 
 
 @torch.compile(dynamic=False, backend="hpu_inference_backend")

@@ -12,8 +12,8 @@
 
 import pytest
 import torch
+from fp8_utils import FP8_NAMES, check_native_fp8, dtype_from_string
 from test_utils import compare_tensors, is_gaudi1
-from fp8_utils import dtype_from_string, check_native_fp8, FP8_NAMES
 
 shapes = [(3, 1, 7, 4, 1), (1, 5, 1, 1, 8)]
 dims = [(0, 3), (-1, 2), (1, -2, 0)]

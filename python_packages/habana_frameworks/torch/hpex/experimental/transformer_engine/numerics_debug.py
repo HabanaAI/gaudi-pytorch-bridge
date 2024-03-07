@@ -13,7 +13,9 @@
 
 """Utilities for debugging numerical issues with FP8"""
 from typing import Tuple
+
 import torch
+
 from . import recipe
 
 _NUMERICS_DEBUG = False

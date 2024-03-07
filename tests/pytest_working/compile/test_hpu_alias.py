@@ -9,8 +9,8 @@
 # was provided.
 #
 ###############################################################################
-import torch
 import pytest
+import torch
 
 
 @pytest.mark.parametrize("shape", [(1,), (1, 2), (2, 3, 4)])

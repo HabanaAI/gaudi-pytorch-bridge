@@ -9,10 +9,10 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-import habana_frameworks.torch.dynamo.compile_backend
 import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.dynamo.compile_backend
+import pytest
+import torch
 
 
 @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")

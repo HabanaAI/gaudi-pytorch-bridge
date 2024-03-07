@@ -13,10 +13,10 @@
 import pytest
 import torch
 from test_utils import (
+    check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
     compare_tensors,
     is_pytest_mode_compile,
-    clear_t_compile_logs,
-    check_ops_executed_in_jit_ir,
     is_torch_at_least,
 )
 

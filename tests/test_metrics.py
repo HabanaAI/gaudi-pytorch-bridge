@@ -19,12 +19,7 @@ from multiprocessing import Process, Queue
 import pytest
 import torch
 import torch.multiprocessing as pt_mp
-from habana_frameworks.torch.hpu.metrics import (
-    MetricNotFound,
-    metric_global,
-    metric_localcontext,
-    metrics_dump,
-)
+from habana_frameworks.torch.hpu.metrics import MetricNotFound, metric_global, metric_localcontext, metrics_dump
 from habana_frameworks.torch.utils.event_dispatcher import EventDispatcher, EventId
 from test_utils import env_var_in_scope, hpu
 

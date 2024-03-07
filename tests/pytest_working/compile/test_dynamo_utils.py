@@ -9,12 +9,11 @@
 # was provided.
 #
 ###############################################################################
-import torch
-from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-
-
 from contextlib import contextmanager
+
+import torch
+from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 
 
 @contextmanager

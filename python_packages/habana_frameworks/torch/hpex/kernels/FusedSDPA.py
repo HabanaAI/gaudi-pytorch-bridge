@@ -10,10 +10,12 @@
 #
 ###############################################################################
 
-import torch
 import math  # for sqrt etc
 import os
+
 import habana_frameworks.torch.hpu as ht
+import torch
+
 
 # Please refer to FusedSDPA documentation at:
 # https://docs.habana.ai/en/latest/PyTorch/Python_Packages.html#hpex-kernels-fusedsdpa

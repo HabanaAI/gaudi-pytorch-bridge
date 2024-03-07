@@ -14,11 +14,12 @@ import argparse
 import csv
 import json
 import multiprocessing as mp
-import numpy as np
 import os
 import shutil
 import sqlite3
 import time
+
+import numpy as np
 import tqdm
 
 

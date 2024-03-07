@@ -1,6 +1,7 @@
 import torch
 from habana_frameworks.torch import _hpex_C
 
+
 # This class is deprecated and shall be removed in future releases
 class ScaledMaskedSoftmax(torch.autograd.Function):
     @staticmethod

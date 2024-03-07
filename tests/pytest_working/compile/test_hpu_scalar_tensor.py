@@ -9,9 +9,10 @@
 # was provided.
 #
 ###############################################################################
-import torch
 import random
+
 import pytest
+import torch
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])

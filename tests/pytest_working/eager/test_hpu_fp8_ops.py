@@ -9,21 +9,15 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-import numpy as np
-from fp8_utils import (
-    dtype_from_string,
-    simulateFp8Precision,
-    IS_NATIVE_FP8,
-    FP8_MAX,
-    FP8_NAMES,
-)
-from test_utils import is_gaudi1, compare_tensors
 import habana_frameworks.torch.core as htcore
 
 # Disable dynamic shapes
 import habana_frameworks.torch.hpu as ht
+import numpy as np
+import pytest
+import torch
+from fp8_utils import FP8_MAX, FP8_NAMES, IS_NATIVE_FP8, dtype_from_string, simulateFp8Precision
+from test_utils import compare_tensors, is_gaudi1
 
 ht.disable_dynamic_shape()
 

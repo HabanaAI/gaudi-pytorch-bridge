@@ -1,6 +1,5 @@
 import torch
 
-
 if __name__ == "__main__":
     dtype = torch.float
     """

@@ -10,13 +10,14 @@
 #
 ###############################################################################
 
-import torch
-import pytest
-import torch.nn as nn
+import os
+
 import habana_frameworks.torch.dynamo.compile_backend
+import pytest
+import torch
+import torch.nn as nn
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from test_utils import is_gaudi1
-import os
 
 
 def test_slice_op():

@@ -10,11 +10,13 @@
 #
 ###############################################################################
 
-import torch
 from typing import Iterable, List, Union
+
 import habana_frameworks.torch._core_C as htcore
-from ._utils import _get_device_index
+import torch
 from torch import Tensor
+
+from ._utils import _get_device_index
 
 # Keeping default_generators as a list with single instance to keep aligned to cuda
 default_generators: List[torch._C.Generator] = [htcore._get_default_generator()]

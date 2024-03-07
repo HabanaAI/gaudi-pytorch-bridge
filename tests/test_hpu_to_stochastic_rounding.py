@@ -1,7 +1,7 @@
 import numpy as np
-from test_utils import env_var_in_scope, is_gaudi1
 import pytest
 import torch
+from test_utils import env_var_in_scope, is_gaudi1
 
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 

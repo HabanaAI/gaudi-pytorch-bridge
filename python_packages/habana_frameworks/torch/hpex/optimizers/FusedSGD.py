@@ -12,10 +12,10 @@
 
 from typing import Callable, Iterable
 
+import habana_frameworks.torch.core as htcore
 import torch
 from torch.optim import Optimizer
 from torch.optim.optimizer import required
-import habana_frameworks.torch.core as htcore
 
 hpu = torch.device("hpu")
 cpu = torch.device("cpu")

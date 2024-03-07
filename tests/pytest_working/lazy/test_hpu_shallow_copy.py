@@ -10,9 +10,9 @@
 #
 ###############################################################################
 
+import habana_frameworks.torch.core as htcore
 import torch
 from torch import nn
-import habana_frameworks.torch.core as htcore
 
 old_num_tokens = 320
 new_num_tokens = 328

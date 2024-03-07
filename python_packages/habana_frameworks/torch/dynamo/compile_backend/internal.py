@@ -10,9 +10,10 @@
 #
 ###############################################################################
 
+from typing import List
+
 import torch
 
-from typing import List
 from .passes import OptimizationPassPlacement, optimize_graph
 
 

@@ -16,9 +16,10 @@
 
 """This module provides predefined FP8 recipes."""
 from __future__ import annotations
-from enum import Enum
-from typing import Literal, Optional, Union, Callable, NamedTuple
+
 from dataclasses import dataclass
+from enum import Enum
+from typing import Callable, Literal, NamedTuple, Optional, Union
 
 
 class _FormatHelper(NamedTuple):

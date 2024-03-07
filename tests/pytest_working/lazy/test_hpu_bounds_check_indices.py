@@ -20,7 +20,6 @@ from habana_frameworks.torch.hpex.kernels.fbgemm import bounds_check_indices
 from numpy.testing import assert_array_equal, assert_raises
 from test_utils import cpu, generic_setup_teardown_env, hpu
 
-
 pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variables")
 
 

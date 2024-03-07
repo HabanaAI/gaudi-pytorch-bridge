@@ -9,9 +9,9 @@
 # was provided.
 #
 ###############################################################################
+import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-import habana_frameworks.torch.dynamo.compile_backend
 from test_utils import format_tc, is_pytest_mode_compile, is_pytest_mode_eager
 
 select_backward_test_case_list = [

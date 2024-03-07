@@ -10,8 +10,9 @@
 #
 ###############################################################################
 
-import pytest
 import os
+
+import pytest
 
 # TODO: remove after SW-175380 is fixed
 os.environ["PT_HPU_STOCHASTIC_ROUNDING_MODE"] = "0"

@@ -1,6 +1,7 @@
 import itertools
-import torch
 from collections import defaultdict
+
+import torch
 
 
 class FxGraphAnalyzer:

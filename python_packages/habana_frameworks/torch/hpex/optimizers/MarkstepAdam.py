@@ -15,28 +15,29 @@
 ###############################################################################
 
 
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Tuple, Union
 
 import torch
-from torch import Tensor
 from packaging.version import Version
+from torch import Tensor
 
 if Version(torch.__version__) >= Version("2.1.2"):
     from torch.optim.optimizer import ParamsT
 else:
     from torch.optim.optimizer import params_t as ParamsT
+
 from torch.optim.optimizer import (
     Optimizer,
-    _use_grad_for_differentiable,
-    _get_value,
-    _stack_if_compiling,
-    _dispatch_sqrt,
-    _default_to_fused_or_foreach,
     _capturable_doc,
+    _default_to_fused_or_foreach,
     _differentiable_doc,
+    _dispatch_sqrt,
     _foreach_doc,
     _fused_doc,
+    _get_value,
     _maximize_doc,
+    _stack_if_compiling,
+    _use_grad_for_differentiable,
 )
 from torch.utils._foreach_utils import _get_fused_kernels_supported_devices
 

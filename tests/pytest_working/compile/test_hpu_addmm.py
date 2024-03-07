@@ -13,7 +13,6 @@ import pytest
 import torch
 from test_utils import format_tc
 
-
 dtypes = [torch.float, torch.bfloat16, torch.int8, torch.int32, torch.long]
 
 

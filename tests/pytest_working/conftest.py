@@ -10,13 +10,12 @@
 #
 ###############################################################################
 
-import pytest
-import numpy as np
+import os
 import random
 from typing import Mapping
+
 import numpy as np
 import pytest
-import os
 
 # Can't import torch module because PT_HPU_LAZY_MODE is set in pytest_configure. If any function needs torch module it must be imported locally
 

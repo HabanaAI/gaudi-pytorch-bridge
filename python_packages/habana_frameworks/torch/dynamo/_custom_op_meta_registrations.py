@@ -12,8 +12,8 @@
 
 import torch
 from torch._decomp import global_decomposition_table
-from torch._ops import OpOverload, HigherOrderOperator
-from torch._meta_registrations import register_meta, _compute_reduction_shape, utils
+from torch._meta_registrations import _compute_reduction_shape, register_meta, utils
+from torch._ops import HigherOrderOperator, OpOverload
 
 _meta_lib_dont_use_me_use_register_meta_for_hpu = torch.library.Library("hpu", "IMPL", "Meta")
 

@@ -9,11 +9,11 @@
 # was provided.
 #
 ###############################################################################
-import torch
 import pytest
+import torch
 from test_utils import (
-    clear_t_compile_logs,
     check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
     compare_tensors,
     is_gaudi1,
     is_pytest_mode_compile,

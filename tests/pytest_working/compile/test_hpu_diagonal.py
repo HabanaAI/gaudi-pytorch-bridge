@@ -9,11 +9,11 @@
 # was provided.
 #
 ###############################################################################
-import torch
-import pytest
-import habana_frameworks.torch.core as htcore
 from itertools import combinations
 
+import habana_frameworks.torch.core as htcore
+import pytest
+import torch
 from test_utils import is_gaudi1
 
 

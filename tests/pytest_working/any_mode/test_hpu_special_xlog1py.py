@@ -9,12 +9,10 @@
 # was provided.
 #
 ###############################################################################
+import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-import habana_frameworks.torch.dynamo.compile_backend
-from habana_frameworks.torch.dynamo.compile_backend.config import (
-    configuration_flags,
-)
+from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from test_utils import format_tc, is_pytest_mode_compile
 
 

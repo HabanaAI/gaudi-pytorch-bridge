@@ -18,7 +18,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.optimizers import FusedLamb
-
 from test_utils import compare_tensors, cpu, hpu
 
 
