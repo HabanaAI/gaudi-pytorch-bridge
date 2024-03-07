@@ -119,8 +119,10 @@ void insert_strided_view_node(
   jit_node->output(0)->setType(c10::TensorType::createContiguous(
       input.scalar_type(), input.device(), p.getViewSizes()));
 
+  auto sizes = habana::get_base_tensor_size(input);
   jit_node->input(0)->setType(c10::TensorType::createContiguous(
-      input.scalar_type(), input.device(), input.sizes()));
+      input.scalar_type(), input.device(), sizes));
+  PT_EAGER_DEBUG("update graph view input's sizes: ", input.sizes(), " to base sizes: ", sizes);
 
   set_deterministic(jit_node);
   if (consumer_op_doesnt_use_input) {
