@@ -9,7 +9,6 @@ orchestratorConfig:
     - testToLaunch: fairseq_fork/Tests/Test_fairseq_fork_gaudi_hls_asic_pytorch_fairseq_topology
     - testToLaunch: model_garden/Tests/Test_model_garden_gaudi2_asic_pytorch_perf_singlenode
     - testToLaunch: mlperf_inference/Tests/Test_mlperf_inference_gaudi2_asic_8cards_promote
-      silentMode: true
     # PyTorch full graph tests
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_hls_asic_perf
       silentMode: true
