@@ -296,21 +296,32 @@ void HandleDynamicInputPatching(
   c10::SmallVector<habana::graph::SymIntData, PT_MAX_SHAPETENSOR_INPUT>
       scalar_list;
   c10::SmallVector<std::vector<int64_t>, PT_MAX_SHAPETENSOR_INPUT> tensor_list;
+  c10::SmallVector<
+      std::vector<std::pair<int64_t, int64_t>>,
+      PT_MAX_SHAPETENSOR_INPUT>
+      mixed_list;
   for (auto dtensor_info : dmeta->ds_input_patching_list) {
     auto dtensor_indexes = dtensor_info.second;
     dtensor_list.clear();
     scalar_list.clear();
     tensor_list.clear();
+    mixed_list.clear();
     for (auto it : dtensor_indexes) {
       stack.emplace_back(dmeta->ds_stack[it]);
       dtensor_list.emplace_back(&(dmeta->ds_stack[it]));
       scalar_list.emplace_back(dmeta->ds_tensor_to_scalar_map[it]);
       tensor_list.emplace_back(dmeta->ds_tensor_to_tensor_map[it]);
+      mixed_list.emplace_back(dmeta->ds_mixed_map[it]);
     }
 
     if (!is_first_launch) {
       dtensor_info.first(
-          dtensor_list, scalar_list, tensor_list, stack, launch_shapes);
+          dtensor_list,
+          scalar_list,
+          tensor_list,
+          mixed_list,
+          stack,
+          launch_shapes);
     }
   }
 

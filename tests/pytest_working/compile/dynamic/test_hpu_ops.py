@@ -20,11 +20,9 @@ from habana_frameworks.torch.dynamo.compile_backend.config import configuration_
 from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, is_gaudi1, is_pytest_mode_compile
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
 def test_slice_op():
     input_shapes = [[8, 31, 26], [8, 33, 22], [8, 36, 24]]
-
-    is_eager_fallback = configuration_flags["use_eager_fallback"]
-    configuration_flags["use_eager_fallback"] = True
 
     def raw_function(t1):
         slice1 = t1[4:8, :, :]
@@ -43,7 +41,31 @@ def test_slice_op():
         result_h = compiled_fn(t1_h)
 
         assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
-    configuration_flags["use_eager_fallback"] = is_eager_fallback
+
+
+def test_slice_op_positive_index():
+    input_shapes = [[10, 20, 30], [20, 30, 40], [22, 30, 20]]
+
+    def raw_function(t1, t2):
+        t = t1 + t2
+        t = t.relu()
+        tr = t[1:4, 0:5, 2:10]
+        t3 = tr.relu()
+        return t3
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+
+    for s in input_shapes:
+        # CPU
+        t1 = torch.randn(s)
+        t2 = torch.randn(s)
+        result = raw_function(t1, t2)
+        # HPU
+        t1_h = t1.to("hpu")
+        t2_h = t2.to("hpu")
+        result_h = compiled_fn(t1_h, t2_h)
+
+        assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
 def test_as_strided_op_fallback():

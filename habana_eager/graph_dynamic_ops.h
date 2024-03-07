@@ -61,6 +61,7 @@ int64_t UpdateDynamicTensorDSStack(
     torch::jit::IValue& iv_tensor,
     const std::vector<int64_t>& scalar_indexes,
     const std::vector<int64_t>& tensor_indexes,
+    const std::vector<std::pair<int64_t, int64_t>>& mixed_indexes,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
     const c10::SmallVector<int64_t, 8>& lookup_data = {});
 
@@ -68,6 +69,7 @@ int64_t CreateSTAndInsertToDSStack(
     const std::vector<int64_t>& st_size,
     const std::vector<int64_t>& scalar_indexes,
     const std::vector<int64_t>& tensor_indexes,
+    const std::vector<std::pair<int64_t, int64_t>>& mixed_indexes,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
     const c10::SmallVector<int64_t, 8>& lookup_data = {});
 
@@ -133,6 +135,8 @@ class DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
+          mixed_list,
       std::vector<c10::IValue>& orig_stack,
       LaunchDynamicShapes& launch_shapes);
 
@@ -223,6 +227,8 @@ class ViewOperatorDS : public DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
+          mixed_list,
       std::vector<c10::IValue>& stack,
       LaunchDynamicShapes& launch_shapes);
 };
@@ -262,6 +268,8 @@ class ArangeOperatorDS : public DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
+          mixed_list,
       std::vector<c10::IValue>& stack,
       LaunchDynamicShapes& launch_shapes);
 };
@@ -279,6 +287,8 @@ class RepeatOperatorDS : public DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
+          mixed_list,
       std::vector<c10::IValue>& stack,
       LaunchDynamicShapes& launch_shapes);
 };
@@ -296,6 +306,8 @@ class TopkOperatorDS : public DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
+          mixed_list,
       std::vector<c10::IValue>& stack,
       LaunchDynamicShapes& launch_shapes);
 };
@@ -313,6 +325,8 @@ class AsStridedOperatorDS : public DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
+          mixed_list,
       std::vector<c10::IValue>& stack,
       LaunchDynamicShapes& launch_shapes);
 };
@@ -330,6 +344,27 @@ class StridedInsertOperatorDS : public DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
+          mixed_list,
+      std::vector<c10::IValue>& stack,
+      LaunchDynamicShapes& launch_shapes);
+};
+
+class SliceOperatorDS : public DynamicOp {
+ public:
+  SliceOperatorDS() : DynamicOp() {}
+  bool ReplaceWithDynamicHPUOp(
+      torch::jit::Node*,
+      torch::jit::Stack& in_stack,
+      GraphInputIndexMap& org_stack_index_map,
+      ValueIvalueMap& value_ivalue_map,
+      std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
+  static void UpdateDynamicInputs(
+      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
+      c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
+          mixed_list,
       std::vector<c10::IValue>& stack,
       LaunchDynamicShapes& launch_shapes);
 };
@@ -347,6 +382,8 @@ class RandpermGeneratorOperatorDS : public DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
+          mixed_list,
       std::vector<c10::IValue>& stack,
       LaunchDynamicShapes& launch_shapes);
 };
@@ -364,6 +401,8 @@ class ExapndOperatorDS : public DynamicOp {
       c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
       c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
       c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
+          mixed_list,
       std::vector<c10::IValue>& stack,
       LaunchDynamicShapes& launch_shapes);
 };

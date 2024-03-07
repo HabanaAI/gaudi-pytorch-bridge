@@ -1984,7 +1984,7 @@ static auto& BasicKernelsKernelRegistry =
         .add("aten::slice_scatter", KERNEL_FN_GLOBAL(SliceScatterOperator))
         .add("hpu::slice_scatter", KERNEL_FN_GLOBAL(SliceScatterOperatorDSUtil))
         .add("aten::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
-	.add("hpu::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
+        .add("hpu::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
         .add(
             "aten::as_strided_scatter",
             KERNEL_FN_GLOBAL(AsStridedScatterOperator));

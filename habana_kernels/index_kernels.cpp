@@ -1765,6 +1765,51 @@ void NarrowOperator::AllocateAndAddSynapseNode(
   inputs.emplace_back(IValue(1));
   SliceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
+
+std::vector<std::vector<int64_t>> SliceOperator::compute_output_shape(
+    const std::vector<int64_t>& self_size,
+    int64_t& dim,
+    int64_t& start_val,
+    int64_t& end_val,
+    int64_t& step) {
+  // reuse the logic in at::native::slice
+  int64_t ndim = self_size.size();
+  if (ndim == 0) {
+    TORCH_CHECK_INDEX(false, "slice() cannot be applied to a 0-dim tensor.");
+  }
+  dim = at::maybe_wrap_dim(dim, ndim);
+  std::vector<int64_t> sizes(self_size.begin(), self_size.end());
+
+  // TODO: support negative strides
+  TORCH_CHECK(step > 0, "slice step must be positive");
+
+  // INT64_MAX stands for default value.
+  if (start_val == INT64_MAX) {
+    start_val = 0;
+  }
+  if (start_val < 0) {
+    start_val += sizes[dim];
+  }
+  if (end_val < 0) {
+    end_val += sizes[dim];
+  }
+  if (start_val < 0) {
+    start_val = 0;
+  } else if (start_val >= sizes[dim]) {
+    start_val = sizes[dim];
+  }
+  if (end_val < start_val) {
+    end_val = start_val;
+  } else if (end_val >= sizes[dim]) {
+    end_val = sizes[dim];
+  }
+
+  auto len = end_val - start_val;
+  sizes[dim] = (len + step - 1) / step; // round-up
+
+  return {sizes};
+}
+
 std::vector<int64_t> SliceOperator::compute_output_shape(
     const Tensor& self,
     int64_t& dim,
@@ -1808,6 +1853,7 @@ std::vector<int64_t> SliceOperator::compute_output_shape(
 
   return sizes;
 }
+
 Tensor SliceOperator::AllocateOutputTensor(
     const Tensor& self,
     int64_t& dim,
@@ -2038,7 +2084,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
   bool has_shape_tensor = inputs[2].isTensor();
   if (has_shape_tensor && inputs.size() == 4) {
     TORCH_CHECK(
-        inputs.size() == 4,
+        (inputs.size() == 4 || inputs.size() == 5),
         "Incorrect size of inputs expected for slice operator");
     TORCH_CHECK(
         p_context_->syn_inputs_[1].ref().is_shape_tensor(),
@@ -2140,7 +2186,7 @@ void SliceOperator::AllocateAndAddSynapseNode(
     ValidateSliceInputs(inp_shape, out_shape, step, start);
   } else {
     TORCH_CHECK(
-        inputs.size() == 5,
+        (inputs.size() == 5) || (inputs.size() == 6),
         "Incorrect size of inputs expected for slice operator");
     TORCH_CHECK(inputs[1].isInt(), "Input arg2 type expected to be integer");
     TORCH_CHECK(inputs[2].isInt(), "Input arg3 type expected to be integer");
@@ -3048,6 +3094,7 @@ static auto& IndexKernelsKernelRegistry =
         .add("hpu::index_put", KERNEL_FN(IndexPutOperator2))
         .add("aten::slice.Tensor", KERNEL_FN(SliceOperator))
         .add("hpu::slice", KERNEL_FN(SliceOperator))
+        .add("hpu::slice_ds", KERNEL_FN(SliceOperator))
         .add("hpu::slice_ht", KERNEL_FN(SliceOperator))
         .add("aten::index_add", KERNEL_FN(IndexAddOperator))
         .add("hpu::index_add", KERNEL_FN(IndexAddV2Operator))

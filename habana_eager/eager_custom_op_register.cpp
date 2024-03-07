@@ -18,6 +18,7 @@
 #include "common/dump_args.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/logging.h"
+#include "habana_kernels/index_kernels.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "hpu_ops/ctc_loss_custom.h"
 #include "hpu_ops/fp8_ops.h"
@@ -1347,6 +1348,23 @@ at::Tensor sum_fp8(
   return hpu_op.call();
 }
 
+at::Tensor slice_ds(
+    const at::Tensor& self,
+    c10::SymInt dim,
+    c10::SymInt start,
+    c10::SymInt end,
+    c10::SymInt step,
+    [[maybe_unused]] c10::optional<c10::SymIntArrayRef> size) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("slice_ds :", DUMP_5ARGS(self, size, dim, start, end));
+  return at::native::slice(
+      self,
+      dim.expect_int(),
+      start.expect_int(),
+      end.expect_int(),
+      step.expect_int());
+}
+
 // accumulate_grads_ is a wrapper for native inductor.accumulate_grad_ op.
 // It extracts gradients from variables and assigns respective new_grads to them
 // or increment by them, depending if gradients are defined.
@@ -1964,6 +1982,9 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::scaled_triangular_softmax_retain(Tensor self, float inv_scale_attn) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::view(Tensor input, Tensor shape) -> Tensor");
   m.def("hpu::view_neg(Tensor input, Tensor shape, int[] shape) -> Tensor");
+  m.def("hpu::slice_ht(Tensor input, Tensor shape, Tensor shape) -> Tensor");
+  m.def(
+      "hpu::slice_ds(Tensor input, SymInt dim, SymInt start, SymInt end, SymInt step, SymInt[]? size=None) -> Tensor");
   m.def(
       "strided_insert_orig_ds(Tensor self, Tensor other, Tensor stride, Tensor offset) -> (Tensor)");
   m.def(
@@ -2090,6 +2111,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       scaled_triangular_softmax_retain);
   m.impl("hpu::softmax_fp8", softmax_fp8);
   m.impl("hpu::sum_fp8", sum_fp8);
+  m.impl("hpu::slice_ds", slice_ds);
 }
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {

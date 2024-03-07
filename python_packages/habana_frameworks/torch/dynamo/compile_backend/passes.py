@@ -13,6 +13,7 @@
 import contextlib
 import copy
 import os
+import sys
 from collections.abc import Iterable
 from typing import List, Optional
 
@@ -44,6 +45,8 @@ def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -
         "slice_scatter",
         "scalar_tensor",
         "logspace",
+        "slice_scatter",
+        "slice",
     ]
     copy_required = True
     if node.op == "call_function":
@@ -200,11 +203,11 @@ def get_passes(stage: OptimizationPassPlacement):
         ]
     elif stage == OptimizationPassPlacement.PRE_PARTITIONER:
         return [
-            # These passes will run additional placement enabling changes.
-            pass_handle_negative_dims,
+            # These passes will prepare proper placement for some corner-cases.
             pass_handle_view_before_inplace_compute_ops,
             pass_graph_print,
             pass_eagerize_leaf_views,
+            pass_handle_negative_dims,
             pass_replace_sym_size,
             pass_inference_fuse_linear,
         ]
@@ -1221,13 +1224,24 @@ class resolve_negative_dim:
         # This is list of OPs with negative Dims.
         negative_dim_ops = [
             "view",
+            "slice",
         ]
 
         from torch._subclasses.fake_tensor import FakeTensor
         from torch.fx.experimental.proxy_tensor import py_sym_types
 
         if node_name in negative_dim_ops:
-            if node_name == "view":
+            if node_name == "slice":
+                for node_in in node.args:
+                    if isinstance(node_in, torch.fx.Node):
+                        meta_val = node_in.meta.get("val", node_in.meta.get("tensor_meta", None))
+                        if (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides) or isinstance(
+                            meta_val, py_sym_types
+                        ):
+                            resolve_negative_dim.is_dynamic = True
+                            return True
+                return False
+            elif node_name == "view":
                 node_arg0 = node.args[0]
                 meta_val = node_arg0.meta.get("val", node.meta.get("tensor_meta", None))
                 if (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides) or isinstance(
@@ -1283,9 +1297,53 @@ class resolve_negative_dim:
 
         return True
 
+    @classmethod
+    def __resolve_slice_shapes(cls, ctx, node):
+        if node.args[0].meta["output_device"].type == "hpu" and node.meta["placement"] != "eager":
+            new_args1 = []
+            if not cls.is_dynamic:
+                return
+            else:
+                meta_val = node.args[0].meta.get("val", node.meta.get("tensor_meta", None))
+                idx = 0
+                new_args1 = list(meta_val.size())
+                for arg in list(meta_val.size()):
+                    new_args1[idx] = arg
+                    if isinstance(arg, py_sym_types):
+                        new_node = cls.py_node_manager.get_or_create(arg, int)
+                        new_node.meta["placement"] = "eager"
+                        new_node.meta["output_device"] = torch.device("cpu")
+                        new_args1[idx] = new_node
+                    idx += 1
+            # handle negative end values
+            end = sys.maxsize if len(node.args) == 3 else node.args[3]
+            end = new_args1[node.args[1]] if end == sys.maxsize else node.args[3]
+            step = node.args[4] if len(node.args) == 5 else 1
+            # replace call_function and recompile the graph
+            with ctx.graph_module.graph.inserting_before(node):
+                view_new_node = ctx.graph_module.graph.call_function(
+                    torch.ops.hpu.slice_ds.default,
+                    (
+                        node.args[0],
+                        node.args[1],
+                        node.args[2],
+                        end,
+                        step,
+                        new_args1,
+                    ),
+                    {},
+                )
+                node.replace_all_uses_with(view_new_node, propagate_meta=True)
+
+            ctx.graph_module.recompile()
+            ctx.graph_module.graph.eliminate_dead_code()
+        return True
+
     def __new__(cls, ctx, node):
         if cls.node_name == "view":
             return cls.__resolve_view_shapes(ctx, node)
+        if cls.node_name == "slice":
+            return cls.__resolve_slice_shapes(ctx, node)
         return False
 
 

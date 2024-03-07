@@ -59,7 +59,7 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
   auto view_st_name =
       GetDynamicTensorName(v_view_shape->debugName(), SHAPE_TENSOR);
   int64_t stack_index = CreateSTAndInsertToDSStack(
-      inferred_st_sizes, scalar_indexes, {}, m_dmeta);
+      inferred_st_sizes, scalar_indexes, {}, {}, m_dmeta);
   auto v_st_tensor = graph->addInput(view_st_name);
 
   // find if view has negative dims
@@ -106,6 +106,8 @@ void ViewOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
     std::vector<c10::IValue>& orig_stack,
     LaunchDynamicShapes& launch_shapes) {
   HABANA_ASSERT(
@@ -146,6 +148,8 @@ void ArangeOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
     std::vector<c10::IValue>& orig_stack,
     LaunchDynamicShapes& launch_shapes) {
   HABANA_ASSERT(
@@ -236,7 +240,7 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
   // Step2: Create shape tensor and insert to graph inputs.
   auto arange_st_name = GetDynamicTensorName(end->debugName(), SHAPE_TENSOR);
   int64_t stack_index_2 =
-      CreateSTAndInsertToDSStack(inferred_st_sizes, {end_idx}, {}, m_dmeta);
+      CreateSTAndInsertToDSStack(inferred_st_sizes, {end_idx}, {}, {}, m_dmeta);
   auto arange_st_tensor = graph->addInput(arange_st_name);
 
   // Step3: Register patching function and tensor lists
@@ -325,7 +329,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   auto as_strided_shape_st_name =
       GetDynamicTensorName(as_strided_shape->debugName(), SHAPE_TENSOR);
   int64_t stack_index = CreateSTAndInsertToDSStack(
-      values_shapes, scalar_indexes_shape, tensor_indexes, m_dmeta);
+      values_shapes, scalar_indexes_shape, tensor_indexes, {}, m_dmeta);
   auto v_st_sizes_tensor = graph->addInput(as_strided_shape_st_name);
   std::vector<int64_t> dtensor_indexes{stack_index};
 
@@ -389,7 +393,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
       h2d_tensor_strides, h2d_values, HostDataType::UINT64_T, false);
   auto iv_st_strides_tensor = torch::jit::IValue(h2d_tensor_strides);
   int64_t stack_index_strides = UpdateDynamicTensorDSStack(
-      iv_st_strides_tensor, scalar_indexes, tensor_indexes, m_dmeta);
+      iv_st_strides_tensor, scalar_indexes, tensor_indexes, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(as_strided_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
 
@@ -442,7 +446,11 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
     std::vector<int64_t> scalar_indexes_offset;
     scalar_indexes_offset.push_back(offset_idx);
     int64_t stack_index_offset = UpdateDynamicTensorDSStack(
-        iv_st_offset_tensor, scalar_indexes_offset, tensor_indexes, m_dmeta);
+        iv_st_offset_tensor,
+        scalar_indexes_offset,
+        tensor_indexes,
+        {},
+        m_dmeta);
     auto as_strided_offset_st_name =
         GetDynamicTensorName(as_strided_offset->debugName(), SHAPE_TENSOR);
     auto v_st_offset_tensor = graph->addInput(as_strided_offset_st_name);
@@ -468,6 +476,8 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
     std::vector<c10::IValue>& orig_stack,
     LaunchDynamicShapes& launch_shapes) {
   HABANA_ASSERT(
@@ -630,7 +640,7 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
       h2d_tensor_strides, h2d_values, HostDataType::UINT64_T, false);
   auto iv_st_strides_tensor = torch::jit::IValue(h2d_tensor_strides);
   int64_t stack_index_strides = UpdateDynamicTensorDSStack(
-      iv_st_strides_tensor, scalar_indexes, {}, m_dmeta);
+      iv_st_strides_tensor, scalar_indexes, {}, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(strided_insert_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
 
@@ -669,7 +679,7 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
     std::vector<int64_t> scalar_indexes_offset;
     scalar_indexes_offset.push_back(offset_idx);
     int64_t stack_index_offset = UpdateDynamicTensorDSStack(
-        iv_st_offset_tensor, scalar_indexes_offset, {}, m_dmeta);
+        iv_st_offset_tensor, scalar_indexes_offset, {}, {}, m_dmeta);
     auto strided_insert_offset_st_name =
         GetDynamicTensorName(strided_insert_offset->debugName(), SHAPE_TENSOR);
     auto v_st_offset_tensor = graph->addInput(strided_insert_offset_st_name);
@@ -695,6 +705,8 @@ void StridedInsertOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
     std::vector<c10::IValue>& orig_stack,
     LaunchDynamicShapes& launch_shapes) {
   HABANA_ASSERT(
@@ -741,6 +753,8 @@ void RandpermGeneratorOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
     std::vector<c10::IValue>& orig_stack,
     LaunchDynamicShapes& launch_shapes) {
   HABANA_ASSERT(
@@ -823,7 +837,7 @@ bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
   // Step2: Create shape tensor and insert to graph inputs.
   auto arange_st_name = GetDynamicTensorName(end->debugName(), SHAPE_TENSOR);
   int64_t stack_index_2 =
-      CreateSTAndInsertToDSStack(inferred_st_sizes, {end_idx}, {}, m_dmeta);
+      CreateSTAndInsertToDSStack(inferred_st_sizes, {end_idx}, {}, {}, m_dmeta);
   auto arange_st_tensor = graph->addInput(arange_st_name);
 
   // Step3: Register patching function and tensor lists

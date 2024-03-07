@@ -17,6 +17,7 @@
 #include "habana_eager/graph_dynamic.h"
 
 #include "habana_helpers/logging.h"
+#include "habana_kernels/index_kernels.h"
 
 namespace habana {
 namespace graph {
@@ -174,6 +175,7 @@ int64_t UpdateDynamicTensorDSStack(
     torch::jit::IValue& iv_tensor,
     const std::vector<int64_t>& scalar_indexes,
     const std::vector<int64_t>& tensor_indexes,
+    const std::vector<std::pair<int64_t, int64_t>>& mixed_indexes,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
     const c10::SmallVector<int64_t, 8>& lookup_data) {
   int64_t stack_index = dmeta->ds_stack.size();
@@ -186,6 +188,7 @@ int64_t UpdateDynamicTensorDSStack(
   STValue.lookup_data = lookup_data;
   dmeta->ds_tensor_to_scalar_map[stack_index] = STValue;
   dmeta->ds_tensor_to_tensor_map[stack_index] = tensor_indexes;
+  dmeta->ds_mixed_map[stack_index] = mixed_indexes;
   PT_EAGER_DEBUG("Dynamic tensor inserted to stack at index:", stack_index);
   return stack_index;
 }
@@ -194,12 +197,18 @@ int64_t CreateSTAndInsertToDSStack(
     const std::vector<int64_t>& st_size,
     const std::vector<int64_t>& scalar_indexes,
     const std::vector<int64_t>& tensor_indexes,
+    const std::vector<std::pair<int64_t, int64_t>>& mixed_indexes,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
     const c10::SmallVector<int64_t, 8>& lookup_data) {
   auto iv_st_tensor =
       torch::jit::IValue(createDynamicTensor(st_size, SHAPE_TENSOR));
   int64_t stack_index = UpdateDynamicTensorDSStack(
-      iv_st_tensor, scalar_indexes, tensor_indexes, dmeta, lookup_data);
+      iv_st_tensor,
+      scalar_indexes,
+      tensor_indexes,
+      mixed_indexes,
+      dmeta,
+      lookup_data);
   return stack_index;
 }
 
@@ -219,7 +228,7 @@ int64_t CreateH2DAndInsertToDSStack(
 
   auto iv_h2d_tensor = torch::jit::IValue(h2d_tensor);
   int64_t stack_index =
-      UpdateDynamicTensorDSStack(iv_h2d_tensor, scalar_indexes, {}, dmeta);
+      UpdateDynamicTensorDSStack(iv_h2d_tensor, scalar_indexes, {}, {}, dmeta);
   return stack_index;
 }
 
@@ -227,6 +236,8 @@ void DynamicOp::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
     std::vector<c10::IValue>& orig_stack,
     LaunchDynamicShapes& launch_shapes) {
   HABANA_ASSERT(
@@ -291,6 +302,8 @@ void RepeatOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
     c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
     std::vector<c10::IValue>& orig_stack,
     LaunchDynamicShapes& launch_shapes) {
   HABANA_ASSERT(
@@ -341,7 +354,7 @@ bool TopkOperatorDS::ReplaceWithDynamicHPUOp(
   // Step2: Create shape tensor and insert to graph inputs.
   auto k_st_name = GetDynamicTensorName(v_k->debugName(), SHAPE_TENSOR);
   int64_t stack_index =
-      CreateSTAndInsertToDSStack({act_value}, {scalar_idx}, {}, m_dmeta);
+      CreateSTAndInsertToDSStack({act_value}, {scalar_idx}, {}, {}, m_dmeta);
   auto v_st_tensor = graph->addInput(k_st_name);
 
   // Step3: Register patching function and tensor lists
@@ -400,12 +413,12 @@ bool SelectScatterOperatorDS::ReplaceWithDynamicHPUOp(
   // Step2: Create shape tensor and insert to graph inputs.
   auto index_st_name = GetDynamicTensorName(index->debugName(), SHAPE_TENSOR);
   int64_t stack_index =
-      CreateSTAndInsertToDSStack({index_value}, {index_idx}, {}, m_dmeta);
+      CreateSTAndInsertToDSStack({index_value}, {index_idx}, {}, {}, m_dmeta);
   auto index_st_tensor = graph->addInput(index_st_name);
 
   auto dim_st_name = GetDynamicTensorName(dim->debugName(), SHAPE_TENSOR);
   int64_t dim_index =
-      CreateSTAndInsertToDSStack({dim_value}, {dim_idx}, {}, m_dmeta);
+      CreateSTAndInsertToDSStack({dim_value}, {dim_idx}, {}, {}, m_dmeta);
   auto dim_st_tensor = graph->addInput(dim_st_name);
 
   // Step3: Register patching function and tensor lists
@@ -425,6 +438,226 @@ bool SelectScatterOperatorDS::ReplaceWithDynamicHPUOp(
       value_ivalue_map);
 
   return true;
+}
+
+bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
+    torch::jit::Node* slice_node,
+    torch::jit::Stack& in_stack,
+    GraphInputIndexMap& org_stack_index_map,
+    ValueIvalueMap& value_ivalue_map,
+    std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
+  HABANA_ASSERT(6 == slice_node->inputs().size());
+  auto graph{slice_node->owningGraph()};
+  auto in_tensors = getInputTensers(slice_node, value_ivalue_map);
+
+  // Step 1: Collect shape and scalar pos used in ListConstruct input node
+  static const auto list_construct_symbol{
+      c10::Symbol::fromQualString("prim::ListConstruct")};
+  auto v_slice_shape = slice_node->inputs().at(5);
+  HABANA_ASSERT(
+      v_slice_shape->node()->kind() == list_construct_symbol,
+      "Slice input is not a ListConstruct, it is: ",
+      v_slice_shape->node()->kind().toQualString());
+  auto list_construct_node{v_slice_shape->node()};
+
+  std::vector<int64_t> self_size;
+  std::vector<int64_t> scalar_indexes;
+  GetValuesAndScalarIndexesFromListConstruct(
+      list_construct_node,
+      in_stack,
+      org_stack_index_map,
+      self_size,
+      scalar_indexes);
+
+  std::vector<std::pair<int64_t, int64_t>> mixed_indexes;
+  std::vector<std::pair<int64_t, int64_t>> mixed_scalar_indexes;
+  for (size_t i = 0; i < self_size.size(); i++)
+    mixed_scalar_indexes.push_back(
+        std::make_pair(scalar_indexes[i], self_size[i]));
+
+  // get Dim
+  int64_t dim_idx = LONG_MAX, start_idx = LONG_MAX, end_idx = LONG_MAX,
+          step_idx = LONG_MAX;
+  int64_t dim = 0, start = 0, end = 0, step = 0;
+  GetValueAndScalarIndexFromInput(
+      slice_node->inputs().at(1), in_stack, org_stack_index_map, dim, dim_idx);
+  dim = at::maybe_wrap_dim(dim, self_size.size(), /*wrap_scalar=*/true);
+  // get start
+  GetValueAndScalarIndexFromInput(
+      slice_node->inputs().at(2),
+      in_stack,
+      org_stack_index_map,
+      start,
+      start_idx);
+  // get end
+  GetValueAndScalarIndexFromInput(
+      slice_node->inputs().at(3), in_stack, org_stack_index_map, end, end_idx);
+  end = self_size[dim] < end ? self_size[dim] : end;
+  // get step
+  GetValueAndScalarIndexFromInput(
+      slice_node->inputs().at(4),
+      in_stack,
+      org_stack_index_map,
+      step,
+      step_idx);
+  auto shape =
+      SliceOperator::compute_output_shape(self_size, dim, start, end, step);
+  mixed_indexes.push_back(std::make_pair(dim_idx, dim));
+  mixed_indexes.push_back(std::make_pair(start_idx, start));
+  mixed_indexes.push_back(std::make_pair(end_idx, end));
+  mixed_indexes.push_back(std::make_pair(step_idx, step));
+
+  // create shape tesnor
+  auto slice_st_name = GetDynamicTensorName(
+      slice_node->output()->debugName() + "0", SHAPE_TENSOR);
+  std::vector<int64_t> tensor_indexes;
+  {
+    auto slice_input_0_val = slice_node->inputs().at(0);
+    auto in_0_name = slice_input_0_val->debugName();
+    if (org_stack_index_map.count(in_0_name)) {
+      auto input_0_idx = static_cast<int64_t>(org_stack_index_map[in_0_name]);
+      tensor_indexes.push_back(input_0_idx);
+    }
+  }
+  int64_t st_stack_index = CreateSTAndInsertToDSStack(
+      shape.at(0), scalar_indexes, tensor_indexes, mixed_indexes, m_dmeta);
+  auto gip_slice_st_tensor = graph->addInput(slice_st_name);
+  std::vector<int64_t> dtensor_indexes{st_stack_index};
+
+  // H2D tensor
+  if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_SLICE)) {
+    // H2D value preperation
+    std::vector<uint64_t> host_params{
+        static_cast<uint64_t>(self_size.size()), 1, 1, 1, 1, 1, 0, 0, 0, 0, 0};
+    int index = self_size.size() - dim;
+    host_params[index] = step;
+    host_params[index + 5] = start;
+    auto slice_h2d_name = GetDynamicTensorName(
+        slice_node->output()->debugName() + "1", HOST_TO_DEVICE_TENSOR);
+    at::Tensor h2d_tensor = createDynamicTensor(
+        {static_cast<int64_t>(host_params.size()) * 2}, HOST_TO_DEVICE_TENSOR);
+    SetH2DTensorHostData<uint64_t>(
+        h2d_tensor, host_params, HostDataType::UINT64_T, false);
+    auto slice_h2d_tensor = torch::jit::IValue(h2d_tensor);
+    int64_t h2d_stack_index = UpdateDynamicTensorDSStack(
+        slice_h2d_tensor, {}, {}, mixed_scalar_indexes, m_dmeta);
+    auto gip_slice_h2d_tensor = graph->addInput(slice_h2d_name);
+    dtensor_indexes.push_back(h2d_stack_index);
+    // Create hpu::slice_ht node and insert to the graph
+    static const auto hpu_slice_ht_symbol{
+        c10::Symbol::fromQualString("hpu::slice_ht")};
+    CreateAndInsertDynamicNodeToGraph(
+        graph,
+        slice_node,
+        hpu_slice_ht_symbol,
+        {slice_node->input(0), gip_slice_st_tensor, gip_slice_h2d_tensor},
+        value_ivalue_map);
+  } else {
+    auto dims = self_size.size();
+    std::vector<int64_t> step_vec(dims, 1);
+    step_vec[dim] = step;
+    // create shape tesnor
+    auto slice_st_name_1 = GetDynamicTensorName(
+        slice_node->output()->debugName() + "1", SHAPE_TENSOR);
+    int64_t st_stack_index_1 =
+        CreateSTAndInsertToDSStack(step_vec, {}, {}, mixed_indexes, m_dmeta);
+    auto gip_slice_st_tensor_1 = graph->addInput(slice_st_name_1);
+    dtensor_indexes.push_back(st_stack_index_1);
+    std::vector<int64_t> start_vec(dims, 0);
+    start_vec[dim] = start;
+    // create shape tesnor
+    auto slice_st_name_2 = GetDynamicTensorName(
+        slice_node->output()->debugName() + "2", SHAPE_TENSOR);
+    int64_t st_stack_index_2 =
+        CreateSTAndInsertToDSStack(start_vec, {}, {}, mixed_indexes, m_dmeta);
+    auto gip_slice_st_tensor_2 = graph->addInput(slice_st_name_2);
+    dtensor_indexes.push_back(st_stack_index_2);
+    // Create hpu::slice_ht node and insert to the graph
+    static const auto hpu_slice_ht_symbol{
+        c10::Symbol::fromQualString("hpu::slice")};
+    CreateAndInsertDynamicNodeToGraph(
+        graph,
+        slice_node,
+        hpu_slice_ht_symbol,
+        {slice_node->input(0),
+         gip_slice_st_tensor,
+         gip_slice_st_tensor_1,
+         gip_slice_st_tensor_2},
+        value_ivalue_map);
+  }
+  InputPatchPair patch_info(
+      &SliceOperatorDS::UpdateDynamicInputs, dtensor_indexes);
+  m_dmeta->ds_input_patching_list.push_back(patch_info);
+  return true;
+}
+
+void SliceOperatorDS::UpdateDynamicInputs(
+    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<habana::graph::SymIntData>&
+        scalar_idx_list,
+    [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
+  // shape Tensor
+  auto dtensorST = dtensor_list[0]->toTensor();
+  std::vector<int64_t> self_size;
+  launch_shapes.ds_tensors.push_back(dtensorST);
+  for (size_t i = 0; i < mixed_list[1].size(); i++) {
+    if (mixed_list[1].at(i).first == LONG_MAX)
+      self_size.push_back(mixed_list[1].at(i).second);
+    else
+      self_size.push_back(
+          GetSymintValue(orig_stack, mixed_list[1].at(i).first));
+  }
+
+  // tensor sizes
+  {
+    // patch Dim
+    int64_t dim = 0;
+    if (mixed_list[0].at(0).first == LONG_MAX) {
+      dim = mixed_list[0].at(0).second;
+    } else {
+      dim = GetSymintValue(orig_stack, mixed_list[0].at(0).first);
+    }
+    // patch Start
+    int64_t start = 0;
+    if (mixed_list[0].at(1).first == LONG_MAX) {
+      start = mixed_list[0].at(1).second;
+    } else {
+      start = GetSymintValue(orig_stack, mixed_list[0].at(1).first);
+    }
+    // patch end
+    int64_t end = 0;
+    if (mixed_list[0].at(2).first == LONG_MAX) {
+      end = mixed_list[0].at(2).second;
+    } else {
+      end = GetSymintValue(orig_stack, mixed_list[0].at(2).first);
+    }
+    // patch step
+    int64_t step = 0;
+    if (mixed_list[0].at(3).first == LONG_MAX) {
+      step = mixed_list[0].at(3).second;
+    } else {
+      step = GetSymintValue(orig_stack, mixed_list[0].at(3).first);
+    }
+
+    dim = at::maybe_wrap_dim(dim, self_size.size(), /*wrap_scalar=*/true);
+    end = self_size[dim] < end ? self_size[dim] : end;
+    auto shape =
+        SliceOperator::compute_output_shape(self_size, dim, start, end, step);
+    launch_shapes.patch_values.push_back(shape.at(0));
+    // H2D patching
+    auto dtensorH2D = dtensor_list[1]->toTensor();
+    std::vector<uint64_t> host_params{
+        static_cast<uint64_t>(self_size.size()), 1, 1, 1, 1, 1, 0, 0, 0, 0, 0};
+    int index = self_size.size() - dim;
+    host_params[index] = step;
+    host_params[index + 5] = start;
+    std::vector<int64_t> cast_data(host_params.begin(), host_params.end());
+    UpdateH2DPatchingData(dtensorH2D, cast_data, launch_shapes);
+  }
 }
 
 bool ExapndOperatorDS::ReplaceWithDynamicHPUOp(
@@ -454,7 +687,7 @@ bool ExapndOperatorDS::ReplaceWithDynamicHPUOp(
       values[i] = self_sizes[i];
 
   std::vector<int64_t> dtensor_indexes{CreateSTAndInsertToDSStack(
-      values, scalar_ids, {}, dmeta, {values.begin(), values.end()})};
+      values, scalar_ids, {}, {}, dmeta, {values.begin(), values.end()})};
 
   InputPatchPair patch_info(
       &ExapndOperatorDS::UpdateDynamicInputs, dtensor_indexes);
@@ -466,6 +699,8 @@ void ExapndOperatorDS::UpdateDynamicInputs(
     c10::SmallVectorImpl<at::IValue*>& ivals,
     c10::SmallVectorImpl<SymIntData>& scalars,
     [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& temp_unused,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
     std::vector<at::IValue>& stack,
     LaunchDynamicShapes& launch_shapes) {
   at::IntArrayRef values = scalars[0].values;
@@ -553,22 +788,22 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   // Step2: Create shape tensor and insert to graph inputs.
   auto step_st_name = GetDynamicTensorName(step->debugName(), SHAPE_TENSOR);
   int64_t step_index =
-      CreateSTAndInsertToDSStack({step_value}, {step_idx}, {}, m_dmeta);
+      CreateSTAndInsertToDSStack({step_value}, {step_idx}, {}, {}, m_dmeta);
   auto step_st_tensor = graph->addInput(step_st_name);
 
   auto end_st_name = GetDynamicTensorName(end->debugName(), SHAPE_TENSOR);
   int64_t end_index =
-      CreateSTAndInsertToDSStack({end_value}, {end_idx}, {}, m_dmeta);
+      CreateSTAndInsertToDSStack({end_value}, {end_idx}, {}, {}, m_dmeta);
   auto end_st_tensor = graph->addInput(end_st_name);
 
   auto start_st_name = GetDynamicTensorName(start->debugName(), SHAPE_TENSOR);
   int64_t start_index =
-      CreateSTAndInsertToDSStack({start_value}, {start_idx}, {}, m_dmeta);
+      CreateSTAndInsertToDSStack({start_value}, {start_idx}, {}, {}, m_dmeta);
   auto start_st_tensor = graph->addInput(start_st_name);
 
   auto dim_st_name = GetDynamicTensorName(dim->debugName(), SHAPE_TENSOR);
   int64_t dim_index =
-      CreateSTAndInsertToDSStack({dim_value}, {dim_idx}, {}, m_dmeta);
+      CreateSTAndInsertToDSStack({dim_value}, {dim_idx}, {}, {}, m_dmeta);
   auto dim_st_tensor = graph->addInput(dim_st_name);
 
   // Step3: Register patching function and tensor lists
@@ -613,6 +848,7 @@ static const auto& BasicDSOpsRegistry =
         .DSOP_MID_BACKEND(hpu::strided_insert, StridedInsertOperatorDS)
         .DSOP_MID_BACKEND(aten::select_scatter, SelectScatterOperatorDS)
         .DSOP_MID_BACKEND(aten::slice_scatter, SliceScatterOperatorDS)
+        .DSOP_MID_BACKEND(hpu::slice_ds, SliceOperatorDS)
         .DSOP_MID_BACKEND(hpu::habana_randperm, RandpermGeneratorOperatorDS);
 } // namespace graph
 } // namespace habana
