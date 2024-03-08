@@ -10,6 +10,7 @@
 #
 ###############################################################################
 import torch
+import pytest
 from torch._dynamo import compiled_autograd
 from test_utils import compare_tensors, clear_t_compile_logs, is_torch_at_least
 from test_dynamo_utils import use_eager_fallback
@@ -44,6 +45,7 @@ class ExampleLinear(torch.nn.Module):
         return self.weight * x
 
 
+@pytest.mark.skip(reason="https://gerrit.habana-labs.com/#/c/399842 removes accumulate_grad")
 def test_accumulate_grad():
     with use_eager_fallback():
         clear_t_compile_logs()
