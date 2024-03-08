@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 #include "generated/backend/avg_pool3d.h"
-#include "generated/backend/avg_pool3d_backward.h"
 #include "hpu_ops/backend/pool_helpers.h"
 
 #define CHECK_DIM(input_size)                                             \
@@ -133,73 +132,6 @@ void Avgpool3dFwd::AddNode(
       {{intermediateOutShape, ScalarType(), finalIndex}},
       params.get(),
       size);
-  syn_out(0) = reshapeRequired
-      ? std::move(
-            ReshapeHelper(graph, avgPool[0].get(), meta.shape, meta.dtype, 0))
-      : std::move(avgPool[0]);
-}
-
-std::shared_ptr<void> FillAvgPool3dParamsBwd(
-    const at::Stack& stack,
-    size_t& size) {
-  std::vector<long int> padding = {0, 0, 0};
-  auto kernelSize = stack.at(2).toIntVector();
-  auto stride =
-      stack.at(3).toListRef().empty() ? kernelSize : stack.at(3).toIntVector();
-  auto pad = stack.at(4).isNone() ? padding : stack.at(4).toIntVector();
-  const bool ceilMode = stack.at(5).toBool();
-  const bool includePad = stack.at(6).toBool();
-  int64_t divOverride = stack.at(7).isNone() ? 0 : stack.at(7).toInt();
-  return FillAvgPool3dParams(
-      kernelSize, stride, pad, ceilMode, includePad, divOverride, size);
-}
-
-OutputMetaDataVector AvgPool3dBwdMeta(const at::Stack& stack) {
-  auto self = stack.at(1).toTensor();
-  OutputMetaData meta;
-  meta.shape = self.sizes().vec();
-  meta.dtype = self.scalar_type();
-  return {meta};
-}
-
-void AvgPool3dBwd::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  bool reshapeRequired = stack_tensor(stack, 0).dim() == 4;
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
-  auto meta = OutputMeta(stack)[0];
-  auto intermediateOutShape = meta.shape;
-
-  std::vector<synTensor> inputs = {syn_in(0)};
-  std::vector<synapse_helpers::tensor> expandResult;
-  c10::optional<int> finalIndex =
-      reshapeRequired ? c10::nullopt : c10::make_optional<int>(0);
-
-  if (reshapeRequired) {
-    auto inputExpandedShape = stack_tensor(stack, 0).sizes().vec();
-    inputExpandedShape.insert(std::begin(inputExpandedShape), 1);
-    intermediateOutShape.insert(std::begin(intermediateOutShape), 1);
-    synAxisParams expandParams{4};
-    expandResult.push_back(std::move(BuildOp(
-        graph,
-        "expand_dims",
-        std::move(inputs),
-        {{inputExpandedShape, meta.dtype}},
-        &expandParams,
-        sizeof(expandParams))[0]));
-    inputs = {expandResult[0].get()};
-  }
-
-  this->CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
-  auto avgPool = BuildOp(
-      graph,
-      GetGuid(),
-      std::move(inputs),
-      {{intermediateOutShape, meta.dtype, finalIndex}},
-      params.get(),
-      size);
-
   syn_out(0) = reshapeRequired
       ? std::move(
             ReshapeHelper(graph, avgPool[0].get(), meta.shape, meta.dtype, 0))

@@ -89,57 +89,6 @@ def test_hpu_avg_pool3d(shape, kernel_size_and_padding, stride, ceil_mode, count
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
     assert torch.allclose(cpu_output, hpu_output)
 
-
-@pytest.mark.parametrize("shape", [[1, 8, 16, 16], [1, 1, 8, 16, 16]], ids=format_tc)
-@pytest.mark.parametrize("kernel_size_and_padding", [(4, (1, 2, 2)), ((1, 1, 1), 0)], ids=format_tc)
-@pytest.mark.parametrize("stride", [(2, 1, 2)], ids=format_tc)
-@pytest.mark.parametrize("ceil_mode", [False])
-@pytest.mark.parametrize("count_include_pad", [False])
-@pytest.mark.parametrize("divisor_override", [None, 4, -3])
-@pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
-def test_hpu_avg_pool3d_bwd(
-    shape, kernel_size_and_padding, stride, ceil_mode, count_include_pad, divisor_override, dtype
-):
-    def fn(input):
-        fwd = torch.ops.aten.avg_pool3d(
-            input,
-            kernel_size,
-            padding=padding,
-            stride=stride,
-            ceil_mode=ceil_mode,
-            count_include_pad=count_include_pad,
-            divisor_override=divisor_override,
-        )
-        grad = torch.ones_like(fwd)
-        grad_input = torch.zeros_like(input)
-        fwd.backward(grad)
-        output = torch.ops.aten.avg_pool3d_backward(
-            grad,
-            input.detach(),
-            kernel_size,
-            stride,
-            padding,
-            ceil_mode,
-            count_include_pad,
-            divisor_override,
-            grad_input=grad_input,
-        )
-        return output, input.grad
-
-    kernel_size, padding = kernel_size_and_padding
-    cpu_input = torch.rand(shape, dtype=dtype)
-    hpu_input = cpu_input.to("hpu")
-    cpu_input.requires_grad = True
-    hpu_input.requires_grad = True
-    torch._dynamo.reset()
-    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
-
-    cpu_output_1, cpu_output_2 = fn(cpu_input)
-    hpu_output_1, hpu_output_2 = hpu_compiled_fn(hpu_input)
-    assert torch.allclose(cpu_output_1, hpu_output_1.cpu())
-    assert torch.allclose(cpu_output_2, hpu_output_2.cpu())
-
-
 @pytest.mark.parametrize("shape", [[8, 16, 16], [1, 8, 16, 16]], ids=format_tc)
 @pytest.mark.parametrize("kernel_size_and_padding", [((2, 2), 1)], ids=format_tc)
 @pytest.mark.parametrize("stride", [(1, 2), 1], ids=format_tc)
