@@ -29,6 +29,7 @@ def test_select_scatter():
         ((16, 16), (16), 0, 5),
         ((16, 16), (16), 1, 6),
     ]
+
     # Created a mini graph for testing
     # add op -> select_scatter op -> mul op
     def wrapper_fn(t, t_src, dim, indices):
@@ -44,9 +45,7 @@ def test_select_scatter():
         input_tensor = torch.rand(shape[0], requires_grad=False, device=cpu)
         src_tensor = torch.rand(shape[1], requires_grad=False, device=cpu)
 
-        y_cpu = f_cpu(
-            input_tensor, src_tensor, shape[2], shape[3]
-        )
+        y_cpu = f_cpu(input_tensor, src_tensor, shape[2], shape[3])
         y_hpu = f_hpu(input_tensor.to(hpu), src_tensor.to(hpu), shape[2], shape[3])
 
         assert torch.allclose(y_cpu, y_hpu.to(cpu), atol=0.001, rtol=0.001)

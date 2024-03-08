@@ -415,16 +415,14 @@ def rand_generator(size, **kwargs):
     kwargs.pop("generator", None)
     return torch.rand(size, **kwargs)
 
-@register_custom_decomposition(
-    torch.ops.hpu.sdpa_recomp_fwd.default, hpu_backend_decompositions_common
-)
+
+@register_custom_decomposition(torch.ops.hpu.sdpa_recomp_fwd.default, hpu_backend_decompositions_common)
 def sdpa_recomp_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, requires_backward, fast_softmax_mode):
     op = torch.ops.hpu.sdpa_recomp_fwd_dropout if dropout_p > 0.0 else torch.ops.hpu.sdpa_recomp_fwd_non_dropout
     return op(q, k, v, attn_mask, dropout_p, scale, is_causal, requires_backward, fast_softmax_mode)
 
-@register_custom_decomposition(
-    torch.ops.hpu.sdpa_fwd.default, hpu_backend_decompositions_common
-)
+
+@register_custom_decomposition(torch.ops.hpu.sdpa_fwd.default, hpu_backend_decompositions_common)
 def sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode):
     op = torch.ops.hpu.sdpa_fwd_dropout if dropout_p > 0.0 else torch.ops.hpu.sdpa_fwd_non_dropout
     return op(q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode)

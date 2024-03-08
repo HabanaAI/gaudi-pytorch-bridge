@@ -19,6 +19,7 @@ dtypes = [torch.bfloat16, torch.float]
 if not is_gaudi1():
     dtypes.append(torch.float16)
 
+
 @pytest.mark.parametrize("input_shape", [[2, 2, 3], [4, 2, 5, 2], [2, 1, 3, 3, 2]])
 @pytest.mark.parametrize("other_scalar", [None, 1.3, 2.123, 5.947812, 13.13541])
 @pytest.mark.parametrize("rounding_mode", ["floor", "trunc"])
@@ -44,6 +45,7 @@ def test_hpu_div_tensor_scalar_mode(input_shape, other_scalar, rounding_mode, dt
     hpu_output = hpu_compiled_fn(hpu_input, hpu_other, rounding_mode).cpu()
     assert torch.allclose(cpu_output, hpu_output)
 
+
 @pytest.mark.parametrize("input_scalar", [1.3, 2.123, 5.947812, 13.13541])
 @pytest.mark.parametrize("other_shape", [[1]])
 @pytest.mark.parametrize("rounding_mode", ["floor", "trunc"])
@@ -64,6 +66,7 @@ def test_hpu_div_scalar_tensor_mode(input_scalar, other_shape, rounding_mode, dt
     cpu_output = cpu_compiled_fn(cpu_input, cpu_other, rounding_mode)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_other, rounding_mode).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+
 
 @pytest.mark.parametrize("input_shape", [[2, 2, 3], [4, 2, 5, 2], [2, 1, 3, 3, 2]])
 @pytest.mark.parametrize("other_scalar", [None, 1.3, 2.123, 5.947812, 13.13541])
@@ -88,6 +91,7 @@ def test_hpu_floor_divide_tensor_scalar_mode(input_shape, other_scalar, dtype):
     cpu_output = cpu_compiled_fn(cpu_input, cpu_other)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_other).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+
 
 @pytest.mark.parametrize("input_scalar", [1.3, 2.123, 5.947812, 13.13541])
 @pytest.mark.parametrize("other_shape", [[1]])

@@ -773,6 +773,7 @@ def create_map_sig(tree, orig_sig):
     emit_string(typed_child(tree, 0, "type"), emit, emit_fn)
     return str(emit)
 
+
 # Returns core_type from lark tree
 # recursive - is for templates. Type extraction is limited to just one type so:
 #   - for type std::optional<int> it will return std::optional<int>
@@ -2557,7 +2558,7 @@ def get_cp_type_check(cptype):
         "ITensorListRef": "isTensorList",
         "TensorList": "isTensorList",
         "c10::optional<ArrayRef>": "isList",
-        "IntArrayRef": "isList"
+        "IntArrayRef": "isList",
     }
     if cptype not in cp_type_check_map:
         return None
@@ -2729,7 +2730,6 @@ def generate_check_kernel_support_frontend(args, fgens, fgen_files, frontend_inc
             unique_func_map[fgen.func] = [idx]
             ops_added.add(fgen.func)
 
-
     for op in hpu_shared_layer_unsupported_ops:
         if op in unique_func_map:
             del unique_func_map[op]
@@ -2783,7 +2783,6 @@ def generate_check_kernel_support_frontend(args, fgens, fgen_files, frontend_inc
             gen_file_idx += 1
             dtype_defs = ""
             functions = ""
-
 
     frontend_class_headers = {}
 

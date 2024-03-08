@@ -77,9 +77,9 @@ hpu_supported_op_list = {
     "split",
     "convolution",
     "convolution_backward",
-    #G3
+    # G3
     "max_pool2d_with_indices_backward",
-    "sum"
+    "sum",
 }
 
 hpu_supported_ops_restricted = dict()
@@ -191,21 +191,15 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
                         elif isinstance(val, list):
                             return [convert(i) for i in val]
                         return val
-                    concrete_args = tuple(
-                        convert(arg) for arg in args
-                    )
-                    concrete_kwargs = {
-                        key: convert(val)
-                        for key, val in kwargs.items()
-                    }
+
+                    concrete_args = tuple(convert(arg) for arg in args)
+                    concrete_kwargs = {key: convert(val) for key, val in kwargs.items()}
                     # Sometimes we get only number, but tensor is required
-                    allow_numbers_as_tensors = torch._C._should_allow_numbers_as_tensors(node.target._schema.name.split("::")[-1].split(".")[0])
+                    allow_numbers_as_tensors = torch._C._should_allow_numbers_as_tensors(
+                        node.target._schema.name.split("::")[-1].split(".")[0]
+                    )
                     do_fallback = check_cpu_fallback_op(
-                        op_name,
-                        node.target._schema,
-                        allow_numbers_as_tensors,
-                        *concrete_args,
-                        **concrete_kwargs
+                        op_name, node.target._schema, allow_numbers_as_tensors, *concrete_args, **concrete_kwargs
                     )
                     if do_fallback:
                         logger.debug(

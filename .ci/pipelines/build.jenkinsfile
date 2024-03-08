@@ -4,21 +4,14 @@ src = library("pipeline-library@$stableBranch")
 
 def user_install = env.runInDocker == 'true' ? '' : '--user'
 def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'AEON', 'HL_THUNK', 'COMPLEX_GUID', 'SWTOOLS_SDK', 'SYNAPSE_PROFILER', 'TPC_KERNELS', 'SCAL', 'PT_FORK']
-def clangFormatValidation = [
-    'clang-format validation': { util ->
-        try {
-            util.createPatchClangformatDiff()
-        } catch(err) {
-            archiveArtifacts artifacts: "repos/${GERRIT_PROJECT}/clang_format_diff_${GERRIT_CHANGE_NUMBER}.patch" , fingerprint: true, allowEmptyArchive: true
-            throw err
-        }
-    }
-]
-def checkYAMLLinter = [
-    'YAML file validation': { util ->
+
+def preCommitValidation = [
+    'Running pre-commit hooks': { util ->
         util.runShellCommandWrapper("""
             __check_pytorch_dev_py_deps
-            yamllint -c \${PYTORCH_MODULES_ROOT_PATH}/.yamllint \${PYTORCH_MODULES_ROOT_PATH}/scripts/hpu_op.yaml
+            pushd \${PYTORCH_MODULES_ROOT_PATH}
+            pre-commit run --show-diff-on-failure --from HEAD^ --to HEAD
+            popd
         """)
     }
 ]
@@ -52,7 +45,7 @@ def preBuildStages = [
 ]
 preBuildStages = preBuildStages + ccacheStats + pytorchFork + ccacheStats
 if(env.GERRIT_PROJECT == 'pytorch-integration' && !isPromote) {
-    preBuildStages = clangFormatValidation + checkYAMLLinter + preBuildStages
+    preBuildStages = preCommitValidation + preBuildStages
 }
 if((env.GERRIT_PROJECT == 'lightning-habana-fork' ) && !isPromote) {
     preBuildStages =  preBuildStages + lightningHabanaFork

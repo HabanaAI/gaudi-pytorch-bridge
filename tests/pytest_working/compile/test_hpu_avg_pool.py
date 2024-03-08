@@ -89,6 +89,7 @@ def test_hpu_avg_pool3d(shape, kernel_size_and_padding, stride, ceil_mode, count
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
     assert torch.allclose(cpu_output, hpu_output)
 
+
 @pytest.mark.parametrize("shape", [[8, 16, 16], [1, 8, 16, 16]], ids=format_tc)
 @pytest.mark.parametrize("kernel_size_and_padding", [((2, 2), 1)], ids=format_tc)
 @pytest.mark.parametrize("stride", [(1, 2), 1], ids=format_tc)
@@ -176,6 +177,7 @@ def test_hpu_adaptive_avg_pool3d_bwd(shape, output_size, dtype):
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input)
     assert torch.allclose(cpu_output, hpu_output.cpu())
+
 
 @pytest.mark.parametrize("shape", [[8, 16, 16], [1, 8, 16, 16]], ids=format_tc)
 @pytest.mark.parametrize("output_size", [((2, 2))], ids=format_tc)

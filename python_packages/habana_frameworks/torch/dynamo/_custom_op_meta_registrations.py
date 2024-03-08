@@ -479,7 +479,7 @@ def meta_scaled_masked_triangular_softmax(
     return self.new_empty(self.shape, dtype=dtype)
 
 
-def meta_sdpa_recomp_fwd_helper(q,k,v):
+def meta_sdpa_recomp_fwd_helper(q, k, v):
     out_shape = list(q.shape)
     out_shape[-1] = list(v.shape)[-1]
     out = q.new_empty(out_shape)
@@ -496,29 +496,35 @@ def meta_sdpa_recomp_fwd_helper(q,k,v):
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd.default])
 def meta_sdpa_recomp_fwd(q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode):
-    return meta_sdpa_recomp_fwd_helper(q,k,v)
+    return meta_sdpa_recomp_fwd_helper(q, k, v)
+
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd_dropout.default])
 def meta_sdpa_recomp_fwd_dropout(q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode):
-    return meta_sdpa_recomp_fwd_helper(q,k,v)
+    return meta_sdpa_recomp_fwd_helper(q, k, v)
+
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default])
 def meta_sdpa_recomp_fwd_non_dropout(q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode):
-    return meta_sdpa_recomp_fwd_helper(q,k,v)
+    return meta_sdpa_recomp_fwd_helper(q, k, v)
+
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd_dropout_seed.default])
-def meta_sdpa_recomp_fwd_dropout_seed(seed, q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode):
-    return meta_sdpa_recomp_fwd_helper(q,k,v)
+def meta_sdpa_recomp_fwd_dropout_seed(
+    seed, q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode
+):
+    return meta_sdpa_recomp_fwd_helper(q, k, v)
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_bwd.default])
-def meta_sdpa_recomp_bwd( dout,q,k,v, attn_mask, m, linv, seed, is_causal, dropout_p, scale):
+def meta_sdpa_recomp_bwd(dout, q, k, v, attn_mask, m, linv, seed, is_causal, dropout_p, scale):
     grad_q = q.new_empty(q.shape)
     grad_k = k.new_empty(k.shape)
     grad_v = v.new_empty(v.shape)
     return grad_q, grad_k, grad_v
 
-def meta_sdpa_fwd_helper(q,k,v):
+
+def meta_sdpa_fwd_helper(q, k, v):
     out_shape = list(q.shape)
     out_shape[-1] = list(v.shape)[-1]
     out = q.new_empty(out_shape)
@@ -529,28 +535,34 @@ def meta_sdpa_fwd_helper(q,k,v):
     dm = q.new_empty(p_shape, dtype=torch.int8)
     return out, p, dm
 
+
 @register_meta([torch.ops.hpu.sdpa_fwd.default])
 def meta_sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode):
-    return meta_sdpa_fwd_helper(q,k,v)
+    return meta_sdpa_fwd_helper(q, k, v)
+
 
 @register_meta([torch.ops.hpu.sdpa_fwd_dropout.default])
 def meta_sdpa_fwd_dropout(q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode):
-    return meta_sdpa_fwd_helper(q,k,v)
+    return meta_sdpa_fwd_helper(q, k, v)
+
 
 @register_meta([torch.ops.hpu.sdpa_fwd_non_dropout.default])
 def meta_sdpa_recomp_fwd_non_dropout(q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode):
-    return meta_sdpa_fwd_helper(q,k,v)
+    return meta_sdpa_fwd_helper(q, k, v)
+
 
 @register_meta([torch.ops.hpu.sdpa_fwd_dropout_seed.default])
 def meta_sdpa_fwd_dropout_seed(seed, q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode):
-    return  meta_sdpa_fwd_helper(q,k,v)
+    return meta_sdpa_fwd_helper(q, k, v)
+
 
 @register_meta([torch.ops.hpu.sdpa_bwd.default])
-def meta_sdpa_bwd(dout,q,k,v, p, dm, dropout_p, scale):
+def meta_sdpa_bwd(dout, q, k, v, p, dm, dropout_p, scale):
     grad_q = q.new_empty(q.shape)
     grad_k = k.new_empty(k.shape)
     grad_v = v.new_empty(v.shape)
     return grad_q, grad_k, grad_v
+
 
 @register_meta([torch.ops.hpu.softmax_fp8.default])
 def meta_softmax_fp8(input, dim, input_scale=None, output_scale=None, inv_attn_heads=None):

@@ -16,6 +16,7 @@ from test_utils import compare_tensors, format_tc, hpu
 
 tols = {torch.float: 1e-4, torch.bfloat16: 1e-2, torch.int: 0}
 
+
 @pytest.mark.parametrize(
     "shape",
     [

@@ -16,6 +16,8 @@ import pytest
 import torch
 
 torch.manual_seed(2)
+
+
 def test_graph():
     input = [(2, 3, 4, 4), (2, 3, 6, 6), (2, 3, 8, 8), (2, 3, 10, 10), (2, 3, 2, 2)]
 
@@ -23,11 +25,13 @@ def test_graph():
         out1 = torch.mul(input_tensor, 2)
         out2 = torch.add(input_tensor, out1)
         return out2
+
     for s in input:
         t = torch.randn(s, requires_grad=False)
         t_hpu = t.to("hpu")
         result = raw_function(t_hpu)
         htcore._mark_step()
-        print(result.to('cpu'))
+        print(result.to("cpu"))
+
 
 test_graph()

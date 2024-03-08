@@ -23,7 +23,8 @@ from test_utils import format_tc, is_gaudi1
         ((2,), (1,)),
         ((2, 3), (2, 3)),
         ((6,), (6, 0)),
-    ], ids=format_tc
+    ],
+    ids=format_tc,
 )
 def test_equal(data1, data2):
     cpu_tensor1 = torch.Tensor(data1).type(torch.float32)
@@ -39,8 +40,7 @@ def test_equal(data1, data2):
 
 
 @pytest.mark.parametrize(
-    "shape_in, shape_out",
-    [((2, 3), (4, 6)), ((4, 6), (2, 3)), ((2, 3, 4, 5), (3, 4, 5, 6))], ids=format_tc
+    "shape_in, shape_out", [((2, 3), (4, 6)), ((4, 6), (2, 3)), ((2, 3, 4, 5), (3, 4, 5, 6))], ids=format_tc
 )
 @pytest.mark.parametrize("blocking_flag", [True, False])
 def test_resize_inplace(shape_in, shape_out, blocking_flag):
@@ -615,6 +615,7 @@ def test_unique2(tensor_in, return_inverse, return_sorted, return_counts):
     else:
         assert isinstance(counts, type(None))
 
+
 @pytest.mark.parametrize(
     "tensor_in",
     [
@@ -641,9 +642,7 @@ def test_unique2(tensor_in, return_inverse, return_sorted, return_counts):
             [[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]],
             dtype=torch.float32,
         ),
-        torch.tensor(
-            [[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32
-        ),
+        torch.tensor([[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
     ],
 )
 @pytest.mark.parametrize("return_inverse", [True, False])
@@ -663,7 +662,7 @@ def test_unique2_delegate(tensor_in, return_inverse, return_sorted, return_count
         sorted=return_sorted,
         return_counts=return_counts,
     )
-    
+
     if return_counts and return_inverse:
         feature_map_cpu, inverse_cpu, counts_cpu = unique_cpu
         feature_map, inverse, counts = unique_hpu
@@ -676,7 +675,7 @@ def test_unique2_delegate(tensor_in, return_inverse, return_sorted, return_count
     if not return_counts and not return_inverse:
         feature_map_cpu = unique_cpu
         feature_map = unique_hpu
-   
+
     feature_map = feature_map.to("cpu")
     if return_inverse:
         inverse = inverse.to("cpu")
@@ -698,6 +697,7 @@ def test_unique2_delegate(tensor_in, return_inverse, return_sorted, return_count
         #     # the inverse tensor will not be valid in such case, hence the disabled assertion
         if return_sorted:
             assert torch.equal(counts, counts_cpu)
+
 
 @pytest.mark.parametrize(
     "tensor_in",
@@ -725,9 +725,7 @@ def test_unique2_delegate(tensor_in, return_inverse, return_sorted, return_count
             [[11.0, 33.0, 12.0], [44.0, 55.0, 66.0], [77.0, 99.0, 99.0]],
             dtype=torch.float32,
         ),
-        torch.tensor(
-            [[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32
-        ),
+        torch.tensor([[44.0, 55.0, 66.0], [77.0, 99.0, 99.0]], dtype=torch.float32),
     ],
 )
 @pytest.mark.parametrize("return_inverse", [True, False])
@@ -747,7 +745,7 @@ def test_unique2_tensor_delegate(tensor_in, return_inverse, return_sorted, retur
         sorted=return_sorted,
         return_counts=return_counts,
     )
-   
+
     if return_counts and return_inverse:
         feature_map_cpu, inverse_cpu, counts_cpu = unique_cpu
         feature_map, inverse, counts = unique_hpu
@@ -782,7 +780,8 @@ def test_unique2_tensor_delegate(tensor_in, return_inverse, return_sorted, retur
         #     # the inverse tensor will not be valid in such case, hence the disabled assertion
         if return_sorted:
             assert torch.equal(counts, counts_cpu)
-     
+
+
 @pytest.mark.parametrize(
     "tensor_in",
     [

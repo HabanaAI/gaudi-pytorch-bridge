@@ -80,9 +80,9 @@ class DivergenceAnalyzer:
     def __init__(self, cfg, use_cache=True):
         self.cfg = cfg
         self.dumpdir = os.path.join(args.out)
-        self.logdir = os.path.join(self.dumpdir, 'divergence_logs')
-        self.dumpdir_static = os.path.join(self.dumpdir, 'StaticSynRec')
-        self.dumpdir_dynamic = os.path.join(self.dumpdir, 'DynamicSynRec')
+        self.logdir = os.path.join(self.dumpdir, "divergence_logs")
+        self.dumpdir_static = os.path.join(self.dumpdir, "StaticSynRec")
+        self.dumpdir_dynamic = os.path.join(self.dumpdir, "DynamicSynRec")
         self.dict_cache = None
         self.mismatch_map = None
         self.use_cache = use_cache
@@ -124,8 +124,8 @@ class DivergenceAnalyzer:
 
     def validate_dump_path(self):
         if self.cfg.parallel:
-            assert os.path.exists(self.dumpdir_static), 'Static dumps not found'
-            assert os.path.exists(self.dumpdir_dynamic), 'Dynamic dumps not found'
+            assert os.path.exists(self.dumpdir_static), "Static dumps not found"
+            assert os.path.exists(self.dumpdir_dynamic), "Dynamic dumps not found"
 
         else:
             assert os.path.exists(os.path.join(self.dumpdir, "./StaticSynRec.db")), "Static dumps not found"
@@ -160,10 +160,10 @@ class DivergenceAnalyzer:
     def get_commands(self):
         synrec_path = self.get_synrec_path()
         default_config = "PT_HPU_LAZY_ACC_PAR_MODE=0 PT_HPU_PGM_ENABLE_CACHE=0 PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES=1"
-        do_split = ' -s' if self.cfg.parallel else ''
-        ranks = '--ranks ' + str(self.cfg.rank)
-        cmd_static = f'{default_config} PT_HPU_ENABLE_MIN_MAX_AS_CURRENT=1 {synrec_path}{do_split} -t -p {self.dumpdir_static} --ignore-errors --overwrite {ranks} -- {self.cfg.cmd}'
-        cmd_dynamic = f'{default_config} {synrec_path}{do_split} -t -p {self.dumpdir_dynamic} --ignore-errors --overwrite {ranks} -- {self.cfg.cmd}'
+        do_split = " -s" if self.cfg.parallel else ""
+        ranks = "--ranks " + str(self.cfg.rank)
+        cmd_static = f"{default_config} PT_HPU_ENABLE_MIN_MAX_AS_CURRENT=1 {synrec_path}{do_split} -t -p {self.dumpdir_static} --ignore-errors --overwrite {ranks} -- {self.cfg.cmd}"
+        cmd_dynamic = f"{default_config} {synrec_path}{do_split} -t -p {self.dumpdir_dynamic} --ignore-errors --overwrite {ranks} -- {self.cfg.cmd}"
         return cmd_static, cmd_dynamic
 
     def clear_cache(self):
@@ -174,13 +174,13 @@ class DivergenceAnalyzer:
             if os.path.exists(path):
                 for file in os.listdir(path):
                     if file.endswith(".db"):
-                        graph_name = file.split('.')[0]
-                        prcoess_id = file.split('.')[1]
-                        path_db = f'{path}/{graph_name}.{prcoess_id}.db'
-                        path_json = f'{path}/{graph_name}.{prcoess_id}.json'
+                        graph_name = file.split(".")[0]
+                        prcoess_id = file.split(".")[1]
+                        path_db = f"{path}/{graph_name}.{prcoess_id}.db"
+                        path_json = f"{path}/{graph_name}.{prcoess_id}.json"
                         data_dict[mode][graph_name] = {
-                            'db': path_db,
-                            'json': path_json,
+                            "db": path_db,
+                            "json": path_json,
                         }
 
         if self.use_cache and self.dict_cache is not None:
@@ -189,8 +189,8 @@ class DivergenceAnalyzer:
             data_dict = {"Static": {}, "Dynamic": {}}
 
             if self.cfg.parallel:
-                graphdir_static = self.dumpdir_static + '/.graph_dumps/'
-                fill_dict(data_dict, graphdir_static, 'Static')
+                graphdir_static = self.dumpdir_static + "/.graph_dumps/"
+                fill_dict(data_dict, graphdir_static, "Static")
                 graphdir_dynamic = self.dumpdir_dynamic + "/.graph_dumps/"
                 fill_dict(data_dict, graphdir_dynamic, "Dynamic")
 
@@ -233,7 +233,7 @@ class DivergenceAnalyzer:
             self.log("[WARNING] Databases have different table names")
             return False
 
-        '''
+        """
         This is thr format in which data is preset in DB file
         Data is from synapse/src/data_serialize/sql/sql_db_serializer.cpp
                                         "ROW_INDEX      int     not NULL,"
@@ -251,7 +251,7 @@ class DivergenceAnalyzer:
                                         "SHAPE          blob,"
                                         "PERMUTATION    blob,"
                                         "DATA_ID        int     not NULL,"
-        '''
+        """
         idx_graph_name = 3
         idx_tensor_name = 5
         idx_validation = 10
@@ -265,7 +265,7 @@ class DivergenceAnalyzer:
         if len(tensors_1) != len(tensors_2):
             self.log("[WARNING] DB has different tensor numbers in static and dynamic not comparing")
         else:
-            #Validate if tensor names match for all db entries
+            # Validate if tensor names match for all db entries
             tensor_names_1 = [item[idx_tensor_name] for item in tensors_1]
             tensor_names_2 = [item[idx_tensor_name] for item in tensors_2]
             if not tensor_names_1 == tensor_names_2:
@@ -277,9 +277,9 @@ class DivergenceAnalyzer:
             if data_ids_table1 != data_ids_table2:
                 for r1, r2 in zip(tensors_1, tensors_2):
                     # Check if tensor is valid and data is different
-                    if((r1[idx_validation] == 0) and (r2[idx_validation] == 0) and (r1[idx_data] != r2[idx_data])):
+                    if (r1[idx_validation] == 0) and (r2[idx_validation] == 0) and (r1[idx_data] != r2[idx_data]):
                         graph_name = r1[idx_graph_name]
-                        if 'graph_dumps' in graph_name:
+                        if "graph_dumps" in graph_name:
                             if self.mismatch_map is None:
                                 self.mismatch_map = {}
                             if graph_name not in self.mismatch_map.keys():
@@ -290,8 +290,8 @@ class DivergenceAnalyzer:
         data_dict = self.collect_available_dumps()
 
         if self.cfg.parallel:
-            data_static = data_dict['Static']
-            data_dynamic = data_dict['Dynamic']
+            data_static = data_dict["Static"]
+            data_dynamic = data_dict["Dynamic"]
             assert len(set(data_static) - set(data_dynamic)) == 0
             graph_names = list(sorted(data_static.keys(), key=lambda item: int(item.split("_")[-1])))
 
@@ -304,10 +304,10 @@ class DivergenceAnalyzer:
 
     def dump_stats(self):
         if self.mismatch_map is not None:
-            outfile = self.logdir + '/mismatch.txt'
-            self.log(f'[WARNING] Divergence in {len(self.mismatch_map)} graphs between static and dynamic runs')
-            self.log(f'[INFO] Dumping divergence data in file\033[91m {outfile}\033[0m')
-            with open(outfile, 'w') as file:
+            outfile = self.logdir + "/mismatch.txt"
+            self.log(f"[WARNING] Divergence in {len(self.mismatch_map)} graphs between static and dynamic runs")
+            self.log(f"[INFO] Dumping divergence data in file\033[91m {outfile}\033[0m")
+            with open(outfile, "w") as file:
                 for key in self.mismatch_map:
                     file.write(f"{key} {self.mismatch_map[key]}\n")
         else:
@@ -363,14 +363,14 @@ class DivergenceAnalyzer:
                 data_dict["Static"][graph_name]["json"],
             )
 
-        path_csv = self.logdir + '/synrec_comparision.csv'
+        path_csv = self.logdir + "/synrec_comparision.csv"
         if not self.cfg.no_stats:
-            self.log(f'[INFO] Analyzing differences using dbparser and dumping in CSV file \033[91m{path_csv}\033[0m')
+            self.log(f"[INFO] Analyzing differences using dbparser and dumping in CSV file \033[91m{path_csv}\033[0m")
         else:
-            self.log(f'[INFO] Dumping difference in CSV file \033[91m{path_csv}\033[0m')
+            self.log(f"[INFO] Dumping difference in CSV file \033[91m{path_csv}\033[0m")
         data_dict = self.collect_available_dumps()
-        output_static = self.logdir + '/output_static.log'
-        output_dynamic = self.logdir + '/output_dynamic.log'
+        output_static = self.logdir + "/output_static.log"
+        output_dynamic = self.logdir + "/output_dynamic.log"
 
         rows = []
 
@@ -404,12 +404,12 @@ class DivergenceAnalyzer:
                     path_json = data_dict["Static"]["json"]
 
                 if not self.cfg.no_stats:
-                    #FIXME: Check if command ran successfully and found the graph and tensor in db file
+                    # FIXME: Check if command ran successfully and found the graph and tensor in db file
                     cmd_static = f"{json_tests_bin} db_parser -d {path_static} -g '{graph_name}' -t '{tensor}' -o {output_static}"
                     cmd_dynamic = f"{json_tests_bin} db_parser -d {path_dynamic} -g '{graph_name}' -t '{tensor}' -o {output_dynamic}"
 
-                    self.run(cmd_static, mode='static', verbose=False)
-                    self.run(cmd_dynamic, mode='dynamic', verbose=False)
+                    self.run(cmd_static, mode="static", verbose=False)
+                    self.run(cmd_dynamic, mode="dynamic", verbose=False)
 
                 row = {}
                 row.update(self.get_node(path_json, graph_name, tensor))
@@ -420,7 +420,7 @@ class DivergenceAnalyzer:
                     writer = csv.DictWriter(csv_outfile, row.keys())
                     writer.writeheader()
                     is_first_row = False
-                if (not self.cfg.no_stats and row['abs_max'] > self.cfg.thresh):
+                if not self.cfg.no_stats and row["abs_max"] > self.cfg.thresh:
                     writer.writerow(row)
 
                 progbar.update(1)
@@ -429,29 +429,31 @@ class DivergenceAnalyzer:
 
     def compare_split(self, is_final=True):
         data_dict = self.collect_available_dumps()
-        data_static = data_dict['Static']
-        data_dynamic = data_dict['Dynamic']
+        data_static = data_dict["Static"]
+        data_dynamic = data_dict["Dynamic"]
 
         valid_files_count = min(len(data_static), len(data_dynamic))
         if not is_final:
             valid_files_count -= 1
-        static_files = set(sorted(data_static.keys(), key=lambda item: int(item.split('_')[-1])))
-        dynamic_files = set(sorted(data_dynamic.keys(), key=lambda item: int(item.split('_')[-1])))
+        static_files = set(sorted(data_static.keys(), key=lambda item: int(item.split("_")[-1])))
+        dynamic_files = set(sorted(data_dynamic.keys(), key=lambda item: int(item.split("_")[-1])))
         common_files = sorted(static_files.intersection(dynamic_files))
         graph_names = list(common_files)[:valid_files_count]
-        self.log(f'[INFO] Comparing Graphs: {graph_names}', console=False)
+        self.log(f"[INFO] Comparing Graphs: {graph_names}", console=False)
         for graph_name in graph_names:
-            self.compare_databases(data_static[graph_name]['db'], data_dynamic[graph_name]['db'])
+            self.compare_databases(data_static[graph_name]["db"], data_dynamic[graph_name]["db"])
 
-        self.log(f'[INFO] Valid files count: {valid_files_count}', console=False)
+        self.log(f"[INFO] Valid files count: {valid_files_count}", console=False)
 
         if self.mismatch_map is None:
             for graph_name in graph_names:
-                self.log(f'[INFO] Deleting files of graph name: {graph_name} - Static and Dynamic matched', console=False)
-                remove_file(data_static[graph_name]['db'], verbose=False)
-                remove_file(data_static[graph_name]['json'], verbose=False)
-                remove_file(data_dynamic[graph_name]['db'], verbose=False)
-                remove_file(data_dynamic[graph_name]['json'], verbose=False)
+                self.log(
+                    f"[INFO] Deleting files of graph name: {graph_name} - Static and Dynamic matched", console=False
+                )
+                remove_file(data_static[graph_name]["db"], verbose=False)
+                remove_file(data_static[graph_name]["json"], verbose=False)
+                remove_file(data_dynamic[graph_name]["db"], verbose=False)
+                remove_file(data_dynamic[graph_name]["json"], verbose=False)
 
         if self.use_cache:
             self.clear_cache()
@@ -469,10 +471,10 @@ class DivergenceAnalyzer:
         assert status == 0, f"[ERROR] Dumping error logs to\033[91m {outfile}\033[0m"
 
     def run_train_commands(self, cmd_static, cmd_dynamic, verbose=True):
-        #FIXME: Currently the if is not reachable, check if need another configration
+        # FIXME: Currently the if is not reachable, check if need another configration
         if self.cfg.parallel:
-            p1 = mp.Process(target=self.run, args=(cmd_static, 'static', verbose))
-            p2 = mp.Process(target=self.run, args=(cmd_dynamic, 'dynamic', verbose))
+            p1 = mp.Process(target=self.run, args=(cmd_static, "static", verbose))
+            p2 = mp.Process(target=self.run, args=(cmd_dynamic, "dynamic", verbose))
 
             p1.start()
             p2.start()
@@ -491,7 +493,7 @@ class DivergenceAnalyzer:
     def train(self):
         cmd_static, cmd_dynamic = self.get_commands()
         self.run_train_commands(cmd_static, cmd_dynamic)
-        self.log(f'[INFO] Finished training.\n       dumps: {self.dumpdir}\n       logs : {self.logdir}')
+        self.log(f"[INFO] Finished training.\n       dumps: {self.dumpdir}\n       logs : {self.logdir}")
 
     def compare(self):
         self.compare_dumps()
@@ -501,8 +503,8 @@ class DivergenceAnalyzer:
         graphdir_static = self.dumpdir_static + "/.graph_dumps/"
         graphdir_dynamic = self.dumpdir_dynamic + "/.graph_dumps/"
 
-        p1 = mp.Process(target=self.run, args=(cmd_static, 'static', verbose))
-        p2 = mp.Process(target=self.run, args=(cmd_dynamic, 'dynamic', verbose))
+        p1 = mp.Process(target=self.run, args=(cmd_static, "static", verbose))
+        p2 = mp.Process(target=self.run, args=(cmd_dynamic, "dynamic", verbose))
 
         def _await(exit_gracefully=True):
             os.system("reset")  # FIXME: The "script" command messes up the terminal.
@@ -546,9 +548,9 @@ class DivergenceAnalyzer:
         if not self.is_master_slave_config():
             self.run_train_commands_and_compare(cmd_static, cmd_dynamic)
             self.dump_stats()
-            self.log(f'[INFO] Finished training.\n       dumps: {self.dumpdir}\n       logs : {self.logdir}')
+            self.log(f"[INFO] Finished training.\n       dumps: {self.dumpdir}\n       logs : {self.logdir}")
         elif self.is_master():
-            p1 = mp.Process(target=self.run, args=(cmd_dynamic, 'dynamic', True))
+            p1 = mp.Process(target=self.run, args=(cmd_dynamic, "dynamic", True))
             p1.start()
             while p1.is_alive():
                 time.sleep(5)
@@ -559,24 +561,60 @@ class DivergenceAnalyzer:
             p1.close()
             self.compare_split(is_final=True)
             self.dump_stats()
-            self.log(f'[INFO] Finished training dynamic.\n       dumps: {self.dumpdir}\n       logs : {self.logdir}')
+            self.log(f"[INFO] Finished training dynamic.\n       dumps: {self.dumpdir}\n       logs : {self.logdir}")
         elif self.is_slave():
-            self.run(cmd_static, 'static', True)
-            self.log(f'[INFO] Finished training Static')
+            self.run(cmd_static, "static", True)
+            self.log(f"[INFO] Finished training Static")
+
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cmd", type=str, required=False, help='If Specified run the command on the device in static and dynamic and do a comparison, command to be specified in quotes')
-    parser.add_argument("--out", type=str, default="/tmp/dumps", help="The output directory to dump or read the dumps from")
-    parser.add_argument("--parallel", action='store_true', required=False, help="Add this flag to run in parallel mode, Dynamic in 1 process, and Static in another process. The dumps are compared on the fly and deleted if matching.")
-    parser.add_argument("--thresh", type=float, default=0.001, help='The threshold above which dumps the stats in CSV file')
-    parser.add_argument("--slave", action='store_true', required=False, help='If specified, runs the Static command in slave mode')
-    parser.add_argument("--master", action='store_true', required=False, help='If specified, runs the Dynamic command in master mode, dumping and comparision')
-    parser.add_argument("--csv", type=int, default=1, help="Enabled by default, dumps the differences/Stats in the CSV file ")
-    parser.add_argument("--eam", type=int, default=10000, help="After finding the first difference continue to dump eam number of graphs more")
-    parser.add_argument("--rank", type=int, default=0,  help="Rank to record in multi card case, default 0")
-    parser.add_argument("--no_stats", action='store_true', required=False, help='If specified, dont dump stats, no db-parser_required, All tensors with hash diff dumped')
-    parser.add_argument("--print_cmd", action='store_true', required=False, help='If specified, only print the synrec command')
+    parser.add_argument(
+        "--cmd",
+        type=str,
+        required=False,
+        help="If Specified run the command on the device in static and dynamic and do a comparison, command to be specified in quotes",
+    )
+    parser.add_argument(
+        "--out", type=str, default="/tmp/dumps", help="The output directory to dump or read the dumps from"
+    )
+    parser.add_argument(
+        "--parallel",
+        action="store_true",
+        required=False,
+        help="Add this flag to run in parallel mode, Dynamic in 1 process, and Static in another process. The dumps are compared on the fly and deleted if matching.",
+    )
+    parser.add_argument(
+        "--thresh", type=float, default=0.001, help="The threshold above which dumps the stats in CSV file"
+    )
+    parser.add_argument(
+        "--slave", action="store_true", required=False, help="If specified, runs the Static command in slave mode"
+    )
+    parser.add_argument(
+        "--master",
+        action="store_true",
+        required=False,
+        help="If specified, runs the Dynamic command in master mode, dumping and comparision",
+    )
+    parser.add_argument(
+        "--csv", type=int, default=1, help="Enabled by default, dumps the differences/Stats in the CSV file "
+    )
+    parser.add_argument(
+        "--eam",
+        type=int,
+        default=10000,
+        help="After finding the first difference continue to dump eam number of graphs more",
+    )
+    parser.add_argument("--rank", type=int, default=0, help="Rank to record in multi card case, default 0")
+    parser.add_argument(
+        "--no_stats",
+        action="store_true",
+        required=False,
+        help="If specified, dont dump stats, no db-parser_required, All tensors with hash diff dumped",
+    )
+    parser.add_argument(
+        "--print_cmd", action="store_true", required=False, help="If specified, only print the synrec command"
+    )
 
     args = parser.parse_args()
     valid_ints = {0, 1}
@@ -595,8 +633,9 @@ def main(args):
 
     if args.parallel:
         import habana_frameworks.torch.hpu as hpu
+
         if hpu.device_count() < 2:
-            print(f'[ERROR]: Found only {hpu.device_count()} HPU device(s). Cannot running in parallel mode.')
+            print(f"[ERROR]: Found only {hpu.device_count()} HPU device(s). Cannot running in parallel mode.")
             return
     if args.cmd is not None:
         if args.parallel:
