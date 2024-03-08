@@ -13,43 +13,24 @@
 import contextlib
 import copy
 import os
-from typing import List, Mapping, Optional
+from typing import List, Optional
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from packaging.version import Version
 from torch.fx.experimental.proxy_tensor import py_sym_types
-from torch.fx.passes.operator_support import OperatorSupport
 
 from ._passes.fuse_allreduce_calls import fuse_allreduce_calls
 from ._passes.utils import OptimizationPassPlacement, OptimizerContext
 from .logger import get_compile_backend_logger
-from .partitioner import CapabilityBasedPartitioner
+from .partitioner import HabanaPartitioner
 from .random_utils import is_random_op, random_op_inputs
 from .recipe_compiler import get_callable_recipe
 from .shared_layer import is_eager_fallback_required
 from .symbolic_execution import SymExprNodeManager
 
 logger = get_compile_backend_logger()
-
-
-# Copy of partitoner module from native pytroch-fork along with the
-# mentioend PR changes are kept in .partitioner.py file. Below code will
-# be rolled back to .partitioner.py file once the below PR is merged.
-# PR: https://github.com/pytorch/pytorch/pull/115621
-class HabanaClusterOperatorSupport(OperatorSupport):
-    def is_node_supported(self, submodules: Mapping[str, torch.nn.Module], node: torch.fx.Node) -> bool:
-        return node.meta["placement"] in ["hpu_cluster"]
-
-
-class HabanaPartitioner(CapabilityBasedPartitioner):
-    def __init__(self, graph_module: torch.fx.GraphModule):
-        super().__init__(
-            graph_module,
-            HabanaClusterOperatorSupport(),
-            allows_single_node_partition=True,
-        )
 
 
 def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -> bool:
