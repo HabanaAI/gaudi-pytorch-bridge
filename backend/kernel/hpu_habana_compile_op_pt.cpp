@@ -42,6 +42,7 @@ std::shared_ptr<RecipeValueSpec> HabanaLaunchOpPT::
 
   ConstructPatchingTableAndAtenOutputs(*rvs, recipe);
   UpdateSynapsePermutations(*rvs, *recipe);
+  PT_BRIDGE_DEBUG(*rvs);
 
   recipe_launcher_ = std::make_unique<RecipeLauncher>(*rvs, recipe);
 

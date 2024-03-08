@@ -3671,6 +3671,7 @@ void HabanaLaunchOpPT::UpdatePatchingInformation(
       PT_BRIDGE_DEBUG("Skipping patch_launch_info for empty recipe");
     }
   }
+  PT_BRIDGE_DEBUG(rv);
 }
 
 void HabanaLaunchOpPT::run(
