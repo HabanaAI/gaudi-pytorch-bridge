@@ -39,3 +39,16 @@ testsMap:
         filter: -t rn50_eager_1c
       Run RN50 Graph bf16 1c training functional:
         filter: -t rn50_graph_1c
+  Test_pytorch_modules_gaudi3_asic_topology_group_1:
+    dependencies:
+      - TPC_FUSER
+      - TPC_LLVM
+    envVars:
+      ENABLE_EXPERIMENTAL_FLAGS: true
+      ENABLE_LB_NON_BPT_SLICES_DISCARDING: false
+      INIT_HCCL_ON_ACQUIRE: false
+    stages:
+      Run RN50 Eager bf16 1c training functional:
+        filter: -t rn50_eager_1c
+      Run RN50 Graph bf16 1c training functional:
+        filter: -t rn50_graph_1c
