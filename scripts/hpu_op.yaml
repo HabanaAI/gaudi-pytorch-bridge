@@ -8151,3 +8151,55 @@ slice_backward:
   out_ids: [0]
   lazy:
     override_fn: slice_backward_hpu_lazy
+
+_ctc_loss:
+  output_meta: CtcLossMeta
+  guid: ctc_loss_fwd
+  dtypes:
+    Gaudi: [Float, Int, Long]
+    Gaudi2: [Float, Int, Long]
+    Gaudi3: [Float, Int, Long]
+  op_backend: CtcLoss
+  synapse_layouts:
+  - [CNT, SN, DONT_CARE, DONT_CARE]
+  - [DONT_CARE, SNT]
+  out_ids: [2, 0]
+
+_ctc_loss.Tensor:
+  output_meta: CtcLossMeta
+  guid: ctc_loss_fwd
+  dtypes:
+    Gaudi: [Float, Int, Long]
+    Gaudi2: [Float, Int, Long]
+    Gaudi3: [Float, Int, Long]
+  op_backend: CtcLoss
+  synapse_layouts:
+  - [CNT, SN, DONT_CARE, DONT_CARE]
+  - [DONT_CARE, SNT]
+  out_ids: [2, 0]
+
+_ctc_loss_backward:
+  output_meta: CtcLossBackwardMeta
+  guid: ctc_loss_bwd
+  dtypes:
+    Gaudi: [Float, Int, Long]
+    Gaudi2: [Float, Int, Long]
+    Gaudi3: [Float, Int, Long]
+  op_backend: CtcLossBackward
+  synapse_layouts:
+  - [DONT_CARE, CNT, SN, DONT_CARE, DONT_CARE, DONT_CARE, SNT]
+  - [CNT]
+  out_ids: [1]
+
+_ctc_loss_backward.Tensor:
+  output_meta: CtcLossBackwardMeta
+  guid: ctc_loss_bwd
+  dtypes:
+    Gaudi: [Float, Int, Long]
+    Gaudi2: [Float, Int, Long]
+    Gaudi3: [Float, Int, Long]
+  op_backend: CtcLossBackward
+  synapse_layouts:
+  - [DONT_CARE, CNT, SN, DONT_CARE, DONT_CARE, DONT_CARE, SNT]
+  - [CNT]
+  out_ids: [1]

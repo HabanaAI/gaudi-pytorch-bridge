@@ -86,11 +86,43 @@ def execute_test(input, target, input_lengths, target_lengths, blank, reduction)
         check_ops_executed_in_jit_ir({"ctc_loss_custom", "ctc_loss_custom_backward"})
 
 
+def execute_ctc_test(input, target, input_lengths, target_lengths, blank, reduction):
+    def fn(input, target, input_lengths, target_lengths, blank):
+        loss = torch._ctc_loss(input, target, input_lengths, target_lengths, blank)[0]
+        grad = torch.ones_like(loss)
+        loss.backward(grad)
+        loss_bckwd = input.grad.clone().detach()
+        return [loss, loss_bckwd]
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        ctc_loss_cpu = torch.compile(fn)
+        ctc_loss_hpu = torch.compile(fn, backend="hpu_backend")
+    else:
+        ctc_loss_cpu = fn
+        ctc_loss_hpu = fn
+
+    [loss_cpu, loss_cpu_bckwd] = ctc_loss_cpu(input, target, input_lengths, target_lengths, blank)
+
+    input_hpu = input.clone().to(hpu)
+    input_hpu.retain_grad()
+    target_hpu = target.to(hpu)
+    input_lengths_hpu = input_lengths.to(hpu)
+    target_lengths_hpu = target_lengths.to(hpu)
+
+    [loss_hpu, loss_hpu_bckwd] = ctc_loss_hpu(input_hpu, target_hpu, input_lengths_hpu, target_lengths_hpu, blank)
+
+    compare_tensors(loss_cpu, loss_hpu.cpu(), atol=TOL, rtol=TOL)
+    compare_tensors(loss_cpu_bckwd, loss_hpu_bckwd.cpu(), atol=TOL, rtol=TOL)
+
+
 @pytest.mark.parametrize("T, C, N, S, S_min", ctc_loss_target_padded_test_case_list)
 @pytest.mark.parametrize("blank_no_zero", [True, False])
 @pytest.mark.parametrize("reduction", ["none", "mean", "sum"])
 @pytest.mark.parametrize("enable_int64_support", [True, False])
-def test_hpu_target_padded_ctc_loss(T, C, N, S, S_min, blank_no_zero, reduction, enable_int64_support):
+@pytest.mark.parametrize("function", [execute_test, execute_ctc_test])
+def test_hpu_target_padded_ctc_loss(T, C, N, S, S_min, blank_no_zero, reduction, enable_int64_support, function):
     torch.manual_seed(12345)
 
     with env_var_in_scope({"PT_ENABLE_INT64_SUPPORT": "true" if enable_int64_support else "false"}):
@@ -107,13 +139,14 @@ def test_hpu_target_padded_ctc_loss(T, C, N, S, S_min, blank_no_zero, reduction,
             # Initialize random batch of targets (C-1 = blank, 0:C-1 = classes)
             target = torch.randint(low=0, high=C - 1, size=(N, S), dtype=torch.int32)
 
-        execute_test(input, target, input_lengths, target_lengths, blank, reduction)
+        function(input, target, input_lengths, target_lengths, blank, reduction)
 
 
 @pytest.mark.parametrize("T, C, N", ctc_loss_target_unpadded_test_case_list)
 @pytest.mark.parametrize("reduction", ["none", "mean", "sum"])
 @pytest.mark.parametrize("enable_int64_support", [True, False])
-def test_hpu_target_unpadded_ctc_loss(T, C, N, reduction, enable_int64_support):
+@pytest.mark.parametrize("function", [execute_test, execute_ctc_test])
+def test_hpu_target_unpadded_ctc_loss(T, C, N, reduction, enable_int64_support, function):
     torch.manual_seed(12345)
 
     with env_var_in_scope({"PT_ENABLE_INT64_SUPPORT": "true" if enable_int64_support else "false"}):
@@ -124,7 +157,7 @@ def test_hpu_target_unpadded_ctc_loss(T, C, N, reduction, enable_int64_support):
         target_lengths = torch.randint(low=1, high=T, size=(N,), dtype=torch.long)
         target = torch.randint(low=1, high=C, size=(torch.sum(target_lengths),), dtype=torch.long)
 
-        execute_test(input, target, input_lengths, target_lengths, 0, reduction)
+        function(input, target, input_lengths, target_lengths, 0, reduction)
 
 
 @pytest.mark.parametrize("T, C", ctc_loss_target_unpadded_unbatched_test_case_list)
