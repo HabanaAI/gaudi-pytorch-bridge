@@ -22,7 +22,6 @@
 //clang-format on
 #include <tuple>
 #include "backend/habana_device/HPUAllocator.h"
-#include "backend/habana_device/HPUEvent.h"
 #include "backend/habana_device/HPUGraph.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/helpers/runtime_config.h"
@@ -31,6 +30,10 @@
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/custom_op_outshape.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
+
+#include "python_packages/habana_frameworks/torch/hpu/csrc/Event.h"
+#include "python_packages/habana_frameworks/torch/hpu/csrc/Module.h"
+#include "python_packages/habana_frameworks/torch/hpu/csrc/Stream.h"
 
 using namespace c10::hpu;
 
@@ -163,6 +166,11 @@ void clear_global_context() {
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  auto module = m.ptr();
+  THP_HPU_Stream_init(module);
+  THP_HPU_Event_init(module);
+  PyModule_AddFunctions(module, THP_HPU_Module_methods());
+
   m.def("init", []() { hpu_init(); });
   m.def("cleanup", []() {
     sync_threads();
@@ -228,56 +236,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return habana::HPURegistrar::get_hpu_global_config().getDeterministic();
   });
   m.def("get_device_name", [](int id) { return get_device_name(id); });
-  py::class_<HPUStream>(m, "HPUStream");
-  m.def("get_stream", [](bool isHighPriorityStream, int device) {
-    HPUStream stream = getStreamFromPool(isHighPriorityStream, device);
-    return stream;
-  });
-  m.def("query", [](HPUStream stream) {
-    bool finished = stream.query();
-    return finished;
-  });
-  m.def("synchronize", [](HPUStream stream) {
-    stream.synchronize(); // TBD: release GIL  ?
-  });
-  m.def("get_current_stream", []() {
-    HPUStream stream = getCurrentHPUStream();
-    return stream;
-  });
-  m.def("set_current_stream", [](HPUStream stream) {
-    setCurrentHPUStream(stream);
-  });
-  m.def("get_default_stream", []() {
-    HPUStream stream = getDefaultHPUStream();
-    return stream;
-  });
-  m.def("get_stream_info", [](HPUStream stream) {
-    return std::make_tuple(stream.device(), stream.id());
-  });
-  m.def("id", [](HPUStream stream) { return stream.id(); });
-  m.def("stream_eq", [](HPUStream stream, HPUStream other) {
-    return stream == other;
-  });
-  m.def("get_event", [](bool enable_timing) {
-    return at::hpu::HPUEvent(enable_timing);
-  });
-  m.def("event_query", [](at::hpu::HPUEvent& event) { return event.query(); });
-  m.def("event_synchronize", [](at::hpu::HPUEvent& event) {
-    return event.synchronize();
-  });
-  m.def("event_record", [](at::hpu::HPUEvent& event, HPUStream stream) {
-    return event.record(stream);
-  });
-  m.def("event_wait", [](at::hpu::HPUEvent& event, HPUStream stream) {
-    return event.block(stream);
-  });
-  m.def("elapsed_time", [](at::hpu::HPUEvent& start, at::hpu::HPUEvent& end) {
-    return start.elapsed_time(end);
-  });
-  m.def("get_event_info", [](at::hpu::HPUEvent& event) {
-    return std::make_tuple(event.device_index(), event.isCreated());
-  });
-  py::class_<at::hpu::HPUEvent>(m, "HPUEvent");
   m.def("set_autocast_hpu_enabled", [](py::object enabled) {
     at::autocast::set_hpu_enabled(enabled.ptr() == Py_True);
   });
@@ -375,10 +333,20 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("enable_quantization", []() { habana_helpers::EnableQuantization(); });
   m.def(
       "disable_quantization", []() { habana_helpers::DisableQuantization(); });
-  m.def("record_stream", [](at::Tensor tensor, HPUStream stream) {
-    habana::HPUDeviceAllocator::recordStream(
-        tensor.storage().data_ptr(), stream);
-  });
+  m.def(
+      "record_stream",
+      [](at::Tensor tensor,
+         int64_t stream_id,
+         int64_t device_index,
+         int64_t device_type) {
+        auto stream = c10::hpu::HPUStream::unpack3(
+            stream_id,
+            static_cast<c10::DeviceIndex>(device_index),
+            static_cast<c10::DeviceType>(device_type));
+
+        habana::HPUDeviceAllocator::recordStream(
+            tensor.storage().data_ptr(), stream);
+      });
   m.def(
       "enable_const_section_serialization",
       [](const char* path, bool clear_path, bool use_compression) {

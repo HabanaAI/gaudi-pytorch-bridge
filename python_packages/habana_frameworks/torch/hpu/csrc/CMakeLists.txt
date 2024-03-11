@@ -9,7 +9,7 @@
 #
 # ##############################################################################
 
-add_habana_library(_hpu_C SHARED bindings.cpp)
+add_habana_library(_hpu_C SHARED bindings.cpp object_ptr.cpp Exceptions.cpp Stream.cpp Event.cpp Module.cpp)
 target_compile_definitions(_hpu_C PRIVATE TORCH_EXTENSION_NAME=_hpu_C)
 
 set_target_properties(_hpu_C PROPERTIES PREFIX "")

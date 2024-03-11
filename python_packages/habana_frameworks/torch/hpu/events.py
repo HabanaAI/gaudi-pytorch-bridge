@@ -1,68 +1,90 @@
 import collections
+import ctypes
 import warnings
 from typing import Any, Dict, Optional, Union
 
 import habana_frameworks.torch as htorch
 import torch
 from habana_frameworks.torch import _hpu_C
+from torch._streambase import _EventBase
 
 
-class Event:
+class Event(_hpu_C._HpuEventBase, _EventBase):
     r"""Wrapper around a HPU event.
-    events are synchronization markers that can be used to monitor the
+
+    HPU events are synchronization markers that can be used to monitor the
     device's progress, to accurately measure timing, and to synchronize HPU
     streams.
-    After creation, only streams on the same device may record the event.
+
+    The underlying HPU events are lazily initialized when the event is first
+    recorded or exported to another process. After creation, only streams on the
+    same device may record the event. However, streams on any device can wait on
+    the event.
+
     Args:
         enable_timing (bool, optional): indicates if the event should measure time
             (default: ``False``)
     """
 
-    def __init__(self, enable_timing=False):
-        if not htorch.hpu.is_initialized():
-            htorch.hpu.init()
-
-        self.event = _hpu_C.get_event(enable_timing)
+    def __new__(cls, enable_timing=False):
+        return super().__new__(cls, enable_timing=enable_timing)
 
     def record(self, stream=None):
-        r"""Records the event in a given stream.
-        Uses ``htorch.hpu.current_stream()`` if no stream is specified.
+        r"""Record the event in a given stream.
+
+        Uses ``torch.hpu.current_stream()`` if no stream is specified. The
+        stream's device must match the event's device.
         """
         if stream is None:
             stream = htorch.hpu.current_stream()
-        _hpu_C.event_record(self.event, stream.stream)
+        super().record(stream)
 
     def wait(self, stream=None):
-        r"""Makes all future work submitted to the given stream wait for this
-        event.
-        Use ``htorch.hpu.current_stream()`` if no stream is specified.
+        r"""Make all future work submitted to the given stream wait for this event.
+
+        Use ``torch.hpu.current_stream()`` if no stream is specified.
+
+        .. note:: This is a wrapper around ``hpuStreamWaitEvent()``: see
+            `HPU Event documentation`_ for more info.
         """
         if stream is None:
             stream = htorch.hpu.current_stream()
-        _hpu_C.event_wait(self.event, stream.stream)
+        super().wait(stream)
 
     def query(self):
-        r"""Checks if all work currently captured by event has completed.
+        r"""Check if all work currently captured by event has completed.
+
         Returns:
             A boolean indicating if all work currently captured by event has
             completed.
         """
-        return _hpu_C.event_query(self.event)
+        return super().query()
 
-    def elapsed_time(self, other):
-        r"""Returns the time elapsed in milliseconds after the event was
-        recorded and before the end_event was recorded.
+    def elapsed_time(self, end_event):
+        r"""Return the time elapsed.
+
+        Time reported in milliseconds after the event was recorded and
+        before the end_event was recorded.
         """
-        assert isinstance(other, Event), "other is not of type Event"
-        return _hpu_C.elapsed_time(self.event, other.event) / 1e6
+        return super().elapsed_time(end_event)
 
     def synchronize(self):
-        r"""Waits for the event to complete.
+        r"""Wait for the event to complete.
+
         Waits until the completion of all work currently captured in this event.
         This prevents the CPU thread from proceeding until the event completes.
+
+         .. note:: This is a wrapper around ``hpuEventSynchronize()``: see
+            `HPU Event documentation`_ for more info.
         """
-        _hpu_C.event_synchronize(self.event)
+        super().synchronize()
+
+    @property
+    def _as_parameter_(self):
+        return ctypes.c_void_p(self.hpu_event)
 
     def __repr__(self):
-        info = _hpu_C.get_event_info(self.event)
-        return "<htorch.hpu.Event device={0} is_recorded={1:#x}>".format(info[0], info[1])
+        if self.hpu_event:
+            return f"<htorch.hpu.Event {self._as_parameter_.value:#x}>"
+        else:
+            return "<htorch.hpu.Event uninitialized>"
