@@ -545,8 +545,10 @@ void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
 
   if (habana::is_view_lowering(t) || !t.is_contiguous()) {
     auto base_smeta{habana::get_storage_base_meta(t)};
-    for (auto s : base_smeta->get_memory_permutation()) {
-      key = at::hash_combine(key, s);
+    if (base_smeta) {
+      for (auto s : base_smeta->get_memory_permutation()) {
+        key = at::hash_combine(key, s);
+      }
     }
 
     // TODO: remove the below code block once the node params are patched.

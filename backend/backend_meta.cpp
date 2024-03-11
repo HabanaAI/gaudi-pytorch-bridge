@@ -325,14 +325,14 @@ bool is_view_lowering(const at::Tensor& tensor) {
 std::vector<int64_t> get_base_tensor_size(const at::Tensor& tensor) {
   // check if it is a view output
   auto smeta{habana::get_storage_extra_meta(tensor)};
-  if (smeta->get_base_tensor_size().size()) {
+  if (smeta && smeta->get_base_tensor_size().size()) {
     return smeta->get_base_tensor_size();
   }
 
   // check base meta
   auto basemeta{habana::get_storage_base_meta(tensor)};
 
-  if (basemeta->get_base_tensor_size().size()) {
+  if (basemeta && basemeta->get_base_tensor_size().size()) {
     return basemeta->get_base_tensor_size();
   }
 
