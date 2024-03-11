@@ -31,7 +31,6 @@ DEFINE_OP(HabanaRandint)
 DEFINE_OP(HabanaSeedGenerator)
 DEFINE_OP(HabanaRandPermOp)
 DEFINE_OP(HabanaNativeDropoutOp)
-DEFINE_OP(HabanaRandPermOpDS)
 
 struct HabanaMultinomial : OpBackend {
   HabanaMultinomial(int device_id, c10::ScalarType scalar_type);
@@ -43,5 +42,4 @@ OUTMETA_DECL(HabanaRandintOutputMeta);
 OUTMETA_DECL(HabanaMultinomialOutputMeta);
 OUTMETA_DECL(HabanaSeedGeneratorOutputMeta);
 OUTMETA_DECL(HabanaRandPermMeta);
-OUTMETA_DECL(HabanaRandPermMetaDS);
 } // namespace habana

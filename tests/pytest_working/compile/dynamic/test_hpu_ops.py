@@ -893,38 +893,3 @@ def test_op_scalar_div():
         h_result = compiled_fn(t1_hpu, s2)
         h = h_result.to("cpu")
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
-
-
-def test_op_randperm():
-    os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "1"
-    input_n = [8, 9, 10, 11, 12]
-
-    def raw_function(n, device):
-        t = torch.randperm(n, device=device)
-        return t
-
-    results_list = []
-    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=None)
-    for i in range(2):
-        j = 0
-        results = []
-        for n in input_n:
-            # For dynamic=None case, the first iteration creates a kernel backend
-            # that is different from the dynamic shape iterations. Hence we reset the
-            # seed for randperm at the start of the second iteration that is the
-            # first dynamic pass iteration.
-            if j < 2:
-                torch.manual_seed(123)
-            j = j + 1
-            device_cpu = "cpu"
-            device_hpu = "hpu"
-            os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "1"
-            h_result = compiled_fn(n, device_hpu)
-            results.append(h_result.to("cpu"))
-            os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "0"
-        results_list.append(results)
-    for i in range(len(input_n)):
-        # don't compare the static pass iteration
-        if i == 0:
-            continue
-        assert torch.equal(results_list[0][i], results_list[1][i])
