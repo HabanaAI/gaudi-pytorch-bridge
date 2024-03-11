@@ -1668,6 +1668,10 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
       if (hl_t.IsOpAccumulationInProgress()) {
         StaleLazyTensorKeeper::getInstance().add(std::move(hl_t));
       }
+      auto hl_orig_t = GetHbLazyTensor(t, false);
+      if (hl_orig_t.IsOpAccumulationInProgress()) {
+        StaleLazyTensorKeeper::getInstance().add(std::move(hl_orig_t));
+      }
     }
 
     // update the vector with the latest shallow copy

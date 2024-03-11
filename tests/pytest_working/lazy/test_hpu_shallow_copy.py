@@ -34,7 +34,7 @@ class get_embeding(nn.Module):
         self.oe = new_embeddings
 
 
-def reduce_op_worker():
+def test_reduce_op_worker():
     with torch.no_grad():
         embed = get_embeding()
         embed.to(dtype=torch.bfloat16, device="hpu")
@@ -42,4 +42,4 @@ def reduce_op_worker():
 
 
 if __name__ == "__main__":
-    reduce_op_worker()
+    test_reduce_op_worker()
