@@ -8,9 +8,10 @@ def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'AEON', 'HL_THUNK', 'COMPLE
 def preCommitValidation = [
     'Running pre-commit hooks': { util ->
         util.runShellCommandWrapper("""
+            set -xe
             __check_pytorch_dev_py_deps
             pushd \${PYTORCH_MODULES_ROOT_PATH}
-            pre-commit run --show-diff-on-failure --from HEAD^ --to HEAD
+            pre-commit run --color never --show-diff-on-failure --from HEAD^ --to HEAD
             popd
         """)
     }
