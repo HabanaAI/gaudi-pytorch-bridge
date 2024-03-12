@@ -1309,14 +1309,16 @@ run_pytorch_modules_tests()
         fi
     fi
 
-    if [ -f "$__xml/test_pt2_integration.xml" ]; then
-        # Workaround for jenkins skipping duplicated test names within "AllTests" scope
-        sed -i -E 's/classname="(.+)"/classname="CppEager.\1"/g' $__xml/test_pt2_integration.xml
-    fi
+    if [ "$__suite_type" != "py_tests" ]; then
+        if [ -f "$__xml/test_pt2_integration.xml" ]; then
+            # Workaround for jenkins skipping duplicated test names within "AllTests" scope
+            sed -i -E 's/classname="(.+)"/classname="CppEager.\1"/g' $__xml/test_pt2_integration.xml
+        fi
 
-    if [ -f "$__xml/test_pt_integration.xml" ]; then
-        # Workaround for jenkins skipping duplicated test names within "AllTests" scope
-        sed -i -E 's/classname="(.+)"/classname="CppLazy.\1"/g' $__xml/test_pt_integration.xml
+        if [ -f "$__xml/test_pt_integration.xml" ]; then
+            # Workaround for jenkins skipping duplicated test names within "AllTests" scope
+            sed -i -E 's/classname="(.+)"/classname="CppLazy.\1"/g' $__xml/test_pt_integration.xml
+        fi
     fi
 
     if [ -n "$__print_tests" ]; then
