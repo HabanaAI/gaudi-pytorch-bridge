@@ -16,10 +16,11 @@ from typing import Mapping
 
 import numpy as np
 import pytest
+from pathlib import Path
 
 # Can't import torch module because PT_HPU_LAZY_MODE is set in pytest_configure. If any function needs torch module it must be imported locally
 
-SKIP_TESTS_LIST = "pytest_working/skip_tests_list.txt"
+SKIP_TESTS_LIST = "skip_tests_list.txt"
 
 
 @pytest.fixture(autouse=True)
@@ -85,8 +86,18 @@ def pytest_unconfigure(config):
 
 
 def pytest_collection_modifyitems(config, items):
-    with open(f"{config.rootdir}/{SKIP_TESTS_LIST}", "r") as f:
-        skip_list = [l.strip() for l in f]
+    skip_list=[]
+    try:
+        skip_path = Path(__file__).parent.joinpath(SKIP_TESTS_LIST)
+        with open(skip_path, "r") as f:
+            skip_list = [l.strip() for l in f]
+    except FileNotFoundError:
+        import warnings
+
+        warnings.warn(
+            f"Unable to find skip_tests_list under {skip_path}\nRunning tests without skip lists might result in test suite failure.",
+            UserWarning,
+        )
 
     if len(skip_list) == 0:
         print("Tests skip list is empty.")
