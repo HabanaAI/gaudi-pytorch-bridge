@@ -7,13 +7,18 @@ def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'AEON', 'HL_THUNK', 'COMPLE
 
 def preCommitValidation = [
     'Running pre-commit hooks': { util ->
-        util.runShellCommandWrapper("""
+        Integer precommitResult = util.runShellCommandWrapper("""
             set -xe
             __check_pytorch_dev_py_deps
             pushd \${PYTORCH_MODULES_ROOT_PATH}
             pre-commit run --color never --show-diff-on-failure --from HEAD^ --to HEAD
             popd
-        """)
+        """, null, false, true)
+        if (precommitResult == 0) { return }
+        else if (precommitResult == 1) {
+            error("precommit hook failed - aborting build")
+        }
+        error("exception during precommit hook - aborting build")
     }
 ]
 def ccacheStats = [
