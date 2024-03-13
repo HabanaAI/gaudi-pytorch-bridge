@@ -218,6 +218,12 @@ void BinaryWithAlpha::AddNode(
       std::reinterpret_pointer_cast<ns_BinaryWithAlphaKernel::Params>(params);
   const auto& alpha = filledParams->alpha;
   const auto& mode = filledParams->mode;
+  // binary_with_alpha_fwd* do not support i8 and u8, so we use
+  // binary_with_alpha_fwd_i16.
+  if (result_type == c10::ScalarType::Char ||
+      result_type == c10::ScalarType::Byte) {
+    result_type = c10::ScalarType::Short;
+  }
 
   std::vector<synTensor> inputs{syn_in(SELF_INDEX), syn_in(OTHER_INDEX)};
   std::string guid{guid_};
@@ -239,6 +245,11 @@ void BinaryWithAlpha::AddNode(
         default:
           opName = {};
       }
+      guid = get_guid_with_precision(opName, result_type);
+    } else if (
+        (isAlphaIntegralType ? alpha.i : alpha.f) != 1 &&
+        result_type == c10::ScalarType::Short) {
+      std::string opName = "binary_with_alpha_fwd";
       guid = get_guid_with_precision(opName, result_type);
     }
   }

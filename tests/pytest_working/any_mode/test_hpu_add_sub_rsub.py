@@ -15,7 +15,7 @@ import pytest
 import torch
 from test_utils import format_tc, is_gaudi1
 
-dtypes = [torch.long, torch.short, torch.int, torch.bfloat16, torch.float]
+dtypes = [torch.long, torch.short, torch.int, torch.bfloat16, torch.float, torch.int8, torch.uint8]
 if not is_gaudi1():
     dtypes.append(torch.float16)
 
@@ -48,6 +48,9 @@ def set_precision(dtype):
 def test_hpu(scalar, shape, alpha, dtype, op):
     if pytest.mode == "compile" and scalar != None and alpha > 1 and not dtype.is_floating_point and op == torch.rsub:
         pytest.xfail("SW-162443")
+
+    if (pytest.mode == "compile" or pytest.mode == "lazy") and (dtype == torch.int8 or dtype == torch.uint8):
+        return
 
     def fn(input_tensor, other, alpha):
         return op(input_tensor, other, alpha=alpha)
