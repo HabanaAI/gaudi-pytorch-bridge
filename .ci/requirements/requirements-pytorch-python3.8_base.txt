@@ -9,8 +9,6 @@ yamllint>=1.31
 
 # Below pkgs are required for pytorch-fork
 cffi==1.15.1
-mkl-include==2023.1
-mkl==2023.1
 ninja>=1.11.1
 numpy==1.23.5
 pybind11==2.10.4

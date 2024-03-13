@@ -691,6 +691,8 @@ build_pytorch_fork()
 
     unset CMAKE_ROOT  # we're using CMake from requirements files
 
+    __provide_mkl
+
     local __pytorch_root=${PYTORCH_FORK_ROOT}
 
     if [[ "z$__pytorch_next" == "ztrue" ]]; then
@@ -1956,6 +1958,7 @@ __clean_pytest_dev_py_deps()
 {
     uninstall_requirements_pytest
 }
+
 __install_anaconda()
 {
     local __conda_res
@@ -1966,7 +1969,7 @@ __install_anaconda()
     else
         echo "Conda installation not found in default path, Installing..."
 
-        local __conda_installer=Anaconda3-2020.02-Linux-x86_64.sh
+        local __conda_installer=Anaconda3-2024.02-1-Linux-x86_64.sh
         (set -x;wget https://repo.anaconda.com/archive/$__conda_installer 2> /dev/null)
         __conda_res=$?
         if [ $__conda_res -ne 0 ]; then
@@ -2027,6 +2030,40 @@ __install_anaconda()
     __conda deactivate
     printf "Installation of conda packages done\n"
     return $__conda_res
+}
+
+# Installs MKL include files and static libraries if needed and points CMake at them.
+# This is a very similar approach to what upstream uses.
+# By installing static libs we don't require MKL to be installed at runtime, either from pip or from the system package
+# manager.
+#
+# Inspired by https://github.com/pytorch/builder/blob/main/common/install_mkl.sh
+__provide_mkl()
+{
+  local __mkl_root=/opt/intel
+  local __mkl_version=2024.0.0
+  local __mkl_build=49656
+
+  # install MKL if not installed yet
+  if ! compgen -G ${__mkl_root}/lib/*mkl* >/dev/null; then
+    echo Installing MKL at ${__mkl_root}
+
+    sudo mkdir ${__mkl_root}
+    sudo chown -R $(whoami) ${__mkl_root}
+
+    mkdir /tmp/mkl
+    pushd /tmp/mkl
+
+    curl -fsSL https://anaconda.org/intel/mkl-static/${__mkl_version}/download/linux-64/mkl-static-${__mkl_version}-intel_${__mkl_build}.tar.bz2 | tar xjv
+    mv lib ${__mkl_root}
+    curl -fsSL https://anaconda.org/intel/mkl-include/${__mkl_version}/download/linux-64/mkl-include-${__mkl_version}-intel_${__mkl_build}.tar.bz2 | tar xjv
+    mv include ${__mkl_root}
+
+    popd
+  fi
+
+  export CMAKE_LIBRARY_PATH=${__mkl_root}/lib:$CMAKE_LIBRARY_PATH
+  export CMAKE_INCLUDE_PATH=${__mkl_root}/include:$CMAKE_INCLUDE_PATH
 }
 
 # SW-40601 Workaround to uninstall torchvision and install habana-torchvision in Pytorch CI
