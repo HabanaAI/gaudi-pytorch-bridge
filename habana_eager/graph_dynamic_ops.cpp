@@ -532,7 +532,10 @@ static auto& BasicDSOpsRegistry =
         .add("aten::topk", DSOP_MID_BACKEND(TopkOperatorDS))
         .add("aten::as_strided", DSOP_MID_BACKEND(AsStridedOperatorDS))
         .add("hpu::strided_insert", DSOP_MID_BACKEND(StridedInsertOperatorDS))
-	.add("aten::select_scatter", DSOP_MID_BACKEND(SelectScatterOperatorDS))
-	.add("aten::slice_scatter", DSOP_MID_BACKEND(SliceScatterOperatorDS));
+        .add("aten::slice_scatter", DSOP_MID_BACKEND(SliceScatterOperatorDS))
+        .add(
+            "hpu::habana_randperm",
+            DSOP_MID_BACKEND(RandpermGeneratorOperatorDS))
+        .add("aten::select_scatter", DSOP_MID_BACKEND(SelectScatterOperatorDS));
 } // namespace graph
 } // namespace habana
