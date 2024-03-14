@@ -2562,7 +2562,6 @@ embedding_dense_backward:
     Gaudi3:
       grad_output: [BFloat16, Float, Half]
       indices: [Int, Long]
-  fallback_check: [EmbeddingDenseBwdFallbackCheck, scale_grad_by_freq]
   output_meta: EmbeddingDenseBwdMeta
   guid: embedding_dense_pt_bwd
   op_backend: EmbeddingDenseBwd
