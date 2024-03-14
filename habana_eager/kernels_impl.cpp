@@ -248,6 +248,7 @@ at::Tensor hpu_wrap::masked_select(
     const at::Tensor& mask) {
   PT_EAGER_TRACE;
   if ((self.scalar_type() != c10::ScalarType::Float) &&
+      (self.scalar_type() != c10::ScalarType::Double) &&
       (self.scalar_type() != c10::ScalarType::Int) &&
       (self.scalar_type() != c10::ScalarType::Long) &&
       (self.scalar_type() != c10::ScalarType::Char) &&

@@ -17,6 +17,7 @@ from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
 
 test_shapes_dtypes = [
     ((2, 2, 2, 2, 2), (2, 2, 1, 2), torch.float32),
+    ((2, 2, 2, 2, 2), (1, 2, 1), torch.double),
     ((2, 2, 2, 2), (2, 2, 2, 2), torch.bfloat16),
     ((2, 2, 2, 2), (2, 2), torch.half),
     ((2, 2, 2), (1, 1, 2), torch.int32),
@@ -24,6 +25,7 @@ test_shapes_dtypes = [
     ((2, 2), (1), torch.bool),
     ((2), (1), torch.int8),
     ((2, 2, 1, 2), (2, 2, 2, 2, 2), torch.float32),
+    ((1, 2, 1), (2, 2, 2, 2, 2), torch.double),
     ((2, 2, 1, 2), (2, 2, 2, 2), torch.bfloat16),
     ((2, 2), (2, 2, 2, 2), torch.half),
     ((1, 1, 2), (2, 2, 2), torch.int32),
