@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -148,6 +148,29 @@ def test_hpu_adaptive_avg_pool3d(shape, output_size, dtype):
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).to("cpu")
     assert torch.allclose(cpu_output, hpu_output)
+
+
+@pytest.mark.parametrize("shape", [[1, 2, 3, 7], [1, 1, 2, 3, 7], [4, 8, 7, 7], [2, 4, 8, 7, 7]], ids=format_tc)
+@pytest.mark.parametrize("output_size", [(2, 3, 1), (2, 3, 6), (2, 3, 10)], ids=format_tc)
+@pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
+def test_hpu_adaptive_avg_pool3d_bwd(shape, output_size, dtype):
+    def fn(input):
+        fwd = torch.ops.aten.adaptive_avg_pool3d(input, output_size)
+        grad = torch.ones_like(fwd)
+        fwd.backward(grad)
+        return input.grad
+
+    cpu_input = torch.rand(shape, dtype=dtype)
+    hpu_input = cpu_input.to("hpu")
+    cpu_input.requires_grad = True
+    hpu_input.requires_grad = True
+
+    torch._dynamo.reset()
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
+
+    cpu_output = fn(cpu_input)
+    hpu_output = hpu_compiled_fn(hpu_input)
+    assert torch.allclose(cpu_output, hpu_output.cpu())
 
 
 @pytest.mark.parametrize("shape", [[8, 16, 16], [1, 8, 16, 16]], ids=format_tc)

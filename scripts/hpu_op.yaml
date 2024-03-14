@@ -1865,6 +1865,16 @@ adaptive_avg_pool3d.out:
   - [WHDCN, WHDCN]
   - [WHDCN]
 
+_adaptive_avg_pool3d_backward:
+  output_meta: AdaptiveAvgPool3dBwdMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: complex_adaptive_avg_pool_3d_bwd
+  op_backend: AdaptiveAvgPool3dBwd
+  out_ids: [1]
+
 atanh:
   dtypes:
     Gaudi: [Float]

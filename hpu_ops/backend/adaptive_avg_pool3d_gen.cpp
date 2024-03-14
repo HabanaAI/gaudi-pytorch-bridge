@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include "generated/backend/_adaptive_avg_pool3d.h"
+#include "generated/backend/_adaptive_avg_pool3d_backward.h"
 #include "generated/backend/adaptive_avg_pool3d.h"
 namespace habana {
 
@@ -47,6 +48,14 @@ OutputMetaDataVector AdaptiveAvgPool3dMeta(const at::Stack& stack) {
   OutputMetaData meta;
   meta.shape = outshape;
   meta.dtype = self.scalar_type();
+  return {meta};
+}
+
+OutputMetaDataVector AdaptiveAvgPool3dBwdMeta(const at::Stack& stack) {
+  const auto& input = stack_tensor(stack, 1);
+  OutputMetaData meta;
+  meta.shape = input.sizes().vec();
+  meta.dtype = input.scalar_type();
   return {meta};
 }
 
@@ -99,6 +108,30 @@ void AdaptiveAvgPool3dFwd::AddNode(
   } else {
     syn_out(0) = std::move(adaptiveAvgPool[0]);
   }
+}
+
+void AdaptiveAvgPool3dBwd::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  size_t size = 0;
+  const auto& params = FillParams(stack, size);
+  auto meta = OutputMeta(stack)[0];
+  std::vector<synTensor> inputs = {syn_in(0), syn_in(1)};
+  const auto rank = stack_tensor(stack, 0).dim();
+  if (rank == 4) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+  } else if (rank == 5) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
+  }
+  auto adaptiveAvgPool = BuildOp(
+      graph, GetGuid(), std::move(inputs), {{meta.shape, meta.dtype, 0}});
+  syn_out(0) = std::move(adaptiveAvgPool[0]);
 }
 
 } // namespace habana
