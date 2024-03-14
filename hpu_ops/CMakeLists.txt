@@ -253,6 +253,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/roi_align.cpp
           backend/roll_gen.cpp
           backend/round_gen.cpp
+          backend/roundingfunc_gen.cpp
           backend/rotary_pos_embedding.cpp
           backend/sdpa_gen.cpp
           backend/rrelu_with_noise_gen.cpp

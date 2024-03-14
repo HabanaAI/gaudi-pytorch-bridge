@@ -126,7 +126,7 @@ bitwise_xor                            No       No       Yes       Yes      Yes 
 bmm                                    Yes      Yes      No        No       No     torch
 broadcast_tensors                      Yes      Yes      No        No       No     torch
 cat                                    Yes      Yes      Yes       Yes      Yes    torch
-ceil                                   Yes      Yes      No        No       No     torch
+ceil                                   Yes      Yes      Yes       Yes      No     torch
 chunk                                  Yes      Yes      Yes       No       No     torch
 clamp                                  Yes      Yes      Yes       No       No     torch
 clip                                   Yes      Yes      Yes       No       No     torch
@@ -160,7 +160,7 @@ fill                                   Yes      Yes      Yes       Yes      Yes 
 fill\_                                 Yes      Yes      Yes       Yes      Yes    torch
 flatten                                Yes      Yes      Yes       No       No     torch
 flip                                   Yes      Yes      Yes       Yes      Yes    torch
-floor                                  Yes      Yes      No        No       No     torch
+floor                                  Yes      Yes      Yes       Yes      No     torch
 floor_divide                           Yes      Yes      Yes       Yes      Yes    torch
 fmod                                   Yes      Yes      Yes       No       No     torch
 frac                                   Yes      Yes      No        No       No     torch
@@ -281,7 +281,7 @@ trace                                  Yes      Yes      Yes       No       No  
 transpose                              Yes      Yes      Yes       Yes      Yes    torch
 tril                                   Yes      Yes      No        Yes      Yes    torch
 triu                                   Yes      Yes      No        Yes      Yes    torch
-trunc                                  Yes      Yes      No        No       No     torch
+trunc                                  Yes      Yes      Yes       Yes      No     torch
 unbind                                 Yes      Yes      Yes       No       No     torch
 unique                                 Yes      No       Yes       No       No     torch
 _unique                                Yes      No       Yes       No       No     torch
@@ -430,7 +430,7 @@ bitwise_or                             No       No       No        No       Yes 
 bitwise_right_shift                    No       No       Yes       Yes      No     torch.Tensor
 bitwise_xor                            No       No       No        No       Yes    torch.Tensor
 bmm                                    Yes      Yes      No        No       No     torch.Tensor
-ceil                                   Yes      Yes      No        No       No     torch.Tensor
+ceil                                   Yes      Yes      Yes       Yes      No     torch.Tensor
 clamp                                  Yes      Yes      Yes       No       No     torch.Tensor
 clamp\_                                Yes      Yes      Yes       No       No     torch.Tensor
 clamp_max                              Yes      Yes      Yes       No       No     torch.Tensor
@@ -472,8 +472,8 @@ expm1\_                                Yes      No       No        No       No  
 exponential\_                          Yes      Yes      No        No       No     torch.Tensor
 flatten                                Yes      Yes      Yes       No       No     torch.Tensor
 flip                                   Yes      Yes      Yes       Yes      Yes    torch.Tensor
-floor                                  Yes      Yes      No        No       No     torch.Tensor
-floor\_                                Yes      Yes      No        No       No     torch.Tensor
+floor                                  Yes      Yes      Yes       Yes      No     torch.Tensor
+floor\_                                Yes      Yes      Yes       Yes      No     torch.Tensor
 floor_divide                           Yes      Yes      Yes       Yes      Yes    torch.Tensor
 floor_divide\_                         Yes      Yes      Yes       Yes      Yes    torch.Tensor
 fmod                                   Yes      Yes      Yes       No       No     torch.Tensor
@@ -631,8 +631,8 @@ tril                                   Yes      Yes      No        Yes      Yes 
 tril\_                                 Yes      Yes      No        Yes      Yes    torch.Tensor
 triu                                   Yes      Yes      No        Yes      Yes    torch.Tensor
 triu\_                                 Yes      Yes      No        Yes      Yes    torch.Tensor
-trunc                                  Yes      Yes      No        No       No     torch.Tensor
-trunc\_                                Yes      Yes      No        No       No     torch.Tensor
+trunc                                  Yes      Yes      Yes       Yes      No     torch.Tensor
+trunc\_                                Yes      Yes      Yes       Yes      No     torch.Tensor
 unbind                                 Yes      Yes      Yes       No       No     torch.Tensor
 unsqueeze                              Yes      Yes      Yes       No       No     torch.Tensor
 uniform\_                              Yes      Yes      No        No       No     torch.Tensor

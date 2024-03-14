@@ -1861,21 +1861,30 @@ cat.out:
   op_backend: CatHabanaOperator
 
 ceil:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: ceil_fwd
   out_ids: [0]
-  op_validator: check-node-with-shared-layer
+  op_backend: RoundingFunc
 
 ceil.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: ceil_fwd
-  op_validator: check-node-with-shared-layer
+  op_backend: RoundingFunc
 
 ceil_:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: ceil_fwd
   inplace_ids: [0]
-  op_validator: check-node-with-shared-layer
+  op_backend: RoundingFunc
 
 channel_shuffle:
   dtypes: [BFloat16, Float, Int]
@@ -2871,29 +2880,29 @@ flip:
 
 floor:
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: floor_fwd
+  op_backend: RoundingFunc
   out_ids: [0]
-  op_validator: check-node-with-shared-layer
 
 floor.out:
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: floor_fwd
-  op_validator: check-node-with-shared-layer
+  op_backend: RoundingFunc
 
 floor_:
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: floor_fwd
   inplace_ids: [0]
-  op_validator: check-node-with-shared-layer
+  op_backend: RoundingFunc
 
 floor_divide.out:
   custom_fill_params: FillFloorDivideParams
@@ -7416,21 +7425,30 @@ triu_:
   inplace_ids: [0]
 
 trunc:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: trunc_fwd
   out_ids: [0]
-  op_validator: check-node-with-shared-layer
+  op_backend: RoundingFunc
 
 trunc.out:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: trunc_fwd
-  op_validator: check-node-with-shared-layer
+  op_backend: RoundingFunc
 
 trunc_:
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: trunc_fwd
   inplace_ids: [0]
-  op_validator: check-node-with-shared-layer
+  op_backend: RoundingFunc
 
 unbind.int:
   override_fn: unbind_hpu_lazy_
