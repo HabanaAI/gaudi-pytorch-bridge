@@ -184,7 +184,6 @@ const char* getTensorTypeName(synTensorType tp) {
   switch (tp) {
     _N(DATA_TENSOR);
     _N(SHAPE_TENSOR);
-    _N(INPUT_DESCRIBING_SHAPE_TENSOR);
     _N(DATA_TENSOR_DYNAMIC);
     _N(DEVICE_SHAPE_TENSOR);
     _N(HOST_SHAPE_TENSOR);
