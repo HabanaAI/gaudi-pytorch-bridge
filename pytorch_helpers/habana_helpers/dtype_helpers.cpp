@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -55,6 +55,11 @@ DTypeHelper& DTypeHelper::set_promote_int_to_float(bool type_promotion) {
 
 DTypeHelper& DTypeHelper::set_promote_int_to_long(bool type_promotion) {
   promote_int_to_long_ = type_promotion;
+  return *this;
+}
+
+DTypeHelper& DTypeHelper::set_promote_to_int(bool type_promotion) {
+  promote_to_int_ = type_promotion;
   return *this;
 }
 
@@ -116,6 +121,14 @@ void DTypeHelper::build() {
     common_dtype_ = c10::ScalarType::Long;
   }
 
+  // Promotion of int8, uin8, int16 value to int32.
+  // This kind of promotion is expected for i.e. some binary operators like
+  // maximum.
+  if (promote_to_int_ && common_dtype_ != c10::ScalarType::Long &&
+      c10::isIntegralType(common_dtype_, true)) {
+    common_dtype_ = c10::ScalarType::Int;
+  }
+
   // If output dtype and output tensor were specified, their dtypes must match
   if (output_dtype_ != c10::ScalarType::Undefined &&
       result_dtype_ != c10::ScalarType::Undefined) {
@@ -174,6 +187,34 @@ c10::ScalarType DTypeHelper::get_common_dtype(
 
 c10::ScalarType DTypeHelper::get_result_dtype() const {
   return result_dtype_;
+}
+
+DTypeHelper DTypeHelper::op_with_optional_dtype_promotion(
+    const std::vector<at::IValue>& inputs,
+    bool to_float,
+    bool to_int,
+    c10::optional<const at::IValue*> output,
+    bool safe_cast) {
+  DTypeHelper dtype_helper;
+  std::vector<const at::IValue*> input_tensors;
+  input_tensors.reserve(inputs.size());
+  for (const auto& val : inputs) {
+    // Remove this check when we reuse FE dtype in BE
+    if (val.isTensor() or val.isScalar() or val.isTensorList()) {
+      input_tensors.emplace_back(&val);
+    }
+  }
+  dtype_helper.add_inputs(std::move(input_tensors))
+      .set_promote_to_common_type(true)
+      .set_promote_int_to_float(to_float)
+      .set_promote_to_int(to_int)
+      .set_safe_cast_to_output(safe_cast);
+  if (output.has_value()) {
+    dtype_helper.add_output(output.value());
+  }
+
+  dtype_helper.build();
+  return dtype_helper;
 }
 
 DTypeHelper DTypeHelper::unary_op_with_optional_int_to_float_promotion(
@@ -283,9 +324,11 @@ c10::ScalarType DTypeHelper::get_compute_dtype(
 
   bool promote_to_common_type =
       promote_variant == DtypePromoteVariant::kPromoteToCommon or
-      promote_variant == DtypePromoteVariant::kPromoteIntToFloat;
+      promote_variant == DtypePromoteVariant::kPromoteIntToFloat or
+      promote_variant == DtypePromoteVariant::kPromoteToInt;
   bool promote_int_to_float =
       promote_variant == DtypePromoteVariant::kPromoteIntToFloat;
+  bool promote_to_int = promote_variant == DtypePromoteVariant::kPromoteToInt;
   bool promote_int_to_long = promote_variant == DtypePromoteVariant::kReduction;
 
   DTypeHelper dtype_helper;
@@ -293,6 +336,7 @@ c10::ScalarType DTypeHelper::get_compute_dtype(
       .set_promote_to_common_type(promote_to_common_type)
       .set_promote_int_to_float(promote_int_to_float)
       .set_promote_int_to_long(promote_int_to_long)
+      .set_promote_to_int(promote_to_int)
       .set_safe_cast_to_output(safe_cast);
 
   if (dtype.has_value()) {

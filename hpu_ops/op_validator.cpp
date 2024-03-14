@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -398,7 +398,7 @@ detail::TensorDescrArray CheckNodeWithSharedLayerValidator::
 detail::TensorDescrArray CheckNodeWithSharedLayerValidator::CreateInputList(
     const std::vector<at::IValue>& values,
     at::ScalarType resultType) {
-  if (m_typePromotion or m_promoteIntToFloat) {
+  if (m_typePromotion or m_promoteIntToFloat or m_promoteToInt) {
     return CreateTypePromotionInputList(values, resultType);
   }
 
@@ -422,9 +422,7 @@ detail::TensorDescrArray CheckNodeWithSharedLayerValidator::
         at::ScalarType resultType) {
   detail::TensorDescrArray outputList;
   if (m_isOutFn) {
-    outputList.push_back(detail::TensorDescr(&values.back().toTensor()));
-  } else if (m_isInplace) {
-    outputList.push_back(detail::TensorDescr(&values.front().toTensor()));
+    outputList.push_back(TryCastTensor(values.back(), resultType));
   } else {
     outputList.push_back(TryCastTensor(values.front(), resultType));
   }
@@ -435,7 +433,7 @@ detail::TensorDescrArray CheckNodeWithSharedLayerValidator::
 detail::TensorDescrArray CheckNodeWithSharedLayerValidator::CreateOutputList(
     const std::vector<at::IValue>& values,
     at::ScalarType resultType) {
-  if (m_typePromotion or m_promoteIntToFloat) {
+  if (m_typePromotion or m_promoteIntToFloat or m_promoteToInt) {
     return CreateTypePromotionOutputList(values, resultType);
   }
 
@@ -444,7 +442,7 @@ detail::TensorDescrArray CheckNodeWithSharedLayerValidator::CreateOutputList(
 
 at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
     const std::vector<at::IValue>& values) {
-  if (not(m_typePromotion or m_promoteIntToFloat)) {
+  if (not(m_typePromotion or m_promoteIntToFloat or m_promoteToInt)) {
     return at::ScalarType::Undefined;
   }
 
@@ -455,17 +453,9 @@ at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
     output = &values.back();
   }
 
-  const std::size_t input_size = m_isOutFn ? values.size() - 1 : values.size();
-  habana_helpers::DTypeHelper dtype_helper;
-  if (input_size > 1) {
-    dtype_helper = habana_helpers::DTypeHelper::
-        binary_op_with_optional_int_to_float_promotion(
-            values, m_promoteIntToFloat, output, m_safeCastCheck);
-  } else {
-    dtype_helper = habana_helpers::DTypeHelper::
-        unary_op_with_optional_int_to_float_promotion(
-            values, m_promoteIntToFloat, output, m_safeCastCheck);
-  }
+  const auto& dtype_helper =
+      habana_helpers::DTypeHelper::op_with_optional_dtype_promotion(
+          values, m_promoteIntToFloat, m_promoteToInt, output, m_safeCastCheck);
 
   auto common_type = dtype_helper.get_common_dtype();
 

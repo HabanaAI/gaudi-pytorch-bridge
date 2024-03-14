@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 HabanaLabs, Ltd.
+ * Copyright (C) 2023-2024 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -59,6 +59,7 @@ struct CheckNodeWithSharedLayerValidator {
       FillNodeParams fillNodeParamsFunc,
       bool typePromotion,
       bool promoteIntToFloat,
+      bool promoteToInt,
       bool safeCastCheck,
       bool isInplace,
       bool isOverload,
@@ -69,6 +70,7 @@ struct CheckNodeWithSharedLayerValidator {
         m_fillNodeParamsFunc(fillNodeParamsFunc),
         m_typePromotion(typePromotion),
         m_promoteIntToFloat(promoteIntToFloat),
+        m_promoteToInt(promoteToInt),
         m_safeCastCheck(safeCastCheck),
         m_isInplace(isInplace),
         m_isOutFn(isOverload),
@@ -113,6 +115,7 @@ struct CheckNodeWithSharedLayerValidator {
   FillNodeParams m_fillNodeParamsFunc;
   bool m_typePromotion;
   bool m_promoteIntToFloat;
+  bool m_promoteToInt;
   bool m_safeCastCheck;
   bool m_isInplace;
   bool m_isOutFn;

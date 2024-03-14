@@ -29,6 +29,7 @@ class DTypeHelper {
     kNone,
     kPromoteToCommon,
     kPromoteIntToFloat,
+    kPromoteToInt,
     kReduction
   };
 
@@ -40,6 +41,7 @@ class DTypeHelper {
   DTypeHelper& set_promote_to_common_type(bool type_promotion);
   DTypeHelper& set_promote_int_to_float(bool type_promotion);
   DTypeHelper& set_promote_int_to_long(bool type_promotion);
+  DTypeHelper& set_promote_to_int(bool type_promotion);
   DTypeHelper& set_safe_cast_to_output(bool safe_cast);
 
   void build();
@@ -71,6 +73,12 @@ class DTypeHelper {
       const std::vector<at::IValue>& stack,
       c10::optional<const at::IValue*> output,
       bool safe_cast);
+  static DTypeHelper op_with_optional_dtype_promotion(
+      const std::vector<at::IValue>& inputs,
+      bool to_float,
+      bool to_int,
+      c10::optional<const at::IValue*> output,
+      bool safe_cast);
   static c10::ScalarType get_compute_dtype(
       const std::vector<at::IValue>& stack,
       c10::optional<at::Tensor> opt_output,
@@ -84,6 +92,7 @@ class DTypeHelper {
   bool promote_common_input_type_ = false;
   bool promote_int_to_float_ = false;
   bool promote_int_to_long_ = false;
+  bool promote_to_int_ = false;
   bool safe_cast_to_output_ = false;
 
   std::vector<const c10::IValue*> input_values_;

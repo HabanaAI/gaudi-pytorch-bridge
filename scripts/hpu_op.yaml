@@ -655,6 +655,7 @@ _local_scalar_dense:
   override_fn: _local_scalar_dense_hpu
 
 abs:
+  promote_to_int: [self]
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
@@ -673,6 +674,7 @@ abs_:
   op_validator: check-node-with-shared-layer
 
 abs.out:
+  promote_to_int: [self]
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half]
@@ -4600,7 +4602,8 @@ maximum.out:
     Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: max_fwd
-  promote_to_common_type: [self, other]
+  safe_cast_check: false
+  promote_to_int: [self, other]
   # op_validator: check-node-with-shared-layer
 
 max_pool2d_with_indices:
@@ -4815,7 +4818,8 @@ minimum.out:
     Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: min_fwd
-  promote_to_common_type: [self, other]
+  promote_to_int: [self, other]
+  safe_cast_check: false
   # op_validator: check-node-with-shared-layer
 
 mish:
