@@ -11,7 +11,7 @@
 ###############################################################################
 
 import contextlib
-from os import environ
+from os import environ, getenv
 
 import torch
 from habana_frameworks.torch import _core_C, hpu
@@ -136,6 +136,28 @@ _set_env = 1
 
 
 def hpu_set_env(model=None):
+    """
+    [TO BE DEPRECATED] Please use hpu_set_inference_env instead
+    Enables inference mode
+    If model is given, fuses conv+bn nodes
+    To be called before moving tensors/model to hpu
+    """
+    global _set_env
+    hpu.enable_inference_mode()
+    hpu.enable_matmul3d_2d_reshape()
+    _set_env = 0
+    if model is not None:
+        modified_model = fuse_conv_bn.fuse(model)
+        return modified_model
+
+
+def hpu_set_inference_env(model=None):
+    """
+    Enables inference mode
+    If model is given, fuses conv+bn nodes
+    To be called before moving tensors/model to hpu
+    """
+
     global _set_env
     hpu.enable_inference_mode()
     hpu.enable_matmul3d_2d_reshape()
@@ -146,13 +168,40 @@ def hpu_set_env(model=None):
 
 
 def hpu_initialize(model=None, optimizer=None, args=None):
+    """
+    [TO BE DEPRECATED] Please use hpu_inference_initialize instead
+    Mark params of the model on HPU as const
+    To be called after moving tensors/model to hpu
+    To be called after model.to(hpu)
+    """
     global _set_env
     if _set_env == 1:
         hpu.enable_inference_mode()
         hpu.enable_matmul3d_2d_reshape()
     if model is not None:
-        _mark_params_as_const(model=model)
-        _check_params_as_const(model=model)
+        if getenv("PT_HPU_LAZY_MODE", "1") != "0":
+            _mark_params_as_const(model=model)
+            _check_params_as_const(model=model)
+        _read_min_max_overwrite()
+        _set_quantization_attributes(model)
+        with _e_handler():
+            _handle_quant_stats(model)
+
+
+def hpu_inference_initialize(model=None, optimizer=None, args=None):
+    """
+    Mark params of the model on HPU as const
+    To be called after moving tensors/model to hpu
+    To be called after model.to(hpu)
+    """
+    global _set_env
+    if _set_env == 1:
+        hpu.enable_inference_mode()
+        hpu.enable_matmul3d_2d_reshape()
+    if model is not None:
+        if getenv("PT_HPU_LAZY_MODE", "1") != "0":
+            _mark_params_as_const(model=model)
+            _check_params_as_const(model=model)
         _read_min_max_overwrite()
         _set_quantization_attributes(model)
         with _e_handler():
@@ -160,5 +209,19 @@ def hpu_initialize(model=None, optimizer=None, args=None):
 
 
 def hpu_reset_env():
+    """
+    [TO BE DEPRECATED] Please use hpu_teardown_inference_env instead
+    Disables inference mode
+    To be called after model execution is done on HPU
+    """
+    hpu.disable_inference_mode()
+    hpu.disable_matmul3d_2d_reshape()
+
+
+def hpu_teardown_inference_env():
+    """
+    Disables inference mode
+    To be called after model execution is done on HPU
+    """
     hpu.disable_inference_mode()
     hpu.disable_matmul3d_2d_reshape()

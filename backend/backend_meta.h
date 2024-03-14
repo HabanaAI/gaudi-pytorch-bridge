@@ -596,9 +596,9 @@ inline void set_tensor_const(
   }
   auto tmeta = get_tensor_extra_meta(tensor, relax);
   tmeta->set_is_const_tensor(is_const);
-  PT_BRIDGE_DEBUG(
-      "set_tensor_const: is_const ", is_const, " const_id: ", const_id);
   if (is_const) {
+    PT_BRIDGE_DEBUG(
+        "set_tensor_const: is_const ", is_const, " const_id: ", const_id);
     HABANA_ASSERT(
         const_id != INVALID_CONST_ID,
         "Const id cannot be ",
