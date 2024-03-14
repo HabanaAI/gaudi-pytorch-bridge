@@ -1228,13 +1228,14 @@ class resolve_negative_dim:
         negative_dim_ops = [
             "view",
             "slice",
+            "constant_pad_nd",  # it is not a neg-dim op, but requires to create a custom-schema for DS handling
         ]
 
         from torch._subclasses.fake_tensor import FakeTensor
         from torch.fx.experimental.proxy_tensor import py_sym_types
 
         if node_name in negative_dim_ops:
-            if node_name == "slice":
+            if node_name == "slice" or node_name == "constant_pad_nd":
                 for node_in in node.args:
                     if isinstance(node_in, torch.fx.Node):
                         meta_val = node_in.meta.get("val", node_in.meta.get("tensor_meta", None))
@@ -1331,11 +1332,50 @@ class resolve_negative_dim:
 
         return True
 
+    @classmethod
+    def __resolve_constant_pad_nd_shapes(cls, ctx, node):
+        if node.args[0].meta["output_device"].type == "hpu" and node.meta["placement"] != "eager":
+            new_args1 = []
+            if not cls.is_dynamic:
+                return
+            else:
+                meta_val = node.args[0].meta.get("val", node.meta.get("tensor_meta", None))
+                idx = 0
+                new_args1 = list(meta_val.size())
+                for arg in list(meta_val.size()):
+                    new_args1[idx] = arg
+                    if isinstance(arg, py_sym_types):
+                        new_node = cls.py_node_manager.get_or_create(arg, int)
+                        new_node.meta["placement"] = "eager"
+                        new_node.meta["output_device"] = torch.device("cpu")
+                        new_args1[idx] = new_node
+                    idx += 1
+            # replace call_function and recompile the graph
+            val = 0 if len(node.args) == 2 else node.args[2]
+            with ctx.graph_module.graph.inserting_before(node):
+                view_new_node = ctx.graph_module.graph.call_function(
+                    torch.ops.hpu.constant_pad_nd_ds.default,
+                    (
+                        node.args[0],
+                        node.args[1],
+                        val,
+                        new_args1,
+                    ),
+                    {},
+                )
+                node.replace_all_uses_with(view_new_node, propagate_meta=True)
+
+            ctx.graph_module.recompile()
+            ctx.graph_module.graph.eliminate_dead_code()
+        return True
+
     def __new__(cls, ctx, node):
         if cls.node_name == "view":
             return cls.__resolve_view_shapes(ctx, node)
         if cls.node_name == "slice":
             return cls.__resolve_slice_shapes(ctx, node)
+        if cls.node_name == "constant_pad_nd":
+            return cls.__resolve_constant_pad_nd_shapes(ctx, node)
         return False
 
 
@@ -1349,7 +1389,6 @@ def pass_handle_negative_dims(ctx: OptimizerContext) -> bool:
     graph_changed = False
     py_node_manager = SymExprNodeManager(ctx.graph_module)
     resolve_negative_dim.py_node_manager = py_node_manager
-
     for node in ctx.graph_module.graph.nodes:
         if node.op == "placeholder":
             tmeta_val = node.meta.get("val", node.meta.get("tensor_meta", None))

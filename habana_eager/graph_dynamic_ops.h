@@ -26,7 +26,6 @@ namespace habana {
 namespace graph {
 
 using GraphInputIndexMap = std::unordered_map<std::string, int64_t>;
-
 void GetValueAndScalarIndexFromInput(
     torch::jit::Value* input,
     torch::jit::Stack& in_stack,
@@ -108,6 +107,17 @@ void SetH2DTensorHostData(
   tmeta->set_host_data(h2d_data.data(), h2d_data.size(), sizeof(T), dt_type);
   tmeta->set_H2D_data_for_bucketing();
 }
+
+template void SetH2DTensorHostData<int32_t>(
+    at::Tensor&,
+    std::vector<int32_t>&,
+    HostDataType,
+    bool);
+template void SetH2DTensorHostData<uint32_t>(
+    at::Tensor&,
+    std::vector<uint32_t>&,
+    HostDataType,
+    bool);
 
 template <typename T>
 int64_t CreateH2DAndInsertToDSStack(
@@ -287,6 +297,25 @@ class AsStridedScatterOperatorDS : public DynamicOp {
 class ArangeOperatorDS : public DynamicOp {
  public:
   ArangeOperatorDS() : DynamicOp() {}
+  bool ReplaceWithDynamicHPUOp(
+      torch::jit::Node*,
+      torch::jit::Stack& org_stack,
+      GraphInputIndexMap& org_stack_index_map,
+      ValueIvalueMap& value_ivalue_map,
+      std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
+  static void UpdateDynamicInputs(
+      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
+      c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
+          mixed_list,
+      std::vector<c10::IValue>& stack,
+      LaunchDynamicShapes& launch_shapes);
+};
+
+class ConstantPad2dOperatorDS : public DynamicOp {
+ public:
+  ConstantPad2dOperatorDS() : DynamicOp() {}
   bool ReplaceWithDynamicHPUOp(
       torch::jit::Node*,
       torch::jit::Stack& org_stack,

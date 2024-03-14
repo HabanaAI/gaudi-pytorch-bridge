@@ -2154,7 +2154,7 @@ Tensor constant_pad_hpu_lazy(
           HostDataType::UINT32_T);
       vector_of_inputs = {self, pad_tensor, output_shape_tensor, value};
     } else {
-      op_name = "hpu::constant_pad_nd";
+      op_name = "hpu::constant_pad_nd_lazy";
       vector_of_inputs = {self, pad, value};
     }
     LazyOp<at::Tensor> k{

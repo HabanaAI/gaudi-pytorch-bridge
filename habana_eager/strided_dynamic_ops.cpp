@@ -377,6 +377,170 @@ void ArangeOperatorDS::UpdateDynamicInputs(
   }
 }
 
+bool ConstantPad2dOperatorDS::ReplaceWithDynamicHPUOp(
+    torch::jit::Node* aten_pad_node,
+    torch::jit::Stack& org_stack,
+    GraphInputIndexMap& org_stack_index_map,
+    [[maybe_unused]] ValueIvalueMap& value_ivalue_map,
+    [[maybe_unused]] std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
+  HABANA_ASSERT(4 == aten_pad_node->inputs().size());
+  static const auto hpu_pad_symbol{
+      c10::Symbol::fromQualString("hpu::constant_pad_nd")};
+  static const auto list_construct_symbol{
+      c10::Symbol::fromQualString("prim::ListConstruct")};
+  auto graph{aten_pad_node->owningGraph()};
+  auto v_pad_shape = aten_pad_node->inputs().at(1);
+  HABANA_ASSERT(
+      v_pad_shape->node()->kind() == list_construct_symbol,
+      "Pad input is not a ListConstruct, it is: ",
+      v_pad_shape->node()->kind().toQualString());
+  auto list_construct_node{v_pad_shape->node()};
+
+  // Step 1: Collect shape and scalar pos used in ListConstruct input node
+  std::vector<int64_t> values;
+  std::vector<int64_t> scalar_indexes;
+  GetValuesAndScalarIndexesFromListConstruct(
+      list_construct_node,
+      org_stack,
+      org_stack_index_map,
+      values,
+      scalar_indexes);
+  std::vector<int64_t> pad_ht_vec(MAX_DIMENSIONS_NUM * 2, 0);
+  std::vector<int64_t> scalar_indexes_ht(MAX_DIMENSIONS_NUM * 2, LONG_MAX);
+  // assuming that "pad" has a pair of pad values corresponding to each
+  // dim that needs to be padded.
+  for (unsigned int i = 0; i < values.size() / 2; i++) {
+    // Host tensor layout 1D - 10 elements:
+    // pad_before[0]...pad_before[4], pad_after[0] ... pad_after[4] (for
+    // dimensionality IFM less then 5 some elements not in use)
+    pad_ht_vec[i] = values[2 * i];
+    pad_ht_vec[MAX_DIMENSIONS_NUM + i] = values[2 * i + 1];
+    scalar_indexes_ht[i] = scalar_indexes[2 * i];
+    scalar_indexes_ht[MAX_DIMENSIONS_NUM + i] = scalar_indexes[2 * i + 1];
+  }
+  std::reverse(pad_ht_vec.begin(), pad_ht_vec.end());
+  std::reverse(scalar_indexes_ht.begin(), scalar_indexes_ht.end());
+  // Step2: Create H2D tensor and insert to graph inputs.
+
+  auto padop_h2d_name =
+      GetDynamicTensorName(v_pad_shape->debugName(), HOST_TO_DEVICE_TENSOR);
+
+  int64_t stack_index_ht = CreateH2DAndInsertToDSStack<int32_t>(
+      pad_ht_vec, scalar_indexes_ht, HostDataType::UINT32_T, m_dmeta);
+  auto v_h2d_tensor = graph->addInput(padop_h2d_name);
+
+  auto scalar_val = aten_pad_node->inputs().at(2);
+  int64_t pad_val_idx = LONG_MAX;
+  int64_t pad_val = 0;
+  GetValueAndScalarIndexFromInput(
+      scalar_val, org_stack, org_stack_index_map, pad_val, pad_val_idx);
+
+  // Use actual reshape sizes and avoid sizes with dims "-1"
+  auto out_tensors = getOutputTensers(aten_pad_node, value_ivalue_map);
+  auto inferred_st_sizes = out_tensors[0].sizes().vec();
+  // Step 1: Collect shape and scalar pos used in ListConstruct input node
+  auto v_self_shape = aten_pad_node->inputs().at(3);
+  HABANA_ASSERT(
+      v_self_shape->node()->kind() == list_construct_symbol,
+      "Self size input is not a ListConstruct, it is: ",
+      v_self_shape->node()->kind().toQualString());
+  auto list_construct_node1{v_self_shape->node()};
+
+  std::vector<int64_t> self_size;
+  std::vector<int64_t> scalar_indexes_pad;
+  GetValuesAndScalarIndexesFromListConstruct(
+      list_construct_node1,
+      org_stack,
+      org_stack_index_map,
+      self_size,
+      scalar_indexes_pad);
+  std::vector<std::pair<int64_t, int64_t>> mixed_scalar_indexes;
+  for (size_t i = 0; i < self_size.size(); i++) {
+    mixed_scalar_indexes.push_back(
+        std::make_pair(scalar_indexes_pad[i], self_size[i]));
+  }
+  // Step2: Create shape tensor and insert to graph inputs.
+  auto pad_st_name =
+      GetDynamicTensorName(v_pad_shape->debugName(), SHAPE_TENSOR);
+  int64_t stack_index_st = CreateSTAndInsertToDSStack(
+      inferred_st_sizes, {pad_val_idx}, {}, mixed_scalar_indexes, m_dmeta);
+  auto pad_st_tensor = graph->addInput(pad_st_name);
+  std::vector<int64_t> dtensor_indexes{stack_index_ht, stack_index_st};
+  InputPatchPair patch_info(
+      &ConstantPad2dOperatorDS::UpdateDynamicInputs, dtensor_indexes);
+  m_dmeta->ds_input_patching_list.push_back(patch_info);
+
+  // Step4: Create hpu::constant_pad_nd_ht node and insert to the graph
+  CreateAndInsertDynamicNodeToGraph(
+      graph,
+      aten_pad_node,
+      hpu_pad_symbol,
+      {aten_pad_node->input(0),
+       v_h2d_tensor,
+       pad_st_tensor,
+       aten_pad_node->input(2)},
+      value_ivalue_map);
+  return true;
+}
+
+void ConstantPad2dOperatorDS::UpdateDynamicInputs(
+    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
+    [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
+  HABANA_ASSERT(
+      dtensor_list.size() == scalar_idx_list.size(),
+      "Dtensor and SymIntData count not matching");
+  auto dtensor = dtensor_list[0]->toTensor();
+
+  std::vector<uint32_t> updated_h2d_data;
+  SymIntData& scalar_idx = scalar_idx_list[0];
+  for (unsigned int idx = 0; idx < scalar_idx.values.size(); idx++) {
+    auto stack_index = scalar_idx.values[idx];
+    if (stack_index == LONG_MAX || stack_index < 0) {
+      std::vector<uint32_t> h2d_data = GetH2DTensorHostData<uint32_t>(dtensor);
+      std::reverse(h2d_data.begin(), h2d_data.end());
+      updated_h2d_data.push_back(h2d_data[idx]);
+    } else {
+      updated_h2d_data.push_back(
+          static_cast<uint32_t>(GetSymintValue(orig_stack, stack_index)));
+    }
+  }
+  std::reverse(updated_h2d_data.begin(), updated_h2d_data.end());
+  // cast h2d data to int for correct ST calc (to account for negative pad array
+  // values)
+  std::vector<int32_t> pad_arr_int(
+      updated_h2d_data.begin(), updated_h2d_data.end());
+  std::vector<int64_t> cast_data(
+      updated_h2d_data.begin(), updated_h2d_data.end());
+  UpdateH2DPatchingData(dtensor, cast_data, launch_shapes);
+  //  Update size ShapeTensor
+  // get prev shape tensor saved
+  auto dtensor1 = dtensor_list[1]->toTensor();
+  std::vector<int64_t> shape;
+  for (size_t i = 0; i < mixed_list[1].size(); i++) {
+    if (mixed_list[1].at(i).first == LONG_MAX)
+      shape.push_back(mixed_list[1].at(i).second);
+    else {
+      shape.push_back(GetSymintValue(orig_stack, mixed_list[1].at(i).first));
+    }
+  }
+  auto ndim = (int64_t)shape.size(); // num dims of new tensor
+  auto padlen = (int64_t)updated_h2d_data.size() / 2; // pad data from new H2D
+  HABANA_ASSERT(
+      padlen >= ndim, "pad array length should be >= ndims of input tensor");
+  // update new shape using new input tensor shape and updated H2D pad data
+  for (unsigned int i = 0; i < ndim; i++) {
+    auto pad_start = pad_arr_int[i];
+    auto pad_end = pad_arr_int[MAX_DIMENSIONS_NUM + i];
+    shape[ndim - i - 1] += (pad_start + pad_end);
+  }
+  dtensor1.unsafeGetTensorImpl()->set_sizes_contiguous(shape);
+}
+
 bool IsStridedRatioUndefined(
     std::vector<int64_t>& self_strides,
     std::vector<int64_t>& stride_sizes) {

@@ -2630,7 +2630,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::constant_pad_nd_ht(Tensor self, Tensor pad_tensor, Tensor output_shape_tensor, Scalar value) -> Tensor");
   m.def(
-      "hpu::constant_pad_nd(Tensor self, int[] pad_tensor, Scalar value) -> Tensor");
+      "hpu::constant_pad_nd_lazy(Tensor self, SymInt[] pad_array, Scalar value) -> Tensor");
   m.def(
       "hpu::scatter_add(Tensor self, int dim, Tensor index, Tensor src) -> Tensor");
   m.def(

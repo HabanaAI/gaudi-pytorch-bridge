@@ -1748,6 +1748,26 @@ void runSortOutDynamicTest(std::vector<int> changing_dim_values, int dim) {
   }
 }
 
+void runConstantPadDynamicTest(std::vector<int> Pad, int val) {
+  c10::ScalarType dtype{torch::kInt32};
+  for (int i = 0; i < 4; i++) {
+    torch::Tensor input_cpu =
+        torch::randn({1 + i, 6}, torch::requires_grad(false));
+
+    torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
+    auto result = torch::constant_pad_nd(input_cpu, {2, 3}, 5);
+    auto result_hpu = torch::constant_pad_nd(input_hpu, {2, 3}, 5);
+
+    HbLazyTensor::StepMarker({});
+    auto out = result_hpu.to(torch::kCPU);
+
+    EXPECT_EQ(allclose(result, out, 0, 0), true);
+  }
+}
+TEST_F(LazyDynamicShapesTest, ConstantPad) {
+  runConstantPadDynamicTest({2}, 9);
+}
+
 TEST_F(LazyDynamicShapesTest, SortOutTest) {
   // Changing W values
   runSortOutDynamicTest({20, 33, 40, 35, 25, 28}, 3);

@@ -198,8 +198,7 @@ def test_unsqueeze(dtype, dim):
 
 def test_constant_pad_nd():
     def raw_function(x, device):
-        m = nn.ConstantPad2d(2, 3.5).to(device)
-        return m(x)
+        return torch.constant_pad_nd(x, (1, 1), -1.0)
 
     cpu_tensor = torch.randn(1, 2, 2)
     hpu_tensor = cpu_tensor.to("hpu")

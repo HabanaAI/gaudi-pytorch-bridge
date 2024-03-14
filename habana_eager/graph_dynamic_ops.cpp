@@ -884,6 +884,7 @@ static const auto& BasicDSOpsRegistry =
         .DSOP_MID_BACKEND(
             aten::full,
             FullOpDS) // we are adding original schema name
-        .DSOP_MID_BACKEND(aten::empty, EmptyOpDS);
+        .DSOP_MID_BACKEND(aten::empty, EmptyOpDS)
+        .DSOP_MID_BACKEND(hpu::constant_pad_nd_ds, ConstantPad2dOperatorDS);
 } // namespace graph
 } // namespace habana

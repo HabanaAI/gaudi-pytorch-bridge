@@ -1412,3 +1412,25 @@ def test_dynamicity_with_fx_recompilations():
         result_compile_train = compiled_function_training(t_h, s2, t2_h)
         out_c = raw_function(t, s2, t2)
         assert torch.allclose(result_compile_train.to("cpu"), out_c)
+
+
+def test_op_constant_pad():
+    input_shapes = [
+        [(8, 6)],
+        [(12, 6)],
+        [(16, 6)],
+        [(18, 6)],
+        [(24, 6)],
+    ]
+
+    def raw_function(t1):
+        t2 = torch.constant_pad_nd(t1, (-1, -1, -1, -1), -1)
+        return torch.constant_pad_nd(t2, (1, 1, 1, 1), 0)
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=None)
+    for s in input_shapes:
+        t1 = torch.randn(s[0], requires_grad=False)
+        result = raw_function(t1)
+        t1_h = t1.to("hpu")
+        h_result = compiled_fn(t1_h)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)

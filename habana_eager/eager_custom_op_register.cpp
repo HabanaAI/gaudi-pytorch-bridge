@@ -1321,6 +1321,19 @@ at::Tensor slice_ds(
       step.expect_int());
 }
 
+at::Tensor constant_pad_nd_ds(
+    const at::Tensor& self,
+    c10::SymIntArrayRef pad,
+    const c10::Scalar& value,
+    [[maybe_unused]] c10::optional<c10::SymIntArrayRef> size) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "constant_pad_ds :",
+      DUMP_3ARGS(self, c10::asIntArrayRefUnchecked(pad), value));
+  return at::native::constant_pad_nd(
+      self, c10::asIntArrayRefUnchecked(pad), value);
+}
+
 // accumulate_grads_ is a wrapper for native inductor.accumulate_grad_ op.
 // It extracts gradients from variables and assigns respective new_grads to them
 // or increment by them, depending if gradients are defined.
@@ -2081,6 +2094,10 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::full_ds(Tensor size, Scalar fill_value, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def(
       "hpu::empty_ds(Tensor size,  ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor");
+  m.def(
+      "hpu::constant_pad_nd(Tensor input, Tensor pad_tensor, Tensor output_shape_tensor, Scalar value) -> Tensor");
+  m.def(
+      "hpu::constant_pad_nd_ds(Tensor input, SymInt[] pad, Scalar value, SymInt[]? size=None) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
@@ -2153,6 +2170,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       scaled_triangular_softmax_retain);
   m.impl("hpu::sum_fp8", sum_fp8);
   m.impl("hpu::slice_ds", slice_ds);
+  m.impl("hpu::constant_pad_nd_ds", constant_pad_nd_ds);
 }
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {

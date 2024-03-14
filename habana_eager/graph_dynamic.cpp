@@ -64,5 +64,6 @@ std::vector<T> GetH2DTensorHostData(at::Tensor& tensor) {
 
 template std::vector<int32_t> GetH2DTensorHostData(at::Tensor&);
 template std::vector<uint64_t> GetH2DTensorHostData(at::Tensor&);
+template std::vector<uint32_t> GetH2DTensorHostData(at::Tensor&);
 } // namespace graph
 } // namespace habana

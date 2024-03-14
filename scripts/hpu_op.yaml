@@ -2857,6 +2857,7 @@ complex:
 
 constant_pad_nd:
   output_meta: ConstantPadMeta
+  op_backend: ConstantPad
   custom_fill_params: FillConstantPadParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Short, Char, Byte]
@@ -2867,6 +2868,7 @@ constant_pad_nd:
   lazy:
     acc_thread: true
     override_fn: constant_pad_hpu_lazy
+#  schema_args: "(Tensor self, Tensor pad_tensor, Tensor output_shape_tensor, Scalar value, SymInt[] self_size) -> Tensor"
 
 convolution_overrideable:
   output_meta: ConvolutionOverrideableMeta
