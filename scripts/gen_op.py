@@ -425,8 +425,8 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
         arg_guid = f'"{ctxop.get_guid()}"'
         arg_output_shape = ctxop.get_custom_output_shape()
         arg_fill_params = ctxop.get_custom_fill_params()
-        arg_type_promotion = "false"
-        arg_promote_int_to_float = "false"  # str(ctxop.promote_int_to_float()).lower()
+        arg_type_promotion = "true" if len(ctxop.promote_to_common_type()) > 0 else "false"
+        arg_promote_int_to_float = "true" if len(ctxop.promote_int_to_float()) > 0 else "false"
         arg_safe_cast_check = str(ctxop.safe_cast_check()).lower()
         arg_isinplace = str(is_inplace()).lower()
         arg_isoutfn = str(isoutfn).lower()

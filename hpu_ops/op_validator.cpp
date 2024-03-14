@@ -388,8 +388,10 @@ detail::TensorDescrArray CheckNodeWithSharedLayerValidator::
         const std::vector<at::IValue>& values,
         at::ScalarType resultType) {
   detail::TensorDescrArray inputList;
-  inputList.emplace_back(TryCastTensor(values[0], resultType));
-  inputList.emplace_back(TryCastTensor(values[1], resultType));
+  std::size_t limit = m_isOutFn ? values.size() - 1 : values.size();
+  for (std::size_t i = 0; i < limit; ++i) {
+    inputList.emplace_back(TryCastTensor(values[i], resultType));
+  }
   return inputList;
 }
 
@@ -453,9 +455,18 @@ at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
     output = &values.back();
   }
 
-  auto dtype_helper = habana_helpers::DTypeHelper::
-      binary_op_with_optional_int_to_float_promotion(
-          values, m_promoteIntToFloat, output, m_safeCastCheck);
+  const std::size_t input_size = m_isOutFn ? values.size() - 1 : values.size();
+  habana_helpers::DTypeHelper dtype_helper;
+  if (input_size > 1) {
+    dtype_helper = habana_helpers::DTypeHelper::
+        binary_op_with_optional_int_to_float_promotion(
+            values, m_promoteIntToFloat, output, m_safeCastCheck);
+  } else {
+    dtype_helper = habana_helpers::DTypeHelper::
+        unary_op_with_optional_int_to_float_promotion(
+            values, m_promoteIntToFloat, output, m_safeCastCheck);
+  }
+
   auto common_type = dtype_helper.get_common_dtype();
 
   return common_type;

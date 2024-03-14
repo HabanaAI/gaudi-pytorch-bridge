@@ -176,6 +176,24 @@ c10::ScalarType DTypeHelper::get_result_dtype() const {
   return result_dtype_;
 }
 
+DTypeHelper DTypeHelper::unary_op_with_optional_int_to_float_promotion(
+    const std::vector<at::IValue>& inputs,
+    bool int_to_float,
+    c10::optional<const at::IValue*> output,
+    bool safe_cast) {
+  DTypeHelper dtype_helper;
+  dtype_helper.add_inputs({&inputs.at(0)})
+      .set_promote_to_common_type(true)
+      .set_promote_int_to_float(int_to_float)
+      .set_safe_cast_to_output(safe_cast);
+  if (output.has_value()) {
+    dtype_helper.add_output(output.value());
+  }
+
+  dtype_helper.build();
+  return dtype_helper;
+}
+
 DTypeHelper DTypeHelper::unary_op_with_optional_int_to_long_promotion(
     const std::vector<at::IValue>& inputs,
     c10::optional<const at::IValue*> output,

@@ -689,6 +689,7 @@ acos:
 
 acos.out:
   promote_int_to_float: [self]
+  safe_cast_check: false
   dtypes: [Float]
   guid: acos_fwd
   op_validator: check-node-with-shared-layer
@@ -710,6 +711,7 @@ acosh:
 acosh.out:
   dtypes: [Float]
   promote_int_to_float: [self]
+  safe_cast_check: false
   guid: acosh_fwd
   op_validator: check-node-with-shared-layer
 
@@ -1208,6 +1210,7 @@ asin.out:
     Gaudi2: [Float]
     Gaudi3: [Float]
   promote_int_to_float: [self]
+  safe_cast_check: false
   guid: asin_fwd
   op_validator: check-node-with-shared-layer
 
@@ -1233,6 +1236,7 @@ asinh:
 
 asinh.out:
   promote_int_to_float: [self]
+  safe_cast_check: false
   dtypes:
     Gaudi: [Float]
     Gaudi2: [Float]
@@ -1464,6 +1468,8 @@ atanh.out:
     Gaudi2: [Float]
     Gaudi3: [Float]
   guid: atanh_fwd
+  promote_int_to_float: [self]
+  safe_cast_check: false
   op_validator: check-node-with-shared-layer
 
 atanh_:
@@ -6804,6 +6810,7 @@ sin:
 
 sin.out:
   promote_int_to_float: [self]
+  safe_cast_check: false
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -6843,6 +6850,7 @@ sinc_:
 
 sinh.out:
   promote_int_to_float: [self]
+  safe_cast_check: false
   dtypes: [Float]
   guid: sinh_fwd
   op_validator: check-node-with-shared-layer
@@ -7272,6 +7280,7 @@ tanh:
 
 tanh.out:
   promote_int_to_float: [self]
+  safe_cast_check: false
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
