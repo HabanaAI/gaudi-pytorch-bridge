@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -32,4 +32,14 @@ OutputMetaDataVector EmbeddingMeta(const at::Stack& stack) {
   }
   return {meta};
 }
+
+std::shared_ptr<void> FillEmbeddingRenormFwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  PARAMS_STUB(ns_EmbeddingRenormFwdKernel::Params);
+  params->max_norm = stack.at(2).toScalar().to<double>();
+  params->norm_type = stack.at(3).toScalar().to<double>();
+  return params;
+}
+
 } // namespace habana

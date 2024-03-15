@@ -2986,6 +2986,22 @@ embedding_dense_backward:
   op_backend: EmbeddingDenseBwd
   out_ids: [0]
 
+embedding_renorm_:
+  dtypes:
+    self: [Float]
+    indices: [Long, Int]
+  custom_fill_params: FillEmbeddingRenormFwdParams
+  guid: embedding_renorm_fwd
+  inplace_ids: [0]
+
+embedding_renorm:
+  dtypes:
+    self: [Float]
+    indices: [Long, Int]
+  custom_fill_params: FillEmbeddingRenormFwdParams
+  guid: embedding_renorm_fwd
+  out_ids: [0]
+
 equal:
   dtypes: [BFloat16, Float, Long, Int, Char, Byte]
   op_backend: Equal
