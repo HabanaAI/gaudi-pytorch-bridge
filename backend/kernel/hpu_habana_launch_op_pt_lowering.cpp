@@ -294,23 +294,15 @@ void habana::HabanaLaunchOpPT::UpdateSynapsePermutations(
   }
 }
 
-// Based on:
-// synapse/tests/gaudi_tests/gaudi_test_infra.cpp
-static void getTensorSectionId(
+static synRetrievedLaunchTensorInfo* getRecipeTensorInfos(
     const synRecipeHandle& recipeHandle,
-    const synTensor& tensor,
-    synSectionId& sectionId,
-    bool& isInput) {
+    uint32_t numOfTensors) {
   synStatus status;
-  uint32_t numOfTensors = 0;
-  status = synTensorRetrieveLaunchAmount(recipeHandle, &numOfTensors);
-  HABANA_ASSERT(
-      status == synStatus::synSuccess, Logger::synStatusToStr(status));
   uint64_t ids[numOfTensors];
   status = synTensorRetrieveLaunchIds(recipeHandle, ids, numOfTensors);
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
-  synRetrievedLaunchTensorInfo tensorInfos[numOfTensors];
+  auto tensorInfos = new synRetrievedLaunchTensorInfo[numOfTensors];
   for (unsigned i = 0; i < numOfTensors; i++) {
     tensorInfos[i].tensorId = ids[i];
   }
@@ -318,7 +310,18 @@ static void getTensorSectionId(
       synTensorRetrieveLaunchInfoById(recipeHandle, numOfTensors, tensorInfos);
   HABANA_ASSERT(
       status == synStatus::synSuccess, Logger::synStatusToStr(status));
+  return tensorInfos;
+}
 
+// Based on:
+// synapse/tests/gaudi_tests/gaudi_test_infra.cpp
+static void getTensorSectionId(
+    const synTensor& tensor,
+    synSectionId& sectionId,
+    synRetrievedLaunchTensorInfo* tensorInfos,
+    uint32_t numOfTensors,
+    bool& isInput) {
+  synStatus status;
   // get tensor name
   char tensorName[ENQUEUE_TENSOR_NAME_MAX_SIZE];
   status = synTensorGetName(tensor, ENQUEUE_TENSOR_NAME_MAX_SIZE, tensorName);
@@ -453,6 +456,13 @@ void habana::HabanaLaunchOpPT::HandleTensorWithChecksumOnDevice(
 void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     synapse_helpers::graph::recipe_handle& recipe) {
   std::vector<synSectionId> constSectionIds;
+  uint32_t numOfTensors = 0;
+  synStatus status =
+      synTensorRetrieveLaunchAmount(recipe.syn_recipe_handle_, &numOfTensors);
+  HABANA_ASSERT(
+      status == synStatus::synSuccess, Logger::synStatusToStr(status));
+  auto tensorInfos =
+      getRecipeTensorInfos(recipe.syn_recipe_handle_, numOfTensors);
   for (auto iter = pt_to_synapse_tensors.begin();
        iter != pt_to_synapse_tensors.end();
        ++iter) {
@@ -484,9 +494,10 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
           synSectionId tensorSectionId;
           bool isInput;
           getTensorSectionId(
-              recipe.syn_recipe_handle_,
               tensor.get(),
               tensorSectionId,
+              tensorInfos,
+              numOfTensors,
               isInput);
           if (!isInput) {
             PT_BRIDGE_DEBUG("non-input tensor section ID:  ", tensorSectionId);
@@ -594,6 +605,8 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
         constSectionIds.size());
     constSectionIds.clear();
   }
+
+  delete[] tensorInfos;
   // Call TcMalloc extension to release memory
   synapse_helpers::ReleaseFreeMemory();
 }
