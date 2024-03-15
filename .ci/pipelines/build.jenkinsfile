@@ -1,6 +1,7 @@
 def stableBranch = GERRIT_BRANCH - '_next'
 def isPromote = env.IS_PROMOTE.toBoolean() || env.TRIGGER_BUILD.startsWith("Promote")
 src = library("pipeline-library@$stableBranch")
+Boolean isBisect = JOB_BASE_NAME.toLowerCase().contains('bisect')
 
 def user_install = env.runInDocker == 'true' ? '' : '--user'
 def buildDependencies = ['SYNAPSE', "SYNAPSE_UTILS", 'AEON', 'HL_THUNK', 'COMPLEX_GUID', 'SWTOOLS_SDK', 'SYNAPSE_PROFILER', 'TPC_KERNELS', 'SCAL', 'PT_FORK']
@@ -95,5 +96,6 @@ genericBuilder(
     buildCommands: buildCommands,
     testDependencies: testDependencies,
     requiredArtifact: requiredArtifact,
-    manifest: manifest
+    manifest: manifest,
+    checkoutDepth: isBisect ? 10 : 1 //temporary fix for SW-179025 - precommit hook needs depth to create diff
 )
