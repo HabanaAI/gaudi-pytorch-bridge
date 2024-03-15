@@ -12,7 +12,6 @@
  */
 #include "common/utils.h"
 #include <ATen/Tensor.h>
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/synapse_helpers/env_flags.h"
 
 namespace common {
@@ -28,10 +27,7 @@ bool IsInt64Supported() {
   // In eager we want to use flag only if it is defined, if not - return true,
   // because it is the default value for eager mode.
   // Until issues with failing tests are resolved result shall remain false
-  auto result = true;
-
-  if (habana::HPURegistrar::get_device().name() == "GAUDI")
-    result = false;
+  auto result = false;
 
   if (IS_ENV_FLAG_DEFINED_NEW(PT_ENABLE_INT64_SUPPORT)) {
     result = GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT);
