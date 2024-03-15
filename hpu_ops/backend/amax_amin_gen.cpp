@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -156,11 +156,24 @@ void AminAmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
   const auto meta = OutputMeta(stack)[0];
 
+  // Leverage autocast feature from CGUID to support integer inputs
+  if (c10::isIntegralType(meta.dtype, true)) {
+    update_guid_dtype(guid_, c10::ScalarType::Int);
+  }
+
+  c10::optional<synapse_helpers::tensor> castedInput = c10::nullopt;
+  // Convert bool tensor to 0x00 and 0x01
+  if (self.scalar_type() == c10::ScalarType::Bool) {
+    castedInput = BuildBoolCast(
+        this, graph, syn_in(0), self.sizes(), c10::ScalarType::Bool);
+  }
+  auto input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
+
   auto op = HandleReductionDimAndKeepdim(
       this,
       graph,
       self,
-      {syn_in(0)},
+      {input},
       dim_vec,
       keepdim,
       guid_,

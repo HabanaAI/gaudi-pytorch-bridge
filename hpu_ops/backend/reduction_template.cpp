@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -96,6 +96,10 @@ void ReductionBackendTemplate::AddNode(
   }
 }
 
+inline bool reduction_support_f32(const std::string& guid) {
+  return guid.find("reduce_prod_multi_dim") != std::string::npos;
+}
+
 // Returns the input after cast to the supplied dtype. If dtype is none or if
 // dtype is same as input's dtype, returns nullopt.
 c10::optional<synapse_helpers::tensor> HandleReductionDtype(
@@ -110,16 +114,22 @@ c10::optional<synapse_helpers::tensor> HandleReductionDtype(
     dtype_val = at::kInt;
   }
 
+  // Update guid with the dtype to be used
+  std::string guid = op->GetGuid();
+  auto guid_dtype = dtype_val;
+  if (reduction_support_f32(guid) and at::isIntegralType(guid_dtype, true)) {
+    guid_dtype = at::kFloat;
+  } else {
+    // do nothing
+  }
+  op->SetGuid(update_guid_dtype(guid, guid_dtype));
+
   if (habana_helpers::getInternalDtype(dtype_val) ==
       habana_helpers::getInternalDtype(self.scalar_type())) {
     return c10::nullopt;
   }
 
   op->SetScalarType(dtype_val);
-
-  // Update guid with the dtype to be used
-  std::string guid = op->GetGuid();
-  op->SetGuid(update_guid_dtype(guid, dtype_val));
 
   return OpBackend::BuildCast(
       op, graph, syn_in, self.sizes(), self.scalar_type(), dtype_val);

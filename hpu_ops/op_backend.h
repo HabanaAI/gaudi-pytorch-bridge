@@ -224,14 +224,6 @@ class OpBackend : public HabanaOperator {
       const at::Stack& stack);
   void HandleHwScaling(const at::Stack&, const size_t);
 
-  static synapse_helpers::tensor BuildBoolCast(
-      OpBackend* op,
-      synapse_helpers::graph& graph,
-      synTensor syn_in,
-      const at::IntArrayRef sizes,
-      const at::ScalarType& from,
-      c10::optional<int> final_result_index = c10::nullopt);
-
   static synapse_helpers::tensor BuildRegularCast(
       OpBackend* op,
       synapse_helpers::graph& graph,
@@ -314,6 +306,14 @@ class OpBackend : public HabanaOperator {
       const at::IntArrayRef sizes,
       const at::ScalarType& from,
       const at::ScalarType& to,
+      c10::optional<int> final_result_index = c10::nullopt);
+
+  static synapse_helpers::tensor BuildBoolCast(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      const at::IntArrayRef sizes,
+      const at::ScalarType& from,
       c10::optional<int> final_result_index = c10::nullopt);
 
   static synapse_helpers::tensor BuildConstant(

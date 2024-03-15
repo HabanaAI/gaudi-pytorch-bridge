@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -41,41 +41,60 @@ void NansumList::AddNode(
   if (!stack.at(1).isNone())
     dim = stack.at(1).toIntVector();
   bool keepdim = stack.at(2).toBool();
-  auto guid = get_guid_with_precision(guidReducesum, meta.dtype);
+  auto compute_type =
+      c10::isIntegralType(meta.dtype, true) ? c10::ScalarType::Int : meta.dtype;
+  auto guid = get_guid_with_precision(guidReducesum, compute_type);
 
   c10::optional<synapse_helpers::tensor> castedInput = c10::nullopt;
-  if (habana_helpers::getInternalDtype(meta.dtype) !=
+  if (habana_helpers::getInternalDtype(compute_type) !=
       habana_helpers::getInternalDtype(inputType)) {
     castedInput = OpBackend::BuildCast(
-        this, graph, syn_in(0), inputShape, inputType, meta.dtype);
+        this, graph, syn_in(0), inputShape, inputType, compute_type);
   }
   auto input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
 
   // isNan on input
   auto is_nan = BuildOp(
       graph,
-      get_guid_with_precision("isnan_fwd", meta.dtype),
+      get_guid_with_precision("isnan_fwd", compute_type),
       {input},
       {{inputShape, c10::ScalarType::Char}});
 
-  auto zero_constant = ConstantHelper(graph, 0.0f, meta.dtype, inputShape);
+  auto zero_constant = ConstantHelper(graph, 0.0f, compute_type, inputShape);
 
   // where on is_nan
   auto where = BuildOp(
       graph,
-      get_guid_with_precision("where_fwd", meta.dtype),
+      get_guid_with_precision("where_fwd", compute_type),
       {is_nan[0].get(), zero_constant.get(), input},
-      {{inputShape, meta.dtype}});
+      {{inputShape, compute_type}});
 
+  const bool is_cast_not_required =
+      habana_helpers::getInternalDtype(compute_type) ==
+      habana_helpers::getInternalDtype(meta.dtype);
+  NodeAttr::NodeOutputAttr out_attr = {meta.shape, compute_type};
+  if (is_cast_not_required) {
+    out_attr.final_result_index = 0;
+  } else {
+    // ScalarType will be used for adding reshape in
+    // HandleReductionDimAndKeepdim
+    SetScalarType(compute_type);
+  }
   auto reduce_sum = HandleReductionDimAndKeepdim(
-      this,
-      graph,
-      self,
-      {where[0].get()},
-      dim,
-      keepdim,
-      guid,
-      {{meta.shape, meta.dtype, 0}});
-  syn_out(0) = std::move(reduce_sum[0]);
+      this, graph, self, {where[0].get()}, dim, keepdim, guid, {out_attr});
+
+  if (is_cast_not_required) {
+    syn_out(0) = std::move(reduce_sum[0]);
+  } else {
+    auto castOut = OpBackend::BuildCast(
+        this,
+        graph,
+        reduce_sum[0].get(),
+        meta.shape,
+        compute_type,
+        meta.dtype,
+        0);
+    syn_out(0) = std::move(castOut);
+  }
 }
 } // namespace habana

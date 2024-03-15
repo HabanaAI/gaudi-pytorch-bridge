@@ -1013,9 +1013,9 @@ all.out:
 
 amax:
   dtypes:
-    Gaudi: [Float, BFloat16, Int]
-    Gaudi2: [Float, BFloat16, Int, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [Float, BFloat16, Int, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [Float, BFloat16, Int, Byte, Short, Char]
+    Gaudi2: [Float, BFloat16, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [Float, BFloat16, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_max_fwd
   output_meta: AminAmaxMeta
   op_backend: AminAmax
@@ -1023,18 +1023,18 @@ amax:
 
 amax.out:
   dtypes:
-    Gaudi: [Float, BFloat16, Int, Long]
-    Gaudi2: [Float, BFloat16, Int, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [Float, BFloat16, Int, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [Float, BFloat16, Int, Long, Byte, Short, Char]
+    Gaudi2: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_max_fwd
-  op_template: reduction
-  promote_int_to_long: False
+  output_meta: AminAmaxMeta
+  op_backend: AminAmax
 
 amin:
   dtypes:
-    Gaudi: [Float, BFloat16, Int]
-    Gaudi2: [Float, BFloat16, Int, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [Float, BFloat16, Int, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [Float, BFloat16, Int, Byte, Short, Char]
+    Gaudi2: [Float, BFloat16, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [Float, BFloat16, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_min_fwd
   output_meta: AminAmaxMeta
   op_backend: AminAmax
@@ -1042,12 +1042,12 @@ amin:
 
 amin.out:
   dtypes:
-    Gaudi: [Float, BFloat16, Int, Long]
-    Gaudi2: [Float, BFloat16, Int, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [Float, BFloat16, Int, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [Float, BFloat16, Int, Long, Byte, Short, Char]
+    Gaudi2: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_min_fwd
-  op_template: reduction
-  promote_int_to_long: False
+  output_meta: AminAmaxMeta
+  op_backend: AminAmax
 
 aminmax:
   output_meta: AminmaxMeta
@@ -5023,20 +5023,18 @@ nan_to_num.out:
 nansum:
   output_meta: NanSumIntListMeta
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-  op_template: reduction
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Half]
   op_backend: NansumList
   out_ids: [0]
 
 nansum.out:
   output_meta: NanSumIntListMeta
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-  op_template: reduction
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Half]
   op_backend: NansumList
 
 _native_batch_norm_legit:
@@ -5771,29 +5769,30 @@ _prelu_kernel:
 
 prod:
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
+    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half]
   guid: reduce_prod_multi_dim_fwd
   out_ids: [0]
   op_template: reduction
 
 prod.dim_int:
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
+    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half]
   guid: reduce_prod_multi_dim_fwd
   out_ids: [0]
   op_template: reduction
 
 prod.int_out:
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
+    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half]
+    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half]
   guid: reduce_prod_multi_dim_fwd
   op_template: reduction
+  safe_cast_check: false
 
 random_:
   custom_fill_params: FillRandomParams
