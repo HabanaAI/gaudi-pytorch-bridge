@@ -1250,7 +1250,13 @@ class resolve_negative_dim:
                 node.replace_all_uses_with(view_new_node, propagate_meta=True)
 
             ctx.graph_module.recompile()
-            ctx.graph_module.graph.eliminate_dead_code()
+            if ctx.uses_aot:
+                ctx.graph_module.graph.eliminate_dead_code()
+            else:
+                # Running DCE on graph that might not be functionalized in unsafe:
+                # https://github.com/pytorch/pytorch/issues/68301
+                logger.warn("Disallowed to run DCE in non-aot mode.")
+
         return True
 
     def __new__(cls, ctx, node):
