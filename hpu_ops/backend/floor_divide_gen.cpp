@@ -12,11 +12,6 @@
  */
 
 #include "generated/backend/floor_divide.h"
-#include "habana_kernels/binary_kernels.h"
-#include "pytorch_helpers/habana_helpers/pt_version_check.h"
-
-// Except bfloat16, all other types are computed in following type
-#define COMMON_COMPUTATION_TYPE_TPC c10::ScalarType::Float
 
 namespace habana {
 std::shared_ptr<void> FillFloorDivideParams(const at::Stack&, size_t& size) {

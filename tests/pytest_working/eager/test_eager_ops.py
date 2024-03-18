@@ -1103,3 +1103,48 @@ def test_sag_conv_bwd_view():
 
         r_cpu = result[0].cpu()
         assert r_cpu.dim() == 4
+
+
+@pytest.mark.parametrize(
+    "op",
+    [
+        torch.Tensor.floor_divide_,
+        torch.Tensor.clamp_min_,
+        torch.Tensor.clamp_max_,
+        torch.Tensor.div_,
+        torch.Tensor.mul_,
+        torch.Tensor.add_,
+    ],
+)
+def test_inplace_binary_op_channel_last_different_dtypes(op):
+    shape = [2, 2, 2, 10]
+
+    input_cpu = torch.randn(shape, device="cpu").to(dtype=torch.bfloat16)
+    other_cpu = torch.randn(shape, device="cpu").to(dtype=torch.float32)
+
+    input_hpu = input_cpu.to("hpu").contiguous(memory_format=torch.channels_last)
+    other_hpu = other_cpu.to("hpu")
+    input_cpu = input_cpu.contiguous(memory_format=torch.channels_last)
+
+    op(input_cpu, other_cpu)
+    op(input_hpu, other_hpu)
+
+    torch.testing.assert_close(input_cpu, input_hpu.cpu())
+
+
+def test_inplace_clamp_channel_last_different_dtypes():
+    shape = [2, 2, 2, 10]
+
+    input_cpu = torch.randn(shape, device="cpu").to(dtype=torch.bfloat16)
+    min_cpu = torch.randn(shape, device="cpu").to(dtype=torch.float32)
+    max_cpu = torch.randn(shape, device="cpu").to(dtype=torch.float32)
+
+    input_hpu = input_cpu.to("hpu").contiguous(memory_format=torch.channels_last)
+    input_cpu = input_cpu.contiguous(memory_format=torch.channels_last)
+    min_hpu = min_cpu.to("hpu")
+    max_hpu = max_cpu.to("hpu")
+
+    input_cpu.clamp_(min_cpu, max_cpu)
+    input_hpu.clamp_(min_hpu, max_hpu)
+
+    torch.testing.assert_close(input_cpu, input_hpu.cpu())

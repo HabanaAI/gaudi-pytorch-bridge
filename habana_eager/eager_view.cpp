@@ -42,21 +42,16 @@ std::unordered_set<std::string> underscored_ops_reported_as_non_inplace = {
  * convert out variant to regular one that may result in dtype promotion
  * thereby requiring cast node*/
 std::unordered_set<std::string> ops_needing_cast = {
-    "aten::eq",
-    "aten::ne",
-    "aten::ge",
-    "aten::le",
-    "aten::gt",
-    "aten::lt",
-    "aten::logical_and",
-    "aten::logical_or",
-    "aten::logical_xor",
-    "aten::logical_not",
-    "aten::add",
-    "aten::sub",
-    "aten::mul",
-    "aten::div",
-    "aten::remainder",
+    "aten::eq",          "aten::ne",
+    "aten::ge",          "aten::le",
+    "aten::gt",          "aten::lt",
+    "aten::logical_and", "aten::logical_or",
+    "aten::logical_xor", "aten::logical_not",
+    "aten::add",         "aten::sub",
+    "aten::mul",         "aten::div",
+    "aten::remainder",   "aten::floor_divide_",
+    "aten::clamp",       "aten::clamp_max",
+    "aten::clamp_min",
 };
 
 bool check_if_op_doesnt_use_input(const JitNode* node) {
