@@ -1397,6 +1397,27 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
             reversed_strides.append(size * reversed_strides[-1])
         return list(reversed(reversed_strides))
 
+    def is_strides_special_case(node):
+        # expand_as operator make some of strides zero at dimensions being expanded.
+        # The expanded tensor return is_contiguos as False, this function detects
+        # such a case, where all stride elements except with value 0 are same.
+
+        if "output_shapes" not in node.meta or "output_strides" not in node.meta:
+            return False
+        contiguous_strides = helper_calculate_default_strides(node.meta["output_shapes"][0])
+        actual_strides = node.meta["output_strides"][0]
+        if len(contiguous_strides) != len(actual_strides):
+            return False
+
+        special_case = False
+        for i in range(len(actual_strides)):
+            if not (actual_strides[i] == contiguous_strides[i] or actual_strides[i] == 0):
+                return False
+            else:
+                special_case = special_case or (actual_strides[i] == 0)
+
+        return special_case
+
     def is_output_contiguous_strides(node):
         if "output_shapes" not in node.meta or "output_contiguous" not in node.meta:
             return False
@@ -1550,6 +1571,13 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
                 continue
             prefix_node = helper_get_node_args(out_node)[0]
             if is_call_function_node(prefix_node) and not is_output_contiguous_strides(prefix_node):
+                # The special case here is because of expand_as which makes tensor strides like (0, 1)
+                # If alias on this node is output, then we have as_strided on (0, 1), which we can't do
+                # So option is to not add as_strided and call empty_strided if we detect such a case.
+                # test_hpu_views_detach.py has testcase with this scenario.
+                if is_strides_special_case(out_node):
+                    out_node.meta["output_strides_has_zero"] = [True]
+                    continue
                 as_strided_node = insert_as_strided_after(ctx, out_node, prefix_node)
                 # connect as_stride node as input of following users
                 list(out_node.users.keys())[0].replace_input_with(out_node, as_strided_node)
