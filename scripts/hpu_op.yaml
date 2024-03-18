@@ -5775,9 +5775,10 @@ prod.int_out:
 
 random_:
   custom_fill_params: FillRandomParams
-  Gaudi: [Byte, Char, Short, BFloat16, Float, Int]
-  Gaudi2: [Byte, Char, Short, BFloat16, Half, Float, Int]
-  Gaudi3: [Byte, Char, Short, BFloat16, Half, Float, Int]
+  dtypes:
+    Gaudi: [Byte, Char, Short, BFloat16, Float, Int]
+    Gaudi2: [Byte, Char, Short, BFloat16, Half, Float, Int]
+    Gaudi3: [Byte, Char, Short, BFloat16, Half, Float, Int]
   guid: random_uniform_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
@@ -5786,9 +5787,10 @@ random_:
 
 random_.from:
   custom_fill_params: FillRandomFromParams
-  Gaudi: [Byte, Char, Short, BFloat16, Float, Int]
-  Gaudi2: [Byte, Char, Short, BFloat16, Half, Float, Int]
-  Gaudi3: [Byte, Char, Short, BFloat16, Half, Float, Int]
+  dtypes:
+    Gaudi: [Byte, Char, Short, BFloat16, Float, Int]
+    Gaudi2: [Byte, Char, Short, BFloat16, Half, Float, Int]
+    Gaudi3: [Byte, Char, Short, BFloat16, Half, Float, Int]
   guid: random_uniform_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
@@ -5797,9 +5799,10 @@ random_.from:
 
 random_.to:
   custom_fill_params: FillRandomToParams
-  Gaudi: [Byte, Char, Short, BFloat16, Float, Int]
-  Gaudi2: [Byte, Char, Short, BFloat16, Half, Float, Int]
-  Gaudi3: [Byte, Char, Short, BFloat16, Half, Float, Int]
+  dtypes:
+    Gaudi: [Byte, Char, Short, BFloat16, Float, Int]
+    Gaudi2: [Byte, Char, Short, BFloat16, Half, Float, Int]
+    Gaudi3: [Byte, Char, Short, BFloat16, Half, Float, Int]
   guid: random_uniform_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
