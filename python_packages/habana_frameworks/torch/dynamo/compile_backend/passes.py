@@ -13,17 +13,19 @@
 import contextlib
 import copy
 import os
-from dataclasses import dataclass
-from enum import Enum
-from typing import List, Optional
+from typing import List, Mapping, Optional
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from packaging.version import Version
 from torch.fx.experimental.proxy_tensor import py_sym_types
+from torch.fx.passes.operator_support import OperatorSupport
 
+from ._passes.fuse_allreduce_calls import fuse_allreduce_calls
+from ._passes.utils import OptimizationPassPlacement, OptimizerContext
 from .logger import get_compile_backend_logger
+from .partitioner import CapabilityBasedPartitioner
 from .random_utils import is_random_op, random_op_inputs
 from .recipe_compiler import get_callable_recipe
 from .shared_layer import is_eager_fallback_required
@@ -31,20 +33,14 @@ from .symbolic_execution import SymExprNodeManager
 
 logger = get_compile_backend_logger()
 
+
 # Copy of partitoner module from native pytroch-fork along with the
 # mentioend PR changes are kept in .partitioner.py file. Below code will
 # be rolled back to .partitioner.py file once the below PR is merged.
 # PR: https://github.com/pytorch/pytorch/pull/115621
-from typing import Mapping
-
-from torch.fx.passes.operator_support import OperatorSupport
-
-from .partitioner import CapabilityBasedPartitioner
-
-
 class HabanaClusterOperatorSupport(OperatorSupport):
     def is_node_supported(self, submodules: Mapping[str, torch.nn.Module], node: torch.fx.Node) -> bool:
-        return node.meta["placement"] == "hpu_cluster"
+        return node.meta["placement"] in ["hpu_cluster"]
 
 
 class HabanaPartitioner(CapabilityBasedPartitioner):
@@ -122,24 +118,6 @@ def get_dynamic_config_value():
         is_dynamic = not config.assume_static_by_default
 
     return is_dynamic
-
-
-class OptimizationPassPlacement(Enum):
-    PRE_PARTITIONER = 1
-    PARTITIONER = 2
-    POST_PARTITIONER = 3
-
-
-@dataclass
-class OptimizerContext:
-    graph_module: torch.fx.GraphModule
-    example_inputs: List[torch.Tensor]
-    is_training: bool
-    is_backward: bool
-    is_dynamic: bool
-    uses_aot: bool
-    stage: OptimizationPassPlacement
-    current_partitions: List
 
 
 def optimize_graph(
@@ -222,11 +200,11 @@ def get_passes(stage: OptimizationPassPlacement):
         return [
             # These passes will be ran once, they always get and produce a flat graph without submodules.
             pass_graph_print,
+            fuse_allreduce_calls,
             pass_pattern_rewriter,
             pass_fake_propagation,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
             pass_mark_placement,
-            pass_accumulate_grads,
             pass_graph_print,
         ]
     elif stage == OptimizationPassPlacement.PARTITIONER:
@@ -1008,6 +986,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         elif node.meta["output_device"].type == "cpu":
             placement = "eager"
 
+        logger.debug("Node '{}'(op='{}') placement: {}", node.name, node.op, placement)
+
         assert placement is not None
 
         # Meta for the node should not be created yet. BUT...
@@ -1558,7 +1538,8 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
     #     t: f32[5, 10] = torch.ops.aten.t.default(arg0_1);  arg0_1 = None
     #     alias: f32[5, 10] = torch.ops.aten.alias.default(t);  t = None
     #     return (alias,)
-    is_alias_node = lambda node: (is_call_function_node(node) and "alias" in node.target.__name__)
+    def is_alias_node(node):
+        return is_call_function_node(node) and "alias" in node.target.__name__
 
     if is_only_output_alias_in_graph:
         for out_node in fw_outputs:

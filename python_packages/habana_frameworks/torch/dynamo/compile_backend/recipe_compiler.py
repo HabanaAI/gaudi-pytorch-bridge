@@ -81,7 +81,7 @@ class HabanaGraphModule(torch.nn.Module):
                 has_preallocated_outputs=bool(outputs),
                 has_randoms=self._has_randoms,
             )
-            dump_fx_graph(self._fx_module, self._recipe_id)
+            dump_fx_graph(self._fx_module, self._jit_ir.graph, self._recipe_id)
         elif self._has_randoms:
             inputs = (None, None) + inputs
 
