@@ -7352,8 +7352,8 @@ topk:
 topk.values:
   dtypes:
     Gaudi: [Float, Int, BFloat16, Short]
-    Gaudi2: [Float, Int, BFloat16, Short, Half]
-    Gaudi3: [Float, Int, BFloat16, Short, Half]
+    Gaudi2: [Float, Int, Long, BFloat16, Short, Half]
+    Gaudi3: [Float, Int, Long, BFloat16, Short, Half]
   output_meta: TopkMeta
   fallback_check: [TopkFallbackCheck, sorted]
   op_frontend: TopKFE
@@ -7363,8 +7363,8 @@ topk.values:
 sort.values_stable:
   dtypes:
     Gaudi: [Float, Int, BFloat16, Short]
-    Gaudi2: [Float, Int, BFloat16, Short, Half]
-    Gaudi3: [Float, Int, BFloat16, Short, Half]
+    Gaudi2: [Float, Int, Long, BFloat16, Short, Half]
+    Gaudi3: [Float, Int, Long, BFloat16, Short, Half]
   custom_output_shape: SortOutputShape
   fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
@@ -7372,8 +7372,8 @@ sort.values_stable:
 sort.stable:
   dtypes:
     Gaudi: [Float, Int, BFloat16, Short]
-    Gaudi2: [Float, Int, BFloat16, Short, Half]
-    Gaudi3: [Float, Int, BFloat16, Short, Half]
+    Gaudi2: [Float, Int, Long, BFloat16, Short, Half]
+    Gaudi3: [Float, Int, Long, BFloat16, Short, Half]
   fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
   custom_output_shape: SortOutputShape
