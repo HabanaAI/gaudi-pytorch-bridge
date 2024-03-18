@@ -15,7 +15,7 @@ from typing import Optional
 
 import torch
 import torch._prims_common as utils
-from torch._decomp import get_decompositions
+from torch._decomp import core_aten_decompositions, get_decompositions
 
 aten = torch.ops.aten
 
@@ -507,9 +507,11 @@ def split(self, split_size, dim=0):
 
 
 def get_hpu_decompositions():
-    if hpu_backend_config.use_decompositions:
+    if hpu_backend_config.decomposition_mode == "habana":
         return {
             **hpu_backend_decompositions_common,
         }
+    elif hpu_backend_config.decomposition_mode == "core_aten":
+        return {**core_aten_decompositions()}
     else:
         return None

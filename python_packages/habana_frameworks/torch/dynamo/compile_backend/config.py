@@ -25,8 +25,21 @@ def _get_bool_from_env(env_var: str, default: str):
     assert False, f"Unrecognized boolean value in env config:\n\t{env_var}: {env_str_value}"
 
 
+def _get_decomp_mode(env_var: str, default: str):
+    env_str_value = os.getenv(env_var, default).lower()
+    assert env_str_value in [
+        "habana",
+        "core_aten",
+        "none",
+    ], f'Unrecognized string value in env config:\n\t{env_var}: {env_str_value}\n\tRecognized values: "habana", "core_aten", "none"\n'
+    return env_str_value
+
+
 use_compiled_recipes = _get_bool_from_env("PT_HPU_COMPILE_USE_RECIPES", "1")
-use_decompositions = _get_bool_from_env("PT_HPU_COMPILE_USE_DECOMPS", "1")
+# decomposition_mode can take values "habana", "core_aten" and "none" and
+# with each of those values, hpu backend creates AOT Autograd instance with decomposition list
+# containing either Habana defined (habana), PT Framework defined (core_aten) or no decompositions.
+decomposition_mode = _get_decomp_mode("PT_HPU_COMPILE_DECOMPOSITION_MODE", "habana")
 verbose = _get_bool_from_env("PT_HPU_COMPILE_VERBOSE", "0")
 keep_input_mutations = _get_bool_from_env("PT_HPU_KEEP_INPUT_MUTATIONS", "0")
 use_eager_fallback = _get_bool_from_env("PT_HPU_USE_EAGER_FALLBACK", "1")
