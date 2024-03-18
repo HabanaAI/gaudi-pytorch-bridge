@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "generated/backend/equal.h"
 
@@ -17,11 +20,8 @@ void Equal::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self_size = self.sizes();
   auto other_size = other.sizes();
   const at::ScalarType& result_type = c10::ScalarType::Bool;
-  auto reshape_size = std::accumulate(
-      std::begin(self_size),
-      std::end(self_size),
-      1,
-      std::multiplies<int64_t>());
+  auto reshape_size = self.numel();
+
   std::vector<int64_t> reshape_outshape = {reshape_size};
   size_t size = 0;
 
