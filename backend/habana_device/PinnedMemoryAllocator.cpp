@@ -37,7 +37,11 @@ void PinnedMemoryAllocator::deleter(void* ptr) {
   device.get_host_memory().free(ptr);
 }
 
+#if IS_PYTORCH_AT_LEAST(2, 3)
+at::DataPtr PinnedMemoryAllocator::allocate(size_t size) {
+#else
 at::DataPtr PinnedMemoryAllocator::allocate(size_t size) const {
+#endif
   void* ptr = nullptr;
   if (size != 0) {
     auto& device = HPURegistrar::get_device(

@@ -26,12 +26,14 @@ class PinnedMemoryAllocator final : public at::Allocator {
  public:
   PinnedMemoryAllocator();
   ~PinnedMemoryAllocator();
-  at::DataPtr allocate(size_t size) const override;
   at::DeleterFnPtr raw_deleter() const override;
   static void deleter(void* ptr);
 
 #if IS_PYTORCH_AT_LEAST(2, 3)
+  at::DataPtr allocate(size_t size) override;
   void copy_data(void* dest, const void* src, std::size_t count) const override;
+#else
+  at::DataPtr allocate(size_t size) const override;
 #endif
   // user must manually set active device before calling allocator functions
   static synDeviceId allocator_active_device_id;

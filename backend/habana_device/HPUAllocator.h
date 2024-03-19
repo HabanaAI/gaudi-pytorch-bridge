@@ -55,7 +55,6 @@ class HPUDeviceAllocator final : public at::Allocator {
  public:
   HPUDeviceAllocator();
 
-  at::DataPtr allocate(size_t size) const override;
   at::DeleterFnPtr raw_deleter() const override;
   static void recordStream(const at::DataPtr& ptr, c10::hpu::HPUStream stream);
 
@@ -72,7 +71,10 @@ class HPUDeviceAllocator final : public at::Allocator {
   static void memstat_devmem_stop_collect(const char* msg);
   static void dump_memory_reporter();
 #if IS_PYTORCH_AT_LEAST(2, 3)
+  at::DataPtr allocate(size_t size) override;
   void copy_data(void* dest, const void* src, std::size_t count) const override;
+#else
+  at::DataPtr allocate(size_t size) const override;
 #endif
 };
 

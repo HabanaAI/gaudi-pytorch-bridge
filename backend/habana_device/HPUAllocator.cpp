@@ -145,7 +145,11 @@ void HPUDeviceAllocator::deleter(void* ptr) {
   TORCH_HABANA_CHECK(status, "Device Free failed");
 }
 
+#if IS_PYTORCH_AT_LEAST(2, 3)
+at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) {
+#else
 at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
+#endif
   void* v_ptr{nullptr};
   synStatus status{synStatus::synSuccess};
 

@@ -70,7 +70,7 @@
       "default_source": "https://download.pytorch.org/whl/test/cpu"
     },
     "future": {
-      "version": "2.3.0",
+      "version": "2.4.0",
       "default_source": "https://download.pytorch.org/whl/nightly/cpu"
     },
     "nightly": {
