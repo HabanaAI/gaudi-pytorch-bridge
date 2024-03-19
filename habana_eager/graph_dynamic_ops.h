@@ -351,6 +351,23 @@ class RandpermGeneratorOperatorDS : public DynamicOp {
       LaunchDynamicShapes& launch_shapes);
 };
 
+class FullOpDS : public DynamicOp {
+ public:
+  FullOpDS() : DynamicOp() {}
+  bool ReplaceWithDynamicHPUOp(
+      torch::jit::Node*,
+      torch::jit::Stack& org_stack,
+      GraphInputIndexMap& org_stack_index_map,
+      ValueIvalueMap& value_ivalue_map,
+      std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
+  static void UpdateDynamicInputs(
+      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
+      c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      std::vector<c10::IValue>& stack,
+      LaunchDynamicShapes& launch_shapes);
+};
+
 class ExapndOperatorDS : public DynamicOp {
  public:
   ExapndOperatorDS() : DynamicOp() {}

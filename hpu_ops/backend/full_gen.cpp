@@ -12,6 +12,7 @@
  */
 
 #include "generated/backend/full.h"
+#include "hpu_ops/dynamic_op.h"
 namespace habana {
 
 const unsigned SIZE_INDEX = 0;
@@ -27,8 +28,12 @@ OutputMetaDataVector FullMeta(const at::Stack& stack) {
 
   OutputMetaData meta;
   meta.dtype = dtype;
-  meta.shape = stack.at(SIZE_INDEX).toIntVector();
-
+  // convert tensor to shape vector
+  if (stack.at(SIZE_INDEX).isTensor()) {
+    meta.shape = stack.at(SIZE_INDEX).toTensor().sizes().vec();
+  } else {
+    meta.shape = stack.at(SIZE_INDEX).toIntVector();
+  }
   return {meta};
 }
 
@@ -39,4 +44,21 @@ void FullBE::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(result);
 }
 
+void FullOperatorDS::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto fillValue = stack.at(FILL_VALUE_INDEX).toScalar();
+  const auto meta = FullMeta(stack)[0];
+  auto result = ConstantHelper(graph, fillValue, meta.dtype, meta.shape, 0);
+  syn_out(0) = std::move(result);
+}
+
+FullOperatorDS::FullOperatorDS(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, "full", scalar_type, {0}, {}, {}, false) {
+  SetOutputMetaFn(FullMeta);
+}
 } // namespace habana
+
+static const auto& FullOpKernelRegistry = habana::KernelRegistry().add(
+    "hpu::full_ds",
+    KERNEL_FN_GLOBAL(habana::FullOperatorDS));

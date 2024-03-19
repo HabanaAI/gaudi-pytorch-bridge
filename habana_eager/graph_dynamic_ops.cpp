@@ -590,6 +590,9 @@ static const auto& BasicDSOpsRegistry =
         .DSOP_MID_BACKEND(hpu::strided_insert, StridedInsertOperatorDS)
         .DSOP_MID_BACKEND(aten::select_scatter, SelectScatterOperatorDS)
         .DSOP_MID_BACKEND(aten::slice_scatter, SliceScatterOperatorDS)
-        .DSOP_MID_BACKEND(hpu::habana_randperm, RandpermGeneratorOperatorDS);
+        .DSOP_MID_BACKEND(hpu::habana_randperm, RandpermGeneratorOperatorDS)
+        .DSOP_MID_BACKEND(
+            aten::full,
+            FullOpDS); // we are adding original schema name
 } // namespace graph
 } // namespace habana
