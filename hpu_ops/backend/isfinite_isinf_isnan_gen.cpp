@@ -22,6 +22,12 @@ void _IsFiniteInfNan::AddNode(
   size_t size = 0;
   auto params = FillParams(stack, size);
   const auto& outshape = stack_tensor(stack, 0).sizes();
+  auto dtype = stack_tensor(stack, 0).scalar_type();
+  // use cguid autocast
+  if (c10::isIntegralType(dtype, true)) {
+    update_guid_dtype(guid_, c10::ScalarType::Int);
+  }
+
   auto result = BuildOp(
       graph,
       guid_,

@@ -186,7 +186,7 @@ is_floating_point                        Yes      Yes      No        No       Ye
 is_nonzero                               Yes      Yes      No        No       Yes       No       No     torch
 isfinite                                 Yes      Yes      Yes       No       No        No       No     torch
 isinf                                    Yes      Yes      Yes       No       No        No       No     torch
-isnan                                    Yes      Yes      Yes       No       Yes       No       No     torch
+isnan                                    Yes      Yes      Yes       No       Yes       Yes      Yes    torch
 isneginf                                 Yes      Yes      Yes       No       No        No       No     torch
 isposinf                                 Yes      Yes      Yes       No       No        No       No     torch
 kthvalue                                 Yes      Yes      Yes       No       Yes       No       No     torch

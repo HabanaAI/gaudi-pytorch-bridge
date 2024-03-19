@@ -4342,8 +4342,8 @@ isinf.out:
 isnan:
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Half, Int]
-    Gaudi3: [BFloat16, Float, Half, Int]
+    Gaudi2: [BFloat16, Float, Half, Int, Byte, Char, Short, Long]
+    Gaudi3: [BFloat16, Float, Half, Int, Byte, Char, Short, Long]
   guid: isnan_fwd
   op_backend: _IsFiniteInfNan
   out_dtypes: [Bool]
