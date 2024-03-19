@@ -21,7 +21,9 @@ const unsigned DTYPE_INDEX = 2;
 OutputMetaDataVector FullMeta(const at::Stack& stack) {
   auto dtype = stack.at(DTYPE_INDEX)
                    .toOptional<at::ScalarType>()
-                   .value_or(at::get_default_dtype_as_scalartype());
+                   .value_or(
+                       stack.at(FILL_VALUE_INDEX).isInt() ? torch::kLong
+                                                          : torch::kFloat);
 
   OutputMetaData meta;
   meta.dtype = dtype;
