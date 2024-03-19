@@ -99,12 +99,8 @@ FALLBACK_CHECK(
     case torch::kInt32:
     case torch::kBFloat16:
     case torch::kFloat32:
-      return true;
-    // Tpc kernel doesn't support this operator with Long yet
-    // Thus we need to fallback to cpu for Long inputs
-    // When Int64 isn't supported kInt64 is actually of type Int32
     case torch::kInt64:
-      return !common::IsInt64Supported();
+      return true;
     case torch::kHalf: {
       return synapse_helpers::device_supports_fp16(
           HPURegistrar::get_device().type());
