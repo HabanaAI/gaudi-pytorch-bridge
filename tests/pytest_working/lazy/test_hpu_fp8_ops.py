@@ -43,6 +43,7 @@ ht.disable_dynamic_shape()
 pytestmark = pytest.mark.skipif(is_gaudi1(), reason="Gaudi1 doesn't support fp8")
 
 
+@pytest.mark.skip(reason="Deprecated op")
 @pytest.mark.parametrize("shape", [(4, 8)])
 @pytest.mark.parametrize("scale", [1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
@@ -169,6 +170,7 @@ def test_cast_to_fp8_optional(shape, dtype, is_scale, is_amax):
         assert amax.cpu()[1][2] == torch.max(input.abs())
 
 
+@pytest.mark.skip(reason="Deprecated op")
 @pytest.mark.parametrize("shape", [(64, 48)])
 @pytest.mark.parametrize("scale", [0.75])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
@@ -244,6 +246,7 @@ def test_fp8_cast_transpose_bgrad_optional(shape, dtype, is_scale, is_amax):
         assert amax.cpu()[1][2] == torch.max(input.abs())
 
 
+@pytest.mark.skip(reason="Deprecated op")
 @pytest.mark.parametrize("shape", [(64, 48)])
 @pytest.mark.parametrize("scale", [1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
@@ -581,6 +584,7 @@ def test_fp8_dropout(shape, scale, dtype, is_scale, is_amax, out_dtype):
     assert torch.isclose(ratio_res, torch.tensor(ratio), rtol=0.1, atol=0.1)
 
 
+@pytest.mark.skip(reason="Deprecated op")
 @pytest.mark.parametrize("shape", [(64, 48)])
 @pytest.mark.parametrize("scale", [1.6])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])

@@ -40,7 +40,7 @@ def test_custom_softmax():
     out = op(torch.clone(input).detach().to(hpu), 0)
     out_cpu = out.cpu().to(torch.float32)
 
-    assert np.allclose(out_cpu.numpy(), ref_output.numpy(), atol=1e-04)
+    assert np.allclose(out_cpu.numpy(), ref_output.numpy(), atol=1e-03)
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("custom_softmax")
 

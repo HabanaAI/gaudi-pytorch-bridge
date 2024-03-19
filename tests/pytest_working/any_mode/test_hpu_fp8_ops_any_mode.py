@@ -22,6 +22,8 @@ from test_utils import (
     format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
+    is_pytest_mode_eager,
+    is_pytest_mode_lazy,
 )
 
 Verbose = False
@@ -228,6 +230,9 @@ def test_cast_to_fp8_hybrid(shape, dtype, stochastic, is_amax, is_scale_152, is_
         casted_152, casted_143, amax = torch.ops.hpu.cast_to_fp8_hybrid(
             input, scale_152, scale_143, stochastic, is_amax
         )
+        # to prevent casts optimization
+        casted_152 = casted_152 * 1.0
+        casted_143 = casted_143 * 1.0
         uncasted_152 = torch.ops.hpu.cast_from_fp8(casted_152, scale_152_inv, dtype)
         uncasted_143 = torch.ops.hpu.cast_from_fp8(casted_143, scale_143_inv, dtype)
 
@@ -405,6 +410,7 @@ def test_fp8_gemm_v2(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, fp
         check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "fp8_gemm_v2"})
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-171898")
 @pytest.mark.parametrize(
     "shape_a, shape_b",
     [
@@ -552,8 +558,10 @@ def test_fp8_gemm_v2_scale_shape(scale_mode, axis, in_dtype, out_dtype):
 @pytest.mark.parametrize("scaleB", [0.00390625, 0.23])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 def test_fp8_gemm_v2_scalar_optimization(scaleA, scaleB, dtype):
-    if scaleA == 16 and scaleB == 0.00390625:
-        pytest.skip("Configuration supported only with PT_HPU_INFERENCE_MODE=1 flag.")
+    if scaleA == 16 and scaleB == 0.00390625 and is_pytest_mode_eager():
+        pytest.skip("Configuration not supported in eager mode yet.")
+
+    ht.enable_inference_mode()
     shapeA = (12, 24)
     shapeB = (24, 36)
     fp8_dtype = torch.float8_e4m3fn
@@ -589,15 +597,17 @@ def test_fp8_gemm_v2_scalar_optimization(scaleA, scaleB, dtype):
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("fp8_gemm_v2")
+    ht.disable_inference_mode()
 
 
-# For manual testing with flag PT_HPU_INFERENCE_MODE=1
-# Post synapse graphs should contain raw GEMM node with exp_bias set on inputs and output.
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Not supported in eager mode yet.")
 @pytest.mark.parametrize("scale_a", [16.0, 1.0, 0.0625, 0.00390625])
 @pytest.mark.parametrize("scale_b", [16.0, 1.0, 0.0625, 0.00390625])
 @pytest.mark.parametrize("scale_out", [16.0, 1.0, 0.0625, 256.0])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
-def DISABLED_test_fp8_gemm_v2_bias_optimization(scale_a, scale_b, scale_out, dtype):
+def test_fp8_gemm_v2_bias_optimization(scale_a, scale_b, scale_out, dtype):
+    ht.enable_inference_mode()
+
     a = (torch.rand(4, 8) * 5).to(torch.float8_e4m3fn).to("hpu")
     b = (torch.rand(8, 12) * 5).to(torch.float8_e4m3fn).to("hpu")
 
@@ -614,13 +624,71 @@ def DISABLED_test_fp8_gemm_v2_bias_optimization(scale_a, scale_b, scale_out, dty
             torch.float8_e4m3fn,
         )
 
+    res_fp8_tensor, _ = fn(a, b, scale_a_t, scale_b_t, scale_out_t)
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="hpu_backend")
+
     res_fp8_scalar, _ = fn(a, b, scale_a, scale_b, scale_out)
+    res_scalar_cpu = res_fp8_scalar.cpu().float()
+
+    rtol = 1e-3 if dtype == torch.float else 1e-2
+    compare_tensors(res_fp8_tensor, res_scalar_cpu, atol=1e-2, rtol=rtol)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir({"fp8_gemm_v2", "cast_to_fp8_v2"})
+    ht.disable_inference_mode()
+
+
+@pytest.mark.skipif(not is_pytest_mode_lazy(), reason="Currently supported only in lazy mode.")
+@pytest.mark.parametrize("scale_a", [16.0, 1.0, 7.5])
+@pytest.mark.parametrize("scale_b", [16.0, 0.00390625, 7.5])
+@pytest.mark.parametrize("scale_out", [0.0625, 256.0, 7.5])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
+def test_fp8_gemm_v2_mark_scales_const(scale_a, scale_b, scale_out, dtype):
+    ht.enable_inference_mode()
+    from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
+
+    def fn(a, b, scale_a, scale_b, scale_out):
+        return torch.ops.hpu.cast_to_fp8_v2(
+            torch.ops.hpu.fp8_gemm_v2(a, False, b, False, None, dtype, scale_a, scale_b, None, False),
+            scale_out,
+            False,
+            False,
+            torch.float8_e4m3fn,
+        )
+
+    class TestModel(torch.nn.Module):
+        def __init__(self, input_scale, other_scale, out_scale):
+            super(TestModel, self).__init__()
+            self.input_scale = torch.nn.Parameter(input_scale)
+            self.other_scale = torch.nn.Parameter(other_scale)
+            self.out_scale = torch.nn.Parameter(out_scale)
+
+        def forward(self, input, other):
+            return fn(input, other, self.input_scale, self.other_scale, self.out_scale)
+
+    a = (torch.rand(4, 8) * 5).to(torch.float8_e4m3fn).to("hpu")
+    b = (torch.rand(8, 12) * 5).to(torch.float8_e4m3fn).to("hpu")
+
+    scale_a_t = torch.tensor(scale_a, dtype=dtype).to("hpu")
+    scale_b_t = torch.tensor(scale_b, dtype=dtype).to("hpu")
+    scale_out_t = torch.tensor(scale_out).to("hpu")
+
+    model = TestModel(scale_a_t, scale_b_t, scale_out_t)
+
+    _mark_params_as_const(model)
+    _check_params_as_const(model)
+
+    res_fp8_scalar, _ = model(a, b)
     res_scalar_cpu = res_fp8_scalar.cpu().float()
 
     res_fp8_tensor, _ = fn(a, b, scale_a_t, scale_b_t, scale_out_t)
 
     rtol = 1e-3 if dtype == torch.float else 1e-2
     compare_tensors(res_fp8_tensor, res_scalar_cpu, atol=1e-2, rtol=rtol)
+    ht.disable_inference_mode()
 
 
 @pytest.mark.parametrize("shape", [(8, 2, 2, 5)])

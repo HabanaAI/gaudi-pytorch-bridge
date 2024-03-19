@@ -469,6 +469,10 @@ def is_pytest_mode_eager():
     return pytest.mode == "eager"
 
 
+def is_pytest_mode_lazy():
+    return pytest.mode == "lazy"
+
+
 def clear_t_compile_logs():
     from habana_frameworks.torch.dynamo.compile_backend.passes import logger as graph_logger
     from habana_frameworks.torch.dynamo.compile_backend.shared_layer import logger as fallback_logger
