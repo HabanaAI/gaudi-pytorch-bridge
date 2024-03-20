@@ -65,8 +65,9 @@ void GraphExecsGroup::CopyGraphAndEmplace(
   auto graph_copy = m_original_graph->copy();
 
   m_graph_exec_storage.emplace(
-      key,
-      GraphExec(
+      std::piecewise_construct,
+      std::forward_as_tuple(key),
+      std::forward_as_tuple(
           generate_graph_index(),
           graph_copy,
           stack,
