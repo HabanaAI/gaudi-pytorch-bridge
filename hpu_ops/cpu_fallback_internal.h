@@ -92,6 +92,49 @@ inline bool is_eligible_for_redispatch(const c10::ArrayRef<at::Tensor>& tar) {
   return true;
 }
 
+/* currently only requires_grad is the attribute which is
+ * set incorrectly. so setting only requires_grad
+ * here
+ */
+// Overload to process Tensor
+inline void set_attribute(const at::Tensor& arg, at::Tensor tensor) {
+  tensor.set_requires_grad(arg.requires_grad());
+}
+
+// Overload to process optional<Tensor>
+inline void set_attribute(
+    const c10::optional<at::Tensor>& arg,
+    c10::optional<at::Tensor> tensor) {
+  if (arg.has_value() && tensor.has_value()) {
+    (tensor.value()).set_requires_grad((arg.value()).requires_grad());
+  }
+}
+
+// Overload to process TensorLists
+inline void set_attribute(
+    const at::TensorList& args,
+    std::vector<at::Tensor> tensors) {
+  int i = 0;
+  for (const auto& t : args) {
+    tensors[i].set_requires_grad(t.requires_grad());
+    i++;
+  }
+}
+
+inline void set_attribute(
+    const at::ITensorListRef& args,
+    std::vector<at::Tensor> tensors) {
+  int i = 0;
+  for (const auto& t : args) {
+    tensors[i].set_requires_grad(t.requires_grad());
+    i++;
+  }
+}
+
+// Template to catch non-Tensor args.
+template <typename T>
+void set_attribute([[maybe_unused]] T arg, [[maybe_unused]] T arg1) {}
+
 /**
  * cast argument and detect if cast was needed.
  * Underlying cached_cast may pass an argument as-is if it is not eligible for
@@ -104,6 +147,7 @@ inline T cast_arg(bool& arg_changed, at::ScalarType dtype, T arg) {
   auto after{at::autocast::cached_cast(dtype, arg, at::DeviceType::HPU)};
   bool did_cast = !is_unchanged(arg, after);
   arg_changed |= did_cast;
+  set_attribute(arg, after);
   return after;
 }
 
@@ -118,13 +162,16 @@ inline at::Tensor cast_arg(
   PT_FALLBACK_DEBUG(
       "arg_changed on entry=", arg_changed, " did_cast=", did_cast);
   arg_changed |= did_cast;
+  set_attribute(arg, after);
   return after;
 }
 
 template <typename ResultType, typename ResultIndexes = void>
 struct cast_result final {
   static ResultType cast(at::ScalarType dtype, ResultType result) {
-    return at::autocast::cached_cast(dtype, result, at::DeviceType::HPU);
+    auto t = at::autocast::cached_cast(dtype, result, at::DeviceType::HPU);
+    set_attribute(result, t);
+    return t;
   }
 };
 
@@ -321,11 +368,16 @@ struct _dispatch_fallback<Op, at::Tensor&(at::Tensor&, ParameterTypes...)>
                     arg_changed,
                     cast_input,
                     cast_arg(arg_changed, at::ScalarType::Float, args)...)};
-        if (arg_changed)
-          return t = at::autocast::cached_cast(
-                     t.scalar_type(), new_tensor, at::DeviceType::HPU);
-        else
-          return t = new_tensor;
+        if (arg_changed) {
+          t = at::autocast::cached_cast(
+              t.scalar_type(), new_tensor, at::DeviceType::HPU);
+          set_attribute(cast_input, t);
+          return t;
+        } else {
+          t = new_tensor;
+          set_attribute(cast_input, t);
+          return t;
+        }
       }
     }
 
@@ -371,6 +423,7 @@ struct _dispatch_fallback<
         } else {
           t.copy_(new_tensor);
         }
+        set_attribute(cast_input, t);
         return t;
       }
     }
