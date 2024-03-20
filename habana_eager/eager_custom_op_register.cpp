@@ -1622,7 +1622,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd(
   } else {
     habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>>
         hpu_op{
-            "hpu::sdpa_fwd_dropout",
+            "hpu::sdpa_fwd",
             {q, k, v, attention_mask, p, scale, is_causal, softmax_mode},
             habana::SDPAFwdOutputShape};
     hpu_op.set_scalar_types(
