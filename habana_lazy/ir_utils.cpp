@@ -21,7 +21,7 @@ size_t Utils::StdHashCombine(uint64_t a, uint64_t b) {
 
 /*
 @brief - Computes post order traveral for a given output node
-Computes input ir values asscoicated with the given output node
+Computes input ir values associated with the given output node
 */
 void Utils::ComputePostOrderNode(
     NodePtr& p_node,
