@@ -1330,13 +1330,14 @@ def test_sag_conv_bwd_view():
         torch.Tensor.div_,
         torch.Tensor.mul_,
         torch.Tensor.add_,
+        torch.Tensor.xlogy_,
     ],
 )
 def test_inplace_binary_op_channel_last_different_dtypes(op):
     shape = [2, 2, 2, 10]
 
     input_cpu = torch.randn(shape, device="cpu").to(dtype=torch.bfloat16)
-    other_cpu = torch.randn(shape, device="cpu").to(dtype=torch.float32)
+    other_cpu = torch.rand(shape, device="cpu").to(dtype=torch.float32)
 
     input_hpu = input_cpu.to("hpu").contiguous(memory_format=torch.channels_last)
     other_hpu = other_cpu.to("hpu")

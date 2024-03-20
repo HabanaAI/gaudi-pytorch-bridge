@@ -12,7 +12,6 @@
  */
 
 #include "generated/backend/special_xlog1py.h"
-#include "generated/backend/xlogy.h"
 
 namespace habana {
 
@@ -36,6 +35,10 @@ OutputMetaDataVector XlogYMeta(const at::Stack& stack) {
       false,
       output_type);
 
+  if (isIntegralType(meta.dtype, true)) {
+    meta.dtype = torch::kFloat32;
+  }
+
   return {meta};
 }
 
@@ -45,31 +48,6 @@ bool ShouldCastToOutputType(
   return isIntegralType(dtype, true) ||
       (dtype == at::kFloat && output_dtype == at::kBFloat16) ||
       (output_dtype == at::kFloat && dtype == at::kBFloat16);
-}
-
-void XlogYOperator::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  auto meta = XlogYMeta(stack)[0];
-  auto other = stack_tensor(stack, 1);
-
-  auto xlogy = BuildOp(
-      graph,
-      get_guid_with_precision("xlogy_fwd", meta.dtype),
-      {syn_in(0),
-       ShouldCastToOutputType(other.scalar_type(), meta.dtype)
-           ? OpBackend::BuildCast(
-                 this,
-                 graph,
-                 syn_in(1),
-                 other.sizes().vec(),
-                 other.scalar_type(),
-                 meta.dtype)
-                 .get()
-           : syn_in(1)},
-      {{meta.shape, meta.dtype, 0}});
-
-  syn_out(0) = std::move(xlogy[0]);
 }
 
 void Xlog1PyOperator::AddNode(

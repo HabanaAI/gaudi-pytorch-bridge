@@ -8069,80 +8069,87 @@ where.self_out:
   fallback_check: [WhereFallbackCheck, condition, self, other]
 
 xlogy.OutTensor:
+  promote_int_to_float: [self, other]
   output_meta: XlogYMeta
-  op_backend: XlogYOperator
   guid: xlogy_fwd
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long]
-    Gaudi3: [BFloat16, Float, Int, Long]
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   # op_validator: check-node-with-shared-layer
 
 xlogy.OutScalar_Self:
+  promote_int_to_float: [self, other]
   output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   op_frontend: LazyXlogY
 
 xlogy.OutScalar_Other:
+  promote_int_to_float: [self, other]
   output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   op_frontend: LazyXlogY
 
 xlogy.Scalar_Self:
+  promote_int_to_float: [self, other]
   output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   op_frontend: LazyXlogY
   out_ids: [1]
 
 xlogy.Scalar_Other:
+  promote_int_to_float: [self, other]
   output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   op_frontend: LazyXlogY
   out_ids: [0]
 
 xlogy_.Scalar_Other:
+  promote_int_to_float: [self, other]
   output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   op_frontend: LazyXlogY
   inplace_ids: [0]
 
 xlogy.Tensor:
+  promote_int_to_float: [self, other]
   output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   out_ids: [0]
   # op_validator: check-node-with-shared-layer
 
 xlogy_.Tensor:
+  promote_int_to_float: [self, other]
   output_meta: XlogYMeta
   guid: xlogy_fwd
   dtypes:
     Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float]
-    Gaudi3: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   inplace_ids: [0]
   # op_validator: check-node-with-shared-layer
 
