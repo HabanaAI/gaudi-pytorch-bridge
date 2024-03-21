@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,11 +11,15 @@
  *******************************************************************************
  */
 
-#include "generated/backend/unique_dim.h"
+#pragma once
 
 namespace habana {
-
-FALLBACK_CHECK(UniqueFallbackCheck, bool sorted) {
-  return !sorted; // sorted=True currently not supported in HPU.
-};
+namespace eager {
+std::tuple<at::Tensor, at::Tensor, at::Tensor> unique_dim_eager(
+    const at::Tensor& self,
+    int64_t dim,
+    bool sorted,
+    bool return_inverse,
+    bool return_counts);
+} // namespace eager
 } // namespace habana

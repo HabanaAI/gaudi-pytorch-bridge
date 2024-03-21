@@ -22,6 +22,7 @@
 #include "habana_eager/ops/set.h"
 #include "habana_eager/ops/unique.h"
 #include "habana_eager/ops/unique2.h"
+#include "habana_eager/ops/unique_dim.h"
 #include "habana_eager/ops/view.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
@@ -241,6 +242,16 @@ at::Tensor& hpu_wrap::nonzero_out(const at::Tensor& self, at::Tensor& out) {
         OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, out));
   }
   return habana::eager::nonzero_out_eager(self, out);
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::unique_dim(
+    const at::Tensor& self,
+    int64_t dim,
+    bool sorted,
+    bool return_inverse,
+    bool return_counts) {
+  return habana::eager::unique_dim_eager(
+      self, dim, sorted, return_inverse, return_counts);
 }
 
 at::Tensor hpu_wrap::masked_select(
