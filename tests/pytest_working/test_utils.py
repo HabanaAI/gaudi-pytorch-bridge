@@ -191,9 +191,6 @@ def compare_tensors(hpu_tensors, cpu_tensors, atol, rtol, assert_enable=True):
     hpu_tensors = _convert_to_tensor_list(hpu_tensors)
     cpu_tensors = _convert_to_tensor_list(cpu_tensors)
     assert len(hpu_tensors) == len(cpu_tensors)
-    for i in range(len(hpu_tensors)):
-        if cpu_tensors[i] is None and hpu_tensors[i] is None:
-            continue
 
     hpu_tensors = [tensor.to(cpu) if tensor is not None else tensor for tensor in hpu_tensors]
 
