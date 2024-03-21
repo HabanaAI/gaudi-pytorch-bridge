@@ -238,7 +238,7 @@ ones                                   Yes      Yes      Yes       Yes      Yes 
 ones_like                              Yes      Yes      Yes       Yes      Yes    torch
 pixel_shuffle                          Yes      Yes      Yes       Yes      Yes    torch
 poisson                                Yes      Yes      No        No       No     torch
-pow                                    Yes      Yes      No        No       No     torch
+pow                                    Yes      Yes      Yes       Yes      Yes    torch
 prod                                   Yes      Yes      No        No       No     torch
 randperm                               No       No       Yes       No       No     torch
 reciprocal                             Yes      Yes      No        No       No     torch
@@ -267,7 +267,7 @@ sinh                                   Yes      Yes      No        No       No  
 sort                                   Yes      Yes      No        No       No     torch
 split_with_sizes                       Yes      Yes      Yes       No       No     torch
 sqrt                                   Yes      Yes      No        No       No     torch
-square                                 Yes      Yes      Yes       No       No     torch
+square                                 Yes      Yes      Yes       Yes      Yes    torch
 squeeze                                Yes      Yes      Yes       Yes      Yes    torch
 stack                                  Yes      Yes      Yes       No       No     torch
 std                                    Yes      Yes      No        No       No     torch
@@ -574,8 +574,8 @@ norm                                   Yes      Yes      No        No       No  
 normal\_                               Yes      Yes      No        No       No     torch.Tensor
 permute                                Yes      Yes      Yes       No       No     torch.Tensor
 pin_memory                             Yes      Yes      Yes       Yes      Yes    torch.Tensor
-pow                                    Yes      Yes      No        No       No     torch.Tensor
-pow\_                                  Yes      Yes      No        No       No     torch.Tensor
+pow                                    Yes      Yes      Yes       Yes      Yes    torch.Tensor
+pow\_                                  Yes      Yes      Yes       Yes      Yes    torch.Tensor
 prod                                   Yes      Yes      No        No       No     torch.Tensor
 put\_                                  Yes      Yes      No        No       No     torch.Tensor
 random\_                               Yes      Yes      Yes       Yes      Yes    torch.Tensor

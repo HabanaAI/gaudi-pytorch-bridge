@@ -6185,9 +6185,9 @@ pow.Scalar_out:
 pow.Tensor_Scalar:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Half, Int, Short, Char, Byte]
+    Gaudi3: [BFloat16, Float, Half, Int, Short, Char, Byte]
   guid: pow_fwd
   out_ids: [0]
   op_backend: PowOp
@@ -6197,13 +6197,14 @@ pow.Tensor_Scalar:
 pow.Tensor_Scalar_out:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Half, Int, Short, Char]
-    Gaudi3: [BFloat16, Float, Half, Int, Short, Char]
+    Gaudi: [BFloat16, Float, Int, Short, Char, Byte]
+    Gaudi2: [BFloat16, Float, Half, Int, Short, Char, Byte]
+    Gaudi3: [BFloat16, Float, Half, Int, Short, Char, Byte]
   guid: pow_fwd
   op_backend: PowOp
   scalar_ids: [1]
   promote_to_common_type: [self, exponent]
+  safe_cast_check: false
 
 pow.Tensor_Tensor:
   broadcast: true
@@ -6213,7 +6214,7 @@ pow.Tensor_Tensor:
     Gaudi3: [BFloat16, Float, Half]
   guid: pow_fwd
   out_ids: [0]
-  promote_to_common_type: [self, exponent]
+  promote_int_to_float: [self, exponent]
   # op_validator: check-node-with-shared-layer
 
 pow.Tensor_Tensor_out:
@@ -6223,7 +6224,8 @@ pow.Tensor_Tensor_out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: pow_fwd
-  promote_to_common_type: [self, exponent]
+  promote_int_to_float: [self, exponent]
+  safe_cast_check: false
   # op_validator: check-node-with-shared-layer
 
 prelu:
