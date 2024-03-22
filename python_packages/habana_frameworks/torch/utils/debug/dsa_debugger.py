@@ -80,9 +80,13 @@ class DivergenceAnalyzer:
     def __init__(self, cfg, use_cache=True):
         self.cfg = cfg
         self.dumpdir = os.path.join(args.out)
+        # For master Slave mode this is used as tmp dump location
+        self.hls_local_dir = "/tmp/dumps_hls"
         self.logdir = os.path.join(self.dumpdir, "divergence_logs")
         self.dumpdir_static = os.path.join(self.dumpdir, "StaticSynRec")
         self.dumpdir_dynamic = os.path.join(self.dumpdir, "DynamicSynRec")
+        self.hls_dumpdir_static = os.path.join(self.hls_local_dir, "StaticSynRec")
+        self.hls_dumpdir_dynamic = os.path.join(self.hls_local_dir, "DynamicSynRec")
         self.dict_cache = None
         self.mismatch_map = None
         self.use_cache = use_cache
@@ -99,10 +103,16 @@ class DivergenceAnalyzer:
                 os.makedirs(self.dumpdir)
             if self.is_master():
                 remove_dir(self.dumpdir_dynamic, strict=False)
+                remove_dir(self.hls_dumpdir_dynamic, strict=False)
                 os.makedirs(self.dumpdir_dynamic)
+                os.makedirs(self.dumpdir_dynamic + "/.graph_dumps/")
+                os.makedirs(self.hls_dumpdir_dynamic)
             elif self.is_slave():
                 remove_dir(self.dumpdir_static, strict=False)
+                remove_dir(self.hls_dumpdir_static, strict=False)
                 os.makedirs(self.dumpdir_static)
+                os.makedirs(self.dumpdir_static + "/.graph_dumps/")
+                os.makedirs(self.hls_dumpdir_static)
 
         remove_dir(self.logdir, strict=False)
         os.makedirs(self.logdir)
@@ -162,8 +172,13 @@ class DivergenceAnalyzer:
         default_config = "PT_HPU_LAZY_ACC_PAR_MODE=0 PT_HPU_PGM_ENABLE_CACHE=0 PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES=1"
         do_split = " -s" if self.cfg.parallel else ""
         ranks = "--ranks " + str(self.cfg.rank)
-        cmd_static = f"{default_config} PT_HPU_ENABLE_MIN_MAX_AS_CURRENT=1 {synrec_path}{do_split} -t -p {self.dumpdir_static} --ignore-errors --overwrite {ranks} -- {self.cfg.cmd}"
-        cmd_dynamic = f"{default_config} {synrec_path}{do_split} -t -p {self.dumpdir_dynamic} --ignore-errors --overwrite {ranks} -- {self.cfg.cmd}"
+        dump_dir_static = self.dumpdir_static
+        dump_dir_dynamic = self.dumpdir_dynamic
+        if self.is_master_slave_config():
+            dump_dir_static = self.hls_dumpdir_static
+            dump_dir_dynamic = self.hls_dumpdir_dynamic
+        cmd_static = f"{default_config} PT_HPU_ENABLE_MIN_MAX_AS_CURRENT=1 {synrec_path}{do_split} -t -p {dump_dir_static} --ignore-errors --overwrite {ranks} -- {self.cfg.cmd}"
+        cmd_dynamic = f"{default_config} {synrec_path}{do_split} -t -p {dump_dir_dynamic} --ignore-errors --overwrite {ranks} -- {self.cfg.cmd}"
         return cmd_static, cmd_dynamic
 
     def clear_cache(self):
@@ -207,12 +222,43 @@ class DivergenceAnalyzer:
 
             return data_dict
 
-    def compare_databases(self, db_file1, db_file2):
-        assert not (os.path.getsize(db_file1) == 0), f"db file {db_file1} is empty"
-        assert not (os.path.getsize(db_file2) == 0), f"db file {db_file2} is empty"
+    def is_master_slave_config(self):
+        if self.cfg.master or self.cfg.slave:
+            return True
+        return False
 
-        conn1 = sqlite3.connect(db_file1)
-        conn2 = sqlite3.connect(db_file2)
+    def is_master(self):
+        return self.cfg.master
+
+    def is_slave(self):
+        return self.cfg.slave
+
+    # Not moving 2 files, because last 2 files can still be in writing
+    # .json and .db
+    def move_files(self, source_dir, destination_dir, move_all=False):
+        # Get a list of all files in the source directory
+        source_dir = source_dir + "/.graph_dumps/"
+        destination_dir = destination_dir + "/.graph_dumps/"
+        if not os.path.exists(source_dir):
+            return
+
+        files = [f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir, f))]
+        valid_files = [f for f in files if f.endswith((".db", ".json"))]
+        # Sort valid files by modification time
+        valid_files.sort(key=lambda x: os.path.getmtime(os.path.join(source_dir, x)))
+
+        # Move all valid files except the latest one based on the flag
+        for file in valid_files if move_all else valid_files[:-2]:
+            source_path = os.path.join(source_dir, file)
+            destination_path = os.path.join(destination_dir, file)
+            shutil.move(source_path, destination_path)
+
+    def compare_databases(self, db_static, db_dynamic):
+        assert not (os.path.getsize(db_static) == 0), f"db file {db_static} is empty"
+        assert not (os.path.getsize(db_dynamic) == 0), f"db file {db_dynamic} is empty"
+
+        conn1 = sqlite3.connect(db_static)
+        conn2 = sqlite3.connect(db_dynamic)
 
         cursor1 = conn1.cursor()
         cursor2 = conn2.cursor()
@@ -222,16 +268,6 @@ class DivergenceAnalyzer:
         tables1 = cursor1.fetchall()
         cursor2.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables2 = cursor2.fetchall()
-
-        # Check whether the number of tables is the same in both databases
-        if len(tables1) != len(tables2):
-            self.log("[WARNING] Databases have different number of tables")
-            return False
-
-        # Check whether the tables have the same names in both databases
-        if sorted(tables1) != sorted(tables2):
-            self.log("[WARNING] Databases have different table names")
-            return False
 
         """
         This is thr format in which data is preset in DB file
@@ -259,48 +295,43 @@ class DivergenceAnalyzer:
 
         # Check whether the data in each table is the same in both databases
         cursor1.execute(f"SELECT * FROM TENSORS")
-        tensors_1 = cursor1.fetchall()
+        tensors_static = cursor1.fetchall()
         cursor2.execute(f"SELECT * FROM TENSORS")
-        tensors_2 = cursor2.fetchall()
-        if len(tensors_1) != len(tensors_2):
-            self.log("[WARNING] DB has different tensor numbers in static and dynamic not comparing")
-        else:
-            # Validate if tensor names match for all db entries
-            tensor_names_1 = [item[idx_tensor_name] for item in tensors_1]
-            tensor_names_2 = [item[idx_tensor_name] for item in tensors_2]
-            if not tensor_names_1 == tensor_names_2:
-                self.log("[ERROR] DB has different Tensor name for tensor in static and dynamic not comparing")
-                exit(0)
+        tensors_dynamic = cursor2.fetchall()
 
-            data_ids_table1 = [item[idx_data] for item in tensors_1]
-            data_ids_table2 = [item[idx_data] for item in tensors_2]
-            if data_ids_table1 != data_ids_table2:
-                for r1, r2 in zip(tensors_1, tensors_2):
-                    # Check if tensor is valid and data is different
-                    if (r1[idx_validation] == 0) and (r2[idx_validation] == 0) and (r1[idx_data] != r2[idx_data]):
-                        graph_name = r1[idx_graph_name]
-                        if "graph_dumps" in graph_name:
-                            if self.mismatch_map is None:
-                                self.mismatch_map = {}
-                            if graph_name not in self.mismatch_map.keys():
-                                self.mismatch_map[graph_name] = []
-                            self.mismatch_map[graph_name].append(r1[idx_tensor_name])
+        compare_len = len(tensors_dynamic)
+        if len(tensors_static) != len(tensors_dynamic):
+            self.log(
+                "[WARNING] DB has different tensor numbers in static and dynamic only comparing the common ones",
+                console=True,
+            )
+            compare_len = min(len(tensors_static), len(tensors_dynamic))
 
-    def compare_dumps(self):
-        data_dict = self.collect_available_dumps()
+        # Validate if tensor names match for all common entries
+        tensor_names_static = [item[idx_tensor_name] for item in tensors_static[:compare_len]]
+        tensor_names_dynamic = [item[idx_tensor_name] for item in tensors_dynamic[:compare_len]]
+        if not tensor_names_static == tensor_names_dynamic:
+            self.log("[ERROR] DB has different Tensor name for tensor in static and dynamic not comparing")
+            exit(0)
 
-        if self.cfg.parallel:
-            data_static = data_dict["Static"]
-            data_dynamic = data_dict["Dynamic"]
-            assert len(set(data_static) - set(data_dynamic)) == 0
-            graph_names = list(sorted(data_static.keys(), key=lambda item: int(item.split("_")[-1])))
-
-            for graph_name in graph_names:
-                self.compare_databases(data_static[graph_name]["db"], data_dynamic[graph_name]["db"])
-        else:
-            db_static = data_dict["Static"]["db"]
-            db_dynamic = data_dict["Dynamic"]["db"]
-            self.compare_databases(db_static, db_dynamic)
+        data_ids_table1 = [item[idx_data] for item in tensors_static[:compare_len]]
+        data_ids_table2 = [item[idx_data] for item in tensors_dynamic[:compare_len]]
+        if data_ids_table1 != data_ids_table2:
+            for t_static, t_dynamic in zip(tensors_static[:compare_len], tensors_dynamic[:compare_len]):
+                # Check if tensor is valid and data is different
+                if (
+                    (t_static[idx_validation] == 0)
+                    and (t_dynamic[idx_validation] == 0)
+                    and (t_static[idx_data] != t_dynamic[idx_data])
+                ):
+                    graph_name = t_dynamic[idx_graph_name]
+                    if "graph_dumps" in graph_name:
+                        if self.mismatch_map is None:
+                            self.mismatch_map = {}
+                        if graph_name not in self.mismatch_map.keys():
+                            self.mismatch_map[graph_name] = set()
+                            self.log(f"[INFO] Mismatch found in graph {graph_name}")
+                        self.mismatch_map[graph_name].add(t_dynamic[idx_tensor_name])
 
     def dump_stats(self):
         if self.mismatch_map is not None:
@@ -427,6 +458,21 @@ class DivergenceAnalyzer:
 
         csv_outfile.close()
 
+    def compare_dumps(self):
+        data_dict = self.collect_available_dumps()
+        if self.cfg.parallel:
+            data_static = data_dict["Static"]
+            data_dynamic = data_dict["Dynamic"]
+            assert len(set(data_static) - set(data_dynamic)) == 0
+            graph_names = list(sorted(data_static.keys(), key=lambda item: int(item.split("_")[-1])))
+
+            for graph_name in graph_names:
+                self.compare_databases(data_static[graph_name]["db"], data_dynamic[graph_name]["db"])
+        else:
+            db_static = data_dict["Static"]["db"]
+            db_dynamic = data_dict["Dynamic"]["db"]
+            self.compare_databases(db_static, db_dynamic)
+
     def compare_split(self, is_final=True):
         data_dict = self.collect_available_dumps()
         data_static = data_dict["Static"]
@@ -445,15 +491,20 @@ class DivergenceAnalyzer:
 
         self.log(f"[INFO] Valid files count: {valid_files_count}", console=False)
 
-        if self.mismatch_map is None:
-            for graph_name in graph_names:
-                self.log(
-                    f"[INFO] Deleting files of graph name: {graph_name} - Static and Dynamic matched", console=False
-                )
-                remove_file(data_static[graph_name]["db"], verbose=False)
-                remove_file(data_static[graph_name]["json"], verbose=False)
-                remove_file(data_dynamic[graph_name]["db"], verbose=False)
-                remove_file(data_dynamic[graph_name]["json"], verbose=False)
+        def delete_file(graph_name):
+            self.log(f"[INFO] Deleting files of graph name: {graph_name} - Static and Dynamic matched", console=False)
+            remove_file(data_static[graph_name]["db"], verbose=False)
+            remove_file(data_static[graph_name]["json"], verbose=False)
+            remove_file(data_dynamic[graph_name]["db"], verbose=False)
+            remove_file(data_dynamic[graph_name]["json"], verbose=False)
+
+        for graph_name in graph_names:
+            if self.mismatch_map is None:
+                delete_file(graph_name)
+            else:
+                is_mismatch_graph = any(graph_name in key for key in self.mismatch_map.keys())
+                if not is_mismatch_graph:
+                    delete_file(graph_name)
 
         if self.use_cache:
             self.clear_cache()
@@ -470,36 +521,17 @@ class DivergenceAnalyzer:
         status = os.system(cmd_full)
         assert status == 0, f"[ERROR] Dumping error logs to\033[91m {outfile}\033[0m"
 
-    def run_train_commands(self, cmd_static, cmd_dynamic, verbose=True):
-        # FIXME: Currently the if is not reachable, check if need another configration
-        if self.cfg.parallel:
-            p1 = mp.Process(target=self.run, args=(cmd_static, "static", verbose))
-            p2 = mp.Process(target=self.run, args=(cmd_dynamic, "dynamic", verbose))
-
-            p1.start()
-            p2.start()
-
-            p1.join()
-            p2.join()
-            assert p1.exitcode == 0
-            assert p2.exitcode == 0
-            os.system("reset")  # FIXME: The "script" command messes up the terminal.
-            p1.close()
-            p2.close()
-        else:
-            self.run(cmd_static, "static", verbose)
-            self.run(cmd_dynamic, "dynamic", verbose)
-
     def train(self):
         cmd_static, cmd_dynamic = self.get_commands()
-        self.run_train_commands(cmd_static, cmd_dynamic)
+        self.run(cmd_static, "static", True)
+        self.run(cmd_dynamic, "dynamic", True)
         self.log(f"[INFO] Finished training.\n       dumps: {self.dumpdir}\n       logs : {self.logdir}")
 
     def compare(self):
         self.compare_dumps()
         self.dump_stats()
 
-    def run_train_commands_and_compare(self, cmd_static, cmd_dynamic, verbose=True):
+    def run_train_commands_and_compare_parallel(self, cmd_static, cmd_dynamic, verbose=True):
         graphdir_static = self.dumpdir_static + "/.graph_dumps/"
         graphdir_dynamic = self.dumpdir_dynamic + "/.graph_dumps/"
 
@@ -532,21 +564,10 @@ class DivergenceAnalyzer:
         _await(exit_gracefully=True)
         self.compare_split(is_final=True)
 
-    def is_master_slave_config(self):
-        if self.cfg.master or self.cfg.slave:
-            return True
-        return False
-
-    def is_master(self):
-        return self.cfg.master
-
-    def is_slave(self):
-        return self.cfg.slave
-
-    def train_and_compare(self):
+    def train_and_compare_parallel(self):
         cmd_static, cmd_dynamic = self.get_commands()
         if not self.is_master_slave_config():
-            self.run_train_commands_and_compare(cmd_static, cmd_dynamic)
+            self.run_train_commands_and_compare_parallel(cmd_static, cmd_dynamic)
             self.dump_stats()
             self.log(f"[INFO] Finished training.\n       dumps: {self.dumpdir}\n       logs : {self.logdir}")
         elif self.is_master():
@@ -554,17 +575,33 @@ class DivergenceAnalyzer:
             p1.start()
             while p1.is_alive():
                 time.sleep(5)
+                self.move_files(self.hls_dumpdir_dynamic, self.dumpdir_dynamic, False)
                 self.compare_split(is_final=False)
                 if self.mismatch_map is not None and self.cfg.eam <= len(self.mismatch_map.keys()):
                     p1.kill()
             p1.join()
             p1.close()
+            self.move_files(self.hls_dumpdir_dynamic, self.dumpdir_dynamic, True)
+            finished_file_path = os.path.join(self.dumpdir_static, "Finished")
+            while not os.path.isfile(finished_file_path):
+                time.sleep(10)
             self.compare_split(is_final=True)
             self.dump_stats()
             self.log(f"[INFO] Finished training dynamic.\n       dumps: {self.dumpdir}\n       logs : {self.logdir}")
         elif self.is_slave():
-            self.run(cmd_static, "static", True)
-            self.log(f"[INFO] Finished training Static")
+            p1 = mp.Process(target=self.run, args=(cmd_static, "static", True))
+            p1.start()
+            while p1.is_alive():
+                time.sleep(5)
+                self.move_files(self.hls_dumpdir_static, self.dumpdir_static, False)
+            p1.join()
+            p1.close()
+            self.move_files(self.hls_dumpdir_static, self.dumpdir_static, True)
+            # Create a file named "finished" in the Static directory acts as sync between static and dynamic
+            finished_file_path = os.path.join(self.dumpdir_static, "Finished")
+            with open(finished_file_path, "w") as finished_file:
+                finished_file.write("Static finished execution.")
+            self.log("[INFO] Finished training Static.")
 
 
 def get_args():
@@ -631,15 +668,17 @@ def main(args):
         print("Dynamic CMD - \033[91m", cmd_dynamic, "\033[0m")
         return
 
-    if args.parallel:
-        import habana_frameworks.torch.hpu as hpu
+    if divergence_analyzer.is_master_slave_config():
+        args.parallel = 1
 
-        if hpu.device_count() < 2:
-            print(f"[ERROR]: Found only {hpu.device_count()} HPU device(s). Cannot running in parallel mode.")
-            return
     if args.cmd is not None:
         if args.parallel:
-            divergence_analyzer.train_and_compare()
+            import habana_frameworks.torch.hpu as hpu
+
+            if hpu.device_count() < 2:
+                print(f"[ERROR]: Found only {hpu.device_count()} HPU device(s). Cannot running in parallel mode.")
+                return
+            divergence_analyzer.train_and_compare_parallel()
         else:
             divergence_analyzer.train()
             divergence_analyzer.compare()
