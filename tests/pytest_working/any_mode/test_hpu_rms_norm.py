@@ -9,6 +9,8 @@
 # was provided.
 #
 # ******************************************************************************
+import os
+
 import pytest
 import torch
 from habana_frameworks.torch.hpex.normalization import FusedRMSNorm, RmsNormBwdMode
@@ -34,14 +36,17 @@ def rms_norm_fwd_ref(data_in, gamma, eps):
 @pytest.mark.parametrize("size, eps", rms_norm_test_case_list)
 @pytest.mark.parametrize("use_stages", [True, False])
 @pytest.mark.parametrize("bwd_mode", [RmsNormBwdMode.DEFAULT, RmsNormBwdMode.STATIC_CASE_GC_SLICE_ENABLED])
-# TODO: SW-179936 skip tests for data types different than fp32 in order to unblock CI
-# @pytest.mark.parametrize("data_in_dtype", [torch.float16, torch.float32, torch.bfloat16])
-# @pytest.mark.parametrize("gamma_dtype", [torch.float16, torch.float32, torch.bfloat16])
-@pytest.mark.parametrize("data_in_dtype", [torch.float32])
-@pytest.mark.parametrize("gamma_dtype", [torch.float32])
+@pytest.mark.parametrize("data_in_dtype", [torch.float16, torch.float32, torch.bfloat16])
+@pytest.mark.parametrize("gamma_dtype", [torch.float16, torch.float32, torch.bfloat16])
 def test_rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, data_in_dtype, gamma_dtype):
     if is_gaudi1() and (data_in_dtype == torch.float16 or gamma_dtype == torch.float16):
         pytest.skip("Half is not supported on Gaudi.")
+
+    if (
+        bwd_mode == RmsNormBwdMode.STATIC_CASE_GC_SLICE_ENABLED
+        and int(os.getenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", 0)) == 1
+    ):
+        pytest.skip("bwdMode in static mode is not supported for dynamic shapes")
 
     torch.manual_seed(12345)
 
