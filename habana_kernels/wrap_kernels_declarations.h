@@ -461,6 +461,7 @@ fp8_sdpa_recomp_fwd_wrap(
     const c10::optional<at::Tensor>& d_scale_v,
     const c10::optional<at::Tensor>& q_scale_s,
     const c10::optional<at::Tensor>& q_scale_o,
+    const c10::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
     const at::Tensor& grad,

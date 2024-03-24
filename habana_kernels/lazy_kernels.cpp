@@ -7393,6 +7393,7 @@ fp8_sdpa_recomp_fwd_lazy(
     const c10::optional<at::Tensor>& d_scale_v,
     const c10::optional<at::Tensor>& q_scale_s,
     const c10::optional<at::Tensor>& q_scale_o,
+    const c10::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -7420,10 +7421,22 @@ fp8_sdpa_recomp_fwd_lazy(
        d_scale_v,
        q_scale_s,
        q_scale_o,
+       d_scale_s,
        is_amax_s},
       Fp8SDPARecompFwdOutputShape};
+
+  auto fwdOutType = q.scalar_type();
+
+  if (q.scalar_type() == at::ScalarType::Float8_e4m3fn) {
+    if (q_scale_o.has_value()) {
+      fwdOutType = at::ScalarType::Float8_e4m3fn;
+    } else {
+      fwdOutType = at::ScalarType::BFloat16;
+    }
+  }
+
   hpu_op.set_scalar_types(
-      {q.scalar_type(),
+      {fwdOutType,
        q.scalar_type(),
        c10::ScalarType::Float,
        c10::ScalarType::Int,

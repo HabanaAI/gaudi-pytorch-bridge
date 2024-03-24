@@ -92,6 +92,7 @@ def fp8_sdpa_fwd_wrapper(
     d_scale_v=None,
     q_scale_s=None,
     q_scale_o=None,
+    d_scale_s=None,
     is_amax_s=False,
 ):
 
@@ -108,9 +109,6 @@ def fp8_sdpa_fwd_wrapper(
         assert (
             q.dtype == torch.float32 or q.dtype == torch.bfloat16
         ), "Fp8 FusedSDPA measurement is supported only if input is in Float32 or Bfloat16"
-
-    if requires_backward:
-        assert softmax_mode == "None", "Optimized softmax mode is supported only in inference"
 
     gqa = is_gqa(q, k)
     if gqa:
@@ -133,6 +131,7 @@ def fp8_sdpa_fwd_wrapper(
             d_scale_v,
             q_scale_s,
             q_scale_o,
+            d_scale_s,
             is_amax_s,
         )
 
@@ -209,6 +208,7 @@ class Fp8FusedSDPA(torch.autograd.Function):
         d_scale_v=None,
         q_scale_s=None,
         q_scale_o=None,
+        d_scale_s=None,
         is_amax_s=False,
     ):
         return fp8_sdpa_fwd_wrapper(
@@ -221,6 +221,12 @@ class Fp8FusedSDPA(torch.autograd.Function):
             is_causal=is_causal,
             scale=scale,
             softmax_mode=softmax_mode,
+            d_scale_q=d_scale_q,
+            d_scale_k=d_scale_k,
+            d_scale_v=d_scale_v,
+            q_scale_s=q_scale_s,
+            q_scale_o=q_scale_o,
+            d_scale_s=d_scale_s,
             is_amax_s=is_amax_s,
         )
 
@@ -243,6 +249,7 @@ def fp8_fused_sdpa(
     d_scale_v=None,
     q_scale_s=None,
     q_scale_o=None,
+    d_scale_s=None,
     is_amax_s=False,
 ):
 
@@ -260,6 +267,7 @@ def fp8_fused_sdpa(
         d_scale_v,
         q_scale_s,
         q_scale_o,
+        d_scale_s,
         is_amax_s,
     )
 

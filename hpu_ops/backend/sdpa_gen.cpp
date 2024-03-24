@@ -13,10 +13,18 @@
 
 #include "hpu_ops/sdpa_gen.h"
 
-namespace habana {
+#define FP8_SDPA_SET_FLAGS(condition, flags, flag_name) \
+  if (condition) {                                      \
+    flags |= SdpaFlags_t::SDPA_FLAGS_##flag_name;       \
+  }
+#define FP8_SDPA_ADD_SCALE_INPUTS(t)       \
+  if (t) {                                 \
+    syn_inputs.push_back(t.value().syn_t); \
+  } else {                                 \
+    syn_inputs.push_back(nullptr);         \
+  }
 
-// stack index of is_amax_s flag for fp8 measurement
-static constexpr int is_amax_s_idx = 15;
+namespace habana {
 
 SDPAFwd::SDPAFwd(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "sdpa_fwd", scalar_type, {0, 0, 0}, {}, {}, false) {}
@@ -411,12 +419,26 @@ void Fp8SDPARecompFwd::AddNode(
   auto is_causal = getNextInput<bool>(stackGetter);
   auto requires_backward = getNextInput<bool>(stackGetter);
   auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
-  auto is_amax_s = stack.at(is_amax_s_idx).toBool();
+  auto d_scale_q = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto d_scale_k = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto d_scale_v = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto q_scale_s = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto q_scale_o = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto d_scale_s = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto is_amax_s = getNextInput<bool>(stackGetter);
 
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
-  if (is_amax_s) {
-    flags = SdpaFlags_t::SDPA_FLAGS_AMAX_S;
+
+  FP8_SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
+  FP8_SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
+  FP8_SDPA_SET_FLAGS(d_scale_k, flags, D_SCALE_K)
+  FP8_SDPA_SET_FLAGS(d_scale_v, flags, D_SCALE_V)
+  FP8_SDPA_SET_FLAGS(q_scale_s, flags, Q_SCALE_S)
+  FP8_SDPA_SET_FLAGS(q_scale_o, flags, Q_SCALE_O)
+  if (d_scale_s) {
+    // TODO: add the flag definition to perf_lib_layer_paras.h
+    flags |= (1 << 13);
   }
 
   fillSdpaParams(
@@ -430,7 +452,6 @@ void Fp8SDPARecompFwd::AddNode(
 
   std::string guid =
       get_guid_with_precision("sdpa_recomp_fwd", q.pt_t.scalar_type());
-  auto out_shapes = Fp8SDPARecompFwdOutputShape(stack);
 
   std::vector<synTensor> syn_inputs = {q.syn_t, k.syn_t, v.syn_t};
   if (attention_mask) {
@@ -444,8 +465,28 @@ void Fp8SDPARecompFwd::AddNode(
     syn_inputs.push_back(nullptr);
   }
 
+  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_q)
+  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_k)
+  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_v)
+  FP8_SDPA_ADD_SCALE_INPUTS(q_scale_s)
+  FP8_SDPA_ADD_SCALE_INPUTS(q_scale_o)
+  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_s)
+
   std::vector<NodeAttr::NodeOutputAttr> output_attrs;
-  output_attrs.push_back({out_shapes[0], q.pt_t.scalar_type(), 0});
+
+  auto out_shapes = Fp8SDPARecompFwdOutputShape(stack);
+
+  auto fwdOutType = q.pt_t.scalar_type();
+
+  if (q.pt_t.scalar_type() == at::ScalarType::Float8_e4m3fn) {
+    if (q_scale_o) {
+      fwdOutType = at::ScalarType::Float8_e4m3fn;
+    } else {
+      fwdOutType = at::ScalarType::BFloat16;
+    }
+  }
+
+  output_attrs.push_back({out_shapes[0], fwdOutType, 0});
 
   // when amax_s is needed, we need to have all outputs since amax_s is
   // at the end of the output vector. If any preceding output is not
