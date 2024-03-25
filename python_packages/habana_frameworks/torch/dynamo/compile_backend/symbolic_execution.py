@@ -196,7 +196,7 @@ class SymExprNodeManager:
             for sym in symbolic_expr_symbols:
                 node_args.append(self._sym_placeholder_dict[pexpr(sym)])
             logger.debug(
-                "Python callable creating for final expr: %s, symbols: %s, is symengin:",
+                "Python callable creating for final expr: %s, symbols: %s, is symengin: %s",
                 symbolic_expr,
                 symbolic_expr_symbols,
                 is_symengine_expr,
