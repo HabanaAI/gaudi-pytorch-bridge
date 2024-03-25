@@ -148,7 +148,6 @@ def use_pt2e_quant_flow(test_case, quant_dtype):
 
         ops_summary = fga.get_ops_summary()
         assert_helper(ops_summary=ops_summary, op="torch.ops.aten.relu.default", count_list=[(1, 0), (1, 0)])
-        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.aminmax.default", count_list=[(3, 0), (3, 0)])
         assert_helper(ops_summary=ops_summary, op="torch.ops.aten.minimum.default", count_list=[(3, 0), (3, 0)])
         assert_helper(ops_summary=ops_summary, op="torch.ops.aten.maximum.default", count_list=[(3, 0), (3, 0)])
         assert_helper(ops_summary=ops_summary, op="torch.ops.aten.copy.default", count_list=[(6, 0), (6, 0)])

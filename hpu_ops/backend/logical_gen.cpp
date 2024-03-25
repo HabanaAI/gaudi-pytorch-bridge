@@ -44,7 +44,8 @@ void LogicalNotOut::AddNode(
   auto self = stack.at(0).toTensor();
 
   std::optional<synapse_helpers::tensor> castedInput{};
-  if (self.scalar_type() == at::kFloat or self.scalar_type() == at::kBFloat16) {
+  if (self.scalar_type() == at::kFloat or self.scalar_type() == at::kBFloat16 or
+      self.scalar_type() == at::kInt or self.scalar_type() == at::kShort) {
     castedInput =
         BuildBoolCast(this, graph, syn_in(0), self.sizes(), self.scalar_type());
 
