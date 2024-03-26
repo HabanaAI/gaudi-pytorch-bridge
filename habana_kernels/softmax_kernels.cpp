@@ -140,7 +140,8 @@ void SoftmaxIntOperator::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         nullptr,
-        deterministic);
+        deterministic,
+        getContextHints());
   } else {
     // Softmax Operator
     p_context_->params_.emplace<ns_Softmax::Params>(params);

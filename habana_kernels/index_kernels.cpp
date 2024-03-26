@@ -1708,7 +1708,8 @@ void ScatterNdOperator::AllocateAndAddSynapseNode(
       nullptr,
       nullptr,
       nullptr,
-      deterministic);
+      deterministic,
+      getContextHints());
 }
 
 void IndexSelectOperator::AllocateAndAddSynapseNode(
@@ -2367,7 +2368,8 @@ void ArangeOperator::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         nullptr,
-        deterministic);
+        deterministic,
+        getContextHints());
 
     // respective cast node
     std::string node_type = "cast_i32_to_i8";
@@ -2622,7 +2624,8 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
           nullptr,
           nullptr,
           nullptr,
-          deterministic);
+          deterministic,
+          getContextHints());
 
       // respective cast node
       std::string node_type = "cast_i32_to_i8";

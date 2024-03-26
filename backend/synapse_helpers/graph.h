@@ -93,7 +93,8 @@ class graph {
       synNodeId* ret_node_id,
       const char** input_layouts,
       const char** output_layouts,
-      bool deterministic);
+      bool deterministic,
+      const std::string& hints_str = "");
 
   template <typename ParamsT>
   void add_node(
@@ -103,7 +104,8 @@ class graph {
       const std::string& node_type,
       const char** input_layouts,
       const char** output_layouts,
-      bool deterministic) {
+      bool deterministic,
+      const std::string& hints_str = "") {
     return add_node(
         std::move(inputs),
         std::move(outputs),
@@ -113,7 +115,8 @@ class graph {
         nullptr,
         input_layouts,
         output_layouts,
-        deterministic);
+        deterministic,
+        hints_str);
   }
 
   synStatus set_synapse_control_edges_pt(

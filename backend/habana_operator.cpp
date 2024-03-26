@@ -722,7 +722,8 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       nullptr,
       input_layouts.empty() ? nullptr : input_layouts.data(),
       output_layouts.empty() ? nullptr : output_layouts.data(),
-      deterministic);
+      deterministic,
+      getContextHints());
 }
 
 #define CONVERT_SCALAR(type)                           \

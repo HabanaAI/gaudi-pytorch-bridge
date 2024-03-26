@@ -881,7 +881,8 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       nullptr,
       input_layouts.empty() ? nullptr : input_layouts.data(),
       output_layouts.empty() ? nullptr : output_layouts.data(),
-      op->deterministic);
+      op->deterministic,
+      op->getContextHints());
 
   return outputs;
 }

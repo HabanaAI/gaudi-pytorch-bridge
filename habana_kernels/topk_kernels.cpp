@@ -242,7 +242,8 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         nullptr,
-        deterministic);
+        deterministic,
+        getContextHints());
   } else {
     synBeamParams params;
     params.bsw = k;
@@ -259,7 +260,8 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         nullptr,
-        deterministic);
+        deterministic,
+        getContextHints());
   }
 }
 

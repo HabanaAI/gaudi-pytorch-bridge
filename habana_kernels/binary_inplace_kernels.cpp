@@ -80,7 +80,8 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         nullptr,
-        deterministic);
+        deterministic,
+        getContextHints());
   } else {
     // Note here we are using input[0] to store output[0]
     p_context_->syn_outputs_.emplace_back(
@@ -105,7 +106,8 @@ void habana::BinaryInplaceOperatorWithAlpha::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         nullptr,
-        deterministic);
+        deterministic,
+        getContextHints());
   }
 }
 
@@ -261,7 +263,8 @@ void habana::BinaryInplaceOperator::AllocateAndAddSynapseNode(
       nullptr,
       nullptr,
       nullptr,
-      deterministic);
+      deterministic,
+      getContextHints());
 }
 
 habana::InferOutputMetaRetType habana::BinaryInplaceOperator::InferOutputMeta(

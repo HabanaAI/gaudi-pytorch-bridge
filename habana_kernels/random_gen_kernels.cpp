@@ -371,7 +371,8 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
       nullptr,
       input_layouts.data(),
       nullptr,
-      false);
+      false,
+      getContextHints());
 
   auto output = habana::createPTTensor(
       input,
@@ -405,7 +406,8 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
       nullptr,
       input_layouts.data(),
       output_layouts.data(),
-      false);
+      false,
+      getContextHints());
 }
 
 static auto& RandomGenKernelsKernelRegistry =

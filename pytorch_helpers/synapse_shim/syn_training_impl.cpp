@@ -330,6 +330,14 @@ synStatus synNodeDependencySet(
       numberblocked);
 }
 
+synStatus SYN_API_CALL synNodeSetUserProgrammability(
+    const synGraphHandle graphHandle,
+    const synNodeId nodeId,
+    const synUserProgrammability* userProgrammability) {
+  return syn_api->synNodeSetUserProgrammability(
+      graphHandle, nodeId, userProgrammability);
+}
+
 synStatus SYN_API_CALL synGraphCompile(
     synRecipeHandle* pRecipeHandle,
     const synGraphHandle graphHandle,

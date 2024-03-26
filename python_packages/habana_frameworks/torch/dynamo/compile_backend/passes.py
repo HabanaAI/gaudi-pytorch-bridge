@@ -2159,6 +2159,80 @@ def pass_compile_clusters(ctx: OptimizerContext):
                 output_size_str = create_output_size(fx_node.meta["output_shapes"])
             node.s_("output_shapes", output_size_str)
 
+    def jit_node_annotation_propagation(jit_ir, fx_module):
+        """
+        This pass aims to directly manipulate JIT IR to set hints to node's
+        attribute.
+        """
+
+        def extract_dict_from_str(hints_str):
+            hint_values = None
+            if hints_str is None:
+                return None
+            else:
+                assert isinstance(hints_str, str)
+                hints_str = hints_str.strip()
+                if hints_str:
+                    hint_values = eval(hints_str)
+
+            if hint_values and isinstance(hint_values, dict):
+                return hint_values
+
+            return None
+
+        # Filter inputs/output and getitem nodes from fx graph, as they are not
+        # present in jit
+        fx_nodes = list(
+            filter(
+                lambda x: ((x.op == "call_function") and ("getitem" not in x.target.__name__)),
+                fx_module.graph.nodes,
+            )
+        )
+
+        jit_graph = jit_ir.graph
+        # Filter prim nodes, as they are not present in fx
+        jit_graph_nodes = list(
+            filter(
+                lambda x: ("prim::" not in x.kind()),
+                jit_graph.nodes(),
+            )
+        )
+
+        if len(fx_nodes) != len(jit_graph_nodes):
+            logger.debug("Jit graph and FX graph should have same number of nodes: ")
+            logger.debug("FX nodes: ", fx_nodes)
+            logger.debug("JIT graph nodes: ", jit_graph_nodes)
+            return
+
+        is_annotated_graph = False
+        for jit_node, fx_node in zip(jit_graph_nodes, fx_nodes):
+            fx_node_name = fx_node.target.__name__.split(".")[0]
+            if fx_node_name not in jit_node.kind():
+                logger.debug("FX node {} doesn't match with Jit node {}".format(fx_node_name, jit_node.kind()))
+                break
+
+            # extract hints from FX node metadata
+            context_hints = extract_dict_from_str(fx_node.meta.get("context_hints", None))
+            if context_hints is None:
+                continue
+            else:
+                logger.debug("node {} has context hints {}".format(fx_node_name, context_hints))
+                # combine hints into a single string in format "name1:value1;[name2:value2;]"
+                hints_str = ""
+                for k, v in context_hints.items():
+                    hints_str += "".join([k, ":", str(v), ";"])
+                jit_node.s_("hints", hints_str)
+                logger.debug("set hints for jit node", jit_node)
+                is_annotated_graph = True
+
+        if is_annotated_graph:
+            logger.debug(
+                "####Annotated JIT IR graph for this HPU graph:####\n%s",
+                jit_graph,
+            )
+
+        return
+
     def generate_jit_ir_from_module(input_module: torch.fx.GraphModule):
         """
         This function generate JIT IR for specified graph module.
@@ -2221,6 +2295,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
             submod = ctx.graph_module.get_submodule(n.target)
 
             jit_ir_function, submod_updated = generate_jit_ir_from_module(submod)
+            jit_node_annotation_propagation(jit_ir_function, submod_updated)
 
             # Submodule dynamicity has to recheck and set to the collable.
             is_submod_dynamic = is_module_dynamic(submod)

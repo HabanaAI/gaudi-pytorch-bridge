@@ -87,6 +87,29 @@ class GraphDirStaticMaker {
 
 GraphDirStaticMaker graph_dir_maker;
 
+std::unordered_map<std::string, std::string> ParseHintsFromString(
+    const std::string& hints_str) {
+  // parse hints based on form "name1:value1;[name2:value2;]"
+  std::vector<std::string> hints_vec;
+  std::stringstream ss(hints_str);
+  while (ss.good()) {
+    std::string substr;
+    getline(ss, substr, ';');
+    if (substr.empty())
+      break;
+    hints_vec.push_back(substr);
+  }
+
+  std::unordered_map<std::string, std::string> hints_map;
+  for (const auto& s : hints_vec) {
+    auto pos = s.find(":");
+    std::string key(s.substr(0, pos));
+    std::string val(s.substr(pos + 1));
+    hints_map.emplace(key, val);
+  }
+  return hints_map;
+}
+
 } // namespace
 
 #define CHECK_KPARAMS_SIZE(name, size) \
@@ -422,7 +445,8 @@ void graph::add_node(
     synNodeId* ret_node_id,
     const char** input_layouts,
     const char** output_layouts,
-    bool deterministic) {
+    bool deterministic,
+    const std::string& hints_str) {
   if (dry_run_) {
     // Lazy mode shape inference call, early return without execution
     return;
@@ -505,6 +529,43 @@ void graph::add_node(
       PT_SYNHELPER_FATAL(
           Logger::formatStatusMsg(status),
           "node add synNodeSetDeterministic failed");
+    }
+  }
+
+  // set hints via synapse API call
+  if (!hints_str.empty()) {
+    auto hints_map = ParseHintsFromString(hints_str);
+
+    bool is_exec_order_provided = false, is_group_id_provided = false;
+    synUserExecOrder user_exec_order;
+    synUserProgrammability user_programmability;
+    for (const auto& h : hints_map) {
+      if (h.first == "exec_order") {
+        user_exec_order.executionOrderedIndex = static_cast<unsigned>(std::stoi(h.second));
+        is_exec_order_provided = true;
+      } else if (h.first == "group_id") {
+        user_exec_order.groupId = static_cast<unsigned>(std::stoi(h.second));
+        is_group_id_provided = true;
+      }
+    }
+
+    // require both exec_order and group_id to be set
+    if (is_exec_order_provided && is_group_id_provided) {
+      user_programmability.userExecOrder = &user_exec_order;
+      auto status = synNodeSetUserProgrammability(
+          graph_handle_, nodeId, &user_programmability);
+      if (status != synStatus::synSuccess) {
+        PT_SYNHELPER_WARN(
+            Logger::formatStatusMsg(status),
+            "Node " + node_type + " synNodeSetUserProgrammability");
+        PT_SYNHELPER_FATAL(
+            Logger::formatStatusMsg(status),
+            "node add synNodeSetUserProgrammability failed");
+      }
+    } else {
+      PT_BRIDGE_DEBUG(
+          "Skip calling synNodeSetUserProgrammability due to missing either exec_order or group_id hints for node: ",
+          node_type);
     }
   }
 }
@@ -645,9 +706,9 @@ void graph::launch(
 
   for (synLaunchTensorInfo& tensorInfo : inputs_and_outputs_info) {
     // [SW-96080], due to change in get_tensor_for_scalar PT tensor has
-    // size [0] for 0d tensor need to force it [1] to pass to synapse correctly
-    // valdity check for pTensorAddress to differentiate from ZST
-    // in case of ZST pTensorAddress will be NULL
+    // size [0] for 0d tensor need to force it [1] to pass to synapse
+    // correctly valdity check for pTensorAddress to differentiate from ZST in
+    // case of ZST pTensorAddress will be NULL
     if (tensorInfo.pTensorAddress && tensorInfo.tensorSize[0] == 0) {
       tensorInfo.tensorSize[0] = 1;
     }
@@ -913,8 +974,8 @@ void graph::collect_dst_synapse_nodes(
   }
 
   if (is_fully_processed) {
-    // Node is fully processed by DFS-based traversal, there is no cycle and we
-    // have nothing to do here.
+    // Node is fully processed by DFS-based traversal, there is no cycle and
+    // we have nothing to do here.
     return;
   }
 
@@ -970,8 +1031,8 @@ synStatus graph::set_synapse_control_edges() {
     auto op_to_node_iter = op_to_node_container_.find(nodePair.first);
     if (op_to_node_iter == end(op_to_node_container_) ||
         op_to_node_iter->second.empty() || dst_synapse_node_ids.empty()) {
-      // Some ops like NoOp do not have underlying synapse nodes - it is handled
-      // in collect_dst_synapse_nodes
+      // Some ops like NoOp do not have underlying synapse nodes - it is
+      // handled in collect_dst_synapse_nodes
 
       PT_SYNHELPER_DEBUG(
           "Ommiting adding synapse control edges from node ", nodePair.first);

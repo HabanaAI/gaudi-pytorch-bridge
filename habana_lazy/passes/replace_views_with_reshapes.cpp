@@ -93,6 +93,7 @@ void replace_views_with_reshapes(std::shared_ptr<Graph>& graph) {
 
     WithInsertPoint insert_point(node);
     auto new_reshape = graph->create(op, {node->input(0), node->input(1)}, 1);
+    new_reshape->copyAttributes(*node);
     graph->insertNode(new_reshape);
     node->output(0)->replaceAllUsesWith(new_reshape->output(0));
     node->destroy();

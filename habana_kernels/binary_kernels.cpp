@@ -192,7 +192,8 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
         nullptr,
         nullptr,
         nullptr,
-        deterministic);
+        deterministic,
+        getContextHints());
     if (final_out_dtype != c10::ScalarType::Int) {
       // NOTE: TO DO: need to handle integral type U8
       // Cast Int tensor to Bool tensor
@@ -315,7 +316,8 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
       nullptr,
       nullptr,
       nullptr,
-      deterministic);
+      deterministic,
+      getContextHints());
 }
 
 /************************************************************************
@@ -594,7 +596,8 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         nullptr,
-        deterministic);
+        deterministic,
+        getContextHints());
   } else {
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
     auto& mdata = output_metadata.at(0);
@@ -628,7 +631,8 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         nullptr,
-        deterministic);
+        deterministic,
+        getContextHints());
   }
 }
 

@@ -283,7 +283,8 @@ void LayerNormOperator::AllocateAndAddSynapseNodeReshapePath(
       nullptr,
       nullptr,
       nullptr,
-      deterministic);
+      deterministic,
+      getContextHints());
   // Add Reshape node for output tensor to graph -
   // output.view(input.sizes().vec())
   auto reshape_op_out = make_operator<ReshapeOperator>(
@@ -388,7 +389,8 @@ void LayerNormOperator::AllocateAndAddSynapseNodeTPCAffinePath(
       nullptr,
       input_layouts.data(),
       output_layouts.data(),
-      deterministic);
+      deterministic,
+      getContextHints());
 }
 
 std::tuple<Tensor, Tensor, Tensor> LayerNormBackwardOperator::AllocatePTOutputs(
@@ -576,7 +578,8 @@ void LayerNormBackwardOperator::AllocateAndAddSynapseNode(
       nullptr,
       nullptr,
       nullptr,
-      deterministic);
+      deterministic,
+      getContextHints());
 
   // Add Reshape nodes for output tensors to graph
   auto reshape_op_grad_in =

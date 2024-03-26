@@ -2873,6 +2873,11 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // Set kernel execution mode
     HabanaKernel->SetExecutionMode(execution_mode_);
 
+    // Set node hints
+    // firstly extract hints from node
+    if (node->hasAttribute(c10::Symbol::attr("hints")))
+      HabanaKernel->setContextHints(node->s(c10::Symbol::attr("hints")));
+
     PT_BRIDGE_DEBUG("Going to add ", *node);
 
     static std::unordered_set<std::string> jit_ir_ops_;

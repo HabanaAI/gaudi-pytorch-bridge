@@ -494,7 +494,8 @@ ReduceOperator::CreateReductionGraph(
         nullptr,
         nullptr,
         nullptr,
-        deterministic);
+        deterministic,
+        getContextHints());
   }
   // if dim need not be kept add a final reshape to remove the "1" sized upper
   // dims
@@ -527,7 +528,8 @@ ReduceOperator::CreateReductionGraph(
         nullptr,
         nullptr,
         nullptr,
-        deterministic);
+        deterministic,
+        getContextHints());
   }
   return std::make_tuple(std::move(syn_tensor_in), std::move(syn_tensor_out));
 }

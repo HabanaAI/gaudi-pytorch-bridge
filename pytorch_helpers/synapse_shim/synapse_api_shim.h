@@ -51,6 +51,7 @@
   visitor(synNodeCreateWithId);               \
   visitor(synNodeSetDeterministic);           \
   visitor(synNodeDependencySet);              \
+  visitor(synNodeSetUserProgrammability);     \
   visitor(synGraphCompile);                   \
   visitor(synGraphCreate);                    \
   visitor(synGraphCreateEager);               \

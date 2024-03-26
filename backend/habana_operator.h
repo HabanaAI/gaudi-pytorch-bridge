@@ -615,6 +615,14 @@ class HabanaOperator {
     return deterministic;
   }
 
+  void setContextHints(const std::string& hints_str) {
+    hints_str_ = hints_str;
+  }
+
+  std::string getContextHints() {
+    return hints_str_;
+  }
+
   void setNoComputeFlag() {
     no_compute_flag = true;
   }
@@ -731,6 +739,7 @@ class HabanaOperator {
   habana_helpers::HabanaFrontendTypes execution_mode{
       habana_helpers::HabanaFrontendTypes::INVALID};
   bool no_compute_flag{false};
+  std::string hints_str_{};
 };
 
 class RegisterKernel {

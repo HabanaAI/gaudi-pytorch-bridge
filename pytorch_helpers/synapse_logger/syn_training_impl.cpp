@@ -80,6 +80,7 @@ SYN_API_PTR(synNodeCreate);
 SYN_API_PTR(synNodeCreateWithId);
 SYN_API_PTR(synNodeSetDeterministic);
 SYN_API_PTR(synNodeDependencySet);
+SYN_API_PTR(synNodeSetUserProgrammability);
 SYN_API_PTR(synGraphCompile);
 SYN_API_PTR(synGraphCreate);
 SYN_API_PTR(synGraphCreateEager);
@@ -188,6 +189,7 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synNodeCreateWithId);
   SYN_API_INIT_PTR(synNodeSetDeterministic);
   SYN_API_INIT_PTR(synNodeDependencySet);
+  SYN_API_INIT_PTR(synNodeSetUserProgrammability);
   SYN_API_INIT_PTR(synGraphCompile);
   SYN_API_INIT_PTR(synGraphCreate);
   SYN_API_INIT_PTR(synGraphCreateEager);
@@ -1902,6 +1904,23 @@ synDumpStateAndTerminate(const char* msg, uint64_t flags) {
   API_LOG_CALL(ARG(msg), ARG(flags));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synDumpStateAndTerminate, msg, flags);
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synNodeSetUserProgrammability(
+    const synGraphHandle graphHandle,
+    const synNodeId nodeId,
+    const synUserProgrammability* userProgrammability) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(graphHandle), ARG(nodeId), ARG(userProgrammability));
+
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synNodeSetUserProgrammability,
+      graphHandle,
+      nodeId,
+      userProgrammability);
   API_LOG_RESULT();
   return status;
 }
