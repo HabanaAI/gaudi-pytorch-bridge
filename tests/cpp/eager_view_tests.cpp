@@ -368,3 +368,34 @@ TEST_F(EagerViewOpsTest, AddOnAsStridedInPlace2) {
     EXPECT_EQ(allclose(C, hC.cpu(), 0.001, 0.001), true);
   }
 }
+
+TEST_F(EagerViewOpsTest, RReLUAsStridedInPlace) {
+  habana::HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+  auto& device = habana::HPURegistrar::get_device();
+  if (device.type() == synDeviceGaudi2) {
+    float lower = 0.1;
+    float upper = 0.9;
+    bool training = false;
+    torch::Tensor A = torch::randn({2, 2, 2});
+    torch::Tensor N = torch::randn({2, 2, 1});
+    auto hA = A.to(torch::kHPU);
+    auto hN = N.to(torch::kHPU);
+
+    // run on CPU
+    auto B = A.as_strided({2, 2, 1}, {4, 2, 1}, 0);
+    torch::manual_seed(1234);
+    habana::getDefaultHPUGenerator().set_current_seed(1234);
+    torch::rrelu_with_noise_(
+        B, N, lower, upper, training, at::detail::getDefaultCPUGenerator());
+
+    // run on HPU
+    auto hB = hA.as_strided({2, 2, 1}, {4, 2, 1}, 0);
+    torch::manual_seed(1234);
+    habana::getDefaultHPUGenerator().set_current_seed(1234);
+    torch::rrelu_with_noise_(
+        hB, hN, lower, upper, training, at::detail::getDefaultCPUGenerator());
+
+    EXPECT_EQ(allclose(A, hA.cpu(), 0.001, 0.001), true);
+  }
+}

@@ -37,8 +37,7 @@ std::unordered_set<std::string_view> underscored_ops_reported_as_non_inplace = {
     "hpu::normal_"sv,
     "hpu::geometric_"sv,
     "hpu::log_normal_"sv,
-    "hpu::exponential_"sv,
-    "hpu::rrelu_with_noise_"sv};
+    "hpu::exponential_"sv};
 
 /* below ops modify the o/p dtype in their out of place variant or
  * convert out variant to regular one that may result in dtype promotion
@@ -148,7 +147,7 @@ bool is_schema_incompatible_between_hpu_aten(const std::string_view op_name) {
   /* Below ops have an incompatible signature between hpu and aten.
   The conversion from old kind to OutOfPlace should take place within the HPU */
   static std::unordered_set<std::string_view> ops_replace_within_hpu = {
-      "hpu::index"};
+      "hpu::index"sv, "hpu::rrelu_with_noise"sv, "hpu::rrelu_with_noise_"sv};
   return ops_replace_within_hpu.find(op_name) != ops_replace_within_hpu.end();
 }
 
@@ -158,9 +157,14 @@ static JitNode* replace_with_out_of_place_op(
     const EagerOpMetaData& eager_op_meta_data) {
   torch::jit::WithInsertPoint insert_point(node);
   const auto old_kind = node->kind().toQualString();
+  // Make sure to use consistent operator name as aten but in hpu namespace
+  auto aten_op_symbol =
+      c10::Symbol::fromQualString(eager_op_meta_data.op_name_);
+  std::string hpu_op_name =
+      "hpu::" + std::string(aten_op_symbol.toUnqualString());
   const std::string& new_kind =
       is_schema_incompatible_between_hpu_aten(old_kind)
-      ? old_kind
+      ? hpu_op_name
       : eager_op_meta_data.op_name_;
 
   PT_EAGER_DEBUG(
