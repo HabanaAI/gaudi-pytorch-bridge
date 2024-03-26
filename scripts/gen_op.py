@@ -98,6 +98,7 @@ _FN_AUTOGRAD_HPU = set(
         "matmul(Tensor, Tensor) -> Tensor",
         "softmax(Tensor, int64_t, c10::optional<ScalarType>) -> Tensor",
         "dropout(Tensor, double, bool) -> Tensor",
+        "instance_norm(Tensor, c10::optional<Tensor>, c10::optional<Tensor>, c10::optional<Tensor>, c10::optional<Tensor>, bool, double, double, bool) -> Tensor",
     ]
 )
 
