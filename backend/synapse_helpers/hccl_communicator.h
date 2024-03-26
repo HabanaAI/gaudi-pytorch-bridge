@@ -45,7 +45,7 @@ class HcclCommunicator {
   static std::shared_ptr<HcclCommunicator> Create(
       int rank,
       int size,
-      std::function<void(int64_t, hcclUniqueId*)> broadcastUniqueHCCLID_fn);
+      std::function<void(hcclUniqueId*)> broadcastUniqueHCCLID_fn);
   static std::shared_ptr<HcclCommunicator> Get(int64_t id);
   static int Count();
 
@@ -54,7 +54,7 @@ class HcclCommunicator {
       int64_t id,
       int rank,
       int size,
-      std::function<void(int64_t, hcclUniqueId*)> broadcastUniqueHCCLID_fn);
+      std::function<void(hcclUniqueId*)> broadcastUniqueHCCLID_fn);
   void Init();
 
   int64_t id_;
@@ -63,7 +63,7 @@ class HcclCommunicator {
   std::shared_ptr<hcclComm_t> hccl_handle_;
   std::shared_ptr<hccl_integration::device_context> device_context_;
   synStreamHandle comm_stream_;
-  std::function<void(int64_t, hcclUniqueId*)> broadcastUniqueHCCLID_fn_;
+  std::function<void(hcclUniqueId*)> broadcastUniqueHCCLID_fn_;
   std::once_flag init_flag;
 
   static std::mutex communicator_map_mutext_;

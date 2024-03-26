@@ -69,7 +69,7 @@ std::shared_ptr<hcclComm_t> HcclCommunicator::GetHcclHandle() {
 std::shared_ptr<HcclCommunicator> HcclCommunicator::Create(
     int rank,
     int size,
-    std::function<void(int64_t, hcclUniqueId*)> broadcastUniqueHCCLID_fn) {
+    std::function<void(hcclUniqueId*)> broadcastUniqueHCCLID_fn) {
   std::shared_ptr<HcclCommunicator> comm(
       new HcclCommunicator(
           HcclCommunicator::next_id_++, rank, size, broadcastUniqueHCCLID_fn),
@@ -102,7 +102,7 @@ HcclCommunicator::HcclCommunicator(
     int64_t id,
     int rank,
     int size,
-    std::function<void(int64_t, hcclUniqueId*)> broadcastUniqueHCCLID_fn)
+    std::function<void(hcclUniqueId*)> broadcastUniqueHCCLID_fn)
     : id_(id),
       size_(size),
       rank_(rank),
@@ -117,7 +117,7 @@ void HcclCommunicator::Init() {
     HABANA_ASSERT(hcclSuccess == result && "Get HCCL UniqueId Error");
   }
 
-  broadcastUniqueHCCLID_fn_(id_, &hccl_id);
+  broadcastUniqueHCCLID_fn_(&hccl_id);
 
   hcclComm_t new_comm;
   hcclResult_t result{hcclCommInitRank(&new_comm, size_, hccl_id, rank_)};

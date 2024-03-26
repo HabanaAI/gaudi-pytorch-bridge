@@ -127,16 +127,14 @@ ProcessGroupEagerHCCL::ProcessGroupEagerHCCL(
   comm_ = habana::HcclCommunicator::Create(
       rank,
       size,
-      [store, rank](
-          int64_t comm_id, hcclUniqueId* hcclID) { // Use hcclID as store key?
-        std::string storeKey = std::to_string(comm_id);
+      [store, rank](hcclUniqueId* hcclID) { // Use hcclID as store key?
         if (rank == 0) {
           auto vec = std::vector<uint8_t>(
               reinterpret_cast<uint8_t*>(hcclID),
               reinterpret_cast<uint8_t*>(hcclID) + sizeof(hcclUniqueId));
-          store->set(storeKey, vec);
+          store->set("HCCL_GROUP_UNIQUE_ID", vec);
         } else {
-          auto vec = store->get(storeKey);
+          auto vec = store->get("HCCL_GROUP_UNIQUE_ID");
           TORCH_CHECK(vec.size() == sizeof(hcclUniqueId));
           std::memcpy(hcclID, vec.data(), vec.size());
         }
