@@ -1377,3 +1377,66 @@ def test_save_load_module(init_before_load, amax_history_len, fp8_format):
 
     assert torch.equal(out_ref, out_tested)
     _assert_amax_history_equal(linear_ref, linear_tested)
+
+
+@pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
+def test_gradient_checkpointing(fp8_format):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
+    from habana_frameworks.torch.hpex.experimental.transformer_engine.distributed import activation_checkpointing
+    from torch.utils.checkpoint import checkpoint
+
+    class Subnet(torch.nn.Module):
+        def __init__(self, hidden_dim):
+            super(Subnet, self).__init__()
+            self.hidden_dim = hidden_dim
+            self.fc = te.Linear(self.hidden_dim, self.hidden_dim, bias=False)
+
+        def forward(self, x):
+            x = self.fc(x)
+            return x
+
+    class Net(torch.nn.Module):
+        def __init__(self, input_dim, hidden_dim, output_dim):
+            super(Net, self).__init__()
+            self.input_dim = input_dim
+            self.hidden_dim = hidden_dim
+            self.output_dim = output_dim
+            self.fc1 = te.Linear(self.input_dim, self.hidden_dim, bias=False)
+            self.subnet = Subnet(hidden_dim)
+            self.fc2 = te.Linear(self.hidden_dim, self.output_dim, bias=False)
+
+        def forward(self, x, use_gradient_checkpoint=False):
+            x = self.fc1(x)
+            if use_gradient_checkpoint:
+                x = checkpoint(self.subnet.__call__, x, use_reentrant=True)
+            else:
+                x = self.subnet(x)
+            x = self.fc2(x)
+            return x
+
+    fp8_recipe = DelayedScaling(
+        fp8_format=fp8_format,
+        interval=2,
+        reduce_amax=False,
+    )
+
+    sample_x = torch.randn(4, 8).to("hpu")
+    model = Net(8, 16, 7).to("hpu")
+    optim = torch.optim.SGD(model.parameters(), lr=0.1)
+
+    model.fc1.forward = te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe)(model.fc1.forward)
+    model.fc2.forward = te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe)(model.fc2.forward)
+    model.subnet.forward = te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe)(model.subnet.forward)
+    model.subnet.forward = activation_checkpointing()(model.subnet.forward)
+
+    for _ in range(4):
+        optim.zero_grad()
+        x = torch.rand_like(sample_x)
+        y = model(x, True)
+        ref = model.subnet.fc.fp8_meta["scaling_fwd"].scale.cpu()
+        loss = torch.sum(y)
+        loss.backward()
+        res = model.subnet.fc.fp8_meta["scaling_fwd"].scale.cpu()
+        optim.step()
+        assert torch.allclose(res, ref)

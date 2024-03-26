@@ -133,6 +133,25 @@ def activation_recompute_forward(
         _FP8_ACTIVATION_RECOMPUTE_PHASE = False
 
 
+@contextmanager
+def activation_checkpointing() -> None:
+    """
+    Context manager used to signal the Transformer Engine modules whether they have been
+    called with activation checkpointing enabled or not. Modules with activation checkpointing
+    run their forward passes with gradients disabled and then run them again with gradients
+    enabled, during backward. For such modules, unlike non-checkpointed modules, the FP8 stats
+    need to be computed when the gradients are disabled. The _FP8_ACTIVATION_RECOMPUTE_ENABLED
+    flag helps handle such cases properly.
+    """
+    global _FP8_ACTIVATION_RECOMPUTE_ENABLED, _FP8_ACTIVATION_RECOMPUTE_PHASE
+    try:
+        _FP8_ACTIVATION_RECOMPUTE_ENABLED = True
+        yield
+    finally:
+        _FP8_ACTIVATION_RECOMPUTE_ENABLED = False
+        _FP8_ACTIVATION_RECOMPUTE_PHASE = False
+
+
 def is_fp8_activation_recompute_enabled() -> bool:
     """Return global boolean"""
     return _FP8_ACTIVATION_RECOMPUTE_ENABLED
@@ -141,6 +160,12 @@ def is_fp8_activation_recompute_enabled() -> bool:
 def in_fp8_activation_recompute_phase() -> bool:
     """Return global boolean"""
     return _FP8_ACTIVATION_RECOMPUTE_PHASE
+
+
+def set_fp8_activation_recompute_phase(in_recompute_phase):
+    """set global boolean"""
+    global _FP8_ACTIVATION_RECOMPUTE_PHASE
+    _FP8_ACTIVATION_RECOMPUTE_PHASE = in_recompute_phase
 
 
 class CheckpointFunction(torch.autograd.Function):

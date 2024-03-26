@@ -29,7 +29,12 @@ from habana_frameworks.torch import _hpex_C as tex
 
 from ..constants import GemmParallelModes, dist_group_type
 from ..cpp_extensions import cast_to_fp8
-from ..distributed import gather_along_first_dim, in_fp8_activation_recompute_phase, is_fp8_activation_recompute_enabled
+from ..distributed import (
+    gather_along_first_dim,
+    in_fp8_activation_recompute_phase,
+    is_fp8_activation_recompute_enabled,
+    set_fp8_activation_recompute_phase,
+)
 from ..fp8 import (
     MetaTensorType,
     add_amax_to_global_buffer,
@@ -435,12 +440,25 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         to setup the forward aggregated amax reduction for every module
         just in case. The autocast exit will pick up the most recent one.
         """
-        self.run_cnt += 1
+
+        # Increment run_cnt only once in each training step. For the modules for which
+        # activation checkpointing is enabled increment the run_cnt only during forward pass.
+        if is_fp8_activation_recompute_enabled():
+            # set the flag for each recompute.
+            set_fp8_activation_recompute_phase(torch.is_grad_enabled())
+            if not in_fp8_activation_recompute_phase():
+                self.run_cnt += 1
+        else:
+            self.run_cnt += 1
 
         # Activation recomputation is used and this is the second forward phase.
         if self.fp8 and in_fp8_activation_recompute_phase():
             get_old_fp8_meta_tensors_for_recompute(self.fp8_meta)
-            is_scale_update_required = False
+            # For modules with activation checkpointing, FP8 stats from the forward pass should be re-used
+            # in the recompute phase. In the corresponding backward pass, the FP8 stats for the grad_outputs
+            # need to be computed. This flag handles the scale updation condition for the backward pass.
+            # During the forward pass in recompute phase this flag is not considered.
+            is_scale_update_required = self.is_scale_update_required()
         else:
             if self.tp_size > 1:
                 assert self.tp_group_initialized, "TP group not initialized."
