@@ -6235,6 +6235,42 @@ prod.int_out:
   op_template: reduction
   safe_cast_check: false
 
+put_:
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float]
+      index: [Int]
+      source: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      index: [Int, Long]
+      source: [BFloat16, Float, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      index: [Int, Long]
+      source: [BFloat16, Float, Half]
+  inplace_ids: [0]
+  custom_fill_params: FillPutParams
+  guid: put_fwd
+
+put:
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float]
+      index: [Int]
+      source: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      index: [Int, Long]
+      source: [BFloat16, Float, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      index: [Int, Long]
+      source: [BFloat16, Float, Half]
+  out_ids: [0]
+  custom_fill_params: FillPutParams
+  guid: put_fwd
+
 random_:
   custom_fill_params: FillRandomParams
   dtypes:

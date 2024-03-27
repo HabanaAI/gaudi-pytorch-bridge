@@ -577,6 +577,7 @@ pin_memory                             Yes      Yes      Yes       Yes      Yes 
 pow                                    Yes      Yes      No        No       No     torch.Tensor
 pow\_                                  Yes      Yes      No        No       No     torch.Tensor
 prod                                   Yes      Yes      No        No       No     torch.Tensor
+put\_                                  Yes      Yes      No        No       No     torch.Tensor
 random\_                               Yes      Yes      Yes       Yes      Yes    torch.Tensor
 reciprocal                             Yes      Yes      No        No       No     torch.Tensor
 reciprocal\_                           Yes      Yes      No        No       No     torch.Tensor
