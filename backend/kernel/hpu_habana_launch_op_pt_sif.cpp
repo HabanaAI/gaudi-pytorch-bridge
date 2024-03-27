@@ -14,6 +14,7 @@
 #include <torch/csrc/jit/ir/constants.h>
 #include <unordered_map>
 #include "backend/helpers/graph.h"
+#include "backend/jit_graph_cache.h"
 #include "backend/jitgraph_utils.h"
 #include "backend/kernel/ds_graph_recompile.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
@@ -51,7 +52,7 @@ synapse_helpers::tensor& allocate_synapse_tensor(
 torch::jit::Stack HabanaLaunchOpPT::create_stack_for_node(
     const torch::jit::Node* node,
     bool& flag,
-    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
+    CValPtrtoIValueMap& val_to_ival_map) {
   torch::jit::Stack node_stack;
   for (auto ni_val : node->inputs()) {
     if (val_to_ival_map.count(ni_val) == 0) {
@@ -68,7 +69,7 @@ void create_synapse_input(
     CValPtr value_in,
     const HabanaOperatorPtr& habana_op,
     synapse_helpers::graph& syn_graph,
-    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
+    CValPtrtoIValueMap& val_to_ival_map) {
   std::vector<at::Tensor> pt_tensor_list;
   const auto& ival = val_to_ival_map[value_in];
   if (ival.isTensor()) {
@@ -104,7 +105,7 @@ void create_synapse_inputs(
     torch::jit::Node* node,
     const HabanaOperatorPtr& habana_op,
     synapse_helpers::graph& syn_graph,
-    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
+    CValPtrtoIValueMap& val_to_ival_map) {
   for (const auto value_in : node->inputs()) {
     auto value_exists = val_to_ival_map.find(value_in);
     HABANA_ASSERT(value_exists != std::end(val_to_ival_map));
@@ -247,7 +248,7 @@ void process_shape_tensors(
 void HabanaLaunchOpPT::process_outputs(
     const HabanaOperatorPtr& habana_op,
     torch::jit::Node* node,
-    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map,
+    CValPtrtoIValueMap& val_to_ival_map,
     std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map) {
   auto output_nodes = node->outputs();
 
@@ -299,7 +300,7 @@ void HabanaLaunchOpPT::process_outputs(
 
 void HabanaLaunchOpPT::visit_prim_node(
     const torch::jit::Node* node,
-    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
+    CValPtrtoIValueMap& val_to_ival_map) {
   if (torch::jit::prim::Constant == node->kind()) {
     for (const auto value : node->outputs()) {
       HABANA_ASSERT(val_to_ival_map.count(value) == 0);
@@ -309,6 +310,17 @@ void HabanaLaunchOpPT::visit_prim_node(
           value->debugName(),
           " adding to val_to_ival_map: ",
           habana_helpers::DebugString(val_to_ival_map[value]));
+      const CValPtrtoIValueMap& param_val_to_ival_map =
+          jit_graph_and_meta_data_->get_param_jit_val_to_ivalue_map();
+      if (param_val_to_ival_map.count(value)) {
+        val_to_ival_map[value] = param_val_to_ival_map.at(value);
+        PT_DYNAMIC_SHAPE_DEBUG(
+            "For %",
+            value->debugName(),
+            " updating to val_to_ival_map: ",
+            habana_helpers::DebugString(val_to_ival_map[value]),
+            " w.r.t. view params");
+      }
     }
   } else if (torch::jit::prim::ListConstruct == node->kind()) {
     std::vector<at::Tensor> tensorList;
@@ -333,7 +345,7 @@ void HabanaLaunchOpPT::visit_prim_node(
 void HabanaLaunchOpPT::RunHybridSif(
     std::shared_ptr<torch::jit::Graph> jit_ir_graph,
     torch::jit::Stack& inputs,
-    std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map) {
+    CValPtrtoIValueMap& val_to_ival_map) {
   PT_BRIDGE_BEGIN;
   auto graph_inputs = jit_ir_graph->inputs();
   TORCH_CHECK(inputs.size() == graph_inputs.size(), "Input size mismatch");
@@ -498,10 +510,12 @@ void HabanaLaunchOpPT::RunHybridSif(
 
 // To instantiate the template method(s) RunHybridSif
 template bool HabanaLaunchOpPT::RunHybridSif<true>(
-    std::unordered_map<int64_t, at::Tensor>&);
+    std::unordered_map<int64_t, at::Tensor>&,
+    std::shared_ptr<std::vector<InferNodeParams>>);
 
 template bool HabanaLaunchOpPT::RunHybridSif<false>(
-    std::unordered_map<int64_t, at::Tensor>&);
+    std::unordered_map<int64_t, at::Tensor>&,
+    std::shared_ptr<std::vector<InferNodeParams>>);
 // --------------------
 
 // RunHybridSIF updated to return true if shape tensor(s) in the compound op(s)
@@ -516,7 +530,8 @@ template bool HabanaLaunchOpPT::RunHybridSif<false>(
 // non-critical path with RunHybridSif<DynamicShapes == true>().
 template <bool DynamicShapes>
 bool HabanaLaunchOpPT::RunHybridSif(
-    std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map) {
+    std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map,
+    std::shared_ptr<std::vector<InferNodeParams>> node_params_vec_ptr) {
   PT_BRIDGE_BEGIN;
 
   bool shape_tensors_flag = false;
@@ -526,7 +541,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
   PT_DYNAMIC_SHAPE_DEBUG(
       "JIT_IR_Graph_BEGIN\n", jit_ir_graph_->toString(), "JIT_IR_Graph_END\n");
 
-  std::unordered_map<CValPtr, torch::jit::IValue> val_to_ival_map;
+  CValPtrtoIValueMap val_to_ival_map;
   auto graph_inputs = jit_ir_graph_->inputs();
   TORCH_CHECK(input_refs.size() == graph_inputs.size(), "Input size mismatch");
   for (size_t i = 0; i < graph_inputs.size(); i++) {
@@ -546,6 +561,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
 
   std::vector<at::Tensor> input_shape_tensors_vec;
   std::vector<at::Tensor> intermediate_shape_tensors_vec;
+
   for (auto* node : jit_ir_graph_->nodes()) {
     std::string op_name(node->kind().toQualString());
 
@@ -591,11 +607,26 @@ bool HabanaLaunchOpPT::RunHybridSif(
     // Set the deterministic val
     habana_op->setDeterministic(node->i(torch::jit::attr::deterministic));
 
+    // Set kernel execution mode
+    habana_op->SetExecutionMode(execution_mode_);
+
     bool is_mapped_flag{true};
     auto op_input_stack =
         create_stack_for_node(node, is_mapped_flag, val_to_ival_map);
     HABANA_ASSERT(
         is_mapped_flag, "Cannot proceed with unmapped input for ", op_name);
+
+    // If there is a "meta attribute" marked with attr::arg1, add the meta attr
+    // value to stack for the ops to work with. At this point, only StridedView
+    // ops in eager mode uses it.
+    auto meta = torch::jit::attr::arg1;
+    if (node->hasAttribute(meta)) {
+      HABANA_ASSERT(
+          !strcmp("aten::as_strided", node->kind().toQualString()),
+          "Meta op can only be marked for aten::as_strided, not supported in op ",
+          node->kind().toQualString());
+      op_input_stack.insert(op_input_stack.end(), IValue(node->i(meta)));
+    }
 
     // Collect input shape tensors, To add them at last after graph inputs
     // Add only shape tensors and input describing shape tensors and
@@ -644,6 +675,19 @@ bool HabanaLaunchOpPT::RunHybridSif(
       PT_DYNAMIC_SHAPE_DEBUG(
           "After increment: sif tensor id = ",
           habana::ShapeInference::GetSifTensorId());
+
+      // ToDO: Add support for node params if SIF method not available
+      if (node_params_vec_ptr) {
+        size_t num_syn_nodes = habana_op->GetKernels().size() + 1;
+        if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
+          num_syn_nodes = op->GetNumSynNodes();
+        }
+
+        // add dummy node params for all sub-kernels/syn nodes if any
+        for (size_t i = 0; i < num_syn_nodes; i++) {
+          (*node_params_vec_ptr).push_back(InferNodeParams(nullptr, 0));
+        }
+      }
     }};
 
     if (!disabled_jit_ir_ops().count(op_name)) {
@@ -708,6 +752,31 @@ bool HabanaLaunchOpPT::RunHybridSif(
           auto output = node->outputs().at(i);
           HABANA_ASSERT(val_to_ival_map.count(output) == 0);
           val_to_ival_map[output] = IVal(std::get<1>(output_tensors[i]));
+        }
+
+        // Capture node params if required and are supported per JIT IR op
+        if (node_params_vec_ptr) {
+          const auto& params = output_shape_info.GetNodeParams();
+          // node params patching supported
+          if (NodeParamAgnosticOpList::isNodeParamAgnosticOp(
+                  c10::Symbol::fromQualString(op_name))) {
+            for (const auto& p : params) {
+              PT_DYNAMIC_SHAPE_DEBUG(
+                  "For node params with cs, adding params data: ",
+                  p.get_data(),
+                  ", params size: ",
+                  p.get_size());
+              (*node_params_vec_ptr).push_back(p);
+            }
+          } else { // node params patching not supported
+            // add dummy params for all syn nodes/sub-kernels
+            size_t nodesCount = !params.empty()
+                ? params.size()
+                : output_shape_info.GetKernels().size() + 1;
+            for (size_t i = 0; i < nodesCount; i++) {
+              (*node_params_vec_ptr).push_back(InferNodeParams(nullptr, 0));
+            }
+          }
         }
       }
     } else {

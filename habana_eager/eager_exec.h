@@ -145,7 +145,8 @@ class EagerExec {
   EagerOpMetaData m_eager_op_meta_data;
 
   std::shared_ptr<torch::jit::Graph> create_eager_graph(
-      torch::jit::Stack& stack);
+      torch::jit::Stack& stack,
+      CValPtrMap& jit_val_map);
   size_t calculate_operator_key(
       const UniqueIdxVec& parent_vec,
       torch::jit::Stack& stack);
@@ -158,7 +159,9 @@ class EagerExec {
       const UniqueIdxVec& parent_vec,
       std::shared_ptr<torch::jit::Graph>& graph);
   torch::jit::Stack prepare_input_stack(const torch::jit::Stack& stack);
-  void post_process_eager_graph(std::shared_ptr<torch::jit::Graph>& graph);
+  void post_process_eager_graph(
+      std::shared_ptr<torch::jit::Graph>& graph,
+      CValPtrMap& params_jit_val_map);
   bool is_eager_compiler_supported_for_graph(
       std::shared_ptr<torch::jit::Graph>& graph);
   void mark_maybe_grad_view();

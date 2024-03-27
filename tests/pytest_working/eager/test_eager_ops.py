@@ -1364,3 +1364,57 @@ def test_inplace_clamp_channel_last_different_dtypes():
     input_hpu.clamp_(min_hpu, max_hpu)
 
     torch.testing.assert_close(input_cpu, input_hpu.cpu())
+
+
+# test node params patching for constant fill node
+def test_sag_fill_node_params():
+    a = torch.rand((2, 3), dtype=torch.bfloat16)
+    a_hpu = a.to("hpu")
+
+    n = 5
+    for x in range(1, n + 1):
+        a.fill_(x)
+        a_hpu.fill_(x)
+        assert torch.equal(a, a_hpu.cpu())
+
+
+# test node params patching for strided_view and strided_insert in same graph
+def test_sag_view_node_params_1():
+    params = [((2, 2), (1, 2), 2), ((2, 4), (1, 4), 4), ((4, 8), (1, 8), 8)]
+
+    for shapes, strides, offset in params:
+        a = torch.rand(256, dtype=torch.float32)
+        a_hpu = a.to("hpu")
+
+        b = a.as_strided(shapes, strides, offset)
+        b_hpu = a_hpu.as_strided(shapes, strides, offset)
+
+        b.mul_(2)
+        b_hpu.mul_(2)
+
+        assert torch.allclose(b, b_hpu.cpu(), atol=0.001, rtol=0.001)
+
+
+# test node params patching for strided_view op
+def test_sag_view_node_params_2():
+    params = [((2, 2), (1, 2), 0), ((4, 4), (1, 4), 4)]
+
+    for shapes, strides, offset in params:
+        a = torch.rand(64, dtype=torch.bfloat16)
+        a_hpu = a.to("hpu")
+
+        b = a.as_strided(shapes, strides, offset)
+        b_hpu = a_hpu.as_strided(shapes, strides, offset)
+
+        assert torch.allclose(b, b_hpu.cpu(), atol=0.001, rtol=0.001)
+
+
+# test node params patching for strided_insert op
+def test_sag_view_node_params_3():
+    params = [(32, (2, 2), (1, 2), 2), (64, (4, 4), (1, 4), 4)]
+
+    for base_shape, shapes, strides, offset in params:
+        a = torch.arange(base_shape, dtype=torch.int32).as_strided(shapes, strides, offset)
+        a_hpu = a.to("hpu")
+
+        assert torch.equal(a, a_hpu.cpu())

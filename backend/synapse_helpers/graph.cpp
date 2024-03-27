@@ -168,8 +168,8 @@ graph graph::create_for_refinement(device& device, std::string name) {
   return syn_graph;
 }
 
-std::vector<synTensorHandleMap> graph::duplicate(
-    synGraphHandle& duplicate_graph_handle) {
+std::pair<std::vector<synTensorHandleMap>, std::vector<synNodeHandleMap>> graph::
+    duplicate(synGraphHandle& duplicate_graph_handle) {
   PT_SYNHELPER_BEGIN;
 
   HABANA_ASSERT(
@@ -209,7 +209,7 @@ std::vector<synTensorHandleMap> graph::duplicate(
       Logger::formatStatusMsg(status));
   graph_is_empty_ = false;
   PT_SYNHELPER_END;
-  return tensorsMap;
+  return std::make_pair(tensorsMap, nodesMap);
 }
 
 bool graph::inferShapes() {
@@ -298,10 +298,46 @@ void graph::setTensorSectionOffset(synTensor tensor_handle, uint64_t offset) {
   PT_SYNHELPER_END;
 }
 
-std::tuple<graph, std::vector<synTensorHandleMap>> graph::duplicate(
-    graph& other) {
+void graph::getNodeParams(
+    const synGraphHandle graph_handle,
+    const synNodeId node_id,
+    void* node_params,
+    unsigned* params_size) {
+  PT_SYNHELPER_BEGIN;
+  synStatus status = synSuccess;
+
+  status =
+      synNodeGetUserParams(graph_handle, node_id, node_params, params_size);
+  HABANA_ASSERT(
+      status == synStatus::synSuccess,
+      "Get Node Params failed. synStatus=",
+      Logger::formatStatusMsg(status))
+  PT_SYNHELPER_END;
+}
+
+void graph::setNodeParams(
+    const synGraphHandle graph_handle,
+    const synNodeId node_id,
+    const void* node_params,
+    const unsigned params_size) {
+  PT_SYNHELPER_BEGIN;
+  synStatus status = synSuccess;
+
+  status =
+      synNodeSetUserParams(graph_handle, node_id, node_params, params_size);
+  HABANA_ASSERT(
+      status == synStatus::synSuccess,
+      "Set Node Params failed. synStatus=",
+      Logger::formatStatusMsg(status))
+  PT_SYNHELPER_END;
+}
+
+std::
+    tuple<graph, std::vector<synTensorHandleMap>, std::vector<synNodeHandleMap>>
+    graph::duplicate(graph& other) {
   graph dup_graph(other.device_, other.name_);
-  auto tensor_handle_map = other.duplicate(dup_graph.graph_handle_);
+  auto [tensors_handle_map, nodes_handle_map] =
+      other.duplicate(dup_graph.graph_handle_);
   dup_graph.is_valid_ = other.is_valid_;
   dup_graph.in_build_phase_ = other.in_build_phase_;
   dup_graph.in_execution_phase_ = other.in_execution_phase_;
@@ -316,7 +352,11 @@ std::tuple<graph, std::vector<synTensorHandleMap>> graph::duplicate(
   dup_graph.numShapeTensors = other.numShapeTensors;
   dup_graph.numNodes = other.numNodes;
   dup_graph.graph_is_empty_ = other.graph_is_empty_;
-  return {std::move(dup_graph), std::move(tensor_handle_map)};
+  dup_graph.syn_node_id_vec_ = other.syn_node_id_vec_;
+  return {
+      std::move(dup_graph),
+      std::move(tensors_handle_map),
+      std::move(nodes_handle_map)};
 }
 
 graph::graph(graph&& other) noexcept
@@ -335,7 +375,8 @@ graph::graph(graph&& other) noexcept
       numShapeTensors(other.numShapeTensors),
       numNodes(other.numNodes),
       is_shape_agnostic_graph_(other.is_shape_agnostic_graph_),
-      eager_mode_(other.eager_mode_) {
+      eager_mode_(other.eager_mode_),
+      syn_node_id_vec_(other.syn_node_id_vec_) {
   other.is_valid_ = false;
   other.graph_handle_ = {};
 }
@@ -449,6 +490,10 @@ void graph::add_node(
   op_to_node_container_pt_["jit_node"].emplace_back(nodeId);
   if (ret_node_id) {
     *ret_node_id = nodeId;
+  }
+  if (eager_mode_) {
+    syn_node_id_vec_.push_back(nodeId);
+    PT_BRIDGE_DEBUG("[SHAPE AGNOSTIC] Adding syn node id: ", nodeId);
   }
   PT_BRIDGE_DEBUG("Adding Syn graph::add_node val ", deterministic);
   if (deterministic) {

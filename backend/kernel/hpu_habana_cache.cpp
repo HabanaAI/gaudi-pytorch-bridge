@@ -513,6 +513,11 @@ void RecipeValueSpec::update_tensor_shape(
         "[SHAPE AGNOSTIC] settting the tensor shape to {1} for scalar");
   }
   tinfo->set_shape(shape);
+  std::vector<int64_t> strides(shape.size(), 1);
+  for (int64_t i = (int64_t)shape.size() - 1; i > 0; i--) {
+    strides[i - 1] *= shape[i] * strides[i];
+  }
+  tinfo->set_strides(strides);
   PT_EAGER_DEBUG(
       "[SHAPE AGNOSTIC] tensor shape after patching : ", tinfo->get_shape());
   synapse_helpers::graph::setTensorGeometry(tensor_handle, shape);
@@ -1164,6 +1169,58 @@ void RecipeValueSpec::update_patching_table(
     }
   }
   PT_BRIDGE_END;
+}
+
+void RecipeValueSpec::update_node_params(
+    const std::unordered_map<synNodeId, synNodeId>&
+        synapse_node_orig_to_new_handle,
+    const std::vector<synNodeId>& syn_node_id_vec,
+    const synGraphHandle duplicate_graph_handle,
+    std::shared_ptr<std::vector<InferNodeParams>>& node_params_vec_ptr) {
+  HABANA_ASSERT(node_params_vec_ptr != nullptr, "node params are empty !");
+
+  const auto node_params_vec = *node_params_vec_ptr;
+  HABANA_ASSERT(
+      syn_node_id_vec.size() == node_params_vec.size(),
+      "Mismatch, Orig graph syn node id vec size: ",
+      syn_node_id_vec.size(),
+      ", node params vec size: ",
+      node_params_vec.size());
+
+  PT_EAGER_DEBUG(
+      "[SHAPE AGNOSTIC] duplicate graph handle: ", duplicate_graph_handle);
+
+  // Iterate over all orignal graph syn node ids
+  // and check if present in the original -> duplicate map
+  // if yes, update the node params for duplicate node ids
+  for (size_t idx = 0; idx < syn_node_id_vec.size(); ++idx) {
+    synNodeId orig_handle = syn_node_id_vec[idx];
+    auto synapse_node = synapse_node_orig_to_new_handle.find(orig_handle);
+    if (synapse_node == synapse_node_orig_to_new_handle.end()) {
+      PT_EAGER_DEBUG(
+          "[SHAPE AGNOSTIC] origHandle : ",
+          orig_handle,
+          " not present in the synapse_node_orig_to_new_handle map");
+    } else {
+      const auto& params = node_params_vec[idx];
+      const auto params_data = params.get_data();
+      const auto params_size = params.get_size();
+      if (params_data && params_size) {
+        synNodeId new_handle = synapse_node->second;
+        PT_EAGER_DEBUG(
+            "[SHAPE AGNOSTIC] node index: ",
+            idx,
+            ", new_handle: ",
+            new_handle,
+            ", params data: ",
+            params_data,
+            ", params size: ",
+            params_size);
+        synapse_helpers::graph::setNodeParams(
+            duplicate_graph_handle, new_handle, params_data, params_size);
+      }
+    }
+  }
 }
 
 void RecipeValueSpec::populate_syn_tensor_ids(

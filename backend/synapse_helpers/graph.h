@@ -50,8 +50,11 @@ class graph {
 
   static graph create_for_refinement(device& device, std::string name);
 
-  static std::tuple<graph, std::vector<synTensorHandleMap>> duplicate(
-      graph& other);
+  static std::tuple<
+      graph,
+      std::vector<synTensorHandleMap>,
+      std::vector<synNodeHandleMap>>
+  duplicate(graph& other);
 
   bool inferShapes();
 
@@ -68,6 +71,18 @@ class graph {
       std::vector<uint8_t>& permute_or_empty);
 
   static void setTensorSectionOffset(synTensor tensor_handle, uint64_t offset);
+
+  static void getNodeParams(
+      const synGraphHandle graph_handle,
+      const synNodeId node_id,
+      void* node_params,
+      unsigned* params_size);
+
+  static void setNodeParams(
+      const synGraphHandle graph_handle,
+      const synNodeId node_id,
+      const void* node_params,
+      const unsigned params_size);
 
   void add_node(
       std::vector<synTensor>&& inputs,
@@ -293,6 +308,10 @@ class graph {
     return eager_mode_;
   }
 
+  const std::vector<synNodeId>& get_syn_node_id_vec() const {
+    return syn_node_id_vec_;
+  }
+
  private:
   using Op2NodeContainer =
       absl::flat_hash_map<std::string, absl::flat_hash_set<synNodeId>>;
@@ -303,8 +322,8 @@ class graph {
 
   graph(device& device, std::string name);
 
-  std::vector<synTensorHandleMap> duplicate(
-      synGraphHandle& duplicate_graph_handle);
+  std::pair<std::vector<synTensorHandleMap>, std::vector<synNodeHandleMap>>
+  duplicate(synGraphHandle& duplicate_graph_handle);
 
   void collect_dst_synapse_nodes(
       graph::Op2NodeContainer::mapped_type& dst_synapse_node_ids,
@@ -336,6 +355,7 @@ class graph {
   uint32_t numNodes = 0;
   bool is_shape_agnostic_graph_{false};
   bool eager_mode_{false};
+  std::vector<synNodeId> syn_node_id_vec_;
 };
 
 } // namespace synapse_helpers

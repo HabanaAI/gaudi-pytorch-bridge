@@ -581,6 +581,24 @@ synTensorSetSectionOffset(synTensor tensor, uint64_t byteOffset) {
   return syn_api->synTensorSetSectionOffset(tensor, byteOffset);
 }
 
+synStatus SYN_API_CALL synNodeGetUserParams(
+    const synGraphHandle graphHandle,
+    const synNodeId nodeId,
+    void* userParams,
+    unsigned* paramsSize) {
+  return syn_api->synNodeGetUserParams(
+      graphHandle, nodeId, userParams, paramsSize);
+}
+
+synStatus SYN_API_CALL synNodeSetUserParams(
+    const synGraphHandle graphHandle,
+    const synNodeId nodeId,
+    const void* userParams,
+    const unsigned paramsSize) {
+  return syn_api->synNodeSetUserParams(
+      graphHandle, nodeId, userParams, paramsSize);
+}
+
 synStatus SYN_API_CALL synTensorSetHostPtr(
     synTensor tensor,
     void* hostPtr,

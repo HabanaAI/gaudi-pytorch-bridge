@@ -1391,6 +1391,24 @@ void StridedInsertOperator::compute_params(
   }
 }
 
+static void populateStridedOpParams(
+    torch::jit::Stack& inputs,
+    InferOutputMetaRetType& out) {
+  std::vector<int64_t> strides = inputs[2].toIntVector();
+  int64_t offset = inputs[3].isNone() ? 0 : inputs[3].toInt();
+  synStridedOpParams params;
+  std::fill_n(params.strides, HABANA_DIM_MAX, 0);
+  params.baseOffset = static_cast<uint64_t>(offset);
+  size_t idx = 0;
+  // synapse expects strides in reverse order
+  for (auto it = strides.rbegin(); it != strides.rend(); ++it) {
+    params.strides[idx++] = static_cast<uint64_t>(*it);
+  }
+  PT_BRIDGE_DEBUG("strides - ", strides, " offset - ", offset);
+  PT_BRIDGE_DEBUG("params add - ", &params, " size - ", sizeof(params));
+  out.AddNodeParams(&params, sizeof(params));
+}
+
 InferOutputMetaRetType StridedInsertOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto orig_t = inputs[0].toTensor();
@@ -1411,6 +1429,12 @@ InferOutputMetaRetType StridedInsertOperator::InferOutputMeta(
         strides, strides, orig_t.scalar_type(), orig_t.suggest_memory_format());
     out.AddShapeTensor(stride_meta_data);
   }
+
+  // Node params for eager mode
+  if (GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) {
+    populateStridedOpParams(inputs, out);
+  }
+
   return out;
 }
 
@@ -1597,6 +1621,19 @@ InferOutputMetaRetType StridedViewOperator::InferOutputMeta(
         strides, strides, self.scalar_type(), self.suggest_memory_format());
     out.AddShapeTensor(stride_meta_data);
   }
+
+  // skip meta op as it does not need to add syn node and node params
+  int meta_op = 0;
+  if (inputs.size() == 5) {
+    meta_op = inputs[4].toInt();
+  }
+
+  // Node params for eager mode
+  if (!meta_op &&
+      GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) {
+    populateStridedOpParams(inputs, out);
+  }
+
   return out;
 }
 

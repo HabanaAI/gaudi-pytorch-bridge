@@ -91,7 +91,7 @@ void insert_cast_node(
       copy_node, copy_node->output(0));
 }
 
-void insert_strided_view_node(
+JitNode* insert_strided_view_node(
     JitGraph& graph,
     JitNode* node,
     at::Tensor input,
@@ -132,6 +132,8 @@ void insert_strided_view_node(
   graph.insertNode(jit_node);
 
   jitval_in->replaceAllUsesAfterNodeWith(jit_node, jit_node->output(0));
+
+  return jit_node;
 }
 
 bool check_inplace_op(const EagerOpMetaData& eager_op_meta_data) {
@@ -254,7 +256,8 @@ void HandleInputOutputView(
     size_t first_out_id,
     bool is_inplace_op,
     bool op_doesnt_use_input,
-    HandleInputOutputViewState& state) {
+    HandleInputOutputViewState& state,
+    CValPtrMap& jit_val_map) {
   HABANA_ASSERT(
       input_ival.isTensor(),
       "Expected tensor, when parsing idx: ",
@@ -292,15 +295,33 @@ void HandleInputOutputView(
   }
 
   if (!idx_is_out || (eager_op_meta_data.num_out_tensors_ > 1)) {
-    insert_strided_view_node(
+    auto sv_node = insert_strided_view_node(
         graph, node_consuming_input, t, input_jitval, op_doesnt_use_input);
     ++state.strided_view_nodes_count;
+
+    // update node params jit value map
+    jit_val_map[sv_node->input(1)] = std::make_tuple(
+        NodeParamType::VIEW_SIZES, input_idx_in_node_po, input_idx_in_node_ci);
+    jit_val_map[sv_node->input(2)] = std::make_tuple(
+        NodeParamType::VIEW_STRIDES,
+        input_idx_in_node_po,
+        input_idx_in_node_ci);
+    jit_val_map[sv_node->input(3)] = std::make_tuple(
+        NodeParamType::VIEW_OFFSET, input_idx_in_node_po, input_idx_in_node_ci);
   }
 
   if (node_output_idx) {
     auto si_node = insert_strided_insert_node(
         graph, node_producing_output, input_jitval, t, *node_output_idx);
     ++state.strided_insert_nodes_count;
+
+    // update node params jit value map
+    jit_val_map[si_node->input(2)] = std::make_tuple(
+        NodeParamType::VIEW_STRIDES,
+        input_idx_in_node_po,
+        input_idx_in_node_ci);
+    jit_val_map[si_node->input(3)] = std::make_tuple(
+        NodeParamType::VIEW_OFFSET, input_idx_in_node_po, input_idx_in_node_ci);
 
     if (ops_needing_cast.find(node_producing_output->kind().toQualString()) !=
         ops_needing_cast.end()) {
@@ -388,7 +409,8 @@ void set_deterministic(JitNode* node) {
 void HandleInputOutputViews(
     JitGraph& graph,
     const c10::ArrayRef<at::IValue> inputs,
-    const EagerOpMetaData& eager_op_meta_data) {
+    const EagerOpMetaData& eager_op_meta_data,
+    CValPtrMap& jit_val_map) {
   PT_EAGER_TRACE;
 
   PT_EAGER_DEBUG(
@@ -446,7 +468,8 @@ void HandleInputOutputViews(
           first_out_idx,
           is_inplace_op,
           op_doesnt_use_input,
-          io_view_state);
+          io_view_state,
+          jit_val_map);
     } else if (ival.isTensorList()) {
       JitNode* list_node = node->input(idx)->node();
       const auto& tensor_vec = ival.toTensorVector();
@@ -472,7 +495,8 @@ void HandleInputOutputViews(
             first_out_idx,
             is_inplace_op,
             op_doesnt_use_input,
-            io_view_state);
+            io_view_state,
+            jit_val_map);
       }
     }
   }

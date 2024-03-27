@@ -37,7 +37,6 @@ bool is_metadata_candidate(const at::IValue& input) {
       input.isNone() ||
       (input.isList() && !input.toList().elementType()->cast<at::TensorType>());
 }
-
 template <class... Ts>
 struct overloaded : Ts... {
   using Ts::operator()...;
@@ -243,6 +242,63 @@ std::vector<at::IValue> convert_cpu_wrapped_numbers(
   return stack;
 }
 
+void process_node_params(
+    const CValPtrMap& jit_val_map,
+    const std::vector<at::IValue>& inputs,
+    CValPtrtoIValueMap& jit_val_to_ivalue_map) {
+  for (const auto& v : jit_val_map) {
+    const auto& val = v.first;
+    const auto& param_type = std::get<0>(v.second);
+    const auto& input_idx = std::get<1>(v.second);
+
+    const auto& input = inputs.at(input_idx);
+    if (input.isTensorList() || input.isTensor()) {
+      HABANA_ASSERT(
+          param_type != NodeParamType::METADATA,
+          "Expected view node param but got type: ",
+          static_cast<int>(param_type));
+
+      c10::TensorImpl* impl;
+      if (input.isTensorList()) {
+        const auto& tensor_vec = input.toTensorVector();
+        const auto& tensor_idx = std::get<2>(v.second);
+        impl = tensor_vec.at(tensor_idx).unsafeGetTensorImpl();
+      } else { // isTensor
+        impl = input.toTensor().unsafeGetTensorImpl();
+      }
+
+      torch::jit::IValue iVal;
+      switch (param_type) {
+        case NodeParamType::VIEW_SIZES:
+          iVal = torch::jit::IValue(impl->sizes());
+          break;
+
+        case NodeParamType::VIEW_STRIDES:
+          iVal = torch::jit::IValue(impl->strides());
+          break;
+
+        case NodeParamType::VIEW_OFFSET:
+          iVal = torch::jit::IValue(impl->storage_offset());
+          break;
+
+        default:
+          HABANA_ASSERT(
+              0, "Unsupported param type: ", static_cast<int>(param_type));
+      }
+      jit_val_to_ivalue_map[val] = iVal;
+    } else if (input.isList()) {
+      HABANA_ASSERT(
+          param_type == NodeParamType::METADATA,
+          "Invalid node param type: ",
+          static_cast<int>(param_type));
+
+      jit_val_to_ivalue_map[val] = input;
+    } else {
+      HABANA_ASSERT(0, "Unsupported input ivalue type ", input.tagKind());
+    }
+  }
+}
+
 void EagerExec::launch() {
   PT_EAGER_TRACE_WITH_NAME(m_graph_name);
   const c10::hpu::HPUStream& stream{c10::hpu::getCurrentHPUStream()};
@@ -266,12 +322,24 @@ void EagerExec::launch() {
   auto graph_and_meta{cache.GetOptimizedJITGraphAndMetaData(key)};
   if (graph_and_meta) {
     PT_EAGER_DEBUG("Eager Op JIT graph cache HIT for key ", key);
+    // Get node params w.r.t orig_inputs if available
+    const CValPtrMap& jit_val_map = graph_and_meta->get_param_jit_val_map();
+    CValPtrtoIValueMap jit_val_to_ivalue_map;
+    process_node_params(jit_val_map, orig_inputs, jit_val_to_ivalue_map);
+
+    // Set param agnostic flag if node params are available for the view ops
+    // or ops supporting node params which uses scalars at the JIT input stack.
+    const bool param_agnsotic_flag = jit_val_to_ivalue_map.size() ||
+        NodeParamAgnosticOpList::isNodeParamAgnosticOp(m_symbol);
+    graph_and_meta->set_is_param_agnostic_supported(param_agnsotic_flag);
+    graph_and_meta->set_param_jit_val_to_ivalue_map(jit_val_to_ivalue_map);
   } else {
     PT_EAGER_DEBUG("Eager Op JIT graph cache miss for key ", key);
-    auto graph{create_eager_graph(orig_inputs)};
+    CValPtrMap jit_val_map; // map for capturing node params jit values
+    auto graph{create_eager_graph(orig_inputs, jit_val_map)};
     auto eager_compiler_supported =
         is_eager_compiler_supported_for_graph(graph);
-    post_process_eager_graph(graph);
+    post_process_eager_graph(graph, jit_val_map);
     prune_duplicate_graph_inputs(parent_vec, graph);
 
     at::ArrayRef<torch::jit::IValue> input_refs =
@@ -294,6 +362,7 @@ void EagerExec::launch() {
     graph_and_meta->set_is_eager_compiler_supported(eager_compiler_supported);
     graph_and_meta->set_is_shape_agnostic_supported(eager_compiler_supported);
     graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
+    graph_and_meta->set_param_jit_val_map(jit_val_map);
     if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_JIT_CACHE)) {
       cache.Add(key, graph_and_meta);
     }
@@ -335,19 +404,27 @@ void EagerExec::launch() {
 }
 
 std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
-    torch::jit::Stack& stack) {
+    torch::jit::Stack& stack,
+    CValPtrMap& jit_val_map) {
   PT_EAGER_TRACE;
   using JitValue = torch::jit::Value;
   auto graph = std::make_shared<torch::jit::Graph>();
   std::vector<JitValue*> node_inputs;
-
   size_t idx = 0;
+  const bool add_val_flag =
+      NodeParamAgnosticOpList::isNodeParamAgnosticOp(m_symbol);
   traversing_ivalues(
       stack,
       overloaded{
           // metadata
-          [&node_inputs, &graph](const torch::jit::IValue& c) {
+          [&node_inputs, &graph, &add_val_flag, &jit_val_map](
+              const torch::jit::IValue& c) {
             node_inputs.push_back(graph->insertConstant(c));
+            if (add_val_flag) {
+              int idx = node_inputs.size() - 1;
+              jit_val_map[node_inputs.back()] =
+                  std::make_tuple(NodeParamType::METADATA, idx, idx);
+            }
           },
           // scalar inputs
           [&node_inputs, &graph, &idx](const at::Scalar& c) {
@@ -436,15 +513,20 @@ size_t EagerExec::calculate_operator_key(
   std::unordered_set<size_t> input_hash_values;
   std::vector<uint64_t> storage_base_addresses;
   int inp_index = 0;
+  const bool skip_hash_flag =
+      NodeParamAgnosticOpList::isNodeParamAgnosticOp(m_symbol);
   traversing_ivalues<ProcessList::asTensor>(
       stack,
       overloaded{
-          [&optimized_key, &inp_index](const torch::jit::IValue& input) {
+          [&optimized_key, &inp_index, &skip_hash_flag](
+              const torch::jit::IValue& input) {
             optimized_key = at::hash_combine(optimized_key, inp_index++);
             if (input.isList()) {
-              for (auto& v : input.toListRef()) {
-                optimized_key =
-                    at::hash_combine(optimized_key, at::IValue::hash(v));
+              if (!skip_hash_flag) {
+                for (auto& v : input.toListRef()) {
+                  optimized_key =
+                      at::hash_combine(optimized_key, at::IValue::hash(v));
+                }
               }
             } else {
               // at::IValue::hash of None is zero, same as for zero scalar,
@@ -455,15 +537,16 @@ size_t EagerExec::calculate_operator_key(
               }
             }
           },
-          [&optimized_key, &inp_index](const at::Scalar& input) {
+          [&optimized_key, &inp_index, &skip_hash_flag](
+              const at::Scalar& input) {
             optimized_key = at::hash_combine(optimized_key, inp_index++);
+            if (!skip_hash_flag) {
+              optimized_key =
+                  at::hash_combine(optimized_key, at::IValue::hash(input));
 
-            // TODO: remove from hash
-            optimized_key =
-                at::hash_combine(optimized_key, at::IValue::hash(input));
-
-            optimized_key =
-                at::hash_combine(optimized_key, at::IValue::hash(input.type()));
+              optimized_key = at::hash_combine(
+                  optimized_key, at::IValue::hash(input.type()));
+            }
           },
           [&optimized_key,
            &input_hash_values,
@@ -551,15 +634,17 @@ void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
       }
     }
 
-    // TODO: remove the below code block once the node params are patched.
-    for (auto s : t.strides())
-      key = at::hash_combine(key, s);
-    // two different sized tensors can have same strides. ex: [2, 4, 1], and
-    // [2, 1, 4]
-    for (auto s : t.sizes())
-      key = at::hash_combine(key, s);
+    if (is_eager_caching_supported()) {
+      // hash view params
+      for (auto s : t.strides())
+        key = at::hash_combine(key, s);
+      // two different sized tensors can have same strides
+      // ex: [2, 4, 1], and [2, 1, 4]
+      for (auto s : t.sizes())
+        key = at::hash_combine(key, s);
 
-    key = at::hash_combine(key, static_cast<size_t>(t.storage_offset()));
+      key = at::hash_combine(key, static_cast<size_t>(t.storage_offset()));
+    }
   }
 
   // exp_bias is a parameter of the synTensor,
@@ -746,12 +831,14 @@ void EagerExec::set_eager_op_info(EagerOpMetaData&& eager_op_meta_data) {
   m_eager_op_meta_data = eager_op_meta_data;
 }
 
-void EagerExec::post_process_eager_graph(std::shared_ptr<JitGraph>& graph) {
+void EagerExec::post_process_eager_graph(
+    std::shared_ptr<JitGraph>& graph,
+    CValPtrMap& jit_val_map) {
   PT_EAGER_TRACE;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_VIEW_HANDLING)) {
     PT_EAGER_DEBUG("Apply I/O View Handling pass.");
-    HandleInputOutputViews(*graph, m_inputs, m_eager_op_meta_data);
+    HandleInputOutputViews(*graph, m_inputs, m_eager_op_meta_data, jit_val_map);
   }
 }
 

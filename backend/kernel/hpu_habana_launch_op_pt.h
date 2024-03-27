@@ -325,7 +325,7 @@ class HabanaLaunchOpPT {
   static void RunHybridSif(
       std::shared_ptr<torch::jit::Graph> jit_ir_graph,
       torch::jit::Stack& inputs,
-      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
+      CValPtrtoIValueMap& val_to_ival_map);
 
  private:
   // user stream info
@@ -589,6 +589,7 @@ class HabanaLaunchOpPT {
   static void MaybePrintDuplicateGraphInformation(
       const synapse_helpers::graph& graph_ptr,
       const std::vector<synTensorHandleMap>& tensors_map,
+      const std::vector<synNodeHandleMap>& nodes_map,
       bool is_cache_hit);
 
   void create_duplicate_syn_tensor(
@@ -760,7 +761,7 @@ class HabanaLaunchOpPT {
   torch::jit::Stack create_stack_for_node(
       const torch::jit::Node* node,
       bool& flag,
-      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
+      CValPtrtoIValueMap& val_to_ival_map);
 
   int64_t get_output_tensors_count(
       const HabanaOperatorPtr& habana_op,
@@ -769,16 +770,17 @@ class HabanaLaunchOpPT {
   void process_outputs(
       const HabanaOperatorPtr& habana_op,
       torch::jit::Node* node,
-      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map,
+      CValPtrtoIValueMap& val_to_ival_map,
       std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
 
   void visit_prim_node(
       const torch::jit::Node* node,
-      std::unordered_map<CValPtr, torch::jit::IValue>& val_to_ival_map);
+      CValPtrtoIValueMap& val_to_ival_map);
 
   template <bool DynamicShapes>
   bool RunHybridSif(
-      std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map);
+      std::unordered_map<int64_t, at::Tensor>& tidx_to_tensor_map,
+      std::shared_ptr<std::vector<InferNodeParams>> node_params_ptr = nullptr);
   // --------------------
 
   ExecutionControl execution_control_;

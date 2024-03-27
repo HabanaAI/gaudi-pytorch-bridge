@@ -105,6 +105,8 @@
   visitor(synTensorGetExternal);              \
   visitor(synTensorAssignToSection);          \
   visitor(synTensorSetSectionOffset);         \
+  visitor(synNodeGetUserParams);              \
+  visitor(synNodeSetUserParams);              \
   visitor(synTensorSetHostPtr);               \
   visitor(synTensorGetGeometry);              \
   visitor(synTensorSetGeometry);              \

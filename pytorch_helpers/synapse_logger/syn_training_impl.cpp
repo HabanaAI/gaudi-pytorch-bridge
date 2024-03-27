@@ -120,6 +120,8 @@ SYN_API_PTR(synSectionSetPersistent);
 SYN_API_PTR(synSectionDestroy);
 SYN_API_PTR(synTensorAssignToSection);
 SYN_API_PTR(synTensorSetSectionOffset);
+SYN_API_PTR(synNodeGetUserParams);
+SYN_API_PTR(synNodeSetUserParams);
 SYN_API_PTR(synTensorHandleCreate);
 SYN_API_PTR(synTensorGetName);
 SYN_API_PTR(synTensorSetExternal);
@@ -225,6 +227,8 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synSectionDestroy);
   SYN_API_INIT_PTR(synTensorAssignToSection);
   SYN_API_INIT_PTR(synTensorSetSectionOffset);
+  SYN_API_INIT_PTR(synNodeGetUserParams);
+  SYN_API_INIT_PTR(synNodeSetUserParams);
   SYN_API_INIT_PTR(synTensorHandleCreate);
   SYN_API_INIT_PTR(synTensorGetName);
   SYN_API_INIT_PTR(synTensorSetExternal);
@@ -928,6 +932,42 @@ synTensorSetSectionOffset(synTensor tensor, uint64_t byteOffset) {
   API_LOG_CALL(ARG(tensor), ARG(byteOffset));
   synStatus status;
   CALL_SYN_FUNC(lib_synapse::synTensorSetSectionOffset, tensor, byteOffset)
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synNodeGetUserParams(
+    const synGraphHandle graphHandle,
+    const synNodeId nodeId,
+    void* userParams,
+    unsigned* paramsSize) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(graphHandle), ARG(nodeId), ARG(userParams), ARG(paramsSize));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synNodeGetUserParams,
+      graphHandle,
+      nodeId,
+      userParams,
+      paramsSize)
+  API_LOG_RESULT();
+  return status;
+}
+
+synStatus SYN_API_CALL synNodeSetUserParams(
+    const synGraphHandle graphHandle,
+    const synNodeId nodeId,
+    const void* userParams,
+    const unsigned paramsSize) {
+  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
+  API_LOG_CALL(ARG(graphHandle), ARG(nodeId), ARG(userParams), ARG(paramsSize));
+  synStatus status;
+  CALL_SYN_FUNC(
+      lib_synapse::synNodeSetUserParams,
+      graphHandle,
+      nodeId,
+      userParams,
+      paramsSize)
   API_LOG_RESULT();
   return status;
 }

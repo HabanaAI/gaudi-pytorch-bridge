@@ -121,6 +121,29 @@ struct TensorMetaData {
       : sizes(std::move(sz)), strides(std::move(st)), dtype(type), mf(f) {}
 };
 
+class InferNodeParams {
+ public:
+  InferNodeParams(void* data, const size_t size) {
+    if (data && size) {
+      paramsVec.resize(size);
+      const auto cData = reinterpret_cast<uint8_t*>(data);
+      std::copy(cData, cData + size, paramsVec.data());
+    }
+  }
+  const void* get_data() const {
+    if (paramsVec.empty()) {
+      return nullptr;
+    }
+    return paramsVec.data();
+  }
+  unsigned get_size() const {
+    return paramsVec.size();
+  }
+
+ private:
+  std::vector<uint8_t> paramsVec;
+};
+
 // Return value for InferOutputMeta Function
 class InferOutputMetaRetType;
 using IdxTensorTuple = std::tuple<int32_t, at::Tensor>;
@@ -166,6 +189,12 @@ class InferOutputMetaRetType {
   size_t GetKernelSize() const {
     return kernel_outputs_.size();
   }
+  void AddNodeParams(void* data, size_t size) {
+    node_params_.emplace_back(InferNodeParams(data, size));
+  }
+  const std::vector<InferNodeParams>& GetNodeParams() const {
+    return node_params_;
+  }
 
   InferOutputMetaRetType& GetKernel(size_t index) const {
     return *kernel_outputs_.at(index);
@@ -203,6 +232,8 @@ class InferOutputMetaRetType {
   std::vector<IdxTensorTuple> shape_tensors_;
 
   std::vector<IdxTensorTuple> dup_tensors_;
+
+  std::vector<InferNodeParams> node_params_;
 
   unsigned num_undefined_outputs_{0};
 

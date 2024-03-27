@@ -617,10 +617,18 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
         }
       }
     }
+    size_t size = 0;
+    auto params = FillParams(stack, size);
+    // populate node params
+    PT_BRIDGE_DEBUG(
+        "OpBackend adding params data=", params.get(), ", params size=", size);
+
+    m_output_inf_meta.AddNodeParams(params.get(), size);
     return;
   }
   size_t size = 0;
   const auto& params = FillParams(stack, size);
+  m_num_syn_nodes++;
   AddNodeToSynapseGraph(graph, params.get(), size);
 }
 
@@ -835,6 +843,15 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       out_idx++;
     }
 
+    // populate node params
+    PT_BRIDGE_DEBUG(
+        "OpBackend adding params data=",
+        node_attr.params,
+        ", params size=",
+        node_attr.param_size);
+
+    meta.AddNodeParams(node_attr.params, node_attr.param_size);
+
     return out;
   }
 
@@ -966,6 +983,7 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       output_layouts.empty() || output_layouts.size() >= node_outputs.size(),
       "Missing layouts for synapse outputs");
 
+  op->m_num_syn_nodes++;
   graph.add_node(
       std::move(node_attr.inputs),
       std::move(node_outputs),

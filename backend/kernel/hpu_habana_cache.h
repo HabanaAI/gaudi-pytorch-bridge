@@ -19,6 +19,7 @@
 #include <iostream>
 #include <mutex>
 #include <string>
+#include "backend/habana_operator.h"
 #include "backend/helpers/collective_kernel_info.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/kernel/hpu_shape_inference.h"
@@ -270,6 +271,12 @@ struct RecipeValueSpec {
       std::vector<std::vector<int64_t>> output_shapes = {},
       std::unordered_map<synTensor, synTensor> synapse_orig_to_new_handle = {},
       bool is_shape_agnostic_graph = false);
+  void update_node_params(
+      const std::unordered_map<synNodeId, synNodeId>&
+          synapse_node_orig_to_new_handle,
+      const std::vector<synNodeId>& syn_node_id_vec,
+      const synGraphHandle duplicate_graph_handle,
+      std::shared_ptr<std::vector<InferNodeParams>>& node_params_vec_ptr);
   void populate_syn_tensor_ids(
       const synapse_helpers::graph::recipe_handle& recipe);
   void patch_launch_info(

@@ -75,7 +75,8 @@ class ViewParam {
 void HandleInputOutputViews(
     JitGraph& graph,
     const c10::ArrayRef<at::IValue> inputs,
-    const EagerOpMetaData& eager_op_meta_data);
+    const EagerOpMetaData& eager_op_meta_data,
+    CValPtrMap& jit_val_map);
 
 void set_as_strided_meta(JitNode* node);
 void set_deterministic(JitNode* node);

@@ -105,6 +105,10 @@ class OpBackend : public HabanaOperator {
 
   const synapse_helpers::tensor_or_ref& ReadSynInput(size_t index);
 
+  int GetNumSynNodes() const {
+    return m_num_syn_nodes;
+  }
+
  protected:
   std::vector<int> ScalarId() const {
     return m_scalar_ids;
@@ -543,6 +547,7 @@ class OpBackend : public HabanaOperator {
   // For shape inference of outputs/intermediates
   bool m_output_inf_mode = false;
   InferOutputMetaRetType m_output_inf_meta;
+  int m_num_syn_nodes = 0;
 
   std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
   std::function<sizes_vec(const at::Stack&)> m_compute_output_shapes;

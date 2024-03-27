@@ -97,6 +97,50 @@ class SynBuildCache {
   bool is_control_edge_processing_required = false;
 };
 
+// Param types for patching node params at the lowering
+enum class NodeParamType {
+  METADATA = 0,
+  VIEW_SIZES = 1,
+  VIEW_STRIDES = 2,
+  VIEW_OFFSET = 3,
+};
+
+using CValPtr = const torch::jit::Value*;
+using CValPtrMap =
+    std::unordered_map<CValPtr, std::tuple<NodeParamType, size_t, size_t>>;
+using CValPtrtoIValueMap = std::unordered_map<CValPtr, torch::jit::IValue>;
+
+inline bool is_eager_caching_supported() {
+  return ((habana::HPURegistrar::get_device().type() == synDeviceGaudi) &&
+          GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) ||
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_CACHE);
+}
+
+// JIT IR Ops supporting node params patching at the lowering
+// ToDo: Remove this list for supporting generic node params patching
+//       once all ops/kernels SIF method populates node params.
+class NodeParamAgnosticOpList {
+ private:
+  static const std::unordered_set<c10::Symbol>& param_agnostic_ops() {
+    static const std::unordered_set<c10::Symbol> ops_list{
+        c10::Symbol::fromQualString("aten::fill_"),
+        c10::Symbol::fromQualString("aten::as_strided"),
+        c10::Symbol::fromQualString("hpu::strided_view"),
+        c10::Symbol::fromQualString("hpu::strided_insert"),
+        c10::Symbol::fromQualString("hpu::strided_insert_")};
+    return ops_list;
+  }
+
+ public:
+  static bool isNodeParamAgnosticOp(const c10::Symbol op) {
+    // node params agnostic not supported when recipe cache is enabled
+    if (is_eager_caching_supported()) {
+      return false;
+    }
+    return (param_agnostic_ops().find(op) != param_agnostic_ops().end());
+  }
+};
+
 struct OptimizedJITGraphAndMetaData {
   OptimizedJITGraphAndMetaData();
 
@@ -256,6 +300,30 @@ struct OptimizedJITGraphAndMetaData {
 
   SynBuildCache syn_build_cache_;
 
+  bool get_is_param_agnostic_supported() const {
+    return is_param_agnostic_supported_;
+  }
+
+  void set_is_param_agnostic_supported(const bool flag) {
+    is_param_agnostic_supported_ = flag;
+  }
+
+  const CValPtrMap& get_param_jit_val_map() {
+    return param_jit_val_map_;
+  }
+
+  void set_param_jit_val_map(CValPtrMap& val_map) {
+    param_jit_val_map_ = val_map;
+  }
+
+  const CValPtrtoIValueMap& get_param_jit_val_to_ivalue_map() {
+    return param_jit_val_to_ivalue_map_;
+  }
+
+  void set_param_jit_val_to_ivalue_map(CValPtrtoIValueMap& val_to_ivalue_map) {
+    param_jit_val_to_ivalue_map_ = val_to_ivalue_map;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -278,6 +346,9 @@ struct OptimizedJITGraphAndMetaData {
   bool is_eager_compiler_supported = true;
   bool is_pipeline_supported_ = false;
   std::optional<PermutationInfo> permutation_info_{};
+  bool is_param_agnostic_supported_ = false;
+  CValPtrMap param_jit_val_map_{};
+  CValPtrtoIValueMap param_jit_val_to_ivalue_map_{};
 };
 
 /**

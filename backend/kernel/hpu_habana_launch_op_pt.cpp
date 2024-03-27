@@ -1444,6 +1444,17 @@ void HabanaLaunchOpPT::handlePrimConstantNode(
               [&ivptrsh]() { return ivptrsh; }, prim_nodes_ival_counter);
       value_to_ivalue[value] = ivptrsh;
     }
+    const CValPtrtoIValueMap& param_val_to_ival_map =
+        jit_graph_and_meta_data_->get_param_jit_val_to_ivalue_map();
+    if (param_val_to_ival_map.count(value)) {
+      auto ivalue = param_val_to_ival_map.at(value);
+      value_to_ivalue[value] = std::make_shared<IVal>(ivalue);
+      PT_BRIDGE_DEBUG(
+          "For %",
+          value->debugName(),
+          " updating to ivalue: ",
+          habana_helpers::DebugString(ivalue));
+    }
     prim_nodes_ival_counter++;
   }
 }
@@ -2252,6 +2263,9 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
         HabanaKernel->setDeterministic(
             node->i(torch::jit::attr::deterministic));
+
+        // Set kernel execution mode
+        csHabanaKernel->SetExecutionMode(execution_mode_);
 
         // Set output meta data if auto-gen op
         if (auto op = std::dynamic_pointer_cast<OpBackend>(csHabanaKernel)) {
@@ -3469,6 +3483,7 @@ void HabanaLaunchOpPT::ValidateInputsAndOutputsAndDisableSA(
 void HabanaLaunchOpPT::MaybePrintDuplicateGraphInformation(
     const synapse_helpers::graph& graph_ptr,
     const std::vector<synTensorHandleMap>& tensors_map,
+    const std::vector<synNodeHandleMap>& nodes_map,
     bool is_cache_hit) {
   PT_EAGER_DEBUG(
       "[SHAPE AGNOSTIC] === cache ",
@@ -3484,10 +3499,18 @@ void HabanaLaunchOpPT::MaybePrintDuplicateGraphInformation(
 
   for (size_t i = 0; i < tensors_map.size(); i++) {
     PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] org handle : ",
+        "[SHAPE AGNOSTIC] org tensor handle : ",
         tensors_map.at(i).origHandle,
-        " new handle : ",
+        " new tensor handle : ",
         tensors_map.at(i).newHandle);
+  }
+
+  for (size_t i = 0; i < nodes_map.size(); i++) {
+    PT_EAGER_DEBUG(
+        "[SHAPE AGNOSTIC] org node handle : ",
+        nodes_map.at(i).origHandle,
+        " new node handle : ",
+        nodes_map.at(i).newHandle);
   }
 }
 
@@ -3836,11 +3859,12 @@ void HabanaLaunchOpPT::run(
       }
 
       auto original_syn_graph = std::move(*syn_graph_ptr_);
-      auto [duplicate_graph, tensorsMap] =
+      auto [duplicate_graph, tensorsMap, nodesMap] =
           synapse_helpers::graph::duplicate(original_syn_graph);
       syn_graph_ptr_ =
           std::make_shared<synapse_helpers::graph>(std::move(duplicate_graph));
-      MaybePrintDuplicateGraphInformation(*syn_graph_ptr_, tensorsMap, false);
+      MaybePrintDuplicateGraphInformation(
+          *syn_graph_ptr_, tensorsMap, nodesMap, false);
 
       std::vector<std::pair<synTensor, std::vector<int64_t>>>
           duplicate_tensors_shape_map;
@@ -3963,11 +3987,13 @@ void HabanaLaunchOpPT::run(
       PT_EAGER_DEBUG("[SHAPE AGNOSTIC] shape agnostic cache hit (begin)");
       is_shape_agnostic_supported_ = true;
 
-      auto [duplicate_graph, tensorsMap] = synapse_helpers::graph::duplicate(
-          *rvs->shape_agnostic_synapse_graph_);
+      auto [duplicate_graph, tensorsMap, nodesMap] =
+          synapse_helpers::graph::duplicate(
+              *rvs->shape_agnostic_synapse_graph_);
       syn_graph_ptr_ =
           std::make_shared<synapse_helpers::graph>(std::move(duplicate_graph));
-      MaybePrintDuplicateGraphInformation(*syn_graph_ptr_, tensorsMap, true);
+      MaybePrintDuplicateGraphInformation(
+          *syn_graph_ptr_, tensorsMap, nodesMap, true);
 
       RecipeValueSpec& rv = *rvs;
       rv.update_hit_count();
@@ -3989,20 +4015,33 @@ void HabanaLaunchOpPT::run(
             {tensorsMap.at(i).origHandle, tensorsMap.at(i).newHandle});
       }
 
+      std::unordered_map<synNodeId, synNodeId>
+          synapse_nodes_orig_to_new_handle{};
+      for (size_t i = 0; i < nodesMap.size(); i++) {
+        synapse_nodes_orig_to_new_handle.insert(
+            {nodesMap.at(i).origHandle, nodesMap.at(i).newHandle});
+      }
+
       for (const auto& out_shape : out_shapes) {
         PT_EAGER_DEBUG("[SHAPE AGNOSTIC] output shape - ", out_shape);
       }
 
       /*
        * Hybrid SIF is used for shape inference for intermediate tensors
+       * and node parameters inference only if param agnostic is supported
        * Inputs shape is retrieved from input refs.
        * Ouptut shape info is passed in the jit ir graph meta data.
        */
-      std::unordered_map<int64_t, at::Tensor> local_tidx_to_tensor_map;
+      std::unordered_map<int64_t, at::Tensor> local_tidx_to_tensor_map{};
+      auto node_params_vec_ptr =
+          jit_graph_and_meta_data_->get_is_param_agnostic_supported()
+          ? std::make_shared<std::vector<InferNodeParams>>()
+          : nullptr;
       if (syn_graph_ptr_->get_num_of_inter_tensors() > 0) {
         habana::ShapeInference::ResetSifTensorId();
         constexpr bool dynamic_shapes_false = false;
-        RunHybridSif<dynamic_shapes_false>(local_tidx_to_tensor_map);
+        RunHybridSif<dynamic_shapes_false>(
+            local_tidx_to_tensor_map, node_params_vec_ptr);
       }
 
       constexpr bool is_shape_agnostic_graph = true;
@@ -4019,6 +4058,25 @@ void HabanaLaunchOpPT::run(
         HABANA_ASSERT(
             syn_graph_ptr_->inferShapes() == true,
             "[SHAPE AGNOSTIC] Cache hit Synapse shape inference failed !");
+      }
+
+      // Get updated nodes params for if param agnostic is supported
+      // and for single node graph for which Hybrid SIF did not run earlier
+      // ToDO: Check and optimize Hybrid SIF for getting only node params
+      if (node_params_vec_ptr && local_tidx_to_tensor_map.empty()) {
+        PT_EAGER_DEBUG("[SHAPE AGNOSTIC] Calling Hybrid SIF for node params");
+        constexpr bool dynamic_shapes_false = false;
+        RunHybridSif<dynamic_shapes_false>(
+            local_tidx_to_tensor_map, node_params_vec_ptr);
+      }
+
+      // Update node params only if available and param agnostic is supported
+      if (node_params_vec_ptr) {
+        rv.update_node_params(
+            synapse_nodes_orig_to_new_handle,
+            syn_graph_ptr_->get_syn_node_id_vec(),
+            syn_graph_ptr_->get_graph_handle(),
+            node_params_vec_ptr);
       }
 
       recipe_launcher_ = std::make_unique<RecipeLauncher>(rv);
