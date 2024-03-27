@@ -457,7 +457,8 @@ class CachedParams:
 def input_hash(obj):
     if isinstance(obj, dict):
         return input_hash(tuple(obj.items()))
-    elif isinstance(obj, list) or isinstance(obj, tuple):
+    elif isinstance(obj, list) or (isinstance(obj, tuple) and not isinstance(obj, torch.Size)):
+        # torch.Size is specialization of tuple, so we don't want extra recursion.
         return hash(tuple(input_hash(el) for el in obj))
     elif torch.is_tensor(obj):
         return hash(tuple([obj.shape, _hpu_C.get_view_hash(obj)]))
@@ -471,7 +472,7 @@ def copy_to(dst, src):
         for (dk, dv), (sk, sv) in zip(dst.items(), src.items()):
             assert dk == sk
             copy_to(dv, sv)
-    elif isinstance(dst, list) or isinstance(dst, tuple):
+    elif isinstance(dst, list) or (isinstance(dst, tuple) and not isinstance(dst, torch.Size)):
         for d, s in zip(dst, src):
             copy_to(d, s)
     elif torch.is_tensor(dst):
