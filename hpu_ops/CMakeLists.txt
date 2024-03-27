@@ -240,6 +240,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/pixel_shuffle_gen.cpp
           backend/pow_gen.cpp
           backend/prelu_gen.cpp
+          backend/quant_dequant_ops.cpp
           backend/ragged_softmax.cpp
           backend/random_gen.cpp
           backend/randperm_gen.cpp

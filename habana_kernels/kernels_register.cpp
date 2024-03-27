@@ -2646,6 +2646,17 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
       TORCH_FN(torchvision_nms_hpu_wrap));
 }
 
+TORCH_LIBRARY_IMPL(quantized_decomposed, HPU, m) {
+  m.impl("quantize_per_tensor", quantize_per_tensor_lazy);
+  m.impl("quantize_per_tensor.tensor", quantize_per_tensor_tensor_lazy);
+  m.impl("quantize_per_tensor.tensor2", quantize_per_tensor_tensor2_lazy);
+  m.impl("dequantize_per_tensor", dequantize_per_tensor_lazy);
+  m.impl("dequantize_per_tensor.tensor", dequantize_per_tensor_tensor_lazy);
+  m.impl("dequantize_per_tensor.tensor2", dequantize_per_tensor_tensor2_lazy);
+  m.impl("quantize_per_channel", quantize_per_channel_lazy);
+  m.impl("dequantize_per_channel", dequantize_per_channel_lazy);
+}
+
 // We need to override matmul implementation also for inference,
 // to have the same implementation as matmul forward in autograd.
 TORCH_LIBRARY_IMPL(aten, HPU, m) {

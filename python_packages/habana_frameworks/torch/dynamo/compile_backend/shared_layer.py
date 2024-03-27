@@ -80,6 +80,11 @@ hpu_supported_op_list = {
     # G3
     "max_pool2d_with_indices_backward",
     "sum",
+    # Quantization
+    "quantize_per_tensor",
+    "dequantize_per_tensor",
+    "quantize_per_channel",
+    "dequantize_per_channel",
 }
 
 hpu_supported_ops_restricted = dict()

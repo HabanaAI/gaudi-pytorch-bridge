@@ -7703,6 +7703,191 @@ at::Tensor conv2d_fp8_lazy_common(
 CONV2D_FP8_LAZY(conv2d_fp8_lazy, const c10::optional<at::Tensor>&)
 CONV2D_FP8_LAZY(conv2d_fp8_lazy_scalar, double)
 
+at::Tensor quantize_per_tensor_lazy(
+    const at::Tensor& input,
+    double scale,
+    int64_t zero_point,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "quantize_per_tensor :",
+      DUMP_6ARGS(input, scale, zero_point, quant_min, quant_max, type));
+
+  LazyOp<at::Tensor> hpu_op{
+      "quantized_decomposed::quantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({type});
+  RUN_MAYBE_WITH_ACC_THREAD(quantize_per_tensor, hpu_op)
+}
+
+at::Tensor quantize_per_tensor_tensor_lazy(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const at::Tensor& zero_point,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "quantize_per_tensor.tensor :",
+      DUMP_6ARGS(input, scale, zero_point, quant_min, quant_max, type));
+
+  LazyOp<at::Tensor> hpu_op{
+      "quantized_decomposed::quantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({type});
+  RUN_MAYBE_WITH_ACC_THREAD(quantize_per_tensor_tensor, hpu_op)
+}
+
+at::Tensor quantize_per_tensor_tensor2_lazy(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const at::Tensor& zero_point,
+    const at::Tensor& quant_min,
+    const at::Tensor& quant_max,
+    at::ScalarType type) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "quantize_per_tensor.tensor2 :",
+      DUMP_6ARGS(input, scale, zero_point, quant_min, quant_max, type));
+
+  LazyOp<at::Tensor> hpu_op{
+      "quantized_decomposed::quantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({type});
+  RUN_MAYBE_WITH_ACC_THREAD(quantize_per_tensor_tensor2, hpu_op)
+}
+
+at::Tensor dequantize_per_tensor_lazy(
+    const at::Tensor& input,
+    double scale,
+    int64_t zero_point,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "dequantize_per_tensor :",
+      DUMP_7ARGS(
+          input, scale, zero_point, quant_min, quant_max, type, out_dtype));
+
+  LazyOp<at::Tensor> hpu_op{
+      "quantized_decomposed::dequantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type, out_dtype},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
+  RUN_MAYBE_WITH_ACC_THREAD(dequantize_per_tensor, hpu_op)
+}
+
+at::Tensor dequantize_per_tensor_tensor_lazy(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const at::Tensor& zero_point,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "dequantize_per_tensor.tensor :",
+      DUMP_7ARGS(
+          input, scale, zero_point, quant_min, quant_max, type, out_dtype));
+
+  LazyOp<at::Tensor> hpu_op{
+      "quantized_decomposed::dequantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type, out_dtype},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
+  RUN_MAYBE_WITH_ACC_THREAD(dequantize_per_tensor_tensor, hpu_op)
+}
+
+at::Tensor dequantize_per_tensor_tensor2_lazy(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const at::Tensor& zero_point,
+    const at::Tensor& quant_min,
+    const at::Tensor& quant_max,
+    at::ScalarType type,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "dequantize_per_tensor.tensor2 :",
+      DUMP_7ARGS(
+          input, scale, zero_point, quant_min, quant_max, type, out_dtype));
+
+  LazyOp<at::Tensor> hpu_op{
+      "quantized_decomposed::dequantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type, out_dtype},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
+  RUN_MAYBE_WITH_ACC_THREAD(dequantize_per_tensor_tensor2, hpu_op)
+}
+
+at::Tensor quantize_per_channel_lazy(
+    const at::Tensor& input,
+    const at::Tensor& scales,
+    const at::Tensor& zero_points,
+    int64_t axis,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "quantize_per_channel :",
+      DUMP_7ARGS(input, scales, zero_points, axis, quant_min, quant_max, type));
+
+  LazyOp<at::Tensor> hpu_op{
+      "quantized_decomposed::quantize_per_channel",
+      {input, scales, zero_points, axis, quant_min, quant_max, type},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({type});
+  RUN_MAYBE_WITH_ACC_THREAD(quantize_per_channel, hpu_op)
+}
+
+at::Tensor dequantize_per_channel_lazy(
+    const at::Tensor& input,
+    const at::Tensor& scales,
+    const at::Tensor& zero_points,
+    int64_t axis,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "dequantize_per_channel :",
+      DUMP_8ARGS(
+          input,
+          scales,
+          zero_points,
+          axis,
+          quant_min,
+          quant_max,
+          type,
+          out_dtype));
+
+  LazyOp<at::Tensor> hpu_op{
+      "quantized_decomposed::dequantize_per_channel",
+      {input, scales, zero_points, axis, quant_min, quant_max, type, out_dtype},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
+  RUN_MAYBE_WITH_ACC_THREAD(dequantize_per_channel, hpu_op)
+}
+
 at::Tensor sum_fp8_lazy(
     const at::Tensor& self,
     at::OptionalIntArrayRef dim,

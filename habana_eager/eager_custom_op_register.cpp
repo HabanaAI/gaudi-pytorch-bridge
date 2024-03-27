@@ -1485,6 +1485,183 @@ at::Tensor cdist(
   return _cdist_forward(x1, x2, p, compute_mode);
 }
 
+at::Tensor quantize_per_tensor(
+    const at::Tensor& input,
+    double scale,
+    int64_t zero_point,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "quantize_per_tensor :",
+      DUMP_6ARGS(input, scale, zero_point, quant_min, quant_max, type));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::quantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({type});
+  return hpu_op.call();
+}
+
+at::Tensor quantize_per_tensor_tensor(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const at::Tensor& zero_point,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "quantize_per_tensor.tensor :",
+      DUMP_6ARGS(input, scale, zero_point, quant_min, quant_max, type));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::quantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({type});
+  return hpu_op.call();
+}
+
+at::Tensor quantize_per_tensor_tensor2(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const at::Tensor& zero_point,
+    const at::Tensor& quant_min,
+    const at::Tensor& quant_max,
+    at::ScalarType type) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "quantize_per_tensor.tensor2 :",
+      DUMP_6ARGS(input, scale, zero_point, quant_min, quant_max, type));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::quantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({type});
+  return hpu_op.call();
+}
+
+at::Tensor dequantize_per_tensor(
+    const at::Tensor& input,
+    double scale,
+    int64_t zero_point,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "dequantize_per_tensor :",
+      DUMP_7ARGS(
+          input, scale, zero_point, quant_min, quant_max, type, out_dtype));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::dequantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type, out_dtype},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
+  return hpu_op.call();
+}
+
+at::Tensor dequantize_per_tensor_tensor(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const at::Tensor& zero_point,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "dequantize_per_tensor.tensor :",
+      DUMP_7ARGS(
+          input, scale, zero_point, quant_min, quant_max, type, out_dtype));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::dequantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type, out_dtype},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
+  return hpu_op.call();
+}
+
+at::Tensor dequantize_per_tensor_tensor2(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const at::Tensor& zero_point,
+    const at::Tensor& quant_min,
+    const at::Tensor& quant_max,
+    at::ScalarType type,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "dequantize_per_tensor.tensor2 :",
+      DUMP_7ARGS(
+          input, scale, zero_point, quant_min, quant_max, type, out_dtype));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::dequantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type, out_dtype},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
+  return hpu_op.call();
+}
+
+at::Tensor quantize_per_channel(
+    const at::Tensor& input,
+    const at::Tensor& scales,
+    const at::Tensor& zero_points,
+    int64_t axis,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "quantize_per_channel :",
+      DUMP_7ARGS(input, scales, zero_points, axis, quant_min, quant_max, type));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::quantize_per_channel",
+      {input, scales, zero_points, axis, quant_min, quant_max, type},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({type});
+  return hpu_op.call();
+}
+
+at::Tensor dequantize_per_channel(
+    const at::Tensor& input,
+    const at::Tensor& scales,
+    const at::Tensor& zero_points,
+    int64_t axis,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "dequantize_per_channel :",
+      DUMP_8ARGS(
+          input,
+          scales,
+          zero_points,
+          axis,
+          quant_min,
+          quant_max,
+          type,
+          out_dtype));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::dequantize_per_channel",
+      {input, scales, zero_points, axis, quant_min, quant_max, type, out_dtype},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
+  return hpu_op.call();
+}
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
     const at::Tensor& q,
     const at::Tensor& k,
@@ -1895,6 +2072,17 @@ TORCH_LIBRARY_IMPL(aten, HPU, m) {
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
   m.impl("roi_align", roi_align);
   m.impl("_roi_align_backward", roi_align_backward);
+}
+
+TORCH_LIBRARY_IMPL(quantized_decomposed, HPU, m) {
+  m.impl("quantize_per_tensor", quantize_per_tensor);
+  m.impl("quantize_per_tensor.tensor", quantize_per_tensor_tensor);
+  m.impl("quantize_per_tensor.tensor2", quantize_per_tensor_tensor2);
+  m.impl("dequantize_per_tensor", dequantize_per_tensor);
+  m.impl("dequantize_per_tensor.tensor", dequantize_per_tensor_tensor);
+  m.impl("dequantize_per_tensor.tensor2", dequantize_per_tensor_tensor2);
+  m.impl("quantize_per_channel", quantize_per_channel);
+  m.impl("dequantize_per_channel", dequantize_per_channel);
 }
 } // namespace habana::eager
 
