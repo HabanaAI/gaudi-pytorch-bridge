@@ -42,7 +42,13 @@ void IndexFill::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto meta = IndexFillMeta(stack)[0];
 
   auto valueTensorShape = input.sizes().vec();
-  valueTensorShape[dim] = indexes.numel();
+  if (!valueTensorShape.empty()) {
+    valueTensorShape[dim] = indexes.numel();
+  } else {
+    HABANA_ASSERT(
+        indexes.numel() == 1,
+        "For input 0-D tensor, number of elements in indices tensor should be 1.");
+  }
 
   synapse_helpers::tensor valueTensor =
       OpBackend::BuildConstant(this, graph, val, meta.dtype, valueTensorShape);

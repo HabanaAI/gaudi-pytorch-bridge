@@ -23,6 +23,7 @@ if not is_gaudi1():
 @pytest.mark.parametrize(
     "shape, dim, indices",
     [
+        ((), 0, [0]),
         ((2,), 0, [1]),
         ((3, 9), 0, [0, 2]),
         ((5, 7, 2, 4), 3, [3, 2, 0]),
@@ -65,5 +66,7 @@ def test_hpu_index_fill(shape, dim, indices, dtype):
         self_tensor_h = self_tensor_h.float()
 
     fn(self_tensor, dim, index_tensor)
+
+    assert self_tensor_h.size() == self_tensor.size()
 
     compare_tensors(self_tensor_h, self_tensor, atol=0.0, rtol=0.0)
