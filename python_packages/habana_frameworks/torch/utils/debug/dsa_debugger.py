@@ -544,8 +544,14 @@ class DivergenceAnalyzer:
 
     def train(self):
         cmd_static, cmd_dynamic = self.get_commands()
-        self.run(cmd_static, "static", True)
-        self.run(cmd_dynamic, "dynamic", True)
+        p1 = mp.Process(target=self.run, args=(cmd_static, "static"))
+        p1.start()
+        p1.join()
+        p1.close()
+        p2 = mp.Process(target=self.run, args=(cmd_dynamic, "dynamic"))
+        p2.start()
+        p2.join()
+        p2.close()
         self.log(f"[INFO] Finished training.\n       dumps: {self.dumpdir}\n       logs : {self.logdir}")
 
     def compare(self):
