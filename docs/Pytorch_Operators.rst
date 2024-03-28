@@ -86,7 +86,7 @@ abs                                    Yes      Yes      No        No       No  
 absolute                               Yes      Yes      No        No       No     torch
 acos                                   Yes      Yes      No        No       No     torch
 acosh                                  Yes      Yes      No        No       No     torch
-add                                    Yes      Yes      Yes       Yes      No     torch
+add                                    Yes      Yes      Yes       No       No     torch
 addbmm                                 Yes      Yes      No        No       No     torch
 addcdiv                                Yes      Yes      No        No       No     torch
 addcmul                                Yes      Yes      No        No       No     torch
@@ -248,7 +248,7 @@ result_type                            Yes      Yes      Yes       No       No  
 roll                                   Yes      Yes      Yes       Yes      Yes    torch
 round                                  Yes      Yes      No        No       No     torch
 rsqrt                                  Yes      Yes      No        No       No     torch
-rsub                                   Yes      Yes      No        yes       No     torch
+rsub                                   Yes      Yes      No        No       No     torch
 scalar_tensor                          Yes      Yes      Yes       Yes      Yes    torch
 scatter                                Yes      Yes      Yes       Yes      Yes    torch
 scatter_add                            Yes      Yes      No        No       No     torch
@@ -270,7 +270,7 @@ squeeze                                Yes      Yes      Yes       Yes      Yes 
 stack                                  Yes      Yes      Yes       No       No     torch
 std                                    Yes      Yes      No        No       No     torch
 std_mean                               Yes      Yes      No        No       No     torch
-sub                                    Yes      Yes      No        Yes      No     torch
+sub                                    Yes      Yes      No        No       No     torch
 sum                                    Yes      Yes      Yes       No       Yes    torch
 t                                      Yes      Yes      Yes       Yes      Yes    torch
 take                                   Yes      Yes      Yes       No       No     torch
@@ -377,8 +377,8 @@ acos                                   Yes      Yes      No        No       No  
 acos\_                                 Yes      Yes      No        No       No     torch.Tensor
 acosh                                  Yes      Yes      No        No       No     torch.Tensor
 acosh\_                                Yes      Yes      No        No       No     torch.Tensor
-add                                    Yes      Yes      Yes       Yes      No     torch.Tensor
-add\_                                  Yes      Yes      Yes       Yes      No     torch.Tensor
+add                                    Yes      Yes      Yes       No       No     torch.Tensor
+add\_                                  Yes      Yes      Yes       No       No     torch.Tensor
 addbmm                                 Yes      Yes      No        No       No     torch.Tensor
 addbmm\_                               Yes      Yes      No        No       No     torch.Tensor
 addcdiv                                Yes      Yes      No        No       No     torch.Tensor
@@ -613,8 +613,8 @@ square\_                               Yes      Yes      No        No       No  
 squeeze                                Yes      Yes      Yes       Yes      Yes    torch.Tensor
 squeeze\_                              Yes      Yes      Yes       Yes      Yes    torch.Tensor
 std                                    Yes      Yes      No        No       No     torch.Tensor
-sub                                    Yes      Yes      No        Yes      No     torch.Tensor
-sub\_                                  Yes      Yes      No        Yes      No     torch.Tensor
+sub                                    Yes      Yes      No        No       No     torch.Tensor
+sub\_                                  Yes      Yes      No        No       No     torch.Tensor
 sum                                    Yes      Yes      No        No       No     torch.Tensor
 T                                      Yes      Yes      Yes       Yes      Yes    torch.Tensor
 t                                      Yes      Yes      Yes       Yes      Yes    torch.Tensor

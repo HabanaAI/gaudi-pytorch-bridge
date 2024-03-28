@@ -775,9 +775,9 @@ add.out:
   broadcast: true
   custom_fill_params: FillBinaryAddParams
   dtypes:
-    Gaudi: [BFloat16, Float, Short, Int, Char, Byte, Long]
-    Gaudi2: [BFloat16, Float, Short, Int, Char, Byte, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Short, Int, Char, Byte, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Short, Int, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
@@ -6347,9 +6347,9 @@ rsqrt.out:
 rsub.Tensor:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Short, Int, Char, Byte, Long]
-    Gaudi2: [BFloat16, Float, Short, Int, Char, Byte, Long, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Short, Int, Char, Byte, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Short, Int, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   promote_to_common_type: [self, other]
   guid: binary_with_alpha_fwd
   custom_fill_params: FillBinaryRSubParams
@@ -7229,9 +7229,9 @@ sub.out:
   broadcast: true
   custom_fill_params: FillBinarySubParams
   dtypes:
-    Gaudi: [BFloat16, Float, Short, Char, Byte, Int]
-    Gaudi2: [BFloat16, Float, Short, Int, Char, Byte, Long, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Short, Int, Char, Byte, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Short, Int]
+    Gaudi2: [BFloat16, Float, Short, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Short, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
