@@ -14,6 +14,7 @@
 #include "habana_eager/graph_weight_permute.h"
 #include "backend/helpers/eager_pipeline.h"
 #include "habana_eager/eager_context.h"
+#include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/graph_exec.h"
 #include "habana_eager/ops/copy_from.h"
 #include "habana_helpers/logging.h"
@@ -27,30 +28,6 @@ PermuteWeightTensor::PermuteWeightTensor(const torch::Tensor& weight)
     : m_weight(weight),
       m_tensor_dim(weight.dim()),
       m_storage_meta(habana::get_storage_extra_meta(m_weight)) {}
-
-// TODO: move to generic lowering code for StorageExtraMeta
-void set_memory_permutation_Execute_Empty_Task() {}
-
-void set_memory_permutation_Compile_Empty_Task() {
-  habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
-      set_memory_permutation_Execute_Empty_Task);
-
-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
-  }
-}
-
-void set_memory_permutation_Lowering_Task(
-    MemoryPermutation new_permutation,
-    habana::StorageExtraMeta* m_storage_meta) {
-  m_storage_meta->set_memory_permutation(new_permutation);
-  habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
-      set_memory_permutation_Compile_Empty_Task);
-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana_helpers::Singleton_CompileThreadPool::getInstance()
-        .JoinPendingThread();
-  }
-}
 
 void PermuteWeightTensor::PermuteIfNeeded() {
   if (ShouldPermuteWeight()) {
@@ -98,18 +75,15 @@ void PermuteWeightTensor::PermuteIfNeeded() {
     }
 
     habana::eager::_copy_from(weight_cpu, m_weight, false);
-
-    bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
-    if (pipeline_flag) {
-      habana::eager::SingleTonEagerContext::getInstance()
-          .ScheduleWorkAndUpdateLoweringThreadHandle(
-              set_memory_permutation_Lowering_Task,
-              std::move(new_permutation),
-              std::move(m_storage_meta));
-    } else {
-      habana::eager::JoinPendingPipelineThreads();
-      m_storage_meta->set_memory_permutation(new_permutation);
-    }
+    auto pipeline_or_direct_set_memory_permutation =
+        [](MemoryPermutation new_permutation,
+           habana::StorageExtraMeta* m_storage_meta) {
+          m_storage_meta->set_memory_permutation(new_permutation);
+        };
+    habana::eager::pipeline_or_direct_generic(
+        pipeline_or_direct_set_memory_permutation,
+        std::move(new_permutation),
+        m_storage_meta);
   }
 }
 

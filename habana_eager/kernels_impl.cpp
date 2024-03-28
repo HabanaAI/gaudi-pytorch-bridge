@@ -14,6 +14,7 @@
 #include "backend/helpers/eager_pipeline.h"
 #include "common/dump_args.h"
 #include "habana_eager/eager_context.h"
+#include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/eager_tensor.h"
 #include "habana_eager/helpers.h"
 #include "habana_eager/ops/as_strided.h"
@@ -26,12 +27,11 @@
 #include "habana_eager/ops/unique.h"
 #include "habana_eager/ops/unique2.h"
 #include "habana_eager/ops/view.h"
+#include "habana_helpers/logging.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
-
-#include "habana_helpers/logging.h"
 
 using namespace at;
 using namespace habana;
@@ -60,51 +60,6 @@ Tensor hpu_wrap::empty_strided(
       size, stride, dtype, layout, device, pin_memory);
 }
 
-// TODO: move to generic lowering code for StorageExtraMeta
-void reshape_alias_Execute_Empty_Task() {}
-
-void reshape_alias_Compile_Empty_Task() {
-  habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
-      reshape_alias_Execute_Empty_Task);
-
-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
-  }
-}
-
-void reshape_alias_Lowering_Task(const at::Tensor& src, const at::Tensor& dst) {
-  habana::eager::view_propagate_permutation(src, dst);
-  habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
-      reshape_alias_Compile_Empty_Task);
-  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana_helpers::Singleton_CompileThreadPool::getInstance()
-        .JoinPendingThread();
-  }
-}
-
-void Pipeline_Or_Direct_reshape_alias(
-    const at::Tensor& self,
-    const at::Tensor& result) {
-  bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE);
-  if (pipeline_flag) {
-    auto src_backend =
-        habana::eager::HbEagerTensorPool::get_backend_tensor(self);
-    auto dst_backend =
-        habana::eager::HbEagerTensorPool::get_backend_tensor(result);
-    // Set pipeline metadata on the dst hpu tensor
-    auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
-    dst_hb_tmeta->set_tensor_pipelined();
-    habana::eager::SingleTonEagerContext::getInstance()
-        .ScheduleWorkAndUpdateLoweringThreadHandle(
-            reshape_alias_Lowering_Task,
-            std::move(src_backend),
-            std::move(dst_backend));
-  } else {
-    habana::eager::JoinPendingPipelineThreads();
-    habana::eager::view_propagate_permutation(self, result);
-  }
-}
-
 Tensor hpu_wrap::_reshape_alias(
     const Tensor& self,
     SymIntArrayRef size,
@@ -118,9 +73,22 @@ Tensor hpu_wrap::_reshape_alias(
       to_string(size),
       " stride",
       to_string(stride));
-  auto out = habana::eager::alias_with_sizes_and_strides(self, size, stride);
-  Pipeline_Or_Direct_reshape_alias(self, out);
-  return out;
+  auto result = habana::eager::alias_with_sizes_and_strides(self, size, stride);
+  auto pipeline_or_direct_reshape_alias = [](const at::Tensor& self,
+                                             const at::Tensor& result) {
+    habana::eager::view_propagate_permutation(self, result);
+    habana_helpers::set_output_hw_scaling_meta(self, result);
+  };
+  auto src_backend = habana::eager::HbEagerTensorPool::get_backend_tensor(self);
+  auto dst_backend =
+      habana::eager::HbEagerTensorPool::get_backend_tensor(result);
+  auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst_backend)};
+  dst_hb_tmeta->set_tensor_pipelined();
+  habana::eager::pipeline_or_direct_generic(
+      pipeline_or_direct_reshape_alias,
+      std::move(src_backend),
+      std::move(dst_backend));
+  return result;
 }
 
 at::Tensor fused_norm_hpu_wrap(
