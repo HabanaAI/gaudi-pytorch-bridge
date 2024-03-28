@@ -59,7 +59,7 @@ def test_hpu_copy_(shape, dtype):
 
 
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
-@pytest.mark.parametrize("view_mode", ["slice", "transpose"], ids=format_tc)
+@pytest.mark.parametrize("view_mode", ["slice", "slice_to_zero", "transpose"], ids=format_tc)
 @pytest.mark.parametrize("op", ["add", "copy", "eq"], ids=format_tc)
 def test_hpu_view_copy_(dtype, view_mode, op):
     cpu_cast_to_bf16 = False
@@ -81,7 +81,7 @@ def test_hpu_view_copy_(dtype, view_mode, op):
     test_data = {}
 
     test_data["slice"] = TestData(make_view=lambda t: t[0:8:2, 0:6:2], src_shape=(4, 3))
-
+    test_data["slice_to_zero"] = TestData(make_view=lambda t: t[1::2], src_shape=(1,), dst_shape=(1,))
     test_data["transpose"] = TestData(make_view=lambda t: t.transpose(0, 1), src_shape=(6, 8))
 
     make_view = test_data[view_mode].make_view

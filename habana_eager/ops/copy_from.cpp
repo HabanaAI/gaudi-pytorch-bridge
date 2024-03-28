@@ -363,8 +363,22 @@ at::Tensor _copy_from_h2d(
 
 at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
   at::Tensor result;
+  bool is_zst_view = false;
+  if (dst.sizes() == 0) {
+    auto is_tensor_pipelined = false;
+    auto tmeta{habana::get_tensor_extra_meta(dst)};
+    if (tmeta) {
+      if (auto hb_tmeta = dynamic_cast<habana::TensorExtraMeta*>(tmeta)) {
+        is_tensor_pipelined = hb_tmeta->is_tensor_pipelined();
+      }
+    }
+    if (is_tensor_pipelined) {
+      habana::eager::JoinPendingPipelineThreads();
+    }
+    is_zst_view = habana::is_view_lowering(dst);
+  }
 
-  if (!dst.is_contiguous()) {
+  if (!dst.is_contiguous() || is_zst_view) {
     auto self_ = self;
     bool same_data_type = (dst.scalar_type() == self.scalar_type());
     // If dtype is same, post_process_eager_graph() will take care
