@@ -1151,6 +1151,24 @@ def test_inplace_clamp_channel_last_different_dtypes():
     torch.testing.assert_close(input_cpu, input_hpu.cpu())
 
 
+# test node params patching for strided_view and strided_insert in same graph
+def test_sag_for_each_zero():
+    params = [(2, 4), (4, 8)]
+
+    for shape1, shape2 in params:
+        a = torch.randint(-5, 5, (shape1,), dtype=torch.int32)
+        b = torch.randint(-5, 5, (shape2,), dtype=torch.int32)
+
+        a_hpu = a.to("hpu")
+        b_hpu = b.to("hpu")
+
+        torch._foreach_zero_([a, b])
+        torch._foreach_zero_([a_hpu, b_hpu])
+
+        assert torch.equal(a, a_hpu.cpu())
+        assert torch.equal(b, b_hpu.cpu())
+
+
 # test node params patching for constant fill node
 def test_sag_fill_node_params():
     a = torch.rand((2, 3), dtype=torch.bfloat16)

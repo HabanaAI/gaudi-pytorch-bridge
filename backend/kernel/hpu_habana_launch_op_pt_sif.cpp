@@ -681,11 +681,16 @@ bool HabanaLaunchOpPT::RunHybridSif(
       habana_op->AllocateAndAddSynapseNode(
           syn_graph, op_input_stack, outputs_metadata);
 
+      constexpr int one = 1;
+      size_t num_syn_nodes = habana_op->GetKernels().size() + one;
+      if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
+        num_syn_nodes = op->GetNumSynNodes();
+      }
+
       if constexpr (DynamicShapes) {
         process_shape_tensors(habana_op, intermediate_shape_tensors_vec);
         shape_tensors_flag |=
-            (intermediate_shape_tensors_vec.size() &&
-             habana_op->GetKernels().size());
+            (intermediate_shape_tensors_vec.size() && (num_syn_nodes > one));
       }
       process_outputs(habana_op, node, val_to_ival_map, tidx_to_tensor_map);
 
@@ -697,11 +702,6 @@ bool HabanaLaunchOpPT::RunHybridSif(
 
       // ToDO: Add support for node params if SIF method not available
       if (node_params_vec_ptr) {
-        size_t num_syn_nodes = habana_op->GetKernels().size() + 1;
-        if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
-          num_syn_nodes = op->GetNumSynNodes();
-        }
-
         // add dummy node params for all sub-kernels/syn nodes if any
         for (size_t i = 0; i < num_syn_nodes; i++) {
           (*node_params_vec_ptr).push_back(InferNodeParams(nullptr, 0));
@@ -727,9 +727,12 @@ bool HabanaLaunchOpPT::RunHybridSif(
             op_name);
         auto output_tensors = output_shape_info.GetOutputTensor();
 
+        constexpr int one = 1;
         size_t exclude_outputs = 0;
+        size_t num_syn_nodes = habana_op->GetKernels().size() + one;
         if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
           exclude_outputs = op->GetSynImplicitOutputs().size();
+          num_syn_nodes = op->GetNumSynNodes();
         }
         // Collect all output tensors
         for (auto& t : output_tensors) {
@@ -749,8 +752,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
           ProcessShapeTensorsCS(
               output_shape_info, intermediate_shape_tensor_cs);
           shape_tensors_flag |=
-              (intermediate_shape_tensor_cs.size() &&
-               output_shape_info.GetKernels().size());
+              (intermediate_shape_tensor_cs.size() && (num_syn_nodes > one));
 
           // Get all values of shape tensor
           for (auto& t : intermediate_shape_tensor_cs) {

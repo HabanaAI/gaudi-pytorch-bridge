@@ -448,6 +448,7 @@ sh::tensor OpBackend::IdentityHelper(
 }
 
 void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
+  m_num_syn_nodes++;
   if (isOutputInfMode()) {
     if (m_is_outfn) { // out place fn
       for (int i = m_num_out_tensors; i > 0; --i) {
@@ -517,7 +518,6 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   }
   size_t size = 0;
   const auto& params = FillParams(stack, size);
-  m_num_syn_nodes++;
   AddNodeToSynapseGraph(graph, params.get(), size);
 }
 
@@ -680,6 +680,7 @@ std::vector<sh::tensor> OpBackend::BuildNode(
     OpBackend* op,
     sh::graph& graph,
     NodeAttr&& node_attr) {
+  op->m_num_syn_nodes++;
   if (op->isOutputInfMode()) {
     auto& meta = op->GetOutputInfMeta();
     const auto& output_attrs_size = node_attr.output_attrs.size();
@@ -852,7 +853,6 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       output_layouts.empty() || output_layouts.size() >= node_outputs.size(),
       "Missing layouts for synapse outputs");
 
-  op->m_num_syn_nodes++;
   graph.add_node(
       std::move(node_attr.inputs),
       std::move(node_outputs),
