@@ -58,7 +58,7 @@ struct HandleInputViewsPass {
         auto& uses = input->uses();
         auto& first_use = uses[0];
         torch::jit::Node* first_user = first_use.user;
-        auto& last_use = uses[uses.size() - 1];
+        auto& last_use = uses.back();
         torch::jit::Node* last_user = last_use.user;
 
         static const std::array<c10::Symbol, 4> view_ops_symbols{

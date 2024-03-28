@@ -31,13 +31,13 @@ from test_utils import (
 Verbose = False
 
 dtypes = [torch.float32, torch.bfloat16, torch.int]
-dtypes_ext = dtypes.copy()
+dtypes_fp8 = [torch.float8_e5m2, torch.float8_e4m3fn]
 if not is_gaudi1():
-    dtypes_ext += [torch.float8_e5m2, torch.float8_e4m3fn]
+    dtypes += dtypes_fp8
 
 
 @pytest.mark.parametrize("shape", [(2, 2), (512,), (5, 4, 3, 8)], ids=format_tc)
-@pytest.mark.parametrize("dtype", dtypes_ext, ids=format_tc)
+@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 def test_hpu_copy_(shape, dtype):
     self = torch.zeros(shape, dtype=dtype)
     self_h = self.to("hpu")
@@ -62,6 +62,13 @@ def test_hpu_copy_(shape, dtype):
 @pytest.mark.parametrize("view_mode", ["slice", "transpose"], ids=format_tc)
 @pytest.mark.parametrize("op", ["add", "copy", "eq"], ids=format_tc)
 def test_hpu_view_copy_(dtype, view_mode, op):
+    cpu_cast_to_bf16 = False
+    if dtype in dtypes_fp8:
+        if op == "eq":
+            pytest.skip(reason=f"{op} is not supported for {dtype}")
+        elif op == "add":
+            cpu_cast_to_bf16 = True
+
     def complex_default(obj):
         return field(default_factory=lambda: copy.copy(obj))
 
@@ -90,6 +97,10 @@ def test_hpu_view_copy_(dtype, view_mode, op):
 
     hpu_tensors = place_on_hpu(cpu_tensors)
 
+    if cpu_cast_to_bf16:
+        for key, t in cpu_tensors.items():
+            cpu_tensors[key] = t.to(torch.bfloat16)
+
     def fn_make_view(t):
         return make_view(t)
 
@@ -112,6 +123,9 @@ def test_hpu_view_copy_(dtype, view_mode, op):
         if key != "src":
             result_cpu = cpu_tensors[key]
             result_hpu = hpu_tensors[key]
+
+            if cpu_cast_to_bf16:
+                result_cpu = result_cpu.to(dtype)
 
             if Verbose:
                 print(f"\ncpu_tensors[{key}] = {cpu_tensors[key]}")
