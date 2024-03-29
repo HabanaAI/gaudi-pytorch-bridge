@@ -17,7 +17,6 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "common/dump_args.h"
 #include "habana_kernels/basic_kernels.h"
-#include "habana_kernels/instance_norm_utils.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
@@ -385,146 +384,6 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
       input, mean, invstd, running_mean, running_var, momentum, eps, counts);
 }
 
-struct InstanceNormBackward
-    : public torch::autograd::Function<InstanceNormBackward> {
-  static torch::autograd::variable_list forward(
-      torch::autograd::AutogradContext* ctx,
-      const Tensor& input,
-      const Tensor& weight, // gamma
-      const Tensor& grad_in,
-      const Tensor& mean, // save_mean
-      const Tensor& istd, // save_invstd
-      const double eps) {
-    auto input_maybe_reshaped = input;
-    auto grad_in_maybe_reshaped = grad_in;
-    const auto is_3d = input.dim() == 3;
-    if (is_3d) {
-      auto new_shape = input.sizes().vec();
-      new_shape.push_back(1);
-      input_maybe_reshaped = at::reshape(input, new_shape);
-      grad_in_maybe_reshaped = at::reshape(grad_in, new_shape);
-    }
-    const auto [grad_out_maybe_reshaped, grad_beta, grad_gamma] =
-        instance_norm_backward_hpu_lazy(
-            input_maybe_reshaped, grad_in_maybe_reshaped, mean, istd, weight);
-
-    const Tensor grad_out = is_3d
-        ? at::reshape(grad_out_maybe_reshaped, input.sizes())
-        : grad_out_maybe_reshaped;
-    ctx->save_for_backward({input, weight, grad_in, mean, istd});
-    ctx->saved_data["eps"] = eps;
-    return {grad_out, grad_gamma, grad_beta};
-  }
-
-  static torch::autograd::variable_list backward(
-      torch::autograd::AutogradContext* ctx,
-      const torch::autograd::variable_list& grad_in) {
-    const auto saved = ctx->get_saved_variables();
-    auto input = saved[0]; // Input always as [N, C, X1, ... ,Xn]
-    auto weight = saved[1];
-    auto gO = saved[2];
-    auto save_mean = saved[3];
-    auto save_invstd = saved[4];
-    const double eps = ctx->saved_data["eps"].toDouble();
-    const std::array<bool, 3> mask{true, true, true};
-
-    const auto input_shape = input.sizes();
-    const auto dim0 = input_shape[0];
-    const auto dim1 = input_shape[1];
-    const auto is_3d = input.dim() == 3;
-    const auto is_5d = input.dim() == 5;
-
-    auto input_batch_norm_shape = is_3d
-        ? std::vector<
-              int64_t>{1, input_shape[0] * input_shape[1], input_shape[2], 1}
-        : std::vector<int64_t>{
-              1,
-              input_shape[0] * input_shape[1],
-              input_shape[2],
-              input_shape[3]};
-    if (is_5d) {
-      input_batch_norm_shape.push_back(input_shape[4]);
-    }
-
-    const auto input_reshaped = input.reshape(input_batch_norm_shape);
-    const auto weight_reshaped = weight.repeat(dim0);
-    const auto gO_reshaped = gO.reshape(input_batch_norm_shape);
-
-    const auto save_mean_reshaped = save_mean.reshape(-1);
-    const auto save_invstd_reshaped = save_invstd.reshape(-1);
-
-    const auto ggI_reshaped = grad_in[0].reshape(input_batch_norm_shape);
-    const auto ggG_reshaped = grad_in[1].repeat(dim0);
-    const auto ggB_reshaped = grad_in[2].repeat(dim0);
-
-    const auto [gI, gG, ggP] = batchnorm_double_backward(
-        input_reshaped,
-        weight_reshaped,
-        ggI_reshaped,
-        ggG_reshaped,
-        ggB_reshaped,
-        gO_reshaped,
-        std::nullopt, /*running_mean*/
-        std::nullopt, /*running_var*/
-        true, /*train*/
-        eps,
-        save_mean_reshaped,
-        save_invstd_reshaped,
-        mask);
-
-    const auto index =
-        torch::arange(dim1, torch::TensorOptions().device(torch::kHPU));
-
-    return {
-        gI.reshape(input_shape),
-        gG.index_select(0, index),
-        ggP.reshape(input_shape),
-        at::Tensor(),
-        at::Tensor(),
-        at::Tensor()};
-  }
-};
-
-struct InstanceNorm : public torch::autograd::Function<InstanceNorm> {
-  static at::Tensor forward(
-      torch::autograd::AutogradContext* ctx,
-      const Tensor& input,
-      const Tensor& weight, // gamma
-      const Tensor& bias, // beta
-      double eps) {
-    auto input_maybe_reshaped = input;
-    const auto is_3d = input.dim() == 3;
-    if (is_3d) {
-      auto new_shape = input.sizes().vec();
-      new_shape.push_back(1);
-      input_maybe_reshaped = at::reshape(input, new_shape);
-    }
-    auto [output_maybe_reshaped, mean, istd] =
-        instance_norm_hpu_lazy(input_maybe_reshaped, weight, bias, eps);
-    const Tensor output = is_3d
-        ? at::reshape(output_maybe_reshaped, input.sizes())
-        : output_maybe_reshaped;
-    ctx->save_for_backward({input, mean, istd, weight});
-    ctx->saved_data["eps"] = eps;
-    return output;
-  }
-
-  static torch::autograd::variable_list backward(
-      torch::autograd::AutogradContext* ctx,
-      const torch::autograd::variable_list& grad_in) {
-    const auto eps = ctx->saved_data["eps"].toDouble();
-    auto saved = ctx->get_saved_variables();
-    auto input = saved[0];
-    auto mean = saved[1];
-    auto istd = saved[2];
-    auto weight = saved[3];
-    const auto res =
-        InstanceNormBackward::apply(input, weight, grad_in[0], mean, istd, eps);
-
-    return {res[0], res[1], res[2], at::Tensor()};
-  }
-};
-
 Tensor hpu_wrap::instance_norm(
     const Tensor& input,
     const c10::optional<Tensor>& weight_opt,
@@ -558,12 +417,10 @@ Tensor hpu_wrap::instance_norm(
       " cudnn_enabled=",
       to_string(cudnn_enabled));
   // Note: Legacy eager mode is not supported
-  auto weight = weight_opt.value_or(at::ones(
-      input.sizes().vec()[1],
-      torch::TensorOptions().dtype(torch::kFloat32).device(torch::kHPU)));
-  auto bias = bias_opt.value_or(at::zeros(
-      input.sizes().vec()[1],
-      torch::TensorOptions().dtype(torch::kFloat32).device(torch::kHPU)));
+  auto weight = weight_opt.value_or(
+      at::ones(input.sizes().vec()[1]).to(torch::kFloat32).to(torch::kHPU));
+  auto bias = bias_opt.value_or(
+      at::zeros(input.sizes().vec()[1]).to(torch::kFloat32).to(torch::kHPU));
 
   auto running_mean = running_mean_opt.value_or(Tensor());
   auto running_var = running_var_opt.value_or(Tensor());
@@ -580,6 +437,73 @@ Tensor hpu_wrap::instance_norm(
         eps,
         cudnn_enabled);
   }
+
+  struct InstanceNorm : public torch::autograd::Function<InstanceNorm> {
+    static at::Tensor forward(
+        torch::autograd::AutogradContext* ctx,
+        const Tensor& input,
+        const Tensor& weight, // gamma
+        const Tensor& bias, // beta
+        double eps) {
+      auto input_maybe_reshaped = input;
+      const auto is_3d = input.dim() == 3;
+      if (is_3d) {
+        auto new_shape = input.sizes().vec();
+        new_shape.push_back(1);
+        input_maybe_reshaped = at::reshape(input, new_shape);
+      }
+      Tensor output_maybe_reshaped, output, mean, istd;
+      std::tie(output_maybe_reshaped, mean, istd) =
+          instance_norm_hpu_lazy(input_maybe_reshaped, weight, bias, eps);
+
+      if (is_3d) {
+        output = at::reshape(output_maybe_reshaped, input.sizes());
+      } else {
+        output = output_maybe_reshaped;
+      }
+
+      ctx->save_for_backward({input, mean, istd, weight});
+
+      return output;
+    }
+
+    static torch::autograd::variable_list backward(
+        torch::autograd::AutogradContext* ctx,
+        const torch::autograd::variable_list& grad_in) {
+      auto saved = ctx->get_saved_variables();
+      auto input = saved[0];
+      auto mean = saved[1];
+      auto istd = saved[2];
+      auto gamma = saved[3];
+
+      Tensor grad_out, grad_out_maybe_reshaped, grad_beta, grad_gamma;
+      auto input_maybe_reshaped = input;
+      auto grad_in_maybe_reshaped = grad_in[0];
+      const auto is_3d = input.dim() == 3;
+      if (is_3d) {
+        auto new_shape = input.sizes().vec();
+        new_shape.push_back(1);
+        input_maybe_reshaped = at::reshape(input, new_shape);
+        grad_in_maybe_reshaped = at::reshape(grad_in[0], new_shape);
+      }
+
+      std::tie(grad_out_maybe_reshaped, grad_beta, grad_gamma) =
+          instance_norm_backward_hpu_lazy(
+              input_maybe_reshaped, grad_in_maybe_reshaped, mean, istd, gamma);
+
+      if (is_3d) {
+        grad_out = at::reshape(grad_out_maybe_reshaped, input.sizes());
+      } else {
+        grad_out = grad_out_maybe_reshaped;
+      }
+
+      // Autograds same number of gradients as the number of forward inputs and
+      // in the same order
+      //  grad_eps
+      auto grad_eps = Tensor();
+      return {grad_out, grad_gamma, grad_beta, grad_eps};
+    }
+  };
 
   return InstanceNorm::apply(input, weight, bias, eps);
 }
