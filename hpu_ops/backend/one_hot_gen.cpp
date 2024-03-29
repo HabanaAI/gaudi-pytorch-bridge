@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -72,13 +72,24 @@ void OneHot::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       &oneHotParams,
       sizeof(oneHotParams));
 
-  syn_out(0) = BuildCast(
-      this,
-      graph,
-      result[0].get(),
-      meta.shape,
-      output_type,
-      c10::ScalarType::Int,
-      0);
+  // If output datatype of one_hot op and Int datatype map
+  // to the same precision datatype in TPC, cast is not needed.
+  // Different datatypes can map to same precision.
+  // For example, if INT64 is not supported, both Long and INT
+  // map to i32 precision in TPC.
+  auto from_dtype = habana_helpers::GetPrecisionString(output_type);
+  auto to_dtype = habana_helpers::GetPrecisionString(c10::ScalarType::Int);
+  if (from_dtype != to_dtype) {
+      syn_out(0) = BuildCast(
+          this,
+          graph,
+          result[0].get(),
+          meta.shape,
+          output_type,
+          c10::ScalarType::Int,
+          0);
+  } else {
+      syn_out(0) = std::move(result.at(0));
+  }
 }
 } // namespace habana

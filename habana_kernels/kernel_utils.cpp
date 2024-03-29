@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -209,6 +209,17 @@ bool habana_helpers::isLongTypeSupported(const std::string_view guid) {
   using namespace std::literals;
   static const std::unordered_set<std::string_view> supported_guids{"cast_"sv};
   return supported_guids.find(guid) != supported_guids.end();
+}
+
+std::string_view habana_helpers::GetPrecisionString(
+    const c10::ScalarType& dtype) {
+  // Map datatype to TPC supported precision
+  // If INT64 is not supported, then Long and Int point to i32 precision
+  using namespace std::literals;
+  static const std::string_view prefix = "cast_"sv;
+  return synapse_helpers::graph::name_suffix_from_type(
+      habana_helpers::pytorch_to_synapse_type(dtype),
+      habana_helpers::isLongTypeSupported(prefix));
 }
 
 /** @brief For OPs with two input arguments (e.g. binary, compare), we may get

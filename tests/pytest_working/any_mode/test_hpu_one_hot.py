@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -23,6 +23,7 @@ shapes_data = [
 
 
 @pytest.mark.parametrize("classes", [6, 50])
+# If INT64 is not enabled in HPU, Long maps to i32 in TPC (in eager mode)
 @pytest.mark.parametrize("dtype", ["long"])
 @pytest.mark.parametrize("shape", shapes_data, ids=format_tc)
 def test_hpu_one_hot(shape, classes, dtype):

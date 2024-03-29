@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -38,6 +38,8 @@ std::optional<std::string> direct_cast_guid(
 
 // Check whether long is supported on Synapse side for given guid name
 bool isLongTypeSupported(const std::string_view guid);
+
+std::string_view GetPrecisionString(const c10::ScalarType& dtype);
 
 void type_promotion_for_two_tensor_inputs(
     std::vector<at::IValue>& inputs,
