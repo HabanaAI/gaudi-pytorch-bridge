@@ -160,9 +160,3 @@ bool HpuOpTestUtilBase::GenerateScalar(
   std::bernoulli_distribution dist;
   return dist(m_mt);
 }
-
-std::string HpuOpTestUtil::FixTestName(std::string name) {
-  std::replace(name.begin(), name.end(), '-', '_');
-  std::replace(name.begin(), name.end(), '.', 'p');
-  return name;
-}

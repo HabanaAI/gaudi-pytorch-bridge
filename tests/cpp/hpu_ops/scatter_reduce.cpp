@@ -26,10 +26,17 @@ std::ostream& operator<<(
     std::ostream& os,
     const ScatterReduceShapeInfoParams& params) {
   os << "dim_" << params.dim;
-  os << HpuOpTestUtil::SerializeShape(params.inputShape, "_input_");
-  os << HpuOpTestUtil::SerializeShape(params.indexShape, "_index_");
-  os << HpuOpTestUtil::SerializeShape(params.sourceShape, "_source_");
+  os << "_input_";
+  for (auto&& dim : params.inputShape)
+    os << "x" << dim;
+  os << "_index_";
+  for (auto&& dim : params.indexShape)
+    os << "x" << dim;
+  os << "_source_";
+  for (auto&& dim : params.sourceShape)
+    os << "x" << dim;
   os << "_deterministic_" << (params.deterministic ? "true" : "false");
+
   return os;
 }
 class ScatterReduceOpTest : public HpuOpTestUtil,
@@ -51,7 +58,13 @@ class ScatterReduceOpTest : public HpuOpTestUtil,
       ss << "params_" << params << "_mode_" << std::get<1>(info.param)
          << "_dtype_" << std::get<2>(info.param) << "_includeSelf_"
          << (std::get<3>(info.param) ? "true" : "false");
-      return FixTestName(ss.str());
+      auto name = ss.str();
+      std::replace_if(
+          name.begin(),
+          name.end(),
+          [](auto c) { return (c == '-' || c == '.'); },
+          '_');
+      return name;
     }
   };
 
