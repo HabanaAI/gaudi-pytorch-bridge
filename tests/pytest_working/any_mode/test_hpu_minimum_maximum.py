@@ -22,7 +22,7 @@ if not is_gaudi1():
 
 
 @pytest.mark.parametrize("shape", [[2, 7], [2, 3, 4]])
-@pytest.mark.parametrize("op", [torch.minimum, torch.maximum])
+@pytest.mark.parametrize("op", [torch.minimum, torch.maximum, torch.fmax, torch.fmin])
 @pytest.mark.parametrize("dtype", dtypes + integer_dtypes, ids=format_tc)
 def test_hpu_minimum_maximum(shape, op, dtype):
     def fn(input, other):

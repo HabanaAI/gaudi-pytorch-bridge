@@ -162,6 +162,8 @@ flatten                                Yes      Yes      Yes       No       No  
 flip                                   Yes      Yes      Yes       Yes      Yes    torch
 floor                                  Yes      Yes      Yes       Yes      No     torch
 floor_divide                           Yes      Yes      Yes       Yes      Yes    torch
+fmax                                   Yes      Yes      Yes       Yes      Yes    torch
+fmin                                   Yes      Yes      Yes       Yes      Yes    torch
 fmod                                   Yes      Yes      Yes       No       No     torch
 frac                                   Yes      Yes      No        No       No     torch
 frexp                                  Yes      Yes      No        No       No     torch

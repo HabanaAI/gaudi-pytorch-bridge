@@ -4606,6 +4606,28 @@ maximum.out:
   promote_to_int: [self, other]
   # op_validator: check-node-with-shared-layer
 
+fmax:
+  broadcast: true
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+  guid: max_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer
+
+fmax.out:
+  broadcast: true
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+  guid: max_fwd
+  promote_to_int: [self, other]
+  safe_cast_check: false
+  # op_validator: check-node-with-shared-layer
+
 max_pool2d_with_indices:
   custom_fill_params: FillSpatialReduction2DParamsFwd
   output_meta: MaxPool2DMeta
@@ -4799,6 +4821,28 @@ min.dim_min:
   guid: reduce_min_fwd
   output_meta: MinMaxMeta
   op_backend: MinMaxOut
+
+fmin:
+  broadcast: true
+  dtypes:
+    Gaudi: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+  guid: min_fwd
+  out_ids: [0]
+  promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer
+
+fmin.out:
+  broadcast: true
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+  guid: min_fwd
+  promote_to_int: [self, other]
+  safe_cast_check: false
+  # op_validator: check-node-with-shared-layer
 
 minimum:
   broadcast: true
