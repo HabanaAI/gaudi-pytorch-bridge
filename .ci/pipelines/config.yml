@@ -13,3 +13,6 @@ config:
   dependantComponents:
     - component: deepspeed_fork
     - component: pt_next
+      executeTestsForBranches:  # list of regexes that specify for which branches the tests should be executed (in Jenkins format - escaped special characters)
+       - "^v\\d+\\.\\d+\\.70(_next)?$"
+       - "^master(_next)?$"
