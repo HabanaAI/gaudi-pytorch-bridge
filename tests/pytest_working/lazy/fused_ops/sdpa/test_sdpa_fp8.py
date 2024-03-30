@@ -86,23 +86,23 @@ class TestModel(torch.nn.Module):
 
 
 # reference code from : pytorch/test/test_transformers.py and modified
-def create_attention_mask_for_test(batch_size, n_heads, seq_len_N_t, seq_len_N_s, dtype, shape, float_mask=True):
+def create_attention_mask_for_test(batch_size, q_heads, seq_len_N_t, seq_len_N_s, dtype, shape, float_mask=True):
     attn_mask = torch.randint(0, 2, (seq_len_N_s,)).float()
     if float_mask:
         attn_mask = attn_mask.masked_fill(attn_mask == 0, LNEG).masked_fill(attn_mask == 1, float(0.0))
     attn_mask = attn_mask.to(dtype)
 
     if shape == "Bx1x1xN":
-        if n_heads == 0:
+        if q_heads == 0:
             mask_shape = (batch_size, 1, seq_len_N_s)
         else:
             mask_shape = (batch_size, 1, 1, seq_len_N_s)
         attn_mask = attn_mask.expand(mask_shape)
     else:
-        if n_heads == 0:
+        if q_heads == 0:
             mask_shape = (batch_size, seq_len_N_t, seq_len_N_s)
         else:
-            mask_shape = (batch_size, n_heads, seq_len_N_t, seq_len_N_s)
+            mask_shape = (batch_size, q_heads, seq_len_N_t, seq_len_N_s)
         attn_mask = attn_mask.expand(mask_shape)
     return attn_mask
 
@@ -138,278 +138,47 @@ def vanilla_attention_impl_for_test(
         return fwd_out, None
 
 
-tc_list_fp8 = [
-    # 4D inference, Non Triangular mask, Non-Fast softmax, no RH slice, amax_s
-    (
-        3,  # batch_size,
-        4,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        8,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        True,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        False,  # is_causal
-        True,  # recompute
-        False,  # rhslice
-        True,  # inference
-        "None",  # default softmax
-        True,  # is_amax_s
-    ),
-    # 4D inference, Triangular mask, Non-Fast softmax, no RH slice, amax_s
-    (
-        3,  # batch_size,
-        4,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        8,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        False,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        True,  # is_causal
-        True,  # recompute
-        False,  # rhslice
-        True,  # inference
-        "None",  # default softmax
-        True,  # is_amax_s
-    ),
-    # 4D inference, Non Triangular mask, Fast softmax, no RH slice, amax_s
-    (
-        3,  # batch_size,
-        4,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        8,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        True,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        False,  # is_causal
-        True,  # recompute
-        False,  # rhslice
-        True,  # inference
-        "fast",  # fast softmax
-        True,  # is_amax_s
-    ),
-    # 4D inference, Non Triangular mask, Non-Fast softmax, no RH slice, no amax_s
-    (
-        3,  # batch_size,
-        4,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        8,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        True,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        False,  # is_causal
-        True,  # recompute
-        False,  # rhslice
-        True,  # inference
-        "None",  # default softmax
-        False,  # is_amax_s
-    ),
-    # 4D inference, Non Triangular mask, Non-Fast softmax, with RH slice, amax_s
-    (
-        3,  # batch_size,
-        4,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        8,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        True,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        False,  # is_causal
-        True,  # recompute
-        True,  # rhslice
-        True,  # inference
-        "None",  # default softmax
-        True,  # is_amax_s
-    ),
-    # 4D inference, Triangular mask, Non-Fast softmax, with RH slice, amax_s
-    (
-        3,  # batch_size,
-        4,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        8,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        False,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        True,  # is_causal
-        True,  # recompute
-        True,  # rhslice
-        True,  # inference
-        "None",  # default softmax
-        True,  # is_amax_s
-    ),
-    # 4D inference, Non Triangular mask, Fast softmax, with RH slice, amax_s
-    (
-        3,  # batch_size,
-        4,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        8,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        True,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        False,  # is_causal
-        True,  # recompute
-        True,  # rhslice
-        True,  # inference
-        "fast",  # fast softmax
-        True,  # is_amax_s
-    ),
-    # 4D inference, Non Triangular mask, Non-Fast softmax, with RH slice, no amax_s
-    (
-        3,  # batch_size,
-        4,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        8,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        True,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        False,  # is_causal
-        True,  # recompute
-        True,  # rhslice
-        True,  # inference
-        "None",  # default softmax
-        False,  # is_amax_s
-    ),
-    # 3D inference, Non Triangular mask, Non-Fast softmax, with RH slice, amax_s
-    (
-        3,  # batch_size,
-        0,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        8,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        True,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        False,  # is_causal
-        True,  # recompute
-        True,  # rhslice
-        True,  # inference
-        "None",  # default softmax
-        True,  # is_amax_s
-    ),
-]
+def gaudi_llama_repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
+    """
+    Copied from repeat_kv: https://github.com/huggingface/transformers/blob/main/src/transformers/models/llama/modeling_llama.py
+    The only differences are:
+        - Append num_key_value_heads == 1 check as kv states can be broadcasted during matmuls so need to expand and reshape them.
+    This is the equivalent of torch.repeat_interleave(x, dim=1, repeats=n_rep). The hidden states go from (batch,
+    num_key_value_heads, seqlen, head_dim) to (batch, num_attention_heads, seqlen, head_dim)
+    """
+    batch, num_key_value_heads, slen, head_dim = hidden_states.shape
+    if n_rep == 1 or num_key_value_heads == 1:
+        return hidden_states
+    hidden_states = hidden_states[:, :, None, :, :].expand(batch, num_key_value_heads, n_rep, slen, head_dim)
+    return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
 
-# total_tc_list = tc_list_fp8
 
-tc_list_fp8_run_tri = [
-    # 4D inference, Non Triangular mask, Non-Fast softmax, no RH slice, amax_s
-    (
-        3,  # batch_size,
-        4,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        8,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        False,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        True,  # is_causal
-        True,  # recompute
-        False,  # rhslice
-        True,  # inference
-        "None",  # default softmax
-        False,  # is_amax_s
-    ),
-]
-tc_list_fp8_run_non_tri = [
-    # 4D inference, Non Triangular mask, Non-Fast softmax, no RH slice, amax_s
-    (
-        3,  # batch_size,
-        4,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        8,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        True,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        False,  # is_causal
-        True,  # recompute
-        False,  # rhslice
-        True,  # inference
-        "None",  # default softmax
-        False,  # is_amax_s
-    ),
-]
-tc_list_fp8_run_tri_slice = [
-    # 4D inference, Non Triangular mask, Non-Fast softmax, no RH slice, amax_s
-    (
-        3,  # batch_size,
-        4,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        8,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        False,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        True,  # is_causal
-        True,  # recompute
-        True,  # rhslice
-        True,  # inference
-        "None",  # default softmax
-        False,  # is_amax_s
-    ),
-]
-tc_list_fp8_run_non_tri_slice = [
-    # 4D inference, Non Triangular mask, Non-Fast softmax, no RH slice, amax_s
-    (
-        3,  # batch_size,
-        4,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        8,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        True,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        False,  # is_causal
-        True,  # recompute
-        True,  # rhslice
-        True,  # inference
-        "None",  # default softmax
-        False,  # is_amax_s
-    ),
-]
+def is_gqa(q, k):
+    gqa = False
+    dims = q.dim()
+    if dims == 4:
+        q_heads = q.shape[1]
+        kv_heads = k.shape[1]
+        gqa = (q_heads != kv_heads) and kv_heads != 1
+    vb_print("IS GQA? : ", gqa)
+    return gqa
 
-# total_tc_list = tc_list_fp8
-# total_tc_list = tc_list_fp8_run_tri+ tc_list_fp8_run_non_tri
-# total_tc_list = tc_list_fp8_run_tri
-# total_tc_list = tc_list_fp8_run_tri_slice
-# total_tc_list = tc_list_fp8_run_non_tri
-# total_tc_list = tc_list_fp8_run_non_tri_slice
+
+def is_mqa(q, k):
+    mqa = False
+    dims = q.dim()
+    if dims == 4:
+        q_heads = q.shape[1]
+        kv_heads = k.shape[1]
+        mqa = (q_heads != kv_heads) and kv_heads == 1
+    vb_print("IS MQA? : ", mqa)
+    return mqa
 
 
 def is_param_combo_valid(
     batch_size,
-    n_heads,
+    q_heads,
+    kv_heads,
     seq_len_N_t,
     seq_len_N_s,
     head_dim_qk,
@@ -472,28 +241,37 @@ def is_param_combo_valid(
     (
         3,
     ),
-    ids=lambda batch_size: f"batch_size={batch_size}"
+    ids=lambda batch_size: f"batch_size-{batch_size}"
     )
 @pytest.mark.parametrize(
-    "n_heads",
+    "q_heads",
     (
-        4,
+        8,
     ),
-    ids=lambda n_heads: f"n_heads={n_heads}"
+    ids=lambda q_heads: f"q_heads-{q_heads}"
+)
+@pytest.mark.parametrize(
+    "kv_heads",
+    (
+        8, # same kv heads as q
+        1, # MQA
+        2, # GQA
+    ),
+    ids=lambda kv_heads: f"kv_heads-{kv_heads}"
 )
 @pytest.mark.parametrize(
     "seq_len_N_t",
     (
         16,
     ),
-    ids=lambda seq_len_N_t: f"seq_len_N_t={seq_len_N_t}"
+    ids=lambda seq_len_N_t: f"seq_len_N_t-{seq_len_N_t}"
     )
 @pytest.mark.parametrize(
     "seq_len_N_s",
     (
         32,
     ),
-    ids=lambda seq_len_N_s: f"seq_len_N_s={seq_len_N_s}"
+    ids=lambda seq_len_N_s: f"seq_len_N_s-{seq_len_N_s}"
     )
     
 
@@ -502,14 +280,14 @@ def is_param_combo_valid(
     (
         8,
     ),
-    ids=lambda head_dim_qk: f"head_dim_qk={head_dim_qk}"
+    ids=lambda head_dim_qk: f"head_dim_qk-{head_dim_qk}"
     )
 @pytest.mark.parametrize(
     "head_dim_v",
     (
         8,
     ),
-    ids=lambda head_dim_v: f"head_dim_v={head_dim_v}"
+    ids=lambda head_dim_v: f"head_dim_v-{head_dim_v}"
     )
         
 @pytest.mark.parametrize(
@@ -517,7 +295,7 @@ def is_param_combo_valid(
     (
         0.0,
     ),
-    ids=lambda dropout_p: f"dropout_p={dropout_p}"
+    ids=lambda dropout_p: f"dropout_p-{dropout_p}"
     )
         
 
@@ -527,7 +305,7 @@ def is_param_combo_valid(
         True,
         False,
     ),
-    ids=lambda use_attn_mask: f"use_attn_mask={use_attn_mask}"
+    ids=lambda use_attn_mask: f"use_attn_mask-{use_attn_mask}"
     )
 @pytest.mark.parametrize(
     "use_float_mask",
@@ -535,7 +313,7 @@ def is_param_combo_valid(
         True,
         #False,  # enable for detailed test
     ),
-    ids=lambda use_float_mask: f"use_float_mask={use_float_mask}"
+    ids=lambda use_float_mask: f"use_float_mask-{use_float_mask}"
     )
 @pytest.mark.parametrize(
     "enable_autocast",
@@ -543,7 +321,7 @@ def is_param_combo_valid(
         True,
         #False, # not applicable for fp8
     ),
-    ids=lambda enable_autocast: f"enable_autocast={enable_autocast}"
+    ids=lambda enable_autocast: f"enable_autocast-{enable_autocast}"
     )
     
 @pytest.mark.parametrize(
@@ -552,7 +330,7 @@ def is_param_combo_valid(
         True,
         False,
     ),
-    ids=lambda is_causal: f"is_causal={is_causal}"
+    ids=lambda is_causal: f"is_causal-{is_causal}"
     )
 
 @pytest.mark.parametrize(
@@ -561,7 +339,7 @@ def is_param_combo_valid(
         True,
         #False # not  supported for fp8 as of now
     ),
-    ids=lambda recompute: f"recompute={recompute}"
+    ids=lambda recompute: f"recompute-{recompute}"
     )
 @pytest.mark.parametrize(
     "rhslice",
@@ -569,7 +347,7 @@ def is_param_combo_valid(
         True,
         False,
     ),
-    ids=lambda rhslice: f"rhslice={rhslice}"
+    ids=lambda rhslice: f"rhslice-{rhslice}"
     )
 
 @pytest.mark.parametrize(
@@ -578,7 +356,7 @@ def is_param_combo_valid(
         True,
         #False # not  supported for fp8 as of now
     ),
-    ids=lambda inference: f"inference={inference}"
+    ids=lambda inference: f"inference-{inference}"
     )
 @pytest.mark.parametrize(
     "softmax_mode",
@@ -586,7 +364,7 @@ def is_param_combo_valid(
         "None",
         "fast", # applicable for fp8 inf meas., but not for fp8 run
     ),
-    ids=lambda softmax_mode: f"softmax_mode={softmax_mode}"
+    ids=lambda softmax_mode: f"softmax_mode-{softmax_mode}"
     )
 @pytest.mark.parametrize(
     "is_amax_s",
@@ -594,7 +372,7 @@ def is_param_combo_valid(
         True, # applicable for fp8 inf meas., but not for fp8 run
         False, # applicable for fp8 inf run., but not for fp8 meas.
     ),
-    ids=lambda is_amax_s: f"is_amax_s={is_amax_s}"
+    ids=lambda is_amax_s: f"is_amax_s-{is_amax_s}"
 )
 @pytest.mark.parametrize(
     "fp8_run_out_type",
@@ -603,7 +381,7 @@ def is_param_combo_valid(
         "bf16",
         "None", # Not an fp8 run; can be a run for amax measurement
     ),
-    ids=lambda fp8_run_out_type: f"fp8_run_out_type={fp8_run_out_type}"
+    ids=lambda fp8_run_out_type: f"fp8_run_out_type-{fp8_run_out_type}"
 )
 # DONOT remove following line: re-enable black formatting
 # fmt: on
@@ -612,7 +390,8 @@ def is_param_combo_valid(
 @pytest.mark.xfail(reason="Temporarily disabled")
 def test_sdpa(
     batch_size,
-    n_heads,
+    q_heads,
+    kv_heads,
     seq_len_N_t,
     seq_len_N_s,
     head_dim_qk,
@@ -631,7 +410,8 @@ def test_sdpa(
 ):
     test_case_valid = is_param_combo_valid(
         batch_size,
-        n_heads,
+        q_heads,
+        kv_heads,
         seq_len_N_t,
         seq_len_N_s,
         head_dim_qk,
@@ -685,7 +465,8 @@ def test_sdpa(
 
     attn_scale = None
     vb_print("\nbatch_size = ", batch_size)
-    vb_print("num_heads = ", n_heads)
+    vb_print("num_q_heads = ", q_heads)
+    vb_print("num_kv_heads = ", kv_heads)
     vb_print("seq_len_N_s = ", seq_len_N_s)
     vb_print("head dim q k = ", head_dim_qk)
     vb_print("head dim v = ", head_dim_v)
@@ -696,16 +477,16 @@ def test_sdpa(
     vb_print("softmax mode = ", softmax_mode)
     vb_print("is_amax_s = ", is_amax_s)
 
-    if n_heads == 0:  # special meaning ; no multi head attn . i.e, use 3d tensors
+    if q_heads == 0:  # special meaning ; no multi head attn . i.e, use 3d tensors
         q_shape = (batch_size, seq_len_N_t, head_dim_qk)
         k_shape = (batch_size, seq_len_N_s, head_dim_qk)
         v_shape = (batch_size, seq_len_N_s, head_dim_v)
         fwd_out_shape = (batch_size, seq_len_N_t, head_dim_v)
-    else:  # Multi head attn with n_heads
-        q_shape = (batch_size, n_heads, seq_len_N_t, head_dim_qk)
-        k_shape = (batch_size, n_heads, seq_len_N_s, head_dim_qk)
-        v_shape = (batch_size, n_heads, seq_len_N_s, head_dim_v)
-        fwd_out_shape = (batch_size, n_heads, seq_len_N_t, head_dim_v)
+    else:  # Multi head attn with q_heads
+        q_shape = (batch_size, q_heads, seq_len_N_t, head_dim_qk)
+        k_shape = (batch_size, kv_heads, seq_len_N_s, head_dim_qk)
+        v_shape = (batch_size, kv_heads, seq_len_N_s, head_dim_v)
+        fwd_out_shape = (batch_size, q_heads, seq_len_N_t, head_dim_v)
 
     vb_print("q shape = ", q_shape)
     vb_print("k shape = ", k_shape)
@@ -728,7 +509,7 @@ def test_sdpa(
 
     if use_attn_mask:
         attn_mask = create_attention_mask_for_test(
-            batch_size, n_heads, seq_len_N_t, seq_len_N_s, mask_dtype, attn_mask_shape, float_mask=use_float_mask
+            batch_size, q_heads, seq_len_N_t, seq_len_N_s, mask_dtype, attn_mask_shape, float_mask=use_float_mask
         )
         attn_mask_hpu = attn_mask.to("hpu")
     else:
@@ -745,6 +526,14 @@ def test_sdpa(
         os.environ["PT_HPU_SDPA_BATCH_NUMHEADS_SLICE"] = "0"
 
     # ------------------------------- Vanilla SDPA implementation on CPU for test----------------------------
+
+    is_mqa(q_t, k_t) # Just for info: For printing on console.
+
+    if is_gqa(q_t, k_t):
+        num_key_value_groups_ = q_heads // kv_heads
+        k_t = gaudi_llama_repeat_kv(k_t, num_key_value_groups_)
+        v_t = gaudi_llama_repeat_kv(v_t, num_key_value_groups_)
+
     with torch.autocast(device_type="cpu", dtype=torch.bfloat16, enabled=enable_autocast):
         O_ref, amax_s_ref = vanilla_attention_impl_for_test(
             q_t,
