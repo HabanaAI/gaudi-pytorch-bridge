@@ -235,6 +235,53 @@ class Fp8FusedSDPA(torch.autograd.Function):
         return fp8_sdpa_bwd_wrapper(ctx, dout, *args)
 
 
+def dump_api_params(
+    q,
+    k,
+    v,
+    attn_mask=None,
+    dropout_p=0.0,
+    is_causal=False,
+    scale=None,
+    softmax_mode="None",
+    d_scale_q=None,
+    d_scale_k=None,
+    d_scale_v=None,
+    q_scale_s=None,
+    q_scale_o=None,
+    d_scale_s=None,
+    is_amax_s=False,
+):
+    def print_t_info(name, t, is_scale=False):
+        if t is not None:
+            if is_scale:
+                print(name, " : ", t.to("cpu"))
+            else:
+                print(name, " : ", t.shape)
+        else:
+            print(name, " is None")
+
+    if not check_dbg_env_var("PT_HPU_DUMP_FUSED_SDPA_API_PARAMS"):
+        return
+    print("=" * 40, "FUSED_SDPA_API_PARAMS", "=" * 40)
+    print_t_info("q", q)
+    print_t_info("k", k)
+    print_t_info("v", v)
+    print_t_info("attn_mask", attn_mask)
+    print("dropout_p : ", dropout_p)
+    print("is_causal : ", is_causal)
+    print("scale : ", scale)
+    print("softmax_mode : ", softmax_mode)
+    print_t_info("d_scale_q", d_scale_q, is_scale=True)
+    print_t_info("d_scale_k", d_scale_k, is_scale=True)
+    print_t_info("d_scale_v", d_scale_v, is_scale=True)
+    print_t_info("q_scale_s", q_scale_s, is_scale=True)
+    print_t_info("q_scale_o", q_scale_o, is_scale=True)
+    print_t_info("d_scale_s", d_scale_s, is_scale=True)
+    print("is_amax_s : ", is_amax_s)
+    print("=" * 90)
+
+
 def fp8_fused_sdpa(
     q,
     k,
@@ -252,7 +299,23 @@ def fp8_fused_sdpa(
     d_scale_s=None,
     is_amax_s=False,
 ):
-
+    dump_api_params(
+        q,
+        k,
+        v,
+        attn_mask,
+        dropout_p,
+        is_causal,
+        scale,
+        softmax_mode,
+        d_scale_q,
+        d_scale_k,
+        d_scale_v,
+        q_scale_s,
+        q_scale_o,
+        d_scale_s,
+        is_amax_s,
+    )
     out, amax_s = Fp8FusedSDPA.apply(
         q,
         k,
