@@ -1481,6 +1481,23 @@ all.out:
     Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
   op_backend: AllDim
 
+all.dims:
+  output_meta: AllAnyDimMeta
+  dtypes:
+    Gaudi: [Char, Float, BFloat16, Int, Short]
+    Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
+    Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
+  op_backend: AllDims
+  out_ids: [0]
+
+all.dims_out:
+  output_meta: AllAnyDimMeta
+  dtypes:
+    Gaudi: [Char, Float, BFloat16, Int, Short]
+    Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
+    Gaudi3: [Char, Float, BFloat16, Int, Short, Half]
+  op_backend: AllDims
+
 amax:
   dtypes:
     Gaudi: [Float, BFloat16, Int, Byte, Short, Char]

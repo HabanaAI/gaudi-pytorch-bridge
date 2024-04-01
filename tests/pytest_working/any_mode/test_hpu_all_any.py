@@ -15,11 +15,8 @@ from test_utils import compare_tensors, format_tc, is_gaudi1, is_pytest_mode_com
 
 zero_size_shapes = [[0], [0, 1], [0, 1, 2]]
 
-# input for torch.all
-input_all_op = [[], [1], [2, 3, 4], [4, 2]]  # shapes
-
 # input for torch.any
-input_any_op = [
+input_shapes_dim = [
     [[], None],
     [[1], None],  # [shapes, dim]
     [[2, 3, 4], None],
@@ -72,15 +69,17 @@ def check(cpu_input, use_out, op, dim):
 
 
 @pytest.mark.parametrize("use_out", use_out)
-@pytest.mark.parametrize("shape", input_all_op, ids=format_tc)
+@pytest.mark.parametrize("input", input_shapes_dim, ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes_all)
-def test_hpu_all(use_out, shape, dtype):
+def test_hpu_all(use_out, input, dtype):
+    shape = input[0]
+    dim = input[1]
     if dtype in (torch.int, torch.short, torch.bool):
         cpu_input = torch.randint(size=shape, low=0, high=2, dtype=dtype)
     else:
         cpu_input = torch.rand(shape, dtype=dtype)
 
-    check(cpu_input, use_out, torch.all, None)
+    check(cpu_input, use_out, torch.all, dim)
 
 
 @pytest.mark.parametrize("use_out", use_out)
@@ -102,7 +101,7 @@ def test_hpu_all_zero_size(use_out, shape, dtype):
 
 
 @pytest.mark.parametrize("use_out", use_out)
-@pytest.mark.parametrize("input", input_any_op, ids=format_tc)
+@pytest.mark.parametrize("input", input_shapes_dim, ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes_any, ids=format_tc)
 def test_hpu_any(use_out, input, dtype):
     shape = input[0]

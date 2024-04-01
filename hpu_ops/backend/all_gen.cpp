@@ -65,6 +65,22 @@ static auto AllCommon(
       op, graph, reduced[0].get(), final_shape, dtype, at::kBool, 0);
 }
 
+void AllDims::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  auto dims = stack.at(1).toIntList().vec();
+  const bool keepdim = stack.at(2).toBool();
+
+  auto out = AllCommon(
+      this,
+      graph,
+      self,
+      syn_in(0),
+      dims,
+      keepdim,
+      AllAnyDimMeta(stack)[0].shape);
+  syn_out(0) = std::move(out);
+}
+
 void AllDim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   const int64_t dim = stack.at(1).toInt();
