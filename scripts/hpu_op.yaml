@@ -6077,11 +6077,20 @@ normal.Tensor_float:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: normal_tensor_float
   out_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: NormalBE
   schema_args: "(Tensor mean, float stddev, *, Tensor seed) -> Tensor"
+
+normal.Tensor_float_out:
+  output_meta: NormalMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_frontend: GeneratorToSeedOut
+  op_backend: NormalBE
+  schema_args: "(Tensor mean, float std, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
 normal.float_Tensor:
   output_meta: NormalMeta
@@ -6089,11 +6098,20 @@ normal.float_Tensor:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: normal_float_tensor
   out_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: NormalBE
   schema_args: "(float mean, Tensor stddev, *, Tensor seed) -> Tensor"
+
+normal.float_Tensor_out:
+  output_meta: NormalMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_frontend: GeneratorToSeedOut
+  op_backend: NormalBE
+  schema_args: "(float mean, Tensor std, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
 normal.Tensor_Tensor:
   output_meta: NormalMeta
@@ -6101,11 +6119,20 @@ normal.Tensor_Tensor:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: normal_tensor_tensor
   out_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: NormalBE
   schema_args: "(Tensor mean, Tensor stddev, *, Tensor seed) -> Tensor"
+
+normal.Tensor_Tensor_out:
+  output_meta: NormalMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_frontend: GeneratorToSeedOut
+  op_backend: NormalBE
+  schema_args: "(Tensor mean, Tensor std, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
 norm.out:
   output_meta: NormOpMeta
