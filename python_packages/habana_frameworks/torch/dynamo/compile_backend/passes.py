@@ -194,6 +194,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_pattern_rewriter,
             pass_fake_propagation,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
+            pass_lift_fresh_copy,
             pass_mark_placement,
             pass_graph_print,
         ]
@@ -1010,6 +1011,41 @@ def pass_accumulate_grads(ctx: OptimizerContext) -> bool:
         ctx.graph_module.recompile()
 
         logger.debug(f"inductor.accumulate_grad_ nodes were wrapped into hpu.accumulate_grads op.")
+
+        return True
+
+    return False
+
+
+def pass_lift_fresh_copy(ctx: OptimizerContext) -> bool:
+    """
+    This pass removes lift_fresh_copy nodes and uses the constant
+    device tensor directly for the use nodes. Since the FX graph is functional,
+    we don't need the copy to ensure the constant tensor is not updated.
+    """
+    assert ctx.graph_module is not None
+
+    graph = ctx.graph_module.graph
+
+    const_tensors = []
+    lift_fresh_copy_nodes = []
+
+    for node in graph.nodes:
+        if str(node.target) == "aten.lift_fresh_copy.default":
+            const_tensors.append(node.args[0])
+            lift_fresh_copy_nodes.append(node)
+
+    if const_tensors:
+        for const_tensor, lift_fresh_copy in zip(const_tensors, lift_fresh_copy_nodes):
+            with graph.inserting_before(lift_fresh_copy):
+                lift_fresh_copy.replace_all_uses_with(const_tensor, propagate_meta=False)
+
+                graph.erase_node(lift_fresh_copy)
+
+        graph.lint()
+        ctx.graph_module.recompile()
+
+        logger.debug(f"lift_fresh_copy nodes were removed")
 
         return True
 
