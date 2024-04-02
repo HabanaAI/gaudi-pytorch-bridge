@@ -112,6 +112,8 @@ def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, scale_mode, axis, out
         if scale_shape is not None:
             args.append(scale_shape)
         casted, amax = torch.ops.hpu.cast_to_fp8_v2(*args)
+        # to prevent casts optimization
+        casted = casted * 1.0
         uncasted = torch.ops.hpu.cast_from_fp8(casted, scale_inv, dtype, scale_shape)
         return casted, amax, uncasted
 
@@ -412,7 +414,6 @@ def test_fp8_gemm_v2(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, fp
         check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "fp8_gemm_v2"})
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-171898")
 @pytest.mark.parametrize(
     "shape_a, shape_b",
     [
