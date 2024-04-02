@@ -5,8 +5,9 @@ orchestratorConfig:
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology_group_1
-    - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_asic_topology_group_1
-    - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_asic_topology_group_2
+    # Temporary disable G3 ASIC promotion tests due to https://jira.habana-labs.com/browse/SW-181079
+    # - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_asic_topology_group_1
+    # - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_asic_topology_group_2
     - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_distributed
     - testToLaunch: fairseq_fork/Tests/Test_fairseq_fork_gaudi_hls_asic_pytorch_fairseq_topology
     - testToLaunch: model_garden/Tests/Test_model_garden_gaudi2_asic_pytorch_perf_singlenode
