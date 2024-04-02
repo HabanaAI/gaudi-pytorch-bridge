@@ -13,6 +13,7 @@
 import contextlib
 import copy
 import os
+from collections.abc import Iterable
 from typing import List, Optional
 
 import habana_frameworks.torch.internal.bridge_config as bc
@@ -462,6 +463,7 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     This function takes out basic information from propagated fake tensor, like
     dtype, layout and device and puts it to the node that created it.
     """
+
     result = helper_handle_noncontiguous_output(node, result)
 
     device = None
@@ -470,6 +472,16 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     output_shapes = []
     output_strides = []
     output_contiguous = []
+
+    result_type_to_node_type: dict[type, type] = {
+        torch.SymInt: int,
+        torch.SymBool: bool,
+        torch.SymFloat: float,
+        int: int,
+        float: float,
+        bool: bool,
+        type(None): None,
+    }
 
     if (
         type(result) is torch._subclasses.FakeTensor
@@ -486,43 +498,14 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
 
         logger.debug("    result shape: %s", result.shape)
         logger.debug("    result stride: %s", result.stride())
-    elif type(result) is torch.SymInt:
+    elif type(result) in result_type_to_node_type:
         device = torch.device("cpu")
         dtypes = [None]
         layouts = [None]
         output_shapes = [None]
         output_strides = [None]
         output_contiguous = [None]
-
-        node.type = int
-    elif type(result) is torch.SymFloat:
-        device = torch.device("cpu")
-        dtypes = [None]
-        layouts = [None]
-        output_shapes = [None]
-        output_strides = [None]
-        output_contiguous = [None]
-
-        node.type = float
-    elif isinstance(result, int):
-        device = torch.device("cpu")
-        dtypes = [None]
-        layouts = [None]
-        output_shapes = [None]
-        output_strides = [None]
-        output_contiguous = [None]
-
-        node.type = int
-
-    elif isinstance(result, float):
-        device = torch.device("cpu")
-        dtypes = [None]
-        layouts = [None]
-        output_shapes = [None]
-        output_strides = [None]
-        output_contiguous = [None]
-
-        node.type = float
+        node.type = result_type_to_node_type[type(result)]
     elif str(node.target) == "inductor.accumulate_grad_.default":
         device = torch.device("hpu")
         dtypes = [None]
@@ -532,6 +515,7 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         output_contiguous = [None]
     else:
         devices = []
+        assert isinstance(result, Iterable), "expecting iterable at this point"
         for res in result:
             if res is None:
                 continue
