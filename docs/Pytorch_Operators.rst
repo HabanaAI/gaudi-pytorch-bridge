@@ -476,6 +476,8 @@ floor                                  Yes      Yes      Yes       Yes      No  
 floor\_                                Yes      Yes      Yes       Yes      No     torch.Tensor
 floor_divide                           Yes      Yes      Yes       Yes      Yes    torch.Tensor
 floor_divide\_                         Yes      Yes      Yes       Yes      Yes    torch.Tensor
+fmax                                   Yes      Yes      Yes       Yes      Yes    torch.Tensor
+fmin                                   Yes      Yes      Yes       Yes      Yes    torch.Tensor
 fmod                                   Yes      Yes      Yes       No       No     torch.Tensor
 fmod\_                                 Yes      Yes      Yes       No       No     torch.Tensor
 frac                                   Yes      Yes      No        No       No     torch.Tensor
