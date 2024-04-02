@@ -49,7 +49,9 @@ testsMap:
       ENABLE_LB_NON_BPT_SLICES_DISCARDING: false
       INIT_HCCL_ON_ACQUIRE: false
     stages:
-      Run RN50 Eager bf16 1c training functional:
-        filter: -t rn50_eager_1c
+      # Temporary disabled due to synapse@2c2c7a4fcdb99c6fad8c4d350ae41567b7cf9c20
+      # Run RN50 Eager bf16 1c training functional:
+      # Run RN50 Eager bf16 1c training functional:
+      #   filter: -t rn50_eager_1c
       Run RN50 Graph bf16 1c training functional:
         filter: -t rn50_graph_1c
