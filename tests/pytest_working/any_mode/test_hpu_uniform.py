@@ -11,12 +11,16 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc, is_pytest_mode_compile
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc, is_gaudi1, is_pytest_mode_compile
+
+dtypes = [torch.float, torch.bfloat16, torch.int]
+if not is_gaudi1():
+    dtypes += [torch.float16]
 
 
 @pytest.mark.parametrize("shape", [(), (48,), (24, 48), (1, 2, 3, 4, 5, 6, 7)], ids=format_tc)
 @pytest.mark.parametrize("low, high", [(20, 120), (-50, 10)])
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int], ids=format_tc)
+@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 def test_uniform(shape, low, high, dtype):
     def fn(input, low, high):
         input.uniform_(low, high)

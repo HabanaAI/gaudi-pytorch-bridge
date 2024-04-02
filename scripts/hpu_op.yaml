@@ -7530,8 +7530,8 @@ uniform_:
   custom_fill_params: FillPhiloxUniformParams
   dtypes:
     Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int]
-    Gaudi3: [BFloat16, Float, Int]
+    Gaudi2: [BFloat16, Float, Int, Half]
+    Gaudi3: [BFloat16, Float, Int, Half]
   guid: philox_random_uniform
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
