@@ -42,7 +42,6 @@ def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -
         "select_scatter",
         "scalar_tensor",
         "logspace",
-        "slice_scatter",
     ]
     copy_required = True
     if node.op == "call_function":

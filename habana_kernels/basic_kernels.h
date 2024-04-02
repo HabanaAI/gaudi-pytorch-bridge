@@ -170,18 +170,6 @@ class SliceInsertOperator : public habana::HabanaOperator {
       const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
       const habana::OutputMetaDataVector& output_metadata) override;
 };
-
-class SliceScatterOperatorDSUtil : public SliceInsertOperator {
- public:
-  SliceScatterOperatorDSUtil(int device_id, c10::ScalarType scalarType)
-      : SliceInsertOperator(device_id, scalarType) {}
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const habana::OutputMetaDataVector& output_metadata) override;
-};
-
 class SliceScatterOperator : public SliceInsertOperator {
  public:
   SliceScatterOperator(int device_id, c10::ScalarType scalarType)

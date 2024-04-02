@@ -238,17 +238,6 @@ class SelectScatterOperatorDS : public DynamicOp {
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
 };
 
-class SliceScatterOperatorDS : public DynamicOp {
- public:
-  SliceScatterOperatorDS() : DynamicOp() {}
-  bool ReplaceWithDynamicHPUOp(
-      torch::jit::Node*,
-      torch::jit::Stack& org_stack,
-      GraphInputIndexMap& org_stack_index_map,
-      ValueIvalueMap& value_ivalue_map,
-      std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
-};
-
 class ArangeOperatorDS : public DynamicOp {
  public:
   ArangeOperatorDS() : DynamicOp() {}

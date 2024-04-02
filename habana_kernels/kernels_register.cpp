@@ -2310,8 +2310,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def("as_strided_layout(Tensor self, int[] size) -> (Tensor)");
   m.def(
       "hpu::select_scatter(Tensor self, Tensor src, Tensor dim, Tensor index) -> (Tensor)");
-  m.def(
-      "hpu::slice_scatter(Tensor self, Tensor src, Tensor dim = None, Tensor? start = None, Tensor? end = None, Tensor step = None) -> (Tensor)");
   m.def("reshape(Tensor self, int[] size) -> (Tensor)");
   m.def(
       "matmul_backward(Tensor grad_out, Tensor self, Tensor other) -> (Tensor, Tensor)");

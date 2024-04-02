@@ -853,46 +853,6 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
     AddNodeToSynapseGraph(graph, &params, sizeof(params));
   }
 }
-
-// DS slice_scatter(Tensor self, Tensor src, Tensor dim = None, Tensor?
-// start=None, Tensor? end = None, Tensor step) -> Tensor
-void SliceScatterOperatorDSUtil::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-
-  // slice_scatter op with dynamic shape enabled has 6 parameters:
-  // input: Tensor
-  // src: Tensor
-  // dim: Shared tensor
-  // start: Shared tensor
-  // end: Shared tensor
-  // step: Shared tensor
-  auto insert_t = inputs[1].toTensor();
-  int64_t dim = inputs[2].toTensor().sizes().vec()[0];
-  int64_t start = inputs[3].toTensor().sizes().vec()[0];
-  int64_t end = inputs[4].toTensor().sizes().vec()[0];
-  int64_t step = inputs[5].toTensor().sizes().vec()[0];
-  Stack inputs_mod = {
-      inputs[0],
-      inputs[1],
-      IValue(dim),
-      IValue(start),
-      IValue(end),
-      IValue(step)};
-  // Use original slice_scatter op with extracted scalar values
-  auto slicescatterOp = make_operator<SliceScatterOperator>(
-      insert_t.device().index(), insert_t.scalar_type());
-  slicescatterOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-  slicescatterOp->SetSynapseInput(p_context_->syn_inputs_[1]);
-  slicescatterOp->AllocateAndAddSynapseNode(graph, inputs_mod, output_metadata);
-  synapse_helpers::tensor& slice_scatter_out =
-      slicescatterOp->GetSynOutputs()[0];
-  p_context_->syn_outputs_.emplace_back(slice_scatter_out);
-  p_context_->pt_outputs_.emplace_back(slicescatterOp->GetOutputs()[0]);
-
-}
-
 // slice_scatter(Tensor self, Tensor src, int dim=0, SymInt? start=None, SymInt?
 // end=None, SymInt step=1) -> Tensor
 void SliceScatterOperator::AllocateAndAddSynapseNode(
@@ -1984,7 +1944,6 @@ static auto& BasicKernelsKernelRegistry =
         .add("aten::alias", KERNEL_FN_GLOBAL(IdentityOperator))
         .add("aten::as_strided", KERNEL_FN_GLOBAL(StridedViewOperator))
         .add("aten::slice_scatter", KERNEL_FN_GLOBAL(SliceScatterOperator))
-	.add("hpu::slice_scatter", KERNEL_FN_GLOBAL(SliceScatterOperatorDSUtil))
         .add("aten::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
 	.add("hpu::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
         .add(
