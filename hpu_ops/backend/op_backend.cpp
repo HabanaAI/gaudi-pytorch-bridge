@@ -1338,14 +1338,12 @@ sh::tensor OpBackend::BuildScatterNDOnnx(
     const std::vector<synTensor>& inTensors,
     at::IntArrayRef outShape,
     at::ScalarType inScalarType,
-    int validCountTensorRank,
     c10::optional<int> finalResultIndex) {
   const auto& inputTensor = inTensors[0];
   const auto& indexTensor = inTensors[1];
   const auto& updatesTensor = inTensors[2];
 
   constexpr auto allowedNrOfInTensors = 3; // +1 optional
-  constexpr auto allowedValidCountTensorRank = 1;
 
   const auto nrOfInTensors = inTensors.size();
 
@@ -1360,12 +1358,6 @@ sh::tensor OpBackend::BuildScatterNDOnnx(
       " here ",
       nrOfInTensors,
       " tensors was given");
-  if (nrOfInTensors == allowedNrOfInTensors + 1) {
-    HABANA_ASSERT(
-        op->isOutputInfMode() ||
-            validCountTensorRank == allowedValidCountTensorRank,
-        "ScatterND ValidCount tensor must have rank 1");
-  }
 
   std::string guid =
       get_guid_with_precision("scatter_nd_onnx_fwd", inScalarType);

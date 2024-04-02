@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -52,7 +52,6 @@ void MaskedScatter::AddNode(
        nonZeroForBroadcastedMask[1].get()},
       selfShape,
       self.pt_t.scalar_type(),
-      nonZeroForBroadcastedMask[1].shape().rank().value,
       0);
 
   syn_out(0) = std::move(scatterND);

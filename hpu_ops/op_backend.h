@@ -371,7 +371,6 @@ class OpBackend : public HabanaOperator {
       const std::vector<synTensor>&,
       at::IntArrayRef,
       at::ScalarType,
-      int validCountTensorRank,
       c10::optional<int> = c10::nullopt);
 
   static synapse_helpers::tensor BuildPermute(
