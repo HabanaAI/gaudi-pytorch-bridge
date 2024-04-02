@@ -25,6 +25,7 @@
 #include "common/utils.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/logging.h"
+#include "habana_helpers/python_utils.h"
 #include "pytorch_helpers/habana_helpers/logging_pt.h" // IWYU pragma: keep // NOLINT
 
 using namespace torch;
@@ -223,6 +224,8 @@ void habana_helpers::copy_scalar_to_device(
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
 
+    // Release GIL if going to wait
+    habana_helpers::AutoNoGIL gil_release;
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();
@@ -276,6 +279,8 @@ void habana_helpers::copy_scalars_to_device(
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
 
+    // Release GIL if going to wait
+    habana_helpers::AutoNoGIL gil_release;
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();
@@ -425,6 +430,9 @@ void habana_helpers::copy_data_to_host(
         [&copyDone]() { copyDone = true; },
         is_pinned,
         hpu_stream);
+
+    // Release GIL if going to wait
+    habana_helpers::AutoNoGIL gil_release;
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();
@@ -499,6 +507,9 @@ void habana_helpers::copy_data_to_device(
         false,
         is_pinned,
         hpu_stream);
+
+    // Release GIL if going to wait
+    habana_helpers::AutoNoGIL gil_release;
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();
@@ -546,6 +557,9 @@ void habana_helpers::copy_data_within_device(
         habana_helpers::GetNBytes(src),
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
+
+    // Release GIL if going to wait
+    habana_helpers::AutoNoGIL gil_release;
     // wait for copy completion
     while (!copyDone) {
       std::this_thread::yield();

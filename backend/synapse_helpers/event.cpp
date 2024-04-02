@@ -127,7 +127,7 @@ event::~event() {
           "Destroying event ", this, " that is not synchronized yet");
     }
   }
-  if (handle_ && !handle_owner) {
+  if (handle_ && handle_owner) {
     event_handle_cache_.release_handle(handle_);
   }
 }
