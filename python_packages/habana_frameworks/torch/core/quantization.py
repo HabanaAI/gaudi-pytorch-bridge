@@ -84,10 +84,12 @@ def _handle_quant_stats(model=None):
 _const_id = -1
 
 
-def _mark_params_as_const(model=None, console_prints=False) -> None:
+def _mark_params_as_const(model=None, only_scales=False, console_prints=False) -> None:
     if model is None:
         return
     for param, param_t in model.state_dict().items():
+        if only_scales and "scale" not in param:
+            continue
         try:
             param_t_meta = _core_C.get_new_tensor_extra_meta(param_t)
         except RuntimeError:
@@ -115,10 +117,12 @@ def _get_marked_const_count() -> int:
     return count
 
 
-def _check_params_as_const(model=None) -> None:
+def _check_params_as_const(model=None, only_scales=False) -> None:
     if model is None:
         return
     for param, param_t in model.state_dict().items():
+        if only_scales and "scale" not in param:
+            continue
         param_t_meta_copy = _core_C.get_tensor_extra_meta(param_t)
         is_const = param_t_meta_copy.is_const_tensor
 
@@ -167,7 +171,7 @@ def hpu_set_inference_env(model=None):
         return modified_model
 
 
-def hpu_initialize(model=None, optimizer=None, args=None):
+def hpu_initialize(model=None, mark_only_scales_as_const=False, optimizer=None, args=None):
     """
     [TO BE DEPRECATED] Please use hpu_inference_initialize instead
     Mark params of the model on HPU as const
@@ -180,15 +184,15 @@ def hpu_initialize(model=None, optimizer=None, args=None):
         hpu.enable_matmul3d_2d_reshape()
     if model is not None:
         if getenv("PT_HPU_LAZY_MODE", "1") != "0":
-            _mark_params_as_const(model=model)
-            _check_params_as_const(model=model)
+            _mark_params_as_const(model=model, only_scales=mark_only_scales_as_const)
+            _check_params_as_const(model=model, only_scales=mark_only_scales_as_const)
         _read_min_max_overwrite()
         _set_quantization_attributes(model)
         with _e_handler():
             _handle_quant_stats(model)
 
 
-def hpu_inference_initialize(model=None, optimizer=None, args=None):
+def hpu_inference_initialize(model=None, mark_only_scales_as_const=False, optimizer=None, args=None):
     """
     Mark params of the model on HPU as const
     To be called after moving tensors/model to hpu
@@ -200,8 +204,8 @@ def hpu_inference_initialize(model=None, optimizer=None, args=None):
         hpu.enable_matmul3d_2d_reshape()
     if model is not None:
         if getenv("PT_HPU_LAZY_MODE", "1") != "0":
-            _mark_params_as_const(model=model)
-            _check_params_as_const(model=model)
+            _mark_params_as_const(model=model, only_scales=mark_only_scales_as_const)
+            _check_params_as_const(model=model, only_scales=mark_only_scales_as_const)
         _read_min_max_overwrite()
         _set_quantization_attributes(model)
         with _e_handler():
