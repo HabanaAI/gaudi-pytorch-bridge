@@ -330,6 +330,7 @@ size_t CompilationStatistics::GetCurrentParentLastStep() {
 }
 
 void CompilationStatistics::DumpAndNextStep() {
+  std::lock_guard<std::mutex> lg(json_file_mutex_);
   if (step_) {
     file_handle << ",\n";
   }
