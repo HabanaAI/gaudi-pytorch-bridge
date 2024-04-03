@@ -41,13 +41,18 @@ auto empty_meta(
 }
 
 habana::OutputMetaDataVector EmptyMeta(const at::Stack& stack) {
-  auto size = stack.at(0).toIntVector();
   auto dtype = stack.at(1);
   auto layout = stack.at(2);
   auto device = stack.at(3);
   auto pin_memory = stack.at(4);
   auto memory_format = stack.at(5);
-
+  // convert tensor to shape vector
+  std::vector<int64_t> size;
+  if (stack.at(0).isTensor()) { // shape tensor for DS
+    size = stack.at(0).toTensor().sizes().vec();
+  } else {
+    size = stack.at(0).toIntVector();
+  }
   return {empty_meta(
       std::move(size),
       {} /*strides*/,
@@ -112,12 +117,18 @@ auto empty_impl(
     habana::OpBackend* op,
     synapse_helpers::graph& graph,
     const habana::OutputMetaData& md) {
+  std::vector<synTensor> inputs;
+  op->CreateShapeTensorInput(graph, op->ScalarType(), md.shape, inputs);
   return std::move(habana::OpBackend::BuildNode(
-      op, graph, {"memset", {}, {{md.shape, md.dtype, 0}}})[0]);
+      op, graph, {"memset", inputs, {{md.shape, md.dtype, 0}}})[0]);
 }
 } // namespace
 
 namespace habana {
+struct EmptyBackendDs : OpBackend {
+  EmptyBackendDs(int device_id, c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
 
 void Empty::AddNode(
     synapse_helpers::graph& graph,
@@ -151,10 +162,24 @@ EmptyLike::EmptyLike(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {
   SetOutputMetaFn(EmptyLikeMeta);
 }
+
+EmptyBackendDs::EmptyBackendDs(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {
+  SetOutputMetaFn(EmptyMeta);
+}
+
+void EmptyBackendDs::AddNode(
+    synapse_helpers::graph& graph,
+    [[maybe_unused]] const at::Stack& stack) {
+  auto meta = GetOutputMetaData(0);
+  syn_out(0) = empty_impl(this, graph, GetOutputMetaData(0));
+}
+
 } // namespace habana
 
 static const auto& EmptyKernelRegistry =
     habana::KernelRegistry()
         .add("aten::empty_like", KERNEL_FN_GLOBAL(habana::EmptyLike))
         .add("aten::empty.memory_format", KERNEL_FN_GLOBAL(habana::Empty))
-        .add("aten::empty_strided", KERNEL_FN_GLOBAL(habana::EmptyStrided));
+        .add("aten::empty_strided", KERNEL_FN_GLOBAL(habana::EmptyStrided))
+        .add("hpu::empty_ds", KERNEL_FN_GLOBAL(habana::EmptyBackendDs));

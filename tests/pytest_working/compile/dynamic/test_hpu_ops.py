@@ -1325,3 +1325,26 @@ def test_full(dtype, fill_value):
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("full")
+
+
+def test_op_empty():
+    input_shapes = [
+        [3, 6, 4],
+        [3, 8, 4],
+        [3, 10, 4],
+        [3, 14, 4],
+    ]
+
+    def raw_function(s, dut):
+        t1 = torch.ops.aten.empty.memory_format(
+            s, dtype=torch.float, layout=None, device=dut, pin_memory=False, memory_format=torch.contiguous_format
+        )
+        t1 = torch.relu(t1)
+        return t1
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+
+    for s in input_shapes:
+        result = raw_function(s, "cpu")
+        h_result = compiled_fn(s, "hpu:0")
+        assert h_result.shape == result.shape
