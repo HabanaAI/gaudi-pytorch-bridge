@@ -294,8 +294,7 @@ class device {
   void register_producer_on_stream(
       std::vector<device_ptr>&& bound_addresses,
       stream& stream,
-      event_done_callback done_cb,
-      synEventHandle event_handle = nullptr);
+      event_done_callback done_cb);
 
   void register_producer_on_stream(
       std::vector<device_ptr>&& bound_addresses,

@@ -1642,10 +1642,8 @@ void device::add_wait_event_on_stream(
 void device::register_producer_on_stream(
     std::vector<device_ptr>&& bound_addresses,
     stream& stream,
-    event_done_callback done_cb,
-    synEventHandle event_handle) {
-  sem_.add_producer(
-      std::move(bound_addresses), stream, std::move(done_cb), event_handle);
+    event_done_callback done_cb) {
+  sem_.add_producer(std::move(bound_addresses), stream, std::move(done_cb));
 }
 
 void device::submit_future(

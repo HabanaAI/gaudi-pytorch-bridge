@@ -45,14 +45,12 @@ class stream_event_manager {
   void add_producer(
       std::vector<device_ptr>&& device_addresses,
       stream& stream,
-      event_done_callback done_cb,
-      synEventHandle handle = nullptr);
+      event_done_callback done_cb);
   void add_producer(
       std::vector<device_ptr>&& device_addresses,
       std::string event_id,
       stream& stream,
-      event_done_callback done_cb,
-      synEventHandle handle = nullptr);
+      event_done_callback done_cb);
   void add_producer(std::string event_id, stream& stream, shared_event event);
   void add_producer(stream& stream, shared_event event);
 

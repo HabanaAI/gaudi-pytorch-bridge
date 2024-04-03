@@ -54,7 +54,6 @@ class event {
   stream& stream_recorded_; // used to avoid waiting on the same stream which is
                             // forbidden by synapse
   bool is_partial_{};
-  bool handle_owner = true;
 
  public:
   /*! \brief Constructor        Requests event from event handle cache
@@ -66,13 +65,6 @@ class event {
    */
   explicit event(
       event_handle_cache& event_handle_cache,
-      stream& stream,
-      std::vector<device_ptr>&& device_ptrs,
-      std::string event_id,
-      event_done_callback done_cb);
-  explicit event(
-      event_handle_cache& event_handle_cache,
-      synEventHandle handle,
       stream& stream,
       std::vector<device_ptr>&& device_ptrs,
       std::string event_id,

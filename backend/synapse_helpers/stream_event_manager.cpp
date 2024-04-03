@@ -30,9 +30,8 @@ using namespace synapse_helpers;
 void stream_event_manager::add_producer(
     std::vector<device_ptr>&& device_ptrs,
     stream& stream,
-    event_done_callback done_cb,
-    synEventHandle handle) {
-  add_producer(std::move(device_ptrs), "", stream, std::move(done_cb), handle);
+    event_done_callback done_cb) {
+  add_producer(std::move(device_ptrs), "", stream, std::move(done_cb));
 }
 
 void stream_event_manager::add_future(
@@ -93,30 +92,19 @@ void stream_event_manager::add_producer(
     std::vector<device_ptr>&& device_addresses,
     std::string event_id,
     stream& stream,
-    event_done_callback done_cb,
-    synEventHandle handle) {
+    event_done_callback done_cb) {
   // remove duplicate address
   std::sort(device_addresses.begin(), device_addresses.end());
   device_addresses.erase(
       std::unique(device_addresses.begin(), device_addresses.end()),
       device_addresses.end());
   shared_event eref;
-  if (handle) {
-    eref = std::make_shared<event>(
-        stream.get_device().get_event_handle_cache(),
-        handle,
-        stream,
-        std::move(device_addresses),
-        std::string{event_id},
-        std::move(done_cb));
-  } else {
-    eref = std::make_shared<event>(
-        stream.get_device().get_event_handle_cache(),
-        stream,
-        std::move(device_addresses),
-        std::string{event_id},
-        std::move(done_cb));
-  }
+  eref = std::make_shared<event>(
+      stream.get_device().get_event_handle_cache(),
+      stream,
+      std::move(device_addresses),
+      std::string{event_id},
+      std::move(done_cb));
   add_producer(event_id, stream, eref);
 }
 
