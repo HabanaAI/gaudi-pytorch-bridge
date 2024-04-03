@@ -41,6 +41,7 @@ def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -
         "arange",
         "randperm",
         "select_scatter",
+        "slice_scatter",
         "scalar_tensor",
         "logspace",
     ]

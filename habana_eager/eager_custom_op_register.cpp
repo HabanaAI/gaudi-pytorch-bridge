@@ -1947,6 +1947,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::select_scatter(Tensor self, Tensor src, Tensor dim, Tensor index) -> (Tensor)");
   m.def(
+      "hpu::slice_scatter(Tensor self, Tensor src, Tensor dim = None, Tensor? start = None, Tensor? end = None, Tensor step = None) -> (Tensor)");
+  m.def(
       "strided_view_orig_ds_h2d(Tensor self, Tensor size, Tensor stride) -> (Tensor)");
   m.def("hpu::habana_bernoulli(Tensor seed, Tensor self) -> Tensor");
   m.def(

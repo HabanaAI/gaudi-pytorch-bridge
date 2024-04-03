@@ -22,7 +22,7 @@ namespace graph {
 int64_t GetSymintValue(torch::jit::Stack& original_stack, uint64_t index) {
   int64_t value;
   HABANA_ASSERT(original_stack[index].isScalar() == 1);
-  value = original_stack[index].toScalar().toInt();
+  value = original_stack[index].toScalar().toLong();
   return value;
 }
 

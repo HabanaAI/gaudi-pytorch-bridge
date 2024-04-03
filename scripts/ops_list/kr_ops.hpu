@@ -1075,6 +1075,7 @@ RegisterKernel::add op = hpu::strided_view_out_orig_ds
 RegisterKernel::add op = hpu::strided_view_out_orig_ds_h2d
 RegisterKernel::add op = hpu::sum_fp8
 RegisterKernel::add op = hpu::select_scatter
+RegisterKernel::add op = hpu::slice_scatter
 RegisterKernel::add op = hpu::topk
 RegisterKernel::add op = hpu::topk.values
 RegisterKernel::add op = hpu::uniform_
