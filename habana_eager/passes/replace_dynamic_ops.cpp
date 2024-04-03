@@ -139,33 +139,51 @@ struct HandleDynamicOpsPass {
     dumpValueIValueMap();
   }
 
-  bool checkDSMaxTensorDimSupport() {
-    // Checks that all input tensors in the stack
-    // have less than "SYN_MAX_TENSOR_DIM" dimensions
-    for (auto val_ivalue : m_value_ivalue_map) {
-      if (val_ivalue.second->isTensor()) {
-        if (val_ivalue.second->toTensor().dim() > SYN_MAX_TENSOR_DIM)
+  bool maxTensorDimsCheck(
+      torch::jit::Node* node,
+      const std::string& node_name) {
+    // Checks that all input tensor sizes in the node
+    // do not exceed "SYN_MAX_TENSOR_DIM" dimensions.
+
+    // For some strided view ops (like "aten::as_strided")
+    // they should not exceed "SYN_MAX_TENSOR_DIM-1"
+    // as their HPU op replacement GC implementation
+    // can cause tensor dim expansion by 1
+    static const std::set<std::string> view_ops{"aten::as_strided"};
+
+    int max_dim = SYN_MAX_TENSOR_DIM;
+    if (view_ops.find(node_name) != view_ops.end())
+      max_dim -= 1;
+
+    for (const auto& input : node->inputs()) {
+      auto ivalue = m_value_ivalue_map[const_cast<torch::jit::Value*>(input)];
+      if (ivalue->isTensor()) {
+        auto size = ivalue->toTensor().dim();
+        if (size > max_dim) {
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "Tensor size ",
+              size,
+              " in node ",
+              node_name,
+              " exceeds maximum dimensions support");
           return false;
+        }
       }
     }
     return true;
   }
 
   bool processBlock(torch::jit::Block* block, torch::jit::Stack& org_stack) {
-    // Dynamic shapes is only supported for tensors
-    // having dimensions less than or equal to "SYN_MAX_TENSOR_DIM"
-    if (!checkDSMaxTensorDimSupport())
-      return false;
-
-    bool changed{true};
     GraphInputIndexMap org_stack_index_map;
     createGraphInputStackIndexMap(org_stack_index_map);
     HABANA_ASSERT(m_graph->inputs().size() == org_stack.size());
-
+    bool changed{true};
     // First Pass: Repace all dynamic shape ops with hpu implementation.
     for (auto it = block->nodes().begin(); it != block->nodes().end(); ++it) {
       std::string node_name = it->kind().toQualString();
       torch::jit::Node* node{*it};
+      if (!maxTensorDimsCheck(node, node_name))
+        m_dmeta->static_fallback = true;
       DynamicOpPtr dsOp = DSOpsRegistry().get(node_name);
       if (!dsOp)
         continue;
@@ -173,6 +191,9 @@ struct HandleDynamicOpsPass {
       dsOp->m_input_new_base_sizes = m_input_new_base_sizes;
       changed = dsOp->ReplaceWithDynamicHPUOp(
           node, org_stack, org_stack_index_map, m_value_ivalue_map, m_dmeta);
+      if (!changed)
+        PT_EAGER_DEBUG(
+            "Replace with Dynamic HPU op failed for node ", node_name);
     }
 
     // Second pass: remove all nodes that are no longer necessary.
@@ -187,6 +208,7 @@ struct HandleDynamicOpsPass {
       at::ArrayRef<torch::jit::Block*> blocks,
       torch::jit::Stack& org_stack) {
     bool changed{true};
+    m_dmeta->static_fallback = false;
     for (auto block : blocks)
       changed &= processBlock(block, org_stack);
     return changed;
@@ -198,19 +220,17 @@ struct HandleDynamicOpsPass {
   std::map<int64_t, std::vector<int64_t>>* m_input_new_base_sizes;
 };
 
-bool HandleDynamicOps(
+void HandleDynamicOps(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
     std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes) {
   PT_EAGER_TRACE;
   HandleDynamicOpsPass pass{graph, dmeta, input_new_base_sizes};
-
   bool changed{pass.run(stack)};
   if (changed) {
     PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
   }
-  return changed;
 }
 
 void HandlePostDynamic(

@@ -65,7 +65,7 @@ class GraphExec {
   std::string LogRecipeInfo(torch::jit::Stack& example_inputs);
   void HandleWeightPermutation(torch::jit::Stack& stack);
   bool IsDynamicGraph();
-  bool ProcessDynamicGraph(torch::jit::Stack& example_inputs);
+  void ProcessDynamicGraph(torch::jit::Stack& example_inputs);
   std::vector<c10::IValue> ProcessDynamicStack(torch::jit::Stack& stack, bool);
   void UpdateSeedTensors(torch::jit::Stack& stack);
 
@@ -78,6 +78,7 @@ class GraphExec {
   std::shared_ptr<torch::jit::Graph> m_graph;
   std::string m_graph_name;
   bool m_dynamic;
+  bool m_static_fallback = false;
   bool m_inference;
   bool is_first_launch = true;
   bool m_is_pipeline_supported = false;
