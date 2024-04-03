@@ -16,7 +16,7 @@ import torch
 
 class RmsNormBwdMode(Enum):
     DEFAULT = 0
-    STATIC_CASE_GC_SLICE_ENABLED = 1
+    STATIC_CASE_WIDTH_PARTITIONING = 1
 
 
 class FusedRMSNorm(torch.autograd.Function):
@@ -26,7 +26,9 @@ class FusedRMSNorm(torch.autograd.Function):
         use_stages=True (default) backend will use the current version of rms_norm_bwd stage1 and stage2.
         use_stages=False backend will use rms_norm_dx_bwd and rms_norm_dgamma_bwd TPC kernels.
     bwd_mode:
-        Set parameter to STATIC_CASE_GC_SLICE_ENABLED in order to enable GC slicing.
+        Set parameter to STATIC_CASE_WIDTH_PARTITIONING in order to enable GC slicing.
+    fast_math:
+        If the parameter is True, ComplexGuid is expected to expand the GUIDs.
     """
 
     @staticmethod
@@ -37,8 +39,9 @@ class FusedRMSNorm(torch.autograd.Function):
         eps,
         use_stages=True,
         bwd_mode=0,
+        fast_math=False,
     ):
-        (root_mean_square_norm, inverse_root_mean_square) = torch.ops.hpu.rms_norm(data_in, gamma, eps)
+        (root_mean_square_norm, inverse_root_mean_square) = torch.ops.hpu.rms_norm(data_in, gamma, eps, fast_math)
         ctx.save_for_backward(inverse_root_mean_square, data_in, gamma)
         ctx.use_stages = use_stages
         ctx.bwd_mode = bwd_mode
@@ -60,4 +63,4 @@ class FusedRMSNorm(torch.autograd.Function):
             bwd_mode,
         )
 
-        return grad_out, grad_gamma, None, None, None
+        return grad_out, grad_gamma, None, None, None, None

@@ -923,9 +923,10 @@ at::Tensor rotary_pos_embedding_backward(
 std::tuple<at::Tensor, at::Tensor> rms_norm(
     const at::Tensor& data_in,
     const at::Tensor& gamma,
-    double epsilon) {
+    double epsilon,
+    bool fast_math) {
   PT_EAGER_TRACE;
-  PT_OP_INFO("rms_norm :", DUMP_3ARGS(data_in, gamma, epsilon));
+  PT_OP_INFO("rms_norm :", DUMP_4ARGS(data_in, gamma, epsilon, fast_math));
 
   std::vector<int64_t> inverse_root_mean_square_sizes{data_in.sizes().vec()};
   inverse_root_mean_square_sizes.back() = 1;
@@ -936,7 +937,7 @@ std::tuple<at::Tensor, at::Tensor> rms_norm(
 
   habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
       "hpu::rms_norm",
-      {data_in, gamma, epsilon},
+      {data_in, gamma, epsilon, fast_math},
       {data_in.sizes().vec(), inverse_root_mean_square_sizes},
       0};
   hpu_op.set_scalar_types({data_in_dtype, c10::ScalarType::Float});
@@ -2010,7 +2011,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
   m.def("hpu::repeat_ht(Tensor self, Tensor result_shape) -> Tensor");
   m.def(
-      "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)");
+      "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon, bool fast_math) -> (Tensor, Tensor)");
   m.def(
       "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)");
   m.def(

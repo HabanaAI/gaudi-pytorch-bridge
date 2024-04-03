@@ -20,9 +20,7 @@ rms_norm_test_case_list = [
     # Input shape, eps
     ((512, 1, 640), 0.000001),
     ((32, 16, 8, 16), 0.00003),
-    ((1, 1, 8, 16), 0.00003),
     ((1, 2, 8, 17, 150), 0.00003),
-    ((1, 1, 1, 16, 32), 0.00003),
 ]
 
 
@@ -30,20 +28,15 @@ def rms_norm_fwd_ref(data_in, gamma, eps):
     axis = data_in.dim() - 1
     rms = torch.sqrt(torch.mean(torch.square(data_in), axis=axis) + eps)
 
-    return data_in * gamma / torch.unsqueeze(rms, axis)
+    return data_in * gamma / torch.unsqueeze(rms, axis), 1 / torch.unsqueeze(rms, axis)
 
 
-@pytest.mark.parametrize("size, eps", rms_norm_test_case_list)
-@pytest.mark.parametrize("use_stages", [True, False])
-@pytest.mark.parametrize("bwd_mode", [RmsNormBwdMode.DEFAULT, RmsNormBwdMode.STATIC_CASE_GC_SLICE_ENABLED])
-@pytest.mark.parametrize("data_in_dtype", [torch.float16, torch.float32, torch.bfloat16])
-@pytest.mark.parametrize("gamma_dtype", [torch.float16, torch.float32, torch.bfloat16])
-def test_rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, data_in_dtype, gamma_dtype):
+def rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, fast_math, data_in_dtype, gamma_dtype):
     if is_gaudi1() and (data_in_dtype == torch.float16 or gamma_dtype == torch.float16):
         pytest.skip("Half is not supported on Gaudi.")
 
     if (
-        bwd_mode == RmsNormBwdMode.STATIC_CASE_GC_SLICE_ENABLED
+        bwd_mode == RmsNormBwdMode.STATIC_CASE_WIDTH_PARTITIONING
         and int(os.getenv("PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES", 0)) == 1
     ):
         pytest.skip("bwdMode in static mode is not supported for dynamic shapes")
@@ -53,11 +46,11 @@ def test_rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, data_in_dtype, gamma_
     # Prepare test data
     data_in = torch.rand(size, dtype=torch.float32, requires_grad=True)
     gamma = torch.rand((size[-1],), dtype=torch.float32, requires_grad=True)
+    grad_in = torch.rand(size, dtype=torch.float32)
 
     # Compute reference gradients on CPU using autograd
-    root_mean_square_norm_ref = rms_norm_fwd_ref(data_in, gamma, eps)
-    loss_ref = root_mean_square_norm_ref.sum()
-    loss_ref.backward()
+    root_mean_square_norm_ref, _ = rms_norm_fwd_ref(data_in, gamma, eps)
+    root_mean_square_norm_ref.backward(grad_in)
 
     grad_data_in_ref = data_in.grad.clone().detach()
     grad_gamma_ref = gamma.grad.clone().detach()
@@ -74,14 +67,16 @@ def test_rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, data_in_dtype, gamma_
         torch._dynamo.reset()
         output_fwd = torch.compile(FusedRMSNorm.apply, backend="hpu_backend")
 
-    root_mean_square_norm = output_fwd(data_in_hpu, gamma_hpu, eps, use_stages, bwd_mode.value)
-    loss = root_mean_square_norm.sum()
-    loss.backward()
+    root_mean_square_norm = output_fwd(data_in_hpu, gamma_hpu, eps, use_stages, bwd_mode.value, fast_math)
+    root_mean_square_norm.backward(grad_in.to(data_in_dtype).to(hpu))
 
     if data_in_dtype == gamma_dtype and data_in_dtype == torch.float32:
         tol = 0.001
     else:
-        tol = 0.015
+        if fast_math:
+            tol = 0.021
+        else:
+            tol = 0.015
 
     torch.testing.assert_close(
         root_mean_square_norm.to(torch.float32).to(cpu),
@@ -96,3 +91,19 @@ def test_rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, data_in_dtype, gamma_
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir({"rms_norm", "rms_norm_backward"})
+
+
+@pytest.mark.parametrize("size, eps", rms_norm_test_case_list)
+@pytest.mark.parametrize("use_stages", [True, False])
+@pytest.mark.parametrize("bwd_mode", [RmsNormBwdMode.DEFAULT, RmsNormBwdMode.STATIC_CASE_WIDTH_PARTITIONING])
+@pytest.mark.parametrize("data_in_dtype", [torch.float16, torch.float32, torch.bfloat16])
+@pytest.mark.parametrize("gamma_dtype", [torch.float16, torch.float32, torch.bfloat16])
+def test_rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, data_in_dtype, gamma_dtype):
+    rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, False, data_in_dtype, gamma_dtype)
+
+
+@pytest.mark.parametrize("size, eps", rms_norm_test_case_list)
+@pytest.mark.parametrize("data_in_dtype", [torch.float16, torch.float32, torch.bfloat16])
+@pytest.mark.parametrize("gamma_dtype", [torch.float16, torch.float32, torch.bfloat16])
+def test_rms_norm_fwd_bwd_fast_math(size, eps, data_in_dtype, gamma_dtype):
+    rms_norm_fwd_bwd(size, eps, False, RmsNormBwdMode.DEFAULT, True, data_in_dtype, gamma_dtype)

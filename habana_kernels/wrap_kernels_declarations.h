@@ -294,7 +294,8 @@ at::Tensor rotary_pos_embedding_backward_wrap(
 std::tuple<at::Tensor, at::Tensor> rms_norm_wrap(
     const at::Tensor& data_in,
     const at::Tensor& gamma,
-    double epsilon);
+    double epsilon,
+    bool fast_math);
 std::tuple<at::Tensor, at::Tensor> rms_norm_backward_wrap(
     const at::Tensor& grad_in,
     const at::Tensor& data_in,

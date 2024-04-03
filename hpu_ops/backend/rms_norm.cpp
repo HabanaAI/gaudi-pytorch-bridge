@@ -43,10 +43,12 @@ void RMSNorm::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto data_in = getNextInput<TensorsPair>(stackGetter);
   auto gamma = getNextInput<TensorsPair>(stackGetter);
   auto epsilon = getNextInput<double>(stackGetter);
+  auto fast_math = getNextInput<bool>(stackGetter);
 
-  ns_LayerNormKernel::Params params{};
+  ns_LayerNormKernel::ParamsRmsNorm params{};
   params.epsValid = true;
   params.eps = static_cast<float>(epsilon);
+  params.fastMath = fast_math;
 
   std::vector<synTensor> inputs = {data_in.syn_t, gamma.syn_t};
 
