@@ -14,9 +14,7 @@ orchestratorConfig:
     - testToLaunch: mlperf_inference/Tests/Test_mlperf_inference_gaudi2_asic_8cards_promote
     # PyTorch full graph tests
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_hls_asic_perf
-      silentMode: true
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_perf
-      silentMode: true
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_topology_sbs
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_sbs
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_topology_functionality
