@@ -96,17 +96,12 @@ void HPUGraph::capture_end() {
     auto num_inputs = single_graph->input_vals_.size();
     single_graph->hblazy_tensors_in_.clear();
     for (size_t inp = 0; inp < num_inputs; ++inp) {
-      if (single_graph->user_input_indices_.count(inp) > 0) {
-        single_graph->hblazy_tensors_in_.emplace_back(
-            habana_lazy::HbLazyTensor());
-      } else {
         std::shared_ptr<habana_lazy::Data> d =
             single_graph->input_vals_[inp].m_data_ptr.lock();
         single_graph->hblazy_tensors_in_.emplace_back(
             habana_lazy::HbLazyTensor(std::move(d)));
       }
     }
-  }
 
   // Clear the user marked inputs list
   context->ClearHPUGraphUserMarkedInputs();
@@ -176,6 +171,23 @@ void HPUGraph::mark_step() {
       captured_graph->hblazy_tensors_out_.size());
   context->getSeedTensorMap().clear();
   context->resetGraph();
+}
+
+/* Find all the lazy tensor id of inputs
+ it should not be input of any subsequent graph
+ for example graph 1 - input x, inplace op on x
+ graph 2- input x
+ graph 1- again in loop
+ then x can only be deleted after the forward function has run completely
+ and user doesn't need the tensor anymore */
+void HPUGraph::clear_inputs() {
+  // call synchronize before this API
+  for (auto out_tensor : hblazy_tensors_in_out_) {
+    PT_HPUGRAPH_DEBUG(
+        "Freeing input-output tensor with id: ",
+        out_tensor.getTensorUniqueId());
+    out_tensor.SetTensorDataNullOpt();
+  }
 }
 
 void HPUGraph::replay(bool async) {
@@ -314,14 +326,11 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
         auto& out_tensor = single_graph->hblazy_tensors_out_[outIdx];
 
         // exclude view tensors &  Inplace tensors
-        bool isInplaceOutTensor = false;
-        bool isAllReduceTensor = false;
+        bool isViewTensor = false;
+        bool isInputTensor = false;
         if ((out_tensor.getDataPtr()->stride_params.has_value()) ||
-            (single_graph->output_vals_[outIdx].IsInplace()) ||
-            (out_tensor.IsCollective()) ||
-            (isExists(input_lazyt_id_set, out_tensor.getTensorUniqueId()))) {
-          isInplaceOutTensor = true;
-          isAllReduceTensor = single_graph->output_vals_[outIdx].IsAllReduce();
+            (out_tensor.IsCollective())) {
+          isViewTensor = true;
         }
 
         // Check if any of the following SingleHPUGraphs use this output as an
@@ -329,8 +338,7 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
         size_t last_use = 0;
         bool is_inter_dependent = false;
         // if its not an useroutput or if its not inplace
-        if ((!isInplaceOutTensor or isAllReduceTensor) &&
-            !isExists(user_out_tensors_idx_set, outIdx)) {
+        if (!isViewTensor && !isExists(user_out_tensors_idx_set, outIdx)) {
           for (size_t j = graphIdx + 1; j < captured_graphs.size(); j++) {
             auto next_graph = captured_graphs[j];
             // Go over all the inputs in the following SingleHPUGraph
@@ -353,21 +361,26 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
               out_tensor);
         }
 
+        if (isExists(input_lazyt_id_set, out_tensor.getTensorUniqueId()) &&
+            !isExists(user_out_tensors_idx_set, outIdx)) {
+          hblazy_tensors_in_out_.emplace_back(out_tensor);
+          isInputTensor = true;
+          PT_BRIDGE_DEBUG(
+              "Graph: ",
+              graphIdx,
+              " Input found for output id: ",
+              out_tensor.getTensorUniqueId());
+        }
+
         // Can start freeing memory for output tensors that have no dependency.
         // SetHpuGraphOutTensor mark to false so that next replay it can be
         // freed
         // Or if its an all_reduce output
-        if ((!isInplaceOutTensor or isAllReduceTensor) && !is_inter_dependent &&
+        if (!isInputTensor && !isViewTensor && !is_inter_dependent &&
             !isExists(user_out_tensors_idx_set, outIdx)) {
           out_tensor.SetHpuGraphOutTensor(false);
           out_tensor.SetTensorDataNullOpt();
         }
-      }
-
-      // Delete the tensors which are interdependent among multiple single
-      // graphs
-      for (auto& hl_t : single_graph->prev_graph_interdep_out_t_list_) {
-        hl_t.SetTensorDataNullOpt();
       }
 
       // Remove the output vals (used to check if it's an inplace node or not)

@@ -346,6 +346,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       [](at::hpu::HPUGraph& graph,
          std::vector<at::Tensor>& inputs,
          bool async = false) { graph.replayV3(inputs, async); });
+  m.def("clear_inputs", [](at::hpu::HPUGraph& graph) { graph.clear_inputs(); });
   m.def(
       "mark_user_outputs",
       [](at::hpu::HPUGraph& graph, std::vector<at::Tensor>& outputs) {

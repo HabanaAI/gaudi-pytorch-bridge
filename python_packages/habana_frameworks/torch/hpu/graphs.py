@@ -74,6 +74,14 @@ class HPUGraph(object):
         """
         _hpu_C.replayV3(self.hpu_graph, tlistI, asynchronous)
 
+    def clear_inputs(self):
+        """
+        Can be called by user on hpugraph
+        Clears inputs to the graph held as outputs due to inplace operations
+        in the HPUGraph
+        """
+        _hpu_C.clear_inputs(self.hpu_graph)
+
     def mark_user_outputs(self, static_tlist: List[torch.Tensor]):
         r"""
         Marks user needed output after graph capture
@@ -715,6 +723,11 @@ def wrap_in_hpu_graph(module, asynchronous=False, disable_tensor_cache=False, dr
     def clear_cache():
         cache.clear()
 
+    def clear_inputs():
+        for h in cache:
+            cache[h].graph.clear_inputs()
+
+    module.clear_inputs = clear_inputs
     module.clear_cache = clear_cache
 
     return module

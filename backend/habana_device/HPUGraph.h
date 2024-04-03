@@ -118,6 +118,7 @@ struct HPUGraph {
   void capture_end();
   void replay(bool async = false);
   void mark_step();
+  void clear_inputs();
   void replayV2(
       std::vector<at::Tensor>& static_inputs,
       std::vector<at::Tensor>& inputs,
@@ -139,6 +140,8 @@ struct HPUGraph {
   std::vector<std::shared_ptr<SingleHPUGraph>> captured_graphs;
   std::vector<std::vector<int64_t>> user_input_sizes_ = {};
   std::unordered_set<size_t> user_input_match_indices_;
+  // tensors that are input as well as intermediate outputs
+  std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in_out_;
 };
 
 } // namespace hpu
