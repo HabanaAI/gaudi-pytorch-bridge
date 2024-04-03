@@ -1992,8 +1992,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_native_dropout(Tensor seed, Tensor input, float p, bool? train)-> (Tensor, Tensor)");
   m.def(
       "hpu::habana_randperm_ht(Tensor seed, Tensor h2d_tensor, Tensor shape_tensor, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
-  m.def(
-      "hpu::full_ds(Tensor size, Scalar fill_value, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {
