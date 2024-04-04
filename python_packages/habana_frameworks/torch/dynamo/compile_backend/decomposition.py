@@ -333,14 +333,7 @@ def diagonal(
 
 @register_custom_decomposition(aten.bernoulli.p, hpu_backend_decompositions_common)
 def bernoulli(input, p, *, generator=None):
-    p_like_input = torch.full(
-        [1],
-        p,
-        dtype=input.dtype,
-        layout=input.layout,
-        device=input.device,
-    ).expand(input.shape)
-    return torch.bernoulli(p_like_input, generator=generator)
+    return torch.bernoulli(torch.full_like(input, p), generator=generator)
 
 
 @register_custom_decomposition(aten.randn.generator, hpu_backend_decompositions_common)
@@ -353,21 +346,21 @@ def randngen(
     pin_memory: bool = False,
 ):
     mean = torch.full(
-        [1],
+        size,
         0.0,
         dtype=dtype,
         layout=layout,
         device=device,
         pin_memory=pin_memory,
-    ).expand(size)
+    )
     stddev = torch.full(
-        [1],
+        size,
         1.0,
         dtype=dtype,
         layout=layout,
         device=device,
         pin_memory=pin_memory,
-    ).expand(size)
+    )
     return torch.normal(mean, stddev, generator=generator)
 
 
