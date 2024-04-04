@@ -266,7 +266,7 @@ def _fuse_with_cat(
         cat_inputs = []
         for input_node in all_input_nodes:
             # print(f"{input_node=}")
-            cat_inputs.append(_call_function(gm, fake_tensor_mode, None, torch.ops.aten.flatten.using_ints, input_node))
+            cat_inputs.append(_call_function(gm, fake_tensor_mode, None, torch.ops.aten.view, input_node, [-1]))
 
     with gm.graph.inserting_after(cat_inputs[0]):
         cat_node = _call_function(gm, fake_tensor_mode, None, torch.ops.aten.cat, cat_inputs)
@@ -369,7 +369,7 @@ def _scatter_wait_result(
 
             split_idx_node = gm.graph.call_function(operator.getitem, (split_node, idx))
             with gm.graph.inserting_after(split_idx_node):
-                wait_output_node = gm.graph.call_function(torch.ops.aten.reshape, (split_idx_node, comm_block.shape))
+                wait_output_node = gm.graph.call_function(torch.ops.aten.view, (split_idx_node, comm_block.shape))
             orig_wait.replace_all_uses_with(wait_output_node)
 
             if last_split_reshape_node == split_node:
