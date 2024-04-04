@@ -7435,20 +7435,24 @@ threshold.out:
   guid: threshold_fwd
 
 threshold_backward:
+  output_meta: ThresholdBwdMeta
+  custom_fill_params: FillThresholdBwdParams
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  fallback_check: [ThresholdBackwardFallback, threshold]
   guid: relu_bwd
-  out_ids: [1]
   op_backend: ThresholdBackward
+  out_ids: [0]
 
 threshold_backward.grad_input:
-  dtypes: [BFloat16, Float]
-  fallback_check: [ThresholdBackwardFallback, threshold]
+  output_meta: ThresholdBwdMeta
+  custom_fill_params: FillThresholdBwdParams
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   guid: relu_bwd
-  op_validator: check-node-with-shared-layer
 
 topk:
   dtypes:

@@ -284,7 +284,6 @@ add_habana_library(habana_pytorch2_plugin SHARED
   hpu_ops/lazy/maxpool_gen.cpp
   hpu_ops/lazy/pow_gen.cpp
   hpu_ops/lazy/sort_gen.cpp
-  hpu_ops/lazy/threshold_gen.cpp
   hpu_ops/lazy/topk_util.cpp
   hpu_ops/lazy/unique_gen.cpp
   hpu_ops/lazy/upsample_gen.cpp

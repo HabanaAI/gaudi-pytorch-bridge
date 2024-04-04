@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -22,6 +22,24 @@ std::shared_ptr<void> FillThresholdParams(
   params->threshold.f = stack.at(1).toScalar().to<float>();
   params->replacementValue.f = stack.at(2).toScalar().to<float>();
   return params;
+}
+
+std::shared_ptr<void> FillThresholdBwdParams(
+    const at::Stack& stack,
+    size_t& size) {
+  PARAMS_STUB(ns_ReluKernel::Params);
+  params->threshold.f =
+      stack.at(2).isNone() ? 0 : stack.at(2).toScalar().to<float>();
+  return params;
+}
+
+OutputMetaDataVector ThresholdBwdMeta(const at::Stack& stack) {
+  const torch::Tensor& self = stack_tensor(stack, 1);
+
+  OutputMetaData meta;
+  meta.shape = self.sizes().vec();
+  meta.dtype = self.scalar_type();
+  return {meta};
 }
 
 void ThresholdBackward::AddNode(

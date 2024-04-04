@@ -364,7 +364,6 @@ add_habana_library(habana_pytorch_frontend_ops OBJECT
           lazy/random_gen.cpp
           lazy/reduction_template.cpp
           lazy/sort_gen.cpp
-          lazy/threshold_gen.cpp
           lazy/topk_gen.cpp
           lazy/topk_util.cpp
           lazy/unique_gen.cpp

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -28,23 +28,31 @@ using namespace at;
 class LazyUnaryKernelTest : public habana_lazy_test::LazyTest {};
 
 TEST_F(LazyUnaryKernelTest, ThresholdBackward) {
-  auto grad = torch::randn({2, 2}, torch::requires_grad(false));
-  auto self = torch::randn({2, 2}, torch::requires_grad(false));
+  auto threshold_backward_test = [](float threshold) {
+    auto grad = torch::randn({2, 2}, torch::requires_grad(false));
+    auto self = torch::randn({2, 2}, torch::requires_grad(false));
 
-  Scalar scal_value(0);
+    Scalar scal_value(threshold);
 
-  auto hgrad = grad.to(torch::kHPU);
-  auto hself = self.to(torch::kHPU);
+    auto hgrad = grad.to(torch::kHPU);
+    auto hself = self.to(torch::kHPU);
 
-  auto hresult = at::threshold_backward(hgrad, hself, scal_value);
+    auto hresult = at::threshold_backward(hgrad, hself, scal_value);
 
-  std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(hresult)};
-  HbLazyTensor::SyncTensorsGraph(&tensors);
+    std::vector<HbLazyTensor> tensors = {SyncAndGetHbLazyTensor(hresult)};
+    HbLazyTensor::SyncTensorsGraph(&tensors);
 
-  auto hout = hresult.to(torch::kCPU);
-  auto cout = at::threshold_backward(grad, self, scal_value);
+    auto hout = hresult.to(torch::kCPU);
+    auto cout = at::threshold_backward(grad, self, scal_value);
 
-  EXPECT_EQ(allclose(hout, cout), true);
+    EXPECT_TRUE(allclose(hout, cout));
+  };
+
+  threshold_backward_test(0.0);
+  threshold_backward_test(0.5);
+  threshold_backward_test(-0.5);
+  threshold_backward_test(100);
+  threshold_backward_test(-100);
 }
 
 TEST_F(LazyUnaryKernelTest, ReluInplaceTest) {

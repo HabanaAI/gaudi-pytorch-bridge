@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -44,10 +44,16 @@ TEST_F(HpuOpTest, threshold_out) {
   Compare(expected, result);
 }
 
-TEST_F(HpuOpTest, threshold_backward_out) {
+class ThresholdBwdOpTest : public HpuOpTestUtil,
+                           public testing::WithParamInterface<std::tuple<
+                               c10::ScalarType, // dtype
+                               float>> {};
+
+TEST_P(ThresholdBwdOpTest, threshold_backward_out) {
   GenerateInputs(2);
-  torch::ScalarType dtype = torch::kFloat;
-  float threshold = 0;
+  const auto& testParams = GetParam();
+  auto dtype = std::get<0>(testParams);
+  auto threshold = std::get<1>(testParams);
   auto expected = torch::empty(0, dtype);
   auto result = torch::empty(0, torch::TensorOptions(dtype).device("hpu"));
   torch::threshold_backward_outf(
@@ -56,3 +62,10 @@ TEST_F(HpuOpTest, threshold_backward_out) {
       GetHpuInput(0), GetHpuInput(1), threshold, result);
   Compare(expected, result);
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    Threshold,
+    ThresholdBwdOpTest,
+    ::testing::Combine(
+        ::testing::Values<c10::ScalarType>(torch::kFloat, torch::kBFloat16),
+        ::testing::Values<float>(-100, -0.5, 0, 0.5, 100)));
