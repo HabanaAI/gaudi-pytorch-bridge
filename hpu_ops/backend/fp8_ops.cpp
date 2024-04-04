@@ -305,8 +305,8 @@ void CastToFp8Hybrid::AddNode(sh::graph& graph, const at::Stack& stack) {
     output_attrs.push_back({out_shapes[2], at::ScalarType::Float, 2});
   }
 
-  ns_CastKernel::Params params{};
-  params.round_mode = stochastic_rounding ? CAST_ROUND_SR : CAST_ROUND_HALF_NE;
+  auto params =
+      GetCastParams(stochastic_rounding, src_type, at::ScalarType::Float8_e5m2);
 
   auto casted = OpBackend::BuildNode(
       this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});

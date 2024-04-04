@@ -257,13 +257,16 @@ def test_cast_to_fp8_hybrid(shape, dtype, stochastic, is_amax, is_scale_152, is_
         dtype,
     )
 
+    uncasted_143 = uncasted_143.cpu()
+    uncasted_152 = uncasted_152.cpu()
+
+    rtol = 0.01 if dtype == torch.bfloat16 else 0.0
+    assert torch.allclose(uncasted_143, unscaled_input_143, rtol=rtol, atol=0.0)
     if stochastic:
-        assert torch.allclose(uncasted_152.cpu(), unscaled_input_152, rtol=0.26, atol=0.0)
-        assert torch.allclose(uncasted_143.cpu(), unscaled_input_143, rtol=0.26, atol=0.0)
+        assert torch.allclose(uncasted_152, unscaled_input_152, rtol=0.26, atol=0.0)
+        assert not torch.equal(uncasted_152, unscaled_input_152)
     else:
-        rtol = 0.01 if dtype == torch.bfloat16 else 0.0
-        assert torch.allclose(uncasted_152.cpu(), unscaled_input_152, rtol=rtol, atol=0.0)
-        assert torch.allclose(uncasted_143.cpu(), unscaled_input_143, rtol=rtol, atol=0.0)
+        assert torch.allclose(uncasted_152, unscaled_input_152, rtol=rtol, atol=0.0)
 
     if is_amax:
         assert amax.cpu() == torch.max(input.abs())
