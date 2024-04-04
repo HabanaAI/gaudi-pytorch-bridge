@@ -2023,6 +2023,7 @@ bernoulli:
   schema_args: "(Tensor self, *, Tensor? seed=None) -> Tensor"
 
 bernoulli_.float:
+  custom_fill_params: FillBernoulliWithPParams
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -2031,7 +2032,7 @@ bernoulli_.float:
   inplace_ids: [0]
   op_frontend: BernoulliFE
   op_backend: BernoulliWithP
-  schema_args: "(Tensor(a!) self, Tensor p, *, Tensor? seed=None) -> Tensor(a!)"
+  schema_args: "(Tensor(a!) self, float p, *, Tensor? seed=None) -> Tensor(a!)"
 
 bernoulli_.Tensor:
   dtypes:
@@ -2055,6 +2056,7 @@ bernoulli.out:
   schema_args: "(Tensor self, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
 
 bernoulli.float_out:
+  custom_fill_params: FillBernoulliWithPParams
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -2062,7 +2064,7 @@ bernoulli.float_out:
   guid: random_bernoulli_fwd
   op_frontend: BernoulliOutFE
   op_backend: BernoulliWithP
-  schema_args: "(Tensor self, Tensor p, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
+  schema_args: "(Tensor self, float p, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
 
 binary_cross_entropy:
   output_meta: BinaryCrossEntropyFwdMetaData
