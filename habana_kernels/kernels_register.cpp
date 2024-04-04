@@ -278,15 +278,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::_unique2(
   return unique2_hpu_lazy(self, sorted, return_inverse, return_counts);
 }
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::unique_dim(
-    const at::Tensor& self,
-    int64_t dim,
-    bool sorted,
-    bool return_inverse,
-    bool return_counts) {
-  return unique_dim_hpu_lazy(self, dim, sorted, return_inverse, return_counts);
-}
-
 Tensor& hpu_wrap::index_add_out(
     const Tensor& self,
     int64_t dim,
