@@ -363,6 +363,7 @@ def get_passes(stage: OptimizationPassPlacement):
             # These passes will be ran once, they have to work on graph with submodules.
             pass_graph_print,
             pass_summarize_graph,
+            pass_check_eager_fallbacks,
             pass_compile_clusters,
         ]
     else:
@@ -1081,6 +1082,9 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                 placement = "hpu_cluster"
             else:
                 placement = "eager"
+                logger.debug(
+                    f"{node._pretty_print_target(node.target)} fellback to eager becouse it was identified as non D2D copy"
+                )
         elif node.op == "call_function" and is_eager_fallback_required(node, is_dynamic=dynamic_call_function):
             placement = "eager"
         elif node.meta["output_device"].type == "hpu":
@@ -2037,7 +2041,9 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
         if node.meta["pass_meta_color"] == "red":
             graph_changed = True
             node.meta["placement"] = "eager"
-
+            logger.debug(
+                f"{node._pretty_print_target(node.target)} fellback to eager due to being identified as leaf view node"
+            )
         del node.meta["pass_meta_color"]
 
     ctx.graph_module.graph.lint()
@@ -2418,6 +2424,28 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
     reinplace_collective_ops(ctx.graph_module)
 
     return graph_changed
+
+
+def pass_check_eager_fallbacks(ctx: OptimizerContext):
+    """
+    This pass is for testing purposes with use of PT_HPU_USE_EAGER_FALLBACK=0.
+    It goes through nodes in graph and in case any ops fall to eager
+    while PT_HPU_USE_EAGER_FALLBACK env variable is set to 0
+    it throws an assertion error
+    """
+    assert ctx.stage == OptimizationPassPlacement.POST_PARTITIONER
+    assert ctx.graph_module is not None
+    if not hpu_backend_config.use_eager_fallback:
+        eager_nodes = []
+        for node in ctx.graph_module.graph.nodes:
+            if node.op in {"call_function", "call_method"} and node._pretty_print_target(node.target) not in {
+                "operator.getitem",
+                "habana_frameworks.torch.dynamo.compile_backend.symbolic_execution.symexpr_python",
+            }:
+                if node.meta["placement"] == "eager":
+                    eager_nodes.append(str(node) + ":" + node._pretty_print_target(node.target))
+        assert len(eager_nodes) == 0, f"Eager fallback in nodes: {eager_nodes}"
+    return False
 
 
 def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:

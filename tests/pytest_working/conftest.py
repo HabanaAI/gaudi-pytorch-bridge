@@ -14,7 +14,7 @@ import json
 import os
 import random
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, Union
 
 import numpy as np
 import pytest
@@ -22,6 +22,7 @@ import pytest
 # Can't import torch module because PT_HPU_LAZY_MODE is set in pytest_configure. If any function needs torch module it must be imported locally
 
 SKIP_TESTS_LIST = "skip_tests_list.json"
+EAGER_FALLBACK_TESTS_LIST = "compile_eager_fallback_list.json"
 
 
 @pytest.fixture(autouse=True)
@@ -54,6 +55,36 @@ def pytest_addoption(parser):
 backup_env = pytest.StashKey[Mapping]()
 
 
+def pytest_runtest_setup(item):
+
+    if (
+        pytest.mode == "compile"
+        and pytest.chip in pytest.eager_fallback_tests.keys()
+        and get_testname(item) in pytest.eager_fallback_tests[pytest.chip]
+        and not os.getenv("PTT_STOP_EAGER_FALLBACK", 0)
+    ):
+        import warnings
+
+        from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+
+        configuration_flags["use_eager_fallback"] = True
+        warnings.warn(
+            "Eager fallback allowed for current test. Remove test from compile_eager_fallback_list.json to disable it"
+        )
+
+
+def pytest_runtest_teardown(item):
+    if (
+        pytest.mode == "compile"
+        and pytest.chip in pytest.eager_fallback_tests.keys()
+        and get_testname(item) in pytest.eager_fallback_tests[pytest.chip]
+        and not os.getenv("PTT_STOP_EAGER_FALLBACK", 0)
+    ):
+        from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+
+        configuration_flags["use_eager_fallback"] = os.getenv("PT_HPU_USE_EAGER_FALLBACK", "0") == "1"
+
+
 def pytest_configure(config):
     pytest.mode = config.getoption("--mode")
     pytest.chip = config.getoption("--dut")
@@ -71,7 +102,17 @@ def pytest_configure(config):
     elif pytest.mode == "compile":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
         os.environ["PT_HPU_USE_EAGER_FALLBACK"] = "0"
+        try:
+            eager_fallback_path = Path(__file__).parent.joinpath(EAGER_FALLBACK_TESTS_LIST)
+            with open(eager_fallback_path, "r") as f:
+                pytest.eager_fallback_tests = json.load(f)
+        except FileNotFoundError:
+            import warnings
 
+            warnings.warn(
+                f"Unable to find EAGER_FALLBACK_TESTS_LIST under {eager_fallback_path}\nRunning tests without eager fallback lists might result in test suite failure.",
+                UserWarning,
+            )
     # import torch after flag is set
     import habana_frameworks.torch  # noqa
 
@@ -117,3 +158,18 @@ def pytest_collection_modifyitems(config, items):
         skip_marker = pytest.mark.skip("Test present in skip_tests_list.txt")
         if item.nodeid in skip_items:
             item.add_marker(skip_marker)
+
+
+def get_testname(item: Union[pytest.Function, str]) -> str:
+    if isinstance(item, str):
+        testname = item
+    else:
+        testname = item.name
+    try:
+        if "::" in testname:
+            testname = testname.split("::")[1]
+    except Exception as e:
+        import warnings
+
+        warnings.warn(f"unable to parse testname: {testname}")
+    return str(testname)
