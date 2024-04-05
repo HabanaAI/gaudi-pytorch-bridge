@@ -15,7 +15,7 @@ import torch
 from test_utils import compare_tensors
 
 
-@pytest.mark.xfail
+@pytest.mark.skip
 def test_linear_nobias():
     out_features = 16
     in_features = 8

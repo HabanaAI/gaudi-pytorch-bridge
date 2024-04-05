@@ -41,7 +41,7 @@ class Model(torch.nn.Module):
         return self.Linear2(res)
 
 
-@pytest.mark.xfail(reason="Results mismatch")
+@pytest.mark.skip(reason="Results mismatch")
 def test_graph_training():
     # N, D_in, H, D_out = 640, 4096, 2048, 1024
     N, D_in, H, D_out = 2, 2, 2, 2

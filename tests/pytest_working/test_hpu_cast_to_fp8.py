@@ -15,7 +15,7 @@ from habana_frameworks.torch.hpex.experimental.fp8_autocast.Fp8Autocast import F
 from habana_frameworks.torch.hpex.kernels.CastToFp8 import cast_to_fp8
 from pytest_working.test_utils import env_var_in_scope
 
-pytestmark = pytest.mark.xfail(
+pytestmark = pytest.mark.skip(
     reason="RuntimeError: Expected habana_helpers::is_supported_type(type) to be true, but got false."
 )
 

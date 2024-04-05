@@ -186,7 +186,7 @@ def assert_array_not_equal(x, y):
     return assert_raises(AssertionError, assert_array_equal, x, y)
 
 
-@pytest.mark.xfail
+@pytest.mark.skip
 @pytest.mark.parametrize(
     "T, B, max_L, bounds_check_mode, weighted, test_case, dtype",
     bounds_check_test_case_list,

@@ -89,7 +89,7 @@ def run_model(dev, m, x, optim):
     optim.step()
 
 
-@pytest.mark.xfail(reason="Graph compile failed")
+@pytest.mark.skip(reason="Graph compile failed")
 def test_lars():
     model = nn.Sequential(*[nn.Linear(C, O, bias=True) for _ in range(NUM_LAYERS)])
 

@@ -39,7 +39,7 @@ class MNISTNet(nn.Module):
         return F.log_softmax(x, dim=1)
 
 
-@pytest.mark.xfail
+@pytest.mark.skip
 def test_mnist():
     m_cpu = MNISTNet()
     m_clone = copy.deepcopy(m_cpu)

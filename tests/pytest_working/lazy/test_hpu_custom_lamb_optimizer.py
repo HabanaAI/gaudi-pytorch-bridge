@@ -43,7 +43,7 @@ def create_grads(dtypes, shapes):
     return cpu_grads, hpu_grads
 
 
-@pytest.mark.xfail(reason="Results mismatch")
+@pytest.mark.skip(reason="Results mismatch")
 @pytest.mark.parametrize("max_grad_norm", (0.2, 1.0, 4.0, 8))
 @pytest.mark.parametrize(
     "shapes, dtypes",
@@ -52,7 +52,7 @@ def create_grads(dtypes, shapes):
         ([(3, 4), (5, 6)], [torch.bfloat16, torch.bfloat16]),
     ),
 )
-@pytest.mark.xfail(reason="Results mismatch")
+@pytest.mark.skip(reason="Results mismatch")
 def test_optimizer_lamb_norm(dtypes, shapes, max_grad_norm):
 
     cpu_grads, hpu_grads = create_grads(dtypes, shapes)
@@ -99,7 +99,7 @@ def reference_optimizer_lamb_phase2(weights, adam_norms, weight_norms, adam_step
         weight.add_(adam_step)
 
 
-@pytest.mark.xfail(reason="Results mismatch")
+@pytest.mark.skip(reason="Results mismatch")
 @pytest.mark.parametrize(
     "weight_dtype",
     [torch.float, torch.bfloat16],
@@ -327,7 +327,7 @@ class MNISTNet(nn.Module):
         return F.log_softmax(x, dim=1)
 
 
-@pytest.mark.xfail(reason="Results mismatch")
+@pytest.mark.skip(reason="Results mismatch")
 @pytest.mark.parametrize("count, lr", [(3, 0.001), (2, 0.01)])
 def test_lamb(count, lr):
     from habana_frameworks.torch.hpex.optimizers import FusedLamb

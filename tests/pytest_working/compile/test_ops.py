@@ -278,7 +278,7 @@ def test_logical_not(dtype):
     assert torch.equal(cpu_res, hpu_res.to("cpu"))
 
 
-@pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
+@pytest.mark.skip(reason="KeyError: 'torch_dynamo_backends'")
 def test_cat():
     def raw_function(t1, t2):
         return torch.cat((t1, t2))

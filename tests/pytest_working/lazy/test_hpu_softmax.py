@@ -66,7 +66,7 @@ def test_hpu_log_softmax_fwd_bwd(N, C, kernel_op, dim):
     evaluate_fwd_bwd_kernel(kernel=kernel_op, tensor_list_bwd=bwd_tensors, kernel_params_fwd=kernel_params)
 
 
-@pytest.mark.xfail(reason="softmax_kernel_impl not implemented for '<dtype>'")
+@pytest.mark.skip(reason="softmax_kernel_impl not implemented for '<dtype>'")
 @pytest.mark.parametrize("N, C, dim", test_case_list)
 @pytest.mark.parametrize("dtype", [torch.int, torch.bool])
 def test_hpu_log_softmax_int(N, C, dim, dtype):

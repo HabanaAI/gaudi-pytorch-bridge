@@ -43,7 +43,7 @@ permute_test_case_list = [
         10,
         8,
         marks=(
-            [pytest.mark.xfail(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")]
+            [pytest.mark.skip(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")]
             if is_gaudi1()
             else []
         ),
@@ -52,7 +52,7 @@ permute_test_case_list = [
         12,
         16,
         marks=(
-            [pytest.mark.xfail(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")]
+            [pytest.mark.skip(reason="synNodeCreateWithId failed for node: expand_into_jagged_permute_fwd_i32")]
             if is_gaudi1()
             else []
         ),

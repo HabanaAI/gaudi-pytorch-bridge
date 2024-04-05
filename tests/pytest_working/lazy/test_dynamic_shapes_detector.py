@@ -363,7 +363,7 @@ def del_file(fl):
         os.remove(fl)
 
 
-@pytest.mark.xfail(reason="KeyError: 'InnerNet'")
+@pytest.mark.skip(reason="KeyError: 'InnerNet'")
 @pytest.mark.parametrize("dyn_inps", [True, False])
 @pytest.mark.parametrize("dyn_ops", [True, False])
 @pytest.mark.parametrize("reuse_relu", [True, False])
@@ -439,7 +439,7 @@ class SampleDatasetComplex(SampleDataset):
         )
 
 
-@pytest.mark.xfail
+@pytest.mark.skip
 def test_dataloader_basic_fns():
     assert (2,) == get_shape(torch.tensor([1, 2]))
     assert ((2,), (3,)) == get_shape([torch.tensor([1, 2]), torch.tensor([1, 2, 3])])

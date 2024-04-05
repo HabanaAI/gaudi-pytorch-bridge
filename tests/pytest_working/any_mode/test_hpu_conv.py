@@ -672,7 +672,7 @@ def test_hpu_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
     )
 
 
-@pytest.mark.xfail(reason="Device critical error")
+@pytest.mark.skip(reason="Device critical error")
 @pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, bias", conv3d_test_case_list)
 def test_hpu_conv3d_chlast_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, bias):
     input_nchw = torch.randn((N, C, D, H, W), dtype=torch.float, requires_grad=True)

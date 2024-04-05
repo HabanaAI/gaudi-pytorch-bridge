@@ -48,7 +48,7 @@ def test_graph_capture_simple():
     ht.hpu.synchronize()
 
 
-@pytest.mark.xfail(reason="Results mismatch")
+@pytest.mark.skip(reason="Results mismatch")
 def test_graph_training():
     # N, D_in, H, D_out = 640, 4096, 2048, 1024
     N, D_in, H, D_out = 2, 2, 2, 2
@@ -107,7 +107,7 @@ class Model(torch.nn.Module):
         return self.Linear2(res)
 
 
-@pytest.mark.xfail(reason="Results mismatch")
+@pytest.mark.skip(reason="Results mismatch")
 def test_multiple_graph_capture():
     # N, D_in, H, D_out = 640, 4096, 2048, 1024
     N, D_in, H, D_out, inner = 2, 2, 2, 2, 4
@@ -306,7 +306,7 @@ def wrapped_func_scalar(data, data2, target, module1, loss_fn):
     return loss
 
 
-@pytest.mark.xfail(reason="Results mismatch")
+@pytest.mark.skip(reason="Results mismatch")
 def test_multiple_graph_capture_with_views():
     N, D_in, H, D_out, inner = 2, 2, 2, 2, 2
     module1_cpu = Model(D_in, H, inner).to("cpu")

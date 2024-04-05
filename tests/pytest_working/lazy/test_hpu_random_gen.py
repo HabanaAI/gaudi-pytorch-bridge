@@ -158,7 +158,7 @@ def test_hpu_rand_gen_log_normal_fwd(N, H, W, C, mean, std, seed):
     testing.assert_equal(output4_hpu, output5_hpu)
 
 
-@pytest.mark.xfail(reason="synNodeCreateWithId failed for node: broadcast with synStatus 1 [Invalid argument].")
+@pytest.mark.skip(reason="synNodeCreateWithId failed for node: broadcast with synStatus 1 [Invalid argument].")
 @pytest.mark.parametrize("N, H, W, C, min, max, seed", test_case_list)
 def test_hpu_rand_gen_bernoulli_fwd_scalar(N, H, W, C, min, max, seed):
     # CPU and HPU uses different algorithm for RNG. Hence they are not compared

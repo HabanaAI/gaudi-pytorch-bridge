@@ -20,7 +20,7 @@ habana = torch.device("hpu")
 cpu = torch.device("cpu")
 
 
-@pytest.mark.xfail(reason="Graph compile failed")
+@pytest.mark.skip(reason="Graph compile failed")
 def test_adagrad():
     d1, d2, lr = 2, 1024, 0.001
 

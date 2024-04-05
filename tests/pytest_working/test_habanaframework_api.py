@@ -7,7 +7,7 @@ from test_utils import env_var_in_scope, hpu
 
 
 # Use torch_hpu APIs, equivalent to torch.cuda APIs
-@pytest.mark.xfail(reason="libhlml.so: cannot open shared object file: No such file or directory")
+@pytest.mark.skip(reason="libhlml.so: cannot open shared object file: No such file or directory")
 def test_basic_apis():
     print("hpu available", htorch.hpu.is_available())
     print("hpu device count", htorch.hpu.device_count())

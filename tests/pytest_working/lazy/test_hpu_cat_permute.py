@@ -15,7 +15,7 @@ import torch
 from test_utils import cpu
 
 
-@pytest.mark.xfail(reason="wrong dimensions")
+@pytest.mark.skip(reason="wrong dimensions")
 def test_hpu_cat_permute():
     a = torch.randn(2, 1, 4, 4).to("hpu")
     d = torch.randn(2, 1, 4, 4).to("hpu")

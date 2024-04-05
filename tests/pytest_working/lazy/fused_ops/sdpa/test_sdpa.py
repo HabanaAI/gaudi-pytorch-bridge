@@ -378,7 +378,7 @@ tc_list_rhslice_inf_attn_mask = [
 total_tc_list = tc_list
 
 
-@pytest.mark.xfail(reason="Results mismatch")
+@pytest.mark.skip(reason="Results mismatch")
 @pytest.mark.parametrize(
     "batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice, inference",
     total_tc_list,

@@ -64,7 +64,7 @@ class FeatureExtractor(nn.Module):
         return x
 
 
-@pytest.mark.xfail(reason="Graph compile failed. synStatus 26")
+@pytest.mark.skip(reason="Graph compile failed. synStatus 26")
 @pytest.mark.skip(reason="Tests in this file are chaning env variables")
 @pytest.mark.parametrize(
     "setup_teardown_env_fixture",

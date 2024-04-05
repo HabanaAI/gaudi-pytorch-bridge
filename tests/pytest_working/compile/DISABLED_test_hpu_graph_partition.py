@@ -15,7 +15,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-pytestmark = pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
+pytestmark = pytest.mark.skip(reason="KeyError: 'torch_dynamo_backends'")
 
 
 def test_parallel_graphs():

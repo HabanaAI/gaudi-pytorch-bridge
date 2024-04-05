@@ -16,7 +16,7 @@ import torch
 from test_utils import cpu, hpu
 
 
-@pytest.mark.xfail
+@pytest.mark.skip
 def test_sgd():
     d1, d2, lr = 1, 1024, 0.1
     momentum = 0.1

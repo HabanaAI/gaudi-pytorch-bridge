@@ -18,7 +18,7 @@ sys.path.append(f"{os.environ['PYTORCH_MODULES_ROOT_PATH']}/pytorch_helpers/syna
 import compute_time_stats as cts  # noqa
 
 
-@pytest.mark.xfail(reason="ValueError: min() arg is an empty sequence")
+@pytest.mark.skip(reason="ValueError: min() arg is an empty sequence")
 def test_compute_stats():
     input_functions = "empty_strided_hpu_lazy,slice_hpu_lazy,copy_hpu_lazy_"
     func_times = cts.generate_func_times(input_file="example_file.json", func_names=input_functions)

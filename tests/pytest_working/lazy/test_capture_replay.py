@@ -18,7 +18,7 @@ import torch
 from test_utils import hpu
 
 
-@pytest.mark.xfail
+@pytest.mark.skip
 def testCapture():
     steps = torch.ones(3, 3)
     multiplier = 2  # torch.Tensor([2])

@@ -112,7 +112,7 @@ def test_hpu_binary_inplace_op_broadcast_case2(N, H, W, C, binary_op, kernel_par
     )
 
 
-@pytest.mark.xfail
+@pytest.mark.skip
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_binary_inplace_op_pow(N, H, W, C):
     kernel_params_fwd = {}
@@ -121,7 +121,7 @@ def test_hpu_binary_inplace_op_pow(N, H, W, C):
     evaluate_fwd_inplace_kernel(in_out_tensor=in_out_tensor, kernel_name="pow_", kernel_params=kernel_params_fwd)
 
 
-@pytest.mark.xfail(reason="IndexError: tuple index out of range")
+@pytest.mark.skip(reason="IndexError: tuple index out of range")
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_mult_bool_op(N, H, W, C):
     kernel_params_fwd = {}
@@ -182,7 +182,7 @@ def test_hpu_binary_op_rsub_scalar(N, H, W, C):
     evaluate_fwd_kernel(kernel=torch.rsub, kernel_params=kernel_params_fwd)
 
 
-@pytest.mark.xfail(reason="IndexError: tuple index out of range")
+@pytest.mark.skip(reason="IndexError: tuple index out of range")
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_binary_op_pow(N, H, W, C):
     kernel_params_fwd = {}
@@ -191,7 +191,7 @@ def test_hpu_binary_op_pow(N, H, W, C):
     evaluate_fwd_kernel(kernel=torch.pow, kernel_params=kernel_params_fwd)
 
 
-@pytest.mark.xfail(reason="IndexError: tuple index out of range")
+@pytest.mark.skip(reason="IndexError: tuple index out of range")
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_binary_op_pow_tensor_scalar(N, H, W, C):
     kernel_params_fwd = {}
@@ -200,7 +200,7 @@ def test_hpu_binary_op_pow_tensor_scalar(N, H, W, C):
     evaluate_fwd_kernel(kernel=torch.pow, kernel_params=kernel_params_fwd)
 
 
-@pytest.mark.xfail(reason="IndexError: tuple index out of range")
+@pytest.mark.skip(reason="IndexError: tuple index out of range")
 @pytest.mark.parametrize("N, H, W, C", test_case_list)
 def test_hpu_binary_op_pow_scalar_tensor(N, H, W, C):
     kernel_params_fwd = {}

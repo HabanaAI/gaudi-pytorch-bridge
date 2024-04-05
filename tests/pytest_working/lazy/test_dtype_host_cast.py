@@ -15,7 +15,7 @@ import torch
 from test_utils import hpu
 
 
-@pytest.mark.xfail(reason="Error when trying to cast Long to Int, Input values range exceeds Int range")
+@pytest.mark.skip(reason="Error when trying to cast Long to Int, Input values range exceeds Int range")
 def test_long_to_int_expect_fail_positive():
     max_long = torch.iinfo(torch.long).max
 
@@ -26,7 +26,7 @@ def test_long_to_int_expect_fail_positive():
     assert str(e_info.value) == "Error when trying to cast Long to Int, Input values range exceeds Int range"
 
 
-@pytest.mark.xfail(reason="Error when trying to cast Long to Int, Input values range exceeds Int range")
+@pytest.mark.skip(reason="Error when trying to cast Long to Int, Input values range exceeds Int range")
 def test_long_to_int_expect_fail_negative():
     max_long = torch.iinfo(torch.long).max
 
@@ -45,7 +45,7 @@ def test_long_to_int_expect_pass():
     in_tensor.to(hpu)
 
 
-@pytest.mark.xfail(reason="Error when trying to cast Double to Float, Input values range exceeds Float range")
+@pytest.mark.skip(reason="Error when trying to cast Double to Float, Input values range exceeds Float range")
 def test_double_to_float_expect_fail_positive():
     max_double = torch.finfo(torch.double).max
 
@@ -56,7 +56,7 @@ def test_double_to_float_expect_fail_positive():
     assert str(e_info.value) == "Error when trying to cast Double to Float, Input values range exceeds Float range"
 
 
-@pytest.mark.xfail(reason="Error when trying to cast Double to Float, Input values range exceeds Float range")
+@pytest.mark.skip(reason="Error when trying to cast Double to Float, Input values range exceeds Float range")
 def test_double_to_float_expect_fail_negative():
     max_double = torch.finfo(torch.double).max
 

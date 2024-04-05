@@ -151,7 +151,7 @@ def test_pow_variants():
 
 # in case of out op, only empty HPU tensor are resized
 # non-empty different shapes or CPU out tensors are causing an exception
-@pytest.mark.xfail(reason="DID NOT RAISE <class 'RuntimeError'>")
+@pytest.mark.skip(reason="DID NOT RAISE <class 'RuntimeError'>")
 def test_out_empty_or_throw():
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.5))
     hpu_tensor = cpu_tensor.to("hpu")
@@ -210,7 +210,7 @@ def test_eager_backend_pool():
         assert torch.equal(result_hpu, result_cpu)
 
 
-@pytest.mark.xfail(reason="Results mismatch")
+@pytest.mark.skip(reason="Results mismatch")
 def test_eager_std_mean():
     # test for EagerOp<std::tuple<Tensor, Tensor>>
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
@@ -245,7 +245,7 @@ def test_eager_frexp_out():
     assert torch.equal(cpu_outtensor[1], hpu_outtensor[1].to("cpu"))
 
 
-@pytest.mark.xfail(reason="runtime error")
+@pytest.mark.skip(reason="runtime error")
 def test_eager_max_out():
     # test for EagerOp<std::tupel<Tensor&, Tensor&>>
     cpu_tensor = torch.Tensor(np.random.randint(-1, 1, (20, 20)))

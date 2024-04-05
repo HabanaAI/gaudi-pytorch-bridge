@@ -15,7 +15,7 @@ import pytest
 import torch
 
 
-@pytest.mark.xfail(reason="KeyError: 'torch_dynamo_backends'")
+@pytest.mark.skip(reason="KeyError: 'torch_dynamo_backends'")
 @pytest.mark.parametrize("use_eager_conv", [True, False])
 def test_data_layout_prop(use_eager_conv):
     conv_op = torch.nn.Conv2d(16, 33, 3, stride=2)

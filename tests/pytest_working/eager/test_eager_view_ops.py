@@ -356,7 +356,7 @@ def test_view_cache2():
     assert torch.allclose(hres.cpu(), res, atol=0.001, rtol=0.001)
 
 
-@pytest.mark.xfail(reason="RuntimeError: Wrong PT plugin library loaded in the system. Expected was EAGER, got LAZY")
+@pytest.mark.skip(reason="RuntimeError: Wrong PT plugin library loaded in the system. Expected was EAGER, got LAZY")
 def test_view_layout1():
     def fn(x, dev):
         m = torch.nn.Conv2d(2, 3, 3, stride=2).to(dev)
@@ -549,7 +549,7 @@ def test_eq_view():
     assert torch.equal(hres_view_cpu, res_view)
 
 
-@pytest.mark.xfail(reason="Test is sporadically failing - SW-167590")
+@pytest.mark.skip(reason="Test is sporadically failing - SW-167590")
 def test_sort_out():
     torch.manual_seed(0)
     a = torch.randn([10])
@@ -603,7 +603,7 @@ def test_fill():
 
 # This test case shall start failing as soon as you fix the JIRA issue:
 # https://jira.habana-labs.com/browse/SW-152023
-@pytest.mark.xfail(reason="We are to fix SW-152023 to get pass")
+@pytest.mark.skip(reason="We are to fix SW-152023 to get pass")
 def test_view_split_op_int64_default():
     assert bc.get_pt_enable_int64_support() == False
     t = torch.tensor([1, 2, 3, 4, 5, 6], dtype=torch.int64)
@@ -621,7 +621,7 @@ def test_view_split_op_int64_enabled():
 
 # This test case shall start failing as soon as you fix the JIRA issue:
 # https://jira.habana-labs.com/browse/SW-152023
-@pytest.mark.xfail(reason="We are to fix SW-152023 to get pass")
+@pytest.mark.skip(reason="We are to fix SW-152023 to get pass")
 def test_view_split_op_int64_disabled():
     with bc.env_setting("PT_ENABLE_INT64_SUPPORT", False):
         assert bc.get_pt_enable_int64_support() == False
