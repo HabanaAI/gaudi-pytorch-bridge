@@ -651,7 +651,14 @@ PT_ENABLE_INT64_SUPPORT:
   type: bool
   default: false
   settable: true
-  doc: "Enable int64 support"
+  doc: "Enable native support for tensors with INT64 datatype:
+
+- false - INT64 tensors are casted to INT32 on the device and all computations will be done in lower precision\n
+- true - INT64 tensors are **not** casted to INT32 and computations will be done in higher precision\n
+
+This flag is supported only for non-lazy mode, meaning `PT_HPU_LAZY_MODE=0` and Gaudi2 or newer.\n
+This flag is set to `false` by default as the default mode is lazy, meaning `PT_HPU_LAZY_MODE=1`\n
+For the `PT_HPU_LAZY_MODE=0` the default value is `true`"
 
 PT_DISABLE_DTYPE_PROMOTION:
   type: bool
