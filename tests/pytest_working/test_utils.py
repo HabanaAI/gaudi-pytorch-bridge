@@ -503,6 +503,10 @@ def check_ops_executed_in_jit_ir(op_names, allowed_fallback_ops={}, verbose=Fals
 
     all_ops = fallback_ops.union(non_fallback_ops)
 
+    # due to special treatment of "_to_copy" in passes
+    if "_to_copy" in op_names:
+        all_ops.add("_to_copy")
+
     nodes_in_graphs = set()
     pattern = r"::(\w+)\("
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -119,15 +119,15 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
 
   // cast
   // fr/to f32 bf16 i8 i16 i32 i64 u8 f8 hf8 f16
-  // f32     *    X  X   X   X   -  X  X   -   X
-  // bf16    X    *  X   X   X   -  X  X   -   X
+  // f32     *    X  X   X   X   -  X  X   X   X
+  // bf16    X    *  X   X   X   -  X  X   X   X
   // i8      X    X  *   X   X   -  X  -   -   X
   // i16     X    X  -   *   X   -  -  -   -   X
   // i32     X    X  X   X   *   X  X  -   -   X
   // i64     -    -  -   -   X   *  -  -   -   -
   // u8      X    X  X   -   X   -  *  -   -   X
   // f8      X    X  -   -   -   -  -  *   -   -
-  // hf8     -    -  -   -   -   -  -  -   *   -
+  // hf8     X    X  -   -   -   -  -  -   *   -
   // f16     X    X  X   X   X   -  X  -   -   *
 
   // clang-format off
@@ -141,17 +141,17 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   using LineT = EnumMappingTable<CastType, CastStage>;
   static const EnumMappingTable<CastType, LineT> cast_stage_matrix_gaudi3 = {
       // clang-format off
-      //              to:    f32  bf16    i8   i16  i32  i64    u8    f8  hf8   f16
-      /* from  f32 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK,   OK,  OK,   OK },
-      /* from bf16 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK,   OK,  OK,   OK },
-      /* from   i8 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK, BF16,  OK,   OK },
-      /* from  i16 */ LineT{  OK,   OK,  I32,   OK,  OK, I32,  I32, BF16,  OK,   OK },
-      /* from  i32 */ LineT{  OK,   OK,   OK,   OK,  OK,  OK,   OK,  F32,  OK,   OK },
-      /* from  i64 */ LineT{ I32,  I32,  I32,  I32,  OK,  OK,  I32,  I32,  OK,  I32 },
-      /* from   u8 */ LineT{  OK,   OK,   OK,  I32,  OK, I32,   OK, BF16,  OK,   OK },
-      /* from   f8 */ LineT{  OK,   OK, BF16, BF16, F32, F32, BF16,   OK,  OK, BF16 },
-      /* from  hf8 */ LineT{  OK,   OK,   OK,   OK,  OK,  OK,   OK,   OK,  OK,   OK },
-      /* from  f16 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK, BF16,  OK,   OK },
+      //              to:    f32  bf16    i8   i16  i32  i64    u8    f8   hf8   f16
+      /* from  f32 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK,   OK,   OK,   OK },
+      /* from bf16 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK,   OK,   OK,   OK },
+      /* from   i8 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK, BF16, BF16,   OK },
+      /* from  i16 */ LineT{  OK,   OK,  I32,   OK,  OK, I32,  I32, BF16, BF16,   OK },
+      /* from  i32 */ LineT{  OK,   OK,   OK,   OK,  OK,  OK,   OK,  F32,  F32,   OK },
+      /* from  i64 */ LineT{ I32,  I32,  I32,  I32,  OK,  OK,  I32,  I32,  I32,  I32 },
+      /* from   u8 */ LineT{  OK,   OK,   OK,  I32,  OK, I32,   OK, BF16, BF16,   OK },
+      /* from   f8 */ LineT{  OK,   OK, BF16, BF16, F32, F32, BF16,   OK, BF16, BF16 },
+      /* from  hf8 */ LineT{  OK,   OK, BF16, BF16, F32, F32, BF16, BF16,   OK, BF16 },
+      /* from  f16 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK, BF16, BF16,   OK },
       // clang-format on
   };
 
