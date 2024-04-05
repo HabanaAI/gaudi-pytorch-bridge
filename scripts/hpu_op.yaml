@@ -1346,8 +1346,9 @@ _adaptive_avg_pool2d_backward:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
+  guid: complex_adaptive_avg_pool_2d_bwd
   op_backend: AdaptiveAvgPool2dBwd
-  out_ids: [0]
+  out_ids: [1]
 
 avg_pool2d:
   custom_fill_params: Fillavgpool2dParamsFwd

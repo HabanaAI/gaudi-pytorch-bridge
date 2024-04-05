@@ -17,7 +17,7 @@ import pytest
 import torch
 import torch.nn as nn
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-from test_utils import is_gaudi1
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, is_gaudi1, is_pytest_mode_compile
 
 
 def test_slice_op():
@@ -561,6 +561,38 @@ def test_op_adaptiveAvgPool2d():
         t_h = t.to("hpu")
         h_result = compiled_fn(t_h)
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
+def test_op_adaptiveAvgPool2d_bwd():
+    input_shapes = [
+        (16, 2048, 7, 7),
+        (26, 2048, 7, 8),
+        (27, 2048, 7, 8),
+    ]
+    dtype = torch.float
+
+    def raw_function(input):
+        avg_pool = torch.ops.aten.adaptive_avg_pool2d(input, (7, 7))
+        grad = torch.ones_like(avg_pool)
+        avg_pool.backward(grad)
+        return input.grad
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+    for s in input_shapes:
+        if is_pytest_mode_compile():
+            clear_t_compile_logs()
+            torch._dynamo.reset()
+
+        t = torch.rand(s, dtype=dtype)
+        t_h = t.to("hpu")
+        t.requires_grad = True
+        t_h.requires_grad = True
+        result = raw_function(t)
+        h_result = compiled_fn(t_h)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+        if is_pytest_mode_compile():
+            check_ops_executed_in_jit_ir("_adaptive_avg_pool2d_backward")
 
 
 def test_view_negative_dim():

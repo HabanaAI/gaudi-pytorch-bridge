@@ -94,21 +94,19 @@ void AdaptiveAvgPool2dBwd::AddNode(
   const auto& params = FillAdaptiveAvgPool2dParamsBwd(stack, size);
   auto meta = AdaptiveAvgPool2dBwdMeta(stack)[0];
 
-  if (stack_tensor(stack, 0).dim() == 4) {
+  if (stack_tensor(stack, 0).dim() == 4)
     SetSynapseLayouts(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-  }
+  else
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHN});
 
-  std::vector<synTensor> grad = {syn_in(0)};
-  CreateShapeTensorInput(graph, meta.dtype, meta.shape, grad);
   auto adaptive_avg_pool = BuildOp(
-      graph,
-      get_guid_with_precision("adaptive_avg_pool_2d_bwd", meta.dtype),
-      std::move(grad),
-      {{meta.shape, meta.dtype, 0}},
-      params.get(),
-      size);
+      graph, GetGuid(), {syn_in(0), syn_in(1)}, {{meta.shape, meta.dtype, 0}});
 
   syn_out(0) = std::move(adaptive_avg_pool[0]);
 }
