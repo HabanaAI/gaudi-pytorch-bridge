@@ -9,7 +9,6 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
 #include "habana_lazy_test_infra.h"
-#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 using namespace at;
@@ -196,9 +195,6 @@ TEST_F(LazyTensorShapeKernelTest, PermuteInplaceTest) {
 }
 
 TEST_F(LazyTensorShapeKernelTest, Permute6DTest) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::Tensor A =
       torch::randn({2, 3, 4, 3, 2, 6}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
@@ -225,9 +221,6 @@ TEST_F(LazyTensorShapeKernelTest, PermuteTest7D) {
 }
 
 TEST_F(LazyTensorShapeKernelTest, PermuteTest8D) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::Tensor A =
       torch::randn({3, 2, 2, 2, 2, 3, 1, 2}, torch::requires_grad(false));
   torch::Tensor hA = A.to(torch::kHPU);
