@@ -1,4 +1,10 @@
 common:
+  testRepos:
+    - repository: automation
+    - repository: pytorch-integration
+    - repository: habanalabs
+    - repository: nic_kmd
+    - repository: pytorch-training-tests
   dependencies:
     - CODEC
     - HCL

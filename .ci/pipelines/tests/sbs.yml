@@ -1,4 +1,14 @@
 common:
+  testRepos:
+    - repository: automation
+    - repository: pytorch-integration
+    - repository: habanalabs
+    - repository: nic_kmd
+    - repository: pytorch-training-tests
+    - repository: event_tests_plugin
+    - repository: model_garden
+    - repository: optimum-habana-fork
+      githubOrg: HabanaAI
   dependencies:
     - COMPLEX_GUID
     - HCL
