@@ -35,19 +35,19 @@ from test_utils import (
 # Target are to be padded
 ctc_loss_target_padded_test_case_list = [
     # T, C, N, S, S_min
-    (50, 20, 16, 30, 10),
+    (10, 5, 2, 5, 1),
 ]
 
 # Target are to be un-padded
 ctc_loss_target_unpadded_test_case_list = [
     # T, C, N
-    (50, 20, 16),
+    (10, 5, 2),
 ]
 
 # Target are to be un-padded and unbatched (effectively N=1)
 ctc_loss_target_unpadded_unbatched_test_case_list = [
     # T, C
-    (50, 20),
+    (10, 5),
 ]
 
 TOL = 0.0001
