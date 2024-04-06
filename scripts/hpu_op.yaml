@@ -145,45 +145,29 @@ _foreach_add.List:
   output_meta: ForeachBinaryMeta
   out_ids: [0]
 
-_foreach_add.Tensor:
-  # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
-  guid: add_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
 _foreach_add_.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi: [BFloat16, Float, Short, Int, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Long, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Long, Half]
   guid: add_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
 
 _foreach_add_.ScalarList:
   dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi: [BFloat16, Float, Short, Int, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Long, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Long, Half]
   guid: add_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
 
 _foreach_add_.List:
   dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: add_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
-_foreach_add_.Tensor:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi: [BFloat16, Float, Short, Int, Long]
+    Gaudi2: [BFloat16, Float, Short, Int, Long, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Long, Half]
   guid: add_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
@@ -240,120 +224,6 @@ _foreach_ceil_:
   inplace_ids: [0]
   op_backend: Foreach
 
-_foreach_clamp_max.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_max
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-
-_foreach_clamp_max.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_max
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-
-_foreach_clamp_max.List:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_max
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-
-_foreach_clamp_max_.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_max
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-
-_foreach_clamp_max_.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_max
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-
-_foreach_clamp_max_.List:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_max
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-
-_foreach_clamp_min.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_min
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-
-_foreach_clamp_min.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_min
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-
-_foreach_clamp_min.List:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_min
-  output_meta: ForeachBinaryMeta
-  op_backend: ForeachClamp
-  out_ids: [0]
-
-_foreach_clamp_min_.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_min
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-
-_foreach_clamp_min_.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_min
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-
-_foreach_clamp_min_.List:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_min
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-
 _foreach_cos:
   guid: cos_fwd
   op_backend: Foreach
@@ -378,82 +248,6 @@ _foreach_cosh_:
   guid: cosh_fwd
   inplace_ids: [0]
   op_backend: Foreach
-
-_foreach_div.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: div_fwd
-  op_backend: ForeachBinary
-  output_meta: DivForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_div.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: div_fwd
-  op_backend: ForeachBinary
-  output_meta: DivForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_div.Tensor:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: div_fwd
-  op_backend: ForeachBinary
-  output_meta: DivForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_div.List:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: div_fwd
-  op_backend: ForeachBinary
-  output_meta: DivForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_div_.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: div_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
-_foreach_div_.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: div_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
-_foreach_div_.Tensor:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: div_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
-_foreach_div_.List:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: div_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
 
 _foreach_erf:
   dtypes: [BFloat16, Float]
@@ -579,125 +373,11 @@ _foreach_log2_:
   inplace_ids: [0]
   op_backend: Foreach
 
-_foreach_maximum.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: max_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_maximum.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: max_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_maximum.List:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: max_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_maximum_.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: max_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
-_foreach_maximum_.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: max_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
-_foreach_maximum_.List:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: max_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
-_foreach_minimum.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: min_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_minimum.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: min_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_minimum.List:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: min_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_minimum_.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: min_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
-_foreach_minimum_.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: min_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
-_foreach_minimum_.List:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: min_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
 _foreach_mul.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi: [BFloat16, Float, Short, Int, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Char, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Char, Half]
   guid: mult_fwd
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
@@ -705,19 +385,9 @@ _foreach_mul.Scalar:
 
 _foreach_mul.ScalarList:
   dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: mult_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_mul.Tensor:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi: [BFloat16, Float, Short, Int, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Char, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Char, Half]
   guid: mult_fwd
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
@@ -725,9 +395,9 @@ _foreach_mul.Tensor:
 
 _foreach_mul.List:
   dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi: [BFloat16, Float, Short, Int, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Char, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Char, Half]
   guid: mult_fwd
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
@@ -735,36 +405,27 @@ _foreach_mul.List:
 
 _foreach_mul_.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi: [BFloat16, Float, Short, Int, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Char, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Char, Half]
   guid: mult_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
 
 _foreach_mul_.ScalarList:
   dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: mult_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
-_foreach_mul_.Tensor:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi: [BFloat16, Float, Short, Int, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Char, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Char, Half]
   guid: mult_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
 
 _foreach_mul_.List:
   dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi: [BFloat16, Float, Short, Int, Char]
+    Gaudi2: [BFloat16, Float, Short, Int, Char, Half]
+    Gaudi3: [BFloat16, Float, Short, Int, Char, Half]
   guid: mult_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
@@ -861,63 +522,6 @@ _foreach_sqrt_:
   guid: sqrt_fwd
   inplace_ids: [0]
   op_backend: Foreach
-
-_foreach_sub.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: sub_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_sub.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: sub_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_sub.List:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: sub_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_sub_.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: sub_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
-_foreach_sub_.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: sub_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
-_foreach_sub_.List:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: sub_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
 
 _foreach_tan:
   dtypes: [Float]
