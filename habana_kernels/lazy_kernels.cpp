@@ -7397,7 +7397,13 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
   }
 }
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor>
+std::tuple<
+    at::Tensor,
+    at::Tensor,
+    at::Tensor,
+    at::Tensor,
+    at::Tensor,
+    at::Tensor>
 fp8_sdpa_recomp_fwd_lazy(
     const at::Tensor& q,
     const at::Tensor& k,
@@ -7414,7 +7420,8 @@ fp8_sdpa_recomp_fwd_lazy(
     const c10::optional<at::Tensor>& q_scale_s,
     const c10::optional<at::Tensor>& q_scale_o,
     const c10::optional<at::Tensor>& d_scale_s,
-    const bool is_amax_s) {
+    const bool is_amax_s,
+    const bool is_amax_o) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
@@ -7424,7 +7431,7 @@ fp8_sdpa_recomp_fwd_lazy(
     c10::optional<Generator> gen;
     seed_opt = habana::get_seed_tensor_hpu(gen);
   }
-  LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor>> hpu_op{
+  LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor, Tensor>> hpu_op{
       "hpu::fp8_sdpa_recomp_fwd_be",
       {q,
        k,
@@ -7442,7 +7449,8 @@ fp8_sdpa_recomp_fwd_lazy(
        q_scale_s,
        q_scale_o,
        d_scale_s,
-       is_amax_s},
+       is_amax_s,
+       is_amax_o},
       Fp8SDPARecompFwdOutputShape};
 
   auto fwdOutType = q.scalar_type();
@@ -7455,11 +7463,27 @@ fp8_sdpa_recomp_fwd_lazy(
     }
   }
 
+  auto linvType = c10::ScalarType::Float;
+
+  if ((softmax_mode == "fast") &&
+      (q.scalar_type() == c10::ScalarType::BFloat16)) {
+    linvType = c10::ScalarType::BFloat16;
+  }
+  if (q.scalar_type() == at::ScalarType::Float8_e4m3fn) {
+    linvType = c10::ScalarType::BFloat16;
+  }
+
+  auto mType = q.scalar_type();
+  if (q.scalar_type() == at::ScalarType::Float8_e4m3fn) {
+    mType = c10::ScalarType::BFloat16;
+  }
+
   hpu_op.set_scalar_types(
       {fwdOutType,
-       q.scalar_type(),
-       c10::ScalarType::Float,
+       mType,
+       linvType,
        c10::ScalarType::Int,
+       c10::ScalarType::Float,
        c10::ScalarType::Float});
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_recomp_fwd, hpu_op)

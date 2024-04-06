@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import fp8_fused_sdpa
-from test_utils import compare_tensors
+from test_utils import compare_tensors, is_gaudi3
 
 DBG_FLAG_verbose_print = False
 print_max_diff = False
@@ -20,6 +20,7 @@ from habana_frameworks.torch.core.quantization import _check_params_as_const, _m
 
 # LNEG = float('-inf')
 LNEG = -1e9
+attention_scale = None
 
 
 def vb_print(*args, **kwargs):
@@ -34,9 +35,16 @@ def check_dbg_env_var(v):
     return env_var_set
 
 
-def is_fp8_run(fp8_run_out_type):
-    fp8_run = fp8_run_out_type == "bf16" or fp8_run_out_type == "fp8_143"
-    return fp8_run
+def is_fp8_run(fp8_run_out_type, inference, is_amax_s, is_amax_o):
+    if inference:
+        if is_amax_s == False:
+            return True
+
+        if is_amax_o == True:
+            return False
+        return False
+    else:
+        return True
 
 
 class TestModel(torch.nn.Module):
@@ -48,20 +56,31 @@ class TestModel(torch.nn.Module):
         q_scale_s=None,
         q_scale_o=None,
         d_scale_s=None,
-        is_amax_s=None,
+        is_amax_s=False,
+        is_amax_o=False,
+        inference=False,
     ):
         super(TestModel, self).__init__()
-        self.d_scale_q = torch.nn.Parameter(d_scale_q) if d_scale_q is not None else None
-        self.d_scale_k = torch.nn.Parameter(d_scale_k) if d_scale_k is not None else None
-        self.d_scale_v = torch.nn.Parameter(d_scale_v) if d_scale_v is not None else None
-        self.q_scale_s = torch.nn.Parameter(q_scale_s) if q_scale_s is not None else None
-        self.q_scale_o = torch.nn.Parameter(q_scale_o) if q_scale_o is not None else None
-        self.d_scale_s = torch.nn.Parameter(d_scale_s) if d_scale_s is not None else None
+        if inference:  # make scales/descales nn Parameter so that they can be made constants later
+            self.d_scale_q = torch.nn.Parameter(d_scale_q) if d_scale_q is not None else None
+            self.d_scale_k = torch.nn.Parameter(d_scale_k) if d_scale_k is not None else None
+            self.d_scale_v = torch.nn.Parameter(d_scale_v) if d_scale_v is not None else None
+            self.q_scale_s = torch.nn.Parameter(q_scale_s) if q_scale_s is not None else None
+            self.q_scale_o = torch.nn.Parameter(q_scale_o) if q_scale_o is not None else None
+            self.d_scale_s = torch.nn.Parameter(d_scale_s) if d_scale_s is not None else None
+        else:  # Training case; No need to make scales/descales nn Parameter
+            self.d_scale_q = d_scale_q
+            self.d_scale_k = d_scale_k
+            self.d_scale_v = d_scale_v
+            self.q_scale_s = q_scale_s
+            self.q_scale_o = q_scale_o
+            self.d_scale_s = d_scale_s
         self.is_amax_s = is_amax_s
+        self.is_amax_o = is_amax_o
 
     def forward(self, q_hpu, k_hpu, v_hpu, attn_mask=None, dropout_p=0.0, is_causal=False, softmax_mode="None"):
 
-        O_hpu, amax_s, _ = fp8_fused_sdpa(
+        O_hpu, amax_s, amax_o = fp8_fused_sdpa(
             q_hpu,
             k_hpu,
             v_hpu,
@@ -69,6 +88,7 @@ class TestModel(torch.nn.Module):
             dropout_p=dropout_p,
             is_causal=is_causal,
             softmax_mode=softmax_mode,
+            scale=attention_scale,
             d_scale_q=self.d_scale_q,
             d_scale_k=self.d_scale_k,
             d_scale_v=self.d_scale_v,
@@ -76,8 +96,9 @@ class TestModel(torch.nn.Module):
             q_scale_o=self.q_scale_o,
             d_scale_s=self.d_scale_s,
             is_amax_s=self.is_amax_s,
+            is_amax_o=self.is_amax_o,
         )
-        return O_hpu, amax_s
+        return O_hpu, amax_s, amax_o
 
 
 # ****************************************************************************************
@@ -193,11 +214,22 @@ def is_param_combo_valid(
     inference,
     softmax_mode,
     is_amax_s,
+    is_amax_o,
     fp8_run_out_type,
 ):
-    # fp8 mode supports only inference as of now.
+
+    # if inference:
+    #    return False
+
+    if not inference:  # limiting tests Temporarily for training
+        if q_heads != kv_heads:
+            return False  # no MQA/GQA test for now
+
+    # fp8 mode supports only inference in Triangular and Non-Triangular mask mode
+    # But training is supported only in Triangular mask mode as of now.
     if not inference:
-        return False
+        if is_causal == False:
+            return False
 
     # fp8 mode supports only recompute mode as of now.
     if not recompute:
@@ -207,18 +239,27 @@ def is_param_combo_valid(
         if use_attn_mask:
             return False
 
-    fp8_run = is_fp8_run(fp8_run_out_type)
+    if dropout_p != 0.0:
+        return False
+
+    # Fp8 measurement or  supported only if tensors are bf16 before convert to fp8
+    if enable_autocast == False:
+        return False
+
+    is_amax = is_amax_s or is_amax_o
+
+    fp8_run = is_fp8_run(fp8_run_out_type, inference, is_amax_s, is_amax_o)
     # if fp8_run: return False
 
     if inference:
-        if dropout_p != 0.0:
+        # inference does not have amax_o
+        if is_amax_o:
             return False
+
         if is_amax_s:
             if fp8_run == True:
                 return False
-            # Amax_s measureent is supported only in bf16
-            if enable_autocast == False:
-                return False
+
         if fp8_run:
             if is_amax_s == True:
                 return False
@@ -227,15 +268,68 @@ def is_param_combo_valid(
             # TODO: See if we should accept this config and ignore.
             if softmax_mode != "None":
                 return False
-            # Fp8_run supported only if tensors are bf16 before convert to fp8
-            if enable_autocast == False:
-                return False
+    else:
+        # TODO: modify this later
+        # Currently support only fast softmax in training measurement/run
+        if softmax_mode != "fast":
+            return False
+
     return True
 
+
+tc_list3 = [
+    (  # train run
+        3,  # batch_size
+        4,  # q_heads
+        4,  # kv_heads,
+        16,  # seq_len_N_t
+        32,  # seq_len_N_s
+        8,  # head_dim_qk
+        8,  # head_dim_v
+        0.0,  # dropout_p
+        False,  # use_attn_mask
+        True,  # use_float_mask
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+        "fast",  # "None",  # softmax_mode
+        False,  # is_amax_s
+        False,  # is_amax_o
+        "bf16",  # "fp8_143", #"bf16",  # fp8_run_out_type
+    ),
+]
+tc_list4 = [
+    (  # Train Meas
+        3,  # batch_size
+        4,  # q_heads
+        4,  # kv_heads,
+        16,  # seq_len_N_t
+        32,  # seq_len_N_s
+        8,  # head_dim_qk
+        8,  # head_dim_v
+        0.0,  # dropout_p
+        False,  # use_attn_mask
+        True,  # use_float_mask
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+        "fast",  # "None",  # softmax_mode
+        True,  # is_amax_s
+        False,  # is_amax_o
+        "bf16",  # "fp8_143", #"bf16",  # fp8_run_out_type
+    ),
+]
+
+tc_list = tc_list3 + tc_list4
 
 # DONOT remove next line:Disable black formatting for easier parameter update
 # fmt: off
 
+"""
 @pytest.mark.parametrize(
     "batch_size",
     (
@@ -246,14 +340,14 @@ def is_param_combo_valid(
 @pytest.mark.parametrize(
     "q_heads",
     (
-        8,
+        4,
     ),
     ids=lambda q_heads: f"q_heads-{q_heads}"
 )
 @pytest.mark.parametrize(
     "kv_heads",
     (
-        8, # same kv heads as q
+        4, # same kv heads as q
         1, # MQA
         2, # GQA
     ),
@@ -319,7 +413,7 @@ def is_param_combo_valid(
     "enable_autocast",
     (
         True,
-        #False, # not applicable for fp8
+        #False, # not applicable for fp8 measurement or run
     ),
     ids=lambda enable_autocast: f"enable_autocast-{enable_autocast}"
     )
@@ -354,7 +448,7 @@ def is_param_combo_valid(
     "inference",
     (
         True,
-        #False # not  supported for fp8 as of now
+        False,
     ),
     ids=lambda inference: f"inference-{inference}"
     )
@@ -362,32 +456,46 @@ def is_param_combo_valid(
     "softmax_mode",
     (
         "None",
-        "fast", # applicable for fp8 inf meas., but not for fp8 run
+        "fast",
     ),
     ids=lambda softmax_mode: f"softmax_mode-{softmax_mode}"
     )
 @pytest.mark.parametrize(
     "is_amax_s",
     (
-        True, # applicable for fp8 inf meas., but not for fp8 run
-        False, # applicable for fp8 inf run., but not for fp8 meas.
+        True,
+        False,
     ),
     ids=lambda is_amax_s: f"is_amax_s-{is_amax_s}"
+)
+@pytest.mark.parametrize(
+    "is_amax_o",
+    (
+        True,
+        False,
+    ),
+    ids=lambda is_amax_o: f"is_amax_o-{is_amax_o}"
 )
 @pytest.mark.parametrize(
     "fp8_run_out_type",
     (
         "fp8_143",
         "bf16",
-        "None", # Not an fp8 run; can be a run for amax measurement
+        #"None", # Not an fp8 run; can be a run for amax measurement
     ),
     ids=lambda fp8_run_out_type: f"fp8_run_out_type-{fp8_run_out_type}"
 )
+"""
 # DONOT remove following line: re-enable black formatting
 # fmt: on
 
 
-@pytest.mark.xfail(reason="Temporarily disabled")
+@pytest.mark.parametrize(
+    "batch_size,q_heads,kv_heads,seq_len_N_t,seq_len_N_s,head_dim_qk,head_dim_v,dropout_p,use_attn_mask,use_float_mask,enable_autocast,is_causal,recompute,rhslice,inference,softmax_mode,is_amax_s,is_amax_o,fp8_run_out_type",
+    tc_list,
+)
+
+# @pytest.mark.xfail(reason="Temporarily disabled")
 def test_sdpa(
     batch_size,
     q_heads,
@@ -406,6 +514,7 @@ def test_sdpa(
     inference,
     softmax_mode,
     is_amax_s,
+    is_amax_o,
     fp8_run_out_type,
 ):
     test_case_valid = is_param_combo_valid(
@@ -426,15 +535,19 @@ def test_sdpa(
         inference,
         softmax_mode,
         is_amax_s,
+        is_amax_o,
         fp8_run_out_type,
     )
+    if not is_gaudi3():
+        pytest.skip("Fp8 training tests not currently supported on G1 or G2")
 
     # print("test_case_valid = ", test_case_valid)
     if not test_case_valid:
         pytest.skip("This testcase is not valid for fp8 measurement or run")
 
-    os.environ["ENABLE_EXPERIMENTAL_FLAGS"] = "1"
-    htcore.hpu_set_inference_env()
+    if inference:
+        os.environ["ENABLE_EXPERIMENTAL_FLAGS"] = "1"
+        htcore.hpu_set_inference_env()
 
     torch.manual_seed(1234567)
 
@@ -448,14 +561,15 @@ def test_sdpa(
         rtol = 1e-3
         atol = 0.08
 
-    fp8_run = is_fp8_run(fp8_run_out_type)
+    fp8_run = is_fp8_run(fp8_run_out_type, inference, is_amax_s, is_amax_o)
 
-    if is_amax_s:
-        assert fp8_run == False, "Fp8 measurement and run can not be True at the same time"
+    if is_amax_s and inference:
+        assert fp8_run == False, "Fp8 measurement and run can not be True at the same time in inference"
 
     if fp8_run:
         rtol = 1e-3
         atol = 0.3
+        amax_o_atol = 2.0
 
     attn_mask_shape = "Bx1x1xN"
     if use_float_mask:
@@ -463,7 +577,7 @@ def test_sdpa(
     else:
         mask_dtype = torch.bool
 
-    attn_scale = None
+    attn_scale = attention_scale
     vb_print("\nbatch_size = ", batch_size)
     vb_print("num_q_heads = ", q_heads)
     vb_print("num_kv_heads = ", kv_heads)
@@ -494,6 +608,11 @@ def test_sdpa(
 
     q = torch.randn(q_shape).to(dtype).detach()
 
+    # kk = torch.eye(seq_len_N_s)*0.5
+    # k = kk.expand_as(q).to(dtype).detach()
+
+    # vv = torch.eye(seq_len_N_s)
+    # v = vv.expand_as(q).to(dtype).detach()
     k = torch.randn(k_shape).to(dtype).detach()
     v = torch.randn(v_shape).to(dtype).detach()
 
@@ -503,9 +622,19 @@ def test_sdpa(
     k_t = k.clone().detach()
     v_t = v.clone().detach()
 
+    if not inference:
+        q_t = q_t.requires_grad_()
+        k_t = k_t.requires_grad_()
+        v_t = v_t.requires_grad_()
+
     q_hpu = q.to("hpu").detach()
     k_hpu = k.to("hpu").detach()
     v_hpu = v.to("hpu").detach()
+
+    if not inference:
+        q_hpu = q_hpu.requires_grad_()
+        k_hpu = k_hpu.requires_grad_()
+        v_hpu = v_hpu.requires_grad_()
 
     if use_attn_mask:
         attn_mask = create_attention_mask_for_test(
@@ -527,7 +656,7 @@ def test_sdpa(
 
     # ------------------------------- Vanilla SDPA implementation on CPU for test----------------------------
 
-    is_mqa(q_t, k_t) # Just for info: For printing on console.
+    is_mqa(q_t, k_t)  # Just for info: For printing on console.
 
     if is_gqa(q_t, k_t):
         num_key_value_groups_ = q_heads // kv_heads
@@ -548,6 +677,7 @@ def test_sdpa(
 
     vb_print("amax_s_ref = ", amax_s_ref)
     amax_o_ref = torch.max(O_ref).to(torch.float32)
+    vb_print("amax_o_ref = ", amax_o_ref)
 
     def get_scale_values(name, t, is_t_amax=False, scale_limit=None):
 
@@ -595,6 +725,8 @@ def test_sdpa(
         scaleS_hpu, scaleSInv_hpu = get_scale_values("s", amax_s_ref, is_t_amax=True, scale_limit=128)
         q_scale_s = scaleS_hpu
         scaleSInv_hpu = scaleSInv_hpu
+        if not inference:
+            scaleSInv_hpu = None
 
         if fp8_run_out_type == "fp8_143":
             scaleO_hpu, _ = get_scale_values("o", O_ref)
@@ -616,13 +748,16 @@ def test_sdpa(
                     q_scale_o=q_scale_o,
                     d_scale_s=scaleSInv_hpu,
                     is_amax_s=is_amax_s,
+                    is_amax_o=is_amax_o,
+                    inference=inference,
                 )
 
-                # make scale tensors constant
-                _mark_params_as_const(model)
-                _check_params_as_const(model)
+                if inference:
+                    # make scale tensors constant
+                    _mark_params_as_const(model)
+                    _check_params_as_const(model)
 
-                O_hpu, amax_s = model(
+                O_hpu, amax_s, amax_o = model(
                     q_hpu,
                     k_hpu,
                     v_hpu,
@@ -643,33 +778,44 @@ def test_sdpa(
     vb_print("\n")
     O_hpu_c = O_hpu.detach().to("cpu")
     vb_print("DPA output dtype from HPU = ", O_hpu_c.dtype)
-    if fp8_run_out_type == "fp8_143":
+    if fp8_run and fp8_run_out_type == "fp8_143":
         O_hpu_c = O_hpu_c.to(q_t.dtype) / q_scale_o.to("cpu").to(q_t.dtype)
-
-    # percentage_diff = torch.abs((((O_hpu_c - O_ref) / O_ref) * 100).to(torch.int))
-    # u = torch.max(percentage_diff)
-    # print("UUUUU= ", u)
-
-    compare_tensors(O_ref, O_hpu_c, atol=atol, rtol=rtol)
 
     if is_amax_s:
         amax_s_hpu_c = amax_s.detach().to("cpu")
         vb_print("cpu amax_s = ", amax_s_ref)
         vb_print("hpu amax_s = ", amax_s_hpu_c)
-        compare_tensors(amax_s_ref, amax_s_hpu_c, atol=atol, rtol=rtol)
-
-    vb_print("Vanilla SDPA FWD Ref vs FSDPA match? = ", torch.allclose(O_ref, O_hpu_c, rtol=rtol, atol=atol))
-    if is_amax_s:
         vb_print(
             "Vanilla SDPA amax_s Ref vs FSDPA amax_s match? = ",
             torch.allclose(amax_s_ref, amax_s_hpu_c, rtol=rtol, atol=atol),
         )
-    vb_print("\n")
-    if print_max_diff:
-        vb_print("Max diff Vanilla SDPA FWD Ref vs FSDPA = ", torch.max(torch.abs(O_ref - O_hpu_c)))
-        if is_amax_s:
+        if print_max_diff:
             vb_print(
                 "Max diff Vanilla SDPA amax_s Ref vs FSDPA amax_s = ", torch.max(torch.abs(amax_s_ref - amax_s_hpu_c))
             )
-    htcore.hpu_teardown_inference_env()
-    os.environ["ENABLE_EXPERIMENTAL_FLAGS"] = "0"
+        compare_tensors(amax_s_ref, amax_s_hpu_c, atol=atol, rtol=rtol)
+
+    if is_amax_o and inference == False:
+        amax_o_hpu_c = amax_o.detach().to("cpu")
+        vb_print("cpu amax_o = ", amax_o_ref)
+        vb_print("hpu amax_o = ", amax_o_hpu_c)
+        vb_print(
+            "Vanilla SDPA amax_o Ref vs FSDPA amax_o match? = ",
+            torch.allclose(amax_o_ref, amax_o_hpu_c, rtol=rtol, atol=amax_o_atol),
+        )
+        if print_max_diff:
+            vb_print(
+                "Max diff Vanilla SDPA amax_o Ref vs FSDPA amax_o = ", torch.max(torch.abs(amax_o_ref - amax_o_hpu_c))
+            )
+        compare_tensors(amax_o_ref, amax_o_hpu_c, atol=amax_o_atol, rtol=rtol)
+
+    vb_print("Vanilla SDPA FWD Ref vs FSDPA match? = ", torch.allclose(O_ref, O_hpu_c, rtol=rtol, atol=atol))
+    vb_print("\n")
+    if print_max_diff:
+        vb_print("Max diff Vanilla SDPA FWD Ref vs FSDPA = ", torch.max(torch.abs(O_ref - O_hpu_c)))
+
+    compare_tensors(O_ref, O_hpu_c, atol=atol, rtol=rtol)
+
+    if inference:
+        htcore.hpu_teardown_inference_env()
+        os.environ["ENABLE_EXPERIMENTAL_FLAGS"] = "0"

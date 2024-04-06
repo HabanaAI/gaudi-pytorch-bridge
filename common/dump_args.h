@@ -28,3 +28,4 @@
 #define DUMP_14ARGS(a1, ...) DUMP_ARG(a1), DUMP_13ARGS(__VA_ARGS__)
 #define DUMP_15ARGS(a1, ...) DUMP_ARG(a1), DUMP_14ARGS(__VA_ARGS__)
 #define DUMP_16ARGS(a1, ...) DUMP_ARG(a1), DUMP_15ARGS(__VA_ARGS__)
+#define DUMP_17ARGS(a1, ...) DUMP_ARG(a1), DUMP_16ARGS(__VA_ARGS__)

@@ -48,7 +48,7 @@ Fp8SDPARecompFwd::Fp8SDPARecompFwd(int device_id, c10::ScalarType scalar_type)
           device_id,
           "fp8_sdpa_recomp_fwd",
           scalar_type,
-          {0, 0, 0, 0, 0},
+          {0, 0, 0, 0, 0, 0},
           {},
           {},
           false) {}
@@ -366,6 +366,8 @@ sizes_vec Fp8SDPARecompFwdOutputShape(const at::Stack& stack) {
   sizes_vec out_shape = SDPARecompFwdOutputShape(stack);
   // insert amax_s shape
   out_shape.push_back({1});
+  // insert amax_o shape
+  out_shape.push_back({1});
   return out_shape;
 }
 
@@ -474,20 +476,25 @@ void Fp8SDPARecompFwd::AddNode(
   auto q_scale_o = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto d_scale_s = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto is_amax_s = getNextInput<bool>(stackGetter);
+  auto is_amax_o = getNextInput<bool>(stackGetter);
+  // amax_s and/or amax_o needed
+  bool is_amax = is_amax_s or is_amax_o;
 
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
 
   FP8_SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
+  FP8_SDPA_SET_FLAGS(is_amax_o, flags, AMAX_O)
   FP8_SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
   FP8_SDPA_SET_FLAGS(d_scale_k, flags, D_SCALE_K)
   FP8_SDPA_SET_FLAGS(d_scale_v, flags, D_SCALE_V)
   FP8_SDPA_SET_FLAGS(q_scale_s, flags, Q_SCALE_S)
   FP8_SDPA_SET_FLAGS(q_scale_o, flags, Q_SCALE_O)
-  if (d_scale_s) {
-    // TODO: add the flag definition to perf_lib_layer_paras.h
-    flags |= (1 << 13);
-  }
+  FP8_SDPA_SET_FLAGS(d_scale_s, flags, D_SCALE_S)
+  // if (d_scale_s) {
+  // TODO: add the flag definition to perf_lib_layer_paras.h
+  // flags |= (1 << 13);
+  //}
 
   fillSdpaParams(
       params,
@@ -534,22 +541,39 @@ void Fp8SDPARecompFwd::AddNode(
     }
   }
 
+  auto linvType = c10::ScalarType::Float;
+  auto mType = q.pt_t.scalar_type();
+  if (requires_backward || is_amax) {
+    if ((softmax_mode == "fast") &&
+        (q.pt_t.scalar_type() == c10::ScalarType::BFloat16)) {
+      linvType = c10::ScalarType::BFloat16;
+    }
+    if (q.pt_t.scalar_type() == at::ScalarType::Float8_e4m3fn) {
+      linvType = c10::ScalarType::BFloat16;
+    }
+
+    if (q.pt_t.scalar_type() == at::ScalarType::Float8_e4m3fn) {
+      mType = c10::ScalarType::BFloat16;
+    }
+  }
   output_attrs.push_back({out_shapes[0], fwdOutType, 0});
 
-  // when amax_s is needed, we need to have all outputs since amax_s is
-  // at the end of the output vector. If any preceding output is not
-  // valid, like softmax stats, seed etc  in inference, we still
-  // need to have outputs for these. These will then be dummy outputs
-  // with shape {1}
-  if (requires_backward || is_amax_s) {
-    output_attrs.push_back({out_shapes[1], q.pt_t.scalar_type(), 1});
-    output_attrs.push_back({out_shapes[2], c10::ScalarType::Float, 2});
-    if (p > 0.0 || is_amax_s) {
+  // when amax_s/o is needed, we need to have all outputs preceeding amax_s/o.
+  // If any preceding output is not valid, like softmax stats, seed etc  in
+  // inference, we still need to have outputs for these. These will then be
+  // dummy outputs with shape {1}
+  if (requires_backward || is_amax) {
+    output_attrs.push_back({out_shapes[1], mType, 1});
+    output_attrs.push_back({out_shapes[2], linvType, 2});
+    if (p > 0.0 || is_amax) {
       output_attrs.push_back({out_shapes[3], at::ScalarType::Int, 3});
     }
   }
-  if (is_amax_s) {
+  if (is_amax) {
     output_attrs.push_back({out_shapes[4], c10::ScalarType::Float, 4});
+  }
+  if (is_amax_o) {
+    output_attrs.push_back({out_shapes[5], c10::ScalarType::Float, 5});
   }
 
   auto output = OpBackend::BuildNode(
@@ -558,12 +582,15 @@ void Fp8SDPARecompFwd::AddNode(
   if (requires_backward || is_amax_s) {
     syn_out(1) = std::move(output[1]);
     syn_out(2) = std::move(output[2]);
-    if (p > 0.0 || is_amax_s) {
+    if (p > 0.0 || is_amax) {
       syn_out(3) = std::move(output[3]);
     }
   }
-  if (is_amax_s) {
+  if (is_amax) {
     syn_out(4) = std::move(output[4]);
+  }
+  if (is_amax_o) {
+    syn_out(5) = std::move(output[5]);
   }
 }
 

@@ -94,6 +94,7 @@ def fp8_sdpa_fwd_wrapper(
     q_scale_o=None,
     d_scale_s=None,
     is_amax_s=False,
+    is_amax_o=False,
 ):
 
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
@@ -105,18 +106,23 @@ def fp8_sdpa_fwd_wrapper(
     recompute = ht.recompute_sdp_enabled()
     assert recompute, "Fp8 FusedSDPA is supported only in inference"
 
-    if is_amax_s:
-        assert (
-            q.dtype == torch.float32 or q.dtype == torch.bfloat16
-        ), "Fp8 FusedSDPA measurement is supported only if input is in Float32 or Bfloat16"
+    if not requires_backward:  # inference
+        if is_amax_s:
+            assert (
+                q.dtype == torch.float32 or q.dtype == torch.bfloat16
+            ), "Fp8 FusedSDPA measurement is supported only if input is in Float32 or Bfloat16"
+        assert is_amax_o == False, "Fp8 FusedSDPA measurement in inference does not support amax_o"
+    else:  # training
+        assert is_causal == True, "Fp8 FusedSDPA in trining only supports Triangular mask"
 
     gqa = is_gqa(q, k)
     if gqa:
         q, k, v, attn_mask = gqa_input_reshape_fwd(q, k, v, attn_mask)
 
     amax_s = None
+    amax_o = None
     if recompute:
-        out, m, linv, seed, amax_s = torch.ops.hpu.fp8_sdpa_recomp_fwd(
+        out, m, linv, seed, amax_s, amax_o = torch.ops.hpu.fp8_sdpa_recomp_fwd(
             q,
             k,
             v,
@@ -133,12 +139,13 @@ def fp8_sdpa_fwd_wrapper(
             q_scale_o,
             d_scale_s,
             is_amax_s,
+            is_amax_o,
         )
 
         if gqa:
             out = gqa_output_reshape(out)
         if not requires_backward:
-            return out, amax_s
+            return out, amax_s, amax_o
         ctx.save_for_backward(q, k, v, attn_mask, m, linv, seed)
     else:
         out, P, dm = torch.ops.hpu.sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, softmax_mode)
@@ -153,7 +160,7 @@ def fp8_sdpa_fwd_wrapper(
     ctx.gqa = gqa
 
     if recompute:
-        return out
+        return out, amax_s, amax_o
 
     if not check_dbg_env_var("FSDPA_DBG_USE_DROPOUT_STUB"):
         return out
@@ -210,6 +217,7 @@ class Fp8FusedSDPA(torch.autograd.Function):
         q_scale_o=None,
         d_scale_s=None,
         is_amax_s=False,
+        is_amax_o=False,
     ):
         return fp8_sdpa_fwd_wrapper(
             ctx,
@@ -228,6 +236,7 @@ class Fp8FusedSDPA(torch.autograd.Function):
             q_scale_o=q_scale_o,
             d_scale_s=d_scale_s,
             is_amax_s=is_amax_s,
+            is_amax_o=is_amax_o,
         )
 
     @staticmethod
@@ -251,6 +260,7 @@ def dump_api_params(
     q_scale_o=None,
     d_scale_s=None,
     is_amax_s=False,
+    is_amax_o=False,
 ):
     def print_t_info(name, t, is_scale=False):
         if t is not None:
@@ -279,6 +289,7 @@ def dump_api_params(
     print_t_info("q_scale_o", q_scale_o, is_scale=True)
     print_t_info("d_scale_s", d_scale_s, is_scale=True)
     print("is_amax_s : ", is_amax_s)
+    print("is_amax_o : ", is_amax_o)
     print("=" * 90)
 
 
@@ -298,6 +309,7 @@ def fp8_fused_sdpa(
     q_scale_o=None,
     d_scale_s=None,
     is_amax_s=False,
+    is_amax_o=False,
 ):
     dump_api_params(
         q,
@@ -315,8 +327,9 @@ def fp8_fused_sdpa(
         q_scale_o,
         d_scale_s,
         is_amax_s,
+        is_amax_o,
     )
-    out, amax_s = Fp8FusedSDPA.apply(
+    out, amax_s, amax_o = Fp8FusedSDPA.apply(
         q,
         k,
         v,
@@ -332,6 +345,7 @@ def fp8_fused_sdpa(
         q_scale_o,
         d_scale_s,
         is_amax_s,
+        is_amax_o,
     )
 
-    return out, amax_s, None
+    return out, amax_s, amax_o
