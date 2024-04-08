@@ -304,7 +304,7 @@ struct _dispatch_fallback<
   template <std::size_t... Indices>
   static ReturnType call(
       OpSupportLevel osl,
-      at::ScalarType result_dtype,
+      [[maybe_unused]] at::ScalarType result_dtype,
       ParameterTypes... args,
       std::index_sequence<Indices...>) {
     PT_FALLBACK_TRACE

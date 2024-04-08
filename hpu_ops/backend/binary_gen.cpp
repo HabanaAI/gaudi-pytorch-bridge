@@ -13,9 +13,11 @@
 
 #include "backend/helpers/cast_sequence.h"
 #include "generated/backend/_foreach_add.h"
+#include "generated/backend/_foreach_div.h"
 #include "generated/backend/add.h"
 #include "generated/backend/rsub.h"
 #include "generated/backend/sub.h"
+#include "hpu_ops/backend/foreach.h"
 
 namespace habana {
 const unsigned SELF_INDEX = 0;
@@ -135,54 +137,128 @@ static auto BuildBinary(
        {{outshape, result_type, out_index}}});
 }
 
+static void update_result_type(
+    at::ScalarType& result_type,
+    std::string& guid,
+    bool cast_int_to_float,
+    bool support_int8,
+    bool support_int16) {
+  bool dtype_changed = false;
+
+  if (cast_int_to_float && isIntegralType(result_type, true)) {
+    result_type = torch::kFloat32;
+    dtype_changed = true;
+  } else {
+    if (!support_int8 &&
+        (result_type == torch::kInt8 || result_type == torch::kUInt8)) {
+      result_type = torch::kInt16;
+      dtype_changed = true;
+    }
+    if (!support_int16 && result_type == torch::kInt16) {
+      result_type = torch::kInt32;
+      dtype_changed = true;
+    }
+  }
+
+  if (dtype_changed) {
+    guid = update_guid_dtype(guid, result_type);
+  }
+}
+
+static synapse_helpers::tensor createForeachBinaryNode(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    std::string& guid_,
+    const std::vector<synTensor>& syn_inputs,
+    const std::vector<at::IValue>& pt_inputs,
+    int out_index,
+    bool cast_int_to_float = false,
+    bool support_int8 = true,
+    bool support_int16 = true) {
+  const at::Tensor& self = pt_inputs[0].toTensor();
+  sizes_vec sizes = {self.sizes().vec()};
+  std::vector<synTensor> inputs = syn_inputs;
+  std::vector<at::ScalarType> dtypes = {self.scalar_type()};
+
+  at::optional<at::Scalar> alpha = c10::nullopt;
+  at::ScalarType result_type;
+  at::optional<synapse_helpers::tensor> scalar = c10::nullopt;
+
+  if (pt_inputs[1].isTensor()) {
+    const at::Tensor& other = pt_inputs[1].toTensor();
+    if (pt_inputs.size() > 2) {
+      alpha = pt_inputs[2].toScalar();
+    }
+    result_type = at::result_type(self, other);
+    update_result_type(
+        result_type, guid_, cast_int_to_float, support_int8, support_int16);
+
+    sizes.push_back(other.sizes().vec());
+    dtypes.push_back(other.scalar_type());
+  } else {
+    const at::Scalar& other = pt_inputs[1].toScalar();
+    result_type = at::result_type(self, other);
+    update_result_type(
+        result_type, guid_, cast_int_to_float, support_int8, support_int16);
+
+    scalar = OpBackend::BuildConstant(op, graph, other, result_type);
+    inputs.push_back(scalar.value().get());
+
+    sizes.push_back({});
+    dtypes.push_back(result_type);
+  }
+
+  return std::move(BuildBinary(
+      op,
+      graph,
+      guid_,
+      inputs,
+      sizes,
+      dtypes,
+      result_type,
+      alpha,
+      out_index,
+      true)[0]);
+}
+
 void ForeachBinary::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  const auto& selfs = stack[SELF_INDEX].toTensorList();
-  if (stack.at(1).isTensorList()) {
-    const auto& others = stack[OTHER_INDEX].toTensorList();
-    at::optional<at::Scalar> alpha;
-    if (stack.size() > 2) {
-      alpha = stack[ALPHA_INDEX].toScalar();
-    }
-    for (auto i = 0u; i < selfs.size(); ++i) {
-      const auto& self = selfs[i];
-      const auto& other = others[i];
-      const auto& result_type = at::result_type(self, other);
-      auto out = BuildBinary(
-          this,
-          graph,
-          guid_,
-          {syn_in(i), syn_in(static_cast<int>(i + selfs.size()))},
-          {self.sizes().vec(), other.sizes().vec()},
-          {self.scalar_type(), other.scalar_type()},
-          result_type,
-          alpha,
-          i,
-          true);
-      syn_out(i) = std::move(out[0]);
-    }
-  } else {
-    for (auto i = 0u; i < selfs.size(); ++i) {
-      const auto& other_scalar = stack[OTHER_INDEX].isScalar()
-          ? stack[OTHER_INDEX].toScalar()
-          : stack[OTHER_INDEX].toListRef()[i].toScalar();
-      const auto& self = selfs[i];
-      const auto& result_type = at::result_type(self, other_scalar);
-      auto other = ConstantHelper(graph, other_scalar, result_type);
-      auto out = BuildBinary(
-          this,
-          graph,
-          guid_,
-          {syn_in(i), other.get()},
-          {self.sizes().vec(), {}},
-          {self.scalar_type(), result_type},
-          result_type,
-          c10::nullopt,
-          i,
-          true);
-      syn_out(i) = std::move(out[0]);
-    }
+  bool cast_int_to_float = guid_.find("div") != std::string::npos;
+  bool not_min_or_max = guid_.find("min") == std::string::npos &&
+      guid_.find("max") == std::string::npos;
+  bool support_int8 = guid_.find("sub") == std::string::npos && not_min_or_max;
+  bool support_int16 = not_min_or_max;
+
+  NodeCreateFunction node_creator =
+      [cast_int_to_float, support_int8, support_int16](
+          OpBackend* op,
+          synapse_helpers::graph& graph,
+          std::string& guid_,
+          const std::vector<synTensor>& syn_inputs,
+          const std::vector<at::IValue>& pt_inputs,
+          int out_index) {
+        return createForeachBinaryNode(
+            op,
+            graph,
+            guid_,
+            syn_inputs,
+            pt_inputs,
+            out_index,
+            cast_int_to_float,
+            support_int8,
+            support_int16);
+      };
+
+  const size_t size = computeInputsNumber(stack);
+  std::vector<synTensor> inputs(size);
+  for (size_t i = 0; i < size; i++) {
+    inputs[i] = syn_in(i);
+  }
+  auto results =
+      CommonForeachBinary(this, guid_, inputs, graph, stack, node_creator);
+  for (size_t i = 0; i < results.size(); i++) {
+    syn_out(i) = std::move(results[i]);
   }
 }
 
