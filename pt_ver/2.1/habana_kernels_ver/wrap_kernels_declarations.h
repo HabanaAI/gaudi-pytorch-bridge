@@ -71,4 +71,60 @@ at::Tensor nonzero(const at::Tensor& self);
 at::Tensor repeat_interleave(
     const at::Tensor& self,
     c10::optional<int64_t> output_size);
+at::Tensor batch_norm_elemt(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& weight,
+    const c10::optional<at::Tensor>& bias,
+    const at::Tensor& mean,
+    const at::Tensor& invstd,
+    double eps);
+at::Tensor batch_norm_backward_elemt(
+    const at::Tensor& grad_out,
+    const at::Tensor& input,
+    const at::Tensor& mean,
+    const at::Tensor& invstd,
+    const c10::optional<at::Tensor>& weight,
+    const at::Tensor& mean_dy,
+    const at::Tensor& mean_dy_xmu,
+    const at::Tensor& count);
+::std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor>
+batch_norm_backward_reduce(
+    const at::Tensor& grad_out,
+    const at::Tensor& input,
+    const at::Tensor& mean,
+    const at::Tensor& invstd,
+    const c10::optional<at::Tensor>& weight,
+    bool input_g,
+    bool weight_g,
+    bool bias_g);
+::std::tuple<at::Tensor, at::Tensor> batch_norm_gather_stats_with_counts(
+    const at::Tensor& input,
+    const at::Tensor& mean,
+    const at::Tensor& invstd,
+    const c10::optional<at::Tensor>& running_mean,
+    const c10::optional<at::Tensor>& running_var,
+    double momentum,
+    double eps,
+    const at::Tensor& counts);
+at::Tensor instance_norm(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& weight,
+    const c10::optional<at::Tensor>& bias,
+    const c10::optional<at::Tensor>& running_mean,
+    const c10::optional<at::Tensor>& running_var,
+    bool use_input_stats,
+    double momentum,
+    double eps,
+    bool cudnn_enabled);
+at::Tensor softmax(
+    const at::Tensor& self,
+    int64_t dim,
+    c10::optional<at::ScalarType> dtype);
+at::Tensor pin_memory(
+    const at::Tensor& self,
+    c10::optional<c10::Device> device);
+at::Tensor _pin_memory(
+    const at::Tensor& self,
+    c10::optional<c10::Device> device);
+bool is_pinned(const at::Tensor& self, c10::optional<c10::Device> device);
 } // namespace hpu_wrap

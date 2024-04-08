@@ -41,8 +41,13 @@ using namespace habana;
 
 at::Tensor hpu_wrap::batch_norm_elemt(
     const at::Tensor& input,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+    const ::std::optional<at::Tensor>& weight,
+    const ::std::optional<at::Tensor>& bias,
+#else
     const c10::optional<at::Tensor>& weight,
     const c10::optional<at::Tensor>& bias,
+#endif
     const at::Tensor& mean,
     const at::Tensor& invstd,
     double eps) {
@@ -55,8 +60,13 @@ at::Tensor hpu_wrap::batch_norm_elemt(
         const at::Tensor& input,
         const at::Tensor& mean,
         const at::Tensor& invstd,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+        const ::std::optional<at::Tensor>& running_mean,
+        const ::std::optional<at::Tensor>& running_var,
+#else
         const c10::optional<at::Tensor>& running_mean,
         const c10::optional<at::Tensor>& running_var,
+#endif
         double momentum,
         double eps,
         const at::Tensor& counts) {
@@ -79,7 +89,11 @@ at::Tensor hpu_wrap::batch_norm_elemt(
         const at::Tensor& input,
         const at::Tensor& mean,
         const at::Tensor& invstd,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+        const ::std::optional<at::Tensor>& weight,
+#else
         const c10::optional<at::Tensor>& weight,
+#endif
         bool input_g,
         bool weight_g,
         bool bias_g) {
@@ -94,7 +108,11 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
     const at::Tensor& input,
     const at::Tensor& mean,
     const at::Tensor& invstd,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+    const ::std::optional<at::Tensor>& weight,
+#else
     const c10::optional<at::Tensor>& weight,
+#endif
     const at::Tensor& mean_dy,
     const at::Tensor& mean_dy_xmu,
     const at::Tensor& count) {
@@ -106,7 +124,9 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
 
 at::Tensor hpu_wrap::repeat_interleave(
     const at::Tensor& self,
-#if IS_PYTORCH_AT_LEAST(2, 2)
+#if IS_PYTORCH_AT_LEAST(2, 4)
+    ::std::optional<SymInt> output_size) {
+#elif IS_PYTORCH_AT_LEAST(2, 2)
     c10::optional<SymInt> output_size) {
 #else
     c10::optional<int64_t> output_size) {

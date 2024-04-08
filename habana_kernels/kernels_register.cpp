@@ -52,7 +52,11 @@ bool hpu_wrap::is_pinned(
 
 Tensor hpu_wrap::pin_memory(
     const at::Tensor& self,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+    ::std::optional<at::Device> device) {
+#else
     c10::optional<at::Device> device) {
+#endif
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "pin_memory :", " self=", to_string(self), " device=", to_string(device));
@@ -61,7 +65,11 @@ Tensor hpu_wrap::pin_memory(
 
 Tensor hpu_wrap::_pin_memory(
     const at::Tensor& self,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+    ::std::optional<at::Device> device) {
+#else
     c10::optional<at::Device> device) {
+#endif
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "_pin_memory :",
@@ -328,8 +336,13 @@ Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
 }
 at::Tensor hpu_wrap::batch_norm_elemt(
     const at::Tensor& input,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+    const ::std::optional<at::Tensor>& weight,
+    const ::std::optional<at::Tensor>& bias,
+#else
     const c10::optional<at::Tensor>& weight,
     const c10::optional<at::Tensor>& bias,
+#endif
     const at::Tensor& mean,
     const at::Tensor& invstd,
     double eps) {
@@ -340,7 +353,11 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
     const at::Tensor& input,
     const at::Tensor& mean,
     const at::Tensor& invstd,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+    const ::std::optional<at::Tensor>& weight,
+#else
     const c10::optional<at::Tensor>& weight,
+#endif
     const at::Tensor& mean_dy,
     const at::Tensor& mean_dy_xmu,
     const at::Tensor& count) {
@@ -354,7 +371,11 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
         const at::Tensor& input,
         const at::Tensor& mean,
         const at::Tensor& invstd,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+        const ::std::optional<at::Tensor>& weight,
+#else
         const c10::optional<at::Tensor>& weight,
+#endif
         bool input_g,
         bool weight_g,
         bool bias_g) {
@@ -367,8 +388,13 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
         const at::Tensor& input,
         const at::Tensor& mean,
         const at::Tensor& invstd,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+        const ::std::optional<at::Tensor>& running_mean,
+        const ::std::optional<at::Tensor>& running_var,
+#else
         const c10::optional<at::Tensor>& running_mean,
         const c10::optional<at::Tensor>& running_var,
+#endif
         double momentum,
         double eps,
         const at::Tensor& counts) {
@@ -518,10 +544,17 @@ struct InstanceNorm : public torch::autograd::Function<InstanceNorm> {
 
 Tensor hpu_wrap::instance_norm(
     const Tensor& input,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+    const ::std::optional<Tensor>& weight_opt,
+    const ::std::optional<Tensor>& bias_opt,
+    const ::std::optional<Tensor>& running_mean_opt,
+    const ::std::optional<Tensor>& running_var_opt,
+#else
     const c10::optional<Tensor>& weight_opt,
     const c10::optional<Tensor>& bias_opt,
     const c10::optional<Tensor>& running_mean_opt,
     const c10::optional<Tensor>& running_var_opt,
+#endif
     [[maybe_unused]] bool use_input_stats,
     [[maybe_unused]] double momentum,
     double eps,
@@ -655,7 +688,11 @@ struct SoftmaxFunction : public torch::autograd::Function<SoftmaxFunction> {
 Tensor hpu_wrap::softmax(
     const Tensor& self,
     int64_t dim,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+    ::std::optional<at::ScalarType> dtype) {
+#else
     c10::optional<at::ScalarType> dtype) {
+#endif
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(

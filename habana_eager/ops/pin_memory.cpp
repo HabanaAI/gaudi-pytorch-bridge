@@ -55,7 +55,11 @@ bool is_pinned_hpu(const at::Tensor& self, c10::optional<at::Device> device) {
 namespace hpu_wrap {
 at::Tensor _pin_memory(
     const at::Tensor& self,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+    ::std::optional<at::Device> device) {
+#else
     c10::optional<at::Device> device) {
+#endif
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "_pin_memory :",
@@ -66,7 +70,13 @@ at::Tensor _pin_memory(
   return habana::eager::pin_memory_hpu(self, device);
 }
 
-bool is_pinned(const at::Tensor& self, c10::optional<at::Device> device) {
+bool is_pinned(
+    const at::Tensor& self,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+    ::std::optional<at::Device> device) {
+#else
+    c10::optional<at::Device> device) {
+#endif
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "is_pinned :",
