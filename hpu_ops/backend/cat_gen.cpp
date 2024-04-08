@@ -27,6 +27,13 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
     return tensor.dim() != 1 || tensor.size(0) != 0;
   });
 
+  std::vector<int64_t> ref_out_size;
+  if (stack.size() > 2) {
+    auto tensor_out = stack[2].toTensor();
+    if (tensor_out.dim() != 1 || tensor_out.size(0) != 0)
+      ref_out_size = tensor_out.sizes().vec();
+  }
+
   std::vector<int64_t> out_size;
   if (tensors.size() > 0) {
     const at::Tensor& first_valid_tensor = tensors[0];
@@ -36,6 +43,9 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
     out_size[dim] = 0;
     for (const at::Tensor& tensor : tensors) {
       out_size[dim] += tensor.sizes()[dim];
+    }
+    if (!ref_out_size.empty()) {
+      TORCH_CHECK(out_size[dim] == ref_out_size[dim], "Cat output mismatch");
     }
   }
   auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(

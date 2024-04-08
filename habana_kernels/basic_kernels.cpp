@@ -390,6 +390,9 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
   at::Tensor output;
   if (inputs.size() == 2) {
     output = inputs[1].toTensor();
+    TORCH_CHECK(
+        self.sizes() == output.sizes(),
+        "incorrect input sizes for Copy Opertion");
     // Important:
     // Conditions for calling 'duplicate_tensor_in_memory_section' below
     // must match conditions in 'inplaceInputId' function in

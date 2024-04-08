@@ -3227,7 +3227,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
     } else {
       PT_DYNAMIC_SHAPE_DEBUG(
           "HabanaOp recipe cache miss :: key ", cur_rargpsh->hashCode());
-      PT_IRGRAPH_DEBUG("HabanaOp recipe cache miss :: dynamic shapes");
+      PT_DYNAMIC_SHAPE_DEBUG("HabanaOp recipe cache miss :: dynamic shapes");
     }
   }
 
