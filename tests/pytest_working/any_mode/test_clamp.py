@@ -14,7 +14,7 @@ import pytest
 import torch
 from test_utils import evaluate_fwd_inplace_kernel, evaluate_fwd_kernel
 
-dtypes = [torch.float, torch.bfloat16, torch.long, torch.int]
+dtypes = [torch.float, torch.bfloat16, torch.long, torch.int, torch.short, torch.uint8, torch.int8]
 
 
 base_shape_list = [

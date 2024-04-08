@@ -128,7 +128,7 @@ broadcast_tensors                      Yes      Yes      No        No       No  
 cat                                    Yes      Yes      Yes       Yes      Yes    torch
 ceil                                   Yes      Yes      Yes       Yes      No     torch
 chunk                                  Yes      Yes      Yes       No       No     torch
-clamp                                  Yes      Yes      Yes       No       No     torch
+clamp                                  Yes      Yes      Yes       Yes      Yes    torch
 clip                                   Yes      Yes      Yes       No       No     torch
 clone                                  Yes      Yes      Yes       Yes      Yes    torch
 conj                                   Yes      Yes      Yes       No       No     torch
@@ -433,10 +433,10 @@ bitwise_right_shift                    No       No       Yes       Yes      No  
 bitwise_xor                            No       No       No        No       Yes    torch.Tensor
 bmm                                    Yes      Yes      No        No       No     torch.Tensor
 ceil                                   Yes      Yes      Yes       Yes      No     torch.Tensor
-clamp                                  Yes      Yes      Yes       No       No     torch.Tensor
-clamp\_                                Yes      Yes      Yes       No       No     torch.Tensor
-clamp_max                              Yes      Yes      Yes       No       No     torch.Tensor
-clamp_min                              Yes      Yes      Yes       No       No     torch.Tensor
+clamp                                  Yes      Yes      Yes       Yes      Yes    torch.Tensor
+clamp\_                                Yes      Yes      Yes       Yes      Yes    torch.Tensor
+clamp_max                              Yes      Yes      Yes       Yes      Yes    torch.Tensor
+clamp_min                              Yes      Yes      Yes       Yes      Yes    torch.Tensor
 clip                                   Yes      Yes      Yes       No       No     torch.Tensor
 clip\_                                 Yes      Yes      Yes       No       No     torch.Tensor
 clone                                  Yes      Yes      Yes       Yes      Yes    torch.Tensor

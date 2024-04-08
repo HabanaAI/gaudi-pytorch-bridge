@@ -134,6 +134,25 @@ static synapse_helpers::tensor ClampCommon(
        {{shape, dtype, out_index}}})[0]);
 }
 
+void clamp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+  auto meta = OutputMeta(stack)[0];
+  StackGetter stackGetter(stack, "clamp::AddNode");
+  auto input = getNextInput<TensorsPair>(stackGetter);
+  std::vector<synTensor> inputs = {input.syn_t};
+  size_t size = 0;
+  auto params = FillParams(stack, size);
+  const auto compute_type =
+      c10::isIntegralType(meta.dtype, true) ? c10::ScalarType::Int : meta.dtype;
+  syn_out(0) = std::move(OpBackend::BuildNode(
+      this,
+      graph,
+      {get_guid_with_precision("clamp_pt_fwd", compute_type),
+       inputs,
+       {{meta.shape, meta.dtype, 0}},
+       params.get(),
+       size})[0]);
+}
+
 void clampTensor::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
