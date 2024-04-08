@@ -4821,9 +4821,9 @@ lt.Tensor_out:
 
 lt_.Tensor:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half, Long]
   guid: less_fwd
   inplace_ids: [0]
   promote_to_common_type: [self, other]
@@ -4832,9 +4832,9 @@ lt_.Tensor:
 
 lt_.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half, Long]
   guid: less_fwd
   scalar_ids: [1]
   inplace_ids: [0]
@@ -4844,9 +4844,9 @@ lt_.Scalar:
 
 lt.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half, Long]
   guid: less_fwd
   op_frontend: CompareScalarToTensor
   output_meta: CompareMeta
@@ -4857,9 +4857,9 @@ lt.Scalar:
 
 lt.Tensor:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half, Long]
   guid: less_fwd
   output_meta: CompareMeta
   out_ids: [0]
