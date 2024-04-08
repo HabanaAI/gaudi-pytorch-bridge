@@ -15,6 +15,7 @@
 #include "habana_kernels/random_gen_kernels.h"
 #include "hpu_ops/backend/reduction_template.h"
 #include "hpu_ops/common/batched_matmul_output_shape.h"
+#include "hpu_ops/custom_op_outshape.h"
 
 namespace sh = synapse_helpers;
 
@@ -988,6 +989,20 @@ void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
 }
 
 /********** Fp8GemmV2 **********/
+
+sizes_vec fp8_gemm_v2_out_shape(
+    const std::vector<at::Tensor>& inputs,
+    const std::vector<int>& params) {
+  TORCH_CHECK(inputs.size() == 2);
+  TORCH_CHECK(params.size() == 2);
+  return {getBatchMatmulOutShape(
+      inputs[0].sizes(),
+      inputs[1].sizes(),
+      static_cast<bool>(params[0]),
+      static_cast<bool>(params[1]))};
+}
+
+REGISTER_CUSTOM_OP_OUTSHAPE_FUN(fp8_gemm_v2, fp8_gemm_v2_out_shape);
 
 sizes_vec Fp8GemmV2OutputShape(const at::Stack& stack) {
   auto A = stack_tensor(stack, 0);

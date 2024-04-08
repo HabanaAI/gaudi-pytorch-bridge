@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -29,6 +29,7 @@
 #include "backend/synapse_helpers/stream.h"
 #include "habana_lazy/tensor_impl.h"
 #include "habana_lazy/view_utils.h"
+#include "hpu_ops/custom_op_outshape.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
 
 using namespace c10::hpu;
@@ -395,6 +396,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("is_recompute_FSDPA_enabled", []() {
     return habana_helpers::isRecomputeFSDPAEnabled();
   });
+
+  m.def(
+      "custom_op_calc_out_shape_params_int",
+      [](const char* opname,
+         const std::vector<at::Tensor>& inputs,
+         const std::vector<int>& params) {
+        return habana::CustomOpOutShapeFunRegistrar::GetInstance().CalcOutShape(
+            opname, inputs, params);
+      });
 
   m.doc() = "This module registers hpu backend.";
 }

@@ -11,11 +11,20 @@
 ###############################################################################
 
 import torch
+from habana_frameworks.torch import _hpu_C
 from torch._decomp import global_decomposition_table
 from torch._meta_registrations import _compute_reduction_shape, register_meta, utils
 from torch._ops import HigherOrderOperator, OpOverload
 
 _meta_lib_dont_use_me_use_register_meta_for_hpu = torch.library.Library("hpu", "IMPL", "Meta")
+
+# If non-trivial shape calculation is necessary call C++ code instead of copying
+# similar calculation algorithm in python
+# See:
+# custom_op_calc_out_shape*
+# in python and
+# REGISTER_CUSTOM_OP_OUTSHAPE_FUN
+# in C++ code
 
 
 @register_meta([torch.ops.hpu.instance_norm.default])
@@ -163,15 +172,6 @@ def meta_fp8_gemm(
     return out
 
 
-# From documentation of torch.matmul
-# If both tensors are 1-dimensional, the dot product (scalar) is returned.
-# If both arguments are 2-dimensional, the matrix-matrix product is returned.
-# If the first argument is 1-dimensional and the second argument is 2-dimensional,
-# a 1 is prepended to its dimension for the purpose of the matrix multiply.
-# After the matrix multiply, the prepended dimension is removed.
-# If both arguments are at least 1-dimensional and at least one argument is N-dimensional
-# (where N > 2), then a batched matrix multiply is returned.
-# The non-matrix (i.e. batch) dimensions are broadcasted (and thus must be broadcastable).
 def meta_fp8_gemm_v2_common(
     A,
     trans_A,
@@ -179,47 +179,7 @@ def meta_fp8_gemm_v2_common(
     trans_B,
     out_dtype,
 ):
-    out_shape = []
-    rank_a = A.dim()
-    rank_b = B.dim()
-    shape_a = A.shape
-    shape_b = B.shape
-
-    common_dim_a = 0
-    common_dim_b = 0
-
-    if rank_b > 1:
-        dim_b = rank_b - 2 if trans_B else rank_b - 1
-        common_dim_b = rank_b - 1 if trans_B else rank_b - 2
-        out_shape.append(shape_b[dim_b])
-
-    if rank_a > 1:
-        dim_a = rank_a - 1 if trans_A else rank_a - 2
-        common_dim_a = rank_a - 2 if trans_A else rank_a - 1
-        out_shape.append(shape_a[dim_a])
-
-    common_size_a = shape_a[common_dim_a]
-    common_size_b = shape_b[common_dim_b]
-
-    assert (
-        common_size_a == common_size_b
-    ), f"common dimension of fp8_gemm_v2 inputs should have the same size, got {common_size_a} and {common_size_b}."
-
-    max_rank = max(rank_a, rank_b)
-    for i in range(3, max_rank + 1):
-        dim_a = 1 if i > rank_a else shape_a[rank_a - i]
-        dim_b = 1 if i > rank_b else shape_b[rank_b - i]
-
-        assert dim_a == dim_b or dim_a == 1 or dim_b == 1, (
-            f"batch dimension {max_rank - i} "
-            "of fp8_gemm_v2 inputs must be the same or at least one of them must be equal to 1. "
-            "Got {dim_a} and {dim_b}."
-        )
-
-        out_shape.append(dim_a if dim_a == dim_b else dim_a * dim_b)
-
-    out_shape.reverse()
-
+    out_shape = _hpu_C.custom_op_calc_out_shape_params_int("fp8_gemm_v2", [A, B], [trans_A, trans_B])[0]
     out = A.new_empty(out_shape, dtype=out_dtype)
     return out
 

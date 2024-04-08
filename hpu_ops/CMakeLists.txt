@@ -108,6 +108,7 @@ set_source_files_properties(
   PROPERTIES COMPILE_FLAGS -w)
 
 add_habana_library(habana_pytorch_backend_ops OBJECT
+          custom_op_outshape.cpp
           indexing_ops_helper.cpp
           backend/_assert_async_gen.cpp
           backend/_efficientzerotensor_gen.cpp
