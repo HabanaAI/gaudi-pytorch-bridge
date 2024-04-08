@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -69,3 +69,29 @@ def test_binary(func, shape_a, shape_b, alpha, dtype):
     if is_pytest_mode_compile():
         name = "add" if func == torch.add else "sub"
         check_ops_executed_in_jit_ir(name)
+
+
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported trunc mode")
+@pytest.mark.parametrize("shape_a, shape_b", [[(), ()], [(1,), (2,)], [(4, 4), (1, 1)], [(16, 12), (16, 12)]])
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.int8])
+def test_mul_trunc(shape_a, shape_b, dtype):
+    def fn(input, other):
+        return torch.mul(input, other)
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="hpu_backend")
+
+    input = torch.randint(low=torch.iinfo(dtype).min, high=torch.iinfo(dtype).max, size=shape_a, dtype=dtype)
+    other = torch.randint(low=torch.iinfo(dtype).min, high=torch.iinfo(dtype).max, size=shape_b, dtype=dtype)
+
+    input_hpu = input.to("hpu")
+    other_hpu = other.to("hpu")
+
+    expected = torch.mul(input, other)
+    result = fn(input_hpu, other_hpu)
+
+    compare_tensors(result, expected, atol=0, rtol=0)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("mul")

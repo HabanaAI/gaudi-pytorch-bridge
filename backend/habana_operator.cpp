@@ -23,6 +23,7 @@
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_helpers/logging.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_logger.h"
 
 static const synDataType fp8_syn_type =
@@ -127,10 +128,13 @@ std::string habana::get_guid_with_precision(
     return std::string{guid};
   }
 
+  std::string updated_guid = std::string{guid};
+  update_guid_trunc_mode(updated_guid, dtype);
+
   auto type_name = synapse_helpers::graph::name_suffix_from_type(
       habana_helpers::pytorch_to_synapse_type(dtype), use_int64);
 
-  return std::string{guid}.append(1, '_').append(type_name);
+  return updated_guid.append(1, '_').append(type_name);
 }
 
 std::vector<int64_t> habana::HabanaOperator::CalculateStrides(

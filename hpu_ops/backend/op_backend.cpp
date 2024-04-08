@@ -451,6 +451,8 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
     return;
   }
 
+  // Update the guid to apply truncation mode
+  update_guid_trunc_mode(guid_, m_scalar_type);
   // Update the guid to reflect the promoted type
   update_guid_dtype(guid_, m_scalar_type);
 }

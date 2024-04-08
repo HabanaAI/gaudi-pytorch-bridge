@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -14,6 +14,7 @@
 #include <ATen/core/Tensor.h>
 #include <ATen/core/stack.h>
 #include <perf_lib_layer_params.h>
+#include "backend/synapse_helpers/device_helpers.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/kernels_accumulation.h"
@@ -95,6 +96,38 @@ inline at::Tensor& stack_tensor(at::Stack& stack, int index) {
 
 inline at::Tensor stack_tensor(const at::Stack& stack, int index) {
   return stack.at(index).toTensor();
+}
+
+inline std::string& update_guid_trunc_mode(
+    std::string& guid,
+    c10::ScalarType dtype) {
+  const std::string trunc_str = "_trunc";
+  // remove _trunc if dtype promoted to other dtypes
+  std::string::size_type index = guid.find(trunc_str);
+  if (index != std::string::npos && dtype != c10::ScalarType::Char &&
+      dtype != c10::ScalarType::Byte) {
+    guid.erase(index, trunc_str.length());
+    return guid;
+  }
+
+  using namespace std::literals;
+  static const absl::flat_hash_set<std::string_view> guids_support_trunc = {
+      "mult"sv,
+      "mult_fwd"sv,
+  };
+
+  auto device_type{habana::HPURegistrar::get_device().type()};
+  if (synapse_helpers::device_supports_trunc(device_type) &&
+      guids_support_trunc.contains(guid) &&
+      (dtype == c10::ScalarType::Char || dtype == c10::ScalarType::Byte)) {
+    if (guid.find_first_of('_') != std::string::npos) {
+      guid.insert(guid.find_first_of('_'), trunc_str);
+    } else {
+      guid.append(trunc_str);
+    }
+  }
+
+  return guid;
 }
 
 inline std::string& update_guid_dtype(
