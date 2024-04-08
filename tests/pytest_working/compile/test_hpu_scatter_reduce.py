@@ -52,7 +52,6 @@ class TestHpuScatterReduce:
         def fn(t1, dim, t2, t3, reduce):
             return torch.scatter_reduce(t1, dim, t2, t3, reduce=reduce, include_self=include_self)
 
-        compiled_cpu_fn = torch.compile(fn)
         compiled_hpu_fn = torch.compile(fn, backend="hpu_backend", dynamic=False)
 
         input_shape = shapes[0]
@@ -70,7 +69,7 @@ class TestHpuScatterReduce:
         hpu_index = cpu_index.to("hpu")
         hpu_source = cpu_source.to("hpu")
 
-        expected = compiled_cpu_fn(cpu_input, dim, cpu_index, cpu_source, reduction)
+        expected = fn(cpu_input, dim, cpu_index, cpu_source, reduction)
         result = compiled_hpu_fn(hpu_input, dim, hpu_index, hpu_source, reduction).cpu()
         tol = 1e-2 if dtype == torch.bfloat16 else 1e-5
         assert torch.allclose(result, expected, rtol=tol, atol=tol)

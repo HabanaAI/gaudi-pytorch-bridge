@@ -24,10 +24,9 @@ def std_var_common_test(shape, dim, op, dtype):
 
     torch._dynamo.reset()
 
-    cpu_wrapped_fn = torch.compile(fn) if pytest.mode == "compile" else fn
     hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
 
-    cpu_output = cpu_wrapped_fn(cpu_input)
+    cpu_output = fn(cpu_input)
     hpu_output = hpu_wrapped_fn(hpu_input)
 
     return (cpu_output, hpu_output)

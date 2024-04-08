@@ -31,10 +31,9 @@ class TestHpuArgMinMax:
         hpu_input = cpu_input.to("hpu")
 
         torch._dynamo.reset()
-        cpu_compiled_fn = torch.compile(fn)
         hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-        cpu_output = cpu_compiled_fn(cpu_input, dim, keepdim)
+        cpu_output = fn(cpu_input, dim, keepdim)
         hpu_output = hpu_compiled_fn(hpu_input, dim, keepdim).cpu()
 
         assert torch.equal(hpu_output, cpu_output)

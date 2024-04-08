@@ -24,13 +24,12 @@ def test_gelu(shape, approximate, dtype):
 
     torch._dynamo.reset()
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
-    cpu_compiled_fn = torch.compile(fn)
 
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
 
     hpu_result = hpu_compiled_fn(hpu_input).cpu()
-    cpu_result = cpu_compiled_fn(cpu_input)
+    cpu_result = fn(cpu_input)
     rtol = 1e-02 if dtype == torch.bfloat16 else 1e-04
     atol = 1e-04
     assert torch.allclose(cpu_result, hpu_result, rtol, atol)

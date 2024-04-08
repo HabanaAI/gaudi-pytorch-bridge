@@ -48,10 +48,9 @@ def test_hpu_lerp(shape, scalar_weight, dtype):
         cpu_end = cpu_end.to(torch.float32)
         cpu_weight = cpu_weight if scalar_weight else cpu_weight.to(torch.float32)
 
-    cpu_compiled_fn = torch.compile(fn) if pytest.mode == "compile" else fn
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
 
-    cpu_output = cpu_compiled_fn(cpu_start, cpu_end, cpu_weight)
+    cpu_output = fn(cpu_start, cpu_end, cpu_weight)
     hpu_output = hpu_compiled_fn(hpu_start, hpu_end, hpu_weight).cpu()
 
     if dtype == torch.int:

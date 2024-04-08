@@ -58,8 +58,7 @@ def test_empty_and_zeros_like(dtype, memory_format, torch_func):
 
     tensor = torch.randn(4, 3, 2, 5)
 
-    compiled_cpu = torch.compile(fn)
-    cpu_res = compiled_cpu(tensor, dtype, layout, requires_grad, memory_format, torch_func)
+    cpu_res = fn(tensor, dtype, layout, requires_grad, memory_format, torch_func)
 
     compiled_hpu = torch.compile(fn, backend="hpu_backend")
     hpu_res = compiled_hpu(tensor.to("hpu"), dtype, layout, requires_grad, memory_format, torch_func)
@@ -79,8 +78,7 @@ def test_new_empty_strided(dtype, layout, device_none):
     size = (5, 4, 3)
     stride = (2, 3, 5)
 
-    compiled_cpu = torch.compile(fn)
-    cpu_result = compiled_cpu(tensor, size, stride, dtype, layout, None if device_none else "cpu")
+    cpu_result = fn(tensor, size, stride, dtype, layout, None if device_none else "cpu")
 
     compiled_hpu = torch.compile(fn, backend="hpu_backend")
     hpu_result = compiled_hpu(tensor.to("hpu"), size, stride, dtype, layout, None if device_none else "hpu")
@@ -106,8 +104,7 @@ def run_test(aten_name, dtype):
             return op(t_inp, *t_args, **t_kwargs)
 
         torch._dynamo.reset()
-        compiled_cpu = torch.compile(fn)
-        result_cpu = compiled_cpu(opinfo.op, t_inp, t_args, t_kwargs)
+        result_cpu = fn(opinfo.op, t_inp, t_args, t_kwargs)
 
         compiled_hpu = torch.compile(fn, backend="hpu_backend")
         result_hpu = compiled_hpu(
@@ -170,8 +167,7 @@ def test_expand(dtype):
 
     tensor = torch.randn(3, 1).to(dtype)
 
-    compiled_cpu = torch.compile(fn)
-    cpu_res = compiled_cpu(tensor, (3, 4))
+    cpu_res = fn(tensor, (3, 4))
 
     compiled_hpu = torch.compile(fn, backend="hpu_backend")
     hpu_res = compiled_hpu(tensor.to("hpu"), (3, 4))
@@ -192,8 +188,7 @@ def test_unsqueeze(dtype, dim):
     cpu_tensor = torch.randn(96).to(dtype)
     hpu_tensor = cpu_tensor.to("hpu")
 
-    compiled_cpu = torch.compile(raw_function)
-    cpu_res = compiled_cpu(cpu_tensor)
+    cpu_res = raw_function(cpu_tensor)
 
     compiled_hpu = torch.compile(raw_function, backend="hpu_backend")
     hpu_res = compiled_hpu(hpu_tensor)
@@ -209,8 +204,7 @@ def test_constant_pad_nd():
     cpu_tensor = torch.randn(1, 2, 2)
     hpu_tensor = cpu_tensor.to("hpu")
 
-    compiled_cpu = torch.compile(raw_function)
-    cpu_res = compiled_cpu(cpu_tensor, "cpu")
+    cpu_res = raw_function(cpu_tensor, "cpu")
 
     compiled_hpu = torch.compile(raw_function, backend="hpu_backend")
     hpu_res = compiled_hpu(hpu_tensor, "hpu")
@@ -252,8 +246,7 @@ def test_logical_bin_ops(dtype, torch_func):
     cpu_tensor_b = torch.randn(16).to(dtype)
     hpu_tensor_b = cpu_tensor_b.to("hpu")
 
-    compiled_cpu = torch.compile(torch_func)
-    cpu_res = compiled_cpu(cpu_tensor_a, cpu_tensor_b)
+    cpu_res = torch_func(cpu_tensor_a, cpu_tensor_b)
 
     compiled_hpu = torch.compile(torch_func, backend="hpu_backend")
     hpu_res = compiled_hpu(hpu_tensor_a, hpu_tensor_b)
@@ -269,8 +262,7 @@ def test_logical_not(dtype):
     cpu_tensor = torch.randn(16).to(dtype)
     hpu_tensor = cpu_tensor.to("hpu")
 
-    compiled_cpu = torch.compile(torch.logical_not)
-    cpu_res = compiled_cpu(cpu_tensor)
+    cpu_res = torch.logical_not(cpu_tensor)
 
     compiled_hpu = torch.compile(torch.logical_not, backend="hpu_backend")
     hpu_res = compiled_hpu(hpu_tensor)
@@ -312,8 +304,7 @@ def test_nonzero(shape_in):
     cpu_tensor = torch.randint(10, shape_in) > 5
     hpu_tensor = cpu_tensor.to("hpu")
 
-    compiled_cpu = torch.compile(fn)
-    cpu_res = compiled_cpu(cpu_tensor)
+    cpu_res = fn(cpu_tensor)
 
     compiled_hpu = torch.compile(fn, backend="hpu_backend")
     hpu_res = compiled_hpu(hpu_tensor)

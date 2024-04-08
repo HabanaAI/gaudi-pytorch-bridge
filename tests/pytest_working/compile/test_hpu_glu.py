@@ -43,10 +43,9 @@ def test_hpu_glu(shape, dim, backward):
     else:
         fn = fn_fwd
 
-    cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    cpu_output = cpu_compiled_fn(cpu_input, dim)
+    cpu_output = fn(cpu_input, dim)
     hpu_output = hpu_compiled_fn(hpu_input, dim).cpu()
 
     assert torch.allclose(cpu_output, hpu_output)

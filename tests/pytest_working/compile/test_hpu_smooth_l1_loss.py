@@ -26,10 +26,9 @@ def test_hpu_smooth_l1_loss(shape, beta, reduction, dtype):
     hpu_input = cpu_input.to("hpu")
     cpu_target = torch.rand(shape, dtype=dtype)
     hpu_target = cpu_target.to("hpu")
-    cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    cpu_output = cpu_compiled_fn(cpu_input, cpu_target)
+    cpu_output = fn(cpu_input, cpu_target)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_target).cpu()
     assert torch.allclose(cpu_output, hpu_output)
 
@@ -51,10 +50,9 @@ def test_hpu_smooth_l1_loss_bwd(shape, beta, reduction, dtype):
     hpu_input.requires_grad = True
     cpu_target = torch.rand(shape, dtype=dtype)
     hpu_target = cpu_target.to("hpu")
-    cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    cpu_output = cpu_compiled_fn(cpu_input, cpu_target)
+    cpu_output = fn(cpu_input, cpu_target)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_target).cpu()
     rtol = 1e-2 if dtype == torch.bfloat16 else 1e-7
     assert torch.allclose(cpu_output, hpu_output, rtol=rtol)

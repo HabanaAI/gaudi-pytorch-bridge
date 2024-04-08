@@ -30,10 +30,8 @@ def test_index(shape, dtype):
         return torch.dot(input, other)
 
     if pytest.mode == "compile":
-        f_cpu = torch.compile(wrapper_fn)
         f_hpu = torch.compile(wrapper_fn, backend="hpu_backend")
     else:
-        f_cpu = wrapper_fn
         f_hpu = wrapper_fn
 
     if dtype == torch.int:
@@ -46,7 +44,7 @@ def test_index(shape, dtype):
     input_tensor_h = input_tensor.to(hpu)
     other_tensor_h = other_tensor.to(hpu)
 
-    result_c = f_cpu(input=input_tensor, other=other_tensor)
+    result_c = wrapper_fn(input=input_tensor, other=other_tensor)
     result_h = f_hpu(input=input_tensor_h, other=other_tensor_h)
 
     compare_tensors(result_h, result_c, tols[dtype], tols[dtype])

@@ -33,10 +33,9 @@ def test_hpu_baddbmm(alpha, beta, dtype):
 
     torch._dynamo.reset()
 
-    cpu_wrapped_fn = torch.compile(fn) if pytest.mode == "compile" else fn
     hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
 
-    cpu_output = cpu_wrapped_fn(cpu_input, cpu_batch1, cpu_batch2)
+    cpu_output = fn(cpu_input, cpu_batch1, cpu_batch2)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_batch1, hpu_batch2).cpu()
 
     tol = 1e-2 if dtype == torch.bfloat16 else 1e-5

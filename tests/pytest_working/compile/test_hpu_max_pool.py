@@ -35,10 +35,9 @@ def test_hpu_max_pool2d(shape, kernel_size_and_padding, stride, dilation, dtype)
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
     torch._dynamo.reset()
-    cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    cpu_output = cpu_compiled_fn(cpu_input)
+    cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
     assert torch.allclose(cpu_output, hpu_output)
 
@@ -67,10 +66,9 @@ def test_hpu_max_pool2d_bwd(shape, kernel_size_and_padding, stride, dilation, dt
     cpu_input.requires_grad = True
     hpu_input.requires_grad = True
     torch._dynamo.reset()
-    cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    cpu_output = cpu_compiled_fn(cpu_input)
+    cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
     assert torch.allclose(cpu_output, hpu_output)
 
@@ -94,10 +92,9 @@ def test_hpu_max_pool3d(shape, kernel_size_and_padding, stride, dilation, dtype)
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
     torch._dynamo.reset()
-    cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    cpu_output = cpu_compiled_fn(cpu_input)
+    cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
     assert torch.allclose(cpu_output, hpu_output)
 
@@ -129,9 +126,8 @@ def test_hpu_max_pool3d_bwd(shape, kernel_size_and_padding, stride, dilation, dt
     cpu_input.requires_grad = True
     hpu_input.requires_grad = True
     torch._dynamo.reset()
-    cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    cpu_output = cpu_compiled_fn(cpu_input)
+    cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
     assert torch.allclose(cpu_output, hpu_output)

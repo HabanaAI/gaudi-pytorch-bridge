@@ -39,13 +39,12 @@ class TestHpuNdimsDynamic:
 
         torch._dynamo.reset()
 
-        cpu_wrapped_fn = torch.compile(fn)
         hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend")
 
         cpu_output = []
         hpu_output = []
         for idx, shape in enumerate(view_shapes):
-            cpu_output.append(cpu_wrapped_fn(cpu_input[idx], shape))
+            cpu_output.append(fn(cpu_input[idx], shape))
         for idx, shape in enumerate(view_shapes):
             hpu_output.append(hpu_wrapped_fn(hpu_input[idx], shape).cpu())
 

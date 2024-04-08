@@ -46,13 +46,11 @@ def test_hpu_take(shape, repeats, dtypes_inputs, dtypes_indicies):
         return torch.take(input_tensor, indicies)
 
     if pytest.mode == "compile":
-        f_cpu = torch.compile(fn)
         f_hpu = torch.compile(fn, backend="hpu_backend")
     else:
-        f_cpu = fn
         f_hpu = fn
 
-    result_c = f_cpu(input_tensor=input_tensor, indicies=indicies)
+    result_c = fn(input_tensor=input_tensor, indicies=indicies)
     result_h = f_hpu(input_tensor=input_tensor_h, indicies=indicies_h)
 
     assert torch.equal(result_c, result_h.to("cpu"))

@@ -25,10 +25,9 @@ def test_hpu_resize_(dest_shape, dtype):
     hpu_input = cpu_input.to("hpu")
 
     torch._dynamo.reset()
-    cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    cpu_compiled_fn(cpu_input, dest_shape)
+    fn(cpu_input, dest_shape)
     hpu_compiled_fn(hpu_input, dest_shape)
     rtol = 1e-2 if dtype == torch.bfloat16 else 1e-7
     assert torch.allclose(cpu_input, hpu_input.cpu(), rtol=rtol)

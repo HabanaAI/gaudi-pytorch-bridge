@@ -30,10 +30,9 @@ def test_hpu_eye(n, m, dtype):
     hpu_output = cpu_output.to("hpu")
     torch._dynamo.reset()
 
-    cpu_wrapped_fn = torch.compile(fn) if pytest.mode == "compile" else fn
     hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
 
-    cpu_wrapped_fn(cpu_output)
+    fn(cpu_output)
     hpu_wrapped_fn(hpu_output)
 
     assert torch.equal(cpu_output, hpu_output.cpu())

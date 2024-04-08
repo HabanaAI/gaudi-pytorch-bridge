@@ -59,11 +59,10 @@ def check(padding, shape, dtype, reflection_pad, backward=False):
     else:
         fn = fn_fwd
 
-    cpu_compiled_fn = torch.compile(fn)
     torch._dynamo.reset()
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    cpu_output = cpu_compiled_fn(reflection_pad, cpu_input, padding)
+    cpu_output = fn(reflection_pad, cpu_input, padding)
     hpu_output = hpu_compiled_fn(reflection_pad, hpu_input, padding).cpu()
 
     if dtype in (torch.float8_e5m2, torch.float8_e4m3fn):

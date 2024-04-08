@@ -44,10 +44,9 @@ def test_hpu_huber_loss(shape, reduction, delta, backward, dtype):
     hpu_target = cpu_target.to("hpu")
     torch._dynamo.reset()
 
-    cpu_wrapped_fn = torch.compile(fn) if pytest.mode == "compile" else fn
     hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
 
-    cpu_output = cpu_wrapped_fn(model, cpu_input, cpu_target)
+    cpu_output = fn(model, cpu_input, cpu_target)
     hpu_output = hpu_wrapped_fn(model, hpu_input, hpu_target).cpu()
 
     tol = 1e-3 if dtype == torch.bfloat16 else 1e-5

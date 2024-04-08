@@ -24,7 +24,6 @@ def test_searchsorted(dtype, out_int32, right):
         return torch.searchsorted(sorted_sequence, values, out_int32=out_int32, right=right)
 
     hpu_compiled_function = torch.compile(fn, backend="hpu_backend")
-    cpu_compiled_function = torch.compile(fn)
 
     cpu_sorted_sequence, _ = torch.sort(torch.randn((10, 10)).to(dtype))
     cpu_inputs = torch.randn((10, 5)).to(dtype)
@@ -32,6 +31,6 @@ def test_searchsorted(dtype, out_int32, right):
     hpu_inputs = cpu_inputs.to("hpu")
 
     hpu_result = hpu_compiled_function(hpu_sorted_sequence, hpu_inputs)
-    cpu_result = cpu_compiled_function(cpu_sorted_sequence, cpu_inputs)
+    cpu_result = fn(cpu_sorted_sequence, cpu_inputs)
 
     np.testing.assert_array_equal(hpu_result.cpu().numpy(), cpu_result.numpy())

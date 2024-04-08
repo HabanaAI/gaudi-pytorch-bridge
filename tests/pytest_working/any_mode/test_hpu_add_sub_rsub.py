@@ -66,13 +66,10 @@ def test_hpu(scalar, shape, alpha, dtype, op):
         cpu_other = float(scalar)  # if dtype in (torch.bfloat16, torch.float, torch.float16) else scalar
         hpu_other = cpu_other
 
-    cpu_compiled_fn = torch.compile(fn, dynamic=True) if pytest.mode == "compile" else fn
     torch._dynamo.reset()
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend", dynamic=True) if pytest.mode == "compile" else fn
-
-    cpu_output = cpu_compiled_fn(cpu_input_tensor, cpu_other, alpha)
+    cpu_output = fn(cpu_input_tensor, cpu_other, alpha)
     hpu_output = hpu_compiled_fn(hpu_input_tensor, hpu_other, alpha).cpu()
-
     atol, rtol = set_precision(dtype)
 
     assert torch.allclose(cpu_output, hpu_output, atol=atol, rtol=rtol)

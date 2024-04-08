@@ -32,10 +32,9 @@ def test_hpu_convolution(dtype):
     hpu_weight = cpu_weight.to("hpu")
     cpu_bias = torch.rand(bias_shape, dtype=dtype)
     hpu_bias = cpu_bias.to("hpu")
-    cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    cpu_output = cpu_compiled_fn(cpu_input, cpu_weight, cpu_bias)
+    cpu_output = fn(cpu_input, cpu_weight, cpu_bias)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_weight, hpu_bias)
 
     rtol = 1e-2 if dtype == torch.bfloat16 else 1e-5

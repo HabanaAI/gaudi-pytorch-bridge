@@ -29,10 +29,9 @@ def test_hpu_addmv(shapes, alpha, beta, dtype):
     hpu_mat = cpu_mat.to("hpu")
     cpu_vec = torch.rand(vec_shape, dtype=dtype)
     hpu_vec = cpu_vec.to("hpu")
-    cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    cpu_output = cpu_compiled_fn(cpu_input, cpu_mat, cpu_vec)
+    cpu_output = fn(cpu_input, cpu_mat, cpu_vec)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_mat, hpu_vec).cpu()
     rtol = 1e-2 if dtype == torch.bfloat16 else 1e-7
     assert torch.allclose(cpu_output, hpu_output, rtol=rtol)

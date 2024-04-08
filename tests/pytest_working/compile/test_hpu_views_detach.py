@@ -26,7 +26,6 @@ class MyModule(torch.nn.Module):
 def test_hpu_views_expand_as():
     mod_cpu = MyModule()
     mod_hpu = MyModule().to("hpu")
-    mod_cpu = torch.compile(mod_cpu)
     mod_hpu = torch.compile(mod_hpu, backend="hpu_backend")
     cpu_out = mod_cpu(torch.ones(32, 128, device="cpu", dtype=torch.long))
     hpu_out = mod_hpu(torch.ones(32, 128, device="hpu", dtype=torch.long))

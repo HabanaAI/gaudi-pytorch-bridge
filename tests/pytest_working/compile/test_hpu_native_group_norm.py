@@ -35,8 +35,7 @@ def test_native_group_norm_bwd(input_shape, dtype):
     hpu_weight = cpu_weight.to("hpu").detach()
     hpu_bias = cpu_bias.to("hpu").detach()
 
-    cpu_compiled_fn = torch.compile(fn)
-    cpu_results = cpu_compiled_fn(cpu_input, cpu_weight, cpu_bias)
+    cpu_results = fn(cpu_input, cpu_weight, cpu_bias)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
     hpu_results = hpu_compiled_fn(hpu_input, hpu_weight, hpu_bias)
     rtol = 1e-01 if dtype == torch.bfloat16 else 1e-03

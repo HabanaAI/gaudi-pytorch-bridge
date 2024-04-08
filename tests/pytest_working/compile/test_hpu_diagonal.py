@@ -57,10 +57,9 @@ def diagonal_test_generic(shape, dims, offset, dtype):
         return torch.mul(x, 1)
 
     torch._dynamo.reset()
-    cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    expected = cpu_compiled_fn(input, offset, dim1, dim2)
+    expected = fn(input, offset, dim1, dim2)
     result_hpu = hpu_compiled_fn(input_hpu, offset, dim1, dim2)
     result = result_hpu.to("cpu")
 

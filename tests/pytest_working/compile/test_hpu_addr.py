@@ -29,10 +29,9 @@ def test_hpu_addr(shapes, alpha, beta, dtype):
     hpu_vec1 = cpu_vec1.to("hpu")
     cpu_vec2 = torch.rand(vec_shape, dtype=dtype)
     hpu_vec2 = cpu_vec2.to("hpu")
-    cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    cpu_output = cpu_compiled_fn(cpu_input, cpu_vec1, cpu_vec2)
+    cpu_output = fn(cpu_input, cpu_vec1, cpu_vec2)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_vec1, hpu_vec2).cpu()
     assert torch.allclose(cpu_output, hpu_output)
 

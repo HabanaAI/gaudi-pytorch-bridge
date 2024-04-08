@@ -49,10 +49,10 @@ def test_weight_norm_fwd_bwd(dtype):
         return output, input.grad
 
     model_compile_hpu = torch.compile(fn, backend="hpu_backend")
-    model_compile_cpu = torch.compile(fn)
+    model_cpu = fn
 
     output_hpu, x_grad_hpu = model_compile_hpu(x_hpu, g_hpu, w_cpu, "hpu")
-    output_cpu, x_grad_cpu = model_compile_cpu(x_cpu, g_cpu, w_cpu, "cpu")
+    output_cpu, x_grad_cpu = model_cpu(x_cpu, g_cpu, w_cpu, "cpu")
 
     rtol = 5e-2 if dtype == torch.bfloat16 else 1e-5
     assert torch.allclose(output_hpu.cpu(), output_cpu, rtol=rtol)

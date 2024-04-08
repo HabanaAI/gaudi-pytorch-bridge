@@ -11,7 +11,6 @@ def test_hpu_native_batch_norm_legit_no_training(dtype, params):
         return torch._native_batch_norm_legit_no_training(input, weight, bias, running_mean, running_var, momentum, eps)
 
     torch._dynamo.reset()
-    inductor_compiled_fn = torch.compile(fn)
     aot_hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     input = torch.randn(*params["dims"], dtype=dtype)
@@ -20,7 +19,7 @@ def test_hpu_native_batch_norm_legit_no_training(dtype, params):
     running_mean = torch.randn(params["dims"][1])
     running_var = torch.randn(params["dims"][1])
 
-    cpu_out = inductor_compiled_fn(input, weight, bias, running_mean, running_var, params["momentum"], params["eps"])
+    cpu_out = fn(input, weight, bias, running_mean, running_var, params["momentum"], params["eps"])
     hpu_out = aot_hpu_compiled_fn(
         input.to("hpu"),
         weight.to("hpu"),
@@ -67,10 +66,9 @@ def test_hpu_native_batch_norm_bwd(shape, dtype):
     hpu_running_var = cpu_running_var.to("hpu")
     torch._dynamo.reset()
 
-    cpu_compiled_fn = torch.compile(fn)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
-    cpu_output = cpu_compiled_fn(cpu_input, cpu_weight, cpu_bias, cpu_running_mean, cpu_running_var)
+    cpu_output = fn(cpu_input, cpu_weight, cpu_bias, cpu_running_mean, cpu_running_var)
     hpu_output = hpu_compiled_fn(hpu_input, hpu_weight, hpu_bias, hpu_running_mean, hpu_running_var).cpu()
     tol = 1e-3 if dtype == torch.bfloat16 else 1e-6
     assert torch.allclose(cpu_output, hpu_output, atol=tol)

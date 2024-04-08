@@ -32,13 +32,12 @@ def test_select_scatter(shape, shape_src, dim, index):
         t3 = t2.mul(5)
         return t3
 
-    f_cpu = torch.compile(wrapper_fn)
     f_hpu = torch.compile(wrapper_fn, backend="aot_hpu_training_backend")
 
     input_tensor = torch.rand(shape, requires_grad=False, device=cpu)
     src_tensor = torch.rand(shape_src, requires_grad=False, device=cpu)
 
-    y_cpu = f_cpu(input_tensor, src_tensor, dim, index)
+    y_cpu = wrapper_fn(input_tensor, src_tensor, dim, index)
     y_hpu = f_hpu(input_tensor.to(hpu), src_tensor.to(hpu), dim, index)
 
     assert torch.allclose(y_cpu, y_hpu.to(cpu), atol=0.001, rtol=0.001)

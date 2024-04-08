@@ -30,10 +30,9 @@ def test_hpu_grid_sampler_2d(input_shape, align_corners, dtype):
     hpu_grid = cpu_grid.to("hpu")
     torch._dynamo.reset()
 
-    cpu_wrapped_fn = torch.compile(fn) if pytest.mode == "compile" else fn
     hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
 
-    cpu_output = cpu_wrapped_fn(cpu_input, cpu_grid)
+    cpu_output = fn(cpu_input, cpu_grid)
     hpu_output = hpu_wrapped_fn(hpu_input, hpu_grid).cpu()
 
     tol = 1e-2 if dtype == torch.bfloat16 else 1e-5

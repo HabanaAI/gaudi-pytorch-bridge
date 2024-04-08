@@ -33,11 +33,10 @@ def test_hpu_one_hot(shape, classes, dtype):
     arange, view, mod = shape
     cpu_input = torch.arange(*arange, dtype=getattr(torch, dtype)).view(*view) % mod
     hpu_input = cpu_input.to("hpu")
-    cpu_compiled_fn = torch.compile(fn) if pytest.mode == "compile" else fn
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
     torch._dynamo.reset()
 
-    cpu_output = cpu_compiled_fn(cpu_input, classes)
+    cpu_output = fn(cpu_input, classes)
     hpu_output = hpu_compiled_fn(hpu_input, classes).cpu()
 
     assert torch.equal(cpu_output, hpu_output)

@@ -101,12 +101,11 @@ def test_hpu_compile_binary_cross_entropy_bwd(input_size, weight_use, reduction,
         entropy.backward(grad)
         return input.grad, target.grad
 
-    fn_cpu = torch.compile(fn)
     fn_hpu = torch.compile(fn, backend="hpu_backend")
 
     c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=True)
 
-    input_grad, target_grad = fn_cpu(c["in"], c["t"], weight=c["w"], reduction=reduction)
+    input_grad, target_grad = fn(c["in"], c["t"], weight=c["w"], reduction=reduction)
     input_grad_h, target_grad_h = fn_hpu(h["in"], h["t"], weight=h["w"], reduction=reduction)
 
     assert torch.allclose(
@@ -125,12 +124,11 @@ def test_hpu_compile_binary_cross_entropy_logits_fwd(input_size, weight_use, red
     def fn(input, target, weight=None, reduction="none"):
         return torch.nn.functional.binary_cross_entropy_with_logits(input, target, weight=weight, reduction=reduction)
 
-    fn_cpu = torch.compile(fn)
     fn_hpu = torch.compile(fn, backend="hpu_backend")
 
     c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=False)
 
-    entropy = fn_cpu(c["in"], c["t"], weight=c["w"], reduction=reduction)
+    entropy = fn(c["in"], c["t"], weight=c["w"], reduction=reduction)
     entropy_h = fn_hpu(h["in"], h["t"], weight=h["w"], reduction=reduction)
 
     assert torch.allclose(entropy, entropy_h.cpu(), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])
@@ -149,12 +147,11 @@ def test_hpu_compile_binary_cross_entropy_logits_bwd(input_size, weight_use, red
         entropy.backward(grad)
         return input.grad, target.grad
 
-    fn_cpu = torch.compile(fn)
     fn_hpu = torch.compile(fn, backend="hpu_backend")
 
     c, h = gen_inputs(input_size, weight_use, dtype, force_f32_for_cpu=False)
 
-    input_grad, target_grad = fn_cpu(c["in"], c["t"], weight=c["w"], reduction=reduction)
+    input_grad, target_grad = fn(c["in"], c["t"], weight=c["w"], reduction=reduction)
     input_grad_h, target_grad_h = fn_hpu(h["in"], h["t"], weight=h["w"], reduction=reduction)
 
     assert torch.allclose(input_grad, input_grad_h.cpu(), atol=atol_for_dtype[dtype], rtol=rtol_for_dtype[dtype])

@@ -89,16 +89,14 @@ def test_index(shape, indices):
         return torch.ops.aten.index(shape, indices)
 
     if pytest.mode == "compile":
-        f_cpu = torch.compile(wrapper_fn)
         f_hpu = torch.compile(wrapper_fn, backend="hpu_backend")
     else:
-        f_cpu = wrapper_fn
         f_hpu = wrapper_fn
 
     input_tensor = torch.rand(shape, device=hpu)
     indices = [torch.tensor(x, device=hpu) if x is not None else x for x in indices]
 
-    y_cpu = f_cpu(input_tensor.to(cpu), [x.to(cpu) if x is not None else x for x in indices])
+    y_cpu = wrapper_fn(input_tensor.to(cpu), [x.to(cpu) if x is not None else x for x in indices])
     y_hpu = f_hpu(input_tensor, indices)
 
     assert torch.equal(y_cpu, y_hpu.to(cpu))

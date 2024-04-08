@@ -46,7 +46,6 @@ def test_select(size, dim, index, dtype):
 
     input_hpu = input_cpu.to("hpu")
 
-    cpu_fn = torch.compile(fn) if is_pytest_mode_compile() else fn
     hpu_fn = torch.compile(fn, backend="hpu_backend") if is_pytest_mode_compile() else fn
 
     if size == (16, 8) and dim == 1 and index == 7:
@@ -58,7 +57,7 @@ def test_select(size, dim, index, dtype):
     if size == (16, 12, 8) and dim == 2 and index == 7:
         pytest.xfail("SW-165317")
 
-    cpu_output = cpu_fn(input_cpu, dim, index)
+    cpu_output = fn(input_cpu, dim, index)
     if dtype == torch.float64:
         cpu_output.to(torch.float32).to(torch.float64)
     hpu_output = hpu_fn(input_hpu, dim, index).cpu()

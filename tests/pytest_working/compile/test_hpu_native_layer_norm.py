@@ -23,7 +23,6 @@ def test_native_layer_norm(shape, eps, dtype):
 
     torch._dynamo.reset()
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
-    cpu_compiled_fn = torch.compile(fn)
 
     extended_shape = (10,) + shape
     cpu_input = torch.rand(extended_shape, dtype=dtype)
@@ -34,7 +33,7 @@ def test_native_layer_norm(shape, eps, dtype):
     hpu_bias = cpu_bias.to("hpu")
 
     hpu_results = hpu_compiled_fn(hpu_input, hpu_weight, hpu_bias)
-    cpu_results = cpu_compiled_fn(cpu_input, cpu_weight, cpu_bias)
+    cpu_results = fn(cpu_input, cpu_weight, cpu_bias)
     assert torch.allclose(cpu_results[0], hpu_results[0].cpu(), 1e-03)
 
 
@@ -58,8 +57,7 @@ def test_native_layer_norm_bwd(shape, dtype):
     hpu_bias = cpu_bias.to("hpu")
 
     torch._dynamo.reset()
-    cpu_compiled_fn = torch.compile(fn)
-    cpu_results = cpu_compiled_fn(cpu_input, cpu_weight, cpu_bias)
+    cpu_results = fn(cpu_input, cpu_weight, cpu_bias)
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
     hpu_results = hpu_compiled_fn(hpu_input, hpu_weight, hpu_bias)
     rtol = 5e-02 if dtype == torch.bfloat16 else 1e-03

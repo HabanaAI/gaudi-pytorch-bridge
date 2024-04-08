@@ -15,6 +15,7 @@ import os
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
+from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from test_utils import format_tc, setup_teardown_env_fixture
 
 
@@ -47,17 +48,14 @@ def test_hpu_maxpool2d_bwd(
     maxpool2d = torch.nn.MaxPool2d(kernel_size, stride, padding, dilation, return_indices, ceil_mode)
     hpu_wrapped_fn = torch.compile(maxpool2d, backend="hpu_backend") if pytest.mode == "compile" else maxpool2d
 
-    cpu_wrapped_fn = torch.compile(maxpool2d) if pytest.mode == "compile" else maxpool2d
-
     torch._dynamo.reset()
     for shape in shapes:
         cpu_input = torch.rand(shape, dtype=dtype)
         hpu_input = cpu_input.to("hpu")
         cpu_input.requires_grad = True
         hpu_input.requires_grad = True
-
         res_hpu = hpu_wrapped_fn(hpu_input)
-        res_cpu = cpu_wrapped_fn(cpu_input)
+        res_cpu = maxpool2d(cpu_input)
 
         if return_indices == True:
             res_hpu = res_hpu[0]

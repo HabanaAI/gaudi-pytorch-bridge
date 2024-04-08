@@ -29,7 +29,6 @@ def test_addmm(dtype, n, m, p):
         return torch.addmm(input, mat1, mat2)
 
     compiled_fn_hpu = torch.compile(fn, backend="hpu_backend")
-    compiled_fn_cpu = torch.compile(fn)
 
     if dtype.is_floating_point:
         input = torch.randn(input_shape, dtype=dtype)
@@ -40,7 +39,7 @@ def test_addmm(dtype, n, m, p):
         mat1 = torch.randint(low=-128, high=127, size=mat1_shape, dtype=dtype)
         mat2 = torch.randint(low=-128, high=127, size=mat2_shape, dtype=dtype)
 
-    expected = compiled_fn_cpu(input.cpu(), mat1.cpu(), mat2.cpu())
+    expected = fn(input.cpu(), mat1.cpu(), mat2.cpu())
     result = compiled_fn_hpu(input, mat1, mat2)
     assert torch.allclose(result.cpu(), expected)
 
@@ -60,7 +59,6 @@ def test_inplace_addmm_with_view_input(dtype, n, m, p):
 
     torch._dynamo.reset()
     compiled_fn_hpu = torch.compile(fn, backend="hpu_backend")
-    compiled_fn_cpu = torch.compile(fn)
 
     if dtype.is_floating_point:
         input = torch.randn(input_shape, dtype=dtype)
@@ -71,6 +69,6 @@ def test_inplace_addmm_with_view_input(dtype, n, m, p):
         mat1 = torch.randint(low=-128, high=127, size=mat1_shape, dtype=dtype)
         mat2 = torch.randint(low=-128, high=127, size=mat2_shape, dtype=dtype)
 
-    expected = compiled_fn_cpu(input.cpu(), mat1.cpu(), mat2.cpu())
+    expected = fn(input.cpu(), mat1.cpu(), mat2.cpu())
     result = compiled_fn_hpu(input, mat1, mat2)
     assert torch.allclose(result.cpu(), expected)
