@@ -36,7 +36,7 @@ def test_clone(memory_format, dtype):
     if is_pytest_mode_compile():
         torch._dynamo.reset()
         clear_t_compile_logs()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     input = torch.randn((3, 4, 5)).to(dtype)
     input_hpu = input.to("hpu")

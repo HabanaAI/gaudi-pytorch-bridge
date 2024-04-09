@@ -23,6 +23,6 @@ def test_detach():
     G = 1024 * 1024 * 1024
     shape = [2 * G]
     t1 = torch.randn(shape, dtype=torch.float32, device="hpu")
-    detach = torch.compile(detach_fn, backend="aot_hpu_training_backend")
+    detach = torch.compile(detach_fn, backend="hpu_backend")
     t2 = detach(t1)
     assert torch.equal(t1, t2)

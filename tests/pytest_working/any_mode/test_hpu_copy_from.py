@@ -34,7 +34,7 @@ def test_hpu_non_contiguous_copy_(shapes, dtype):
 
     hpu_wrapped_fn = fn
     if is_pytest_mode_compile():
-        hpu_wrapped_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend")
         clear_t_compile_logs()
         torch._dynamo.reset()
 

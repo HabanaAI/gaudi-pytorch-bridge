@@ -34,7 +34,7 @@ def test_roll(shape, shifts, dims, dtype):
     if is_pytest_mode_compile():
         torch._dynamo.reset()
         clear_t_compile_logs()
-        fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        fn = torch.compile(fn, backend="hpu_backend")
 
     input = torch.randn(shape).to(dtype)
     input_hpu = input.to("hpu")

@@ -17,7 +17,7 @@ from torch._dynamo import compiled_autograd
 
 
 def compiler_fn(gm):
-    return torch.compile(gm, backend="aot_hpu_training_backend", fullgraph=True)
+    return torch.compile(gm, backend="hpu_backend", fullgraph=True)
 
 
 def is_op_found_in_ir(ns, op):

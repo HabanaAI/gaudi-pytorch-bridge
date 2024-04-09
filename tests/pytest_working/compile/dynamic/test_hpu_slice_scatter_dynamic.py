@@ -38,7 +38,7 @@ def test_slice_scatter_negative_end():
         return t3
 
     f_cpu = torch.compile(wrapper_fn, dynamic=True)
-    f_hpu = torch.compile(wrapper_fn, backend="aot_hpu_training_backend", dynamic=None)
+    f_hpu = torch.compile(wrapper_fn, backend="hpu_backend", dynamic=None)
 
     for shape in input_shapes:
         input_tensor = torch.rand(shape[0], requires_grad=False, device=cpu)
@@ -69,7 +69,7 @@ def test_slice_scatter_compatible_with_select_scatter():
         return t3
 
     f_cpu = torch.compile(wrapper_fn)
-    f_hpu = torch.compile(wrapper_fn, backend="aot_hpu_training_backend", dynamic=None)
+    f_hpu = torch.compile(wrapper_fn, backend="hpu_backend", dynamic=None)
 
     for shape in input_shapes:
         input_tensor = torch.rand(shape[0], requires_grad=False, device=cpu)
@@ -100,7 +100,7 @@ def test_slice_scatter():
         return t3
 
     f_cpu = torch.compile(wrapper_fn)
-    f_hpu = torch.compile(wrapper_fn, backend="aot_hpu_training_backend", dynamic=None)
+    f_hpu = torch.compile(wrapper_fn, backend="hpu_backend", dynamic=None)
 
     for shape in input_shapes:
         input_tensor = torch.rand(shape[0], requires_grad=False, device=cpu)

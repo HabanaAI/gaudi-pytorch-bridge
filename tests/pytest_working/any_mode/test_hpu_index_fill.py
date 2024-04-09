@@ -57,7 +57,7 @@ def test_hpu_index_fill(shape, dim, indices, dtype):
     def fn(self_tensor, dim, index_tensor):
         self_tensor.index_fill_(dim, index_tensor, update_value)
 
-    fn_hpu = torch.compile(fn, backend="aot_hpu_training_backend") if pytest.mode == "compile" else fn
+    fn_hpu = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
 
     fn_hpu(self_tensor_h, dim, index_tensor_h)
 

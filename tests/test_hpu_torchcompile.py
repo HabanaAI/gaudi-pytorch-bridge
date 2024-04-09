@@ -36,7 +36,7 @@ def test_simple_convolution():
         torch.manual_seed(2562825)
         raw_model = Net().to("hpu")
 
-        compiled_model = torch.compile(model, backend="aot_hpu_inference_backend")
+        compiled_model = torch.compile(model, backend="hpu_backend")
 
         tensor = torch.rand(8, 1, 32, 32).to("hpu")
 
@@ -90,8 +90,8 @@ def test_simple_convolution_mixed():
 
         tensor = torch.rand(8, 1, 32, 32).to("hpu")
 
-        compiled_function_1 = torch.compile(raw_function_1, backend="aot_hpu_inference_backend")
-        compiled_function_2 = torch.compile(raw_function_2, backend="aot_hpu_inference_backend")
+        compiled_function_1 = torch.compile(raw_function_1, backend="hpu_backend")
+        compiled_function_2 = torch.compile(raw_function_2, backend="hpu_backend")
 
         res_eager = raw_function_2(raw_function_1(tensor))
         res_graph_to_eager = raw_function_2(compiled_function_1(tensor))
@@ -159,7 +159,7 @@ def test_simple_sgd_convnet():
 
             return loss
 
-        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
+        compiled_function_test = torch.compile(raw_function_test, backend="hpu_backend")
         compiled_function_train = torch.compile(raw_function_train, backend="hpu_backend")
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
@@ -245,7 +245,7 @@ def test_simple_sgd_convnet_with_device_pingpong():
 
             return loss
 
-        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
+        compiled_function_test = torch.compile(raw_function_test, backend="hpu_backend")
         compiled_function_train = torch.compile(raw_function_train, backend="hpu_backend")
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
@@ -324,7 +324,7 @@ def test_simple_adam_convnet():
 
             return loss
 
-        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
+        compiled_function_test = torch.compile(raw_function_test, backend="hpu_backend")
         compiled_function_train = torch.compile(raw_function_train, backend="hpu_backend")
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
@@ -410,7 +410,7 @@ def test_simple_adam_convnet_with_device_pingpong():
 
             return loss
 
-        compiled_function_test = torch.compile(raw_function_test, backend="aot_hpu_inference_backend")
+        compiled_function_test = torch.compile(raw_function_test, backend="hpu_backend")
         compiled_function_train = torch.compile(raw_function_train, backend="hpu_backend")
 
         input_tensor1 = torch.rand(8, 1, 32, 32).to("hpu")
@@ -440,7 +440,7 @@ def test_simple_view():
         def raw_function(x):
             return torch.relu(x)
 
-        compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+        compiled_function_inference = torch.compile(raw_function, backend="hpu_backend")
 
         input_tensor = torch.rand(3, 3, device="cpu").to("hpu")
 
@@ -473,7 +473,7 @@ def test_cache_metrics_enabled_and_graph_compilaton():
         def raw_function(x):
             return torch.relu(x)
 
-        compiled_function_inference = torch.compile(raw_function, backend="aot_hpu_inference_backend")
+        compiled_function_inference = torch.compile(raw_function, backend="hpu_backend")
         input_tensor = torch.rand(3, 3, device="cpu").to("hpu")
         last_total_time = 0
         for curr_iter in range(5):

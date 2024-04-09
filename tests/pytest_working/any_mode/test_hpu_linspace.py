@@ -74,7 +74,7 @@ def test_hpu_linspace_tensor_input(start, end, steps, dtype, variant):
 
     if is_pytest_mode_compile():
         torch._dynamo.reset()
-        hpu_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+        hpu_fn = torch.compile(fn, backend="hpu_backend")
 
     expected_result = fn(*args)
     real_result = hpu_fn(*args, device="hpu")

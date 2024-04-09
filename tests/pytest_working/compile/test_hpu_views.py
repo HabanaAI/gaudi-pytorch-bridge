@@ -356,7 +356,7 @@ def test_t_compilation(shape, dtype):
         else torch.randint(low=-128, high=127, size=shape, dtype=dtype)
     )
     hpu_input = cpu_input.to("hpu")
-    hpu_compiled_fn = torch.compile(fn, backend="aot_hpu_training_backend")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input)

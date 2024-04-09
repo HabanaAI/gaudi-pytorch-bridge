@@ -384,7 +384,7 @@ def test_op_expand():
     def raw_function(input, shape):
         return input.expand(shape).abs()
 
-    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=True)
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
     for shape in shapes:
         input = torch.randn(3, 1)
@@ -970,7 +970,7 @@ def test_op_split(split_size, split_dim):
     # workaround for: https://jira.habana-labs.com/browse/SW-162350
     # Slice op is not yet supported for dynamic shape in torch compile
     # to support functionality of `split op` we are decomposing to `slice op`
-    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend", dynamic=False)
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=False)
 
     for s in input_shapes:
         t1 = torch.randn(s, requires_grad=False)
@@ -988,7 +988,7 @@ def test_op_scalar_div():
     def raw_function(x, s):
         return torch.div(x, s)
 
-    compiled_fn = torch.compile(raw_function, backend="aot_hpu_training_backend")
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend")
 
     for s1, s2 in zip(inputs, scalars):
         t1 = torch.randn(s1, requires_grad=False)

@@ -74,7 +74,7 @@ class TestHpuIndexPut:
         hpu_value = cpu_value.to("hpu")
         accumulate = accumulate
 
-        hpu_wrapped_fn = torch.compile(fn, backend="aot_hpu_training_backend") if is_pytest_mode_compile() else fn
+        hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if is_pytest_mode_compile() else fn
         torch._dynamo.reset()
 
         fn(cpu_input, cpu_indices, cpu_value, accumulate)

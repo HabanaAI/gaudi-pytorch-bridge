@@ -113,7 +113,7 @@ def test_hpu_view_copy_(dtype, view_mode, op):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn_op = torch.compile(fn_op, backend="aot_hpu_training_backend")
+        fn_op = torch.compile(fn_op, backend="hpu_backend")
 
     for fn, tensors in zip([fn_op_cpu, fn_op], [cpu_tensors, hpu_tensors]):
         dst_view = make_view(tensors["dst"])

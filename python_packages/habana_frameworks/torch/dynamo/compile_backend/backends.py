@@ -10,6 +10,7 @@
 #
 ###############################################################################
 
+import logging
 from functools import partial
 from typing import List, Optional
 
@@ -17,6 +18,8 @@ import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from torch._dynamo.backends.common import aot_autograd
 from torch._dynamo.backends.registry import register_backend
+
+logger = logging.getLogger(__name__)
 
 from .compilers import (
     hpu_inference_compiler,
@@ -56,6 +59,7 @@ def aot_hpu_training_backend(graph_module: torch.fx.GraphModule, example_inputs:
 
     Deprecated - use only 'hpu_backend'
     """
+    logger.error("*** Usage of deprecated backend! Please use hpu_backend. ***")
     options = kwargs["options"] if "options" in kwargs else None
 
     # Create AOT Autograd instance and feed it with Habana compile function.
@@ -75,6 +79,7 @@ def aot_hpu_inference_backend(graph_module: torch.fx.GraphModule, example_inputs
 
     Deprecated - use only 'hpu_backend'
     """
+    logger.error("*** Usage of deprecated backend! Please use hpu_backend. ***")
     options = kwargs["options"] if "options" in kwargs else None
 
     inference_compiler = partial(hpu_inference_compiler, dyn_graph_module=graph_module)
