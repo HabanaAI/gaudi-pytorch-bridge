@@ -815,6 +815,10 @@ void optimizer_lamb_phase2(
        neg_step,
        weight_decay,
        use_lamb}};
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::Inplace,
+       "hpu::optimizer_lamb_phase2",
+       decltype(habana::eager::EagerOpMetaData::out_indices_){0}});
   return hpu_op.call(weights);
 }
 
