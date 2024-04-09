@@ -12,6 +12,7 @@
 
 import logging
 import os
+from time import perf_counter
 
 logger = logging.getLogger(__name__)
 
@@ -28,3 +29,22 @@ def lazy_only(func):
             logger.info(f"Call {func.__name__} function will not have any effect. It's lazy mode only functionality.")
 
     return wrapper
+
+
+class Timer:
+    """Utility class to measure time using a context manager."""
+
+    def __init__(self):
+        self.start_t = None
+        self.end_t = None
+
+    def __enter__(self):
+        self.start_t = perf_counter()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.end_t = perf_counter()
+
+    @property
+    def elapsed(self):
+        return self.end_t - self.start_t

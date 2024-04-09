@@ -20,6 +20,7 @@ from typing import List, Optional
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
+from habana_frameworks.torch.utils.internal import Timer
 from habana_frameworks.torch.utils.visualization import graph_visualizer
 from packaging.version import Version
 from torch.fx.experimental.proxy_tensor import py_sym_types
@@ -179,10 +180,20 @@ def optimize_graph(
                 logger.debug("pass %s was disabled by env at stage %s", pass_name, stage)
             else:
                 logger.debug("running %s pass at stage %s", pass_name, stage)
-                current_graph_changed = optimization_pass(ctx)
+
+                with Timer() as t:
+                    current_graph_changed = optimization_pass(ctx)
+
                 graph_changed = current_graph_changed or graph_changed
                 if current_graph_changed:
                     gv.visualize_graph(graph_module, optimization_pass.__name__)
+
+                logger.debug(
+                    "pass %s at stage %s took: %.3f [s]",
+                    pass_name,
+                    stage,
+                    t.elapsed,
+                )
 
     if not uses_aot:
         # Bring back original state.
