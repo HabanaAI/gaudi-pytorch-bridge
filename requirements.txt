@@ -19,4 +19,7 @@ setuptools>=67.7.2
 urllib3>=1.26.2,<2  # <2 is an Amazon Linux 2 requirement
 wheel>=0.40
 yamllint>=1.31
-symengine==0.11.0  # Required for dynamic shape sym expr perf
+
+# Required for dynamic shape sym expr perf
+symengine==0.9.0; python_version < '3.10'
+symengine==0.11.0; python_version >= '3.10'
