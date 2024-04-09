@@ -1,13 +1,5 @@
 pytest_working/eager/test_eager_ops.py::test_index_put_long
 pytest_working/eager/test_eager_ops.py::test_index_put_bool
-pytest_working/eager/test_eager_view_ops.py::test_shift[False-__ilshift__]
-pytest_working/eager/test_eager_view_ops.py::test_shift[False-__lshift__]
-pytest_working/eager/test_eager_view_ops.py::test_shift[False-__irshift__]
-pytest_working/eager/test_eager_view_ops.py::test_shift[False-__rshift__]
-pytest_working/eager/test_eager_view_ops.py::test_shift[True-__ilshift__]
-pytest_working/eager/test_eager_view_ops.py::test_shift[True-__lshift__]
-pytest_working/eager/test_eager_view_ops.py::test_shift[True-__irshift__]
-pytest_working/eager/test_eager_view_ops.py::test_shift[True-__rshift__]
 pytest_working/eager/test_eager_view_ops.py::test_inplace_binary_strided_insert
 pytest_working/eager/test_hpu_index_put.py::test_cpu_tensor_hpu_index
 pytest_working/eager/test_hpu_index_put.py::test_hpu_tensor_cpu_index

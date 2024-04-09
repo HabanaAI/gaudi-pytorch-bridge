@@ -729,7 +729,7 @@ def test_view(ttl, inout):
 )
 @pytest.mark.parametrize("transpose", [False, True])
 def test_shift(shift_op, transpose):
-    a = torch.tensor([[1, 2, 4], [1, 2, 4]], dtype=torch.int64)
+    a = torch.tensor([[1, 2, 4], [1, 2, 4]], dtype=torch.int32)
     if transpose:
         a = a.transpose(1, 0)
     ha = a.to("hpu")
