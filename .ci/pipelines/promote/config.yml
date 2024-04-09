@@ -62,12 +62,8 @@ orchestratorConfig:
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llama7b_hqt_suite
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_8cards_llama70b_hqt_ptq_4096t_suite
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_8cards_llama70b_hqt_pcq_4096t_suite
-      silentMode: true
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llama7b_hqt_ptq_4096t_suite
-      silentMode: true
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llama7b_hqt_pcq_4096t_suite
-      silentMode: true
-
     # Quantization toolkit tests
     - testToLaunch: habana_quantization_toolkit/Tests/Test_habana_quantization_toolkit_gaudi2_asic_test
   # Streams and Events validation <Start>
