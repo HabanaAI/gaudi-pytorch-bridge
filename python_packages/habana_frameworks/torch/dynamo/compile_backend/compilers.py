@@ -143,10 +143,3 @@ def hpu_inference_compiler_noaot(graph_module: torch.fx.GraphModule, example_inp
     Just passthrough for forward inference compilation.
     """
     return hpu_compiler_inner(graph_module, example_inputs, False, False, False)
-
-
-def hpu_inference_compiler_raise(*args):
-    """
-    Catch cases where someone tries to compile backward pass using inference backend. This is not expected usage.
-    """
-    raise Exception("tried to call backward pass compiler in inference backend")
