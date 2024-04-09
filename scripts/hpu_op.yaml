@@ -5125,6 +5125,7 @@ max_pool2d_with_indices:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
+  guid: pt_maxpool_2d_fwd
   op_backend: MaxPool2DWithIndices
   op_frontend: LazyMaxPool
   out_ids: [0, 0]
@@ -5136,6 +5137,7 @@ max_pool2d_with_indices.out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
+  guid: pt_maxpool_2d_fwd
   op_backend: MaxPool2DWithIndices
 
 max_pool2d_with_indices_backward:
@@ -5145,7 +5147,7 @@ max_pool2d_with_indices_backward:
     Gaudi:
       self: [BFloat16, Float]
       grad_output: [BFloat16, Float]
-      indices: [Int]
+      indices: [Int, Long]
     Gaudi2:
       self: [BFloat16, Float, Half]
       grad_output: [BFloat16, Float, Half]
@@ -5153,9 +5155,9 @@ max_pool2d_with_indices_backward:
     Gaudi3:
       self: [BFloat16, Float, Half]
       grad_output: [BFloat16, Float, Half]
-      indices: [Int]
+      indices: [Int, Long]
   op_backend: MaxPool2DWithIndicesBwd
-  guid: pt_maxpool_2d_bwd
+  guid: pt_temp_maxpool_2d_bwd
   out_ids: [0]
 
 max_pool2d_with_indices_backward.grad_input:
@@ -5175,7 +5177,7 @@ max_pool2d_with_indices_backward.grad_input:
       grad_output: [BFloat16, Float, Half]
       indices: [Int, Long]
   op_backend: MaxPool2DWithIndicesBwd
-  guid: pt_maxpool_2d_bwd
+  guid: pt_temp_maxpool_2d_bwd
 
 max_pool3d_with_indices:
   custom_fill_params: FillSpatialReduction3DParamsFwd

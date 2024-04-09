@@ -13,13 +13,13 @@ import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
 from pytest_working.test_utils import is_gaudi1
-from test_utils import format_tc
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc
 
 
-@pytest.mark.parametrize("shape", [[8, 16, 16], [1, 8, 16, 16]])
-@pytest.mark.parametrize("kernel_size_and_padding", [((2, 2), 1)])
-@pytest.mark.parametrize("stride", [(1, 2), 1, []])
-@pytest.mark.parametrize("dilation", [(1, 2), 1])
+@pytest.mark.parametrize("shape", [[8, 32, 16], [2, 8, 32, 16]], ids=format_tc)
+@pytest.mark.parametrize("kernel_size_and_padding", [((2, 3), 1)], ids=format_tc)
+@pytest.mark.parametrize("stride", [(1, 2), 1, []], ids=format_tc)
+@pytest.mark.parametrize("dilation", [(1, 2), 1], ids=format_tc)
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
 def test_hpu_max_pool2d(shape, kernel_size_and_padding, stride, dilation, dtype):
     def fn(input):
@@ -34,18 +34,20 @@ def test_hpu_max_pool2d(shape, kernel_size_and_padding, stride, dilation, dtype)
     kernel_size, padding = kernel_size_and_padding
     cpu_input = torch.rand(shape, dtype=dtype)
     hpu_input = cpu_input.to("hpu")
+    clear_t_compile_logs()
     torch._dynamo.reset()
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+    check_ops_executed_in_jit_ir("max_pool2d_with_indices")
 
 
-@pytest.mark.parametrize("shape", [[8, 16, 16], [1, 8, 16, 16]])
-@pytest.mark.parametrize("kernel_size_and_padding", [((2, 2), 1)])
-@pytest.mark.parametrize("stride", [(1, 2), 1, []])
-@pytest.mark.parametrize("dilation", [(1, 2), 1])
+@pytest.mark.parametrize("shape", [[8, 32, 16], [1, 8, 32, 16]], ids=format_tc)
+@pytest.mark.parametrize("kernel_size_and_padding", [((2, 2), 1)], ids=format_tc)
+@pytest.mark.parametrize("stride", [(1, 2), 1, []], ids=format_tc)
+@pytest.mark.parametrize("dilation", [(1, 2), 1], ids=format_tc)
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
 def test_hpu_max_pool2d_bwd(shape, kernel_size_and_padding, stride, dilation, dtype):
     def fn(input):
@@ -65,12 +67,14 @@ def test_hpu_max_pool2d_bwd(shape, kernel_size_and_padding, stride, dilation, dt
     hpu_input = cpu_input.to("hpu")
     cpu_input.requires_grad = True
     hpu_input.requires_grad = True
+    clear_t_compile_logs()
     torch._dynamo.reset()
     hpu_compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     cpu_output = fn(cpu_input)
     hpu_output = hpu_compiled_fn(hpu_input).cpu()
     assert torch.allclose(cpu_output, hpu_output)
+    check_ops_executed_in_jit_ir({"max_pool2d_with_indices", "max_pool2d_with_indices_backward"})
 
 
 @pytest.mark.parametrize("shape", [[7, 8, 16, 16], [1, 7, 8, 16, 16]])

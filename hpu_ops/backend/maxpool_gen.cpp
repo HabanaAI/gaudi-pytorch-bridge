@@ -492,78 +492,31 @@ void MaxPool3DWithIndicesBwd::AddNode(
 void MaxPool2DWithIndices::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  SetSynapseLayouts(
-      {synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
-      {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-       synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-
   auto meta = MaxPool2DMeta(stack)[0];
   size_t size = 0;
   const auto& params = FillSpatialReduction2DParamsFwd(stack, size);
-  auto intermediateOutShape = meta.shape;
-  auto self = stack_tensor(stack, 0);
-  auto reshapeRequired = (self.dim() == 3);
-  std::vector<synTensor> inputs = {syn_in(0)};
-  std::vector<synapse_helpers::tensor> expandResult;
-  c10::optional<int> finalIndex =
-      reshapeRequired ? c10::nullopt : c10::make_optional<int>(0);
 
-  if (reshapeRequired) {
-    const auto& vec = self.sizes().vec();
-    std::vector<int64_t> inputExpandedShape{};
-    inputExpandedShape.reserve(1 + vec.size());
-    inputExpandedShape.push_back(1);
-    inputExpandedShape.insert(
-        std::end(inputExpandedShape), vec.begin(), vec.end());
-    intermediateOutShape.insert(std::begin(intermediateOutShape), 1);
-    synAxisParams expandParams{3};
-    auto expandedInput = BuildOp(
-        graph,
-        "expand_dims",
-        std::move(inputs),
-        {{inputExpandedShape, meta.dtype}},
-        &expandParams,
-        sizeof(expandParams));
-    expandResult.push_back(std::move(expandedInput[0]));
-    inputs = {expandResult[0].get()};
-  }
-
-  auto retain_tensor_type = FindRetainTensorType(meta.dtype);
-
-  auto maxpool2d = BuildOp(
-      graph,
-      get_guid_with_precision("maxpool_2d_fwd", meta.dtype),
-      std::move(inputs),
-      {{intermediateOutShape, retain_tensor_type},
-       {intermediateOutShape, meta.dtype, finalIndex}},
-      params.get(),
-      size);
-
-  auto& maxpool2d_0 = maxpool2d.at(0);
-  auto& maxpool2d_1 = maxpool2d.at(1);
-  if (reshapeRequired) {
-    // NOTE - A second synapse input layout is added before the reshape.
-    // This is due to the reshape function adding an additional (second) input
-    // when dynamic shapes are handled.
+  if (stack_tensor(stack, 0).dim() == 4) {
     SetSynapseLayouts(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
          synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
-    maxpool2d_0 = ReshapeHelper(
-        graph, maxpool2d[0].get(), meta.shape, retain_tensor_type);
-    maxpool2d_1 =
-        ReshapeHelper(graph, maxpool2d[1].get(), meta.shape, meta.dtype, 0);
+  } else {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHN});
   }
-  syn_out(0) = std::move(maxpool2d_1);
-  syn_out(1) = BuildCast(
-      this,
+
+  auto maxPool2d = BuildOp(
       graph,
-      maxpool2d_0.get(),
-      meta.shape,
-      retain_tensor_type,
-      at::kLong,
-      1);
+      GetGuid(),
+      {syn_in(0)},
+      {{meta.shape, meta.dtype, 0}, {meta.shape, at::kLong, 1}},
+      params.get(),
+      size);
+  syn_out(0) = std::move(maxPool2d[0]);
+  syn_out(1) = std::move(maxPool2d[1]);
 }
 
 // Since the out varriant intices tensor has some issue
@@ -584,10 +537,10 @@ void MaxPool2DWithIndicesBwd::AddNode(
         {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
   } else if (inputDimensions == 3) {
     SetSynapseLayouts(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHC,
-         synapse_helpers::layouts::SynapseLayoutFormat::WHC,
-         synapse_helpers::layouts::SynapseLayoutFormat::WHC},
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHC});
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHN});
   }
 
   auto maxpool2d_gradout = BuildOp(
