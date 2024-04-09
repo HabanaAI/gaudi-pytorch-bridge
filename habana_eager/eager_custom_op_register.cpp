@@ -1728,11 +1728,14 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
              requires_backward,
              softmax_mode},
             habana::SDPARecompFwdOutputShape};
+    auto linvType = c10::ScalarType::Float;
+
+    if ((softmax_mode == "fast") &&
+        (q.scalar_type() == c10::ScalarType::BFloat16)) {
+      linvType = c10::ScalarType::BFloat16;
+    }
     hpu_op.set_scalar_types(
-        {q.scalar_type(),
-         q.scalar_type(),
-         c10::ScalarType::Float,
-         c10::ScalarType::Int});
+        {q.scalar_type(), q.scalar_type(), linvType, c10::ScalarType::Int});
     return hpu_op.call();
   }
 }
@@ -1748,16 +1751,39 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd(
     const c10::optional<at::Tensor>& seed,
     const bool is_causal,
     const double p,
-    const double scale) {
+    const double scale,
+    c10::string_view softmax_mode) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "sdpa_recomp_bwd :",
-      DUMP_11ARGS(
-          grad, q, k, v, attention_mask, m, linv, seed, is_causal, p, scale));
+      DUMP_12ARGS(
+          grad,
+          q,
+          k,
+          v,
+          attention_mask,
+          m,
+          linv,
+          seed,
+          is_causal,
+          p,
+          scale,
+          softmax_mode));
 
   habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
       "hpu::sdpa_recomp_bwd",
-      {grad, q, k, v, attention_mask, m, linv, seed, is_causal, p, scale},
+      {grad,
+       q,
+       k,
+       v,
+       attention_mask,
+       m,
+       linv,
+       seed,
+       is_causal,
+       p,
+       scale,
+       softmax_mode},
       habana::SDPARecompBwdOutputShape};
   return hpu_op.call();
 }
@@ -1975,7 +2001,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::sdpa_recomp_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode) -> (Tensor, Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor ? seed, bool is_causal, float p, float scale) -> (Tensor, Tensor, Tensor)");
+      "hpu::sdpa_recomp_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, Tensor m, Tensor linv, Tensor ? seed, bool is_causal, float p, float scale, str softmax_mode) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::sdpa_fwd(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, str softmax_mode) -> (Tensor, Tensor, Tensor)");
   m.def(

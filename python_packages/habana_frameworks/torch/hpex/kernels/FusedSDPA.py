@@ -87,8 +87,10 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask=None, dropout_p=0.0, is_causal=Fals
     # Check if recompute variant is enabled
     recompute = ht.recompute_sdp_enabled()
 
-    if requires_backward:
-        assert softmax_mode == "None", "Optimized softmax mode is supported only in inference"
+    if recompute and requires_backward and softmax_mode == "fast":
+        assert (
+            is_causal == True
+        ), "Optimized softmax mode is supported in recompute training mode only in causal(triangular) mask case"
 
     gqa = is_gqa(q, k)
     if gqa:
@@ -114,6 +116,7 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask=None, dropout_p=0.0, is_causal=Fals
     ctx.is_causal = is_causal
     ctx.recompute = recompute
     ctx.gqa = gqa
+    ctx.softmax_mode = softmax_mode
 
     if recompute:
         return out
@@ -132,14 +135,17 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
         scale = ctx.scale
         dropout_p = ctx.dropout_p
         is_causal = ctx.is_causal
+        softmax_mode = ctx.softmax_mode
         if ctx.gqa:
             dout = gqa_input_reshape_bwd(q, v, dout)
-        dq, dk, dv = torch.ops.hpu.sdpa_recomp_bwd(dout, q, k, v, attn_mask, m, linv, seed, is_causal, dropout_p, scale)
+        dq, dk, dv = torch.ops.hpu.sdpa_recomp_bwd(
+            dout, q, k, v, attn_mask, m, linv, seed, is_causal, dropout_p, scale, softmax_mode
+        )
         if ctx.gqa:
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
             dv = gqa_output_reshape(dv)
-        return dq, dk, dv, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None
     else:
         q, k, v, P, dm = ctx.saved_tensors
         scale = ctx.scale

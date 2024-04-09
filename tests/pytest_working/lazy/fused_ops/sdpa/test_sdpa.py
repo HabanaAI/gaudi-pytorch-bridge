@@ -233,22 +233,6 @@ tc_list_recompute = [
 tc_list_rhslice = [
     # Self attention with head_dim qk == head_dim v, is_causal, recompute, batchsize/numheads slice
     # 4D Training
-    (
-        3,  # batch_size,
-        5,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        4,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        False,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        True,  # is_causal
-        True,  # recompute
-        True,  # rhslice
-        False,  # inference
-    ),
     # 3D Training
     (
         3,  # batch_size,
@@ -377,6 +361,425 @@ tc_list_rhslice_inf_attn_mask = [
 
 total_tc_list = tc_list
 
+# batchsize/numheads slice
+tc_list_new_rules = [
+    # Self attention with head_dim qk == head_dim v, is_causal, recompute, batchsize/numheads slice
+    # 4D Training
+    (
+        7,  # batch_size,
+        3,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+    # 4D Inference
+    (
+        7,  # batch_size,
+        3,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        True,  # inference
+    ),
+    # 4D Inference dropout
+    (
+        7,  # batch_size,
+        3,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.1,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        True,  # inference
+    ),
+    # 4D Training dropout
+    (
+        7,  # batch_size,
+        3,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.1,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+    # 3D Inference
+    (
+        21,  # batch_size,
+        0,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        True,  # inference
+    ),
+    # 3D Training
+    (
+        21,  # batch_size,
+        0,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+    # #4D Training MQA
+    # ( 7, #batch_size,
+    #   3, #n_heads,
+    #   16, #seq_len_N_t, i.e. Target seq len (i.e, of q)
+    #   32, #seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+    #   8, #head_dim_qk, i.e. head_dim of q and k
+    #   4, #head_dim_v,  i.e. head_dim of v
+    #   0.0, #dropout_p,
+    #   False, #use_attn_mask,
+    #   True, #use_float_mask,
+    #   True, #enable_autocast
+    #   True, # is_causal
+    #   True, # recompute
+    #   True, # rhslice
+    #   False, # inference
+    # ),
+    # 4D Inference bool attnmask
+    (
+        7,  # batch_size,
+        3,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        True,  # use_attn_mask,
+        False,  # use_float_mask,
+        True,  # enable_autocast
+        False,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        True,  # inference
+    ),
+    # 4D Inference attnmask
+    (
+        7,  # batch_size,
+        3,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        True,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        False,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        True,  # inference
+    ),
+    # 4D Training bool attnmask
+    (
+        7,  # batch_size,
+        3,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        True,  # use_attn_mask,
+        False,  # use_float_mask,
+        True,  # enable_autocast
+        False,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+    # 4D Training attnmask
+    (
+        7,  # batch_size,
+        3,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        True,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        False,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+]
+
+tc_list_new_rules_non_recomp = [
+    # Self attention with head_dim qk == head_dim v, is_causal, recompute, batchsize/numheads slice
+    # 4D Training
+    (
+        7,  # batch_size,
+        3,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        False,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+    # 4D Inference
+    (
+        7,  # batch_size,
+        3,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        False,  # recompute
+        True,  # rhslice
+        True,  # inference
+    ),
+    # 4D Training
+    (
+        7,  # batch_size,
+        3,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        False,  # recompute
+        True,  # rhslice
+        True,  # inference
+    ),
+    (
+        7,  # batch_size,
+        0,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        False,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+    # 4D Training attn_mask bool
+    (
+        7,  # batch_size,
+        3,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        True,  # use_attn_mask,
+        False,  # use_float_mask,
+        True,  # enable_autocast
+        False,  # is_causal
+        False,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+    # 4D Training attn_mask bool
+    (
+        7,  # batch_size,
+        3,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        True,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        False,  # is_causal
+        False,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+]
+test_llama_set = [
+    (
+        2,  # batch_size,
+        32,  # n_heads,
+        4096,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        4096,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        128,  # head_dim_qk, i.e. head_dim of q and k
+        128,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        False,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+    (
+        4,  # batch_size,
+        32,  # n_heads,
+        4096,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        4096,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        128,  # head_dim_qk, i.e. head_dim of q and k
+        128,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        False,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+    (
+        4,  # batch_size,
+        32,  # n_heads,
+        4096,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        4096,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        128,  # head_dim_qk, i.e. head_dim of q and k
+        128,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+    (
+        2,  # batch_size,
+        32,  # n_heads,
+        4096,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        4096,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        128,  # head_dim_qk, i.e. head_dim of q and k
+        128,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+    (
+        1,  # batch_size,
+        32,  # n_heads,
+        4096,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        4096,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        128,  # head_dim_qk, i.e. head_dim of q and k
+        128,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        False,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+    (
+        4,  # batch_size,
+        12,  # n_heads,
+        4096,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        4096,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        128,  # head_dim_qk, i.e. head_dim of q and k
+        128,  # head_dim_v,  i.e. head_dim of v
+        0.1,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+]
+
+fast_list = [
+    (
+        3,  # batch_size,
+        5,  # n_heads,
+        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        4,  # head_dim_v,  i.e. head_dim of v
+        0.0,  # dropout_p,
+        False,  # use_attn_mask,
+        True,  # use_float_mask,
+        True,  # enable_autocast
+        True,  # is_causal
+        True,  # recompute
+        True,  # rhslice
+        False,  # inference
+    ),
+]
+# total_tc_list = test_llama_set[-1:]
+# total_tc_list = tc_list_new_rules + tc_list_new_rules_non_recomp
+# total_tc_list = tc_list_new_rules[0:1]
+# For now disable additional tests
+# total_tc_list = tc_list + tc_list_recompute + tc_list_rhslice + tc_list_rhslice_inf_attn_mask
+total_tc_list = fast_list
+
 
 @pytest.mark.skip(reason="Results mismatch")
 @pytest.mark.parametrize(
@@ -399,6 +802,14 @@ def test_sdpa(
     rhslice,
     inference,
 ):
+    softmax_mode = "fast"
+
+    if inference == False and recompute == True and is_causal == False and softmax_mode == "fast":
+        print("fast softmax is not supported in Training with Recompute and non triangular mask; Returning")
+        return
+
+    if inference == False and recompute == True and is_causal == True and softmax_mode == "fast":
+        print(" Testing fast softmax  in Training with Recompute and non triangular mask")
 
     torch.manual_seed(1234567)
     # batch_size = 8
@@ -543,7 +954,6 @@ def test_sdpa(
             profile_api.profiler_sync(profile_dev_id)
             profile_api.profiler_stop(trace_type, profile_dev_id)
             profile_api.profiler_get_trace_json(trace_type, profile_dev_id)
-
     if perf_run:
         exit(0)
     # ----------------------------------HPU Fused SDPA attention---------------------------------------------
@@ -551,13 +961,13 @@ def test_sdpa(
         with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
             # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
             with ht.sdp_kernel(enable_recompute=recompute):
-                O_hpu = FusedSDPA.apply(q_hpu, k_hpu, v_hpu, attn_mask_hpu, dropout_p, is_causal, None)
+                O_hpu = FusedSDPA.apply(q_hpu, k_hpu, v_hpu, attn_mask_hpu, dropout_p, is_causal, None, softmax_mode)
     else:
         with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
             # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
             with ht.sdp_kernel(enable_recompute=recompute):
                 O_hpu, DBG_ONLY_dropout_mask_g = FusedSDPA.apply(
-                    q_hpu, k_hpu, v_hpu, attn_mask_hpu, dropout_p, is_causal, None
+                    q_hpu, k_hpu, v_hpu, attn_mask_hpu, dropout_p, is_causal, None, softmax_mode
                 )
         DBG_ONLY_dropout_mask_g = DBG_ONLY_dropout_mask_g.to("cpu")
 

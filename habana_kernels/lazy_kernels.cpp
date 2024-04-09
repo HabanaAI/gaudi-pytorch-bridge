@@ -7510,11 +7510,14 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
          requires_backward,
          softmax_mode},
         SDPARecompFwdOutputShape};
+    auto linvType = c10::ScalarType::Float;
+
+    if ((softmax_mode == "fast") &&
+        (q.scalar_type() == c10::ScalarType::BFloat16)) {
+      linvType = c10::ScalarType::BFloat16;
+    }
     hpu_op.set_scalar_types(
-        {q.scalar_type(),
-         q.scalar_type(),
-         c10::ScalarType::Float,
-         c10::ScalarType::Int});
+        {q.scalar_type(), q.scalar_type(), linvType, c10::ScalarType::Int});
     RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_fwd, hpu_op)
   }
 }
@@ -7530,13 +7533,25 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
     const c10::optional<at::Tensor>& seed,
     const bool is_causal,
     const double p,
-    const double scale) {
+    const double scale,
+    c10::string_view softmax_mode) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
       "hpu::sdpa_recomp_bwd",
-      {grad, q, k, v, attention_mask, m, linv, seed, is_causal, p, scale},
+      {grad,
+       q,
+       k,
+       v,
+       attention_mask,
+       m,
+       linv,
+       seed,
+       is_causal,
+       p,
+       scale,
+       softmax_mode},
       SDPARecompBwdOutputShape};
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_bwd, hpu_op)

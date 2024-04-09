@@ -474,7 +474,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
     const c10::optional<at::Tensor>& seed,
     const bool is_causal,
     const double p,
-    const double scale);
+    const double scale,
+    const c10::string_view softmax_mode);
 at::Tensor masked_batch_gemm_wrap(
     const at::Tensor& a,
     const at::Tensor& b,

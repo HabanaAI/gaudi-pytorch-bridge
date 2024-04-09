@@ -385,8 +385,14 @@ void SDPARecompFwd::AddNode(
   std::vector<NodeAttr::NodeOutputAttr> output_attrs;
   output_attrs.push_back({out_shapes[0], q.pt_t.scalar_type(), 0});
   if (requires_backward) {
+    auto linvType = c10::ScalarType::Float;
+
+    if ((softmax_mode == "fast") &&
+        (q.pt_t.scalar_type() == c10::ScalarType::BFloat16)) {
+      linvType = c10::ScalarType::BFloat16;
+    }
     output_attrs.push_back({out_shapes[1], q.pt_t.scalar_type(), 1});
-    output_attrs.push_back({out_shapes[2], c10::ScalarType::Float, 2});
+    output_attrs.push_back({out_shapes[2], linvType, 2});
     if (p > 0.0) {
       output_attrs.push_back({out_shapes[3], at::ScalarType::Int, 3});
     }
@@ -534,8 +540,11 @@ void SDPARecompBwd::AddNode(
   auto is_causal = getNextInput<bool>(stackGetter);
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
+  auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
+
   ns_Sdpa::ParamsV3 params{};
-  fillSdpaParams(params, p, scale, is_causal, false /*is_inference*/);
+  fillSdpaParams(
+      params, p, scale, is_causal, false /*is_inference*/, softmax_mode);
 
   std::string guid =
       get_guid_with_precision("sdpa_recomp_bwd", q.pt_t.scalar_type());
