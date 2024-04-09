@@ -14,8 +14,8 @@ import pytest
 import torch
 from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc, is_gaudi1, is_pytest_mode_compile
 
-compare_ops_out = ["lt"]
-compare_ops_inplace = ["lt_"]
+compare_ops_out = ["lt", "gt", "ge"]
+compare_ops_inplace = ["lt_", "gt_", "ge_"]
 compare_ops = [*compare_ops_out, *compare_ops_inplace]
 integer_types = [torch.int, torch.int8, torch.long]
 supported_dtypes = [*integer_types, torch.float32, torch.bfloat16]
