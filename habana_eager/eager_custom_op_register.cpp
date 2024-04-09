@@ -1211,14 +1211,16 @@ at::Tensor softmax_fp8(
     int64_t dim,
     const c10::optional<at::Tensor>& input_scale,
     const c10::optional<at::Tensor>& output_scale,
-    const c10::optional<at::Tensor>& inv_attn_heads) {
+    const c10::optional<at::Tensor>& inv_attn_heads,
+    const c10::optional<at::Tensor>& fused_add) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "softmax_fp8 :",
-      DUMP_5ARGS(input, dim, input_scale, output_scale, inv_attn_heads));
+      DUMP_6ARGS(
+          input, dim, input_scale, output_scale, inv_attn_heads, fused_add));
   habana::eager::EagerOp<at::Tensor> hpu_op{
       "hpu::softmax_fp8",
-      {input, dim, input_scale, output_scale, inv_attn_heads},
+      {input, dim, input_scale, output_scale, inv_attn_heads, fused_add},
       {{input.sizes().vec()}}};
   hpu_op.set_scalar_types(
       {input_scale ? at::ScalarType::Float8_e4m3fn : at::ScalarType::BFloat16});
@@ -1977,7 +1979,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor");
   m.def(
-      "hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None) -> Tensor");
+      "hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor");
   m.def(
       "hpu::scaled_triangular_softmax_retain(Tensor self, float inv_scale_attn) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::view(Tensor input, Tensor shape) -> Tensor");

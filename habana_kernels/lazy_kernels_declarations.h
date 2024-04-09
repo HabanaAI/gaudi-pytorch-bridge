@@ -951,7 +951,8 @@ at::Tensor softmax_fp8_lazy(
     int64_t dim,
     const c10::optional<at::Tensor>& input_scale,
     const c10::optional<at::Tensor>& output_scale,
-    const c10::optional<at::Tensor>& inv_attn_heads);
+    const c10::optional<at::Tensor>& inv_attn_heads,
+    const c10::optional<at::Tensor>& fused_add);
 
 #define CONV2D_FP8_LAZY(FNAME, SCALE_T)        \
   at::Tensor FNAME(                            \

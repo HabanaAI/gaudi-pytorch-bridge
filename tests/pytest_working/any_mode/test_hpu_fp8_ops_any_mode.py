@@ -877,40 +877,60 @@ def DISABLED_test_conv2d_fp8_bias_optimization(scale_a, scale_b, scale_out, out_
     compare_tensors(res_fp8_tensor, res_fp8_scalar, atol=1e-2, rtol=rtol)
 
 
-@pytest.mark.parametrize("shape", [(8, 12, 16)])
+@pytest.mark.parametrize("shape", [(5, 4, 4, 6)])
 @pytest.mark.parametrize("dim", [-1])  # currently only last dim is supported by tpc
 @pytest.mark.parametrize("is_scale", [True, False])
-def test_softmax_fp8(shape, dim, is_scale):
-    input = torch.rand(shape, dtype=torch.bfloat16) * 5.0
+@pytest.mark.parametrize("is_inv_attn_heads", [True, False])
+@pytest.mark.parametrize("fused_add_shape", [{}, (5, 4, 4, 6), (5, 1, 1, 6)])
+def test_softmax_fp8(shape, dim, is_scale, is_inv_attn_heads, fused_add_shape):
+    input = torch.rand(shape, dtype=torch.bfloat16) * 4.0
     input_hpu = input.to("hpu")
+    scale_input = scale_input_hpu = None
+    scale_output = scale_output_hpu = None
+    inv_attn_heads = inv_attn_heads_hpu = None
+    fused_add = fused_add_hpu = None
 
     fn = torch.ops.hpu.softmax_fp8
 
     if is_scale:
-        scale_input = torch.tensor(0.8)
+        scale_input = torch.tensor(0.05)
+        scale_output = torch.tensor(2.5)
         scale_input_hpu = scale_input.to("hpu")
-        scale_output = torch.tensor(1 / 0.8)
         scale_output_hpu = scale_output.to("hpu")
-        input = input * scale_input
+
+    if fused_add_shape and is_scale:  # fused_add supported only for fp8 out
+        fused_add = torch.rand(fused_add_shape, dtype=torch.bfloat16)
+        fused_add_hpu = fused_add.to("hpu")
     else:
-        scale_input_hpu = None
-        scale_output_hpu = None
+        fused_add_shape = None
+
+    if is_inv_attn_heads:
+        inv_attn_heads = torch.tensor(0.1)
+        inv_attn_heads_hpu = inv_attn_heads.to("hpu")
 
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
         fn = torch.compile(fn, backend="hpu_backend")
 
-    result = fn(input_hpu, dim, scale_input_hpu, scale_output_hpu)
+    result = fn(input_hpu, dim, scale_input_hpu, scale_output_hpu, inv_attn_heads_hpu, fused_add_hpu)
 
-    result_ref = torch.softmax(input, dim)
+    if is_inv_attn_heads:
+        input = input * inv_attn_heads
     if is_scale:
-        result_ref = (result_ref * scale_output).to(torch.float8_e4m3fn)
+        input = input * scale_input
+        if fused_add_shape:  # fused_add supported only for fp8 out
+            input = input + fused_add
+
+    result_ref_fp32 = torch.softmax(input, dim).to(torch.bfloat16)
+
+    if is_scale:
+        result_ref_fp32 = (result_ref_fp32 * scale_output).to(torch.float8_e4m3fn)
         assert result.dtype == torch.float8_e4m3fn
     else:
         assert result.dtype == torch.bfloat16
 
-    compare_tensors(result, result_ref, atol=1e-3, rtol=0.2)
+    compare_tensors(result, result_ref_fp32, atol=1e-2, rtol=0.1251)
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("softmax_fp8")

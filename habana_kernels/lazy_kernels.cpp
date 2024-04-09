@@ -7695,16 +7695,18 @@ at::Tensor softmax_fp8_lazy(
     int64_t dim,
     const c10::optional<at::Tensor>& input_scale,
     const c10::optional<at::Tensor>& output_scale,
-    const c10::optional<at::Tensor>& inv_attn_heads) {
+    const c10::optional<at::Tensor>& inv_attn_heads,
+    const c10::optional<at::Tensor>& fused_add) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   PT_OP_INFO(
       "softmax_fp8 :",
-      DUMP_5ARGS(input, dim, input_scale, output_scale, inv_attn_heads));
+      DUMP_6ARGS(
+          input, dim, input_scale, output_scale, inv_attn_heads, fused_add));
   LazyOp<at::Tensor> hpu_op{
       "hpu::softmax_fp8",
-      {input, dim, input_scale, output_scale, inv_attn_heads},
+      {input, dim, input_scale, output_scale, inv_attn_heads, fused_add},
       {{input.sizes().vec()}}};
   hpu_op.set_scalar_types(
       {input_scale ? at::ScalarType::Float8_e4m3fn : at::ScalarType::BFloat16});

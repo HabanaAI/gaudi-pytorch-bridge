@@ -525,7 +525,7 @@ def meta_sdpa_bwd(dout, q, k, v, p, dm, dropout_p, scale):
 
 
 @register_meta([torch.ops.hpu.softmax_fp8.default])
-def meta_softmax_fp8(input, dim, input_scale=None, output_scale=None, inv_attn_heads=None):
+def meta_softmax_fp8(input, dim, input_scale=None, output_scale=None, inv_attn_heads=None, fused_add=None):
     if input_scale is None:
         dtype = torch.bfloat16
     else:

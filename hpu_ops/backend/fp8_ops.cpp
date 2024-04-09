@@ -1611,18 +1611,23 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 }
 
 /********** SoftmaxFp8 **********/
-
-#define ADD_1D_OPTIONAL_FLOAT_TENSOR(input_opt, input_name)     \
-  if (input_opt) {                                              \
-    TORCH_CHECK(                                                \
-        input_opt->pt_t.scalar_type() == at::ScalarType::Float, \
-        "Input ",                                               \
-        input_name,                                             \
-        " must be of torch.float dtype.");                      \
-    syn_inputs.push_back(input_opt->syn_t);                     \
-  } else {                                                      \
-    syn_inputs.push_back(nullptr);                              \
+void addOptionalTensor(
+    const c10::optional<OpBackend::TensorsPair>& input_opt,
+    std::vector<synTensor>& syn_inputs,
+    const at::ScalarType dtype,
+    const std::string& input_name) {
+  if (input_opt) {
+    TORCH_CHECK(
+        input_opt->pt_t.scalar_type() == dtype,
+        "Input ",
+        input_name,
+        " must be of dtype: ",
+        dtype);
+    syn_inputs.push_back(input_opt->syn_t);
+  } else {
+    syn_inputs.push_back(nullptr);
   }
+}
 
 SoftmaxFp8::SoftmaxFp8(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "softmax_fwd", scalar_type, {0}, {}, {}, false) {}
@@ -1635,7 +1640,9 @@ void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto output_scale_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto inv_attn_heads_opt =
       getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  dim = at::maybe_wrap_dim(dim, self.pt_t.dim(), /*wrap_scalar=*/true);
+  auto fused_add_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto rank = self.pt_t.dim();
+  dim = at::maybe_wrap_dim(dim, rank, /*wrap_scalar=*/true);
 
   TORCH_CHECK(
       self.pt_t.scalar_type() == at::ScalarType::BFloat16,
@@ -1646,12 +1653,39 @@ void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
           (!input_scale_opt && !output_scale_opt),
       "Output and input scales must be both given or None.");
 
-  ns_Softmax::Params params{static_cast<int>(self.pt_t.dim() - dim - 1)};
-  std::vector<synTensor> syn_inputs{self.syn_t};
+  if (fused_add_opt) {
+    TORCH_CHECK((input_scale_opt), "FusedAdd available only for Float8 output");
+    TORCH_CHECK(
+        (rank == fused_add_opt->pt_t.dim()),
+        "FusedAdd tensor must have the same rank as the input tensor");
+    TORCH_CHECK(
+        (self.pt_t.sizes()[0] == fused_add_opt->pt_t.sizes()[0] &&
+         self.pt_t.sizes()[rank - 1] == fused_add_opt->pt_t.sizes()[rank - 1]),
+        "FusedAdd tensor must have the same first and last dim as the input tensor");
+    for (int dim_id = 1; dim_id < rank - 1; dim_id++)
+      TORCH_CHECK(
+          (fused_add_opt->pt_t.sizes()[dim_id] == 1 ||
+           fused_add_opt->pt_t.sizes()[dim_id] == self.pt_t.sizes()[dim_id]),
+          "FusedAdd tensor\'s dim other than first and last should be equal to 1 or the same as the input tensor");
+  }
 
-  ADD_1D_OPTIONAL_FLOAT_TENSOR(input_scale_opt, "input_scale");
-  ADD_1D_OPTIONAL_FLOAT_TENSOR(inv_attn_heads_opt, "inv_attn_heads");
-  ADD_1D_OPTIONAL_FLOAT_TENSOR(output_scale_opt, "output_scale");
+  ns_Softmax::ParamsV7 params{};
+  params.dim = static_cast<int>(rank - dim - 1);
+  int mode = input_scale_opt ? SoftmaxMode_t::SOFTMAX_HF8_1B
+                             : SoftmaxMode_t::SOFTMAX_HF8_1C;
+  if (fused_add_opt)
+    mode |= SoftmaxMode_t::FUSED_ADD;
+  params.mode = static_cast<SoftmaxMode_t>(mode);
+
+  std::vector<synTensor> syn_inputs{self.syn_t};
+  addOptionalTensor(
+      input_scale_opt, syn_inputs, at::ScalarType::Float, "input_scale");
+  addOptionalTensor(
+      inv_attn_heads_opt, syn_inputs, at::ScalarType::Float, "inv_attn_heads");
+  addOptionalTensor(
+      output_scale_opt, syn_inputs, at::ScalarType::Float, "output_scale");
+  addOptionalTensor(
+      fused_add_opt, syn_inputs, at::ScalarType::BFloat16, "fused_add");
 
   auto result = OpBackend::BuildNode(
       this,
