@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,12 +11,11 @@
 ###############################################################################
 
 import math
-from typing import Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import torch
 from habana_frameworks.torch.utils.internal import is_lazy
 from torch import Tensor
-from torch.optim import Optimizer
 
 # The following Function is a modified version of _FunctionalFuseAdamW from
 # torch/distributed/optim/functional_adamw.py
@@ -47,6 +46,7 @@ class FusedAdamW(object):
         # amsgrad: bool = False, # Habana Impl does not support
         # maximize: bool = False, # Habana Impl does not support
         _allow_empty_param_list: bool = False,  # retained for PT compatibility
+        first_moment_dtype: Optional[torch.dtype] = None,
     ):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
@@ -84,6 +84,7 @@ class FusedAdamW(object):
         self.neg_step_list = []  # For Habana Impl
         self.is_lazy = is_lazy()
         self.modified_wd_list = []
+        self.first_moment_dtype = first_moment_dtype
 
     def step_param(self, param: Tensor, grad: Optional[Tensor]):
         params_with_grad = []
@@ -100,8 +101,9 @@ class FusedAdamW(object):
             self.state[param] = {}
             state = self.state[param]
             state["step"] = torch.tensor(0.0)
+            dtype = self.first_moment_dtype if self.first_moment_dtype is not None else param.dtype
             # Exponential moving average of gradient values
-            state["exp_avg"] = torch.zeros_like(param, memory_format=torch.preserve_format)
+            state["exp_avg"] = torch.zeros_like(param, dtype=dtype, memory_format=torch.preserve_format)
             # Exponential moving average of squared gradient values
             state["exp_avg_sq"] = torch.zeros_like(param, memory_format=torch.preserve_format)
             if self.amsgrad:
@@ -150,8 +152,9 @@ class FusedAdamW(object):
                     self.state[param] = {}
                     state = self.state[param]
                     state["step"] = torch.tensor(0.0)
+                    dtype = self.first_moment_dtype if self.first_moment_dtype is not None else param.dtype
                     # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros_like(param, memory_format=torch.preserve_format)
+                    state["exp_avg"] = torch.zeros_like(param, dtype=dtype, memory_format=torch.preserve_format)
                     # Exponential moving average of squared gradient values
                     state["exp_avg_sq"] = torch.zeros_like(param, memory_format=torch.preserve_format)
                     if self.amsgrad:

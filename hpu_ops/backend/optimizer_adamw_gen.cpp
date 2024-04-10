@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -56,10 +56,13 @@ void OptimizerFusedAdamWOperator::AddNode(
     AT_ERROR(ss.str());
   }
 
-  std::string add_node = get_guid_with_precision("add_fwd", ScalarType());
-  std::string mul_node = get_guid_with_precision("mult_fwd", ScalarType());
-  std::string div_node = get_guid_with_precision("div_fwd", ScalarType());
-  std::string sqrt_node = get_guid_with_precision("sqrt_fwd", ScalarType());
+  const auto scalar_dtype =
+      at::promote_types(ScalarType(), exp_avg_vec.front().pt_t.scalar_type());
+
+  std::string add_node = get_guid_with_precision("add_fwd", scalar_dtype);
+  std::string mul_node = get_guid_with_precision("mult_fwd", scalar_dtype);
+  std::string div_node = get_guid_with_precision("div_fwd", scalar_dtype);
+  std::string sqrt_node = get_guid_with_precision("sqrt_fwd", scalar_dtype);
 
   int64_t scalar_shape[] = {1};
 
@@ -77,7 +80,7 @@ void OptimizerFusedAdamWOperator::AddNode(
     storage.push_back(ConstantHelper(
         graph,
         static_cast<float>(constant_values[i]),
-        ScalarType(),
+        scalar_dtype,
         scalar_shape));
     constant_ts[i] = storage.back().get();
   }
@@ -90,13 +93,13 @@ void OptimizerFusedAdamWOperator::AddNode(
     const auto& exp_avg_sq = exp_avg_sq_vec[i];
 
     std::vector<NodeAttr::NodeOutputAttr> gradient_attr = {
-        {gradient.pt_t.sizes(), ScalarType()}};
+        {gradient.pt_t.sizes(), scalar_dtype}};
     std::vector<NodeAttr::NodeOutputAttr> weight_attr = {
-        {weight.pt_t.sizes(), ScalarType()}};
+        {weight.pt_t.sizes(), scalar_dtype}};
     std::vector<NodeAttr::NodeOutputAttr> exp_avg_attr = {
-        {exp_avg.pt_t.sizes(), ScalarType()}};
+        {exp_avg.pt_t.sizes(), scalar_dtype}};
     std::vector<NodeAttr::NodeOutputAttr> exp_avg_sq_attr = {
-        {exp_avg_sq.pt_t.sizes(), ScalarType()}};
+        {exp_avg_sq.pt_t.sizes(), scalar_dtype}};
 
     auto exp_avg_mul_beta1 =
         BuildOp(graph, mul_node, {exp_avg.syn_t, beta1_t}, exp_avg_attr);
@@ -108,14 +111,23 @@ void OptimizerFusedAdamWOperator::AddNode(
         graph,
         add_node,
         {exp_avg_mul_beta1[0].get(), grad_scaled[0].get()},
-        {{gradient.pt_t.sizes(), ScalarType()}});
+        {{gradient.pt_t.sizes(), scalar_dtype}});
 
-    auto exp_avg_1_out = IdentityHelper(
-        graph,
-        exp_avg_1[0].get(),
-        gradient.pt_t.sizes(),
-        ScalarType(),
-        i + vec_size);
+    auto exp_avg_1_out = exp_avg.pt_t.scalar_type() == scalar_dtype
+        ? IdentityHelper(
+              graph,
+              exp_avg_1[0].get(),
+              exp_avg.pt_t.sizes(),
+              scalar_dtype,
+              i + vec_size)
+        : BuildCast(
+              this,
+              graph,
+              exp_avg_1[0].get(),
+              exp_avg.pt_t.sizes(),
+              scalar_dtype,
+              exp_avg.pt_t.scalar_type(),
+              i + vec_size);
 
     auto grad_sq = BuildOp(
         graph, mul_node, {gradient.syn_t, gradient.syn_t}, gradient_attr);
@@ -130,14 +142,23 @@ void OptimizerFusedAdamWOperator::AddNode(
         graph,
         add_node,
         {exp_avg_sq_mul_beta2[0].get(), grad_sq_scaled[0].get()},
-        {NodeAttr::NodeOutputAttr{gradient.pt_t.sizes(), ScalarType()}});
+        {NodeAttr::NodeOutputAttr{gradient.pt_t.sizes(), scalar_dtype}});
 
-    auto exp_avg_sq_1_out = IdentityHelper(
-        graph,
-        exp_avg_sq_1[0].get(),
-        gradient.pt_t.sizes(),
-        ScalarType(),
-        i + 2 * vec_size);
+    auto exp_avg_sq_1_out = exp_avg_sq.pt_t.scalar_type() == scalar_dtype
+        ? IdentityHelper(
+              graph,
+              exp_avg_sq_1[0].get(),
+              exp_avg_sq.pt_t.sizes(),
+              scalar_dtype,
+              i + 2 * vec_size)
+        : BuildCast(
+              this,
+              graph,
+              exp_avg_sq_1[0].get(),
+              exp_avg_sq.pt_t.sizes(),
+              scalar_dtype,
+              exp_avg_sq.pt_t.scalar_type(),
+              i + 2 * vec_size);
 
     auto exp_avg_sq_sqrt =
         BuildOp(graph, sqrt_node, {exp_avg_sq_1[0].get()}, exp_avg_sq_attr);
@@ -168,7 +189,7 @@ void OptimizerFusedAdamWOperator::AddNode(
         graph,
         add_node,
         {weight_modified, scaled_ratio[0].get()},
-        {NodeAttr::NodeOutputAttr{weight.pt_t.sizes(), ScalarType(), i}});
+        {NodeAttr::NodeOutputAttr{weight.pt_t.sizes(), scalar_dtype, i}});
 
     syn_out(i) = std::move(result[0]);
     syn_out(i + vec_size) = std::move(exp_avg_1_out);

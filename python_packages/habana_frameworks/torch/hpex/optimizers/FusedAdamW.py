@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,7 +11,7 @@
 ###############################################################################
 
 import math
-from typing import Callable, Iterable, Tuple
+from typing import Callable, Iterable, Optional, Tuple
 
 import torch
 from habana_frameworks.torch import core as htcore
@@ -28,6 +28,7 @@ class FusedAdamW(Optimizer):
         eps: float = 1e-6,
         weight_decay: float = 0.0,
         bias_correction: bool = True,
+        first_moment_dtype: Optional[torch.dtype] = None,
     ):
         if lr < 0.0:
             raise ValueError("Invalid learning rate: {} - should be >= 0.0".format(lr))
@@ -49,6 +50,7 @@ class FusedAdamW(Optimizer):
         self.neg_step_list = []
         self.is_lazy = is_lazy()
         self.modified_wd_list = []
+        self.first_moment_dtype = first_moment_dtype
 
     def step_wrap(step_func):
         def wrap_(*args, **kwargs):
@@ -89,10 +91,11 @@ class FusedAdamW(Optimizer):
                 state = self.state[p]
                 if len(state) == 0:
                     state["step"] = 0
+                    dtype = self.first_moment_dtype if self.first_moment_dtype is not None else p.dtype
                     # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros(p.data.shape).to(p.dtype).to(p.device)
+                    state["exp_avg"] = torch.zeros(p.data.shape, dtype=dtype).to(p.device)
                     # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros(p.data.shape).to(p.dtype).to(p.device)
+                    state["exp_avg_sq"] = torch.zeros(p.data.shape, dtype=p.dtype).to(p.device)
 
                 exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
 
