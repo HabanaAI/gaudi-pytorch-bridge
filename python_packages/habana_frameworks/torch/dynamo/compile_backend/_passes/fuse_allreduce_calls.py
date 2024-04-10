@@ -340,7 +340,7 @@ def _scatter_wait_result(
 
     with gm.graph.inserting_after(fused_wait_node):
         split_node = gm.graph.call_function(
-            torch.ops.aten.split,
+            torch.ops.aten.split_with_sizes,
             (
                 fused_wait_node,
                 # TODO(@fegin): support symbolic shapes
