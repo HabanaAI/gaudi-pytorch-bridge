@@ -12,7 +12,7 @@
 
 import os
 import types
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from contextlib import contextmanager
 from copy import deepcopy
 from typing import Callable, Dict, Optional
@@ -589,3 +589,15 @@ def place_on_hpu(cpu_tensors):
     for key, value in cpu_tensors.items():
         hpu_tensors[key] = value.to("hpu")
     return hpu_tensors
+
+
+def find_in_hier_list(v, hlist, index=[]):
+    try:
+        return index + [hlist.index(v)]
+    except ValueError:
+        for i, e in enumerate(hlist):
+            if isinstance(e, Iterable):
+                idx = find_in_hier_list(v, e, index + [i])
+                if idx:
+                    return idx
+    return None
