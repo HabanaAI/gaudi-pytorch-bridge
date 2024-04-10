@@ -61,7 +61,7 @@ class TestModel(torch.nn.Module):
 
     def forward(self, q_hpu, k_hpu, v_hpu, attn_mask=None, dropout_p=0.0, is_causal=False, softmax_mode="None"):
 
-        O_hpu, amax_s = fp8_fused_sdpa(
+        O_hpu, amax_s, _ = fp8_fused_sdpa(
             q_hpu,
             k_hpu,
             v_hpu,

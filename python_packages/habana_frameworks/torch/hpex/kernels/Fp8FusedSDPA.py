@@ -334,4 +334,4 @@ def fp8_fused_sdpa(
         is_amax_s,
     )
 
-    return out, amax_s
+    return out, amax_s, None
