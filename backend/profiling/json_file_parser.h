@@ -14,6 +14,7 @@
 #pragma once
 #include <fstream>
 #include <string>
+#include <sstream>
 #include <string_view>
 #include "backend/profiling/profiling.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -196,6 +197,12 @@ class JsonFileParser : public TraceSink {
     traceEvents_.push_back(obj);
   }
 
+  std::string toHex(uint64_t handle) {
+    std::stringstream stream;
+    stream << "0x" << std::hex << handle;
+    return stream.str();
+  }
+
   nlohmannV340::json constructEvent(
       const Activity& activity,
       const std::optional<RecipeInfo>& recipeInfo,
@@ -213,8 +220,8 @@ class JsonFileParser : public TraceSink {
     if (recipeInfo) {
       args["recipeId"] = recipeInfo->recipeId;
       args["recipeName"] = recipeInfo->recipeName;
-      args["streamHandle"] = recipeInfo->streamHandle;
-      args["eventHandle"] = recipeInfo->eventHandle;
+      args["streamHandle"] = toHex(recipeInfo->streamHandle);
+      args["eventHandle"] = toHex(recipeInfo->eventHandle);
     }
 
     if (activity.type == ActivityType::KERNEL) {
