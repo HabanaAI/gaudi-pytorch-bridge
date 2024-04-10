@@ -63,7 +63,7 @@ def test_linear():
         out_hpu = func(x=x, m=m, device="hpu")
 
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary=ops_summary, op="torch.ops.aten.linear", count_list=[(1, 0)])
+    assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.linear.default", count_list=[(1, 0)])
 
     out_cpu = func(x=x_c, m=m_c, device="cpu")
     assert torch.allclose(out_cpu[0].float(), out_hpu[0].to(device=torch.device("cpu")), rtol=1e-3, atol=1e-3)

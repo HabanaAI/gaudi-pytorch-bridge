@@ -87,6 +87,10 @@ hpu_supported_op_list = {
     "dequantize_per_tensor",
     "quantize_per_channel",
     "dequantize_per_channel",
+    # linear and linear_backward needs to be explicitly added to that list because
+    # we have a hpu implementation to capture linear from PT.
+    "linear",
+    "linear_backward",
 }
 
 hpu_supported_ops_restricted = dict()

@@ -1746,7 +1746,6 @@ non_mandatory_ops_whitelist = [
     "native_layer_norm",
     "native_group_norm",
     "repeat",
-    "linear",
 ]
 
 
@@ -2507,6 +2506,12 @@ lazy_frontend_blacklist = [
     "native_group_norm",
 ]
 
+# List of ops that shouldn't be generated in eager mode
+eager_frontend_blacklist = [
+    "linear_backward",
+    "linear",
+]
+
 
 def generate_check_kernel_support_sigs(fgen):
     dtype_defs = ""
@@ -2838,11 +2843,15 @@ def generate_frontend(fgens, fgen_files, frontend_inclusions, out_dir):
     header_inclusions = ""
     # TODO only iwyu
     for h in fgen_files.keys():
+        if h in eager_frontend_blacklist and out_dir == "eager":
+            continue
         if h in lazy_frontend_blacklist and out_dir == "lazy":
             continue
         header_inclusions += '#include "' + h + '.h"\n'
 
     for idx, fgen in enumerate(fgens):
+        if fgen.func in eager_frontend_blacklist and out_dir == "eager":
+            continue
         if fgen.func in lazy_frontend_blacklist and out_dir == "lazy":
             continue
 

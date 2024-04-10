@@ -592,6 +592,23 @@ def meta_sum_fp8(self, dim=None, keepdim=False, out_dtype=None):
     return self.new_empty(output_shape, dtype=output_dtype)
 
 
+@register_meta([torch.ops.hpu.linear.default])
+def linear(input, weight, bias=None):
+    out = input.new_empty((input.shape[:-1] + weight.shape[0:-1]), dtype=input.dtype)
+    return out
+
+
+@register_meta([torch.ops.hpu.linear_backward.default])
+def linear_backward(self, grad_output, weight, output_mask):
+    input_grad = self.new_empty(self.shape, dtype=self.dtype)
+    weight_grad = weight.new_empty(weight.shape, dtype=weight.dtype)
+    if output_mask[2] is True:
+        bias_grad = weight.new_empty((weight.shape[0]), dtype=weight.dtype)
+    else:
+        bias_grad = None
+    return input_grad, weight_grad, bias_grad
+
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 
