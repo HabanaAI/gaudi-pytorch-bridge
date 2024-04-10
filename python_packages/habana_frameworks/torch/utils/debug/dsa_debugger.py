@@ -197,7 +197,8 @@ class DivergenceAnalyzer:
                         prcoess_id = file.split(".")[1]
                         path_db = f"{path}/{graph_name}.{prcoess_id}.db"
                         path_json = f"{path}/{graph_name}.{prcoess_id}.json"
-                        data_dict[mode][graph_name] = {
+                        dict_key = ".graph_dumps/" + graph_name
+                        data_dict[mode][dict_key] = {
                             "db": path_db,
                             "json": path_json,
                         }
