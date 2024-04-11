@@ -226,6 +226,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/native_group_norm_gen.cpp
           backend/ne_gen.cpp
           backend/nll_loss_gen.cpp
+          backend/nms_batched.cpp
           backend/nonzero_gen.cpp
           backend/unique2_gen.cpp
           backend/unique_gen.cpp

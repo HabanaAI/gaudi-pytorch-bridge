@@ -3224,6 +3224,7 @@ sparse::qlinear_dynamic;                                             YES; NO;  N
 sparse::qlinear_relu_dynamic;                                        YES; NO;  NO;  NA;       NA;    NO;      NO;   NO;           0;
 torchvision::_roi_align_backward;                                    NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 torchvision::nms;                                                    NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
+torchvision::batched_nms;                                            NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 torchvision::roi_align;                                              NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 preambler::_max_pool2d;                                              NO;  NO;  NO;  NA;       NA;    NO;      NO;   YES;          1; inception_v3
 preambler::adagrad;                                                  NO;  NO;  NO;  NA;       NA;    NO;      NO;   YES;          2; dlrm_a, dlrm_github

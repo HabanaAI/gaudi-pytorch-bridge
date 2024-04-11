@@ -1412,6 +1412,37 @@ void accumulate_grads_(
  * Native ops
  **********************************************************************************/
 
+at::Tensor nms(
+    const at::Tensor& boxes,
+    const at::Tensor& scores,
+    double iou_threshold) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("nms :", DUMP_3ARGS(boxes, scores, iou_threshold));
+
+  // max_classes set for COCO dataset for now, can be increased in future
+  // based on requirement. larger max_classes => smaller max size for
+  // num_boxes allowed because of memory trade-off.
+  int max_classes = 81;
+
+  auto indices = at::zeros_like(scores, torch::kInt32);
+  const int64_t box_id_out_shape{scores.sizes()[0] * max_classes};
+  const int64_t shape_tensor_shape{5};
+
+  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
+      "hpu::batched_nms_eager",
+      {boxes, scores, indices, iou_threshold, max_classes},
+      {{box_id_out_shape}, {shape_tensor_shape}}};
+
+  hpu_op.set_scalar_types({torch::kLong, torch::kInt});
+
+  auto [output_nms, shape_tensor] = hpu_op.call();
+  const int64_t output_numel = shape_tensor[0].item<int64_t>();
+
+  const auto output = output_nms.slice(0, 0, output_numel, 1);
+
+  return output;
+}
+
 at::Tensor roi_align(
     const at::Tensor& input,
     const at::Tensor& rois,
@@ -2046,6 +2077,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_native_dropout(Tensor seed, Tensor input, float p, bool? train)-> (Tensor, Tensor)");
   m.def(
+      "hpu::batched_nms_eager(Tensor boxes, Tensor scores, Tensor indexes, double iou_threshold, int max_classes) -> (Tensor, Tensor)");
+  m.def(
       "hpu::habana_randperm_ht(Tensor seed, Tensor h2d_tensor, Tensor shape_tensor, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
 }
 
@@ -2128,6 +2161,7 @@ TORCH_LIBRARY_IMPL(aten, HPU, m) {
 TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
   m.impl("roi_align", roi_align);
   m.impl("_roi_align_backward", roi_align_backward);
+  m.impl("nms", nms);
 }
 
 TORCH_LIBRARY_IMPL(quantized_decomposed, HPU, m) {

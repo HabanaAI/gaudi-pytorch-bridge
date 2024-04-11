@@ -444,6 +444,7 @@ aten::log2
 hpu::conv2d_fp8.scalar
 aten::special_xlog1py.other_scalar
 torchvision::nms
+torchvision::batched_nms
 aten::sgn.out
 aten::heaviside
 aten::addbmm_

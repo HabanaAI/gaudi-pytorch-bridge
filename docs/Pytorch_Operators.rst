@@ -664,7 +664,7 @@ sinc                                     Yes      Yes      No        No       No
 softmax                                  Yes      Yes      Yes       No       No        No       No     torch.special
 xlog1py                                  Yes      Yes      No        No       No        No       No     torch.special
 xlogy                                    Yes      Yes      Yes       No       No        No       No     torch.special
-batched_nms                              Yes      No       No        No       No        No       No     torchvision.ops
-nms                                      Yes      No       No        No       No        No       No     torchvision.ops
+batched_nms                              Yes      Yes      No        No       No        No       No     torchvision.ops
+nms                                      Yes      Yes      No        No       No        No       No     torchvision.ops
 roi_align                                Yes      No       No        No       No        No       No     torchvision.ops
 ====================================  ======== ======== ======== ========= ========= ======== ========  ======================

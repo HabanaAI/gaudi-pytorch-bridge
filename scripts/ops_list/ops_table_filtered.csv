@@ -1408,6 +1408,7 @@ sparse::qlinear_dynamic;                                         YES; NO;  NO;  
 sparse::qlinear_relu_dynamic;                                    YES; NO;  NO;  NA;       NA;    NO;      NO;   NO;           0;
 torchvision::_roi_align_backward;                                NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 torchvision::nms;                                                NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
+torchvision::batched_nms;                                        NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 torchvision::roi_align;                                          NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 preambler::adagrad;                                              NO;  NO;  NO;  NA;       NA;    NO;      NO;   YES;          2; dlrm_a, dlrm_github
 preambler::append;                                               NO;  NO;  NO;  NA;       NA;    NO;      NO;   YES;          1; densenet161

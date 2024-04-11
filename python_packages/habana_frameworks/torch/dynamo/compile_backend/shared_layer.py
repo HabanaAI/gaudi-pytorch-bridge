@@ -57,6 +57,7 @@ hpu_supported_op_list = {
     # Torchvision
     "roi_align",
     "_roi_align_backward",
+    "nms",
     # Scaled Dot Product Attention
     "sdpa_recomp_fwd",
     "sdpa_recomp_fwd_dropout",

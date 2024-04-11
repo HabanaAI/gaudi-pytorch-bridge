@@ -3247,4 +3247,5 @@ quantized_decomposed::quantize_per_tensor.tensor;                    NO;  NO;  Y
 quantized_decomposed::quantize_per_tensor.tensor2;                   NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 torchvision::_roi_align_backward;                                    NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 torchvision::nms;                                                    NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
+torchvision::batched_nms;                                            NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 torchvision::roi_align;                                              NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
