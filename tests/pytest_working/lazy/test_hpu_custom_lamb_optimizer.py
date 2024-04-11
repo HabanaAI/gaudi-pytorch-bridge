@@ -35,15 +35,23 @@ def reference_lamb_norm(grads, max_grad_norm):
     return clip_global_grad_norm
 
 
-def create_grads(dtypes, shapes):
+def create_args(dtypes, shapes, fn):
     cpu_grads, hpu_grads = [], []
     for dtype, shape in zip(dtypes, shapes):
-        cpu_grads.append(torch.randn(shape, device=cpu).to(dtype))
+        cpu_grads.append(fn(shape, device=cpu).to(dtype))
         hpu_grads.append(cpu_grads[-1].to(hpu))
     return cpu_grads, hpu_grads
 
 
-@pytest.mark.skip(reason="Results mismatch")
+# norms should be non-negative
+def create_norms(dtypes, shapes):
+    return create_args(dtypes, shapes, torch.rand)
+
+
+def create_grads(dtypes, shapes):
+    return create_args(dtypes, shapes, torch.randn)
+
+
 @pytest.mark.parametrize("max_grad_norm", (0.2, 1.0, 4.0, 8))
 @pytest.mark.parametrize(
     "shapes, dtypes",
@@ -52,7 +60,6 @@ def create_grads(dtypes, shapes):
         ([(3, 4), (5, 6)], [torch.bfloat16, torch.bfloat16]),
     ),
 )
-@pytest.mark.skip(reason="Results mismatch")
 def test_optimizer_lamb_norm(dtypes, shapes, max_grad_norm):
 
     cpu_grads, hpu_grads = create_grads(dtypes, shapes)
@@ -99,7 +106,6 @@ def reference_optimizer_lamb_phase2(weights, adam_norms, weight_norms, adam_step
         weight.add_(adam_step)
 
 
-@pytest.mark.skip(reason="Results mismatch")
 @pytest.mark.parametrize(
     "weight_dtype",
     [torch.float, torch.bfloat16],
@@ -111,8 +117,8 @@ def test_optimizer_lamb_phase2(weight_dtype, weight_shapes, weight_decay, use_la
     lr = 0.1
     n = len(weight_shapes)
     cpu_weights, hpu_weights = create_grads([weight_dtype] * n, weight_shapes)
-    cpu_adam_norm, hpu_adam_norm = create_grads([weight_dtype] * n, [(1,)] * n)
-    cpu_weight_norm, hpu_weight_norm = create_grads([weight_dtype] * n, [(1,)] * n)
+    cpu_adam_norm, hpu_adam_norm = create_norms([weight_dtype] * n, [(1,)] * n)
+    cpu_weight_norm, hpu_weight_norm = create_norms([weight_dtype] * n, [(1,)] * n)
     cpu_adam_step, hpu_adam_step = create_grads([weight_dtype] * n, weight_shapes)
 
     torch.ops.hpu.optimizer_lamb_phase2(
@@ -133,7 +139,13 @@ def test_optimizer_lamb_phase2(weight_dtype, weight_shapes, weight_decay, use_la
         weight_decay,
         use_lamb,
     )
-    compare_tensors(hpu_weights, cpu_weights, atol=1e-08, rtol=1e-05)
+
+    atol = 1e-08
+    rtol = 1e-05
+    if weight_dtype == torch.bfloat16:
+        atol = 1e-02
+        rtol = 1e-02
+    compare_tensors(hpu_weights, cpu_weights, atol, rtol)
 
 
 def reference_optimizer_lamb_phase1(
