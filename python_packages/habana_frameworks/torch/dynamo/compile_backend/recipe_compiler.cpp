@@ -18,6 +18,40 @@
 #include "habana_eager/graph_storage.h"
 
 #include "habana_helpers/logging.h"
+namespace {
+struct EmptyBatchData {
+  std::vector<int64_t> size;
+  py::object dtype;
+  std::optional<std::vector<int64_t>> stride;
+  EmptyBatchData(
+      std::vector<int64_t> size,
+      py::object dtype,
+      std::optional<std::vector<int64_t>> stride)
+      : size(std::move(size)), dtype(dtype), stride(std::move(stride)) {}
+};
+
+std::vector<at::Tensor> batch_empty(const std::vector<EmptyBatchData>& batch) {
+  auto allocator = habana::getHABANADeviceAllocator();
+  constexpr c10::DispatchKeySet hpu_ks(c10::DispatchKey::HPU);
+
+  std::vector<at::Tensor> result;
+  for (const auto& el : batch) {
+    at::ScalarType dtype_c =
+        reinterpret_cast<THPDtype*>(el.dtype.ptr())->scalar_type;
+    auto dtype = dtype_or_default(dtype_c);
+    HABANA_ASSERT(habana_helpers::is_supported_type(dtype));
+
+    if (!el.stride.has_value()) {
+      result.push_back(
+          at::detail::empty_generic(el.size, allocator, hpu_ks, dtype, {}));
+    } else {
+      result.push_back(at::detail::empty_strided_generic(
+          el.size, el.stride.value(), allocator, hpu_ks, dtype));
+    }
+  }
+  return result;
+}
+}; // namespace
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def(
@@ -81,4 +115,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     auto& graph_storage{habana::graph::GraphStorage::get()};
     graph_storage.reset_seeds();
   });
+  py::class_<EmptyBatchData>(m, "EmptyBatchData")
+      .def(py::init<
+           std::vector<int64_t>,
+           py::object,
+           std::optional<std::vector<int64_t>>>())
+      .def_readwrite("size", &EmptyBatchData::size);
+  m.def("batch_empty", &batch_empty, "Create empty tensors");
 }

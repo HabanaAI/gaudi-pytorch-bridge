@@ -39,6 +39,8 @@ class HabanaGraphModule(torch.nn.Module):
         is_training=False,
         dynamic=False,
     ):
+        from ._recipe_compiler_C import EmptyBatchData
+
         logger.debug("Creating HabanaGraphModule")
         super().__init__()
         self._jit_ir = jit_ir
@@ -49,25 +51,28 @@ class HabanaGraphModule(torch.nn.Module):
         self._dynamic = dynamic
         self._symbol_evaluator = SymbolicShapeEvaluator(symbolic_metadata)
         self._has_randoms = False
+        self._ds_output_prealloc = self._dynamic and enable_dynamic_output_preallocate
+        self._outputs_batch_data = []
+        if self._ds_output_prealloc:
+            for md in self._outputs_metadata:
+                self._outputs_batch_data.append(EmptyBatchData((), md[1], md[2]))
+        else:
+            for md in self._outputs_metadata:
+                self._outputs_batch_data.append(EmptyBatchData(md[0], md[1], md[2]))
 
     def __call__(self, *args):
         outputs = []
         inputs = tuple(args)
 
-        ds_output_prealloc = self._dynamic and enable_dynamic_output_preallocate
-        if ds_output_prealloc:
+        from ._recipe_compiler_C import batch_empty, graph_compile, graph_launch
+
+        if self._ds_output_prealloc:
             self._symbol_evaluator.clear_symbolic_value_dict()
+            for output, metadata in zip(self._outputs_batch_data, self._outputs_metadata):
+                size = self._symbol_evaluator.calculate_shape(metadata[0], inputs)
+                output.size = size
 
-        for md in self._outputs_metadata:
-            size = md[0]
-            if ds_output_prealloc:
-                size = self._symbol_evaluator.calculate_shape(md[0], inputs)
-            if md[2] is not None:
-                outputs.append(torch.empty_strided(size, md[2], dtype=md[1], device="hpu"))
-            else:
-                outputs.append(torch.empty(size, dtype=md[1], device="hpu"))
-
-        from ._recipe_compiler_C import graph_compile, graph_launch
+        outputs = batch_empty(self._outputs_batch_data)
 
         if self._recipe_id is None:
             self.check_for_random_ops()
