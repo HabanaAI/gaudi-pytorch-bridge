@@ -486,7 +486,7 @@ def euclidean_dist(x1, x2):
     return torch.ops.aten._cdist_forward(x1, x2, 2.0, 1)
 
 
-@register_custom_decomposition(aten.split.Tensor, hpu_backend_decompositions_common)
+@register_custom_decomposition([aten.split.Tensor, aten.split_with_sizes], hpu_backend_decompositions_common)
 def split(self, split_size, dim=0):
     if dim < 0:
         dim += self.dim()
