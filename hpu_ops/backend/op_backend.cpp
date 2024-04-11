@@ -1059,8 +1059,14 @@ sh::tensor OpBackend::BuildRegularCast(
         habana_helpers::CastTypeToDataType(cast_sequence.at(i).to_);
     const auto cast_guid = BuildCastGuid(src, dst);
 
-    ns_CastKernel::Params params;
+    ns_CastKernel::ParamsV3 params;
     params.round_mode = habana_helpers::get_cast_rounding_mode(to);
+    auto device_type{habana::HPURegistrar::get_device().type()};
+    if (sh::device_supports_trunc(device_type) &&
+        src == c10::ScalarType::Float &&
+        (dst == c10::ScalarType::Char || dst == c10::ScalarType::Byte)) {
+      params.mode = CAST_TRUNC;
+    }
 
     auto is_last = (i + 1) == cast_sequence.size();
     auto output_index = is_last ? final_result_index : c10::nullopt;

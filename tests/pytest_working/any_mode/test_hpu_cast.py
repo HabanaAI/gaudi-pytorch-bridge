@@ -31,7 +31,8 @@ def test_hpu_cast(from_dtype, to_dtype):
     def fn(input):
         return input.to(to_dtype)
 
-    input = torch.randint(0, 100, (16, 16)).to(from_dtype)
+    to = 300 if from_dtype == torch.float and to_dtype in [torch.int8, torch.uint8] and not is_gaudi1() else 100
+    input = torch.randint(0, to, (16, 16)).to(from_dtype)
     input_hpu = input.to("hpu")
 
     if is_pytest_mode_compile():
