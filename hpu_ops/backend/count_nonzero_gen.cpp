@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -50,9 +50,13 @@ std::shared_ptr<void> FillCountNonzeroParams(
   return params;
 }
 
-sizes_vec CountNonzeroShape(const at::Stack& stack) {
+OutputMetaDataVector CountNonzeroMeta(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto self_shape = self.sizes();
+
+  OutputMetaData meta;
+
+  meta.dtype = c10::ScalarType::Long;
 
   std::vector<int64_t> dims = get_dims_from_stack(stack);
   std::vector<int64_t> output_shape = {};
@@ -65,7 +69,9 @@ sizes_vec CountNonzeroShape(const at::Stack& stack) {
     }
   }
 
-  return {std::move(output_shape)};
+  meta.shape = output_shape;
+
+  return {meta};
 }
 
 } // namespace habana

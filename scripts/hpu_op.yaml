@@ -2673,7 +2673,7 @@ cosh_:
 
 count_nonzero.dim_IntList:
   custom_fill_params: FillCountNonzeroParams
-  custom_output_shape: CountNonzeroShape
+  output_meta: CountNonzeroMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Short, Char]
     Gaudi2: [BFloat16, Float, Int, Long, Short, Char, Half]
@@ -2685,7 +2685,7 @@ count_nonzero.dim_IntList:
 
 count_nonzero:
   custom_fill_params: FillCountNonzeroParams
-  custom_output_shape: CountNonzeroShape
+  output_meta: CountNonzeroMeta
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Short, Char]
     Gaudi2: [BFloat16, Float, Int, Long, Short, Char, Half]
