@@ -108,18 +108,8 @@ class FusedAdamW(Optimizer):
                 else:
                     group["step"] = 1
 
-                bias_correction_key = None
-                if "bias_correction" in group.keys():
-                    bias_correction_key = "bias_correction"
-                else:
-                    print("FusedAdamW: key 'bias_correction' not found. using 'correct_bias' instead")
-                    print("This might occur when loading old checkpoints.")
-                    bias_correction_key = "correct_bias"
-
-                bias_correction = 1 if group[bias_correction_key] else 0
-
                 step_size = group["lr"]
-                if bias_correction:
+                if self.is_bias_correction(group):
                     bias_correction1 = 1.0 - pow(beta1, group["step"])
                     bias_correction2 = 1.0 - pow(beta2, group["step"])
                     step_size = step_size * math.sqrt(bias_correction2) / bias_correction1
@@ -171,3 +161,13 @@ class FusedAdamW(Optimizer):
                     )
 
         return loss
+
+    def is_bias_correction(self, group):
+        if "bias_correction" in group.keys():
+            return group["bias_correction"]
+        elif "correct_bias" in group.keys():
+            print("FusedAdamW: key 'bias_correction' not found. using 'correct_bias' instead")
+            print("This might occur when loading old checkpoints.")
+            return group["correct_bias"]
+        else:  # Case when loading data from torch.optim.AdamW
+            return True
