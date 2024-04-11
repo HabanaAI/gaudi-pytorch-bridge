@@ -252,6 +252,8 @@ def helper_is_view_node(node):
         "t",
         "permute",
         "split",
+        "split_with_sizes",
+        "alias",
     ]
 
     return node_target in view_ops
