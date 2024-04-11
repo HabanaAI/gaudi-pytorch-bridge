@@ -120,12 +120,18 @@ GraphExec::GraphExec(
   torch::jit::Stack in_stack = example_inputs;
   PT_DYNAMIC_SHAPE_DEBUG("Is Dynamic Graph = ", IsDynamicGraph());
   if (IsDynamicGraph()) {
-    ProcessDynamicGraph(example_inputs);
-    if (m_static_fallback) {
-      PT_DYNAMIC_SHAPE_DEBUG(
-          "Number of tensor dims exceeds the limit, falling back to static!");
+    auto backup_graph = m_graph->copy();
+    bool status = ProcessDynamicGraph(example_inputs);
+    if (status) {
+      in_stack = ProcessDynamicStack(example_inputs, true);
+    } else {
+      // If dynamic graph updation failed, static fallback will happen.
+      // m_dynamic flag will be set to false and original JIT graph will
+      // be used in the fallback flow
+      m_graph = backup_graph;
+      m_dynamic = false;
+      PT_DYNAMIC_SHAPE_DEBUG("Falling back to static");
     }
-    in_stack = ProcessDynamicStack(example_inputs, true);
   }
 
   pass::DetectWeightTensors(m_graph, m_graph_inputs_to_permute);
@@ -138,14 +144,13 @@ GraphExec::GraphExec(
     jit_graph_name = m_graph_name;
   }
 
-  bool is_dynamic_compile = IsDynamicGraph() && !m_static_fallback;
   m_graph_and_meta = std::make_shared<habana::OptimizedJITGraphAndMetaData>(
       m_graph,
       input_refs,
       0ull /*unique_cntr*/,
       std::vector<bool>{} /*node_bcast_map_*/,
       jit_graph_name,
-      is_dynamic_compile);
+      IsDynamicGraph());
 
   m_graph_and_meta->SetGraphIndex(m_graph_index);
   m_graph_and_meta->SetFrontendType(
@@ -159,14 +164,20 @@ bool GraphExec::IsDynamicGraph() {
   return m_dynamic;
 }
 
-void GraphExec::ProcessDynamicGraph(torch::jit::Stack& example_inputs) {
+bool GraphExec::ProcessDynamicGraph(torch::jit::Stack& example_inputs) {
+  // Currently, the status value can be false in two cases:
+  // (1) any input tensor or intermediate tensor dims is
+  //     greater than SYN_MAX_TENSOR_DIM
+  // (2) any dynamic shape op replacement with hpu op fails
   m_dgraph_meta = std::make_shared<DynamicGraphMetaData>();
-  pass::HandleDynamicOps(
+  bool status = pass::HandleDynamicOps(
       m_graph, example_inputs, m_dgraph_meta, &m_input_new_base_sizes);
-  m_static_fallback = m_dgraph_meta->static_fallback;
-  pass::HandlePostDynamic(m_dgraph_meta, m_input_new_base_sizes);
-  PT_EAGER_DEBUG(
-      "Jit for ", m_graph_name, " after processing dynamicity\n", *m_graph);
+  if (status) {
+    pass::HandlePostDynamic(m_dgraph_meta, m_input_new_base_sizes);
+    PT_EAGER_DEBUG(
+        "Jit for ", m_graph_name, " after processing dynamicity\n", *m_graph);
+  }
+  return status;
 }
 
 std::vector<at::IValue> GraphExec::ProcessDynamicStack(

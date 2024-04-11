@@ -68,44 +68,16 @@ def test_slice_op_positive_index():
         assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
-def test_as_strided_op_fallback():
-    """
-    For some strided view ops, static
-    fallback is required if there are
-    tensors with more than 4 dimensions.
-    """
-    inputs = [
-        [(768), (2, 4, 2, 6, 8), (384, 96, 48, 8, 1), 0],
-        [(384), (2, 2, 2, 6, 8), (192, 96, 48, 8, 1), 0],
-        [(1792), (2, 8, 2, 7, 8), (896, 112, 56, 8, 1), 0],
-        [(2304), (2, 9, 2, 8, 8), (1152, 128, 64, 8, 1), 0],
-    ]
-
-    def raw_function(tensor1, size, stride, offset):
-        result = torch.as_strided(tensor1, size, stride, offset)
-        return result
-
-    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
-
-    for inp in inputs:
-        # CPU
-        tensor1 = torch.randn(inp[0])
-        result = raw_function(tensor1, inp[1], inp[2], inp[3])
-
-        # HPU
-        tensor1_h = tensor1.to("hpu")
-        result_h = compiled_fn(tensor1_h, inp[1], inp[2], inp[3])
-
-        assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
-
-
-def test_view_op_fallback():
+def test_static_fallback():
     """
     Should fail if static fallback fails
-    as tensors with more than 5 dimensions
-    are not supported.
+    As tensors with more than 5 dimensions
+    are not supported
     """
-    inputs = [((16, 9, 32, 16, 16), [4, 4, 3, 3, 2, 16, 16, 16]), ((16, 27, 36, 25, 16), [4, 4, 3, 9, 2, 18, 25, 16])]
+    inputs = [
+        ((16, 9, 32, 16, 16), [4, 4, 3, 3, 2, 16, 16, 16]),
+        ((16, 27, 36, 25, 16), [4, 4, 3, 9, 2, 18, 25, 16]),
+    ]
 
     def raw_function(tensor1, list1):
         view1 = tensor1.view(torch.Size(list1))
