@@ -104,15 +104,8 @@ def fp8_sdpa_fwd_wrapper(
 
     # Check if recompute variant is enabled
     recompute = ht.recompute_sdp_enabled()
-    assert recompute, "Fp8 FusedSDPA is supported only in inference"
 
-    if not requires_backward:  # inference
-        if is_amax_s:
-            assert (
-                q.dtype == torch.float32 or q.dtype == torch.bfloat16
-            ), "Fp8 FusedSDPA measurement is supported only if input is in Float32 or Bfloat16"
-        assert is_amax_o == False, "Fp8 FusedSDPA measurement in inference does not support amax_o"
-    else:  # training
+    if requires_backward:
         assert is_causal == True, "Fp8 FusedSDPA in trining only supports Triangular mask"
 
     gqa = is_gqa(q, k)
@@ -148,9 +141,27 @@ def fp8_sdpa_fwd_wrapper(
             return out, amax_s, amax_o
         ctx.save_for_backward(q, k, v, attn_mask, m, linv, seed)
     else:
-        out, P, dm = torch.ops.hpu.sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, softmax_mode)
+        out, P, dm, amax_s = torch.ops.hpu.fp8_sdpa_fwd(
+            q,
+            k,
+            v,
+            attn_mask,
+            dropout_p,
+            scale,
+            is_causal,
+            softmax_mode,
+            d_scale_q,
+            d_scale_k,
+            d_scale_v,
+            q_scale_s,
+            q_scale_o,
+            d_scale_s,
+            is_amax_s,
+        )
         if gqa:
             out = gqa_output_reshape(out)
+        if not requires_backward:
+            return out, amax_s, None
         ctx.save_for_backward(q, k, v, P, dm)
 
     ctx.dropout_p = dropout_p
@@ -163,7 +174,7 @@ def fp8_sdpa_fwd_wrapper(
         return out, amax_s, amax_o
 
     if not check_dbg_env_var("FSDPA_DBG_USE_DROPOUT_STUB"):
-        return out
+        return out, amax_s, amax_o
     else:
         if gqa:
             dm = gqa_output_reshape(dm)

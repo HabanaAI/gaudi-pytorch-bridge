@@ -7489,6 +7489,74 @@ fp8_sdpa_recomp_fwd_lazy(
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_recomp_fwd, hpu_op)
 }
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const double p,
+    const double scale,
+    const bool is_causal,
+    c10::string_view softmax_mode,
+    const c10::optional<at::Tensor>& d_scale_q,
+    const c10::optional<at::Tensor>& d_scale_k,
+    const c10::optional<at::Tensor>& d_scale_v,
+    const c10::optional<at::Tensor>& q_scale_s,
+    const c10::optional<at::Tensor>& q_scale_o,
+    const c10::optional<at::Tensor>& d_scale_s,
+    const bool is_amax_s) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  c10::optional<at::Tensor> seed_opt;
+
+  if (p > 0.0) {
+    c10::optional<Generator> gen;
+    seed_opt = habana::get_seed_tensor_hpu(gen);
+  }
+  LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
+      "hpu::fp8_sdpa_fwd_dropout_seed",
+      {q,
+       k,
+       v,
+       attention_mask,
+       seed_opt,
+       p,
+       scale,
+       is_causal,
+       softmax_mode,
+       d_scale_q,
+       d_scale_k,
+       d_scale_v,
+       q_scale_s,
+       q_scale_o,
+       d_scale_s,
+       is_amax_s},
+      Fp8SDPAFwdOutputShape};
+
+  auto fwdOutType = q.scalar_type();
+  auto sfmxType = q.scalar_type();
+  // if (is_amax_s) {
+  // sfmxType = c10::ScalarType::BFloat16;
+  // }
+
+  // Normally SDPA FWD Fp8 dtype is e4m3. Supporting
+  // e5m2 for experiments
+  if (q.scalar_type() == at::ScalarType::Float8_e4m3fn ||
+      q.scalar_type() == at::ScalarType::Float8_e5m2) {
+    if (q_scale_o.has_value()) {
+      fwdOutType = q.scalar_type();
+    } else {
+      fwdOutType = at::ScalarType::BFloat16;
+    }
+  }
+
+  hpu_op.set_scalar_types(
+      {fwdOutType, sfmxType, c10::ScalarType::Char, c10::ScalarType::Float});
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_fwd, hpu_op)
+}
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
     const at::Tensor& grad,
     const at::Tensor& q,
@@ -7505,6 +7573,59 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
       "hpu::sdpa_bwd", {grad, q, k, v, P, dm, p, scale}, SDPABwdOutputShape};
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_bwd, hpu_op)
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const at::Tensor& P,
+    const c10::optional<at::Tensor>& dm,
+    const double p,
+    const double scale,
+    const c10::optional<at::Tensor>& d_scale_q,
+    const c10::optional<at::Tensor>& d_scale_k,
+    const c10::optional<at::Tensor>& d_scale_v,
+    const c10::optional<at::Tensor>& d_scale_s,
+    const c10::optional<at::Tensor>& d_scale_do,
+    const c10::optional<at::Tensor>& d_scale_ds,
+    const c10::optional<at::Tensor>& q_scale_s,
+    const c10::optional<at::Tensor>& q_scale_ds,
+    const bool is_amax_ds) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
+      "hpu::fp8_sdpa_bwd",
+      {grad,
+       q,
+       k,
+       v,
+       P,
+       dm,
+       p,
+       scale,
+       d_scale_q,
+       d_scale_k,
+       d_scale_v,
+       d_scale_s,
+       d_scale_do,
+       d_scale_ds,
+       q_scale_s,
+       q_scale_ds,
+       is_amax_ds},
+      Fp8SDPABwdOutputShape};
+
+  // Set grad type to BF16 for now
+  auto gradType = c10::ScalarType::BFloat16;
+  hpu_op.set_scalar_types(
+      {gradType, // dQ
+       gradType, // dK
+       gradType, // dV
+       c10::ScalarType::Float}); // amax_ds
+
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_bwd, hpu_op)
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(

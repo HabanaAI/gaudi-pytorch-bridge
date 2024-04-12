@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import FusedSDPA
-from test_utils import compare_tensors
+from test_utils import compare_tensors, is_gaudi1
 
 DBG_FLAG_use_func_drpout = False
 DBG_FLAG_verbose_print = False
@@ -34,6 +34,10 @@ def check_dbg_env_var(v):
     if int(os.getenv(v, 0)) == 1:
         env_var_set = True
     return env_var_set
+
+
+def get_dbg_env_var_num(v):
+    return int(os.getenv(v, 0))
 
 
 def create_dropout_mask(input, shape, p, generator=None):
@@ -164,7 +168,7 @@ tc_list = [
         16,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
         8,  # head_dim_qk, i.e. head_dim of q and k
         16,  # head_dim_v,  i.e. head_dim of v
-        0.1,  # dropout_p,
+        0.0,  # dropout_p,
         True,  # use_attn_mask,
         True,  # use_float_mask,
         False,  # enable_autocast
@@ -172,6 +176,7 @@ tc_list = [
         False,  # recompute
         False,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
     # Cross attention with head_dim qk != head_dim v ;enable auto cast, is_causal = True
     (
@@ -181,7 +186,7 @@ tc_list = [
         32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
         8,  # head_dim_qk, i.e. head_dim of q and k
         16,  # head_dim_v,  i.e. head_dim of v
-        0.1,  # dropout_p,
+        0.0,  # dropout_p,
         False,  # use_attn_mask,
         True,  # use_float_mask,
         True,  # enable_autocast
@@ -189,6 +194,7 @@ tc_list = [
         False,  # recompute
         False,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
     # Cross attention with head_dim qk != head_dim v without multi head, i.e 3D tensors
     (
@@ -198,7 +204,7 @@ tc_list = [
         16,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
         8,  # head_dim_qk, i.e. head_dim of q and k
         16,  # head_dim_v,  i.e. head_dim of v
-        0.1,  # dropout_p,
+        0.0,  # dropout_p,
         True,  # use_attn_mask,
         True,  # use_float_mask,
         True,  # enable_autocast
@@ -206,6 +212,7 @@ tc_list = [
         False,  # recompute
         False,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
 ]
 
@@ -226,6 +233,7 @@ tc_list_recompute = [
         True,  # recompute
         False,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
 ]
 
@@ -249,6 +257,7 @@ tc_list_rhslice = [
         True,  # recompute
         True,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
     # 4D inference
     (
@@ -266,6 +275,7 @@ tc_list_rhslice = [
         True,  # recompute
         True,  # rhslice
         True,  # inference
+        "None",  # softmax_mode
     ),
     # 3D inference
     (
@@ -283,6 +293,7 @@ tc_list_rhslice = [
         True,  # recompute
         True,  # rhslice
         True,  # inference
+        "None",  # softmax_mode
     ),
 ]
 
@@ -303,6 +314,7 @@ tc_list_rhslice_inf_attn_mask = [
         True,  # recompute
         True,  # rhslice
         True,  # inference
+        "None",  # softmax_mode
     ),
     # 3D inference, float attn_mask
     (
@@ -320,6 +332,7 @@ tc_list_rhslice_inf_attn_mask = [
         True,  # recompute
         True,  # rhslice
         True,  # inference
+        "None",  # softmax_mode
     ),
     # 4D inference, bool attn_mask
     (
@@ -337,6 +350,7 @@ tc_list_rhslice_inf_attn_mask = [
         True,  # recompute
         True,  # rhslice
         True,  # inference
+        "None",  # softmax_mode
     ),
     # 3D inference, bool attn_mask
     (
@@ -354,12 +368,13 @@ tc_list_rhslice_inf_attn_mask = [
         True,  # recompute
         True,  # rhslice
         True,  # inference
+        "None",  # softmax_mode
     ),
 ]
 # For now disable additional tests
 # total_tc_list = tc_list + tc_list_recompute + tc_list_rhslice + tc_list_rhslice_inf_attn_mask
 
-total_tc_list = tc_list
+# total_tc_list = tc_list
 
 # batchsize/numheads slice
 tc_list_new_rules = [
@@ -380,6 +395,7 @@ tc_list_new_rules = [
         True,  # recompute
         True,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
     # 4D Inference
     (
@@ -397,6 +413,7 @@ tc_list_new_rules = [
         True,  # recompute
         True,  # rhslice
         True,  # inference
+        "None",  # softmax_mode
     ),
     # 4D Inference dropout
     (
@@ -414,6 +431,7 @@ tc_list_new_rules = [
         True,  # recompute
         True,  # rhslice
         True,  # inference
+        "None",  # softmax_mode
     ),
     # 4D Training dropout
     (
@@ -431,6 +449,7 @@ tc_list_new_rules = [
         True,  # recompute
         True,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
     # 3D Inference
     (
@@ -448,6 +467,7 @@ tc_list_new_rules = [
         True,  # recompute
         True,  # rhslice
         True,  # inference
+        "None",  # softmax_mode
     ),
     # 3D Training
     (
@@ -465,23 +485,8 @@ tc_list_new_rules = [
         True,  # recompute
         True,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
-    # #4D Training MQA
-    # ( 7, #batch_size,
-    #   3, #n_heads,
-    #   16, #seq_len_N_t, i.e. Target seq len (i.e, of q)
-    #   32, #seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-    #   8, #head_dim_qk, i.e. head_dim of q and k
-    #   4, #head_dim_v,  i.e. head_dim of v
-    #   0.0, #dropout_p,
-    #   False, #use_attn_mask,
-    #   True, #use_float_mask,
-    #   True, #enable_autocast
-    #   True, # is_causal
-    #   True, # recompute
-    #   True, # rhslice
-    #   False, # inference
-    # ),
     # 4D Inference bool attnmask
     (
         7,  # batch_size,
@@ -498,6 +503,7 @@ tc_list_new_rules = [
         True,  # recompute
         True,  # rhslice
         True,  # inference
+        "None",  # softmax_mode
     ),
     # 4D Inference attnmask
     (
@@ -515,6 +521,7 @@ tc_list_new_rules = [
         True,  # recompute
         True,  # rhslice
         True,  # inference
+        "None",  # softmax_mode
     ),
     # 4D Training bool attnmask
     (
@@ -532,6 +539,7 @@ tc_list_new_rules = [
         True,  # recompute
         True,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
     # 4D Training attnmask
     (
@@ -549,113 +557,10 @@ tc_list_new_rules = [
         True,  # recompute
         True,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
 ]
 
-tc_list_new_rules_non_recomp = [
-    # Self attention with head_dim qk == head_dim v, is_causal, recompute, batchsize/numheads slice
-    # 4D Training
-    (
-        7,  # batch_size,
-        3,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        4,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        False,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        True,  # is_causal
-        False,  # recompute
-        True,  # rhslice
-        False,  # inference
-    ),
-    # 4D Inference
-    (
-        7,  # batch_size,
-        3,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        4,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        False,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        True,  # is_causal
-        False,  # recompute
-        True,  # rhslice
-        True,  # inference
-    ),
-    # 4D Training
-    (
-        7,  # batch_size,
-        3,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        4,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        False,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        True,  # is_causal
-        False,  # recompute
-        True,  # rhslice
-        True,  # inference
-    ),
-    (
-        7,  # batch_size,
-        0,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        4,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        False,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        True,  # is_causal
-        False,  # recompute
-        True,  # rhslice
-        False,  # inference
-    ),
-    # 4D Training attn_mask bool
-    (
-        7,  # batch_size,
-        3,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        4,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        True,  # use_attn_mask,
-        False,  # use_float_mask,
-        True,  # enable_autocast
-        False,  # is_causal
-        False,  # recompute
-        True,  # rhslice
-        False,  # inference
-    ),
-    # 4D Training attn_mask bool
-    (
-        7,  # batch_size,
-        3,  # n_heads,
-        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
-        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
-        8,  # head_dim_qk, i.e. head_dim of q and k
-        4,  # head_dim_v,  i.e. head_dim of v
-        0.0,  # dropout_p,
-        True,  # use_attn_mask,
-        True,  # use_float_mask,
-        True,  # enable_autocast
-        False,  # is_causal
-        False,  # recompute
-        True,  # rhslice
-        False,  # inference
-    ),
-]
 test_llama_set = [
     (
         2,  # batch_size,
@@ -672,6 +577,7 @@ test_llama_set = [
         False,  # recompute
         True,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
     (
         4,  # batch_size,
@@ -688,6 +594,7 @@ test_llama_set = [
         False,  # recompute
         True,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
     (
         4,  # batch_size,
@@ -704,6 +611,7 @@ test_llama_set = [
         True,  # recompute
         True,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
     (
         2,  # batch_size,
@@ -720,6 +628,7 @@ test_llama_set = [
         True,  # recompute
         True,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
     (
         1,  # batch_size,
@@ -736,6 +645,7 @@ test_llama_set = [
         False,  # recompute
         True,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
     (
         4,  # batch_size,
@@ -752,11 +662,12 @@ test_llama_set = [
         True,  # recompute
         True,  # rhslice
         False,  # inference
+        "None",  # softmax_mode
     ),
 ]
 
 fast_list = [
-    (
+    (  # triangular training
         3,  # batch_size,
         5,  # n_heads,
         16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
@@ -771,14 +682,32 @@ fast_list = [
         True,  # recompute
         True,  # rhslice
         False,  # inference
+        "fast",  # softmax_mode
     ),
+    #    (  #Non-triangular training
+    #        3,  # batch_size,
+    #        5,  # n_heads,
+    #        16,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+    #        32,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+    #        8,  # head_dim_qk, i.e. head_dim of q and k
+    #        4,  # head_dim_v,  i.e. head_dim of v
+    #        0.0,  # dropout_p,
+    #        True,  # use_attn_mask,
+    #        True,  # use_float_mask,
+    #        True,  # enable_autocast
+    #        False,  # is_causal
+    #        True,  # recompute
+    #        True,  # rhslice
+    #        False,  # inference
+    #        "fast", # softmax_mode
+    #    ),
 ]
 # total_tc_list = test_llama_set[-1:]
 # total_tc_list = tc_list_new_rules + tc_list_new_rules_non_recomp
 # total_tc_list = tc_list_new_rules[0:1]
 # For now disable additional tests
-# total_tc_list = tc_list + tc_list_recompute + tc_list_rhslice + tc_list_rhslice_inf_attn_mask
-total_tc_list = fast_list
+total_tc_list = tc_list + tc_list_recompute + tc_list_rhslice + tc_list_rhslice_inf_attn_mask + fast_list
+# total_tc_list = fast_list
 
 
 def is_param_combo_valid(
@@ -802,6 +731,14 @@ def is_param_combo_valid(
         if use_attn_mask:
             return False
 
+    if n_heads == 0 and rhslice:  # 3D batch-heads slicing case
+        # in 3D case, 3D tensors are expanded to 4D by adding a 1
+        # at batch dim. So in slicing case, if BATCH FACTOR is provided,
+        # it should should be 1.
+        batch_slice_fac = get_dbg_env_var_num("PT_HPU_SDPA_BATCH_FACTOR")
+        if batch_slice_fac != 0 and batch_slice_fac != 1:
+            return False
+
     if not inference:
         # In training, fast softmax is supported only in Triangular mask case
         if softmax_mode == "fast" and is_causal == False:
@@ -813,7 +750,8 @@ def is_param_combo_valid(
 # DONOT remove next line:Disable black formatting for easier parameter update
 # fmt: off
 
-@pytest.mark.xfail(reason="Temporarily disabled")
+#@pytest.mark.xfail(reason="Temporarily disabled")
+"""
 @pytest.mark.parametrize(
     "batch_size",
     (
@@ -935,19 +873,19 @@ def is_param_combo_valid(
     ),
     ids=lambda softmax_mode: f"softmax_mode-{softmax_mode}"
     )
-
+"""
 # DONOT remove following line: re-enable black formatting
 # fmt: on
 
 
 # @pytest.mark.xfail(reason="Results mismatch")
-# @pytest.mark.parametrize(
-#    "batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice, inference",
-#    total_tc_list,
-# )
+@pytest.mark.parametrize(
+    "batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_attn_mask, use_float_mask, enable_autocast, is_causal, recompute, rhslice, inference, softmax_mode",
+    total_tc_list,
+)
 
 
-@pytest.mark.skip(reason="Too many tests; So Temporarily disabled")
+# @pytest.mark.skip(reason="Too many tests; So Temporarily disabled")
 def test_sdpa(
     batch_size,
     n_heads,
@@ -982,6 +920,9 @@ def test_sdpa(
         inference,
         softmax_mode,
     )
+
+    if is_gaudi1():
+        pytest.skip("SDPA tests not supported on G1")
 
     # print("test_case_valid = ", test_case_valid)
     if not test_case_valid:

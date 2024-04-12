@@ -331,6 +331,24 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_wrap(
     const double scale,
     const bool is_causal,
     c10::string_view softmax_mode);
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_wrap(
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const double p,
+    const double scale,
+    const bool is_causal,
+    c10::string_view softmax_mode,
+    const c10::optional<at::Tensor>& d_scale_q,
+    const c10::optional<at::Tensor>& d_scale_k,
+    const c10::optional<at::Tensor>& d_scale_v,
+    const c10::optional<at::Tensor>& q_scale_s,
+    const c10::optional<at::Tensor>& q_scale_o,
+    const c10::optional<at::Tensor>& d_scale_s,
+    const bool is_amax_s);
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
     const at::Tensor& grad,
     const at::Tensor& q,
@@ -340,6 +358,24 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
     const c10::optional<at::Tensor>& dm,
     const double p,
     const double scale);
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_wrap(
+    const at::Tensor& grad,
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const at::Tensor& P,
+    const c10::optional<at::Tensor>& dm,
+    const double p,
+    const double scale,
+    const c10::optional<at::Tensor>& d_scale_q,
+    const c10::optional<at::Tensor>& d_scale_k,
+    const c10::optional<at::Tensor>& d_scale_v,
+    const c10::optional<at::Tensor>& d_scale_s,
+    const c10::optional<at::Tensor>& d_scale_do,
+    const c10::optional<at::Tensor>& d_scale_ds,
+    const c10::optional<at::Tensor>& q_scale_s,
+    const c10::optional<at::Tensor>& q_scale_ds,
+    const bool is_amax_ds);
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
