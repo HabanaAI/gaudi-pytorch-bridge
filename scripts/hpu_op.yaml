@@ -2720,9 +2720,9 @@ cumprod_:
 cumsum:
   custom_fill_params: FillCumsumParams
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char]
-    Gaudi2: [BFloat16, Float, Int, Half, Char]
-    Gaudi3: [BFloat16, Float, Int, Half, Char]
+    Gaudi: [BFloat16, Float, Long, Int, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Half, Char]
+    Gaudi3: [BFloat16, Float, Long, Int, Half, Char]
   guid: cumsum_fwd
   output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
@@ -2731,9 +2731,9 @@ cumsum:
 cumsum.out:
   custom_fill_params: FillCumsumParams
   dtypes:
-    Gaudi: [BFloat16, Float, Long, Int]
-    Gaudi2: [BFloat16, Float, Long, Int, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Half]
+    Gaudi: [BFloat16, Float, Long, Int, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Half, Char]
+    Gaudi3: [BFloat16, Float, Long, Int, Half, Char]
   guid: cumsum_fwd
   output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
@@ -2741,12 +2741,13 @@ cumsum.out:
 cumsum_:
   custom_fill_params: FillCumsumParams
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi: [BFloat16, Float, Long, Int, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Half, Char]
+    Gaudi3: [BFloat16, Float, Long, Int, Half, Char]
   guid: cumsum_fwd
+  output_meta: CumsumMeta
+  op_backend: CumsumHabanaOperator
   inplace_ids: [0]
-  op_validator: check-node-with-shared-layer
 
 diag:
   pytorch2_mode: disable
