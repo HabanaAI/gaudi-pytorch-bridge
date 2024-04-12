@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -19,11 +19,14 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     compare_tensors,
+    format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
 )
 
 test_data = [
+    (torch.bool, True),
+    (torch.bool, False),
     (torch.float, 2.5),
     (torch.bfloat16, 2.5),
     (torch.int16, 42),
@@ -50,11 +53,14 @@ if not is_gaudi1():
     ]
 
 
-@pytest.mark.parametrize("size", [(1,), (1, 1), (2, 3)])
-@pytest.mark.parametrize("dtype, fill_value", test_data)
+@pytest.mark.parametrize("size", [(1,), (1, 1), (2, 3)], ids=format_tc)
+@pytest.mark.parametrize("dtype, fill_value", test_data, ids=format_tc)
 def test_full(size, dtype, fill_value):
     if abs(fill_value) > 0x7FFFFFFF and bc.get_pt_enable_int64_support() == False:
         pytest.skip(reason="fill_value exceed int32 range which is unsupported")
+
+    if is_pytest_mode_compile() and dtype == torch.bool:
+        pytest.skip(reason="For bool input fallback to eager is expected in compile mode")
 
     def fn(size, fill_value, device, dtype):
         return torch.full(size, fill_value, device=device, dtype=dtype)

@@ -28,6 +28,7 @@ hpu_supported_op_list = {
     "as_strided_scatter",
     "clamp",
     "copy",
+    "full",
     "getitem",
     "slice_scatter",
     "select_scatter",
