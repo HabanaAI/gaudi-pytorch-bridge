@@ -50,6 +50,7 @@ void ReductionBackendTemplate::AddNode(
 
   // Extract dtype and cast self to the supplied dtype
   auto dtype = get_dtype(stack, m_dtype_index);
+
   auto cast = HandleReductionDtype(this, graph, self, input, dtype);
   if (cast.has_value()) {
     input = cast.value().get();
@@ -87,12 +88,28 @@ void ReductionBackendTemplate::AddNode(
     auto shape = ComputeOutputShapes(stack).empty()
         ? ReductionOutputShape(self, dims, keepdim)[0]
         : ComputeOutputShapes(stack)[0];
-    std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-        {shape, ScalarType(), 0}};
+
+    // [SW-181253] - reduce_sum doesn't support Long dtype correctly, so the
+    // explicit cast from int32 -> int64 is needed. When Long dtype support is
+    // enabled and the input has integral dtype, it is expected that the output
+    // tensor: https://github.com/pytorch/pytorch/issues/115832
+    const bool shouldCastToLong = common::IsInt64Supported() &&
+        at::isIntegralType(ScalarType(), true) && !dtype.has_value();
+    std::vector<NodeAttr::NodeOutputAttr> output_attrs = shouldCastToLong
+        ? std::vector<NodeAttr::NodeOutputAttr>{{shape, ScalarType()}}
+        : std::vector<NodeAttr::NodeOutputAttr>{{shape, ScalarType(), 0}};
 
     auto result = HandleReductionDimAndKeepdim(
         this, graph, self, {input}, dims, keepdim, GetGuid(), output_attrs);
-    syn_out(0) = std::move(result[0]);
+
+    if (shouldCastToLong) {
+      auto casted = OpBackend::BuildCast(
+          this, graph, result[0].get(), shape, torch::kInt, torch::kLong, 0);
+
+      syn_out(0) = std::move(casted);
+    } else {
+      syn_out(0) = std::move(result[0]);
+    }
   }
 }
 
