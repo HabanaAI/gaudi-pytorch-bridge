@@ -46,16 +46,6 @@
       "default_source": "build"
     },
     "next": {
-      "version": "2.2.1",
-      "default_source": "build",
-      "extras": {
-        "torchvision": "v0.17.0",
-        "torchaudio": "v2.2.0",
-        "torchtext": "v0.17.0",
-        "torchdata": "v0.7.1"
-      }
-    },
-    "nexter": {
       "version": "2.2.2",
       "default_source": "build",
       "extras": {
