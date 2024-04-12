@@ -412,11 +412,6 @@ void RandomSeedTensorInput::AddNode(
       default:
         break;
     };
-  } else if (dtype == at::ScalarType::Half) {
-    // f16 kernel seems to be broken, the random
-    // operation needs to be performed on float type
-    cast_guid = "cast_f32_to_f16";
-    update_guid_dtype(guid_, "f32");
   }
 
   if (cast_guid != "") {

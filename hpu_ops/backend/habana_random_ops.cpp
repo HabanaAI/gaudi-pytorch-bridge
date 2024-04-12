@@ -136,44 +136,13 @@ void HabanaRandBase::AddNode(
   }
 
   CreateShapeTensorInput(graph, dtype, output_shape, inputs);
-  std::string cast_guid{};
-  // supported kernels at the moment are: bf16/f32/f16/i32/i16
-  // update guid if the dtype is not supported by kernel
-  if (dtype == at::ScalarType::Half) {
-    // f16 kernel seems to be broken, the random
-    // operation needs to be performed on float type
-    cast_guid = "cast_f32_to_f16";
-    update_guid_dtype(guid_, "f32");
-  }
-
-  std::vector<NodeAttr::NodeOutputAttr> node_output_attr;
-  if (cast_guid != "") {
-    node_output_attr.push_back({output_shape});
-  } else {
-    node_output_attr.push_back({output_shape, dtype, 0});
-  }
   auto rand = BuildOp(
       graph,
       guid_,
       std::move(inputs),
-      node_output_attr,
+      {{output_shape, dtype, 0}},
       rand_params.get(),
       size);
-  if (cast_guid != "") {
-    PARAMS_STUB(ns_CastKernel::Params);
-    // Round down so that the upper limit is not included in the generated seq.
-    // The assumption is that the float vaues dont include the upper limit.
-    params->round_mode = CAST_ROUND_DOWN;
-    auto cast = BuildOp(
-        graph,
-        cast_guid,
-        {rand[0].get()},
-        {{output_shape, dtype, 0}},
-        params.get(),
-        size);
-    syn_out(0) = std::move(cast[0]);
-    return;
-  }
   syn_out(0) = std::move(rand[0]);
 }
 

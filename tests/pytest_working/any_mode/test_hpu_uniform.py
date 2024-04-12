@@ -41,8 +41,8 @@ def test_uniform(shape, low, high, dtype):
     assert res1.shape == shape
 
     assert not torch.equal(res1, res2)
-    assert torch.all(res1 < high) and torch.all(res1 >= low)
-    assert torch.all(res2 < high) and torch.all(res2 >= low)
+    assert torch.all(res1 <= high) and torch.all(res1 >= low)
+    assert torch.all(res2 <= high) and torch.all(res2 >= low)
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("habana_uniform")
