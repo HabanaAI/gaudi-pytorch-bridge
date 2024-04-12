@@ -96,6 +96,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
 
 import torch
+from torch._inductor import config
 from torch._subclasses.fake_tensor import FakeTensor, FakeTensorMode
 from torch.fx.passes.shape_prop import TensorMetadata
 from torch.utils._pytree import tree_flatten, tree_unflatten
@@ -183,8 +184,7 @@ def get_comm_block(comm_node: torch.fx.Node) -> CommBlock:
 
 def fuse_allreduce_calls(ctx: OptimizerContext) -> bool:
     input_module = ctx.graph_module
-    # TODO:  this should be obtained from config
-    bucket_size_mb = 1024
+    bucket_size_mb = config._fuse_ddp_bucket_size
     graph_changed = comm_fusion_with_concat(input_module, bucket_size_mb)
     return graph_changed
 
