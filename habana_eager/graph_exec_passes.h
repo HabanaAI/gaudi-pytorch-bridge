@@ -26,7 +26,7 @@ bool GetOutputsOrderInGraph(
     std::shared_ptr<torch::jit::Graph> graph,
     std::vector<size_t>& outputs_order);
 bool ReplaceGetItemWithListUnpack(std::shared_ptr<torch::jit::Graph> graph);
-bool HandleDynamicOps(
+void HandleDynamicOps(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dgraph_meta,
