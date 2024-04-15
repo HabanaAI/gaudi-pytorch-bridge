@@ -1,4 +1,11 @@
 common:
+  testRepos:
+    - repository: automation
+    - repository: pytorch-integration
+    - repository: coral-sim
+    - repository: tpcsim
+    - repository: habanalabs
+    - repository: nic_kmd
   dependencies:
     - COMPLEX_GUID
     - CORAL_SIM
