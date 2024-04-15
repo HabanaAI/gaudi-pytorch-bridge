@@ -1245,7 +1245,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
         habana_helpers::getCountDatatype(
             scalar_type, input.element_size(), hccl_numel, hccl_data_type);
         hcclResult_t hccl_result{hcclSuccess};
-        if (!this->emulate_distributed_) {
+        if (send_buff == nullptr && hccl_numel == 0) {
+          PT_DISTRIBUTED_WARN(
+              "Skipping HCCL send API as this is a ZST tensor!!");
+        } else if (!this->emulate_distributed_) {
           hccl_result = hcclSend(
               send_buff,
               hccl_numel,
@@ -1296,7 +1299,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::recv(
         habana_helpers::getCountDatatype(
             scalar_type, tensor.element_size(), hccl_numel, hccl_data_type);
         hcclResult_t hccl_result{hcclSuccess};
-        if (!this->emulate_distributed_) {
+        if (recv_buff == nullptr && hccl_numel == 0) {
+          PT_DISTRIBUTED_WARN(
+              "Skipping HCCL recv API as this is a ZST tensor!!");
+        } else if (!this->emulate_distributed_) {
           hccl_result = hcclRecv(
               recv_buff,
               hccl_numel,
