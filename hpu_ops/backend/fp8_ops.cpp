@@ -992,7 +992,7 @@ void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 sizes_vec fp8_gemm_v2_out_shape(
     const std::vector<at::Tensor>& inputs,
-    const std::vector<int>& params) {
+    const std::vector<int64_t>& params) {
   TORCH_CHECK(inputs.size() == 2);
   TORCH_CHECK(params.size() == 2);
   return {getBatchMatmulOutShape(
@@ -1479,7 +1479,7 @@ void InPlaceInterleaveCommon::AddNode(
 
 /********** Conv2dFp8 **********/
 
-static int64_t ComputeConv2dOutputSize(
+static int64_t ComputeConv2dOutputDim(
     const int64_t input_dim,
     const int64_t padding,
     const int64_t dilation,
@@ -1489,6 +1489,35 @@ static int64_t ComputeConv2dOutputSize(
       1;
 }
 
+static std::vector<int64_t> ComputeConv2dOutputSize(
+    c10::IntArrayRef shape_in,
+    c10::IntArrayRef shape_wt,
+    c10::IntArrayRef stride,
+    c10::IntArrayRef padding,
+    c10::IntArrayRef dilation) {
+  std::vector<int64_t> out_shape{shape_in[0], shape_wt[0]};
+  for (int i = 0; i < 2; ++i) {
+    out_shape.emplace_back(ComputeConv2dOutputDim(
+        shape_in[i + 2], padding[i], dilation[i], shape_wt[i + 2], stride[i]));
+  }
+  return out_shape;
+}
+
+sizes_vec conv2d_fp8_out_shape(
+    const std::vector<at::Tensor>& inputs,
+    const std::vector<int64_t>& params) {
+  TORCH_CHECK(inputs.size() == 2);
+  TORCH_CHECK(params.size() == 6);
+  return {ComputeConv2dOutputSize(
+      inputs[0].sizes(),
+      inputs[1].sizes(),
+      c10::IntArrayRef(params).slice(0, 2),
+      c10::IntArrayRef(params).slice(2, 2),
+      c10::IntArrayRef(params).slice(4, 2))};
+}
+
+REGISTER_CUSTOM_OP_OUTSHAPE_FUN(conv2d_fp8, conv2d_fp8_out_shape);
+
 sizes_vec Conv2dFp8OutputShape(const at::Stack& stack) {
   auto shape_in = stack_tensor(stack, 0).sizes();
   auto shape_wt = stack_tensor(stack, 1).sizes();
@@ -1496,20 +1525,15 @@ sizes_vec Conv2dFp8OutputShape(const at::Stack& stack) {
   const auto padding = stack[4].toIntList().vec();
   const auto dilation = stack[5].toIntList().vec();
 
-  std::vector<int64_t> out_shape{shape_in[0], shape_wt[0]};
-  for (int i = 0; i < 2; ++i) {
-    out_shape.push_back(ComputeConv2dOutputSize(
-        shape_in[i + 2], padding[i], dilation[i], shape_wt[i + 2], stride[i]));
-  }
-
-  return {out_shape};
+  return {
+      ComputeConv2dOutputSize(shape_in, shape_wt, stride, padding, dilation)};
 }
 
 static synConvolutionParams FillConv2dFp8Params(
-    const at::IntArrayRef& weight,
-    const at::IntArrayRef& stride,
-    const at::IntArrayRef& padding,
-    const at::IntArrayRef& dilation,
+    at::IntArrayRef weight,
+    at::IntArrayRef stride,
+    at::IntArrayRef padding,
+    at::IntArrayRef dilation,
     int64_t groups) {
   synConvolutionParams params{};
   params.dH = stride[0];

@@ -30,7 +30,7 @@ using sizes_vec = std::vector<std::vector<int64_t>>;
       params_int,                            \
       (inputs, params),                      \
       const std::vector<at::Tensor>& inputs, \
-      const std::vector<int>& params)
+      const std::vector<int64_t>& params)
 
 class CustomOpOutShapeFunRegistrar {
  public:

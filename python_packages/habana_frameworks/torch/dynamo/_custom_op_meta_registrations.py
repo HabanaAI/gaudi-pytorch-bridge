@@ -247,18 +247,14 @@ def meta_conv2d_fp8_common(
     dilation=1,
     out_dtype=None,
 ):
-    shape_in = input.shape
-    shape_wt = weight.shape
     stride = to_list_if_necessary(stride, 2)
     padding = to_list_if_necessary(padding, 2)
     dilation = to_list_if_necessary(dilation, 2)
+    out_shape = _hpu_C.custom_op_calc_out_shape_params_int("conv2d_fp8", [input, weight], stride + padding + dilation)[
+        0
+    ]
+
     output_dtype = out_dtype if out_dtype else torch.bfloat16
-
-    out_shape = [shape_in[0], shape_wt[0]]
-
-    for sh_in, sh_wt, s, p, d in zip(shape_in[2:], shape_wt[2:], stride, padding, dilation):
-        out_shape.append(int((sh_in + 2 * p - d * (sh_wt - 1) - 1) / s + 1))
-
     return input.new_empty(out_shape, dtype=output_dtype)
 
 
