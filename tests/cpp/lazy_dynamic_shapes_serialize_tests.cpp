@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,7 +13,6 @@
 #include <iostream>
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy_test_infra.h"
-#include "utils/device_type_util.h"
 
 // In this class both the pass fallback and compilation fallback are disabled
 class LazyDynamicShapesSerializtionTest
@@ -43,7 +42,6 @@ void AddNonzeroOpsTest(std::vector<int64_t> input_shape) {
 }
 
 TEST_F(LazyDynamicShapesSerializtionTest, SerializeDeserializeDBITest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<int> channel_sizes{6, 8, 10, 4};
   SET_ENV_FLAG_NEW(PT_RECIPE_TRACE_PATH, "recipe_trace.csv", 1);
   SET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD, true, 1);

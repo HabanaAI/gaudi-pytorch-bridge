@@ -261,7 +261,6 @@ list(APPEND misc_tests_src
   utils/check_device_type.cpp
   utils/device_type_util.cpp
   utils/dtype_supported_on_device.cpp
-  utils/dynamic_shape_supported_on_device.cpp
   utils/hint_tolerance_values.cpp
   view_utils_tests.cpp
   common_tests.cpp
