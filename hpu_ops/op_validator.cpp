@@ -19,6 +19,7 @@
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/random_gen_kernels.h"
+#include "hpu_ops/hpu_op_helper.h"
 #include "op_backend.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
@@ -398,7 +399,7 @@ detail::TensorDescrArray CheckNodeWithSharedLayerValidator::
 detail::TensorDescrArray CheckNodeWithSharedLayerValidator::CreateInputList(
     const std::vector<at::IValue>& values,
     at::ScalarType resultType) {
-  if (m_typePromotion or m_promoteIntToFloat or m_promoteToInt) {
+  if (resultType != at::ScalarType::Undefined) {
     return CreateTypePromotionInputList(values, resultType);
   }
 
@@ -433,7 +434,7 @@ detail::TensorDescrArray CheckNodeWithSharedLayerValidator::
 detail::TensorDescrArray CheckNodeWithSharedLayerValidator::CreateOutputList(
     const std::vector<at::IValue>& values,
     at::ScalarType resultType) {
-  if (m_typePromotion or m_promoteIntToFloat or m_promoteToInt) {
+  if (resultType != at::ScalarType::Undefined) {
     return CreateTypePromotionOutputList(values, resultType);
   }
 
@@ -442,8 +443,24 @@ detail::TensorDescrArray CheckNodeWithSharedLayerValidator::CreateOutputList(
 
 at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
     const std::vector<at::IValue>& values) {
+  const auto compute_dtype = get_supported_guid_dtype(m_guid);
+
+  // Helper lambda to get dtype of value
+  auto get_dtype = [](const c10::IValue& v) {
+    if (v.isTensor()) {
+      return v.toTensor().scalar_type();
+    }
+    return v.toScalar().type();
+  };
+
   if (not(m_typePromotion or m_promoteIntToFloat or m_promoteToInt)) {
-    return at::ScalarType::Undefined;
+    const auto in_dtype = get_dtype(values[0]);
+    if (c10::isIntegralType(in_dtype, true) &&
+        compute_dtype != at::ScalarType::Undefined) {
+      return compute_dtype;
+    } else {
+      return at::ScalarType::Undefined;
+    }
   }
 
   c10::optional<const at::IValue*> output = c10::nullopt;
@@ -458,6 +475,11 @@ at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
           values, m_promoteIntToFloat, m_promoteToInt, output, m_safeCastCheck);
 
   auto common_type = dtype_helper.get_common_dtype();
+
+  if (c10::isIntegralType(common_type, true) &&
+      compute_dtype != c10::ScalarType::Undefined) {
+    return compute_dtype;
+  }
 
   return common_type;
 }

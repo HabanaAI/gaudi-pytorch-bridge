@@ -146,6 +146,47 @@ inline std::string& update_guid_dtype(
           habana_helpers::pytorch_to_synapse_type(dtype)));
 }
 
+inline c10::ScalarType get_supported_guid_dtype(const std::string& guid) {
+  using namespace std::literals;
+  static const absl::flat_hash_set<std::string_view> guids_support_i32 = {
+      "abs"sv,
+      "abs_fwd"sv,
+      "min"sv,
+      "min_fwd"sv,
+      "max"sv,
+      "max_fwd"sv,
+  };
+
+  static const absl::flat_hash_set<std::string_view> guids_support_f32 = {
+      "pow"sv,
+      "pow_fwd"sv,
+  };
+
+  if (guids_support_i32.contains(guid)) {
+    return c10::ScalarType::Int;
+  } else if (guids_support_f32.contains(guid)) {
+    return c10::ScalarType::Float;
+  } else {
+    return c10::ScalarType::Undefined;
+  }
+}
+
+// For some ops lacking integer TPC kernels, use float32/int32 guid instead.
+// Cast nodes before/after op are expected to be inserted by ComplexGuid.
+inline void update_integer_guid_dtype(
+    std::string& guid,
+    c10::ScalarType dtype) {
+  if (!c10::isIntegralType(dtype, true) ||
+      guid.find("None_") != std::string::npos) {
+    return;
+  }
+  const std::string kernel_guid = guid.substr(0, guid.find_last_of('_'));
+  const auto compute_dtype = get_supported_guid_dtype(kernel_guid);
+  if (compute_dtype != c10::ScalarType::Undefined) {
+    update_guid_dtype(guid, compute_dtype);
+  }
+}
+
 inline std::string& update_div_guid_with_precise(
     std::string& guid,
     bool has_rounding = false) {

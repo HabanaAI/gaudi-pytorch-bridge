@@ -1051,11 +1051,10 @@ _local_scalar_dense:
   override_fn: _local_scalar_dense_hpu
 
 abs:
-  promote_to_int: [self]
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Half]
   guid: abs_fwd
   out_ids: [0]
   op_validator: check-node-with-shared-layer
@@ -1070,11 +1069,10 @@ abs_:
   op_validator: check-node-with-shared-layer
 
 abs.out:
-  promote_to_int: [self]
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Half]
   guid: abs_fwd
   op_validator: check-node-with-shared-layer
 
@@ -5015,9 +5013,9 @@ max.dim_max:
 maximum:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: max_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -5026,20 +5024,19 @@ maximum:
 maximum.out:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: max_fwd
-  safe_cast_check: false
-  promote_to_int: [self, other]
+  promote_to_common_type: [self, other]
   # op_validator: check-node-with-shared-layer
 
 fmax:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: max_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -5048,12 +5045,11 @@ fmax:
 fmax.out:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: max_fwd
-  promote_to_int: [self, other]
-  safe_cast_check: false
+  promote_to_common_type: [self, other]
   # op_validator: check-node-with-shared-layer
 
 max_pool2d_with_indices:
@@ -5253,9 +5249,9 @@ min.dim_min:
 fmin:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: min_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -5264,20 +5260,19 @@ fmin:
 fmin.out:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: min_fwd
-  promote_to_int: [self, other]
-  safe_cast_check: false
+  promote_to_common_type: [self, other]
   # op_validator: check-node-with-shared-layer
 
 minimum:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: min_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -5286,12 +5281,11 @@ minimum:
 minimum.out:
   broadcast: true
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: min_fwd
-  promote_to_int: [self, other]
-  safe_cast_check: false
+  promote_to_common_type: [self, other]
   # op_validator: check-node-with-shared-layer
 
 mish:

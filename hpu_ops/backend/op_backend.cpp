@@ -534,6 +534,8 @@ InferOutputMetaRetType OpBackend::InferOutputMeta(at::Stack& stack) {
     HandleTypePromotion(graph, stack);
   }
 
+  update_integer_guid_dtype(guid_, m_scalar_type);
+
   AddNode(graph, stack);
   m_output_inf_mode = false;
 
@@ -614,6 +616,8 @@ void OpBackend::AllocateAndAddSynapseNode(
   if (!GET_ENV_FLAG_NEW(PT_DISABLE_DTYPE_PROMOTION)) {
     HandleTypePromotion(graph, stack);
   }
+
+  update_integer_guid_dtype(guid_, m_scalar_type);
 
   AddNode(graph, stack);
 }
