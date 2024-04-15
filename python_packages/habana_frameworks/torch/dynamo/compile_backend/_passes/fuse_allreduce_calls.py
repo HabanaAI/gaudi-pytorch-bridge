@@ -92,16 +92,93 @@
 
 import collections
 import operator
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
 
 import torch
 from torch._subclasses.fake_tensor import FakeTensor, FakeTensorMode
-from torch.distributed._spmd.graph_optimization import CommBlock, get_comm_block
-from torch.distributed._spmd.graph_utils import CommType
 from torch.fx.passes.shape_prop import TensorMetadata
 from torch.utils._pytree import tree_flatten, tree_unflatten
 
 from .utils import OptimizerContext
+
+
+@dataclass(unsafe_hash=True)
+class CommBlock:
+    shape: Union[torch.Size, List[torch.Size]]
+    node_list: List[torch.fx.Node]
+    inputs: List[torch.fx.Node]
+    wait_nodes: List[torch.fx.Node]
+    comm_node: torch.fx.Node
+    outputs: Set[torch.fx.Node]
+
+
+def get_comm_block(comm_node: torch.fx.Node) -> CommBlock:
+    """Find out all the nodes belong to this communcation given a collective node (e.g., allreduce).
+
+    Args:
+        comm_node(fx.Node): The target communication/collective node.
+
+    Returns:
+        The CommBlock that encapsulates the related nodes (e.g., wait_node) of
+        the given comm_node.
+    """
+
+    node_list = []
+    wait_nodes = []
+    inputs, _ = tree_flatten((comm_node.args, comm_node.kwargs))
+    input_nodes = [inp for inp in inputs if isinstance(inp, torch.fx.Node)]
+    distance = 0
+    wait_prefixes = ("wait_comm", "wait_tensor")
+    non_end_users_nodes = ("split", "reshape", "getitem", "detach", "alias")
+
+    nodes = collections.deque([comm_node, None])
+
+    # We choose 5 to prevent some accidents that cause infinite loop. But
+    # with functional collective, the distance is 1.
+    while nodes and distance < 5:
+        node = nodes.popleft()
+        if node is None:
+            distance += 1
+            if nodes:
+                nodes.append(None)
+            continue
+        node_list.append(node)
+        if node.name.startswith(wait_prefixes):
+            wait_nodes.append(node)
+        else:
+            for child in node.users:
+                if isinstance(child, torch.fx.Node):
+                    nodes.append(child)
+
+    if not wait_nodes:
+        raise RuntimeError("The wait nodes are too far away from the comm node {comm_node}.")
+
+    # Identify all the outputs of this collective block.
+    outputs: Set[torch.fx.Node] = set()
+    nodes = collections.deque(wait_nodes)
+    while nodes:
+        node = nodes.popleft()
+        assert node is not None
+        for user in node.users:
+            if isinstance(user, torch.fx.Node) and user.name.startswith(non_end_users_nodes):
+                nodes.append(user)
+                node_list.append(user)
+            else:
+                outputs.add(node)
+                break
+
+    # TODO: populate all the tensor metadata and remove the default.
+    tensor_meta = input_nodes[0].meta.get("tensor_meta", None)
+    return CommBlock(
+        # TODO: support symbolic shapes
+        shape=torch.Size(int(s) for s in tensor_meta.shape) if tensor_meta else None,
+        node_list=node_list,
+        wait_nodes=wait_nodes,
+        comm_node=comm_node,
+        inputs=input_nodes,
+        outputs=outputs,
+    )
 
 
 def fuse_allreduce_calls(ctx: OptimizerContext) -> bool:
@@ -141,11 +218,11 @@ def comm_fusion_with_concat(
     """
     graph_changed = False
 
-    comm_blocks = get_all_comm_blocks(gm, (CommType.ALLREDUCE, "all_reduce"))
+    comm_blocks = get_all_comm_blocks(gm, ("allreduce_", "all_reduce"))
     # First ensure the allreduce are scheduled immediately right after the gradients.
     _expedite_comm_ops(gm, comm_blocks)
     # Get the comm_blocks based on the new order.
-    comm_blocks = get_all_comm_blocks(gm, (CommType.ALLREDUCE, "all_reduce"))
+    comm_blocks = get_all_comm_blocks(gm, ("allreduce_", "all_reduce"))
     node_indices = {node: i for i, node in enumerate(gm.graph.nodes)}
 
     bucket_size = 1 * 1024**2
