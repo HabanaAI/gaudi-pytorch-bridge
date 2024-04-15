@@ -10,6 +10,7 @@
 #
 ###############################################################################
 
+import json
 import os
 import random
 from pathlib import Path
@@ -20,7 +21,7 @@ import pytest
 
 # Can't import torch module because PT_HPU_LAZY_MODE is set in pytest_configure. If any function needs torch module it must be imported locally
 
-SKIP_TESTS_LIST = "skip_tests_list.txt"
+SKIP_TESTS_LIST = "skip_tests_list.json"
 
 
 @pytest.fixture(autouse=True)
@@ -45,6 +46,9 @@ def pytest_addoption(parser):
         default="eager",
         help="{eager|lazy|graph}, default eager. Choose mode to run tests",
     )
+    parser.addoption(
+        "--dut", action="store", default="gaudi2", help="{gaudi|gaudi2|gaudi3}, default gaudi2. Choose chip version"
+    )
 
 
 backup_env = pytest.StashKey[Mapping]()
@@ -52,6 +56,7 @@ backup_env = pytest.StashKey[Mapping]()
 
 def pytest_configure(config):
     pytest.mode = config.getoption("--mode")
+    pytest.chip = config.getoption("--dut")
     assert pytest.mode.lower() in ["eager", "lazy", "compile"]
 
     # CPU fallbacks are not allowed in simple tests
@@ -83,11 +88,14 @@ def pytest_unconfigure(config):
 
 
 def pytest_collection_modifyitems(config, items):
-    skip_list = []
+    # skip_dict has structure {"gaudi_version": {"mode": [list of failing tests on specific gaudi for specified mode]}}
+    # gaudi_version accepted values: all_gaudi | gaudi | gaudi2 | gaudi3
+    # mode accepted values: all | lazy | compile | eager
+    skip_dict = {}
     try:
         skip_path = Path(__file__).parent.joinpath(SKIP_TESTS_LIST)
         with open(skip_path, "r") as f:
-            skip_list = [l.strip() for l in f]
+            skip_dict = json.load(f)
     except FileNotFoundError:
         import warnings
 
@@ -96,11 +104,16 @@ def pytest_collection_modifyitems(config, items):
             UserWarning,
         )
 
-    if len(skip_list) == 0:
+    if len(skip_dict) == 0:
         print("Tests skip list is empty.")
         return
 
+    skip_items = []
+    for chip in [pytest.chip, "all_gaudi"]:
+        for mode in [pytest.mode, "all"]:
+            skip_items += skip_dict.get(chip, {}).get(mode, [])
+
     for item in items:
         skip_marker = pytest.mark.skip("Test present in skip_tests_list.txt")
-        if item.nodeid in skip_list:
+        if item.nodeid in skip_items:
             item.add_marker(skip_marker)

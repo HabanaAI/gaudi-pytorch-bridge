@@ -1315,22 +1315,20 @@ run_pytorch_modules_tests()
     fi
 
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" ]] ; then
-        if [ "$__dut" != "gaudi3" ]; then
-            pushd $HABANA_SOFTWARE_STACK/pytorch-integration/tests/
-            if [[ "$__pytest_mode" = "lazy" || "$__pytest_mode" = "all" ]] ; then
-                (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_lazy_pytest.xml" --mode="lazy" --junit-prefix="PytestLazy" ${__marker})
-                __test_status=$((__test_status | $?))
-            fi
-            if [[ "$__pytest_mode" = "compile" || "$__pytest_mode" = "all" ]] ; then
-                (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_compile_pytest.xml" --mode="compile" --junit-prefix="PytestCompile" ${__marker})
-                __test_status=$((__test_status | $?))
-            fi
-            if [[ "$__pytest_mode" = "eager" || "$__pytest_mode" = "all" ]] ; then
-                (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_eager_pytest.xml" --mode="eager" --junit-prefix="PytestEager" ${__marker})
-                __test_status=$((__test_status | $?))
-            fi
-            popd
+        pushd $HABANA_SOFTWARE_STACK/pytorch-integration/tests/
+        if [[ "$__pytest_mode" = "lazy" || "$__pytest_mode" = "all" ]] ; then
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_lazy_pytest.xml" --mode="lazy" --dut="${__dut}" --junit-prefix="PytestLazy" ${__marker})
+            __test_status=$((__test_status | $?))
         fi
+        if [[ "$__pytest_mode" = "compile" || "$__pytest_mode" = "all" ]] ; then
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_compile_pytest.xml" --mode="compile" --dut="${__dut}" --junit-prefix="PytestCompile" ${__marker})
+            __test_status=$((__test_status | $?))
+        fi
+        if [[ "$__pytest_mode" = "eager" || "$__pytest_mode" = "all" ]] ; then
+            (set -x; eval ${__pytorch_modules_tests_exe} pytest_working/ -v $__failures $__py_filter --junit-xml="${__xml}_eager_pytest.xml" --mode="eager" --dut="${__dut}" --junit-prefix="PytestEager" ${__marker})
+            __test_status=$((__test_status | $?))
+        fi
+        popd
     fi
 
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" || "$__suite_type" = "infra" ]]; then
