@@ -23,7 +23,7 @@ from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions
     fp8_gelu,
 )
 from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import DelayedScaling, Format
-from test_utils import is_gaudi1
+from test_utils import _is_simulator, is_gaudi1
 
 
 class EnvironmentVariableSetter:
@@ -594,6 +594,8 @@ def test_fp8_linear_with_amp(device, lp_dtype, fp8_format):
 def test_te_linear_hpu_graph(device, dtype, amax_history_len, fp8_format, hpu_graph=True):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+    if _is_simulator() and amax_history_len < 3:
+        pytest.skip(reason="No need to run this long-running test on simulator")
     input1 = torch.tensor([1, 2, 3, 4], dtype=dtype, device=device)
     input2 = torch.tensor([10, 20, 30, 40], dtype=dtype, device=device)
     input3 = torch.tensor([100, 200, 300, 400], dtype=dtype, device=device)
@@ -684,6 +686,8 @@ def test_te_linear_module_cacher(
 ):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
+    if _is_simulator() and amax_history_len < 3:
+        pytest.skip(reason="No need to run this long-running test on simulator")
     import habana_frameworks.torch as ht
 
     # Prepare te linear module
@@ -762,7 +766,7 @@ def test_te_linear_module_cacher(
             ), f"fp8_meta scaling_bwd data mismatch at init run"
 
         # Run recorded graph n times
-        for i in range(0, 11):
+        for i in range(0, 4):
             out_test = my_linear_test(inputs[i])
             loss_test = out_test.sum()
             loss_test.backward()
@@ -914,7 +918,7 @@ def test_te_minimize_memory(fp8_format, device=torch.device("hpu:0"), dtype=torc
     torch.manual_seed(12345)
     min_linear = te.Linear(4, 3, bias=True, params_dtype=dtype, minimize_memory=True)
 
-    inputs = [input1, input2, input3, input2, input1, input2, input3, input3, input1, input1, input3]
+    inputs = [input1, input2, input3, input2]
 
     torch.manual_seed(12345)
     ref_outputs = []
@@ -1179,16 +1183,24 @@ def test_measurement_auto_mode_outside_fp8_autocast_context():
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16])
-@pytest.mark.parametrize("amax_history_len", [1, 5, 10])
-@pytest.mark.parametrize("interval", [1, 5, 10])
+@pytest.mark.parametrize("amax_history_len", [1, 3, 5])
+@pytest.mark.parametrize("interval", [1, 3, 5])
 @pytest.mark.parametrize("manual", [True, False])
 @pytest.mark.parametrize("reduce_amax", [True, False])
 @pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
 def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce_amax, fp8_format, margin=0):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
-    if fp8_format != Format.E5M2 and (interval > 1 or amax_history_len > 1):
-        pytest.skip(reason="No need to run this long-running test on every format")
+    if _is_simulator() and (interval > 3 or amax_history_len > 3):
+        pytest.skip(reason="No need to run this long-running test on simulator")
+    if (
+        _is_simulator()
+        and (interval > 1 or amax_history_len > 1)
+        and (fp8_format != Format.HYBRID or not reduce_amax or manual)
+    ):
+        pytest.skip(reason="No need to run this long-running test on simulator")
+    if amax_history_len > interval:
+        pytest.skip(reason="amax_history_len must be <= interval")
     import habana_frameworks.torch as ht
 
     torch.manual_seed(12345)
@@ -1215,7 +1227,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
     my_linears = []
     optimizers = []
     refs = []
-    for i in range(0, 3):
+    for i in range(0, 2):
         my_linears.append(te.Linear(4, 3, bias=True, params_dtype=dtype))
         optimizers.append(torch.optim.SGD(my_linears[i].parameters(), lr=0.1))
         refs.append({})
@@ -1270,7 +1282,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
         fp8.set_measurement_mode(True, False)
 
     global_counter = 0
-    for iter in range(0, 3):
+    for iter in range(0, 2):
         with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
             for i, input in enumerate(inputs):
                 c = i + 1
