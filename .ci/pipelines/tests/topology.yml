@@ -1,4 +1,13 @@
 common:
+  testRepos:
+    - repository: automation
+    - repository: pytorch-integration
+    - repository: habanalabs
+    - repository: nic_kmd
+    - repository: habanaqa
+    - repository: pytorch-training-tests
+    - repository: event_tests_plugin
+    - repository: model_garden
   dependencies:
     - CODEC
     - COMPLEX_GUID
