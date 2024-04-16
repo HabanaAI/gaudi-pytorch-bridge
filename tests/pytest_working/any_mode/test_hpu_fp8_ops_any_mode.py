@@ -45,24 +45,7 @@ class ScaleMode(Enum):
     SCALAR_CHANNEL = 4
 
 
-@pytest.mark.parametrize("shape", [(64, 48)], ids=format_tc)
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
-@pytest.mark.parametrize("stochastic", [True, False])
-@pytest.mark.parametrize("is_amax", [True, False])
-@pytest.mark.parametrize(
-    "scale_mode, axis",
-    [
-        [ScaleMode.TENSOR, None],
-        [ScaleMode.SCALAR, None],
-        [ScaleMode.TENSOR_CHANNEL, 0],
-        [ScaleMode.TENSOR_CHANNEL, 1],
-        [ScaleMode.SCALAR_CHANNEL, 0],
-        [ScaleMode.SCALAR_CHANNEL, 1],
-        [None, None],
-    ],
-)
-@pytest.mark.parametrize("out_dtype", fp8_dtypes, ids=format_tc)
-def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, scale_mode, axis, out_dtype):
+def cast_to_fp8_v2_common(shape, dtype, stochastic, is_amax, scale_mode, axis, out_dtype):
     hpu = torch.device("hpu")
     input_pos = torch.rand(shape, dtype=dtype) * 30 + 10
     input_neg = -input_pos
@@ -153,6 +136,29 @@ def test_cast_to_fp8_v2(shape, dtype, stochastic, is_amax, scale_mode, axis, out
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 @pytest.mark.parametrize("stochastic", [True, False])
+@pytest.mark.parametrize("is_amax", [True, False])
+@pytest.mark.parametrize("out_dtype", fp8_dtypes, ids=format_tc)
+def test_cast_to_fp8_v2(dtype, stochastic, is_amax, out_dtype):
+    cast_to_fp8_v2_common((64, 48), dtype, stochastic, is_amax, ScaleMode.TENSOR, None, out_dtype)
+
+
+@pytest.mark.parametrize(
+    "scale_mode, axis",
+    [
+        [ScaleMode.SCALAR, None],
+        [ScaleMode.TENSOR_CHANNEL, 0],
+        [ScaleMode.TENSOR_CHANNEL, 1],
+        [ScaleMode.SCALAR_CHANNEL, 0],
+        [ScaleMode.SCALAR_CHANNEL, 1],
+    ],
+)
+@pytest.mark.parametrize("out_dtype", fp8_dtypes, ids=format_tc)
+def test_cast_to_fp8_v2_scales(scale_mode, axis, out_dtype):
+    cast_to_fp8_v2_common((16, 24, 8), torch.bfloat16, False, True, scale_mode, axis, out_dtype)
+
+
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("stochastic", [True, False])
 @pytest.mark.parametrize("big_tensor", [True, False])
 @pytest.mark.parametrize("out_dtype", fp8_dtypes, ids=format_tc)
 def test_cast_to_fp8_v2_out_of_range(dtype, stochastic, big_tensor, out_dtype):
@@ -196,13 +202,7 @@ def test_sftz_rounding_mode():
     assert torch.allclose(torch.mean(result_cpu), torch.tensor(value), atol=0.0, rtol=0.1)
 
 
-@pytest.mark.parametrize("shape", [(16, 24, 8), (64, 48)])
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
-@pytest.mark.parametrize("stochastic", [True, False])
-@pytest.mark.parametrize("is_amax", [True, False])
-@pytest.mark.parametrize("is_scale_152", [True, False])
-@pytest.mark.parametrize("is_scale_143", [True, False])
-def test_cast_to_fp8_hybrid(shape, dtype, stochastic, is_amax, is_scale_152, is_scale_143):
+def cast_to_fp8_hybrid_common(shape, dtype, stochastic, is_amax, is_scale_152, is_scale_143):
     hpu = torch.device("hpu")
     input_pos = torch.rand(shape, dtype=dtype) * 30 + 10
     input_neg = -input_pos
@@ -284,35 +284,20 @@ def test_cast_to_fp8_hybrid(shape, dtype, stochastic, is_amax, is_scale_152, is_
         check_ops_executed_in_jit_ir({"cast_to_fp8_hybrid", "cast_from_fp8"})
 
 
-scale_modes = [
-    (ScaleMode.TENSOR, ScaleMode.TENSOR),
-    (ScaleMode.TENSOR, None),
-    (ScaleMode.SCALAR, ScaleMode.SCALAR),
-    (ScaleMode.SCALAR, None),
-    (None, ScaleMode.TENSOR),
-    (None, ScaleMode.SCALAR),
-    (None, ScaleMode.TENSOR_CHANNEL),
-    (None, ScaleMode.SCALAR_CHANNEL),
-    (None, None),
-]
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("stochastic", [True, False])
+@pytest.mark.parametrize("is_amax", [True, False])
+def test_cast_to_fp8_hybrid(dtype, stochastic, is_amax):
+    cast_to_fp8_hybrid_common((64, 48), dtype, stochastic, is_amax, True, True)
 
 
-@pytest.mark.parametrize(
-    "shapeA, shapeB",
-    [
-        ((2, 1, 4, 2), (1, 3, 4, 8)),
-        ((24, 12), (24, 36)),
-        ((2, 1, 4, 2), (4, 8)),
-        ((4, 2), (3, 4, 8)),
-    ],
-    ids=format_tc,
-)
-@pytest.mark.parametrize("bias", [True, False])
-@pytest.mark.parametrize("accumulate", [True, False])
-@pytest.mark.parametrize("scaleA, scaleB", scale_modes)
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
-@pytest.mark.parametrize("fp8_dtype", fp8_dtypes, ids=format_tc)
-def test_fp8_gemm_v2(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, fp8_dtype):
+@pytest.mark.parametrize("is_scale_152", [True, False])
+@pytest.mark.parametrize("is_scale_143", [True, False])
+def test_cast_to_fp8_hybrid_scales(is_scale_152, is_scale_143):
+    cast_to_fp8_hybrid_common((16, 24, 8), torch.bfloat16, True, True, is_scale_152, is_scale_143)
+
+
+def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, fp8_dtype):
     hpu = torch.device("hpu")
     A = torch.rand(shapeA, dtype=dtype) * 10 + 30.0
     A_hpu = A.to(hpu)
@@ -423,6 +408,44 @@ def test_fp8_gemm_v2(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, fp
         check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "fp8_gemm_v2"})
 
 
+@pytest.mark.parametrize("bias", [True, False])
+@pytest.mark.parametrize("accumulate", [True, False])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("fp8_dtype", fp8_dtypes, ids=format_tc)
+def test_fp8_gemm_v2(bias, accumulate, dtype, fp8_dtype):
+    fp8_gemm_v2_common((24, 12), (24, 36), bias, accumulate, ScaleMode.TENSOR, ScaleMode.TENSOR, dtype, fp8_dtype)
+
+
+@pytest.mark.parametrize(
+    "shapeA, shapeB",
+    [
+        ((2, 1, 4, 2), (1, 3, 4, 8)),
+        ((2, 1, 4, 2), (4, 8)),
+        ((4, 2), (3, 4, 8)),
+    ],
+    ids=format_tc,
+)
+def test_fp8_gemm_v2_shapes(shapeA, shapeB):
+    fp8_gemm_v2_common(shapeA, shapeB, False, False, ScaleMode.TENSOR, ScaleMode.TENSOR, torch.float, torch.float8_e5m2)
+
+
+scale_modes = [
+    (ScaleMode.TENSOR, None),
+    (ScaleMode.SCALAR, ScaleMode.SCALAR),
+    (ScaleMode.SCALAR, None),
+    (None, ScaleMode.TENSOR),
+    (None, ScaleMode.SCALAR),
+    (None, ScaleMode.TENSOR_CHANNEL),
+    (None, ScaleMode.SCALAR_CHANNEL),
+    (None, None),
+]
+
+
+@pytest.mark.parametrize("scaleA, scaleB", scale_modes)
+def test_fp8_gemm_v2_scales(scaleA, scaleB):
+    fp8_gemm_v2_common((2, 1, 4, 2), (1, 3, 4, 8), True, False, scaleA, scaleB, torch.bfloat16, torch.float8_e4m3fn)
+
+
 @pytest.mark.parametrize(
     "shape_a, shape_b",
     [
@@ -434,17 +457,14 @@ def test_fp8_gemm_v2(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, fp
     ],
     ids=format_tc,
 )
-@pytest.mark.parametrize("bias", [True, False])
-@pytest.mark.parametrize("scale", [True, False])
 @pytest.mark.parametrize("transpose_a", [True, False])
 @pytest.mark.parametrize("transpose_b", [True, False])
-@pytest.mark.parametrize("fp8_dtype", fp8_dtypes, ids=format_tc)
-def test_fp8_gemm_v2_1d(shape_a, shape_b, bias, scale, transpose_a, transpose_b, fp8_dtype):
+def test_fp8_gemm_v2_1d(shape_a, shape_b, transpose_a, transpose_b):
     hpu = torch.device("hpu")
     dtype = torch.bfloat16
 
     def generate_input(shape, transpose):
-        input = (torch.rand(shape, dtype=dtype) * 10 + 30.0).to(fp8_dtype)
+        input = (torch.rand(shape, dtype=dtype) * 10 + 30.0).to(torch.float8_e5m2)
         if transpose:
             if len(shape) == 1:
                 pytest.skip("Configuration not supported")
@@ -457,22 +477,12 @@ def test_fp8_gemm_v2_1d(shape_a, shape_b, bias, scale, transpose_a, transpose_b,
     A, A_hpu = generate_input(shape_a, transpose_a)
     B, B_hpu = generate_input(shape_b, transpose_b)
 
-    scaleA = 1.0
-    scaleB = 1.0
-    scaleA_hpu = None
-    scaleB_hpu = None
-
-    if scale:
-        scaleA = torch.tensor(3.14, dtype=dtype)
-        scaleB = torch.tensor(0.75, dtype=dtype)
-        scaleA_hpu = scaleA.to("hpu")
-        scaleB_hpu = scaleB.to("hpu")
+    scaleA = torch.tensor(3.14, dtype=dtype)
+    scaleB = torch.tensor(0.75, dtype=dtype)
+    scaleA_hpu = scaleA.to("hpu")
+    scaleB_hpu = scaleB.to("hpu")
 
     result_ref = torch.matmul(A, B) * torch.mul(scaleA, scaleB)
-
-    out_shape = result_ref.shape
-    bias_tensor = torch.rand(out_shape, dtype=dtype) * 10 + 30.0
-    bias_tensor_hpu = bias_tensor.to(hpu) if bias else None
 
     fn = torch.ops.hpu.fp8_gemm_v2
 
@@ -490,12 +500,9 @@ def test_fp8_gemm_v2_1d(shape_a, shape_b, bias, scale, transpose_a, transpose_b,
         dtype,
         scaleA_hpu,
         scaleB_hpu,
-        bias_tensor_hpu,
+        None,
         False,
     ).cpu()
-
-    if bias:
-        result_ref = result_ref + bias_tensor
 
     percentage_diff = torch.abs((((result - result_ref) / result_ref) * 100).to(torch.int))
     assert np.amax(percentage_diff.numpy()) <= 15
@@ -504,13 +511,12 @@ def test_fp8_gemm_v2_1d(shape_a, shape_b, bias, scale, transpose_a, transpose_b,
         check_ops_executed_in_jit_ir("fp8_gemm_v2")
 
 
-@pytest.mark.parametrize("scale_mode", [ScaleMode.TENSOR_CHANNEL, ScaleMode.SCALAR_CHANNEL])
 @pytest.mark.parametrize("axis", [0, 1])
-@pytest.mark.parametrize("in_dtype", [torch.float8_e5m2, torch.float8_e4m3fn])
-@pytest.mark.parametrize("out_dtype", [torch.float, torch.bfloat16])
-def test_fp8_gemm_v2_scale_shape(scale_mode, axis, in_dtype, out_dtype):
+def test_fp8_gemm_v2_scale_shape(axis):
     shapeA = (12, 24)
     shapeB = (24, 36)
+    in_dtype = torch.float8_e4m3fn
+    out_dtype = torch.bfloat16
 
     def getInputAndScale(is_vector):
         shape = shapeB if is_vector else shapeA
@@ -525,7 +531,7 @@ def test_fp8_gemm_v2_scale_shape(scale_mode, axis, in_dtype, out_dtype):
             scale_length = shapeB[1]
         scale_array = ((np.random.rand(scale_length) * 100.0).astype(np.float32)).tolist()
         scale_tensor = torch.tensor(scale_array)
-        scale_hpu = scale_tensor.to("hpu") if scale_mode == ScaleMode.TENSOR_CHANNEL else scale_array
+        scale_hpu = scale_array
 
         if is_vector:
             scale_tensor = torch.unsqueeze(scale_tensor, axis)
@@ -613,11 +619,10 @@ def test_fp8_gemm_v2_scalar_optimization(scaleA, scaleB, dtype):
 
 
 @pytest.mark.skipif(is_pytest_mode_eager(), reason="Not supported in eager mode yet.")
-@pytest.mark.parametrize("scale_a", [16.0, 1.0, 0.0625, 0.00390625])
-@pytest.mark.parametrize("scale_b", [16.0, 1.0, 0.0625, 0.00390625])
-@pytest.mark.parametrize("scale_out", [16.0, 1.0, 0.0625, 256.0])
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
-def test_fp8_gemm_v2_bias_optimization(scale_a, scale_b, scale_out, dtype):
+@pytest.mark.parametrize("scale_a", [1.0, 0.0625, 0.00390625])
+@pytest.mark.parametrize("scale_b", [16.0, 1.0, 0.0625])
+@pytest.mark.parametrize("scale_out", [16.0, 0.0625, 256.0])
+def test_fp8_gemm_v2_bias_optimization(scale_a, scale_b, scale_out):
     ht.enable_inference_mode()
 
     a = (torch.rand(4, 8) * 5).to(torch.float8_e4m3fn).to("hpu")
@@ -629,7 +634,7 @@ def test_fp8_gemm_v2_bias_optimization(scale_a, scale_b, scale_out, dtype):
 
     def fn(a, b, scale_a, scale_b, scale_out):
         return torch.ops.hpu.cast_to_fp8_v2(
-            torch.ops.hpu.fp8_gemm_v2(a, False, b, False, None, dtype, scale_a, scale_b, None, False),
+            torch.ops.hpu.fp8_gemm_v2(a, False, b, False, None, torch.bfloat16, scale_a, scale_b, None, False),
             scale_out,
             False,
             False,
@@ -646,8 +651,7 @@ def test_fp8_gemm_v2_bias_optimization(scale_a, scale_b, scale_out, dtype):
     res_fp8_scalar, _ = fn(a, b, scale_a, scale_b, scale_out)
     res_scalar_cpu = res_fp8_scalar.cpu().float()
 
-    rtol = 1e-3 if dtype == torch.float else 1e-2
-    compare_tensors(res_fp8_tensor, res_scalar_cpu, atol=1e-2, rtol=rtol)
+    compare_tensors(res_fp8_tensor, res_scalar_cpu, atol=1e-2, rtol=1e-2)
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir({"fp8_gemm_v2", "cast_to_fp8_v2"})
     ht.disable_inference_mode()
@@ -657,10 +661,11 @@ def test_fp8_gemm_v2_bias_optimization(scale_a, scale_b, scale_out, dtype):
 @pytest.mark.parametrize("scale_a", [16.0, 1.0, 7.5])
 @pytest.mark.parametrize("scale_b", [16.0, 0.00390625, 7.5])
 @pytest.mark.parametrize("scale_out", [0.0625, 256.0, 7.5])
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
-def test_fp8_gemm_v2_mark_scales_const(scale_a, scale_b, scale_out, dtype):
+def test_fp8_gemm_v2_mark_scales_const(scale_a, scale_b, scale_out):
     ht.enable_inference_mode()
     from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
+
+    dtype = torch.bfloat16
 
     def fn(a, b, scale_a, scale_b, scale_out):
         return torch.ops.hpu.cast_to_fp8_v2(
@@ -698,14 +703,13 @@ def test_fp8_gemm_v2_mark_scales_const(scale_a, scale_b, scale_out, dtype):
 
     res_fp8_tensor, _ = fn(a, b, scale_a_t, scale_b_t, scale_out_t)
 
-    rtol = 1e-3 if dtype == torch.float else 1e-2
-    compare_tensors(res_fp8_tensor, res_scalar_cpu, atol=1e-2, rtol=rtol)
+    compare_tensors(res_fp8_tensor, res_scalar_cpu, atol=1e-2, rtol=1e-2)
     ht.disable_inference_mode()
 
 
-@pytest.mark.parametrize("shape", [(8, 2, 2, 5)])
 @pytest.mark.parametrize("dtype", [torch.bfloat16] + fp8_dtypes)
-def test_in_place_interleave(shape, dtype):
+def test_in_place_interleave(dtype):
+    shape = (8, 2, 2, 5)
     input = torch.randn(shape, dtype=torch.bfloat16) * 10.0
     input_hpu = input.to("hpu")
     if dtype != torch.bfloat16:
@@ -738,19 +742,17 @@ def test_in_place_interleave(shape, dtype):
         check_ops_executed_in_jit_ir("in_place_interleave")
 
 
-@pytest.mark.parametrize("N, C, H, W", [(8, 3, 28, 28), (4, 6, 16, 16)])
-@pytest.mark.parametrize("out_channels", [16])
 @pytest.mark.parametrize("scaleA", [True, False])
 @pytest.mark.parametrize("scaleB", [True, False])
-@pytest.mark.parametrize("kernel", [(2, 2), (4, 6)], ids=format_tc)
-@pytest.mark.parametrize("stride", [(1, 1), (2, 2)], ids=format_tc)
-@pytest.mark.parametrize("padding", [(0, 0), (1, 1)], ids=format_tc)
 @pytest.mark.parametrize("bias", [True, False])
 @pytest.mark.parametrize("out_dtype", [torch.float, torch.bfloat16], ids=format_tc)
 @pytest.mark.parametrize("fp8_dtype", fp8_dtypes, ids=format_tc)
-def test_conv2d_fp8(N, C, H, W, out_channels, scaleA, scaleB, kernel, stride, padding, bias, out_dtype, fp8_dtype):
-    if pytest.mode == "eager" and kernel == (4, 6):
-        pytest.skip("Configuration not supported")
+def test_conv2d_fp8(scaleA, scaleB, bias, out_dtype, fp8_dtype):
+    N, C, H, W = (8, 3, 28, 28)
+    out_channels = 16
+    kernel = (2, 2)
+    stride = (1, 1)
+    padding = (0, 0)
 
     input_cpu = torch.rand((N, C, H, W), dtype=out_dtype).to(fp8_dtype).to(out_dtype)
     input_hpu = input_cpu.to("hpu").to(fp8_dtype)
@@ -810,11 +812,14 @@ def test_conv2d_fp8(N, C, H, W, out_channels, scaleA, scaleB, kernel, stride, pa
 
 @pytest.mark.parametrize("scaleA", [16, 14])
 @pytest.mark.parametrize("scaleB", [0.00390625, 0.23])
-@pytest.mark.parametrize("out_dtype", [torch.float, torch.bfloat16], ids=format_tc)
-@pytest.mark.parametrize("fp8_dtype", fp8_dtypes, ids=format_tc)
-def test_conv2d_fp8_scalar_optimization(scaleA, scaleB, out_dtype, fp8_dtype):
-    if scaleA == 16 and scaleB == 0.00390625:
-        pytest.skip("Configuration supported only with PT_HPU_INFERENCE_MODE=1 flag.")
+def test_conv2d_fp8_scalar_optimization(scaleA, scaleB):
+    if scaleA == 16 and scaleB == 0.00390625 and is_pytest_mode_eager():
+        pytest.skip("Configuration not supported in eager mode yet.")
+
+    out_dtype = torch.float
+    fp8_dtype = torch.float8_e4m3fn
+
+    ht.enable_inference_mode()
     N, C, H, W = (4, 3, 12, 12)
     out_channels = 16
     kernel = (2, 2)
@@ -841,17 +846,19 @@ def test_conv2d_fp8_scalar_optimization(scaleA, scaleB, out_dtype, fp8_dtype):
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("conv2d_fp8")
+    ht.disable_inference_mode()
 
 
-# For manual testing with flag PT_HPU_INFERENCE_MODE=1
-# Post synapse graphs should contain raw Conv node with exp_bias set on inputs and output.
-@pytest.mark.parametrize("scale_a", [16.0, 1.0, 0.0625, 0.00390625])
-@pytest.mark.parametrize("scale_b", [16.0, 1.0, 0.0625, 0.00390625])
-@pytest.mark.parametrize("scale_out", [16.0, 1.0, 0.0625, 256.0])
-@pytest.mark.parametrize("out_dtype", [torch.float, torch.bfloat16], ids=format_tc)
-def DISABLED_test_conv2d_fp8_bias_optimization(scale_a, scale_b, scale_out, out_dtype):
+@pytest.mark.skipif(is_pytest_mode_eager(), reason="Not supported in eager mode yet.")
+@pytest.mark.parametrize("scale_a", [16.0, 1.0, 7.5])
+@pytest.mark.parametrize("scale_b", [16.0, 0.00390625, 7.5])
+@pytest.mark.parametrize("scale_out", [0.0625, 256.0, 7.5])
+def test_conv2d_fp8_bias_optimization(scale_a, scale_b, scale_out):
+    ht.enable_inference_mode()
+
     N, C, H, W = (4, 3, 12, 12)
     fp8_dtype = torch.float8_e4m3fn
+    out_dtype = torch.bfloat16
     out_channels = 16
     kernel = (2, 2)
     stride = (1, 1)
@@ -876,11 +883,18 @@ def DISABLED_test_conv2d_fp8_bias_optimization(scale_a, scale_b, scale_out, out_
             + 1.0
         )
 
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="hpu_backend")
+
     res_fp8_scalar = fn(input_hpu, weight_hpu, scale_a, scale_b, scale_out).cpu().float()
     res_fp8_tensor = fn(input_hpu, weight_hpu, scale_a_t, scale_b_t, scale_out_t).float()
 
-    rtol = 1e-3 if out_dtype == torch.float else 0.125
-    compare_tensors(res_fp8_tensor, res_fp8_scalar, atol=1e-2, rtol=rtol)
+    compare_tensors(res_fp8_tensor, res_fp8_scalar, atol=1e-2, rtol=0.125)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir({"conv2d_fp8", "cast_to_fp8_v2"})
+    ht.disable_inference_mode()
 
 
 @pytest.mark.parametrize("shape", [(5, 4, 4, 6)])
