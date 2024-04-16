@@ -349,11 +349,7 @@ def meta_optimizer_adamw(
 
 @register_meta([torch.ops.hpu.masked_batch_gemm.default])
 def meta_masked_batch_gemm(a, b, mask_a, mask_b, trans_a, trans_b):
-    shape_a = a.shape
-    shape_b = b.shape
-    dim_a = 2 + (1 if trans_a else 0)
-    dim_b = 2 + (0 if trans_b else 1)
-    out_shape = shape_a[0:2] + [shape_a[dim_a], shape_b[dim_b]]
+    out_shape = _hpu_C.custom_op_calc_out_shape_params_int("masked_batch_gemm", [a, b], [trans_a, trans_b])[0]
     out = a.new_empty(out_shape)
     return out
 

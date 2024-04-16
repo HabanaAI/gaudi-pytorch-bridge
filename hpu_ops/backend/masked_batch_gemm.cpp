@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,17 +12,17 @@
  */
 
 #include "hpu_ops/masked_batch_gemm.h"
+#include "hpu_ops/custom_op_outshape.h"
 
 namespace habana {
 
-sizes_vec MaskedBatchGemmOutputShape(const at::Stack& stack) {
-  auto a = stack_tensor(stack, 0);
-  auto b = stack_tensor(stack, 1);
-  bool trans_a = stack[4].toBool();
-  bool trans_b = stack[5].toBool();
-
-  std::vector<int64_t> a_shape = a.sizes().vec();
-  std::vector<int64_t> b_shape = b.sizes().vec();
+static sizes_vec MaskedBatchGemmOutputShapeInternal(
+    const at::Tensor& a,
+    const at::Tensor& b,
+    const bool trans_a,
+    const bool trans_b) {
+  c10::IntArrayRef a_shape = a.sizes();
+  c10::IntArrayRef b_shape = b.sizes();
   std::vector<int64_t> out_shape{a_shape[0], a_shape[1]};
   int a_dim = 2 + (trans_a ? 1 : 0);
   int b_dim = 2 + (trans_b ? 0 : 1);
@@ -31,6 +31,29 @@ sizes_vec MaskedBatchGemmOutputShape(const at::Stack& stack) {
 
   return {out_shape};
 }
+
+sizes_vec MaskedBatchGemmOutputShape(const at::Stack& stack) {
+  auto a = stack_tensor(stack, 0);
+  auto b = stack_tensor(stack, 1);
+  bool trans_a = stack[4].toBool();
+  bool trans_b = stack[5].toBool();
+
+  return MaskedBatchGemmOutputShapeInternal(a, b, trans_a, trans_b);
+}
+
+sizes_vec masked_batch_gemm_out_shape(
+    const std::vector<at::Tensor>& inputs,
+    const std::vector<int64_t>& params) {
+  TORCH_CHECK(inputs.size() == 2);
+  TORCH_CHECK(params.size() == 2);
+  return MaskedBatchGemmOutputShapeInternal(
+      inputs[0],
+      inputs[1],
+      static_cast<bool>(params[0]),
+      static_cast<bool>(params[1]));
+}
+
+REGISTER_CUSTOM_OP_OUTSHAPE_FUN(masked_batch_gemm, masked_batch_gemm_out_shape);
 
 MaskedBatchGemm::MaskedBatchGemm(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
