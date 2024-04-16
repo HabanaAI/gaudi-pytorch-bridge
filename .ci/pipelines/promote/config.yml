@@ -19,8 +19,6 @@ orchestratorConfig:
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_topology_functionality
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_functionality
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi3_sim_distributed
-    - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8x_promote
-      silentMode: true
     - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_distributed
     - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi_sim_pt_small_models_test
     - testToLaunch: multinode_tests/Tests/Test_multinode_tests_gaudi2_sim_pt_small_models_test
@@ -41,8 +39,6 @@ orchestratorConfig:
     # PT perf 8 card jobs in K8S container mode <Start>
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_8cards_performance_8x_promote
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_performance_8cards_promote
-    - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_optimum_habana_models_promote
-      silentMode: true
     # PT perf 8 card jobs in K8S container mode <End>
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_8cards_topology_8cards
     # deepspeed-fork <Start>
@@ -64,18 +60,6 @@ orchestratorConfig:
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llama7b_hqt_pcq_4096t_suite
     # Quantization toolkit tests
     - testToLaunch: habana_quantization_toolkit/Tests/Test_habana_quantization_toolkit_gaudi2_asic_test
-  # Streams and Events validation <Start>
-    - testToLaunch: habanaqa_framework_features/Tests/Test_habanaqa_framework_features_gaudi2_asic_streams_events_pt
-      silentMode: true
-    - testToLaunch: habanaqa_framework_features/Tests/Test_habanaqa_framework_features_gaudi_sim_streams_events_pt
-      silentMode: true
-    - testToLaunch: habanaqa_framework_features/Tests/Test_habanaqa_framework_features_gaudi3_sim_streams_events_pt
-      silentMode: true
-  # Streams and Events validation <End>
-  # PT perf 8 card jobs in K8S container mode <Start>
-    - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_pytorch_framework_ut_promote
-      silentMode: true
-  # PT perf 8 card jobs in K8S container mode <End>
   codeCoverageConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   coverityConfig:
