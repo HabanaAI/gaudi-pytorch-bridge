@@ -287,7 +287,7 @@ void process_node_params(
               0, "Unsupported param type: ", static_cast<int>(param_type));
       }
       jit_val_to_ivalue_map[val] = iVal;
-    } else if (input.isList()) {
+    } else if (is_metadata_candidate(input)) {
       HABANA_ASSERT(
           param_type == NodeParamType::METADATA,
           "Invalid node param type: ",
@@ -327,7 +327,7 @@ void EagerExec::launch() {
     process_node_params(jit_val_map, orig_inputs, jit_val_to_ivalue_map);
 
     // Set param agnostic flag if node params are available for the view ops
-    // or ops supporting node params which uses scalars at the JIT input stack.
+    // or ops which uses either scalars or tensor shapes as node params
     const bool param_agnsotic_flag = jit_val_to_ivalue_map.size() ||
         NodeParamAgnosticOpList::isNodeParamAgnosticOp(m_symbol);
     graph_and_meta->set_is_param_agnostic_supported(param_agnsotic_flag);
@@ -532,19 +532,19 @@ size_t EagerExec::calculate_operator_key(
           [&optimized_key, &inp_index, &skip_hash_flag](
               const torch::jit::IValue& input) {
             optimized_key = at::hash_combine(optimized_key, inp_index++);
-            if (input.isList()) {
-              if (!skip_hash_flag) {
+            if (!skip_hash_flag) {
+              if (input.isList()) {
                 for (auto& v : input.toListRef()) {
                   optimized_key =
                       at::hash_combine(optimized_key, at::IValue::hash(v));
                 }
-              }
-            } else {
-              // at::IValue::hash of None is zero, same as for zero scalar,
-              // in order to distinguish None and Zero scalar we ignore None
-              if (!input.isNone()) {
-                optimized_key =
-                    at::hash_combine(optimized_key, at::IValue::hash(input));
+              } else {
+                // at::IValue::hash of None is zero, same as for zero scalar,
+                // in order to distinguish None and Zero scalar we ignore None
+                if (!input.isNone()) {
+                  optimized_key =
+                      at::hash_combine(optimized_key, at::IValue::hash(input));
+                }
               }
             }
           },

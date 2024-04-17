@@ -320,7 +320,7 @@ void HabanaLaunchOpPT::visit_prim_node(
             value->debugName(),
             " updating to val_to_ival_map: ",
             habana_helpers::DebugString(val_to_ival_map[value]),
-            " w.r.t. view params");
+            " w.r.t. node params");
       }
     }
   } else if (torch::jit::prim::ListConstruct == node->kind()) {

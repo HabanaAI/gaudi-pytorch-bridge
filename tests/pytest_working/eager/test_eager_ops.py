@@ -1221,3 +1221,17 @@ def test_sag_view_node_params_3():
         a_hpu = a.to("hpu")
 
         assert torch.equal(a, a_hpu.cpu())
+
+
+# test node params patching for topk op
+def test_sag_topk_node_params():
+    params = [(2, 2), (4, 4)]
+
+    for shapes in params:
+        input = torch.randn(shapes, dtype=torch.bfloat16)
+        input_hpu = input.to("hpu")
+
+        sorted_sequence, _ = torch.sort(input)
+        sorted_sequence_hpu, _ = torch.sort(input_hpu)
+
+        assert torch.allclose(sorted_sequence, sorted_sequence_hpu.cpu(), atol=0.001, rtol=0.001)

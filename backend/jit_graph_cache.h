@@ -127,7 +127,8 @@ class NodeParamAgnosticOpList {
         c10::Symbol::fromQualString("aten::as_strided"),
         c10::Symbol::fromQualString("hpu::strided_view"),
         c10::Symbol::fromQualString("hpu::strided_insert"),
-        c10::Symbol::fromQualString("hpu::strided_insert_")};
+        c10::Symbol::fromQualString("hpu::strided_insert_"),
+        c10::Symbol::fromQualString("aten::sort")};
     return ops_list;
   }
 
