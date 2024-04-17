@@ -22,3 +22,17 @@ def dump_fx_graph(fx_module, jit_graph, recipe_id):
     logger.debug(fx_module.print_readable(False))
     logger.debug("IR:\n%s\n\n", fx_module.graph)
     logger.debug("Jit IR:\n%s\n\n", jit_graph)
+
+
+def log_function_start_end(fn):
+    def wrapper(*args, **kwargs):
+        logger = get_compile_backend_logger()
+        logger.debug("Function %s start %s, %s", fn.__name__, args, kwargs)
+        result = fn(*args, **kwargs)
+        logger.debug(
+            "Function %s end",
+            fn.__name__,
+        )
+        return result
+
+    return wrapper

@@ -20,8 +20,10 @@ from torch._dynamo.utils import detect_fake_mode
 
 from .freezing_passes import freeze
 from .internal import optimize_post_partitioner, optimize_pre_partitioner, optimize_pre_placement, partition_module
+from .logger import log_function_start_end
 
 
+@log_function_start_end
 def hpu_freezing_compiler_inner(
     graph_module: torch.fx.GraphModule,
     dyn_graph_module: torch.fx.GraphModule,
@@ -80,6 +82,7 @@ def hpu_freezing_compiler_inner(
             return graph_module.forward
 
 
+@log_function_start_end
 def hpu_compiler_inner(
     graph_module: torch.fx.GraphModule,
     example_inputs: List[torch.Tensor],
