@@ -62,8 +62,8 @@ class HabanaGraphModule(torch.nn.Module):
             size = md[0]
             if ds_output_prealloc:
                 size = self._symbol_evaluator.calculate_shape(md[0], inputs)
-            if md[2] is True:
-                outputs.append(torch.empty_strided(size, md[3], dtype=md[1], device="hpu"))
+            if md[2] is not None:
+                outputs.append(torch.empty_strided(size, md[2], dtype=md[1], device="hpu"))
             else:
                 outputs.append(torch.empty(size, dtype=md[1], device="hpu"))
 
@@ -199,13 +199,16 @@ def get_outputs_metadata(graph_module):
         if node.op == "output":
             for i in node.all_input_nodes:
                 assert len(i.meta["output_shapes"]) == len(i.meta["output_dtypes"])
-                for shape, dtype, cont, strides in zip(
+                for shape, dtype, strides in zip(
                     i.meta["output_shapes"],
                     i.meta["output_dtypes"],
-                    [False] if "output_strides_has_zero" not in i.meta else i.meta["output_strides_has_zero"],
-                    [None] if "output_strides_has_zero" not in i.meta else i.meta["output_strides"],
+                    (
+                        [None]
+                        if "output_strides_has_zero" not in i.meta or not i.meta["output_strides_has_zero"]
+                        else i.meta["output_strides"]
+                    ),
                 ):
-                    outputs_metadata.append((shape, dtype, cont, strides))
+                    outputs_metadata.append((shape, dtype, strides))
 
     return outputs_metadata
 
@@ -225,11 +228,14 @@ def get_outputs_metadata_dynamic(graph_module):
         if node.op == "output":
             for i in node.all_input_nodes:
                 assert len(i.meta["output_shapes"]) == len(i.meta["output_dtypes"])
-                for shape, dtype, cont, strides in zip(
+                for shape, dtype, strides in zip(
                     i.meta["output_shapes"],
                     i.meta["output_dtypes"],
-                    [False] if "output_strides_has_zero" not in i.meta else i.meta["output_strides_has_zero"],
-                    [None] if "output_strides_has_zero" not in i.meta else i.meta["output_strides"],
+                    (
+                        [None]
+                        if "output_strides_has_zero" not in i.meta or not i.meta["output_strides_has_zero"]
+                        else i.meta["output_strides"]
+                    ),
                 ):
                     dynamic_shape_sympy = []
                     dynamic_shape_sym_expr_token = []
@@ -259,7 +265,6 @@ def get_outputs_metadata_dynamic(graph_module):
                         (
                             (dynamic_shape_sympy, dynamic_shape_str, dynamic_shape_sym_expr_token, dim_size),
                             dtype,
-                            cont,
                             strides,
                         )
                     )
