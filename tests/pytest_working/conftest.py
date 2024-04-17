@@ -59,9 +59,6 @@ def pytest_configure(config):
 
     config.stash[backup_env] = os.environ
 
-    # TODO: remove after SW-175380 is fixed
-    os.environ["PT_HPU_STOCHASTIC_ROUNDING_MODE"] = "0"
-
     if pytest.mode == "eager":
         os.environ["PT_HPU_LAZY_MODE"] = "0"
     elif pytest.mode == "lazy":
