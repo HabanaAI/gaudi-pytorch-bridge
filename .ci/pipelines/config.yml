@@ -10,6 +10,7 @@ config:
     debian10.10: "on"
     ubuntu18.04: "off"
     tencentos3.1: 'on'
+    rhel9.2: 'on'
   dependantComponents:
     - component: deepspeed_fork
     - component: pt_next
