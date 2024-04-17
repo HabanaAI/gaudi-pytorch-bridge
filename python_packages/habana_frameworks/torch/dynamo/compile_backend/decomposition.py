@@ -423,15 +423,6 @@ def rand_generator(size, **kwargs):
     return torch.rand(size, **kwargs)
 
 
-# empty_permuted op decompositions based on pytorch/torch/_inductor/decomposition.py
-@register_custom_decomposition(aten.empty_permuted.default, hpu_backend_decompositions_common)
-def empty_permuted(size, physical_layout, **kwargs):
-    perm = [0] * len(size)
-    for p, l in enumerate(physical_layout):
-        perm[l] = p
-    return torch.empty([size[l] for l in physical_layout], **kwargs).permute(perm)
-
-
 @register_custom_decomposition(torch.ops.hpu.sdpa_recomp_fwd.default, hpu_backend_decompositions_common)
 def sdpa_recomp_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, requires_backward, fast_softmax_mode):
     op = torch.ops.hpu.sdpa_recomp_fwd_dropout if dropout_p > 0.0 else torch.ops.hpu.sdpa_recomp_fwd_non_dropout
