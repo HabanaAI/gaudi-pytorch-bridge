@@ -28,7 +28,7 @@ class FusedAdamW(Optimizer):
         eps: float = 1e-6,
         weight_decay: float = 0.0,
         bias_correction: bool = True,
-        first_moment_dtype: Optional[torch.dtype] = None,
+        moments_dtype: Optional[torch.dtype] = None,
     ):
         if lr < 0.0:
             raise ValueError("Invalid learning rate: {} - should be >= 0.0".format(lr))
@@ -50,7 +50,7 @@ class FusedAdamW(Optimizer):
         self.neg_step_list = []
         self.is_lazy = is_lazy()
         self.modified_wd_list = []
-        self.first_moment_dtype = first_moment_dtype
+        self.moments_dtype = moments_dtype
 
     def step_wrap(step_func):
         def wrap_(*args, **kwargs):
@@ -91,11 +91,11 @@ class FusedAdamW(Optimizer):
                 state = self.state[p]
                 if len(state) == 0:
                     state["step"] = 0
-                    dtype = self.first_moment_dtype if self.first_moment_dtype is not None else p.dtype
+                    dtype = self.moments_dtype if self.moments_dtype is not None else p.dtype
                     # Exponential moving average of gradient values
                     state["exp_avg"] = torch.zeros(p.data.shape, dtype=dtype).to(p.device)
                     # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros(p.data.shape, dtype=p.dtype).to(p.device)
+                    state["exp_avg_sq"] = torch.zeros(p.data.shape, dtype=dtype).to(p.device)
 
                 exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
 

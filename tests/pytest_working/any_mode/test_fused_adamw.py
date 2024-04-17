@@ -23,7 +23,7 @@ betas = (0.9, 0.99)
 weight_decay = 0.1
 eps = 1.0e-6
 shapes = [(3, 4), (5, 6)]
-first_moment_dtypes = [None, torch.bfloat16, torch.float32]
+moments_dtypes = [None, torch.bfloat16, torch.float32]
 dtypes = [torch.bfloat16, torch.float32]
 
 
@@ -87,19 +87,19 @@ def create_tensors(shapes, dtype):
     return cpu_tensors, hpu_tensors
 
 
-def get_tolerances(tensor_dtype, first_moment_dtype):
+def get_tolerances(tensor_dtype, moments_dtype):
     if tensor_dtype == torch.bfloat16:
         return 1.6e-2, 1e-3
-    elif tensor_dtype == torch.float32 and first_moment_dtype == torch.bfloat16:
-        return 1e-3, 1e-5
+    elif tensor_dtype == torch.float32 and moments_dtype == torch.bfloat16:
+        return 1e-3, 1e-3
     else:
         return 1e-5, 1e-5
 
 
 @pytest.mark.skipif(is_pytest_mode_compile(), reason="Test is not adjusted to compile mode")
-@pytest.mark.parametrize("first_moment_dtype", first_moment_dtypes, ids=format_tc)
+@pytest.mark.parametrize("moments_dtype", moments_dtypes, ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
-def test_adamw_(dtype, first_moment_dtype):
+def test_adamw(dtype, moments_dtype):
     cpu_tensors, hpu_tensors = create_tensors(shapes, dtype)
 
     cpu_optimizer = AdamW(cpu_tensors, lr=lr, weight_decay=weight_decay, betas=betas, eps=eps, foreach=False)
@@ -108,7 +108,7 @@ def test_adamw_(dtype, first_moment_dtype):
         lr=lr,
         weight_decay=weight_decay,
         betas=betas,
-        first_moment_dtype=first_moment_dtype,
+        moments_dtype=moments_dtype,
         eps=eps,
         bias_correction=True,
     )
@@ -116,33 +116,35 @@ def test_adamw_(dtype, first_moment_dtype):
     cpu_optimizer.step()
     hpu_optimizer.step()
 
-    if first_moment_dtype:
+    if moments_dtype:
         for hpu_tensor in hpu_tensors:
-            assert hpu_optimizer.state[hpu_tensor]["exp_avg"].dtype == first_moment_dtype
+            assert hpu_optimizer.state[hpu_tensor]["exp_avg"].dtype == moments_dtype
+            assert hpu_optimizer.state[hpu_tensor]["exp_avg_sq"].dtype == moments_dtype
 
     for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors):
-        rtol, atol = get_tolerances(cpu_tensor.dtype, first_moment_dtype)
+        rtol, atol = get_tolerances(cpu_tensor.dtype, moments_dtype)
         torch.testing.assert_close(cpu_tensor, hpu_tensor.cpu(), rtol=rtol, atol=atol)
 
 
 @pytest.mark.skipif(is_pytest_mode_compile(), reason="Test is not adjusted to compile mode")
-@pytest.mark.parametrize("first_moment_dtype", first_moment_dtypes, ids=format_tc)
+@pytest.mark.parametrize("moments_dtype", moments_dtypes, ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
-def test_adamw_distributed(dtype, first_moment_dtype):
+def test_adamw_distributed(dtype, moments_dtype):
     cpu_tensors, hpu_tensors = create_tensors(shapes, dtype)
 
     cpu_optimizer = AdamW(cpu_tensors, lr=lr, weight_decay=weight_decay, betas=betas, eps=eps, foreach=False)
     hpu_optimizer = DistributedFusedAdamW(
-        hpu_tensors, lr=lr, weight_decay=weight_decay, betas=betas, first_moment_dtype=first_moment_dtype, eps=eps
+        hpu_tensors, lr=lr, weight_decay=weight_decay, betas=betas, moments_dtype=moments_dtype, eps=eps
     )
 
     cpu_optimizer.step()
     hpu_optimizer.step([hpu_tensor.grad for hpu_tensor in hpu_tensors])
 
-    if first_moment_dtype:
+    if moments_dtype:
         for hpu_tensor in hpu_tensors:
-            assert hpu_optimizer.state[hpu_tensor]["exp_avg"].dtype == first_moment_dtype
+            assert hpu_optimizer.state[hpu_tensor]["exp_avg"].dtype == moments_dtype
+            assert hpu_optimizer.state[hpu_tensor]["exp_avg_sq"].dtype == moments_dtype
 
     for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors):
-        rtol, atol = get_tolerances(cpu_tensor.dtype, first_moment_dtype)
+        rtol, atol = get_tolerances(cpu_tensor.dtype, moments_dtype)
         torch.testing.assert_close(cpu_tensor, hpu_tensor.cpu(), rtol=rtol, atol=atol)
