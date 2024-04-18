@@ -212,4 +212,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         break;
     }
   });
+  m.def(
+      "enable_logging",
+      [](const std::string& logger_name, log_level logger_level) {
+        return hl_logger::setLoggingLevelByMask(logger_name, logger_level);
+      });
 }

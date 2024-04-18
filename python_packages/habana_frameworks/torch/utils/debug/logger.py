@@ -63,3 +63,27 @@ class Logger:
     def set_store_data(self, enable):
         self.store_data = enable
         self.data = []
+
+
+def get_log_level(logger_level):
+    log_level = None
+    if logger_level == "critical":
+        log_level = _debug_C.log_level.critical
+    elif logger_level == "error":
+        log_level = _debug_C.log_level.error
+    elif logger_level == "warn":
+        log_level = _debug_C.log_level.warn
+    elif logger_level == "info":
+        log_level = _debug_C.log_level.info
+    elif logger_level == "debug":
+        log_level = _debug_C.log_level.debug
+    elif logger_level == "trace":
+        log_level = _debug_C.log_level.trace
+    else:
+        assert False, f"unsupported logger_level = {logger_level}"
+    return log_level
+
+
+def enable_logging(logger_name, logger_level):
+    log_level = get_log_level(logger_level)
+    _debug_C.enable_logging(logger_name, log_level)
