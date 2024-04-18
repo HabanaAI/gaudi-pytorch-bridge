@@ -782,6 +782,82 @@ _foreach_neg_:
   inplace_ids: [0]
   op_backend: Foreach
 
+_foreach_pow.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+
+_foreach_pow.ScalarList:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+
+_foreach_pow.ScalarAndTensor:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [1]
+
+_foreach_pow.List:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+
+_foreach_pow_.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  inplace_ids: [0]
+
+_foreach_pow_.ScalarList:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  inplace_ids: [0]
+
+_foreach_pow_.Tensor:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  inplace_ids: [0]
+
+_foreach_pow_.List:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  inplace_ids: [0]
+
 _foreach_reciprocal:
   dtypes: [BFloat16, Float]
   guid: reciprocal_fwd

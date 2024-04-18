@@ -37,6 +37,7 @@ ops_without_tensor_variant = [
     torch._foreach_minimum,
     torch._foreach_clamp_min,
     torch._foreach_clamp_max,
+    torch._foreach_pow,
 ]
 ops_list = ops_with_tensor_variant + ops_without_tensor_variant
 
@@ -47,12 +48,15 @@ ops_without_tensor_variant_inplace = [
     torch._foreach_minimum_,
     torch._foreach_clamp_min_,
     torch._foreach_clamp_max_,
+    torch._foreach_pow_,
 ]
 ops_list_inplace = ops_with_tensor_variant_inplace + ops_without_tensor_variant_inplace
 
 
-def generate_tensor_list(shapes, dtypes):
+def generate_tensor_list(shapes, dtypes, non_negative=False):
     self_cpu = [torch.randn(shape).to(dtype) for shape, dtype in zip(shapes, dtypes)]
+    if non_negative:
+        self_cpu = [torch.abs(tensor) for tensor in self_cpu]
     self_hpu = [tensor.to("hpu") for tensor in self_cpu]
     return self_cpu, self_hpu
 
@@ -67,6 +71,7 @@ def get_tolerance(op, dtype):
 @pytest.mark.parametrize("op", ops_with_tensor_variant)
 @pytest.mark.parametrize("k,", k_list)
 @pytest.mark.parametrize("other_dtype", [torch.float32, torch.bfloat16, torch.long, torch.int], ids=format_tc)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_foreach_tensor(op, k, other_dtype):
     is_eager_fallback = configuration_flags["use_eager_fallback"]
     configuration_flags["use_eager_fallback"] = True
@@ -96,6 +101,7 @@ def test_foreach_tensor(op, k, other_dtype):
 @pytest.mark.parametrize("op", ops_list)
 @pytest.mark.parametrize("k,", k_list)
 @pytest.mark.parametrize("other_scalar", scalar_list)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_foreach_scalar(op, k, other_scalar):
     self_shapes = random.choices(self_shapes_pull, k=k)
     self_dtypes = random.choices(dtypes, k=k)
@@ -118,6 +124,7 @@ def test_foreach_scalar(op, k, other_scalar):
 
 @pytest.mark.parametrize("op", ops_list)
 @pytest.mark.parametrize("k,", k_list)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_foreach_list(op, k):
     indexes = [random.randint(0, len(self_shapes_pull) - 1) for _ in range(k)]
     self_shapes = [self_shapes_pull[idx] for idx in indexes]
@@ -125,8 +132,9 @@ def test_foreach_list(op, k):
     self_dtypes = random.choices(dtypes, k=k)
     other_dtypes = random.choices(dtypes, k=k)
 
+    non_negative = True if op == torch._foreach_pow else False
     self_cpu, self_hpu = generate_tensor_list(self_shapes, self_dtypes)
-    other_cpu, other_hpu = generate_tensor_list(other_shapes, other_dtypes)
+    other_cpu, other_hpu = generate_tensor_list(other_shapes, other_dtypes, non_negative=non_negative)
 
     if verbose:
         print("Self shapes:", self_shapes)
@@ -145,6 +153,7 @@ def test_foreach_list(op, k):
 
 @pytest.mark.parametrize("op", ops_list)
 @pytest.mark.parametrize("k,", k_list)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_foreach_scalarlist(op, k):
     self_shapes = random.choices(self_shapes_pull, k=k)
     self_dtypes = random.choices(dtypes, k=k)
@@ -166,9 +175,35 @@ def test_foreach_scalarlist(op, k):
         torch.testing.assert_close(results_cpu[i], results_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
 
 
+@pytest.mark.parametrize("self_scalar", scalar_list)
+@pytest.mark.parametrize("k,", k_list)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
+def test_foreach_scalar_and_tensor(self_scalar, k):
+    op = torch._foreach_pow
+
+    other_shapes = random.choices(self_shapes_pull, k=k)
+    other_dtypes = random.choices(dtypes, k=k)
+
+    other_cpu, other_hpu = generate_tensor_list(other_shapes, other_dtypes)
+
+    if verbose:
+        print("Self scalar:", self_scalar)
+        print("Other shapes:", other_shapes)
+        print("Other dtypes:", other_dtypes)
+
+    results_cpu = op(self_scalar, other_cpu)
+    op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
+    results_hpu = op(self_scalar, other_hpu)
+
+    for i in range(k):
+        rtol, atol = get_tolerance(op, results_cpu[i].dtype)
+        torch.testing.assert_close(results_cpu[i], results_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
+
+
 @pytest.mark.parametrize("op", ops_with_tensor_variant_inplace)
 @pytest.mark.parametrize("k,", k_list)
 @pytest.mark.parametrize("other_dtype", [torch.float32, torch.bfloat16, torch.long, torch.int], ids=format_tc)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_foreach_tensor_inplace(op, k, other_dtype):
     self_shapes = random.choices(self_shapes_pull, k=k)
     self_dtypes = random.choices(dtypes, k=k)
@@ -198,6 +233,7 @@ def test_foreach_tensor_inplace(op, k, other_dtype):
 @pytest.mark.parametrize("op", ops_list_inplace)
 @pytest.mark.parametrize("k,", k_list)
 @pytest.mark.parametrize("other_scalar", scalar_list)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_foreach_scalar_inplace(op, k, other_scalar):
     self_shapes = random.choices(self_shapes_pull, k=k)
     self_dtypes = random.choices(dtypes, k=k)
@@ -224,6 +260,7 @@ def test_foreach_scalar_inplace(op, k, other_scalar):
 
 @pytest.mark.parametrize("op", ops_list_inplace)
 @pytest.mark.parametrize("k,", k_list)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_foreach_list_inplace(op, k):
     indexes = [random.randint(0, len(self_shapes_pull) - 1) for _ in range(k)]
     self_shapes = [self_shapes_pull[idx] for idx in indexes]
@@ -236,8 +273,9 @@ def test_foreach_list_inplace(op, k):
             self_dtypes[i] = torch.float32
         self_dtypes[i] = torch.promote_types(self_dtypes[i], other_dtypes[i])
 
+    non_negative = True if op == torch._foreach_pow_ else False
     self_cpu, self_hpu = generate_tensor_list(self_shapes, self_dtypes)
-    other_cpu, other_hpu = generate_tensor_list(other_shapes, other_dtypes)
+    other_cpu, other_hpu = generate_tensor_list(other_shapes, other_dtypes, non_negative=non_negative)
 
     if verbose:
         print("Self shapes:", self_shapes)
@@ -256,6 +294,7 @@ def test_foreach_list_inplace(op, k):
 
 @pytest.mark.parametrize("op", ops_list_inplace)
 @pytest.mark.parametrize("k,", k_list)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_foreach_scalarlist_inplace(op, k):
     self_shapes = random.choices(self_shapes_pull, k=k)
     self_dtypes = random.choices(dtypes, k=k)

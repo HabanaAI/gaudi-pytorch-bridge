@@ -58,25 +58,36 @@ static OutputMetaData MetaForSingleOutput(
 OutputMetaDataVector CommonForeachBinaryMeta(
     const at::Stack& stack,
     const bool cast_int_to_float) {
-  auto list1 = stack[0].toTensorList();
   OutputMetaDataVector meta;
-  meta.resize(list1.size());
+  if (stack.at(0).isList()) {
+    auto list1 = stack.at(0).toTensorList();
+    meta.reserve(list1.size());
 
-  // Second arg could be tensorlist, scalarlist, tensor or scalar
-  if (stack.at(1).isList()) {
-    const auto& list2 = stack.at(1).toList();
-    TORCH_CHECK(
-        list1.size() == list2.size(),
-        "List1 size: ",
-        list1.size(),
-        ", != List2 size: ",
-        list2.size());
-    for (size_t i = 0; i < list1.size(); ++i) {
-      meta[i] = MetaForSingleOutput(list1[i], list2[i], cast_int_to_float);
+    // Second arg could be tensorlist, scalarlist, tensor or scalar
+    if (stack.at(1).isList()) {
+      const auto& list2 = stack.at(1).toList();
+      TORCH_CHECK(
+          list1.size() == list2.size(),
+          "List1 size: ",
+          list1.size(),
+          ", != List2 size: ",
+          list2.size());
+      for (size_t i = 0; i < list1.size(); ++i) {
+        meta.push_back(
+            MetaForSingleOutput(list1[i], list2[i], cast_int_to_float));
+      }
+    } else {
+      for (const auto& element : list1) {
+        meta.push_back(
+            MetaForSingleOutput(element, stack.at(1), cast_int_to_float));
+      }
     }
   } else {
-    for (size_t i = 0; i < list1.size(); ++i) {
-      meta[i] = MetaForSingleOutput(list1[i], stack.at(1), cast_int_to_float);
+    auto list = stack[1].toTensorList();
+    meta.reserve(list.size());
+    for (size_t i = 0; i < list.size(); ++i) {
+      meta.push_back(
+          MetaForSingleOutput(list[i], stack.at(0), cast_int_to_float));
     }
   }
   return meta;
@@ -120,9 +131,10 @@ void ForeachZero::AddNode(
 }
 
 size_t computeInputsNumber(const at::Stack& stack) {
-  const size_t self_size = stack[SELF_INDEX].toTensorList().size();
+  const size_t self_size =
+      stack[SELF_INDEX].isTensorList() ? stack[SELF_INDEX].toList().size() : 0;
   const size_t other_size = stack[OTHER_INDEX].isTensorList()
-      ? self_size
+      ? stack[OTHER_INDEX].toList().size()
       : stack[OTHER_INDEX].isTensor() ? 1 : 0;
   return self_size + other_size;
 }
@@ -135,37 +147,53 @@ std::vector<synapse_helpers::tensor> CommonForeachBinary(
     const at::Stack& stack,
     NodeCreateFunction node_creator) {
   std::vector<synapse_helpers::tensor> outputs;
-  const auto& selfs = stack[SELF_INDEX].toTensorList();
-  const auto& others = stack[OTHER_INDEX];
-  at::optional<at::Scalar> alpha;
 
-  if (stack.at(1).isTensorList() || stack.at(1).isTensor()) {
-    if (stack.size() > 2) {
-      alpha = stack[ALPHA_INDEX].toScalar();
-    }
-    for (size_t i = 0; i < selfs.size(); ++i) {
-      const auto& self = selfs[i];
-      const auto& other = others.isList() ? others.toList()[i] : others;
-      const size_t other_syn_index =
-          others.isTensorList() ? i + selfs.size() : selfs.size();
+  if (stack[SELF_INDEX].isTensorList()) {
+    const auto& selfs = stack[SELF_INDEX].toTensorList();
+    const auto& others = stack[OTHER_INDEX];
+    at::optional<at::Scalar> alpha;
 
-      std::vector<at::IValue> pt_inputs = {self, other};
-      if (alpha.has_value()) {
-        pt_inputs.push_back(alpha.value());
+    if (stack.at(1).isTensorList() || stack.at(1).isTensor()) {
+      if (stack.size() > 2) {
+        alpha = stack[ALPHA_INDEX].toScalar();
       }
+      for (size_t i = 0; i < selfs.size(); ++i) {
+        const auto& self = selfs[i];
+        const auto& other = others.isList() ? others.toList()[i] : others;
+        const size_t other_syn_index =
+            others.isTensorList() ? i + selfs.size() : selfs.size();
 
-      outputs.push_back(node_creator(
-          op, graph, guid, {inputs[i], inputs[other_syn_index]}, pt_inputs, i));
+        std::vector<at::IValue> pt_inputs = {self, other};
+        if (alpha.has_value()) {
+          pt_inputs.push_back(alpha.value());
+        }
+
+        outputs.push_back(node_creator(
+            op,
+            graph,
+            guid,
+            {inputs[i], inputs[other_syn_index]},
+            pt_inputs,
+            i));
+      }
+    } else {
+      for (size_t i = 0; i < selfs.size(); ++i) {
+        const auto& self = selfs[i];
+        const auto& other = others.isList() ? others.toList()[i] : others;
+
+        outputs.push_back(
+            node_creator(op, graph, guid, {inputs[i]}, {self, other}, i));
+      }
     }
-  } else {
-    for (size_t i = 0; i < selfs.size(); ++i) {
-      const auto& self = selfs[i];
-      const auto& other = others.isList() ? others.toList()[i] : others;
-
+  } else { // ScalarAndTensor variant
+    const auto& self = stack[SELF_INDEX].toScalar();
+    const auto& others = stack[OTHER_INDEX].toList();
+    for (size_t i = 0; i < others.size(); ++i) {
       outputs.push_back(
-          node_creator(op, graph, guid, {inputs[i]}, {self, other}, i));
+          node_creator(op, graph, guid, {inputs[i]}, {self, others[i]}, i));
     }
   }
+
   return outputs;
 }
 
