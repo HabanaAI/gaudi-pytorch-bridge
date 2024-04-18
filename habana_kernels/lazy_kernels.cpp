@@ -6338,26 +6338,6 @@ at::Tensor cast_from_fp8_scalar_list_lazy(
   return cast_from_fp8_common(input, scale, out_dtype, scale_shape);
 }
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale_152,
-    const c10::optional<at::Tensor>& scale_143,
-    bool stochastic_rounding,
-    bool is_amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
-      "hpu::cast_to_fp8_hybrid",
-      {input, scale_152, scale_143, stochastic_rounding, is_amax},
-      CastToFp8HybridOutputShape};
-  hpu_op.set_scalar_types(
-      {at::ScalarType::Float8_e5m2,
-       at::ScalarType::Float8_e4m3fn,
-       at::ScalarType::Float});
-
-  RUN_MAYBE_WITH_ACC_THREAD(cast_to_fp8_hybrid, hpu_op)
-}
-
 at::Tensor convert_from_int4_common(
     const std::string& op_name,
     const at::Tensor& input,
@@ -7733,29 +7713,6 @@ at::Tensor scaled_masked_triangular_softmax_lazy(
   op.set_scalar_types({out_dtype.value_or(self.scalar_type())});
 
   RUN_MAYBE_WITH_ACC_THREAD(scaled_masked_triangular_softmax, op)
-}
-
-at::Tensor softmax_fp8_lazy(
-    const at::Tensor& input,
-    int64_t dim,
-    const c10::optional<at::Tensor>& input_scale,
-    const c10::optional<at::Tensor>& output_scale,
-    const c10::optional<at::Tensor>& inv_attn_heads,
-    const c10::optional<at::Tensor>& fused_add) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  PT_OP_INFO(
-      "softmax_fp8 :",
-      DUMP_6ARGS(
-          input, dim, input_scale, output_scale, inv_attn_heads, fused_add));
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::softmax_fp8",
-      {input, dim, input_scale, output_scale, inv_attn_heads, fused_add},
-      {{input.sizes().vec()}}};
-  hpu_op.set_scalar_types(
-      {input_scale ? at::ScalarType::Float8_e4m3fn : at::ScalarType::BFloat16});
-  RUN_MAYBE_WITH_ACC_THREAD(softmax_fp8, hpu_op)
 }
 
 at::Tensor& in_place_interleave_lazy(at::Tensor& self) {

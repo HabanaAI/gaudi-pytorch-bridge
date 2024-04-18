@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,7 +12,7 @@
  */
 #include <string>
 #include "backend/synapse_helpers/layout_utils.h"
-#include "generated/backend/convolution.h"
+#include "generated/backend/convolution_overrideable.h"
 #include "hpu_ops/common/convolution_gen.h"
 
 using namespace synapse_helpers::layouts;

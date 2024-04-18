@@ -13,6 +13,7 @@
 #include "backend/backend_meta.h"
 #include "backend/helpers/eager_pipeline.h"
 #include "common/dump_args.h"
+#include "generated/eager/wrap_kernels_declarations.h"
 #include "habana_eager/eager_context.h"
 #include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/eager_tensor.h"
@@ -29,7 +30,6 @@
 #include "habana_eager/ops/view.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
-#include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "hpu_ops/op_logger.h"
 

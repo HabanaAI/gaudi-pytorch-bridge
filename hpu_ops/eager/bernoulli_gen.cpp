@@ -30,8 +30,4 @@ static void ConvertGeneratorToSeedTensor(
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, BernoulliFE, at::Tensor&) {
   ConvertGeneratorToSeedTensor(m_symbol, get_inputs().back());
 }
-
-HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(eager::EagerOp, BernoulliOutFE, at::Tensor&) {
-  ConvertGeneratorToSeedTensor(m_symbol, get_inputs().rbegin()[1]);
-}
 } // namespace habana

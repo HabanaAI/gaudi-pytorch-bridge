@@ -11,10 +11,10 @@
  *******************************************************************************
  */
 
+#include "generated/eager/wrap_kernels_declarations.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
-#include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "hpu_ops/cpu_fallback.h"
 #include "pytorch_helpers/habana_helpers/frontend_utils.h"

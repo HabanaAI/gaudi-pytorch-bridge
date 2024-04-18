@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -15,9 +15,9 @@
 #include <torch/torch.h>
 #include <stdexcept>
 #include "backend/synapse_helpers/env_flags.h"
+#include "generated/lazy/wrap_kernels_declarations.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
-#include "habana_kernels_ver/wrap_kernels_declarations.h"
 
 using namespace habana_lazy;
 

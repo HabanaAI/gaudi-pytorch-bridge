@@ -12,7 +12,7 @@
  */
 #include "backend/helpers/lowering_util.h"
 #include "backend/synapse_helpers/layout_utils.h"
-#include "generated/backend/convolution_backward.h"
+#include "generated/backend/convolution_backward_overrideable.h"
 #include "hpu_ops/common/convolution_gen.h"
 
 using namespace synapse_helpers::layouts;

@@ -84,6 +84,7 @@ add_habana_library(habana_pytorch2_frontend OBJECT
           ${CMAKE_BINARY_DIR}/generated/eager/hpu_op7.cpp
           ${CMAKE_BINARY_DIR}/generated/eager/hpu_op8.cpp
           ${CMAKE_BINARY_DIR}/generated/eager/hpu_op9.cpp
+          ${CMAKE_BINARY_DIR}/generated/eager/hpu_op_custom.cpp
           ${CMAKE_BINARY_DIR}/generated/eager/wrap_kernels_registrations.cpp)
 
 target_include_directories(habana_pytorch2_frontend

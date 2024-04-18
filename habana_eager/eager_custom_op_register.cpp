@@ -116,28 +116,6 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_list(
       input, scale, stochastic_rounding, is_amax, dtype, scale_shape);
 }
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale_152,
-    const c10::optional<at::Tensor>& scale_143,
-    bool stochastic_rounding,
-    bool is_amax) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "cast_to_fp8_hybrid :",
-      DUMP_5ARGS(input, scale_152, scale_143, stochastic_rounding, is_amax));
-
-  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
-      "hpu::cast_to_fp8_hybrid",
-      {input, scale_152, scale_143, stochastic_rounding, is_amax},
-      habana::CastToFp8HybridOutputShape};
-  hpu_op.set_scalar_types(
-      {at::ScalarType::Float8_e5m2,
-       at::ScalarType::Float8_e4m3fn,
-       at::ScalarType::Float});
-  return hpu_op.call();
-}
-
 std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& scale,
@@ -1227,27 +1205,6 @@ at::Tensor scaled_masked_triangular_softmax(
   return hpu_op.call();
 }
 
-at::Tensor softmax_fp8(
-    const at::Tensor& input,
-    int64_t dim,
-    const c10::optional<at::Tensor>& input_scale,
-    const c10::optional<at::Tensor>& output_scale,
-    const c10::optional<at::Tensor>& inv_attn_heads,
-    const c10::optional<at::Tensor>& fused_add) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "softmax_fp8 :",
-      DUMP_6ARGS(
-          input, dim, input_scale, output_scale, inv_attn_heads, fused_add));
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "hpu::softmax_fp8",
-      {input, dim, input_scale, output_scale, inv_attn_heads, fused_add},
-      {{input.sizes().vec()}}};
-  hpu_op.set_scalar_types(
-      {input_scale ? at::ScalarType::Float8_e4m3fn : at::ScalarType::BFloat16});
-  return hpu_op.call();
-}
-
 at::Tensor& in_place_interleave_(at::Tensor& self) {
   PT_EAGER_TRACE;
   PT_OP_INFO("in_place_interleave_ :", DUMP_ARG(self));
@@ -1983,8 +1940,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
   m.def(
-      "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)");
-  m.def(
       "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
   m.def(
       "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
@@ -2071,8 +2026,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor");
   m.def(
-      "hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor");
-  m.def(
       "hpu::scaled_triangular_softmax_retain(Tensor self, float inv_scale_attn) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::view(Tensor input, Tensor shape) -> Tensor");
   m.def("hpu::view_neg(Tensor input, Tensor shape, int[] shape) -> Tensor");
@@ -2156,7 +2109,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_to_fp8_v2", cast_to_fp8_v2);
   m.impl("hpu::cast_to_fp8_v2.scalar", cast_to_fp8_v2_scalar);
   m.impl("hpu::cast_to_fp8_v2.scalar_list", cast_to_fp8_v2_scalar_list);
-  m.impl("hpu::cast_to_fp8_hybrid", cast_to_fp8_hybrid);
   m.impl("hpu::convert_from_int4", convert_from_int4);
   m.impl("hpu::convert_from_uint4", convert_from_uint4);
   m.impl("hpu::conv2d_fp8", conv2d_fp8);
@@ -2217,7 +2169,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::scaled_triangular_softmax_retain",
       scaled_triangular_softmax_retain);
-  m.impl("hpu::softmax_fp8", softmax_fp8);
   m.impl("hpu::sum_fp8", sum_fp8);
   m.impl("hpu::slice_ds", slice_ds);
 }

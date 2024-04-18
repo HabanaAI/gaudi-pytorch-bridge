@@ -131,13 +131,6 @@ _foreach_add.Scalar:
   output_meta: ForeachBinaryMeta
   out_ids: [0]
 
-_foreach_add.ScalarList:
-  # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
-  guid: add_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
 _foreach_add.List:
   # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
   guid: add_fwd
@@ -152,16 +145,14 @@ _foreach_add.Tensor:
   output_meta: ForeachBinaryMeta
   out_ids: [0]
 
-_foreach_add_.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+_foreach_add.ScalarList:
+  # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
   guid: add_fwd
   op_backend: ForeachBinary
-  inplace_ids: [0]
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
 
-_foreach_add_.ScalarList:
+_foreach_add_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -180,6 +171,15 @@ _foreach_add_.List:
   inplace_ids: [0]
 
 _foreach_add_.Tensor:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: add_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+
+_foreach_add_.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -250,7 +250,7 @@ _foreach_clamp_max.Scalar:
   op_backend: ForeachClamp
   out_ids: [0]
 
-_foreach_clamp_max.ScalarList:
+_foreach_clamp_max.List:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -260,7 +260,7 @@ _foreach_clamp_max.ScalarList:
   op_backend: ForeachClamp
   out_ids: [0]
 
-_foreach_clamp_max.List:
+_foreach_clamp_max.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -279,15 +279,6 @@ _foreach_clamp_max_.Scalar:
   op_backend: ForeachClamp
   inplace_ids: [0]
 
-_foreach_clamp_max_.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_max
-  op_backend: ForeachClamp
-  inplace_ids: [0]
-
 _foreach_clamp_max_.List:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
@@ -297,17 +288,16 @@ _foreach_clamp_max_.List:
   op_backend: ForeachClamp
   inplace_ids: [0]
 
-_foreach_clamp_min.Scalar:
+_foreach_clamp_max_.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
     Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: foreach_clamp_min
-  output_meta: ForeachBinaryMeta
+  guid: foreach_clamp_max
   op_backend: ForeachClamp
-  out_ids: [0]
+  inplace_ids: [0]
 
-_foreach_clamp_min.ScalarList:
+_foreach_clamp_min.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -327,6 +317,16 @@ _foreach_clamp_min.List:
   op_backend: ForeachClamp
   out_ids: [0]
 
+_foreach_clamp_min.ScalarList:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: foreach_clamp_min
+  output_meta: ForeachBinaryMeta
+  op_backend: ForeachClamp
+  out_ids: [0]
+
 _foreach_clamp_min_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
@@ -336,7 +336,7 @@ _foreach_clamp_min_.Scalar:
   op_backend: ForeachClamp
   inplace_ids: [0]
 
-_foreach_clamp_min_.ScalarList:
+_foreach_clamp_min_.List:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -345,7 +345,7 @@ _foreach_clamp_min_.ScalarList:
   op_backend: ForeachClamp
   inplace_ids: [0]
 
-_foreach_clamp_min_.List:
+_foreach_clamp_min_.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -389,16 +389,6 @@ _foreach_div.Scalar:
   output_meta: DivForeachBinaryMeta
   out_ids: [0]
 
-_foreach_div.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: div_fwd
-  op_backend: ForeachBinary
-  output_meta: DivForeachBinaryMeta
-  out_ids: [0]
-
 _foreach_div.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
@@ -419,16 +409,17 @@ _foreach_div.List:
   output_meta: DivForeachBinaryMeta
   out_ids: [0]
 
-_foreach_div_.Scalar:
+_foreach_div.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
     Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
   guid: div_fwd
   op_backend: ForeachBinary
-  inplace_ids: [0]
+  output_meta: DivForeachBinaryMeta
+  out_ids: [0]
 
-_foreach_div_.ScalarList:
+_foreach_div_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -447,6 +438,15 @@ _foreach_div_.Tensor:
   inplace_ids: [0]
 
 _foreach_div_.List:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: div_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+
+_foreach_div_.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -589,7 +589,7 @@ _foreach_maximum.Scalar:
   output_meta: ForeachBinaryMeta
   out_ids: [0]
 
-_foreach_maximum.ScalarList:
+_foreach_maximum.List:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -599,7 +599,7 @@ _foreach_maximum.ScalarList:
   output_meta: ForeachBinaryMeta
   out_ids: [0]
 
-_foreach_maximum.List:
+_foreach_maximum.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -618,15 +618,6 @@ _foreach_maximum_.Scalar:
   op_backend: ForeachBinary
   inplace_ids: [0]
 
-_foreach_maximum_.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: max_fwd
-  op_backend: ForeachBinary
-  inplace_ids: [0]
-
 _foreach_maximum_.List:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
@@ -636,17 +627,16 @@ _foreach_maximum_.List:
   op_backend: ForeachBinary
   inplace_ids: [0]
 
-_foreach_minimum.Scalar:
+_foreach_maximum_.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
     Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: min_fwd
+  guid: max_fwd
   op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
+  inplace_ids: [0]
 
-_foreach_minimum.ScalarList:
+_foreach_minimum.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -666,16 +656,17 @@ _foreach_minimum.List:
   output_meta: ForeachBinaryMeta
   out_ids: [0]
 
-_foreach_minimum_.Scalar:
+_foreach_minimum.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
     Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
   guid: min_fwd
   op_backend: ForeachBinary
-  inplace_ids: [0]
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
 
-_foreach_minimum_.ScalarList:
+_foreach_minimum_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -693,27 +684,16 @@ _foreach_minimum_.List:
   op_backend: ForeachBinary
   inplace_ids: [0]
 
+_foreach_minimum_.ScalarList:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: min_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+
 _foreach_mul.Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: mult_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_mul.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: mult_fwd
-  op_backend: ForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
-_foreach_mul.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -733,16 +713,27 @@ _foreach_mul.List:
   output_meta: ForeachBinaryMeta
   out_ids: [0]
 
-_foreach_mul_.Scalar:
+_foreach_mul.Tensor:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
     Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
   guid: mult_fwd
   op_backend: ForeachBinary
-  inplace_ids: [0]
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
 
-_foreach_mul_.ScalarList:
+_foreach_mul.ScalarList:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+
+_foreach_mul_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -761,6 +752,15 @@ _foreach_mul_.Tensor:
   inplace_ids: [0]
 
 _foreach_mul_.List:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: mult_fwd
+  op_backend: ForeachBinary
+  inplace_ids: [0]
+
+_foreach_mul_.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -792,16 +792,6 @@ _foreach_pow.Scalar:
   output_meta: ForeachBinaryMeta
   out_ids: [0]
 
-_foreach_pow.ScalarList:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  output_meta: ForeachBinaryMeta
-  out_ids: [0]
-
 _foreach_pow.ScalarAndTensor:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
@@ -822,6 +812,16 @@ _foreach_pow.List:
   output_meta: ForeachBinaryMeta
   out_ids: [0]
 
+_foreach_pow.ScalarList:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: pow_fwd
+  op_backend: PowForeachBinary
+  output_meta: ForeachBinaryMeta
+  out_ids: [0]
+
 _foreach_pow_.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
@@ -831,7 +831,7 @@ _foreach_pow_.Scalar:
   op_backend: PowForeachBinary
   inplace_ids: [0]
 
-_foreach_pow_.ScalarList:
+_foreach_pow_.List:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -840,7 +840,7 @@ _foreach_pow_.ScalarList:
   op_backend: PowForeachBinary
   inplace_ids: [0]
 
-_foreach_pow_.List:
+_foreach_pow_.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -939,7 +939,7 @@ _foreach_sub.Scalar:
   output_meta: ForeachBinaryMeta
   out_ids: [0]
 
-_foreach_sub.ScalarList:
+_foreach_sub.List:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -949,7 +949,7 @@ _foreach_sub.ScalarList:
   output_meta: ForeachBinaryMeta
   out_ids: [0]
 
-_foreach_sub.List:
+_foreach_sub.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -968,7 +968,7 @@ _foreach_sub_.Scalar:
   op_backend: ForeachBinary
   inplace_ids: [0]
 
-_foreach_sub_.ScalarList:
+_foreach_sub_.List:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -977,7 +977,7 @@ _foreach_sub_.ScalarList:
   op_backend: ForeachBinary
   inplace_ids: [0]
 
-_foreach_sub_.List:
+_foreach_sub_.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
@@ -2841,17 +2841,6 @@ cumsum_:
   output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
   inplace_ids: [0]
-
-diag:
-  pytorch2_mode: disable
-  output_meta: DiagMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
-  out_ids: [0]
-  custom_fill_params: FillDiagParams
-  op_backend: Diag
 
 diag.out:
   output_meta: DiagMeta
@@ -5248,7 +5237,7 @@ mean:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: reduce_mean_multi_dim_fwd
-  op_template: reduction
+  reduction: true
   out_ids: [0]
   acc_thread: true
 
@@ -5258,7 +5247,7 @@ mean.dim:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: reduce_mean_multi_dim_fwd
-  op_template: reduction
+  reduction: true
   out_ids: [0]
 
 mean.out:
@@ -5267,7 +5256,7 @@ mean.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: reduce_mean_multi_dim_fwd
-  op_template: reduction
+  reduction: true
 
 median:
   output_meta: MedianOutputMeta
@@ -6327,17 +6316,7 @@ pow.Tensor_Tensor_out:
   promote_to_common_type: [self, exponent]
   # op_validator: check-node-with-shared-layer
 
-prelu:
-  pytorch2_mode: disable
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-  out_ids: [0]
-  op_backend: Prelu
-
 _prelu_kernel:
-  pytorch2_mode: only
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -6361,7 +6340,7 @@ prod:
     Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
   guid: reduce_prod_multi_dim_fwd
   out_ids: [0]
-  op_template: reduction
+  reduction: true
 
 prod.dim_int:
   dtypes:
@@ -6370,7 +6349,7 @@ prod.dim_int:
     Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
   guid: reduce_prod_multi_dim_fwd
   out_ids: [0]
-  op_template: reduction
+  reduction: true
 
 prod.int_out:
   dtypes:
@@ -6378,7 +6357,7 @@ prod.int_out:
     Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
   guid: reduce_prod_multi_dim_fwd
-  op_template: reduction
+  reduction: true
   safe_cast_check: false
 
 put_:
@@ -7907,7 +7886,7 @@ sub.out:
   promote_to_common_type: [self, other]
 
 sum:
-  op_template: reduction
+  reduction: true
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
@@ -7916,7 +7895,7 @@ sum:
   out_ids: [0]
 
 sum.dim_IntList:
-  op_template: reduction
+  reduction: true
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
@@ -7930,7 +7909,7 @@ sum.IntList_out:
     Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_sum_multi_dim_fwd
-  op_template: reduction
+  reduction: true
 
 t:
   override_fn: t_hpu_lazy
@@ -8225,18 +8204,11 @@ upsample_bicubic2d.out:
   # op_validator: check-node-with-shared-layer
 
 upsample_bicubic2d.vec:
-  pytorch2_mode: disable
-  custom_fill_params: FillBicubicFwdParams
-  output_meta: UpsampleBicubic2DFwdMeta
+  only_shared_layer: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: resize_fwd
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
-  out_ids: [0]
   # op_validator: check-node-with-shared-layer
 
 upsample_bicubic2d_backward:
@@ -8294,18 +8266,11 @@ upsample_bilinear2d.out:
   # op_validator: check-node-with-shared-layer
 
 upsample_bilinear2d.vec:
-  pytorch2_mode: disable
-  custom_fill_params: FillBilinearFwdParams
-  output_meta: UpsampleBilinear2DFwdMeta
+  only_shared_layer: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: resize_fwd
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
-  out_ids: [0]
 
 upsample_bilinear2d_backward:
   custom_fill_params: FillBilinearBwdParams
@@ -8360,18 +8325,11 @@ upsample_linear1d.out:
   - [WHCN]
 
 upsample_linear1d.vec:
-  pytorch2_mode: disable
-  output_meta: UpsampleLinear1DFwdMeta
+  only_shared_layer: true
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: resize_fwd
-  op_backend: UpsampleLinear1DFwdOperator
-  out_ids: [0]
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
 
 upsample_linear1d_backward:
   output_meta: UpsampleLinear1DBwdMeta
@@ -8424,18 +8382,11 @@ upsample_nearest1d.out:
   - [WHCN]
 
 upsample_nearest1d.vec:
-  pytorch2_mode: disable
-  output_meta: UpsampleNearest1DFwdMeta
+  only_shared_layer: true
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
     Gaudi3: [BFloat16, Float, Half, Byte]
-  guid: resize_fwd
-  op_backend: UpsampleNearest1DFwdOperator
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
-  out_ids: [0]
 
 upsample_nearest1d_backward:
   output_meta: UpsampleNearest1DBwdMeta
@@ -8593,33 +8544,18 @@ upsample_nearest3d_backward.grad_input:
   - [WHDCN]
 
 upsample_nearest2d.vec:
-  pytorch2_mode: disable
-  custom_fill_params: FillNearestFwdParams
-  output_meta: UpsampleNearest2DFwdMeta
-  op_backend: UpSampleNearest2DOperator
+  only_shared_layer: true
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
     Gaudi3: [BFloat16, Float, Half, Byte]
-  guid: resize_fwd
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
-  out_ids: [0]
 
 upsample_nearest3d.vec:
-  pytorch2_mode: disable
-  output_meta: UpsampleNearest3DFwdMeta
+  only_shared_layer: true
   dtypes:
     Gaudi: [BFloat16, Float, Byte]
     Gaudi2: [BFloat16, Float, Half, Byte]
     Gaudi3: [BFloat16, Float, Half, Byte]
-  guid: resize_fwd
-  op_backend: UpSampleNearest3DFwdOperator
-  out_ids: [0]
-  synapse_layouts:
-  - [WHDCN, WHDCN]
-  - [WHDCN]
 
 var.correction:
   output_meta: StdVarMeta
@@ -8831,3 +8767,116 @@ _ctc_loss_backward.Tensor:
   - [DONT_CARE, CNT, SN, DONT_CARE, DONT_CARE, DONT_CARE, SNT]
   - [CNT]
   out_ids: [1]
+
+# Below ops override PyTorch implementation. They were previously
+# declared via wrap_kernels_declarations.h file in habana_kernels and pt_ver
+# directories. Now it's enough to add such op with hpu_wrap or pt_ver field.
+copy_:
+  hpu_wrap: true
+
+sort:
+  hpu_wrap: true
+
+masked_select:
+  hpu_wrap: true
+
+masked_select.out:
+  hpu_wrap: true
+
+scatter_add_:
+  hpu_wrap: true
+
+index_add.out:
+  hpu_wrap: true
+
+nonzero.out:
+  hpu_wrap: true
+
+batch_norm_stats:
+  hpu_wrap: true
+
+dropout:
+  hpu_wrap: true
+
+matmul:
+  hpu_wrap: true
+
+_reshape_alias:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+_unsafe_view:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+empty.memory_format:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+empty_strided:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+slice.Tensor:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+split.Tensor:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+split_with_sizes:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+_index_put_impl_:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+nonzero:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+_unique:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+_unique2:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+repeat_interleave.Tensor:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+batch_norm_elemt:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+batch_norm_backward_elemt:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+batch_norm_backward_reduce:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+batch_norm_gather_stats_with_counts:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+instance_norm:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+softmax.int:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+pin_memory:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+_pin_memory:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+is_pinned:
+  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+# Custom ops (currently only from 'hpu' namespace)
+
+cast_to_fp8_hybrid:
+  custom_op_schema: "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)"
+  guid: convert_to_fp8_hybrid
+  op_backend: CastToFp8Hybrid
+  out_ids: [0, 0, 0]
+  output_meta: CastToFp8HybridMeta
+  custom_fill_params: CastToFp8HybridParams
+
+softmax_fp8:
+  custom_op_schema: "hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"
+  guid: softmax_fwd
+  op_backend: SoftmaxFp8
+  out_ids: [0]
+  output_meta: SoftmaxFp8Meta

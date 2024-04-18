@@ -16,12 +16,12 @@
 #include "backend/synapse_helpers/device_helpers.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "common/dump_args.h"
+#include "generated/lazy/wrap_kernels_declarations.h"
 #include "habana_kernels/basic_kernels.h"
 #include "habana_kernels/instance_norm_utils.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
-#include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/lazy_executor.h"
 #include "hpu_ops/cpu_fallback.h"
@@ -1240,22 +1240,6 @@ std::tuple<Tensor&, Tensor&> cast_to_fp8_wrap(
       to_string(stochastic_rounding));
   FP8_CHECK
   return cast_to_fp8_lazy(input, scale, stochastic_rounding, out, amax);
-}
-
-std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale_152,
-    const c10::optional<at::Tensor>& scale_143,
-    bool stochastic_rounding,
-    bool is_amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "cast_to_fp8_hybrid:",
-      DUMP_5ARGS(input, scale_152, scale_143, stochastic_rounding, is_amax));
-  FP8_CHECK
-  return cast_to_fp8_hybrid_lazy(
-      input, scale_152, scale_143, stochastic_rounding, is_amax);
 }
 
 std::tuple<Tensor&, Tensor&, Tensor&> fp8_cast_transpose_wrap(
@@ -2557,8 +2541,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
   m.def(
-      "hpu::cast_to_fp8_hybrid(Tensor input, Tensor? scale_152=None, Tensor? scale_143=None, bool stochastic_rounding=False, bool is_amax=False) -> (Tensor, Tensor, Tensor)");
-  m.def(
       "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
   m.def(
       "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
@@ -2682,8 +2664,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::fp8_index_select_v2(Tensor self, int dim, Tensor index) -> Tensor");
   m.def(
       "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode, ScalarType? out_dtype=None) -> Tensor");
-  m.def(
-      "hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor");
   m.def("hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))");
   m.def(
       "hpu::conv2d_fp8(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1, ScalarType? out_dtype=None, Tensor? scale_input=None, Tensor? scale_weight=None) -> Tensor");
@@ -2715,7 +2695,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_to_fp8_v2", cast_to_fp8_v2_lazy);
   m.impl("hpu::cast_to_fp8_v2.scalar", cast_to_fp8_v2_scalar_lazy);
   m.impl("hpu::cast_to_fp8_v2.scalar_list", cast_to_fp8_v2_scalar_list_lazy);
-  m.impl("hpu::cast_to_fp8_hybrid", cast_to_fp8_hybrid_wrap);
   m.impl("hpu::convert_from_int4", convert_from_int4_lazy);
   m.impl("hpu::convert_from_uint4", convert_from_uint4_lazy);
   m.impl("hpu::fp8_cast_transpose", fp8_cast_transpose_wrap);
@@ -2776,7 +2755,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::scaled_masked_triangular_softmax",
       scaled_masked_triangular_softmax_wrap);
-  m.impl("hpu::softmax_fp8", softmax_fp8_lazy);
   m.impl("hpu::in_place_interleave_", in_place_interleave_wrap);
   m.impl("hpu::conv2d_fp8", conv2d_fp8_lazy);
   m.impl("hpu::conv2d_fp8.scalar", conv2d_fp8_lazy_scalar);

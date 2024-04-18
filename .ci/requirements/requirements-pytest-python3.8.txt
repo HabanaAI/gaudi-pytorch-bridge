@@ -6,6 +6,7 @@ expecttest==0.1.4
 hypothesis==6.54.4
 jira==3.4.1
 junitparser==2.2.0
+lark
 matplotlib==3.5.3
 pkginfo
 pyfakefs
@@ -26,6 +27,7 @@ pytest-timeout==2.1.0
 pytest-xdist==2.5.0
 pytest-mock
 pyvirtualdisplay==0.2.4
+pyyaml==6.0
 tox==3.24.4
 scipy==1.9.1
 mpi4py

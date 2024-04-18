@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -24,10 +24,10 @@
 #include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "generated/lazy/wrap_kernels_declarations.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
-#include "habana_kernels_ver/wrap_kernels_declarations.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
 #include "utils/device_type_util.h"
 

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -10,7 +10,7 @@
  *
  *******************************************************************************
  */
-#include "generated/eager/convolution.h"
+#include "generated/eager/convolution_overrideable.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {

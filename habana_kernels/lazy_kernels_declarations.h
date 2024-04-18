@@ -609,12 +609,6 @@ at::Tensor cast_from_fp8_scalar_list_lazy(
     c10::ArrayRef<double> scale,
     at::ScalarType out_dtype,
     OptionalIntArrayRef scale_shape);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> cast_to_fp8_hybrid_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale_152,
-    const c10::optional<at::Tensor>& scale_143,
-    bool stochastic_rounding,
-    bool is_amax);
 at::Tensor convert_from_int4_lazy(
     const at::Tensor& input,
     const at::Tensor& scale,
@@ -958,13 +952,6 @@ at::Tensor scaled_masked_triangular_softmax_lazy(
     bool use_max,
     int64_t mode,
     c10::optional<at::ScalarType> out_dtype);
-at::Tensor softmax_fp8_lazy(
-    const at::Tensor& input,
-    int64_t dim,
-    const c10::optional<at::Tensor>& input_scale,
-    const c10::optional<at::Tensor>& output_scale,
-    const c10::optional<at::Tensor>& inv_attn_heads,
-    const c10::optional<at::Tensor>& fused_add);
 
 #define CONV2D_FP8_LAZY(FNAME, SCALE_T)        \
   at::Tensor FNAME(                            \

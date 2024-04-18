@@ -1351,6 +1351,10 @@ run_pytorch_modules_tests()
         ${__pytorch_modules_tests_exe} tests/ --collect-only
         __test_status=$((__test_status | $?))
         popd
+        pushd $PYTORCH_MODULES_ROOT_PATH/scripts/
+        ${__pytorch_modules_tests_exe} tests/ --collect-only
+        __test_status=$((__test_status | $?))
+        popd
 
         return $__test_status
     fi
@@ -1377,6 +1381,10 @@ run_pytorch_modules_tests()
     if [[ "$__suite_type" = "all" || "$__suite_type" = "py_tests" || "$__suite_type" = "infra" ]]; then
       pushd $PYTORCH_MODULES_ROOT_PATH/.devops/
       (set -x; eval ${__pytorch_modules_tests_exe} tests/ -v $__failures $__py_filter --junit-xml="${__xml}_infra_pytest.xml" --junit-prefix="Infra." ${__marker})
+      __test_status=$((__test_status | $?))
+      popd
+      pushd $PYTORCH_MODULES_ROOT_PATH/scripts/
+      (set -x; eval ${__pytorch_modules_tests_exe} tests/ -v $__failures $__py_filter --junit-xml="${__xml}_infra_scripts_pytest.xml" --junit-prefix="InfraScripts." ${__marker})
       __test_status=$((__test_status | $?))
       popd
     fi

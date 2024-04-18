@@ -22,6 +22,7 @@ repos:
     rev: v10.0.1
     hooks:
       - id: git-clang-format
+        exclude: ^scripts/tests/files/
   - repo: local
     hooks:
       - id: check-bash-syntax
@@ -36,7 +37,7 @@ repos:
         types: [c++]
         # TODO: https://jira.habana-labs.com/browse/SW-120634: remove files from this ticket from `exclude:` below once they're fixed
         # exclude files handled by setup.py's and PT_VER-specific
-        exclude: ^python_packages/habana_frameworks/torch/|^pytorch_helpers/dataloader/habana_dataloader/|^pt_ver/|^tests/test_(autodiff|utils|base).cpp$|^pytorch_helpers/habana_helpers/tensor_comparator/synapse/src/infra/(float16|sim_fp16).cpp$|^habana_bridge/register/compiler.cpp$|^hpu_ops/op_validator.cpp$
+        exclude: ^python_packages/habana_frameworks/torch/|^pytorch_helpers/dataloader/habana_dataloader/|^pt_ver/|^tests/test_(autodiff|utils|base).cpp$|^pytorch_helpers/habana_helpers/tensor_comparator/synapse/src/infra/(float16|sim_fp16).cpp$|^habana_bridge/register/compiler.cpp$|^hpu_ops/op_validator.cpp|^scripts/tests/files/
   - repo: https://github.com/jumanjihouse/pre-commit-hooks
     rev: 3.0.0
     hooks:

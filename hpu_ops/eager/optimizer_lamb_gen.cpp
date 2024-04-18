@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,8 +11,8 @@
  *******************************************************************************
  */
 #include "hpu_ops/optimizer_lamb_gen.h"
+#include "generated/eager/wrap_kernels_declarations.h"
 #include "habana_helpers/dtype_helpers.h"
-#include "habana_kernels_ver/wrap_kernels_declarations.h"
 
 namespace habana {
 

@@ -12,6 +12,7 @@
  */
 
 #include "generated/backend/bernoulli.h"
+#include "generated/backend/log_normal.h"
 #include "generated/backend/normal.h"
 #include "generated/backend/poisson.h"
 #include "generated/backend/random.h"

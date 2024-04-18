@@ -175,7 +175,6 @@ add_habana_library(habana_pytorch_plugin SHARED
   habana_lazy/lazy_graph_hash_builder.cpp
   habana_lazy/view_utils.cpp
   habana_lazy/hpu_stage_submission.cpp
-  ${PT_VER_DIR}/habana_kernels_ver/lazy_kernels.cpp
 )
 add_subdirectory(hpu_ops)
 add_subdirectory(python_packages/habana_frameworks/torch)

@@ -255,70 +255,6 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
   }
 }
 
-/********** CastToFp8Hybrid **********/
-
-sizes_vec CastToFp8HybridOutputShape(const at::Stack& stack) {
-  auto input_sv = stack[0].toTensor().sizes().vec();
-  bool is_amax = stack[4].toBool();
-  std::vector<int64_t> amax_shape{};
-  if (not is_amax) {
-    amax_shape.push_back(0);
-  }
-  return {input_sv, input_sv, amax_shape};
-}
-
-CastToFp8Hybrid::CastToFp8Hybrid(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "cast_to_fp8_hybrid",
-          scalar_type,
-          {0, 0, 0},
-          {},
-          {},
-          false) {
-  SetComputeOutputShapes(CastToFp8HybridOutputShape);
-}
-
-void CastToFp8Hybrid::AddNode(sh::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "CastToFp8Hybrid::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  auto scale_152 = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto scale_143 = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto stochastic_rounding = getNextInput<bool>(stackGetter);
-  auto is_amax = getNextInput<bool>(stackGetter);
-  auto src_type = self.pt_t.scalar_type();
-
-  TORCH_CHECK(
-      src_type == at::ScalarType::Float or src_type == at::ScalarType::BFloat16,
-      "CastToFp8Hybrid input must be of float or bfloat16 dtype.");
-
-  std::string guid = get_guid_with_precision("convert_to_fp8_hybrid", src_type);
-
-  auto out_shapes = CastToFp8HybridOutputShape(stack);
-  std::vector<synTensor> syn_inputs{self.syn_t};
-  syn_inputs.push_back(scale_152 ? scale_152->syn_t : nullptr);
-  syn_inputs.push_back(scale_143 ? scale_143->syn_t : nullptr);
-
-  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {out_shapes[0], at::ScalarType::Float8_e5m2, 0},
-      {out_shapes[1], at::ScalarType::Float8_e4m3fn, 1}};
-  if (is_amax) {
-    output_attrs.push_back({out_shapes[2], at::ScalarType::Float, 2});
-  }
-
-  auto params =
-      GetCastParams(stochastic_rounding, src_type, at::ScalarType::Float8_e5m2);
-
-  auto casted = OpBackend::BuildNode(
-      this, graph, {guid, syn_inputs, output_attrs, &params, sizeof(params)});
-
-  syn_out(0) = std::move(casted[0]);
-  syn_out(1) = std::move(casted[1]);
-  if (is_amax) {
-    syn_out(2) = std::move(casted[2]);
-  }
-}
-
 /********** Fp8CastTranspose **********/
 
 Fp8CastTranspose::Fp8CastTranspose(int device_id, c10::ScalarType scalar_type)
@@ -1656,98 +1592,6 @@ void Conv2dFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   syn_out(0) = std::move(conv[0]);
 }
 
-/********** SoftmaxFp8 **********/
-void addOptionalTensor(
-    const c10::optional<OpBackend::TensorsPair>& input_opt,
-    std::vector<synTensor>& syn_inputs,
-    const at::ScalarType dtype,
-    const std::string& input_name) {
-  if (input_opt) {
-    TORCH_CHECK(
-        input_opt->pt_t.scalar_type() == dtype,
-        "Input ",
-        input_name,
-        " must be of dtype: ",
-        dtype);
-    syn_inputs.push_back(input_opt->syn_t);
-  } else {
-    syn_inputs.push_back(nullptr);
-  }
-}
-
-SoftmaxFp8::SoftmaxFp8(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "softmax_fwd", scalar_type, {0}, {}, {}, false) {}
-
-void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "SoftmaxFp8::AddNode");
-  auto self = getNextInput<TensorsPair>(stackGetter);
-  int dim = getNextInput<int>(stackGetter);
-  auto input_scale_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto output_scale_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto inv_attn_heads_opt =
-      getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto fused_add_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto rank = self.pt_t.dim();
-  dim = at::maybe_wrap_dim(dim, rank, /*wrap_scalar=*/true);
-
-  TORCH_CHECK(
-      self.pt_t.scalar_type() == at::ScalarType::BFloat16,
-      "Input tensor must be of torch.bfloat16 dtype.");
-
-  TORCH_CHECK(
-      (input_scale_opt && output_scale_opt) ||
-          (!input_scale_opt && !output_scale_opt),
-      "Output and input scales must be both given or None.");
-
-  if (fused_add_opt) {
-    TORCH_CHECK((input_scale_opt), "FusedAdd available only for Float8 output");
-    TORCH_CHECK(
-        (rank == fused_add_opt->pt_t.dim()),
-        "FusedAdd tensor must have the same rank as the input tensor");
-    TORCH_CHECK(
-        (self.pt_t.sizes()[0] == fused_add_opt->pt_t.sizes()[0] &&
-         self.pt_t.sizes()[rank - 1] == fused_add_opt->pt_t.sizes()[rank - 1]),
-        "FusedAdd tensor must have the same first and last dim as the input tensor");
-    for (int dim_id = 1; dim_id < rank - 1; dim_id++)
-      TORCH_CHECK(
-          (fused_add_opt->pt_t.sizes()[dim_id] == 1 ||
-           fused_add_opt->pt_t.sizes()[dim_id] == self.pt_t.sizes()[dim_id]),
-          "FusedAdd tensor\'s dim other than first and last should be equal to 1 or the same as the input tensor");
-  }
-
-  ns_Softmax::ParamsV7 params{};
-  params.dim = static_cast<int>(rank - dim - 1);
-  int mode = input_scale_opt ? SoftmaxMode_t::SOFTMAX_HF8_1B
-                             : SoftmaxMode_t::SOFTMAX_HF8_1C;
-  if (fused_add_opt)
-    mode |= SoftmaxMode_t::FUSED_ADD;
-  params.mode = static_cast<SoftmaxMode_t>(mode);
-
-  std::vector<synTensor> syn_inputs{self.syn_t};
-  addOptionalTensor(
-      input_scale_opt, syn_inputs, at::ScalarType::Float, "input_scale");
-  addOptionalTensor(
-      inv_attn_heads_opt, syn_inputs, at::ScalarType::Float, "inv_attn_heads");
-  addOptionalTensor(
-      output_scale_opt, syn_inputs, at::ScalarType::Float, "output_scale");
-  addOptionalTensor(
-      fused_add_opt, syn_inputs, at::ScalarType::BFloat16, "fused_add");
-
-  auto result = OpBackend::BuildNode(
-      this,
-      graph,
-      {"softmax_fwd_hf8",
-       std::move(syn_inputs),
-       {{self.pt_t.sizes().vec(),
-         input_scale_opt ? at::ScalarType::Float8_e4m3fn
-                         : at::ScalarType::BFloat16,
-         0}},
-       &params,
-       sizeof(params)});
-
-  syn_out(0) = std::move(result[0]);
-}
-
 /********** SumFp8 **********/
 
 static std::shared_ptr<void> FillSumFp8Params(
@@ -1822,9 +1666,6 @@ static const auto& CastKernelRegistry =
             "hpu::cast_to_fp8_v2.scalar_list",
             KERNEL_FN_GLOBAL(habana::CastToFp8V2))
         .add(
-            "hpu::cast_to_fp8_hybrid",
-            KERNEL_FN_GLOBAL(habana::CastToFp8Hybrid))
-        .add(
             "hpu::fp8_cast_transpose",
             KERNEL_FN_GLOBAL(habana::Fp8CastTranspose))
         .add(
@@ -1868,5 +1709,4 @@ static const auto& CastKernelRegistry =
             KERNEL_FN_GLOBAL(habana::InPlaceInterleave))
         .add("hpu::conv2d_fp8", KERNEL_FN_GLOBAL(habana::Conv2dFp8))
         .add("hpu::conv2d_fp8.scalar", KERNEL_FN_GLOBAL(habana::Conv2dFp8))
-        .add("hpu::softmax_fp8", KERNEL_FN_GLOBAL(habana::SoftmaxFp8))
         .add("hpu::sum_fp8", KERNEL_FN_GLOBAL(habana::SumFp8));
