@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -23,6 +23,7 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
+#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 using namespace at;
@@ -124,6 +125,9 @@ TEST_F(LazyUpsampleKernelTest, UpsampleBackwardTest_channelLast) {
 }
 
 TEST_F(LazyUpsampleKernelTest, DS_UpsampleBackwardTest) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   torch::manual_seed(0);
   bool refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   if (!refine_enabled) {

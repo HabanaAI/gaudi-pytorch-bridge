@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -15,3 +15,14 @@
 bool isGaudi();
 bool isGaudi2();
 bool isGaudi3();
+
+#define GTEST_SKIPPED_ON_PLATFORM_CAUSE(platform, cause)              \
+  do {                                                                \
+    if (is##platform()) {                                             \
+      GTEST_SKIP() << "Test skipped on " #platform ", cause: " cause; \
+    }                                                                 \
+  } while (0)
+
+#define GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED() \
+  GTEST_SKIPPED_ON_PLATFORM_CAUSE(                                   \
+      Gaudi3, "Dynamic shapes are not supported on Gaudi3")

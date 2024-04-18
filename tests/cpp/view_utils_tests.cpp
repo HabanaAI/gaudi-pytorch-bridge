@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -15,6 +15,7 @@
 #include <torch/torch.h>
 #include "backend/helpers/dynamic_shape_info.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "utils/dynamic_shape_supported_on_device.h"
 
 using namespace habana_lazy;
 
@@ -130,6 +131,9 @@ TEST(ViewUtilsTest, IsAliasNonZeroOpViews) {
 }
 
 TEST(ViewUtilsTest, IsAliasSliceOnChlastInput) {
+  if (!IsDynamicShapeSupportedOnCurrentDevice()) {
+    GTEST_SKIP();
+  }
   bool refine_enabled = habana_helpers::GetRefineDynamicShapeStatus();
   if (!refine_enabled) {
     habana_helpers::EnableRefineDynamicShape();

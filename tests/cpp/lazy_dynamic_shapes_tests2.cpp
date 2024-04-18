@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -30,6 +30,7 @@ using namespace habana_lazy;
 class LazyDynamicShapesTest2 : public habana_lazy_test::LazyDynamicTest {};
 
 TEST_F(LazyDynamicShapesTest2, SliceOnChlastInput) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2, C = 3, H = 4, W = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -45,6 +46,7 @@ TEST_F(LazyDynamicShapesTest2, SliceOnChlastInput) {
 }
 
 TEST_F(LazyDynamicShapesTest2, SliceOnChlast3dInput) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -75,6 +77,7 @@ TEST_F(LazyDynamicShapesTest2, DISABLED_SliceOnChlast6dInput) {
 }
 
 TEST_F(LazyDynamicShapesTest2, SelectOnChlast3dInput) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -90,6 +93,7 @@ TEST_F(LazyDynamicShapesTest2, SelectOnChlast3dInput) {
 }
 
 TEST_F(LazyDynamicShapesTest2, InplaceView) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2, C = 3, H = 4, W = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -107,6 +111,7 @@ TEST_F(LazyDynamicShapesTest2, InplaceView) {
 }
 
 TEST_F(LazyDynamicShapesTest2, InplaceViewon3d) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2, C = 3, D = 4, H = 5, W = 6;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -124,9 +129,7 @@ TEST_F(LazyDynamicShapesTest2, InplaceViewon3d) {
 }
 
 TEST_F(LazyDynamicShapesTest2, InplaceViewonChlast) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2, C = 3, H = 4, W = 5;
   std::vector<int> in_sizes{8, 10, 12, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -164,6 +167,7 @@ TEST_F(LazyDynamicShapesTest2, DISABLED_InplaceViewonChlast3d) {
 }
 
 TEST_F(LazyDynamicShapesTest2, DynamicShapeSimple_min_max_current) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   bool min_max_enabled = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT);
   if (!min_max_enabled) {
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_MIN_MAX_AS_CURRENT, "1", 1);
@@ -215,6 +219,7 @@ TEST_F(LazyDynamicShapesTest2, DynamicShapeSimple_min_max_current) {
 }
 
 TEST_F(LazyDynamicShapesTest2, VerifyPolicyEnum) {
+  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   {
     SET_ENV_FLAG_NEW(PT_HPU_DYNAMIC_MAX_POLICY_ORDER, "1", 1);
     habana_helpers::DynamicBucketInfo bucket_info;
