@@ -95,6 +95,10 @@ TEST_F(LazyDynamicDualFallbackTest, ExpandTest2) {
 }
 
 TEST_F(LazyDynamicDualFallbackTest, DynamicBatchedNms) {
+  if (isGaudi3()) {
+    GTEST_SKIP()
+        << "Test skipped on Gaudi3 due to https://jira.habana-labs.com/browse/SW-182836";
+  }
   torch::manual_seed(0);
   // Generate random scores for each box
   std::vector<int> num_boxes{10, 12};
