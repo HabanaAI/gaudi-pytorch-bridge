@@ -1088,8 +1088,9 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
         return graph_changed
 
     class ColorGraph:
+        OUTPUT_COLOR = 0
+
         def __init__(self):
-            self.OUTPUT_COLOR = 0
             self.all_colors = set()
             self.partition_colors = set()
             self.output_colors = set()
@@ -1118,22 +1119,10 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
         def _update_internal_sets(self):
             for color in self.all_colors:
                 if color not in self._graph.keys():
-                    self.output_colors.add(color)
                     continue
                 if color not in self.partition_colors:
                     self.colors_to_remove.add(color)
                     continue
-
-        def _merge_outputs(self):
-            for output_color in self.output_colors:
-                for v in self._graph.values():
-                    if output_color in v:
-                        v.remove(output_color)
-                        v.add(self.OUTPUT_COLOR)
-                self.all_colors.remove(output_color)
-            self.output_colors = set()
-            self.output_colors.add(self.OUTPUT_COLOR)
-            self.all_colors.add(self.OUTPUT_COLOR)
 
         def _merge_non_partition_colors(self):
             for color in self.colors_to_remove:
@@ -1150,7 +1139,6 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
         def extract_new_partitions(self):
             logger.debug("Color graph (initial): \n%s", self)
             self._update_internal_sets()
-            self._merge_outputs()
             logger.debug("Color graph (replaced output): \n%s", self)
             self._merge_non_partition_colors()
             logger.debug("Color graph (partitions only): \n%s", self)
@@ -1193,6 +1181,8 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
             user_color = user.meta.get("merge_path_color")
             node_color = node.meta.get("merge_path_color")
             color_graph.add_node(user_color, node_color)
+        if not node.users:
+            color_graph.add_node(ColorGraph.OUTPUT_COLOR, node.meta.get("merge_path_color"))
 
     new_partitions_desc_list = color_graph.extract_new_partitions()
 
