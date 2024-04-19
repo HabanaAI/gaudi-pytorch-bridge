@@ -43,6 +43,29 @@ def test_slice_op():
         assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
+def test_slice_op_negative_index():
+    input_shapes = [[8, 31, 26], [8, 33, 22], [8, 36, 24]]
+
+    def raw_function(t1):
+        t = t1.relu()
+        tr = t[-3:, 0:5, 2:10]
+        t2 = tr.relu()
+        return t2
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+
+    for s in input_shapes:
+        # CPU
+        t1 = torch.randn(s)
+        result = raw_function(t1)
+        # HPU
+        t1_h = t1.to("hpu")
+        result_h = compiled_fn(t1_h)
+
+        assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
 def test_slice_op_positive_index():
     input_shapes = [[10, 20, 30], [20, 30, 40], [22, 30, 20]]
 

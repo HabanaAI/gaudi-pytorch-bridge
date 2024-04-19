@@ -481,7 +481,6 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t dim = 0, start = 0, end = 0, step = 0;
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(1), in_stack, org_stack_index_map, dim, dim_idx);
-  dim = at::maybe_wrap_dim(dim, self_size.size(), /*wrap_scalar=*/true);
   // get start
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(2),
@@ -492,7 +491,6 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
   // get end
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(3), in_stack, org_stack_index_map, end, end_idx);
-  end = self_size[dim] < end ? self_size[dim] : end;
   // get step
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(4),
@@ -500,12 +498,17 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
       org_stack_index_map,
       step,
       step_idx);
-  auto shape =
-      SliceOperator::compute_output_shape(self_size, dim, start, end, step);
+
+  // capture actual values
   mixed_indexes.push_back(std::make_pair(dim_idx, dim));
   mixed_indexes.push_back(std::make_pair(start_idx, start));
   mixed_indexes.push_back(std::make_pair(end_idx, end));
   mixed_indexes.push_back(std::make_pair(step_idx, step));
+
+  dim = at::maybe_wrap_dim(dim, self_size.size(), /*wrap_scalar=*/true);
+  end = self_size[dim] < end ? self_size[dim] : end;
+  auto shape =
+      SliceOperator::compute_output_shape(self_size, dim, start, end, step);
 
   // create shape tesnor
   auto slice_st_name = GetDynamicTensorName(
@@ -616,21 +619,24 @@ void SliceOperatorDS::UpdateDynamicInputs(
   {
     // patch Dim
     int64_t dim = 0;
-    if (mixed_list[0].at(0).first == LONG_MAX) {
+    if (mixed_list[0].at(0).first == LONG_MAX ||
+        mixed_list[0].at(0).first < 0) {
       dim = mixed_list[0].at(0).second;
     } else {
       dim = GetSymintValue(orig_stack, mixed_list[0].at(0).first);
     }
     // patch Start
     int64_t start = 0;
-    if (mixed_list[0].at(1).first == LONG_MAX) {
+    if (mixed_list[0].at(1).first == LONG_MAX ||
+        mixed_list[0].at(1).first < 0) {
       start = mixed_list[0].at(1).second;
     } else {
       start = GetSymintValue(orig_stack, mixed_list[0].at(1).first);
     }
     // patch end
     int64_t end = 0;
-    if (mixed_list[0].at(2).first == LONG_MAX) {
+    if (mixed_list[0].at(2).first == LONG_MAX ||
+        mixed_list[0].at(2).first < 0) {
       end = mixed_list[0].at(2).second;
     } else {
       end = GetSymintValue(orig_stack, mixed_list[0].at(2).first);

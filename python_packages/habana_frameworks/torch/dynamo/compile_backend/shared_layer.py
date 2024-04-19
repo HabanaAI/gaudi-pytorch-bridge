@@ -143,23 +143,6 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
             if isinstance(node.args[idx], bool):
                 return True
 
-    # workaround for: https://jira.habana-labs.com/browse/SW-162350
-    # Slice op is supported for dynamic shape in torch compile for positive parameters
-    # If end or start parameter is negative or LONG_MAX, Slice op will fallback if
-    # dynamic shape is enabled
-    if op_name == "slice" and is_dynamic:
-        # There are 3 optional int parameters: start, end, step
-        # Default values for all 3 parameters are supported in Slice DS (except LONG_MAX).
-        # Default values: start (0), end (LONG_MAX), step (1)
-        # LONG_MAX = 9223372036854775807
-        # If any of these parameters is negative or LONG_MAX, eager fallback will be enabled.
-        # step is always positive.
-        for args_current in node.args:
-            if isinstance(args_current, int) and (args_current < 0 or args_current == 9223372036854775807):
-                return True
-        # For other cases, Slice DS is supported.
-        return False
-
     # workaround for: https://jira.habana-labs.com/browse/SW-181805
     # The scatter_add op is not yet supported for dynamic shape in torch compile
     if op_name == "scatter_add" and is_dynamic:
