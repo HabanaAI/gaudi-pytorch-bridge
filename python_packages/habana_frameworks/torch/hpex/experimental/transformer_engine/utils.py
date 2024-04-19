@@ -187,3 +187,7 @@ class FP8BwdTensors:
     GRAD_OUTPUT3 = 2
     GRAD_OUTPUT4 = 3
     GRAD_OUTPUT5 = 4
+
+
+def is_gaudi3():
+    return htorch.hpu.get_device_name() == "GAUDI3"

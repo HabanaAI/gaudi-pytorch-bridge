@@ -12,4 +12,5 @@
 # was provided.
 
 """Module level PyTorch APIs"""
+from .attention import FusedAttention
 from .linear import Linear

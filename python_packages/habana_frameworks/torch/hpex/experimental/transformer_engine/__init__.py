@@ -14,4 +14,4 @@
 """Transformer Engine bindings for pyTorch"""
 from .distributed import checkpoint
 from .fp8 import fp8_autocast
-from .module import Linear
+from .module import FusedAttention, Linear

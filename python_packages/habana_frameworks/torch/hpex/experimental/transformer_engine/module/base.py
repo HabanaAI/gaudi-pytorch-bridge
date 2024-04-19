@@ -468,7 +468,6 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         if not self.fp8_meta["in_activation_recompute_phase"]:
             # Non-recompute phase or no activation checkpointing run
             self.run_cnt += 1
-
         # Activation recomputation is used and this is the second forward phase.
         if self.fp8 and self.fp8_meta["in_activation_recompute_phase"]:
             get_old_fp8_meta_tensors_for_recompute(self.fp8_meta)
@@ -539,6 +538,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
 
         self.fp8_meta["name"] = self.name
         self.fp8_meta["run_cnt"] = self.run_cnt
+
         yield inp.contiguous() if inp is not None else None, self.fp8_meta["is_scale_update_required"]
 
         if self.fp8 and self.fp8_meta["in_activation_recompute_phase"]:

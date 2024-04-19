@@ -17,6 +17,7 @@ import numpy as np
 import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback
+from fp8_utils import simulateFp8Precision
 from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import (
     cast_from_fp8,
     cast_to_fp8,
@@ -28,7 +29,9 @@ from test_utils import (
     _is_simulator,
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
+    compare_tensors,
     is_gaudi1,
+    is_gaudi2,
     is_gaudi3,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
@@ -1294,3 +1297,528 @@ def test_gradient_checkpointing(fp8_format):
         res = model.subnet.fc.fp8_meta["scaling_fwd"].scale.cpu()
         optim.step()
         assert torch.allclose(res, ref)
+
+
+LNEG = -1e9
+
+
+# reference code from : tests/pytest_working/lazy/fused_ops/sdpa/test_sdpa_fp8.py and modified
+def _create_attention_mask_for_test(batch_size, q_heads, seq_len_N_t, seq_len_N_s, dtype, shape, float_mask=True):
+    attn_mask = torch.randint(0, 2, (seq_len_N_s,)).float()
+    if float_mask:
+        attn_mask = attn_mask.masked_fill(attn_mask == 0, LNEG).masked_fill(attn_mask == 1, float(0.0))
+    attn_mask = attn_mask.to(dtype)
+
+    if shape == "Bx1x1xN":
+        if q_heads == 0:
+            mask_shape = (batch_size, 1, seq_len_N_s)
+        else:
+            mask_shape = (batch_size, 1, 1, seq_len_N_s)
+        attn_mask = attn_mask.expand(mask_shape)
+    else:
+        if q_heads == 0:
+            mask_shape = (batch_size, seq_len_N_t, seq_len_N_s)
+        else:
+            mask_shape = (batch_size, q_heads, seq_len_N_t, seq_len_N_s)
+        attn_mask = attn_mask.expand(mask_shape)
+    return attn_mask
+
+
+def is_mqa(q, k):
+    mqa = False
+    dims = q.dim()
+    if dims == 4:
+        q_heads = q.shape[1]
+        kv_heads = k.shape[1]
+        mqa = (q_heads != kv_heads) and kv_heads == 1
+    return mqa
+
+
+def is_gqa(q, k):
+    gqa = False
+    dims = q.dim()
+    if dims == 4:
+        q_heads = q.shape[1]
+        kv_heads = k.shape[1]
+        gqa = (q_heads != kv_heads) and kv_heads != 1
+    return gqa
+
+
+def gaudi_llama_repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
+    """
+    Copied from repeat_kv: https://github.com/huggingface/transformers/blob/main/src/transformers/models/llama/modeling_llama.py
+    The only differences are:
+        - Append num_key_value_heads == 1 check as kv states can be broadcasted during matmuls so need to expand and reshape them.
+    This is the equivalent of torch.repeat_interleave(x, dim=1, repeats=n_rep). The hidden states go from (batch,
+    num_key_value_heads, seqlen, head_dim) to (batch, num_attention_heads, seqlen, head_dim)
+    """
+    batch, num_key_value_heads, slen, head_dim = hidden_states.shape
+    if n_rep == 1 or num_key_value_heads == 1:
+        return hidden_states
+    hidden_states = hidden_states[:, :, None, :, :].expand(batch, num_key_value_heads, n_rep, slen, head_dim)
+    return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
+
+
+def quantize(tensor, fp8_format):
+    fp8_dtype = None
+    if fp8_format == Format.E5M2:
+        fp8_dtype = torch.float8_e5m2
+    if fp8_format == Format.HYBRID:
+        fp8_dtype = torch.float8_e4m3fn
+    if fp8_dtype is None:
+        return tensor
+    t_amax = torch.max(torch.abs(tensor)).to(torch.float)
+    t_scale = fp8._default_sf_compute(t_amax, torch.tensor(1.0), fp8_format.value.max_fwd, 0)
+    t_scale_inv = 1.0 / t_scale
+    t = simulateFp8Precision(tensor * t_scale, fp8_dtype) * t_scale_inv
+    return t
+
+
+def vanilla_attention_impl_for_test(
+    query, key, value, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None, is_amax_s=False, fp8_format=None
+):
+
+    sqrt_dim_head = query.shape[-1] ** 0.5
+    scores = torch.matmul(query, key.transpose(-2, -1))
+    if scale == None:
+        scores = scores / sqrt_dim_head
+    else:
+        scores = scores * scale
+
+    if attn_mask is not None:
+        if attn_mask.dtype == torch.bool:
+            scores.masked_fill_(attn_mask == False, -float("inf"))
+        else:
+            scores = scores + attn_mask
+    elif is_causal:
+        seq_len_N_t = query.shape[-2]
+        seq_len_N_s = key.shape[-2]
+        attn_mask = torch.ones(seq_len_N_t, seq_len_N_s, dtype=torch.bool).tril(diagonal=0)
+        scores.masked_fill_(attn_mask == False, LNEG)
+
+    weight = torch.nn.functional.softmax(scores, dim=-1)
+    weight = quantize(weight, fp8_format)
+    fwd_out = torch.matmul(weight, value)
+
+    if is_amax_s:
+        return fwd_out, torch.max(torch.abs(weight)).to(torch.float32)
+    else:
+        return fwd_out, None
+
+
+class VanillaAttnFunc(torch.autograd.Function):
+    @staticmethod
+    def forward(
+        ctx,
+        query,
+        key,
+        value,
+        attn_mask=None,
+        dropout_p=0.0,
+        is_causal=False,
+        scale=None,
+        is_amax_s=False,
+        fp8_format=None,
+    ):
+        query = query.detach().requires_grad_()
+        key = key.detach().requires_grad_()
+        value = value.detach().requires_grad_()
+        ctx.query, ctx.key, ctx.value = query, key, value
+        with torch.enable_grad():
+            ctx.out, _ = vanilla_attention_impl_for_test(
+                query, key, value, attn_mask, dropout_p, is_causal, scale, is_amax_s, fp8_format
+            )
+        return ctx.out.detach(), _
+
+    @staticmethod
+    def backward(ctx, dout, *args):
+        OVERRIDE_TE_SDPA_DOUT_PATH = os.getenv("PT_TE_OVERRIDE_SDPA_DOUT", "")
+        if OVERRIDE_TE_SDPA_DOUT_PATH:
+            print(f"Overriding VanillaAttnFunc dout with {OVERRIDE_TE_SDPA_DOUT_PATH}")
+            dout = torch.load(OVERRIDE_TE_SDPA_DOUT_PATH).to("cpu")
+        torch.autograd.backward(ctx.out, dout)
+        return ctx.query.grad, ctx.key.grad, ctx.value.grad, None, None, None, None, None
+
+
+@pytest.mark.parametrize(
+    "use_attn_mask",
+    (False,),
+    ids=lambda use_attn_mask: f"use_attn_mask-{use_attn_mask}",
+)
+@pytest.mark.parametrize(
+    "is_causal",
+    (True,),
+    ids=lambda is_causal: f"is_causal-{is_causal}",
+)
+@pytest.mark.parametrize(
+    "recompute",
+    (False,),
+    ids=lambda recompute: f"recompute-{recompute}",
+)
+@pytest.mark.parametrize(
+    "softmax_mode",
+    ("fast",),
+    ids=lambda softmax_mode: f"softmax_mode-{softmax_mode}",
+)
+@pytest.mark.parametrize(
+    "dtype",
+    (torch.bfloat16,),
+    ids=lambda dtype: f"dtype-{dtype}",
+)
+@pytest.mark.parametrize(
+    "enable_act_ckpt",
+    (
+        True,
+        False,
+    ),
+    ids=lambda enable_act_ckpt: f"enable_act_ckpt-{enable_act_ckpt}",
+)
+@pytest.mark.parametrize(
+    "fp8_format",
+    (
+        None,
+        Format.E5M2,
+        Format.HYBRID,
+    ),
+    ids=lambda fp8_format: f"fp8_format-{fp8_format}",
+)
+@pytest.mark.xfail(pytest.mode in ["compile", "eager"], reason="SW-189600 spda_fp8 support for eager")
+def test_te_fused_sdpa(
+    use_attn_mask,
+    is_causal,
+    recompute,
+    softmax_mode,
+    dtype,
+    enable_act_ckpt,
+    fp8_format,
+):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
+    if is_causal and use_attn_mask:
+        pytest.skip(reason="is_causal and use_attn_mask not supported together")
+    if softmax_mode == "fast" and is_causal == False:
+        pytest.skip(reason="In training, fast softmax is supported only in Triangular mask case")
+    if fp8_format == Format.E5M2:
+        pytest.xfail(reason="SW-189599 sdpa_fp8 support for E5M2")
+    if is_gaudi2() and fp8_format == Format.HYBRID:
+        pytest.xfail(reason="SW-189601 [G2] spda_fp8 support for HYBRID")
+
+    from contextlib import nullcontext
+
+    from habana_frameworks.torch.hpex.experimental.transformer_engine.distributed import activation_checkpointing
+    from torch.utils.checkpoint import checkpoint
+
+    fp8_enabled = fp8_format is not None
+    fp8_recipe = DelayedScaling(fp8_format=fp8_format if fp8_format is not None else Format.E5M2)
+
+    torch.manual_seed(1234567)
+
+    grad_dtype = dtype
+    rtol = 1e-3
+    atol = 0.08
+    if fp8_enabled:
+        rtol = 1e-3
+        atol = 0.4
+        amax_o_atol = 2.0
+
+    attn_mask_shape = "Bx1x1xN"
+    mask_dtype = dtype
+
+    attn_scale = None
+
+    batch_size = 3
+    q_heads = 4
+    kv_heads = 4
+    seq_len_N_t = 16
+    seq_len_N_s = 32
+    head_dim_qk = 8
+    head_dim_v = 8
+    dropout_p = 0.0
+    # Multi head attn with q_heads
+    q_shape = (batch_size, q_heads, seq_len_N_t, head_dim_qk)
+    k_shape = (batch_size, kv_heads, seq_len_N_s, head_dim_qk)
+    v_shape = (batch_size, kv_heads, seq_len_N_s, head_dim_v)
+    fwd_out_shape = (batch_size, q_heads, seq_len_N_t, head_dim_v)
+
+    q = torch.randn(q_shape).to(dtype).detach()
+    k = torch.randn(k_shape).to(dtype).detach()
+    v = torch.randn(v_shape).to(dtype).detach()
+    g = torch.ones(fwd_out_shape).to(grad_dtype)
+
+    USE_REAL_DATA_PATH = os.getenv("USE_REAL_DATA", "")
+    if USE_REAL_DATA_PATH:
+        q = torch.load(f"{USE_REAL_DATA_PATH}_q_1.pt").to("cpu")
+        k = torch.load(f"{USE_REAL_DATA_PATH}_k_1.pt").to("cpu")
+        v = torch.load(f"{USE_REAL_DATA_PATH}_v_1.pt").to("cpu")
+        fwd_out_shape = (q.shape[0], q.shape[1], q.shape[2], v.shape[3], q.shape[4])
+        g = torch.ones(fwd_out_shape).to(grad_dtype)
+
+    scaleQInv_hpu = scaleKInv_hpu = scaleVInv_hpu = scaleSInv_hpu = q_scale_s = q_scale_o = None
+
+    q_t = q.clone().detach()
+    k_t = k.clone().detach()
+    v_t = v.clone().detach()
+    g_t = g.clone()
+
+    q_t = q_t.requires_grad_()
+    k_t = k_t.requires_grad_()
+    v_t = v_t.requires_grad_()
+
+    q_hpu = q.to("hpu").detach()
+    k_hpu = k.to("hpu").detach()
+    v_hpu = v.to("hpu").detach()
+    q_hpu = q_hpu.requires_grad_()
+    k_hpu = k_hpu.requires_grad_()
+    v_hpu = v_hpu.requires_grad_()
+    g_hpu = g.to("hpu")
+
+    if enable_act_ckpt:
+        q_hpu_ref = q.to("hpu").detach()
+        k_hpu_ref = k.to("hpu").detach()
+        v_hpu_ref = v.to("hpu").detach()
+        q_hpu_ref = q_hpu_ref.requires_grad_()
+        k_hpu_ref = k_hpu_ref.requires_grad_()
+        v_hpu_ref = v_hpu_ref.requires_grad_()
+        g_hpu_ref = g.to("hpu")
+
+    if use_attn_mask:
+        attn_mask = _create_attention_mask_for_test(
+            batch_size, q_heads, seq_len_N_t, seq_len_N_s, mask_dtype, attn_mask_shape, float_mask=True
+        )
+        attn_mask_hpu = attn_mask.to("hpu")
+    else:
+        attn_mask = None
+        attn_mask_hpu = None
+
+    if use_attn_mask:
+        assert is_causal == False, " use_attn_mask and is_causal can not be True at the same time"
+
+    # ------------------------------- Vanilla SDPA implementation on CPU for test----------------------------
+
+    is_mqa(q_t, k_t)  # Just for info: For printing on console.
+
+    if is_gqa(q_t, k_t):
+        num_key_value_groups_ = q_heads // kv_heads
+        k_t = gaudi_llama_repeat_kv(k_t, num_key_value_groups_)
+        v_t = gaudi_llama_repeat_kv(v_t, num_key_value_groups_)
+
+    # simulate fp8 precission on the inputs
+    q_t = quantize(q_t, fp8_format)
+    q_t.retain_grad()
+    k_t = quantize(k_t, fp8_format)
+    k_t.retain_grad()
+    v_t = quantize(v_t, fp8_format)
+    v_t.retain_grad()
+
+    O_ref, amax_s_ref = VanillaAttnFunc.apply(
+        q_t,
+        k_t,
+        v_t,
+        attn_mask,
+        dropout_p,
+        is_causal,
+        attn_scale,
+        True,
+    )
+    O_ref.backward(g_t)
+
+    print("amax_s_ref = ", amax_s_ref)
+    amax_o_ref = torch.max(O_ref).to(torch.float32)
+    print("amax_o_ref = ", amax_o_ref)
+
+    ht.core.mark_step()
+
+    def print_fp8_meta(fp8_meta):
+        return
+        print("fwd amax_history    ", fp8_meta["scaling_fwd"].amax_history)
+        print("fwd amax_history_idx", fp8_meta["scaling_fwd"].amax_history_index)
+        print("fwd scale           ", fp8_meta["scaling_fwd"].scale)
+        print("fwd scale_inv       ", fp8_meta["scaling_fwd"].scale_inv)
+        print("hbd amax_history    ", fp8_meta["scaling_hybrid"].amax_history)
+        print("hbd amax_history_idx", fp8_meta["scaling_hybrid"].amax_history_index)
+        print("hbd scale           ", fp8_meta["scaling_hybrid"].scale)
+        print("hbd scale_inv       ", fp8_meta["scaling_hybrid"].scale_inv)
+        print("bwd amax_history    ", fp8_meta["scaling_bwd"].amax_history)
+        print("bwd amax_history_idx", fp8_meta["scaling_bwd"].amax_history_index)
+        print("bwd scale           ", fp8_meta["scaling_bwd"].scale)
+        print("bwd scale_inv       ", fp8_meta["scaling_bwd"].scale_inv)
+
+    def compare_fp8_meta(fp8_meta, fp8_meta_ref, fp8_format):
+        if fp8_format == None:
+            return
+        assert torch.equal(fp8_meta["scaling_fwd"].amax_history, fp8_meta_ref["scaling_fwd"].amax_history)
+        assert torch.equal(fp8_meta["scaling_fwd"].amax_history_index, fp8_meta_ref["scaling_fwd"].amax_history_index)
+        assert torch.equal(fp8_meta["scaling_fwd"].scale, fp8_meta_ref["scaling_fwd"].scale)
+        assert torch.equal(fp8_meta["scaling_fwd"].scale_inv, fp8_meta_ref["scaling_fwd"].scale_inv)
+        if fp8_format == Format.HYBRID:
+            assert torch.equal(fp8_meta["scaling_hybrid"].amax_history, fp8_meta_ref["scaling_hybrid"].amax_history)
+            assert torch.equal(
+                fp8_meta["scaling_hybrid"].amax_history_index, fp8_meta_ref["scaling_hybrid"].amax_history_index
+            )
+            assert torch.equal(fp8_meta["scaling_hybrid"].scale, fp8_meta_ref["scaling_hybrid"].scale)
+            assert torch.equal(fp8_meta["scaling_hybrid"].scale_inv, fp8_meta_ref["scaling_hybrid"].scale_inv)
+        compare_tensors(
+            fp8_meta["scaling_bwd"].amax_history.cpu(),
+            fp8_meta_ref["scaling_bwd"].amax_history.cpu(),
+            atol=atol,
+            rtol=rtol,
+        )
+        assert torch.equal(fp8_meta["scaling_bwd"].amax_history_index, fp8_meta_ref["scaling_bwd"].amax_history_index)
+        assert torch.equal(fp8_meta["scaling_bwd"].scale, fp8_meta_ref["scaling_bwd"].scale)
+        assert torch.equal(fp8_meta["scaling_bwd"].scale_inv, fp8_meta_ref["scaling_bwd"].scale_inv)
+
+    # ----------------------------------HPU Fused SDPA attention---------------------------------------------
+
+    class AttentionSubnet(torch.nn.Module):
+        def __init__(self, scale, attention_dropout, enable_recompute, enable_act_ckpt):
+            super(AttentionSubnet, self).__init__()
+            self.activation_checkpointing = enable_act_ckpt
+            self.sdpa = te.FusedAttention(
+                scale=scale, attention_dropout=attention_dropout, enable_recompute=enable_recompute
+            )
+
+        def forward(self, *args):
+            if self.activation_checkpointing:
+                x = checkpoint(self.sdpa.__call__, *args, use_reentrant=True)
+            else:
+                x = self.sdpa(*args)
+            return x
+
+    model = AttentionSubnet(
+        scale=attn_scale, attention_dropout=dropout_p, enable_recompute=recompute, enable_act_ckpt=enable_act_ckpt
+    )
+    if enable_act_ckpt:
+        model_ref = AttentionSubnet(
+            scale=attn_scale, attention_dropout=dropout_p, enable_recompute=recompute, enable_act_ckpt=False
+        )
+    with te.fp8_autocast(enabled=fp8_enabled, fp8_recipe=fp8_recipe):
+        # Call fwd/bwd once for the measurements step
+        with activation_checkpointing() if enable_act_ckpt else nullcontext():
+            # print("TEST FWD")
+            O_hpu = model(
+                q_hpu,
+                k_hpu,
+                v_hpu,
+                attn_mask_hpu,
+                is_causal,
+                softmax_mode,
+            )
+            # print("-- after 1st fwd")
+            print_fp8_meta(model.sdpa.fp8_meta)
+            if enable_act_ckpt:
+                # print("REF FWD")
+                O_hpu_ref = model_ref(
+                    q_hpu_ref,
+                    k_hpu_ref,
+                    v_hpu_ref,
+                    attn_mask_hpu,
+                    is_causal,
+                    softmax_mode,
+                )
+                print_fp8_meta(model_ref.sdpa.fp8_meta)
+                compare_fp8_meta(model.sdpa.fp8_meta, model_ref.sdpa.fp8_meta, fp8_format)
+
+                # print("REF BWD")
+                O_hpu_ref.backward(g_hpu_ref)
+                print_fp8_meta(model.sdpa.fp8_meta)
+            # print("-- after 1st bwd")
+            # print("TEST BWD")
+            O_hpu.backward(g_hpu)
+            print_fp8_meta(model.sdpa.fp8_meta)
+            if enable_act_ckpt:
+                compare_fp8_meta(model.sdpa.fp8_meta, model_ref.sdpa.fp8_meta, fp8_format)
+
+        # Call fwd/bwd again to use correct scales
+        q_hpu = q.to("hpu").detach()
+        k_hpu = k.to("hpu").detach()
+        v_hpu = v.to("hpu").detach()
+        q_hpu = q_hpu.requires_grad_()
+        k_hpu = k_hpu.requires_grad_()
+        v_hpu = v_hpu.requires_grad_()
+        if enable_act_ckpt:
+            q_hpu_ref = q.to("hpu").detach()
+            k_hpu_ref = k.to("hpu").detach()
+            v_hpu_ref = v.to("hpu").detach()
+            q_hpu_ref = q_hpu_ref.requires_grad_()
+            k_hpu_ref = k_hpu_ref.requires_grad_()
+            v_hpu_ref = v_hpu_ref.requires_grad_()
+        with activation_checkpointing() if enable_act_ckpt else nullcontext():
+            # print("TEST FWD")
+            O_hpu = model(
+                q_hpu,
+                k_hpu,
+                v_hpu,
+                attn_mask_hpu,
+                is_causal,
+                softmax_mode,
+            )
+            # print("-- after 2nd fwd")
+            print_fp8_meta(model.sdpa.fp8_meta)
+            if enable_act_ckpt:
+                # print("REF FWD")
+                O_hpu_ref = model_ref(
+                    q_hpu_ref,
+                    k_hpu_ref,
+                    v_hpu_ref,
+                    attn_mask_hpu,
+                    is_causal,
+                    softmax_mode,
+                )
+                print_fp8_meta(model_ref.sdpa.fp8_meta)
+                compare_fp8_meta(model.sdpa.fp8_meta, model_ref.sdpa.fp8_meta, fp8_format)
+
+                # print("REF BWD")
+                O_hpu_ref.backward(g_hpu_ref)
+                print_fp8_meta(model_ref.sdpa.fp8_meta)
+            # print("-- after 2st bwd")
+            # print("TEST BWD")
+            O_hpu.backward(g_hpu)
+            print_fp8_meta(model.sdpa.fp8_meta)
+            if enable_act_ckpt:
+                compare_fp8_meta(model.sdpa.fp8_meta, model_ref.sdpa.fp8_meta, fp8_format)
+
+    # ----------------------------------HPU Fused SDPA attention---------------------------------------------
+
+    ht.core.mark_step()
+
+    # ------------------------------- Test Results Comparison ----------------------------
+    O_hpu_c = O_hpu.detach().to("cpu")
+    q_grad_hpu_c = q_hpu.grad.detach().to("cpu")
+    k_grad_hpu_c = k_hpu.grad.detach().to("cpu")
+    v_grad_hpu_c = v_hpu.grad.detach().to("cpu")
+
+    if enable_act_ckpt:
+        O_hpu_ref_c = O_hpu_ref.detach().to("cpu")
+        q_grad_hpu_ref_c = q_hpu_ref.grad.detach().to("cpu")
+        k_grad_hpu_ref_c = k_hpu_ref.grad.detach().to("cpu")
+        v_grad_hpu_ref_c = v_hpu_ref.grad.detach().to("cpu")
+
+    print("Vanilla SDPA FWD Ref vs FSDPA match? = ", torch.allclose(O_ref, O_hpu_c, rtol=rtol, atol=atol))
+    print("\n")
+    print("Max diff Vanilla SDPA FWD Ref vs FSDPA = ", torch.max(torch.abs(O_ref - O_hpu_c)))
+
+    compare_tensors(O_ref, O_hpu_c, atol=atol, rtol=rtol)
+    print("Max diff Vanilla SDPA Q_GRAD Ref vs FSDPA = ", torch.max(torch.abs(q_t.grad - q_grad_hpu_c)))
+    compare_tensors(q_t.grad, q_grad_hpu_c, atol=14, rtol=rtol)
+    print("Max diff Vanilla SDPA K_GRAD Ref vs FSDPA = ", torch.max(torch.abs(k_t.grad - k_grad_hpu_c)))
+    compare_tensors(k_t.grad, k_grad_hpu_c, atol=14, rtol=rtol)
+    print("Max diff Vanilla SDPA V_GRAD Ref vs FSDPA = ", torch.max(torch.abs(v_t.grad - v_grad_hpu_c)))
+    compare_tensors(v_t.grad, v_grad_hpu_c, atol=atol, rtol=rtol)
+    if enable_act_ckpt:
+        print("Max diff FSDPA FWD recompute vs FSDPA FWD ref = ", torch.max(torch.abs(O_hpu_ref_c - O_hpu_c)))
+        assert torch.equal(O_hpu_c, O_hpu_ref_c)
+        print(
+            "Max diff FSDPA Q_GRAD recompute vs FSDPA Q_GRAD ref = ",
+            torch.max(torch.abs(q_grad_hpu_ref_c - q_grad_hpu_c)),
+        )
+        compare_tensors(q_grad_hpu_c, q_grad_hpu_ref_c, atol=atol, rtol=rtol)
+        print(
+            "Max diff FSDPA K_GRAD recompute vs FSDPA K_GRAD ref = ",
+            torch.max(torch.abs(k_grad_hpu_ref_c - k_grad_hpu_c)),
+        )
+        compare_tensors(k_grad_hpu_c, k_grad_hpu_ref_c, atol=atol, rtol=rtol)
+        print(
+            "Max diff FSDPA V_GRAD recompute vs FSDPA V_GRAD ref = ",
+            torch.max(torch.abs(v_grad_hpu_ref_c - v_grad_hpu_c)),
+        )
+        compare_tensors(v_grad_hpu_c, v_grad_hpu_ref_c, atol=atol, rtol=rtol)
