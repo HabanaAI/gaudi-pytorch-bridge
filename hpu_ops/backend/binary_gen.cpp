@@ -295,43 +295,28 @@ void BinaryWithAlpha::AddNode(
   const auto& alpha = filledParams->alpha;
   const auto& mode = filledParams->mode;
 
-  // binary_with_alpha_fwd* do not support i8 and u8, so we use
-  // binary_with_alpha_fwd_i16.
-  switch (result_type) {
-    case c10::ScalarType::Char:
-    case c10::ScalarType::Byte:
-    case c10::ScalarType::Bool:
-      result_type = c10::ScalarType::Short;
-      break;
-    default:
-      break;
-  }
-
   std::vector<synTensor> inputs{syn_in(SELF_INDEX), syn_in(OTHER_INDEX)};
   std::string guid{guid_};
 
-  if ((isAlphaIntegralType ? alpha.i : alpha.f) == 1) {
-    std::string opName;
-    switch (mode) {
-      case BINARY_WITH_ALPHA_MODE_ADD:
-        opName = "add";
-        break;
-      case BINARY_WITH_ALPHA_MODE_RSUB:
-        // RSUB uses SUB kernel, but with reversed inputs
-        inputs = {syn_in(OTHER_INDEX), syn_in(SELF_INDEX)};
-        [[fallthrough]];
-      case BINARY_WITH_ALPHA_MODE_SUB:
-        opName = "sub";
-        break;
-      default:
-        opName = {};
+  if (GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER) {
+    if ((isAlphaIntegralType ? alpha.i : alpha.f) == 1) {
+      std::string opName;
+      switch (mode) {
+        case BINARY_WITH_ALPHA_MODE_ADD:
+          opName = "add";
+          break;
+        case BINARY_WITH_ALPHA_MODE_RSUB:
+          // RSUB uses SUB kernel, but with reversed inputs
+          inputs = {syn_in(OTHER_INDEX), syn_in(SELF_INDEX)};
+          [[fallthrough]];
+        case BINARY_WITH_ALPHA_MODE_SUB:
+          opName = "sub";
+          break;
+        default:
+          opName = {};
+      }
+      guid = get_guid_with_precision(opName, result_type);
     }
-    guid = get_guid_with_precision(opName, result_type);
-  }
-  if ((isAlphaIntegralType ? alpha.i : alpha.f) != 1 &&
-      result_type == c10::ScalarType::Short) {
-    std::string opName = "binary_with_alpha_fwd";
-    guid = get_guid_with_precision(opName, result_type);
   }
   auto op = BuildOp(
       graph,
