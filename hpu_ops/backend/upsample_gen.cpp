@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,6 +12,8 @@
  */
 
 #include "backend/synapse_helpers/layout_utils.h"
+#include "generated/backend/_upsample_nearest_exact1d.h"
+#include "generated/backend/_upsample_nearest_exact1d_backward.h"
 #include "generated/backend/upsample_linear1d.h"
 #include "generated/backend/upsample_linear1d_backward.h"
 #include "generated/backend/upsample_nearest1d.h"
@@ -432,7 +434,7 @@ OutputMetaDataVector UpsampleNearest3DBwdMeta(const at::Stack& stack) {
   return {meta};
 }
 
-enum modes { nearest, linear, bicubic };
+enum modes { nearest, nearest_exact, linear, bicubic };
 
 // Custom FillParams function
 std::shared_ptr<void> FillResizeParams(
@@ -446,26 +448,37 @@ std::shared_ptr<void> FillResizeParams(
     double scale_d,
     bool align_corner) {
   PARAMS_STUB(ns_ResizeKernel::Params);
-  params->nearestMode = ResizeNearestMode_t::FLOOR;
-  if (upsample_mode == nearest) {
-    params->mode = ResizeInterpolationMode_t::RESIZE_INTER_NEAREST;
-  } else if (upsample_mode == linear) {
-    params->mode = ResizeInterpolationMode_t::RESIZE_INTER_LINEAR;
-  } else if (upsample_mode == bicubic) {
-    params->mode = ResizeInterpolationMode_t::RESIZE_INTER_CUBIC;
-    params->nearestMode = ResizeNearestMode_t::ROUND_DEFAULT;
-    params->cubicCoeffA =
-        -0.75; // As mentioned in TPC guide, value of cubicCoeffA used for cubic
-               // interpolation is -0.75.
-  }
   params->excludeOutside = false;
-  if (upsample_mode != nearest) {
-    params->coordTransMode = align_corner
-        ? ResizeCoordinateTransformationMode_t::ALIGN_CORNERS_MODE
-        : ResizeCoordinateTransformationMode_t::PYTORCH_HALF_PIXEL_MODE;
-  } else {
-    params->coordTransMode =
-        ResizeCoordinateTransformationMode_t::ASYMMETRIC_MODE;
+  switch (upsample_mode) {
+    case nearest:
+      params->mode = ResizeInterpolationMode_t::RESIZE_INTER_NEAREST;
+      params->nearestMode = ResizeNearestMode_t::FLOOR;
+      params->coordTransMode =
+          ResizeCoordinateTransformationMode_t::ASYMMETRIC_MODE;
+      break;
+    case nearest_exact:
+      params->mode = ResizeInterpolationMode_t::RESIZE_INTER_NEAREST;
+      params->nearestMode = ResizeNearestMode_t::ROUND_DEFAULT;
+      params->coordTransMode =
+          ResizeCoordinateTransformationMode_t::ASYMMETRIC_MODE;
+      break;
+    case linear:
+      params->mode = ResizeInterpolationMode_t::RESIZE_INTER_LINEAR;
+      params->nearestMode = ResizeNearestMode_t::FLOOR;
+      params->coordTransMode = align_corner
+          ? ResizeCoordinateTransformationMode_t::ALIGN_CORNERS_MODE
+          : ResizeCoordinateTransformationMode_t::PYTORCH_HALF_PIXEL_MODE;
+      break;
+    case bicubic:
+      params->mode = ResizeInterpolationMode_t::RESIZE_INTER_CUBIC;
+      params->nearestMode = ResizeNearestMode_t::ROUND_DEFAULT;
+      params->coordTransMode = align_corner
+          ? ResizeCoordinateTransformationMode_t::ALIGN_CORNERS_MODE
+          : ResizeCoordinateTransformationMode_t::PYTORCH_HALF_PIXEL_MODE;
+      params->cubicCoeffA =
+          -0.75; // As mentioned in TPC guide, value of cubicCoeffA used for
+                 // cubic interpolation is -0.75.
+      break;
   }
   if (!out_size.isNone()) {
     params->useScales = false;
@@ -993,6 +1006,66 @@ void UpsampleNearest1DBwdOperator::AddNode(
       this,
       graph,
       nearest, /*upsample_mode*/
+      false, /*isForward*/
+      {syn_in(0)},
+      out_size,
+      align_corners,
+      scales,
+      scale_w,
+      1.0 /*scale_h*/,
+      1.0 /*scale_d*/,
+      meta,
+      self_tensor);
+  syn_out(0) = std::move(result.at(0));
+}
+// AddNode FWD 1D Nearest Exact function
+void UpsampleNearestExact1DFwdOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto meta = UpsampleNearest1DFwdMeta(stack)[0];
+  auto self_tensor = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  bool align_corners = false;
+  auto scales = stack.at(2);
+  double scale_w = 1.0;
+  if (!scales.isNone()) {
+    scale_w =
+        scales.isScalar() ? scales.toDouble() : scales.toDoubleVector().at(0);
+  }
+  auto result = UpsampleCommonFunc(
+      this,
+      graph,
+      nearest_exact, /*upsample_mode*/
+      true, /*isForward*/
+      {syn_in(0)},
+      out_size,
+      align_corners,
+      scales,
+      scale_w,
+      1.0 /*scale_h*/,
+      1.0 /*scale_d*/,
+      meta,
+      self_tensor);
+  syn_out(0) = std::move(result.at(0));
+}
+// AddNode BWD 1D Nearest Exact function
+void UpsampleNearestExact1DBwdOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto meta = UpsampleNearest1DBwdMeta(stack)[0];
+  auto self_tensor = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  bool align_corners = false;
+  auto scales = stack.at(3);
+  double scale_w = 1.0;
+  if (!scales.isNone()) {
+    scale_w =
+        scales.isScalar() ? scales.toDouble() : scales.toDoubleVector().at(0);
+  }
+  auto result = UpsampleCommonFunc(
+      this,
+      graph,
+      nearest_exact, /*upsample_mode*/
       false, /*isForward*/
       {syn_in(0)},
       out_size,

@@ -215,6 +215,7 @@ set(hpu_ops_tests_src
   hpu_ops/upsample_bilinear2d.cpp
   hpu_ops/upsample_linear1d.cpp
   hpu_ops/upsample_nearest1d.cpp
+  hpu_ops/upsample_nearest_exact1d.cpp
   hpu_ops/upsample_nearest2d.cpp
   hpu_ops/upsample_nearest3d.cpp
   hpu_ops/util.cpp

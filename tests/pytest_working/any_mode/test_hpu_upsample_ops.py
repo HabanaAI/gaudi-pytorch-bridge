@@ -90,6 +90,15 @@ class TestHpuUpsample:
         shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest", dtype)
 
+    @pytest.mark.parametrize("shape_and_size", [((2, 3, 3), None), ((2, 3, 3), 6)], ids=format_tc)
+    @pytest.mark.parametrize("scale_factor", [None, [2]], ids=format_tc)
+    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
+    def test_upsample_nearest_exact1d(self, shape_and_size, scale_factor, variant, dtype):
+        if pytest.mode == "compile":
+            pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
+        shape, size = shape_and_size
+        TestHpuUpsample._common_test(variant, shape, size, scale_factor, None, False, "nearest-exact", dtype)
+
     @pytest.mark.parametrize("shape_and_size", [((2, 2, 3, 3), None), ((2, 2, 3, 3), (6, 6))], ids=format_tc)
     @pytest.mark.parametrize("scale_factor", [None, [1, 2]], ids=format_tc)
     @pytest.mark.parametrize("variant", ["fwd", "bwd"])
