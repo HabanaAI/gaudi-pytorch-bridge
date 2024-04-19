@@ -3519,7 +3519,8 @@ void HabanaLaunchOpPT::update_syn_launch_info(
       return;
     }
   }
-  HABANA_ASSERT(false, "No such tensor address found in launch info");
+  PT_BRIDGE_WARN(
+      "[UpdateSynLaunchInfo] No such tensor address found in launch info");
 }
 
 // call this function for recipe caching (graph/eager)
@@ -3535,10 +3536,29 @@ void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
           ConstantInformation::id_t const_id{
               habana::get_tensor_const_id(pt_tensor)};
           auto& constant_information = ConstantInformationValue();
+          auto info_exists = constant_information.DoesConstInfoExist(
+              const_id, ConstantInformation::key_t{cur_rargpsh->hashCode()});
+          if (!info_exists) {
+            uint64_t oldAddress = reinterpret_cast<uint64_t>(
+                pt_tensor.storage().data_ptr().get());
+            DeserializeConstSection(pt_tensor, cur_rargpsh->hashCode());
+            uint64_t newAddress = reinterpret_cast<uint64_t>(
+                pt_tensor.storage().data_ptr().get());
+            update_syn_launch_info(oldAddress, newAddress);
+          }
           auto checksum_and_recipe_checksum =
               constant_information.GetConstCheckSumForRecipe(
                   const_id,
                   ConstantInformation::key_t{cur_rargpsh->hashCode()});
+          PT_BRIDGE_DEBUG(
+              "Execute Synapse cache, key: ",
+              cur_rargpsh->hashCode(),
+              " const_id: ",
+              const_id,
+              " checksum on device: ",
+              checksum_and_recipe_checksum.const_checksum_,
+              " checksum for recipe: ",
+              checksum_and_recipe_checksum.const_checksum_for_recipe_);
           if (checksum_and_recipe_checksum.const_checksum_ !=
               checksum_and_recipe_checksum.const_checksum_for_recipe_) {
             uint64_t oldAddress = reinterpret_cast<uint64_t>(
@@ -3550,13 +3570,6 @@ void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
             constant_information.Insert(
                 const_id,
                 checksum_and_recipe_checksum.const_checksum_for_recipe_);
-            PT_BRIDGE_DEBUG(
-                "Tensor with const_id: ",
-                const_id,
-                " has moved data pointer for the data corresponding to checksum: ",
-                checksum_and_recipe_checksum.const_checksum_for_recipe_,
-                " for cache hit on key ",
-                cur_rargpsh->hashCode());
             uint64_t newAddress = reinterpret_cast<uint64_t>(
                 pt_tensor.storage().data_ptr().get());
             update_syn_launch_info(oldAddress, newAddress);

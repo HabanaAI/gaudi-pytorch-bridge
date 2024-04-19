@@ -340,10 +340,99 @@ static void getTensorSectionId(
   isInput = true;
 }
 
+void habana::HabanaLaunchOpPT::HandleChecksum(
+    at::Tensor& tensor,
+    size_t data_size,
+    bool checksum_found,
+    ConstantInformation::checksum_t checksum,
+    ConstantInformation::key_t key,
+    char* data_ptr,
+    size_t old_size,
+    int device_id) {
+  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  ConstantInformation::id_t const_id{tmeta->get_const_id()};
+  auto& constant_information = ConstantInformationValue();
+  if (!checksum_found) {
+    HandleTensorWithNewChecksum(
+        tensor,
+        data_size,
+        checksum,
+        ConstantInformation::key_t{key},
+        (char*)data_ptr,
+        old_size,
+        device_id);
+  } else if (constant_information.GetChecksumForId(const_id) == checksum) {
+    HandleTensorWithChecksumOnDevice(
+        const_id,
+        checksum,
+        ConstantInformation::key_t{cur_rargpsh->hashCode()});
+  } else {
+    HandleTensorWithExistingChecksumInCache(
+        const_id,
+        checksum,
+        ConstantInformation::key_t{cur_rargpsh->hashCode()},
+        tensor);
+  }
+}
+
+void habana::HabanaLaunchOpPT::DeserializeConstSection(
+    at::Tensor& tensor,
+    const size_t key) {
+  if (!IS_ENV_FLAG_DEFINED_NEW(PT_HPU_RECIPE_CACHE_CONFIG)) {
+    return;
+  }
+  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  TensorExtraMeta::set_const_tensor(tensor, true);
+  auto const_serializer = tmeta->get_const_section_data_serializer();
+  auto file_path =
+      const_serializer->getSerializedRecipeFullPath(tmeta->get_const_id(), key);
+  std::uintmax_t file_size = fs::file_size(file_path);
+  TensorExtraMeta::set_const_tensor(tensor, false);
+  if (file_size == 0) {
+    HandleTensorWithZeroSize(tensor, ConstantInformation::key_t{key});
+    return;
+  }
+  auto& device = habana::HPURegistrar::get_device();
+  auto device_id = device.id();
+  void* data{};
+  auto status = device.get_host_memory().malloc(&data, file_size);
+  HABANA_ASSERT(status == synSuccess, Logger::synStatusToStr(status));
+  const_serializer->deserializePerRecipe(
+      data, file_size, tmeta->get_const_id(), key);
+  ConstantInformation::checksum_t checksum{GetDataChecksum(data, file_size)};
+  auto old_size = tmeta->get_host_size();
+  ConstantInformation::id_t const_id{tmeta->get_const_id()};
+  auto& constant_information = ConstantInformationValue();
+  auto checksum_found =
+      constant_information.DoesCheckSumExist(const_id, checksum);
+  HandleChecksum(
+      tensor,
+      file_size,
+      checksum_found,
+      checksum,
+      ConstantInformation::key_t{key},
+      (char*)data,
+      old_size,
+      device_id);
+  device.get_host_memory().free(data);
+}
+
+void habana::HabanaLaunchOpPT::SerializeConstSection(
+    at::Tensor& tensor,
+    size_t section_size,
+    char* section_data_ptr,
+    const size_t key) {
+  if (!IS_ENV_FLAG_DEFINED_NEW(PT_HPU_RECIPE_CACHE_CONFIG)) {
+    return;
+  }
+  auto tmeta{habana::get_tensor_extra_meta(tensor)};
+  tmeta->get_const_section_data_serializer()->serializePerRecipe(
+      section_data_ptr, section_size, tmeta->get_const_id(), key);
+}
+
 void habana::HabanaLaunchOpPT::HandleTensorWithZeroSize(
-    std::shared_ptr<c10::IValue> src,
+    at::Tensor& tensor,
     ConstantInformation::key_t key) {
-  auto& tensor = src->toTensor();
   auto tmeta{get_tensor_extra_meta(tensor)};
   ConstantInformation::id_t const_id{tmeta->get_const_id()};
   ConstantInformation::checksum_t checksum{0};
@@ -353,19 +442,22 @@ void habana::HabanaLaunchOpPT::HandleTensorWithZeroSize(
   at::DataPtr data = tensor.storage().allocator()->allocate(0);
   auto old_data_ptr = tensor.storage().set_data_ptr(std::move(data));
   tensor.storage().set_nbytes(0);
-  ivalue_to_tensor_info_map[src]->set_buffer(
-      (void*)(tensor.storage().data_ptr().get()));
+}
+
+void habana::HabanaLaunchOpPT::UpdateTensorInfoMap(
+    std::shared_ptr<c10::IValue> src,
+    void* ptr) {
+  ivalue_to_tensor_info_map[src]->set_buffer(ptr);
 }
 
 void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
-    std::shared_ptr<c10::IValue> src,
+    at::Tensor& tensor,
     size_t section_size,
     ConstantInformation::checksum_t checksum,
     ConstantInformation::key_t key,
     char* section_data_ptr,
     size_t old_size,
     int device_id) {
-  auto& tensor = src->toTensor();
   auto tmeta{get_tensor_extra_meta(tensor)};
   ConstantInformation::id_t const_id{tmeta->get_const_id()};
   // reallocation is required if old_size is not same as section size
@@ -376,6 +468,13 @@ void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
 
   if (checksum_if_exists.has_value() or (checksum != host_checksum)) {
     // Reallocation is required
+    auto smeta{habana::get_storage_extra_meta(tensor)};
+    synapse_helpers::layouts::MemoryPermutation permutation = {};
+    auto allow = false;
+    if (smeta) {
+      permutation = smeta->get_memory_permutation();
+      allow = smeta->get_dont_allow_permutation();
+    }
     tmeta->set_nbytes_inference(old_size);
     at::DataPtr data = tensor.storage().allocator()->allocate(section_size);
     PT_BRIDGE_DEBUG(
@@ -389,11 +488,14 @@ void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
         data.get());
     auto old_data_ptr = tensor.storage().set_data_ptr(std::move(data));
     tensor.storage().set_nbytes(section_size);
-    ivalue_to_tensor_info_map[src]->set_buffer(
-        (void*)(tensor.storage().data_ptr().get()));
     if (checksum_if_exists.has_value()) {
       constant_information.StorePrevDataPtr(
           const_id, std::move(old_data_ptr), checksum_if_exists.value());
+    }
+    if (smeta) {
+      auto new_extra_smeta{habana::get_storage_extra_meta(tensor)};
+      new_extra_smeta->set_memory_permutation(permutation);
+      new_extra_smeta->set_dont_allow_permutation(allow);
     }
   }
   constant_information.Insert(const_id, checksum);
@@ -470,13 +572,6 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
     PT_BRIDGE_DEBUG("tensor storage:: ", src.has_storage());
     if (src.has_storage()) {
       auto tmeta{get_tensor_extra_meta(src)};
-      auto smeta{habana::get_storage_extra_meta(src)};
-      synapse_helpers::layouts::MemoryPermutation permutation = {};
-      auto allow = false;
-      if (smeta) {
-        permutation = smeta->get_memory_permutation();
-        allow = smeta->get_dont_allow_permutation();
-      }
       PT_BRIDGE_DEBUG("tensor is_const_tensor:  ", tmeta->is_const_tensor());
       for (synapse_helpers::tensor& tensor : *(iter->second)) {
         if (tmeta->is_const_tensor()) {
@@ -553,45 +648,37 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
                 checksum_found,
                 " checksum: ",
                 checksum);
-            if (!checksum_found) {
               auto old_size = tensor.get_host_ptr_size();
-              HandleTensorWithNewChecksum(
-                  iter->first,
+              HandleChecksum(
+                  iter->first->toTensor(),
                   section_size,
+                  checksum_found,
                   checksum,
                   ConstantInformation::key_t{cur_rargpsh->hashCode()},
                   section_data_ptr,
                   old_size,
                   device_id);
-              if (smeta) {
-                auto new_extra_smeta{habana::get_storage_extra_meta(src)};
-                new_extra_smeta->set_memory_permutation(permutation);
-                new_extra_smeta->set_dont_allow_permutation(allow);
-              }
-            } else if (
-                constant_information.GetChecksumForId(const_id) == checksum) {
-              HandleTensorWithChecksumOnDevice(
-                  const_id,
-                  checksum,
-                  ConstantInformation::key_t{cur_rargpsh->hashCode()});
-            } else {
-              HandleTensorWithExistingChecksumInCache(
-                  const_id,
-                  checksum,
-                  ConstantInformation::key_t{cur_rargpsh->hashCode()},
-                  src);
-            }
+              UpdateTensorInfoMap(
+                  iter->first,
+                  (void*)(iter->first->toTensor().storage().data_ptr().get()));
 
-            constSectionIds.emplace_back(tensorSectionId);
-            status = synHostUnmap(device_id, section_data_ptr);
-            delete[] section_data_ptr;
-            HABANA_ASSERT(
-                status == synStatus::synSuccess,
-                Logger::synStatusToStr(status));
+              constSectionIds.emplace_back(tensorSectionId);
+              SerializeConstSection(
+                  src, section_size, section_data_ptr, cur_rargpsh->hashCode());
+              status = synHostUnmap(device_id, section_data_ptr);
+              delete[] section_data_ptr;
+              HABANA_ASSERT(
+                  status == synStatus::synSuccess,
+                  Logger::synStatusToStr(status));
           } else {
             HandleTensorWithZeroSize(
-                iter->first,
+                iter->first->toTensor(),
                 ConstantInformation::key_t{cur_rargpsh->hashCode()});
+            SerializeConstSection(
+                src, section_size, nullptr, cur_rargpsh->hashCode());
+            UpdateTensorInfoMap(
+                iter->first,
+                (void*)(iter->first->toTensor().storage().data_ptr().get()));
           }
         }
       }

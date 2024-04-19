@@ -24,6 +24,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
@@ -60,7 +61,13 @@ void RecipeCacheConfig::reload() {
 
     const std::array<std::function<void(std::string&)>, 3> env_var_setters = {
         [](std::string& val) {
-          SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, val.c_str(), 1);
+          auto rank_val = val;
+          if (habana_helpers::IsInferenceMode()) {
+            const char* s_rank = getenv("RANK") ? getenv("RANK") : "0";
+            auto rank = std::atoi(s_rank);
+            rank_val = rank_val + std::to_string(rank);
+          }
+          SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, rank_val.c_str(), 1);
         },
         [](std::string& val) {
           // parse if provided value is not empty

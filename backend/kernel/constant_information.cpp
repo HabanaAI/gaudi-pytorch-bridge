@@ -147,6 +147,22 @@ void ConstantInformation::StorePrevDataPtrImpl(
   HABANA_ASSERT(false, "No such checksum found in the map, const_id: ", id);
 }
 
+bool ConstantInformation::DoesConstInfoExist(const id_t id, key_t key) const {
+  auto checksum_iterator = const_checksum_map_.find(id);
+  if (checksum_iterator == const_checksum_map_.end()) {
+    return false;
+  }
+  // if id exists but recipe not found - that also should throw exception
+  for (auto& info : const_checksum_map_.at(id).infos_) {
+    for (auto& recipe : info.recipe_key_) {
+      if (recipe == key) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 ConstantInformation::ConstantChecksums ConstantInformation::
     GetConstCheckSumForRecipe(const id_t id, const key_t key) const {
   std::shared_lock lock(checksum_map_mtx_);

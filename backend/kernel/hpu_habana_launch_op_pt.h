@@ -639,12 +639,21 @@ class HabanaLaunchOpPT {
   // to find constant section ID for Synapse graph inputs only
   void PostCompilationStepForConstTensors(
       synapse_helpers::graph::recipe_handle& recipe);
-
+  void UpdateTensorInfoMap(std::shared_ptr<c10::IValue> src, void* ptr);
   void HandleTensorWithZeroSize(
-      std::shared_ptr<c10::IValue> src,
+      at::Tensor& tensor,
       ConstantInformation::key_t key);
+  void HandleChecksum(
+      at::Tensor& tensor,
+      size_t data_size,
+      bool checksum_found,
+      ConstantInformation::checksum_t checksum,
+      ConstantInformation::key_t key,
+      char* data_ptr,
+      size_t old_size,
+      int device_id);
   void HandleTensorWithNewChecksum(
-      std::shared_ptr<c10::IValue> src,
+      at::Tensor& tensor,
       size_t section_size,
       ConstantInformation::checksum_t checksum,
       ConstantInformation::key_t key,
@@ -660,6 +669,12 @@ class HabanaLaunchOpPT {
       ConstantInformation::id_t const_id,
       ConstantInformation::checksum_t checksum,
       ConstantInformation::key_t key);
+  void SerializeConstSection(
+      at::Tensor& tensor,
+      size_t section_size,
+      char* section_data_ptr,
+      const size_t key);
+  void DeserializeConstSection(at::Tensor& tensor, const size_t key);
   void EvictSynapseRecipe(size_t& dsi_bucket_id);
   void FlattenAndLinkInputTIVs(RecipeValueSpec& rv);
   void OrderInputs();

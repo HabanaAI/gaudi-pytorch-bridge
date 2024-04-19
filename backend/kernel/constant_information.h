@@ -116,6 +116,12 @@ struct ConstantInformation {
   bool DoesCheckSumExist(id_t id, checksum_t checksum) const;
 
   /**
+   * Checks if given constant id is stored, and has stored specific recipe
+   * details.
+   */
+  bool DoesConstInfoExist(id_t id, key_t key) const;
+
+  /**
    * Recovers checksum for specific constant id.
    *
    * @param id Checksum id

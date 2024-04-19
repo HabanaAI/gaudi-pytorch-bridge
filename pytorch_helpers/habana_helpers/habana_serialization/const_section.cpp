@@ -90,6 +90,16 @@ std::string ConstSectionDataSerialize::getSerializedFullPath(int const_id) {
       CONST_SECTION_DATA_SUFFIX;
 }
 
+std::string ConstSectionDataSerialize::getSerializedRecipeFullPath(
+    int const_id,
+    const size_t key) {
+  std::string path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
+  auto full_path = path + "/" + std::to_string(key) + "_" +
+      CONST_SECTION_DATA_PREFIX + std::to_string(const_id) +
+      CONST_SECTION_DATA_SUFFIX;
+  return full_path;
+}
+
 bool ConstSectionDataSerialize::fileExists(int const_id) {
   std::lock_guard<std::mutex> lock(m_mtx);
   struct stat buffer;
@@ -107,6 +117,36 @@ ConstSectionDataSerialize::ConstSectionDataSerialize() {
 
 bool ConstSectionDataSerialize::isSerialized(int const_id) {
   return m_isSerialized || fileExists(const_id);
+}
+
+void ConstSectionDataSerialize::serializePerRecipe(
+    void* data,
+    int data_size,
+    int const_id,
+    const size_t key) {
+  PT_CUSTOM_DEBUG(__func__, ": ", getSerializedRecipeFullPath(const_id, key))
+  std::ofstream outputFile(
+      getSerializedRecipeFullPath(const_id, key),
+      std::ios::out | std::ios::binary);
+  if (!outputFile) {
+    PT_CONST_SECTION_FATAL(
+        "Cannot open const section file directory for writing: ",
+        getSerializedRecipeFullPath(const_id, key));
+    return;
+  }
+
+  PT_CONST_SECTION_DEBUG(
+      __func__,
+      " Dumping tensor recipe data to disk: ",
+      getSerializedRecipeFullPath(const_id, key),
+      " size: ",
+      data_size);
+
+  // if section size is 0, data pointer will be null
+  if (data) {
+    outputFile.write(reinterpret_cast<const char*>(data), data_size);
+  }
+  outputFile.close();
 }
 
 void ConstSectionDataSerialize::serialize(
@@ -134,6 +174,39 @@ void ConstSectionDataSerialize::serialize(
   outputFile.write(reinterpret_cast<const char*>(data), data_size);
   outputFile.close();
   m_isSerialized = true;
+}
+
+void ConstSectionDataSerialize::deserializePerRecipe(
+    void* data,
+    int data_size,
+    int const_id,
+    const size_t key) {
+  PT_CUSTOM_DEBUG(__func__, ": ", getSerializedRecipeFullPath(const_id, key))
+  HABANA_ASSERT(
+      data,
+      "Got a nullptr for deserialize const section: ",
+      getSerializedRecipeFullPath(const_id, key));
+
+  std::ifstream inputFile(
+      getSerializedRecipeFullPath(const_id, key),
+      std::ios::in | std::ios::binary);
+  if (!inputFile) {
+    PT_CONST_SECTION_FATAL(
+        "Error opening const section file ",
+        getSerializedRecipeFullPath(const_id, key));
+  }
+
+  inputFile.seekg(0, std::ios::end);
+  std::streampos size = inputFile.tellg();
+  inputFile.seekg(0, std::ios::beg);
+
+  PT_CONST_SECTION_DEBUG(
+      "Loaded tensor host data from disk: ",
+      getSerializedRecipeFullPath(const_id, key),
+      " size: ",
+      data_size);
+  inputFile.read(reinterpret_cast<char*>(data), data_size);
+  inputFile.close();
 }
 
 void ConstSectionDataSerialize::deserialize(

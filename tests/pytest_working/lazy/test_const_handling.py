@@ -20,7 +20,7 @@ import torch.nn as nn
 
 # Fixture to set the environment variable
 @pytest.fixture
-def set_env_variable():
+def set_env_variable(request, arg=False):
     variable_name_weight_packing = "ENABLE_WEIGHT_PACKING_CONSTANT_FOLDING"
     original_value_weight_packing = os.environ.get(variable_name_weight_packing)
 
@@ -34,6 +34,11 @@ def set_env_variable():
     os.environ[variable_name_weight_packing] = "1"
     os.environ[variable_name_constant_folding] = "1"
     os.environ[variable_name_experimental_flags] = "1"
+
+    arg = request.param
+    if arg:
+        os.environ["PT_HPU_RECIPE_CACHE_CONFIG"] = "/tmp/cache,false,8192"
+        print("Enabled serialization of recipe on disk")
 
     # Yield to provide the value for the test
     yield "1"
@@ -54,7 +59,10 @@ def set_env_variable():
     else:
         del os.environ[variable_name_experimental_flags]
 
+    os.environ["PT_HPU_RECIPE_CACHE_CONFIG"] = ""
 
+
+@pytest.mark.parametrize("set_env_variable", [False], indirect=True)
 def test_same_graph_with_diff_const(set_env_variable):
     # Define the input tensor
     input_tensor = torch.randn(1, 3, 32, 32)  # Assuming input size of (batch_size, channels, height, width)
@@ -117,6 +125,7 @@ def test_same_graph_with_diff_const(set_env_variable):
     htcore.hpu_reset_env()
 
 
+@pytest.mark.parametrize("set_env_variable", [False], indirect=True)
 def test_same_const_across_recipes(set_env_variable):
     # Define input tensors
     input_tensor1 = torch.randn(1, 3, 64, 64)
@@ -182,6 +191,7 @@ def test_same_const_across_recipes(set_env_variable):
     htcore.hpu_reset_env()
 
 
+@pytest.mark.parametrize("set_env_variable", [False], indirect=True)
 def test_user_access_to_modified_tensor(set_env_variable):
     # Define input tensors
     input_tensor = torch.randn(1, 3, 32, 32)
@@ -222,6 +232,8 @@ def test_user_access_to_modified_tensor(set_env_variable):
     htcore.hpu_reset_env()
 
 
+# Define the parameterized fixture using pytest.mark.parametrize
+@pytest.mark.parametrize("set_env_variable", [True], indirect=True)
 def test_zero_sized_tensor(set_env_variable):
     class Model(nn.Module):
         def __init__(self):
@@ -271,9 +283,18 @@ def test_zero_sized_tensor(set_env_variable):
     output_hpu_cpu = output_hpu.to(cpu)
     htcore.mark_step()
     numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001)
+
+    with torch.no_grad():
+        output_repeat_hpu = model_hpu(input_tensor_hpu)
+
+    output_repeat_hpu_cpu = output_repeat_hpu.to(cpu)
+    numpy.testing.assert_allclose(
+        output_repeat_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001
+    )
     htcore.hpu_reset_env()
 
 
+@pytest.mark.parametrize("set_env_variable", [False], indirect=True)
 def test_same_param_two_models(set_env_variable):
     random_weights = torch.rand(32, 3, 3, 3)
     # First convolutional layer with 16 filters and a different bias

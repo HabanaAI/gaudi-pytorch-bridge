@@ -375,7 +375,9 @@ void habana_helpers::copy_data_to_host(
   auto tmeta{habana::get_tensor_extra_meta(src)};
   if (tmeta->has_valid_const_id()) {
     HABANA_ASSERT(
-        tmeta->get_host_ptr() != nullptr, "Host pointer can not be invalid");
+        tmeta->get_host_ptr() != nullptr,
+        "Host pointer can not be invalid for const id: ",
+        tmeta->get_const_id());
     std::memcpy(
         dst.data_ptr(), tmeta->get_host_ptr(), habana_helpers::GetNBytes(src));
     return;

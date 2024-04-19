@@ -68,10 +68,21 @@ class ConstSectionDataSerialize {
   virtual ~ConstSectionDataSerialize() = default;
 
   void serialize(void* data, int data_size, int const_id);
+  void serializePerRecipe(
+      void* data,
+      int data_size,
+      int const_id,
+      const size_t key);
   void deserialize(void* data, int data_size, int const_id);
+  void deserializePerRecipe(
+      void* data,
+      int data_size,
+      int const_id,
+      const size_t key);
   bool isSerialized(int const_id);
 
   std::string getSerializedFullPath(int const_id);
+  std::string getSerializedRecipeFullPath(int const_id, const size_t key);
 
  private:
   bool fileExists(int const_id);
