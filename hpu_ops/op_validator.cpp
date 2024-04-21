@@ -550,6 +550,8 @@ bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
       ValidateGuid(m_guid, inputs, outputs, params.get(), params_size);
 
   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
+    // This log line is used by the logging analysis tool. Please be cautious
+    // when changing.
     PT_OP_INFO(
         "Shared layer rejected op: ",
         m_opname,

@@ -129,6 +129,12 @@ void LoweringTask(
     std::optional<std::vector<std::vector<int64_t>>> output_shapes = {});
 } // namespace HabanaLaunchOpPipeline
 
+namespace OpInfo {
+std::string DumpOpInfo(
+    const at::OperatorName& opname,
+    const torch::jit::Stack& input_stack);
+} // namespace OpInfo
+
 // Forward declaration
 class PersistenceMarkerPassData;
 

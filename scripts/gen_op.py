@@ -276,7 +276,7 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
 
         ctxop = self._ctxop
         opname = ctxop.opname
-        opname = ctxop.opname.replace(".", "_")
+        var_opname = ctxop.opname.replace(".", "_")
 
         if ctxop.get_guid() is None:
             raise Exception(
@@ -318,7 +318,7 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
         ]
         constructor_args = ", ".join(constructor_args)
 
-        return f"static CheckNodeWithSharedLayerValidator validator_{opname}({constructor_args});\n"
+        return f"static CheckNodeWithSharedLayerValidator validator_{var_opname}({constructor_args});\n"
 
     def get_inputs_to_generate_macro(self, xs):
         return xs[0:1]

@@ -1612,6 +1612,23 @@ std::string DumpNodeOutputs(
   }
   return str;
 }
+} // namespace
+
+namespace OpInfo {
+std::string DumpPassInfo(
+    synapse_helpers::graph& graph,
+    const ShapeInfo::InferencePass& pass) {
+  if (graph.is_dynamic_graph()) {
+    if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
+      return "SIF_MIN ";
+    } else if (pass == ShapeInfo::InferencePass::MAX_SHAPE) {
+      return "SIF_MAX ";
+    } else if (pass == ShapeInfo::InferencePass::OUTPUT_SHAPE) {
+      return "SIF_OUTPUT ";
+    }
+  }
+  return "";
+}
 
 std::string DumpOpInfo(
     const at::OperatorName& opname,
@@ -1634,7 +1651,7 @@ std::string DumpOpInfo(
   }
   return out.str();
 }
-} // namespace
+} // namespace OpInfo
 
 void HabanaLaunchOpPT::validateOutputShapeDynamic(
     const HabanaOperatorPtr& HabanaKernel,
@@ -2130,7 +2147,12 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     }
 
     torch::jit::Stack input_stack = getStackForNode(node);
-    PT_OP_INFO("JIT_OP ", DumpOpInfo(op, input_stack));
+    // This log line is used by the logging analysis tool. Please be cautious
+    // when changing.
+    PT_OP_INFO(
+        "JIT_OP ",
+        OpInfo::DumpPassInfo(*syn_graph, m_map_shape.m_pass),
+        OpInfo::DumpOpInfo(op, input_stack));
 
     // If there is a "meta attribute" marked with attr::arg1, add the meta attr
     // value to stack for the ops to work with. At this point, only StridedView

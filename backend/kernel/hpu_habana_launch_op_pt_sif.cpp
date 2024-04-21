@@ -634,6 +634,9 @@ bool HabanaLaunchOpPT::RunHybridSif(
         create_stack_for_node(node, is_mapped_flag, val_to_ival_map);
     HABANA_ASSERT(
         is_mapped_flag, "Cannot proceed with unmapped input for ", op_name);
+    // This log line is used by the logging analysis tool. Please be cautious
+    // when changing.
+    PT_OP_INFO("JIT_OP SIF_OUTPUT ", OpInfo::DumpOpInfo(op, op_input_stack));
 
     // If there is a "meta attribute" marked with attr::arg1, add the meta attr
     // value to stack for the ops to work with. At this point, only StridedView

@@ -76,6 +76,30 @@ def _is_legacy_pt():
     return False
 
 
+def is_call_function_dynamic(node: torch.fx.Node, dynamic_graph: bool) -> bool:
+    """
+    This function dynamicity per call_function.
+    """
+
+    # early exit when the graph module is static
+    if not dynamic_graph:
+        return False
+
+    from torch._subclasses.fake_tensor import FakeTensor
+    from torch.fx.experimental.proxy_tensor import py_sym_types
+
+    is_dynamic = False
+    if node.op == "call_function":
+        meta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
+        if (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides) or isinstance(
+            meta_val, py_sym_types
+        ):
+            is_dynamic = True
+
+        logger.debug("Node %s dynamicity %s", node.name, is_dynamic)
+    return is_dynamic
+
+
 def is_module_dynamic(input_module: torch.fx.GraphModule) -> bool:
     """
     This function dynamicity per graph module.
@@ -964,6 +988,7 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
 
     for node in ctx.graph_module.graph.nodes:
         placement = None
+        dynamic_call_function = is_call_function_dynamic(node, ctx.is_dynamic) if node.op == "call_function" else False
         if node.op in ["placeholder", "output", "get_attr"]:
             placement = "eager"
         elif node.op == "call_function" and "to_copy" in node.target.__name__:
@@ -999,7 +1024,19 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         elif node.meta["output_device"].type == "cpu":
             placement = "eager"
 
-        logger.debug("Node '{}'(op='{}') placement: {}", node.name, node.op, placement)
+        if node.op == "call_function":
+            # This log line is used by the logging analysis tool. Please be cautious
+            # when changing.
+            logger.info(
+                "Node placement. Node: {} op: {} placement: {} target: {} dynamic: {}",
+                node.name,
+                node.op,
+                placement,
+                node.target,
+                dynamic_call_function,
+            )
+        else:
+            logger.info("Node placement. Node: {} op: {} placement: {}", node.name, node.op, placement)
 
         assert placement is not None
 

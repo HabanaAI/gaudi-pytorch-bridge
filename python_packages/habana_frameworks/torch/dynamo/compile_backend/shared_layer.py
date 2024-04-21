@@ -263,7 +263,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
 
         if check_for_default_fallback(op_name, node, is_dynamic):
             do_fallback = True
-            logger.debug("Fallback required - check_for_default_fallback. Node: ", node.target)
+            logger.debug("Fallback required - check_for_default_fallback. Target: %s", node.target)
         elif not check_for_default_op_support(op_name, node, is_dynamic):
             for arg in args:
                 arg_types.append(type(arg))
@@ -295,14 +295,13 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
                     )
                     if do_fallback:
                         logger.debug(
-                            "Fallback required - check_cpu_fallback_op. Node: ",
+                            "Fallback required - check_cpu_fallback_op. Target: %s",
                             node.target,
                         )
                 except Exception as e:
                     logger.debug(
-                        "Fallback required - Exception raised in check for fallback for op ",
+                        "Fallback required - Exception raised in check for fallback. Target: %s. Exception: %s",
                         node.target,
-                        ". Exception: ",
                         str(e),
                     )
                     do_fallback = True
@@ -310,8 +309,10 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
                 do_fallback = True
 
     if do_fallback:
-        logger.warn("Node: %s with meta: %s requires fallback", node, node.meta)
-        logger.warn("Node.args %s, Node.kwargs %s", args, kwargs)
+        # This log line is used by the logging analysis tool. Please be cautious
+        # when changing.
+        logger.warn("Fallback required. Node: %s Target: %s Meta: %s", node, node.target, node.meta)
+        logger.warn("Node.args: %s, Node.kwargs: %s", args, kwargs)
     logger.debug("Node: %s requires fallback: %s", node, do_fallback)
 
     assert (
