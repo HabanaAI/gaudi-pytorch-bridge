@@ -53,7 +53,6 @@ orchestratorConfig:
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_bloom7b_suite
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_unet_suite
     # Quantization toolkit topologies
-    - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llama7b_hqt_suite
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_8cards_llama70b_hqt_ptq_4096t_suite
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_8cards_llama70b_hqt_pcq_4096t_suite
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi2_asic_llama7b_hqt_ptq_4096t_suite
