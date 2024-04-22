@@ -11,19 +11,24 @@
 ###############################################################################
 
 import datetime
+import os
+import pickle
 import threading
 from collections import deque
 from functools import wraps
 from os import environ, path
-from typing import Generator, Optional, Union
+from typing import IO, Any, BinaryIO, Generator, Optional, Union
 
 import habana_frameworks.torch.hpu as ht
 import habana_frameworks.torch.hpu.random as rand_hpu
 import habana_frameworks.torch.utils.debug as htdebug
 import torch
+from habana_frameworks.torch.utils import _weights_only_unpickler
 from habana_frameworks.torch.utils.internal import is_lazy
 from torch.distributed.constants import default_pg_timeout
 from torch.functional import Tensor
+
+LAZY_DEFAULT_PROTOCOL = 4
 
 _name_stack = deque()
 _module_dict = dict()
@@ -368,3 +373,87 @@ def overwrite_torch_functions():
         )
 
     torch.random.fork_rng = wrap_fork_rng
+
+    # wrap torch.save for default to pickle protocol 4 for lazy mode
+    # This should be removed if upstream pytorch moved the default to
+    # pickle protocol 4.
+    # Refer https://github.com/pytorch/pytorch/issues/97772
+
+    save_orig = torch.save
+
+    @wraps(torch.save)
+    def wrap_save(
+        obj: object,
+        f: Union[str, os.PathLike, BinaryIO, IO[bytes]],
+        pickle_module: Any = pickle,
+        pickle_protocol: int = LAZY_DEFAULT_PROTOCOL,
+        _use_new_zipfile_serialization: bool = True,
+        _disable_byteorder_record: bool = False,
+    ) -> None:
+        save_orig(
+            obj=obj,
+            f=f,
+            pickle_module=pickle_module,
+            pickle_protocol=pickle_protocol,
+            _use_new_zipfile_serialization=_use_new_zipfile_serialization,
+            _disable_byteorder_record=_disable_byteorder_record,
+        )
+
+    # For the storage less backend tensor such as Lazy mode tensor,
+    # torch.save will use tensor.cpu().numpy() to getting a numpy
+    # array and pickle the data array. This needs pickle protocol 4
+    # for support tensors with size larger than 4GB. So we default
+    # to pickle protocol 4 for lazy mode
+    if is_lazy():
+        torch.save = wrap_save
+
+    # wrap torch.serialization._load for handling weights only
+    # unpickler for lazy mode pickle protocol 4
+    # This should be removed if upstream pytorch weights_only_unpickler
+    # support pickle protocol 4.
+    # Refer https://github.com/pytorch/pytorch/issues/118092
+
+    serialization_load_internal_orig = torch.serialization._load
+
+    @wraps(torch.serialization._load)
+    def wrap_serialization_load_internal(
+        zip_file, map_location, pickle_module, pickle_file="data.pkl", overall_storage=None, **pickle_load_args
+    ):
+        if pickle_module.__name__ == "torch._weights_only_unpickler":
+            pickle_module = _weights_only_unpickler
+        return serialization_load_internal_orig(
+            zip_file=zip_file,
+            map_location=map_location,
+            pickle_module=pickle_module,
+            pickle_file=pickle_file,
+            overall_storage=overall_storage,
+            **pickle_load_args
+        )
+
+    # Pickle protocol 4 is used by default for lazy mode.
+    # We need the weights_only_unpickler to support pickle protocol 4.
+    # So we have a lazy version of weights_only_unpickler.
+    if is_lazy():
+        torch.serialization._load = wrap_serialization_load_internal
+
+    # wrap torch.serialization._legacy_load for handling weights only
+    # unpickler for lazy mode pickle protocol 4
+    # This should be removed if upstream pytorch weights_only_unpickler
+    # support pickle protocol 4.
+    # Refer https://github.com/pytorch/pytorch/issues/118092
+
+    serialization_legacy_load_internal_orig = torch.serialization._legacy_load
+
+    @wraps(torch.serialization._legacy_load)
+    def wrap_serialization_legacy_load_internal(f, map_location, pickle_module, **pickle_load_args):
+        if pickle_module.__name__ == "torch._weights_only_unpickler":
+            pickle_module = _weights_only_unpickler
+        return serialization_legacy_load_internal_orig(
+            f=f, map_location=map_location, pickle_module=pickle_module, **pickle_load_args
+        )
+
+    # Pickle protocol 4 is used by default for lazy mode.
+    # We need the weights_only_unpickler to support pickle protocol 4.
+    # So we have a lazy version of weights_only_unpickler.
+    if is_lazy():
+        torch.serialization._legacy_load = wrap_serialization_legacy_load_internal
