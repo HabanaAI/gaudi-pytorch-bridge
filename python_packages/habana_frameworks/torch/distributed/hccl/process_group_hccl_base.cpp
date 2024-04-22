@@ -1108,10 +1108,45 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::gather(
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::scatter(
-    [[maybe_unused]] std::vector<at::Tensor>& /*outputTensors*/,
-    [[maybe_unused]] std::vector<std::vector<at::Tensor>>& /*inputTensors*/,
-    [[maybe_unused]] const ScatterOptions& /*opts*/) {
-  throw std::runtime_error("ProcessGroupHcclBase does not support scatter");
+    [[maybe_unused]] std::vector<at::Tensor>& outputTensors,
+    [[maybe_unused]] std::vector<std::vector<at::Tensor>>& inputTensors,
+    [[maybe_unused]] const ScatterOptions& opts) {
+  PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
+  static auto invalidArgument = [](const std::string& msg) {
+    TORCH_CHECK(false, "ProcessGroupHcclBase::scatter: " + msg);
+  };
+  std::vector<at::Tensor> inputs;
+  c10::intrusive_ptr<Work> work;
+  if (getRank() == opts.rootRank) {
+    TORCH_CHECK(inputTensors.size() == 1, "Requires a single element list");
+    TORCH_CHECK(
+        inputTensors[0].size() == static_cast<size_t>(getSize()),
+        "Input list should be same size as process group");
+    assertTypeAndSizesMatch(
+        invalidArgument,
+        inputTensors[0],
+        outputTensors[0].options(),
+        outputTensors[0].sizes());
+    inputs = inputTensors[0];
+    int numRanks = getSize();
+    for (int r = 0; r < numRanks; r++) {
+      if (r == opts.rootRank) {
+        outputTensors[0].copy_(inputs[r]);
+        std::vector<at::Tensor> outs;
+        work = initWork(outs);
+      } else {
+        std::vector<at::Tensor> sendTensor;
+        sendTensor.push_back(inputs[r]);
+        work = send(sendTensor, r, 0 /*tag*/);
+      }
+    }
+  } else {
+    TORCH_CHECK(inputTensors.size() == 0, "Requires empty input on non-root");
+    work = recv(outputTensors, opts.rootRank, 0 /*tag*/);
+  }
+  PT_DISTRIBUTED_END;
+  return work;
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter(
