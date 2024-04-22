@@ -14,8 +14,10 @@
 #include <fstream>
 #include <iostream>
 #include <mutex>
+#include <stdexcept>
 
 #include "backend/synapse_helpers/env_flags.h"
+#include "habana_helpers/logging.h"
 #include "serialize/export.h"
 #include "visualize.h"
 
@@ -118,7 +120,13 @@ void DumpEagerOrCompileGraph(
   std::stringstream ss;
   std::string folder = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
   ss << folder << "/" << graph_name << ".pbtxt";
-  DumpGraph(graph, ss.str());
+  try {
+    DumpGraph(graph, ss.str());
+  } catch (const std::runtime_error& e) {
+    std::stringstream errss;
+    errss << "Failure dumping graph: " << graph_name << " with error:\n";
+    PT_BRIDGE_WARN(errss.str(), e.what());
+  }
 }
 
 } // namespace visualize

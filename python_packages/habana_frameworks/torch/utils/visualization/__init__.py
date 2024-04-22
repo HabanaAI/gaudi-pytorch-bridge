@@ -10,23 +10,39 @@
 # ##############################################################################
 
 import logging
+from contextlib import contextmanager
 
 try:
     import pydot
 
-    from .visualization import graph_visualizer
-except ImportError:
-    logging.error("FX Graph visualization requires package pydot.\nRun pip install pydot")
-    from contextlib import contextmanager
+    from .visualization import GraphVisualizer
 
     @contextmanager
-    def graph_visualizer(*args, **kwargs):
-        class GraphVisualizer:
-            def __init__(self):
-                logging.error("Error importing package pydot. Dumping graphs won't have any effect")
+    def graph_visualizer(graph_module, active_stage, final_stage, disable):
+        visualizer = GraphVisualizer(active_stage=active_stage, final_stage=final_stage, disable=disable)
+        if not disable and not GraphVisualizer.was_graph_visualized:
+            visualizer.visualize_graph(graph_module, "before_passes")
+            GraphVisualizer.was_graph_visualized = True
+        yield visualizer
+        if not disable and visualizer.is_final_stage():
+            GraphVisualizer.update_graph_ordinal()
+            GraphVisualizer.was_graph_visualized = False
+
+except ImportError as err:
+
+    @contextmanager
+    def graph_visualizer(graph_module, active_stage, final_stage, disable):
+        class DummyGraphVisualizer:
+            def __init__(self, disable):
+                self.disable = disable
+                if not disable:
+                    logging.error(
+                        f"{err=}\nMissing FX Graph visualization required packages (pydot | protobuf).\nRun pip install pydot protobuf"
+                    )
 
             def visualize_graph(self, *args, **kwargs):
-                logging.info("Package pydot unavailable. Ommiting visualization")
+                if not self.disable:
+                    logging.info("Required packages unavailable. Ommiting visualization")
 
-        visualizer = GraphVisualizer()
+        visualizer = DummyGraphVisualizer(disable)
         yield visualizer

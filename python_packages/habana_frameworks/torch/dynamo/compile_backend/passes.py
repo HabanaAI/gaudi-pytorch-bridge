@@ -167,7 +167,10 @@ def optimize_graph(
     visualization_mode = bc.get_pt_hpu_graph_dump_mode()
     visualisation_enabled = visualization_mode in ["all", "compile", "compile_fx"]
     with graph_visualizer(
-        active_stage=stage, final_stage=OptimizationPassPlacement.POST_PARTITIONER, disable=not visualisation_enabled
+        graph_module=graph_module,
+        active_stage=stage,
+        final_stage=OptimizationPassPlacement.POST_PARTITIONER,
+        disable=not visualisation_enabled,
     ) as gv:
         for optimization_pass in get_passes(stage):
             pass_name = optimization_pass.__name__

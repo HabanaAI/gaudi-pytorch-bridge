@@ -45,6 +45,7 @@ PYTORCH_TO_GV_TYPE = {
 
 class GraphVisualizer:
     __graph_ordinal = 0
+    was_graph_visualized = False
 
     def __init__(self, active_stage, final_stage, disable=False) -> None:
         self.disable = disable
@@ -121,11 +122,3 @@ class GraphVisualizer:
             ) as f:
                 f.write(str(proto_graphs[key]))
         self.pass_counter += 1
-
-
-@contextmanager
-def graph_visualizer(active_stage, final_stage, disable):
-    visualizer = GraphVisualizer(active_stage=active_stage, final_stage=final_stage, disable=disable)
-    yield visualizer
-    if not disable and visualizer.is_final_stage():
-        GraphVisualizer.update_graph_ordinal()

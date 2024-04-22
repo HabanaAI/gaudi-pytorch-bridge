@@ -9,7 +9,6 @@
 #
 # ##############################################################################
 
-#execute_process(COMMAND protoc -I ${CMAKE_CURRENT_SOURCE_DIR} --python_out=${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/graph_visualization.proto)
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/graph_visualization_pb2.py
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/graph_visualization.proto
