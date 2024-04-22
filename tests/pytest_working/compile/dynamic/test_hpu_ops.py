@@ -149,6 +149,28 @@ def test_view_op_fallback():
         assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
+def test_unsafe_view_op():
+    inputs = [((4, 3, 2), [4, 6]), ((4, 3, 4), [4, 12]), ((4, 3, 6), [4, 18]), ((4, 3, 8), [4, 24])]
+
+    def raw_function(tensor1, list1):
+        view1 = tensor1.view(torch.Size(list1))
+        result = torch.add(view1, 2)
+        return result
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+
+    for inp in inputs:
+        # CPU
+        tensor1 = torch.randn(inp[0])
+        result = raw_function(tensor1, inp[1])
+
+        # HPU
+        tensor1_h = tensor1.to("hpu")
+        result_h = compiled_fn(tensor1_h, inp[1])
+
+        assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
 def test_op_ones_like():
     """
     Checks that cached shape of an input zero-dim tensor during the graph compilation in the

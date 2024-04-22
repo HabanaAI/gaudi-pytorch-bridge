@@ -848,6 +848,7 @@ static const auto& BasicDSOpsRegistry =
     habana::graph::DSOpsRegistry()
         .DSOP_MID_BACKEND(aten::view, ViewOperatorDS)
         .DSOP_MID_BACKEND(hpu::view_neg, ViewOperatorDS)
+        .DSOP_MID_BACKEND(aten::_unsafe_view, ViewOperatorDS)
         .DSOP_MID_BACKEND(aten::expand, ExapndOperatorDS)
         .DSOP_MID_BACKEND(aten::arange, ArangeOperatorDS)
         .DSOP_MID_BACKEND(aten::repeat, RepeatOperatorDS)
