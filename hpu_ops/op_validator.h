@@ -59,7 +59,6 @@ struct CheckNodeWithSharedLayerValidator {
       FillNodeParams fillNodeParamsFunc,
       bool typePromotion,
       bool promoteIntToFloat,
-      bool promoteToInt,
       bool safeCastCheck,
       bool isInplace,
       bool isOverload,
@@ -70,7 +69,6 @@ struct CheckNodeWithSharedLayerValidator {
         m_fillNodeParamsFunc(fillNodeParamsFunc),
         m_typePromotion(typePromotion),
         m_promoteIntToFloat(promoteIntToFloat),
-        m_promoteToInt(promoteToInt),
         m_safeCastCheck(safeCastCheck),
         m_isInplace(isInplace),
         m_isOutFn(isOverload),
@@ -115,7 +113,6 @@ struct CheckNodeWithSharedLayerValidator {
   FillNodeParams m_fillNodeParamsFunc;
   bool m_typePromotion;
   bool m_promoteIntToFloat;
-  bool m_promoteToInt;
   bool m_safeCastCheck;
   bool m_isInplace;
   bool m_isOutFn;

@@ -161,14 +161,6 @@ class OpBackend : public HabanaOperator {
     return m_promote_int_to_float;
   }
 
-  void PromoteToInt() {
-    m_promote_to_int = true;
-  }
-
-  bool IsPromoteToInt() const {
-    return m_promote_to_int;
-  }
-
   void SetFillParams(
       std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> fn) {
     m_fill_params = std::move(fn);
@@ -547,7 +539,6 @@ class OpBackend : public HabanaOperator {
   bool m_promote_type = false;
   bool m_cast_bool_to_uint8 = false;
   bool m_promote_int_to_float = false;
-  bool m_promote_to_int = false;
   int m_num_out_tensors = 1;
   std::vector<int> m_hw_scaling_ids;
 

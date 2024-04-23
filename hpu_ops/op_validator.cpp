@@ -453,7 +453,7 @@ at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
     return v.toScalar().type();
   };
 
-  if (not(m_typePromotion or m_promoteIntToFloat or m_promoteToInt)) {
+  if (not(m_typePromotion or m_promoteIntToFloat)) {
     const auto in_dtype = get_dtype(values[0]);
     if (c10::isIntegralType(in_dtype, true) &&
         compute_dtype != at::ScalarType::Undefined) {
@@ -472,7 +472,7 @@ at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
 
   const auto& dtype_helper =
       habana_helpers::DTypeHelper::op_with_optional_dtype_promotion(
-          values, m_promoteIntToFloat, m_promoteToInt, output, m_safeCastCheck);
+          values, m_promoteIntToFloat, output, m_safeCastCheck);
 
   auto common_type = dtype_helper.get_common_dtype();
 

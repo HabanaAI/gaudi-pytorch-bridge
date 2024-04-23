@@ -257,7 +257,7 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
 }
 
 void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
-  if (!m_promote_type && !m_promote_int_to_float && !m_promote_to_int) {
+  if (!m_promote_type && !m_promote_int_to_float) {
     return;
   }
 
@@ -271,10 +271,7 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
       c10::nullopt,
       m_promote_int_to_float
           ? habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteIntToFloat
-          : (m_promote_to_int ? habana_helpers::DTypeHelper::
-                                    DtypePromoteVariant::kPromoteToInt
-                              : habana_helpers::DTypeHelper::
-                                    DtypePromoteVariant::kPromoteToCommon),
+          : habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false,
       c10::nullopt,
       false,
@@ -572,18 +569,15 @@ void OpBackend::PopulateMetadata(
 
       auto& dtype = m_output_metadata[i].dtype;
       if (c10::ScalarType::Undefined == dtype) {
-        if (m_promote_type || m_promote_int_to_float || m_promote_to_int) {
+        if (m_promote_type || m_promote_int_to_float) {
           dtype = habana_helpers::DTypeHelper::get_compute_dtype(
               stack,
               c10::nullopt,
               m_promote_int_to_float
                   ? habana_helpers::DTypeHelper::DtypePromoteVariant::
                         kPromoteIntToFloat
-                  : (m_promote_to_int
-                         ? habana_helpers::DTypeHelper::DtypePromoteVariant::
-                               kPromoteToInt
-                         : habana_helpers::DTypeHelper::DtypePromoteVariant::
-                               kPromoteToCommon),
+                  : habana_helpers::DTypeHelper::DtypePromoteVariant::
+                        kPromoteToCommon,
               false,
               c10::nullopt,
               false,

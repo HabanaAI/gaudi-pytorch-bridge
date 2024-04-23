@@ -427,7 +427,6 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
         arg_fill_params = ctxop.get_custom_fill_params()
         arg_type_promotion = "true" if len(ctxop.promote_to_common_type()) > 0 else "false"
         arg_promote_int_to_float = "true" if len(ctxop.promote_int_to_float()) > 0 else "false"
-        arg_promote_to_int = "true" if len(ctxop.promote_to_int()) > 0 else "false"
         arg_safe_cast_check = str(ctxop.safe_cast_check()).lower()
         arg_isinplace = str(is_inplace()).lower()
         arg_isoutfn = str(isoutfn).lower()
@@ -449,7 +448,6 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
             arg_fill_params,
             arg_type_promotion,
             arg_promote_int_to_float,
-            arg_promote_to_int,
             arg_safe_cast_check,
             arg_isinplace,
             arg_isoutfn,
@@ -570,9 +568,6 @@ class Op(object):
 
     def promote_int_to_float(self):
         return self.op.get("promote_int_to_float", [])
-
-    def promote_to_int(self):
-        return self.op.get("promote_to_int", [])
 
     def promote_int_to_long(self):
         return self.op.get("promote_int_to_long", [])
@@ -977,35 +972,26 @@ def frontend(
     # https://jira.habana-labs.com/browse/SW-111202
     promote_to_common_type = ctxop.promote_to_common_type()
     promote_int_to_float = ctxop.promote_int_to_float()
-    promote_to_int = ctxop.promote_to_int()
     is_reduction = ctxop.get_op_template() == "reduction"
     safe_cast_check = ctxop.safe_cast_check()
     skip_promote_int_to_long_for_reduction = (
         is_reduction and type(ctxop.promote_int_to_long()) is bool and not ctxop.promote_int_to_long()
     )
 
-    promote_types = promote_to_common_type or promote_int_to_float or promote_to_int
+    promote_types = promote_to_common_type or promote_int_to_float
     use_compute_type = promote_types or is_reduction
     dtype_helper_inputs = []
     type_promo_variant = "None"
 
     if use_compute_type:
         if promote_types:
+            assert (not promote_to_common_type) ^ (
+                not promote_int_to_float
+            ), "Either one of promote_to_common_type or promote_int_to_float but not both can be defined."
+
             if promote_int_to_float:
-                assert (
-                    not promote_to_common_type
-                ), "Either one of promote_to_common_type or promote_int_to_float but not both can be defined."
-                assert (
-                    not promote_to_int
-                ), "Either one of promote_to_int or promote_int_to_float but not both can be defined."
                 type_promo_variant = "PromoteIntToFloat"
                 dtype_helper_inputs = promote_int_to_float
-            elif promote_to_int:
-                assert (
-                    not promote_to_common_type
-                ), "Either one of promote_to_common_type or promote_to_int but not both can be defined."
-                type_promo_variant = "PromoteToInt"
-                dtype_helper_inputs = promote_to_int
             else:
                 type_promo_variant = "PromoteToCommon"
                 dtype_helper_inputs = promote_to_common_type
@@ -1242,7 +1228,6 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     output_meta_fn = ctxop.get_output_meta()
     promote_to_common_type = ctxop.promote_to_common_type()
     promote_int_to_float = ctxop.promote_int_to_float()
-    promote_to_int = ctxop.promote_to_int()
     handle_bool_inputs = ctxop.handle_bool_inputs()
 
     assert (not out_ids) ^ (not inplace_ids) ^ is_out_fn(fname), (
@@ -1282,13 +1267,10 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
 
     if output_meta_fn:
         ctor_extra_calls.append("SetOutputMetaFn({});".format(output_meta_fn))
-    elif promote_to_common_type or promote_int_to_float or promote_to_int:
+    elif promote_to_common_type or promote_int_to_float:
         if promote_int_to_float:
             type_promo_variant = "PromoteIntToFloat"
             dtype_helper_inputs = promote_int_to_float
-        elif promote_to_int:
-            type_promo_variant = "PromoteToInt"
-            dtype_helper_inputs = promote_to_int
         else:
             type_promo_variant = "PromoteToCommon"
             dtype_helper_inputs = promote_to_common_type
@@ -1325,8 +1307,6 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
         ctor_extra_calls.append("EnableTypePromotion();")
     elif promote_int_to_float:
         ctor_extra_calls.append("PromoteIntToFloat();")
-    elif promote_to_int:
-        ctor_extra_calls.append("PromoteToInt();")
 
     if handle_bool_inputs:
         ctor_extra_calls.append("HandleBoolInputs();")
