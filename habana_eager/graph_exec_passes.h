@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,6 +12,7 @@
  */
 
 #include <torch/csrc/jit/ir/ir.h>
+#include "habana_eager/graph_dynamic.h"
 
 namespace habana {
 namespace graph {
@@ -49,6 +50,7 @@ bool HandleInputViews(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
     std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map);
+bool RemoveDummyOutput(std::shared_ptr<torch::jit::Graph> graph);
 bool MarkParamsAsConst(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs);

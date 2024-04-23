@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -285,6 +285,11 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
         },
         dump_graphs,
         "GetOutputsOrderInGraph");
+  } else {
+    RunPass(
+        [this]() { return pass::RemoveDummyOutput(this->m_graph); },
+        dump_graphs,
+        "RemoveDummyOutput");
   }
 }
 

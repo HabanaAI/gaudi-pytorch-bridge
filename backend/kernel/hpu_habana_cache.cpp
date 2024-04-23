@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -1430,7 +1430,6 @@ void RecipeLauncher::Launch(
     std::vector<size_t>& external_tensor_info_indexes,
     const VecOfIValPtrSh& dma_inputs) {
   PT_BRIDGE_BEGIN;
-  TORCH_CHECK(!aten_outputs.empty());
   MaybePrintDebugInfo(
       input_refs, intermediate_tensors_ptr, aten_outputs, *this);
 

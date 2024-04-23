@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,6 +12,24 @@
 
 import torch
 from test_utils import env_var_in_scope
+
+
+def test_inplace_without_return():
+    """
+    Test simulates situation where all operations are fallback to CPU and only inplace copy
+    remains in the graph, such graph doesn't return a value.
+    Such situation could occur when PT_HPU_KEEP_INPUT_MUTATIONS is set to 1. See SW-180202.
+    """
+
+    def fn(a):
+        a.copy_(a)
+
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
+    x = torch.randn([5, 10], dtype=torch.bfloat16)
+    hx = x.to("hpu")
+    fn(x)
+    compiled_fn(hx)
+    assert torch.allclose(hx.cpu(), x, atol=0.01, rtol=0.01)
 
 
 def test_hpu_view_copy():
