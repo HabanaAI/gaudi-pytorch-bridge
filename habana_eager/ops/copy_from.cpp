@@ -13,6 +13,7 @@
 
 #include "habana_eager/ops/copy_from.h"
 #include "backend/backend_meta.h"
+#include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/tensor_utils.h"
@@ -216,17 +217,23 @@ at::Tensor add_strided_insert(at::Tensor dst, at::Tensor insert) {
 void Execute_Copy(
     const at::Tensor& src,
     const at::Tensor& dst,
-    bool non_blocking) {
+    bool non_blocking,
+    c10::hpu::HPUStream stream) {
   habana_helpers::copy_data_to_device(
-      std::move(src), std::move(dst), non_blocking);
+      std::move(src), std::move(dst), non_blocking, stream);
 }
 
 void Copy_Compile_Empty_Task(
     const at::Tensor& src,
     const at::Tensor& dst,
-    bool non_blocking) {
+    bool non_blocking,
+    c10::hpu::HPUStream stream) {
   habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
-      Execute_Copy, std::move(src), std::move(dst), std::move(non_blocking));
+      Execute_Copy,
+      std::move(src),
+      std::move(dst),
+      std::move(non_blocking),
+      std::move(stream));
 
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
     habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
@@ -236,9 +243,14 @@ void Copy_Compile_Empty_Task(
 void Copy_Empty_Lowering_Task(
     const at::Tensor& src,
     const at::Tensor& dst,
-    bool non_blocking) {
+    bool non_blocking,
+    c10::hpu::HPUStream stream) {
   habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
-      Copy_Compile_Empty_Task, std::move(src), std::move(dst), non_blocking);
+      Copy_Compile_Empty_Task,
+      std::move(src),
+      std::move(dst),
+      non_blocking,
+      std::move(stream));
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
     habana_helpers::Singleton_CompileThreadPool::getInstance()
         .JoinPendingThread();
@@ -248,7 +260,8 @@ void Copy_Empty_Lowering_Task(
 void Register_Copy_In_Pipeline(
     const at::Tensor& src,
     const at::Tensor& dst,
-    bool non_blocking) {
+    bool non_blocking,
+    c10::hpu::HPUStream stream) {
   // Set pipeline metadata on the dst hpu tensor
   auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst)};
   dst_hb_tmeta->set_tensor_pipelined();
@@ -282,7 +295,8 @@ void Register_Copy_In_Pipeline(
           Copy_Empty_Lowering_Task,
           std::move(src),
           std::move(dst),
-          non_blocking);
+          non_blocking,
+          std::move(stream));
 }
 
 void Pipeline_Or_Direct_Copy(
@@ -302,10 +316,14 @@ void Pipeline_Or_Direct_Copy(
     auto src_backend = HbEagerTensorPool::get_backend_tensor(src);
     auto dst_backend = HbEagerTensorPool::get_backend_tensor(dst);
 
-    Register_Copy_In_Pipeline(src_backend, dst_backend, non_blocking);
+    Register_Copy_In_Pipeline(
+        src_backend,
+        dst_backend,
+        non_blocking,
+        c10::hpu::getCurrentHPUStream());
   } else {
     habana::eager::JoinPendingPipelineThreads();
-    Execute_Copy(src, dst, non_blocking);
+    Execute_Copy(src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
   }
 }
 
