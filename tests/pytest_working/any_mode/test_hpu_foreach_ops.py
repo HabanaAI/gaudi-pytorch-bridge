@@ -61,8 +61,8 @@ def generate_tensor_list(shapes, dtypes, non_negative=False):
     return self_cpu, self_hpu
 
 
-def get_tolerance(op, dtype):
-    if (op == torch._foreach_div or op == torch._foreach_div_) and dtype == torch.float16:
+def get_tolerance(op, dtype, is_op_compound=False):
+    if (op == torch._foreach_div or op == torch._foreach_div_ or is_op_compound) and dtype == torch.float16:
         return 1e-2, 2e-3
     else:
         return None, None  # therefore default tolerances will be used
@@ -319,4 +319,177 @@ def test_foreach_scalarlist_inplace(op, k):
 
     for i in range(k):
         rtol, atol = get_tolerance(op, self_cpu[i].dtype)
+        torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
+
+
+compound_foreach_ops = [torch._foreach_addcdiv, torch._foreach_addcmul]
+compound_foreach_inplace_ops = [torch._foreach_addcdiv_, torch._foreach_addcmul_]
+
+
+def create_compound_foreach_tensors(k, cast_to_integer=False, promote_dtype=False, is_value_float=False):
+    indexes = [random.randint(0, len(self_shapes_pull) - 1) for _ in range(k)]
+    self_shapes = [self_shapes_pull[idx] for idx in indexes]
+    tensor_shapes = [other_shapes_pull[idx] for idx in indexes]
+
+    self_dtypes = random.choices(dtypes, k=k)
+    tensor1_dtypes = random.choices(dtypes, k=k)
+    tensor2_dtypes = random.choices(dtypes, k=k)
+
+    if cast_to_integer:
+        self_dtypes = [dtype if dtype.is_floating_point else torch.float32 for dtype in self_dtypes]
+        tensor2_dtypes = [dtype if dtype.is_floating_point else torch.float32 for dtype in tensor2_dtypes]
+
+    if promote_dtype:
+        for i in range(len(self_dtypes)):
+            floating_value = is_value_float[i] if isinstance(is_value_float, list) else is_value_float
+
+            if tensor1_dtypes[i].is_floating_point or tensor2_dtypes[i].is_floating_point or floating_value:
+                self_dtypes[i] = torch.promote_types(self_dtypes[i], torch.float32)
+
+    if verbose:
+        print("Self shapes:", self_shapes)
+        print("Self dtypes:", self_dtypes)
+        print("Tensor shapes:", tensor_shapes)
+        print("Tensor1 dtypes:", tensor1_dtypes)
+        print("Tensor2 dtypes:", tensor2_dtypes)
+
+    self_cpu, self_hpu = generate_tensor_list(self_shapes, self_dtypes)
+    tensor1_cpu, tensor1_hpu = generate_tensor_list(tensor_shapes, tensor1_dtypes)
+    tensor2_cpu, tensor2_hpu = generate_tensor_list(tensor_shapes, tensor2_dtypes)
+
+    return self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, tensor2_cpu, tensor2_hpu
+
+
+@pytest.mark.parametrize("op", compound_foreach_ops)
+@pytest.mark.parametrize("k", k_list)
+@pytest.mark.parametrize("other_dtype", [torch.float32, torch.bfloat16, torch.long, torch.int], ids=format_tc)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
+def test_compound_foreach_tensor(op, k, other_dtype):
+    self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, tensor2_cpu, tensor2_hpu = create_compound_foreach_tensors(
+        k, op == torch._foreach_addcdiv
+    )
+    scalars_cpu = (torch.rand(size=(k,)) * 10).to(other_dtype)
+    scalars_hpu = scalars_cpu.to("hpu")
+
+    if verbose:
+        print("Scalars tensor:", scalars_cpu)
+
+    results_cpu = op(self_cpu, tensor1_cpu, tensor2_cpu, scalars=scalars_cpu)
+    op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
+    results_hpu = op(self_hpu, tensor1_hpu, tensor2_hpu, scalars=scalars_hpu)
+
+    for i in range(k):
+        rtol, atol = get_tolerance(op, results_cpu[i].dtype, True)
+        torch.testing.assert_close(results_cpu[i], results_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
+
+
+@pytest.mark.parametrize("op", compound_foreach_ops)
+@pytest.mark.parametrize("k", k_list)
+@pytest.mark.parametrize("value", scalar_list)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
+def test_compound_foreach_scalar(op, k, value):
+    self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, tensor2_cpu, tensor2_hpu = create_compound_foreach_tensors(
+        k, op == torch._foreach_addcdiv
+    )
+
+    if verbose:
+        print("Value:", value)
+
+    results_cpu = op(self_cpu, tensor1_cpu, tensor2_cpu, value=value)
+    op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
+    results_hpu = op(self_hpu, tensor1_hpu, tensor2_hpu, value=value)
+
+    for i in range(k):
+        rtol, atol = get_tolerance(op, results_cpu[i].dtype, True)
+        torch.testing.assert_close(
+            results_cpu[i], results_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol, check_dtype=False
+        )
+
+
+@pytest.mark.parametrize("op", compound_foreach_ops)
+@pytest.mark.parametrize("k", k_list)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
+def test_compound_foreach_scalarlist(op, k):
+    self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, tensor2_cpu, tensor2_hpu = create_compound_foreach_tensors(
+        k, op == torch._foreach_addcdiv
+    )
+
+    scalars = random.choices(scalar_list, k=k)
+
+    if verbose:
+        print("Scalars:", scalars)
+
+    results_cpu = op(self_cpu, tensor1_cpu, tensor2_cpu, scalars=scalars)
+    op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
+    results_hpu = op(self_hpu, tensor1_hpu, tensor2_hpu, scalars=scalars)
+
+    for i in range(k):
+        rtol, atol = get_tolerance(op, results_cpu[i].dtype, True)
+        torch.testing.assert_close(results_cpu[i], results_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
+
+
+@pytest.mark.parametrize("op", compound_foreach_inplace_ops)
+@pytest.mark.parametrize("k", k_list)
+@pytest.mark.parametrize("scalars_dtype", [torch.float32, torch.bfloat16, torch.long, torch.int], ids=format_tc)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
+def test_compound_foreach_tensor_inplace(op, k, scalars_dtype):
+    self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, tensor2_cpu, tensor2_hpu = create_compound_foreach_tensors(
+        k, op == torch._foreach_addcdiv_, True, scalars_dtype.is_floating_point
+    )
+
+    scalars_cpu = (torch.rand(size=(k,)) * 10).to(scalars_dtype)
+    scalars_hpu = scalars_cpu.to("hpu")
+
+    if verbose:
+        print("Scalars tensor:", scalars_cpu)
+
+    op(self_cpu, tensor1_cpu, tensor2_cpu, scalars=scalars_cpu)
+    op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
+    op(self_hpu, tensor1_hpu, tensor2_hpu, scalars=scalars_hpu)
+
+    for i in range(k):
+        rtol, atol = get_tolerance(op, self_cpu[i].dtype, True)
+        torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
+
+
+@pytest.mark.parametrize("op", compound_foreach_inplace_ops)
+@pytest.mark.parametrize("k", k_list)
+@pytest.mark.parametrize("value", scalar_list)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
+def test_compound_foreach_scalar_inplace(op, k, value):
+    self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, tensor2_cpu, tensor2_hpu = create_compound_foreach_tensors(
+        k, op == torch._foreach_addcdiv_, True, isinstance(value, float)
+    )
+
+    if verbose:
+        print("Value:", value)
+
+    op(self_cpu, tensor1_cpu, tensor2_cpu, value=value)
+    op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
+    op(self_hpu, tensor1_hpu, tensor2_hpu, value=value)
+
+    for i in range(k):
+        rtol, atol = get_tolerance(op, self_cpu[i].dtype, True)
+        torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
+
+
+@pytest.mark.parametrize("op", compound_foreach_inplace_ops)
+@pytest.mark.parametrize("k", k_list)
+@pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
+def test_compound_foreach_scalarlist_inplace(op, k):
+    scalars = random.choices(scalar_list, k=k)
+
+    self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, tensor2_cpu, tensor2_hpu = create_compound_foreach_tensors(
+        k, op == torch._foreach_addcdiv_, True, [isinstance(scalar, float) for scalar in scalars]
+    )
+
+    if verbose:
+        print("Scalars:", scalars)
+
+    op(self_cpu, tensor1_cpu, tensor2_cpu, scalars=scalars)
+    op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
+    op(self_hpu, tensor1_hpu, tensor2_hpu, scalars=scalars)
+
+    for i in range(k):
+        rtol, atol = get_tolerance(op, self_cpu[i].dtype, True)
         torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)

@@ -17,9 +17,11 @@ import shutil
 from dataclasses import dataclass
 from filecmp import dircmp
 
+import gen_op_files.parser as parser
 import pytest
 import torch
 from gen_op import (
+    _TYPE_NSMAP,
     cpp_from_schema,
     generate,
     generate_check_kernel_support,
@@ -28,6 +30,7 @@ from gen_op import (
     get_op_group,
     is_acc_thread_supported,
     is_eager_op,
+    parse_params,
 )
 
 TORCH_PKG_PATH = torch.__path__[0]
@@ -212,3 +215,46 @@ def test_generate_op_hclasses(is_backend):
         == f"HPU_OP_{macro_suffix}SomeOp)\nHPU_OP_{macro_suffix}CustomClass)\nHPU_OP_{macro_suffix}SomeTemplateCustom)\n"
     )
     assert classes == {"SomeOp": header_file, "CustomClass": header_file, "SomeTemplateCustom": header_file}
+
+
+@pytest.mark.parametrize(
+    "cpp_sig, out_indices, expected_results",
+    [
+        (
+            "void _foreach_addcmul_(TensorList self, TensorList tensor1, TensorList tensor2, const Tensor & scalars)",
+            [0],
+            {
+                "param_vars": ["self", "tensor1", "tensor2", "scalars"],
+                "call_args": ["self"],
+                "out_indices": [0],
+                "fc_params": [],
+            },
+        ),
+        (
+            "::std::vector<Tensor> _foreach_addcmul(TensorList self, TensorList tensor1, TensorList tensor2, ArrayRef<Scalar> scalars)",
+            None,
+            {
+                "param_vars": ["self", "tensor1", "tensor2", "scalars"],
+                "call_args": [],
+                "out_indices": [],
+                "fc_params": [],
+            },
+        ),
+    ],
+)
+def test_parse_params(cpp_sig, out_indices, expected_results):
+    tree = parser.parse(cpp_sig)
+    rwsig = parser.rewrite_signature(cpp_sig, _TYPE_NSMAP)
+    rwxtree = parser.xparse(rwsig)
+    params = parser.get_parameters(tree)
+    rtype = parser.get_return_type_str(rwxtree, rwsig)
+    funsig = parser.create_stdfunc_sig(rwxtree, rwsig)
+
+    _, fname, _ = parser.get_function_signature(rwxtree, rwsig, lambda x: "{}".format(x))
+
+    param_vars, call_args, out_indices, fc_params, _ = parse_params(params, fname, rtype, [], funsig, out_indices)
+
+    assert param_vars == expected_results["param_vars"]
+    assert call_args == expected_results["call_args"]
+    assert out_indices == expected_results["out_indices"]
+    assert fc_params == expected_results["fc_params"]

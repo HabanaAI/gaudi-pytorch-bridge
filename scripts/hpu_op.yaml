@@ -180,12 +180,127 @@ _foreach_add_.Tensor:
   inplace_ids: [0]
 
 _foreach_add_.ScalarList:
+  guid: add_fwd
+  op_backend: ForeachBinary
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
     Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: add_fwd
-  op_backend: ForeachBinary
+  inplace_ids: [0]
+
+_foreach_addcdiv.Scalar:
+
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: addcdiv_fwd
+  op_backend: ForeachCompound
+  output_meta: ForeachCompoundMeta
+  out_ids: [0]
+
+_foreach_addcdiv.ScalarList:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: addcdiv_fwd
+  op_backend: ForeachCompound
+  output_meta: ForeachCompoundMeta
+  out_ids: [0]
+
+_foreach_addcdiv.Tensor:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: addcdiv_fwd
+  op_backend: ForeachCompound
+  output_meta: ForeachCompoundMeta
+  out_ids: [0]
+
+_foreach_addcdiv_.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: addcdiv_fwd
+  op_backend: ForeachCompound
+  inplace_ids: [0]
+
+_foreach_addcdiv_.ScalarList:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: addcdiv_fwd
+  op_backend: ForeachCompound
+  inplace_ids: [0]
+
+_foreach_addcdiv_.Tensor:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: addcdiv_fwd
+  op_backend: ForeachCompound
+  inplace_ids: [0]
+
+_foreach_addcmul.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: addcmul_fwd
+  op_backend: ForeachCompound
+  output_meta: ForeachCompoundMeta
+  out_ids: [0]
+
+_foreach_addcmul.ScalarList:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: addcmul_fwd
+  op_backend: ForeachCompound
+  output_meta: ForeachCompoundMeta
+  out_ids: [0]
+
+_foreach_addcmul.Tensor:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: addcmul_fwd
+  op_backend: ForeachCompound
+  output_meta: ForeachCompoundMeta
+  out_ids: [0]
+
+_foreach_addcmul_.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: addcmul_fwd
+  op_backend: ForeachCompound
+  inplace_ids: [0]
+
+_foreach_addcmul_.ScalarList:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: addcmul_fwd
+  op_backend: ForeachCompound
+  inplace_ids: [0]
+
+_foreach_addcmul_.Tensor:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: addcmul_fwd
+  op_backend: ForeachCompound
   inplace_ids: [0]
 
 _foreach_acos:

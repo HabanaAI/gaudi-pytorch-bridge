@@ -66,7 +66,6 @@ def need_op_sublist_stats():
 
 
 def write_consolidated_op_list(name, op_d):
-
     Total = 0
     rv = 0
     nrv = 0
@@ -229,7 +228,6 @@ def write_consolidated_op_list(name, op_d):
 
 
 def write_unique_op_list_v1(name, op_d):
-
     with open(name, "w", newline="") as op_csv:
         header = [
             "unique_op_name",
@@ -260,7 +258,6 @@ def write_unique_op_list_v1(name, op_d):
 
 
 def write_unique_op_list_v2(name, op_d):
-
     with open(name, "w") as op_csv:
         header = [
             "unique_op_name",
@@ -457,7 +454,6 @@ def load_excluded_ops():
 
 
 def main(args):
-
     f_op_decl = open(args.ops_decl, "r")
     l_op_decl = f_op_decl.readlines()
     f_op_decl.close()

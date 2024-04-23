@@ -995,7 +995,7 @@ inplace_params_blacklist = [
 ]
 
 
-def parse_params(params, fname, rtype, fc, funsig):
+def parse_params(params, fname, rtype, fc, funsig, out_ids):
     param_vars = []
     call_args = []
     out_indices = []
@@ -1022,7 +1022,8 @@ def parse_params(params, fname, rtype, fc, funsig):
         if rtype == "void":
             if cptype in ["TensorList", "Tensor"]:
                 call_args.append(pname)
-                out_indices.append(i)
+                if out_ids is not None:
+                    out_indices.append(i)
 
         elif rtype == "const at::Tensor &" and cptype == "Tensor":
             call_args.append(pname)
@@ -1035,6 +1036,9 @@ def parse_params(params, fname, rtype, fc, funsig):
         fc
     ), "Cannot find all params specified for fallback check {}.".format(fc[0])
 
+    if rtype == "void" and out_ids is not None:
+        out_indices = out_ids
+        call_args = [call_args[i] for i in out_indices]
     return param_vars, call_args, out_indices, fc_params, tfetcher
 
 
@@ -1223,10 +1227,7 @@ def handle_return_lazy(ctxop, rtype, sig, fname, fe_call_args, param_vars):
             code += "  auto tuple = {};\n".format(fe_call_args)
             code += "  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD({}, hpu_op, tuple)".format(fname)
         elif rtype == "void" and "TensorList" in sig:
-            if sig.count("TensorList") <= 2:
-                code += "  RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, param_vars[0])
-            else:
-                raise Exception(f"Only up to 2 TensorList inputs are supported. Sig: {sig}")
+            code += "  RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, param_vars[0])
         elif rtype.startswith("const at::Tensor"):
             code += "  RUN_CONST_INPLACE_MAYBE_WITH_ACC_THREAD({}, hpu_op, {})".format(fname, fe_call_args)
         else:
@@ -1557,7 +1558,7 @@ lazy_frontend_blacklist = [
 eager_frontend_blacklist = []
 
 
-def generate_aten_op(fndef, op_name, ctxop, is_check_kernel_support=False):
+def generate_aten_op(fndef, op_name, ctxop, op_params, is_check_kernel_support=False):
     dtdf = fndef.dtdf
     tree = parser.parse(fndef.cpp_sig)
     xtree = parser.xparse(fndef.cpp_sig)
@@ -1570,16 +1571,16 @@ def generate_aten_op(fndef, op_name, ctxop, is_check_kernel_support=False):
     opgroup = get_op_group(op_name)
     rtype = parser.get_return_type_str(rwxtree, rwsig)
 
-    def gen_fnname(x):
-        return "{}".format(x)
-
-    sig, fname, xfname = parser.get_function_signature(rwxtree, rwsig, gen_fnname)
+    sig, fname, xfname = parser.get_function_signature(rwxtree, rwsig, lambda x: "{}".format(x))
 
     if is_check_kernel_support:
         sig = prepare_sig_for_kernel_support(sig)
 
+    out_indices = (
+        op_params["inplace_ids"] if isinstance(op_params, dict) and "inplace_ids" in op_params.keys() else None
+    )
     param_vars, call_args, out_indices, fc_params, tfetcher = parse_params(
-        params, fname, rtype, ctxop.get_fallback_check(), funsig
+        params, fname, rtype, ctxop.get_fallback_check(), funsig, out_indices
     )
 
     op_backend = None
@@ -1656,10 +1657,7 @@ def generate_op_meta(cpp_sig, op_name):
     rwxtree = parser.xparse(rwsig)
     funsig = parser.create_stdfunc_sig(rwxtree, rwsig)
 
-    def gen_fnname(x):
-        return "{}".format(x)
-
-    _, fname, _ = parser.get_function_signature(rwxtree, rwsig, gen_fnname)
+    _, fname, _ = parser.get_function_signature(rwxtree, rwsig, lambda x: "{}".format(x))
     return OpMeta(op_variant=op_name, mapsig=mapsig, funsig=funsig, func=fname)
 
 
@@ -2034,13 +2032,13 @@ def generate(args):
                 fgens_hpu_wrap_eager.append(op_meta)
         elif ctxop.get_custom_op_schema():
             fndef = fndef_from_schema(ctxop.get_custom_op_schema())
-            fgens_custom.append(generate_aten_op(fndef, op_name, ctxop))
+            fgens_custom.append(generate_aten_op(fndef, op_name, ctxop, op_params))
         elif not ctxop.get_only_shared_layer():
             fndef = pt_ops.get(op_name, None)
             if fndef is None:
                 print(f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml.")
                 continue
-            fgens_native.append(generate_aten_op(fndef, op_name, ctxop))
+            fgens_native.append(generate_aten_op(fndef, op_name, ctxop, op_params))
 
     gen_hpu_wrap_ops(fgens_hpu_wrap_lazy, args, "lazy")
     gen_hpu_wrap_ops(fgens_hpu_wrap_eager, args, "eager")
@@ -2350,7 +2348,7 @@ def generate_check_kernel_support(args):
             if fndef is None:
                 print(f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml.")
                 continue
-            fgens_native.append(generate_aten_op(fndef, op_name, ctxop, True))
+            fgens_native.append(generate_aten_op(fndef, op_name, ctxop, True, op_params))
 
     header_inclusions = (
         '#include "habana_kernels/lazy_kernels_declarations.h"\n'
