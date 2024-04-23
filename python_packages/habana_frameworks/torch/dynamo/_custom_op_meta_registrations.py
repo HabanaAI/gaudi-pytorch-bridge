@@ -399,14 +399,8 @@ def meta_fp8_repeat_v2(self, repeats):
     if len(repeats) == 0:
         return self
 
-    num_new_dimensions = len(repeats) - self.ndim
-    padded_shape = [1] * num_new_dimensions
-    for dim_size in self.shape:
-        padded_shape.append(dim_size)
-
-    target_shape = tuple(padded_size * repeat_size for padded_size, repeat_size in zip(padded_shape, repeats))
-
-    return self.new_empty(target_shape)
+    out_shape = _hpu_C.custom_op_calc_out_shape_params_int("fp8_repeat_v2", [self], repeats)[0]
+    return self.new_empty(out_shape)
 
 
 @register_meta([torch.ops.hpu.fp8_index_select_v2.default])

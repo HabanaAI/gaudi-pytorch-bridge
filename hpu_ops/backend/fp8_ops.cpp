@@ -1294,10 +1294,9 @@ void Fp8IndexCopy_::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 /********** Fp8RepeatV2 **********/
 
-sizes_vec Fp8RepeatV2OutputShape(const at::Stack& stack) {
-  auto self = stack_tensor(stack, 0);
-  auto repeats = stack[1].toIntList();
-
+static sizes_vec Fp8RepeatV2OutputShapeCommon(
+    const at::Tensor& self,
+    c10::IntArrayRef repeats) {
   int64_t num_new_dimensions = repeats.size() - self.dim();
   std::vector<int64_t> padded_size(num_new_dimensions, 1);
   padded_size.insert(
@@ -1308,6 +1307,21 @@ sizes_vec Fp8RepeatV2OutputShape(const at::Stack& stack) {
   }
 
   return {outshape};
+}
+
+sizes_vec fp8_repeat_v2_out_shape(
+    const std::vector<at::Tensor>& inputs,
+    const std::vector<int64_t>& params) {
+  TORCH_CHECK(inputs.size() == 1);
+  return Fp8RepeatV2OutputShapeCommon(inputs[0], params);
+}
+
+REGISTER_CUSTOM_OP_OUTSHAPE_FUN(fp8_repeat_v2, fp8_repeat_v2_out_shape);
+
+sizes_vec Fp8RepeatV2OutputShape(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto repeats = stack[1].toIntVector();
+  return Fp8RepeatV2OutputShapeCommon(self, repeats);
 }
 
 Fp8RepeatV2::Fp8RepeatV2(int device_id, c10::ScalarType scalar_type)
