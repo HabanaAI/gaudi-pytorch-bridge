@@ -1194,5 +1194,161 @@ bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
   return true;
 }
 
+// Dynamic shape (DS) support for `rand` using shape tensor
+bool RandOperatorDS::ReplaceWithDynamicHPUOp(
+    torch::jit::Node* aten_rand_node,
+    torch::jit::Stack& org_stack,
+    GraphInputIndexMap& org_stack_index_map,
+    ValueIvalueMap& value_ivalue_map,
+    std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
+  // 6 inputs in rand
+  HABANA_ASSERT(6 == aten_rand_node->inputs().size());
+  // 1 scalars: size
+  auto v_rand_shape = aten_rand_node->inputs().at(1);
+  // fetching the list symbol for size
+  static const auto list_construct_symbol{
+      c10::Symbol::fromQualString("prim::ListConstruct")};
+  HABANA_ASSERT(
+      v_rand_shape->node()->kind() == list_construct_symbol,
+      "rand input is not a ListConstruct, it is: ",
+      v_rand_shape->node()->kind().toQualString());
+  auto list_construct_node{v_rand_shape->node()};
+  auto graph{aten_rand_node->owningGraph()};
+
+  // Step 1: Collect shape and scalar pos used in ListConstruct input node
+  std::vector<int64_t> st_size;
+  std::vector<int64_t> scalar_indexes;
+  GetValuesAndScalarIndexesFromListConstruct(
+      list_construct_node,
+      org_stack,
+      org_stack_index_map,
+      st_size,
+      scalar_indexes);
+  auto out_tensors = getOutputTensers(aten_rand_node, value_ivalue_map);
+  auto inferred_st_sizes = out_tensors[0].sizes().vec();
+  // Step2: Create shape tensor and insert to graph inputs.
+  auto rand_st_name =
+      GetDynamicTensorName(v_rand_shape->debugName(), SHAPE_TENSOR);
+  int64_t stack_index = CreateSTAndInsertToDSStack(
+      inferred_st_sizes, scalar_indexes, {}, {}, m_dmeta);
+  auto rand_st_tensor = graph->addInput(rand_st_name);
+
+  // Step3: Create hpu::rand_ds node and insert to the graph
+  static const auto hpu_rand_symbol{
+      c10::Symbol::fromQualString("hpu::habana_rand_st")};
+  CreateAndInsertDynamicNodeToGraph(
+      graph,
+      aten_rand_node,
+      hpu_rand_symbol,
+      {aten_rand_node->inputs().at(0),
+       rand_st_tensor,
+       aten_rand_node->inputs().at(2),
+       aten_rand_node->inputs().at(3),
+       aten_rand_node->inputs().at(4),
+       aten_rand_node->inputs().at(5)},
+      value_ivalue_map);
+
+  // Step4: Register patching function and tensor lists
+  std::vector<int64_t> dtensor_indexes{stack_index};
+  InputPatchPair patch_info(
+      &RandOperatorDS::UpdateDynamicInputs, dtensor_indexes);
+  m_dmeta->ds_input_patching_list.push_back(patch_info);
+  return true;
+}
+
+void RandOperatorDS::UpdateDynamicInputs(
+    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
+    [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
+  HABANA_ASSERT(
+      dtensor_list.size() == scalar_idx_list.size(),
+      "Dtensor and SymIntData count not matching");
+  auto dtensor = dtensor_list[0]->toTensor();
+  SymIntData& scalar_idx = scalar_idx_list[0];
+  UpdateShapeTensorSize(dtensor, scalar_idx.values, orig_stack, launch_shapes);
+}
+
+// Dynamic shape (DS) support for `rand` using shape tensor
+bool RandnOperatorDS::ReplaceWithDynamicHPUOp(
+    torch::jit::Node* aten_rand_node,
+    torch::jit::Stack& org_stack,
+    GraphInputIndexMap& org_stack_index_map,
+    ValueIvalueMap& value_ivalue_map,
+    std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
+  // 6 inputs in rand
+  HABANA_ASSERT(6 == aten_rand_node->inputs().size());
+  // 1 scalars: size
+  auto v_rand_shape = aten_rand_node->inputs().at(1);
+  // fetching the list symbol for size
+  static const auto list_construct_symbol{
+      c10::Symbol::fromQualString("prim::ListConstruct")};
+  HABANA_ASSERT(
+      v_rand_shape->node()->kind() == list_construct_symbol,
+      "rand input is not a ListConstruct, it is: ",
+      v_rand_shape->node()->kind().toQualString());
+  auto list_construct_node{v_rand_shape->node()};
+  auto graph{aten_rand_node->owningGraph()};
+
+  // Step 1: Collect shape and scalar pos used in ListConstruct input node
+  std::vector<int64_t> st_size;
+  std::vector<int64_t> scalar_indexes;
+  GetValuesAndScalarIndexesFromListConstruct(
+      list_construct_node,
+      org_stack,
+      org_stack_index_map,
+      st_size,
+      scalar_indexes);
+  auto out_tensors = getOutputTensers(aten_rand_node, value_ivalue_map);
+  auto inferred_st_sizes = out_tensors[0].sizes().vec();
+  // Step2: Create shape tensor and insert to graph inputs.
+  auto rand_st_name =
+      GetDynamicTensorName(v_rand_shape->debugName(), SHAPE_TENSOR);
+  int64_t stack_index = CreateSTAndInsertToDSStack(
+      inferred_st_sizes, scalar_indexes, {}, {}, m_dmeta);
+  auto rand_st_tensor = graph->addInput(rand_st_name);
+
+  // Step3: Create hpu::rand_ds node and insert to the graph
+  static const auto hpu_rand_symbol{
+      c10::Symbol::fromQualString("hpu::habana_rand_st")};
+  CreateAndInsertDynamicNodeToGraph(
+      graph,
+      aten_rand_node,
+      hpu_rand_symbol,
+      {aten_rand_node->inputs().at(0),
+       rand_st_tensor,
+       aten_rand_node->inputs().at(2),
+       aten_rand_node->inputs().at(3),
+       aten_rand_node->inputs().at(4),
+       aten_rand_node->inputs().at(5)},
+      value_ivalue_map);
+
+  // Step4: Register patching function and tensor lists
+  std::vector<int64_t> dtensor_indexes{stack_index};
+  InputPatchPair patch_info(
+      &RandnOperatorDS::UpdateDynamicInputs, dtensor_indexes);
+  m_dmeta->ds_input_patching_list.push_back(patch_info);
+  return true;
+}
+
+void RandnOperatorDS::UpdateDynamicInputs(
+    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
+    [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
+  HABANA_ASSERT(
+      dtensor_list.size() == scalar_idx_list.size(),
+      "Dtensor and SymIntData count not matching");
+  auto dtensor = dtensor_list[0]->toTensor();
+  SymIntData& scalar_idx = scalar_idx_list[0];
+  UpdateShapeTensorSize(dtensor, scalar_idx.values, orig_stack, launch_shapes);
+}
+
 } // namespace graph
 } // namespace habana

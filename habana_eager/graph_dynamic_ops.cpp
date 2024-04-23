@@ -860,7 +860,11 @@ static const auto& BasicDSOpsRegistry =
         .DSOP_MID_BACKEND(hpu::slice_ds, SliceOperatorDS)
         .DSOP_MID_BACKEND(aten::as_strided_scatter, AsStridedScatterOperatorDS)
         .DSOP_MID_BACKEND(hpu::as_strided_scatter, AsStridedScatterOperatorDS)
-        .DSOP_MID_BACKEND(hpu::as_strided_scatter_orig, AsStridedScatterOperatorDS)
-        .DSOP_MID_BACKEND(hpu::habana_randperm, RandpermGeneratorOperatorDS);
+        .DSOP_MID_BACKEND(
+            hpu::as_strided_scatter_orig,
+            AsStridedScatterOperatorDS)
+        .DSOP_MID_BACKEND(hpu::habana_randperm, RandpermGeneratorOperatorDS)
+        .DSOP_MID_BACKEND(hpu::habana_rand, RandOperatorDS)
+        .DSOP_MID_BACKEND(hpu::habana_randn, RandnOperatorDS);
 } // namespace graph
 } // namespace habana

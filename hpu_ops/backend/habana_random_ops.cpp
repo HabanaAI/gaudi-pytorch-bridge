@@ -19,7 +19,11 @@ namespace {
 
 OutputMetaDataVector HabanaRandOutputMeta(const at::Stack& stack) {
   OutputMetaData meta;
-  meta.shape = stack[1].toIntVector();
+  if (stack.at(1).isTensor()) {
+    meta.shape = stack[1].toTensor().sizes().vec();
+  } else {
+    meta.shape = stack[1].toIntVector();
+  }
   meta.dtype =
       stack[2].toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
   meta.layout = stack[3].toOptional<at::Layout>().value_or(at::kStrided);
@@ -134,8 +138,12 @@ void HabanaRandBase::AddNode(
     SetGuid(get_guid_with_precision("philox_random_uniform", dtype));
     inputs.push_back(syn_in(1));
   }
-
-  CreateShapeTensorInput(graph, dtype, output_shape, inputs);
+  if ((guid_.find("habana_seed_generator") == std::string::npos) &&
+      stack.at(2).isTensor()) {
+    inputs.push_back(syn_in(1));
+  } else {
+    CreateShapeTensorInput(graph, dtype, output_shape, inputs);
+  }
   auto rand = BuildOp(
       graph,
       guid_,
@@ -188,4 +196,6 @@ static const auto& HabanaRandomKernelRegistry =
         .add("hpu::habana_uniform", KERNEL_FN_GLOBAL(habana::HabanaUniform))
         .add(
             "hpu::habana_seed_generator",
-            KERNEL_FN_GLOBAL(habana::HabanaSeedGenerator));
+            KERNEL_FN_GLOBAL(habana::HabanaSeedGenerator))
+        .add("hpu::habana_rand_st", KERNEL_FN_GLOBAL(habana::HabanaRand))
+        .add("hpu::habana_randn_st", KERNEL_FN_GLOBAL(habana::HabanaRandn));

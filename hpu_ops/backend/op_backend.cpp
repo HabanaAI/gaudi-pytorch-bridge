@@ -543,7 +543,6 @@ void OpBackend::PopulateMetadata(
     const at::Stack& stack,
     const OutputMetaDataVector& output_metadata) {
   m_output_metadata = output_metadata;
-
   if (UsesOutputMeta()) {
     const auto& meta = OutputMeta(stack);
     TORCH_INTERNAL_ASSERT_DEBUG_ONLY(meta.size() == m_output_metadata.size());

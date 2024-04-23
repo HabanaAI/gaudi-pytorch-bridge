@@ -2141,6 +2141,10 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::batched_nms_eager(Tensor boxes, Tensor scores, Tensor indexes, double iou_threshold, int max_classes) -> (Tensor, Tensor)");
   m.def(
       "hpu::habana_randperm_ht(Tensor seed, Tensor h2d_tensor, Tensor shape_tensor, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_rand_st(Tensor seed, Tensor shape_tensor, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_randn_st(Tensor seed, Tensor shape_tensor, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

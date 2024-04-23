@@ -413,7 +413,6 @@ void RandomSeedTensorInput::AddNode(
         break;
     };
   }
-
   if (cast_guid != "") {
     auto rand = BuildOp(
         graph, guid_, std::move(inputs), {{outshape}}, rand_params.get(), size);
