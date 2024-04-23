@@ -26,16 +26,16 @@ CustomOpOutShapeFunRegistrar& CustomOpOutShapeFunRegistrar::GetInstance() {
   return *pInstance;
 }
 
-#define ITEM(NAME, ARGS, ...)                             \
-  void CustomOpOutShapeFunRegistrar::Register(            \
-      const std::string_view opname, FunType_##NAME f) {  \
-    std::lock_guard<std::mutex> lock(mutexRegister);      \
-    map_##NAME.emplace(opname, f);                        \
-  }                                                       \
-                                                          \
-  sizes_vec CustomOpOutShapeFunRegistrar::CalcOutShape(   \
-      const std::string_view opname, __VA_ARGS__) const { \
-    return map_##NAME.at(opname) ARGS;                    \
+#define ITEM(NAME, ARGS, ...)                               \
+  void CustomOpOutShapeFunRegistrar::Register(              \
+      const std::string_view opname, FunType_##NAME f) {    \
+    std::lock_guard<std::mutex> lock(mutexRegister);        \
+    map_##NAME.emplace(opname, f);                          \
+  }                                                         \
+                                                            \
+  sym_sizes_vec CustomOpOutShapeFunRegistrar::CalcOutShape( \
+      const std::string_view opname, __VA_ARGS__) const {   \
+    return map_##NAME.at(opname) ARGS;                      \
   }
 SUPPORTED_PROTO_LIST
 #undef ITEM

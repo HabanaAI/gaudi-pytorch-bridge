@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -12,6 +12,7 @@
  */
 #include "hpu_ops/common/batched_matmul_output_shape.h"
 
+#include <c10/core/SymInt.h>
 #include <sstream>
 
 namespace habana {
@@ -27,25 +28,26 @@ namespace habana {
 // argument is N-dimensional (where N > 2), then a batched matrix multiply is
 // returned. The non-matrix (i.e. batch) dimensions are broadcasted (and thus
 // must be broadcastable).
-ShapeVecT getBatchMatmulOutShape(
-    ShapeRefT inShapeA,
-    ShapeRefT inShapeB,
+template <class DimT>
+ShapeVecT<DimT> getBatchMatmulOutShape(
+    ShapeRefT<DimT> inShapeA,
+    ShapeRefT<DimT> inShapeB,
     bool transposeA,
     bool transposeB) {
-  ShapeVecT outputShape;
+  ShapeVecT<DimT> outputShape;
   const auto rankA = inShapeA.size();
   const auto rankB = inShapeB.size();
 
-  int64_t commonDimA = 0;
-  int64_t commonDimB = 0;
+  size_t commonDimA = 0;
+  size_t commonDimB = 0;
 
   if (rankB > 1) {
-    int64_t dimB = transposeB ? rankB - 2 : rankB - 1;
+    auto dimB = transposeB ? rankB - 2 : rankB - 1;
     commonDimB = transposeB ? rankB - 1 : rankB - 2;
     outputShape.push_back(inShapeB[dimB]);
   }
   if (rankA > 1) {
-    int64_t dimA = transposeA ? rankA - 1 : rankA - 2;
+    auto dimA = transposeA ? rankA - 1 : rankA - 2;
     commonDimA = transposeA ? rankA - 2 : rankA - 1;
     outputShape.push_back(inShapeA[dimA]);
   }
@@ -63,8 +65,8 @@ ShapeVecT getBatchMatmulOutShape(
 
   auto maxRank = std::max(rankA, rankB);
   for (size_t i = 3; i <= maxRank; i++) {
-    int64_t dimA = i > rankA ? 1 : inShapeA[rankA - i];
-    int64_t dimB = i > rankB ? 1 : inShapeB[rankB - i];
+    DimT dimA = i > rankA ? 1 : inShapeA[rankA - i];
+    DimT dimB = i > rankB ? 1 : inShapeB[rankB - i];
     if (dimA != dimB and dimA != 1 and dimB != 1) {
       std::stringstream errorMsg;
       errorMsg
@@ -79,5 +81,15 @@ ShapeVecT getBatchMatmulOutShape(
 
   return outputShape;
 }
+
+#define INSTANTIATE(DimT)                          \
+  template ShapeVecT<DimT> getBatchMatmulOutShape( \
+      ShapeRefT<DimT> inShapeA,                    \
+      ShapeRefT<DimT> inShapeB,                    \
+      bool transposeA,                             \
+      bool transposeB)
+
+INSTANTIATE(int64_t);
+INSTANTIATE(c10::SymInt);
 
 } // namespace habana

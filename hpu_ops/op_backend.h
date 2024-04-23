@@ -18,7 +18,11 @@
 
 namespace habana {
 
-using sizes_vec = std::vector<std::vector<int64_t>>;
+template <class T>
+using sizes_vec_template = std::vector<std::vector<T>>;
+
+using sizes_vec = sizes_vec_template<int64_t>;
+using sym_sizes_vec = sizes_vec_template<c10::SymInt>;
 
 struct NodeAttr {
   struct NodeOutputAttr {

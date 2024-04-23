@@ -299,11 +299,11 @@ def test_cast_to_fp8_hybrid_scales(is_scale_152, is_scale_143):
 
 def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, fp8_dtype):
     hpu = torch.device("hpu")
-    A = torch.rand(shapeA, dtype=dtype) * 10 + 30.0
+    A = torch.rand(shapeA[-1] if isinstance(shapeA, list) else shapeA, dtype=dtype) * 10 + 30.0
     A_hpu = A.to(hpu)
     max_A = torch.max(torch.abs(A)).to(torch.float)
 
-    B = torch.rand(shapeB, dtype=dtype) * 10 + 30.0
+    B = torch.rand(shapeB[-1] if isinstance(shapeB, list) else shapeB, dtype=dtype) * 10 + 30.0
     B_hpu = B.to(hpu)
     max_B = torch.max(torch.abs(B)).to(torch.float)
 
@@ -340,14 +340,18 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
         if not scaleA:
             scaleAInv = [1.0]
 
-    result_ref = torch.matmul(A.transpose(-2, -1), B)
+    As = [A[: s[0], : s[1]] for s in shapeA] if isinstance(shapeA, list) else [A]
+    As_hpu = [A_hpu[: s[0], : s[1]] for s in shapeA] if isinstance(shapeA, list) else [A_hpu]
+    Bs = [B[: s[0], : s[1]] for s in shapeB] if isinstance(shapeB, list) else [B]
+    Bs_hpu = [B_hpu[: s[0], : s[1]] for s in shapeB] if isinstance(shapeB, list) else [B_hpu]
+    result_ref = [torch.matmul(a.transpose(-2, -1), b) for a, b in zip(As, Bs)]
 
-    out_shape = result_ref.shape
-    bias_tensor = torch.rand(out_shape, dtype=dtype) * 10 + 30.0
-    bias_tensor_hpu = bias_tensor.to(hpu) if bias else None
+    out_shape = [rr.shape for rr in result_ref]
+    bias_tensor = [torch.rand(s, dtype=dtype) * 10 + 30.0 for s in out_shape]
+    bias_tensor_hpu = [t.to(hpu) if bias else None for t in bias_tensor]
 
-    out = torch.full(out_shape, 1000.0, dtype=dtype)
-    out_hpu = out.to(hpu)
+    out = [torch.full(s, 1000.0, dtype=dtype) for s in out_shape]
+    out_hpu = [t.to(hpu) for t in out]
 
     def fn(
         A_hpu,
@@ -380,29 +384,33 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+        fn = torch.compile(fn, backend="hpu_backend", dynamic=len(out) > 1)
 
-    result = fn(
-        A_hpu,
-        scaleA_hpu,
-        B_hpu,
-        scaleB_hpu,
-        out_hpu,
-        dtype,
-        scaleAInv,
-        scaleBInv,
-        bias_tensor_hpu,
-        accumulate,
-    )
+    result = [
+        fn(
+            tA,
+            scaleA_hpu,
+            tB,
+            scaleB_hpu,
+            tOut,
+            dtype,
+            scaleAInv,
+            scaleBInv,
+            tBias,
+            accumulate,
+        )
+        for tA, tB, tOut, tBias in zip(As_hpu, Bs_hpu, out_hpu, bias_tensor_hpu)
+    ]
 
     if bias:
-        result_ref = result_ref + bias_tensor
+        result_ref = [rRef + tBias for rRef, tBias in zip(result_ref, bias_tensor)]
     if accumulate:
-        result_ref = result_ref + out
-    result = result.cpu()
+        result_ref = [rRef + o for rRef, o in zip(result_ref, out)]
+    result = [r.cpu() for r in result]
 
-    percentage_diff = torch.abs((((result - result_ref) / result_ref) * 100).to(torch.int))
-    assert np.amax(percentage_diff.numpy()) <= 15
+    percentage_diff = [torch.abs((((r - rRef) / rRef) * 100).to(torch.int)) for r, rRef in zip(result, result_ref)]
+    for pd in percentage_diff:
+        assert np.amax(pd.numpy()) <= 15
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "fp8_gemm_v2"})
@@ -414,6 +422,23 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
 @pytest.mark.parametrize("fp8_dtype", fp8_dtypes, ids=format_tc)
 def test_fp8_gemm_v2(bias, accumulate, dtype, fp8_dtype):
     fp8_gemm_v2_common((24, 12), (24, 36), bias, accumulate, ScaleMode.TENSOR, ScaleMode.TENSOR, dtype, fp8_dtype)
+
+
+@pytest.mark.parametrize("bias", [True, False])
+@pytest.mark.parametrize("accumulate", [True, False])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("fp8_dtype", fp8_dtypes, ids=format_tc)
+def test_fp8_gemm_v2_ds(bias, accumulate, dtype, fp8_dtype):
+    fp8_gemm_v2_common(
+        [(24, 12), (22, 10), (26, 16)],
+        [(24, 36), (22, 34), (26, 38)],
+        bias,
+        accumulate,
+        ScaleMode.TENSOR,
+        ScaleMode.TENSOR,
+        dtype,
+        fp8_dtype,
+    )
 
 
 @pytest.mark.parametrize(
@@ -747,7 +772,8 @@ def test_in_place_interleave(dtype):
 @pytest.mark.parametrize("bias", [True, False])
 @pytest.mark.parametrize("out_dtype", [torch.float, torch.bfloat16], ids=format_tc)
 @pytest.mark.parametrize("fp8_dtype", fp8_dtypes, ids=format_tc)
-def test_conv2d_fp8(scaleA, scaleB, bias, out_dtype, fp8_dtype):
+@pytest.mark.parametrize("dynamic", [True, False])
+def test_conv2d_fp8(scaleA, scaleB, bias, out_dtype, fp8_dtype, dynamic):
     N, C, H, W = (8, 3, 28, 28)
     out_channels = 16
     kernel = (2, 2)
@@ -787,7 +813,7 @@ def test_conv2d_fp8(scaleA, scaleB, bias, out_dtype, fp8_dtype):
     if is_pytest_mode_compile():
         clear_t_compile_logs()
         torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+        fn = torch.compile(fn, backend="hpu_backend", dynamic=dynamic)
 
     conv_args = [input_hpu, weight_hpu, bias_hpu, stride, padding, 1, 1, out_dtype]
     if scaleA_hpu is not None or scaleB_hpu is not None:

@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -17,12 +17,16 @@
 
 namespace habana {
 
-using ShapeVecT = std::vector<int64_t>;
-using ShapeRefT = c10::ArrayRef<int64_t>;
+template <class DimT>
+using ShapeVecT = std::vector<DimT>;
 
-ShapeVecT getBatchMatmulOutShape(
-    ShapeRefT inShapeA,
-    ShapeRefT inShapeB,
+template <class DimT>
+using ShapeRefT = c10::ArrayRef<DimT>;
+
+template <class DimT>
+ShapeVecT<DimT> getBatchMatmulOutShape(
+    ShapeRefT<DimT> inShapeA,
+    ShapeRefT<DimT> inShapeB,
     bool transposeA,
     bool transposeB);
 

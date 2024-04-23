@@ -12,6 +12,7 @@
  */
 #pragma once
 
+#include <c10/core/SymInt.h>
 #include <mutex>
 #include <string_view>
 #include <unordered_map>
@@ -23,7 +24,7 @@ class Tensor;
 
 namespace habana {
 
-using sizes_vec = std::vector<std::vector<int64_t>>;
+using sym_sizes_vec = std::vector<std::vector<c10::SymInt>>;
 
 #define SUPPORTED_PROTO_LIST                 \
   ITEM(                                      \
@@ -40,9 +41,9 @@ class CustomOpOutShapeFunRegistrar {
   static CustomOpOutShapeFunRegistrar& GetInstance();
 
 #define ITEM(NAME, ARGS, ...)                                   \
-  typedef sizes_vec (*FunType_##NAME)(__VA_ARGS__);             \
+  typedef sym_sizes_vec (*FunType_##NAME)(__VA_ARGS__);         \
   void Register(const std::string_view opname, FunType_##NAME); \
-  sizes_vec CalcOutShape(const std::string_view opname, __VA_ARGS__) const;
+  sym_sizes_vec CalcOutShape(const std::string_view opname, __VA_ARGS__) const;
   SUPPORTED_PROTO_LIST
 #undef ITEM
 

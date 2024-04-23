@@ -990,14 +990,14 @@ void Fp8Gemm::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 /********** Fp8GemmV2 **********/
 
-sizes_vec fp8_gemm_v2_out_shape(
+sym_sizes_vec fp8_gemm_v2_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<int64_t>& params) {
   TORCH_CHECK(inputs.size() == 2);
   TORCH_CHECK(params.size() == 2);
   return {getBatchMatmulOutShape(
-      inputs[0].sizes(),
-      inputs[1].sizes(),
+      inputs[0].sym_sizes(),
+      inputs[1].sym_sizes(),
       static_cast<bool>(params[0]),
       static_cast<bool>(params[1]))};
 }
@@ -1294,14 +1294,20 @@ void Fp8IndexCopy_::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 /********** Fp8RepeatV2 **********/
 
-static sizes_vec Fp8RepeatV2OutputShapeCommon(
+template <class RT>
+RT Fp8RepeatV2OutputShapeCommon(
     const at::Tensor& self,
     c10::IntArrayRef repeats) {
   int64_t num_new_dimensions = repeats.size() - self.dim();
-  std::vector<int64_t> padded_size(num_new_dimensions, 1);
-  padded_size.insert(
-      padded_size.end(), self.sizes().begin(), self.sizes().end());
-  std::vector<int64_t> outshape(repeats.size());
+  using OutVecT = typename RT::value_type;
+  OutVecT padded_size(num_new_dimensions, 1);
+  if constexpr (std::is_same_v<RT, sym_sizes_vec>)
+    padded_size.insert(
+        padded_size.end(), self.sym_sizes().begin(), self.sym_sizes().end());
+  else
+    padded_size.insert(
+        padded_size.end(), self.sizes().begin(), self.sizes().end());
+  OutVecT outshape(repeats.size());
   for (size_t i = 0; i < repeats.size(); ++i) {
     outshape[i] = padded_size[i] * repeats[i];
   }
@@ -1309,11 +1315,11 @@ static sizes_vec Fp8RepeatV2OutputShapeCommon(
   return {outshape};
 }
 
-sizes_vec fp8_repeat_v2_out_shape(
+sym_sizes_vec fp8_repeat_v2_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<int64_t>& params) {
   TORCH_CHECK(inputs.size() == 1);
-  return Fp8RepeatV2OutputShapeCommon(inputs[0], params);
+  return Fp8RepeatV2OutputShapeCommon<sym_sizes_vec>(inputs[0], params);
 }
 
 REGISTER_CUSTOM_OP_OUTSHAPE_FUN(fp8_repeat_v2, fp8_repeat_v2_out_shape);
@@ -1321,7 +1327,7 @@ REGISTER_CUSTOM_OP_OUTSHAPE_FUN(fp8_repeat_v2, fp8_repeat_v2_out_shape);
 sizes_vec Fp8RepeatV2OutputShape(const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto repeats = stack[1].toIntVector();
-  return Fp8RepeatV2OutputShapeCommon(self, repeats);
+  return Fp8RepeatV2OutputShapeCommon<sizes_vec>(self, repeats);
 }
 
 Fp8RepeatV2::Fp8RepeatV2(int device_id, c10::ScalarType scalar_type)
@@ -1493,23 +1499,25 @@ void InPlaceInterleaveCommon::AddNode(
 
 /********** Conv2dFp8 **********/
 
-static int64_t ComputeConv2dOutputDim(
-    const int64_t input_dim,
+template <class DimT>
+DimT ComputeConv2dOutputDim(
+    const DimT input_dim,
     const int64_t padding,
     const int64_t dilation,
-    const int64_t kernel_size,
+    const DimT kernel_size,
     const int64_t stride) {
   return (input_dim + 2 * padding - dilation * (kernel_size - 1) - 1) / stride +
       1;
 }
 
-static std::vector<int64_t> ComputeConv2dOutputSize(
-    c10::IntArrayRef shape_in,
-    c10::IntArrayRef shape_wt,
+template <class DimT>
+std::vector<DimT> ComputeConv2dOutputSize(
+    c10::ArrayRef<DimT> shape_in,
+    c10::ArrayRef<DimT> shape_wt,
     c10::IntArrayRef stride,
     c10::IntArrayRef padding,
     c10::IntArrayRef dilation) {
-  std::vector<int64_t> out_shape{shape_in[0], shape_wt[0]};
+  std::vector<DimT> out_shape{shape_in[0], shape_wt[0]};
   for (int i = 0; i < 2; ++i) {
     out_shape.emplace_back(ComputeConv2dOutputDim(
         shape_in[i + 2], padding[i], dilation[i], shape_wt[i + 2], stride[i]));
@@ -1517,14 +1525,14 @@ static std::vector<int64_t> ComputeConv2dOutputSize(
   return out_shape;
 }
 
-sizes_vec conv2d_fp8_out_shape(
+sym_sizes_vec conv2d_fp8_out_shape(
     const std::vector<at::Tensor>& inputs,
     const std::vector<int64_t>& params) {
   TORCH_CHECK(inputs.size() == 2);
   TORCH_CHECK(params.size() == 6);
   return {ComputeConv2dOutputSize(
-      inputs[0].sizes(),
-      inputs[1].sizes(),
+      inputs[0].sym_sizes(),
+      inputs[1].sym_sizes(),
       c10::IntArrayRef(params).slice(0, 2),
       c10::IntArrayRef(params).slice(2, 2),
       c10::IntArrayRef(params).slice(4, 2))};
