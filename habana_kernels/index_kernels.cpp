@@ -1507,7 +1507,7 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
       inputs[0].isTensor(),
       "Input 0 type expected to be Tensor for index_put operator");
   TORCH_CHECK(
-      inputs[1].isTensorList(),
+      (inputs[1].isTensorList() || inputs[1].isOptionalTensorList()),
       "Input 1 type expected to be TensorList for index_put operator");
   TORCH_CHECK(
       inputs[2].isTensor(),
@@ -1516,7 +1516,32 @@ void IndexPutOperator::AllocateAndAddSynapseNode(
       inputs[3].isBool(),
       "Input 3 type expected to be Bool for index_put operator");
 
-  auto indices = inputs[1].toTensorList().vec();
+  std::vector<at::Tensor> indices;
+
+  // This is an incomplete change - but shows we can recieve list of optional
+  // tensors via JIT The actual handling for such cases is not done here and
+  // will fail
+  if (inputs[1].isOptionalTensorList()) {
+    PT_KERNEL_DEBUG("index_put: received list of optional tensors");
+    auto opt_tensorlist_args = inputs[1].toOptionalTensorList();
+    for (c10::optional<at::Tensor> input_ind : opt_tensorlist_args) {
+      auto input = input_ind.value_or(at::Tensor());
+      if (input.defined()) {
+        PT_KERNEL_DEBUG(
+            "indices tensor: ", input.scalar_type(), " size = ", input.sizes());
+        indices.push_back(input);
+      } else {
+        PT_KERNEL_DEBUG("undefined indices tensor");
+        HABANA_ASSERT(
+            0 &&
+            "index_put: unsupported case: None is not yet supported on HPU for c10::List<c10::optional<Tensor>>");
+      }
+    }
+    HABANA_ASSERT(0, "index_put: OptionalTensorList is not handled in kernel");
+  } else {
+    indices = inputs[1].toTensorList().vec();
+  }
+
   if (indices[0].scalar_type() == c10::ScalarType::Bool) {
     AllocateAndAddSynapseNodeBoolIndices(graph, inputs, output_metadata);
   } else {
@@ -3090,7 +3115,9 @@ static auto& IndexKernelsKernelRegistry =
         .add("hpu::scatter_nd", KERNEL_FN(ScatterNdOperator))
         .add("hpu::scatter_nd_onnx", KERNEL_FN(ScatterNdONNXOperator))
         .add("aten::index_put", KERNEL_FN(IndexPutOperator))
-        .add("aten::index_put.hacked_twin", KERNEL_FN(IndexPutOperator))
+        .add(
+            "hpu::index_put_normal_and_neg_indices",
+            KERNEL_FN(IndexPutOperator))
         .add("hpu::index_put", KERNEL_FN(IndexPutOperator2))
         .add("aten::slice.Tensor", KERNEL_FN(SliceOperator))
         .add("hpu::slice", KERNEL_FN(SliceOperator))

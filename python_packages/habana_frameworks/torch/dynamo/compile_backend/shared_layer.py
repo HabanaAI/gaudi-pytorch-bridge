@@ -142,7 +142,44 @@ hpu_ds_fallback_list = {
 }
 
 
-def check_for_default_op_support(op_name, node):
+# Returns False when the index_put op needs to fallback to eager
+def index_put_support_check(node, is_dynamic):
+    # Dynamic shape is not supported
+    if is_dynamic:
+        return False
+    t = node.args[0]
+    # Note: Not adding pre-Gaudi2 related unsupported dtype fallbacks for t
+    indices = node.args[1]
+    accumulate = node.args[3] if len(node.args) == 4 else False
+
+    def accumulate_support_check(accumulate, index, i, t):
+        if accumulate:
+            return True
+        # index numel > self dim shape is not supported for accumulate False
+        if index.meta["val"].numel() > t.meta["tensor_meta"].shape[i]:
+            return False
+        return True
+
+    for i, index in enumerate(indices):
+        # None indices are not supported
+        if index is None:
+            return False
+        # Onlu HPU indices are supported
+        if not (
+            index.meta["output_device"] == torch.device("hpu") or index.meta["output_device"] == torch.device("hpu:0")
+        ):
+            return False
+        # Long and Bool indices mix are supported
+        # Check for cases with accumulate flag
+        if not accumulate_support_check(accumulate, index, i, t):
+            return False
+
+    return True
+
+
+def check_for_default_op_support(op_name, node, is_dynamic):
+    if op_name == "index_put":
+        return index_put_support_check(node, is_dynamic)
     if op_name in hpu_supported_op_list:
         return True
     if op_name in hpu_supported_ops_restricted:
@@ -206,7 +243,7 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
         if check_for_default_fallback(op_name, node, is_dynamic):
             do_fallback = True
             logger.debug("Fallback required - check_for_default_fallback. Node: ", node.target)
-        elif not check_for_default_op_support(op_name, node):
+        elif not check_for_default_op_support(op_name, node, is_dynamic):
             for arg in args:
                 arg_types.append(type(arg))
             normalized_args = torch.fx.operator_schemas.normalize_function(node.target, args, kwargs, arg_types)

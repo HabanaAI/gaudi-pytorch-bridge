@@ -21,8 +21,11 @@ namespace habana {
 static std::vector<int64_t> broadcast_size(
     at::TensorList indices,
     at::Tensor self) {
-  auto isz = indices[0].sizes().vec();
   std::vector<int64_t> size;
+  if ((indices.size() == 1) && (indices[0].sizes().size() == 0)) {
+    return size;
+  }
+  auto isz = indices[0].sizes().vec();
   auto self_sizes = self.sizes().vec();
   if (indices[0].dim() == 1) {
     size = isz;
@@ -648,6 +651,424 @@ void IndexPutBoolEager::AddNode(
     syn_out(0) = std::move(add_op[0]);
   }
 }
+
+static synapse_helpers::tensor IndexPutLongHelper(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    const at::Stack& stack,
+    std::vector<at::Tensor> indices,
+    synTensor self_synin,
+    std::vector<synTensor> indices_synin,
+    synTensor value_synin) {
+  auto self = stack_tensor(stack, 0);
+  auto values = stack_tensor(stack, 2);
+  auto accumulate = stack.at(3).toBool();
+  auto max_size = broadcast_size(indices, self);
+  auto indices_scalar_type = indices[0].scalar_type();
+  std::vector<at::Tensor> cat_input;
+  std::vector<synTensor> cat_input_synTensor;
+  std::vector<synapse_helpers::tensor> cat_input_tensor;
+  std::vector<std::vector<int64_t>> cat_input_index;
+  for (size_t i = 0; i < indices.size(); i++) {
+    auto bcastOp = OpBackend::BuildBroadcast(
+        op, graph, indices_synin[i], max_size, indices_scalar_type);
+    // Reshape broadcasted indices to [N, 1] for concatenation
+    auto flattened_size = std::accumulate(
+        std::begin(max_size), std::end(max_size), 1, std::multiplies<size_t>());
+
+    std::vector<int64_t> expanded_size = {flattened_size, 1};
+    cat_input_tensor.emplace_back(OpBackend::BuildReshape(
+        op, graph, bcastOp.get(), expanded_size, indices_scalar_type));
+    cat_input_synTensor.emplace_back(
+        cat_input_tensor[cat_input_tensor.size() - 1].get());
+    cat_input_index.emplace_back(
+        cat_input_tensor[cat_input_tensor.size() - 1].pt_shape());
+  }
+
+  int64_t cat_dim = 1;
+  std::vector<int64_t> cat_out_size =
+      CalcCatOutSize(&cat_input_index, &cat_dim);
+  cat_dim = cat_out_size.size() > 0
+      ? (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1
+      : 0; // if tensor is empty then dim of the concatenated tensor will be 0
+  synConcatenateParams concat_params{};
+  concat_params.axis = static_cast<unsigned int>(cat_dim);
+  auto catop1 = OpBackend::BuildNode(
+      op,
+      graph,
+      {"concat",
+       std::move(cat_input_synTensor),
+       {{cat_out_size, indices_scalar_type}},
+       &concat_params,
+       sizeof(concat_params)});
+
+  auto catop = std::move(catop1.at(0));
+  // Calculate the dimensionality of updates for broadcasting
+  auto rank_inp = static_cast<size_t>(self.ndimension());
+  auto rank_idx = static_cast<size_t>(catop.pt_shape()[1]);
+  std::vector<int64_t> value_upd_dim{catop.pt_shape()[0]};
+  if (((int)indices.size() == self.dim()) && (values.numel() > 1)) {
+    value_upd_dim.clear();
+    value_upd_dim = values.sizes().vec();
+  }
+
+  for (size_t i = rank_idx; i < rank_inp; ++i)
+    value_upd_dim.push_back(self.sizes().vec()[i]);
+  auto values_scalar_type = values.scalar_type();
+  std::vector<synapse_helpers::tensor> values_bcast_or_reshape_sh_tensor;
+  // value_upd_dim is the final shape we want for values tensor to match
+  // scatter_nd_onnx requirements. Either broadcast of reshape input values
+  // tensor to get that shape.
+  if (values.dim() <= (int)value_upd_dim.size()) {
+    values_bcast_or_reshape_sh_tensor.emplace_back(OpBackend::BuildBroadcast(
+        op, graph, value_synin, value_upd_dim, values_scalar_type));
+  } else {
+    values_bcast_or_reshape_sh_tensor.emplace_back(OpBackend::BuildReshape(
+        op, graph, value_synin, value_upd_dim, values_scalar_type));
+  }
+  auto self_scalar_type = self.scalar_type();
+  // scatter_nd_fwd has no support for int16 and u8 , hence we need to cast
+  std::string cast_guid{};
+  auto scatter_nd_onnx_fwd_dtype = self_scalar_type;
+  at::ScalarType cast_dtype = self_scalar_type;
+  bool cast_needed = false;
+  if ((cast_needed = CheckAndGetCastGuid(
+           "scatter_nd_onnx_fwd", self_scalar_type, cast_guid, cast_dtype))) {
+    scatter_nd_onnx_fwd_dtype = cast_dtype;
+  }
+
+  std::vector<synapse_helpers::tensor> next_node;
+  if ((int)indices.size() == self.dim()) {
+    std::vector<int64_t> reshape_bcast_size({catop.pt_shape()[0]});
+    auto reshape_val_op = OpBackend::BuildReshape(
+        op,
+        graph,
+        values_bcast_or_reshape_sh_tensor[0].get(),
+        reshape_bcast_size,
+        values_scalar_type);
+
+    if (!accumulate) {
+      if (cast_needed) {
+        auto scatter_op = OpBackend::BuildNode(
+            op,
+            graph,
+            {get_guid_with_precision(
+                 "scatter_nd_onnx_fwd",
+                 scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
+             {self_synin, catop.get(), reshape_val_op.get()},
+             {NodeAttr::NodeOutputAttr{
+                 self.sizes().vec(), scatter_nd_onnx_fwd_dtype}}});
+        next_node = OpBackend::BuildNode(
+            op,
+            graph,
+            {cast_guid,
+             {scatter_op[0].get()},
+             {{self.sizes().vec(), self_scalar_type, 0}},
+             0});
+
+      } else {
+        next_node = OpBackend::BuildNode(
+            op,
+            graph,
+            {get_guid_with_precision(
+                 "scatter_nd_onnx_fwd",
+                 scatter_nd_onnx_fwd_dtype), // dytpe will be the casted one
+             {self_synin, catop.get(), reshape_val_op.get()},
+             {NodeAttr::NodeOutputAttr{
+                 self.sizes().vec(), self_scalar_type, 0}}});
+      }
+      return std::move(next_node[0]);
+    } else {
+      return HandleIndexPutWithAcc(
+          op,
+          graph,
+          self,
+          catop,
+          reshape_val_op,
+          self_synin,
+          rank_idx,
+          indices_scalar_type);
+    }
+  } else {
+    if (!accumulate) {
+      if (cast_needed) {
+        auto scatter_op = OpBackend::BuildNode(
+            op,
+            graph,
+            {get_guid_with_precision(
+                 "scatter_nd_onnx_fwd", scatter_nd_onnx_fwd_dtype),
+             {self_synin,
+              catop.get(),
+              values_bcast_or_reshape_sh_tensor[0].get()},
+             {NodeAttr::NodeOutputAttr{
+                 self.sizes().vec(), scatter_nd_onnx_fwd_dtype}}});
+
+        next_node = OpBackend::BuildNode(
+            op,
+            graph,
+            {cast_guid,
+             {scatter_op[0].get()},
+             {NodeAttr::NodeOutputAttr{
+                 self.sizes().vec(), self_scalar_type, 0}}});
+
+      } else {
+        next_node = OpBackend::BuildNode(
+            op,
+            graph,
+            {get_guid_with_precision(
+                 "scatter_nd_onnx_fwd", scatter_nd_onnx_fwd_dtype),
+             {self_synin,
+              catop.get(),
+              values_bcast_or_reshape_sh_tensor[0].get()},
+             {NodeAttr::NodeOutputAttr{
+                 self.sizes().vec(), scatter_nd_onnx_fwd_dtype, 0}}});
+      }
+      return std::move(next_node[0]);
+    } else {
+      return HandleIndexPutWithAcc(
+          op,
+          graph,
+          self,
+          catop,
+          values_bcast_or_reshape_sh_tensor[0],
+          self_synin,
+          rank_idx,
+          indices_scalar_type);
+    }
+  };
+}
+
+IndexPutCompile::IndexPutCompile(int device_id, c10::ScalarType scalar_type)
+    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {}
+
+void IndexPutCompile::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  std::vector<at::Tensor> indices;
+  std::vector<synTensor> indices_synin;
+  bool indices_are_bool = false;
+  int i = 0;
+  int rank_idx_long = 0;
+  if (stack.at(1).isOptionalTensorList()) {
+    PT_KERNEL_DEBUG(
+        "index_put boolmask torch.compile: received list of optional tensors");
+    auto opt_tensorlist_args = stack.at(1).toOptionalTensorList();
+    for (c10::optional<at::Tensor> input_ind : opt_tensorlist_args) {
+      auto input = input_ind.value_or(at::Tensor());
+      if (input.defined()) {
+        PT_KERNEL_DEBUG(
+            "torch.compile : index_put boolmask: indices tensor: ",
+            input.scalar_type(),
+            " size = ",
+            input.sizes());
+        if (input.scalar_type() != c10::ScalarType::Bool) {
+          rank_idx_long++;
+        } else {
+          indices_are_bool = true;
+        }
+        indices.push_back(input);
+        indices_synin.push_back(syn_in(i + 1));
+        i++;
+      } else {
+        PT_KERNEL_DEBUG(
+            "torch.compile: index_put boolmask: undefined indices tensor");
+        HABANA_ASSERT(
+            0 &&
+            "torch.compile: index_put boolmask: unsupported case: None is not yet supported on HPU for c10::List<c10::optional<Tensor>>");
+      }
+    }
+    HABANA_ASSERT(
+        0,
+        "torch.compile: index_put boolmask: OptionalTensorList is not handled in kernel");
+  } else {
+    indices = stack.at(1).toTensorList().vec();
+    for (; i < (int)indices.size(); i++) {
+      indices_synin.push_back(syn_in(i + 1));
+      if (indices[i].scalar_type() != c10::ScalarType::Bool) {
+        rank_idx_long++;
+      } else {
+        indices_are_bool = true;
+      }
+    }
+  }
+
+  if (!indices_are_bool) {
+    syn_out(0) = IndexPutLongHelper(
+        this,
+        graph,
+        stack,
+        indices,
+        syn_in(0),
+        indices_synin,
+        syn_in(1 + indices.size()));
+    return;
+  }
+  // auto indices = stack.at(1).toTensorList().vec();
+  auto values = stack_tensor(stack, 2);
+  auto accumulate = stack.at(3).toBool();
+  auto max_size = broadcast_size(indices, self);
+  auto indices_scalar_type =
+      common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
+  std::vector<synapse_helpers::tensor> nonzero;
+  auto shape_tensor_shape = at::DimVector{5};
+  auto self_sizes = self.sizes().vec();
+  std::vector<at::Tensor> cat_input;
+  std::vector<synTensor> cat_input_synTensor;
+  std::vector<synapse_helpers::tensor> cat_input_tensor;
+  std::vector<std::vector<int64_t>> cat_input_index;
+  std::vector<int64_t> nonzero_out_shape;
+
+  auto unsqueeze = [this, &graph](
+                       const at::Tensor& t, synTensor st, const int ndims) {
+    const auto missing = static_cast<size_t>(ndims - t.dim());
+    auto new_shape = t.sizes().vec();
+    new_shape.insert(new_shape.end(), missing, 1);
+    return this->ReshapeHelper(graph, st, new_shape, t.scalar_type());
+  };
+  int64_t slice_numel;
+
+  for (size_t i = 0; i < indices.size(); i++) {
+    if (indices[i].scalar_type() == c10::ScalarType::Bool) {
+      NonZeroParams_t index_params;
+      index_params.dtype = indices[i].scalar_type();
+
+      auto bcastOpInd = BroadcastHelper(
+          graph,
+          static_cast<int64_t>(max_size.size()) > indices[i].dim()
+              ? unsqueeze(
+                    indices[i],
+                    syn_in(i + 1),
+                    static_cast<int>(max_size.size()))
+                    .get()
+              : syn_in(i + 1),
+          max_size,
+          index_params.dtype);
+      index_params.sizes = max_size;
+      index_params.numel = std::accumulate(
+          std::begin(max_size),
+          std::end(max_size),
+          1,
+          std::multiplies<size_t>());
+      nonzero = NonZeroCommon(
+          this,
+          graph,
+          index_params,
+          bcastOpInd.get(),
+          c10::nullopt,
+          c10::nullopt,
+          false);
+
+      nonzero_out_shape = nonzero[0].pt_shape();
+      synSliceParamsV2 slice_params{};
+      slice_numel = index_params.numel;
+      slice_params.axes[0] = 1; // always slice on the row of 2D indices
+                                // (index vector for each dim is one col)
+      slice_params.starts[0] = 0;
+      slice_params.ends[0] = slice_numel;
+      slice_params.steps[0] = 1;
+      int64_t slice_output_shape_second_dim_size =
+          (1 == nonzero_out_shape.size()) ? 1 : nonzero_out_shape[1];
+      auto slice = BuildOp(
+          graph,
+          get_guid_with_precision("slice", indices_scalar_type),
+          {nonzero[0].get()},
+          {{{slice_numel, slice_output_shape_second_dim_size},
+            indices_scalar_type}},
+          &slice_params,
+          sizeof(slice_params));
+      cat_input_tensor.emplace_back(std::move(slice.at(0)));
+      cat_input_synTensor.emplace_back(
+          cat_input_tensor[cat_input_tensor.size() - 1].get());
+      cat_input_index.emplace_back(
+          cat_input_tensor[cat_input_tensor.size() - 1].pt_shape());
+    } else {
+      auto bcastOp =
+          BroadcastHelper(graph, syn_in(i + 1), max_size, indices_scalar_type);
+      // Reshape broadcasted indices to [N, 1] for concatenation
+      auto flattened_size = std::accumulate(
+          std::begin(max_size),
+          std::end(max_size),
+          1,
+          std::multiplies<size_t>());
+
+      std::vector<int64_t> expanded_size = {flattened_size, 1};
+      cat_input_tensor.emplace_back(ReshapeHelper(
+          graph, bcastOp.get(), expanded_size, indices_scalar_type));
+      cat_input_synTensor.emplace_back(
+          cat_input_tensor[cat_input_tensor.size() - 1].get());
+      cat_input_index.emplace_back(
+          cat_input_tensor[cat_input_tensor.size() - 1].pt_shape());
+    }
+  }
+  int64_t cat_dim = 1;
+  std::vector<int64_t> cat_out_size =
+      CalcCatOutSize(&cat_input_index, &cat_dim);
+  cat_dim = cat_out_size.size() > 0
+      ? (static_cast<int64_t>(cat_out_size.size()) - cat_dim) - 1
+      : 0; // If tensor is empty then dim of the concatenated tensor will be 0
+  synConcatenateParams concat_params{};
+  concat_params.axis = static_cast<unsigned int>(cat_dim);
+  auto catop1 = BuildOp(
+      graph,
+      "concat",
+      std::move(cat_input_synTensor),
+      {{cat_out_size, indices_scalar_type}},
+      &concat_params,
+      sizeof(concat_params));
+  auto catop = std::move(catop1.at(0));
+  auto cat_pt_shape = catop.pt_shape();
+  // Calculate the dimensionality of updates for broadcasting
+  auto rank_inp = static_cast<size_t>(self.ndimension());
+  auto rank_idx = static_cast<size_t>(nonzero_out_shape[1] + rank_idx_long);
+  auto values_scalar_type = values.scalar_type();
+  std::vector<int64_t> value_upd_dim;
+  if (values.numel() >
+      1) { // if values has more than 1 elem, we have to assume the valid
+    // count in indices will match values numel
+    auto values_sizes = values.sizes().vec();
+    if (indices[0].dim() != self.dim() &&
+        values.dim() != (1 + (self.dim() - indices[0].dim()))) {
+      value_upd_dim.push_back(slice_numel); // NOTE: we might fail for indices
+                                            // with varying dimensions
+      for (size_t i = rank_idx; i < rank_inp; i++)
+        value_upd_dim.push_back(self_sizes[i]);
+    } else {
+      for (size_t i = 0; i < static_cast<size_t>(values.dim()); i++)
+        value_upd_dim.push_back(values_sizes[i]);
+    }
+  } else { // We are assuming uses passes value shapes correctly for scatter
+    value_upd_dim.push_back(slice_numel); // NOTE: we might fail for indices
+                                          // with varying dimensions
+    for (size_t i = rank_idx; i < rank_inp; i++)
+      value_upd_dim.push_back(self_sizes[i]);
+  }
+  auto bcastOp = BroadcastHelper(
+      graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type);
+  auto self_scalar_type = self.scalar_type();
+  if (!accumulate) {
+    auto scatter_op = BuildOp(
+        graph,
+        get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
+        {syn_in(0), catop.get(), bcastOp.get(), nonzero.at(1).get()},
+        {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
+    syn_out(0) = std::move(scatter_op[0]);
+  } else {
+    auto zero_op = ConstantHelper(graph, 0, self_scalar_type, self_sizes);
+    auto scatter_op = BuildOp(
+        graph,
+        get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
+        {zero_op.get(), catop.get(), bcastOp.get(), nonzero.at(1).get()},
+        {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type}});
+    auto add_op = BuildOp(
+        graph,
+        get_guid_with_precision("add_fwd", self_scalar_type),
+        {syn_in(0), scatter_op.at(0).get()},
+        {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
+    syn_out(0) = std::move(add_op[0]);
+  }
+}
+
 } // namespace habana
 
 static const auto& IndexPutKernelRegistry = habana::KernelRegistry().add(
@@ -657,3 +1078,7 @@ static const auto& IndexPutKernelRegistry = habana::KernelRegistry().add(
 static const auto& IndexPutboolKernelRegistry = habana::KernelRegistry().add(
     "hpu::_index_put_impl_bool_eager",
     KERNEL_FN_GLOBAL(habana::IndexPutBoolEager));
+
+static const auto& IndexPutAtenKernelRegistry = habana::KernelRegistry().add(
+    "aten::index_put.hacked_twin",
+    KERNEL_FN_GLOBAL(habana::IndexPutCompile));

@@ -3415,9 +3415,9 @@ Tensor index_put_hpu_lazy(
     return index_put_frontend_impl_hpu_lazy(
         self, indices_list, value_in, accumulate);
   }
-
   LazyOp<at::Tensor> index_put_op{
-      "aten::index_put", {self, indices, value_in, accumulate}};
+      "hpu::index_put_normal_and_neg_indices",
+      {self, indices, value_in, accumulate}};
   return index_put_op.call();
 }
 

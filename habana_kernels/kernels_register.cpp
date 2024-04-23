@@ -2379,6 +2379,8 @@ TORCH_LIBRARY(hpu, m) {
       "nonzero(Tensor self, Tensor? nonzero_input_shape_tensor) -> (Tensor, Tensor)");
   m.def(
       "index_put(Tensor self, Tensor where_tensor, Tensor shape_tensor, Tensor value, Tensor value_upd_dim, Tensor zero_shape_tensor, bool accumulate=False) -> Tensor");
+  m.def(
+      "index_put_normal_and_neg_indices(Tensor self, Tensor[] indices, Tensor value, bool accumulate=False) -> Tensor");
   m.def("mul_out(Tensor self, Tensor other, Tensor(a!) out) -> Tensor(a!)");
   m.def("div_out(Tensor self, Tensor other, Tensor(a!) out) -> Tensor(a!)");
   m.def("mm_t(Tensor mm, Tensor t , bool tr, bool no_tr) -> Tensor");
