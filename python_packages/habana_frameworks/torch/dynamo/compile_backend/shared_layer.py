@@ -113,6 +113,27 @@ hpu_fallback_op_list = {
     "index",  # SW-146773
 }
 
+# List of ops that do not support dynamic shape in torch.compile
+# Ops added to this list will fallback to eager if DS is enabled
+hpu_ds_fallback_list = {
+    # SW-181805
+    "scatter_add",
+    # SW-180608
+    # Fallback for all FusedSDPA op variants
+    "sdpa_fwd",
+    "sdpa_fwd_dropout",
+    "sdpa_fwd_non_dropout",
+    "sdpa_fwd_dropout_seed",
+    "sdpa_bwd",
+    "sdpa_recomp_fwd",
+    "sdpa_recomp_fwd_dropout",
+    "sdpa_recomp_fwd_non_dropout",
+    "sdpa_recomp_fwd_dropout_seed",
+    "sdpa_recomp_bwd",
+    "fp8_sdpa_recomp_fwd",
+    "fp8_sdpa_recomp_fwd_be",
+}
+
 
 def check_for_default_op_support(op_name, node):
     if op_name in hpu_supported_op_list:
@@ -144,9 +165,9 @@ def check_for_default_fallback(op_name, node, is_dynamic=False):
             if isinstance(node.args[idx], bool):
                 return True
 
-    # workaround for: https://jira.habana-labs.com/browse/SW-181805
-    # The scatter_add op is not yet supported for dynamic shape in torch compile
-    if op_name == "scatter_add" and is_dynamic:
+    # If op is in hpu_ds_fallback_list and dynamic shape is enabled,
+    # eager fallback will take place
+    if op_name in hpu_ds_fallback_list and is_dynamic:
         return True
 
     # representing scalar float value NaN in JIT fails, by being pasted as
