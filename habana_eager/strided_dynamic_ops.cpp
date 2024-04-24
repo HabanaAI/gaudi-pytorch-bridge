@@ -144,38 +144,45 @@ void ViewOperatorDS::ResolveNegativeSizes(
   launch_shapes.patch_values.push_back(cos_t_shapes);
 }
 
-void ArangeOperatorDS::UpdateDynamicInputs(
-    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
-    c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
-    [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
-    [[maybe_unused]] c10::SmallVectorImpl<
-        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
-    std::vector<c10::IValue>& orig_stack,
-    LaunchDynamicShapes& launch_shapes) {
-  HABANA_ASSERT(
-      dtensor_list.size() == scalar_idx_list.size(),
-      "Dtensor and SymIntData count not matching");
-  HABANA_ASSERT(dtensor_list.size() == 1, "Tensor count should be 1");
+int64_t get_arange_depth_ds_1(
+    const float start,
+    const float end,
+    const float step) {
+  TORCH_CHECK(step != 0.0, "step value can not be 0.");
+  TORCH_CHECK(!((start > end) && (step > 0)), "step must be negative.");
+  TORCH_CHECK(!((start < end) && (step < 0)), "step must be positive.");
 
-  auto dtensor = dtensor_list[0]->toTensor();
-  SymIntData& scalar_idx = scalar_idx_list[0];
+  int64_t num_elements = static_cast<int64_t>(ceil((end - start) / step));
+  return num_elements;
+}
 
-  std::vector<int32_t> updated_h2d_data;
-  for (unsigned int idx = 0; idx < scalar_idx.values.size(); idx++) {
-    auto stack_index = scalar_idx.values[idx];
-    if (stack_index == LONG_MAX) {
-      std::vector<int32_t> h2d_data = GetH2DTensorHostData<int32_t>(dtensor);
-      std::reverse(h2d_data.begin(), h2d_data.end());
-      updated_h2d_data.push_back(h2d_data[idx]);
-    } else {
-      updated_h2d_data.push_back(
-          static_cast<int32_t>(GetSymintValue(orig_stack, stack_index)));
+bool IssetToIntegralDType(
+    std::vector<torch::jit::Value*> start_end_step,
+    torch::jit::Stack& in_stack,
+    GraphInputIndexMap& org_stack_index_map) {
+  bool isitInger = true;
+  for (auto& val : start_end_step) {
+    if (val) {
+      auto in_name = val->debugName();
+      static const auto constant_symbol{
+          c10::Symbol::fromQualString("prim::Constant")};
+      if (val->node()->kind() == constant_symbol) {
+        auto scalar_val = toIValue(val).value().toScalar();
+        isitInger = isitInger && scalar_val.isIntegral(true);
+      } else if (org_stack_index_map.count(in_name)) {
+        auto index = static_cast<int64_t>(org_stack_index_map[in_name]);
+        auto scalar_val = in_stack[index].toScalar();
+        isitInger = isitInger && scalar_val.isIntegral(true);
+      } else {
+        HABANA_ASSERT(
+            false,
+            "IssetToIntegralDType Node input=",
+            val,
+            " is not a graph input or a prim::Constant");
+      }
     }
   }
-  std::reverse(updated_h2d_data.begin(), updated_h2d_data.end());
-  std::vector<int64_t> cast_data(
-      updated_h2d_data.begin(), updated_h2d_data.end());
-  UpdateH2DPatchingData(dtensor, cast_data, launch_shapes);
+  return isitInger;
 }
 
 bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
@@ -184,84 +191,190 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
     GraphInputIndexMap& org_stack_index_map,
     ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
-  if (aten_arange_node->inputs().size() != 7) {
-    return false;
-  }
-  // HABANA_ASSERT(7 == aten_arange_node->inputs().size());
   static const auto hpu_arange_symbol{
       c10::Symbol::fromQualString("hpu::arange")};
   auto arange_shape = aten_arange_node->inputs().at(0);
   auto graph{aten_arange_node->owningGraph()};
-  auto start = aten_arange_node->inputs().at(0);
-  auto end = aten_arange_node->inputs().at(1);
-  auto step = aten_arange_node->inputs().at(2);
+  torch::jit::Value* start = nullptr;
+  torch::jit::Value* end = nullptr;
+  torch::jit::Value* step = nullptr;
+  torch::jit::Value* out_dtype_node_val = nullptr;
+  torch::jit::Value* out_layout_node_val = nullptr;
+  torch::jit::Value* out_device_node_val = nullptr;
+  torch::jit::Value* out_pin_mem_node_val = nullptr;
+  if (aten_arange_node->inputs().size() == 5) {
+    end = aten_arange_node->inputs().at(0);
+    out_dtype_node_val = aten_arange_node->inputs().at(1);
+    out_layout_node_val = aten_arange_node->inputs().at(2);
+    out_device_node_val = aten_arange_node->inputs().at(3);
+    out_pin_mem_node_val = aten_arange_node->inputs().at(4);
+  } else if (aten_arange_node->inputs().size() == 6) {
+    start = aten_arange_node->inputs().at(0);
+    end = aten_arange_node->inputs().at(1);
+    out_dtype_node_val = aten_arange_node->inputs().at(2);
+    out_layout_node_val = aten_arange_node->inputs().at(3);
+    out_device_node_val = aten_arange_node->inputs().at(4);
+    out_pin_mem_node_val = aten_arange_node->inputs().at(5);
+  } else if (aten_arange_node->inputs().size() == 7) {
+    start = aten_arange_node->inputs().at(0);
+    end = aten_arange_node->inputs().at(1);
+    step = aten_arange_node->inputs().at(2);
+    out_dtype_node_val = aten_arange_node->inputs().at(3);
+    out_layout_node_val = aten_arange_node->inputs().at(4);
+    out_device_node_val = aten_arange_node->inputs().at(5);
+    out_pin_mem_node_val = aten_arange_node->inputs().at(6);
+  } else {
+    return false;
+  }
 
-  std::vector<int64_t> scalar_indexes;
-  std::vector<int64_t> h2d_values;
+  bool setToIntegralDType =
+      IssetToIntegralDType({start, end, step}, org_stack, org_stack_index_map);
+  auto out_dtype_opt = toIValue(out_dtype_node_val).value();
+  auto out_dtype = out_dtype_opt.toOptional<at::ScalarType>().value_or(
+      setToIntegralDType ? at::ScalarType::Long
+                         : torch::get_default_dtype_as_scalartype());
+  std::vector<int64_t> dtensor_indexes;
+  if (!(GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR)))
+    return false;
+  if (!(c10::isFloatingType(out_dtype))) {
+    std::vector<int64_t> scalar_indexes;
+    std::vector<int> h2d_values;
 
-  int64_t step_idx = LONG_MAX;
-  int64_t step_value = 0;
-  GetValueAndScalarIndexFromInput(
-      step, org_stack, org_stack_index_map, step_value, step_idx);
-  scalar_indexes.push_back(step_idx);
-  h2d_values.push_back(static_cast<uint64_t>(step_value));
+    int64_t step_idx = LONG_MAX;
+    int64_t step_value = 1;
+    GetValueAndScalarIndexFromInput(
+        step, org_stack, org_stack_index_map, step_value, step_idx);
+    scalar_indexes.push_back(step_idx);
+    h2d_values.push_back(static_cast<int>(step_value));
 
-  int64_t end_idx = LONG_MAX;
-  int64_t end_value = 0;
-  GetValueAndScalarIndexFromInput(
-      end, org_stack, org_stack_index_map, end_value, end_idx);
-  scalar_indexes.push_back(end_idx);
-  h2d_values.push_back(static_cast<uint64_t>(end_value));
+    int64_t end_idx = LONG_MAX;
+    int64_t end_value = 1;
+    GetValueAndScalarIndexFromInput(
+        end, org_stack, org_stack_index_map, end_value, end_idx);
+    scalar_indexes.push_back(end_idx);
+    h2d_values.push_back(static_cast<int>(end_value));
 
-  int64_t start_idx = LONG_MAX;
-  int64_t start_value = 0;
-  GetValueAndScalarIndexFromInput(
-      start, org_stack, org_stack_index_map, start_value, start_idx);
-  scalar_indexes.push_back(start_idx);
-  h2d_values.push_back(static_cast<uint64_t>(start_value));
+    int64_t start_idx = LONG_MAX;
+    int64_t start_value = 0;
+    GetValueAndScalarIndexFromInput(
+        start, org_stack, org_stack_index_map, start_value, start_idx);
+    scalar_indexes.push_back(start_idx);
+    h2d_values.push_back(static_cast<int>(start_value));
 
-  // Step2: Create H2D tensor and insert to graph inputs.
-  auto arange_h2d_name =
-      GetDynamicTensorName(arange_shape->debugName(), HOST_TO_DEVICE_TENSOR);
-  int64_t stack_index = CreateH2DAndInsertToDSStack<int32_t>(
-      h2d_values, scalar_indexes, HostDataType::INT32_T, m_dmeta);
-  auto v_h2d_tensor = graph->addInput(arange_h2d_name);
+    // Step2: Create H2D tensor and insert to graph inputs.
+    auto arange_h2d_name =
+        GetDynamicTensorName(arange_shape->debugName(), HOST_TO_DEVICE_TENSOR);
+    at::Tensor h2d_tensor = createDynamicTensor(
+        {static_cast<int64_t>(h2d_values.size())},
+        HOST_TO_DEVICE_TENSOR,
+        out_dtype);
 
-  // Step3: Register patching function and tensor lists
-  std::vector<int64_t> dtensor_indexes{stack_index};
-  InputPatchPair patch_info(
-      &ArangeOperatorDS::UpdateDynamicInputs, dtensor_indexes);
-  m_dmeta->ds_input_patching_list.push_back(patch_info);
+    SetH2DTensorHostData<int32_t>(
+        h2d_tensor, h2d_values, HostDataType::INT32_T, true);
+    auto iv_h2d_tensor = torch::jit::IValue(h2d_tensor);
+    int64_t stack_index = UpdateDynamicTensorDSStack(
+        iv_h2d_tensor, scalar_indexes, {}, {}, m_dmeta);
+    auto v_h2d_tensor = graph->addInput(arange_h2d_name);
+    dtensor_indexes.push_back(stack_index);
 
-  // Use actual reshape sizes and avoid sizes with dims "-1"
-  auto out_tensors = getOutputTensers(aten_arange_node, value_ivalue_map);
-  auto inferred_st_sizes = out_tensors[0].sizes().vec();
+    // Use actual reshape sizes and avoid sizes with dims "-1"
+    auto out_tensors = getOutputTensers(aten_arange_node, value_ivalue_map);
+    auto inferred_st_sizes = out_tensors[0].sizes().vec();
 
-  // Step2: Create shape tensor and insert to graph inputs.
-  auto arange_st_name = GetDynamicTensorName(end->debugName(), SHAPE_TENSOR);
-  int64_t stack_index_2 =
-      CreateSTAndInsertToDSStack(inferred_st_sizes, {end_idx}, {}, {}, m_dmeta);
-  auto arange_st_tensor = graph->addInput(arange_st_name);
+    // aliased floats into int64 because floats are from prim consts
+    std::vector<std::pair<int64_t, int64_t>> mixed_indexes;
+    mixed_indexes.push_back(std::make_pair(start_idx, start_value));
+    mixed_indexes.push_back(std::make_pair(end_idx, end_value));
+    mixed_indexes.push_back(std::make_pair(step_idx, step_value));
 
-  // Step3: Register patching function and tensor lists
-  std::vector<int64_t> dtensor_indexes_2{stack_index_2};
-  InputPatchPair patch_info_2(
-      &DynamicOp::UpdateDynamicInputs, dtensor_indexes_2);
-  m_dmeta->ds_input_patching_list.push_back(patch_info_2);
+    // Step2: Create shape tensor and insert to graph inputs.
+    auto arange_st_name = GetDynamicTensorName(end->debugName(), SHAPE_TENSOR);
+    int64_t stack_index_2 = CreateSTAndInsertToDSStack(
+        inferred_st_sizes, {}, {}, mixed_indexes, m_dmeta);
+    auto arange_st_tensor = graph->addInput(arange_st_name);
+    dtensor_indexes.push_back(stack_index_2);
 
-  // Step4: Create hpu::arange_start_step node and insert to the graph
-  CreateAndInsertDynamicNodeToGraph(
-      graph,
-      aten_arange_node,
-      hpu_arange_symbol,
-      {v_h2d_tensor,
-       arange_st_tensor,
-       aten_arange_node->input(3),
-       aten_arange_node->input(4),
-       aten_arange_node->input(5),
-       aten_arange_node->input(6)},
-      value_ivalue_map);
-  return true;
+    // Step4: Create hpu::arange_start_step node and insert to the graph
+    CreateAndInsertDynamicNodeToGraph(
+        graph,
+        aten_arange_node,
+        hpu_arange_symbol,
+        {v_h2d_tensor,
+         arange_st_tensor,
+         out_dtype_node_val,
+         out_layout_node_val,
+         out_device_node_val,
+         out_pin_mem_node_val},
+        value_ivalue_map);
+    // Step3: Register patching function and tensor lists
+    InputPatchPair patch_info(
+        &ArangeOperatorDS::UpdateDynamicInputs, dtensor_indexes);
+    m_dmeta->ds_input_patching_list.push_back(patch_info);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+void ArangeOperatorDS::UpdateDynamicInputs(
+    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<habana::graph::SymIntData>&
+        scalar_idx_list,
+    [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
+    [[maybe_unused]] std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
+  // patch Start
+  int64_t start = 0;
+  auto symint_idx = mixed_list[1].at(0).first;
+  auto symint_val = mixed_list[1].at(0).second;
+  if ((symint_idx == LONG_MAX) || (symint_val < 0)) {
+    start = symint_val;
+  } else {
+    start = GetSymintValue(orig_stack, symint_idx);
+  }
+  // patch End
+  int64_t end = 0;
+  symint_idx = mixed_list[1].at(1).first;
+  symint_val = mixed_list[1].at(1).second;
+  if ((symint_idx == LONG_MAX) || (symint_val < 0)) {
+    end = symint_val;
+  } else {
+    end = GetSymintValue(orig_stack, symint_idx);
+  }
+  // patch Step
+  int64_t step = 0;
+  symint_idx = mixed_list[1].at(2).first;
+  symint_val = mixed_list[1].at(2).second;
+  if ((symint_idx == LONG_MAX) || (symint_val < 0)) {
+    step = symint_val;
+  } else {
+    step = GetSymintValue(orig_stack, symint_idx);
+  }
+
+  // modify H2D Tensor
+  auto dtensorH2D = dtensor_list[0]->toTensor();
+  auto tmeta{habana::get_tensor_extra_meta(dtensorH2D)};
+  if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR) {
+    habana::HostDataType h2d_dt_type = tmeta->get_host_dt_type();
+    if (h2d_dt_type == habana::HostDataType::INT32_T) {
+      std::vector<int32_t> updated_h2d_data;
+      updated_h2d_data.push_back(static_cast<int>(start));
+      updated_h2d_data.push_back(static_cast<int>(end));
+      updated_h2d_data.push_back(static_cast<int>(step));
+      std::vector<int64_t> cast_data(
+          updated_h2d_data.begin(), updated_h2d_data.end());
+      launch_shapes.ds_tensors.push_back(dtensorH2D);
+      launch_shapes.patch_values.push_back(cast_data);
+
+      // modify Shape Tensor
+      auto dtensorST = dtensor_list[1]->toTensor();
+      auto st_size = get_arange_depth_ds_1(start, end, step);
+      launch_shapes.ds_tensors.push_back(dtensorST);
+      launch_shapes.patch_values.push_back({st_size});
+    }
+  }
 }
 
 bool IsStridedRatioUndefined(

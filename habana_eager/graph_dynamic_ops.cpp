@@ -28,6 +28,8 @@ void GetValueAndScalarIndexFromInput(
     GraphInputIndexMap& org_stack_index_map,
     int64_t& value,
     int64_t& index) {
+  if (input == nullptr)
+    return;
   static const auto constant_symbol{
       c10::Symbol::fromQualString("prim::Constant")};
   static const auto value_attr{torch::jit::Symbol::attr("value")};
