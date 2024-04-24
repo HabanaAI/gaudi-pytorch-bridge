@@ -146,7 +146,8 @@ GraphExec::GraphExec(
       0ull /*unique_cntr*/,
       std::vector<bool>{} /*node_bcast_map_*/,
       jit_graph_name,
-      is_dynamic_compile);
+      is_dynamic_compile,
+      m_input_new_base_sizes);
 
   m_graph_and_meta->SetGraphIndex(m_graph_index);
   m_graph_and_meta->SetFrontendType(

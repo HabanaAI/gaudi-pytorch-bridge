@@ -58,7 +58,8 @@ void ComputeGraphHashCode(
     size_t& graphHashCode,
     uint64_t unique_graph_cntr,
     std::vector<bool> node_bcast_details,
-    bool dynamic_graph) {
+    bool dynamic_graph,
+    const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes) {
   std::hash<std::string> str_hash;
   op_strs.append((id.empty() ? std::string("UNNAMED") : id) + "::\n");
   std::unordered_map<torch::jit::Node*, size_t> node_idx_map;
@@ -178,9 +179,16 @@ void ComputeGraphHashCode(
       }
     }
   }
+  // Handle the dims for strided base tensor
+  size_t basedims_hash{0};
+  for (auto& input : m_input_new_base_sizes) {
+    int64_t dim = input.second.size();
+    basedims_hash = at::hash_combine(basedims_hash, habana::mod_exp(dim));
+  }
   size_t sym_hash = habana::ComputeSymSizeHashCode(input_refs);
   graphHashCode = at::hash_combine(graphHashCode, sym_hash);
   graphHashCode = at::hash_combine(graphHashCode, typedims_hash);
+  graphHashCode = at::hash_combine(graphHashCode, basedims_hash);
   graphHashCode = at::hash_combine(graphHashCode, unique_graph_cntr);
   graphHashCode = at::hash_combine(graphHashCode, constid_hash);
 
@@ -254,19 +262,22 @@ OptimizedJITGraphAndMetaData::OptimizedJITGraphAndMetaData(
     uint64_t ug_cntr,
     std::vector<bool> bcast_details,
     const std::string& id,
-    const bool dynamic)
+    const bool dynamic,
+    const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes)
     : jit_graph_to_lowering(JitGraphToLowering),
       unique_graph_cntr(ug_cntr),
       dynamic_graph(dynamic),
       node_bcast_details(bcast_details) {
   // Compute the graph hash
-  ComputeGraphHashCode(JitGraphToLowering, input_refs, id);
+  ComputeGraphHashCode(
+      JitGraphToLowering, input_refs, id, m_input_new_base_sizes);
 }
 
 void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
     const std::shared_ptr<torch::jit::Graph> JitGraphToLowering,
     const at::ArrayRef<torch::jit::IValue>& input_refs,
-    const std::string& id) {
+    const std::string& id,
+    const std::map<int64_t, std::vector<int64_t>> m_input_new_base_sizes) {
   set_cached_graph_key(0);
   set_cached_opstrs(std::string());
   habana::ComputeGraphHashCode(
@@ -277,7 +288,8 @@ void OptimizedJITGraphAndMetaData::ComputeGraphHashCode(
       graphKey,
       unique_graph_cntr,
       node_bcast_details,
-      dynamic_graph);
+      dynamic_graph,
+      m_input_new_base_sizes);
 }
 
 std::string& OptimizedJITGraphAndMetaData::GetOpName() {
