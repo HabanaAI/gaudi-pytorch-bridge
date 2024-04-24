@@ -25,46 +25,36 @@ static synapse_helpers::tensor PowScalar(
     at::ScalarType scalar_type,
     const std::vector<int64_t>& outshape,
     const int out_index) {
-  std::optional<synapse_helpers::tensor> cast, temp;
-  if (scalar_type == torch::kChar) {
-    cast = OpBackend::BuildCast(
-        op, graph, inputs[0], outshape, scalar_type, torch::kShort);
-    scalar_type = torch::kShort;
-  }
-  const std::string mult_node =
-      get_guid_with_precision("mult_fwd", scalar_type);
-
   const float exponent = other.toFloat();
+  std::optional<synapse_helpers::tensor> temp;
   NodeAttr node_attr;
   if (exponent == 1.) {
-    node_attr = {
-        "identity",
-        {cast.has_value() ? cast.value().get() : inputs[0]},
-        {{outshape, scalar_type, out_index}}};
+    // fast path for identity
+    node_attr = {"identity", {inputs[0]}, {{outshape, scalar_type, out_index}}};
   } else if (exponent == 2.) {
+    // fast path for square, mult_fwd_u8/s8_trunc will be used to handle
+    // overflow
     node_attr = {
-        mult_node,
-        {cast.has_value() ? cast.value().get() : inputs[0],
-         cast.has_value() ? cast.value().get() : inputs[0]},
+        get_guid_with_precision("mult_fwd", scalar_type),
+        {inputs[0], inputs[0]},
         {{outshape, scalar_type, out_index}}};
   } else if (exponent == 3.) {
+    const std::string mult_node =
+        get_guid_with_precision("mult_fwd", scalar_type);
     temp = std::move(OpBackend::BuildNode(
         op,
         graph,
-        {mult_node,
-         {cast.has_value() ? cast.value().get() : inputs[0],
-          cast.has_value() ? cast.value().get() : inputs[0]},
-         {{outshape, scalar_type}}})[0]);
+        {mult_node, {inputs[0], inputs[0]}, {{outshape, scalar_type}}})[0]);
     node_attr = {
         mult_node,
-        {temp.value().get(), cast.has_value() ? cast.value().get() : inputs[0]},
+        {temp.value().get(), inputs[0]},
         {{outshape, scalar_type, out_index}}};
   } else {
+    std::string guid = get_guid_with_precision("pow_fwd", scalar_type);
+    // use f32 guid for i8/u8/i16/i32 inputs
+    update_integer_guid_dtype(guid, scalar_type);
     node_attr = {
-        get_guid_with_precision("pow_fwd", scalar_type),
-        {cast.has_value() ? cast.value().get() : inputs[0],
-         cast.has_value() ? cast.value().get() : inputs[1]},
-        {{outshape, scalar_type, out_index}}};
+        guid, {inputs[0], inputs[1]}, {{outshape, scalar_type, out_index}}};
   }
   return std::move(OpBackend::BuildNode(op, graph, std::move(node_attr))[0]);
 }
