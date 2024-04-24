@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -25,19 +25,26 @@ std::shared_ptr<void> ScatterReduceParams(
   PARAMS_STUB(ns_ScatterReduceKernel::Params);
   const auto dim = stack.at(DIM_INDEX).toInt();
   auto reduce = stack.at(REDUCE_INDEX).to<c10::string_view>();
-  auto includeSelf = stack.at(INCLUDE_SELF_INDEX).toBool();
+  auto baseScatterOp = (reduce == "add" || reduce == "multiply");
+  auto includeSelf =
+      baseScatterOp ? true : stack.at(INCLUDE_SELF_INDEX).toBool();
+
   ScatterReduceMode_t mode;
 
-  if (reduce == "sum")
-    mode = ScatterReduceMode_t::SCATTER_REDUCE_SUM;
-  else if (reduce == "prod")
-    mode = ScatterReduceMode_t::SCATTER_REDUCE_PROD;
-  else if (reduce == "mean")
-    mode = ScatterReduceMode_t::SCATTER_REDUCE_MEAN;
-  else if (reduce == "amax")
-    mode = ScatterReduceMode_t::SCATTER_REDUCE_AMAX;
-  else if (reduce == "amin")
-    mode = ScatterReduceMode_t::SCATTER_REDUCE_AMIN;
+  static const std::unordered_map<c10::string_view, ScatterReduceMode_t>
+      reduceModes = {
+          {"sum", ScatterReduceMode_t::SCATTER_REDUCE_SUM},
+          {"add", ScatterReduceMode_t::SCATTER_REDUCE_SUM},
+          {"prod", ScatterReduceMode_t::SCATTER_REDUCE_PROD},
+          {"multiply", ScatterReduceMode_t::SCATTER_REDUCE_PROD},
+          {"mean", ScatterReduceMode_t::SCATTER_REDUCE_MEAN},
+          {"amax", ScatterReduceMode_t::SCATTER_REDUCE_AMAX},
+          {"amin", ScatterReduceMode_t::SCATTER_REDUCE_AMIN},
+      };
+
+  auto it = reduceModes.find(reduce);
+  if (it != reduceModes.end())
+    mode = it->second;
   else
     TORCH_CHECK(false, "Unsupported reduce: ", reduce);
 

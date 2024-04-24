@@ -2465,8 +2465,8 @@ aten::scalar_tensor.out;                                             NO;  NO;  N
 aten::scaled_dot_product_attention;                                  NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
 aten::scatter.dimname_src;                                           NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
 aten::scatter.dimname_value;                                         NO;  NO;  NO;  YES;      DF_DT; NO;      NO;   NO;           0;
-aten::scatter.reduce;                                                YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
-aten::scatter.reduce_out;                                            YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::scatter.reduce;                                                YES; YES; YES; NO;       DT_DT; YES;     NO;   NO;           0;
+aten::scatter.reduce_out;                                            YES; YES; YES; NO;       DT_DF; YES;     NO;   NO;           0;
 aten::scatter.src;                                                   YES; YES; YES; NO;       DT_DT; NO;      YES;  NO;           0;
 aten::scatter.src_out;                                               YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::scatter.value;                                                 YES; YES; YES; NO;       DT_DT; NO;      YES;  NO;           0;
