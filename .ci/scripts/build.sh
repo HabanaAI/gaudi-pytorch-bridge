@@ -550,15 +550,6 @@ build_pytorch_dist()
     return 0
 }
 
-__conda()
-{
-    if [ "z$__no_conda" == "ztrue" ]; then
-        return
-    else
-        conda $*
-    fi
-}
-
 __install_auditwheel()
 {
     $__pip_cmd install auditwheel
@@ -585,7 +576,6 @@ build_pytorch_fork()
     local __build_manylinux_whl="false"
     local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __set_py_vers="false"
-    local __no_conda="false"
     local __pytorch_next="false"
 
     # parameter while-loop
@@ -634,11 +624,7 @@ build_pytorch_fork()
         -s  | --sanitize )
             __env_vars+=" USE_ASAN=ON"
             ;;
-        --no-conda )
-            __no_conda="true"
-            ;;
         --manylinux )
-            __no_conda="true"
             __build_manylinux_whl="true"
             ;;
         --pytorch-next )
@@ -665,34 +651,6 @@ build_pytorch_fork()
         shift
     done
 
-    if [ "z$__no_conda" != "ztrue" ]; then
-        __install_anaconda
-        __result=$?
-        if [ $__result -ne 0 ]; then
-            restore_python_version
-            return $__result
-        fi
-
-        if [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
-            source "$HOME/anaconda3/etc/profile.d/conda.sh"
-        else
-            export PATH="$HOME/anaconda3/bin:$PATH"
-        fi
-
-        local __venv=py_venv_$__python_ver
-        __conda activate $__venv
-        __result=$?
-        if [ $__result -ne 0 ]; then
-            echo "conda env $__venv activation failed"
-            echo "Forgot to build with option -c ?"
-            restore_python_version
-            return $__result
-        fi
-        echo "Activated $__venv enviornment"
-    else
-        $__python_cmd -m pip install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch-python${__python_ver}_base.txt
-    fi
-
     unset CMAKE_ROOT  # we're using CMake from requirements files
 
     __provide_mkl
@@ -707,7 +665,6 @@ build_pytorch_fork()
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "git submodule init failed!"
-        __conda deactivate
         popd
         restore_python_version
         return $__result
@@ -717,7 +674,6 @@ build_pytorch_fork()
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "git submodule update failed!"
-        __conda deactivate
         popd
         restore_python_version
         return $__result
@@ -728,7 +684,6 @@ build_pytorch_fork()
         __branch=$(grep -A3 $__pt_fork_tag  __ver_path | grep $__pt_vers | awk -F $__pt_vers '{print $2}' | cut -d':' -f 2)
         if [ $__result -ne 0 ]; then
             echo "version $__pt_vers not found!"
-            __conda deactivate
             popd
             restore_python_version
             return $__result
@@ -738,7 +693,6 @@ build_pytorch_fork()
         __result=$?
         if [ $__result -ne 0 ]; then
             echo "git checkout $__branch failed!"
-            __conda deactivate
             popd
             restore_python_version
             return $__result
@@ -753,13 +707,6 @@ build_pytorch_fork()
         $__python_cmd setup.py clean
         git clean -fd
         git submodule foreach --recursive git clean -xfd
-    fi
-
-    if [ -n "$__no_conda" ] && [ "$__no_conda" != "true" ]; then
-        (set -x;export CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which conda))/../"})
-    else
-        echo "CMAKE_BUILD=$CMAKE_BUILD"
-        echo "CMAKE_ROOT=$CMAKE_ROOT"
     fi
 
     local __pkg_name="TORCH_PACKAGE_NAME=torch"
@@ -779,12 +726,10 @@ build_pytorch_fork()
     __result=$?
     if [ $__result -ne 0 ]; then
         echo "Pytorch fork build failed!"
-        __conda deactivate
         popd
         restore_python_version
         return $__result
     fi
-    __conda deactivate
 
     if [ "z${__build_manylinux_whl}" == "ztrue" ];then
         __install_auditwheel
@@ -1971,79 +1916,6 @@ __clean_pytorch_dev_py_deps()
 __clean_pytest_dev_py_deps()
 {
     uninstall_requirements_pytest
-}
-
-__install_anaconda()
-{
-    local __conda_res
-
-    #Check if conda env exist
-    if $HOME/anaconda3/bin/conda list > /dev/null 2>&1; then
-        echo "Found existing conda installation"
-    else
-        echo "Conda installation not found in default path, Installing..."
-
-        local __conda_installer=Anaconda3-2024.02-1-Linux-x86_64.sh
-        (set -x;wget https://repo.anaconda.com/archive/$__conda_installer 2> /dev/null)
-        __conda_res=$?
-        if [ $__conda_res -ne 0 ]; then
-            echo "Conda download failed!"
-            return $__conda_res
-        fi
-        (set -x; bash  $__conda_installer -b -f)
-        __conda_res=$?
-        rm -rf $__conda_installer
-        if [ $__conda_res -ne 0 ]; then
-            echo "Conda installation failed!"
-            return $__conda_res
-        fi
-    fi
-
-    if [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
-        source "$HOME/anaconda3/etc/profile.d/conda.sh"
-    else
-        export PATH="$HOME/anaconda3/bin:$PATH"
-    fi
-
-    local __conda_venv=py_venv_$__python_ver
-    if $(conda env list | awk '{print $1}'| grep -x $__conda_venv) > /dev/null 2>&1; then
-        echo "Found Conda so 1st deactivating it and then deleting"
-        __conda deactivate
-        echo "Removing Conda env $__conda_venv"
-        __conda env remove --name $__conda_venv
-    fi
-
-    # Create conda env with specific version of python
-    echo "Creating conda venv with Python ver=$__python_ver"
-    (set -x;__conda create --name $__conda_venv python=$__python_ver -y)
-    __conda_res=$?
-    if [ $__conda_res -ne 0 ]; then
-        echo "Conda env creation failed!"
-        return $__conda_res
-    fi
-
-    __conda activate $__conda_venv
-    __conda_res=$?
-    if [ $__conda_res -ne 0 ]; then
-        echo "Conda env activation failed!"
-        return $__conda_res
-    fi
-    echo "Activated  conda venv $__conda_venv"
-    local __pip_conf=$VIRTUAL_ENV/pip.conf
-    if [ -f "$__pip_conf"  ]; then
-        export PIP_CONFIG_FILE=$__pip_conf
-    fi
-
-    $__python_cmd -m pip install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch-python${__python_ver}_base.txt
-    __conda_res=$?
-    if [ $__conda_res -ne 0 ]; then
-        echo "Conda package installation failed!"
-        __conda deactivate
-        return $__conda_res
-    fi
-    __conda deactivate
-    printf "Installation of conda packages done\n"
-    return $__conda_res
 }
 
 # Installs MKL include files and static libraries if needed and points CMake at them.
