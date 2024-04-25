@@ -23,13 +23,8 @@ namespace habana {
 
 namespace sh = synapse_helpers;
 
-static bool is_gaudi1_and_should_cast_from_BF16(
+static bool should_cast_from_BF16(
     c10::optional<OpBackend::TensorsPair> tensor_pair_opt) {
-  // Gaudi1 doesn't provide LegalizeInputTraits, so we need to manually
-  // cast to correct, supported dtype
-  auto device_type{habana::HPURegistrar::get_device().type()};
-  if (device_type != synDeviceGaudi)
-    return false;
   if (tensor_pair_opt.has_value())
     return tensor_pair_opt->pt_t.scalar_type() == c10::ScalarType::BFloat16;
   return false;
@@ -41,7 +36,7 @@ static synTensor cast_if_necessary_or_default(
     c10::optional<OpBackend::TensorsPair> source_opt,
     synTensor& default_val,
     std::optional<sh::tensor>& storage) {
-  if (is_gaudi1_and_should_cast_from_BF16(source_opt)) {
+  if (should_cast_from_BF16(source_opt)) {
     storage = OpBackend::BuildCast(
         op,
         graph,
