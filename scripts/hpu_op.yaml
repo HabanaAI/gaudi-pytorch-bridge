@@ -6288,16 +6288,30 @@ pow.Tensor_Tensor_out:
 
 prelu:
   pytorch2_mode: disable
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   out_ids: [0]
   op_backend: Prelu
 
 _prelu_kernel:
   pytorch2_mode: only
-  dtypes: [BFloat16, Float]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
   out_ids: [0]
   op_backend: Prelu
 
+_prelu_kernel_backward:
+  out_ids: [1, 2]
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: prelu_bwd
+  output_meta: PreluBwdMeta
 
 prod:
   dtypes:

@@ -68,6 +68,7 @@ nll_loss                                 Yes      Yes      Yes       No       No
 one_hot                                  Yes      Yes      Yes       Yes      Yes       No       No     torch.nn.functional
 pad                                      Yes      Yes      No        No       No        No       No     torch.nn.functional
 pixel_shuffle                            Yes      Yes      Yes       No       Yes       Yes      Yes    torch.nn.functional
+prelu                                    Yes      Yes      No        No       No        No       No     torch.nn.functional
 relu                                     Yes      Yes      Yes       No       No        No       No     torch.nn.functional
 relu\_                                   Yes      Yes      Yes       No       No        No       No     torch.nn.functional
 rrelu                                    Yes      Yes      No        No       No        No       No     torch.nn.functional
@@ -347,6 +348,7 @@ Mish                                     Yes      Yes      No        No       No
 MSELoss                                  Yes      Yes      Yes       No       No        No       No     torch.nn
 NLLLoss                                  Yes      Yes      Yes       No       No        No       No     torch.nn
 PixelShuffle                             Yes      Yes      Yes       No       Yes       Yes      Yes    torch.nn
+PReLU                                    Yes      Yes      No        No       No        No       No     torch.nn
 ReLU                                     Yes      Yes      Yes       No       No        No       No     torch.nn
 ReflectionPad1d                          Yes      No       No        No       No        No       No     torch.nn
 ReflectionPad2d                          Yes      No       No        No       No        No       No     torch.nn

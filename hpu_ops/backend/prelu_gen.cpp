@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -34,4 +34,18 @@ void Prelu::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       {{self.sizes(), self.scalar_type(), 0}});
   syn_out(0) = std::move(prelu[0]);
 }
+
+OutputMetaDataVector PreluBwdMeta(const at::Stack& stack) {
+  const auto& input = stack_tensor(stack, 1);
+  const auto& weight = stack_tensor(stack, 2);
+
+  OutputMetaDataVector meta(2);
+  meta.at(0).shape = input.sizes().vec();
+  meta.at(0).dtype = input.scalar_type();
+
+  meta.at(1).shape = weight.sizes().vec();
+  meta.at(1).dtype = weight.scalar_type();
+  return meta;
+}
+
 } // namespace habana
