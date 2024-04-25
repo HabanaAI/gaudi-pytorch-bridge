@@ -840,15 +840,6 @@ _foreach_pow_.ScalarList:
   op_backend: PowForeachBinary
   inplace_ids: [0]
 
-_foreach_pow_.Tensor:
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
-    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
-  guid: pow_fwd
-  op_backend: PowForeachBinary
-  inplace_ids: [0]
-
 _foreach_pow_.List:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
@@ -3348,15 +3339,6 @@ exponential.out:
   op_backend: ExponentialSeedTensorInput
   output_meta: ExponentialMeta
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
-
-exponential.functional:
-  custom_fill_params: FillExponentialParams
-  dtypes: [BFloat16, Float]
-  op_frontend: GeneratorToSeed
-  op_backend: ExponentialSeedTensorInput
-  out_ids: [0]
-  output_meta: ExponentialMeta
-  schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed) -> Tensor"
 
 eye.out:
   output_meta: EyeMeta
@@ -7115,62 +7097,6 @@ scatter_add.out:
       src: [BFloat16, Float, Half]
   guid: complex_scatter_add
 
-scatter_reduce:
-  custom_fill_params: ScatterReduceParams
-  output_meta: ScatterReduceMeta
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float]
-      index: [Int, Long]
-      src: [BFloat16, Float]
-    Gaudi2:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
-    Gaudi3:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
-  guid: scatter_reduce_fwd
-  out_ids: [0]
-
-scatter_reduce_:
-  custom_fill_params: ScatterReduceParams
-  output_meta: ScatterReduceMeta
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float]
-      index: [Int, Long]
-      src: [BFloat16, Float]
-    Gaudi2:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
-    Gaudi3:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
-  guid: scatter_reduce_fwd
-  inplace_ids: [0]
-
-scatter_reduce.out:
-  custom_fill_params: ScatterReduceParams
-  output_meta: ScatterReduceMeta
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float]
-      index: [Int, Long]
-      src: [BFloat16, Float]
-    Gaudi2:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
-    Gaudi3:
-      self: [BFloat16, Float, Half]
-      index: [Int, Long]
-      src: [BFloat16, Float, Half]
-  guid: scatter_reduce_fwd
-
 scatter_reduce.two:
   custom_fill_params: ScatterReduceParams
   output_meta: ScatterReduceMeta
@@ -8198,20 +8124,6 @@ upsample_bicubic2d_backward.grad_input:
   - [WHCN]
   # op_validator: check-node-with-shared-layer
 
-upsample_bicubic2d_backward.vec:
-  custom_fill_params: FillBicubicBwdParams
-  output_meta: UpsampleBicubic2DBwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-  guid: resize_bwd
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
-  out_ids: [0]
-  # op_validator: check-node-with-shared-layer
-
 upsample_bilinear2d:
   custom_fill_params: FillBilinearFwdParams
   output_meta: UpsampleBilinear2DFwdMeta
@@ -8280,19 +8192,6 @@ upsample_bilinear2d_backward.grad_input:
   - [WHCN]
   # op_validator: check-node-with-shared-layer
 
-upsample_bilinear2d_backward.vec:
-  custom_fill_params: FillBilinearBwdParams
-  output_meta: UpsampleBilinear2DBwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-  guid: resize_bwd
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
-  out_ids: [0]
-
 upsample_linear1d:
   output_meta: UpsampleLinear1DFwdMeta
   dtypes:
@@ -8357,19 +8256,6 @@ upsample_linear1d_backward.grad_input:
   - [WHCN, WHCN]
   - [WHCN]
 
-upsample_linear1d_backward.vec:
-  output_meta: UpsampleLinear1DBwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
-  guid: resize_bwd
-  op_backend: UpsampleLinear1DBwdOperator
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
-  out_ids: [0]
-
 upsample_nearest1d:
   output_meta: UpsampleNearest1DFwdMeta
   dtypes:
@@ -8433,19 +8319,6 @@ upsample_nearest1d_backward.grad_input:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
-
-upsample_nearest1d_backward.vec:
-  output_meta: UpsampleNearest1DBwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
-  guid: resize_bwd
-  op_backend: UpsampleNearest1DBwdOperator
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
-  out_ids: [0]
 
 upsample_nearest2d:
   custom_fill_params: FillNearestFwdParams
@@ -8553,22 +8426,6 @@ upsample_nearest3d_backward.grad_input:
   - [WHDCN, WHDCN]
   - [WHDCN]
 
-upsample_nearest2d_backward.vec:
-  custom_fill_params: FillNearestBwdParams
-  output_meta: UpsampleNearest2DBwdMeta
-  op_backend: UpSampleNearest2DOperator
-  op_frontend: LazyUpsample
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
-  guid: resize_bwd
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
-  out_ids: [0]
-  schema_args: "(Tensor grad_output, int[]? output_size, Tensor input_size, float[]? scale_factors) -> Tensor"
-
 upsample_nearest2d.vec:
   pytorch2_mode: disable
   custom_fill_params: FillNearestFwdParams
@@ -8593,19 +8450,6 @@ upsample_nearest3d.vec:
     Gaudi3: [BFloat16, Float, Half, Byte]
   guid: resize_fwd
   op_backend: UpSampleNearest3DFwdOperator
-  out_ids: [0]
-  synapse_layouts:
-  - [WHDCN, WHDCN]
-  - [WHDCN]
-
-upsample_nearest3d_backward.vec:
-  output_meta: UpsampleNearest3DBwdMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Byte]
-    Gaudi2: [BFloat16, Float, Half, Byte]
-    Gaudi3: [BFloat16, Float, Half, Byte]
-  guid: resize_bwd
-  op_backend: UpSampleNearest3DBwdOperator
   out_ids: [0]
   synapse_layouts:
   - [WHDCN, WHDCN]
