@@ -2712,3 +2712,25 @@ TEST_F(LazyDynamicShapesTest, gather_dynamic_test) {
     EXPECT_EQ(allclose(cpu, hpu.cpu()), true);
   }
 }
+
+TEST_F(LazyDynamicShapesTest, MemCpy0D1D) {
+  torch::Tensor A;
+  for (auto i = 5; i < 10; i++) {
+    A = (i < 8) ? torch::rand({i}) : torch::rand({});
+    auto ones = torch::ones_like(A);
+
+    auto hA = A.to(torch::kHPU);
+    auto hOnes = ones.to(torch::kHPU);
+
+    auto res = torch::add(A, ones);
+    auto hRes = torch::add(hA, hOnes);
+
+    auto out = torch::zeros_like(A);
+    auto hOut = out.to(torch::kHPU);
+
+    out.copy_(res);
+    hOut.copy_(hRes);
+
+    EXPECT_EQ(allclose(hOut.to(torch::kCPU), out, 0.001, 0.001), true);
+  }
+}
