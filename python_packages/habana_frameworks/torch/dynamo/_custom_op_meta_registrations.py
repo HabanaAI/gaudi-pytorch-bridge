@@ -425,41 +425,36 @@ def meta_scaled_masked_triangular_softmax(
     return self.new_empty(self.shape, dtype=dtype)
 
 
-def meta_sdpa_recomp_fwd_helper(q, k, v):
-    out_shape = list(q.shape)
-    out_shape[-1] = list(v.shape)[-1]
-    out = q.new_empty(out_shape)
+def meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward):
     seed_dtype = torch.int
-    seed_shape = [1]
-    seed = q.new_empty(seed_shape, dtype=seed_dtype)
-    m_shape = out_shape.copy()
-    m_shape[-1] = 1
 
-    m_out = q.new_empty(m_shape)
-    l_inv = q.new_empty(m_shape)
-    return out, m_out, l_inv, seed
+    out_shapes = _hpu_C.custom_op_calc_out_shape_params_int("sdpa_recomp_fwd", [q, k, v], [requires_backward])
+    out_tensors = [q.new_empty(s) for s in out_shapes[:-1]]
+    out_tensors.append(q.new_empty(out_shapes[-1], dtype=seed_dtype))
+
+    return out_tensors
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd.default])
 def meta_sdpa_recomp_fwd(q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode):
-    return meta_sdpa_recomp_fwd_helper(q, k, v)
+    return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward)
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd_dropout.default])
 def meta_sdpa_recomp_fwd_dropout(q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode):
-    return meta_sdpa_recomp_fwd_helper(q, k, v)
+    return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward)
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default])
 def meta_sdpa_recomp_fwd_non_dropout(q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode):
-    return meta_sdpa_recomp_fwd_helper(q, k, v)
+    return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward)
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd_dropout_seed.default])
 def meta_sdpa_recomp_fwd_dropout_seed(
     seed, q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode
 ):
-    return meta_sdpa_recomp_fwd_helper(q, k, v)
+    return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward)
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_bwd.default])
@@ -471,15 +466,10 @@ def meta_sdpa_recomp_bwd(dout, q, k, v, attn_mask, m, linv, seed, is_causal, dro
 
 
 def meta_sdpa_fwd_helper(q, k, v):
-    out_shape = list(q.shape)
-    out_shape[-1] = list(v.shape)[-1]
-    out = q.new_empty(out_shape)
-
-    p_shape = list(q.shape)
-    p_shape[-1] = list(k.shape)[-2]
-    p = q.new_empty(p_shape)
-    dm = q.new_empty(p_shape, dtype=torch.int8)
-    return out, p, dm
+    out_shapes = _hpu_C.custom_op_calc_out_shape_no_params("sdpa_fwd", [q, k, v])
+    out_tensors = [q.new_empty(s) for s in out_shapes[:-1]]
+    out_tensors.append(q.new_empty(out_shapes[-1], dtype=torch.int8))
+    return out_tensors
 
 
 @register_meta([torch.ops.hpu.sdpa_fwd.default])
