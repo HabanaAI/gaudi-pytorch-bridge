@@ -12,8 +12,7 @@
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from pytest_working.test_utils import is_gaudi1
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc, is_gaudi1
 
 
 @pytest.mark.parametrize("shape", [[8, 32, 16], [2, 8, 32, 16]], ids=format_tc)
