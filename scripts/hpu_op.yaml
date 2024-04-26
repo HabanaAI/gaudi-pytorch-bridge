@@ -7288,6 +7288,7 @@ searchsorted.Tensor:
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   guid: search_sorted_fwd
   output_meta: SearchSortedMeta
+  promote_to_common_type: [sorted_sequence, self]
   out_ids: [0]
 
 searchsorted.Tensor_out:
@@ -7298,6 +7299,8 @@ searchsorted.Tensor_out:
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   guid: search_sorted_fwd
   output_meta: SearchSortedMeta
+  promote_to_common_type: [sorted_sequence, self]
+  safe_cast_check: false
 
 searchsorted.Scalar:
   custom_fill_params: FillSearchSortedParams
@@ -7307,8 +7310,20 @@ searchsorted.Scalar:
     Gaudi3: [BFloat16, Float, Int, Long, Half]
   guid: search_sorted_fwd
   output_meta: SearchSortedMeta
-  out_ids: [0]
   promote_to_common_type: [sorted_sequence, self]
+  out_ids: [0]
+  scalar_ids: [1]
+
+searchsorted.Scalar_out:
+  custom_fill_params: FillSearchSortedParams
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long]
+    Gaudi2: [BFloat16, Float, Int, Long, Half]
+    Gaudi3: [BFloat16, Float, Int, Long, Half]
+  guid: search_sorted_fwd
+  output_meta: SearchSortedMeta
+  promote_to_common_type: [sorted_sequence, self]
+  safe_cast_check: false
   scalar_ids: [1]
 
 select.int:
