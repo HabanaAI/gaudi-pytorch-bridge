@@ -179,6 +179,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/geometric_gen.cpp
           backend/glu_gen.cpp
           backend/grid_sampler_gen.cpp
+          backend/grid_sampler3d_gen.cpp
           backend/habana_random_ops.cpp
           backend/hardsigmoid_gen.cpp
           backend/hardtanh_gen.cpp

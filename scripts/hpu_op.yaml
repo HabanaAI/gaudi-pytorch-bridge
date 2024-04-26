@@ -4011,6 +4011,17 @@ grid_sampler_2d:
   out_ids: [0]
   op_validator: check-node-with-shared-layer
 
+grid_sampler_3d:
+  custom_fill_params: FillGridSamplerParams
+  output_meta: GridSampler3dMeta
+  dtypes: [BFloat16, Float]
+  guid: grid_sampler_fwd
+  synapse_layouts:
+  - [WHDCN, AWHDN]
+  - [WHDCN]
+  out_ids: [0]
+  op_validator: check-node-with-shared-layer
+
 native_group_norm:
   dtypes:
     Gaudi: [BFloat16, Float]
