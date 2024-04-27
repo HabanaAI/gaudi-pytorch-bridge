@@ -26,12 +26,11 @@ namespace habana {
 
 using sym_sizes_vec = std::vector<std::vector<c10::SymInt>>;
 
-#define SUPPORTED_PROTO_LIST                                       \
-  ITEM(no_params, (inputs), const std::vector<at::Tensor>& inputs) \
-  ITEM(                                                            \
-      params_int,                                                  \
-      (inputs, params),                                            \
-      const std::vector<at::Tensor>& inputs,                       \
+#define SUPPORTED_PROTO_LIST                 \
+  ITEM(                                      \
+      params_int,                            \
+      (inputs, params),                      \
+      const std::vector<at::Tensor>& inputs, \
       const std::vector<int64_t>& params)
 
 class CustomOpOutShapeFunRegistrar {
