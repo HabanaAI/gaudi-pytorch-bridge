@@ -196,10 +196,6 @@ void ConstSectionDataSerialize::deserializePerRecipe(
         getSerializedRecipeFullPath(const_id, key));
   }
 
-  inputFile.seekg(0, std::ios::end);
-  std::streampos size = inputFile.tellg();
-  inputFile.seekg(0, std::ios::beg);
-
   PT_CONST_SECTION_DEBUG(
       "Loaded tensor host data from disk: ",
       getSerializedRecipeFullPath(const_id, key),
