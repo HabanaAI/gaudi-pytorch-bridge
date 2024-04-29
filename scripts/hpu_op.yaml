@@ -5800,8 +5800,8 @@ ne_.Tensor:
 ne.Scalar:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Byte, Char]
-    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
-    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
+    Gaudi2: [BFloat16, Float, Int, Long, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Long, Char, Half]
   op_frontend: CompareScalarToTensor
   output_meta: CompareMeta
   op_backend: NE
