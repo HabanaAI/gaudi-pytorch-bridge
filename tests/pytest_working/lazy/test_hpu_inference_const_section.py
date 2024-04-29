@@ -34,7 +34,7 @@ class Net(torch.nn.Module):
 
 def test_const_serialization_cache():
     torch.manual_seed(123456)
-    htorch.core.hpu_set_env()
+    htorch.core.hpu_set_inference_env()
 
     serial_path = "/tmp/const_section_test/"
     htorch.hpu.enable_const_section_serialization(serial_path, True, True)
@@ -42,7 +42,7 @@ def test_const_serialization_cache():
     model = Net()
     model = model.to("hpu")
 
-    htorch.core.hpu_initialize(model)
+    htorch.core.hpu_inference_initialize(model)
 
     X = torch.randn((3, 3, 16))
 
@@ -65,6 +65,6 @@ def test_const_serialization_cache():
 
     # clear config
     shutil.rmtree(serial_path)
-    htorch.core.hpu_reset_env()
+    htorch.core.hpu_teardown_inference_env()
     htorch.hpu.disable_inference_mode()
     htorch.hpu.disable_const_section_serialization()

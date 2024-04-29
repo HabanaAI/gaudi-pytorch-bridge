@@ -434,7 +434,7 @@ def test_sdpa(
         pytest.skip("This testcase is not valid for fp8 measurement or run")
 
     os.environ["ENABLE_EXPERIMENTAL_FLAGS"] = "1"
-    htcore.hpu_set_env()
+    htcore.hpu_set_inference_env()
 
     torch.manual_seed(1234567)
 
@@ -671,5 +671,5 @@ def test_sdpa(
             vb_print(
                 "Max diff Vanilla SDPA amax_s Ref vs FSDPA amax_s = ", torch.max(torch.abs(amax_s_ref - amax_s_hpu_c))
             )
-    htcore.hpu_reset_env()
+    htcore.hpu_teardown_inference_env()
     os.environ["ENABLE_EXPERIMENTAL_FLAGS"] = "0"

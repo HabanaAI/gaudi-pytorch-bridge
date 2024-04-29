@@ -83,7 +83,7 @@ def test_dranges_passed_from_bridge_to_synapse():
 
     import habana_frameworks.torch.core as htcore
 
-    htcore.hpu_initialize(model)
+    htcore.hpu_inference_initialize(model)
 
     test_out_hpu = model(mat1_in_hpu, mat2_in_hpu)
     htcore.mark_step()

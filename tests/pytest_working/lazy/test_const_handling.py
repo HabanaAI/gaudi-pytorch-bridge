@@ -92,7 +92,7 @@ def test_same_graph_with_diff_const(set_env_variable):
 
     import habana_frameworks.torch.core as htcore
 
-    htcore.hpu_set_env()
+    htcore.hpu_set_inference_env()
 
     # Run test on HPU
     hpu = torch.device("hpu")
@@ -101,8 +101,8 @@ def test_same_graph_with_diff_const(set_env_variable):
     conv1_hpu = conv1.to(hpu)
     conv2_hpu = conv2.to(hpu)
 
-    htcore.hpu_initialize(conv1_hpu)
-    htcore.hpu_initialize(conv2_hpu)
+    htcore.hpu_inference_initialize(conv1_hpu)
+    htcore.hpu_inference_initialize(conv2_hpu)
 
     from habana_frameworks.torch.core.quantization import _check_params_as_const
 
@@ -122,7 +122,7 @@ def test_same_graph_with_diff_const(set_env_variable):
     output2_hpu_cpu = output2_hpu.to(cpu)
     numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
 
-    htcore.hpu_reset_env()
+    htcore.hpu_teardown_inference_env()
 
 
 @pytest.mark.parametrize("set_env_variable", [False], indirect=True)
@@ -155,13 +155,13 @@ def test_same_const_across_recipes(set_env_variable):
 
     import habana_frameworks.torch.core as htcore
 
-    htcore.hpu_set_env()
+    htcore.hpu_set_inference_env()
 
     input_tensor1_hpu = input_tensor1.to(hpu)
     input_tensor2_hpu = input_tensor2.to(hpu)
     conv_layer1_hpu = conv_layer1.to(hpu)
 
-    htcore.hpu_initialize(conv_layer1_hpu)
+    htcore.hpu_inference_initialize(conv_layer1_hpu)
 
     from habana_frameworks.torch.core.quantization import _check_params_as_const
 
@@ -188,7 +188,7 @@ def test_same_const_across_recipes(set_env_variable):
         output1_repeat_hpu_cpu.detach().numpy(), output1.detach().numpy(), atol=0.001, rtol=0.001
     )
 
-    htcore.hpu_reset_env()
+    htcore.hpu_teardown_inference_env()
 
 
 @pytest.mark.parametrize("set_env_variable", [False], indirect=True)
@@ -211,12 +211,12 @@ def test_user_access_to_modified_tensor(set_env_variable):
 
     import habana_frameworks.torch.core as htcore
 
-    htcore.hpu_set_env()
+    htcore.hpu_set_inference_env()
 
     input_tensor_hpu = input_tensor.to(hpu)
     conv_layer_hpu = conv_layer.to(hpu)
 
-    htcore.hpu_initialize(conv_layer_hpu)
+    htcore.hpu_inference_initialize(conv_layer_hpu)
 
     from habana_frameworks.torch.core.quantization import _check_params_as_const
 
@@ -229,7 +229,7 @@ def test_user_access_to_modified_tensor(set_env_variable):
     htcore.mark_step()
     weight_hpu_cpu = conv_layer_hpu.weight.to(cpu)
     numpy.testing.assert_allclose(weight_hpu_cpu.detach().numpy(), weight_copy.detach().numpy(), atol=0.001, rtol=0.001)
-    htcore.hpu_reset_env()
+    htcore.hpu_teardown_inference_env()
 
 
 # Define the parameterized fixture using pytest.mark.parametrize
@@ -270,12 +270,12 @@ def test_zero_sized_tensor(set_env_variable):
 
     import habana_frameworks.torch.core as htcore
 
-    htcore.hpu_set_env()
+    htcore.hpu_set_inference_env()
 
     input_tensor_hpu = input_tensor.to(hpu)
     model_hpu = model.to(hpu)
 
-    htcore.hpu_initialize(model_hpu)
+    htcore.hpu_inference_initialize(model_hpu)
 
     with torch.no_grad():
         output_hpu = model_hpu(input_tensor_hpu)
@@ -291,7 +291,7 @@ def test_zero_sized_tensor(set_env_variable):
     numpy.testing.assert_allclose(
         output_repeat_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.001, rtol=0.001
     )
-    htcore.hpu_reset_env()
+    htcore.hpu_teardown_inference_env()
 
 
 @pytest.mark.parametrize("set_env_variable", [False], indirect=True)
@@ -320,15 +320,15 @@ def test_same_param_two_models(set_env_variable):
 
     import habana_frameworks.torch.core as htcore
 
-    htcore.hpu_set_env()
+    htcore.hpu_set_inference_env()
 
     conv1_hpu = conv1.to(hpu)
     conv2_hpu = conv2.to(hpu)
     from habana_frameworks.torch.core.quantization import _check_params_as_const
 
-    htcore.hpu_initialize(conv1_hpu)
+    htcore.hpu_inference_initialize(conv1_hpu)
     _check_params_as_const(conv1_hpu)
-    htcore.hpu_initialize(conv2_hpu)
+    htcore.hpu_inference_initialize(conv2_hpu)
     _check_params_as_const(conv2_hpu)
 
     input_hpu = input.to(hpu)
@@ -344,4 +344,4 @@ def test_same_param_two_models(set_env_variable):
 
     output2_hpu_cpu = output2_hpu.to(cpu)
     numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.001, rtol=0.001)
-    htcore.hpu_reset_env()
+    htcore.hpu_teardown_inference_env()

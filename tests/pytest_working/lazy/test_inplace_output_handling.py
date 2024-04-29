@@ -46,14 +46,14 @@ def test_inplace():
 
     model = CustomModel()
     model.eval()
-    htcore.hpu_set_env()
+    htcore.hpu_set_inference_env()
 
     input_hpu = input.to(hpu)
     input2_hpu = input2.to(hpu)
     model_hpu = model.to(hpu)
     model_hpu.eval()
 
-    htcore.hpu_initialize(model_hpu)
+    htcore.hpu_inference_initialize(model_hpu)
 
     # Apply the convolutional layers to the input tensor
     with torch.no_grad():
@@ -84,7 +84,7 @@ def test_inplace():
         output2_hpu_cpu.detach().numpy(), output2_hpugraph_cpu.detach().numpy(), atol=0.001, rtol=0.001
     )
 
-    htcore.hpu_reset_env()
+    htcore.hpu_teardown_inference_env()
 
 
 def fmt_float(value, c):
@@ -142,7 +142,7 @@ def test_kvcache_inplace():
     kvcache2_hpu = kvcache2.to(hpu)
     model_hpu = model.to(hpu)
     model_hpu.eval()
-    htcore.hpu_set_env()
+    htcore.hpu_set_inference_env()
 
     # Apply the convolutional layers to the input tensor
     with torch.no_grad():
@@ -191,4 +191,4 @@ def test_kvcache_inplace():
         output2_hpu_cpu.detach().numpy(), output2_hpugraph_cpu.detach().numpy(), atol=0.001, rtol=0.001
     )
 
-    htcore.hpu_reset_env()
+    htcore.hpu_teardown_inference_env()

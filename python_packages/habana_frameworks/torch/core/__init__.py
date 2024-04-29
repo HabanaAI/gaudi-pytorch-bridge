@@ -19,7 +19,14 @@ from habana_frameworks.torch import hpu
 from habana_frameworks.torch.utils.internal import is_lazy
 
 # expose common APIs
-from .quantization import hpu_initialize, hpu_reset_env, hpu_set_env
+from .quantization import (
+    hpu_inference_initialize,
+    hpu_initialize,
+    hpu_reset_env,
+    hpu_set_env,
+    hpu_set_inference_env,
+    hpu_teardown_inference_env,
+)
 
 # expose lazy-only APIs
 from .step_closure import add_step_closure, iter_mark_step, mark_step

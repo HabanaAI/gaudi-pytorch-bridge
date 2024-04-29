@@ -60,7 +60,7 @@ def test_fp8_quant_model(set_env_variable):
     shapeA = (8, 4096)
     shapeB = (4096, 4096)
 
-    htcore.hpu_set_env()
+    htcore.hpu_set_inference_env()
     from habana_frameworks.torch.core.quantization import _check_params_as_const, _mark_params_as_const
 
     class TestModel(torch.nn.Module):
@@ -153,7 +153,7 @@ def test_fp8_quant_model(set_env_variable):
     result_model = model.forward(A_hpu, B_hpu)
     result = result_model.cpu()
 
-    htcore.hpu_reset_env()
+    htcore.hpu_teardown_inference_env()
     # result_ref = torch.matmul(A, B).cpu()
 
     # print(f"{A=}\n{A_hpu=}")

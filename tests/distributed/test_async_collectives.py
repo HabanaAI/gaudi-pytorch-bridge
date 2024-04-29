@@ -78,7 +78,7 @@ def main_allreduce_worker(gpu, world_size):
     hpugraph_module = wrap_in_hpu_graph(model_hpu, disable_tensor_cache=True)
     import habana_frameworks.torch.core as htcore
 
-    htcore.hpu_set_env()
+    htcore.hpu_set_inference_env()
     with torch.no_grad():
         output_hpugraph = hpugraph_module(input_hpu)
         output_hpugraph_cpu = output_hpugraph.cpu()

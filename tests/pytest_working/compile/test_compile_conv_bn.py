@@ -59,7 +59,7 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
         output2 = model(x2)
     import habana_frameworks.torch.core as htcore
 
-    model = htcore.hpu_set_env(model)
+    model = htcore.hpu_set_inference_env(model)
     symbolic_traced: torch.fx.GraphModule = symbolic_trace(model)
     # High-level intermediate representation (IR) - Graph representation
     print(symbolic_traced.forward)
@@ -67,7 +67,7 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
     x_hpu = x.to(hpu)
     x2_hpu = x2.to(hpu)
     # Hpu initialize has mark_params_as_const and _check_params_as_const which doesn't work for compile
-    # htcore.hpu_initialize(model_hpu)
+    # htcore.hpu_inference_initialize(model_hpu)
 
     print("Infer on HPU....................................", flush=True)
 
@@ -91,7 +91,7 @@ def test_hpu_conv_and_batch_norm_2d_fwd_compile_only(N, H, W, C):
     output2_hpu_cpu = output2_hpu.to(cpu)
     numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1)
     numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.1, rtol=0.1)
-    htcore.hpu_reset_env()
+    htcore.hpu_teardown_inference_env()
 
 
 def test_hpu_const_marking():
@@ -128,7 +128,7 @@ def test_hpu_const_marking():
 
     import habana_frameworks.torch.core as htcore
 
-    model = htcore.hpu_set_env(model)
+    model = htcore.hpu_set_inference_env(model)
     model_hpu = model.to(hpu)
     x_hpu = x.to(hpu)
     x2_hpu = x2.to(hpu)
@@ -160,4 +160,4 @@ def test_hpu_const_marking():
     output2_hpu_cpu = output2_hpu.to(cpu)
     numpy.testing.assert_allclose(output_hpu_cpu.detach().numpy(), output.detach().numpy(), atol=0.1, rtol=0.1)
     numpy.testing.assert_allclose(output2_hpu_cpu.detach().numpy(), output2.detach().numpy(), atol=0.1, rtol=0.1)
-    htcore.hpu_reset_env()
+    htcore.hpu_teardown_inference_env()
