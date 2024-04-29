@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+
 #include "generated/backend/avg_pool3d.h"
 #include "generated/backend/avg_pool3d_backward.h"
 #include "hpu_ops/backend/pool_helpers.h"
@@ -103,40 +104,26 @@ void Avgpool3dFwd::AddNode(
   size_t size = 0;
   const auto& params = FillAvgPool3dParamsFwd(stack, size);
   auto meta = AvgPool3dMeta(stack)[0];
-  auto intermediateOutShape = meta.shape;
-  bool reshapeRequired = stack_tensor(stack, 0).dim() == 4;
-  std::vector<synTensor> inputs = {syn_in(0)};
-  std::vector<synapse_helpers::tensor> expandResult;
-  c10::optional<int> finalIndex =
-      reshapeRequired ? c10::nullopt : c10::make_optional<int>(0);
-
-  if (reshapeRequired) {
-    auto inputExpandedShape = stack_tensor(stack, 0).sizes().vec();
-    inputExpandedShape.insert(std::begin(inputExpandedShape), 1);
-    intermediateOutShape.insert(std::begin(intermediateOutShape), 1);
-    synAxisParams expandParams{4};
-    expandResult.push_back(std::move(BuildOp(
-        graph,
-        "expand_dims",
-        std::move(inputs),
-        {{inputExpandedShape, meta.dtype}},
-        &expandParams,
-        sizeof(expandParams))[0]));
-    inputs = {expandResult[0].get()};
+  const auto rank = stack_tensor(stack, 0).dim();
+  if (rank == 4) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDC,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDC},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDC});
+  } else if (rank == 5) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
   }
-
-  CreateShapeTensorInput(graph, meta.dtype, intermediateOutShape, inputs);
   auto avgPool = BuildOp(
       graph,
       guid_,
-      std::move(inputs),
-      {{intermediateOutShape, ScalarType(), finalIndex}},
+      {syn_in(0)},
+      {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);
-  syn_out(0) = reshapeRequired
-      ? std::move(
-            ReshapeHelper(graph, avgPool[0].get(), meta.shape, meta.dtype, 0))
-      : std::move(avgPool[0]);
+  syn_out(0) = std::move(avgPool[0]);
 }
 
 std::shared_ptr<void> FillAvgPool3dParamsBwd(
@@ -165,45 +152,30 @@ OutputMetaDataVector AvgPool3dBwdMeta(const at::Stack& stack) {
 void AvgPool3dBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  bool reshapeRequired = stack_tensor(stack, 0).dim() == 4;
   size_t size = 0;
   const auto& params = FillParams(stack, size);
   auto meta = OutputMeta(stack)[0];
-  auto intermediateOutShape = meta.shape;
-
-  std::vector<synTensor> inputs = {syn_in(0)};
-  std::vector<synapse_helpers::tensor> expandResult;
-  c10::optional<int> finalIndex =
-      reshapeRequired ? c10::nullopt : c10::make_optional<int>(0);
-
-  if (reshapeRequired) {
-    auto inputExpandedShape = stack_tensor(stack, 0).sizes().vec();
-    inputExpandedShape.insert(std::begin(inputExpandedShape), 1);
-    intermediateOutShape.insert(std::begin(intermediateOutShape), 1);
-    synAxisParams expandParams{4};
-    expandResult.push_back(std::move(BuildOp(
-        graph,
-        "expand_dims",
-        std::move(inputs),
-        {{inputExpandedShape, meta.dtype}},
-        &expandParams,
-        sizeof(expandParams))[0]));
-    inputs = {expandResult[0].get()};
+  const auto rank = stack_tensor(stack, 1).dim();
+  if (rank == 4) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDC,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDC},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDC});
+  } else if (rank == 5) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
   }
-
-  this->CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
   auto avgPool = BuildOp(
       graph,
       GetGuid(),
-      std::move(inputs),
-      {{intermediateOutShape, meta.dtype, finalIndex}},
+      {syn_in(0)},
+      {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);
 
-  syn_out(0) = reshapeRequired
-      ? std::move(
-            ReshapeHelper(graph, avgPool[0].get(), meta.shape, meta.dtype, 0))
-      : std::move(avgPool[0]);
+  syn_out(0) = std::move(avgPool[0]);
 }
 
 } // namespace habana

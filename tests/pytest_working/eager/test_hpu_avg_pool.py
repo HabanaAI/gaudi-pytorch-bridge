@@ -41,6 +41,7 @@ def test_hpu_avg_pool3d_bwd_grad_input(
             count_include_pad=count_include_pad,
             divisor_override=divisor_override,
         )
+
         grad = torch.ones_like(fwd)
         grad_input = torch.zeros_like(input)
         output = torch.ops.aten.avg_pool3d_backward.grad_input(

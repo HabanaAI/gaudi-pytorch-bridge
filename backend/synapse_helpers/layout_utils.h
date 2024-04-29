@@ -38,6 +38,7 @@ enum class SynapseLayoutFormat {
   CNT = 15,
   SN = 16,
   SNT = 17,
+  WHDC = 18,
   INVALID
 };
 
@@ -73,6 +74,7 @@ static const std::unordered_map<const SynapseLayoutFormat, const char*>
         {SynapseLayoutFormat::CNT, "CNT"},
         {SynapseLayoutFormat::SN, "SN"},
         {SynapseLayoutFormat::SNT, "SNT"},
+        {SynapseLayoutFormat::WHDC, "WHDC"},
         {SynapseLayoutFormat::DONT_CARE, dont_care}};
 
 inline std::vector<const char*> getSynapseLayoutFormat(
