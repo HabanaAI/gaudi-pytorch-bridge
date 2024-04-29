@@ -427,7 +427,7 @@ PT_HPU_ENABLE_JIT_GRAPH_NAME_HASH:
 
 PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR:
   type: bool
-  default: false
+  default: true
 
 PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR:
   type: bool
