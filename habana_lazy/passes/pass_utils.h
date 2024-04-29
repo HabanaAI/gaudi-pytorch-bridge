@@ -98,7 +98,7 @@ class WeightIdentificationPass {
           {"hpu::optimizer_sgd", {0, 1, 2}},
           {"hpu::habanaOptimizerFusedAdagrad", {0, 1, 2}},
           {"hpu::habanaOptimizerAdamW", {0, 1, 2, 3}},
-          {"hpu::optimizer_adamw", {0, 1, 2, 3}},
+          {"hpu::optimizer_adamw", {0, 1, 2, 3, 9, 10}},
           {"hpu::optimizer_lamb_phase1", {0, 1}}};
 
   void markWeights(const torch::jit::Value* value);

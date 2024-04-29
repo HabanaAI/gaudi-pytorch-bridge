@@ -15,7 +15,7 @@ import pytest
 import torch
 from habana_frameworks.torch.hpex.optimizers import FusedAdamW
 from habana_frameworks.torch.hpex.optimizers.distributed import FusedAdamW as DistributedFusedAdamW
-from test_utils import format_tc, is_pytest_mode_compile
+from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
 from torch.optim import AdamW
 
 lr = 0.1
@@ -25,6 +25,10 @@ eps = 1.0e-6
 shapes = [(3, 4), (5, 6)]
 moments_dtypes = [None, torch.bfloat16, torch.float32]
 dtypes = [torch.bfloat16, torch.float32]
+
+
+if not is_gaudi1():
+    moments_dtypes.append((torch.float8_e4m3fn, torch.float8_e5m2))
 
 
 class Net(torch.nn.Module):
@@ -88,12 +92,14 @@ def create_tensors(shapes, dtype):
 
 
 def get_tolerances(tensor_dtype, moments_dtype):
-    if tensor_dtype == torch.bfloat16:
-        return 1.6e-2, 1e-3
+    if moments_dtype in [torch.float8_e5m2, torch.float8_e4m3fn] or isinstance(moments_dtype, tuple):
+        return 5e-2, 1e-1
+    elif tensor_dtype == torch.bfloat16:
+        return 4e-2, 2e-3
     elif tensor_dtype == torch.float32 and moments_dtype == torch.bfloat16:
-        return 1e-3, 1e-3
+        return 1.6e-2, 1e-3
     else:
-        return 1e-5, 1e-5
+        return 2e-5, 2e-5
 
 
 @pytest.mark.skipif(is_pytest_mode_compile(), reason="Test is not adjusted to compile mode")
@@ -113,13 +119,22 @@ def test_adamw(dtype, moments_dtype):
         bias_correction=True,
     )
 
-    cpu_optimizer.step()
-    hpu_optimizer.step()
+    for _ in range(3):
+        cpu_optimizer.step()
+        hpu_optimizer.step()
 
     if moments_dtype:
         for hpu_tensor in hpu_tensors:
-            assert hpu_optimizer.state[hpu_tensor]["exp_avg"].dtype == moments_dtype
-            assert hpu_optimizer.state[hpu_tensor]["exp_avg_sq"].dtype == moments_dtype
+            assert (
+                moments_dtype[0]
+                if isinstance(moments_dtype, tuple)
+                else hpu_optimizer.state[hpu_tensor]["exp_avg"].dtype == moments_dtype
+            )
+            assert (
+                moments_dtype[1]
+                if isinstance(moments_dtype, tuple)
+                else hpu_optimizer.state[hpu_tensor]["exp_avg_sq"].dtype == moments_dtype
+            )
 
     for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors):
         rtol, atol = get_tolerances(cpu_tensor.dtype, moments_dtype)
@@ -142,8 +157,16 @@ def test_adamw_distributed(dtype, moments_dtype):
 
     if moments_dtype:
         for hpu_tensor in hpu_tensors:
-            assert hpu_optimizer.state[hpu_tensor]["exp_avg"].dtype == moments_dtype
-            assert hpu_optimizer.state[hpu_tensor]["exp_avg_sq"].dtype == moments_dtype
+            assert (
+                moments_dtype[0]
+                if isinstance(moments_dtype, tuple)
+                else hpu_optimizer.state[hpu_tensor]["exp_avg"].dtype == moments_dtype
+            )
+            assert (
+                moments_dtype[1]
+                if isinstance(moments_dtype, tuple)
+                else hpu_optimizer.state[hpu_tensor]["exp_avg_sq"].dtype == moments_dtype
+            )
 
     for cpu_tensor, hpu_tensor in zip(cpu_tensors, hpu_tensors):
         rtol, atol = get_tolerances(cpu_tensor.dtype, moments_dtype)

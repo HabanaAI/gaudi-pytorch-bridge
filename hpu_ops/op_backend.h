@@ -468,6 +468,24 @@ class OpBackend : public HabanaOperator {
     }
   }
 
+  c10::optional<std::vector<TensorsPair>> getNextInputInternal(
+      StackGetter& sg,
+      c10::optional<std::vector<TensorsPair>>*) {
+    auto pos = sg.CheckGetAndIncrStackPos();
+    c10::optional<c10::List<at::Tensor>> tensorList =
+        sg.stack[pos].toOptional<c10::List<at::Tensor>>();
+    if (tensorList.has_value()) {
+      c10::optional<std::vector<TensorsPair>> result =
+          std::vector<TensorsPair>();
+      for (auto&& v : tensorList.value()) {
+        result.value().push_back({v, syn_in(sg.GetAndIncrSynPos())});
+      }
+      return result;
+    } else {
+      return c10::optional<std::vector<TensorsPair>>{};
+    }
+  }
+
   std::vector<TensorsPair> getNextInputInternal(
       StackGetter& sg,
       std::vector<TensorsPair>*) {

@@ -24,6 +24,11 @@
 
 namespace habana {
 
+ns_CastKernel::Params GetCastParams(
+    const bool stochastic,
+    const at::ScalarType& from_dtype,
+    const at::ScalarType& to_dtype);
+
 // Originally all below ops are out-of-place with preallocated output.
 // Unfortunately, such ops' outputs are marked as persistent in graphs,
 // which leads to OOM.

@@ -107,6 +107,7 @@ void HandleScaleScalar(
     syn_inputs.push_back(nullptr);
   }
 }
+} // namespace
 
 ns_CastKernel::Params GetCastParams(
     const bool stochastic,
@@ -123,7 +124,6 @@ ns_CastKernel::Params GetCastParams(
   }
   return params;
 }
-} // namespace
 
 /********** CastToFp8 **********/
 

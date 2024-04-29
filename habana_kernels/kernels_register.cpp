@@ -958,12 +958,14 @@ void optimizer_adamw_hpu_wrap(
     const double beta1,
     const double beta2,
     const double epsilon,
-    const double weight_decay) {
+    const double weight_decay,
+    c10::optional<at::TensorList> exp_avg_scales,
+    c10::optional<at::TensorList> exp_avg_sq_scales) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "optimizer_adamw :",
-      DUMP_9ARGS(
+      DUMP_11ARGS(
           gradient_vec,
           weight_vec,
           exp_avg_vec,
@@ -972,11 +974,16 @@ void optimizer_adamw_hpu_wrap(
           beta1,
           beta2,
           epsilon,
-          weight_decay));
+          weight_decay,
+          exp_avg_scales,
+          exp_avg_sq_scales));
 
   TORCH_CHECK(
       (weight_vec.size() > 0),
       "optimizer_adamw : can not process empty weight vector");
+  TORCH_CHECK(
+      exp_avg_scales.has_value() == exp_avg_sq_scales.has_value(),
+      "optimizer_adamw : expects both or neighter scales to be set");
 
   optimizer_adamw_hpu_lazy(
       gradient_vec,
@@ -987,7 +994,9 @@ void optimizer_adamw_hpu_wrap(
       beta1,
       beta2,
       epsilon,
-      weight_decay);
+      weight_decay,
+      exp_avg_scales,
+      exp_avg_sq_scales);
 }
 
 Tensor fused_norm_hpu_wrap(
@@ -2408,7 +2417,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay) -> ()");
   m.def(
-      "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, float weight_decay) -> ()");
+      "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, float weight_decay, Tensor(d!)[]? exp_avg_scales = None, Tensor(e!)[]? exp_avg_sq_scales = None) -> ()");
   m.def(
       "hpu::habanaOptimizerFusedEMA(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
   m.def(

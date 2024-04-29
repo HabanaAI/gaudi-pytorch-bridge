@@ -46,7 +46,7 @@ class FusedAdamW(object):
         # amsgrad: bool = False, # Habana Impl does not support
         # maximize: bool = False, # Habana Impl does not support
         _allow_empty_param_list: bool = False,  # retained for PT compatibility
-        moments_dtype: Optional[torch.dtype] = None,
+        moments_dtype: Optional[torch.dtype | Tuple[torch.dtype, torch.dtype]] = None,
     ):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
@@ -85,6 +85,7 @@ class FusedAdamW(object):
         self.is_lazy = is_lazy()
         self.modified_wd_list = []
         self.moments_dtype = moments_dtype
+        self.moments_in_fp8 = self.check_moments_in_fp8()
 
     def step_param(self, param: Tensor, grad: Optional[Tensor]):
         params_with_grad = []
@@ -101,11 +102,11 @@ class FusedAdamW(object):
             self.state[param] = {}
             state = self.state[param]
             state["step"] = torch.tensor(0.0)
-            dtype = self.moments_dtype if self.moments_dtype is not None else param.dtype
+            exp_avg_dtype, exp_avg_sq_dtype = self.get_moment_dtypes(param.dtype)
             # Exponential moving average of gradient values
-            state["exp_avg"] = torch.zeros_like(param, dtype=dtype, memory_format=torch.preserve_format)
+            state["exp_avg"] = torch.zeros_like(param, dtype=exp_avg_dtype, memory_format=torch.preserve_format)
             # Exponential moving average of squared gradient values
-            state["exp_avg_sq"] = torch.zeros_like(param, dtype=dtype, memory_format=torch.preserve_format)
+            state["exp_avg_sq"] = torch.zeros_like(param, dtype=exp_avg_sq_dtype, memory_format=torch.preserve_format)
             if self.amsgrad:
                 # Maintains max of all exp. moving avg. of sq. grad. values
                 state["max_exp_avg_sq"] = torch.zeros_like(param, memory_format=torch.preserve_format)
@@ -136,6 +137,12 @@ class FusedAdamW(object):
         self.neg_step_list.clear()
         self.modified_wd_list.clear()
 
+        exp_avg_scales = None
+        exp_avg_sq_scales = None
+        if self.moments_in_fp8:
+            exp_avg_scales = []
+            exp_avg_sq_scales = []
+
         if len(params) != len(gradients):
             raise ValueError(
                 "the gradients passed in does not equal to the size of the parameters!"
@@ -152,11 +159,16 @@ class FusedAdamW(object):
                     self.state[param] = {}
                     state = self.state[param]
                     state["step"] = torch.tensor(0.0)
-                    dtype = self.moments_dtype if self.moments_dtype is not None else param.dtype
+                    exp_avg_dtype, exp_avg_sq_dtype = self.get_moment_dtypes(param.dtype)
                     # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros_like(param, dtype=dtype, memory_format=torch.preserve_format)
+                    state["exp_avg"] = torch.zeros_like(param, dtype=exp_avg_dtype, memory_format=torch.preserve_format)
                     # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros_like(param, dtype=dtype, memory_format=torch.preserve_format)
+                    state["exp_avg_sq"] = torch.zeros_like(
+                        param, dtype=exp_avg_sq_dtype, memory_format=torch.preserve_format
+                    )
+                    if self.check_moments_in_fp8():
+                        state["exp_avg_scale"] = torch.tensor([1], dtype=param.dtype).to(param.device)
+                        state["exp_avg_sq_scale"] = torch.tensor([1], dtype=param.dtype).to(param.device)
                     if self.amsgrad:
                         # Maintains max of all exp. moving avg. of sq. grad. values
                         state["max_exp_avg_sq"] = torch.zeros_like(param, memory_format=torch.preserve_format)
@@ -168,6 +180,10 @@ class FusedAdamW(object):
 
                 if self.amsgrad:
                     max_exp_avg_sqs.append(state["max_exp_avg_sq"])
+
+                if self.check_moments_in_fp8():
+                    exp_avg_scales.append(state["exp_avg_scale"])
+                    exp_avg_sq_scales.append(state["exp_avg_sq_scale"])
 
                 # update the steps for each param group update
                 state["step"] += 1
@@ -207,6 +223,8 @@ class FusedAdamW(object):
                     beta2,
                     eps,
                     modified_wd,
+                    exp_avg_scales,
+                    exp_avg_sq_scales,
                 )
         else:
             modified_wd_t = torch.tensor([modified_wd], dtype=torch.float, requires_grad=False).to(
@@ -226,4 +244,24 @@ class FusedAdamW(object):
                     eps,
                     modified_wd_t,
                     modified_wd != 1.0,
+                    exp_avg_scales,
+                    exp_avg_sq_scales,
                 )
+
+    def get_moment_dtypes(self, param_dtype):
+        if self.moments_dtype is None:
+            return param_dtype, param_dtype
+        elif isinstance(self.moments_dtype, tuple):
+            return self.moments_dtype
+        else:
+            return self.moments_dtype, self.moments_dtype
+
+    def check_moments_in_fp8(self):
+        if self.moments_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:
+            return True
+        elif isinstance(self.moments_dtype, tuple):
+            for moment in self.moments_dtype:
+                if moment in [torch.float8_e4m3fn, torch.float8_e5m2]:
+                    return True
+        else:
+            return False

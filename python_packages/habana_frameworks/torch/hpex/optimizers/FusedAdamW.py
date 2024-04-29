@@ -28,7 +28,7 @@ class FusedAdamW(Optimizer):
         eps: float = 1e-6,
         weight_decay: float = 0.0,
         bias_correction: bool = True,
-        moments_dtype: Optional[torch.dtype] = None,
+        moments_dtype: Optional[torch.dtype | Tuple[torch.dtype, torch.dtype]] = None,
     ):
         if lr < 0.0:
             raise ValueError("Invalid learning rate: {} - should be >= 0.0".format(lr))
@@ -51,6 +51,7 @@ class FusedAdamW(Optimizer):
         self.is_lazy = is_lazy()
         self.modified_wd_list = []
         self.moments_dtype = moments_dtype
+        self.moments_in_fp8 = self.check_moments_in_fp8()
 
     def step_wrap(step_func):
         def wrap_(*args, **kwargs):
@@ -79,6 +80,12 @@ class FusedAdamW(Optimizer):
             htcore.step_closure._mark_step_if_lazy()
             grad_list, wt_list, exp_avg_list, exp_avg_sq_list = [], [], [], []
 
+            exp_avg_scales = None
+            exp_avg_sq_scales = None
+            if self.moments_in_fp8:
+                exp_avg_scales = []
+                exp_avg_sq_scales = []
+
             for p in group["params"]:
                 if p.grad is None:
                     continue
@@ -91,11 +98,14 @@ class FusedAdamW(Optimizer):
                 state = self.state[p]
                 if len(state) == 0:
                     state["step"] = 0
-                    dtype = self.moments_dtype if self.moments_dtype is not None else p.dtype
+                    exp_avg_dtype, exp_avg_sq_dtype = self.get_moment_dtypes(p.dtype)
                     # Exponential moving average of gradient values
-                    state["exp_avg"] = torch.zeros(p.data.shape, dtype=dtype).to(p.device)
+                    state["exp_avg"] = torch.zeros(p.data.shape, dtype=exp_avg_dtype).to(p.device)
                     # Exponential moving average of squared gradient values
-                    state["exp_avg_sq"] = torch.zeros(p.data.shape, dtype=dtype).to(p.device)
+                    state["exp_avg_sq"] = torch.zeros(p.data.shape, dtype=exp_avg_sq_dtype).to(p.device)
+                    if self.moments_in_fp8:
+                        state["exp_avg_scale"] = torch.tensor([1], dtype=p.dtype).to(p.device)
+                        state["exp_avg_sq_scale"] = torch.tensor([1], dtype=p.dtype).to(p.device)
 
                 exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
 
@@ -103,6 +113,10 @@ class FusedAdamW(Optimizer):
                 wt_list.append(weight)
                 exp_avg_list.append(exp_avg)
                 exp_avg_sq_list.append(exp_avg_sq)
+
+                if self.moments_in_fp8:
+                    exp_avg_scales.append(state["exp_avg_scale"])
+                    exp_avg_sq_scales.append(state["exp_avg_sq_scale"])
 
             if len(wt_list) > 0:
                 beta1, beta2 = group["betas"]
@@ -141,6 +155,8 @@ class FusedAdamW(Optimizer):
                         beta2,
                         group["eps"],
                         modified_wd,
+                        exp_avg_scales,
+                        exp_avg_sq_scales,
                     )
                 else:
                     modified_wd_t = (
@@ -161,6 +177,8 @@ class FusedAdamW(Optimizer):
                         group["eps"],
                         modified_wd_t,
                         modified_wd != 1.0,
+                        exp_avg_scales,
+                        exp_avg_sq_scales,
                     )
 
         return loss
@@ -174,3 +192,21 @@ class FusedAdamW(Optimizer):
             return group["correct_bias"]
         else:  # Case when loading data from torch.optim.AdamW
             return True
+
+    def get_moment_dtypes(self, param_dtype):
+        if self.moments_dtype is None:
+            return param_dtype, param_dtype
+        elif isinstance(self.moments_dtype, tuple):
+            return self.moments_dtype
+        else:
+            return self.moments_dtype, self.moments_dtype
+
+    def check_moments_in_fp8(self):
+        if self.moments_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:
+            return True
+        elif isinstance(self.moments_dtype, tuple):
+            for moment in self.moments_dtype:
+                if moment in [torch.float8_e4m3fn, torch.float8_e5m2]:
+                    return True
+        else:
+            return False

@@ -844,11 +844,13 @@ void optimizer_adamw(
     const double beta2,
     const double epsilon,
     const at::Tensor& weight_decay,
-    const bool has_weight_decay) {
+    const bool has_weight_decay,
+    c10::optional<at::TensorList> exp_avg_scales = c10::nullopt,
+    c10::optional<at::TensorList> exp_avg_sq_scales = c10::nullopt) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "optimizer_adamw :",
-      DUMP_10ARGS(
+      DUMP_12ARGS(
           gradient_vec,
           weight_vec,
           exp_avg_vec,
@@ -858,11 +860,16 @@ void optimizer_adamw(
           beta2,
           epsilon,
           weight_decay,
-          has_weight_decay));
+          has_weight_decay,
+          exp_avg_scales,
+          exp_avg_sq_scales));
 
   TORCH_CHECK(
       (weight_vec.size() > 0),
       "optimizer_adamw : can not process empty weight vector");
+  TORCH_CHECK(
+      exp_avg_scales.has_value() == exp_avg_sq_scales.has_value(),
+      "optimizer_adamw : expects both or neighter scales to be set");
 
   habana::eager::EagerOp<void> hpu_op{
       "hpu::optimizer_adamw",
@@ -875,12 +882,22 @@ void optimizer_adamw(
        beta2,
        epsilon,
        weight_decay,
-       has_weight_decay}};
+       has_weight_decay,
+       exp_avg_scales,
+       exp_avg_sq_scales}};
 
   hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::Inplace, "hpu::optimizer_adamw", {1, 2, 3}});
+      {habana::eager::eagerOpKind::Inplace,
+       "hpu::optimizer_adamw",
+       {1, 2, 3, 10, 11}});
 
-  hpu_op.call({weight_vec, exp_avg_vec, exp_avg_sq_vec});
+  std::vector<at::TensorList> tensorlists = {
+      weight_vec, exp_avg_vec, exp_avg_sq_vec};
+  if (exp_avg_scales.has_value()) {
+    tensorlists.push_back(exp_avg_scales.value());
+    tensorlists.push_back(exp_avg_sq_scales.value());
+  }
+  hpu_op.call(tensorlists);
 }
 
 at::Tensor rotary_pos_embedding(
@@ -2023,7 +2040,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::masked_batch_gemm(Tensor a, Tensor b, Tensor mask_a, Tensor mask_b, bool trans_a, bool trans_b) -> Tensor");
   m.def(
-      "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay) -> ()");
+      "hpu::optimizer_adamw(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay, Tensor(d!)[]? exp_avg_scales = None, Tensor(e!)[]? exp_avg_sq_scales = None) -> ()");
   m.def(
       "hpu::optimizer_ema(Tensor[] model_inputs, Tensor(a!)[] updated_ema, Tensor decay) -> ()");
   m.def(

@@ -108,6 +108,21 @@ void optimizer_ema_hpu_lazy(
   flush_op();
 }
 
+static void CastMomentToFp8WithScale(
+    const at::Tensor& scaled_moment,
+    at::Tensor& scale,
+    at::Tensor& fp8_moment,
+    const float fp8_max) {
+  at::Tensor amax = at::max(at::abs(scaled_moment));
+  at::Tensor exp = at::floor(at::log2(fp8_max / amax));
+  at::Tensor sf = at::pow(2.0, exp);
+  at::where_out(scale, amax > 0.0, sf, scale);
+
+  auto cast_results = cast_to_fp8_v2_lazy(
+      scaled_moment, scale, true, false, fp8_moment.scalar_type(), {1});
+  copy_hpu_lazy_(fp8_moment, std::get<0>(cast_results), true);
+}
+
 void optimizer_adamw_hpu_lazy(
     const at::TensorList gradients,
     at::TensorList weights,
@@ -117,12 +132,16 @@ void optimizer_adamw_hpu_lazy(
     const double beta1,
     const double beta2,
     const double epsilon,
-    const double modified_wd) {
+    const double modified_wd,
+    c10::optional<at::TensorList> exp_avg_scales,
+    c10::optional<at::TensorList> exp_avg_sq_scales) {
   PT_LAZY_TRACE;
   std::vector<at::Tensor> gradients_v;
   std::vector<at::Tensor> weights_v;
   std::vector<at::Tensor> exp_avg_v;
   std::vector<at::Tensor> exp_avg_sq_v;
+  std::vector<at::Tensor> exp_avg_scales_v;
+  std::vector<at::Tensor> exp_avg_sq_scales_v;
 
   std::copy(
       gradients.begin(), gradients.end(), std::back_inserter(gradients_v));
@@ -130,6 +149,21 @@ void optimizer_adamw_hpu_lazy(
   std::copy(exp_avg.begin(), exp_avg.end(), std::back_inserter(exp_avg_v));
   std::copy(
       exp_avg_sq.begin(), exp_avg_sq.end(), std::back_inserter(exp_avg_sq_v));
+
+  if (exp_avg_scales.has_value()) {
+    std::copy(
+        exp_avg_scales.value().begin(),
+        exp_avg_scales.value().end(),
+        std::back_inserter(exp_avg_scales_v));
+    handle_collective(exp_avg_scales_v);
+  }
+  if (exp_avg_sq_scales.has_value()) {
+    std::copy(
+        exp_avg_sq_scales.value().begin(),
+        exp_avg_sq_scales.value().end(),
+        std::back_inserter(exp_avg_sq_scales_v));
+    handle_collective(exp_avg_sq_scales_v);
+  }
 
   handle_collective(gradients_v);
   handle_collective(weights_v);
@@ -148,11 +182,30 @@ void optimizer_adamw_hpu_lazy(
                beta2,
                epsilon,
                modified_wd_t,
-               is_wd_modified]() mutable {
+               is_wd_modified,
+               exp_avg_scales_v = std::move(exp_avg_scales_v),
+               exp_avg_sq_scales_v = std::move(exp_avg_sq_scales_v)]() mutable {
+    const bool is_fp8 = exp_avg_scales_v.size() != 0;
+
+    std::vector<at::Tensor> exp_avg_scaled;
+    std::vector<at::Tensor> exp_avg_sq_scaled;
+    for (size_t i = 0; i < exp_avg_scales_v.size(); i++) {
+      exp_avg_scaled.push_back(cast_from_fp8_lazy(
+          exp_avg_v[i],
+          exp_avg_scales_v[i],
+          gradients_v[i].scalar_type(),
+          c10::nullopt));
+      exp_avg_sq_scaled.push_back(cast_from_fp8_lazy(
+          exp_avg_sq_v[i],
+          exp_avg_sq_scales_v[i],
+          gradients_v[i].scalar_type(),
+          c10::nullopt));
+    }
+
     TensorList gradients = gradients_v;
     TensorList weights = weights_v;
-    TensorList exp_avg = exp_avg_v;
-    TensorList exp_avg_sq = exp_avg_sq_v;
+    TensorList exp_avg = is_fp8 ? exp_avg_scaled : exp_avg_v;
+    TensorList exp_avg_sq = is_fp8 ? exp_avg_sq_scaled : exp_avg_sq_v;
 
     auto hl_neg_step_t = GetHbLazyTensor(neg_step_t);
     auto hl_modified_wd_t = GetHbLazyTensor(modified_wd_t);
@@ -201,6 +254,28 @@ void optimizer_adamw_hpu_lazy(
     }
 
     flush_op();
+
+    if (is_fp8) {
+      const float FP8_E4M3_MAX = 240.0;
+      const float FP8_E5M2_MAX = 57344.0;
+      for (size_t i = 0; i < exp_avg_v.size(); i++) {
+        CastMomentToFp8WithScale(
+            exp_avg_scaled[i],
+            exp_avg_scales_v[i],
+            exp_avg_v[i],
+            exp_avg_v[i].scalar_type() == ScalarType::Float8_e4m3fn
+                ? FP8_E4M3_MAX
+                : FP8_E5M2_MAX);
+
+        CastMomentToFp8WithScale(
+            exp_avg_sq_scaled[i],
+            exp_avg_sq_scales_v[i],
+            exp_avg_sq_v[i],
+            exp_avg_sq_v[i].scalar_type() == ScalarType::Float8_e4m3fn
+                ? FP8_E4M3_MAX
+                : FP8_E5M2_MAX);
+      }
+    }
   };
   auto vector_of_inputs = std::vector<c10::IValue>{
       gradients,
@@ -212,7 +287,9 @@ void optimizer_adamw_hpu_lazy(
       beta2,
       epsilon,
       modified_wd_t,
-      is_wd_modified};
+      is_wd_modified,
+      exp_avg_scales,
+      exp_avg_sq_scales};
   RUNNING_HASH_COMBINE_OPERATOR(hpu::habanaOptimizerAdamW, vector_of_inputs);
   RUN_MANUAL_OP_NO_RETURN_WITH_ACC_THREAD(optimizer_adamw, func)
 }
