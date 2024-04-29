@@ -400,6 +400,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   });
 
   m.def(
+      "custom_op_calc_out_shape_no_params",
+      [](const char* opname, const std::vector<at::Tensor>& inputs) {
+        return habana::CustomOpOutShapeFunRegistrar::GetInstance().CalcOutShape(
+            opname, inputs);
+      });
+  m.def(
       "custom_op_calc_out_shape_params_int",
       [](const char* opname,
          const std::vector<at::Tensor>& inputs,

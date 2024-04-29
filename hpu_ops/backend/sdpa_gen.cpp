@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,6 +12,7 @@
  */
 
 #include "hpu_ops/sdpa_gen.h"
+#include "hpu_ops/custom_op_outshape.h"
 
 #define FP8_SDPA_SET_FLAGS(condition, flags, flag_name) \
   if (condition) {                                      \
@@ -62,15 +63,24 @@ SDPARecompBwd::SDPARecompBwd(int device_id, c10::ScalarType scalar_type)
           {},
           false) {}
 
-sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
-  int q_index = (stack.size() == 9) ? 1 : 0;
-  auto q = stack_tensor(stack, q_index);
-  auto k = stack_tensor(stack, q_index + 1);
-  auto v = stack_tensor(stack, q_index + 2);
-  int64_t rank = q.dim();
-  std::vector<int64_t> q_shape = q.sizes().vec();
-  std::vector<int64_t> k_shape = k.sizes().vec();
-  std::vector<int64_t> v_shape = v.sizes().vec();
+static std::vector<int64_t> infer_size_int_or_symint(
+    c10::IntArrayRef a,
+    c10::IntArrayRef b) {
+  return at::infer_size(a, b);
+}
+
+static std::vector<c10::SymInt> infer_size_int_or_symint(
+    c10::SymIntArrayRef a,
+    c10::SymIntArrayRef b) {
+  return at::infer_size_symint(a, b);
+}
+
+template <class DimT>
+sizes_vec_template<DimT> SDPAFwdOutputShapeCommon(
+    c10::ArrayRef<DimT> q_shape,
+    c10::ArrayRef<DimT> k_shape,
+    c10::ArrayRef<DimT> v_shape) {
+  int64_t rank = q_shape.size();
 
   // q, k, v are involved in matmuls (BatchGemm) in attention calc.
   // matmul allows broadcast for the batch dims. i.e, for dims 0, 1.. Rank - 2.
@@ -81,12 +91,9 @@ sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
   // mentions that dim0 will be batch size(N) for all tensors.
   // However, in the following shape calculations, dim0 is considered for
   // broad cast shape calc for ease of implementation
-  std::vector<int64_t> q_bdim_sizes{
-      q_shape.begin(), q_shape.begin() + rank - 2};
-  std::vector<int64_t> k_bdim_sizes{
-      k_shape.begin(), k_shape.begin() + rank - 2};
-  std::vector<int64_t> v_bdim_sizes{
-      v_shape.begin(), v_shape.begin() + rank - 2};
+  std::vector<DimT> q_bdim_sizes{q_shape.begin(), q_shape.begin() + rank - 2};
+  std::vector<DimT> k_bdim_sizes{k_shape.begin(), k_shape.begin() + rank - 2};
+  std::vector<DimT> v_bdim_sizes{v_shape.begin(), v_shape.begin() + rank - 2};
 
   // The following infer sizes also serves to do the shape compatibility
   // checks needed for dynamic shapes causing an exception if the shapes
@@ -95,9 +102,9 @@ sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
   // The matrix dims are assumed to conform to matrix mul rules.
 
   // Batch dim sizes of Q@K.transpose after broadcast
-  auto qkt_shape = at::infer_size(q_bdim_sizes, k_bdim_sizes);
+  auto qkt_shape = infer_size_int_or_symint(q_bdim_sizes, k_bdim_sizes);
   // Batch dim sizes of output  i.e Q@K.transpose)@v after broadcast
-  auto out_shape = at::infer_size(qkt_shape, v_bdim_sizes);
+  auto out_shape = infer_size_int_or_symint(qkt_shape, v_bdim_sizes);
 
   // Append the matrix dims (last 2 dims) to batch dims to get final shape.
   int L_dim = rank - 2; // Target seq len dim
@@ -111,6 +118,22 @@ sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
   qkt_shape.push_back(k_shape[S_dim]);
   return {out_shape, qkt_shape, qkt_shape};
 }
+
+sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
+  int q_index = (stack.size() == 9) ? 1 : 0;
+  auto q = stack_tensor(stack, q_index);
+  auto k = stack_tensor(stack, q_index + 1);
+  auto v = stack_tensor(stack, q_index + 2);
+  return SDPAFwdOutputShapeCommon(q.sizes(), k.sizes(), v.sizes());
+}
+
+sym_sizes_vec sdpa_fwd_out_shape(const std::vector<at::Tensor>& inputs) {
+  TORCH_CHECK(inputs.size() == 3);
+  return SDPAFwdOutputShapeCommon(
+      inputs[0].sym_sizes(), inputs[1].sym_sizes(), inputs[2].sym_sizes());
+}
+
+REGISTER_CUSTOM_OP_OUTSHAPE_FUN(sdpa_fwd, sdpa_fwd_out_shape);
 
 sizes_vec SDPABwdOutputShape(const at::Stack& stack) {
   // g is grad tensor input into BWD, corr. tensor dO in CGUID
@@ -263,17 +286,13 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 }
 
 //============= ComputeShape and AddNode for SDPA recompute variant=========
-sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
-  int q_index = (stack.size() == 10) ? 1 : 0;
-  auto q = stack_tensor(stack, q_index);
-  auto k = stack_tensor(stack, q_index + 1);
-  auto v = stack_tensor(stack, q_index + 2);
-  auto requires_backward = stack.at(q_index + 7).toBool();
-
-  int64_t rank = q.dim();
-  std::vector<int64_t> q_shape = q.sizes().vec();
-  std::vector<int64_t> k_shape = k.sizes().vec();
-  std::vector<int64_t> v_shape = v.sizes().vec();
+template <class DimT>
+sizes_vec_template<DimT> SDPARecompFwdOutputShapeCommon(
+    c10::ArrayRef<DimT> q_shape,
+    c10::ArrayRef<DimT> k_shape,
+    c10::ArrayRef<DimT> v_shape,
+    bool requires_backward) {
+  int64_t rank = q_shape.size();
 
   // q, k, v are involved in matmuls (BatchGemm) in attention calc.
   // matmul allows broadcast for the batch dims. i.e, for dims 0, 1.. Rank - 2.
@@ -284,12 +303,9 @@ sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
   // mentions that dim0 will be batch size(N) for all tensors.
   // However, in the following shape calculations, dim0 is considered for
   // broad cast shape calc for ease of implementation
-  std::vector<int64_t> q_bdim_sizes{
-      q_shape.begin(), q_shape.begin() + rank - 2};
-  std::vector<int64_t> k_bdim_sizes{
-      k_shape.begin(), k_shape.begin() + rank - 2};
-  std::vector<int64_t> v_bdim_sizes{
-      v_shape.begin(), v_shape.begin() + rank - 2};
+  std::vector<DimT> q_bdim_sizes{q_shape.begin(), q_shape.begin() + rank - 2};
+  std::vector<DimT> k_bdim_sizes{k_shape.begin(), k_shape.begin() + rank - 2};
+  std::vector<DimT> v_bdim_sizes{v_shape.begin(), v_shape.begin() + rank - 2};
 
   // The following infer sizes also serves to do the shape compatibility
   // checks needed for dynamic shapes causing an exception if the shapes
@@ -300,9 +316,10 @@ sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
   // Batch dim sizes of Q@K.transpose after broadcast
   // Softmax stats shape is same as Q@K.transpose shape except for the
   // last dim which is 1
-  auto softmax_stats_shape = at::infer_size(q_bdim_sizes, k_bdim_sizes);
+  auto softmax_stats_shape =
+      infer_size_int_or_symint(q_bdim_sizes, k_bdim_sizes);
   // Batch dim sizes of output  i.e Q@K.transpose)@v after broadcast
-  auto out_shape = at::infer_size(softmax_stats_shape, v_bdim_sizes);
+  auto out_shape = infer_size_int_or_symint(softmax_stats_shape, v_bdim_sizes);
 
   // Append the matrix dims (last 2 dims) to batch dims to get final shape.
   int L_dim = rank - 2; // Target seq len dim
@@ -319,6 +336,31 @@ sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
   }
   return {out_shape, softmax_stats_shape, softmax_stats_shape, {1}};
 }
+
+sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
+  int q_index = (stack.size() == 10) ? 1 : 0;
+  auto q = stack_tensor(stack, q_index);
+  auto k = stack_tensor(stack, q_index + 1);
+  auto v = stack_tensor(stack, q_index + 2);
+  auto requires_backward = stack.at(q_index + 7).toBool();
+
+  return SDPARecompFwdOutputShapeCommon(
+      q.sizes(), k.sizes(), v.sizes(), requires_backward);
+}
+
+sym_sizes_vec sdpa_recomp_fwd_out_shape(
+    const std::vector<at::Tensor>& inputs,
+    const std::vector<int64_t>& params) {
+  TORCH_CHECK(inputs.size() == 3);
+  TORCH_CHECK(params.size() == 1);
+  return SDPARecompFwdOutputShapeCommon(
+      inputs[0].sym_sizes(),
+      inputs[1].sym_sizes(),
+      inputs[2].sym_sizes(),
+      static_cast<bool>(params[0]));
+}
+
+REGISTER_CUSTOM_OP_OUTSHAPE_FUN(sdpa_recomp_fwd, sdpa_recomp_fwd_out_shape);
 
 sizes_vec Fp8SDPARecompFwdOutputShape(const at::Stack& stack) {
   sizes_vec out_shape = SDPARecompFwdOutputShape(stack);
