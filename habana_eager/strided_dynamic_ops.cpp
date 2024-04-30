@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -399,7 +399,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
     ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
   HABANA_ASSERT(4 == aten_as_strided_node->inputs().size());
-  auto in_tensors = getInputTensers(aten_as_strided_node, value_ivalue_map);
+  auto in_tensors = getInputTensors(aten_as_strided_node, value_ivalue_map);
   auto self = in_tensors[0];
   auto as_strided_shape = aten_as_strided_node->inputs().at(1);
   auto as_strided_stride = aten_as_strided_node->inputs().at(2);
@@ -680,6 +680,226 @@ void AsStridedOperatorDS::UpdateDynamicInputs(
   }
 }
 
+// Dynamic shape (DS) support for as_strided_scatter op
+bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
+    torch::jit::Node* as_strided_scatter_node,
+    torch::jit::Stack& in_stack,
+    GraphInputIndexMap& org_stack_index_map,
+    ValueIvalueMap& value_ivalue_map,
+    std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
+  // as_strided_scatter op has 4 or 5 inputs:
+  // input: Tensor
+  // src: Tensor
+  // size: Tuple or ints
+  // stride: Tuple or ints
+  // storage_offset: int (optional)
+  HABANA_ASSERT(4 == as_strided_scatter_node->inputs().size() ||
+                5 == as_strided_scatter_node->inputs().size());
+
+  auto in_tensors = getInputTensors(as_strided_scatter_node, value_ivalue_map);
+  auto self = in_tensors[0];
+  // size is the shape of output tensor. This is not handled by the dynamic op
+  // as strided_insert op (which is internally used by as_strided_scatter) does
+  // not need size.
+  // Handle stride (index 3) and offset (index 4).
+  auto as_strided_scatter_stride = as_strided_scatter_node->inputs().at(3);
+  auto as_strided_scatter_offset = as_strided_scatter_node->inputs().at(4);
+
+  // 2 paths / DS variants for as_strided_scatter op:
+  // StridedRatio and Non-StridedRatio (normal) path
+  // hpu::as_strided_scatter_orig does not have storage_offset separately
+  // A common tensor stores both stride and offset values
+  static const auto hpu_as_strided_scatter_orig_symbol{
+      c10::Symbol::fromQualString("hpu::as_strided_scatter_orig")};
+  // hpu::as_strided_scatter has storage_offset separately
+  static const auto hpu_as_strided_scatter_symbol{
+      c10::Symbol::fromQualString("hpu::as_strided_scatter")};
+
+  auto stride_construct_node{as_strided_scatter_stride->node()};
+  auto graph{as_strided_scatter_node->owningGraph()};
+  std::vector<int64_t> dtensor_indexes;
+
+  // Create ST in the following format
+  // { Number of strides, Offset, Stride[0], Stride[1], ..., Stride[N] }
+  auto as_strided_scatter_stride_st_name = GetDynamicTensorName(
+      as_strided_scatter_stride->debugName(), HOST_TO_DEVICE_TENSOR);
+
+  std::vector<int64_t> scalar_indexes;
+  std::vector<uint64_t> h2d_values;
+
+  // Get offset value and index and add it to h2d_values and scalar_indexes respectively
+  int64_t offset_idx = LONG_MAX;
+  int64_t offset_value = 0;
+  GetValueAndScalarIndexFromInput(
+      as_strided_scatter_offset,
+      in_stack,
+      org_stack_index_map,
+      offset_value,
+      offset_idx);
+  scalar_indexes.push_back(offset_idx);
+  h2d_values.push_back(static_cast<uint64_t>(offset_value));
+
+  // Stride is a vector
+  // There is a stride value for each dimension of input tensor
+  std::vector<int64_t> scalar_indexes_strides;
+  std::vector<int64_t> values_strides;
+
+  // Get stride value and index and add it to h2d_values and scalar_indexes respectively
+  auto self_strides = self.strides().vec();
+  GetValuesAndScalarIndexesFromListConstruct(
+      stride_construct_node,
+      in_stack,
+      org_stack_index_map,
+      values_strides,
+      scalar_indexes_strides);
+  // Fill the strides values in reverse order
+  for (auto it = values_strides.rbegin(); it != values_strides.rend(); ++it) {
+    h2d_values.push_back(static_cast<uint64_t>(*it));
+  }
+  // Insert strides indexes in reverse order
+  for (auto it = scalar_indexes_strides.rbegin(); it != scalar_indexes_strides.rend(); ++it) {
+    scalar_indexes.push_back(*it);
+  }
+  // Fill the remaining dimension stride values with 0 and index with LONG_MAX
+  // SYN_MAX_TENSOR_DIM is the maximum number of dimensions supported in DS
+  // If actual dimension is less, fill the remaining values with default value.
+  size_t fill_dim = (SYN_MAX_TENSOR_DIM + 1) - values_strides.size();
+  for (size_t i = 0; i < fill_dim; i++) {
+    h2d_values.push_back(static_cast<uint64_t>(0));
+    scalar_indexes.push_back(LONG_MAX);
+  }
+  // Insert num_strides at 0 index (first value)
+  // and LONG_MAX as corresponding index
+  scalar_indexes.insert(scalar_indexes.begin(), LONG_MAX);
+  h2d_values.insert(h2d_values.begin(), static_cast<uint64_t>(values_strides.size()));
+
+  // Create H2D tensor using h2d_values and scalar_indexes
+  at::Tensor h2d_tensor_strides = createDynamicTensor(
+      {static_cast<int64_t>(h2d_values.size()) * 2}, HOST_TO_DEVICE_TENSOR);
+  SetH2DTensorHostData<uint64_t>(h2d_tensor_strides, h2d_values, HostDataType::UINT64_T, false);
+  auto iv_st_strides_tensor = torch::jit::IValue(h2d_tensor_strides);
+  int64_t stack_index_strides = UpdateDynamicTensorDSStack(
+      iv_st_strides_tensor, scalar_indexes, {}, {}, m_dmeta);
+  auto v_st_strides_tensor = graph->addInput(as_strided_scatter_stride_st_name);
+  dtensor_indexes.push_back(stack_index_strides);
+
+  // There are two paths: StridedRatio path or normal path
+  // Path 1: Normal path / Non-StridedRatio path
+  if (IsStridedRatioUndefined(self_strides, values_strides)) {
+    // Actual stride values are not an integral multiple of input tensor strides (view op)
+    auto tmeta{get_tensor_extra_meta(h2d_tensor_strides)};
+    tmeta->set_H2D_data_for_bucketing();
+    // Create hpu::as_strided_scatter_orig node and insert to the graph
+    // No seperate parameter for offset
+    CreateAndInsertDynamicNodeToGraph(
+        graph,
+        as_strided_scatter_node,
+        hpu_as_strided_scatter_orig_symbol,
+        {as_strided_scatter_node->input(0),
+         as_strided_scatter_node->input(1),
+         v_st_strides_tensor},
+        value_ivalue_map);
+  } else {
+    // Path 2: StridedRatio path
+    // Actual stride values are integral multiple of input tensor strides (view op)
+    // Pass offset as a separate parameter
+    // Create Shape Tensor for offset
+    std::vector<int64_t> values_offset;
+    values_offset.push_back(offset_value);
+    at::Tensor st_tensor_offset =
+        createDynamicTensor(values_offset, SHAPE_TENSOR);
+    auto tmeta_offset{get_tensor_extra_meta(st_tensor_offset)};
+    // Mark this front end shape tensor as it does not need synapse tensor.
+    // It carries stride_ratios info for BE lowering kernel.
+    tmeta_offset->set_H2D_frontend_shape_tensor();
+
+    // Calculate stride ratios of passed strides and strides of input tensor
+    std::vector<int64_t> stride_ratios;
+    auto stride_sizes = values_strides;
+    auto len = stride_sizes.size();
+    for (uint64_t i = 0; i < len; i++) {
+      stride_ratios.push_back(stride_sizes[i] / self_strides[i]);
+    }
+    tmeta_offset->get_shape_struct().set_strides_tensor_shape(stride_sizes);
+    tmeta_offset->get_shape_struct().set_stride_ratio(stride_ratios);
+
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Setting stride ratio = ", stride_ratios, " offset = ", offset_value);
+
+    auto iv_st_offset_tensor = torch::jit::IValue(st_tensor_offset);
+    std::vector<int64_t> scalar_indexes_offset;
+    scalar_indexes_offset.push_back(offset_idx);
+    int64_t stack_index_offset = UpdateDynamicTensorDSStack(
+        iv_st_offset_tensor, scalar_indexes_offset, {}, {}, m_dmeta);
+
+    auto as_strided_scatter_offset_st_name =
+        GetDynamicTensorName(as_strided_scatter_offset->debugName(), SHAPE_TENSOR);
+    auto v_st_offset_tensor = graph->addInput(as_strided_scatter_offset_st_name);
+    dtensor_indexes.push_back(stack_index_offset);
+
+    // Create hpu::as_strided_scatter node and insert to the graph
+    // This has offset parameter
+    CreateAndInsertDynamicNodeToGraph(
+        graph,
+        as_strided_scatter_node,
+        hpu_as_strided_scatter_symbol,
+        {as_strided_scatter_node->input(0),
+         as_strided_scatter_node->input(1),
+         v_st_strides_tensor,
+         v_st_offset_tensor},
+        value_ivalue_map);
+  }
+
+  InputPatchPair patch_info(
+      &AsStridedScatterOperatorDS::UpdateDynamicInputs, dtensor_indexes);
+  m_dmeta->ds_input_patching_list.push_back(patch_info);
+  return true;
+}
+
+// Update DS input for as_strided_scatter DS op
+void AsStridedScatterOperatorDS::UpdateDynamicInputs(
+    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
+    [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
+
+  HABANA_ASSERT(
+      dtensor_list.size() == scalar_idx_list.size(),
+      "Dtensor and SymIntData count not matching");
+
+  // Stride H2D patching
+  // Format of H2D tensor:
+  // { Number of strides, Offset, Stride[0], Stride[1], ..., Stride[N] }
+  auto dtensor = dtensor_list[0]->toTensor();
+  SymIntData& scalar_idx = scalar_idx_list[0];
+
+  std::vector<uint64_t> updated_h2d_data;
+  for (size_t idx = 0; idx < scalar_idx.values.size(); ++idx) {
+    auto stack_index = scalar_idx.values[idx];
+    if (stack_index == LONG_MAX) {
+      std::vector<uint64_t> h2d_data = GetH2DTensorHostData<uint64_t>(dtensor);
+      updated_h2d_data.push_back(h2d_data[idx]);
+    } else {
+      updated_h2d_data.push_back(
+          static_cast<uint64_t>(GetSymintValue(orig_stack, stack_index)));
+    }
+  }
+  std::vector<int64_t> cast_data(
+      updated_h2d_data.begin(), updated_h2d_data.end());
+  UpdateH2DPatchingData(dtensor, cast_data, launch_shapes);
+
+  // offset patching if StridedRatio path is taken
+  if (dtensor_list.size() == 2) {
+    auto dtensor_offset = dtensor_list[1]->toTensor();
+    SymIntData st_values = scalar_idx_list[1];
+    UpdateShapeTensorSize(
+        dtensor_offset, st_values.values, orig_stack, launch_shapes);
+  }
+}
+
 bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
     torch::jit::Node* strided_insert_node,
     torch::jit::Stack& in_stack,
@@ -687,7 +907,7 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
     ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
   HABANA_ASSERT(4 == strided_insert_node->inputs().size());
-  auto in_tensors = getInputTensers(strided_insert_node, value_ivalue_map);
+  auto in_tensors = getInputTensors(strided_insert_node, value_ivalue_map);
   auto self = in_tensors[0];
   auto strided_insert_stride = strided_insert_node->inputs().at(2);
   auto strided_insert_offset = strided_insert_node->inputs().at(3);

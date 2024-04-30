@@ -48,6 +48,7 @@ def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -
         "scalar_tensor",
         "logspace",
         "slice_scatter",
+        "as_strided_scatter",
         "slice",
     ]
     copy_required = True
@@ -266,6 +267,7 @@ def helper_is_view_node(node):
         "view",
         "_unsafe_view",
         "as_strided",
+        "as_strided_scatter",
         "slice",
         "select",
         "squeeze",

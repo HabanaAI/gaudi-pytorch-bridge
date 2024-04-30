@@ -450,7 +450,7 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
     std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
   HABANA_ASSERT(6 == slice_node->inputs().size());
   auto graph{slice_node->owningGraph()};
-  auto in_tensors = getInputTensers(slice_node, value_ivalue_map);
+  auto in_tensors = getInputTensors(slice_node, value_ivalue_map);
 
   // Step 1: Collect shape and scalar pos used in ListConstruct input node
   static const auto list_construct_symbol{
@@ -858,6 +858,9 @@ static const auto& BasicDSOpsRegistry =
         .DSOP_MID_BACKEND(aten::select_scatter, SelectScatterOperatorDS)
         .DSOP_MID_BACKEND(aten::slice_scatter, SliceScatterOperatorDS)
         .DSOP_MID_BACKEND(hpu::slice_ds, SliceOperatorDS)
+        .DSOP_MID_BACKEND(aten::as_strided_scatter, AsStridedScatterOperatorDS)
+        .DSOP_MID_BACKEND(hpu::as_strided_scatter, AsStridedScatterOperatorDS)
+        .DSOP_MID_BACKEND(hpu::as_strided_scatter_orig, AsStridedScatterOperatorDS)
         .DSOP_MID_BACKEND(hpu::habana_randperm, RandpermGeneratorOperatorDS);
 } // namespace graph
 } // namespace habana

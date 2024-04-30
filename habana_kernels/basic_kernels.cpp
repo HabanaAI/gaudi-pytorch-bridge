@@ -1509,15 +1509,30 @@ void StridedInsertOperator::ReuseMemoryAndAddSynapseNode(
   }
 }
 
+// Non-DS op has 5 input arguments
+// DS op has either 4 or 3 input arguments (2 variants)
 // as_strided_scatter(Tensor self, Tensor src, SymInt[] size, SymInt[] stride,
 // SymInt? storage_offset=None) -> Tensor
+// OR
+// DS as_strided_scatter(Tensor self, Tensor src, Tensor stride, Tensor? storage_offset = None) -> Tensor
+// OR
+// DS as_strided_scatter_orig(Tensor self, Tensor src, Tensor stride) -> Tensor
 void AsStridedScatterOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
     const habana::OutputMetaDataVector& output_metadata) {
   TORCH_CHECK(
-      inputs.size() >= 5,
+      inputs.size() >= 3,
       "Incorrect number of arguments for AsStridedScatterOperator op");
+
+  // DS variant
+  // Directly pass input to strided_insert op
+  if (inputs.size() <= 4 && inputs[2].isTensor()) {
+      StridedInsertOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
+      return;
+  }
+
+  // Non-DS variant
   auto storage_offset_opt = inputs[4].to<c10::optional<int64_t>>();
   auto storage_offset =
       storage_offset_opt.value_or(inputs[0].toTensor().storage_offset());
@@ -1994,6 +2009,8 @@ static auto& BasicKernelsKernelRegistry =
         .add("hpu::slice_scatter", KERNEL_FN_GLOBAL(SliceScatterOperatorDSUtil))
         .add("aten::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
         .add("hpu::select_scatter", KERNEL_FN_GLOBAL(SelectScatterOperator))
+        .add("hpu::as_strided_scatter", KERNEL_FN_GLOBAL(AsStridedScatterOperator))
+        .add("hpu::as_strided_scatter_orig", KERNEL_FN_GLOBAL(AsStridedScatterOperator))
         .add(
             "aten::as_strided_scatter",
             KERNEL_FN_GLOBAL(AsStridedScatterOperator));

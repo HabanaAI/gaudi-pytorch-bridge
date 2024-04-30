@@ -140,7 +140,7 @@ class DynamicOp {
       std::vector<c10::IValue>& orig_stack,
       LaunchDynamicShapes& launch_shapes);
 
-  std::vector<at::Tensor> getInputTensers(
+  std::vector<at::Tensor> getInputTensors(
       const torch::jit::Node* node,
       ValueIvalueMap& value_ivalue_map) {
     std::vector<at::Tensor> in_tensors;
@@ -253,6 +253,25 @@ class SliceScatterOperatorDS : public DynamicOp {
       GraphInputIndexMap& org_stack_index_map,
       ValueIvalueMap& value_ivalue_map,
       std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
+};
+
+class AsStridedScatterOperatorDS : public DynamicOp {
+ public:
+  AsStridedScatterOperatorDS() : DynamicOp() {}
+  bool ReplaceWithDynamicHPUOp(
+      torch::jit::Node*,
+      torch::jit::Stack& org_stack,
+      GraphInputIndexMap& org_stack_index_map,
+      ValueIvalueMap& value_ivalue_map,
+      std::shared_ptr<DynamicGraphMetaData> m_dmeta) override;
+  static void UpdateDynamicInputs(
+      c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+      c10::SmallVectorImpl<habana::graph::SymIntData>& symint_list,
+      c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+      c10::SmallVectorImpl<std::vector<std::pair<int64_t, int64_t>>>&
+          mixed_list,
+      std::vector<c10::IValue>& stack,
+      LaunchDynamicShapes& launch_shapes);
 };
 
 class ArangeOperatorDS : public DynamicOp {
