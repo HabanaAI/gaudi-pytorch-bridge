@@ -199,6 +199,14 @@ void NativeGroupNormBwdHabanaOperator::AddNode(
       GET_ENV_FLAG_NEW(PT_HPU_USE_BN_FWD_IN_GN_BWD);
 
   const auto metas = OutputMeta(stack);
+  if (input.pt_t.numel() == 0) {
+    for (unsigned i = 0; i < metas.size(); i++) {
+      auto output =
+          BuildOp(graph, "memset", {}, {{metas[i].shape, metas[i].dtype, i}});
+      syn_out(i) = std::move(output[0]);
+    }
+    return;
+  }
 
   const auto bn_input_shape = GetBnInputShapeGroupNorm(input.pt_t, Nmod);
   const auto weight_shape = GetBnWeightShapeGroupNorm(input.pt_t.dim(), C);
@@ -325,6 +333,39 @@ void NativeGroupNormBwdHabanaOperator::AddNode(
   syn_out(0) = std::move(output);
   syn_out(1) = std::move(grad_gamma[0]);
   syn_out(2) = std::move(grad_beta[0]);
+}
+
+void NativeGroupNormFwd::AddNode(sh::graph& graph, const at::Stack& stack) {
+  StackGetter stackGetter(stack, "NativeGroupNormFwd::AddNode");
+  auto input = getNextInput<TensorsPair>(stackGetter);
+  auto weight = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto bias = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto metas = OutputMeta(stack);
+  size_t size = 0;
+  auto params = FillParams(stack, size);
+  auto outputsNumber = metas.size();
+  if (input.pt_t.numel() == 0) {
+    for (unsigned i = 0; i < outputsNumber; i++) {
+      auto output =
+          BuildOp(graph, "memset", {}, {{metas[i].shape, metas[i].dtype, i}});
+      syn_out(i) = std::move(output[0]);
+    }
+  } else {
+    auto outputs = BuildOp(
+        graph,
+        GetGuid(),
+        {input.syn_t,
+         weight.has_value() ? weight.value().syn_t : nullptr,
+         bias.has_value() ? bias.value().syn_t : nullptr},
+        {{metas[0].shape, metas[0].dtype, 0},
+         {metas[1].shape, metas[1].dtype, 1},
+         {metas[2].shape, metas[2].dtype, 2}},
+        params.get(),
+        size);
+    for (unsigned i = 0; i < outputsNumber; i++) {
+      syn_out(i) = std::move(outputs[i]);
+    }
+  }
 }
 
 } // namespace habana

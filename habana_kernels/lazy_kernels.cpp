@@ -4282,6 +4282,15 @@ native_group_norm_backward_hpu_lazy(
     [[maybe_unused]] c10::SymInt HxW,
     int64_t num_groups,
     [[maybe_unused]] std::array<bool, 3> output_mask) {
+  if (input_.numel() == 0) {
+    auto output = at::empty_like(
+        input_, input_.options(), input_.suggest_memory_format());
+    auto grad_gamma =
+        at::zeros(c10::asIntArrayRefUnchecked({C}), input_.options());
+    auto grad_beta =
+        at::zeros(c10::asIntArrayRefUnchecked({C}), input_.options());
+    return std::make_tuple(output, grad_gamma, grad_beta);
+  }
   int64_t Nmod = N.expect_int() * num_groups;
   // ================= BEGIN :Re create BN FWD output from BN FWD input
   // ================== This can be avoided only if autograd override is done
