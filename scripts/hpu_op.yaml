@@ -6354,8 +6354,8 @@ _prelu_kernel_backward:
 prod:
   dtypes:
     Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
-    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
   guid: reduce_prod_multi_dim_fwd
   out_ids: [0]
   op_template: reduction
@@ -6363,8 +6363,8 @@ prod:
 prod.dim_int:
   dtypes:
     Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
-    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
   guid: reduce_prod_multi_dim_fwd
   out_ids: [0]
   op_template: reduction
@@ -6372,8 +6372,8 @@ prod.dim_int:
 prod.int_out:
   dtypes:
     Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
-    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half]
-    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half]
+    Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
+    Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
   guid: reduce_prod_multi_dim_fwd
   op_template: reduction
   safe_cast_check: false

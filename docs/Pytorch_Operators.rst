@@ -240,7 +240,7 @@ ones_like                                Yes      Yes      No        No       Ye
 pixel_shuffle                            Yes      Yes      Yes       No       Yes       Yes      Yes    torch
 poisson                                  Yes      Yes      No        No       No        No       No     torch
 pow                                      Yes      Yes      Yes       No       No        No       No     torch
-prod                                     Yes      Yes      Yes       No       No        No       No     torch
+prod                                     Yes      Yes      Yes       Yes      No        No       No     torch
 randperm                                 No       No       Yes       Yes      Yes       No       No     torch
 reciprocal                               Yes      Yes      Yes       No       No        No       No     torch
 remainder                                Yes      Yes      No        No       Yes       Yes      Yes    torch
@@ -578,7 +578,7 @@ permute                                  Yes      Yes      No        No       Ye
 pin_memory                               Yes      Yes      No        No       Yes       Yes      Yes    torch.Tensor
 pow                                      Yes      Yes      Yes       No       No        No       No     torch.Tensor
 pow\_                                    Yes      Yes      Yes       No       No        No       No     torch.Tensor
-prod                                     Yes      Yes      Yes       No       No        No       No     torch.Tensor
+prod                                     Yes      Yes      Yes       Yes      No        No       No     torch.Tensor
 put\_                                    Yes      Yes      Yes       No       No        No       No     torch.Tensor
 random\_                                 Yes      Yes      Yes       No       Yes       Yes      Yes    torch.Tensor
 reciprocal                               Yes      Yes      Yes       No       No        No       No     torch.Tensor

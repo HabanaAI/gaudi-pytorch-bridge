@@ -102,3 +102,91 @@ def test_hpu_reduction_dim(op_name, shape, keepdim, dtype):
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir(op_name)
+
+
+prod_dtypes = [torch.float32, torch.bfloat16, torch.int, torch.int16]
+if not is_gaudi1():
+    prod_dtypes += [torch.half, torch.long]
+
+
+@pytest.mark.parametrize("shape", [[2, 7], [2, 3, 4]])
+@pytest.mark.parametrize("dtype", prod_dtypes)
+def test_hpu_prod(shape, dtype):
+    def fn(input):
+        return torch.prod(input, dtype=dtype)
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="hpu_backend")
+
+    cpu_input, hpu_input = generate_inputs(shape, dtype)
+
+    cpu_output = torch.prod(cpu_input, dtype=dtype)
+    hpu_output = fn(hpu_input)
+
+    atol = 1e-2 if dtype in [torch.bfloat16, torch.half] else 1e-4
+    compare_tensors(hpu_output, cpu_output, atol=atol, rtol=2e-5)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("prod")
+
+
+@pytest.mark.parametrize("shape", [(4, 4, 4)])
+@pytest.mark.parametrize("dtype", prod_dtypes)
+@pytest.mark.parametrize("dim", [0, 1, 2])
+@pytest.mark.parametrize("keepdim", [True, False])
+def test_hpu_prod_dim(shape, dtype, dim, keepdim):
+    def fn(input):
+        return torch.prod(input, dim, keepdim=keepdim, dtype=dtype)
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="hpu_backend")
+
+    cpu_input, hpu_input = generate_inputs(shape, dtype)
+
+    cpu_output = torch.prod(cpu_input, dim, keepdim=keepdim, dtype=dtype)
+    hpu_output = fn(hpu_input)
+
+    atol = 1e-2 if dtype in [torch.bfloat16, torch.half] else 1e-4
+    compare_tensors(hpu_output, cpu_output, atol=atol, rtol=2e-5)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("prod")
+
+
+@pytest.mark.parametrize("shape", [(4, 4, 4)])
+@pytest.mark.parametrize("dtype", prod_dtypes)
+@pytest.mark.parametrize("dim", [0, 1, 2])
+@pytest.mark.parametrize("keepdim", [True, False])
+def test_hpu_prod_out(shape, dtype, dim, keepdim):
+
+    def fn(input, out):
+        torch.ops.aten.prod.int_out(input, dim, keepdim=keepdim, dtype=dtype, out=out)
+        return
+
+    cpu_input, hpu_input = generate_inputs(shape, dtype)
+    cpu_output = cpu_input.new_empty((cpu_input.shape[0], cpu_input.shape[1]))
+    hpu_output = hpu_input.new_empty((hpu_input.shape[0], hpu_input.shape[1]))
+    if keepdim:
+        cpu_output = cpu_output.unsqueeze(dim)
+        hpu_output = hpu_output.unsqueeze(dim)
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="hpu_backend")
+
+    # inplace op for cpu
+    torch.ops.aten.prod.int_out(cpu_input, dim, keepdim=keepdim, dtype=dtype, out=cpu_output)
+
+    # inplace op for hpu
+    fn(hpu_input, hpu_output)
+
+    atol = 1e-1 if dtype in [torch.bfloat16, torch.half] else 1e-4
+    compare_tensors(hpu_output, cpu_output, atol=atol, rtol=2e-5)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("prod")
