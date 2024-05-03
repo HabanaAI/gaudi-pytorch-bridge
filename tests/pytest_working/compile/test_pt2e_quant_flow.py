@@ -26,17 +26,18 @@ from habana_frameworks.torch.core.quantize_pt2e import (
     habana_quantizer,
     prepare_pt2e,
 )
+from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
+from test_dynamo_utils import assert_helper
+from test_utils import is_gaudi1
 
 
 class SimpleModelWithMultipleGraphs1(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, dtype):
         super(SimpleModelWithMultipleGraphs1, self).__init__()
-        self.gemm1 = torch.nn.Linear(16, 8)
+        self.gemm1 = torch.nn.Linear(4, 2, bias=False, dtype=dtype)
         self.relu1 = torch.nn.ReLU()
-        self.gemm2 = torch.nn.Linear(8, 4)
+        self.gemm2 = torch.nn.Linear(2, 2, dtype=dtype)
         self.relu2 = torch.nn.ReLU()
-        self.gemm3 = torch.nn.Linear(4, 2)
-        self.relu3 = torch.nn.ReLU()
 
     def forward(self, x):
         out = self.gemm1(x)
@@ -44,38 +45,35 @@ class SimpleModelWithMultipleGraphs1(torch.nn.Module):
         torch._dynamo.graph_break()
         out = self.gemm2(out)
         out = self.relu2(out)
-        torch._dynamo.graph_break()
-        out = self.gemm3(out)
-        out = self.relu3(out)
         return out
 
 
-def get_sample_model(test_case):
+def get_sample_model(test_case, quant_dtype):
+    dtype = torch.float32 if quant_dtype == torch.int8 else torch.bfloat16
     if test_case == "linear_relu":
-        return SimpleModelWithMultipleGraphs1()
+        return SimpleModelWithMultipleGraphs1(dtype)
 
 
-def get_sample_input(test_case):
+def get_sample_input(test_case, quant_dtype):
     CPU = torch.device("cpu")
+    dtype = torch.float32 if quant_dtype == torch.int8 else torch.bfloat16
     if test_case == "linear_relu":
-        return torch.randn(2, 16, device=CPU)
-
-
-quant_dtype_list = [
-    torch.int8,
-    # torch.float8_e4m3fn, [To do: SW-165190]
-    # torch.float8_e5m2, [To do: SW-165190]
-]
+        return torch.randn(2, 4, device=CPU, dtype=dtype)
 
 
 test_case_list = [
     "linear_relu",
 ]
+quant_int_dtype_list = [
+    torch.int8,
+]
+quant_float_dtype_list = [
+    torch.float8_e4m3fn,
+    torch.float8_e5m2,
+]
 
 
-@pytest.mark.parametrize("quant_dtype", quant_dtype_list)
-@pytest.mark.parametrize("test_case", test_case_list)
-def test_pt2e_quant_flow(quant_dtype, test_case):
+def with_pt2e_quant_flow(test_case, quant_dtype):
     htcore.hpu_set_env()
 
     # Stabilizing testing.
@@ -85,9 +83,9 @@ def test_pt2e_quant_flow(quant_dtype, test_case):
     torch.use_deterministic_algorithms(True)
 
     CPU = torch.device("cpu")
-    inputs0 = get_sample_input(test_case)
-    inputs1 = get_sample_input(test_case)
-    inputs2 = get_sample_input(test_case)
+    inputs0 = get_sample_input(test_case, quant_dtype)
+    inputs1 = get_sample_input(test_case, quant_dtype)
+    inputs2 = get_sample_input(test_case, quant_dtype)
     example_inputs0 = [
         inputs0,
     ]
@@ -98,7 +96,7 @@ def test_pt2e_quant_flow(quant_dtype, test_case):
         inputs2,
     ]
 
-    model = get_sample_model(test_case)
+    model = get_sample_model(test_case, quant_dtype)
     model.eval()
 
     cpu_result2 = model(*example_inputs2)
@@ -128,12 +126,58 @@ def test_pt2e_quant_flow(quant_dtype, test_case):
 
         model, _ = export(model)
         model = prepare_pt2e(model, quantizer)
-        calibrate_result = model(*example_inputs0)
-        calibrate_result = model(*example_inputs1)
-        model = convert_pt2e(model)
+        with FxGraphAnalyzer(reset_dynamo=False) as fga:
+            calibrate_result = model(*example_inputs0)
+            calibrate_result = model(*example_inputs1)
 
-        hpu_result2 = model(*example_inputs2)
+        ops_summary = fga.get_ops_summary()
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten._to_copy.default", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.linear.default", count_list=[(1, 0), (1, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.amax.default", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.amin.default", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.relu.default", count_list=[(1, 0), (1, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.maximum.default", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.minimum.default", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.copy_.default", count_list=[(6, 0), (6, 0)])
+
+        model = convert_pt2e(model)
+        with FxGraphAnalyzer(reset_dynamo=False) as fga:
+            hpu_result2 = model(*example_inputs2)
+
+        ops_summary = fga.get_ops_summary()
         print(hpu_result2)
 
-    assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)
+    if quant_dtype == torch.int8:
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.div.Tensor", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.round.default", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.add.Tensor", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.clamp.default", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten._to_copy.default", count_list=[(6, 0), (6, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.sub.Tensor", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.mul.Tensor", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.linear.default", count_list=[(1, 0), (1, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.relu.default", count_list=[(1, 0), (1, 0)])
+        assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=5e-2, atol=5e-2)
+    else:
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten._to_copy.default", count_list=[(3, 3), (3, 3)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.cast_to_fp8_v2", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="operator.getitem", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.cast_from_fp8", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.linear.default", count_list=[(1, 0), (1, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.relu.default", count_list=[(1, 0), (1, 0)])
+        assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)
+
     htcore.hpu_reset_env()
+
+
+@pytest.mark.parametrize("test_case", test_case_list)
+@pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
+def test_pt2e_quant_int(test_case, quant_dtype):
+    with_pt2e_quant_flow(test_case, quant_dtype)
+
+
+@pytest.mark.skipif(is_gaudi1(), reason="fp8 not supported on gaudi")
+@pytest.mark.parametrize("test_case", test_case_list)
+@pytest.mark.parametrize("quant_dtype", quant_float_dtype_list)
+def test_pt2e_quant_float(test_case, quant_dtype):
+    with_pt2e_quant_flow(test_case, quant_dtype)

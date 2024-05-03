@@ -52,6 +52,7 @@ logger = get_compile_backend_logger()
 QUANTIZER_MIN_MAX = {torch.int8: (-128, 127), torch.float8_e4m3fn: (-240, 240), torch.float8_e5m2: (-240, 240)}
 habana_quantization_map_queue = []
 export_module_record = dict()
+quant_dtype_used = None
 
 
 # ======================================================================================
@@ -270,6 +271,8 @@ class habana_quantizer(Quantizer):
 # Habana Quant Config definition
 # ======================================================================================
 def habana_quant_config_symmetric(quant_dtype):
+    logger.debug(f"habana_quant_config_symmetric: quantizer dtype is {quant_dtype}")
+
     act_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
     logger.debug(f"quantizer dtype is {quant_dtype}")
     quant_min, quant_max = QUANTIZER_MIN_MAX[quant_dtype]
@@ -277,7 +280,7 @@ def habana_quant_config_symmetric(quant_dtype):
         dtype=quant_dtype,
         quant_min=quant_min,
         quant_max=quant_max,
-        qscheme=torch.per_tensor_symmetric,
+        qscheme=torch.per_tensor_symmetric,  # Due to this, MinMaxObserver acts as AbsMaxObserver
         is_dynamic=False,
         observer_or_fake_quant_ctr=act_observer_or_fake_quant_ctr.with_args(eps=2**-12),
     )
@@ -288,7 +291,7 @@ def habana_quant_config_symmetric(quant_dtype):
         dtype=quant_dtype,
         quant_min=quant_min,
         quant_max=quant_max,
-        qscheme=torch.per_tensor_symmetric,
+        qscheme=torch.per_tensor_symmetric,  # Due to this, MinMaxObserver acts as AbsMaxObserver
         ch_axis=0,
         is_dynamic=False,
         observer_or_fake_quant_ctr=weight_observer_or_fake_quant_ctr.with_args(**extra_args),
@@ -304,6 +307,8 @@ def habana_quant_config_symmetric(quant_dtype):
         weight_quantization_spec,
         bias_quantization_spec,
     )
+    global quant_dtype_used
+    quant_dtype_used = quant_dtype
     return quantization_config
 
 
@@ -379,6 +384,9 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                 # Take active module that we gathered stats on and convert it to final module.
                 self._converted_module = convert_pt2e(self._prepared_module, use_reference_representation=False)
                 self._converted = True
+
+                # Adjust the scale values as per H/W requirements
+                adjust_scale_val(self._converted_module)
 
                 # After this funtion we will be left with quantize/dequantize ops in the graph.
                 # Unfortunately we do not support them directly so we need to make some manual
@@ -461,6 +469,124 @@ def convert_pt2e(module, use_reference_representation=False):
 
 
 # ======================================================================================
+# Utility functions used for aligning scale values as per HW requirement
+# Note: This code is basically taken from quantization_toolkit. Please refer:
+#       quantization_toolkit/habana_quantization_toolkit/_core/fp_utils.py
+# ======================================================================================
+def scale_to_pow2_hw(old_scale, quant_dtype):
+    import habana_frameworks.torch.utils.experimental as htexp
+
+    GAUDI2 = htexp.synDeviceType.synDeviceGaudi2
+    GAUDI3 = htexp.synDeviceType.synDeviceGaudi3
+
+    EXP_WIDTH = {torch.float8_e4m3fn: 4, torch.float8_e5m2: 5}
+
+    def get_default_exp_bias(dtype):
+        exp_width = EXP_WIDTH[dtype]
+        return 2 ** (exp_width - 1) - 1
+
+    EXP_BIAS_SETS = {
+        (GAUDI2, torch.float8_e4m3fn): [3, 7, 11, 15],
+        (GAUDI2, torch.float8_e5m2): [15],
+        (GAUDI3, torch.float8_e4m3fn): range(0, 63),
+        (GAUDI3, torch.float8_e5m2): range(0, 63),
+    }
+
+    MAX_RANGE = {
+        torch.float8_e4m3fn: 2 ** ((2**4 - 2 - get_default_exp_bias(torch.float8_e4m3fn))) * (2 - 2 ** -(8 - 1 - 4)),
+        torch.float8_e5m2: 2 ** ((2**5 - 2 - get_default_exp_bias(torch.float8_e5m2))) * (2 - 2 ** -(8 - 1 - 5)),
+    }
+
+    def get_fullscale(dtype, exp_bias=None):
+        default_exp_bias = get_default_exp_bias(dtype)
+        fullscale = MAX_RANGE[dtype]
+        exp_bias = default_exp_bias if exp_bias == None else exp_bias
+        fullscale = fullscale * (2 ** (default_exp_bias - exp_bias))
+        return fullscale
+
+    def get_fullscales_by_expbias_set(dtype, expbias_set):
+        return [get_fullscale(dtype, exp_bias=eb) for eb in expbias_set]
+
+    def get_fp8_hw_alligned_scales(dtype, device):
+        exp_bias_set = EXP_BIAS_SETS.get((device, dtype), None)
+        return (
+            None
+            if exp_bias_set == None
+            else [x / MAX_RANGE[dtype] for x in get_fullscales_by_expbias_set(dtype, exp_bias_set)]
+        )
+
+    DEVICES_SCALE_FACTORS = {GAUDI2: 4, GAUDI3: 1}
+    FP8_143_SCALES = {
+        device: get_fp8_hw_alligned_scales(quant_dtype, device) for device in DEVICES_SCALE_FACTORS.keys()
+    }
+    FP8_143_SCALES_TRAITS = {
+        device: (min(FP8_143_SCALES[device]), max(FP8_143_SCALES[device]), DEVICES_SCALE_FACTORS[device])
+        for device in DEVICES_SCALE_FACTORS.keys()
+    }
+
+    def scale_to_pow2(scale):
+        scale_pow2 = 2 ** torch.ceil(torch.log2(scale))
+        return scale_pow2
+
+    scale_pow2 = scale_to_pow2(old_scale)
+    min_scale, max_scale, scale_factor = FP8_143_SCALES_TRAITS[GAUDI2]
+    scale_pow2_hw = torch.minimum(
+        torch.maximum(
+            2 ** (torch.ceil(torch.log2(scale_pow2) / scale_factor) * scale_factor),
+            torch.tensor(min_scale, dtype=old_scale.dtype, device=old_scale.device),
+        ),
+        torch.tensor(max_scale, dtype=old_scale.dtype, device=old_scale.device),
+    )
+
+    return scale_pow2_hw
+
+
+# ======================================================================================
+# Adjust the scale as per HW requirement for float8 quantized dtype
+# Align scale value to 2**n
+# ======================================================================================
+def adjust_scale_val(module: torch.fx.GraphModule):
+    if quant_dtype_used != torch.float8_e4m3fn:
+        return
+
+    ## PART 1 - check quantization nodes
+    nodes_to_change = []
+    for node in module.graph.nodes:
+        if node.op == "call_function" and node.target.__name__ == "quantize_per_tensor.default":
+            nodes_to_change.append(node)
+
+    hw_aligned_scale = []
+    hw_aligned_scales = []
+    for node in nodes_to_change:
+        node_args = list(node.args)
+        old_scale = torch.tensor(node_args[1], dtype=torch.float32, device=torch.device("hpu"))
+        new_scale = scale_to_pow2_hw(old_scale=old_scale, quant_dtype=node_args[5]).item()
+        node_args[1] = new_scale
+        node.args = tuple(node_args)
+
+        num_users = len(set(node.users))
+        hw_aligned_scale = [new_scale] * num_users
+        hw_aligned_scales = hw_aligned_scales + hw_aligned_scale
+
+    ## PART 2 - check dequantization nodes
+    nodes_to_change = []
+    for node in module.graph.nodes:
+        if node.op == "call_function" and node.target.__name__ == "dequantize_per_tensor.default":
+            nodes_to_change.append(node)
+
+    assert len(hw_aligned_scales) == len(nodes_to_change)
+    count = 0
+    for node in nodes_to_change:
+        node_args = list(node.args)
+        node_args[1] = hw_aligned_scales[count]
+        node.args = tuple(node_args)
+        count = count + 1
+
+    module.graph.lint()
+    module.recompile()
+
+
+# ======================================================================================
 # Decompose Quant into div + round + add + clamp
 # Decompose DeQuant into sub + mul
 # ======================================================================================
@@ -487,7 +613,7 @@ def decompose_quant_ops(module: torch.fx.GraphModule):
         quantization_dst_dtypes = quantization_dst_dtypes + quantization_dst_dtype
 
         with module.graph.inserting_before(node):
-            if arg_type == torch.float8_e4m3fn:
+            if arg_type in [torch.float8_e4m3fn, torch.float8_e5m2]:
                 invert_scale_node = module.graph.call_function(torch.ops.aten.div.Tensor, (1, arg_scale))
                 quant_node = module.graph.call_function(
                     torch.ops.hpu.cast_to_fp8_v2, args=(arg_param, invert_scale_node, False, False, arg_type)
@@ -537,7 +663,7 @@ def decompose_quant_ops(module: torch.fx.GraphModule):
         arg_zero_point = node.args[2]
 
         with module.graph.inserting_before(node):
-            if src_dtype == torch.float8_e4m3fn:
+            if src_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:
                 mul_node = module.graph.call_function(
                     torch.ops.hpu.cast_from_fp8, args=(arg_param, arg_scale, dst_dtype)
                 )
@@ -682,14 +808,14 @@ def reconstruct_observers(module_prepared: torch.fx.GraphModule, module_active: 
             submod.max_val = getattr(module_active, max_attr_name)
 
         elif isinstance(submod, torch.ao.quantization.observer.PerChannelMinMaxObserver):
-            # Not really implemented, this is just sample on how/where to add new observers.
+            # Not yet implemented.
             assert False
 
         elif isinstance(submod, torch.ao.quantization.observer.PlaceholderObserver):
             pass
 
         else:
-            # You should not be here, really..
+            # You should not be here, really.
             assert False
 
         observer_id = observer_id + 1
@@ -716,15 +842,19 @@ def preprocess_linears(placeholder_map, module: torch.fx.GraphModule, tupled_arg
                 bias_node = None
                 compute_node = None
                 for node in p.nodes:
-                    # Find addmm node and get first input. We cannot use partitions input list
-                    # to get params as it is changing inputs order.
-                    if node.op == "call_function" and node.target.__name__ == "addmm.default":
-                        weight_node = node.args[0]
-                        bias_node = node.args[2]
-                        compute_node = node
-                        break
-                    else:
-                        if node.op == "call_function" and node.target.__name__ == "mm.default":
+                    if node.op == "call_function":
+                        if node.target.__name__ == "linear.default":
+                            weight_node = node.args[1]
+                            if len(node.args) > 2:
+                                bias_node = node.args[2]
+                            compute_node = node
+                            break
+                        elif node.target.__name__ == "addmm.default":
+                            weight_node = node.args[0]
+                            bias_node = node.args[2]
+                            compute_node = node
+                            break
+                        elif node.target.__name__ == "mm.default":
                             weight_node = node.args[1]
                             compute_node = node
                             break
