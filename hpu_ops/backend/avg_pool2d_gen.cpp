@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -121,7 +121,17 @@ void Avgpool2dBwd::AddNode(
   size_t size = 0;
   const auto& params = Fillavgpool2dParamsBwd(stack, size);
   auto meta = Avgpool2dBwdMeta(stack)[0];
-
+  if (stack_tensor(stack, 0).dim() == 4) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN});
+  } else {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHC,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHC},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHC});
+  }
   std::vector<synTensor> grad = {syn_in(0)};
   CreateShapeTensorInput(graph, meta.dtype, meta.shape, grad);
   auto avg_pool = BuildOp(

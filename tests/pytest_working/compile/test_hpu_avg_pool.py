@@ -111,9 +111,6 @@ def test_hpu_avg_pool2d(shape, kernel_size_and_padding, stride, dtype):
 @pytest.mark.parametrize("stride", [(1, 2), 1, 2], ids=format_tc)
 @pytest.mark.parametrize("dtype", [torch.float], ids=format_tc)
 def test_hpu_avg_pool2d_bwd(shape, kernel_size_and_padding, stride, dtype):
-    if shape == [8, 16, 16]:
-        pytest.xfail("[SW-161411] bwd kernel does not support 3d input")
-
     def fn(input):
         avg_pool = torch.ops.aten.avg_pool2d(input, kernel_size=kernel_size, padding=padding, stride=stride)
         grad = torch.ones_like(avg_pool)
