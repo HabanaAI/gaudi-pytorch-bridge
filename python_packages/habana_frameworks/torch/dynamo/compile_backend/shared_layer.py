@@ -54,6 +54,8 @@ hpu_supported_op_list = {
     "rotary_pos_embedding",
     "rotary_pos_embedding_backward",
     "scaled_masked_triangular_softmax",
+    "scaled_triangular_softmax",
+    "scaled_triangular_softmax_retain",
     "softmax_fp8",
     "sum_fp8",
     # Torchvision

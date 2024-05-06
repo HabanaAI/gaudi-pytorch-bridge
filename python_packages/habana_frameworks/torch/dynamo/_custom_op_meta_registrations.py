@@ -371,7 +371,7 @@ def meta_masked_batch_gemm(a, b, mask_a, mask_b, trans_a, trans_b):
 
 
 @register_meta([torch.ops.hpu.scaled_triangular_softmax.default])
-def meta_scaled_triangular_softmax(input, inv_scale_attn, exp_sum_recpr, sum):
+def meta_scaled_triangular_softmax(input, inv_scale_attn, exp_sum_recpr=None, sum=None):
     return input.new_empty(input.shape)
 
 
