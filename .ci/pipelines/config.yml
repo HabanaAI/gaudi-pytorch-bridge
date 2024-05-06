@@ -7,7 +7,7 @@ config:
     - repository: pytorch-integration
     - repository: lightning-habana-fork
   osBuild:
-    debian10.10: "off"
+    debian10.10: "on"
     ubuntu18.04: "off"
     tencentos3.1: 'on'
     rhel9.2: 'on'
