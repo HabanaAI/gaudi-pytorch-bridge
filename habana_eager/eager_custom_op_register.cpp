@@ -2075,6 +2075,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "strided_view_orig_ds_h2d(Tensor self, Tensor size, Tensor stride) -> (Tensor)");
   m.def("hpu::habana_bernoulli(Tensor seed, Tensor self) -> Tensor");
+  m.def("hpu::habana_poisson(Tensor seed, Tensor self) -> Tensor");
   m.def(
       "hpu::habana_rand(Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def(
