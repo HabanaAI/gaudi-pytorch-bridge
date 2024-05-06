@@ -230,9 +230,7 @@ void GraphExec::RunPass(
   auto graph_changed = pass();
   if (graph_changed && dump_graphs)
     visualize::DumpEagerOrCompileGraph(
-        m_graph,
-        m_graph_name + "_" + std::to_string(m_graph_index) + "_jit_after_" +
-            pass_name);
+        m_graph, m_graph_name + "_jit_after_" + pass_name);
 }
 
 void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
@@ -244,9 +242,7 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
 
   if (dump_graphs)
     visualize::DumpEagerOrCompileGraph(
-        m_graph,
-        m_graph_name + "_" + std::to_string(m_graph_index) +
-            "_jit_graph_before_passes");
+        m_graph, m_graph_name + "_jit_graph_before_passes");
   RunPass(
       [this, &example_inputs]() {
         return pass::MarkParamsAsConst(this->m_graph, example_inputs);

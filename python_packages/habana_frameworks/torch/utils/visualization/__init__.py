@@ -28,7 +28,7 @@ try:
             GraphVisualizer.update_graph_ordinal()
             GraphVisualizer.was_graph_visualized = False
 
-except ImportError as err:
+except ImportError:
 
     @contextmanager
     def graph_visualizer(graph_module, active_stage, final_stage, disable):
@@ -37,7 +37,7 @@ except ImportError as err:
                 self.disable = disable
                 if not disable:
                     logging.error(
-                        f"{err=}\nMissing FX Graph visualization required packages (pydot | protobuf).\nRun pip install pydot protobuf"
+                        "Missing FX Graph visualization required packages (pydot | protobuf).\nRun pip install pydot protobuf"
                     )
 
             def visualize_graph(self, *args, **kwargs):
