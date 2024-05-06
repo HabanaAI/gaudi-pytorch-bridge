@@ -9,7 +9,7 @@ config:
   osBuild:
     debian10.10: "off"
     ubuntu18.04: "off"
-    tencentos3.1: 'off'
+    tencentos3.1: 'on'
     rhel9.2: 'on'
   dependantComponents:
     - component: deepspeed_fork
