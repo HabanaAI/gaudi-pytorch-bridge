@@ -12,34 +12,55 @@
  */
 
 #include "hpu_ops/ctc_loss_custom.h"
+#include "hpu_ops/custom_op_outshape.h"
 
 namespace habana {
 
-std::tuple<std::vector<int64_t>, std::vector<int64_t>>
-calculate_output_shapes_for_ctc_loss_custom_fwd(
-    const at::Tensor& log_probs,
-    const at::Tensor& targets,
+template <class DimT>
+std::tuple<std::vector<DimT>, std::vector<DimT>>
+calculate_output_shapes_for_ctc_loss_custom_fwd_common(
+    c10::ArrayRef<DimT> log_probs_sizes, // (T, N, C) or (T, C)
+    c10::ArrayRef<DimT> targets_sizes, // (N, S)
     const int64_t reduction) {
-  auto log_probs_sizes = log_probs.sizes(); // (T, N, C) or (T, C)
-  auto targets_sizes = targets.sizes(); // (N, S)
-
-  int64_t input_sequence_length = log_probs_sizes.at(0);
-  int64_t batch_size = log_probs_sizes.size() > 2 ? log_probs_sizes.at(1) : 1;
-  int64_t max_target_length =
+  DimT input_sequence_length = log_probs_sizes.at(0);
+  DimT batch_size = log_probs_sizes.size() > 2 ? log_probs_sizes.at(1) : 1;
+  DimT max_target_length =
       targets_sizes.size() > 1 ? targets_sizes.at(1) : targets_sizes.at(0);
 
-  auto loss_shape = std::vector<int64_t>{};
+  auto loss_shape = std::vector<DimT>{};
   if (reduction == 0) {
-    loss_shape = std::vector<int64_t>{batch_size};
+    loss_shape = std::vector<DimT>{batch_size};
   }
 
-  auto alpha_shape = std::vector<int64_t>{
+  auto alpha_shape = std::vector<DimT>{
       input_sequence_length,
       batch_size,
       2 * max_target_length + 1}; // (T, N, 2*S+1)
 
   return std::make_tuple(loss_shape, alpha_shape);
 }
+
+std::tuple<std::vector<int64_t>, std::vector<int64_t>>
+calculate_output_shapes_for_ctc_loss_custom_fwd(
+    const at::Tensor& log_probs,
+    const at::Tensor& targets,
+    const int64_t reduction) {
+  return calculate_output_shapes_for_ctc_loss_custom_fwd_common(
+      log_probs.sizes(), targets.sizes(), reduction);
+}
+
+sym_sizes_vec ctc_loss_custom_out_shape(
+    const std::vector<at::Tensor>& inputs,
+    const std::vector<int64_t>& params) {
+  TORCH_CHECK(inputs.size() == 2);
+  TORCH_CHECK(params.size() == 1);
+  auto [loss_shape, alpha_shape] =
+      calculate_output_shapes_for_ctc_loss_custom_fwd_common(
+          inputs[0].sym_sizes(), inputs[1].sym_sizes(), params[0]);
+  return {loss_shape, alpha_shape};
+}
+
+REGISTER_CUSTOM_OP_OUTSHAPE_FUN(ctc_loss_custom, ctc_loss_custom_out_shape);
 
 OutputMetaDataVector CTCLossCustomMeta(const at::Stack& stack) {
   auto log_probs = stack_tensor(stack, 0);

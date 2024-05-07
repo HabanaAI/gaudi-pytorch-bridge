@@ -571,16 +571,10 @@ def meta_rms_norm_backward(grad_in, data_in, gamma, inverse_rms, use_stages, bwd
 
 @register_meta([torch.ops.hpu.ctc_loss_custom.default])
 def meta_ctc_loss_custom(log_probs, targets, input_lengths, target_lengths, blank, reduction, zero_infinity):
-    input_sequence_length = log_probs.shape[0]
-    batch_size = log_probs.shape[1] if log_probs.dim() > 2 else 1
-    max_target_length = targets.shape[1] if targets.dim() > 1 else targets.shape[0]
-    alpha_shape = (input_sequence_length, batch_size, 2 * max_target_length + 1)
-    dtype = log_probs.dtype
-
-    if reduction == 0:
-        return input_lengths.new_empty((batch_size), dtype=dtype), log_probs.new_empty(alpha_shape)
-    else:
-        return input_lengths.new_empty((), dtype=dtype), log_probs.new_empty(alpha_shape)
+    loss_shape, alpha_shape = _hpu_C.custom_op_calc_out_shape_params_int(
+        "ctc_loss_custom", [log_probs, targets], [reduction]
+    )
+    return input_lengths.new_empty(loss_shape, dtype=log_probs.dtype), log_probs.new_empty(alpha_shape)
 
 
 @register_meta([torch.ops.hpu.ctc_loss_custom_backward.default])
