@@ -177,7 +177,7 @@ def test_index_put_basic_bool(inputs_shape, ind_shape, accumulate):
     def fn(tensor, index_list, value, accumulate):
         return tensor.index_put(index_list, value, accumulate)
 
-    configuration_flags["use_eager_fallback"] = True
+    configuration_flags["use_eager_fallback"] = False
     self_numel = reduce(lambda x, y: x * y, list(inputs_shape))
     indices_numel = reduce(lambda x, y: x * y, list(inputs_shape))
     tensor = torch.arange(self_numel).view(inputs_shape)
