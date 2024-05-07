@@ -91,6 +91,7 @@
 ###############################################################################
 
 import collections
+import itertools
 import operator
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
@@ -346,7 +347,7 @@ def _fuse_with_cat(
             cat_inputs.append(_call_function(gm, fake_tensor_mode, None, torch.ops.aten.view, input_node, [-1]))
 
     with gm.graph.inserting_after(cat_inputs[0]):
-        cat_node = _call_function(gm, fake_tensor_mode, None, torch.ops.aten.cat, cat_inputs)
+        cat_node = _call_function(gm, fake_tensor_mode, None, torch.ops.aten.cat.default, cat_inputs)
 
     # Create a new Comm node.
     last_comm = comm_blocks[-1]
@@ -412,29 +413,19 @@ def _scatter_wait_result(
             break
         last_wait_node_idx = max(node_indices.get(node, last_wait_node_idx), last_wait_node_idx)
 
-    fused_comm_node = fused_comm_block.comm_node
     fused_wait_node = fused_comm_block.wait_nodes[0]
-
-    with gm.graph.inserting_after(fused_wait_node):
-        split_node = gm.graph.call_function(
-            torch.ops.aten.split_with_sizes,
-            (
-                fused_wait_node,
-                # TODO(@fegin): support symbolic shapes
-                [int(cast(torch.Size, cb.shape).numel()) for cb in comm_blocks],
-            ),
-        )
 
     # Scatter the split result.
     need_sort_nodes = []
-    last_split_reshape_node = split_node
-    with gm.graph.inserting_after(split_node):
-        for idx, comm_block in enumerate(comm_blocks):
+    with gm.graph.inserting_after(fused_wait_node):
+        cumulative_offset = 0
+        last_as_strided_node = None
+        for cb in comm_blocks:
             # Some users of the original allreduce and wait are scheduled
             # before the fused allreduce. We must move these users to a
             # correct topological sort order -- right after the last fused
             # allreduce result, the `last_split_reshape_node` variable.
-            orig_wait = comm_block.wait_nodes[0]
+            orig_wait = cb.wait_nodes[0]
             nodes = collections.deque(list(orig_wait.users))
             while nodes:
                 user_node = nodes.popleft()
@@ -444,15 +435,21 @@ def _scatter_wait_result(
                     need_sort_nodes.append(user_node)
                     nodes.extend(list(user_node.users))
 
-            split_idx_node = gm.graph.call_function(operator.getitem, (split_node, idx))
-            with gm.graph.inserting_after(split_idx_node):
-                wait_output_node = gm.graph.call_function(torch.ops.aten.view, (split_idx_node, comm_block.shape))
-            orig_wait.replace_all_uses_with(wait_output_node)
+            stride = list(itertools.accumulate(reversed(cb.shape[1:]), operator.mul))
+            stride.reverse()
+            stride.append(1)
 
-            if last_split_reshape_node == split_node:
-                last_split_reshape_node = wait_output_node
+            as_strided_node = gm.graph.call_function(
+                torch.ops.aten.as_strided.default,
+                (fused_wait_node, cb.shape, stride, cumulative_offset),
+            )
+            cumulative_offset += int(cast(torch.Size, cb.shape).numel())
+            orig_wait.replace_all_uses_with(as_strided_node)
+
+            if last_as_strided_node is None:
+                last_as_strided_node = as_strided_node
 
     need_sort_nodes = sorted(need_sort_nodes, key=lambda node: node_indices[node])
-    _move_after(need_sort_nodes, last_split_reshape_node)
+    _move_after(need_sort_nodes, last_as_strided_node)
 
     gm.graph.eliminate_dead_code()
