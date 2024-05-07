@@ -136,6 +136,44 @@ at::Tensor fused_norm_hpu_wrap(
   return res[0];
 }
 
+at::Tensor hpu_wrap::repeat_interleave(
+    const at::Tensor& self,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+    ::std::optional<SymInt> output_size) {
+#elif IS_PYTORCH_AT_LEAST(2, 2)
+    c10::optional<SymInt> output_size) {
+#else
+    c10::optional<int64_t> output_size) {
+#endif
+  PT_EAGER_TRACE;
+  PT_OP_INFO("repeat_interleave:", DUMP_2ARGS(self, output_size));
+
+  // If output_size is not provided in optional, it must be calculated on
+  // frontend to get the actual output size.
+  if (!output_size) {
+    auto out = self.sum();
+    output_size = out.item().toInt();
+  }
+  auto RepeatInterleaveMeta = [](const at::Stack& stack) {
+    auto self = stack.at(0).toTensor();
+    auto output_size_opt = stack.at(1).toOptional<int64_t>();
+    TORCH_CHECK(
+        output_size_opt.has_value(),
+        "It is expected that output_size is provided after frontend execution.");
+
+    OutputMetaData meta;
+    meta.dtype = self.scalar_type();
+    meta.shape = std::vector<int64_t>{output_size_opt.value()};
+
+    return OutputMetaDataVector{meta};
+  };
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "aten::repeat_interleave", {self, output_size}};
+  hpu_op.SetOutputMetaFn(RepeatInterleaveMeta);
+  return hpu_op.call();
+}
+
 void optimizer_sgd_momentum_hpu_wrap(
     const TensorList& gradients,
     TensorList& weights,

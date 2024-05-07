@@ -122,19 +122,6 @@ at::Tensor hpu_wrap::batch_norm_backward_elemt(
           grad_out, input, mean, invstd, weight, mean_dy, mean_dy_xmu, count));
 }
 
-at::Tensor hpu_wrap::repeat_interleave(
-    const at::Tensor& self,
-#if IS_PYTORCH_AT_LEAST(2, 4)
-    ::std::optional<SymInt> output_size) {
-#elif IS_PYTORCH_AT_LEAST(2, 2)
-    c10::optional<SymInt> output_size) {
-#else
-    c10::optional<int64_t> output_size) {
-#endif
-  FALLBACK_UNSUPPORTED_OP2_O(
-      repeat_interleave, PARAMS2(self, output_size), Tensor);
-}
-
 Tensor& hpu_wrap::index_add_out(
     const at::Tensor& self,
     int64_t dim,
@@ -184,6 +171,10 @@ at::Tensor nonzero_hpu_lazy(const at::Tensor&) {
     const at::Tensor&,
     bool,
     bool) {
+  EAGER_NOT_SUPPORTED;
+}
+
+at::Tensor repeat_inlv_hpu_lazy(const at::Tensor&, c10::optional<int64_t>) {
   EAGER_NOT_SUPPORTED;
 }
 

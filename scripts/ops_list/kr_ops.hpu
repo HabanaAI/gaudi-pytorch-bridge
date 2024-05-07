@@ -651,6 +651,7 @@ RegisterKernel::add op = aten::remainder.Tensor
 RegisterKernel::add op = aten::remainder_.Tensor
 RegisterKernel::add op = aten::remainder.Tensor_out
 RegisterKernel::add op = aten::repeat
+RegisterKernel::add op = aten::repeat_interleave.Tensor
 RegisterKernel::add op = aten::replication_pad1d
 RegisterKernel::add op = aten::replication_pad1d_backward
 RegisterKernel::add op = aten::replication_pad1d_backward.grad_input

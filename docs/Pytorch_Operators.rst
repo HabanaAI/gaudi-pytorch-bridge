@@ -586,6 +586,7 @@ reciprocal\_                             Yes      Yes      Yes       No       No
 remainder                                Yes      Yes      No        No       Yes       Yes      Yes    torch.Tensor
 remainder\_                              Yes      Yes      No        No       Yes       Yes      Yes    torch.Tensor
 repeat                                   Yes      Yes      Yes       No       Yes       Yes      Yes    torch.Tensor
+repeat_interleave                        Yes      Yes      Yes       Yes      Yes       Yes      Yes    torch.Tensor
 reshape                                  Yes      Yes      Yes       Yes      Yes       Yes      Yes    torch.Tensor
 roll                                     Yes      Yes      No        No       Yes       Yes      Yes    torch.Tensor
 resize\_                                 Yes      Yes      Yes       Yes      Yes       Yes      Yes    torch.Tensor

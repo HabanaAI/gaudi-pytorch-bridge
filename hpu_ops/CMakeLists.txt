@@ -299,6 +299,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/pool_helpers.cpp
           backend/zero_gen.cpp
           backend/new_zeros_gen.cpp
+          backend/repeat_interleave_gen.cpp
           common/batched_matmul_output_shape.cpp
           common/reduction_template.cpp
           common/replication_pad.cpp
