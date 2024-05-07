@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -36,4 +36,26 @@ OutputMetaDataVector LogicalNotMeta(const at::Stack& stack) {
 
   return {meta};
 }
+
+void LogicalNotOut::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto meta = LogicalNotMeta(stack).at(0);
+  auto self = stack.at(0).toTensor();
+
+  std::optional<synapse_helpers::tensor> castedInput{};
+  if (self.scalar_type() == at::kFloat or self.scalar_type() == at::kBFloat16) {
+    castedInput =
+        BuildBoolCast(this, graph, syn_in(0), self.sizes(), self.scalar_type());
+
+    update_guid_dtype(guid_, at::kBool);
+  }
+
+  syn_out(0) = std::move(BuildOp(
+      graph,
+      guid_,
+      {castedInput.has_value() ? castedInput.value().get() : syn_in(0)},
+      {{meta.shape, meta.dtype, 0}})[0]);
+}
+
 } // namespace habana

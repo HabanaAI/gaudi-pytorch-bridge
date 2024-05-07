@@ -4757,29 +4757,31 @@ logical_and.out:
 
 logical_not:
   output_meta: LogicalNotMeta
+  op_backend: LogicalNotOut
   dtypes:
-    Gaudi: [Byte, Char]
-    Gaudi2: [Half, Byte, Char]
-    Gaudi3: [Half, Byte, Char]
+    Gaudi: [Float, BFloat16, Byte, Char]
+    Gaudi2: [Float, BFloat16, Half, Byte, Char]
+    Gaudi3: [Float, BFloat16, Half, Byte, Char]
   guid: not
   out_ids: [0]
 
 logical_not_:
   output_meta: LogicalNotMeta
   dtypes:
-    Gaudi: [Byte, Char]
-    Gaudi2: [Half, Byte, Char]
-    Gaudi3: [Half, Byte, Char]
+    Gaudi: [Float, BFloat16, Byte, Char]
+    Gaudi2: [Float, BFloat16, Half, Byte, Char]
+    Gaudi3: [Float, BFloat16, Half, Byte, Char]
   guid: not
   inplace_ids: [0]
   op_validator: check-node-with-shared-layer
 
 logical_not.out:
   output_meta: LogicalNotMeta
+  op_backend: LogicalNotOut
   dtypes:
-    Gaudi: [Byte, Char]
-    Gaudi2: [Half, Byte, Char]
-    Gaudi3: [Half, Byte, Char]
+    Gaudi: [Float, BFloat16, Byte, Char]
+    Gaudi2: [Float, BFloat16, Half, Byte, Char]
+    Gaudi3: [Float, BFloat16, Half, Byte, Char]
   guid: not
   # op_validator: check-node-with-shared-layer
 
