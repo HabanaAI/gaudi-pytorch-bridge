@@ -3524,6 +3524,16 @@ fmod_.Tensor:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
 
+full:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
+  output_meta: FullMeta
+  op_backend: FullBE
+  out_ids: [0]
+  handle_bool_inputs: true
+
 gather:
   custom_fill_params: FillGatherParams
   output_meta: GatherMeta
