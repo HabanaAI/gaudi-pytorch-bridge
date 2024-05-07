@@ -54,6 +54,8 @@ remove_unnecessary_clones = _get_bool_from_env("PT_HPU_COMPILE_REMOVE_UNNECESSAR
 use_inplace_allreduce = _get_bool_from_env("PT_HPU_USE_INPLACE_COLLECTIVE", "0")
 # for compile enable autograd, so that the training compiler is chosen
 inference = _get_bool_from_env("PT_HPU_USE_INFERENCE_COMPILER", "1")
+# enables native implementation of the propose partitions pass
+use_cpp_partitioner = _get_bool_from_env("PT_HPU_USE_CPP_PARTITIONER", "1")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])
