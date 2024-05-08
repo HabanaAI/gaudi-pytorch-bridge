@@ -155,47 +155,6 @@ at::Tensor _hpu_cast(
   return _hpu_cast(dst, src);
 }
 
-at::Tensor _copy_from_d2h(
-    const at::Tensor& self,
-    const at::Tensor& dst,
-    bool non_blocking) {
-  _assert_tensors_sizes(self, dst);
-  _assert_tensors_dtypes(self, dst);
-
-  auto self_ = self;
-  // To Do - join pending not required here once copy d2h
-  // also comes through pipeline SW-126657
-  // we also need Thread join before invoking is_view_op_needed()
-  habana::eager::JoinPendingPipelineThreads();
-  if (is_view_op_needed(self)) {
-    auto base = habana::eager::create_base(self);
-    constexpr int out_index = 0;
-    habana::eager::EagerOp<at::Tensor> hpu_op{
-        "aten::as_strided",
-        {base, self.sizes(), self.strides(), self.storage_offset()},
-        {self.sizes().vec()},
-        out_index};
-    self_ = hpu_op.call();
-    habana::eager::JoinPendingPipelineThreads();
-
-    // restride cpu tensor since synapse will always return contiguous tensor
-    dst.unsafeGetTensorImpl()->set_sizes_contiguous(dst.sizes());
-    dst.unsafeGetTensorImpl()->set_storage_offset(0);
-  }
-  if (!common::IsInt64Supported() &&
-      self.scalar_type() == c10::ScalarType::Long) {
-    habana_helpers::copy_data_to_host(self_, dst, false);
-    unpackData<int32_t, int64_t>(dst);
-  } else if (self.scalar_type() == c10::ScalarType::Double) {
-    habana_helpers::copy_data_to_host(self_, dst, false);
-    unpackData<float, double>(dst);
-  } else {
-    habana_helpers::copy_data_to_host(self_, dst, non_blocking);
-  }
-  handlePermutedTensor(self_, dst, non_blocking);
-  return dst;
-}
-
 at::Tensor add_strided_insert(at::Tensor dst, at::Tensor insert) {
   auto strides = dst.strides().vec();
   auto offset = dst.unsafeGetTensorImpl()->storage_offset();
@@ -211,6 +170,55 @@ at::Tensor add_strided_insert(at::Tensor dst, at::Tensor insert) {
        decltype(eager::EagerOpMetaData::out_indices_){0}});
 
   hpu_op.call(base);
+  return dst;
+}
+
+at::Tensor _copy_from_d2h(
+    const at::Tensor& self,
+    const at::Tensor& dst,
+    bool non_blocking) {
+  _assert_tensors_sizes(self, dst);
+  _assert_tensors_dtypes(self, dst);
+
+  auto self_ = self;
+
+  bool same_mem_format = (self.strides() == dst.strides());
+
+  if (!dst.is_contiguous() && !same_mem_format) {
+    auto d2h_dst = at::empty_like(dst, dst.options().device(self.device()));
+    self_ = add_strided_insert(d2h_dst, self_);
+  }
+
+  // To Do - join pending not required here once copy d2h
+  // also comes through pipeline SW-126657
+  // we also need Thread join before invoking is_view_op_needed()
+  habana::eager::JoinPendingPipelineThreads();
+  if (dst.is_contiguous() && is_view_op_needed(self_)) {
+    auto base = habana::eager::create_base(self_);
+    constexpr int out_index = 0;
+    habana::eager::EagerOp<at::Tensor> hpu_op{
+        "aten::as_strided",
+        {base, self_.sizes(), self_.strides(), self_.storage_offset()},
+        {self_.sizes().vec()},
+        out_index};
+    self_ = hpu_op.call();
+    habana::eager::JoinPendingPipelineThreads();
+
+    // restride cpu tensor since synapse will always return contiguous tensor
+    dst.unsafeGetTensorImpl()->set_sizes_contiguous(dst.sizes());
+    dst.unsafeGetTensorImpl()->set_storage_offset(0);
+  }
+  if (!common::IsInt64Supported() &&
+      self_.scalar_type() == c10::ScalarType::Long) {
+    habana_helpers::copy_data_to_host(self_, dst, false);
+    unpackData<int32_t, int64_t>(dst);
+  } else if (self_.scalar_type() == c10::ScalarType::Double) {
+    habana_helpers::copy_data_to_host(self_, dst, false);
+    unpackData<float, double>(dst);
+  } else {
+    habana_helpers::copy_data_to_host(self_, dst, non_blocking);
+  }
+  handlePermutedTensor(self_, dst, non_blocking);
   return dst;
 }
 
