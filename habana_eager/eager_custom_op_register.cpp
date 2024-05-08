@@ -2186,6 +2186,8 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::sdpa_recomp_fwd_non_dropout", sdpa_recomp_fwd);
   m.impl("hpu::sdpa_recomp_bwd", sdpa_recomp_bwd);
   m.impl("hpu::sdpa_fwd", sdpa_fwd);
+  m.impl("hpu::sdpa_fwd_non_dropout", sdpa_fwd);
+  m.impl("hpu::sdpa_fwd_dropout", sdpa_fwd);
   m.impl("hpu::sdpa_bwd", sdpa_bwd);
   m.impl(
       "hpu::scaled_triangular_softmax_retain",
