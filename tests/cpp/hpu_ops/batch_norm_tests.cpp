@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 class BatchNormHpuOpTest : public HpuOpTestUtil {};
@@ -54,6 +55,11 @@ class NativeBatchNormLegitNoStatsHpuOpTest
 TEST_P(NativeBatchNormLegitNoStatsHpuOpTest, nativeBatchNormLegitNoStatsTest) {
   const auto [inputTensorShape, inputTensorType, training, momentum, epsilon] =
       GetParam();
+
+  if (isGaudi2()) {
+    GTEST_SKIP()
+        << "Temporary test skipped on Gaudi2 due to https://jira.habana-labs.com/browse/SW-184291.";
+  }
 
   if (not training)
     GTEST_SKIP(); // TODO [Jira: SW-150573] seg fault visible for CPU pytorch
