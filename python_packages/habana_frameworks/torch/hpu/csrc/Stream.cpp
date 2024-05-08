@@ -203,14 +203,16 @@ static PyMethodDef THP_HPU_Stream_methods[] = {
     {nullptr, nullptr, 0, nullptr}};
 
 PyTypeObject THP_HPU_StreamType = {
-    PyVarObject_HEAD_INIT(
-        nullptr,
-        0) "habana_frameworks.torch._hpu_C._HPUStreamBase",
-    ///* tp_name */
+#if PY_VERSION_HEX >= 0x03000000
+    PyVarObject_HEAD_INIT(NULL, 0)
+#else
+    PyObject_HEAD_INIT(NULL) 0, /* ob_size */
+#endif
+        "habana_frameworks.torch._hpu_C._HPUStreamBase", /* tp_name */
     sizeof(THP_HPU_Stream), /* tp_basicsize */
     0, /* tp_itemsize */
     (destructor)THP_HPU_Stream_dealloc, /* tp_dealloc */
-    0, /* tp_vectorcall_offset */
+    0, /* tp_vectorcall_offset  */
     nullptr, /* tp_getattr */
     nullptr, /* tp_setattr */
     nullptr, /* tp_reserved */
@@ -268,7 +270,10 @@ PyTypeObject THP_HPU_StreamType = {
 #endif
     0, /* tp_next */
 #endif
-    nullptr,
+    nullptr, /* tp_vectorcall */
+#if PY_VERSION_HEX < 0x03090000
+    nullptr, /* int (*tp_print)(PyObject *, FILE *, int); */
+#endif
 };
 
 void THP_HPU_Stream_init(PyObject* module) {

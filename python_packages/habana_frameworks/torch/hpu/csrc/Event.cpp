@@ -153,9 +153,12 @@ static PyMethodDef THP_HPU_Event_methods[] = {
     {nullptr, nullptr, 0, nullptr}};
 
 PyTypeObject THP_HPU_EventType = {
-    PyVarObject_HEAD_INIT(
-        nullptr,
-        0) "habana_frameworks.torch._hpu_C._HpuEventBase", /* tp_name */
+#if PY_VERSION_HEX >= 0x03000000
+    PyVarObject_HEAD_INIT(NULL, 0)
+#else
+    PyObject_HEAD_INIT(NULL) 0, /* ob_size */
+#endif
+        "habana_frameworks.torch._hpu_C._HpuEventBase", /* tp_name */
     sizeof(THP_HPU_Event), /* tp_basicsize */
     0, /* tp_itemsize */
     (destructor)THP_HPU_Event_dealloc, /* tp_dealloc */
@@ -217,7 +220,10 @@ PyTypeObject THP_HPU_EventType = {
 #endif
     0, /* tp_next */
 #endif
-    nullptr,
+    nullptr, /* tp_vectorcall */
+#if PY_VERSION_HEX < 0x03090000
+    nullptr, /* int (*tp_print)(PyObject *, FILE *, int); */
+#endif
 };
 
 void THP_HPU_Event_init(PyObject* module) {
