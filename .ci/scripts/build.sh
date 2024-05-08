@@ -1055,6 +1055,8 @@ build_pytorch_vision_fork()
 
     pushd $PYTORCH_VISION_FORK_ROOT
 
+    __provide_mkl
+
     if [ -n "$__configure" ]; then
         $__python_cmd setup.py clean
         git clean -fd
