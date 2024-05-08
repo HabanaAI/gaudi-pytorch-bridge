@@ -13,11 +13,18 @@
 import os
 
 import habana_frameworks.torch.dynamo.compile_backend
+import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 import torch.nn as nn
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, is_gaudi1, is_pytest_mode_compile
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
+    compare_tensors,
+    is_gaudi1,
+    is_pytest_mode_compile,
+)
 
 
 @pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
@@ -1283,3 +1290,39 @@ def test_bk_st_test():
         t2_h = t2.to("hpu")
         h_result = compiled_fn(t1_h, t2_h)
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
+test_data = [
+    (torch.float, 2.5),
+    (torch.bfloat16, 2.5),
+    (torch.int16, 42),
+    (torch.int32, 42),
+    (torch.int64, 42),
+    (torch.int64, -42),
+    (torch.int64, 123456789123456789),
+    (torch.int64, -123456789123456789),
+]
+
+
+@pytest.mark.parametrize("dtype, fill_value", test_data)
+def test_full(dtype, fill_value):
+    if abs(fill_value) > 0x7FFFFFFF and bc.get_pt_enable_int64_support() == False:
+        pytest.skip(reason="fill_value exceed int32 range which is unsupported")
+
+    input_shapes = [(8, 2), (16, 3), (20, 2), (24, 3), (28, 3)]
+
+    def fn(size, fill_value, dtype, device):
+        return torch.full(size, fill_value, dtype=dtype, device=device)
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="hpu_backend", dynamic=None)
+
+    for size in input_shapes:
+        result = fn(size, fill_value=fill_value, dtype=dtype, device="hpu")
+        expected = torch.full(size, fill_value=fill_value, dtype=dtype, device="cpu")
+        compare_tensors([result], [expected], atol=0, rtol=0)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("full")

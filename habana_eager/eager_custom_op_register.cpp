@@ -2104,6 +2104,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::habana_randn_st(Tensor seed, Tensor shape_tensor, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def(
       "hpu::habana_randint_st(Tensor seed, SymInt low, SymInt high, Tensor shape_tensor, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::full_ds(Tensor size, Scalar fill_value, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

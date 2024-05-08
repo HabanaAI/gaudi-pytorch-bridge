@@ -1430,5 +1430,82 @@ void RandintOperatorDS::UpdateDynamicInputs(
   UpdateShapeTensorSize(dtensor, scalar_idx.values, orig_stack, launch_shapes);
 }
 
+// Dynamic shape (DS) support for `full` using shape tensor
+bool FullOpDS::ReplaceWithDynamicHPUOp(
+    torch::jit::Node* aten_full_node,
+    torch::jit::Stack& org_stack,
+    GraphInputIndexMap& org_stack_index_map,
+    ValueIvalueMap& value_ivalue_map,
+    std::shared_ptr<DynamicGraphMetaData> m_dmeta) {
+  // 6 inputs in full
+  HABANA_ASSERT(6 == aten_full_node->inputs().size());
+  // 1 scalars: size
+  auto v_full_shape = aten_full_node->inputs().at(0);
+  // fetching the list symbol for size
+  static const auto list_construct_symbol{
+      c10::Symbol::fromQualString("prim::ListConstruct")};
+  HABANA_ASSERT(
+      v_full_shape->node()->kind() == list_construct_symbol,
+      "full input is not a ListConstruct, it is: ",
+      v_full_shape->node()->kind().toQualString());
+  auto list_construct_node{v_full_shape->node()};
+  auto graph{aten_full_node->owningGraph()};
+
+  // Step 1: Collect shape and scalar pos used in ListConstruct input node
+  std::vector<int64_t> st_size;
+  std::vector<int64_t> scalar_indexes;
+  GetValuesAndScalarIndexesFromListConstruct(
+      list_construct_node,
+      org_stack,
+      org_stack_index_map,
+      st_size,
+      scalar_indexes);
+  auto out_tensors = getOutputTensers(aten_full_node, value_ivalue_map);
+  auto inferred_st_sizes = out_tensors[0].sizes().vec();
+  // Step2: Create shape tensor and insert to graph inputs.
+  auto full_st_name =
+      GetDynamicTensorName(v_full_shape->debugName(), SHAPE_TENSOR);
+  int64_t stack_index = CreateSTAndInsertToDSStack(
+      inferred_st_sizes, scalar_indexes, {}, {}, m_dmeta);
+  auto full_st_tensor = graph->addInput(full_st_name);
+
+  // Step3: Create hpu::full_ds node and insert to the graph
+  static const auto hpu_full_symbol{
+      c10::Symbol::fromQualString("hpu::full_ds")};
+  CreateAndInsertDynamicNodeToGraph(
+      graph,
+      aten_full_node,
+      hpu_full_symbol,
+      {full_st_tensor,
+       aten_full_node->inputs().at(1),
+       aten_full_node->inputs().at(2),
+       aten_full_node->inputs().at(3),
+       aten_full_node->inputs().at(4),
+       aten_full_node->inputs().at(5)},
+      value_ivalue_map);
+
+  // Step4: Register patching function and tensor lists
+  std::vector<int64_t> dtensor_indexes{stack_index};
+  InputPatchPair patch_info(&FullOpDS::UpdateDynamicInputs, dtensor_indexes);
+  m_dmeta->ds_input_patching_list.push_back(patch_info);
+  return true;
+}
+
+void FullOpDS::UpdateDynamicInputs(
+    c10::SmallVectorImpl<torch::jit::IValue*>& dtensor_list,
+    c10::SmallVectorImpl<habana::graph::SymIntData>& scalar_idx_list,
+    [[maybe_unused]] c10::SmallVectorImpl<std::vector<int64_t>>& tensor_list,
+    [[maybe_unused]] c10::SmallVectorImpl<
+        std::vector<std::pair<int64_t, int64_t>>>& mixed_list,
+    std::vector<c10::IValue>& orig_stack,
+    LaunchDynamicShapes& launch_shapes) {
+  HABANA_ASSERT(
+      dtensor_list.size() == scalar_idx_list.size(),
+      "Dtensor and SymIntData count not matching");
+  auto dtensor = dtensor_list[0]->toTensor();
+  SymIntData& scalar_idx = scalar_idx_list[0];
+  UpdateShapeTensorSize(dtensor, scalar_idx.values, orig_stack, launch_shapes);
+}
+
 } // namespace graph
 } // namespace habana
