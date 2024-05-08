@@ -134,4 +134,43 @@ void ScatterOperator::AddNode(
     syn_out(0) = std::move(scatterkernel[0]);
   }
 }
+
+void ScatterWithReduceOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const auto dim = stack.at(1).toInt();
+  const auto index = stack.at(2).toTensor();
+  const auto value = stack.at(3).toScalar();
+  const auto reduce = stack.at(4).to<c10::string_view>();
+
+  if (index.dim() == 0) {
+    SET_SIZE_STRIDE_1D(index);
+  }
+
+  ScatterReduceMode_t mode = (reduce == "add")
+      ? ScatterReduceMode_t::SCATTER_REDUCE_SUM
+      : ScatterReduceMode_t::SCATTER_REDUCE_PROD;
+
+  ns_ScatterReduceKernel::Params params{};
+  params.dim = dim;
+  params.include_self = true;
+  params.mode = mode;
+
+  const auto& outshape = stack_tensor(stack, 0).sizes();
+  auto broadcasted_value = ConstantHelper(graph, value, ScalarType(), outshape);
+
+  std::vector<synTensor> syn_input_tensors = {
+      syn_in(0), syn_in(1), broadcasted_value.get()};
+
+  auto scatterkernel = BuildOp(
+      graph,
+      get_guid_with_precision("scatter_reduce_fwd", ScalarType()),
+      std::move(syn_input_tensors),
+      {{outshape, ScalarType(), 0}},
+      &params,
+      sizeof(params));
+
+  syn_out(0) = std::move(scatterkernel[0]);
+}
+
 } // namespace habana

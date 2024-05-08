@@ -329,7 +329,7 @@ aten::range.out;                                                     YES; YES; N
 aten::record_stream;                                                 NO;  YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::renorm.out;                                                    YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::scatter.reduce_out;                                            YES; YES; YES; NO;       DT_DF; YES;     NO;   NO;           0;
-aten::scatter.value_reduce_out;                                      YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::scatter.value_reduce_out;                                      YES; YES; YES; NO;       DT_DF; YES;     NO;   NO;           0;
 aten::scatter_add.out;                                               YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::searchsorted.Scalar_out;                                       YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::segment_reduce;                                                YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
@@ -563,7 +563,7 @@ aten::polygamma;                                                     YES; YES; N
 aten::renorm;                                                        YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
 aten::renorm_;                                                       YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
 aten::scatter.reduce;                                                YES; YES; YES; NO;       DT_DT; YES;     NO;   NO;           0;
-aten::scatter.value_reduce;                                          YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
+aten::scatter.value_reduce;                                          YES; YES; YES; NO;       DT_DT; YES;     NO;   NO;           0;
 aten::scatter_.reduce;                                               YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
 aten::scatter_.value_reduce;                                         YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
 aten::silu_backward;                                                 YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;

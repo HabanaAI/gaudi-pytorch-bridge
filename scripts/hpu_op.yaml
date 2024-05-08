@@ -7149,6 +7149,41 @@ scatter.reduce_out:
       src: [BFloat16, Float, Half]
   guid: scatter_reduce_fwd
 
+scatter.value_reduce:
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float]
+      index: [Int, Long]
+      src: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      index: [Int, Long]
+      src: [BFloat16, Float, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      index: [Int, Long]
+      src: [BFloat16, Float, Half]
+  guid: scatter_reduce_fwd
+  op_backend: ScatterWithReduceOperator
+  out_ids: [0]
+
+scatter.value_reduce_out:
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float]
+      index: [Int, Long]
+      src: [BFloat16, Float]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      index: [Int, Long]
+      src: [BFloat16, Float, Half]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      index: [Int, Long]
+      src: [BFloat16, Float, Half]
+  guid: scatter_reduce_fwd
+  op_backend: ScatterWithReduceOperator
+
 scatter_add:
   custom_fill_params: ScatterAddParams
   output_meta: ScatterAddMeta

@@ -53,8 +53,8 @@ if not is_gaudi1():
 )
 @pytest.mark.parametrize("reduction_mode", ["add", "multiply"], ids=lambda val: f"{val}")
 @pytest.mark.parametrize("dtype", supported_dtypes, ids=format_tc)
-# source_value >= 0 is for scatter.value_reduce_out
-@pytest.mark.parametrize("source_value", [-1], ids=lambda val: f"source_value_{val}")
+# src_as_tensor ? Scatter.reduce : Scatter.value_reduce
+@pytest.mark.parametrize("src_as_tensor", [True, False], ids=lambda val: f"src_as_tensor_{val}")
 class TestHpuScatterWithReduce:
     @classmethod
     def setup_class(self):
@@ -66,7 +66,7 @@ class TestHpuScatterWithReduce:
         torch.hpu.setDeterministic(self.deterministicHpuOldValue)
 
     @staticmethod
-    def test_scatter_with_reduce(dim_shape_deterministic, dtype, reduction_mode, source_value):
+    def test_scatter_with_reduce(dim_shape_deterministic, dtype, reduction_mode, src_as_tensor):
         dim, shapes, deterministic = dim_shape_deterministic
 
         torch.use_deterministic_algorithms(deterministic)
@@ -88,13 +88,12 @@ class TestHpuScatterWithReduce:
         )
         index_hpu = index_cpu.to("hpu")
 
-        if source_value < 0.0:
+        if src_as_tensor:
             source_shape = shapes[2]
             source_cpu = torch.rand(source_shape, dtype=dtype)
             source_hpu = source_cpu.to("hpu")
         else:
-            source_cpu = source_value
-            source_hpu = source_value
+            source_cpu = source_hpu = 0.675
 
         result_cpu = scatter_with_reduce(input_cpu, dim, index_cpu, source_cpu)
 

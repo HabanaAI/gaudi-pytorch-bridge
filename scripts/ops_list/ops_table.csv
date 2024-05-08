@@ -2471,8 +2471,8 @@ aten::scatter.src;                                                   YES; YES; Y
 aten::scatter.src_out;                                               YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
 aten::scatter.value;                                                 YES; YES; YES; NO;       DT_DT; NO;      YES;  NO;           0;
 aten::scatter.value_out;                                             YES; YES; YES; NO;       DT_DF; NO;      NO;   NO;           0;
-aten::scatter.value_reduce;                                          YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
-aten::scatter.value_reduce_out;                                      YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::scatter.value_reduce;                                          YES; YES; YES; NO;       DT_DT; YES;     NO;   NO;           0;
+aten::scatter.value_reduce_out;                                      YES; YES; YES; NO;       DT_DF; YES;     NO;   NO;           0;
 aten::scatter_.reduce;                                               YES; YES; NO;  NO;       DT_DT; YES;     NO;   NO;           0;
 aten::scatter_.src;                                                  YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
 aten::scatter_.value;                                                YES; YES; YES; NO;       DT_DT; NO;      NO;   NO;           0;
