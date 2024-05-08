@@ -66,55 +66,6 @@ OutputMetaDataVector MedianDimOutputMeta(const at::Stack& stack) {
   return {valuesMeta, indicesMeta};
 }
 
-void Median::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto self = stack_tensor(stack, index_of_self);
-  auto self_size = self.sizes().vec();
-  /* N-dimension tensor will be reshaped to 1-dimension tensor.
-     Hence the reduction axis is always equal to 0 */
-  int64_t reduction_axis = 0;
-
-  std::vector<int64_t> reshape_size = {self.numel()};
-  std::vector<int64_t> reshape_outshape = {reshape_size};
-
-  auto reshaped_inp = ReshapeHelper(
-      graph, syn_in(index_of_self), reshape_outshape, ScalarType());
-
-  std::vector<int64_t> topk_outshape;
-  topk_outshape = {self.numel()};
-  auto topk = TopK_Helper(
-      this,
-      graph,
-      {reshaped_inp.get()},
-      reduction_axis,
-      topk_outshape,
-      descending_order,
-      0,
-      topk_outshape[reduction_axis],
-      0, /*median vairiant*/
-      c10::nullopt);
-
-  std::vector<int64_t> slice_outshape;
-  /* The output is a tensor having single value (i.e. median)*/
-  slice_outshape.push_back(1);
-
-  auto median_value = Median_Slice_Helper(
-      this,
-      graph,
-      {topk[0].get()},
-      slice_outshape[0],
-      ScalarType(),
-      self.numel(),
-      self.ndimension(),
-      reduction_axis,
-      0 /*median variant*/,
-      false);
-
-  auto meta = MedianOutputMeta(stack)[0];
-  auto median_output =
-      ReshapeHelper(graph, median_value[0].get(), meta.shape, meta.dtype, 0);
-  syn_out(0) = std::move(median_output);
-}
-
 void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, index_of_self);
   auto self_size = self.sizes().vec();

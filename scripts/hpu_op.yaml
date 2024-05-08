@@ -5275,7 +5275,7 @@ median:
     Gaudi: [Float, Int]
     Gaudi2: [Float, Int]
     Gaudi3: [Float, Int]
-  op_backend: Median
+  guid: median
   out_ids: [0]
 
 median.dim:
