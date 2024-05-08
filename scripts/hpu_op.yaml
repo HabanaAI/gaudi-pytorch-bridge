@@ -3097,7 +3097,10 @@ embedding_renorm:
   out_ids: [0]
 
 equal:
-  dtypes: [BFloat16, Float, Long, Int, Char, Byte]
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
+    Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
+    Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
   op_backend: Equal
   out_ids: [0]
 

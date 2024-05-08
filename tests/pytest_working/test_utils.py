@@ -601,3 +601,7 @@ def find_in_hier_list(v, hlist, index=[]):
                 if idx:
                     return idx
     return None
+
+
+def is_dtype_floating_point(dtype):
+    return torch.is_floating_point(torch.tensor((), dtype=dtype))

@@ -15,56 +15,41 @@
 namespace habana {
 
 void Equal::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  const at::Tensor self = stack_tensor(stack, 0);
-  const at::Tensor other = stack_tensor(stack, 1);
-  auto self_size = self.sizes();
-  auto other_size = other.sizes();
-  const at::ScalarType& result_type = c10::ScalarType::Bool;
-  auto reshape_size = self.numel();
+  StackGetter stackGetter(stack, "Equal::AddNode");
+  auto self = getNextInput<TensorsPair>(stackGetter);
+  auto other = getNextInput<TensorsPair>(stackGetter);
 
-  std::vector<int64_t> reshape_outshape = {reshape_size};
-  size_t size = 0;
+  auto self_size = self.pt_t.sizes();
+  auto other_size = other.pt_t.sizes();
+  at::ScalarType result_type = c10::ScalarType::Bool;
 
-  // inputs having same shape
   if (self_size == other_size) {
     auto eq = BuildOp(
         graph,
         get_guid_with_precision("equal_fwd", ScalarType()),
-        {syn_in(0), syn_in(1)},
+        {self.syn_t, other.syn_t},
         {{self_size, result_type}});
 
-    auto cast_i8_to_f32 = BuildCast(
-        this,
-        graph,
-        eq[0].get(),
-        self_size,
-        result_type,
-        c10::ScalarType::Float);
+    int64_t reduced_dim = 1;
+    c10::IntArrayRef reduced_size = reduced_dim;
 
-    auto reshape = ReshapeHelper(
-        graph, cast_i8_to_f32.get(), reshape_outshape, c10::ScalarType::Float);
-
-    PARAMS_STUB(ns_Reduction::Params);
-    params->reductionDimension = 0;
+    // Although it seems we could skip reduction in the case of (1) input shape
+    // and pass result of equal_fwd directly to the output we can't actually do
+    // it. It would break eager shape agnostic flow as it changes topology when
+    // JIT graph cache HIT occurs.
+    size_t size = 0;
+    PARAMS_STUB(ns_Reduction::ParamsV2);
+    params->reductionDimensionMask = 0;
+    params->keepDim = false;
     auto reduce_prod = BuildOp(
         graph,
-        "reduce_prod_fwd_f32",
-        {reshape.get()},
-        {{1, c10::ScalarType::Float}},
+        "reduce_prod_multi_dim_fwd_f32",
+        {eq[0].get()},
+        {{reduced_size, result_type, 0}},
         params.get(),
         size);
 
-    auto cast_f32_to_i8 = BuildCast(
-        this,
-        graph,
-        reduce_prod[0].get(),
-        1,
-        c10::ScalarType::Float,
-        result_type,
-        0);
-
-    syn_out(0) = std::move(cast_f32_to_i8);
-
+    syn_out(0) = std::move(reduce_prod[0]);
   } else { // inputs with different shape
     auto false_tensor = ConstantHelper(graph, false, result_type, 1, 0);
 
