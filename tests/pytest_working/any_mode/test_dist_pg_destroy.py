@@ -93,9 +93,16 @@ def test_process_group_destroy_order(tmp_path, cache_pg_objects):
     host_barrier_key_name = "0HOST_BARRIER:1"
     destroy_key_name = "ProcessGroup::destroy"
 
-    expected_keys_in_store = product(
-        [second_pg_prefix, first_pg_prefix, default_pg_prefix], [host_barrier_key_name, destroy_key_name]
-    )
+    cache_enable = os.environ.get("PT_ENABLE_COMM_GROUP_CACHE", "true")
+    expected_keys_in_store = None
+
+    # In comm cache scenario only default pg exists in records
+    if cache_enable:
+        expected_keys_in_store = product([default_pg_prefix], [host_barrier_key_name, destroy_key_name])
+    else:
+        expected_keys_in_store = product(
+            [second_pg_prefix, first_pg_prefix, default_pg_prefix], [host_barrier_key_name, destroy_key_name]
+        )
     expected_keys_in_store = ["".join(key_tuple) for key_tuple in expected_keys_in_store]
 
     records_order_in_store = [records_keys.index(key) for key in expected_keys_in_store]

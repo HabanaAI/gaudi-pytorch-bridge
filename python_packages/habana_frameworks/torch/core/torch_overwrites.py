@@ -185,7 +185,7 @@ def overwrite_torch_functions():
     @wraps(torch.distributed.new_group)
     def wrap_new_group(ranks=None, timeout=default_pg_timeout, backend=None, pg_options=None):
         nonlocal ranks_cache
-        cache_enable = environ.get("PT_ENABLE_COMM_GROUP_CACHE", "False")
+        cache_enable = environ.get("PT_ENABLE_COMM_GROUP_CACHE", "true")
         if cache_enable.lower() == "true":
             nonlocal ranks_cache
             if ranks == None:
@@ -213,7 +213,7 @@ def overwrite_torch_functions():
         pg_options=None,
     ):
         nonlocal ranks_cache
-        cache_enable = environ.get("PT_ENABLE_COMM_GROUP_CACHE", "False")
+        cache_enable = environ.get("PT_ENABLE_COMM_GROUP_CACHE", "true")
         if cache_enable.lower() == "true":
             if len(ranks_cache) == 0:
                 init_process_group_orig(
