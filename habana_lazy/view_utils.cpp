@@ -1016,7 +1016,7 @@ Tensor HbLazyTensorViews::add_expand_lazy(
     auto hl_params_shape = GetOrCreateHbLazyTensor(expand_shape, c10::kHPU);
     auto hl_false = GetIrValueForScalar(implicit);
     node = ir::Node::Create(
-        Symbol::fromQualString("aten::expand"),
+        Symbol::fromQualString("hpu::expand_ds"),
         {hl_self.GetIrValue(), hl_params_shape.GetIrValue(), hl_false});
   } else {
     node = std::make_shared<ir::Expand>(self, size, implicit);
