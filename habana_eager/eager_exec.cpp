@@ -316,6 +316,8 @@ void EagerExec::launch() {
 
   prune_duplicate_stack_inputs(stack, parent_vec);
 
+  mark_maybe_grad_view();
+
   auto& cache{OptimizedJitGraphCache::GetOptimizedJitCache()};
   size_t key{calculate_operator_key(parent_vec, orig_inputs)};
   auto graph_and_meta{cache.GetOptimizedJITGraphAndMetaData(key)};
@@ -870,6 +872,36 @@ bool EagerExec::is_eager_compiler_supported_for_graph(
     }
   }
   return true;
+}
+
+/*
+Enabling permutations on view outputs is risky. The below code performs pattern
+matching to enable it conditionally for grad views on a all reduce bucket. Fork
+reference: pytorch-fork/torch/csrc/distributed/c10d/reducer.cpp Pattern: The
+tensor marked should be a out tensor belonging to mul.out kernel variant and is
+a contiguous view on a 1D buffer
+*/
+void EagerExec::mark_maybe_grad_view() {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_EAGER_ENABLE_GRADIENT_VIEW_LAYOUT_OPT))
+    return;
+  if (std::string(m_symbol.toQualString()) != "aten::mul")
+    return;
+  if (m_eager_op_meta_data.op_kind_ != InplaceOut)
+    return;
+  if (!m_inputs.back().isTensor())
+    return;
+  auto& t = m_inputs.back().toTensor();
+  if (!t.is_contiguous())
+    return;
+  auto tmeta{habana::get_tensor_extra_meta(t)};
+  if (!tmeta->is_view_tensor())
+    return;
+  if (habana::get_base_tensor_size(t).size() != 1)
+    return;
+  // setting this flag will allow permutations on the view output
+  tmeta->set_maybe_grad_view();
+  PT_EAGER_DEBUG(
+      "Marked grad view. size: ", t.sizes(), " offset ", t.storage_offset());
 }
 
 } // namespace eager

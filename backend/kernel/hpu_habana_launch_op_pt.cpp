@@ -1873,7 +1873,11 @@ bool is_allow_view_output_permutation(const at::Tensor& t) {
   auto tmeta{habana::get_tensor_extra_meta(t)};
   if (!tmeta->is_view_tensor())
     return true;
-  return false;
+  if (tmeta->is_maybe_grad_view()) {
+    PT_BRIDGE_DEBUG("Allowed view output permutation. sizes: ", t.sizes())
+    return true;
+  } else
+    return false;
 }
 void HabanaLaunchOpPT::setSynapsePermuteFlag(
     synapse_helpers::tensor& out_syntensor,

@@ -159,12 +159,19 @@ at::Tensor _copy_from_d2h(
   if (permutation.size() != 0) {
     // translate synapse permtue to pt permute
     auto pt_permute = translateSynapsePermuteToPt(permutation);
-    // if view tensor get the base tensor
+    // if view tensor and not grad view tensor, then get the base tensor
     auto tmeta{habana::get_tensor_extra_meta(self_)};
-    auto t =
-        tmeta->is_view_tensor() ? habana::eager::create_base(self_) : self_;
+    auto t = (tmeta->is_view_tensor() && !tmeta->is_maybe_grad_view())
+        ? habana::eager::create_base(self_)
+        : self_;
     // calculate new strides according to the synapse permutation
-    self_strides = calcNewStrides(t, pt_permute);
+    auto strides_vec = calcNewStrides(t, pt_permute);
+    self_strides = strides_vec;
+
+    if (tmeta->is_maybe_grad_view()) {
+      self_.unsafeGetTensorImpl()->set_sizes_and_strides(
+          self_.sizes(), strides_vec);
+    }
   }
 
   bool same_mem_format = (self_strides == dst.strides());
