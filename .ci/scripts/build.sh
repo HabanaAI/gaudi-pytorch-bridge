@@ -613,16 +613,20 @@ build_pytorch_fork()
             ;;
         --build-number )
             __env_vars+=" PYTORCH_BUILD_NUMBER=$2"
+            shift
             ;;
         --build-version )
             __env_vars+=" PYTORCH_BUILD_VERSION=$2"
+            shift
             ;;
         --pt-version )
             __pt_vers=$2
+            shift
             ;;
         --py-version )
              set_python_version $2
              __set_py_vers="true"
+             shift
             ;;
         --recursive )
             # No-op. Fork has no dependencies.
