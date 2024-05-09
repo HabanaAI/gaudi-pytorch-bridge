@@ -189,7 +189,6 @@ hpu_backend_decompositions_common = get_decompositions(
         aten.sgn.out,
         aten.sigmoid_backward.default,
         aten.sigmoid_backward.grad_input,
-        aten.silu.default,
         aten.silu.out,
         aten.silu_.default,
         aten.silu_backward.default,

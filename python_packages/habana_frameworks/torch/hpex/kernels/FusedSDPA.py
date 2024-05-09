@@ -26,6 +26,9 @@ def check_dbg_env_var(v):
     return env_var_set
 
 
+dbg_env_var = check_dbg_env_var("FSDPA_DBG_USE_DROPOUT_STUB")
+
+
 def is_gqa(q, k):
     gqa = False
     dims = q.dim()
@@ -77,7 +80,11 @@ def gqa_output_reshape(tensor):
     return tensor.reshape(new_shape)
 
 
-def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None, softmax_mode="None"):
+def sdpa_fwd_wrapper(
+    ctx, q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None, softmax_mode="None", recompute_mode=None
+):
+
+    global dbg_env_var
 
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
 
@@ -85,7 +92,9 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask=None, dropout_p=0.0, is_causal=Fals
         scale = 1.0 / math.sqrt(q.size(-1))
 
     # Check if recompute variant is enabled
-    recompute = ht.recompute_sdp_enabled()
+    recompute = recompute_mode
+    if recompute is None:
+        recompute = ht.recompute_sdp_enabled()
 
     if recompute and requires_backward and softmax_mode == "fast":
         assert (
@@ -109,6 +118,8 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask=None, dropout_p=0.0, is_causal=Fals
         out, P, dm = torch.ops.hpu.sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, softmax_mode)
         if gqa:
             out = gqa_output_reshape(out)
+        if not requires_backward:
+            return out
         ctx.save_for_backward(q, k, v, P, dm)
 
     ctx.dropout_p = dropout_p
@@ -121,7 +132,7 @@ def sdpa_fwd_wrapper(ctx, q, k, v, attn_mask=None, dropout_p=0.0, is_causal=Fals
     if recompute:
         return out
 
-    if not check_dbg_env_var("FSDPA_DBG_USE_DROPOUT_STUB"):
+    if not dbg_env_var:
         return out
     else:
         if gqa:
@@ -162,7 +173,18 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
 
 class FusedSDPA(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None, softmax_mode="None"):
+    def forward(
+        ctx,
+        q,
+        k,
+        v,
+        attn_mask=None,
+        dropout_p=0.0,
+        is_causal=False,
+        scale=None,
+        softmax_mode="None",
+        recompute_mode=None,
+    ):
         return sdpa_fwd_wrapper(
             ctx,
             q,
@@ -173,6 +195,7 @@ class FusedSDPA(torch.autograd.Function):
             is_causal=is_causal,
             scale=scale,
             softmax_mode=softmax_mode,
+            recompute_mode=recompute_mode,
         )
 
     @staticmethod

@@ -12,20 +12,25 @@
 import copy
 
 import torch
+import torch.nn.functional as F
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from test_dynamo_utils import assert_helper
 
 
 class MyModule(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, use_silu=False):
         super().__init__()
         self.param = torch.nn.Parameter(torch.rand(4, 5))
         self.linear = torch.nn.Linear(4, 5)
+        self.use_silu = use_silu
 
     def forward(self, x):
         param = self.param
         add = torch.ops.aten.add.Tensor(x, param.t())
-        return torch.topk(torch.sum(self.linear(add).relu(), dim=-1), 3)
+        if self.use_silu:
+            return torch.topk(torch.sum(F.silu(self.linear(add)), dim=-1), 3)
+        else:
+            return torch.topk(torch.sum(self.linear(add).relu(), dim=-1), 3)
 
 
 def func(x: torch.Tensor, m: torch.nn.Module, device: str, freeze: bool = False):
@@ -99,3 +104,27 @@ def test_graph_freeze():
 
     out_cpu = func(x=x_c, m=m_c, device="cpu")
     assert torch.allclose(out_cpu[0].float(), out_hpu[0].to(device=torch.device("cpu")), rtol=1e-3, atol=1e-3)
+
+
+"""
+aten.silu.default decomposition is disabled for performance optimization in LLaMA inference
+the following test checks if the FX graph contains the silu op if the input graph uses silu
+"""
+
+
+def test_silu():
+    torch.manual_seed(123)
+    x = torch.randn((5, 4), dtype=torch.float, device=torch.device("cpu"))
+    x_c = x.clone().detach()
+    m = MyModule(use_silu=True)
+    m_c = copy.deepcopy(m)
+
+    with FxGraphAnalyzer(reset_dynamo=False) as fga:
+        out_hpu = func(x=x, m=m, device="hpu", freeze=True)
+
+    ops_summary = fga.get_ops_summary()
+    assert_helper(ops_summary=ops_summary, op="torch.ops.aten.silu.default", count_list=[(1, 0)])
+
+    out_cpu = func(x=x_c, m=m_c, device="cpu")
+    # changed the tolerance value due to some differences seen between CPU and HPU accuracy for silu
+    assert torch.allclose(out_cpu[0].float(), out_hpu[0].to(device=torch.device("cpu")), rtol=1e-2, atol=1e-2)
