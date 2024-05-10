@@ -22,6 +22,7 @@ from habana_frameworks.torch.utils.internal import is_lazy
 from torch.types import Device
 from torch.utils.checkpoint import DefaultDeviceType
 
+from ._proxy_module import *
 from ._utils import (
     HABANA_VISIBLE_MODULES_VAR,
     HLS_MODULE_ID_VAR,

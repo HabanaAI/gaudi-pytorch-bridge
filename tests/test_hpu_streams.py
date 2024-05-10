@@ -199,6 +199,27 @@ def testInfo():
     print(f"s1.device_index={s1.device_index()} , Default stream id={d.id()} s1.id()={s1.id()} s2.id()={s2.id()}")
 
 
+def testSetStream():
+    d = ht.hpu.default_stream()
+    s1 = ht.hpu.Stream()
+    s2 = ht.hpu.Stream()
+
+    ht.hpu.set_stream(s1)
+    curr_str = ht.hpu.current_stream()
+    assert curr_str == s1, f"Current stream is not s1, it is {curr_str}"
+    ht.hpu.set_stream(s2)
+    curr_str = ht.hpu.current_stream()
+    assert curr_str == s2, f"Current stream is not s2, it is {curr_str}"
+
+    ht.hpu.set_stream(d)
+    curr_str = ht.hpu.current_stream()
+    assert curr_str == d, f"Current stream is not default, it is {curr_str}"
+
+    ht.hpu.set_stream(ht.hpu.default_stream())
+    curr_str = ht.hpu.current_stream()
+    assert curr_str == d, f"Current stream is not default, it is {curr_str}"
+
+
 def testProfiling():
 
     in_shape = (10, 2)

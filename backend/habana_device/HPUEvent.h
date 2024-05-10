@@ -68,6 +68,10 @@ struct HPUEvent {
     return is_created_;
   }
 
+  synapse_helpers::hpuEvent_t event() const {
+    return id();
+  }
+
   Device device() const {
     return Device(DeviceType::HPU, device_index_);
   }
