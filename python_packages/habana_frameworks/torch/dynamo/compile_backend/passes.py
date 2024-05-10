@@ -19,6 +19,7 @@ from typing import List, Optional
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from habana_frameworks.torch.utils.internal import Timer
 from habana_frameworks.torch.utils.visualization import graph_visualizer
@@ -1595,12 +1596,20 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
     def is_call_function_node(node):
         return isinstance(node, torch.fx.Node) and node.op == "call_function"
 
+    def is_input_mutation_node(node):
+        if not (node.op == "call_function" and node.target == torch.ops.aten.copy_.default):
+            return False
+        args = helper_get_node_args(node)
+        # check if first arg is actually a graph input
+        return args[0].op == "placeholder"
+
     assert ctx.graph_module is not None
     graph_changed = False
     # This is general checking for input mutation and output alias which will
     # filter out those cases early this pass doesn't target for.
     is_input_mutation_in_graph = False
     is_only_output_alias_in_graph = False
+    input_mutations_nodes = []
     # see usage of torch._guards.TracingContext at _functorch/aot_autograd.py.
     if ctx.uses_aot and torch._guards.TracingContext.get():
         fw_metadata = torch._guards.TracingContext.get().fw_metadata
@@ -1609,6 +1618,13 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
             is_input_mutation_in_graph = fw_metadata.num_mutated_inp_runtime_indices > 0
         else:
             is_input_mutation_in_graph = fw_metadata.num_mutated_inputs > 0
+
+        # extra check for config.keep_input_mutations = 1
+        if hpu_backend_config.keep_input_mutations:
+            input_mutations_nodes = [node for node in ctx.graph_module.graph.nodes if is_input_mutation_node(node)]
+            if input_mutations_nodes:
+                is_input_mutation_in_graph = True
+
         is_only_output_alias_in_graph = not is_input_mutation_in_graph and fw_metadata.num_outputs_aliased > 0
 
     if not is_input_mutation_in_graph and not is_only_output_alias_in_graph:
@@ -1703,8 +1719,13 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
             if next_node.op == "output" or (
                 is_call_function_node(next_node)
                 and helper_is_view_node(next_node)
-                # leaf view node also as graph outputs
-                and next_node in fw_outputs
+                # leaf view node lies in graph outputs or has second consumer
+                # node (copy_) which mutate input tensor when
+                # keep_input_mutations is turned on.
+                and (
+                    next_node in fw_outputs
+                    or [u for u in helper_get_node_users(next_node) if u in input_mutations_nodes]
+                )
             ):
                 break
 
@@ -1719,12 +1740,13 @@ def pass_handle_view_before_inplace_compute_ops(ctx: OptimizerContext) -> bool:
 
         # record leaf view nodes
         leaf_view_nodes_first = next_node
-        leaf_view_nodes_second = helper_get_node_users(leaf_view_nodes_first)[0]
-        if (
-            leaf_view_nodes_second is None
-            or leaf_view_nodes_second.op == "output"
-            or not helper_is_view_node(leaf_view_nodes_second)
-        ):
+        leaf_view_nodes_second = None
+        for u in helper_get_node_users(leaf_view_nodes_first):
+            if u.op == "call_function" and helper_is_view_node(u):
+                # found
+                leaf_view_nodes_second = u
+                break
+        if leaf_view_nodes_second is None:
             logger.debug("Not found valid leaf view node pair.")
             break
 

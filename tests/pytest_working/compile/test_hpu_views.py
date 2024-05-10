@@ -362,3 +362,25 @@ def test_t_compilation(shape, dtype):
     hpu_output = hpu_compiled_fn(hpu_input)
 
     assert torch.allclose(hpu_output.cpu(), cpu_output, atol=0.001, rtol=0.001)
+
+
+@pytest.mark.parametrize("shape", [(5,), (3, 2)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+def test_inplace_add_with_view_inputs_keepinputmutations(shape, dtype):
+    def fn(input):
+        input = input.t()
+        return input.add_(3)
+
+    torch._dynamo.reset()
+    cpu_input = (
+        torch.randn(shape, dtype=dtype)
+        if dtype.is_floating_point
+        else torch.randint(low=-128, high=127, size=shape, dtype=dtype)
+    )
+    hpu_input = cpu_input.to("hpu")
+    hpu_compiled_fn = torch.compile(fn, backend="hpu_backend", options={"keep_input_mutations": True})
+
+    cpu_output = fn(cpu_input)
+    hpu_output = hpu_compiled_fn(hpu_input)
+
+    assert torch.allclose(hpu_output.cpu(), cpu_output, atol=0.001, rtol=0.001)
