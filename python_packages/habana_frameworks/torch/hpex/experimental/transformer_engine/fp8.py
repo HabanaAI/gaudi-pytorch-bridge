@@ -254,6 +254,10 @@ def restore_fp8_meta_tensors(fp8_meta: Dict[str, Any]) -> None:
         fp8_meta[key].scale = fp8_meta[f"updated_scale_{key_suffix}"]
         fp8_meta[key].scale_inv = fp8_meta[f"updated_scale_inv_{key_suffix}"]
 
+    _restore_updated_meta(MetaTensorType.FORWARD)
+    if is_hybrid_mode(fp8_meta):
+        _restore_updated_meta(MetaTensorType.HYBRID)
+
 
 def copy_amax_from_global_buffer(fp8_meta: Dict[str, Any], forward: bool = True) -> None:
     """Populate current amax with the correct location from buffer."""

@@ -1309,7 +1309,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
                     ), f"wrong bwd scale_inv computed {suffix}"
                     global_fp8_buffer_fwd_id = "FWD_AMAX_" + str(global_counter)
                     global_fp8_buffer_bwd_id = "BWD_AMAX_" + str(global_counter)
-                    if reduce_amax and my_linear.get_amax_measure_state()["enabled"]:
+                    if reduce_amax and my_linear.get_amax_measure_state()["fwd_enabled"]:
                         assert torch.equal(
                             fp8.get_global_fp8_buffer()[global_fp8_buffer_fwd_id][m], refs[m]["fwd_amax"][0]
                         ), f"wrong fwd value global fp8 buffer {suffix}"
@@ -1319,7 +1319,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
 
                 suffix = f"at iter {iter}, input {i}"
                 if reduce_amax:
-                    if my_linear.get_amax_measure_state()["enabled"]:
+                    if my_linear.get_amax_measure_state()["fwd_enabled"]:
                         assert len(fp8.get_global_fp8_buffer()) in (
                             2,
                             3,

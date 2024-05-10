@@ -16,6 +16,7 @@
 # - Removed unused code paths
 
 """Linear API"""
+import os
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -38,6 +39,16 @@ from ..utils import cast_if_needed, divide, get_default_init_method
 from .base import TransformerEngineBaseModule, _prepare_backward
 
 __all__ = ["Linear"]
+
+# Debug switches
+DUMP_TENSORS_FLAG = "PT_TE_DUMP_TENSORS"
+DUMP_TENSORS_PATH = os.getenv("PT_TE_DUMP_TENSORS_PATH", "te_tensors")
+
+
+def DumpTensor(tensor, path):
+    if not os.path.exists(DUMP_TENSORS_PATH):
+        os.makedirs(DUMP_TENSORS_PATH)
+    torch.save(tensor, f"{DUMP_TENSORS_PATH}/{path}")
 
 
 class _Linear(torch.autograd.Function):
@@ -66,6 +77,14 @@ class _Linear(torch.autograd.Function):
         amax_measure_state: dict,
         is_scale_update_required: bool,
     ) -> torch.Tensor:
+        if int(os.getenv(DUMP_TENSORS_FLAG, 0)) == 1:
+            inp_path = (
+                f"{fp8_meta['name']}_inp_{fp8_meta['run_cnt']}_recompute_{fp8_meta['in_activation_recompute_phase']}.pt"
+            )
+            weight_path = f"{fp8_meta['name']}_weight_{fp8_meta['run_cnt']}_recompute_{fp8_meta['in_activation_recompute_phase']}.pt"
+            DumpTensor(inp, inp_path)
+            DumpTensor(weight.data, weight_path)
+
         # Make sure input dimensions are compatible
         in_features = weight.shape[-1]
         assert inp.shape[-1] == in_features, "GEMM not possible"
@@ -94,7 +113,7 @@ class _Linear(torch.autograd.Function):
                 tex.FP8FwdTensors.GEMM1_INPUT,
                 fp8_dtype_forward,
                 stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-                measure_amax=amax_measure_state["enabled"],
+                measure_amax=amax_measure_state["fwd_enabled"],
             )
 
             if update_fp8_weights:
@@ -104,7 +123,7 @@ class _Linear(torch.autograd.Function):
                     tex.FP8FwdTensors.GEMM1_WEIGHT,
                     fp8_dtype_forward,
                     stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
-                    measure_amax=amax_measure_state["enabled"],
+                    measure_amax=amax_measure_state["fwd_enabled"],
                 )
                 if weight_fp8_fwd is None:
                     weight_fp8_fwd = casted
@@ -133,7 +152,7 @@ class _Linear(torch.autograd.Function):
                 fp8_meta[meta_hybrid_key],
                 fp8_meta[meta_fwd_key],
                 tex.FP8FwdTensors.GEMM1_INPUT,
-                measure_amax=amax_measure_state["enabled"],
+                measure_amax=amax_measure_state["fwd_enabled"],
             )
 
             if update_fp8_weights:
@@ -142,7 +161,7 @@ class _Linear(torch.autograd.Function):
                     fp8_meta[meta_hybrid_key],
                     fp8_meta[meta_fwd_key],
                     tex.FP8FwdTensors.GEMM1_WEIGHT,
-                    measure_amax=amax_measure_state["enabled"],
+                    measure_amax=amax_measure_state["fwd_enabled"],
                 )
                 if weight_fp8_fwd is None:
                     weight_fp8_fwd = casted_fwd
@@ -180,29 +199,30 @@ class _Linear(torch.autograd.Function):
         # because next fwd will override its value (input bf16 weight will be the same but scale will be different,
         # so the resulting fp8 weight will differ), so in the first microbatch bwd fp8 weight and scale_inv
         # would not match - and the calculated dgrad will be incorrect.
-        cache_weight_fp8 = fp8 and not minimize_memory and not is_first_microbatch
+        cache_weight_fp8 = fp8 and not minimize_memory and not is_first_microbatch and inp.requires_grad
 
-        ctx.save_for_backward(
-            inputmat_no_fp8 if weight.requires_grad and not fp8_wgrad else None,
-            inputmat_fp8_for_bwd if weight.requires_grad and fp8_wgrad else None,
-            weight_fp8_for_bwd if cache_weight_fp8 else None,
-            weight,
-            fp8_meta[scale_cache_key].scale_inv.clone() if fp8 else None,
-            fp8_meta[scale_cache_key].scale.clone() if fp8 else None,
-        )
-        ctx.activation_dtype = activation_dtype
-        ctx.fp8 = fp8
-        ctx.fp8_meta = fp8_meta
-        ctx.use_bias = use_bias
-        ctx.sequence_parallel = sequence_parallel
-        ctx.tensor_parallel = tensor_parallel
-        ctx.inp_shape = inp.shape
-        ctx.parallel_mode = parallel_mode
-        ctx.tp_group = tp_group
-        ctx.amax_measure_state = amax_measure_state.copy()
-        ctx.is_scale_update_required = is_scale_update_required
-        ctx.requires_wgrad = weight.requires_grad
-        ctx.requires_dgrad = inp.requires_grad
+        if inp.requires_grad or weight.requires_grad:
+            ctx.save_for_backward(
+                inputmat_no_fp8 if weight.requires_grad and not fp8_wgrad else None,
+                inputmat_fp8_for_bwd if weight.requires_grad and fp8_wgrad else None,
+                weight_fp8_for_bwd if cache_weight_fp8 else None,
+                weight,
+                fp8_meta[scale_cache_key].scale_inv.clone() if fp8 else None,
+                fp8_meta[scale_cache_key].scale.clone() if fp8 else None,
+            )
+            ctx.activation_dtype = activation_dtype
+            ctx.fp8 = fp8
+            ctx.fp8_meta = fp8_meta
+            ctx.use_bias = use_bias
+            ctx.sequence_parallel = sequence_parallel
+            ctx.tensor_parallel = tensor_parallel
+            ctx.inp_shape = inp.shape
+            ctx.parallel_mode = parallel_mode
+            ctx.tp_group = tp_group
+            ctx.amax_measure_state = amax_measure_state.copy()
+            ctx.is_scale_update_required = is_scale_update_required
+            ctx.requires_wgrad = weight.requires_grad
+            ctx.requires_dgrad = inp.requires_grad
 
         # Row Parallel Linear
         if parallel_mode == "row" and sequence_parallel:
@@ -231,6 +251,14 @@ class _Linear(torch.autograd.Function):
                 fwd_scale_inverses,
                 fwd_scales,
             ) = ctx.saved_tensors
+
+            if int(os.getenv(DUMP_TENSORS_FLAG, 0)) == 1:
+                inputmap_fp8_path = f"{ctx.fp8_meta['name']}_inputmap_fp8_{ctx.fp8_meta['run_cnt']}.pt"
+                weight_bwd_path = f"{ctx.fp8_meta['name']}_weight_bwd_{ctx.fp8_meta['run_cnt']}.pt"
+                grad_output_path = f"{ctx.fp8_meta['name']}_grad_output_{ctx.fp8_meta['run_cnt']}.pt"
+                DumpTensor(inputmap_fp8.to(torch.bfloat16), inputmap_fp8_path)
+                DumpTensor(weight, weight_bwd_path)
+                DumpTensor(grad_output, grad_output_path)
 
             (
                 grad_output,
@@ -406,6 +434,7 @@ class Linear(TransformerEngineBaseModule):
         minimize_memory: bool = False,
     ) -> None:
         super().__init__()
+        self.name = self.name + "_Linear"
 
         params_dtype = torch.get_default_dtype() if params_dtype is None else params_dtype
         self.in_features = in_features

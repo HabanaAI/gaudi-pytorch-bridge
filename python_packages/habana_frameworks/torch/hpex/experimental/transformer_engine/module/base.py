@@ -77,7 +77,7 @@ def _prepare_backward(
 ) -> Generator[None, None, None]:
     """Checks and prep for BWD."""
     if fp8:
-        if fp8_meta["update_amax_bwd"].get("enabled", False):
+        if fp8_meta["update_amax_bwd"].get("bwd_enabled", False):
             # Update amax and scale; Skip all setup for global amax reduction
             if not fp8_meta["recipe"].reduce_amax:
                 amax_and_scale_update(fp8_meta, False, is_scale_update_required)
@@ -88,22 +88,26 @@ def _prepare_backward(
                 if fp8_meta["first_module"]:
                     set_amax_buffer_key_deletion(fp8_meta, forward=False)
 
-        if amax_measure_state["enabled"] and fp8_meta["recipe"].reduce_amax:
+        if amax_measure_state["bwd_enabled"] and fp8_meta["recipe"].reduce_amax:
             # Get new backward key.
-            if amax_measure_state["enabled"] and fp8_meta["recipe"].reduce_amax:
-                fp8_meta[get_run_id_key(forward=False)] = fp8_meta["run_id_fwd_stack"].pop(0)
+            fp8_meta[get_run_id_key(forward=False)] = fp8_meta["run_id_fwd_stack"].pop(0)
 
         fp8_meta["update_amax_bwd"] = amax_measure_state
 
     yield
 
     if fp8 and fp8_meta["recipe"].reduce_amax:
-        if amax_measure_state["enabled"]:
+        if amax_measure_state["bwd_enabled"]:
             add_amax_to_global_buffer(fp8_meta, forward=False)
             if fp8_meta["first_module"]:
                 global_amax_reduction(fp8_meta, reduce_amax_across_tp_group, tp_group, forward=False)
         if fp8_meta["first_module"]:
             delete_key_from_amax_buffer(forward=False)
+
+    fp8_meta["in_activation_recompute_phase"] = None
+
+
+MODULE_CNT = 0
 
 
 class TransformerEngineBaseModule(torch.nn.Module, ABC):
@@ -126,6 +130,11 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         self.fp8_meta["run_id_fwd_stack"] = []
         self.fp8_meta["update_amax_fwd"] = {}
         self.fp8_meta["update_amax_bwd"] = {}
+        self.fp8_meta["is_scale_update_required"] = False
+        self.fp8_meta["in_activation_recompute_phase"] = None
+        global MODULE_CNT
+        self.name = f"{MODULE_CNT}"
+        MODULE_CNT += 1
 
     def _handle_changed_amax_history_size(self, fp8_meta_tensor_key, num_fp8_tensors):
         curr_len = self.fp8_meta[fp8_meta_tensor_key].amax_history.shape[0]
@@ -407,21 +416,27 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         res = {}
         res["manual"] = get_manual_measurement_mode() is not None
         if get_manual_measurement_mode() is not None:
-            res["enabled"] = get_manual_measurement_mode()
+            res["bwd_enabled"] = get_manual_measurement_mode()
         else:
-            res["enabled"] = self.fp8_meta["recipe"].interval == 1 or (
+            res["bwd_enabled"] = self.fp8_meta["recipe"].interval == 1 or (
                 self.run_cnt + self.fp8_meta["recipe"].interval - 2
             ) % self.fp8_meta["recipe"].interval in range(
                 self.fp8_meta["recipe"].interval - self.fp8_meta["recipe"].amax_history_len,
                 self.fp8_meta["recipe"].interval,
             )
+        res["fwd_enabled"] = (
+            False
+            if (is_fp8_activation_recompute_enabled() and self.fp8_meta["in_activation_recompute_phase"])
+            else res["bwd_enabled"]
+        )
         return res
 
     def is_scale_update_required(self) -> bool:
         if not self.fp8:
             return False
         manual = self.fp8_meta["update_amax_fwd"].get("manual", False)
-        enabled = self.fp8_meta["update_amax_fwd"].get("enabled", False)
+        # based on bwd flag which is recompute agnostic
+        enabled = self.fp8_meta["update_amax_fwd"].get("bwd_enabled", False)
         if manual:
             return enabled
         else:
@@ -444,26 +459,30 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         # Increment run_cnt only once in each training step. For the modules for which
         # activation checkpointing is enabled increment the run_cnt only during forward pass.
         if is_fp8_activation_recompute_enabled():
-            # set the flag for each recompute.
-            set_fp8_activation_recompute_phase(torch.is_grad_enabled())
-            if not in_fp8_activation_recompute_phase():
-                self.run_cnt += 1
-        else:
+            if not torch.is_grad_enabled():
+                # grad disabled - first non-recompute phase
+                self.fp8_meta["in_activation_recompute_phase"] = False
+            elif self.fp8_meta["in_activation_recompute_phase"] == False:
+                # grad enabled after being disabled - second recompute phase
+                self.fp8_meta["in_activation_recompute_phase"] = True
+
+        if not self.fp8_meta["in_activation_recompute_phase"]:
+            # Non-recompute phase or no activation checkpointing run
             self.run_cnt += 1
 
         # Activation recomputation is used and this is the second forward phase.
-        if self.fp8 and in_fp8_activation_recompute_phase():
+        if self.fp8 and self.fp8_meta["in_activation_recompute_phase"]:
             get_old_fp8_meta_tensors_for_recompute(self.fp8_meta)
             # For modules with activation checkpointing, FP8 stats from the forward pass should be re-used
             # in the recompute phase. In the corresponding backward pass, the FP8 stats for the grad_outputs
             # need to be computed. This flag handles the scale updation condition for the backward pass.
-            # During the forward pass in recompute phase this flag is not considered.
-            is_scale_update_required = self.is_scale_update_required()
+            # During the forward pass in recompute phase self.fp8_meta["is_scale_update_required"] is not considered.
         else:
             if self.tp_size > 1:
                 assert self.tp_group_initialized, "TP group not initialized."
 
-            self.set_activation_dtype(inp)
+            if inp is not None:
+                self.set_activation_dtype(inp)
             self.fp8_init(num_gemms=num_gemms)
 
             # Create persistent tensors for fp8 weights and their transposes
@@ -477,7 +496,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                     "necessary when using sequence parallelism with FP8."
                 )
 
-            is_scale_update_required = self.is_scale_update_required()
+            self.fp8_meta["is_scale_update_required"] = self.is_scale_update_required()
 
             if not "first_module" in self.fp8_meta:
                 self.fp8_meta["first_module"] = is_first_fp8_module()
@@ -485,20 +504,20 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                 delete_key_from_amax_buffer(forward=True)
 
             # Previous iteration was grad_enabled
-            if self.fp8_meta["update_amax_fwd"].get("enabled", False):
+            if self.fp8_meta["update_amax_fwd"].get("fwd_enabled", False):
                 if self.fp8_meta["recipe"].reduce_amax:
                     if self.fp8_meta["first_module"]:
                         global_amax_reduction(self.fp8_meta, self.sequence_parallel, self.tp_group, forward=True)
                     copy_amax_from_global_buffer(self.fp8_meta, forward=True)
-                    amax_and_scale_update(self.fp8_meta, True, is_scale_update_required)
+                    amax_and_scale_update(self.fp8_meta, True, self.fp8_meta["is_scale_update_required"])
                     if self.fp8_meta["first_module"]:
                         set_amax_buffer_key_deletion(self.fp8_meta, forward=True)
                 else:
-                    amax_and_scale_update(self.fp8_meta, True, is_scale_update_required)
+                    amax_and_scale_update(self.fp8_meta, True, self.fp8_meta["is_scale_update_required"])
 
             if self.fp8 and self.training:
                 # Setup for amax reduction
-                if self.get_amax_measure_state()["enabled"] and self.fp8_meta["recipe"].reduce_amax:
+                if self.get_amax_measure_state()["fwd_enabled"] and self.fp8_meta["recipe"].reduce_amax:
                     run_id_key = get_run_id_key(forward=True)
                     if self.fp8_meta["first_module"]:
                         self.fp8_meta[run_id_key] = self.run_cnt
@@ -515,13 +534,15 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                 self.fp8
                 and self.training
                 and is_fp8_activation_recompute_enabled()
-                and not in_fp8_activation_recompute_phase()
+                and self.fp8_meta["in_activation_recompute_phase"] == False
             ):
                 copy_forward_fp8_meta_tensors_for_recompute(self.fp8_meta)
 
-        yield inp.contiguous(), is_scale_update_required
+        self.fp8_meta["name"] = self.name
+        self.fp8_meta["run_cnt"] = self.run_cnt
+        yield inp.contiguous() if inp is not None else None, self.fp8_meta["is_scale_update_required"]
 
-        if self.fp8 and in_fp8_activation_recompute_phase():
+        if self.fp8 and self.fp8_meta["in_activation_recompute_phase"]:
             restore_fp8_meta_tensors(self.fp8_meta)
             return
 
@@ -529,7 +550,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             self.fp8
             and self.training
             and self.fp8_meta["recipe"].reduce_amax
-            and self.fp8_meta["update_amax_fwd"]["enabled"]
+            and self.fp8_meta["update_amax_fwd"]["fwd_enabled"]
         ):
             add_amax_to_global_buffer(self.fp8_meta, forward=True)
 
@@ -571,7 +592,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                 grad_tensor,
                 fp8_dtype_backward,
                 stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
-                measure_amax=amax_measure_state["enabled"],
+                measure_amax=amax_measure_state["bwd_enabled"],
             )
             grad_output_c, _ = gather_along_first_dim(grad_output_c, ctx.tp_group)
 
@@ -588,7 +609,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             grad_tensor,
             fp8_dtype_backward,
             stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=False),
-            measure_amax=amax_measure_state["enabled"],
+            measure_amax=amax_measure_state["bwd_enabled"],
         )
 
         return grad_output_mat, grad_output_c, grad_bias
