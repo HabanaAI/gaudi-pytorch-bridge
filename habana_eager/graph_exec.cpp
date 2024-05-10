@@ -123,7 +123,7 @@ GraphExec::GraphExec(
   if (IsDynamicGraph()) {
     ProcessDynamicGraph(example_inputs);
     if (m_static_fallback) {
-      PT_DYNAMIC_SHAPE_DEBUG(
+      PT_DYNAMIC_SHAPE_WARN(
           "Number of tensor dims exceeds the limit, falling back to static!");
     }
     in_stack = ProcessDynamicStack(example_inputs, true);
