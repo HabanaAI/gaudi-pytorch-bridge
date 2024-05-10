@@ -427,9 +427,6 @@ if(BUILD_PKGS)
     habana_frameworks/torch/hpex/optimizers/SparseSGD.py
     habana_frameworks/torch/hpu/__init__.py
     habana_frameworks/torch/hpu/_utils.py
-    habana_frameworks/torch/hpu/csrc/Stream.cpp
-    habana_frameworks/torch/hpu/csrc/Event.cpp
-    habana_frameworks/torch/hpu/csrc/Module.cpp
     habana_frameworks/torch/hpu/csrc/bindings.cpp
     habana_frameworks/torch/hpu/events.py
     habana_frameworks/torch/hpu/graphs.py

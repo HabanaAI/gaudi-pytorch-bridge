@@ -248,17 +248,6 @@ TORCH_API void setCurrentHPUStream(HPUStream stream);
 
 C10_API std::ostream& operator<<(std::ostream& stream, const HPUStream& s);
 
-/**
- * Get a HPUStream from a externally allocated one.
- *
- * This is mainly for interoperability with different libraries where we
- * want to operate on a non-torch allocated stream for data exchange or similar
- * purposes
- */
-TORCH_API HPUStream getStreamByStreamPtr(
-    synapse_helpers::hpuStream_t ext_stream,
-    DeviceIndex device_index);
-
 } // namespace hpu
 } // namespace c10
 

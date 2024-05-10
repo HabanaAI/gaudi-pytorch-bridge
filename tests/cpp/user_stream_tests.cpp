@@ -858,17 +858,3 @@ TEST(TestStream, record_stream) {
   device.get_device_memory().recordStream(ptr, compute1.stream());
   device.get_device_memory().free(ptr);
 }
-
-TEST(TestStream, ExternalTest) {
-  habana::HABANAGuardImpl device_guard;
-  device_guard.getDevice();
-
-  synapse_helpers::hpuStream_t hpu_stream;
-  hpu_stream = c10::hpu::getStreamFromPool();
-  c10::hpu::HPUStream myStream = c10::hpu::getStreamByStreamPtr(hpu_stream, 0);
-
-  c10::hpu::setCurrentHPUStream(myStream);
-  c10::hpu::HPUStream curStream = c10::hpu::getCurrentHPUStream();
-  ASSERT_EQ(curStream, myStream);
-  ASSERT_EQ(curStream.stream(), hpu_stream);
-}

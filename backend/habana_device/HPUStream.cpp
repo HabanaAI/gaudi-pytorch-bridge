@@ -90,13 +90,6 @@ HPUStream HPUStreamForId(DeviceIndex device_index, StreamId stream_id) {
 
 } // anonymous namespace
 
-HPUStream getStreamByStreamPtr(
-    synapse_helpers::hpuStream_t ext_stream,
-    DeviceIndex device_index) {
-  // The stream pointer will be the actual id
-  return HPUStreamForId(device_index, (StreamId)ext_stream);
-}
-
 bool HPUStream::query() const {
   DeviceGuard guard{stream_.device()};
   auto& device = habana::HPURegistrar::get_device().syn_device();
