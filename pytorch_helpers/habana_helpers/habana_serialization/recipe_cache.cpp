@@ -29,6 +29,14 @@
 #include "base_cache_file_handler.h"
 #include "habana_helpers/logging.h"
 
+#if !defined __GNUC__ || __GNUC__ >= 8
+#include <filesystem>
+namespace fs = std::filesystem;
+#else
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#endif
+
 namespace {
 
 bool file_exists(std::string const& file) {
@@ -88,15 +96,31 @@ RecipeCache::RecipeCache(std::string cache_path)
       is_cache_valid_{false},
       inter_host_cache_{nullptr},
       cf_handler_{nullptr} {
-  // no checking of retval, the dir is queried below regardless
-  mkdir(cache_path_.c_str(), S_IRWXU | S_IRWXG);
-  struct stat info {};
-  if (stat(cache_path_.c_str(), &info) != 0 ||
-      !(info.st_mode & S_IFDIR)) { // NOLINT(hicpp-signed-bitwise))
-    PT_HABHELPER_WARN("Cannot create cache directory ", cache_path_);
-  } else {
+  std::error_code err_code;
+  bool newly_created = fs::create_directories(cache_path_, err_code);
+
+  if (!err_code) {
+    if (newly_created) {
+#if !defined __GNUC__ || __GNUC__ >= 8
+      fs::permissions(
+          cache_path_,
+          fs::perms::owner_all | fs::perms::group_all,
+          fs::perm_options::add);
+#else
+      fs::permissions(
+          cache_path_,
+          fs::perms::add_perms | fs::perms::owner_all | fs::perms::group_all);
+#endif
+    }
+
     PT_HABHELPER_INFO("Cache directory(", cache_path_, ") set up properly.");
     is_cache_valid_ = true;
+  } else {
+    PT_HABHELPER_FATAL(
+        "Cannot create cache directory(",
+        cache_path_,
+        "). Error message :",
+        err_code.message());
   }
 
   cf_handler_ = std::make_unique<BaseCacheFileHandler>();
