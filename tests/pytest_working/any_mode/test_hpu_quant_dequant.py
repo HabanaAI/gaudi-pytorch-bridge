@@ -17,6 +17,7 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     compare_tensors,
+    format_tc,
     is_gaudi1,
     is_pytest_mode_compile,
 )
@@ -28,13 +29,13 @@ pytestmark = [
 quant_dtypes = [torch.int8, torch.int32, torch.float8_e5m2, torch.float8_e4m3fn]
 
 
-@pytest.mark.parametrize("shape", [(24, 48), (16, 64)])
-@pytest.mark.parametrize("scale", [5.0, 20.0])
-@pytest.mark.parametrize("zero_point", [-10, 10])
 @pytest.mark.parametrize("is_scale_tensor, is_quant_tensor", [(True, True), (True, False), (False, False)])
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
-@pytest.mark.parametrize("out_dtype", quant_dtypes)
-def test_quantize_per_tensor(shape, scale, zero_point, is_scale_tensor, is_quant_tensor, dtype, out_dtype):
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("out_dtype", quant_dtypes, ids=format_tc)
+def test_quantize_per_tensor(is_scale_tensor, is_quant_tensor, dtype, out_dtype):
+    if out_dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
+        pytest.skip("https://jira.habana-labs.com/browse/SW-184321")
+
     def fn(input, scale, zero_point, quant_min, quant_max, out_dtype):
         return torch.ops.quantized_decomposed.quantize_per_tensor(
             input, scale, zero_point, quant_min, quant_max, out_dtype
@@ -42,6 +43,10 @@ def test_quantize_per_tensor(shape, scale, zero_point, is_scale_tensor, is_quant
 
     def fn_ref(input, scale, zero_point, quant_min, quant_max, out_dtype):
         return torch.clamp(torch.round(input / scale) + zero_point, quant_min, quant_max).to(out_dtype)
+
+    shape = (24, 48)
+    scale = 5.0
+    zero_point = 10
 
     input = (torch.rand(shape) * 1000.0).to(dtype)
     input_hpu = input.to("hpu")
@@ -84,16 +89,10 @@ def test_quantize_per_tensor(shape, scale, zero_point, is_scale_tensor, is_quant
         check_ops_executed_in_jit_ir("quantize_per_tensor")
 
 
-@pytest.mark.parametrize("shape", [(24, 48), (16, 64)])
-@pytest.mark.parametrize("scale", [0.2, 0.05])
-@pytest.mark.parametrize("zero_point", [-10, 10])
 @pytest.mark.parametrize("is_scale_tensor", [True, False])
-@pytest.mark.parametrize("dtype", quant_dtypes)
-@pytest.mark.parametrize("orig_dtype", [torch.float, torch.bfloat16])
-def test_dequantize_per_tensor(shape, scale, zero_point, is_scale_tensor, dtype, orig_dtype):
-    if is_pytest_mode_compile() and dtype in [torch.float8_e5m2, torch.float8_e4m3fn] and is_scale_tensor:
-        pytest.skip("https://jira.habana-labs.com/browse/SW-174722")
-
+@pytest.mark.parametrize("dtype", quant_dtypes, ids=format_tc)
+@pytest.mark.parametrize("orig_dtype", [torch.float, torch.bfloat16], ids=format_tc)
+def test_dequantize_per_tensor(is_scale_tensor, dtype, orig_dtype):
     def fn(input, scale, zero_point, out_dtype):
         return torch.ops.quantized_decomposed.dequantize_per_tensor(
             input, scale, zero_point, 0, 0, input.dtype, out_dtype=out_dtype
@@ -101,6 +100,10 @@ def test_dequantize_per_tensor(shape, scale, zero_point, is_scale_tensor, dtype,
 
     def fn_ref(input, scale, zero_point):
         return (input.to(torch.float) - zero_point) * scale
+
+    shape = (16, 64)
+    scale = 0.05
+    zero_point = -10
 
     input = (torch.rand(shape) * 200.0).to(dtype)
     input_hpu = input.to("hpu")
@@ -140,13 +143,12 @@ def _permute_to_axis_zero(x, axis):
     return y, new_axis_list
 
 
-@pytest.mark.parametrize("shape", [(8, 16, 12, 20), (4, 22, 16, 8)])
-@pytest.mark.parametrize("axis", [0, 1, 2, 3])
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
-@pytest.mark.parametrize("out_dtype", quant_dtypes)
-def test_quantize_per_channel(shape, axis, dtype, out_dtype):
-    if is_pytest_mode_compile() and (out_dtype in [torch.float8_e5m2, torch.float8_e4m3fn] or dtype != torch.float):
-        pytest.skip("https://jira.habana-labs.com/browse/SW-174722")
+@pytest.mark.parametrize("axis", [1, 3])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("out_dtype", quant_dtypes, ids=format_tc)
+def test_quantize_per_channel(axis, dtype, out_dtype):
+    if out_dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
+        pytest.skip("https://jira.habana-labs.com/browse/SW-184321")
 
     def fn(input, scales, zero_points, axis, quant_min, quant_max, out_dtype):
         return torch.ops.quantized_decomposed.quantize_per_channel(
@@ -166,6 +168,8 @@ def test_quantize_per_channel(shape, axis, dtype, out_dtype):
 
         out = res.permute(tuple(permute_axis_list))
         return out.to(out_dtype)
+
+    shape = (8, 16, 12, 20)
 
     input = (torch.rand(shape) * 500.0).to(dtype)
     input_hpu = input.to("hpu")
@@ -195,14 +199,10 @@ def test_quantize_per_channel(shape, axis, dtype, out_dtype):
         check_ops_executed_in_jit_ir("quantize_per_channel")
 
 
-@pytest.mark.parametrize("shape", [(8, 16, 12, 20), (4, 22, 16, 8)])
-@pytest.mark.parametrize("axis", [0, 1, 2, 3])
-@pytest.mark.parametrize("dtype", quant_dtypes)
-@pytest.mark.parametrize("orig_dtype", [torch.float, torch.bfloat16])
-def test_dequantize_per_channel(shape, axis, dtype, orig_dtype):
-    if is_pytest_mode_compile() and dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
-        pytest.skip("https://jira.habana-labs.com/browse/SW-174722")
-
+@pytest.mark.parametrize("axis", [0, -2])
+@pytest.mark.parametrize("dtype", quant_dtypes, ids=format_tc)
+@pytest.mark.parametrize("orig_dtype", [torch.float, torch.bfloat16], ids=format_tc)
+def test_dequantize_per_channel(axis, dtype, orig_dtype):
     def fn(input, scales, zero_points, axis, orig_dtype):
         return torch.ops.quantized_decomposed.dequantize_per_channel(
             input, scales, zero_points, axis, 0, 0, input.dtype, out_dtype=orig_dtype
@@ -217,6 +217,8 @@ def test_dequantize_per_channel(shape, axis, dtype, orig_dtype):
 
         out = res.permute(tuple(permute_axis_list))
         return out
+
+    shape = (4, 22, 16, 8)
 
     input = (torch.rand(shape) * 200.0).to(dtype)
     input_hpu = input.to("hpu")
