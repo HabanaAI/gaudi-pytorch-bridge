@@ -106,7 +106,7 @@ at::Tensor fused_norm_hpu_wrap(
       OutputMetaData meta;
       const at::Tensor& grad = grads[0];
       meta.dtype = grad.scalar_type();
-      meta.shape = grad.sizes().vec();
+      meta.shape = {1};
       meta_vec.push_back(meta);
     }
 
