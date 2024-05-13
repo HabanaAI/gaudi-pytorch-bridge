@@ -36,19 +36,22 @@ inline int64_t mod_exp(int64_t y, int64_t x = 997) {
   const int64_t p{1000000007};
   int64_t z = 1;
   int64_t sign{(y < 0 ? -1 : 1)};
-  y = llabs(y);
+  // llabs function doesn't handle INT64_MIN value correctly, calling it with
+  // such value causes an undefined behaviour. So abs value of INT64_MIN should
+  // be calculated manually
+  uint64_t yAbs = y == INT64_MIN ? static_cast<uint64_t>(INT64_MAX) + 1
+                                 : static_cast<uint64_t>(llabs(y));
 
   x = x % p;
   if (x == 0) {
     return 0;
   }
-
-  while (y > 0) {
-    if (y & 1) {
+  while (yAbs > 0) {
+    if (yAbs & 1) {
       z = (z * x) % p;
     }
 
-    y >>= 1;
+    yAbs >>= 1;
     x = (x * x) % p;
   }
   z *= sign;
