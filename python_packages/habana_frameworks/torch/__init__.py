@@ -13,6 +13,9 @@
 import ctypes
 import os
 
+# This is to ensure we don't start torch.inductor codecache process pool
+os.environ["TORCHINDUCTOR_COMPILE_THREADS"] = "1"
+
 import torch
 from habana_frameworks.torch.utils.internal import is_lazy
 from packaging.version import Version
