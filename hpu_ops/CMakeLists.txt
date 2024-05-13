@@ -373,7 +373,6 @@ add_habana_library(habana_pytorch_frontend_ops OBJECT
           lazy/reduction_template.cpp
           lazy/sort_gen.cpp
           lazy/topk_gen.cpp
-          lazy/topk_util.cpp
           lazy/unique_gen.cpp
           lazy/upsample_gen.cpp
           lazy/xlogy_gen.cpp
