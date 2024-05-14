@@ -329,6 +329,37 @@ at::Tensor instance_norm_autograd_wrap(
   return InstanceNormAutogradHPU::apply(input, weight_opt, bias_opt, eps);
 }
 
+at::Tensor instance_norm_wrap(
+    const at::Tensor& input,
+    const c10::optional<at::Tensor>& weight_opt,
+    const c10::optional<at::Tensor>& bias_opt,
+    const c10::optional<at::Tensor>& running_mean_opt,
+    const c10::optional<at::Tensor>& running_var_opt,
+    bool use_input_stats,
+    double momentum,
+    double eps,
+    bool cudnn_enabled) {
+  PT_OP_INFO(
+      " instance_norm:",
+      DUMP_9ARGS(
+          input,
+          weight_opt,
+          bias_opt,
+          running_mean_opt,
+          running_var_opt,
+          use_input_stats,
+          momentum,
+          eps,
+          cudnn_enabled));
+
+  return std::get<0>(
+      dispatch_instance_norm_hpu(input, weight_opt, bias_opt, eps));
+}
+
+TORCH_LIBRARY_IMPL(aten, HPU, m) {
+  m.impl("instance_norm", instance_norm_wrap);
+}
+
 TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
   m.impl("instance_norm", instance_norm_autograd_wrap);
 }
