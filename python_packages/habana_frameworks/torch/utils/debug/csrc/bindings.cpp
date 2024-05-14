@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include <torch/extension.h>
+#include <map>
 #include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/helpers/dynamic_bucket_info.h"
@@ -225,4 +226,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       [](const std::string& logger_name, log_level logger_level) {
         hl_logger::setLoggingLevelByMask(logger_name, logger_level);
       });
+
+  m.def("get_pt_logging_levels", []() {
+    std::map<std::string, int> result;
+    for (int i = 0; i < static_cast<int>(HlLogger::LoggerType::LOG_MAX); i++) {
+      HlLogger::LoggerType logger = static_cast<HlLogger::LoggerType>(i);
+      result.insert(std::pair<std::string, int>(
+          hl_logger::getLoggerEnumItemName(logger),
+          hl_logger::getLoggingLevel(logger)));
+    }
+    return result;
+  });
 }
