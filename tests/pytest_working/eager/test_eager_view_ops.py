@@ -716,6 +716,9 @@ def test_view(ttl, inout):
     for key in cpu_tensors.keys():
         result_cpu = cpu_tensors[key]
         result_hpu = hpu_tensors[key]
+        if isinstance(result_cpu, list):
+            result_cpu = torch.cat(result_cpu[:])
+            result_hpu = torch.cat(result_hpu[:])
         if Verbose:
             print(f"{key = }")
             print(f"{result_cpu = }")
