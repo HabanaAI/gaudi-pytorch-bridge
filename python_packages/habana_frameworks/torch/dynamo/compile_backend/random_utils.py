@@ -16,7 +16,6 @@ import torch
 RANDOM_OPS = (
     {
         "aten.bernoulli.default": torch.ops.hpu.habana_bernoulli,
-        "aten.poisson.default": torch.ops.hpu.habana_poisson,
         "aten.rand.default": torch.ops.hpu.habana_rand,
         "aten.randn.default": torch.ops.hpu.habana_randn,
         "aten.randint.low": torch.ops.hpu.habana_randint,

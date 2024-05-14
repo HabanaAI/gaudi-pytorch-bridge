@@ -12,11 +12,11 @@
 import numpy as np
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs
 
 
-@pytest.mark.parametrize("shape", [(3, 4), (2, 5, 6)], ids=format_tc)
-@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("shape", [(3, 4), (2, 5, 6)])
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
 def test_bernoulli(shape, dtype):
     torch._dynamo.reset()
     clear_t_compile_logs()
@@ -94,61 +94,8 @@ def test_bernoulli_determinism_two_graphs():
     assert torch.equal(result_2, result_2a)
 
 
-@pytest.mark.parametrize("shape", [(3, 4), (2, 5, 6)], ids=format_tc)
-@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16], ids=format_tc)
-def test_poisson(shape, dtype):
-    torch._dynamo.reset()
-    clear_t_compile_logs()
-
-    def fn(input):
-        return torch.poisson(input)
-
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
-    input = torch.empty(shape, dtype=dtype).uniform_(0).to("hpu")
-
-    result_1 = compiled_fn(input).cpu()
-    result_2 = compiled_fn(input).cpu()
-    assert not torch.equal(result_1, result_2)
-
-    assert torch.all(result_1 >= 0.0)
-    assert torch.all(result_2 >= 0.0)
-
-    check_ops_executed_in_jit_ir("habana_poisson")
-
-
-def test_poisson_determinism():
-    torch._dynamo.reset()
-    clear_t_compile_logs()
-
-    def fn(input):
-        return torch.poisson(input)
-
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
-
-    input = torch.empty((3, 4, 5), dtype=torch.float32).uniform_(0).to("hpu")
-
-    torch.manual_seed(12345)
-    result_1 = compiled_fn(input).cpu()
-    result_2 = compiled_fn(input).cpu()
-
-    torch.manual_seed(12345)
-    result_1a = compiled_fn(input).cpu()
-    result_2a = compiled_fn(input).cpu()
-
-    torch.manual_seed(54321)
-    result_1b = compiled_fn(input).cpu()
-    result_2b = compiled_fn(input).cpu()
-
-    assert torch.equal(result_1, result_1a)
-    assert torch.equal(result_2, result_2a)
-    assert not torch.equal(result_1, result_1b)
-    assert not torch.equal(result_2, result_2b)
-
-    check_ops_executed_in_jit_ir("habana_poisson")
-
-
-@pytest.mark.parametrize("shape", [(3, 4), (2, 5, 6)], ids=format_tc)
-@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("shape", [(3, 4), (2, 5, 6)])
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
 @pytest.mark.parametrize("is_like", [False, True])
 def test_rand(shape, dtype, is_like):
     torch._dynamo.reset()
@@ -176,8 +123,8 @@ def test_rand(shape, dtype, is_like):
     check_ops_executed_in_jit_ir("habana_rand")
 
 
-@pytest.mark.parametrize("shape", [(100, 100), (64, 8, 16)], ids=format_tc)
-@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("shape", [(100, 100), (64, 8, 16)])
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
 @pytest.mark.parametrize("is_like", [False, True])
 def test_randn(shape, dtype, is_like):
     torch._dynamo.reset()
@@ -219,10 +166,10 @@ def test_randn(shape, dtype, is_like):
     check_ops_executed_in_jit_ir("habana_randn")
 
 
-@pytest.mark.parametrize("shape", [(20, 40), (5, 10, 15)], ids=format_tc)
-@pytest.mark.parametrize("low, high", [(2, 200), (-50, 20), (None, 10000)], ids=format_tc)
+@pytest.mark.parametrize("shape", [(20, 40), (5, 10, 15)])
+@pytest.mark.parametrize("low, high", [(2, 200), (-50, 20), (None, 10000)])
 @pytest.mark.parametrize("is_like", [False, True])
-@pytest.mark.parametrize("dtype", [torch.int, torch.long], ids=format_tc)
+@pytest.mark.parametrize("dtype", [torch.int, torch.long])
 def test_randint(shape, low, high, is_like, dtype):
     torch._dynamo.reset()
     clear_t_compile_logs()
@@ -253,8 +200,8 @@ def test_randint(shape, low, high, is_like, dtype):
     check_ops_executed_in_jit_ir("habana_randint")
 
 
-@pytest.mark.parametrize("shape", [(10,), (8, 10)], ids=format_tc)
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("shape", [(10,), (8, 10)])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
 @pytest.mark.parametrize("replacement", [True, False])
 def test_multinomial(shape, dtype, replacement):
     torch._dynamo.reset()
@@ -289,7 +236,7 @@ def test_multinomial(shape, dtype, replacement):
     check_ops_executed_in_jit_ir("habana_multinomial")
 
 
-@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
 def test_various_ops(dtype):
     torch._dynamo.reset()
     clear_t_compile_logs()
@@ -303,14 +250,12 @@ def test_various_ops(dtype):
         f = torch.randn(shape_c, dtype=dtype, device="hpu")
         g = torch.randint(10, 300, shape_c, dtype=torch.int, device="hpu").to(dtype)
         h = torch.multinomial(multinomial_input, shape_c[-1], replacement=True).to(dtype)
-        i = torch.poisson(g)
         ab = torch.mul(a, b)
         cd = torch.div(c, d)
         ef = torch.add(e, f)
         efg = torch.sub(ef, g)
         efgh = torch.add(efg, h)
-        efghi = torch.add(efgh, i)
-        result = torch.addmm(ab, cd, efghi)
+        result = torch.addmm(ab, cd, efgh)
         return result
 
     compiled_fn = torch.compile(fn, backend="hpu_backend")
@@ -340,12 +285,18 @@ def test_various_ops(dtype):
     assert torch.equal(result_3, result_3a)
 
     check_ops_executed_in_jit_ir(
-        {"habana_bernoulli", "habana_rand", "habana_randn", "habana_randint", "habana_multinomial", "habana_poisson"}
+        {
+            "habana_bernoulli",
+            "habana_rand",
+            "habana_randn",
+            "habana_randint",
+            "habana_multinomial",
+        }
     )
 
 
-@pytest.mark.parametrize("n", [(5), (8), (17)], ids=format_tc)
-@pytest.mark.parametrize("dtype", [torch.long], ids=format_tc)
+@pytest.mark.parametrize("n", [(5), (8), (17)])
+@pytest.mark.parametrize("dtype", [torch.long])
 def test_randperm(n, dtype):
     torch._dynamo.reset()
     clear_t_compile_logs()

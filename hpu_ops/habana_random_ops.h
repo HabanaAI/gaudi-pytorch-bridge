@@ -1,4 +1,4 @@
-/*******************************************************************************
+/******************************************************************************
  * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -30,7 +30,6 @@
 namespace habana {
 
 DEFINE_OP(HabanaBernoulli)
-DEFINE_OP(HabanaPoisson)
 DEFINE_OP(HabanaRandPermOp)
 DEFINE_OP(HabanaNativeDropoutOp)
 DEFINE_OP(HabanaRandPermOpDS)
