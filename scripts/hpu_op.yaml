@@ -5711,6 +5711,42 @@ native_batch_norm:
     acc_thread: true
     override_fn: batch_norm_hpu_lazy
 
+native_batch_norm.out:
+  custom_fill_params: FillBatchNormFwdParams
+  output_meta: BatchNormFwdMeta
+  dtypes:
+    Gaudi:
+      input: [BFloat16, Float]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+      out: [BFloat16, Float]
+      save_mean: [Float]
+      save_invstd: [Float]
+    Gaudi2:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+      out: [BFloat16, Float, Half]
+      save_mean: [Float]
+      save_invstd: [Float]
+    Gaudi3:
+      input: [BFloat16, Float, Half]
+      weight: [Float]
+      bias: [Float]
+      running_mean: [Float]
+      running_var: [Float]
+      out: [BFloat16, Float, Half]
+      save_mean: [Float]
+      save_invstd: [Float]
+  op_backend: BatchNormOpBackend
+  synapse_layouts:
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
+
 native_batch_norm_backward:
   custom_fill_params: FillBatchNormBwdParams
   output_meta: BatchNormBwdMeta
