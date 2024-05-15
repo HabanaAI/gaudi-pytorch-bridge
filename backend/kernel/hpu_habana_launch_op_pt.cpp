@@ -3449,8 +3449,9 @@ void HabanaLaunchOpPT::ValidateInputsAndOutputsAndDisableSA(
       if (size == 0) {
         jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
         PT_EAGER_DEBUG(
-            "[SHAPE AGNOSTIC] shape agnostic not supported for this Op",
-            " output shapes not ok!");
+            "[SHAPE AGNOSTIC] Shape agnostic not supported for op ",
+            name_,
+            ", output shapes not ok!");
         break;
       }
     }
@@ -3465,8 +3466,9 @@ void HabanaLaunchOpPT::ValidateInputsAndOutputsAndDisableSA(
       if (is_shape_tensor) {
         jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
         PT_EAGER_DEBUG(
-            "[SHAPE AGNOSTIC] shape agnostic not supported for this Op",
-            " input is a shape tensor ! ",
+            "[SHAPE AGNOSTIC] Shape agnostic not supported for op ",
+            name_,
+            ", input is a shape tensor ! ",
             " tmeta : ",
             tmeta);
         break;
@@ -3882,8 +3884,9 @@ void HabanaLaunchOpPT::run(
       if (syn_graph_ptr_->get_num_of_shape_tensors() > 0) {
         jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
         PT_EAGER_DEBUG(
-            "[SHAPE AGNOSTIC] Shape agnostic not supported for Op",
-            " with intermediate shape tensors : ",
+            "[SHAPE AGNOSTIC] Shape agnostic not supported for op ",
+            name_,
+            ", with intermediate shape tensors : ",
             syn_graph_ptr_->get_num_of_shape_tensors());
       }
 
@@ -3932,8 +3935,9 @@ void HabanaLaunchOpPT::run(
             if (RunHybridSif<dynamic_shapes_true>(tmp_map)) {
               jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
               PT_EAGER_DEBUG(
-                  "[SHAPE AGNOSTIC] Shape agnostic not supported, "
-                  "syanpse shape inference expects shape tensor(s) !");
+                  "[SHAPE AGNOSTIC] Shape agnostic not supported for op ",
+                  name_,
+                  ", syanpse shape inference expects shape tensor(s) !");
               syn_infer_shapes = false;
             }
           } catch (std::exception& e) {
@@ -3941,8 +3945,9 @@ void HabanaLaunchOpPT::run(
             // AllocateAndAddSynapseNode if ComputeOutputShape
             // is not supported or failed during early validation
             PT_EAGER_DEBUG(
-                "[SHAPE AGNOSTIC] Shape agnostic not supported, "
-                "RunHybridSif with dynamic shapes failed ! ",
+                "[SHAPE AGNOSTIC] Shape agnostic not supported for op ",
+                name_,
+                ", RunHybridSif with dynamic shapes failed ! ",
                 "what(): ",
                 e.what());
             syn_infer_shapes = false;
@@ -3957,8 +3962,9 @@ void HabanaLaunchOpPT::run(
             } else {
               jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
               PT_EAGER_DEBUG(
-                  "[SHAPE AGNOSTIC] Shape agnostic not supported, "
-                  " Cache miss synapse shape inference failed !");
+                  "[SHAPE AGNOSTIC] Shape agnostic not supported for op ",
+                  name_,
+                  ", Cache miss synapse shape inference failed !");
               // Reset duplicate tensors shape to correct shapes
               ResetDuplicateTensorShapes(
                   syn_graph_ptr_, duplicate_tensors_shape_map);
