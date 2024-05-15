@@ -11,6 +11,8 @@
  *******************************************************************************
  */
 
+#include <cstring>
+
 #include "backend/jitgraph_utils.h"
 #include "habana_helpers/logging.h"
 
@@ -139,9 +141,12 @@ int inplaceInputId(const torch::jit::Node* node) {
   auto node_name = node->kind().toQualString();
   size_t len = strlen(node_name);
   char endch = node_name[len - 1];
+  char before_endch = (len > 1) ? node_name[len - 2] : ' ';
   int inputId = -1;
-  if (endch == '_') {
-    inputId = 0;
+  // operators of the form op_ and __iop__ are inplace
+  // but operators of the form op and __op__ are not:
+  if ((endch == '_' && before_endch != '_') || strstr(node_name, "__i")) {
+      inputId = 0;
   } else if (
       (strcmp(node_name, "hpu::habana_d2d_memcpy") == 0) ||
       (strcmp(node_name, "hpu::habana_d2d_memcpy_other") == 0)) {
