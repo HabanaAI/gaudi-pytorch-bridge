@@ -122,5 +122,7 @@ class TestHpuUpsample:
     @pytest.mark.parametrize("align_corners", [True, False])
     @pytest.mark.parametrize("variant", ["fwd", "bwd"])
     def test_upsample_linear1d(self, shape_and_size, scale_factor, align_corners, variant, dtype):
+        if pytest.mode == "compile":
+            pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, align_corners, False, "linear", dtype)
