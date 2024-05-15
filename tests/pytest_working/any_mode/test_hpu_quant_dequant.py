@@ -29,20 +29,23 @@ pytestmark = [
 quant_dtypes = [torch.int8, torch.int32, torch.float8_e5m2, torch.float8_e4m3fn]
 
 
+def round_if_integer(input, out_dtype):
+    if out_dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
+        return input
+    return torch.round(input)
+
+
 @pytest.mark.parametrize("is_scale_tensor, is_quant_tensor", [(True, True), (True, False), (False, False)])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 @pytest.mark.parametrize("out_dtype", quant_dtypes, ids=format_tc)
 def test_quantize_per_tensor(is_scale_tensor, is_quant_tensor, dtype, out_dtype):
-    if out_dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
-        pytest.skip("https://jira.habana-labs.com/browse/SW-184321")
-
     def fn(input, scale, zero_point, quant_min, quant_max, out_dtype):
         return torch.ops.quantized_decomposed.quantize_per_tensor(
             input, scale, zero_point, quant_min, quant_max, out_dtype
         )
 
     def fn_ref(input, scale, zero_point, quant_min, quant_max, out_dtype):
-        return torch.clamp(torch.round(input / scale) + zero_point, quant_min, quant_max).to(out_dtype)
+        return torch.clamp(round_if_integer(input / scale, out_dtype) + zero_point, quant_min, quant_max).to(out_dtype)
 
     shape = (24, 48)
     scale = 5.0
@@ -147,9 +150,6 @@ def _permute_to_axis_zero(x, axis):
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 @pytest.mark.parametrize("out_dtype", quant_dtypes, ids=format_tc)
 def test_quantize_per_channel(axis, dtype, out_dtype):
-    if out_dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
-        pytest.skip("https://jira.habana-labs.com/browse/SW-184321")
-
     def fn(input, scales, zero_points, axis, quant_min, quant_max, out_dtype):
         return torch.ops.quantized_decomposed.quantize_per_channel(
             input, scales, zero_points, axis, quant_min, quant_max, out_dtype
@@ -161,7 +161,7 @@ def test_quantize_per_channel(axis, dtype, out_dtype):
 
         for i in range(input.size(0)):
             res[i] = torch.clamp(
-                torch.round(input[i] * (1.0 / scales[i])) + zero_points[i],
+                round_if_integer(input[i] * (1.0 / scales[i]), out_dtype) + zero_points[i],
                 quant_min,
                 quant_max,
             )
