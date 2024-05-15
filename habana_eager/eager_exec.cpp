@@ -913,7 +913,8 @@ bool EagerExec::is_eager_compiler_supported_for_graph(
     const auto& opname = std::string((*it)->kind().toQualString());
     if ((opname.find("hpu::optimizer") != std::string::npos) ||
         (opname.find("hpu::fused_norm_lazy") != std::string::npos) ||
-        (opname.find("hpu::custom_foreach_add_") != std::string::npos)) {
+        (opname.find("hpu::custom_foreach_add_") != std::string::npos) ||
+        (opname.find("hpu::sdpa") != std::string::npos)) {
       return false;
     }
   }
