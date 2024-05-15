@@ -206,7 +206,7 @@ TEST_P(ShapeAgnosticOrNormalFlowTest, ConvReluRelu) {
     EXPECT_EQ(allclose(out, outcpu, 0.01, 0.01), true);
     EXPECT_EQ(allclose(out_2, outcpu_2, 0.01, 0.01), true);
     EXPECT_EQ(allclose(out_3, outcpu_3, 0.01, 0.01), true);
-    EXPECT_EQ(num_cache_entries, 3);
+    EXPECT_EQ(num_cache_entries, 4);
   }
 }
 

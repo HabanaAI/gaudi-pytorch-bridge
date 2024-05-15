@@ -55,39 +55,6 @@ std::vector<int64_t> calcNewStrides(
   }
   return new_strides_perm;
 }
-void handlePermutedTensor(
-    const torch::Tensor& permutedTensor,
-    const torch::Tensor& cpuTensor,
-    bool non_blocking) {
-  PT_EAGER_TRACE;
-  habana_helpers::print_tensor_debug(permutedTensor);
-  habana_helpers::print_tensor_debug(cpuTensor);
-  TORCH_CHECK(
-      permutedTensor.device().type() == c10::DeviceType::HPU,
-      "handlePermutedTensor permutedTensor should be HPU");
-  TORCH_CHECK(
-      cpuTensor.device().type() == c10::DeviceType::CPU,
-      "handlePermutedTensor cpuTensor should be CPU");
-
-  synapse_helpers::layouts::MemoryPermutation permutation;
-  std::tie(permutation, std::ignore) =
-      habana_helpers::get_tensor_memory_permutation(permutedTensor);
-  if (permutation.size() != 0) {
-    if (non_blocking) {
-      TORCH_CHECK(
-          false, "handlePermutedTensor we only support non_blocking = false");
-    }
-    // translate synapse permtue to pt permute
-    auto pt_permute = translateSynapsePermuteToPt(permutation);
-    // calculate new strides according to permutation
-    auto strides = calcNewStrides(permutedTensor, pt_permute);
-    auto old_sizes = cpuTensor.sizes();
-    // set cpu tensor with old sizes + new strides
-    cpuTensor.unsafeGetTensorImpl()->set_sizes_and_strides(old_sizes, strides);
-    // permute tensor back to host
-    cpuTensor.copy_(cpuTensor.contiguous());
-  }
-}
 
 // Backend it treating Long(int64) as Int(int32) and Double as Float.
 // In Lazy, we track this under the hood, and implicitly up/down cast data.
@@ -181,18 +148,35 @@ at::Tensor _copy_from_d2h(
   _assert_tensors_dtypes(self, dst);
 
   auto self_ = self;
+  auto self_strides = self_.strides();
 
-  bool same_mem_format = (self.strides() == dst.strides());
+  // If synapse permutation is applicable
+  // calculate permuted strides w.r.t hpu tensor
+  habana::eager::JoinPendingPipelineThreads();
+  synapse_helpers::layouts::MemoryPermutation permutation;
+  std::tie(permutation, std::ignore) =
+      habana_helpers::get_tensor_memory_permutation(self_);
+  if (permutation.size() != 0) {
+    // translate synapse permtue to pt permute
+    auto pt_permute = translateSynapsePermuteToPt(permutation);
+    // if view tensor get the base tensor
+    auto tmeta{habana::get_tensor_extra_meta(self_)};
+    auto t =
+        tmeta->is_view_tensor() ? habana::eager::create_base(self_) : self_;
+    // calculate new strides according to the synapse permutation
+    self_strides = calcNewStrides(t, pt_permute);
+  }
 
-  if (!dst.is_contiguous() && !same_mem_format) {
+  bool same_mem_format = (self_strides == dst.strides());
+  if (!same_mem_format) {
     auto d2h_dst = at::empty_like(dst, dst.options().device(self.device()));
     self_ = add_strided_insert(d2h_dst, self_);
+    habana::eager::JoinPendingPipelineThreads();
   }
 
   // To Do - join pending not required here once copy d2h
   // also comes through pipeline SW-126657
   // we also need Thread join before invoking is_view_op_needed()
-  habana::eager::JoinPendingPipelineThreads();
   if (dst.is_contiguous() && is_view_op_needed(self_)) {
     auto base = habana::eager::create_base(self_);
     constexpr int out_index = 0;
@@ -218,7 +202,8 @@ at::Tensor _copy_from_d2h(
   } else {
     habana_helpers::copy_data_to_host(self_, dst, non_blocking);
   }
-  handlePermutedTensor(self_, dst, non_blocking);
+  habana_helpers::print_tensor_debug(self_);
+  habana_helpers::print_tensor_debug(dst);
   return dst;
 }
 

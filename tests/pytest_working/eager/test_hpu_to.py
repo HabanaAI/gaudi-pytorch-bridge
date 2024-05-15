@@ -78,3 +78,31 @@ def test_hpu_to(shape_strides, device_mode, dst_format, dtype):
     compare_tensors(ref_input, result_cpu, atol=0, rtol=0)
 
     assert result_cpu.is_contiguous(memory_format=dst_format)
+
+
+# following test validates "to" operator memory format w.r.t synapse permutation
+@pytest.mark.parametrize("dst_format", dst_formats, ids=format_tc)
+def test_conv_hpu_to(dst_format):
+    input = torch.arange(27, dtype=torch.float32, requires_grad=False).reshape(1, 3, 3, 3)
+    weight = torch.arange(27, dtype=torch.float32, requires_grad=False).reshape(3, 3, 3, 1)
+
+    # cpu
+    out = torch.nn.functional.conv2d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1)
+
+    # hpu
+    input_hpu = input.to("hpu")
+    weight_hpu = weight.to("hpu")
+    out_hpu = torch.nn.functional.conv2d(
+        input_hpu,
+        weight_hpu,
+        bias=None,
+        stride=1,
+        padding=0,
+        dilation=1,
+        groups=1,
+    )
+
+    if dst_format == torch.channels_last:
+        out = out.to(memory_format=dst_format)
+    out_cpu = out_hpu.to(non_blocking=False, copy=True, memory_format=dst_format, device="cpu")
+    assert torch.allclose(out, out_cpu, atol=0.001, rtol=0.001)
