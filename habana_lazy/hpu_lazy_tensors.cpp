@@ -1641,12 +1641,6 @@ c10::ScalarType HbLazyTensor::getTensorOriginalType() const {
 void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
   PT_LAZY_TRACE;
 
-  // the original dest data is now stale. Release it if not in op accmulation
-  // phase
-  if (!dest->IsOpAccumulationInProgress()) {
-    dest->data()->tensor_data = c10::nullopt;
-  }
-
   // check for shallow copy in src
   auto hl_src_updated = *this;
   auto src_tensor_opt = hl_src_updated.getDataPtr()->tensor_shallow_copy;
@@ -1656,6 +1650,13 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
 
   auto aten_t = AtenFromHbLazyTensor(
       hl_src_updated, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
+
+  // the original dest data is now stale. Release it if not in op accmulation
+  // phase
+  if (!dest->IsOpAccumulationInProgress() &&
+      hl_src_updated.getTensorUniqueId() != dest->getTensorUniqueId()) {
+    dest->data()->tensor_data = c10::nullopt;
+  }
 
   // loop over the shallow copy vectors to collect the ones that are in use, and
   // put those in-used data to the data keeper.

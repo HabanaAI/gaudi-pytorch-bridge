@@ -456,6 +456,7 @@ void strided_insert_hpu_lazy(
   GetHbLazyTensor(params.base, true, false).getDataPtr()->recent_base = out;
   GetHbLazyTensor(recent_orig_t, true, false).SetOpAccumulationInProgress();
   GetHbLazyTensor(self, true, false).SetOpAccumulationInProgress();
+  GetHbLazyTensor(self, false, false).SetOpAccumulationInProgress();
 
   PT_VIEWTABLE_DEBUG(
       "orig tensor map entry created for ", GetHbLazyTensorId(params.base));
