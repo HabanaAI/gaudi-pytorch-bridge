@@ -372,8 +372,8 @@ aten::special_spherical_bessel_j0.out;                               YES; YES; N
 aten::special_zeta.out;                                              YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::sspaddmm.out;                                                  YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::triangular_solve.X;                                            YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
-aten::tril_indices;                                                  YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
-aten::triu_indices;                                                  YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
+aten::tril_indices;                                                  YES; YES; YES; NO;       DT_DF; YES;     NO;   NO;           0;
+aten::triu_indices;                                                  YES; YES; YES; NO;       DT_DF; YES;     NO;   NO;           0;
 aten::unfold;                                                        YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::unfold_backward;                                               YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
 aten::unique_consecutive;                                            YES; YES; NO;  NO;       DT_DF; YES;     NO;   NO;           0;
