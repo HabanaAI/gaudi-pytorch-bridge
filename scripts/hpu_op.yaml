@@ -3071,16 +3071,30 @@ embedding_dense_backward:
 
 embedding_renorm_:
   dtypes:
-    self: [Float]
-    indices: [Long, Int]
+    Gaudi:
+      self: [BFloat16, Float]
+      indices: [Int, Long]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      indices: [Int, Long]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      index: [Int, Long]
   custom_fill_params: FillEmbeddingRenormFwdParams
   guid: embedding_renorm_fwd
   inplace_ids: [0]
 
 embedding_renorm:
   dtypes:
-    self: [Float]
-    indices: [Long, Int]
+    Gaudi:
+      self: [BFloat16, Float]
+      indices: [Int, Long]
+    Gaudi2:
+      self: [BFloat16, Float, Half]
+      indices: [Int, Long]
+    Gaudi3:
+      self: [BFloat16, Float, Half]
+      indices: [Int, Long]
   custom_fill_params: FillEmbeddingRenormFwdParams
   guid: embedding_renorm_fwd
   out_ids: [0]
