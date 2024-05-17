@@ -72,7 +72,11 @@ void view_propagate_permutation(at::Tensor base_t, at::Tensor view_t) {
   // propagate the base size unconditionally.
   // This is important in multilevel views. Example: the first view can be
   // contiguous whereas the second one can be non-contiguous
-  auto base_sizes = input_tmeta->is_view_tensor()
+  bool has_valid_base_size_in_smeta {false};
+  if (input_smeta->get_base_tensor_size().size()) {
+    has_valid_base_size_in_smeta = true;
+  }
+  auto base_sizes = (input_tmeta->is_view_tensor() || has_valid_base_size_in_smeta)
       ? input_smeta->get_base_tensor_size()
       : base_t.sizes();
   output_smeta->set_base_tensor_size(base_sizes.vec());
