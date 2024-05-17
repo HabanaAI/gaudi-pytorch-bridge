@@ -154,7 +154,7 @@ def use_pt2e_quant_flow(test_case, quant_dtype):
         assert_helper(ops_summary=ops_summary, op="torch.ops.aten.relu.default", count_list=[(1, 0), (1, 0)])
         assert_helper(ops_summary=ops_summary, op="torch.ops.aten.maximum.default", count_list=[(3, 0), (3, 0)])
         assert_helper(ops_summary=ops_summary, op="torch.ops.aten.minimum.default", count_list=[(3, 0), (3, 0)])
-        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.copy_.default", count_list=[(6, 0), (6, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.copy.default", count_list=[(6, 0), (6, 0)])
 
         model = convert_pt2e(model)
         with FxGraphAnalyzer(reset_dynamo=False) as fga:
@@ -175,10 +175,9 @@ def use_pt2e_quant_flow(test_case, quant_dtype):
         assert_helper(ops_summary=ops_summary, op="torch.ops.aten.relu.default", count_list=[(1, 0), (1, 0)])
         assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=5e-2, atol=5e-2)
     else:
-        assert_helper(ops_summary=ops_summary, op="torch.ops.aten._to_copy.default", count_list=[(3, 3), (3, 3)])
-        assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.cast_to_fp8_v2", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.cast_to_fp8_v2.default", count_list=[(3, 0), (3, 0)])
         assert_helper(ops_summary=ops_summary, op="operator.getitem", count_list=[(3, 0), (3, 0)])
-        assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.cast_from_fp8", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.cast_from_fp8.scalar", count_list=[(3, 0), (3, 0)])
         assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.linear.default", count_list=[(1, 0), (1, 0)])
         assert_helper(ops_summary=ops_summary, op="torch.ops.aten.relu.default", count_list=[(1, 0), (1, 0)])
         assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)

@@ -365,8 +365,6 @@ class HabanaQuantWrapperModule(torch.nn.Module):
         if not self._preprocessed:
             self.preprocess(*args)
 
-        from habana_frameworks.torch.dynamo.compile_backend.compilers import hpu_inference_compiler_noaot
-
         assert len(habana_quantization_map_queue[self._module_key]) == 1
         queue_element = habana_quantization_map_queue[self._module_key][0]
         if queue_element["task"] == "prepare_pt2e":
@@ -384,8 +382,9 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                 # away because we need to remove module calls and unroll them to simple primitives.
                 unroll_observers(self._observed_module)
 
-                # Now we call hpu_inference_compiler_noaot to convert it into synapse graph.
-                hpu_inference_compiler_noaot(self._observed_module, args)
+                # Now we call hpu_inference_compiler to convert it into synapse graph.
+                with torch.no_grad():
+                    self._observed_module = torch.compile(self._observed_module, backend="hpu_backend")
 
             return self._observed_module(*args, **kwargs)
 
@@ -416,8 +415,9 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                 # pattern matching here.
                 decompose_quant_ops(self._converted_module)
 
-                # Now we call hpu_inference_compiler_noaot to convert it into synapse graph.
-                hpu_inference_compiler_noaot(self._converted_module, args)
+                # Now we call hpu_inference_compiler to convert it into synapse graph.
+                with torch.no_grad():
+                    self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
 
             return self._converted_module(*args, **kwargs)
 
