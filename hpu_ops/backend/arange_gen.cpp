@@ -127,7 +127,13 @@ std::shared_ptr<void> FillArangeParamsInternal(
   PARAMS_STUB(ns_RangeKernel::Params);
   if (can_use_dynamic_shapes(start, end, step) ||
       !c10::isFloatingType(out_scalar_type)) {
-    params->start.i = static_cast<int>(ceil(start.to<float>()));
+    // These parameters are used within GUID (range_i32).
+    // If parameters are integer, start is rounded to floor while
+    // limit (end) is rounded to ceiling.
+    // This is to ensure the correct output size is calculated
+    // from GUID (as start value is included in the output) and it
+    // matches with the actual output size.
+    params->start.i = static_cast<int>(floor(start.to<float>()));
     params->limit.i = static_cast<int>(ceil(end.to<float>()));
     params->delta.i = static_cast<int>(ceil(step.to<float>()));
   } else {
@@ -406,9 +412,15 @@ std::shared_ptr<void> FillArangeDefaultCommonParams(
     params->limit.f = end.to<float>();
     params->delta.f = step.to<float>();
   } else {
-    params->start.i = start.to<int>();
-    params->limit.i = end.to<int>();
-    params->delta.i = step.to<int>();
+    // These parameters are used within GUID (range_i32).
+    // If parameters are integer, start is rounded to floor while
+    // limit (end) is rounded to ceiling.
+    // This is to ensure the correct output size is calculated
+    // from GUID (as start value is included in the output) and it
+    // matches with the actual output size.
+    params->start.i = static_cast<int>(floor(start.to<float>()));
+    params->limit.i = static_cast<int>(ceil(end.to<float>()));
+    params->delta.i = static_cast<int>(ceil(step.to<float>()));
   }
   return params;
 }
@@ -421,6 +433,7 @@ std::shared_ptr<void> FillArangeDefaultCommonParamsDS(
     size_t& size) {
   // auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
   PARAMS_STUB(ns_RangeKernel::Params);
+  // Input parameters are integers. No casting/rounding needed.
   params->start.i = start;
   params->limit.i = end;
   params->delta.i = step;
@@ -514,6 +527,7 @@ synapse_helpers::tensor ArangeDefaultCommon(
     const OutputMetaDataVector& meta,
     std::shared_ptr<void> params,
     size_t params_size) {
+
   constexpr int FINAL_RESULT_INDEX = 0;
   const auto outshape = meta[0].shape;
   const auto out_dtype = meta[0].dtype;

@@ -36,3 +36,29 @@ def test_arange(dtype, layout, start, step, end):
     expected = fn(start, layout, step, end, "cpu")
     result = compiled_fn(start, layout, step, end, "hpu").cpu()
     assert torch.equal(result, expected)
+
+
+# Test for rounding issues in arange op
+# SW-179498 (fixed)
+@pytest.mark.parametrize("dtype", [torch.int32])
+@pytest.mark.parametrize("layout", [torch.strided])
+@pytest.mark.parametrize("start", [2.01, 2.2999999999999998])
+@pytest.mark.parametrize("step", [3])
+@pytest.mark.parametrize("end", [130, 134.5, 133.5, 135.5])
+def test_arange_rounding_issue(dtype, layout, start, step, end):
+    if step is not None and start is None:
+        pytest.skip("Invalid case")
+
+    def fn(start, layout, step, end, device):
+        if step is not None:
+            return torch.arange(start=start, step=step, end=end, device=device, dtype=dtype, layout=layout)
+        elif start is not None:
+            return torch.arange(start=start, end=end, device=device, dtype=dtype, layout=layout)
+        else:
+            return torch.arange(end=end, device=device, dtype=dtype, layout=layout)
+
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
+
+    expected = fn(start, layout, step, end, "cpu")
+    result = compiled_fn(start, layout, step, end, "hpu").cpu()
+    assert torch.equal(result, expected)
