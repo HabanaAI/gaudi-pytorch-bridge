@@ -50,9 +50,28 @@ from torch.fx.passes.utils.source_matcher_utils import SourcePartition, get_sour
 logger = get_compile_backend_logger()
 
 QUANTIZER_MIN_MAX = {torch.int8: (-128, 127), torch.float8_e4m3fn: (-240, 240), torch.float8_e5m2: (-240, 240)}
+extra_args_act: Dict[str, Any] = {"for_observer": {"eps": 2**-12}, "margin": 2}
+extra_args_weight: Dict[str, Any] = {"for_observer": {"eps": 2**-12}, "margin": 1}
+
+scale_history_of_last_linear_or_conv_weight = dict()
 habana_quantization_map_queue = []
 export_module_record = dict()
 quant_dtype_used = None
+
+
+# ======================================================================================
+# Utility functions for internal testing only
+# ======================================================================================
+def set_activation_backoff_margin(margin=0):
+    extra_args_act["margin"] = margin
+
+
+def set_weight_backoff_margin(margin=0):
+    extra_args_weight["margin"] = margin
+
+
+def get_weight_scale_history():
+    return scale_history_of_last_linear_or_conv_weight.copy()
 
 
 # ======================================================================================
@@ -272,21 +291,25 @@ class habana_quantizer(Quantizer):
 # ======================================================================================
 def habana_quant_config_symmetric(quant_dtype):
     logger.debug(f"habana_quant_config_symmetric: quantizer dtype is {quant_dtype}")
+    quant_min, quant_max = QUANTIZER_MIN_MAX[quant_dtype]
 
     act_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
-    logger.debug(f"quantizer dtype is {quant_dtype}")
-    quant_min, quant_max = QUANTIZER_MIN_MAX[quant_dtype]
+    act_observer_or_fake_quant_args = extra_args_act.get("for_observer").copy()
+    if quant_dtype == torch.float8_e4m3fn:
+        act_observer_or_fake_quant_args["eps"] = 0
     act_quantization_spec = QuantizationSpec(
         dtype=quant_dtype,
         quant_min=quant_min,
         quant_max=quant_max,
         qscheme=torch.per_tensor_symmetric,  # Due to this, MinMaxObserver acts as AbsMaxObserver
         is_dynamic=False,
-        observer_or_fake_quant_ctr=act_observer_or_fake_quant_ctr.with_args(eps=2**-12),
+        observer_or_fake_quant_ctr=act_observer_or_fake_quant_ctr.with_args(**act_observer_or_fake_quant_args),
     )
 
     weight_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = MinMaxObserver
-    extra_args: Dict[str, Any] = {"eps": 2**-12}
+    weight_observer_or_fake_quant_args = extra_args_weight.get("for_observer").copy()
+    if quant_dtype == torch.float8_e4m3fn:
+        weight_observer_or_fake_quant_args["eps"] = 0
     weight_quantization_spec = QuantizationSpec(
         dtype=quant_dtype,
         quant_min=quant_min,
@@ -294,7 +317,7 @@ def habana_quant_config_symmetric(quant_dtype):
         qscheme=torch.per_tensor_symmetric,  # Due to this, MinMaxObserver acts as AbsMaxObserver
         ch_axis=0,
         is_dynamic=False,
-        observer_or_fake_quant_ctr=weight_observer_or_fake_quant_ctr.with_args(**extra_args),
+        observer_or_fake_quant_ctr=weight_observer_or_fake_quant_ctr.with_args(**weight_observer_or_fake_quant_args),
     )
 
     bias_observer_or_fake_quant_ctr: _ObserverOrFakeQuantizeConstructor = PlaceholderObserver
@@ -473,7 +496,7 @@ def convert_pt2e(module, use_reference_representation=False):
 # Note: This code is basically taken from quantization_toolkit. Please refer:
 #       quantization_toolkit/habana_quantization_toolkit/_core/fp_utils.py
 # ======================================================================================
-def scale_to_pow2_hw(old_scale, quant_dtype):
+def scale_to_pow2_hw(old_scale, eps, margin, is_weight, quant_dtype):
     import habana_frameworks.torch.utils.experimental as htexp
 
     GAUDI2 = htexp.synDeviceType.synDeviceGaudi2
@@ -528,7 +551,16 @@ def scale_to_pow2_hw(old_scale, quant_dtype):
         scale_pow2 = 2 ** torch.ceil(torch.log2(scale))
         return scale_pow2
 
-    scale_pow2 = scale_to_pow2(old_scale)
+    def scale_after_backoff_adjustment(scale, eps, margin, is_weight):
+        if is_weight:
+            scale_history_of_last_linear_or_conv_weight["convert_pt2e_scale"] = scale.item()
+        scale = scale * (2**margin)
+        scale = max(scale, eps)
+        if is_weight:
+            scale_history_of_last_linear_or_conv_weight["backed_off_scale"] = scale.item()
+        return scale
+
+    scale_pow2 = scale_to_pow2(scale_after_backoff_adjustment(old_scale, eps, margin, is_weight))
     min_scale, max_scale, scale_factor = FP8_143_SCALES_TRAITS[GAUDI2]
     scale_pow2_hw = torch.minimum(
         torch.maximum(
@@ -538,7 +570,54 @@ def scale_to_pow2_hw(old_scale, quant_dtype):
         torch.tensor(max_scale, dtype=old_scale.dtype, device=old_scale.device),
     )
 
+    if is_weight:
+        scale_history_of_last_linear_or_conv_weight["final_hw_scale"] = scale_pow2_hw.item()
+
     return scale_pow2_hw
+
+
+def get_eps_and_backoff_margin(module: torch.fx.GraphModule, quant_node: torch.fx.node):
+    # Check if quant_node's input arg is a param_constant or not
+    input_node = quant_node.args[0]
+    is_param_constant = input_node.op == "get_attr" and "_param_constant_l" in str(input_node.target)
+    logger.debug(f"get_eps_and_backoff_margin: is_param_constant = {is_param_constant}")
+
+    backoff_margin = 0
+    is_weight_param = False
+    if is_param_constant:
+        # Check if the param_constant is actually weight param constant or not
+        dquant_node = None
+        for n in module.graph.nodes:
+            if (
+                dquant_node == None
+                and n.op == "call_function"
+                and n.target.__name__ == "dequantize_per_tensor.default"
+                and n.args[0] == quant_node
+            ):
+                dquant_node = n
+                continue
+
+            # Assuming topologically sorted graph
+            if dquant_node:
+                if n.op == "call_function" and (
+                    (n.target.__name__ == "addmm.default" and n.args[0] == dquant_node)
+                    or (n.target.__name__ in ["linear.default", "convolution.default"] and n.args[1] == dquant_node)
+                ):
+                    is_weight_param = True
+                    break
+
+        logger.debug(f"get_eps_and_backoff_margin: is_weight_param = {is_weight_param}")
+        if is_weight_param:
+            # If weight param, use eps and backoff margin from extra_args_weight
+            eps = extra_args_weight.get("for_observer").get("eps")
+            backoff_margin = extra_args_weight.get("margin")
+    else:
+        # else, use eps and backoff margin from extra_args_act
+        eps = extra_args_act.get("for_observer").get("eps")
+        backoff_margin = extra_args_act.get("margin")
+
+    logger.debug(f"get_eps_and_backoff_margin: (eps, backoff_margin) = ({eps}, {backoff_margin})")
+    return eps, backoff_margin, is_weight_param
 
 
 # ======================================================================================
@@ -551,18 +630,22 @@ def adjust_scale_val(module: torch.fx.GraphModule):
 
     ## PART 1 - check quantization nodes
     nodes_to_change = []
+    eps_and_backoff_margin = []
     for node in module.graph.nodes:
         if node.op == "call_function" and node.target.__name__ == "quantize_per_tensor.default":
             nodes_to_change.append(node)
+            eps_and_backoff_margin.append(get_eps_and_backoff_margin(module, node))
 
+    count = 0
     hw_aligned_scale = []
     hw_aligned_scales = []
     for node in nodes_to_change:
         node_args = list(node.args)
         old_scale = torch.tensor(node_args[1], dtype=torch.float32, device=torch.device("hpu"))
-        new_scale = scale_to_pow2_hw(old_scale=old_scale, quant_dtype=node_args[5]).item()
+        new_scale = scale_to_pow2_hw(old_scale, *eps_and_backoff_margin[count], quant_dtype=node_args[5]).item()
         node_args[1] = new_scale
         node.args = tuple(node_args)
+        count = count + 1
 
         num_users = len(set(node.users))
         hw_aligned_scale = [new_scale] * num_users

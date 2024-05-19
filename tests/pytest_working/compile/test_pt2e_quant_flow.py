@@ -10,6 +10,7 @@
 #
 ###############################################################################
 
+import copy
 import os
 import random
 import sys
@@ -22,18 +23,33 @@ import torch
 from habana_frameworks.torch.core.quantize_pt2e import (
     convert_pt2e,
     export,
+    get_weight_scale_history,
     habana_quant_config_symmetric,
     habana_quantizer,
     prepare_pt2e,
+    set_activation_backoff_margin,
+    set_weight_backoff_margin,
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from test_dynamo_utils import assert_helper
 from test_utils import is_gaudi1
 
 
-class SimpleModelWithMultipleGraphs1(torch.nn.Module):
+class SimpleModel(torch.nn.Module):
     def __init__(self, dtype):
-        super(SimpleModelWithMultipleGraphs1, self).__init__()
+        super(SimpleModel, self).__init__()
+        self.gemm1 = torch.nn.Linear(4, 2, bias=False, dtype=dtype)
+        self.relu1 = torch.nn.ReLU()
+
+    def forward(self, x):
+        out = self.gemm1(x)
+        out = self.relu1(out)
+        return out
+
+
+class SimpleModelWithMultipleGraphs(torch.nn.Module):
+    def __init__(self, dtype):
+        super(SimpleModelWithMultipleGraphs, self).__init__()
         self.gemm1 = torch.nn.Linear(4, 2, bias=False, dtype=dtype)
         self.relu1 = torch.nn.ReLU()
         self.gemm2 = torch.nn.Linear(2, 2, dtype=dtype)
@@ -48,10 +64,10 @@ class SimpleModelWithMultipleGraphs1(torch.nn.Module):
         return out
 
 
-def get_sample_model(test_case, quant_dtype):
+def get_sample_model(test_case, quant_dtype, graph_breaks=False):
     dtype = torch.float32 if quant_dtype == torch.int8 else torch.bfloat16
     if test_case == "linear_relu":
-        return SimpleModelWithMultipleGraphs1(dtype)
+        return SimpleModelWithMultipleGraphs(dtype) if graph_breaks else SimpleModel(dtype)
 
 
 def get_sample_input(test_case, quant_dtype):
@@ -73,13 +89,13 @@ quant_float_dtype_list = [
 ]
 
 
-def with_pt2e_quant_flow(test_case, quant_dtype):
+def use_pt2e_quant_flow(test_case, quant_dtype):
     htcore.hpu_set_env()
 
     # Stabilizing testing.
-    torch.manual_seed(0xBADC0FEE)
-    random.seed(0xBADC0FEE)
-    np.random.seed(0xBADC0FEE)
+    torch.manual_seed(0xDEADDEAD)
+    random.seed(0xDEADDEAD)
+    np.random.seed(0xDEADDEAD)
     torch.use_deterministic_algorithms(True)
 
     CPU = torch.device("cpu")
@@ -96,7 +112,7 @@ def with_pt2e_quant_flow(test_case, quant_dtype):
         inputs2,
     ]
 
-    model = get_sample_model(test_case, quant_dtype)
+    model = get_sample_model(test_case, quant_dtype, True)
     model.eval()
 
     cpu_result2 = model(*example_inputs2)
@@ -173,11 +189,102 @@ def with_pt2e_quant_flow(test_case, quant_dtype):
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
 def test_pt2e_quant_int(test_case, quant_dtype):
-    with_pt2e_quant_flow(test_case, quant_dtype)
+    use_pt2e_quant_flow(test_case, quant_dtype)
 
 
 @pytest.mark.skipif(is_gaudi1(), reason="fp8 not supported on gaudi")
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_float_dtype_list)
 def test_pt2e_quant_float(test_case, quant_dtype):
-    with_pt2e_quant_flow(test_case, quant_dtype)
+    use_pt2e_quant_flow(test_case, quant_dtype)
+
+
+@pytest.mark.skipif(is_gaudi1(), reason="fp8 not supported on gaudi")
+def test_pt2e_quant_flow_with_backoff_margin(test_case="linear_relu", quant_dtype=torch.float8_e4m3fn):
+    htcore.hpu_set_env()
+
+    # Stabilizing testing.
+    torch.manual_seed(0xDEAD0BAD)
+    random.seed(0xDEAD0BAD)
+    np.random.seed(0xDEAD0BAD)
+    torch.use_deterministic_algorithms(True)
+
+    CPU = torch.device("cpu")
+    inputs0 = get_sample_input(test_case, quant_dtype)
+    inputs1 = get_sample_input(test_case, quant_dtype)
+    inputs2 = get_sample_input(test_case, quant_dtype)
+    example_inputs0 = [
+        inputs0,
+    ]
+    example_inputs1 = [
+        inputs1,
+    ]
+    example_inputs2 = [
+        inputs2,
+    ]
+
+    model_to_test = get_sample_model(test_case, quant_dtype)
+    model_to_test.eval()
+
+    HPU = torch.device("hpu")
+    inputs0 = inputs0.to(HPU)
+    inputs1 = inputs1.to(HPU)
+    inputs2 = inputs2.to(HPU)
+    example_inputs0 = [
+        inputs0,
+    ]
+    example_inputs1 = [
+        inputs1,
+    ]
+    example_inputs2 = [
+        inputs2,
+    ]
+
+    model = copy.deepcopy(model_to_test)
+    model.to(device=HPU)
+    model.eval()
+
+    torch._dynamo.reset()
+    with torch.no_grad():
+        quantizer = habana_quantizer()
+        set_activation_backoff_margin(2)
+        set_weight_backoff_margin(1)
+        quant_config = habana_quant_config_symmetric(quant_dtype)
+        quantizer.set_global(quant_config)
+
+        model, _ = export(model)
+        model = prepare_pt2e(model, quantizer)
+        calibrate_result = model(*example_inputs0)
+        calibrate_result = model(*example_inputs1)
+
+        model = convert_pt2e(model)
+        hpu_result2_1 = model(*example_inputs2)
+        weight_scale_history_1 = get_weight_scale_history()
+
+    model = copy.deepcopy(model_to_test)
+    model.to(device=HPU)
+    model.eval()
+
+    torch._dynamo.reset()
+    with torch.no_grad():
+        quantizer = habana_quantizer()
+        set_activation_backoff_margin(3)
+        set_weight_backoff_margin(2)
+        quant_config = habana_quant_config_symmetric(quant_dtype)
+        quantizer.set_global(quant_config)
+
+        model, _ = export(model)
+        model = prepare_pt2e(model, quantizer)
+        calibrate_result = model(*example_inputs0)
+        calibrate_result = model(*example_inputs1)
+
+        model = convert_pt2e(model)
+        hpu_result2_2 = model(*example_inputs2)
+        weight_scale_history_2 = get_weight_scale_history()
+
+    assert weight_scale_history_1["convert_pt2e_scale"] == weight_scale_history_2["convert_pt2e_scale"]
+    assert weight_scale_history_1["backed_off_scale"] != weight_scale_history_2["backed_off_scale"]
+    assert weight_scale_history_1["final_hw_scale"] != weight_scale_history_2["final_hw_scale"]
+    assert torch.allclose(hpu_result2_1[0].to(CPU).float(), hpu_result2_2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)
+
+    htcore.hpu_reset_env()
