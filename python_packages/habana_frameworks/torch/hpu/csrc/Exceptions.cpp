@@ -12,6 +12,7 @@
  */
 #include <torch/csrc/Exceptions.h>
 #include <torch/csrc/python_headers.h>
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 #include <array>
 #include <cstdarg>
@@ -235,14 +236,8 @@ void translate_exception_to_python(const std::exception_ptr& e_ptr) {
   CATCH_ALL_ERRORS(return )
 }
 
+#if IS_PYTORCH_OLDER_THAN(2, 3)
 IndexError::IndexError(const char* format, ...) {
-  va_list fmt_args{};
-  va_start(fmt_args, format);
-  msg = formatMessage(format, fmt_args);
-  va_end(fmt_args);
-}
-
-TypeError::TypeError(const char* format, ...) {
   va_list fmt_args{};
   va_start(fmt_args, format);
   msg = formatMessage(format, fmt_args);
@@ -263,14 +258,22 @@ NotImplementedError::NotImplementedError(const char* format, ...) {
   va_end(fmt_args);
 }
 
-AttributeError::AttributeError(const char* format, ...) {
+LinAlgError::LinAlgError(const char* format, ...) {
+  va_list fmt_args{};
+  va_start(fmt_args, format);
+  msg = formatMessage(format, fmt_args);
+  va_end(fmt_args);
+}
+#endif
+
+TypeError::TypeError(const char* format, ...) {
   va_list fmt_args{};
   va_start(fmt_args, format);
   msg = formatMessage(format, fmt_args);
   va_end(fmt_args);
 }
 
-LinAlgError::LinAlgError(const char* format, ...) {
+AttributeError::AttributeError(const char* format, ...) {
   va_list fmt_args{};
   va_start(fmt_args, format);
   msg = formatMessage(format, fmt_args);

@@ -10,6 +10,8 @@
 #
 ###############################################################################
 
+import torch
+from packaging.version import Version, parse
 from torch._dynamo.variables import TorchCtxManagerClassVariable, TorchInGraphFunctionVariable
 
 """
@@ -58,42 +60,51 @@ _htorch_non_c_binding_in_graph_functions = {
     ]
 }
 
-habana_torch_name_rule_map = {
-    **_manual_htorch_name_rule_map,
-    **_htorch_ctx_manager_classes,
-    **_htorch_c_binding_in_graph_functions,
-    **_htorch_non_c_binding_in_graph_functions,
-}
-
 from torch._dynamo.trace_rules import torch_name_rule_map
 
-torch_name_rule_map.update(habana_torch_name_rule_map)
+if Version(parse(torch.__version__).base_version) >= Version("2.3"):
+    habana_torch_name_rule_list = [
+        _manual_htorch_name_rule_map,
+        _htorch_ctx_manager_classes,
+        _htorch_c_binding_in_graph_functions,
+        _htorch_non_c_binding_in_graph_functions,
+    ]
 
+    torch_name_rule_map.extend(habana_torch_name_rule_list)
+else:
+    habana_torch_name_rule_map = {
+        **_manual_htorch_name_rule_map,
+        **_htorch_ctx_manager_classes,
+        **_htorch_c_binding_in_graph_functions,
+        **_htorch_non_c_binding_in_graph_functions,
+    }
 
-"""
-A note on allowed functions:
+    torch_name_rule_map.update(habana_torch_name_rule_map)
 
-Dynamo consults _allowed_function_ids in torch._dynamo.allowed_functions to determine
-if a particular function/module is allowed to appear as a node in its fx output.
+    """
+    A note on allowed functions:
 
-If a function is disallowed, it may either be traced-through, or skipped.
+    Dynamo consults _allowed_function_ids in torch._dynamo.allowed_functions to determine
+    if a particular function/module is allowed to appear as a node in its fx output.
 
-Trace-through means dynamo will continue to trace the interior code for
-the function/module rather than stopping at its boundary and recording it
-as a node in the fx graph. Whether tracing through or allowing, the functionality
-of the function/module is part of the dynamo graph.  Caveat: if tracing through,
-any interior operation could trigger its own graph-break.
+    If a function is disallowed, it may either be traced-through, or skipped.
 
-Skips are determined by (torch/_dynamo/skipfiles.py) - see "a note on
-skipfiles" there.
-"""
-import habana_frameworks.torch as htorch
-from torch._dynamo.allowed_functions import _allowed_function_ids
+    Trace-through means dynamo will continue to trace the interior code for
+    the function/module rather than stopping at its boundary and recording it
+    as a node in the fx graph. Whether tracing through or allowing, the functionality
+    of the function/module is part of the dynamo graph.  Caveat: if tracing through,
+    any interior operation could trigger its own graph-break.
 
-functions_to_add = [
-    htorch.hpu.streams.Stream,
-    htorch.hpu.events.Event,
-]
+    Skips are determined by (torch/_dynamo/skipfiles.py) - see "a note on
+    skipfiles" there.
+    """
+    import habana_frameworks.torch as htorch
+    from torch._dynamo.allowed_functions import _allowed_function_ids
 
-for obj in functions_to_add:
-    _allowed_function_ids.add(id(obj))
+    functions_to_add = [
+        htorch.hpu.streams.Stream,
+        htorch.hpu.events.Event,
+    ]
+
+    for obj in functions_to_add:
+        _allowed_function_ids.add(id(obj))

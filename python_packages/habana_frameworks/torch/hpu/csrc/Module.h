@@ -13,9 +13,11 @@
 #pragma once
 
 #include <pybind11/pybind11.h>
+#include "pytorch_helpers/habana_helpers/pt_version_check.h"
 
 PyMethodDef* THP_HPU_Module_methods();
 
+#if IS_PYTORCH_OLDER_THAN(2, 3)
 inline c10::DeviceIndex THPUtils_unpackDeviceIndex(PyObject* obj) {
   int overflow = 0;
   long value = PyLong_AsLongAndOverflow(obj, &overflow);
@@ -35,3 +37,4 @@ inline c10::DeviceIndex THPUtils_unpackDeviceIndex(PyObject* obj) {
 inline PyObject* THPUtils_packDeviceIndex(c10::DeviceIndex value) {
   return PyLong_FromLong(value);
 }
+#endif
