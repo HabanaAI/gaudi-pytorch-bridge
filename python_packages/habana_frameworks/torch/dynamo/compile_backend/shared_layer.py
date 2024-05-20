@@ -291,7 +291,12 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
                         node.target._schema.name.split("::")[-1].split(".")[0]
                     )
                     do_fallback = check_cpu_fallback_op(
-                        op_name, node.target._schema, allow_numbers_as_tensors, *concrete_args, **concrete_kwargs
+                        op_name,
+                        node.target._schema,
+                        allow_numbers_as_tensors,
+                        is_dynamic,
+                        *concrete_args,
+                        **concrete_kwargs,
                     )
                     if do_fallback:
                         logger.debug(

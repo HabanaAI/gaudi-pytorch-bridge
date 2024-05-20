@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -22,6 +22,7 @@ bool check_cpu_fallback_op(
     std::string op,
     c10::FunctionSchema schema,
     bool allow_numbers_as_tensors,
+    bool is_dynamic,
     py::args args,
     const py::kwargs& kwargs) {
   if (hpu_shared_layer_unsupported_ops.find(op) !=
@@ -30,7 +31,7 @@ bool check_cpu_fallback_op(
   }
   if (fallback_support_check_map.find(op) != fallback_support_check_map.end()) {
     bool check_kernel_support = fallback_support_check_map[op](
-        schema, allow_numbers_as_tensors, args, kwargs);
+        schema, allow_numbers_as_tensors, is_dynamic, args, kwargs);
     return not check_kernel_support;
   }
   return true;

@@ -18,7 +18,7 @@ static CheckNodeWithSharedLayerValidator validator_elu("elu", "elu_fwd", nullptr
 
 
 struct shared_layer_elu : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 4) {
     auto ivalue_arr = torch::jit::last(stack, 4);
     if (ivalue_arr[0].isTensor() && ivalue_arr[1].isScalar() && ivalue_arr[2].isScalar() && ivalue_arr[3].isScalar() ) {
@@ -32,15 +32,15 @@ bool func(torch::jit::Stack &stack) {
       at::Scalar alpha_base = alpha.to<at::Scalar>();
       at::Scalar scale_base = scale.to<at::Scalar>();
       at::Scalar input_scale_base = input_scale.to<at::Scalar>();
-      auto is_supported = impl(self_base, alpha_base, scale_base, input_scale_base);
+      auto is_supported = impl(self_base, alpha_base, scale_base, input_scale_base, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self, const at::Scalar & alpha, const at::Scalar & scale, const at::Scalar & input_scale) {
-  VAL_RETURN_IF_UNSUPPORTED_DTYPE(self, elu, self, alpha, scale, input_scale)
+bool impl(const at::Tensor & self, const at::Scalar & alpha, const at::Scalar & scale, const at::Scalar & input_scale, bool is_dynamic) {
+  VAL_RETURN_IF_UNSUPPORTED_DTYPE(self, elu, is_dynamic, self, alpha, scale, input_scale)
 
   return true;
 }

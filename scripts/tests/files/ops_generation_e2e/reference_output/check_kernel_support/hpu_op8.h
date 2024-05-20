@@ -17,7 +17,7 @@ namespace habana {
 
 
 struct shared_layer_mul_out : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 3) {
     auto ivalue_arr = torch::jit::last(stack, 3);
     if (ivalue_arr[0].isTensor() && ivalue_arr[1].isScalar() && ivalue_arr[2].isTensor() ) {
@@ -29,21 +29,21 @@ bool func(torch::jit::Stack &stack) {
       at::Tensor self_base = self.to<at::Tensor>();
       at::Scalar other_base = other.to<at::Scalar>();
       at::Tensor out_base = out.to<at::Tensor>();
-      auto is_supported = impl(self_base, other_base, out_base);
+      auto is_supported = impl(self_base, other_base, out_base, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
+bool impl(const at::Tensor & self, const at::Scalar & other, at::Tensor & out, bool is_dynamic) {
   auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, true/*safe_cast*/);
   static_cast<void>(compute_type);
 
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kShort, at::kDouble, at::kBool}},
    {synDeviceGaudi2, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
    {synDeviceGaudi3, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(compute_type, mul, Scalar_out, self, other, out)
+  RETURN_IF_UNSUPPORTED_DTYPE2(compute_type, mul, is_dynamic, Scalar_out, self, other, out)
 
   return true;
 }

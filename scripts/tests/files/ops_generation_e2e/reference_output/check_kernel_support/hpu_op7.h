@@ -17,7 +17,7 @@ namespace habana {
 
 
 struct shared_layer_clone : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 2) {
     auto ivalue_arr = torch::jit::last(stack, 2);
     if (ivalue_arr[0].isTensor() ) {
@@ -37,18 +37,18 @@ bool func(torch::jit::Stack &stack) {
           memory_format_opt_out = c10::optional<at::MemoryFormat>();
       }
               
-      auto is_supported = impl(self_base, memory_format_opt_out);
+      auto is_supported = impl(self_base, memory_format_opt_out, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self, c10::optional<at::MemoryFormat> memory_format) {
+bool impl(const at::Tensor & self, c10::optional<at::MemoryFormat> memory_format, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kDouble, at::kBool}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE(self, clone, self, memory_format)
+  RETURN_IF_UNSUPPORTED_DTYPE(self, clone, is_dynamic, self, memory_format)
 
   return true;
 }

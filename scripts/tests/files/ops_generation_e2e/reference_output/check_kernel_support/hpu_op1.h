@@ -17,7 +17,7 @@ namespace habana {
 
 
 struct shared_layer__foreach_add_ : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 2) {
     auto ivalue_arr = torch::jit::last(stack, 2);
     if (ivalue_arr[0].isTensorList() && ivalue_arr[1].isScalar() ) {
@@ -35,14 +35,14 @@ bool func(torch::jit::Stack &stack) {
       at::TensorList self_list_out(self_vec);
                   
       at::Scalar scalar_base = scalar.to<at::Scalar>();
-      auto is_supported = impl(self_list_out, scalar_base);
+      auto is_supported = impl(self_list_out, scalar_base, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(at::TensorList self, const at::Scalar & scalar) {
+bool impl(at::TensorList self, const at::Scalar & scalar, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kDouble, at::kBool}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}}}))

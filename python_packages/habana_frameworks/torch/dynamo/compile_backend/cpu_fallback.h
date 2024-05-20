@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -27,7 +27,7 @@
 #include "hpu_ops/op_validator.h"
 
 struct SharedLayerOp {
-  virtual bool func(torch::jit::Stack& stack) = 0;
+  virtual bool func(torch::jit::Stack& stack, bool is_dynamic) = 0;
 };
 
 #define RETURN_IF_UNSUPPORTED_DTYPE(input, opname, args...)  \
@@ -131,15 +131,17 @@ struct SharedLayerOp {
 
 #define RETURN_UNSUPPORTED_OP2_O(input, param2, overload) return false;
 
-#define VAL_RETURN_IF_UNSUPPORTED_DTYPE(input, opname, args...)          \
-  if (ABSL_PREDICT_FALSE(!validator_##opname.Validate(input, {args}))) { \
-    return false;                                                        \
+#define VAL_RETURN_IF_UNSUPPORTED_DTYPE(input, opname, is_dynamic, args...) \
+  if (ABSL_PREDICT_FALSE(                                                   \
+          !validator_##opname.Validate(input, {args}, is_dynamic))) {       \
+    return false;                                                           \
   }
 
-#define VAL_RETURN_IF_UNSUPPORTED_DTYPE2(input, opname, overload, args...) \
-  if (ABSL_PREDICT_FALSE(                                                  \
-          !validator_##opname##_##overload.Validate(input, {args}))) {     \
-    return false;                                                          \
+#define VAL_RETURN_IF_UNSUPPORTED_DTYPE2(                           \
+    input, opname, is_dynamic, overload, args...)                   \
+  if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.Validate( \
+          input, {args}, is_dynamic))) {                            \
+    return false;                                                   \
   }
 
 #define HPU_SUPPORTED_DTYPES(dtypes, suffix...) \
@@ -169,6 +171,7 @@ template <typename SharedOp>
 bool check_support(
     c10::FunctionSchema& schema,
     bool allow_numbers_as_tensors,
+    bool is_dynamic,
     py::args& args,
     const py::kwargs& kwargs) {
   torch::jit::Stack stack;
@@ -180,7 +183,7 @@ bool check_support(
         torch::jit::createStackForSchema(schema, args, kwargs, c10::nullopt);
   }
   static SharedOp shared_op;
-  return shared_op.func(stack);
+  return shared_op.func(stack, is_dynamic);
 }
 
 template <typename T, size_t N>

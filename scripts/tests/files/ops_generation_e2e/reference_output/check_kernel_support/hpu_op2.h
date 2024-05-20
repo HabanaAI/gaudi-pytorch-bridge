@@ -17,7 +17,7 @@ namespace habana {
 
 
 struct shared_layer__fused_dropout : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 3) {
     auto ivalue_arr = torch::jit::last(stack, 3);
     if (ivalue_arr[0].isTensor() && ivalue_arr[1].isDouble() ) {
@@ -39,18 +39,18 @@ bool func(torch::jit::Stack &stack) {
           generator_opt_out = c10::optional<at::Generator>();
       }
               
-      auto is_supported = impl(self_base, p_base, generator_opt_out);
+      auto is_supported = impl(self_base, p_base, generator_opt_out, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self, double p, c10::optional<at::Generator> generator) {
+bool impl(const at::Tensor & self, double p, c10::optional<at::Generator> generator, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, self, p, generator)
+  RETURN_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, is_dynamic, self, p, generator)
 
   return true;
 }

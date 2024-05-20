@@ -188,14 +188,14 @@ namespace hpu_wrap {{
 _STACK_POP_CODE_FORMAT_ = """
     {}
       torch::jit::pop(stack{});
-      auto is_supported = impl({});
+      auto is_supported = impl({}, is_dynamic);
       return is_supported;
     }}
 """
 
 _TORCHGEN_POP_CODE_FORMAT_ = """
     {}
-      auto is_supported = impl({});
+      auto is_supported = impl({}, is_dynamic);
       return is_supported;
     }}
 """

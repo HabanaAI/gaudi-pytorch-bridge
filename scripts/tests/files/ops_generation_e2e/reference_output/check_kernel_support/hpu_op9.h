@@ -17,7 +17,7 @@ namespace habana {
 
 
 struct shared_layer_sort_out : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 6) {
     auto ivalue_arr = torch::jit::last(stack, 6);
     if (ivalue_arr[0].isTensor() && ivalue_arr[2].isInt() && ivalue_arr[3].isBool() && ivalue_arr[4].isTensor() && ivalue_arr[5].isTensor() ) {
@@ -45,19 +45,19 @@ bool func(torch::jit::Stack &stack) {
       bool descending_base = descending.to<bool>();
       at::Tensor values_base = values.to<at::Tensor>();
       at::Tensor indices_base = indices.to<at::Tensor>();
-      auto is_supported = impl(self_base, stable_opt_out, dim_base, descending_base, values_base, indices_base);
+      auto is_supported = impl(self_base, stable_opt_out, dim_base, descending_base, values_base, indices_base, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self, c10::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices) {
+bool impl(const at::Tensor & self, c10::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kInt, at::kBFloat16, at::kShort, at::kDouble}},
    {synDeviceGaudi2, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(self, sort, values_stable, self, stable, dim, descending, values, indices)
-  RETURN_IF_UNSUPPORTED_DTYPE2(values, sort, values_stable, self, stable, dim, descending, values, indices)
+  RETURN_IF_UNSUPPORTED_DTYPE2(self, sort, is_dynamic, values_stable, self, stable, dim, descending, values, indices)
+  RETURN_IF_UNSUPPORTED_DTYPE2(values, sort, is_dynamic, values_stable, self, stable, dim, descending, values, indices)
 
   return true;
 }
@@ -65,7 +65,7 @@ bool impl(const at::Tensor & self, c10::optional<bool> stable, int64_t dim, bool
 };
 
 struct shared_layer_squeeze : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 2) {
     auto ivalue_arr = torch::jit::last(stack, 2);
     if (ivalue_arr[0].isTensor() && ivalue_arr[1].isList() ) {
@@ -83,18 +83,18 @@ bool func(torch::jit::Stack &stack) {
       }
       at::IntArrayRef dim_list_out(dim_vec);
                   
-      auto is_supported = impl(self_base, dim_list_out);
+      auto is_supported = impl(self_base, dim_list_out, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self, at::IntArrayRef dim) {
+bool impl(const at::Tensor & self, at::IntArrayRef dim, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(self, squeeze, dims, self, dim)
+  RETURN_IF_UNSUPPORTED_DTYPE2(self, squeeze, is_dynamic, dims, self, dim)
 
   return true;
 }
@@ -102,7 +102,7 @@ bool impl(const at::Tensor & self, at::IntArrayRef dim) {
 };
 
 struct shared_layer_eq_out : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 3) {
     auto ivalue_arr = torch::jit::last(stack, 3);
     if (ivalue_arr[0].isTensor() && ivalue_arr[1].isScalar() && ivalue_arr[2].isTensor() ) {
@@ -114,21 +114,21 @@ bool func(torch::jit::Stack &stack) {
       at::Tensor self_base = self.to<at::Tensor>();
       at::Scalar other_base = other.to<at::Scalar>();
       at::Tensor out_base = out.to<at::Tensor>();
-      auto is_supported = impl(self_base, other_base, out_base);
+      auto is_supported = impl(self_base, other_base, out_base, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
+bool impl(const at::Tensor & self, const at::Scalar & other, at::Tensor & out, bool is_dynamic) {
   auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
   static_cast<void>(compute_type);
 
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kLong, at::kDouble, at::kBool}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(compute_type, eq, Scalar_out, self, other, out)
+  RETURN_IF_UNSUPPORTED_DTYPE2(compute_type, eq, is_dynamic, Scalar_out, self, other, out)
 
   return true;
 }
@@ -136,7 +136,7 @@ bool impl(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
 };
 
 struct shared_layer_isfinite : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 1) {
     auto ivalue_arr = torch::jit::last(stack, 1);
     if (ivalue_arr[0].isTensor() ) {
@@ -144,18 +144,18 @@ bool func(torch::jit::Stack &stack) {
     	c10::IValue self = std::move(peek(stack, 0, 1));
       
       at::Tensor self_base = self.to<at::Tensor>();
-      auto is_supported = impl(self_base);
+      auto is_supported = impl(self_base, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self) {
+bool impl(const at::Tensor & self, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE(self, isfinite, self)
+  RETURN_IF_UNSUPPORTED_DTYPE(self, isfinite, is_dynamic, self)
 
   return true;
 }
@@ -163,7 +163,7 @@ bool impl(const at::Tensor & self) {
 };
 
 struct shared_layer_upsample_bicubic2d : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 4) {
     auto ivalue_arr = torch::jit::last(stack, 4);
     if (ivalue_arr[0].isTensor() && ivalue_arr[2].isBool() && ivalue_arr[3].isList() ) {
@@ -213,18 +213,18 @@ bool func(torch::jit::Stack &stack) {
           scale_factors_opt_out = c10::optional<at::ArrayRef<double>>();
       }
               
-      auto is_supported = impl(input_base, output_size_opt_out, align_corners_base, scale_factors_opt_out);
+      auto is_supported = impl(input_base, output_size_opt_out, align_corners_base, scale_factors_opt_out, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & input, at::OptionalIntArrayRef output_size, bool align_corners, c10::optional<at::ArrayRef<double>> scale_factors) {
+bool impl(const at::Tensor & input, at::OptionalIntArrayRef output_size, bool align_corners, c10::optional<at::ArrayRef<double>> scale_factors, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(input, upsample_bicubic2d, vec, input, output_size, align_corners, scale_factors)
+  RETURN_IF_UNSUPPORTED_DTYPE2(input, upsample_bicubic2d, is_dynamic, vec, input, output_size, align_corners, scale_factors)
 
   return true;
 }
@@ -232,7 +232,7 @@ bool impl(const at::Tensor & input, at::OptionalIntArrayRef output_size, bool al
 };
 
 struct shared_layer_bitwise_left_shift : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 2) {
     auto ivalue_arr = torch::jit::last(stack, 2);
     if (ivalue_arr[0].isTensor() && ivalue_arr[1].isScalar() ) {
@@ -242,16 +242,16 @@ bool func(torch::jit::Stack &stack) {
       
       at::Tensor self_base = self.to<at::Tensor>();
       at::Scalar other_base = other.to<at::Scalar>();
-      auto is_supported = impl(self_base, other_base);
+      auto is_supported = impl(self_base, other_base, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self, const at::Scalar & other) {
+bool impl(const at::Tensor & self, const at::Scalar & other, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(self, bitwise_left_shift, Tensor_Scalar, self, other)
+  RETURN_IF_UNSUPPORTED_DTYPE2(self, bitwise_left_shift, is_dynamic, Tensor_Scalar, self, other)
 
   return true;
 }
@@ -259,7 +259,7 @@ bool impl(const at::Tensor & self, const at::Scalar & other) {
 };
 
 struct shared_layer__native_batch_norm_legit : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 8) {
     auto ivalue_arr = torch::jit::last(stack, 8);
     if (ivalue_arr[0].isTensor() && ivalue_arr[3].isTensor() && ivalue_arr[4].isTensor() && ivalue_arr[5].isBool() && ivalue_arr[6].isDouble() && ivalue_arr[7].isDouble() ) {
@@ -301,14 +301,14 @@ bool func(torch::jit::Stack &stack) {
       bool training_base = training.to<bool>();
       double momentum_base = momentum.to<double>();
       double eps_base = eps.to<double>();
-      auto is_supported = impl(input_base, weight_opt_out, bias_opt_out, running_mean_base, running_var_base, training_base, momentum_base, eps_base);
+      auto is_supported = impl(input_base, weight_opt_out, bias_opt_out, running_mean_base, running_var_base, training_base, momentum_base, eps_base, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & input, const c10::optional<at::Tensor> & weight, const c10::optional<at::Tensor> & bias, at::Tensor & running_mean, at::Tensor & running_var, bool training, double momentum, double eps) {
+bool impl(const at::Tensor & input, const c10::optional<at::Tensor> & weight, const c10::optional<at::Tensor> & bias, at::Tensor & running_mean, at::Tensor & running_var, bool training, double momentum, double eps, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}), input)
@@ -324,9 +324,9 @@ bool impl(const at::Tensor & input, const c10::optional<at::Tensor> & weight, co
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kFloat, at::kDouble}},
    {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), running_var)
-  RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(input, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
-  RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_mean, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
-  RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_var, _native_batch_norm_legit, input, weight, bias, running_mean, running_var, training, momentum, eps)
+  RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(input, _native_batch_norm_legit, is_dynamic, input, weight, bias, running_mean, running_var, training, momentum, eps)
+  RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_mean, _native_batch_norm_legit, is_dynamic, input, weight, bias, running_mean, running_var, training, momentum, eps)
+  RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_var, _native_batch_norm_legit, is_dynamic, input, weight, bias, running_mean, running_var, training, momentum, eps)
 
   return true;
 }
@@ -334,7 +334,7 @@ bool impl(const at::Tensor & input, const c10::optional<at::Tensor> & weight, co
 };
 
 struct shared_layer_convolution_backward_overrideable : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 10) {
     auto ivalue_arr = torch::jit::last(stack, 10);
     if (ivalue_arr[0].isTensor() && ivalue_arr[1].isTensor() && ivalue_arr[2].isTensor() && ivalue_arr[6].isBool() ) {
@@ -395,20 +395,20 @@ bool func(torch::jit::Stack &stack) {
       
       ::std::array<bool,3> output_mask_list_out = as_array<bool, 3>(output_mask_list_in);
                   
-      auto is_supported = impl(grad_output_base, input_base, weight_base, stride_list_out, padding_list_out, dilation_list_out, transposed_base, output_padding_list_out, groups_base, output_mask_list_out);
+      auto is_supported = impl(grad_output_base, input_base, weight_base, stride_list_out, padding_list_out, dilation_list_out, transposed_base, output_padding_list_out, groups_base, output_mask_list_out, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & grad_output, const at::Tensor & input, const at::Tensor & weight, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups, ::std::array<bool,3> output_mask) {
+bool impl(const at::Tensor & grad_output, const at::Tensor & input, const at::Tensor & weight, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups, ::std::array<bool,3> output_mask, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE(grad_output, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
-  RETURN_IF_UNSUPPORTED_DTYPE(input, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
-  RETURN_IF_UNSUPPORTED_DTYPE(weight, convolution_backward_overrideable, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
+  RETURN_IF_UNSUPPORTED_DTYPE(grad_output, convolution_backward_overrideable, is_dynamic, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
+  RETURN_IF_UNSUPPORTED_DTYPE(input, convolution_backward_overrideable, is_dynamic, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
+  RETURN_IF_UNSUPPORTED_DTYPE(weight, convolution_backward_overrideable, is_dynamic, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
 
   return true;
 }
@@ -416,7 +416,7 @@ bool impl(const at::Tensor & grad_output, const at::Tensor & input, const at::Te
 };
 
 struct shared_layer_native_group_norm : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 8) {
     auto ivalue_arr = torch::jit::last(stack, 8);
     if (ivalue_arr[0].isTensor() && ivalue_arr[6].isInt() && ivalue_arr[7].isDouble() ) {
@@ -458,18 +458,18 @@ bool func(torch::jit::Stack &stack) {
       int64_t HxW_base = HxW.to<int64_t>();
       int64_t group_base = group.to<int64_t>();
       double eps_base = eps.to<double>();
-      auto is_supported = impl(input_base, weight_opt_out, bias_opt_out, N_base, C_base, HxW_base, group_base, eps_base);
+      auto is_supported = impl(input_base, weight_opt_out, bias_opt_out, N_base, C_base, HxW_base, group_base, eps_base, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & input, const c10::optional<at::Tensor> & weight, const c10::optional<at::Tensor> & bias, int64_t N, int64_t C, int64_t HxW, int64_t group, double eps) {
+bool impl(const at::Tensor & input, const c10::optional<at::Tensor> & weight, const c10::optional<at::Tensor> & bias, int64_t N, int64_t C, int64_t HxW, int64_t group, double eps, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE(input, native_group_norm, input, weight, bias, N, C, HxW, group, eps)
+  RETURN_IF_UNSUPPORTED_DTYPE(input, native_group_norm, is_dynamic, input, weight, bias, N, C, HxW, group, eps)
 
   return true;
 }
@@ -477,7 +477,7 @@ bool impl(const at::Tensor & input, const c10::optional<at::Tensor> & weight, co
 };
 
 struct shared_layer_linear_backward : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 4) {
     auto ivalue_arr = torch::jit::last(stack, 4);
     if (ivalue_arr[0].isTensor() && ivalue_arr[1].isTensor() && ivalue_arr[2].isTensor() ) {
@@ -494,20 +494,20 @@ bool func(torch::jit::Stack &stack) {
       
       ::std::array<bool,3> output_mask_list_out = as_array<bool, 3>(output_mask_list_in);
                   
-      auto is_supported = impl(self_base, grad_output_base, weight_base, output_mask_list_out);
+      auto is_supported = impl(self_base, grad_output_base, weight_base, output_mask_list_out, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self, const at::Tensor & grad_output, const at::Tensor & weight, ::std::array<bool,3> output_mask) {
+bool impl(const at::Tensor & self, const at::Tensor & grad_output, const at::Tensor & weight, ::std::array<bool,3> output_mask, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE(self, linear_backward, self, grad_output, weight, output_mask)
-  RETURN_IF_UNSUPPORTED_DTYPE(grad_output, linear_backward, self, grad_output, weight, output_mask)
-  RETURN_IF_UNSUPPORTED_DTYPE(weight, linear_backward, self, grad_output, weight, output_mask)
+  RETURN_IF_UNSUPPORTED_DTYPE(self, linear_backward, is_dynamic, self, grad_output, weight, output_mask)
+  RETURN_IF_UNSUPPORTED_DTYPE(grad_output, linear_backward, is_dynamic, self, grad_output, weight, output_mask)
+  RETURN_IF_UNSUPPORTED_DTYPE(weight, linear_backward, is_dynamic, self, grad_output, weight, output_mask)
 
   return true;
 }

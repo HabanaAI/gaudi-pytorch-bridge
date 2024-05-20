@@ -76,13 +76,18 @@ struct CheckNodeWithSharedLayerValidator {
 
   bool Validate(
       at::ScalarType compute_type,
-      const std::vector<at::IValue>& values);
-  bool Validate(const at::Tensor&, const std::vector<at::IValue>& values);
+      const std::vector<at::IValue>& values,
+      bool is_dynamic = false);
+  bool Validate(
+      const at::Tensor&,
+      const std::vector<at::IValue>& values,
+      bool is_dynamic = false);
 
  private:
   bool ValidateWithSharedLayer(
       at::ScalarType compute_type,
-      const std::vector<at::IValue>& values);
+      const std::vector<at::IValue>& values,
+      bool is_dynamic = false);
   bool ValidateWithDTypes(
       at::ScalarType compute_type,
       const std::vector<at::IValue>& values);

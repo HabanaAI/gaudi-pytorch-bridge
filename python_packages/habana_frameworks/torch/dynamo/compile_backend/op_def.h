@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -22,7 +22,8 @@
 namespace py = pybind11;
 extern std::unordered_map<
     std::string,
-    std::function<bool(c10::FunctionSchema&, bool, py::args&, const py::dict&)>>
+    std::function<
+        bool(c10::FunctionSchema&, bool, bool, py::args&, const py::dict&)>>
     fallback_support_check_map;
 
 extern std::set<std::string> hpu_shared_layer_unsupported_ops;

@@ -17,7 +17,7 @@ namespace habana {
 
 
 struct shared_layer___ilshift__ : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 2) {
     auto ivalue_arr = torch::jit::last(stack, 2);
     if (ivalue_arr[0].isTensor() && ivalue_arr[1].isScalar() ) {
@@ -27,16 +27,16 @@ bool func(torch::jit::Stack &stack) {
       
       at::Tensor self_base = self.to<at::Tensor>();
       at::Scalar other_base = other.to<at::Scalar>();
-      auto is_supported = impl(self_base, other_base);
+      auto is_supported = impl(self_base, other_base, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(at::Tensor & self, const at::Scalar & other) {
+bool impl(at::Tensor & self, const at::Scalar & other, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(self, __ilshift__, Scalar, self, other)
+  RETURN_IF_UNSUPPORTED_DTYPE2(self, __ilshift__, is_dynamic, Scalar, self, other)
 
   return true;
 }

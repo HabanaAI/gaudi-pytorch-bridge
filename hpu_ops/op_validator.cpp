@@ -158,7 +158,8 @@ SharedLayer::Return_t ValidateGuid(
     const detail::TensorDescrArray& input_values,
     const detail::TensorDescrArray& output_values,
     void* filledParams = nullptr,
-    uint32_t filledParamsSize = 0) {
+    uint32_t filledParamsSize = 0,
+    [[maybe_unused]] bool is_dynamic = false) {
   SharedLayer::Params_t params{};
   params.apiVersion = 1;
   auto deviceId = getDeviceType();
@@ -364,6 +365,8 @@ std::string ToDebugString(const SharedLayer::Return_t errcode) {
       return "INVALID_KERNEL_SCALAR_ARGUMENT";
     case SharedLayer::Return_t::SHARED_LAYER_MISSING_PRIVATE_STRUCTURE:
       return "MISSING_PRIVATE_STRUCTURE";
+    case SharedLayer::Return_t::SHARED_LAYER_GUID_MISSING_DYNAMIC_SUPPORT:
+      return "MISSING_DYNAMIC_SUPPORT";
     case SharedLayer::Return_t::SHARED_LAYER_FAILED:
     default:
       return "UNKNOWN_FAILURE";
@@ -486,16 +489,18 @@ at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
 
 bool CheckNodeWithSharedLayerValidator::Validate(
     const at::Tensor& input,
-    const std::vector<at::IValue>& values) {
-  return Validate(input.scalar_type(), values);
+    const std::vector<at::IValue>& values,
+    bool is_dynamic) {
+  return Validate(input.scalar_type(), values, is_dynamic);
 }
 
 bool CheckNodeWithSharedLayerValidator::Validate(
     at::ScalarType compute_type,
-    const std::vector<at::IValue>& values) {
-  bool result = ValidateWithSharedLayer(compute_type, values);
+    const std::vector<at::IValue>& values,
+    bool is_dynamic) {
+  bool result = ValidateWithSharedLayer(compute_type, values, is_dynamic);
   if (not result) {
-    PT_OP_INFO("Fallback for op", m_opname);
+    PT_OP_INFO("Fallback for op ", m_opname);
   }
   return result;
 }
@@ -520,9 +525,151 @@ bool CheckNodeWithSharedLayerValidator::ValidateWithDTypes(
   return true;
 }
 
+std::unordered_set<std::string> load_static_guids(
+    const std::string_view list_name,
+    const std::unordered_set<std::string>& default_list) {
+  auto static_guids_path = std::getenv(list_name.data());
+  if (static_guids_path) {
+    std::ifstream file(static_guids_path);
+    if (!file.is_open()) {
+      PT_BRIDGE_WARN(
+          "Failed to open file with static guids: ",
+          static_guids_path,
+          ". Use built in list instead.");
+      return default_list;
+    } else {
+      std::unordered_set<std::string> static_guids_list;
+      std::string line;
+      std::string ops;
+      while (getline(file, line)) {
+        static_guids_list.insert(line);
+        ops += line + ", ";
+      }
+      PT_BRIDGE_DEBUG("Static guids loaded: ", ops);
+      return static_guids_list;
+    }
+  } else {
+    return default_list;
+  }
+}
+
+bool is_guid_support_dynamic_shape(const std::string& guid) {
+  using namespace std::literals;
+  // guids only support static shape in tpc_kernels and CGUID
+  static const std::unordered_set<std::string> tpc_static_guids = {
+      "atan2",
+      "batch_to_space",
+      "block_bucketize_sparse_features",
+      "block_bucketize_sparse_features_stage2",
+      "bounds_check_indices_fwd",
+      "broadcast_nd_fwd",
+      "convert_to_fp8_transpose",
+      "convert_to_fp8_transpose_bgrad",
+      "convert_to_fp8_transpose_bgrad_dgelu",
+      "count_non_zero_fwd",
+      "crop_mirror_norm",
+      "ctc_grad_stage1",
+      "ctc_grad_stage2",
+      "ctc_loss_bwd",
+      "dropout_fp8",
+      "embedding_renorm",
+      "embedding_renorm_fwd",
+      "equalize_lut",
+      "expand_into_jagged_permute_fwd",
+      "expand_jagged_indices_fwd",
+      "fp8_gelu",
+      "frac",
+      "gather_ranges",
+      "gather_ranges_fwd",
+      "histogram",
+      "image_projective_transform_fwd",
+      "indexing",
+      "intopk",
+      "intopk_cmp",
+      "kthvalue_fwd",
+      "layer_norm_fp8_fwd",
+      "log_normal_fwd",
+      "maxpool_roi_bwd",
+      "memcpy_nd",
+      "normalize",
+      "optimizer_adagrad",
+      "optimizer_hogwild_sparse_adagrad_with_valid_count_2d",
+      "optimizer_sgd",
+      "optimizer_sparse_adagrad",
+      "optimizer_sparse_adagrad_with_valid_count_2d",
+      "optimizer_sparse_rowwise_adagrad_with_valid_count_2d",
+      "optimizer_sparse_sgd",
+      "optimizer_sparse_sgd_with_valid_count_2d",
+      "pdist_bwd",
+      "permute_1D_sparse_data_fwd",
+      "permute_2D_sparse_data_fwd",
+      "permute_pooled_embeddings_bwd",
+      "permute_pooled_embeddings_fwd",
+      "permute_softmax_bwd",
+      "permute_softmax_fwd",
+      "pnorm_dist_bwd",
+      "pyramid_roi_align_st2_fwd",
+      "ragged_softmax_fwd",
+      "reduce_L1_bwd",
+      "reduce_L2_bwd",
+      "reduce_Lp_bwd",
+      "reduce_arg_max_stage1_fwd",
+      "reduce_arg_max_stage2_fwd",
+      "reduce_arg_min_stage1_fwd",
+      "reduce_arg_min_stage2_fwd",
+      "reduce_log_sum_bwd",
+      "reduce_log_sum_exp_bwd",
+      "reduce_log_sum_exp_fwd",
+      "reduce_log_sum_fwd",
+      "reduce_max_bwd",
+      "reduce_mean_bwd",
+      "reduce_min_bwd",
+      "reduce_prod_bwd",
+      "reduce_sum_bwd",
+      "reduce_sum_square_bwd",
+      "reduce_sum_stage1_fwd",
+      "reduce_sum_stage2_fwd",
+      "remap",
+      "resize_image_fwd",
+      "scatter_bwd",
+      "scatter_reduce",
+      "scatter_reduce_fwd",
+      "sdpa_recomp_bwd",
+      "sdpa_recomp_core_bwd",
+      "sdpa_recomp_core_fwd",
+      "sdpa_recomp_fwd",
+      "segment_max_bwd",
+      "segment_mean_bwd",
+      "segment_min_bwd",
+      "segment_prod_bwd",
+      "segment_sum_bwd",
+      "sequence_reverse_fwd",
+      "sigmoid_cross_entropy_with_logits_bwd",
+      "sigmoid_cross_entropy_with_logits_fwd",
+      "sort_bwd",
+      "space_to_batch",
+      "sparse_lengths_sum_bwd",
+      "sparse_lengths_weighted_sum_bwd",
+      "sparse_memset_fwd",
+      "sparse_memset_with_vc_fwd",
+      "sparse_segment_sum_bwd",
+      "spatial_correlation_bwd",
+      "split_permute_cat_fwd",
+      "unsorted_segment_sum_bwd",
+      "upsample_bwd",
+      "where_bwd",
+  };
+
+  static const std::unordered_set<std::string> static_guids_list =
+      load_static_guids("PT_HPU_STATIC_GUIDS", tpc_static_guids);
+
+  return !static_guids_list.count(guid);
+}
+
 bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
     at::ScalarType,
-    const std::vector<at::IValue>& values) {
+    const std::vector<at::IValue>& values,
+    bool is_dynamic) {
   std::shared_ptr<void> params;
   std::size_t params_size = 0;
 
@@ -546,8 +693,18 @@ bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
   auto inputs = CreateInputList(values, promoted_type);
   auto outputs = CreateOutputList(values, promoted_type);
 
-  auto validation_result =
-      ValidateGuid(m_guid, inputs, outputs, params.get(), params_size);
+  auto validation_result = ValidateGuid(
+      m_guid, inputs, outputs, params.get(), params_size, is_dynamic);
+
+  // (TODO)switch to use synSharedLayerValidateGuidV2 for dynamic shape
+  // validation once the API is ready
+  if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS == validation_result &&
+      is_dynamic) {
+    if (!is_guid_support_dynamic_shape(m_guid)) {
+      validation_result =
+          SharedLayer::Return_t::SHARED_LAYER_GUID_MISSING_DYNAMIC_SUPPORT;
+    }
+  }
 
   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
     // This log line is used by the logging analysis tool. Please be cautious
@@ -563,6 +720,8 @@ bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
         ToDebugString(outputs),
         " values=",
         ToDebugString(values),
+        " is_dynamic=",
+        ToDebugString(is_dynamic),
         " reason=",
         ToDebugString(validation_result));
     return false;

@@ -17,7 +17,7 @@ namespace habana {
 
 
 struct shared_layer_native_dropout : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 3) {
     auto ivalue_arr = torch::jit::last(stack, 3);
     if (ivalue_arr[0].isTensor() && ivalue_arr[1].isDouble() ) {
@@ -39,18 +39,18 @@ bool func(torch::jit::Stack &stack) {
           train_opt_out = c10::optional<bool>();
       }
               
-      auto is_supported = impl(input_base, p_base, train_opt_out);
+      auto is_supported = impl(input_base, p_base, train_opt_out, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & input, double p, c10::optional<bool> train) {
+bool impl(const at::Tensor & input, double p, c10::optional<bool> train, bool is_dynamic) {
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE(input, native_dropout, input, p, train)
+  RETURN_IF_UNSUPPORTED_DTYPE(input, native_dropout, is_dynamic, input, p, train)
 
   return true;
 }

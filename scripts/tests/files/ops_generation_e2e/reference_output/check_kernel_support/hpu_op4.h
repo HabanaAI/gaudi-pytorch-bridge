@@ -17,7 +17,7 @@ namespace habana {
 
 
 struct shared_layer_as_strided : SharedLayerOp {
-bool func(torch::jit::Stack &stack) {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 4) {
     auto ivalue_arr = torch::jit::last(stack, 4);
     if (ivalue_arr[0].isTensor() ) {
@@ -57,14 +57,14 @@ bool func(torch::jit::Stack &stack) {
           storage_offset_opt_out = c10::optional<int64_t>();
       }
               
-      auto is_supported = impl(self_base, size_list_out, stride_list_out, storage_offset_opt_out);
+      auto is_supported = impl(self_base, size_list_out, stride_list_out, storage_offset_opt_out, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self, at::IntArrayRef size, at::IntArrayRef stride, c10::optional<int64_t> storage_offset) {
+bool impl(const at::Tensor & self, at::IntArrayRef size, at::IntArrayRef stride, c10::optional<int64_t> storage_offset, bool is_dynamic) {
   return true;
 }
 

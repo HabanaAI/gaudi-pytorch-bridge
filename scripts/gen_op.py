@@ -539,13 +539,14 @@ def fallback_if_unsupported(
     code = ""
     fallback_string = f"{'RETURN' if is_check_kernel_support else 'FALLBACK'}_IF_UNSUPPORTED_DTYPE"
     for t in tinputs:
-        code += "  {}{}{}{}({}, {}, {}{})\n".format(
+        code += "  {}{}{}{}({}, {}{}, {}{})\n".format(
             fallback_if_prefix,
             fallback_string,
             "_PER_TENSOR" if check_per_tensor else "",
             "2" if overload else "",
             t,
             opname,
+            ", is_dynamic" if is_check_kernel_support else "",
             overload + ", " if overload else "",
             ", ".join(param_vars),
         )
@@ -1113,11 +1114,12 @@ def handle_validator_generator(
     # Check with compute_type when using compute_type
     fallback_string = f"{'RETURN' if is_check_kernel_support else 'FALLBACK'}_IF_UNSUPPORTED_DTYPE"
     if use_compute_type:
-        code += "  {}{}{}(compute_type, {}, {}{})\n".format(
+        code += "  {}{}{}(compute_type, {}{}, {}{})\n".format(
             fallback_if_prefix,
             fallback_string,
             "2" if overload else "",
             opname,
+            ", is_dynamic" if is_check_kernel_support else "",
             overload + ", " if overload else "",
             ", ".join(param_vars),
         )
@@ -1528,7 +1530,8 @@ def eager_frontend(
 
 def prepare_sig_for_kernel_support(sig):
     pos = sig.find("(")
-    sig = "bool impl" + sig[pos:]
+    pos2 = sig.find(")")
+    sig = "bool impl" + sig[pos:pos2] + ", bool is_dynamic" + sig[pos2:]
     sig = sig.replace("at::OptionalSymIntArrayRef", "at::OptionalIntArrayRef")
     sig = sig.replace("c10::SymIntArrayRef", "at::IntArrayRef")
     sig = sig.replace("c10::SymInt", "int64_t")
@@ -2132,7 +2135,7 @@ def codegen_stackpop(param_vars, fun_args):
 
 def generate_stack_pop(fgens, fgen_pos, native_func_dict):
     struct_def = "struct shared_layer_{func_name} : SharedLayerOp {{\n".format(func_name=fgens[fgen_pos[0]].func)
-    stack_unroll = "bool func(torch::jit::Stack &stack) {\n"
+    stack_unroll = "bool func(torch::jit::Stack &stack, bool is_dynamic) {\n"
 
     funsig = fgens[fgen_pos[0]].funsig
     fun_args = re.split(",", re.split(r"\(|\)", funsig)[1])
@@ -2292,7 +2295,7 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, frontend
             '",\n"'.join(sorted(hpu_shared_layer_unsupported_ops))
         )
     )
-    map_def = "std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, py::args& args, const py::kwargs& kwargs)>> fallback_support_check_map = {\n"
+    map_def = "std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, bool, py::args& args, const py::kwargs& kwargs)>> fallback_support_check_map = {\n"
     for op in sorted(ops_added):
         map_def += """{{"{op}", &check_support<habana::shared_layer_{op}>}},\n""".format(op=op)
     map_def += "};\n"
