@@ -24,7 +24,6 @@ static bool can_use_dynamic_shapes(
     const c10::Scalar& step) {
   // Currently synapse support dynamic shape arange only for int datatypes.
   // For any other output datatype, will fallback to normal flow.
-  // [TODO] Currently Arange is not supporting dynamic shape SW-144402.
   return (
       (habana_helpers::GetRefineDynamicShapeStatus() &&
        GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR)) &&
@@ -160,15 +159,10 @@ synapse_helpers::tensor ArangeCommon(
     c10::optional<int> final_result_index) {
   std::vector<synTensor> inputs = {};
   if (syn_in0.has_value() && can_use_dynamic_shapes(start, end, step)) {
-    // It is assumend that syn_in1 and syn_in0 are non empty optionals when
-    // can_use_dynamic_shapes returns ture for arange.start_out
-    // syn_in1 is empty for arange.start_step
-    if (syn_in1.has_value()) {
-      inputs.emplace_back(syn_in1.value());
-    }
-    if (syn_in0.has_value()) {
-      inputs.emplace_back(syn_in0.value());
-    }
+    // syn_in0 is defined, syn_in1 is optional
+    // For arange.start_out, both syn_in0 and syn_in1 are defined.
+    // For arange.start_step, only syn_in0 is defined.
+    inputs.emplace_back(syn_in0.value());
 
     auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
     const bool is_cast_not_required = c10::isFloatingType(internal_out_dtype) ||
@@ -182,8 +176,22 @@ synapse_helpers::tensor ArangeCommon(
     if (is_cast_not_required)
       out_attr.final_result_index = final_result_index;
 
-    auto arange_i32 = OpBackend::BuildNode(
-        op, graph, {range_guid, std::move(inputs), {out_attr}});
+    std::vector<synapse_helpers::tensor> arange_i32 {};
+
+    if (!syn_in1.has_value()) {
+       // arange.start_step
+       // Only syn_in0 is defined
+       arange_i32 = OpBackend::BuildNode(
+          op, graph, {range_guid, std::move(inputs), {out_attr}});
+    }
+    else {
+       // arange.start_out
+       // syn_in1 is defined
+       inputs.emplace_back(syn_in1.value());
+       op->CreateShapeTensorInput(graph, op->ScalarType(), outshape, inputs);
+       arange_i32 = OpBackend::BuildNode(
+          op, graph, {range_guid, {}, {out_attr}, params.get(), size});
+    }
 
     if (is_cast_not_required) {
       return std::move(arange_i32[0]);
