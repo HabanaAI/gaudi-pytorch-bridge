@@ -307,7 +307,7 @@ _foreach_acos:
   dtypes: [Float]
   guid: acos_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_acos_:
@@ -320,7 +320,7 @@ _foreach_asin:
   dtypes: [Float]
   guid: asin_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_asin_:
@@ -333,7 +333,7 @@ _foreach_atan:
   dtypes: [Float]
   guid: atan_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_atan_:
@@ -472,7 +472,7 @@ _foreach_clamp_min_.ScalarList:
 _foreach_cos:
   guid: cos_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_cos_:
@@ -485,7 +485,7 @@ _foreach_cosh:
   dtypes: [Float]
   guid: cosh_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_cosh_:
@@ -574,7 +574,7 @@ _foreach_erf:
   dtypes: [BFloat16, Float]
   guid: erf_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_erf_:
@@ -586,7 +586,7 @@ _foreach_erf_:
 _foreach_erfc:
   dtypes: [BFloat16, Float]
   op_backend: ForeachErfc
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_erfc_:
@@ -598,7 +598,7 @@ _foreach_exp:
   dtypes: [BFloat16, Float]
   guid: exp_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_exp_:
@@ -611,7 +611,7 @@ _foreach_expm1:
   dtypes: [Float]
   guid: expm1_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_expm1_:
@@ -636,7 +636,7 @@ _foreach_floor_:
 _foreach_frac:
   dtypes: [BFloat16, Float]
   op_backend: ForeachFrac
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_frac_:
@@ -678,11 +678,24 @@ _foreach_lerp_.List:
   op_backend: ForeachLerp
   inplace_ids: [0]
 
+_foreach_lgamma:
+  dtypes: [Float]
+  guid: gammaln_fwd
+  op_backend: Foreach
+  output_meta: NonIntegerForeachMeta
+  out_ids: [0]
+
+_foreach_lgamma_:
+  dtypes: [Float]
+  guid: gammaln_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
 _foreach_log:
   dtypes: [BFloat16, Float]
   guid: log_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_log_:
@@ -694,7 +707,7 @@ _foreach_log_:
 _foreach_log10:
   dtypes: [BFloat16, Float]
   op_backend: ForeachLog10
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_log10_:
@@ -706,7 +719,7 @@ _foreach_log1p:
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_log1p_:
@@ -719,7 +732,7 @@ _foreach_log2:
   dtypes: [BFloat16, Float]
   guid: log2_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_log2_:
@@ -1002,7 +1015,7 @@ _foreach_reciprocal:
   dtypes: [BFloat16, Float]
   guid: reciprocal_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_reciprocal_:
@@ -1026,11 +1039,30 @@ _foreach_round_:
   inplace_ids: [0]
   op_backend: Foreach
 
+_foreach_sign:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: sign_fwd
+  op_backend: Foreach
+  output_meta: ForeachMeta
+  out_ids: [0]
+
+_foreach_sign_:
+  dtypes:
+    Gaudi: [BFloat16, Float, Long, Int, Short, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
+  guid: sign_fwd
+  inplace_ids: [0]
+  op_backend: Foreach
+
 _foreach_sigmoid:
   dtypes: [BFloat16, Float]
   guid: sigmoid_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_sigmoid_:
@@ -1043,7 +1075,7 @@ _foreach_sin:
   dtypes: [BFloat16, Float]
   guid: sin_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_sin_:
@@ -1056,7 +1088,7 @@ _foreach_sinh:
   dtypes: [Float]
   guid: sinh_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_sinh_:
@@ -1069,7 +1101,7 @@ _foreach_sqrt:
   dtypes: [BFloat16, Float]
   guid: sqrt_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_sqrt_:
@@ -1139,7 +1171,7 @@ _foreach_tan:
   dtypes: [Float]
   guid: tan_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_tan_:
@@ -1152,7 +1184,7 @@ _foreach_tanh:
   dtypes: [BFloat16, Float]
   guid: tanh_fwd
   op_backend: Foreach
-  output_meta: ForeachMeta
+  output_meta: NonIntegerForeachMeta
   out_ids: [0]
 
 _foreach_tanh_:

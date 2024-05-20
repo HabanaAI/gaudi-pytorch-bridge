@@ -563,3 +563,143 @@ def test_foreach_lerp_inplace(k, optional_scalar):
         if self_cpu[i].dtype == torch.float16:
             rtol, atol = 1e-4, 1e-2
         torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
+
+
+@pytest.mark.parametrize(
+    "op",
+    [
+        torch._foreach_abs,
+        torch._foreach_acos,
+        torch._foreach_asin,
+        torch._foreach_atan,
+        torch._foreach_ceil,
+        torch._foreach_cos,
+        torch._foreach_cosh,
+        torch._foreach_erf,
+        torch._foreach_erfc,
+        torch._foreach_exp,
+        torch._foreach_expm1,
+        torch._foreach_floor,
+        torch._foreach_frac,
+        torch._foreach_neg,
+        torch._foreach_lgamma,
+        torch._foreach_log,
+        torch._foreach_log10,
+        torch._foreach_log1p,
+        torch._foreach_log2,
+        torch._foreach_tan,
+        torch._foreach_tanh,
+        torch._foreach_round,
+        torch._foreach_reciprocal,
+        torch._foreach_sign,
+        torch._foreach_sigmoid,
+        torch._foreach_sin,
+        torch._foreach_sinh,
+        torch._foreach_sqrt,
+        torch._foreach_trunc,
+    ],
+)
+def test_foreach_unary(op):
+    if op == torch._foreach_lgamma and is_gaudi1():
+        pytest.skip(reason="foreach_lgamma is unsupported for Gaudi")
+
+    self_shapes = random.choices(self_shapes_pull, k=len(dtypes))
+    self_dtypes = dtypes[:]
+
+    for i in range(len(self_dtypes)):
+        if not self_dtypes[i].is_floating_point and op == torch._foreach_frac:
+            self_dtypes[i] = torch.float32
+
+    self_cpu, self_hpu = generate_tensor_list(self_shapes, self_dtypes)
+
+    if verbose:
+        print("Self shapes:", self_shapes)
+        print("Self dtypes:", self_dtypes)
+
+    results_cpu = op(self_cpu)
+    op_hpu = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
+    results_hpu = op_hpu(self_hpu)
+
+    for i in range(len(self_dtypes)):
+        rtol, atol = get_tolerance(op, results_cpu[i].dtype)
+        if (
+            op in [torch._foreach_log, torch._foreach_log2, torch._foreach_sigmoid, torch._foreach_erfc]
+            and self_cpu[i].dtype == torch.bfloat16
+        ):
+            rtol, atol = 1e-5, 0.02
+        if op in [torch._foreach_log, torch._foreach_log2, torch._foreach_log1p] and self_cpu[i].dtype == torch.float16:
+            rtol, atol = 3e-5, 0.002
+        torch.testing.assert_close(results_cpu[i], results_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
+
+
+integer_foreach_unary_inplace_ops = [
+    torch._foreach_abs_,
+    torch._foreach_ceil_,
+    torch._foreach_floor_,
+    torch._foreach_neg_,
+    torch._foreach_round_,
+    torch._foreach_trunc_,
+    torch._foreach_sign_,
+    torch._foreach_zero_,
+]
+
+non_integer_foreach_unary_inplace_ops = [
+    torch._foreach_acos_,
+    torch._foreach_asin_,
+    torch._foreach_atan_,
+    torch._foreach_cos_,
+    torch._foreach_cosh_,
+    torch._foreach_erf_,
+    torch._foreach_erfc_,
+    torch._foreach_exp_,
+    torch._foreach_expm1_,
+    torch._foreach_frac_,
+    torch._foreach_lgamma_,
+    torch._foreach_log_,
+    torch._foreach_log10_,
+    torch._foreach_log1p_,
+    torch._foreach_log2_,
+    torch._foreach_tan_,
+    torch._foreach_tanh_,
+    torch._foreach_reciprocal_,
+    torch._foreach_sigmoid_,
+    torch._foreach_sin_,
+    torch._foreach_sinh_,
+    torch._foreach_sqrt_,
+]
+
+
+@pytest.mark.parametrize("op", integer_foreach_unary_inplace_ops + non_integer_foreach_unary_inplace_ops)
+def test_foreach_unary_inplace(op):
+    if op == torch._foreach_lgamma_ and is_gaudi1():
+        pytest.skip(reason="foreach_lgamma is unsupported for Gaudi")
+    self_shapes = random.choices(self_shapes_pull, k=len(dtypes))
+    self_dtypes = dtypes[:]
+
+    for i in range(len(self_dtypes)):
+        if not self_dtypes[i].is_floating_point and op in non_integer_foreach_unary_inplace_ops:
+            self_dtypes[i] = torch.float32
+
+    self_cpu, self_hpu = generate_tensor_list(self_shapes, self_dtypes)
+
+    if verbose:
+        print("Self shapes:", self_shapes)
+        print("Self dtypes:", self_dtypes)
+
+    op(self_cpu)
+    op_hpu = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
+    op_hpu(self_hpu)
+
+    for i in range(len(self_dtypes)):
+        rtol, atol = get_tolerance(op, self_cpu[i].dtype)
+        if (
+            op in [torch._foreach_log_, torch._foreach_log2_, torch._foreach_sigmoid_, torch._foreach_erfc_]
+            and self_cpu[i].dtype == torch.bfloat16
+        ):
+            rtol, atol = 1e-5, 0.02
+        if (
+            op in [torch._foreach_log_, torch._foreach_log2_, torch._foreach_log1p_]
+            and self_cpu[i].dtype == torch.float16
+        ):
+            rtol, atol = 3e-5, 0.002
+        torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
