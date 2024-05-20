@@ -163,6 +163,7 @@ class DivergenceAnalyzer:
 
         if os.environ.get("SYNAPSE_RELEASE_BUILD"):
             possible_paths.append(os.path.join(os.environ.get("SYNAPSE_RELEASE_BUILD"), "bin", "json_tests"))
+        possible_paths.append(os.path.join("/software/users/dsa_bins/json_tests"))
 
         for path in possible_paths:
             if os.path.isfile(path):
@@ -447,8 +448,14 @@ class DivergenceAnalyzer:
             tensor_static = static_list[1]
             iteration_static = static_list[2]
             self.log(f'Analyzing graph:", {_graph_name_dynamic}, "-> Tensor:", {tensor_dynamic}', console=False)
-            self.log(f'\tDynamic graph:", {_graph_name_dynamic}, "-> Tensor:", {tensor_dynamic}', console=False)
-            self.log(f'\tStatic  graph:", {_graph_name_static}, "-> Tensor:", {tensor_static}', console=False)
+            self.log(
+                f'\tDynamic graph:", {_graph_name_dynamic}, "-> Tensor:", {tensor_dynamic}, " -> iteration: ", {iteration_dynamic}',
+                console=False,
+            )
+            self.log(
+                f'\tStatic  graph:", {_graph_name_static}, "-> Tensor:", {tensor_static}, " -> iteration: ", {iteration_static}',
+                console=False,
+            )
             if self.cfg.parallel:
                 path_static, path_dynamic, path_json = get_path(data_dict, _graph_name_dynamic)
             else:
