@@ -465,6 +465,12 @@ class OptimizedJitGraphCache {
   size_t CacheSize();
   bool Empty();
   void Clear();
+  std::unordered_map<
+      size_t,
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData>>
+  get_m_cache_map() const {
+    return m_cache_map;
+  }
 
  private:
   explicit OptimizedJitGraphCache();

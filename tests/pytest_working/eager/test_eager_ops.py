@@ -11,10 +11,13 @@
 ###############################################################################
 
 
+import habana_frameworks.torch.utils.debug as htdebug
 import numpy as np
 import pytest
 import torch
 from test_utils import format_tc, is_gaudi1
+
+Verbose = False
 
 
 @pytest.mark.parametrize(
@@ -1235,3 +1238,16 @@ def test_sag_topk_node_params():
         sorted_sequence_hpu, _ = torch.sort(input_hpu)
 
         assert torch.allclose(sorted_sequence, sorted_sequence_hpu.cpu(), atol=0.001, rtol=0.001)
+
+
+def test_shape_agnostic_helper():
+    cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    result_hpu = torch.relu(hpu_tensor).to("cpu")
+    result_cpu = torch.relu(cpu_tensor)
+
+    assert torch.equal(result_hpu, result_cpu)
+    shape_agnostic_not_supported_ops = htdebug._get_shape_agnostic_unsupported_ops()
+    if Verbose:
+        print(f"Shape agnostic not supported ops:: {shape_agnostic_not_supported_ops}")

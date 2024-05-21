@@ -18,6 +18,10 @@ def _get_fallback_op_count() -> dict:
     return _debug_C.get_fallback_op_count()
 
 
+def _get_shape_agnostic_unsupported_ops() -> set:
+    return _debug_C.get_shape_agnostic_unsupported_ops()
+
+
 def _set_dynamic_mode() -> None:
     _debug_C.set_dynamic_mode()
 

@@ -16,11 +16,14 @@
 #include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/kernel/hpu_habana_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "habana_eager/eager_context.h"
 #include "habana_helpers/towl.h"
 #include "habana_kernels/fallback_helper.h"
+#include "habana_kernels/shape_agnostic_helper.h"
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/memlog.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
+#include "pytorch_helpers/habana_helpers/misc_utils.h"
 
 enum log_level {
   TRACE = HLLOG_LEVEL_TRACE,
@@ -34,6 +37,11 @@ enum log_level {
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_fallback_op_count", []() {
     return habana::HpuFallbackHelper::get()->get_op_count();
+  });
+  m.def("get_shape_agnostic_unsupported_ops", []() {
+    habana::TryJoinPendingEagerPipelineThreads();
+    return habana::HpuShapeAgnosticHelper::get()
+        ->get_shape_agnostic_unsupported_ops();
   });
   m.def("set_dynamic_mode", []() {
     habana_lazy::HbLazyTensor::SetDynamicMode();
