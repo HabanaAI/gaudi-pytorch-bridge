@@ -57,8 +57,15 @@ std::shared_ptr<void> FillHabanaRandintParams(
     const at::Stack& stack,
     size_t& size) {
   PARAMS_STUB(ns_RandomUniform::ParamsV2);
-  params->low.i = stack[1].toInt();
-  params->high.i = stack[2].toInt();
+  const auto dtype =
+      stack[4].toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
+  if (c10::isFloatingType(dtype)) {
+    params->low.f = static_cast<float>(stack[1].toInt());
+    params->high.f = static_cast<float>(stack[2].toInt());
+  } else {
+    params->low.i = stack[1].toInt();
+    params->high.i = stack[2].toInt();
+  }
   return params;
 }
 
@@ -170,6 +177,61 @@ HabanaRandint::HabanaRandint(int device_id, c10::ScalarType scalar_type)
     : HabanaRandBase(device_id, scalar_type, "random_uniform") {
   SetFillParams(FillHabanaRandintParams);
   SetOutputMetaFn(HabanaRandintOutputMeta);
+}
+
+void HabanaRandint::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const auto output_meta = GetOutputMetaData()[0];
+  const auto& outshape = output_meta.shape;
+  const auto& dtype = output_meta.dtype;
+
+  size_t size = 0;
+  auto rand_params = FillParams(stack, size);
+
+  update_guid_dtype(guid_, dtype);
+
+  std::vector<synTensor> inputs;
+  inputs.push_back(syn_in(0));
+  CreateShapeTensorInput(graph, dtype, outshape, inputs);
+
+  std::string post_op_guid = "";
+  NodeAttr::NodeOutputAttr out_attr = {outshape, dtype};
+  const bool need_convert_i16 = dtype == c10::ScalarType::Byte ||
+      dtype == c10::ScalarType::Char || dtype == c10::ScalarType::Bool;
+  if (need_convert_i16) {
+    post_op_guid =
+        dtype == at::ScalarType::Byte ? "cast_i16_to_u8" : "cast_i16_to_i8";
+    update_guid_dtype(guid_, "i16");
+    out_attr.dtype = c10::ScalarType::Short;
+  } else if (c10::isFloatingType(dtype)) {
+    post_op_guid = get_guid_with_precision("floor_fwd", dtype);
+  } else {
+    out_attr.final_result_index = 0;
+  }
+
+  auto rand = BuildOp(
+      graph, guid_, std::move(inputs), {out_attr}, rand_params.get(), size);
+  if (need_convert_i16) {
+    PARAMS_STUB(ns_CastKernel::Params);
+    // Round down so that the upper limit is not included in the generated seq.
+    // The assumption is that the float vaues dont include the upper limit.
+    params->round_mode = CAST_ROUND_DOWN;
+    auto cast = BuildOp(
+        graph,
+        post_op_guid,
+        {rand[0].get()},
+        {{outshape, dtype, 0}},
+        params.get(),
+        size);
+    syn_out(0) = std::move(cast[0]);
+  } else if (c10::isFloatingType(dtype)) {
+    auto result =
+        BuildOp(graph, post_op_guid, {rand[0].get()}, {{outshape, dtype, 0}});
+    syn_out(0) = std::move(result[0]);
+  } else {
+    syn_out(0) = std::move(rand[0]);
+  }
 }
 
 HabanaUniform::HabanaUniform(int device_id, c10::ScalarType scalar_type)

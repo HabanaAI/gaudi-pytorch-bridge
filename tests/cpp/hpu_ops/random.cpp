@@ -228,6 +228,7 @@ TEST_F(HpuOpTest, random_f32) {
   auto result2 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
 
   EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.equal(result1.floor()));
   EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
       << "Seed=" << GetSeed() << "\n";
 }
@@ -242,6 +243,7 @@ TEST_F(HpuOpTest, random_from_f32) {
   auto result2 = GetHpuInput(0).random_(9, 10);
 
   EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.equal(result1.floor()));
   EXPECT_TRUE(result1.cpu().ge(9).all().item().toBool())
       << "Seed=" << GetSeed() << "\n";
   EXPECT_TRUE(result1.cpu().lt(10).all().item().toBool())
@@ -258,6 +260,7 @@ TEST_F(HpuOpTest, random_to_f32) {
   auto result2 = GetHpuInput(0).random_(1000);
 
   EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.equal(result1.floor()));
   EXPECT_TRUE(result1.cpu().lt(1 << 24).all().item().toBool())
       << "Seed=" << GetSeed() << "\n";
   EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
@@ -429,7 +432,6 @@ TEST_F(HpuOpTest, random_u8) {
   SetSeed();
   auto result2 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
 
-  std::cout << result2.cpu() << "\n";
   EXPECT_TRUE(result1.equal(result2));
   EXPECT_TRUE(result1.cpu().le(255).all().item().toBool())
       << "Seed=" << GetSeed() << "\n";
@@ -482,6 +484,7 @@ TEST_F(HpuOpTest, random_half) {
   auto result2 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
 
   EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.equal(result1.floor()));
   EXPECT_TRUE(result1.cpu().le((1 << 11)).all().item().toBool())
       << "Seed=" << GetSeed() << "\n";
   EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
@@ -501,6 +504,7 @@ TEST_F(HpuOpTest, random_from_half) {
   auto result2 = GetHpuInput(0).random_(-10, 10);
 
   EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.equal(result1.floor()));
   EXPECT_TRUE(result1.cpu().ge(-10).all().item().toBool())
       << "Seed=" << GetSeed() << "\n";
   EXPECT_TRUE(result1.cpu().lt(10).all().item().toBool())
@@ -520,6 +524,7 @@ TEST_F(HpuOpTest, random_to_half) {
   auto result2 = GetHpuInput(0).random_(1000);
 
   EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.equal(result1.floor()));
   EXPECT_TRUE(result1.cpu().lt(1000).all().item().toBool())
       << "Seed=" << GetSeed() << "\n";
   EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
@@ -536,6 +541,7 @@ TEST_F(HpuOpTest, random_bf16) {
   auto result2 = GetHpuInput(0).random_(at::detail::getDefaultCPUGenerator());
 
   EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.equal(result1.floor()));
   EXPECT_TRUE(result1.cpu().le(255).all().item().toBool())
       << "Seed=" << GetSeed() << "\n";
   EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())
@@ -552,6 +558,7 @@ TEST_F(HpuOpTest, random_from_bf16) {
   auto result2 = GetHpuInput(0).random_(-10, 10);
 
   EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.equal(result1.floor()));
   EXPECT_TRUE(result1.cpu().ge(-10).all().item().toBool())
       << "Seed=" << GetSeed() << "\n";
   EXPECT_TRUE(result1.cpu().lt(10).all().item().toBool())
@@ -568,6 +575,7 @@ TEST_F(HpuOpTest, random_to_bf16) {
   auto result2 = GetHpuInput(0).random_(127);
 
   EXPECT_TRUE(result1.equal(result2));
+  EXPECT_TRUE(result1.equal(result1.floor()));
   EXPECT_TRUE(result1.cpu().lt(127).all().item().toBool())
       << "Seed=" << GetSeed() << "\n";
   EXPECT_TRUE(result1.cpu().ge(0).all().item().toBool())

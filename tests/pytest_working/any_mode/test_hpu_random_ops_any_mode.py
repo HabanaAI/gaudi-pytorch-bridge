@@ -12,9 +12,13 @@
 import numpy as np
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc, is_pytest_mode_compile
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc, is_gaudi1, is_pytest_mode_compile
 
 Verbose = False
+
+dtypes = [torch.float32, torch.bfloat16, torch.int8, torch.uint8, torch.int16, torch.int32, torch.bool]
+if not is_gaudi1():
+    dtypes.append(torch.float16)
 
 
 @pytest.mark.parametrize("shape_self", [[], [1], [3, 4]], ids=format_tc)
@@ -70,3 +74,33 @@ def test_randn(shape, dtype):
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir("habana_randn")
+
+
+@pytest.mark.parametrize("shape", [[], [1], [3, 4]], ids=format_tc)
+@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
+def test_randint(shape, dtype):
+    def fn():
+        if dtype == torch.bool:
+            low = 0
+            high = 2
+        elif not dtype.is_floating_point:
+            low = torch.iinfo(dtype).min
+            high = torch.iinfo(dtype).max
+        else:
+            low = -10
+            high = 10
+        return torch.randint(low, high, shape, dtype=dtype, device="hpu")
+
+    if is_pytest_mode_compile():
+        torch._dynamo.reset()
+        clear_t_compile_logs()
+        fn = torch.compile(fn, backend="hpu_backend")
+
+    result = fn()
+    assert torch.allclose(result, result.trunc())
+
+    if Verbose:
+        print(f"{result = }")
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("habana_randint")

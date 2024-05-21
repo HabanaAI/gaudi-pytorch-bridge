@@ -71,51 +71,79 @@ std::shared_ptr<void> RandomUniformParams(
     at::optional<float> from,
     at::optional<float> to,
     size_t& size) {
-  PARAMS_STUB(ns_RandomUniform::Params);
+  PARAMS_STUB(ns_RandomUniform::ParamsV2);
   /*
   NOTE: As per PyTorch specification, for floating point types, if unspecified,
   range will be [0, 2^mantissa] to ensure that every value is representable. For
   example, torch.tensor(1, dtype=torch.double).random_() will be uniform in [0,
   2^53].
   */
-  params->low = from.has_value() ? *from : 0;
   switch (type) {
     case at::ScalarType::Float: // [-(2^24), 2^24]
     case at::ScalarType::Double: // [-(2^53), 2^53]
-      params->high = to.has_value() ? *to : 1 << 24;
+      params->high.f = to.has_value() ? *to : 1 << 24;
       break;
     case at::ScalarType::Half: // [-(2^11), 2^11]
-      params->high = to.has_value() ? *to : 1 << 11;
+      params->high.f = to.has_value() ? *to : 1 << 11;
       break;
     case at::ScalarType::Short:
-      params->high = to.has_value() ? *to : 1 << 15;
+      params->high.i = to.has_value() ? *to : 1 << 15;
       break;
     case at::ScalarType::Int:
-      params->high = to.has_value()
+      params->high.i = to.has_value()
           ? *to
           : static_cast<float>(std::numeric_limits<int32_t>::max());
       break;
     case at::ScalarType::BFloat16: // [-(2^8), 2^8]
+      params->high.f = to.has_value() ? *to : 1 << 8;
+      break;
     case at::ScalarType::Byte:
-      params->high = to.has_value() ? *to : 1 << 8;
+      params->high.i = to.has_value() ? *to : 1 << 8;
       break;
     case at::ScalarType::Char:
-      params->high = to.has_value() ? *to : 1 << 7;
+      params->high.i = to.has_value() ? *to : 1 << 7;
       break;
     case at::ScalarType::Long:
-      params->high = to.has_value()
+      params->high.i = to.has_value()
           ? *to
           : static_cast<float>(std::numeric_limits<int64_t>::max());
       break;
     case at::ScalarType::Bool:
-      params->low = 0;
-      params->high = 2;
+      params->high.i = 2;
       break;
     default:
       TORCH_CHECK(false, "Got unsupported type for random uniform: ", type);
       break;
   }
-  PT_KERNEL_DEBUG(__func__, " low: ", params->low, " high: ", params->high);
+
+  switch (type) {
+    case at::ScalarType::Float:
+    case at::ScalarType::Double:
+    case at::ScalarType::Half:
+    case at::ScalarType::BFloat16:
+      params->low.f = from.has_value() ? *from : 0;
+      break;
+    case at::ScalarType::Short:
+    case at::ScalarType::Int:
+    case at::ScalarType::Byte:
+    case at::ScalarType::Char:
+    case at::ScalarType::Long:
+      params->low.i = from.has_value() ? *from : 0;
+      break;
+    case at::ScalarType::Bool:
+      params->low.i = 0;
+      break;
+    default:
+      TORCH_CHECK(false, "Got unsupported type for random uniform: ", type);
+      break;
+  }
+  if (c10::isFloatingType(type)) {
+    PT_KERNEL_DEBUG(
+        __func__, " low: ", params->low.f, " high: ", params->high.f);
+  } else {
+    PT_KERNEL_DEBUG(
+        __func__, " low: ", params->low.i, " high: ", params->high.i);
+  }
 
   return params;
 }
@@ -438,6 +466,58 @@ void RandomSeedTensorInput::AddNode(
         {{outshape, dtype, 0}},
         rand_params.get(),
         size);
+    syn_out(0) = std::move(rand[0]);
+  }
+}
+
+void RandomSeedTensorInputIntegers::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto outshape = stack_tensor(stack, 0).sizes();
+  auto dtype = ScalarType();
+  std::vector<synTensor> inputs;
+
+  inputs.push_back(syn_in(1)); // insert seed tensor
+  CreateShapeTensorInput(graph, dtype, outshape, inputs);
+  size_t size = 0;
+  auto rand_params = FillParams(stack, size);
+
+  std::string post_op_guid = "";
+  NodeAttr::NodeOutputAttr out_attr = {outshape, dtype};
+  const bool need_convert_i16 = dtype == c10::ScalarType::Byte ||
+      dtype == c10::ScalarType::Char || dtype == c10::ScalarType::Bool;
+  if (need_convert_i16) {
+    post_op_guid =
+        dtype == at::ScalarType::Byte ? "cast_i16_to_u8" : "cast_i16_to_i8";
+    update_guid_dtype(guid_, "i16");
+    out_attr.dtype = c10::ScalarType::Short;
+  } else if (c10::isFloatingType(dtype)) {
+    post_op_guid = get_guid_with_precision("floor_fwd", dtype);
+  } else {
+    out_attr.final_result_index = 0;
+  }
+
+  auto rand = BuildOp(
+      graph, guid_, std::move(inputs), {out_attr}, rand_params.get(), size);
+
+  if (need_convert_i16) {
+    PARAMS_STUB(ns_CastKernel::Params);
+    // Round down so that the upper limit is not included in the generated seq.
+    // The assumption is that the float vaues dont include the upper limit.
+    params->round_mode = CAST_ROUND_DOWN;
+    auto cast = BuildOp(
+        graph,
+        post_op_guid,
+        {rand[0].get()},
+        {{outshape, dtype, 0}},
+        params.get(),
+        size);
+    syn_out(0) = std::move(cast[0]);
+  } else if (c10::isFloatingType(dtype)) {
+    auto result =
+        BuildOp(graph, post_op_guid, {rand[0].get()}, {{outshape, dtype, 0}});
+    syn_out(0) = std::move(result[0]);
+  } else {
     syn_out(0) = std::move(rand[0]);
   }
 }

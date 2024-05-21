@@ -6405,7 +6405,7 @@ random_:
   guid: random_uniform_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
-  op_backend: RandomSeedTensorInput
+  op_backend: RandomSeedTensorInputIntegers
   schema_args: "(Tensor(a!) self, Tensor seed) -> Tensor(a!)"
 
 random_.from:
@@ -6417,7 +6417,7 @@ random_.from:
   guid: random_uniform_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
-  op_backend: RandomSeedTensorInput
+  op_backend: RandomSeedTensorInputIntegers
   schema_args: "(Tensor(a!) self, int from, int? to, Tensor seed) -> Tensor(a!)"
 
 random_.to:
@@ -6429,7 +6429,7 @@ random_.to:
   guid: random_uniform_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
-  op_backend: RandomSeedTensorInput
+  op_backend: RandomSeedTensorInputIntegers
   schema_args: "(Tensor(a!) self, int to, Tensor seed) -> Tensor(a!)"
 
 randperm:

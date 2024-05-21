@@ -45,9 +45,13 @@ struct HabanaRandBase : OpBackend {
 
 DEFINE_RANDOM_OP(HabanaRand)
 DEFINE_RANDOM_OP(HabanaRandn)
-DEFINE_RANDOM_OP(HabanaRandint)
 DEFINE_RANDOM_OP(HabanaUniform)
 DEFINE_RANDOM_OP(HabanaSeedGenerator)
+
+struct HabanaRandint : HabanaRandBase {
+  HabanaRandint(int device_id, c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
 
 struct HabanaMultinomial : OpBackend {
   HabanaMultinomial(int device_id, c10::ScalarType scalar_type);
