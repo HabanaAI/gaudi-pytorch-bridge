@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -27,7 +27,6 @@
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/pt_version_check.h"
-#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 
@@ -63,7 +62,6 @@ class LazyDynamicInferOutputMetasTest
 //                           Out
 
 TEST_F(LazyDynamicInferOutputMetasTest, AddConv2DBNMaxPoolTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -143,7 +141,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, AddConv2DBNMaxPoolTest) {
 //                            |
 //                           Out
 TEST_F(LazyDynamicInferOutputMetasTest, Conv2DTransposeBiasTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -176,7 +173,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, Conv2DTransposeBiasTest) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, Fill) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor A = torch::randn({20});
   torch::Tensor hA = A.to(torch::kHPU);
   auto hout = hA.fill_(1.0);
@@ -184,7 +180,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, Fill) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, SiluBwdTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   const int C = 16;
   const int N = 16;
   int H = 16;
@@ -211,7 +206,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, SiluBwdTest) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, UpsampleNearest2DTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int count = -1;
   auto upsample_test = [&count](c10::IntArrayRef in_sizes) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", ++count, " ----\n");
@@ -231,7 +225,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, UpsampleNearest2DTest) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, UpsampleNearest2DBwdTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::manual_seed(0);
   int count = -1;
   auto upsample_test = [&count](c10::IntArrayRef in_sizes) {
@@ -268,7 +261,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, UpsampleNearest2DBwdTest) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, SqueezeTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   const int C = 3;
   const int N = 16;
   int H = 16;
@@ -290,7 +282,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, SqueezeTest) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, AllReduceStridedInsertTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<int> in_sizes{16, 24, 32};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
@@ -318,7 +309,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, AllReduceStridedInsertTest) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, AllReduceStridedViewTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<int> in_sizes{16, 24, 32};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
@@ -346,7 +336,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, AllReduceStridedViewTest) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, EqScalarTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor A = torch::rand({2, 2}, torch::requires_grad(false));
   float compVal = 1.1f;
   auto out_cpu = torch::eq(A, compVal);
@@ -360,7 +349,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, EqScalarTest) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, ge) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto cpu_in1 = torch::randn({42}).to(at::kBFloat16);
   auto cpu_in2 = torch::randn({2, 42});
 
@@ -372,7 +360,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, ge) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, Maximum) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor input1 = torch::randn({2, 2});
   torch::Tensor input2 = torch::randn({2, 2});
 
@@ -384,7 +371,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, Maximum) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, Minimum) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor input1 = torch::randn({2, 2});
   torch::Tensor input2 = torch::randn({2, 2});
 
@@ -396,7 +382,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, Minimum) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, upsample_bicubic2d_fwd_scale) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor input1 = torch::randn({2, 7, 3, 4});
   torch::Tensor input1hpu = input1.to("hpu");
   std::vector<double> scale_factor = {1.999, 2.999};
@@ -416,7 +401,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, upsample_bicubic2d_fwd_scale) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, upsample_bicubic2d_bwd_size) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor input1 = torch::randn({4, 3, 12, 64});
   torch::Tensor input1hpu = input1.to("hpu");
   std::vector<int64_t> output_size = {12, 64};
@@ -431,7 +415,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, upsample_bicubic2d_bwd_size) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, sigmoid) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor cpu_in = torch::randn({4, 3, 12, 64});
   torch::Tensor hpu_in = cpu_in.to("hpu");
 
@@ -439,7 +422,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, sigmoid) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, SigmoidBwdTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto input_tensor =
       torch::arange(4, torch::dtype(torch::kFloat).requires_grad(true))
           .reshape({1, 1, 2, 2});
@@ -460,7 +442,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, SigmoidBwdTest) {
 
 // index_select is supported as manual op
 TEST_F(LazyDynamicInferOutputMetasTest, index_select) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto in_size = 1;
   auto max_value = 1024;
   auto datatype = torch::kInt;
@@ -485,7 +466,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, index_select) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, index_select_1) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto max_value = 28;
   auto datatype = torch::kInt;
   auto index_value = 5;
@@ -513,7 +493,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, index_select_1) {
 
 // index_select_out is supported as auto gen op
 TEST_F(LazyDynamicInferOutputMetasTest, index_select_out) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto in_size = 1;
   auto max_value = 1024;
   auto datatype = torch::kInt;
@@ -541,7 +520,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, index_select_out) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, index_select_out_1) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto max_value = 28;
   auto datatype = torch::kInt;
   auto index_value = 5;
@@ -569,7 +547,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, index_select_out_1) {
 
 // Also validates InferOutputMeta for for Reshape/View
 TEST_F(LazyDynamicInferOutputMetasTest, ReshapeTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   const int N = 2;
   const int C = 4;
   const int H = 8;
@@ -590,7 +567,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, ReshapeTest) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, squeezeCmptOpTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto x = torch::randn({4});
   auto hx = x.to(torch::kHPU);
 
@@ -601,7 +577,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, squeezeCmptOpTest) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, SliceTest_CmptOtShp) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::Tensor a = torch::randn({8, 3, 28, 28}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
   int64_t dim = 1;
@@ -619,7 +594,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, SliceTest_CmptOtShp) {
 
 // Also validates InferOutputMeta for View, AddInplace and strided_insert
 TEST_F(LazyDynamicInferOutputMetasTest, AddInplaceViewTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 1;
   int C = 2;
   int H = 4;
@@ -642,7 +616,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, AddInplaceViewTest) {
 
 // Also validates InferOutputMeta for ArangeHtF32
 TEST_F(LazyDynamicInferOutputMetasTest, ArangeTestFloatHt) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<int> start_sizes{0, 0, 0, 0, 0};
   std::vector<int> end_sizes{5, 10, 15, 20, 25};
   std::vector<int> step_sizes{1, 2, 3, 4, 5};
@@ -672,7 +645,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, ArangeTestFloatHt) {
 
 // Also validates InferOutputMeta for ArangeHtI32
 TEST_F(LazyDynamicInferOutputMetasTest, ArangeTestHt) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   // std::vector<int> start_sizes{1, 1, 1, 1};
   std::vector<int> start_sizes{0, 0, 0, 0, 0};
   std::vector<int> end_sizes{5, 10, 15, 20, 25};
@@ -735,7 +707,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, DISABLED_RoiAlignBwd) {
 
 // Also validates InferOutputMeta for RandPermHT
 TEST_F(LazyDynamicInferOutputMetasTest, RandPermHT) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR, true, 1);
   std::vector<int> in_sizes{8, 10, 15};
@@ -754,7 +725,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, RandPermHT) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, Mean) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<int> in_sizes{16, 24, 32};
   for (int i = 0; i < in_sizes.size(); i++) {
     PT_TEST_DEBUG("PTI_DBG: Iteration Start -- ", i, " ----\n");
@@ -773,7 +743,6 @@ void repeatInlvTest(
     int64_t dim = -1);
 
 TEST_F(LazyDynamicInferOutputMetasTest, repeatInlv) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   repeatInlvTest(torch::tensor({4, 5}), {10, 7});
   repeatInlvTest(torch::randn({4, 5}), {2, 1, 1, 1, 1}, 1);
@@ -781,7 +750,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, repeatInlv) {
 }
 
 TEST_F(LazyDynamicInferOutputMetasTest, RepeatTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
   int H = 4;
   std::vector<int> c{5, 50, 100};

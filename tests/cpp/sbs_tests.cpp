@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2022 HabanaLabs, Ltd.
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include <gtest/gtest.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
@@ -15,7 +18,6 @@
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/sbs_runner.h"
 #include "pytorch_helpers/habana_helpers/kernels_accumulation.h"
-#include "utils/device_type_util.h"
 
 class SBSWithParamsTest
     : public ::testing::TestWithParam<std::tuple<habana_lazy::SBSModes, bool>>,
@@ -433,9 +435,6 @@ TEST_P(SBSWithParamsTest, DISABLED_GraphTextDump1SBSTest) {
 }
 
 TEST_P(SBSWithParamsTest, CrossEntropySBSTest) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::Tensor input_tensor =
       torch::rand({16, 32, 16, 14}, torch::requires_grad(false));
   torch::Tensor tHabanaX = input_tensor.to(torch::kHPU);

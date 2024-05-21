@@ -22,7 +22,6 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
-#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 using namespace at;
@@ -418,9 +417,6 @@ TEST_F(LazyConvKernelTest, Conv3dTest) {
 }
 
 TEST_F(LazyConvKernelTest, Conv3dG2Test) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   auto in =
       torch::randn({64, 16, 4, 28, 28}, torch::dtype(torch::kFloat)); // ncdhw
   auto wt =

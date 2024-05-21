@@ -22,7 +22,6 @@
 #include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
-#include "utils/device_type_util.h"
 
 using namespace habana_lazy;
 using namespace at;
@@ -108,9 +107,6 @@ INSTANTIATE_TEST_CASE_P(
             true)));
 
 TEST_P(UniqueDimParameterizedTestFixture, tests) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   c10::ScalarType dtype = std::get<1>(GetParam());
   int64_t dim = std::get<2>(GetParam());
   bool return_inverse = std::get<3>(GetParam());
@@ -868,9 +864,6 @@ TEST_F(LazyIndexKernelTest, squeezeDimsNone) {
 }
 
 TEST_F(LazyIndexKernelTest, IndexOutTest) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   // SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 0, 0);
   torch::Tensor input_cpu = torch::arange(36).reshape({4, 3, 3});
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
@@ -935,9 +928,6 @@ TEST_F(LazyIndexKernelTest, IndexMixedTest1) {
 }
 
 TEST_F(LazyIndexKernelTest, IndexMixedTest2) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::Tensor input_cpu = torch::arange(108).reshape({4, 3, 3, 3});
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
 

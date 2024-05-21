@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -64,9 +64,6 @@ TEST_F(LazyLinearKernelTest, AddMmTest) {
 }
 
 TEST_F(LazyLinearKernelTest, MatmulTest) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   auto matmul_test = [](c10::IntArrayRef size1, c10::IntArrayRef size2) {
     auto mat1 = torch::randn(size1).requires_grad_();
     auto mat2 = torch::randn(size2).requires_grad_();
@@ -127,9 +124,6 @@ TEST_F(LazyLinearKernelTest, MatmulTest) {
 }
 
 TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   auto matmulbwd_test = [](c10::IntArrayRef size1, c10::IntArrayRef size2) {
     auto mat1 = torch::randn(size1, torch::requires_grad());
     auto mat2 = torch::randn(size2, torch::requires_grad());
@@ -218,9 +212,6 @@ TEST_F(LazyLinearKernelTest, MatmulBwdTest) {
 }
 
 TEST_F(LazyLinearKernelTest, BaddBmmTest1) {
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   torch::Tensor A = torch::randn({10, 3, 5});
   torch::Tensor B = torch::randn({10, 3, 4});
   torch::Tensor C = torch::randn({10, 4, 5});

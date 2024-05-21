@@ -57,7 +57,6 @@ class LazyDynamicShapesTest : public habana_lazy_test::LazyDynamicTest {
 //                           out
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -148,12 +147,10 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
 //                           out
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeTest2WithMarkStep) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   DynamicShapeTest2(true);
 }
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeTest2NoMarkStep) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   DynamicShapeTest2(false);
 }
 
@@ -246,7 +243,6 @@ void LazyDynamicShapesTest::DynamicShapeTest2(bool with_mark_step) {
 //                           out
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -335,7 +331,6 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeTest3) {
 }
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int A = 4;
   const int C = 3;
   std::vector<int> in_sizes{6, 8, 10};
@@ -380,7 +375,6 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeDebugSimple) {
 }
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeClearCachedRecipes) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int A = 4;
   const int C = 3;
   std::vector<int> in_sizes{6, 8, 10};
@@ -431,7 +425,6 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeClearCachedRecipes) {
 }
 
 TEST_F(LazyDynamicShapesTest, RefineSlice) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 1;
   int C = 4;
   int H = 24;
@@ -457,7 +450,6 @@ TEST_F(LazyDynamicShapesTest, RefineSlice) {
 }
 
 TEST_F(LazyDynamicShapesTest, SingleOpRelu) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int A = 4;
   const int C = 3;
   std::vector<int> in_sizes{6, 8, 10, 12, 14, 16};
@@ -495,7 +487,6 @@ TEST_F(LazyDynamicShapesTest, SingleOpRelu) {
 
 // Reproducer for https://jira.habana-labs.com/browse/SW-94443
 TEST_F(LazyDynamicShapesTest, SingleOpAdd) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<std::vector<int64_t>> in1 = {{10, 20, 30}, {10, 50, 30}};
   std::vector<std::vector<int64_t>> in2 = {{10, 1, 1}, {10, 50, 30}};
 
@@ -531,7 +522,6 @@ TEST_F(LazyDynamicShapesTest, SingleOpAdd) {
 }
 
 TEST_F(LazyDynamicShapesTest, SetDynamicModeTest_UniqueGraph) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<std::pair<int, int>> v = {
       {3, 1},
       {1, 1},
@@ -568,7 +558,6 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest_UniqueGraph) {
 }
 
 TEST_F(LazyDynamicShapesTest, UniqueGraph_Broadcast) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   // unset the env variable if set for this case
   bool org_state = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING);
   SET_ENV_FLAG_NEW(PT_HPU_ENABLE_BROADCAST_BUCKET_HANDLING, false, 1);
@@ -600,7 +589,6 @@ TEST_F(LazyDynamicShapesTest, UniqueGraph_Broadcast) {
 }
 
 TEST_F(LazyDynamicShapesTest, SetDynamicModeTest1) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -636,7 +624,6 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest1) {
 }
 
 TEST_F(LazyDynamicShapesTest, SetDynamicModeTest2) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -675,7 +662,6 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest2) {
 }
 
 TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -708,7 +694,6 @@ TEST_F(LazyDynamicShapesTest, SetDynamicModeTest3) {
 }
 
 TEST_F(LazyDynamicShapesTest, ProdTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int H = 4;
   std::vector<int> in_sizes{6, 8, 10};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -723,7 +708,6 @@ TEST_F(LazyDynamicShapesTest, ProdTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, ProdDimIntTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto prod_test = [](std::vector<int64_t> input_shape,
                       int64_t dim,
                       bool keepdim,
@@ -746,7 +730,6 @@ TEST_F(LazyDynamicShapesTest, ProdDimIntTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, AllDimTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto all_test =
       [](std::vector<int64_t> input_shape, int64_t dim, bool keepdim) {
         torch::ScalarType dtype = torch::kBool;
@@ -767,7 +750,6 @@ TEST_F(LazyDynamicShapesTest, AllDimTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, SliceTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 1;
   int C = 4;
   int H = 24;
@@ -790,7 +772,6 @@ TEST_F(LazyDynamicShapesTest, SliceTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, SliceTestUpdateBucket) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int H = 24;
   std::vector<int> W_values{16, 18, 20};
   std::vector<int> in_start{0, 2, 3};
@@ -811,7 +792,6 @@ TEST_F(LazyDynamicShapesTest, SliceTestUpdateBucket) {
 }
 
 TEST_F(LazyDynamicShapesTest, SliceTestUpdateBucketWithNodes) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<int> W_values{16, 18, 20};
   std::vector<int> in_start{0, 2, 3};
   std::vector<int> in_end{8, 10, 12};
@@ -859,7 +839,6 @@ TEST_F(LazyDynamicShapesTest, DISABLED_SliceTest6dim) {
 }
 
 TEST_F(LazyDynamicShapesTest, SliceTest2) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int H = 4;
   std::vector<int> in_sizes{16, 18, 20};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -882,7 +861,6 @@ TEST_F(LazyDynamicShapesTest, SliceTest2) {
 }
 
 TEST_F(LazyDynamicShapesTest, SliceTest3) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 1;
   int C = 4;
   int H = 4;
@@ -911,7 +889,6 @@ TEST_F(LazyDynamicShapesTest, SliceTest3) {
 }
 
 TEST_F(LazyDynamicShapesTest, RepeatTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int H = 4;
   std::vector<int> in_sizes{10, 231, 520};
   for (int i = 0; i < in_sizes.size(); i++) {
@@ -930,7 +907,6 @@ TEST_F(LazyDynamicShapesTest, RepeatTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, RepeatTest2) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int H = 4;
   std::vector<int> in_sizes{10, 231, 520, 600};
   std::vector<std::vector<int64_t>> repeat_sizes{
@@ -969,7 +945,6 @@ void runWeightNormTest() {
   }
 }
 TEST_F(LazyDynamicShapesTest, WeightNormTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   const char* recipe_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
   SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, "/tmp/WeightNormTest_dumps", 1);
   runWeightNormTest();
@@ -980,7 +955,6 @@ TEST_F(LazyDynamicShapesTest, WeightNormTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int A = 2;
   std::vector<int> in_sizes{2, 3, 4};
   int num;
@@ -1037,7 +1011,6 @@ TEST_F(LazyDynamicShapesTest, DISABLED_DynamicShapeInplaceTest2) {
 }
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceReluTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int A = 1;
   const int C = 1;
   std::vector<int> in_sizes{2, 4, 8};
@@ -1060,7 +1033,6 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeInplaceReluTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, AddConstantTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   // test case for result = add(tensor, scalar, alpha)
   int N = 1;
   int C = 4;
@@ -1081,7 +1053,6 @@ TEST_F(LazyDynamicShapesTest, AddConstantTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, AddViewTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 2;
   int C = 4;
   int H = 4;
@@ -1108,7 +1079,6 @@ TEST_F(LazyDynamicShapesTest, AddViewTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, CastTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   PT_TEST_DEBUG("\nPTI_DBG :: TEST ", 0, "  --------\n");
   torch::Tensor A = torch::randn({1}, torch::dtype(torch::kBFloat16));
   torch::Tensor hA = A.to(torch::kHPU);
@@ -1129,7 +1099,6 @@ TEST_F(LazyDynamicShapesTest, CastTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, UniqueOp) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE))
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   c10::ScalarType dtype{torch::kInt32};
@@ -1157,7 +1126,6 @@ TEST_F(LazyDynamicShapesTest, UniqueOp) {
 }
 
 TEST_F(LazyDynamicShapesTest, SingleOpNonzero) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int A = 8;
   const int RMIN = 0;
   const int RMAX = 10;
@@ -1290,7 +1258,6 @@ void compute_iou(
 }
 
 TEST_F(LazyDynamicShapesTest, NmsSmallRef) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::manual_seed(0);
 
   auto num_boxes = 10;
@@ -1338,7 +1305,6 @@ TEST_F(LazyDynamicShapesTest, NmsSmallRef) {
 }
 
 TEST_F(LazyDynamicShapesTest, NmsSmall) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   torch::manual_seed(0);
 
   auto num_boxes_cur = 8;
@@ -1396,7 +1362,6 @@ TEST_F(LazyDynamicShapesTest, NmsSmall) {
 }
 
 TEST_F(LazyDynamicShapesTest, BatchedNmsSmall) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   if (false == GET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE)) {
     SET_ENV_FLAG_NEW(PT_HPU_VALIDATE_COMPUTE_SHAPE, true, 1);
   }
@@ -1485,7 +1450,6 @@ TEST_F(LazyDynamicShapesTest, BatchedNmsSmall) {
 }
 
 TEST_F(LazyDynamicShapesTest, ArgmaxTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int N = 1;
   int C = 4;
   int H = 4;
@@ -1502,7 +1466,9 @@ TEST_F(LazyDynamicShapesTest, ArgmaxTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   int64_t dim = 0;
   int H = 4;
   std::vector<int> in_sizes{8000, 9000, 10000};
@@ -1537,7 +1503,6 @@ TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, MaskRcnnGatherNdMxNetTest1) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   // iteration 1
   torch::Tensor input_cpu = torch::arange(4).reshape({2, 2});
   torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
@@ -1631,7 +1596,6 @@ void runTopkDynamicTest(
 }
 
 TEST_F(LazyDynamicShapesTest, TopKTest1) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   // Changing K values
   runTopkDynamicTest({5, 15, 25, 20, 6, 8}, {30, 30, 30, 30, 30, 30}, 3);
   // Changing W values
@@ -1686,7 +1650,6 @@ void runSortDynamicTest(std::vector<int> changing_dim_values, int dim) {
 }
 
 TEST_F(LazyDynamicShapesTest, SortTest1) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   // Changing W values
   runSortDynamicTest({20, 33, 40, 35, 25, 28}, 3);
 }
@@ -1735,7 +1698,6 @@ void runTopkOutDynamicTest(
 }
 
 TEST_F(LazyDynamicShapesTest, TopKOutTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   // Changing K values
   runTopkOutDynamicTest({5, 15, 25, 20, 6, 8}, {30, 30, 30, 30, 30, 30}, 3);
   // Changing W values
@@ -1784,7 +1746,6 @@ void runSortOutDynamicTest(std::vector<int> changing_dim_values, int dim) {
 }
 
 TEST_F(LazyDynamicShapesTest, SortOutTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   // Changing W values
   runSortOutDynamicTest({20, 33, 40, 35, 25, 28}, 3);
   // Changing W values
@@ -1792,7 +1753,6 @@ TEST_F(LazyDynamicShapesTest, SortOutTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, DS_RoiAlignFwdTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto roi_align_test = [](int num_boxes, std::vector<int64_t> input_shape) {
     auto images = torch::randn(input_shape).to(torch::kHPU);
     auto boxes = torch::randn({num_boxes, 4}) * 64;
@@ -1812,7 +1772,6 @@ TEST_F(LazyDynamicShapesTest, DS_RoiAlignFwdTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, ConvSliceReluChLastTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 1;
@@ -1853,7 +1812,6 @@ TEST_F(LazyDynamicShapesTest, ConvSliceReluChLastTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, RandpermOutTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<int> in_sizes{8, 10, 15};
   for (int i = 0; i < in_sizes.size(); i++) {
     int n = in_sizes[i];
@@ -1868,7 +1826,6 @@ TEST_F(LazyDynamicShapesTest, RandpermOutTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, ScatterTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto scatter_test = [](std::vector<int64_t> in_shape1,
                          std::vector<int64_t> in_shape2) {
     torch::Tensor a = torch::randn(in_shape1, torch::requires_grad(false));
@@ -1895,7 +1852,6 @@ TEST_F(LazyDynamicShapesTest, ScatterTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, MaxTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto max_test = [](std::vector<int64_t> input_shape) {
     auto input = torch::randn(input_shape);
     auto input_h = input.to(torch::kHPU);
@@ -1909,7 +1865,6 @@ TEST_F(LazyDynamicShapesTest, MaxTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, DS_PadTest_HT) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto pad_test = [](std::vector<int64_t> pad_sizes,
                      std::vector<int64_t> input_shape) {
     torch::Tensor tensor = torch::randn(input_shape).to(torch::kInt);
@@ -1935,7 +1890,6 @@ TEST_F(LazyDynamicShapesTest, DS_PadTest_HT) {
 }
 
 TEST_F(LazyDynamicShapesTest, DS_PadTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR, false, 1);
   auto pad_test = [](std::vector<int64_t> pad_sizes,
                      std::vector<int64_t> input_shape) {
@@ -2039,28 +1993,24 @@ void runIndexPutDynamicTestInt(int N, int mask_size, bool acc) {
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutAccBoolTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   runIndexPutDynamicTestBool(1645, true);
   runIndexPutDynamicTestBool(1655, true);
   runIndexPutDynamicTestBool(1665, true);
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutAccIntTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   runIndexPutDynamicTestInt(16145, 20, true);
   runIndexPutDynamicTestInt(19155, 40, true);
   runIndexPutDynamicTestInt(22165, 60, true);
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutNonAccBoolTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   runIndexPutDynamicTestBool(1645, false);
   runIndexPutDynamicTestBool(1955, false);
   runIndexPutDynamicTestBool(2265, false);
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutNonAccIntTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   runIndexPutDynamicTestInt(16145, 20, false);
   runIndexPutDynamicTestInt(19155, 40, false);
   runIndexPutDynamicTestInt(22165, 60, false);
@@ -2108,7 +2058,6 @@ void runIndexPutDynamicTestBoolVect(
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutAccBoolTestNC) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   runIndexPutDynamicTestBoolVect(
       {2, 1645},
       {},
@@ -2127,7 +2076,6 @@ TEST_F(LazyDynamicShapesTest, IndexPutAccBoolTestNC) {
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutNonAccBoolTestNC) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   runIndexPutDynamicTestBoolVect(
       {2, 1645},
       {},
@@ -2146,7 +2094,6 @@ TEST_F(LazyDynamicShapesTest, IndexPutNonAccBoolTestNC) {
 }
 
 TEST_F(LazyDynamicShapesTest, IndexPutAccBoolTestNCH) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   /* These are MaskRCNN original configurations - Reducing the dimensionality
  while testing to reduce CI time Keeping in comments to try out in future if
  necessary. runIndexPutDynamicTestBoolVect({2, 161145, 4}, {2, 161145}, {47, 4},
@@ -2223,28 +2170,24 @@ void repeatInlvTest(
 }
 
 TEST_F(LazyDynamicShapesTest, RepeatInlv1) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   repeatInlvTest(torch::tensor({4, 5}), {10, 7});
   repeatInlvTest(torch::tensor({4, 5}), {15, 8});
   repeatInlvTest(torch::tensor({4, 5}), {20, 10});
 }
 
 TEST_F(LazyDynamicShapesTest, RepeatInlv2) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   repeatInlvTest(torch::randn({4, 5}), {2});
   repeatInlvTest(torch::randn({4, 5}), {3});
   repeatInlvTest(torch::randn({4, 5}), {4});
 }
 
 TEST_F(LazyDynamicShapesTest, RepeatInlv3) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   repeatInlvTest(torch::randn({4, 5}), {2, 1, 1, 1, 1}, 1);
   repeatInlvTest(torch::randn({4, 5}), {2, 1, 2, 1, 2}, 1);
   repeatInlvTest(torch::randn({4, 5}), {2, 2, 2, 2, 2}, 1);
 }
 
 TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::vector<int> in_sizes{6, 8, 10, 20, 50};
   int rounds{2};
 
@@ -2293,7 +2236,6 @@ TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
 }
 
 TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   int kH = 3;
   int kW = 3;
   const int C = 16;
@@ -2370,7 +2312,6 @@ TEST_F(LazyDynamicShapesTest, BatchNormFwdBwdDS) {
 }
 
 TEST_F(LazyDynamicShapesTest, stridedviewoutDynTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   auto bucket = torch::randn({64});
   auto hbucket = bucket.to(torch::kHPU);
 
@@ -2455,7 +2396,6 @@ TEST_F(LazyDynamicShapesTest, stridedviewoutDynTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, ExponentialDynTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   std::uniform_int_distribution<> dist(-127, 128);
   std::mt19937 m_mt_;
   double lambd = dist(m_mt_);
@@ -2472,7 +2412,9 @@ TEST_F(LazyDynamicShapesTest, ExponentialDynTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, AsStridedH2DTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   if (false == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, true, 1);
   }
@@ -2505,7 +2447,9 @@ TEST_F(LazyDynamicShapesTest, AsStridedH2DTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   if (false == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, true, 1);
   }
@@ -2540,7 +2484,9 @@ TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest) {
 
 // Reproducer for https://jira.habana-labs.com/browse/SW-117082
 TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest_5D) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   auto enable_fast_sif = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE);
   auto run_hybrid_sif = GET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF);
 
@@ -2581,7 +2527,6 @@ TEST_F(LazyDynamicShapesTest, AsStridedStrideRatioH2DTest_5D) {
 }
 
 TEST_F(LazyDynamicShapesTest, MatMulOutTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   if (false == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, true, 1);
   }
@@ -2630,7 +2575,9 @@ cat_out Op vaiant has issue.
 It will be enable after fix of jira: SW-120927
 */
 TEST_F(LazyDynamicShapesTest, CatOutTest) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   torch::Tensor A = torch::randn({2, 8}, torch::dtype(torch::kFloat));
   torch::Tensor B = torch::randn({4, 8}, torch::dtype(torch::kFloat));
   torch::Tensor out1 = torch::empty(0, at::kFloat);
@@ -2657,7 +2604,9 @@ TEST_F(LazyDynamicShapesTest, CatOutTest) {
 }
 
 TEST_F(LazyDynamicShapesTest, H2D_API_test) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   if (false == GET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED)) {
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_H2D_DYNAMIC_AS_STRIDED, true, 1);
   }
@@ -2690,7 +2639,6 @@ TEST_F(LazyDynamicShapesTest, H2D_API_test) {
 }
 
 TEST_F(LazyDynamicShapesTest, gather_dynamic_test) {
-  GTEST_SKIPPED_ON_GAUDI3_CAUSE_DYNAMIC_SHAPES_NOT_SUPPORTED();
   // static case
   torch::Tensor inp1 = torch::randn({2, 10, 53});
   auto inp2 = torch::randint(0, 4, {2, 10, 20}, torch::kLong);
