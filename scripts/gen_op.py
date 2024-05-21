@@ -1948,10 +1948,9 @@ def print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, is_cust
 
 def generate_frontend(args, fgens, out_dir, is_custom=False):
     num_shards = 10
-    if out_dir == "lazy":
-        ops_count = sum(fgen.op_frontend_lazy is not None for fgen in fgens)
-    if out_dir == "eager":
-        ops_count = sum(fgen.op_frontend_eager is not None for fgen in fgens)
+    frontend_func = f"op_frontend_{out_dir}"
+    fgens_filtered = [x for x in fgens if getattr(x, frontend_func) is not None]
+    ops_count = len(fgens_filtered)
     num_fgens_per_shard = ops_count // num_shards
     gen_file_idx = 0
     dtype_defs = ""
@@ -1962,9 +1961,7 @@ def generate_frontend(args, fgens, out_dir, is_custom=False):
     op_groups = set()
     frontend_per_op_group = dict()
 
-    for idx, fgen in enumerate(fgens):
-        if (out_dir == "lazy" and not fgen.op_frontend_lazy) or (out_dir == "eager" and not fgen.op_frontend_eager):
-            continue
+    for idx, fgen in enumerate(fgens_filtered):
         fgen_files[fgen.opgroup].append(fgen)
 
         handle_reused_frontend(fgen, frontend_per_op_group, op_groups)
@@ -1980,7 +1977,7 @@ def generate_frontend(args, fgens, out_dir, is_custom=False):
         torch_regs += _torch_regs
 
         if not is_custom and (
-            ((gen_file_idx + 1) < num_shards and (idx + 1) % num_fgens_per_shard == 0) or (idx + 1) == len(fgens)
+            ((gen_file_idx + 1) < num_shards and (idx + 1) % num_fgens_per_shard == 0) or (idx + 1) == ops_count
         ):
             print_frontend_to_file(op_groups, dtype_defs, functions, torch_regs, is_custom, gen_file_idx, out_dir, args)
             gen_file_idx += 1
