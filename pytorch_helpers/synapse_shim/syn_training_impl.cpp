@@ -793,3 +793,8 @@ synStatus SYN_API_CALL synStatusGetBriefDescription(
     size_t len) {
   return syn_api->synStatusGetBriefDescription(status, statusDescription, len);
 }
+
+synStatus SYN_API_CALL
+synDumpStateAndTerminate(const char* msg, uint64_t flags) {
+  return syn_api->synDumpStateAndTerminate(msg, flags);
+}

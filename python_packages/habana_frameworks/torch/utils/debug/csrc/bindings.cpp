@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+#include <synapse_api.h>
 #include <torch/extension.h>
 #include <map>
 #include "backend/habana_device/HPUAllocator.h"
@@ -234,7 +235,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       [](const std::string& logger_name, log_level logger_level) {
         hl_logger::setLoggingLevelByMask(logger_name, logger_level);
       });
-
   m.def("get_pt_logging_levels", []() {
     std::map<std::string, int> result;
     for (int i = 0; i < static_cast<int>(HlLogger::LoggerType::LOG_MAX); i++) {
@@ -244,5 +244,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           hl_logger::getLoggingLevel(logger)));
     }
     return result;
+  });
+  m.def("dump_state_and_terminate", [](const char* msg, uint64_t flags) {
+    synDumpStateAndTerminate(msg, flags);
   });
 }

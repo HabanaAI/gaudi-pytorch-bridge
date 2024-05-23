@@ -123,7 +123,8 @@
   visitor(synTensorSetAllowPermutation);      \
   visitor(synTensorGetHostPtr);               \
   visitor(synTensorSetDeviceDataType);        \
-  visitor(synStatusGetBriefDescription);
+  visitor(synStatusGetBriefDescription);      \
+  visitor(synDumpStateAndTerminate);
 
 #define DECL_SYN_FN(func)                       \
   using func##_pfn_t = decltype(::func);        \
