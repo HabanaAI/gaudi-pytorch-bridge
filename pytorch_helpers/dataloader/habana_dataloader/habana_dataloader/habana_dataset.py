@@ -126,7 +126,7 @@ class SSDMediaDataLoader(torch.utils.data.DataLoader):
 
         DeviceType = htexp._get_device_type()
         if isGaudi2(DeviceType):
-            media_device_type = "gaudi2"
+            media_device_type = "legacy"
         else:
             raise ValueError("Unsupported device")
 
@@ -645,7 +645,7 @@ def fetch_habana_unet_loader(imgs, lbls, batch_size, mode, **kwargs):
     from habana_frameworks.medialoaders.torch.mediapipe_unet_3d_cpp_bf16 import Unet3dMediaPipe
 
     pipe = Unet3dMediaPipe(
-        a_device="cpu",
+        a_device="mixed",
         a_batch_size=batch_size,
         a_prefetch_count=3,
         a_num_instances=num_instances,
