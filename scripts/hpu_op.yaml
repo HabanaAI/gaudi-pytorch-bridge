@@ -20,12 +20,14 @@ __ilshift__.Scalar:
   guid: bitshift_fwd
   inplace_ids: [0]
   scalar_ids: [1]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 __ilshift__.Tensor:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 __irshift__.Scalar:
   dtypes: [Int, Char, Byte, Short]
@@ -33,12 +35,14 @@ __irshift__.Scalar:
   guid: bitshift_fwd
   inplace_ids: [0]
   scalar_ids: [1]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 __irshift__.Tensor:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 __lshift__.Scalar:
   dtypes: [Int, Char, Byte, Short]
@@ -46,12 +50,14 @@ __lshift__.Scalar:
   guid: bitshift_fwd
   out_ids: [0]
   scalar_ids: [1]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 __lshift__.Scalar_out:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
   scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
 
 __lshift__.Tensor:
   broadcast: true
@@ -60,6 +66,7 @@ __lshift__.Tensor:
   guid: bitshift_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 __lshift__.Tensor_out:
   broadcast: true
@@ -67,6 +74,7 @@ __lshift__.Tensor_out:
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 __rshift__.Scalar:
   dtypes: [Int, Char, Byte, Short]
@@ -74,12 +82,14 @@ __rshift__.Scalar:
   guid: bitshift_fwd
   out_ids: [0]
   scalar_ids: [1]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 __rshift__.Scalar_out:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
   scalar_ids: [1]
+  # op_validator: check-node-with-shared-layer
 
 __rshift__.Tensor:
   broadcast: true
@@ -88,6 +98,7 @@ __rshift__.Tensor:
   guid: bitshift_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 __rshift__.Tensor_out:
   broadcast: true
@@ -95,6 +106,7 @@ __rshift__.Tensor_out:
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 _copy_from:
   override_fn: _copy_from
@@ -1167,6 +1179,7 @@ _cdist_forward:
   guid: cdist_fwd
   promote_to_common_type: [x1, x2]
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 _pdist_forward:
   output_meta: PdistFwdMeta
@@ -1177,6 +1190,7 @@ _pdist_forward:
     Gaudi3: [BFloat16, Float, Half]
   guid: pdist_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 native_dropout:
   output_meta: FusedNativeDropoutMeta
@@ -1200,6 +1214,7 @@ pixel_shuffle:
     Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Short]
   out_ids: [0]
   guid: pixel_shuffle
+  op_validator: check-node-with-shared-layer
 
 native_dropout_backward:
   dtypes:
@@ -1239,6 +1254,7 @@ abs:
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Half]
   guid: abs_fwd
   out_ids: [0]
+  promote_to_common_type: [self]
   op_validator: check-node-with-shared-layer
 
 abs_:
@@ -1256,6 +1272,7 @@ abs.out:
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Half]
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Half]
   guid: abs_fwd
+  promote_to_common_type: [self, out]
   op_validator: check-node-with-shared-layer
 
 acos:
@@ -1919,7 +1936,6 @@ _adaptive_avg_pool2d:
   guid: adaptive_avg_pool_2d_fwd
   op_backend: AdaptiveAvgPool2dFwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
 
 adaptive_avg_pool2d.out:
   custom_fill_params: FillAdaptiveAvgPool2dParamsFwd
@@ -1930,7 +1946,6 @@ adaptive_avg_pool2d.out:
     Gaudi3: [BFloat16, Float, Half]
   guid: adaptive_avg_pool_2d_fwd
   op_backend: AdaptiveAvgPool2dFwd
-  # op_validator: check-node-with-shared-layer
 
 _adaptive_avg_pool2d_backward:
   custom_fill_params: FillAdaptiveAvgPool2dParamsBwd
@@ -2244,6 +2259,7 @@ bitwise_and.Tensor:
     Gaudi3: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 bitwise_and.Tensor_out:
   output_meta: BitwiseLogicalMetaOut
@@ -2252,6 +2268,7 @@ bitwise_and.Tensor_out:
     Gaudi2: [Int, Short, Byte, Char]
     Gaudi3: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 bitwise_and_.Tensor:
   broadcast: true
@@ -2261,6 +2278,7 @@ bitwise_and_.Tensor:
     Gaudi3: [Int, Short, Byte, Char]
   guid: bitwise_and_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 bitwise_left_shift.Scalar_Tensor:
   dtypes: [Int, Char, Byte, Short]
@@ -2277,6 +2295,7 @@ bitwise_left_shift.Tensor:
   guid: bitshift_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 bitwise_left_shift.Tensor_out:
   broadcast: true
@@ -2284,6 +2303,7 @@ bitwise_left_shift.Tensor_out:
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 bitwise_left_shift.Tensor_Scalar:
   dtypes: [Int, Char, Byte, Short]
@@ -2291,18 +2311,21 @@ bitwise_left_shift.Tensor_Scalar:
   guid: bitshift_fwd
   out_ids: [0]
   scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
 
 bitwise_left_shift.Tensor_Scalar_out:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
   scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
 
 bitwise_left_shift_.Tensor:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillLeftShiftParams
   guid: bitshift_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 bitwise_left_shift_.Tensor_Scalar:
   dtypes: [Int, Char, Byte, Short]
@@ -2310,6 +2333,7 @@ bitwise_left_shift_.Tensor_Scalar:
   guid: bitshift_fwd
   inplace_ids: [0]
   scalar_ids: [1]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 bitwise_not:
   dtypes: [Int, Short, Byte, Char]
@@ -2347,6 +2371,7 @@ bitwise_or.Tensor:
     Gaudi3: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 bitwise_or.Tensor_out:
   output_meta: BitwiseLogicalMetaOut
@@ -2355,6 +2380,7 @@ bitwise_or.Tensor_out:
     Gaudi2: [Int, Short, Byte, Char]
     Gaudi3: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 bitwise_or_.Tensor:
   broadcast: true # WA to make DS test pass SW-155788
@@ -2364,6 +2390,7 @@ bitwise_or_.Tensor:
     Gaudi3: [Int, Short, Byte, Char]
   guid: bitwise_or_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 bitwise_right_shift.Scalar_Tensor:
   dtypes: [Int, Char, Byte, Short]
@@ -2380,6 +2407,7 @@ bitwise_right_shift.Tensor:
   guid: bitshift_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 bitwise_right_shift.Tensor_out:
   broadcast: true
@@ -2387,6 +2415,7 @@ bitwise_right_shift.Tensor_out:
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 bitwise_right_shift.Tensor_Scalar:
   dtypes: [Int, Char, Byte, Short]
@@ -2394,18 +2423,21 @@ bitwise_right_shift.Tensor_Scalar:
   guid: bitshift_fwd
   out_ids: [0]
   scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
 
 bitwise_right_shift.Tensor_Scalar_out:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
   scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
 
 bitwise_right_shift_.Tensor:
   dtypes: [Int, Char, Byte, Short]
   custom_fill_params: FillRightShiftParams
   guid: bitshift_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 bitwise_right_shift_.Tensor_Scalar:
   dtypes: [Int, Char, Byte, Short]
@@ -2413,6 +2445,7 @@ bitwise_right_shift_.Tensor_Scalar:
   guid: bitshift_fwd
   inplace_ids: [0]
   scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
 
 bitwise_xor.Scalar:
   output_meta: BitwiseLogicalMeta
@@ -2433,6 +2466,7 @@ bitwise_xor.Tensor:
     Gaudi3: [Int, Long, Short, Byte, Char]
   guid: bitwise_xor_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 bitwise_xor.Tensor_out:
   output_meta: BitwiseLogicalMetaOut
@@ -2441,6 +2475,7 @@ bitwise_xor.Tensor_out:
     Gaudi2: [Int, Long, Short, Byte, Char]
     Gaudi3: [Int, Long, Short, Byte, Char]
   guid: bitwise_xor_fwd
+  op_validator: check-node-with-shared-layer
 
 bitwise_xor_.Tensor:
   broadcast: true
@@ -2450,6 +2485,7 @@ bitwise_xor_.Tensor:
     Gaudi3: [Int, Long, Short, Byte, Char]
   guid: bitwise_xor_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 bmm:
   dtypes:
@@ -2459,7 +2495,7 @@ bmm:
   output_meta: BmmMeta
   guid: batch_gemm
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 bmm.out:
   dtypes:
@@ -2468,7 +2504,7 @@ bmm.out:
     Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   output_meta: BmmMeta
   guid: batch_gemm
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 cat:
   promote_to_common_type: [tensors]
@@ -2524,6 +2560,7 @@ clamp:
   output_meta: ClampMeta
   guid: clamp_pt_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 clamp.Tensor:
   dtypes:
@@ -2544,6 +2581,7 @@ clamp_:
   promote_to_common_type: [self, min, max]
   guid: clamp_pt_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 clamp_.Tensor:
   dtypes:
@@ -2564,7 +2602,6 @@ clamp.out:
   guid: clamp_pt_fwd
   output_meta: ClampMeta
   op_backend: clamp
-  # op_validator: check-node-with-shared-layer
 
 clamp.Tensor_out:
   dtypes:
@@ -2584,7 +2621,7 @@ clamp_max:
   guid: clamp_pt_fwd
   out_ids: [0]
   promote_to_common_type: [self, max]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 clamp_max.Tensor:
   dtypes:
@@ -2596,7 +2633,6 @@ clamp_max.Tensor:
   guid: clamp_pt_fwd
   op_backend: clampMaxTensor
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
 
 clamp_max_:
   custom_fill_params: FillClampMaxParams
@@ -2607,7 +2643,7 @@ clamp_max_:
   promote_to_common_type: [self, max]
   guid: clamp_pt_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 clamp_max_.Tensor:
   dtypes:
@@ -2618,7 +2654,6 @@ clamp_max_.Tensor:
   guid: clamp_pt_fwd
   op_backend: clampMaxTensor
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
 
 clamp_max.out:
   custom_fill_params: FillClampMaxParams
@@ -2629,7 +2664,6 @@ clamp_max.out:
   promote_to_common_type: [self, max]
   guid: clamp_pt_fwd
   op_backend: clamp
-  # op_validator: check-node-with-shared-layer
 
 clamp_max.Tensor_out:
   dtypes:
@@ -2639,7 +2673,6 @@ clamp_max.Tensor_out:
   promote_to_common_type: [self, max]
   broadcast: true
   op_backend: clampMaxTensor
-  # op_validator: check-node-with-shared-layer
 
 clamp_min:
   custom_fill_params: FillClampMinParams
@@ -2650,7 +2683,7 @@ clamp_min:
   promote_to_common_type: [self, min]
   guid: clamp_pt_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 clamp_min.Tensor:
   dtypes:
@@ -2662,7 +2695,6 @@ clamp_min.Tensor:
   guid: clamp_pt_fwd
   op_backend: clampMinTensor
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
 
 clamp_min_:
   custom_fill_params: FillClampMinParams
@@ -2673,7 +2705,7 @@ clamp_min_:
   promote_to_common_type: [self, min]
   guid: clamp_pt_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 clamp_min_.Tensor:
   dtypes:
@@ -2684,7 +2716,6 @@ clamp_min_.Tensor:
   guid: clamp_pt_fwd
   op_backend: clampMinTensor
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
 
 clamp_min.out:
   custom_fill_params: FillClampMinParams
@@ -2695,7 +2726,6 @@ clamp_min.out:
   promote_to_common_type: [self, min]
   guid: clamp_pt_fwd
   op_backend: clamp
-  # op_validator: check-node-with-shared-layer
 
 clamp_min.Tensor_out:
   dtypes:
@@ -2705,7 +2735,6 @@ clamp_min.Tensor_out:
   promote_to_common_type: [self, min]
   broadcast: true
   op_backend: clampMinTensor
-  # op_validator: check-node-with-shared-layer
 
 clone:
   dtypes:
@@ -2716,6 +2745,7 @@ clone:
   output_meta: CloneMeta
   out_ids: [0]
   no_compute_flag: true
+  op_validator: check-node-with-shared-layer
 
 complex:
   override_fn: complex_hpu
@@ -2781,14 +2811,14 @@ copysign.out:
   dtypes: [BFloat16, Float, Int]
   guid: copy_sign_fwd
   promote_int_to_float: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 copysign.Scalar_out:
   dtypes: [BFloat16, Float, Int]
   guid: copy_sign_fwd
   promote_int_to_float: [self, other]
   scalar_ids: [1]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 copysign_.Scalar:
   dtypes: [BFloat16, Float, Int]
@@ -2796,14 +2826,14 @@ copysign_.Scalar:
   inplace_ids: [0]
   promote_int_to_float: [self, other]
   scalar_ids: [1]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 copysign_.Tensor:
   dtypes: [BFloat16, Float, Int]
   guid: copy_sign_fwd
   inplace_ids: [0]
   promote_int_to_float: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 copysign.Scalar:
   dtypes: [BFloat16, Float, Int]
@@ -2811,7 +2841,7 @@ copysign.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   promote_int_to_float: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 copysign.Tensor:
   broadcast: true
@@ -2819,7 +2849,7 @@ copysign.Tensor:
   guid: copy_sign_fwd
   out_ids: [0]
   promote_int_to_float: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 cos:
   promote_int_to_float: [self]
@@ -2829,7 +2859,7 @@ cos:
     Gaudi3: [BFloat16, Float, Half]
   guid: cos_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 cos.out:
   promote_int_to_float: [self]
@@ -2838,7 +2868,7 @@ cos.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: cos_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 cos_:
   promote_int_to_float: [self]
@@ -2848,7 +2878,7 @@ cos_:
     Gaudi3: [BFloat16, Float, Half]
   guid: cos_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 cosh:
   promote_int_to_float: [self]
@@ -2858,7 +2888,7 @@ cosh:
     Gaudi3: [Float, Half]
   guid: cosh_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 cosh.out:
   promote_int_to_float: [self]
@@ -2867,7 +2897,7 @@ cosh.out:
     Gaudi2: [Float, Half]
     Gaudi3: [Float, Half]
   guid: cosh_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 cosh_:
   promote_int_to_float: [self]
@@ -2877,7 +2907,7 @@ cosh_:
     Gaudi3: [Float, Half]
   guid: cosh_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 count_nonzero.dim_IntList:
   custom_fill_params: FillCountNonzeroParams
@@ -2887,9 +2917,8 @@ count_nonzero.dim_IntList:
     Gaudi2: [BFloat16, Float, Int, Long, Short, Char, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Short, Char, Half]
   guid: count_non_zero_fwd
-  out_dtypes: [Long]
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 count_nonzero:
   custom_fill_params: FillCountNonzeroParams
@@ -2899,8 +2928,7 @@ count_nonzero:
     Gaudi2: [BFloat16, Float, Int, Long, Short, Char, Half]
     Gaudi3: [BFloat16, Float, Int, Long, Short, Char, Half]
   guid: count_non_zero_fwd
-  out_dtypes: [Long]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
   out_ids: [0]
 
 cumprod:
@@ -2970,7 +2998,6 @@ div.out:
   broadcast: true
   guid: div
   promote_int_to_float: [self, other]
-  # op_validator: check-node-with-shared-layer
   op_backend: Divide
 
 div.out_mode:
@@ -3047,7 +3074,6 @@ div_.Tensor:
   guid: div
   inplace_ids: [0]
   promote_int_to_float: [self, other]
-  # op_validator: check-node-with-shared-layer
   op_backend: Divide
 
 div_.Tensor_mode:
@@ -3084,6 +3110,7 @@ dot:
     Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn, Int]
   guid: dot_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 dot.out:
   output_meta: DotMeta
@@ -3092,6 +3119,7 @@ dot.out:
     Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn, Int]
     Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn, Int]
   guid: dot_fwd
+  op_validator: check-node-with-shared-layer
 
 elu:
   dtypes:
@@ -3165,6 +3193,7 @@ embedding:
   output_meta: EmbeddingMeta
   guid: embedding_pt_fwd
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 embedding_dense_backward:
   custom_fill_params: FillEmbeddingDenseBackwardParams
@@ -3198,6 +3227,7 @@ embedding_renorm_:
   custom_fill_params: FillEmbeddingRenormFwdParams
   guid: embedding_renorm_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 embedding_renorm:
   dtypes:
@@ -3213,6 +3243,7 @@ embedding_renorm:
   custom_fill_params: FillEmbeddingRenormFwdParams
   guid: embedding_renorm_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 equal:
   dtypes:
@@ -3233,6 +3264,7 @@ eq.Scalar_out:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 eq.Tensor_out:
   dtypes:
@@ -3244,6 +3276,7 @@ eq.Tensor_out:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 eq_.Scalar:
   dtypes:
@@ -3256,6 +3289,7 @@ eq_.Scalar:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 eq_.Tensor:
   dtypes:
@@ -3267,6 +3301,7 @@ eq_.Tensor:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 eq.Scalar:
   dtypes:
@@ -3300,7 +3335,7 @@ erf:
     Gaudi3: [BFloat16, Float]
   guid: erf_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 erf_:
   promote_int_to_float: [self]
@@ -3310,7 +3345,7 @@ erf_:
     Gaudi3: [BFloat16, Float]
   guid: erf_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 erf.out:
   promote_int_to_float: [self]
@@ -3319,47 +3354,47 @@ erf.out:
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
   guid: erf_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 erfc:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: erfc_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 erfc_:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: erfc_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 erfc.out:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: erfc_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 erfinv:
   promote_int_to_float: [self]
   dtypes: [Float]
   guid: erfinv_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 erfinv_:
   promote_int_to_float: [self]
   dtypes: [Float]
   guid: erfinv_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 erfinv.out:
   promote_int_to_float: [self]
   dtypes: [Float]
   guid: erfinv_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 exp:
   promote_int_to_float: [self]
@@ -3369,7 +3404,7 @@ exp:
     Gaudi3: [BFloat16, Float, Short, Half]
   guid: exp_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 exp_:
   promote_int_to_float: [self]
@@ -3379,7 +3414,7 @@ exp_:
     Gaudi3: [BFloat16, Float, Short, Half]
   guid: exp_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 exp.out:
   promote_int_to_float: [self]
@@ -3388,40 +3423,40 @@ exp.out:
     Gaudi2: [BFloat16, Float, Short, Half]
     Gaudi3: [BFloat16, Float, Short, Half]
   guid: exp_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 exp2:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: pow2_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 exp2.out:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: pow2_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 exp2_:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: pow2_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 expm1:
   promote_int_to_float: [self]
   dtypes: [Float]
   guid: expm1_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 expm1.out:
   promote_int_to_float: [self]
   dtypes: [Float]
   guid: expm1_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 expand:
   override_fn: expand_hpu_lazy
@@ -3432,7 +3467,7 @@ expm1_:
   dtypes: [Float]
   guid: expm1_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 exponential:
   custom_fill_params: FillExponentialParams
@@ -3550,6 +3585,7 @@ floor_divide.out:
   dtypes: [BFloat16, Float, Int, Byte, Char, Long]
   guid: floor_divide_fwd
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 floor_divide:
   custom_fill_params: FillFloorDivideParams
@@ -3558,6 +3594,7 @@ floor_divide:
   guid: floor_divide_fwd
   promote_to_common_type: [self, other]
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 floor_divide_.Tensor:
   custom_fill_params: FillFloorDivideParams
@@ -3565,6 +3602,7 @@ floor_divide_.Tensor:
   guid: floor_divide_fwd
   promote_to_common_type: [self, other]
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 floor_divide.Scalar:
   custom_fill_params: FillFloorDivideParams
@@ -3574,6 +3612,7 @@ floor_divide.Scalar:
   promote_to_common_type: [self, other]
   scalar_ids: [1]
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 frac:
   dtypes: [BFloat16, Float]
@@ -3614,12 +3653,14 @@ fmod.Scalar:
   out_ids: [0]
   scalar_ids: [1]
   promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 fmod.Scalar_out:
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
   scalar_ids: [1]
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 fmod.Tensor:
   broadcast: true
@@ -3627,12 +3668,14 @@ fmod.Tensor:
   guid: mod_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 fmod.Tensor_out:
   broadcast: true
   dtypes: [BFloat16, Float, Int, Long]
   guid: mod_fwd
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 fmod_.Scalar:
   dtypes: [BFloat16, Float, Int]
@@ -3640,12 +3683,14 @@ fmod_.Scalar:
   inplace_ids: [0]
   scalar_ids: [1]
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 fmod_.Tensor:
   dtypes: [BFloat16, Float, Int]
   guid: mod_fwd
   inplace_ids: [0]
   promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 gather:
   custom_fill_params: FillGatherParams
@@ -3691,6 +3736,7 @@ ge.Scalar_out:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 ge.Tensor_out:
   dtypes:
@@ -3702,6 +3748,7 @@ ge.Tensor_out:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 ge_.Scalar:
   dtypes:
@@ -3714,6 +3761,7 @@ ge_.Scalar:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 ge_.Tensor:
   dtypes:
@@ -3725,6 +3773,7 @@ ge_.Tensor:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 ge.Scalar:
   dtypes:
@@ -3749,6 +3798,7 @@ ge.Tensor:
   out_ids: [0]
   promote_to_common_type: [self, other]
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 gelu:
   dtypes:
@@ -3784,7 +3834,7 @@ gelu_backward:
   guid: cgelu_bwd
 
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 gelu_backward.grad_input:
   custom_fill_params: FillGeluBwdParams
@@ -3793,7 +3843,7 @@ gelu_backward.grad_input:
     Gaudi2: [BFloat16, Float]
     Gaudi3: [BFloat16, Float]
   guid: cgelu_bwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 geometric_:
   custom_fill_params: FillRandomNegativeBinomialParams
@@ -3816,14 +3866,14 @@ glu:
   custom_fill_params: FillGluFwdParams
   output_meta: GluMeta
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 glu.out:
   guid: glu_fwd
   custom_fill_params: FillGluFwdParams
   output_meta: GluMeta
   dtypes: [Float]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 glu_backward:
   output_meta: GluBwdMeta
@@ -3832,14 +3882,14 @@ glu_backward:
   guid: glu_bwd
   out_ids: [0]
   safe_cast_check: false
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 glu_backward.grad_input:
   output_meta: GluBwdMeta
   custom_fill_params: FillGluBwdParams
   dtypes: [Float]
   guid: glu_bwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 grid_sampler_2d:
   custom_fill_params: FillGridSamplerParams
@@ -3889,6 +3939,7 @@ gt.Scalar_out:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 gt.Tensor_out:
   dtypes:
@@ -3900,6 +3951,7 @@ gt.Tensor_out:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 gt_.Scalar:
   dtypes:
@@ -3912,6 +3964,7 @@ gt_.Scalar:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 gt_.Tensor:
   dtypes:
@@ -3923,6 +3976,7 @@ gt_.Tensor:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 gt.Scalar:
   dtypes:
@@ -3947,6 +4001,7 @@ gt.Tensor:
   out_ids: [0]
   promote_to_common_type: [self, other]
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 hardshrink:
   dtypes: [Float, BFloat16]
@@ -4124,19 +4179,19 @@ hypot:
   dtypes: [BFloat16, Float]
   guid: hypot_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 hypot.out:
   broadcast: true
   dtypes: [BFloat16, Float]
   guid: hypot_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 hypot_:
   dtypes: [BFloat16, Float]
   guid: hypot_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 index.Tensor:
   output_meta: IndexMeta
@@ -4260,6 +4315,7 @@ kthvalue:
   guid: kthvalue_fwd
   output_meta: KthvalueMeta
   out_ids: [0, 0]
+  op_validator: check-node-with-shared-layer
 
 kthvalue.values:
   custom_fill_params: FillKthvalueParams
@@ -4269,7 +4325,7 @@ kthvalue.values:
     Gaudi3: [BFloat16, Float, Half, Int]
   guid: kthvalue_fwd
   output_meta: KthvalueMeta
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 index_add_:
   dtypes:
@@ -4306,6 +4362,7 @@ index_copy:
   custom_fill_params: FillIndexCopyParams
   out_ids: [0]
   hw_scaling_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 index_copy_:
   dtypes:
@@ -4324,6 +4381,7 @@ index_copy_:
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 index_copy.out:
   dtypes:
@@ -4341,6 +4399,7 @@ index_copy.out:
       source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
+  op_validator: check-node-with-shared-layer
 
 
 index_fill_.int_Scalar:
@@ -4388,6 +4447,7 @@ index_select:
   guid: gather_fwd
   custom_fill_params: FillIndexSelectParams
   fallback_check: [IndexSelectFallbackCheck, self]
+  op_validator: check-node-with-shared-layer
 
 index_select.out:
   output_meta: IndexSelectMeta
@@ -4398,6 +4458,7 @@ index_select.out:
   guid: gather_fwd
   custom_fill_params: FillIndexSelectParams
   fallback_check: [IndexSelectFallbackCheck, self]
+  op_validator: check-node-with-shared-layer
 
 le.Scalar_out:
   dtypes:
@@ -4410,6 +4471,7 @@ le.Scalar_out:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 le.Tensor_out:
   dtypes:
@@ -4421,6 +4483,7 @@ le.Tensor_out:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 le_.Scalar:
   dtypes:
@@ -4433,6 +4496,7 @@ le_.Scalar:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 le_.Tensor:
   dtypes:
@@ -4444,6 +4508,7 @@ le_.Tensor:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 le.Scalar:
   dtypes:
@@ -4468,6 +4533,7 @@ le.Tensor:
   out_ids: [0]
   promote_to_common_type: [self, other]
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 leaky_relu_backward.grad_input:
   custom_fill_params: FillLeakyReluBackwardParams
@@ -4499,6 +4565,7 @@ leaky_relu:
     name: ns_LeakyReluKernel::Params
     params:
     - [1, float]
+  op_validator: check-node-with-shared-layer
 
 leaky_relu_:
   dtypes:
@@ -4511,6 +4578,7 @@ leaky_relu_:
     name: ns_LeakyReluKernel::Params
     params:
     - [1, float]
+  op_validator: check-node-with-shared-layer
 
 leaky_relu.out:
   dtypes:
@@ -4522,6 +4590,7 @@ leaky_relu.out:
     name: ns_LeakyReluKernel::Params
     params:
     - [1, float]
+  op_validator: check-node-with-shared-layer
 
 lerp.Scalar:
   output_meta: LerpMeta
@@ -4588,6 +4657,7 @@ linear:
     Gaudi3: [BFloat16, Float, Half]
   guid: linear_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 linear_backward:
   output_meta: LinearBackwardMeta
@@ -4598,6 +4668,7 @@ linear_backward:
     Gaudi3: [BFloat16, Float, Half]
   guid: linear_temp_bwd
   out_ids: [0, 0, 0]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 linspace.Tensor_Scalar:
   dtypes:
@@ -4632,7 +4703,7 @@ log.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: log_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 log:
   promote_int_to_float: [self]
@@ -4642,7 +4713,7 @@ log:
     Gaudi3: [BFloat16, Float, Half]
   guid: log_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 log_:
   promote_int_to_float: [self]
@@ -4652,47 +4723,47 @@ log_:
     Gaudi3: [BFloat16, Float, Half]
   guid: log_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 log1p:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 log1p_:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 log1p.out:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 log10:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: log10_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 log10_:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: log10_fwd
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 log10.out:
   promote_int_to_float: [self]
   dtypes: [BFloat16, Float]
   guid: log10_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 log2.out:
   dtypes:
@@ -4728,12 +4799,14 @@ logaddexp:
   guid: logaddexp_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 logaddexp.out:
   broadcast: true
   dtypes: [BFloat16, Float]
   guid: logaddexp_fwd
   promote_to_common_type: [self, other]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 logaddexp2:
   broadcast: true
@@ -4741,27 +4814,28 @@ logaddexp2:
   guid: logaddexp2_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
-  # op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 logaddexp2.out:
   broadcast: true
   dtypes: [BFloat16, Float]
   guid: logaddexp2_fwd
   promote_to_common_type: [self, other]
-  # op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 logcumsumexp:
   dtypes: [BFloat16, Float]
   guid: log_cumsum_exp_fwd
   custom_fill_params: FillCumsumParams
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 _logcumsumexp:
   dtypes: [BFloat16, Float]
   guid: log_cumsum_exp_fwd
   custom_fill_params: FillCumsumParams
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 log_normal_:
   custom_fill_params: FillLogNormalParams
@@ -4803,7 +4877,7 @@ _log_softmax:
   guid: logsoftmax_fwd
   custom_fill_params: FillLogSoftmaxParams
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 _log_softmax.out:
   dtypes:
@@ -4812,7 +4886,7 @@ _log_softmax.out:
     Gaudi3: [BFloat16, Float, Half]
   guid: logsoftmax_fwd
   custom_fill_params: FillLogSoftmaxParams
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 _log_softmax_backward_data:
   dtypes:
@@ -4822,7 +4896,7 @@ _log_softmax_backward_data:
   guid: logsoftmax_bwd_data
   custom_fill_params: FillLogSoftmaxBackwardParams
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 _log_softmax_backward_data.out:
   dtypes:
@@ -4831,18 +4905,19 @@ _log_softmax_backward_data.out:
     Gaudi3: [BFloat16, Float, Half]
   guid: logsoftmax_bwd_data
   custom_fill_params: FillLogSoftmaxBackwardParams
-  # op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 logcumsumexp.out:
   dtypes: [BFloat16, Float]
   guid: log_cumsum_exp_fwd
   custom_fill_params: FillCumsumParams
-  # op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 _logcumsumexp.out:
   dtypes: [BFloat16, Float]
   guid: log_cumsum_exp_fwd
   custom_fill_params: FillCumsumParams
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 logical_and:
   output_meta: LogicalMeta
@@ -4852,6 +4927,7 @@ logical_and:
     Gaudi3: [BFloat16, Float, Half, Long, Int, Byte, Char]
   guid: and
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 logical_and_:
   output_meta: LogicalMeta
@@ -4861,6 +4937,7 @@ logical_and_:
     Gaudi3: [BFloat16, Float, Half, Long, Int, Byte, Char]
   guid: and
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 logical_and.out:
   output_meta: LogicalMeta
@@ -4869,6 +4946,7 @@ logical_and.out:
     Gaudi2: [BFloat16, Float, Half, Long, Int, Byte, Char]
     Gaudi3: [BFloat16, Float, Half, Long, Int, Byte, Char]
   guid: and
+  op_validator: check-node-with-shared-layer
 
 logical_not:
   output_meta: LogicalNotMeta
@@ -4898,7 +4976,6 @@ logical_not.out:
     Gaudi2: [Float, BFloat16, Half, Byte, Char]
     Gaudi3: [Float, BFloat16, Half, Byte, Char]
   guid: not
-  # op_validator: check-node-with-shared-layer
 
 logical_or:
   output_meta: LogicalMeta
@@ -4908,6 +4985,7 @@ logical_or:
     Gaudi3: [BFloat16, Float, Half, Byte, Char]
   guid: or
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 logical_or_:
   output_meta: LogicalMeta
@@ -4917,6 +4995,7 @@ logical_or_:
     Gaudi3: [BFloat16, Float, Half, Byte, Char]
   guid: or
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 logical_or.out:
   output_meta: LogicalMeta
@@ -4925,6 +5004,7 @@ logical_or.out:
     Gaudi2: [BFloat16, Float, Half, Byte, Char]
     Gaudi3: [BFloat16, Float, Half, Byte, Char]
   guid: or
+  op_validator: check-node-with-shared-layer
 
 logical_xor:
   output_meta: LogicalMeta
@@ -4934,6 +5014,7 @@ logical_xor:
     Gaudi3: [BFloat16, Float, Half, Byte, Char]
   guid: xor
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 logical_xor_:
   output_meta: LogicalMeta
@@ -4943,6 +5024,7 @@ logical_xor_:
     Gaudi3: [BFloat16, Float, Half, Byte, Char]
   guid: xor
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 logical_xor.out:
   output_meta: LogicalMeta
@@ -4951,6 +5033,7 @@ logical_xor.out:
     Gaudi2: [BFloat16, Float, Half, Byte, Char]
     Gaudi3: [BFloat16, Float, Half, Byte, Char]
   guid: xor
+  op_validator: check-node-with-shared-layer
 
 logit:
   custom_fill_params: FillLogitForwardParams
@@ -5007,6 +5090,7 @@ lt.Scalar_out:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 lt.Tensor_out:
   dtypes:
@@ -5018,6 +5102,7 @@ lt.Tensor_out:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 lt_.Tensor:
   dtypes:
@@ -5029,6 +5114,7 @@ lt_.Tensor:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 lt_.Scalar:
   dtypes:
@@ -5041,6 +5127,7 @@ lt_.Scalar:
   promote_to_common_type: [self, other]
   safe_cast_check: false
   handle_bool_inputs: true
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186769
 
 lt.Scalar:
   dtypes:
@@ -5065,6 +5152,7 @@ lt.Tensor:
   out_ids: [0]
   promote_to_common_type: [self, other]
   handle_bool_inputs: true
+  op_validator: check-node-with-shared-layer
 
 _masked_scale:
   output_meta: MaskedScaleMeta
@@ -5207,7 +5295,7 @@ maximum:
   guid: max_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 maximum.out:
   broadcast: true
@@ -5217,7 +5305,7 @@ maximum.out:
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: max_fwd
   promote_to_common_type: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 fmax:
   broadcast: true
@@ -5228,7 +5316,7 @@ fmax:
   guid: max_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 fmax.out:
   broadcast: true
@@ -5238,7 +5326,7 @@ fmax.out:
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: max_fwd
   promote_to_common_type: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 max_pool2d_with_indices:
   custom_fill_params: FillSpatialReduction2DParamsFwd
@@ -5445,7 +5533,7 @@ fmin:
   guid: min_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 fmin.out:
   broadcast: true
@@ -5455,7 +5543,7 @@ fmin.out:
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: min_fwd
   promote_to_common_type: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 minimum:
   broadcast: true
@@ -5466,7 +5554,7 @@ minimum:
   guid: min_fwd
   out_ids: [0]
   promote_to_common_type: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 minimum.out:
   broadcast: true
@@ -5476,7 +5564,7 @@ minimum.out:
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: min_fwd
   promote_to_common_type: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 mish:
   dtypes: [BFloat16, Float]
@@ -5508,7 +5596,7 @@ mm:
     Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: gemm
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 
 mm.out:
@@ -5518,7 +5606,7 @@ mm.out:
     Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: gemm
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 mse_loss:
   custom_fill_params: FillMseLossParams
@@ -5571,6 +5659,7 @@ mul.Tensor:
   out_ids: [0]
   broadcast: true
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 mul.Scalar:
   dtypes:
@@ -5581,6 +5670,7 @@ mul.Scalar:
   out_ids: [0]
   scalar_ids: [1]
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 mul.Scalar_out:
   broadcast: true
@@ -5591,6 +5681,7 @@ mul.Scalar_out:
   guid: mult_fwd
   promote_to_common_type: [self, other]
   scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
 
 mul_.Tensor:
   dtypes:
@@ -5600,6 +5691,7 @@ mul_.Tensor:
   guid: mult_fwd
   inplace_ids: [0]
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 mul_.Scalar:
   dtypes:
@@ -5610,6 +5702,7 @@ mul_.Scalar:
   inplace_ids: [0]
   scalar_ids: [1]
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 mul.out:
   broadcast: true
@@ -5619,6 +5712,7 @@ mul.out:
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 multinomial:
   custom_fill_params: FillMultinomialParams
@@ -6079,6 +6173,7 @@ nll_loss_forward:
       weight: [BFloat16, Float, Half]
   guid: cnll_loss_fwd
   out_ids: [0, 0]
+  op_validator: check-node-with-shared-layer
 
 nll_loss2d_backward:
   custom_fill_params: FillNllLossBwdParams
@@ -6177,6 +6272,7 @@ nll_loss_forward.output:
       weight: [BFloat16, Float, Half]
       output: [BFloat16, Float, Half]
   guid: cnll_loss_fwd
+  op_validator: check-node-with-shared-layer
 
 nll_loss2d_backward.grad_input:
   custom_fill_params: FillNllLossBwdParams
@@ -6405,7 +6501,7 @@ pow_.Tensor:
   guid: pow_fwd
   inplace_ids: [0]
   promote_to_common_type: [self, exponent]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 pow.Scalar:
   dtypes:
@@ -6427,7 +6523,7 @@ pow.Scalar_out:
   guid: pow_fwd
   scalar_ids: [0]
   promote_to_common_type: [self, exponent]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 pow.Tensor_Scalar:
   broadcast: true
@@ -6461,7 +6557,7 @@ pow.Tensor_Tensor:
   guid: pow_fwd
   out_ids: [0]
   promote_to_common_type: [self, exponent]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 pow.Tensor_Tensor_out:
   broadcast: true
@@ -6471,7 +6567,7 @@ pow.Tensor_Tensor_out:
     Gaudi3: [BFloat16, Float, Int, Short, Char, Byte, Half]
   guid: pow_fwd
   promote_to_common_type: [self, exponent]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 _prelu_kernel:
   dtypes:
@@ -6489,6 +6585,7 @@ _prelu_kernel_backward:
     Gaudi3: [BFloat16, Float, Half]
   guid: prelu_bwd
   output_meta: PreluBwdMeta
+  op_validator: check-node-with-shared-layer
 
 prod:
   dtypes:
@@ -6534,6 +6631,7 @@ put_:
   inplace_ids: [0]
   custom_fill_params: FillPutParams
   guid: put_fwd
+  op_validator: check-node-with-shared-layer
 
 put:
   dtypes:
@@ -6552,6 +6650,7 @@ put:
   out_ids: [0]
   custom_fill_params: FillPutParams
   guid: put_fwd
+  op_validator: check-node-with-shared-layer
 
 random_:
   custom_fill_params: FillRandomParams
@@ -6637,7 +6736,7 @@ reciprocal:
     Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reciprocal_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 reciprocal_:
   promote_int_to_float: [self]
@@ -6804,7 +6903,7 @@ remainder.Tensor:
   out_ids: [0]
   promote_to_common_type: [self, other]
   broadcast: true
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 remainder.Scalar:
   dtypes:
@@ -6815,7 +6914,7 @@ remainder.Scalar:
   out_ids: [0]
   scalar_ids: [1]
   promote_to_common_type: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 remainder_.Tensor:
   dtypes:
@@ -6826,7 +6925,7 @@ remainder_.Tensor:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   broadcast: true
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 remainder_.Scalar:
   dtypes:
@@ -6837,7 +6936,7 @@ remainder_.Scalar:
   inplace_ids: [0]
   scalar_ids: [1]
   promote_to_common_type: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 remainder.Scalar_Tensor:
   dtypes:
@@ -6848,6 +6947,7 @@ remainder.Scalar_Tensor:
   out_ids: [1]
   scalar_ids: [0]
   promote_to_common_type: [self, other]
+  op_validator: check-node-with-shared-layer
 
 remainder.Tensor_out:
   dtypes:
@@ -6857,7 +6957,7 @@ remainder.Tensor_out:
   guid: rem_fwd
   promote_to_common_type: [self, other]
   broadcast: true
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 remainder.Scalar_out:
   dtypes:
@@ -6867,7 +6967,7 @@ remainder.Scalar_out:
   guid: rem_fwd
   scalar_ids: [1]
   promote_to_common_type: [self, other]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 repeat:
   output_meta: RepeatMeta
@@ -7269,6 +7369,7 @@ scatter.reduce:
       src: [BFloat16, Float, Half]
   guid: scatter_reduce_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 scatter.reduce_out:
   custom_fill_params: ScatterReduceParams
@@ -7287,6 +7388,7 @@ scatter.reduce_out:
       index: [Int, Long]
       src: [BFloat16, Float, Half]
   guid: scatter_reduce_fwd
+  op_validator: check-node-with-shared-layer
 
 scatter.value_reduce:
   dtypes:
@@ -7341,6 +7443,7 @@ scatter_add:
       src: [BFloat16, Float, Half]
   guid: complex_scatter_add
   out_ids: [0]
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 scatter_add.out:
   custom_fill_params: ScatterAddParams
@@ -7359,6 +7462,7 @@ scatter_add.out:
       index: [Int, Long]
       src: [BFloat16, Float, Half]
   guid: complex_scatter_add
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 scatter_reduce.two:
   custom_fill_params: ScatterReduceParams
@@ -7378,6 +7482,7 @@ scatter_reduce.two:
       src: [BFloat16, Float, Half]
   guid: scatter_reduce_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 scatter_reduce_.two:
   custom_fill_params: ScatterReduceParams
@@ -7397,6 +7502,7 @@ scatter_reduce_.two:
       src: [BFloat16, Float, Half]
   guid: scatter_reduce_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 scatter_reduce.two_out:
   custom_fill_params: ScatterReduceParams
@@ -7415,6 +7521,7 @@ scatter_reduce.two_out:
       index: [Int, Long]
       src: [BFloat16, Float, Half]
   guid: scatter_reduce_fwd
+  op_validator: check-node-with-shared-layer
 
 searchsorted.Tensor:
   custom_fill_params: FillSearchSortedParams
@@ -7426,6 +7533,7 @@ searchsorted.Tensor:
   output_meta: SearchSortedMeta
   promote_to_common_type: [sorted_sequence, self]
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 searchsorted.Tensor_out:
   custom_fill_params: FillSearchSortedParams
@@ -7437,6 +7545,7 @@ searchsorted.Tensor_out:
   output_meta: SearchSortedMeta
   promote_to_common_type: [sorted_sequence, self]
   safe_cast_check: false
+  op_validator: check-node-with-shared-layer
 
 searchsorted.Scalar:
   custom_fill_params: FillSearchSortedParams
@@ -7461,6 +7570,7 @@ searchsorted.Scalar_out:
   promote_to_common_type: [sorted_sequence, self]
   safe_cast_check: false
   scalar_ids: [1]
+  op_validator: check-node-with-shared-layer
 
 select.int:
   output_meta: SelectHpuMeta
@@ -7592,7 +7702,7 @@ signbit:
   guid: signbit_fwd
   out_dtypes: [Bool]
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 signbit.out:
   output_meta: SignbitMeta
@@ -7601,7 +7711,7 @@ signbit.out:
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: signbit_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 silu:
   dtypes:
@@ -7645,7 +7755,7 @@ sin:
     Gaudi3: [BFloat16, Float, Half]
   guid: sin_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 sin.out:
   promote_int_to_float: [self]
@@ -7713,14 +7823,14 @@ smooth_l1_loss:
   guid: smooth_l1_loss_fwd
   custom_fill_params: FillSmoothL1LossFwdParams
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 smooth_l1_loss.out:
   output_meta: SmoothL1LossMeta
   dtypes: [BFloat16, Float]
   guid: smooth_l1_loss_fwd
   custom_fill_params: FillSmoothL1LossFwdParams
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 smooth_l1_loss_backward:
   output_meta: SmoothL1LossBackwardMeta
@@ -7899,7 +8009,7 @@ sqrt:
     Gaudi3: [BFloat16, Float, Half]
   guid: sqrt_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 sqrt.out:
   promote_int_to_float: [self]
@@ -7908,7 +8018,7 @@ sqrt.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: sqrt_fwd
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 sqrt_:
   promote_int_to_float: [self]
@@ -8079,6 +8189,7 @@ take:
     index: [Int, Long]
   guid: take_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 take.out:
   output_meta: TakeMeta
@@ -8086,6 +8197,7 @@ take.out:
     self: [BFloat16, Float, Int]
     index: [Int, Long]
   guid: take_fwd
+  op_validator: check-node-with-shared-layer
 
 tan.out:
   promote_int_to_float: [self]
@@ -8115,7 +8227,7 @@ tanh:
     Gaudi3: [BFloat16, Float, Half]
   guid: tanh_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 tanh.out:
   promote_int_to_float: [self]
@@ -8159,17 +8271,20 @@ threshold:
   dtypes: [BFloat16, Float]
   guid: threshold_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 threshold_:
   custom_fill_params: FillThresholdParams
   dtypes: [BFloat16, Float]
   guid: threshold_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 threshold.out:
   custom_fill_params: FillThresholdParams
   dtypes: [BFloat16, Float]
   guid: threshold_fwd
+  op_validator: check-node-with-shared-layer
 
 threshold_backward:
   output_meta: ThresholdBwdMeta
@@ -8190,6 +8305,7 @@ threshold_backward.grad_input:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: relu_bwd
+  op_validator: check-node-with-shared-layer
 
 topk:
   dtypes:
@@ -8238,6 +8354,7 @@ trace:
   output_meta: TraceMeta
   guid: trace_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 transpose.int:
   override_fn: transpose_hpu_lazy
@@ -8249,34 +8366,40 @@ tril:
   dtypes: [BFloat16, Float, Char]
   guid: matrix_band_part_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 tril.out:
   custom_fill_params: FillTrilParams
   dtypes: [BFloat16, Float, Char]
   guid: matrix_band_part_fwd
+  op_validator: check-node-with-shared-layer
 
 tril_:
   custom_fill_params: FillTrilParams
   dtypes: [BFloat16, Float, Char]
   guid: matrix_band_part_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 triu:
   custom_fill_params: FillTriuParams
   dtypes: [BFloat16, Float, Char]
   guid: matrix_band_part_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 triu.out:
   custom_fill_params: FillTriuParams
   dtypes: [BFloat16, Float, Char]
   guid: matrix_band_part_fwd
+  op_validator: check-node-with-shared-layer
 
 triu_:
   custom_fill_params: FillTriuParams
   dtypes: [BFloat16, Float, Char]
   guid: matrix_band_part_fwd
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 trunc:
   dtypes:
@@ -8345,7 +8468,7 @@ upsample_bicubic2d:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 upsample_bicubic2d.out:
   custom_fill_params: FillBicubicFwdParams
@@ -8358,7 +8481,7 @@ upsample_bicubic2d.out:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 upsample_bicubic2d.vec:
   only_shared_layer: true
@@ -8366,7 +8489,6 @@ upsample_bicubic2d.vec:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  # op_validator: check-node-with-shared-layer
 
 upsample_bicubic2d_backward:
   custom_fill_params: FillBicubicBwdParams
@@ -8380,7 +8502,7 @@ upsample_bicubic2d_backward:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 upsample_bicubic2d_backward.grad_input:
   custom_fill_params: FillBicubicBwdParams
@@ -8393,7 +8515,7 @@ upsample_bicubic2d_backward.grad_input:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 upsample_bilinear2d:
   custom_fill_params: FillBilinearFwdParams
@@ -8407,7 +8529,7 @@ upsample_bilinear2d:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 upsample_bilinear2d.out:
   custom_fill_params: FillBilinearFwdParams
@@ -8420,7 +8542,7 @@ upsample_bilinear2d.out:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 upsample_bilinear2d.vec:
   only_shared_layer: true
@@ -8441,7 +8563,7 @@ upsample_bilinear2d_backward:
   - [WHCN, WHCN]
   - [WHCN]
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 upsample_bilinear2d_backward.grad_input:
   custom_fill_params: FillBilinearBwdParams
@@ -8454,7 +8576,7 @@ upsample_bilinear2d_backward.grad_input:
   synapse_layouts:
   - [WHCN, WHCN]
   - [WHCN]
-  # op_validator: check-node-with-shared-layer
+  op_validator: check-node-with-shared-layer
 
 upsample_linear1d:
   output_meta: UpsampleLinear1DFwdMeta
@@ -8742,11 +8864,13 @@ vdot:
   dtypes: [BFloat16, Float]
   guid: dot_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 vdot.out:
   output_meta: VdotMeta
   dtypes: [BFloat16, Float]
   guid: dot_fwd
+  op_validator: check-node-with-shared-layer
 
 view:
   override_fn: view_hpu
@@ -8777,7 +8901,7 @@ xlogy.OutTensor:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  # op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 xlogy.OutScalar_Self:
   promote_int_to_float: [self, other]
@@ -8841,7 +8965,7 @@ xlogy.Tensor:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 xlogy_.Tensor:
   promote_int_to_float: [self, other]
@@ -8852,7 +8976,7 @@ xlogy_.Tensor:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   inplace_ids: [0]
-  # op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
 
 zero_:
   dtypes:

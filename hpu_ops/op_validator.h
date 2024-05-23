@@ -27,15 +27,32 @@ struct TensorDescr {
 
   explicit TensorDescr(const at::Tensor* tensor) : m_tensor(tensor) {}
 
-  explicit TensorDescr(std::vector<int64_t>&& dims_and_type)
-      : m_dims_and_type(std::move(dims_and_type)) {}
+  explicit TensorDescr(const uint32_t rank, const at::ScalarType dtype)
+      : m_rank(rank), m_dtype(dtype) {}
+
+  explicit TensorDescr(
+      const std::vector<int64_t>& shape,
+      const at::ScalarType dtype)
+      : TensorDescr(shape.size(), dtype) {}
+
+  explicit TensorDescr(const OutputMetaData& output_meta)
+      : TensorDescr(output_meta.shape.size(), output_meta.dtype) {}
 
   bool isTensor() const {
     return m_tensor != nullptr;
   }
 
-  const at::Tensor* m_tensor = nullptr;
-  std::vector<int64_t> m_dims_and_type;
+  uint32_t getRank() const {
+    return m_tensor ? m_tensor->dim() : m_rank;
+  }
+
+  at::ScalarType getType() const {
+    return m_tensor ? m_tensor->scalar_type() : m_dtype;
+  }
+
+  const at::Tensor* m_tensor{};
+  uint32_t m_rank{};
+  at::ScalarType m_dtype{at::ScalarType::Undefined};
 };
 
 // We use small-vector-optimization to describe sequence of inputs/outputs
@@ -49,30 +66,33 @@ using TensorDescrArray = absl::InlinedVector<TensorDescr, 5>;
 
 using FillNodeParams =
     std::function<std::shared_ptr<void>(const at::Stack& stack, size_t&)>;
-using OutputShapeFunc = std::function<sizes_vec(const at::Stack& stack)>;
+using OutputMetaFunc =
+    std::function<OutputMetaDataVector(const at::Stack& stack)>;
 
 struct CheckNodeWithSharedLayerValidator {
   CheckNodeWithSharedLayerValidator(
       const std::string& opname,
       const std::string& guid,
-      OutputShapeFunc outputShapeFunc,
+      const std::vector<int>& resIds,
+      const std::vector<int>& scalarIds,
+      OutputMetaFunc outputMetaFunc,
       FillNodeParams fillNodeParamsFunc,
-      bool typePromotion,
+      const std::vector<int>& typePromotionIds,
       bool promoteIntToFloat,
       bool safeCastCheck,
       bool isInplace,
-      bool isOverload,
-      SupportedDtypes supportedDtypes)
+      bool isOverload)
       : m_opname(opname),
         m_guid(guid),
-        m_outputShapeFunc(outputShapeFunc),
+        m_resIds(resIds),
+        m_scalarIds(scalarIds),
+        m_outputMetaFunc(outputMetaFunc),
         m_fillNodeParamsFunc(fillNodeParamsFunc),
-        m_typePromotion(typePromotion),
+        m_typePromotionIds(typePromotionIds),
         m_promoteIntToFloat(promoteIntToFloat),
         m_safeCastCheck(safeCastCheck),
         m_isInplace(isInplace),
-        m_isOutFn(isOverload),
-        m_supportedDtypes(std::move(supportedDtypes)) {}
+        m_isOutFn(isOverload) {}
 
   bool Validate(
       at::ScalarType compute_type,
@@ -83,40 +103,26 @@ struct CheckNodeWithSharedLayerValidator {
   bool ValidateWithSharedLayer(
       at::ScalarType compute_type,
       const std::vector<at::IValue>& values);
-  bool ValidateWithDTypes(
-      at::ScalarType compute_type,
-      const std::vector<at::IValue>& values);
   at::ScalarType ComputePromotedType(const std::vector<at::IValue>& values);
-  detail::TensorDescrArray CreateRegularInputList(
-      const std::vector<at::IValue>& values);
-  detail::TensorDescrArray CreateTypePromotionInputList(
-      const std::vector<at::IValue>& values,
-      at::ScalarType resultType);
 
   detail::TensorDescrArray CreateInputList(
       const std::vector<at::IValue>& values,
-      at::ScalarType resultType);
+      at::ScalarType resultType,
+      const size_t outs_num);
 
-  detail::TensorDescrArray CreateRegularOutputList(
-      const std::vector<at::IValue>& values);
-  detail::TensorDescrArray CreateTypePromotionOutputList(
-      const std::vector<at::IValue>& values,
-      at::ScalarType resultType);
-
-  detail::TensorDescrArray CreateOutputList(
-      const std::vector<at::IValue>& values,
-      at::ScalarType resultType);
+  detail::TensorDescrArray CreateOutputList(const OutputMetaDataVector& meta);
 
   std::string m_opname;
   std::string m_guid;
-  OutputShapeFunc m_outputShapeFunc;
+  std::vector<int> m_resIds;
+  std::vector<int> m_scalarIds;
+  OutputMetaFunc m_outputMetaFunc;
   FillNodeParams m_fillNodeParamsFunc;
-  bool m_typePromotion;
+  std::vector<int> m_typePromotionIds;
   bool m_promoteIntToFloat;
   bool m_safeCastCheck;
   bool m_isInplace;
   bool m_isOutFn;
-  SupportedDtypes m_supportedDtypes;
 };
 
 } // namespace habana
