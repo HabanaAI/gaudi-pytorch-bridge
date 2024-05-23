@@ -133,6 +133,8 @@ def test_kvcache_inplace():
     kvcache = torch.randn(y_size_elements)
     kvcache2 = torch.randn(y_size_elements)
 
+    htcore.hpu_set_inference_env()
+
     model = CustomModel()
     model.eval()
 
@@ -142,7 +144,6 @@ def test_kvcache_inplace():
     kvcache2_hpu = kvcache2.to(hpu)
     model_hpu = model.to(hpu)
     model_hpu.eval()
-    htcore.hpu_set_inference_env()
 
     # Apply the convolutional layers to the input tensor
     with torch.no_grad():
@@ -191,4 +192,67 @@ def test_kvcache_inplace():
         output2_hpu_cpu.detach().numpy(), output2_hpugraph_cpu.detach().numpy(), atol=0.001, rtol=0.001
     )
 
+    htcore.hpu_teardown_inference_env()
+
+
+def test_input_reuse():
+    class InplaceOperationNet(nn.Module):
+        def __init__(self):
+            super(InplaceOperationNet, self).__init__()
+            self.relu = nn.ReLU(inplace=True)
+            self.fc1 = nn.Linear(10, 20)
+            self.fc2 = nn.Linear(20, 30)
+            self.fc3 = nn.Linear(10, 30)
+
+        def forward(self, x1):
+            # x1: input to be modified in-place
+            # In-place operation on x1
+            x1 = self.relu(x1)
+            htcore.mark_step()
+
+            # First layer with modified x1
+            out1 = self.fc1(x1)
+            htcore.mark_step()
+
+            # Second layer with output of first layer
+            out2 = self.fc2(out1)
+            htcore.mark_step()
+
+            # Third layer using original x1
+            out3 = self.fc3(x1)
+
+            # Combine the outputs
+            combined = out2 + out3
+
+            return combined
+
+    model = InplaceOperationNet()
+    model.eval()
+
+    x1 = torch.randn(1, 10)  # Random input for x1
+
+    htcore.hpu_set_inference_env()
+    x1_hpu = x1.to(hpu)
+    model_hpu = model.to(hpu)
+
+    with torch.no_grad():
+        output_hpu = model_hpu(x1_hpu)
+    output_hpu_cpu = output_hpu.to(cpu)
+
+    htcore.hpu_inference_initialize(model_hpu)
+    from habana_frameworks.torch.hpu import wrap_in_hpu_graph
+
+    hpugraph_module = wrap_in_hpu_graph(model_hpu, disable_tensor_cache=True)
+
+    with torch.no_grad():
+        output_hpugraph = hpugraph_module(x1_hpu)
+    output_hpugraph_cpu = output_hpugraph.to(cpu)
+
+    with torch.no_grad():
+        output1_hpugraph = hpugraph_module(x1_hpu)
+    output1_hpugraph_cpu = output1_hpugraph.to(cpu)
+
+    numpy.testing.assert_allclose(
+        output_hpu_cpu.detach().numpy(), output1_hpugraph_cpu.detach().numpy(), atol=0.001, rtol=0.001
+    )
     htcore.hpu_teardown_inference_env()

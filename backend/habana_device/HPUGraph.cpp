@@ -333,12 +333,24 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
           isViewTensor = true;
         }
 
+        if (isExists(input_lazyt_id_set, out_tensor.getTensorUniqueId()) &&
+            !isExists(user_out_tensors_idx_set, outIdx)) {
+          hblazy_tensors_in_out_.emplace_back(out_tensor);
+          isInputTensor = true;
+          PT_BRIDGE_DEBUG(
+              "Graph: ",
+              graphIdx,
+              " Input found for output id: ",
+              out_tensor.getTensorUniqueId());
+        }
+
         // Check if any of the following SingleHPUGraphs use this output as an
         // input
         size_t last_use = 0;
         bool is_inter_dependent = false;
         // if its not an useroutput or if its not inplace
-        if (!isViewTensor && !isExists(user_out_tensors_idx_set, outIdx)) {
+        if (!isInputTensor && !isViewTensor &&
+            !isExists(user_out_tensors_idx_set, outIdx)) {
           for (size_t j = graphIdx + 1; j < captured_graphs.size(); j++) {
             auto next_graph = captured_graphs[j];
             // Go over all the inputs in the following SingleHPUGraph
@@ -359,17 +371,6 @@ void HPUGraph::mark_user_outputs(std::vector<at::Tensor>& outputs) {
         if (last_use > 0) {
           captured_graphs[last_use]->prev_graph_interdep_out_t_list_.push_back(
               out_tensor);
-        }
-
-        if (isExists(input_lazyt_id_set, out_tensor.getTensorUniqueId()) &&
-            !isExists(user_out_tensors_idx_set, outIdx)) {
-          hblazy_tensors_in_out_.emplace_back(out_tensor);
-          isInputTensor = true;
-          PT_BRIDGE_DEBUG(
-              "Graph: ",
-              graphIdx,
-              " Input found for output id: ",
-              out_tensor.getTensorUniqueId());
         }
 
         // Can start freeing memory for output tensors that have no dependency.
