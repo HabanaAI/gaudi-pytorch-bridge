@@ -823,3 +823,7 @@ PT_HPU_GPU_MIGRATION:
   type: bool
   default: false
   doc: "Option to enable GPU Migration Toolkit"
+
+PT_HPU_ENABLE_ALLREDUCE_GRAPH_SPLIT:
+  type: bool
+  default: False

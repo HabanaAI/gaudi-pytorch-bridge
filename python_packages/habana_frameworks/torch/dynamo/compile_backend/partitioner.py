@@ -23,14 +23,14 @@ from ._partition_bind_C import BindedPartitioner, PartitionDTO
 
 class HabanaClusterOperatorSupport(OperatorSupport):
     def is_node_supported(self, submodules: Mapping[str, torch.nn.Module], node: torch.fx.Node) -> bool:
-        return node.meta["placement"] == "hpu_cluster"
+        return node.meta["placement"] == "hpu_cluster" and "partition_assigned" not in node.meta
 
 
 class HabanaPartitioner(CapabilityBasedPartitioner):
-    def __init__(self, graph_module: torch.fx.GraphModule):
+    def __init__(self, graph_module: torch.fx.GraphModule, sup_op=HabanaClusterOperatorSupport):
         super().__init__(
             graph_module,
-            HabanaClusterOperatorSupport(),
+            sup_op(),
             allows_single_node_partition=True,
         )
 

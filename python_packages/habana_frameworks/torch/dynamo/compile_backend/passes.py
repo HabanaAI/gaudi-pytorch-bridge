@@ -17,7 +17,7 @@ import sys
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Mapping, Optional
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
@@ -26,7 +26,9 @@ from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from habana_frameworks.torch.utils.internal import Timer
 from habana_frameworks.torch.utils.visualization import graph_visualizer
 from packaging.version import Version
+from torch.distributed._spmd.graph_utils import find_node
 from torch.fx.experimental.proxy_tensor import py_sym_types
+from torch.fx.passes.operator_support import OperatorSupport
 
 from ._passes.fuse_allreduce_calls import fuse_allreduce_calls
 from ._passes.utils import OptimizationPassPlacement, OptimizerContext
@@ -38,6 +40,92 @@ from .shared_layer import is_eager_fallback_required
 from .symbolic_execution import SymExprNodeManager, sympify_expression
 
 logger = get_compile_backend_logger()
+
+
+class FusedCollectiveOperatorSupport(OperatorSupport):
+    def is_node_supported(self, submodules: Mapping[str, torch.nn.Module], node: torch.fx.Node) -> bool:
+        if (
+            "downstream_allreduce_name" in node.meta
+            and node.meta["downstream_allreduce_name"] == self.allreduce_name
+            and "partition_assigned" not in node.meta
+            and node.meta["placement"] == "hpu_cluster"
+        ):
+            node.meta["partition_assigned"] = "true"
+            return True
+        return False
+
+
+def pass_allreduce_parents(ctx: OptimizerContext) -> bool:
+    # TODO: try to reuse torch.fx.passes.infra.partitioner._DependencyViewer
+    if bc.get_pt_hpu_enable_allreduce_graph_split():
+        gm = ctx.graph_module
+        allreduces = find_node(gm.graph, lambda n: n.name.startswith("all_reduce"))
+        for allreduce in allreduces:
+            downstream_allreduce_name = allreduce.name
+            previous_nodes = allreduce.all_input_nodes
+            new_previous_nodes = []
+            while len(previous_nodes) > 0:
+                for previous_node in previous_nodes:
+                    if "downstream_allreduce_name" not in previous_node.meta:
+                        previous_node.meta["downstream_allreduce_name"] = downstream_allreduce_name
+                        setattr(previous_node, "parent", downstream_allreduce_name)
+                        new_previous_nodes.extend(previous_node.all_input_nodes)
+                previous_nodes = new_previous_nodes
+                new_previous_nodes = []
+
+        return len(allreduces) > 0
+    return False
+
+
+def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
+    if bc.get_pt_hpu_enable_allreduce_graph_split():
+        graph = ctx.graph_module.graph
+        allreduces = find_node(graph, lambda n: n.name.startswith("all_reduce"))
+        graph_changed = False
+        for allreduce in allreduces:
+            upstream_nodes = allreduce.all_input_nodes
+            nodes_to_move = [allreduce]
+            while len(upstream_nodes) > 0:
+                new_upstream_nodes = []
+                for upstream_node in upstream_nodes:
+                    if not upstream_node.name.startswith("fused"):
+                        new_upstream_nodes.extend(upstream_node.all_input_nodes)
+                        nodes_to_move.append(upstream_node)
+                    else:
+                        fused = upstream_node
+                upstream_nodes = new_upstream_nodes
+
+            for node in nodes_to_move:
+                fused.append(node)
+
+            if len(nodes_to_move) > 0:
+                graph_changed = True
+
+        waittensors = find_node(graph, lambda n: n.name.startswith("wait_tensor"))
+        for waittensor in waittensors:
+            downstream_nodes = list(waittensor.users.keys())
+            nodes_to_move = [waittensor]
+            while len(downstream_nodes) > 0:
+                new_downstream_nodes = []
+                for downstream_node in downstream_nodes:
+                    if not downstream_node.name.startswith("fused"):
+                        new_downstream_nodes.extend(list(waittensor.users.keys()))
+                        nodes_to_move.append(downstream_node)
+                    else:
+                        fused = downstream_node
+                downstream_nodes = new_downstream_nodes
+
+            for node in nodes_to_move:
+                fused.prepend(node)
+
+            if len(nodes_to_move) > 0:
+                graph_changed = True
+
+            if graph_changed:
+                ctx.graph_module.recompile()
+
+        return graph_changed
+    return False
 
 
 @dataclass(frozen=True)
@@ -240,6 +328,7 @@ def get_passes(stage: OptimizationPassPlacement):
             # These passes will be ran once, they always get and produce a flat graph without submodules.
             pass_graph_print,
             fuse_allreduce_calls,
+            pass_allreduce_parents,
             pass_pattern_rewriter,
             pass_fake_propagation,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
@@ -264,6 +353,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_merge_paths,
             # This is final pass that creates final submoduled graph.
             pass_fuse_partitions,
+            pass_reorder_allreduce,
             pass_make_symints_available,
             pass_graph_print,
             pass_wa_fix_output,
@@ -802,7 +892,14 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
     assert ctx.graph_module is not None
     assert ctx.current_partitions is None
 
-    ctx.current_partitions = HabanaPartitioner(ctx.graph_module).propose_partitions()
+    ctx.current_partitions = []
+    if bc.get_pt_hpu_enable_allreduce_graph_split():
+        allreduces = find_node(ctx.graph_module.graph, lambda n: n.name.startswith("all_reduce"))
+        for allreduce in allreduces:
+            cls = FusedCollectiveOperatorSupport
+            setattr(cls, "allreduce_name", allreduce.name)
+            ctx.current_partitions.extend(HabanaPartitioner(ctx.graph_module, cls).propose_partitions())
+    ctx.current_partitions.extend(HabanaPartitioner(ctx.graph_module).propose_partitions())
 
     # Nothing was really changed.
     return False
