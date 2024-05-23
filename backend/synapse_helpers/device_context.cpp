@@ -208,7 +208,7 @@ hcclResult_t device_context::prepare_stream(
       "Calling device_context::prepare_stream(stream_handle=",
       stream_handle,
       ", input_address=",
-      input_address,
+      (void*)input_address,
       ")");
 
   if (stream_objects_.find(stream_handle) == stream_objects_.end() ||
@@ -236,7 +236,7 @@ std::vector<synapse_helpers::shared_event> device_context::
       "Calling device_context::prepare_stream_and_get_events(stream_handle=",
       stream_handle,
       ", input_address=",
-      input_address,
+      (void*)input_address,
       ")");
 
   if (stream_objects_.find(stream_handle) == stream_objects_.end() ||
@@ -276,7 +276,7 @@ hcclResult_t device_context::submit_events(
       "Calling device_context::submit_events(stream_handle=",
       stream_handle,
       ", output_address=",
-      output_address,
+      (void*)output_address,
       ")");
 
   if (stream_objects_.find(stream_handle) == stream_objects_.end() ||
@@ -312,7 +312,7 @@ hcclResult_t device_context::synchronize_output(
     synapse_helpers::device_ptr output_address) {
   PT_DISTRIBUTED_DEBUG(
       "Calling device_context::synchronize_output(output_address=",
-      output_address,
+      (void*)output_address,
       ")");
 
   HABANA_ASSERT(nullptr != device_);
@@ -324,7 +324,7 @@ hcclResult_t device_context::synchronize_output(
     synapse_helpers::hpuStream_t current_stream) {
   PT_DISTRIBUTED_DEBUG(
       "Calling device_context::synchronize_output(output_address=",
-      output_address,
+      (void*)output_address,
       ")");
 
   synapse_helpers::device_handle dev_handle = device_;

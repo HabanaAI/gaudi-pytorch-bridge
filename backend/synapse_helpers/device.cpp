@@ -1070,7 +1070,8 @@ void device::register_host_event(uint64_t addr) {
 
 void device::mark_host_event_complete(uint64_t addr) {
   std::unique_lock<std::mutex> lock(host_event_mutex_);
-  PT_SYNHELPER_DEBUG("mark host event completed addr::", addr);
+  PT_SYNHELPER_DEBUG(
+      "mark host event completed addr::", reinterpret_cast<void*>(addr));
   auto it = addr_host_event_map_.find(addr);
   if (it != addr_host_event_map_.end()) {
     auto& event = *addr_host_event_map_[addr];
@@ -1079,7 +1080,8 @@ void device::mark_host_event_complete(uint64_t addr) {
 }
 
 void device::wait_for_host_event(uint64_t addr) {
-  PT_SYNHELPER_DEBUG("wait for host event addr::", addr);
+  PT_SYNHELPER_DEBUG(
+      "wait for host event addr::", reinterpret_cast<void*>(addr));
   std::unique_lock<std::mutex> lock(host_event_mutex_);
   auto it = addr_host_event_map_.find(addr);
   if (it == addr_host_event_map_.end())
@@ -1417,8 +1419,7 @@ synapse_error device::copy_data_to_host(
   // register host event
   if (!is_pinned) {
     PT_SYNHELPER_DEBUG(
-        "register host event for addr",
-        reinterpret_cast<uint64_t>(destination));
+        "register host event for addr ", reinterpret_cast<void*>(destination));
     register_host_event(reinterpret_cast<uint64_t>(destination));
   }
   sem_.add_producer(
@@ -1553,7 +1554,7 @@ device_ptr device::get_workspace_buffer(size_t size) {
   }
   workspace_usage_[size] = ++usage_cnt;
   PT_SYNHELPER_DEBUG(
-      "Allocated workspace buffer at",
+      "Allocated workspace buffer at ",
       (void*)workspace_buffer_,
       " size ",
       synapse_helpers::get_mem_str(workspace_size_));

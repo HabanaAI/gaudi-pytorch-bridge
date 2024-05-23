@@ -306,7 +306,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
             " hccl_type=",
             hccl_data_type,
             " hccl_count=",
-            hccl_numel);
+            hccl_numel,
+            " group_name=",
+            group_name_);
         while (hccl_numel > 0) {
           size_t num_elements_in_current_chunk =
               (static_cast<size_t>(hccl_numel) > chunk_size_in_elems)
@@ -387,7 +389,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce(
               " elem_cnt :: ",
               num_elements_in_current_chunk,
               " data_type :: ",
-              habana_helpers::getHCCLDataType(input.scalar_type()));
+              habana_helpers::getHCCLDataType(input.scalar_type()),
+              " group_name :: ",
+              group_name_);
 
           if (!this->emulate_distributed_) {
             hccl_result = hcclAllReduce(
@@ -464,7 +468,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
             " elem_cnt :: ",
             input.numel(),
             " data_type :: ",
-            habana_helpers::getHCCLDataType(input.scalar_type()));
+            habana_helpers::getHCCLDataType(input.scalar_type()),
+            " group_name :: ",
+            group_name_);
         hcclResult_t hccl_result{hcclSuccess};
         size_t num_elements = input.numel();
         size_t element_size = c10::elementSize(
@@ -551,7 +557,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall(
             " elem_cnt :: ",
             hccl_numel,
             " data_type :: ",
-            hccl_data_type);
+            hccl_data_type,
+            " group_name :: ",
+            group_name_);
 
         hccl_result = hcclAlltoAll(
             send_buffer,
@@ -630,7 +638,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
               " elem_cnt :: ",
               hccl_numel,
               " data_type :: ",
-              hccl_data_type);
+              hccl_data_type,
+              " group_name :: ",
+              group_name_);
           hcclResult_t hccl_result{hcclSuccess};
           if (!this->emulate_distributed_) {
             hccl_result = hcclAlltoAll(
@@ -680,7 +690,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
               " elem_cnt :: ",
               hccl_numel,
               " data_type :: ",
-              hccl_data_type);
+              hccl_data_type,
+              " group_name :: ",
+              group_name_);
           size_t ele_size = input.element_size();
           habana_helpers::getCountDatatype(
               scalar_type, input.element_size(), hccl_numel, hccl_data_type);
@@ -788,7 +800,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_broadcast_oop(
             " hccl_type=",
             hccl_data_type,
             " hccl_count=",
-            hccl_numel);
+            hccl_numel,
+            " group_name=",
+            group_name_);
         while (hccl_numel > 0) {
           size_t num_elements_in_current_chunk =
               (static_cast<size_t>(hccl_numel) > chunk_size_in_elems)
@@ -879,7 +893,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
               " hccl_type=",
               hccl_data_type,
               " hccl_count=",
-              hccl_numel);
+              hccl_numel,
+              " group_name=",
+              group_name_);
           hcclResult_t hccl_result{hcclSuccess};
           if (!this->emulate_distributed_) {
             hccl_result = hcclAllGather(
@@ -1019,7 +1035,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(
             " in elem_cnt :: ",
             input.numel(),
             " data_type :: ",
-            habana_helpers::getHCCLDataType(input.scalar_type()));
+            habana_helpers::getHCCLDataType(input.scalar_type()),
+            " group_name :: ",
+            group_name_);
         auto scalar_type = input.scalar_type();
         auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
         auto hccl_numel = input.numel();
@@ -1183,7 +1201,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter(
             " elem_cnt :: ",
             output.numel(),
             " data_type :: ",
-            habana_helpers::getHCCLDataType(input.scalar_type()));
+            habana_helpers::getHCCLDataType(input.scalar_type()),
+            " group_name :: ",
+            group_name_);
         hcclResult_t hccl_result{hcclSuccess};
         if (!this->emulate_distributed_) {
           hccl_result = hcclReduceScatter(
@@ -1258,7 +1278,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
             " elem_cnt :: ",
             output.numel(),
             " data_type :: ",
-            habana_helpers::getHCCLDataType(input.scalar_type()));
+            habana_helpers::getHCCLDataType(input.scalar_type()),
+            " group_name :: ",
+            group_name_);
         hcclResult_t hccl_result{hcclSuccess};
         if (!this->emulate_distributed_) {
           hccl_result = hcclReduceScatter(
@@ -1308,7 +1330,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
             " elem_cnt :: ",
             input.numel(),
             " data_type :: ",
-            habana_helpers::getHCCLDataType(input.scalar_type()));
+            habana_helpers::getHCCLDataType(input.scalar_type()),
+            " group_name :: ",
+            group_name_);
         auto scalar_type = input.scalar_type();
         auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
         auto hccl_numel = input.numel();
@@ -1362,7 +1386,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::recv(
             " elem_cnt :: ",
             tensor.numel(),
             " data_type :: ",
-            habana_helpers::getHCCLDataType(tensor.scalar_type()));
+            habana_helpers::getHCCLDataType(tensor.scalar_type()),
+            " group_name :: ",
+            group_name_);
         auto scalar_type = tensor.scalar_type();
         auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
         auto hccl_numel = tensor.numel();
