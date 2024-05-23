@@ -467,11 +467,11 @@ def input_hash(obj):
         return input_hash(tuple(obj.items()))
     elif isinstance(obj, list) or (isinstance(obj, tuple) and not isinstance(obj, torch.Size)):
         # torch.Size is specialization of tuple, so we don't want extra recursion.
-        return hash(tuple(input_hash(el) for el in obj))
+        return hash((tuple(input_hash(el) for el in obj), torch.hpu.is_autocast_hpu_enabled()))
     elif torch.is_tensor(obj):
-        return hash(tuple([obj.shape, _hpu_C.get_view_hash(obj)]))
+        return hash(tuple([obj.shape, _hpu_C.get_view_hash(obj), torch.hpu.is_autocast_hpu_enabled()]))
     else:
-        return hash(obj)
+        return hash((obj, torch.hpu.is_autocast_hpu_enabled()))
 
 
 def copy_to(dst, src):
