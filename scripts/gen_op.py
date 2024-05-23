@@ -1554,9 +1554,7 @@ lazy_frontend_blacklist = [
 ]
 
 # List of ops that shouldn't be generated in eager mode
-eager_frontend_blacklist = [
-    "linear_backward",
-]
+eager_frontend_blacklist = []
 
 
 def generate_aten_op(fndef, op_name, ctxop, is_check_kernel_support=False):

@@ -8,6 +8,7 @@
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
 #include "convolution_backward_overrideable.h"
+#include "linear_backward.h"
 #include "native_group_norm.h"
 
 
@@ -52,6 +53,23 @@ namespace habana {
   return hpu_op.call();
 }
 
+::std::tuple<at::Tensor,at::Tensor,at::Tensor> linear_backward(const at::Tensor & self, const at::Tensor & grad_output, const at::Tensor & weight, ::std::array<bool,3> output_mask) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("linear_backward: ", DUMP_4ARGS(self, grad_output, weight, output_mask));
+
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE(self, linear_backward, self, grad_output, weight, output_mask)
+  FALLBACK_IF_UNSUPPORTED_DTYPE(grad_output, linear_backward, self, grad_output, weight, output_mask)
+  FALLBACK_IF_UNSUPPORTED_DTYPE(weight, linear_backward, self, grad_output, weight, output_mask)
+
+  eager::EagerOp<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::linear_backward", {self, grad_output, weight, output_mask}};
+  hpu_op.SetOutputMetaFn(LinearBackwardMeta);
+  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::linear_backward", decltype(eager::EagerOpMetaData::out_indices_){}});
+  return hpu_op.call();
+}
+
 
 
 
@@ -62,6 +80,7 @@ static const auto& kr_gen_9 = KernelRegistry()
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
   m.impl("convolution_backward_overrideable", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, c10::SymIntArrayRef, bool, c10::SymIntArrayRef, c10::SymInt, ::std::array<bool,3>)>(&habana::convolution_backward_overrideable));
   m.impl("native_group_norm", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const c10::optional<at::Tensor> &, const c10::optional<at::Tensor> &, c10::SymInt, c10::SymInt, c10::SymInt, int64_t, double)>(&habana::native_group_norm));
+  m.impl("linear_backward", static_cast<::std::tuple<at::Tensor,at::Tensor,at::Tensor> (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, ::std::array<bool,3>)>(&habana::linear_backward));
 
 }
 

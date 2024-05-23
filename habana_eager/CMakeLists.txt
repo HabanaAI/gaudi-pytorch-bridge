@@ -45,7 +45,6 @@ add_habana_library(habana_pytorch2_frontend OBJECT
           ops/pin_memory.cpp
           ops/eager_op.cpp
           ops/repeat.cpp
-          ops/linear.cpp
           passes/add_attribute_alpha.cpp
           passes/detect_weights_tensors.cpp
           passes/get_outputs_order_in_graph.cpp

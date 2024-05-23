@@ -12,8 +12,6 @@
 *******************************************************************************
 */
 #include "generated/backend/linear.h"
-#include "hpu_ops/linear.h"
-#include "hpu_ops/op_backend.h"
 
 namespace habana {
 
@@ -36,31 +34,4 @@ OutputMetaDataVector LinearMeta(const at::Stack& stack) {
 
   return {meta};
 }
-
-void Linear::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  // define output meta
-  const auto meta = LinearMeta(stack)[0];
-  // define input tensors
-  std::vector<synTensor> input_tensor{syn_in(0), syn_in(1)};
-  // based on bias(True or False) we will push to input_tensors
-  if (stack.at(2).isTensor()) {
-    input_tensor.push_back(syn_in(2));
-  }
-  // define guid name with dtype
-  std::string guid = get_guid_with_precision("linear_fwd", meta.dtype);
-  // define build op
-  std::vector<synapse_helpers::tensor> LinearOP = BuildOp(
-      graph, guid, std::move(input_tensor), {{meta.shape, meta.dtype, 0}});
-  // set the output
-  syn_out(0) = std::move(LinearOP[0]);
-}
-
-Linear::Linear(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, "linear_fwd", scalar_type, {0}, {}, {}, false) {
-  SetOutputMetaFn(LinearMeta);
-}
 } // namespace habana
-
-static const auto& LinearKernelRegistry = habana::KernelRegistry().add(
-    "hpu::linear",
-    KERNEL_FN_GLOBAL(habana::Linear));
