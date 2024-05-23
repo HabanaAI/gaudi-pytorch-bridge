@@ -2545,6 +2545,15 @@ install_pytorch_whls() {
     $__pip_cmd install -U ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/*.whl
 }
 
+install_pytorch_whls_future() {
+    rm -f $PYTORCH_FORK_RELEASE_BUILD/pkgs/torch-*.whl
+    rm -f $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
+    cp -f /dependencies/PT_NEXT/pt_next_deps/whl_pyfork/*torch*.whl ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/
+    cp -f /dependencies/PT_NEXT/pt_next_deps/whl_pyint/*.whl ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/
+    cp -f /dependencies/PT_NEXT/pt_next_deps/{test_pt_integration,test_pt2_integration} ${PYTORCH_MODULES_RELEASE_BUILD}/
+    install_pytorch_whls
+}
+
 dsa_debugger()
 {
     if [ -z "$PYTORCH_MODULES_ROOT_PATH" ]
