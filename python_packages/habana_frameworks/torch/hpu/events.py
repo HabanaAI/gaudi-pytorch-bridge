@@ -66,7 +66,7 @@ class Event(_hpu_C._HpuEventBase, _EventBase):
         Time reported in milliseconds after the event was recorded and
         before the end_event was recorded.
         """
-        return super().elapsed_time(end_event)
+        return super().elapsed_time(end_event) / 1e6
 
     def synchronize(self):
         r"""Wait for the event to complete.
