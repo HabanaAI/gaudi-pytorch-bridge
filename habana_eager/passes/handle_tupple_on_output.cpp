@@ -39,27 +39,22 @@ struct HandleTupleOnOutputPass {
   }
 
   bool processBlock(torch::jit::Block* block) {
-    bool changed{false};
+    auto* return_node = block->return_node();
+    if (return_node == nullptr || return_node->inputs().size() != 1)
+      return false;
 
-    auto last_node_iter{block->nodes().rbegin()};
+    auto* node = return_node->inputs()[0]->node();
+    if (node == nullptr || node->kind() != torch::jit::prim::TupleConstruct)
+      return false;
 
-    if (last_node_iter != block->nodes().rend()) {
-      torch::jit::Node* node{*last_node_iter};
-      if (node->kind() != torch::jit::prim::TupleConstruct) {
-        return changed;
-      }
+    block->removeAllOutputs();
 
-      block->removeAllOutputs();
-
-      for (size_t input_idx = 0; input_idx < node->inputs().size();
-           input_idx++) {
-        block->insertOutput(input_idx, node->inputs()[input_idx]);
-      }
-      last_node_iter.destroyCurrent();
-      changed |= true;
+    for (size_t input_idx = 0; input_idx < node->inputs().size(); input_idx++) {
+      block->insertOutput(input_idx, node->inputs()[input_idx]);
     }
 
-    return changed;
+    node->destroy();
+    return true;
   }
 
   std::shared_ptr<torch::jit::Graph> m_graph;
