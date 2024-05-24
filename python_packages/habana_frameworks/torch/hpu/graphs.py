@@ -1119,4 +1119,6 @@ class ModuleCacher(torch.nn.Module):
 
 def is_current_stream_capturing():
     current_stream = torch.hpu.current_stream()
-    return current_stream.is_capture
+    if hasattr(current_stream, "is_capture"):
+        return current_stream.is_capture
+    return False
