@@ -22,6 +22,14 @@ def _get_shape_agnostic_unsupported_ops() -> set:
     return _debug_C.get_shape_agnostic_unsupported_ops()
 
 
+def _get_jit_cache_size() -> set:
+    return _debug_C.get_jit_cache_size()
+
+
+def _clear_jit_cache() -> set:
+    return _debug_C.clear_jit_cache()
+
+
 def _set_dynamic_mode() -> None:
     _debug_C.set_dynamic_mode()
 

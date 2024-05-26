@@ -44,6 +44,14 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return habana::HpuShapeAgnosticHelper::get()
         ->get_shape_agnostic_unsupported_ops();
   });
+  m.def("get_jit_cache_size", []() {
+    habana::TryJoinPendingEagerPipelineThreads();
+    return habana::HpuShapeAgnosticHelper::get()->get_jit_cache_size();
+  });
+  m.def("clear_jit_cache", []() {
+    habana::TryJoinPendingEagerPipelineThreads();
+    return habana::HpuShapeAgnosticHelper::get()->clear_jit_cache();
+  });
   m.def("set_dynamic_mode", []() {
     habana_lazy::HbLazyTensor::SetDynamicMode();
   });

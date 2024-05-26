@@ -32,6 +32,9 @@ class HpuShapeAgnosticHelper {
 
   void enumerate_shape_agnostic_unsupported_ops();
 
+  size_t get_jit_cache_size() const;
+  void clear_jit_cache() const;
+
   const std::set<std::string>& get_shape_agnostic_unsupported_ops() {
     enumerate_shape_agnostic_unsupported_ops();
     return op_set;

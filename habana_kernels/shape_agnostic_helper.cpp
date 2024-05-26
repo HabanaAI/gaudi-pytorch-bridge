@@ -25,4 +25,14 @@ void HpuShapeAgnosticHelper::enumerate_shape_agnostic_unsupported_ops() {
   }
 }
 
+size_t HpuShapeAgnosticHelper::get_jit_cache_size() const {
+  auto cache_map =
+      habana::OptimizedJitGraphCache::GetOptimizedJitCache().get_m_cache_map();
+  return cache_map.size();
+}
+
+void HpuShapeAgnosticHelper::clear_jit_cache() const {
+  habana::OptimizedJitGraphCache::GetOptimizedJitCache().Clear();
+}
+
 } // namespace habana

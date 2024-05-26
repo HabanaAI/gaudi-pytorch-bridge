@@ -1251,3 +1251,107 @@ def test_shape_agnostic_helper():
     shape_agnostic_not_supported_ops = htdebug._get_shape_agnostic_unsupported_ops()
     if Verbose:
         print(f"Shape agnostic not supported ops:: {shape_agnostic_not_supported_ops}")
+
+
+# test node params patching for cat op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_cat_node_params():
+    params = [0, 2]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for dim in params:
+        input1 = torch.randn((2, 3, 4), dtype=torch.bfloat16)
+        input1_hpu = input1.to("hpu")
+
+        input2 = torch.randn((2, 3, 4), dtype=torch.bfloat16)
+        input2_hpu = input2.to("hpu")
+
+        output = torch.cat((input1, input2), dim)
+        output_hpu = torch.cat((input1_hpu, input2_hpu), dim)
+
+        assert torch.equal(output_hpu.cpu(), output)
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+    num_cache_entries_end = htdebug._get_jit_cache_size()
+    assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for topk op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_topk_node_params_2():
+    params = [3, 5]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for k in params:
+        input = torch.randn((10), dtype=torch.bfloat16)
+        input_hpu = input.to("hpu")
+
+        output = torch.topk(input, 3)
+        output_hpu = torch.topk(input_hpu, 3)
+
+        assert torch.equal(output_hpu[0].cpu(), output[0])
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+    num_cache_entries_end = htdebug._get_jit_cache_size()
+    assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for arange op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_arange_node_params():
+    params = [1, 2]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for step in params:
+        input = torch.randn((10, 20, 30), dtype=torch.bfloat16)
+        input_hpu = input.to("hpu")
+
+        output = torch.arange(2, 6, step)
+        output_hpu = torch.arange(2, 6, step, device=input_hpu.device)
+
+        assert torch.equal(output_hpu.cpu(), output)
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+    num_cache_entries_end = htdebug._get_jit_cache_size()
+    assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for upsample nearest 2d op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_upsample_nearest_2d_node_params():
+    params = [2, 3]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for scale in params:
+        input = torch.randn((1, 1, 2, 3), dtype=torch.bfloat16)
+        input_hpu = input.to("hpu")
+
+        m = torch.nn.Upsample(scale_factor=scale, mode="nearest")
+        output = m(input)
+        output_hpu = m(input_hpu)
+
+        assert torch.equal(output_hpu.cpu(), output)
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+    num_cache_entries_end = htdebug._get_jit_cache_size()
+    assert num_cache_entries_end == num_cache_entries_start
