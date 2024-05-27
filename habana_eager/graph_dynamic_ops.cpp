@@ -674,6 +674,8 @@ bool ExapndOperatorDS::ReplaceWithDynamicHPUOp(
     GraphInputIndexMap& stack_index_map,
     ValueIvalueMap& value_ivalue_map,
     std::shared_ptr<DynamicGraphMetaData> dmeta) {
+  static const auto hpu_expand_ds_symbol{
+      c10::Symbol::fromQualString("hpu::expand_ds")};
   torch::jit::Graph* graph = node->owningGraph();
   torch::jit::Value* sizes = node->input(1);
   std::vector<int64_t> values;
@@ -683,7 +685,7 @@ bool ExapndOperatorDS::ReplaceWithDynamicHPUOp(
   CreateAndInsertDynamicNodeToGraph(
       node->owningGraph(),
       node,
-      node->kind(),
+      hpu_expand_ds_symbol,
       {node->inputs()},
       value_ivalue_map)
       ->replaceInput(1, graph->addInput());

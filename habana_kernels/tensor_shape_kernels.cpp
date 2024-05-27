@@ -858,11 +858,6 @@ void SplitWithSizeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   HabanaOperator::SetPTOutputs(splits);
 }
 
-TORCH_LIBRARY_FRAGMENT(aten, m) {
-  m.def(
-      "expand.ds(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
-}
-
 static const auto& TensorShapeKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::permute", KERNEL_FN_GLOBAL(PermuteOperator))
@@ -876,7 +871,6 @@ static const auto& TensorShapeKernelsKernelRegistry =
         .add("aten::flatten", KERNEL_FN_GLOBAL(FlattenOperator))
         .add("hpu::expand", KERNEL_FN_GLOBAL(BroadcastOperator))
         .add("hpu::expand_ds", KERNEL_FN_GLOBAL(BroadcastOperator))
-        .add("aten::expand.ds", KERNEL_FN_GLOBAL(BroadcastOperator))
         .add("aten::view", KERNEL_FN_GLOBAL(ViewOperator))
         .add("hpu::view", KERNEL_FN_GLOBAL(ViewOperator))
         .add("hpu::view_neg", KERNEL_FN_GLOBAL(ViewOperator))

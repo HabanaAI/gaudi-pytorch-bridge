@@ -2011,6 +2011,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
   m.def("hpu::repeat_ht(Tensor self, Tensor result_shape) -> Tensor");
   m.def(
+      "hpu::expand_ds(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
+  m.def(
       "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon, bool fast_math) -> (Tensor, Tensor)");
   m.def(
       "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)");
