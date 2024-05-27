@@ -173,7 +173,6 @@ build-%: validate init
 	-v $(VENV_DIR):/tmp/.venv \
 	-v $(CACHE_DIR):/tmp/.cache \
 	-v $$HOME:$$HOME \
-	-v /software/users/manuszk/.gitconfig:/etc/gitconfig \
 	-w /tmp \
 	-e HOME=/tmp -e DOCKER_CI_ENV=true -e _STACK=/npu-stack -e _BUILD=/builds \
 	-e RELEASE_VERSION=$(RELEASE_VERSION) -e RELEASE_BUILD_NUMBER=$(RELEASE_BUILD_ID) \
