@@ -600,7 +600,10 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         or "output_layouts" in node.meta
         or "output_shapes" in node.meta
     ):
-        assert node.meta["output_device"] == device
+        if node.meta["output_device"] is not None and device is not None:
+            assert node.meta["output_device"].type == device.type
+        else:
+            assert node.meta["output_device"] == device
         assert node.meta["output_dtypes"] == dtypes
         assert node.meta["output_layouts"] == layouts
         assert node.meta["output_shapes"] == output_shapes
