@@ -140,7 +140,6 @@ def test_hpu_dropout_bwd(p, train, dtype, native):
         result_hpu_c = result_hpu.cpu()
 
         if p in [0.0, 1.0] or not train:
-            expected_ops_in_compile_mode = {"clone"}
             assert torch.allclose(result_hpu_c, result)
             assert torch.equal(input_hpu_grad_c, input_grad)
         else:
@@ -154,5 +153,5 @@ def test_hpu_dropout_bwd(p, train, dtype, native):
             hpu_grad_p = torch.count_nonzero(input_hpu.grad) / input.numel()
             assert torch.abs(hpu_grad_p - (1.0 - p)) < 0.04
 
-        if is_pytest_mode_compile():
-            check_ops_executed_in_jit_ir(expected_ops_in_compile_mode)
+            if is_pytest_mode_compile():
+                check_ops_executed_in_jit_ir(expected_ops_in_compile_mode)
