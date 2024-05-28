@@ -295,6 +295,10 @@ OutputMetaDataVector HabanaLaunchOpPT::nodeOutputMetaData(
     torch::jit::Node* node) {
   auto node_outs = node->outputs();
   OutputMetaDataVector output_metadata{};
+  bool sfg_enable = false;
+  if (node->hasAttribute(c10::Symbol::attr("sfg"))) {
+    sfg_enable = true;
+  }
   // If node output is tensor list
   // tensorList and Unpack pair is supported
   if (*node->output(0)->type() == *torch::ListType::ofTensors() &&
@@ -309,6 +313,9 @@ OutputMetaDataVector HabanaLaunchOpPT::nodeOutputMetaData(
       md.persistent = nodeOutputPersistencePerValue(unpack_node, value_out);
       if (md.persistent) {
         md.external = IsValueExternal(value_out);
+        if (sfg_enable) {
+          md.external = true;
+        }
       }
       auto out_ptr = value_out->type()->cast<c10::TensorType>();
       if (out_ptr->scalarType().has_value()) {
@@ -322,6 +329,9 @@ OutputMetaDataVector HabanaLaunchOpPT::nodeOutputMetaData(
       md.persistent = nodeOutputPersistencePerValue(node, value_out);
       if (md.persistent) {
         md.external = IsValueExternal(value_out);
+        if (sfg_enable) {
+          md.external = true;
+        }
       }
       auto out_ptr = value_out->type()->cast<c10::TensorType>();
 

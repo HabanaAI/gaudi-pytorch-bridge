@@ -54,6 +54,8 @@ remove_unnecessary_clones = _get_bool_from_env("PT_HPU_COMPILE_REMOVE_UNNECESSAR
 use_inplace_allreduce = _get_bool_from_env("PT_HPU_USE_INPLACE_COLLECTIVE", "0")
 # for compile enable autograd, so that the training compiler is chosen
 inference = _get_bool_from_env("PT_HPU_USE_INFERENCE_COMPILER", "1")
+# enable sfg marking on collective inputs
+enable_sfg = _get_bool_from_env("PT_HPU_ENABLE_SFG", "0")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])

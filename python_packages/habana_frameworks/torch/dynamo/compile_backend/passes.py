@@ -13,6 +13,7 @@
 import contextlib
 import copy
 import os
+import queue
 import sys
 from collections import defaultdict
 from collections.abc import Iterable
@@ -333,6 +334,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_fake_propagation,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
             pass_reinplace_inplaceable_ops,
+            pass_mark_collective_input,
             pass_mark_placement,
             pass_graph_print,
         ]
@@ -1169,6 +1171,45 @@ def pass_accumulate_grads(ctx: OptimizerContext) -> bool:
         logger.debug(f"inductor.accumulate_grad_ nodes were wrapped into hpu.accumulate_grads op.")
 
         return True
+
+    return False
+
+
+collective_ops = set(
+    [
+        torch.ops._c10d_functional.all_reduce_.default,
+        torch.ops._c10d_functional.all_reduce.default,
+    ]
+)
+
+view_ops_set = set(
+    [
+        torch.ops.aten.view.default,
+    ]
+)
+
+
+def pass_mark_collective_input(ctx: OptimizerContext) -> bool:
+
+    assert ctx.graph_module is not None
+
+    if not hpu_backend_config.enable_sfg:
+        return False
+
+    graph = ctx.graph_module.graph
+
+    for node in graph.nodes:
+        if node.target in collective_ops:
+            sfg_node_queue = queue.Queue()
+            for inp in node.all_input_nodes:
+                sfg_node_queue.put(inp)
+            while not sfg_node_queue.empty():
+                sfg_node = sfg_node_queue.get()
+                if sfg_node.target in view_ops_set:
+                    for inp in sfg_node.all_input_nodes:
+                        sfg_node_queue.put(inp)
+                else:
+                    sfg_node.meta["sfg"] = True
 
     return False
 
@@ -2219,9 +2260,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
 
             # extract hints from FX node metadata
             context_hints = extract_dict_from_str(fx_node.meta.get("context_hints", None))
-            if context_hints is None:
-                continue
-            else:
+            if context_hints is not None:
                 logger.debug("node {} has context hints {}".format(fx_node_name, context_hints))
                 # combine hints into a single string in format "name1:value1;[name2:value2;]"
                 hints_str = ""
@@ -2229,6 +2268,11 @@ def pass_compile_clusters(ctx: OptimizerContext):
                     hints_str += "".join([k, ":", str(v), ";"])
                 jit_node.s_("hints", hints_str)
                 logger.debug("set hints for jit node", jit_node)
+                is_annotated_graph = True
+
+            if "sfg" in fx_node.meta:
+                jit_node.s_("sfg", "true")
+                logger.debug("sfg marked for jit node", jit_node)
                 is_annotated_graph = True
 
         if is_annotated_graph:
