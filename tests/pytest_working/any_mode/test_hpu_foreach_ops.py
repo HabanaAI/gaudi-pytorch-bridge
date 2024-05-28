@@ -492,4 +492,74 @@ def test_compound_foreach_scalarlist_inplace(op, k):
 
     for i in range(k):
         rtol, atol = get_tolerance(op, self_cpu[i].dtype, True)
+    torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
+
+
+lerp_dtypes = [torch.float, torch.bfloat16]
+if not is_gaudi1:
+    lerp_dtypes.append(torch.float16)
+
+
+def generate_foreach_lerp_input(k, optional_scalar):
+    indexes = [random.randint(0, len(self_shapes_pull) - 1) for _ in range(k)]
+    self_shapes = [self_shapes_pull[idx] for idx in indexes]
+    tensor1_shapes = [other_shapes_pull[idx] for idx in indexes]
+    dtypes = random.choices(lerp_dtypes, k=k)
+
+    self_cpu, self_hpu = generate_tensor_list(self_shapes, dtypes)
+    tensor1_cpu, tensor1_hpu = generate_tensor_list(tensor1_shapes, dtypes)
+
+    if optional_scalar:
+        weight_cpu = weight_hpu = optional_scalar
+    else:
+        weight_cpu, weight_hpu = generate_tensor_list(tensor1_shapes, dtypes)
+
+    if verbose:
+        print("Self shapes:", self_shapes)
+        print("Dtypes:", dtypes)
+        print("Tensor1 shapes:", tensor1_shapes)
+        print("Weight:", weight_cpu)
+
+    return self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, weight_cpu, weight_hpu
+
+
+@pytest.mark.parametrize("k", k_list)
+@pytest.mark.parametrize("optional_scalar", scalar_list + [None])
+def test_foreach_lerp(k, optional_scalar):
+    self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, weight_cpu, weight_hpu = generate_foreach_lerp_input(
+        k, optional_scalar
+    )
+
+    op = torch._foreach_lerp
+    results_cpu = op(self_cpu, tensor1_cpu, weight_cpu)
+    op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
+    results_hpu = op(self_hpu, tensor1_hpu, weight_hpu)
+
+    for i in range(k):
+        rtol, atol = get_tolerance(op, results_cpu[i].dtype)
+        if self_cpu[i].dtype == torch.bfloat16:
+            rtol, atol = 0.024, 4e-3
+        if self_cpu[i].dtype == torch.float16:
+            rtol, atol = 1e-4, 1e-2
+        torch.testing.assert_close(results_cpu[i], results_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
+
+
+@pytest.mark.parametrize("k", k_list)
+@pytest.mark.parametrize("optional_scalar", scalar_list + [None])
+def test_foreach_lerp_inplace(k, optional_scalar):
+    self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, weight_cpu, weight_hpu = generate_foreach_lerp_input(
+        k, optional_scalar
+    )
+
+    op = torch._foreach_lerp_
+    op(self_cpu, tensor1_cpu, weight_cpu)
+    op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
+    op(self_hpu, tensor1_hpu, weight_hpu)
+
+    for i in range(k):
+        rtol, atol = get_tolerance(op, self_cpu[i].dtype)
+        if self_cpu[i].dtype == torch.bfloat16:
+            rtol, atol = 0.024, 4e-3
+        if self_cpu[i].dtype == torch.float16:
+            rtol, atol = 1e-4, 1e-2
         torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)

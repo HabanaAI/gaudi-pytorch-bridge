@@ -644,6 +644,40 @@ _foreach_frac_:
   inplace_ids: [0]
   op_backend: ForeachFrac
 
+_foreach_lerp.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_backend: ForeachLerp
+  output_meta: ForeachLerpMeta
+  out_ids: [0]
+
+_foreach_lerp.List:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_backend: ForeachLerp
+  output_meta: ForeachLerpMeta
+  out_ids: [0]
+
+_foreach_lerp_.Scalar:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_backend: ForeachLerp
+  inplace_ids: [0]
+
+_foreach_lerp_.List:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  op_backend: ForeachLerp
+  inplace_ids: [0]
+
 _foreach_log:
   dtypes: [BFloat16, Float]
   guid: log_fwd
