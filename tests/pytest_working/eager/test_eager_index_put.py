@@ -9,11 +9,11 @@
 # was provided.
 #
 # ******************************************************************************
+import habana_frameworks.torch.dynamo.compile_backend
+import numpy as np
 import pytest
 import torch
-import numpy as np
-import habana_frameworks.torch.dynamo.compile_backend
-from test_utils import format_tc, is_pytest_mode_compile, is_gaudi1
+from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
 
 all_dtypes = [
     torch.bfloat16,
@@ -26,46 +26,49 @@ all_dtypes = [
     torch.float64,
 ]
 
+
 @pytest.mark.parametrize("dtype", all_dtypes, ids=format_tc)
 class TestHpuIndexPutSelect:
-  @staticmethod
-  def test_index_put(dtype):
-    if is_gaudi1() and dtype == torch.half:
-        pytest.skip("Half is not supported on Gaudi.")
-    def fn(input, index, values):
-         return input.index_put(index,values)
+    @staticmethod
+    def test_index_put(dtype):
+        if is_gaudi1() and dtype == torch.half:
+            pytest.skip("Half is not supported on Gaudi.")
 
-    cpu_input = torch.zeros([5,5],device="cpu",dtype=dtype)
-    hpu_input = torch.zeros([5,5],device="hpu",dtype=dtype)
-    index = (torch.LongTensor([0, 1]), torch.LongTensor([1, 2]))
-    cpu_values= torch.ones(2,dtype=dtype,device="cpu")
-    hpu_values= torch.ones(2,dtype=dtype,device="hpu")
+        def fn(input, index, values):
+            return input.index_put(index, values)
 
-    torch._dynamo.reset()
-    cpu_result = fn(cpu_input, index,cpu_values)
-    hpu_result = fn(hpu_input, index,hpu_values)
+        cpu_input = torch.zeros([5, 5], device="cpu", dtype=dtype)
+        hpu_input = torch.zeros([5, 5], device="hpu", dtype=dtype)
+        index = (torch.LongTensor([0, 1]), torch.LongTensor([1, 2]))
+        cpu_values = torch.ones(2, dtype=dtype, device="cpu")
+        hpu_values = torch.ones(2, dtype=dtype, device="hpu")
 
-    #print(hpu_result.cpu())
+        torch._dynamo.reset()
+        cpu_result = fn(cpu_input, index, cpu_values)
+        hpu_result = fn(hpu_input, index, hpu_values)
 
-    torch.allclose(cpu_result, hpu_result.cpu())
+        # print(hpu_result.cpu())
 
-  @staticmethod
-  def test_index_put_with_accumulate(dtype):
-    if is_gaudi1() and dtype == torch.half:
-        pytest.skip("Half is not supported on Gaudi.")
-    def fn(input, index, values):
-         return input.index_put(index,values,True)
+        torch.allclose(cpu_result, hpu_result.cpu())
 
-    cpu_input = torch.zeros([5,5],device="cpu",dtype=dtype)
-    hpu_input = torch.zeros([5,5],device="hpu",dtype=dtype)
-    index = (torch.LongTensor([0, 1]), torch.LongTensor([1, 2]))
-    cpu_values= torch.ones(2,dtype=dtype,device="cpu")
-    hpu_values= torch.ones(2,dtype=dtype,device="hpu")
+    @staticmethod
+    def test_index_put_with_accumulate(dtype):
+        if is_gaudi1() and dtype == torch.half:
+            pytest.skip("Half is not supported on Gaudi.")
 
-    torch._dynamo.reset()
-    cpu_result = fn(cpu_input, index,cpu_values)
-    hpu_result = fn(hpu_input, index,hpu_values)
+        def fn(input, index, values):
+            return input.index_put(index, values, True)
 
-    #print(hpu_result.cpu())
+        cpu_input = torch.zeros([5, 5], device="cpu", dtype=dtype)
+        hpu_input = torch.zeros([5, 5], device="hpu", dtype=dtype)
+        index = (torch.LongTensor([0, 1]), torch.LongTensor([1, 2]))
+        cpu_values = torch.ones(2, dtype=dtype, device="cpu")
+        hpu_values = torch.ones(2, dtype=dtype, device="hpu")
 
-    torch.allclose(cpu_result, hpu_result.cpu())
+        torch._dynamo.reset()
+        cpu_result = fn(cpu_input, index, cpu_values)
+        hpu_result = fn(hpu_input, index, hpu_values)
+
+        # print(hpu_result.cpu())
+
+        torch.allclose(cpu_result, hpu_result.cpu())

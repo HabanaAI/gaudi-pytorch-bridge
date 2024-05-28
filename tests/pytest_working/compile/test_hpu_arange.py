@@ -31,6 +31,7 @@ def test_arange(dtype, layout, start, step, end):
         else:
             return torch.arange(end=end, device=device, dtype=dtype, layout=layout)
 
+    torch._dynamo.reset()
     compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     expected = fn(start, layout, step, end, "cpu")
