@@ -355,7 +355,7 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_DoubleInplace) {
 }
 
 // Input(NCHW) -> Add_(input1(CL)) -> conv2D -> leakyRelu_
-TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace) {
+TEST_F(GraphOptimizeTest, PermutePassTest_Add_Inplace) {
   auto in = torch::randn(
       {6, 4, 28, 28}, torch::dtype(torch::kFloat).requires_grad(false)); // nchw
   auto in1 = torch::randn(
@@ -374,7 +374,6 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace) {
   in = torch::add(in, in1, 1.0);
   auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
   torch::leaky_relu_(exp);
-  torch::abs_(exp);
 
   EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
 }
@@ -501,7 +500,7 @@ TEST_F(GraphOptimizeTest, PermutePassTest_DoubleInplace_cache) {
 }
 
 // Input(NCHW) -> Add_(input1(CL)) -> conv2D -> leakyRelu_
-TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_cache) {
+TEST_F(GraphOptimizeTest, PermutePassTest_Add_Inplace_cache) {
   for (int i = 0; i < 2; i++) {
     auto in = torch::randn(
         {6, 4, 28, 28},
@@ -524,7 +523,6 @@ TEST_F(GraphOptimizeTest, DISABLED_PermutePassTest_Add_Inplace_cache) {
     in = torch::add(in, in1, 1.0);
     auto exp = torch::conv2d(in, wt, {}, {1}, at::IntArrayRef{0}, {1}, 1);
     torch::leaky_relu_(exp);
-    torch::abs_(exp);
 
     EXPECT_EQ(allclose(out, exp, 0.01, 0.01), true);
   }
