@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -26,11 +26,11 @@ REQUIRED_VERSION_FILE_PATH = os.path.join(os.path.dirname(__file__), REQUIRED_VE
 with open(REQUIRED_VERSION_FILE_PATH) as req_ver_file:
     compile_time_ver = Version(req_ver_file.read())
 
-run_time_ver = Version(Version(torch.__version__).base_version)
+run_time_ver = Version(torch.__version__)
 
 assert (
-    run_time_ver == compile_time_ver
-), f"Error: Compile-time pytorch version {compile_time_ver} differs from run-time {run_time_ver}."
+    run_time_ver.major == compile_time_ver.major and run_time_ver.minor == compile_time_ver.minor
+), f"Error: Compile-time major/minor PyTorch version {compile_time_ver} differs from run-time {run_time_ver}."
 
 lib_to_load = "libhabana_pytorch{}_plugin.so".format("" if is_lazy() else "2")
 ctypes.CDLL(os.path.join(os.path.dirname(__file__), "lib", lib_to_load), ctypes.RTLD_GLOBAL)
