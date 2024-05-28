@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -331,25 +331,6 @@ class IndexPutOperator2 : public HabanaOperator {
  public:
   IndexPutOperator2(int device_id, c10::ScalarType scalarType)
       : HabanaOperator(get_guid_with_precision("index_put2_fwd", scalarType)),
-        scalarType_(scalarType) {
-    this->CreateSynContext(device_id);
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) final;
-
- protected:
-  c10::ScalarType scalarType_;
-};
-
-// IndexAddOperator
-class IndexAddOperator : public HabanaOperator {
- public:
-  IndexAddOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(
-            get_guid_with_precision("index_add_fwd_filler", scalarType)),
         scalarType_(scalarType) {
     this->CreateSynContext(device_id);
   }
