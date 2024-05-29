@@ -91,11 +91,37 @@ def test_slice_op_positive_index():
         assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
+def test_slice_scatter_op_fallback():
+    """
+    For slice_scatter, static
+    fallback is required if there are
+    tensors with more than 4 dimensions
+    """
+
+    input_info = [[[2, 3, 4, 3, 3], [2, 3, 2, 3, 3], 2, 0, 2, 1], [[2, 3, 4, 3, 5], [2, 3, 3, 3, 5], 2, 0, 3, 1]]
+
+    def raw_function(inp, src, dim, start, end, step):
+        result = torch.slice_scatter(inp, src, dim, start, end, step)
+        return result
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+
+    for inp, src, dim, start, end, step in input_info:
+        t1 = torch.zeros(inp)
+        t2 = torch.ones(src)
+        result = raw_function(t1, t2, dim, start, end, step)
+
+        t1_h = t1.to("hpu")
+        t2_h = t2.to("hpu")
+        result_h = compiled_fn(t1_h, t2_h, dim, start, end, step)
+
+        assert torch.allclose(result_h.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
 def test_as_strided_op_fallback():
     """
-    For strided view ops, static
-    fallback is required if there are
-    tensors with more than 4 dimensions,
+    For as_strided, static fallback is required
+    if there are tensors with more than 4 dimensions,
     and fastest changing dimension is strided
     """
     input_info = [

@@ -146,19 +146,36 @@ struct HandleDynamicOpsPass {
     // do not exceed "SYN_MAX_TENSOR_DIM" dimensions.
     int max_dim = SYN_MAX_TENSOR_DIM;
 
-    // For some strided view ops (like "aten::as_strided")
+    // For some strided view ops
     // the tensor sizes should not exceed "SYN_MAX_TENSOR_DIM-1"
     // as their synapse implementation can cause tensor dim
-    // expansion by 1 if the Fastest Changing Dimension is strided
-    static const std::set<std::string> strided_view_ops{"aten::as_strided"};
+    // expansion by under certain conditons
+    static const std::set<std::string> strided_view_ops{
+        "aten::as_strided", "aten::slice_scatter"};
+
     if (strided_view_ops.find(node_name) != strided_view_ops.end()) {
-      auto ivalue =
-          m_value_ivalue_map[const_cast<torch::jit::Value*>(node->input(2))];
-      if (ivalue->isIntList()) {
-        const auto strides = ivalue->toIntList();
-        if (!strides.empty()) {
-          int fcd_stride = strides.get(strides.size() - 1);
-          if (fcd_stride > 1)
+      if (node_name == "aten::as_strided") {
+        auto ivalue =
+            m_value_ivalue_map[const_cast<torch::jit::Value*>(node->input(2))];
+        if (ivalue->isIntList()) {
+          const auto strides = ivalue->toIntList();
+          if (!strides.empty()) {
+            int fcd_stride = strides.get(strides.size() - 1);
+            // Dim expansion happens if
+            // Fastest Changing Dimension is strided
+            if (fcd_stride > 1)
+              max_dim -= 1;
+          }
+        }
+      } else if (node_name == "aten::slice_scatter") {
+        auto ivalue =
+            m_value_ivalue_map[const_cast<torch::jit::Value*>(node->input(1))];
+        if (ivalue->isTensor()) {
+          auto sizes = ivalue->toTensor().sizes();
+          // Dim expansion does not happen
+          // if any dim size value of src input tensor is 1
+          auto it = std::find(sizes.begin(), sizes.end(), 1);
+          if (it == sizes.end())
             max_dim -= 1;
         }
       }
