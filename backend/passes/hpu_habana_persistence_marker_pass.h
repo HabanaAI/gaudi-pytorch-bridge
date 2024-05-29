@@ -103,6 +103,10 @@ class PersistenceMarkerPass : public JITGraphPass<PersistenceMarkerPassData> {
   void MarkProducerExternal(torch::jit::Value* val);
   void ExternalMarkingPass(torch::jit::graph_node_list graph_nodes);
   void RunMetaDataAdjustmentPasses(torch::jit::graph_node_list graph_nodes);
+  void HandleSpecialOps(
+      torch::jit::Node*,
+      const std::vector<std::string>& ignoreOpsList,
+      int inputId);
 };
 
 } // namespace habana

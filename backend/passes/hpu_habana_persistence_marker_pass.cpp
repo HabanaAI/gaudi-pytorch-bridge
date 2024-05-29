@@ -76,6 +76,32 @@ void PersistenceMarkerPass::set_persistence_output(
   }
 }
 
+void PersistenceMarkerPass::HandleSpecialOps(
+    torch::jit::Node* node,
+    const std::vector<std::string>& ignoreOpsList,
+    int inputId) {
+  auto inp_node = node;
+  bool foundInIgnoreList = true;
+  while (foundInIgnoreList) {
+    inp_node = inp_node->inputs()[inputId]->node();
+
+    auto inp_schema = inp_node->maybeSchema();
+    foundInIgnoreList = false;
+    if (inp_schema) {
+      auto inp_name = toString(inp_node->schema().operator_name());
+
+      if (std::find(
+              std::begin(ignoreOpsList), std::end(ignoreOpsList), inp_name) !=
+          std::end(ignoreOpsList)) {
+        foundInIgnoreList = true;
+        inputId = inplaceInputId(inp_node);
+        set_persistence_input(inp_node, inputId);
+        set_persistence_output(inp_node, 0);
+      }
+    }
+  }
+}
+
 void PersistenceMarkerPass::MarkPersistenceNodes(
     torch::jit::graph_node_list graph_nodes) {
   for (auto* node : graph_nodes) {
@@ -124,6 +150,11 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
         (foundInIgnoreList && jitgraph_utils::isInGraphOutputs(node))) {
       set_persistence_input(node, inputId);
       set_persistence_output(node, 0);
+      // If we found special node from ignore list, then track back chain of
+      // special nodes.
+      if (foundInIgnoreList) {
+        HandleSpecialOps(node, ignoreOpsList, inputId);
+      }
     }
   } // for (auto* node : graph_nodes)
 } // function end
