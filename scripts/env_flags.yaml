@@ -792,3 +792,8 @@ PT_HPU_CHECK_NUM_CONSTS:
   type: unsigned
   default: 0
   doc: "Compare num of parameters marked as const with this value in torch.compile mode"
+
+PT_HPU_ENABLE_COMPILED_AUTOGRAD:
+  type: bool
+  default: false
+  doc: "Enable CompiledAutograd with hpu_backend in torch.compile."

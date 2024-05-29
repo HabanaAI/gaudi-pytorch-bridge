@@ -9,4 +9,11 @@
 #
 ###############################################################################
 
+import habana_frameworks.torch.internal.bridge_config as bc
+
 from . import backends
+
+if bc.get_pt_hpu_enable_compiled_autograd():
+    from .experimental import enable_compiled_autograd
+
+    enable_compiled_autograd()

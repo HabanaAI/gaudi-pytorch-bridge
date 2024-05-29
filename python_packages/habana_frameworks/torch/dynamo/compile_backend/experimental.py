@@ -12,7 +12,10 @@
 import functools
 
 import torch
+from habana_frameworks.torch.dynamo.compile_backend.logger import get_compile_backend_logger
 from torch._dynamo import compiled_autograd
+
+logger = get_compile_backend_logger()
 
 
 def enable_compiled_autograd():
@@ -23,6 +26,7 @@ def enable_compiled_autograd():
 
     This should be called before any invocations of torch.compile
     """
+    logger.warn("Enabling CompiledAutograd for hpu_backend with torch.compile")
 
     def compiler_fn(gm):
         return torch.compile(gm, backend="hpu_backend", fullgraph=True)
