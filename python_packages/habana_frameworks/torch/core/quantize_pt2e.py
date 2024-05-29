@@ -582,6 +582,7 @@ def get_eps_and_backoff_margin(module: torch.fx.GraphModule, quant_node: torch.f
     is_param_constant = input_node.op == "get_attr" and "_param_constant_l" in str(input_node.target)
     logger.debug(f"get_eps_and_backoff_margin: is_param_constant = {is_param_constant}")
 
+    eps = 0
     backoff_margin = 0
     is_weight_param = False
     if is_param_constant:
@@ -599,12 +600,17 @@ def get_eps_and_backoff_margin(module: torch.fx.GraphModule, quant_node: torch.f
 
             # Assuming topologically sorted graph
             if dquant_node:
-                if n.op == "call_function" and (
-                    (n.target.__name__ == "addmm.default" and n.args[0] == dquant_node)
-                    or (n.target.__name__ in ["linear.default", "convolution.default"] and n.args[1] == dquant_node)
-                ):
-                    is_weight_param = True
-                    break
+                if n.op == "call_function":
+                    if (n.target.__name__ == "addmm.default" and n.args[0] == dquant_node) or (
+                        n.target.__name__ in ["mm.default", "linear.default", "convolution.default"]
+                        and n.args[1] == dquant_node
+                    ):
+                        is_weight_param = True
+                        break
+                    else:
+                        # This must be transpose kind of node. Just follow the path.
+                        if dquant_node in n.args:
+                            dquant_node = n
 
         logger.debug(f"get_eps_and_backoff_margin: is_weight_param = {is_weight_param}")
         if is_weight_param:
