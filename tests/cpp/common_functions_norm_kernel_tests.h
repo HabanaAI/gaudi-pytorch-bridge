@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 
-#include "utils/device_type_util.h"
 #include "utils/dtype_supported_on_device.h"
 #include "utils/hint_tolerance_values.h"
 
@@ -50,15 +49,6 @@ std::vector<AtTensorPair> native_layer_norm_test(
     BASE, MODE, WEIGHT, BIAS, DT, DTYPE, PREC, DSVAL, DSLAB)                  \
   TEST_F(                                                                     \
       BASE, LayerNorm##MODE##Weight##WEIGHT##Bias##BIAS##DT##DSLAB##xecute) { \
-    if (isGaudi3() &&                                                         \
-        NativeLayerNormTestMode::MODE ==                                      \
-            NativeLayerNormTestMode::FwdBwdAffine &&                          \
-        NativeLayerNormTestWeight::WEIGHT##ined ==                            \
-            NativeLayerNormTestWeight::Undefined &&                           \
-        NativeLayerNormTestBias::BIAS##ined ==                                \
-            NativeLayerNormTestBias::Undefined) {                             \
-      GTEST_SKIP() << "Test skipped on Gaudi3.";                              \
-    }                                                                         \
     if (!IsDtypeSupportedOnCurrentDevice(torch::DTYPE)) {                     \
       GTEST_SKIP();                                                           \
     }                                                                         \

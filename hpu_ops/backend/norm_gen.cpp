@@ -667,11 +667,11 @@ void LayerNormHabanaOperator::AddNode(
 
     // Since G1 uses TPC kernels, W/B tensors have to be 3D in affine mode.
     // This also applies to F16 on G2. For BF16 and F32 CGUIDs are used on G2
-    // so there is no need to change shape of W/B tensors. For G3 affine tests
-    // are skipped.
+    // so there is no need to change shape of W/B tensors. For G3 situation is
+    // the same as for G2.
     auto is_reshape_for_tpc_kernels_required = use_tpc_affine_path &&
-        (habana::HPURegistrar::get_device().type() !=
-         synDeviceType::synDeviceGaudi2);
+        (habana::HPURegistrar::get_device().type() ==
+         synDeviceType::synDeviceGaudi);
 
     int64_t normalized_shape_numel = c10::multiply_integers(
         normalized_shape.cbegin(), normalized_shape.cend());
