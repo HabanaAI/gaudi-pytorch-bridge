@@ -208,7 +208,7 @@ def set_stream(stream):
         stream (Stream): selected stream. This function is a no-op
             if this argument is ``None``.
     """
-    if stream is None or not isinstance(stream, Stream):
+    if stream is None:
         return
 
     device_idx = stream.device_index
