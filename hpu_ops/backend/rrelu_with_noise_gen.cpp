@@ -48,6 +48,7 @@ void Rrelu_with_noise::AddNode(
       inputs.push_back(syn_in(2));
     else
       inputs.push_back(syn_seed());
+    CreateShapeTensorInput(graph, ScalarType(), outshape, inputs);
 
     // uniform random tensor
     auto uniform_random = BuildOp(
