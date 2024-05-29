@@ -11,7 +11,7 @@
 ###############################################################################
 
 import math
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from habana_frameworks.torch.utils.internal import is_lazy
@@ -46,7 +46,7 @@ class FusedAdamW(object):
         # amsgrad: bool = False, # Habana Impl does not support
         # maximize: bool = False, # Habana Impl does not support
         _allow_empty_param_list: bool = False,  # retained for PT compatibility
-        moments_dtype: Optional[torch.dtype | Tuple[torch.dtype, torch.dtype]] = None,
+        moments_dtype: Optional[Union[torch.dtype, Tuple[torch.dtype, torch.dtype]]] = None,
     ):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))

@@ -11,7 +11,7 @@
 ###############################################################################
 
 import math
-from typing import Callable, Iterable, Optional, Tuple
+from typing import Callable, Iterable, Optional, Tuple, Union
 
 import torch
 from habana_frameworks.torch import core as htcore
@@ -28,7 +28,7 @@ class FusedAdamW(Optimizer):
         eps: float = 1e-6,
         weight_decay: float = 0.0,
         bias_correction: bool = True,
-        moments_dtype: Optional[torch.dtype | Tuple[torch.dtype, torch.dtype]] = None,
+        moments_dtype: Optional[Union[torch.dtype, Tuple[torch.dtype, torch.dtype]]] = None,
     ):
         if lr < 0.0:
             raise ValueError("Invalid learning rate: {} - should be >= 0.0".format(lr))
