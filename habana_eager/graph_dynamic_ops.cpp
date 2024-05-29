@@ -867,6 +867,7 @@ static const auto& BasicDSOpsRegistry =
             AsStridedScatterOperatorDS)
         .DSOP_MID_BACKEND(hpu::habana_randperm, RandpermGeneratorOperatorDS)
         .DSOP_MID_BACKEND(hpu::habana_rand, RandOperatorDS)
-        .DSOP_MID_BACKEND(hpu::habana_randn, RandnOperatorDS);
+        .DSOP_MID_BACKEND(hpu::habana_randn, RandnOperatorDS)
+        .DSOP_MID_BACKEND(hpu::habana_randint, RandintOperatorDS);
 } // namespace graph
 } // namespace habana

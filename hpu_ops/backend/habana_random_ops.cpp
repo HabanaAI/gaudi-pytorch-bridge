@@ -46,7 +46,11 @@ std::shared_ptr<void> FillHabanaRandnParams(const at::Stack&, size_t& size) {
 
 OutputMetaDataVector HabanaRandintOutputMeta(const at::Stack& stack) {
   OutputMetaData meta;
-  meta.shape = stack[3].toIntList().vec();
+  if (stack.at(3).isTensor()) {
+    meta.shape = stack[3].toTensor().sizes().vec();
+  } else {
+    meta.shape = stack[3].toIntList().vec();
+  }
   meta.dtype =
       stack[4].toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
   meta.layout = stack[5].toOptional<at::Layout>().value_or(at::kStrided);
@@ -260,4 +264,5 @@ static const auto& HabanaRandomKernelRegistry =
             "hpu::habana_seed_generator",
             KERNEL_FN_GLOBAL(habana::HabanaSeedGenerator))
         .add("hpu::habana_rand_st", KERNEL_FN_GLOBAL(habana::HabanaRand))
-        .add("hpu::habana_randn_st", KERNEL_FN_GLOBAL(habana::HabanaRandn));
+        .add("hpu::habana_randn_st", KERNEL_FN_GLOBAL(habana::HabanaRandn))
+        .add("hpu::habana_randint_st", KERNEL_FN_GLOBAL(habana::HabanaRandint));

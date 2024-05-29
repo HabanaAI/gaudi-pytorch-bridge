@@ -1163,3 +1163,32 @@ def test_op_randn():
         if i == 0:
             continue
         assert torch.equal(results_list[0][i], results_list[1][i])
+
+
+def test_op_randint():
+    shape_in = [(4, 4), (8, 4), (12, 4), (14, 4)]
+
+    def fn(shape_in):
+        return torch.randint(0, 10, shape_in, dtype=torch.int32, device="hpu")
+
+    compiled_hpu = torch.compile(fn, backend="hpu_backend", dynamic=None)
+    results_list = []
+    for i in range(2):
+        j = 0
+        results = []
+        for s in shape_in:
+            # For dynamic=None case, the first iteration creates a kernel backend
+            # that is different from the dynamic shape iterations. Hence we reset the
+            # seed for randint at the start of the second iteration that is the
+            # first dynamic pass iteration.
+            if j < 2:
+                torch.manual_seed(123)
+            j = j + 1
+            h_result = compiled_hpu(s)
+            results.append(h_result.to("cpu"))
+        results_list.append(results)
+    for i in range(len(shape_in)):
+        # don't compare the static pass iteration
+        if i == 0:
+            continue
+        assert torch.equal(results_list[0][i], results_list[1][i])
