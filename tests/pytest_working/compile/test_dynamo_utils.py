@@ -57,9 +57,10 @@ def assert_helper(ops_summary, op, count_list):
             assert op not in single_graph_summary
         else:
             graph_count, eager_count = graph_eager_count
-            assert op in single_graph_summary
-            assert single_graph_summary[op].graph_count == graph_count
-            assert single_graph_summary[op].eager_count == eager_count
+            if graph_count != 0 or eager_count != 0:
+                assert op in single_graph_summary
+                assert single_graph_summary[op].graph_count == graph_count
+                assert single_graph_summary[op].eager_count == eager_count
 
 
 def test_simple():

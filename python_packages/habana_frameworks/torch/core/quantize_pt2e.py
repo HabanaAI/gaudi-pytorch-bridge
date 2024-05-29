@@ -410,10 +410,8 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                 # Adjust the scale values as per H/W requirements
                 adjust_scale_val(self._converted_module)
 
-                # After this funtion we will be left with quantize/dequantize ops in the graph.
-                # Unfortunately we do not support them directly so we need to make some manual
-                # pattern matching here.
-                decompose_quant_ops(self._converted_module)
+                # Default datatype for output of dequantize is torch.float32 but we run models in torch.bfloat16
+                change_output_dtype_of_dequant(self._converted_module)
 
                 # Now we call hpu_inference_compiler to convert it into synapse graph.
                 with torch.no_grad():
@@ -676,104 +674,17 @@ def adjust_scale_val(module: torch.fx.GraphModule):
 
 
 # ======================================================================================
-# Decompose Quant into div + round + add + clamp
-# Decompose DeQuant into sub + mul
+# Add argument out_dtype in dequantize_per_tensor op
 # ======================================================================================
-def decompose_quant_ops(module: torch.fx.GraphModule):
-    ## PART 1 - quantizations
-    nodes_to_change = []
-    for node in module.graph.nodes:
-        if node.op == "call_function" and node.target.__name__ == "quantize_per_tensor.default":
-            nodes_to_change.append(node)
-
-    quantization_src_dtypes = []
-    quantization_dst_dtypes = []
-    for node in nodes_to_change:
-        num_users = len(set(node.users))
-        quantization_src_dtype = [node.args[0].meta["tensor_meta"].dtype] * num_users
-        quantization_src_dtypes = quantization_src_dtypes + quantization_src_dtype
-        arg_param = node.args[0]
-        arg_scale = node.args[1]
-        arg_zero_point = node.args[2]
-        arg_min = node.args[3]
-        arg_max = node.args[4]
-        arg_type = node.args[5]
-        quantization_dst_dtype = [arg_type] * num_users
-        quantization_dst_dtypes = quantization_dst_dtypes + quantization_dst_dtype
-
-        with module.graph.inserting_before(node):
-            if arg_type in [torch.float8_e4m3fn, torch.float8_e5m2]:
-                invert_scale_node = module.graph.call_function(torch.ops.aten.div.Tensor, (1, arg_scale))
-                quant_node = module.graph.call_function(
-                    torch.ops.hpu.cast_to_fp8_v2, args=(arg_param, invert_scale_node, False, False, arg_type)
-                )
-                quant_out = module.graph.call_function(operator.getitem, args=(quant_node, 0))
-                final_typed_node = module.graph.call_function(
-                    torch.ops.aten._to_copy.default,
-                    (quant_out,),
-                    {"dtype": arg_type},
-                )
-            else:
-                div_node = module.graph.call_function(torch.ops.aten.div.Tensor, (arg_param, arg_scale))
-                round_node = module.graph.call_function(torch.ops.aten.round.default, (div_node,))
-                add_node = module.graph.call_function(torch.ops.aten.add.Tensor, (round_node, arg_zero_point))
-                clamp_node = module.graph.call_function(torch.ops.aten.clamp.default, (add_node, arg_min, arg_max))
-                final_typed_node = module.graph.call_function(
-                    torch.ops.aten._to_copy.default,
-                    (clamp_node,),
-                    {"dtype": arg_type},
-                )
-
-        users_to_change = []
-        for dst in node.users:
-            users_to_change.append(dst)
-
-        for dst in users_to_change:
-            dst.replace_input_with(node, final_typed_node)
-
-        module.graph.erase_node(node)
-
-    ## PART 2 - dequantizations
-    nodes_to_change = []
+def change_output_dtype_of_dequant(module: torch.fx.GraphModule):
+    global quant_dtype_used
     for node in module.graph.nodes:
         if node.op == "call_function" and node.target.__name__ == "dequantize_per_tensor.default":
-            nodes_to_change.append(node)
-
-    assert len(quantization_src_dtypes) == len(nodes_to_change)
-    assert len(quantization_dst_dtypes) == len(nodes_to_change)
-    count = 0
-    for node in nodes_to_change:
-        src_dtype = quantization_dst_dtypes[count]
-        dst_dtype = quantization_src_dtypes[count]
-        count = count + 1
-
-        arg_param = node.args[0]
-        arg_scale = node.args[1]
-        arg_zero_point = node.args[2]
-
-        with module.graph.inserting_before(node):
-            if src_dtype in [torch.float8_e4m3fn, torch.float8_e5m2]:
-                mul_node = module.graph.call_function(
-                    torch.ops.hpu.cast_from_fp8, args=(arg_param, arg_scale, dst_dtype)
-                )
-            else:
-                casted_input = module.graph.call_function(
-                    torch.ops.aten._to_copy.default,
-                    (arg_param,),
-                    {"dtype": dst_dtype},
-                )
-                sub_node = module.graph.call_function(torch.ops.aten.sub.Tensor, (casted_input, arg_zero_point))
-                mul_node = module.graph.call_function(torch.ops.aten.mul.Tensor, (sub_node, arg_scale))
-
-        users_to_change = []
-        for dst in node.users:
-            users_to_change.append(dst)
-
-        for dst in users_to_change:
-            dst.replace_input_with(node, mul_node)
-
-        module.graph.erase_node(node)
-
+            new_kwargs = node.kwargs.copy()
+            new_kwargs["out_dtype"] = (
+                torch.float32 if quant_dtype_used == torch.int8 else torch.bfloat16
+            )  # Add dtype argument
+            node.kwargs = new_kwargs
     module.graph.lint()
     module.recompile()
 
