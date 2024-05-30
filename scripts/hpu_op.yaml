@@ -7225,12 +7225,12 @@ scatter_.src:
       src: [BFloat16, Float, Int, Short, Byte, Char]
       index: [Int, Long]
     Gaudi2:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Float8_e5m2, Float8_e4m3fn]
+      src: [BFloat16, Float, Int, Short, Byte, Char, Half, Float8_e5m2, Float8_e4m3fn]
       index: [Int, Long]
     Gaudi3:
-      self: [BFloat16, Float, Int, Short, Byte, Char, Half]
-      src: [BFloat16, Float, Int, Short, Byte, Char, Half]
+      self: [BFloat16, Float, Int, Short, Byte, Char, Half, Float8_e5m2, Float8_e4m3fn]
+      src: [BFloat16, Float, Int, Short, Byte, Char, Half, Float8_e5m2, Float8_e4m3fn]
       index: [Int, Long]
   op_backend: ScatterOperator
   inplace_ids: [0]
