@@ -381,6 +381,22 @@ def overwrite_torch_functions():
 
     save_orig = torch.save
 
+    # move hpu tensor to cpu before save, to handle issues with numpy
+    def convert_for_pickle(obj):
+        if isinstance(obj, torch.Size):
+            return obj
+        elif isinstance(obj, dict):
+            return {k: convert_for_pickle(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_for_pickle(e) for e in obj]
+        elif isinstance(obj, tuple):
+            return tuple([convert_for_pickle(e) for e in obj])
+        else:
+            if isinstance(obj, torch.Tensor):
+                return obj.data.detach().clone().cpu()
+            else:
+                return obj
+
     @wraps(torch.save)
     def wrap_save(
         obj: object,
@@ -390,8 +406,9 @@ def overwrite_torch_functions():
         _use_new_zipfile_serialization: bool = True,
         _disable_byteorder_record: bool = False,
     ) -> None:
+        data = convert_for_pickle(obj)
         save_orig(
-            obj=obj,
+            obj=data,
             f=f,
             pickle_module=pickle_module,
             pickle_protocol=pickle_protocol,
