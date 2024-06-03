@@ -524,7 +524,6 @@ void IndexPutBoolEager::AddNode(
   std::vector<synapse_helpers::tensor> cat_input_tensor;
   std::vector<std::vector<int64_t>> cat_input_index;
   std::vector<int64_t> nonzero_out_shape;
-
   auto unsqueeze = [this, &graph](
                        const at::Tensor& t, synTensor st, const int ndims) {
     const auto missing = static_cast<size_t>(ndims - t.dim());
@@ -626,14 +625,24 @@ void IndexPutBoolEager::AddNode(
     for (size_t i = rank_idx; i < rank_inp; i++)
       value_upd_dim.push_back(self_sizes[i]);
   }
+
   auto bcastOp = BroadcastHelper(
       graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type);
+  auto flattened_size = std::accumulate(
+      std::begin(value_upd_dim),
+      std::end(value_upd_dim),
+      1,
+      std::multiplies<size_t>());
+  std::vector<int64_t> reshape_bcast_size({catop.pt_shape()[0]});
+  auto reshapebcastOp =
+      ReshapeHelper(graph, bcastOp.get(), flattened_size, values_scalar_type);
+
   auto self_scalar_type = self.scalar_type();
   if (!accumulate) {
     auto scatter_op = BuildOp(
         graph,
         get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {syn_in(0), catop.get(), bcastOp.get(), nonzero.at(1).get()},
+        {syn_in(0), catop.get(), reshapebcastOp.get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
     syn_out(0) = std::move(scatter_op[0]);
   } else {
@@ -641,7 +650,7 @@ void IndexPutBoolEager::AddNode(
     auto scatter_op = BuildOp(
         graph,
         get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {zero_op.get(), catop.get(), bcastOp.get(), nonzero.at(1).get()},
+        {zero_op.get(), catop.get(), reshapebcastOp.get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type}});
     auto add_op = BuildOp(
         graph,
@@ -918,7 +927,6 @@ void IndexPutCompile::AddNode(
   std::vector<synapse_helpers::tensor> cat_input_tensor;
   std::vector<std::vector<int64_t>> cat_input_index;
   std::vector<int64_t> nonzero_out_shape;
-
   auto unsqueeze = [this, &graph](
                        const at::Tensor& t, synTensor st, const int ndims) {
     const auto missing = static_cast<size_t>(ndims - t.dim());
