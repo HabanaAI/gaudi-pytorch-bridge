@@ -142,6 +142,62 @@ def test_cast_to_fp8_v2(dtype, stochastic, is_amax, out_dtype):
     cast_to_fp8_v2_common((64, 48), dtype, stochastic, is_amax, ScaleMode.TENSOR, None, out_dtype)
 
 
+@pytest.mark.parametrize("dtype", [torch.float8_e5m2, torch.float8_e4m3fn])
+@pytest.mark.parametrize("stochastic", [False, True])
+@pytest.mark.parametrize("scale", [1.0, None])
+def test_cast_to_fp8_v2_from_fp8(dtype, stochastic, scale):
+    shape = (64, 48)
+    hpu = torch.device("hpu")
+    input_pos = torch.rand(shape) * 30 + 10
+    input_neg = -input_pos
+    input_cpu = torch.cat((input_pos, input_neg)).to(dtype)
+    input_hpu = input_cpu.to(hpu)
+    # test scale const tensor equal 1 and not given => out=in
+
+    def fn(input_hpu, scale, stochastic, dtype):
+        args = [input_hpu, scale, stochastic, False, dtype]
+        casted_hpu, _ = torch.ops.hpu.cast_to_fp8_v2(*args)
+
+        return casted_hpu
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="hpu_backend")
+
+    casted_hpu = fn(input_hpu, scale, stochastic, dtype)
+    casted_cpu = casted_hpu.to(torch.device("cpu"))
+    assert torch.equal(input_cpu.to(float), casted_cpu.to(float))
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir({"cast_to_fp8_v2"})
+
+
+@pytest.mark.parametrize("dtype", [torch.float8_e5m2, torch.float8_e4m3fn])
+@pytest.mark.parametrize("dst_dtype", [torch.float8_e5m2, torch.float8_e4m3fn])
+@pytest.mark.parametrize("is_amax", [False, True])
+def test_cast_to_fp8_v2_from_fp8_exception(dtype, dst_dtype, is_amax):
+    input_hpu = torch.rand((16, 24, 8)).to(dtype).to("hpu")
+    exception_raised = False
+    try:
+        casted, _ = torch.ops.hpu.cast_to_fp8_v2(input_hpu, None, False, is_amax, dst_dtype)
+        print(casted.to("cpu"))
+    except RuntimeError as e:
+        exception_raised = True
+        if is_amax:
+            assert "CastToFp8V2 must have no amax for float8." in str(e)
+        elif dtype != dst_dtype:
+            assert (
+                f"CastToFp8V2 input and output must have the same dtype for float8, but are {str(dtype).replace('torch.f', 'F')} and {str(dst_dtype).replace('torch.f', 'F')}"
+                in str(e)
+            )
+        else:
+            raise RuntimeError(f"unexpected exception {str(e)}")
+
+    if is_amax or dtype != dst_dtype:
+        assert exception_raised, "Expected exception not raised"
+
+
 @pytest.mark.parametrize(
     "scale_mode, axis",
     [
