@@ -20,7 +20,7 @@
         "cmd": "unset CMAKE_ROOT ; unset CMAKE_BUILD ; build_pytorch_fork --dist ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
     },
     "vision": {
-        "cmd": "build_pytorch_vision ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+        "cmd": "build_pytorch_vision_fork ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
     },
     "vision_next": {
         "cmd": "build_pytorch_vision --pt-vision-version $(jq -rj '.pt_versions.next.extras.torchvision' ${HABANA_SOFTWARE_STACK}/pytorch-integration/.devops/build_profiles/profiles.json) ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
@@ -62,6 +62,6 @@
         "cmd": "build_pytorch_data --pt-data-version $(jq -rj '.pt_versions.next.extras.torchdata' ${HABANA_SOFTWARE_STACK}/pytorch-integration/.devops/build_profiles/profiles.json) ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
     },
     "hqt": {
-        "cmd": "build_hqt -w"
+        "cmd" : "build_hqt -w"
     }
 }
