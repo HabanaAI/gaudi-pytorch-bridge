@@ -1595,7 +1595,8 @@ addr:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  op_backend: AddR
+  guid: addr_fwd
+  custom_fill_params: FillAddrParams
   out_ids: [0]
 
 addr_:
@@ -1604,7 +1605,8 @@ addr_:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  op_backend: AddR
+  guid: addr_fwd
+  custom_fill_params: FillAddrParams
   inplace_ids: [0]
 
 addr.out:
@@ -1613,7 +1615,8 @@ addr.out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  op_backend: AddR
+  guid: addr_fwd
+  custom_fill_params: FillAddrParams
 
 alias:
   override_fn: alias_hpu_lazy

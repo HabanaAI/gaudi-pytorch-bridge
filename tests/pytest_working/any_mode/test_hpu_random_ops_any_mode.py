@@ -97,7 +97,7 @@ def test_randint(shape, dtype):
         fn = torch.compile(fn, backend="hpu_backend")
 
     result = fn()
-    assert torch.allclose(result, result.trunc())
+    assert torch.allclose(result.cpu(), result.trunc().cpu())
 
     if Verbose:
         print(f"{result = }")
