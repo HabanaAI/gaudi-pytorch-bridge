@@ -1966,9 +1966,6 @@ avg_pool2d:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: avg_pool_2d_fwd
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
   out_ids: [0]
   op_backend: Avgpool2dFwd
 
@@ -1980,9 +1977,6 @@ avg_pool2d.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: avg_pool_2d_fwd
-  synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
   op_backend: Avgpool2dFwd
 
 avg_pool2d_backward.grad_input:

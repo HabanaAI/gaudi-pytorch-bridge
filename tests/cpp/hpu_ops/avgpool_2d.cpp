@@ -12,6 +12,21 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
+TEST_F(HpuOpTest, avg_pool2d_3d_f32) {
+  GenerateInputs(1, {{4, 7, 5}});
+  std::vector<int64_t> kernel_size = {2, 2};
+  std::vector<int64_t> stride = {2, 2};
+  std::vector<int64_t> pad = {0, 0};
+  bool ceil = false;
+  bool count_include_pad = false;
+
+  auto expected = torch::avg_pool2d(
+      GetCpuInput(0), kernel_size, stride, pad, ceil, count_include_pad, {});
+  auto result = torch::avg_pool2d(
+      GetHpuInput(0), kernel_size, stride, pad, ceil, count_include_pad, {});
+  Compare(expected, result);
+}
+
 TEST_F(HpuOpTest, avg_pool2d_f32) {
   GenerateInputs(1, {{20, 16, 50, 32}});
   std::vector<int64_t> kernel_size = {2, 2};
@@ -117,6 +132,38 @@ TEST_F(HpuOpTest, avg_pool2d_diffpad) {
   std::vector<int64_t> kernel_size = {4};
   std::vector<int64_t> stride = {2, 2};
   std::vector<int64_t> pad = {1, 2};
+  bool ceil = false;
+  bool count_include_pad = false;
+
+  auto expected = torch::empty(0);
+  auto result = torch::empty(0, "hpu");
+
+  torch::avg_pool2d_outf(
+      GetCpuInput(0),
+      kernel_size,
+      stride,
+      pad,
+      ceil,
+      count_include_pad,
+      {},
+      expected);
+  torch::avg_pool2d_outf(
+      GetHpuInput(0),
+      kernel_size,
+      stride,
+      pad,
+      ceil,
+      count_include_pad,
+      {},
+      result);
+  Compare(expected, result);
+}
+
+TEST_F(HpuOpTest, avg_pool2d_3d_out_f32) {
+  GenerateInputs(1, {{4, 7, 5}});
+  std::vector<int64_t> kernel_size = {2, 2};
+  std::vector<int64_t> stride = {2, 2};
+  std::vector<int64_t> pad = {0, 0};
   bool ceil = false;
   bool count_include_pad = false;
 
