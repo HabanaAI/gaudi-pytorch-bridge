@@ -251,6 +251,72 @@ ProcessGroupHcclBase::ProcessGroupHcclBase(
 
 ProcessGroupHcclBase::~ProcessGroupHcclBase() = default;
 
+static constexpr int CoalActive = 0x01, CoalColl = 0x02, CoalP2P = 0x04;
+
+void ProcessGroupHcclBase::groupStart() {
+  initComms();
+  auto ret = hcclGroupStart();
+  TORCH_CHECK(ret == hcclSuccess);
+}
+
+void ProcessGroupHcclBase::groupEnd() {
+  auto ret = hcclGroupEnd();
+  TORCH_CHECK(ret == hcclSuccess);
+}
+
+ProcessGroupHcclBase::CoalescedWorkHCCL::CoalescedWorkHCCL() {}
+
+ProcessGroupHcclBase::CoalescedWorkHCCL::~CoalescedWorkHCCL() = default;
+
+// Method to append a new Work object to works_
+void ProcessGroupHcclBase::CoalescedWorkHCCL::append(
+    const c10::intrusive_ptr<Work>& work) {
+  works_.push_back(work);
+}
+
+// Method to clear the works_ vector
+void ProcessGroupHcclBase::CoalescedWorkHCCL::clear() {
+  works_.clear();
+}
+
+// Same as calling synchronize().
+bool ProcessGroupHcclBase::CoalescedWorkHCCL::wait(
+    std::chrono::milliseconds timeout [[maybe_unused]]) {
+  for (auto& w : works_) {
+    w->wait(timeout);
+  }
+  // Always return true, because abort API is not implemented.
+  return true;
+}
+
+void ProcessGroupHcclBase::startCoalescing() {
+  TORCH_CHECK(
+      habana::hpu_registrar().is_initialized(),
+      "HPU Device not initialized! startCoalescing cannot be done without device init!")
+
+  TORCH_CHECK(
+      coalescing_state_ == 0,
+      "Coalescing is already in progress. Have you invoked startCoalescing again without endCoalescing. BTW nested coalesing is not supported.");
+
+  coalesed_works_ =
+      c10::make_intrusive<ProcessGroupHcclBase::CoalescedWorkHCCL>();
+  coalescing_state_ |= CoalActive;
+  coalesed_works_->clear();
+  groupStart();
+}
+
+c10::intrusive_ptr<Work> ProcessGroupHcclBase::endCoalescing() {
+  TORCH_CHECK(
+      coalescing_state_ != 0, "endCoalescing invoked without startCoalescing");
+
+  TORCH_CHECK(
+      coalesed_works_ != nullptr, "Error: coalesed_works_ is not initied")
+
+  coalescing_state_ = 0;
+  groupEnd();
+  return coalesed_works_;
+}
+
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
     std::vector<at::Tensor>& tensors,
     const BroadcastOptions& opts) {
@@ -334,6 +400,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::broadcast(
         return hccl_result;
       });
   restoreOddTensorsize(tensors, changed, sizeList, strideList, work);
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -420,15 +490,18 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce(
       tensors[i].copy_(allreduce_tensors[i].to(tensors[i].scalar_type()));
     }
   }
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
   PT_DISTRIBUTED_END;
   return work;
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::allreduce_coalesced(
-    std::vector<at::Tensor>& /*tensors*/,
-    const AllreduceCoalescedOptions& /*opts*/) {
-  throw std::runtime_error(
-      "allreduce_coalesced is currently not supported with HCCL");
+    std::vector<at::Tensor>& tensors,
+    const AllreduceCoalescedOptions& opts) {
+  return allreduce(tensors, opts);
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
@@ -510,6 +583,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce(
       tensors[i].copy_(reduction_tensors[i].to(tensors[i].scalar_type()));
     }
   }
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
 
   PT_DISTRIBUTED_END;
   return work;
@@ -575,6 +651,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall(
   for (const auto i : c10::irange(outputTensors.size())) {
     outputTensors.at(i).copy_(
         flattenedOut[i].to(inputTensors.at(i).scalar_type()));
+  }
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
   }
 
   PT_DISTRIBUTED_END;
@@ -737,6 +816,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::alltoall_base(
     work->wait();
     outputTensor.copy_(alltoall_out_tensors.to(outputTensor.scalar_type()));
   }
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -827,6 +910,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_broadcast_oop(
         }
         return hccl_result;
       });
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -951,6 +1038,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather(
           opts.timeout};
       work = _broadcast_oop(outputs_multi_dev, inputs_multi_dev, broadcastOpts);
     }
+    if (coalescing_state_) {
+      coalesed_works_->append(work);
+    }
+
     return work;
   }
 }
@@ -1071,6 +1162,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_allgather_base(
       work,
       out_resize_extra_num_elems,
       ori_input_size);
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -1081,6 +1176,135 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather_coalesced(
     [[maybe_unused]] const AllgatherOptions& /* unused */) {
   throw std::runtime_error(
       "ProcessGroupHcclBase does not support allgather_coalesced");
+}
+
+c10::intrusive_ptr<Work> ProcessGroupHcclBase::allgather_into_tensor_coalesced(
+    [[maybe_unused]] std::vector<at::Tensor>& outputs,
+    [[maybe_unused]] std::vector<at::Tensor>& inputs,
+    [[maybe_unused]] const AllgatherOptions& opts) {
+  PT_DISTRIBUTED_BEGIN;
+  habana_lazy::NoAccThread no_acc_thread;
+
+  // Ensure that inputs and outputs have the same size
+  TORCH_CHECK(
+      inputs.size() == outputs.size(),
+      "inputs and outputs must have the same number of tensors");
+
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    at::Tensor& input_tensor = inputs[i];
+    at::Tensor& output_tensor = outputs[i];
+    if (input_tensor.dtype() != output_tensor.dtype()) {
+      TORCH_CHECK(
+          false, "output tensor must have the same type as input tensor");
+    }
+
+    if (input_tensor.numel() * size_ != output_tensor.numel()) {
+      TORCH_CHECK(
+          false,
+          "output tensor size must be equal to world_size times input tensor size");
+    }
+  }
+
+  auto ori_input_size = inputs[0].numel();
+
+  // size compatible with resize method api and with singularity of allgather
+  // base
+  auto tensor_size{1};
+  std::unique_ptr<bool[]> in_changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> in_sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> in_strideList(tensor_size);
+
+  std::unique_ptr<bool[]> out_changed(new bool[tensor_size]);
+  std::vector<std::vector<int64_t>> out_sizeList(tensor_size);
+  std::vector<std::vector<int64_t>> out_strideList(tensor_size);
+
+  // Case 1 with even world size:
+  //    rank 0: input [63] -> resize to [64]
+  //    rank 1: input [63] -> resize to [64]
+  //
+  //    rank 0: output [126] -> no resize happen
+  //    rank 1: output [126] -> no resize happen
+  // actually require resize output tensor to [128]
+  //
+  // Case 2 with odd world size:
+  //    rank 0: input [63] -> resize to [64]
+  //    rank 1: input [63] -> resize to [64]
+  //    rank 2: input [63] -> resize to [64]
+  //
+  //    rank 0: output [189] -> resize to [190]
+  //    rank 1: output [189] -> resize to [190]
+  //    rank 2: output [189] -> resize to [190]
+  // resize happens, but got wrong size, should be [192] rather than [190]
+  bool change = resizeOddTensor(inputs, in_changed, in_sizeList, in_strideList);
+  // if no resize on input, keep current logic
+  int out_resize_extra_num_elems = change ? size_ : 1;
+  change |= resizeTensor(
+      outputs,
+      out_changed,
+      out_sizeList,
+      out_strideList,
+      out_resize_extra_num_elems);
+
+  auto work = collective(
+      inputs,
+      outputs,
+      [&](at::Tensor& input,
+          [[maybe_unused]] at::Tensor& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          hcclComm_t& hccl_comm,
+          synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] _allgather_base with input_address :: ",
+            send_buffer,
+            " output_address :: ",
+            recv_buffer,
+            " in elem_cnt :: ",
+            input.numel(),
+            " data_type :: ",
+            habana_helpers::getHCCLDataType(input.scalar_type()));
+        auto scalar_type = input.scalar_type();
+        auto hccl_data_type = habana_helpers::getHCCLDataType(scalar_type);
+        auto hccl_numel = input.numel();
+        habana_helpers::getCountDatatype(
+            scalar_type, input.element_size(), hccl_numel, hccl_data_type);
+        hcclResult_t hccl_result{hcclSuccess};
+        if (!this->emulate_distributed_) {
+          hccl_result = hcclAllGather(
+              send_buffer,
+              recv_buffer,
+              hccl_numel,
+              hccl_data_type,
+              hccl_comm,
+              stream);
+        }
+        return hccl_result;
+      });
+
+  if (change) {
+    PT_IRGRAPH_DEBUG(
+        "step marker due to ProcessGroupHcclBase::_allgather_base");
+    habana_lazy::HbLazyTensor::StepMarker();
+  }
+
+  restoreOddTensorsize(inputs, in_changed, in_sizeList, in_strideList, work);
+  restoreTensorsize(
+      outputs,
+      out_changed,
+      out_sizeList,
+      out_strideList,
+      work,
+      out_resize_extra_num_elems,
+      ori_input_size);
+
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
+  PT_DISTRIBUTED_END;
+  return work;
 }
 
 c10::intrusive_ptr<Work> ProcessGroupHcclBase::gather(
@@ -1121,6 +1345,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::gather(
     TORCH_CHECK(outputTensors.size() == 0, "Requires empty output on non-root");
     work = send(inputTensors, opts.rootRank, 0 /*tag*/);
   }
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -1163,6 +1391,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::scatter(
     TORCH_CHECK(inputTensors.size() == 0, "Requires empty input on non-root");
     work = recv(outputTensors, opts.rootRank, 0 /*tag*/);
   }
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -1217,6 +1449,11 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter(
         }
         return hccl_result;
       });
+
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -1299,6 +1536,117 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::_reduce_scatter_base(
     work->wait();
     output_tensor.copy_(reduce_out_tensors.to(output_tensor.scalar_type()));
   }
+
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
+  PT_DISTRIBUTED_END;
+  return work;
+}
+
+c10::intrusive_ptr<Work> ProcessGroupHcclBase::reduce_scatter_tensor_coalesced(
+    std::vector<at::Tensor>& outputs_in,
+    std::vector<at::Tensor>& inputs_in,
+    const ReduceScatterOptions& opts) {
+  // Ensure the number of input tensors matches the number of output tensors
+  TORCH_CHECK(
+      inputs_in.size() == outputs_in.size(),
+      "The number of input tensors must match the number of output tensors.");
+  std::vector<at::Tensor> inputs;
+  std::vector<at::Tensor> outputs;
+
+  for (size_t i = 0; i < inputs_in.size(); ++i) {
+    at::Tensor& input_tensor = inputs_in[i];
+    at::Tensor& output_tensor = outputs_in[i];
+
+    if (input_tensor.dtype() != output_tensor.dtype()) {
+      TORCH_CHECK(
+          false, "Input tensor must be the same type as the output tensor.");
+    }
+
+    if (input_tensor.numel() != output_tensor.numel() * size_) {
+      TORCH_CHECK(
+          false,
+          "Input tensor must be the same size as output size times world size.");
+    }
+
+    at::Tensor reduce_out_tensors;
+    at::Tensor reduce_in_tensors;
+    auto out_scalar_t = output_tensor.scalar_type();
+    auto data_type =
+        habana_helpers::getHCCLDataType(output_tensor.scalar_type());
+
+    if (is_valid_hccl_dtype(data_type) || out_scalar_t == at::kInt ||
+        out_scalar_t == at::kLong) {
+      reduce_out_tensors = output_tensor;
+      reduce_in_tensors = input_tensor;
+    } else {
+      PT_DISTRIBUTED_DEBUG("[PYT-DIST] alltoall tensors converted to float");
+      reduce_out_tensors = output_tensor.to(c10::ScalarType::Float);
+      reduce_in_tensors = input_tensor.to(c10::ScalarType::Float);
+    }
+
+    // Store the converted tensors back into the vectors
+    inputs.push_back(reduce_in_tensors);
+    outputs.push_back(reduce_out_tensors);
+  }
+
+  auto work = collective(
+      inputs,
+      outputs,
+      [reduceOp = opts.reduceOp, this](
+          at::Tensor& input,
+          at::Tensor& output,
+          const void* send_buffer,
+          void* recv_buffer,
+          hcclComm_t& hccl_comm,
+          synStreamHandle stream) {
+        HOST_SYNC()
+        NW_STREAM_SYNC()
+        // Wait for event on input
+        PT_DISTRIBUTED_DEBUG(
+            "[PYT-DIST] _reduce_scatter_base with input_address :: ",
+            send_buffer,
+            " output_address :: ",
+            recv_buffer,
+            " elem_cnt :: ",
+            output.numel(),
+            " data_type :: ",
+            habana_helpers::getHCCLDataType(input.scalar_type()),
+            " group_name :: ",
+            group_name_);
+        hcclResult_t hccl_result{hcclSuccess};
+        if (!this->emulate_distributed_) {
+          hccl_result = hcclReduceScatter(
+              send_buffer,
+              recv_buffer,
+              output.numel(),
+              habana_helpers::getHCCLDataType(input.scalar_type()),
+              habana_helpers::getHCCLReduceOp(reduceOp),
+              hccl_comm,
+              stream);
+        }
+        return hccl_result;
+      });
+
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    at::Tensor& output_tensor = outputs[i];
+
+    auto out_scalar_t = output_tensor.scalar_type();
+    auto data_type =
+        habana_helpers::getHCCLDataType(output_tensor.scalar_type());
+
+    if (!is_valid_hccl_dtype(data_type) && out_scalar_t != at::kInt &&
+        out_scalar_t != at::kLong) {
+      work->wait();
+      outputs_in[i].copy_(output_tensor.to(output_tensor.scalar_type()));
+    }
+  }
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -1355,6 +1703,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
       },
       dstRank);
   restoreOddTensorsize(tensors, changed, sizeList, strideList, work);
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
   PT_DISTRIBUTED_END;
   return work;
 }
@@ -1411,6 +1763,10 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::recv(
       },
       srcRank);
   restoreOddTensorsize(tensors, changed, sizeList, strideList, work);
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
   PT_DISTRIBUTED_END;
   return work;
 }

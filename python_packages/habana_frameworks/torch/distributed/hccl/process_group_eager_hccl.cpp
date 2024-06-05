@@ -296,6 +296,10 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
   return work;
 }
 
+void ProcessGroupEagerHCCL::initComms() {
+  comm_->getDeviceCtxt();
+}
+
 c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
     std::vector<at::Tensor>& inputs,
     std::vector<at::Tensor>& outputs,

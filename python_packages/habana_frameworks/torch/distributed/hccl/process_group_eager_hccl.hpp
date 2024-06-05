@@ -77,6 +77,9 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
       std::vector<at::Tensor>& output,
       CollectiveFn fn,
       bool is_allreduce = false) override;
+
+  void initComms() override;
+
   c10::intrusive_ptr<Work> pointToPoint(
       std::vector<at::Tensor>& tensors,
       PointToPointFn fn,

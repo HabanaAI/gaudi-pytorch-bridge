@@ -100,6 +100,8 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
       CollectiveFn fn,
       bool is_allreduce = false) override;
 
+  void initComms() override;
+
   c10::intrusive_ptr<Work> pointToPoint(
       std::vector<at::Tensor>& tensors,
       PointToPointFn fn,
@@ -118,6 +120,7 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
   void clearPermutesFromRecvTensors(std::vector<at::Tensor>& tensors) override;
 
   void broadcastUniqueHCCLID(hcclUniqueId* hcclID);
+  void initializeCommForDevice(int deviceId);
   std::shared_ptr<hcclComm_t> getComm(int deviceId);
   synStreamHandle getCommStream(int deviceId);
   std::shared_ptr<hccl_integration::device_context> getDeviceCtxt(int deviceId);

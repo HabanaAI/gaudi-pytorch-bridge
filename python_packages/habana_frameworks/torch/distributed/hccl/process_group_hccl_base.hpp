@@ -74,6 +74,16 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
       std::vector<at::Tensor>& inputTensors,
       const AllgatherOptions& opts = AllgatherOptions()) override;
 
+  c10::intrusive_ptr<Work> allgather_into_tensor_coalesced(
+      std::vector<at::Tensor>& outputs,
+      std::vector<at::Tensor>& inputs,
+      const AllgatherOptions& opts = AllgatherOptions()) override;
+
+  c10::intrusive_ptr<Work> reduce_scatter_tensor_coalesced(
+      std::vector<at::Tensor>& outputs,
+      std::vector<at::Tensor>& inputs,
+      const ReduceScatterOptions& opts = ReduceScatterOptions()) override;
+
   c10::intrusive_ptr<Work> gather(
       std::vector<std::vector<at::Tensor>>& outputTensors,
       std::vector<at::Tensor>& inputTensors,
@@ -116,15 +126,44 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
       int srcRank,
       int tag) override;
 
-  static void groupStart();
+  void groupStart();
 
-  static void groupEnd();
+  void groupEnd();
+
+  void startCoalescing() override;
+
+  c10::intrusive_ptr<Work> endCoalescing() override;
 
   c10::intrusive_ptr<Work> recvAnysource(
       std::vector<at::Tensor>& tensor,
       int tag) override;
 
   virtual void destroy() = 0;
+
+  class CoalescedWorkHCCL
+      : public Work,
+        public std::enable_shared_from_this<CoalescedWorkHCCL> {
+   public:
+    CoalescedWorkHCCL();
+
+    ~CoalescedWorkHCCL();
+
+    // Same as calling synchronize() for HCCL work.
+    bool wait(std::chrono::milliseconds timeout = kNoTimeout);
+
+    // Method to append a new Work object to works_
+    void append(const c10::intrusive_ptr<Work>& work);
+
+    // Method to clear the works_ vector
+    void clear();
+
+   protected:
+    // The cached list of CUDA devices to operate on
+    // std::vector<Work> works_;
+    std::vector<c10::intrusive_ptr<Work>> works_;
+
+    friend class ProcessGroupHcclBase;
+  };
 
  protected:
   using CollectiveFn = std::function<hcclResult_t(
@@ -140,6 +179,7 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
       CollectiveFn fn,
       bool is_allreduce = false) = 0;
 
+  virtual void initComms() = 0;
   using PointToPointFn = std::function<
       hcclResult_t(at::Tensor&, void*, hcclComm_t&, synStreamHandle, int)>;
   virtual c10::intrusive_ptr<Work> pointToPoint(
@@ -165,6 +205,12 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
   c10::intrusive_ptr<Store> store_;
   size_t barrier_cnt_;
   std::string group_name_;
+
+  // Flag to denote if a coalescing groupStart/groupEnd block is active
+  int coalescing_state_ = 0;
+
+  // The latest work used in collective, used for coalese start/end
+  c10::intrusive_ptr<CoalescedWorkHCCL> coalesed_works_ = nullptr;
 };
 
 } // namespace c10d

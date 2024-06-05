@@ -95,7 +95,7 @@ void ProcessGroupHCCL::nwStreamSync() {
   PT_DISTRIBUTED_END;
 }
 
-std::shared_ptr<hcclComm_t> ProcessGroupHCCL::getComm(int deviceId) {
+void ProcessGroupHCCL::initializeCommForDevice(int deviceId) {
   if (hccl_communicator_.find(deviceId) == hccl_communicator_.end()) {
     hcclUniqueId hccl_id = {{0}, 0};
     auto hccl_size = getSize();
@@ -111,6 +111,7 @@ std::shared_ptr<hcclComm_t> ProcessGroupHCCL::getComm(int deviceId) {
       result = hcclCommInitRank(&new_comm, hccl_size, hccl_id, hccl_rank);
     }
     TORCH_CHECK(hcclSuccess == result, "Comm Init Rank Error");
+
     std::lock_guard<std::mutex> lock(mutex_);
     hccl_communicator_[deviceId] = std::make_shared<hcclComm_t>(new_comm);
     auto deviceCtxt =
@@ -121,6 +122,21 @@ std::shared_ptr<hcclComm_t> ProcessGroupHCCL::getComm(int deviceId) {
     deviceCtxt->acquire_collective_stream(&collective_stream);
     comm_streams_[deviceId] = collective_stream;
   }
+}
+
+void ProcessGroupHCCL::initComms() {
+  std::vector<int> devices;
+  for (const auto& it : hccl_communicator_) {
+    devices.push_back(it.first);
+  }
+  auto deviceCtxts = getDeviceCtxtList(devices);
+  for (int deviceId : devices) {
+    initializeCommForDevice(deviceId);
+  }
+}
+
+std::shared_ptr<hcclComm_t> ProcessGroupHCCL::getComm(int deviceId) {
+  initializeCommForDevice(deviceId);
   return hccl_communicator_.find(deviceId)->second;
 }
 

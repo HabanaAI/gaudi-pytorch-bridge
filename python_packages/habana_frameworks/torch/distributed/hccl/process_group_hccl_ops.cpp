@@ -230,6 +230,24 @@ TORCH_LIBRARY_IMPL(c10d, HPU, m) {
       "allgather_into_tensor_coalesced_", allgather_into_tensor_coalesced_hpu_);
 }
 
+void startCoalescing_(
+    const c10::intrusive_ptr<c10d::ProcessGroup>& process_group) {
+  return process_group->getBackend(c10::DeviceType::HPU)->startCoalescing();
+}
+
+TORCH_LIBRARY_IMPL(c10d, HPU, m) {
+  m.impl("startCoalescing", startCoalescing_);
+}
+
+c10::intrusive_ptr<c10d::Work> endCoalescing_(
+    const c10::intrusive_ptr<c10d::ProcessGroup>& process_group) {
+  return process_group->getBackend(c10::DeviceType::HPU)->endCoalescing();
+}
+
+TORCH_LIBRARY_IMPL(c10d, HPU, m) {
+  m.impl("endCoalescing", endCoalescing_);
+}
+
 std::tuple<std::vector<at::Tensor>, c10::intrusive_ptr<Work>>
 reduce_scatter_hpu_(
     const at::TensorList& output_tensors,
