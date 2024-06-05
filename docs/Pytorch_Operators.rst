@@ -40,6 +40,7 @@ conv3d                                   Yes      Yes      Yes       No       No
 dropout                                  Yes      Yes      Yes       No       No        No       No     torch.nn.functional
 embedding                                Yes      Yes      Yes       No       Yes       Yes      Yes    torch.nn.functional
 embedding_bag                            Yes      Yes      Yes       No       No        No       No     torch.nn.functional
+embedding_renorm                         Yes      Yes      Yes       No       No        No       No     torch.nn.functional
 elu                                      Yes      Yes      Yes       No       No        No       No     torch.nn.functional
 elu\_                                    Yes      Yes      Yes       No       No        No       No     torch.nn.functional
 gelu                                     Yes      Yes      Yes       No       No        No       No     torch.nn.functional
@@ -202,7 +203,7 @@ logaddexp                                Yes      Yes      No        No       No
 logaddexp2                               Yes      Yes      No        No       No        No       No     torch
 logcumsumexp                             Yes      Yes      No        No       No        No       No     torch
 logical_and                              Yes      Yes      Yes       Yes      Yes       Yes      Yes    torch
-logical_not                              No       No       Yes       No       No        Yes      Yes    torch
+logical_not                              Yes      Yes      Yes       No       No        Yes      Yes    torch
 logical_or                               Yes      Yes      Yes       No       No        Yes      Yes    torch
 logical_xor                              Yes      Yes      Yes       No       No        Yes      Yes    torch
 logit                                    Yes      Yes      No        No       No        No       No     torch
@@ -534,8 +535,8 @@ logaddexp2                               Yes      Yes      No        No       No
 logcumsumexp                             Yes      Yes      No        No       No        No       No     torch.Tensor
 logical_and                              Yes      Yes      Yes       Yes      Yes       Yes      Yes    torch.Tensor
 logical_and\_                            Yes      Yes      Yes       Yes      Yes       Yes      Yes    torch.Tensor
-logical_not                              No       No       Yes       No       No        Yes      Yes    torch.Tensor
-logical_not\_                            No       No       Yes       No       No        Yes      Yes    torch.Tensor
+logical_not                              Yes      Yes      Yes       No       No        Yes      Yes    torch.Tensor
+logical_not\_                            Yes      Yes      Yes       No       No        Yes      Yes    torch.Tensor
 logical_or                               Yes      Yes      Yes       No       No        Yes      Yes    torch.Tensor
 logical_or\_                             Yes      Yes      Yes       No       No        Yes      Yes    torch.Tensor
 logical_xor\_                            Yes      Yes      Yes       No       No        Yes      Yes    torch.Tensor
