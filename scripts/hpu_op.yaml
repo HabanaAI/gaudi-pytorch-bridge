@@ -6800,11 +6800,12 @@ _weight_norm_interface:
 
 _weight_norm_interface_backward:
   output_meta: WeightNormBwdMeta
+  custom_fill_params: FillWeightNormBwdParams
+  guid: weight_norm_bwd
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  op_backend: WeightNormBwdOp
   out_ids: [0, 0]
 
 one_hot:
