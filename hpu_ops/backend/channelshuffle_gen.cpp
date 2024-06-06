@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2024 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -11,57 +11,40 @@
 #include "generated/backend/channel_shuffle.h"
 
 namespace habana {
-void ChannelShuffle::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  const at::Tensor self = stack_tensor(stack, 0);
 
-  TORCH_CHECK(self.dim() > 2, "channel shuffle expects input with > 2 dim");
+OutputMetaDataVector ChannelShuffleMeta(const at::Stack& stack) {
+  auto input = stack.at(0).toTensor();
+  TORCH_CHECK(
+      input.dim() > 2,
+      "Channel shuffle expects input with dim > 2, but got ",
+      input.dim());
 
-  auto outshape = self.sizes();
-  int groups = stack[1].toScalar().to<int64_t>();
-  int batch = outshape[0];
-  auto nchannels = outshape[1];
-  int ochannels = nchannels / groups;
-  int remaining_elements = 1;
+  const int groups = stack.at(1).toInt();
   TORCH_CHECK(
       groups > 0,
-      "channel shuffle expects number of groups should be positive");
+      "Channel shuffle expects number of groups to be positive, but got ",
+      groups);
 
+  const auto shape = input.sizes().vec();
+  const auto inputChannels = shape[1];
   TORCH_CHECK(
-      (nchannels % groups == 0),
-      "channel shuffle expects number of channels to be divisible by groups");
+      (inputChannels % groups == 0),
+      "Channel shuffle expects number of channels to be divisible by groups");
 
-  for (auto i = 0; i < self.dim(); ++i) {
-    remaining_elements *= outshape[i];
-  }
-  remaining_elements = remaining_elements / (batch * groups * ochannels);
+  OutputMetaData meta;
+  meta.shape = shape;
+  meta.dtype = input.scalar_type();
 
-  std::vector<int64_t> reshaped = {
-      batch, groups, ochannels, remaining_elements};
-  std::vector<int64_t> reshaped1 = {
-      batch, ochannels, groups, remaining_elements};
-
-  std::vector<synTensor> vectSynTensor{syn_in(0)};
-  synTransposeParams trans_params{};
-  trans_params.tensorDim = reshaped.size();
-  for (int i = 0; i < int(reshaped.size()); ++i) {
-    trans_params.permutation[i] = static_cast<TransposePermutationDim>(i);
-  }
-  std::swap(trans_params.permutation[1], trans_params.permutation[2]);
-  auto inp_reshaped = ReshapeHelper(graph, syn_in(0), reshaped, ScalarType());
-
-  auto transpose = BuildOp(
-      graph,
-      "transpose",
-      {inp_reshaped.get()},
-      {{{reshaped1}, ScalarType()}},
-      &trans_params,
-      sizeof(trans_params));
-
-  auto output_tensor =
-      ReshapeHelper(graph, transpose[0].get(), outshape, ScalarType(), 0);
-
-  syn_out(0) = std::move(output_tensor);
+  return {meta};
 }
+
+std::shared_ptr<void> FillChannelShuffleParams(
+    const at::Stack& stack,
+    size_t& size) {
+  const auto groups = stack.at(1).toInt();
+  PARAMS_STUB(ns_ChannelShuffle::Params);
+  params->groups = groups;
+  return params;
+}
+
 } // namespace habana

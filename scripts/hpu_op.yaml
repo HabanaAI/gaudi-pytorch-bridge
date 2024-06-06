@@ -2655,8 +2655,13 @@ ceil_:
   op_backend: RoundingFunc
 
 channel_shuffle:
-  dtypes: [BFloat16, Float, Int]
-  op_backend: ChannelShuffle
+  output_meta: ChannelShuffleMeta
+  custom_fill_params: FillChannelShuffleParams
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+  guid: channel_shuffle
   out_ids: [0]
 
 clamp:

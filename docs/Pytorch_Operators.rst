@@ -318,7 +318,7 @@ BatchNorm1d                              Yes      Yes      Yes       No       No
 BatchNorm2d                              Yes      Yes      Yes       No       No        No       No     torch.nn
 BCELoss                                  Yes      Yes      Yes       No       No        No       No     torch.nn
 BCEWithLogitsLoss                        Yes      Yes      Yes       No       No        No       No     torch.nn
-ChannelShuffle                           Yes      Yes      No        No       Yes       No       No     torch.nn
+ChannelShuffle                           Yes      Yes      Yes       No       Yes       Yes      Yes    torch.nn
 ConstantPad1d                            Yes      Yes      Yes       No       No        No       No     torch.nn
 Conv1d                                   Yes      Yes      Yes       No       No        No       No     torch.nn
 Conv2d                                   Yes      Yes      Yes       No       No        No       No     torch.nn
