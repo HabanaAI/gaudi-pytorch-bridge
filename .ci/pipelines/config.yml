@@ -8,9 +8,6 @@ config:
     - repository: lightning-habana-fork
   osBuild:
     ubuntu18.04: "off"
-    tencentos3.1: 'on'
-    rhel9.2: 'on'
-    rhel8.6: 'on'
   dependantComponents:
     - component: deepspeed_fork
     - component: pt_next
