@@ -421,6 +421,10 @@ PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES:
   type: bool
   default: false
 
+PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF:
+  type: bool
+  default: false
+
 PT_HPU_ENABLE_JIT_GRAPH_NAME_HASH:
   type: bool
   default: false

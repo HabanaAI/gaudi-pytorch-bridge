@@ -129,6 +129,17 @@ torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
     output_count = output_count + 1;
   }
 
+  if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF)) {
+    auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+    if (aten_node->hasAttribute(symbol_outputshape)) {
+      hpu_node->s_(symbol_outputshape, aten_node->s(symbol_outputshape));
+    } else {
+      auto node_qual_str = aten_node->kind().toQualString();
+      PT_EAGER_DEBUG("Output Shape is missing for node = ", node_qual_str)
+      hpu_node->s_(symbol_outputshape, "[]");
+    }
+  }
+
   hpu_node->i_(
       torch::jit::attr::deterministic,
       aten_node->i(torch::jit::attr::deterministic));
@@ -689,6 +700,7 @@ bool ExapndOperatorDS::ReplaceWithDynamicHPUOp(
       {node->inputs()},
       value_ivalue_map)
       ->replaceInput(1, graph->addInput());
+
   at::IntArrayRef self_sizes =
       value_ivalue_map[node->input(0)]->toTensor().sizes();
 

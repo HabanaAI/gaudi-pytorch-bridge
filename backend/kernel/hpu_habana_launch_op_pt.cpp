@@ -237,6 +237,12 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE) &&
       frontend_type_eager_or_compile;
   PT_DYNAMIC_SHAPE_DEBUG("Enable 4 stage pipeline = ", enable_4stage_pipeline_);
+  enable_optim_output_sif_ =
+      (refine_ds_enabled_ &&
+       GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) &&
+       (front_end_type == habana_helpers::HabanaFrontendTypes::COMPILE));
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "Enable dynamic shape output sif = ", enable_optim_output_sif_);
 }
 
 HabanaLaunchOpPT::~HabanaLaunchOpPT() {
@@ -1653,6 +1659,19 @@ std::string DumpOpInfo(
 }
 } // namespace OpInfo
 
+void DumpSymbolValueMap(InputSymbolMap& symbol_value_map) {
+  std::for_each(
+      symbol_value_map.begin(),
+      symbol_value_map.end(),
+      [&](const std::pair<std::string, std::shared_ptr<double>>& p) {
+        PT_TEST_DEBUG(
+            "Dump Input symbol->value map, key:",
+            p.first,
+            ", value:",
+            *p.second);
+      });
+}
+
 void HabanaLaunchOpPT::validateOutputShapeDynamic(
     const HabanaOperatorPtr& HabanaKernel,
     const InferOutputMetaRetType& output_shape_handle,
@@ -2029,7 +2048,6 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   synDeviceId device_id = device.id();
 
   synapse_helpers::detail::tensor_name_generator::reset();
-
   syn_graph_ptr_ = syn_graph;
 
   if (current_dbipsh_) {
@@ -3787,6 +3805,10 @@ void HabanaLaunchOpPT::run(
       graph_key_with_perm_,
       "is dynamic : ",
       refine_ds_enabled_);
+
+  if (enable_optim_output_sif_) {
+    DumpSymbolValueMap(in_symbol_value_map);
+  }
 
   idx += 1;
   if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED) {

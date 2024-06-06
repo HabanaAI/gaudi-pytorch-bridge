@@ -36,6 +36,7 @@ class HabanaGraphModule(torch.nn.Module):
         graph_module,
         outputs_metadata,
         symbolic_metadata,
+        pholder_symbolic_dict,
         is_training=False,
         dynamic=False,
     ):
@@ -46,6 +47,7 @@ class HabanaGraphModule(torch.nn.Module):
         self._jit_ir = jit_ir
         self._fx_module = graph_module
         self._outputs_metadata = outputs_metadata
+        self._pholder_symbolic_dict = pholder_symbolic_dict
         self._inference = not is_training
         self._recipe_id = None
         self._dynamic = dynamic
@@ -85,6 +87,7 @@ class HabanaGraphModule(torch.nn.Module):
                 inference=self._inference,
                 has_preallocated_outputs=bool(outputs),
                 has_randoms=self._has_randoms,
+                in_symbol_idx_map=self._pholder_symbolic_dict,
             )
             dump_fx_graph(self._fx_module, self._jit_ir.graph, self._recipe_id)
         elif self._has_randoms:
@@ -110,11 +113,12 @@ def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule, is_training=
     """
     outputs_metadata = []
     symbolic_metadata = {}
+    pholder_symbolic_dict = {}
     if not is_dynamic:
         outputs_metadata = get_outputs_metadata(graph_module)
     elif is_dynamic and enable_dynamic_output_preallocate:
         outputs_metadata = get_outputs_metadata_dynamic(graph_module)
-        symbolic_metadata = get_symbolic_metadata(graph_module, outputs_metadata)
+        symbolic_metadata, pholder_symbolic_dict = get_symbolic_metadata(graph_module, outputs_metadata)
 
     if hpu_backend_config.use_compiled_recipes:
         return HabanaGraphModule(
@@ -122,6 +126,7 @@ def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule, is_training=
             graph_module,
             outputs_metadata,
             symbolic_metadata,
+            pholder_symbolic_dict,
             is_training=is_training,
             dynamic=is_dynamic,
         )
@@ -143,6 +148,7 @@ def get_symbolic_metadata(graph_module, outputs_metadata):
         the full expression is not directly part of any of the input size.
     """
     input_symbolic_dict = {}
+    pholder_symbolic_dict = {}
     input_index = 0
     pexpr = PythonPrinter().doprint
     for node in graph_module.graph.nodes:
@@ -151,6 +157,7 @@ def get_symbolic_metadata(graph_module, outputs_metadata):
             if isinstance(tmeta_val, py_sym_types):
                 val_str = pexpr(tmeta_val)
                 input_symbolic_dict[val_str] = (input_index, sys.maxsize)
+                pholder_symbolic_dict[val_str] = input_index
             elif type(tmeta_val) is torch._subclasses.FakeTensor:
                 shape = node.meta["output_shapes"][0]
                 for dim, sz in enumerate(shape):
@@ -191,7 +198,7 @@ def get_symbolic_metadata(graph_module, outputs_metadata):
                             input_symbolic_dict[sym_str][1],
                             (),
                         )
-    return symbolic_meta
+    return symbolic_meta, pholder_symbolic_dict
 
 
 def get_outputs_metadata(graph_module):

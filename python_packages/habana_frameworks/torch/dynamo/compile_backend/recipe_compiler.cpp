@@ -19,6 +19,8 @@
 
 #include "habana_helpers/logging.h"
 namespace {
+
+using InputSymbolIndexMap = std::unordered_map<std::string, int64_t>;
 struct EmptyBatchData {
   std::vector<int64_t> size;
   py::object dtype;
@@ -61,7 +63,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
          bool dynamic,
          bool inference,
          bool has_preallocated_outputs,
-         bool has_randoms) {
+         bool has_randoms,
+         InputSymbolIndexMap& in_symbol_idx_map) {
         torch::jit::Stack stack;
         stack.reserve(inputs.size());
         for (auto& obj : inputs) {
@@ -74,7 +77,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
             dynamic,
             inference,
             has_preallocated_outputs,
-            has_randoms);
+            has_randoms,
+            in_symbol_idx_map);
       },
       py::return_value_policy::copy,
       py::arg("graph"),
@@ -82,7 +86,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("dynamic"),
       py::arg("inference"),
       py::arg("has_preallocated_outputs"),
-      py::arg("has_randoms"));
+      py::arg("has_randoms"),
+      py::arg("in_symbol_idx_map"));
   m.def(
       "graph_launch",
       [](size_t recipe_id,

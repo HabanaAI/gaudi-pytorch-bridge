@@ -28,6 +28,8 @@
 namespace habana {
 namespace graph {
 
+using InputSymbolIndexMap = std::unordered_map<std::string, int64_t>;
+
 struct GraphExecsGroup {
   GraphExecsGroup(
       size_t recipe_id,
@@ -36,7 +38,8 @@ struct GraphExecsGroup {
       bool dynamic,
       bool inference,
       bool has_preallocated_outputs,
-      bool has_randoms);
+      bool has_randoms,
+      InputSymbolIndexMap in_symbol_idx_map);
 
   torch::jit::Stack launch(
       torch::jit::Stack& inputs,
@@ -58,6 +61,7 @@ struct GraphExecsGroup {
 
   bool m_has_preallocated_outputs = false;
   const bool m_has_randoms;
+  InputSymbolIndexMap m_in_symbol_idx_map;
 
   std::unordered_map<int, GraphExec> m_graph_exec_storage;
 

@@ -27,6 +27,8 @@
 namespace habana {
 namespace graph {
 
+using InputSymbolIndexMap = std::unordered_map<std::string, int64_t>;
+
 class GraphExec {
  public:
   GraphExec(
@@ -36,7 +38,8 @@ class GraphExec {
       bool dynamic,
       bool inference,
       bool has_preallocated_outputs,
-      bool has_randoms);
+      bool has_randoms,
+      InputSymbolIndexMap in_symbol_idx_map);
 
   torch::jit::Stack launch(
       torch::jit::Stack& inputs,
@@ -46,7 +49,8 @@ class GraphExec {
       GraphExec* gexec,
       torch::jit::Stack&& inputs,
       std::vector<at::Tensor>&& outputs,
-      LaunchDynamicShapes launch_shapes);
+      LaunchDynamicShapes launch_shapes,
+      InputSymbolMap&& in_symbol_value_map);
 
   void ResetSeed();
 
@@ -59,7 +63,8 @@ class GraphExec {
   torch::jit::Stack LaunchDynamicRecipe(torch::jit::Stack& inputs);
   torch::jit::Stack LaunchRecipe(
       torch::jit::Stack stack,
-      std::optional<std::vector<at::Tensor>> maybe_outputs = {});
+      std::optional<std::vector<at::Tensor>> maybe_outputs = {},
+      InputSymbolMap in_symbol_value_map = {});
 
   void RunGraphPasses(torch::jit::Stack& example_inputs);
   void RunPass(
@@ -95,6 +100,7 @@ class GraphExec {
   std::vector<size_t> m_outputs_order;
   bool m_has_preallocated_outputs = false;
   const bool m_has_randoms;
+  InputSymbolIndexMap m_in_symbol_idx_map;
   bool m_reset_seed = true;
   SeedTensors m_seed_tensors{};
 };

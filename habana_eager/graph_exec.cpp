@@ -84,10 +84,11 @@ void GraphExec::LaunchRecipeTask(
     GraphExec* gexec,
     torch::jit::Stack&& inputs,
     std::vector<at::Tensor>&& outputs,
-    LaunchDynamicShapes launch_shapes) {
+    LaunchDynamicShapes launch_shapes,
+    InputSymbolMap&& in_symbol_value_map) {
   PT_EAGER_TRACE_WITH_NAME(gexec->m_graph_name);
   PatchDynamicTensors(launch_shapes);
-  gexec->LaunchRecipe(std::move(inputs), outputs);
+  gexec->LaunchRecipe(std::move(inputs), outputs, in_symbol_value_map);
 }
 
 GraphExec::GraphExec(
@@ -97,13 +98,15 @@ GraphExec::GraphExec(
     bool dynamic,
     bool inference,
     bool has_preallocated_outputs,
-    bool has_randoms)
+    bool has_randoms,
+    InputSymbolIndexMap in_symbol_idx_map)
     : m_graph_index(recipe_id),
       m_graph(graph),
       m_dynamic(dynamic),
       m_inference(inference),
       m_has_preallocated_outputs(has_preallocated_outputs),
-      m_has_randoms(has_randoms) {
+      m_has_randoms(has_randoms),
+      m_in_symbol_idx_map(in_symbol_idx_map) {
   PT_EAGER_TRACE;
 
   habana::eager::JoinPendingPipelineThreads();
@@ -296,6 +299,7 @@ torch::jit::Stack GraphExec::launch(
 
   UpdateSeedTensors(stack);
 
+  InputSymbolMap in_symbol_value_map;
   if (IsDynamicGraph()) {
     PT_EAGER_INFO("Launch dynamic recipe. is_first_launch: ", is_first_launch);
     torch::jit::Stack original_stack = stack;
@@ -306,6 +310,28 @@ torch::jit::Stack GraphExec::launch(
     habana_helpers::SetHybridSIFTorchCompile(false);
 
     PT_EAGER_INFO("Dynamic graph Info:", LogRecipeInfo(stack));
+    if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF)) {
+      std::for_each(
+          m_in_symbol_idx_map.begin(),
+          m_in_symbol_idx_map.end(),
+          [&](const std::pair<std::string, int64_t>& p) {
+            int64_t scalar_index = p.second;
+            // This is added to correct the scalar index of the original stack.
+            // Random ops support adds additional 2 inputs to the stack at index
+            // 0 and 1.
+            if (m_has_randoms) {
+              scalar_index = scalar_index + 2;
+            }
+            HABANA_ASSERT(
+                original_stack[scalar_index].isScalar(),
+                "Wrong symbol index received!!!",
+                scalar_index);
+            auto value = static_cast<double>(
+                original_stack[scalar_index].toScalar().toLong());
+            auto value_sh = std::make_shared<double>(value);
+            in_symbol_value_map.emplace(p.first, value_sh);
+          });
+    }
   }
 
   torch::jit::Stack backend_inputs =
@@ -336,7 +362,8 @@ torch::jit::Stack GraphExec::launch(
             this,
             std::move(backend_inputs),
             std::move(backend_outputs),
-            std::move(launch_shapes));
+            std::move(launch_shapes),
+            std::move(in_symbol_value_map));
     return {};
   } else {
     std::optional<std::vector<at::Tensor>> maybe_backend_outputs;
@@ -345,8 +372,8 @@ torch::jit::Stack GraphExec::launch(
     }
     habana::eager::JoinPendingPipelineThreads();
     PatchDynamicTensors(launch_shapes);
-    torch::jit::Stack ret_stack =
-        LaunchRecipe(std::move(backend_inputs), maybe_backend_outputs);
+    torch::jit::Stack ret_stack = LaunchRecipe(
+        std::move(backend_inputs), maybe_backend_outputs, in_symbol_value_map);
     return habana::eager::convert_ivalues_to_backend_tensors(ret_stack);
   }
 }
@@ -357,7 +384,8 @@ void GraphExec::ResetSeed() {
 
 torch::jit::Stack GraphExec::LaunchRecipe(
     torch::jit::Stack stack,
-    std::optional<std::vector<at::Tensor>> maybe_outputs) {
+    std::optional<std::vector<at::Tensor>> maybe_outputs,
+    InputSymbolMap in_symbol_value_map) {
   // Important - this function is meant to be run on lowering thread.
   PT_EAGER_TRACE;
   if (maybe_outputs.has_value() && maybe_outputs.value().size() > 0) {
@@ -395,6 +423,7 @@ torch::jit::Stack GraphExec::LaunchRecipe(
       auto habana_launch_op =
           std::make_unique<habana::HabanaLaunchOpPT>(m_graph_and_meta);
       habana_launch_op->set_input_stack(stack);
+      habana_launch_op->set_symbol_values(in_symbol_value_map);
       HabanaLaunchOpPipeline::LoweringTask(
           std::move(habana_launch_op),
           habana_launch_op->get_input_stack(),
@@ -403,6 +432,7 @@ torch::jit::Stack GraphExec::LaunchRecipe(
     } else {
       habana::HabanaLaunchOpPT habana_launch_op(m_graph_and_meta);
       habana_launch_op.set_input_stack(stack);
+      habana_launch_op.set_symbol_values(in_symbol_value_map);
       habana_launch_op.run(habana_launch_op.get_input_stack(), maybe_outputs);
       return habana_launch_op.get_input_stack();
     }

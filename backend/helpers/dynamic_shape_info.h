@@ -29,4 +29,8 @@ bool GetRefineDynamicShapeStatus();
 
 void SetHybridSIFTorchCompile(bool flag);
 
+void EnableOpimDynamicOutputSIF();
+
+void DisableOpimDynamicOutputSIF();
+
 } // namespace habana_helpers

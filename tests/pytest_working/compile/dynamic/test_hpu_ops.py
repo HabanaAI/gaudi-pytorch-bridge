@@ -1133,6 +1133,43 @@ def test_op_randperm():
         assert torch.equal(results_list[0][i], results_list[1][i])
 
 
+def test_op_randperm2():
+    os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "1"
+    input_n = [8, 9, 10, 11, 12]
+
+    def raw_function(n, device):
+        t1 = torch.randperm(n, device=device)
+        t2 = torch.randperm(n, device=device)
+        out = torch.add(t1, t2)
+        return out
+
+    results_list = []
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=None)
+    for i in range(2):
+        j = 0
+        results = []
+        for n in input_n:
+            # For dynamic=None case, the first iteration creates a kernel backend
+            # that is different from the dynamic shape iterations. Hence we reset the
+            # seed for randperm at the start of the second iteration that is the
+            # first dynamic pass iteration.
+            if j < 2:
+                torch.manual_seed(123)
+            j = j + 1
+            device_cpu = "cpu"
+            device_hpu = "hpu"
+            os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "1"
+            h_result = compiled_fn(n, device_hpu)
+            results.append(h_result.to("cpu"))
+            os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "0"
+        results_list.append(results)
+    for i in range(len(input_n)):
+        # don't compare the static pass iteration
+        if i == 0:
+            continue
+        assert torch.equal(results_list[0][i], results_list[1][i])
+
+
 def test_op_rand():
     shape_in = [(4, 4), (8, 4), (12, 4), (14, 4)]
 
@@ -1218,3 +1255,30 @@ def test_op_randint():
         if i == 0:
             continue
         assert torch.equal(results_list[0][i], results_list[1][i])
+
+
+def test_bk_st_test():
+    input_shapes = [
+        (3, 6, 4),
+        (3, 8, 4),
+        (3, 10, 4),
+        (3, 12, 4),
+    ]
+
+    def raw_function(t1, t2):
+        t3 = torch.add(t1, t1.shape[1])
+        t4 = torch.mul(t2, t2)
+        t5 = torch.cat((t3, t4))
+        t6 = torch.relu(t5)
+        return t6
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+
+    for s in input_shapes:
+        t1 = torch.randn(s, requires_grad=False)
+        t2 = torch.randn(s, requires_grad=False)
+        result = raw_function(t1, t2)
+        t1_h = t1.to("hpu")
+        t2_h = t2.to("hpu")
+        h_result = compiled_fn(t1_h, t2_h)
+        assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)

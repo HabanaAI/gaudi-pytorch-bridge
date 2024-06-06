@@ -1963,6 +1963,7 @@ def wrap_random_ops(input_module: torch.fx.GraphModule):
             seed = input_module.graph.call_function(torch.select, (seeds, 0, i), {})
             random_node = input_module.graph.call_function(*random_op_inputs(node, seed))
             node.replace_all_uses_with(random_node, propagate_meta=True)
+            random_node.meta.update(node.meta)
             input_module.graph.erase_node(node)
 
     input_module.recompile()
@@ -1975,6 +1976,75 @@ def pass_compile_clusters(ctx: OptimizerContext):
     it to the HPU backend for recipe compilation and substitute the target with
     newly compiled one.
     """
+
+    def jit_node_shape_propagation(jit_ir, fx_module):
+        Jit_graph = jit_ir.graph
+        logger.debug("JIT processing shape propagation JIT graph:", Jit_graph)
+        logger.debug("JIT processing shape propagation FX graph:", fx_module.print_readable(False))
+        fx_nodes = list(fx_module.graph.nodes)
+        jit_node_skip_list = ["prim::Constant", "prim::ListConstruct"]
+
+        fx_count = 0
+        for node in fx_module.graph.nodes:
+            if node.op == "placeholder":
+                fx_count += 1
+            else:
+                break
+
+        def get_fx_subname(jit_node_name):
+            changed_name = jit_node_name.replace("::", ".")
+            return changed_name.split(".")[1]
+
+        def get_matched_fx_node(fx_nodes, fx_idx, jit_node_name):
+            size = len(fx_nodes)
+            next_fx_idx = None
+            curr_fx_node = None
+            while fx_idx < size:
+                fx_node = fx_nodes[fx_idx]
+                if fx_node.op == "placeholder" or fx_node.op == "output":
+                    fx_idx += 1
+                    continue
+                if fx_node.target.__name__.count(jit_node_name) > 0:
+                    fx_idx += 1
+                    next_fx_idx = fx_idx
+                    curr_fx_node = fx_node
+                    break
+                else:
+                    fx_idx += 1
+            return next_fx_idx, curr_fx_node
+
+        def create_output_size(tensor_size):
+            from .symbolic_execution import PythonPrinter
+
+            pexpr = PythonPrinter().doprint
+
+            shape = tensor_size[0]
+            dims = len(shape)
+            output_size_str = "["
+            for dim, sz in enumerate(shape):
+                sz_str = pexpr(sz)
+                output_size_str = output_size_str + sz_str
+                if dim < dims - 1:
+                    output_size_str += ","
+            output_size_str += "]"
+            return output_size_str
+
+        for node in Jit_graph.nodes():
+            if node.kind() in jit_node_skip_list:
+                continue
+
+            fx_subname = get_fx_subname(node.kind())
+            next_fx_idx, fx_node = get_matched_fx_node(fx_nodes, fx_count, fx_subname)
+            logger.debug("Matched nodes, FX node: %s JIT node: %s fx_count: %d", fx_subname, fx_node, fx_count)
+            fx_count = next_fx_idx
+
+            if fx_node is None:
+                logger.debug("Not found a matching FX node for node name: %s !!!", fx_subname)
+                continue
+
+            if "output_shapes" in fx_node.meta:
+                output_size_str = create_output_size(fx_node.meta["output_shapes"])
+                node.s_("output_shapes", output_size_str)
 
     def generate_jit_ir_from_module(input_module: torch.fx.GraphModule):
         """
@@ -2024,10 +2094,12 @@ def pass_compile_clusters(ctx: OptimizerContext):
             f.graph,
         )
 
-        return f
+        return f, module
 
     num_subgraphs = 0
     refine_dynamic = bc.get_pt_hpu_enable_refine_dynamic_shapes()
+    optim_output_sif_ds = bc.get_pt_hpu_optim_dynamic_output_sif()
+
     for n in ctx.graph_module.graph.nodes:
         logger.debug("Node: %s Op: %s Target: %s", n, n.op, n.target)
 
@@ -2035,10 +2107,14 @@ def pass_compile_clusters(ctx: OptimizerContext):
             assert not n.kwargs
             submod = ctx.graph_module.get_submodule(n.target)
 
-            jit_ir_function = generate_jit_ir_from_module(submod)
+            jit_ir_function, submod_updated = generate_jit_ir_from_module(submod)
 
             # Submodule dynamicity has to recheck and set to the collable.
             is_submod_dynamic = is_module_dynamic(submod)
+
+            if is_submod_dynamic and optim_output_sif_ds:
+                jit_node_shape_propagation(jit_ir_function, submod_updated)
+
             if refine_dynamic:
                 is_submod_dynamic = is_submod_dynamic or get_dynamic_config_value()
 

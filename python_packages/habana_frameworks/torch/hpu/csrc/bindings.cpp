@@ -325,6 +325,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("get_dynamic_shape_status", []() {
     return habana_helpers::GetRefineDynamicShapeStatus();
   });
+  m.def("enable_optim_output_sif", []() {
+    habana_helpers::EnableOpimDynamicOutputSIF();
+  });
+  m.def("disable_optim_output_sif", []() {
+    habana_helpers::DisableOpimDynamicOutputSIF();
+  });
   m.def(
       "enable_inference_mode", []() { habana_helpers::EnableInferenceMode(); });
   m.def("disable_inference_mode", []() {

@@ -27,6 +27,8 @@ IValPtrShared GetPrimListConstructNodeOuputIValue(
     torch::jit::Node* node,
     CValuePtrToIValuePtrMap& value_to_ivalue);
 
+using InputSymbolMap = std::unordered_map<std::string, std::shared_ptr<double>>;
+
 // Api to create shape or H2d tensors with zero memory allocations.
 // Information in shape tensor is embedded in tensor meta data
 at::Tensor createDynamicTensor(const std::vector<int64_t>&, synTensorType);
@@ -228,6 +230,14 @@ class HabanaLaunchOpPT {
     input_st_copy = std::move(stack);
   }
 
+  void set_symbol_values(InputSymbolMap symint_value) {
+    in_symbol_value_map = std::move(symint_value);
+  }
+
+  InputSymbolMap& get_symbol_values() {
+    return in_symbol_value_map;
+  }
+
   std::shared_ptr<VecOfIValPtrSh> get_intermediate_tensors_ptrsh() const {
     return intermediate_tensors_ptr_sh_;
   }
@@ -238,6 +248,10 @@ class HabanaLaunchOpPT {
 
   bool get_enable_4stage_pipeline() const {
     return enable_4stage_pipeline_;
+  }
+
+  bool get_enable_optim_output_sif() const {
+    return enable_optim_output_sif_;
   }
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> get_hpu_op_recipe()
@@ -312,6 +326,7 @@ class HabanaLaunchOpPT {
   // enable_shape_agnostic_caching_------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // enable_2stage_pipeline_-------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // enable_4stage_pipeline_-------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // enable_optim_output_sif_-------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // enable_fast_shape_inf_--------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // cur_ds_token_-----------------------------///----------Dynamic-Shapes-----------///---------------Write---------------///-----------------NA----------------///------------NA
   // jit_to_synapse_node_idx_map---------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
@@ -445,6 +460,7 @@ class HabanaLaunchOpPT {
 
   // Output shape inference map
   std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
+  InputSymbolMap in_symbol_value_map;
 
   // caching :: end
 
@@ -455,6 +471,7 @@ class HabanaLaunchOpPT {
   bool enable_2stage_pipeline_{false};
   bool enable_4stage_pipeline_{false};
   bool enable_fast_shape_inf_{false};
+  bool enable_optim_output_sif_{false};
 
   uint64_t cur_ds_token_{0};
 

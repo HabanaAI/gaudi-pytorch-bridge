@@ -63,4 +63,12 @@ void SetHybridSIFTorchCompile(bool flag) {
   SET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE, flag, 1);
 }
 
+void EnableOpimDynamicOutputSIF() {
+  SET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF, true, 1);
+}
+
+void DisableOpimDynamicOutputSIF() {
+  SET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF, false, 1);
+}
+
 } // namespace habana_helpers
