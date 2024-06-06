@@ -93,12 +93,13 @@ hpu_supported_op_list = {
     "dequantize_per_tensor",
     "quantize_per_channel",
     "dequantize_per_channel",
+    "bernoulli",
 }
 
 hpu_supported_ops_restricted = dict()
 
 if bc.get_pt_hpu_wrap_random_ops_compile():
-    hpu_supported_op_list.update(["rand", "randint", "randn", "uniform"])
+    hpu_supported_op_list.update(["rand", "randint", "randn", "uniform", "habana_bernoulli"])
     hpu_supported_ops_restricted.update(
         {
             "randperm": ("dtype", {torch.long}),

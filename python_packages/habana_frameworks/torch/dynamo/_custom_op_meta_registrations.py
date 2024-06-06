@@ -626,6 +626,11 @@ def meta_sum_fp8(self, dim=None, keepdim=False, out_dtype=None):
     return self.new_empty(output_shape, dtype=output_dtype)
 
 
+@register_meta([torch.ops.hpu.habana_bernoulli.Size])
+def meta_habana_bernoulli_size(size, p, dtype=None, layout=None, device=None):
+    return torch.empty(size, dtype=dtype, device=device)
+
+
 def activate_hpu_custom_op_meta():
     activate_meta_table = {}
 

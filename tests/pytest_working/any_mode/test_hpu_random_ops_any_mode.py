@@ -53,7 +53,7 @@ def test_bernoulli_inplace(shape_self, shape_p, dtype):
         print(f"{input = }")
 
     if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir("habana_bernoulli")
+        check_ops_executed_in_jit_ir("habana_bernoulli_seed")
 
 
 @pytest.mark.parametrize("shape", [[], [1], [3, 4]], ids=format_tc)

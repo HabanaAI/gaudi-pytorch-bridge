@@ -40,7 +40,7 @@ def test_bernoulli(shape, dtype):
     assert torch.equal(result_1.unique(), results)
     assert torch.equal(result_2.unique(), results)
 
-    check_ops_executed_in_jit_ir("habana_bernoulli")
+    check_ops_executed_in_jit_ir("habana_bernoulli_seed")
 
 
 def test_bernoulli_determinism_one_graph():
@@ -353,7 +353,14 @@ def test_various_ops(dtype):
     assert torch.equal(result_3, result_3a)
 
     check_ops_executed_in_jit_ir(
-        {"habana_bernoulli", "habana_rand", "habana_randn", "habana_randint", "habana_multinomial", "habana_poisson"}
+        {
+            "habana_bernoulli_seed",
+            "habana_rand",
+            "habana_randn",
+            "habana_randint",
+            "habana_multinomial",
+            "habana_poisson",
+        }
     )
 
 

@@ -15,8 +15,11 @@ import torch
 
 RANDOM_OPS = (
     {
-        "aten.bernoulli.default": torch.ops.hpu.habana_bernoulli,
         "aten.poisson.default": torch.ops.hpu.habana_poisson,
+        "aten.bernoulli.default": torch.ops.hpu.habana_bernoulli_seed,
+        "aten.bernoulli.p": torch.ops.hpu.habana_bernoulli_seed.p,
+        "aten.bernoulli.Tensor": torch.ops.hpu.habana_bernoulli_seed.Tensor,
+        "hpu.habana_bernoulli.Size": torch.ops.hpu.habana_bernoulli_seed.Size,
         "aten.rand.default": torch.ops.hpu.habana_rand,
         "aten.randn.default": torch.ops.hpu.habana_randn,
         "aten.randint.low": torch.ops.hpu.habana_randint,

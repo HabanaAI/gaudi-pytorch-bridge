@@ -2096,8 +2096,16 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::as_strided_scatter_orig(Tensor self, Tensor src, Tensor stride) -> (Tensor)");
   m.def(
       "strided_view_orig_ds_h2d(Tensor self, Tensor size, Tensor stride) -> (Tensor)");
-  m.def("hpu::habana_bernoulli(Tensor seed, Tensor self) -> Tensor");
   m.def("hpu::habana_poisson(Tensor seed, Tensor self) -> Tensor");
+  m.def(
+      "hpu::habana_bernoulli.Size(SymInt[] size, float p, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def("hpu::habana_bernoulli_seed(Tensor seed, Tensor self) -> Tensor");
+  m.def(
+      "hpu::habana_bernoulli_seed.p(Tensor seed, Tensor self, float p) -> Tensor");
+  m.def(
+      "hpu::habana_bernoulli_seed.Tensor(Tensor seed, Tensor self, Tensor p) -> Tensor");
+  m.def(
+      "hpu::habana_bernoulli_seed.Size(Tensor seed, SymInt[] size, Scalar p, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def(
       "hpu::habana_rand(Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def(

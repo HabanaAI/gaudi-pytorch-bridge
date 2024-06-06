@@ -383,18 +383,6 @@ def diagonal(
     return result
 
 
-@register_custom_decomposition(aten.bernoulli.p, hpu_backend_decompositions_common)
-def bernoulli(input, p, *, generator=None):
-    p_like_input = torch.full(
-        [],
-        p,
-        dtype=input.dtype,
-        layout=input.layout,
-        device=input.device,
-    ).expand(input.shape)
-    return torch.bernoulli(p_like_input, generator=generator)
-
-
 @register_custom_decomposition(aten.randn.generator, hpu_backend_decompositions_common)
 def randngen(
     size,
