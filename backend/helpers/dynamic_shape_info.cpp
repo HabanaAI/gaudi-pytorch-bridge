@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -55,6 +55,12 @@ bool GetRefineDynamicShapeStatus() {
   } else {
     return false;
   }
+}
+
+// PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR is used to enable host tensor
+// path for arange DS
+bool GetArangeHostTensorStatus() {
+  return GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
 }
 
 void SetHybridSIFTorchCompile(bool flag) {

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -26,7 +26,8 @@ synapse_helpers::tensor ArangeCommon(
     std::vector<int64_t> outshape,
     std::shared_ptr<void> params,
     size_t size,
-    c10::optional<int> final_result_index);
+    c10::optional<int> final_result_index,
+    bool is_eager = false);
 std::shared_ptr<void> FillArangeParamsInternal(
     c10::Scalar start,
     c10::Scalar end,

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -40,8 +40,8 @@ static bool can_use_dynamic_shapes(
   // Currently synapse support dynamic shape arange only for int datatypes.
   // For any other output datatype, will fallback to normal flow.
   return (
-      (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES) &&
-       GET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR)) &&
+      (habana_helpers::GetRefineDynamicShapeStatus() &&
+       habana_helpers::GetArangeHostTensorStatus()) &&
       ((start.isIntegral(false) || can_convert(start)) &&
        (end.isIntegral(false) || can_convert(end)) &&
        (step.isIntegral(false) || can_convert(step))));
