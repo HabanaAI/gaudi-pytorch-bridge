@@ -40,6 +40,8 @@ PYTORCH_TO_GV_TYPE = {
     "torch.int64": gv.DataType.DT_INT64,
     "torch.long": gv.DataType.DT_INT64,
     "torch.bool": gv.DataType.DT_BOOL,
+    "torch.float8_e4m3fn": gv.DataType.DT_FLOAT8_E4M3FN,
+    "torch.float8_e5m2": gv.DataType.DT_FLOAT8_E5M2,
 }
 
 

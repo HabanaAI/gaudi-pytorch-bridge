@@ -34,7 +34,9 @@ enum DataType {
   DT_VARIANT = 21;
   DT_UINT32 = 22;
   DT_UINT64 = 23;
-  DT_NA = 24;
+  DT_FLOAT8_E5M2 = 24;
+  DT_FLOAT8_E4M3FN = 25;
+  DT_NA = 26;
 
   // Do not use!  These are only for parameters.  Every enum above
   // should have a corresponding value below (verified by TF types_test).
