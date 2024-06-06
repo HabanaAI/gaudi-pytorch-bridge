@@ -223,6 +223,7 @@ set(hpu_ops_tests_src
   hpu_ops/vdot.cpp
   hpu_ops/vec_norm.cpp
   hpu_ops/view.cpp
+  hpu_ops/weight_norm.cpp
   hpu_ops/where.cpp
   hpu_ops/xlogy.cpp
   hpu_ops/zero.cpp
