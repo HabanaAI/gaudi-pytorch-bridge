@@ -92,7 +92,10 @@ void SoftmaxFp8::AddNode(
     mode |= SoftmaxMode_t::FUSED_ADD;
   params.mode = static_cast<SoftmaxMode_t>(mode);
 
-  std::vector<synTensor> syn_inputs{self.syn_t};
+  // valid count, max tensor, and reciprocal sum of EXP are optional tensors
+  // and are not used by fp8 version but need to be passed as nullptr to place
+  // rest optional inputs on correct positions.
+  std::vector<synTensor> syn_inputs{self.syn_t, nullptr, nullptr, nullptr};
   addOptionalTensor(
       input_scale_opt, syn_inputs, at::ScalarType::Float, "input_scale");
   addOptionalTensor(
