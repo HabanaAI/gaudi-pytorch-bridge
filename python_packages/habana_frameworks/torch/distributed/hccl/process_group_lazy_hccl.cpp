@@ -858,12 +858,14 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::barrier(
 
 namespace py = pybind11;
 
-template <typename T, typename T_BASE>
-using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>, T_BASE>;
+template <typename T>
+using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>>;
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
-  intrusive_ptr_class_<::c10d::ProcessGroupLazyHCCL, c10d::Backend>
-      processGroupHccl(module, "ProcessGroupHCCL");
+  py::object backend =
+      (py::object)py::module_::import("torch.distributed").attr("_Backend");
+  intrusive_ptr_class_<::c10d::ProcessGroupLazyHCCL>
+      processGroupHccl(module, "ProcessGroupHCCL", backend);
 
   processGroupHccl.def(py::init(
       &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupLazyHCCL>::create));

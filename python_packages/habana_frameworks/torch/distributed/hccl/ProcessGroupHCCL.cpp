@@ -606,12 +606,15 @@ void ProcessGroupHCCL::clearPermutesFromRecvTensors(
 
 namespace py = pybind11;
 
-template <typename T, typename T_BASE>
-using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>, T_BASE>;
+template <typename T>
+using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>>;
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
-  intrusive_ptr_class_<::c10d::ProcessGroupHCCL, c10d::Backend>
-      processGroupHccl(module, "ProcessGroupHCCL");
+  py::object backend =
+      py::module_::import("torch.distributed").attr("_Backend");
+
+  intrusive_ptr_class_<::c10d::ProcessGroupHCCL> processGroupHccl(
+      module, "ProcessGroupHCCL", backend);
 
   processGroupHccl.def(py::init(
       &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupHCCL>::create));
