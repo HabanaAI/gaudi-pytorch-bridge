@@ -2402,20 +2402,12 @@ build_pytorch_vision()
 install_pytorch_whls() {
     __clean_pytorch_dev_py_deps
     #temporary workaround for pytorch-fork migration to separate component SW-162985
-    echo "Starting install_pytorch_whls..."
-
-    whls_count=$(find ${PYTORCH_FORK_RELEASE_BUILD}/pkgs -type f -name "*.whl" | wc -l)
-
-    if [ $whls_count -gt 1 ]; then
+    if [ $(ls ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/ | wc -l) != 1 ]; then
         pyfork_revision=$(cd ${PYTORCH_FORK_ROOT} && git rev-parse HEAD)
         echo "installing pyfork version ${pyfork_revision:0:7}"
         $__pip_cmd install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*${pyfork_revision:0:7}*.whl
-    elif [ $whls_count == 1 ]; then
-        printf "Whl detected in ${PYTORCH_FORK_RELEASE_BUILD}/pkgs directory"
-        $__pip_cmd install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*.whl
     else
-        echo "Didn't find pytorch_fork whl file"
-        exit 1
+        $__pip_cmd install -U ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*.whl
     fi
     $__pip_cmd install -U ${PYTORCH_VISION_FORK_BUILD}/pkgs/*.whl
     install_pillow_simd
