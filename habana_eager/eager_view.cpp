@@ -99,22 +99,18 @@ JitNode* insert_strided_view_node(
   ViewParam p;
   p.setParam(input);
   torch::jit::WithInsertPoint insert_point(node);
-
   auto op_strided_view = c10::Symbol::fromQualString("aten::as_strided");
   auto value_sizes = graph.insertConstant(torch::jit::IValue(p.getViewSizes()));
   auto value_strides =
       graph.insertConstant(torch::jit::IValue(p.getViewStrides()));
   auto value_offset =
       graph.insertConstant(torch::jit::IValue(p.getViewOffset()));
-
   auto jit_node = graph.create(
       op_strided_view,
       {jitval_in, value_sizes, value_strides, value_offset},
       1);
-
   jit_node->output(0)->setType(c10::TensorType::createContiguous(
       input.scalar_type(), input.device(), p.getViewSizes()));
-
   auto sizes = habana::get_base_tensor_size(input);
   jit_node->input(0)->setType(c10::TensorType::createContiguous(
       input.scalar_type(), input.device(), sizes));
@@ -241,6 +237,46 @@ JitNode* insert_strided_insert_node(
   return jit_node;
 }
 
+JitNode* replace_copy_with_strided_insert(
+    JitGraph& graph,
+    JitNode* node,
+    const at::Tensor& input_tensor,
+    EagerOpMetaData& eager_op_meta_data,
+    std::vector<at::IValue>& inputs) {
+  ViewParam p{};
+  p.setParam(input_tensor);
+  torch::jit::WithInsertPoint insert_point(node);
+  auto op_strided_insert = c10::Symbol::fromQualString("hpu::strided_insert");
+  auto value_strides =
+      graph.insertConstant(torch::jit::IValue(p.getViewStrides()));
+  auto value_offset =
+      graph.insertConstant(torch::jit::IValue(p.getViewOffset()));
+  auto jit_node = graph.create(
+      op_strided_insert,
+      {node->input(1), node->input(0), value_strides, value_offset},
+      1);
+  inputs.push_back(value_strides);
+  inputs.push_back(value_offset);
+
+  jit_node->input(0)->setType(c10::TensorType::createContiguous(
+      input_tensor.scalar_type(),
+      input_tensor.device(),
+      habana::get_base_tensor_size(input_tensor)));
+
+  jit_node->input(1)->setType(c10::TensorType::createContiguous(
+      input_tensor.scalar_type(), input_tensor.device(), p.getViewSizes()));
+  auto new_output_size = habana::get_base_tensor_size(input_tensor);
+  jit_node->output(0)->setType(c10::TensorType::createContiguous(
+      input_tensor.scalar_type(), input_tensor.device(), new_output_size));
+  eager_op_meta_data.new_strided_insert_output_shape_ = new_output_size;
+  set_deterministic(jit_node);
+  graph.insertNode(jit_node);
+  node->output(0)->replaceAllUsesWith(jit_node->output(0));
+  node->destroy();
+
+  return jit_node;
+}
+
 struct HandleInputOutputViewState {
   unsigned strided_view_nodes_count = 0;
   unsigned strided_insert_nodes_count = 0;
@@ -250,7 +286,7 @@ struct HandleInputOutputViewState {
 
 void HandleInputOutputView(
     JitGraph& graph,
-    const EagerOpMetaData& eager_op_meta_data,
+    EagerOpMetaData& eager_op_meta_data,
     JitNode* node_consuming_input,
     JitNode* node_producing_output,
     JitValue* input_jitval,
@@ -410,16 +446,106 @@ void set_deterministic(JitNode* node) {
       node->i(torch::jit::attr::deterministic));
 }
 
+void HandleOutputInsert(
+    JitGraph& graph,
+    std::vector<at::IValue>& inputs,
+    EagerOpMetaData& eager_op_meta_data,
+    CValPtrMap& jit_val_map) {
+  PT_EAGER_TRACE;
+
+  PT_EAGER_DEBUG(
+      "[HandleOutputInsert] Eager Op Info = ", eager_op_meta_data.to_string());
+  if (!(eager_op_meta_data.op_name_ ==
+        std::string("hpu::_copy_from_strided_insert"))) {
+    PT_EAGER_DEBUG(
+        "[HandleOutputInsert] Node replacement with SI not required.");
+    return;
+  }
+
+  JitNode* node{nullptr};
+  for (auto it = graph.nodes().begin(); it != graph.nodes().end(); ++it) {
+    switch (it->kind()) {
+      case at::prim::Constant:
+      case at::prim::ListConstruct:
+        break;
+
+      default:
+        TORCH_CHECK(
+            node == nullptr,
+            "Expecting exactly one non auxiliary node, but already found ",
+            node->kind().toQualString(),
+            " and ",
+            it->kind().toQualString());
+        node = *it;
+    }
+  }
+
+  PT_EAGER_DEBUG("[HandleOutputInsert] Op Name: ", node->kind().toQualString());
+
+  PtEagerGraphDebug pt_eager_graph_debug(graph);
+  pt_eager_graph_debug.before("Copy node replacement with SI:");
+
+  auto num_inputs = node->inputs().size();
+  auto inputs_list_size = inputs.size();
+
+  AssertNumInputs("node", num_inputs, "inputs list", inputs_list_size);
+  std::vector<at::IValue> temp_inputs = inputs;
+  int idx = 1;
+  JitNode* si_node{nullptr};
+  auto ival = inputs[idx];
+  if (ival.isTensor()) {
+    const auto& t = ival.toTensor();
+
+    if (is_view(t)) {
+      si_node = replace_copy_with_strided_insert(
+          graph, node, t, eager_op_meta_data, inputs);
+
+      jit_val_map[si_node->input(2)] =
+          std::make_tuple(NodeParamType::VIEW_STRIDES, idx, idx);
+
+      jit_val_map[si_node->input(3)] =
+          std::make_tuple(NodeParamType::VIEW_OFFSET, idx, idx);
+    }
+  }
+  pt_eager_graph_debug.after("Copy node replacement with SI:");
+
+  idx = 0;
+  ival = temp_inputs[idx];
+  if (ival.isTensor()) {
+    const auto& t = ival.toTensor();
+    if (is_view(t)) {
+      auto jitval = si_node->inputs()[1];
+      bool op_doesnt_use_input = check_if_op_doesnt_use_input(si_node);
+      pt_eager_graph_debug.before("Copy node replacement with SV:");
+      auto sv_node = insert_strided_view_node(
+          graph, si_node, t, jitval, op_doesnt_use_input);
+      pt_eager_graph_debug.after("Copy node replacement with SV:");
+
+      // update node params jit value map
+      jit_val_map[sv_node->input(1)] =
+          std::make_tuple(NodeParamType::VIEW_SIZES, idx, idx);
+      jit_val_map[sv_node->input(2)] =
+          std::make_tuple(NodeParamType::VIEW_STRIDES, idx, idx);
+      jit_val_map[sv_node->input(3)] =
+          std::make_tuple(NodeParamType::VIEW_OFFSET, idx, idx);
+    }
+  }
+}
+
 void HandleInputOutputViews(
     JitGraph& graph,
     const c10::ArrayRef<at::IValue> inputs,
-    const EagerOpMetaData& eager_op_meta_data,
+    EagerOpMetaData& eager_op_meta_data,
     CValPtrMap& jit_val_map) {
   PT_EAGER_TRACE;
 
   PT_EAGER_DEBUG(
       "[HandleInputOutputViews] Eager Op Info = ",
       eager_op_meta_data.to_string());
+  if (eager_op_meta_data.op_name_ ==
+      std::string("hpu::_copy_from_strided_insert")) {
+    return;
+  }
 
   JitNode* node{nullptr};
   for (auto it = graph.nodes().begin(); it != graph.nodes().end(); ++it) {

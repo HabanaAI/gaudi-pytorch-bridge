@@ -124,6 +124,11 @@ std::optional<std::vector<at::Tensor>> OutputSpecsOrTensors::get_tensors() {
       : std::nullopt;
 }
 
+std::variant<std::vector<OutputSpec>, std::vector<at::Tensor>>&
+OutputSpecsOrTensors::get_outputs() {
+  return m_outputs;
+}
+
 std::vector<std::vector<int64_t>> OutputSpecsOrTensors::get_shapes() {
   std::vector<std::vector<int64_t>> shapes;
   std::visit(
@@ -334,6 +339,25 @@ void EagerExec::launch() {
         NodeParamAgnosticOpList::isNodeParamAgnosticOp(m_symbol);
     graph_and_meta->set_is_param_agnostic_supported(param_agnsotic_flag);
     graph_and_meta->set_param_jit_val_to_ivalue_map(jit_val_to_ivalue_map);
+
+    if (!graph_and_meta->get_new_strided_insert_output_shape().empty()) {
+      auto& temp_outputs = m_outputs.get_outputs();
+      if (auto* vec_output_specs =
+              std::get_if<std::vector<OutputSpec>>(&temp_outputs)) {
+        if (!vec_output_specs->empty()) {
+          vec_output_specs->at(0).sizes =
+              habana::get_base_tensor_size(stack[1].toTensor());
+        }
+      } else if (
+          auto* vec_tensors =
+              std::get_if<std::vector<at::Tensor>>(&temp_outputs)) {
+        if (!vec_tensors->empty()) {
+          vec_tensors->at(0).sizes() =
+              habana::get_base_tensor_size(stack[1].toTensor());
+        }
+      }
+    }
+
   } else {
     PT_EAGER_DEBUG("Eager Op JIT graph cache miss for key ", key);
     auto dump_graphs =
@@ -402,6 +426,26 @@ void EagerExec::launch() {
   }
 
   try {
+    auto& temp_outputs = m_outputs.get_outputs();
+    if (!m_eager_op_meta_data.new_strided_insert_output_shape_.empty()) {
+      graph_and_meta->set_new_strided_insert_output_shape(
+          m_eager_op_meta_data.new_strided_insert_output_shape_);
+
+      if (auto* vec_output_specs =
+              std::get_if<std::vector<OutputSpec>>(&temp_outputs)) {
+        if (!vec_output_specs->empty()) {
+          vec_output_specs->at(0).sizes =
+              m_eager_op_meta_data.new_strided_insert_output_shape_;
+        }
+      } else if (
+          auto* vec_tensors =
+              std::get_if<std::vector<at::Tensor>>(&temp_outputs)) {
+        if (!vec_tensors->empty()) {
+          vec_tensors->at(0).sizes() =
+              m_eager_op_meta_data.new_strided_insert_output_shape_;
+        }
+      }
+    }
     auto habana_launch_op =
         std::make_unique<habana::HabanaLaunchOpPT>(graph_and_meta);
     habana_launch_op->set_input_stack(stack);
@@ -850,6 +894,8 @@ void EagerExec::post_process_eager_graph(
   PT_EAGER_TRACE;
 
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_VIEW_HANDLING)) {
+    PT_EAGER_DEBUG("Replace copy with SI pass.");
+    HandleOutputInsert(*graph, m_inputs, m_eager_op_meta_data, jit_val_map);
     PT_EAGER_DEBUG("Apply I/O View Handling pass.");
     HandleInputOutputViews(*graph, m_inputs, m_eager_op_meta_data, jit_val_map);
   }

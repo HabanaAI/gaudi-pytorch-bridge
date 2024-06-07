@@ -57,6 +57,9 @@ class LazyDynamicShapesTest : public habana_lazy_test::LazyDynamicTest {
 //                           out
 
 TEST_F(LazyDynamicShapesTest, DynamicShapeTest) {
+  if (isGaudi3()) {
+    GTEST_SKIP() << "Test skipped on Gaudi3.";
+  }
   int kH = 3;
   int kW = 3;
   const int C = 16;

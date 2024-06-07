@@ -349,6 +349,15 @@ struct OptimizedJITGraphAndMetaData {
     param_jit_val_to_ivalue_map_ = val_to_ivalue_map;
   }
 
+  void set_new_strided_insert_output_shape(
+      const std::vector<int64_t>& new_strided_insert_output_shape) {
+    new_strided_insert_output_shape_ = new_strided_insert_output_shape;
+  }
+
+  const std::vector<int64_t>& get_new_strided_insert_output_shape() const {
+    return new_strided_insert_output_shape_;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -374,6 +383,7 @@ struct OptimizedJITGraphAndMetaData {
   bool is_param_agnostic_supported_ = false;
   CValPtrMap param_jit_val_map_{};
   CValPtrtoIValueMap param_jit_val_to_ivalue_map_{};
+  std::vector<int64_t> new_strided_insert_output_shape_;
 };
 
 /**

@@ -38,6 +38,7 @@ class OutputSpecsOrTensors {
   c10::TensorTypePtr get_tensor_type(size_t indx);
   std::optional<std::vector<at::Tensor>> get_tensors();
   std::vector<std::vector<int64_t>> get_shapes();
+  std::variant<std::vector<OutputSpec>, std::vector<at::Tensor>>& get_outputs();
 
  private:
   std::variant<std::vector<OutputSpec>, std::vector<at::Tensor>> m_outputs;
@@ -90,6 +91,7 @@ struct EagerOpMetaData {
   eagerOpKind op_kind_;
   std::string op_name_;
   std::unordered_set<size_t> out_indices_;
+  std::vector<int64_t> new_strided_insert_output_shape_;
   size_t num_out_tensors_ = 0;
 };
 

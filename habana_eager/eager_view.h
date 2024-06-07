@@ -72,10 +72,16 @@ class ViewParam {
   int64_t total_num_elements;
 };
 
+void HandleOutputInsert(
+    JitGraph& graph,
+    std::vector<at::IValue>& inputs,
+    EagerOpMetaData& eager_op_meta_data,
+    CValPtrMap& jit_val_map);
+
 void HandleInputOutputViews(
     JitGraph& graph,
     const c10::ArrayRef<at::IValue> inputs,
-    const EagerOpMetaData& eager_op_meta_data,
+    EagerOpMetaData& eager_op_meta_data,
     CValPtrMap& jit_val_map);
 
 void set_as_strided_meta(JitNode* node);

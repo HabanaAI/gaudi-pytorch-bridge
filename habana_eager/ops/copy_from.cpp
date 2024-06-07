@@ -400,8 +400,13 @@ at::Tensor _copy_from_d2d(const at::Tensor& self, const at::Tensor& dst) {
     auto dstShape = dst.sizes();
     if (dstShape.vec() != self_.sizes().vec())
       self_ = self_.broadcast_to(dstShape);
-
-    result = add_strided_insert(dst, self_);
+    habana::eager::EagerOp<at::Tensor&> hpu_op{
+        "hpu::_copy_from", {self_, dst}, {dst.sizes().vec()}, 1};
+    hpu_op.set_eager_op_info(
+        {habana::eager::eagerOpKind::InplaceOut,
+         "hpu::_copy_from_strided_insert",
+         decltype(eager::EagerOpMetaData::out_indices_){0}});
+    result = hpu_op.call(const_cast<at::Tensor&>(self_));
   } else {
     // Since _copy_from is neither inplace nor an out variant but pytorch
     // expects to copy to dst, we treat _copy_from as an out variant in the
