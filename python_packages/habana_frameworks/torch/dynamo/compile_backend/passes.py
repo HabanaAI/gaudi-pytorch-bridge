@@ -1345,15 +1345,6 @@ class resolve_negative_dim:
                     {},
                 )
                 node.replace_all_uses_with(view_new_node, propagate_meta=True)
-
-            ctx.graph_module.recompile()
-            if ctx.uses_aot:
-                ctx.graph_module.graph.eliminate_dead_code()
-            else:
-                # Running DCE on graph that might not be functionalized in unsafe:
-                # https://github.com/pytorch/pytorch/issues/68301
-                logger.warn("Disallowed to run DCE in non-aot mode.")
-
         return True
 
     @classmethod
@@ -1361,7 +1352,7 @@ class resolve_negative_dim:
         if node.args[0].meta["output_device"].type == "hpu" and node.meta["placement"] != "eager":
             new_args1 = []
             if not cls.is_dynamic:
-                return
+                return False
             else:
                 meta_val = node.args[0].meta.get("val", node.meta.get("tensor_meta", None))
                 idx = 0
@@ -1394,8 +1385,6 @@ class resolve_negative_dim:
                 )
                 node.replace_all_uses_with(view_new_node, propagate_meta=True)
 
-            ctx.graph_module.recompile()
-            ctx.graph_module.graph.eliminate_dead_code()
         return True
 
     def __new__(cls, ctx, node):
@@ -1426,6 +1415,15 @@ def pass_handle_negative_dims(ctx: OptimizerContext) -> bool:
             if resolve_negative_dim.required(node):
                 py_node_manager.set_insert_point(node.prev)
                 graph_changed = resolve_negative_dim(ctx, node)
+
+    if graph_changed:
+        ctx.graph_module.recompile()
+        if ctx.uses_aot:
+            ctx.graph_module.graph.eliminate_dead_code()
+        else:
+            # Running DCE on graph that might not be functionalized in unsafe:
+            # https://github.com/pytorch/pytorch/issues/68301
+            logger.warn("Disallowed to run DCE in non-aot mode.")
     return graph_changed
 
 
