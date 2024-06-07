@@ -128,6 +128,8 @@ hpu_backend_decompositions_common = get_decompositions(
         aten.logit.out,
         aten.log_sigmoid_backward.grad_input,
         aten.log_sigmoid_forward.output,
+        aten.log_sigmoid_forward.default,
+        aten.log_sigmoid_backward.default,
         aten._log_softmax.out,
         aten._log_softmax_backward_data.out,
         aten.logsumexp.default,
