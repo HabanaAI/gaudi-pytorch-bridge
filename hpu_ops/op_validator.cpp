@@ -108,23 +108,47 @@ bool fillSharedLayerTensorType(SharedLayer::Tensor& tensor, at::ScalarType t) {
   }
 }
 
-bool fillGuidParamInfo(
+bool fillGuidParamInfoWithIntList(
     SharedLayer::Tensor& tensor,
-    const detail::TensorDescr& tensor_descr) {
-  if (not fillSharedLayerTensorType(tensor, tensor_descr.getType()))
+    const std::vector<int64_t>& xs) {
+  if (not fillSharedLayerTensorType(tensor, (at::ScalarType)xs.back()))
     return false;
 
-  const auto rank = tensor_descr.getRank();
-  tensor.geometry.dims = rank == 0 ? 1 : rank;
+  tensor.geometry.dims = xs.size() - 1;
+
+  if (tensor.geometry.dims == 0) {
+    // scalar size wa
+    tensor.geometry.dims = 1;
+  }
+
   return true;
 }
 
+bool fillGuidParamInfoWithTensor(
+    SharedLayer::Tensor& tensor,
+    const at::Tensor& t) {
+  // todo SW-150876 missing tensor.quantizationParam setting
+
+  if (not fillSharedLayerTensorType(tensor, t.scalar_type()))
+    return false;
+
+  tensor.geometry.dims = t.dim();
+
+  if (tensor.geometry.dims == 0) {
+    tensor.geometry.dims = 1;
+  }
+
+  return true;
+}
+
+namespace {
 template <size_t MaxSize>
 void safe_string_copy(const std::string& source, char* destination) {
   static const auto limited_length_string_format =
       "%." + std::to_string(MaxSize) + "s";
   sprintf(destination, limited_length_string_format.c_str(), source.c_str());
 }
+} // namespace
 
 /*
  * This function is a wrapper for shared layer query interface.
@@ -148,8 +172,8 @@ SharedLayer::Return_t ValidateGuid(
   params.nodeParams.nodeParams = filledParams;
   params.nodeParams.nodeParamsSize = filledParamsSize;
 
-  const size_t input_count = input_values.size();
-  const size_t output_count = output_values.size();
+  size_t input_count = input_values.size();
+  size_t output_count = output_values.size();
 
   HABANA_ASSERT(
       input_count <= SharedLayer::MAX_TENSOR_NR,
@@ -162,19 +186,37 @@ SharedLayer::Return_t ValidateGuid(
   SharedLayer::Tensor input_tensors[input_count];
   SharedLayer::Tensor output_tensors[output_count];
 
-  for (auto i = 0u; i < input_count; ++i) {
-    if (not fillGuidParamInfo(input_tensors[i], input_values[i])) {
-      return SharedLayer::Return_t::SHARED_LAYER_FAILED;
+  for (auto i = 0u; i < input_values.size(); ++i) {
+    bool result = false;
+    if (input_values[i].isTensor()) {
+      result = fillGuidParamInfoWithTensor(
+          input_tensors[i], *input_values[i].m_tensor);
+    } else {
+      result = fillGuidParamInfoWithIntList(
+          input_tensors[i], input_values[i].m_dims_and_type);
     }
-  }
-  params.inputTensorNr = input_count;
 
-  for (auto i = 0u; i < output_count; ++i) {
-    if (not fillGuidParamInfo(output_tensors[i], output_values[i])) {
+    if (not result) {
       return SharedLayer::Return_t::SHARED_LAYER_FAILED;
     }
   }
-  params.outputTensorNr = output_count;
+  params.inputTensorNr = input_values.size();
+
+  for (auto i = 0u; i < output_values.size(); ++i) {
+    bool result = false;
+    if (output_values[i].isTensor()) {
+      result = fillGuidParamInfoWithTensor(
+          output_tensors[i], *output_values[i].m_tensor);
+    } else {
+      result = fillGuidParamInfoWithIntList(
+          output_tensors[i], output_values[i].m_dims_and_type);
+    }
+
+    if (not result) {
+      return SharedLayer::Return_t::SHARED_LAYER_FAILED;
+    }
+  }
+  params.outputTensorNr = output_values.size();
 
   params.inputTensors = input_tensors;
   params.outputTensors = output_tensors;
@@ -183,42 +225,27 @@ SharedLayer::Return_t ValidateGuid(
 }
 
 detail::TensorDescr TryCastTensor(
-    const at::Tensor& t,
+    const at::IValue& val,
     at::ScalarType targetType) {
-  if (targetType == at::ScalarType::Undefined or
-      targetType == t.scalar_type()) {
-    return detail::TensorDescr(&t);
+  if (val.isTensor()) {
+    const auto& t = val.toTensor();
+    if (targetType == at::ScalarType::Undefined) {
+      return detail::TensorDescr(&t);
+    }
+    if (targetType == t.scalar_type()) {
+      return detail::TensorDescr(&t);
+    }
+
+    std::vector<std::int64_t> description;
+    description.reserve(t.dim());
+    for (std::int64_t dim = 0; dim < t.dim(); ++dim) {
+      description.push_back(t.size(dim));
+    }
+    description.push_back((int64_t)targetType);
+    return detail::TensorDescr(std::move(description));
   }
-  return detail::TensorDescr(t.dim(), targetType);
-}
 
-detail::TensorDescr HandleTensor(
-    const at::Tensor& tensor,
-    at::ScalarType promotionType) {
-  if (promotionType == at::ScalarType::Undefined) {
-    return detail::TensorDescr(&tensor);
-  }
-  return TryCastTensor(tensor, promotionType);
-}
-
-detail::TensorDescr HandleScalar(
-    const at::Scalar& scalar,
-    at::ScalarType promotionType) {
-  auto dtype = promotionType == at::ScalarType::Undefined ? scalar.type()
-                                                          : promotionType;
-  return detail::TensorDescr({1}, dtype);
-}
-
-bool VectorContains(const std::vector<int>& vec, const int value) {
-  return std::find(vec.begin(), vec.end(), value) != vec.end();
-}
-
-at::ScalarType MaybePromotionType(
-    const std::vector<int>& promotion_ids,
-    const int id,
-    at::ScalarType promotionType) {
-  return VectorContains(promotion_ids, id) ? promotionType
-                                           : at::ScalarType::Undefined;
+  return detail::TensorDescr();
 }
 
 [[maybe_unused]] std::string ToDebugString(const std::vector<int64_t>& xs) {
@@ -263,13 +290,24 @@ at::ScalarType MaybePromotionType(
 }
 
 [[maybe_unused]] std::string ToDebugString(const detail::TensorDescr& x) {
-  std::string t;
-  t += "Tensor(st=";
-  t += std::to_string((int64_t)x.getType());
-  t += ", rank=";
-  t += std::to_string(x.getRank());
-  t += ")";
-  return t;
+  if (x.isTensor()) {
+    std::string t;
+    t += "Tensor(st=";
+    t += std::to_string((int64_t)x.m_tensor->scalar_type());
+    t += ", shape=";
+    for (int i = 0; i < x.m_tensor->dim(); ++i) {
+      t += " ";
+      t += std::to_string(x.m_tensor->size(i));
+    }
+    t += ")";
+    return t;
+  } else {
+    std::string t;
+    t += "dims_and_type(";
+    t += ToDebugString(x.m_dims_and_type);
+    t += ")";
+    return t;
+  }
 }
 
 [[maybe_unused]] std::string ToDebugString(const std::vector<at::IValue>& xs) {
@@ -333,35 +371,74 @@ std::string ToDebugString(const SharedLayer::Return_t errcode) {
 }
 } // namespace
 
-detail::TensorDescrArray CheckNodeWithSharedLayerValidator::CreateInputList(
-    const std::vector<at::IValue>& values,
-    at::ScalarType promotionType,
-    const size_t outs_num) {
+detail::TensorDescrArray CheckNodeWithSharedLayerValidator::
+    CreateRegularInputList(const std::vector<at::IValue>& values) {
   detail::TensorDescrArray inputList;
-  size_t limit = m_isOutFn ? values.size() - outs_num : values.size();
+  std::size_t limit = m_isOutFn ? values.size() - 1 : values.size();
 
   for (std::size_t i = 0; i < limit; ++i) {
-    const auto& val = values[i];
-    if (val.isTensor() and val.toTensor().defined()) {
-      inputList.push_back(HandleTensor(
-          val.toTensor(),
-          MaybePromotionType(m_typePromotionIds, i, promotionType)));
-    } else if (val.isScalar() and VectorContains(m_scalarIds, i)) {
-      inputList.push_back(HandleScalar(
-          val.toScalar(),
-          MaybePromotionType(m_typePromotionIds, i, promotionType)));
+    if (values[i].isTensor()) {
+      inputList.push_back(detail::TensorDescr(&values[i].toTensor()));
     }
   }
   return inputList;
 }
 
-detail::TensorDescrArray CheckNodeWithSharedLayerValidator::CreateOutputList(
-    const OutputMetaDataVector& meta) {
+detail::TensorDescrArray CheckNodeWithSharedLayerValidator::
+    CreateTypePromotionInputList(
+        const std::vector<at::IValue>& values,
+        at::ScalarType resultType) {
+  detail::TensorDescrArray inputList;
+  std::size_t limit = m_isOutFn ? values.size() - 1 : values.size();
+  for (std::size_t i = 0; i < limit; ++i) {
+    inputList.emplace_back(TryCastTensor(values[i], resultType));
+  }
+  return inputList;
+}
+
+detail::TensorDescrArray CheckNodeWithSharedLayerValidator::CreateInputList(
+    const std::vector<at::IValue>& values,
+    at::ScalarType resultType) {
+  if (resultType != at::ScalarType::Undefined) {
+    return CreateTypePromotionInputList(values, resultType);
+  }
+
+  return CreateRegularInputList(values);
+}
+
+detail::TensorDescrArray CheckNodeWithSharedLayerValidator::
+    CreateRegularOutputList(const std::vector<at::IValue>& values) {
   detail::TensorDescrArray outputList;
-  for (const auto& out_meta : meta) {
-    outputList.emplace_back(out_meta);
+  if (m_isOutFn) {
+    outputList.push_back(detail::TensorDescr(&values.back().toTensor()));
+  } else {
+    outputList.push_back(detail::TensorDescr(&values.front().toTensor()));
   }
   return outputList;
+}
+
+detail::TensorDescrArray CheckNodeWithSharedLayerValidator::
+    CreateTypePromotionOutputList(
+        const std::vector<at::IValue>& values,
+        at::ScalarType resultType) {
+  detail::TensorDescrArray outputList;
+  if (m_isOutFn) {
+    outputList.push_back(TryCastTensor(values.back(), resultType));
+  } else {
+    outputList.push_back(TryCastTensor(values.front(), resultType));
+  }
+
+  return outputList;
+}
+
+detail::TensorDescrArray CheckNodeWithSharedLayerValidator::CreateOutputList(
+    const std::vector<at::IValue>& values,
+    at::ScalarType resultType) {
+  if (resultType != at::ScalarType::Undefined) {
+    return CreateTypePromotionOutputList(values, resultType);
+  }
+
+  return CreateRegularOutputList(values);
 }
 
 at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
@@ -376,7 +453,7 @@ at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
     return v.toScalar().type();
   };
 
-  if (m_typePromotionIds.empty()) {
+  if (not(m_typePromotion or m_promoteIntToFloat)) {
     const auto in_dtype = get_dtype(values[0]);
     if (c10::isIntegralType(in_dtype, true) &&
         compute_dtype != at::ScalarType::Undefined) {
@@ -393,14 +470,9 @@ at::ScalarType CheckNodeWithSharedLayerValidator::ComputePromotedType(
     output = &values.back();
   }
 
-  at::Stack stack;
-  for (const auto id : m_typePromotionIds) {
-    stack.push_back(values[id]);
-  }
-
   const auto& dtype_helper =
       habana_helpers::DTypeHelper::op_with_optional_dtype_promotion(
-          stack, m_promoteIntToFloat, output, m_safeCastCheck);
+          values, m_promoteIntToFloat, output, m_safeCastCheck);
 
   auto common_type = dtype_helper.get_common_dtype();
 
@@ -428,6 +500,26 @@ bool CheckNodeWithSharedLayerValidator::Validate(
   return result;
 }
 
+bool CheckNodeWithSharedLayerValidator::ValidateWithDTypes(
+    at::ScalarType,
+    const std::vector<at::IValue>& values) {
+  std::size_t limit = values.size();
+  if (m_isOutFn) {
+    // The `out` tensor was not checked by old mechanism
+    limit -= 1;
+  }
+  for (unsigned int i = 0; i < limit; ++i) {
+    const auto& value = values[i];
+    if (value.isTensor()) {
+      if (not m_supportedDtypes.count(value.toTensor())) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
     at::ScalarType,
     const std::vector<at::IValue>& values) {
@@ -435,32 +527,24 @@ bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
   std::size_t params_size = 0;
 
   if (m_fillNodeParamsFunc) {
-    params = m_fillNodeParamsFunc(values, params_size);
-  }
-  auto promoted_type = ComputePromotedType(values);
-
-  OutputMetaDataVector meta;
-  if (m_outputMetaFunc) {
-    meta = m_outputMetaFunc(values);
-  } else if (not m_resIds.empty()) {
-    for (auto id : m_resIds) {
-      if (id < 0) {
-        id += values.size();
-      }
-      const auto& tensor = values[id].toTensor();
-      auto dtype = promoted_type == at::ScalarType::Undefined
-          ? tensor.scalar_type()
-          : promoted_type;
-      meta.emplace_back(dtype, tensor.sizes().vec());
+    // FillNodeParams function can throw exception when some parameters are
+    // not supported by HPU
+    try {
+      params = m_fillNodeParamsFunc(values, params_size);
+    } catch (...) {
+      PT_OP_INFO(
+          "Shared layer rejected op, ",
+          m_opname,
+          ": guid=",
+          m_guid,
+          " cannot fill node parameters")
+      return false;
     }
-  } else {
-    TORCH_CHECK(
-        false,
-        "Op should be either _out or have defined one of [output_meta, res_ids, inplace_ids]");
   }
 
-  auto inputs = CreateInputList(values, promoted_type, meta.size());
-  auto outputs = CreateOutputList(meta);
+  auto promoted_type = ComputePromotedType(values);
+  auto inputs = CreateInputList(values, promoted_type);
+  auto outputs = CreateOutputList(values, promoted_type);
 
   auto validation_result =
       ValidateGuid(m_guid, inputs, outputs, params.get(), params_size);

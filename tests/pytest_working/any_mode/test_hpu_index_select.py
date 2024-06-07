@@ -37,7 +37,6 @@ def test_hpu_index_select(shape, dim, index, dtype):
     index_hpu = index_cpu.to("hpu")
 
     def fn(input, dim, index):
-        torch._dynamo.reset()
         return torch.index_select(input, dim, index)
 
     if pytest.mode == "compile":
