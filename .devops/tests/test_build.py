@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,6 +13,7 @@
 
 import os
 import subprocess as sp
+from unittest.mock import MagicMock
 
 import build
 import pytest
@@ -51,3 +52,28 @@ def test_handling_torch_version_detection_errors(monkeypatch):
 
     with pytest.raises(SystemExit):
         build.query_installed_pt_ver("venv", "python3")
+
+
+def test_patch_version_compatibility_in_prepare_wheel_specs(monkeypatch):
+    input_preinstalled = Version("2.3.1a0+gitf009627")
+    monkeypatch.setattr(
+        build,
+        "supported_pt_versions",
+        (
+            build.VersionAndSource(version=Version("2.2.2"), source="build"),
+            build.VersionAndSource(version=Version("2.2.0"), source="build"),
+            build.VersionAndSource(version=Version("2.3.0"), source="build"),
+            build.VersionAndSource(version=Version("2.4.0"), source="https://download.pytorch.org/whl/nightly/cpu"),
+        ),
+    )
+    build.log.warn = build.log.warning = MagicMock()
+
+    output_preinstalled, wheel_specs = build.prepare_wheel_specs("", ["preinstalled"], input_preinstalled)
+
+    assert output_preinstalled == input_preinstalled
+
+    assert len(wheel_specs) == 2  # modules and dataloader
+    spec = wheel_specs[0]
+    assert len(spec.pt_versions) == 1
+    assert build.VersionAndSource(version=Version("2.3.1"), source="preinstalled") == list(spec.pt_versions)[0]
+    assert build.log.warn.called or build.log.warning.called

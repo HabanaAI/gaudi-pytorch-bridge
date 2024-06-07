@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 ###############################################################################
-# Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -185,9 +185,38 @@ def get_supported_pt_version(
             if "dev" in str(candidate):
                 return supported
             continue
+        assert isinstance(candidate, Version)
         if supported.version.significant_matches(candidate):
             log.debug(f"Matched supported version: {supported}")
             return supported
+    return None
+
+
+def get_similar_supported_pt_version(
+    candidate: Union[str, Version],
+    supported_list: Iterable[Union[VersionLiteralAndSource, VersionAndSource]],
+) -> VersionLiteralAndSource | None:
+    """Returns a the first supported version that's roughly the same as the candidate, or None.
+    For instance, could return 2.3.0 if 2.3.1 is passed as a candidate, but is not present in supported_list.
+    Will skip versions that have a more sophisticated version than just X.Y.Z (e.g. with a specific commit hash).
+    """
+    for supported in supported_list:
+        if supported.version == "nightly":
+            continue
+
+        assert isinstance(candidate, Version)
+
+        if supported.version != Version(
+            f"{supported.version.major}.{supported.version.minor}.{supported.version.micro}"
+        ):
+            log.debug(f"Skipping {supported} when looking for a similar supported version (doesn't match to X.Y.Z)")
+            continue
+
+        supported_major_minor_version = Version(f"{supported.version.major}.{supported.version.minor}")
+        if supported_major_minor_version.significant_matches(candidate):
+            log.debug(f"{supported} matched - it has the same major and minor versions.")
+            return supported
+
     return None
 
 
@@ -607,7 +636,7 @@ class WheelSpec:
             sys.exit(1)
 
 
-def parse_wheel_spec(wheel_spec):
+def parse_wheel_spec(wheel_spec: str):
     retval = list(map(lambda x: WheelSpec(serialized_spec=x), wheel_spec))
     whl_name_list = list(map(lambda x: x.wheel_name, retval))
     if len(whl_name_list) != len(set(whl_name_list)):
@@ -1736,32 +1765,19 @@ def list_wheel_specs_for_specific_pt_versions(
 
 
 # TODO: if source == build or is_specific_wheel(version): always reinstall package in venvs
-def prepare_wheel_specs(args, preinstalled_pt_version: VersionAndSource):
-    if args.wheel_spec:
-        wheel_specs = parse_wheel_spec(args.wheel_spec)
+def prepare_wheel_specs(
+    wheel_spec: str, requested_pt_versions: list[str], preinstalled_pt_version: Version | None
+) -> tuple[Version | None, list[WheelSpec]]:
+    if wheel_spec:
+        wheel_specs = parse_wheel_spec(wheel_spec)
     else:
-        if "all" in args.pt_versions:
+        if "all" in requested_pt_versions:
             wheel_specs = list_wheel_specs_for_specific_pt_versions(set(supported_pt_versions))
         else:
             pt_versions: Set[VersionAndSource] = set()
-            for requested in args.pt_versions:
+            for requested in requested_pt_versions:
                 if requested == "preinstalled":
-                    if preinstalled_pt_version is None:
-                        log.warning(
-                            f"Requested building for 'preinstalled' PyTorch version, but no "
-                            f"PyTorch is installed. Selecting {recommended_pt_version}."
-                        )
-                        pt_versions.add(recommended_pt_version)
-                    else:
-                        supported = get_supported_pt_version(preinstalled_pt_version, supported_pt_versions)
-                        if not supported:
-                            log.fatal(
-                                f"Requested 'preinstalled' PT version ({preinstalled_pt_version}), "
-                                f"which is not supported. Currently supported PT versions "
-                                f"are {supported_pt_versions}."
-                            )
-                            sys.exit(1)
-                        pt_versions.add(VersionAndSource(supported.version, "preinstalled"))
+                    decide_on_building_with_preinstalled_version(preinstalled_pt_version, pt_versions)
                 elif "://" in requested:  # URI
                     pt_versions.add(VersionAndSource(Version(requested), "uri"))
                 else:
@@ -1777,8 +1793,49 @@ def prepare_wheel_specs(args, preinstalled_pt_version: VersionAndSource):
                                 f" versions are {supported_pt_versions}."
                             )
                         pt_versions.add(supported)
+            assert len(pt_versions) > 0
             wheel_specs = list_wheel_specs_for_specific_pt_versions(pt_versions)
     return preinstalled_pt_version, wheel_specs
+
+
+def decide_on_building_with_preinstalled_version(
+    preinstalled_pt_version: Version | None, pt_versions: Set[VersionAndSource]
+):
+    if preinstalled_pt_version is None:
+        log.warning(
+            f"Requested building for 'preinstalled' PyTorch version, but no "
+            f"PyTorch is installed. Selecting {recommended_pt_version}."
+        )
+        pt_versions.add(recommended_pt_version)
+        return
+
+    assert preinstalled_pt_version.micro is not None  # micro is the patch version, e.g. 3 in 1.2.3
+    supported = get_supported_pt_version(preinstalled_pt_version, supported_pt_versions)
+    if supported:
+        pt_versions.add(VersionAndSource(supported.version, "preinstalled"))
+        return
+
+    # look again, allowing a different patch version, as this eases patch version bumping in CI/Promotion
+    log.warning(
+        f"Requested 'preinstalled' PT version ({preinstalled_pt_version}), "
+        f"which is not supported. Currently supported PT versions "
+        f"are {supported_pt_versions}. Checking if there's a similar enough version..."
+    )
+    supported = get_similar_supported_pt_version(
+        preinstalled_pt_version,
+        supported_pt_versions,
+    )
+    if not supported:
+        log.fatal("No matching major/minor version found. Quitting.")
+        sys.exit(1)
+    log.warning(
+        f"{supported} is a good enough match for {preinstalled_pt_version}. "
+        "Proceeding to build with the preinstalled version."
+    )
+    version_to_add = Version(
+        f"{preinstalled_pt_version.major}.{preinstalled_pt_version.minor}.{preinstalled_pt_version.micro}"
+    )
+    pt_versions.add(VersionAndSource(version_to_add, "preinstalled"))
 
 
 def locate_pt_sources():
@@ -1887,7 +1944,7 @@ def main():
 
         current_pt_version = get_current_pt_version()
 
-        current_pt_version, wheel_specs = prepare_wheel_specs(args, current_pt_version)
+        current_pt_version, wheel_specs = prepare_wheel_specs(args.wheel_spec, args.pt_versions, current_pt_version)
 
         selected_pt_versions = set([item for sublist in wheel_specs for item in sublist.pt_versions])
         log.debug(f"Selected PyTorch versions: {selected_pt_versions}")
