@@ -92,6 +92,7 @@
 
 import collections
 import itertools
+import math
 import operator
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
@@ -344,8 +345,13 @@ def _fuse_with_cat(
         cat_inputs = []
         for input_node in all_input_nodes:
             # print(f"{input_node=}")
-            cat_inputs.append(_call_function(gm, fake_tensor_mode, None, torch.ops.aten.view, input_node, [-1]))
-
+            tensor_meta = input_node.meta.get("tensor_meta")
+            num_of_elements = -1
+            if tensor_meta:
+                num_of_elements = math.prod(tensor_meta.shape)
+            cat_inputs.append(
+                _call_function(gm, fake_tensor_mode, None, torch.ops.aten.view, input_node, [num_of_elements])
+            )
     with gm.graph.inserting_after(cat_inputs[0]):
         cat_node = _call_function(gm, fake_tensor_mode, None, torch.ops.aten.cat.default, cat_inputs)
 
