@@ -15,6 +15,39 @@ testJobConfig:
       greco:
         hwType:
           sim:
+  py_suite_lazy:
+    devices:
+      gaudi:
+        hwType:
+          sim:
+      gaudi2:
+        hwType:
+          sim:
+      gaudi3:
+        hwType:
+          sim:
+  py_suite_compile:
+    devices:
+      gaudi:
+        hwType:
+          sim:
+      gaudi2:
+        hwType:
+          sim:
+      gaudi3:
+        hwType:
+          sim:
+  py_suite_eager:
+    devices:
+      gaudi:
+        hwType:
+          sim:
+      gaudi2:
+        hwType:
+          sim:
+      gaudi3:
+        hwType:
+          sim:
   cpp_suite_future:
     devices:
       gaudi:
