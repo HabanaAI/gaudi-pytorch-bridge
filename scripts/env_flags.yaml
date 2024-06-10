@@ -801,4 +801,6 @@ PT_HPU_ENABLE_COMPILED_AUTOGRAD:
 PT_ENABLE_COMM_GROUP_CACHE:
   type: bool
   default: true
-  doc: "This flag is to prevent duplication of communication group."
+  doc: "Cache communication groups creation instances. In model scenario\n
+deepspeed and MDS creates the same process groups internally individaully.\n
+This flag is to prevent duplication of communication group."

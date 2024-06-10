@@ -21,6 +21,7 @@ from typing import IO, Any, BinaryIO, Generator, Optional, Union
 
 import habana_frameworks.torch.hpu as ht
 import habana_frameworks.torch.hpu.random as rand_hpu
+import habana_frameworks.torch.internal.bridge_config as bc
 import habana_frameworks.torch.utils.debug as htdebug
 import torch
 from habana_frameworks.torch.utils import _weights_only_unpickler
@@ -185,8 +186,8 @@ def overwrite_torch_functions():
     @wraps(torch.distributed.new_group)
     def wrap_new_group(ranks=None, timeout=default_pg_timeout, backend=None, pg_options=None):
         nonlocal ranks_cache
-        cache_enable = environ.get("PT_ENABLE_COMM_GROUP_CACHE", "true")
-        if cache_enable.lower() == "true":
+        cache_enable = bc.get_pt_enable_comm_group_cache()
+        if cache_enable:
             nonlocal ranks_cache
             if ranks == None:
                 actual_world_size = torch.distributed.distributed_c10d.get_world_size()
@@ -213,8 +214,8 @@ def overwrite_torch_functions():
         pg_options=None,
     ):
         nonlocal ranks_cache
-        cache_enable = environ.get("PT_ENABLE_COMM_GROUP_CACHE", "true")
-        if cache_enable.lower() == "true":
+        cache_enable = bc.get_pt_enable_comm_group_cache()
+        if cache_enable:
             if len(ranks_cache) == 0:
                 init_process_group_orig(
                     backend,

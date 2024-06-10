@@ -14,6 +14,7 @@ import os
 import struct
 from itertools import product
 
+import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 
@@ -93,11 +94,10 @@ def test_process_group_destroy_order(tmp_path, cache_pg_objects):
     host_barrier_key_name = "0HOST_BARRIER:1"
     destroy_key_name = "ProcessGroup::destroy"
 
-    cache_enable = os.environ.get("PT_ENABLE_COMM_GROUP_CACHE", "true")
     expected_keys_in_store = None
 
     # In comm cache scenario only default pg exists in records
-    if cache_enable:
+    if bc.get_pt_enable_comm_group_cache():
         expected_keys_in_store = product([default_pg_prefix], [host_barrier_key_name, destroy_key_name])
     else:
         expected_keys_in_store = product(
