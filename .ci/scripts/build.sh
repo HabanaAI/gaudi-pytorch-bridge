@@ -132,6 +132,7 @@ function pytorch_usage()
         echo -e "  -a,  --marker                       Only run tests matching given mark expression. Example: -a 'mark1 and not mark2'"
         echo -e "  -t,  --suite-type TYPE              Run specific suite type [all, py_tests, cpp_tests, cpp_lazy, cpp_eager]. Default: all"
         echo -e "  -c,  --test-case JUNITID            Run specific test based on JUnit ID"
+        echo -e "       --pytest-mode                  Run specific pytest suite mode: [all, lazy, compile, eager]. Default: all"
         echo -e "  -hllog LOG_LEVEL                    0-TRACE, 1-DEBUG 2-INFO, 3-WARN, 4-ERR, 5-CRITICAL"
         echo -e "  -h,  --help                         Prints this help"
     fi
@@ -1095,7 +1096,7 @@ run_pytorch_modules_tests()
             shift
             __suite_type="$1"
             ;;
-	     --dut )
+        --dut )
             shift
             __dut="$1"
             ;;
@@ -1119,6 +1120,15 @@ run_pytorch_modules_tests()
                return 1
             fi
             __test_case="$1"
+            ;;
+        -pm | --pytest-mode )
+            shift
+            __pytest_mode="$1"
+            if [[ "${__pytest_mode}" != "lazy" && "${__pytest_mode}" != "compile" && "${__pytest_mode}" != "eager" ]]; then
+                echo "Pytest mode \"$__pytest_mode\" is not allowed"
+                usage $__scriptname
+                return 1 # error
+            fi
             ;;
         -h  | --help )
             usage $__scriptname
