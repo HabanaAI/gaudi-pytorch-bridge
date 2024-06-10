@@ -37,6 +37,8 @@ if not is_gaudi1():
 @pytest.mark.parametrize("shape, dim", params, ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
 def test_hpu_count_nonzero(shape, dim, dtype):
+    torch._dynamo.reset()
+
     def fn(input, dim):
         return torch.count_nonzero(input, dim)
 

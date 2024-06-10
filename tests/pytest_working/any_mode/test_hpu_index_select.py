@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -37,6 +37,7 @@ def test_hpu_index_select(shape, dim, index, dtype):
     index_hpu = index_cpu.to("hpu")
 
     def fn(input, dim, index):
+        torch._dynamo.reset()
         return torch.index_select(input, dim, index)
 
     if pytest.mode == "compile":

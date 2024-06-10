@@ -598,8 +598,6 @@ void OpBackend::AllocateAndAddSynapseNode(
     const OutputMetaDataVector& output_metadata) {
   PopulateMetadata(stack, output_metadata);
 
-  CustomHandler(graph, stack);
-
   HandleFn(graph);
   HandleInplaceFn(graph, stack);
   HandleOutFn(graph, stack);
@@ -609,6 +607,8 @@ void OpBackend::AllocateAndAddSynapseNode(
   if (!GET_ENV_FLAG_NEW(PT_DISABLE_DTYPE_PROMOTION)) {
     HandleTypePromotion(graph, stack);
   }
+
+  CustomHandler(graph, stack);
 
   update_integer_guid_dtype(guid_, m_scalar_type);
 

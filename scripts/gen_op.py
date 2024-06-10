@@ -142,7 +142,7 @@ class OpValidatorGenerator(ABC):
         """
 
     @abstractmethod
-    def get_validator_data_def(self, isoutfn):
+    def get_validator_data_def(self, isoutfn, cpp_sig=""):
         """
         Returns dtypes line to be added to CPP file
         """
@@ -221,7 +221,7 @@ class UseDtypesOpValidatorGenerator(OpValidatorGenerator):
         dtypes = self._ctxop.get_dtypes()
         return dtypes is not None
 
-    def get_validator_data_def(self, _isoutfn):
+    def get_validator_data_def(self, _isoutfn, cpp_sig=""):
         return ""
 
     def get_validator_inline_data_def(self):
@@ -230,6 +230,39 @@ class UseDtypesOpValidatorGenerator(OpValidatorGenerator):
 
     def get_inputs_to_generate_macro(self, xs):
         return xs
+
+
+def get_promotion_ids(ctxop, cpp_sig):
+    type_promotion = ctxop.promote_to_common_type()
+    promote_int_to_float = ctxop.promote_int_to_float()
+    promotion_ids = []
+
+    if type_promotion or promote_int_to_float:
+        promotion_inputs = type_promotion if type_promotion else promote_int_to_float
+        inputs = []
+        # Below regex extracts op's arguments from cpp signature.
+        m = re.search(r"\(([^)]*)", cpp_sig)
+        if m:
+            for input in m.group(1).split(", "):
+                inputs.append(input.split(" ")[-1])
+        promotion_ids = [inputs.index(x) for x in promotion_inputs if x in inputs]
+    return sorted(promotion_ids), bool(promote_int_to_float)
+
+
+def get_out_ids(ctxop, cpp_sig, isoutfn):
+    out_ids = []
+    if ctxop.get_out_ids():
+        out_ids = ctxop.get_out_ids()
+    elif ctxop.get_inplace_ids():
+        out_ids = ctxop.get_inplace_ids()
+    elif isoutfn:
+        out_ids = [-1]
+        m = re.match(r"::std::tuple<([^>]*)>", cpp_sig)
+        if m:
+            output_count = m.group(1).count(",") + 1
+            out_ids = list(range(-output_count, 0))
+
+    return out_ids
 
 
 class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
@@ -250,29 +283,11 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
     def get_validator_inline_data_def(self):
         return ""
 
-    def get_validator_data_def(self, isoutfn):
+    def get_validator_data_def(self, isoutfn, cpp_sig=""):
         def is_inplace():
             if ctxop.get_inplace_ids() != []:
                 return True
             return ctxop.opname.split(".")[0].endswith("_")
-
-        def generate_supported_dtypes(dtypes):
-            if dtypes is None:
-                dtypes = []
-            if type(dtypes) is dict:
-                if "Gaudi3" in dtypes:
-                    dtypes = dtypes["Gaudi3"]
-                else:
-                    dtypes = []
-            assert type(dtypes) is list, f"Cannot handle dtypes for {ctxop.opname}: type(dtypes) is {type(dtypes)}"
-            if "Float" in dtypes:
-                dtypes.append("Double")
-            if "Char" in dtypes:
-                dtypes.append("Bool")
-
-            dtypes = map(lambda x: f"at::ScalarType::{x}", dtypes)
-            dtypes = ", ".join(dtypes)
-            return "SupportedDtypes({{{{-1, {" + dtypes + "}}}}})"
 
         ctxop = self._ctxop
         opname = ctxop.opname
@@ -283,20 +298,23 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
                 f"Invalid specification for op {opname}: selected op_validator requires `guid` in specification"
             )
 
+        out_ids = get_out_ids(ctxop, cpp_sig, isoutfn)
+        promotion_ids, promote_to_float = get_promotion_ids(ctxop, cpp_sig)
+
         arg_opname = f'"{opname}"'
         arg_guid = f'"{ctxop.get_guid()}"'
-        arg_output_shape = ctxop.get_custom_output_shape()
+        arg_out_ids = f"{{{', '.join([str(o) for o in out_ids])}}}"
+        arg_scalar_ids = f"{{{', '.join([str(o) for o in ctxop.get_scalar_ids()])}}}"
+        arg_output_meta = ctxop.get_output_meta()
         arg_fill_params = ctxop.get_custom_fill_params()
-        arg_type_promotion = "true" if len(ctxop.promote_to_common_type()) > 0 else "false"
-        arg_promote_int_to_float = "true" if len(ctxop.promote_int_to_float()) > 0 else "false"
+        arg_type_promotion_ids = f"{{{', '.join([str(o) for o in promotion_ids])}}}"
+        arg_promote_int_to_float = str(promote_to_float).lower()
         arg_safe_cast_check = str(ctxop.safe_cast_check()).lower()
         arg_isinplace = str(is_inplace()).lower()
         arg_isoutfn = str(isoutfn).lower()
-        dtypes = copy.deepcopy(self._ctxop.get_dtypes())
-        arg_dtypes = generate_supported_dtypes(dtypes)
 
-        if arg_output_shape is None:
-            arg_output_shape = "nullptr"
+        if arg_output_meta is None:
+            arg_output_meta = "nullptr"
         if arg_fill_params is None:
             arg_fill_params = "nullptr"
 
@@ -307,14 +325,15 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
         constructor_args = [
             arg_opname,
             arg_guid,
-            arg_output_shape,
+            arg_out_ids,
+            arg_scalar_ids,
+            arg_output_meta,
             arg_fill_params,
-            arg_type_promotion,
+            arg_type_promotion_ids,
             arg_promote_int_to_float,
             arg_safe_cast_check,
             arg_isinplace,
             arg_isoutfn,
-            arg_dtypes,
         ]
         constructor_args = ", ".join(constructor_args)
 
@@ -359,6 +378,8 @@ class Op:
         return self.op.get("guid", None)
 
     def get_dtypes(self):
+        if self.op.get("op_validator") == "check-node-with-shared-layer":
+            return None
         return self.op.get("dtypes", None)
 
     def get_tpc_param(self):
@@ -704,7 +725,7 @@ def generate_impl(op_variant, overload, override_fn):
 def generate_dtype_defs(fgen):
     op_validator_generator = fgen.ctxop.get_op_validator_generator()
     if op_validator_generator is not None:
-        return op_validator_generator.get_validator_data_def(is_out_fn(fgen.func))
+        return op_validator_generator.get_validator_data_def(is_out_fn(fgen.func), fgen.cppsig)
     return ""
 
 
@@ -730,7 +751,6 @@ def generate_frontend_functions(fgen, mode):
 
 
 def generate_backend_functions(fgen, is_custom=False):
-    dtype_defs = generate_dtype_defs(fgen)
     custom_schema_regs = ""
 
     op_backend = f"{fgen.op_backend}\n"
@@ -748,7 +768,6 @@ def generate_backend_functions(fgen, is_custom=False):
             custom_schema_regs = f'  m.def("{fgen.ctxop.custom_schema()}");\n'
 
     return (
-        dtype_defs,
         op_backend,
         kr_regs,
         custom_schema_regs,
@@ -1791,7 +1810,7 @@ def fndef_from_schema(schema):
     )
 
 
-def print_backend_to_file(op_groups, dtype_defs, op_backend, kr_regs, custom_schema_regs, gen_file_idx, args):
+def print_backend_to_file(op_groups, op_backend, kr_regs, custom_schema_regs, gen_file_idx, args):
     backend_inclusions = """
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/backend/reduction_template.h"
@@ -1803,7 +1822,7 @@ def print_backend_to_file(op_groups, dtype_defs, op_backend, kr_regs, custom_sch
         templates._CPP_HEADER.format(
             gen=os.path.basename(sys.argv[0]),
             header_inclusions=backend_inclusions + header_inclusions,
-            dtype_defs=dtype_defs,
+            dtype_defs="",
             funcs="",
             op_backend=op_backend,
             kr_regs=kr_regs,
@@ -1836,7 +1855,6 @@ def generate_backend(args, fgens, is_custom=False):
     num_shards = 10
     num_fgens_per_shard = len(fgens) // num_shards
     gen_file_idx = 0
-    dtype_defs = ""
     op_backend = ""
     kr_regs = ""
     custom_schema_regs = ""
@@ -1852,12 +1870,10 @@ def generate_backend(args, fgens, is_custom=False):
         op_groups.add(fgen.opgroup)
 
         (
-            _dtype_defs,
             _op_backend,
             _kr_regs,
             _custom_schema_regs,
         ) = generate_backend_functions(fgen, is_custom)
-        dtype_defs += _dtype_defs
         op_backend += _op_backend
         kr_regs += _kr_regs
         custom_schema_regs += _custom_schema_regs
@@ -1865,16 +1881,15 @@ def generate_backend(args, fgens, is_custom=False):
         if not is_custom and (
             ((gen_file_idx + 1) < num_shards and (idx + 1) % num_fgens_per_shard == 0) or (idx + 1) == len(fgens)
         ):
-            print_backend_to_file(op_groups, dtype_defs, op_backend, kr_regs, custom_schema_regs, gen_file_idx, args)
+            print_backend_to_file(op_groups, op_backend, kr_regs, custom_schema_regs, gen_file_idx, args)
             gen_file_idx += 1
-            dtype_defs = ""
             op_backend = ""
             kr_regs = ""
             custom_schema_regs = ""
             op_groups = set()
 
     if is_custom:
-        print_backend_to_file(op_groups, dtype_defs, op_backend, kr_regs, custom_schema_regs, "_custom", args)
+        print_backend_to_file(op_groups, op_backend, kr_regs, custom_schema_regs, "_custom", args)
 
     backend_class_headers = {}
 
@@ -2066,7 +2081,7 @@ def generate_check_kernel_support_sigs(fgen):
 
     op_validator_generator = fgen.ctxop.get_op_validator_generator()
     if op_validator_generator is not None:
-        dtype_defs += op_validator_generator.get_validator_data_def(is_out_fn(fgen.func))
+        dtype_defs += op_validator_generator.get_validator_data_def(is_out_fn(fgen.func), fgen.cppsig)
 
     if fgen.op_frontend_lazy:
         # Lazy functions
