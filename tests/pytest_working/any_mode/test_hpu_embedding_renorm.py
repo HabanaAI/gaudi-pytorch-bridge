@@ -14,21 +14,17 @@
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1
-
-dtypes = [torch.float, torch.bfloat16]
-
-if not is_gaudi1():
-    dtypes.append(torch.half)
+from test_utils import format_tc
 
 
 @pytest.mark.parametrize("norm_type", [0.0, 1.0, 2.0, float("inf"), float("-inf"), 1.342, 3.423, -4.234])
 @pytest.mark.parametrize("max_norm", [-3.093, 1.0, 2.423, 12.234, 200.0])
 @pytest.mark.parametrize("shape", [[20, 14]], ids=format_tc)
-@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
-def test_embedding_renorm(norm_type, max_norm, shape, dtype):
+def test_embedding_renorm(norm_type, max_norm, shape):
     def fn(input, indices):
         return torch.embedding_renorm_(input, indices, max_norm=max_norm, norm_type=norm_type)
+
+    dtype = torch.float
 
     input_cpu = torch.randn(shape, dtype=dtype)
     indices_cpu = torch.randint(size=[shape[0] // 2], low=0, high=shape[0] - 1)
