@@ -5339,7 +5339,7 @@ max_pool2d_with_indices_backward:
       grad_output: [BFloat16, Float, Half]
       indices: [Int, Long]
   op_backend: MaxPool2DWithIndicesBwd
-  guid: pt_temp_maxpool_2d_bwd
+  guid: pt_maxpool_2d_bwd
   out_ids: [0]
 
 max_pool2d_with_indices_backward.grad_input:
@@ -5359,7 +5359,7 @@ max_pool2d_with_indices_backward.grad_input:
       grad_output: [BFloat16, Float, Half]
       indices: [Int, Long]
   op_backend: MaxPool2DWithIndicesBwd
-  guid: pt_temp_maxpool_2d_bwd
+  guid: pt_maxpool_2d_bwd
 
 max_pool3d_with_indices:
   custom_fill_params: FillSpatialReduction3DParamsFwd
