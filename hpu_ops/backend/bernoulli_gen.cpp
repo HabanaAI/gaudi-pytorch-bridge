@@ -43,7 +43,7 @@ static auto bernoulli_impl(
   auto bernoulli = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision("pt_temp_bernoulli", dtype),
+      {get_guid_with_precision("pt_bernoulli", dtype),
        inputs,
        {{outshape, dtype, 0}},
        params.get(),
@@ -82,7 +82,7 @@ void BernoulliWithP::AddNode(
 
     auto bernoulli = BuildOp(
         graph,
-        get_guid_with_precision("pt_temp_bernoulli", dtype),
+        get_guid_with_precision("pt_bernoulli", dtype),
         std::move(inputs),
         {{outshape, dtype, 0}},
         params.get(),
