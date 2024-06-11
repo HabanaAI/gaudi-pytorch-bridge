@@ -40,29 +40,15 @@ testsMap:
     stages:
       Run CPP tests gaudi sim:
         filter: -t cpp_tests
-      Run PY tests gaudi sim:
-        filter: -t py_tests
   Test_pytorch_modules_gaudi2_sim_cpp_suite:
     dependencies:
       - TPC_LLVM
     stages:
       Run CPP tests gaudi2 sim:
         filter: -t cpp_tests --dut gaudi2
-      Run PY tests gaudi2 sim:
-        filter: -t py_tests --dut gaudi2
   Test_pytorch_modules_gaudi3_sim_cpp_suite:
     dependencies:
       - TPC_LLVM
     stages:
       Run CPP tests gaudi3 sim:
         filter: -t cpp_tests --dut gaudi3
-      Run PY tests gaudi3 sim:
-        filter: -t py_tests --dut gaudi3
-  Test_pytorch_modules_greco_sim_cpp_suite:
-    dependencies:
-      - TPC_LLVM
-    stages:
-      Run CPP tests greco sim:
-        filter: -t cpp_tests --dut greco
-      Run PY tests greco sim:
-        filter: -t py_tests --dut greco
