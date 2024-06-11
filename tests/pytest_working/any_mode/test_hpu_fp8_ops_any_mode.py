@@ -186,6 +186,7 @@ def test_cast_to_fp8_v2_out_of_range(dtype, stochastic, big_tensor, out_dtype):
 # casting bf16 to f8 uses SFTZ rounding mode, which applies
 # stochastic rounding also when rounding number between
 # 0.0 and f8 min denormal value.
+@pytest.mark.xfail(reason="https://jira.habana-labs.com/browse/SW-188398")
 def test_sftz_rounding_mode():
     input_dtype = torch.bfloat16
     target_dtype = torch.float8_e5m2
