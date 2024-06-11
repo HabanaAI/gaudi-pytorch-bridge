@@ -167,10 +167,13 @@ void AvgPool3dBwd::AddNode(
          synapse_helpers::layouts::SynapseLayoutFormat::WHDCN},
         {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
   }
+
+  std::vector<synTensor> inputs = {syn_in(0)};
+  CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
   auto avgPool = BuildOp(
       graph,
       GetGuid(),
-      {syn_in(0)},
+      std::move(inputs),
       {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);
