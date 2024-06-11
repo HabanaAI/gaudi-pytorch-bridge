@@ -11,11 +11,12 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc
 
 
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
-def test_instance_norm(dtype):
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
+@pytest.mark.parametrize("is_inference_mode", [True, False])
+def test_instance_norm(dtype, is_inference_mode):
     clear_t_compile_logs()
     b, c, h, w = 2, 16, 8, 4
     input_tensor = torch.rand((b, c, h, w), dtype=dtype).to("hpu")
@@ -24,16 +25,17 @@ def test_instance_norm(dtype):
         m = torch.nn.functional.instance_norm(input_tensor)
         return m
 
-    compiled_fn = torch.compile(fn, backend="hpu_backend")
-    result = compiled_fn(input_tensor)
-    expected = compiled_fn(input_tensor.to("cpu"))
+    with torch.inference_mode(is_inference_mode):
+        compiled_fn = torch.compile(fn, backend="hpu_backend")
+        result = compiled_fn(input_tensor)
+        expected = compiled_fn(input_tensor.to("cpu"))
 
     tolerance = 5e-2 if dtype == torch.bfloat16 else 1e-3
     assert torch.allclose(result.cpu(), expected, atol=tolerance, rtol=tolerance)
     check_ops_executed_in_jit_ir("instance_norm")
 
 
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 def test_instance_norm_fwd_bwd(dtype):
     clear_t_compile_logs()
     b, c, h, w = 2, 16, 8, 4
