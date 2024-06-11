@@ -2,13 +2,19 @@ orchestratorConfig:
   cron: "H H/3 * * *"
   testConfig:
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
+    - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_py_suite_lazy
+      silentMode: true
+    - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_py_suite_compile
+      silentMode: true
+    - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_py_suite_eager
+      silentMode: true
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_cpp_suite
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_lazy
       silentMode: true
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile
       silentMode: true
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_eager
-      silentMode: true      
+      silentMode: true
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology_group_1
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_asic_topology_group_1
