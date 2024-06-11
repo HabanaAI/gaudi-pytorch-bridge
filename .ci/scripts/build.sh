@@ -1124,7 +1124,7 @@ run_pytorch_modules_tests()
         -pm | --pytest-mode )
             shift
             __pytest_mode="$1"
-            if [[ "${__pytest_mode}" != "lazy" && "${__pytest_mode}" != "compile" && "${__pytest_mode}" != "eager" ]]; then
+            if [[ "${__pytest_mode}" != "lazy" && "${__pytest_mode}" != "compile" && "${__pytest_mode}" != "eager" && "${__pytest_mode}" != "all" ]]; then
                 echo "Pytest mode \"$__pytest_mode\" is not allowed"
                 usage $__scriptname
                 return 1 # error
