@@ -12,6 +12,7 @@
 
 import ctypes
 import os
+import warnings
 
 # This is to ensure we don't start torch.inductor codecache process pool
 os.environ["TORCHINDUCTOR_COMPILE_THREADS"] = "1"
@@ -39,6 +40,7 @@ import habana_frameworks.torch.activity_profiler
 import habana_frameworks.torch.core
 import habana_frameworks.torch.distributed.hccl
 import habana_frameworks.torch.hpu
+import habana_frameworks.torch.internal.bridge_config as bc
 
 
 def overwrite_torch_optimizers():
@@ -60,3 +62,12 @@ def overwrite_torch_optimizers():
 
 
 overwrite_torch_optimizers()
+
+if bc.get_pt_hpu_gpu_migration():
+    try:
+        import habana_frameworks.torch.gpu_migration
+    except ImportError:
+        warnings.warn(
+            "ImportError: no module named habana_frameworks.torch.gpu_migration. "
+            "Check if GPU Migration Toolkit package is installed. "
+        )
