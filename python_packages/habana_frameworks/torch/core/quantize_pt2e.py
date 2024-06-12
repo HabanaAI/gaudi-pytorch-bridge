@@ -404,7 +404,9 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                 from torch.ao.quantization.quantize_pt2e import convert_pt2e
 
                 # Take active module that we gathered stats on and convert it to final module.
-                self._converted_module = convert_pt2e(self._prepared_module, use_reference_representation=False)
+                self._converted_module = convert_pt2e(
+                    self._prepared_module, use_reference_representation=False, fold_quantize=False
+                )
                 self._converted = True
 
                 # Adjust the scale values as per H/W requirements
