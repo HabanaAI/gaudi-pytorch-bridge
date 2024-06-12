@@ -381,6 +381,14 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         return habana::CustomOpOutShapeFunRegistrar::GetInstance().CalcOutShape(
             opname, inputs, params);
       });
+  m.def(
+      "custom_op_calc_out_shape_params_float",
+      [](const char* opname,
+         const std::vector<at::Tensor>& inputs,
+         const std::vector<float>& params) {
+        return habana::CustomOpOutShapeFunRegistrar::GetInstance().CalcOutShape(
+            opname, inputs, params);
+      });
 
   m.doc() = "This module registers hpu backend.";
 }

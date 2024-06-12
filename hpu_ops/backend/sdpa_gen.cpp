@@ -98,7 +98,8 @@ template <class DimT>
 sizes_vec_template<DimT> SDPAFwdOutputShapeCommon(
     c10::ArrayRef<DimT> q_shape,
     c10::ArrayRef<DimT> k_shape,
-    c10::ArrayRef<DimT> v_shape) {
+    c10::ArrayRef<DimT> v_shape,
+    double dropout_p) {
   int64_t rank = q_shape.size();
 
   // q, k, v are involved in matmuls (BatchGemm) in attention calc.
@@ -135,7 +136,11 @@ sizes_vec_template<DimT> SDPAFwdOutputShapeCommon(
 
   qkt_shape.push_back(q_shape[L_dim]);
   qkt_shape.push_back(k_shape[S_dim]);
-  return {out_shape, qkt_shape, qkt_shape};
+
+  return {
+      out_shape,
+      qkt_shape,
+      (dropout_p == 0) ? std::vector<DimT>{1} : qkt_shape};
 }
 
 sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
@@ -143,13 +148,23 @@ sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
   auto q = stack_tensor(stack, q_index);
   auto k = stack_tensor(stack, q_index + 1);
   auto v = stack_tensor(stack, q_index + 2);
-  return SDPAFwdOutputShapeCommon(q.sizes(), k.sizes(), v.sizes());
+  int drp_prob_idx = q_index + 4;
+  auto drp_prob = stack.at(drp_prob_idx).toDouble();
+  return SDPAFwdOutputShapeCommon(q.sizes(), k.sizes(), v.sizes(), drp_prob);
 }
 
-sym_sizes_vec sdpa_fwd_out_shape(const std::vector<at::Tensor>& inputs) {
+/*This is called only in compile*/
+sym_sizes_vec sdpa_fwd_out_shape(
+    const std::vector<at::Tensor>& inputs,
+    const std::vector<float>& params) {
   TORCH_CHECK(inputs.size() == 3);
+  TORCH_CHECK(params.size() == 1);
+
   return SDPAFwdOutputShapeCommon(
-      inputs[0].sym_sizes(), inputs[1].sym_sizes(), inputs[2].sym_sizes());
+      inputs[0].sym_sizes(),
+      inputs[1].sym_sizes(),
+      inputs[2].sym_sizes(),
+      params[0] /*dropout_p*/);
 }
 
 REGISTER_CUSTOM_OP_OUTSHAPE_FUN(sdpa_fwd, sdpa_fwd_out_shape);
@@ -226,18 +241,16 @@ static void fillSdpaParams(
 }
 
 sizes_vec Fp8SDPAFwdOutputShape(const at::Stack& stack) {
-  sizes_vec out_shape = SDPAFwdOutputShape(stack);
-  constexpr int drp_prob_idx = 5;
+  auto q = stack_tensor(stack, 0);
+  auto k = stack_tensor(stack, 1);
+  auto v = stack_tensor(stack, 2);
+  int drp_prob_idx = 5;
   auto drp_prob = stack.at(drp_prob_idx).toDouble();
-
-  // Update dropout mask shape as scalar if dropout prb = 0.0
-  // TODO : Move this logic to SDPAFwdOutputShape
-  if (drp_prob == 0.0) {
-    out_shape[2] = {1};
-  }
+  sizes_vec out_shapes =
+      SDPAFwdOutputShapeCommon(q.sizes(), k.sizes(), v.sizes(), drp_prob);
   // insert amax_s shape
-  out_shape.push_back({1});
-  return out_shape;
+  out_shapes.push_back({1});
+  return out_shapes;
 }
 
 void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

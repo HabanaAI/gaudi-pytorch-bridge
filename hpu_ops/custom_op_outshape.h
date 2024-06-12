@@ -34,7 +34,12 @@ using sym_sizes_vec = std::vector<std::vector<c10::SymInt>>;
       params_int,                                                  \
       (inputs, params),                                            \
       const std::vector<at::Tensor>& inputs,                       \
-      const std::vector<int64_t>& params)
+      const std::vector<int64_t>& params)                          \
+  ITEM(                                                            \
+      params_float,                                                \
+      (inputs, params),                                            \
+      const std::vector<at::Tensor>& inputs,                       \
+      const std::vector<float>& params)
 
 class CustomOpOutShapeFunRegistrar {
  public:
