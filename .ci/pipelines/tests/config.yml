@@ -63,6 +63,39 @@ testJobConfig:
       greco:
         hwType:
           sim:
+  py_suite_lazy_future:
+    devices:
+      gaudi:
+        hwType:
+          sim:
+      gaudi2:
+        hwType:
+          sim:
+      gaudi3:
+        hwType:
+          sim:
+  py_suite_compile_future:
+    devices:
+      gaudi:
+        hwType:
+          sim:
+      gaudi2:
+        hwType:
+          sim:
+      gaudi3:
+        hwType:
+          sim:
+  py_suite_eager_future:
+    devices:
+      gaudi:
+        hwType:
+          sim:
+      gaudi2:
+        hwType:
+          sim:
+      gaudi3:
+        hwType:
+          sim:
   topology:
     envVars:
       IS_K8S_CONTAINER_TESTER: 'true'
