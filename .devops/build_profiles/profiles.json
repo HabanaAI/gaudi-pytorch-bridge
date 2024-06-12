@@ -78,15 +78,13 @@
     "release": {
       "wheel_name": "habana_torch_plugin",
       "pt_versions": [
-        "current",
-        "previous"
+        "current"
       ]
     },
     "ci": {
       "wheel_name": "habana_torch_plugin",
       "pt_versions": [
         "current",
-        "previous",
         "rc"
       ]
     },
