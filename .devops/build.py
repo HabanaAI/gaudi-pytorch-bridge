@@ -195,7 +195,7 @@ def get_supported_pt_version(
 def get_similar_supported_pt_version(
     candidate: Union[str, Version],
     supported_list: Iterable[Union[VersionLiteralAndSource, VersionAndSource]],
-) -> VersionLiteralAndSource | None:
+) -> Optional[VersionLiteralAndSource]:
     """Returns a the first supported version that's roughly the same as the candidate, or None.
     For instance, could return 2.3.0 if 2.3.1 is passed as a candidate, but is not present in supported_list.
     Will skip versions that have a more sophisticated version than just X.Y.Z (e.g. with a specific commit hash).
@@ -1766,8 +1766,8 @@ def list_wheel_specs_for_specific_pt_versions(
 
 # TODO: if source == build or is_specific_wheel(version): always reinstall package in venvs
 def prepare_wheel_specs(
-    wheel_spec: str, requested_pt_versions: list[str], preinstalled_pt_version: Version | None
-) -> tuple[Version | None, list[WheelSpec]]:
+    wheel_spec: str, requested_pt_versions: List[str], preinstalled_pt_version: Optional[Version]
+) -> Tuple[Optional[Version], List[WheelSpec]]:
     if wheel_spec:
         wheel_specs = parse_wheel_spec(wheel_spec)
     else:
@@ -1799,7 +1799,7 @@ def prepare_wheel_specs(
 
 
 def decide_on_building_with_preinstalled_version(
-    preinstalled_pt_version: Version | None, pt_versions: Set[VersionAndSource]
+    preinstalled_pt_version: Optional[Version], pt_versions: Set[VersionAndSource]
 ):
     if preinstalled_pt_version is None:
         log.warning(
