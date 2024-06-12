@@ -14,8 +14,10 @@ import contextlib
 import copy
 import os
 import sys
+from collections import defaultdict
 from collections.abc import Iterable
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import Any, Callable, List, Optional
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
@@ -36,6 +38,13 @@ from .shared_layer import is_eager_fallback_required
 from .symbolic_execution import SymExprNodeManager
 
 logger = get_compile_backend_logger()
+
+
+@dataclass(frozen=True)
+class InplaceableOp:
+    inplace_op: Callable[..., Any]
+    mutated_arg: int
+    extra_check: Callable[[torch.fx.Node], bool] = lambda node: True
 
 
 def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -> bool:
@@ -247,6 +256,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_pattern_rewriter,
             pass_fake_propagation,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
+            pass_reinplace_inplaceable_ops,
             pass_mark_placement,
             pass_graph_print,
         ]
@@ -2149,6 +2159,87 @@ def pass_summarize_graph(ctx: OptimizerContext):
         debug_context.count_ops(ctx.graph_module.graph.nodes, ctx)
 
     return False
+
+
+from torch.fx.passes.reinplace import _FunctionalizationMetadataProp
+
+inplaceable_ops = {}
+
+try:
+    c10d_functional = torch.ops._c10d_functional
+    inplaceable_collective_ops = {
+        c10d_functional.all_reduce.default: InplaceableOp(c10d_functional.all_reduce_.default, 0),
+        c10d_functional.all_reduce_coalesced.default: InplaceableOp(c10d_functional.all_reduce_coalesced_.default, 0),
+    }
+    inplaceable_ops.update(inplaceable_collective_ops)
+except AttributeError:
+    # _c10d_functional ops are only available when torch
+    # is built with USE_DISTRIBUTED=1.
+    pass
+
+
+def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
+    """
+    This pass tries to replace the usage of out of place variant with the
+    inplace variant of the collective op. This matches a particular variant
+    of the collective where all_reduce->wait_tensor->copy is present and
+    the output of copy is the same view as allreduce then the combination
+    is replace with all_reduce_ which is an inplace variant of collective
+    """
+    graph_changed = False
+    if not hpu_backend_config.use_inplace_allreduce:
+        return graph_changed
+
+    graph = ctx.graph_module.graph
+
+    def reinplace_collective_ops(gm: torch.fx.GraphModule):
+        replace_dict: Dict[torch.fx.Node, torch.fx.Node] = {}
+
+        for idx, node in enumerate(gm.graph.nodes):
+            if (inplaceable_op := inplaceable_ops.get(node.target, None)) is not None:
+                mutated_arg = node.args[inplaceable_op.mutated_arg]
+                for node in mutated_arg.users:
+                    node_users = list(node.users)
+                    if len(node_users) == 1 and node_users[0].target == torch.ops._c10d_functional.wait_tensor.default:
+
+                        wait_tensor_node = node_users[0]
+                        wait_tensor_node_users = list(wait_tensor_node.users)
+                        if (
+                            len(wait_tensor_node_users) == 1
+                            and wait_tensor_node_users[0].target == torch.ops.aten.copy.default
+                        ):
+
+                            copy_node = wait_tensor_node_users[0]
+                            dst = node.args[0]
+                            src = node.args[1]
+                            dst_base = (
+                                dst.meta["view_of"].meta["fake_result"]
+                                if "view_of" in dst.meta
+                                else dst.meta["fake_result"]
+                            )
+                            arg_base = (
+                                mutated_arg.meta["view_of"].meta["fake_result"]
+                                if "view_of" in mutated_arg.meta
+                                else mutated_arg.meta["fake_result"]
+                            )
+                            if dst_base.untyped_storage()._cdata == arg_base.untyped_storage()._cdata:
+                                replace_dict[copy_node] = copy_node.args[1]
+                                node.target = inplaceable_op.inplace_op
+                                graph_changed = True
+
+        for node, replacement in replace_dict.items():
+            while replacement in replace_dict:
+                replacement = replace_dict[replacement]
+            replace_dict[node] = replacement
+            node.replace_all_uses_with(replacement)
+            gm.graph.erase_node(node)
+
+        gm.recompile()
+
+    _FunctionalizationMetadataProp(ctx.graph_module).propagate(*(ctx.example_inputs))
+    reinplace_collective_ops(ctx.graph_module)
+
+    return graph_changed
 
 
 def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
