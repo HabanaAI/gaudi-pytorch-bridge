@@ -57,6 +57,21 @@ FullBE::FullBE(int device_id, c10::ScalarType scalar_type)
   SetOutputMetaFn(FullMeta);
 }
 
+void FullDSSTMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  PT_BRIDGE_DEBUG("FullDSSTMeta called");
+  static_cast<void>(inputs);
+  static_cast<void>(outputs);
+  if (inputs[0].isTensor()) {
+    auto t_size = inputs[0].getTensorShape();
+    PT_BRIDGE_DEBUG("FullDSSTMeta constant shape ", t_size);
+    habana_helpers::UpdateSTShapeInfo(t_size);
+  } else {
+    HABANA_ASSERT(0, "Full DS meta not supported non tensor input !!!");
+  }
+}
+
 void FullOperatorDS::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -69,8 +84,8 @@ void FullOperatorDS::AddNode(
 FullOperatorDS::FullOperatorDS(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "full", scalar_type, {0}, {}, {}, false) {
   SetOutputMetaFn(FullMeta);
+  SetSTMetaFn(FullDSSTMeta);
 }
-
 } // namespace habana
 
 static const auto& HabanaFullKernelRegistry = habana::KernelRegistry().add(
