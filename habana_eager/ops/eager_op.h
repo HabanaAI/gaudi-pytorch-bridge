@@ -65,6 +65,12 @@ class EagerOpBase {
     m_output_meta_fn = std::move(output_meta_fn);
   }
 
+  void SetSTMetaFn(std::function<void(
+                       habana_helpers::IShapeList& inputs,
+                       habana_helpers::IShapeList& outputs)> fn) {
+    m_st_meta_fn = std::move(fn);
+  }
+
   void set_eager_op_info(EagerOpMetaData&& eager_op_meta_data) {
     m_eager_op_meta_data = std::move(eager_op_meta_data);
   }
@@ -116,6 +122,10 @@ class EagerOpBase {
   std::vector<c10::ScalarType> m_scalar_types;
   std::function<habana::OutputMetaDataVector(const at::Stack&)>
       m_output_meta_fn;
+  std::function<void(
+      habana_helpers::IShapeList& inputs,
+      habana_helpers::IShapeList& outputs)>
+      m_st_meta_fn;
   EagerOpMetaData m_eager_op_meta_data;
 
   void validate_inputs(

@@ -431,6 +431,9 @@ class Op:
     def get_output_meta(self):
         return self.op.get("output_meta", None)
 
+    def get_st_meta(self):
+        return self.op.get("st_meta", None)
+
     def get_inplace_ids(self):
         return self.op.get("inplace_ids", [])
 
@@ -606,6 +609,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     op_backend_class = ctxop.get_op_backend_class()
     output_shape_fn = ctxop.get_custom_output_shape()
     output_meta_fn = ctxop.get_output_meta()
+    st_meta_fn = ctxop.get_st_meta()
     promote_to_common_type = ctxop.promote_to_common_type()
     promote_int_to_float = ctxop.promote_int_to_float()
     handle_bool_inputs = ctxop.handle_bool_inputs()
@@ -665,6 +669,9 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
         )
     elif output_shape_fn:
         ctor_extra_calls.append("SetComputeOutputShapes({});".format(output_shape_fn))
+
+    if st_meta_fn:
+        ctor_extra_calls.append("SetSTMetaFn({});".format(st_meta_fn))
 
     if custom_fill_params:
         ctor_extra_calls.append("SetFillParams({});".format(custom_fill_params))
@@ -807,6 +814,7 @@ def generate_header_decls(fgens):
     early_exit_fns = set()
     outshape_fns = set()
     outmeta_fns = set()
+    stmeta_fns = set()
     fc_fns = set()
 
     def build(fn, fns_set, macro, args=[]):
@@ -819,6 +827,7 @@ def generate_header_decls(fgens):
     early_exit_decls = ""
     outshape_decls = ""
     outmeta_decls = ""
+    stmeta_decls = ""
     fill_params_decls = ""
     fallback_check_decls = ""
     for fgen in fgens:
@@ -837,13 +846,22 @@ def generate_header_decls(fgens):
 
         outshape_decls += build(fgen.ctxop.get_custom_output_shape(), outshape_fns, "OUTSHAPE_DECL")
         outmeta_decls += build(fgen.ctxop.get_output_meta(), outmeta_fns, "OUTMETA_DECL")
+        stmeta_decls += build(fgen.ctxop.get_st_meta(), stmeta_fns, "STMETA_DECL")
         fill_params_decls += build(fgen.ctxop.get_custom_fill_params(), fill_params, "FILL_PARAMS_DECL")
 
         fc = fgen.ctxop.get_fallback_check()
         if fc:
             fallback_check_decls += build(fc[0], fc_fns, "FALLBACK_CHECK", fgen.fc_params)
 
-    return reg_decls + early_exit_decls + outshape_decls + outmeta_decls + fill_params_decls + fallback_check_decls
+    return (
+        reg_decls
+        + early_exit_decls
+        + outshape_decls
+        + outmeta_decls
+        + stmeta_decls
+        + fill_params_decls
+        + fallback_check_decls
+    )
 
 
 def gen_output_file(args, name):
@@ -1334,6 +1352,10 @@ def lazy_frontend(
         code += "  hpu_op.set_scalar_types({compute_type});\n"
 
     code += handle_output_meta(ctxop, promote_types, dtype_helper_inputs, param_vars, type_promo_variant)
+
+    st_meta = ctxop.get_st_meta()
+    if st_meta:
+        code += f"  hpu_op.SetSTMetaFn({st_meta});\n"
 
     out_dtypes = ctxop.get_out_dtypes()
     if out_dtypes:

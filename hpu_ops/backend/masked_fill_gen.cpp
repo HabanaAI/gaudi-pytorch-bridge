@@ -26,6 +26,13 @@ OutputMetaDataVector MaskedFillMeta(const at::Stack& stack) {
   return {meta};
 }
 
+void MaskedFillSTMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  static_cast<void>(outputs);
+  static_cast<void>(inputs);
+}
+
 void MaskedFill::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

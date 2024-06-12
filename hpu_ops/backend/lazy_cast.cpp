@@ -146,12 +146,40 @@ Copy<false>::Copy(int device_id, c10::ScalarType scalar_type)
 struct ToCopy : OpBackend {
   ToCopy(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+  static void ToCopySTMeta(
+      habana_helpers::IShapeList& inputs,
+      habana_helpers::IShapeList& outputs);
   static OutputMetaDataVector ToCopyMeta(const at::Stack& stack);
 };
 
 ToCopy::ToCopy(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {
   SetOutputMetaFn(ToCopy::ToCopyMeta);
+  SetSTMetaFn(ToCopy::ToCopySTMeta);
+}
+
+void ToCopy::ToCopySTMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  static_cast<void>(inputs);
+  static_cast<void>(outputs);
+
+  auto src_type = inputs[0].getScalarType();
+  auto dst_type = inputs[1].toScalarType();
+  auto src_type_cast_type = habana_helpers::DataTypeToCastType(src_type);
+  auto dst_type_cast_type = habana_helpers::DataTypeToCastType(dst_type);
+  PT_BRIDGE_DEBUG("Performing cast from:\t", src_type, "\t\tto:\t", dst_type);
+  if (!(src_type_cast_type == dst_type_cast_type &&
+        !(dst_type == at::ScalarType::Bool &&
+          src_type == at::ScalarType::Char))) {
+    bool handle_from_bool =
+        src_type == at::kBool && GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0;
+    if ((handle_from_bool || dst_type == at::kBool)) {
+      std::vector<int64_t> out_shape = {1};
+      PT_BRIDGE_DEBUG("ToCopySTMeta constant shape ", out_shape);
+      habana_helpers::UpdateSTShapeInfo(out_shape);
+    }
+  }
 }
 
 OutputMetaDataVector ToCopy::ToCopyMeta(const at::Stack& stack) {
@@ -173,14 +201,19 @@ OutputMetaDataVector ToCopy::ToCopyMeta(const at::Stack& stack) {
   meta.shape = src.sizes().vec();
   meta.dtype = dtype;
   meta.mem_format = mem_format;
-
+  PT_BRIDGE_DEBUG(
+      "ToCopyMeta dtype:",
+      dtype,
+      ", meta.shape:",
+      meta.shape,
+      ", src dtype:",
+      src.scalar_type());
   return {meta};
 }
 
 void ToCopy::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto src = stack_tensor(stack, 0);
   auto meta = GetOutputMetaData(0);
-
   copy_impl(src, meta.shape, meta.dtype, this, graph, syn_in(0), syn_out(0));
 }
 

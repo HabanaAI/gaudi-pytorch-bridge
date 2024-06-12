@@ -165,22 +165,52 @@ void HabanaRandBase::AddNode(
   syn_out(0) = std::move(rand[0]);
 }
 
+void RandDSSTMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  PT_BRIDGE_DEBUG("RandDSSTMeta called");
+  static_cast<void>(outputs);
+  if (!inputs[2].isTensor()) {
+    auto t_size = inputs[1].getTensorShape();
+    PT_BRIDGE_DEBUG("RandDSSTMeta constant shape ", t_size);
+    habana_helpers::UpdateSTShapeInfo(t_size);
+  }
+}
+
 HabanaRand::HabanaRand(int device_id, c10::ScalarType scalar_type)
     : HabanaRandBase(device_id, scalar_type, "random_uniform") {
   SetFillParams(FillHabanaRandParams);
   SetOutputMetaFn(HabanaRandOutputMeta);
+  SetSTMetaFn(RandDSSTMeta);
 }
 
 HabanaRandn::HabanaRandn(int device_id, c10::ScalarType scalar_type)
     : HabanaRandBase(device_id, scalar_type, "random_normal") {
   SetFillParams(FillHabanaRandnParams);
   SetOutputMetaFn(HabanaRandOutputMeta);
+  SetSTMetaFn(RandDSSTMeta);
+}
+
+void RandIntDSSTMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  PT_BRIDGE_DEBUG("RandIntDSSTMeta called");
+  static_cast<void>(outputs);
+
+  if (inputs[3].isTensor()) {
+    auto t_size = inputs[3].getTensorShape();
+    PT_BRIDGE_DEBUG("RandIntDSSTMeta constant shape ", t_size);
+    habana_helpers::UpdateSTShapeInfo(t_size);
+  } else {
+    HABANA_ASSERT(0, "Rand Int DS meta not supported non tensor input !!!");
+  }
 }
 
 HabanaRandint::HabanaRandint(int device_id, c10::ScalarType scalar_type)
     : HabanaRandBase(device_id, scalar_type, "random_uniform") {
   SetFillParams(FillHabanaRandintParams);
   SetOutputMetaFn(HabanaRandintOutputMeta);
+  SetSTMetaFn(RandIntDSSTMeta);
 }
 
 void HabanaRandint::AddNode(
@@ -242,6 +272,18 @@ HabanaUniform::HabanaUniform(int device_id, c10::ScalarType scalar_type)
     : HabanaRandBase(device_id, scalar_type, "philox_random_uniform") {
   SetOutputMetaFn(HabanaUniformOutputMeta);
   SetFillParams(FillHabanaUniformParams);
+  SetSTMetaFn(RandDSSTMeta);
+}
+
+void RandSeedGeneratorDSSTMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  PT_BRIDGE_DEBUG("RandSeedGeneratorDSSTMeta called");
+  static_cast<void>(outputs);
+  auto t_size = inputs[1].getScalar().toInt();
+  PT_BRIDGE_DEBUG("RandSeedGeneratorDSSTMeta constant shape ", t_size);
+  std::vector<int64_t> shape(1, t_size);
+  habana_helpers::UpdateSTShapeInfo(shape);
 }
 
 HabanaSeedGenerator::HabanaSeedGenerator(
@@ -250,6 +292,7 @@ HabanaSeedGenerator::HabanaSeedGenerator(
     : HabanaRandBase(device_id, scalar_type, "habana_seed_generator") {
   SetOutputMetaFn(HabanaSeedGeneratorOutputMeta);
   SetFillParams(FillHabanaSeedGeneratorParams);
+  SetSTMetaFn(RandSeedGeneratorDSSTMeta);
 }
 
 } // namespace habana

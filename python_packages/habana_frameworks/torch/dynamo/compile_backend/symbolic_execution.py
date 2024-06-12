@@ -277,3 +277,8 @@ class SymbolicShapeEvaluator:
             idx += 1
 
         return concrete_size
+
+
+def sympify_expression(expression):
+    parsed_expression = sympify(expression)
+    return parsed_expression

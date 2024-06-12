@@ -21,6 +21,7 @@
 #include <string>
 #include "backend/habana_operator.h"
 #include "backend/helpers/collective_kernel_info.h"
+#include "backend/helpers/symbolic_expression.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/kernel/hpu_shape_inference.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -381,6 +382,9 @@ struct RecipeValueSpec {
   std::shared_ptr<habana_helpers::CollectiveKernelInfos>
       collective_kernels_info;
   std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
+  std::unordered_map<uint64_t, uint64_t> st_to_tensor_idx_map;
+  std::unordered_set<std::string> st_backend_create_op_list;
+  std::unordered_map<size_t, habana_helpers::DynamicSIFInfo> ds_sifinfo_map;
   std::unordered_set<std::string> disabled_jit_ir_ops_;
 
   size_t id{0};
@@ -674,6 +678,7 @@ class DynamicBucketInfoMap {
 };
 
 void ClearDynamicBucketRecipeInfo();
+
 } // namespace habana
 
 CREATE_OSTREAM_FORMATTER(habana::RecipeArgumentSpec);

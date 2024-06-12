@@ -390,6 +390,10 @@ auto get_or_create_tensor(
 
 #define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&);
 #define OUTMETA_DECL(fn) OutputMetaDataVector fn(const at::Stack&);
+#define STMETA_DECL(fn)                   \
+  void fn(                                \
+      habana_helpers::IShapeList& inputs, \
+      habana_helpers::IShapeList& outputs);
 
 #define HPU_SUPPORTED_DTYPES(dtypes, suffix...) \
   const static SupportedDtypes supported_dtypes_##suffix dtypes;

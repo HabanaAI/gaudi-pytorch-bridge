@@ -22,6 +22,7 @@
 #include <vector>
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/create_tensor.h"
+#include "backend/helpers/dynamic_shape_infer.h"
 #include "backend/helpers/habana_types.h"
 #include "backend/helpers/layout.h"
 #include "backend/helpers/tensor_info.h"
@@ -496,6 +497,10 @@ class HabanaOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata);
+
+  virtual void STMeta(
+      habana_helpers::IShapeList& inputs,
+      habana_helpers::IShapeList& outputs);
 
   virtual void ReuseMemoryAndAddSynapseNode(
       synapse_helpers::graph& graph,

@@ -613,6 +613,14 @@ void habana::HabanaOperator::AllocateAndAddSynapseNode(
       0, "Should never reach this empty base AllocateAndAddSynapseNode");
 }
 
+void habana::HabanaOperator::STMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  static_cast<void>(inputs);
+  static_cast<void>(outputs);
+  TORCH_CHECK(0, "ST meta called for base HabanaOperator!!!");
+}
+
 void habana::HabanaOperator::ReuseMemoryAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,

@@ -262,6 +262,28 @@ void ForeachBinary::AddNode(
   }
 }
 
+void BinarySTMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  static_cast<void>(outputs);
+  // TODO Albin Need to update the scalar to tensor conversion statis to ishape
+  static_cast<void>(inputs);
+}
+
+void BinarySubSTMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  static_cast<void>(outputs);
+  if (inputs[1].isScalar()) {
+    std::vector<int64_t> out_shape(1, 1);
+    habana_helpers::UpdateSTShapeInfo(out_shape);
+  }
+  if (inputs[0].isScalar()) {
+    std::vector<int64_t> out_shape(1, 1);
+    habana_helpers::UpdateSTShapeInfo(out_shape);
+  }
+}
+
 void BinaryWithAlpha::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

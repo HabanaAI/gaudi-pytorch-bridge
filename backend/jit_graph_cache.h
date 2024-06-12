@@ -24,6 +24,9 @@ namespace habana {
 
 size_t ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
 size_t ComputeSymSizeHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
+size_t ComputeNodeSymOutputHashCode(
+    const std::shared_ptr<torch::jit::Graph>& jit_graph);
+
 // Functionality to calculate the graph hash on the JIT graph
 void ComputeGraphHashCode(
     const std::shared_ptr<torch::jit::Graph>& irgraph,

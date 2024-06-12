@@ -152,11 +152,37 @@ OutputMetaDataVector OpBackend::OutputMeta(const at::Stack& stack) const {
   return {};
 }
 
+void OpBackend::HandleScalarToTensorSTMeta(
+    habana_helpers::IShapeList& inputs) const {
+  if (m_scalar_ids.empty()) {
+    return;
+  }
+  PT_BRIDGE_DEBUG("HandleScalarToTensorSTMeta m_scalar_ids:", m_scalar_ids);
+  static_cast<void>(inputs);
+  for (int m_scalar_id : m_scalar_ids) {
+    static_cast<void>(m_scalar_id);
+    std::vector<int64_t> out_shape = {1};
+    PT_BRIDGE_DEBUG("HandleScalarToTensorSTMeta constant shape ", out_shape);
+    habana_helpers::UpdateSTShapeInfo(out_shape);
+  }
+}
+
+void OpBackend::STMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) const {
+  if (m_st_meta_fn) {
+    HandleScalarToTensorSTMeta(inputs);
+    m_st_meta_fn(inputs, outputs);
+  } else {
+    TORCH_CHECK(0, "ST meta not registered !!!");
+  }
+  return;
+}
+
 void OpBackend::HandleScalarToTensor(sh::graph& graph, const at::Stack& stack) {
   if (m_scalar_ids.empty()) {
     return;
   }
-
   for (int m_scalar_id : m_scalar_ids) {
     const at::Scalar& val = stack.at(m_scalar_id).toScalar();
     auto constant = ConstantHelper(graph, val);

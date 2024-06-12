@@ -869,6 +869,9 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs(
     rv.set_graph_name(GetSynapseGraphName());
   }
   rv.sif_tidx_to_tinfo_map = sif_tidx_to_tinfo_map;
+  rv.st_to_tensor_idx_map = ShapeInference::GetTensorMapping();
+  rv.st_backend_create_op_list = std::move(st_backend_create_op_list);
+  rv.ds_sifinfo_map[sym_expr_hash_] = std::move(ds_sif_info_);
   rv.disabled_jit_ir_ops_ = disabled_jit_ir_ops();
 
   if (recipe) {

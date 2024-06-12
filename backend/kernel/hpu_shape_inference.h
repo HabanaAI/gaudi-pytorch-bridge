@@ -28,6 +28,12 @@ class ShapeInfTensorId {
     return value;
   }
 
+  int64_t read_and_decrement() {
+    auto value = unique_id;
+    unique_id--;
+    return value;
+  }
+
   int64_t get() {
     return unique_id;
   }
@@ -118,6 +124,11 @@ class ShapeInference {
       synapse_helpers::graph& graph,
       const uint64_t tensor_id,
       const std::vector<int64_t>& sizes);
+
+  static uint64_t UpdateShapeInfoDynamic(
+      const uint64_t tensor_id,
+      const std::vector<int64_t>& sizes);
+
   /*
    * Get the shape of the Min & Max tensor values for the specified
    * tensor name
@@ -176,12 +187,59 @@ class ShapeInference {
     sif_tensor_id.increment(cnt);
   }
 
+  static void ResetShapeTensorId() {
+    shape_tensor_id.reset();
+  }
+
+  static int64_t ReadAndIncrementShapeTensorId() {
+    return shape_tensor_id.read_and_increment();
+  }
+
+  static int64_t ReadAndDecrementShapeTensorId() {
+    return shape_tensor_id.read_and_decrement();
+  }
+
+  static int64_t GetShapeTensorId() {
+    return shape_tensor_id.get();
+  }
+
+  static void SetShapeTensorId(int64_t id) {
+    shape_tensor_id.set(id);
+  }
+
+  static void IncrementShapeTensorId(int64_t cnt = 1) {
+    shape_tensor_id.increment(cnt);
+  }
+
+  static void SaveSTAndTensorIdxMapping(uint64_t st_idx, uint64_t t_idx) {
+    st_to_tensor_idx_map.insert({st_idx, t_idx});
+  }
+
+  static uint64_t GetSTMappedTensorIdx(uint64_t st_idx) {
+    return st_to_tensor_idx_map.at(st_idx);
+  }
+
+  static void SetTensorMapping(std::unordered_map<uint64_t, uint64_t> map) {
+    st_to_tensor_idx_map = map;
+  }
+
+  static std::unordered_map<uint64_t, uint64_t> GetTensorMapping() {
+    return st_to_tensor_idx_map;
+  }
+
+  static void ResetTensorMapping() {
+    st_to_tensor_idx_map.clear();
+  }
+
  private:
   /*
    * Stores all the shape information
    */
   static thread_local ShapeInfo* m_shape_info;
   static thread_local ShapeInfTensorId sif_tensor_id;
+  static thread_local ShapeInfTensorId shape_tensor_id;
+  static thread_local std::unordered_map<uint64_t, uint64_t>
+      st_to_tensor_idx_map;
 };
 
 inline std::ostream& operator<<(

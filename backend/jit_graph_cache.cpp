@@ -203,6 +203,27 @@ void ComputeGraphHashCode(
   }
 }
 
+size_t ComputeNodeSymOutputHashCode(
+    const std::shared_ptr<torch::jit::Graph>& jit_graph) {
+  std::hash<std::string> str_hash;
+  size_t sym_output_hash_code = 0;
+
+  for (auto node : jit_graph->nodes()) {
+    if ((torch::jit::prim::Constant != node->kind()) &&
+        (torch::jit::prim::ListConstruct != node->kind())) {
+      auto outputshapes_attr = c10::Symbol::attr("output_shapes");
+      std::string shape_str = "";
+      if (node->hasAttribute(outputshapes_attr)) {
+        shape_str = node->s(outputshapes_attr);
+      }
+      sym_output_hash_code =
+          at::hash_combine(sym_output_hash_code, str_hash(shape_str));
+    }
+  }
+
+  return sym_output_hash_code;
+}
+
 size_t ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs) {
   size_t perm_hash_code = 0;
   uint32_t cnt = 0;

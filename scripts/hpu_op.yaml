@@ -1400,6 +1400,7 @@ add.Tensor:
     Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
+  st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -1416,6 +1417,7 @@ add.Scalar:
     Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
+  st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   out_ids: [0]
   promote_to_common_type: [self, other]
@@ -1449,6 +1451,7 @@ add.out:
     Gaudi2: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
+  st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
 
@@ -1461,6 +1464,7 @@ add.Scalar_out:
     Gaudi3: [BFloat16, Float, Short, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
+  st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
 
@@ -2599,6 +2603,7 @@ bmm.out:
 cat:
   promote_to_common_type: [tensors]
   output_meta: CatMeta
+  st_meta: CatSTMeta
   guid: concat
   op_backend: CatHabanaOperator
   out_ids: [0]
@@ -2606,6 +2611,7 @@ cat:
 cat.out:
   promote_to_common_type: [tensors]
   output_meta: CatMeta
+  st_meta: CatSTMeta
   guid: concat
   op_backend: CatHabanaOperator
 
@@ -5300,6 +5306,7 @@ masked_fill_.Tensor:
       value: [BFloat16, Float, Int, Char, Half, Long]
   guid: where
   op_backend: MaskedFill
+  st_meta: MaskedFillSTMeta
   inplace_ids: [0]
 
 masked_fill.Scalar:
@@ -5319,6 +5326,7 @@ masked_fill.Scalar:
       value: [BFloat16, Float, Int, Char, Half, Long]
   guid: where
   op_backend: MaskedFill
+  st_meta: MaskedFillSTMeta
   scalar_ids: [2]
   out_ids: [0]
 
@@ -5339,6 +5347,7 @@ masked_fill.Tensor:
       value: [BFloat16, Float, Int, Char, Half, Long]
   guid: where
   op_backend: MaskedFill
+  st_meta: MaskedFillSTMeta
   out_ids: [0]
 
 max:
@@ -5740,6 +5749,7 @@ mul.Tensor:
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
+  st_meta: BinarySTMeta
   out_ids: [0]
   broadcast: true
   promote_to_common_type: [self, other]
@@ -5753,6 +5763,7 @@ mul.Scalar:
   guid: mult_fwd
   out_ids: [0]
   scalar_ids: [1]
+  st_meta: BinarySTMeta
   promote_to_common_type: [self, other]
   op_validator: check-node-with-shared-layer
 
@@ -5763,6 +5774,7 @@ mul.Scalar_out:
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Long, Short, Half, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
+  st_meta: BinarySTMeta
   promote_to_common_type: [self, other]
   scalar_ids: [1]
   op_validator: check-node-with-shared-layer
@@ -5795,6 +5807,7 @@ mul.out:
     Gaudi2: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
+  st_meta: BinarySTMeta
   promote_to_common_type: [self, other]
   op_validator: check-node-with-shared-layer
 
@@ -7315,6 +7328,7 @@ rsub.Tensor:
   custom_fill_params: FillBinaryRSubParams
   out_ids: [0]
   scalar_ids: [2]
+  st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
 
 rsub.Scalar:
@@ -7327,6 +7341,7 @@ rsub.Scalar:
   guid: binary_with_alpha_fwd
   out_ids: [0]
   scalar_ids: [1, 2]
+  st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
 
 scalar_tensor:
@@ -8171,6 +8186,7 @@ sub.Tensor:
     Gaudi3: [BFloat16, Float, Short, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   out_ids: [0]
+  st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
   promote_to_common_type: [self, other]
@@ -8185,6 +8201,7 @@ sub.Scalar:
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   out_ids: [0]
+  st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
 
@@ -8197,6 +8214,7 @@ sub_.Tensor:
     Gaudi3: [BFloat16, Float, Short, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   inplace_ids: [0]
+  st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
   promote_to_common_type: [self, other]
@@ -8211,6 +8229,7 @@ sub_.Scalar:
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
   inplace_ids: [0]
+  st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
 
@@ -8223,6 +8242,7 @@ sub.Scalar_out:
     Gaudi3: [BFloat16, Float, Short, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
   scalar_ids: [1, 2]
+  st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
 
@@ -8234,6 +8254,7 @@ sub.out:
     Gaudi2: [BFloat16, Float, Short, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Short, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: binary_with_alpha_fwd
+  st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
 

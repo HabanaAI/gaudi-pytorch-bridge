@@ -14,6 +14,7 @@
 
 #include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/helpers/dynamic_bucket_info_utils.h"
+#include "backend/helpers/dynamic_shape_infer.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jit_graph_cache.h"
@@ -175,6 +176,26 @@ class HabanaLaunchOpPT {
       HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution =
           HabanaLaunchOpPipeline::NoPipeline);
 
+  void ProcessIntermediateSymbolicShapes(
+      std::shared_ptr<torch::jit::Graph>& jit_graph);
+  void CreateORUpdateExprSymbolicTable(RecipeValueSpec* rv = nullptr);
+  void CreateIValueForNodeInputs(
+      torch::jit::Node* node,
+      habana_helpers::DynamicSIFInfo* dsi);
+  void CreateIValueForNodeOutputs(
+      torch::jit::Node* node,
+      habana_helpers::DynamicSIFInfo* dsi);
+  void UpdateIshapeForNodeInputs(torch::jit::Node* node, RecipeValueSpec& rv);
+  void UpdateIshapeForNodeOuputs(torch::jit::Node* node, RecipeValueSpec& rv);
+  void CreateValueIShapeMapForNode(
+      torch::jit::Node* node,
+      const torch::jit::Stack& input_stack,
+      OutputMetaDataVector& meta_vec);
+  void CreateValueToIShapeMapForInputs(
+      std::shared_ptr<torch::jit::Graph>& jit_graph);
+  void UpdateValueToIShapeMapForInputs(
+      std::shared_ptr<torch::jit::Graph>& jit_graph,
+      RecipeValueSpec& rv);
   static void cleanUp();
 
   static std::unordered_map<size_t, habana_helpers::InpTensorShapes>&
@@ -391,6 +412,10 @@ class HabanaLaunchOpPT {
 
   VecOfIValPtrSh pt_stack_sh;
   CValuePtrToIValuePtrMap value_to_ivalue;
+  InputSymbolMap in_symbol_value_map;
+  habana_helpers::DynamicSIFInfo ds_sif_info_;
+  size_t sym_expr_hash_ = 0;
+  std::unordered_set<std::string> st_backend_create_op_list;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors;
 
@@ -460,7 +485,6 @@ class HabanaLaunchOpPT {
 
   // Output shape inference map
   std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
-  InputSymbolMap in_symbol_value_map;
 
   // caching :: end
 
@@ -523,18 +547,51 @@ class HabanaLaunchOpPT {
       SynBuildCache& syn_build_cache,
       bool is_shape_inference = false);
 
+  void BuildSynapseGraphLite(
+      std::shared_ptr<synapse_helpers::graph>& syn_graph,
+      SynBuildCache& syn_build_cache);
+
+  void HandleOutputSIFException(
+      torch::jit::Node* node,
+      const HabanaOperatorPtr& habana_op,
+      RecipeValueSpec& rv,
+      size_t& outputs_meta_index,
+      SynBuildCache& syn_build_cache);
+
+  void HandleViewBaseOutputShape(
+      torch::jit::Node* node,
+      habana_helpers::DynamicSIFInfo& dsisss);
+
+  uint64_t HandleFrontendShapeTensorOp(torch::jit::Node* node);
+  void HandleOutputExprMappedJITGraph(
+      std::shared_ptr<torch::jit::Graph>& rv_jit_graph,
+      RecipeValueSpec& rv,
+      SynBuildCache& syn_build_cache);
+  void HandleOutputExprUnMappedJITGraph(
+      std::shared_ptr<torch::jit::Graph>& rv_jit_graph,
+      RecipeValueSpec& rv,
+      SynBuildCache& syn_build_cache);
   void setSynapsePermuteFlag(
       synapse_helpers::tensor& out_syntensor,
       PtTensorInfoShared& ti,
       IValPtrShared ivpsh);
   void preProcessInputs();
   torch::jit::Stack getStackForNode(torch::jit::Node* node);
+  habana_helpers::IShapeList getInputIShapesForNode(
+      torch::jit::Node* node,
+      RecipeValueSpec& rv);
+  habana_helpers::IShapeList getOutputIShapesForNode(
+      torch::jit::Node* node,
+      RecipeValueSpec& rv);
   bool nodeOutputPersistencePerValue(
       torch::jit::Node* node,
       torch::jit::Value* value_out);
   bool IsValueExternal(torch::jit::Value* value);
   OutputMetaDataVector nodeOutputMetaData(torch::jit::Node* node);
   void CreateValueToIvalueMapForInputs();
+  void ReCreateValueToIvalueMapForInputs(
+      std::shared_ptr<torch::jit::Graph>& jit_graph);
+  void ResetIShapeUpdateStatus(RecipeValueSpec& rv);
   void InitiateSynlaunchTimeCapture(RecipeLauncher& rv);
   void ProcessHabanaFusedOpWithDS(
       HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution);

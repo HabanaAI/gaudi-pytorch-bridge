@@ -38,7 +38,7 @@ std::shared_ptr<RecipeValueSpec> HabanaLaunchOpPT::
   PT_BRIDGE_BEGIN;
 
   auto recipe = CompileSynapseGraph();
-  auto rvs = std::make_shared<RecipeValueSpec>();
+  auto rvs = std::make_shared<RecipeValueSpec>(jit_ir_graph_);
 
   ConstructPatchingTableAndAtenOutputs(*rvs, recipe);
   UpdateSynapsePermutations(*rvs, *recipe);

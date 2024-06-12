@@ -19,6 +19,9 @@ using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 
 thread_local ShapeInfo* ShapeInference::m_shape_info(nullptr);
 thread_local ShapeInfTensorId ShapeInference::sif_tensor_id;
+thread_local ShapeInfTensorId ShapeInference::shape_tensor_id;
+thread_local std::unordered_map<uint64_t, uint64_t>
+    ShapeInference::st_to_tensor_idx_map;
 
 void ShapeInference::Capture(ShapeInfo* shape_info) {
   HABANA_ASSERT(shape_info);
@@ -80,6 +83,28 @@ uint64_t ShapeInference::UpdateShapeInfo(
         ", Shape : ",
         shape);
   }
+  return tensor_id;
+}
+
+uint64_t ShapeInference::UpdateShapeInfoDynamic(
+    const uint64_t tensor_id,
+    const std::vector<int64_t>& sizes) {
+  HABANA_ASSERT(ShapeInference::m_shape_info);
+  // We only care about the shape during shape inference, hence
+  // passing a dummy type of Undefined when creating the shape tensor
+  HABANA_ASSERT(
+      ShapeInference::m_shape_info->m_pass ==
+      ShapeInfo::InferencePass::OUTPUT_SHAPE);
+  auto shape = habana_helpers::TensorShape(sizes, c10::ScalarType::Undefined);
+  ShapeInference::m_shape_info->m_actual_shapes.insert_or_assign(
+      tensor_id, shape);
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "PASS:",
+      ShapeInference::m_shape_info->m_pass,
+      ", Tensor ID : ",
+      tensor_id,
+      ", Shape : ",
+      shape);
   return tensor_id;
 }
 

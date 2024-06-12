@@ -35,7 +35,7 @@ from .partitioner import HabanaPartitioner
 from .random_utils import is_random_op, random_op_inputs
 from .recipe_compiler import get_callable_recipe
 from .shared_layer import is_eager_fallback_required
-from .symbolic_execution import SymExprNodeManager
+from .symbolic_execution import SymExprNodeManager, sympify_expression
 
 logger = get_compile_backend_logger()
 
@@ -1998,7 +1998,8 @@ def pass_compile_clusters(ctx: OptimizerContext):
             output_size_str = "["
             for dim, sz in enumerate(shape):
                 sz_str = pexpr(sz)
-                output_size_str = output_size_str + sz_str
+                sz_str = sympify_expression(sz_str)
+                output_size_str = output_size_str + str(sz_str)
                 if dim < dims - 1:
                     output_size_str += ","
             output_size_str += "]"
@@ -2017,9 +2018,10 @@ def pass_compile_clusters(ctx: OptimizerContext):
                 logger.debug("Not found a matching FX node for node name: %s !!!", fx_subname)
                 continue
 
+            output_size_str = "[]"
             if "output_shapes" in fx_node.meta:
                 output_size_str = create_output_size(fx_node.meta["output_shapes"])
-                node.s_("output_shapes", output_size_str)
+            node.s_("output_shapes", output_size_str)
 
     def generate_jit_ir_from_module(input_module: torch.fx.GraphModule):
         """

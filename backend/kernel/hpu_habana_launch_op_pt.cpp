@@ -31,6 +31,7 @@
 #include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/helpers/graph.h"
+#include "backend/helpers/symbolic_expression.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jitgraph_utils.h"
 #include "backend/kernel/constant_information.h"
@@ -1362,6 +1363,105 @@ IValPtrShared GetPrimListConstructNodeOuputIValue(
   HABANA_ASSERT(false, "Unsupported list type in prim::ListConstruct");
 }
 
+void UpdateIshapeForPrimListConstructNode(
+    torch::jit::Node* node,
+    habana_helpers::DynamicSIFInfo& dsi) {
+  const auto& node_ins = node->inputs();
+  auto node_vals = node->outputs();
+  HABANA_ASSERT(node_vals.size() == 1);
+  for (const auto& value_in : node_ins) {
+    auto value_name = value_in->debugName();
+    if (!dsi.value_to_ishape[value_name].IsUpdated()) {
+      if (dsi.value_to_ishape[value_name].isScalar()) {
+        continue;
+      } else if (dsi.value_to_ishape[value_name].isTensor()) {
+        auto& size_expr = dsi.value_to_sizeexpr[value_name];
+        if (size_expr != nullptr) {
+          SymExprFactory& expr_factory = SymExprFactory::getInstance();
+          std::vector<int64_t> concrete_size =
+              expr_factory.evaluate_symsize(size_expr);
+          dsi.value_to_ishape[value_name].UpdateTensor(concrete_size);
+        }
+      }
+    }
+  }
+}
+
+IValPtrShared MapPrimListConstructNodeInputIShape(
+    torch::jit::Node* node,
+    habana_helpers::DynamicSIFInfo* dsi,
+    CValuePtrToIValuePtrMap& value_to_ivalue) {
+  const auto& node_ins = node->inputs();
+  auto node_vals = node->outputs();
+  HABANA_ASSERT(node_vals.size() == 1);
+  for (const auto& value_in : node_ins) {
+    if (value_to_ivalue.count(value_in) == 0) {
+      auto value_name = value_in->debugName();
+      if (dsi->value_to_ishape[value_name].isScalar()) {
+        auto ival =
+            torch::jit::IValue(dsi->value_to_ishape[value_name].getScalar());
+        auto ivptrsh = std::make_shared<IVal>(ival);
+        value_to_ivalue[value_in] = ivptrsh;
+      } else if (dsi->value_to_ishape[value_name].isTensor()) {
+        auto& size_expr = dsi->value_to_sizeexpr[value_name];
+        if (size_expr == nullptr) {
+          HABANA_ASSERT(
+              dsi->value_to_ishape.count(value_name),
+              "Node not added to value to ishape map:",
+              value_in->debugName());
+          std::vector<int64_t> concrete_size;
+          at::Tensor dummy_t = createDynamicTensor(concrete_size, DATA_TENSOR);
+          auto iv_tensor = torch::jit::IValue(dummy_t);
+          auto ivptrsh = std::make_shared<IVal>(iv_tensor);
+          value_to_ivalue[value_in] = ivptrsh;
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "Creating ivalue for node:", value_name, " nullptr size_expr:");
+        } else {
+          SymExprFactory& expr_factory = SymExprFactory::getInstance();
+          std::vector<int64_t> concrete_size =
+              expr_factory.evaluate_symsize(size_expr);
+          if (dsi->value_to_ishape[value_name].isTensor()) {
+            dsi->value_to_ishape[value_name].UpdateTensor(concrete_size);
+          }
+          at::Tensor dummy_t = createDynamicTensor(concrete_size, DATA_TENSOR);
+          auto iv_tensor = torch::jit::IValue(dummy_t);
+          auto ivptrsh = std::make_shared<IVal>(iv_tensor);
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "Creating ivalue for node:",
+              value_name,
+              " with concrete_size = ",
+              concrete_size);
+          value_to_ivalue[value_in] = ivptrsh;
+        }
+      }
+    }
+  }
+
+  // ListConstruct can have optional and non-optional tensors as item types
+  if (node->output()->type()->containedTypes()[0]->kind() ==
+      OptionalType::Kind) {
+    c10::List<c10::optional<at::Tensor>> opttensorList;
+    for (const auto& value_in : node_ins) {
+      static_cast<void>(value_in);
+      opttensorList.emplace_back(c10::nullopt);
+    }
+
+    IValPtrShared out_ival = std::make_shared<IVal>(opttensorList);
+    return out_ival;
+  }
+  // Handle empty list
+  if (node_ins.empty()) {
+    return std::make_shared<IVal>(c10::List<int64_t>());
+  }
+
+  auto ivptrsh = value_to_ivalue[node_ins[0]];
+  HANDLE_LIST_OF(at::Tensor, isTensor, toTensor)
+  HANDLE_LIST_OF(int64_t, isInt, toInt)
+  HANDLE_LIST_OF(double, isDouble, toDouble)
+  HANDLE_LIST_OF(bool, isBool, toBool)
+  HABANA_ASSERT(false, "Unsupported list type in prim::ListConstruct");
+}
+
 at::Tensor createDynamicTensor(
     const std::vector<int64_t>& size,
     synTensorType type) {
@@ -1476,6 +1576,58 @@ torch::jit::Stack HabanaLaunchOpPT::getStackForNode(torch::jit::Node* node) {
     }
   }
   return stack_in;
+}
+
+habana_helpers::IShapeList HabanaLaunchOpPT::getInputIShapesForNode(
+    torch::jit::Node* node,
+    RecipeValueSpec& rv) {
+  habana_helpers::IShapeList ishape_list;
+  auto node_inputs = node->inputs();
+  for (auto input : node_inputs) {
+    auto value_name = input->debugName();
+    auto& dsi = rv.ds_sifinfo_map[sym_expr_hash_];
+    if (dsi.value_to_ishape.count(value_name)) {
+      auto ishape = dsi.value_to_ishape[value_name];
+      if (ishape.isTensor() || ishape.isScalar()) {
+        ishape_list.push_back(ishape);
+      } else {
+        PT_BRIDGE_DEBUG(
+            "Value = ", value_name, " Ishape is not a supported type !!!");
+      }
+    } else {
+      ishape_list.push_back(habana_helpers::IShape());
+      PT_BRIDGE_DEBUG("Dummy IShape added for node = ", value_name);
+    }
+  }
+  return ishape_list;
+}
+
+habana_helpers::IShapeList HabanaLaunchOpPT::getOutputIShapesForNode(
+    torch::jit::Node* node,
+    RecipeValueSpec& rv) {
+  habana_helpers::IShapeList ishape_list;
+  auto node_val = node->output(0);
+  auto value_name = node_val->debugName();
+  auto& dsi = rv.ds_sifinfo_map[sym_expr_hash_];
+  if (dsi.value_to_ishape.count(value_name)) {
+    auto& ishape = dsi.value_to_ishape[value_name];
+    if (ishape.isTensor()) {
+      ishape_list.push_back(ishape);
+    } else {
+      PT_BRIDGE_DEBUG(
+          "Node = ",
+          value_name,
+          " Ishape is not a tensor type and not supported !!!");
+    }
+  } else {
+    ishape_list.push_back(habana_helpers::IShape());
+    PT_BRIDGE_DEBUG(
+        "Node = ",
+        value_name,
+        " Ishape is missing in the value_to_ishape map !!!");
+  }
+
+  return ishape_list;
 }
 
 c10::ScalarType HabanaLaunchOpPT::getNodeScalarType(torch::jit::Node* node) {
@@ -2042,6 +2194,583 @@ void HabanaLaunchOpPT::RevertH2DMinMaxData() {
   updatemax_graph = false;
 }
 
+void HabanaLaunchOpPT::CreateValueIShapeMapForNode(
+    torch::jit::Node* node,
+    const torch::jit::Stack& input_stack,
+    OutputMetaDataVector& output_meta_vec) {
+  // Roopaks This is redundant check can be removed
+  auto node_inputs = node->inputs();
+  int64_t input_count = 0;
+  auto& dsi = ds_sif_info_;
+  for (auto node_val : node_inputs) {
+    if (value_to_ivalue.count(node_val) &&
+        (!dsi.value_to_ishape.count(node_val->debugName()))) {
+      auto value_name = node_val->debugName();
+      torch::jit::Node* producer_node = node_val->node();
+      auto ivalue = value_to_ivalue[node_val];
+      if (producer_node->kind() == torch::jit::prim::Constant) {
+        if (ivalue->isTensor()) {
+          auto tensor = ivalue->toTensor();
+          habana_helpers::IShape ishape(
+              tensor.sizes().vec(), tensor.scalar_type());
+          dsi.value_to_ishape.insert({value_name, ishape});
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "Create Ishape Tensor ",
+              value_name,
+              " Scalar type ",
+              tensor.scalar_type());
+        } else if (node_val->type() != torch::jit::NoneType::get()) {
+          // TODO Albin check if any other condition need to check here and
+          // check the value
+          torch::jit::IValue const_ivalue =
+              torch::jit::toIValue(node_val).value();
+          if (const_ivalue.isScalar()) {
+            // TODO: Check Ishape has to be created with actual scalar type
+            habana_helpers::IShape ishape(
+                const_ivalue.toScalar(), const_ivalue.toScalar().type());
+            dsi.value_to_ishape.insert({value_name, ishape});
+            PT_DYNAMIC_SHAPE_DEBUG(
+                "Create Ishape Scalar ",
+                value_name,
+                " Scalar type ",
+                ishape.getScalarType());
+          } else {
+            PT_DYNAMIC_SHAPE_DEBUG(
+                "Input node of non-scalar type is added to value_to_ishape map, type:",
+                node_val->type());
+          }
+        }
+      } else if (producer_node->kind() == torch::jit::prim::ListConstruct) {
+        CreateValueIShapeMapForNode(
+            producer_node, input_stack, output_meta_vec);
+      } else if (ivalue->isTensor()) {
+        auto input_stack_dtype =
+            input_stack.at(input_count).toTensor().scalar_type();
+        auto tensor = ivalue->toTensor();
+        habana_helpers::IShape ishape(tensor.sizes().vec(), input_stack_dtype);
+        dsi.value_to_ishape.insert({value_name, ishape});
+        PT_DYNAMIC_SHAPE_DEBUG(
+            "Create Ishape Tensor ",
+            value_name,
+            " Scalar type ",
+            tensor.scalar_type());
+      } else if (ivalue->isScalar()) {
+        auto scalar = ivalue->toScalar();
+        // TODO: Check Ishape has to be created with actual scalar type
+        habana_helpers::IShape ishape(scalar, scalar.type());
+        dsi.value_to_ishape.insert({value_name, ishape});
+        PT_DYNAMIC_SHAPE_DEBUG(
+            "Create Ishape Scalar ",
+            value_name,
+            " Scalar type ",
+            ishape.getScalarType());
+      } else {
+        PT_DYNAMIC_SHAPE_DEBUG(
+            "Input node is not tensor nor scalar. Skip !!!!");
+      }
+    }
+    input_count++;
+  }
+
+  auto node_outputs = node->outputs();
+  for (auto node_out_val : node_outputs) {
+    auto ivalue = value_to_ivalue[node_out_val];
+    auto value_name = node_out_val->debugName();
+    if (ivalue->isTensor()) {
+      auto tensor = ivalue->toTensor();
+      habana_helpers::IShape ishape(tensor.sizes().vec(), tensor.scalar_type());
+      dsi.value_to_ishape.insert({value_name, ishape});
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "Create Ishape Tensor ",
+          value_name,
+          " Scalar type ",
+          tensor.scalar_type());
+    } else if (ivalue->isScalar()) {
+      auto scalar = ivalue->toScalar();
+      habana_helpers::IShape ishape(scalar, scalar.type());
+      dsi.value_to_ishape.insert({value_name, ishape});
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "Create Ishape Scalar ",
+          value_name,
+          " Scalar type ",
+          ishape.getScalarType());
+    } else {
+      PT_DYNAMIC_SHAPE_DEBUG("Input node is not tensor nor scalar. Skip !!!!");
+    }
+  }
+}
+
+void HabanaLaunchOpPT::UpdateIshapeForNodeInputs(
+    torch::jit::Node* node,
+    RecipeValueSpec& rv) {
+  auto node_inputs = node->inputs();
+  for (auto* node_val : node_inputs) {
+    auto value_name = node_val->debugName();
+    auto& dsi = rv.ds_sifinfo_map[sym_expr_hash_];
+    if (!dsi.value_to_ishape[value_name].IsUpdated()) {
+      torch::jit::Node* producer_node = node_val->node();
+      PT_DYNAMIC_SHAPE_DEBUG("Updating IShape for input node = ", value_name);
+      if (producer_node->kind() == torch::jit::prim::ListConstruct) {
+        UpdateIshapeForPrimListConstructNode(producer_node, dsi);
+      } else if (dsi.value_to_ishape[value_name].isTensor()) {
+        auto& size_expr = dsi.value_to_sizeexpr[value_name];
+        if (size_expr != nullptr) {
+          SymExprFactory& expr_factory = SymExprFactory::getInstance();
+          std::vector<int64_t> concrete_size =
+              expr_factory.evaluate_symsize(size_expr);
+          PT_BRIDGE_DEBUG(
+              "Input Node: ", value_name, ", concrete_size:", concrete_size);
+          dsi.value_to_ishape[value_name].UpdateTensor(concrete_size);
+        } else {
+          PT_DYNAMIC_SHAPE_DEBUG(
+              "Cannot evaluate Input shape for node ",
+              value_name,
+              " expression is NULL");
+        }
+      }
+    }
+  }
+}
+
+void HabanaLaunchOpPT::CreateIValueForNodeInputs(
+    torch::jit::Node* node,
+    habana_helpers::DynamicSIFInfo* dsi) {
+  auto node_inputs = node->inputs();
+  for (auto* node_val : node_inputs) {
+    if (value_to_ivalue.count(node_val) == 0) {
+      torch::jit::Node* producer_node = node_val->node();
+      auto value_name = node_val->debugName();
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "Processing node outputs for Ivalue creation:", value_name);
+      if (producer_node->kind() == torch::jit::prim::Constant) {
+        // The Scalar as stack input already got updated as input part and
+        // Rest is constant so no need to update, we can use previous values
+        torch::jit::IValue const_ivalue =
+            torch::jit::toIValue(node_val).value();
+        auto ivptrsh = std::make_shared<IVal>(const_ivalue);
+        value_to_ivalue[node_val] = ivptrsh;
+      } else if (producer_node->kind() == torch::jit::prim::ListConstruct) {
+        IValPtrShared ival = MapPrimListConstructNodeInputIShape(
+            producer_node, dsi, value_to_ivalue);
+        value_to_ivalue[node_val] = ival;
+      } else {
+        auto& size_expr = dsi->value_to_sizeexpr[value_name];
+        if (size_expr == nullptr) {
+          std::vector<int64_t> concrete_size;
+          at::Tensor dummy_t = createDynamicTensor(concrete_size, DATA_TENSOR);
+          auto iv_tensor = torch::jit::IValue(dummy_t);
+          auto ivptrsh = std::make_shared<IVal>(iv_tensor);
+          value_to_ivalue[node_val] = ivptrsh;
+        } else {
+          SymExprFactory& expr_factory = SymExprFactory::getInstance();
+          std::vector<int64_t> concrete_size =
+              expr_factory.evaluate_symsize(size_expr);
+          PT_BRIDGE_DEBUG(
+              "Input Node: ", value_name, ", concrete_size:", concrete_size);
+          at::Tensor dummy_t = createDynamicTensor(concrete_size, DATA_TENSOR);
+          auto iv_tensor = torch::jit::IValue(dummy_t);
+          auto ivptrsh = std::make_shared<IVal>(iv_tensor);
+          value_to_ivalue[node_val] = ivptrsh;
+        }
+      }
+    }
+  }
+}
+
+void HabanaLaunchOpPT::UpdateIshapeForNodeOuputs(
+    torch::jit::Node* node,
+    RecipeValueSpec& rv) {
+  auto node_val = node->output(0);
+  auto node_qual_str = node->kind().toQualString();
+  std::string opname(node_qual_str);
+  auto value_name = node_val->debugName();
+  PT_DYNAMIC_SHAPE_DEBUG("Updating Ishape for output node = ", value_name);
+  auto& dsi = rv.ds_sifinfo_map[sym_expr_hash_];
+  if (!dsi.value_to_ishape[value_name].IsUpdated()) {
+    if (node->kind() == torch::jit::prim::Constant) {
+      HABANA_ASSERT(0, "Invalid Constant call for node:", value_name);
+    } else if (node->kind() == torch::jit::prim::ListConstruct) {
+      HABANA_ASSERT(0, "Invalid ListConstruct call for node:", value_name);
+    } else if (dsi.value_to_ishape[value_name].isTensor()) {
+      auto& size_expr = dsi.value_to_sizeexpr[value_name];
+      if (size_expr != nullptr) {
+        SymExprFactory& expr_factory = SymExprFactory::getInstance();
+        std::vector<int64_t> concrete_size =
+            expr_factory.evaluate_symsize(size_expr);
+        PT_BRIDGE_DEBUG(
+            "Output Node: ", value_name, ", concrete_size:", concrete_size);
+        dsi.value_to_ishape[value_name].UpdateTensor(concrete_size);
+      } else {
+        PT_DYNAMIC_SHAPE_DEBUG(
+            "Cannot evaluate out shape for node ",
+            value_name,
+            " expression is NULL");
+      }
+    }
+  }
+}
+
+void HabanaLaunchOpPT::CreateIValueForNodeOutputs(
+    torch::jit::Node* node,
+    habana_helpers::DynamicSIFInfo* dsi) {
+  auto node_val = node->output(0);
+  auto node_qual_str = node->kind().toQualString();
+  std::string opname(node_qual_str);
+  if (value_to_ivalue.count(node_val) == 0) {
+    auto value_name = node_val->debugName();
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Processing node outputs for Ivalue creation :", value_name);
+    if (node->kind() == torch::jit::prim::Constant) {
+      HABANA_ASSERT(0, "Invalid Constant call");
+    } else if (node->kind() == torch::jit::prim::ListConstruct) {
+      HABANA_ASSERT(0, "Invalid ListConstruct call");
+    } else {
+      auto& size_expr = dsi->value_to_sizeexpr[value_name];
+      if (size_expr == nullptr) {
+        std::vector<int64_t> concrete_size;
+        at::Tensor dummy_t = createDynamicTensor(concrete_size, DATA_TENSOR);
+        auto iv_tensor = torch::jit::IValue(dummy_t);
+        auto ivptrsh = std::make_shared<IVal>(iv_tensor);
+        value_to_ivalue[node_val] = ivptrsh;
+      } else {
+        SymExprFactory& expr_factory = SymExprFactory::getInstance();
+        std::vector<int64_t> concrete_size =
+            expr_factory.evaluate_symsize(size_expr);
+        PT_DYNAMIC_SHAPE_DEBUG(
+            "Output Node: ",
+            value_name,
+            ", size_expr: ",
+            size_expr->get_size_expr_str(),
+            ", concrete_size:",
+            concrete_size);
+        at::Tensor dummy_t = createDynamicTensor(concrete_size, DATA_TENSOR);
+        auto iv_tensor = torch::jit::IValue(dummy_t);
+        auto ivptrsh = std::make_shared<IVal>(iv_tensor);
+        value_to_ivalue[node_val] = ivptrsh;
+      }
+    }
+  }
+}
+
+void HabanaLaunchOpPT::CreateORUpdateExprSymbolicTable(RecipeValueSpec* rv) {
+  PT_BRIDGE_BEGIN;
+  if (rv != nullptr && rv->ds_sifinfo_map.count(sym_expr_hash_) > 0) {
+    auto& dsi = rv->ds_sifinfo_map[sym_expr_hash_];
+    std::for_each(
+        in_symbol_value_map.begin(),
+        in_symbol_value_map.end(),
+        [&](const std::pair<std::string, std::shared_ptr<double>>& p) {
+          if (dsi.expr_symbolic_table[p.first])
+            *(dsi.expr_symbolic_table[p.first]) = *(p.second);
+        });
+  } else {
+    auto& dsi = ds_sif_info_;
+    std::for_each(
+        in_symbol_value_map.begin(),
+        in_symbol_value_map.end(),
+        [&](const std::pair<std::string, std::shared_ptr<double>>& p) {
+          dsi.expr_symbolic_table[p.first] = std::move(p.second);
+        });
+  }
+}
+
+void HabanaLaunchOpPT::ProcessIntermediateSymbolicShapes(
+    std::shared_ptr<torch::jit::Graph>& jit_graph) {
+  auto& dsi = ds_sif_info_;
+  CreateORUpdateExprSymbolicTable();
+
+  // sym_lookup_Jit and jit_graph will be same as jit_ir_graph_ in case of
+  // compilation.
+  std::shared_ptr<torch::jit::Graph> sym_lookup_Jit = jit_ir_graph_;
+  torch::jit::graph_node_list graph_nodes = jit_graph->nodes();
+  torch::jit::graph_node_list sym_graph_nodes = sym_lookup_Jit->nodes();
+  auto itr_node = sym_graph_nodes.begin();
+
+  for (auto* node : graph_nodes) {
+    auto node_qual_str = node->kind().toQualString();
+    std::string opname(node_qual_str);
+    PT_BRIDGE_DEBUG("Symbolic Working on ", node_qual_str);
+
+    if ((node->kind() != torch::jit::prim::Constant) &&
+        (node->kind() != torch::jit::prim::ListConstruct)) {
+      auto node_val = node->output(0);
+      auto value_name = node_val->debugName();
+      auto outputshapes_attr = c10::Symbol::attr("output_shapes");
+      std::string shape_str;
+      if (node->hasAttribute(outputshapes_attr)) {
+        auto sym_node = *itr_node;
+        TORCH_CHECK(
+            node->kind() == sym_node->kind(),
+            "Nodes not matching!!!",
+            "\nsym_node:",
+            sym_node->output(0)->debugName(),
+            ",\ncurr_node:",
+            node->output(0)->debugName());
+        shape_str = sym_node->s(outputshapes_attr);
+      } else {
+        TORCH_CHECK(0, "Attr 'output_shapes' is missing for node:", value_name);
+      }
+
+      if (shape_str == "[]") {
+        dsi.value_to_sizeexpr[value_name] = nullptr;
+      } else {
+        SymExprFactory& expr_factory = SymExprFactory::getInstance();
+        auto size_expr = std::make_shared<SizeExpression>(
+            shape_str, dsi.expr_symbolic_table);
+        dsi.value_to_sizeexpr[value_name] = size_expr;
+        std::vector<int64_t> concrete_size =
+            expr_factory.evaluate_symsize(size_expr);
+        PT_BRIDGE_DEBUG(
+            "Node: ", value_name, ", concrete_size:", concrete_size);
+      }
+    }
+    ++itr_node;
+  }
+}
+
+void HabanaLaunchOpPT::HandleOutputSIFException(
+    torch::jit::Node* node,
+    const HabanaOperatorPtr& habana_op,
+    RecipeValueSpec& rv,
+    size_t& outputs_meta_index,
+    SynBuildCache& syn_build_cache) {
+  bool ds_sif_info_cached =
+      (rv.ds_sifinfo_map.count(sym_expr_hash_) > 0) ? true : false;
+  habana_helpers::DynamicSIFInfo* dsi = (ds_sif_info_cached)
+      ? &(rv.ds_sifinfo_map[sym_expr_hash_])
+      : &ds_sif_info_;
+
+  CreateIValueForNodeInputs(node, dsi);
+  CreateIValueForNodeOutputs(node, dsi);
+
+  // Handle exception with a fallback
+  OutputMetaDataVector& outputs_metadata =
+      syn_build_cache.get_or_compute_ref<&SynBuildCache::outputs_metadata>(
+          [this, node]() { return nodeOutputMetaData(node); },
+          outputs_meta_index);
+  outputs_meta_index++;
+  torch::jit::Stack input_stack = getStackForNode(node);
+  GetSynapseInputs(habana_op, node);
+  habana_op->AllocateAndAddSynapseNode(
+      *syn_graph_ptr_, input_stack, outputs_metadata);
+  if (!ds_sif_info_cached) {
+    habana::InferOutputMetaRetType kernel_output_cs(true);
+    ProcessSynapseOutputs(habana_op, node, kernel_output_cs);
+    CreateValueIShapeMapForNode(node, input_stack, outputs_metadata);
+  }
+}
+
+void HabanaLaunchOpPT::HandleViewBaseOutputShape(
+    torch::jit::Node* node,
+    habana_helpers::DynamicSIFInfo& dsi) {
+  auto node_out = node->output(0);
+  auto node_st_out = node->inputs().at(1);
+  auto value_name = node_out->debugName();
+  auto value_st_name = node_st_out->debugName();
+  if (!dsi.value_to_ishape[value_name].IsUpdated()) {
+    auto& size_expr = dsi.value_to_sizeexpr[value_name];
+    if (size_expr == nullptr) {
+      dsi.value_to_ishape[value_name].UpdateTensor(
+          dsi.value_to_ishape[value_st_name].getTensorShape());
+    }
+  }
+}
+
+uint64_t HabanaLaunchOpPT::HandleFrontendShapeTensorOp(torch::jit::Node* node) {
+  auto node_qual_str = node->kind().toQualString();
+  auto node_inputs = node->inputs();
+  uint64_t st_count = 0;
+  for (auto* input : node_inputs) {
+    if (value_to_ivalue.count(input)) {
+      auto ivalue = value_to_ivalue[input];
+      if (ivalue->isTensor()) {
+        auto tensor = ivalue->toTensor();
+        auto tmeta{habana::get_tensor_extra_meta(tensor)};
+        if (tmeta->is_shape_tensor()) {
+          auto shape = tensor.sizes().vec();
+          PT_BRIDGE_DEBUG(
+              "Calling dummy ST count updation for frontend shape tensor, op:",
+              node_qual_str);
+          habana_helpers::UpdateSTShapeInfo(shape);
+          st_count++;
+        }
+      }
+    } else {
+      PT_BRIDGE_DEBUG(
+          "Node input ", input->debugName(), " is missing in value_to_ivalue");
+    }
+  }
+  return st_count;
+}
+
+void HabanaLaunchOpPT::ResetIShapeUpdateStatus(RecipeValueSpec& rv) {
+  auto& dsi = rv.ds_sifinfo_map[sym_expr_hash_];
+  for (auto& pair : dsi.value_to_ishape) {
+    PT_DYNAMIC_SHAPE_DEBUG("Reset Ishape update status for node :", pair.first);
+    pair.second.ResetIshapeUpdate();
+  }
+}
+
+void HabanaLaunchOpPT::ReCreateValueToIvalueMapForInputs(
+    std::shared_ptr<torch::jit::Graph>& jit_graph) {
+  PT_BRIDGE_BEGIN;
+  value_to_ivalue.clear();
+
+  for (size_t j = 0; j < pt_stack_sh.size(); j++) {
+    auto value_input = jit_graph->inputs().at(j);
+    auto ivpsh = pt_stack_sh[j];
+    value_to_ivalue[value_input] = ivpsh;
+  }
+  PT_BRIDGE_END;
+}
+
+void HabanaLaunchOpPT::HandleOutputExprUnMappedJITGraph(
+    std::shared_ptr<torch::jit::Graph>& rv_jit_graph,
+    RecipeValueSpec& rv,
+    SynBuildCache& syn_build_cache) {
+  PT_DYNAMIC_SHAPE_DEBUG("Running HandleOutputExprUnMappedJITGraph");
+  auto& device = HPURegistrar::get_device();
+  synDeviceId device_id = device.id();
+  ProcessIntermediateSymbolicShapes(rv_jit_graph);
+  CreateValueToIShapeMapForInputs(rv_jit_graph);
+
+  if (current_dbipsh_) {
+    syn_build_cache.clear_cached_graph_info();
+  }
+
+  size_t outputs_metadata_index = 0;
+  // torch::jit::graph_node_list graph_nodes = jit_ir_graph_->nodes();
+  torch::jit::graph_node_list graph_nodes = rv_jit_graph->nodes();
+  for (auto* node : graph_nodes) {
+    auto node_qual_str = node->kind().toQualString();
+    std::string opname(node_qual_str);
+
+    PT_BRIDGE_DEBUG("Working on ", node_qual_str);
+    if (torch::jit::prim::Constant == node->kind() ||
+        torch::jit::prim::ListConstruct == node->kind()) {
+      continue;
+    }
+    const auto& op = node->schema().operator_name();
+    HabanaOperatorPtr HabanaKernel =
+        KernelRegistry().get(device_id, op, getNodeScalarType(node));
+
+    TORCH_CHECK(HabanaKernel, op, " isn't registered in KernelRegistry!");
+    HandleOutputSIFException(
+        node, HabanaKernel, rv, outputs_metadata_index, syn_build_cache);
+  }
+  rv.ds_sifinfo_map[sym_expr_hash_] = std::move(ds_sif_info_);
+}
+
+void HabanaLaunchOpPT::HandleOutputExprMappedJITGraph(
+    std::shared_ptr<torch::jit::Graph>& rv_jit_graph,
+    RecipeValueSpec& rv,
+    SynBuildCache& syn_build_cache) {
+  PT_DYNAMIC_SHAPE_DEBUG("Running HandleOutputExprMappedJITGraph");
+  auto& device = HPURegistrar::get_device();
+  synDeviceId device_id = device.id();
+  CreateORUpdateExprSymbolicTable(&rv);
+  ResetIShapeUpdateStatus(rv);
+  UpdateValueToIShapeMapForInputs(rv_jit_graph, rv);
+
+  if (current_dbipsh_) {
+    syn_build_cache.clear_cached_graph_info();
+  }
+
+  size_t outputs_metadata_index = 0;
+  torch::jit::graph_node_list graph_nodes = rv_jit_graph->nodes();
+  for (auto* node : graph_nodes) {
+    auto node_qual_str = node->kind().toQualString();
+    std::string opname(node_qual_str);
+
+    PT_BRIDGE_DEBUG("Working on ", node_qual_str);
+    if (node->kind() == torch::jit::prim::Constant) {
+      continue;
+    }
+
+    uint64_t initial_st_tensor_id = habana::ShapeInference::GetShapeTensorId();
+    uint64_t st_count = HandleFrontendShapeTensorOp(node);
+
+    // Handling the HandleInputViews created node which will not have
+    // output_shapes attr
+    if (opname.find("strided_view") != std::string::npos) {
+      auto& dsi = rv.ds_sifinfo_map[sym_expr_hash_];
+      HandleViewBaseOutputShape(node, dsi);
+    }
+
+    // Check if the op is creating shape tensor at the backend
+    if (!rv.st_backend_create_op_list.count(node->kind().toQualString())) {
+      continue;
+    }
+
+    const auto& op = node->schema().operator_name();
+    HabanaOperatorPtr HabanaKernel =
+        KernelRegistry().get(device_id, op, getNodeScalarType(node));
+
+    TORCH_CHECK(HabanaKernel, op, " isn't registered in KernelRegistry!");
+
+    UpdateIshapeForNodeInputs(node, rv);
+    UpdateIshapeForNodeOuputs(node, rv);
+    habana_helpers::IShapeList input_ishape = getInputIShapesForNode(node, rv);
+    habana_helpers::IShapeList output_ishape =
+        getOutputIShapesForNode(node, rv);
+    try {
+      PT_BRIDGE_DEBUG("STMeta calling");
+      auto op = std::dynamic_pointer_cast<OpBackend>(HabanaKernel);
+      if (op != nullptr) {
+        op->STMeta(input_ishape, output_ishape);
+      } else {
+        HabanaKernel->STMeta(input_ishape, output_ishape);
+      }
+    } catch (std::exception& e) {
+      std::string error = e.what();
+      std::string error_str = error.substr(0, error.find("\n"));
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "ST Meta exception : ", error_str, " for op:", node_qual_str);
+
+      // Decrement frontend ST count, fallback flow will handle all the input
+      // tensor including shape tensors.
+      for (uint64_t i = 0; i < st_count; i++) {
+        habana::ShapeInference::ReadAndDecrementShapeTensorId();
+      }
+      uint64_t reset_st_tensor_id = habana::ShapeInference::GetShapeTensorId();
+      HABANA_ASSERT(
+          reset_st_tensor_id == initial_st_tensor_id,
+          "Frontend shape tensor id not reset properly!!");
+
+      HandleOutputSIFException(
+          node, HabanaKernel, rv, outputs_metadata_index, syn_build_cache);
+    }
+  }
+}
+
+void HabanaLaunchOpPT::BuildSynapseGraphLite(
+    std::shared_ptr<synapse_helpers::graph>& syn_graph,
+    SynBuildCache& syn_build_cache) {
+  PT_BRIDGE_BEGIN;
+  PT_DYNAMIC_SHAPE_DEBUG("Running BuildSynapseGraphLite");
+  habana::ShapeInference::ResetShapeTensorId();
+  syn_graph_ptr_ = syn_graph;
+  auto recipe_holder = GetCachedRecipe(cur_rargpsh);
+  RecipeValueSpec& rv = *recipe_holder->rvs_;
+  ShapeInference::SetTensorMapping(rv.st_to_tensor_idx_map);
+  sym_expr_hash_ = habana::ComputeNodeSymOutputHashCode(jit_ir_graph_);
+  auto rv_jit_graph = rv.jit_graph_;
+  ReCreateValueToIvalueMapForInputs(rv_jit_graph);
+
+  PT_DYNAMIC_SHAPE_DEBUG(
+      "Recipe JIT graph:",
+      rv_jit_graph->toString(),
+      "Current JIT graph:",
+      "\nkey:",
+      graph_key_with_perm_);
+
+  if (rv.ds_sifinfo_map.count(sym_expr_hash_) > 0) {
+    HandleOutputExprMappedJITGraph(rv_jit_graph, rv, syn_build_cache);
+  } else {
+    HandleOutputExprUnMappedJITGraph(rv_jit_graph, rv, syn_build_cache);
+  }
+}
+
 void HabanaLaunchOpPT::BuildSynapseGraph(
     std::shared_ptr<synapse_helpers::graph>& syn_graph,
     SynBuildCache& syn_build_cache,
@@ -2050,9 +2779,18 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   // figure out the right device id
   auto& device = HPURegistrar::get_device();
   synDeviceId device_id = device.id();
-
   synapse_helpers::detail::tensor_name_generator::reset();
   syn_graph_ptr_ = syn_graph;
+
+  if (syn_graph->is_dynamic_graph() && enable_optim_output_sif_ &&
+      (m_map_shape.m_pass == ShapeInfo::InferencePass::INVALID)) {
+    // This is used to create mapping between shape Tensor to tensor idx
+    habana::ShapeInference::ResetShapeTensorId();
+    habana::ShapeInference::ResetTensorMapping();
+    sym_expr_hash_ = habana::ComputeNodeSymOutputHashCode(jit_ir_graph_);
+    ProcessIntermediateSymbolicShapes(jit_ir_graph_);
+    CreateValueToIShapeMapForInputs(jit_ir_graph_);
+  }
 
   if (current_dbipsh_) {
     syn_build_cache.clear_cached_graph_info();
@@ -2277,8 +3015,17 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
           op->ComputeOutputShapes(input_stack);
       }
 
+      uint64_t curr_st_id = habana::ShapeInference::GetShapeTensorId();
       HabanaKernel->AllocateAndAddSynapseNode(
           *syn_graph, input_stack, outputs_metadata);
+      uint64_t changed_st_id = habana::ShapeInference::GetShapeTensorId();
+      if (enable_optim_output_sif_ &&
+          (m_map_shape.m_pass == ShapeInfo::InferencePass::INVALID) &&
+          (changed_st_id != curr_st_id)) {
+        // Update st_backend_creation_op_list
+        st_backend_create_op_list.insert(node->kind().toQualString());
+      }
+
       HabanaKernel->dump(node, input_stack);
       if (updatemax_node) {
         UpdateMaxValues(HabanaKernel, input_stack, index2maxvalues);
@@ -2418,6 +3165,11 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     auto cur_sif_tidx =
         ProcessSynapseOutputs(HabanaKernel, node, kernel_output_cs);
 
+    if (syn_graph->is_dynamic_graph() && enable_optim_output_sif_ &&
+        (m_map_shape.m_pass == ShapeInfo::InferencePass::INVALID)) {
+      CreateValueIShapeMapForNode(node, input_stack, outputs_metadata);
+    }
+
     // HybridSif specific
     const auto dynamic_compile_graph = refine_ds_enabled_ &&
         enable_fast_shape_inf_ && syn_graph->is_dynamic_graph() &&
@@ -2435,6 +3187,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     }
 
     PT_BRIDGE_DEBUG(DumpNodeOutputs(node, value_to_ivalue));
+
     // The kernel corresponding to current IR node, HabanaKernel, might create
     // one or more appended tensors. These are tensors which do not have a
     // corresponding ValPtr in the IR graph. These are either duplicate of
@@ -2516,6 +3269,13 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // Adding to a vector as we share context through shared pointers and we
     // dont want to call delete untill we are done with whole graph
     habana_kernels.push_back(HabanaKernel);
+  }
+
+  // Print st_backend_create_op_list
+  for (auto itr = st_backend_create_op_list.begin();
+       itr != st_backend_create_op_list.end();
+       itr++) {
+    PT_BRIDGE_DEBUG("Ops which are creating ST at the backend: ", *itr);
   }
 
   // Generate patching info for graph inputs during fast sif
@@ -2800,6 +3560,57 @@ void HabanaLaunchOpPT::CreateValueToIvalueMapForInputs() {
     auto ivpsh = pt_stack_sh[j];
     value_to_ivalue[value_input] = ivpsh;
     ival_hash_to_input_index_map_[ivpsh->hash().toInt()] = j;
+  }
+  PT_BRIDGE_END;
+}
+
+void HabanaLaunchOpPT::CreateValueToIShapeMapForInputs(
+    std::shared_ptr<torch::jit::Graph>& jit_graph) {
+  PT_BRIDGE_BEGIN;
+  for (size_t j = 0; j < pt_stack_sh.size(); j++) {
+    auto value_input = jit_graph->inputs().at(j);
+    auto ivalue_input = pt_stack_sh[j];
+    auto value_name = value_input->debugName();
+    auto& dsi = ds_sif_info_;
+    if (ivalue_input->isTensor()) {
+      auto tensor = ivalue_input->toTensor();
+      habana_helpers::IShape ishape(tensor.sizes().vec(), tensor.scalar_type());
+      dsi.value_to_ishape.insert({value_name, ishape});
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "Create Ishape Tensor ",
+          value_name,
+          " Scalar type ",
+          tensor.scalar_type());
+    } else if (ivalue_input->isScalar()) {
+      auto scalar = ivalue_input->toScalar();
+      habana_helpers::IShape ishape(scalar, scalar.type());
+      dsi.value_to_ishape.insert({value_name, ishape});
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "Create Ishape Scalar ", value_name, " Scalar type ", scalar.type());
+    } else {
+      habana_helpers::IShape ishape;
+      dsi.value_to_ishape.insert({value_name, ishape});
+    }
+  }
+  PT_BRIDGE_END;
+}
+
+void HabanaLaunchOpPT::UpdateValueToIShapeMapForInputs(
+    std::shared_ptr<torch::jit::Graph>& jit_graph,
+    RecipeValueSpec& rv) {
+  PT_BRIDGE_BEGIN;
+  auto& dsi = rv.ds_sifinfo_map[sym_expr_hash_];
+  for (size_t j = 0; j < pt_stack_sh.size(); j++) {
+    auto value_input = jit_graph->inputs().at(j);
+    auto ivalue_input = pt_stack_sh[j];
+    auto value_name = value_input->debugName();
+    if (ivalue_input->isTensor()) {
+      auto tensor = ivalue_input->toTensor();
+      dsi.value_to_ishape[value_name].UpdateTensor(tensor.sizes().vec());
+    } else if (ivalue_input->isScalar()) {
+      auto scalar = ivalue_input->toScalar();
+      dsi.value_to_ishape[value_name].UpdateScalar(scalar);
+    }
   }
   PT_BRIDGE_END;
 }
@@ -4366,7 +5177,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
           device.syn_device(), name_));
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
-  auto rvs = std::make_shared<RecipeValueSpec>();
+  auto rvs = std::make_shared<RecipeValueSpec>(jit_ir_graph_);
   // Compile the graph
   {
     CreateValueToIvalueMapForInputs();
@@ -4443,7 +5254,15 @@ void HabanaLaunchOpPT::run_pass() {
   syn_graph->set_dynamic_graph(true);
   CreateValueToIvalueMapForInputs();
   SynBuildCache cache;
-  BuildSynapseGraph(syn_graph, cache, true);
+
+  if (enable_optim_output_sif_ &&
+      habana::ShapeInference::GetCurrentPass() ==
+          habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
+    BuildSynapseGraphLite(syn_graph, cache);
+  } else {
+    BuildSynapseGraph(syn_graph, cache, true);
+  }
+
   //
   // clear the data that has been setup as part of the above
   // method

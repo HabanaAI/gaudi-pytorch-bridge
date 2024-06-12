@@ -654,7 +654,12 @@ void RecipeValueSpec::update_patching_table(
       for (size_t i = 0; i < dtensorinfos.size(); ++i) {
         auto& ti = *(dtensorinfos.at(i));
         auto tensor_id = ti.get_tensor_id();
-        HABANA_ASSERT(m_actual_shapes.count(tensor_id));
+        if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) == true &&
+            ti.tensor_type() != SHAPE_TENSOR) {
+          continue;
+        }
+        HABANA_ASSERT(
+            m_actual_shapes.count(tensor_id), "Tensor ID ", tensor_id);
         auto dims = m_actual_shapes.at(tensor_id).get_dims();
         auto syn_shape = ti.get_shape();
 
@@ -689,6 +694,9 @@ void RecipeValueSpec::update_patching_table(
 
       auto tmeta{habana::get_tensor_extra_meta(tensor)};
       if (false == tmeta->is_shape_tensor()) {
+        auto& ti = *(dtensorinfos.at(ridx));
+        ti.set_shape(tensor.sizes().vec());
+        ti.set_strides(tensor.strides().vec());
         dtensorinfos.at(ridx)->patch_exact(
             input.toTensor(), is_shape_agnostic_graph);
         IValPtrShared ivpsh = std::make_shared<IVal>(input);
@@ -712,6 +720,9 @@ void RecipeValueSpec::update_patching_table(
       ridx++;
     } else if (input.isTensorList()) {
       for (const at::Tensor& t : input.toTensorList()) {
+        auto& ti = *(dtensorinfos.at(ridx));
+        ti.set_shape(t.sizes().vec());
+        ti.set_strides(t.strides().vec());
         dtensorinfos.at(ridx)->patch_exact(t, is_shape_agnostic_graph);
         IValPtrShared ivpsh = std::make_shared<IVal>(t);
         inputIVpshMap.emplace(ridx, ivpsh);
@@ -747,6 +758,11 @@ void RecipeValueSpec::update_patching_table(
     for (; ridx < induplicates_index_end; ridx++) {
       size_t parent_idx = dtensorinfos.at(ridx)->get_parent_index();
       auto parent_ti = dtensorinfos.at(parent_idx);
+
+      auto& ti = *(dtensorinfos.at(ridx));
+      ti.set_shape(parent_ti->get_shape());
+      ti.set_strides(parent_ti->get_strides());
+
       dtensorinfos.at(ridx)->patch(*parent_ti, is_shape_agnostic_graph);
       PT_BRIDGE_DEBUG(
           "HabanaOp recipe cache hit :: Input duplicate : parent idx ",
@@ -955,6 +971,8 @@ void RecipeValueSpec::update_patching_table(
         ridx,
         " output tensor storage data pointer : ",
         pt_output.storage().data_ptr().get());
+    ti.set_shape(pt_output.sizes().vec());
+    ti.set_strides(pt_output.strides().vec());
     ti.patch(pt_output, is_shape_agnostic_graph);
   }
 
