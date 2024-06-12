@@ -2777,6 +2777,15 @@ clone:
   out_ids: [0]
   no_compute_flag: true
 
+lift_fresh_copy:
+  dtypes:
+    Gaudi: [BFloat16, Float, Int, Long, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
+  guid: identity
+  out_ids: [0]
+  no_compute_flag: true
+
 complex:
   override_fn: complex_hpu
 
