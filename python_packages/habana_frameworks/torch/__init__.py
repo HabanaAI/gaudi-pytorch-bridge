@@ -17,6 +17,11 @@ import warnings
 # This is to ensure we don't start torch.inductor codecache process pool
 os.environ["TORCHINDUCTOR_COMPILE_THREADS"] = "1"
 
+# This is to prevent torch autoload mechanism from causing circular imports
+import habana_frameworks
+
+habana_frameworks.is_loaded = True
+
 import torch
 from habana_frameworks.torch.utils.internal import is_lazy
 from packaging.version import Version
