@@ -25,8 +25,10 @@
 #include <unistd.h>
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/collective_utils.h"
+#include "backend/helpers/eager_pipeline.h"
 #include "backend/synapse_helpers/hccl_communicator.h"
 #include "habana_eager/eager_context.h"
+#include "habana_eager/eager_tensor.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
 #include "habana_kernels/tensor_shape_kernels.h"
@@ -37,6 +39,7 @@
 #include "python_packages/habana_frameworks/torch/distributed/hccl/process_group_hccl_base.hpp"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 
+#include "hpu_ops/op_logger.h"
 #include "process_group_registry.hpp"
 
 namespace c10d {
@@ -46,16 +49,25 @@ class CollectiveContext {
  public:
   CollectiveContext(
       std::vector<at::Tensor>& inputs,
-      std::vector<at::Tensor>& outputs)
-      : inputs_(inputs), outputs_(outputs) {
+      std::vector<at::Tensor>& outputs,
+      bool is_pipelined = false)
+      : inputs_(inputs), outputs_(outputs), is_pipelined_(is_pipelined) {
     TORCH_CHECK(inputs.size() == outputs.size());
     ensure_input_output_tensors_contiguity();
   }
   CollectiveContext(const CollectiveContext&) = delete;
+  CollectiveContext(CollectiveContext&&) = delete;
+  CollectiveContext& operator=(const CollectiveContext&) = delete;
   CollectiveContext& operator=(CollectiveContext&) = delete;
+  CollectiveContext& operator=(CollectiveContext&&) = delete;
 
   ~CollectiveContext() {
-    restore_output_tensors_if_needed();
+    PT_DISTRIBUTED_DEBUG("~CollectiveContext")
+    // if collectives are pipelined, the output tensor restore must be
+    // done at the main thread, such that D2D copies are also pipelined.
+    if (!is_pipelined_) {
+      restore_output_tensors_if_needed();
+    }
   }
 
   CollectiveContext(std::vector<at::Tensor>& tensors)
@@ -65,10 +77,15 @@ class CollectiveContext {
     return in_out_tensors_contiguous_;
   }
 
+  std::vector<at::Tensor>& outputs() {
+    return outputs_;
+  }
+
  private:
   std::vector<std::pair<at::Tensor, at::Tensor>> in_out_tensors_contiguous_;
-  std::vector<at::Tensor>& inputs_;
-  std::vector<at::Tensor>& outputs_;
+  std::vector<at::Tensor> inputs_;
+  std::vector<at::Tensor> outputs_;
+  bool is_pipelined_{false};
 
   void ensure_input_output_tensors_contiguity() {
     in_out_tensors_contiguous_.resize(inputs_.size());
@@ -82,6 +99,8 @@ class CollectiveContext {
       }
 
       // create tensor copy in case if provided input is not contiguous
+      PT_DISTRIBUTED_DEBUG(
+          "ensure contiguous input tensor ", habana::to_string(inputs_[i]));
       at::Tensor input_contiguous = inputs_[i].contiguous();
       at::Tensor output_contiguous;
       if (inputs_[i].unsafeGetTensorImpl() ==
@@ -90,6 +109,8 @@ class CollectiveContext {
         output_contiguous = input_contiguous;
       } else {
         // create tensor copy in case if provided output is not contiguous
+        PT_DISTRIBUTED_DEBUG(
+            "ensure contiguous output tensor ", habana::to_string(outputs_[i]));
         output_contiguous = outputs_[i].contiguous();
       }
       in_out_tensors_contiguous_[i] =
@@ -103,6 +124,8 @@ class CollectiveContext {
           in_out_tensors_contiguous_[i].second.unsafeGetTensorImpl()) {
         // provided output wasn't contiguous, so the result of collective is
         // stored in tensors_contiguous[i]
+        PT_DISTRIBUTED_DEBUG(
+            "restore output tensor ", habana::to_string(outputs_[i]));
         outputs_[i].copy_(in_out_tensors_contiguous_[i].second, true);
       }
     }
@@ -175,11 +198,9 @@ ProcessGroupEagerHCCL::~ProcessGroupEagerHCCL() {
 
 ProcessGroupEagerHCCL::WorkEager::WorkEager(
     const std::vector<at::Tensor>& outputs,
-    std::shared_ptr<hcclComm_t> hccl_comm,
-    std::shared_ptr<hccl_integration::device_context> deviceCtx)
+    std::shared_ptr<habana::HcclCommunicator> comm)
     : outputs_(outputs),
-      hccl_comm_(hccl_comm),
-      deviceCtx_(deviceCtx),
+      comm_(comm),
       workStartTime_(std::chrono::steady_clock::now()),
       future_(c10::make_intrusive<at::ivalue::Future>(
           c10::ListType::create(c10::TensorType::get()))) {
@@ -208,24 +229,89 @@ bool ProcessGroupEagerHCCL::WorkEager::isSuccess() const {
   return true;
 }
 
+void ProcessGroupEagerHCCL::WorkEager::synchronize() {
+  for (size_t i = 0; i < outputs_.size(); ++i) {
+    PT_DISTRIBUTED_DEBUG("WorkEager::synchronize()");
+    comm_->getDeviceCtxt()->synchronize_output(
+        (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get(),
+        (c10::hpu::getCurrentHPUStream()).stream());
+  }
+  outputs_.clear();
+}
+
+void Synchronize_Execute_Task(
+    const std::vector<at::Tensor>& outputs,
+    std::shared_ptr<habana::HcclCommunicator> comm,
+    synapse_helpers::hpuStream_t stream) {
+  PT_DISTRIBUTED_DEBUG("Synchronize_Execute_Task");
+  for (size_t i = 0; i < outputs.size(); ++i) {
+    comm->getDeviceCtxt()->synchronize_output(
+        (synapse_helpers::device_ptr)outputs[i].storage().data_ptr().get(),
+        stream);
+  }
+}
+
+void Synchronize_Empty_Compile_Task(
+    const std::vector<at::Tensor>& outputs,
+    std::shared_ptr<habana::HcclCommunicator> comm,
+    synapse_helpers::hpuStream_t stream) {
+  PT_DISTRIBUTED_DEBUG("Synchronize_Empty_Compile_Task");
+  habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
+      Synchronize_Execute_Task, std::move(outputs), comm, stream);
+  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+    habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+  }
+}
+
+void Synchronize_Empty_Lowering_Task(
+    const std::vector<at::Tensor>& outputs,
+    std::shared_ptr<habana::HcclCommunicator> comm,
+    synapse_helpers::hpuStream_t stream) {
+  PT_DISTRIBUTED_DEBUG("Synchronize_Empty_Lowering_Task");
+  habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
+      Synchronize_Empty_Compile_Task, std::move(outputs), comm, stream);
+  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+    habana_helpers::Singleton_CompileThreadPool::getInstance()
+        .JoinPendingThread();
+  }
+}
+
 bool ProcessGroupEagerHCCL::WorkEager::wait(std::chrono::milliseconds timeout
                                             [[maybe_unused]]) {
-  synchronize();
+  PT_DISTRIBUTED_DEBUG("WorkEager::wait");
+  const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
+
+  std::vector<at::Tensor> outputs_backend;
+  if (pipeline_flag) {
+    // Update backend tensors if pipeline is enabled
+    outputs_backend.reserve(outputs_.size());
+    for (size_t i = 0; i < outputs_.size(); i++) {
+      outputs_backend.push_back(
+          habana::eager::HbEagerTensorPool::get_backend_tensor(outputs_[i]));
+
+      // Set tensor pipeline metadata
+      auto output_hb_tmeta{
+          habana::get_tensor_extra_meta(outputs_backend.back())};
+      output_hb_tmeta->set_tensor_pipelined();
+    }
+    habana::eager::SingleTonEagerContext::getInstance()
+        .ScheduleWorkAndUpdateLoweringThreadHandle(
+            Synchronize_Empty_Lowering_Task,
+            std::move(outputs_backend),
+            comm_,
+            (c10::hpu::getCurrentHPUStream()).stream());
+  } else {
+    // Nothing to join pending here
+    Synchronize_Execute_Task(
+        outputs_, comm_, (c10::hpu::getCurrentHPUStream()).stream());
+  }
+  outputs_.clear();
   return true;
 }
 
 void ProcessGroupEagerHCCL::WorkEager::abort() {
   HABANA_ASSERT(false, __FUNCTION__, " not implemented");
-}
-
-void ProcessGroupEagerHCCL::WorkEager::synchronize() {
-  for (size_t i = 0; i < outputs_.size(); ++i) {
-    deviceCtx_->synchronize_output(
-        (synapse_helpers::device_ptr)outputs_[i].storage().data_ptr().get(),
-        (c10::hpu::getCurrentHPUStream()).stream());
-  }
-  outputs_.clear();
-  deviceCtx_.reset();
 }
 
 c10::intrusive_ptr<c10::ivalue::Future> ProcessGroupEagerHCCL::WorkEager::
@@ -235,9 +321,7 @@ c10::intrusive_ptr<c10::ivalue::Future> ProcessGroupEagerHCCL::WorkEager::
 
 c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::initWork(
     std::vector<at::Tensor>& outputs) {
-  auto deviceCtxt = comm_->getDeviceCtxt();
-  return c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(
-      outputs, comm_->GetHcclHandle(), deviceCtxt);
+  return c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(outputs, comm_);
 }
 
 c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
@@ -291,8 +375,8 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
         });
   }
 
-  auto work = c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(
-      tensors, comm_->GetHcclHandle(), deviceCtxt);
+  auto work =
+      c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(tensors, comm_);
   return work;
 }
 
@@ -300,21 +384,15 @@ void ProcessGroupEagerHCCL::initComms() {
   comm_->getDeviceCtxt();
 }
 
-c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
-    std::vector<at::Tensor>& inputs,
-    std::vector<at::Tensor>& outputs,
-    CollectiveFn fn,
+void Collective_Execute_Task(
+    std::shared_ptr<habana::HcclCommunicator> comm_,
+    std::unique_ptr<CollectiveContext> ctx,
+    CollectiveFn&& fn,
     [[maybe_unused]] bool is_allreduce) {
-  TORCH_CHECK(
-      inputs.size() == outputs.size(),
-      "Number of inputs has to be the same as num of outputs");
-
-  CollectiveContext collective_ctx(inputs, outputs);
-
-  habana::eager::JoinPendingPipelineThreads();
+  PT_DISTRIBUTED_DEBUG("Collective_Execute_Task");
   auto deviceCtxt = comm_->getDeviceCtxt();
 
-  for (auto& input_output : collective_ctx.tensors()) {
+  for (auto& input_output : ctx->tensors()) {
     at::Tensor& input = input_output.first;
     at::Tensor& output = input_output.second;
 
@@ -381,8 +459,111 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
         });
   }
 
-  auto work = c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(
-      outputs, comm_->GetHcclHandle(), deviceCtxt);
+  return;
+}
+
+void Collective_Empty_Compile_Task(
+    std::shared_ptr<habana::HcclCommunicator> comm_,
+    std::unique_ptr<CollectiveContext> ctx,
+    CollectiveFn&& fn,
+    bool is_allreduce) {
+  PT_DISTRIBUTED_DEBUG("Collective_Empty_Compile_Task");
+  habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
+      Collective_Execute_Task,
+      comm_,
+      std::move(ctx),
+      std::move(fn),
+      is_allreduce);
+
+  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+    habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+  }
+}
+
+void Collective_Empty_Lowering_Task(
+    std::shared_ptr<habana::HcclCommunicator> comm_,
+    std::unique_ptr<CollectiveContext> ctx,
+    CollectiveFn&& fn,
+    bool is_allreduce) {
+  PT_DISTRIBUTED_DEBUG("Collective_Empty_Lowering_Task");
+  habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
+      Collective_Empty_Compile_Task,
+      comm_,
+      std::move(ctx),
+      std::move(fn),
+      is_allreduce);
+  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+    habana_helpers::Singleton_CompileThreadPool::getInstance()
+        .JoinPendingThread();
+  }
+}
+
+c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
+    std::vector<at::Tensor>& inputs,
+    std::vector<at::Tensor>& outputs,
+    CollectiveFn fn,
+    [[maybe_unused]] bool is_allreduce) {
+  PT_DISTRIBUTED_BEGIN;
+  PT_DISTRIBUTED_DEBUG("ProcessGroupEagerHCCL::collective");
+
+  TORCH_CHECK(inputs.size() == outputs.size());
+  const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
+
+  // Update backend tensors if pipeline is enabled
+  std::vector<at::Tensor> inputs_backend;
+  std::vector<at::Tensor> outputs_backend;
+  if (pipeline_flag) {
+    inputs_backend.reserve(inputs.size());
+    outputs_backend.reserve(outputs.size());
+    for (size_t i = 0; i < inputs.size(); i++) {
+      inputs_backend.push_back(
+          habana::eager::HbEagerTensorPool::get_backend_tensor(inputs[i]));
+      outputs_backend.push_back(
+          habana::eager::HbEagerTensorPool::get_backend_tensor(outputs[i]));
+
+      // Set tensor pipeline metadata
+      auto input_hb_tmeta{habana::get_tensor_extra_meta(inputs_backend.back())};
+      auto output_hb_tmeta{
+          habana::get_tensor_extra_meta(outputs_backend.back())};
+      input_hb_tmeta->set_tensor_pipelined();
+      output_hb_tmeta->set_tensor_pipelined();
+    }
+  }
+
+  auto ctx = pipeline_flag
+      ? std::make_unique<CollectiveContext>(
+            inputs_backend, outputs_backend, true)
+      : std::make_unique<CollectiveContext>(inputs, outputs);
+
+  if (pipeline_flag) {
+    const auto input_output_tensors = ctx->tensors();
+    habana::eager::SingleTonEagerContext::getInstance()
+        .ScheduleWorkAndUpdateLoweringThreadHandle(
+            Collective_Empty_Lowering_Task,
+            comm_,
+            std::move(ctx),
+            std::move(fn),
+            is_allreduce);
+    // Restore the output tensors i.e. copy D2D in the main thread
+    // So that such copies are also pipelined.
+    // ToDo: Refactor it when handling pointToPoint collective pipeline.
+    for (size_t i = 0; i < input_output_tensors.size(); ++i) {
+      if (outputs_backend[i].unsafeGetTensorImpl() !=
+          input_output_tensors[i].second.unsafeGetTensorImpl()) {
+        PT_DISTRIBUTED_DEBUG(
+            "restore output tensor ", habana::to_string(outputs_backend[i]));
+        outputs_backend[i].copy_(input_output_tensors[i].second, true);
+      }
+    }
+
+  } else {
+    habana::eager::JoinPendingPipelineThreads();
+    Collective_Execute_Task(comm_, std::move(ctx), std::move(fn), is_allreduce);
+  }
+
+  auto work =
+      c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(outputs, comm_);
   return work;
 }
 

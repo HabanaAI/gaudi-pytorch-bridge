@@ -4,6 +4,8 @@ from copy import deepcopy
 from typing import List
 
 import habana_frameworks.torch.hpu
+
+# import habana_frameworks.torch.low_overhead_profiler.profiler as lop
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -16,6 +18,19 @@ from torch.optim import SGD
 from torch.optim.lr_scheduler import StepLR
 from torchvision import datasets, transforms
 
+"""
+schedule = torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1)
+activities = [torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.HPU]
+
+profiler = torch.profiler.profile(
+    schedule=schedule,
+    activities=activities,
+    on_trace_ready=torch.profiler.tensorboard_trace_handler("./"),
+    record_shapes=False,
+    with_stack=True,
+)
+"""
+
 
 def setup(rank, world_size):
     os.environ["MASTER_ADDR"] = "localhost"
@@ -23,18 +38,89 @@ def setup(rank, world_size):
     import habana_frameworks.torch.distributed.hccl
 
     dist.init_process_group(backend="hccl", rank=rank, world_size=world_size)
+    # profiler.start()
+    # lop.start()
 
 
 def cleanup():
     dist.destroy_process_group()
+    # profiler.stop()
+    # lop.stop()
+    # lop.flush()
 
 
 device_hpu = torch.device("hpu")
 
 
+def all_gather_with_odd_size(rank, world_size, args):
+    device = f"{device_hpu}"
+    setup(rank, world_size)
+
+    # test all_gather
+    input_tensor = torch.ones(63, device=device_hpu, dtype=torch.uint8) * world_size
+    output_tensor_list = [torch.zeros(63, device=device_hpu, dtype=torch.uint8) for _ in range(world_size)]
+    dist.all_gather(output_tensor_list, input_tensor, async_op=True).wait()
+
+    for tensor in output_tensor_list:
+        torch.testing.assert_close(tensor, input_tensor)
+
+    dist.barrier()
+    cleanup()
+
+
+def all_gather_into_tensor_with_odd_size(rank, world_size, args):
+    device = f"{device_hpu}"
+    setup(rank, world_size)
+
+    # test all_gather_into_tensor
+    input_tensor = torch.arange(63, device=device_hpu, dtype=torch.uint8) + (rank * 63)
+    output_tensor = torch.zeros(63 * world_size, device=device_hpu, dtype=torch.uint8)
+    dist.all_gather_into_tensor(output_tensor, input_tensor, async_op=True).wait()
+
+    torch.testing.assert_close(torch.arange(63 * world_size, device=device_hpu, dtype=torch.uint8), output_tensor)
+
+    dist.barrier()
+    cleanup()
+
+
+def broadcast_with_odd_size(rank, world_size, args):
+    device = f"{device_hpu}"
+    setup(rank, world_size)
+
+    # test broadcast
+    if rank == 0:
+        input_tensor = torch.ones(99, 99, device=device_hpu, dtype=torch.uint8)
+    else:
+        input_tensor = torch.zeros(99, 99, device=device_hpu, dtype=torch.uint8)
+    dist.broadcast(input_tensor, 0, async_op=True).wait()
+    torch.testing.assert_close(torch.ones(99, 99, device=device_hpu, dtype=torch.uint8), input_tensor)
+
+    dist.barrier()
+    cleanup()
+
+
+def all_gather_with_odd_size_and_view(rank, world_size, args):
+    device = f"{device_hpu}"
+    setup(rank, world_size)
+
+    # test all_gather
+    input_tensor = torch.arange(81, dtype=torch.float).as_strided((9, 9), (1, 9)).to(device)
+    output_tensor_list = [
+        torch.zeros(81, dtype=torch.float).as_strided((9, 9), (1, 9)).to(device) for _ in range(world_size)
+    ]
+    dist.all_gather(output_tensor_list, input_tensor, async_op=True).wait()
+
+    for tensor in output_tensor_list:
+        torch.testing.assert_close(tensor, input_tensor)
+
+    dist.barrier()
+    cleanup()
+
+
 def simple(rank, world_size, args):
     device = f"{device_hpu}"
     setup(rank, world_size)
+
     # test all_gather
     input_tensor = torch.ones(100, 100, device=device_hpu) * 7
     output_tensor_list = [torch.zeros(100, 100, device=device_hpu) for _ in range(world_size)]
@@ -42,6 +128,13 @@ def simple(rank, world_size, args):
 
     for tensor in output_tensor_list:
         torch.testing.assert_close(tensor, input_tensor)
+
+    # test all_gather_into_tensor
+    input_tensor = torch.arange(100, device=device_hpu, dtype=torch.float) + (rank * 100)
+    output_tensor = torch.zeros(100 * world_size, device=device_hpu, dtype=torch.float)
+    dist.all_gather_into_tensor(output_tensor, input_tensor, async_op=True).wait()
+
+    torch.testing.assert_close(torch.arange(100 * world_size, device=device_hpu, dtype=torch.float), output_tensor)
 
     # test all_reduce
     input_tensor = torch.ones(100, 100, device=device_hpu) * 7
@@ -77,3 +170,10 @@ if __name__ == "__main__":
     WORLD_SIZE = habana_frameworks.torch.hpu.device_count()
     if WORLD_SIZE > 1:
         mp.spawn(simple, args=(WORLD_SIZE, args), nprocs=WORLD_SIZE, join=True)
+
+    if WORLD_SIZE > 2:
+        mp.spawn(all_gather_into_tensor_with_odd_size, args=(2, args), nprocs=2, join=True)
+        mp.spawn(all_gather_into_tensor_with_odd_size, args=(3, args), nprocs=3, join=True)
+        mp.spawn(broadcast_with_odd_size, args=(WORLD_SIZE, args), nprocs=WORLD_SIZE, join=True)
+        mp.spawn(all_gather_with_odd_size, args=(WORLD_SIZE, args), nprocs=WORLD_SIZE, join=True)
+        mp.spawn(all_gather_with_odd_size_and_view, args=(WORLD_SIZE, args), nprocs=WORLD_SIZE, join=True)

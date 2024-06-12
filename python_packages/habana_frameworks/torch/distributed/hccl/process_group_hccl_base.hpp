@@ -28,6 +28,14 @@ using Work = c10d::Work;
 
 namespace c10d {
 
+using CollectiveFn = std::function<hcclResult_t(
+    at::Tensor&,
+    at::Tensor&,
+    const void*,
+    void*,
+    hcclComm_t&,
+    synStreamHandle)>;
+
 // Now continue on other work in the current stream.
 class TORCH_API ProcessGroupHcclBase : public Backend {
  public:
@@ -166,13 +174,6 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
   };
 
  protected:
-  using CollectiveFn = std::function<hcclResult_t(
-      at::Tensor&,
-      at::Tensor&,
-      const void*,
-      void*,
-      hcclComm_t&,
-      synStreamHandle)>;
   virtual c10::intrusive_ptr<Work> collective(
       std::vector<at::Tensor>& input,
       std::vector<at::Tensor>& output,
