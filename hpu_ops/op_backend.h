@@ -324,6 +324,7 @@ class OpBackend : public HabanaOperator {
       OpBackend* op,
       synapse_helpers::graph& graph,
       const at::Scalar& val,
+      c10::optional<at::ScalarType> force_type = c10::nullopt,
       const at::IntArrayRef constant_outshape = 1);
 
   static synapse_helpers::tensor BuildReshape(
