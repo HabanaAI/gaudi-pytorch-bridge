@@ -27,7 +27,7 @@ if not is_gaudi1():
 
 
 @pytest.mark.parametrize(
-    "shape_in, num_parameters", [((4,), 1), ((4, 4), 4), ((3, 1, 2), 1), ((4, 2, 4, 3), 2)], ids=format_tc
+    "shape_in, num_parameters", [((4,), 1), ((4, 4), 4), ((3, 4, 2), 1), ((4, 2, 4, 3), 2)], ids=format_tc
 )
 @pytest.mark.parametrize("init", [0.1, 0.4])
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)

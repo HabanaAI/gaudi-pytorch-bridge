@@ -6525,7 +6525,8 @@ _prelu_kernel:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   out_ids: [0]
-  op_backend: Prelu
+  output_meta: PreluFwdMeta
+  guid: prelu_fwd
 
 _prelu_kernel_backward:
   out_ids: [1, 2]
