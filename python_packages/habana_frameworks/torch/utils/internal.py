@@ -26,8 +26,13 @@ def lazy_only(func):
         if is_lazy():
             func(*args, **kwargs)
         else:
-            logger.info(f"Call {func.__name__} function will not have any effect. It's lazy mode only functionality.")
+            if not wrapper.has_run:
+                logger.warning(
+                    f"Calling {func.__name__} function does not have any effect. It's lazy mode only functionality. (warning logged once)"
+                )
+                wrapper.has_run = True
 
+    wrapper.has_run = False
     return wrapper
 
 
