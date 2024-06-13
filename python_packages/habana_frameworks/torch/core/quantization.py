@@ -127,6 +127,10 @@ def _check_params_as_const(model=None, only_scales=False) -> None:
         is_const = param_t_meta_copy.is_const_tensor
 
 
+def check_env_flag(name, default=""):
+    return getenv(name, default).upper() in ["ON", "1", "YES", "TRUE", "Y"]
+
+
 def _set_quantization_attributes(model):
     if (
         "HB_QUANTIZATION" in model._buffers
@@ -150,6 +154,11 @@ def hpu_set_env(model=None):
     hpu.enable_inference_mode()
     hpu.enable_matmul3d_2d_reshape()
     _set_env = 0
+    if check_env_flag("EXPERIMENTAL_WEIGHT_SHARING", "1"):
+        print(
+            """\033[31mWARNING: The experimental weight sharing feature is enabled and may cause larger device memory
+              consumption in quantized models. Please disable it by setting EXPERIMENTAL_WEIGHT_SHARING=0\033[0m"""
+        )
     if model is not None:
         modified_model = fuse_conv_bn.fuse(model)
         return modified_model
@@ -166,6 +175,11 @@ def hpu_set_inference_env(model=None):
     hpu.enable_inference_mode()
     hpu.enable_matmul3d_2d_reshape()
     _set_env = 0
+    if check_env_flag("EXPERIMENTAL_WEIGHT_SHARING", "1"):
+        print(
+            """\033[31mWARNING: The experimental weight sharing feature is enabled and may cause larger device memory
+              consumption in quantized models. Please disable it by setting EXPERIMENTAL_WEIGHT_SHARING=0\033[0m"""
+        )
     if model is not None:
         modified_model = fuse_conv_bn.fuse(model)
         return modified_model
