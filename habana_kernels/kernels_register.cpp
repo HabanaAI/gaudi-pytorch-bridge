@@ -2559,7 +2559,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "unique_dim(Tensor self, int dim, bool sorted=True, bool return_inverse=False, bool return_counts=False) -> (Tensor, Tensor)");
   m.def(
-      "gather_elements(Tensor self, Tensor index, Tensor? opt, int64_t dim_, bool sorted) -> Tensor");
+      "gather_elements(Tensor self, Tensor index, Tensor? opt, int dim_, bool sorted) -> Tensor");
   m.def("permute(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("permute_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
   m.def("restride_cl(Tensor(a) self, int[] dims) -> Tensor(a)");
@@ -2575,9 +2575,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::native_batch_norm_backward(Tensor input, Tensor? grad_out, Tensor? weight, Tensor? mean, Tensor? invistd, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::group_norm(Tensor input, Tensor weight, Tensor bias, int[] normalized_shape, int64_t num_groups, double eps) -> (Tensor, Tensor, Tensor)");
+      "hpu::group_norm(Tensor input, Tensor weight, Tensor bias, int[] normalized_shape, int num_groups, float eps) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::group_norm_backward(Tensor grad_out,Tensor input, Tensor mean, Tensor rstd, Tensor weight, int[] normalized_shape, int64_t num_groups, bool[3] output_mask) -> (Tensor, Tensor, Tensor)");
+      "hpu::group_norm_backward(Tensor grad_out,Tensor input, Tensor mean, Tensor rstd, Tensor weight, int[] normalized_shape, int num_groups, bool[3] output_mask) -> (Tensor, Tensor, Tensor)");
   m.def(
       "as_strided_lazy_(Tensor self, int[] size, int[] stride, int offset, bool can_replace) -> (Tensor)");
   m.def(
@@ -2921,19 +2921,19 @@ TORCH_LIBRARY_IMPL(aten, HPU, m) {
 
 TORCH_LIBRARY(hccl, m) {
   m.def(
-      "broadcast_(Tensor(a!) tensor, int root_rank, int64_t comm_id) -> Tensor(a!)");
+      "broadcast_(Tensor(a!) tensor, int root_rank, int comm_id) -> Tensor(a!)");
   m.def(
-      "allreduce_(Tensor(a!) tensor, uint8_t reduceOp, int64_t comm_id) -> Tensor(a!)");
+      "allreduce_(Tensor(a!) tensor, int reduceOp, int comm_id) -> Tensor(a!)");
   m.def(
-      "reduce_(Tensor(a!) tensor, int64_t dst_rank, uint8_t reduceOp, int64_t comm_id) -> Tensor(a!)");
+      "reduce_(Tensor(a!) tensor, int dst_rank, int reduceOp, int comm_id) -> Tensor(a!)");
   m.def(
-      "alltoall_out(Tensor input_tensor, int64_t comm_id,int[]  outputSplitSizes, int[] inputSplitSizes, Tensor(a!) output_tensor) -> Tensor(a!)");
+      "alltoall_out(Tensor input_tensor, int comm_id,int[]  outputSplitSizes, int[] inputSplitSizes, Tensor(a!) output_tensor) -> Tensor(a!)");
   m.def(
-      "allgather_out(Tensor input_tensor, int64_t comm_id, Tensor(a!) output_tensor) -> Tensor(a!)");
+      "allgather_out(Tensor input_tensor, int comm_id, Tensor(a!) output_tensor) -> Tensor(a!)");
   m.def(
-      "reduce_scatter_out(Tensor input_tensor, uint8_t reduceOp, int64_t comm_id, Tensor(a!) output_tensor) -> Tensor(a!)");
+      "reduce_scatter_out(Tensor input_tensor, int reduceOp, int comm_id, Tensor(a!) output_tensor) -> Tensor(a!)");
   m.def(
-      "send_(Tensor(a!) tensor,  int64_t dst_rank,  int64_t tag, int64_t comm_id) -> Tensor(a!)");
+      "send_(Tensor(a!) tensor,  int dst_rank,  int tag, int comm_id) -> Tensor(a!)");
   m.def(
-      "recv_(Tensor(a!) tensor,  int64_t src_rank,  int64_t tag, int64_t comm_id) -> Tensor(a!)");
+      "recv_(Tensor(a!) tensor,  int src_rank,  int tag, int comm_id) -> Tensor(a!)");
 }
