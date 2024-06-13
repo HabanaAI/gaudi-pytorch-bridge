@@ -126,3 +126,35 @@ class TestHpuUpsample:
             pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
         shape, size = shape_and_size
         TestHpuUpsample._common_test(variant, shape, size, scale_factor, align_corners, False, "linear", dtype)
+
+    @pytest.mark.parametrize(
+        "shape_and_size",
+        [
+            ((2, 2, 3, 3, 3), None),
+            ((2, 2, 3, 3, 3), (3, 6, 9)),
+            ((2, 2, 3, 3, 3), (6, 3, 9)),
+            ((2, 2, 3, 3, 3), (9, 6, 3)),
+            ((2, 2, 3, 3, 3), (9, 3, 3)),
+            ((2, 2, 3, 3, 3), (6, 6, 6)),
+            ((2, 2, 3, 3, 3), (6, 3, 6)),
+        ],
+        ids=format_tc,
+    )
+    @pytest.mark.parametrize(
+        "scale_factor", [None, [1, 2, 3], [2, 2, 2], [2, 1, 2], [2, 1, 3], [3, 2, 1], [3, 1, 1]], ids=format_tc
+    )
+    @pytest.mark.parametrize("align_corners", [True, False])
+    @pytest.mark.parametrize("variant", ["fwd", "bwd"])
+    def test_upsample_trilinear3d(self, shape_and_size, scale_factor, align_corners, variant, dtype):
+        shape, size = shape_and_size
+
+        is_bwd = variant == "bwd"
+        illegal_size = size is not None and size[0] != 3
+        illegal_scale = scale_factor is not None and scale_factor[0] != 1
+
+        if illegal_size or illegal_scale or is_bwd:
+            pytest.skip("SW-188775")
+        if pytest.mode == "compile":
+            pytest.xfail("[SW-163842] aten._unsafe_index - IndexError: index is out of bounds")
+
+        TestHpuUpsample._common_test(variant, shape, size, scale_factor, align_corners, False, "trilinear", dtype)

@@ -8872,6 +8872,31 @@ upsample_bilinear2d.out:
   - [WHCN]
   op_validator: check-node-with-shared-layer
 
+upsample_trilinear3d:
+  output_meta: UpsampleTrilinear3DFwdMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: resize_fwd
+  op_backend: UpSampleTrilinear3DFwdOperator
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+  out_ids: [0]
+
+upsample_trilinear3d.out:
+  output_meta: UpsampleTrilinear3DFwdMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: resize_fwd
+  op_backend: UpSampleTrilinear3DFwdOperator
+  synapse_layouts:
+  - [WHDCN, WHDCN]
+  - [WHDCN]
+
 upsample_bilinear2d.vec:
   only_shared_layer: true
   dtypes:

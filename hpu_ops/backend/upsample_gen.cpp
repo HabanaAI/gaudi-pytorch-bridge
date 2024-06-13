@@ -15,6 +15,7 @@
 #include "generated/backend/_upsample_nearest_exact1d.h"
 #include "generated/backend/_upsample_nearest_exact1d_backward.h"
 #include "generated/backend/upsample_linear1d.h"
+#include "generated/backend/upsample_trilinear3d.h"
 #include "generated/backend/upsample_linear1d_backward.h"
 #include "generated/backend/upsample_nearest1d.h"
 #include "generated/backend/upsample_nearest1d_backward.h"
@@ -382,6 +383,41 @@ OutputMetaDataVector UpsampleBicubic2DBwdMeta(const at::Stack& stack) {
   meta.dtype = grad_in.scalar_type();
   CHECK_NULL_INPUT(out_size, scale);
   upsample_2d_common_check(grad_in, out_size, scale);
+  return {meta};
+}
+OutputMetaDataVector UpsampleTrilinear3DFwdMeta(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto scale = stack.at(3);
+  upsample_3d_common_check(self, out_size, scale);
+  CHECK_NULL_INPUT(out_size, scale);
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+  if (!out_size.isNone()) {
+    meta.shape = {
+        self.sizes()[0],
+        self.sizes()[1],
+        out_size.toIntVector().at(0),
+        out_size.toIntVector().at(1),
+        out_size.toIntVector().at(2)};
+  } else if (!scale.isNone()) {
+    double scale_d = scale.toDoubleVector().at(0);
+    double scale_h = scale.toDoubleVector().at(1);
+    double scale_w = scale.toDoubleVector().at(2);
+    meta.shape = {
+        self.sizes()[0],
+        self.sizes()[1],
+        static_cast<int64_t>(self.sizes()[2] * scale_d),
+        static_cast<int64_t>(self.sizes()[3] * scale_h),
+        static_cast<int64_t>(self.sizes()[4] * scale_w)};
+  }
+  CHECK_INPUT_OUTPUT_DEPTH_HEIGHT_WIDTH(
+      self.sizes()[2],
+      meta.shape.at(2),
+      self.sizes()[3],
+      meta.shape.at(3),
+      self.sizes()[4],
+      meta.shape.at(4));
   return {meta};
 }
 // Forward Meta Function - Nearest3D
@@ -1127,6 +1163,38 @@ void UpSampleNearest2DOperator::AddNode(
         0);
   }
   syn_out(0) = std::move(resize.at(0));
+}
+void UpSampleTrilinear3DFwdOperator::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  auto meta = UpsampleTrilinear3DFwdMeta(stack)[0];
+  auto self_tensor = stack.at(0).toTensor();
+  auto out_size = stack.at(1);
+  auto align_corners = stack.at(2).toBool();
+
+  auto scales = stack.at(3);
+  double scale_d = 1.0, scale_w = 1.0, scale_h = 1.0;
+  if (!scales.isNone()) {
+    scale_d = stack.at(3).toOptional<double>().value_or(1.0f);
+    scale_h = stack.at(4).toOptional<double>().value_or(1.0f);
+    scale_w = stack.at(5).toOptional<double>().value_or(1.0f);
+  }
+  std::vector<synTensor> input = {syn_in(0)};
+  auto result = UpsampleCommonFunc(
+      this,
+      graph,
+      linear, /*upsample_mode*/
+      true, /*isForward*/
+      input,
+      out_size,
+      align_corners,
+      scales,
+      scale_w,
+      scale_h,
+      scale_d,
+      meta,
+      self_tensor);
+  syn_out(0) = std::move(result.at(0));
 }
 // AddNode FWD 3D Nearest function
 void UpSampleNearest3DFwdOperator::AddNode(
