@@ -10,6 +10,7 @@
 #
 ###############################################################################
 
+import habana_frameworks.torch as htorch
 import torch
 from packaging.version import Version, parse
 from torch._dynamo.variables import TorchCtxManagerClassVariable, TorchInGraphFunctionVariable
@@ -57,6 +58,9 @@ _htorch_non_c_binding_in_graph_functions = {
         "habana_frameworks.torch.hpu.event",
         "habana_frameworks.torch.hpu.set_stream",
         "habana_frameworks.torch.hpu.stream",
+        "habana_frameworks.torch.hpu.is_available",
+        "habana_frameworks.torch.hpu.current_device",
+        "habana_frameworks.torch.hpu._utils._get_device_index",
     ]
 }
 
@@ -98,7 +102,6 @@ else:
     Skips are determined by (torch/_dynamo/skipfiles.py) - see "a note on
     skipfiles" there.
     """
-    import habana_frameworks.torch as htorch
     from torch._dynamo.allowed_functions import _allowed_function_ids
 
     functions_to_add = [
@@ -108,3 +111,13 @@ else:
 
     for obj in functions_to_add:
         _allowed_function_ids.add(id(obj))
+
+from torch._dynamo.variables.torch import constant_fold_functions
+
+functions_to_add = [
+    htorch.hpu.is_available,
+    htorch.hpu.current_device,
+    htorch.hpu._utils._get_device_index,
+]
+
+constant_fold_functions.extend(functions_to_add)
