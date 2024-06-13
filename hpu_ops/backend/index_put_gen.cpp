@@ -513,8 +513,22 @@ void IndexPutBoolEager::AddNode(
   auto values = stack_tensor(stack, 2);
   auto accumulate = stack.at(3).toBool();
   auto max_size = broadcast_size(indices, self);
-  auto indices_scalar_type =
-      common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
+  int64_t max_indices_count = 1;
+  bool all_bool_indices = true;
+  for (size_t i = 0; i < indices.size(); i++) {
+    if (indices[i].scalar_type() == c10::ScalarType::Bool) {
+      max_indices_count = (indices[i].numel() > max_indices_count)
+          ? indices[i].numel()
+          : max_indices_count;
+    } else {
+      all_bool_indices = false;
+    }
+  }
+  auto indices_scalar_type = (common::IsInt64Supported() &&
+                              ((max_indices_count > INT_MAX) ||
+                               graph.is_dynamic_graph() || !all_bool_indices))
+      ? c10::ScalarType::Long
+      : c10::ScalarType::Int;
   std::vector<synapse_helpers::tensor> nonzero;
   auto shape_tensor_shape = at::DimVector{5};
 
@@ -549,6 +563,7 @@ void IndexPutBoolEager::AddNode(
     index_params.sizes = max_size;
     index_params.numel = std::accumulate(
         std::begin(max_size), std::end(max_size), 1, std::multiplies<size_t>());
+    index_params.force_long = !all_bool_indices;
     nonzero = NonZeroCommon(
         this,
         graph,
@@ -917,8 +932,22 @@ void IndexPutCompile::AddNode(
   auto values = stack_tensor(stack, 2);
   auto accumulate = stack.at(3).toBool();
   auto max_size = broadcast_size(indices, self);
-  auto indices_scalar_type =
-      common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
+  int64_t max_indices_count = 1;
+  bool all_bool_indices = true;
+  for (size_t i = 0; i < indices.size(); i++) {
+    if (indices[i].scalar_type() == c10::ScalarType::Bool) {
+      max_indices_count = (indices[i].numel() > max_indices_count)
+          ? indices[i].numel()
+          : max_indices_count;
+    } else {
+      all_bool_indices = false;
+    }
+  }
+  auto indices_scalar_type = (common::IsInt64Supported() &&
+                              ((max_indices_count > INT_MAX) ||
+                               graph.is_dynamic_graph() || !all_bool_indices))
+      ? c10::ScalarType::Long
+      : c10::ScalarType::Int;
   std::vector<synapse_helpers::tensor> nonzero;
   auto shape_tensor_shape = at::DimVector{5};
   auto self_sizes = self.sizes().vec();
@@ -940,7 +969,6 @@ void IndexPutCompile::AddNode(
     if (indices[i].scalar_type() == c10::ScalarType::Bool) {
       NonZeroParams_t index_params;
       index_params.dtype = indices[i].scalar_type();
-
       auto bcastOpInd = BroadcastHelper(
           graph,
           static_cast<int64_t>(max_size.size()) > indices[i].dim()
@@ -958,6 +986,7 @@ void IndexPutCompile::AddNode(
           std::end(max_size),
           1,
           std::multiplies<size_t>());
+      index_params.force_long = !all_bool_indices;
       nonzero = NonZeroCommon(
           this,
           graph,
@@ -1053,12 +1082,21 @@ void IndexPutCompile::AddNode(
   }
   auto bcastOp = BroadcastHelper(
       graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type);
+  auto flattened_size = std::accumulate(
+      std::begin(value_upd_dim),
+      std::end(value_upd_dim),
+      1,
+      std::multiplies<size_t>());
+  std::vector<int64_t> reshape_bcast_size({catop.pt_shape()[0]});
+  auto reshapebcastOp =
+      ReshapeHelper(graph, bcastOp.get(), flattened_size, values_scalar_type);
+
   auto self_scalar_type = self.scalar_type();
   if (!accumulate) {
     auto scatter_op = BuildOp(
         graph,
         get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {syn_in(0), catop.get(), bcastOp.get(), nonzero.at(1).get()},
+        {syn_in(0), catop.get(), reshapebcastOp.get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
     syn_out(0) = std::move(scatter_op[0]);
   } else {
@@ -1066,7 +1104,7 @@ void IndexPutCompile::AddNode(
     auto scatter_op = BuildOp(
         graph,
         get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {zero_op.get(), catop.get(), bcastOp.get(), nonzero.at(1).get()},
+        {zero_op.get(), catop.get(), reshapebcastOp.get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type}});
     auto add_op = BuildOp(
         graph,
