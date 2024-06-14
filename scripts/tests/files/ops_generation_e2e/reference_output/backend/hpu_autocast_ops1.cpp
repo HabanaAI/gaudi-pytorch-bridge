@@ -42,6 +42,9 @@ using tuple_4_tensors_2_int64_3_tensor = std::tuple<Tensor,Tensor,Tensor,Tensor,
 using tuple_4_tensors_2_int64 = std::tuple<Tensor,Tensor,Tensor,Tensor,int64_t,int64_t>;
 using tuple_3_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>;
 using tuple_5_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>;
+#if IS_PYTORCH_AT_LEAST(2, 4)
+using tuple_4_vectors = std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>;
+#endif
 
 TORCH_LIBRARY_IMPL(aten, AutocastHPU, m) {
   Hpu_KERNEL(clamp_max, "clamp_max.Tensor", at::Tensor(const at::Tensor &, const at::Tensor &))

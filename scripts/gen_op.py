@@ -958,6 +958,15 @@ def generate_autocast_ops(op_metas, args):
         ),
         ("SymIntArrayRef", "IntArrayRef"),
         ("c10::SymInt", "int64_t"),
+    ) + (
+        (
+            (
+                "::std::tuple<::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>,::std::vector<at::Tensor>>",
+                "tuple_4_vectors",
+            ),
+        )
+        if Version(torch.__version__) > Version("2.3")
+        else ()
     )
 
     blocklist = [
