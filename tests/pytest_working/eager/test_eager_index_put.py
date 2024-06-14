@@ -13,7 +13,7 @@ import habana_frameworks.torch.dynamo.compile_backend
 import numpy as np
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
+from test_utils import format_tc, is_gaudi1, is_gaudi2, is_pytest_mode_compile
 
 all_dtypes = [
     torch.bfloat16,
@@ -55,6 +55,9 @@ class TestHpuIndexPutSelect:
     def test_index_put_with_accumulate(dtype):
         if is_gaudi1() and dtype == torch.half:
             pytest.skip("Half is not supported on Gaudi.")
+
+        if is_gaudi2() and dtype == torch.int16:
+            pytest.skip("https://jira.habana-labs.com/browse/SW-185536")
 
         def fn(input, index, values):
             return input.index_put(index, values, True)
