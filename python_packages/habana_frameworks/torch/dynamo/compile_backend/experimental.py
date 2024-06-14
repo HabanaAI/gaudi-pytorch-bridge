@@ -18,7 +18,7 @@ from torch._dynamo import compiled_autograd
 logger = get_compile_backend_logger()
 
 
-def enable_compiled_autograd():
+def enable_compiled_autograd(**kwargs):
     """
     Helper function to enable compiled_autograd for hpu backend. For more
     info on compiled autograd see:
@@ -30,7 +30,7 @@ def enable_compiled_autograd():
 
     def compiler_fn(gm):
         return torch.compile(
-            gm, backend="hpu_backend", fullgraph=True, options={"keep_input_mutations": True, "inference": False}
+            gm, backend="hpu_backend", options={"keep_input_mutations": True, "inference": False}, **kwargs
         )
 
     torch._C._dynamo.compiled_autograd.set_autograd_compiler(
