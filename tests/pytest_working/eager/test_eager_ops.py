@@ -1240,6 +1240,17 @@ def test_sag_topk_node_params():
         assert torch.allclose(sorted_sequence, sorted_sequence_hpu.cpu(), atol=0.001, rtol=0.001)
 
 
+def test_tensor_containing_scalar():
+    input1 = torch.ones([3])
+    input2 = torch.tensor(3, dtype=torch.float32)
+    input1_hpu = input1.to("hpu")
+
+    output = input1 + input2
+    output_hpu = input1_hpu + input2
+
+    assert torch.equal(output, output_hpu.cpu())
+
+
 def test_shape_agnostic_helper():
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
     hpu_tensor = cpu_tensor.to("hpu")

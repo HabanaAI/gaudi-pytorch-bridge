@@ -70,6 +70,13 @@ void EagerOpBase::validate_inputs(
       continue;
     }
 
+    // If it is a tensor containing scalar then set the wrapped
+    // number to be true
+    if (tensor.unsafeGetTensorImpl()->dim() == 0) {
+      tensor.unsafeGetTensorImpl()->set_wrapped_number(true);
+      continue;
+    }
+
     HABANA_ASSERT(
         0,
         "Expected all tensors to be on the HPU device, but found at least one input[idx=",
