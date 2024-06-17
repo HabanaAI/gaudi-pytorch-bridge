@@ -133,7 +133,19 @@ class NodeParamAgnosticOpList {
         c10::Symbol::fromQualString("aten::cat"),
         c10::Symbol::fromQualString("aten::topk"),
         c10::Symbol::fromQualString("aten::arange"),
-        c10::Symbol::fromQualString("aten::upsample_nearest2d")};
+        c10::Symbol::fromQualString("aten::upsample_nearest2d"),
+        c10::Symbol::fromQualString("aten::upsample_bicubic2d"),
+        c10::Symbol::fromQualString("aten::upsample_bicubic2d_backward"),
+        c10::Symbol::fromQualString("aten::upsample_bilinear2d"),
+        c10::Symbol::fromQualString("aten::upsample_bilinear2d_backward"),
+        c10::Symbol::fromQualString("aten::upsample_linear1d"),
+        c10::Symbol::fromQualString("aten::upsample_linear1d_backward"),
+        c10::Symbol::fromQualString("aten::upsample_nearest1d"),
+        c10::Symbol::fromQualString("aten::upsample_nearest1d_backward"),
+        c10::Symbol::fromQualString("aten::upsample_nearest2d_backward"),
+        c10::Symbol::fromQualString("hpu::upsample_nearest2d_backward"),
+        c10::Symbol::fromQualString("aten::upsample_nearest3d"),
+        c10::Symbol::fromQualString("aten::upsample_nearest3d_backward")};
     return ops_list;
   }
 

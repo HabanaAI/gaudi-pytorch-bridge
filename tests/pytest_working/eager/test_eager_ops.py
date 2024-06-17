@@ -1355,3 +1355,201 @@ def test_sag_upsample_nearest_2d_node_params():
 
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for upsample nearest 1d op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_upsample_nearest_1d_node_params():
+    params = [2, 3]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for scale in params:
+        input = torch.randn((1, 1, 1, 3), dtype=torch.bfloat16)
+        input_hpu = input.to("hpu")
+
+        m = torch.nn.Upsample(scale_factor=scale, mode="nearest")
+        output = m(input)
+        output_hpu = m(input_hpu)
+
+        assert torch.equal(output_hpu.cpu(), output)
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+    num_cache_entries_end = htdebug._get_jit_cache_size()
+    assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for upsample nearest 3d op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_upsample_nearest_3d_node_params():
+    params = [2, 3]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for scale in params:
+        input = torch.randn((1, 2, 2, 3), dtype=torch.bfloat16)
+        input_hpu = input.to("hpu")
+
+        m = torch.nn.Upsample(scale_factor=scale, mode="nearest")
+        output = m(input)
+        output_hpu = m(input_hpu)
+
+        assert torch.equal(output_hpu.cpu(), output)
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+    num_cache_entries_end = htdebug._get_jit_cache_size()
+    assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for upsample bilinear 2d op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_upsample_bilinear_2d_node_params():
+    params = [2, 3]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for scale in params:
+        input = torch.randn((1, 1, 2, 3), dtype=torch.bfloat16)
+        input_hpu = input.to("hpu")
+
+        m = torch.nn.Upsample(scale_factor=scale, mode="bilinear")
+        output = m(input)
+        output_hpu = m(input_hpu)
+
+        assert torch.allclose(output_hpu.cpu(), output, atol=0.005, rtol=0.005)
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+    num_cache_entries_end = htdebug._get_jit_cache_size()
+    assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for upsample bicubic 2d op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_upsample_bicubic_2d_node_params():
+    params = [2, 3]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for scale in params:
+        input = torch.randn((1, 1, 2, 3), dtype=torch.bfloat16)
+        input_hpu = input.to("hpu")
+
+        m = torch.nn.Upsample(scale_factor=scale, mode="bicubic")
+        output = m(input)
+        output_hpu = m(input_hpu)
+
+        assert torch.allclose(output_hpu.cpu(), output, atol=0.01, rtol=0.01)
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+    num_cache_entries_end = htdebug._get_jit_cache_size()
+    assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for upsample linear 1d op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_upsample_linear_1d_node_params():
+    params = [2, 3]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for scale in params:
+        input = torch.randn((1, 1, 3))
+        input_hpu = input.to("hpu")
+
+        m = torch.nn.Upsample(scale_factor=scale, mode="linear")
+        output = m(input)
+        output_hpu = m(input_hpu)
+
+        assert torch.allclose(output_hpu.cpu(), output, atol=0.005, rtol=0.005)
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+    num_cache_entries_end = htdebug._get_jit_cache_size()
+    assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for upsample bilinear 2d backward op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_upsample_bilinear_2d_backward_node_params():
+    params = [True, False]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for align_corners in params:
+        grad_output = torch.randn((1, 1, 4, 6), dtype=torch.bfloat16)
+        grad_output_hpu = grad_output.to("hpu")
+
+        output_size = torch.Tensor([4, 6])
+        output_size_hpu = output_size.to("hpu")
+
+        input_size = torch.Tensor([1, 1, 2, 3])
+        input_size_hpu = input_size.to("hpu")
+
+        result = torch.ops.aten.upsample_bilinear2d_backward(grad_output, output_size, input_size, align_corners)
+
+        result_hpu = torch.ops.aten.upsample_bilinear2d_backward(
+            grad_output_hpu, output_size_hpu, input_size_hpu, align_corners
+        )
+
+        assert torch.allclose(result_hpu.cpu(), result, atol=0.02, rtol=0.02)
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+    num_cache_entries_end = htdebug._get_jit_cache_size()
+    assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for upsample bicubic 2d backward op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_upsample_bicubic_2d_backward_node_params():
+    params = [True, False]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for align_corners in params:
+        grad_output = torch.randn((1, 1, 4, 6), dtype=torch.bfloat16)
+        grad_output_hpu = grad_output.to("hpu")
+
+        output_size = torch.Tensor([4, 6])
+        output_size_hpu = output_size.to("hpu")
+
+        input_size = torch.Tensor([1, 1, 2, 3])
+        input_size_hpu = input_size.to("hpu")
+
+        result = torch.ops.aten.upsample_bicubic2d_backward(grad_output, output_size, input_size, align_corners)
+
+        result_hpu = torch.ops.aten.upsample_bicubic2d_backward(
+            grad_output_hpu, output_size_hpu, input_size_hpu, align_corners
+        )
+
+        assert torch.allclose(result_hpu.cpu(), result, atol=0.05, rtol=0.05)
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+        num_cache_entries_end = htdebug._get_jit_cache_size()
+        assert num_cache_entries_end == num_cache_entries_start
