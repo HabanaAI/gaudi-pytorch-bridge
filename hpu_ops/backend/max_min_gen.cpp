@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -25,6 +25,13 @@ OutputMetaDataVector ReduceMinMaxMeta(const at::Stack& stack) {
   meta.dtype = self.scalar_type();
   meta.shape = {};
   return {meta};
+}
+
+std::shared_ptr<void> FillMinMaxParams(const at::Stack&, size_t& size) {
+  PARAMS_STUB(ns_Reduction::ParamsV2);
+  params->reductionDimensionMask = 0;
+  params->keepDim = false;
+  return params;
 }
 
 sizes_vec MinMaxOutputShape(const at::Stack& stack) {
@@ -53,7 +60,9 @@ OutputMetaDataVector MinMaxMeta(const at::Stack& stack) {
   return {metaMinMax, metaIndices};
 }
 
-std::shared_ptr<void> FillMinMaxParams(const at::Stack& stack, size_t& size) {
+std::shared_ptr<void> FillMinMaxDimParams(
+    const at::Stack& stack,
+    size_t& size) {
   PARAMS_STUB(ns_Reduction::Params);
   auto dim = stack.at(1).toInt();
   dim = (dim >= 0) ? static_cast<int>(stack.at(0).toTensor().dim()) - 1 - dim
@@ -61,20 +70,6 @@ std::shared_ptr<void> FillMinMaxParams(const at::Stack& stack, size_t& size) {
 
   params->reductionDimension = dim;
   return params;
-}
-
-void ReduceMinMax::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  StackGetter sg{stack, "ReduceMinMax::AddNode"};
-  auto self = getNextInput<TensorsPair>(sg);
-
-  const auto meta = ReduceMinMaxMeta(stack)[0];
-  std::vector<NodeAttr::NodeOutputAttr> output_attrs{
-      {meta.shape, meta.dtype, 0}, {meta.shape, c10::ScalarType::Int}};
-
-  syn_out(0) = std::move(HandleReductionDimAndKeepdim(
-      this, graph, self.pt_t, {self.syn_t}, {}, false, guid_, output_attrs)[0]);
 }
 
 void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
@@ -99,7 +94,7 @@ void MaxDimOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   bool keepdim = stack.at(2).toBool();
   auto meta = MinMaxMeta(stack);
   size_t size = 0;
-  const auto& params = FillMinMaxParams(stack, size);
+  const auto& params = FillMinMaxDimParams(stack, size);
 
   if (self.dim() == 0) {
     auto res = BuildOp(
