@@ -33,7 +33,18 @@ launchers:
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
 - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite
-  silentMode: false
+  gerritTriggerMap:
+  - repository: pytorch-vision-fork
+  - repository: pytorch-integration
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_lazy
+  gerritTriggerMap:
+  - repository: pytorch-vision-fork
+  - repository: pytorch-integration
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile
+  gerritTriggerMap:
+  - repository: pytorch-vision-fork
+  - repository: pytorch-integration
+- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_eager
   gerritTriggerMap:
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
