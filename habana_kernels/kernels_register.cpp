@@ -245,6 +245,8 @@ at::Tensor& hpu_wrap::_index_put_impl_(
       (self.scalar_type() != c10::ScalarType::Char) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
+      (self.scalar_type() != c10::ScalarType::Float8_e5m2) &&
+      (self.scalar_type() != c10::ScalarType::Float8_e4m3fn) &&
       !(self.scalar_type() == c10::ScalarType::Half &&
         HPURegistrar::get_device().type() != synDeviceType::synDeviceGaudi)) {
     return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
