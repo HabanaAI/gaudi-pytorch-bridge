@@ -41,7 +41,7 @@ class Args:
     output_dir: str
     yaml: str
     check_kernel_support: str
-    pt_signatures: str = os.path.join(TORCH_PKG_PATH, "include/ATen/RegistrationDeclarations.h")
+    pt_signatures: str
     native_functions: str = os.path.join(TORCH_PKG_PATH, "../torchgen/packaged/ATen/native/native_functions.yaml")
 
 
@@ -65,10 +65,11 @@ def test_ops_generation_e2e(monkeypatch):
     output_dir = os.path.join(test_path, "output")
     reference_dir = os.path.join(test_path, "files/ops_generation_e2e/reference_output")
     yaml_path = os.path.join(test_path, "files/ops_generation_e2e/hpu_op.yaml")
+    pt_signatures = os.path.join(test_path, "files/ops_generation_e2e/RegistrationDeclarations.h")
 
     shutil.rmtree(output_dir, ignore_errors=True)
 
-    args = Args(output_dir, yaml_path, False)
+    args = Args(output_dir, yaml_path, False, pt_signatures)
     generate(args)
     args.check_kernel_support = True
     generate_check_kernel_support(args)

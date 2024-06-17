@@ -3,6 +3,7 @@ repos:
     rev: v2.3.0
     hooks:
       - id: check-added-large-files
+        exclude: ^scripts/tests/files/
       - id: check-executables-have-shebangs
         exclude: ^topologies/
     # TODO: fix issues and enable when time allows: https://jira.habana-labs.com/browse/SW-121821
