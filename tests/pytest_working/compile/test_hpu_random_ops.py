@@ -227,29 +227,42 @@ def test_randint(shape, low, high, is_like, dtype):
     torch._dynamo.reset()
     clear_t_compile_logs()
 
-    args = (high,)
-    if low:
-        args = (low, high)
-    else:
-        low = 0
-    if is_like:
-        input = torch.empty(shape, dtype=dtype, device="hpu")
-        args = (input,) + args
-        op = torch.randint_like
-    else:
-        args = args + (shape,)
-        op = torch.randint
+    args = (low, high) if low else (high,)
+    args = (torch.empty(shape, dtype=dtype, device="hpu"),) + args if is_like else args + (shape,)
 
-    compiled_fn = torch.compile(op, backend="hpu_backend")
+    if is_like:
+        if low:
+
+            def fn(input, low, high, dtype, device):
+                return torch.randint_like(input, low, high, dtype=dtype, device=device)
+
+        else:
+
+            def fn(input, high, dtype, device):
+                return torch.randint_like(input, high, dtype=dtype, device=device)
+
+    else:
+        if low:
+
+            def fn(low, high, size, dtype, device):
+                return torch.randint(low, high, size, dtype=dtype, device=device)
+
+        else:
+
+            def fn(high, size, dtype, device):
+                return torch.randint(high, size, dtype=dtype, device=device)
+
+    compiled_fn = torch.compile(fn, backend="hpu_backend")
 
     result_1 = compiled_fn(*args, dtype=dtype, device="hpu").cpu()
     result_2 = compiled_fn(*args, dtype=dtype, device="hpu").cpu()
+
+    if not low:
+        low = 0
     assert result_1.dtype == dtype
     assert not torch.equal(result_1, result_2)
-
     assert torch.all(result_1 < high) and torch.all(result_1 >= low)
     assert torch.all(result_2 < high) and torch.all(result_2 >= low)
-
     check_ops_executed_in_jit_ir("habana_randint")
 
 
