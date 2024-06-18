@@ -186,8 +186,8 @@ void CombineDims(
   auto flatten_size = std::accumulate(
       self_shape.begin(),
       self_shape.begin() + dim_size,
-      1,
-      std::multiplies<int>());
+      (int64_t)1,
+      std::multiplies<int64_t>());
   if (keepdim) {
     // we need to keep a size of '1' for upper dims, flattened value at last
     // pos of "dim array", and original sizes for lower dimensions
