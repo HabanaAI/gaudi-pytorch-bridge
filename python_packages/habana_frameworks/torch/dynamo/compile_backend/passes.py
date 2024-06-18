@@ -2089,11 +2089,11 @@ def pass_compile_clusters(ctx: OptimizerContext):
             # Submodule dynamicity has to recheck and set to the collable.
             is_submod_dynamic = is_module_dynamic(submod)
 
-            if is_submod_dynamic and optim_output_sif_ds:
-                jit_node_shape_propagation(jit_ir_function, submod_updated)
-
             if refine_dynamic:
                 is_submod_dynamic = is_submod_dynamic or get_dynamic_config_value()
+
+            if is_submod_dynamic and optim_output_sif_ds:
+                jit_node_shape_propagation(jit_ir_function, submod_updated)
 
             callable_recipe = get_callable_recipe(
                 jit_ir_function,

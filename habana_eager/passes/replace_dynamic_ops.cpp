@@ -199,6 +199,37 @@ struct HandleDynamicOpsPass {
     return true;
   }
 
+  bool isNodeDynamic(torch::jit::Node* node) {
+    // Shapes are dynamic if symbols are present in
+    // node's output shape atttribute.
+    // Shapes are assumed as dynamic if said attribute
+    // is absent in the node, or if the attribute is empty
+    auto node_name = node->kind().toQualString();
+    auto outputshapes_attr = c10::Symbol::attr("output_shapes");
+    if (node->hasAttribute(outputshapes_attr)) {
+      auto outputshapes_str = node->s(outputshapes_attr);
+      if (outputshapes_str.empty()) {
+        PT_EAGER_DEBUG(
+            "output_shapes attr is empty for node = ",
+            node_name,
+            ", assuming it to be dynamic");
+      } else {
+        for (auto& c : outputshapes_str) {
+          if (!(std::isdigit(c) || c == '[' || c == ']' || c == ',' ||
+                std::isspace(c)))
+            return true;
+        }
+        return false;
+      }
+    } else {
+      PT_EAGER_DEBUG(
+          "output_shapes attr is missing for node = ",
+          node_name,
+          ", assuming it to be dynamic");
+    }
+    return true;
+  }
+
   bool processBlock(torch::jit::Block* block, torch::jit::Stack& org_stack) {
     GraphInputIndexMap org_stack_index_map;
     createGraphInputStackIndexMap(org_stack_index_map);
@@ -213,6 +244,15 @@ struct HandleDynamicOpsPass {
       DynamicOpPtr dsOp = DSOpsRegistry().get(node_name);
       if (!dsOp)
         continue;
+      if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF)) {
+        if (!isNodeDynamic(node)) {
+          PT_EAGER_DEBUG(
+              "Skipping HPU op replacement for ",
+              node_name,
+              " as its output shapes are static");
+          continue;
+        }
+      }
       PT_EAGER_DEBUG("Replace dynamic Op: ", node_name);
       dsOp->m_input_new_base_sizes = m_input_new_base_sizes;
       changed = dsOp->ReplaceWithDynamicHPUOp(
