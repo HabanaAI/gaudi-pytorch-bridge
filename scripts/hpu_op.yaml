@@ -1852,41 +1852,41 @@ arange.start_out:
 
 argmax:
   output_meta: ArgMinMaxMeta
+  custom_fill_params: FillArgMinMaxParams
   dtypes:
-    Gaudi: [Float, BFloat16, Int, Char, Byte]
-    Gaudi2: [Float, BFloat16, Int, Char, Byte, Half]
-    Gaudi3: [Float, BFloat16, Int, Char, Byte, Half]
-  guid: argmax_fwd
-  op_backend: ArgMinMax
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
+  guid: argmax_multi_dim_fwd
   out_ids: [0]
 
 argmax.out:
   output_meta: ArgMinMaxMeta
+  custom_fill_params: FillArgMinMaxParams
   dtypes:
-    Gaudi: [Float, BFloat16, Int, Char, Byte]
-    Gaudi2: [Float, BFloat16, Int, Char, Byte, Half]
-    Gaudi3: [Float, BFloat16, Int, Char, Byte, Half]
-  guid: argmax_fwd
-  op_backend: ArgMinMax
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
+  guid: argmax_multi_dim_fwd
 
 argmin:
   output_meta: ArgMinMaxMeta
+  custom_fill_params: FillArgMinMaxParams
   dtypes:
-    Gaudi: [BFloat16, Float, Char, Byte, Int]
-    Gaudi2: [BFloat16, Float, Half, Char, Byte, Int]
-    Gaudi3: [BFloat16, Float, Half, Char, Byte, Int]
-  guid: argmin_fwd
-  op_backend: ArgMinMax
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
+  guid: argmin_multi_dim_fwd
   out_ids: [0]
 
 argmin.out:
   output_meta: ArgMinMaxMeta
+  custom_fill_params: FillArgMinMaxParams
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half, Char, Byte, Int]
-    Gaudi3: [BFloat16, Float, Half, Char, Byte, Int]
-  guid: argmin_fwd
-  op_backend: ArgMinMax
+    Gaudi: [BFloat16, Float, Int, Byte, Char, Short, Long]
+    Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
+    Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
+  guid: argmin_multi_dim_fwd
 
 asin:
   promote_int_to_float: [self]

@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -65,6 +65,15 @@ sizes_vec ReductionOutputShape(
     at::optional<int64_t> dims,
     bool keepdim) {
   return ReductionOutputShape(self, optional_to_arrayref(dims), keepdim);
+}
+
+unsigned ReductionMask(const at::Tensor& self, at::optional<int64_t> dimOpt) {
+  if (!dimOpt || self.dim() == 0) {
+    return 0;
+  }
+  int64_t dim = *dimOpt;
+  int64_t dimBitPos = (dim >= 0 ? self.dim() : 0) - dim - 1;
+  return 1 << dimBitPos;
 }
 
 } // namespace habana

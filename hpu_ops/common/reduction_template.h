@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -22,6 +22,8 @@ sizes_vec ReductionOutputShape(
     const at::Tensor& self,
     at::OptionalIntArrayRef dims,
     bool keepdim);
+
+unsigned ReductionMask(const at::Tensor& self, at::optional<int64_t> dimOpt);
 
 at::optional<at::ScalarType> get_dtype(
     const at::Stack& stack,
