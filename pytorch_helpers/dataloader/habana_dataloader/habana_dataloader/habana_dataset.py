@@ -367,7 +367,7 @@ class ResnetDataLoader(torch.utils.data.DataLoader):
                     a_prefetch_count=self.prefetch_factor,
                     a_num_instances=num_instances,
                     a_instance_id=instance_id,
-                    a_device=deviceStr(self.DeviceType),
+                    a_device="legacy",
                     a_dataset_manifest=manifest,
                 )
 
