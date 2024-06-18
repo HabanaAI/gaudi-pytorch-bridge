@@ -147,19 +147,21 @@ def use_pt2e_quant_flow(test_case, quant_dtype):
             calibrate_result = model(*example_inputs1)
 
         ops_summary = fga.get_ops_summary()
-
-        assert_helper(ops_summary=ops_summary, op="torch.ops.aten._to_copy.default", count_list=[(3, 0), (3, 0)])
-        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.amax.default", count_list=[(3, 0), (3, 0)])
-        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.amin.default", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.alias.default", count_list=[(9, 0), (9, 0)])
         assert_helper(ops_summary=ops_summary, op="torch.ops.aten.relu.default", count_list=[(1, 0), (1, 0)])
-        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.maximum.default", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.aminmax.default", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="operator.getitem", count_list=[(6, 7), (6, 7)])
         assert_helper(ops_summary=ops_summary, op="torch.ops.aten.minimum.default", count_list=[(3, 0), (3, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.maximum.default", count_list=[(3, 0), (3, 0)])
         assert_helper(ops_summary=ops_summary, op="torch.ops.aten.copy.default", count_list=[(6, 0), (6, 0)])
         if "torch.ops.hpu.linear.default" in ops_summary:
             assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.linear.default", count_list=[(1, 0), (1, 0)])
-        if "torch.ops.aten.linear" in ops_summary:
-            assert_helper(ops_summary=ops_summary, op="torch.ops.aten.transpose.int", count_list=[(1, 0), (1, 0)])
+        elif "torch.ops.aten.linear" in ops_summary:
             assert_helper(ops_summary=ops_summary, op="torch.ops.aten.linear", count_list=[(1, 0), (1, 0)])
+        else:
+            assert_helper(ops_summary=ops_summary, op="torch.ops.aten.transpose.int", count_list=[(1, 0), (1, 0)])
+            assert_helper(ops_summary=ops_summary, op="torch.ops.aten.mm.default", count_list=[(1, 0), (0, 0)])
+            assert_helper(ops_summary=ops_summary, op="torch.ops.aten.addmm.default", count_list=[(0, 0), (1, 0)])
 
         model = convert_pt2e(model)
         with FxGraphAnalyzer(reset_dynamo=False) as fga:
@@ -178,28 +180,35 @@ def use_pt2e_quant_flow(test_case, quant_dtype):
         op="torch.ops.quantized_decomposed.dequantize_per_tensor.default",
         count_list=[(3, 0), (3, 0)],
     )
-    assert_helper(ops_summary=ops_summary, op="torch.ops.aten.mm.default", count_list=[(1, 0), (0, 0)])
+    if "torch.ops.hpu.linear.default" in ops_summary:
+        assert_helper(ops_summary=ops_summary, op="torch.ops.hpu.linear.default", count_list=[(1, 0), (1, 0)])
+    elif "torch.ops.aten.linear" in ops_summary:
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.linear", count_list=[(1, 0), (1, 0)])
+    else:
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.transpose.int", count_list=[(1, 0), (1, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.mm.default", count_list=[(1, 0), (0, 0)])
+        assert_helper(ops_summary=ops_summary, op="torch.ops.aten.addmm.default", count_list=[(0, 0), (1, 0)])
     assert_helper(ops_summary=ops_summary, op="torch.ops.aten.relu.default", count_list=[(1, 0), (1, 0)])
-    assert_helper(ops_summary=ops_summary, op="torch.ops.aten.addmm.default", count_list=[(0, 0), (1, 0)])
     assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)
 
     htcore.hpu_reset_env()
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
 def test_pt2e_quant_int(test_case, quant_dtype):
     use_pt2e_quant_flow(test_case, quant_dtype)
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="fp8 not supported on gaudi")
+@pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_float_dtype_list)
 def test_pt2e_quant_float(test_case, quant_dtype):
     use_pt2e_quant_flow(test_case, quant_dtype)
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="fp8 not supported on gaudi")
+@pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 def test_pt2e_quant_flow_with_backoff_margin(test_case="linear_relu", quant_dtype=torch.float8_e4m3fn):
     htcore.hpu_set_env()
 

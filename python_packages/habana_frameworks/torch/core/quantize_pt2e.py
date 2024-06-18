@@ -369,22 +369,22 @@ class HabanaQuantWrapperModule(torch.nn.Module):
         queue_element = habana_quantization_map_queue[self._module_key][0]
         if queue_element["task"] == "prepare_pt2e":
             if not self._prepared:
+                # Apply pytorch prepare_pt2e on each fx graph
                 from torch.ao.quantization.quantize_pt2e import prepare_pt2e
 
                 self._prepared_module = prepare_pt2e(self._fx_module, queue_element["quantizer"])
-                self._prepared = True
 
-                # Save prepared module and work on active now, we will need prepared one later
-                # so we can feed it to convert after we modify its statistics basing on active values.
-                self._observed_module = copy.deepcopy(self._prepared_module)
-
-                # Change the module so it can be fed into mid layer. We cannot do that just right
-                # away because we need to remove module calls and unroll them to simple primitives.
-                unroll_observers(self._observed_module)
-
-                # Now we call hpu_inference_compiler to convert it into synapse graph.
+                # Now we use torch.compilation with hpu_backend.
+                # hpu_backend internally uses aot_autograd which extracts the forward definition of
+                # observer class and replaces the observer specific call_module nodes with corresponding
+                # inlined forward definitions.
+                # However, as the same storage is still used for holding the observer state, the
+                # result of calibration (i.e. all stat updates) remains available from the original
+                # _prepared_module that we use later at conversion stage.
                 with torch.no_grad():
-                    self._observed_module = torch.compile(self._observed_module, backend="hpu_backend")
+                    self._observed_module = torch.compile(self._prepared_module, backend="hpu_backend")
+
+                self._prepared = True
 
             return self._observed_module(*args, **kwargs)
 
@@ -398,16 +398,12 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     )
                     raise
 
-                # Reconstruct prepared module with active stats.
-                reconstruct_observers(self._prepared_module, self._observed_module)
-
+                # Apply pytorch convert_pt2e on each fx graph
                 from torch.ao.quantization.quantize_pt2e import convert_pt2e
 
-                # Take active module that we gathered stats on and convert it to final module.
                 self._converted_module = convert_pt2e(
                     self._prepared_module, use_reference_representation=False, fold_quantize=False
                 )
-                self._converted = True
 
                 # Adjust the scale values as per H/W requirements
                 adjust_scale_val(self._converted_module)
@@ -418,6 +414,8 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                 # Now we call hpu_inference_compiler to convert it into synapse graph.
                 with torch.no_grad():
                     self._converted_module = torch.compile(self._converted_module, backend="hpu_backend")
+
+                self._converted = True
 
             return self._converted_module(*args, **kwargs)
 
@@ -692,141 +690,6 @@ def change_output_dtype_of_dequant(module: torch.fx.GraphModule):
 
 
 # ======================================================================================
-# Function to remove Observers module calls and unroll them to simple primitives.
-# ======================================================================================
-def unroll_observers(module: torch.fx.GraphModule):
-
-    nodes_to_change = []
-    for node in module.graph.nodes:
-        if node.op == "call_module":
-            assert not node.kwargs
-            submod = module.get_submodule(node.target)
-
-            if (
-                isinstance(submod, torch.ao.quantization.observer.MinMaxObserver)
-                or isinstance(submod, torch.ao.quantization.observer.PerChannelMinMaxObserver)
-                or isinstance(submod, torch.ao.quantization.observer.PlaceholderObserver)
-            ):
-                nodes_to_change.append(node)
-            else:
-                # Please add support for new observer if you are here.
-                assert False
-
-    observer_id = 0
-    for node in nodes_to_change:
-        submod = module.get_submodule(node.target)
-        if isinstance(submod, torch.ao.quantization.observer.MinMaxObserver):
-            old_min_stat = torch.clone(submod.min_val.detach())
-            old_max_stat = torch.clone(submod.max_val.detach())
-            min_attr_name = "_observer" + str(observer_id) + "_min_val"
-            max_attr_name = "_observer" + str(observer_id) + "_max_val"
-            setattr(module, min_attr_name, old_min_stat)
-            setattr(module, max_attr_name, old_max_stat)
-
-            with module.graph.inserting_before(node):
-                min_attr_node = module.graph.create_node("get_attr", min_attr_name)
-                max_attr_node = module.graph.create_node("get_attr", max_attr_name)
-
-                casted_input = module.graph.call_function(
-                    torch.ops.aten._to_copy.default,
-                    (node.args[0],),
-                    {"dtype": old_min_stat.dtype},
-                )
-
-                # Get min and max of a tensor and update stats.
-                input_max = module.graph.call_function(torch.ops.aten.amax.default, (casted_input,))
-                input_min = module.graph.call_function(torch.ops.aten.amin.default, (casted_input,))
-
-                max_value = module.graph.call_function(torch.ops.aten.maximum.default, (input_max, max_attr_node))
-                min_value = module.graph.call_function(torch.ops.aten.minimum.default, (input_min, min_attr_node))
-
-                module.graph.call_function(torch.ops.aten.copy_.default, (max_attr_node, max_value))
-                module.graph.call_function(torch.ops.aten.copy_.default, (min_attr_node, min_value))
-
-            users_to_change = []
-            for dst in node.users:
-                users_to_change.append(dst)
-
-            for dst in users_to_change:
-                dst.replace_input_with(node, node.args[0])
-
-            module.graph.erase_node(node)
-            module.delete_submodule(node.target)
-
-        elif isinstance(submod, torch.ao.quantization.observer.PerChannelMinMaxObserver):
-            # Not really implemented, this is just sample on how/where to add new observers.
-            assert False
-
-        elif isinstance(submod, torch.ao.quantization.observer.PlaceholderObserver):
-            users_to_change = []
-            for dst in node.users:
-                users_to_change.append(dst)
-
-            for dst in users_to_change:
-                dst.replace_input_with(node, node.args[0])
-
-            module.graph.erase_node(node)
-            module.delete_submodule(node.target)
-
-        else:
-            # You should not be here, really..
-            assert False
-
-        observer_id = observer_id + 1
-
-    module.graph.lint()
-    module.recompile()
-
-
-# ======================================================================================
-# Function to reconstruct Observers modules (from prepared_pt2e) with collected stats.
-# ======================================================================================
-def reconstruct_observers(module_prepared: torch.fx.GraphModule, module_active: torch.fx.GraphModule):
-
-    nodes_to_reconstruct = []
-    for node in module_prepared.graph.nodes:
-        if node.op == "call_module":
-            assert not node.kwargs
-            submod = module_prepared.get_submodule(node.target)
-
-            if (
-                isinstance(submod, torch.ao.quantization.observer.MinMaxObserver)
-                or isinstance(submod, torch.ao.quantization.observer.PerChannelMinMaxObserver)
-                or isinstance(submod, torch.ao.quantization.observer.PlaceholderObserver)
-            ):
-                nodes_to_reconstruct.append(node)
-            else:
-                # Please add support for new observer if you are here.
-                assert False
-
-    observer_id = 0
-    for node in nodes_to_reconstruct:
-        submod = module_prepared.get_submodule(node.target)
-        if isinstance(submod, torch.ao.quantization.observer.MinMaxObserver):
-            min_attr_name = "_observer" + str(observer_id) + "_min_val"
-            max_attr_name = "_observer" + str(observer_id) + "_max_val"
-
-            submod.min_val = getattr(module_active, min_attr_name)
-            submod.max_val = getattr(module_active, max_attr_name)
-
-        elif isinstance(submod, torch.ao.quantization.observer.PerChannelMinMaxObserver):
-            # Not yet implemented.
-            assert False
-
-        elif isinstance(submod, torch.ao.quantization.observer.PlaceholderObserver):
-            pass
-
-        else:
-            # You should not be here, really.
-            assert False
-
-        observer_id = observer_id + 1
-
-    module_prepared.graph.lint()
-    module_prepared.recompile()
-
-
-# ======================================================================================
 # Freeze parameters for linear op, as is done in case of torch.export()
 # ======================================================================================
 def preprocess_linears(placeholder_map, module: torch.fx.GraphModule, tupled_args, *args):
@@ -1020,40 +883,6 @@ def preprocess_convs(placeholder_map, module: torch.fx.GraphModule, tupled_args)
 
 
 # ======================================================================================
-# Preprocess maxpool op, as is done in case of torch.export()
-# ======================================================================================
-def preprocess_maxpools(placeholder_map, module: torch.fx.GraphModule, tupled_args):
-    pool_module_partitions = get_source_partitions(module.graph, [torch.nn.MaxPool2d, torch.nn.functional.max_pool2d])
-
-    if len(pool_module_partitions) == 0:
-        return
-
-    for module_or_fn_type, partitions in pool_module_partitions.items():
-        if module_or_fn_type == torch.nn.MaxPool2d:
-            for p in partitions:
-                for node in p.nodes:
-                    if node.op == "call_function" and node.target.__name__ == "max_pool2d_with_indices.default":
-                        assert len(node.users) == 2
-
-                        getitem_0 = list(node.users.keys())[0]
-                        getitem_1 = list(node.users.keys())[1]
-
-                        assert getitem_0.op == "call_function" and getitem_0.target.__name__ == "getitem"
-                        assert getitem_1.op == "call_function" and getitem_1.target.__name__ == "getitem"
-
-                        assert len(getitem_1.users) == 1
-
-                        getitem_1_output_user = list(getitem_1.users.keys())[0]
-                        assert getitem_1_output_user.op == "output"
-
-                        getitem_1_output_user.replace_input_with(getitem_1, getitem_0)
-                        break
-
-    module.graph.lint()
-    module.recompile()
-
-
-# ======================================================================================
 # Change FX graph so that it resembles one that would be generated by torch.export()
 # ======================================================================================
 def discover_and_materialize_params(module: torch.fx.GraphModule, *args):
@@ -1070,4 +899,3 @@ def discover_and_materialize_params(module: torch.fx.GraphModule, *args):
 
     preprocess_linears(placeholder_map, module, tupled_args, *args)
     preprocess_convs(placeholder_map, module, tupled_args)
-    preprocess_maxpools(placeholder_map, module, tupled_args)
