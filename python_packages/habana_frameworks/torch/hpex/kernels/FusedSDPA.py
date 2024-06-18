@@ -168,7 +168,7 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
             dv = gqa_output_reshape(dv)
-        return dq, dk, dv, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None
 
 
 class FusedSDPA(torch.autograd.Function):
