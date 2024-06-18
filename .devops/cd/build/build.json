@@ -63,5 +63,8 @@
     },
     "hqt": {
         "cmd" : "build_hqt -w"
+    },
+    "inc": {
+        "cmd" : "build_inc -w"
     }
 }
