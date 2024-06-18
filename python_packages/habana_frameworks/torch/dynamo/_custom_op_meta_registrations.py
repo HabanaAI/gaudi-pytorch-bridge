@@ -428,6 +428,11 @@ def meta_fp8_index_select_v2(self, dim, index):
     return self.new_empty(result_size)
 
 
+@register_meta([torch.ops.hpu.scaled_masked_softmax])
+def meta_scaled_masked_softmax(input, mask, scale):
+    return input.new_empty(input.shape)
+
+
 @register_meta([torch.ops.hpu.scaled_masked_triangular_softmax.default])
 def meta_scaled_masked_triangular_softmax(
     self,
@@ -539,6 +544,11 @@ def meta_in_place_interleave(self):
 @register_meta([torch.ops.hpu.custom_softmax.default])
 def meta_custom_softmax(input, flavor):
     return input.new_empty(input.shape)
+
+
+@register_meta([torch.ops.hpu.ragged_softmax])
+def meta_ragged_softmax(self, dim, half_to_float, valid_count):
+    return
 
 
 @register_meta([torch.ops.hpu.rotary_pos_embedding.default])

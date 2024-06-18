@@ -1148,6 +1148,47 @@ at::Tensor fp8_index_select_v2(
       false, "hpu::fp8_index_select_v2 is not available in Eager mode.");
 }
 
+at::Tensor _ragged_softmax(
+    const at::Tensor& self,
+    int64_t dim,
+    bool half_to_float,
+    const at::Tensor& valid_count) {
+  PT_EAGER_TRACE;
+
+  PT_OP_INFO(
+      "HpuOp _ragged_softmax :",
+      " self=",
+      to_string(self),
+      " dim=",
+      to_string(dim),
+      " half_to_float=",
+      to_string(half_to_float));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::ragged_softmax", {self, dim, half_to_float, valid_count}};
+  return hpu_op.call();
+}
+
+at::Tensor scaled_masked_softmax(
+    const at::Tensor& input,
+    const at::Tensor& mask,
+    double scale) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "scaled_masked_softmax:",
+      " input=",
+      to_string(input),
+      " mask=",
+      to_string(mask),
+      " scale=",
+      to_string(scale));
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "hpu::scaled_masked_softmax",
+      {input, mask, scale},
+      {{input.sizes().vec()}}};
+  return hpu_op.call();
+}
+
 at::Tensor scaled_masked_triangular_softmax(
     const at::Tensor& self,
     const at::Tensor& start_end,
@@ -2009,6 +2050,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)");
   m.def(
+      "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor");
+  m.def(
       "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
   m.def(
       "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
@@ -2016,6 +2059,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::ctc_loss_custom(Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, int blank, int reduction, bool zero_infinity) -> (Tensor, Tensor)");
   m.def(
       "hpu::ctc_loss_custom_backward(Tensor grad, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction, bool zero_infinity) -> Tensor");
+  m.def(
+      "hpu::scaled_masked_softmax(Tensor input, Tensor mask, float scale) -> Tensor");
   m.def(
       "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode, ScalarType? out_dtype=None) -> Tensor");
   m.def(
@@ -2155,11 +2200,13 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::optimizer_resource_apply_momentum",
       optimizer_resource_apply_momentum);
+  m.impl("hpu::ragged_softmax", _ragged_softmax);
   m.impl("hpu::rms_norm_backward", rms_norm_backward);
   m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding);
   m.impl("hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward);
   m.impl("hpu::ctc_loss_custom", ctc_loss_custom);
   m.impl("hpu::ctc_loss_custom_backward", ctc_loss_custom_backward);
+  m.impl("hpu::scaled_masked_softmax", scaled_masked_softmax);
   m.impl(
       "hpu::scaled_masked_triangular_softmax",
       scaled_masked_triangular_softmax);

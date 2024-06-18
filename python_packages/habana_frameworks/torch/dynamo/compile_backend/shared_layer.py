@@ -54,6 +54,7 @@ hpu_supported_op_list = {
     "rms_norm_backward",
     "rotary_pos_embedding",
     "rotary_pos_embedding_backward",
+    "scaled_masked_softmax",
     "scaled_masked_triangular_softmax",
     "scaled_triangular_softmax",
     "scaled_triangular_softmax_retain",
