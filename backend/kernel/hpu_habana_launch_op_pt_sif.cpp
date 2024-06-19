@@ -422,6 +422,7 @@ auto propagateShape(
   for (auto& out_tensor_pt : habana_op->GetOutputs()) {
     val_to_ival_map.emplace(
         output_nodes[output_idx], torch::jit::IValue(out_tensor_pt));
+    output_idx++;
   }
 
   for (const auto& pt_input_idx_and_sh_tensor :
