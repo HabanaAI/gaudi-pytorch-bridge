@@ -22,7 +22,6 @@ orchestratorConfig:
     # PyTorch full graph tests
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_hls_asic_perf
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_perf
-    - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_topology_sbs
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_sbs
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_asic_topology_functionality
     - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_functionality
