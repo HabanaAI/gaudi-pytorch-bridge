@@ -29,7 +29,9 @@ def enable_compiled_autograd():
     logger.warn("Enabling CompiledAutograd for hpu_backend with torch.compile")
 
     def compiler_fn(gm):
-        return torch.compile(gm, backend="hpu_backend", fullgraph=True, options={"keep_input_mutations": True})
+        return torch.compile(
+            gm, backend="hpu_backend", fullgraph=True, options={"keep_input_mutations": True, "inference": False}
+        )
 
     torch._C._dynamo.compiled_autograd.set_autograd_compiler(
         functools.partial(compiled_autograd.AutogradCompilerInstance, compiler_fn)

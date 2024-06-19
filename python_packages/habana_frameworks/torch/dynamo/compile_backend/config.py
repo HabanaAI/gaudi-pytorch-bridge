@@ -52,6 +52,8 @@ discard_frozen_params = _get_bool_from_env("PT_HPU_COMPILE_DISCARD_FROZEN_PARAMS
 # enables removing unnecessary clone ops from the joint graph
 remove_unnecessary_clones = _get_bool_from_env("PT_HPU_COMPILE_REMOVE_UNNECESSARY_CLONES", "1")
 use_inplace_allreduce = _get_bool_from_env("PT_HPU_USE_INPLACE_COLLECTIVE", "0")
+# for compile enable autograd, so that the training compiler is chosen
+inference = _get_bool_from_env("PT_HPU_USE_INFERENCE_COMPILER", "1")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])

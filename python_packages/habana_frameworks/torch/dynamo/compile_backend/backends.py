@@ -37,6 +37,12 @@ def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.T
 
     # Create AOT Autograd instance and feed it with Habana compile function.
     with hpu_backend_config.patch(options):
+        if hpu_backend_config.inference is False:
+            logger.info(
+                """Inference is explicitly mentioned as false, replacing
+            inference compiler with hpu_training_compiler_bw"""
+            )
+            inference_compiler = hpu_training_compiler_bw
         return aot_autograd(
             fw_compiler=hpu_backend_config.patch(options)(hpu_training_compiler_fw),
             bw_compiler=hpu_backend_config.patch(options)(hpu_training_compiler_bw),
