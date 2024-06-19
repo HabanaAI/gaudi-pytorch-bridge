@@ -160,7 +160,7 @@ def wrapped_to(self, *args, **kwargs):
     shared_parameters = {}
     collected_parameters = []
     weight_sharing_exception = Exception(
-        "Weight sharing unsuccessful. " "You can disable weight sharing by setting: EXPERIMENTAL_WEIGHT_SHARING=0"
+        "Weight sharing unsuccessful. " "You can disable weight sharing by setting: PT_HPU_WEIGHT_SHARING=0"
     )
 
     # Convert all parameters to habana parameters

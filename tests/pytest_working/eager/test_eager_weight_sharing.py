@@ -20,7 +20,7 @@ pytestmark = pytest.mark.skip(reason="Tests in this file are chaning env variabl
 @pytest.fixture(autouse=True, scope="module")
 def setup_teardown_env():
     # disable lazy weight sharing
-    yield from generic_setup_teardown_env({"EXPERIMENTAL_WEIGHT_SHARING": 0})
+    yield from generic_setup_teardown_env({"PT_HPU_WEIGHT_SHARING": 0})
 
 
 def test_weight_share_across_model_to():
