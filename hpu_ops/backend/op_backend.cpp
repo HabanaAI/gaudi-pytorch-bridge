@@ -980,11 +980,14 @@ sh::tensor OpBackend::BuildConstant(
     c10::optional<at::ScalarType> force_type,
     const at::IntArrayRef constant_outshape,
     c10::optional<int> final_result_index) {
-  // For eager mode, Allocate constant synapse tensor
+  // For lazy eager mode, Allocate constant synapse tensor
   // for non-persistent tensor of size {1}.
+  // To do: Check support for force data type to const tensor.
+  //        Confirm if CGUID dtype promotion can take care of it.
   if (op->GetExecutionMode() == habana_helpers::HabanaFrontendTypes::EAGER &&
-      !final_result_index.has_value() && constant_outshape.equals({1})) {
-    return OpBackend::BuildConstantTensor(op, graph, val, force_type);
+      !final_result_index.has_value() && !force_type.has_value() &&
+      constant_outshape.equals({1})) {
+    return OpBackend::BuildConstantTensor(op, graph, val);
   }
 
   at::ScalarType valtype =
@@ -1036,14 +1039,13 @@ sh::tensor OpBackend::BuildConstantTensor(
     OpBackend* op,
     sh::graph& graph,
     const at::Scalar& val,
-    c10::optional<at::ScalarType> force_type,
     [[maybe_unused]] const at::IntArrayRef outshape) {
   if (op->isOutputInfMode()) {
     // dummy synapse tensor
     return sh::tensor::create_placeholder({1}, {1});
   }
 
-  return op->AllocateConstantSynapseTensor(graph, val, force_type);
+  return op->AllocateConstantSynapseTensor(graph, val);
 }
 
 sh::tensor OpBackend::BuildBroadcast(
