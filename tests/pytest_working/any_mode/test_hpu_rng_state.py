@@ -10,6 +10,7 @@
 #
 ###############################################################################
 
+import habana_frameworks.torch.internal.bridge_config as bc
 import torch
 
 
@@ -80,6 +81,7 @@ def test_fork_rng():
     assert torch.equal(rng_state_2, rng_state_1)
 
     # fork_rng shouldn't restore rng_state after its scope with device_type != "hpu"
+    # unless GPU Migration is used, in which case fork_rng should restore rng_state
     with torch.random.fork_rng(device_type="cuda"):
         torch.manual_seed(424242)
         rng_state_temp_2 = torch.hpu.get_rng_state()
@@ -88,4 +90,8 @@ def test_fork_rng():
     assert not torch.equal(rng_state_2, rng_state_temp_2)
 
     rng_state_3 = torch.hpu.get_rng_state()
-    assert torch.equal(rng_state_3, rng_state_temp_2)
+    is_restored = torch.equal(rng_state_3, rng_state_temp_2)
+    if bc.get_pt_hpu_gpu_migration():
+        assert not is_restored
+    else:
+        assert is_restored
