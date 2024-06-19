@@ -28,7 +28,6 @@ from .compilers import (
     hpu_training_compiler_fw,
 )
 from .decomposition import get_hpu_decompositions
-from .partition_fn import hpu_partition
 
 
 @register_backend
@@ -48,7 +47,6 @@ def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.T
             inference_compiler=hpu_backend_config.patch(options)(inference_compiler),
             decompositions=get_hpu_decompositions(),
             keep_inference_input_mutations=hpu_backend_config.keep_input_mutations,
-            partition_fn=hpu_partition,
         )(graph_module, example_inputs)
 
 
