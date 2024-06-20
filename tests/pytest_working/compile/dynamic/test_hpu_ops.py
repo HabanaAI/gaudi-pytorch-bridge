@@ -1099,7 +1099,6 @@ def test_op_scalar_div():
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
-@pytest.mark.skipif(is_gaudi1(), reason="https://jira.habana-labs.com/browse/SW-188772")
 def test_op_randperm():
     os.environ["PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR"] = "1"
     input_n = [8, 9, 10, 11, 12]
