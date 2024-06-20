@@ -98,4 +98,9 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     bool keepdim,
     const std::string& guid,
     std::vector<NodeAttr::NodeOutputAttr> output_attr);
+
+std::vector<int64_t> CalculateReductionMultiDimAndKeepdimOutputSize(
+    const std::vector<int64_t>& inputSize,
+    const std::vector<int64_t>& dimsToReduce,
+    bool keepDim);
 } // namespace habana

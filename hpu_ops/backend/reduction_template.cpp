@@ -291,6 +291,35 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
         return params;
       });
 }
+
+std::vector<int64_t> CalculateReductionMultiDimAndKeepdimOutputSize(
+    const std::vector<int64_t>& inputSize,
+    const std::vector<int64_t>& dimsToReduce,
+    bool keepDim) {
+  if (keepDim) {
+    std::vector<int64_t> outputSize = inputSize;
+    for (const int64_t dim : dimsToReduce) {
+      outputSize[dim] = 1;
+    }
+    return outputSize;
+  } else {
+    const size_t numOfDimsLeft = inputSize.size() - dimsToReduce.size();
+    if (numOfDimsLeft == 0) {
+      return {1};
+    }
+    std::vector<int64_t> outputSize;
+    outputSize.reserve(numOfDimsLeft);
+
+    for (size_t i = 0; i < inputSize.size(); ++i) {
+      if (std::find(dimsToReduce.begin(), dimsToReduce.end(), i) ==
+          dimsToReduce.end()) {
+        outputSize.push_back(inputSize[i]);
+      }
+    }
+    return outputSize;
+  }
+}
+
 std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     OpBackend* op,
     synapse_helpers::graph& graph,
@@ -492,6 +521,9 @@ std::vector<synapse_helpers::tensor> HandleReductionMultiDimAndKeepdim(
     const int64_t inputRank,
     const bool keepdim,
     std::vector<NodeAttr::NodeOutputAttr> output_attr) {
+  HABANA_ASSERT(
+      dimsToReduce.size() != 0, "Reduction cannot be done on empty dim list");
+
   size_t size = 0;
   auto params = FillReductionParams(inputRank, dimsToReduce, keepdim, size);
 

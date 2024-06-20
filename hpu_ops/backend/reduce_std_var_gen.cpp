@@ -67,7 +67,7 @@ std::vector<synapse_helpers::tensor> slice_size_helper(
     synapse_helpers::graph& graph,
     const at::Tensor& self,
     const std::vector<synTensor>& input,
-    const at::IntArrayRef dims) {
+    const std::vector<int64_t>& dims) {
   auto intermediate_shape = self.sizes().vec();
   auto rank = intermediate_shape.size();
   std::vector<synapse_helpers::tensor> slice_axis_output;
@@ -104,22 +104,19 @@ std::vector<synapse_helpers::tensor> slice_size_helper(
       {"size_i32", {slice_output[0]}, {{{1}, c10::ScalarType::Int}}});
 }
 
-// checking dim is continuous to avoid reduce_sum
+// checking if dim is continuous to avoid reduce_sum
 static bool needsReduceSum(std::vector<int64_t> dimsVec) {
-  const auto num_dim = dimsVec.size();
-
-  for (auto i = 0u; i < num_dim; i++) {
-    if (dimsVec[i] != i) {
+  if (dimsVec.size() == 1) {
+    return false;
+  }
+  for (auto i = 0u; i < dimsVec.size() - 1; i++) {
+    // If difference between two next elements is different than one, then dims
+    // are not consecutive
+    if (dimsVec[i + 1] - dimsVec[i] != 1) {
       return true;
     }
   }
-
   return false;
-}
-
-static at::IntArrayRef prepareDims(std::vector<int64_t>& dimsVec, int ndims) {
-  LoweringUtil::SortAndRemoveDuplicateDims(dimsVec, ndims);
-  return at::IntArrayRef(dimsVec.data(), dimsVec.size());
 }
 
 std::vector<synapse_helpers::tensor> StdVarCommonFunc(
@@ -137,85 +134,67 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
   if (input_shape.size() == 0) {
     input_shape.push_back(1);
   }
-  const int ndims = input_shape.size();
+  const size_t ndims = input_shape.size();
   auto dimsVec = dims.vec();
+  LoweringUtil::SortAndRemoveDuplicateDims(dimsVec, ndims);
 
-  dims = prepareDims(dimsVec, ndims);
   const bool enable_reduce_sum = needsReduceSum(dimsVec);
-  const bool is_bf16 = op->ScalarType() == torch::kBFloat16;
   const int min_dim = (dimsVec.size() == 0) ? 0 : dimsVec.front();
-  std::vector<synapse_helpers::tensor> sum;
   std::vector<synapse_helpers::tensor> outputs;
 
   // when keepdim is false there will be incompatible input sizes for the
   // sub node so keepdim is set as true for mean and it is reshaped at the end.
-  auto mean_out = HandleReductionDimAndKeepdim(
+  auto mean = HandleReductionMultiDimAndKeepdim(
       op,
       graph,
-      self,
-      input,
+      input[0],
+      "reduce_mean_multi_dim_fwd",
       dimsVec,
+      ndims,
       true,
-      get_guid_with_precision("reduce_mean_fwd", op->ScalarType()),
       {output_attr[1]});
 
   auto difference = OpBackend::BuildNode(
       op,
       graph,
       {get_guid_with_precision("sub_fwd", op->ScalarType()),
-       {input.front(), mean_out.front().get()},
+       {input[0], mean[0].get()},
        {{input_shape, op->ScalarType()}}});
 
-  input_shape[min_dim] = 1;
   // Using reduction squares only in first reduction
-  // followed by reduce_sum for rest of the dims.
-  // example: input_shape [8,3,2,2] with dim=[0,2,3] only dim=0 is passed to
-  // reduction_helper, output_shape [1,3,2,2]
-  auto sum_square_input = is_bf16
-      ? *HandleReductionDtype(op, graph, self, difference[0].get(), at::kFloat)
-      : std::move(difference[0]);
-  auto sum_square = HandleReductionDimAndKeepdim(
+  // followed by reduce_sum for rest of the dims so the input is squared only
+  // once example: input_shape [8,3,2,2] with dim=[0,2,3] only dim=0 is passed
+  // to reduction_helper, output_shape [1,3,2,2]
+  auto reduce_sum_square_output_shape =
+      CalculateReductionMultiDimAndKeepdimOutputSize(
+          input_shape,
+          enable_reduce_sum ? std::vector<int64_t>{min_dim} : dimsVec,
+          enable_reduce_sum ? true : keepdim);
+
+  auto sum_square = HandleReductionMultiDimAndKeepdim(
       op,
       graph,
-      self,
-      {sum_square_input.get()},
-      enable_reduce_sum ? min_dim : dims,
+      difference[0].get(),
+      "reduce_sum_square_multi_dim_fwd",
+      enable_reduce_sum ? std::vector<int64_t>{min_dim} : dimsVec,
+      ndims,
       enable_reduce_sum ? true : keepdim,
-      "reduce_sum_square_fwd_f32",
-      {{enable_reduce_sum ? input_shape : output_attr[0].sizes}});
+      {{reduce_sum_square_output_shape, output_attr[0].dtype}});
 
-  // Flattening of contiguous axes using reshape is handled
-  // in HandleReductionDimAndKeepdim
-  sum.emplace_back(std::move(sum_square[0]));
-
-  // Since input shape is calculated from self tensor
-  // input_shape remains to be [8,3,2,2] but required input_shape [1,3,2,2] and
-  // dim becomes [2,3] so there will output shape mismatch if all dims are
-  // passed collectively. Hence individual dims are passed
-  if (enable_reduce_sum) {
-    for (size_t i = 1; i < dims.size(); i++) {
-      input_shape[dims[i]] = 1;
-      auto reduce_sum = HandleReductionDimAndKeepdim(
-          op,
-          graph,
-          self,
-          {sum.back().get()},
-          dims[i],
-          true,
-          "reduce_sum_fwd_f32",
-          {{input_shape}});
-      sum.emplace_back(std::move(reduce_sum[0]));
-    }
-
-    if (!keepdim) {
-      auto reshape_tensor = OpBackend::BuildReshape(
-          op, graph, sum.back().get(), output_attr[0].sizes, at::kFloat);
-      sum.emplace_back(std::move(reshape_tensor));
-    }
-  }
+  auto sum_square_final = enable_reduce_sum
+      ? HandleReductionMultiDimAndKeepdim(
+            op,
+            graph,
+            sum_square[0].get(),
+            "reduce_sum_multi_dim_fwd",
+            std::vector(dimsVec.begin() + 1, dimsVec.end()),
+            ndims,
+            keepdim,
+            {{output_attr[0].sizes, output_attr[0].dtype}})
+      : std::move(sum_square);
 
   std::vector<synapse_helpers::tensor> reciprocal;
-  auto slice_size_output = slice_size_helper(op, graph, self, input, dims);
+  auto slice_size_output = slice_size_helper(op, graph, self, input, dimsVec);
   if (correction) {
     auto correction_tensor =
         OpBackend::BuildConstant(op, graph, correction, at::kFloat);
@@ -238,38 +217,26 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
       op,
       graph,
       {"mult_fwd_f32",
-       {sum.back().get(), reciprocal[0].get()},
-       (take_sqrt || is_bf16)
+       {sum_square_final[0].get(), reciprocal[0].get()},
+       (take_sqrt)
            ? std::vector<NodeAttr::NodeOutputAttr>{{output_attr[0].sizes}}
            : std::vector<NodeAttr::NodeOutputAttr>{output_attr[0]}});
-  sum.emplace_back(std::move(div[0]));
 
-  if (is_bf16) {
-    auto cast_f32 = OpBackend::BuildCast(
-        op,
-        graph,
-        sum.back().get(),
-        output_attr[0].sizes,
-        at::kFloat,
-        torch::kBFloat16,
-        take_sqrt ? c10::nullopt : (c10::optional<int>)0);
-    sum.emplace_back(std::move(cast_f32));
-  }
   if (take_sqrt) {
     auto sqrt = OpBackend::BuildNode(
         op,
         graph,
         {get_guid_with_precision("sqrt_fwd", op->ScalarType()),
-         {sum.back().get()},
+         {div[0].get()},
          {output_attr[0]}});
 
     outputs.emplace_back(std::move(sqrt[0]));
   } else {
-    outputs.emplace_back(std::move(sum.back()));
+    outputs.emplace_back(std::move(div[0]));
   }
 
   if (mean_op) {
-    outputs.emplace_back(std::move(mean_out[0]));
+    outputs.emplace_back(std::move(mean[0]));
   }
 
   return outputs;

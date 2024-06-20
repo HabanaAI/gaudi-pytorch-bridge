@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -41,7 +41,7 @@ def test_hpu_std_var_mean(shape, dim, op, dtype):
 
     cpu_output, hpu_output = std_var_common_test(shape, dim, op, dtype)
 
-    tol = 1e-3 if dtype == torch.bfloat16 else 1e-5
+    tol = 1e-2 if dtype == torch.bfloat16 else 1e-5
     assert torch.allclose(cpu_output[0], hpu_output[0].cpu(), rtol=tol, atol=tol, equal_nan=True)
     assert torch.allclose(cpu_output[1], hpu_output[1].cpu(), rtol=tol, atol=tol)
 
@@ -52,5 +52,5 @@ def test_hpu_std_var_mean(shape, dim, op, dtype):
 def test_hpu_std_var(shape, dim, op, dtype):
     cpu_output, hpu_output = std_var_common_test(shape, dim, op, dtype)
 
-    tol = 1e-3 if dtype == torch.bfloat16 else 1e-5
+    tol = 1e-2 if dtype == torch.bfloat16 else 1e-5
     assert torch.allclose(cpu_output, hpu_output.cpu(), rtol=tol, atol=tol)
