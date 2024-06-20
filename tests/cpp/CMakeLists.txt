@@ -102,6 +102,7 @@ set(hpu_ops_tests_src
   hpu_ops/entr.cpp
   hpu_ops/eq.cpp
   hpu_ops/erfc.cpp
+  hpu_ops/special_erfcx.cpp
   hpu_ops/erfinv.cpp
   hpu_ops/exponential.cpp
   hpu_ops/eye.cpp

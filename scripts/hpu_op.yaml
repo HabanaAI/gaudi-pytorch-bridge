@@ -8128,6 +8128,17 @@ softplus_backward.grad_input:
   guid: softplus_bwd
   op_validator: check-node-with-shared-layer
 
+special_erfcx:
+  promote_int_to_float: [self]
+  dtypes: [BFloat16, Float]
+  guid: erfcx_fwd
+  out_ids: [0]
+
+special_erfcx.out:
+  promote_int_to_float: [self]
+  dtypes: [BFloat16, Float]
+  guid: erfcx_fwd
+
 special_xlog1py:
   output_meta: XlogYMeta
   dtypes:
