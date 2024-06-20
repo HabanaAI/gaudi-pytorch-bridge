@@ -165,7 +165,7 @@ void HabanaRandBase::AddNode(
   syn_out(0) = std::move(rand[0]);
 }
 
-void RandDSSTMeta(
+bool RandDSSTMeta(
     habana_helpers::IShapeList& inputs,
     habana_helpers::IShapeList& outputs) {
   PT_BRIDGE_DEBUG("RandDSSTMeta called");
@@ -175,6 +175,8 @@ void RandDSSTMeta(
     PT_BRIDGE_DEBUG("RandDSSTMeta constant shape ", t_size);
     habana_helpers::UpdateSTShapeInfo(t_size);
   }
+
+  return true;
 }
 
 HabanaRand::HabanaRand(int device_id, c10::ScalarType scalar_type)
@@ -191,7 +193,7 @@ HabanaRandn::HabanaRandn(int device_id, c10::ScalarType scalar_type)
   SetSTMetaFn(RandDSSTMeta);
 }
 
-void RandIntDSSTMeta(
+bool RandIntDSSTMeta(
     habana_helpers::IShapeList& inputs,
     habana_helpers::IShapeList& outputs) {
   PT_BRIDGE_DEBUG("RandIntDSSTMeta called");
@@ -202,8 +204,11 @@ void RandIntDSSTMeta(
     PT_BRIDGE_DEBUG("RandIntDSSTMeta constant shape ", t_size);
     habana_helpers::UpdateSTShapeInfo(t_size);
   } else {
-    HABANA_ASSERT(0, "Rand Int DS meta not supported non tensor input !!!");
+    PT_BRIDGE_DEBUG("Rand Int DS meta not supported non tensor input !!!");
+    return false;
   }
+
+  return true;
 }
 
 HabanaRandint::HabanaRandint(int device_id, c10::ScalarType scalar_type)
@@ -275,15 +280,20 @@ HabanaUniform::HabanaUniform(int device_id, c10::ScalarType scalar_type)
   SetSTMetaFn(RandDSSTMeta);
 }
 
-void RandSeedGeneratorDSSTMeta(
+bool RandSeedGeneratorDSSTMeta(
     habana_helpers::IShapeList& inputs,
     habana_helpers::IShapeList& outputs) {
   PT_BRIDGE_DEBUG("RandSeedGeneratorDSSTMeta called");
   static_cast<void>(outputs);
-  auto t_size = inputs[1].getScalar().toInt();
-  PT_BRIDGE_DEBUG("RandSeedGeneratorDSSTMeta constant shape ", t_size);
-  std::vector<int64_t> shape(1, t_size);
-  habana_helpers::UpdateSTShapeInfo(shape);
+  if (inputs[1].isScalar()) {
+    auto t_size = inputs[1].getScalar().toInt();
+    PT_BRIDGE_DEBUG("RandSeedGeneratorDSSTMeta constant shape ", t_size);
+    std::vector<int64_t> shape(1, t_size);
+    habana_helpers::UpdateSTShapeInfo(shape);
+    return true;
+  }
+
+  return false;
 }
 
 HabanaSeedGenerator::HabanaSeedGenerator(

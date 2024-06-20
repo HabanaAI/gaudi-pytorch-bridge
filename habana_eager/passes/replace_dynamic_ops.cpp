@@ -137,7 +137,7 @@ struct HandleDynamicOpsPass {
           std::make_shared<IVal>(val_ivalue.second);
     }
     // dump shapes
-    dumpValueIValueMap();
+    // dumpValueIValueMap();
   }
 
   bool maxTensorDimsCheck(
@@ -200,11 +200,35 @@ struct HandleDynamicOpsPass {
     return true;
   }
 
-  bool isNodeDynamic(torch::jit::Node* node) {
-    // Shapes are dynamic if symbols are present in
-    // node's output shape atttribute.
-    // Shapes are assumed as dynamic if said attribute
-    // is absent in the node, or if the attribute is empty
+  bool nodeHasScalarGraphInput(
+      torch::jit::Node* node,
+      GraphInputIndexMap& org_stack_index_map) {
+    for (const auto& input : node->inputs()) {
+      torch::jit::Node* producer_node = input->node();
+      if (producer_node->kind() == torch::jit::prim::ListConstruct)
+        return nodeHasScalarGraphInput(producer_node, org_stack_index_map);
+      else {
+        auto ivalue = m_value_ivalue_map[const_cast<torch::jit::Value*>(input)];
+        if (!ivalue->isTensor()) {
+          if (org_stack_index_map.count(input->debugName())) {
+            auto node_name = node->kind().toQualString();
+            PT_EAGER_DEBUG(
+                "Node ",
+                node_name,
+                " has scalar inputs that are also graph inputs");
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  bool isNodeDynamic(
+      torch::jit::Node* node,
+      GraphInputIndexMap& org_stack_index_map) {
+    // Assuming node is dynamic by default
+    bool isDynamic = true;
     auto node_name = node->kind().toQualString();
     auto outputshapes_attr = c10::Symbol::attr("output_shapes");
     if (node->hasAttribute(outputshapes_attr)) {
@@ -215,12 +239,21 @@ struct HandleDynamicOpsPass {
             node_name,
             ", assuming it to be dynamic");
       } else {
+        bool hasSymbol = false;
         for (auto& c : outputshapes_str) {
           if (!(std::isdigit(c) || c == '[' || c == ']' || c == ',' ||
                 std::isspace(c)))
-            return true;
+            hasSymbol = true;
         }
-        return false;
+        // Node is not dynamic if it does not have
+        // any non-numeric symbols
+        if (!hasSymbol)
+          isDynamic = false;
+        // If node has scalar inputs that are also graph inputs
+        // Differing values of those inputs cause JIT cache miss
+        // Better to replace such nodes
+        if (nodeHasScalarGraphInput(node, org_stack_index_map))
+          isDynamic = true;
       }
     } else {
       PT_EAGER_DEBUG(
@@ -228,7 +261,7 @@ struct HandleDynamicOpsPass {
           node_name,
           ", assuming it to be dynamic");
     }
-    return true;
+    return isDynamic;
   }
 
   bool processBlock(torch::jit::Block* block, torch::jit::Stack& org_stack) {
@@ -245,15 +278,7 @@ struct HandleDynamicOpsPass {
       DynamicOpPtr dsOp = DSOpsRegistry().get(node_name);
       if (!dsOp)
         continue;
-      if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF)) {
-        if (!isNodeDynamic(node)) {
-          PT_EAGER_DEBUG(
-              "Skipping HPU op replacement for ",
-              node_name,
-              " as its output shapes are static");
-          continue;
-        }
-      }
+
       PT_EAGER_DEBUG("Replace dynamic Op: ", node_name);
       dsOp->m_input_new_base_sizes = m_input_new_base_sizes;
       changed = dsOp->ReplaceWithDynamicHPUOp(

@@ -1825,7 +1825,7 @@ void StridedViewOperator::compute_params(
   }
 
   // For Dynamic case fill strides/offset params with max size
-  if (graph.is_dynamic_graph()) {
+  if (graph.is_dynamic_graph() && have_shape_tensors) {
     synapse_helpers::tensor& stride_tensor = p_context_->syn_inputs_[2];
     std::vector<int64_t> min, max;
     std::tie(min, max) =

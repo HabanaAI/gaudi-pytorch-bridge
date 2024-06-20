@@ -70,8 +70,9 @@ typedef std::vector<IShape> IShapeList;
 
 using DSInputSymbolMap =
     std::unordered_map<std::string, std::shared_ptr<double>>;
-using DSValueExprMap =
-    std::unordered_map<std::string, std::shared_ptr<habana::SizeExpression>>;
+using DSValueExprMap = std::unordered_map<
+    std::string,
+    std::vector<std::shared_ptr<habana::SizeExpression>>>;
 using DSValueIShapeMap =
     std::unordered_map<std::string, habana_helpers::IShape>;
 
@@ -82,5 +83,6 @@ struct DynamicSIFInfo {
 };
 
 void UpdateSTShapeInfo(std::vector<int64_t>& shape);
+bool is_symbolic_expr(std::string expr_str);
 
 } // namespace habana_helpers

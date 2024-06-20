@@ -304,6 +304,14 @@ struct OptimizedJITGraphAndMetaData {
     is_pipeline_supported_ = is_pipeline_supported;
   }
 
+  size_t get_sym_expr_hash() {
+    return sym_expr_hash_;
+  }
+
+  void set_sym_expr_hash(size_t hash) {
+    sym_expr_hash_ = hash;
+  }
+
   struct PermutationWithOutputPosition {
     uint64_t output_index;
     synapse_helpers::layouts::MemoryPermutation permutation;
@@ -380,6 +388,7 @@ struct OptimizedJITGraphAndMetaData {
       habana_helpers::HabanaFrontendTypes::INVALID;
   bool is_eager_compiler_supported = true;
   bool is_pipeline_supported_ = false;
+  size_t sym_expr_hash_ = 0;
   std::optional<PermutationInfo> permutation_info_{};
   bool is_param_agnostic_supported_ = false;
   CValPtrMap param_jit_val_map_{};

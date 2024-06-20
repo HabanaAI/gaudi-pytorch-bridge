@@ -1267,7 +1267,7 @@ class LazyOp {
     m_hw_scaling_ids = ids;
   }
 
-  void SetSTMetaFn(std::function<void(
+  void SetSTMetaFn(std::function<bool(
                        habana_helpers::IShapeList& inputs,
                        habana_helpers::IShapeList& outputs)> fn) {
     static_cast<void>(fn);

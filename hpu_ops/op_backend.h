@@ -102,7 +102,7 @@ class OpBackend : public HabanaOperator {
   }
 
   OutputMetaDataVector OutputMeta(const at::Stack& stack) const;
-  void STMeta(
+  bool STMeta(
       habana_helpers::IShapeList& inputs,
       habana_helpers::IShapeList& outputs) const;
   void HandleScalarToTensorSTMeta(habana_helpers::IShapeList& inputs) const;
@@ -186,7 +186,7 @@ class OpBackend : public HabanaOperator {
     m_output_meta_fn = std::move(fn);
   }
 
-  void SetSTMetaFn(std::function<void(
+  void SetSTMetaFn(std::function<bool(
                        habana_helpers::IShapeList& inputs,
                        habana_helpers::IShapeList& outputs)> fn) {
     m_st_meta_fn = std::move(fn);
@@ -582,7 +582,7 @@ class OpBackend : public HabanaOperator {
   std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
   std::function<sizes_vec(const at::Stack&)> m_compute_output_shapes;
   std::function<OutputMetaDataVector(const at::Stack&)> m_output_meta_fn;
-  std::function<void(
+  std::function<bool(
       habana_helpers::IShapeList& inputs,
       habana_helpers::IShapeList& outputs)>
       m_st_meta_fn;
