@@ -443,7 +443,10 @@ def _scatter_wait_result(
 
             stride = list(itertools.accumulate(reversed(cb.shape[1:]), operator.mul))
             stride.reverse()
-            stride.append(1)
+
+            # Special handling for ZST
+            if len(cb.shape) != 0:
+                stride.append(1)
 
             as_strided_node = gm.graph.call_function(
                 torch.ops.aten.as_strided.default,
