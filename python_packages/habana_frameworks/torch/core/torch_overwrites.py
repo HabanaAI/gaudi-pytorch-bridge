@@ -187,7 +187,9 @@ def overwrite_torch_functions():
     def wrap_new_group(ranks=None, timeout=default_pg_timeout, backend=None, pg_options=None):
         nonlocal ranks_cache
         cache_enable = bc.get_pt_enable_comm_group_cache()
-        if cache_enable:
+        hpu_backend_invoke = True if backend is None or "hccl" in backend else False
+
+        if cache_enable and hpu_backend_invoke:
             nonlocal ranks_cache
             if ranks == None:
                 actual_world_size = torch.distributed.distributed_c10d.get_world_size()
@@ -215,7 +217,9 @@ def overwrite_torch_functions():
     ):
         nonlocal ranks_cache
         cache_enable = bc.get_pt_enable_comm_group_cache()
-        if cache_enable:
+        hpu_backend_invoke = True if backend is None or "hccl" in backend else False
+
+        if cache_enable and hpu_backend_invoke:
             if len(ranks_cache) == 0:
                 init_process_group_orig(
                     backend,
