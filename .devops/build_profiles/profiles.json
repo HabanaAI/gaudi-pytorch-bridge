@@ -32,6 +32,16 @@
   },
   "pt_versions": {
     "current": {
+      "version": "2.3.1",
+      "default_source": "build",
+      "extras": {
+        "torchvision": "v0.18.1",
+        "torchaudio": "v2.3.0",
+        "torchtext": "v0.18.0",
+        "torchdata": "v0.7.1"
+      }
+    },
+    "previous": {
       "version": "2.2.2",
       "default_source": "build",
       "extras": {
@@ -41,23 +51,13 @@
         "torchdata": "v0.7.1"
       }
     },
-    "previous": {
-      "version": "2.2.0",
-      "default_source": "build",
-      "extras": {
-        "torchvision": "v0.17.0",
-        "torchaudio": "v2.2.0",
-        "torchtext": "v0.17.0",
-        "torchdata": "v0.7.1"
-      }
-    },
     "next": {
-      "version": "2.3.1",
+      "version": "2.4.0",
       "default_source": "build",
       "extras": {
-        "torchvision": "v0.18.1",
-        "torchaudio": "v2.3.0",
-        "torchtext": "v0.18.0",
+        "torchvision": "v0.19.0",
+        "torchaudio": "v2.4.0",
+        "torchtext": "v0.19.0",
         "torchdata": "v0.7.1"
       }
     },
