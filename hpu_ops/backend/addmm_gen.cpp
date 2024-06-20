@@ -13,6 +13,7 @@
 
 #include "generated/backend/addbmm.h"
 #include "generated/backend/addmm.h"
+#include "hpu_ops/backend/reduction_template.h"
 #define idxSelf 0
 #define idxMat1 1
 #define idxMat2 2
@@ -143,27 +144,15 @@ static std::vector<synapse_helpers::tensor> ComputeGEMM(
   if (!is_batch) {
     return gemm_out;
   } else {
-    ns_Reduction::Params reduce_params{};
-    reduce_params.reductionDimension = 2;
-    std::vector<synTensor> reduce_node_inputs{gemm_out[0].get()};
-    auto reduce_out = OpBackend::BuildNode(
+    return HandleReductionMultiDimAndKeepdim(
         op,
         graph,
-        {get_guid_with_precision("reduce_sum_fwd", op->ScalarType()),
-         std::move(reduce_node_inputs),
-         {{{1, gemm_output_shape.at(1), gemm_output_shape.at(2)},
-           op->ScalarType()}},
-         &reduce_params,
-         sizeof(reduce_params)});
-    std::vector<synapse_helpers::tensor> reshape_out;
-    reshape_out.emplace_back(OpBackend::BuildReshape(
-        op,
-        graph,
-        reduce_out[0].get(),
-        output_shape,
-        op->ScalarType(),
-        final_idx));
-    return reshape_out;
+        gemm_out[0].get(),
+        "reduce_sum_multi_dim_fwd",
+        {0} /*dimsToReduce*/,
+        3 /*inputRank*/,
+        false /*keepdim*/,
+        {{output_shape, op->ScalarType(), final_idx}});
   }
 }
 

@@ -65,6 +65,16 @@ c10::optional<synapse_helpers::tensor> HandleReductionDtype(
     synTensor syn_in,
     at::optional<at::ScalarType> dtype);
 
+std::vector<synapse_helpers::tensor> HandleReductionMultiDimAndKeepdim(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    synTensor syn_in,
+    const std::string& guid,
+    const std::vector<int64_t>& dimsToReduce,
+    const int64_t inputRank,
+    const bool keepdim,
+    std::vector<NodeAttr::NodeOutputAttr> output_attr);
+
 std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
     OpBackend* op,
     synapse_helpers::graph& graph,

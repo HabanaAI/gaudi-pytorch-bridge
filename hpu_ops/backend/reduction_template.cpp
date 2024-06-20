@@ -27,7 +27,7 @@ void ReductionBackendTemplate::SetReductionVarsIndices(
 
 static std::shared_ptr<void> FillReductionParams(
     int ndims,
-    std::vector<int64_t>& dims,
+    const std::vector<int64_t>& dims,
     bool keepdim,
     size_t& size) {
   PARAMS_STUB(ns_Reduction::ParamsV2);
@@ -481,5 +481,27 @@ std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
       return reshape_list;
     }
   }
+}
+
+std::vector<synapse_helpers::tensor> HandleReductionMultiDimAndKeepdim(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    synTensor syn_in,
+    const std::string& guid,
+    const std::vector<int64_t>& dimsToReduce,
+    const int64_t inputRank,
+    const bool keepdim,
+    std::vector<NodeAttr::NodeOutputAttr> output_attr) {
+  size_t size = 0;
+  auto params = FillReductionParams(inputRank, dimsToReduce, keepdim, size);
+
+  return OpBackend::BuildNode(
+      op,
+      graph,
+      {get_guid_with_precision(guid, op->ScalarType()),
+       {syn_in},
+       std::move(output_attr),
+       params.get(),
+       size});
 }
 } // namespace habana
