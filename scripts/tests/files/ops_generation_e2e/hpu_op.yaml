@@ -156,10 +156,14 @@ softmax_fp8:
   output_meta: SoftmaxFp8Meta
 
 matmul:
-  hpu_wrap: true
+  hpu_wrap_all_versions: true
 
 _reshape_alias:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_version_list: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+
+dropout:
+  hpu_wrap_version_range: ["2.0", 0]
+
 
 bitwise_left_shift.Tensor_Scalar:
   dtypes: [Int, Char, Byte, Short]

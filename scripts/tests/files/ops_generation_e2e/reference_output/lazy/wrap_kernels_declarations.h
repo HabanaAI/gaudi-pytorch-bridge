@@ -9,6 +9,7 @@ namespace hpu_wrap {
 
 at::Tensor matmul(const at::Tensor &, const at::Tensor &);
 at::Tensor _reshape_alias(const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef);
+at::Tensor dropout(const at::Tensor &, double, bool);
 
 } // namespace hpu_wrap
 

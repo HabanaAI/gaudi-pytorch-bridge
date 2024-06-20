@@ -60,4 +60,5 @@ std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, b
 {"upsample_bicubic2d", &check_support<habana::shared_layer_upsample_bicubic2d>},
 };
 std::set<std::string> hpu_shared_layer_unsupported_ops = { "_reshape_alias",
+"dropout",
 "matmul" };

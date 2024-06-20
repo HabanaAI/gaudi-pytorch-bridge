@@ -9174,99 +9174,105 @@ _ctc_loss_backward.Tensor:
 
 # Below ops override PyTorch implementation. They were previously
 # declared via wrap_kernels_declarations.h file in habana_kernels and pt_ver
-# directories. Now it's enough to add such op with hpu_wrap or pt_ver field.
+# directories. Now it's enough to add such op with one of fields:
+#  hpu_wrap_all_versions: true
+#  hpu_wrap_version_list: ["2.0", "2.2", "2.4"]
+#      - for a list of PT versions
+#  hpu_wrap_version_range: ["2.0", 0]
+#      - for a closed range of PT versions, 0 represents no upper/lower limit
+
 copy_:
-  hpu_wrap: true
+  hpu_wrap_all_versions: true
 
 sort:
-  hpu_wrap: true
+  hpu_wrap_all_versions: true
 
 masked_select:
-  hpu_wrap: true
+  hpu_wrap_all_versions: true
 
 masked_select.out:
-  hpu_wrap: true
+  hpu_wrap_all_versions: true
 
 scatter_add_:
-  hpu_wrap: true
+  hpu_wrap_all_versions: true
 
 index_add.out:
-  hpu_wrap: true
+  hpu_wrap_all_versions: true
 
 nonzero.out:
-  hpu_wrap: true
+  hpu_wrap_all_versions: true
 
 batch_norm_stats:
-  hpu_wrap: true
+  hpu_wrap_all_versions: true
 
 dropout:
-  hpu_wrap: true
+  hpu_wrap_all_versions: true
 
 matmul:
-  hpu_wrap: true
+  hpu_wrap_all_versions: true
 
 _reshape_alias:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 _unsafe_view:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 empty.memory_format:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 empty_strided:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 slice.Tensor:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 split.Tensor:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 split_with_sizes:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 _index_put_impl_:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 nonzero:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 _unique:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 _unique2:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 repeat_interleave.Tensor:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 batch_norm_elemt:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 batch_norm_backward_elemt:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 batch_norm_backward_reduce:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 batch_norm_gather_stats_with_counts:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 instance_norm:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 softmax.int:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 pin_memory:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 _pin_memory:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 is_pinned:
-  hpu_wrap: ["2.0", "2.1", "2.2", "2.3", "2.4"]
+  hpu_wrap_all_versions: true
 
 # Custom ops (currently only from 'hpu' namespace)
 

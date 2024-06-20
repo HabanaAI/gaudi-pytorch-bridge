@@ -466,8 +466,14 @@ class Op:
     def get_custom_op_schema(self):
         return self.op.get("custom_op_schema", None)
 
-    def get_hpu_wrap(self):
-        return self.op.get("hpu_wrap", False)
+    def get_hpu_wrap_all_versions(self):
+        return self.op.get("hpu_wrap_all_versions", False)
+
+    def get_hpu_wrap_version_range(self):
+        return self.op.get("hpu_wrap_version_range", False)
+
+    def get_hpu_wrap_version_list(self):
+        return self.op.get("hpu_wrap_version_list", False)
 
     def get_only_shared_layer(self):
         return self.op.get("only_shared_layer", False)
@@ -1744,8 +1750,17 @@ def gen_hpu_wrap_ops(op_metas, args, out_dir):
 
 
 def is_hpu_wrap(ctxop, minor_pt_ver):
-    hpu_wrap = ctxop.get_hpu_wrap()
-    return hpu_wrap is True or (isinstance(hpu_wrap, list) and minor_pt_ver in hpu_wrap)
+    hpu_wrap = ctxop.get_hpu_wrap_all_versions()
+    hpu_wrap_list = ctxop.get_hpu_wrap_version_list()
+    hpu_wrap_range = ctxop.get_hpu_wrap_version_range()
+
+    if isinstance(hpu_wrap_list, list):
+        hpu_wrap_list = minor_pt_ver in hpu_wrap_list
+    if isinstance(hpu_wrap_range, list):
+        hpu_wrap_range = (hpu_wrap_range[0] == 0 or Version(hpu_wrap_range[0]) <= Version(minor_pt_ver)) and (
+            hpu_wrap_range[1] == 0 or Version(hpu_wrap_range[1]) >= Version(minor_pt_ver)
+        )
+    return hpu_wrap or hpu_wrap_list or hpu_wrap_range
 
 
 # For PT2.0, there are non-mandatory op (from PT2.0 point of view),

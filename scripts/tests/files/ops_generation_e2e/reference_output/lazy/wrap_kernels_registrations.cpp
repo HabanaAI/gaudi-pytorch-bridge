@@ -8,6 +8,7 @@ TORCH_LIBRARY_IMPL(aten, HPU, m) {
 }
 TORCH_LIBRARY_IMPL(aten, AutogradHPU, m) {
   m.impl("matmul", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &)>(&hpu_wrap::matmul));
+  m.impl("dropout", static_cast<at::Tensor (*)(const at::Tensor &, double, bool)>(&hpu_wrap::dropout));
 
 }
 
