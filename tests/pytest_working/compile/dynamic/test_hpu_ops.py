@@ -881,7 +881,6 @@ def test_graph_pipelining():
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
-@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-188692")
 def test_graph_BatchNorm_pipelining():
     input = [
         (2, 3, 4, 4),
