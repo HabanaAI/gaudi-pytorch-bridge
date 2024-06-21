@@ -147,7 +147,7 @@ TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward) {
   EXPECT_EQ(allclose(hout2_back, cout_back), true);
 }
 
-TEST_F(LazySoftmaxKernelTest, DISABLED_SoftMaxTestBackward1) {
+TEST_F(LazySoftmaxKernelTest, SoftMaxTestBackward1) {
   torch::Tensor input =
       torch::rand({32, 64, 24, 20}, torch::requires_grad(false));
   torch::Tensor hinput = input.to(torch::kHPU);
