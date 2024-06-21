@@ -21,39 +21,13 @@ static auto PrepareRois(
     synTensor syn_rois,
     const std::vector<int64_t>& rois_shape,
     const at::ScalarType& dtype) {
-  synSplitParams split_params{};
-  split_params.axis = 0;
-
-  std::vector<int64_t> rois_coords_shape{rois_shape[0], rois_shape[1] - 1};
-
-  auto split_rois = OpBackend::BuildNode(
+  auto rois_outputs = OpBackend::BuildNode(
       op,
       graph,
-      {"split",
+      {get_guid_with_precision("prepare_rois_fwd", dtype),
        {syn_rois},
-       {{{rois_shape[0], 1}, dtype}, {rois_coords_shape, dtype}},
-       &split_params,
-       sizeof(split_params)});
-
-  auto num_rois = OpBackend::BuildReshape(
-      op, graph, split_rois[0].get(), {rois_shape[0]}, dtype);
-
-  auto num_rois_i32 = OpBackend::BuildCast(
-      op, graph, num_rois.get(), {rois_shape[0]}, dtype, c10::ScalarType::Int);
-
-  std::vector<synapse_helpers::tensor> rois_outputs;
-  rois_outputs.push_back(std::move(split_rois[1]));
-  rois_outputs.push_back(std::move(num_rois_i32));
-
-  if (dtype != c10::ScalarType::Float) {
-    rois_outputs[0] = OpBackend::BuildCast(
-        op,
-        graph,
-        rois_outputs[0].get(),
-        rois_coords_shape,
-        dtype,
-        c10::ScalarType::Float);
-  }
+       {{{rois_shape[0], rois_shape[1] - 1}, at::ScalarType::Float},
+        {{rois_shape[0]}, at::ScalarType::Int}}});
 
   return rois_outputs;
 }
