@@ -61,7 +61,7 @@ class LazyDynamicInferOutputMetasTest
 //                            |
 //                           Out
 
-TEST_F(LazyDynamicInferOutputMetasTest, DISABLED_AddConv2DBNMaxPoolTest) {
+TEST_F(LazyDynamicInferOutputMetasTest, AddConv2DBNMaxPoolTest) {
   int kH = 3;
   int kW = 3;
   const int C = 16;
