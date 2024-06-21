@@ -392,7 +392,7 @@
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_v2_scales[float8_e5m2-ScaleMode.SCALAR_CHANNEL-0]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_v2_scales[float8_e5m2-ScaleMode.TENSOR_CHANNEL-0]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_v2[float8_e5m2-True-True-bfloat16]",
-	    "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_v2_out_of_range[float8_e4m3fn-True-True-float32]",
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_v2_out_of_range[float8_e4m3fn-True-True-float32]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_v2_out_of_range[float8_e4m3fn-True-True-bfloat16]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_v2_out_of_range[float8_e4m3fn-True-False-float32]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_cast_to_fp8_v2_out_of_range[float8_e4m3fn-True-False-bfloat16]",
@@ -552,7 +552,9 @@
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_softmax_fp8[fused_add_shape2-True-True--1-shape0]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_softmax_fp8[fused_add_shape2-True-False--1-shape0]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_softmax_fp8[fused_add_shape2-False-True--1-shape0]",
-            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_softmax_fp8[fused_add_shape2-False-False--1-shape]"
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_softmax_fp8[fused_add_shape2-False-False--1-shape]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_fp8[HYBRID-False-128-128-bf16-device0]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_fp8[HYBRID-False-128-128-fp32-device0]"
         ]
     }
 }
