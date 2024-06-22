@@ -478,7 +478,7 @@ def clear_t_compile_logs():
     fallback_logger.set_store_data(True)
 
 
-def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set()):
+def check_ops_executed_in_jit_ir(op_names, allowed_fallback_ops={}, verbose=False):
     import re
 
     from habana_frameworks.torch.dynamo.compile_backend.passes import logger as graph_logger
@@ -522,7 +522,7 @@ def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set(
 
     if verbose:
         print(f"{op_names = }")
-        print(f"{allowed_fallbacks = }")
+        print(f"{allowed_fallback_ops = }")
         print(f"{fallback_ops = }")
         print(f"{non_fallback_ops = }")
         print(f"{all_ops = }")
@@ -530,20 +530,14 @@ def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set(
 
     op_names.difference_update(nodes_in_graphs)
 
-    if allowed_fallbacks:
-        fallback_ops = fallback_ops - allowed_fallbacks
+    if allowed_fallback_ops:
+        fallback_ops = fallback_ops - allowed_fallback_ops
 
     if verbose:
         print(f"{op_names = }")
 
     graph_logger.set_store_data(False)
     fallback_logger.set_store_data(False)
-
-    # The following loop filters out fallback ops even if they do not match the allowed fallback exactly,
-    # it is needed to filter out multiple instances of the same op,
-    # e.g. 'select_scatter' and 'select_scatter_1' will be filtered out for 'select_scatter'
-    for allowed_fallback in allowed_fallbacks:
-        fallback_ops = {elem for elem in fallback_ops if not elem.startswith(allowed_fallback)}
 
     assert all_ops, "No ops detected"
     assert not fallback_ops, f"These ops fell back to eager: {fallback_ops}"

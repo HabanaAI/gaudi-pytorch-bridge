@@ -21,10 +21,8 @@ from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 def use_eager_fallback():
     original = configuration_flags["use_eager_fallback"]
     configuration_flags["use_eager_fallback"] = True
-    try:
-        yield
-    finally:
-        configuration_flags["use_eager_fallback"] = original
+    yield
+    configuration_flags["use_eager_fallback"] = original
 
 
 @contextmanager
