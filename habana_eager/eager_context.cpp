@@ -47,8 +47,10 @@ void SingleTonEagerContext::JoinPendingLoweringThread() {
     habana_helpers::AutoNoGIL gil_release;
     hpu_registrar().get_device().get_lowering_thread().waitWorkComplete();
   } catch (const std::exception& e) {
+    hpu_registrar().get_device().set_exception_occurred(true);
     PT_BRIDGE_FATAL("Exception in Lowering thread...\n", e.what());
   } catch (...) {
+    hpu_registrar().get_device().set_exception_occurred(true);
     PT_BRIDGE_FATAL("Exception in Lowering thread...\n");
   }
 }

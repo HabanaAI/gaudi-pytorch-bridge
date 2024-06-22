@@ -1800,6 +1800,11 @@ void ProcessGroupHcclBase::hostBarrier() {
   auto worker_count = store_->add(storeKey, 0);
   while (worker_count != size_) {
     worker_count = store_->add(storeKey, 0);
+    if (habana::hpu_registrar().is_initialized() &&
+        habana::hpu_registrar().get_device().get_exception_occurred()) {
+      habana::hpu_registrar().get_device().set_exception_occurred(false);
+      break;
+    }
     std::this_thread::sleep_for(
         std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
   }

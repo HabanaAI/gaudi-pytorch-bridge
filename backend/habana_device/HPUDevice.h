@@ -183,6 +183,14 @@ class HPUDevice {
     return *raw_lowering_thread_;
   }
 
+  bool get_exception_occurred() const {
+    return exception_occurred;
+  }
+
+  void set_exception_occurred(bool is_exception) {
+    exception_occurred = is_exception;
+  }
+
  private:
   synapse_helpers::device_handle device_{nullptr};
   std::unique_ptr<backend::ScalarCache> scalar_cache_{nullptr};
@@ -196,6 +204,7 @@ class HPUDevice {
   // Holding this is required for proper destruction order
   std::shared_ptr<ConstantInformation> constant_information{
       ConstantInformationPtr()};
+  bool exception_occurred = false;
 };
 
 } // namespace habana
