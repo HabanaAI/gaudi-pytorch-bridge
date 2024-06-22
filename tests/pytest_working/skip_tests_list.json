@@ -478,7 +478,9 @@
             "pytest_working/any_mode/test_hpu_sum_fp8.py::test_sum_fp8[None-dtype1-True-None]",
             "pytest_working/any_mode/test_multinomial.py::test_multinomial_multiple_calls[True-dtype2-size0]",
             "pytest_working/any_mode/test_multinomial.py::test_multinomial_multiple_calls[True-dtype2-size1]",
-            "pytest_working/any_mode/test_multinomial.py::test_multinomial_output[dtype2]"
+            "pytest_working/any_mode/test_multinomial.py::test_multinomial_output[dtype2]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_fp8[HYBRID-False-128-128-bf16-device0]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_fp8[HYBRID-False-128-128-fp32-device0]"
         ],
         "compile": [
             "pytest_working/compile/test_compile_conv_bn.py::test_hpu_conv_and_batch_norm_2d_fwd_compile_only[16-224-224-3]",
@@ -534,7 +536,46 @@
             "pytest_working/lazy/test_hpu_fp8_te.py::test_te_linear_fp8[E5M2-False-128-128-fp32-device0]",
             "pytest_working/lazy/test_hpu_fp8_te.py::test_te_cast_with_stochastic_rounding[e5m2-1.0-True-bf16-device0]",
             "pytest_working/lazy/test_hpu_fp8_te.py::test_te_cast_with_stochastic_rounding[e5m2-8.0-True-bf16-device0]",
-            "pytest_working/lazy/test_lazy_pad_slice.py::test_hpu_lazy_pad_slice[True]"
+            "pytest_working/lazy/test_lazy_pad_slice.py::test_hpu_lazy_pad_slice[True]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_test-True-none-True-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_test-True-none-False-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_test-True-mean-True-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_test-True-mean-False-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_test-True-sum-True-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_test-True-sum-False-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_test-False-none-True-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_test-False-none-False-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_test-False-mean-True-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_test-False-mean-False-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_test-False-sum-True-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_test-False-sum-False-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_ctc_test-True-none-True-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_ctc_test-True-none-False-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_ctc_test-True-mean-True-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_ctc_test-True-mean-False-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_ctc_test-True-sum-True-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_ctc_test-True-sum-False-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_ctc_test-False-none-True-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_ctc_test-False-none-False-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_ctc_test-False-mean-True-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_ctc_test-False-mean-False-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_ctc_test-False-sum-True-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_padded_ctc_loss[execute_ctc_test-False-sum-False-10-5-2-5-1]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_unpadded_ctc_loss[execute_test-True-none-10-5-2]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_unpadded_ctc_loss[execute_test-True-mean-10-5-2]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_unpadded_ctc_loss[execute_test-True-sum-10-5-2]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_unpadded_ctc_loss[execute_test-False-none-10-5-2]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_unpadded_ctc_loss[execute_test-False-mean-10-5-2]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_unpadded_ctc_loss[execute_test-False-sum-10-5-2]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_unpadded_ctc_loss[execute_ctc_test-True-none-10-5-2]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_unpadded_ctc_loss[execute_ctc_test-True-mean-10-5-2]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_unpadded_ctc_loss[execute_ctc_test-True-sum-10-5-2]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_unpadded_ctc_loss[execute_ctc_test-False-none-10-5-2]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_unpadded_ctc_loss[execute_ctc_test-False-mean-10-5-2]",
+            "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_unpadded_ctc_loss[execute_ctc_test-False-sum-10-5-2]",
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_fp8_gemm_v2_ds[float8_e5m2-float32-True-True]",
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_fp8_gemm_v2_ds[float8_e4m3fn-float32-True-True]",
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_fp8_gemm_v2_ds[float8_e4m3fn-float32-False-True]"
         ],
         "eager": [
             "pytest_working/any_mode/test_index.py::test_index[shape7-indices7]",
@@ -552,9 +593,7 @@
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_softmax_fp8[fused_add_shape2-True-True--1-shape0]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_softmax_fp8[fused_add_shape2-True-False--1-shape0]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_softmax_fp8[fused_add_shape2-False-True--1-shape0]",
-            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_softmax_fp8[fused_add_shape2-False-False--1-shape]",
-            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_fp8[HYBRID-False-128-128-bf16-device0]",
-            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_fp8[HYBRID-False-128-128-fp32-device0]"
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_softmax_fp8[fused_add_shape2-False-False--1-shape]"
         ]
     }
 }
