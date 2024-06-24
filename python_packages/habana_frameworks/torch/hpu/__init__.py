@@ -308,12 +308,12 @@ def set_device(device: _device_t) -> None:
     device_idx = _get_device_index(device, optional=True)
     # hack to match torch.cuda API
     available_modules = _get_available_modules_from_environ()
-    if device_idx > len(available_modules):
+    if device_idx not in available_modules and device_idx > len(available_modules):
         raise AssertionError(
-            f"Trying to open device with idx={device_idx} when only {len(available_modules)} are avaliable)"
+            f"Trying to open device with idx={device_idx} when only {available_modules} are avaliable)"
         )
 
-    requested_module_id = available_modules[device_idx]
+    requested_module_id = device_idx
     current_module_id = _get_module_id_from_environ()
 
     if current_module_id >= 0:
