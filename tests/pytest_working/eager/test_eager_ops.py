@@ -1251,6 +1251,34 @@ def test_tensor_containing_scalar():
     assert torch.equal(output, output_hpu.cpu())
 
 
+dtypes = [torch.bfloat16, torch.float, torch.int]
+if not is_gaudi1():
+    dtypes.append(torch.long)
+
+
+@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
+def test_sag_copy_bool(dtype):
+    shapes = [(2, 3), (5, 8)]
+
+    for shape in shapes:
+        if dtype in (torch.int, torch.long):
+            input = torch.randint(size=shape, low=0, high=2, dtype=dtype, device="cpu")
+        else:
+            input = torch.rand(shape, dtype=dtype, device="cpu")
+
+        input_hpu = input.to("hpu")
+
+        # copy to bool
+        input_bool = input.to(torch.bool)
+        input_hpu_bool = input_hpu.to(torch.bool)
+        assert torch.equal(input_bool, input_hpu_bool.cpu())
+
+        # copy from bool
+        output = input_bool.to(dtype)
+        output_hpu = input_hpu_bool.to(dtype)
+        assert torch.equal(output, output_hpu.cpu())
+
+
 def test_shape_agnostic_helper():
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
     hpu_tensor = cpu_tensor.to("hpu")

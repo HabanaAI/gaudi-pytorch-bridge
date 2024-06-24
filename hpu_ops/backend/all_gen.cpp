@@ -36,12 +36,9 @@ static auto AllCommon(
 
   if (isIntegralInput) {
     dtype = at::kFloat;
-    std::unique_ptr<synapse_helpers::tensor> cast;
-    if (!op->isOutputInfMode()) {
-      cast = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
-          op, graph, input, self.sizes(), self.scalar_type(), dtype));
-      input = cast->get();
-    }
+    auto cast = OpBackend::BuildCast(
+        op, graph, input, self.sizes(), self.scalar_type(), dtype);
+    input = cast.get();
     op->SetScalarType(dtype);
     reduced = reduce_prod_node({input});
   } else {

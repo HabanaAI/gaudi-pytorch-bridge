@@ -717,14 +717,69 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       deterministic);
 }
 
+#define CONVERT_SCALAR(type)                           \
+  auto size = c10::elementSize(c10::ScalarType::type); \
+  auto data = scalar_val.to##type();                   \
+  val.resize(size);                                    \
+  memcpy(val.data(), (const char*)&data, size);
+
+#define CASE(type, ...)         \
+  case c10::ScalarType::type: { \
+    __VA_ARGS__;                \
+    CONVERT_SCALAR(type);       \
+  } break;
+
+// Special case
+#define CASE_DOUBLE(...)          \
+  case c10::ScalarType::Double: { \
+    __VA_ARGS__;                  \
+    CONVERT_SCALAR(Float);        \
+  } break;
+
 // Allocate constant synapse tensor of size '1' for handling scalars
 synapse_helpers::tensor habana::HabanaOperator::AllocateConstantSynapseTensor(
     synapse_helpers::graph& graph,
-    const c10::Scalar& scalar_val) {
+    const c10::Scalar& scalar_val,
+    c10::optional<at::ScalarType> force_type) {
+  auto val_type = scalar_val.type();
+
+  const auto init_val_size = elementSize(val_type);
+  std::vector<uint8_t> val(init_val_size);
+  memcpy(val.data(), scalar_val.data_ptr(), init_val_size);
+  c10::Scalar force_long_scalar_val;
+  // Handle force type i.e. convert it to force data type
+  if (force_type.has_value()) {
+    val_type = force_type.value();
+    switch (val_type) {
+      CASE(Char);
+      CASE(Byte);
+      CASE(Short);
+      CASE(Int);
+      CASE(Long, force_long_scalar_val = scalar_val.toLong());
+      CASE(Float);
+      // Double data type not supported, always convert it to float
+      CASE_DOUBLE(val_type = c10::ScalarType::Float);
+      CASE(Half);
+      CASE(Bool);
+      CASE(BFloat16);
+#if HAVE_FP8_SUPPORT
+      CASE(Float8_e5m2);
+      CASE(Float8_e4m3fn);
+#endif
+      default:
+        HABANA_ASSERT(0, "Unsupported scalar type: ", val_type);
+    }
+  }
+
   // Double data type not supported in synapse convert it to float value on host
-  const auto& scalar_val_type = (scalar_val.type() == at::ScalarType::Double)
-      ? at::ScalarType::Float
-      : scalar_val.type();
+  const bool is_double_dtype = (val_type == at::ScalarType::Double);
+  auto scalar_val_type = is_double_dtype ? at::ScalarType::Float : val_type;
+
+  // Check if Long data type can be supported or else convert it to int32
+  const bool is_long_dtype_and_not_supported =
+      (val_type == at::ScalarType::Long) && !common::IsInt64Supported();
+  scalar_val_type =
+      is_long_dtype_and_not_supported ? at::ScalarType::Int : val_type;
 
   void* host_ptr = nullptr;
   const auto& host_ptr_size = elementSize(scalar_val_type);
@@ -733,14 +788,15 @@ synapse_helpers::tensor habana::HabanaOperator::AllocateConstantSynapseTensor(
   auto status = device.get_host_memory().malloc(&host_ptr, host_ptr_size);
   HABANA_ASSERT(status == synSuccess, Logger::synStatusToStr(status));
 
-  if (scalar_val.type() == at::ScalarType::Double) {
-    // WA for copying float data to host_ptr
-    // If c10::Scalar is initialized with Float value
-    // its data type is still seen Double
-    auto lval = scalar_val.to<float>();
+  if (is_double_dtype) {
+    auto lval = scalar_val.toFloat();
+    memcpy(host_ptr, (const char*)&lval, host_ptr_size);
+  } else if (is_long_dtype_and_not_supported) {
+    auto lval = force_type.has_value() ? force_long_scalar_val.toInt()
+                                       : scalar_val.toInt();
     memcpy(host_ptr, (const char*)&lval, host_ptr_size);
   } else {
-    memcpy(host_ptr, scalar_val.data_ptr(), host_ptr_size);
+    memcpy(host_ptr, val.data(), host_ptr_size);
   }
 
   PT_KERNEL_DEBUG(
@@ -751,7 +807,11 @@ synapse_helpers::tensor habana::HabanaOperator::AllocateConstantSynapseTensor(
       " size: ",
       host_ptr_size,
       " org data_type: ",
-      scalar_val.type());
+      scalar_val.type(),
+      " data_type: ",
+      scalar_val_type,
+      " is_force_dtype : ",
+      force_type.has_value());
 
   auto const_syn_tensor = habana_helpers::create_const_tensor(
       {1},
