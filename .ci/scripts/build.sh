@@ -47,7 +47,6 @@ function pytorch_usage()
         echo -e "       --build-number         Extend whl version number by build number"
         echo -e "       --build-version        Build version used for whl creation"
         echo -e "       --pytorch-next         Build pytorch-next instead of pytorch-fork"
-        echo -e "       --pt-version           Build for given pytorch version"
         echo -e "       --py-version           Python version"
         echo -e "  -h,  --help                 Prints this help"
     fi
@@ -571,9 +570,7 @@ build_pytorch_fork()
     local __pt_fork_tag="pytorch_fork_tags"
     local __pt_fork_vers="pytorch_fork_version"
     local __default_vers="default_vers"
-    local __def_vers=""
     local __branch=""
-    local __ver_path="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_version.json"
     local __build_manylinux_whl="false"
     local __auditwheel="${PYTORCH_MODULES_ROOT_PATH}/.ci/scripts/pt_auditwheel.py"
     local __set_py_vers="false"
@@ -608,10 +605,6 @@ build_pytorch_fork()
             ;;
         --build-version )
             __env_vars+=" PYTORCH_BUILD_VERSION=$2"
-            shift
-            ;;
-        --pt-version )
-            __pt_vers=$2
             shift
             ;;
         --py-version )
@@ -678,30 +671,6 @@ build_pytorch_fork()
         popd
         restore_python_version
         return $__result
-    fi
-
-    __def_vers=$(grep  -A3 $__pt_fork_vers pt_version.json | grep $__default_vers | cut -d':' -f 2)
-    if [ -n "$__pt_vers" ] && [ "$__def_vers" != "$__pt_vers" ]; then
-        __branch=$(grep -A3 $__pt_fork_tag  __ver_path | grep $__pt_vers | awk -F $__pt_vers '{print $2}' | cut -d':' -f 2)
-        if [ $__result -ne 0 ]; then
-            echo "version $__pt_vers not found!"
-            popd
-            restore_python_version
-            return $__result
-        fi
-        echo "git checkout $__branch"
-        git checkout $__branch
-        __result=$?
-        if [ $__result -ne 0 ]; then
-            echo "git checkout $__branch failed!"
-            popd
-            restore_python_version
-            return $__result
-        fi
-    fi
-
-    if [ "$__pt_vers" == "" ]; then
-        echo "Default branch will be compiled"
     fi
 
     if [ -n "$__configure" ]; then
