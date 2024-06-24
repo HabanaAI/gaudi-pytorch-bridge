@@ -170,7 +170,7 @@ synapse_helpers::tensor ArangeCommon(
         (internal_out_dtype == c10::ScalarType::Long &&
          common::IsInt64Supported());
     auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
-    auto range_guid = get_guid_with_precision("range", scalar_type);
+    auto range_guid = get_guid_with_precision("range", scalar_type, /* use_int64 = */ true);
     NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
 
     if (is_cast_not_required)
@@ -546,10 +546,11 @@ synapse_helpers::tensor ArangeDefaultCommon(
 
   const auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
   const bool is_cast_not_required = c10::isFloatingType(internal_out_dtype) ||
-      internal_out_dtype == c10::ScalarType::Int;
+      internal_out_dtype == c10::ScalarType::Int ||
+      (internal_out_dtype == c10::ScalarType::Long && common::IsInt64Supported());
   auto scalar_type = is_cast_not_required ? out_dtype : c10::ScalarType::Int;
   auto range_guid = is_cast_not_required
-      ? get_guid_with_precision("range", scalar_type)
+      ? get_guid_with_precision("range", scalar_type, /* use_int64 = */ true)
       : "range_i32";
   NodeAttr::NodeOutputAttr out_attr = {outshape, scalar_type};
   if (is_cast_not_required)
