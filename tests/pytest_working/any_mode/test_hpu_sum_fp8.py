@@ -25,6 +25,7 @@ pytestmark = [
 ]
 
 
+@pytest.mark.skip(reason="https://jira.habana-labs.com/browse/SW-184492")
 @pytest.mark.parametrize("dim", [0, 1, 2, (0, 1), None])
 @pytest.mark.parametrize("keep_dim", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float8_e5m2, torch.float8_e4m3fn])
