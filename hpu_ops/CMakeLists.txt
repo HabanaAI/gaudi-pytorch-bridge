@@ -193,6 +193,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/instance_norm_backward_gen.cpp
           backend/int4_ops.cpp
           backend/isfinite_isinf_isnan_gen.cpp
+          backend/isin_gen.cpp
           backend/isposneginf_gen.cpp
           backend/kthvalue_gen.cpp
           backend/kv_reorder_gen.cpp

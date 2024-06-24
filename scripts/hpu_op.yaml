@@ -4558,6 +4558,58 @@ index_select.out:
   fallback_check: [IndexSelectFallbackCheck, self]
   op_validator: check-node-with-shared-layer
 
+isin.Tensor_Tensor:
+  custom_fill_params: FillIsinParams
+  guid: isin_fwd
+  op_validator: check-node-with-shared-layer
+  out_ids: [0]
+  output_meta: IsinMeta
+  promote_to_common_type: [elements, test_elements]
+
+isin.Tensor_Scalar:
+  custom_fill_params: FillIsinParams
+  guid: isin_fwd
+  op_validator: check-node-with-shared-layer
+  out_ids: [0]
+  output_meta: IsinMeta
+  promote_to_common_type: [elements, test_element]
+  scalar_ids: [1]
+
+isin.Scalar_Tensor:
+  custom_fill_params: FillIsinParams
+  guid: isin_fwd
+  op_validator: check-node-with-shared-layer
+  out_ids: [1]
+  output_meta: ScalarIsinMeta
+  promote_to_common_type: [element, test_elements]
+  scalar_ids: [0]
+
+isin.Tensor_Tensor_out:
+  custom_fill_params: FillIsinParams
+  guid: isin_fwd
+  op_validator: check-node-with-shared-layer
+  output_meta: IsinMeta
+  promote_to_common_type: [elements, test_elements]
+  safe_cast_check: false
+
+isin.Tensor_Scalar_out:
+  custom_fill_params: FillIsinParams
+  guid: isin_fwd
+  op_validator: check-node-with-shared-layer
+  output_meta: IsinMeta
+  promote_to_common_type: [elements, test_element]
+  safe_cast_check: false
+  scalar_ids: [1]
+
+isin.Scalar_Tensor_out:
+  custom_fill_params: FillIsinParams
+  guid: isin_fwd
+  op_validator: check-node-with-shared-layer
+  output_meta: ScalarIsinMeta
+  promote_to_common_type: [element, test_elements]
+  safe_cast_check: false
+  scalar_ids: [0]
+
 le.Scalar_out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
