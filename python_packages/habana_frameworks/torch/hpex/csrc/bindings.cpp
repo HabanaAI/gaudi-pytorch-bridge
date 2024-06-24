@@ -14,7 +14,6 @@
 
 #include "bindings.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
-#include "transformer_engine/common.h"
 
 // Wrappers to match signatures
 static void optimizer_fused_lars(
@@ -221,34 +220,4 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "split_permute_cat",
       &habana_split_permute_cat_wrap,
       "Replaces the combination of split_with_sizes and cat operators");
-
-  // TE Data structures
-  py::class_<transformer_engine::FP8TensorMeta>(m, "FP8TensorMeta")
-      .def(py::init<>())
-      .def_readwrite("scale", &transformer_engine::FP8TensorMeta::scale)
-      .def_readwrite("scale_inv", &transformer_engine::FP8TensorMeta::scale_inv)
-      .def_readwrite(
-          "amax_history", &transformer_engine::FP8TensorMeta::amax_history)
-      .def_readwrite(
-          "amax_history_index",
-          &transformer_engine::FP8TensorMeta::amax_history_index);
-
-  py::enum_<transformer_engine::FP8FwdTensors>(m, "FP8FwdTensors")
-      .value("GEMM1_INPUT", transformer_engine::FP8FwdTensors::GEMM1_INPUT)
-      .value("GEMM1_WEIGHT", transformer_engine::FP8FwdTensors::GEMM1_WEIGHT)
-      .value("GEMM2_INPUT", transformer_engine::FP8FwdTensors::GEMM2_INPUT)
-      .value("GEMM2_WEIGHT", transformer_engine::FP8FwdTensors::GEMM2_WEIGHT)
-      .value("GEMM3_INPUT", transformer_engine::FP8FwdTensors::GEMM3_INPUT)
-      .value("GEMM3_WEIGHT", transformer_engine::FP8FwdTensors::GEMM3_WEIGHT)
-      .value("GEMM4_INPUT", transformer_engine::FP8FwdTensors::GEMM4_INPUT)
-      .value("GEMM4_WEIGHT", transformer_engine::FP8FwdTensors::GEMM4_WEIGHT)
-      .value("GEMM5_INPUT", transformer_engine::FP8FwdTensors::GEMM5_INPUT)
-      .value("GEMM5_WEIGHT", transformer_engine::FP8FwdTensors::GEMM5_WEIGHT);
-
-  py::enum_<transformer_engine::FP8BwdTensors>(m, "FP8BwdTensors")
-      .value("GRAD_OUTPUT1", transformer_engine::FP8BwdTensors::GRAD_OUTPUT1)
-      .value("GRAD_OUTPUT2", transformer_engine::FP8BwdTensors::GRAD_OUTPUT2)
-      .value("GRAD_OUTPUT3", transformer_engine::FP8BwdTensors::GRAD_OUTPUT3)
-      .value("GRAD_OUTPUT4", transformer_engine::FP8BwdTensors::GRAD_OUTPUT4)
-      .value("GRAD_OUTPUT5", transformer_engine::FP8BwdTensors::GRAD_OUTPUT5);
 }

@@ -18,15 +18,15 @@
 from typing import Union
 
 import torch
-from habana_frameworks.torch import _hpex_C as tex
 
+from ..utils import FP8BwdTensors, FP8FwdTensors, FP8TensorMeta
 from ._utils import select_amax_and_exec
 
 
 def fp8_gelu(
     inp: torch.Tensor,
-    fp8_meta_tensor: tex.FP8TensorMeta,
-    fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
+    fp8_meta_tensor: FP8TensorMeta,
+    fp8_tensor: Union[FP8FwdTensors, FP8BwdTensors],
     otype: torch.dtype,
     retain: torch.Tensor = None,
     stochastic_rounding=False,
@@ -37,7 +37,9 @@ def fp8_gelu(
     fp8_meta_tensor.scale_inv[fp8_tensor] = torch.reciprocal(fp8_meta_tensor.scale[fp8_tensor])
 
     def operator():
-        return torch.ops.hpu.fp8_gelu_v2(inp, fp8_meta_tensor.scale[fp8_tensor], stochastic_rounding, measure_amax)
+        return torch.ops.hpu.fp8_gelu_v2(
+            inp, fp8_meta_tensor.scale[fp8_tensor], stochastic_rounding, measure_amax, otype
+        )
 
     out, retain = select_amax_and_exec(operator, fp8_meta_tensor, fp8_tensor, measure_amax=measure_amax)
 

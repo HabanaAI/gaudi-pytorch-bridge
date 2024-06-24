@@ -25,10 +25,9 @@ from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
-from habana_frameworks.torch import _hpex_C as tex
 
-from ..constants import GemmParallelModes, dist_group_type
-from ..cpp_extensions import cast_to_fp8
+from ..constants import dist_group_type
+from ..cpp_extensions import cast_to_fp8, cast_to_fp8_hybrid, fp8_gemm
 from ..distributed import (
     gather_along_first_dim,
     in_fp8_activation_recompute_phase,
@@ -64,6 +63,7 @@ from ..fp8 import (
     set_fp8_context_id,
     set_global_fp8_buffer,
 )
+from ..utils import FP8BwdTensors, FP8FwdTensors, FP8TensorMeta
 
 
 @contextmanager
@@ -176,7 +176,8 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             self._handle_changed_amax_history_size(fp8_meta_tensor_key, num_fp8_tensors)
             return
 
-        self.fp8_meta[fp8_meta_tensor_key] = tex.FP8TensorMeta()
+        self.fp8_meta[fp8_meta_tensor_key] = FP8TensorMeta()
+
         self.fp8_meta[fp8_meta_tensor_key].scale = torch.ones(num_fp8_tensors, dtype=torch.float32, device="hpu")
         self.fp8_meta[fp8_meta_tensor_key].scale_inv = torch.ones(num_fp8_tensors, dtype=torch.float32, device="hpu")
         self.fp8_meta[fp8_meta_tensor_key].amax_history = torch.zeros(
@@ -185,7 +186,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             dtype=torch.float32,
             device="hpu",
         )
-        self.fp8_meta[fp8_meta_tensor_key].amax_history_index = torch.tensor([0], dtype=torch.int32, device="hpu")
+        self.fp8_meta[fp8_meta_tensor_key].amax_history_index = torch.zeros(1, dtype=torch.int32, device="hpu")
 
     def init_fp8_meta_tensors(self, force_hybrid_init: bool = False) -> None:
         """Init scales and amaxes."""
@@ -394,7 +395,6 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             # FP8 init has already been run and recipe is the same, don't do anything.
             if self.fp8_initialized and get_fp8_recipe() == self.fp8_meta["recipe"]:
                 return
-
             # Set FP8, recipe, and other FP8 metadata
             self.fp8_meta["recipe"] = get_fp8_recipe()
             self.fp8_meta["num_gemms"] = num_gemms
@@ -455,7 +455,6 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         to setup the forward aggregated amax reduction for every module
         just in case. The autocast exit will pick up the most recent one.
         """
-
         # Increment run_cnt only once in each training step. For the modules for which
         # activation checkpointing is enabled increment the run_cnt only during forward pass.
         if is_fp8_activation_recompute_enabled():
@@ -483,8 +482,8 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
 
             if inp is not None:
                 self.set_activation_dtype(inp)
-            self.fp8_init(num_gemms=num_gemms)
 
+            self.fp8_init(num_gemms=num_gemms)
             # Create persistent tensors for fp8 weights and their transposes
             # only when fp8 weight caching is used.
             if is_first_microbatch is not None:
@@ -560,7 +559,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         grad_output: torch.Tensor,
         row_parallel_mode: bool,
         amax_measure_state: dict,
-        grad_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors] = tex.FP8BwdTensors.GRAD_OUTPUT1,
+        grad_tensor: Union[FP8FwdTensors, FP8BwdTensors] = FP8BwdTensors.GRAD_OUTPUT1,
     ) -> Tuple[Union[torch.Tensor, None], ...]:
         """Utility function for backward.
         Returns tuple in order (all optional/None based on training precion/recipe):

@@ -35,7 +35,7 @@ from ..distributed import (
     set_tensor_model_parallel_attributes,
 )
 from ..fp8 import MetaTensorType, get_fp8_te_dtype, get_fp8_te_sr, get_meta_tensor_key, is_fp8_enabled, is_hybrid_mode
-from ..utils import cast_if_needed, divide, get_default_init_method
+from ..utils import FP8BwdTensors, FP8FwdTensors, cast_if_needed, divide, get_default_init_method
 from .base import TransformerEngineBaseModule, _prepare_backward
 
 __all__ = ["Linear"]
@@ -110,7 +110,7 @@ class _Linear(torch.autograd.Function):
             inputmat = cast_to_fp8(
                 inputmat,
                 fp8_meta[meta_fwd_key],
-                tex.FP8FwdTensors.GEMM1_INPUT,
+                FP8FwdTensors.GEMM1_INPUT,
                 fp8_dtype_forward,
                 stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
                 measure_amax=amax_measure_state["fwd_enabled"],
@@ -120,7 +120,7 @@ class _Linear(torch.autograd.Function):
                 casted = cast_to_fp8(
                     weight,
                     fp8_meta[meta_fwd_key],
-                    tex.FP8FwdTensors.GEMM1_WEIGHT,
+                    FP8FwdTensors.GEMM1_WEIGHT,
                     fp8_dtype_forward,
                     stochastic_rounding=get_fp8_te_sr(fp8_meta["recipe"], fprop_tensor=True),
                     measure_amax=amax_measure_state["fwd_enabled"],
@@ -151,7 +151,7 @@ class _Linear(torch.autograd.Function):
                 inputmat_no_fp8,
                 fp8_meta[meta_hybrid_key],
                 fp8_meta[meta_fwd_key],
-                tex.FP8FwdTensors.GEMM1_INPUT,
+                FP8FwdTensors.GEMM1_INPUT,
                 measure_amax=amax_measure_state["fwd_enabled"],
             )
 
@@ -160,7 +160,7 @@ class _Linear(torch.autograd.Function):
                     weight,
                     fp8_meta[meta_hybrid_key],
                     fp8_meta[meta_fwd_key],
-                    tex.FP8FwdTensors.GEMM1_WEIGHT,
+                    FP8FwdTensors.GEMM1_WEIGHT,
                     measure_amax=amax_measure_state["fwd_enabled"],
                 )
                 if weight_fp8_fwd is None:
@@ -184,9 +184,9 @@ class _Linear(torch.autograd.Function):
 
         out = fp8_gemm(
             weight_fp8_fwd,
-            fp8_meta[meta_fwd_key].scale_inv[tex.FP8FwdTensors.GEMM1_WEIGHT],
+            fp8_meta[meta_fwd_key].scale_inv[FP8FwdTensors.GEMM1_WEIGHT],
             inputmat,
-            fp8_meta[meta_fwd_key].scale_inv[tex.FP8FwdTensors.GEMM1_INPUT],
+            fp8_meta[meta_fwd_key].scale_inv[FP8FwdTensors.GEMM1_INPUT],
             activation_dtype,
             bias=bias,
             use_bias=use_bias,
@@ -289,7 +289,7 @@ class _Linear(torch.autograd.Function):
                 # If weight_fp8 was not remembered from fwd pass, recompute it
                 weight_fp8, _ = torch.ops.hpu.cast_to_fp8_v2(
                     weight,
-                    fwd_scales[tex.FP8FwdTensors.GEMM1_WEIGHT],
+                    fwd_scales[FP8FwdTensors.GEMM1_WEIGHT],
                     stochastic_rounding=get_fp8_te_sr(ctx.fp8_meta["recipe"], fprop_tensor=True),
                     is_amax=False,
                     dtype=fp8_dtype_backward,
@@ -299,9 +299,9 @@ class _Linear(torch.autograd.Function):
             if ctx.requires_dgrad:
                 dgrad = fp8_gemm(
                     weight_fp8,
-                    fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_WEIGHT],
+                    fwd_scale_inverses[FP8FwdTensors.GEMM1_WEIGHT],
                     grad_output_c,
-                    ctx.fp8_meta[meta_bwd_key].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
+                    ctx.fp8_meta[meta_bwd_key].scale_inv[FP8BwdTensors.GRAD_OUTPUT1],
                     ctx.activation_dtype,
                     transa=False,
                 )
@@ -319,9 +319,9 @@ class _Linear(torch.autograd.Function):
                 assert not ctx.fp8_meta["recipe"].override_linear_precision.wgrad
                 wgrad = fp8_gemm(
                     inputmat_fp8_total,
-                    fwd_scale_inverses[tex.FP8FwdTensors.GEMM1_INPUT],
+                    fwd_scale_inverses[FP8FwdTensors.GEMM1_INPUT],
                     grad_output_c,
-                    ctx.fp8_meta[meta_bwd_key].scale_inv[tex.FP8BwdTensors.GRAD_OUTPUT1],
+                    ctx.fp8_meta[meta_bwd_key].scale_inv[FP8BwdTensors.GRAD_OUTPUT1],
                     ctx.activation_dtype,
                     accumulate=False,
                     out=None,

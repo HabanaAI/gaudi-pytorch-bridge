@@ -11,13 +11,14 @@
 from typing import Optional, Union
 
 import torch
-from habana_frameworks.torch import _hpex_C as tex
+
+from ..utils import FP8BwdTensors, FP8FwdTensors, FP8TensorMeta
 
 
 def _update_amax_history(
     new_amax: torch.Tensor,
-    fp8_meta_tensor: tex.FP8TensorMeta,
-    fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
+    fp8_meta_tensor: FP8TensorMeta,
+    fp8_tensor: Union[FP8FwdTensors, FP8BwdTensors],
 ):
     if fp8_meta_tensor.amax_history.shape[0] > 1:
         # amax_history length > 1
@@ -32,9 +33,9 @@ def _update_amax_history(
 
 def select_amax_and_exec(
     operator,
-    fp8_meta_tensor: tex.FP8TensorMeta,
-    fp8_tensor: Union[tex.FP8FwdTensors, tex.FP8BwdTensors],
-    fp8_meta_tensor2: Optional[tex.FP8TensorMeta] = None,
+    fp8_meta_tensor: FP8TensorMeta,
+    fp8_tensor: Union[FP8FwdTensors, FP8BwdTensors],
+    fp8_meta_tensor2: Optional[FP8TensorMeta] = None,
     measure_amax=True,
 ):
     outputs = operator()
