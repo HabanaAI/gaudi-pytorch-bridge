@@ -120,9 +120,11 @@ void HcclCommunicator::Init() {
   broadcastUniqueHCCLID_fn_(&hccl_id);
 
   hcclComm_t new_comm;
-  hcclResult_t result{hcclCommInitRank(&new_comm, size_, hccl_id, rank_)};
-  HABANA_ASSERT(hcclSuccess == result && "Comm Init Rank Error");
-  hccl_handle_ = std::make_shared<hcclComm_t>(new_comm);
+  if (!GET_ENV_FLAG_NEW(PT_HPU_EMULATE_DISTRIBUTED)) {
+    hcclResult_t result{hcclCommInitRank(&new_comm, size_, hccl_id, rank_)};
+    HABANA_ASSERT(hcclSuccess == result && "Comm Init Rank Error");
+    hccl_handle_ = std::make_shared<hcclComm_t>(new_comm);
+  }
 }
 
 std::atomic_int64_t HcclCommunicator::next_id_ = 0;
