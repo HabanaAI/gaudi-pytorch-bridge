@@ -56,9 +56,6 @@ class TestHpuIndexPutSelect:
         if is_gaudi1() and dtype == torch.half:
             pytest.skip("Half is not supported on Gaudi.")
 
-        if is_gaudi2() and dtype == torch.int16:
-            pytest.skip("https://jira.habana-labs.com/browse/SW-185536")
-
         def fn(input, index, values):
             return input.index_put(index, values, True)
 
