@@ -90,6 +90,13 @@ def is_call_function_dynamic(node: torch.fx.Node, dynamic_graph: bool) -> bool:
     This function dynamicity per call_function.
     """
 
+    def check_dynamic_meta(node: torch.fx.Node):
+        meta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
+        if (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides) or isinstance(
+            meta_val, py_sym_types
+        ):
+            return True
+
     # early exit when the graph module is static
     if not dynamic_graph:
         return False
@@ -99,11 +106,13 @@ def is_call_function_dynamic(node: torch.fx.Node, dynamic_graph: bool) -> bool:
 
     is_dynamic = False
     if node.op == "call_function":
-        meta_val = node.meta.get("val", node.meta.get("tensor_meta", None))
-        if (isinstance(meta_val, FakeTensor) and meta_val._has_symbolic_sizes_strides) or isinstance(
-            meta_val, py_sym_types
-        ):
-            is_dynamic = True
+        is_dynamic = check_dynamic_meta(node)
+        if not is_dynamic:
+            args = helper_get_node_args(node)
+            for input in args:
+                is_dynamic = check_dynamic_meta(input)
+                if is_dynamic:
+                    break
 
         logger.debug("Node %s dynamicity %s", node.name, is_dynamic)
     return is_dynamic
