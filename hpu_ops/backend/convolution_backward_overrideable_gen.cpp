@@ -13,6 +13,7 @@
 #include "backend/helpers/lowering_util.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "generated/backend/convolution_backward_overrideable.h"
+#include "hpu_ops/backend/reduction_template.h"
 #include "hpu_ops/common/convolution_gen.h"
 
 using namespace synapse_helpers::layouts;
@@ -60,42 +61,16 @@ synapse_helpers::tensor ComputeBiasGrad(
     // TODO: remove or replace if we want to support flatten higher dims
     return std::move(ten_output);
   } else {
-    at::ScalarType scalar_type = grad_output.scalar_type();
-    std::string guid =
-        habana::get_guid_with_precision("reduce_sum_fwd", scalar_type);
-
-    std::vector<synapse_helpers::tensor> syn_tmp;
-    std::vector<int64_t> pyt_shape = grad_output.sizes().vec();
-    for (size_t i = 0, j = 0; i < dim_to_reduce.size(); ++i, ++j) {
-      ns_Reduction::Params params{};
-      params.reductionDimension = grad_output.dim() - dim_to_reduce[j] - 1;
-
-      pyt_shape[dim_to_reduce[i]] = 1;
-      c10::IntArrayRef shape_red(pyt_shape.data(), pyt_shape.size());
-
-      std::vector<synTensor> syn_tmp_in = (i == 0)
-          ? std::move(syn_grad_output)
-          : std::vector<synTensor>{syn_tmp[0].get()};
-      syn_tmp = habana::OpBackend::BuildNode(
-          op,
-          graph,
-          {guid,
-           std::move(syn_tmp_in),
-           {{shape_red, scalar_type}},
-           &params,
-           sizeof(params)});
-    }
-
-    // Add a final reshape to remove the "1" sized upper
-    int64_t data[1] = {syn_tmp[0].pt_shape()[1]};
-    c10::IntArrayRef shape_out(data, 1);
-
-    std::vector<synTensor> syn_tmp_in = {syn_tmp[0].get()};
-    op->CreateShapeTensorInput(graph, scalar_type, {data[0]}, syn_tmp_in);
-
-    synapse_helpers::tensor reshapeOp = op->BuildReshape(
-        op, graph, syn_tmp[0].get(), shape_out, scalar_type, 2);
-    return reshapeOp;
+    auto multi_dim_reduce_sum = HandleReductionMultiDimAndKeepdim(
+        op,
+        graph,
+        syn_grad_output[0],
+        "reduce_sum_multi_dim",
+        dim_to_reduce,
+        grad_output.dim(),
+        false,
+        {{{grad_output.sizes()[channel_dim]}, grad_output.scalar_type(), 2}});
+    return std::move(multi_dim_reduce_sum[0]);
   }
 }
 } // namespace
