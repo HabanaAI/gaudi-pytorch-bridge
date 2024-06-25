@@ -148,7 +148,8 @@ class NodeParamAgnosticOpList {
         c10::Symbol::fromQualString("aten::upsample_nearest2d_backward"),
         c10::Symbol::fromQualString("hpu::upsample_nearest2d_backward"),
         c10::Symbol::fromQualString("aten::upsample_nearest3d"),
-        c10::Symbol::fromQualString("aten::upsample_nearest3d_backward")};
+        c10::Symbol::fromQualString("aten::upsample_nearest3d_backward"),
+        c10::Symbol::fromQualString("aten::resize_")};
     return ops_list;
   }
 

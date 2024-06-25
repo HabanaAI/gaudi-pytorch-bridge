@@ -63,6 +63,9 @@ void ResizeOpBackend::AddNode(
           self.suggest_memory_format());
 
   resizeTensor(this, graph, stack, self, memory_format);
+  if (isOutputInfMode()) {
+    GetOutputInfMeta().AddNodeParams(nullptr, 0);
+  }
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
@@ -76,6 +79,9 @@ void ResizeOutputOpBackend::AddNode(
       self.device() == device, "Tensor doesn't have the correct device set");
 
   resizeTensor(this, graph, stack, self, self.suggest_memory_format());
+  if (isOutputInfMode()) {
+    GetOutputInfMeta().AddNodeParams(nullptr, 0);
+  }
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 

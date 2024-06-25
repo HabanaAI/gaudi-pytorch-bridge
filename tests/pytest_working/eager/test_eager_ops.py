@@ -1592,3 +1592,25 @@ def test_sag_upsample_bicubic_2d_backward_node_params():
 
         num_cache_entries_end = htdebug._get_jit_cache_size()
         assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for resize op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_empty_resize_node_params():
+    params = [10, 20]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for size in params:
+        hpu_tensor = torch.empty([], device="hpu")
+        hpu_tensor.resize_(size)
+        cpu_tensor = hpu_tensor.to("cpu")
+        assert np.equal(cpu_tensor.size()[0], size)
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+        num_cache_entries_end = htdebug._get_jit_cache_size()
+        assert num_cache_entries_end == num_cache_entries_start
