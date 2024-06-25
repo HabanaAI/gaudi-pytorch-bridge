@@ -1434,3 +1434,55 @@ def test_op_constant_pad():
         t1_h = t1.to("hpu")
         h_result = compiled_fn(t1_h)
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
+@pytest.mark.parametrize("dtype", [torch.float32])
+def test_addcdiv(dtype):
+    input_shapes = [(3, 6, 4), (3, 8, 6), (3, 10, 8), (3, 12, 8), (3, 10, 6)]
+    scalars = [1.4, 2.6, 3.2, 4.5, 2.1]
+
+    def fn(input1, tensor1, tensor2, value):
+        input1.addcdiv_(tensor1, tensor2, value=value)
+        return input1
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        compiled_fn = torch.compile(fn, backend="hpu_backend", dynamic=None)
+
+    for s1, s2 in zip(input_shapes, scalars):
+        input1 = torch.randn(s1, dtype=dtype, device="cpu")
+        tensor1 = torch.randn(s1, dtype=dtype, device="cpu")
+        tensor2 = torch.randn(s1, dtype=dtype, device="cpu")
+        hpu_input1 = input1.to("hpu")
+        hpu_tensor1 = tensor1.to("hpu")
+        hpu_tensor2 = tensor2.to("hpu")
+        input1 = fn(input1, tensor1, tensor2, value=s2)
+        hpu_input1 = compiled_fn(hpu_input1, hpu_tensor1, hpu_tensor2, value=s2)
+
+        assert torch.allclose(input1, hpu_input1.cpu(), atol=0.001, rtol=0.001)
+
+
+@pytest.mark.parametrize("dtype", [torch.int32, torch.float32])
+def test_hpu_mul(dtype):
+    input_shapes = [(4, 4), (4, 4), (4, 4), (4, 4)]
+    scalars = [1, 2, 3, 4]
+    scalars_f = [1.2, 2.5, 3.1, 4.3]
+
+    def fn(tensor1, scalars1, scalars2):
+        out1 = torch.mul(tensor1, scalars1)
+        out2 = torch.mul(out1, scalars2)
+        return out2
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        compiled_fn = torch.compile(fn, backend="hpu_backend", dynamic=None)
+
+    for s1, s2, s3 in zip(input_shapes, scalars, scalars_f):
+        tensor1 = torch.ones(s1, dtype=dtype, device="cpu")
+        hpu_tensor1 = tensor1.to("hpu")
+        input1 = fn(tensor1, s2, s3)
+        hpu_input1 = compiled_fn(hpu_tensor1, s2, s3)
+
+        assert torch.allclose(input1, hpu_input1.cpu(), atol=0.001, rtol=0.001)
