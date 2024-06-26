@@ -16,7 +16,14 @@ from test_utils import format_tc
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
-@pytest.mark.parametrize("params", [({"dims": (2, 3, 4, 5), "momentum": 0.999, "eps": 1e-5})], ids=format_tc)
+@pytest.mark.parametrize(
+    "params",
+    [
+        ({"dims": (2, 3, 4, 5), "momentum": 0.999, "eps": 1e-5}),
+        ({"dims": (2, 3, 4, 5, 6, 7), "momentum": 0.999, "eps": 1e-5}),
+    ],
+    ids=format_tc,
+)
 def test_hpu_native_batch_norm_legit_no_training(dtype, params):
     def fn(input, weight, bias, running_mean, running_var, momentum, eps):
         return torch._native_batch_norm_legit_no_training(input, weight, bias, running_mean, running_var, momentum, eps)

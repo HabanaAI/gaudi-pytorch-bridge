@@ -155,6 +155,27 @@ c10::IntArrayRef get_rm_size(const at::Tensor& input) {
   return input.sizes()[rm_size_idx];
 }
 
+synapse_helpers::layouts::SynapseLayoutFormat getSynapseLayout(const int64_t& dimensions)
+{
+    switch (dimensions) {
+    case 2:
+      return synapse_helpers::layouts::SynapseLayoutFormat::CN;
+      break;
+    case 3:
+      return synapse_helpers::layouts::SynapseLayoutFormat::CLN;
+      break;
+    case 4:
+      return synapse_helpers::layouts::SynapseLayoutFormat::WHCN;
+      break;
+    case 5:
+      return synapse_helpers::layouts::SynapseLayoutFormat::WHDCN;
+      break;
+    default:
+      return synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE;
+      break;
+  }
+}
+
 sh::tensor get_4d_tensor(
     OpBackend& op,
     sh::graph& graph,
@@ -377,13 +398,8 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
 
   std::vector<sh::tensor> bn_out;
   bn_out.reserve(5);
-
-  std::optional<sh::tensor> inputStorageOpt;
-  const auto [input_4d, input_4d_shape] =
-      transform_tensor_to_4d<TENSOR_IDX, SHAPE_IDX>(
-          op, graph, input, inputStorageOpt);
-
   c10::IntArrayRef rm_size = get_rm_size(input.pt_t);
+
   std::optional<sh::tensor> weightStorageOpt;
   const auto [weight] = get_or_create_tensor<TENSOR_IDX>(
       op,
@@ -417,17 +433,13 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
   running_var = cast_if_necessary_or_default(
       &op, graph, running_var_opt, running_var, runningVarStorageOpt);
 
-  auto input_dim = input.pt_t.sizes().size();
-
   bn_out.emplace_back(std::move(
       OpBackend::BuildNode(
           &op,
           graph,
-          {get_guid_with_precision("batch_norm_inf", op.ScalarType()),
-           {input_4d, bias, weight, running_mean, running_var},
-           {{input_4d_shape,
-             op.ScalarType(),
-             (input_dim != 4) ? c10::nullopt : c10::optional<int>(0)}},
+          {get_guid_with_precision("batch_norm_inf_reshape", op.ScalarType()),
+           {input.syn_t, bias, weight, running_mean, running_var},
+           {{out_shapes[INPUT_IDX], op.ScalarType(), c10::optional<int>(0)}},
            params.get(),
            params_size})
           .at(0)));
@@ -671,6 +683,16 @@ void BatchNormNoTrainingOpBackend::AddNode(
   const auto params = FillBatchNormNoTrainingFwdParams(stack, paramsSize);
   const auto outShapes = BatchNormFwdOutputShape(stack);
 
+  auto inOutLayout = getSynapseLayout(input.pt_t.dim());
+
+  SetSynapseLayouts(
+      {inOutLayout,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE},
+      {inOutLayout});
+
   std::vector<sh::tensor> bnOut =
       (is_training(false, runningMeanOpt.has_value())
            ? handle_batch_norm_training_fwd
@@ -685,8 +707,6 @@ void BatchNormNoTrainingOpBackend::AddNode(
           params,
           paramsSize,
           outShapes);
-
-  reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0], ScalarType());
 
   syn_out(0) = std::move(bnOut[0]);
   syn_out(1) = std::move(bnOut[1]);
