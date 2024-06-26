@@ -1,7 +1,18 @@
+###############################################################################
+# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc, is_gaudi1
+from test_utils import format_tc
 
 
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)

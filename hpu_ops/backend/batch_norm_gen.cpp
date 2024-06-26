@@ -472,6 +472,14 @@ std::vector<sh::tensor> handle_batch_norm_inference_fwd(
 
   return bn_out;
 }
+
+void moveLastOutputTensorAtFront(OpBackend& op) {
+  auto& outputInfMeta = op.GetOutputInfMeta();
+  auto output_tensor_idx = outputInfMeta.GetOutputTensor().size() - 1;
+  auto output_tensor = outputInfMeta.GetOutputTensor(output_tensor_idx);
+  outputInfMeta.RemoveOutput(output_tensor_idx);
+  outputInfMeta.PushOutputTensorAtFront(output_tensor);
+}
 } // namespace
 
 sizes_vec BatchNormFwdOutputShape(const at::Stack& stack) {
@@ -633,6 +641,10 @@ void BatchNormOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
           outShapes);
 
   reshape_tensor(*this, graph, input.pt_t.sizes(), bnOut[0], ScalarType());
+
+  if (isOutputInfMode()) {
+    moveLastOutputTensorAtFront(*this);
+  }
 
   syn_out(0) = std::move(bnOut[0]);
   syn_out(1) = std::move(bnOut[1]);

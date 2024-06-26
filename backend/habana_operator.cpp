@@ -963,13 +963,13 @@ habana::InferOutputMetaRetType& habana::InferOutputMetaRetType::
 
 const habana::IdxTensorTuple& habana::InferOutputMetaRetType::GetOutputTensor(
     size_t index) const {
-  HABANA_ASSERT(index <= output_tensors_.size(), "index out of range");
+  HABANA_ASSERT(index < output_tensors_.size(), "index out of range");
   return output_tensors_.at(index);
 }
 
 const habana::IdxTensorTuple& habana::InferOutputMetaRetType::GetShapeTensor(
     size_t index) const {
-  HABANA_ASSERT(index <= shape_tensors_.size(), "index out of range");
+  HABANA_ASSERT(index < shape_tensors_.size(), "index out of range");
   return shape_tensors_.at(index);
 }
 
@@ -979,5 +979,11 @@ void habana::InferOutputMetaRetType::MoveToOutput(
 }
 
 void habana::InferOutputMetaRetType::RemoveOutput(size_t index) {
+  HABANA_ASSERT(index < output_tensors_.size(), "index out of range");
   output_tensors_.erase(output_tensors_.begin() + index);
+}
+
+void habana::InferOutputMetaRetType::PushOutputTensorAtFront(
+    IdxTensorTuple output_tensor) {
+  output_tensors_.insert(output_tensors_.begin(), std::move(output_tensor));
 }
