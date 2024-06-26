@@ -419,16 +419,35 @@ def utilization(device: Optional[Union[Device, int]] = None) -> int:
 
 
 def _create_tensor_alias(name, dtype):
-    def tensor_alias(*args, **kwargs):
-        if "device" in kwargs:
-            raise TypeError(f"hpu.{name}() got an unexpected keyword argument 'device'")
-        if "dtype" in kwargs:
-            raise TypeError(f"hpu.{name}() got an unexpected keyword argument 'dtype'")
-        kwargs["device"] = "hpu"
-        kwargs["dtype"] = dtype
-        return torch.tensor(*args, **kwargs)
+    target_device = "hpu"
 
-    return tensor_alias
+    class TypeFabric(torch.Tensor):
+        @staticmethod
+        def __new__(cls, *args, **kwargs):  # no __init__ due torch.Tensor is C object
+            input_device = kwargs.get("device", None)
+            if input_device is not None and input_device != target_device:
+                raise RuntimeError(
+                    f"legacy constructor expects device type: {target_device} but device type: {input_device} was passed"
+                )
+
+            input_dtype = kwargs.get("dtype", None)
+            if input_dtype is not None and input_dtype != dtype:
+                raise RuntimeError(f"legacy constructor expects dtype: {dtype} but dtype: {input_dtype} was passed")
+
+            # Object of this type has fixed "device" and "dtype"
+            kwargs["device"] = target_device
+            kwargs["dtype"] = dtype
+
+            # this always copy data
+            data = torch.tensor(*args, **kwargs)
+            result = torch.Tensor._make_subclass(cls, data)
+
+            return result
+
+    TypeFabric.__name__ = name
+    TypeFabric.__qualname__ = name  # python 3 compatibility
+
+    return TypeFabric
 
 
 def enable_recompute_sdp(enabled: bool):
