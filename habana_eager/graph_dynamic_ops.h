@@ -200,6 +200,16 @@ class RegisterDSOps {
     return dsOps_.count(opname) ? dsOps_[opname]() : nullptr;
   }
 
+  // Used to pass list of registered DS ops to JIT pass in HPU
+  // backend from HPU Eager Pass
+  const std::vector<std::string> getRegisteredDSOpsList() const {
+    std::vector<std::string> DSOpsList;
+    for (const auto& op: dsOps_) {
+      DSOpsList.push_back(op.first);
+    }
+    return DSOpsList;
+  }
+
   RegisterDSOps() = default;
   RegisterDSOps(const RegisterDSOps&) = delete;
   RegisterDSOps& operator=(const RegisterDSOps&) = delete;

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -17,6 +17,7 @@
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_dynamic_ops.h"
+#include "backend/passes/replace_inplace_ops_ds.h"
 
 namespace habana {
 namespace graph {
@@ -292,6 +293,10 @@ void HandleDynamicOps(
     std::shared_ptr<DynamicGraphMetaData> dmeta,
     std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes) {
   PT_EAGER_TRACE;
+  // Replace inplace ops with out-of-place variant for which DS support is needed
+  // Currently supports strided_insert_
+  // This leverages DS support of out-of-place variant op for inplace variant
+  ReplaceInplaceOpsDS(graph, habana::graph::DSOpsRegistry().getRegisteredDSOpsList());
   HandleDynamicOpsPass pass{graph, dmeta, input_new_base_sizes};
   bool changed{pass.run(stack)};
   if (changed) {

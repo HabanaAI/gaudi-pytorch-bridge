@@ -32,6 +32,7 @@ add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synaps
   kernel/refinement_engine.cpp
   passes/remove_inplace_ops.cpp
   passes/hpu_habana_persistence_marker_pass.cpp
+  passes/replace_inplace_ops_ds.cpp
   habana_device/HPUAllocator.cpp
   habana_device/HPUEvent.cpp
   habana_device/HPUDevice.cpp

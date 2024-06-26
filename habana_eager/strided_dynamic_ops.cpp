@@ -940,12 +940,22 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
   std::vector<int64_t> scalar_indexes_strides;
   std::vector<int64_t> values_strides;
   auto self_strides = self.strides().vec();
-  GetValuesAndScalarIndexesFromListConstruct(
-      stride_construct_node,
-      in_stack,
-      org_stack_index_map,
-      values_strides,
-      scalar_indexes_strides);
+
+  static const auto constant_symbol{
+      c10::Symbol::fromQualString("prim::Constant")};
+  if (stride_construct_node->kind() == constant_symbol) {
+      GetValuesAndScalarIndexesFromListConst(
+          stride_construct_node,
+          values_strides,
+          scalar_indexes_strides);
+  } else {
+      GetValuesAndScalarIndexesFromListConstruct(
+          stride_construct_node,
+          in_stack,
+          org_stack_index_map,
+          values_strides,
+          scalar_indexes_strides);
+  }
   // Fill the strides values in reverse order
   for (auto it = values_strides.rbegin(); it != values_strides.rend(); ++it) {
     h2d_values.push_back(static_cast<uint64_t>(*it));
