@@ -5533,11 +5533,9 @@ max_pool3d_with_indices:
   dtypes:
     self: [BFloat16, Float]
     indices: [Int]
+  guid: maxpool_3d_fwd
   op_backend: MaxPool3DWithIndicesOut
   output_meta: Maxpool3dWithIndicesMeta
-  synapse_layouts:
-  - [WHDCN]
-  - [WHDCN, WHDCN]
   out_ids: [0, 0]
 
 # Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
@@ -5560,10 +5558,8 @@ max_pool3d_with_indices_backward:
     self: [BFloat16, Float]
     grad_output: [BFloat16, Float]
     indices: [Int, Long]
+  guid: maxpool_3d_bwd
   op_backend: MaxPool3DWithIndicesBwd
-  synapse_layouts:
-  - [WHDCN, WHDCN]
-  - [WHDCN]
   out_ids: [0]
 
 # Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.

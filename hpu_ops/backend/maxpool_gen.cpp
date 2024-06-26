@@ -363,60 +363,40 @@ static at::ScalarType FindRetainTensorType(at::ScalarType inputTensorType) {
 void MaxPool3DWithIndicesOut::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
+  std::vector<synTensor> inputs = {syn_in(0)};
   const auto meta = Maxpool3dWithIndicesMeta(stack)[0];
   size_t size = 0;
   auto index_type = FindRetainTensorType(meta.dtype);
   const auto& params = FillSpatialReduction3DParamsFwd(stack, size);
+  const auto rank = stack_tensor(stack, 0).dim();
 
-  auto intermediateOutShape = meta.shape;
-  auto self = stack_tensor(stack, 0);
-  auto reshapeRequired = (self.dim() == 4);
-  std::vector<synTensor> inputs = {syn_in(0)};
-  std::vector<synapse_helpers::tensor> expandResult;
-  c10::optional<int> finalIndex =
-      reshapeRequired ? c10::nullopt : c10::make_optional<int>(0);
-
-  if (reshapeRequired) {
-    const auto& vec = self.sizes().vec();
-    std::vector<int64_t> inputExpandedShape{};
-    inputExpandedShape.reserve(1 + vec.size());
-    inputExpandedShape.push_back(1);
-    inputExpandedShape.insert(
-        std::end(inputExpandedShape), vec.begin(), vec.end());
-    intermediateOutShape.insert(std::begin(intermediateOutShape), 1);
-    synAxisParams expandParams{4};
-    auto expandedInput = BuildOp(
-        graph,
-        "expand_dims",
-        std::move(inputs),
-        {{inputExpandedShape, meta.dtype}},
-        &expandParams,
-        sizeof(expandParams));
-    expandResult.push_back(std::move(expandedInput[0]));
-    inputs = {expandResult[0].get()};
+  if (rank == 4) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDC,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDC,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDC},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDC,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDC});
+  } else if (rank == 5) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
   }
-  CreateShapeTensorInput(graph, meta.dtype, intermediateOutShape, inputs);
 
   auto maxpool3d = BuildOp(
       graph,
-      get_guid_with_precision("maxpool_3d_fwd", meta.dtype),
+      GetGuid(),
       std::move(inputs),
-      {{intermediateOutShape, index_type},
-       {intermediateOutShape, meta.dtype, finalIndex}},
+      {{meta.shape, index_type}, {meta.shape, meta.dtype, 0}},
       params.get(),
       size);
 
-  auto& maxpool3d_0 = maxpool3d.at(0);
-  auto& maxpool3d_1 = maxpool3d.at(1);
-  if (reshapeRequired) {
-    maxpool3d_0 =
-        ReshapeHelper(graph, maxpool3d.at(0).get(), meta.shape, index_type);
-    maxpool3d_1 =
-        ReshapeHelper(graph, maxpool3d.at(1).get(), meta.shape, meta.dtype, 0);
-  }
-  syn_out(0) = std::move(maxpool3d_1);
+  syn_out(0) = std::move(maxpool3d[1]);
   syn_out(1) = BuildCast(
-      this, graph, maxpool3d_0.get(), meta.shape, index_type, at::kLong, 1);
+      this, graph, maxpool3d.at(0).get(), meta.shape, index_type, at::kLong, 1);
 }
 
 void MaxPool3DWithIndicesBwd::AddNode(
@@ -434,57 +414,33 @@ void MaxPool3DWithIndicesBwd::AddNode(
       at::kLong,
       FindRetainTensorType(meta.dtype));
 
-  auto intermediateOutShape = meta.shape;
-  auto self = stack_tensor(stack, 0);
-  auto reshapeRequired = (self.dim() == 4);
   std::vector<synTensor> inputs = {syn_in(0), cast_input.get()};
-  std::vector<synapse_helpers::tensor> expandResult;
-  c10::optional<int> finalIndex =
-      reshapeRequired ? c10::nullopt : c10::make_optional<int>(0);
+  const auto rank = stack_tensor(stack, 0).dim();
 
-  if (reshapeRequired) {
-    const auto& vec = self.sizes().vec();
-    std::vector<int64_t> inputExpandedShape{};
-    inputExpandedShape.reserve(1 + vec.size());
-    inputExpandedShape.push_back(1);
-    inputExpandedShape.insert(
-        std::end(inputExpandedShape), vec.begin(), vec.end());
-    intermediateOutShape.insert(std::begin(intermediateOutShape), 1);
-    synAxisParams expandParams{4};
-    auto expandedInput0 = BuildOp(
-        graph,
-        "expand_dims",
-        std::vector<synTensor>{inputs.at(0)},
-        {{inputExpandedShape, meta.dtype}},
-        &expandParams,
-        sizeof(expandParams));
-    auto expandedInput1 = BuildOp(
-        graph,
-        "expand_dims",
-        std::vector<synTensor>{inputs.at(1)},
-        {{inputExpandedShape, FindRetainTensorType(meta.dtype)}},
-        &expandParams,
-        sizeof(expandParams));
-    expandResult.push_back(std::move(expandedInput0[0]));
-    expandResult.push_back(std::move(expandedInput1[0]));
-    inputs = {expandResult[0].get(), expandResult[1].get()};
+  CreateShapeTensorInput(graph, meta.dtype, meta.shape, inputs);
+  if (rank == 4) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDC,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDC,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDC},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDC});
+  } else if (rank == 5) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN,
+         synapse_helpers::layouts::SynapseLayoutFormat::WHDCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
   }
-  CreateShapeTensorInput(graph, meta.dtype, intermediateOutShape, inputs);
 
   auto grad_output = BuildOp(
       graph,
-      get_guid_with_precision("maxpool_3d_bwd", meta.dtype),
+      GetGuid(),
       std::move(inputs),
-      {{intermediateOutShape, meta.dtype, finalIndex}},
+      {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);
 
-  auto& maxPool3D_out = grad_output.at(0);
-  if (reshapeRequired) {
-    maxPool3D_out = ReshapeHelper(
-        graph, grad_output.at(0).get(), meta.shape, meta.dtype, 0);
-  }
-  syn_out(0) = std::move(maxPool3D_out);
+  syn_out(0) = std::move(grad_output[0]);
 }
 
 // Since the out varriant intices tensor has some issue
