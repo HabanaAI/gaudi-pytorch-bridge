@@ -458,23 +458,40 @@ def meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward):
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd.default])
-def meta_sdpa_recomp_fwd(q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode):
+def meta_sdpa_recomp_fwd(
+    q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode, valid_seq_len, seq_padding_type
+):
     return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward)
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd_dropout.default])
-def meta_sdpa_recomp_fwd_dropout(q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode):
+def meta_sdpa_recomp_fwd_dropout(
+    q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode, valid_seq_len, seq_padding_type
+):
     return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward)
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd_non_dropout.default])
-def meta_sdpa_recomp_fwd_non_dropout(q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode):
+def meta_sdpa_recomp_fwd_non_dropout(
+    q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode, valid_seq_len, seq_padding_type
+):
     return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward)
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_fwd_dropout_seed.default])
 def meta_sdpa_recomp_fwd_dropout_seed(
-    seed, q, k, v, attn_mask, dropout_p, is_causal, scale, requires_backward, softmax_mode
+    seed,
+    q,
+    k,
+    v,
+    attn_mask,
+    dropout_p,
+    is_causal,
+    scale,
+    requires_backward,
+    softmax_mode,
+    valid_seq_len,
+    seq_padding_type,
 ):
     return meta_sdpa_recomp_fwd_helper(q, k, v, requires_backward)
 
@@ -495,22 +512,28 @@ def meta_sdpa_fwd_helper(q, k, v, dropout_p):
 
 
 @register_meta([torch.ops.hpu.sdpa_fwd.default])
-def meta_sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode):
+def meta_sdpa_fwd(q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode, valid_seq_len, seq_padding_type):
     return meta_sdpa_fwd_helper(q, k, v, dropout_p)
 
 
 @register_meta([torch.ops.hpu.sdpa_fwd_dropout.default])
-def meta_sdpa_fwd_dropout(q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode):
+def meta_sdpa_fwd_dropout(
+    q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode, valid_seq_len, seq_padding_type
+):
     return meta_sdpa_fwd_helper(q, k, v, dropout_p)
 
 
 @register_meta([torch.ops.hpu.sdpa_fwd_non_dropout.default])
-def meta_sdpa_fwd_non_dropout(q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode):
+def meta_sdpa_fwd_non_dropout(
+    q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode, valid_seq_len, seq_padding_type
+):
     return meta_sdpa_fwd_helper(q, k, v, dropout_p)
 
 
 @register_meta([torch.ops.hpu.sdpa_fwd_dropout_seed.default])
-def meta_sdpa_fwd_dropout_seed(seed, q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode):
+def meta_sdpa_fwd_dropout_seed(
+    seed, q, k, v, attn_mask, dropout_p, scale, is_causal, fast_softmax_mode, valid_seq_len, seq_padding_type
+):
     return meta_sdpa_fwd_helper(q, k, v, dropout_p)
 
 

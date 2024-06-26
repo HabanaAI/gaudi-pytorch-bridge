@@ -7347,7 +7347,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode) {
+    c10::string_view softmax_mode,
+    const c10::optional<at::Tensor>& valid_seq_len,
+    c10::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
@@ -7356,7 +7358,17 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
     auto seed = habana::get_seed_tensor_hpu(gen);
     LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
         "hpu::sdpa_fwd_dropout_seed",
-        {seed, q, k, v, attention_mask, p, scale, is_causal, softmax_mode},
+        {seed,
+         q,
+         k,
+         v,
+         attention_mask,
+         p,
+         scale,
+         is_causal,
+         softmax_mode,
+         valid_seq_len,
+         seq_padding_type},
         SDPAFwdOutputShape};
     hpu_op.set_scalar_types(
         {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
@@ -7364,7 +7376,16 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
   } else {
     LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
         "hpu::sdpa_fwd",
-        {q, k, v, attention_mask, p, scale, is_causal, softmax_mode},
+        {q,
+         k,
+         v,
+         attention_mask,
+         p,
+         scale,
+         is_causal,
+         softmax_mode,
+         valid_seq_len,
+         seq_padding_type},
         SDPAFwdOutputShape};
     hpu_op.set_scalar_types(
         {q.scalar_type(), q.scalar_type(), c10::ScalarType::Char});
@@ -7617,7 +7638,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode) {
+    c10::string_view softmax_mode,
+    const c10::optional<at::Tensor>& valid_seq_len,
+    c10::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   if (p > 0.0) {
@@ -7634,7 +7657,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
          scale,
          is_causal,
          requires_backward,
-         softmax_mode},
+         softmax_mode,
+         valid_seq_len,
+         seq_padding_type},
         SDPARecompFwdOutputShape};
     hpu_op.set_scalar_types(
         {q.scalar_type(),
@@ -7653,7 +7678,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
          scale,
          is_causal,
          requires_backward,
-         softmax_mode},
+         softmax_mode,
+         valid_seq_len,
+         seq_padding_type},
         SDPARecompFwdOutputShape};
     auto linvType = c10::ScalarType::Float;
 

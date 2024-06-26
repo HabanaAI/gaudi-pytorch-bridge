@@ -855,7 +855,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_fwd_lazy(
     const double p,
     const double scale,
     const bool is_causal,
-    c10::string_view softmax_mode);
+    c10::string_view softmax_mode,
+    const c10::optional<at::Tensor>& valid_seq_len,
+    c10::string_view seq_padding_type);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
     const at::Tensor& q,
@@ -913,7 +915,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
     const double scale,
     const bool is_causal,
     const bool requires_backward,
-    c10::string_view softmax_mode);
+    c10::string_view softmax_mode,
+    const c10::optional<at::Tensor>& valid_seq_len,
+    c10::string_view seq_padding_type);
 std::tuple<
     at::Tensor,
     at::Tensor,

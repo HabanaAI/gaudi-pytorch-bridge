@@ -13,7 +13,7 @@ def test_sdpa_recompute(dropout, requires_backward):
         scale = 1.0
         fast_softmax_mode = "None"
         result = torch.ops.hpu.sdpa_recomp_fwd(
-            query, key, value, am, dropout, scale, is_causal, requires_backward, fast_softmax_mode
+            query, key, value, am, dropout, scale, is_causal, requires_backward, fast_softmax_mode, None, "None"
         )
         if requires_backward:
             result = torch.ops.hpu.sdpa_recomp_bwd(
@@ -54,7 +54,9 @@ def test_sdpa(dropout, requires_backward):
         is_causal = False
         scale = 1.0
         fast_softmax_mode = "None"
-        result = torch.ops.hpu.sdpa_fwd(query, key, value, am, dropout, scale, is_causal, fast_softmax_mode)
+        result = torch.ops.hpu.sdpa_fwd(
+            query, key, value, am, dropout, scale, is_causal, fast_softmax_mode, None, "None"
+        )
         if requires_backward:
             result = torch.ops.hpu.sdpa_bwd(
                 result[0], query, key, value, result[1], result[2], is_causal, dropout, scale

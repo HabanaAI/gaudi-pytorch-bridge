@@ -14,11 +14,11 @@
 #include "hpu_ops/sdpa_gen.h"
 #include "hpu_ops/custom_op_outshape.h"
 
-#define FP8_SDPA_SET_FLAGS(condition, flags, flag_name) \
-  if (condition) {                                      \
-    flags |= SdpaFlags_t::SDPA_FLAGS_##flag_name;       \
+#define SDPA_SET_FLAGS(condition, flags, flag_name) \
+  if (condition) {                                  \
+    flags |= SdpaFlags_t::SDPA_FLAGS_##flag_name;   \
   }
-#define FP8_SDPA_ADD_SCALE_INPUTS(t)       \
+#define SDPA_ADD_INPUTS(t)                 \
   if (t) {                                 \
     syn_inputs.push_back(t.value().syn_t); \
   } else {                                 \
@@ -144,7 +144,8 @@ sizes_vec_template<DimT> SDPAFwdOutputShapeCommon(
 }
 
 sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
-  int q_index = (stack.size() == 9) ? 1 : 0;
+  auto q_or_seed = stack[0].toTensor();
+  int q_index = (q_or_seed.sizes().vec().size() < 3) ? 1 : 0;
   auto q = stack_tensor(stack, q_index);
   auto k = stack_tensor(stack, q_index + 1);
   auto v = stack_tensor(stack, q_index + 2);
@@ -255,12 +256,15 @@ sizes_vec Fp8SDPAFwdOutputShape(const at::Stack& stack) {
 
 void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(stack, "SDPAFwd::AddNode");
-  bool seed_present = (stack.size() == 9);
+  auto q_or_seed = stack[0].toTensor();
+  bool seed_present = (q_or_seed.sizes().vec().size() < 3);
+
   synTensor seed_tensor = nullptr;
   if (seed_present) {
     auto seed = getNextInput<TensorsPair>(stackGetter);
     seed_tensor = seed.syn_t;
   }
+
   auto q = getNextInput<TensorsPair>(stackGetter);
   auto k = getNextInput<TensorsPair>(stackGetter);
   auto v = getNextInput<TensorsPair>(stackGetter);
@@ -269,9 +273,15 @@ void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto scale = getNextInput<double>(stackGetter);
   auto is_causal = getNextInput<bool>(stackGetter);
   auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
+  auto valid_seq_len = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto seq_padding_type = getNextInput<c10::string_view>(stackGetter);
+  unsigned int flags = 0;
 
+  SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
+  SDPA_SET_FLAGS(seq_padding_type == "left", flags, SEQ_PADDING_LEFT)
+  SDPA_SET_FLAGS(seq_padding_type == "right", flags, SEQ_PADDING_RIGHT)
   ns_Sdpa::ParamsV3 params{};
-  fillSdpaParams(params, p, scale, is_causal, false, softmax_mode);
+  fillSdpaParams(params, p, scale, is_causal, false, softmax_mode, flags);
 
   std::string guid = get_guid_with_precision("sdpa_fwd", q.pt_t.scalar_type());
   auto out_shapes = SDPAFwdOutputShape(stack);
@@ -284,6 +294,13 @@ void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   }
 
   syn_inputs.push_back(seed_tensor);
+
+  if (valid_seq_len) {
+    syn_inputs.insert(syn_inputs.end(), 6, nullptr);
+    syn_inputs.push_back(valid_seq_len.value().syn_t);
+  } else {
+    syn_inputs.insert(syn_inputs.end(), 7, nullptr);
+  }
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
       {out_shapes[0], q.pt_t.scalar_type(), 0},
@@ -326,12 +343,12 @@ void Fp8SDPAFwd::AddNode(
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
 
-  FP8_SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
-  FP8_SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
-  FP8_SDPA_SET_FLAGS(d_scale_k, flags, D_SCALE_K)
-  FP8_SDPA_SET_FLAGS(d_scale_v, flags, D_SCALE_V)
-  FP8_SDPA_SET_FLAGS(q_scale_s, flags, Q_SCALE_S)
-  FP8_SDPA_SET_FLAGS(q_scale_o, flags, Q_SCALE_O)
+  SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
+  SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
+  SDPA_SET_FLAGS(d_scale_k, flags, D_SCALE_K)
+  SDPA_SET_FLAGS(d_scale_v, flags, D_SCALE_V)
+  SDPA_SET_FLAGS(q_scale_s, flags, Q_SCALE_S)
+  SDPA_SET_FLAGS(q_scale_o, flags, Q_SCALE_O)
   if (d_scale_s) {
     // TODO: add the flag definition to perf_lib_layer_paras.h
     flags |= (1 << 13);
@@ -354,12 +371,12 @@ void Fp8SDPAFwd::AddNode(
     syn_inputs.push_back(nullptr);
   }
 
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_q)
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_k)
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_v)
-  FP8_SDPA_ADD_SCALE_INPUTS(q_scale_s)
-  FP8_SDPA_ADD_SCALE_INPUTS(q_scale_o)
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_s)
+  SDPA_ADD_INPUTS(d_scale_q)
+  SDPA_ADD_INPUTS(d_scale_k)
+  SDPA_ADD_INPUTS(d_scale_v)
+  SDPA_ADD_INPUTS(q_scale_s)
+  SDPA_ADD_INPUTS(q_scale_o)
+  SDPA_ADD_INPUTS(d_scale_s)
 
   auto out_shapes = Fp8SDPAFwdOutputShape(stack);
 
@@ -470,17 +487,17 @@ void Fp8SDPABwd::AddNode(
 
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
-  FP8_SDPA_SET_FLAGS(is_amax_ds, flags, AMAX_dS)
-  FP8_SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
-  FP8_SDPA_SET_FLAGS(d_scale_k, flags, D_SCALE_K)
-  FP8_SDPA_SET_FLAGS(d_scale_v, flags, D_SCALE_V)
+  SDPA_SET_FLAGS(is_amax_ds, flags, AMAX_dS)
+  SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
+  SDPA_SET_FLAGS(d_scale_k, flags, D_SCALE_K)
+  SDPA_SET_FLAGS(d_scale_v, flags, D_SCALE_V)
 
-  FP8_SDPA_SET_FLAGS(d_scale_s, flags, D_SCALE_S)
-  FP8_SDPA_SET_FLAGS(d_scale_do, flags, D_SCALE_dO)
-  FP8_SDPA_SET_FLAGS(d_scale_ds, flags, D_SCALE_dS)
+  SDPA_SET_FLAGS(d_scale_s, flags, D_SCALE_S)
+  SDPA_SET_FLAGS(d_scale_do, flags, D_SCALE_dO)
+  SDPA_SET_FLAGS(d_scale_ds, flags, D_SCALE_dS)
 
-  FP8_SDPA_SET_FLAGS(q_scale_s, flags, Q_SCALE_S)
-  FP8_SDPA_SET_FLAGS(q_scale_ds, flags, Q_SCALE_dS)
+  SDPA_SET_FLAGS(q_scale_s, flags, Q_SCALE_S)
+  SDPA_SET_FLAGS(q_scale_ds, flags, Q_SCALE_dS)
 
   fillSdpaParams(
       params,
@@ -501,16 +518,16 @@ void Fp8SDPABwd::AddNode(
   } else {
     syn_inputs.push_back(nullptr);
   }
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_q)
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_k)
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_v)
+  SDPA_ADD_INPUTS(d_scale_q)
+  SDPA_ADD_INPUTS(d_scale_k)
+  SDPA_ADD_INPUTS(d_scale_v)
 
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_s)
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_do)
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_ds)
+  SDPA_ADD_INPUTS(d_scale_s)
+  SDPA_ADD_INPUTS(d_scale_do)
+  SDPA_ADD_INPUTS(d_scale_ds)
 
-  FP8_SDPA_ADD_SCALE_INPUTS(q_scale_s)
-  FP8_SDPA_ADD_SCALE_INPUTS(q_scale_ds)
+  SDPA_ADD_INPUTS(q_scale_s)
+  SDPA_ADD_INPUTS(q_scale_ds)
 
   auto out_shapes = Fp8SDPABwdOutputShape(stack);
   // set gradType to BF16 for now.
@@ -538,14 +555,14 @@ void Fp8SDPABwd::AddNode(
 ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
 
-  FP8_SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
-  FP8_SDPA_SET_FLAGS(is_amax_o, flags, AMAX_O)
-  FP8_SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
-  FP8_SDPA_SET_FLAGS(d_scale_k, flags, D_SCALE_K)
-  FP8_SDPA_SET_FLAGS(d_scale_v, flags, D_SCALE_V)
-  FP8_SDPA_SET_FLAGS(q_scale_s, flags, Q_SCALE_S)
-  FP8_SDPA_SET_FLAGS(q_scale_o, flags, Q_SCALE_O)
-  FP8_SDPA_SET_FLAGS(q_scale_s, flags, D_SCALE_S)
+  SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
+  SDPA_SET_FLAGS(is_amax_o, flags, AMAX_O)
+  SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
+  SDPA_SET_FLAGS(d_scale_k, flags, D_SCALE_K)
+  SDPA_SET_FLAGS(d_scale_v, flags, D_SCALE_V)
+  SDPA_SET_FLAGS(q_scale_s, flags, Q_SCALE_S)
+  SDPA_SET_FLAGS(q_scale_o, flags, Q_SCALE_O)
+  SDPA_SET_FLAGS(q_scale_s, flags, D_SCALE_S)
   // if (d_scale_s) {
   // TODO: add the flag definition to perf_lib_layer_paras.h
   // flags |= (1 << 13);
@@ -575,12 +592,12 @@ ns_Sdpa::ParamsV3 params{};
     syn_inputs.push_back(nullptr);
   }
 
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_q)
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_k)
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_v)
-  FP8_SDPA_ADD_SCALE_INPUTS(q_scale_s)
-  FP8_SDPA_ADD_SCALE_INPUTS(q_scale_o)
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_s)
+  SDPA_ADD_INPUTS(d_scale_q)
+  SDPA_ADD_INPUTS(d_scale_k)
+  SDPA_ADD_INPUTS(d_scale_v)
+  SDPA_ADD_INPUTS(q_scale_s)
+  SDPA_ADD_INPUTS(q_scale_o)
+  SDPA_ADD_INPUTS(d_scale_s)
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs;
 
@@ -704,7 +721,8 @@ sizes_vec_template<DimT> SDPARecompFwdOutputShapeCommon(
 }
 
 sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
-  int q_index = (stack.size() == 10) ? 1 : 0;
+  auto q_or_seed = stack_tensor(stack, 0);
+  int q_index = (q_or_seed.sizes().vec().size() < 3) ? 1 : 0;
   auto q = stack_tensor(stack, q_index);
   auto k = stack_tensor(stack, q_index + 1);
   auto v = stack_tensor(stack, q_index + 2);
@@ -755,7 +773,9 @@ void SDPARecompFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   StackGetter stackGetter(stack, "SDPARecompFwd::AddNode");
-  bool seed_present = (stack.size() == 10);
+  auto q_or_seed = stack[0].toTensor();
+  bool seed_present = (q_or_seed.sizes().vec().size() < 3);
+
   synTensor seed_tensor = nullptr;
   if (seed_present) {
     auto seed = getNextInput<TensorsPair>(stackGetter);
@@ -770,6 +790,13 @@ void SDPARecompFwd::AddNode(
   auto is_causal = getNextInput<bool>(stackGetter);
   auto requires_backward = getNextInput<bool>(stackGetter);
   auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
+  auto valid_seq_len = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto seq_padding_type = getNextInput<c10::string_view>(stackGetter);
+  unsigned int flags = 0;
+
+  SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
+  SDPA_SET_FLAGS(seq_padding_type == "left", flags, SEQ_PADDING_LEFT)
+  SDPA_SET_FLAGS(seq_padding_type == "right", flags, SEQ_PADDING_RIGHT)
 
   ns_Sdpa::ParamsV3 params{};
   fillSdpaParams(
@@ -778,7 +805,8 @@ void SDPARecompFwd::AddNode(
       scale,
       is_causal,
       !requires_backward /*is_inference*/,
-      softmax_mode);
+      softmax_mode,
+      flags);
 
   std::string guid =
       get_guid_with_precision("sdpa_recomp_fwd", q.pt_t.scalar_type());
@@ -791,6 +819,12 @@ void SDPARecompFwd::AddNode(
     syn_inputs.push_back(nullptr);
   }
   syn_inputs.push_back(seed_tensor);
+  if (valid_seq_len) {
+    syn_inputs.insert(syn_inputs.end(), 6, nullptr);
+    syn_inputs.push_back(valid_seq_len.value().syn_t);
+  } else {
+    syn_inputs.insert(syn_inputs.end(), 7, nullptr);
+  }
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs;
   output_attrs.push_back({out_shapes[0], q.pt_t.scalar_type(), 0});
@@ -849,14 +883,14 @@ void Fp8SDPARecompFwd::AddNode(
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
 
-  FP8_SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
-  FP8_SDPA_SET_FLAGS(is_amax_o, flags, AMAX_O)
-  FP8_SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
-  FP8_SDPA_SET_FLAGS(d_scale_k, flags, D_SCALE_K)
-  FP8_SDPA_SET_FLAGS(d_scale_v, flags, D_SCALE_V)
-  FP8_SDPA_SET_FLAGS(q_scale_s, flags, Q_SCALE_S)
-  FP8_SDPA_SET_FLAGS(q_scale_o, flags, Q_SCALE_O)
-  FP8_SDPA_SET_FLAGS(d_scale_s, flags, D_SCALE_S)
+  SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
+  SDPA_SET_FLAGS(is_amax_o, flags, AMAX_O)
+  SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
+  SDPA_SET_FLAGS(d_scale_k, flags, D_SCALE_K)
+  SDPA_SET_FLAGS(d_scale_v, flags, D_SCALE_V)
+  SDPA_SET_FLAGS(q_scale_s, flags, Q_SCALE_S)
+  SDPA_SET_FLAGS(q_scale_o, flags, Q_SCALE_O)
+  SDPA_SET_FLAGS(d_scale_s, flags, D_SCALE_S)
   // if (d_scale_s) {
   // TODO: add the flag definition to perf_lib_layer_paras.h
   // flags |= (1 << 13);
@@ -886,12 +920,12 @@ void Fp8SDPARecompFwd::AddNode(
     syn_inputs.push_back(nullptr);
   }
 
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_q)
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_k)
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_v)
-  FP8_SDPA_ADD_SCALE_INPUTS(q_scale_s)
-  FP8_SDPA_ADD_SCALE_INPUTS(q_scale_o)
-  FP8_SDPA_ADD_SCALE_INPUTS(d_scale_s)
+  SDPA_ADD_INPUTS(d_scale_q)
+  SDPA_ADD_INPUTS(d_scale_k)
+  SDPA_ADD_INPUTS(d_scale_v)
+  SDPA_ADD_INPUTS(q_scale_s)
+  SDPA_ADD_INPUTS(q_scale_o)
+  SDPA_ADD_INPUTS(d_scale_s)
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs;
 
