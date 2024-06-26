@@ -76,18 +76,20 @@ def test_index_put_bool_adv_indexing(inputs_shape, ind_shape, accumulate):
 def test_index_put_long_index(inputs_shape):
     def fn(t, i, v):
         r = t.relu()
-        p = r.index_put(indices=[i], values=v)
+        p = r.index_put(indices=i, values=v)
         out = torch.mul(p, 2)
         return out
 
     torch._dynamo.reset()
     compiled_hpu = torch.compile(fn, backend="hpu_backend")
     t1 = torch.zeros(inputs_shape)
-    t2 = torch.tensor(1)
     t3 = torch.tensor(1.0)
-
+    cur_dev = "cpu"
+    t2 = [torch.tensor([0, 0, 1, 1]).to(cur_dev), torch.tensor([0, 1, 1, 2]).to(cur_dev)]
     cpu_res = fn(t1, t2, t3)
-    hpu_res = compiled_hpu(t1.to("hpu"), t2.to("hpu"), t3.to("hpu"))
+    cur_dev = "hpu"
+    t2 = [torch.tensor([0, 0, 1, 1]).to(cur_dev), torch.tensor([0, 1, 1, 2]).to(cur_dev)]
+    hpu_res = compiled_hpu(t1.to("hpu"), t2, t3.to("hpu"))
 
     assert torch.allclose(cpu_res, hpu_res.to("cpu"), rtol=1e-3, atol=1e-3)
 

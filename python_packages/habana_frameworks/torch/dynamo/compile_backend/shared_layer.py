@@ -154,9 +154,6 @@ def index_put_support_check(node, is_dynamic):
         for output_dtype in index.meta["output_dtypes"]:
             if output_dtype == torch.bool:
                 return True
-        # index numel > self dim shape is not supported for accumulate False
-        if index.meta["val"].numel() > t.meta["tensor_meta"].shape[i]:
-            return False
         return True
 
     for i, index in enumerate(indices):
