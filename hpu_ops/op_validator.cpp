@@ -135,8 +135,8 @@ SharedLayer::Return_t ValidateGuid(
     const detail::TensorDescrArray& output_values,
     void* filledParams = nullptr,
     uint32_t filledParamsSize = 0,
-    [[maybe_unused]] bool is_dynamic = false) {
-  SharedLayer::Params_t params{};
+    bool is_dynamic = false) {
+  SharedLayer::ParamsV2_t params{};
   params.apiVersion = 1;
   auto deviceId = getDeviceType();
   params.deviceId = deviceId;
@@ -179,8 +179,9 @@ SharedLayer::Return_t ValidateGuid(
 
   params.inputTensors = input_tensors;
   params.outputTensors = output_tensors;
+  params.supportsDynamicShapes = is_dynamic;
 
-  return synSharedLayerValidateGuid(&params);
+  return synSharedLayerValidateGuidV2(&params);
 }
 
 detail::TensorDescr TryCastTensor(
@@ -232,6 +233,14 @@ at::ScalarType MaybePromotionType(
   }
   r += "]";
   return r;
+}
+
+[[maybe_unused]] std::string ToDebugString(const bool x) {
+  std::string t;
+  t += "Bool(";
+  t += x ? "true" : "false";
+  t += ")";
+  return t;
 }
 
 [[maybe_unused]] std::string ToDebugString(const at::IValue& x) {
@@ -459,110 +468,9 @@ std::unordered_set<std::string> load_static_guids(
 
 bool is_guid_support_dynamic_shape(const std::string& guid) {
   using namespace std::literals;
-  // guids only support static shape in tpc_kernels and CGUID
-  static const std::unordered_set<std::string> tpc_static_guids = {
-      "atan2",
-      "batch_to_space",
-      "block_bucketize_sparse_features",
-      "block_bucketize_sparse_features_stage2",
-      "bounds_check_indices_fwd",
-      "broadcast_nd_fwd",
-      "convert_to_fp8_transpose",
-      "convert_to_fp8_transpose_bgrad",
-      "convert_to_fp8_transpose_bgrad_dgelu",
-      "count_non_zero_fwd",
-      "crop_mirror_norm",
-      "ctc_grad_stage1",
-      "ctc_grad_stage2",
-      "ctc_loss_bwd",
-      "dropout_fp8",
-      "embedding_renorm",
-      "embedding_renorm_fwd",
-      "equalize_lut",
-      "expand_into_jagged_permute_fwd",
-      "expand_jagged_indices_fwd",
-      "fp8_gelu",
-      "frac",
-      "gather_ranges",
-      "gather_ranges_fwd",
-      "histogram",
-      "image_projective_transform_fwd",
-      "indexing",
-      "intopk",
-      "intopk_cmp",
-      "kthvalue_fwd",
-      "layer_norm_fp8_fwd",
-      "log_normal_fwd",
-      "maxpool_roi_bwd",
-      "memcpy_nd",
-      "normalize",
-      "optimizer_adagrad",
-      "optimizer_hogwild_sparse_adagrad_with_valid_count_2d",
-      "optimizer_sgd",
-      "optimizer_sparse_adagrad",
-      "optimizer_sparse_adagrad_with_valid_count_2d",
-      "optimizer_sparse_rowwise_adagrad_with_valid_count_2d",
-      "optimizer_sparse_sgd",
-      "optimizer_sparse_sgd_with_valid_count_2d",
-      "pdist_bwd",
-      "permute_1D_sparse_data_fwd",
-      "permute_2D_sparse_data_fwd",
-      "permute_pooled_embeddings_bwd",
-      "permute_pooled_embeddings_fwd",
-      "permute_softmax_bwd",
-      "permute_softmax_fwd",
-      "pnorm_dist_bwd",
-      "pyramid_roi_align_st2_fwd",
-      "ragged_softmax_fwd",
-      "reduce_L1_bwd",
-      "reduce_L2_bwd",
-      "reduce_Lp_bwd",
-      "reduce_arg_max_stage1_fwd",
-      "reduce_arg_max_stage2_fwd",
-      "reduce_arg_min_stage1_fwd",
-      "reduce_arg_min_stage2_fwd",
-      "reduce_log_sum_bwd",
-      "reduce_log_sum_exp_bwd",
-      "reduce_log_sum_exp_fwd",
-      "reduce_log_sum_fwd",
-      "reduce_max_bwd",
-      "reduce_mean_bwd",
-      "reduce_min_bwd",
-      "reduce_prod_bwd",
-      "reduce_sum_bwd",
-      "reduce_sum_square_bwd",
-      "reduce_sum_stage1_fwd",
-      "reduce_sum_stage2_fwd",
-      "remap",
-      "resize_image_fwd",
-      "scatter_bwd",
-      "scatter_reduce",
-      "scatter_reduce_fwd",
-      "sdpa_recomp_bwd",
-      "sdpa_recomp_core_bwd",
-      "sdpa_recomp_core_fwd",
-      "sdpa_recomp_fwd",
-      "segment_max_bwd",
-      "segment_mean_bwd",
-      "segment_min_bwd",
-      "segment_prod_bwd",
-      "segment_sum_bwd",
-      "sequence_reverse_fwd",
-      "sigmoid_cross_entropy_with_logits_bwd",
-      "sigmoid_cross_entropy_with_logits_fwd",
-      "sort_bwd",
-      "space_to_batch",
-      "sparse_lengths_sum_bwd",
-      "sparse_lengths_weighted_sum_bwd",
-      "sparse_memset_fwd",
-      "sparse_memset_with_vc_fwd",
-      "sparse_segment_sum_bwd",
-      "spatial_correlation_bwd",
-      "split_permute_cat_fwd",
-      "unsorted_segment_sum_bwd",
-      "upsample_bwd",
-      "where_bwd",
-  };
+  // placeholder list containing guids only support static shape in tpc_kernels
+  // and CGUID
+  static const std::unordered_set<std::string> tpc_static_guids = {};
 
   static const std::unordered_set<std::string> static_guids_list =
       load_static_guids("PT_HPU_STATIC_GUIDS", tpc_static_guids);
@@ -606,14 +514,10 @@ bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
   auto validation_result = ValidateGuid(
       m_guid, inputs, outputs, params.get(), params_size, is_dynamic);
 
-  // (TODO)switch to use synSharedLayerValidateGuidV2 for dynamic shape
-  // validation once the API is ready
   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS == validation_result &&
-      is_dynamic) {
-    if (!is_guid_support_dynamic_shape(m_guid)) {
-      validation_result =
-          SharedLayer::Return_t::SHARED_LAYER_GUID_MISSING_DYNAMIC_SUPPORT;
-    }
+      is_dynamic && !is_guid_support_dynamic_shape(m_guid)) {
+    validation_result =
+        SharedLayer::Return_t::SHARED_LAYER_GUID_MISSING_DYNAMIC_SUPPORT;
   }
 
   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {

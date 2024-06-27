@@ -22,13 +22,13 @@
 
 namespace shim_slu {
 SLU_API_PTR(synSharedLayerInit);
-SLU_API_PTR(synSharedLayerValidateGuid);
+SLU_API_PTR(synSharedLayerValidateGuidV2);
 SLU_API_PTR(synSharedLayerGetGuidNames);
 SLU_API_PTR(synSharedLayerFinit);
 
 void LoadSymbols(void* lib_handle) {
   SLU_INIT_PTR(synSharedLayerInit);
-  SLU_INIT_PTR(synSharedLayerValidateGuid);
+  SLU_INIT_PTR(synSharedLayerValidateGuidV2);
   SLU_INIT_PTR(synSharedLayerGetGuidNames);
   SLU_INIT_PTR(synSharedLayerFinit);
 }
@@ -77,10 +77,10 @@ SharedLayer::Return_t synSharedLayerInit() {
   return shim_slu::synSharedLayerInit();
 }
 
-SharedLayer::Return_t synSharedLayerValidateGuid(
-    const SharedLayer::Params_t* const params) {
+SharedLayer::Return_t synSharedLayerValidateGuidV2(
+    const SharedLayer::ParamsV2_t* const params) {
   LibSynapseUtilsLoader::EnsureLoaded();
-  return shim_slu::synSharedLayerValidateGuid(params);
+  return shim_slu::synSharedLayerValidateGuidV2(params);
 }
 
 SharedLayer::Return_t synSharedLayerGetGuidNames(
