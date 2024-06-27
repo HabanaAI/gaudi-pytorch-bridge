@@ -25,12 +25,11 @@ void ScatterOperator::AddNode(
   const auto dim_ = stack.at(1).toInt();
   const auto& outshape = stack_tensor(stack, 0).sizes();
 
+  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
+
   if (index.dim() == 0) {
     SET_SIZE_STRIDE_1D(index);
   }
-  auto dim = at::maybe_wrap_dim(dim_, self.dim(), /*wrap_scalar=*/true);
-  ns_ScatterKernel::Params params{};
-  params.axis = get_dim_in_tpc_order(dim, self.dim());
 
   synTensor index_val;
   std::unique_ptr<synapse_helpers::tensor> index_casted;
@@ -47,10 +46,20 @@ void ScatterOperator::AddNode(
     index_val = syn_in(1);
   }
 
-  synTensor src_or_val;
-  std::unique_ptr<synapse_helpers::tensor> tmp_tensor;
   if (stack.at(3).isTensor()) {
-    src_or_val = syn_in(2);
+    ns_ScatterKernel::ParamsReduce params{};
+    params.axis = get_dim_in_tpc_order(dim, self.dim());
+
+    auto scatterkernel = BuildOp(
+        graph,
+        get_guid_with_precision("scatter_fwd", ScalarType()),
+        {syn_in(0), index_val, syn_in(2)},
+        {{outshape, ScalarType(), 0}},
+        &params,
+        sizeof(params));
+
+    syn_out(0) = std::move(scatterkernel[0]);
+
   } else {
     at::Scalar val;
     at::IValue ival = stack.at(3);
@@ -76,57 +85,13 @@ void ScatterOperator::AddNode(
     } else {
       val = ival.toScalar();
     }
-    tmp_tensor = std::make_unique<synapse_helpers::tensor>(
-        ConstantHelper(graph, val, ScalarType(), outshape));
-    src_or_val = tmp_tensor->get();
-  }
-
-  std::set<c10::ScalarType> int_types = {
-      c10::ScalarType::Bool,
-      c10::ScalarType::Char,
-      c10::ScalarType::Byte,
-      c10::ScalarType::Short};
-
-  if ((self.scalar_type() != c10::ScalarType::Int) &&
-      (int_types.find(self.scalar_type()) != int_types.end())) {
-    // TPC scatter has support only for bf16, fp32 and i32
-    auto cast_self = BuildCast(
-        this, graph, syn_in(0), outshape, self.scalar_type(), torch::kInt);
-
-    auto cast_src_or_val = BuildCast(
-        this,
-        graph,
-        src_or_val,
-        stack.at(3).isTensor() ? stack_tensor(stack, 3).sizes() : outshape,
-        self.scalar_type(),
-        torch::kInt);
-
-    std::vector<synTensor> syn_input_tensors = {
-        cast_self.get(), index_val, cast_src_or_val.get()};
+    ns_ScatterValueKernel::Params params{};
+    params.dim = dim;
+    params.value = val.toDouble();
     auto scatterkernel = BuildOp(
         graph,
-        get_guid_with_precision("scatter_fwd", c10::ScalarType::Int),
-        std::move(syn_input_tensors),
-        {{outshape, c10::ScalarType::Int}},
-        &params,
-        sizeof(params));
-
-    auto result_bool = BuildCast(
-        this,
-        graph,
-        scatterkernel[0].get(),
-        outshape,
-        torch::kInt,
-        self.scalar_type(),
-        0);
-    syn_out(0) = std::move(result_bool);
-  } else {
-    std::vector<synTensor> syn_input_tensors = {
-        syn_in(0), index_val, src_or_val};
-    auto scatterkernel = BuildOp(
-        graph,
-        get_guid_with_precision("scatter_fwd", ScalarType()),
-        std::move(syn_input_tensors),
+        get_guid_with_precision("scatter_value_fwd", ScalarType()),
+        {syn_in(0), index_val},
         {{outshape, ScalarType(), 0}},
         &params,
         sizeof(params));
