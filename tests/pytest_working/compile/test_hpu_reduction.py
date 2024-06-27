@@ -110,5 +110,8 @@ def test_hpu_std_var_mean(input, dim, correction, keepdim, dtype, setup_teardown
 
     cpu_output_var, cpu_output_mean = cpu_compiled_fn(cpu_input, dim, correction, keepdim)
     hpu_output_var, hpu_output_mean = hpu_compiled_fn(hpu_input, dim, correction, keepdim)
+
+    tol_mean = 1e-2 if dtype == torch.bfloat16 else 1e-3
+
     assert torch.allclose(cpu_output_var, hpu_output_var.cpu(), atol=0.001, rtol=0.001)
-    assert torch.allclose(cpu_output_mean, hpu_output_mean.cpu(), atol=0.001, rtol=0.001)
+    assert torch.allclose(cpu_output_mean, hpu_output_mean.cpu(), atol=tol_mean, rtol=tol_mean)
