@@ -4248,7 +4248,7 @@ native_group_norm_backward_hpu_lazy(
   auto weight = weight_opt.value_or(Tensor());
   if (!weight.defined()) {
     auto options = torch::TensorOptions()
-                       .dtype(c10::ScalarType::Float)
+                       .dtype(grad_out.dtype())
                        .device(torch::kHPU)
                        .requires_grad(false);
     weight = torch::ones(wt_view_shape.vec(), options);
