@@ -4526,6 +4526,26 @@ index_fill_.int_Scalar:
   guid: index_copy_fwd
   inplace_ids: [0]
 
+index_fill_.int_Tensor:
+  output_meta: IndexFillMeta
+  custom_fill_params: FillIndexCopyParams
+  op_backend: IndexFill
+  dtypes:
+    Gaudi:
+      self: [BFloat16, Float, Int, Char, Byte, Short]
+      index: [Int]
+      value: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2:
+      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
+      index: [Int, Long]
+      value: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
+    Gaudi3:
+      self: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
+      index: [Int, Long]
+      value: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
+  guid: index_copy_fwd
+  inplace_ids: [0]
+
 index_fill.int_Scalar:
   output_meta: IndexFillMeta
   custom_fill_params: FillIndexCopyParams

@@ -37,7 +37,7 @@ void IndexFill::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& input = stack.at(0).toTensor();
   const auto& dim = stack.at(1).toInt();
   const auto& indexes = stack.at(2).toTensor();
-  const auto& val = stack.at(3).toScalar().toFloat();
+  bool is_value_scalar = stack.at(3).isScalar();
 
   const auto meta = IndexFillMeta(stack)[0];
 
@@ -50,8 +50,18 @@ void IndexFill::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         "For input 0-D tensor, number of elements in indices tensor should be 1.");
   }
 
-  synapse_helpers::tensor valueTensor =
-      OpBackend::BuildConstant(this, graph, val, meta.dtype, valueTensorShape);
+  synapse_helpers::tensor valueTensor = is_value_scalar
+      ? OpBackend::BuildConstant(
+            this,
+            graph,
+            stack.at(3).toScalar().toFloat(),
+            meta.dtype,
+            valueTensorShape)
+      : BroadcastHelper(
+            graph,
+            syn_in(2),
+            valueTensorShape,
+            stack.at(3).toTensor().scalar_type());
 
   size_t size = 0;
   const auto params = FillIndexFillParams(stack, size);
