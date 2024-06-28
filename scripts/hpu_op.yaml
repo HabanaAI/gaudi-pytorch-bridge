@@ -9283,8 +9283,15 @@ softmax_fp8:
   output_meta: SoftmaxFp8Meta
 
 rms_norm:
-  custom_op_schema: "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon, bool fast_math) -> (Tensor, Tensor)"
+  custom_op_schema: "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)"
   guid: rms_norm_ex_fwd
   out_ids: [0, 0]
   output_meta: RMSNormMeta
   custom_fill_params: RMSNormParams
+
+rms_norm_fast:
+  custom_op_schema: "hpu::rms_norm_fast(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)"
+  guid: rms_norm_ex_fwd
+  out_ids: [0, 0]
+  output_meta: RMSNormMeta
+  custom_fill_params: RMSNormFastParams

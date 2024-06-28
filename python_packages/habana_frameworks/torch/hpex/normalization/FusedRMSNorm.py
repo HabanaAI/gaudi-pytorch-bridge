@@ -28,7 +28,7 @@ class FusedRMSNorm(torch.autograd.Function):
     bwd_mode:
         Set parameter to STATIC_CASE_WIDTH_PARTITIONING in order to enable GC slicing.
     fast_math:
-        If the parameter is True, ComplexGuid is expected to expand the GUIDs.
+        If the parameter is True, fast version of ComplexGuid is expected to run.
     """
 
     @staticmethod
@@ -41,7 +41,9 @@ class FusedRMSNorm(torch.autograd.Function):
         bwd_mode=0,
         fast_math=False,
     ):
-        (root_mean_square_norm, inverse_root_mean_square) = torch.ops.hpu.rms_norm(data_in, gamma, eps, fast_math)
+        op = torch.ops.hpu.rms_norm_fast if fast_math else torch.ops.hpu.rms_norm
+        (root_mean_square_norm, inverse_root_mean_square) = op(data_in, gamma, eps)
+
         ctx.save_for_backward(inverse_root_mean_square, data_in, gamma)
         ctx.use_stages = use_stages
         ctx.bwd_mode = bwd_mode

@@ -90,7 +90,10 @@ def rms_norm_fwd_bwd(size, eps, use_stages, bwd_mode, fast_math, data_in_dtype, 
     torch.testing.assert_close(gamma_hpu.grad.to(torch.float32).to(cpu), grad_gamma_ref, rtol=tol, atol=tol)
 
     if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir({"rms_norm", "rms_norm_backward"})
+        if fast_math:
+            check_ops_executed_in_jit_ir({"rms_norm_fast", "rms_norm_backward"})
+        else:
+            check_ops_executed_in_jit_ir({"rms_norm", "rms_norm_backward"})
 
 
 @pytest.mark.parametrize("size, eps", rms_norm_test_case_list)
