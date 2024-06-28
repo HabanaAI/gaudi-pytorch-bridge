@@ -29,6 +29,6 @@ python tests/debug_tools/ir_test_generator.py -ilog /home/pmanvi/test_log_mnist.
 
 ### Visualization :
 ```
-pip install netron 
+pip install netron
 netron ir_log.onnx (or the path of onnx file generated)
 ```

@@ -1,5 +1,5 @@
 npu_stack_path = /home/tkanvar/trees/npu-stack
-registration_declaration_path = /home/tkanvar/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/torch/include/ATen/RegistrationDeclarations.h 
+registration_declaration_path = /home/tkanvar/anaconda3/envs/py_venv_3.8/lib/python3.8/site-packages/torch/include/ATen/RegistrationDeclarations.h
 hpu_op_yaml_entry = pow.Scalar
 op_name = cpow
 reg_decl_op = pow

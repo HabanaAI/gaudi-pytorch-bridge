@@ -6,19 +6,19 @@ repos:
         exclude: ^scripts/tests/files/
       - id: check-executables-have-shebangs
         exclude: ^topologies/
-    # TODO: fix issues and enable when time allows: https://jira.habana-labs.com/browse/SW-121821
-    # - id: end-of-file-fixer
-    #   exclude: ^(LICENSE.txt|topologies/)
-    # - id: trailing-whitespace
-    #   exclude: ^(LICENSE|topologies/)
-  # TODO: fix issues and enable when time allows: https://jira.habana-labs.com/browse/SW-121813
-  # - repo: https://github.com/cheshirekow/cmake-format-precommit
-  #   rev: v0.6.13
-  #   hooks:
-  #       - id: cmake-format
-  #         additional_dependencies: ["pyyaml"]
-  #       - id: cmake-lint
-  #         additional_dependencies: ["pyyaml"]
+      - id: trailing-whitespace
+        exclude: ^(LICENSE|topologies/|scripts/tests/files/ops_generation_e2e/reference_output/check_kernel_support/)
+      # TODO: fix issues and enable when time allows: https://jira.habana-labs.com/browse/SW-121821
+      # - id: end-of-file-fixer
+      #   exclude: ^(LICENSE.txt|topologies/)
+      # TODO: fix issues and enable when time allows: https://jira.habana-labs.com/browse/SW-121813
+      # - repo: https://github.com/cheshirekow/cmake-format-precommit
+      #   rev: v0.6.13
+      #   hooks:
+      #       - id: cmake-format
+      #         additional_dependencies: ["pyyaml"]
+      #       - id: cmake-lint
+      #         additional_dependencies: ["pyyaml"]
   - repo: https://github.com/aostrowski/pre-commit-mirror-git-clang-format
     rev: v10.0.1
     hooks:

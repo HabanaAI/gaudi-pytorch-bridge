@@ -4,4 +4,4 @@
   "otherData": {
     "version": "Habana Synapse API"
   },
-  "traceEvents": 
+  "traceEvents":
