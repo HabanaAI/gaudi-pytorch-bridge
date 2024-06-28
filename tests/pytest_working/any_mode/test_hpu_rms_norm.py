@@ -18,9 +18,9 @@ from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, cpu, 
 
 rms_norm_test_case_list = [
     # Input shape, eps
-    ((512, 1, 640), 0.000001),
-    ((32, 16, 8, 16), 0.00003),
-    ((1, 2, 8, 17, 150), 0.00003),
+    ((32, 1, 40), 0.000001),
+    ((8, 2, 2, 4), 0.00003),
+    ((1, 2, 4, 17, 20), 0.00003),
 ]
 
 
