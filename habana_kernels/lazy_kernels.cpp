@@ -7245,31 +7245,6 @@ at::Tensor rotary_pos_embedding_backward_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(rotary_pos_embedding_backward, op)
 }
 
-std::tuple<at::Tensor, at::Tensor> rms_norm_lazy(
-    const at::Tensor& data_in,
-    const at::Tensor& gamma,
-    double epsilon,
-    bool fast_math) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  std::vector<int64_t> inverse_root_mean_square_sizes{data_in.sizes().vec()};
-  inverse_root_mean_square_sizes.back() = 1;
-
-  LazyOp<std::tuple<at::Tensor, at::Tensor>> op{
-      "hpu::rms_norm",
-      {data_in, gamma, epsilon, fast_math},
-      {{data_in.sizes().vec(), inverse_root_mean_square_sizes}}};
-
-  const auto data_in_dtype = (data_in.scalar_type() != gamma.scalar_type())
-      ? c10::ScalarType::Float
-      : data_in.scalar_type();
-
-  op.set_scalar_types({data_in_dtype, c10::ScalarType::Float});
-
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(rms_norm, op)
-}
-
 std::tuple<at::Tensor, at::Tensor> rms_norm_backward_lazy(
     const at::Tensor& grad_in,
     const at::Tensor& data_in,

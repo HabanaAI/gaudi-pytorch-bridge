@@ -1736,18 +1736,6 @@ at::Tensor rotary_pos_embedding_backward_wrap(
       grad_in, sin, cos, position_ids, offset, mode);
 }
 
-std::tuple<at::Tensor, at::Tensor> rms_norm_wrap(
-    const at::Tensor& data_in,
-    const at::Tensor& gamma,
-    double epsilon,
-    bool fast_math) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("rms_norm :", DUMP_4ARGS(data_in, gamma, epsilon, fast_math));
-
-  return rms_norm_lazy(data_in, gamma, epsilon, fast_math);
-}
-
 std::tuple<at::Tensor, at::Tensor> rms_norm_backward_wrap(
     const at::Tensor& grad_in,
     const at::Tensor& data_in,
@@ -2733,8 +2721,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
   m.def(
-      "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon, bool fast_math) -> (Tensor, Tensor)");
-  m.def(
       "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)");
   m.def(
       "hpu::ctc_loss_custom(Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, int blank, int reduction, bool zero_infinity) -> (Tensor, Tensor)");
@@ -2865,7 +2851,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding_wrap);
   m.impl(
       "hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward_wrap);
-  m.impl("hpu::rms_norm", rms_norm_wrap);
   m.impl("hpu::rms_norm_backward", rms_norm_backward_wrap);
   m.impl("hpu::ctc_loss_custom", ctc_loss_custom_wrap);
   m.impl("hpu::ctc_loss_custom_backward", ctc_loss_custom_backward_wrap);

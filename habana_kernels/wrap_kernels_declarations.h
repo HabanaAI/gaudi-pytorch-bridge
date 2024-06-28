@@ -291,11 +291,6 @@ at::Tensor rotary_pos_embedding_backward_wrap(
     const c10::optional<at::Tensor>& position_ids,
     const int64_t offset,
     const int64_t mode);
-std::tuple<at::Tensor, at::Tensor> rms_norm_wrap(
-    const at::Tensor& data_in,
-    const at::Tensor& gamma,
-    double epsilon,
-    bool fast_math);
 std::tuple<at::Tensor, at::Tensor> rms_norm_backward_wrap(
     const at::Tensor& grad_in,
     const at::Tensor& data_in,

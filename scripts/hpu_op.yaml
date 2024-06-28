@@ -9260,3 +9260,10 @@ softmax_fp8:
   op_backend: SoftmaxFp8
   out_ids: [0]
   output_meta: SoftmaxFp8Meta
+
+rms_norm:
+  custom_op_schema: "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon, bool fast_math) -> (Tensor, Tensor)"
+  guid: rms_norm_ex_fwd
+  out_ids: [0, 0]
+  output_meta: RMSNormMeta
+  custom_fill_params: RMSNormParams

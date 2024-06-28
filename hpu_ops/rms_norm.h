@@ -18,11 +18,6 @@
 
 namespace habana {
 
-struct RMSNorm : OpBackend {
-  RMSNorm(int device_id, c10::ScalarType scalar_type);
-  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
-};
-
 struct RMSNormBackward : OpBackend {
   RMSNormBackward(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;

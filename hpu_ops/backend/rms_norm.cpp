@@ -16,62 +16,6 @@
 
 namespace habana {
 
-sizes_vec RMSNormOutputShape(const at::Stack& stack) {
-  auto data_in = stack_tensor(stack, 0);
-  std::vector<int64_t> data_in_sizes = data_in.sizes().vec();
-
-  std::vector<int64_t> inverse_root_mean_square_sizes{data_in_sizes};
-  inverse_root_mean_square_sizes.back() = 1;
-
-  return {data_in_sizes, inverse_root_mean_square_sizes};
-}
-
-RMSNorm::RMSNorm(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(
-          device_id,
-          "rms_norm_ex_fwd",
-          scalar_type,
-          {0, 0},
-          {},
-          {},
-          false) {
-  SetComputeOutputShapes(RMSNormOutputShape);
-}
-
-void RMSNorm::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  StackGetter stackGetter(stack, "RMSNorm::AddNode");
-  auto data_in = getNextInput<TensorsPair>(stackGetter);
-  auto gamma = getNextInput<TensorsPair>(stackGetter);
-  auto epsilon = getNextInput<double>(stackGetter);
-  auto fast_math = getNextInput<bool>(stackGetter);
-
-  ns_LayerNormKernel::ParamsRmsNorm params{};
-  params.epsValid = true;
-  params.eps = static_cast<float>(epsilon);
-  params.fastMath = fast_math;
-
-  std::vector<synTensor> inputs = {data_in.syn_t, gamma.syn_t};
-
-  std::vector<int64_t> inverse_root_mean_square_sizes{
-      data_in.pt_t.sizes().vec()};
-  inverse_root_mean_square_sizes.back() = 1;
-
-  const auto data_in_dtype =
-      (data_in.pt_t.scalar_type() != gamma.pt_t.scalar_type())
-      ? c10::ScalarType::Float
-      : data_in.pt_t.scalar_type();
-
-  std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
-      {data_in.pt_t.sizes(), data_in_dtype, 0},
-      {inverse_root_mean_square_sizes, c10::ScalarType::Float, 1}};
-
-  auto output = OpBackend::BuildNode(
-      this, graph, {GetGuid(), inputs, output_attrs, &params, sizeof(params)});
-
-  syn_out(0) = std::move(output[0]); // root_mean_square_norm
-  syn_out(1) = std::move(output[1]); // inverse_root_mean_square
-}
-
 RMSNormBackward::RMSNormBackward(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
@@ -115,7 +59,6 @@ void RMSNormBackward::AddNode(
 
 static const auto& RMSNormKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::rms_norm", KERNEL_FN_GLOBAL(habana::RMSNorm))
         .add(
             "hpu::rms_norm_backward",
             KERNEL_FN_GLOBAL(habana::RMSNormBackward));

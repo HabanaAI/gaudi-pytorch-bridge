@@ -258,6 +258,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/replication_pad_bwd_gen.cpp
           backend/replication_pad_gen.cpp
           backend/resize_gen.cpp
+          backend/rms_norm_gen.cpp
           backend/rms_norm.cpp
           backend/roi_align.cpp
           backend/roll_gen.cpp

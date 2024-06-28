@@ -920,31 +920,6 @@ at::Tensor rotary_pos_embedding_backward(
   return hpu_op.call();
 }
 
-std::tuple<at::Tensor, at::Tensor> rms_norm(
-    const at::Tensor& data_in,
-    const at::Tensor& gamma,
-    double epsilon,
-    bool fast_math) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO("rms_norm :", DUMP_4ARGS(data_in, gamma, epsilon, fast_math));
-
-  std::vector<int64_t> inverse_root_mean_square_sizes{data_in.sizes().vec()};
-  inverse_root_mean_square_sizes.back() = 1;
-
-  const auto data_in_dtype = (data_in.scalar_type() != gamma.scalar_type())
-      ? c10::ScalarType::Float
-      : data_in.scalar_type();
-
-  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
-      "hpu::rms_norm",
-      {data_in, gamma, epsilon, fast_math},
-      {data_in.sizes().vec(), inverse_root_mean_square_sizes},
-      0};
-  hpu_op.set_scalar_types({data_in_dtype, c10::ScalarType::Float});
-
-  return hpu_op.call();
-}
-
 std::tuple<at::Tensor, at::Tensor> rms_norm_backward(
     const at::Tensor& grad_in,
     const at::Tensor& data_in,
@@ -2013,8 +1988,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::expand_ds(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
   m.def(
-      "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon, bool fast_math) -> (Tensor, Tensor)");
-  m.def(
       "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)");
   m.def(
       "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
@@ -2159,7 +2132,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::optimizer_resource_apply_momentum",
       optimizer_resource_apply_momentum);
-  m.impl("hpu::rms_norm", rms_norm);
   m.impl("hpu::rms_norm_backward", rms_norm_backward);
   m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding);
   m.impl("hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward);
