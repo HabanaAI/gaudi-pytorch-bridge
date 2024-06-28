@@ -233,10 +233,8 @@ def overwrite_torch_functions():
                 )
             actual_world_size = torch.distributed.distributed_c10d.get_world_size()
             ranks_tuple = tuple(list(range(0, actual_world_size)))
-            if ranks_tuple in ranks_cache:
-                return ranks_cache[ranks_tuple]
-            ranks_cache[ranks_tuple] = torch.distributed.distributed_c10d._get_default_group()
-            return ranks_cache[ranks_tuple]
+            if ranks_tuple not in ranks_cache:
+                ranks_cache[ranks_tuple] = torch.distributed.distributed_c10d._get_default_group()
         else:
             return init_process_group_orig(
                 backend,
