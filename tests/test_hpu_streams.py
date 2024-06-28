@@ -156,7 +156,7 @@ def testIf():
         ht.hpu.default_stream()
         ht.hpu.current_stream()
         print(
-            f"Id/device of default stream={ht.hpu.default_stream().id(),ht.hpu.default_stream().device_index()} Id/dev of current stream={ht.hpu.current_stream().id(),ht.hpu.current_stream().device_index()}"
+            f"Id/device of default stream={ht.hpu.default_stream().id(),ht.hpu.default_stream().device_index} Id/dev of current stream={ht.hpu.current_stream().id(),ht.hpu.current_stream().device_index}"
         )
     print("TEST:Exiting Context")
 
@@ -196,7 +196,7 @@ def testInfo():
     print("s1==s2 :: ", s1 == s2)
     # print(s1==3)
     # breakpoint()
-    print(f"s1.device_index={s1.device_index()} , Default stream id={d.id()} s1.id()={s1.id()} s2.id()={s2.id()}")
+    print(f"s1.device_index={s1.device_index} , Default stream id={d.id()} s1.id()={s1.id()} s2.id()={s2.id()}")
 
 
 def testSetStream():

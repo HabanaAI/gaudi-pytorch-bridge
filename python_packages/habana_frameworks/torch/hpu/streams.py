@@ -117,6 +117,7 @@ class Stream(_hpu_C._HpuStreamBase, _StreamBase):
     def __repr__(self):
         return f"<torch.hpu.Stream device={self.device} hpu_stream={self.hpu_stream:#x}>"
 
+    @property
     def device_index(self):
         return self.device
 
@@ -213,7 +214,7 @@ def set_stream(stream):
 
     device_idx = stream.device_index
     if not isinstance(device_idx, int):
-        device_idx = _get_device_index(stream.device_index())
+        device_idx = _get_device_index(stream.device_index)
 
     _set_stream_by_id(
         stream_id=stream.stream_id,
@@ -260,7 +261,7 @@ def get_stream_info(stream: Stream):
     """
     device_idx = stream.device_index
     if not isinstance(device_idx, int):
-        device_idx = _get_device_index(stream.device_index())
+        device_idx = _get_device_index(stream.device_index)
     return _hpu_C._hpu_getStreamInfo(
         stream_id=stream.stream_id, device_index=device_idx, device_type=stream.device_type
     )
@@ -269,5 +270,5 @@ def get_stream_info(stream: Stream):
 def record_stream(self, stream):
     device_idx = stream.device_index
     if not isinstance(device_idx, int):
-        device_idx = _get_device_index(stream.device_index())
+        device_idx = _get_device_index(stream.device_index)
     return _hpu_C.record_stream(self, stream.stream_id, device_idx, stream.device_type)
