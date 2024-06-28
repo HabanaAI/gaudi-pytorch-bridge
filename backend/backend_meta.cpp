@@ -307,6 +307,8 @@ bool is_view_lowering(const at::Tensor& tensor) {
     return false;
   if (!tmeta->is_view_tensor())
     return false;
+  if (tmeta->is_maybe_grad_view())
+    return false;
   if (tensor.sizes() == 0)
     return true;
   auto base_smeta{habana::get_storage_base_meta(tensor)};
