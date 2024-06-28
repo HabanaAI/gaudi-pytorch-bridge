@@ -98,6 +98,14 @@ struct CheckNodeWithSharedLayerValidator {
       const std::vector<at::IValue>& values,
       bool is_dynamic = false);
 
+  bool IsRequireH2D() const {
+    return m_require_h2d;
+  }
+
+  bool IsRequireST() const {
+    return m_require_st;
+  }
+
  private:
   bool ValidateWithSharedLayer(
       const std::vector<at::IValue>& values,
@@ -122,6 +130,8 @@ struct CheckNodeWithSharedLayerValidator {
   bool m_safeCastCheck;
   bool m_isInplace;
   bool m_isOutFn;
+  bool m_require_h2d = false;
+  bool m_require_st = false;
 };
 
 } // namespace habana

@@ -23,12 +23,15 @@ void _foreach_add_(at::TensorList self, const at::Scalar & scalar) {
   PT_EAGER_TRACE;
   PT_OP_INFO("_foreach_add_: ", DUMP_2ARGS(self, scalar));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kDouble, at::kBool}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}}}))
 
   eager::EagerOp<void> hpu_op{"aten::_foreach_add_", {self, scalar}};
-  hpu_op.set_eager_op_info({eager::eagerOpKind::Inplace, "aten::_foreach_add", decltype(eager::EagerOpMetaData::out_indices_){0}});
+  hpu_op.set_eager_op_info({eager::eagerOpKind::Inplace, "aten::_foreach_add", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){0}});
   hpu_op.call(self);
 }
 

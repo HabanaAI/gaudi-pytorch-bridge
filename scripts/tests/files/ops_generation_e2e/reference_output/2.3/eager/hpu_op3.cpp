@@ -23,6 +23,9 @@ namespace habana {
   PT_EAGER_TRACE;
   PT_OP_INFO("native_dropout: ", DUMP_3ARGS(input, p, train));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
@@ -33,7 +36,7 @@ namespace habana {
 
   NativeDropoutFE<::std::tuple<at::Tensor,at::Tensor>> hpu_op{"aten::native_dropout", {input, p, train}};
   hpu_op.SetOutputMetaFn(FusedNativeDropoutMeta);
-  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::native_dropout", decltype(eager::EagerOpMetaData::out_indices_){}});
+  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::native_dropout", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
   return hpu_op.call();
 }
 

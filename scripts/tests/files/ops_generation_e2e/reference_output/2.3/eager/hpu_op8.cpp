@@ -23,6 +23,9 @@ namespace habana {
   PT_EAGER_TRACE;
   PT_OP_INFO("_native_batch_norm_legit: ", DUMP_8ARGS(input, weight, bias, running_mean, running_var, training, momentum, eps));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}), input)
@@ -44,7 +47,7 @@ namespace habana {
 
   eager::EagerOp<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::_native_batch_norm_legit", {input, weight, bias, running_mean, running_var, training, momentum, eps}};
   hpu_op.SetOutputMetaFn(BatchNormFwdMeta);
-  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::_native_batch_norm_legit", decltype(eager::EagerOpMetaData::out_indices_){}});
+  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::_native_batch_norm_legit", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
   return hpu_op.call();
 }
 

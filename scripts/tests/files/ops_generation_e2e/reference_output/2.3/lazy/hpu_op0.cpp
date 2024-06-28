@@ -27,6 +27,9 @@ at::Tensor & __ilshift__(at::Tensor & self, const at::Scalar & other) {
   PT_LAZY_TRACE;
   PT_OP_INFO("__ilshift__: ", DUMP_2ARGS(self, other));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(self, __ilshift__, Scalar, self, other)
 

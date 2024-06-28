@@ -542,6 +542,9 @@ bool CheckNodeWithSharedLayerValidator::ValidateWithSharedLayer(
     return false;
   }
 
+  // (TODO)query if h2d and st are needed
+  m_require_h2d = false;
+  m_require_st = false;
   return true;
 }
 

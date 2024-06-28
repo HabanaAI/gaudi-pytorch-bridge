@@ -23,9 +23,12 @@ at::Tensor softmax_fp8(const at::Tensor & input, int64_t dim, const c10::optiona
   PT_EAGER_TRACE;
   PT_OP_INFO("softmax_fp8: ", DUMP_6ARGS(input, dim, input_scale, output_scale, inv_attn_heads, fused_add));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   eager::EagerOp<at::Tensor> hpu_op{"hpu::softmax_fp8", {input, dim, input_scale, output_scale, inv_attn_heads, fused_add}};
   hpu_op.SetOutputMetaFn(SoftmaxFp8Meta);
-  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "hpu::softmax_fp8", decltype(eager::EagerOpMetaData::out_indices_){}});
+  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "hpu::softmax_fp8", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
   return hpu_op.call();
 }
 

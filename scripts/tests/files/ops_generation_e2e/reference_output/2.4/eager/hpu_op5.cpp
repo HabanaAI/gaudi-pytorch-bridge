@@ -23,6 +23,9 @@ at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, c10::o
   PT_EAGER_TRACE;
   PT_OP_INFO("prod_out: ", DUMP_5ARGS(self, dim, keepdim, dtype, out));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   auto compute_type = DTypeHelper::get_compute_dtype({self}, out, DTypeHelper::DtypePromoteVariant::kReduction, false/*safe_cast*/, dtype);
   static_cast<void>(compute_type);
 
@@ -34,7 +37,7 @@ at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, c10::o
   ReductionFrontendTemplate<at::Tensor &> hpu_op{"aten::prod", {self, dim, keepdim, dtype, out}, ReductionOutputShape(self, dim, keepdim)};
   hpu_op.set_scalar_types({compute_type});
   hpu_op.SetReductionVarsIndices(1, 2, 3);
-  hpu_op.set_eager_op_info({eager::eagerOpKind::InplaceOut, "aten::prod", 1});
+  hpu_op.set_eager_op_info({eager::eagerOpKind::InplaceOut, "aten::prod", require_h2d, require_st, 1});
   return hpu_op.call(out);
 }
 

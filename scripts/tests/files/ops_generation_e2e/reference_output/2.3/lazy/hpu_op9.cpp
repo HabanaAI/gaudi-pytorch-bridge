@@ -34,6 +34,9 @@ namespace habana {
   PT_LAZY_TRACE;
   PT_OP_INFO("sort_out: ", DUMP_6ARGS(self, stable, dim, descending, values, indices));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kInt, at::kBFloat16, at::kShort, at::kDouble}},
    {synDeviceGaudi2, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}}}))
@@ -51,6 +54,9 @@ at::Tensor squeeze(const at::Tensor & self, at::IntArrayRef dim) {
   PT_LAZY_TRACE;
   PT_OP_INFO("squeeze: ", DUMP_2ARGS(self, dim));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}}}))
@@ -63,6 +69,9 @@ at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tenso
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("eq_out: ", DUMP_3ARGS(self, other, out));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
 
   auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
   static_cast<void>(compute_type);
@@ -83,6 +92,9 @@ at::Tensor isfinite(const at::Tensor & self) {
   PT_LAZY_TRACE;
   PT_OP_INFO("isfinite: ", DUMP_ARG(self));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}}}))
@@ -98,6 +110,9 @@ at::Tensor bitwise_left_shift(const at::Tensor & self, const at::Scalar & other)
   PT_LAZY_TRACE;
   PT_OP_INFO("bitwise_left_shift: ", DUMP_2ARGS(self, other));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(self, bitwise_left_shift, Tensor_Scalar, self, other)
 
@@ -109,6 +124,9 @@ at::Tensor bitwise_left_shift(const at::Tensor & self, const at::Scalar & other)
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("_native_batch_norm_legit: ", DUMP_8ARGS(input, weight, bias, running_mean, running_var, training, momentum, eps));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
 
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
@@ -139,6 +157,9 @@ at::Tensor bitwise_left_shift(const at::Tensor & self, const at::Scalar & other)
   PT_LAZY_TRACE;
   PT_OP_INFO("convolution_backward_overrideable: ", DUMP_10ARGS(grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
@@ -155,6 +176,9 @@ at::Tensor bitwise_left_shift(const at::Tensor & self, const at::Scalar & other)
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
   PT_OP_INFO("linear_backward: ", DUMP_4ARGS(self, grad_output, weight, output_mask));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
 
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},

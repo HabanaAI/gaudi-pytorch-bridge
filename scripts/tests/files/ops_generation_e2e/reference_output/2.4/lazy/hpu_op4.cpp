@@ -27,6 +27,9 @@ at::Tensor as_strided(const at::Tensor & self, c10::SymIntArrayRef size, c10::Sy
   PT_LAZY_TRACE;
   PT_OP_INFO("as_strided: ", DUMP_4ARGS(self, size, stride, storage_offset));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   return habana_lazy::as_strided_hpu(self, size, stride, storage_offset);
 }
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -58,6 +58,30 @@ struct EagerOpMetaData {
   EagerOpMetaData(eagerOpKind kind, std::string name, size_t num_out_tensors)
       : op_kind_(kind), op_name_(name), num_out_tensors_(num_out_tensors) {}
 
+  EagerOpMetaData(
+      eagerOpKind kind,
+      std::string name,
+      bool require_h2d,
+      bool require_st,
+      std::unordered_set<size_t> out_indices)
+      : op_kind_(kind),
+        op_name_(name),
+        require_h2d_(require_h2d),
+        require_st_(require_st),
+        out_indices_(out_indices) {}
+
+  EagerOpMetaData(
+      eagerOpKind kind,
+      std::string name,
+      bool require_h2d,
+      bool require_st,
+      size_t num_out_tensors)
+      : op_kind_(kind),
+        op_name_(name),
+        require_h2d_(require_h2d),
+        require_st_(require_st),
+        num_out_tensors_(num_out_tensors) {}
+
   std::string to_string() const {
     std::string s = "{ ";
     switch (op_kind_) {
@@ -75,6 +99,12 @@ struct EagerOpMetaData {
         break;
     }
     s.append(op_name_);
+    if (require_h2d_) {
+      s.append(", Require H2D Tensor");
+    }
+    if (require_st_) {
+      s.append(", Require Shape Tensor");
+    }
     s.append(", {");
     if (!out_indices_.empty()) {
       std::stringstream ss;
@@ -90,6 +120,8 @@ struct EagerOpMetaData {
 
   eagerOpKind op_kind_;
   std::string op_name_;
+  bool require_h2d_ = false;
+  bool require_st_ = false;
   std::unordered_set<size_t> out_indices_;
   std::vector<int64_t> new_strided_insert_output_shape_;
   size_t num_out_tensors_ = 0;

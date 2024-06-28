@@ -25,6 +25,9 @@ namespace habana {
   PT_EAGER_TRACE;
   PT_OP_INFO("convolution_backward_overrideable: ", DUMP_10ARGS(grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
@@ -34,13 +37,16 @@ namespace habana {
 
   ConvolutionBackwardOverrideableFE<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::convolution_backward_overrideable", {grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask}};
   hpu_op.SetOutputMetaFn(ConvolutionOverrideableMetaBwd);
-  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::convolution_backward_overrideable", decltype(eager::EagerOpMetaData::out_indices_){}});
+  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::convolution_backward_overrideable", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
   return hpu_op.call();
 }
 
 ::std::tuple<at::Tensor,at::Tensor,at::Tensor> native_group_norm(const at::Tensor & input, const c10::optional<at::Tensor> & weight, const c10::optional<at::Tensor> & bias, c10::SymInt N, c10::SymInt C, c10::SymInt HxW, int64_t group, double eps) {
   PT_EAGER_TRACE;
   PT_OP_INFO("native_group_norm: ", DUMP_8ARGS(input, weight, bias, N, C, HxW, group, eps));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
 
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kDouble}},
@@ -49,13 +55,16 @@ namespace habana {
 
   eager::EagerOp<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::native_group_norm", {input, weight, bias, N, C, HxW, group, eps}};
   hpu_op.SetOutputMetaFn(GroupNormFwdMeta);
-  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::native_group_norm", decltype(eager::EagerOpMetaData::out_indices_){}});
+  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::native_group_norm", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
   return hpu_op.call();
 }
 
 ::std::tuple<at::Tensor,at::Tensor,at::Tensor> linear_backward(const at::Tensor & self, const at::Tensor & grad_output, const at::Tensor & weight, ::std::array<bool,3> output_mask) {
   PT_EAGER_TRACE;
   PT_OP_INFO("linear_backward: ", DUMP_4ARGS(self, grad_output, weight, output_mask));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
 
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
@@ -66,7 +75,7 @@ namespace habana {
 
   eager::EagerOp<::std::tuple<at::Tensor,at::Tensor,at::Tensor>> hpu_op{"aten::linear_backward", {self, grad_output, weight, output_mask}};
   hpu_op.SetOutputMetaFn(LinearBackwardMeta);
-  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::linear_backward", decltype(eager::EagerOpMetaData::out_indices_){}});
+  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::linear_backward", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
   return hpu_op.call();
 }
 

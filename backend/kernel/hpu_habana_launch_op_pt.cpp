@@ -5058,6 +5058,14 @@ void HabanaLaunchOpPT::run(
 
         if (compound_ops_flag || non_persistent_tensors_flag) {
           bool syn_infer_shapes = true;
+          if (get_require_h2d_st()) {
+            jit_graph_and_meta_data_->set_is_shape_agnostic_supported(false);
+            PT_EAGER_DEBUG(
+                "[SHAPE AGNOSTIC] Shape agnostic not supported for op ",
+                name_,
+                ", syanpse shape inference expects shape or h2d tensor(s) !");
+            syn_infer_shapes = false;
+          }
           // ToDO: Remove try run hybrid sif logic once shape tensor(s)
           // can be queried using shared layer.
           // Try run hybrid sif with dynamic shapes flag to detect

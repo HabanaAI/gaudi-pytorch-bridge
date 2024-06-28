@@ -554,6 +554,8 @@ def generate_entry_debug_code(fname, params, is_eager_frontend):
     params_count = len(params)
     dump_args = "DUMP_ARG" if params_count == 1 else f"DUMP_{params_count}ARGS"
     code += f'  PT_OP_INFO("{fname}: ", {dump_args}({", ".join(params_names)}));\n\n'
+    code += f"  [[maybe_unused]] bool require_h2d = false;\n"
+    code += f"  [[maybe_unused]] bool require_st = false;\n\n"
     return code
 
 
@@ -1413,6 +1415,8 @@ def handle_return_eager(rtype, fname, fe_call_args, is_eager_op_supported, call_
         f"  hpu_op.set_eager_op_info({{"
         f"{inplace_op_info[0]}, "
         f'"{inplace_op_info[1]}", '
+        f"require_h2d, "
+        f"require_st, "
         f"{eager_op_info_args}}});\n"
     )
     code += "  {}hpu_op.call({})".format("" if rtype == "void" else "return ", fe_call_args)

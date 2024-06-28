@@ -23,11 +23,14 @@ at::Tensor & __ilshift__(at::Tensor & self, const at::Scalar & other) {
   PT_EAGER_TRACE;
   PT_OP_INFO("__ilshift__: ", DUMP_2ARGS(self, other));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
   FALLBACK_IF_UNSUPPORTED_DTYPE2(self, __ilshift__, Scalar, self, other)
 
   eager::EagerOp<at::Tensor &> hpu_op{"aten::__ilshift__", {self, other}};
-  hpu_op.set_eager_op_info({eager::eagerOpKind::Inplace, "aten::__lshift__", decltype(eager::EagerOpMetaData::out_indices_){0}});
+  hpu_op.set_eager_op_info({eager::eagerOpKind::Inplace, "aten::__lshift__", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){0}});
   return hpu_op.call(self);
 }
 

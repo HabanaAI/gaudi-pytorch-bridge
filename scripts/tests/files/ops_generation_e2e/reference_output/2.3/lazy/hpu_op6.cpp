@@ -27,6 +27,9 @@ at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, c10::o
   PT_LAZY_TRACE;
   PT_OP_INFO("prod_out: ", DUMP_5ARGS(self, dim, keepdim, dtype, out));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   auto compute_type = DTypeHelper::get_compute_dtype({self}, out, DTypeHelper::DtypePromoteVariant::kReduction, false/*safe_cast*/, dtype);
   static_cast<void>(compute_type);
 

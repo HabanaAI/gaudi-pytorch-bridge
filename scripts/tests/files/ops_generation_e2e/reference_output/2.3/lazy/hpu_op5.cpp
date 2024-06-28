@@ -28,6 +28,9 @@ at::Tensor elu(const at::Tensor & self, const at::Scalar & alpha, const at::Scal
   PT_LAZY_TRACE;
   PT_OP_INFO("elu: ", DUMP_4ARGS(self, alpha, scale, input_scale));
 
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
   VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(self, elu, self, alpha, scale, input_scale)
 
   LazyOp<at::Tensor> hpu_op{"aten::elu", {self, alpha, scale, input_scale}};

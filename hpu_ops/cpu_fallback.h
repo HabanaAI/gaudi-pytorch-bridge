@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -147,6 +147,9 @@
   if (ABSL_PREDICT_FALSE(!validator_##opname.Validate(input, {args}))) { \
     return dispatch_fallback<ATEN_OP(opname)>::call(                     \
         OpSupportLevel::Value::unsupported_dtype, args);                 \
+  } else {                                                               \
+    require_h2d = validator_##opname.IsRequireH2D();                     \
+    require_st = validator_##opname.IsRequireST();                       \
   }
 
 #define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(input, opname, overload, args...) \
@@ -154,6 +157,9 @@
           !validator_##opname##_##overload.Validate(input, {args}))) {       \
     return dispatch_fallback<ATEN_OP2(opname, overload)>::call(              \
         OpSupportLevel::Value::unsupported_dtype, args);                     \
+  } else {                                                                   \
+    require_h2d = validator_##opname##_##overload.IsRequireH2D();            \
+    require_st = validator_##opname##_##overload.IsRequireST();              \
   }
 
 namespace habana {

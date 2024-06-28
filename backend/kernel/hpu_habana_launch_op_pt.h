@@ -288,6 +288,15 @@ class HabanaLaunchOpPT {
     return is_shape_agnostic_supported_;
   }
 
+  void set_require_h2d_st(bool require_h2d, bool require_st) {
+    require_h2d_ = require_h2d;
+    require_st_ = require_st;
+  }
+
+  bool get_require_h2d_st() const {
+    return require_h2d_ || require_st_;
+  }
+
   // A map holding the ival hash and inputidx. 1-1 map for all inputs
   std::unordered_map<int64_t, int64_t> ival_hash_to_input_index_map_ = {};
 
@@ -541,6 +550,8 @@ class HabanaLaunchOpPT {
   std::shared_ptr<synapse_helpers::graph::recipe_handle> hpu_op_recipe_{
       nullptr};
   bool is_shape_agnostic_supported_ = false;
+  bool require_h2d_ = false;
+  bool require_st_ = false;
 
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph
