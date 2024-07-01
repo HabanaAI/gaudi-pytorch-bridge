@@ -90,6 +90,7 @@ recommended_pt_version = _to_version_and_source(profiles.get_version_literal_and
 supported_python_versions = (
     Version("3.8"),
     Version("3.10"),
+    Version("3.11"),
 )
 
 min_venv_python = supported_python_versions[0]

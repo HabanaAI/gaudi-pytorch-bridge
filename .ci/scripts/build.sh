@@ -1967,11 +1967,11 @@ install_pillow_simd()
 set_python_version()
 {
     case $1 in
-    "3.6" | "3.7" | "3.8" | "3.10")
+    "3.8" | "3.10" | "3.11")
         echo "version $1"
         ;;
     *)
-        echo "Usage: $0 <3.7/3.8/3.10>"
+        echo "Usage: $0 <3.8/3.10/3.11>"
         return
         ;;
     esac
