@@ -23,6 +23,7 @@
 #include "habana_helpers/dtype_helpers.h"
 #include "habana_helpers/pt_version_check.h"
 #include "habana_kernels/kernel_utils.h"
+#include "hpu_ops/common/scalar_dtype_range.h"
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace sh = synapse_helpers;
@@ -282,6 +283,26 @@ void OpBackend::HandleInplaceFn(sh::graph& graph, const at::Stack& stack) {
   }
 }
 
+static c10::optional<c10::ScalarType> get_dtype_for_large_scalar(
+    const std::string& guid_,
+    const at::Stack& stack) {
+  if ((guid_.find("mult") == std::string::npos &&
+       guid_.find("div") == std::string::npos) ||
+      stack.size() < 2 || !stack.at(0).isTensor() || !stack.at(1).isScalar()) {
+    return c10::nullopt;
+  }
+
+  const c10::ScalarType self_type = stack.at(0).toTensor().scalar_type();
+  const float value = stack.at(1).toScalar().toFloat();
+  c10::optional<c10::ScalarType> dtype = c10::nullopt;
+
+  if (is_value_out_of_scalar_range(value, self_type)) {
+    dtype = torch::kFloat;
+  }
+
+  return dtype;
+}
+
 void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
   if (!m_promote_type && !m_promote_int_to_float) {
     return;
@@ -292,6 +313,10 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
     op_inputs = {stack.begin(), stack.end() - m_num_out_tensors};
   }
 
+  // In case of mul/div with scalars out of dtype range we need to perform
+  // computation in fp32
+  c10::optional<c10::ScalarType> dtype =
+      get_dtype_for_large_scalar(guid_, stack);
   m_scalar_type = habana_helpers::DTypeHelper::get_compute_dtype(
       op_inputs,
       c10::nullopt,
@@ -299,7 +324,7 @@ void OpBackend::HandleTypePromotion(sh::graph& graph, const at::Stack& stack) {
           ? habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteIntToFloat
           : habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false,
-      c10::nullopt,
+      dtype,
       false,
       false);
 

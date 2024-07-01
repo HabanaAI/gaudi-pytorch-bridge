@@ -304,6 +304,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/new_zeros_gen.cpp
           backend/repeat_interleave_gen.cpp
           common/batched_matmul_output_shape.cpp
+          common/scalar_dtype_range.cpp
           common/reduction_template.cpp
           common/replication_pad.cpp
           ${CMAKE_BINARY_DIR}/generated/backend/hpu_op0.cpp
@@ -355,6 +356,7 @@ add_habana_library(habana_pytorch_frontend_ops OBJECT
           lazy/add_composite_gen.cpp
           lazy/arange_gen.cpp
           lazy/bernoulli_gen.cpp
+          lazy/binary_gen.cpp
           lazy/binarycrossentropy_gen.cpp
           lazy/binaryscalar2tensor.cpp
           lazy/bitwise_gen.cpp

@@ -3115,6 +3115,7 @@ div.out:
   guid: div
   promote_int_to_float: [self, other]
   op_backend: Divide
+  op_frontend: BinaryScalarFE
 
 div.out_mode:
   fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
@@ -3173,6 +3174,7 @@ div.Tensor:
   out_ids: [0]
   promote_int_to_float: [self, other]
   op_backend: Divide
+  op_frontend: BinaryScalarFE
 
 div.Tensor_mode:
   fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
@@ -3191,6 +3193,7 @@ div_.Tensor:
   inplace_ids: [0]
   promote_int_to_float: [self, other]
   op_backend: Divide
+  op_frontend: BinaryScalarFE
 
 div_.Tensor_mode:
   fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
@@ -3690,6 +3693,7 @@ floor_divide.out:
   dtypes: [BFloat16, Float, Int, Byte, Char, Long]
   guid: floor_divide_fwd
   promote_to_common_type: [self, other]
+  op_frontend: BinaryScalarFE
   # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-188025
 
 floor_divide:
@@ -5832,7 +5836,7 @@ mul.Tensor:
   out_ids: [0]
   broadcast: true
   promote_to_common_type: [self, other]
-  op_validator: check-node-with-shared-layer
+  op_frontend: BinaryScalarFE
 
 mul.Scalar:
   dtypes:
@@ -5866,7 +5870,7 @@ mul_.Tensor:
   guid: mult_fwd
   inplace_ids: [0]
   promote_to_common_type: [self, other]
-  op_validator: check-node-with-shared-layer
+  op_frontend: BinaryScalarFE
 
 mul_.Scalar:
   dtypes:
@@ -5887,8 +5891,8 @@ mul.out:
     Gaudi3: [BFloat16, Byte, Char, Float, Int, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: mult_fwd
   st_meta: BinarySTMeta
+  op_frontend: BinaryScalarFE
   promote_to_common_type: [self, other]
-  op_validator: check-node-with-shared-layer
 
 multinomial:
   custom_fill_params: FillMultinomialParams

@@ -1443,6 +1443,7 @@ eager_custom_frontends_whitelist = [
     "BernoulliFEOut",
     "ClampFE",
     "FillFE",
+    "BinaryScalarFE",
     "GeneratorToSeed",
     "GeneratorToSeedOut",
     "IndexFE",

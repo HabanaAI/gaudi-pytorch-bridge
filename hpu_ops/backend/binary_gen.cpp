@@ -18,6 +18,7 @@
 #include "generated/backend/rsub.h"
 #include "generated/backend/sub.h"
 #include "hpu_ops/backend/foreach.h"
+#include "hpu_ops/common/scalar_dtype_range.h"
 
 namespace habana {
 const unsigned SELF_INDEX = 0;
@@ -99,7 +100,8 @@ static auto BuildBinary(
     at::ScalarType result_type,
     at::optional<at::Scalar> alpha,
     int out_index,
-    bool add_casts) {
+    bool add_casts,
+    bool update_guid = true) {
   std::unique_ptr<synapse_helpers::tensor> constant;
   std::vector<synapse_helpers::tensor> mul, cast;
 
@@ -129,12 +131,11 @@ static auto BuildBinary(
 
   auto outshape = at::infer_size(sizes[0], sizes[1]);
 
+  if (update_guid) {
+    guid = update_guid_dtype(guid, result_type);
+  }
   return OpBackend::BuildNode(
-      op,
-      graph,
-      {update_guid_dtype(guid, result_type),
-       inputs,
-       {{outshape, result_type, out_index}}});
+      op, graph, {guid, inputs, {{outshape, result_type, out_index}}});
 }
 
 static void update_result_type(
@@ -174,7 +175,8 @@ static synapse_helpers::tensor createForeachBinaryNode(
     int out_index,
     bool cast_int_to_float = false,
     bool support_int8 = true,
-    bool support_int16 = true) {
+    bool support_int16 = true,
+    bool mul_or_div_guid = false) {
   const at::Tensor& self = pt_inputs[0].toTensor();
   sizes_vec sizes = {self.sizes().vec()};
   std::vector<synTensor> inputs = syn_inputs;
@@ -183,6 +185,7 @@ static synapse_helpers::tensor createForeachBinaryNode(
   at::optional<at::Scalar> alpha = c10::nullopt;
   at::ScalarType result_type;
   at::optional<synapse_helpers::tensor> scalar = c10::nullopt;
+  bool update_guid = true;
 
   if (pt_inputs[1].isTensor()) {
     const at::Tensor& other = pt_inputs[1].toTensor();
@@ -201,7 +204,15 @@ static synapse_helpers::tensor createForeachBinaryNode(
     update_result_type(
         result_type, guid_, cast_int_to_float, support_int8, support_int16);
 
-    scalar = OpBackend::BuildConstant(op, graph, other, result_type);
+    at::ScalarType scalar_type = result_type;
+    const float value = other.toFloat();
+    if (mul_or_div_guid && is_value_out_of_scalar_range(value, scalar_type)) {
+      guid_ = update_guid_dtype(guid_, c10::kFloat);
+      scalar_type = c10::kFloat;
+      update_guid = false;
+    }
+
+    scalar = OpBackend::BuildConstant(op, graph, other, scalar_type);
     inputs.push_back(scalar.value().get());
 
     sizes.push_back({});
@@ -218,20 +229,25 @@ static synapse_helpers::tensor createForeachBinaryNode(
       result_type,
       alpha,
       out_index,
-      true)[0]);
+      true,
+      update_guid)[0]);
 }
 
 void ForeachBinary::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  bool cast_int_to_float = guid_.find("div") != std::string::npos;
-  bool not_min_or_max = guid_.find("min") == std::string::npos &&
+  const bool div_guid = guid_.find("div") != std::string::npos;
+  const bool cast_int_to_float = div_guid;
+  const bool not_min_or_max = guid_.find("min") == std::string::npos &&
       guid_.find("max") == std::string::npos;
-  bool support_int8 = guid_.find("sub") == std::string::npos && not_min_or_max;
-  bool support_int16 = not_min_or_max;
+  const bool support_int8 =
+      guid_.find("sub") == std::string::npos && not_min_or_max;
+  const bool support_int16 = not_min_or_max;
+  const bool mul_or_div_guid =
+      div_guid || guid_.find("mul") != std::string::npos;
 
   NodeCreateFunction node_creator =
-      [cast_int_to_float, support_int8, support_int16](
+      [cast_int_to_float, support_int8, support_int16, mul_or_div_guid](
           OpBackend* op,
           synapse_helpers::graph& graph,
           std::string& guid_,
@@ -247,7 +263,8 @@ void ForeachBinary::AddNode(
             out_index,
             cast_int_to_float,
             support_int8,
-            support_int16);
+            support_int16,
+            mul_or_div_guid);
       };
 
   const size_t size = computeInputsNumber(stack);
