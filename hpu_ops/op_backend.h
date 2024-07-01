@@ -294,6 +294,29 @@ class OpBackend : public HabanaOperator {
       c10::optional<int> final_result_index = c10::nullopt,
       c10::optional<unsigned> exp_bias = c10::nullopt);
 
+  synapse_helpers::tensor SqueezeHelper(
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::ScalarType dtype,
+      c10::optional<unsigned> axis = c10::nullopt,
+      c10::optional<int> final_result_index = c10::nullopt);
+
+  synapse_helpers::tensor ExpandDimsHelper(
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::ScalarType dtype,
+      unsigned axis,
+      c10::optional<int> final_result_index = c10::nullopt);
+
+  synapse_helpers::tensor FlattenHelper(
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::ScalarType dtype,
+      c10::optional<int> final_result_index = c10::nullopt);
+
   virtual void AddNode(synapse_helpers::graph&, const at::Stack&);
 
  public:
@@ -362,6 +385,32 @@ class OpBackend : public HabanaOperator {
       at::ScalarType dtype,
       c10::optional<int> final_result_index = c10::nullopt,
       c10::optional<unsigned> exp_bias = c10::nullopt);
+
+  static synapse_helpers::tensor BuildSqueeze(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::ScalarType dtype,
+      c10::optional<unsigned> axis = c10::nullopt,
+      c10::optional<int> final_result_index = c10::nullopt);
+
+  static synapse_helpers::tensor BuildExpandDims(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::ScalarType dtype,
+      unsigned axis,
+      c10::optional<int> final_result_index = c10::nullopt);
+
+  static synapse_helpers::tensor BuildFlatten(
+      OpBackend* op,
+      synapse_helpers::graph& graph,
+      synTensor syn_in,
+      at::IntArrayRef sizes,
+      at::ScalarType dtype,
+      c10::optional<int> final_result_index = c10::nullopt);
 
   static std::vector<synapse_helpers::tensor> BuildNonZero(
       OpBackend*,

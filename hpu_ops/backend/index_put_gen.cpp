@@ -178,8 +178,8 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
        sizeof(concat_params)});
   auto catop2_res = std::move(catop2.at(0));
   std::vector<int64_t> reshape_size({1, (int64_t)mul_factor_v.size()});
-  auto reshape_ind_op = OpBackend::BuildReshape(
-      op, graph, catop2_res.get(), reshape_size, indices_scalar_type);
+  auto reshape_ind_op = OpBackend::BuildExpandDims(
+      op, graph, catop2_res.get(), reshape_size, indices_scalar_type, 1);
   auto mulOp = OpBackend::BuildNode(
       op,
       graph,
@@ -204,7 +204,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
        &red_params,
        sizeof(red_params)});
   std::vector<int64_t> reshape_sum({sumop.at(0).pt_shape()[0]});
-  auto reshape_sum_op = OpBackend::BuildReshape(
+  auto reshape_sum_op = OpBackend::BuildSqueeze(
       op, graph, sumop.at(0).get(), reshape_sum, indices_scalar_type);
 
   auto sortOp = TopK_Helper(
@@ -255,8 +255,8 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
        &gather_params,
        sizeof(gather_params)});
   std::vector<int64_t> reshape_size2({sort_res1.pt_shape()[0], 1});
-  auto reshape_sort1_op = OpBackend::BuildReshape(
-      op, graph, sort_res1.get(), reshape_size2, indices_scalar_type);
+  auto reshape_sort1_op = OpBackend::BuildExpandDims(
+      op, graph, sort_res1.get(), reshape_size2, indices_scalar_type, 0);
   ns_ScatterNDKernel::Params scatter_params{int(catop.pt_shape().size()), {0}};
   // Dims reversed between PT and synapse
   for (int64_t i = static_cast<int64_t>(scatter_indices_shape.size()) - 1,
@@ -341,10 +341,11 @@ void IndexPutEager::AddNode(
     // Reshape broadcasted indices to [N, 1] for concatenation
     auto flattened_size = std::accumulate(
         std::begin(max_size), std::end(max_size), 1, std::multiplies<size_t>());
-
     std::vector<int64_t> expanded_size = {flattened_size, 1};
-    cat_input_tensor.emplace_back(ReshapeHelper(
-        graph, bcastOp.get(), expanded_size, indices_scalar_type));
+    auto flattenedIndice = FlattenHelper(
+        graph, bcastOp.get(), {flattened_size}, indices_scalar_type);
+    cat_input_tensor.emplace_back(ExpandDimsHelper(
+        graph, flattenedIndice.get(), expanded_size, indices_scalar_type, 0));
     cat_input_synTensor.emplace_back(
         cat_input_tensor[cat_input_tensor.size() - 1].get());
     cat_input_index.emplace_back(
@@ -385,11 +386,24 @@ void IndexPutEager::AddNode(
   // scatter_nd_onnx requirements. Either broadcast of reshape input values
   // tensor to get that shape.
   if (values.dim() <= (int)value_upd_dim.size()) {
+    auto broadcastToElements = catop.pt_shape()[0];
+    auto broadcastFromElements = std::accumulate(
+        std::begin(value_upd_dim),
+        std::end(value_upd_dim),
+        1,
+        std::multiplies<int>());
+    if (broadcastFromElements < broadcastToElements)
+      value_upd_dim.insert(
+          std::begin(value_upd_dim),
+          broadcastToElements / broadcastFromElements);
+
     values_bcast_or_reshape_sh_tensor.emplace_back(BroadcastHelper(
         graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type));
   } else {
-    values_bcast_or_reshape_sh_tensor.emplace_back(ReshapeHelper(
-        graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type));
+    auto squeeze = SqueezeHelper(
+        graph, syn_in(1 + indices.size()), {1}, values_scalar_type);
+    values_bcast_or_reshape_sh_tensor.emplace_back(BroadcastHelper(
+        graph, squeeze.get(), value_upd_dim, values_scalar_type));
   }
   auto self_scalar_type = self.scalar_type();
   // scatter_nd_fwd has no support for int16 and u8 , hence we need to cast
@@ -404,13 +418,13 @@ void IndexPutEager::AddNode(
 
   if ((int)indices.size() == self.dim()) {
     std::vector<int64_t> reshape_bcast_size({catop.pt_shape()[0]});
-    auto reshape_val_op = ReshapeHelper(
+    auto reshape_val_op = FlattenHelper(
         graph,
         values_bcast_or_reshape_sh_tensor[0].get(),
         reshape_bcast_size,
         values_scalar_type);
 
-     std::vector<synapse_helpers::tensor> next_node;
+    std::vector<synapse_helpers::tensor> next_node;
 
     if (!accumulate) {
       if (cast_needed) {

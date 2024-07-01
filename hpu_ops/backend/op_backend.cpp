@@ -496,6 +496,38 @@ sh::tensor OpBackend::IdentityHelper(
       this, graph, syn_in, sizes, dtype, final_result_index, exp_bias);
 }
 
+sh::tensor OpBackend::SqueezeHelper(
+    sh::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::ScalarType dtype,
+    c10::optional<unsigned> axis,
+    c10::optional<int> final_result_index) {
+  return OpBackend::BuildSqueeze(
+      this, graph, syn_in, sizes, dtype, axis, final_result_index);
+}
+
+sh::tensor OpBackend::ExpandDimsHelper(
+    sh::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::ScalarType dtype,
+    unsigned axis,
+    c10::optional<int> final_result_index) {
+  return OpBackend::BuildExpandDims(
+      this, graph, syn_in, sizes, dtype, axis, final_result_index);
+}
+
+sh::tensor OpBackend::FlattenHelper(
+    sh::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::ScalarType dtype,
+    c10::optional<int> final_result_index) {
+  return OpBackend::BuildFlatten(
+      this, graph, syn_in, sizes, dtype, final_result_index);
+}
+
 void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   m_num_syn_nodes++;
   if (isOutputInfMode()) {
@@ -1212,6 +1244,61 @@ sh::tensor OpBackend::BuildIdentity(
   out_attr.exp_bias = exp_bias;
   auto identity = BuildNode(op, graph, {"identity", {syn_in}, {out_attr}});
   return std::move(identity.at(0));
+}
+
+sh::tensor OpBackend::BuildSqueeze(
+    OpBackend* op,
+    sh::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::ScalarType dtype,
+    c10::optional<unsigned> axis,
+    c10::optional<int> final_result_index) {
+  auto axisHasValue = axis.has_value();
+  synAxisParams squeezeParams = {.axis = axisHasValue ? axis.value() : 0};
+  auto squeeze = BuildNode(
+      op,
+      graph,
+      {"squeeze",
+       {syn_in},
+       {{sizes, dtype, final_result_index}},
+       axisHasValue ? &squeezeParams : nullptr,
+       axisHasValue ? sizeof(squeezeParams) : 0});
+  return std::move(squeeze.at(0));
+}
+
+sh::tensor OpBackend::BuildExpandDims(
+    OpBackend* op,
+    sh::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::ScalarType dtype,
+    unsigned axis,
+    c10::optional<int> final_result_index) {
+  synAxisParams expandDimsParams = {.axis = axis};
+  auto squeeze = BuildNode(
+      op,
+      graph,
+      {"expand_dims",
+       {syn_in},
+       {{sizes, dtype, final_result_index}},
+       &expandDimsParams,
+       sizeof(expandDimsParams)});
+  return std::move(squeeze.at(0));
+}
+
+sh::tensor OpBackend::BuildFlatten(
+    OpBackend* op,
+    sh::graph& graph,
+    synTensor syn_in,
+    at::IntArrayRef sizes,
+    at::ScalarType dtype,
+    c10::optional<int> final_result_index) {
+  auto flatten = BuildNode(
+      op,
+      graph,
+      {"flatten_fwd", {syn_in}, {{sizes, dtype, final_result_index}}});
+  return std::move(flatten.at(0));
 }
 
 std::vector<sh::tensor> OpBackend::BuildNonZero(
