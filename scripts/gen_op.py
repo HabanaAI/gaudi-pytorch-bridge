@@ -973,6 +973,7 @@ def generate_autocast_ops(op_metas, args):
         "_scaled_dot_product_flash_attention",
         "_efficient_attention_forward",
         "_batch_norm_with_update",
+        "_scaled_dot_product_fused_attention_overrideable",
     ] + (["_fused_adam", "_fused_adamw"] if Version(torch.__version__) < Version("2.1") else [])
 
     def op_to_skip(function_name, op_name):
