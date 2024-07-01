@@ -1,6 +1,7 @@
 def stableBranch = GERRIT_BRANCH - '_next'
 def isPromote = env.IS_PROMOTE.toBoolean() || env.TRIGGER_BUILD.startsWith("Promote")
-src = library("pipeline-library@$stableBranch")
+def libraryBranch = stableBranch - "${env.product}."
+src = library("pipeline-library@${libraryBranch}")
 Boolean isBisect = (JOB_BASE_NAME.toLowerCase().contains('bisect') || (env.TRIGGER_BUILD && env.TRIGGER_BUILD.toLowerCase().contains('bisect')))
 def isPrimaryOS = env.IS_PRIMARY_OS ? Boolean.valueOf(env.IS_PRIMARY_OS) : true
 
