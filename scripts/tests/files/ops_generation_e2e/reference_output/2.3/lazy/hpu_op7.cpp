@@ -10,7 +10,7 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
-#include "clone.h"
+#include "prod.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -22,22 +22,26 @@ namespace habana {
 
 
 
-at::Tensor clone(const at::Tensor & self, c10::optional<at::MemoryFormat> memory_format) {
+at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO("clone: ", DUMP_2ARGS(self, memory_format));
+  PT_OP_INFO("prod_out: ", DUMP_5ARGS(self, dim, keepdim, dtype, out));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kDouble, at::kBool}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE(self, clone, self, memory_format)
+  auto compute_type = DTypeHelper::get_compute_dtype({self}, out, DTypeHelper::DtypePromoteVariant::kReduction, false/*safe_cast*/, dtype);
+  static_cast<void>(compute_type);
 
-  LazyOp<at::Tensor> hpu_op{"aten::clone", {self, memory_format}};
-  hpu_op.SetOutputMetaFn(CloneMeta);
-  RUN_MAYBE_WITH_ACC_THREAD(clone, hpu_op);
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, prod, int_out, self, dim, keepdim, dtype, out)
+
+  ReductionFrontendTemplate<at::Tensor &> hpu_op{"aten::prod", {self, dim, keepdim, dtype, out}, ReductionOutputShape(self, dim, keepdim)};
+  hpu_op.set_scalar_types({compute_type});
+  hpu_op.SetReductionVarsIndices(1, 2, 3);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(prod_out, hpu_op, out);
 }
 
 
@@ -48,7 +52,7 @@ static const auto& kr_gen_7 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("clone", static_cast<at::Tensor (*)(const at::Tensor &, c10::optional<at::MemoryFormat>)>(&habana::clone));
+  m.impl("prod.int_out", static_cast<at::Tensor & (*)(const at::Tensor &, int64_t, bool, c10::optional<at::ScalarType>, at::Tensor &)>(&habana::prod_out));
 
 }
 

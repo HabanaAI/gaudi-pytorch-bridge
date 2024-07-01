@@ -326,6 +326,18 @@ class OutputMetaData {
 };
 using OutputMetaDataVector = std::vector<OutputMetaData>;
 
+using SharedMetaTensor = std::pair<int, at::ScalarType>;
+using SharedMetaVector = std::vector<SharedMetaTensor>;
+struct SharedMetaData {
+  std::string guid;
+  SharedMetaVector inputs_data;
+  SharedMetaVector outputs_data;
+
+  SharedMetaData(const std::string& guid) : guid(guid) {}
+  SharedMetaData() = default;
+};
+using SharedMetaDataVector = std::vector<SharedMetaData>;
+
 // Utility method to select a subset of metadata vector
 template <class T>
 std::vector<T> SelectVectorIndices(

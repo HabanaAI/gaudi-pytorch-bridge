@@ -10,7 +10,7 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
-#include "elu.h"
+#include "addbmm.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -20,21 +20,22 @@ using torch::jit::Stack;
 
 namespace habana {
 
-static CheckNodeWithSharedLayerValidator validator_elu("elu", "elu_fwd", {0}, {}, nullptr, {}, false, false, false, false);
+static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta);
 
 
-at::Tensor elu(const at::Tensor & self, const at::Scalar & alpha, const at::Scalar & scale, const at::Scalar & input_scale) {
+at::Tensor addbmm(const at::Tensor & self, const at::Tensor & batch1, const at::Tensor & batch2, const at::Scalar & beta, const at::Scalar & alpha) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO("elu: ", DUMP_4ARGS(self, alpha, scale, input_scale));
+  PT_OP_INFO("addbmm: ", DUMP_5ARGS(self, batch1, batch2, beta, alpha));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(self, elu, self, alpha, scale, input_scale)
+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, self, batch1, batch2, beta, alpha)
 
-  LazyOp<at::Tensor> hpu_op{"aten::elu", {self, alpha, scale, input_scale}};
-  RUN_MAYBE_WITH_ACC_THREAD(elu, hpu_op);
+  LazyOp<at::Tensor> hpu_op{"aten::addbmm", {self, batch1, batch2, beta, alpha}};
+  hpu_op.SetOutputMetaFn(AddBMMMeta);
+  RUN_MAYBE_WITH_ACC_THREAD(addbmm, hpu_op);
 }
 
 
@@ -45,7 +46,7 @@ static const auto& kr_gen_5 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("elu", static_cast<at::Tensor (*)(const at::Tensor &, const at::Scalar &, const at::Scalar &, const at::Scalar &)>(&habana::elu));
+  m.impl("addbmm", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Scalar &, const at::Scalar &)>(&habana::addbmm));
 
 }
 

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -235,6 +235,11 @@ at::ScalarType expected_result_dtype(
     const at::Tensor& t,
     ParameterTypes...) {
   return at::result_type(s, t);
+}
+
+template <class... ParameterTypes>
+at::ScalarType expected_result_dtype(const at::Scalar& s, ParameterTypes...) {
+  return s.type();
 }
 
 template <class... ParameterTypes>

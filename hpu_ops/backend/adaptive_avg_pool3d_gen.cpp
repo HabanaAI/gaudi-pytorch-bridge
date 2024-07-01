@@ -13,6 +13,8 @@
 #include "generated/backend/_adaptive_avg_pool3d.h"
 #include "generated/backend/_adaptive_avg_pool3d_backward.h"
 #include "generated/backend/adaptive_avg_pool3d.h"
+#include "hpu_ops/shared_meta_common.h"
+
 namespace habana {
 
 std::shared_ptr<void> FillAdaptiveAvgPool3dParamsFwd(
@@ -57,6 +59,29 @@ OutputMetaDataVector AdaptiveAvgPool3dBwdMeta(const at::Stack& stack) {
   meta.shape = input.sizes().vec();
   meta.dtype = input.scalar_type();
   return {meta};
+}
+
+SharedMetaDataVector AdaptiveAvgPool3dFwdSharedMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto reshape_required = self.dim() == 4;
+
+  SharedMetaData meta_adaptive{"adaptive_avg_pool_3d_fwd"};
+  meta_adaptive.inputs_data = {{5, self.scalar_type()}};
+  meta_adaptive.outputs_data = {meta_adaptive.inputs_data[0]};
+
+  if (reshape_required) {
+    SharedMetaData meta_expand{"expand_dims"};
+    meta_expand.inputs_data = {{self.dim(), self.scalar_type()}};
+    meta_expand.outputs_data = {meta_adaptive.inputs_data[0]};
+
+    SharedMetaData meta_reshape{"reshape"};
+    meta_reshape.inputs_data = {{meta_adaptive.outputs_data[0]}};
+    meta_reshape.outputs_data = {meta_expand.inputs_data[0]};
+
+    return {meta_expand, meta_adaptive, meta_reshape};
+  }
+
+  return {meta_adaptive};
 }
 
 void AdaptiveAvgPool3dFwd::AddNode(
@@ -108,6 +133,10 @@ void AdaptiveAvgPool3dFwd::AddNode(
   } else {
     syn_out(0) = std::move(adaptiveAvgPool[0]);
   }
+}
+
+SharedMetaDataVector AdaptiveAvgPool3dBwdSharedMeta(const at::Stack& stack) {
+  return AdaptiveBwdSharedMeta(stack, "complex_adaptive_avg_pool_3d_bwd");
 }
 
 void AdaptiveAvgPool3dBwd::AddNode(

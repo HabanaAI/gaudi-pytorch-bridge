@@ -54,6 +54,17 @@ as_strided:
   override_fn: as_strided_hpu
   acc_thread: true
 
+addbmm:
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: batch_gemm
+  op_backend: AddBMM
+  output_meta: AddBMMMeta
+  out_ids: [0]
+  op_validator: AddBMMSharedMeta
+
 elu:
   dtypes:
     Gaudi: [BFloat16, Float]

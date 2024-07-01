@@ -28,6 +28,38 @@ OutputMetaDataVector AddCOpsMeta(const at::Stack& stack) {
   return {meta};
 }
 
+static SharedMetaDataVector AddCompositeSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  const auto& self = stack_tensor(stack, inp_idx);
+  const auto self_dtype = self.scalar_type();
+  const auto& other1 = stack_tensor(stack, oth1_idx);
+  const auto& other2 = stack_tensor(stack, oth2_idx);
+  const bool tensor_value = stack[val_scalar_idx].isTensor();
+  const auto output_rank =
+      std::max(std::max(self.dim(), other1.dim()), other2.dim());
+
+  SharedMetaData meta{guid};
+  meta.inputs_data = {
+      {self.dim(), self_dtype},
+      {other1.dim(), other1.scalar_type()},
+      {other2.dim(), other2.scalar_type()}};
+  if (tensor_value) {
+    meta.inputs_data.push_back({0, self_dtype});
+  }
+  meta.outputs_data = {{output_rank, self_dtype}};
+
+  return {meta};
+}
+
+SharedMetaDataVector AddCDivSharedMeta(const at::Stack& stack) {
+  return AddCompositeSharedMeta(stack, "addcdiv_fwd");
+}
+
+SharedMetaDataVector AddCMulSharedMeta(const at::Stack& stack) {
+  return AddCompositeSharedMeta(stack, "addcmul_fwd");
+}
+
 OutputMetaDataVector ForeachCompoundMeta(const at::Stack& stack) {
   const auto& selfs = stack.at(0).toTensorList();
   const auto& tensors1 = stack.at(1).toTensorList();

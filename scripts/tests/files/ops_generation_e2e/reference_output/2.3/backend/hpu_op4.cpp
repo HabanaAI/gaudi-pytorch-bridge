@@ -2,7 +2,7 @@
 
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "elu.h"
+#include "addbmm.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -16,17 +16,18 @@ namespace habana {
 
 
 
-struct Genelu : OpBackend {
-  Genelu(int device_id, c10::ScalarType scalar_type) :
-      OpBackend(device_id, "elu_fwd", scalar_type, {0}, {}, {}, false) {
-        SetFillParams(FillEluParams);
+struct Genaddbmm : AddBMM {
+  Genaddbmm(int device_id, c10::ScalarType scalar_type) :
+      AddBMM(device_id, "batch_gemm", scalar_type, {0}, {}, {}, false) {
+        SetOutputMetaFn(AddBMMMeta);
+        SetSharedLayerMetaFn(AddBMMSharedMeta);
   }
 };
 
 
 
 static const auto& kr_gen_4 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::elu", Genelu)
+.REGISTER_HPU_BACKEND("aten::addbmm", Genaddbmm)
 ;
 
 

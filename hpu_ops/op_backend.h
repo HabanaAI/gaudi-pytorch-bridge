@@ -186,6 +186,11 @@ class OpBackend : public HabanaOperator {
     m_output_meta_fn = std::move(fn);
   }
 
+  void SetSharedLayerMetaFn(
+      std::function<SharedMetaDataVector(const at::Stack&)> fn) {
+    m_shared_layer_meta_fn = std::move(fn);
+  }
+
   void SetSTMetaFn(std::function<bool(
                        habana_helpers::IShapeList& inputs,
                        habana_helpers::IShapeList& outputs)> fn) {
@@ -631,6 +636,7 @@ class OpBackend : public HabanaOperator {
   std::function<std::shared_ptr<void>(const at::Stack&, size_t&)> m_fill_params;
   std::function<sizes_vec(const at::Stack&)> m_compute_output_shapes;
   std::function<OutputMetaDataVector(const at::Stack&)> m_output_meta_fn;
+  std::function<SharedMetaDataVector(const at::Stack&)> m_shared_layer_meta_fn;
   std::function<bool(
       habana_helpers::IShapeList& inputs,
       habana_helpers::IShapeList& outputs)>

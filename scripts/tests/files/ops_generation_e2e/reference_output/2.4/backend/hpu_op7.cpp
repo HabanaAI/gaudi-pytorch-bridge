@@ -2,7 +2,7 @@
 
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "mul.h"
+#include "clone.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -16,18 +16,18 @@ namespace habana {
 
 
 
-struct Genmul_Scalar_out : OpBackend {
-  Genmul_Scalar_out(int device_id, c10::ScalarType scalar_type) :
-      OpBackend(device_id, "mult_fwd", scalar_type, {}, {}, {1}, true) {
-        SetOutputMetaFn(PointwiseMeta<static_cast<int>(DTypeHelper::DtypePromoteVariant::kPromoteToCommon), true, 0, 1>);
-        EnableTypePromotion();
+struct Genclone : OpBackend {
+  Genclone(int device_id, c10::ScalarType scalar_type) :
+      OpBackend(device_id, "identity", scalar_type, {0}, {}, {}, false) {
+        setNoComputeFlag();
+        SetOutputMetaFn(CloneMeta);
   }
 };
 
 
 
 static const auto& kr_gen_7 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::mul.Scalar_out", Genmul_Scalar_out)
+.REGISTER_HPU_BACKEND("aten::clone", Genclone)
 ;
 
 

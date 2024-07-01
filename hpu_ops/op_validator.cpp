@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <sstream>
 #include <string>
+#include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/lazy_kernels.h"
@@ -58,6 +59,10 @@ SharedLayer::DeviceId synDeviceTypeToSharedLayerType(synDeviceType tp) {
 }
 
 SharedLayer::DeviceId _getDeviceType() {
+  // getDevice should be invoked in case device has not been initialized yet.
+  HABANAGuardImpl device_guard;
+  device_guard.getDevice();
+
   auto deviceType = HPURegistrar::get_device(0).type();
   auto deviceId = synDeviceTypeToSharedLayerType(deviceType);
   return deviceId;
@@ -221,12 +226,12 @@ at::ScalarType MaybePromotionType(
 }
 
 template <class T>
-detail::TensorDescrArray CreateOutputList(const T& meta) {
-  detail::TensorDescrArray outputList;
+detail::TensorDescrArray CreateTensorList(const T& meta) {
+  detail::TensorDescrArray tensorList;
   for (const auto& out_meta : meta) {
-    outputList.emplace_back(out_meta);
+    tensorList.emplace_back(out_meta);
   }
-  return outputList;
+  return tensorList;
 }
 
 [[maybe_unused]] std::string ToDebugString(const std::vector<int64_t>& xs) {
@@ -439,21 +444,22 @@ bool is_guid_support_dynamic_shape(const std::string& guid) {
 }
 
 bool CheckNodeWithSharedLayerValidator::Validate(
-    const std::vector<at::IValue>& values,
+    const at::Stack& values,
     bool is_dynamic,
-    const std::vector<std::pair<int, at::ScalarType>>& meta) {
+    const SharedMetaVector& meta) {
   auto promoted_type = ComputePromotedType(values);
 
   detail::TensorDescrArray outputs;
   if (not meta.empty()) {
-    outputs = CreateOutputList(meta);
+    outputs = CreateTensorList(meta);
   } else if (m_outputMetaFunc) {
-    outputs = CreateOutputList(m_outputMetaFunc(values));
+    outputs = CreateTensorList(m_outputMetaFunc(values));
   } else if (not m_resIds.empty()) {
     const auto is_promoted = promoted_type != at::ScalarType::Undefined;
+    const auto values_size = values.size();
     for (auto id : m_resIds) {
       if (id < 0) {
-        id += values.size();
+        id += values_size;
       }
       const auto& tensor = values[id].toTensor();
       auto dtype = is_promoted ? promoted_type : tensor.scalar_type();
@@ -500,6 +506,40 @@ bool CheckNodeWithSharedLayerValidator::Validate(
   // (TODO)query if h2d and st are needed
   m_require_h2d = false;
   m_require_st = false;
+  return true;
+}
+
+bool CheckNodeWithSharedLayerValidator::ValidateCustom(
+    const at::Stack& values,
+    bool is_dynamic) {
+  for (const auto& meta : m_sharedMetaFunc(values)) {
+    auto inputs = CreateTensorList(meta.inputs_data);
+    auto outputs = CreateTensorList(meta.outputs_data);
+
+    auto validation_result =
+        ValidateGuid(meta.guid, inputs, outputs, is_dynamic);
+
+    if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
+      // This log line is used by the logging analysis tool. Please be cautious
+      // when changing.
+      PT_OP_INFO(
+          "Shared layer rejected complex op: ",
+          m_opname,
+          ":  guid=",
+          meta.guid,
+          " inputlist=",
+          ToDebugString(inputs),
+          " outputlist=",
+          ToDebugString(outputs),
+          " is_dynamic=",
+          ToDebugString(is_dynamic),
+          " reason=",
+          ToDebugString(validation_result));
+      PT_OP_INFO("Fallback for op: ", m_opname);
+      return false;
+    }
+  }
+
   return true;
 }
 

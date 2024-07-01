@@ -14,6 +14,7 @@
 #include "generated/backend/avg_pool3d.h"
 #include "generated/backend/avg_pool3d_backward.h"
 #include "hpu_ops/backend/pool_helpers.h"
+#include "hpu_ops/shared_meta_common.h"
 
 #define CHECK_DIM(input_size)                                             \
   TORCH_CHECK(                                                            \
@@ -98,6 +99,10 @@ OutputMetaDataVector AvgPool3dMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector AvgPool3dFwdSharedMeta(const at::Stack& stack) {
+  return Input0SharedMeta(stack, "avg_pool_3d_fwd");
+}
+
 void Avgpool3dFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -147,6 +152,10 @@ OutputMetaDataVector AvgPool3dBwdMeta(const at::Stack& stack) {
   meta.shape = self.sizes().vec();
   meta.dtype = self.scalar_type();
   return {meta};
+}
+
+SharedMetaDataVector AvgPool3dBwdSharedMeta(const at::Stack& stack) {
+  return AvgPoolBwdSharedMeta(stack, "avg_pool_3d_bwd");
 }
 
 void AvgPool3dBwd::AddNode(

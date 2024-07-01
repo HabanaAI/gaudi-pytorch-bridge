@@ -349,6 +349,7 @@ auto get_or_create_tensor(
 
 #define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&);
 #define OUTMETA_DECL(fn) OutputMetaDataVector fn(const at::Stack&);
+#define SHARED_LAYER_META_DECL(fn) SharedMetaDataVector fn(const at::Stack&);
 #define STMETA_DECL(fn)                   \
   bool fn(                                \
       habana_helpers::IShapeList& inputs, \

@@ -10,7 +10,7 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
-#include "prod.h"
+#include "elu.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -20,28 +20,21 @@ using torch::jit::Stack;
 
 namespace habana {
 
+static CheckNodeWithSharedLayerValidator validator_elu("elu", "elu_fwd", {0}, {}, nullptr, {}, false, false, false, false);
 
 
-at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
+at::Tensor elu(const at::Tensor & self, const at::Scalar & alpha, const at::Scalar & scale, const at::Scalar & input_scale) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO("prod_out: ", DUMP_5ARGS(self, dim, keepdim, dtype, out));
+  PT_OP_INFO("elu: ", DUMP_4ARGS(self, alpha, scale, input_scale));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  auto compute_type = DTypeHelper::get_compute_dtype({self}, out, DTypeHelper::DtypePromoteVariant::kReduction, false/*safe_cast*/, dtype);
-  static_cast<void>(compute_type);
+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(elu, self, alpha, scale, input_scale)
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kDouble, at::kBool}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, prod, int_out, self, dim, keepdim, dtype, out)
-
-  ReductionFrontendTemplate<at::Tensor &> hpu_op{"aten::prod", {self, dim, keepdim, dtype, out}, ReductionOutputShape(self, dim, keepdim)};
-  hpu_op.set_scalar_types({compute_type});
-  hpu_op.SetReductionVarsIndices(1, 2, 3);
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(prod_out, hpu_op, out);
+  LazyOp<at::Tensor> hpu_op{"aten::elu", {self, alpha, scale, input_scale}};
+  RUN_MAYBE_WITH_ACC_THREAD(elu, hpu_op);
 }
 
 
@@ -52,7 +45,7 @@ static const auto& kr_gen_6 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("prod.int_out", static_cast<at::Tensor & (*)(const at::Tensor &, int64_t, bool, c10::optional<at::ScalarType>, at::Tensor &)>(&habana::prod_out));
+  m.impl("elu", static_cast<at::Tensor (*)(const at::Tensor &, const at::Scalar &, const at::Scalar &, const at::Scalar &)>(&habana::elu));
 
 }
 

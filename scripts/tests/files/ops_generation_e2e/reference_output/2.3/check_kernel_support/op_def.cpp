@@ -2,6 +2,7 @@
 #include "_foreach_add.h"
 #include "_fused_dropout.h"
 #include "_native_batch_norm_legit.h"
+#include "addbmm.h"
 #include "as_strided.h"
 #include "bitwise_left_shift.h"
 #include "clone.h"
@@ -23,7 +24,6 @@
 #include <pybind11/pybind11.h>
 #include <torch/csrc/jit/tensorexpr/tensorexpr_init.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
-#include <tuple>
 #include "cpu_fallback.h"
 
 using habana_helpers::DTypeHelper;
@@ -43,6 +43,7 @@ std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, b
 {"_foreach_add_", &check_support<habana::shared_layer__foreach_add_>},
 {"_fused_dropout", &check_support<habana::shared_layer__fused_dropout>},
 {"_native_batch_norm_legit", &check_support<habana::shared_layer__native_batch_norm_legit>},
+{"addbmm", &check_support<habana::shared_layer_addbmm>},
 {"as_strided", &check_support<habana::shared_layer_as_strided>},
 {"bitwise_left_shift", &check_support<habana::shared_layer_bitwise_left_shift>},
 {"clone", &check_support<habana::shared_layer_clone>},

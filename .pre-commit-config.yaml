@@ -7,7 +7,7 @@ repos:
       - id: check-executables-have-shebangs
         exclude: ^topologies/
       - id: trailing-whitespace
-        exclude: ^(LICENSE|topologies/|scripts/tests/files/ops_generation_e2e/reference_output/)
+        exclude: ^(LICENSE|topologies/)
       # TODO: fix issues and enable when time allows: https://jira.habana-labs.com/browse/SW-121821
       # - id: end-of-file-fixer
       #   exclude: ^(LICENSE.txt|topologies/)

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,6 +13,7 @@
 #include "generated/backend/_adaptive_avg_pool2d.h"
 #include "generated/backend/_adaptive_avg_pool2d_backward.h"
 #include "generated/backend/adaptive_avg_pool2d.h"
+#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 
@@ -63,6 +64,10 @@ OutputMetaDataVector AdaptiveAvgPool2dBwdMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector AdaptiveAvgPool2dFwdSharedMeta(const at::Stack& stack) {
+  return Input0SharedMeta(stack, "adaptive_avg_pool_2d_fwd");
+}
+
 void AdaptiveAvgPool2dFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -85,6 +90,10 @@ void AdaptiveAvgPool2dFwd::AddNode(
       size);
 
   syn_out(0) = std::move(adaptive_avg_pool[0]);
+}
+
+SharedMetaDataVector AdaptiveAvgPool2dBwdSharedMeta(const at::Stack& stack) {
+  return AdaptiveBwdSharedMeta(stack, "complex_adaptive_avg_pool_2d_bwd");
 }
 
 void AdaptiveAvgPool2dBwd::AddNode(

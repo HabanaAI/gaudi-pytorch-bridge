@@ -36,7 +36,7 @@ class TensorDescr {
   explicit TensorDescr(const OutputMetaData& output_meta)
       : TensorDescr(output_meta.shape.size(), output_meta.dtype) {}
 
-  explicit TensorDescr(const std::pair<int, at::ScalarType>& shared_meta)
+  explicit TensorDescr(const SharedMetaTensor& shared_meta)
       : TensorDescr(shared_meta.first, shared_meta.second) {}
 
   uint32_t getRank() const {
@@ -64,6 +64,8 @@ using TensorDescrArray = absl::InlinedVector<TensorDescr, 5>;
 
 using OutputMetaFunc =
     std::function<OutputMetaDataVector(const at::Stack& stack)>;
+using SharedMetaFunc =
+    std::function<SharedMetaDataVector(const at::Stack& stack)>;
 
 struct CheckNodeWithSharedLayerValidator {
   CheckNodeWithSharedLayerValidator(
@@ -88,10 +90,17 @@ struct CheckNodeWithSharedLayerValidator {
         m_isInplace(isInplace),
         m_isOutFn(isOutFn) {}
 
+  CheckNodeWithSharedLayerValidator(
+      const std::string& opname,
+      SharedMetaFunc sharedMetaFunc)
+      : m_opname(opname), m_sharedMetaFunc(sharedMetaFunc) {}
+
   bool Validate(
-      const std::vector<at::IValue>& values,
+      const at::Stack& values,
       bool is_dynamic = false,
-      const std::vector<std::pair<int, at::ScalarType>>& meta = {});
+      const SharedMetaVector& meta = {});
+
+  bool ValidateCustom(const at::Stack& values, bool is_dynamic = false);
 
   bool IsRequireH2D() const {
     return m_require_h2d;
@@ -114,6 +123,7 @@ struct CheckNodeWithSharedLayerValidator {
   std::vector<int> m_resIds;
   std::vector<int> m_scalarIds;
   OutputMetaFunc m_outputMetaFunc;
+  SharedMetaFunc m_sharedMetaFunc;
   std::vector<int> m_typePromotionIds;
   bool m_promoteIntToFloat;
   bool m_safeCastCheck;

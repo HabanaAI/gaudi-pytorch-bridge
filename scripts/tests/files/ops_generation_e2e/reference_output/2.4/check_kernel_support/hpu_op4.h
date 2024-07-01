@@ -5,7 +5,6 @@
 #include <pybind11/pybind11.h>
 #include <torch/csrc/jit/tensorexpr/tensorexpr_init.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
-#include <tuple>
 #include "cpu_fallback.h"
 
 using habana_helpers::DTypeHelper;
@@ -16,55 +15,74 @@ namespace habana {
 
 
 
-struct shared_layer_as_strided : SharedLayerOp {
+struct shared_layer_clone : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 4) {
-    auto ivalue_arr = torch::jit::last(stack, 4);
+  if (stack.size() == 2) {
+    auto ivalue_arr = torch::jit::last(stack, 2);
     if (ivalue_arr[0].isTensor() ) {
 
-    	c10::IValue self = std::move(peek(stack, 0, 4));
-      c10::IValue size = std::move(peek(stack, 1, 4));
-      c10::IValue stride = std::move(peek(stack, 2, 4));
-      c10::IValue storage_offset = std::move(peek(stack, 3, 4));
-      
+      c10::IValue self = std::move(peek(stack, 0, 2));
+      c10::IValue memory_format = std::move(peek(stack, 1, 2));
+
       at::Tensor self_base = self.to<at::Tensor>();
-      std::vector<int64_t> size_vec;
-      const c10::List<c10::IValue> size_list_in = size.toList();
-      
-      for (c10::IValue size_elem: size_list_in) {
-          int64_t size_elem_base = size_elem.to<int64_t>();
-          size_vec.push_back(size_elem_base);
-      }
-      at::IntArrayRef size_list_out(size_vec);
-                  
-      std::vector<int64_t> stride_vec;
-      const c10::List<c10::IValue> stride_list_in = stride.toList();
-      
-      for (c10::IValue stride_elem: stride_list_in) {
-          int64_t stride_elem_base = stride_elem.to<int64_t>();
-          stride_vec.push_back(stride_elem_base);
-      }
-      at::IntArrayRef stride_list_out(stride_vec);
-                  
-      
-      auto storage_offset_opt = storage_offset.toOptional<c10::IValue>();
-      ::std::optional<int64_t> storage_offset_opt_out;
-      if (storage_offset_opt.has_value()) {
-          const c10::IValue storage_offset_opt_in = storage_offset_opt.value();
-          int64_t storage_offset_opt_in_base = storage_offset_opt_in.to<int64_t>();
-          storage_offset_opt_out = ::std::optional<int64_t>(storage_offset_opt_in_base);
+
+      auto memory_format_opt = memory_format.toOptional<c10::IValue>();
+      ::std::optional<at::MemoryFormat> memory_format_opt_out;
+      if (memory_format_opt.has_value()) {
+          const c10::IValue memory_format_opt_in = memory_format_opt.value();
+          at::MemoryFormat memory_format_opt_in_base = memory_format_opt_in.to<at::MemoryFormat>();
+          memory_format_opt_out = ::std::optional<at::MemoryFormat>(memory_format_opt_in_base);
       } else {
-          storage_offset_opt_out = ::std::optional<int64_t>();
+          memory_format_opt_out = ::std::optional<at::MemoryFormat>();
       }
-              
-      auto is_supported = impl(self_base, size_list_out, stride_list_out, storage_offset_opt_out, is_dynamic);
+
+      auto is_supported = impl(self_base, memory_format_opt_out, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self, at::IntArrayRef size, at::IntArrayRef stride, c10::optional<int64_t> storage_offset, bool is_dynamic) {
+bool impl(const at::Tensor & self, c10::optional<at::MemoryFormat> memory_format, bool is_dynamic) {
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
+  RETURN_IF_UNSUPPORTED_DTYPE(self, clone, is_dynamic, self, memory_format)
+
+  return true;
+}
+
+};
+
+struct shared_layer_mul_out : SharedLayerOp {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
+  if (stack.size() == 3) {
+    auto ivalue_arr = torch::jit::last(stack, 3);
+    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isScalar() && ivalue_arr[2].isTensor() ) {
+
+      c10::IValue self = std::move(peek(stack, 0, 3));
+      c10::IValue other = std::move(peek(stack, 1, 3));
+      c10::IValue out = std::move(peek(stack, 2, 3));
+
+      at::Tensor self_base = self.to<at::Tensor>();
+      at::Scalar other_base = other.to<at::Scalar>();
+      at::Tensor out_base = out.to<at::Tensor>();
+      auto is_supported = impl(self_base, other_base, out_base, is_dynamic);
+      return is_supported;
+    }
+  }
+  return false;
+}
+private:
+bool impl(const at::Tensor & self, const at::Scalar & other, at::Tensor & out, bool is_dynamic) {
+  auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, true/*safe_cast*/);
+  static_cast<void>(compute_type);
+
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kShort, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
+  RETURN_IF_UNSUPPORTED_DTYPE2(compute_type, mul, is_dynamic, Scalar_out, self, other, out)
+
   return true;
 }
 

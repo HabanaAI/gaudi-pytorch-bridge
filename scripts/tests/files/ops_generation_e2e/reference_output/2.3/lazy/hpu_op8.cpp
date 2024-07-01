@@ -10,7 +10,7 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
-#include "mul.h"
+#include "clone.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -22,26 +22,22 @@ namespace habana {
 
 
 
-at::Tensor & mul_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
+at::Tensor clone(const at::Tensor & self, c10::optional<at::MemoryFormat> memory_format) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO("mul_out: ", DUMP_3ARGS(self, other, out));
+  PT_OP_INFO("clone: ", DUMP_2ARGS(self, memory_format));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, true/*safe_cast*/);
-  static_cast<void>(compute_type);
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE(self, clone, self, memory_format)
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kShort, at::kDouble, at::kBool}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, mul, Scalar_out, self, other, out)
-
-  LazyOp<at::Tensor &> hpu_op{"aten::mul", {self, other, out}, BinaryOutputShape};
-  hpu_op.set_scalar_types({compute_type});
-  hpu_op.SetOutputMetaFn(PointwiseMeta<static_cast<int>(DTypeHelper::DtypePromoteVariant::kPromoteToCommon), true, 0, 1>);
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(mul_out, hpu_op, out);
+  LazyOp<at::Tensor> hpu_op{"aten::clone", {self, memory_format}};
+  hpu_op.SetOutputMetaFn(CloneMeta);
+  RUN_MAYBE_WITH_ACC_THREAD(clone, hpu_op);
 }
 
 
@@ -52,7 +48,7 @@ static const auto& kr_gen_8 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("mul.Scalar_out", static_cast<at::Tensor & (*)(const at::Tensor &, const at::Scalar &, at::Tensor &)>(&habana::mul_out));
+  m.impl("clone", static_cast<at::Tensor (*)(const at::Tensor &, c10::optional<at::MemoryFormat>)>(&habana::clone));
 
 }
 

@@ -21,14 +21,13 @@
 #include <torch/csrc/jit/tensorexpr/tensorexpr_init.h>
 #include <torch/csrc/utils/python_symnode.h>
 #include <torch/extension.h>
-#include <iostream>
 #include <tuple>
 #include "habana_helpers/dtype_helpers.h"
 #include "hpu_ops/op_validator.h"
 
 struct SharedLayerOp {
   virtual bool func(torch::jit::Stack& stack, bool is_dynamic) = 0;
-  std::vector<std::pair<int, at::ScalarType>> m_shared_meta;
+  habana::SharedMetaVector m_shared_meta;
 };
 
 #define RETURN_IF_UNSUPPORTED_DTYPE(input, opname, args...)  \
@@ -132,17 +131,30 @@ struct SharedLayerOp {
 
 #define RETURN_UNSUPPORTED_OP2_O(input, param2, overload) return false;
 
-#define VAL_RETURN_IF_UNSUPPORTED_DTYPE(input, opname, is_dynamic, args...)   \
+#define VAL_RETURN_IF_UNSUPPORTED_DTYPE(opname, is_dynamic, args...)          \
   if (ABSL_PREDICT_FALSE(                                                     \
           !validator_##opname.Validate({args}, is_dynamic, m_shared_meta))) { \
     return false;                                                             \
   }
 
 #define VAL_RETURN_IF_UNSUPPORTED_DTYPE2(                           \
-    input, opname, is_dynamic, overload, args...)                   \
+    opname, is_dynamic, overload, args...)                          \
   if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.Validate( \
           {args}, is_dynamic, m_shared_meta))) {                    \
     return false;                                                   \
+  }
+
+#define VAL_CUSTOM_RETURN_IF_UNSUPPORTED_DTYPE(opname, is_dynamic, args...) \
+  if (ABSL_PREDICT_FALSE(                                                   \
+          !validator_##opname.ValidateCustom({args}, is_dynamic))) {        \
+    return false;                                                           \
+  }
+
+#define VAL_CUSTOM_RETURN_IF_UNSUPPORTED_DTYPE2(                          \
+    opname, is_dynamic, overload, args...)                                \
+  if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.ValidateCustom( \
+          {args}, is_dynamic))) {                                         \
+    return false;                                                         \
   }
 
 #define HPU_SUPPORTED_DTYPES(dtypes, suffix...) \
@@ -177,7 +189,7 @@ bool check_support(
     py::args& args,
     const py::kwargs& kwargs) {
   torch::jit::Stack stack;
-  std::vector<std::pair<int, at::ScalarType>> out_meta;
+  habana::SharedMetaVector out_meta;
   {
     torch::jit::ToIValueAllowNumbersAsTensors g(allow_numbers_as_tensors);
     //  Acquire GIL for py::args and py::kwargs processing.

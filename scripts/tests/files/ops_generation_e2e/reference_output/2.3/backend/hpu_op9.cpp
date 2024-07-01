@@ -9,6 +9,7 @@
 #include "isfinite.h"
 #include "linear_backward.h"
 #include "native_group_norm.h"
+#include "sort.h"
 #include "squeeze.h"
 
 
@@ -22,6 +23,14 @@ namespace habana {
 
 
 
+
+struct Gensort_values_stable : SortStable {
+  Gensort_values_stable(int device_id, c10::ScalarType scalar_type) :
+      SortStable(device_id, "None", scalar_type, {}, {}, {}, true) {
+        SetNumOutTensors(2);
+        SetComputeOutputShapes(SortOutputShape);
+  }
+};
 
 struct Gensqueeze_dims : SqueezeDims {
   Gensqueeze_dims(int device_id, c10::ScalarType scalar_type) :
@@ -96,6 +105,7 @@ struct Genlinear_backward : OpBackend {
 
 
 static const auto& kr_gen_9 = KernelRegistry()
+.REGISTER_HPU_BACKEND("aten::sort.values_stable", Gensort_values_stable)
 .REGISTER_HPU_BACKEND("aten::squeeze.dims", Gensqueeze_dims)
 .REGISTER_HPU_BACKEND("aten::eq.Scalar_out", Geneq_Scalar_out)
 .REGISTER_HPU_BACKEND("aten::isfinite", Genisfinite)

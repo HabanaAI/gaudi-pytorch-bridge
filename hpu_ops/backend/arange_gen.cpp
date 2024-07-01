@@ -573,6 +573,56 @@ synapse_helpers::tensor ArangeDefaultCommon(
   }
 }
 
+static SharedMetaDataVector ArangeDefaultSharedMeta(
+    const bool is_integral,
+    const at::optional<at::ScalarType>& dtype) {
+  const auto out_dtype = dtype.value_or(
+      is_integral ? at::ScalarType::Long
+                  : torch::get_default_dtype_as_scalartype());
+  const auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
+  const bool is_cast_not_required = c10::isFloatingType(internal_out_dtype) ||
+      internal_out_dtype == c10::ScalarType::Int;
+  const auto range_type =
+      is_cast_not_required ? out_dtype : c10::ScalarType::Int;
+
+  SharedMetaData range{"range"};
+  range.outputs_data = {{1, range_type}};
+
+  return {range};
+}
+
+SharedMetaDataVector ArangeDefaultEndSharedMeta(const at::Stack& stack) {
+  const auto end = stack[0].toScalar();
+  return ArangeDefaultSharedMeta(
+      end.isIntegral(true), stack[1].toOptional<at::ScalarType>());
+}
+
+SharedMetaDataVector ArangeDefaultStartEndSharedMeta(const at::Stack& stack) {
+  const auto start = stack[0].toScalar();
+  const auto end = stack[1].toScalar();
+  return ArangeDefaultSharedMeta(
+      start.isIntegral(true) and end.isIntegral(true),
+      stack[2].toOptional<at::ScalarType>());
+}
+
+SharedMetaDataVector ArangeDefaultStartStepSharedMeta(const at::Stack& stack) {
+  const auto start = stack[0].toScalar();
+  const auto end = stack[1].toScalar();
+  const auto step = stack[2].toScalar();
+  return ArangeDefaultSharedMeta(
+      start.isIntegral(true) and end.isIntegral(true) and step.isIntegral(true),
+      stack[3].toOptional<at::ScalarType>());
+}
+
+SharedMetaDataVector ArangeDefaultStartOutSharedMeta(const at::Stack& stack) {
+  const auto start = stack[0].toScalar();
+  const auto end = stack[1].toScalar();
+  const auto step = stack[2].toScalar();
+  return ArangeDefaultSharedMeta(
+      start.isIntegral(true) and end.isIntegral(true) and step.isIntegral(true),
+      stack[3].toTensor().scalar_type());
+}
+
 void ArangeDefaultEnd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

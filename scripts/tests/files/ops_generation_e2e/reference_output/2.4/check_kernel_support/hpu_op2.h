@@ -5,7 +5,6 @@
 #include <pybind11/pybind11.h>
 #include <torch/csrc/jit/tensorexpr/tensorexpr_init.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
-#include <tuple>
 #include "cpu_fallback.h"
 
 using habana_helpers::DTypeHelper;
@@ -14,43 +13,89 @@ using namespace torch::jit;
 
 namespace habana {
 
+static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta);
 
 
-struct shared_layer__fused_dropout : SharedLayerOp {
+struct shared_layer_as_strided : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 3) {
-    auto ivalue_arr = torch::jit::last(stack, 3);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isDouble() ) {
+  if (stack.size() == 4) {
+    auto ivalue_arr = torch::jit::last(stack, 4);
+    if (ivalue_arr[0].isTensor() ) {
 
-    	c10::IValue self = std::move(peek(stack, 0, 3));
-      c10::IValue p = std::move(peek(stack, 1, 3));
-      c10::IValue generator = std::move(peek(stack, 2, 3));
-      
+      c10::IValue self = std::move(peek(stack, 0, 4));
+      c10::IValue size = std::move(peek(stack, 1, 4));
+      c10::IValue stride = std::move(peek(stack, 2, 4));
+      c10::IValue storage_offset = std::move(peek(stack, 3, 4));
+
       at::Tensor self_base = self.to<at::Tensor>();
-      double p_base = p.to<double>();
-      
-      auto generator_opt = generator.toOptional<c10::IValue>();
-      ::std::optional<at::Generator> generator_opt_out;
-      if (generator_opt.has_value()) {
-          const c10::IValue generator_opt_in = generator_opt.value();
-          at::Generator generator_opt_in_base = generator_opt_in.to<at::Generator>();
-          generator_opt_out = ::std::optional<at::Generator>(generator_opt_in_base);
-      } else {
-          generator_opt_out = ::std::optional<at::Generator>();
+      std::vector<int64_t> size_vec;
+      const c10::List<c10::IValue> size_list_in = size.toList();
+
+      for (c10::IValue size_elem: size_list_in) {
+          int64_t size_elem_base = size_elem.to<int64_t>();
+          size_vec.push_back(size_elem_base);
       }
-              
-      auto is_supported = impl(self_base, p_base, generator_opt_out, is_dynamic);
+      at::IntArrayRef size_list_out(size_vec);
+
+      std::vector<int64_t> stride_vec;
+      const c10::List<c10::IValue> stride_list_in = stride.toList();
+
+      for (c10::IValue stride_elem: stride_list_in) {
+          int64_t stride_elem_base = stride_elem.to<int64_t>();
+          stride_vec.push_back(stride_elem_base);
+      }
+      at::IntArrayRef stride_list_out(stride_vec);
+
+
+      auto storage_offset_opt = storage_offset.toOptional<c10::IValue>();
+      ::std::optional<int64_t> storage_offset_opt_out;
+      if (storage_offset_opt.has_value()) {
+          const c10::IValue storage_offset_opt_in = storage_offset_opt.value();
+          int64_t storage_offset_opt_in_base = storage_offset_opt_in.to<int64_t>();
+          storage_offset_opt_out = ::std::optional<int64_t>(storage_offset_opt_in_base);
+      } else {
+          storage_offset_opt_out = ::std::optional<int64_t>();
+      }
+
+      auto is_supported = impl(self_base, size_list_out, stride_list_out, storage_offset_opt_out, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self, double p, c10::optional<at::Generator> generator, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, is_dynamic, self, p, generator)
+bool impl(const at::Tensor & self, at::IntArrayRef size, at::IntArrayRef stride, c10::optional<int64_t> storage_offset, bool is_dynamic) {
+  return true;
+}
+
+};
+
+struct shared_layer_addbmm : SharedLayerOp {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
+  if (stack.size() == 5) {
+    auto ivalue_arr = torch::jit::last(stack, 5);
+    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isTensor() && ivalue_arr[2].isTensor() && ivalue_arr[3].isScalar() && ivalue_arr[4].isScalar() ) {
+
+      c10::IValue self = std::move(peek(stack, 0, 5));
+      c10::IValue batch1 = std::move(peek(stack, 1, 5));
+      c10::IValue batch2 = std::move(peek(stack, 2, 5));
+      c10::IValue beta = std::move(peek(stack, 3, 5));
+      c10::IValue alpha = std::move(peek(stack, 4, 5));
+
+      at::Tensor self_base = self.to<at::Tensor>();
+      at::Tensor batch1_base = batch1.to<at::Tensor>();
+      at::Tensor batch2_base = batch2.to<at::Tensor>();
+      at::Scalar beta_base = beta.to<at::Scalar>();
+      at::Scalar alpha_base = alpha.to<at::Scalar>();
+      auto is_supported = impl(self_base, batch1_base, batch2_base, beta_base, alpha_base, is_dynamic);
+      return is_supported;
+    }
+  }
+  return false;
+}
+private:
+bool impl(const at::Tensor & self, const at::Tensor & batch1, const at::Tensor & batch2, const at::Scalar & beta, const at::Scalar & alpha, bool is_dynamic) {
+  VAL_CUSTOM_RETURN_IF_UNSUPPORTED_DTYPE(addbmm, is_dynamic, self, batch1, batch2, beta, alpha)
 
   return true;
 }

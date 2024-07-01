@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -292,6 +292,81 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     syn_out(0) = std::move(addmm[0]);
   }
+}
+
+namespace {
+
+SharedMetaData BetaSharedMeta(int input_rank, at::ScalarType input_dtype) {
+  SharedMetaData mul{"mult_fwd"};
+  mul.inputs_data = {{input_rank, input_dtype}, {1, input_dtype}};
+  mul.outputs_data = {mul.inputs_data[0]};
+  return mul;
+}
+
+SharedMetaDataVector AlphaSharedMeta(
+    at::ScalarType batch1_dtype,
+    at::ScalarType batch2_dtype,
+    float alpha) {
+  SharedMetaTensor meta_3d_1{3, batch1_dtype};
+  SharedMetaTensor meta_2d_1{2, batch1_dtype};
+
+  SharedMetaData bmm{"batch_gemm"};
+  bmm.inputs_data = {meta_3d_1, {3, batch2_dtype}};
+  bmm.outputs_data = {meta_3d_1};
+
+  SharedMetaData reduce{"reduce_sum_multi_dim_fwd"};
+  reduce.inputs_data = {meta_3d_1};
+  reduce.outputs_data = {meta_2d_1};
+
+  SharedMetaDataVector meta{bmm, reduce};
+
+  if (alpha != 1.0) {
+    SharedMetaData mul{"mult_fwd"};
+    mul.inputs_data = {meta_2d_1, {1, batch1_dtype}};
+    mul.outputs_data = {meta_2d_1};
+    meta.push_back(mul);
+  }
+
+  return meta;
+}
+
+} // namespace
+
+SharedMetaDataVector AddBMMSharedMeta(const at::Stack& stack) {
+  const float beta = stack.at(idxBeta).toScalar().toFloat();
+  const float alpha = stack.at(idxAlpha).toScalar().toFloat();
+
+  if (alpha == 0.0 and beta == 0.0) {
+    return {};
+  }
+
+  auto input = stack_tensor(stack, 0);
+  auto input_dtype = input.scalar_type();
+  auto input_rank = input.dim();
+
+  if (alpha == 0.0) {
+    return {BetaSharedMeta(input_rank, input_dtype)};
+  }
+
+  auto batch1 = stack_tensor(stack, 1);
+  auto batch1_dtype = batch1.scalar_type();
+
+  auto batch2 = stack_tensor(stack, 2);
+  auto batch2_dtype = batch2.scalar_type();
+
+  if (beta == 0.0) {
+    return AlphaSharedMeta(batch1_dtype, batch2_dtype, alpha);
+  }
+
+  auto meta = AlphaSharedMeta(batch1_dtype, batch2_dtype, alpha);
+  meta.push_back(BetaSharedMeta(input_rank, input_dtype));
+
+  SharedMetaData add{"add_fwd"};
+  add.inputs_data = {{2, batch1_dtype}, {1, batch1_dtype}};
+  add.outputs_data = {add.inputs_data[0]};
+  meta.push_back(add);
+
+  return meta;
 }
 
 void AddBMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

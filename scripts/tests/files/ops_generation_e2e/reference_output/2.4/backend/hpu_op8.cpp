@@ -2,7 +2,7 @@
 
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "sort.h"
+#include "mul.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -16,18 +16,18 @@ namespace habana {
 
 
 
-struct Gensort_values_stable : SortStable {
-  Gensort_values_stable(int device_id, c10::ScalarType scalar_type) :
-      SortStable(device_id, "None", scalar_type, {}, {}, {}, true) {
-        SetNumOutTensors(2);
-        SetComputeOutputShapes(SortOutputShape);
+struct Genmul_Scalar_out : OpBackend {
+  Genmul_Scalar_out(int device_id, c10::ScalarType scalar_type) :
+      OpBackend(device_id, "mult_fwd", scalar_type, {}, {}, {1}, true) {
+        SetOutputMetaFn(PointwiseMeta<static_cast<int>(DTypeHelper::DtypePromoteVariant::kPromoteToCommon), true, 0, 1>);
+        EnableTypePromotion();
   }
 };
 
 
 
 static const auto& kr_gen_8 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::sort.values_stable", Gensort_values_stable)
+.REGISTER_HPU_BACKEND("aten::mul.Scalar_out", Genmul_Scalar_out)
 ;
 
 

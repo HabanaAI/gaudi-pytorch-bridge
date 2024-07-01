@@ -9,6 +9,37 @@
 # was provided.
 #
 ###############################################################################
+
+# Manual
+# Fields descriptions:
+#  - guid - the name of kernel/cguid executing operation.
+#  - out_ids - indices of input tensors, based on which outputs are allocated.
+#              Not applicable for inplace/out ops. Overriden by output_meta.
+#  - inplace_ids - indices of inplace input tensors.
+#  - scalar_ids - these input Scalars will be converted to Tensors.
+#  - op_backend - custom OpBackend class overriding AddNode. Overrides most other fields.
+#  - op_frontend - custom frontend class overriding LazyOp/EagerOp, e.g. for op signature change.
+#  - schema_args - overriden signature of the op. Used with op_frontend.
+#  - reduction - sets op_backend to ReductionBackendTemplate and op_frontend to ReductionFrontendTemplate.
+#  - dtypes - dtypes supported by the operator. Not needed if op_validator used.
+#  - output_meta - function for output tensors metadata calculation.
+#  - custom_fill_params - function filling params structure for kernel/cguid. Not needed if op_backend used.
+#  - promote_to_common_type - names of inputs to execute type promotion on.
+#  - promote_int_to_float - names of inputs casted automatically to float.
+#  - promote_int_to_long - names of inputs casted automatically to long.
+#  - synapse_layouts - inputs/outputs layouts for non-layout-agnostic ops.
+#  - custom_op_schema - signature of a custom op. Used for custom ops only.
+#  - op_validator:
+#      if not given, op support validated based on dtypes field,
+#      if set to check-node-with-shared-layer, automatic validation by shared layer will be executed,
+#             applicable only for ops mapped directly to one kernel/cguid, without op_backend and op_frontend,
+#      other value points to the function which performs manual validation, e.g. for multiple kernels.
+#  - only_shared_layer - mark ops registered and implemented manually in the backend just for shared layer validation.
+#  - override_fn - function for full override of the op frontend and backend.
+#  - lazy - separate flow for lazy mode.
+#  - custom_output_shape - function for outputs shape calculation. Deprecated, use output_meta.
+#  - out_dtypes - dtypes of output tensors. Deprecated, use output_meta.
+
 _assert_async:
   guid: assert_async
   out_ids: [0]
@@ -1297,6 +1328,7 @@ native_dropout_backward:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   op_backend: NativeDropoutBackward
   out_ids: [0]
+  op_validator: NativeDropoutBackwardSharedMeta
 
 as_strided:
   override_fn: as_strided_hpu
@@ -1477,6 +1509,7 @@ addbmm:
   op_backend: AddBMM
   output_meta: AddBMMMeta
   out_ids: [0]
+  op_validator: AddBMMSharedMeta
 
 addbmm_:
   dtypes:
@@ -1487,6 +1520,7 @@ addbmm_:
   op_backend: AddBMM
   inplace_ids: [0]
   output_meta: AddBMMMeta
+  op_validator: AddBMMSharedMeta
 
 addbmm.out:
   dtypes:
@@ -1496,6 +1530,7 @@ addbmm.out:
   guid: batch_gemm
   op_backend: AddBMM
   output_meta: AddBMMMeta
+  op_validator: AddBMMSharedMeta
 
 addcdiv:
   output_meta: AddCOpsMeta
@@ -1508,6 +1543,7 @@ addcdiv:
   guid: addcdiv_fwd
   out_ids: [0]
   schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor"
+  op_validator: AddCDivSharedMeta
 
 addcdiv_:
   output_meta: AddCOpsMeta
@@ -1520,6 +1556,7 @@ addcdiv_:
   guid: addcdiv_fwd
   inplace_ids: [0]
   schema_args: "(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor(a!)"
+  op_validator: AddCDivSharedMeta
 
 addcdiv.out:
   output_meta: AddCOpsMeta
@@ -1528,6 +1565,7 @@ addcdiv.out:
   custom_fill_params: FillAddcdivParams
   guid: addcdiv_fwd
   schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Tensor(a!) out) -> Tensor(a!)"
+  op_validator: AddCDivSharedMeta
 
 addcmul:
   output_meta: AddCOpsMeta
@@ -1540,6 +1578,7 @@ addcmul:
   guid: addcmul_fwd
   out_ids: [0]
   schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor"
+  op_validator: AddCMulSharedMeta
 
 addcmul_:
   output_meta: AddCOpsMeta
@@ -1552,6 +1591,7 @@ addcmul_:
   guid: addcmul_fwd
   inplace_ids: [0]
   schema_args: "(Tensor(a!) self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None) -> Tensor(a!)"
+  op_validator: AddCMulSharedMeta
 
 addcmul.out:
   output_meta: AddCOpsMeta
@@ -1560,6 +1600,7 @@ addcmul.out:
   custom_fill_params: FillAddcmulParams
   guid: addcmul_fwd
   schema_args: "(Tensor self, Tensor tensor1, Tensor tensor2, *, Tensor? value=None, Tensor(a!) out) -> Tensor(a!)"
+  op_validator: AddCMulSharedMeta
 
 addmm:
   output_meta: AddMMMeta
@@ -1628,6 +1669,7 @@ addr:
   guid: addr_fwd
   custom_fill_params: FillAddrParams
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 addr_:
   output_meta: AddRMeta
@@ -1638,6 +1680,7 @@ addr_:
   guid: addr_fwd
   custom_fill_params: FillAddrParams
   inplace_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 addr.out:
   output_meta: AddRMeta
@@ -1647,6 +1690,7 @@ addr.out:
     Gaudi3: [BFloat16, Float, Half]
   guid: addr_fwd
   custom_fill_params: FillAddrParams
+  op_validator: check-node-with-shared-layer
 
 alias:
   override_fn: alias_hpu_lazy
@@ -1817,6 +1861,7 @@ arange:
     Gaudi3: [Float, BFloat16, Long, Int, Short, Char, Byte, Half]
   custom_fill_params: FillArangeDefaultEndParams
   out_ids: [0]
+  op_validator: ArangeDefaultEndSharedMeta
 
 arange.start:
   output_meta: ArangeDefaultStartEndMeta
@@ -1828,6 +1873,7 @@ arange.start:
     Gaudi3: [Float, BFloat16, Long, Int, Short, Char, Byte, Half]
   custom_fill_params: FillArangeDefaultStartEndParams
   out_ids: [0]
+  op_validator: ArangeDefaultStartEndSharedMeta
 
 arange.start_step:
   output_meta: ArangeDefaultStartEndStepMeta
@@ -1841,6 +1887,7 @@ arange.start_step:
   custom_fill_params: FillArangeDefaultStartEndStepParams
   out_ids: [0]
   schema_args: "(Tensor h2d_tensor, Tensor shape_tensor,*, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> (Tensor)"
+  op_validator: ArangeDefaultStartStepSharedMeta
 
 arange.start_out:
   op_backend: Arange
@@ -1853,6 +1900,7 @@ arange.start_out:
   output_meta: ArangeStartOutMeta
   custom_fill_params: FillArangeParams
   schema_args: "(Scalar start, Scalar end, Scalar step, *, Tensor? h2d_tensor=None, Tensor? shape_tensor=None, Tensor(a!) out) -> Tensor(a!)"
+  op_validator: ArangeDefaultStartOutSharedMeta
 
 argmax:
   output_meta: ArgMinMaxMeta
@@ -2022,6 +2070,7 @@ _adaptive_avg_pool2d:
   guid: adaptive_avg_pool_2d_fwd
   op_backend: AdaptiveAvgPool2dFwd
   out_ids: [0]
+  op_validator: AdaptiveAvgPool2dFwdSharedMeta
 
 adaptive_avg_pool2d.out:
   custom_fill_params: FillAdaptiveAvgPool2dParamsFwd
@@ -2032,6 +2081,7 @@ adaptive_avg_pool2d.out:
     Gaudi3: [BFloat16, Float, Half]
   guid: adaptive_avg_pool_2d_fwd
   op_backend: AdaptiveAvgPool2dFwd
+  op_validator: AdaptiveAvgPool2dFwdSharedMeta
 
 _adaptive_avg_pool2d_backward:
   custom_fill_params: FillAdaptiveAvgPool2dParamsBwd
@@ -2043,6 +2093,7 @@ _adaptive_avg_pool2d_backward:
   guid: complex_adaptive_avg_pool_2d_bwd
   op_backend: AdaptiveAvgPool2dBwd
   out_ids: [1]
+  op_validator: AdaptiveAvgPool2dBwdSharedMeta
 
 avg_pool2d:
   custom_fill_params: Fillavgpool2dParamsFwd
@@ -2054,6 +2105,7 @@ avg_pool2d:
   guid: avg_pool_2d_fwd
   out_ids: [0]
   op_backend: Avgpool2dFwd
+  op_validator: AvgPool2dFwdSharedMeta
 
 avg_pool2d.out:
   custom_fill_params: Fillavgpool2dParamsFwd
@@ -2064,6 +2116,7 @@ avg_pool2d.out:
     Gaudi3: [BFloat16, Float, Half]
   guid: avg_pool_2d_fwd
   op_backend: Avgpool2dFwd
+  op_validator: AvgPool2dFwdSharedMeta
 
 avg_pool2d_backward.grad_input:
   custom_fill_params: Fillavgpool2dParamsBwd
@@ -2073,6 +2126,7 @@ avg_pool2d_backward.grad_input:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: Avgpool2dBwd
+  op_validator: AvgPool2dBwdSharedMeta
 
 avg_pool2d_backward:
   custom_fill_params: Fillavgpool2dParamsBwd
@@ -2083,6 +2137,7 @@ avg_pool2d_backward:
     Gaudi3: [BFloat16, Float, Half]
   op_backend: Avgpool2dBwd
   out_ids: [0]
+  op_validator: AvgPool2dBwdSharedMeta
 
 avg_pool3d:
   custom_fill_params: FillAvgPool3dParamsFwd
@@ -2094,6 +2149,7 @@ avg_pool3d:
   guid: avg_pool_3d_fwd
   out_ids: [0]
   op_backend: Avgpool3dFwd
+  op_validator: AvgPool3dFwdSharedMeta
 
 avg_pool3d.out:
   custom_fill_params: FillAvgPool3dParamsFwd
@@ -2104,6 +2160,7 @@ avg_pool3d.out:
     Gaudi3: [BFloat16, Float, Half]
   guid: avg_pool_3d_fwd
   op_backend: Avgpool3dFwd
+  op_validator: AvgPool3dFwdSharedMeta
 
 avg_pool3d_backward:
   custom_fill_params: FillAvgPool3dParamsBwd
@@ -2115,6 +2172,7 @@ avg_pool3d_backward:
   guid: avg_pool_3d_bwd
   op_backend: AvgPool3dBwd
   out_ids: [0]
+  op_validator: AvgPool3dBwdSharedMeta
 
 avg_pool3d_backward.grad_input:
   custom_fill_params: FillAvgPool3dParamsBwd
@@ -2125,6 +2183,7 @@ avg_pool3d_backward.grad_input:
     Gaudi3: [BFloat16, Float, Half]
   guid: avg_pool_3d_bwd
   op_backend: AvgPool3dBwd
+  op_validator: AvgPool3dBwdSharedMeta
 
 _adaptive_avg_pool3d:
   custom_fill_params: FillAdaptiveAvgPool3dParamsFwd
@@ -2139,6 +2198,7 @@ _adaptive_avg_pool3d:
   - [WHDCN, WHDCN]
   - [WHDCN]
   out_ids: [0]
+  op_validator: AdaptiveAvgPool3dFwdSharedMeta
 
 adaptive_avg_pool3d.out:
   custom_fill_params: FillAdaptiveAvgPool3dParamsFwd
@@ -2152,6 +2212,7 @@ adaptive_avg_pool3d.out:
   synapse_layouts:
   - [WHDCN, WHDCN]
   - [WHDCN]
+  op_validator: AdaptiveAvgPool3dFwdSharedMeta
 
 _adaptive_avg_pool3d_backward:
   output_meta: AdaptiveAvgPool3dBwdMeta
@@ -2162,6 +2223,7 @@ _adaptive_avg_pool3d_backward:
   guid: complex_adaptive_avg_pool_3d_bwd
   op_backend: AdaptiveAvgPool3dBwd
   out_ids: [1]
+  op_validator: AdaptiveAvgPool3dBwdSharedMeta
 
 adaptive_avg_pool3d_backward.grad_input:
   output_meta: AdaptiveAvgPool3dBwdMeta
@@ -2209,6 +2271,7 @@ baddbmm:
   guid: batch_gemm
   op_backend: Baddbmm
   out_ids: [0]
+  op_validator: BAddBMMSharedMeta
 
 baddbmm_:
   output_meta: BaddbmmMeta
@@ -2219,6 +2282,7 @@ baddbmm_:
   guid: batch_gemm
   op_backend: Baddbmm
   inplace_ids: [0]
+  op_validator: BAddBMMSharedMeta
 
 
 baddbmm.out:
@@ -2229,6 +2293,7 @@ baddbmm.out:
     Gaudi3: [Float, BFloat16, Half]
   guid: batch_gemm
   op_backend: Baddbmm
+  op_validator: BAddBMMSharedMeta
 
 bernoulli:
   dtypes:

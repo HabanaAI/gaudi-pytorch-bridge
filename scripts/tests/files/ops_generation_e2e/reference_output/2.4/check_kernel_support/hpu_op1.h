@@ -5,7 +5,6 @@
 #include <pybind11/pybind11.h>
 #include <torch/csrc/jit/tensorexpr/tensorexpr_init.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
-#include <tuple>
 #include "cpu_fallback.h"
 
 using habana_helpers::DTypeHelper;
@@ -16,36 +15,82 @@ namespace habana {
 
 
 
-struct shared_layer__foreach_add_ : SharedLayerOp {
+struct shared_layer__fused_dropout : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 2) {
-    auto ivalue_arr = torch::jit::last(stack, 2);
-    if (ivalue_arr[0].isTensorList() && ivalue_arr[1].isScalar() ) {
+  if (stack.size() == 3) {
+    auto ivalue_arr = torch::jit::last(stack, 3);
+    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isDouble() ) {
 
-    	c10::IValue self = std::move(peek(stack, 0, 2));
-      c10::IValue scalar = std::move(peek(stack, 1, 2));
-      
-      std::vector<at::Tensor> self_vec;
-      const c10::List<c10::IValue> self_list_in = self.toList();
-      
-      for (c10::IValue self_elem: self_list_in) {
-          at::Tensor self_elem_base = self_elem.to<at::Tensor>();
-          self_vec.push_back(self_elem_base);
+      c10::IValue self = std::move(peek(stack, 0, 3));
+      c10::IValue p = std::move(peek(stack, 1, 3));
+      c10::IValue generator = std::move(peek(stack, 2, 3));
+
+      at::Tensor self_base = self.to<at::Tensor>();
+      double p_base = p.to<double>();
+
+      auto generator_opt = generator.toOptional<c10::IValue>();
+      ::std::optional<at::Generator> generator_opt_out;
+      if (generator_opt.has_value()) {
+          const c10::IValue generator_opt_in = generator_opt.value();
+          at::Generator generator_opt_in_base = generator_opt_in.to<at::Generator>();
+          generator_opt_out = ::std::optional<at::Generator>(generator_opt_in_base);
+      } else {
+          generator_opt_out = ::std::optional<at::Generator>();
       }
-      at::TensorList self_list_out(self_vec);
-                  
-      at::Scalar scalar_base = scalar.to<at::Scalar>();
-      auto is_supported = impl(self_list_out, scalar_base, is_dynamic);
+
+      auto is_supported = impl(self_base, p_base, generator_opt_out, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(at::TensorList self, const at::Scalar & scalar, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kDouble, at::kBool}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}}}))
+bool impl(const at::Tensor & self, double p, c10::optional<at::Generator> generator, bool is_dynamic) {
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  RETURN_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, is_dynamic, self, p, generator)
+
+  return true;
+}
+
+};
+
+struct shared_layer_native_dropout : SharedLayerOp {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
+  if (stack.size() == 3) {
+    auto ivalue_arr = torch::jit::last(stack, 3);
+    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isDouble() ) {
+
+      c10::IValue input = std::move(peek(stack, 0, 3));
+      c10::IValue p = std::move(peek(stack, 1, 3));
+      c10::IValue train = std::move(peek(stack, 2, 3));
+
+      at::Tensor input_base = input.to<at::Tensor>();
+      double p_base = p.to<double>();
+
+      auto train_opt = train.toOptional<c10::IValue>();
+      ::std::optional<bool> train_opt_out;
+      if (train_opt.has_value()) {
+          const c10::IValue train_opt_in = train_opt.value();
+          bool train_opt_in_base = train_opt_in.to<bool>();
+          train_opt_out = ::std::optional<bool>(train_opt_in_base);
+      } else {
+          train_opt_out = ::std::optional<bool>();
+      }
+
+      auto is_supported = impl(input_base, p_base, train_opt_out, is_dynamic);
+      return is_supported;
+    }
+  }
+  return false;
+}
+private:
+bool impl(const at::Tensor & input, double p, c10::optional<bool> train, bool is_dynamic) {
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  RETURN_IF_UNSUPPORTED_DTYPE(input, native_dropout, is_dynamic, input, p, train)
 
   return true;
 }

@@ -5,7 +5,6 @@
 #include <pybind11/pybind11.h>
 #include <torch/csrc/jit/tensorexpr/tensorexpr_init.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
-#include <tuple>
 #include "cpu_fallback.h"
 
 using habana_helpers::DTypeHelper;
@@ -16,412 +15,13 @@ namespace habana {
 
 
 
-struct shared_layer_sort_out : SharedLayerOp {
-bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 6) {
-    auto ivalue_arr = torch::jit::last(stack, 6);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[2].isInt() && ivalue_arr[3].isBool() && ivalue_arr[4].isTensor() && ivalue_arr[5].isTensor() ) {
-
-    	c10::IValue self = std::move(peek(stack, 0, 6));
-      c10::IValue stable = std::move(peek(stack, 1, 6));
-      c10::IValue dim = std::move(peek(stack, 2, 6));
-      c10::IValue descending = std::move(peek(stack, 3, 6));
-      c10::IValue values = std::move(peek(stack, 4, 6));
-      c10::IValue indices = std::move(peek(stack, 5, 6));
-      
-      at::Tensor self_base = self.to<at::Tensor>();
-      
-      auto stable_opt = stable.toOptional<c10::IValue>();
-      ::std::optional<bool> stable_opt_out;
-      if (stable_opt.has_value()) {
-          const c10::IValue stable_opt_in = stable_opt.value();
-          bool stable_opt_in_base = stable_opt_in.to<bool>();
-          stable_opt_out = ::std::optional<bool>(stable_opt_in_base);
-      } else {
-          stable_opt_out = ::std::optional<bool>();
-      }
-              
-      int64_t dim_base = dim.to<int64_t>();
-      bool descending_base = descending.to<bool>();
-      at::Tensor values_base = values.to<at::Tensor>();
-      at::Tensor indices_base = indices.to<at::Tensor>();
-      auto is_supported = impl(self_base, stable_opt_out, dim_base, descending_base, values_base, indices_base, is_dynamic);
-      return is_supported;
-    }
-  }
-  return false;
-}
-private:
-bool impl(const at::Tensor & self, c10::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kInt, at::kBFloat16, at::kShort, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(self, sort, is_dynamic, values_stable, self, stable, dim, descending, values, indices)
-  RETURN_IF_UNSUPPORTED_DTYPE2(values, sort, is_dynamic, values_stable, self, stable, dim, descending, values, indices)
-
-  return true;
-}
-
-};
-
-struct shared_layer_squeeze : SharedLayerOp {
-bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 2) {
-    auto ivalue_arr = torch::jit::last(stack, 2);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isList() ) {
-
-    	c10::IValue self = std::move(peek(stack, 0, 2));
-      c10::IValue dim = std::move(peek(stack, 1, 2));
-      
-      at::Tensor self_base = self.to<at::Tensor>();
-      std::vector<int64_t> dim_vec;
-      const c10::List<c10::IValue> dim_list_in = dim.toList();
-      
-      for (c10::IValue dim_elem: dim_list_in) {
-          int64_t dim_elem_base = dim_elem.to<int64_t>();
-          dim_vec.push_back(dim_elem_base);
-      }
-      at::IntArrayRef dim_list_out(dim_vec);
-                  
-      auto is_supported = impl(self_base, dim_list_out, is_dynamic);
-      return is_supported;
-    }
-  }
-  return false;
-}
-private:
-bool impl(const at::Tensor & self, at::IntArrayRef dim, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(self, squeeze, is_dynamic, dims, self, dim)
-
-  return true;
-}
-
-};
-
-struct shared_layer_eq_out : SharedLayerOp {
-bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 3) {
-    auto ivalue_arr = torch::jit::last(stack, 3);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isScalar() && ivalue_arr[2].isTensor() ) {
-
-    	c10::IValue self = std::move(peek(stack, 0, 3));
-      c10::IValue other = std::move(peek(stack, 1, 3));
-      c10::IValue out = std::move(peek(stack, 2, 3));
-      
-      at::Tensor self_base = self.to<at::Tensor>();
-      at::Scalar other_base = other.to<at::Scalar>();
-      at::Tensor out_base = out.to<at::Tensor>();
-      auto is_supported = impl(self_base, other_base, out_base, is_dynamic);
-      return is_supported;
-    }
-  }
-  return false;
-}
-private:
-bool impl(const at::Tensor & self, const at::Scalar & other, at::Tensor & out, bool is_dynamic) {
-  auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
-  static_cast<void>(compute_type);
-
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kLong, at::kDouble, at::kBool}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(compute_type, eq, is_dynamic, Scalar_out, self, other, out)
-
-  return true;
-}
-
-};
-
-struct shared_layer_isfinite : SharedLayerOp {
-bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 1) {
-    auto ivalue_arr = torch::jit::last(stack, 1);
-    if (ivalue_arr[0].isTensor() ) {
-
-    	c10::IValue self = std::move(peek(stack, 0, 1));
-      
-      at::Tensor self_base = self.to<at::Tensor>();
-      auto is_supported = impl(self_base, is_dynamic);
-      return is_supported;
-    }
-  }
-  return false;
-}
-private:
-bool impl(const at::Tensor & self, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE(self, isfinite, is_dynamic, self)
-
-  return true;
-}
-
-};
-
-struct shared_layer_upsample_bicubic2d : SharedLayerOp {
-bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 4) {
-    auto ivalue_arr = torch::jit::last(stack, 4);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[2].isBool() && ivalue_arr[3].isList() ) {
-
-    	c10::IValue input = std::move(peek(stack, 0, 4));
-      c10::IValue output_size = std::move(peek(stack, 1, 4));
-      c10::IValue align_corners = std::move(peek(stack, 2, 4));
-      c10::IValue scale_factors = std::move(peek(stack, 3, 4));
-      
-      at::Tensor input_base = input.to<at::Tensor>();
-      std::vector<int64_t> output_size_opt_in_vec;
-      
-      auto output_size_opt = output_size.toOptional<c10::IValue>();
-      at::OptionalIntArrayRef output_size_opt_out;
-      if (output_size_opt.has_value()) {
-          const c10::IValue output_size_opt_in = output_size_opt.value();
-          const c10::List<c10::IValue> output_size_opt_in_list_in = output_size_opt_in.toList();
-      	
-      	for (c10::IValue output_size_opt_in_elem: output_size_opt_in_list_in) {
-      	    int64_t output_size_opt_in_elem_base = output_size_opt_in_elem.to<int64_t>();
-      	    output_size_opt_in_vec.push_back(output_size_opt_in_elem_base);
-      	}
-      	at::IntArrayRef output_size_opt_in_list_out(output_size_opt_in_vec);
-      	            
-          output_size_opt_out = at::OptionalIntArrayRef(output_size_opt_in_list_out);
-      } else {
-          output_size_opt_out = at::OptionalIntArrayRef();
-      }
-              
-      bool align_corners_base = align_corners.to<bool>();
-      std::vector<double> scale_factors_opt_in_vec;
-      
-      auto scale_factors_opt = scale_factors.toOptional<c10::IValue>();
-      ::std::optional<at::ArrayRef<double>> scale_factors_opt_out;
-      if (scale_factors_opt.has_value()) {
-          const c10::IValue scale_factors_opt_in = scale_factors_opt.value();
-          const c10::List<c10::IValue> scale_factors_opt_in_list_in = scale_factors_opt_in.toList();
-      	
-      	for (c10::IValue scale_factors_opt_in_elem: scale_factors_opt_in_list_in) {
-      	    double scale_factors_opt_in_elem_base = scale_factors_opt_in_elem.to<double>();
-      	    scale_factors_opt_in_vec.push_back(scale_factors_opt_in_elem_base);
-      	}
-      	at::ArrayRef<double> scale_factors_opt_in_list_out(scale_factors_opt_in_vec);
-      	            
-          scale_factors_opt_out = ::std::optional<at::ArrayRef<double>>(scale_factors_opt_in_list_out);
-      } else {
-          scale_factors_opt_out = ::std::optional<at::ArrayRef<double>>();
-      }
-              
-      auto is_supported = impl(input_base, output_size_opt_out, align_corners_base, scale_factors_opt_out, is_dynamic);
-      return is_supported;
-    }
-  }
-  return false;
-}
-private:
-bool impl(const at::Tensor & input, at::OptionalIntArrayRef output_size, bool align_corners, c10::optional<at::ArrayRef<double>> scale_factors, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(input, upsample_bicubic2d, is_dynamic, vec, input, output_size, align_corners, scale_factors)
-
-  return true;
-}
-
-};
-
-struct shared_layer_bitwise_left_shift : SharedLayerOp {
-bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 2) {
-    auto ivalue_arr = torch::jit::last(stack, 2);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isScalar() ) {
-
-    	c10::IValue self = std::move(peek(stack, 0, 2));
-      c10::IValue other = std::move(peek(stack, 1, 2));
-      
-      at::Tensor self_base = self.to<at::Tensor>();
-      at::Scalar other_base = other.to<at::Scalar>();
-      auto is_supported = impl(self_base, other_base, is_dynamic);
-      return is_supported;
-    }
-  }
-  return false;
-}
-private:
-bool impl(const at::Tensor & self, const at::Scalar & other, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{-1, {at::kInt, at::kChar, at::kByte, at::kShort, at::kBool}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(self, bitwise_left_shift, is_dynamic, Tensor_Scalar, self, other)
-
-  return true;
-}
-
-};
-
-struct shared_layer__native_batch_norm_legit : SharedLayerOp {
-bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 8) {
-    auto ivalue_arr = torch::jit::last(stack, 8);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[3].isTensor() && ivalue_arr[4].isTensor() && ivalue_arr[5].isBool() && ivalue_arr[6].isDouble() && ivalue_arr[7].isDouble() ) {
-
-    	c10::IValue input = std::move(peek(stack, 0, 8));
-      c10::IValue weight = std::move(peek(stack, 1, 8));
-      c10::IValue bias = std::move(peek(stack, 2, 8));
-      c10::IValue running_mean = std::move(peek(stack, 3, 8));
-      c10::IValue running_var = std::move(peek(stack, 4, 8));
-      c10::IValue training = std::move(peek(stack, 5, 8));
-      c10::IValue momentum = std::move(peek(stack, 6, 8));
-      c10::IValue eps = std::move(peek(stack, 7, 8));
-      
-      at::Tensor input_base = input.to<at::Tensor>();
-      
-      auto weight_opt = weight.toOptional<c10::IValue>();
-      ::std::optional<at::Tensor> weight_opt_out;
-      if (weight_opt.has_value()) {
-          const c10::IValue weight_opt_in = weight_opt.value();
-          at::Tensor weight_opt_in_base = weight_opt_in.to<at::Tensor>();
-          weight_opt_out = ::std::optional<at::Tensor>(weight_opt_in_base);
-      } else {
-          weight_opt_out = ::std::optional<at::Tensor>();
-      }
-              
-      
-      auto bias_opt = bias.toOptional<c10::IValue>();
-      ::std::optional<at::Tensor> bias_opt_out;
-      if (bias_opt.has_value()) {
-          const c10::IValue bias_opt_in = bias_opt.value();
-          at::Tensor bias_opt_in_base = bias_opt_in.to<at::Tensor>();
-          bias_opt_out = ::std::optional<at::Tensor>(bias_opt_in_base);
-      } else {
-          bias_opt_out = ::std::optional<at::Tensor>();
-      }
-              
-      at::Tensor running_mean_base = running_mean.to<at::Tensor>();
-      at::Tensor running_var_base = running_var.to<at::Tensor>();
-      bool training_base = training.to<bool>();
-      double momentum_base = momentum.to<double>();
-      double eps_base = eps.to<double>();
-      auto is_supported = impl(input_base, weight_opt_out, bias_opt_out, running_mean_base, running_var_base, training_base, momentum_base, eps_base, is_dynamic);
-      return is_supported;
-    }
-  }
-  return false;
-}
-private:
-bool impl(const at::Tensor & input, const c10::optional<at::Tensor> & weight, const c10::optional<at::Tensor> & bias, at::Tensor & running_mean, at::Tensor & running_var, bool training, double momentum, double eps, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}), input)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), weight)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), bias)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), running_mean)
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kDouble}}}), running_var)
-  RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(input, _native_batch_norm_legit, is_dynamic, input, weight, bias, running_mean, running_var, training, momentum, eps)
-  RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_mean, _native_batch_norm_legit, is_dynamic, input, weight, bias, running_mean, running_var, training, momentum, eps)
-  RETURN_IF_UNSUPPORTED_DTYPE_PER_TENSOR(running_var, _native_batch_norm_legit, is_dynamic, input, weight, bias, running_mean, running_var, training, momentum, eps)
-
-  return true;
-}
-
-};
-
-struct shared_layer_convolution_backward_overrideable : SharedLayerOp {
-bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 10) {
-    auto ivalue_arr = torch::jit::last(stack, 10);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isTensor() && ivalue_arr[2].isTensor() && ivalue_arr[6].isBool() ) {
-
-    	c10::IValue grad_output = std::move(peek(stack, 0, 10));
-      c10::IValue input = std::move(peek(stack, 1, 10));
-      c10::IValue weight = std::move(peek(stack, 2, 10));
-      c10::IValue stride = std::move(peek(stack, 3, 10));
-      c10::IValue padding = std::move(peek(stack, 4, 10));
-      c10::IValue dilation = std::move(peek(stack, 5, 10));
-      c10::IValue transposed = std::move(peek(stack, 6, 10));
-      c10::IValue output_padding = std::move(peek(stack, 7, 10));
-      c10::IValue groups = std::move(peek(stack, 8, 10));
-      c10::IValue output_mask = std::move(peek(stack, 9, 10));
-      
-      at::Tensor grad_output_base = grad_output.to<at::Tensor>();
-      at::Tensor input_base = input.to<at::Tensor>();
-      at::Tensor weight_base = weight.to<at::Tensor>();
-      std::vector<int64_t> stride_vec;
-      const c10::List<c10::IValue> stride_list_in = stride.toList();
-      
-      for (c10::IValue stride_elem: stride_list_in) {
-          int64_t stride_elem_base = stride_elem.to<int64_t>();
-          stride_vec.push_back(stride_elem_base);
-      }
-      at::IntArrayRef stride_list_out(stride_vec);
-                  
-      std::vector<int64_t> padding_vec;
-      const c10::List<c10::IValue> padding_list_in = padding.toList();
-      
-      for (c10::IValue padding_elem: padding_list_in) {
-          int64_t padding_elem_base = padding_elem.to<int64_t>();
-          padding_vec.push_back(padding_elem_base);
-      }
-      at::IntArrayRef padding_list_out(padding_vec);
-                  
-      std::vector<int64_t> dilation_vec;
-      const c10::List<c10::IValue> dilation_list_in = dilation.toList();
-      
-      for (c10::IValue dilation_elem: dilation_list_in) {
-          int64_t dilation_elem_base = dilation_elem.to<int64_t>();
-          dilation_vec.push_back(dilation_elem_base);
-      }
-      at::IntArrayRef dilation_list_out(dilation_vec);
-                  
-      bool transposed_base = transposed.to<bool>();
-      std::vector<int64_t> output_padding_vec;
-      const c10::List<c10::IValue> output_padding_list_in = output_padding.toList();
-      
-      for (c10::IValue output_padding_elem: output_padding_list_in) {
-          int64_t output_padding_elem_base = output_padding_elem.to<int64_t>();
-          output_padding_vec.push_back(output_padding_elem_base);
-      }
-      at::IntArrayRef output_padding_list_out(output_padding_vec);
-                  
-      int64_t groups_base = groups.to<int64_t>();
-      const c10::List<c10::IValue> output_mask_list_in = output_mask.toList();
-      
-      ::std::array<bool,3> output_mask_list_out = as_array<bool, 3>(output_mask_list_in);
-                  
-      auto is_supported = impl(grad_output_base, input_base, weight_base, stride_list_out, padding_list_out, dilation_list_out, transposed_base, output_padding_list_out, groups_base, output_mask_list_out, is_dynamic);
-      return is_supported;
-    }
-  }
-  return false;
-}
-private:
-bool impl(const at::Tensor & grad_output, const at::Tensor & input, const at::Tensor & weight, at::IntArrayRef stride, at::IntArrayRef padding, at::IntArrayRef dilation, bool transposed, at::IntArrayRef output_padding, int64_t groups, ::std::array<bool,3> output_mask, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE(grad_output, convolution_backward_overrideable, is_dynamic, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
-  RETURN_IF_UNSUPPORTED_DTYPE(input, convolution_backward_overrideable, is_dynamic, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
-  RETURN_IF_UNSUPPORTED_DTYPE(weight, convolution_backward_overrideable, is_dynamic, grad_output, input, weight, stride, padding, dilation, transposed, output_padding, groups, output_mask)
-
-  return true;
-}
-
-};
-
 struct shared_layer_native_group_norm : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
   if (stack.size() == 8) {
     auto ivalue_arr = torch::jit::last(stack, 8);
     if (ivalue_arr[0].isTensor() && ivalue_arr[6].isInt() && ivalue_arr[7].isDouble() ) {
 
-    	c10::IValue input = std::move(peek(stack, 0, 8));
+      c10::IValue input = std::move(peek(stack, 0, 8));
       c10::IValue weight = std::move(peek(stack, 1, 8));
       c10::IValue bias = std::move(peek(stack, 2, 8));
       c10::IValue N = std::move(peek(stack, 3, 8));
@@ -429,9 +29,9 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
       c10::IValue HxW = std::move(peek(stack, 5, 8));
       c10::IValue group = std::move(peek(stack, 6, 8));
       c10::IValue eps = std::move(peek(stack, 7, 8));
-      
+
       at::Tensor input_base = input.to<at::Tensor>();
-      
+
       auto weight_opt = weight.toOptional<c10::IValue>();
       ::std::optional<at::Tensor> weight_opt_out;
       if (weight_opt.has_value()) {
@@ -441,8 +41,8 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
       } else {
           weight_opt_out = ::std::optional<at::Tensor>();
       }
-              
-      
+
+
       auto bias_opt = bias.toOptional<c10::IValue>();
       ::std::optional<at::Tensor> bias_opt_out;
       if (bias_opt.has_value()) {
@@ -452,7 +52,7 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
       } else {
           bias_opt_out = ::std::optional<at::Tensor>();
       }
-              
+
       int64_t N_base = N.to<int64_t>();
       int64_t C_base = C.to<int64_t>();
       int64_t HxW_base = HxW.to<int64_t>();
@@ -482,18 +82,18 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
     auto ivalue_arr = torch::jit::last(stack, 4);
     if (ivalue_arr[0].isTensor() && ivalue_arr[1].isTensor() && ivalue_arr[2].isTensor() ) {
 
-    	c10::IValue self = std::move(peek(stack, 0, 4));
+      c10::IValue self = std::move(peek(stack, 0, 4));
       c10::IValue grad_output = std::move(peek(stack, 1, 4));
       c10::IValue weight = std::move(peek(stack, 2, 4));
       c10::IValue output_mask = std::move(peek(stack, 3, 4));
-      
+
       at::Tensor self_base = self.to<at::Tensor>();
       at::Tensor grad_output_base = grad_output.to<at::Tensor>();
       at::Tensor weight_base = weight.to<at::Tensor>();
       const c10::List<c10::IValue> output_mask_list_in = output_mask.toList();
-      
+
       ::std::array<bool,3> output_mask_list_out = as_array<bool, 3>(output_mask_list_in);
-                  
+
       auto is_supported = impl(self_base, grad_output_base, weight_base, output_mask_list_out, is_dynamic);
       return is_supported;
     }

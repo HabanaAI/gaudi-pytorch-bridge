@@ -5,7 +5,6 @@
 #include <pybind11/pybind11.h>
 #include <torch/csrc/jit/tensorexpr/tensorexpr_init.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
-#include <tuple>
 #include "cpu_fallback.h"
 
 using habana_helpers::DTypeHelper;
@@ -14,33 +13,87 @@ using namespace torch::jit;
 
 namespace habana {
 
-static CheckNodeWithSharedLayerValidator validator_elu("elu", "elu_fwd", {0}, {}, nullptr, {}, false, false, false, false);
 
 
-struct shared_layer_elu : SharedLayerOp {
+struct shared_layer_sort_out : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 4) {
-    auto ivalue_arr = torch::jit::last(stack, 4);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isScalar() && ivalue_arr[2].isScalar() && ivalue_arr[3].isScalar() ) {
+  if (stack.size() == 6) {
+    auto ivalue_arr = torch::jit::last(stack, 6);
+    if (ivalue_arr[0].isTensor() && ivalue_arr[2].isInt() && ivalue_arr[3].isBool() && ivalue_arr[4].isTensor() && ivalue_arr[5].isTensor() ) {
 
-    	c10::IValue self = std::move(peek(stack, 0, 4));
-      c10::IValue alpha = std::move(peek(stack, 1, 4));
-      c10::IValue scale = std::move(peek(stack, 2, 4));
-      c10::IValue input_scale = std::move(peek(stack, 3, 4));
-      
+      c10::IValue self = std::move(peek(stack, 0, 6));
+      c10::IValue stable = std::move(peek(stack, 1, 6));
+      c10::IValue dim = std::move(peek(stack, 2, 6));
+      c10::IValue descending = std::move(peek(stack, 3, 6));
+      c10::IValue values = std::move(peek(stack, 4, 6));
+      c10::IValue indices = std::move(peek(stack, 5, 6));
+
       at::Tensor self_base = self.to<at::Tensor>();
-      at::Scalar alpha_base = alpha.to<at::Scalar>();
-      at::Scalar scale_base = scale.to<at::Scalar>();
-      at::Scalar input_scale_base = input_scale.to<at::Scalar>();
-      auto is_supported = impl(self_base, alpha_base, scale_base, input_scale_base, is_dynamic);
+
+      c10::optional<c10::IValue> stable_opt = stable.toOptional<c10::IValue>();
+      c10::optional<bool> stable_opt_out;
+      if (stable_opt.has_value()) {
+          const c10::IValue stable_opt_in = stable_opt.value();
+          bool stable_opt_in_base = stable_opt_in.to<bool>();
+          stable_opt_out = c10::optional<bool>(stable_opt_in_base);
+      } else {
+          stable_opt_out = c10::optional<bool>();
+      }
+
+      int64_t dim_base = dim.to<int64_t>();
+      bool descending_base = descending.to<bool>();
+      at::Tensor values_base = values.to<at::Tensor>();
+      at::Tensor indices_base = indices.to<at::Tensor>();
+      auto is_supported = impl(self_base, stable_opt_out, dim_base, descending_base, values_base, indices_base, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & self, const at::Scalar & alpha, const at::Scalar & scale, const at::Scalar & input_scale, bool is_dynamic) {
-  VAL_RETURN_IF_UNSUPPORTED_DTYPE(self, elu, is_dynamic, self, alpha, scale, input_scale)
+bool impl(const at::Tensor & self, c10::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices, bool is_dynamic) {
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kInt, at::kBFloat16, at::kShort, at::kDouble}},
+   {synDeviceGaudi2, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}},
+   {synDeviceGaudi3, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}}}))
+  RETURN_IF_UNSUPPORTED_DTYPE2(self, sort, is_dynamic, values_stable, self, stable, dim, descending, values, indices)
+  RETURN_IF_UNSUPPORTED_DTYPE2(values, sort, is_dynamic, values_stable, self, stable, dim, descending, values, indices)
+
+  return true;
+}
+
+};
+
+struct shared_layer_squeeze : SharedLayerOp {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
+  if (stack.size() == 2) {
+    auto ivalue_arr = torch::jit::last(stack, 2);
+    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isList() ) {
+
+      c10::IValue self = std::move(peek(stack, 0, 2));
+      c10::IValue dim = std::move(peek(stack, 1, 2));
+
+      at::Tensor self_base = self.to<at::Tensor>();
+      std::vector<int64_t> dim_vec;
+      const c10::List<c10::IValue> dim_list_in = dim.toList();
+
+      for (c10::IValue dim_elem: dim_list_in) {
+          int64_t dim_elem_base = dim_elem.to<int64_t>();
+          dim_vec.push_back(dim_elem_base);
+      }
+      at::IntArrayRef dim_list_out(dim_vec);
+
+      auto is_supported = impl(self_base, dim_list_out, is_dynamic);
+      return is_supported;
+    }
+  }
+  return false;
+}
+private:
+bool impl(const at::Tensor & self, at::IntArrayRef dim, bool is_dynamic) {
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kDouble}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}}}))
+  RETURN_IF_UNSUPPORTED_DTYPE2(self, squeeze, is_dynamic, dims, self, dim)
 
   return true;
 }

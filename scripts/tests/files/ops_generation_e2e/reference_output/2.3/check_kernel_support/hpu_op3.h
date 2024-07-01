@@ -5,7 +5,6 @@
 #include <pybind11/pybind11.h>
 #include <torch/csrc/jit/tensorexpr/tensorexpr_init.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
-#include <tuple>
 #include "cpu_fallback.h"
 
 using habana_helpers::DTypeHelper;
@@ -14,43 +13,81 @@ using namespace torch::jit;
 
 namespace habana {
 
+static CheckNodeWithSharedLayerValidator validator_elu("elu", "elu_fwd", {0}, {}, nullptr, {}, false, false, false, false);
 
 
-struct shared_layer_native_dropout : SharedLayerOp {
+struct shared_layer_elu : SharedLayerOp {
 bool func(torch::jit::Stack &stack, bool is_dynamic) {
-  if (stack.size() == 3) {
-    auto ivalue_arr = torch::jit::last(stack, 3);
-    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isDouble() ) {
+  if (stack.size() == 4) {
+    auto ivalue_arr = torch::jit::last(stack, 4);
+    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isScalar() && ivalue_arr[2].isScalar() && ivalue_arr[3].isScalar() ) {
 
-    	c10::IValue input = std::move(peek(stack, 0, 3));
-      c10::IValue p = std::move(peek(stack, 1, 3));
-      c10::IValue train = std::move(peek(stack, 2, 3));
-      
-      at::Tensor input_base = input.to<at::Tensor>();
-      double p_base = p.to<double>();
-      
-      c10::optional<c10::IValue> train_opt = train.toOptional<c10::IValue>();
-      c10::optional<bool> train_opt_out;
-      if (train_opt.has_value()) {
-          const c10::IValue train_opt_in = train_opt.value();
-          bool train_opt_in_base = train_opt_in.to<bool>();
-          train_opt_out = c10::optional<bool>(train_opt_in_base);
-      } else {
-          train_opt_out = c10::optional<bool>();
-      }
-              
-      auto is_supported = impl(input_base, p_base, train_opt_out, is_dynamic);
+      c10::IValue self = std::move(peek(stack, 0, 4));
+      c10::IValue alpha = std::move(peek(stack, 1, 4));
+      c10::IValue scale = std::move(peek(stack, 2, 4));
+      c10::IValue input_scale = std::move(peek(stack, 3, 4));
+
+      at::Tensor self_base = self.to<at::Tensor>();
+      at::Scalar alpha_base = alpha.to<at::Scalar>();
+      at::Scalar scale_base = scale.to<at::Scalar>();
+      at::Scalar input_scale_base = input_scale.to<at::Scalar>();
+      auto is_supported = impl(self_base, alpha_base, scale_base, input_scale_base, is_dynamic);
       return is_supported;
     }
   }
   return false;
 }
 private:
-bool impl(const at::Tensor & input, double p, c10::optional<bool> train, bool is_dynamic) {
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE(input, native_dropout, is_dynamic, input, p, train)
+bool impl(const at::Tensor & self, const at::Scalar & alpha, const at::Scalar & scale, const at::Scalar & input_scale, bool is_dynamic) {
+  VAL_RETURN_IF_UNSUPPORTED_DTYPE(elu, is_dynamic, self, alpha, scale, input_scale)
+
+  return true;
+}
+
+};
+
+struct shared_layer_prod_out : SharedLayerOp {
+bool func(torch::jit::Stack &stack, bool is_dynamic) {
+  if (stack.size() == 5) {
+    auto ivalue_arr = torch::jit::last(stack, 5);
+    if (ivalue_arr[0].isTensor() && ivalue_arr[1].isInt() && ivalue_arr[2].isBool() && ivalue_arr[4].isTensor() ) {
+
+      c10::IValue self = std::move(peek(stack, 0, 5));
+      c10::IValue dim = std::move(peek(stack, 1, 5));
+      c10::IValue keepdim = std::move(peek(stack, 2, 5));
+      c10::IValue dtype = std::move(peek(stack, 3, 5));
+      c10::IValue out = std::move(peek(stack, 4, 5));
+
+      at::Tensor self_base = self.to<at::Tensor>();
+      int64_t dim_base = dim.to<int64_t>();
+      bool keepdim_base = keepdim.to<bool>();
+
+      c10::optional<c10::IValue> dtype_opt = dtype.toOptional<c10::IValue>();
+      c10::optional<at::ScalarType> dtype_opt_out;
+      if (dtype_opt.has_value()) {
+          const c10::IValue dtype_opt_in = dtype_opt.value();
+          at::ScalarType dtype_opt_in_base = dtype_opt_in.to<at::ScalarType>();
+          dtype_opt_out = c10::optional<at::ScalarType>(dtype_opt_in_base);
+      } else {
+          dtype_opt_out = c10::optional<at::ScalarType>();
+      }
+
+      at::Tensor out_base = out.to<at::Tensor>();
+      auto is_supported = impl(self_base, dim_base, keepdim_base, dtype_opt_out, out_base, is_dynamic);
+      return is_supported;
+    }
+  }
+  return false;
+}
+private:
+bool impl(const at::Tensor & self, int64_t dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out, bool is_dynamic) {
+  auto compute_type = DTypeHelper::get_compute_dtype({self}, out, DTypeHelper::DtypePromoteVariant::kReduction, false/*safe_cast*/, dtype);
+  static_cast<void>(compute_type);
+
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
+  RETURN_IF_UNSUPPORTED_DTYPE2(compute_type, prod, is_dynamic, int_out, self, dim, keepdim, dtype, out)
 
   return true;
 }

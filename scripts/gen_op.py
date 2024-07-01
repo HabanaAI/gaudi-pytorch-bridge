@@ -153,15 +153,6 @@ class OpValidatorGenerator(ABC):
         Returns dtypes line to be added to CPP file inside function
         """
 
-    @abstractmethod
-    def get_inputs_to_generate_macro(self, xs):
-        """
-        Returns a list of arguments to which we should generate macro FALLBACK_IF.
-
-        It is helper. The old method generated macro per tensor while the new method
-        want to generate only one macro. This method is a helper to control this behaviour.
-        """
-
 
 def generate_dtype_macro(dtypes, check_implicit_types=True):
     def generate_line(dd_pairs, suffix=""):
@@ -227,9 +218,6 @@ class UseDtypesOpValidatorGenerator(OpValidatorGenerator):
     def get_validator_inline_data_def(self):
         dtypes = copy.deepcopy(self._ctxop.get_dtypes())
         return generate_dtype_macro(dtypes, self._ctxop.get_lazy() == {})
-
-    def get_inputs_to_generate_macro(self, xs):
-        return xs
 
 
 def get_promotion_ids(ctxop, cpp_sig):
@@ -335,8 +323,29 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
 
         return f"static CheckNodeWithSharedLayerValidator validator_{var_opname}({constructor_args});\n"
 
-    def get_inputs_to_generate_macro(self, xs):
-        return xs[0:1]
+
+class CheckNodeWithCustomSharedLayerValidatorGenerator(CheckNodeWithSharedLayerValidatorGenerator):
+    def get_fallback_if_prefix(self):
+        return "VAL_CUSTOM_"
+
+    def can_generate(self):
+        return True
+
+    def get_validator_data_def(self, isoutfn, cpp_sig=""):
+        ctxop = self._ctxop
+        opname = ctxop.opname
+        var_opname = ctxop.opname.replace(".", "_")
+
+        arg_opname = f'"{opname}"'
+        arg_shared_meta = ctxop.get_op_validator()
+
+        constructor_args = [
+            arg_opname,
+            arg_shared_meta,
+        ]
+        constructor_args = ", ".join(constructor_args)
+
+        return f"static CheckNodeWithSharedLayerValidator validator_{var_opname}({constructor_args});\n"
 
 
 allowed_lazy_keys = set()
@@ -374,7 +383,7 @@ class Op:
         return self.op.get("guid", None)
 
     def get_dtypes(self):
-        if self.op.get("op_validator") == "check-node-with-shared-layer":
+        if self.get_op_validator():
             return None
         return self.op.get("dtypes", None)
 
@@ -475,6 +484,14 @@ class Op:
     def get_only_shared_layer(self):
         return self.op.get("only_shared_layer", False)
 
+    def get_op_validator(self):
+        return self.op.get("op_validator", None)
+
+    def get_shared_layer_meta(self):
+        if self.get_op_validator() in [None, "check-node-with-shared-layer"]:
+            return None
+        return self.get_op_validator()
+
     def get_fallback_check(self):
         return self.op.get("fallback_check", [])
 
@@ -501,17 +518,12 @@ class Op:
         return self.op.get("out_dtypes", None)
 
     def get_op_validator_generator(self) -> OpValidatorGenerator:
-        op_validator = self.op.get("op_validator")
-        if op_validator is None:
-            op_validator = "use-dtypes"
+        op_validator = self.get_op_validator()
         mapping = {
-            "use-dtypes": UseDtypesOpValidatorGenerator,
+            None: UseDtypesOpValidatorGenerator,
             "check-node-with-shared-layer": CheckNodeWithSharedLayerValidatorGenerator,
         }
-        assert (
-            op_validator in mapping.keys()
-        ), f"op_validator can be set only to {mapping.keys()}, not {op_validator} [TODO: custom]"
-        result = mapping[op_validator](self)
+        result = mapping.get(op_validator, CheckNodeWithCustomSharedLayerValidatorGenerator)(self)
         if not result.can_generate():
             return None
         return result
@@ -558,23 +570,35 @@ def fallback_if_unsupported(
     overload,
     param_vars,
     check_per_tensor,
-    fallback_if_prefix,
+    prefix,
     is_check_kernel_support=False,
 ):
-    code = ""
     fallback_string = f"{'RETURN' if is_check_kernel_support else 'FALLBACK'}_IF_UNSUPPORTED_DTYPE"
-    for t in tinputs:
-        code += "  {}{}{}{}({}, {}{}, {}{})\n".format(
-            fallback_if_prefix,
+    per_tensor_string = "_PER_TENSOR" if check_per_tensor else ""
+    overload_variant = "2" if overload else ""
+    is_dynamic_string = ", is_dynamic" if is_check_kernel_support else ""
+    overload_string = overload + ", " if overload else ""
+
+    def single_fallback(tensor_opt=""):
+        tensor_string = tensor_opt + ", " if tensor_opt else ""
+        return "  {}{}{}{}({}{}{}, {}{})\n".format(
+            prefix,
             fallback_string,
-            "_PER_TENSOR" if check_per_tensor else "",
-            "2" if overload else "",
-            t,
+            per_tensor_string,
+            overload_variant,
+            tensor_string,
             opname,
-            ", is_dynamic" if is_check_kernel_support else "",
-            overload + ", " if overload else "",
+            is_dynamic_string,
+            overload_string,
             ", ".join(param_vars),
         )
+
+    if prefix:
+        return single_fallback()
+
+    code = ""
+    for t in tinputs:
+        code += single_fallback(t)
     return code
 
 
@@ -609,6 +633,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     op_backend_class = ctxop.get_op_backend_class()
     output_shape_fn = ctxop.get_custom_output_shape()
     output_meta_fn = ctxop.get_output_meta()
+    shared_layer_meta_meta_fn = ctxop.get_shared_layer_meta()
     st_meta_fn = ctxop.get_st_meta()
     promote_to_common_type = ctxop.promote_to_common_type()
     promote_int_to_float = ctxop.promote_int_to_float()
@@ -683,6 +708,9 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
 
     if handle_bool_inputs:
         ctor_extra_calls.append("HandleBoolInputs();")
+
+    if shared_layer_meta_meta_fn:
+        ctor_extra_calls.append("SetSharedLayerMetaFn({});".format(shared_layer_meta_meta_fn))
 
     if ctxop.get_reduction():
         ctor_extra_calls.append(
@@ -800,6 +828,7 @@ def generate_header_decls(fgens):
     early_exit_fns = set()
     outshape_fns = set()
     outmeta_fns = set()
+    shared_layer_meta_fns = set()
     stmeta_fns = set()
     fc_fns = set()
 
@@ -813,6 +842,7 @@ def generate_header_decls(fgens):
     early_exit_decls = ""
     outshape_decls = ""
     outmeta_decls = ""
+    shared_layer_meta_decls = ""
     stmeta_decls = ""
     fill_params_decls = ""
     fallback_check_decls = ""
@@ -832,6 +862,9 @@ def generate_header_decls(fgens):
 
         outshape_decls += build(fgen.ctxop.get_custom_output_shape(), outshape_fns, "OUTSHAPE_DECL")
         outmeta_decls += build(fgen.ctxop.get_output_meta(), outmeta_fns, "OUTMETA_DECL")
+        shared_layer_meta_decls += build(
+            fgen.ctxop.get_shared_layer_meta(), shared_layer_meta_fns, "SHARED_LAYER_META_DECL"
+        )
         stmeta_decls += build(fgen.ctxop.get_st_meta(), stmeta_fns, "STMETA_DECL")
         fill_params_decls += build(fgen.ctxop.get_custom_fill_params(), fill_params, "FILL_PARAMS_DECL")
 
@@ -844,6 +877,7 @@ def generate_header_decls(fgens):
         + early_exit_decls
         + outshape_decls
         + outmeta_decls
+        + shared_layer_meta_decls
         + stmeta_decls
         + fill_params_decls
         + fallback_check_decls
@@ -1147,10 +1181,11 @@ def handle_validator_generator(
     # Check with compute_type when using compute_type
     fallback_string = f"{'RETURN' if is_check_kernel_support else 'FALLBACK'}_IF_UNSUPPORTED_DTYPE"
     if use_compute_type:
-        code += "  {}{}{}(compute_type, {}{}, {}{})\n".format(
+        code += "  {}{}{}({}{}{}, {}{})\n".format(
             fallback_if_prefix,
             fallback_string,
             "2" if overload else "",
+            "" if fallback_if_prefix else "compute_type, ",
             opname,
             ", is_dynamic" if is_check_kernel_support else "",
             overload + ", " if overload else "",
@@ -2162,9 +2197,14 @@ def codegen_torchgen(f):
     translated_args = translate(binding_list, sig.arguments(), method=sig.method)
     code_connector = "\n      "
     arg_connector = ", "
-    code_str = "\t" + code_connector.join(code for code in code_list)
+    code_str = "  " + code_connector.join(code for code in code_list)
     args_str = f"{arg_connector.join(e.expr for e in translated_args)}"
-    return templates._TORCHGEN_POP_CODE_FORMAT_.format(code_str, args_str)
+
+    code = templates._TORCHGEN_POP_CODE_FORMAT_.format(code_str, args_str)
+    code = re.sub(r"\t", "  ", code)
+    code = re.sub(r" +\n", "\n", code)
+
+    return code
 
 
 def codegen_stackpop(param_vars, fun_args):
@@ -2252,7 +2292,6 @@ check_kernel_support_headers = """
 #include <pybind11/pybind11.h>
 #include <torch/csrc/jit/tensorexpr/tensorexpr_init.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
-#include <tuple>
 #include "cpu_fallback.h"
 
 using habana_helpers::DTypeHelper;
@@ -2397,7 +2436,7 @@ def generate_check_kernel_support(args):
             if fndef is None:
                 print(f"Op {op_name} doesn't exist in aten namespace, consider removing it from yaml.")
                 continue
-            fgens_native.append(generate_aten_op(fndef, op_name, ctxop, True, op_params))
+            fgens_native.append(generate_aten_op(fndef, op_name, ctxop, op_params, True))
 
     header_inclusions = (
         '#include "habana_kernels/lazy_kernels_declarations.h"\n'

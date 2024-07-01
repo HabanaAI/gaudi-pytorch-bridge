@@ -7,7 +7,7 @@
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
-#include "prod.h"
+#include "addbmm.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -17,28 +17,22 @@ using torch::jit::Stack;
 
 namespace habana {
 
+static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta);
 
 
-at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
+at::Tensor addbmm(const at::Tensor & self, const at::Tensor & batch1, const at::Tensor & batch2, const at::Scalar & beta, const at::Scalar & alpha) {
   PT_EAGER_TRACE;
-  PT_OP_INFO("prod_out: ", DUMP_5ARGS(self, dim, keepdim, dtype, out));
+  PT_OP_INFO("addbmm: ", DUMP_5ARGS(self, batch1, batch2, beta, alpha));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  auto compute_type = DTypeHelper::get_compute_dtype({self}, out, DTypeHelper::DtypePromoteVariant::kReduction, false/*safe_cast*/, dtype);
-  static_cast<void>(compute_type);
+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, self, batch1, batch2, beta, alpha)
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kDouble, at::kBool}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, prod, int_out, self, dim, keepdim, dtype, out)
-
-  ReductionFrontendTemplate<at::Tensor &> hpu_op{"aten::prod", {self, dim, keepdim, dtype, out}, ReductionOutputShape(self, dim, keepdim)};
-  hpu_op.set_scalar_types({compute_type});
-  hpu_op.SetReductionVarsIndices(1, 2, 3);
-  hpu_op.set_eager_op_info({eager::eagerOpKind::InplaceOut, "aten::prod", require_h2d, require_st, 1});
-  return hpu_op.call(out);
+  eager::EagerOp<at::Tensor> hpu_op{"aten::addbmm", {self, batch1, batch2, beta, alpha}};
+  hpu_op.SetOutputMetaFn(AddBMMMeta);
+  hpu_op.set_eager_op_info({eager::eagerOpKind::OutOfPlace, "aten::addbmm", require_h2d, require_st, decltype(eager::EagerOpMetaData::out_indices_){}});
+  return hpu_op.call();
 }
 
 
@@ -49,7 +43,7 @@ static const auto& kr_gen_5 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("prod.int_out", static_cast<at::Tensor & (*)(const at::Tensor &, int64_t, bool, c10::optional<at::ScalarType>, at::Tensor &)>(&habana::prod_out));
+  m.impl("addbmm", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Scalar &, const at::Scalar &)>(&habana::addbmm));
 
 }
 

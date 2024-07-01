@@ -2,7 +2,7 @@
 
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "prod.h"
+#include "elu.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -16,18 +16,17 @@ namespace habana {
 
 
 
-struct Genprod_int_out : ReductionBackendTemplate {
-  Genprod_int_out(int device_id, c10::ScalarType scalar_type) :
-      ReductionBackendTemplate(device_id, "reduce_prod_multi_dim_fwd", scalar_type, {}, {}, {}, true) {
-        SetReductionVarsIndices(1, 2, 3);
-        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 1) SetOutputMetaFn(ReductionMeta<1, 2, 3>);
+struct Genelu : OpBackend {
+  Genelu(int device_id, c10::ScalarType scalar_type) :
+      OpBackend(device_id, "elu_fwd", scalar_type, {0}, {}, {}, false) {
+        SetFillParams(FillEluParams);
   }
 };
 
 
 
 static const auto& kr_gen_5 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::prod.int_out", Genprod_int_out)
+.REGISTER_HPU_BACKEND("aten::elu", Genelu)
 ;
 
 

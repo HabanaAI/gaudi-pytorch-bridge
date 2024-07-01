@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -77,6 +77,29 @@ void FusedNativeDropout::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto dropout = DropoutCommon(this, graph, params, metas, inputTensors, size);
   syn_out(0) = std::move(dropout[0]);
   syn_out(1) = std::move(dropout[1]);
+}
+
+SharedMetaDataVector NativeDropoutBackwardSharedMeta(const at::Stack& stack) {
+  // It is assumed that constant and cast kernels are handled for all
+  // dtypes configuration, so shared layer omits validation.
+
+  auto grad_output = stack_tensor(stack, 0);
+  auto grad_dtype = grad_output.scalar_type();
+  auto grad_rank = grad_output.dim();
+
+  SharedMetaTensor common_data = {grad_rank, grad_dtype};
+
+  SharedMetaData mul1{};
+  mul1.guid = "mult_fwd";
+  mul1.inputs_data = {2, common_data};
+  mul1.outputs_data = {common_data};
+
+  SharedMetaData mul2{};
+  mul2.guid = "mult_fwd";
+  mul2.inputs_data = {common_data, {1, grad_dtype}};
+  mul2.outputs_data = {common_data};
+
+  return {mul1, mul2};
 }
 
 void NativeDropoutBackward::AddNode(sh::graph& graph, const at::Stack& stack) {

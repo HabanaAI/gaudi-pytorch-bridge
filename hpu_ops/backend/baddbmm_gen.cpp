@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -162,6 +162,73 @@ static std::vector<synapse_helpers::tensor> BaddbMMCommon(
          {{meta.shape, meta.dtype, 0}}});
   }
   return baddbmm_out;
+}
+
+static SharedMetaData BetaSharedMeta(
+    int input_rank,
+    at::ScalarType input_dtype) {
+  SharedMetaData mul{"mult_fwd"};
+  mul.inputs_data = {{input_rank, input_dtype}, {3, input_dtype}};
+  mul.outputs_data = {{3, input_dtype}};
+  return mul;
+}
+
+static SharedMetaDataVector AlphaSharedMeta(
+    at::ScalarType batch1_dtype,
+    at::ScalarType batch2_dtype,
+    float alpha) {
+  SharedMetaTensor common_data = {3, batch1_dtype};
+  SharedMetaData bmm{"batch_gemm"};
+  bmm.inputs_data = {common_data, {3, batch2_dtype}};
+  bmm.outputs_data = {common_data};
+
+  if (alpha != 1.0) {
+    SharedMetaData mul{"mult_fwd"};
+    mul.inputs_data = {2, common_data};
+    mul.outputs_data = {common_data};
+    return {bmm, mul};
+  }
+
+  return {bmm};
+}
+
+SharedMetaDataVector BAddBMMSharedMeta(const at::Stack& stack) {
+  const float beta = stack.at(3).toScalar().toFloat();
+  const float alpha = stack.at(4).toScalar().toFloat();
+
+  if (alpha == 0.0 and beta == 0.0) {
+    return {};
+  }
+
+  auto input = stack_tensor(stack, 0);
+  auto input_dtype = input.scalar_type();
+  auto input_rank = input.dim();
+
+  if (alpha == 0.0) {
+    return {BetaSharedMeta(input_rank, input_dtype)};
+  }
+
+  auto batch1 = stack_tensor(stack, 1);
+  auto batch1_dtype = batch1.scalar_type();
+
+  auto batch2 = stack_tensor(stack, 2);
+  auto batch2_dtype = batch2.scalar_type();
+
+  if (beta == 0.0) {
+    return AlphaSharedMeta(batch1_dtype, batch2_dtype, alpha);
+  }
+
+  auto meta = AlphaSharedMeta(batch1_dtype, batch2_dtype, alpha);
+  meta.push_back(BetaSharedMeta(input_rank, input_dtype));
+
+  SharedMetaTensor common_data = {3, batch1_dtype};
+
+  SharedMetaData add{"add_fwd"};
+  add.inputs_data = {2, common_data};
+  add.outputs_data = {common_data};
+  meta.push_back(add);
+
+  return meta;
 }
 
 void Baddbmm::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
