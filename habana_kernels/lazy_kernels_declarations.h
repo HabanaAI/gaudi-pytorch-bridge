@@ -1069,7 +1069,11 @@ at::Tensor quantize_per_channel_lazy(
 at::Tensor dequantize_per_channel_lazy(
     const at::Tensor& input,
     const at::Tensor& scales,
+#if IS_PYTORCH_AT_LEAST(2,4)
+    const c10::optional<at::Tensor>& zero_points,
+#else
     const at::Tensor& zero_points,
+#endif
     int64_t axis,
     int64_t quant_min,
     int64_t quant_max,
