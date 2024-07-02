@@ -27,6 +27,15 @@ void EagerLoweringTask(
     std::vector<at::IValue>&& inputs,
     OutputSpecsOrTensors&& out_spec_or_tensors,
     EagerOpMetaData&& eager_op_meta_data) {
+  auto lowering_queue_length = hpu_registrar()
+                                   .get_device()
+                                   .get_lowering_thread()
+                                   .get_active_task_count();
+  LOP::emit_event_fast(
+      true,
+      "EagerLoweringTask()",
+      (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_LOWERING_ID,
+      lowering_queue_length);
   habana::eager::EagerExec hlexec{
       std::move(symbol),
       std::move(inputs),

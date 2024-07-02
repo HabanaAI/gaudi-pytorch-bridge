@@ -11,6 +11,7 @@
 ###############################################################################
 
 
+import habana_frameworks.torch.low_overhead_profiler.profiler as lop
 import habana_frameworks.torch.utils.debug as htdebug
 import numpy as np
 import pytest
@@ -1677,6 +1678,25 @@ def test_sag_lerp():
 
     shape_agnostic_not_supported_ops = htdebug._get_shape_agnostic_unsupported_ops()
     assert len(shape_agnostic_not_supported_ops) == 0
+
+
+def test_lop():
+    cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    for i in range(10000):
+        if i == 85:
+            lop.start()
+        result_hpu = torch.relu(hpu_tensor).to("cpu")
+        result_cpu = torch.relu(cpu_tensor)
+        assert torch.equal(result_hpu, result_cpu)
+
+        result_hpu = torch.pow(hpu_tensor, 2).to("cpu")
+        result_cpu = torch.pow(cpu_tensor, 2)
+        assert torch.allclose(result_hpu, result_cpu, atol=0.001, rtol=0.001)
+        if i == 9999:
+            lop.stop()
+            lop.flush()
 
 
 # test node params patching for masked_fill op

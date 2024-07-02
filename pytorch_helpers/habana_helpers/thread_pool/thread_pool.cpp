@@ -71,6 +71,11 @@ std::string ThreadPoolBase<Queue, Task>::ToString() const {
       std::to_string(tasks_.size());
 }
 
+template <template <typename> typename Queue, typename Task>
+uint64_t ThreadPoolBase<Queue, Task>::get_active_task_count() const {
+  return active_task_count_.load();
+}
+
 template class ThreadPoolBase<BlockingQueue, move_only_function_void>;
 template class ThreadPoolBase<BlockingQueue, std::packaged_task<void()>>;
 

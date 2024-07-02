@@ -846,3 +846,15 @@ PT_HPU_SDPA_SFMX_BWD_V2:
   type: bool
   default: false
   doc: "Option to enable softmax BWD calculation as per FA paper"
+
+PT_HPU_LOP_JIT_WARM_UP_STEPS:
+  type: unsigned
+  default: 5
+
+PT_HPU_ENABLE_LOP_METRICS_COLLECTION:
+  type: bool
+  default: false
+
+PT_HPU_ENABLE_LOP_TRACES_COLLECTION:
+  type: bool
+  default: false

@@ -124,6 +124,7 @@ class ThreadPoolBase {
 
   void RethrowIfException();
   std::string ToString() const;
+  uint64_t get_active_task_count() const;
 
  private:
   Queue<Task> tasks_;

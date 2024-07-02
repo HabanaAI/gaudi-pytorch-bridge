@@ -113,6 +113,7 @@ add_habana_library(habana_pytorch_plugin SHARED
   pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
   pytorch_helpers/habana_helpers/dtype_helpers.cpp
   pytorch_helpers/habana_helpers/towl.cpp
+  pytorch_helpers/low_overhead_profiler/profiler.cpp
   pytorch_helpers/serialize/export.cpp
   pytorch_helpers/visualize/visualize.cpp
   habana_kernels/basic_kernels.cpp
@@ -222,6 +223,7 @@ add_habana_library(habana_pytorch2_plugin SHARED
   pytorch_helpers/habana_helpers/thread_pool/acc_thread_pool.cpp
   pytorch_helpers/habana_helpers/thread_pool/thread_pool.cpp
   pytorch_helpers/habana_helpers/towl.cpp
+  pytorch_helpers/low_overhead_profiler/profiler.cpp
   pytorch_helpers/visualize/visualize.cpp
   pytorch_helpers/serialize/export.cpp
   habana_kernels/basic_kernels.cpp

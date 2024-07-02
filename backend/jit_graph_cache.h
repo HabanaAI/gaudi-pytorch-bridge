@@ -402,6 +402,14 @@ struct OptimizedJITGraphAndMetaData {
     skip_tensor_permutation_ = true;
   }
 
+  void increment_jit_cache_hit_count() {
+    jit_cache_hit_count_++;
+  }
+
+  size_t get_jit_cache_hit_count() const {
+    return jit_cache_hit_count_;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -432,6 +440,7 @@ struct OptimizedJITGraphAndMetaData {
   bool user_mark_dynamic = false;
   std::vector<habana_helpers::RangeInfo> m_range_infos;
   bool skip_tensor_permutation_{false};
+  size_t jit_cache_hit_count_ = 0;
 };
 
 /**

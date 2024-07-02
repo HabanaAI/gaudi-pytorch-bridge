@@ -61,6 +61,10 @@ class ThreadPoolControl {
         std::forward<F>(f), std::forward<Args>(args)...);
   }
 
+  uint64_t get_number_of_active_tasks_in_queue() const {
+    return m_thread_pool_obj.get_active_task_count();
+  }
+
  private:
   /**
    * Underlying thread pool.

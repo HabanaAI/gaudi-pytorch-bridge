@@ -288,6 +288,14 @@ class HabanaLaunchOpPT {
     return is_shape_agnostic_supported_;
   }
 
+  size_t get_graph_key() const {
+    return graph_key_;
+  }
+
+  size_t get_jit_graph_cache_hit_count() const {
+    return jit_graph_cache_hit_count_;
+  }
+
   void set_require_h2d_st(bool require_h2d, bool require_st) {
     require_h2d_ = require_h2d;
     require_st_ = require_st;
@@ -375,6 +383,7 @@ class HabanaLaunchOpPT {
   // permutation_info_saver_-------------------///-----------------------------------///---------------Write---------------///----------------Write--------------///------------NA
   // hpu_op_recipe_----------------------------///-----------------------------------///-----------------------------------///----------------Write--------------///-----------Read
   // is_shape_agnostic_supported_--------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // jit_graph_cache_hit_count_----------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   std::shared_ptr<synapse_helpers::graph> syn_graph_ptr_ = nullptr;
   VecOfIValPtrSh aten_outputs_;
   static void RunHybridSif(
@@ -556,6 +565,8 @@ class HabanaLaunchOpPT {
   bool is_shape_agnostic_supported_ = false;
   bool require_h2d_ = false;
   bool require_st_ = false;
+
+  size_t jit_graph_cache_hit_count_ = 0;
 
   // Main function responsible for constructing a synapse graph from
   // 1. JIT IR Graph

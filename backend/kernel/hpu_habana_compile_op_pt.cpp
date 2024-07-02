@@ -16,20 +16,41 @@
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_habana_execute_op_pt.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/synapse_helpers/device_context.h"
 
 namespace habana {
 
 namespace HabanaLaunchOpPipeline {
 void CompileSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
+  auto compile_queue_length =
+      habana_helpers::Singleton_CompileThreadPool::getInstance()
+          .get_number_of_active_tasks_in_queue();
+  LOP::emit_event_fast(
+      true,
+      "EagerCompileTask()",
+      (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_COMPILE_ID,
+      compile_queue_length);
   bool sync_with_execute_stage = !launch_op->get_enable_4stage_pipeline();
 
   launch_op->CompileSynapse();
+
+  auto graph_key_for_event = launch_op->get_graph_key();
+  auto jit_cache_hit_count_for_event =
+      launch_op->get_jit_graph_cache_hit_count();
 
   habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
       HabanaLaunchOpPipeline::ExecuteSynapseTask, std::move(launch_op));
 
   if (sync_with_execute_stage)
     habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+
+  LOP::emit_event_fast(
+      false,
+      "EagerCompileTask()",
+      (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_COMPILE_ID,
+      compile_queue_length,
+      graph_key_for_event,
+      jit_cache_hit_count_for_event);
 }
 }; // namespace HabanaLaunchOpPipeline
 

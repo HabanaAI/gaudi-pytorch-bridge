@@ -184,6 +184,8 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
       refine_ds_enabled_;
   op_strs_ = optimized_jit_graph_and_meta_data->get_cached_opstrs();
   graph_key_ = optimized_jit_graph_and_meta_data->get_cached_graph_key();
+  jit_graph_cache_hit_count_ =
+      optimized_jit_graph_and_meta_data->get_jit_cache_hit_count();
   hpu_stream_ = optimized_jit_graph_and_meta_data->GetHPUStream();
   jit_graph_and_meta_data_ = optimized_jit_graph_and_meta_data;
   enable_user_dynamic_ranges =

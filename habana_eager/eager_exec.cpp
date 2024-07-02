@@ -22,10 +22,12 @@
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/scalar_cache.h"
+#include "backend/synapse_helpers/device_context.h"
 #include "habana_eager/eager_view.h"
 #include "habana_eager/ops/eager_op.h"
 #include "passes/handle_views_insert_permute.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
+#include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 #include "pytorch_helpers/visualize/visualize.h"
 
 namespace habana {
@@ -356,6 +358,7 @@ void EagerExec::launch() {
   auto graph_and_meta{cache.GetOptimizedJITGraphAndMetaData(key)};
   if (graph_and_meta) {
     PT_EAGER_DEBUG("Eager Op JIT graph cache HIT for key ", key);
+    graph_and_meta->increment_jit_cache_hit_count();
     // Get node params w.r.t orig_inputs if available
     const CValPtrMap& jit_val_map = graph_and_meta->get_param_jit_val_map();
     CValPtrtoIValueMap jit_val_to_ivalue_map;
@@ -461,6 +464,8 @@ void EagerExec::launch() {
     }
   }
 
+  auto jit_cache_hit_count_for_event =
+      graph_and_meta->get_jit_cache_hit_count();
   try {
     auto& temp_outputs = m_outputs.get_outputs();
     if (!m_eager_op_meta_data.new_strided_insert_output_shape_.empty()) {
@@ -496,6 +501,18 @@ void EagerExec::launch() {
     PT_EAGER_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
     throw;
   }
+
+  auto lowering_queue_length = hpu_registrar()
+                                   .get_device()
+                                   .get_lowering_thread()
+                                   .get_active_task_count();
+  LOP::emit_event_fast(
+      false,
+      "EagerLoweringTask()",
+      (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_LOWERING_ID,
+      lowering_queue_length,
+      key,
+      jit_cache_hit_count_for_event);
 }
 
 std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(

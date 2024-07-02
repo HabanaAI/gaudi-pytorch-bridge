@@ -14,12 +14,30 @@
 #include "backend/kernel/hpu_habana_execute_op_pt.h"
 #include "backend/helpers/eager_pipeline.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/synapse_helpers/device_context.h"
 
 namespace habana {
 
 namespace HabanaLaunchOpPipeline {
 void ExecuteSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
+  auto execute_queue_length =
+      habana_helpers::Singleton_CompileThreadPool::getInstance()
+          .get_number_of_active_tasks_in_queue();
+  LOP::emit_event_fast(
+      true,
+      "EagerExecuteTask()",
+      (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_EXECUTE_ID,
+      execute_queue_length);
   launch_op->ExecuteSynapse();
+  auto& device = habana::HPURegistrar::get_device().syn_device();
+  LOP::emit_event_fast(
+      false,
+      "EagerExecuteTask()",
+      (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_EXECUTE_ID,
+      execute_queue_length,
+      launch_op->get_graph_key(),
+      launch_op->get_jit_graph_cache_hit_count(),
+      device.get_active_recipe_counter().get_count());
 }
 } // namespace HabanaLaunchOpPipeline
 
