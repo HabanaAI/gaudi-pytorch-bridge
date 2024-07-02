@@ -207,25 +207,14 @@ void CastToFp8V2::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto [dst_type, dst_syn_type] = GetFp8Dtypes(stack[4]);
   auto scale_shape = stack[5];
 
-  auto is_fp8 = src_type == at::ScalarType::Float8_e5m2 or
-      src_type == at::ScalarType::Float8_e4m3fn;
   TORCH_CHECK(
-      is_fp8 or src_type == at::ScalarType::Float or
-          src_type == at::ScalarType::BFloat16,
-      "CastToFp8V2 input dtype must be one of [float, bfloat16, float8_e5m2, float8_e4m3fn].");
-  if (is_fp8) {
-    TORCH_CHECK(!is_amax, "CastToFp8V2 must have no amax for float8.");
-    TORCH_CHECK(
-        src_type == dst_type,
-        "CastToFp8V2 input and output must have the same dtype for float8, but are ",
-        src_type,
-        " and ",
-        dst_type);
-  }
+      src_type == at::ScalarType::Float or src_type == at::ScalarType::BFloat16,
+      "CastToFp8V2 input must be of float or bfloat16 dtype.");
 
   ValidateScaleShape(scale, scale_shape);
 
-  auto guid = get_guid_with_precision("convert_to_fp8", src_type);
+  std::string guid = src_type == at::ScalarType::Float ? "convert_to_fp8_f32"
+                                                       : "convert_to_fp8_bf16";
 
   auto out_shapes = CastToFp8V2OutputShape(stack);
   std::vector<synTensor> syn_inputs{syn_in(0)};
