@@ -13,7 +13,15 @@
 import habana_frameworks.torch as htorch
 import torch
 from packaging.version import Version, parse
+from torch._dynamo.trace_rules import SKIP_DIRS, _module_dir, _recompile_re
 from torch._dynamo.variables import TorchCtxManagerClassVariable, TorchInGraphFunctionVariable
+
+htorch_skip_list = [
+    htorch.hpu,
+]
+
+SKIP_DIRS.extend(filter(None, (_module_dir(m) for m in htorch_skip_list)))
+_recompile_re()
 
 """
 Map of torch objects to their tracing rules (Dynamo variables).
@@ -60,6 +68,8 @@ _htorch_non_c_binding_in_graph_functions = {
         "habana_frameworks.torch.hpu.stream",
         "habana_frameworks.torch.hpu.is_available",
         "habana_frameworks.torch.hpu.current_device",
+        "habana_frameworks.torch.hpu.device_count",
+        "habana_frameworks.torch.hpu.set_stream_by_id",
         "habana_frameworks.torch.hpu._utils._get_device_index",
     ]
 }
@@ -75,6 +85,18 @@ if Version(parse(torch.__version__).base_version) >= Version("2.3"):
     ]
 
     torch_name_rule_map.extend(habana_torch_name_rule_list)
+
+    from torch._dynamo.trace_rules import _allowed_callable_ids
+
+    functions_to_add = [
+        htorch.hpu.stream,
+        htorch.hpu.current_stream,
+        htorch.hpu._utils._get_device_index,
+    ]
+
+    for obj in functions_to_add:
+        _allowed_callable_ids.add(id(obj))
+
 else:
     habana_torch_name_rule_map = {
         **_manual_htorch_name_rule_map,
