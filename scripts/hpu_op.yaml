@@ -5262,7 +5262,7 @@ masked_scatter:
     Gaudi: [BFloat16, Float, Int, Char]
     Gaudi2: [BFloat16, Float, Half, Int, Char]
     Gaudi3: [BFloat16, Float, Half, Int, Char]
-  guid: masked_scatter
+  op_backend: MaskedScatter
   out_ids: [0]
 
 masked_scatter_:
@@ -5270,7 +5270,7 @@ masked_scatter_:
     Gaudi: [BFloat16, Float, Int, Char]
     Gaudi2: [BFloat16, Float, Half, Int, Char]
     Gaudi3: [BFloat16, Float, Half, Int, Char]
-  guid: masked_scatter
+  op_backend: MaskedScatter
   inplace_ids: [0]
 
 masked_fill_.Scalar:

@@ -213,6 +213,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/logspace_gen.cpp
           backend/masked_batch_gemm.cpp
           backend/masked_fill_gen.cpp
+          backend/masked_scatter_gen.cpp
           backend/max_min_gen.cpp
           backend/maxpool_gen.cpp
           backend/median_gen.cpp
