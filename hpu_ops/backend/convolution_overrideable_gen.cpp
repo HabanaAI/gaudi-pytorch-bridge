@@ -224,30 +224,17 @@ void ConvolutionOverrideable::AddNode(
 
   if (transposed && bias.defined()) {
     // Reshape bias to match to NCHW output format
-    synAxisParams expandParams{0};
-    std::vector<int64_t> shape{bias.sizes().vec()[0]};
-    shape.reserve(3);
-    std::vector<synapse_helpers::tensor> expandedBiases;
-    expandedBiases.reserve(3);
-
-    while (shape.size() <= (is_conv_3d ? 3 : 2)) {
-      shape.push_back(1);
-
-      expandedBiases.emplace_back(std::move(BuildOp(
-          graph,
-          "expand_dims",
-          {expandedBiases.empty() ? syn_in(2) : expandedBiases.back().get()},
-          {{{shape}, meta.dtype}},
-          &expandParams,
-          sizeof(expandParams))[0]));
-    }
+    int64_t data[5] = {1, bias.sizes().vec()[0], 1, 1, 1};
+    c10::IntArrayRef shape(data, is_conv_3d ? 5 : 4);
+    synapse_helpers::tensor biasReshaped =
+        BuildReshape(this, graph, syn_in(2), shape, meta.dtype);
 
     c10::optional<int> final_result_index_0 =
         is_conv_1d ? c10::optional<int>{c10::nullopt} : c10::optional<int>{0};
     auto addOp = BuildOp(
         graph,
         get_guid_with_precision("add_fwd", meta.dtype),
-        {convOp[0].get(), expandedBiases.back().get()},
+        {convOp[0].get(), biasReshaped.get()},
         {{meta.shape, meta.dtype, final_result_index_0}});
 
     IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(addOp[0], meta.shape, 0);
