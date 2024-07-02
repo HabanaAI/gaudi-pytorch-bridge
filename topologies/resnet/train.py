@@ -1,0 +1,641 @@
+from __future__ import print_function
+import model as resnet_models
+import datetime
+import os
+import time
+import sys
+
+import torch
+import torch.utils.data
+from torch import nn
+import torchvision
+from torchvision import transforms
+import random
+
+import utils
+
+
+# Instead of importing resnet model from the standard torchvision package,
+# import from a local copy. A local copy of resnet model file is used so that
+# modifications can be done to the resnet model if necessary.
+
+try:
+    import habana_frameworks.torch.core as htcore
+except ImportError:
+    assert False, "Could Not import habana_frameworks.torch.core"
+try:
+    import habana_frameworks.torch.utils.debug as htdebug
+except ImportError:
+    assert False, "Could Not import habana_frameworks.torch.utils.debug"
+
+sys.path.append(os.environ['PYTORCH_MODULES_ROOT_PATH'])
+from topologies import tools
+
+try:
+    from apex import amp
+except ImportError:
+    amp = None
+
+
+def train_model(model, criterion, optimizer, image, target, trainMetaData, apex, lazy_mode, is_autocast=False):
+    with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=is_autocast):
+        output = model(image)
+        loss = criterion(output, target)
+        optimizer.zero_grad()
+
+    if apex:
+        with amp.scale_loss(loss, optimizer) as scaled_loss:
+            scaled_loss.backward()
+    else:
+        loss.backward()
+    if lazy_mode:
+        htcore.mark_step()
+
+    optimizer.step()
+
+    for param in model.parameters():
+        param.grad = None
+
+    if lazy_mode:
+        htcore.mark_step()
+
+    return loss, output
+
+
+def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, print_freq, trainMetaData, apex=False, is_autocast=False):
+    model.train()
+    metric_logger = utils.MetricLogger(delimiter="  ", device=device)
+    metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value}'))
+    metric_logger.add_meter('img/s', utils.SmoothedValue(window_size=10, fmt='{value}'))
+
+    header = 'Epoch: [{}]'.format(epoch)
+    last_print_time = time.time()
+
+    for image, target in metric_logger.log_every(data_loader, print_freq, header):
+        trainMetaData.tracept.start(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
+
+        if not args.channels_last:
+            image = image.contiguous()
+
+        image, target = image.to(device, non_blocking=False), target.to(device, non_blocking=False)
+
+        if args.distributed:
+            utils.barrier()
+
+        dl_ex_start_time = time.time()
+
+        if args.channels_last:
+            import habana_frameworks.torch.core as htcore
+            image = image.contiguous(memory_format=torch.channels_last)
+            #
+            # This mark_step is added so that the the lazy kernel can
+            # create and evaluate the graph to infer the resulting tensor
+            # as channels_last
+            if args.run_lazy_mode:
+                htcore.mark_step()
+
+        # for tensor probing use print_freq as 1 or at desired iteration multiple
+        if trainMetaData.current_train_step % print_freq == 0:
+            tools.tp_probe_tensors_iteration_start(model, device, target, image, trainMetaData.ParamsDump, False)
+
+        loss, output = train_model(model, criterion, optimizer, image, target,
+                                   trainMetaData, apex, args.run_lazy_mode, is_autocast=is_autocast)
+
+        if trainMetaData.current_train_step % print_freq == 0:
+            # Bring the loss tensor back to CPU before printing. Certainly needed if running on Habana.
+            loss_cpu = loss.item()
+            output_cpu = output.detach().to('cpu')
+            tools.tp_probe_tensors_iteration_end(model, device, output_cpu, loss_cpu, trainMetaData.ParamsDump, False)
+
+            acc1, acc5 = utils.accuracy(output_cpu, target, topk=(1, 5))
+            batch_size = image.shape[0]
+            metric_logger.update(loss=loss_cpu, lr=optimizer.param_groups[0]["lr"])
+            metric_logger.meters['acc1'].update(acc1.item(), n=batch_size * print_freq)
+            metric_logger.meters['acc5'].update(acc5.item(), n=batch_size * print_freq)
+            current_time = time.time()
+            last_print_time = dl_ex_start_time if args.dl_time_exclude else last_print_time
+            metric_logger.meters['img/s'].update(batch_size * print_freq / (current_time - last_print_time))
+            last_print_time = time.time()
+
+        trainMetaData.tracept.end(time.time(), 'train_iteration_' + str(trainMetaData.current_train_step))
+        trainMetaData.log_live_mem_alloc("train Iteration " + str(trainMetaData.current_train_step))
+        # If only the specified number of steps are to be executed, check if those many steps are
+        # done and if yes, break the training loop
+        trainMetaData.increment_train_step()
+        if trainMetaData.end_train() is True:
+            break
+
+
+def evaluate(model, criterion, data_loader, trainMetaData, device, print_freq=100, is_autocast=False):
+    model.eval()
+    metric_logger = utils.MetricLogger(delimiter="  ", device=device)
+    header = 'Test:'
+    with torch.no_grad():
+        for image, target in metric_logger.log_every(data_loader, print_freq, header):
+
+            if not args.channels_last:
+                image = image.contiguous()
+
+            image = image.to(device, non_blocking=True)
+
+            if args.channels_last:
+                import habana_frameworks.torch.core as htcore
+                image = image.contiguous(memory_format=torch.channels_last)
+                if args.run_lazy_mode:
+                    htcore.mark_step()
+
+            target = target.to(device, non_blocking=True)
+            trainMetaData.tracept.start(time.time(), 'val_iteration_' + str(trainMetaData.current_eval_step))
+            with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=is_autocast):
+                output = model(image)
+                loss = criterion(output, target)
+
+            acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
+            trainMetaData.tracept.end(time.time(), 'val_iteration_' + str(trainMetaData.current_eval_step))
+            # FIXME need to take into account that the datasets
+            # could have been padded in distributed setup
+            batch_size = image.shape[0]
+            # Bring the loss tensor back to CPU before printing. Certainly needed if running on Habana.
+            loss_cpu = loss.to('cpu').detach()
+            metric_logger.update(loss=loss_cpu.item())
+            metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
+            metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+            # If only the specified number of steps are to be executed, check if those many steps are
+            # done and if yes, break the evaluation loop
+            trainMetaData.log_live_mem_alloc("evaluate")
+            trainMetaData.increment_eval_step()
+            if trainMetaData.end_eval() is True:
+                break
+    # gather the stats from all processes
+    metric_logger.synchronize_between_processes()
+
+    # Return from here if evaluation phase does not go through any iterations.(eg, The data set is so small that
+    # there is only one eval batch, but that was skipped in data loader due to drop_last=True)
+    if len(metric_logger.meters) == 0:
+        return
+
+    print(' * Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f}'
+          .format(top1=metric_logger.acc1, top5=metric_logger.acc5))
+    return metric_logger.acc1.global_avg
+
+
+def _get_cache_path(filepath):
+    import hashlib
+    h = hashlib.sha1(filepath.encode()).hexdigest()
+    cache_path = os.path.join("~", ".torch", "vision", "datasets", "imagefolder", h[:10] + ".pt")
+    cache_path = os.path.expanduser(cache_path)
+    return cache_path
+
+
+def enable_tracing(device):
+    with torch.jit.optimized_execution(True):
+        torch._C._jit_override_can_fuse_on_cpu(False)
+        torch._C._jit_set_profiling_executor(False)
+        torch._C._jit_set_profiling_mode(False)
+        if (device == torch.device('hpu')):
+            htcore.enable()
+        sample_trace_tensor = torch.zeros(args.batch_size, 3, 224, 224).to(device)
+        return sample_trace_tensor
+
+
+def load_data(traindir, valdir, cache_dataset, distributed):
+    # Data loading code
+    print("Loading data")
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+
+    print("Loading training data")
+    st = time.time()
+    cache_path = _get_cache_path(traindir)
+    if cache_dataset and os.path.exists(cache_path):
+        # Attention, as the transforms are also cached!
+        print("Loading dataset_train from {}".format(cache_path))
+        dataset, _ = torch.load(cache_path)
+    else:
+        dataset = torchvision.datasets.ImageFolder(
+            traindir,
+            transforms.Compose([
+                transforms.RandomResizedCrop(224),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                normalize,
+            ]))
+        if cache_dataset:
+            print("Saving dataset_train to {}".format(cache_path))
+            utils.mkdir(os.path.dirname(cache_path))
+            utils.save_on_master((dataset, traindir), cache_path)
+    print("Took", time.time() - st)
+
+    print("Loading validation data")
+    cache_path = _get_cache_path(valdir)
+    if cache_dataset and os.path.exists(cache_path):
+        # Attention, as the transforms are also cached!
+        print("Loading dataset_test from {}".format(cache_path))
+        dataset_test, _ = torch.load(cache_path)
+    else:
+        dataset_test = torchvision.datasets.ImageFolder(
+            valdir,
+            transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                normalize,
+            ]))
+        if cache_dataset:
+            print("Saving dataset_test to {}".format(cache_path))
+            utils.mkdir(os.path.dirname(cache_path))
+            utils.save_on_master((dataset_test, valdir), cache_path)
+
+    print("Creating data loaders")
+    if distributed:
+        train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
+        test_sampler = torch.utils.data.distributed.DistributedSampler(dataset_test)
+    else:
+        train_sampler = torch.utils.data.RandomSampler(dataset)
+        test_sampler = torch.utils.data.SequentialSampler(dataset_test)
+
+    return dataset, dataset_test, train_sampler, test_sampler
+
+
+def lr_vec_fcn(values, milestones):
+    lr_vec = []
+    for n in range(len(milestones) - 1):
+        lr_vec += [values[n]] * (milestones[n + 1] - milestones[n])
+    return lr_vec
+
+
+def adjust_learning_rate(optimizer, epoch, lr_vec):
+    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+    lr = lr_vec[epoch]
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
+
+def main(args):
+
+    if args.dl_worker_type == "MP":
+        try:
+            # Default 'fork' doesn't work with synapse. Use 'forkserver' or 'spawn'
+            torch.multiprocessing.set_start_method('spawn')
+        except RuntimeError:
+            pass
+    elif args.dl_worker_type == "HABANA":
+        try:
+            import habana_dataloader
+        except ImportError:
+            assert False, "Could Not import habana_dataloader"
+
+    if args.device == 'hpu' and not args.run_lazy_mode:
+        os.environ["PT_HPU_LAZY_MODE"] = "2"
+
+    if args.apex:
+        if sys.version_info < (3, 0):
+            raise RuntimeError("Apex currently only supports Python 3. Aborting.")
+        if amp is None:
+            raise RuntimeError("Failed to import apex. Please install apex from https://www.github.com/nvidia/apex "
+                               "to enable mixed-precision training.")
+
+    if args.output_dir:
+        utils.mkdir(args.output_dir)
+
+    utils.init_distributed_mode(args)
+    print(args)
+
+    if args.device == 'hpu':
+        print("Attempting to load library", flush=True)
+        from habana_frameworks.torch.utils.library_loader import load_habana_module
+        load_habana_module()
+
+    torch.manual_seed(args.seed)
+
+    if args.deterministic:
+        seed = args.seed
+        random.seed(seed)
+        if args.device == 'cuda':
+            torch.cuda.manual_seed(seed)
+    else:
+        seed = None
+
+    device = torch.device(args.device)
+
+    torch.backends.cudnn.benchmark = True
+
+    # Limit the test(eval) phase batch size to a lower value to reduce overall device memory pressure
+    test_batch_size = args.batch_size
+    if args.batch_size > 32:
+        test_batch_size = 32
+
+    if not args.synthetic_data:
+        train_dir = os.path.join(args.data_path, 'train')
+        val_dir = os.path.join(args.data_path, 'val')
+        dataset, dataset_test, train_sampler, test_sampler = load_data(train_dir, val_dir,
+                                                                       args.cache_dataset, args.distributed)
+        if args.workers > 0:
+            torch.cuda.current_device = lambda: None
+            torch.cuda.set_device = lambda x: None
+
+        if args.dl_worker_type == "MP":
+            data_loader_type = torch.utils.data.DataLoader
+        elif args.dl_worker_type == "HABANA":
+            data_loader_type = habana_dataloader.HabanaDataLoader
+
+        pin_memory_device = None
+        pin_memory = False
+        if args.device == 'hpu':
+            pin_memory_device = 'hpu'
+            pin_memory = True
+
+        data_loader = data_loader_type(
+            dataset, batch_size=args.batch_size, sampler=train_sampler,
+            num_workers=args.workers, pin_memory=pin_memory, pin_memory_device=pin_memory_device, drop_last=True)
+
+        data_loader_test = data_loader_type(
+            dataset_test, batch_size=test_batch_size, sampler=test_sampler,
+            num_workers=args.workers, pin_memory=pin_memory, pin_memory_device=pin_memory_device, drop_last=True)
+    else:
+        data_loader = tools.ImageRandomDataLoader(batch_size=args.batch_size, train=True, drop_last=True)
+        data_loader_test = tools.ImageRandomDataLoader(batch_size=test_batch_size, train=False, drop_last=True)
+
+    print("Creating model")
+    # model = torchvision.models.__dict__[args.model](pretrained=args.pretrained)
+    # Instead of importing resnet model from the standard torchvision package,
+    # import from a local copy. A local copy of resnet model file is used so that
+    # modifications can be done to the resnet model if necessary.
+    model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
+
+    trainMetaData = tools.TrainMetaData(model, device)
+    model.to(device)
+    trainMetaData.log_live_mem_alloc("After model.to()")
+
+    if args.channels_last:
+        if (device == torch.device('cuda')):
+            print('Converting model to channels_last format on CUDA')
+            model.to(memory_format=torch.channels_last)
+        elif (args.device == 'hpu'):
+            print('Converting model params to channels_last format on Habana')
+            # TODO:
+            # model.to(device).to(memory_format=torch.channels_last)
+            # The above model conversion doesn't change the model params
+            # to channels_last for many components - e.g. convolution.
+            # So we are forced to rearrange such tensors ourselves.
+
+    trainMetaData.set_num_train_steps(args.num_train_steps)
+    trainMetaData.set_num_eval_steps(args.num_eval_steps)
+    trainMetaData.set_save_checkpoint_enable(args.save_checkpoint)
+    trainMetaData.set_live_mem_alloc_logging(args.log_device_mem_alloc and args.device == 'hpu')
+
+    if args.distributed and args.sync_bn:
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+
+    criterion = nn.CrossEntropyLoss()
+    if args.run_lazy_mode:
+        from habana_frameworks.torch.hpex.optimizers import FusedSGD
+        htdebug._enable_eliminate_common_subexpression(False)
+        htdebug._enable_constant_pooling(False)
+        sgd_optimizer = FusedSGD
+    else:
+        sgd_optimizer = torch.optim.SGD
+
+    optimizer = sgd_optimizer(
+        model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+
+    if args.apex:
+        model, optimizer = amp.initialize(model, optimizer,
+                                          opt_level=args.apex_opt_level
+                                          )
+    if args.custom_lr_values is not None:
+        lr_vec = lr_vec_fcn([args.lr] + args.custom_lr_values, [0] + args.custom_lr_milestones + [args.epochs])
+        lr_scheduler = None
+    else:
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_step_size, gamma=args.lr_gamma)
+
+    model_for_eval = model
+    if args.run_trace_mode:
+        sample_trace_tensor = enable_tracing(device)
+
+        if args.channels_last:
+            import habana_frameworks.torch.core as htcore
+            sample_trace_tensor = sample_trace_tensor.contiguous(memory_format=torch.channels_last)
+        # Create traced model for eval
+        model.eval()
+        model_for_eval = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
+        trainMetaData.log_live_mem_alloc("After model_for_eval torch.jit.trace")
+        # Create traced model for train
+        model.train()
+        model = torch.jit.trace(model, sample_trace_tensor, check_trace=False)
+        trainMetaData.log_live_mem_alloc("After model_for_train torch.jit.trace")
+        model_for_train = model
+
+    # TBD: pass the right module for ddp
+    model_without_ddp = model
+
+    if args.distributed:
+        if args.device == 'hpu':
+            # To improve resnext101 dist performance, decrease number of all_reduce calls to 1 by increasing bucket size to 200
+            bucket_size_mb = 200 if 'resnext101' in args.model else 100
+            model = torch.nn.parallel.DistributedDataParallel(model, bucket_cap_mb=bucket_size_mb, broadcast_buffers=False,
+                                                              first_bucket_cap_mb=bucket_size_mb)
+        else:
+            model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model_without_ddp = model.module
+
+    model_for_train = model
+
+    if args.resume:
+        checkpoint = torch.load(args.resume, map_location='cpu')
+        model_without_ddp.load_state_dict(checkpoint['model'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        if lr_scheduler is not None:
+            lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+
+        args.start_epoch = checkpoint['epoch'] + 1
+
+    if args.test_only:
+        evaluate(model_for_eval, criterion, data_loader_test, trainMetaData, device=device, print_freq=args.print_freq)
+        return
+
+    print("Start training")
+    start_time = time.time()
+    for epoch in range(args.start_epoch, args.epochs):
+        trainMetaData.set_current_epoch_no(epoch)
+
+        if args.distributed and not args.synthetic_data and args.dl_worker_type != "HABANA":
+            train_sampler.set_epoch(epoch)
+
+        if lr_scheduler is None:
+            adjust_learning_rate(optimizer, epoch, lr_vec)
+
+        train_one_epoch(model_for_train, criterion, optimizer, data_loader,
+                        device, epoch, args.print_freq, trainMetaData, args.apex, is_autocast=args.is_autocast)
+        if lr_scheduler is not None:
+            lr_scheduler.step()
+
+        evaluate(model_for_eval, criterion, data_loader_test, trainMetaData,
+                 device=device, print_freq=args.print_freq, is_autocast=args.is_autocast)
+
+        if (args.output_dir and args.save_checkpoint):
+            if args.device == 'hpu':
+                # Use this model only to copy the state_dict of the actual model
+                copy_model = resnet_models.__dict__[args.model](pretrained=args.pretrained)
+
+                copy_model.load_state_dict(model_without_ddp.state_dict())
+
+                for state in optimizer.state.values():
+                    for k, v in state.items():
+                        if isinstance(v, torch.Tensor):
+                            state[k] = v.to('cpu')
+
+                checkpoint = {
+                    'model': copy_model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'lr_scheduler': None if lr_scheduler is None else lr_scheduler.state_dict(),
+                    'epoch': epoch,
+                    'args': args}
+                utils.save_on_master(
+                    checkpoint,
+                    os.path.join(args.output_dir, 'model_{}.pth'.format(epoch)))
+                utils.save_on_master(
+                    checkpoint,
+                    os.path.join(args.output_dir, 'checkpoint.pth'))
+
+                for state in optimizer.state.values():
+                    for k, v in state.items():
+                        if isinstance(v, torch.Tensor):
+                            state[k] = v.to('hpu')
+
+            else:
+                checkpoint = {
+                    'model': model_without_ddp.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'lr_scheduler': None if lr_scheduler is None else lr_scheduler.state_dict(),
+                    'epoch': epoch,
+                    'args': args}
+                utils.save_on_master(
+                    checkpoint,
+                    os.path.join(args.output_dir, 'model_{}.pth'.format(epoch)))
+                utils.save_on_master(
+                    checkpoint,
+                    os.path.join(args.output_dir, 'checkpoint.pth'))
+
+        # If only the specified number of steps are to be executed, check if those many steps are
+        # done for train and eval and if yes, break the epoch loop
+        if (trainMetaData.end_train_n_eval()):
+            break
+
+    if args.device == 'hpu' and not args.run_lazy_mode:
+        os.environ.pop("PT_HPU_LAZY_MODE")
+
+    total_time = time.time() - start_time
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    print('Training time {}'.format(total_time_str))
+
+
+def parse_args():
+    import argparse
+    parser = argparse.ArgumentParser(description='PyTorch Classification Training')
+
+    parser.add_argument('--data-path', default='/software/data/pytorch/imagenet/ILSVRC2012/', help='dataset')
+    parser.add_argument('--dl-time-exclude', default='True', type=lambda x: x.lower() ==
+                        'true', help='Set to False to include data load time')
+    parser.add_argument('--model', default='resnet18',
+                        help='select Resnet models from resnet18, resnet34, resnet50, resnet101, resnet152, resnext50_32x4d, resnext101_32x4d, resnext101_32x8d, wide_resnet50_2, wide_resnet101_2')
+    parser.add_argument('--device', default='hpu', help='device')
+    parser.add_argument('-b', '--batch-size', default=32, type=int)
+    parser.add_argument('--epochs', default=90, type=int, metavar='N',
+                        help='number of total epochs to run')
+    parser.add_argument('--dl-worker-type', default='MP', type=lambda x: x.upper(),
+                        choices=["MP", "HABANA"], help='select multiprocessing or habana accelerated')
+    parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
+                        help='number of data loading workers (default: 8)')
+    parser.add_argument('--process-per-node', default=8, type=int, metavar='N',
+                        help='Number of process per node')
+    parser.add_argument('--hls_type', default='HLS1', help='Node type')
+    parser.add_argument('--lr', default=0.1, type=float, help='initial learning rate')
+    parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
+                        help='momentum')
+    parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
+                        metavar='W', help='weight decay (default: 1e-4)',
+                        dest='weight_decay')
+    parser.add_argument('--lr-step-size', default=30, type=int, help='decrease lr every step-size epochs')
+    parser.add_argument('--custom-lr-values', default=None, metavar='N',
+                        type=float, nargs='+', help='custom lr values list')
+    parser.add_argument('--custom-lr-milestones', default=None, metavar='N', type=int, nargs='+',
+                        help='custom lr milestones list')
+    parser.add_argument('--lr-gamma', default=0.1, type=float, help='decrease lr by a factor of lr-gamma')
+    parser.add_argument('--print-freq', default=10, type=int, help='print frequency')
+    parser.add_argument('--output-dir', default='.', help='path where to save')
+
+    parser.add_argument('--channels-last', default='False', type=lambda x: x.lower() == 'true',
+                        help='Whether input is in channels last format.'
+                        'Any value other than True(case insensitive) disables channels-last')
+    parser.add_argument('--resume', default='', help='resume from checkpoint')
+    parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
+                        help='start epoch')
+    parser.add_argument('--seed', type=int, default=123, help='random seed')
+    parser.add_argument(
+        "--cache-dataset",
+        dest="cache_dataset",
+        help="Cache the datasets for quicker initialization. It also serializes the transforms",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--sync-bn",
+        dest="sync_bn",
+        help="Use sync batch norm",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--test-only",
+        dest="test_only",
+        help="Only test the model",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--pretrained",
+        dest="pretrained",
+        help="Use pre-trained models from the modelzoo",
+        action="store_true",
+    )
+
+    # Mixed precision training parameters
+    parser.add_argument('--apex', action='store_true',
+                        help='Use apex for mixed precision training')
+    parser.add_argument('--apex-opt-level', default='O1', type=str,
+                        help='For apex mixed precision training'
+                             'O0 for FP32 training, O1 for mixed precision training.'
+                             'For further detail, see https://github.com/NVIDIA/apex/tree/master/examples/imagenet'
+                        )
+
+    # distributed training parameters
+    parser.add_argument('--world-size', default=1, type=int,
+                        help='number of distributed processes')
+    parser.add_argument('--dist-url', default='env://', help='url used to set up distributed training')
+    parser.add_argument('--num-train-steps', type=int, default=sys.maxsize, metavar='T',
+                        help='number of steps a.k.a iterations to run in training phase')
+    parser.add_argument('--num-eval-steps', type=int, default=sys.maxsize, metavar='E',
+                        help='number of steps a.k.a iterations to run in evaluation phase')
+    parser.add_argument('--save-checkpoint', action="store_true",
+                        help='Whether or not to save model/checkpont; True: to save, False to avoid saving')
+    parser.add_argument('--run-trace-mode', action='store_true', default=False,
+                        help='run JIT mode with fusion enabled')
+    parser.add_argument('--deterministic', action="store_true",
+                        help='Whether or not to make data loading deterministic;This does not make execution deterministic')
+    mixed_precision_group = parser.add_mutually_exclusive_group()
+    mixed_precision_group.add_argument('--autocast', dest='is_autocast',
+                                       action='store_true', help='enable autocast mode on Gaudi')
+    parser.add_argument('--synthetic-data', action="store_true",
+                        help='If enabled, uses random data as image input and target instead of imagenet data set'
+                        'Use associated env vars to set dataset size/num classes if necessary')
+    parser.add_argument('--log-device-mem-alloc', action='store_true',
+                        help='log live memory allocations on device at the given point')
+    parser.add_argument('--run-lazy-mode', default='True', type=lambda x: x.lower() == 'true',
+                        help='run model in lazy execution mode(enabled by default).'
+                        'Any value other than True(case insensitive) disables lazy mode')
+    args = parser.parse_args()
+
+    return args
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    main(args)
