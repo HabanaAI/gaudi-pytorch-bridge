@@ -844,3 +844,16 @@ def test_lt_out_with_view():
         torch.lt(a_view, 8, out=res)
         torch.lt(ha_view, 8, out=hres)
         assert torch.equal(hres.cpu(), res)
+
+
+def test_add_with_slice():
+    x = torch.rand((1, 4))
+    y = torch.rand((1, 4))
+
+    x_hpu = x.to("hpu")
+    y_hpu = y.to("hpu")
+
+    y[:, 0] = (x[:, 0] + x[:, 2]) / 2
+    y_hpu[:, 0] = (x_hpu[:, 0] + x_hpu[:, 2]) / 2
+
+    assert torch.allclose(y_hpu.cpu(), y, atol=0.001, rtol=0.001)

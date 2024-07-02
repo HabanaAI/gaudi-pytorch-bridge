@@ -55,6 +55,10 @@ void handle_const_section_tensor(const at::Tensor& tensor) {
 
 namespace habana_helpers {
 
+inline uint64_t get_syn_offset(const at::Tensor& t) {
+  return !habana::is_ZST(t) ? (t.storage_offset() * t.itemsize()) : 0;
+}
+
 void set_output_drange_from_input(
     synTensor from_tensor,
     const std::string from_tensor_name,
@@ -250,7 +254,7 @@ synapse_helpers::tensor create_tensor(
           VecToString(permutation));
     }
 
-    uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
+    const uint64_t syn_offset = get_syn_offset(tensor);
     auto builder = synapse_helpers::tensor_builder(max, max_stride, syn_dtype)
                        .set_offset(syn_offset)
                        .mark_persistence(persistent)
@@ -281,7 +285,7 @@ synapse_helpers::tensor create_tensor(
     return syn_tensor;
   }
 
-  uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
+  const uint64_t syn_offset = get_syn_offset(tensor);
   std::vector<int64_t> strides = calculate_strides(tensor.sizes().vec());
   synapse_helpers::layouts::MemoryPermutation permutation;
   bool dont_allow_permutation = false;
@@ -431,7 +435,7 @@ synapse_helpers::tensor create_tensor(
     for (size_t d = max.size() - 1; d > 0; --d) {
       max_stride[d - 1] = max_stride[d] * max[d];
     }
-    uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
+    const uint64_t syn_offset = get_syn_offset(tensor);
     auto builder = synapse_helpers::tensor_builder(max, max_stride, synType)
                        .set_offset(syn_offset)
                        .mark_persistence(persistent)
@@ -451,7 +455,7 @@ synapse_helpers::tensor create_tensor(
   }
 
   std::vector<int64_t> strides = calculate_strides(tensor_shape);
-  uint64_t syn_offset = tensor.storage_offset() * tensor.itemsize();
+  const uint64_t syn_offset = get_syn_offset(tensor);
   auto [permutation, dont_allow_permutation] =
       get_tensor_memory_permutation(tensor);
   if (!permutation.empty()) {
@@ -910,6 +914,8 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
     habana::ShapeInference::UpdateShapeInfo(graph, sizes);
   }
 
+  // Update to contiguous strides for duplicate synapse tensor
+  strides = habana_helpers::calculate_strides(sizes);
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
