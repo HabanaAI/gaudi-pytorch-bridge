@@ -7205,8 +7205,7 @@ roll:
     Gaudi2: [BFloat16, Byte, Float, Int, Char, Short, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Byte, Float, Int, Char, Short, Float8_e5m2, Float8_e4m3fn]
   out_ids: [0]
-  custom_fill_params: FillRollParams
-  guid: roll
+  op_backend: RollHabanaOperator
 
 round:
   custom_fill_params: FillRoundParams
