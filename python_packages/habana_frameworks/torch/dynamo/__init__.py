@@ -10,8 +10,11 @@
 #
 ###############################################################################
 from habana_frameworks.torch.dynamo.device_interface import HpuInterface
+from habana_frameworks.torch.hpu import device_count
 from torch._dynamo.device_interface import register_interface_for_device
 
 register_interface_for_device("hpu", HpuInterface)
 
+for i in range(device_count()):
+    register_interface_for_device(f"hpu:{i}", HpuInterface)
 from . import trace_rules

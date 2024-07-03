@@ -20,7 +20,6 @@ import torch
 import torch._dynamo.test_case
 import torch._dynamo.testing
 import torch.onnx.operators
-from test_utils import is_torch_at_least
 from torch._dynamo.testing import EagerAndRecordGraphs, normalize_gm, same
 from torch._streambase import _StreamBase
 from torch.nn import functional as F
@@ -37,7 +36,6 @@ from torch.nn import functional as F
 
 class CtxManagerTests(torch._dynamo.test_case.TestCase):
     @unittest.skipIf(not torch.hpu.is_available(), "requires hpu")
-    @unittest.skipIf(is_torch_at_least("2.3"), "SW-188689")
     def test_hpu_stream_context_manager1(self):
         def fn(x):
             s = torch.hpu.Stream()
@@ -130,7 +128,6 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(cnts.op_count, 18)
 
     @unittest.skipIf(not torch.hpu.is_available(), "requires hpu")
-    @unittest.skipIf(is_torch_at_least("2.3"), "SW-188689")
     def test_hpu_stream_method(self):
         def fn(x):
             x = torch.mul(x, 1)
@@ -171,9 +168,7 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(cnts.frame_count, 1)
         self.assertEqual(cnts.op_count, 20)
 
-    @unittest.expectedFailure  # TODO https://github.com/pytorch/pytorch/pull/119199
     @unittest.skipIf(not torch.hpu.is_available(), "requires hpu")
-    @unittest.skipIf(is_torch_at_least("2.3"), "SW-188689")
     def test_hpu_stream_compared_with_constant(self):
         def fn(x):
             x = torch.mul(x, 1)
@@ -283,7 +278,6 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(cnts.op_count, 19)
 
     @unittest.skipIf(not torch.hpu.is_available(), "requires hpu")
-    @unittest.skipIf(is_torch_at_least("2.3"), "SW-188689")
     def test_hpu_event_method(self):
         def fn(x):
             x = torch.mul(x, 1)
