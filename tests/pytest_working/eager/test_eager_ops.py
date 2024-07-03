@@ -1614,3 +1614,19 @@ def test_empty_resize_node_params():
 
         num_cache_entries_end = htdebug._get_jit_cache_size()
         assert num_cache_entries_end == num_cache_entries_start
+
+
+def test_sag_section_validation_issue():
+    params = [(16, (2, 2), (1, 2)), (2732 * 258, (2732, 257), (1, 257))]
+
+    for base_size, shape, strides in params:
+        a = torch.rand(base_size, dtype=torch.bfloat16)
+        a_h = a.to("hpu")
+
+        a_strided = torch.as_strided(a, shape, strides)
+        a_h_strided = torch.as_strided(a_h, shape, strides)
+
+        a_strided.zero_()
+        a_h_strided.zero_()
+
+        assert torch.equal(a, a_h.cpu())

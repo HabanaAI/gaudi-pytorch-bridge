@@ -832,20 +832,16 @@ void RecipeValueSpec::update_patching_table(
 
   // Patch persistent intermediates
   // The persistent intermediates are retained in the rv
-  size_t intermediates_start =
+  const size_t intermediates_start =
       num_inputs + num_induplicates + num_dma_inputs + num_shape_tensors;
-  size_t intermediates_end = intermediates_start + num_intermediates;
+  const size_t intermediates_end = intermediates_start + num_intermediates;
   auto intermediate_idx = 0;
   std::unordered_map<size_t, IValPtrShared> intermediateIVpshMap;
   std::vector<at::Tensor> intermediate_tensors;
-  for (; ridx < intermediates_end; ridx++) {
-    PT_EAGER_DEBUG(
-        "[SHAPE AGNOSTIC] intermediates ridx : ",
-        ridx,
-        " shape patching not done!");
-    PtTensorInfo& ti = *(dtensorinfos.at(ridx));
-    auto tshape{ti.get_shape()};
 
+  auto patch_intermediate_tensor = [&](size_t idx) {
+    PtTensorInfo& ti = *(dtensorinfos.at(idx));
+    auto tshape{ti.get_shape()};
     if (ti.is_duplicate()) {
       auto ti_parent_index = ti.get_parent_index();
       auto pt_parent_index = ti_parent_index - intermediates_start;
@@ -889,10 +885,21 @@ void RecipeValueSpec::update_patching_table(
 
     IValPtrShared ivpsh = std::make_shared<IVal>(rv_intermediate_tensor);
     intermediate_tensors_ptr->push_back(ivpsh);
-    intermediateIVpshMap.emplace(ridx, ivpsh);
+    intermediateIVpshMap.emplace(idx, ivpsh);
     PT_BRIDGE_DEBUG(
         "HabanaOp recipe cache hit :: Intermediate : buffer ptr ",
         rv_intermediate_tensor.data_ptr());
+  };
+
+  for (; ridx < intermediates_end; ridx++) {
+    if (is_shape_agnostic_graph) {
+      PT_EAGER_DEBUG(
+          "[SHAPE AGNOSTIC] intermediates ridx : ",
+          ridx,
+          " shape patching will be done at last !");
+      continue;
+    }
+    patch_intermediate_tensor(ridx);
   }
 
   TORCH_CHECK(
@@ -1056,15 +1063,19 @@ void RecipeValueSpec::update_patching_table(
       num_intermediate_to_outduplicates);
 
   // Patch the interim duplicates if there are any
-  size_t interim_to_outduplicates_end =
+  const size_t interim_to_outduplicates_start = input_to_outduplicates_end;
+  const size_t interim_to_outduplicates_end =
       input_to_outduplicates_end + num_intermediate_to_outduplicates;
   if (num_intermediate_to_outduplicates) {
     constexpr bool shape_agnostic = false;
     for (; ridx < interim_to_outduplicates_end; ridx++) {
-      PT_EAGER_DEBUG(
-          "[SHAPE AGNOSTIC] intermediate_to_outduplicates ridx : ",
-          ridx,
-          " shape patching not done!");
+      if (is_shape_agnostic_graph) {
+        PT_EAGER_DEBUG(
+            "[SHAPE AGNOSTIC] intermediate_to_outduplicates ridx : ",
+            ridx,
+            " shape patching will be done at last !");
+        continue;
+      }
       create_outdup(
           ridx,
           intermediateIVpshMap,
@@ -1185,6 +1196,32 @@ void RecipeValueSpec::update_patching_table(
           new_sizes,
           std::nullopt,
           t.second);
+    }
+
+    // Patching is done now after updating all intermediate tensor(s) shape
+    for (size_t ridx = intermediates_start; ridx < intermediates_end; ridx++) {
+      PT_EAGER_DEBUG(
+          "[SHAPE AGNOSTIC] intermediates ridx : ",
+          ridx,
+          " patching now done !");
+      patch_intermediate_tensor(ridx);
+    }
+
+    if (num_intermediate_to_outduplicates) {
+      for (size_t ridx = interim_to_outduplicates_start;
+           ridx < interim_to_outduplicates_end;
+           ridx++) {
+        PT_EAGER_DEBUG(
+            "[SHAPE AGNOSTIC] intermediate_to_outduplicates ridx : ",
+            ridx,
+            " patching now done !");
+        create_outdup(
+            ridx,
+            intermediateIVpshMap,
+            "intermediateIVpshMap",
+            aten_outputs,
+            false);
+      }
     }
   }
   PT_BRIDGE_END;
