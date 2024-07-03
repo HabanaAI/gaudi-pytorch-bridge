@@ -16,7 +16,6 @@ import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
 import torch
-from test_utils import is_gaudi3  # TODO: [SW-190280] Remove
 from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
@@ -423,9 +422,6 @@ def test_convert_from_int4_AutoGPTQ(
     input_values,
     out_dtype,
 ):
-    # TODO: [SW-190280] Fix and remove
-    if is_gaudi3():
-        pytest.skip("Gaudi3 doesn't support 4bit")
     if out_dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
         pytest.skip("https://jira.habana-labs.com/browse/SW-182397")
 
