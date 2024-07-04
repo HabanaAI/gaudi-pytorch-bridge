@@ -179,9 +179,6 @@ else:
         if "hpu" not in str(tensor.device):
             return None
 
-        if not tensor.has_storage():
-            return None
-
         storage = tensor.storage()
         return (storage.data_ptr(), storage.nbytes())
 

@@ -31,4 +31,13 @@ LibraryType getLoadedLibraryType() {
 bool IsInt64Supported() {
   return GET_ENV_FLAG_NEW(PT_ENABLE_INT64_SUPPORT);
 }
+
+bool IsRecordStreamEnabled() {
+  return false;
+}
+
+bool IsRecordStreamNoHolderEnabled() {
+  return false;
+}
+
 } // namespace common

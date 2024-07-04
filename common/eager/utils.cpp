@@ -42,4 +42,15 @@ bool IsInt64Supported() {
 LibraryType getLoadedLibraryType() {
   return LibraryType::EAGER;
 }
+
+bool IsRecordStreamEnabled() {
+  static bool value = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM);
+  return value;
+}
+
+bool IsRecordStreamNoHolderEnabled() {
+  static bool value = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM_NOHOLDER);
+  return value and IsRecordStreamEnabled();
+}
+
 } // namespace common

@@ -20,6 +20,7 @@
 #include "backend/profiling/trace_sources/sources.h"
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/memory_defragmentation.h"
+#include "common/utils.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/towl.h"
 #include "habana_lazy/memlog.h"
@@ -404,7 +405,7 @@ void device_memory::recordStream(void* ptr, hpuStream_t stream) {
   }
   PT_DEVMEM_DEBUG("record_stream for ptr", reinterpret_cast<uint64_t>(ptr));
   if (pool_strategy_ == pool_allocator::startegy_coalesce_stringent &&
-      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM)) {
+      common::IsRecordStreamEnabled()) {
     auto h =
         mem_handle::reinterpret_from_pointer(reinterpret_cast<uint64_t>(ptr));
     if (h.offset() != 0) {

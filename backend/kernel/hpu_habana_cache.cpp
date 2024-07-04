@@ -23,6 +23,7 @@
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/event.h"
+#include "common/utils.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/misc_utils.h"
 #include "habana_helpers/towl.h"
@@ -1578,7 +1579,7 @@ void RecipeLauncher::Launch(
       device.register_producer_on_stream(stream_handle, ext_events.at(i));
     }
 
-    if (!(GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM) &&
+    if (!(common::IsRecordStreamEnabled() &&
           GET_ENV_FLAG_NEW(PT_HPU_USE_LAUNCH_RECORD_STREAM))) {
       // Use wrapper for resources that must survive async part of the compute.
       struct ResourceHolder {
@@ -1610,9 +1611,11 @@ void RecipeLauncher::Launch(
       // corresponding recipe is finished on stream
       const auto& recipe_ptr = recipe_;
       resource_holder->recipe_id_ = recipe_ptr;
-      resource_holder->input_tensors_ = ptRefs;
-      resource_holder->output_tensors_ = outPtRefs;
-      resource_holder->address_lock = std::move(address_lock);
+      if (not common::IsRecordStreamNoHolderEnabled()) {
+        resource_holder->output_tensors_ = outPtRefs;
+        resource_holder->address_lock = std::move(address_lock);
+        resource_holder->input_tensors_ = ptRefs;
+      }
       resource_holder->recipe_counter_ptr = &recipe_counter;
       resource_holder->active_graph_key_ = active_graph_key_;
       // ResourceHolder could be used directly as callback, if we would only
@@ -1658,7 +1661,9 @@ void RecipeLauncher::Launch(
       // corresponding recipe is finished on stream
       const auto& recipe_ptr = recipe_;
       resource_holder->recipe_id_ = recipe_ptr;
-      resource_holder->address_lock = std::move(address_lock);
+      if (not common::IsRecordStreamNoHolderEnabled()) {
+        resource_holder->address_lock = std::move(address_lock);
+      }
       resource_holder->recipe_counter_ptr = &recipe_counter;
       resource_holder->active_graph_key_ = active_graph_key_;
       // ResourceHolder could be used directly as callback, if we would only
