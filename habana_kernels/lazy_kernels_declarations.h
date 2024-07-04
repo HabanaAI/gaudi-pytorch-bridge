@@ -881,6 +881,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
     const at::Tensor& v,
     const at::Tensor& P,
     const c10::optional<at::Tensor>& dm,
+    const bool is_causal,
     const double p,
     const double scale);
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_lazy(
@@ -890,6 +891,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_lazy(
     const at::Tensor& v,
     const at::Tensor& P,
     const c10::optional<at::Tensor>& dm,
+    const bool is_causal,
     const double p,
     const double scale,
     const c10::optional<at::Tensor>& d_scale_q,

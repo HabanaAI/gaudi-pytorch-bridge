@@ -1926,13 +1926,15 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
     const at::Tensor& v,
     const at::Tensor& P,
     const c10::optional<at::Tensor>& dm,
+    const bool is_causal,
     const double p,
     const double scale) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO("sdpa_bwd :", DUMP_8ARGS(grad, q, k, v, P, dm, p, scale));
+  PT_OP_INFO(
+      "sdpa_bwd :", DUMP_9ARGS(grad, q, k, v, P, dm, is_causal, p, scale));
 
-  return sdpa_bwd_lazy(grad, q, k, v, P, dm, p, scale);
+  return sdpa_bwd_lazy(grad, q, k, v, P, dm, is_causal, p, scale);
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_wrap(
@@ -1942,6 +1944,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_wrap(
     const at::Tensor& v,
     const at::Tensor& P,
     const c10::optional<at::Tensor>& dm,
+    const bool is_causal,
     const double p,
     const double scale,
     const c10::optional<at::Tensor>& d_scale_q,
@@ -1957,13 +1960,14 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_wrap(
   PT_LAZY_TRACE;
   PT_OP_INFO(
       "fp8_sdpa_bwd :",
-      DUMP_17ARGS(
+      DUMP_18ARGS(
           grad,
           q,
           k,
           v,
           P,
           dm,
+          is_causal,
           p,
           scale,
           d_scale_q,
@@ -1983,6 +1987,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_wrap(
       v,
       P,
       dm,
+      is_causal,
       p,
       scale,
       d_scale_q,
@@ -2749,9 +2754,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::sdpa_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, str softmax_mode) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, float p, float scale) -> (Tensor, Tensor, Tensor)");
+      "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, bool is_causal, float p, float scale) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::fp8_sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, float p, float scale, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? d_scale_s, Tensor? d_scale_do, Tensor? d_scale_ds, Tensor? q_scale_s, Tensor? q_scale_ds, bool is_amax_ds) -> (Tensor, Tensor, Tensor, Tensor)");
+      "hpu::fp8_sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, bool is_causal, float p, float scale, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? d_scale_s, Tensor? d_scale_do, Tensor? d_scale_ds, Tensor? q_scale_s, Tensor? q_scale_ds, bool is_amax_ds) -> (Tensor, Tensor, Tensor, Tensor)");
 
   m.def(
 

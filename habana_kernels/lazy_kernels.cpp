@@ -7539,13 +7539,16 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
     const at::Tensor& v,
     const at::Tensor& P,
     const c10::optional<at::Tensor>& dm,
+    const bool is_causal,
     const double p,
     const double scale) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
-      "hpu::sdpa_bwd", {grad, q, k, v, P, dm, p, scale}, SDPABwdOutputShape};
+      "hpu::sdpa_bwd",
+      {grad, q, k, v, P, dm, is_causal, p, scale},
+      SDPABwdOutputShape};
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_bwd, hpu_op)
 }
@@ -7557,6 +7560,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_lazy(
     const at::Tensor& v,
     const at::Tensor& P,
     const c10::optional<at::Tensor>& dm,
+    const bool is_causal,
     const double p,
     const double scale,
     const c10::optional<at::Tensor>& d_scale_q,
@@ -7579,6 +7583,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_lazy(
        v,
        P,
        dm,
+       is_causal,
        p,
        scale,
        d_scale_q,

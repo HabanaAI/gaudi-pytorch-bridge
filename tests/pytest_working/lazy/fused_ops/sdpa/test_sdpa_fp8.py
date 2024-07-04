@@ -1291,6 +1291,7 @@ def test_sdpa(
         v_hpu,
         P_hpu,
         dm,
+        is_causal,
         dropout_p,
         scale,
         d_scale_q,

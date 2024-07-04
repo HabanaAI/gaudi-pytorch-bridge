@@ -198,10 +198,11 @@ def fp8_sdpa_bwd_wrapper(ctx, dout, *args):
     else:
         q, k, v, P, dm = ctx.saved_tensors
         scale = ctx.scale
+        is_causal = ctx.is_causal
         dropout_p = ctx.dropout_p
         if ctx.gqa:
             dout = gqa_input_reshape_bwd(q, v, dout)
-        dq, dk, dv = torch.ops.hpu.sdpa_bwd(dout, q, k, v, P, dm, dropout_p, scale)
+        dq, dk, dv = torch.ops.hpu.sdpa_bwd(dout, q, k, v, P, dm, is_causal, dropout_p, scale)
         if ctx.gqa:
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)

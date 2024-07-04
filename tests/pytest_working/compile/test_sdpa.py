@@ -56,7 +56,9 @@ def test_sdpa(dropout, requires_backward):
         fast_softmax_mode = "None"
         result = torch.ops.hpu.sdpa_fwd(query, key, value, am, dropout, scale, is_causal, fast_softmax_mode)
         if requires_backward:
-            result = torch.ops.hpu.sdpa_bwd(result[0], query, key, value, result[1], result[2], dropout, scale)
+            result = torch.ops.hpu.sdpa_bwd(
+                result[0], query, key, value, result[1], result[2], is_causal, dropout, scale
+            )
         return result
 
     query, key, value = (

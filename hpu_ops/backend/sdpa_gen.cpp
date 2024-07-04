@@ -412,11 +412,12 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto v = getNextInput<TensorsPair>(stackGetter);
   auto P = getNextInput<TensorsPair>(stackGetter);
   auto dm = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto is_causal = getNextInput<bool>(stackGetter);
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
 
   ns_Sdpa::ParamsV3 params{};
-  fillSdpaParams(params, p, scale, false /*is_causal*/, false /*is_inference*/);
+  fillSdpaParams(params, p, scale, is_causal, false /*is_inference*/);
 
   std::string guid = get_guid_with_precision("sdpa_bwd", q.pt_t.scalar_type());
   auto out_shapes = SDPABwdOutputShape(stack);
@@ -452,6 +453,7 @@ void Fp8SDPABwd::AddNode(
   auto v = getNextInput<TensorsPair>(stackGetter);
   auto P = getNextInput<TensorsPair>(stackGetter);
   auto dm = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto is_causal = getNextInput<bool>(stackGetter);
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
   auto d_scale_q = getNextInput<c10::optional<TensorsPair>>(stackGetter);
@@ -484,7 +486,7 @@ void Fp8SDPABwd::AddNode(
       params,
       p,
       scale,
-      false /*is_causal*/,
+      is_causal,
       false /*is_inference*/,
       "None" /*softmax_mode*/,
       flags);

@@ -510,7 +510,7 @@ def meta_sdpa_fwd_dropout_seed(seed, q, k, v, attn_mask, dropout_p, scale, is_ca
 
 
 @register_meta([torch.ops.hpu.sdpa_bwd.default])
-def meta_sdpa_bwd(dout, q, k, v, p, dm, dropout_p, scale):
+def meta_sdpa_bwd(dout, q, k, v, p, dm, is_causal, dropout_p, scale):
     grad_q = q.new_empty(q.shape)
     grad_k = k.new_empty(k.shape)
     grad_v = v.new_empty(v.shape)

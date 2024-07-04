@@ -1896,13 +1896,15 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd(
     const at::Tensor& v,
     const at::Tensor& P,
     const c10::optional<at::Tensor>& dm,
+    const bool is_causal,
     const double p,
     const double scale) {
   PT_EAGER_TRACE;
-  PT_OP_INFO("sdpa_bwd :", DUMP_8ARGS(grad, q, k, v, P, dm, p, scale));
+  PT_OP_INFO(
+      "sdpa_bwd :", DUMP_9ARGS(grad, q, k, v, P, dm, is_causal, p, scale));
   habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
       "hpu::sdpa_bwd",
-      {grad, q, k, v, P, dm, p, scale},
+      {grad, q, k, v, P, dm, is_causal, p, scale},
       habana::SDPABwdOutputShape};
 
   return hpu_op.call();
@@ -2073,7 +2075,7 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::sdpa_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, str softmax_mode) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, float p, float scale) -> (Tensor, Tensor, Tensor)");
+      "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, bool is_causal, float p, float scale) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::habana_randperm(Tensor seed, SymInt n, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def("hpu::accumulate_grads_(Tensor[] variables, Tensor[] new_grads) -> ()");

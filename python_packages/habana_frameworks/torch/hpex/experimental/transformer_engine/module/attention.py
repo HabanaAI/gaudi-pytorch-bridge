@@ -184,7 +184,9 @@ class FusedAttnFunc(torch.autograd.Function):
                 key_layer = torch.ops.hpu.cast_from_fp8(key_layer, fwd_scale_inv[FP8_META_ID_K], torch.bfloat16)
                 value_layer = torch.ops.hpu.cast_from_fp8(value_layer, fwd_scale_inv[FP8_META_ID_V], torch.bfloat16)
                 P = torch.ops.hpu.cast_from_fp8(P, fwd_scale_inv[FP8_META_ID_S], torch.bfloat16)
-                dq, dk, dv = torch.ops.hpu.sdpa_bwd(dout, query_layer, key_layer, value_layer, P, dm, dropout_p, scale)
+                dq, dk, dv = torch.ops.hpu.sdpa_bwd(
+                    dout, query_layer, key_layer, value_layer, P, dm, is_causal, dropout_p, scale
+                )
                 if ctx.gqa:
                     dq = gqa_output_reshape(dq)
                     dk = gqa_output_reshape(dk)
@@ -211,6 +213,7 @@ class FusedAttnFunc(torch.autograd.Function):
                     value_layer,
                     P,
                     dm,
+                    is_causal,
                     dropout_p,
                     scale,
                     fwd_scale_inv[FP8_META_ID_Q],
