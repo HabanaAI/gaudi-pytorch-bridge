@@ -16,8 +16,10 @@
 # However, they have been renamed and amended as per the present need.
 
 import copy
+import importlib
 import itertools
 import operator
+import os
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional
 
@@ -51,12 +53,13 @@ logger = get_compile_backend_logger()
 
 QUANTIZER_MIN_MAX = {torch.int8: (-128, 127), torch.float8_e4m3fn: (-240, 240), torch.float8_e5m2: (-240, 240)}
 extra_args_act: Dict[str, Any] = {"for_observer": {"eps": 2**-12}, "margin": 2}
-extra_args_weight: Dict[str, Any] = {"for_observer": {"eps": 2**-12}, "margin": 1}
+extra_args_weight: Dict[str, Any] = {"for_observer": {"eps": 2**-12}, "margin": 0}
 
 scale_history_of_last_linear_or_conv_weight = dict()
 habana_quantization_map_queue = []
 export_module_record = dict()
 quant_dtype_used = None
+param_id = 0
 
 
 # ======================================================================================
@@ -197,7 +200,7 @@ class habana_quantizer(Quantizer):
         weight_qspec = get_weight_qspec(quantization_config)
         bias_qspec = get_bias_qspec(quantization_config)
         for module_or_fn_type, partitions in module_partitions.items():
-            if module_or_fn_type == torch.nn.Linear:
+            if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
                 for p in partitions:
                     act_node = p.input_nodes[0]
                     output_node = p.output_nodes[0]
@@ -698,10 +701,10 @@ def preprocess_linears(placeholder_map, module: torch.fx.GraphModule, tupled_arg
     if len(linear_module_partitions) == 0:
         return
 
-    param_id = 0
+    global param_id
     module_changed = False
     for module_or_fn_type, partitions in linear_module_partitions.items():
-        if module_or_fn_type == torch.nn.Linear:
+        if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
             for p in partitions:
                 weight_node = None
                 bias_node = None
@@ -773,6 +776,7 @@ def preprocess_linears(placeholder_map, module: torch.fx.GraphModule, tupled_arg
                     new_attr_node.meta["source_fn_stack"] = compute_node.meta.get("source_fn_stack", None)
                     new_attr_node.meta["stack_trace"] = compute_node.meta.get("stack_trace", None)
                     new_attr_node.meta["tensor_meta"] = compute_node.meta.get("tensor_meta", None)
+                    new_attr_node.meta["val"] = compute_node.meta.get("val", None)
 
                 if bias_node is not None:
                     with module.graph.inserting_before(bias_node_first_user):
@@ -788,6 +792,7 @@ def preprocess_linears(placeholder_map, module: torch.fx.GraphModule, tupled_arg
                         new_attr_node.meta["source_fn_stack"] = compute_node.meta.get("source_fn_stack", None)
                         new_attr_node.meta["stack_trace"] = compute_node.meta.get("stack_trace", None)
                         new_attr_node.meta["tensor_meta"] = compute_node.meta.get("tensor_meta", None)
+                        new_attr_node.meta["val"] = compute_node.meta.get("val", None)
 
     if module_changed:
         module.graph.lint()
@@ -805,9 +810,9 @@ def preprocess_convs(placeholder_map, module: torch.fx.GraphModule, tupled_args)
 
     # TODO add support for convs without bias.
 
-    param_id = 0
+    global param_id
     for module_or_fn_type, partitions in conv_module_partitions.items():
-        if module_or_fn_type == torch.nn.Conv2d:
+        if module_or_fn_type == torch.nn.Conv2d or module_or_fn_type == torch.nn.functional.conv2d:
             for p in partitions:
                 weight_node = None
                 bias_node = None
@@ -864,6 +869,7 @@ def preprocess_convs(placeholder_map, module: torch.fx.GraphModule, tupled_args)
                     new_attr_node.meta["source_fn_stack"] = compute_node.meta.get("source_fn_stack", None)
                     new_attr_node.meta["stack_trace"] = compute_node.meta.get("stack_trace", None)
                     new_attr_node.meta["tensor_meta"] = compute_node.meta.get("tensor_meta", None)
+                    new_attr_node.meta["val"] = compute_node.meta.get("val", None)
 
                 with module.graph.inserting_before(bias_node_first_user):
                     attr_name = "_param_constant_c" + str(param_id)
@@ -877,6 +883,7 @@ def preprocess_convs(placeholder_map, module: torch.fx.GraphModule, tupled_args)
                     new_attr_node.meta["source_fn_stack"] = compute_node.meta.get("source_fn_stack", None)
                     new_attr_node.meta["stack_trace"] = compute_node.meta.get("stack_trace", None)
                     new_attr_node.meta["tensor_meta"] = compute_node.meta.get("tensor_meta", None)
+                    new_attr_node.meta["val"] = compute_node.meta.get("val", None)
 
     module.graph.lint()
     module.recompile()
@@ -896,6 +903,34 @@ def discover_and_materialize_params(module: torch.fx.GraphModule, *args):
             placeholder_count = placeholder_count + 1
 
     tupled_args = tuple(args)
+
+    # Handle following custom linear modules in deepspeed
+    def handle_custom_linear_modules(module):
+        for node in module.graph.nodes:
+            source_fn_stack = node.meta.get("source_fn_stack", None)
+            nn_module_stack = node.meta.get("nn_module_stack", None)
+            if source_fn_stack is not None and nn_module_stack is not None:
+                node.meta["source_fn_stack_original"] = source_fn_stack
+                nn_module_stack_last_value = str(list(nn_module_stack.values())[-1])
+                custom_linear_modules = [
+                    "LinearLayer",
+                    "LinearAllreduce",
+                    "ScopedLinearAllReduce",
+                    "LmHeadLinearAllreduce",
+                ]
+                if any(substring in nn_module_stack_last_value for substring in custom_linear_modules):
+                    del source_fn_stack[-1]
+                    source_fn_stack.append((list(nn_module_stack.keys())[-1], torch.nn.Linear))
+                    node.meta["source_fn_stack"] = source_fn_stack
+
+    # Due to custom linear modules in deepspeed, "source_fn_stack" node meta
+    # of post-decomposition "mm" nodes does not include the original source
+    # information. Hence, pytorch's get_source_partitions() utility fails to
+    # to identify the "mm" nodes that originally belong to linear modules.
+    # Till we have a proper 'parameter freezing' mechanism in place, we can
+    # use "nn_module_stack" node meta to refill the missing information.
+    if importlib.util.find_spec("deepspeed") and os.getenv("WORLD_SIZE", "0") != "0":
+        handle_custom_linear_modules(module)
 
     preprocess_linears(placeholder_map, module, tupled_args, *args)
     preprocess_convs(placeholder_map, module, tupled_args)
