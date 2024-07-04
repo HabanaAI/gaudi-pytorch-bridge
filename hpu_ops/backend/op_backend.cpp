@@ -557,8 +557,6 @@ InferOutputMetaRetType OpBackend::InferOutputMeta(at::Stack& stack) {
     HandleTypePromotion(graph, stack);
   }
 
-  update_integer_guid_dtype(guid_, m_scalar_type);
-
   AddNode(graph, stack);
   m_output_inf_mode = false;
 
@@ -635,8 +633,6 @@ void OpBackend::AllocateAndAddSynapseNode(
   }
 
   CustomHandler(graph, stack);
-
-  update_integer_guid_dtype(guid_, m_scalar_type);
 
   AddNode(graph, stack);
 }

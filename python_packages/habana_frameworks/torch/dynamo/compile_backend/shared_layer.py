@@ -139,6 +139,9 @@ hpu_ds_fallback_list = {
 }
 
 
+META_SHAPE_CHANGED = "Meta output shape changed."
+
+
 # Returns False when the index_put op needs to fallback to eager
 def index_put_support_check(node, is_dynamic):
     # Dynamic shape is not supported
@@ -288,20 +291,31 @@ def is_eager_fallback_required(node: torch.fx.Node, is_dynamic=False) -> bool:
                     allow_numbers_as_tensors = torch._C._should_allow_numbers_as_tensors(
                         node.target._schema.name.split("::")[-1].split(".")[0]
                     )
+
+                    output_shapes = str(node.meta["output_shapes"])
+
+                    shared_meta = [
+                        (len(shape), dtype)
+                        for shape, dtype in zip(node.meta["output_shapes"], node.meta["output_dtypes"])
+                    ]
                     do_fallback = check_cpu_fallback_op(
                         op_name,
                         node.target._schema,
                         allow_numbers_as_tensors,
                         is_dynamic,
+                        shared_meta,
                         *concrete_args,
                         **concrete_kwargs,
                     )
+                    assert str(node.meta["output_shapes"]) == output_shapes, META_SHAPE_CHANGED
                     if do_fallback:
                         logger.debug(
                             "Fallback required - check_cpu_fallback_op. Target: %s",
                             node.target,
                         )
                 except Exception as e:
+                    if str(e) == META_SHAPE_CHANGED:
+                        raise Exception(f"Shared layer modified node output shape in {node.target}. Aborting.")
                     logger.debug(
                         "Fallback required - Exception raised in check for fallback. Target: %s. Exception: %s",
                         node.target,
