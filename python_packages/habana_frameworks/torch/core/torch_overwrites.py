@@ -191,16 +191,17 @@ def overwrite_torch_functions():
 
         if cache_enable and hpu_backend_invoke:
             nonlocal ranks_cache
+            ranks_cache[backend] = {}
             if ranks == None:
                 actual_world_size = torch.distributed.distributed_c10d.get_world_size()
                 ranks_tuple = tuple(list(range(0, actual_world_size)))
             else:
                 ranks_tuple = tuple(sorted(tuple(ranks)))
-            if ranks_tuple in ranks_cache:
-                return ranks_cache[ranks_tuple]
+            if ranks_tuple in ranks_cache[backend]:
+                return ranks_cache[backend][ranks_tuple]
             else:
-                ranks_cache[ranks_tuple] = new_group_orig(ranks, timeout, backend, pg_options)
-                return ranks_cache[ranks_tuple]
+                ranks_cache[backend][ranks_tuple] = new_group_orig(ranks, timeout, backend, pg_options)
+                return ranks_cache[backend][ranks_tuple]
         else:
             return new_group_orig(ranks, timeout, backend, pg_options)
 
@@ -218,9 +219,9 @@ def overwrite_torch_functions():
         nonlocal ranks_cache
         cache_enable = bc.get_pt_enable_comm_group_cache()
         hpu_backend_invoke = True if backend is None or "hccl" in backend else False
-
         if cache_enable and hpu_backend_invoke:
-            if len(ranks_cache) == 0:
+            ranks_cache[backend] = {}
+            if len(ranks_cache[backend]) == 0:
                 init_process_group_orig(
                     backend,
                     init_method,
@@ -233,8 +234,8 @@ def overwrite_torch_functions():
                 )
             actual_world_size = torch.distributed.distributed_c10d.get_world_size()
             ranks_tuple = tuple(list(range(0, actual_world_size)))
-            if ranks_tuple not in ranks_cache:
-                ranks_cache[ranks_tuple] = torch.distributed.distributed_c10d._get_default_group()
+            if ranks_tuple not in ranks_cache[backend]:
+                ranks_cache[backend][ranks_tuple] = torch.distributed.distributed_c10d._get_default_group()
         else:
             return init_process_group_orig(
                 backend,
