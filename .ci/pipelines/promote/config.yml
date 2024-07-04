@@ -74,6 +74,11 @@ orchestratorConfig:
       silentMode: true
     # Quantization toolkit tests
     - testToLaunch: habana_quantization_toolkit/Tests/Test_habana_quantization_toolkit_gaudi2_asic_test
+    # Huda
+    - testToLaunch: huda/Tests/Test_huda_gaudi2_asic_E2E_ResNet50
+      silentMode: true
+    - testToLaunch: huda/Tests/Test_huda_gaudi2_asic_unit_tests
+      silentMode: true
   codeCoverageConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   coverityConfig:
