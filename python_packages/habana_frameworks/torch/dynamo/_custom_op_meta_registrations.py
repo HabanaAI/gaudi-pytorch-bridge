@@ -337,6 +337,27 @@ def meta_optimizer_optimizer_lars(params, grads, skip_masks, eeta, weight_decay,
     return
 
 
+@register_meta([torch.ops.hpu.optimizer_lamb_phase1.default])
+def meta_optimizer_lamb_phase1(
+    grad_list,
+    wt_list,
+    exp_avg_list,
+    exp_avg_sq_list,
+    wt_norm_list,
+    adam_norm_list,
+    adam_step_list,
+    clip_global_grad_norm,
+    averaging,
+    beta1,
+    beta2,
+    eps,
+    step,
+    bias_correction,
+    weight_decay,
+):
+    return
+
+
 @register_meta([torch.ops.hpu.optimizer_lamb_phase2.default])
 def meta_optimizer_lamb_phase2(weights, adam_norms, weight_norms, adam_steps, step, weight_decay, use_lamb):
     return
@@ -361,6 +382,16 @@ def meta_optimizer_adamw(
     weight_decay,
     has_weight_decay,
 ):
+    return
+
+
+@register_meta([torch.ops.hpu.optimizer_sgd.default])
+def meta_optimizer_sgd(gradients, weights, lr, wd, mom, damp, nesterov):
+    return
+
+
+@register_meta([torch.ops.hpu.optimizer_sgd_momentum.default])
+def meta_optimizer_sgd_momentum(gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov):
     return
 
 

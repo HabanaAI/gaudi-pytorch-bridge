@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -96,6 +96,7 @@ class WeightIdentificationPass {
   const std::unordered_map<std::string, std::vector<size_t>>
       customOptimizerWeightIdx = {
           {"hpu::optimizer_sgd", {0, 1, 2}},
+          {"hpu::optimizer_sgd_momentum", {0, 1, 2}},
           {"hpu::habanaOptimizerFusedAdagrad", {0, 1, 2}},
           {"hpu::habanaOptimizerAdamW", {0, 1, 2, 3}},
           {"hpu::optimizer_adamw", {0, 1, 2, 3, 9, 10}},

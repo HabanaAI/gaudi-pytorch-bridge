@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -16,7 +16,6 @@ import torch
 from test_utils import cpu, hpu
 
 
-@pytest.mark.skip
 def test_sgd():
     d1, d2, lr = 1, 1024, 0.1
     momentum = 0.1
