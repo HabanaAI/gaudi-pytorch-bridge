@@ -20,7 +20,7 @@ using torch::jit::Stack;
 
 namespace habana {
 
-static CheckNodeWithSharedLayerValidator validator_elu("elu", "elu_fwd", {0}, {}, nullptr, FillEluParams, {}, false, false, false, false);
+static CheckNodeWithSharedLayerValidator validator_elu("elu", "elu_fwd", {0}, {}, nullptr, {}, false, false, false, false);
 
 
 at::Tensor elu(const at::Tensor & self, const at::Scalar & alpha, const at::Scalar & scale, const at::Scalar & input_scale) {

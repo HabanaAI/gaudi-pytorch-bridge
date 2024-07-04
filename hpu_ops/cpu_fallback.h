@@ -143,23 +143,22 @@
   return dispatch_fallback<ATEN_OP2(input, overload)>::call( \
       OpSupportLevel::Value::unsupported, param2);
 
-#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(input, opname, args...)        \
-  if (ABSL_PREDICT_FALSE(!validator_##opname.Validate(input, {args}))) { \
-    return dispatch_fallback<ATEN_OP(opname)>::call(                     \
-        OpSupportLevel::Value::unsupported_dtype, args);                 \
-  } else {                                                               \
-    require_h2d = validator_##opname.IsRequireH2D();                     \
-    require_st = validator_##opname.IsRequireST();                       \
+#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(input, opname, args...) \
+  if (ABSL_PREDICT_FALSE(!validator_##opname.Validate({args}))) { \
+    return dispatch_fallback<ATEN_OP(opname)>::call(              \
+        OpSupportLevel::Value::unsupported_dtype, args);          \
+  } else {                                                        \
+    require_h2d = validator_##opname.IsRequireH2D();              \
+    require_st = validator_##opname.IsRequireST();                \
   }
 
-#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(input, opname, overload, args...) \
-  if (ABSL_PREDICT_FALSE(                                                    \
-          !validator_##opname##_##overload.Validate(input, {args}))) {       \
-    return dispatch_fallback<ATEN_OP2(opname, overload)>::call(              \
-        OpSupportLevel::Value::unsupported_dtype, args);                     \
-  } else {                                                                   \
-    require_h2d = validator_##opname##_##overload.IsRequireH2D();            \
-    require_st = validator_##opname##_##overload.IsRequireST();              \
+#define VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(input, opname, overload, args...)   \
+  if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.Validate({args}))) { \
+    return dispatch_fallback<ATEN_OP2(opname, overload)>::call(                \
+        OpSupportLevel::Value::unsupported_dtype, args);                       \
+  } else {                                                                     \
+    require_h2d = validator_##opname##_##overload.IsRequireH2D();              \
+    require_st = validator_##opname##_##overload.IsRequireST();                \
   }
 
 namespace habana {

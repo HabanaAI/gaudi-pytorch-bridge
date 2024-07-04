@@ -28,6 +28,7 @@
 
 struct SharedLayerOp {
   virtual bool func(torch::jit::Stack& stack, bool is_dynamic) = 0;
+  std::vector<std::pair<int, at::ScalarType>> m_shared_meta;
 };
 
 #define RETURN_IF_UNSUPPORTED_DTYPE(input, opname, args...)  \
@@ -131,16 +132,16 @@ struct SharedLayerOp {
 
 #define RETURN_UNSUPPORTED_OP2_O(input, param2, overload) return false;
 
-#define VAL_RETURN_IF_UNSUPPORTED_DTYPE(input, opname, is_dynamic, args...) \
-  if (ABSL_PREDICT_FALSE(                                                   \
-          !validator_##opname.Validate(input, {args}, is_dynamic))) {       \
-    return false;                                                           \
+#define VAL_RETURN_IF_UNSUPPORTED_DTYPE(input, opname, is_dynamic, args...)   \
+  if (ABSL_PREDICT_FALSE(                                                     \
+          !validator_##opname.Validate({args}, is_dynamic, m_shared_meta))) { \
+    return false;                                                             \
   }
 
 #define VAL_RETURN_IF_UNSUPPORTED_DTYPE2(                           \
     input, opname, is_dynamic, overload, args...)                   \
   if (ABSL_PREDICT_FALSE(!validator_##opname##_##overload.Validate( \
-          input, {args}, is_dynamic))) {                            \
+          {args}, is_dynamic, m_shared_meta))) {                    \
     return false;                                                   \
   }
 
@@ -172,17 +173,27 @@ bool check_support(
     c10::FunctionSchema& schema,
     bool allow_numbers_as_tensors,
     bool is_dynamic,
+    const py::list& shared_meta,
     py::args& args,
     const py::kwargs& kwargs) {
   torch::jit::Stack stack;
+  std::vector<std::pair<int, at::ScalarType>> out_meta;
   {
     torch::jit::ToIValueAllowNumbersAsTensors g(allow_numbers_as_tensors);
     //  Acquire GIL for py::args and py::kwargs processing.
     py::gil_scoped_acquire ag;
     stack =
         torch::jit::createStackForSchema(schema, args, kwargs, c10::nullopt);
+
+    for (const auto& sm : shared_meta) {
+      const auto& meta = sm.cast<py::tuple>();
+      out_meta.emplace_back(
+          meta[0].cast<int>(),
+          torch::python::detail::py_object_to_dtype(sm.cast<py::tuple>()[1]));
+    }
   }
   static SharedOp shared_op;
+  shared_op.m_shared_meta = std::move(out_meta);
   return shared_op.func(stack, is_dynamic);
 }
 

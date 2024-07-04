@@ -23,6 +23,7 @@ bool check_cpu_fallback_op(
     c10::FunctionSchema schema,
     bool allow_numbers_as_tensors,
     bool is_dynamic,
+    const py::list& shared_meta,
     py::args args,
     const py::kwargs& kwargs) {
   if (hpu_shared_layer_unsupported_ops.find(op) !=
@@ -31,7 +32,12 @@ bool check_cpu_fallback_op(
   }
   if (fallback_support_check_map.find(op) != fallback_support_check_map.end()) {
     bool check_kernel_support = fallback_support_check_map[op](
-        schema, allow_numbers_as_tensors, is_dynamic, args, kwargs);
+        schema,
+        allow_numbers_as_tensors,
+        is_dynamic,
+        shared_meta,
+        args,
+        kwargs);
     return not check_kernel_support;
   }
   return true;

@@ -22,8 +22,13 @@
 namespace py = pybind11;
 extern std::unordered_map<
     std::string,
-    std::function<
-        bool(c10::FunctionSchema&, bool, bool, py::args&, const py::dict&)>>
+    std::function<bool(
+        c10::FunctionSchema&,
+        bool,
+        bool,
+        const py::list&,
+        py::args&,
+        const py::dict&)>>
     fallback_support_check_map;
 
 extern std::set<std::string> hpu_shared_layer_unsupported_ops;

@@ -38,7 +38,7 @@ using namespace torch::jit;
 #include<hpu_op7.h>
 #include<hpu_op8.h>
 #include<hpu_op9.h>
-std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, bool, py::args& args, const py::kwargs& kwargs)>> fallback_support_check_map = {
+std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, bool, const py::list&, py::args& args, const py::kwargs& kwargs)>> fallback_support_check_map = {
 {"__ilshift__", &check_support<habana::shared_layer___ilshift__>},
 {"_foreach_add_", &check_support<habana::shared_layer__foreach_add_>},
 {"_fused_dropout", &check_support<habana::shared_layer__fused_dropout>},

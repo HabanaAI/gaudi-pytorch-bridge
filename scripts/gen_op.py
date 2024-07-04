@@ -306,7 +306,6 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
         arg_out_ids = f"{{{', '.join([str(o) for o in out_ids])}}}"
         arg_scalar_ids = f"{{{', '.join([str(o) for o in ctxop.get_scalar_ids()])}}}"
         arg_output_meta = ctxop.get_output_meta()
-        arg_fill_params = ctxop.get_custom_fill_params()
         arg_type_promotion_ids = f"{{{', '.join([str(o) for o in promotion_ids])}}}"
         arg_promote_int_to_float = str(promote_to_float).lower()
         arg_safe_cast_check = str(ctxop.safe_cast_check()).lower()
@@ -315,8 +314,6 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
 
         if arg_output_meta is None:
             arg_output_meta = "nullptr"
-        if arg_fill_params is None:
-            arg_fill_params = "nullptr"
 
         # Rebase
         if arg_safe_cast_check == "none":
@@ -328,7 +325,6 @@ class CheckNodeWithSharedLayerValidatorGenerator(OpValidatorGenerator):
             arg_out_ids,
             arg_scalar_ids,
             arg_output_meta,
-            arg_fill_params,
             arg_type_promotion_ids,
             arg_promote_int_to_float,
             arg_safe_cast_check,
@@ -2345,7 +2341,7 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, frontend
             '",\n"'.join(sorted(hpu_shared_layer_unsupported_ops))
         )
     )
-    map_def = "std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, bool, py::args& args, const py::kwargs& kwargs)>> fallback_support_check_map = {\n"
+    map_def = "std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, bool, const py::list&, py::args& args, const py::kwargs& kwargs)>> fallback_support_check_map = {\n"
     for op in sorted(ops_added):
         map_def += """{{"{op}", &check_support<habana::shared_layer_{op}>}},\n""".format(op=op)
     map_def += "};\n"
@@ -2377,8 +2373,8 @@ def generate_check_kernel_support_frontend(args, fgens, fgens_hpu_wrap, frontend
 
 
 def generate_check_kernel_support(args):
-    # pt_ops is dict of {op_name : (cpp_sig, aten_sig, dispatch, default)}
     yaml_ctx = YamlContext(args.yaml)
+    # pt_ops is dict of {op_name : (cpp_sig, aten_sig, dtdf)}
     pt_ops, errors, _ = extract_pt_ops(args.pt_signatures, yaml_ctx.get_op_names())
     assert len(errors) == 0
 
