@@ -385,6 +385,16 @@ def meta_optimizer_adamw(
     return
 
 
+@register_meta([torch.ops.hpu.optimizer_sgd.default])
+def meta_optimizer_sgd(gradients, weights, lr, wd, mom, damp, nesterov):
+    return
+
+
+@register_meta([torch.ops.hpu.optimizer_sgd_momentum.default])
+def meta_optimizer_sgd_momentum(gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov):
+    return
+
+
 @register_meta([torch.ops.hpu.masked_batch_gemm.default])
 def meta_masked_batch_gemm(a, b, mask_a, mask_b, trans_a, trans_b):
     out_shape = _hpu_C.custom_op_calc_out_shape_params_int("masked_batch_gemm", [a, b], [trans_a, trans_b])[0]

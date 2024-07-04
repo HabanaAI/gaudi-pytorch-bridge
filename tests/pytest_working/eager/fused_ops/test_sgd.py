@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,10 +13,47 @@
 import numpy as np
 import pytest
 import torch
+from habana_frameworks.torch.hpex.optimizers import FusedSGD
 from test_utils import cpu, hpu
 
 
-@pytest.mark.skip
+# Tests only for functionality when there are view ops in the graph
+def test_sgd_strided():
+    d1, d2, lr = 7, 513, 0.0
+    momentum = 0.0
+    weight_decay = 0.0
+    nesterov = False
+    cnt = 1
+
+    u = torch.rand(d1, d2).to(hpu)
+    x = u[slice(5, None, None), slice(None, -1, None)]
+    x.requires_grad = True
+
+    # Modify the parameters by subtracting the gradient
+    optim = FusedSGD(
+        [x],
+        lr=lr,
+        momentum=momentum,
+        weight_decay=weight_decay,
+        nesterov=nesterov,
+    )
+
+    loss_per_iter = []
+    for _ in range(0, cnt):
+        result = torch.add(x, x)
+
+        # Compute loss
+        loss = result.sum()
+        loss_per_iter.append(loss.detach())
+
+        # Compute gradients of the parameters w.r.t. the loss
+        optim.zero_grad(True)
+        loss.backward()
+        optim.step()
+
+    return torch.stack(loss_per_iter, 0).to(cpu)
+
+
 def test_sgd():
     d1, d2, lr = 1, 1024, 0.1
     momentum = 0.1

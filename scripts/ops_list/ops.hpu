@@ -941,3 +941,5 @@ aten::scatter_reduce_.two
 aten::dropout
 aten::softmax.int
 aten::matmul
+hpu::optimizer_sgd
+hpu::optimizer_sgd_momentum

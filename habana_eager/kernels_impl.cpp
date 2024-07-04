@@ -182,42 +182,6 @@ at::Tensor hpu_wrap::repeat_interleave(
   return hpu_op.call();
 }
 
-void optimizer_sgd_momentum_hpu_wrap(
-    const TensorList& gradients,
-    TensorList& weights,
-    TensorList& momentum,
-    const at::Tensor& epoch_num,
-    at::Tensor& lr,
-    const float wd,
-    at::Tensor& mom,
-    const float damp,
-    const bool nesterov) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      " optimizer_sgd_momentum:",
-      DUMP_9ARGS(
-          gradients,
-          weights,
-          momentum,
-          epoch_num,
-          lr,
-          wd,
-          mom,
-          damp,
-          nesterov));
-  TORCH_CHECK(
-      (weights.size() > 0),
-      "optimizer_sgd_momentum : can not process empty weight vector");
-  eager::EagerOp<void> hpu_op{
-      "hpu::optimizer_sgd_momentum",
-      {gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov}};
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::Inplace,
-       "hpu::optimizer_sgd_momentum",
-       {1, 2}});
-  hpu_op.call({weights, momentum});
-}
-
 at::Tensor& hpu_wrap::_index_put_impl_(
     at::Tensor& self,
     const c10::List<c10::optional<at::Tensor>>& indices,

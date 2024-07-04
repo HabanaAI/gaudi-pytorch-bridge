@@ -107,8 +107,8 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp) {
       hlmoments,
       hepoch_num,
       hlr,
-      0.1,
       hmom,
+      0.1,
       0.1,
       false);
 
@@ -149,8 +149,8 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp_WtView) {
       hlmoments,
       hepoch_num,
       hlr,
-      0.1,
       hmom,
+      0.1,
       0.1,
       false);
 
@@ -197,8 +197,8 @@ TEST_F(LazyCustomKernelTest, OptSgdMomentumCustomOp_Wt_Grad_View) {
       hlmoments,
       hepoch_num,
       hlr,
-      0.1,
       hmom,
+      0.1,
       0.1,
       false);
 

@@ -22,6 +22,7 @@
 #include "habana_kernels/instance_norm_utils.h"
 #include "habana_kernels/lazy_kernels.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
+#include "habana_kernels/lazy_optimizer_kernels.h"
 #include "habana_kernels/wrap_kernels_declarations.h"
 #include "habana_lazy/hpu_stage_submission.h"
 #include "habana_lazy/lazy_executor.h"
@@ -1071,68 +1072,47 @@ void optimizer_ema_hpu_wrap(
 }
 
 void optimizer_sgd_hpu_wrap(
-    const TensorList& gradients,
-    TensorList& weights,
+    const at::TensorList gradients,
+    at::TensorList weights,
     at::Tensor& lr,
-    const float wd,
-    const float mom,
-    const float damp,
-    const bool nesterov) {
+    double wd,
+    double mom,
+    double damp,
+    bool nesterov) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO(
-      " optimizer_sgd:",
-      " gradients=",
-      to_string(gradients),
-      " weights=",
-      to_string(weights),
-      " lr=",
-      to_string(lr),
-      " wd=",
-      to_string(wd),
-      " mom=",
-      to_string(mom),
-      " damp=",
-      to_string(damp),
-      " nesterov=",
-      to_string(nesterov));
-  optimizer_sgd_hpu_lazy(gradients, weights, lr, wd, mom, damp, nesterov);
+  LazyOp<void> hpu_op{
+      "hpu::optimizer_sgd",
+      {gradients, weights, lr, wd, mom, damp, nesterov},
+      [](const at::Stack&) { return std::vector<std::vector<int64_t>>{}; },
+      -1};
+
+  runInplaceMaybeWithAccThread(
+      "hpu::optimizer_sgd", std::move(hpu_op), weights);
 }
 
 void optimizer_sgd_momentum_hpu_wrap(
-    const TensorList& gradients,
-    TensorList& weights,
-    TensorList& momentum,
+    const at::TensorList gradients,
+    at::TensorList weights,
+    at::TensorList momentum,
     const at::Tensor& epoch_num,
     at::Tensor& lr,
-    const float wd,
-    at::Tensor& mom,
-    const float damp,
-    const bool nesterov) {
+    const at::Tensor& mom,
+    double wd,
+    double damp,
+    bool nesterov) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO(
-      " optimizer_sgd_momentum:",
-      " gradients=",
-      to_string(gradients),
-      " weights=",
-      to_string(weights),
-      " momentum=",
-      to_string(momentum),
-      " epoch_num=",
-      to_string(epoch_num),
-      " lr=",
-      to_string(lr),
-      " wd=",
-      to_string(wd),
-      " mom=",
-      to_string(mom),
-      " damp=",
-      to_string(damp),
-      " nesterov=",
-      to_string(nesterov));
-  optimizer_sgd_momentum_hpu_lazy(
-      gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov);
+  LazyOp<void> hpu_op{
+      "hpu::optimizer_sgd_momentum",
+      {gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov},
+      [](const at::Stack&) { return std::vector<std::vector<int64_t>>{}; },
+      -1};
+
+  runInplaceMaybeWithAccThread(
+      "hpu::optimizer_sgd_momentum",
+      std::move(hpu_op),
+      ArrayRef<TensorList>{weights, momentum});
 }
 
 void optimizer_lars_hpu_wrap(
@@ -2590,7 +2570,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "habanaOptimizerFusedAdagrad(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] variances_in, Tensor epoch_num, Tensor(c!) learning_rate, float wd, float lrd, float eps) -> ()");
   m.def(
-      "habanaOptimizerFusedSGD(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!) learning_rate, float wd, float mom, float damp, bool nesterov) -> ()");
+      "hpu::optimizer_sgd(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!) learning_rate, float wd, float mom, float damp, bool nesterov) -> ()");
+  m.def(
+      "hpu::optimizer_sgd_momentum(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] momentum_in, Tensor epoch_num, Tensor(c!) learning_rate, Tensor mom, float wd, float damp, bool nesterov) -> ()");
   m.def(
       "hpu::habanaOptimizerAdamW(Tensor[] gradient_vec, Tensor(a!)[] weight_vec, Tensor(b!)[] exp_avg_vec, Tensor(c!)[] exp_avg_sq_vec, Tensor neg_step_t, float beta1, float beta2, float epsilon, Tensor weight_decay, bool has_weight_decay) -> ()");
   m.def(
@@ -2932,6 +2914,8 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::optimizer_lamb_phase1", optimizer_lamb_phase1);
   m.impl("hpu::optimizer_lamb_phase2", optimizer_lamb_phase2);
   m.impl("hpu::optimizer_adamw", optimizer_adamw_hpu_wrap);
+  m.impl("hpu::optimizer_sgd", optimizer_sgd_hpu_wrap);
+  m.impl("hpu::optimizer_sgd_momentum", optimizer_sgd_momentum_hpu_wrap);
   m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding_wrap);
   m.impl(
       "hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward_wrap);

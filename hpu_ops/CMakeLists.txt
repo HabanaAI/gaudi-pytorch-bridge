@@ -246,6 +246,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/optimizer_ema_gen.cpp
   backend/optimizer_lamb_gen.cpp
   backend/optimizer_lars_gen.cpp
+  backend/optimizer_sgd_gen.cpp
   backend/optimizer_resource_apply_momentum_gen.cpp
   backend/pdist_gen.cpp
   backend/pixel_shuffle_gen.cpp
