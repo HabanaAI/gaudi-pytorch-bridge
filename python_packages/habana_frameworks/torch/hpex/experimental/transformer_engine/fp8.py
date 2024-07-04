@@ -367,7 +367,7 @@ class FP8GlobalStateManager:
         amax_buffer_key = cls.get_amax_buffer_key(fp8_meta, forward=forward)
         assert amax_buffer_key in cls.global_fp8_buffer, "TE internal error."
 
-        fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index][0] = (
+        fp8_meta[fp8_meta_tensor_key].amax_history[fp8_meta[fp8_meta_tensor_key].amax_history_index] = (
             cls.global_fp8_buffer[amax_buffer_key][fp8_meta[buffer_position_key]]
         )
 
@@ -375,7 +375,7 @@ class FP8GlobalStateManager:
         # of reduce operation, only fwd amax_history was reduced. Now the reduction result needs to be copied also to hybrid
         if forward and cls.is_hybrid_mode(fp8_meta):
             hybrid_key = cls.get_meta_tensor_key(MetaTensorType.HYBRID)
-            fp8_meta[hybrid_key].amax_history[fp8_meta[hybrid_key].amax_history_index][0] = cls.global_fp8_buffer[
+            fp8_meta[hybrid_key].amax_history[fp8_meta[hybrid_key].amax_history_index] = cls.global_fp8_buffer[
                 amax_buffer_key
             ][fp8_meta[buffer_position_key]]
 
