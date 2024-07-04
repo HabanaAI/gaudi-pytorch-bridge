@@ -19,7 +19,6 @@ OutputMetaDataVector MaskedFillMeta(const at::Stack& stack) {
   auto mask_shape = stack_tensor(stack, 1).sizes();
 
   OutputMetaData meta{};
-
   meta.dtype = self.scalar_type();
   meta.shape = at::infer_size(self.sizes(), mask_shape);
 
@@ -34,31 +33,49 @@ bool MaskedFillSTMeta(
   return true;
 }
 
+std::shared_ptr<void> FillMaskedFillParams(
+    const at::Stack& stack,
+    size_t& size) {
+  PARAMS_STUB(ns_MaskedFill::Params);
+  auto value = stack.at(2);
+  if (value.isTensor()) {
+    return params;
+  }
+
+  auto self = stack_tensor(stack, 0);
+  auto self_dtype = habana_helpers::getInternalDtype(self.scalar_type());
+  if (c10::isIntegralType(self_dtype, true)) {
+    params->value.i = value.toScalar().toInt();
+  } else {
+    params->value.f = value.toScalar().toFloat();
+  }
+
+  return params;
+}
+
 void MaskedFill::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  auto self = stack_tensor(stack, 0);
-  auto value = stack.at(2);
-
-  auto value_dtype = value.isScalar() ? value.toScalar().type()
-                                      : value.toTensor().scalar_type();
-  value_dtype = habana_helpers::getInternalDtype(value_dtype);
-  auto self_dtype = habana_helpers::getInternalDtype(self.scalar_type());
-
-  std::vector<synTensor> inputs = {syn_in(1), syn_in(2), syn_in(0)};
-  std::unique_ptr<synapse_helpers::tensor> cast;
-
-  if (value_dtype != self_dtype) {
-    cast = std::make_unique<synapse_helpers::tensor>(OpBackend::BuildCast(
-        this, graph, syn_in(2), {1}, value_dtype, self_dtype));
-    inputs[1] = cast->get();
-  }
+  size_t size = 0;
+  std::vector<synTensor> inputs = {syn_in(0), syn_in(1)};
 
   auto out_shape = MaskedFillMeta(stack)[0].shape;
+  const auto& params = FillMaskedFillParams(stack, size);
 
-  auto result =
-      BuildOp(graph, guid_, std::move(inputs), {{out_shape, ScalarType(), 0}});
+  auto value = stack.at(2);
+  if (value.isTensor()) {
+    inputs.push_back(syn_in(2));
+  }
+
+  auto result = BuildOp(
+      graph,
+      GetGuid(),
+      std::move(inputs),
+      {{out_shape, ScalarType(), 0}},
+      params.get(),
+      size);
 
   syn_out(0) = std::move(result[0]);
 }
+
 } // namespace habana

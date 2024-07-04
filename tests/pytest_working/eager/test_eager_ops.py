@@ -1655,3 +1655,23 @@ def test_sag_section_validation_issue():
         a_h_strided.zero_()
 
         assert torch.equal(a, a_h.cpu())
+
+
+# test node params patching for masked_fill op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_masked_fill_node_params():
+    a = torch.rand((2, 3), dtype=torch.bfloat16)
+    a_hpu = a.to("hpu")
+    mask = torch.tensor([[True, False, False], [True, True, False]])
+    mask_hpu = mask.to("hpu")
+    n = 5
+    iteration = 0
+    for x in range(1, n + 1):
+        output = a.masked_fill(mask, x)
+        output_hpu = a_hpu.masked_fill(mask_hpu, x)
+        assert torch.equal(output, output_hpu.cpu())
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+        iteration += 1
+    num_cache_entries_end = htdebug._get_jit_cache_size()
+    assert num_cache_entries_end == num_cache_entries_start

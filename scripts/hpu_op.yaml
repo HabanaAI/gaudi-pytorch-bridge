@@ -5361,6 +5361,7 @@ masked_scatter_:
   inplace_ids: [0]
 
 masked_fill_.Scalar:
+  custom_fill_params: FillMaskedFillParams
   dtypes:
     Gaudi:
       self: [BFloat16, Float, Int, Char]
@@ -5374,12 +5375,13 @@ masked_fill_.Scalar:
       self: [BFloat16, Float, Int, Char, Half, Long]
       mask: [Int, Char, Long]
       value: [BFloat16, Float, Int, Char, Half, Long]
-  guid: where
+  guid: masked_fill_fwd
   op_backend: MaskedFill
   inplace_ids: [0]
   scalar_ids: [2]
 
 masked_fill_.Tensor:
+  custom_fill_params: FillMaskedFillParams
   dtypes:
     Gaudi:
       self: [BFloat16, Float, Int, Char]
@@ -5393,12 +5395,13 @@ masked_fill_.Tensor:
       self: [BFloat16, Float, Int, Char, Half, Long]
       mask: [Int, Char, Long]
       value: [BFloat16, Float, Int, Char, Half, Long]
-  guid: where
+  guid: masked_fill_fwd
   op_backend: MaskedFill
   st_meta: MaskedFillSTMeta
   inplace_ids: [0]
 
 masked_fill.Scalar:
+  custom_fill_params: FillMaskedFillParams
   output_meta: MaskedFillMeta
   dtypes:
     Gaudi:
@@ -5413,13 +5416,14 @@ masked_fill.Scalar:
       self: [BFloat16, Float, Int, Char, Half, Long]
       mask: [Int, Char, Long]
       value: [BFloat16, Float, Int, Char, Half, Long]
-  guid: where
+  guid: masked_fill_fwd
   op_backend: MaskedFill
   st_meta: MaskedFillSTMeta
   scalar_ids: [2]
   out_ids: [0]
 
 masked_fill.Tensor:
+  custom_fill_params: FillMaskedFillParams
   output_meta: MaskedFillMeta
   dtypes:
     Gaudi:
@@ -5434,7 +5438,7 @@ masked_fill.Tensor:
       self: [BFloat16, Float, Int, Char, Half, Long]
       mask: [Int, Char, Long]
       value: [BFloat16, Float, Int, Char, Half, Long]
-  guid: where
+  guid: masked_fill_fwd
   op_backend: MaskedFill
   st_meta: MaskedFillSTMeta
   out_ids: [0]
