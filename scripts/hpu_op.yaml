@@ -9434,7 +9434,7 @@ rms_norm:
 
 rms_norm_fast:
   custom_op_schema: "hpu::rms_norm_fast(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)"
-  guid: rms_norm_ex_fwd
+  guid: rms_norm_fast_fwd
   out_ids: [0, 0]
   output_meta: RMSNormMeta
   custom_fill_params: RMSNormFastParams

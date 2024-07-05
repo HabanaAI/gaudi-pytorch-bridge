@@ -39,33 +39,27 @@ OutputMetaDataVector RMSNormMeta(const at::Stack& stack) {
   return {first_output, second_output};
 }
 
-namespace {
-  std::shared_ptr<void> RMSNormParamsCommon(
-      const at::Stack& stack,
-      std::size_t& size,
-      bool fastMath) {
-    auto epsilon = stack.at(2).toScalar().to<float>();
-
-    PARAMS_STUB(ns_LayerNormKernel::ParamsRmsNorm);
-    params->epsValid = true;
-    params->eps = static_cast<float>(epsilon);
-    params->fastMath = fastMath;
-    return params;
-  }
-}
-
 std::shared_ptr<void> RMSNormParams(
     const at::Stack& stack,
     std::size_t& size) {
-  bool fastMath = false;
-  return RMSNormParamsCommon(stack, size, fastMath);
+  const auto epsilon = stack.at(2).toScalar().toFloat();
+
+  PARAMS_STUB(ns_LayerNormKernel::ParamsRmsNorm);
+  params->epsValid = true;
+  params->eps = epsilon;
+  params->fastMath = false;
+  return params;
 }
 
 std::shared_ptr<void> RMSNormFastParams(
     const at::Stack& stack,
     std::size_t& size) {
-  bool fastMath = true;
-  return RMSNormParamsCommon(stack, size, fastMath);
+  const auto epsilon = stack.at(2).toScalar().toFloat();
+
+  PARAMS_STUB(ns_LayerNormKernel::Params);
+  params->epsValid = true;
+  params->eps = epsilon;
+  return params;
 }
 
 std::shared_ptr<void> RMSNormBwdParams(
