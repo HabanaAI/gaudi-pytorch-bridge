@@ -95,6 +95,7 @@ import itertools
 import math
 import operator
 from dataclasses import dataclass
+from itertools import groupby
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
 
 import torch
@@ -114,6 +115,7 @@ class CommBlock:
     wait_nodes: List[torch.fx.Node]
     comm_node: torch.fx.Node
     outputs: Set[torch.fx.Node]
+    color: int
 
 
 def get_comm_block(comm_node: torch.fx.Node) -> CommBlock:
@@ -181,14 +183,19 @@ def get_comm_block(comm_node: torch.fx.Node) -> CommBlock:
         comm_node=comm_node,
         inputs=input_nodes,
         outputs=outputs,
+        color=comm_node.meta["collective_block_color"],
     )
 
 
-def fuse_allreduce_calls(ctx: OptimizerContext) -> bool:
+def pass_fuse_collectives(ctx: OptimizerContext) -> bool:
     input_module = ctx.graph_module
     bucket_size_mb = config._fuse_ddp_bucket_size
     graph_changed = comm_fusion_with_concat(input_module, bucket_size_mb)
     return graph_changed
+
+
+def get_all_comm_blocks_by_color(gm: torch.fx.Graph, comm_ops: Union[Tuple[str, ...], str]) -> List[List[CommBlock]]:
+    return [list(grp) for _, grp in groupby(get_all_comm_blocks(gm, comm_ops), lambda elem: elem.color)]
 
 
 def get_all_comm_blocks(gm: torch.fx.Graph, comm_ops: Union[Tuple[str, ...], str]) -> List[CommBlock]:
@@ -224,27 +231,30 @@ def comm_fusion_with_concat(
     # First ensure the allreduce are scheduled immediately right after the gradients.
     _expedite_comm_ops(gm, comm_blocks)
     # Get the comm_blocks based on the new order.
-    comm_blocks = get_all_comm_blocks(gm, ("allreduce_", "all_reduce"))
-    node_indices = {node: i for i, node in enumerate(gm.graph.nodes)}
+    comm_blocks_by_color = get_all_comm_blocks_by_color(gm, ("allreduce_", "all_reduce"))
 
     bucket_size = 1 * 1024**2
     bucket_cap_size = bucket_size_mb * 1024**2
-    begin = end = curr_size = 0
-    while end < len(comm_blocks):
-        # TODO: determine the dtype
-        curr_size += cast(torch.Size, comm_blocks[end].shape).numel() * 4
-        end += 1
-        if curr_size < bucket_size:
-            continue
-        _fuse_with_cat(gm, comm_blocks[begin:end], node_indices)
-        graph_changed = True
-        bucket_size = bucket_cap_size
-        begin = end
-        curr_size = 0
-    else:
-        if begin < len(comm_blocks):
+
+    for comm_blocks in reversed(comm_blocks_by_color):
+        node_indices = {node: i for i, node in enumerate(gm.graph.nodes)}
+        begin = end = curr_size = 0
+        while end < len(comm_blocks):
+            # TODO: determine the dtype
+            curr_size += cast(torch.Size, comm_blocks[end].shape).numel() * 4
+            end += 1
+            if curr_size < bucket_size:
+                continue
             _fuse_with_cat(gm, comm_blocks[begin:end], node_indices)
             graph_changed = True
+            bucket_size = bucket_cap_size
+            begin = end
+            curr_size = 0
+        else:
+            if begin < len(comm_blocks):
+                _fuse_with_cat(gm, comm_blocks[begin:end], node_indices)
+                graph_changed = True
+
     return graph_changed
 
 
@@ -281,7 +291,7 @@ def _call_function(
     meta_val: Optional[FakeTensor],
     function: Any,
     *args: Any,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> torch.fx.Node:
     node = gm.graph.call_function(function, args, kwargs)
 
@@ -399,6 +409,7 @@ def _fuse_with_cat(
         comm_node=fused_comm_node,
         inputs=[cat_node],
         outputs={fused_wait_node},
+        color=last_comm.color,
     )
 
     _scatter_wait_result(gm, fused_comm_block, comm_blocks, node_indices)

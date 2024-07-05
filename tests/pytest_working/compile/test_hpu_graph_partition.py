@@ -15,8 +15,6 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-pytestmark = pytest.mark.skip(reason="KeyError: 'torch_dynamo_backends'")
-
 
 def test_parallel_graphs():
     torch.manual_seed(2562825)

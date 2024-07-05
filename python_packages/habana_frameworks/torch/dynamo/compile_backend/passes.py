@@ -15,7 +15,6 @@ import copy
 import os
 import queue
 import sys
-from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Callable, List, Mapping, Optional
@@ -31,8 +30,9 @@ from torch.distributed._spmd.graph_utils import find_node
 from torch.fx.experimental.proxy_tensor import py_sym_types
 from torch.fx.passes.operator_support import OperatorSupport
 
-from ._passes.fuse_allreduce_calls import fuse_allreduce_calls
-from ._passes.utils import OptimizationPassPlacement, OptimizerContext
+from ._passes.fuse_allreduce_calls import pass_fuse_collectives
+from ._passes.propose_collective_blocks import pass_propose_collective_blocks
+from ._passes.utils import ColorGraph, OptimizationPassPlacement, OptimizerContext
 from .logger import get_compile_backend_logger
 from .partitioner import HabanaPartitioner
 from .random_utils import is_random_op, random_op_inputs
@@ -41,6 +41,66 @@ from .shared_layer import is_eager_fallback_required
 from .symbolic_execution import SymExprNodeManager, sympify_expression
 
 logger = get_compile_backend_logger()
+
+
+def get_passes(stage: OptimizationPassPlacement):
+    """
+    This function returns optimizations passes for specific stage.
+    Registering passes is done by just adding them to corresponding case here.
+    Be aware that ORDER MATTERS.
+
+    TODO: Maybe add smarter way of registering passes so we could also specify which to run
+          for some debug levels? Or to add dependencies between passes instead of order?
+          Could be overkill tho.
+    """
+    if stage == OptimizationPassPlacement.PRE_PLACEMENT:
+        return [
+            # These passes will be ran once, they always get and produce a flat graph without submodules.
+            pass_graph_print,
+            pass_propose_collective_blocks,
+            pass_fuse_collectives,
+            pass_allreduce_parents,
+            pass_pattern_rewriter,
+            pass_fake_propagation,
+            pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
+            pass_reinplace_inplaceable_ops,
+            pass_mark_collective_input,
+            pass_mark_placement,
+            pass_graph_print,
+        ]
+    elif stage == OptimizationPassPlacement.PRE_PARTITIONER:
+        return [
+            # These passes will prepare proper placement for some corner-cases.
+            pass_handle_view_before_inplace_compute_ops,
+            pass_graph_print,
+            pass_eagerize_leaf_views,
+            pass_handle_negative_dims,
+            pass_replace_sym_size,
+            pass_inference_fuse_linear,
+        ]
+    elif stage == OptimizationPassPlacement.PARTITIONER:
+        return [
+            # These passes will prepare proper placement for some corner-cases.
+            pass_propose_partitions,
+            pass_merge_paths,
+            # This is final pass that creates final submoduled graph.
+            pass_fuse_partitions,
+            pass_reorder_allreduce,
+            pass_make_symints_available,
+            pass_graph_print,
+            pass_wa_fix_output,
+        ]
+    elif stage == OptimizationPassPlacement.POST_PARTITIONER:
+        return [
+            # These passes will be ran once, they have to work on graph with submodules.
+            pass_graph_print,
+            pass_summarize_graph,
+            pass_check_eager_fallbacks,
+            pass_compile_clusters,
+        ]
+    else:
+        logger.error("unknown optimization stage %s", stage)
+        raise
 
 
 class FusedCollectiveOperatorSupport(OperatorSupport):
@@ -313,65 +373,6 @@ def optimize_graph(
                 )
 
     return graph_changed
-
-
-def get_passes(stage: OptimizationPassPlacement):
-    """
-    This function returns optimizations passes for specific stage.
-    Registering passes is done by just adding them to corresponding case here.
-    Be aware that ORDER MATTERS.
-
-    TODO: Maybe add smarter way of registering passes so we could also specify which to run
-          for some debug levels? Or to add dependencies between passes instead of order?
-          Could be overkill tho.
-    """
-    if stage == OptimizationPassPlacement.PRE_PLACEMENT:
-        return [
-            # These passes will be ran once, they always get and produce a flat graph without submodules.
-            pass_graph_print,
-            fuse_allreduce_calls,
-            pass_allreduce_parents,
-            pass_pattern_rewriter,
-            pass_fake_propagation,
-            pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
-            pass_reinplace_inplaceable_ops,
-            pass_mark_collective_input,
-            pass_mark_placement,
-            pass_graph_print,
-        ]
-    elif stage == OptimizationPassPlacement.PRE_PARTITIONER:
-        return [
-            # These passes will prepare proper placement for some corner-cases.
-            pass_handle_view_before_inplace_compute_ops,
-            pass_graph_print,
-            pass_eagerize_leaf_views,
-            pass_handle_negative_dims,
-            pass_replace_sym_size,
-            pass_inference_fuse_linear,
-        ]
-    elif stage == OptimizationPassPlacement.PARTITIONER:
-        return [
-            # These passes will prepare proper placement for some corner-cases.
-            pass_propose_partitions,
-            pass_merge_paths,
-            # This is final pass that creates final submoduled graph.
-            pass_fuse_partitions,
-            pass_reorder_allreduce,
-            pass_make_symints_available,
-            pass_graph_print,
-            pass_wa_fix_output,
-        ]
-    elif stage == OptimizationPassPlacement.POST_PARTITIONER:
-        return [
-            # These passes will be ran once, they have to work on graph with submodules.
-            pass_graph_print,
-            pass_summarize_graph,
-            pass_check_eager_fallbacks,
-            pass_compile_clusters,
-        ]
-    else:
-        logger.error("unknown optimization stage %s", stage)
-        raise
 
 
 def helper_is_view_node(node):
@@ -1232,84 +1233,13 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
         # In case of single partition there is no merging to be done
         return graph_changed
 
-    class ColorGraph:
-        OUTPUT_COLOR = 0
-
-        def __init__(self):
-            self.all_colors = set()
-            self.partition_colors = set()
-            self.output_colors = set()
-            self.colors_to_remove = set()
-            self._last_color = 0
-            self._graph = dict()
-
-        def new_color(self):
-            self._last_color += 1
-            self.all_colors.add(self._last_color)
-            return self._last_color
-
-        def new_partition_color(self):
-            color = self.new_color()
-            self.partition_colors.add(color)
-            return color
-
-        def add_node(self, user_color, color):
-            if user_color != color:
-                if color in self._graph:
-                    self._graph[color].add(user_color)
-                else:
-                    self._graph[color] = set()
-                    self._graph[color].add(user_color)
-
-        def _update_internal_sets(self):
-            for color in self.all_colors:
-                if color not in self._graph.keys():
-                    continue
-                if color not in self.partition_colors:
-                    self.colors_to_remove.add(color)
-                    continue
-
-        def _merge_non_partition_colors(self):
-            for color in self.colors_to_remove:
-                replacement_set = self._graph[color]
-                for v in self._graph.values():
-                    if color in v:
-                        v.remove(color)
-                        v.update(replacement_set)
-            for color in self.colors_to_remove:
-                del self._graph[color]
-                self.all_colors.remove(color)
-            self.colors_to_remove = set()
-
-        def extract_new_partitions(self):
-            logger.debug("Color graph (initial): \n%s", self)
-            self._update_internal_sets()
-            logger.debug("Color graph (replaced output): \n%s", self)
-            self._merge_non_partition_colors()
-            logger.debug("Color graph (partitions only): \n%s", self)
-            partitions = dict()
-            for color, user_set in self._graph.items():
-                user_frozen_set = frozenset(user_set)
-                if user_frozen_set in partitions:
-                    partitions[user_frozen_set].add(color)
-                else:
-                    partitions[user_frozen_set] = set()
-                    partitions[user_frozen_set].add(color)
-            return list(partitions.values())
-
-        def __str__(self):
-            lines = []
-            lines.append(f"Partition colors: {self.partition_colors}")
-            lines.extend([f"{k} --> {v}" for k, v in self._graph.items()])
-            return "\n".join(lines)
-
     color_graph = ColorGraph()
 
     # Color all nodes in every partition on the same color
     partitions_by_color = dict()
 
     for part in ctx.current_partitions:
-        partition_color = color_graph.new_partition_color()
+        partition_color = color_graph.assign_new_color(is_partition_color=True)
         for node in part.nodes:
             node.meta["merge_path_color"] = partition_color
         partitions_by_color[partition_color] = part
@@ -1317,7 +1247,7 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
     # Color remaining nodes (new color for every node)
     for node in ctx.graph_module.graph.nodes:
         if "merge_path_color" not in node.meta:
-            node_color = color_graph.new_color()
+            node_color = color_graph.assign_new_color()
             node.meta["merge_path_color"] = node_color
 
     # Build color graph
@@ -1327,9 +1257,9 @@ def pass_merge_paths(ctx: OptimizerContext) -> bool:
             node_color = node.meta.get("merge_path_color")
             color_graph.add_node(user_color, node_color)
         if not node.users:
-            color_graph.add_node(ColorGraph.OUTPUT_COLOR, node.meta.get("merge_path_color"))
+            color_graph.add_output_node(node.meta.get("merge_path_color"))
 
-    new_partitions_desc_list = color_graph.extract_new_partitions()
+    new_partitions_desc_list = color_graph.get_parallel_blocks()
 
     # Update only if new partitioning is better than old one
     if len(new_partitions_desc_list) < len(ctx.current_partitions):

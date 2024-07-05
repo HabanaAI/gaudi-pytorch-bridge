@@ -112,6 +112,7 @@
                 "test_cast_to_fp8_v2_scales[float8_e5m2-ScaleMode.SCALAR_CHANNEL-1]",
                 "test_cast_to_fp8_v2_scales[float8_e5m2-ScaleMode.SCALAR-None]",
                 "test_cast_to_fp8_v2_scales[float8_e5m2-ScaleMode.TENSOR_CHANNEL-1]",
+                "test_collective_block_fuse",
                 "test_cpu",
                 "test_fill_propagated_tensor_metadata_to_node",
                 "test_fp8_linear_with_amp[E5M2-lp_dtype0-device0]",
@@ -986,7 +987,15 @@
                 "test_unfold_view[shape=(6, 4, 3, 9)-dim=0-size=2-step=3-modify_view=False]",
                 "test_unfold_view[shape=(6, 4, 3, 9)-dim=2-size=2-step=3-modify_view=False]",
                 "test_view_negative_dim",
-                "test_view_negative_dim_pure_static"
+                "test_view_negative_dim_pure_static",
+                "test_parallel_graphs",
+                "test_device_partition_cpuinput",
+                "test_device_partition_hpuinput",
+                "test_leaf_views_1",
+                "test_leaf_views_1_dynamic",
+                "test_leaf_views_1_really_dynamic",
+                "test_leaf_views_2",
+                "test_leaf_views_3"
         ],
         "gaudi": [
                 "test_hpu_adaptive_avg_pool1d[bfloat16-10-[2x2x7]]",
