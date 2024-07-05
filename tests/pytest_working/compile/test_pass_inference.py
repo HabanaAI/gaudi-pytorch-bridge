@@ -96,7 +96,7 @@ def test_graph_freeze():
     assert_helper(ops_summary=ops_summary, op="torch.ops.aten._to_copy.default", count_list=[(4, 0)])
     assert_helper(ops_summary=ops_summary, op="torch.ops.aten.transpose.int", count_list=[(1, 0)])
 
-    with FxGraphAnalyzer(reset_dynamo=False) as fga:
+    with FxGraphAnalyzer(reset_dynamo=True) as fga:
         out_hpu = func(x=x, m=m, device="hpu", freeze=True)
 
     ops_summary = fga.get_ops_summary()
