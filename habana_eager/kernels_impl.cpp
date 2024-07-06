@@ -91,6 +91,14 @@ Tensor hpu_wrap::_reshape_alias(
   return result;
 }
 
+Tensor hpu_wrap::_unsafe_view(const Tensor& self, SymIntArrayRef size) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "_unsafe_view :", " self=", to_string(self), " size=", to_string(size));
+  auto result = habana::eager::view_hpu(self, size);
+  return result;
+}
+
 at::Tensor fused_norm_hpu_wrap(
     std::vector<at::Tensor>& grad,
     const at::Tensor& max_norm,

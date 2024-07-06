@@ -1786,6 +1786,7 @@ non_mandatory_ops_whitelist = [
     "native_layer_norm",
     "native_group_norm",
     "repeat",
+    "_unsafe_view",
 ]
 
 

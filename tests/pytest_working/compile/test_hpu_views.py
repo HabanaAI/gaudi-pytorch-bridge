@@ -384,3 +384,21 @@ def test_inplace_add_with_view_inputs_keepinputmutations(shape, dtype):
     hpu_output = hpu_compiled_fn(hpu_input)
 
     assert torch.allclose(hpu_output.cpu(), cpu_output, atol=0.001, rtol=0.001)
+
+
+def test_output_alias_of_intermidate_base_tensor():
+    input_shape = [1, 8, 8]
+
+    def raw_function(x):
+        y = torch.nn.AvgPool1d(kernel_size=[5], stride=[5], padding=0, ceil_mode=False, count_include_pad=True)(x)
+        return y
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=None)
+
+    a = torch.randn(input_shape, dtype=torch.bfloat16, requires_grad=True)
+
+    result_ref = raw_function(a)
+
+    a_h = a.to("hpu")
+    result_hpu = compiled_fn(a_h)
+    assert torch.allclose(result_hpu.to("cpu"), result_ref, atol=0.001, rtol=0.001)
