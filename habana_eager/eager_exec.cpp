@@ -575,15 +575,17 @@ size_t EagerExec::calculate_operator_key(
   std::unordered_set<size_t> input_hash_values;
   std::vector<uint64_t> storage_base_addresses;
   int inp_index = 0;
-  const bool skip_hash_flag =
+  const bool skip_ivalue_hash_flag =
       NodeParamAgnosticOpList::isNodeParamAgnosticOp(m_symbol);
+  const bool skip_scalar_hash_flag = skip_ivalue_hash_flag &&
+      !NodeParamAgnosticOpList::IsScalarNotPatchableOp(m_symbol);
   traversing_ivalues<ProcessList::asTensor>(
       stack,
       overloaded{
-          [&optimized_key, &inp_index, &skip_hash_flag](
+          [&optimized_key, &inp_index, &skip_ivalue_hash_flag](
               const torch::jit::IValue& input) {
             optimized_key = at::hash_combine(optimized_key, inp_index++);
-            if (!skip_hash_flag) {
+            if (!skip_ivalue_hash_flag) {
               if (input.isList()) {
                 for (auto& v : input.toListRef()) {
                   optimized_key =
@@ -599,10 +601,10 @@ size_t EagerExec::calculate_operator_key(
               }
             }
           },
-          [&optimized_key, &inp_index, &skip_hash_flag](
+          [&optimized_key, &inp_index, &skip_scalar_hash_flag](
               const at::Scalar& input) {
             optimized_key = at::hash_combine(optimized_key, inp_index++);
-            if (!skip_hash_flag) {
+            if (!skip_scalar_hash_flag) {
               optimized_key =
                   at::hash_combine(optimized_key, at::IValue::hash(input));
 

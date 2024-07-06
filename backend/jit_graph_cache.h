@@ -152,8 +152,15 @@ class NodeParamAgnosticOpList {
         c10::Symbol::fromQualString("aten::upsample_nearest3d"),
         c10::Symbol::fromQualString("aten::upsample_nearest3d_backward"),
         c10::Symbol::fromQualString("aten::resize_"),
-        c10::Symbol::fromQualString("aten::masked_fill_")};
+        c10::Symbol::fromQualString("aten::masked_fill_"),
+        c10::Symbol::fromQualString("aten::_efficientzerotensor")};
     return ops_list;
+  }
+
+  static const std::unordered_set<c10::Symbol>& scalar_not_patchable_ops() {
+    static const std::unordered_set<c10::Symbol> scalar_not_patchable_ops_list{
+        c10::Symbol::fromQualString("aten::_efficientzerotensor")};
+    return scalar_not_patchable_ops_list;
   }
 
  public:
@@ -163,6 +170,12 @@ class NodeParamAgnosticOpList {
       return false;
     }
     return (param_agnostic_ops().find(op) != param_agnostic_ops().end());
+  }
+
+  static bool IsScalarNotPatchableOp(const c10::Symbol op) {
+    return (
+        scalar_not_patchable_ops().find(op) !=
+        scalar_not_patchable_ops().end());
   }
 };
 

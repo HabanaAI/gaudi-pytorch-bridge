@@ -1677,3 +1677,44 @@ def test_sag_masked_fill_node_params():
         iteration += 1
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for efficientzerotensor op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_efficientzerotensor_node_params():
+    params = [(10), (20)]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for size in params:
+        hpu_tensor = torch._efficientzerotensor(size, device="hpu")
+        cpu_tensor = torch._efficientzerotensor(size)
+
+        assert torch.equal(cpu_tensor, hpu_tensor.cpu())
+
+        if iteration == 0:
+            num_cache_entries_start = htdebug._get_jit_cache_size()
+
+        iteration += 1
+
+    num_cache_entries_end = htdebug._get_jit_cache_size()
+    assert num_cache_entries_end == num_cache_entries_start
+
+
+# test node params patching for efficientzerotensor op
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_efficientzerotensor_node_params_2():
+    params = [torch.float32, torch.int32]
+
+    iteration = 0
+    htdebug._clear_jit_cache()
+    for data_type in params:
+        hpu_tensor = torch._efficientzerotensor((5), dtype=data_type, device="hpu")
+        cpu_tensor = torch._efficientzerotensor((5), dtype=data_type)
+
+        assert torch.equal(cpu_tensor, hpu_tensor.cpu())
+
+        iteration += 1
+
+    num_cache_entries_end = htdebug._get_jit_cache_size()
+    assert num_cache_entries_end == iteration
