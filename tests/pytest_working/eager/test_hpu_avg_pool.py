@@ -12,7 +12,7 @@
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc
+from test_utils import compare_tensors, format_tc, hpu, is_gaudi1
 
 
 @pytest.mark.parametrize("shape", [[1, 8, 16, 16], [1, 1, 8, 16, 16]], ids=format_tc)
@@ -59,8 +59,30 @@ def test_hpu_avg_pool3d_bwd_grad_input(
 
     kernel_size, padding = kernel_size_and_padding
     cpu_input = torch.rand(shape, dtype=dtype)
-    hpu_input = cpu_input.to("hpu")
+    hpu_input = cpu_input.to(hpu)
 
     cpu_output = fn(cpu_input)
     hpu_output = fn(hpu_input)
     assert torch.allclose(cpu_output, hpu_output.cpu())
+
+
+dtypes = [torch.bfloat16, torch.float]
+if not is_gaudi1():
+    dtypes.append(torch.float16)
+
+
+@pytest.mark.parametrize("input_shape", [[1, 2, 3, 7], [1, 1, 2, 3, 7], [4, 8, 7, 7], [2, 4, 8, 7, 7]], ids=format_tc)
+@pytest.mark.parametrize("output_shape", [[2, 3, 1], [2, 3, 6], [2, 3, 10]], ids=format_tc)
+@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
+def test_hpu_adaptive_avg_pool3d_bwd(input_shape, output_shape, dtype):
+    def fn(input_shape, output_shape, dtype, device):
+        grad = torch.ones(input_shape[:-3] + output_shape, dtype=dtype, device=device)
+        input = torch.rand(input_shape, dtype=dtype, device=device)
+        grad_input = torch.zeros(input_shape, dtype=dtype, device=device)
+        torch.ops.aten.adaptive_avg_pool3d_backward(grad, input, grad_input=grad_input)
+        return grad_input
+
+    result_cpu = fn(input_shape, output_shape, dtype, device="cpu")
+    result_hpu = fn(input_shape, output_shape, dtype, device=hpu)
+    tol = 1e-4 if dtype == torch.float16 else 1e-5
+    compare_tensors(result_hpu, result_cpu, rtol=tol, atol=tol)

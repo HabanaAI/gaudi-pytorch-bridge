@@ -2159,6 +2159,15 @@ _adaptive_avg_pool3d_backward:
   op_backend: AdaptiveAvgPool3dBwd
   out_ids: [1]
 
+adaptive_avg_pool3d_backward.grad_input:
+  output_meta: AdaptiveAvgPool3dBwdMeta
+  dtypes:
+    Gaudi: [BFloat16, Float]
+    Gaudi2: [BFloat16, Float, Half]
+    Gaudi3: [BFloat16, Float, Half]
+  guid: complex_adaptive_avg_pool_3d_bwd
+  op_backend: AdaptiveAvgPool3dBwd
+
 atanh:
   dtypes:
     Gaudi: [Float]
