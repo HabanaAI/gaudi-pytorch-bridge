@@ -1648,13 +1648,16 @@ void HbLazyTensor::ShallowCopyTo(HbLazyTensor* dest) const {
     hl_src_updated = GetHbLazyTensor(src_tensor_opt.value().back());
   }
 
+  if (hl_src_updated.getTensorUniqueId() == dest->getTensorUniqueId()) {
+    return;
+  }
+
   auto aten_t = AtenFromHbLazyTensor(
       hl_src_updated, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
 
   // the original dest data is now stale. Release it if not in op accmulation
   // phase
-  if (!dest->IsOpAccumulationInProgress() &&
-      hl_src_updated.getTensorUniqueId() != dest->getTensorUniqueId()) {
+  if (!dest->IsOpAccumulationInProgress()) {
     dest->data()->tensor_data = c10::nullopt;
   }
 
