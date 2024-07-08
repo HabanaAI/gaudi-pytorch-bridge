@@ -4,6 +4,8 @@ common:
     - repository: pytorch-integration
     - repository: habanalabs
     - repository: nic_kmd
+      isHybrid: true
+      githubOrg: gerrit
     - repository: pytorch-training-tests
     - repository: event_tests_plugin
     - repository: model_garden

@@ -6,6 +6,8 @@ common:
     - repository: tpcsim
     - repository: habanalabs
     - repository: nic_kmd
+      isHybrid: true
+      githubOrg: gerrit
   dependencies:
     - COMPLEX_GUID
     - CORAL_SIM
