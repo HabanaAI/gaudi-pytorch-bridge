@@ -2539,13 +2539,30 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
         cond_before = False
         if len(before.users) == 1 and before.target == torch.ops.aten.view.default and helper_is_node_supported(before):
             cond_before = True
+
+        """
+        After replaced with Linear op if the subgraph looks like
+
+        view_1
+          |
+        linear
+          |
+        view_2
+
+        we will check view_1 input tensor and view_2 output tensor rank is same or not,
+        if it is same we will also check except last dim all the dims are same or not.
+        if it is not same we are discarding this pattern matching using the below checks.
+        """
         if cond_after and cond_before:
-            real_input = before.args[0]
-            new_args = list(node.args)
-            new_args[0] = real_input
-            node.args = tuple(new_args)
-            after.replace_all_uses_with(node)
-            node.meta.update(after.meta)
+            if (len(before.args[0].meta["output_shapes"][0]) == len(after.meta["output_shapes"][0])) and (
+                before.args[0].meta["output_shapes"][0][:-1] == after.meta["output_shapes"][0][:-1]
+            ):
+                real_input = before.args[0]
+                new_args = list(node.args)
+                new_args[0] = real_input
+                node.args = tuple(new_args)
+                after.replace_all_uses_with(node)
+                node.meta.update(after.meta)
 
     ctx.graph_module = helper_post_pass_finalize(input_module=ctx.graph_module)
 
