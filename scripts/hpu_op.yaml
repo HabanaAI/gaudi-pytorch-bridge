@@ -6494,7 +6494,7 @@ nll_loss2d_forward.output:
   output_meta: NllLossFwdMeta
   dtypes:
     self: [BFloat16, Float]
-    target: [Int]
+    target: [Int, Long]
     weight: [BFloat16, Float]
     output: [BFloat16, Float]
   guid: nll_loss_fwd

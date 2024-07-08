@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -147,12 +147,6 @@ TEST_F(HpuOpTest, nll_loss_fwd_out) {
 }
 
 TEST_F(HpuOpTest, nll_loss2d_fwd_out_bf16) {
-  if (isGaudi2()) {
-    GTEST_SKIP() << "Test skipped on Gaudi2.";
-  }
-  if (isGaudi3()) {
-    GTEST_SKIP() << "Test skipped on Gaudi3.";
-  }
   GenerateIntInputs(1, {{4, 2, 4}}, 0, 5);
   auto target = GetCpuInput(0).to(torch::kLong);
   auto htarget = GetHpuInput(0).to(torch::kLong);
@@ -183,7 +177,7 @@ TEST_F(HpuOpTest, nll_loss2d_fwd_out_bf16) {
       1 /* ignore_index */,
       hout,
       htotal_weight);
-  Compare(out, hout, 0, 0);
+  Compare(out, hout);
 }
 
 TEST_F(HpuOpTest, nll_loss_bwd_out_bf16) {
