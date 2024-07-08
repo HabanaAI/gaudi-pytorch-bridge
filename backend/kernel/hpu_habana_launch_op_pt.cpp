@@ -4660,6 +4660,7 @@ void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
   PT_BRIDGE_BEGIN;
 
   if (habana_helpers::IsInferenceMode()) {
+    ConstantInformation::checksum_t zero_checksum{0};
     for (size_t j = 0; j < pt_stack_sh.size(); j++) {
       auto ivpsh = pt_stack_sh[j];
       if (ivpsh.get()->isTensor()) {
@@ -4691,6 +4692,13 @@ void HabanaLaunchOpPT::ExecuteSynapseCache(size_t graph_key_with_perm) {
               checksum_and_recipe_checksum.const_checksum_,
               " checksum for recipe: ",
               checksum_and_recipe_checksum.const_checksum_for_recipe_);
+          // If constant checksum for recipe is 0, then there will be no pointer
+          // assosciated with the constant info the constant has been folded in
+          // the recipe and we can leave how it is on the device
+          if (checksum_and_recipe_checksum.const_checksum_for_recipe_ ==
+              zero_checksum) {
+            continue;
+          }
           if (checksum_and_recipe_checksum.const_checksum_ !=
               checksum_and_recipe_checksum.const_checksum_for_recipe_) {
             uint64_t oldAddress = reinterpret_cast<uint64_t>(

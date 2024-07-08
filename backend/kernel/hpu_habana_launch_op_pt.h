@@ -732,6 +732,13 @@ class HabanaLaunchOpPT {
   // No need to allocate for lazy eager shape agnostic cache hit scenario
   // API for populating Synapse tensor info which needs to be used
   // to find constant section ID for Synapse graph inputs only
+  using permuteInfo =
+      std::pair<synapse_helpers::layouts::MemoryPermutation, bool>;
+  permuteInfo GetPermuteInfo(StorageExtraMeta* _smeta);
+  void SetPermuteInfo(
+      StorageExtraMeta* _new_smeta,
+      StorageExtraMeta* _smeta,
+      permuteInfo _info);
   void PostCompilationStepForConstTensors(
       synapse_helpers::graph::recipe_handle& recipe);
   void UpdateTensorInfoMap(std::shared_ptr<c10::IValue> src, void* ptr);

@@ -434,20 +434,53 @@ void habana::HabanaLaunchOpPT::HandleTensorWithZeroSize(
     at::Tensor& tensor,
     ConstantInformation::key_t key) {
   auto tmeta{get_tensor_extra_meta(tensor)};
+  auto old_size = tmeta->get_host_size();
   ConstantInformation::id_t const_id{tmeta->get_const_id()};
-  ConstantInformation::checksum_t checksum{0};
   auto& constant_information = ConstantInformationValue();
+  auto checksum_if_exists = constant_information.GetChecksumForId(const_id);
+  tmeta->set_nbytes_inference(old_size);
+  ConstantInformation::checksum_t checksum{0};
   constant_information.Insert(const_id, checksum);
   constant_information.PushInfo(const_id, checksum, key, 0 /*_section_size*/);
   at::DataPtr data = tensor.storage().allocator()->allocate(0);
   auto old_data_ptr = tensor.storage().set_data_ptr(std::move(data));
   tensor.storage().set_nbytes(0);
+  if (checksum_if_exists.has_value() and
+      checksum_if_exists.value() != checksum) {
+    PT_BRIDGE_DEBUG(
+        "For const_id: ",
+        const_id,
+        " Checksum has valid value for another recipe");
+    constant_information.StorePrevDataPtr(
+        const_id, std::move(old_data_ptr), checksum_if_exists.value());
+  }
 }
 
 void habana::HabanaLaunchOpPT::UpdateTensorInfoMap(
     std::shared_ptr<c10::IValue> src,
     void* ptr) {
   ivalue_to_tensor_info_map[src]->set_buffer(ptr);
+}
+
+habana::HabanaLaunchOpPT::permuteInfo habana::HabanaLaunchOpPT::GetPermuteInfo(
+    StorageExtraMeta* _smeta) {
+  synapse_helpers::layouts::MemoryPermutation permutation = {};
+  bool allow = false;
+  if (_smeta) {
+    permutation = _smeta->get_memory_permutation();
+    allow = _smeta->get_dont_allow_permutation();
+  }
+  return make_pair(permutation, allow);
+}
+
+void habana::HabanaLaunchOpPT::SetPermuteInfo(
+    StorageExtraMeta* _new_smeta,
+    StorageExtraMeta* _smeta,
+    habana::HabanaLaunchOpPT::permuteInfo _info) {
+  if (_smeta) {
+    _new_smeta->set_memory_permutation(_info.first);
+    _new_smeta->set_dont_allow_permutation(_info.second);
+  }
 }
 
 void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
@@ -469,12 +502,7 @@ void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
   if (checksum_if_exists.has_value() or (checksum != host_checksum)) {
     // Reallocation is required
     auto smeta{habana::get_storage_extra_meta(tensor)};
-    synapse_helpers::layouts::MemoryPermutation permutation = {};
-    auto allow = false;
-    if (smeta) {
-      permutation = smeta->get_memory_permutation();
-      allow = smeta->get_dont_allow_permutation();
-    }
+    auto info = GetPermuteInfo(smeta);
     tmeta->set_nbytes_inference(old_size);
     at::DataPtr data = tensor.storage().allocator()->allocate(section_size);
     PT_BRIDGE_DEBUG(
@@ -492,11 +520,8 @@ void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
       constant_information.StorePrevDataPtr(
           const_id, std::move(old_data_ptr), checksum_if_exists.value());
     }
-    if (smeta) {
-      auto new_extra_smeta{habana::get_storage_extra_meta(tensor)};
-      new_extra_smeta->set_memory_permutation(permutation);
-      new_extra_smeta->set_dont_allow_permutation(allow);
-    }
+    auto new_extra_smeta{habana::get_storage_extra_meta(tensor)};
+    SetPermuteInfo(new_extra_smeta, smeta, info);
   }
   constant_information.Insert(const_id, checksum);
   constant_information.PushInfo(const_id, checksum, key, section_size);
