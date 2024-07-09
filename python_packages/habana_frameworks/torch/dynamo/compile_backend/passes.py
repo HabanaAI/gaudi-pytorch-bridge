@@ -329,7 +329,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_graph_print,
             fuse_allreduce_calls,
             pass_allreduce_parents,
-            pass_subgraph_pattern_rewriter,
+            pass_pattern_rewriter,
             pass_fake_propagation,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
             pass_reinplace_inplaceable_ops,
@@ -919,7 +919,7 @@ def pass_fuse_partitions(ctx: OptimizerContext) -> bool:
     return True
 
 
-def pass_subgraph_pattern_rewriter(ctx: OptimizerContext):
+def pass_pattern_rewriter(ctx: OptimizerContext):
     """
     Rewrite problematic:
         div(Scalar, Tensor, rounding_mode)
@@ -988,42 +988,10 @@ def pass_subgraph_pattern_rewriter(ctx: OptimizerContext):
 
         torch.fx.subgraph_rewriter.replace_pattern_with_filters(fx_graph, pattern, replace, [filter])
 
-    # This subgraph pattern rewriter will only work for mul.Tensor(Tensor, float) , it
-    # will convert to mul.Tensor(Tensor, Tensor) .
-    #
-    # input fx graph : ===>
-    # def forward(self, arg0_1: "f32[4, 4]"):
-    #       mul_1: "f32[4, 4]" = torch.ops.aten.mul.Tensor(arg0_1, 1.0);  arg0_1 = None
-    #       return (mul_1,)
-    #
-    # output fx graph ===>
-    # def forward(self, arg0_1: "f32[4, 4]"):
-    #     scalar_tensor = torch.ops.aten.scalar_tensor(1.0)
-    #     mul_tensor = torch.ops.aten.mul.Tensor(arg0_1, scalar_tensor);  arg0_1 = _to_copy_default = None
-    #     return (mul_tensor,)
-    #
-    # note that for other pattern like mul.Tensor(Tensor, int) and
-    # mul.Tensor(Tensor, Tensor) is already suppoted for dynamic shapes
-    def replace_rewrite_mul(fx_graph):
-        def pattern(tensor_input, scalar_input):
-            x = torch.ops.aten.mul.Tensor(tensor_input, scalar_input)
-            return x
-
-        def replace(tensor_input, scalar_input):
-            x = torch.ops.aten.scalar_tensor(scalar_input)
-            x = torch.ops.aten.mul.Tensor(tensor_input, x)
-            return x
-
-        def filter(match, *args, **kwargs):
-            return isinstance(match.placeholder_nodes[1], (float))
-
-        torch.fx.subgraph_rewriter.replace_pattern_with_filters(fx_graph, pattern, replace, [filter])
-
     replace_rewrite_div(fx_graph)
     replace_rewrite_div_floor(fx_graph)
     replace_rewrite_div_trunc(fx_graph)
     replace_rewrite_floor_divide(fx_graph)
-    replace_rewrite_mul(fx_graph)
 
 
 def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
