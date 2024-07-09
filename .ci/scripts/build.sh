@@ -1903,26 +1903,38 @@ __clean_pytest_dev_py_deps()
 # Inspired by https://github.com/pytorch/builder/blob/main/common/install_mkl.sh
 __provide_mkl()
 {
-  local __mkl_root=/opt/intel
-  local __mkl_version=2024.0.0
-  local __mkl_build=49656
+  local -r __mkl_root=/opt/intel
+  local -r __mkl_version=2024.0.0
 
-  # install MKL if not installed yet
-  if ! compgen -G ${__mkl_root}/lib/*mkl* >/dev/null; then
-    echo Installing MKL at ${__mkl_root}
+  (
+    set -e
 
-    sudo mkdir ${__mkl_root}
-    sudo chown -R $(whoami) ${__mkl_root}
+    # install MKL if not installed yet
+    if ! compgen -G ${__mkl_root}/lib/*mkl* >/dev/null; then
+      echo Installing MKL at ${__mkl_root}
 
-    mkdir /tmp/mkl
-    pushd /tmp/mkl
+      sudo mkdir ${__mkl_root}
+      sudo chown -R $(whoami) ${__mkl_root}
 
-    curl -fsSL https://anaconda.org/intel/mkl-static/${__mkl_version}/download/linux-64/mkl-static-${__mkl_version}-intel_${__mkl_build}.tar.bz2 | tar xjv
-    mv lib ${__mkl_root}
-    curl -fsSL https://anaconda.org/intel/mkl-include/${__mkl_version}/download/linux-64/mkl-include-${__mkl_version}-intel_${__mkl_build}.tar.bz2 | tar xjv
-    mv include ${__mkl_root}
+      mkdir /tmp/mkl
+      pushd /tmp/mkl
 
-    popd
+      python3 -mpip install wheel
+      python3 -mpip download -d . mkl-static==${__mkl_version} mkl-include==${__mkl_version}
+
+      python3 -m wheel unpack mkl_static-${__mkl_version}-py2.py3-none-manylinux1_x86_64.whl
+      mv mkl_static-${__mkl_version}/mkl_static-${__mkl_version}.data/data/lib /opt/intel/
+
+      python3 -m wheel unpack mkl_include-${__mkl_version}-py2.py3-none-manylinux1_x86_64.whl
+      mv mkl_include-${__mkl_version}/mkl_include-${__mkl_version}.data/data/include /opt/intel/
+
+      popd
+    fi
+  )
+  local __result=$?
+  if [ $__result -ne 0 ]; then
+    echo Error: unable to provide MKL
+    return $__result
   fi
 
   export CMAKE_LIBRARY_PATH=${__mkl_root}/lib:$CMAKE_LIBRARY_PATH
