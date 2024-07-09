@@ -1851,7 +1851,7 @@ install_requirements_pytest()
 {
     $__pip_cmd uninstall -y wrapt requests gast
     sudo -H $__pip_cmd uninstall -y wrapt requests gast
-    cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytest-$__python_cmd.txt)
+    cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt)
     if ! __running_in_venv; then
         cmd+=(--user)
     fi
@@ -1860,8 +1860,7 @@ install_requirements_pytest()
 
 uninstall_requirements_pytest()
 {
-    cmd=($__pip_cmd uninstall -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytest-$__python_cmd.txt -y)
-    "${cmd[@]}"
+    $__pip_cmd uninstall -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-test.txt -y
 }
 
 clean_pytorch_pkgs()

@@ -129,7 +129,7 @@ CHECK_CONT=`docker ps  | grep ${CONT_NAME} | awk -F' '  '{print $NF}'`
             fi
     else
         docker exec --privileged  ${CONT_NAME} pip install pexpect
-        docker exec --privileged  ${CONT_NAME} pip install -r automation/ci/requirements-pytest-python3.8.txt
+        docker exec --privileged  ${CONT_NAME} pip install -r automation/ci/requirements-test.txt
     fi
 
 else
