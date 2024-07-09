@@ -17,7 +17,7 @@ namespace habana {
 
 namespace {
 
-OutputMetaDataVector HabanaRandOutputMeta(const at::Stack& stack) {
+OutputMetaData HabanaRandOutputMetaCommon(const at::Stack& stack) {
   OutputMetaData meta;
   if (stack.at(1).isTensor()) {
     meta.shape = stack[1].toTensor().sizes().vec();
@@ -27,7 +27,15 @@ OutputMetaDataVector HabanaRandOutputMeta(const at::Stack& stack) {
   meta.dtype =
       stack[2].toOptional<at::ScalarType>().value_or(at::ScalarType::Float);
   meta.layout = stack[3].toOptional<at::Layout>().value_or(at::kStrided);
-  return {meta};
+  return meta;
+}
+
+OutputMetaDataVector HabanaRandOutputMeta(const at::Stack& stack) {
+  return {HabanaRandOutputMetaCommon(stack)};
+}
+
+OutputMetaDataVector HabanaRandCheckpointOutputMeta(const at::Stack& stack) {
+  return {SeedOutputMeta(), HabanaRandOutputMetaCommon(stack)};
 }
 
 std::shared_ptr<void> FillHabanaRandParams(const at::Stack&, size_t& size) {
@@ -44,7 +52,7 @@ std::shared_ptr<void> FillHabanaRandnParams(const at::Stack&, size_t& size) {
   return params;
 }
 
-OutputMetaDataVector HabanaRandintOutputMeta(const at::Stack& stack) {
+OutputMetaData HabanaRandintOutputMetaCommon(const at::Stack& stack) {
   OutputMetaData meta;
   if (stack.at(3).isTensor()) {
     meta.shape = stack[3].toTensor().sizes().vec();
@@ -54,7 +62,15 @@ OutputMetaDataVector HabanaRandintOutputMeta(const at::Stack& stack) {
   meta.dtype =
       stack[4].toOptional<at::ScalarType>().value_or(at::ScalarType::Long);
   meta.layout = stack[5].toOptional<at::Layout>().value_or(at::kStrided);
-  return {meta};
+  return meta;
+}
+
+OutputMetaDataVector HabanaRandintOutputMeta(const at::Stack& stack) {
+  return {HabanaRandintOutputMetaCommon(stack)};
+}
+
+OutputMetaDataVector HabanaRandintCheckpointOutputMeta(const at::Stack& stack) {
+  return {SeedOutputMeta(), HabanaRandintOutputMetaCommon(stack)};
 }
 
 std::shared_ptr<void> FillHabanaRandintParams(
@@ -73,12 +89,20 @@ std::shared_ptr<void> FillHabanaRandintParams(
   return params;
 }
 
-OutputMetaDataVector HabanaUniformOutputMeta(const at::Stack& stack) {
+OutputMetaData HabanaUniformOutputMetaCommon(const at::Stack& stack) {
   OutputMetaData meta;
   auto& input = stack[1].toTensor();
   meta.shape = input.sizes().vec();
   meta.dtype = input.scalar_type();
-  return {meta};
+  return meta;
+}
+
+OutputMetaDataVector HabanaUniformOutputMeta(const at::Stack& stack) {
+  return {HabanaUniformOutputMetaCommon(stack)};
+}
+
+OutputMetaDataVector HabanaUniformCheckpointOutputMeta(const at::Stack& stack) {
+  return {SeedOutputMeta(), HabanaUniformOutputMetaCommon(stack)};
 }
 
 std::shared_ptr<void> FillHabanaUniformParams(
@@ -115,23 +139,31 @@ std::shared_ptr<void> FillHabanaSeedGeneratorParams(
 
 } // namespace
 
-HabanaRandBase::HabanaRandBase(
+OutputMetaData SeedOutputMeta() {
+  return OutputMetaData(at::ScalarType::Int, {});
+}
+
+HabanaRandomBase::HabanaRandomBase(
     int device_id,
+    std::string_view kernel_name,
     c10::ScalarType scalar_type,
-    std::string_view kernel_name)
+    std::vector<int> res_ids)
     : OpBackend(
           device_id,
           kernel_name.data(),
           scalar_type,
-          {0},
+          std::move(res_ids),
           {},
           {},
           false) {}
 
-void HabanaRandBase::AddNode(
+void HabanaRandomBase::AddNodeCommon(
     synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  const auto output_meta = GetOutputMetaData()[0];
+    const at::Stack& stack,
+    bool is_checkpoint) {
+  const size_t idx = is_checkpoint ? 1 : 0;
+  const auto output_metas = GetOutputMetaData();
+  const auto output_meta = output_metas[idx];
   const auto& output_shape = output_meta.shape;
   const auto& dtype = output_meta.dtype;
 
@@ -159,10 +191,22 @@ void HabanaRandBase::AddNode(
       graph,
       guid_,
       std::move(inputs),
-      {{output_shape, dtype, 0}},
+      {{output_shape, dtype, idx}},
       rand_params.get(),
       size);
-  syn_out(0) = std::move(rand[0]);
+  syn_out(idx) = std::move(rand[0]);
+}
+
+HabanaRandBase::HabanaRandBase(
+    int device_id,
+    std::string_view kernel_name,
+    c10::ScalarType scalar_type)
+    : HabanaRandomBase(device_id, kernel_name, scalar_type, {0}) {}
+
+void HabanaRandBase::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  AddNodeCommon(graph, stack, false);
 }
 
 bool RandDSSTMeta(
@@ -180,16 +224,50 @@ bool RandDSSTMeta(
 }
 
 HabanaRand::HabanaRand(int device_id, c10::ScalarType scalar_type)
-    : HabanaRandBase(device_id, scalar_type, "random_uniform") {
+    : HabanaRandBase(device_id, "random_uniform", scalar_type) {
   SetFillParams(FillHabanaRandParams);
   SetOutputMetaFn(HabanaRandOutputMeta);
   SetSTMetaFn(RandDSSTMeta);
 }
 
 HabanaRandn::HabanaRandn(int device_id, c10::ScalarType scalar_type)
-    : HabanaRandBase(device_id, scalar_type, "random_normal") {
+    : HabanaRandBase(device_id, "random_normal", scalar_type) {
   SetFillParams(FillHabanaRandnParams);
   SetOutputMetaFn(HabanaRandOutputMeta);
+  SetSTMetaFn(RandDSSTMeta);
+}
+
+HabanaRandCheckpointBase::HabanaRandCheckpointBase(
+    int device_id,
+    std::string_view kernel_name,
+    c10::ScalarType scalar_type)
+    : HabanaRandomBase(device_id, kernel_name, scalar_type, {0, 0}) {}
+
+void HabanaRandCheckpointBase::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const auto seed_meta = GetOutputMetaData()[0];
+  auto seed = BuildOp(
+      graph, "identity", {syn_in(0)}, {{seed_meta.shape, seed_meta.dtype, 0}});
+  syn_out(0) = std::move(seed[0]);
+  AddNodeCommon(graph, stack, true);
+}
+
+HabanaRandCheckpoint::HabanaRandCheckpoint(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : HabanaRandCheckpointBase(device_id, "random_uniform", scalar_type) {
+  SetFillParams(FillHabanaRandParams);
+  SetOutputMetaFn(HabanaRandCheckpointOutputMeta);
+  SetSTMetaFn(RandDSSTMeta);
+}
+
+HabanaRandnCheckpoint::HabanaRandnCheckpoint(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : HabanaRandCheckpointBase(device_id, "random_normal", scalar_type) {
+  SetFillParams(FillHabanaRandnParams);
+  SetOutputMetaFn(HabanaRandCheckpointOutputMeta);
   SetSTMetaFn(RandDSSTMeta);
 }
 
@@ -211,28 +289,26 @@ bool RandIntDSSTMeta(
   return true;
 }
 
-HabanaRandint::HabanaRandint(int device_id, c10::ScalarType scalar_type)
-    : HabanaRandBase(device_id, scalar_type, "random_uniform") {
-  SetFillParams(FillHabanaRandintParams);
-  SetOutputMetaFn(HabanaRandintOutputMeta);
-  SetSTMetaFn(RandIntDSSTMeta);
-}
-
-void HabanaRandint::AddNode(
+static std::vector<synapse_helpers::tensor> HabanaRandintCommon(
+    OpBackend* op,
     synapse_helpers::graph& graph,
-    const at::Stack& stack) {
-  const auto output_meta = GetOutputMetaData()[0];
+    const at::Stack& stack,
+    const OutputMetaData& output_meta,
+    std::string& guid,
+    synTensor syn_input,
+    bool is_checkpoint) {
+  const int idx = is_checkpoint ? 1 : 0;
   const auto& outshape = output_meta.shape;
   const auto& dtype = output_meta.dtype;
 
   size_t size = 0;
-  auto rand_params = FillParams(stack, size);
+  auto rand_params = FillHabanaRandintParams(stack, size);
 
-  update_guid_dtype(guid_, dtype);
+  update_guid_dtype(guid, dtype);
 
   std::vector<synTensor> inputs;
-  inputs.push_back(syn_in(0));
-  CreateShapeTensorInput(graph, dtype, outshape, inputs);
+  inputs.push_back(syn_input);
+  op->CreateShapeTensorInput(graph, dtype, outshape, inputs);
 
   std::string post_op_guid = "";
   NodeAttr::NodeOutputAttr out_attr = {outshape, dtype};
@@ -241,41 +317,87 @@ void HabanaRandint::AddNode(
   if (need_convert_i16) {
     post_op_guid =
         dtype == at::ScalarType::Byte ? "cast_i16_to_u8" : "cast_i16_to_i8";
-    update_guid_dtype(guid_, "i16");
+    update_guid_dtype(guid, "i16");
     out_attr.dtype = c10::ScalarType::Short;
   } else if (c10::isFloatingType(dtype)) {
     post_op_guid = get_guid_with_precision("floor_fwd", dtype);
   } else {
-    out_attr.final_result_index = 0;
+    out_attr.final_result_index = idx;
   }
 
-  auto rand = BuildOp(
-      graph, guid_, std::move(inputs), {out_attr}, rand_params.get(), size);
+  auto rand = OpBackend::BuildNode(
+      op,
+      graph,
+      {guid, std::move(inputs), {out_attr}, rand_params.get(), size});
   if (need_convert_i16) {
     PARAMS_STUB(ns_CastKernel::Params);
     // Round down so that the upper limit is not included in the generated seq.
     // The assumption is that the float vaues dont include the upper limit.
     params->round_mode = CAST_ROUND_DOWN;
-    auto cast = BuildOp(
+    auto cast = OpBackend::BuildNode(
+        op,
         graph,
-        post_op_guid,
-        {rand[0].get()},
-        {{outshape, dtype, 0}},
-        params.get(),
-        size);
-    syn_out(0) = std::move(cast[0]);
+        {post_op_guid,
+         {rand[0].get()},
+         {{outshape, dtype, idx}},
+         params.get(),
+         size});
+    return cast;
   } else if (c10::isFloatingType(dtype)) {
-    auto result =
-        BuildOp(graph, post_op_guid, {rand[0].get()}, {{outshape, dtype, 0}});
-    syn_out(0) = std::move(result[0]);
+    return OpBackend::BuildNode(
+        op, graph, {post_op_guid, {rand[0].get()}, {{outshape, dtype, idx}}});
   } else {
-    syn_out(0) = std::move(rand[0]);
+    return rand;
   }
 }
 
+HabanaRandint::HabanaRandint(int device_id, c10::ScalarType scalar_type)
+    : HabanaRandBase(device_id, "random_uniform", scalar_type) {
+  SetOutputMetaFn(HabanaRandintOutputMeta);
+  SetSTMetaFn(RandIntDSSTMeta);
+}
+
+void HabanaRandint::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  syn_out(0) = std::move(HabanaRandintCommon(
+      this, graph, stack, GetOutputMetaData()[0], guid_, syn_in(0), false)[0]);
+}
+
+HabanaRandintCheckpoint::HabanaRandintCheckpoint(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : HabanaRandCheckpointBase(device_id, "random_uniform", scalar_type) {
+  SetOutputMetaFn(HabanaRandintCheckpointOutputMeta);
+  SetSTMetaFn(RandIntDSSTMeta);
+}
+
+void HabanaRandintCheckpoint::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const auto seed_meta = GetOutputMetaData()[0];
+  auto seed = BuildOp(
+      graph, "identity", {syn_in(0)}, {{seed_meta.shape, seed_meta.dtype, 0}});
+  syn_out(0) = std::move(seed[0]);
+  syn_out(1) = std::move(HabanaRandintCommon(
+      this, graph, stack, GetOutputMetaData()[1], guid_, syn_in(0), true)[0]);
+}
+
 HabanaUniform::HabanaUniform(int device_id, c10::ScalarType scalar_type)
-    : HabanaRandBase(device_id, scalar_type, "philox_random_uniform") {
+    : HabanaRandBase(device_id, "philox_random_uniform", scalar_type) {
   SetOutputMetaFn(HabanaUniformOutputMeta);
+  SetFillParams(FillHabanaUniformParams);
+  SetSTMetaFn(RandDSSTMeta);
+}
+
+HabanaUniformCheckpoint::HabanaUniformCheckpoint(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : HabanaRandCheckpointBase(
+          device_id,
+          "philox_random_uniform",
+          scalar_type) {
+  SetOutputMetaFn(HabanaUniformCheckpointOutputMeta);
   SetFillParams(FillHabanaUniformParams);
   SetSTMetaFn(RandDSSTMeta);
 }
@@ -299,7 +421,7 @@ bool RandSeedGeneratorDSSTMeta(
 HabanaSeedGenerator::HabanaSeedGenerator(
     int device_id,
     c10::ScalarType scalar_type)
-    : HabanaRandBase(device_id, scalar_type, "habana_seed_generator") {
+    : HabanaRandBase(device_id, "habana_seed_generator", scalar_type) {
   SetOutputMetaFn(HabanaSeedGeneratorOutputMeta);
   SetFillParams(FillHabanaSeedGeneratorParams);
   SetSTMetaFn(RandSeedGeneratorDSSTMeta);
@@ -309,10 +431,10 @@ HabanaSeedGenerator::HabanaSeedGenerator(
 
 static const auto& HabanaRandomKernelRegistry =
     habana::KernelRegistry()
-        .add("hpu::habana_rand", KERNEL_FN_GLOBAL(habana::HabanaRand))
-        .add("hpu::habana_randn", KERNEL_FN_GLOBAL(habana::HabanaRandn))
-        .add("hpu::habana_randint", KERNEL_FN_GLOBAL(habana::HabanaRandint))
-        .add("hpu::habana_uniform", KERNEL_FN_GLOBAL(habana::HabanaUniform))
+        .REGISTER_RANDOM_OP(rand, Rand)
+        .REGISTER_RANDOM_OP(randn, Randn)
+        .REGISTER_RANDOM_OP(randint, Randint)
+        .REGISTER_RANDOM_OP(uniform, Uniform)
         .add(
             "hpu::habana_seed_generator",
             KERNEL_FN_GLOBAL(habana::HabanaSeedGenerator))

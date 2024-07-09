@@ -17,6 +17,7 @@ import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 
 from .logger import get_compile_backend_logger
+from .random_utils import HABANA_CHECKPOINT_OPS
 
 logger = get_compile_backend_logger()
 from ._shared_layer_C import check_cpu_fallback_op
@@ -93,6 +94,9 @@ hpu_supported_op_list = {
     "dequantize_per_tensor",
     "quantize_per_channel",
     "dequantize_per_channel",
+    # Activation checkpoint
+    "run_and_save_rng_state",
+    "run_with_rng_state",
 }
 
 hpu_supported_ops_restricted = dict()
@@ -211,6 +215,12 @@ def check_for_default_op_support(op_name, node, is_dynamic):
 def check_for_default_fallback(op_name, node, is_dynamic=False):
     if op_name in hpu_fallback_op_list:
         return True
+    # Support of activation checkpoint random ops is determined based on
+    # the actual random op support.
+    if op_name == "run_and_save_rng_state":
+        return str(node.val_args[0]) not in HABANA_CHECKPOINT_OPS
+    if op_name == "run_with_rng_state":
+        return str(node.val_args[1]) not in HABANA_CHECKPOINT_OPS
     unsupported_types = {"permute": torch.int64}
     if op_name in unsupported_types:
         for output_dtype in node.meta["output_dtypes"]:

@@ -27,29 +27,53 @@
     op(int device_id, c10::ScalarType scalar_type); \
   };
 
+#define DEFINE_RANDOM_CHECKPOINT_OP(op)             \
+  struct op : HabanaRandCheckpointBase {            \
+    op(int device_id, c10::ScalarType scalar_type); \
+  };
+
+#define REGISTER_RANDOM_OP(name, Name)                              \
+  add("hpu::habana_" #name, KERNEL_FN_GLOBAL(habana::Habana##Name)) \
+      .add(                                                         \
+          "hpu::habana_" #name "_checkpoint",                       \
+          KERNEL_FN_GLOBAL(habana::Habana##Name##Checkpoint))
+
 namespace habana {
 
-DEFINE_OP(HabanaBernoulli)
-DEFINE_OP(HabanaPoisson)
-DEFINE_OP(HabanaRandPermOp)
-DEFINE_OP(HabanaNativeDropoutOp)
-DEFINE_OP(HabanaRandPermOpDS)
+OutputMetaData SeedOutputMeta();
 
-struct HabanaRandBase : OpBackend {
+struct HabanaRandomBase : OpBackend {
+  HabanaRandomBase(
+      int device_id,
+      std::string_view kernel_name,
+      c10::ScalarType scalar_type,
+      std::vector<int> res_ids);
+  void AddNodeCommon(synapse_helpers::graph&, const at::Stack&, bool);
+};
+
+struct HabanaRandBase : HabanaRandomBase {
   HabanaRandBase(
       int device_id,
-      c10::ScalarType scalar_type,
-      std::string_view kernel_name);
+      std::string_view kernel_name,
+      c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
-DEFINE_RANDOM_OP(HabanaRand)
-DEFINE_RANDOM_OP(HabanaRandn)
-DEFINE_RANDOM_OP(HabanaUniform)
-DEFINE_RANDOM_OP(HabanaSeedGenerator)
+struct HabanaRandCheckpointBase : HabanaRandomBase {
+  HabanaRandCheckpointBase(
+      int device_id,
+      std::string_view kernel_name,
+      c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
 
 struct HabanaRandint : HabanaRandBase {
   HabanaRandint(int device_id, c10::ScalarType scalar_type);
+  void AddNode(synapse_helpers::graph&, const at::Stack&) override;
+};
+
+struct HabanaRandintCheckpoint : HabanaRandCheckpointBase {
+  HabanaRandintCheckpoint(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
 };
 
@@ -57,5 +81,28 @@ struct HabanaMultinomial : OpBackend {
   HabanaMultinomial(int device_id, c10::ScalarType scalar_type);
   void CustomHandler(synapse_helpers::graph&, at::Stack&) override;
 };
+
+DEFINE_OP(HabanaBernoulli)
+DEFINE_OP(HabanaBernoulliCheckpoint)
+DEFINE_OP(HabanaBernoulliP)
+DEFINE_OP(HabanaBernoulliTensor)
+DEFINE_OP(HabanaBernoulliSize)
+DEFINE_OP(HabanaPoisson)
+DEFINE_OP(HabanaPoissonCheckpoint)
+DEFINE_OP(HabanaRandPermOp)
+DEFINE_OP(HabanaRandPermOpCheckpoint)
+DEFINE_OP(HabanaNativeDropoutOp)
+DEFINE_OP(HabanaNativeDropoutOpCheckpoint)
+DEFINE_OP(HabanaRandPermOpDS)
+DEFINE_OP(HabanaMultinomialCheckpoint)
+
+DEFINE_RANDOM_OP(HabanaRand)
+DEFINE_RANDOM_OP(HabanaRandn)
+DEFINE_RANDOM_OP(HabanaUniform)
+DEFINE_RANDOM_OP(HabanaSeedGenerator)
+
+DEFINE_RANDOM_CHECKPOINT_OP(HabanaRandCheckpoint)
+DEFINE_RANDOM_CHECKPOINT_OP(HabanaRandnCheckpoint)
+DEFINE_RANDOM_CHECKPOINT_OP(HabanaUniformCheckpoint)
 
 } // namespace habana

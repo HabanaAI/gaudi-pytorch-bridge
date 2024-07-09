@@ -487,7 +487,7 @@ def compile_function_if_compile_mode(function):
         return function
 
 
-def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set()):
+def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set(), forbidden_ops=set()):
     import re
 
     from habana_frameworks.torch.dynamo.compile_backend.passes import logger as graph_logger
@@ -532,18 +532,21 @@ def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set(
     if verbose:
         print(f"{op_names = }")
         print(f"{allowed_fallbacks = }")
+        print(f"{forbidden_ops = }")
         print(f"{fallback_ops = }")
         print(f"{non_fallback_ops = }")
         print(f"{all_ops = }")
         print(f"{nodes_in_graphs = }")
 
     op_names.difference_update(nodes_in_graphs)
+    found_forbidden = nodes_in_graphs.intersection(forbidden_ops)
 
     if allowed_fallbacks:
         fallback_ops = fallback_ops - allowed_fallbacks
 
     if verbose:
         print(f"{op_names = }")
+        print(f"{found_forbidden = }")
 
     graph_logger.set_store_data(False)
     fallback_logger.set_store_data(False)
@@ -557,6 +560,7 @@ def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set(
     assert all_ops, "No ops detected"
     assert not fallback_ops, f"These ops fell back to eager: {fallback_ops}"
     assert not op_names, f"Ops {op_names} were not found in the JIT IR graph"
+    assert not found_forbidden, f"These forbidden ops were found in the JIT IR graph: {found_forbidden}"
 
 
 def get_fuser_debug_logs_path():

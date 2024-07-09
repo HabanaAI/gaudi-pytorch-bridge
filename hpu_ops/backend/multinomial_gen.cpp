@@ -78,7 +78,7 @@ std::shared_ptr<void> FillHabanaMultinomialParams(
   return MultinomialParams(stack, size, 1);
 }
 
-OutputMetaDataVector HabanaMultinomialMeta(const at::Stack& stack) {
+OutputMetaData HabanaMultinomialMetaCommon(const at::Stack& stack) {
   const auto& t = stack_tensor(stack, 1);
   const int64_t num_samples = stack.at(2).toInt();
 
@@ -86,7 +86,15 @@ OutputMetaDataVector HabanaMultinomialMeta(const at::Stack& stack) {
   meta.shape = t.dim() == 1 ? std::vector<int64_t>{num_samples}
                             : std::vector<int64_t>{t.sizes()[0], num_samples};
   meta.dtype = at::ScalarType::Long;
-  return {meta};
+  return meta;
+}
+
+OutputMetaDataVector HabanaMultinomialMeta(const at::Stack& stack) {
+  return {HabanaMultinomialMetaCommon(stack)};
+}
+
+OutputMetaDataVector HabanaMultinomialCheckpointMeta(const at::Stack& stack) {
+  return {SeedOutputMeta(), HabanaMultinomialMetaCommon(stack)};
 }
 
 HabanaMultinomial::HabanaMultinomial(int device_id, c10::ScalarType scalar_type)
@@ -109,9 +117,46 @@ void HabanaMultinomial::CustomHandler(
   SetGuid(get_guid_with_precision(
       "random_multinomial_pt_fwd", stack_tensor(stack, 1).scalar_type()));
 }
+
+HabanaMultinomialCheckpoint::HabanaMultinomialCheckpoint(
+    int device_id,
+    c10::ScalarType scalar_type)
+    : OpBackend(
+          device_id,
+          "random_multinomial",
+          scalar_type,
+          {0, 1},
+          {},
+          {},
+          false) {
+  SetOutputMetaFn(HabanaMultinomialCheckpointMeta);
+  SetFillParams(FillHabanaMultinomialParams);
+}
+
+void HabanaMultinomialCheckpoint::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const auto meta = GetOutputMetaData();
+  const auto& seed_meta = meta[0];
+  const auto& multinomial_meta = meta[1];
+  auto seed = BuildOp(
+      graph, "identity", {syn_in(0)}, {{seed_meta.shape, seed_meta.dtype, 0}});
+  syn_out(0) = std::move(seed[0]);
+
+  size_t size = 0;
+  auto params = FillParams(stack, size);
+
+  auto output = BuildOp(
+      graph,
+      get_guid_with_precision(
+          "random_multinomial", stack_tensor(stack, 1).scalar_type()),
+      {syn_in(1), syn_in(0)},
+      {{multinomial_meta.shape, multinomial_meta.dtype, 1}},
+      params.get(),
+      size);
+  syn_out(1) = std::move(output[0]);
+}
 } // namespace habana
 
 static const auto& HabanaMultinomialKernelRegistry =
-    habana::KernelRegistry().add(
-        "hpu::habana_multinomial",
-        KERNEL_FN_GLOBAL(habana::HabanaMultinomial));
+    habana::KernelRegistry().REGISTER_RANDOM_OP(multinomial, Multinomial);

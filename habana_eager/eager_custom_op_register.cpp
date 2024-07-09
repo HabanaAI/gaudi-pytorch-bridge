@@ -16,6 +16,7 @@
 #include <ATen/Tensor.h>
 #include <torch/library.h>
 #include "common/dump_args.h"
+#include "common/random_utils.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/index_kernels.h"
@@ -2131,20 +2132,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::as_strided_scatter_orig(Tensor self, Tensor src, Tensor stride) -> (Tensor)");
   m.def(
       "strided_view_orig_ds_h2d(Tensor self, Tensor size, Tensor stride) -> (Tensor)");
-  m.def("hpu::habana_bernoulli(Tensor seed, Tensor self) -> Tensor");
-  m.def("hpu::habana_poisson(Tensor seed, Tensor self) -> Tensor");
-  m.def(
-      "hpu::habana_rand(Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
-  m.def(
-      "hpu::habana_randn(Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
-  m.def(
-      "hpu::habana_randint(Tensor seed, SymInt low, SymInt high, SymInt[] size, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
-  m.def(
-      "hpu::habana_multinomial(Tensor seed, Tensor self, int num_samples, bool replacement=False) -> Tensor");
-  m.def(
-      "hpu::habana_uniform(Tensor seed, Tensor self, float from=0, float to=1) -> Tensor");
-  m.def(
-      "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
   m.def(
       "hpu::sum_fp8(Tensor self, int[1]? dim=None, bool keepdim=False, ScalarType? out_dtype=None) -> Tensor");
   m.def(
@@ -2168,12 +2155,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::sdpa_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, str softmax_mode, Tensor? valid_seq_len, str seq_padding_type) -> (Tensor, Tensor, Tensor)");
   m.def(
       "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, bool is_causal, float p, float scale, Tensor fwd_out) -> (Tensor, Tensor, Tensor)");
-  m.def(
-      "hpu::habana_randperm(Tensor seed, SymInt n, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def("hpu::accumulate_grads_(Tensor[] variables, Tensor[] new_grads) -> ()");
   m.def("hpu::custom_foreach_add_(Tensor(a!)[] self, Tensor[] other) -> ()");
-  m.def(
-      "hpu::habana_native_dropout(Tensor seed, Tensor input, float p, bool? train)-> (Tensor, Tensor)");
 #if IS_PYTORCH_AT_LEAST(2,4)
   m.def(
       "hpu::batched_nms_eager(Tensor boxes, Tensor scores, Tensor indexes, float iou_threshold, int max_classes) -> (Tensor, Tensor)");
@@ -2197,6 +2180,38 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::constant_pad_nd(Tensor input, Tensor pad_tensor, Tensor output_shape_tensor, Scalar value) -> Tensor");
   m.def(
       "hpu::constant_pad_nd_ds(Tensor input, SymInt[] pad, Scalar value, SymInt[]? size=None) -> Tensor");
+  m.def(
+      "hpu::custom_bernoulli.Size(SymInt[] size, float p, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
+  m.def(
+      "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
+  HABANA_RANDOM_DEF(bernoulli, "Tensor seed, Tensor self")
+  HABANA_RANDOM_DEF_VARIANT(bernoulli, p, "Tensor seed, Tensor self, float p")
+  HABANA_RANDOM_DEF_VARIANT(
+      bernoulli, Tensor, "Tensor seed, Tensor self, Tensor p")
+  HABANA_RANDOM_DEF_VARIANT(
+      bernoulli,
+      Size,
+      "Tensor seed, SymInt[] size, Scalar p, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None")
+  HABANA_RANDOM_DEF(poisson, "Tensor seed, Tensor self")
+  HABANA_RANDOM_DEF(
+      rand,
+      "Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None")
+  HABANA_RANDOM_DEF(
+      randn,
+      "Tensor seed, SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None")
+  HABANA_RANDOM_DEF(
+      randint,
+      "Tensor seed, SymInt low, SymInt high, SymInt[] size, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None")
+  HABANA_RANDOM_DEF(
+      multinomial,
+      "Tensor seed, Tensor self, int num_samples, bool replacement=False")
+  HABANA_RANDOM_DEF(
+      uniform, "Tensor seed, Tensor self, float from=0, float to=1")
+  HABANA_RANDOM_DEF(
+      randperm,
+      "Tensor seed, SymInt n, *, ScalarType? dtype=long, Layout? layout=None, Device? device=None, bool? pin_memory=None")
+  HABANA_RANDOM_DEF_2_OUTS(
+      native_dropout, "Tensor seed, Tensor input, float p, bool? train")
 }
 
 TORCH_LIBRARY_IMPL(hpu, HPU, m) {

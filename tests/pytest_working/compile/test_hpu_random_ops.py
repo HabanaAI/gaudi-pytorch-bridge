@@ -353,7 +353,14 @@ def test_various_ops(dtype):
     assert torch.equal(result_3, result_3a)
 
     check_ops_executed_in_jit_ir(
-        {"habana_bernoulli", "habana_rand", "habana_randn", "habana_randint", "habana_multinomial", "habana_poisson"}
+        {
+            "habana_bernoulli",
+            "habana_rand",
+            "habana_randn",
+            "habana_randint",
+            "habana_multinomial",
+            "habana_poisson",
+        }
     )
 
 

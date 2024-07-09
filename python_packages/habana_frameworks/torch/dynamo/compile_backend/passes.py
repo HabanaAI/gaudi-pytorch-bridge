@@ -36,7 +36,13 @@ from ._passes.propose_collective_blocks import pass_propose_collective_blocks
 from ._passes.utils import ColorGraph, OptimizationPassPlacement, OptimizerContext
 from .logger import get_compile_backend_logger
 from .partitioner import HabanaPartitioner
-from .random_utils import is_random_op, random_op_inputs
+from .random_utils import (
+    backward_random_op_inputs,
+    is_backward_checkpoint_op,
+    is_multi_output_op,
+    is_random_op,
+    random_op_inputs,
+)
 from .recipe_compiler import get_callable_recipe
 from .shared_layer import is_eager_fallback_required
 from .symbolic_execution import (
@@ -703,7 +709,11 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
                 logger.debug("    result shape: %s", res.shape)
 
         if len(devices) > 0:
-            if devices.count(devices[0]) != len(devices) and "output" not in node.op:
+            # run_and_save_rng_state op has first output always on cpu, so the device
+            # is set based on the second output.
+            if str(node.target) == "run_and_save_rng_state":
+                device = devices[1] if len(devices) > 1 else result[1][0].device
+            elif devices.count(devices[0]) != len(devices) and "output" not in node.op:
                 logger.error(
                     "multiple devices in single node\n%s\n at node: %s",
                     devices,
@@ -1046,6 +1056,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
             and node.op != "output"
             and not (node.op == "call_function" and "to_copy" in node.target.__name__)
             and node.meta["output_device"].type == "hpu"
+            and not is_backward_checkpoint_op(node)
         ):
             for arg in node.args:
                 if (
@@ -1127,6 +1138,9 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                     # tensors, that could be the original issue here.
                     if _is_cpu_scalar_or_symbolic_scalar(arg):
                         logger.debug("Argument {} to node {} is a scalar or a symbolic scalar", arg, node)
+                        continue
+                    elif is_backward_checkpoint_op(node) and arg.meta["output_device"] == torch.device("cpu"):
+                        logger.debug("Argument {} to node {} is an rng_state - a cpu tensor by definition", arg, node)
                         continue
                     assert arg.meta["output_device"].type == "hpu"
 
@@ -2053,12 +2067,27 @@ def pass_eagerize_leaf_views(ctx: OptimizerContext) -> bool:
 def wrap_random_ops(input_module: torch.fx.GraphModule):
     """
     This pass goes through habana cluster and:
+    - replaces run_and_save_rng_state ops with habana wrappers,
+    - replaces run_with_rng_state ops with habana checkpoint wrappers,
     - replaces random ops with habana wrappers,
     - creates seed and counter tensor for habana_seed_generator,
     - feeds habana wrappers with generated seed tensors.
     """
 
     random_ops = [node for node in input_module.graph.nodes if is_random_op(node)]
+    backward_random_ops = [node for node in input_module.graph.nodes if is_backward_checkpoint_op(node)]
+
+    # run_with_rng_state op is replaced with the actual random op with seed acquired from
+    # the run_with_rng_state's first input.
+    if len(backward_random_ops) > 0:
+        for node in backward_random_ops:
+            with input_module.graph.inserting_before(node):
+                random_node = input_module.graph.call_function(*backward_random_op_inputs(node))
+                node.replace_all_uses_with(random_node, propagate_meta=True)
+                random_node.meta.update(node.meta)
+                input_module.graph.erase_node(node)
+
+        input_module.recompile()
 
     if len(random_ops) == 0:
         return
@@ -2073,13 +2102,24 @@ def wrap_random_ops(input_module: torch.fx.GraphModule):
         )
         add_inplace = input_module.graph.call_function(torch.ops.aten.add_, (counter_pl, len(random_ops)), {})
 
+    multi_output_ops = []
+
     for i, node in enumerate(random_ops):
         with input_module.graph.inserting_before(node):
             seed = input_module.graph.call_function(torch.select, (seeds, 0, i), {})
             random_node = input_module.graph.call_function(*random_op_inputs(node, seed))
             node.replace_all_uses_with(random_node, propagate_meta=True)
             random_node.meta.update(node.meta)
+            if is_multi_output_op(node):
+                multi_output_ops.append(random_node)
             input_module.graph.erase_node(node)
+
+    for node in multi_output_ops:
+        for getitem in list(node.users):
+            if getitem.args[1] == 1:
+                for selector in list(getitem.users):
+                    idx = selector.args[1]
+                    selector.args = (node, idx + 1)
 
     input_module.recompile()
 
