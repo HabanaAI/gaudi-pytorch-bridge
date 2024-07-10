@@ -1531,7 +1531,7 @@ run_pytorch_qa_tests()
 install_requirements_pytorch()
 {
     $__pip_cmd uninstall -y wrapt requests gast
-    $__sudo -H $__pip_cmd uninstall -y wrapt requests gast
+    sudo -H $__pip_cmd uninstall -y wrapt requests gast
     cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch.txt)
     if ! __running_in_venv; then
         cmd+=(--user)
@@ -1850,7 +1850,7 @@ install_lightning_plugin()
 install_requirements_pytest()
 {
     $__pip_cmd uninstall -y wrapt requests gast
-    $__sudo -H $__pip_cmd uninstall -y wrapt requests gast
+    sudo -H $__pip_cmd uninstall -y wrapt requests gast
     cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytest-$__python_cmd.txt)
     if ! __running_in_venv; then
         cmd+=(--user)
@@ -1867,7 +1867,7 @@ uninstall_requirements_pytest()
 clean_pytorch_pkgs()
 {
     $__pip_cmd uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch
-    $__sudo -H $__pip_cmd uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch
+    sudo -H $__pip_cmd uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch
 }
 
 __check_pytorch_dev_py_deps()
