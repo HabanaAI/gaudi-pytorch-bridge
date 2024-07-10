@@ -68,7 +68,6 @@ launchers:
   - repository: pytorch-integration
   - repository: lightning-habana-fork
 - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_topology_group_2
-  silentMode: true
   gerritTriggerMap:
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
