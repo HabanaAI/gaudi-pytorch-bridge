@@ -22,7 +22,7 @@ from torch._dynamo.backends.registry import register_backend
 logger = logging.getLogger(__name__)
 
 from .compilers import hpu_inference_compiler, hpu_training_compiler_bw, hpu_training_compiler_fw
-from .decomposition import get_hpu_decompositions
+from .decomposition import get_hpu_decompositions, override_composite_ops
 from .partition_fn import hpu_partition
 
 
@@ -36,7 +36,7 @@ def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.T
     inference_compiler = partial(hpu_inference_compiler, dyn_graph_module=graph_module)
 
     # Create AOT Autograd instance and feed it with Habana compile function.
-    with hpu_backend_config.patch(options):
+    with hpu_backend_config.patch(options), override_composite_ops():
         if hpu_backend_config.inference is False:
             logger.info(
                 """Inference is explicitly mentioned as false, replacing

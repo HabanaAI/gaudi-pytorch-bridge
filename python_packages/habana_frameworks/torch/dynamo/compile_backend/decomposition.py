@@ -10,12 +10,14 @@
 #
 ###############################################################################
 
+from contextlib import contextmanager
 from itertools import accumulate
 from typing import Callable, Dict, Optional
 
 import torch
 import torch._prims_common as utils
 from torch._decomp import core_aten_decompositions, get_decompositions
+from torch._ops import DispatchKey
 from torch._prims_common.wrappers import out_wrapper
 
 aten = torch.ops.aten
@@ -255,6 +257,47 @@ hpu_backend_decompositions_common = get_decompositions(
 # Override decomposition table for aten._to_copy for calling
 # wrap_output_with_input_device_ to wrap output with FakeTensor
 override_decomposition_table: Dict[torch._ops.OperatorBase, Callable] = {}
+
+
+def override_instance_norm(dispatch_key):
+    def internal(input, weight, bias, running_mean, running_var, use_input_stats, momentum, eps, cudnn_enabled):
+        if input.device.type == "hpu":
+            out, mean_tensor, istd_tensor = torch.ops.hpu.instance_norm.default(input, weight, bias, eps)
+            return out
+        else:
+            new_impl = torch.ops.aten.instance_norm.default.py_kernels.pop(dispatch_key, None)
+            torch.ops.aten.instance_norm.default._dispatch_cache.clear()
+            # Call the original operation
+            out = torch.ops.aten.instance_norm(
+                input, weight, bias, running_mean, running_var, use_input_stats, momentum, eps, cudnn_enabled
+            )
+            # Restore the implementation
+            if new_impl is not None:
+                torch.ops.aten.instance_norm.default.py_impl(dispatch_key)(new_impl)
+            return out
+
+    return internal
+
+
+@contextmanager
+def override_composite_ops():
+    ops = [
+        (DispatchKey.CompositeImplicitAutograd, torch.ops.aten.instance_norm.default, override_instance_norm),
+    ]
+
+    old_tables = {}
+
+    for dispatch_key, origin_impl, new_impl in ops:
+        old_tables[(dispatch_key, origin_impl)] = origin_impl.py_kernels.copy()
+        origin_impl.py_impl(dispatch_key)(new_impl(dispatch_key))
+
+    try:
+        yield
+    finally:
+        for (dispatch_key, origin_impl), old_table in old_tables.items():
+            origin_impl.py_kernels.clear()
+            origin_impl.py_kernels.update(old_table)
+            origin_impl._dispatch_cache.clear()
 
 
 # This function should be used to attach additional custom decompositions on top of builtin ones above.
