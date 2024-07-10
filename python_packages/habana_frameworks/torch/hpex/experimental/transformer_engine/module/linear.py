@@ -34,7 +34,7 @@ from ..distributed import (
     reduce_scatter_along_first_dim,
     set_tensor_model_parallel_attributes,
 )
-from ..fp8 import MetaTensorType, get_fp8_te_dtype, get_fp8_te_sr, get_meta_tensor_key, is_fp8_enabled, is_hybrid_mode
+from ..fp8 import FP8GlobalStateManager, MetaTensorType, get_fp8_te_dtype, get_fp8_te_sr
 from ..utils import FP8BwdTensors, FP8FwdTensors, cast_if_needed, divide, get_default_init_method
 from .base import TransformerEngineBaseModule, _prepare_backward
 
@@ -99,13 +99,13 @@ class _Linear(torch.autograd.Function):
         assert fp8
         fp8_dtype_forward = get_fp8_te_dtype(fp8_meta["recipe"], fprop_tensor=True)
 
-        hybrid_mode = is_hybrid_mode(fp8_meta)
+        hybrid_mode = FP8GlobalStateManager.is_hybrid_mode(fp8_meta)
         if hybrid_mode:
             assert (weight_fp8_fwd is None) == (
                 weight_fp8_bwd is None
             ), "Internal TE errror: Either both fp8 weight placeholders need to be None, or both need to be passed"
 
-        meta_fwd_key = get_meta_tensor_key(MetaTensorType.FORWARD)
+        meta_fwd_key = FP8GlobalStateManager.get_meta_tensor_key(MetaTensorType.FORWARD)
         if not hybrid_mode:
             inputmat = cast_to_fp8(
                 inputmat,
@@ -140,7 +140,7 @@ class _Linear(torch.autograd.Function):
             # NOTE: In case mixed precision gemm is not supported and fwd type differs from bwd type,
             # we need to remember activations in backward type
             # TODO: Support mixed precision
-            meta_hybrid_key = get_meta_tensor_key(MetaTensorType.HYBRID)
+            meta_hybrid_key = FP8GlobalStateManager.get_meta_tensor_key(MetaTensorType.HYBRID)
             fp8_dtype_backward = get_fp8_te_dtype(fp8_meta["recipe"], fprop_tensor=False)
 
             assert (
@@ -295,7 +295,7 @@ class _Linear(torch.autograd.Function):
                     dtype=fp8_dtype_backward,
                 )
 
-            meta_bwd_key = get_meta_tensor_key(MetaTensorType.BACKWARD)
+            meta_bwd_key = FP8GlobalStateManager.get_meta_tensor_key(MetaTensorType.BACKWARD)
             if ctx.requires_dgrad:
                 dgrad = fp8_gemm(
                     weight_fp8,
@@ -523,7 +523,7 @@ class Linear(TransformerEngineBaseModule):
 
         # These persistent weight placeholders should've been created in
         # `set_fp8_weights` method
-        if is_hybrid_mode(self.fp8_meta):
+        if FP8GlobalStateManager.is_hybrid_mode(self.fp8_meta):
             return [self.weight1_fp8_fwd, self.weight1_fp8_bwd]
 
         return [self.weight1_fp8_fwd, None]
@@ -567,7 +567,7 @@ class Linear(TransformerEngineBaseModule):
         bias_tensor = bias if bias is not None else self.bias if self.use_bias or self.return_bias else None
         weight_tensor = weight if weight is not None else self.weight
 
-        if not is_fp8_enabled():
+        if not FP8GlobalStateManager.is_fp8_enabled():
             return torch.nn.functional.linear(
                 inp,
                 weight_tensor,

@@ -9,10 +9,10 @@
 
 import habana_frameworks.torch as ht
 import habana_frameworks.torch.hpex.experimental.transformer_engine as te
-import habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 as fp8
 import numpy as np
 import pytest
 import torch
+from habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 import FP8GlobalStateManager
 from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import DelayedScaling, Format
 from test_utils import is_gaudi1
 
@@ -265,14 +265,14 @@ def test_module_cacher_with_dilation(dtype, fp8_format):
         train_step(my_linear, input0, optimizer)
 
         # Wrap the modules in hpu_graph wrapper twice - once with measurement, once no measurement
-        fp8.set_measurement_mode(True, True)
+        FP8GlobalStateManager.set_measurement_mode(True, True)
         fp8_meta = my_linear.save_fp8_meta()
         x = torch.zeros_like(input0)
         my_linear_with_measure = ht.hpu.ModuleCacher(max_graphs=10)(model=my_linear, inplace=False)
         train_step(my_linear_with_measure, x, optimizer)
         my_linear_with_measure.load_fp8_meta(fp8_meta)
 
-        fp8.set_measurement_mode(True, False)
+        FP8GlobalStateManager.set_measurement_mode(True, False)
         fp8_meta = my_linear.save_fp8_meta()
         x = torch.zeros_like(input0)
         my_linear_no_measure = ht.hpu.ModuleCacher(max_graphs=10)(model=my_linear, inplace=False)

@@ -23,6 +23,7 @@ from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions
     cast_to_fp8,
     fp8_gelu,
 )
+from habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 import FP8GlobalStateManager
 from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import DelayedScaling, Format
 from habana_frameworks.torch.hpex.experimental.transformer_engine.utils import FP8FwdTensors, FP8TensorMeta
 from test_utils import (
@@ -948,51 +949,51 @@ def test_measurement_interval_auto_mode(interval):
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
     # Setup
-    fp8.reset_global_state()
+    FP8GlobalStateManager.reset_global_state()
 
     # Actual test
     fp8_recipe = DelayedScaling(interval=interval)
 
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-        assert fp8.get_manual_measurement_mode() == None
+        assert FP8GlobalStateManager.get_manual_measurement_mode() == None
 
 
 def test_force_measurement_mode():
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
     # Setup
-    fp8.reset_global_state()
+    FP8GlobalStateManager.reset_global_state()
 
     # Actual test
     fp8_recipe = DelayedScaling(interval=1)
 
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe, force_measurement=True):
-        assert fp8.get_manual_measurement_mode()
+        assert FP8GlobalStateManager.get_manual_measurement_mode()
 
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe, force_measurement=False):
-        assert not fp8.get_manual_measurement_mode()
+        assert not FP8GlobalStateManager.get_manual_measurement_mode()
 
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-        fp8.set_measurement_mode(True, True)
-        assert fp8.get_manual_measurement_mode()
+        FP8GlobalStateManager.set_measurement_mode(True, True)
+        assert FP8GlobalStateManager.get_manual_measurement_mode()
 
-        fp8.set_measurement_mode(True, False)
-        assert not fp8.get_manual_measurement_mode()
+        FP8GlobalStateManager.set_measurement_mode(True, False)
+        assert not FP8GlobalStateManager.get_manual_measurement_mode()
 
 
 def test_auto_measurement_after_force_mode():
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
     # Setup
-    fp8.reset_global_state()
+    FP8GlobalStateManager.reset_global_state()
 
     # Actual test
     fp8_recipe = DelayedScaling(interval=1)
 
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
-        fp8.set_measurement_mode(True, False)
-        fp8.set_measurement_mode(False)
-        assert fp8.get_manual_measurement_mode() == None
+        FP8GlobalStateManager.set_measurement_mode(True, False)
+        FP8GlobalStateManager.set_measurement_mode(False)
+        assert FP8GlobalStateManager.get_manual_measurement_mode() == None
 
 
 # We need to be able to check if amax measure is enabled after we go out of the fp8 context
@@ -1001,7 +1002,7 @@ def test_measurement_auto_mode_outside_fp8_autocast_context():
     if is_gaudi1():
         pytest.skip(reason="FP8 not supported on Gaudi1")
     # Setup
-    fp8.reset_global_state()
+    FP8GlobalStateManager.reset_global_state()
 
     # Actual test
     fp8_recipe = DelayedScaling(interval=1)
@@ -1009,7 +1010,7 @@ def test_measurement_auto_mode_outside_fp8_autocast_context():
     with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
         pass
 
-    assert fp8.get_manual_measurement_mode() == None
+    assert FP8GlobalStateManager.get_manual_measurement_mode() == None
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16])
@@ -1115,10 +1116,10 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
         if not manual or (manual and (c % interval == 2 or interval == 1)):
             update_amax(input, outs)
 
-    fp8.reset_global_state()
+    FP8GlobalStateManager.reset_global_state()
 
     if manual:
-        fp8.set_measurement_mode(True, False)
+        FP8GlobalStateManager.set_measurement_mode(True, False)
 
     global_counter = 0
     for iter in range(0, 2):
@@ -1127,7 +1128,7 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
                 c = i + 1
                 global_counter += 1
 
-                fp8.set_measurement_mode(manual, c % interval == 2 or interval == 1)
+                FP8GlobalStateManager.set_measurement_mode(manual, c % interval == 2 or interval == 1)
                 train_step(my_linears, input, c)
                 for optimizer in optimizers:
                     optimizer.step()
@@ -1150,26 +1151,30 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
                     global_fp8_buffer_bwd_id = "BWD_AMAX_" + str(global_counter)
                     if reduce_amax and my_linear.get_amax_measure_state()["fwd_enabled"]:
                         assert torch.equal(
-                            fp8.get_global_fp8_buffer()[global_fp8_buffer_fwd_id][m], refs[m]["fwd_amax"][0]
+                            FP8GlobalStateManager.get_global_fp8_buffer_checkpoint()[global_fp8_buffer_fwd_id][m],
+                            refs[m]["fwd_amax"][0],
                         ), f"wrong fwd value global fp8 buffer {suffix}"
                         assert torch.equal(
-                            fp8.get_global_fp8_buffer()[global_fp8_buffer_bwd_id][m], refs[m]["bwd_amax"][0]
+                            FP8GlobalStateManager.get_global_fp8_buffer_checkpoint()[global_fp8_buffer_bwd_id][m],
+                            refs[m]["bwd_amax"][0],
                         ), f"wrong bwd value global fp8 buffer {suffix}"
 
                 suffix = f"at iter {iter}, input {i}"
                 if reduce_amax:
                     if my_linear.get_amax_measure_state()["fwd_enabled"]:
-                        assert len(fp8.get_global_fp8_buffer()) in (
+                        assert len(FP8GlobalStateManager.get_global_fp8_buffer_checkpoint()) in (
                             2,
                             3,
                         ), f"global fp8 buffer must contain 2 or 3 entries (previous FWD and current FWD+BWD) {suffix}"
                     else:
-                        assert len(fp8.get_global_fp8_buffer()) in (
+                        assert len(FP8GlobalStateManager.get_global_fp8_buffer_checkpoint()) in (
                             0,
                             1,
                         ), f"global fp8 buffer must contain 0 or 1 entries (previous FWD) {suffix}"
                 else:
-                    assert len(fp8.get_global_fp8_buffer()) == 0, f"global fp8 buffer must contain 0 entries {suffix}"
+                    assert (
+                        len(FP8GlobalStateManager.get_global_fp8_buffer_checkpoint()) == 0
+                    ), f"global fp8 buffer must contain 0 entries {suffix}"
 
     _verify_executed_ops(fp8_format)
 

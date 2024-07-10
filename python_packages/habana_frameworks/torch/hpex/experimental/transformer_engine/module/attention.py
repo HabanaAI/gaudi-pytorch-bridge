@@ -27,7 +27,7 @@ from habana_frameworks.torch.hpex.kernels.FusedSDPA import gqa_input_reshape_bwd
 from torch.nn.parameter import Parameter
 
 from ..cpp_extensions import _update_amax_history, cast_to_fp8
-from ..fp8 import MetaTensorType, get_fp8_te_dtype, get_fp8_te_sr, get_meta_tensor_key, is_fp8_enabled, is_hybrid_mode
+from ..fp8 import FP8GlobalStateManager, MetaTensorType, get_fp8_te_dtype, get_fp8_te_sr
 from ..utils import FP8BwdTensors, FP8FwdTensors, is_gaudi3
 from .base import TransformerEngineBaseModule, _prepare_backward
 
@@ -74,7 +74,7 @@ class FusedAttnFunc(torch.autograd.Function):
     ) -> torch.Tensor:
         requires_grad = query_layer.requires_grad or key_layer.requires_grad or value_layer.requires_grad
         fp8_dtype_forward = get_fp8_te_dtype(fp8_meta["recipe"], fprop_tensor=True)
-        hybrid_mode = is_hybrid_mode(fp8_meta)
+        hybrid_mode = FP8GlobalStateManager.is_hybrid_mode(fp8_meta)
         assert fp8
         if int(os.getenv(DUMP_TENSORS_FLAG, 0)) == 1:
             q_path = f"{fp8_meta['name']}_q_{fp8_meta['run_cnt']}.pt"
@@ -84,7 +84,7 @@ class FusedAttnFunc(torch.autograd.Function):
             DumpTensor(key_layer, k_path)
             DumpTensor(value_layer, v_path)
 
-        meta_fwd_key = get_meta_tensor_key(MetaTensorType.FORWARD)
+        meta_fwd_key = FP8GlobalStateManager.get_meta_tensor_key(MetaTensorType.FORWARD)
         if not hybrid_mode or is_gaudi3():
             query_layer = cast_to_fp8(
                 query_layer,
@@ -193,7 +193,7 @@ class FusedAttnFunc(torch.autograd.Function):
                     dv = gqa_output_reshape(dv)
             else:
                 fp8_dtype_backward = get_fp8_te_dtype(ctx.fp8_meta["recipe"], fprop_tensor=False)
-                meta_bwd_key = get_meta_tensor_key(MetaTensorType.BACKWARD)
+                meta_bwd_key = FP8GlobalStateManager.get_meta_tensor_key(MetaTensorType.BACKWARD)
                 dout_fp8 = cast_to_fp8(
                     dout,
                     ctx.fp8_meta[meta_bwd_key],
@@ -285,7 +285,7 @@ class FusedAttention(TransformerEngineBaseModule):
              Input tensors.
         """
 
-        if not is_fp8_enabled():
+        if not FP8GlobalStateManager.is_fp8_enabled():
             with ht.hpu.sdp_kernel(enable_recompute=self.enable_recompute):
                 return sdpa_kernel.apply(
                     query_layer,
