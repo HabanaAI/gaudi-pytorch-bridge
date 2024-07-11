@@ -1903,17 +1903,21 @@ __clean_pytest_dev_py_deps()
 # Inspired by https://github.com/pytorch/builder/blob/main/common/install_mkl.sh
 __provide_mkl()
 {
-  local -r __mkl_root=/opt/intel
   local -r __mkl_version=2024.0.0
+
+  # choose the location depending on the user's sudo permissions
+  local -r __mkl_root="$(sudo -v &>/dev/null && echo /opt/intel || echo ~/.local/opt/intel)"
 
   (
     set -e
 
     # install MKL if not installed yet
-    if ! compgen -G ${__mkl_root}/lib/*mkl* >/dev/null; then
+    if compgen -G ${__mkl_root}/lib/*mkl* >/dev/null; then
+      echo Will use MKL from ${__mkl_root}
+    else
       echo Installing MKL at ${__mkl_root}
 
-      sudo mkdir ${__mkl_root}
+      sudo mkdir -p ${__mkl_root}
       sudo chown -R $(whoami) ${__mkl_root}
 
       mkdir /tmp/mkl
