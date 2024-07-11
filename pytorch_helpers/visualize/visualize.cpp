@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -119,7 +120,24 @@ void DumpEagerOrCompileGraph(
     const std::string& graph_name) {
   std::stringstream ss;
   std::string folder = GET_ENV_FLAG_NEW(PT_HPU_GRAPH_DUMP_PREFIX);
-  ss << folder << "/" << graph_name << ".pbtxt";
+
+  ss << folder << "/";
+
+  try {
+    // Multi-node scenario
+    auto rank_str = std::getenv("RANK"); // 0-based
+    if (rank_str != nullptr) {
+      int rank = std::stoi(rank_str);
+      ss << "rank" << rank << "/";
+
+      std::filesystem::create_directory(folder + "/rank" + rank_str);
+    }
+  } catch ([[maybe_unused]] const std::invalid_argument& e) {
+    // Means can't parse `RANK` string to int, just ignore
+  }
+
+  ss << graph_name << ".pbtxt";
+
   try {
     DumpGraph(graph, ss.str());
   } catch (const std::runtime_error& e) {

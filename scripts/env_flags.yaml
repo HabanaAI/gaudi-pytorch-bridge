@@ -30,6 +30,7 @@ PT_HPU_GRAPH_DUMP_PREFIX:
 
 PT_HPU_GRAPH_DUMP_MODE:
   default: ""
+  settable: true
   doc: "Specify in which mode should bridge dump intermediate graphs. Allowed values: <compile | eager | all>\n
 
   This flag takes effect only in non-lazy mode, meaning `PT_HPU_LAZY_MODE=0`\n

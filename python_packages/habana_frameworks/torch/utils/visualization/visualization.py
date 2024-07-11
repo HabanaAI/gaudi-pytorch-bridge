@@ -111,14 +111,26 @@ class GraphVisualizer:
         proto_graphs = {}
         drawer = FxGraphDrawer(graph_module, f"graph_{GraphVisualizer.__graph_ordinal:04d}")
         dot_graphs = drawer.get_all_dot_graphs()
+
+        rank = os.environ.get("RANK", None)  # 0-based
+        graph_folder_path = self.dump_dir
+
+        if rank is not None:
+            # Multi-node scenario
+            graph_folder_path = os.path.join(self.dump_dir, f"rank{rank}")
+
         for key in dot_graphs.keys():
             proto_graphs[key] = self.__parse_to_netron_graph(dot_graphs[key])
 
+        os.makedirs(graph_folder_path, exist_ok=True)
         for key in proto_graphs.keys():
+            graph_filename = (
+                f"{key}-{self.active_stage.value}-{self.active_stage.name}-{self.pass_counter}-{pass_name}.pbtxt"
+            )
             with open(
                 Path(
-                    self.dump_dir,
-                    f"{key}-{self.active_stage.value}-{self.active_stage.name}-{self.pass_counter}-{pass_name}.pbtxt",
+                    graph_folder_path,
+                    graph_filename,
                 ),
                 "w",
             ) as f:
