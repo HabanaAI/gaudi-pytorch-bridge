@@ -163,7 +163,7 @@ class FusedAttnFunc(torch.autograd.Function):
             False,
             None,
         ):
-            query_layer, key_layer, value_layer, P, dm = ctx.saved_tensors
+            query_layer, key_layer, value_layer, P, dm, fwd_out = ctx.saved_tensors
             scale = ctx.scale
             dropout_p = ctx.dropout_p
             is_causal = ctx.is_causal
@@ -180,12 +180,13 @@ class FusedAttnFunc(torch.autograd.Function):
             if OVERRIDE_SDPA_PRECISSION == "bf16":
                 if ctx.gqa:
                     dout = gqa_input_reshape_bwd(query_layer, value_layer, dout)
+                    fwd_out = gqa_input_reshape_bwd(query_layer, value_layer, fwd_out)
                 query_layer = torch.ops.hpu.cast_from_fp8(query_layer, fwd_scale_inv[FP8_META_ID_Q], torch.bfloat16)
                 key_layer = torch.ops.hpu.cast_from_fp8(key_layer, fwd_scale_inv[FP8_META_ID_K], torch.bfloat16)
                 value_layer = torch.ops.hpu.cast_from_fp8(value_layer, fwd_scale_inv[FP8_META_ID_V], torch.bfloat16)
                 P = torch.ops.hpu.cast_from_fp8(P, fwd_scale_inv[FP8_META_ID_S], torch.bfloat16)
                 dq, dk, dv = torch.ops.hpu.sdpa_bwd(
-                    dout, query_layer, key_layer, value_layer, P, dm, is_causal, dropout_p, scale
+                    dout, query_layer, key_layer, value_layer, P, dm, is_causal, dropout_p, scale, fwd_out
                 )
                 if ctx.gqa:
                     dq = gqa_output_reshape(dq)
@@ -206,6 +207,7 @@ class FusedAttnFunc(torch.autograd.Function):
                 # TODO use fp8_sdpa_bwd_wrapper instead
                 if ctx.gqa:
                     dout_fp8 = gqa_input_reshape_bwd(query_layer, value_layer, dout_fp8)
+                    fwd_out = gqa_input_reshape_bwd(query_layer, value_layer, fwd_out)
                 dq, dk, dv, amax_ds = torch.ops.hpu.fp8_sdpa_bwd(
                     dout_fp8,
                     query_layer,
@@ -225,6 +227,7 @@ class FusedAttnFunc(torch.autograd.Function):
                     None,
                     fp8_meta[meta_bwd_key].scale[FP8_META_ID_DS],
                     amax_measure_state["bwd_enabled"],
+                    fwd_out,
                 )
                 if amax_measure_state["bwd_enabled"]:
                     _update_amax_history(amax_ds, fp8_meta[meta_bwd_key], FP8_META_ID_DS)

@@ -497,7 +497,9 @@ def meta_sdpa_recomp_fwd_dropout_seed(
 
 
 @register_meta([torch.ops.hpu.sdpa_recomp_bwd.default])
-def meta_sdpa_recomp_bwd(dout, q, k, v, attn_mask, m, linv, seed, is_causal, dropout_p, scale, fast_softmax_mode):
+def meta_sdpa_recomp_bwd(
+    dout, q, k, v, attn_mask, m, linv, seed, is_causal, dropout_p, scale, fast_softmax_mode, fwd_out
+):
     grad_q = q.new_empty(q.shape)
     grad_k = k.new_empty(k.shape)
     grad_v = v.new_empty(v.shape)
@@ -538,7 +540,7 @@ def meta_sdpa_fwd_dropout_seed(
 
 
 @register_meta([torch.ops.hpu.sdpa_bwd.default])
-def meta_sdpa_bwd(dout, q, k, v, p, dm, is_causal, dropout_p, scale):
+def meta_sdpa_bwd(dout, q, k, v, p, dm, is_causal, dropout_p, scale, fwd_out):
     grad_q = q.new_empty(q.shape)
     grad_k = k.new_empty(k.shape)
     grad_v = v.new_empty(v.shape)

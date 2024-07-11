@@ -887,7 +887,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
     const c10::optional<at::Tensor>& dm,
     const bool is_causal,
     const double p,
-    const double scale);
+    const double scale,
+    const at::Tensor& fwd_out);
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_lazy(
     const at::Tensor& grad,
     const at::Tensor& q,
@@ -906,7 +907,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_lazy(
     const c10::optional<at::Tensor>& d_scale_ds,
     const c10::optional<at::Tensor>& q_scale_s,
     const c10::optional<at::Tensor>& q_scale_ds,
-    const bool is_amax_ds);
+    const bool is_amax_ds,
+    const at::Tensor& fwd_out);
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_lazy(
     const at::Tensor& q,
@@ -959,7 +961,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
     const bool is_causal,
     const double p,
     const double scale,
-    const c10::string_view softmax_mode);
+    const c10::string_view softmax_mode,
+    const at::Tensor& fwd_out);
 at::Tensor scaled_triangular_softmax_lazy(
     const at::Tensor& self,
     double inv_scale_attn,
