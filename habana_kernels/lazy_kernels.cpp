@@ -7536,13 +7536,14 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(
     const c10::optional<at::Tensor>& dm,
     const bool is_causal,
     const double p,
-    const double scale) {
+    const double scale,
+    const at::Tensor& fwd_out) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<std::tuple<Tensor, Tensor, Tensor>> hpu_op{
       "hpu::sdpa_bwd",
-      {grad, q, k, v, P, dm, is_causal, p, scale},
+      {grad, q, k, v, P, dm, is_causal, p, scale, fwd_out},
       SDPABwdOutputShape};
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_bwd, hpu_op)
@@ -7566,7 +7567,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_lazy(
     const c10::optional<at::Tensor>& d_scale_ds,
     const c10::optional<at::Tensor>& q_scale_s,
     const c10::optional<at::Tensor>& q_scale_ds,
-    const bool is_amax_ds) {
+    const bool is_amax_ds,
+    const at::Tensor& fwd_out) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
@@ -7589,7 +7591,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_lazy(
        d_scale_ds,
        q_scale_s,
        q_scale_ds,
-       is_amax_ds},
+       is_amax_ds,
+       fwd_out},
       Fp8SDPABwdOutputShape};
 
   // Set grad type to BF16 for now
@@ -7680,7 +7683,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
     const bool is_causal,
     const double p,
     const double scale,
-    c10::string_view softmax_mode) {
+    c10::string_view softmax_mode,
+    const at::Tensor& fwd_out) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
@@ -7697,7 +7701,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_lazy(
        is_causal,
        p,
        scale,
-       softmax_mode},
+       softmax_mode,
+       fwd_out},
       SDPARecompBwdOutputShape};
 
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(sdpa_recomp_bwd, hpu_op)
