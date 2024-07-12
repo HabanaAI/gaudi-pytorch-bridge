@@ -15,6 +15,7 @@ import random
 import pytest
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
+from packaging.version import Version, parse
 from test_utils import format_tc, is_gaudi1, is_pytest_mode_compile
 
 self_shapes_pull = [(4, 4), (2, 3, 4), (5,), (2, 2, 2, 2)]
@@ -52,6 +53,29 @@ ops_without_tensor_variant_inplace = [
 ]
 ops_list_inplace = ops_with_tensor_variant_inplace + ops_without_tensor_variant_inplace
 
+if Version(parse(torch.__version__).base_version) >= Version("2.4"):
+    OP_OUT_DTYPE_NOT_SUPPORTED_ON_HPU = {
+        torch._foreach_add: [torch.int8],
+        torch._foreach_sub: [torch.int8],
+        torch._foreach_pow: [torch.long],
+        torch._foreach_add_: [torch.int8],
+        torch._foreach_sub_: [torch.int8],
+        torch._foreach_pow_: [torch.long],
+        torch._foreach_ceil: [torch.long],
+        torch._foreach_cosh: [torch.float16],
+        torch._foreach_floor: [torch.long],
+        torch._foreach_neg: [torch.int8],
+        torch._foreach_sinh: [torch.float16],
+        torch._foreach_trunc: [torch.long],
+        torch._foreach_ceil_: [torch.long],
+        torch._foreach_cosh_: [torch.float16],
+        torch._foreach_floor_: [torch.long],
+        torch._foreach_neg_: [torch.int8],
+        torch._foreach_sinh_: [torch.float16],
+        torch._foreach_trunc_: [torch.long],
+        torch._foreach_addcdiv: [torch.int32, torch.int16, torch.int32, torch.float16, torch.int16, torch.int8],
+    }
+
 
 def generate_tensor_list(shapes, dtypes, non_negative=False):
     self_cpu = [torch.randn(shape).to(dtype) for shape, dtype in zip(shapes, dtypes)]
@@ -68,6 +92,16 @@ def get_tolerance(op, dtype, is_op_compound=False):
         return None, None  # therefore default tolerances will be used
 
 
+def _is_python_2_4():
+    return Version(parse(torch.__version__).base_version) >= Version("2.4")
+
+
+def _remove_not_supported_dtypes_on_hpu(op, dtype):
+    for not_supported_dtypes in OP_OUT_DTYPE_NOT_SUPPORTED_ON_HPU.get(op, []):
+        if not_supported_dtypes in dtype:
+            dtype.remove(not_supported_dtypes)
+
+
 @pytest.mark.parametrize("op", ops_with_tensor_variant)
 @pytest.mark.parametrize("k,", k_list)
 @pytest.mark.parametrize("other_dtype", [torch.float32, torch.bfloat16, torch.long, torch.int], ids=format_tc)
@@ -78,6 +112,9 @@ def test_foreach_tensor(op, k, other_dtype):
 
     self_shapes = random.choices(self_shapes_pull, k=k)
     self_dtypes = random.choices(dtypes, k=k)
+
+    if _is_python_2_4():
+        _remove_not_supported_dtypes_on_hpu(op, self_dtypes)
 
     self_cpu, self_hpu = generate_tensor_list(self_shapes, self_dtypes)
     other_cpu = (torch.rand(size=()) * 10).to(other_dtype)
@@ -92,7 +129,7 @@ def test_foreach_tensor(op, k, other_dtype):
     op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
     results_hpu = op(self_hpu, other_hpu)
 
-    for i in range(k):
+    for i in range(len(self_dtypes)):
         rtol, atol = get_tolerance(op, results_cpu[i].dtype)
         torch.testing.assert_close(results_cpu[i], results_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
     configuration_flags["use_eager_fallback"] = is_eager_fallback
@@ -106,6 +143,9 @@ def test_foreach_scalar(op, k, other_scalar):
     self_shapes = random.choices(self_shapes_pull, k=k)
     self_dtypes = random.choices(dtypes, k=k)
 
+    if _is_python_2_4():
+        _remove_not_supported_dtypes_on_hpu(op, self_dtypes)
+
     self_cpu, self_hpu = generate_tensor_list(self_shapes, self_dtypes)
 
     if verbose:
@@ -117,7 +157,7 @@ def test_foreach_scalar(op, k, other_scalar):
     op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
     results_hpu = op(self_hpu, other_scalar)
 
-    for i in range(k):
+    for i in range(len(self_dtypes)):
         rtol, atol = get_tolerance(op, results_cpu[i].dtype)
         torch.testing.assert_close(results_cpu[i], results_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
 
@@ -146,7 +186,7 @@ def test_foreach_list(op, k):
     op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
     results_hpu = op(self_hpu, other_hpu)
 
-    for i in range(k):
+    for i in range(len(self_dtypes)):
         rtol, atol = get_tolerance(op, results_cpu[i].dtype)
         torch.testing.assert_close(results_cpu[i], results_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
 
@@ -157,8 +197,11 @@ def test_foreach_list(op, k):
 def test_foreach_scalarlist(op, k):
     self_shapes = random.choices(self_shapes_pull, k=k)
     self_dtypes = random.choices(dtypes, k=k)
-    other_scalars = random.choices(scalar_list, k=k)
 
+    if _is_python_2_4():
+        _remove_not_supported_dtypes_on_hpu(op, self_dtypes)
+
+    other_scalars = random.choices(scalar_list, k=len(self_dtypes))
     self_cpu, self_hpu = generate_tensor_list(self_shapes, self_dtypes)
 
     if verbose:
@@ -170,7 +213,7 @@ def test_foreach_scalarlist(op, k):
     op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
     results_hpu = op(self_hpu, other_scalars)
 
-    for i in range(k):
+    for i in range(len(self_dtypes)):
         rtol, atol = get_tolerance(op, results_cpu[i].dtype)
         torch.testing.assert_close(results_cpu[i], results_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
 
@@ -195,7 +238,7 @@ def test_foreach_scalar_and_tensor(self_scalar, k):
     op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
     results_hpu = op(self_scalar, other_hpu)
 
-    for i in range(k):
+    for i in range(len(other_dtypes)):
         rtol, atol = get_tolerance(op, results_cpu[i].dtype)
         torch.testing.assert_close(results_cpu[i], results_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
 
@@ -207,6 +250,10 @@ def test_foreach_scalar_and_tensor(self_scalar, k):
 def test_foreach_tensor_inplace(op, k, other_dtype):
     self_shapes = random.choices(self_shapes_pull, k=k)
     self_dtypes = random.choices(dtypes, k=k)
+
+    if _is_python_2_4():
+        _remove_not_supported_dtypes_on_hpu(op, self_dtypes)
+
     for i in range(len(self_dtypes)):
         if not self_dtypes[i].is_floating_point and op == torch._foreach_div_:
             self_dtypes[i] = torch.float32
@@ -225,7 +272,7 @@ def test_foreach_tensor_inplace(op, k, other_dtype):
     op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
     op(self_hpu, other_hpu)
 
-    for i in range(k):
+    for i in range(len(self_dtypes)):
         rtol, atol = get_tolerance(op, self_cpu[i].dtype)
         torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
 
@@ -237,6 +284,10 @@ def test_foreach_tensor_inplace(op, k, other_dtype):
 def test_foreach_scalar_inplace(op, k, other_scalar):
     self_shapes = random.choices(self_shapes_pull, k=k)
     self_dtypes = random.choices(dtypes, k=k)
+
+    if _is_python_2_4():
+        _remove_not_supported_dtypes_on_hpu(op, self_dtypes)
+
     for i in range(len(self_dtypes)):
         if not self_dtypes[i].is_floating_point and op == torch._foreach_div_:
             self_dtypes[i] = torch.float32
@@ -253,7 +304,7 @@ def test_foreach_scalar_inplace(op, k, other_scalar):
     op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
     op(self_hpu, other_scalar)
 
-    for i in range(k):
+    for i in range(len(self_dtypes)):
         rtol, atol = get_tolerance(op, self_cpu[i].dtype)
         torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
 
@@ -287,7 +338,7 @@ def test_foreach_list_inplace(op, k):
     op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
     op(self_hpu, other_hpu)
 
-    for i in range(k):
+    for i in range(len(self_dtypes)):
         rtol, atol = get_tolerance(op, self_cpu[i].dtype)
         torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
 
@@ -298,7 +349,11 @@ def test_foreach_list_inplace(op, k):
 def test_foreach_scalarlist_inplace(op, k):
     self_shapes = random.choices(self_shapes_pull, k=k)
     self_dtypes = random.choices(dtypes, k=k)
-    other_scalars = random.choices(scalar_list, k=k)
+
+    if _is_python_2_4():
+        _remove_not_supported_dtypes_on_hpu(op, self_dtypes)
+
+    other_scalars = random.choices(scalar_list, k=len(self_dtypes))
 
     for i in range(len(self_dtypes)):
         if not self_dtypes[i].is_floating_point and op == torch._foreach_div_:
@@ -317,7 +372,7 @@ def test_foreach_scalarlist_inplace(op, k):
     op = torch.compile(op, backend="hpu_backend") if is_pytest_mode_compile() else op
     op(self_hpu, other_scalars)
 
-    for i in range(k):
+    for i in range(len(self_dtypes)):
         rtol, atol = get_tolerance(op, self_cpu[i].dtype)
         torch.testing.assert_close(self_cpu[i], self_hpu[i].cpu(), equal_nan=True, rtol=rtol, atol=atol)
 
@@ -362,14 +417,21 @@ def create_compound_foreach_tensors(k, cast_to_integer=False, promote_dtype=Fals
 
 @pytest.mark.parametrize("op", compound_foreach_ops)
 @pytest.mark.parametrize("k", k_list)
-@pytest.mark.parametrize("other_dtype", [torch.float32, torch.bfloat16, torch.long, torch.int], ids=format_tc)
+@pytest.mark.parametrize("other_dtype", [torch.float32, torch.bfloat16], ids=format_tc)
 @pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_compound_foreach_tensor(op, k, other_dtype):
+    if _is_python_2_4():
+        pytest.skip(reason="aten::<op>.out is not yet supported on HPU")
+
     self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, tensor2_cpu, tensor2_hpu = create_compound_foreach_tensors(
         k, op == torch._foreach_addcdiv
     )
+
     scalars_cpu = (torch.rand(size=(k,)) * 10).to(other_dtype)
-    scalars_hpu = scalars_cpu.to("hpu")
+    if _is_python_2_4():
+        scalars_hpu = scalars_cpu
+    else:
+        scalars_hpu = scalars_cpu.to("hpu")
 
     if verbose:
         print("Scalars tensor:", scalars_cpu)
@@ -388,6 +450,8 @@ def test_compound_foreach_tensor(op, k, other_dtype):
 @pytest.mark.parametrize("value", scalar_list)
 @pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_compound_foreach_scalar(op, k, value):
+    if _is_python_2_4():
+        pytest.skip(reason="aten::<op>.out is not yet supported on HPU")
     self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, tensor2_cpu, tensor2_hpu = create_compound_foreach_tensors(
         k, op == torch._foreach_addcdiv
     )
@@ -410,6 +474,8 @@ def test_compound_foreach_scalar(op, k, value):
 @pytest.mark.parametrize("k", k_list)
 @pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_compound_foreach_scalarlist(op, k):
+    if _is_python_2_4():
+        pytest.skip(reason="aten::<op>.out is not yet supported on HPU")
     self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, tensor2_cpu, tensor2_hpu = create_compound_foreach_tensors(
         k, op == torch._foreach_addcdiv
     )
@@ -433,12 +499,17 @@ def test_compound_foreach_scalarlist(op, k):
 @pytest.mark.parametrize("scalars_dtype", [torch.float32, torch.bfloat16, torch.long, torch.int], ids=format_tc)
 @pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_compound_foreach_tensor_inplace(op, k, scalars_dtype):
+    if _is_python_2_4():
+        pytest.skip(reason="aten::<op>.out is not yet supported on HPU")
     self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, tensor2_cpu, tensor2_hpu = create_compound_foreach_tensors(
         k, op == torch._foreach_addcdiv_, True, scalars_dtype.is_floating_point
     )
 
     scalars_cpu = (torch.rand(size=(k,)) * 10).to(scalars_dtype)
-    scalars_hpu = scalars_cpu.to("hpu")
+    if _is_python_2_4():
+        scalars_hpu = scalars_cpu
+    else:
+        scalars_hpu = scalars_cpu.to("hpu")
 
     if verbose:
         print("Scalars tensor:", scalars_cpu)
@@ -457,6 +528,8 @@ def test_compound_foreach_tensor_inplace(op, k, scalars_dtype):
 @pytest.mark.parametrize("value", scalar_list)
 @pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_compound_foreach_scalar_inplace(op, k, value):
+    if _is_python_2_4():
+        pytest.skip(reason="aten::<op>.out is not yet supported on HPU")
     self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, tensor2_cpu, tensor2_hpu = create_compound_foreach_tensors(
         k, op == torch._foreach_addcdiv_, True, isinstance(value, float)
     )
@@ -477,6 +550,8 @@ def test_compound_foreach_scalar_inplace(op, k, value):
 @pytest.mark.parametrize("k", k_list)
 @pytest.mark.skipif(is_pytest_mode_compile(), reason="Required fallback to eager")
 def test_compound_foreach_scalarlist_inplace(op, k):
+    if _is_python_2_4():
+        pytest.skip(reason="aten::<op>.out is not yet supported on HPU")
     scalars = random.choices(scalar_list, k=k)
 
     self_cpu, self_hpu, tensor1_cpu, tensor1_hpu, tensor2_cpu, tensor2_hpu = create_compound_foreach_tensors(
@@ -606,6 +681,14 @@ def test_foreach_unary(op):
     self_shapes = random.choices(self_shapes_pull, k=len(dtypes))
     self_dtypes = dtypes[:]
 
+    if _is_python_2_4():
+        op_to_skip = [torch._foreach_round, torch._foreach_log2, torch._foreach_lgamma]
+        if op in op_to_skip:
+            pytest.skip(
+                reason="aten::op.out is not yet supported on HPU. Guid op_fwd has incompatible input or output data types"
+            )
+        _remove_not_supported_dtypes_on_hpu(op, self_dtypes)
+
     for i in range(len(self_dtypes)):
         if not self_dtypes[i].is_floating_point and op == torch._foreach_frac:
             self_dtypes[i] = torch.float32
@@ -675,6 +758,14 @@ def test_foreach_unary_inplace(op):
         pytest.skip(reason="foreach_lgamma is unsupported for Gaudi")
     self_shapes = random.choices(self_shapes_pull, k=len(dtypes))
     self_dtypes = dtypes[:]
+
+    if _is_python_2_4():
+        op_to_skip = [torch._foreach_round_, torch._foreach_log2_, torch._foreach_lgamma_]
+        if op in op_to_skip:
+            pytest.skip(
+                reason="aten::op.out is not yet supported on HPU. Guid op_fwd has incompatible input or output data types"
+            )
+        _remove_not_supported_dtypes_on_hpu(op, self_dtypes)
 
     for i in range(len(self_dtypes)):
         if not self_dtypes[i].is_floating_point and op in non_integer_foreach_unary_inplace_ops:
