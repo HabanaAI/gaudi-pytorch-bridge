@@ -2792,11 +2792,12 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   synapse_helpers::detail::tensor_name_generator::reset();
   syn_graph_ptr_ = syn_graph;
 
+  // This is used to create mapping between shape Tensor to tensor idx
+  habana::ShapeInference::ResetShapeTensorId();
+  habana::ShapeInference::ResetTensorMapping();
+
   if (syn_graph->is_dynamic_graph() && enable_optim_output_sif_ &&
       (m_map_shape.m_pass == ShapeInfo::InferencePass::INVALID)) {
-    // This is used to create mapping between shape Tensor to tensor idx
-    habana::ShapeInference::ResetShapeTensorId();
-    habana::ShapeInference::ResetTensorMapping();
     sym_expr_hash_ = habana::ComputeNodeSymOutputHashCode(jit_ir_graph_);
     ProcessIntermediateSymbolicShapes(jit_ir_graph_);
     CreateValueToIShapeMapForInputs(jit_ir_graph_);
