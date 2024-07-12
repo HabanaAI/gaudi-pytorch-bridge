@@ -178,6 +178,11 @@ static OutputMetaData CreateMetaData(
   meta.dtype = input.scalar_type();
   meta.mem_format = input.suggest_memory_format();
   meta.undefined = output_mask_in.size() && !output_mask_in.get(index);
+  // output_meta is hardcoded to true
+  // This is due to a bridge limitation with jit disabled ops for specific cases.
+  // SW-177687
+  if (index < 3)
+    meta.undefined = 0;
 
   return meta;
 }
@@ -380,7 +385,10 @@ void ConvolutionBackwardOverrideable::AddNode(
     false_val                                                         \
   }
   if (transposed) {
-    if (output_mask_in[0]) {
+    // output_mask_in[0] is always assumed to be true
+    // This is due to a bridge limitation with jit disabled ops for specific cases.
+    // SW-177687
+    if (true) {
       guid = "spatial_convolution";
       auto convOp = BuildOpFor(
           graph,
@@ -395,7 +403,10 @@ void ConvolutionBackwardOverrideable::AddNode(
       AddUndefinedOutputTensor();
     }
 
-    if (output_mask_in[1]) {
+    // output_mask_in[1] is always assumed to be true
+    // This is due to a bridge limitation with jit disabled ops for specific cases.
+    // SW-177687
+    if (true) {
       guid = is_conv_3d ? "dedw3d" : "dedw";
       auto dedwOp = BuildOpFor(
           graph,
@@ -410,7 +421,10 @@ void ConvolutionBackwardOverrideable::AddNode(
       AddUndefinedOutputTensor();
     }
   } else {
-    if (output_mask_in[0]) {
+    // output_mask_in[0] is always assumed to be true
+    // This is due to a bridge limitation with jit disabled ops for specific cases.
+    // SW-177687
+    if (true) {
       std::vector syn_inputs = {grad_output_reshaped, weight_reshaped};
 
       // Allocate Shape Tensor
@@ -430,7 +444,10 @@ void ConvolutionBackwardOverrideable::AddNode(
       AddUndefinedOutputTensor();
     }
 
-    if (output_mask_in[1]) {
+    // output_mask_in[1] is always assumed to be true
+    // This is due to a bridge limitation with jit disabled ops for specific cases.
+    // SW-177687
+    if (true) {
       guid = is_conv_3d ? "dedw3d" : "dedw";
       auto dedwOp = BuildOpFor(
           graph,
@@ -447,7 +464,10 @@ void ConvolutionBackwardOverrideable::AddNode(
   }
 
   // Bias grad computation is the same for conv2d bwd and conv2d_transpose bwd
-  if (output_mask_in[2]) {
+  // output_mask_in[2] is assumed to be true always
+  // SW-177687: If output_mask of bias grad is false, an error may be raised
+  // due to a bridge limitation with jit disabled ops for specific cases.
+  if (true) {
     SetSynapseLayouts({}, {});
     auto biasRes = ComputeBiasGrad(
         this, graph, is_conv_3d, grad_output, {syn_in(0)}, syn_out(2));

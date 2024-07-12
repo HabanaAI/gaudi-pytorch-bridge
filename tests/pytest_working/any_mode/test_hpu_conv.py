@@ -743,6 +743,9 @@ def test_hpu_chain_loop_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding
         )
 
 
+# Due to a bridge limitation with jit disabled ops for specific cases,
+# convolution_backward_overrideable op assumes output_mask is always true.
+@pytest.mark.skip(reason="SW-177687")
 @pytest.mark.parametrize("N, H, W, C, output_mask", conv_bwd_with_output_mask_test_case_list)
 def test_hpu_conv_with_output_mask(N, H, W, C, output_mask):
     if pytest.mode == "lazy":
