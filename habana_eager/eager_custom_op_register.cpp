@@ -920,27 +920,6 @@ at::Tensor rotary_pos_embedding_backward(
   return hpu_op.call();
 }
 
-std::tuple<at::Tensor, at::Tensor> rms_norm_backward(
-    const at::Tensor& grad_in,
-    const at::Tensor& data_in,
-    const at::Tensor& gamma,
-    const at::Tensor& inverse_rms,
-    bool use_stages,
-    int64_t bwd_mode) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "rms_norm_backward :",
-      DUMP_6ARGS(grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode));
-
-  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
-      "hpu::rms_norm_backward",
-      {grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode},
-      {data_in.sizes().vec(), gamma.sizes().vec()},
-      0};
-
-  return hpu_op.call();
-}
-
 std::tuple<at::Tensor, at::Tensor> ctc_loss_custom(
     const at::Tensor& log_probs,
     const at::Tensor& targets,
@@ -2084,8 +2063,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::expand_ds(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
   m.def(
-      "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)");
-  m.def(
       "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor");
   m.def(
       "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
@@ -2242,7 +2219,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::optimizer_resource_apply_momentum",
       optimizer_resource_apply_momentum);
   m.impl("hpu::ragged_softmax", _ragged_softmax);
-  m.impl("hpu::rms_norm_backward", rms_norm_backward);
   m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding);
   m.impl("hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward);
   m.impl("hpu::ctc_loss_custom", ctc_loss_custom);

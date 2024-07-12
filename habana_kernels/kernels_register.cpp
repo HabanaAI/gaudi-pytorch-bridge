@@ -1738,23 +1738,6 @@ at::Tensor rotary_pos_embedding_backward_wrap(
       grad_in, sin, cos, position_ids, offset, mode);
 }
 
-std::tuple<at::Tensor, at::Tensor> rms_norm_backward_wrap(
-    const at::Tensor& grad_in,
-    const at::Tensor& data_in,
-    const at::Tensor& gamma,
-    const at::Tensor& inverse_rms,
-    bool use_stages,
-    int64_t bwd_mode) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "rms_norm_backward :",
-      DUMP_6ARGS(grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode));
-
-  return rms_norm_backward_lazy(
-      grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode);
-}
-
 std::tuple<at::Tensor, at::Tensor> ctc_loss_custom_wrap(
     const at::Tensor& log_probs,
     const at::Tensor& targets,
@@ -2775,8 +2758,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
   m.def(
-      "hpu::rms_norm_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)");
-  m.def(
       "hpu::ctc_loss_custom(Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, int blank, int reduction, bool zero_infinity) -> (Tensor, Tensor)");
   m.def(
       "hpu::ctc_loss_custom_backward(Tensor grad, Tensor log_probs, Tensor targets, Tensor input_lengths, Tensor target_lengths, Tensor neg_log_likelihood, Tensor log_alpha, int blank, int reduction, bool zero_infinity) -> Tensor");
@@ -2905,7 +2886,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding_wrap);
   m.impl(
       "hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward_wrap);
-  m.impl("hpu::rms_norm_backward", rms_norm_backward_wrap);
   m.impl("hpu::ctc_loss_custom", ctc_loss_custom_wrap);
   m.impl("hpu::ctc_loss_custom_backward", ctc_loss_custom_backward_wrap);
   m.impl("hpu::masked_batch_gemm", masked_batch_gemm_wrap);

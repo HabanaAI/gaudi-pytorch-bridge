@@ -67,4 +67,29 @@ std::shared_ptr<void> RMSNormFastParams(
   bool fastMath = true;
   return RMSNormParamsCommon(stack, size, fastMath);
 }
+
+std::shared_ptr<void> RMSNormBwdParams(
+    const at::Stack& stack,
+    std::size_t& size) {
+  auto use_stages = stack.at(4).toScalar().to<bool>();
+  auto bwd_mode = stack.at(5).toScalar().to<int>();
+
+  PARAMS_STUB(ns_RmsNorm::ParamsV3);
+  params->useStages = use_stages;
+  params->bwdMode = static_cast<RmsNormBwdMode_t>(bwd_mode);
+  return params;
+}
+
+OutputMetaDataVector RMSNormBwdMeta(const at::Stack& stack) {
+  auto data_in = stack.at(1).toTensor();
+  auto gamma = stack.at(2).toTensor();
+
+  OutputMetaData first_output;
+  first_output.shape = data_in.sizes().vec();
+  first_output.dtype = data_in.scalar_type();
+  OutputMetaData second_output;
+  second_output.shape = gamma.sizes().vec();
+  second_output.dtype = gamma.scalar_type();
+  return {first_output, second_output};
+}
 } // namespace habana

@@ -7245,24 +7245,6 @@ at::Tensor rotary_pos_embedding_backward_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(rotary_pos_embedding_backward, op)
 }
 
-std::tuple<at::Tensor, at::Tensor> rms_norm_backward_lazy(
-    const at::Tensor& grad_in,
-    const at::Tensor& data_in,
-    const at::Tensor& gamma,
-    const at::Tensor& inverse_rms,
-    bool use_stages,
-    int64_t bwd_mode) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  LazyOp<std::tuple<at::Tensor, at::Tensor>> op{
-      "hpu::rms_norm_backward",
-      {grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode},
-      {{data_in.sizes().vec(), gamma.sizes().vec()}}};
-
-  RUN_MAYBE_WITH_ACC_THREAD(rms_norm_backward, op)
-}
-
 std::tuple<at::Tensor, at::Tensor> ctc_loss_custom_lazy(
     const at::Tensor& log_probs,
     const at::Tensor& targets,
