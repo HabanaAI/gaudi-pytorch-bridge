@@ -51,6 +51,8 @@ static synapse_helpers::tensor PowScalar(
         {{outshape, scalar_type, out_index}}};
   } else {
     std::string guid = get_guid_with_precision("pow_fwd", scalar_type);
+    // use f32 guid for i8/u8/i16/i32 inputs
+    update_integer_guid_dtype(guid, scalar_type);
     node_attr = {
         guid, {inputs[0], inputs[1]}, {{outshape, scalar_type, out_index}}};
   }

@@ -36,9 +36,6 @@ class TensorDescr {
   explicit TensorDescr(const OutputMetaData& output_meta)
       : TensorDescr(output_meta.shape.size(), output_meta.dtype) {}
 
-  explicit TensorDescr(const std::pair<int, at::ScalarType>& shared_meta)
-      : TensorDescr(shared_meta.first, shared_meta.second) {}
-
   uint32_t getRank() const {
     return m_tensor ? m_tensor->dim() : m_rank;
   }
@@ -62,6 +59,8 @@ using TensorDescrArray = absl::InlinedVector<TensorDescr, 5>;
 
 } // namespace detail
 
+using FillNodeParams =
+    std::function<std::shared_ptr<void>(const at::Stack& stack, size_t&)>;
 using OutputMetaFunc =
     std::function<OutputMetaDataVector(const at::Stack& stack)>;
 
@@ -72,6 +71,7 @@ struct CheckNodeWithSharedLayerValidator {
       const std::vector<int>& resIds,
       const std::vector<int>& scalarIds,
       OutputMetaFunc outputMetaFunc,
+      FillNodeParams fillNodeParamsFunc,
       const std::vector<int>& typePromotionIds,
       bool promoteIntToFloat,
       bool safeCastCheck,
@@ -82,6 +82,7 @@ struct CheckNodeWithSharedLayerValidator {
         m_resIds(resIds),
         m_scalarIds(scalarIds),
         m_outputMetaFunc(outputMetaFunc),
+        m_fillNodeParamsFunc(fillNodeParamsFunc),
         m_typePromotionIds(typePromotionIds),
         m_promoteIntToFloat(promoteIntToFloat),
         m_safeCastCheck(safeCastCheck),
@@ -89,11 +90,18 @@ struct CheckNodeWithSharedLayerValidator {
         m_isOutFn(isOutFn) {}
 
   bool Validate(
+      at::ScalarType,
       const std::vector<at::IValue>& values,
-      bool is_dynamic = false,
-      const std::vector<std::pair<int, at::ScalarType>>& meta = {});
+      bool is_dynamic = false);
+  bool Validate(
+      const at::Tensor&,
+      const std::vector<at::IValue>& values,
+      bool is_dynamic = false);
 
  private:
+  bool ValidateWithSharedLayer(
+      const std::vector<at::IValue>& values,
+      bool is_dynamic = false);
   at::ScalarType ComputePromotedType(const at::Stack& values);
 
   detail::TensorDescrArray CreateInputList(
@@ -101,11 +109,14 @@ struct CheckNodeWithSharedLayerValidator {
       at::ScalarType resultType,
       const size_t outs_num);
 
+  detail::TensorDescrArray CreateOutputList(const OutputMetaDataVector& meta);
+
   std::string m_opname;
   std::string m_guid;
   std::vector<int> m_resIds;
   std::vector<int> m_scalarIds;
   OutputMetaFunc m_outputMetaFunc;
+  FillNodeParams m_fillNodeParamsFunc;
   std::vector<int> m_typePromotionIds;
   bool m_promoteIntToFloat;
   bool m_safeCastCheck;
