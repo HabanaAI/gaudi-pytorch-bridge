@@ -101,6 +101,13 @@ class TraceSink {
 
   virtual void addDeviceDetails(
       const std::unordered_map<std::string, int64_t>& device_details) = 0;
+
+  /**
+   * @brief Clean-up data in the object.
+   *
+   * Clean-up and reset data containers and variables in the object.
+   */
+  virtual void clear() = 0;
 };
 
 class TraceSource {

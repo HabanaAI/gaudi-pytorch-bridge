@@ -190,6 +190,23 @@ class JsonFileParser : public TraceSink {
       std::ofstream o(static_cast<std::string>(path));
       o << json_file;
     }
+
+    // clear the object after each data dump to:
+    // - reduce footprint
+    // - avoid data duplication in start/stop loop usage model
+    clear();
+  }
+
+  /**
+   * @brief Clean-up data in the object.
+   *
+   * Clean-up and reset data containers and variables in the object.
+   */
+  virtual void clear() override {
+    deviceProperties_.clear();
+    traceEvents_.clear();
+    profiler_event_index_ = 0;
+    flow_id_counter_ = 0;
   }
 
  private:

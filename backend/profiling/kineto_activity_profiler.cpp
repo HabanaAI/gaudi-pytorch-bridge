@@ -132,6 +132,13 @@ class GenericTraceActivitySink : public TraceSink {
       const Flow&,
       const Flow&) override {}
 
+  /**
+   * @brief Clean-up data in the object.
+   *
+   * Clean-up and reset data containers and variables in the object.
+   */
+  virtual void clear() override {}
+
  private:
   const TraceSpan& defaultTraceSpan() {
     static TraceSpan span(0, 0, "PyTorch Profiler", "");
