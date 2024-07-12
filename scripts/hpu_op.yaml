@@ -9230,6 +9230,43 @@ slice_backward:
   lazy:
     override_fn: slice_backward_hpu_lazy
 
+_add_relu.Scalar:
+  guid: add_relu_fwd
+  scalar_ids: [1, 2]
+  out_ids: [0]
+  promote_to_common_type: [self, other, alpha]
+  op_validator: check-node-with-shared-layer
+
+_add_relu_.Scalar:
+  guid: add_relu_fwd
+  scalar_ids: [1, 2]
+  inplace_ids: [0]
+  promote_to_common_type: [self, other, alpha]
+  op_validator: check-node-with-shared-layer
+
+_add_relu.Tensor:
+  output_meta: AddReluTensorMeta
+  guid: add_relu_fwd
+  scalar_ids: [2]
+  out_ids: [0]
+  promote_to_common_type: [self, alpha]
+  op_validator: check-node-with-shared-layer
+
+_add_relu_.Tensor:
+  output_meta: AddReluTensorMeta
+  guid: add_relu_fwd
+  scalar_ids: [2]
+  inplace_ids: [0]
+  promote_to_common_type: [self, alpha]
+  op_validator: check-node-with-shared-layer
+
+_add_relu.out:
+  output_meta: AddReluTensorMeta
+  guid: add_relu_fwd
+  scalar_ids: [2]
+  promote_to_common_type: [self, alpha]
+  op_validator: check-node-with-shared-layer
+
 _ctc_loss:
   output_meta: CtcLossMeta
   guid: ctc_loss_fwd
