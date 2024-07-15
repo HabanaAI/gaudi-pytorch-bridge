@@ -551,6 +551,7 @@ class OptimizedJitGraphCache {
       eager_compiler_unsupported_op_prefixes = {
           "hpu::optimizer"sv,
           "hpu::fused_norm_lazy"sv,
+          "hpu::fused_clip_norm"sv,
           "hpu::custom_foreach_add_"sv,
           "hpu::sdpa"sv};
 };

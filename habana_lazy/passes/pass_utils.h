@@ -95,6 +95,7 @@ class WeightIdentificationPass {
 
   const std::unordered_map<std::string, std::vector<size_t>>
       customOptimizerWeightIdx = {
+          {"hpu::fused_clip_norm", {0}},
           {"hpu::optimizer_sgd", {0, 1, 2}},
           {"hpu::habanaOptimizerFusedAdagrad", {0, 1, 2}},
           {"hpu::habanaOptimizerAdamW", {0, 1, 2, 3}},

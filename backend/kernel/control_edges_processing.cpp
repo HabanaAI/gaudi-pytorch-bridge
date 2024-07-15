@@ -130,8 +130,9 @@ void AddSynNodes(
 bool IsCustomOptimizer(const std::string_view node_str) {
   using namespace std::literals;
   // TODO: Add all the optimizers.
-  static constexpr std::array<std::string_view, 6>
+  static constexpr std::array<std::string_view, 7>
       custom_optimizer_nodestr_vec = {
+          "hpu::fused_clip_norm"sv,
           "hpu::optimizer_sgd_momentum"sv,
           "hpu::habanaOptimizerFusedAdagrad"sv,
           "hpu::habanaOptimizerAdamW"sv,

@@ -22,6 +22,7 @@
 #include "habana_kernels/random_gen_kernels.h"
 #include "hpu_ops/ctc_loss_custom.h"
 #include "hpu_ops/fp8_ops.h"
+#include "hpu_ops/fused_clip_norm.h"
 #include "hpu_ops/masked_batch_gemm.h"
 #include "hpu_ops/op_logger.h"
 #include "hpu_ops/optimizer_lamb_gen.h"
@@ -876,6 +877,31 @@ void optimizer_adamw(
     tensorlists.push_back(exp_avg_sq_scales.value());
   }
   hpu_op.call(tensorlists);
+}
+
+at::Tensor fused_clip_norm(
+    at::TensorList grad,
+    const at::Tensor& max_norm,
+    double norm_type) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("fused_clip_norm :", DUMP_3ARGS(grad, max_norm, norm_type));
+
+  TORCH_CHECK(
+      (grad.size() > 0),
+      "fused_clip_norm : can not process empty grad vector (eager)");
+
+  habana::eager::EagerOp<void> hpu_op{
+      "hpu::fused_clip_norm", {grad, max_norm, norm_type}};
+
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::Inplace,
+       "hpu::fused_clip_norm",
+       decltype(habana::eager::EagerOpMetaData::out_indices_){0}});
+
+  hpu_op.call(grad);
+
+  // return the total_norm result from the end of the grad vector
+  return grad.back();
 }
 
 at::Tensor rotary_pos_embedding(
@@ -2052,6 +2078,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::optimizer_lamb_fused_norm(Tensor[] grad, float max_norm) -> Tensor");
   m.def(
+      "hpu::fused_clip_norm(Tensor(a!)[] grad, Tensor max_norm, float norm_type) -> Tensor");
+  m.def(
       "hpu::optimizer_lamb_phase1(Tensor[] gradients, Tensor[] weights, Tensor(a!)[] exp_avg, Tensor(b!)[] exp_avg_sq, Tensor(c!)[] out_weight_norms, Tensor(d!)[] out_adam_norms, Tensor(e!)[] out_adam_steps, Tensor clip_global_grad_norm, int grad_averaging, float beta1, float beta2, float epsilon, Tensor bias_correction1, Tensor bias_correction2, float weight_decay) -> ()");
   m.def(
       "hpu::optimizer_lamb_phase2(Tensor(a!)[] weights, Tensor[] adam_norms, Tensor[] weight_norms, Tensor[] adam_steps, Tensor neg_step, float wd, bool use_lamb) -> ()");
@@ -2243,6 +2271,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::sum_fp8", sum_fp8);
   m.impl("hpu::slice_ds", slice_ds);
   m.impl("hpu::constant_pad_nd_ds", constant_pad_nd_ds);
+  m.impl("hpu::fused_clip_norm", fused_clip_norm);
 }
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
