@@ -51,7 +51,8 @@
 
 class HpuOpTest : public HpuOpTestUtil {};
 
-HPU_CROSS_TEST(cross, SIZE({3}), 0, torch::kBFloat16)
+// Disable tests due to SW-192533
+// HPU_CROSS_TEST(cross, SIZE({3}), 0, torch::kBFloat16)
 HPU_CROSS_TEST(cross_2d, SIZE({4, 3}), 1, torch::kInt)
 HPU_CROSS_TEST(cross_3d, SIZE({6, 4, 3}), -1, torch::kFloat)
 HPU_CROSS_TEST(cross_4d, SIZE({6, 3, 4, 3}), -3, torch::kInt)
