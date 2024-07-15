@@ -158,3 +158,12 @@ testJobConfig:
             envVars:
               IS_K8S_CONTAINER_TESTER: 'true'
           sim:
+  fsdp_uts:
+    devices:
+      gaudi2:
+        hwType:
+          asic:
+            envVars:
+              IS_K8S_CONTAINER_TESTER: 'true'
+            jobTimeout: 180
+            cards: 8
