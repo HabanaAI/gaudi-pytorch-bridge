@@ -945,6 +945,7 @@ RegisterKernel::add op = hpu::fp8_transpose
 RegisterKernel::add op = hpu::_fused_dropout
 RegisterKernel::add op = hpu::fused_norm_
 RegisterKernel::add op = hpu::fused_norm_lazy
+RegisterKernel::add op = hpu::fused_clip_norm
 RegisterKernel::add op = hpu::geometric_
 RegisterKernel::add op = hpu::geometric.out
 RegisterKernel::add op = hpu::group_norm
