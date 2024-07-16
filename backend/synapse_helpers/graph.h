@@ -94,6 +94,7 @@ class graph {
       const char** input_layouts,
       const char** output_layouts,
       bool deterministic,
+      bool min_latency_node,
       const std::string& hints_str = "");
 
   template <typename ParamsT>
@@ -105,6 +106,7 @@ class graph {
       const char** input_layouts,
       const char** output_layouts,
       bool deterministic,
+      bool min_latency_node,
       const std::string& hints_str = "") {
     return add_node(
         std::move(inputs),
@@ -116,6 +118,7 @@ class graph {
         input_layouts,
         output_layouts,
         deterministic,
+        min_latency_node,
         hints_str);
   }
 

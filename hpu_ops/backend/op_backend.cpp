@@ -909,6 +909,7 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       input_layouts.empty() ? nullptr : input_layouts.data(),
       output_layouts.empty() ? nullptr : output_layouts.data(),
       op->deterministic,
+      op->min_latency_node,
       op->getContextHints());
 
   return outputs;

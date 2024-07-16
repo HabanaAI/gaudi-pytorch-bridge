@@ -798,3 +798,17 @@ synStatus SYN_API_CALL
 synDumpStateAndTerminate(const char* msg, uint64_t flags) {
   return syn_api->synDumpStateAndTerminate(msg, flags);
 }
+
+synStatus SYN_API_CALL synNodeSetMinimalLatency(
+    const synGraphHandle graphHandle,
+    const synNodeId nodeId,
+    const bool minimalLatency) {
+  return syn_api->synNodeSetMinimalLatency(graphHandle, nodeId, minimalLatency);
+}
+
+synStatus SYN_API_CALL synNodeGetMinimalLatency(
+    const synGraphHandle graphHandle,
+    const synNodeId nodeId,
+    bool* minimalLatency) {
+  return syn_api->synNodeGetMinimalLatency(graphHandle, nodeId, minimalLatency);
+}

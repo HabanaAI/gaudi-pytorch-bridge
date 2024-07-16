@@ -240,4 +240,5 @@ void visit_prim_node(
   }
 }
 
+const c10::Symbol symbol_sfg = c10::Symbol::attr("sfg");
 } // namespace jitgraph_utils

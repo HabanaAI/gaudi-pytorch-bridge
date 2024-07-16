@@ -124,7 +124,9 @@
   visitor(synTensorGetHostPtr);               \
   visitor(synTensorSetDeviceDataType);        \
   visitor(synStatusGetBriefDescription);      \
-  visitor(synDumpStateAndTerminate);
+  visitor(synDumpStateAndTerminate);          \
+  visitor(synNodeSetMinimalLatency);          \
+  visitor(synNodeGetMinimalLatency);
 
 #define DECL_SYN_FN(func)                       \
   using func##_pfn_t = decltype(::func);        \

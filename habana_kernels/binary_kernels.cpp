@@ -193,6 +193,7 @@ bool habana::BinaryOperator::MaybeMultiplyWithBool(
         nullptr,
         nullptr,
         deterministic,
+        min_latency_node,
         getContextHints());
     if (final_out_dtype != c10::ScalarType::Int) {
       // NOTE: TO DO: need to handle integral type U8
@@ -317,6 +318,7 @@ void habana::BinaryOperator::AllocateAndAddSynapseNode(
       nullptr,
       nullptr,
       deterministic,
+      min_latency_node,
       getContextHints());
 }
 
@@ -597,6 +599,7 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         deterministic,
+        min_latency_node,
         getContextHints());
   } else {
     auto out_shape = BinaryOperator::compute_output_shape(arg1, arg2);
@@ -632,6 +635,7 @@ void habana::BinaryOperatorWithAlpha::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         deterministic,
+        min_latency_node,
         getContextHints());
   }
 }

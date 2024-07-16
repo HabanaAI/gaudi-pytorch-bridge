@@ -448,6 +448,7 @@ void graph::add_node(
     const char** input_layouts,
     const char** output_layouts,
     bool deterministic,
+    bool min_latency_node,
     const std::string& hints_str) {
   if (dry_run_) {
     // Lazy mode shape inference call, early return without execution
@@ -521,7 +522,11 @@ void graph::add_node(
     syn_node_id_vec_.push_back(nodeId);
     PT_BRIDGE_DEBUG("[SHAPE AGNOSTIC] Adding syn node id: ", nodeId);
   }
-  PT_BRIDGE_DEBUG("Adding Syn graph::add_node val ", deterministic);
+  PT_BRIDGE_DEBUG(
+      "Adding Syn graph::add_node val ",
+      deterministic,
+      " min_latency_node ",
+      min_latency_node);
   if (deterministic) {
     auto status = synNodeSetDeterministic(graph_handle_, nodeId, deterministic);
     if (status != synStatus::synSuccess) {
@@ -531,6 +536,16 @@ void graph::add_node(
       PT_SYNHELPER_FATAL(
           Logger::formatStatusMsg(status),
           "node add synNodeSetDeterministic failed");
+    }
+  }
+
+  if (min_latency_node) {
+    auto status =
+        synNodeSetMinimalLatency(graph_handle_, nodeId, min_latency_node);
+    if (status != synStatus::synSuccess) {
+      PT_SYNHELPER_FATAL(
+          Logger::formatStatusMsg(status),
+          "node add synNodeSetMinimalLatency failed");
     }
   }
 

@@ -302,7 +302,7 @@ OutputMetaDataVector HabanaLaunchOpPT::nodeOutputMetaData(
   auto node_outs = node->outputs();
   OutputMetaDataVector output_metadata{};
   bool sfg_enable = false;
-  if (node->hasAttribute(c10::Symbol::attr("sfg"))) {
+  if (node->hasAttribute(jitgraph_utils::symbol_sfg)) {
     sfg_enable = true;
   }
   // If node output is tensor list
@@ -3129,6 +3129,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // Set the deterministic val
     HabanaKernel->setDeterministic(node->i(torch::jit::attr::deterministic));
 
+    if (node->hasAttribute(jitgraph_utils::symbol_sfg)) {
+      HabanaKernel->setMinLatencyNode();
+    }
+
     // Set kernel execution mode
     HabanaKernel->SetExecutionMode(execution_mode_);
 
@@ -3314,6 +3318,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
         HabanaKernel->setDeterministic(
             node->i(torch::jit::attr::deterministic));
+
+        if (node->hasAttribute(jitgraph_utils::symbol_sfg)) {
+          HabanaKernel->setMinLatencyNode();
+        }
 
         // Set kernel execution mode
         csHabanaKernel->SetExecutionMode(execution_mode_);

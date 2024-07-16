@@ -120,6 +120,10 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
     // Set the deterministic val
     HabanaKernel->setDeterministic(node->i(torch::jit::attr::deterministic));
 
+    if (node->hasAttribute(jitgraph_utils::symbol_sfg)) {
+      HabanaKernel->setMinLatencyNode();
+    }
+
     // override the persistence logic if any kernel sets it as persistent
     // We assume that first index for output will be the persistent.
     // We used to assume it also for input but it caused difficult to debug bugs

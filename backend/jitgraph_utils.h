@@ -39,4 +39,5 @@ void visit_prim_node(
     const torch::jit::Node* node,
     std::unordered_map<const torch::jit::Value*, torch::jit::IValue>&
         val_to_ival_map);
+extern const c10::Symbol symbol_sfg;
 } // namespace jitgraph_utils
