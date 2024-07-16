@@ -60,7 +60,10 @@ def pytest_runtest_setup(item):
     if (
         pytest.mode == "compile"
         and pytest.chip in pytest.eager_fallback_tests.keys()
-        and get_testname(item) in pytest.eager_fallback_tests[pytest.chip]
+        and (
+            get_testname(item) in pytest.eager_fallback_tests[pytest.chip]
+            or get_testname(item) in pytest.eager_fallback_tests["all"]
+        )
         and not os.getenv("PTT_STOP_EAGER_FALLBACK", 0)
     ):
         import warnings
@@ -77,7 +80,10 @@ def pytest_runtest_teardown(item):
     if (
         pytest.mode == "compile"
         and pytest.chip in pytest.eager_fallback_tests.keys()
-        and get_testname(item) in pytest.eager_fallback_tests[pytest.chip]
+        and (
+            get_testname(item) in pytest.eager_fallback_tests[pytest.chip]
+            or get_testname(item) in pytest.eager_fallback_tests["all"]
+        )
         and not os.getenv("PTT_STOP_EAGER_FALLBACK", 0)
     ):
         from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
