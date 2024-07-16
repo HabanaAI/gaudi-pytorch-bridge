@@ -11,6 +11,7 @@ junitparser==2.2.0
 lark
 matplotlib==3.5.3
 mpi4py
+packaging
 pkginfo
 psutil==5.9.1
 py-cpuinfo==8.0.0

@@ -34,10 +34,10 @@ common:
     LD_PRELOAD: "/lib/x86_64-linux-gnu/libtcmalloc.so.4"
     JOB_SCENARIO: pt_smoke_gaudi2
   preTestStages:
-    Install Python test dependencies:
-      command: 'apt remove python3-mpi4py -y; __check_pytorch_dev_py_deps; __check_pytest_dev_py_deps'
-    Update PyTorch module:
-        command: 'install_pytorch_whls'
+    Remove python3-mpi4py:
+      command: 'apt remove python3-mpi4py -y'
+    Install Python test dependencies and artifacts:
+      command: 'set_up_pytorch_artifacts_for_testing current'
     Install media loader wheel:
       command: 'pip install -U ${MEDIA_RELEASE_BUILD}/pkgs/*.whl'
 testsMap:

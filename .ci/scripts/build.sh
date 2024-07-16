@@ -255,6 +255,10 @@ function pytorch_usage()
     fi
 }
 
+__error() {
+    echo "ERROR:" "$@" >&2
+}
+
 build_pytorch_modules()
 {
     SECONDS=0
@@ -550,11 +554,6 @@ build_pytorch_dist()
     return 0
 }
 
-__install_auditwheel()
-{
-    $__pip_cmd install auditwheel
-}
-
 build_pytorch_fork()
 {
     SECONDS=0
@@ -702,7 +701,6 @@ build_pytorch_fork()
     fi
 
     if [ "z${__build_manylinux_whl}" == "ztrue" ];then
-        __install_auditwheel
         bash -c "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$__pytorch_root/torch/lib;$__python_cmd $__auditwheel repair $__pytorch/dist/torch*.whl"
         TORCH_WHL_PATH="$__pytorch_root/wheelhouse/"
     else
@@ -723,7 +721,6 @@ build_pytorch_fork()
     restore_python_version
     return $__result
 }
-
 
 build_pytorch_tb_plugin()
 {
@@ -853,7 +850,6 @@ build_pytorch_tb_plugin()
     restore_python_version
     return $__result
 }
-
 
 build_lightning_habana_fork()
 {
@@ -989,8 +985,7 @@ build_pytorch_vision_fork()
     if [ $__result -ne 0 ]; then
         echo "Pytorch torchvision build failed!"
     fi
-    if [ "z${__build_manylinux_whl}" == "ztrue" ];then
-        __install_auditwheel
+    if [ "z${__build_manylinux_whl}" == "ztrue" ]; then
         bash -c "$__python_cmd $__auditwheel repair $PYTORCH_VISION_FORK_ROOT/dist/*.whl"
         PTV_WHL_PATH="$PYTORCH_VISION_FORK_ROOT/wheelhouse/"
     else
@@ -1524,7 +1519,7 @@ run_pytorch_qa_tests()
 
     # Don't cleas up the requirement python packages
     # for pytest in case of reproduction environment.
-    # Otherwise, clean since the ifference in package versions can
+    # Otherwise, clean since the difference in package versions can
     # cause dependencies between different SW versions
     if [ "$REPRODUCTION_ENV" != "yes" ]
     then
@@ -1541,9 +1536,7 @@ install_requirements_pytorch()
     cmd=($__pip_cmd install -r ${PYTORCH_MODULES_ROOT_PATH}/.ci/requirements/requirements-pytorch.txt)
     if ! __running_in_venv; then
         cmd+=(--user)
-        install_cmd+=(--user)
     fi
-    "${install_cmd[@]}"
     "${cmd[@]}"
 }
 
@@ -1552,9 +1545,7 @@ install_requirements_event_plugin()
     cmd=($__pip_cmd install -r ${EVENT_TESTS_PLUGIN_ROOT}/.ci/requirements/requirements-prod.txt)
     if ! __running_in_venv; then
         cmd+=(--user)
-        install_cmd+=(--user)
     fi
-    "${install_cmd[@]}"
     "${cmd[@]}"
 }
 
@@ -1871,8 +1862,301 @@ uninstall_requirements_pytest()
 
 clean_pytorch_pkgs()
 {
-    $__pip_cmd uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch
-    sudo -H $__pip_cmd uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch
+    echo "-> Removing PyTorch-related packages"
+    $__pip_cmd uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch habana-torch-plugin
+    sudo -H $__pip_cmd uninstall -y hb-torch torch hmp gather2d-cpp HabanaEmbeddingBag-cpp habanaOptimizerSparseSgd-cpp preproc-cpp habanaOptimizerSparseAdagrad-cpp habana-torch-dataloader habana-torch habana-torch-plugin
+}
+
+# Returns an error code 1 if any nvidia-related packages are installed.
+check_no_unwanted_packages_installed() {
+    echo "-> Verifying if no unwanted packages are installed"
+    local -a faulty_packages
+    faulty_packages=$(! "$__pip_cmd" freeze | grep 'triton\|nvidia')
+    local -r retcode=$?
+    readonly faulty_packages
+    if [ "$retcode" -ne 0 ]; then
+        printf 'ERROR: the following unwanted packages are installed:\n'
+        printf '%s\n' "${faulty_packages[@]}"
+        printf 'Have you installed CUDA torch at some point?\n'
+        return 1
+    fi
+}
+
+# Verifies the reported torch.__version__ matches the specified profile.
+# Args: $1 - profile name as in build_profiles.json, e.g. current, next
+check_proper_pt_version_installed() {
+    if [ $# -ne 1 ]; then
+        __error "check_proper_pt_version_installed requires a profile name as an argument, e.g. current or next"
+        return 2
+    fi
+
+    echo "-> Verifying if the proper PT version is installed ($1)"
+    pushd "${PYTORCH_MODULES_ROOT_PATH}"/.devops || return 1
+
+    $__python_cmd - <<EOF "$1"
+import sys
+from build_profiles.profiles import get_version_literal_and_source as get_profile
+from build_profiles.version import Version
+
+try:
+    import torch
+except:
+    print("ERROR: Torch is not installed in the current env", file=sys.stderr)
+    sys.exit(1)
+
+installed_version=torch.__version__
+expected_version=get_profile(sys.argv[1]).version
+
+if Version(expected_version).significant_matches(Version(installed_version)):
+    sys.exit()
+
+print(f"ERROR: Installed torch version {installed_version} does not resemble the expected {expected_version}",
+      file=sys.stderr)
+sys.exit(1)
+EOF
+    local -r retcode=$?
+
+    popd || return 1
+
+    return $retcode
+}
+
+# Installs packages required for PT Fork and Modules build pipelines to pass
+install_pytorch_build_requirements() (
+    set -e
+
+    echo "-> Installing PT build requirements"
+    $__pip_cmd install -r "${PYTORCH_MODULES_ROOT_PATH}"/requirements.txt
+
+    check_no_unwanted_packages_installed
+)
+
+# Installs packages required for PT Fork, Modules, Lightning and other artifacts to work after deployment
+install_pytorch_deploy_requirements() (
+    set -e
+
+    echo "-> Installing PT deployment requirements"
+    $__pip_cmd install -r "${PYTORCH_MODULES_ROOT_PATH}"/.ci/requirements/requirements-pytorch.txt
+
+    check_no_unwanted_packages_installed
+)
+
+# Installs packages required to run CI/CD test pipelines on PT artifacts
+install_pytorch_test_requirements() (
+    set -e
+
+    echo "-> Installing PT test requirements"
+    $__pip_cmd install -r "${PYTORCH_MODULES_ROOT_PATH}"/.ci/requirements/requirements-test.txt
+
+    check_no_unwanted_packages_installed
+)
+
+# Args:
+#   $1 - profile name, e.g. current
+__print_torch_version_for_profile() {
+    pushd "${PYTORCH_MODULES_ROOT_PATH}"/.devops >/dev/null || return 1
+
+    $__python_cmd - <<EOF "$1"
+import sys
+from build_profiles.profiles import get_version_literal_and_source as get_profile
+print(get_profile(sys.argv[1]).version)
+EOF
+    local -r retcode=$?
+
+    popd >/dev/null || return 1
+
+    return $retcode
+}
+
+# Args: $1 - profile name as in build_profiles.json, e.g. current, next
+__print_matching_torch_wheel_path() (
+    set -e
+
+    if [ $# -ne 1 ]; then
+        __error "__print_matching_torch_wheel_path requires a profile name as 1st argument, e.g. current or next"
+        return 2
+    fi
+
+    local -r profile_name="$1"; shift
+
+    # The wheels should reside in the fork build directory - even if they're from PT Next
+    local wheels
+    wheels=$(find "${PYTORCH_FORK_RELEASE_BUILD}"/pkgs -type f -name "*.whl")
+    readonly wheels
+
+    local -r wheel_count=$(echo "$wheels" | wc -l)
+
+    if [ "$wheel_count" -lt 1 ]; then
+        __error "did not find any torch wheels"
+        return 1
+    elif [ "$wheel_count" -eq 1 ]; then
+        # No way to check commit hash as in CI/Promote we don't have pytorch-{fork,next} repos available.
+        # Just verify the version against the profile.
+        local expected_version
+        expected_version=$(__print_torch_version_for_profile "$profile_name")
+        readonly expected_version
+        case $wheels in
+            *$expected_version*)
+                echo "$wheels"
+                return
+                ;;
+            *)
+                __error "the found wheel: $wheels does not match the expected version: $expected_version"
+                return 1
+                ;;
+        esac
+    fi
+
+    # Multiple wheels found - match a single one
+
+    if [ "$profile_name" = "current" ]; then
+        local -r torch_root="${PYTORCH_FORK_ROOT}"
+    else
+        if [ "$profile_name" != "next" ]; then
+            __error "only current and next profiles are supported"
+            return 2
+        fi
+        local -r torch_root="${PYTORCH_NEXT_ROOT}"
+    fi
+
+    local torch_revision
+    torch_revision=$(cd "${torch_root}" && git rev-parse HEAD)
+    readonly torch_revision
+
+    local matching_wheels
+    matching_wheels=$(echo "$wheels" | grep "${torch_revision:0:7}")
+    readonly matching_wheels
+
+    local -r matching_wheel_count=$(echo "$matching_wheels" | wc -l)
+    if [ "$matching_wheel_count" -ne 1 ]; then
+        __error "did not find exactly one matching torch wheel. Found: $matching_wheels"
+        return 1
+    fi
+    echo "${matching_wheels}"
+)
+
+# Args:
+# * $1 - profile name as in build_profiles.json, e.g. current, next
+# * $@ - additional arguments to pass to the bulk pip install command
+__set_up_pytorch_artifacts_impl() (
+    set -e
+
+    if [ $# -lt 1 ] || [ "$1" != "current" ] && [ "$1" != "next" ]; then
+        __error "__set_up_pytorch_artifacts_impl requires a profile name as 1st argument, e.g. current or next"
+        return 2
+    fi
+
+    local -r profile_name="$1"; shift
+
+    echo "-> Looking for a proper torch wheel to install"
+    local pt_fork_wheel_path
+    pt_fork_wheel_path=$(__print_matching_torch_wheel_path "$profile_name")
+    readonly pt_fork_wheel_path
+    echo "  -> Will use this torch wheel: $pt_fork_wheel_path"
+
+    uninstall_pytorch_artifacts
+
+    local -ar pip_install_args=(
+        -r "${PYTORCH_MODULES_ROOT_PATH}"/.ci/requirements/requirements-pytorch.txt
+        "$@"
+        "$pt_fork_wheel_path"
+        "${PYTORCH_VISION_FORK_BUILD}"/pkgs/*.whl
+        "${PYTORCH_MODULES_RELEASE_BUILD}"/pkgs/*.whl
+    )
+
+    echo "-> Installing PT requirements and artifacts: " "${pip_install_args[@]}"
+
+    # Installing in one go should prevent issues with CUDA torch begin pulled in by accident
+    $__pip_cmd install -U "${pip_install_args[@]}"
+
+
+    if [ "${GERRIT_PROJECT}" = "lightning-habana-fork" ]; then
+        echo "-> Installing ligtning-habana-fork wheels"
+        $__pip_cmd install -U "${LIGHTNING_HABANA_FORK_BUILD}"/pkgs/*.whl --force-reinstall --no-deps
+    fi
+
+    check_no_unwanted_packages_installed
+)
+
+# Args: $1 - profile name as in build_profiles.json, e.g. current, next
+__set_up_pytorch_artifacts_for_testing_impl() {
+    if [ $# -ne 1 ]; then
+        __error "__set_up_pytorch_artifacts_for_testing_impl requires a profile name as an argument, e.g. current or next"
+        return 2
+    fi
+
+    __set_up_pytorch_artifacts_impl "$1" -r "${PYTORCH_MODULES_ROOT_PATH}"/.ci/requirements/requirements-test.txt
+}
+
+__move_future_pytorch_version_artifacts_to_current_dirs() {
+    echo "-> Preparing to install future PT version artifacts"
+    (
+        set -e
+
+        rm -fv "$PYTORCH_FORK_RELEASE_BUILD"/pkgs/torch-*.whl
+        rm -fv "$PYTORCH_MODULES_RELEASE_BUILD"/pkgs/*.whl
+        rm -fv "$PYTORCH_VISION_FORK_BUILD"/pkgs/*.whl
+        rm -fv "$PYTORCH_VISION_BUILD"/pkgs/*.whl
+
+        if [ -d "/dependencies" ]; then
+            local -r find_root="/dependencies"
+        else
+            local -r find_root="./dependencies"
+        fi
+        local -r pt_next_dir=$(find $find_root -name pt_next_deps)
+
+        cp -fv "$pt_next_dir"/whl_pyfork/*torch*.whl "${PYTORCH_FORK_RELEASE_BUILD}"/pkgs/
+        cp -fv "$pt_next_dir"/whl_pytorch_vision_fork/*torch*.whl "${PYTORCH_VISION_FORK_BUILD}"/pkgs/ || true
+        cp -fv "$pt_next_dir"/whl_pytorch_vision/*torch*.whl "${PYTORCH_VISION_BUILD}"/pkgs/ || true
+        cp -fv "$pt_next_dir"/whl_pyint/*.whl "${PYTORCH_MODULES_RELEASE_BUILD}"/pkgs/
+        cp -fv "$pt_next_dir"/{test_pt_integration,test_pt2_integration} "${PYTORCH_MODULES_RELEASE_BUILD}"/
+    )
+    local -r retcode=$?
+    if [ $retcode -ne 0 ]; then
+        __error "Unable to set up PT Next artifacts"
+    fi
+    return $retcode
+}
+
+# Args: $1 - profile name as in build_profiles.json, e.g. current, next
+set_up_pytorch_artifacts() (
+    set -e
+
+    if [ $# -ne 1 ]; then
+        __error "set_up_pytorch_artifacts requires a profile name as an argument, e.g. current or next"
+        return 2
+    fi
+
+    if [ "$1" != "current" ]; then
+        __move_future_pytorch_version_artifacts_to_current_dirs
+    fi
+
+    __set_up_pytorch_artifacts_impl "$1"
+
+    check_proper_pt_version_installed "$1"
+)
+
+# Args: $1 - profile name as in build_profiles.json, e.g. current, next
+set_up_pytorch_artifacts_for_testing() (
+    set -e
+
+    if [ $# -ne 1 ]; then
+        __error "set_up_pytorch_artifacts_for_testing requires a profile name as an argument, e.g. current or next"
+        return 2
+    fi
+
+    if [ "$1" != "current" ]; then
+        __move_future_pytorch_version_artifacts_to_current_dirs
+    fi
+
+    __set_up_pytorch_artifacts_for_testing_impl "$1"
+
+    check_proper_pt_version_installed "$1"
+)
+
+uninstall_pytorch_artifacts() {
+    echo "-> Uninstalling PT artifacts"
+    $__pip_cmd uninstall -y torch torch-debug habana-torch-dataloader habana-torch-plugin torch_tb_profiler torchaudio torchdata torchtext torchvision
 }
 
 __check_pytorch_dev_py_deps()
@@ -1948,25 +2232,6 @@ __provide_mkl()
 
   export CMAKE_LIBRARY_PATH=${__mkl_root}/lib:$CMAKE_LIBRARY_PATH
   export CMAKE_INCLUDE_PATH=${__mkl_root}/include:$CMAKE_INCLUDE_PATH
-}
-
-# SW-40601 Workaround to uninstall torchvision and install habana-torchvision in Pytorch CI
-install_habana_torchvision()
-{
-    $__pip_cmd uninstall -y torchvision
-    cmd=($__pip_cmd install habana-torchvision==0.10.0)
-    if ! __running_in_venv; then
-        cmd+=(--user)
-    fi
-    "${cmd[@]}"
-    $__pip_cmd uninstall -y torch
-    $__pip_cmd uninstall -y pillow
-    $__pip_cmd uninstall -y pillow-simd
-    cmd=($__pip_cmd install pillow-simd==7.0.0.post3)
-    if ! __running_in_venv; then
-        cmd+=(--user)
-    fi
-    "${cmd[@]}"
 }
 
 # Method to install pillow-simd which is required for performance
@@ -2422,21 +2687,21 @@ install_pytorch_whls() {
 }
 
 install_pytorch_whls_future() {
-    rm -f $PYTORCH_FORK_RELEASE_BUILD/pkgs/torch-*.whl
-    rm -f $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
-    rm -f $PYTORCH_VISION_FORK_BUILD/pkgs/*.whl
-    rm -f $PYTORCH_VISION_BUILD/pkgs/*.
+    rm -fv $PYTORCH_FORK_RELEASE_BUILD/pkgs/torch-*.whl
+    rm -fv $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
+    rm -fv $PYTORCH_VISION_FORK_BUILD/pkgs/*.whl
+    rm -fv $PYTORCH_VISION_BUILD/pkgs/*.
     if [ -d "/dependencies" ]; then
         find_root="/dependencies"
     else
         find_root="./dependencies"
     fi
     pt_next_dir=$(find $find_root -name pt_next_deps)
-    cp -f $pt_next_dir/whl_pyfork/*torch*.whl ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/
-    cp -f $pt_next_dir/whl_pytorch_vision_fork/*torch*.whl ${PYTORCH_VISION_FORK_BUILD}/pkgs/ || true
-    cp -f $pt_next_dir/whl_pytorch_vision/*torch*.whl ${PYTORCH_VISION_BUILD}/pkgs/ || true
-    cp -f $pt_next_dir/whl_pyint/*.whl ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/
-    cp -f $pt_next_dir/{test_pt_integration,test_pt2_integration} ${PYTORCH_MODULES_RELEASE_BUILD}/
+    cp -fv $pt_next_dir/whl_pyfork/*torch*.whl ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/
+    cp -fv $pt_next_dir/whl_pytorch_vision_fork/*torch*.whl ${PYTORCH_VISION_FORK_BUILD}/pkgs/ || true
+    cp -fv $pt_next_dir/whl_pytorch_vision/*torch*.whl ${PYTORCH_VISION_BUILD}/pkgs/ || true
+    cp -fv $pt_next_dir/whl_pyint/*.whl ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/
+    cp -fv $pt_next_dir/{test_pt_integration,test_pt2_integration} ${PYTORCH_MODULES_RELEASE_BUILD}/
     install_pytorch_whls
 }
 

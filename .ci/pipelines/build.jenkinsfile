@@ -18,13 +18,19 @@ def testBuildOsMap = [
 if (testBuildOsMap.keySet().contains(env.OS_SHORT_NAME)) {
     env.dockerImage = testBuildOsMap[env.OS_SHORT_NAME]
 }
-
+def preBuildStages = [
+    'Install Python build dependencies': { util ->
+        util.runShellCommandWrapper("""
+            set -xe
+            install_pytorch_build_requirements
+        """)
+    }
+]
 def preCommitValidation = [
     'Running pre-commit hooks': { util ->
         if (isPrimaryOS) {
             Integer precommitResult = util.runShellCommandWrapper("""
                 set -xe
-                __check_pytorch_dev_py_deps
                 pushd \${PYTORCH_MODULES_ROOT_PATH}
                 pre-commit run --color never --show-diff-on-failure --from HEAD^ --to HEAD
                 popd
@@ -53,24 +59,16 @@ def pytorchFork = [
     'Install Pytorchfork modules': { util ->
         util.runShellCommandWrapper("""
             set -xe
-            __clean_pytorch_dev_py_deps
+            uninstall_pytorch_artifacts
             pip install -U \${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*torch*.whl ${user_install}
             rm \${PYTORCH_FORK_RELEASE_BUILD}/pkgs/*torch*.whl
         """)
     }
 ]
-def preBuildStages = [
-    'Install Python test dependencies': { util ->
-        util.runShellCommandWrapper("""
-            set -x
-            __check_pytorch_dev_py_deps
-        """)
-    }
-]
-preBuildStages = preBuildStages + ccacheStats + pytorchFork + ccacheStats
 if(env.GERRIT_PROJECT == 'pytorch-integration' && !isPromote) {
-    preBuildStages = preCommitValidation + preBuildStages
+    preBuildStages = preBuildStages + preCommitValidation
 }
+preBuildStages = preBuildStages + ccacheStats + pytorchFork + ccacheStats
 if((env.GERRIT_PROJECT == 'lightning-habana-fork' ) && !isPromote) {
     preBuildStages =  preBuildStages + lightningHabanaFork
 }

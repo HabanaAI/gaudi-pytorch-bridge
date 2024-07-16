@@ -18,8 +18,6 @@ from dataclasses import astuple, dataclass
 from enum import Enum
 from typing import Optional, Sequence
 
-from .version import Version
-
 
 @dataclass(frozen=True)
 class VersionLiteralAndSource:
@@ -31,6 +29,9 @@ class VersionLiteralAndSource:
         return iter(astuple(self))
 
     def __lt__(self, other: VersionLiteralAndSource):
+        # Deliberately moved here so that external pip packages are not required to just read the versions
+        from .version import Version
+
         return Version(self.version) < Version(other.version)
 
 
