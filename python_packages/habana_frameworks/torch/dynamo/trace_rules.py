@@ -134,6 +134,7 @@ else:
     for obj in functions_to_add:
         _allowed_function_ids.add(id(obj))
 
+from packaging.version import Version
 from torch._dynamo.variables.torch import constant_fold_functions
 
 functions_to_add = [
@@ -142,4 +143,7 @@ functions_to_add = [
     htorch.hpu._utils._get_device_index,
 ]
 
-constant_fold_functions.extend(functions_to_add)
+if Version(torch.__version__) >= Version("2.4.0"):
+    constant_fold_functions.update(dict.fromkeys(functions_to_add))
+else:
+    constant_fold_functions.extend(functions_to_add)
