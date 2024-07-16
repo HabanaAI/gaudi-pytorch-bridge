@@ -36,27 +36,7 @@ common:
     Install Python test dependencies:
       command: '__check_pytorch_dev_py_deps; __check_pytest_dev_py_deps'
     Update PyTorch module:
-        command: |
-          pt_next_dir=$(ls dependencies | grep Build_pt_next -m 1)
-          if [ ! -z $pt_next_dir ]
-          then
-            rm -f $PYTORCH_FORK_RELEASE_BUILD/pkgs/torch-*.whl
-            rm -f $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
-            cp -f ./dependencies/$pt_next_dir/pt_next_deps/whl_pyfork/*torch*.whl ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/
-            cp -f ./dependencies/$pt_next_dir/pt_next_deps/whl_pyint/*.whl ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/
-            cp -f ./dependencies/$pt_next_dir/pt_next_deps/test_pt_integration ${PYTORCH_MODULES_RELEASE_BUILD}/
-            cp -f ./dependencies/$pt_next_dir/pt_next_deps/test_pt2_integration ${PYTORCH_MODULES_RELEASE_BUILD}/
-          fi
-          __clean_pytorch_dev_py_deps
-          pip install -U $PYTORCH_FORK_RELEASE_BUILD/pkgs/*.whl
-          pip install -U ${PYTORCH_VISION_FORK_BUILD}/pkgs/*.whl
-          install_pillow_simd
-          if [ $GERRIT_PROJECT == lightning-habana-fork ]
-          then
-            pip install -U $LIGHTNING_HABANA_FORK_BUILD/pkgs/*.whl
-          fi
-          pip install -U $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
-
+        command: 'install_pytorch_whls_future'
 testsMap:
   Test_pytorch_modules_gaudi_sim_cpp_suite_future:
     dependencies:

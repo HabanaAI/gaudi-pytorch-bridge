@@ -13,7 +13,7 @@ common:
     - CORAL_SIM
     - HCL
     - HL_THUNK
-    - PT_FORK
+    - PT_NEXT
     - RDMA_CORE
     - SWTOOLS_SDK
     - SYNAPSE
@@ -36,7 +36,7 @@ common:
     Install Python test dependencies:
       command: '__check_pytorch_dev_py_deps; __check_pytest_dev_py_deps'
     Update PyTorch module:
-      command: 'install_pytorch_whls'
+        command: 'install_pytorch_whls_future'
 testsMap:
   Test_pytorch_modules_gaudi_sim_py_suite_lazy_future:
     stages:

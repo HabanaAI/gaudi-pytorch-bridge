@@ -2418,9 +2418,19 @@ install_pytorch_whls() {
 install_pytorch_whls_future() {
     rm -f $PYTORCH_FORK_RELEASE_BUILD/pkgs/torch-*.whl
     rm -f $PYTORCH_MODULES_RELEASE_BUILD/pkgs/*.whl
-    cp -f /dependencies/PT_NEXT/pt_next_deps/whl_pyfork/*torch*.whl ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/
-    cp -f /dependencies/PT_NEXT/pt_next_deps/whl_pyint/*.whl ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/
-    cp -f /dependencies/PT_NEXT/pt_next_deps/{test_pt_integration,test_pt2_integration} ${PYTORCH_MODULES_RELEASE_BUILD}/
+    rm -f $PYTORCH_VISION_FORK_BUILD/pkgs/*.whl
+    rm -f $PYTORCH_VISION_BUILD/pkgs/*.
+    if [ -d "/dependencies" ]; then
+        find_root="/dependencies"
+    else
+        find_root="./dependencies"
+    fi
+    pt_next_dir=$(find $find_root -name pt_next_deps)
+    cp -f $pt_next_dir/whl_pyfork/*torch*.whl ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/
+    cp -f $pt_next_dir/whl_pytorch_vision_fork/*torch*.whl ${PYTORCH_VISION_FORK_BUILD}/pkgs/ || true
+    cp -f $pt_next_dir/whl_pytorch_vision/*torch*.whl ${PYTORCH_VISION_BUILD}/pkgs/ || true
+    cp -f $pt_next_dir/whl_pyint/*.whl ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/
+    cp -f $pt_next_dir/{test_pt_integration,test_pt2_integration} ${PYTORCH_MODULES_RELEASE_BUILD}/
     install_pytorch_whls
 }
 
