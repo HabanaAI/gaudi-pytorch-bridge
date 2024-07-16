@@ -6016,7 +6016,7 @@ multinomial:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: random_multinomial_fwd
+  guid: random_multinomial_pt_fwd
   out_ids: [0]
   op_frontend: GeneratorToSeed
   output_meta: MultinomialMeta
@@ -6028,7 +6028,7 @@ multinomial.out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  guid: random_multinomial_fwd
+  guid: random_multinomial_pt_fwd
   op_frontend: GeneratorToSeedOut
   output_meta: MultinomialMeta
   schema_args: "(Tensor self, int num_samples, bool replacement, Tensor seed,  Tensor(a!) out) -> Tensor(a!)"

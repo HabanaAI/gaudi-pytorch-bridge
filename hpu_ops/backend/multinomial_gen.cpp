@@ -35,6 +35,8 @@ static std::shared_ptr<void> MultinomialParams(
   at::ScalarType type = stack_tensor(stack, 0 + idx_shift).scalar_type();
   float num_samples = stack.at(1 + idx_shift).toInt();
   bool replacement = stack.at(2 + idx_shift).toBool();
+  const torch::Tensor& t = stack_tensor(stack, 0 + idx_shift);
+
   PARAMS_STUB(ns_RandomMultinomial::ParamsV2);
 
   switch (type) {
@@ -43,6 +45,7 @@ static std::shared_ptr<void> MultinomialParams(
     case at::ScalarType::Half:
       params->num_samples = num_samples;
       params->replacement = replacement;
+      params->outcomes = t.sizes()[0];
       break;
     default:
       TORCH_CHECK(false, "Unsupported type for random multinomial: ", type);
@@ -89,7 +92,7 @@ OutputMetaDataVector HabanaMultinomialMeta(const at::Stack& stack) {
 HabanaMultinomial::HabanaMultinomial(int device_id, c10::ScalarType scalar_type)
     : OpBackend(
           device_id,
-          "random_multinomial",
+          "random_multinomial_pt_fwd",
           scalar_type,
           {1},
           {},
@@ -104,7 +107,7 @@ void HabanaMultinomial::CustomHandler(
     synapse_helpers::graph&,
     at::Stack& stack) {
   SetGuid(get_guid_with_precision(
-      "random_multinomial", stack_tensor(stack, 1).scalar_type()));
+      "random_multinomial_pt_fwd", stack_tensor(stack, 1).scalar_type()));
 }
 } // namespace habana
 
