@@ -145,6 +145,8 @@ def test_foreach_scalar(op, k, other_scalar):
 
     if _is_python_2_4():
         _remove_not_supported_dtypes_on_hpu(op, self_dtypes)
+        if len(self_dtypes) == 0:
+            pytest.skip(reason="Lack of possible types to test for op")
 
     self_cpu, self_hpu = generate_tensor_list(self_shapes, self_dtypes)
 
@@ -200,6 +202,8 @@ def test_foreach_scalarlist(op, k):
 
     if _is_python_2_4():
         _remove_not_supported_dtypes_on_hpu(op, self_dtypes)
+        if len(self_dtypes) == 0:
+            pytest.skip(reason="Lack of possible types to test for op")
 
     other_scalars = random.choices(scalar_list, k=len(self_dtypes))
     self_cpu, self_hpu = generate_tensor_list(self_shapes, self_dtypes)
@@ -287,6 +291,8 @@ def test_foreach_scalar_inplace(op, k, other_scalar):
 
     if _is_python_2_4():
         _remove_not_supported_dtypes_on_hpu(op, self_dtypes)
+        if len(self_dtypes) == 0:
+            pytest.skip(reason="Lack of possible types to test for op")
 
     for i in range(len(self_dtypes)):
         if not self_dtypes[i].is_floating_point and op == torch._foreach_div_:
@@ -352,6 +358,8 @@ def test_foreach_scalarlist_inplace(op, k):
 
     if _is_python_2_4():
         _remove_not_supported_dtypes_on_hpu(op, self_dtypes)
+        if len(self_dtypes) == 0:
+            pytest.skip(reason="Lack of possible types to test for op")
 
     other_scalars = random.choices(scalar_list, k=len(self_dtypes))
 
