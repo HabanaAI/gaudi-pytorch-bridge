@@ -2575,6 +2575,7 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
             node.args = tuple(new_args)
             after.replace_all_uses_with(node)
             node.meta.update(after.meta)
-            ctx.graph_module = helper_post_pass_finalize(input_module=ctx.graph_module)
+
+    ctx.graph_module = helper_post_pass_finalize(input_module=ctx.graph_module)
 
     return graph_changed
