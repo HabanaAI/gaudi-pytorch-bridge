@@ -484,15 +484,29 @@ void habana_helpers::copy_data_to_device(
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
-    const at::Tensor srcRef = src;
-    const at::Tensor dstRef = dst;
+    struct ResourceHolder {
+      ResourceHolder(const at::Tensor& src, const at::Tensor& dst)
+          : src_(src), dst_(dst) {}
+
+      at::Tensor src_;
+      at::Tensor dst_;
+
+      void release_resources() {
+        src_ = at::Tensor();
+        dst_ = at::Tensor();
+      }
+    };
+
+    auto callback = [rh = std::make_shared<ResourceHolder>(
+                         src, dst)]() mutable { rh->release_resources(); };
+
     device.copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
             dst.storage().data_ptr().get()),
         habana_helpers::GetNBytes(src),
-        [srcRef, dstRef]() { return; },
+        callback,
         non_blocking,
         is_pinned,
         hpu_stream,
