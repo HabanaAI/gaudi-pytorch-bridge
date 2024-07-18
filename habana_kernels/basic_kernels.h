@@ -169,6 +169,14 @@ class SliceInsertOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const std::vector<synapse_helpers::tensor_or_ref>& syn_t_vec,
       const habana::OutputMetaDataVector& output_metadata) override;
+
+  void UpdateMaxPassSliceInputs(
+      std::vector<int64_t>& inp_shape,
+      std::vector<int64_t>& out_shape,
+      std::vector<int64_t>& step,
+      std::vector<int64_t>& start,
+      std::vector<int64_t>& min,
+      std::vector<int64_t>& max);
 };
 class SliceScatterOperatorDSUtil : public SliceInsertOperator {
  public:

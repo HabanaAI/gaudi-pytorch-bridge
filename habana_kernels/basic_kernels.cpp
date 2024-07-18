@@ -782,6 +782,45 @@ void SliceInsertOperator::ValidateSliceInsertInputs(
   }
 }
 
+void SliceInsertOperator::UpdateMaxPassSliceInputs(
+    std::vector<int64_t>& inp_shape,
+    std::vector<int64_t>& out_shape,
+    std::vector<int64_t>& step,
+    std::vector<int64_t>& start,
+    std::vector<int64_t>& min,
+    std::vector<int64_t>& max) {
+  for (uint64_t i = 0; i < inp_shape.size(); i++) {
+    out_shape[i] = out_shape[i] < inp_shape[i] ? out_shape[i] : inp_shape[i];
+    // output = slice to be inserted
+    // (end - start)/step = output
+    // Assuming end max is input
+    // (input - start)/step = output
+    // input - start = output * step
+    // start = input - output * step
+
+    // start shape tensor is updated, so change the buckets as well if
+    // start is there in bucket
+    if (out_shape[i] != 0) {
+      auto old_start = start[i] * step[i];
+      start[i] = inp_shape[i] - (out_shape[i] * step[i]);
+      if (old_start != start[i]) {
+        // If the calculated value is less than current value, keep the
+        // current value.
+        HABANA_ASSERT(min.size() == max.size());
+        if (min.size() && (min[i] != max[i]) && old_start == 0) {
+          auto curr_val = max[i] /
+              habana_helpers::DynamicBucketInfo::default_max_multiplier_;
+          if (start[i] < curr_val) {
+            start[i] = curr_val;
+          }
+        }
+      }
+    }
+  }
+  TORCH_CHECK(
+      min <= start, "SliceInsertOperator Start tensor min is greater than max");
+}
+
 void SliceInsertOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -800,10 +839,33 @@ void SliceInsertOperator::AllocateAndAddSynapseNode(
         p_context_->syn_inputs_[3].ref().is_shape_tensor(),
         "Synapse input4 type expected to be shape tensor");
 
+    std::vector<int64_t> shape = p_context_->syn_inputs_[1].ref().pt_shape();
     auto inp_shape = self.sizes().vec();
+    // out_shape = shape of the slice to be inserted
     auto out_shape = inputs[1].toTensor().sizes().vec();
     auto step = inputs[2].toTensor().sizes().vec();
     auto start = inputs[3].toTensor().sizes().vec();
+
+    if ((habana::ShapeInference::GetCurrentPass() ==
+         habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
+        (habana::ShapeInference::GetMaxPolicyInUse() ==
+         habana_helpers::DynamicDimsPolicy::CALCULATED)) {
+
+      std::vector<int64_t> min, max;
+      synapse_helpers::tensor& syn_tensor_start = p_context_->syn_inputs_[3];
+      std::tie(min, max) =
+          habana::ShapeInference::GetMinMaxShape(syn_tensor_start.id());
+
+      SliceInsertOperator::UpdateMaxPassSliceInputs(inp_shape, out_shape, step, start, min, max);
+
+      // Modify the start and output shape in name shape map to create valid ranges
+      synapse_helpers::tensor& syn_tensor_output = p_context_->syn_inputs_[1];
+      habana::ShapeInference::UpdateShapeInfo(
+          graph, syn_tensor_output.id(), out_shape);
+      habana::ShapeInference::UpdateShapeInfo(
+          graph, syn_tensor_start.id(), start);
+      shape = out_shape;
+    }
 
     ValidateSliceInsertInputs(inp_shape, out_shape, step, start);
   } else if (has_shape_tensor && inputs.size() == 3) {
@@ -1985,6 +2047,7 @@ static auto& BasicKernelsKernelRegistry =
         .add("hpu::slice_insert", KERNEL_FN_GLOBAL(SliceInsertOperator))
         .add("hpu::slice_insert_ds", KERNEL_FN_GLOBAL(SliceInsertOperator))
         .add("hpu::slice_insert_ds_ht", KERNEL_FN_GLOBAL(SliceInsertOperator))
+	.add("hpu::slice_scatter_ds", KERNEL_FN_GLOBAL(SliceInsertOperator))
         .add("hpu::strided_insert", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add("hpu::strided_insert_ds", KERNEL_FN_GLOBAL(StridedInsertOperator))
         .add(

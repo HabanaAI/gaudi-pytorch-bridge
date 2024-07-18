@@ -737,6 +737,10 @@ void ExapndOperatorDS::UpdateDynamicInputs(
 }
 
 // Dynamic shape (DS) support for slice_scatter using shape tensor
+// Use hpu::slice_scatter_ds op for supporting slice_scatter DS
+// hpu::slice_scatter_ds is same as hpu::slice_insert_ds
+// but hpu::slice_insert_ds cannot be used directly to avoid graph
+// loops in case of inplace ops.
 bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
     torch::jit::Node* aten_slice_scatter_node,
     torch::jit::Stack& org_stack,
@@ -752,14 +756,13 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   // step: Scalar
 
   HABANA_ASSERT(6 == aten_slice_scatter_node->inputs().size());
-  static const auto hpu_slice_scatter_symbol{c10::Symbol::fromQualString("hpu::slice_scatter")};
+  static const auto hpu_slice_scatter_symbol{c10::Symbol::fromQualString("hpu::slice_scatter_ds")};
 
   at::IntArrayRef self_sizes = value_ivalue_map[aten_slice_scatter_node->input(0)]->toTensor().sizes();
 
   // 4 scalars: dim, start, end, step
   auto dim = aten_slice_scatter_node->inputs().at(2);
   auto start = aten_slice_scatter_node->inputs().at(3);
-  auto end = aten_slice_scatter_node->inputs().at(4);
   auto step = aten_slice_scatter_node->inputs().at(5);
   auto graph{aten_slice_scatter_node->owningGraph()};
 
@@ -769,12 +772,6 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   GetValueAndScalarIndexFromInput(
       step, org_stack, org_stack_index_map, step_value, step_idx);
   PT_EAGER_DEBUG("ST step data:", step_value);
-
-  int64_t end_idx = LONG_MAX;
-  int64_t end_value = 0;
-  GetValueAndScalarIndexFromInput(
-      end, org_stack, org_stack_index_map, end_value, end_idx);
-  PT_EAGER_DEBUG("ST end data:", end_value);
 
   int64_t start_idx = LONG_MAX;
   int64_t start_value = 0;
@@ -791,45 +788,57 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   // Handle negative dimension
   dim_value = at::maybe_wrap_dim(dim_value, self_sizes.size());
 
-  // Handle negative dimension for end parameter
-  if(end_value < 0) {
-     end_value = at::maybe_wrap_dim(end_value, self_sizes[dim_value]);
-     end_idx = LONG_MAX;
-  }
-  else if (end_value == LONG_MAX) {
-     end_value = self_sizes[dim_value];
-     end_idx = LONG_MAX;
-  }
-
   // Handle negative dimension for start parameter
   if (start_value < 0) {
      start_value = at::maybe_wrap_dim(start_value, self_sizes[dim_value]);
      start_idx = LONG_MAX;
   }
 
+  // slice_insert_ds requires start and step values for all dimensions
+  // Default value of start is 0 {0, ..., 0, actual start at dim, 0, ..., 0}
+  // Default value of step is 1 {1, ..., 1, actual step at dim, 1, ..., 1}
+  std::vector<long> start_value_final_v1 = {};
+  std::vector<long> step_value_final_v1 = {};
+  std::vector<long> start_idx_final_v1 = {};
+  std::vector<long> step_idx_final_v1 = {};
+
+  // Set the initial default values
+  for(int j=0; j<dim_value; ++j) {
+     start_value_final_v1.push_back(0);
+     step_value_final_v1.push_back(1);
+     start_idx_final_v1.push_back(LONG_MAX);
+     step_idx_final_v1.push_back(LONG_MAX);
+  }
+  // Set the actual value at dim
+  start_value_final_v1.push_back(start_value);
+  step_value_final_v1.push_back(step_value);
+  start_idx_final_v1.push_back(start_idx);
+  step_idx_final_v1.push_back(step_idx);
+  // Set the remaining default values
+  for(int j=dim_value; j<(int)self_sizes.size()-1; ++j) {
+     start_value_final_v1.push_back(0);
+     step_value_final_v1.push_back(1);
+     start_idx_final_v1.push_back(LONG_MAX);
+     step_idx_final_v1.push_back(LONG_MAX);
+  }
+  const std::vector<long>& start_value_final = start_value_final_v1;
+  const std::vector<long>& step_value_final = step_value_final_v1;
+  const std::vector<long>& start_idx_final = start_idx_final_v1;
+  const std::vector<long>& step_idx_final = step_idx_final_v1;
+
   // Step2: Create shape tensor and insert to graph inputs.
   auto step_st_name = GetDynamicTensorName(step->debugName(), SHAPE_TENSOR);
   int64_t step_index =
-      CreateSTAndInsertToDSStack({step_value}, {step_idx}, {}, {}, m_dmeta);
+      CreateSTAndInsertToDSStack(step_value_final, step_idx_final, {}, {}, m_dmeta);
   auto step_st_tensor = graph->addInput(step_st_name);
-
-  auto end_st_name = GetDynamicTensorName(end->debugName(), SHAPE_TENSOR);
-  int64_t end_index =
-      CreateSTAndInsertToDSStack({end_value}, {end_idx}, {}, {}, m_dmeta);
-  auto end_st_tensor = graph->addInput(end_st_name);
 
   auto start_st_name = GetDynamicTensorName(start->debugName(), SHAPE_TENSOR);
   int64_t start_index =
-      CreateSTAndInsertToDSStack({start_value}, {start_idx}, {}, {}, m_dmeta);
+      CreateSTAndInsertToDSStack(start_value_final, start_idx_final, {}, {}, m_dmeta);
   auto start_st_tensor = graph->addInput(start_st_name);
 
-  auto dim_st_name = GetDynamicTensorName(dim->debugName(), SHAPE_TENSOR);
-  int64_t dim_index =
-      CreateSTAndInsertToDSStack({dim_value}, {dim_idx}, {}, {}, m_dmeta);
-  auto dim_st_tensor = graph->addInput(dim_st_name);
-
   // Step3: Register patching function and tensor lists
-  std::vector<int64_t> dtensor_indexes{step_index, end_index, start_index, dim_index};
+  std::vector<int64_t> dtensor_indexes{step_index, start_index};
   InputPatchPair patch_info(&DynamicOp::UpdateDynamicInputs, dtensor_indexes);
   m_dmeta->ds_input_patching_list.push_back(patch_info);
 
@@ -840,10 +849,8 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
       hpu_slice_scatter_symbol,
       {aten_slice_scatter_node->input(0),
        aten_slice_scatter_node->input(1),
-       dim_st_tensor,
-       start_st_tensor,
-       end_st_tensor,
-       step_st_tensor},
+       step_st_tensor,
+       start_st_tensor},
       value_ivalue_map);
 
   return true;

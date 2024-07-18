@@ -2091,6 +2091,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::slice_scatter(Tensor self, Tensor src, Tensor dim = None, Tensor? start = None, Tensor? end = None, Tensor step = None) -> (Tensor)");
   m.def(
+      "hpu::slice_scatter_ds(Tensor self, Tensor src, Tensor step = None, Tensor start = None) -> (Tensor)");
+  m.def(
       "hpu::as_strided_scatter(Tensor self, Tensor src, Tensor stride, Tensor? storage_offset = None) -> (Tensor)");
   m.def(
       "hpu::as_strided_scatter_orig(Tensor self, Tensor src, Tensor stride) -> (Tensor)");
