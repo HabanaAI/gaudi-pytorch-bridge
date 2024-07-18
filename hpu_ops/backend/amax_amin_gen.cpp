@@ -1,12 +1,16 @@
-/******************************************************************************
- * Copyright (C) 2021-2024 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
+
 #include "generated/backend/amax.h"
 #include "generated/backend/amin.h"
 #include "generated/backend/aminmax.h"
@@ -44,6 +48,25 @@ OutputMetaDataVector AminAmaxMeta(const at::Stack& stack) {
   meta.shape = shapes[0];
   meta.dtype = self.scalar_type();
   return {meta};
+}
+
+std::shared_ptr<void> FillAminAmaxParams(const at::Stack& stack, size_t& size) {
+  PARAMS_STUB(ns_Reduction::ParamsV2);
+  auto input = stack.at(0).toTensor();
+  auto rank = input.dim();
+  auto dim = stack.at(1);
+  auto isDimNone = dim.isNone();
+  auto dims = isDimNone ? std::vector<int64_t>{} : dim.toIntVector();
+  params->reductionDimensionMask = 0;
+  params->keepDim = stack.at(2).toBool();
+
+  for (auto reductionDim : dims) {
+    auto wrappedReductionDim = at::maybe_wrap_dim(reductionDim, rank);
+    auto axis = get_dim_in_tpc_order(wrappedReductionDim, rank);
+    params->reductionDimensionMask |= (1 << axis);
+  }
+
+  return params;
 }
 
 static std::vector<synapse_helpers::tensor> AminmaxCommon(
@@ -148,12 +171,8 @@ void Aminmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 void AminAmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto is_dim_none = stack.at(1).isNone();
-  const bool keepdim = stack.at(2).toBool();
-
-  auto dim = stack.at(1);
-  auto dim_vec = is_dim_none ? std::vector<int64_t>{} : dim.toIntVector();
-
+  size_t paramsSize = 0;
+  auto params = FillParams(stack, paramsSize);
   const auto meta = OutputMeta(stack)[0];
 
   // Leverage autocast feature from CGUID to support integer inputs
@@ -167,18 +186,15 @@ void AminAmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     castedInput = BuildBoolCast(
         this, graph, syn_in(0), self.sizes(), c10::ScalarType::Bool);
   }
+
   auto input = castedInput.has_value() ? castedInput.value().get() : syn_in(0);
-
-  auto op = HandleReductionDimAndKeepdim(
-      this,
+  auto op = BuildOp(
       graph,
-      self,
+      GetGuid(),
       {input},
-      dim_vec,
-      keepdim,
-      guid_,
-      {{meta.shape, meta.dtype, 0}});
-
+      {{meta.shape, meta.dtype, 0}},
+      params.get(),
+      paramsSize);
   syn_out(0) = std::move(op[0]);
 }
 } // namespace habana

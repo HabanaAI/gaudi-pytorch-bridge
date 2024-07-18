@@ -70,11 +70,17 @@ def test_hpu_reduction(op_name, shape, dtype):
 
 
 @pytest.mark.parametrize("op_name", ["prod", "nansum", "amin", "amax"])
-@pytest.mark.parametrize("shape", [[2, 7], [2, 3, 4]])
+@pytest.mark.parametrize(
+    "shape_and_dim",
+    [([2, 7], None), ([2, 7], 1), ([2, 3, 4], None), ([2, 3, 4], 2), ([2, 3, 4], (0, 1)), ([2, 3, 4], (2, 1, 0))],
+)
 @pytest.mark.parametrize("keepdim", [True, False])
 @pytest.mark.parametrize("dtype", dtypes + integer_dtypes + bool_dtype, ids=format_tc)
-def test_hpu_reduction_dim(op_name, shape, keepdim, dtype):
+def test_hpu_reduction_dim(op_name, shape_and_dim, keepdim, dtype):
     op = getattr(torch, op_name)
+    shape, dim = shape_and_dim
+    if op_name == "prod" and (type(dim) is tuple or dim is None):
+        pytest.skip("torch.prod doesn't support tuple/None as dim parameter")
 
     def fn(input, dim, keepdim, **kargs):
         return op(input, dim=dim, keepdim=keepdim, **kargs)
@@ -85,8 +91,6 @@ def test_hpu_reduction_dim(op_name, shape, keepdim, dtype):
         clear_t_compile_logs()
         torch._dynamo.reset()
         fn = torch.compile(fn, backend="hpu_backend")
-
-    dim = len(shape) - 1
 
     if op_name in ["amax", "amin"]:
         cpu_output = op(cpu_input, dim=dim, keepdim=keepdim)

@@ -1708,8 +1708,9 @@ amax:
     Gaudi: [Float, BFloat16, Int, Byte, Short, Char]
     Gaudi2: [Float, BFloat16, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [Float, BFloat16, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
-  guid: reduce_max_fwd
+  guid: reduce_max_multi_dim_fwd
   output_meta: AminAmaxMeta
+  custom_fill_params: FillAminAmaxParams
   op_backend: AminAmax
   out_ids: [0]
 
@@ -1718,8 +1719,9 @@ amax.out:
     Gaudi: [Float, BFloat16, Int, Long, Byte, Short, Char]
     Gaudi2: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
-  guid: reduce_max_fwd
+  guid: reduce_max_multi_dim_fwd
   output_meta: AminAmaxMeta
+  custom_fill_params: FillAminAmaxParams
   op_backend: AminAmax
 
 amin:
@@ -1727,8 +1729,9 @@ amin:
     Gaudi: [Float, BFloat16, Int, Byte, Short, Char]
     Gaudi2: [Float, BFloat16, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [Float, BFloat16, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
-  guid: reduce_min_fwd
+  guid: reduce_min_multi_dim_fwd
   output_meta: AminAmaxMeta
+  custom_fill_params: FillAminAmaxParams
   op_backend: AminAmax
   out_ids: [0]
 
@@ -1737,8 +1740,9 @@ amin.out:
     Gaudi: [Float, BFloat16, Int, Long, Byte, Short, Char]
     Gaudi2: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
-  guid: reduce_min_fwd
+  guid: reduce_min_multi_dim_fwd
   output_meta: AminAmaxMeta
+  custom_fill_params: FillAminAmaxParams
   op_backend: AminAmax
 
 aminmax:
