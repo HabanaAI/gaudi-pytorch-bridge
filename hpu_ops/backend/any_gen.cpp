@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -67,15 +67,25 @@ static synapse_helpers::tensor AnyCommonFunc(
   auto abs = OpBackend::BuildNode(
       op, graph, {"abs_fwd_f32", {input}, {{self.sizes().vec()}}});
 
-  auto reduce_sum = HandleReductionDimAndKeepdim(
+  auto dimVec = dim.vec();
+  auto rank = self.dim();
+  ns_Reduction::ParamsV2 reductionParams;
+  reductionParams.keepDim = keepdim;
+  reductionParams.reductionDimensionMask = 0;
+  for (auto reductionDim : dimVec) {
+    auto wrappedReductionDim = at::maybe_wrap_dim(reductionDim, rank);
+    auto axis = get_dim_in_tpc_order(wrappedReductionDim, rank);
+    reductionParams.reductionDimensionMask |= (1 << axis);
+  }
+
+  auto reduce_sum = op->BuildNode(
       op,
       graph,
-      self,
-      {abs[0].get()},
-      dim,
-      keepdim,
-      "reduce_sum_fwd_f32",
-      {{outshape}});
+      {get_guid_with_precision("reduce_sum_multi_dim_fwd", dtype),
+       {abs[0].get()},
+       {{outshape, dtype}},
+       &reductionParams,
+       sizeof(reductionParams)});
 
   return OpBackend::BuildCast(
       op, graph, reduce_sum[0].get(), outshape, dtype, at::kBool, 0);
