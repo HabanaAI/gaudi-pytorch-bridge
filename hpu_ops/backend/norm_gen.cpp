@@ -1094,8 +1094,7 @@ void WeightNormBwdOp::AddNode(sh::graph& graph, const at::Stack& stack) {
   const torch::Tensor& saved_v = stack_tensor(stack, 1);
   const torch::Tensor& saved_g = stack_tensor(stack, 2);
   const torch::Tensor& saved_norms = stack_tensor(stack, 3);
-  size_t ndims = saved_v.dim();
-  size_t dim = c10::maybe_wrap_dim(stack.at(4).toInt(), ndims);
+  auto dim = stack.at(4).toInt();
 
   const auto metas = WeightNormBwdMeta(stack);
 
@@ -1110,7 +1109,8 @@ void WeightNormBwdOp::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(saved_g.is_contiguous(), "saved_g must be contiguous");
   TORCH_CHECK(saved_norms.is_contiguous(), "saved_norms must be contiguous");
 
-  size_t last_dim = ndims - 1;
+  int64_t last_dim = saved_v.dim() - 1;
+  int64_t last_size = saved_v.size(last_dim);
 
   // Like weight_norm_fused_backward, weight_norm_differentiable_backward should
   // only ever be called through a WeightNormFusedBackward object, so we expect
@@ -1154,21 +1154,38 @@ void WeightNormBwdOp::AddNode(sh::graph& graph, const at::Stack& stack) {
       {syn_in(0), syn_in(1)},
       {{outsize_mulOp11, commonOutDtype}});
 
-  ns_Reduction::ParamsV2 reduce_params{};
-  // Reduce all dims except the 'dim'
-  unsigned maskval = 0;
-  for (size_t i = 0; i < ndims; ++i) {
-    if (i != dim)
-      maskval |= (1 << (ndims - i - 1)); // (ndims-i-1) is TPC order
+  std::vector<int64_t> reshape_outshape;
+  // Analytic backward path using differentiable primitive ops
+  if (dim == 0) {
+    reshape_outshape.push_back(saved_v.size(0));
+    if (grad_w.numel() > saved_v.numel()) {
+      reshape_outshape.push_back(grad_w.numel() / saved_v.size(0));
+    } else {
+      reshape_outshape.push_back(saved_v.numel() / saved_v.size(0));
+    }
+
+  } else {
+    if (grad_w.numel() > saved_v.numel()) {
+      reshape_outshape.push_back(grad_w.numel() / last_size);
+    } else {
+      reshape_outshape.push_back(saved_v.numel() / last_size);
+    }
+    reshape_outshape.push_back(last_size);
   }
 
-  reduce_params.reductionDimensionMask = maskval;
-  reduce_params.keepDim = true;
+  auto reshapeOp12 =
+      ReshapeHelper(graph, mulOp11[0].get(), reshape_outshape, commonOutDtype);
+
+  ns_Reduction::Params reduce_params{};
+  int axis = dim == 0 ? 1 : 0;
+
+  int reductionDimension = reshape_outshape.size() - axis - 1;
+  reduce_params.reductionDimension = reductionDimension;
 
   per_dim_sums = BuildOp(
       graph,
-      get_guid_with_precision("reduce_sum_multi_dim_fwd", commonOutDtype),
-      {mulOp11[0].get()},
+      get_guid_with_precision("reduce_sum_fwd", commonOutDtype),
+      {reshapeOp12.get()},
       {{bcast_size, commonOutDtype}},
       &reduce_params,
       sizeof(reduce_params));
