@@ -1,11 +1,14 @@
-/******************************************************************************
- * Copyright (C) 2021-2024 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "generated/backend/all.h"
 #include "hpu_ops/backend/reduction_template.h"
@@ -50,16 +53,18 @@ static auto AllCommon(
   std::vector<synapse_helpers::tensor> reduced;
   auto dtype = self.scalar_type();
   auto isIntegralInput = c10::isIntegralType(dtype, true);
+  auto rank = self.dim();
+
+  auto reductionParams = FillReductionParams(rank, dim, keepdim);
   auto reduce_prod_node = [&](const std::vector<synTensor>& input_reduce) {
-    return HandleReductionDimAndKeepdim(
+    return op->BuildNode(
         op,
         graph,
-        self,
-        input_reduce,
-        dim,
-        keepdim,
-        get_guid_with_precision("reduce_prod_fwd", dtype),
-        {{final_shape, dtype}});
+        {get_guid_with_precision("reduce_prod_multi_dim_fwd", dtype),
+         input_reduce,
+         {{final_shape, dtype}},
+         &reductionParams,
+         sizeof(reductionParams)});
   };
 
   if (isIntegralInput) {
