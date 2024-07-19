@@ -7417,7 +7417,9 @@ fp8_sdpa_recomp_fwd_lazy(
     const c10::optional<at::Tensor>& q_scale_o,
     const c10::optional<at::Tensor>& d_scale_s,
     const bool is_amax_s,
-    const bool is_amax_o) {
+    const bool is_amax_o,
+    const c10::optional<at::Tensor>& valid_seq_len,
+    c10::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
@@ -7429,24 +7431,10 @@ fp8_sdpa_recomp_fwd_lazy(
   }
   LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor, Tensor>> hpu_op{
       "hpu::fp8_sdpa_recomp_fwd_be",
-      {q,
-       k,
-       v,
-       attention_mask,
-       seed_opt,
-       p,
-       scale,
-       is_causal,
-       requires_backward,
-       softmax_mode,
-       d_scale_q,
-       d_scale_k,
-       d_scale_v,
-       q_scale_s,
-       q_scale_o,
-       d_scale_s,
-       is_amax_s,
-       is_amax_o},
+      {q,         k,         v,         attention_mask,    seed_opt,
+       p,         scale,     is_causal, requires_backward, softmax_mode,
+       d_scale_q, d_scale_k, d_scale_v, q_scale_s,         q_scale_o,
+       d_scale_s, is_amax_s, is_amax_o, valid_seq_len,     seq_padding_type},
       Fp8SDPARecompFwdOutputShape};
 
   auto fwdOutType = q.scalar_type();
@@ -7500,7 +7488,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
     const c10::optional<at::Tensor>& q_scale_s,
     const c10::optional<at::Tensor>& q_scale_o,
     const c10::optional<at::Tensor>& d_scale_s,
-    const bool is_amax_s) {
+    const bool is_amax_s,
+    const c10::optional<at::Tensor>& valid_seq_len,
+    c10::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
@@ -7527,7 +7517,9 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
        q_scale_s,
        q_scale_o,
        d_scale_s,
-       is_amax_s},
+       is_amax_s,
+       valid_seq_len,
+       seq_padding_type},
       Fp8SDPAFwdOutputShape};
 
   auto fwdOutType = q.scalar_type();

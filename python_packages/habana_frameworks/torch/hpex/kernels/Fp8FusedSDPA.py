@@ -95,10 +95,13 @@ def fp8_sdpa_fwd_wrapper(
     d_scale_s=None,
     is_amax_s=False,
     is_amax_o=False,
+    valid_seq_len=None,
+    seq_padding_type="left",
 ):
 
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
-
+    softmax_mode = softmax_mode.lower()
+    seq_padding_type = seq_padding_type.lower()
     if scale == None:
         scale = 1.0 / math.sqrt(q.size(-1))
 
@@ -107,6 +110,10 @@ def fp8_sdpa_fwd_wrapper(
 
     if requires_backward:
         assert is_causal == True, "Fp8 FusedSDPA in trining only supports Triangular mask"
+    if valid_seq_len is not None:
+        assert (
+            is_causal and (requires_backward == False) and (attn_mask == None)
+        ), "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
 
     gqa = is_gqa(q, k)
     if gqa:
@@ -133,6 +140,8 @@ def fp8_sdpa_fwd_wrapper(
             d_scale_s,
             is_amax_s,
             is_amax_o,
+            valid_seq_len,
+            seq_padding_type,
         )
 
         if gqa:
@@ -157,6 +166,8 @@ def fp8_sdpa_fwd_wrapper(
             q_scale_o,
             d_scale_s,
             is_amax_s,
+            valid_seq_len,
+            seq_padding_type,
         )
         if gqa:
             out = gqa_output_reshape(out)
@@ -194,7 +205,7 @@ def fp8_sdpa_bwd_wrapper(ctx, dout, *args):
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
             dv = gqa_output_reshape(dv)
-        return dq, dk, dv, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None, None
     else:
         q, k, v, P, dm = ctx.saved_tensors
         scale = ctx.scale
@@ -207,7 +218,7 @@ def fp8_sdpa_bwd_wrapper(ctx, dout, *args):
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
             dv = gqa_output_reshape(dv)
-        return dq, dk, dv, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None, None
 
 
 class Fp8FusedSDPA(torch.autograd.Function):
@@ -230,6 +241,8 @@ class Fp8FusedSDPA(torch.autograd.Function):
         d_scale_s=None,
         is_amax_s=False,
         is_amax_o=False,
+        valid_seq_len=None,
+        seq_padding_type="left",
     ):
         return fp8_sdpa_fwd_wrapper(
             ctx,
@@ -249,6 +262,8 @@ class Fp8FusedSDPA(torch.autograd.Function):
             d_scale_s=d_scale_s,
             is_amax_s=is_amax_s,
             is_amax_o=is_amax_o,
+            valid_seq_len=valid_seq_len,
+            seq_padding_type="seq_padding_type",
         )
 
     @staticmethod
@@ -273,6 +288,8 @@ def dump_api_params(
     d_scale_s=None,
     is_amax_s=False,
     is_amax_o=False,
+    valid_seq_len=None,
+    seq_padding_type="left",
 ):
     def print_t_info(name, t, is_scale=False):
         if t is not None:
@@ -302,6 +319,8 @@ def dump_api_params(
     print_t_info("d_scale_s", d_scale_s, is_scale=True)
     print("is_amax_s : ", is_amax_s)
     print("is_amax_o : ", is_amax_o)
+    print_t_info("valid_seq_len", valid_seq_len)
+    print("seq_padding_type : ", seq_padding_type)
     print("=" * 90)
 
 
@@ -322,6 +341,8 @@ def fp8_fused_sdpa(
     d_scale_s=None,
     is_amax_s=False,
     is_amax_o=False,
+    valid_seq_len=None,
+    seq_padding_type="left",
 ):
     dump_api_params(
         q,
@@ -340,6 +361,8 @@ def fp8_fused_sdpa(
         d_scale_s,
         is_amax_s,
         is_amax_o,
+        valid_seq_len,
+        seq_padding_type,
     )
     out, amax_s, amax_o = Fp8FusedSDPA.apply(
         q,
@@ -358,6 +381,8 @@ def fp8_fused_sdpa(
         d_scale_s,
         is_amax_s,
         is_amax_o,
+        valid_seq_len,
+        seq_padding_type,
     )
 
     return out, amax_s, amax_o

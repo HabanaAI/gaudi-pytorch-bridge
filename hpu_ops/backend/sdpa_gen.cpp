@@ -339,6 +339,8 @@ void Fp8SDPAFwd::AddNode(
   auto q_scale_o = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto d_scale_s = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto is_amax_s = getNextInput<bool>(stackGetter);
+  auto valid_seq_len = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto seq_padding_type = getNextInput<c10::string_view>(stackGetter);
 
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
@@ -349,6 +351,9 @@ void Fp8SDPAFwd::AddNode(
   SDPA_SET_FLAGS(d_scale_v, flags, D_SCALE_V)
   SDPA_SET_FLAGS(q_scale_s, flags, Q_SCALE_S)
   SDPA_SET_FLAGS(q_scale_o, flags, Q_SCALE_O)
+  SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
+  SDPA_SET_FLAGS(seq_padding_type == "left", flags, SEQ_PADDING_LEFT)
+  SDPA_SET_FLAGS(seq_padding_type == "right", flags, SEQ_PADDING_RIGHT)
   if (d_scale_s) {
     // TODO: add the flag definition to perf_lib_layer_paras.h
     flags |= (1 << 13);
@@ -377,6 +382,9 @@ void Fp8SDPAFwd::AddNode(
   SDPA_ADD_INPUTS(q_scale_s)
   SDPA_ADD_INPUTS(q_scale_o)
   SDPA_ADD_INPUTS(d_scale_s)
+  if (valid_seq_len) {
+    syn_inputs.push_back(valid_seq_len.value().syn_t);
+  }
 
   auto out_shapes = Fp8SDPAFwdOutputShape(stack);
 
@@ -880,6 +888,9 @@ void Fp8SDPARecompFwd::AddNode(
   // amax_s and/or amax_o needed
   bool is_amax = is_amax_s or is_amax_o;
 
+  auto valid_seq_len = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto seq_padding_type = getNextInput<c10::string_view>(stackGetter);
+
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
 
@@ -891,6 +902,9 @@ void Fp8SDPARecompFwd::AddNode(
   SDPA_SET_FLAGS(q_scale_s, flags, Q_SCALE_S)
   SDPA_SET_FLAGS(q_scale_o, flags, Q_SCALE_O)
   SDPA_SET_FLAGS(d_scale_s, flags, D_SCALE_S)
+  SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
+  SDPA_SET_FLAGS(seq_padding_type == "left", flags, SEQ_PADDING_LEFT)
+  SDPA_SET_FLAGS(seq_padding_type == "right", flags, SEQ_PADDING_RIGHT)
   // if (d_scale_s) {
   // TODO: add the flag definition to perf_lib_layer_paras.h
   // flags |= (1 << 13);
@@ -926,6 +940,10 @@ void Fp8SDPARecompFwd::AddNode(
   SDPA_ADD_INPUTS(q_scale_s)
   SDPA_ADD_INPUTS(q_scale_o)
   SDPA_ADD_INPUTS(d_scale_s)
+
+  if (valid_seq_len) {
+    syn_inputs.push_back(valid_seq_len.value().syn_t);
+  }
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs;
 
