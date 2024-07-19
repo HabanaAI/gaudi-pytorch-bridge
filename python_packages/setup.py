@@ -69,7 +69,7 @@ setup(
     author_email="support@habana.ai",
     version=get_version(),
     zip_safe=False,
-    packages=find_namespace_packages(include=["habana_frameworks.*", "habana_frameworks", "torch_hpu"]),
+    packages=find_namespace_packages(include=["habana_frameworks.*", "torch_hpu"]),
     package_data={"habana_frameworks.torch": ["*.txt"]},
     ext_modules=[PrebuiltPtExtension("habana_frameworks.torch", modules_build_dir)],
     cmdclass={
@@ -81,11 +81,6 @@ setup(
             wheel_build_dir=wheel_build_dir,
             ignore_func=shutil.ignore_patterns("*.debug", "__pycache__"),
         ),
-    },
-    entry_points={
-        "torch.backends": [
-            "device_backend = habana_frameworks:__autoload",
-        ],
     },
     options={
         "egg_info": {"egg_base": build_dir},
