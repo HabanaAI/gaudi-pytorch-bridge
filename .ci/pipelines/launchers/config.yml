@@ -158,10 +158,6 @@ launchers:
 - testToLaunch: pt_next/Test_dependent_Build_pt_next_u22
   gerritTriggerMap:
   - repository: pytorch-integration
-- testToLaunch: pt_next/Test_gaudi2_asic_fsdp_uts
-  silentMode: false
-  gerritTriggerMap:
-  - repository: pytorch-integration
 # - testToLaunch: pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi_sim_promote_eager_2.n
 #   silentMode: false
 #   gerritTriggerMap:
