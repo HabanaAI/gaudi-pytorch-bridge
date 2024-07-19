@@ -1,17 +1,19 @@
-/******************************************************************************
- * Copyright (C) 2021-2024 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
+
 #include "generated/backend/nansum.h"
 #include "habana_kernels/reduction_kernels.h"
 #include "hpu_ops/backend/reduction_template.h"
-
-#define guidReducesum "reduce_sum_fwd"
 
 namespace habana {
 
@@ -40,10 +42,12 @@ void NansumList::AddNode(
   std::vector<int64_t> dim;
   if (!stack.at(1).isNone())
     dim = stack.at(1).toIntVector();
-  bool keepdim = stack.at(2).toBool();
+
+  auto keepDim = stack.at(2).toBool();
+  auto params = FillReductionParams(self.dim(), dim, keepDim);
+
   auto compute_type =
       c10::isIntegralType(meta.dtype, true) ? c10::ScalarType::Int : meta.dtype;
-  auto guid = get_guid_with_precision(guidReducesum, compute_type);
 
   c10::optional<synapse_helpers::tensor> castedInput = c10::nullopt;
   if (habana_helpers::getInternalDtype(compute_type) !=
@@ -75,13 +79,15 @@ void NansumList::AddNode(
   NodeAttr::NodeOutputAttr out_attr = {meta.shape, compute_type};
   if (is_cast_not_required) {
     out_attr.final_result_index = 0;
-  } else {
-    // ScalarType will be used for adding reshape in
-    // HandleReductionDimAndKeepdim
-    SetScalarType(compute_type);
   }
-  auto reduce_sum = HandleReductionDimAndKeepdim(
-      this, graph, self, {where[0].get()}, dim, keepdim, guid, {out_attr});
+
+  auto reduce_sum = BuildOp(
+      graph,
+      get_guid_with_precision("reduce_sum_multi_dim_fwd", compute_type),
+      {where[0].get()},
+      {out_attr},
+      &params,
+      sizeof(params));
 
   if (is_cast_not_required) {
     syn_out(0) = std::move(reduce_sum[0]);
