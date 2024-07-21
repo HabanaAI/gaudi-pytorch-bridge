@@ -17,12 +17,73 @@ import sys
 import sympy
 import torch
 from symengine import sympify as sympify_engine
-from sympy import sympify
+from sympy import Function, sympify
 from sympy.printing.printer import Printer
 
 from .logger import get_compile_backend_logger
 
 logger = get_compile_backend_logger()
+
+torch_sympy_functions = {}
+
+
+def substitute_expr(expr, val_map):
+    result = expr.subs(val_map)
+    if isinstance(result, int):
+        return result
+
+    # If express substitution doesn't output an integer
+    # then it may have torch_sympy_functions
+    # which couldn't be evaluated
+    def get_torch_sympy_functions():
+
+        def _is_legacy_pt():
+            from packaging.version import Version
+
+            if Version(Version(torch.__version__).base_version) < Version("2.4"):
+                return True
+            return False
+
+        import torch.utils._sympy.functions as functions
+
+        func_map = {}
+        if hasattr(functions, "__all__"):
+            for func_name in functions.__all__:
+                func_obj = getattr(functions, func_name)
+                func_map[func_name] = func_obj
+
+        # Not all functions are present in "__all__" attr
+        # Some may needed to be added explicitly
+        if not _is_legacy_pt():
+            from torch.utils._sympy.functions import CeilToInt, TruncToInt
+
+            func_map["CeilToInt"] = CeilToInt
+            func_map["TruncToInt"] = TruncToInt
+
+        return func_map
+
+    global torch_sympy_functions
+    if not torch_sympy_functions:
+        torch_sympy_functions = get_torch_sympy_functions()
+
+    def replace_torch_sympy_functions(expr):
+        expr_ = expr
+
+        def visit(node):
+            nonlocal expr_
+            if isinstance(node, Function):
+                func_str = str(node.func)
+                if func_str in torch_sympy_functions:
+                    expr_ = expr_.replace(node.func, torch_sympy_functions[func_str])
+            if hasattr(node, "args"):
+                for arg in node.args:
+                    visit(arg)
+
+        visit(expr_)
+        return expr_
+
+    expr = replace_torch_sympy_functions(expr)
+    return expr.subs(val_map)
 
 
 class CSEVariable:
@@ -126,7 +187,7 @@ class SymExprNodeManager:
                 for idx, sub_sym in enumerate(sym_expr_symbols):
                     value = arguments[idx]
                     sym_value_dict[sub_sym] = value
-                size_e = sym_expr.subs(sym_value_dict)
+                size_e = substitute_expr(sym_expr, sym_value_dict)
                 return int(size_e)
 
             with self._graph_module.graph.inserting_after(self._insert_point_node):
@@ -144,7 +205,7 @@ class SymExprNodeManager:
                 for idx, sub_sym in enumerate(sym_expr_symbols):
                     value = arguments[idx]
                     sym_value_pair.append((sub_sym, value))
-                size = sym_expr.subs(sym_value_pair)
+                size = substitute_expr(sym_expr, sym_value_pair)
                 return int(size)
 
             node_name = SymExprNodeManager.node_name
@@ -246,7 +307,7 @@ class SymbolicShapeEvaluator:
                 sub_sym_meta = self._symbolic_metadata[sub_sym_str]
                 value = get_symbolic_value(sub_sym_meta, input_stack)
                 sym_value_pair.append((sub_sym, value))
-            size = expr_sympy.subs(sym_value_pair)
+            size = substitute_expr(expr_sympy, sym_value_pair)
 
         self._symbolic_value_dict[expr_token] = size
         return size
