@@ -45,6 +45,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return habana::HpuShapeAgnosticHelper::get()
         ->get_shape_agnostic_unsupported_ops();
   });
+  m.def("get_eager_compiler_unsupported_op_prefixes", []() {
+    habana::TryJoinPendingEagerPipelineThreads();
+    return habana::HpuShapeAgnosticHelper::get()
+        ->get_eager_compiler_unsupported_op_prefixes();
+  });
   m.def("get_jit_cache_size", []() {
     habana::TryJoinPendingEagerPipelineThreads();
     return habana::HpuShapeAgnosticHelper::get()->get_jit_cache_size();

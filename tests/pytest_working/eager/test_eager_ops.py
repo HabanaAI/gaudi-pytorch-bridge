@@ -1313,8 +1313,10 @@ def test_shape_agnostic_helper():
 
     assert torch.equal(result_hpu, result_cpu)
     shape_agnostic_not_supported_ops = htdebug._get_shape_agnostic_unsupported_ops()
+    eager_compiler_not_supported_ops = htdebug._get_eager_compiler_unsupported_op_prefixes()
     if Verbose:
         print(f"Shape agnostic not supported ops:: {shape_agnostic_not_supported_ops}")
+        print(f"Eager compiler not supported op prefixes:: {eager_compiler_not_supported_ops}")
 
 
 # test node params patching for cat op

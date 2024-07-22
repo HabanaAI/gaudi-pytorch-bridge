@@ -14,6 +14,7 @@
 #include <unordered_set>
 
 #include "backend/jit_graph_cache.h"
+#include "habana_eager/eager_exec.h"
 #include "habana_helpers/logging_pt.h"
 
 #pragma once
@@ -39,6 +40,12 @@ class HpuShapeAgnosticHelper {
     enumerate_shape_agnostic_unsupported_ops();
     return op_set;
   }
+
+  const std::unordered_set<std::string_view>&
+  get_eager_compiler_unsupported_op_prefixes() {
+    return habana::OptimizedJitGraphCache::GetOptimizedJitCache()
+        .get_eager_compiler_unsupported_op_prefixes();
+  };
 
  private:
   std::set<std::string> op_set;

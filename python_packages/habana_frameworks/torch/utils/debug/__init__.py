@@ -22,6 +22,10 @@ def _get_shape_agnostic_unsupported_ops() -> set:
     return _debug_C.get_shape_agnostic_unsupported_ops()
 
 
+def _get_eager_compiler_unsupported_op_prefixes() -> set:
+    return _debug_C.get_eager_compiler_unsupported_op_prefixes()
+
+
 def _get_jit_cache_size() -> set:
     return _debug_C.get_jit_cache_size()
 

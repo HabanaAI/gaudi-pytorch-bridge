@@ -15,12 +15,14 @@
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/runtime/argument_spec.h>
 #include <mutex>
+#include <string_view>
 #include "backend/habana_operator.h"
 #include "backend/helpers/habana_types.h"
 #include "backend/kernel/hpu_habana_cache.h"
 #include "backend/synapse_helpers/device.h"
 
 namespace habana {
+using namespace std::literals;
 
 size_t ComputePermutationHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
 size_t ComputeSymSizeHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
@@ -511,6 +513,10 @@ class OptimizedJitGraphCache {
   get_m_cache_map() const {
     return m_cache_map;
   }
+  const std::unordered_set<std::string_view>&
+  get_eager_compiler_unsupported_op_prefixes() {
+    return eager_compiler_unsupported_op_prefixes;
+  };
 
  private:
   explicit OptimizedJitGraphCache();
@@ -528,6 +534,12 @@ class OptimizedJitGraphCache {
       m_cache_map;
 
   friend class OptimizedJitGraphCacheBackup;
+  const std::unordered_set<std::string_view>
+      eager_compiler_unsupported_op_prefixes = {
+          "hpu::optimizer"sv,
+          "hpu::fused_norm_lazy"sv,
+          "hpu::custom_foreach_add_"sv,
+          "hpu::sdpa"sv};
 };
 
 class OptimizedJitGraphCacheBackup {

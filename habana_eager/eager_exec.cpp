@@ -32,6 +32,9 @@ namespace habana {
 namespace eager {
 
 namespace {
+
+using namespace std::literals;
+
 bool is_metadata_candidate(const at::IValue& input) {
   return input.isBool() || input.isDevice() || input.isIntList() ||
       input.isDoubleList() || input.isBoolList() || input.isString() ||
@@ -911,13 +914,17 @@ bool EagerExec::is_eager_compiler_supported_for_graph(
   if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILER)) {
     return false;
   }
-  for (auto it = graph->nodes().begin(); it != graph->nodes().end(); ++it) {
-    const auto& opname = std::string((*it)->kind().toQualString());
-    if ((opname.find("hpu::optimizer") != std::string::npos) ||
-        (opname.find("hpu::fused_norm_lazy") != std::string::npos) ||
-        (opname.find("hpu::custom_foreach_add_") != std::string::npos) ||
-        (opname.find("hpu::sdpa") != std::string::npos)) {
-      return false;
+
+  auto eager_compiler_unsupported_op_prefixes =
+      habana::OptimizedJitGraphCache::GetOptimizedJitCache()
+          .get_eager_compiler_unsupported_op_prefixes();
+
+  for (const auto& node : graph->nodes()) {
+    std::string_view opname = node->kind().toQualString();
+    for (const auto& prefix : eager_compiler_unsupported_op_prefixes) {
+      if (opname.find(prefix) != std::string::npos) {
+        return false;
+      }
     }
   }
   return true;

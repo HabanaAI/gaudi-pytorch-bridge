@@ -19,6 +19,9 @@ void HpuShapeAgnosticHelper::enumerate_shape_agnostic_unsupported_ops() {
   auto cache_map =
       habana::OptimizedJitGraphCache::GetOptimizedJitCache().get_m_cache_map();
   for (const auto& entry : cache_map) {
+    // ops like optimizer do not support eager compiler when running in eager
+    // mode and use graph compiler and recipe cache. Such ops should not be
+    // tested for shape agnostic flow.
     if (!entry.second->get_is_shape_agnostic_supported()) {
       op_set.insert(entry.second->GetOpName());
     }
