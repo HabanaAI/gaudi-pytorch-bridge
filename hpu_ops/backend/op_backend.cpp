@@ -841,37 +841,6 @@ std::vector<sh::tensor> OpBackend::BuildNode(
         is_external = metadata.external;
       }
 
-      std::string name = std::string();
-      if (habana_helpers::IsInferenceMode()) {
-        PT_BRIDGE_DEBUG(
-            "[Inference] OpBackend::BuildNode => this op: ",
-            node_attr.guid,
-            ", parent op: ",
-            op->GetGuid(),
-            ", no_compute_flag: ",
-            op->getNoComputeFlag());
-        if ((node_attr.guid == "reshape") || (node_attr.guid == "identity") ||
-            op->getNoComputeFlag()) {
-          name = habana_helpers::get_input_tensor_range_and_name(
-              node_attr.inputs[0]);
-        } else {
-          // Remove this else part when output meta is added for following ops.
-          // 1) layernorm:
-          // JIRA ticket: https://jira.habana-labs.com/browse/SW-154328
-          // 2) Gelu:
-          // JIRA ticket: https://jira.habana-labs.com/browse/SW-154330
-          if ((node_attr.guid.find("gelu_fwd") != std::string::npos) ||
-              (node_attr.guid.find("layer_norm_fwd") != std::string::npos)) {
-            /* Output tensor was created earlier, but it is being replaced here
-             * with new tensor */
-            /* So, we provide the earlier output tensor id with which quant
-             * drange was attached */
-            name = PtTensorInferenceData::get_instance().extract_key_name(
-                ctx->syn_outputs_.at(0).ref().name(), "_id_");
-          }
-        }
-      }
-
       const auto& t = GetProxyTensor(attr.dtype, attr.sizes, attr.exp_bias);
       outputs.emplace_back(
           habana_helpers::is_shape_tensor(attr.tensor_type)
@@ -884,16 +853,16 @@ std::vector<sh::tensor> OpBackend::BuildNode(
                         is_persistent,
                         is_external,
                         attr.dtype,
-                        name,
-                        name)
+                        std::string(),
+                        std::string())
                   : habana_helpers::create_tensor(
                         t,
                         graph,
                         is_persistent,
                         is_external,
                         attr.syn_data_type,
-                        name,
-                        name));
+                        std::string(),
+                        std::string()));
 
       if (is_persistent) {
         const auto& impl =

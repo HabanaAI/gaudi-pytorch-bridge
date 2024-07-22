@@ -113,7 +113,6 @@
   visitor(synTensorSetGeometry);              \
   visitor(synTensorSetDeviceFullLayout);      \
   visitor(synTensorSetQuantizationData);      \
-  visitor(synTensorGetQuantizationData);      \
   visitor(synTensorCreate);                   \
   visitor(synTensorGetName);                  \
   visitor(synTensorSetPermutation);           \

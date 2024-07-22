@@ -498,25 +498,6 @@ void habana::HabanaOperator::AllocateSynapseOutput(
     const at::Tensor& output,
     const OutputMetaData& output_metadata,
     bool is_shape_tensor) {
-  if (habana_helpers::IsInferenceMode()) {
-    PT_BRIDGE_DEBUG(
-        "[Inference] HabanaOperator::AllocateSynapseOutput => this op: ",
-        GetGuid(),
-        ", no_compute_flag: ",
-        getNoComputeFlag());
-    if (getNoComputeFlag()) {
-      // Note: Here, we don't attach the dynamic range to output synapse tensor.
-      // Because, that is not yet created. We just add/update an entry against
-      // output tensor name using the input dynamic range values in
-      // inference_tensor_map map. So that, dynamic range assignment logic in
-      // create_tensor() can take effect during actual output synapse tensor
-      // creation.
-      habana_helpers::set_output_drange_from_input(
-          p_context_->syn_inputs_.at(0).ref().get(),
-          p_context_->syn_inputs_.at(0).ref().name(),
-          output_metadata.name);
-    }
-  }
   if (is_shape_tensor == false) {
     p_context_->syn_outputs_.emplace_back(habana_helpers::create_tensor(
         output,

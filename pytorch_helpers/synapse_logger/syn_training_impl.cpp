@@ -147,7 +147,6 @@ SYN_API_PTR(synTensorExtExtractExecutionOrder);
 SYN_API_PTR(synTensorGetExternal);
 SYN_API_PTR(synTensorSetDeviceFullLayout);
 SYN_API_PTR(synTensorSetQuantizationData);
-SYN_API_PTR(synTensorGetQuantizationData);
 SYN_API_PTR(synTensorSetAllowPermutation);
 SYN_API_PTR(synTensorGetHostPtr);
 SYN_API_PTR(synStatusGetBriefDescription);
@@ -256,7 +255,6 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synTensorGetExternal);
   SYN_API_INIT_PTR(synTensorSetDeviceFullLayout);
   SYN_API_INIT_PTR(synTensorSetQuantizationData);
-  SYN_API_INIT_PTR(synTensorGetQuantizationData);
   SYN_API_INIT_PTR(synTensorSetAllowPermutation);
   SYN_API_INIT_PTR(synTensorGetHostPtr);
   SYN_API_INIT_PTR(synStatusGetBriefDescription);
@@ -1137,24 +1135,6 @@ synStatus SYN_API_CALL synTensorSetQuantizationData(
   synStatus status;
   CALL_SYN_FUNC(
       lib_synapse::synTensorSetQuantizationData,
-      tensor,
-      prop,
-      propVal,
-      propSize);
-  API_LOG_RESULT();
-  return status;
-}
-
-synStatus SYN_API_CALL synTensorGetQuantizationData(
-    synTensor tensor,
-    synQuantizationProperty prop,
-    void* propVal,
-    uint64_t propSize) {
-  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(tensor), ARG(prop), ARG(propVal), ARG(propSize));
-  synStatus status;
-  CALL_SYN_FUNC(
-      lib_synapse::synTensorGetQuantizationData,
       tensor,
       prop,
       propVal,

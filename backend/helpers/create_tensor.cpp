@@ -59,57 +59,6 @@ inline uint64_t get_syn_offset(const at::Tensor& t) {
   return !habana::is_ZST(t) ? (t.storage_offset() * t.itemsize()) : 0;
 }
 
-void set_output_drange_from_input(
-    synTensor from_tensor,
-    const std::string from_tensor_name,
-    const std::string output_name) {
-  if ((output_name.size() > 0) &&
-      (from_tensor_name.find("placeholder") == std::string::npos)) {
-    /* Get input tensor quant range */
-    PT_BRIDGE_DEBUG(
-        " [Inference] Get input quant range from tensor: ", from_tensor_name);
-    synQuantDynamicRange dynamic_range_{0, 0};
-    auto status = synTensorGetQuantizationData(
-        from_tensor,
-        SYN_QUANT_DYNAMIC_RANGE,
-        &dynamic_range_,
-        sizeof(synQuantDynamicRange));
-    /* Set output tensor quant range */
-    PT_BRIDGE_DEBUG(
-        " [Inference] Set output quant range for tensor: ",
-        output_name,
-        ", ",
-        dynamic_range_.min,
-        ", ",
-        dynamic_range_.max);
-    if (status == synStatus::synSuccess) {
-      PtTensorInferenceData::get_instance().update_entry(
-          output_name, dynamic_range_.min, dynamic_range_.max, true);
-    }
-  }
-}
-
-std::string get_input_tensor_range_and_name(synTensor tensor) {
-  synStatus status = synSuccess;
-
-  char tensor_name[ENQUEUE_TENSOR_NAME_MAX_SIZE];
-  status = synTensorGetName(tensor, ENQUEUE_TENSOR_NAME_MAX_SIZE, tensor_name);
-
-  synQuantDynamicRange dynamic_range_{0, 0};
-  status = synTensorGetQuantizationData(
-      tensor,
-      SYN_QUANT_DYNAMIC_RANGE,
-      &dynamic_range_,
-      sizeof(synQuantDynamicRange));
-
-  if (status == synStatus::synSuccess) {
-    PtTensorInferenceData::get_instance().SetInferenceTensorRange(
-        tensor_name, dynamic_range_.min, dynamic_range_.max);
-  }
-
-  return tensor_name;
-}
-
 synapse_helpers::tensor create_tensor(
     const c10::IntArrayRef& shape,
     [[maybe_unused]] const c10::IntArrayRef& stride,

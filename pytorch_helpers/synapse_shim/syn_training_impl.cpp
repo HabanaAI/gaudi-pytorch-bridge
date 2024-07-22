@@ -711,14 +711,6 @@ synStatus SYN_API_CALL synTensorSetQuantizationData(
   return syn_api->synTensorSetQuantizationData(tensor, prop, propVal, propSize);
 }
 
-synStatus SYN_API_CALL synTensorGetQuantizationData(
-    synTensor tensor,
-    synQuantizationProperty prop,
-    void* propVal,
-    uint64_t propSize) {
-  return syn_api->synTensorGetQuantizationData(tensor, prop, propVal, propSize);
-}
-
 synStatus SYN_API_CALL synTensorExtExtractExecutionOrder(
     const synRecipeHandle recipeHandle,
     uint32_t numOfExternalTensors,
