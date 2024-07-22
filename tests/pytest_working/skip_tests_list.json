@@ -575,7 +575,20 @@
             "pytest_working/any_mode/test_hpu_ctc_loss.py::test_hpu_target_unpadded_ctc_loss[execute_ctc_test-False-sum-10-5-2]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_fp8_gemm_v2_ds[float8_e5m2-float32-True-True]",
             "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_fp8_gemm_v2_ds[float8_e4m3fn-float32-True-True]",
-            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_fp8_gemm_v2_ds[float8_e4m3fn-float32-False-True]"
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_fp8_gemm_v2_ds[float8_e4m3fn-float32-False-True]",
+            "pytest_working/any_mode/test_hpu_fp8_ops_any_mode.py::test_conv2d_fp8[True-float8_e5m2-bfloat16-True-True-True]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_fp8[HYBRID-False-16-16-bf16-device0]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_fp8[HYBRID-False-16-128-bf16-device0]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_out_of_scale[input-HYBRID-bf16]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_out_of_scale[input-HYBRID-fp32]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_out_of_scale[weight-HYBRID-bf16]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_out_of_scale[weight-HYBRID-fp32]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_out_of_scale[grad-HYBRID-bf16]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_out_of_scale[grad-HYBRID-fp32]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_linear_fp8[HYBRID-False-128-128-bf16-device0]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_linear_weight_caching_in_microbatches_case[HYBRID]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_fused_sdpa[fp8_format-Format.HYBRID-enable_act_ckpt-True-dtype-torch.bfloat16-softmax_mode-fast-recompute-False-is_causal-True-use_attn_mask-False]",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_fused_sdpa[fp8_format-Format.HYBRID-enable_act_ckpt-False-dtype-torch.bfloat16-softmax_mode-fast-recompute-False-is_causal-True-use_attn_mask-False]"
         ],
         "eager": [
             "pytest_working/any_mode/test_index.py::test_index[shape7-indices7]",
