@@ -2786,7 +2786,13 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     SynBuildCache& syn_build_cache,
     bool is_shape_inference) {
   PT_BRIDGE_BEGIN;
-  // figure out the right device id
+
+  // Clear cache if build graph failed
+  CallFinally clear_cache_if_incomplete([&syn_build_cache] {
+    if (!syn_build_cache.is_complete())
+      syn_build_cache.clear_cached_graph_info();
+  });
+
   auto& device = HPURegistrar::get_device();
   synDeviceId device_id = device.id();
   synapse_helpers::detail::tensor_name_generator::reset();
