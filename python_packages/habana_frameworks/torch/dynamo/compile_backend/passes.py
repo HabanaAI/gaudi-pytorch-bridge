@@ -12,6 +12,7 @@
 
 import contextlib
 import copy
+import operator
 import os
 import queue
 import sys
@@ -123,6 +124,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_check_eager_fallbacks,
             pass_detect_partition_in_to_out_duplicates,
             pass_compile_clusters,
+            pass_make_boxed_graph,
         ]
     else:
         logger.error("unknown optimization stage %s", stage)
@@ -459,6 +461,8 @@ def optimize_graph(
                 ctx.is_dynamic,
                 ctx.stage,
                 None,
+                None,
+                True,
             )
 
             submodule_qualified_name = submodule_name if module_prefix == "" else (module_prefix + "." + submodule_name)
@@ -3340,3 +3344,49 @@ def pass_remove_unnecessary_expand(ctx: OptimizerContext):
         ctx.graph_module.graph.eliminate_dead_code()
         ctx.graph_module.graph.lint()
         ctx.graph_module.recompile()
+
+
+def pass_make_boxed_graph(ctx: OptimizerContext) -> bool:
+    """
+    This pass converts the graph inputs to a single list. So that we are able to
+    clear the elements in the list to free inputs memory sooner.
+    """
+
+    # submodules are not called in boxed convention, so we don't make boxed graph for them.
+    if ctx.is_submod or not hpu_backend_config.use_boxed_input:
+        return False
+
+    list_placeholder = None
+    list_getitems = []
+
+    # Step 1: make the graph input boxed, which is converting the non-list
+    # inputs to a single list
+    orig_inputs = []
+    for node in ctx.graph_module.graph.nodes:
+        if node.op == "placeholder":
+            orig_inputs.append(node)
+
+    with ctx.graph_module.graph.inserting_before():
+        list_placeholder = ctx.graph_module.graph.placeholder("input_list", type_expr=list)
+        list_placeholder.meta["output_device"] = torch.device("hpu")
+
+    for i, orig_input in enumerate(orig_inputs):
+        with ctx.graph_module.graph.inserting_after(orig_input):
+            list_getitem = ctx.graph_module.graph.call_function(operator.getitem, args=(list_placeholder, i), kwargs={})
+            list_getitem.meta = copy.copy(orig_input.meta)
+            orig_input.replace_all_uses_with(list_getitem)
+            list_getitems.append(list_getitem)
+        ctx.graph_module.graph.erase_node(orig_input)
+
+    # Step 2: insert the list clear op after the last getitem. If the graph
+    # doesn't have any placeholder, the list_getitems length will be 0 and we
+    # don't need to clear the input list.
+    if len(list_getitems) > 0:
+        last_getitem = list_getitems[-1]
+        with ctx.graph_module.graph.inserting_after(last_getitem):
+            list_clear = ctx.graph_module.graph.call_function(lambda x: x.clear(), args=(list_placeholder,), kwargs={})
+            list_clear.meta["output_device"] = torch.device("cpu")
+
+    ctx.graph_module.graph.lint()
+    ctx.graph_module.recompile()
+    return True

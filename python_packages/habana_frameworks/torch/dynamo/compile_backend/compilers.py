@@ -78,7 +78,15 @@ def hpu_freezing_compiler_inner(
         optimize_post_partitioner(graph_module, graph_name, optimized_example_inputs, is_training, is_backward)
 
         # Return the module in boxed format required by AOT Autograd.
-        boxed_function = functorch.compile.make_boxed_func(graph_module.forward)
+        if not hpu_backend_config.use_boxed_input:
+            boxed_function = functorch.compile.make_boxed_func(graph_module.forward)
+        else:
+
+            def wrapper(args: list):
+                return graph_module.forward(args)
+
+            wrapper._boxed_call = True
+            boxed_function = wrapper
 
         def wrapper(args):
             args_new = [args[i] for i in non_param_input_ids]
@@ -114,7 +122,15 @@ def hpu_compiler_inner(
     optimize_post_partitioner(graph_module, graph_name, example_inputs, is_training, is_backward)
 
     # Return the module in boxed format required by AOT Autograd.
-    return functorch.compile.make_boxed_func(graph_module.forward)
+    if not hpu_backend_config.use_boxed_input:
+        return functorch.compile.make_boxed_func(graph_module.forward)
+    else:
+
+        def wrapper(args: list):
+            return graph_module.forward(args)
+
+        wrapper._boxed_call = True
+        return wrapper
 
 
 def hpu_training_compiler_fw(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):

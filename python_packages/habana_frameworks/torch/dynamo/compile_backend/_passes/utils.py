@@ -41,6 +41,7 @@ class OptimizerContext:
     stage: OptimizationPassPlacement
     current_partitions: List
     habana_partitioner: HabanaPartitioner | None = None
+    is_submod: bool = False
 
 
 class ColorGraph:

@@ -65,6 +65,8 @@ force_static_compile = _get_bool_from_env("PT_HPU_FORCE_STATIC_COMPILE", "0")
 reinplace_add = _get_bool_from_env("PT_HPU_REINPLACE_ADD", "1")
 reassign_full_copy = _get_bool_from_env("PT_HPU_REASSIGN_FULL_COPY", "1")
 reassign_copy_ = _get_bool_from_env("PT_HPU_REASSIGN_COPY_", "1")
+# use boxed input to enable input reuse
+use_boxed_input = _get_bool_from_env("PT_HPU_USE_BOXED_INPUT", "1")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])
