@@ -60,6 +60,9 @@ enable_sfg = _get_bool_from_env("PT_HPU_ENABLE_SFG", "0")
 # enables native implementation of the propose partitions pass
 use_cpp_partitioner = _get_bool_from_env("PT_HPU_USE_CPP_PARTITIONER", "1")
 enable_allreduce_graph_split = _get_bool_from_env("PT_HPU_ENABLE_ALLREDUCE_GRAPH_SPLIT", "0")
+# when set to 1, the compiled recipe is always static
+# even if the fx graph traced by torch dynamic has symbols
+force_static_compile = _get_bool_from_env("PT_HPU_FORCE_STATIC_COMPILE", "0")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])

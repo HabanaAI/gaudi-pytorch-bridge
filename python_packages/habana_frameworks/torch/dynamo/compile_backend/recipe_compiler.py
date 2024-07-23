@@ -143,6 +143,7 @@ class HabanaGraphModule(torch.nn.Module):
         pholder_symbolic_dict,
         is_training=False,
         dynamic=False,
+        force_static_compile=False,
     ):
         from ._recipe_compiler_C import EmptyBatchData, RangeInfo
 
@@ -157,10 +158,12 @@ class HabanaGraphModule(torch.nn.Module):
         self._recipe_id = None
         self._dynamic = dynamic
         self._mark_dynamic = False
+        self._force_static_compile = force_static_compile
         self._symbol_evaluator = SymbolicShapeEvaluator(symbolic_metadata)
         self._has_randoms = False
         self._ds_output_prealloc = self._dynamic and enable_dynamic_output_preallocate
         self._outputs_batch_data = []
+        self._hash_key = 0
         if self._ds_output_prealloc:
             for md in self._outputs_metadata:
                 self._outputs_batch_data.append(EmptyBatchData((), md[1], md[2]))
@@ -172,7 +175,7 @@ class HabanaGraphModule(torch.nn.Module):
         outputs = []
         inputs = tuple(args)
 
-        from ._recipe_compiler_C import RangeInfo, batch_empty, graph_compile, graph_launch
+        from ._recipe_compiler_C import RangeInfo, batch_empty, calculate_hash_code, graph_compile, graph_launch
 
         if self._ds_output_prealloc:
             self._symbol_evaluator.clear_symbolic_value_dict()
@@ -181,6 +184,15 @@ class HabanaGraphModule(torch.nn.Module):
                 output.size = size
 
         outputs = batch_empty(self._outputs_batch_data)
+
+        # If dynamic recipe compilation is disabled
+        # recompilation will happen everytime
+        # except for static cache hit scenario
+        if self._force_static_compile:
+            new_hash_key = calculate_hash_code(inputs)
+            if self._hash_key != new_hash_key:
+                self._hash_key = new_hash_key
+                self._recipe_id = None
 
         if self._recipe_id is None:
             self._range_list, self._mark_dynamic = get_input_symbolic(self._fx_module, inputs)
@@ -241,6 +253,7 @@ def get_callable_recipe(jit_ir, graph_module: torch.fx.GraphModule, is_training=
             pholder_symbolic_dict,
             is_training=is_training,
             dynamic=is_dynamic,
+            force_static_compile=hpu_backend_config.force_static_compile,
         )
     else:
         # Return unchanged module, it will be ran eagerly.

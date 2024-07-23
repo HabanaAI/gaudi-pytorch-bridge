@@ -53,6 +53,25 @@ std::vector<at::Tensor> batch_empty(const std::vector<EmptyBatchData>& batch) {
   }
   return result;
 }
+
+std::size_t calculate_hash_code(const py::tuple& inputs) {
+  torch::jit::Stack stack;
+  stack.reserve(inputs.size());
+  for (auto& obj : inputs)
+    stack.push_back(torch::jit::toTypeInferredIValue(obj));
+
+  size_t hash_code = 0;
+  for (const auto& input : stack) {
+    if (!input.isTensor())
+      continue;
+    const auto& tensor = input.toTensor();
+    if (!tensor.defined())
+      continue;
+    size_t tensor_hash = c10::get_hash(tensor.sizes(), tensor.strides());
+    hash_code = c10::hash_combine(hash_code, tensor_hash);
+  }
+  return hash_code;
+}
 }; // namespace
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -143,4 +162,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .def_readwrite("max_shape", &habana_helpers::RangeInfo::max_shape)
       .def_readwrite("expr", &habana_helpers::RangeInfo::expr)
       .def_readwrite("index", &habana_helpers::RangeInfo::index);
+  m.def(
+      "calculate_hash_code",
+      &calculate_hash_code,
+      "Calculate hash key of graph input tensor shapes and strides");
 }

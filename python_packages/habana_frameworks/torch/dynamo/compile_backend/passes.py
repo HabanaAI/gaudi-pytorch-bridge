@@ -280,8 +280,8 @@ def is_call_function_dynamic(node: torch.fx.Node, dynamic_graph: bool) -> bool:
         ):
             return True
 
-    # early exit when the graph module is static
-    if not dynamic_graph:
+    # early exit when the graph module is static, or when static compilation is forced
+    if (not dynamic_graph) or (hpu_backend_config.force_static_compile):
         return False
 
     from torch._subclasses.fake_tensor import FakeTensor
@@ -613,7 +613,7 @@ def pass_graph_print(ctx: OptimizerContext) -> bool:
 
 
 def pass_make_symints_available(ctx: OptimizerContext) -> bool:
-    if not ctx.is_dynamic:
+    if (not ctx.is_dynamic) or (hpu_backend_config.force_static_compile):
         return True
 
     def get_all_symbolic_int_nodes():
@@ -1553,6 +1553,8 @@ def pass_handle_negative_dims(ctx: OptimizerContext) -> bool:
     negative dims of node with static values in non-dynamic mode and
     unrolled sympy expression with cpu operations in dynamic case
     """
+    if hpu_backend_config.force_static_compile:
+        return False
 
     graph_changed = False
     py_node_manager = SymExprNodeManager(ctx.graph_module)
@@ -2429,14 +2431,17 @@ def pass_compile_clusters(ctx: OptimizerContext):
             jit_ir_function, submod_updated = generate_jit_ir_from_module(submod)
             jit_node_annotation_propagation(jit_ir_function, submod_updated)
 
-            # Submodule dynamicity has to recheck and set to the collable.
-            is_submod_dynamic = is_module_dynamic(submod)
+            is_submod_dynamic = False
 
-            if refine_dynamic:
-                is_submod_dynamic = is_submod_dynamic or get_dynamic_config_value()
+            if not hpu_backend_config.force_static_compile:
+                # Submodule dynamicity has to recheck and set to the collable.
+                is_submod_dynamic = is_module_dynamic(submod)
 
-            if is_submod_dynamic and optim_output_sif_ds:
-                jit_node_shape_propagation(jit_ir_function, submod_updated)
+                if refine_dynamic:
+                    is_submod_dynamic = is_submod_dynamic or get_dynamic_config_value()
+
+                if is_submod_dynamic and optim_output_sif_ds:
+                    jit_node_shape_propagation(jit_ir_function, submod_updated)
 
             callable_recipe = get_callable_recipe(
                 jit_ir_function,

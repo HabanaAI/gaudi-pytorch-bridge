@@ -41,6 +41,7 @@ PT_HPU_GRAPH_DUMP_MODE:
 
 PT_COMPILATION_STATS_PATH:
   default: ""
+  settable: true
 
 PT_RECIPE_TRACE_PATH:
   default: ""
@@ -425,6 +426,7 @@ PT_HPU_ENABLE_MIN_MAX_AS_CURRENT:
 PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES:
   type: bool
   default: false
+  settable: true
 
 PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF:
   type: bool

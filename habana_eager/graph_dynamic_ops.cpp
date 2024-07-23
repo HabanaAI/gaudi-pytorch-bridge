@@ -106,7 +106,15 @@ std::string GetRangeInfoExprFromInput(
       value =
           std::to_string(static_cast<int64_t>(input->node()->i(value_attr)));
     } catch (std::exception& e) {
-      HABANA_ASSERT(false, "Cannot get value attr from Node input=", in_name);
+      // Sometimes when value in prim::Constant node should have 0 as value_attr
+      // set but seems its coming as NoneType =
+      // prim::Constant[deterministic=0]() in some case  which we are internally
+      // treating as 0
+      PT_DYNAMIC_SHAPE_WARN(
+          "Node ",
+          in_name,
+          " does not have value_attr set, treating the value as 0");
+      value = "0";
     }
   } else if (org_stack_index_map.count(in_name)) {
     auto index = static_cast<int64_t>(org_stack_index_map[in_name]);
