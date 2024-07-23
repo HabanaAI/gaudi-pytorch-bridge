@@ -402,9 +402,6 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
           {sif_tensor_indices[idx], dtensorinfos.at(idx)});
     }
     deserialize(is, disabled_jit_ir_ops_);
-    deserialize(is, st_to_tensor_idx_map);
-    deserialize(is, st_backend_create_op_list);
-    deserialize(is, enable_optim_output_sif_);
   }
 }
 
@@ -472,9 +469,6 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
     }
     serialize(os, sif_tensor_indices);
     serialize(os, disabled_jit_ir_ops_);
-    serialize(os, st_to_tensor_idx_map);
-    serialize(os, st_backend_create_op_list);
-    serialize(os, enable_optim_output_sif_);
   }
 }
 
@@ -661,7 +655,7 @@ void RecipeValueSpec::update_patching_table(
       for (size_t i = 0; i < dtensorinfos.size(); ++i) {
         auto& ti = *(dtensorinfos.at(i));
         auto tensor_id = ti.get_tensor_id();
-        if (enable_optim_output_sif_ == true &&
+        if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) == true &&
             ti.tensor_type() != SHAPE_TENSOR) {
           continue;
         }

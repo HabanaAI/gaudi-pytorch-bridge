@@ -168,17 +168,16 @@ void OpBackend::HandleScalarToTensorSTMeta(
   }
 }
 
-bool OpBackend::STMeta(
+void OpBackend::STMeta(
     habana_helpers::IShapeList& inputs,
     habana_helpers::IShapeList& outputs) const {
   if (m_st_meta_fn) {
     HandleScalarToTensorSTMeta(inputs);
-    return m_st_meta_fn(inputs, outputs);
+    m_st_meta_fn(inputs, outputs);
   } else {
-    // Return false for failure case
-    PT_BRIDGE_DEBUG("ST meta not registered !!!");
-    return false;
+    TORCH_CHECK(0, "ST meta not registered !!!");
   }
+  return;
 }
 
 void OpBackend::HandleScalarToTensor(sh::graph& graph, const at::Stack& stack) {

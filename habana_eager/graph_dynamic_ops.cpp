@@ -136,7 +136,7 @@ torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
     } else {
       auto node_qual_str = aten_node->kind().toQualString();
       PT_EAGER_DEBUG("Output Shape is missing for node = ", node_qual_str)
-      hpu_node->s_(symbol_outputshape, "[[]]");
+      hpu_node->s_(symbol_outputshape, "[]");
     }
   }
 

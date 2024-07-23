@@ -57,7 +57,7 @@ FullBE::FullBE(int device_id, c10::ScalarType scalar_type)
   SetOutputMetaFn(FullMeta);
 }
 
-bool FullDSSTMeta(
+void FullDSSTMeta(
     habana_helpers::IShapeList& inputs,
     habana_helpers::IShapeList& outputs) {
   PT_BRIDGE_DEBUG("FullDSSTMeta called");
@@ -68,11 +68,8 @@ bool FullDSSTMeta(
     PT_BRIDGE_DEBUG("FullDSSTMeta constant shape ", t_size);
     habana_helpers::UpdateSTShapeInfo(t_size);
   } else {
-    PT_BRIDGE_DEBUG("Full DS meta not supported non tensor input !!!");
-    return false;
+    HABANA_ASSERT(0, "Full DS meta not supported non tensor input !!!");
   }
-
-  return true;
 }
 
 void FullOperatorDS::AddNode(

@@ -130,16 +130,6 @@ GraphExec::GraphExec(
           "Number of tensor dims exceeds the limit, falling back to static!");
     }
     in_stack = ProcessDynamicStack(example_inputs, true);
-    m_sym_expr_hash = habana::ComputeNodeSymOutputHashCode(m_graph);
-
-    // Check if any of the symbols where replaced with concrete values.
-    // If then, make the m_sym_expr_hash invalid.
-    bool invalid_symbols = HasInvalidDynanmicSymbols();
-    if (invalid_symbols) {
-      m_sym_expr_hash = ULONG_MAX;
-      PT_DYNAMIC_SHAPE_DEBUG(
-          "Graph input symbols are invalid, symbol replacement happend!!!");
-    }
   }
 
   pass::DetectWeightTensors(m_graph, m_graph_inputs_to_permute);
@@ -168,7 +158,6 @@ GraphExec::GraphExec(
   m_graph_and_meta->SetOpName(m_graph_name);
   m_graph_and_meta->set_is_eager_compiler_supported(false);
   m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
-  m_graph_and_meta->set_sym_expr_hash(m_sym_expr_hash);
 };
 
 bool GraphExec::IsDynamicGraph() {
@@ -478,21 +467,6 @@ void GraphExec::UpdateSeedTensors(torch::jit::Stack& stack) {
     stack[0] = *m_seed_tensors.seed;
     stack[1] = *m_seed_tensors.counter;
   }
-}
-
-bool GraphExec::HasInvalidDynanmicSymbols() {
-  bool invalid_symbol = false;
-
-  for (auto it = m_in_symbol_idx_map.begin(); it != m_in_symbol_idx_map.end();
-       ++it) {
-    if (std::isdigit(it->first[0])) {
-      PT_DYNAMIC_SHAPE_DEBUG("key:", it->first, ", value:", it->second);
-      invalid_symbol = true;
-      break;
-    }
-  }
-
-  return invalid_symbol;
 }
 
 } // namespace graph

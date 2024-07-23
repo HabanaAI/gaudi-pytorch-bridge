@@ -243,14 +243,6 @@ class graph {
     dynamic_graph_ = dynamic_graph;
   }
 
-  bool is_optim_output_sif_enabled() const {
-    return enable_optim_output_sif_;
-  }
-
-  void set_optim_output_sif_enabled(bool optim_sif = true) {
-    enable_optim_output_sif_ = optim_sif;
-  }
-
   bool is_dry_run() const {
     return dry_run_;
   }
@@ -359,7 +351,6 @@ class graph {
   absl::optional<std::string> current_op_name_;
   bool dry_run_{false};
   bool dynamic_graph_{false};
-  bool enable_optim_output_sif_{false};
   uint32_t numTensors = 0;
   uint32_t numConstTensors = 0;
   uint32_t numInterTensors = 0;

@@ -77,7 +77,6 @@ class GraphExec {
   void ProcessDynamicGraph(torch::jit::Stack& example_inputs);
   std::vector<c10::IValue> ProcessDynamicStack(torch::jit::Stack& stack, bool);
   void UpdateSeedTensors(torch::jit::Stack& stack);
-  bool HasInvalidDynanmicSymbols();
 
   struct SeedTensors {
     std::optional<at::Tensor> seed;
@@ -104,7 +103,6 @@ class GraphExec {
   InputSymbolIndexMap m_in_symbol_idx_map;
   bool m_reset_seed = true;
   SeedTensors m_seed_tensors{};
-  size_t m_sym_expr_hash = 0;
 };
 
 } // namespace graph

@@ -279,27 +279,26 @@ void ForeachBinary::AddNode(
   }
 }
 
-bool BinarySTMeta(
+void BinarySTMeta(
     habana_helpers::IShapeList& inputs,
     habana_helpers::IShapeList& outputs) {
   static_cast<void>(outputs);
+  // TODO Albin Need to update the scalar to tensor conversion statis to ishape
   static_cast<void>(inputs);
+}
 
-  c10::ScalarType src_type = inputs[0].getScalarType();
-  c10::ScalarType dst_type = inputs[1].getScalarType();
-  auto src_type_cast_type = habana_helpers::DataTypeToCastType(src_type);
-  auto dst_type_cast_type = habana_helpers::DataTypeToCastType(dst_type);
-
-  PT_BRIDGE_DEBUG("BinarySTMeta src:\t", src_type, "\tdst:\t", dst_type);
-  if ((src_type_cast_type != dst_type_cast_type) &&
-      (habana_helpers::CastType::i8 == src_type_cast_type ||
-       habana_helpers::CastType::i8 == dst_type_cast_type)) {
-    PT_BRIDGE_DEBUG("Adding cast ST");
-    std::vector<int64_t> out_shape = {1};
+void BinarySubSTMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  static_cast<void>(outputs);
+  if (inputs[1].isScalar()) {
+    std::vector<int64_t> out_shape(1, 1);
     habana_helpers::UpdateSTShapeInfo(out_shape);
   }
-
-  return true;
+  if (inputs[0].isScalar()) {
+    std::vector<int64_t> out_shape(1, 1);
+    habana_helpers::UpdateSTShapeInfo(out_shape);
+  }
 }
 
 void BinaryWithAlpha::AddNode(

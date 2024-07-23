@@ -500,7 +500,7 @@ class HabanaOperator {
       torch::jit::Stack& inputs,
       const OutputMetaDataVector& output_metadata);
 
-  virtual bool STMeta(
+  virtual void STMeta(
       habana_helpers::IShapeList& inputs,
       habana_helpers::IShapeList& outputs);
 

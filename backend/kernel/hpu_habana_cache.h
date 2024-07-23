@@ -409,7 +409,6 @@ struct RecipeValueSpec {
   std::string graph_name;
   std::vector<uint64_t> tensor_ids_;
   bool dynamic_graph{false};
-  bool enable_optim_output_sif_{false};
   bool enable_time_scope{false};
   // is_refine becomes true if the recipe is created from the refinement thread
   bool is_refined{false};

@@ -193,9 +193,6 @@ class HabanaLaunchOpPT {
       OutputMetaDataVector& meta_vec);
   void CreateValueToIShapeMapForInputs(
       std::shared_ptr<torch::jit::Graph>& jit_graph);
-  void UpdateValueIShapeMapForListUnpack(
-      torch::jit::Node* node,
-      RecipeValueSpec& rv);
   void UpdateValueToIShapeMapForInputs(
       std::shared_ptr<torch::jit::Graph>& jit_graph,
       RecipeValueSpec& rv);
