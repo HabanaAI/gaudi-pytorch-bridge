@@ -507,6 +507,31 @@ def test_index_put_bool():
     assert torch.equal(hpu_tensor.to("cpu"), cpu_tensor)
 
 
+def test_index_put_bool_different_rank():
+    cpu_tensor = torch.arange(24).to(torch.float).view(3, 2, 2, 1, 2)
+    hpu_tensor = cpu_tensor.to("hpu")
+
+    cpu_tensor[
+        torch.tensor(
+            [
+                [[True, False], [False, True]],
+                [[True, False], [False, True]],
+                [[True, False], [False, True]],
+            ]
+        )
+    ] = -100.0
+    hpu_tensor[
+        torch.tensor(
+            [
+                [[True, False], [False, True]],
+                [[True, False], [False, True]],
+                [[True, False], [False, True]],
+            ]
+        )
+    ] = -100.0
+    assert torch.equal(hpu_tensor.to("cpu"), cpu_tensor)
+
+
 def test_index_mixed():
     cpu_tensor = torch.arange(144).to(torch.float).view(4, 4, 3, 3)
     hpu_tensor = cpu_tensor.to("hpu")

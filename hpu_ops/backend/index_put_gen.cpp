@@ -543,19 +543,31 @@ void IndexPutBoolEager::AddNode(
     const auto missing = static_cast<size_t>(ndims - t.dim());
     auto new_shape = t.sizes().vec();
     new_shape.insert(new_shape.end(), missing, 1);
-    return this->ReshapeHelper(graph, st, new_shape, t.scalar_type());
+    ns_ExpandMultiDimsKernel::Params params;
+    params.expand_axes_mask = 0;
+    for (size_t i = 0; i < missing; i++)
+      params.expand_axes_mask |= (1 << i);
+
+    return this->BuildOp(
+        graph,
+        "expand_multi_dims_fwd",
+        {st},
+        {{new_shape, t.scalar_type()}},
+        &params,
+        sizeof(params));
   };
   int64_t slice_numel;
 
   for (size_t i = 0; i < indices.size(); i++) {
     NonZeroParams_t index_params;
     index_params.dtype = indices[i].scalar_type();
-
     auto bcastOpInd = BroadcastHelper(
         graph,
         static_cast<int64_t>(max_size.size()) > indices[i].dim()
             ? unsqueeze(
-                  indices[i], syn_in(i + 1), static_cast<int>(max_size.size()))
+                  indices[i],
+                  syn_in(i + 1),
+                  static_cast<int>(max_size.size()))[0]
                   .get()
             : syn_in(i + 1),
         max_size,
@@ -649,15 +661,18 @@ void IndexPutBoolEager::AddNode(
       1,
       std::multiplies<size_t>());
   std::vector<int64_t> reshape_bcast_size({catop.pt_shape()[0]});
-  auto reshapebcastOp =
-      ReshapeHelper(graph, bcastOp.get(), flattened_size, values_scalar_type);
+  auto reshapebcastOp = BuildOp(
+      graph,
+      "flatten_fwd",
+      {bcastOp.get()},
+      {{{flattened_size}, values_scalar_type}});
 
   auto self_scalar_type = self.scalar_type();
   if (!accumulate) {
     auto scatter_op = BuildOp(
         graph,
         get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {syn_in(0), catop.get(), reshapebcastOp.get(), nonzero.at(1).get()},
+        {syn_in(0), catop.get(), reshapebcastOp[0].get(), nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type, 0}});
     syn_out(0) = std::move(scatter_op[0]);
   } else {
@@ -665,7 +680,10 @@ void IndexPutBoolEager::AddNode(
     auto scatter_op = BuildOp(
         graph,
         get_guid_with_precision("scatter_nd_onnx_fwd", self_scalar_type),
-        {zero_op.get(), catop.get(), reshapebcastOp.get(), nonzero.at(1).get()},
+        {zero_op.get(),
+         catop.get(),
+         reshapebcastOp[0].get(),
+         nonzero.at(1).get()},
         {NodeAttr::NodeOutputAttr{self_sizes, self_scalar_type}});
     auto add_op = BuildOp(
         graph,
