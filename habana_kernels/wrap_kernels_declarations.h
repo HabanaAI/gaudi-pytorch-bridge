@@ -350,8 +350,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_wrap(
     const c10::optional<at::Tensor>& dm,
     const bool is_causal,
     const double p,
-    const double scale,
-    const at::Tensor& fwd_out);
+    const double scale);
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_wrap(
     const at::Tensor& grad,
     const at::Tensor& q,
@@ -370,8 +369,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd_wrap(
     const c10::optional<at::Tensor>& d_scale_ds,
     const c10::optional<at::Tensor>& q_scale_s,
     const c10::optional<at::Tensor>& q_scale_ds,
-    const bool is_amax_ds,
-    const at::Tensor& fwd_out);
+    const bool is_amax_ds);
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd_wrap(
     const at::Tensor& q,
     const at::Tensor& k,
@@ -423,8 +421,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_bwd_wrap(
     const bool is_causal,
     const double p,
     const double scale,
-    const c10::string_view softmax_mode,
-    const at::Tensor& fwd_out);
+    const c10::string_view softmax_mode);
 at::Tensor masked_batch_gemm_wrap(
     const at::Tensor& a,
     const at::Tensor& b,

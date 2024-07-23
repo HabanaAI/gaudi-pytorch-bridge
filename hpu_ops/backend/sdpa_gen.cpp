@@ -440,7 +440,6 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto is_causal = getNextInput<bool>(stackGetter);
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
-  auto fwd_out = getNextInput<TensorsPair>(stackGetter);
 
   ns_Sdpa::ParamsV3 params{};
   fillSdpaParams(params, p, scale, is_causal, false /*is_inference*/);
@@ -455,10 +454,6 @@ void SDPABwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   } else {
     syn_inputs.push_back(nullptr);
   }
-  // Same CGUID is used for fp8 and non-fp8. So fill null ptr
-  // for all the fp8 scales
-  syn_inputs.insert(syn_inputs.end(), 8, nullptr);
-  syn_inputs.push_back(fwd_out.syn_t);
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
       {out_shapes[0], q.pt_t.scalar_type(), 0},
@@ -497,7 +492,6 @@ void Fp8SDPABwd::AddNode(
   auto q_scale_ds = getNextInput<c10::optional<TensorsPair>>(stackGetter);
 
   auto is_amax_ds = getNextInput<bool>(stackGetter);
-  auto fwd_out = getNextInput<TensorsPair>(stackGetter);
 
   ns_Sdpa::ParamsV3 params{};
   unsigned int flags = 0;
@@ -539,10 +533,9 @@ void Fp8SDPABwd::AddNode(
   SDPA_ADD_INPUTS(d_scale_s)
   SDPA_ADD_INPUTS(d_scale_do)
   SDPA_ADD_INPUTS(d_scale_ds)
+
   SDPA_ADD_INPUTS(q_scale_s)
   SDPA_ADD_INPUTS(q_scale_ds)
-
-  syn_inputs.push_back(fwd_out.syn_t);
 
   auto out_shapes = Fp8SDPABwdOutputShape(stack);
   // set gradType to BF16 for now.
@@ -1035,7 +1028,6 @@ void SDPARecompBwd::AddNode(
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
   auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
-  auto fwd_out = getNextInput<TensorsPair>(stackGetter);
 
   ns_Sdpa::ParamsV3 params{};
   fillSdpaParams(
@@ -1059,7 +1051,6 @@ void SDPARecompBwd::AddNode(
   } else {
     syn_inputs.push_back(nullptr);
   }
-  syn_inputs.push_back(fwd_out.syn_t);
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs = {
       {out_shapes[0], q.pt_t.scalar_type(), 0},

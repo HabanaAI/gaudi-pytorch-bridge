@@ -1303,7 +1303,6 @@ def test_sdpa(
         q_scale_s,
         q_scale_ds,
         is_amax_ds,
-        O_hpu,
     )
     htcore.mark_step()
     if is_amax_ds:

@@ -148,7 +148,7 @@ def fp8_sdpa_fwd_wrapper(
             out = gqa_output_reshape(out)
         if not requires_backward:
             return out, amax_s, amax_o
-        ctx.save_for_backward(q, k, v, attn_mask, m, linv, seed, out)
+        ctx.save_for_backward(q, k, v, attn_mask, m, linv, seed)
     else:
         out, P, dm, amax_s = torch.ops.hpu.fp8_sdpa_fwd(
             q,
@@ -173,7 +173,7 @@ def fp8_sdpa_fwd_wrapper(
             out = gqa_output_reshape(out)
         if not requires_backward:
             return out, amax_s, None
-        ctx.save_for_backward(q, k, v, P, dm, out)
+        ctx.save_for_backward(q, k, v, P, dm)
 
     ctx.dropout_p = dropout_p
     ctx.scale = scale
@@ -194,30 +194,26 @@ def fp8_sdpa_fwd_wrapper(
 
 def fp8_sdpa_bwd_wrapper(ctx, dout, *args):
     if ctx.recompute:
-        q, k, v, attn_mask, m, linv, seed, fwd_out = ctx.saved_tensors
+        q, k, v, attn_mask, m, linv, seed = ctx.saved_tensors
         scale = ctx.scale
         dropout_p = ctx.dropout_p
         is_causal = ctx.is_causal
         if ctx.gqa:
             dout = gqa_input_reshape_bwd(q, v, dout)
-            fwd_out = gqa_input_reshape_bwd(q, v, fwd_out)
-        dq, dk, dv = torch.ops.hpu.sdpa_recomp_bwd(
-            dout, q, k, v, attn_mask, m, linv, seed, is_causal, dropout_p, scale, fwd_out
-        )
+        dq, dk, dv = torch.ops.hpu.sdpa_recomp_bwd(dout, q, k, v, attn_mask, m, linv, seed, is_causal, dropout_p, scale)
         if ctx.gqa:
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
             dv = gqa_output_reshape(dv)
         return dq, dk, dv, None, None, None, None, None, None, None
     else:
-        q, k, v, P, dm, fwd_out = ctx.saved_tensors
+        q, k, v, P, dm = ctx.saved_tensors
         scale = ctx.scale
         is_causal = ctx.is_causal
         dropout_p = ctx.dropout_p
         if ctx.gqa:
             dout = gqa_input_reshape_bwd(q, v, dout)
-            fwd_out = gqa_input_reshape_bwd(q, v, fwd_out)
-        dq, dk, dv = torch.ops.hpu.sdpa_bwd(dout, q, k, v, P, dm, is_causal, dropout_p, scale, fwd_out)
+        dq, dk, dv = torch.ops.hpu.sdpa_bwd(dout, q, k, v, P, dm, is_causal, dropout_p, scale)
         if ctx.gqa:
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
