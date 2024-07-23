@@ -25,20 +25,21 @@ void ReductionBackendTemplate::SetReductionVarsIndices(
   m_dtype_index = dtype_index;
 }
 
-static std::shared_ptr<void> FillReductionParams(
-    int ndims,
-    const std::vector<int64_t>& dims,
-    bool keepdim,
-    size_t& size) {
-  PARAMS_STUB(ns_Reduction::ParamsV2);
-  unsigned maskval = 0;
-  for (size_t i = 0; (i < dims.size()) && ndims; ++i) {
-    auto d = c10::maybe_wrap_dim(dims[i], ndims); // handling negative indices
-    maskval |= (1 << (ndims - d - 1)); // (ndims-i-1) is TPC order
+ns_Reduction::ParamsV2 FillReductionParams(
+    int64_t ndims,
+    c10::IntArrayRef dims,
+    bool keepdim) {
+  ns_Reduction::ParamsV2 params;
+  params.keepDim = keepdim;
+
+  params.reductionDimensionMask = 0;
+  for (auto&& dim : dims) {
+    auto d = c10::maybe_wrap_dim(dim, ndims);
+    if ((d >= 0) && (d < ndims)) {
+      params.reductionDimensionMask |= (1 << (ndims - d - 1));
+    }
   }
 
-  params->reductionDimensionMask = maskval;
-  params->keepDim = keepdim;
   return params;
 }
 
@@ -73,16 +74,15 @@ void ReductionBackendTemplate::AddNode(
     NodeAttr::NodeOutputAttr reduction_node_output_attr = {
         shape, ScalarType(), 0};
 
-    size_t size = 0;
-    auto params = FillReductionParams(ndims, dims, keepdim, size);
+    auto params = FillReductionParams(ndims, dims, keepdim);
     auto result = OpBackend::BuildNode(
         this,
         graph,
         {guid_name,
          {std::move(input)},
          {reduction_node_output_attr},
-         params.get(),
-         size});
+         &params,
+         sizeof(params)});
     syn_out(0) = std::move(result[0]);
   } else {
     auto shape = ComputeOutputShapes(stack).empty()
@@ -524,8 +524,7 @@ std::vector<synapse_helpers::tensor> HandleReductionMultiDimAndKeepdim(
   HABANA_ASSERT(
       dimsToReduce.size() != 0, "Reduction cannot be done on empty dim list");
 
-  size_t size = 0;
-  auto params = FillReductionParams(inputRank, dimsToReduce, keepdim, size);
+  auto params = FillReductionParams(inputRank, dimsToReduce, keepdim);
 
   return OpBackend::BuildNode(
       op,
@@ -533,7 +532,7 @@ std::vector<synapse_helpers::tensor> HandleReductionMultiDimAndKeepdim(
       {get_guid_with_precision(guid, op->ScalarType()),
        {syn_in},
        std::move(output_attr),
-       params.get(),
-       size});
+       &params,
+       sizeof(params)});
 }
 } // namespace habana

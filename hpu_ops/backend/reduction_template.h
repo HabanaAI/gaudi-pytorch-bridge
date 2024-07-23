@@ -1,5 +1,5 @@
-/******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -103,4 +103,10 @@ std::vector<int64_t> CalculateReductionMultiDimAndKeepdimOutputSize(
     const std::vector<int64_t>& inputSize,
     const std::vector<int64_t>& dimsToReduce,
     bool keepDim);
+
+ns_Reduction::ParamsV2 FillReductionParams(
+    int64_t ndims,
+    c10::IntArrayRef dims,
+    bool keepdim);
+
 } // namespace habana
