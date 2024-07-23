@@ -236,7 +236,50 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
   }
 
   if (mean_op) {
-    outputs.emplace_back(std::move(mean[0]));
+    if (keepdim) {
+      outputs.emplace_back(std::move(mean[0]));
+    } else {
+      const auto rank = output_attr[1].sizes.size();
+      if (dimsVec.size() == output_attr[1].sizes.size() || rank == 0) {
+        auto squeeze = OpBackend::BuildNode(
+            op,
+            graph,
+            {get_guid_with_precision("squeeze", output_attr[1].dtype),
+             {mean[0].get()},
+             {{output_attr[1].sizes, output_attr[1].dtype, 1}}});
+        outputs.emplace_back(std::move(squeeze[0]));
+
+      } else {
+        std::vector<synapse_helpers::tensor> intermediate_syn_helpers;
+        intermediate_syn_helpers.emplace_back(std::move(mean[0]));
+
+        // Need to have dims sorted from the highest to the lowest
+        std::sort(dimsVec.begin(), dimsVec.end(), std::greater<int64_t>());
+        auto temp_size = output_attr[1].sizes.vec();
+        for (size_t i = 0; i < dimsVec.size(); ++i) {
+          const auto current_rank = temp_size.size();
+          const auto dim = dimsVec[i];
+          unsigned int dim_synapse_order = current_rank - dim - 1;
+          synAxisParams params{dim_synapse_order};
+
+          temp_size.erase(temp_size.begin() + dim);
+          NodeAttr::NodeOutputAttr out_attr{
+              temp_size,
+              output_attr[1].dtype,
+              (i == dimsVec.size() - 1) ? c10::make_optional<int>(1)
+                                        : c10::nullopt};
+          intermediate_syn_helpers.emplace_back(std::move(OpBackend::BuildNode(
+              op,
+              graph,
+              {get_guid_with_precision("squeeze", output_attr[1].dtype),
+               {intermediate_syn_helpers.back().get()},
+               {out_attr},
+               &params,
+               sizeof(params)})[0]));
+        }
+        outputs.emplace_back(std::move(intermediate_syn_helpers.back()));
+      }
+    }
   }
 
   return outputs;
@@ -244,19 +287,19 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
 
 void Var::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto dim = getDimsVector(stack, self);
+  auto dims = getDimsVector(stack, self);
   const int correction = stack.at(2).isNone() ? 0 : stack.at(2).toInt();
   const bool keepdim = stack.at(3).toBool();
 
   auto meta = StdVarMeta(stack)[0];
-  auto mean_shape = ReductionOutputShape(self, dim, true)[0];
+  auto mean_shape = ReductionOutputShape(self, dims, true)[0];
 
   auto var = StdVarCommonFunc(
       this,
       graph,
       self,
       keepdim,
-      dim,
+      dims,
       {syn_in(0)},
       correction,
       {{meta.shape, meta.dtype, 0}, {mean_shape, meta.dtype}},
@@ -279,10 +322,11 @@ void VarMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     keepdim = stack.at(3).toBool();
   }
 
-  auto dim = getDimsVector(stack, self);
+  auto dims = getDimsVector(stack, self);
 
   auto meta = StdVarMeanMeta(stack);
-  auto mean_shape = ReductionOutputShape(self, dim, true)[0];
+  auto mean_shape = ReductionOutputShape(self, dims, true)[0];
+
   c10::optional<int> finalIndex =
       keepdim ? c10::make_optional<int>(1) : c10::nullopt;
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
@@ -294,38 +338,31 @@ void VarMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph,
       self,
       keepdim,
-      dim,
+      dims,
       {syn_in(0)},
       correction,
       output_attrs,
       false, /*take_sqrt*/
       true /*mean_out_required*/);
   syn_out(0) = std::move(var_mean[0]);
-
-  if (keepdim) {
-    syn_out(1) = std::move(var_mean[1]);
-  } else {
-    auto reshape = ReshapeHelper(
-        graph, var_mean[1].get(), meta[1].shape, meta[1].dtype, 1);
-    syn_out(1) = std::move(reshape);
-  }
+  syn_out(1) = std::move(var_mean[1]);
 }
 
 void Std::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto dim = getDimsVector(stack, self);
+  auto dims = getDimsVector(stack, self);
   const int correction = stack.at(2).isNone() ? 0 : stack.at(2).toInt();
   const bool keepdim = stack.at(3).toBool();
 
   auto meta = StdVarMeta(stack)[0];
-  auto mean_shape = ReductionOutputShape(self, dim, true)[0];
+  auto mean_shape = ReductionOutputShape(self, dims, true)[0];
 
   auto std = StdVarCommonFunc(
       this,
       graph,
       self,
       keepdim,
-      dim,
+      dims,
       {syn_in(0)},
       correction,
       {{meta.shape, meta.dtype, 0}, {mean_shape, meta.dtype}},
@@ -337,12 +374,12 @@ void Std::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
 void StdMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto dim = getDimsVector(stack, self);
+  auto dims = getDimsVector(stack, self);
   const int correction = stack.at(2).isNone() ? 0 : stack.at(2).toInt();
   const bool keepdim = stack.at(3).toBool();
 
   auto meta = StdVarMeanMeta(stack);
-  auto mean_shape = ReductionOutputShape(self, dim, true)[0];
+  auto mean_shape = ReductionOutputShape(self, dims, true)[0];
   c10::optional<int> finalIndex =
       keepdim ? c10::make_optional<int>(1) : c10::nullopt;
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
@@ -354,20 +391,13 @@ void StdMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
       graph,
       self,
       keepdim,
-      dim,
+      dims,
       {syn_in(0)},
       correction,
       output_attrs,
       true, /*take_sqrt*/
       true /*mean_out_required*/);
   syn_out(0) = std::move(std_mean[0]);
-
-  if (keepdim) {
-    syn_out(1) = std::move(std_mean[1]);
-  } else {
-    auto reshape = ReshapeHelper(
-        graph, std_mean[1].get(), meta[1].shape, meta[1].dtype, 1);
-    syn_out(1) = std::move(reshape);
-  }
+  syn_out(1) = std::move(std_mean[1]);
 }
 } // namespace habana

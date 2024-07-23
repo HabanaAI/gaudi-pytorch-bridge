@@ -521,9 +521,6 @@ std::vector<synapse_helpers::tensor> HandleReductionMultiDimAndKeepdim(
     const int64_t inputRank,
     const bool keepdim,
     std::vector<NodeAttr::NodeOutputAttr> output_attr) {
-  HABANA_ASSERT(
-      dimsToReduce.size() != 0, "Reduction cannot be done on empty dim list");
-
   auto params = FillReductionParams(inputRank, dimsToReduce, keepdim);
 
   return OpBackend::BuildNode(
