@@ -76,66 +76,20 @@ void MinMaxOut::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto dim = stack.at(1).toInt();
   auto keepdim = stack.at(2).toBool();
-  auto shape = MinMaxOutputShape(stack)[0];
+
   auto meta = MinMaxMeta(stack);
   std::vector<NodeAttr::NodeOutputAttr> output_attrs{
       {meta[0].shape, meta[0].dtype, 0}, {meta[1].shape, meta[1].dtype, 1}};
 
-  auto reduce_max = HandleReductionDimAndKeepdim(
-      this, graph, self, {syn_in(0)}, dim, keepdim, guid_, output_attrs);
+  auto params = FillReductionParams(self.dim(), {dim}, keepdim);
 
-  syn_out(0) = std::move(reduce_max[0]);
-  syn_out(1) = std::move(reduce_max[1]);
+  auto result = OpBackend::BuildNode(
+      this,
+      graph,
+      {guid_, {syn_in(0)}, std::move(output_attrs), &params, sizeof(params)});
+
+  syn_out(0) = std::move(result[0]);
+  syn_out(1) = std::move(result[1]);
 }
 
-void MaxDimOp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
-  auto self = stack_tensor(stack, 0);
-  auto dim = stack.at(1).toInt();
-  bool keepdim = stack.at(2).toBool();
-  auto meta = MinMaxMeta(stack);
-  size_t size = 0;
-  const auto& params = FillMinMaxDimParams(stack, size);
-
-  if (self.dim() == 0) {
-    auto res = BuildOp(
-        graph, "identity", {syn_in(0)}, {{meta[0].shape, meta[0].dtype, 0}});
-    auto index =
-        ConstantHelper(graph, /*val=*/0, meta[0].dtype, meta[1].shape, 1);
-    syn_out(0) = std::move(res[0]);
-    syn_out(1) = std::move(index);
-  } else {
-    if (keepdim) {
-      auto max_dim = BuildOp(
-          graph,
-          guid_,
-          {syn_in(0)},
-          {{meta[0].shape, meta[0].dtype, 0},
-           {meta[1].shape, meta[1].dtype, 1}},
-          params.get(),
-          size);
-
-      syn_out(0) = std::move(max_dim[0]);
-      syn_out(1) = std::move(max_dim[1]);
-    } else {
-      auto shape = self.sizes().vec();
-      dim = c10::maybe_wrap_dim(dim, self.dim(), true);
-      shape[dim] = 1;
-
-      auto max_dim = BuildOp(
-          graph,
-          guid_,
-          {syn_in(0)},
-          {{shape, meta[0].dtype}, {shape, meta[1].dtype}},
-          params.get(),
-          size);
-      auto max = ReshapeHelper(
-          graph, max_dim[0].get(), meta[0].shape, meta[0].dtype, 0);
-      auto max_indices = ReshapeHelper(
-          graph, max_dim[1].get(), meta[1].shape, meta[1].dtype, 1);
-
-      syn_out(0) = std::move(max);
-      syn_out(1) = std::move(max_indices);
-    }
-  }
-}
 } // namespace habana

@@ -5850,23 +5850,21 @@ masked_fill.Tensor:
   out_ids: [0]
 
 max.dim:
-  custom_fill_params: FillMinMaxDimParams
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Long, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Long, Float8_e5m2, Float8_e4m3fn]
-  guid: reduce_max_fwd
+  guid: reduce_max_multi_dim_fwd
   output_meta: MinMaxMeta
-  op_backend: MaxDimOp
+  op_backend: MinMaxOut
   out_ids: [0, 0]
 
 max.dim_max:
-  custom_fill_params: FillMinMaxDimParams
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
-  guid: reduce_max_fwd
+  guid: reduce_max_multi_dim_fwd
   output_meta: MinMaxMeta
   op_backend: MinMaxOut
 
@@ -6100,23 +6098,21 @@ min:
   out_ids: [0]
 
 min.dim:
-  custom_fill_params: FillMinMaxDimParams
   dtypes:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
-  guid: reduce_min_fwd
+  guid: reduce_min_multi_dim_fwd
   output_meta: MinMaxMeta
   op_backend: MinMaxOut
   out_ids: [0, 0]
 
 min.dim_min:
-  custom_fill_params: FillMinMaxDimParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long]
     Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
-  guid: reduce_min_fwd
+  guid: reduce_min_multi_dim_fwd
   output_meta: MinMaxMeta
   op_backend: MinMaxOut
 
