@@ -24,6 +24,7 @@
 #include "habana_helpers/logging.h"
 #include "habana_helpers/towl.h"
 #include "habana_lazy/memlog.h"
+#include "pool_allocator/CoalescedStringentPoolAllocator.h"
 
 namespace synapse_helpers {
 
@@ -53,42 +54,6 @@ device_memory::device_memory(device& device) : device_{device} {
   enable_mem_threshold_check = false;
   alignment_ = device_.get_device_memory_alignment();
   switch (pool_strategy_) {
-    case pool_allocator::strategy_bump:
-      try {
-        PT_DEVMEM_DEBUG("strategy_bump with size :: ", pool_size_);
-        suballoc_ =
-            new pool_allocator::SubAllocator(new pool_allocator::StaticPooling);
-        if (suballoc_ == nullptr) {
-          PT_DEVMEM_FATAL("unable to create pool allocator");
-        }
-      } catch (...) {
-        PT_DEVMEM_FATAL("unknown pool error");
-      }
-      break;
-    case pool_allocator::strategy_dynamic:
-      try {
-        PT_DEVMEM_DEBUG("strategy_dynamic :: ", pool_size_);
-        suballoc_ = new pool_allocator::SubAllocator(
-            new pool_allocator::DynamicPooling);
-        if (suballoc_ == nullptr) {
-          PT_DEVMEM_FATAL("unable to create pool allocator");
-        }
-      } catch (...) {
-        PT_DEVMEM_FATAL("unknown pool error");
-      }
-      break;
-    case pool_allocator::startegy_static_coalesce:
-      try {
-        PT_DEVMEM_DEBUG("startegy_static_coalesce :: ", pool_size_);
-        suballoc_ = new pool_allocator::SubAllocator(
-            new pool_allocator::StaticCoalescedPooling(device_));
-        if (suballoc_ == nullptr) {
-          PT_DEVMEM_FATAL("unable to create pool allocator");
-        }
-      } catch (...) {
-        PT_DEVMEM_FATAL("unknown pool error");
-      }
-      break;
     case pool_allocator::startegy_coalesce_stringent:
       try {
         PT_DEVMEM_DEBUG("startegy_coalesce_stringent:: ", pool_size_);
@@ -113,7 +78,7 @@ device_memory::device_memory(device& device) : device_{device} {
     PT_DEVMEM_FATAL("pool creation failed");
   }
 
-  if (pool_strategy_ != pool_allocator::startegy_static_coalesce) {
+  {
     std::array<uint64_t, 2> dram_infos = {0, 0};
     uint64_t* dram_info = dram_infos.data();
     std::array<synDeviceAttribute, 2> deviceAttrs = {

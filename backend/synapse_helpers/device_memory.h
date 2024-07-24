@@ -33,8 +33,6 @@
 #include "backend/synapse_helpers/synapse_error.h"
 #include "backend/synapse_helpers/synchronous_counter.h"
 #include "mem_hlml.h"
-#include "pool_allocator/CoalescedPoolAllocator.h"
-#include "pool_allocator/CoalescedStringentPoolAllocator.h"
 #include "pool_allocator/PoolAllocator.h"
 
 namespace synapse_helpers {

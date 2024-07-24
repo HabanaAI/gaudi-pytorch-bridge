@@ -13,28 +13,20 @@
 #pragma once
 #include <synapse_api_types.h>
 #include <mutex>
+
 #include "backend/synapse_helpers/device_mem_stats.h"
 #include "backend/synapse_helpers/device_types.h"
-#include "backend/synapse_helpers/util.h"
 
 namespace synapse_helpers {
 namespace pool_allocator {
 
 enum PoolStrategyType {
   strategy_none = 0,
-  strategy_bump,
-  strategy_dynamic,
-  startegy_static_coalesce,
+  strategy_bump_unused, // unused. depends on "PT_HPU_POOL_STRATEGY" handling.
+  strategy_dynamic_unused, // unused. depends on "PT_HPU_POOL_STRATEGY"
+  startegy_static_coalesce_unused, // unused. depends on "PT_HPU_POOL_STRATEGY"
   startegy_coalesce_stringent,
 };
-
-// [Fix Me:] need to have the pool size to accomodate one
-// complete model for static pooling
-#define DEFAULT_POOL_SIZE 24ULL * 1024 * 1024 * 1024 // 24GByte
-#define POOLING_TYPE strategy_bump
-
-#define allocateHostMemory new
-#define freeHostMemory delete
 
 class PoolingStrategy {
  public:
@@ -94,6 +86,11 @@ class PoolingStrategy {
     return true;
   };
   virtual void synchronize_and_free_events() const {};
+
+  // [Fix Me:] need to have the pool size to accomodate one
+  // complete model for static pooling
+  const unsigned long long int default_pool_size =
+      24ULL * 1024 * 1024 * 1024; // 24GByte
 };
 
 class SubAllocator {
@@ -206,95 +203,6 @@ class SubAllocator {
   void synchronize_and_free_events() const {
     this->strategy_->synchronize_and_free_events();
   }
-};
-
-/// bump pooling ///
-
-struct Poolchunk {
-  uint64_t size;
-  bool used;
-  Poolchunk* next;
-  uint64_t memptr;
-};
-
-struct simple_pool_t {
-  uint64_t next;
-  uint64_t end;
-  Poolchunk* _start;
-  Poolchunk* _top;
-  uint64_t memptr;
-};
-
-class StaticPooling : public PoolingStrategy {
- private:
-  mutable synDeviceId pool_id;
-  mutable uint64_t max_pool_size;
-  mutable uint64_t block_count;
-  mutable uint64_t allocted_block_size;
-  mutable uint64_t free_chunks;
-  mutable uint64_t free_chunks_size;
-  mutable uint64_t bytes_in_use;
-  mutable MemoryStats stats;
-  mutable simple_pool_t* prealloc_pool;
-  void* reuse_chunks(uint64_t size) const;
-  void* get_free_chunk(void* p, uint64_t size) const;
-  mutable std::mutex sp_mutex;
-
- public:
-  StaticPooling();
-  bool pool_create(synDeviceId deviceID, uint64_t size) const override;
-  void pool_destroy() const override;
-  void* pool_alloc_chunk(uint64_t size, bool is_workspace) const override;
-  void pool_free_chunk(void* p) const override;
-  void* extend_high_memory_allocation(uint64_t size, size_t current_ws_size)
-      const override;
-  void get_stats(MemoryStats* stats) const override;
-  std::vector<std::pair<uint64_t, uint64_t>> get_occupied_chunk_map()
-      const override;
-  void clear_stats() const override;
-  void reset_peak_mem_stats() const override;
-  void print_pool_stats() const override;
-};
-
-/// Variable length pooling using equal fit block ///
-
-struct Block {
-  uint64_t size;
-  bool used;
-  Block* next;
-  uint64_t memptr;
-};
-
-class DynamicPooling : public PoolingStrategy {
- private:
-  mutable synDeviceId pool_id;
-  mutable Block* pool_start;
-  mutable Block* top;
-  mutable uint64_t bytes_in_use;
-  mutable MemoryStats stats;
-  Block* retrieveBlock(void* data) const;
-  Block* requestNewBlock(uint64_t size) const;
-  Block* equalFit(uint64_t size) const;
-  Block* findBlock(uint64_t size) const;
-  void* allocBlock(uint64_t size) const;
-  void freeBlock(void* data) const;
-  void freeBlocks(Block* base_block) const;
-  void freeUnusedBlocks(Block* base_block) const;
-  mutable std::mutex vp_mutex;
-
- public:
-  DynamicPooling();
-  bool pool_create(synDeviceId deviceID, uint64_t size) const override;
-  void pool_destroy() const override;
-  void* pool_alloc_chunk(uint64_t size, bool is_workspace) const override;
-  void pool_free_chunk(void* p) const override;
-  void* extend_high_memory_allocation(uint64_t size, size_t ws_size)
-      const override;
-  void get_stats(MemoryStats* stats) const override;
-  std::vector<std::pair<uint64_t, uint64_t>> get_occupied_chunk_map()
-      const override;
-  void clear_stats() const override;
-  void reset_peak_mem_stats() const override;
 };
 
 } // namespace pool_allocator

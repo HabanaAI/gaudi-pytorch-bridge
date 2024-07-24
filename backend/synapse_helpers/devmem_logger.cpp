@@ -27,6 +27,7 @@
 #include <absl/strings/str_format.h>
 #include "backend/synapse_helpers/device_mem_stats.h"
 #include "backend/synapse_helpers/env_flags.h"
+#include "backend/synapse_helpers/util.h"
 #include "devmem_logger.h"
 
 namespace synapse_helpers {

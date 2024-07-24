@@ -17,6 +17,7 @@
 #include "backend/synapse_helpers/devmem_logger.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/lightweight_memory_usage_logger.h"
+#include "backend/synapse_helpers/util.h"
 
 #define DEFRAGMENT_TH(arg) std::ceil(0.9 * (arg))
 
@@ -98,7 +99,7 @@ CoalescedStringentPooling::CoalescedStringentPooling(device& device)
   bytes_in_use = 0;
   free_chunks = 0;
   free_chunks_size = 0;
-  max_pool_size = DEFAULT_POOL_SIZE;
+  max_pool_size = default_pool_size;
   prealloc_pool = nullptr;
   small_allocs_ = nullptr;
   defragmenter_state_started_ = 0;
@@ -138,7 +139,7 @@ bool CoalescedStringentPooling::pool_create(synDeviceId deviceID, uint64_t size)
   }
 
   // try to take max free memory when not set by user
-  if ((size > free_mem) || (size == DEFAULT_POOL_SIZE)) {
+  if ((size > free_mem) || (size == default_pool_size)) {
     // leave small factor of memory for synapse to use, so set acquire 100% of
     // free memory
     // Some memory needs to be left for intermediate buffer for collective
@@ -337,7 +338,7 @@ void CoalescedStringentPooling::pool_destroy() const {
   bytes_in_use = 0;
   free_chunks = 0;
   free_chunks_size = 0;
-  max_pool_size = DEFAULT_POOL_SIZE;
+  max_pool_size = default_pool_size;
   high_memory_allocated_ = false;
 }
 

@@ -32,8 +32,6 @@ add_habana_library(
   memory_defragmentation.cpp
   memory_mapping.cpp
   pool_allocator/utils.cpp
-  pool_allocator/PoolAllocator.cpp
-  pool_allocator/CoalescedPoolAllocator.cpp
   pool_allocator/CoalescedStringentPoolAllocator.cpp
   RealTimeMemoryLogger.cpp
   recipe.cpp
