@@ -767,7 +767,7 @@ def preprocess_linears(placeholder_map, module: torch.fx.GraphModule, tupled_arg
                     module_changed = module_changed or True
                     attr_name = "_param_constant_l" + str(param_id)
                     param_tensor = tupled_args[placeholder_map[weight_node.name]]
-                    setattr(module, attr_name, torch.nn.parameter.Parameter(torch.clone(param_tensor.detach())))
+                    setattr(module, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
                     new_attr_node = module.graph.create_node("get_attr", attr_name)
                     weight_node_first_user.replace_input_with(weight_node, new_attr_node)
                     param_id = param_id + 1
@@ -783,7 +783,7 @@ def preprocess_linears(placeholder_map, module: torch.fx.GraphModule, tupled_arg
                         module_changed = module_changed or True
                         attr_name = "_param_constant_l" + str(param_id)
                         param_tensor = tupled_args[placeholder_map[bias_node.name]]
-                        setattr(module, attr_name, torch.nn.parameter.Parameter(torch.clone(param_tensor.detach())))
+                        setattr(module, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
                         new_attr_node = module.graph.create_node("get_attr", attr_name)
                         bias_node_first_user.replace_input_with(bias_node, new_attr_node)
                         param_id = param_id + 1
@@ -860,7 +860,7 @@ def preprocess_convs(placeholder_map, module: torch.fx.GraphModule, tupled_args)
                 with module.graph.inserting_before(weight_node_first_user):
                     attr_name = "_param_constant_c" + str(param_id)
                     param_tensor = tupled_args[placeholder_map[weight_node.name]]
-                    setattr(module, attr_name, torch.nn.parameter.Parameter(torch.clone(param_tensor.detach())))
+                    setattr(module, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
                     new_attr_node = module.graph.create_node("get_attr", attr_name)
                     weight_node_first_user.replace_input_with(weight_node, new_attr_node)
                     param_id = param_id + 1
@@ -874,7 +874,7 @@ def preprocess_convs(placeholder_map, module: torch.fx.GraphModule, tupled_args)
                 with module.graph.inserting_before(bias_node_first_user):
                     attr_name = "_param_constant_c" + str(param_id)
                     param_tensor = tupled_args[placeholder_map[bias_node.name]]
-                    setattr(module, attr_name, torch.nn.parameter.Parameter(torch.clone(param_tensor.detach())))
+                    setattr(module, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
                     new_attr_node = module.graph.create_node("get_attr", attr_name)
                     bias_node_first_user.replace_input_with(bias_node, new_attr_node)
                     param_id = param_id + 1
