@@ -36,15 +36,18 @@ static std::tuple<sh::tensor, sh::tensor> GetMomentInFp8WithScale(
        {input.get()},
        {{pt_input.sizes().vec(), original_dtype}}});
 
-  auto amax = HandleReductionDimAndKeepdim(
+  ns_Reduction::ParamsV2 reduce_params;
+  reduce_params.reductionDimensionMask = 0;
+  reduce_params.keepDim = false;
+
+  auto amax = OpBackend::BuildNode(
       op,
       graph,
-      pt_input,
-      {abs_input[0].get()},
-      {},
-      false,
-      get_guid_with_precision("reduce_max_fwd", original_dtype),
-      {{{1}, original_dtype}});
+      {get_guid_with_precision("reduce_max_multi_dim_fwd", original_dtype),
+       {abs_input[0].get()},
+       {{{1}, original_dtype}},
+       &reduce_params,
+       sizeof(reduce_params)});
 
   auto amax_div = OpBackend::BuildNode(
       op,
@@ -89,15 +92,15 @@ static std::tuple<sh::tensor, sh::tensor> GetMomentInFp8WithScale(
        {mask[0].get(), new_scale[0].get(), old_scale},
        {{{1}, original_dtype, out_scale}}});
 
-  auto params = GetCastParams(true, original_dtype, destination_dtype);
+  auto cast_params = GetCastParams(true, original_dtype, destination_dtype);
   auto result = OpBackend::BuildNode(
       op,
       graph,
       {get_guid_with_precision("convert_to_fp8", original_dtype),
        {input.get(), updated_scale[0].get()},
        {{pt_input.sizes().vec(), destination_dtype, out_ids}},
-       &params,
-       sizeof(params)});
+       &cast_params,
+       sizeof(cast_params)});
 
   return std::make_tuple(std::move(result[0]), std::move(updated_scale[0]));
 }
