@@ -55,10 +55,10 @@
       "version": "2.4.0",
       "default_source": "build",
       "extras": {
-        "torchvision": "v0.19.0-rc4",
-        "torchaudio": "v2.4.0-rc4",
+        "torchvision": "v0.19.0",
+        "torchaudio": "v2.4.0",
         "torchtext": "v0.18.0",
-        "torchdata": "v0.8.0-rc2"
+        "torchdata": "v0.7.1"
       }
     },
     "rc": {
