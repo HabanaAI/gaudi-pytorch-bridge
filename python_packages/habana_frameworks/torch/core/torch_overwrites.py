@@ -164,7 +164,7 @@ def overwrite_torch_functions():
             try:
                 module.custom_name = name
                 module.register_forward_pre_hook(_pre_fwd_hook)
-                module.register_forward_hook(_post_fwd_hook)
+                module.register_forward_hook(_post_fwd_hook, always_call=True)
                 module.names_hook = True
             except RuntimeError:
                 pass
@@ -263,7 +263,7 @@ def overwrite_torch_functions():
             try:
                 value.custom_name = name
                 value.register_forward_pre_hook(_pre_fwd_hook)
-                value.register_forward_hook(_post_fwd_hook)
+                value.register_forward_hook(_post_fwd_hook, always_call=True)
                 value.names_hook = True
             except RuntimeError:
                 pass
