@@ -48,6 +48,8 @@ class Stream(_hpu_C._HpuStreamBase, _StreamBase):
     def __new__(cls, device=None, priority=0, **kwargs):
         if not htorch.hpu.is_initialized():
             htorch.hpu.init()
+        if "device_index" in kwargs and not isinstance(kwargs["device_index"], int):
+            kwargs["device_index"] = _get_device_index(kwargs["device_index"])
         return super(Stream, cls).__new__(cls, priority=priority, **kwargs)
 
     def wait_event(self, event):

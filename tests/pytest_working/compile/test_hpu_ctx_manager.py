@@ -20,6 +20,7 @@ import torch
 import torch._dynamo.test_case
 import torch._dynamo.testing
 import torch.onnx.operators
+from packaging.version import Version, parse
 from torch._dynamo.testing import EagerAndRecordGraphs, normalize_gm, same
 from torch._streambase import _StreamBase
 from torch.nn import functional as F
@@ -238,7 +239,9 @@ class CtxManagerTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(cnts.frame_count, 2)
         self.assertEqual(ref0, res0)
 
-    @unittest.expectedFailure  # TODO https://github.com/pytorch/pytorch/pull/123487
+    @unittest.skipIf(
+        Version(parse(torch.__version__).base_version) < Version("2.4.0"), "Need patch pytorch/pull/123487"
+    )  # version < 2.4 need patch https://github.com/pytorch/pytorch/pull/123487
     @unittest.skipIf(not torch.hpu.is_available(), "requires hpu")
     def test_hpu_event_method_create_stream_outside_of_compile(self):
         def fn(x, cur_stream, new_stream):
@@ -327,7 +330,6 @@ from contextlib import contextmanager
 from typing import Generator, List, Union, cast
 
 import habana_frameworks.torch as htorch
-from packaging.version import Version, parse
 
 if Version(parse(torch.__version__).base_version) < Version("2.4.0"):
     from torch.distributed.pipeline.sync.stream import CPUStream, record_stream
