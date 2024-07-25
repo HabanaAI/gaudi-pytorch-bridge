@@ -263,7 +263,7 @@ class Fp8FusedSDPA(torch.autograd.Function):
             is_amax_s=is_amax_s,
             is_amax_o=is_amax_o,
             valid_seq_len=valid_seq_len,
-            seq_padding_type="seq_padding_type",
+            seq_padding_type=seq_padding_type,
         )
 
     @staticmethod
