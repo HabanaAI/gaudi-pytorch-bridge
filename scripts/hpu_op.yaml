@@ -9412,6 +9412,12 @@ cast_to_fp8_hybrid:
   output_meta: CastToFp8HybridMeta
   custom_fill_params: CastToFp8HybridParams
 
+fake_quant_fp4:
+  custom_op_schema: "hpu::fake_quant_fp4(Tensor input, bool stochastic_rounding, int axis, int dtype) -> Tensor"
+  custom_fill_params: FillFakeQuantFp4Params
+  guid: fake_quantize_fp4
+  out_ids: [0]
+
 softmax_fp8:
   custom_op_schema: "hpu::softmax_fp8(Tensor input, int dim, Tensor? input_scale=None, Tensor? output_scale=None, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"
   guid: softmax_fwd
