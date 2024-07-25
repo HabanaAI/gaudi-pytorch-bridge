@@ -26,11 +26,12 @@ OutputMetaDataVector MaskedFillMeta(const at::Stack& stack) {
   return {meta};
 }
 
-void MaskedFillSTMeta(
+bool MaskedFillSTMeta(
     habana_helpers::IShapeList& inputs,
     habana_helpers::IShapeList& outputs) {
   static_cast<void>(outputs);
   static_cast<void>(inputs);
+  return true;
 }
 
 void MaskedFill::AddNode(

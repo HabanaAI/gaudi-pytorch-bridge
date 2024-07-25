@@ -85,7 +85,7 @@ OutputMetaDataVector SelectHpuMeta(const at::Stack& stack) {
   return {meta};
 }
 
-void SelectDSSTMeta(
+bool SelectDSSTMeta(
     habana_helpers::IShapeList& inputs,
     habana_helpers::IShapeList& outputs) {
   PT_BRIDGE_DEBUG("SelectDSSTMeta called");
@@ -93,6 +93,8 @@ void SelectDSSTMeta(
   auto t_size = outputs[0].getTensorShape();
   PT_BRIDGE_DEBUG("SelectDSSTMeta ST shape ", t_size);
   habana_helpers::UpdateSTShapeInfo(t_size);
+
+  return true;
 }
 
 class SelectHpu : public OpBackend {

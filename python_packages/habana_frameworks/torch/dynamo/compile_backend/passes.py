@@ -2158,6 +2158,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
             size = len(fx_nodes)
             next_fx_idx = None
             curr_fx_node = None
+            logger.debug("Matching Jit node:", jit_node_name, "from FX node index:", fx_idx)
             while fx_idx < size:
                 fx_node = fx_nodes[fx_idx]
                 if fx_node.op == "placeholder" or fx_node.op == "output":
@@ -2177,16 +2178,30 @@ def pass_compile_clusters(ctx: OptimizerContext):
 
             pexpr = PythonPrinter().doprint
 
-            shape = tensor_size[0]
-            dims = len(shape)
+            def convert_tsize_to_str(tsize):
+                shape = tsize
+                dims = len(shape)
+                tsize_str = "["
+                for dim, sz in enumerate(shape):
+                    sz_str = pexpr(sz)
+                    sz_str = sympify_expression(sz_str)
+                    tsize_str = tsize_str + str(sz_str)
+                    if dim < dims - 1:
+                        tsize_str += ","
+                tsize_str += "]"
+                return tsize_str
+
+            output_len = len(tensor_size)
             output_size_str = "["
-            for dim, sz in enumerate(shape):
-                sz_str = pexpr(sz)
-                sz_str = sympify_expression(sz_str)
-                output_size_str = output_size_str + str(sz_str)
-                if dim < dims - 1:
-                    output_size_str += ","
+            for idx, tsize in enumerate(tensor_size):
+                tsize_str = convert_tsize_to_str(tsize)
+                logger.debug("create_output_size tsize_str:", tsize_str)
+                output_size_str = output_size_str + tsize_str
+                if idx < output_len - 1:
+                    output_size_str += ";"
+
             output_size_str += "]"
+            logger.debug("create_output_size output_size_str:", output_size_str)
             return output_size_str
 
         for node in Jit_graph.nodes():
@@ -2194,16 +2209,27 @@ def pass_compile_clusters(ctx: OptimizerContext):
                 continue
 
             fx_subname = get_fx_subname(node.kind())
+            backup_fx_count = fx_count
             next_fx_idx, fx_node = get_matched_fx_node(fx_nodes, fx_count, fx_subname)
-            logger.debug("Matched nodes, FX node: %s JIT node: %s fx_count: %d", fx_subname, fx_node, fx_count)
             fx_count = next_fx_idx
+            # If a Jit node didnot find in the FX, then the move to next
+            # Jit node and start from next FX node index.
+            if fx_count is None:
+                fx_count = backup_fx_count + 1
 
             if fx_node is None:
                 logger.debug("Not found a matching FX node for node name: %s !!!", fx_subname)
                 continue
 
-            output_size_str = "[]"
+            output_size_str = "[[]]"
             if "output_shapes" in fx_node.meta:
+                logger.debug(
+                    "Matched nodes, Jit node name formated: %s FX node: %s fx_count: %d, output_shapes:%s",
+                    fx_subname,
+                    fx_node,
+                    fx_count,
+                    fx_node.meta["output_shapes"],
+                )
                 output_size_str = create_output_size(fx_node.meta["output_shapes"])
             node.s_("output_shapes", output_size_str)
 

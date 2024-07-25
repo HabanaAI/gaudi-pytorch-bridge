@@ -391,7 +391,7 @@ auto get_or_create_tensor(
 #define OUTSHAPE_DECL(fn) sizes_vec fn(const at::Stack&);
 #define OUTMETA_DECL(fn) OutputMetaDataVector fn(const at::Stack&);
 #define STMETA_DECL(fn)                   \
-  void fn(                                \
+  bool fn(                                \
       habana_helpers::IShapeList& inputs, \
       habana_helpers::IShapeList& outputs);
 

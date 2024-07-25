@@ -122,7 +122,7 @@ synapse_helpers::tensor create_tensor(
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph() &&
-      (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) == false ||
+      (graph.is_optim_output_sif_enabled() == false ||
        habana::ShapeInference::GetCurrentPass() !=
            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE)) {
     tensor_id = habana::ShapeInference::UpdateShapeInfo(graph, shape.vec());
@@ -199,7 +199,7 @@ synapse_helpers::tensor create_tensor(
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph() &&
-      (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) == false ||
+      (graph.is_optim_output_sif_enabled() == false ||
        habana::ShapeInference::GetCurrentPass() !=
            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE)) {
     tensor_id =
@@ -399,7 +399,7 @@ synapse_helpers::tensor create_tensor(
 
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph() &&
-      (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) == false ||
+      (graph.is_optim_output_sif_enabled() == false ||
        habana::ShapeInference::GetCurrentPass() !=
            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE)) {
     tensor_id = habana::ShapeInference::UpdateShapeInfo(graph, tensor_shape);
@@ -533,7 +533,7 @@ synapse_helpers::tensor create_shape_tensor(
     tensor_id = synapse_helpers::detail::tensor_name_generator::get_tensor_id();
     uint64_t shape_tensor_id =
         habana::ShapeInference::ReadAndIncrementShapeTensorId();
-    if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) == true &&
+    if (graph.is_optim_output_sif_enabled() == true &&
         habana::ShapeInference::GetCurrentPass() ==
             habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
       tensor_id = habana::ShapeInference::GetSTMappedTensorIdx(shape_tensor_id);
@@ -650,7 +650,7 @@ synapse_helpers::tensor create_shape_tensor(
     tensor_id = synapse_helpers::detail::tensor_name_generator::get_tensor_id();
     uint64_t shape_tensor_id =
         habana::ShapeInference::ReadAndIncrementShapeTensorId();
-    if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) == true &&
+    if (graph.is_optim_output_sif_enabled() == true &&
         habana::ShapeInference::GetCurrentPass() ==
             habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
       tensor_id = habana::ShapeInference::GetSTMappedTensorIdx(shape_tensor_id);
@@ -847,7 +847,7 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section(
   PT_BRIDGE_TRACE;
 
   if (graph.is_dynamic_graph() &&
-      (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) == false ||
+      (graph.is_optim_output_sif_enabled() == false ||
        habana::ShapeInference::GetCurrentPass() !=
            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE)) {
     habana::ShapeInference::UpdateShapeInfo(graph, tensor.pt_shape());
@@ -908,7 +908,7 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
   PT_BRIDGE_TRACE;
 
   if (graph.is_dynamic_graph() &&
-      (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) == false ||
+      (graph.is_optim_output_sif_enabled() == false ||
        habana::ShapeInference::GetCurrentPass() !=
            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE)) {
     habana::ShapeInference::UpdateShapeInfo(graph, sizes);

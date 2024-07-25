@@ -94,4 +94,13 @@ void UpdateSTShapeInfo(std::vector<int64_t>& shape) {
   habana::ShapeInference::UpdateShapeInfoDynamic(tensor_id, shape);
 }
 
+bool is_symbolic_expr(std::string expr_str) {
+  for (auto& c : expr_str) {
+    if (!(std::isdigit(c) || c == '[' || c == ']' || c == ',' ||
+          std::isspace(c)))
+      return true;
+  }
+  return false;
+}
+
 } // namespace habana_helpers

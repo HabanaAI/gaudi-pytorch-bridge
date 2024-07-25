@@ -21,9 +21,20 @@ parser_t parser;
 std::string formatExpression(const std::string& input) {
   PT_BRIDGE_DEBUG("Expression before ", input);
   std::string result = input;
+
+  // Replacing python power ** with C++ power ^
   std::string toReplace = "**";
   std::string replacement = "^";
   size_t pos = 0;
+  while ((pos = result.find(toReplace, pos)) != std::string::npos) {
+    result.replace(pos, toReplace.length(), replacement);
+    pos += replacement.length();
+  }
+
+  // Replacing python ceiling with C++ ceil
+  toReplace = "ceiling";
+  replacement = "ceil";
+  pos = 0;
   while ((pos = result.find(toReplace, pos)) != std::string::npos) {
     result.replace(pos, toReplace.length(), replacement);
     pos += replacement.length();
@@ -47,7 +58,7 @@ habana::SymExpression::SymExpression(
   m_expr_t.register_symbol_table(m_symbol_table);
 
   if (!parser.compile(m_expr_str, m_expr_t)) {
-    TORCH_CHECK(0, "ExprtK expression Compilation error...", m_expr_str);
+    TORCH_CHECK(0, "ExprtK expression Compilation error... %s", m_expr_str);
   }
 }
 

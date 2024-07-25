@@ -189,10 +189,14 @@ class HabanaLaunchOpPT {
   void UpdateIshapeForNodeOuputs(torch::jit::Node* node, RecipeValueSpec& rv);
   void CreateValueIShapeMapForNode(
       torch::jit::Node* node,
+      torch::jit::Node* rv_node,
       const torch::jit::Stack& input_stack,
       OutputMetaDataVector& meta_vec);
   void CreateValueToIShapeMapForInputs(
       std::shared_ptr<torch::jit::Graph>& jit_graph);
+  void UpdateValueIShapeMapForListUnpack(
+      torch::jit::Node* node,
+      RecipeValueSpec& rv);
   void UpdateValueToIShapeMapForInputs(
       std::shared_ptr<torch::jit::Graph>& jit_graph,
       RecipeValueSpec& rv);
@@ -568,8 +572,8 @@ class HabanaLaunchOpPT {
       RecipeValueSpec& rv,
       SynBuildCache& syn_build_cache);
   void HandleOutputExprUnMappedJITGraph(
-      std::shared_ptr<torch::jit::Graph>& rv_jit_graph,
       RecipeValueSpec& rv,
+      std::shared_ptr<synapse_helpers::graph>& syn_graph,
       SynBuildCache& syn_build_cache);
   void setSynapsePermuteFlag(
       synapse_helpers::tensor& out_syntensor,

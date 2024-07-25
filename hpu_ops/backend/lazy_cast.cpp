@@ -146,7 +146,7 @@ Copy<false>::Copy(int device_id, c10::ScalarType scalar_type)
 struct ToCopy : OpBackend {
   ToCopy(int device_id, c10::ScalarType scalar_type);
   void AddNode(synapse_helpers::graph&, const at::Stack&) override;
-  static void ToCopySTMeta(
+  static bool ToCopySTMeta(
       habana_helpers::IShapeList& inputs,
       habana_helpers::IShapeList& outputs);
   static OutputMetaDataVector ToCopyMeta(const at::Stack& stack);
@@ -158,7 +158,7 @@ ToCopy::ToCopy(int device_id, c10::ScalarType scalar_type)
   SetSTMetaFn(ToCopy::ToCopySTMeta);
 }
 
-void ToCopy::ToCopySTMeta(
+bool ToCopy::ToCopySTMeta(
     habana_helpers::IShapeList& inputs,
     habana_helpers::IShapeList& outputs) {
   static_cast<void>(inputs);
@@ -180,6 +180,8 @@ void ToCopy::ToCopySTMeta(
       habana_helpers::UpdateSTShapeInfo(out_shape);
     }
   }
+
+  return true;
 }
 
 OutputMetaDataVector ToCopy::ToCopyMeta(const at::Stack& stack) {

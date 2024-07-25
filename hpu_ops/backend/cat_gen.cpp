@@ -61,13 +61,15 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
       first_tensor.suggest_memory_format()}};
 }
 
-void CatSTMeta(
+bool CatSTMeta(
     habana_helpers::IShapeList& inputs,
     habana_helpers::IShapeList& outputs) {
   std::vector<int64_t> out_shape = outputs[0].getTensorShape();
   static_cast<void>(inputs);
   PT_BRIDGE_DEBUG("CatSTMeta output shape ", out_shape);
   habana_helpers::UpdateSTShapeInfo(out_shape);
+
+  return true;
 }
 
 void CatHabanaOperator::AddNode(
