@@ -364,9 +364,9 @@ void ConvolutionBackwardOverrideable::AddNode(
 
   std::string guid;
 
-  IF_CONV1D_RESHAPE_TO_2D(grad_output, 0);
-  IF_CONV1D_RESHAPE_TO_2D(input, 1);
-  IF_CONV1D_RESHAPE_TO_2D(weight, 2);
+  IF_CONV1D_EXPAND_TO_2D(grad_output, 0);
+  IF_CONV1D_EXPAND_TO_2D(input, 1);
+  IF_CONV1D_EXPAND_TO_2D(weight, 2);
 
 #define COND_FINAL_RES_IDX(condition, false_val)                      \
   condition ? c10::optional<int>{c10::nullopt} : c10::optional<int> { \
@@ -382,11 +382,11 @@ void ConvolutionBackwardOverrideable::AddNode(
           graph,
           std::move(guid),
           is_conv_3d,
-          {grad_output_reshaped, weight_reshaped},
+          {grad_output_expanded, weight_expanded},
           {{out0_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 0)}},
           params.get());
 
-      IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
+      IF_CONV1D_SQUEEZE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
     } else {
       AddUndefinedOutputTensor();
     }
@@ -400,11 +400,11 @@ void ConvolutionBackwardOverrideable::AddNode(
           graph,
           std::move(guid),
           is_conv_3d,
-          {input_reshaped, grad_output_reshaped},
+          {input_expanded, grad_output_expanded},
           {{out1_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 1)}},
           params.get());
 
-      IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
+      IF_CONV1D_SQUEEZE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
     } else {
       AddUndefinedOutputTensor();
     }
@@ -413,7 +413,7 @@ void ConvolutionBackwardOverrideable::AddNode(
     // This is due to a bridge limitation with jit disabled ops for specific
     // cases. SW-177687
     if (true) {
-      std::vector syn_inputs = {grad_output_reshaped, weight_reshaped};
+      std::vector syn_inputs = {grad_output_expanded, weight_expanded};
 
       // Allocate Shape Tensor
       CreateShapeTensorInput(graph, ScalarType(), out0_shape, syn_inputs);
@@ -427,7 +427,7 @@ void ConvolutionBackwardOverrideable::AddNode(
           {{out0_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 0)}},
           params.get());
 
-      IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
+      IF_CONV1D_SQUEEZE_TO_ORIG_AND_SET_OUT(convOp, out0_shape, 0);
     } else {
       AddUndefinedOutputTensor();
     }
@@ -441,11 +441,11 @@ void ConvolutionBackwardOverrideable::AddNode(
           graph,
           std::move(guid),
           is_conv_3d,
-          {grad_output_reshaped, input_reshaped},
+          {grad_output_expanded, input_expanded},
           {{out1_shape, ScalarType(), COND_FINAL_RES_IDX(is_conv_1d, 1)}},
           params.get());
 
-      IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
+      IF_CONV1D_SQUEEZE_TO_ORIG_AND_SET_OUT(dedwOp, out1_shape, 1);
     } else {
       AddUndefinedOutputTensor();
     }

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,9 +12,10 @@
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
+from test_utils import format_tc
 
 
-@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16], ids=format_tc)
 def test_hpu_convolution(dtype):
     def fn(input, weight, bias):
         return torch.convolution(input, weight, bias, stride, padding, dilation, transposed, output_padding, groups)

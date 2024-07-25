@@ -1,5 +1,5 @@
-# ******************************************************************************
-# Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
+###############################################################################
+# Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -8,14 +8,16 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-# ******************************************************************************
+###############################################################################
 from copy import deepcopy
 
 import numpy as np
 import pytest
 import torch
 import torch.nn as nn
-from test_utils import cpu, hpu
+from test_utils import cpu, format_tc, hpu, print_tensors
+
+Verbose = False
 
 # N - batch
 # H - input height
@@ -87,7 +89,7 @@ dilation_test_case_list = [
     (8, 28, 28, 3, 2, 2, 16, 1, 1, 2, False),
 ]
 
-conv_test_case_list = (
+conv_chlast_test_case_list = (
     [
         # N, H, W, C, R, S, K, str, pad, bias
         (2, 3, 4, 5, 2, 2, 6, 1, 0, True),
@@ -97,6 +99,13 @@ conv_test_case_list = (
     + mnist_test_case_list
     + resnet50_test_case_list
 )
+
+conv_test_case_list = conv_chlast_test_case_list + [
+    # N, H, W, C, R, S, K, str, pad, bias
+    (None, 3, 4, 5, 2, 2, 6, 1, 0, True),
+    (2, 3, None, 5, 2, 2, 6, 1, 0, True),
+    (None, 3, None, 5, 2, 2, 6, 1, 0, True),
+]
 
 conv3d_test_case_list = [
     # N, D, H, W, C, T, R, S, K, stride, padding, bias
@@ -438,24 +447,98 @@ def test_hpu_conv_transpose3d_chlast_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, 
         )
 
 
-@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
-@pytest.mark.parametrize("dtype, tol", data_type_list)
-def test_hpu_conv(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol):
-    input_nchw = torch.randn((N, C, H, W), dtype=torch.float, requires_grad=True)
+class NativeConv:
+    def __init__(self, N, W, kernel_cpu, stride, padding, dilation, groups):
+        def make_list(v):
+            return [v, v]
 
-    kernel_nchw = nn.Conv2d(C, K, R, stride, padding, 1, 1, bias)
-    kernel_copy = deepcopy(kernel_nchw)
+        self.N = N
+        self.W = W
+        self.stride = make_list(stride)
+        self.padding = make_list(padding)
+        self.dilation = make_list(dilation)
+        self.output_padding = make_list(0)
+        self.groups = groups
+
+        self.weight = kernel_cpu.weight
+        self.bias = kernel_cpu.bias
+
+    def __call__(self, input):
+        def addNW(NW, t, axis):
+            if NW:
+                return t
+            else:
+                return torch.unsqueeze(t, axis)
+
+        def addN(t):
+            return addNW(self.N, t, 0)
+
+        def addW(t):
+            return addNW(self.W, t, -2)
+
+        def delNW(NW, t, axis):
+            if NW:
+                return t
+            else:
+                return torch.squeeze(t, axis)
+
+        def delN(t):
+            return delNW(self.N, t, 0)
+
+        def delW(t):
+            return delNW(self.W, t, -2)
+
+        return delN(
+            delW(
+                torch.ops.aten.convolution_overrideable(
+                    addN(addW(input)),
+                    addW(self.weight),
+                    self.bias,
+                    self.stride,
+                    self.padding,
+                    self.dilation,
+                    False,
+                    self.output_padding,
+                    self.groups,
+                )
+            )
+        )
+
+    def to(self, device):
+        self.weight = self.weight.to(device)
+        if self.bias is not None:
+            self.bias = self.bias.to(device)
+        return self
+
+
+@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
+@pytest.mark.parametrize("dtype, tol", data_type_list, ids=format_tc)
+@pytest.mark.parametrize("native", [False, True])
+def test_hpu_conv(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol, native):
+    input_shape = tuple([x for x in [N, C, H, W] if x])
+    input_nchw = torch.randn(input_shape, dtype=torch.float, requires_grad=True)
+
+    if Verbose:
+        print_tensors(["input_nchw"], [input_nchw])
+
+    kernel_cpu = (nn.Conv2d if W else nn.Conv1d)(C, K, R, stride, padding, 1, 1, bias)
+    kernel_hpu = NativeConv(N, W, kernel_cpu, stride, padding, 1, 1) if native else deepcopy(kernel_cpu)
+
     # cpu forward
-    out_cpu_nchw = kernel_nchw(input_nchw)
+    out_cpu_nchw = kernel_cpu(input_nchw)
 
     input_nchw_hpu = input_nchw.to(hpu)
-    kernel_nhwc_hpu = kernel_copy.to(hpu)
+    kernel_nhwc_hpu = kernel_hpu.to(hpu)
     # hpu forward
     out_cpu_nchw_hpu = kernel_nhwc_hpu(input_nchw_hpu)
     # print(out_cpu_nchw_hpu.shape, out_cpu_nchw_hpu.stride(), out_cpu_nchw.shape, out_cpu_nchw.stride())
     # hpu result permute since in channels_last, the kernel output is also in channels_last
     # but for C=1, contiguous(memory_format=torch.channels_last) doesn't convert to channels_last
     tt = out_cpu_nchw_hpu.to(cpu)
+
+    if Verbose:
+        print_tensors(["out_cpu_nchw", "out_hpu_nchw"], [out_cpu_nchw, tt])
+
     np.testing.assert_allclose(
         tt.detach().numpy(),
         out_cpu_nchw.detach().numpy(),
@@ -503,9 +586,10 @@ def test_hpu_conv3d(N, D, H, W, C, T, R, S, K, stride, padding, bias, dtype, tol
 @pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
 @pytest.mark.parametrize("dtype, tol", data_type_list)
 def test_hpu_conv_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias, dtype, tol):
-    input_nchw = torch.randn((N, C, H, W), dtype=torch.float, requires_grad=True)
+    input_shape = tuple([x for x in [N, C, H, W] if x])
+    input_nchw = torch.randn(input_shape, dtype=torch.float, requires_grad=True)
 
-    kernel_nchw = nn.Conv2d(C, K, R, stride, padding, 1, 1, bias)
+    kernel_nchw = (nn.Conv2d if W else nn.Conv1d)(C, K, R, stride, padding, 1, 1, bias)
     kernel_copy = deepcopy(kernel_nchw)
     # cpu forward
     out_cpu_nchw = kernel_nchw(input_nchw)
@@ -588,7 +672,7 @@ def test_hpu_conv_fwd_bwd_dilation(N, H, W, C, R, S, K, stride, padding, dilatio
     )
 
 
-@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
+@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_chlast_test_case_list)
 def test_hpu_conv_chlast(N, H, W, C, R, S, K, stride, padding, bias):
     input_nchw = torch.randn((N, C, H, W), dtype=torch.float, requires_grad=True)
 
@@ -646,7 +730,7 @@ def test_hpu_conv3d_chlast(N, D, H, W, C, T, R, S, K, stride, padding, bias):
     )
 
 
-@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
+@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_chlast_test_case_list)
 def test_hpu_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
     input_nchw = torch.randn((N, C, H, W), dtype=torch.float, requires_grad=True)
 
@@ -672,7 +756,7 @@ def test_hpu_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
     )
 
 
-@pytest.mark.skip(reason="Device critical error")
+# @pytest.mark.skip(reason="Device critical error")
 @pytest.mark.parametrize("N, D, H, W, C, T, R, S, K, stride, padding, bias", conv3d_test_case_list)
 def test_hpu_conv3d_chlast_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, bias):
     input_nchw = torch.randn((N, C, D, H, W), dtype=torch.float, requires_grad=True)
@@ -706,7 +790,7 @@ def test_hpu_conv3d_chlast_fwd_bwd(N, D, H, W, C, T, R, S, K, stride, padding, b
     )
 
 
-@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_test_case_list)
+@pytest.mark.parametrize("N, H, W, C, R, S, K, stride, padding, bias", conv_chlast_test_case_list)
 def test_hpu_chain_loop_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding, bias):
     input_nchw = torch.randn((N, C, H, W), dtype=torch.float, requires_grad=True)
 
@@ -743,13 +827,10 @@ def test_hpu_chain_loop_conv_chlast_fwd_bwd(N, H, W, C, R, S, K, stride, padding
         )
 
 
-# Due to a bridge limitation with jit disabled ops for specific cases,
-# convolution_backward_overrideable op assumes output_mask is always true.
-@pytest.mark.skip(reason="SW-177687")
 @pytest.mark.parametrize("N, H, W, C, output_mask", conv_bwd_with_output_mask_test_case_list)
 def test_hpu_conv_with_output_mask(N, H, W, C, output_mask):
-    if pytest.mode == "lazy":
-        pytest.xfail()
+    if False in output_mask:
+        pytest.xfail("SW-177687")
 
     def check_grad(is_mask_enabled, grad, output_var_name):
         if is_mask_enabled:

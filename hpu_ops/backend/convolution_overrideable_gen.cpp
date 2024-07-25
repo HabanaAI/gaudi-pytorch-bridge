@@ -180,9 +180,13 @@ void ConvolutionOverrideable::AddNode(
 
   const bool is_conv_1d = input.dim() == 3;
 
-  // For convolution 1d we add additional reshapes
-  IF_CONV1D_RESHAPE_TO_2D(input, 0);
-  IF_CONV1D_RESHAPE_TO_2D(weight, 1);
+  // torch.Conv2D and torch.Conv1D always enter here with 4D or wider tensors
+  // 3D case never happens as it could not be inferred if it is:
+  // - torch.Conv1D (N,C,L) -> (N,C,L,1) or
+  // - torch.Conv2D (C,H,W) -> (1,C,H,W)
+  // 3D case can happen from torch.convolution
+  IF_CONV1D_EXPAND_TO_2D(input, 0);
+  IF_CONV1D_EXPAND_TO_2D(weight, 1);
 
   const uint64_t DIM5 = 5;
   const bool is_conv_3d = input.dim() == DIM5;
@@ -194,7 +198,7 @@ void ConvolutionOverrideable::AddNode(
   if (is_conv_3d)
     guid += "3d";
 
-  std::vector<synTensor> inputs = {input_reshaped, weight_reshaped};
+  std::vector<synTensor> inputs = {input_expanded, weight_expanded};
 
   auto meta = ConvolutionOverrideableMeta(stack)[0];
 
@@ -223,23 +227,31 @@ void ConvolutionOverrideable::AddNode(
   SetSynapseLayouts({}, {});
 
   if (transposed && bias.defined()) {
-    // Reshape bias to match to NCHW output format
+    // Expand bias to match to NCHW output format
     int64_t data[5] = {1, bias.sizes().vec()[0], 1, 1, 1};
     c10::IntArrayRef shape(data, is_conv_3d ? 5 : 4);
-    synapse_helpers::tensor biasReshaped =
-        BuildReshape(this, graph, syn_in(2), shape, meta.dtype);
+
+    ns_ExpandMultiDimsKernel::Params expandParams;
+    expandParams.expand_axes_mask = is_conv_3d ? 0b10111 : 0b1011;
+
+    synapse_helpers::tensor biasExpanded = std::move(BuildOp(
+        graph,
+        "expand_multi_dims",
+        {syn_in(2)},
+        {{shape, meta.dtype}},
+        &expandParams,
+        sizeof(expandParams))[0]);
 
     c10::optional<int> final_result_index_0 =
         is_conv_1d ? c10::optional<int>{c10::nullopt} : c10::optional<int>{0};
     auto addOp = BuildOp(
         graph,
         get_guid_with_precision("add_fwd", meta.dtype),
-        {convOp[0].get(), biasReshaped.get()},
+        {convOp[0].get(), biasExpanded.get()},
         {{meta.shape, meta.dtype, final_result_index_0}});
-
-    IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(addOp[0], meta.shape, 0);
+    IF_CONV1D_SQUEEZE_TO_ORIG_AND_SET_OUT(addOp[0], meta.shape, 0);
   } else {
-    IF_CONV1D_RESHAPE_TO_ORIG_AND_SET_OUT(convOp[0], meta.shape, 0);
+    IF_CONV1D_SQUEEZE_TO_ORIG_AND_SET_OUT(convOp[0], meta.shape, 0);
   }
 }
 } // namespace habana

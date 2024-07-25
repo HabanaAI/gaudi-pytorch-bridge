@@ -611,3 +611,21 @@ def find_in_hier_list(v, hlist, index=[]):
 
 def is_dtype_floating_point(dtype):
     return torch.is_floating_point(torch.tensor((), dtype=dtype))
+
+
+def print_tensors_internal(tensors, index=[]):
+    if isinstance(tensors[0], Iterable):
+        for i, (tensors_sub) in enumerate(zip(*tensors)):
+            print_tensors_internal(tensors_sub, index + [i])
+    else:
+        len = 22
+        s = ""
+        for v in tensors:
+            s += f"{v:{len}}"
+        print(f"{index} {s}")
+
+
+def print_tensors(labels, tensors):
+    for l, t in zip(labels, tensors):
+        print(f"{l} : {t.shape}")
+    print_tensors_internal([t.tolist() for t in tensors])
