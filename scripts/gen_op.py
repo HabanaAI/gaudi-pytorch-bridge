@@ -382,9 +382,6 @@ class Op:
             return None
         return self.op.get("dtypes", None)
 
-    def get_tpc_param(self):
-        return self.op.get("tpc_param", None)
-
     def get_synapse_layouts(self):
         return self.op.get("synapse_layouts", [])
 
@@ -613,7 +610,6 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     scalar_ids = ctxop.get_scalar_ids()
     no_compute_flag = ctxop.get_no_compute_flag()
     custom_fill_params = ctxop.get_custom_fill_params()
-    tpc_param = ctxop.get_tpc_param()
     op_backend_class = ctxop.get_op_backend_class()
     output_shape_fn = ctxop.get_custom_output_shape()
     output_meta_fn = ctxop.get_output_meta()
@@ -683,20 +679,6 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
 
     if custom_fill_params:
         ctor_extra_calls.append("SetFillParams({});".format(custom_fill_params))
-
-    if tpc_param:
-        assert custom_fill_params is None, "Should not define both `tpc_param` and `custom_fill_params` for {}".format(
-            fname
-        )
-        params = []
-        for param_data in tpc_param["params"]:
-            if len(param_data):
-                idx, cast_type = param_data
-                params.append("stack[{}].toScalar().to<{}>()".format(idx, cast_type))
-            else:
-                params.append("{}")
-        fill_params = templates._FILL_PARAMS.format(ns_param=tpc_param["name"], args=", ".join(params))
-        ctor_extra_calls.append("SetFillParams({});".format(fill_params))
 
     if promote_to_common_type:
         ctor_extra_calls.append("EnableTypePromotion();")

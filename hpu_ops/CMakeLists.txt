@@ -160,7 +160,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
           backend/embedding_gen.cpp
           backend/embedding_dense_backward_gen.cpp
           backend/empty_gen.cpp
-          backend/elu_backward_gen.cpp
+          backend/elu_gen.cpp
           backend/equal_gen.cpp
           backend/erfc_gen.cpp
           backend/expand_gen.cpp

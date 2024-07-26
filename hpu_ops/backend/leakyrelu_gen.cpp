@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 HabanaLabs, Ltd.
  * All Rights Reserved.
  *
  * Unauthorized copying of this file, via any medium is strictly prohibited.
@@ -8,9 +8,18 @@
  ******************************************************************************
  */
 
+#include "generated/backend/leaky_relu.h"
 #include "generated/backend/leaky_relu_backward.h"
 
 namespace habana {
+std::shared_ptr<void> FillLeakyReluParams(
+    const at::Stack& stack,
+    size_t& size) {
+  PARAMS_STUB(ns_LeakyReluKernel::Params);
+  params->alpha = stack.at(1).toScalar().toFloat();
+  return params;
+}
+
 std::shared_ptr<void> FillLeakyReluBackwardParams(
     const at::Stack& stack,
     size_t& size) {

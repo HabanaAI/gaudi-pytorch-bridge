@@ -60,10 +60,7 @@ elu:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: elu_fwd
-  tpc_param:
-    name: ns_EluKernel::Params
-    params:
-    - [1, float]
+  custom_fill_params: FillEluParams
   out_ids: [0]
   op_validator: check-node-with-shared-layer
 

@@ -14,7 +14,7 @@ using namespace torch::jit;
 
 namespace habana {
 
-static CheckNodeWithSharedLayerValidator validator_elu("elu", "elu_fwd", {0}, {}, nullptr, nullptr, {}, false, false, false, false);
+static CheckNodeWithSharedLayerValidator validator_elu("elu", "elu_fwd", {0}, {}, nullptr, FillEluParams, {}, false, false, false, false);
 
 
 struct shared_layer_elu : SharedLayerOp {

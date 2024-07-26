@@ -1,16 +1,26 @@
-/******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
+#include "generated/backend/elu.h"
 #include "generated/backend/elu_backward.h"
 
 namespace habana {
+std::shared_ptr<void> FillEluParams(const at::Stack& stack, size_t& size) {
+  PARAMS_STUB(ns_EluKernel::Params);
+  params->alpha = stack.at(1).toScalar().toFloat();
+  return params;
+}
+
 std::shared_ptr<void> FillEluBackwardParams(
     const at::Stack& stack,
     size_t& size) {

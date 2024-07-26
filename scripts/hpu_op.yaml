@@ -3254,11 +3254,8 @@ elu:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
+  custom_fill_params: FillEluParams
   guid: elu_fwd
-  tpc_param:
-    name: ns_EluKernel::Params
-    params:
-    - [1, float]
   out_ids: [0]
   op_validator: check-node-with-shared-layer
 
@@ -3267,11 +3264,8 @@ elu_:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
+  custom_fill_params: FillEluParams
   guid: elu_fwd
-  tpc_param:
-    name: ns_EluKernel::Params
-    params:
-    - [1, float]
   inplace_ids: [0]
   op_validator: check-node-with-shared-layer
 
@@ -3280,11 +3274,8 @@ elu.out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
+  custom_fill_params: FillEluParams
   guid: elu_fwd
-  tpc_param:
-    name: ns_EluKernel::Params
-    params:
-    - [1, float]
   op_validator: check-node-with-shared-layer
 
 elu_backward:
@@ -4764,12 +4755,9 @@ leaky_relu:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
+  custom_fill_params: FillLeakyReluParams
   guid: leakyrelu_fwd
   out_ids: [0]
-  tpc_param:
-    name: ns_LeakyReluKernel::Params
-    params:
-    - [1, float]
   op_validator: check-node-with-shared-layer
 
 leaky_relu_:
@@ -4777,12 +4765,9 @@ leaky_relu_:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
+  custom_fill_params: FillLeakyReluParams
   guid: leakyrelu_fwd
   inplace_ids: [0]
-  tpc_param:
-    name: ns_LeakyReluKernel::Params
-    params:
-    - [1, float]
   op_validator: check-node-with-shared-layer
 
 leaky_relu.out:
@@ -4790,11 +4775,8 @@ leaky_relu.out:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
+  custom_fill_params: FillLeakyReluParams
   guid: leakyrelu_fwd
-  tpc_param:
-    name: ns_LeakyReluKernel::Params
-    params:
-    - [1, float]
   op_validator: check-node-with-shared-layer
 
 lerp.Scalar:

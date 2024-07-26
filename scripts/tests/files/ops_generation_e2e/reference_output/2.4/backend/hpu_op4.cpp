@@ -19,11 +19,7 @@ namespace habana {
 struct Genelu : OpBackend {
   Genelu(int device_id, c10::ScalarType scalar_type) :
       OpBackend(device_id, "elu_fwd", scalar_type, {0}, {}, {}, false) {
-        SetFillParams([](const at::Stack& stack, size_t& size) {
-            using T = ns_EluKernel::Params;
-            size = sizeof(T);
-            return std::make_shared<T>(T{stack[1].toScalar().to<float>()});
-        });
+        SetFillParams(FillEluParams);
   }
 };
 

@@ -10,6 +10,7 @@ namespace habana {
 
 
 at::Tensor elu(const at::Tensor & self, const at::Scalar & alpha, const at::Scalar & scale, const at::Scalar & input_scale);
+FILL_PARAMS_DECL(FillEluParams);
 
 }  // namespace habana
 
