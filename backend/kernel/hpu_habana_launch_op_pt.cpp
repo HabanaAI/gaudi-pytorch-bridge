@@ -3519,6 +3519,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       for (auto input : node_inputs) {
         auto ivalptr = value_to_ivalue.at(input);
         if (ivalptr->isTensor()) {
+          HABANA_ASSERT(ivalue_to_tensor_info_map.count(ivalptr));
           PtTensorInfoShared ti = ivalue_to_tensor_info_map.at(ivalptr);
           kernel_info.input_tensor_infos.push_back(ti);
         } else {
@@ -3530,6 +3531,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       for (auto output : node_outputs) {
         auto ivalptr = value_to_ivalue.at(output);
         if (ivalptr->isTensor()) {
+          HABANA_ASSERT(ivalue_to_tensor_info_map.count(ivalptr));
           PtTensorInfoShared ti = ivalue_to_tensor_info_map.at(ivalptr);
           kernel_info.output_tensor_infos.push_back(ti);
         } else {

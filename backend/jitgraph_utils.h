@@ -29,6 +29,7 @@ bool isInGraphOutputs(const torch::jit::Node* node);
 bool isInGraphOutputs(const torch::jit::Value* value);
 bool isListNode(const torch::jit::Node* node);
 int inplaceInputId(const torch::jit::Node* node);
+bool isOutputCollective(const torch::jit::Node* node);
 
 inline bool isInplace(const torch::jit::Node* node) {
   return inplaceInputId(node) >= 0;

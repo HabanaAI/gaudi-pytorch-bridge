@@ -147,7 +147,10 @@ void PersistenceMarkerPass::MarkPersistenceNodes(
         habana_helpers::IsCollective(node->kind()) ||
         // must the be last condition as it can change inputId
         (((inputId = inplaceInputId(node)) >= 0) && !foundInIgnoreList) ||
-        (foundInIgnoreList && jitgraph_utils::isInGraphOutputs(node))) {
+        (foundInIgnoreList &&
+         (jitgraph_utils::isInGraphOutputs(node) ||
+          (isOutputCollective(node) &&
+           GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LAZY_COLLECTIVES))))) {
       set_persistence_input(node, inputId);
       set_persistence_output(node, 0);
       // If we found special node from ignore list, then track back chain of

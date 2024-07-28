@@ -13,6 +13,7 @@
 
 #include <cstring>
 
+#include "backend/helpers/tensor_utils.h"
 #include "backend/jitgraph_utils.h"
 #include "habana_helpers/logging.h"
 
@@ -95,6 +96,17 @@ bool isInGraphOutputs(const torch::jit::Node* node, size_t index) {
   TORCH_CHECK(index <= node_outs.size());
 
   return isInGraphOutputs(node_outs[index]);
+}
+
+bool isOutputCollective(const torch::jit::Node* node) {
+  for (auto node_outs : node->outputs()) {
+    for (auto& u : node_outs->uses()) {
+      if (habana_helpers::IsCollective(u.user->kind())) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 bool isInGraphOutputs(const torch::jit::Node* node) {
