@@ -12,6 +12,7 @@ using habana_lazy::GraphHashBuilder;
 
 #include "_native_batch_norm_legit.h"
 #include "bitwise_left_shift.h"
+#include "clone.h"
 #include "convolution_backward_overrideable.h"
 #include "eq.h"
 #include "isfinite.h"
@@ -29,6 +30,24 @@ using torch::jit::Stack;
 namespace habana {
 
 
+
+at::Tensor clone(const at::Tensor & self, c10::optional<at::MemoryFormat> memory_format) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("clone: ", DUMP_2ARGS(self, memory_format));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE(self, clone, self, memory_format)
+
+  LazyOp<at::Tensor> hpu_op{"aten::clone", {self, memory_format}};
+  hpu_op.SetOutputMetaFn(CloneMeta);
+  RUN_MAYBE_WITH_ACC_THREAD(clone, hpu_op);
+}
 
 at::Tensor & mul_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
   PT_LAZY_OP_TRACE;
@@ -223,6 +242,7 @@ static const auto& kr_gen_9 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
+  m.impl("clone", static_cast<at::Tensor (*)(const at::Tensor &, c10::optional<at::MemoryFormat>)>(&habana::clone));
   m.impl("mul.Scalar_out", static_cast<at::Tensor & (*)(const at::Tensor &, const at::Scalar &, at::Tensor &)>(&habana::mul_out));
   m.impl("sort.values_stable", static_cast<::std::tuple<at::Tensor &,at::Tensor &> (*)(const at::Tensor &, c10::optional<bool>, int64_t, bool, at::Tensor &, at::Tensor &)>(&habana::sort_out));
   m.impl("squeeze.dims", static_cast<at::Tensor (*)(const at::Tensor &, at::IntArrayRef)>(&habana::squeeze));

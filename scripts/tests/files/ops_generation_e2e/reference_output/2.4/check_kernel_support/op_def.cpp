@@ -5,6 +5,7 @@
 #include "addbmm.h"
 #include "as_strided.h"
 #include "bitwise_left_shift.h"
+#include "bucketize.h"
 #include "clone.h"
 #include "convolution_backward_overrideable.h"
 #include "elu.h"
@@ -46,6 +47,7 @@ std::unordered_map<std::string, std::function<bool(c10::FunctionSchema&, bool, b
 {"addbmm", &check_support<habana::shared_layer_addbmm>},
 {"as_strided", &check_support<habana::shared_layer_as_strided>},
 {"bitwise_left_shift", &check_support<habana::shared_layer_bitwise_left_shift>},
+{"bucketize", &check_support<habana::shared_layer_bucketize>},
 {"clone", &check_support<habana::shared_layer_clone>},
 {"convolution_backward_overrideable", &check_support<habana::shared_layer_convolution_backward_overrideable>},
 {"elu", &check_support<habana::shared_layer_elu>},

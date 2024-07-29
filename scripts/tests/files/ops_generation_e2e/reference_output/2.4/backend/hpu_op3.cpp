@@ -2,8 +2,8 @@
 
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "_fused_dropout.h"
-#include "native_dropout.h"
+#include "bucketize.h"
+#include "elu.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -17,27 +17,32 @@ namespace habana {
 
 
 
-struct Gennative_dropout : FusedNativeDropout {
-  Gennative_dropout(int device_id, c10::ScalarType scalar_type) :
-      FusedNativeDropout(device_id, "None", scalar_type, {0, 0}, {}, {}, false) {
-        SetOutputMetaFn(FusedNativeDropoutMeta);
-        SetFillParams(FillFusedNativeDropoutParams);
+struct Genbucketize_Scalar : OpBackend {
+  Genbucketize_Scalar(int device_id, c10::ScalarType scalar_type) :
+      OpBackend(device_id, "search_sorted_fwd", scalar_type, {1}, {}, {0}, false) {
+        SetOutputMetaFn(BucketizeMeta);
+        SetFillParams(FillBucketizeParams);
+        SetTpcInputOrder({1, 0});
+        EnableTypePromotion();
+  }
+};
+
+struct Genelu : OpBackend {
+  Genelu(int device_id, c10::ScalarType scalar_type) :
+      OpBackend(device_id, "elu_fwd", scalar_type, {0}, {}, {}, false) {
+        SetFillParams(FillEluParams);
   }
 };
 
 
 
 static const auto& kr_gen_3 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::native_dropout", Gennative_dropout)
-.REGISTER_HPU_BACKEND("hpu::native_dropout", Gennative_dropout)
+.REGISTER_HPU_BACKEND("aten::bucketize.Scalar", Genbucketize_Scalar)
+.REGISTER_HPU_BACKEND("aten::elu", Genelu)
 ;
 
 
 
-TORCH_LIBRARY_FRAGMENT(hpu, m) {
-  static_cast<void>(m);
-  m.def("native_dropout(Tensor input, float p, Tensor? seed) -> (Tensor, Tensor)");
 
-}
 }  // namespace habana
 

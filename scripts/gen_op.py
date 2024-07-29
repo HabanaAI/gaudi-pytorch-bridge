@@ -445,6 +445,9 @@ class Op:
     def get_scalar_ids(self):
         return self.op.get("scalar_ids", [])
 
+    def get_tpc_input_order(self):
+        return self.op.get("tpc_input_order", None)
+
     def get_hw_scaling_ids(self):
         return self.op.get("hw_scaling_ids", [])
 
@@ -630,6 +633,7 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     scalar_ids = ctxop.get_scalar_ids()
     no_compute_flag = ctxop.get_no_compute_flag()
     custom_fill_params = ctxop.get_custom_fill_params()
+    tpc_input_order = ctxop.get_tpc_input_order()
     op_backend_class = ctxop.get_op_backend_class()
     output_shape_fn = ctxop.get_custom_output_shape()
     output_meta_fn = ctxop.get_output_meta()
@@ -700,6 +704,10 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
 
     if custom_fill_params:
         ctor_extra_calls.append("SetFillParams({});".format(custom_fill_params))
+
+    if tpc_input_order:
+        tpc_input_order_str = ", ".join(map(str, tpc_input_order))
+        ctor_extra_calls.append("SetTpcInputOrder({{{}}});".format(tpc_input_order_str))
 
     if promote_to_common_type:
         ctor_extra_calls.append("EnableTypePromotion();")

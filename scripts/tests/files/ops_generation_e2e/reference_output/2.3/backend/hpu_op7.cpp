@@ -2,7 +2,8 @@
 
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "clone.h"
+#include "bitwise_left_shift.h"
+#include "isfinite.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -16,18 +17,32 @@ namespace habana {
 
 
 
-struct Genclone : OpBackend {
-  Genclone(int device_id, c10::ScalarType scalar_type) :
-      OpBackend(device_id, "identity", scalar_type, {0}, {}, {}, false) {
-        setNoComputeFlag();
-        SetOutputMetaFn(CloneMeta);
+struct Genisfinite : _IsFiniteInfNan {
+  Genisfinite(int device_id, c10::ScalarType scalar_type) :
+      _IsFiniteInfNan(device_id, "isfinite_fwd", scalar_type, {0}, {}, {}, false) {
+  }
+};
+
+struct Genbitwise_left_shift_Tensor_Scalar : OpBackend {
+  Genbitwise_left_shift_Tensor_Scalar(int device_id, c10::ScalarType scalar_type) :
+      OpBackend(device_id, "bitshift_fwd", scalar_type, {0}, {}, {1}, false) {
+        SetFillParams(FillLeftShiftParams);
+  }
+
+  void CustomHandler(graph &g, Stack& stack) override {
+    static_cast<void>(g);
+    static_cast<void>(stack);
+    if (ScalarType() == at::kBool) {
+      SetGuid("bitshift_fwd_i8");
+    }
   }
 };
 
 
 
 static const auto& kr_gen_7 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::clone", Genclone)
+.REGISTER_HPU_BACKEND("aten::isfinite", Genisfinite)
+.REGISTER_HPU_BACKEND("aten::bitwise_left_shift.Tensor_Scalar", Genbitwise_left_shift_Tensor_Scalar)
 ;
 
 

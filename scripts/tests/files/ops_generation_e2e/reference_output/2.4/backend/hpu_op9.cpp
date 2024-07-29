@@ -2,15 +2,8 @@
 
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "_native_batch_norm_legit.h"
-#include "bitwise_left_shift.h"
-#include "convolution_backward_overrideable.h"
-#include "eq.h"
-#include "isfinite.h"
 #include "linear_backward.h"
 #include "native_group_norm.h"
-#include "sort.h"
-#include "squeeze.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -23,68 +16,6 @@ namespace habana {
 
 
 
-
-struct Gensort_values_stable : SortStable {
-  Gensort_values_stable(int device_id, c10::ScalarType scalar_type) :
-      SortStable(device_id, "None", scalar_type, {}, {}, {}, true) {
-        SetNumOutTensors(2);
-        SetComputeOutputShapes(SortOutputShape);
-  }
-};
-
-struct Gensqueeze_dims : SqueezeDims {
-  Gensqueeze_dims(int device_id, c10::ScalarType scalar_type) :
-      SqueezeDims(device_id, "squeeze", scalar_type, {0}, {}, {}, false) {
-        SetOutputMetaFn(SqueezeDimsMeta);
-        SetHwScalingIds({0});
-  }
-};
-
-struct Geneq_Scalar_out : OpBackend {
-  Geneq_Scalar_out(int device_id, c10::ScalarType scalar_type) :
-      OpBackend(device_id, "equal_fwd", scalar_type, {}, {}, {1}, true) {
-        SetOutputMetaFn(CompareMeta);
-        EnableTypePromotion();
-        HandleBoolInputs();
-  }
-};
-
-struct Genisfinite : _IsFiniteInfNan {
-  Genisfinite(int device_id, c10::ScalarType scalar_type) :
-      _IsFiniteInfNan(device_id, "isfinite_fwd", scalar_type, {0}, {}, {}, false) {
-  }
-};
-
-struct Genbitwise_left_shift_Tensor_Scalar : OpBackend {
-  Genbitwise_left_shift_Tensor_Scalar(int device_id, c10::ScalarType scalar_type) :
-      OpBackend(device_id, "bitshift_fwd", scalar_type, {0}, {}, {1}, false) {
-        SetFillParams(FillLeftShiftParams);
-  }
-
-  void CustomHandler(graph &g, Stack& stack) override {
-    static_cast<void>(g);
-    static_cast<void>(stack);
-    if (ScalarType() == at::kBool) {
-      SetGuid("bitshift_fwd_i8");
-    }
-  }
-};
-
-struct Gen_native_batch_norm_legit : BatchNormOpBackend {
-  Gen_native_batch_norm_legit(int device_id, c10::ScalarType scalar_type) :
-      BatchNormOpBackend(device_id, "None", scalar_type, {0, 0, 0}, {}, {}, false) {
-        SetSynapseLayouts({synapse_helpers::layouts::SynapseLayoutFormat::WHCN, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE}, {synapse_helpers::layouts::SynapseLayoutFormat::WHCN, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE, synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-        SetOutputMetaFn(BatchNormFwdMeta);
-        SetFillParams(FillBatchNormFwdParams);
-  }
-};
-
-struct Genconvolution_backward_overrideable : ConvolutionBackwardOverrideable {
-  Genconvolution_backward_overrideable(int device_id, c10::ScalarType scalar_type) :
-      ConvolutionBackwardOverrideable(device_id, "None", scalar_type, {0, 0, 0}, {}, {}, false) {
-        SetOutputMetaFn(ConvolutionOverrideableMetaBwd);
-  }
-};
 
 struct Gennative_group_norm : OpBackend {
   Gennative_group_norm(int device_id, c10::ScalarType scalar_type) :
@@ -105,13 +36,6 @@ struct Genlinear_backward : OpBackend {
 
 
 static const auto& kr_gen_9 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::sort.values_stable", Gensort_values_stable)
-.REGISTER_HPU_BACKEND("aten::squeeze.dims", Gensqueeze_dims)
-.REGISTER_HPU_BACKEND("aten::eq.Scalar_out", Geneq_Scalar_out)
-.REGISTER_HPU_BACKEND("aten::isfinite", Genisfinite)
-.REGISTER_HPU_BACKEND("aten::bitwise_left_shift.Tensor_Scalar", Genbitwise_left_shift_Tensor_Scalar)
-.REGISTER_HPU_BACKEND("aten::_native_batch_norm_legit", Gen_native_batch_norm_legit)
-.REGISTER_HPU_BACKEND("aten::convolution_backward_overrideable", Genconvolution_backward_overrideable)
 .REGISTER_HPU_BACKEND("aten::native_group_norm", Gennative_group_norm)
 .REGISTER_HPU_BACKEND("aten::linear_backward", Genlinear_backward)
 ;

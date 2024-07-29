@@ -7,7 +7,7 @@
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
-#include "sort.h"
+#include "prod.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -19,23 +19,26 @@ namespace habana {
 
 
 
-::std::tuple<at::Tensor &,at::Tensor &> sort_out(const at::Tensor & self, c10::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices) {
+at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
   PT_EAGER_TRACE;
-  PT_OP_INFO("sort_out: ", DUMP_6ARGS(self, stable, dim, descending, values, indices));
+  PT_OP_INFO("prod_out: ", DUMP_5ARGS(self, dim, keepdim, dtype, out));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kInt, at::kBFloat16, at::kShort, at::kDouble}},
-   {synDeviceGaudi2, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE2(self, sort, values_stable, self, stable, dim, descending, values, indices)
-  FALLBACK_IF_UNSUPPORTED_DTYPE2(values, sort, values_stable, self, stable, dim, descending, values, indices)
+  auto compute_type = DTypeHelper::get_compute_dtype({self}, out, DTypeHelper::DtypePromoteVariant::kReduction, false/*safe_cast*/, dtype);
+  static_cast<void>(compute_type);
 
-  FALLBACK_IF_UNSUPPORTED_INPUTS2(SortStableFallbackCheck(self, stable, dim, descending), sort, values_stable, self, stable, dim, descending, values, indices)
-  eager::EagerOp<::std::tuple<at::Tensor &,at::Tensor &>> hpu_op{"aten::sort", {self, stable, dim, descending, values, indices}, SortOutputShape};
-  hpu_op.set_eager_op_info({eager::eagerOpKind::InplaceOut, "aten::sort", require_h2d, require_st, 2});
-  return hpu_op.call(::std::tuple<at::Tensor &,at::Tensor &>(values, indices));
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, prod, int_out, self, dim, keepdim, dtype, out)
+
+  ReductionFrontendTemplate<at::Tensor &> hpu_op{"aten::prod", {self, dim, keepdim, dtype, out}, ReductionOutputShape(self, dim, keepdim)};
+  hpu_op.set_scalar_types({compute_type});
+  hpu_op.SetReductionVarsIndices(1, 2, 3);
+  hpu_op.set_eager_op_info({eager::eagerOpKind::InplaceOut, "aten::prod", require_h2d, require_st, 1});
+  return hpu_op.call(out);
 }
 
 
@@ -46,7 +49,7 @@ static const auto& kr_gen_7 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("sort.values_stable", static_cast<::std::tuple<at::Tensor &,at::Tensor &> (*)(const at::Tensor &, c10::optional<bool>, int64_t, bool, at::Tensor &, at::Tensor &)>(&habana::sort_out));
+  m.impl("prod.int_out", static_cast<at::Tensor & (*)(const at::Tensor &, int64_t, bool, c10::optional<at::ScalarType>, at::Tensor &)>(&habana::prod_out));
 
 }
 

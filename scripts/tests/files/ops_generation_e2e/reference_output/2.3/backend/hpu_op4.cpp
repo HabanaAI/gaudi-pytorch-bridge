@@ -2,7 +2,8 @@
 
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "addbmm.h"
+#include "clone.h"
+#include "prod.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -16,18 +17,27 @@ namespace habana {
 
 
 
-struct Genaddbmm : AddBMM {
-  Genaddbmm(int device_id, c10::ScalarType scalar_type) :
-      AddBMM(device_id, "batch_gemm", scalar_type, {0}, {}, {}, false) {
-        SetOutputMetaFn(AddBMMMeta);
-        SetSharedLayerMetaFn(AddBMMSharedMeta);
+struct Genprod_int_out : ReductionBackendTemplate {
+  Genprod_int_out(int device_id, c10::ScalarType scalar_type) :
+      ReductionBackendTemplate(device_id, "reduce_prod_multi_dim_fwd", scalar_type, {}, {}, {}, true) {
+        SetReductionVarsIndices(1, 2, 3);
+        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 1) SetOutputMetaFn(ReductionMeta<1, 2, 3>);
+  }
+};
+
+struct Genclone : OpBackend {
+  Genclone(int device_id, c10::ScalarType scalar_type) :
+      OpBackend(device_id, "identity", scalar_type, {0}, {}, {}, false) {
+        setNoComputeFlag();
+        SetOutputMetaFn(CloneMeta);
   }
 };
 
 
 
 static const auto& kr_gen_4 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::addbmm", Genaddbmm)
+.REGISTER_HPU_BACKEND("aten::prod.int_out", Genprod_int_out)
+.REGISTER_HPU_BACKEND("aten::clone", Genclone)
 ;
 
 

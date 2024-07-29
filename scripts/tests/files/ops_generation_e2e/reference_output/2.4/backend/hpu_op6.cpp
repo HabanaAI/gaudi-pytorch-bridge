@@ -2,7 +2,8 @@
 
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/backend/reduction_template.h"
-#include "prod.h"
+#include "eq.h"
+#include "squeeze.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -16,18 +17,28 @@ namespace habana {
 
 
 
-struct Genprod_int_out : ReductionBackendTemplate {
-  Genprod_int_out(int device_id, c10::ScalarType scalar_type) :
-      ReductionBackendTemplate(device_id, "reduce_prod_multi_dim_fwd", scalar_type, {}, {}, {}, true) {
-        SetReductionVarsIndices(1, 2, 3);
-        if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 1) SetOutputMetaFn(ReductionMeta<1, 2, 3>);
+struct Gensqueeze_dims : SqueezeDims {
+  Gensqueeze_dims(int device_id, c10::ScalarType scalar_type) :
+      SqueezeDims(device_id, "squeeze", scalar_type, {0}, {}, {}, false) {
+        SetOutputMetaFn(SqueezeDimsMeta);
+        SetHwScalingIds({0});
+  }
+};
+
+struct Geneq_Scalar_out : OpBackend {
+  Geneq_Scalar_out(int device_id, c10::ScalarType scalar_type) :
+      OpBackend(device_id, "equal_fwd", scalar_type, {}, {}, {1}, true) {
+        SetOutputMetaFn(CompareMeta);
+        EnableTypePromotion();
+        HandleBoolInputs();
   }
 };
 
 
 
 static const auto& kr_gen_6 = KernelRegistry()
-.REGISTER_HPU_BACKEND("aten::prod.int_out", Genprod_int_out)
+.REGISTER_HPU_BACKEND("aten::squeeze.dims", Gensqueeze_dims)
+.REGISTER_HPU_BACKEND("aten::eq.Scalar_out", Geneq_Scalar_out)
 ;
 
 

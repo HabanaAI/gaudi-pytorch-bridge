@@ -144,6 +144,10 @@ class OpBackend : public HabanaOperator {
     kernel_meta_data_.synapse_output_layout = std::move(out_layouts);
   }
 
+  void SetTpcInputOrder(const std::vector<std::size_t>& tpc_input_order) {
+    kernel_meta_data_.tpc_input_order = tpc_input_order;
+  }
+
   void SetNumOutTensors(int n) {
     m_num_out_tensors = n;
   }
