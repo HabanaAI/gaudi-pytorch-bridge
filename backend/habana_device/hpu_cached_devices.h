@@ -140,6 +140,16 @@ class HPURegistrar {
     device.synchronize();
   }
 
+  // To finish execution pending in the host multi stage pipeline.
+  static void synchronize_host_multistage_pipeline() {
+    if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 0) {
+      c10::hpu::joinEagerThreadsCB();
+    } else {
+      PT_BRIDGE_WARN(
+          "synchronize_host_multistage_pipeline is invoked, but not supported. Ignoring..");
+    }
+  }
+
   static std::string get_device_capability() {
     auto& device = get_hpu_registrar().get_device();
     return device.syn_device().get_device_capability();

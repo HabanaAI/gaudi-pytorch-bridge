@@ -187,6 +187,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     // Note: This is synchronous step marker
     PT_IRGRAPH_DEBUG("step marker due to bindings-synchronize_device");
     habana_lazy::HbLazyTensor::StepMarker();
+    PT_IRGRAPH_DEBUG(
+        "synchronize host multistage pipeline due to bindings-synchronize_device");
+    habana::HPURegistrar::synchronize_host_multistage_pipeline();
     habana::HPURegistrar::synchronize_device();
   });
   m.def("device_count", []() {

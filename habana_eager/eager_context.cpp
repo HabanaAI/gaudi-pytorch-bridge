@@ -34,7 +34,7 @@ void SingleTonEagerContext::CreateInstance() {
   instance_.reset(new SingleTonEagerContext());
   habana::hpu_registrar().register_eager_context(
       []() { instance_.reset(nullptr); });
-  c10::hpu::setJoinEagerThreadsCB(habana::eager::JoinPendingPipelineThreads);
+  c10::hpu::setJoinEagerThreadsCB(habana::eager::JoinPendingPipelineAllThreads);
 }
 
 void SingleTonEagerContext::JoinPendingLoweringThread() {
@@ -61,6 +61,16 @@ void JoinPendingPipelineThreads() {
   habana_helpers::Singleton_CompileThreadPool::getInstance()
       .JoinPendingThread();
   habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+}
+
+void JoinPendingPipelineAllThreads() {
+  habana::eager::SingleTonEagerContext::getInstance()
+      .JoinPendingLoweringThread();
+  habana_helpers::Singleton_CompileThreadPool::getInstance()
+      .JoinPendingThread();
+  habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+  habana_helpers::Singleton_GarbageCollectionThreadPool::getInstance()
+      .JoinPendingThread();
 }
 
 } // namespace eager
