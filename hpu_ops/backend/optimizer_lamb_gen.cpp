@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -58,26 +58,17 @@ void OptimizerLambNorm::AddNode(
   auto syn_max_grad_norm = ConstantHelper(graph, max_grad_norm, dtype, {1});
 
   auto num_params = gradients.size();
-  std::vector<synapse_helpers::tensor> first_reshape;
   std::vector<synapse_helpers::tensor> intermediate_reduce;
   std::vector<synTensor> concat_inputs;
   for (size_t i = 0; i < num_params; ++i) {
-    auto shape = gradients[i].pt_t.sizes().vec();
-
-    int reshape_shape = 1;
-    for (size_t i = 0; i < shape.size(); ++i) {
-      reshape_shape *= shape[i];
-    }
-    first_reshape.push_back((OpBackend::BuildReshape(
-        this, graph, gradients[i].syn_t, {reshape_shape}, dtype)));
-
-    ns_Reduction::Params params{};
-    params.reductionDimension = 0;
+    ns_Reduction::ParamsV2 params{};
+    params.reductionDimensionMask = 0;
+    params.keepDim = false;
     intermediate_reduce.emplace_back(std::move(OpBackend::BuildNode(
         this,
         graph,
-        {get_guid_with_precision("reduce_sum_square_fwd", dtype),
-         {first_reshape.back().get()},
+        {get_guid_with_precision("reduce_sum_square_multi_dim_fwd", dtype),
+         {gradients[i].syn_t},
          {{{1}, dtype}},
          &params,
          sizeof(params)})[0]));
@@ -192,35 +183,23 @@ static std::vector<synapse_helpers::tensor> ComputeNorm(
          {input_syn_tensor, input_syn_tensor},
          {{input_shape, dtype}}});
 
-    auto reduction_shape = input_shape.vec();
-    auto rank = input_shape.size();
-    std::vector<synapse_helpers::tensor> reductions;
-    reductions.emplace_back(std::move(norm_mul[0]));
-
-    for (size_t i = 0; i < rank; ++i) {
-      ns_Reduction::Params reduce_params{};
-      reduce_params.reductionDimension = rank - i - 1;
-      reduction_shape[i] = 1;
-
-      auto sum = OpBackend::BuildNode(
-          op,
-          graph,
-          {get_guid_with_precision("reduce_sum_fwd", dtype),
-           {reductions.back().get()},
-           {{reduction_shape, dtype}},
-           &reduce_params,
-           sizeof(reduce_params)});
-      reductions.emplace_back(std::move(sum[0]));
-    }
-
-    auto norm_reduction =
-        OpBackend::BuildReshape(op, graph, reductions.back().get(), {1}, dtype);
+    ns_Reduction::ParamsV2 reduce_params{};
+    reduce_params.reductionDimensionMask = 0;
+    reduce_params.keepDim = false;
+    auto sum = OpBackend::BuildNode(
+        op,
+        graph,
+        {get_guid_with_precision("reduce_sum_multi_dim_fwd", dtype),
+         {norm_mul[0].get()},
+         {{{1}, dtype}},
+         &reduce_params,
+         sizeof(reduce_params)});
 
     return OpBackend::BuildNode(
         op,
         graph,
         {get_guid_with_precision("sqrt_fwd", dtype),
-         {norm_reduction.get()},
+         {sum[0].get()},
          {{{1}, dtype, final_idx}}});
   } else {
     return OpBackend::BuildNode(
