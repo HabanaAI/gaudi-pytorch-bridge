@@ -6030,6 +6030,18 @@ mul.out:
   op_frontend: BinaryScalarFE
   promote_to_common_type: [self, other]
 
+multi_margin_loss.out:
+  custom_fill_params: FillMultiMarginLossParams
+  guid: multi_margin_loss_fwd
+  op_validator: check-node-with-shared-layer
+
+multi_margin_loss:
+  custom_fill_params: FillMultiMarginLossParams
+  guid: multi_margin_loss_fwd
+  op_validator: check-node-with-shared-layer
+  out_ids: [0]
+  output_meta: MultiMarginLossMeta
+
 multinomial:
   custom_fill_params: FillMultinomialParams
   dtypes:
