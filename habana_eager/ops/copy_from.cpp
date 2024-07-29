@@ -240,11 +240,28 @@ void Copy_Compile_Empty_Task(
   }
 }
 
+static void clear_permutation_info(const at::Tensor& tensor) {
+  auto smeta{get_storage_extra_meta(tensor)};
+  if (smeta) {
+    auto synapse_permute = smeta->get_memory_permutation();
+    if (synapse_permute.size() != 0) {
+      PT_LAYOUTS_DEBUG("clearing memory permute ", VecToString(synapse_permute))
+      smeta->set_memory_permutation({});
+    }
+  }
+}
+
 void Copy_Empty_Lowering_Task(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking,
     c10::hpu::HPUStream stream) {
+  // Note: Here we clear the permutation info in lowering thread when the
+  // pipeline is enabled, to avoid race condition.
+  // Because src tensor is always not permuted and we will directly copy src
+  // data to dst. So if dst is permuted, we need to clear the permutation info
+  // in dst.
+  clear_permutation_info(dst);
   habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
       Copy_Compile_Empty_Task,
       std::move(src),
@@ -323,6 +340,10 @@ void Pipeline_Or_Direct_Copy(
         c10::hpu::getCurrentHPUStream());
   } else {
     habana::eager::JoinPendingPipelineThreads();
+    // Because src tensor is always not permuted and we will directly copy src
+    // data to dst. So if dst is permuted, we need to clear the permutation info
+    // in dst.
+    clear_permutation_info(dst);
     Execute_Copy(src, dst, non_blocking, c10::hpu::getCurrentHPUStream());
   }
 }
