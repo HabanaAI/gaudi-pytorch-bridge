@@ -23,7 +23,7 @@ from torch.fx.experimental.proxy_tensor import py_sym_types
 
 from .logger import dump_fx_graph, get_compile_backend_logger
 from .random_utils import is_random_op
-from .symbolic_execution import PythonPrinter, SymbolicShapeEvaluator
+from .symbolic_execution import PythonPrinter, SymbolicShapeEvaluator, substitute_sympyfn
 
 logger = get_compile_backend_logger()
 enable_dynamic_output_preallocate = bc.get_pt_hpu_enable_dynamic_output_preallocate()
@@ -261,6 +261,7 @@ def get_outputs_metadata_dynamic(graph_module):
                             pexpr = PythonPrinter().doprint
                             sz_str = pexpr(sz)
                             sz_sympy = sympify(sz_str)
+                            sz_sympy = substitute_sympyfn(sz_sympy)
                             dynamic_shape_sympy.append(sz_sympy)
                             dynamic_shape_str.append(sz_str)
                             if not sz_str in sym_expr_list:

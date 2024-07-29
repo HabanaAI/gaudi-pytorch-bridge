@@ -38,7 +38,13 @@ from .partitioner import HabanaPartitioner
 from .random_utils import is_random_op, random_op_inputs
 from .recipe_compiler import get_callable_recipe
 from .shared_layer import is_eager_fallback_required
-from .symbolic_execution import SymExprNodeManager, sympify_expression
+from .symbolic_execution import (
+    HPUExprPrinter,
+    PythonPrinter,
+    SymExprNodeManager,
+    substitute_sympyfn,
+    sympify_expression,
+)
 
 logger = get_compile_backend_logger()
 
@@ -2107,6 +2113,7 @@ def pass_compile_clusters(ctx: OptimizerContext):
             from .symbolic_execution import PythonPrinter
 
             pexpr = PythonPrinter().doprint
+            pexpr_output_shape = HPUExprPrinter().doprint
 
             def convert_tsize_to_str(tsize):
                 shape = tsize
@@ -2114,7 +2121,10 @@ def pass_compile_clusters(ctx: OptimizerContext):
                 tsize_str = "["
                 for dim, sz in enumerate(shape):
                     sz_str = pexpr(sz)
-                    sz_str = sympify_expression(sz_str)
+                    sz_str_sympy = sympify_expression(sz_str)
+                    sz_str_sympy = substitute_sympyfn(sz_str_sympy)
+                    logger.debug("pexpr_output_shape input sz_str_sympy:", sz_str_sympy)
+                    sz_str = pexpr_output_shape(sz_str_sympy)
                     tsize_str = tsize_str + str(sz_str)
                     if dim < dims - 1:
                         tsize_str += ","

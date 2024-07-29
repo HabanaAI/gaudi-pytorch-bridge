@@ -58,7 +58,7 @@ habana::SymExpression::SymExpression(
   m_expr_t.register_symbol_table(m_symbol_table);
 
   if (!parser.compile(m_expr_str, m_expr_t)) {
-    TORCH_CHECK(0, "ExprtK expression Compilation error... %s", m_expr_str);
+    TORCH_CHECK(0, "ExprtK expression Compilation error... ", m_expr_str);
   }
 }
 

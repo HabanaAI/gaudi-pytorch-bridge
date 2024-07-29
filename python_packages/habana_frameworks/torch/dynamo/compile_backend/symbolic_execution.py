@@ -19,6 +19,7 @@ import torch
 from symengine import sympify as sympify_engine
 from sympy import Function, sympify
 from sympy.printing.printer import Printer
+from torch._inductor.codegen.common import ExprPrinter as ExprPrinterPT
 
 from .logger import get_compile_backend_logger
 
@@ -27,25 +28,16 @@ logger = get_compile_backend_logger()
 torch_sympy_functions = {}
 
 
-def substitute_expr(expr, val_map):
-    result = expr.subs(val_map)
-    if isinstance(result, int):
-        return result
+def substitute_sympyfn(expr):
+    from packaging.version import Version
 
-    # If express substitution doesn't output an integer
-    # then it may have torch_sympy_functions
-    # which couldn't be evaluated
+    if Version(Version(torch.__version__).base_version) < Version("2.4"):
+        return expr
+
+    import torch.utils._sympy.functions as functions
+    from torch.utils._sympy.functions import CeilToInt, TruncToInt
+
     def get_torch_sympy_functions():
-
-        def _is_legacy_pt():
-            from packaging.version import Version
-
-            if Version(Version(torch.__version__).base_version) < Version("2.4"):
-                return True
-            return False
-
-        import torch.utils._sympy.functions as functions
-
         func_map = {}
         if hasattr(functions, "__all__"):
             for func_name in functions.__all__:
@@ -54,12 +46,8 @@ def substitute_expr(expr, val_map):
 
         # Not all functions are present in "__all__" attr
         # Some may needed to be added explicitly
-        if not _is_legacy_pt():
-            from torch.utils._sympy.functions import CeilToInt, TruncToInt
-
-            func_map["CeilToInt"] = CeilToInt
-            func_map["TruncToInt"] = TruncToInt
-
+        func_map["CeilToInt"] = CeilToInt
+        func_map["TruncToInt"] = TruncToInt
         return func_map
 
     global torch_sympy_functions
@@ -83,7 +71,7 @@ def substitute_expr(expr, val_map):
         return expr_
 
     expr = replace_torch_sympy_functions(expr)
-    return expr.subs(val_map)
+    return expr
 
 
 class CSEVariable:
@@ -166,6 +154,147 @@ class PythonPrinter(ExprPrinter):
         return f"math.floor({self.paren(self._print(expr.args[0]))})"
 
 
+class HPUExprPrinter(ExprPrinterPT):
+    def _print_ToFloat(self, expr):
+        assert len(expr.args) == 1
+        return f"({self._print(expr.args[0])})"
+
+    def _print_ModularIndexing(self, expr):
+        x, div, mod = expr.args
+        x = self.paren(self.doprint(x))
+        div = self.paren(self.doprint(div))
+        mod = self.paren(self.doprint(mod))
+        if div != "1":
+            x = f"({x} // {div})"
+        return f"{x} % {mod}"
+
+    # WARNING: this is dangerous for Triton, which has C-style modulus
+    def _print_PythonMod(self, expr):
+        return " % ".join(map(self.paren, map(self._print, expr.args)))
+
+    # WARNING: this is dangerous for Triton, which has C-style modulus
+    def _print_FloorDiv(self, expr):
+        x, div = expr.args
+        x = self.paren(self.doprint(x))
+        div = self.paren(self.doprint(div))
+        return f"({x} // {div})"
+
+    # WARNING: this is dangerous for Triton, when lhs, rhs > 2**53, Python
+    # does a special algorithm
+    def _print_IntTrueDiv(self, expr):
+        lhs, rhs = expr.args
+        return f"{self.paren(self._print(lhs))} / {self.paren(self._print(rhs))}"
+
+    def _helper_sqrt(self, expr):
+        return f"sqrt({self._print(expr)})"
+
+    def _print_OpaqueUnaryFn_sqrt(self, expr):
+        return self._helper_sqrt(expr.args[0])
+
+    def _print_FloatPow(self, expr):
+        base, exp = expr.args
+        return f"{self.paren(self._print(base))} ** {self.paren(self._print(exp))}"
+
+    # TODO: Not sure this works with Triton, even when base/exp are integral
+    def _print_PowByNatural(self, expr):
+        base, exp = expr.args
+        return f"{self.paren(self._print(base))} ** {self.paren(self._print(exp))}"
+
+    def _print_floor(self, expr):
+        assert len(expr.args) == 1
+        return f"floor({self._print(expr.args[0])})"
+
+    def _print_FloorToInt(self, expr):
+        assert len(expr.args) == 1
+        return f"floor({self._print(expr.args[0])})"
+
+    def _print_TruncToInt(self, expr):
+        assert len(expr.args) == 1
+        # This also could have been int(), they'll do the same thing for float
+        return f"trunc({self._print(expr.args[0])})"
+
+    def _print_ceiling(self, expr):
+        assert len(expr.args) == 1
+        return f"ceil({self._print(expr.args[0])})"
+
+    def _print_CeilToInt(self, expr):
+        assert len(expr.args) == 1
+        return f"ceil({self._print(expr.args[0])})"
+
+    def _print_Abs(self, expr):
+        assert len(expr.args) == 1
+        return f"abs({self._print(expr.args[0])})"
+
+    def _print_Pow(self, expr):
+        base, exp = expr.args
+        base = self._print(base)
+        assert exp.is_integer
+        exp = int(exp)
+        if exp > 0:
+            return "*".join([self.paren(base)] * exp)
+        elif exp < 0:
+            return "1/" + self.paren("*".join([self.paren(base)] * abs(exp)))
+        else:  # exp == 0
+            return "1"
+
+    # NB: It's expected that we've made explicit any promotion in the sympy
+    # expression, so it doesn't matter that Python max/min doesn't perform
+    # promotion
+    def _print_Max(self, expr):
+        assert len(expr.args) >= 2
+        return f"max({', '.join(map(self._print, expr.args))})"
+
+    def _print_Min(self, expr):
+        assert len(expr.args) >= 2
+        return f"min({', '.join(map(self._print, expr.args))})"
+
+    def _print_OpaqueUnaryFn_cos(self, expr):
+        assert len(expr.args) == 1
+        return f"cos({self._print(expr.args[0])})"
+
+    def _print_OpaqueUnaryFn_cosh(self, expr):
+        assert len(expr.args) == 1
+        return f"cosh({self._print(expr.args[0])})"
+
+    def _print_OpaqueUnaryFn_acos(self, expr):
+        assert len(expr.args) == 1
+        return f"acos({self._print(expr.args[0])})"
+
+    def _print_OpaqueUnaryFn_sin(self, expr):
+        assert len(expr.args) == 1
+        return f"sin({self._print(expr.args[0])})"
+
+    def _print_OpaqueUnaryFn_sinh(self, expr):
+        assert len(expr.args) == 1
+        return f"sinh({self._print(expr.args[0])})"
+
+    def _print_OpaqueUnaryFn_asin(self, expr):
+        assert len(expr.args) == 1
+        return f"asin({self._print(expr.args[0])})"
+
+    def _print_OpaqueUnaryFn_tan(self, expr):
+        assert len(expr.args) == 1
+        return f"tan({self._print(expr.args[0])})"
+
+    def _print_OpaqueUnaryFn_tanh(self, expr):
+        assert len(expr.args) == 1
+        return f"tanh({self._print(expr.args[0])})"
+
+    def _print_OpaqueUnaryFn_atan(self, expr):
+        assert len(expr.args) == 1
+        return f"atan({self._print(expr.args[0])})"
+
+    def _print_RoundToInt(self, expr):
+        assert len(expr.args) == 1
+        return f"round({self._print(expr.args[0])})"
+
+    def _print_RoundDecimal(self, expr):
+        assert len(expr.args) == 2
+        number, ndigits = expr.args
+        assert isinstance(ndigits, sympy.Integer)
+        return f"round({self._print(number)}, {ndigits})"
+
+
 class SymExprNodeManager:
     node_name = "symexpr_py"
 
@@ -187,7 +316,7 @@ class SymExprNodeManager:
                 for idx, sub_sym in enumerate(sym_expr_symbols):
                     value = arguments[idx]
                     sym_value_dict[sub_sym] = value
-                size_e = substitute_expr(sym_expr, sym_value_dict)
+                size_e = sym_expr.subs(sym_value_dict)
                 return int(size_e)
 
             with self._graph_module.graph.inserting_after(self._insert_point_node):
@@ -205,7 +334,7 @@ class SymExprNodeManager:
                 for idx, sub_sym in enumerate(sym_expr_symbols):
                     value = arguments[idx]
                     sym_value_pair.append((sub_sym, value))
-                size = substitute_expr(sym_expr, sym_value_pair)
+                size = sym_expr.subs(sym_value_pair)
                 return int(size)
 
             node_name = SymExprNodeManager.node_name
@@ -239,6 +368,7 @@ class SymExprNodeManager:
             new_node = self._sym_expr_to_node_map[sym_expr_str]
         else:
             sympy_expr = sympify(sym_expr_str)
+            sympy_expr = substitute_sympyfn(sympy_expr)
             logger.debug("Python callable creating for sympy expr: %s", sympy_expr)
             symbolic_expr = sympy_expr
             symbolic_expr_symbols = {}
@@ -307,7 +437,7 @@ class SymbolicShapeEvaluator:
                 sub_sym_meta = self._symbolic_metadata[sub_sym_str]
                 value = get_symbolic_value(sub_sym_meta, input_stack)
                 sym_value_pair.append((sub_sym, value))
-            size = substitute_expr(expr_sympy, sym_value_pair)
+            size = expr_sympy.subs(sym_value_pair)
 
         self._symbolic_value_dict[expr_token] = size
         return size
