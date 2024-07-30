@@ -74,7 +74,7 @@ _htorch_non_c_binding_in_graph_functions = {
     ]
 }
 
-from torch._dynamo.trace_rules import torch_name_rule_map
+from torch._dynamo.trace_rules import get_torch_obj_rule_map, torch_name_rule_map
 
 if Version(parse(torch.__version__).base_version) >= Version("2.3"):
     habana_torch_name_rule_list = [
@@ -85,6 +85,7 @@ if Version(parse(torch.__version__).base_version) >= Version("2.3"):
     ]
 
     torch_name_rule_map.extend(habana_torch_name_rule_list)
+    get_torch_obj_rule_map.cache_clear()
 
     from torch._dynamo.trace_rules import _allowed_callable_ids
 
@@ -106,6 +107,7 @@ else:
     }
 
     torch_name_rule_map.update(habana_torch_name_rule_map)
+    get_torch_obj_rule_map.cache_clear()
 
     """
     A note on allowed functions:
