@@ -992,80 +992,10 @@ def pass_pattern_rewriter(ctx: OptimizerContext):
 
         torch.fx.subgraph_rewriter.replace_pattern_with_filters(fx_graph, pattern, replace, [filter])
 
-    def replace_rewrite_single_value_P_for_bernoulli(fx_graph):
-
-        def full_bernoulli_default(fx_graph):
-
-            def pattern(size, p, dtype, layout, device, pin_memory):
-                full = torch.ops.aten.full.default(
-                    size, p, dtype=dtype, layout=layout, device=device, pin_memory=pin_memory
-                )
-                bernoulli = torch.ops.aten.bernoulli.default(full)
-                return bernoulli
-
-            def replace(size, p, dtype, layout, device, pin_memory):
-                bernoulli = torch.ops.hpu.habana_bernoulli.Size(size, p, dtype=dtype, layout=layout, device=device)
-                return bernoulli
-
-            torch.fx.subgraph_rewriter.replace_pattern(fx_graph, pattern, replace)
-
-        def full_expand_bernoulli_default(fx_graph):
-
-            def pattern(init_size, p, dtype, layout, device, pin_memory, size):
-                full = torch.ops.aten.full.default(
-                    init_size, p, dtype=dtype, layout=layout, device=device, pin_memory=pin_memory
-                )
-                expand = torch.ops.aten.expand.default(full, size)
-                bernoulli = torch.ops.aten.bernoulli.default(expand)
-                return bernoulli
-
-            def replace(init_size, p, dtype, layout, device, pin_memory, size):
-                bernoulli = torch.ops.hpu.habana_bernoulli.Size(size, p, dtype=dtype, layout=layout, device=device)
-                return bernoulli
-
-            torch.fx.subgraph_rewriter.replace_pattern(fx_graph, pattern, replace)
-
-        def full_bernoulli_Tensor(fx_graph):
-
-            def pattern(size, p, dtype, layout, device, pin_memory, tensor):
-                full = torch.ops.aten.full.default(
-                    size, p, dtype=dtype, layout=layout, device=device, pin_memory=pin_memory
-                )
-                bernoulli = torch.ops.aten.bernoulli.Tensor(tensor, full)
-                return bernoulli
-
-            def replace(size, p, dtype, layout, device, pin_memory, tensor):
-                bernoulli = torch.ops.aten.bernoulli.p(tensor, p)
-                return bernoulli
-
-            torch.fx.subgraph_rewriter.replace_pattern(fx_graph, pattern, replace)
-
-        def full_expand_bernoulli_Tensor(fx_graph):
-
-            def pattern(size, p, dtype, layout, device, pin_memory, expand_size, tensor):
-                full = torch.ops.aten.full.default(
-                    size, p, dtype=dtype, layout=layout, device=device, pin_memory=pin_memory
-                )
-                expand = torch.ops.aten.expand.default(full, expand_size)
-                bernoulli = torch.ops.aten.bernoulli.Tensor(tensor, expand)
-                return bernoulli
-
-            def replace(size, p, dtype, layout, device, pin_memory, expand_size, tensor):
-                bernoulli = torch.ops.aten.bernoulli.p(tensor, p)
-                return bernoulli
-
-            torch.fx.subgraph_rewriter.replace_pattern(fx_graph, pattern, replace)
-
-        full_bernoulli_default(fx_graph)
-        full_bernoulli_Tensor(fx_graph)
-        full_expand_bernoulli_default(fx_graph)
-        full_expand_bernoulli_Tensor(fx_graph)
-
     replace_rewrite_div(fx_graph)
     replace_rewrite_div_floor(fx_graph)
     replace_rewrite_div_trunc(fx_graph)
     replace_rewrite_floor_divide(fx_graph)
-    replace_rewrite_single_value_P_for_bernoulli(fx_graph)
 
 
 def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:

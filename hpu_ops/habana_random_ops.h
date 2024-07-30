@@ -29,11 +29,8 @@
 
 namespace habana {
 
-DEFINE_OP(HabanaPoisson)
 DEFINE_OP(HabanaBernoulli)
-DEFINE_OP(HabanaBernoulliP)
-DEFINE_OP(HabanaBernoulliTensor)
-DEFINE_OP(HabanaBernoulliSize)
+DEFINE_OP(HabanaPoisson)
 DEFINE_OP(HabanaRandPermOp)
 DEFINE_OP(HabanaNativeDropoutOp)
 DEFINE_OP(HabanaRandPermOpDS)

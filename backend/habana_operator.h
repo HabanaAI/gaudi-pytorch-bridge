@@ -758,8 +758,8 @@ class RegisterKernel {
       RegisterCustomFunc func,
       habana::custom_op::HabanaCustomOpDescriptor desc) {
     c10::OperatorName opname = getOperatorName(op);
-    user_custom_ops_.emplace(opname, func);
-    user_custom_desc_.emplace(opname, desc);
+    user_cutom_ops_.emplace(opname, func);
+    user_cutom_desc_.emplace(opname, desc);
     return *this;
   }
 
@@ -767,18 +767,17 @@ class RegisterKernel {
   habana::custom_op::HabanaCustomOpDescriptor& get_custom_op_desc(
       const std::string& op) {
     c10::OperatorName opname = getOperatorName(op);
-    return user_custom_desc_[opname];
+    return user_cutom_desc_[opname];
   }
 
   HabanaOperatorPtr get(
       const int device_id,
       const at::OperatorName& opname,
       c10::ScalarType node_type) {
-    return kernels_.count(opname)
-        ? kernels_[opname](device_id, node_type)
-        : (user_custom_ops_.count(opname)
-               ? user_custom_ops_[opname](device_id, opname.name)
-               : nullptr);
+    return kernels_.count(opname) ? kernels_[opname](device_id, node_type)
+        : user_cutom_ops_.count(opname)
+        ? user_cutom_ops_[opname](device_id, opname.name)
+        : nullptr;
   }
 
   RegisterKernel() = default;
@@ -798,11 +797,11 @@ class RegisterKernel {
 
  private:
   std::unordered_map<c10::OperatorName, RegisterFunc> kernels_;
-  std::unordered_map<c10::OperatorName, RegisterCustomFunc> user_custom_ops_;
+  std::unordered_map<c10::OperatorName, RegisterCustomFunc> user_cutom_ops_;
   std::unordered_map<
       c10::OperatorName,
       habana::custom_op::HabanaCustomOpDescriptor>
-      user_custom_desc_;
+      user_cutom_desc_;
 };
 
 RegisterKernel& KernelRegistry();
