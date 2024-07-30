@@ -42,6 +42,7 @@ void OptimizerFusedResourceApplyMomentumOperator::AddNode(
       getNextInput<std::vector<TensorsPair>>(stackGetter);
   auto dp_list = getNextInput<std::vector<TensorsPair>>(stackGetter);
   auto momentum = getNextInput<double>(stackGetter);
+  auto dtype = params_momentum_buf_list[0].pt_t.scalar_type();
 
   if (params_momentum_buf_list.size() != 2 * dp_list.size()) {
     std::stringstream ss;
@@ -50,13 +51,13 @@ void OptimizerFusedResourceApplyMomentumOperator::AddNode(
     AT_ERROR(ss.str());
   }
 
-  std::string add_node = get_guid_with_precision("add_fwd", ScalarType());
-  std::string sub_node = get_guid_with_precision("sub_fwd", ScalarType());
-  std::string mul_node = get_guid_with_precision("mult_fwd", ScalarType());
+  std::string add_node = get_guid_with_precision("add_fwd", dtype);
+  std::string sub_node = get_guid_with_precision("sub_fwd", dtype);
+  std::string mul_node = get_guid_with_precision("mult_fwd", dtype);
 
   int64_t scalar_shape[] = {1};
-  auto momentum_t = ConstantHelper(
-      graph, static_cast<float>(momentum), ScalarType(), scalar_shape);
+  auto momentum_t =
+      ConstantHelper(graph, static_cast<double>(momentum), dtype, scalar_shape);
 
   size_t vec_size = dp_list.size();
   for (size_t i = 0; i < vec_size; ++i) {
@@ -73,19 +74,15 @@ void OptimizerFusedResourceApplyMomentumOperator::AddNode(
         graph,
         mul_node,
         {momentum_buffer.syn_t, momentum_t.get()},
-        {{outshape, ScalarType()}});
+        {{outshape, dtype}});
 
-    auto sub = BuildOp(
-        graph, sub_node, {mul[0].get(), dp.syn_t}, {{outshape, ScalarType()}});
+    auto sub =
+        BuildOp(graph, sub_node, {mul[0].get(), dp.syn_t}, {{outshape, dtype}});
+
+    auto sub_out = IdentityHelper(graph, sub[0].get(), outshape, dtype, i2p1);
 
     auto add = BuildOp(
-        graph,
-        add_node,
-        {param.syn_t, sub[0].get()},
-        {{outshape, ScalarType(), i2}});
-
-    auto sub_out =
-        IdentityHelper(graph, sub[0].get(), outshape, ScalarType(), i2p1);
+        graph, add_node, {param.syn_t, sub[0].get()}, {{outshape, dtype, i2}});
 
     syn_out(i2) = std::move(add[0]);
     syn_out(i2p1) = std::move(sub_out);
