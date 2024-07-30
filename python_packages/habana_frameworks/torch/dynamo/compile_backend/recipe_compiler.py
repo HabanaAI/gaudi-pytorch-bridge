@@ -19,7 +19,8 @@ import sympy
 import torch
 from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from sympy import sympify
-from torch.fx.experimental.proxy_tensor import py_sym_types
+from torch._subclasses.fake_tensor import FakeTensor
+from torch.fx.experimental.proxy_tensor import py_sym_types, unset_fake_temporarily
 
 from .logger import dump_fx_graph, get_compile_backend_logger
 from .random_utils import is_random_op
@@ -27,6 +28,109 @@ from .symbolic_execution import PythonPrinter, SymbolicShapeEvaluator, substitut
 
 logger = get_compile_backend_logger()
 enable_dynamic_output_preallocate = bc.get_pt_hpu_enable_dynamic_output_preallocate()
+
+
+def get_input_symbolic(graph_module, inputs):
+    """
+    Returns a list of input shapes from the graph, in the form of
+    in the order in which they appear in the graph.
+    """
+    from ._recipe_compiler_C import RangeInfo
+
+    def is_mark_dynamic(inputs):
+        for input in inputs:
+            if hasattr(input, "_dynamo_dynamic_range"):
+                logger.debug("Enabling user min/max flow")
+                return True
+        return False
+
+    def get_input(input_shape):
+        # MAX = sys.maxsize
+        # MAX_MINUS_ONE = MAX - 1
+        FACTOR = 10000
+        min_shape = []
+        max_shape = []
+        shape_expr = input_shape
+        for dim in input_shape:
+            if isinstance(dim, torch.SymInt):
+                node = dim.node
+                expr = node.expr
+                shape_env = node.shape_env
+                # An expr can be a independent SymInt node (eg: s0 or s1) or a composition of them eg: (48*s0 or s0*s1).
+                # In the case of expr which has symbolic computation, bound_sympy evaluates them.
+                # https://pytorch.org/docs/stable/generated/torch.fx.experimental.symbolic_shapes.ShapeEnv.html#torch.fx.experimental.symbolic_shapes.ShapeEnv.bound_sympy
+                # expr.xreplace replaces the symbolic variables with their current values and computes the expression.
+                var_range = shape_env.var_to_range.get(expr, None) or shape_env.bound_sympy(expr)
+                var_val = shape_env.var_to_val.get(expr, None) or expr.xreplace(shape_env.var_to_val)
+                assert var_range, var_val
+                # if range is [2, INT_MAX] then allocate min as current val
+                # and max as 2*curr val so that in backend can create dynamic
+                # recipe in 1 shot
+                logger.debug("Initial MIN ", var_range.lower)
+                logger.debug("Initial MAX ", var_range.upper)
+                if var_range.upper >= FACTOR * var_val:
+                    min_shape.append(int(var_val))
+                    max_shape.append(int(var_val) * 2)
+                else:
+                    min_shape.append(int(var_range.lower))
+                    max_shape.append(int(var_range.upper))
+            else:
+                min_shape.append(dim)
+                max_shape.append(dim)
+        logger.debug("Final MIN ", min_shape)
+        logger.debug("Final MAX ", max_shape)
+        logger.debug("Shape ", shape_expr)
+        return min_shape, max_shape, shape_expr
+
+    min_max_shapes = []
+    mark_dynamic = is_mark_dynamic(inputs)
+    with unset_fake_temporarily():
+        input_idx = 0
+        for input_node in graph_module.graph.nodes:
+            if input_node.op == "placeholder":
+                logger.debug("Name ", input_node.name)
+                stack_input = inputs[input_idx]
+                if input_node.meta:
+                    if "val" in input_node.meta:
+                        input_meta = input_node.meta["val"]
+                        if isinstance(input_meta, (FakeTensor, torch.Tensor)):
+                            input_shape = input_meta.size()
+                            min, max, expr = get_input(input_shape)
+                            range_info = RangeInfo(min, max, str(expr), input_idx)
+                            min_max_shapes.append(range_info)
+                        elif isinstance(input_meta, torch.SymInt) or isinstance(input_meta, int):
+                            input_shape = [input_meta]
+                            min, max, expr = get_input(input_shape)
+                            range_info = RangeInfo(min, max, str(expr), input_idx)
+                            min_max_shapes.append(range_info)
+                        else:
+                            logger.debug(
+                                f"WARN: The meta val for input node {input_node.target} is of type : {type(input_meta)}. Supported types: torch.Tensor|FakeTensor|torch.SymInt|torch.Int"
+                            )
+                    elif "tensor_meta" in input_node.meta:
+                        input_meta = input_node.meta["tensor_meta"]
+                        input_shape = input_meta.shape
+                        min, max, expr = get_input(input_shape)
+                        range_info = RangeInfo(min, max, str(expr), input_idx)
+                        min_max_shapes.append(range_info)
+                    else:
+                        shape = list(stack_input.size())
+                        range_info = RangeInfo(shape, shape, "INVALID", input_idx)
+                        min_max_shapes.append(range_info)
+                        logger.debug(
+                            f"WARN: Input does not contain val and tensor_meta fields in the metadata={input_node.meta}. Filling {shape} as min max. Please ensure you have exported the graph correctly"
+                        )
+                else:
+                    shape = list(stack_input.size())
+                    range_info = RangeInfo(shape, shape, "INVALID", input_idx)
+                    min_max_shapes.append(range_info)
+                    logger.debug(
+                        f"WARN: Input {input_node.name} does not contain metadata.  Filling {shape} as min max. Please ensure you have exported the graph correctly"
+                    )
+                input_idx = input_idx + 1
+    assert len(inputs) == len(min_max_shapes)
+
+    return min_max_shapes, mark_dynamic
 
 
 class HabanaGraphModule(torch.nn.Module):
@@ -40,7 +144,7 @@ class HabanaGraphModule(torch.nn.Module):
         is_training=False,
         dynamic=False,
     ):
-        from ._recipe_compiler_C import EmptyBatchData
+        from ._recipe_compiler_C import EmptyBatchData, RangeInfo
 
         logger.debug("Creating HabanaGraphModule")
         super().__init__()
@@ -48,9 +152,11 @@ class HabanaGraphModule(torch.nn.Module):
         self._fx_module = graph_module
         self._outputs_metadata = outputs_metadata
         self._pholder_symbolic_dict = pholder_symbolic_dict
+        self._range_list = []
         self._inference = not is_training
         self._recipe_id = None
         self._dynamic = dynamic
+        self._mark_dynamic = False
         self._symbol_evaluator = SymbolicShapeEvaluator(symbolic_metadata)
         self._has_randoms = False
         self._ds_output_prealloc = self._dynamic and enable_dynamic_output_preallocate
@@ -66,7 +172,7 @@ class HabanaGraphModule(torch.nn.Module):
         outputs = []
         inputs = tuple(args)
 
-        from ._recipe_compiler_C import batch_empty, graph_compile, graph_launch
+        from ._recipe_compiler_C import RangeInfo, batch_empty, graph_compile, graph_launch
 
         if self._ds_output_prealloc:
             self._symbol_evaluator.clear_symbolic_value_dict()
@@ -77,9 +183,13 @@ class HabanaGraphModule(torch.nn.Module):
         outputs = batch_empty(self._outputs_batch_data)
 
         if self._recipe_id is None:
+            self._range_list, self._mark_dynamic = get_input_symbolic(self._fx_module, inputs)
             self.check_for_random_ops()
             if self._has_randoms:
                 inputs = (None, None) + inputs
+                self._range_list.insert(0, RangeInfo([1], [1], "1", 0))
+                self._range_list.insert(1, RangeInfo([1], [1], "1", 1))
+
             self._recipe_id = graph_compile(
                 graph=self._jit_ir.graph,
                 inputs=inputs,
@@ -88,6 +198,8 @@ class HabanaGraphModule(torch.nn.Module):
                 has_preallocated_outputs=bool(outputs),
                 has_randoms=self._has_randoms,
                 in_symbol_idx_map=self._pholder_symbolic_dict,
+                range_infos=self._range_list,
+                mark_dynamic=self._mark_dynamic,
             )
             dump_fx_graph(self._fx_module, self._jit_ir.graph, self._recipe_id)
         elif self._has_randoms:

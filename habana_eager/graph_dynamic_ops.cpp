@@ -10,6 +10,7 @@
  *
  *******************************************************************************
  */
+#include <sstream>
 #include "common/utils.h"
 
 #include "habana_eager/graph_dynamic_ops.h"
@@ -87,6 +88,100 @@ void GetValuesAndScalarIndexesFromListConst(
   } else {
     HABANA_ASSERT(false, "input is not Const Ints..");
   }
+}
+
+std::string GetRangeInfoExprFromInput(
+    torch::jit::Value* input,
+    GraphInputIndexMap& org_stack_index_map,
+    std::vector<habana_helpers::RangeInfo>* range_infos) {
+  std::string value = "";
+  if (input == nullptr)
+    return value;
+  static const auto constant_symbol{
+      c10::Symbol::fromQualString("prim::Constant")};
+  static const auto value_attr{torch::jit::Symbol::attr("value")};
+  auto in_name = input->debugName();
+  if (input->node()->kind() == constant_symbol) {
+    try {
+      value =
+          std::to_string(static_cast<int64_t>(input->node()->i(value_attr)));
+    } catch (std::exception& e) {
+      HABANA_ASSERT(false, "Cannot get value attr from Node input=", in_name);
+    }
+  } else if (org_stack_index_map.count(in_name)) {
+    auto index = static_cast<int64_t>(org_stack_index_map[in_name]);
+    value = range_infos->at(index).expr;
+  } else {
+    HABANA_ASSERT(
+        false,
+        "Node input=",
+        in_name,
+        " is not a graph input or a prim::Constant");
+  }
+
+  PT_DYNAMIC_SHAPE_DEBUG("Input:", in_name, ", expr value=", value);
+  return value;
+}
+
+std::vector<std::string> GetRangeInfoExprFromListConstruct(
+    torch::jit::Node* node,
+    GraphInputIndexMap& org_stack_index_map,
+    std::vector<habana_helpers::RangeInfo>* range_infos) {
+  static const auto list_construct_symbol{
+      c10::Symbol::fromQualString("prim::ListConstruct")};
+  HABANA_ASSERT(
+      node->kind() == list_construct_symbol,
+      "input is not a ListConstruct, it is: ",
+      node->kind().toQualString());
+  std::vector<std::string> expr_values;
+  for (auto input : node->inputs()) {
+    auto expr_value =
+        GetRangeInfoExprFromInput(input, org_stack_index_map, range_infos);
+    expr_values.push_back(expr_value);
+  }
+
+  return expr_values;
+}
+
+std::vector<std::string> GetRangeInfoExprFromListConst(
+    torch::jit::Node* node,
+    GraphInputIndexMap& org_stack_index_map,
+    std::vector<habana_helpers::RangeInfo>* range_infos) {
+  static_cast<void>(range_infos);
+  static_cast<void>(org_stack_index_map);
+  static const auto list_const_symbol{
+      c10::Symbol::fromQualString("prim::Constant")};
+  HABANA_ASSERT(
+      node->kind() == list_const_symbol,
+      "input is not a Constant, it is: ",
+      node->kind().toQualString(),
+      " node: ",
+      *node);
+
+  auto value = node->output(0);
+  std::vector<std::string> expr_values;
+  torch::jit::IValue const_ivalue = torch::jit::toIValue(value).value();
+  if (const_ivalue.isIntList()) {
+    auto vec = const_ivalue.toIntVector();
+    for (auto v : vec) {
+      expr_values.push_back(std::to_string(v));
+    }
+  } else {
+    HABANA_ASSERT(false, "input is not Const Ints..");
+  }
+  return expr_values;
+}
+
+std::string GetExprFromString(std::vector<std::string> inputs) {
+  std::ostringstream expr;
+  expr << '[';
+  for (size_t i = 0; i < inputs.size(); i++) {
+    expr << (i > 0 ? ", " : "") << inputs[i];
+  }
+  expr << ']';
+  std::string result = expr.str();
+  PT_DYNAMIC_SHAPE_DEBUG("Adding Expr string :", result);
+  return result;
 }
 
 void GetValuesAndScalarIndexesFromListConstruct(
@@ -286,12 +381,16 @@ bool RepeatOperatorDS::ReplaceWithDynamicHPUOp(
       org_stack_index_map,
       values,
       scalar_indexes);
-
+  auto expr_values = GetRangeInfoExprFromListConstruct(
+      list_construct_node, org_stack_index_map, m_range_infos);
   // Step2: Create H2D tensor and insert to graph inputs.
   auto repeat_h2d_name =
       GetDynamicTensorName(v_repeat_shape->debugName(), HOST_TO_DEVICE_TENSOR);
   int64_t stack_index = CreateH2DAndInsertToDSStack<int32_t>(
       values, scalar_indexes, HostDataType::INT32_T, m_dmeta);
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo({}, {}, GetExprFromString(expr_values), -2));
+
   auto v_h2d_tensor = graph->addInput(repeat_h2d_name);
 
   // Step3: Register patching function and tensor lists
@@ -369,6 +468,10 @@ bool TopkOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t stack_index =
       CreateSTAndInsertToDSStack({act_value}, {scalar_idx}, {}, {}, m_dmeta);
   auto v_st_tensor = graph->addInput(k_st_name);
+  auto expr =
+      GetRangeInfoExprFromInput(v_k, org_stack_index_map, m_range_infos);
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo({}, {}, GetExprFromString({expr}), -1));
 
   // Step3: Register patching function and tensor lists
   std::vector<int64_t> dtensor_indexes{stack_index};
@@ -428,11 +531,18 @@ bool SelectScatterOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t stack_index =
       CreateSTAndInsertToDSStack({index_value}, {index_idx}, {}, {}, m_dmeta);
   auto index_st_tensor = graph->addInput(index_st_name);
+  auto expr =
+      GetRangeInfoExprFromInput(index, org_stack_index_map, m_range_infos);
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo({}, {}, GetExprFromString({expr}), -1));
 
   auto dim_st_name = GetDynamicTensorName(dim->debugName(), SHAPE_TENSOR);
   int64_t dim_index =
       CreateSTAndInsertToDSStack({dim_value}, {dim_idx}, {}, {}, m_dmeta);
   auto dim_st_tensor = graph->addInput(dim_st_name);
+  expr = GetRangeInfoExprFromInput(dim, org_stack_index_map, m_range_infos);
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo({}, {}, GetExprFromString({expr}), -1));
 
   // Step3: Register patching function and tensor lists
   std::vector<int64_t> dtensor_indexes{stack_index, dim_index};
@@ -494,6 +604,8 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t dim = 0, start = 0, end = 0, step = 0;
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(1), in_stack, org_stack_index_map, dim, dim_idx);
+  auto dim_expr = GetRangeInfoExprFromInput(
+      slice_node->inputs().at(1), org_stack_index_map, m_range_infos);
   // get start
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(2),
@@ -501,9 +613,13 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
       org_stack_index_map,
       start,
       start_idx);
+  auto start_expr = GetRangeInfoExprFromInput(
+      slice_node->inputs().at(2), org_stack_index_map, m_range_infos);
   // get end
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(3), in_stack, org_stack_index_map, end, end_idx);
+  auto end_expr = GetRangeInfoExprFromInput(
+      slice_node->inputs().at(2), org_stack_index_map, m_range_infos);
   // get step
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(4),
@@ -511,6 +627,8 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
       org_stack_index_map,
       step,
       step_idx);
+  auto step_expr = GetRangeInfoExprFromInput(
+      slice_node->inputs().at(3), org_stack_index_map, m_range_infos);
 
   // capture actual values
   mixed_indexes.push_back(std::make_pair(dim_idx, dim));
@@ -537,6 +655,17 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
   }
   int64_t st_stack_index = CreateSTAndInsertToDSStack(
       shape.at(0), scalar_indexes, tensor_indexes, mixed_indexes, m_dmeta);
+  auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+  if (slice_node->hasAttribute(symbol_outputshape)) {
+    std::string original = slice_node->s(symbol_outputshape);
+    std::string modified = original.substr(1, original.length() - 2);
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo({}, {}, modified, -1));
+    PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
+  } else {
+    PT_DYNAMIC_SHAPE_WARN(
+        "ERROR: Not adding ST ranges output_shapes attribute null");
+  }
   auto gip_slice_st_tensor = graph->addInput(slice_st_name);
   std::vector<int64_t> dtensor_indexes{st_stack_index};
 
@@ -545,15 +674,31 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
     // H2D value preperation
     std::vector<uint64_t> host_params{
         static_cast<uint64_t>(self_size.size()), 1, 1, 1, 1, 1, 0, 0, 0, 0, 0};
+    std::vector<std::string> expr_sizes{
+        std::to_string(self_size.size()),
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0"};
     int index = self_size.size() - dim;
     host_params[index] = step;
+    expr_sizes[index] = step_expr;
     host_params[index + 5] = start;
+    expr_sizes[index + 5] = start_expr;
     auto slice_h2d_name = GetDynamicTensorName(
         slice_node->output()->debugName() + "1", HOST_TO_DEVICE_TENSOR);
     at::Tensor h2d_tensor = createDynamicTensor(
         {static_cast<int64_t>(host_params.size()) * 2}, HOST_TO_DEVICE_TENSOR);
     SetH2DTensorHostData<uint64_t>(
         h2d_tensor, host_params, HostDataType::UINT64_T, false);
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo({}, {}, GetExprFromString(expr_sizes), -2));
     auto slice_h2d_tensor = torch::jit::IValue(h2d_tensor);
     int64_t h2d_stack_index = UpdateDynamicTensorDSStack(
         slice_h2d_tensor, {}, {}, mixed_scalar_indexes, m_dmeta);
@@ -571,21 +716,29 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
   } else {
     auto dims = self_size.size();
     std::vector<int64_t> step_vec(dims, 1);
+    std::vector<std::string> step_expr_vec(dims, "1");
     step_vec[dim] = step;
+    step_expr_vec[dim] = step_expr;
     // create shape tesnor
     auto slice_st_name_1 = GetDynamicTensorName(
         slice_node->output()->debugName() + "1", SHAPE_TENSOR);
     int64_t st_stack_index_1 =
         CreateSTAndInsertToDSStack(step_vec, {}, {}, mixed_indexes, m_dmeta);
+    m_range_infos->emplace_back(habana_helpers::RangeInfo(
+        {}, {}, GetExprFromString({step_expr_vec}), -1));
     auto gip_slice_st_tensor_1 = graph->addInput(slice_st_name_1);
     dtensor_indexes.push_back(st_stack_index_1);
     std::vector<int64_t> start_vec(dims, 0);
+    std::vector<std::string> start_expr_vec(dims, "0");
     start_vec[dim] = start;
+    start_expr_vec[dim] = start_expr;
     // create shape tesnor
     auto slice_st_name_2 = GetDynamicTensorName(
         slice_node->output()->debugName() + "2", SHAPE_TENSOR);
     int64_t st_stack_index_2 =
         CreateSTAndInsertToDSStack(start_vec, {}, {}, mixed_indexes, m_dmeta);
+    m_range_infos->emplace_back(habana_helpers::RangeInfo(
+        {}, {}, GetExprFromString({start_expr_vec}), -1));
     auto gip_slice_st_tensor_2 = graph->addInput(slice_st_name_2);
     dtensor_indexes.push_back(st_stack_index_2);
     // Create hpu::slice_ht node and insert to the graph
@@ -711,6 +864,18 @@ bool ExapndOperatorDS::ReplaceWithDynamicHPUOp(
   std::vector<int64_t> dtensor_indexes{CreateSTAndInsertToDSStack(
       values, scalar_ids, {}, {}, dmeta, {values.begin(), values.end()})};
 
+  auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+  if (node->hasAttribute(symbol_outputshape)) {
+    std::string original = node->s(symbol_outputshape);
+    std::string modified = original.substr(1, original.length() - 2);
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo({}, {}, modified, -1));
+    PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
+  } else {
+    PT_DYNAMIC_SHAPE_WARN(
+        "ERROR: Not adding ST ranges output_shapes attribute null");
+  }
+
   InputPatchPair patch_info(
       &ExapndOperatorDS::UpdateDynamicInputs, dtensor_indexes);
   dmeta->ds_input_patching_list.push_back(patch_info);
@@ -771,18 +936,24 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t step_value = 0;
   GetValueAndScalarIndexFromInput(
       step, org_stack, org_stack_index_map, step_value, step_idx);
+  auto step_expr =
+      GetRangeInfoExprFromInput(step, org_stack_index_map, m_range_infos);
   PT_EAGER_DEBUG("ST step data:", step_value);
 
   int64_t start_idx = LONG_MAX;
   int64_t start_value = 0;
   GetValueAndScalarIndexFromInput(
       start, org_stack, org_stack_index_map, start_value, start_idx);
+  auto start_expr =
+      GetRangeInfoExprFromInput(step, org_stack_index_map, m_range_infos);
   PT_EAGER_DEBUG("ST start data:", start_value);
 
   int64_t dim_idx = LONG_MAX;
   int64_t dim_value = 0;
   GetValueAndScalarIndexFromInput(
       dim, org_stack, org_stack_index_map, dim_value, dim_idx);
+  auto dim_expr =
+      GetRangeInfoExprFromInput(step, org_stack_index_map, m_range_infos);
   PT_EAGER_DEBUG("ST dim data:", dim_value);
 
   // Handle negative dimension
@@ -831,11 +1002,15 @@ bool SliceScatterOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t step_index =
       CreateSTAndInsertToDSStack(step_value_final, step_idx_final, {}, {}, m_dmeta);
   auto step_st_tensor = graph->addInput(step_st_name);
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo({}, {}, GetExprFromString({step_expr}), -1));
 
   auto start_st_name = GetDynamicTensorName(start->debugName(), SHAPE_TENSOR);
   int64_t start_index =
       CreateSTAndInsertToDSStack(start_value_final, start_idx_final, {}, {}, m_dmeta);
   auto start_st_tensor = graph->addInput(start_st_name);
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo({}, {}, GetExprFromString({start_expr}), -1));
 
   // Step3: Register patching function and tensor lists
   std::vector<int64_t> dtensor_indexes{step_index, start_index};

@@ -20,6 +20,20 @@
 
 namespace habana_helpers {
 
+struct RangeInfo {
+  std::vector<int64_t> min_shape;
+  std::vector<int64_t> max_shape;
+  std::string expr;
+  int index;
+
+  RangeInfo(
+      std::vector<int64_t> min_shape,
+      std::vector<int64_t> max_shape,
+      std::string expr,
+      int index)
+      : min_shape(min_shape), max_shape(max_shape), expr(expr), index(index) {}
+};
+
 // Enum to represent different data types stored in IValue
 enum class IShapeType {
   SCALAR,

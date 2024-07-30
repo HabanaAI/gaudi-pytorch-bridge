@@ -28,9 +28,11 @@ struct HandleDynamicOpsPass {
   explicit HandleDynamicOpsPass(
       std::shared_ptr<torch::jit::Graph> graph,
       std::shared_ptr<DynamicGraphMetaData> dmeta,
-      std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes)
+      std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes,
+      std::vector<habana_helpers::RangeInfo>* range_infos)
       : m_graph(std::move(graph)), m_dmeta(std::move(dmeta)) {
     m_input_new_base_sizes = input_new_base_sizes;
+    m_range_infos = range_infos;
   }
 
   bool run(torch::jit::Stack& stack) {
@@ -281,6 +283,7 @@ struct HandleDynamicOpsPass {
 
       PT_EAGER_DEBUG("Replace dynamic Op: ", node_name);
       dsOp->m_input_new_base_sizes = m_input_new_base_sizes;
+      dsOp->m_range_infos = m_range_infos;
       changed = dsOp->ReplaceWithDynamicHPUOp(
           node, org_stack, org_stack_index_map, m_value_ivalue_map, m_dmeta);
       if (!changed)
@@ -310,19 +313,21 @@ struct HandleDynamicOpsPass {
   std::shared_ptr<DynamicGraphMetaData> m_dmeta;
   CValuePtrToIValuePtrMap m_value_ivalue_map;
   std::map<int64_t, std::vector<int64_t>>* m_input_new_base_sizes;
+  std::vector<habana_helpers::RangeInfo>* m_range_infos;
 };
 
 void HandleDynamicOps(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dmeta,
-    std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes) {
+    std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes,
+    std::vector<habana_helpers::RangeInfo>* range_infos) {
   PT_EAGER_TRACE;
   // Replace inplace ops with out-of-place variant for which DS support is needed
   // Currently supports strided_insert_
   // This leverages DS support of out-of-place variant op for inplace variant
   ReplaceInplaceOpsDS(graph, habana::graph::DSOpsRegistry().getRegisteredDSOpsList());
-  HandleDynamicOpsPass pass{graph, dmeta, input_new_base_sizes};
+  HandleDynamicOpsPass pass{graph, dmeta, input_new_base_sizes, range_infos};
   bool changed{pass.run(stack)};
   if (changed) {
     PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);

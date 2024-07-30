@@ -186,6 +186,10 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   graph_key_ = optimized_jit_graph_and_meta_data->get_cached_graph_key();
   hpu_stream_ = optimized_jit_graph_and_meta_data->GetHPUStream();
   jit_graph_and_meta_data_ = optimized_jit_graph_and_meta_data;
+  enable_user_dynamic_ranges =
+      optimized_jit_graph_and_meta_data->IsUserMarkDynamic();
+  optimized_jit_graph_and_meta_data->SetUserMarkDynamic(false);
+  m_range_infos = optimized_jit_graph_and_meta_data->GetUserRangesDynamic();
 
   PT_BRIDGE_DEBUG(
       "Creating : ", SetAndGetSynapseGraphName(name_, graph_index_));
@@ -3830,6 +3834,35 @@ void HabanaLaunchOpPT::CreateStaticCompilationDBI(size_t graph_key_with_perm) {
   }
 }
 
+void HabanaLaunchOpPT::CreateDynamicDBI(size_t graph_key_with_perm) {
+  if (!ref_input_shape_map().count(graph_key_with_perm)) {
+    habana_helpers::InpTensorShapes input_tshapes;
+    CreateDynamicBucketInputShapes(input_tshapes);
+    ProcessDynamicBucketInputShapesWithH2D(input_tshapes);
+    PT_BRIDGE_DEBUG(
+        "Recording the reference input shapes::",
+        input_tshapes,
+        "\n--------------------");
+    ref_input_shape_map().emplace(graph_key_with_perm, input_tshapes);
+  }
+
+  std::shared_ptr<RecipeArgumentSpec> rargpsh_graph =
+      std::make_shared<RecipeArgumentSpec>(input_refs, graph_key_, op_strs_);
+
+  current_dbipsh_ = DynamicBucketInfoMap::get_instance().get(rargpsh_graph);
+  if (nullptr == current_dbipsh_) {
+    PT_DYNAMIC_SHAPE_DEBUG("Initilizing DynamicBucketInfo for mark_dynamic");
+    current_dbipsh_ = std::make_shared<habana_helpers::DynamicBucketInfo>(
+        rargpsh_graph->graphHashCode());
+    DynamicBucketInfoMap::get_instance().add(rargpsh_graph, current_dbipsh_);
+    current_dbipsh_->create_statistics(
+        habana_helpers::CompilationStatistics::Create(
+            GetSynapseGraphName(),
+            current_dbipsh_->getCount(),
+            rargpsh_graph->hashCode()));
+  }
+}
+
 void HabanaLaunchOpPT::CreateValueToIvalueMapForInputs() {
   PT_BRIDGE_BEGIN;
   for (size_t j = 0; j < pt_stack_sh.size(); j++) {
@@ -4147,6 +4180,8 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
       ", hash_code with data layout : ",
       rargpsh_graph->hashCode());
 
+  if (enable_user_dynamic_ranges)
+    CreateDynamicDBI(graph_key_with_perm_);
   CreateFirstDynamicBucket();
 
   DynamicShapeInfo graph_input_info;
@@ -4161,8 +4196,15 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
   {
     std::lock_guard<std::mutex> lg(current_dbipsh_->get_refine_mutex());
     current_dbipsh_->CollectDynamicDims(graph_input_info.act_input_tshapes);
-    current_bucket_id_ =
-        current_dbipsh_->GetBucketId(graph_input_info.act_input_tshapes);
+    // Only for 1 launch the bucket is created, rest follows normal flow
+    if (enable_user_dynamic_ranges) {
+      current_bucket_id_ = current_dbipsh_->GetUserBucketId(
+          graph_input_info.act_input_tshapes, m_range_infos);
+      enable_user_dynamic_ranges = false;
+    } else {
+      current_bucket_id_ =
+          current_dbipsh_->GetBucketId(graph_input_info.act_input_tshapes);
+    }
     ranges = current_dbipsh_->CalculateShapes(current_bucket_id_);
   }
 
@@ -5263,8 +5305,9 @@ void HabanaLaunchOpPT::run(
     return;
   }
   // shape agnostic caching :: end
-  if (!eager_mode && ref_input_shape_map().count(graph_key_with_perm_) &&
-      refine_ds_enabled_) {
+  if ((!eager_mode && ref_input_shape_map().count(graph_key_with_perm_) &&
+       refine_ds_enabled_) ||
+      enable_user_dynamic_ranges) {
     PT_DYNAMIC_SHAPE_DEBUG(
         "JIT IR graph_hash_code : ",
         graph_key_,

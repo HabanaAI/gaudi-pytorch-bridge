@@ -31,7 +31,9 @@ size_t GraphStorage::add_new_recipe(
     bool inference,
     bool has_preallocated_outputs,
     bool has_randoms,
-    InputSymbolIndexMap& in_symbol_idx_map) {
+    InputSymbolIndexMap& in_symbol_idx_map,
+    std::vector<habana_helpers::RangeInfo>& range_infos,
+    bool mark_dynamic) {
   PT_EAGER_TRACE;
   habana::eager::JoinPendingPipelineThreads();
   size_t output_recipe_group_id{m_storage_vec.size()};
@@ -43,7 +45,9 @@ size_t GraphStorage::add_new_recipe(
       inference,
       has_preallocated_outputs,
       has_randoms,
-      in_symbol_idx_map);
+      in_symbol_idx_map,
+      range_infos,
+      mark_dynamic);
   PT_EAGER_DEBUG(
       "Recipe group added to storage. recipe_group_id: ",
       output_recipe_group_id);

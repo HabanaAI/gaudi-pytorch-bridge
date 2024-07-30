@@ -355,6 +355,24 @@ void OptimizedJITGraphAndMetaData::SetOptimizedLazyEagerFlag(bool flag) {
   isOptimizedLazyEager = flag;
 }
 
+void OptimizedJITGraphAndMetaData::SetUserMarkDynamic(bool flag) {
+  user_mark_dynamic = flag;
+}
+
+bool OptimizedJITGraphAndMetaData::IsUserMarkDynamic() {
+  return (user_mark_dynamic == true);
+}
+
+void OptimizedJITGraphAndMetaData::SetUserRangesDynamic(
+    std::vector<habana_helpers::RangeInfo>& range_infos) {
+  m_range_infos = range_infos;
+}
+
+std::vector<habana_helpers::RangeInfo> OptimizedJITGraphAndMetaData::
+    GetUserRangesDynamic() {
+  return m_range_infos;
+}
+
 void SynBuildCache::clear_cached_outputs_tensors() {
   for (auto& metadatas : outputs_metadata) {
     for (auto& metadata : metadatas) {

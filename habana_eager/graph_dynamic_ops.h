@@ -18,6 +18,7 @@
 #include <vector>
 
 #include <torch/csrc/jit/ir/ir.h>
+#include "backend/helpers/dynamic_shape_infer.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "habana_eager/graph_dynamic.h"
 #include "habana_lazy/tensor_impl.h"
@@ -42,6 +43,19 @@ void GetValuesAndScalarIndexesFromListConstruct(
     GraphInputIndexMap& org_stack_index_map,
     std::vector<int64_t>& values,
     std::vector<int64_t>& scalar_indexes);
+std::string GetRangeInfoExprFromInput(
+    torch::jit::Value* input,
+    GraphInputIndexMap& org_stack_index_map,
+    std::vector<habana_helpers::RangeInfo>* range_infos);
+std::vector<std::string> GetRangeInfoExprFromListConstruct(
+    torch::jit::Node* node,
+    GraphInputIndexMap& org_stack_index_map,
+    std::vector<habana_helpers::RangeInfo>* range_infos);
+std::vector<std::string> GetRangeInfoExprFromListConst(
+    torch::jit::Node* node,
+    GraphInputIndexMap& org_stack_index_map,
+    std::vector<habana_helpers::RangeInfo>* range_infos);
+std::string GetExprFromString(std::vector<std::string> inputs);
 
 torch::jit::Node* CreateAndInsertDynamicNodeToGraph(
     torch::jit::Graph* graph,
@@ -192,6 +206,7 @@ class DynamicOp {
     return out_tensors;
   }
   std::map<int64_t, std::vector<int64_t>>* m_input_new_base_sizes = nullptr;
+  std::vector<habana_helpers::RangeInfo>* m_range_infos = nullptr;
   virtual ~DynamicOp() {}
 };
 

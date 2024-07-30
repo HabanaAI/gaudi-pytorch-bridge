@@ -17,6 +17,7 @@
 #include <mutex>
 #include <string_view>
 #include "backend/habana_operator.h"
+#include "backend/helpers/dynamic_shape_infer.h"
 #include "backend/helpers/habana_types.h"
 #include "backend/kernel/hpu_habana_cache.h"
 #include "backend/synapse_helpers/device.h"
@@ -239,6 +240,15 @@ struct OptimizedJITGraphAndMetaData {
 
   void SetOptimizedLazyEagerFlag(bool flag);
 
+  void SetUserMarkDynamic(bool flag);
+
+  void SetUserRangesDynamic(
+      std::vector<habana_helpers::RangeInfo>& range_infos);
+
+  std::vector<habana_helpers::RangeInfo> GetUserRangesDynamic();
+
+  bool IsUserMarkDynamic();
+
   void set_is_control_edge_processing_required();
 
   bool get_is_control_edge_processing_required();
@@ -410,6 +420,8 @@ struct OptimizedJITGraphAndMetaData {
   CValPtrMap param_jit_val_map_{};
   CValPtrtoIValueMap param_jit_val_to_ivalue_map_{};
   std::vector<int64_t> new_strided_insert_output_shape_;
+  bool user_mark_dynamic = false;
+  std::vector<habana_helpers::RangeInfo> m_range_infos;
 };
 
 /**

@@ -30,7 +30,9 @@ class GraphStorage {
       bool inference,
       bool has_preallocated_outputs,
       bool has_randoms,
-      InputSymbolIndexMap& in_symbol_idx_map);
+      InputSymbolIndexMap& in_symbol_idx_map,
+      std::vector<habana_helpers::RangeInfo>& range_infos,
+      bool mark_dynamic);
   torch::jit::Stack launch_recipe(
       size_t recipe_id,
       torch::jit::Stack& inputs,

@@ -1434,3 +1434,70 @@ def test_op_constant_pad():
         t1_h = t1.to("hpu")
         h_result = compiled_fn(t1_h)
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+
+def test_user_test():
+    input_shapes1 = [
+        (3, 6, 4),
+        (3, 8, 4),
+        (3, 10, 2),
+        (3, 12, 4),
+    ]
+    input_shapes2 = [
+        (3, 7, 4),
+        (3, 9, 4),
+        (3, 11, 2),
+        (3, 13, 4),
+    ]
+
+    def raw_function(t1, t2):
+        t3 = torch.add(t1, t1)
+        t4 = torch.cat((t3, t2), 1)
+        t5 = torch.relu(t4)
+        return t5
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=None)
+
+    for s1, s2 in zip(input_shapes1, input_shapes2):
+        t1 = torch.randn(s1, requires_grad=False)
+        t2 = torch.randn(s2, requires_grad=False)
+        t1_h = t1.to("hpu")
+        t2_h = t2.to("hpu")
+        torch._dynamo.mark_dynamic(t1_h, 1, min=4, max=14)
+        torch._dynamo.mark_dynamic(t2_h, 1, min=4, max=14)
+        h_result = compiled_fn(t1_h, t2_h)
+        h_result.to("cpu")
+
+
+def test_complex_symbolic_input():
+
+    input_shapes = [
+        [(3, 6, 4), (3, 24)],
+        [(3, 8, 4), (3, 32)],
+        [(3, 10, 4), (3, 40)],
+        [(3, 12, 4), (3, 48)],
+    ]
+
+    def raw_function(t1, x2):
+        t = t1.shape
+        t1 = torch.relu(t1)
+        shape = x2.shape
+        t2 = t1.reshape(shape)
+        t3 = torch.add(t2, x2)
+        return t3
+
+    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=None)
+
+    def execute_model(input_shapes):
+        for s in input_shapes:
+            t1 = torch.randn(s[0], requires_grad=False)
+            t2 = torch.randn(s[1], requires_grad=False)
+            result = raw_function(t1, t2)
+            t1_h = t1.to("hpu")
+            t2_h = t2.to("hpu")
+            torch._dynamo.mark_dynamic(t1_h, 1, min=5, max=13)
+            torch._dynamo.mark_dynamic(t2_h, 1, min=20, max=52)
+            h_result = compiled_fn(t1_h, t2_h)
+            assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
+
+    execute_model(input_shapes)

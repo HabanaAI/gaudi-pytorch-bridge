@@ -389,6 +389,8 @@ class HabanaLaunchOpPT {
   std::shared_ptr<RecipeLauncher> recipe_launcher_{nullptr};
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
       jit_graph_and_meta_data_ = nullptr;
+  bool enable_user_dynamic_ranges = false;
+  std::vector<habana_helpers::RangeInfo> m_range_infos;
   torch::jit::Stack input_st_copy;
   bool refine_ds_enabled_{false};
   size_t num_inputs{0};
@@ -822,6 +824,7 @@ class HabanaLaunchOpPT {
   std::shared_ptr<habana_helpers::CompilationStatistics> statistics_;
 
   void CreateStaticCompilationDBI(size_t graph_key_with_perm);
+  void CreateDynamicDBI(size_t graph_key_with_perm);
 
   void CreateDynamicBucketInputShapes(
       habana_helpers::InpTensorShapes& shape_map);

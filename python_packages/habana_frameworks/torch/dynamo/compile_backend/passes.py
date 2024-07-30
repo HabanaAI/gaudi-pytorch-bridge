@@ -1420,6 +1420,7 @@ class resolve_negative_dim:
                     new_args1[idx] = arg
                     if isinstance(arg, py_sym_types):
                         new_node = cls.py_node_manager.get_or_create(arg, int)
+                        new_node.meta["val"] = arg
                         new_node.meta["placement"] = "eager"
                         new_node.meta["output_device"] = torch.device("cpu")
                         new_args1[idx] = new_node
@@ -1460,6 +1461,7 @@ class resolve_negative_dim:
                     new_args1[idx] = arg
                     if isinstance(arg, py_sym_types):
                         new_node = cls.py_node_manager.get_or_create(arg, int)
+                        new_node.meta["val"] = arg
                         new_node.meta["placement"] = "eager"
                         new_node.meta["output_device"] = torch.device("cpu")
                         new_args1[idx] = new_node

@@ -33,6 +33,21 @@
 namespace habana {
 namespace graph {
 
+void PrintRangeInfos(std::vector<habana_helpers::RangeInfo>& range_infos) {
+  PT_DYNAMIC_SHAPE_DEBUG("RangeInfos:");
+  for (auto& info : range_infos) {
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "Index=",
+        info.index,
+        " expr=",
+        info.expr,
+        " min_shape=",
+        info.min_shape,
+        " max_shape=",
+        info.max_shape);
+  }
+}
+
 void PatchDynamicTensors(LaunchDynamicShapes& launch_shapes) {
   size_t num_tensors = launch_shapes.ds_tensors.size();
   PT_DYNAMIC_SHAPE_DEBUG("Num DS tensors to be patched = ", num_tensors);
@@ -80,6 +95,58 @@ void PatchDynamicTensors(LaunchDynamicShapes& launch_shapes) {
   }
 }
 
+void ProcessRangeInfos(
+    InputSymbolIndexMap in_symbol_idx_map,
+    std::vector<habana_helpers::RangeInfo>& range_infos) {
+  // Index -1 in RangeInfo means this is backend added tensor
+  // can be ST or H2D, evaluate min-max range from range_infos.expr
+  // and in_symbol_idx_map symbols
+  InputSymbolMap in_symbol_value_map;
+  // Min Evaluation
+  std::for_each(
+      in_symbol_idx_map.begin(),
+      in_symbol_idx_map.end(),
+      [&](const std::pair<std::string, int64_t>& p) {
+        int64_t scalar_index = p.second;
+        auto value =
+            static_cast<double>(range_infos[scalar_index].min_shape[0]);
+        auto value_sh = std::make_shared<double>(value);
+        in_symbol_value_map[p.first] = value_sh;
+      });
+  for (auto& info : range_infos) {
+    if (info.index < 0) {
+      SymExprFactory& expr_factory = SymExprFactory::getInstance();
+      auto size_expr =
+          std::make_shared<SizeExpression>(info.expr, in_symbol_value_map);
+      std::vector<int64_t> concrete_size =
+          expr_factory.evaluate_symsize(size_expr);
+      info.min_shape = concrete_size;
+    }
+  }
+
+  // Max Evaluation
+  std::for_each(
+      in_symbol_idx_map.begin(),
+      in_symbol_idx_map.end(),
+      [&](const std::pair<std::string, int64_t>& p) {
+        int64_t scalar_index = p.second;
+        auto value =
+            static_cast<double>(range_infos[scalar_index].max_shape[0]);
+        auto value_sh = std::make_shared<double>(value);
+        in_symbol_value_map[p.first] = value_sh;
+      });
+  for (auto& info : range_infos) {
+    if (info.index < 0) {
+      SymExprFactory& expr_factory = SymExprFactory::getInstance();
+      auto size_expr =
+          std::make_shared<SizeExpression>(info.expr, in_symbol_value_map);
+      std::vector<int64_t> concrete_size =
+          expr_factory.evaluate_symsize(size_expr);
+      info.max_shape = concrete_size;
+    }
+  }
+}
+
 void GraphExec::LaunchRecipeTask(
     GraphExec* gexec,
     torch::jit::Stack&& inputs,
@@ -99,14 +166,18 @@ GraphExec::GraphExec(
     bool inference,
     bool has_preallocated_outputs,
     bool has_randoms,
-    InputSymbolIndexMap in_symbol_idx_map)
+    InputSymbolIndexMap in_symbol_idx_map,
+    std::vector<habana_helpers::RangeInfo>& range_infos,
+    bool mark_dynamic)
     : m_graph_index(recipe_id),
       m_graph(graph),
       m_dynamic(dynamic),
       m_inference(inference),
       m_has_preallocated_outputs(has_preallocated_outputs),
       m_has_randoms(has_randoms),
-      m_in_symbol_idx_map(in_symbol_idx_map) {
+      m_in_symbol_idx_map(in_symbol_idx_map),
+      m_range_infos(range_infos),
+      m_mark_dynamic(mark_dynamic && dynamic) {
   PT_EAGER_TRACE;
 
   habana::eager::JoinPendingPipelineThreads();
@@ -128,6 +199,7 @@ GraphExec::GraphExec(
     if (m_static_fallback) {
       PT_DYNAMIC_SHAPE_WARN(
           "Number of tensor dims exceeds the limit, falling back to static!");
+      m_mark_dynamic = false;
     }
     in_stack = ProcessDynamicStack(example_inputs, true);
     m_sym_expr_hash = habana::ComputeNodeSymOutputHashCode(m_graph);
@@ -139,6 +211,18 @@ GraphExec::GraphExec(
       m_sym_expr_hash = ULONG_MAX;
       PT_DYNAMIC_SHAPE_DEBUG(
           "Graph input symbols are invalid, symbol replacement happend!!!");
+    }
+    if (m_mark_dynamic) {
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "mark_dynamic flow is enabled for user min max ranges");
+      ProcessRangeInfos(m_in_symbol_idx_map, m_range_infos);
+      // Removing the inputs from list which are removed from stack inputs
+      auto list_begin = m_range_infos.begin();
+      for (auto idx : m_dgraph_meta->remove_input_indexes) {
+        m_range_infos.erase(list_begin + idx);
+      }
+      PrintRangeInfos(m_range_infos);
+      HABANA_ASSERT(in_stack.size() == m_range_infos.size());
     }
   }
 
@@ -169,6 +253,8 @@ GraphExec::GraphExec(
   m_graph_and_meta->set_is_eager_compiler_supported(false);
   m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
   m_graph_and_meta->set_sym_expr_hash(m_sym_expr_hash);
+  m_graph_and_meta->SetUserMarkDynamic(m_mark_dynamic);
+  m_graph_and_meta->SetUserRangesDynamic(m_range_infos);
 };
 
 bool GraphExec::IsDynamicGraph() {
@@ -178,7 +264,11 @@ bool GraphExec::IsDynamicGraph() {
 void GraphExec::ProcessDynamicGraph(torch::jit::Stack& example_inputs) {
   m_dgraph_meta = std::make_shared<DynamicGraphMetaData>();
   pass::HandleDynamicOps(
-      m_graph, example_inputs, m_dgraph_meta, &m_input_new_base_sizes);
+      m_graph,
+      example_inputs,
+      m_dgraph_meta,
+      &m_input_new_base_sizes,
+      &m_range_infos);
   m_static_fallback = m_dgraph_meta->static_fallback;
   pass::HandlePostDynamic(m_dgraph_meta, m_input_new_base_sizes);
   PT_EAGER_DEBUG(

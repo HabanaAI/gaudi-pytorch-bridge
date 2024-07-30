@@ -61,7 +61,17 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t stack_index = CreateSTAndInsertToDSStack(
       inferred_st_sizes, scalar_indexes, {}, {}, m_dmeta);
   auto v_st_tensor = graph->addInput(view_st_name);
-
+  auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+  if (aten_view_node->hasAttribute(symbol_outputshape)) {
+    std::string original = aten_view_node->s(symbol_outputshape);
+    std::string modified = original.substr(1, original.length() - 2);
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo({}, {}, modified, -1));
+    PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
+  } else {
+    PT_DYNAMIC_SHAPE_WARN(
+        "ERROR: Not adding ST ranges output_shapes attribute null");
+  }
   // find if view has negative dims
   auto has_neg_size = false;
   for (auto val : st_size) {
@@ -239,27 +249,37 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
   if (!(c10::isFloatingType(out_dtype))) {
     std::vector<int64_t> scalar_indexes;
     std::vector<int> h2d_values;
+    std::vector<std::string> h2d_expr;
 
     int64_t step_idx = LONG_MAX;
     int64_t step_value = 1;
     GetValueAndScalarIndexFromInput(
         step, org_stack, org_stack_index_map, step_value, step_idx);
+    auto step_expr =
+        GetRangeInfoExprFromInput(step, org_stack_index_map, m_range_infos);
     scalar_indexes.push_back(step_idx);
     h2d_values.push_back(static_cast<int>(step_value));
+    h2d_expr.push_back(step_expr);
 
     int64_t end_idx = LONG_MAX;
     int64_t end_value = 1;
     GetValueAndScalarIndexFromInput(
         end, org_stack, org_stack_index_map, end_value, end_idx);
+    auto end_expr =
+        GetRangeInfoExprFromInput(end, org_stack_index_map, m_range_infos);
     scalar_indexes.push_back(end_idx);
     h2d_values.push_back(static_cast<int>(end_value));
+    h2d_expr.push_back(end_expr);
 
     int64_t start_idx = LONG_MAX;
     int64_t start_value = 0;
     GetValueAndScalarIndexFromInput(
         start, org_stack, org_stack_index_map, start_value, start_idx);
+    auto start_expr =
+        GetRangeInfoExprFromInput(start, org_stack_index_map, m_range_infos);
     scalar_indexes.push_back(start_idx);
     h2d_values.push_back(static_cast<int>(start_value));
+    h2d_expr.push_back(start_expr);
 
     // Step2: Create H2D tensor and insert to graph inputs.
     auto arange_h2d_name =
@@ -276,6 +296,8 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
         iv_h2d_tensor, scalar_indexes, {}, {}, m_dmeta);
     auto v_h2d_tensor = graph->addInput(arange_h2d_name);
     dtensor_indexes.push_back(stack_index);
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo({}, {}, GetExprFromString(h2d_expr), -2));
 
     // Use actual reshape sizes and avoid sizes with dims "-1"
     auto out_tensors = getOutputTensers(aten_arange_node, value_ivalue_map);
@@ -293,6 +315,17 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
         inferred_st_sizes, {}, {}, mixed_indexes, m_dmeta);
     auto arange_st_tensor = graph->addInput(arange_st_name);
     dtensor_indexes.push_back(stack_index_2);
+    auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+    if (aten_arange_node->hasAttribute(symbol_outputshape)) {
+      std::string original = aten_arange_node->s(symbol_outputshape);
+      std::string modified = original.substr(1, original.length() - 2);
+      m_range_infos->emplace_back(
+          habana_helpers::RangeInfo({}, {}, modified, -1));
+      PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
+    } else {
+      PT_DYNAMIC_SHAPE_WARN(
+          "ERROR: Not adding ST ranges output_shapes attribute null");
+    }
 
     // Step4: Create hpu::arange_start_step node and insert to the graph
     CreateAndInsertDynamicNodeToGraph(
@@ -405,8 +438,12 @@ bool ConstantPad2dOperatorDS::ReplaceWithDynamicHPUOp(
       org_stack_index_map,
       values,
       scalar_indexes);
+  auto expr_values = GetRangeInfoExprFromListConstruct(
+      list_construct_node, org_stack_index_map, m_range_infos);
+
   std::vector<int64_t> pad_ht_vec(MAX_DIMENSIONS_NUM * 2, 0);
   std::vector<int64_t> scalar_indexes_ht(MAX_DIMENSIONS_NUM * 2, LONG_MAX);
+  std::vector<std::string> pad_ht_vec_expr(MAX_DIMENSIONS_NUM * 2, "0");
   // assuming that "pad" has a pair of pad values corresponding to each
   // dim that needs to be padded.
   for (unsigned int i = 0; i < values.size() / 2; i++) {
@@ -414,12 +451,15 @@ bool ConstantPad2dOperatorDS::ReplaceWithDynamicHPUOp(
     // pad_before[0]...pad_before[4], pad_after[0] ... pad_after[4] (for
     // dimensionality IFM less then 5 some elements not in use)
     pad_ht_vec[i] = values[2 * i];
+    pad_ht_vec_expr[i] = expr_values[2 * i];
     pad_ht_vec[MAX_DIMENSIONS_NUM + i] = values[2 * i + 1];
+    pad_ht_vec_expr[MAX_DIMENSIONS_NUM + i] = expr_values[2 * i + 1];
     scalar_indexes_ht[i] = scalar_indexes[2 * i];
     scalar_indexes_ht[MAX_DIMENSIONS_NUM + i] = scalar_indexes[2 * i + 1];
   }
   std::reverse(pad_ht_vec.begin(), pad_ht_vec.end());
   std::reverse(scalar_indexes_ht.begin(), scalar_indexes_ht.end());
+  std::reverse(pad_ht_vec_expr.begin(), pad_ht_vec_expr.end());
   // Step2: Create H2D tensor and insert to graph inputs.
 
   auto padop_h2d_name =
@@ -427,6 +467,8 @@ bool ConstantPad2dOperatorDS::ReplaceWithDynamicHPUOp(
 
   int64_t stack_index_ht = CreateH2DAndInsertToDSStack<int32_t>(
       pad_ht_vec, scalar_indexes_ht, HostDataType::UINT32_T, m_dmeta);
+  m_range_infos->emplace_back(habana_helpers::RangeInfo(
+      {}, {}, GetExprFromString(pad_ht_vec_expr), -2));
   auto v_h2d_tensor = graph->addInput(padop_h2d_name);
 
   auto scalar_val = aten_pad_node->inputs().at(2);
@@ -464,6 +506,17 @@ bool ConstantPad2dOperatorDS::ReplaceWithDynamicHPUOp(
       GetDynamicTensorName(v_pad_shape->debugName(), SHAPE_TENSOR);
   int64_t stack_index_st = CreateSTAndInsertToDSStack(
       inferred_st_sizes, {pad_val_idx}, {}, mixed_scalar_indexes, m_dmeta);
+  auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+  if (aten_pad_node->hasAttribute(symbol_outputshape)) {
+    std::string original = aten_pad_node->s(symbol_outputshape);
+    std::string modified = original.substr(1, original.length() - 2);
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo({}, {}, modified, -1));
+    PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
+  } else {
+    PT_DYNAMIC_SHAPE_WARN(
+        "ERROR: Not adding ST ranges output_shapes attribute null");
+  }
   auto pad_st_tensor = graph->addInput(pad_st_name);
   std::vector<int64_t> dtensor_indexes{stack_index_ht, stack_index_st};
   InputPatchPair patch_info(
@@ -610,12 +663,25 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   auto v_st_sizes_tensor = graph->addInput(as_strided_shape_st_name);
   std::vector<int64_t> dtensor_indexes{stack_index};
 
+  auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+  if (aten_as_strided_node->hasAttribute(symbol_outputshape)) {
+    std::string original = aten_as_strided_node->s(symbol_outputshape);
+    std::string modified = original.substr(1, original.length() - 2);
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo({}, {}, modified, -1));
+    PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
+  } else {
+    PT_DYNAMIC_SHAPE_WARN(
+        "ERROR: Not adding ST ranges output_shapes attribute null");
+  }
+
   // Collect ST shape and symlnt pos using ListConstruct values for strides
   // format of filling [num_strides, offset, stride[0], stride[1]...]
   auto as_strided_stride_st_name = GetDynamicTensorName(
       as_strided_stride->debugName(), HOST_TO_DEVICE_TENSOR);
   std::vector<int64_t> scalar_indexes;
   std::vector<uint64_t> h2d_values;
+  std::vector<std::string> h2d_expr;
   // Get offset value
   int64_t offset_idx = LONG_MAX;
   int64_t offset_value = 0;
@@ -625,16 +691,22 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
       org_stack_index_map,
       offset_value,
       offset_idx);
+  auto expr_offset = GetRangeInfoExprFromInput(
+      as_strided_offset, org_stack_index_map, m_range_infos);
   // Fill the offset values
   scalar_indexes.push_back(offset_idx);
   h2d_values.push_back(static_cast<uint64_t>(offset_value));
+  h2d_expr.push_back(expr_offset);
   // Get and fill strides values
   std::vector<int64_t> scalar_indexes_strides;
   std::vector<int64_t> values_strides;
+  std::vector<std::string> expr_strides;
   auto self_strides = self.strides().vec();
   if (stride_construct_node->kind() == torch::jit::prim::Constant) {
     GetValuesAndScalarIndexesFromListConst(
         stride_construct_node, values_strides, scalar_indexes_strides);
+    expr_strides = GetRangeInfoExprFromListConst(
+        stride_construct_node, org_stack_index_map, m_range_infos);
   } else if (stride_construct_node->kind() == torch::jit::prim::ListConstruct) {
     GetValuesAndScalarIndexesFromListConstruct(
         stride_construct_node,
@@ -642,10 +714,15 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
         org_stack_index_map,
         values_strides,
         scalar_indexes_strides);
+    expr_strides = GetRangeInfoExprFromListConstruct(
+        stride_construct_node, org_stack_index_map, m_range_infos);
   }
   // Fill the strides values in reverse order
   for (auto it = values_strides.rbegin(); it != values_strides.rend(); ++it) {
     h2d_values.push_back(static_cast<uint64_t>(*it));
+  }
+  for (auto it = expr_strides.rbegin(); it != expr_strides.rend(); ++it) {
+    h2d_expr.push_back(*it);
   }
   // Since strides are reversed fill strides indexes also in reverse order
   for (auto it = scalar_indexes_strides.rbegin();
@@ -658,11 +735,13 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
   for (size_t i = 0; i < fill_dim; i++) {
     h2d_values.push_back(static_cast<uint64_t>(0));
     scalar_indexes.push_back(LONG_MAX);
+    h2d_expr.push_back("0");
   }
   // Fill num_strides at 0 index
   scalar_indexes.insert(scalar_indexes.begin(), LONG_MAX);
   auto num_strides = (values_strides.size() == 0) ? 1 : values_strides.size();
   h2d_values.insert(h2d_values.begin(), static_cast<uint64_t>(num_strides));
+  h2d_expr.insert(h2d_expr.begin(), std::to_string(num_strides));
 
   at::Tensor h2d_tensor_strides = createDynamicTensor(
       {static_cast<int64_t>(h2d_values.size()) * 2}, HOST_TO_DEVICE_TENSOR);
@@ -673,6 +752,8 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
       iv_st_strides_tensor, scalar_indexes, tensor_indexes, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(as_strided_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo({}, {}, GetExprFromString(h2d_expr), -2));
 
   // Due to InputView handling case the self tensor size is set to base tensor
   // in LaunchRecipe and it is set contiguous, Now since this base tensor goes
@@ -732,6 +813,8 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
         GetDynamicTensorName(as_strided_offset->debugName(), SHAPE_TENSOR);
     auto v_st_offset_tensor = graph->addInput(as_strided_offset_st_name);
     dtensor_indexes.push_back(stack_index_offset);
+    m_range_infos->emplace_back(habana_helpers::RangeInfo(
+        {}, {}, GetExprFromString({expr_offset}), -1));
     // Create hpu::as_strided_view node and insert to the graph
     CreateAndInsertDynamicNodeToGraph(
         graph,
@@ -890,6 +973,7 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
 
   std::vector<int64_t> scalar_indexes;
   std::vector<uint64_t> h2d_values;
+  std::vector<std::string> h2d_expr;
 
   // Get offset value and index and add it to h2d_values and scalar_indexes respectively
   int64_t offset_idx = LONG_MAX;
@@ -900,14 +984,17 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
       org_stack_index_map,
       offset_value,
       offset_idx);
+  auto expr_offset = GetRangeInfoExprFromInput(
+      as_strided_scatter_offset, org_stack_index_map, m_range_infos);
   scalar_indexes.push_back(offset_idx);
   h2d_values.push_back(static_cast<uint64_t>(offset_value));
+  h2d_expr.push_back(expr_offset);
 
   // Stride is a vector
   // There is a stride value for each dimension of input tensor
   std::vector<int64_t> scalar_indexes_strides;
   std::vector<int64_t> values_strides;
-
+  std::vector<std::string> expr_strides;
   // Get stride value and index and add it to h2d_values and scalar_indexes respectively
   auto self_strides = self.strides().vec();
   GetValuesAndScalarIndexesFromListConstruct(
@@ -916,9 +1003,14 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
       org_stack_index_map,
       values_strides,
       scalar_indexes_strides);
+  expr_strides = GetRangeInfoExprFromListConstruct(
+      stride_construct_node, org_stack_index_map, m_range_infos);
   // Fill the strides values in reverse order
   for (auto it = values_strides.rbegin(); it != values_strides.rend(); ++it) {
     h2d_values.push_back(static_cast<uint64_t>(*it));
+  }
+  for (auto it = expr_strides.rbegin(); it != expr_strides.rend(); ++it) {
+    h2d_expr.push_back(*it);
   }
   // Insert strides indexes in reverse order
   for (auto it = scalar_indexes_strides.rbegin(); it != scalar_indexes_strides.rend(); ++it) {
@@ -931,12 +1023,13 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
   for (size_t i = 0; i < fill_dim; i++) {
     h2d_values.push_back(static_cast<uint64_t>(0));
     scalar_indexes.push_back(LONG_MAX);
+    h2d_expr.push_back("0");
   }
   // Insert num_strides at 0 index (first value)
   // and LONG_MAX as corresponding index
   scalar_indexes.insert(scalar_indexes.begin(), LONG_MAX);
   h2d_values.insert(h2d_values.begin(), static_cast<uint64_t>(values_strides.size()));
-
+  h2d_expr.insert(h2d_expr.begin(), std::to_string(values_strides.size()));
   // Create H2D tensor using h2d_values and scalar_indexes
   at::Tensor h2d_tensor_strides = createDynamicTensor(
       {static_cast<int64_t>(h2d_values.size()) * 2}, HOST_TO_DEVICE_TENSOR);
@@ -946,6 +1039,8 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
       iv_st_strides_tensor, scalar_indexes, {}, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(as_strided_scatter_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo({}, {}, GetExprFromString(h2d_expr), -2));
 
   // There are two paths: StridedRatio path or normal path
   // Path 1: Normal path / Non-StridedRatio path
@@ -1000,6 +1095,8 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
         GetDynamicTensorName(as_strided_scatter_offset->debugName(), SHAPE_TENSOR);
     auto v_st_offset_tensor = graph->addInput(as_strided_scatter_offset_st_name);
     dtensor_indexes.push_back(stack_index_offset);
+    m_range_infos->emplace_back(habana_helpers::RangeInfo(
+        {}, {}, GetExprFromString({expr_offset}), -1));
 
     // Create hpu::as_strided_scatter node and insert to the graph
     // This has offset parameter
@@ -1088,6 +1185,7 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
       strided_insert_stride->debugName(), HOST_TO_DEVICE_TENSOR);
   std::vector<int64_t> scalar_indexes;
   std::vector<uint64_t> h2d_values;
+  std::vector<std::string> h2d_expr;
   // Get offset value
   int64_t offset_idx = LONG_MAX;
   int64_t offset_value = 0;
@@ -1097,14 +1195,17 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
       org_stack_index_map,
       offset_value,
       offset_idx);
+  auto expr_offset = GetRangeInfoExprFromInput(
+      strided_insert_offset, org_stack_index_map, m_range_infos);
   // Fill the offset values
   scalar_indexes.push_back(offset_idx);
   h2d_values.push_back(static_cast<uint64_t>(offset_value));
+  h2d_expr.push_back(expr_offset);
   // Get and fill strides values
   std::vector<int64_t> scalar_indexes_strides;
   std::vector<int64_t> values_strides;
   auto self_strides = self.strides().vec();
-
+  std::vector<std::string> expr_strides;
   static const auto constant_symbol{
       c10::Symbol::fromQualString("prim::Constant")};
   if (stride_construct_node->kind() == constant_symbol) {
@@ -1112,6 +1213,8 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
           stride_construct_node,
           values_strides,
           scalar_indexes_strides);
+      expr_strides = GetRangeInfoExprFromListConst(
+          stride_construct_node, org_stack_index_map, m_range_infos);
   } else {
       GetValuesAndScalarIndexesFromListConstruct(
           stride_construct_node,
@@ -1119,10 +1222,15 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
           org_stack_index_map,
           values_strides,
           scalar_indexes_strides);
+      expr_strides = GetRangeInfoExprFromListConstruct(
+          stride_construct_node, org_stack_index_map, m_range_infos);
   }
   // Fill the strides values in reverse order
   for (auto it = values_strides.rbegin(); it != values_strides.rend(); ++it) {
     h2d_values.push_back(static_cast<uint64_t>(*it));
+  }
+  for (auto it = expr_strides.rbegin(); it != expr_strides.rend(); ++it) {
+    h2d_expr.push_back(*it);
   }
   // Since strides are reversed fill strides indexes also in reverse order
   for (auto it = scalar_indexes_strides.rbegin();
@@ -1135,11 +1243,13 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
   for (size_t i = 0; i < fill_dim; i++) {
     h2d_values.push_back(static_cast<uint64_t>(0));
     scalar_indexes.push_back(LONG_MAX);
+    h2d_expr.push_back("0");
   }
   // Fill num_strides at 0 index
   scalar_indexes.insert(scalar_indexes.begin(), LONG_MAX);
   h2d_values.insert(
       h2d_values.begin(), static_cast<uint64_t>(values_strides.size()));
+  h2d_expr.insert(h2d_expr.begin(), std::to_string(values_strides.size()));
 
   at::Tensor h2d_tensor_strides = createDynamicTensor(
       {static_cast<int64_t>(h2d_values.size()) * 2}, HOST_TO_DEVICE_TENSOR);
@@ -1150,6 +1260,8 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
       iv_st_strides_tensor, scalar_indexes, {}, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(strided_insert_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo({}, {}, GetExprFromString(h2d_expr), -2));
 
   if (IsStridedRatioUndefined(self_strides, values_strides)) {
     auto tmeta{get_tensor_extra_meta(h2d_tensor_strides)};
@@ -1191,6 +1303,8 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
         GetDynamicTensorName(strided_insert_offset->debugName(), SHAPE_TENSOR);
     auto v_st_offset_tensor = graph->addInput(strided_insert_offset_st_name);
     dtensor_indexes.push_back(stack_index_offset);
+    m_range_infos->emplace_back(habana_helpers::RangeInfo(
+        {}, {}, GetExprFromString({expr_offset}), -1));
     // Create hpu::as_strided_view node and insert to the graph
     CreateAndInsertDynamicNodeToGraph(
         graph,
@@ -1306,23 +1420,29 @@ bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
 
   std::vector<int64_t> scalar_indexes;
   std::vector<int64_t> h2d_values;
+  std::vector<std::string> h2d_expr;
 
   int64_t step_idx = LONG_MAX;
   int64_t step_value = 1;
   scalar_indexes.push_back(step_idx);
   h2d_values.push_back(static_cast<uint64_t>(step_value));
+  h2d_expr.push_back("1");
 
   int64_t end_idx = LONG_MAX;
   int64_t end_value = 0;
   GetValueAndScalarIndexFromInput(
       end, org_stack, org_stack_index_map, end_value, end_idx);
+  auto expr_end =
+      GetRangeInfoExprFromInput(end, org_stack_index_map, m_range_infos);
   scalar_indexes.push_back(end_idx);
   h2d_values.push_back(static_cast<uint64_t>(end_value));
+  h2d_expr.push_back(expr_end);
 
   int64_t start_idx = LONG_MAX;
   int64_t start_value = 0;
   scalar_indexes.push_back(start_idx);
   h2d_values.push_back(static_cast<uint64_t>(start_value));
+  h2d_expr.push_back("0");
 
   // Step2: Create H2D tensor and insert to graph inputs.
   auto arange_h2d_name =
@@ -1330,6 +1450,8 @@ bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t stack_index = CreateH2DAndInsertToDSStack<int32_t>(
       h2d_values, scalar_indexes, HostDataType::INT32_T, m_dmeta);
   auto v_h2d_tensor = graph->addInput(arange_h2d_name);
+  m_range_infos->emplace_back(
+      habana_helpers::RangeInfo({}, {}, GetExprFromString(h2d_expr), -2));
 
   // Step3: Register patching function and tensor lists
   std::vector<int64_t> dtensor_indexes{stack_index};
@@ -1345,6 +1467,18 @@ bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
   auto arange_st_name = GetDynamicTensorName(end->debugName(), SHAPE_TENSOR);
   int64_t stack_index_2 =
       CreateSTAndInsertToDSStack(inferred_st_sizes, {end_idx}, {}, {}, m_dmeta);
+  auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+  if (aten_randperm_node->hasAttribute(symbol_outputshape)) {
+    std::string original = aten_randperm_node->s(symbol_outputshape);
+    std::string modified = original.substr(1, original.length() - 2);
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo({}, {}, modified, -1));
+    PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
+  } else {
+    PT_DYNAMIC_SHAPE_WARN(
+        "ERROR: Not adding ST ranges output_shapes attribute null");
+  }
+
   auto arange_st_tensor = graph->addInput(arange_st_name);
 
   // Step3: Register patching function and tensor lists
@@ -1406,6 +1540,18 @@ bool RandOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t stack_index = CreateSTAndInsertToDSStack(
       inferred_st_sizes, scalar_indexes, {}, {}, m_dmeta);
   auto rand_st_tensor = graph->addInput(rand_st_name);
+
+  auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+  if (aten_rand_node->hasAttribute(symbol_outputshape)) {
+    std::string original = aten_rand_node->s(symbol_outputshape);
+    std::string modified = original.substr(1, original.length() - 2);
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo({}, {}, modified, -1));
+    PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
+  } else {
+    PT_DYNAMIC_SHAPE_WARN(
+        "ERROR: Not adding ST ranges output_shapes attribute null");
+  }
 
   // Step3: Create hpu::rand_ds node and insert to the graph
   static const auto hpu_rand_symbol{
@@ -1485,6 +1631,18 @@ bool RandnOperatorDS::ReplaceWithDynamicHPUOp(
       inferred_st_sizes, scalar_indexes, {}, {}, m_dmeta);
   auto rand_st_tensor = graph->addInput(rand_st_name);
 
+  auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+  if (aten_rand_node->hasAttribute(symbol_outputshape)) {
+    std::string original = aten_rand_node->s(symbol_outputshape);
+    std::string modified = original.substr(1, original.length() - 2);
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo({}, {}, modified, -1));
+    PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
+  } else {
+    PT_DYNAMIC_SHAPE_WARN(
+        "ERROR: Not adding ST ranges output_shapes attribute null");
+  }
+
   // Step3: Create hpu::rand_ds node and insert to the graph
   static const auto hpu_rand_symbol{
       c10::Symbol::fromQualString("hpu::habana_rand_st")};
@@ -1562,6 +1720,18 @@ bool RandintOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t stack_index = CreateSTAndInsertToDSStack(
       inferred_st_sizes, scalar_indexes, {}, {}, m_dmeta);
   auto rand_st_tensor = graph->addInput(rand_st_name);
+
+  auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+  if (aten_rand_node->hasAttribute(symbol_outputshape)) {
+    std::string original = aten_rand_node->s(symbol_outputshape);
+    std::string modified = original.substr(1, original.length() - 2);
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo({}, {}, modified, -1));
+    PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
+  } else {
+    PT_DYNAMIC_SHAPE_WARN(
+        "ERROR: Not adding ST ranges output_shapes attribute null");
+  }
 
   // Step3: Create hpu::rand_ds node and insert to the graph
   static const auto hpu_rand_symbol{
@@ -1643,6 +1813,18 @@ bool FullOpDS::ReplaceWithDynamicHPUOp(
       inferred_st_sizes, scalar_indexes, {}, {}, m_dmeta);
   auto full_st_tensor = graph->addInput(full_st_name);
 
+  auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+  if (aten_full_node->hasAttribute(symbol_outputshape)) {
+    std::string original = aten_full_node->s(symbol_outputshape);
+    std::string modified = original.substr(1, original.length() - 2);
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo({}, {}, modified, -1));
+    PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
+  } else {
+    PT_DYNAMIC_SHAPE_WARN(
+        "ERROR: Not adding ST ranges output_shapes attribute null");
+  }
+
   // Step3: Create hpu::full_ds node and insert to the graph
   static const auto hpu_full_symbol{
       c10::Symbol::fromQualString("hpu::full_ds")};
@@ -1719,6 +1901,17 @@ bool EmptyOpDS::ReplaceWithDynamicHPUOp(
   int64_t stack_index = CreateSTAndInsertToDSStack(
       inferred_st_sizes, scalar_indexes, {}, {}, m_dmeta);
   auto empty_st_tensor = graph->addInput(empty_st_name);
+  auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+  if (aten_empty_node->hasAttribute(symbol_outputshape)) {
+    std::string original = aten_empty_node->s(symbol_outputshape);
+    std::string modified = original.substr(1, original.length() - 2);
+    m_range_infos->emplace_back(
+        habana_helpers::RangeInfo({}, {}, modified, -1));
+    PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
+  } else {
+    PT_DYNAMIC_SHAPE_WARN(
+        "ERROR: Not adding ST ranges output_shapes attribute null");
+  }
 
   // Step3: Create hpu::empty_ds node and insert to the graph
   static const auto hpu_empty_symbol{

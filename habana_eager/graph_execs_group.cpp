@@ -75,7 +75,9 @@ void GraphExecsGroup::CopyGraphAndEmplace(
           m_inference,
           m_has_preallocated_outputs,
           m_has_randoms,
-          m_in_symbol_idx_map));
+          m_in_symbol_idx_map,
+          m_range_infos,
+          m_mark_dynamic));
 }
 
 GraphExecsGroup::GraphExecsGroup(
@@ -86,14 +88,18 @@ GraphExecsGroup::GraphExecsGroup(
     bool inference,
     bool has_preallocated_outputs,
     bool has_randoms,
-    InputSymbolIndexMap in_symbol_idx_map)
+    InputSymbolIndexMap in_symbol_idx_map,
+    std::vector<habana_helpers::RangeInfo>& range_infos,
+    bool mark_dynamic)
     : m_graph_group_index(recipe_id),
       m_original_graph(graph),
       m_dynamic(dynamic),
       m_inference(inference),
       m_has_preallocated_outputs(has_preallocated_outputs),
       m_has_randoms(has_randoms),
-      m_in_symbol_idx_map(in_symbol_idx_map) {
+      m_in_symbol_idx_map(in_symbol_idx_map),
+      m_range_infos(range_infos),
+      m_mark_dynamic(mark_dynamic) {
   PT_EAGER_TRACE;
 
   m_graphs_group_name = "graphs_group_" + std::to_string(recipe_id);

@@ -31,7 +31,8 @@ void HandleDynamicOps(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& stack,
     std::shared_ptr<DynamicGraphMetaData> dgraph_meta,
-    std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes);
+    std::map<int64_t, std::vector<int64_t>>* input_new_base_sizes,
+    std::vector<habana_helpers::RangeInfo>* range_infos);
 void HandlePostDynamic(
     std::shared_ptr<DynamicGraphMetaData> dgraph_meta,
     std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map);

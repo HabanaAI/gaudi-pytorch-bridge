@@ -64,7 +64,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
          bool inference,
          bool has_preallocated_outputs,
          bool has_randoms,
-         InputSymbolIndexMap& in_symbol_idx_map) {
+         InputSymbolIndexMap& in_symbol_idx_map,
+         std::vector<habana_helpers::RangeInfo>& range_infos,
+         bool mark_dynamic) {
         torch::jit::Stack stack;
         stack.reserve(inputs.size());
         for (auto& obj : inputs) {
@@ -78,7 +80,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
             inference,
             has_preallocated_outputs,
             has_randoms,
-            in_symbol_idx_map);
+            in_symbol_idx_map,
+            range_infos,
+            mark_dynamic);
       },
       py::return_value_policy::copy,
       py::arg("graph"),
@@ -87,7 +91,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       py::arg("inference"),
       py::arg("has_preallocated_outputs"),
       py::arg("has_randoms"),
-      py::arg("in_symbol_idx_map"));
+      py::arg("in_symbol_idx_map"),
+      py::arg("range_infos"),
+      py::arg("mark_dynamic"));
   m.def(
       "graph_launch",
       [](size_t recipe_id,
@@ -127,4 +133,14 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
            std::optional<std::vector<int64_t>>>())
       .def_readwrite("size", &EmptyBatchData::size);
   m.def("batch_empty", &batch_empty, "Create empty tensors");
+  py::class_<habana_helpers::RangeInfo>(m, "RangeInfo")
+      .def(py::init<
+           std::vector<int64_t>,
+           std::vector<int64_t>,
+           std::string,
+           int>())
+      .def_readwrite("min_shape", &habana_helpers::RangeInfo::min_shape)
+      .def_readwrite("max_shape", &habana_helpers::RangeInfo::max_shape)
+      .def_readwrite("expr", &habana_helpers::RangeInfo::expr)
+      .def_readwrite("index", &habana_helpers::RangeInfo::index);
 }

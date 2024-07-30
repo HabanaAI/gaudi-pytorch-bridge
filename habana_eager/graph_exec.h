@@ -39,7 +39,9 @@ class GraphExec {
       bool inference,
       bool has_preallocated_outputs,
       bool has_randoms,
-      InputSymbolIndexMap in_symbol_idx_map);
+      InputSymbolIndexMap in_symbol_idx_map,
+      std::vector<habana_helpers::RangeInfo>& range_infos,
+      bool mark_dynamic);
 
   torch::jit::Stack launch(
       torch::jit::Stack& inputs,
@@ -88,6 +90,7 @@ class GraphExec {
   std::shared_ptr<torch::jit::Graph> m_graph;
   std::string m_graph_name;
   bool m_dynamic;
+
   bool m_static_fallback = false;
   bool m_inference;
   bool is_first_launch = true;
@@ -102,6 +105,8 @@ class GraphExec {
   bool m_has_preallocated_outputs = false;
   const bool m_has_randoms;
   InputSymbolIndexMap m_in_symbol_idx_map;
+  std::vector<habana_helpers::RangeInfo> m_range_infos;
+  bool m_mark_dynamic = false;
   bool m_reset_seed = true;
   SeedTensors m_seed_tensors{};
   size_t m_sym_expr_hash = 0;

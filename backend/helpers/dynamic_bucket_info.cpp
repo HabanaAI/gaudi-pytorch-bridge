@@ -441,6 +441,8 @@ void DynamicBucketInfo::CollectDynamicDims(const InpTensorShapes& new_shapes) {
           tensor_idx, std::map<int64_t, int64_t>());
       local_max_history_tensor_shapes_.emplace(
           tensor_idx, std::map<int64_t, int64_t>());
+      min_user_shapes_.emplace(tensor_idx, std::map<int64_t, int64_t>());
+      max_user_shapes_.emplace(tensor_idx, std::map<int64_t, int64_t>());
       local_pt_history_tensor_shapes_[0].emplace(
           tensor_idx, std::map<int64_t, int64_t>());
       local_pt_history_tensor_shapes_[1].emplace(
@@ -455,6 +457,8 @@ void DynamicBucketInfo::CollectDynamicDims(const InpTensorShapes& new_shapes) {
             dim_idx, (dim_val == 1) ? INT_MAX : dim_val);
         local_pt_history_tensor_shapes_[1][tensor_idx].emplace(
             dim_idx, dim_val);
+        min_user_shapes_[tensor_idx].emplace(dim_idx, dim_val);
+        max_user_shapes_[tensor_idx].emplace(dim_idx, dim_val);
       }
     }
   }
@@ -774,6 +778,60 @@ absl::optional<uint64_t> DynamicBucketInfo::CheckForSplitBucket(
   return {};
 }
 
+size_t DynamicBucketInfo::GetUserBucketId(
+    const InpTensorShapes& shapes,
+    std::vector<habana_helpers::RangeInfo>& range_infos) {
+  TORCH_CHECK(shapes_.size() == shapes.size(), "Shapes dont match");
+  PT_DYNAMIC_SHAPE_DEBUG("Creating bucket with user ranges");
+  cumu_run_count_++;
+  global_count++;
+
+  // Create new bucket
+  DynamicRanges ranges;
+  DynamicDims dd;
+  // DynamicDims : input_idx => {dim_idx => range_idx in DynamicRanges}
+  TORCH_CHECK(!max_user_shapes_.empty(), "User max structure is empty");
+  TORCH_CHECK(!min_user_shapes_.empty(), "User min structure is empty");
+  for (auto dynamic_dims{max_user_shapes_.begin()};
+       dynamic_dims != max_user_shapes_.end();
+       dynamic_dims++) {
+    auto tensor_idx = dynamic_dims->first;
+    auto range_info = range_infos[tensor_idx];
+    auto tensor_sizes_min = range_info.min_shape;
+    auto tensor_sizes_max = range_info.max_shape;
+    std::map<int64_t, int64_t> dim_range_map;
+    for (auto curr_dim{dynamic_dims->second.begin()};
+         curr_dim != dynamic_dims->second.end();
+         curr_dim++) {
+      auto dim_idx = curr_dim->first;
+      int64_t min_dim_val = tensor_sizes_min[dim_idx];
+      int64_t max_dim_val = tensor_sizes_max[dim_idx];
+      min_user_shapes_.at(tensor_idx).at(dim_idx) = min_dim_val;
+      max_user_shapes_.at(tensor_idx).at(dim_idx) = max_dim_val;
+      if (min_dim_val != max_dim_val) {
+        ranges.emplace_back(std::make_pair(min_dim_val, max_dim_val));
+        dim_range_map[dim_idx] = ranges.size() - 1;
+      }
+    }
+    if (!dim_range_map.empty()) {
+      dd[tensor_idx] = dim_range_map;
+    }
+  }
+
+  buckets_.emplace_back(
+      std::move(ranges), dd, refine_enabled_, split_policy_, shapes_);
+  auto& new_bucket = buckets_.back();
+  uint64_t new_bucket_id = buckets_.size() - 1;
+  new_bucket.SetIndex(new_bucket_id);
+  // Start the history log
+  input_history_.hist_items().emplace_back(
+      DimsHistoryElement{}, new_bucket_id, 0);
+  current_input_idx_ = 0;
+  buckets_[new_bucket_id].AppendInputHistIndex(current_input_idx_);
+
+  return buckets_.size() - 1;
+}
+
 Bucket DynamicBucketInfo::ConstructNewBucket(
     ResultShapes& result_computed,
     const Bucket& mfu_bucket,
@@ -850,6 +908,8 @@ void DynamicBucketInfo::Serialize(std::ostream& os) const {
   serialize(os, local_min_history_success_shapes_);
   serialize(os, local_max_history_tensor_shapes_);
   serialize(os, local_max_history_success_shapes_);
+  serialize(os, max_user_shapes_);
+  serialize(os, min_user_shapes_);
   for (auto& element : local_pt_history_tensor_shapes_) {
     serialize(os, element);
   }
@@ -905,6 +965,8 @@ DynamicBucketInfo::DynamicBucketInfo(std::istream& is) {
   deserialize(is, local_min_history_success_shapes_);
   deserialize(is, local_max_history_tensor_shapes_);
   deserialize(is, local_max_history_success_shapes_);
+  deserialize(is, max_user_shapes_);
+  deserialize(is, min_user_shapes_);
   for (int i = 0; i < 2; ++i) {
     deserialize(is, local_pt_history_tensor_shapes_[i]);
   }

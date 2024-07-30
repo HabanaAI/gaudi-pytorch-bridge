@@ -21,6 +21,7 @@
 #include <mutex>
 #include "backend/backend_meta.h"
 #include "backend/helpers/dynamic_bucket_info_utils.h"
+#include "backend/helpers/dynamic_shape_infer.h"
 #include "backend/lazy_to_backend.h"
 #include "backend/synapse_helpers/habana_tensor.h"
 #include "backend/synapse_helpers/stream.h"
@@ -490,6 +491,11 @@ class DynamicBucketInfo {
   size_t GetBucketId(
       const InpTensorShapes& shapes,
       const PadShapes& pad_shapes = PadShapes{});
+
+  size_t GetUserBucketId(
+      const InpTensorShapes& shapes,
+      std::vector<habana_helpers::RangeInfo>& range_infos);
+
   absl::optional<uint64_t> CheckForSplitBucket(
       std::shared_ptr<habana_helpers::DynamicBucketInfo> dbipsh);
   Bucket ConstructNewBucket(
@@ -840,7 +846,6 @@ class DynamicBucketInfo {
   void CalculateLocalHistoricPerTensor(
       const InpTensorShapes& shapes,
       bool isMin = true);
-
   DynamicRanges CalculateRanges(
       const InpTensorShapes& shapes,
       const PadShapes& pad_shapes);
@@ -868,6 +873,8 @@ class DynamicBucketInfo {
   DimsHistoryElement local_min_history_success_shapes_;
   DimsHistoryElement local_max_history_tensor_shapes_;
   DimsHistoryElement local_max_history_success_shapes_;
+  DimsHistoryElement min_user_shapes_;
+  DimsHistoryElement max_user_shapes_;
   DimsHistoryElement local_pt_history_tensor_shapes_[2];
   DimsHistoryElement local_pt_history_success_shapes_[2];
   DynamicDimsPolicy min_policy_{MIN_POLICY_DEFAULT};
