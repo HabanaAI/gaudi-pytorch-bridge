@@ -383,9 +383,9 @@ auto get_or_create_tensor(
   return result;
 
 #define RUN_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, self)                \
+  self = lazy_op.get_result(self);                                          \
   if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
-    self = lazy_op.get_result(self);                                        \
     scheduleAccTask(std::move(lazy_op), self);                              \
     MAYBE_FLUSH_OP(1);                                                      \
     return self;                                                            \
@@ -393,9 +393,9 @@ auto get_or_create_tensor(
   return lazy_op.call(self);
 
 #define RUN_CONST_INPLACE_MAYBE_WITH_ACC_THREAD(op, lazy_op, self)          \
+  lazy_op.get_result(self);                                                 \
   if (habana_lazy::AccThread::Get().CanUseAccThread()) {                    \
     PT_LAZY_PARALLEL_ACC_DEBUG("Running ", #op, " in accumulation thread"); \
-    lazy_op.get_result(self);                                               \
     scheduleAccTask(std::move(lazy_op), self);                              \
     MAYBE_FLUSH_OP(1);                                                      \
     return self;                                                            \

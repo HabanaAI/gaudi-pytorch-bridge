@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -1069,6 +1069,25 @@ class LazyOp {
       out_shape = m_out_shapes[0];
     }
     if (tensor.sizes() != out_shape) {
+      using namespace std::literals;
+      // only raise warning for inplace/out case
+      if (std::string_view(m_symbol.toQualString()) != "aten::resize_"sv &&
+          tensor.numel() != 0) {
+        TORCH_WARN(
+            "An output with one or more elements was resized since it had ",
+            "shape ",
+            tensor.sizes(),
+            ", which does not match the required ",
+            "output shape ",
+            c10::ArrayRef<int64_t>(out_shape),
+            ". ",
+            "This behavior is deprecated, and in a future PyTorch release outputs ",
+            "will not be resized unless they have zero elements. You can explicitly ",
+            "reuse an out tensor t by resizing it, inplace, to zero elements with ",
+            "t.resize_(0).");
+      }
+      PT_IRGRAPH_DEBUG("step marker due to out shape changed");
+      HbLazyTensor::StepMarker({});
       tensor.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
       set_shape_changed();
     }
