@@ -172,7 +172,8 @@ class habana_quantizer(Quantizer):
         if len(module_partitions) == 0:
             return
 
-        act_qspec = get_input_act_qspec(quantization_config)
+        input_act_qspec = get_input_act_qspec(quantization_config)
+        output_act_qspec = get_output_act_qspec(quantization_config)
         weight_qspec = get_weight_qspec(quantization_config)
         bias_qspec = get_bias_qspec(quantization_config)
         for module_or_fn_type, partitions in module_partitions.items():
@@ -193,11 +194,11 @@ class habana_quantizer(Quantizer):
                         logger.warn("No weight found in Linear pattern")
                         continue
 
-                    _update_input_qspec_map(p, act_node, act_qspec)
+                    _update_input_qspec_map(p, act_node, input_act_qspec)
                     _update_input_qspec_map(p, weight_node, weight_qspec)
                     if bias_node:
                         _update_input_qspec_map(p, bias_node, bias_qspec)
-                    _update_output_qspec(output_node, act_qspec)
+                    _update_output_qspec(output_node, output_act_qspec)
 
                     nodes_to_mark_annotated = list(p.nodes)
                     _mark_nodes_as_annotated(nodes_to_mark_annotated)
@@ -208,7 +209,8 @@ class habana_quantizer(Quantizer):
         if len(matmul_partitions) == 0:
             return
 
-        act_qspec = get_input_act_qspec(quantization_config)
+        input_act_qspec = get_input_act_qspec(quantization_config)
+        output_act_qspec = get_output_act_qspec(quantization_config)
         for module_or_fn_type, partitions in matmul_partitions.items():
             for p in partitions:
                 assert len(p.input_nodes) == 2
@@ -217,9 +219,9 @@ class habana_quantizer(Quantizer):
                 assert len(p.output_nodes) == 1
                 output_node = p.output_nodes[0]
 
-                _update_input_qspec_map(p, act_node1, act_qspec)
-                _update_input_qspec_map(p, act_node2, act_qspec)
-                _update_output_qspec(output_node, act_qspec)
+                _update_input_qspec_map(p, act_node1, input_act_qspec)
+                _update_input_qspec_map(p, act_node2, input_act_qspec)
+                _update_output_qspec(output_node, output_act_qspec)
 
                 nodes_to_mark_annotated = list(p.nodes)
                 _mark_nodes_as_annotated(nodes_to_mark_annotated)

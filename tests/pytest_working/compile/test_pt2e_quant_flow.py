@@ -97,7 +97,7 @@ quant_float_dtype_list = [
 
 def verify_nodes(ops_summary, expected_op_count):
     for op, count_list in expected_op_count.items():
-        if op in ops_summary:
+        if not op.startswith("skip_"):
             assert_helper(ops_summary=ops_summary, op=op, count_list=count_list)
 
 
@@ -163,6 +163,8 @@ def use_pt2e_quant_flow(test_case, quant_dtype, quantizer, expected_op_count):
         verify_nodes(fga.get_ops_summary(), expected_op_count["after_convert_pt2e"])
         print(hpu_result2)
 
+    assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)
+
     htcore.hpu_reset_env()
 
 
@@ -181,8 +183,8 @@ def test_pt2e_quant_float(test_case, quant_dtype):
             "torch.ops.aten.minimum.default": [(3, 0), (3, 0)],
             "torch.ops.aten.maximum.default": [(3, 0), (3, 0)],
             "torch.ops.aten.copy.default": [(6, 0), (6, 0)],
-            "torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.linear": [(1, 0), (1, 0)],
+            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
             "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
             "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
             "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
@@ -190,8 +192,8 @@ def test_pt2e_quant_float(test_case, quant_dtype):
         "after_convert_pt2e": {
             "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(3, 0), (3, 0)],
             "torch.ops.quantized_decomposed.dequantize_per_tensor.default": [(3, 0), (3, 0)],
-            "torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.linear": [(1, 0), (1, 0)],
+            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
             "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
             "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
             "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
@@ -290,17 +292,17 @@ def test_pt2e_quant_int(test_case, quant_dtype):
             "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
             "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
             "torch.ops.aten.copy.default": [(4, 0), (4, 0)],
-            "torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.linear": [(1, 0), (1, 0)],
+            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
             "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
             "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
             "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
         },
         "after_convert_pt2e": {
-            "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(3, 0), (3, 0)],
-            "torch.ops.quantized_decomposed.dequantize_per_tensor.default": [(3, 0), (3, 0)],
-            "torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.linear": [(1, 0), (1, 0)],
+            "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(2, 0), (2, 0)],
+            "torch.ops.quantized_decomposed.dequantize_per_tensor.default": [(2, 0), (2, 0)],
+            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
+            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
             "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
             "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
             "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
