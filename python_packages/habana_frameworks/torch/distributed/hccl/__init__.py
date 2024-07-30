@@ -106,7 +106,6 @@ def initialize_distributed_hpu(world_size=None, rank=None, local_rank=None) -> T
     # setup id for synapse logging
     if rank != -1:
         os.environ["ID"] = str(rank)
-    os.environ["WORLD_SIZE"] = str(world_size)
 
     return world_size, rank, local_rank
 
