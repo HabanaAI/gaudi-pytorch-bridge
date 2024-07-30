@@ -15,12 +15,9 @@ import os
 import random
 import sys
 
-# This is required for habana compile backends to register
-import habana_frameworks.torch.core as htcore
 import numpy as np
 import pytest
 import torch
-from habana_frameworks.torch.core.quantize_pt2e import convert_pt2e, export, prepare_pt2e
 from habana_frameworks.torch.core.quantizer import (
     _mark_nodes_as_annotated,
     _update_input_qspec_map,
@@ -101,7 +98,11 @@ def verify_nodes(ops_summary, expected_op_count):
             assert_helper(ops_summary=ops_summary, op=op, count_list=count_list)
 
 
-def use_pt2e_quant_flow(test_case, quant_dtype, quantizer, expected_op_count):
+def use_pt2e_quant_flow(
+    test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export
+):
+    import habana_frameworks.torch.core as htcore
+
     htcore.hpu_set_env()
 
     # Stabilizing testing.
@@ -124,7 +125,7 @@ def use_pt2e_quant_flow(test_case, quant_dtype, quantizer, expected_op_count):
         inputs2,
     ]
 
-    model = get_sample_model(test_case, quant_dtype, True)
+    model = get_sample_model(test_case, quant_dtype, use_graph_break)
     model.eval()
 
     cpu_result2 = model(*example_inputs2)
@@ -148,22 +149,37 @@ def use_pt2e_quant_flow(test_case, quant_dtype, quantizer, expected_op_count):
     model.eval()
 
     with torch.no_grad():
-        model, _ = export(model)
-        model = prepare_pt2e(model, quantizer)
+        from torch._export import capture_pre_autograd_graph
+
+        if pass_input_during_export:
+            model = capture_pre_autograd_graph(model, example_inputs0)
+        else:
+            model = capture_pre_autograd_graph(model)
+
         with FxGraphAnalyzer(reset_dynamo=False) as fga:
+            from torch.ao.quantization.quantize_pt2e import prepare_pt2e
+
+            model = prepare_pt2e(model, quantizer)
+            # calibrate
             calibrate_result = model(*example_inputs0)
             calibrate_result = model(*example_inputs1)
 
-        verify_nodes(fga.get_ops_summary(), expected_op_count["after_prepare_pt2e"])
+        if use_graph_break == True:
+            verify_nodes(fga.get_ops_summary(), expected_op_count["after_prepare_pt2e"])
 
-        model = convert_pt2e(model)
         with FxGraphAnalyzer(reset_dynamo=False) as fga:
+            from torch.ao.quantization.quantize_pt2e import convert_pt2e
+
+            model = convert_pt2e(model)
+            # run inference with quantized model
             hpu_result2 = model(*example_inputs2)
+            print(hpu_result2)
 
-        verify_nodes(fga.get_ops_summary(), expected_op_count["after_convert_pt2e"])
-        print(hpu_result2)
-
-    assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)
+        if use_graph_break == True:
+            verify_nodes(fga.get_ops_summary(), expected_op_count["after_convert_pt2e"])
+            assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=1e-2, atol=1e-2)
+        else:
+            assert torch.allclose(cpu_result2[0].float(), hpu_result2[0].to(CPU).float(), rtol=2e-2, atol=2e-2)
 
     htcore.hpu_reset_env()
 
@@ -171,7 +187,9 @@ def use_pt2e_quant_flow(test_case, quant_dtype, quantizer, expected_op_count):
 @pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_float_dtype_list)
-def test_pt2e_quant_float(test_case, quant_dtype):
+@pytest.mark.parametrize("use_graph_break", [False, True])
+@pytest.mark.parametrize("pass_input_during_export", [False, True])
+def test_pt2e_quant_float(test_case, quant_dtype, use_graph_break, pass_input_during_export):
 
     quantizer = habana_quantizer()
     quant_config = habana_quant_config_symmetric(quant_dtype)
@@ -201,13 +219,15 @@ def test_pt2e_quant_float(test_case, quant_dtype):
         },
     }
 
-    use_pt2e_quant_flow(test_case, quant_dtype, quantizer, expected_op_count)
+    use_pt2e_quant_flow(test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export)
 
 
 @pytest.mark.skipif(is_gaudi1(), reason="skip pt2e-quant feature testing on gaudi1")
 @pytest.mark.parametrize("test_case", test_case_list)
 @pytest.mark.parametrize("quant_dtype", quant_int_dtype_list)
-def test_pt2e_quant_int(test_case, quant_dtype):
+@pytest.mark.parametrize("use_graph_break", [False, True])
+@pytest.mark.parametrize("pass_input_during_export", [False, True])
+def test_pt2e_quant_int(test_case, quant_dtype, use_graph_break, pass_input_during_export):
 
     class custom_quantizer(Quantizer):
 
@@ -310,4 +330,4 @@ def test_pt2e_quant_int(test_case, quant_dtype):
         },
     }
 
-    use_pt2e_quant_flow(test_case, quant_dtype, quantizer, expected_op_count)
+    use_pt2e_quant_flow(test_case, quant_dtype, quantizer, expected_op_count, use_graph_break, pass_input_during_export)

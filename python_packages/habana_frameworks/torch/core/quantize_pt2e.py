@@ -13,20 +13,113 @@
 import importlib
 import os
 from functools import partial
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import functorch
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.logger import get_compile_backend_logger
 from torch._dynamo.backends.common import aot_autograd
-from torch.fx import Node
+from torch.ao.quantization.quantizer import Quantizer
+from torch.fx import GraphModule, Node
 from torch.fx.passes.utils.source_matcher_utils import SourcePartition, get_source_partitions
+
+from .torch_overwrites import _native_pt2e_quantization_interface
 
 logger = get_compile_backend_logger()
 
 habana_quantization_map_queue = []
-export_module_record = dict()
+export_model_record = dict()
+habana_pt2e_quant_context = None
 param_id = 0
+
+
+# ======================================================================================
+# Habana's model level context manager for multi-graph PT2E-Quantization
+# ======================================================================================
+class HabanaPT2EQuantContext:
+    def __init__(self, model_key, input):
+        super().__init__()
+        self._model_key = model_key
+        self._total_number_of_graphs = 0
+        self._input_for_tracing = input
+        self._graph_list = list()
+        self._graphs = ""
+        self._model = None
+
+    def append_graph(self, graph):
+        self._graph_list.append(graph)
+        self._graphs = self._graphs + "\n\n" + f"{graph}"
+        self._total_number_of_graphs = self._total_number_of_graphs + 1
+        setattr(self._model, "graph", self._graphs)
+
+    def get_total_number_of_graphs(self):
+        return self._total_number_of_graphs
+
+    def clear_graphs(self):
+        self._graph_list.clear()
+        self._graphs = ""
+        self._total_number_of_graphs = 0
+
+    def get_input_for_tracing(self):
+        return self._input_for_tracing
+
+    def set_input_for_tracing(self, input):
+        pass
+        # # Tap input of the 1st fx graph
+        # if self._total_number_of_graphs == 1:
+        #     self._input_for_tracing = [input, ]
+
+    def set_model(self, model):
+        self._model = model
+        setattr(
+            self._model,
+            "graph",
+            "If you haven't provided sample input during export, run the model at least once with actual input to cature the graphs.",
+        )
+
+
+# ======================================================================================
+# Habana's torch.compile based graph break detector
+# ======================================================================================
+def graph_breaks(
+    f: torch.nn.Module,
+    args: Tuple[Any],
+    kwargs: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """
+    Graph break detector for Habana's PT2E-Quantization flow.
+    If graph breaks, Habana's PT2E-Quant flow is used. Else, native PT2E-Quant flow is used.
+    """
+
+    # If sample input is not specified during export, Habana's PT2E-Quant flow is used
+    if args == None:
+        return True
+
+    # Next, check for user instruction, if any. 3 possibilities:
+    # a. graph_break_present: False [Can be set only when user is sure about no graph breaks]
+    # b. graph_break_present: True  [Can be set only when user is sure about graph breaks]
+    # c. graph_break_present: unspecified
+    if kwargs != None and "graph_break_present" in kwargs:
+        return kwargs["graph_break_present"]
+
+    # Finally, try and figure out if there is any graph break.
+    try:
+
+        def detect_graph_break(model: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+            return model
+
+        torch._dynamo.config.suppress_errors = True
+        model = torch.compile(f, backend=detect_graph_break, fullgraph=True)
+        model(*args)
+        logger.info("......................................................................!")
+        logger.info("NO GRAPH BREAK DETECTED............USING Native PT2E-QUANT FLOW.......!")
+        logger.info("......................................................................!")
+        return False
+    except:
+        logger.info("......................................................................!")
+        logger.info("GRAPH BREAK DETECTED...............USING HABANA PT2E-QUANT FLOW.......!")
+        logger.info("......................................................................!")
+        return True
 
 
 # ======================================================================================
@@ -34,7 +127,7 @@ param_id = 0
 # This is the module we use for actual support of quantization
 # ======================================================================================
 class HabanaQuantWrapperModule(torch.nn.Module):
-    def __init__(self, graph_module, module_key):
+    def __init__(self, graph_module, module_key, pt2e_quant_context):
         super().__init__()
         self._module_key = module_key
         self._preprocessed = False
@@ -44,6 +137,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
         self._prepared_module = None
         self._observed_module = None
         self._converted_module = None
+        self._pt2e_quant_context = pt2e_quant_context
 
     def preprocess(self, *args):
         discover_and_materialize_params(self._fx_module, *args)
@@ -59,14 +153,22 @@ class HabanaQuantWrapperModule(torch.nn.Module):
         if not self._preprocessed:
             self.preprocess(*args)
 
+        if habana_quantization_map_queue[self._module_key] == []:
+            if self._pt2e_quant_context != None:
+                self._pt2e_quant_context.append_graph(self._fx_module.graph)
+            return self._fx_module(*args, **kwargs)
+
         assert len(habana_quantization_map_queue[self._module_key]) == 1
         queue_element = habana_quantization_map_queue[self._module_key][0]
         if queue_element["task"] == "prepare_pt2e":
             if not self._prepared:
                 # Apply pytorch prepare_pt2e on each fx graph
-                from torch.ao.quantization.quantize_pt2e import prepare_pt2e
+                self._prepared_module = _native_pt2e_quantization_interface("prepare_pt2e")(
+                    self._fx_module, queue_element["quantizer"]
+                )
 
-                self._prepared_module = prepare_pt2e(self._fx_module, queue_element["quantizer"])
+                if self._pt2e_quant_context != None:
+                    self._pt2e_quant_context.append_graph(self._prepared_module.graph)
 
                 # Now we use torch.compilation with hpu_backend.
                 # hpu_backend internally uses aot_autograd which extracts the forward definition of
@@ -80,6 +182,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
 
                 self._prepared = True
 
+            self._pt2e_quant_context.set_input_for_tracing(args[-1])
             return self._observed_module(*args, **kwargs)
 
         elif queue_element["task"] == "convert_pt2e":
@@ -93,11 +196,14 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     raise
 
                 # Apply pytorch convert_pt2e on each fx graph
-                from torch.ao.quantization.quantize_pt2e import convert_pt2e
-
-                self._converted_module = convert_pt2e(
-                    self._prepared_module, use_reference_representation=False, fold_quantize=False
+                self._converted_module = _native_pt2e_quantization_interface("convert_pt2e")(
+                    self._prepared_module,
+                    use_reference_representation=queue_element["use_reference_representation"],
+                    fold_quantize=queue_element["fold_quantize"],
                 )
+
+                if self._pt2e_quant_context != None:
+                    self._pt2e_quant_context.append_graph(self._converted_module.graph)
 
                 # Now we call hpu_inference_compiler to convert it into synapse graph.
                 with torch.no_grad():
@@ -105,14 +211,18 @@ class HabanaQuantWrapperModule(torch.nn.Module):
 
                 self._converted = True
 
+            self._pt2e_quant_context.set_input_for_tracing(args[-1])
             return self._converted_module(*args, **kwargs)
 
 
 def habana_quant_compiler_fw(
-    module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], module_key: torch.fx.GraphModule
+    module: torch.fx.GraphModule,
+    example_inputs: List[torch.Tensor],
+    module_key: torch.fx.GraphModule,
+    pt2e_quant_context: HabanaPT2EQuantContext,
 ):
     # This backend only sets up runtime wrapper to run real compilation once we have real tensors.
-    return functorch.compile.make_boxed_func(HabanaQuantWrapperModule(module, module_key))
+    return functorch.compile.make_boxed_func(HabanaQuantWrapperModule(module, module_key, pt2e_quant_context))
 
 
 def habana_quant_compiler_bw_raise(graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
@@ -120,7 +230,10 @@ def habana_quant_compiler_bw_raise(graph_module: torch.fx.GraphModule, example_i
 
 
 def habana_quant_backend(
-    graph_module: torch.fx.GraphModule, example_inputs: List[torch.Tensor], module_key: torch.fx.GraphModule
+    graph_module: torch.fx.GraphModule,
+    example_inputs: List[torch.Tensor],
+    module_key: torch.fx.GraphModule,
+    pt2e_quant_context: HabanaPT2EQuantContext,
 ):
     """
     This function implements interface for Habana's PT2E quantization backend.
@@ -128,66 +241,156 @@ def habana_quant_backend(
     from habana_frameworks.torch.dynamo.compile_backend.decomposition import get_hpu_decompositions
 
     return aot_autograd(
-        fw_compiler=partial(habana_quant_compiler_fw, module_key=module_key),
+        fw_compiler=partial(habana_quant_compiler_fw, module_key=module_key, pt2e_quant_context=pt2e_quant_context),
         bw_compiler=habana_quant_compiler_bw_raise,
         decompositions=get_hpu_decompositions(),
     )(graph_module, example_inputs)
 
 
 # ======================================================================================
-# Habana export() to register torch.compile backend
+# Habana's implementation of PT2E like multi-graph export
+# Note: It uses torch.compile based approach with custom quantization backend
 # ======================================================================================
-def export(module):
+def export(
+    f: torch.nn.Module,
+    args: Tuple[Any] = None,
+    kwargs: Optional[Dict[str, Any]] = None,
+    dynamic_shapes: Optional[Union[Dict[str, Any], Tuple[Any]]] = None,
+) -> torch.nn.Module:
+    """
+    Habana's implementation of PT2E like multi-graph export
+    Note: It uses torch.compile based approach with custom quantization backend
+    """
     logger.debug("Habana's implementation of PT2E based quantization flow: [export]")
-    global export_module_record
-    global habana_quantization_map_queue
-    id_module = id(module)
-    if id_module in export_module_record.keys():
-        return export_module_record[id_module], True
+
+    id_model = id(f)
+    global export_model_record
+    global habana_pt2e_quant_context
+    if id_model in export_model_record.keys():
+        habana_pt2e_quant_context = export_model_record[id_model][1]
+        return export_model_record[id_model][0]
+
+    if graph_breaks(f, args, kwargs):
+        habana_pt2e_quant_context = HabanaPT2EQuantContext(id_model, args)
+        global habana_quantization_map_queue
+        model_key = len(habana_quantization_map_queue)
+        habana_quantization_map_queue = {model_key: []}
+        torch._dynamo.reset()
+        model = torch.compile(
+            f,
+            backend=partial(habana_quant_backend, module_key=model_key, pt2e_quant_context=habana_pt2e_quant_context),
+            dynamic=False,
+        )
+        setattr(model, "meta_hb_quant_id", model_key)
+        habana_pt2e_quant_context.set_model(model)
+        if args != None:
+            model(*args)
+            logger.debug(f"Graph after pt2e kind of export:\n {model.graph}")
+
+        setattr(model, "muti_graph", True)
+        export_model_record[id_model] = [model, habana_pt2e_quant_context]
+        return model
     else:
-        module_key = len(habana_quantization_map_queue)
-        module = torch.compile(module, backend=partial(habana_quant_backend, module_key=module_key), dynamic=False)
-        habana_quantization_map_queue.append([])
-        export_module_record[id_module] = module
-        setattr(module, "meta_hb_quant_id", module_key)
-        return module, False
+        habana_pt2e_quant_context = None
+        if kwargs != None and "graph_break_present" in kwargs:
+            kwargs.pop("graph_break_present")
+        model = _native_pt2e_quantization_interface("export")(f, args, kwargs, dynamic_shapes)
+        logger.debug(f"Graph after pt2 export:\n {model.graph}")
+        setattr(model, "muti_graph", False)
+        export_model_record[id_model] = [model, habana_pt2e_quant_context]
+        return model
 
 
 # ======================================================================================
-# Habana prepare_pt2e() to set "prepare_pt2e" cmd for HabanaQuantWrapperModule
+# Habana's implementation of prepare_pt2e for multi-graph scenario
 # ======================================================================================
-def prepare_pt2e(module, quantizer):
+def prepare_pt2e(
+    model: GraphModule,
+    quantizer: Quantizer,
+) -> GraphModule:
+    """
+    Habana's implementation of prepare_pt2e for multi-graph scenario
+    """
     logger.debug("Habana's implementation of PT2E based quantization flow: [prepare_pt2e]")
-    global habana_quantization_map_queue
-    module_key = getattr(module, "meta_hb_quant_id")
-    habana_quantization_map_queue[module_key] = []
-    habana_quantization_map_queue[module_key].append({"task": "prepare_pt2e", "quantizer": quantizer})
-    return module
+
+    muti_graph = getattr(model, "muti_graph")
+    if muti_graph:
+        # Set "prepare_pt2e" cmd for HabanaQuantWrapperModule
+        global habana_quantization_map_queue
+        model_key = getattr(model, "meta_hb_quant_id")
+        habana_quantization_map_queue[model_key] = []
+        habana_quantization_map_queue[model_key].append({"task": "prepare_pt2e", "quantizer": quantizer})
+
+        global habana_pt2e_quant_context
+        habana_pt2e_quant_context.clear_graphs()
+        habana_pt2e_quant_context.set_model(model)
+        if habana_pt2e_quant_context.get_input_for_tracing() != None:
+            model(*habana_pt2e_quant_context.get_input_for_tracing())
+            logger.debug(f"Graph after prepare_pt2e:\n {model.graph}")
+        setattr(model, "muti_graph", True)
+        return model
+    else:
+        model = _native_pt2e_quantization_interface("prepare_pt2e")(model, quantizer)
+        logger.debug(f"Graph after prepare_pt2e:\n {model.graph}")
+        setattr(model, "muti_graph", False)
+        return model
 
 
 # ======================================================================================
-# Habana convert_pt2e() to set "convert_pt2e" cmd for HabanaQuantWrapperModule
+# Habana's implementation of convert_pt2e for multi-graph scenario
 # ======================================================================================
-def convert_pt2e(module, use_reference_representation=False):
+def convert_pt2e(
+    model: GraphModule,
+    use_reference_representation: bool = False,
+    fold_quantize: bool = True,
+) -> GraphModule:
+    """
+    Habana's implementation of convert_pt2e for multi-graph scenario
+    """
     logger.debug("Habana's implementation of PT2E based quantization flow: [convert_pt2e]")
-    global habana_quantization_map_queue
-    module_key = getattr(module, "meta_hb_quant_id")
-    habana_quantization_map_queue[module_key] = []
-    habana_quantization_map_queue[module_key].append({"task": "convert_pt2e"})
-    return module
+
+    muti_graph = getattr(model, "muti_graph")
+    if muti_graph:
+        # Set "convert_pt2e" cmd for HabanaQuantWrapperModule
+        global habana_quantization_map_queue
+        model_key = getattr(model, "meta_hb_quant_id")
+        habana_quantization_map_queue[model_key] = []
+        habana_quantization_map_queue[model_key].append(
+            {
+                "task": "convert_pt2e",
+                "use_reference_representation": use_reference_representation,
+                "fold_quantize": False,
+            }
+        )
+
+        global habana_pt2e_quant_context
+        habana_pt2e_quant_context.clear_graphs()
+        habana_pt2e_quant_context.set_model(model)
+        if habana_pt2e_quant_context.get_input_for_tracing() != None:
+            model(*habana_pt2e_quant_context.get_input_for_tracing())
+            logger.debug(f"Graph after convert_pt2e:\n {model.graph}")
+        setattr(model, "muti_graph", True)
+        return model
+    else:
+        model = _native_pt2e_quantization_interface("convert_pt2e")(
+            model, use_reference_representation, fold_quantize=False
+        )
+        logger.debug(f"Graph after convert_pt2e:\n {model.graph}")
+        setattr(model, "muti_graph", False)
+        return model
 
 
 # ======================================================================================
 # Freeze parameters for linear op, as is done in case of torch.export()
 # ======================================================================================
-def preprocess_linears(placeholder_map, module: torch.fx.GraphModule, tupled_args, *args):
-    linear_module_partitions = get_source_partitions(module.graph, [torch.nn.Linear, torch.nn.functional.linear])
+def preprocess_linears(placeholder_map, model: torch.fx.GraphModule, tupled_args, *args):
+    linear_module_partitions = get_source_partitions(model.graph, [torch.nn.Linear, torch.nn.functional.linear])
 
     if len(linear_module_partitions) == 0:
         return
 
     global param_id
-    module_changed = False
+    model_changed = False
     for module_or_fn_type, partitions in linear_module_partitions.items():
         if module_or_fn_type == torch.nn.Linear or module_or_fn_type == torch.nn.functional.linear:
             for p in partitions:
@@ -248,12 +451,12 @@ def preprocess_linears(placeholder_map, module: torch.fx.GraphModule, tupled_arg
 
                 # Now, clone original parameters primals into actual params within self and add
                 # FX graph nodes to use them instead of inputs.
-                with module.graph.inserting_before(weight_node_first_user):
-                    module_changed = module_changed or True
+                with model.graph.inserting_before(weight_node_first_user):
+                    model_changed = model_changed or True
                     attr_name = "_param_constant_l" + str(param_id)
                     param_tensor = tupled_args[placeholder_map[weight_node.name]]
-                    setattr(module, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
-                    new_attr_node = module.graph.create_node("get_attr", attr_name)
+                    setattr(model, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
+                    new_attr_node = model.graph.create_node("get_attr", attr_name)
                     weight_node_first_user.replace_input_with(weight_node, new_attr_node)
                     param_id = param_id + 1
 
@@ -264,12 +467,12 @@ def preprocess_linears(placeholder_map, module: torch.fx.GraphModule, tupled_arg
                     new_attr_node.meta["val"] = compute_node.meta.get("val", None)
 
                 if bias_node is not None:
-                    with module.graph.inserting_before(bias_node_first_user):
-                        module_changed = module_changed or True
+                    with model.graph.inserting_before(bias_node_first_user):
+                        model_changed = model_changed or True
                         attr_name = "_param_constant_l" + str(param_id)
                         param_tensor = tupled_args[placeholder_map[bias_node.name]]
-                        setattr(module, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
-                        new_attr_node = module.graph.create_node("get_attr", attr_name)
+                        setattr(model, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
+                        new_attr_node = model.graph.create_node("get_attr", attr_name)
                         bias_node_first_user.replace_input_with(bias_node, new_attr_node)
                         param_id = param_id + 1
 
@@ -279,16 +482,16 @@ def preprocess_linears(placeholder_map, module: torch.fx.GraphModule, tupled_arg
                         new_attr_node.meta["tensor_meta"] = compute_node.meta.get("tensor_meta", None)
                         new_attr_node.meta["val"] = compute_node.meta.get("val", None)
 
-    if module_changed:
-        module.graph.lint()
-        module.recompile()
+    if model_changed:
+        model.graph.lint()
+        model.recompile()
 
 
 # ======================================================================================
 # Freeze parameters for conv op, as is done in case of torch.export()
 # ======================================================================================
-def preprocess_convs(placeholder_map, module: torch.fx.GraphModule, tupled_args):
-    conv_module_partitions = get_source_partitions(module.graph, [torch.nn.Conv2d, torch.nn.functional.conv2d])
+def preprocess_convs(placeholder_map, model: torch.fx.GraphModule, tupled_args):
+    conv_module_partitions = get_source_partitions(model.graph, [torch.nn.Conv2d, torch.nn.functional.conv2d])
 
     if len(conv_module_partitions) == 0:
         return
@@ -342,11 +545,11 @@ def preprocess_convs(placeholder_map, module: torch.fx.GraphModule, tupled_args)
 
                 # Now, clone original parameters primals into actual params within self and add
                 # FX graph nodes to use them instead of inputs.
-                with module.graph.inserting_before(weight_node_first_user):
+                with model.graph.inserting_before(weight_node_first_user):
                     attr_name = "_param_constant_c" + str(param_id)
                     param_tensor = tupled_args[placeholder_map[weight_node.name]]
-                    setattr(module, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
-                    new_attr_node = module.graph.create_node("get_attr", attr_name)
+                    setattr(model, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
+                    new_attr_node = model.graph.create_node("get_attr", attr_name)
                     weight_node_first_user.replace_input_with(weight_node, new_attr_node)
                     param_id = param_id + 1
 
@@ -356,11 +559,11 @@ def preprocess_convs(placeholder_map, module: torch.fx.GraphModule, tupled_args)
                     new_attr_node.meta["tensor_meta"] = compute_node.meta.get("tensor_meta", None)
                     new_attr_node.meta["val"] = compute_node.meta.get("val", None)
 
-                with module.graph.inserting_before(bias_node_first_user):
+                with model.graph.inserting_before(bias_node_first_user):
                     attr_name = "_param_constant_c" + str(param_id)
                     param_tensor = tupled_args[placeholder_map[bias_node.name]]
-                    setattr(module, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
-                    new_attr_node = module.graph.create_node("get_attr", attr_name)
+                    setattr(model, attr_name, torch.nn.parameter.Parameter(param_tensor.detach()))
+                    new_attr_node = model.graph.create_node("get_attr", attr_name)
                     bias_node_first_user.replace_input_with(bias_node, new_attr_node)
                     param_id = param_id + 1
 
@@ -370,19 +573,19 @@ def preprocess_convs(placeholder_map, module: torch.fx.GraphModule, tupled_args)
                     new_attr_node.meta["tensor_meta"] = compute_node.meta.get("tensor_meta", None)
                     new_attr_node.meta["val"] = compute_node.meta.get("val", None)
 
-    module.graph.lint()
-    module.recompile()
+    model.graph.lint()
+    model.recompile()
 
 
 # ======================================================================================
 # Change FX graph so that it resembles one that would be generated by torch.export()
 # ======================================================================================
-def discover_and_materialize_params(module: torch.fx.GraphModule, *args):
+def discover_and_materialize_params(model: torch.fx.GraphModule, *args):
 
     # Get placeholder map from FX graph.
     placeholder_map = {}
     placeholder_count = 0
-    for node in module.graph.nodes:
+    for node in model.graph.nodes:
         if node.op == "placeholder":
             placeholder_map[node.name] = placeholder_count
             placeholder_count = placeholder_count + 1
@@ -390,8 +593,8 @@ def discover_and_materialize_params(module: torch.fx.GraphModule, *args):
     tupled_args = tuple(args)
 
     # Handle following custom linear modules in deepspeed
-    def handle_custom_linear_modules(module):
-        for node in module.graph.nodes:
+    def handle_custom_linear_modules(model):
+        for node in model.graph.nodes:
             source_fn_stack = node.meta.get("source_fn_stack", None)
             nn_module_stack = node.meta.get("nn_module_stack", None)
             if source_fn_stack is not None and nn_module_stack is not None:
@@ -415,7 +618,7 @@ def discover_and_materialize_params(module: torch.fx.GraphModule, *args):
     # Till we have a proper 'parameter freezing' mechanism in place, we can
     # use "nn_module_stack" node meta to refill the missing information.
     if importlib.util.find_spec("deepspeed") and os.getenv("WORLD_SIZE", "0") != "0":
-        handle_custom_linear_modules(module)
+        handle_custom_linear_modules(model)
 
-    preprocess_linears(placeholder_map, module, tupled_args, *args)
-    preprocess_convs(placeholder_map, module, tupled_args)
+    preprocess_linears(placeholder_map, model, tupled_args, *args)
+    preprocess_convs(placeholder_map, model, tupled_args)

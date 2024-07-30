@@ -17,7 +17,7 @@ import threading
 from collections import deque
 from functools import wraps
 from os import environ, path
-from typing import IO, Any, BinaryIO, Generator, Optional, Union
+from typing import IO, Any, BinaryIO, Dict, Generator, Optional, Tuple, Union
 
 import habana_frameworks.torch.hpu as ht
 import habana_frameworks.torch.hpu.random as rand_hpu
@@ -492,3 +492,72 @@ def overwrite_torch_functions():
         return seed
 
     torch.seed = wrap_seed
+
+
+# wrap native pt2e-quant apis required to work on HPU with graph-breaks
+
+from torch.ao.quantization.quantize_pt2e import convert_pt2e, prepare_pt2e
+
+org_export = torch._export.capture_pre_autograd_graph
+org_prepare_pt2e = prepare_pt2e
+org_convert_pt2e = convert_pt2e
+
+
+def _native_pt2e_quantization_interface(name):
+    if name == "export":
+        global org_export
+        return org_export
+    elif name == "prepare_pt2e":
+        global org_prepare_pt2e
+        return org_prepare_pt2e
+    elif name == "convert_pt2e":
+        global org_convert_pt2e
+        return org_convert_pt2e
+    else:
+        return None
+
+
+def overwrite_native_pt2e_quantization_interface():
+
+    # wrap capture_pre_autograd_graph
+    @wraps(torch._export.capture_pre_autograd_graph)
+    def wrap_capture_pre_autograd_graph(
+        f: torch.nn.Module,
+        args: Tuple[Any] = None,
+        kwargs: Optional[Dict[str, Any]] = None,
+        dynamic_shapes: Optional[Union[Dict[str, Any], Tuple[Any]]] = None,
+    ) -> torch.nn.Module:
+        from habana_frameworks.torch.core.quantize_pt2e import export
+
+        return export(f, args, kwargs, dynamic_shapes)
+
+    torch._export.capture_pre_autograd_graph = wrap_capture_pre_autograd_graph
+
+    import torch.ao.quantization.quantize_pt2e as quantize_pt2e
+    from torch.ao.quantization.quantizer import Quantizer
+    from torch.fx import GraphModule
+
+    # wrap prepare_pt2e
+    @wraps(quantize_pt2e.prepare_pt2e)
+    def wrap_prepare_pt2e(
+        model: GraphModule,
+        quantizer: Quantizer,
+    ) -> GraphModule:
+        from habana_frameworks.torch.core.quantize_pt2e import prepare_pt2e
+
+        return prepare_pt2e(model, quantizer)
+
+    quantize_pt2e.prepare_pt2e = wrap_prepare_pt2e
+
+    # wrap convert_pt2e
+    @wraps(quantize_pt2e.convert_pt2e)
+    def wrap_convert_pt2e(
+        model: GraphModule,
+        use_reference_representation: bool = False,
+        fold_quantize: bool = True,
+    ) -> GraphModule:
+        from habana_frameworks.torch.core.quantize_pt2e import convert_pt2e
+
+        return convert_pt2e(model, use_reference_representation, fold_quantize)
+
+    quantize_pt2e.convert_pt2e = wrap_convert_pt2e

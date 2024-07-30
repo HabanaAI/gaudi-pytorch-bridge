@@ -30,13 +30,16 @@ from .quantization import (
 
 # expose lazy-only APIs
 from .step_closure import add_step_closure, iter_mark_step, mark_step
-from .torch_overwrites import overwrite_torch_functions
+from .torch_overwrites import overwrite_native_pt2e_quantization_interface, overwrite_torch_functions
 
 # expose habana_frameworks.torch.hpu as torch.hpu
 torch._register_device_module("hpu", hpu)
 
 # wrap some torch functionalitis required to work with HPU
 overwrite_torch_functions()
+
+# wrap pt2e-quant apis required to work on HPU with graph-breaks
+overwrite_native_pt2e_quantization_interface()
 
 
 # enable profiler and weight sharing if required
