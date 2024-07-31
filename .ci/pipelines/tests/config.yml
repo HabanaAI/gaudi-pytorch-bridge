@@ -162,8 +162,5 @@ testJobConfig:
     devices:
       gaudi2:
         hwType:
-          asic:
-            envVars:
-              IS_K8S_CONTAINER_TESTER: 'true'
-            jobTimeout: 180
+          sim:
             cards: 8
