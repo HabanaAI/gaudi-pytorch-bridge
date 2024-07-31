@@ -919,8 +919,6 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
       reduction_inputs2 = {reshape2[0].get()};
     }
 
-    // ns_Reduction::Params reduce_params{};
-    // reduce_params.reductionDimension = 0;
     auto sum2 = BuildOp(
         graph,
         get_guid_with_precision("reduce_sum_fwd", dtype),

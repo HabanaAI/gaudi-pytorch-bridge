@@ -77,13 +77,11 @@ OutputMetaDataVector GroupNormBwdMeta(const at::Stack& stack) {
 static std::shared_ptr<void> FillReduceSumMultiDimParamsGroupNorm(
     size_t ndims,
     size_t& size) {
-  PARAMS_STUB(ns_Reduction::ParamsV2);
-  unsigned maskval = 0;
-  for (size_t i = 0; i < ndims; ++i) {
-    if (i != 1)
-      maskval |= (1 << (ndims - i - 1)); // (ndims-i-1) is TPC order
-  }
+  unsigned fullMask = (1 << ndims) - 1;
+  unsigned maskPos1inTpcOrder = (ndims >= 2) ? 1 << (ndims - 2) : 0;
+  unsigned maskval = fullMask & ~maskPos1inTpcOrder;
 
+  PARAMS_STUB(ns_Reduction::ParamsV2);
   params->reductionDimensionMask = maskval;
   params->keepDim = false;
   return params;

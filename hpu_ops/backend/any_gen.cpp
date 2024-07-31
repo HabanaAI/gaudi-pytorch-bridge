@@ -67,16 +67,9 @@ static synapse_helpers::tensor AnyCommonFunc(
   auto abs = OpBackend::BuildNode(
       op, graph, {"abs_fwd_f32", {input}, {{self.sizes().vec()}}});
 
-  auto dimVec = dim.vec();
   auto rank = self.dim();
-  ns_Reduction::ParamsV2 reductionParams;
-  reductionParams.keepDim = keepdim;
-  reductionParams.reductionDimensionMask = 0;
-  for (auto reductionDim : dimVec) {
-    auto wrappedReductionDim = at::maybe_wrap_dim(reductionDim, rank);
-    auto axis = get_dim_in_tpc_order(wrappedReductionDim, rank);
-    reductionParams.reductionDimensionMask |= (1 << axis);
-  }
+  ns_Reduction::ParamsV2 reductionParams =
+      FillReductionParams(rank, dim.vec(), keepdim);
 
   auto reduce_sum = op->BuildNode(
       op,

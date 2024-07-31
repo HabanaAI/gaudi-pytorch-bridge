@@ -51,20 +51,15 @@ OutputMetaDataVector AminAmaxMeta(const at::Stack& stack) {
 }
 
 std::shared_ptr<void> FillAminAmaxParams(const at::Stack& stack, size_t& size) {
-  PARAMS_STUB(ns_Reduction::ParamsV2);
   auto input = stack.at(0).toTensor();
   auto rank = input.dim();
   auto dim = stack.at(1);
   auto isDimNone = dim.isNone();
   auto dims = isDimNone ? std::vector<int64_t>{} : dim.toIntVector();
-  params->reductionDimensionMask = 0;
-  params->keepDim = stack.at(2).toBool();
+  auto keepDim = stack.at(2).toBool();
 
-  for (auto reductionDim : dims) {
-    auto wrappedReductionDim = at::maybe_wrap_dim(reductionDim, rank);
-    auto axis = get_dim_in_tpc_order(wrappedReductionDim, rank);
-    params->reductionDimensionMask |= (1 << axis);
-  }
+  PARAMS_STUB(ns_Reduction::ParamsV2);
+  *params = FillReductionParams(rank, dims, keepDim);
 
   return params;
 }
