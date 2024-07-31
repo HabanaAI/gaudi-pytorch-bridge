@@ -495,9 +495,16 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
         (synapse_helpers::device_ptr)in_view_vec[i].storage().data_ptr().get();
     synapse_helpers::device_ptr output_storage_ptr =
         (synapse_helpers::device_ptr)out_view_vec[i].storage().data_ptr().get();
-    deviceCtxt->prepare_stream(collective_stream, input_storage_ptr);
+
+    std::vector<synapse_helpers::shared_event> event_lists = {};
+    event_lists = deviceCtxt->prepare_stream_and_get_events(
+        collective_stream, input_storage_ptr);
     if (input_storage_ptr != output_storage_ptr) {
-      deviceCtxt->prepare_stream(collective_stream, output_storage_ptr);
+      std::vector<synapse_helpers::shared_event> out_event_lists =
+          deviceCtxt->prepare_stream_and_get_events(
+              collective_stream, output_storage_ptr);
+      event_lists.insert(
+          event_lists.end(), out_event_lists.begin(), out_event_lists.end());
     }
 
     auto input_shallow_copy = at::Tensor{
@@ -515,9 +522,15 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
                  comm = comms[i],
                  collective_stream = collective_stream,
                  deviceCtxt = deviceCtxt,
+                 event_lists = event_lists,
                  output_storage_ptr = output_storage_ptr,
                  pr = pr]() mutable {
       hcclResult_t hccl_result = hcclSuccess;
+      auto& stream = deviceCtxt->get_stream_fromhandle(collective_stream);
+      for (auto& event : event_lists) {
+        event->stream_wait_event(stream);
+      }
+
       auto& recipe_counter = deviceCtxt->get_active_recipe_counter();
 
       struct ResourceHolder {
