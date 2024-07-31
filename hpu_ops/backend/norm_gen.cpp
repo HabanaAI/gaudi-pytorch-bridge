@@ -15,7 +15,8 @@
 
 #include "hpu_ops/backend/reduction_template.h"
 
-#define INF std::numeric_limits<float>::infinity()
+constexpr const auto INF = std::numeric_limits<float>::infinity();
+
 namespace habana {
 
 namespace sh = synapse_helpers;
@@ -29,8 +30,7 @@ OutputMetaDataVector NormMeta(const at::Stack& stack) {
   return {meta};
 }
 
-// Second param is unused so neglecting it
-sizes_vec NormOpOutputShape(const at::Stack& stack) {
+static sizes_vec NormOpOutputShape(const at::Stack& stack) {
   const torch::Tensor& self = stack_tensor(stack, 0);
   auto dim =
       stack.at(2).isNone() ? std::vector<int64_t>() : stack.at(2).toIntVector();
@@ -63,7 +63,7 @@ OutputMetaDataVector VecNormMeta(const at::Stack& stack) {
   return {meta};
 }
 
-ns_ReduceLpV2::ParamsV2 FillPFormNormOpParams(
+static ns_ReduceLpV2::ParamsV2 FillPFormNormOpParams(
     const int64_t ndims,
     at::IntArrayRef dims,
     bool keepDim,
@@ -82,113 +82,10 @@ ns_ReduceLpV2::ParamsV2 FillPFormNormOpParams(
   return params;
 }
 
-void NormHabanaOperator::AddNode(sh::graph& graph, const at::Stack& stack) {
-  const auto self = stack.at(0).toTensor();
-  const auto p = stack.at(1).toScalar();
-  const auto dtype = stack.at(2).toScalarType();
-  auto outshape = self.sizes();
-  auto n_dims = self.dim();
-
-  auto input = syn_in(0);
-  auto input_in_dtype = HandleReductionDtype(this, graph, self, input, dtype);
-  if (input_in_dtype.has_value()) {
-    input = input_in_dtype.value().get();
-  }
-
-  if (p.toFloat() == 2.0) {
-    if (n_dims <= 1 || self.sizes()[0] == 1) {
-      auto mul = BuildOp(
-          graph,
-          get_guid_with_precision("mult", dtype),
-          {input, input},
-          {{outshape, dtype}});
-
-      std::vector<synTensor> reduction_inputs = {mul[0].get()};
-      std::vector<sh::tensor> reshape;
-
-      if (n_dims > 1) {
-        auto reshape_outshape = self.numel();
-        reshape.emplace_back(
-            ReshapeHelper(graph, reduction_inputs[0], reshape_outshape, dtype));
-        reduction_inputs = {reshape[0].get()};
-      }
-
-      ns_Reduction::Params reduce_params{};
-      reduce_params.reductionDimension = 0;
-      auto sum = BuildOp(
-          graph,
-          get_guid_with_precision("reduce_sum_fwd", dtype),
-          std::move(reduction_inputs),
-          {{1, dtype}},
-          &reduce_params,
-          sizeof(reduce_params));
-
-      auto sqrt = BuildOp(
-          graph,
-          get_guid_with_precision("sqrt_fwd", dtype),
-          {sum[0].get()},
-          {{1, dtype, 0}});
-
-      syn_out(0) = std::move(sqrt[0]);
-
-    } else {
-      auto norm = BuildOp(
-          graph,
-          get_guid_with_precision("frobenius_norm_fwd", dtype),
-          {input},
-          {{1, dtype, 0}});
-
-      syn_out(0) = std::move(norm[0]);
-    }
-
-  } else {
-    auto reshape_outshape = self.numel();
-    std::vector<sh::tensor> reshape;
-    if (n_dims > 1) {
-      reshape.emplace_back(
-          ReshapeHelper(graph, input, reshape_outshape, dtype));
-      input = reshape[0].get();
-    }
-
-    ns_LpNormKernel::Params lpnorm_params{};
-    lpnorm_params.p = p.toFloat();
-    lpnorm_params.dim = 0;
-    lpnorm_params.eps = 0;
-    auto norm = BuildOp(
-        graph,
-        get_guid_with_precision("lpnorm_fwd", dtype),
-        {input},
-        {{reshape_outshape, dtype}, {reshape_outshape, dtype}},
-        &lpnorm_params,
-        sizeof(lpnorm_params));
-
-    auto reciprocal = BuildOp(
-        graph,
-        get_guid_with_precision("reciprocal_fwd", dtype),
-        {norm[1].get()},
-        {{reshape_outshape, dtype}});
-
-    synSliceParamsV2 slice_params{};
-    slice_params.axes[0] = 0;
-    slice_params.starts[0] = 0;
-    slice_params.ends[0] = 1;
-    slice_params.steps[0] = 1;
-    auto slice = BuildOp(
-        graph,
-        get_guid_with_precision("slice", dtype),
-        {reciprocal[0].get()},
-        {{1, dtype, 0}},
-        &slice_params,
-        sizeof(slice_params));
-
-    syn_out(0) = std::move(slice[0]);
-  }
-}
-
-void VecNormCheck(
+static void VecNormCheck(
     const torch::Tensor& self,
-    const at::ScalarType& dtype,
-    at::Scalar ord,
+    at::ScalarType dtype,
+    const at::Scalar& ord,
     c10::IntArrayRef dim) {
   auto p = (ord.isFloatingPoint()) ? ord.toFloat() : ord.toInt();
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
@@ -220,7 +117,7 @@ void VecNormCheck(
   }
 }
 
-void NormCheck(const at::ScalarType& dtype) {
+static void NormCheck(at::ScalarType dtype) {
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
       dtype == torch::kBFloat16 || dtype == torch::kFloat,
       "norm: Expected input dtype to be Float or kBFloat16, but got ",
@@ -317,6 +214,26 @@ void NormOpWithDtype::AddNode(sh::graph& graph, const at::Stack& stack) {
 void NormOpScalar::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto ord = stack.at(1).toScalar();
+  auto meta = NormMeta(stack)[0];
+
+  auto result = NormCommon(
+      this,
+      graph,
+      syn_in(0),
+      meta.dtype,
+      self,
+      {},
+      false,
+      ord,
+      {{meta.shape, meta.dtype, 0}},
+      false /* norm */);
+  syn_out(0) = std::move(result);
+}
+
+void NormOpScalarWithDtype::AddNode(sh::graph& graph, const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto optional_ord = stack.at(1).toOptional<at::Scalar>();
+  const at::Scalar ord = optional_ord.value_or(2);
   auto meta = NormMeta(stack)[0];
 
   auto result = NormCommon(

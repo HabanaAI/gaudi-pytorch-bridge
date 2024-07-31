@@ -6728,7 +6728,7 @@ norm.ScalarOpt_dtype:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
-  op_backend: NormHabanaOperator
+  op_backend: NormOpScalarWithDtype
   out_ids: [0]
 
 _weight_norm_interface:
