@@ -75,15 +75,18 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_graph_print,
         ]
     elif stage == OptimizationPassPlacement.PRE_PARTITIONER:
-        return [
+        passes = [
             # These passes will prepare proper placement for some corner-cases.
-            pass_handle_view_before_inplace_compute_ops,
             pass_graph_print,
             pass_eagerize_leaf_views,
             pass_handle_negative_dims,
             pass_replace_sym_size,
             pass_inference_fuse_linear,
         ]
+        if Version(Version(torch.__version__).base_version) < Version("2.4.0"):
+            passes.insert(0, pass_handle_view_before_inplace_compute_ops)
+
+        return passes
     elif stage == OptimizationPassPlacement.PARTITIONER:
         return [
             # These passes will prepare proper placement for some corner-cases.
