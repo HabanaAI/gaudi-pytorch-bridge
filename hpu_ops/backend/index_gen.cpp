@@ -29,8 +29,10 @@ static std::vector<int64_t> broadcast_size(at::TensorList indices) {
   int max_dim = 0;
   int i = 0;
   for (auto t : indices) {
-    if ((t.dim() > max) && (t.scalar_type() != c10::ScalarType::Bool))
+    if ((t.dim() > max) && (t.scalar_type() != c10::ScalarType::Bool)) {
       max_dim = i;
+      max = t.dim();
+    }
     i++;
   }
   auto isz = indices[max_dim].sizes().vec();
