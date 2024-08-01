@@ -71,7 +71,7 @@ std::shared_ptr<void> RandomUniformParams(
     at::optional<float> from,
     at::optional<float> to,
     size_t& size) {
-  PARAMS_STUB(ns_RandomUniform::ParamsV2);
+  PARAMS_STUB(ns_RandomUniform::ParamsV3);
   /*
   NOTE: As per PyTorch specification, for floating point types, if unspecified,
   range will be [0, 2^mantissa] to ensure that every value is representable. For
@@ -103,11 +103,13 @@ std::shared_ptr<void> RandomUniformParams(
     case at::ScalarType::Char:
       params->high.i = to.has_value() ? *to : 1 << 7;
       break;
-    case at::ScalarType::Long:
-      params->high.i = to.has_value()
+    case at::ScalarType::Long: {
+      int64_t value = to.has_value()
           ? *to
           : static_cast<float>(std::numeric_limits<int64_t>::max());
-      break;
+      params->high_low_32_Bit = value;
+      params->high_high_32_Bit = value >> 32;
+    } break;
     case at::ScalarType::Bool:
       params->high.i = 2;
       break;
@@ -127,9 +129,13 @@ std::shared_ptr<void> RandomUniformParams(
     case at::ScalarType::Int:
     case at::ScalarType::Byte:
     case at::ScalarType::Char:
-    case at::ScalarType::Long:
       params->low.i = from.has_value() ? *from : 0;
       break;
+    case at::ScalarType::Long: {
+      int64_t value = from.has_value() ? *from : 0;
+      params->low_low_32_Bit = value;
+      params->low_high_32_Bit = value >> 32;
+    } break;
     case at::ScalarType::Bool:
       params->low.i = 0;
       break;
@@ -498,7 +504,7 @@ void RandomSeedTensorInputIntegers::AddNode(
   }
 
   auto rand = BuildOp(
-      graph, guid_, std::move(inputs), {out_attr}, rand_params.get(), size);
+      graph, GetGuid(), std::move(inputs), {out_attr}, rand_params.get(), size);
 
   if (need_convert_i16) {
     PARAMS_STUB(ns_CastKernel::Params);

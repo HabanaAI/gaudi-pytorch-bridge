@@ -77,7 +77,7 @@ def test_randn(shape, dtype):
 
 
 @pytest.mark.parametrize("shape", [[], [1], [3, 4]], ids=format_tc)
-@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
+@pytest.mark.parametrize("dtype", dtypes if is_gaudi1() else dtypes + [torch.long], ids=format_tc)
 def test_randint(shape, dtype):
     def fn():
         if dtype == torch.bool:
@@ -85,6 +85,9 @@ def test_randint(shape, dtype):
             high = 2
         elif not dtype.is_floating_point:
             low = torch.iinfo(dtype).min
+            # Cannot test LLONG_MIN due to [SW-195253]
+            if dtype is torch.long:
+                low += 1
             high = torch.iinfo(dtype).max
         else:
             low = -10

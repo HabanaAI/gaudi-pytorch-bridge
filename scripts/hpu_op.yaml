@@ -6934,8 +6934,8 @@ random_:
   custom_fill_params: FillRandomParams
   dtypes:
     Gaudi: [Byte, Char, Short, BFloat16, Float, Int]
-    Gaudi2: [Byte, Char, Short, BFloat16, Half, Float, Int]
-    Gaudi3: [Byte, Char, Short, BFloat16, Half, Float, Int]
+    Gaudi2: [Byte, Char, Short, BFloat16, Half, Float, Int, Long]
+    Gaudi3: [Byte, Char, Short, BFloat16, Half, Float, Int, Long]
   guid: random_uniform_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
@@ -6946,8 +6946,8 @@ random_.from:
   custom_fill_params: FillRandomFromParams
   dtypes:
     Gaudi: [Byte, Char, Short, BFloat16, Float, Int]
-    Gaudi2: [Byte, Char, Short, BFloat16, Half, Float, Int]
-    Gaudi3: [Byte, Char, Short, BFloat16, Half, Float, Int]
+    Gaudi2: [Byte, Char, Short, BFloat16, Half, Float, Int, Long]
+    Gaudi3: [Byte, Char, Short, BFloat16, Half, Float, Int, Long]
   guid: random_uniform_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
@@ -6958,8 +6958,8 @@ random_.to:
   custom_fill_params: FillRandomToParams
   dtypes:
     Gaudi: [Byte, Char, Short, BFloat16, Float, Int]
-    Gaudi2: [Byte, Char, Short, BFloat16, Half, Float, Int]
-    Gaudi3: [Byte, Char, Short, BFloat16, Half, Float, Int]
+    Gaudi2: [Byte, Char, Short, BFloat16, Half, Float, Int, Long]
+    Gaudi3: [Byte, Char, Short, BFloat16, Half, Float, Int, Long]
   guid: random_uniform_fwd
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
@@ -8713,8 +8713,8 @@ triu_indices:
 trunc:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
   guid: trunc_fwd
   out_ids: [0]
   op_backend: RoundingFunc
@@ -8722,16 +8722,16 @@ trunc:
 trunc.out:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
   guid: trunc_fwd
   op_backend: RoundingFunc
 
 trunc_:
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
   guid: trunc_fwd
   inplace_ids: [0]
   op_backend: RoundingFunc
