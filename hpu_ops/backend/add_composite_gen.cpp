@@ -10,7 +10,6 @@
  *
  *******************************************************************************
  */
-#include "hpu_ops/common/add_composite_gen.h"
 #include "generated/backend/_foreach_addcdiv.h"
 #include "generated/backend/addcdiv.h"
 #include "generated/backend/addcmul.h"
@@ -18,9 +17,9 @@
 namespace habana {
 
 OutputMetaDataVector AddCOpsMeta(const at::Stack& stack) {
-  const torch::Tensor& self = stack_tensor(stack, inp_idx);
-  const torch::Tensor& other1 = stack_tensor(stack, oth1_idx);
-  const torch::Tensor& other2 = stack_tensor(stack, oth2_idx);
+  const torch::Tensor& self = stack_tensor(stack, 0);
+  const torch::Tensor& other1 = stack_tensor(stack, 1);
+  const torch::Tensor& other2 = stack_tensor(stack, 2);
   auto tmp = at::infer_size(self.sizes(), other1.sizes());
   OutputMetaData meta;
   meta.dtype = self.scalar_type();
@@ -31,11 +30,11 @@ OutputMetaDataVector AddCOpsMeta(const at::Stack& stack) {
 static SharedMetaDataVector AddCompositeSharedMeta(
     const at::Stack& stack,
     const std::string& guid) {
-  const auto& self = stack_tensor(stack, inp_idx);
+  const auto& self = stack_tensor(stack, 0);
   const auto self_dtype = self.scalar_type();
-  const auto& other1 = stack_tensor(stack, oth1_idx);
-  const auto& other2 = stack_tensor(stack, oth2_idx);
-  const bool tensor_value = stack[val_scalar_idx].isTensor();
+  const auto& other1 = stack_tensor(stack, 1);
+  const auto& other2 = stack_tensor(stack, 2);
+  const bool tensor_value = stack.at(3).isTensor();
   const auto output_rank =
       std::max(std::max(self.dim(), other1.dim()), other2.dim());
 
@@ -85,13 +84,12 @@ std::shared_ptr<void> FillAddCompositeParams(
     BinaryWithAlphaMode_t mode,
     size_t& size) {
   PARAMS_STUB(ns_BinaryWithAlphaKernel::Params);
-  auto out_scalar_type = stack[inp_idx].toTensor().scalar_type();
+  auto out_scalar_type = stack.at(0).toTensor().scalar_type();
 
   params->mode = mode;
   // if alpha is not equal to 1 then it is passed as tensor (4th input),
   // otherwise as params
-  auto val =
-      stack[val_scalar_idx].isScalar() ? stack[val_scalar_idx].toScalar() : 1;
+  auto val = stack.at(3).isScalar() ? stack.at(3).toScalar() : 1;
   if (c10::isFloatingType(out_scalar_type)) {
     get<float>(params->alpha) = val.to<float>();
   } else {

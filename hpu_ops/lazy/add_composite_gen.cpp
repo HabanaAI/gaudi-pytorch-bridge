@@ -11,21 +11,20 @@
  *******************************************************************************
  */
 
-#include "hpu_ops/common/add_composite_gen.h"
 #include "generated/lazy/addcdiv.h"
 #include "generated/lazy/addcmul.h"
 namespace habana {
 
 static void convert_scalar_val_to_tensor(at::Stack& inputs) {
-  auto self = inputs[inp_idx].toTensor();
-  auto value = inputs[val_scalar_idx].toScalar();
+  auto self = inputs.at(0).toTensor();
+  auto value = inputs.at(3).toScalar();
   at::Tensor valueTensor;
   if (!value.equal(1))
     valueTensor =
         habana_lazy::get_tensor_for_scalar(value.to<double>(), self.options());
 
   c10::optional<at::Tensor> valueTensorOpt = c10::make_optional(valueTensor);
-  inputs[val_scalar_idx] = valueTensorOpt;
+  inputs.at(3) = valueTensorOpt;
 }
 
 HPU_OP_FRONTEND_CUSTOM_CTOR_ONLY(habana_lazy::LazyOp, AddCOpFE, at::Tensor&) {
