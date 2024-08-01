@@ -23,7 +23,7 @@ sh::tensor NormCommon(
     synTensor input_tensor,
     at::ScalarType dtype,
     const torch::Tensor& self,
-    const std::vector<int64_t>& dim,
+    at::IntArrayRef dim,
     const bool keepdim,
     const at::Scalar& ord,
     const std::vector<NodeAttr::NodeOutputAttr>& output_attr,
@@ -66,7 +66,7 @@ void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
       " and g_in is on ",
       g_in.device());
 
-  std::vector<int64_t> dims_to_norm;
+  c10::DimVector dims_to_norm;
   dims_to_norm.reserve(v_in.ndimension());
   for (int64_t i = 0; i < v_in.ndimension(); ++i) {
     if (i != dim) // skip given dimension

@@ -63,22 +63,22 @@ OutputMetaDataVector VecNormMeta(const at::Stack& stack) {
   return {meta};
 }
 
-std::shared_ptr<void> FillPFormNormOpParams(
-    const int64_t ndim,
-    size_t& size,
-    int64_t index,
-    c10::optional<at::Scalar> opt_ord) {
-  const at::Scalar ord = opt_ord.value_or(2);
-  PARAMS_STUB(ns_ReduceLpV2::Params);
-  auto reduction_dim = ndim - 1 - index;
-  params->reductionDimension = reduction_dim;
+ns_ReduceLpV2::ParamsV2 FillPFormNormOpParams(
+    const int64_t ndims,
+    at::IntArrayRef dims,
+    bool keepDim,
+    const at::Scalar& ord) {
+  ns_ReduceLpV2::ParamsV2 params;
+  (ns_Reduction::ParamsV2&)params = FillReductionParams(ndims, dims, keepDim);
+
   if (ord.isFloatingPoint()) {
-    get<float>(params->p) = ord.to<float>();
-    params->typeOfP = TYPE_P_IS_FLOAT;
+    get<float>(params.p) = ord.to<float>();
+    params.typeOfP = TYPE_P_IS_FLOAT;
   } else {
-    get<int>(params->p) = ord.to<int>();
-    params->typeOfP = TYPE_P_IS_INT;
+    get<int>(params.p) = ord.to<int>();
+    params.typeOfP = TYPE_P_IS_INT;
   }
+
   return params;
 }
 
@@ -185,50 +185,11 @@ void NormHabanaOperator::AddNode(sh::graph& graph, const at::Stack& stack) {
   }
 }
 
-static sh::tensor L0NormPreprocess(
-    OpBackend* op,
-    sh::graph& graph,
-    std::vector<synTensor> input,
-    const at::IntArrayRef inputshape,
-    const at::ScalarType& dtype) {
-  auto zero = OpBackend::BuildConstant(op, graph, 0, dtype, inputshape);
-  auto compare = OpBackend::BuildNode(
-      op,
-      graph,
-      {get_guid_with_precision("equal_fwd", dtype),
-       {input[0], zero.get()},
-       {{inputshape, torch::kBool}}});
-
-  auto not_equal = OpBackend::BuildNode(
-      op,
-      graph,
-      {"not_fwd_i8", {compare[0].get()}, {{inputshape, torch::kBool}}});
-
-  return OpBackend::BuildCast(
-      op, graph, not_equal[0].get(), inputshape, torch::kBool, dtype);
-}
-
-static sh::tensor NegPosInfNormPreprocess(
-    OpBackend* op,
-    sh::graph& graph,
-    std::vector<synTensor> input,
-    const at::IntArrayRef inputshape,
-    const at::ScalarType& dtype) {
-  auto abs = OpBackend::BuildNode(
-      op,
-      graph,
-      {get_guid_with_precision("abs_fwd", dtype),
-       std::move(input),
-       {{inputshape, dtype}}});
-
-  return std::move(abs.at(0));
-}
-
 void VecNormCheck(
     const torch::Tensor& self,
     const at::ScalarType& dtype,
     at::Scalar ord,
-    const std::vector<int64_t>& dim) {
+    c10::IntArrayRef dim) {
   auto p = (ord.isFloatingPoint()) ? ord.toFloat() : ord.toInt();
   TORCH_INTERNAL_ASSERT_DEBUG_ONLY(
       dtype == torch::kBFloat16 || dtype == torch::kFloat,
@@ -272,24 +233,14 @@ sh::tensor NormCommon(
     synTensor input_tensor,
     at::ScalarType dtype,
     const torch::Tensor& self,
-    const std::vector<int64_t>& dim,
+    at::IntArrayRef dim,
     const bool keepdim,
     const at::Scalar& ord,
     const std::vector<NodeAttr::NodeOutputAttr>& output_attr,
     const bool is_vec_norm) {
   auto p = (ord.isFloatingPoint()) ? ord.toFloat() : ord.toInt();
-  auto norm_ord = ord.toFloat();
   auto self_shape = self.sizes().vec();
-  struct vec_norm_inputs {
-    std::string guid;
-    std::function<sh::tensor(
-        OpBackend*,
-        sh::graph&,
-        std::vector<synTensor>,
-        const at::IntArrayRef,
-        const at::ScalarType&)>
-        pre_fn{};
-  };
+
   if (is_vec_norm)
     VecNormCheck(self, dtype, ord, dim);
   else
@@ -300,157 +251,24 @@ sh::tensor NormCommon(
     return OpBackend::BuildConstant(op, graph, s, dtype, 1, 0);
   }
 
-  std::map<float, vec_norm_inputs> mod_inputs = {
-      {0.0, {"reduce_sum_fwd", L0NormPreprocess}},
-      {1.0, {"reduce_L1_fwd"}},
-      {2.0, {"reduce_L2_fwd"}},
-      {INF, {"reduce_max_fwd", NegPosInfNormPreprocess}},
-      {-INF, {"reduce_min_fwd", NegPosInfNormPreprocess}}};
+  auto params = FillPFormNormOpParams(self.dim(), dim, keepdim, ord);
+  auto reduce_lp_output = OpBackend::BuildNode(
+      op,
+      graph,
+      {get_guid_with_precision("reduce_Lp_multi_dim_fwd", dtype),
+       {input_tensor},
+       output_attr,
+       &params,
+       sizeof(params)});
 
-  // Using Lp_fwd if the ord value is not present in the map
-  if (mod_inputs.find(norm_ord) == mod_inputs.end()) {
-    auto norm_itr = HandleReductionDimAndKeepdim(
-        op,
-        graph,
-        self,
-        {input_tensor},
-        dim,
-        keepdim,
-        get_guid_with_precision("reduce_Lp_fwd", dtype),
-        output_attr,
-        FillPFormNormOpParams,
-        ord);
-    return std::move(norm_itr.at(0));
-  } else {
-    auto inputs = mod_inputs[norm_ord];
-    if (norm_ord != INF && norm_ord != -INF) {
-      auto norm_itr = HandleReductionDimAndKeepdim(
-          op,
-          graph,
-          self,
-          {inputs.pre_fn
-               ? inputs.pre_fn(op, graph, {input_tensor}, self_shape, dtype)
-                     .get()
-               : input_tensor},
-          dim,
-          keepdim,
-          get_guid_with_precision(inputs.guid, dtype),
-          output_attr);
-      return std::move(norm_itr.at(0));
-    }
-    auto norm_itr = HandleReductionDimAndKeepdim(
-        op,
-        graph,
-        self,
-        {inputs.pre_fn
-             ? inputs.pre_fn(op, graph, {input_tensor}, self_shape, dtype).get()
-             : input_tensor},
-        dim,
-        keepdim,
-        get_guid_with_precision(inputs.guid, dtype),
-        {{output_attr[0].sizes, output_attr[0].dtype}});
-
-    // Handle Inf values
-    ns_IsInfKernel::Params params{1, 1};
-    auto isinf_output = OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("isinf_fwd", dtype),
-         {input_tensor},
-         {{self_shape, torch::kInt8}},
-         &params,
-         sizeof(params)});
-
-    auto isinf_casted = OpBackend::BuildCast(
-        op,
-        graph,
-        isinf_output[0].get(),
-        self_shape,
-        torch::kInt8,
-        torch::kInt32);
-
-    op->SetScalarType(at::kInt);
-    auto isinf_reduced = HandleReductionDimAndKeepdim(
-        op,
-        graph,
-        self,
-        {isinf_casted.get()},
-        dim,
-        keepdim,
-        inputs.guid + "_i32",
-        {{output_attr[0].sizes, torch::kInt32}});
-
-    auto isinf_condition = OpBackend::BuildCast(
-        op,
-        graph,
-        isinf_reduced.at(0).get(),
-        output_attr[0].sizes,
-        torch::kInt32,
-        torch::kInt8);
-
-    auto const_inf =
-        OpBackend::BuildConstant(op, graph, INF, dtype, output_attr[0].sizes);
-
-    auto intermediate = OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("where_fwd", dtype),
-         {isinf_condition.get(), const_inf.get(), norm_itr.at(0).get()},
-         {{output_attr[0].sizes, dtype}}});
-
-    // Handle NaN values
-    auto isnan_output = OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("isnan_fwd", dtype),
-         {input_tensor},
-         {{self_shape, torch::kInt8}}});
-
-    auto isnan_casted = OpBackend::BuildCast(
-        op,
-        graph,
-        isnan_output[0].get(),
-        self_shape,
-        torch::kInt8,
-        torch::kInt32);
-
-    auto isnan_reduced = HandleReductionDimAndKeepdim(
-        op,
-        graph,
-        self,
-        {isnan_casted.get()},
-        dim,
-        keepdim,
-        "reduce_max_fwd_i32",
-        {{output_attr[0].sizes, torch::kInt32}});
-
-    auto isnan_condition = OpBackend::BuildCast(
-        op,
-        graph,
-        isnan_reduced.at(0).get(),
-        output_attr[0].sizes,
-        torch::kInt32,
-        torch::kInt8);
-
-    auto const_nan =
-        OpBackend::BuildConstant(op, graph, NAN, dtype, output_attr[0].sizes);
-
-    auto out = OpBackend::BuildNode(
-        op,
-        graph,
-        {get_guid_with_precision("where_fwd", dtype),
-         {isnan_condition.get(), const_nan.get(), intermediate.at(0).get()},
-         {{output_attr[0].sizes, dtype, 0}}});
-
-    return std::move(out.at(0));
-  }
+  return std::move(reduce_lp_output.at(0));
 }
 
 void VecNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto optional_ord = stack.at(1).toOptional<at::Scalar>();
-  std::vector<int64_t> dim =
-      stack.at(2).isNone() ? std::vector<int64_t>() : stack.at(2).toIntVector();
+  auto dim =
+      stack.at(2).isNone() ? c10::DimVector{} : stack.at(2).toDimVector();
   const at::Scalar ord = optional_ord.value_or(2);
   const bool keepdim = stack.at(3).toBool();
 
@@ -477,7 +295,7 @@ void VecNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
 void NormOpWithDtype::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
   auto optional_ord = stack.at(1).toOptional<at::Scalar>();
-  std::vector<int64_t> dim = stack.at(2).toIntVector();
+  auto dim = stack.at(2).toDimVector();
   const at::Scalar ord = optional_ord.value_or(2);
   const bool keepdim = stack.at(3).toBool();
   auto meta = NormOpMeta(stack)[0];
