@@ -478,6 +478,15 @@ def clear_t_compile_logs():
     fallback_logger.set_store_data(True)
 
 
+def compile_function_if_compile_mode(function):
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        return torch.compile(function, backend="hpu_backend")
+    else:
+        return function
+
+
 def check_ops_executed_in_jit_ir(op_names, verbose=False, allowed_fallbacks=set()):
     import re
 

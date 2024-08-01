@@ -137,6 +137,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/cat_gen.cpp
   backend/cdist_gen.cpp
   backend/channelshuffle_gen.cpp
+  backend/cholesky_gen.cpp
   backend/clamp_gen.cpp
   backend/clone_gen.cpp
   backend/compare_gen.cpp

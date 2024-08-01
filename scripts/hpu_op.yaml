@@ -4928,6 +4928,18 @@ linalg_vector_norm.out:
   dtypes: [BFloat16, Float]
   op_backend: VecNormOp
 
+linalg_cholesky_ex:
+  dtypes: [Float]
+  guid: cholesky_fwd
+  op_backend: Cholesky
+  out_ids: [0, 0]
+  output_meta: CholeskyMeta
+
+linalg_cholesky_ex.L:
+  dtypes: [Float]
+  guid: cholesky_fwd
+  op_backend: Cholesky
+
 linear:
   output_meta: LinearMeta
   dtypes:
