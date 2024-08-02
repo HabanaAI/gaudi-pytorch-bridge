@@ -18,26 +18,20 @@
 
 using namespace synapse_helpers::layouts;
 
-namespace {
-synapse_helpers::tensor ComputeBiasGrad(
+namespace habana {
+
+static synapse_helpers::tensor ComputeBiasGrad(
     habana::OpBackend* op,
     synapse_helpers::graph& graph,
     bool is_conv_3d,
     at::Tensor& grad_output,
-    std::vector<synTensor> syn_grad_output,
+    std::vector<synTensor>&& syn_grad_output,
     synapse_helpers::tensor& ten_output) {
-  auto channel_dim = is_conv_3d ? INPUT_3D_C_IDX : INPUT_C_IDX;
+  int channel_dim = is_conv_3d ? INPUT_3D_C_IDX : INPUT_C_IDX;
 
-  std::vector<int64_t> dim_to_reduce;
-  for (int64_t i = 0; i < grad_output.ndimension(); ++i) {
-    if (i != channel_dim) // skip C dimension
-      dim_to_reduce.push_back(i);
-  }
-
-  auto num_dims_to_reduce = dim_to_reduce.size();
-  // wrap dims to positive values, sort dim list and remove any duplicates
-  habana::LoweringUtil::SortAndRemoveDuplicateDims(
-      dim_to_reduce, grad_output.dim());
+  int ndims = grad_output.ndimension();
+  auto [maskWithoutChannelDim, bitPosChannelDimInTpcOrder] =
+      getMaskWithBitPosOutInTpcOrderAndBitPosInTpcOrder(channel_dim, ndims);
 
   // Check whether all dims in list are the higher "continuous" dimensions
   // if yes, "flatten" higher dims to a single unrolled-size dim.
@@ -46,36 +40,30 @@ synapse_helpers::tensor ComputeBiasGrad(
   // Note-2 cases such as [0,1,3] where there is in additional dim to reduce
   // in addition to continuous dims is not supported with flattening and falls
   // back to regular flow
-  std::vector<int64_t> next_val{0, 1, 2, 3, 4};
-  bool flatten_higher_dims = false;
-  for (auto i = 0u; i < num_dims_to_reduce && num_dims_to_reduce > 1; ++i) {
-    if (dim_to_reduce[i] == next_val[i]) {
-      flatten_higher_dims = true;
-    } else {
-      flatten_higher_dims = false;
-      break;
-    }
-  }
+  bool flatten_higher_dims =
+      ((ndims >= 3) && (bitPosChannelDimInTpcOrder <= 0)) ||
+      ((ndims == 2) && (bitPosChannelDimInTpcOrder < 0));
 
   if (flatten_higher_dims) {
     // TODO: remove or replace if we want to support flatten higher dims
     return std::move(ten_output);
   } else {
-    auto multi_dim_reduce_sum = HandleReductionMultiDimAndKeepdim(
+    ns_Reduction::ParamsV2 params;
+    params.keepDim = false;
+    params.reductionDimensionMask = maskWithoutChannelDim;
+
+    auto multi_dim_reduce_sum = OpBackend::BuildNode(
         op,
         graph,
-        syn_grad_output[0],
-        "reduce_sum_multi_dim",
-        dim_to_reduce,
-        grad_output.dim(),
-        false,
-        {{{grad_output.sizes()[channel_dim]}, grad_output.scalar_type(), 2}});
+        {get_guid_with_precision("reduce_sum_multi_dim", op->ScalarType()),
+         std::move(syn_grad_output),
+         {{{grad_output.sizes()[channel_dim]}, grad_output.scalar_type(), 2}},
+         &params,
+         sizeof(params)});
+
     return std::move(multi_dim_reduce_sum[0]);
   }
 }
-} // namespace
-
-namespace habana {
 
 static std::shared_ptr<void> SynapseConvParamsBuilder(
     const c10::IntArrayRef& weight, // HWCK
@@ -179,8 +167,8 @@ static OutputMetaData CreateMetaData(
   meta.mem_format = input.suggest_memory_format();
   meta.undefined = output_mask_in.size() && !output_mask_in.get(index);
   // output_meta is hardcoded to true
-  // This is due to a bridge limitation with jit disabled ops for specific cases.
-  // SW-177687
+  // This is due to a bridge limitation with jit disabled ops for specific
+  // cases. SW-177687
   if (index < 3)
     meta.undefined = 0;
 
@@ -386,8 +374,8 @@ void ConvolutionBackwardOverrideable::AddNode(
   }
   if (transposed) {
     // output_mask_in[0] is always assumed to be true
-    // This is due to a bridge limitation with jit disabled ops for specific cases.
-    // SW-177687
+    // This is due to a bridge limitation with jit disabled ops for specific
+    // cases. SW-177687
     if (true) {
       guid = "spatial_convolution";
       auto convOp = BuildOpFor(
@@ -404,8 +392,8 @@ void ConvolutionBackwardOverrideable::AddNode(
     }
 
     // output_mask_in[1] is always assumed to be true
-    // This is due to a bridge limitation with jit disabled ops for specific cases.
-    // SW-177687
+    // This is due to a bridge limitation with jit disabled ops for specific
+    // cases. SW-177687
     if (true) {
       guid = is_conv_3d ? "dedw3d" : "dedw";
       auto dedwOp = BuildOpFor(
@@ -422,8 +410,8 @@ void ConvolutionBackwardOverrideable::AddNode(
     }
   } else {
     // output_mask_in[0] is always assumed to be true
-    // This is due to a bridge limitation with jit disabled ops for specific cases.
-    // SW-177687
+    // This is due to a bridge limitation with jit disabled ops for specific
+    // cases. SW-177687
     if (true) {
       std::vector syn_inputs = {grad_output_reshaped, weight_reshaped};
 
@@ -445,8 +433,8 @@ void ConvolutionBackwardOverrideable::AddNode(
     }
 
     // output_mask_in[1] is always assumed to be true
-    // This is due to a bridge limitation with jit disabled ops for specific cases.
-    // SW-177687
+    // This is due to a bridge limitation with jit disabled ops for specific
+    // cases. SW-177687
     if (true) {
       guid = is_conv_3d ? "dedw3d" : "dedw";
       auto dedwOp = BuildOpFor(

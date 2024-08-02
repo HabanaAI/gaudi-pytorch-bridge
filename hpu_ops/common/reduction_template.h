@@ -40,6 +40,22 @@ inline bool get_keepdim(
                                    : false;
 }
 
+inline std::pair<unsigned, int>
+getMaskWithBitPosOutInTpcOrderAndBitPosInTpcOrder(int bitPos, int ndims) {
+  int bitPosInTpcOrder = ndims - 1 - bitPos;
+  unsigned fullMask = (1 << ndims) - 1;
+
+  unsigned maskBitPosInTpcOrder =
+      (bitPosInTpcOrder >= 0) ? 1 << bitPosInTpcOrder : 0;
+  unsigned maskedOutBitPos = fullMask & ~maskBitPosInTpcOrder;
+
+  return {maskedOutBitPos, bitPosInTpcOrder};
+}
+
+inline unsigned getMaskWithBitPosOutInTpcOrder(int bitPos, int ndims) {
+  return getMaskWithBitPosOutInTpcOrderAndBitPosInTpcOrder(bitPos, ndims).first;
+}
+
 struct CommonReductionFrontendTemplate {
   at::optional<uint8_t> m_dtype_index;
   at::optional<uint8_t> m_dim_index;
