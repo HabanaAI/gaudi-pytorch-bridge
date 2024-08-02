@@ -17,7 +17,7 @@ import queue
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Callable, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
@@ -28,12 +28,13 @@ from habana_frameworks.torch.utils.visualization import graph_visualizer
 from packaging.version import Version
 from torch.distributed._spmd.graph_utils import find_node
 from torch.fx.experimental.proxy_tensor import py_sym_types
+from torch.fx.node import map_arg
 from torch.fx.passes.operator_support import OperatorSupport
 from torch.fx.passes.reinplace import _FunctionalizationMetadataProp
 
 from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.propose_collective_blocks import pass_propose_collective_blocks
-from ._passes.utils import ColorGraph, OptimizationPassPlacement, OptimizerContext
+from ._passes.utils import ColorGraph, OptimizationPassPlacement, OptimizerContext, SchedulePolicy
 from .logger import get_compile_backend_logger
 from .partitioner import HabanaPartitioner
 from .random_utils import (
@@ -68,6 +69,8 @@ def get_passes(stage: OptimizationPassPlacement):
     """
     if stage == OptimizationPassPlacement.PRE_PLACEMENT:
         return [
+            # this pass will flatten nested submodules by inlining
+            pass_annotate_nodes_and_inline_submodule,
             # These passes will be ran once, they always get and produce a flat graph without submodules.
             pass_graph_print,
             pass_propose_collective_blocks,
@@ -555,6 +558,172 @@ def helper_is_node_supported(node: torch.fx.Node) -> bool:
     return node.meta["output_device"].type == "hpu" and node.meta["placement"] == "hpu_cluster"
 
 
+def pass_annotate_nodes_and_inline_submodule(ctx: OptimizerContext) -> bool:
+    """
+    This pass aims to annotate node based on hints wrapped by hints_wrapper HOO.
+    There are two steps:
+        1. recursively annotate nodes inside nested submodules
+        2. inline those nested submodules
+    """
+
+    def is_hints_wrapper_node(node: torch.fx.Node) -> bool:
+        return node.op == "call_function" and "hints_wrapper" == node.target.__name__
+
+    def get_schedule_policy(hints: dict) -> SchedulePolicy:
+        if "schedule_policy" not in hints:
+            logger.warn("No schedule policy is provided, default to use strict policy.")
+            return SchedulePolicy.strict
+
+        expected_policy = hints["schedule_policy"]
+        if expected_policy.lower() == "strict":
+            return SchedulePolicy.strict
+
+        logger.warn("Currently policy {} is not supported, fall back to strict policy.".format(expected_policy))
+        return SchedulePolicy.strict
+
+    def get_supported_hints() -> list:
+        supported_list = [
+            "schedule_policy",
+            "group_id",
+        ]
+        return supported_list
+
+    def sanity_check_on_hints(hints: dict, n: torch.fx.Node):
+        if not hints:
+            # hints is empty, there is no more actions for node annotation
+            logger.debug("no hints provided for node ", n)
+        else:
+            for h in hints.keys():
+                if h not in get_supported_hints():
+                    logger.warn(
+                        "hint key '{}' is not support yet hence expect to not take effect. Supported hint keys are {}".format(
+                            h, get_supported_hints()
+                        )
+                    )
+
+    def inline_hints_wrapper(
+        parent_module: torch.fx.GraphModule, node_to_replace: torch.fx.Node, inline_mod: torch.fx.GraphModule
+    ):
+        """ "
+        This is adapted from torch.fx.experimental.constant_fold._inline_module function.
+        It aims to inline submodule wrapped by hints_wrapper node into parent
+        module.
+        """
+        assert is_hints_wrapper_node(node_to_replace)
+
+        getitem_nodes_to_be_removed = []
+        for u in node_to_replace.users:
+            if u.op == "call_function" and u.target.__name__ == "getitem":
+                getitem_nodes_to_be_removed.append(u)
+
+        node_args = node_to_replace.args
+        # unpack input tensors
+        new_node_args = []
+        for arg in node_args:
+            if isinstance(arg, tuple):
+                for a in arg:
+                    new_node_args.append(a)
+                continue
+            new_node_args.append(arg)
+
+        replacement_mapping: Dict[torch.fx.Node, torch.fx.Node] = {}
+        # args starts from idx 1
+        ph_count = 1
+
+        def replacement_fn(node):
+            new_node = replacement_mapping[node]
+            return new_node
+
+        for inline_node in inline_mod.graph.nodes:
+            if inline_node.op == "placeholder":
+                replacement_mapping[inline_node] = new_node_args[ph_count]
+                ph_count += 1
+                continue
+
+            if inline_node.op == "output":
+                outputs = inline_node.args[0]
+                output_replacements = map_arg(outputs, replacement_fn)
+                node_to_replace.replace_all_uses_with(output_replacements)
+                continue
+
+            with parent_module.graph.inserting_before(node_to_replace):
+                new_node = parent_module.graph.node_copy(inline_node, replacement_fn)
+            replacement_mapping[inline_node] = new_node
+
+        # delete unecessary getitem nodes
+        for n in getitem_nodes_to_be_removed:
+            assert isinstance(n.args[0], tuple)
+            arg_idx = n.args[1]
+            arg_node = n.args[0][arg_idx]
+            n.replace_all_uses_with(arg_node)
+
+        parent_module.graph.eliminate_dead_code()
+        return
+
+    def process_nested_submodule(
+        parent_module: torch.fx.GraphModule,
+        wrapper_node: torch.fx.Node,
+        parent_hints: dict,
+        module_prefix: str = "",
+    ):
+        sanity_check_on_hints(parent_hints, wrapper_node)
+
+        submodule_name = wrapper_node.args[0].name
+        submodule = parent_module.get_submodule(submodule_name)
+        submodule_qualified_name = module_prefix + ("." if module_prefix else "") + submodule_name
+
+        for n in submodule.graph.nodes:
+            if n.op in ["placeholder", "get_attr", "output"]:
+                continue
+            elif is_hints_wrapper_node(n):
+                cur_hints = n.kwargs.get("hints", None)
+                merged_hints = {**parent_hints, **cur_hints}
+                process_nested_submodule(submodule, n, merged_hints, submodule_qualified_name)
+                continue
+
+            # annotate node from here
+            n.meta["context_hints"] = parent_hints
+            logger.debug(
+                "annotated node {} with hints {} inside submodule {}".format(n, parent_hints, submodule_qualified_name)
+            )
+
+        inline_hints_wrapper(parent_module, wrapper_node, submodule)
+        parent_module.delete_submodule(submodule_name)
+        return
+
+    class StrictRunNode(torch.fx.Interpreter):
+        def __init__(self, module: torch.fx.GraphModule):
+            super().__init__(module)
+            self.counter = 0
+
+        def run_node(self, n: torch.fx.Node):
+            if "context_hints" in n.meta:
+                new_context_hints = {**n.meta["context_hints"]}
+                new_context_hints["exec_order"] = self.counter
+                n.meta["context_hints"] = new_context_hints
+                self.counter += 1
+            return super().run_node(n)
+
+    graph = ctx.graph_module.graph
+    hints_wrapper_nodes = [n for n in graph.nodes if is_hints_wrapper_node(n)]
+    if not hints_wrapper_nodes:
+        return False
+
+    top_level_hints = None
+    for n in hints_wrapper_nodes:
+        hints_dict = n.kwargs.get("hints", None)
+        if top_level_hints is None:
+            top_level_hints = hints_dict
+        process_nested_submodule(ctx.graph_module, n, hints_dict)
+
+    # currently assume there is single hints_wrapper node or multiple
+    # hints_wrapper nodes but with same schedule policy
+    if get_schedule_policy(top_level_hints) == SchedulePolicy.strict:
+        StrictRunNode(ctx.graph_module).run(*ctx.example_inputs)
+
+    return True
+
+
 def pass_replace_sym_size(ctx: OptimizerContext) -> bool:
     if not ctx.is_dynamic:
         return True
@@ -609,6 +778,8 @@ def pass_graph_print(ctx: OptimizerContext) -> bool:
             logger.debug("    target: %s", node.target.__name__)
         if "output_device" in node.meta:
             logger.debug("    meta.output_device: %s", node.meta["output_device"])
+        if "context_hints" in node.meta:
+            logger.debug("    meta.context_hints: %s", node.meta["context_hints"])
     return False
 
 
@@ -2296,21 +2467,6 @@ def pass_compile_clusters(ctx: OptimizerContext):
         attribute.
         """
 
-        def extract_dict_from_str(hints_str):
-            hint_values = None
-            if hints_str is None:
-                return None
-            else:
-                assert isinstance(hints_str, str)
-                hints_str = hints_str.strip()
-                if hints_str:
-                    hint_values = eval(hints_str)
-
-            if hint_values and isinstance(hint_values, dict):
-                return hint_values
-
-            return None
-
         # Filter inputs/output and getitem nodes from fx graph, as they are not
         # present in jit
         fx_nodes = list(
@@ -2343,8 +2499,8 @@ def pass_compile_clusters(ctx: OptimizerContext):
                 break
 
             # extract hints from FX node metadata
-            context_hints = extract_dict_from_str(fx_node.meta.get("context_hints", None))
-            if context_hints is not None:
+            context_hints = fx_node.meta.get("context_hints", None)
+            if context_hints:
                 logger.debug("node {} has context hints {}".format(fx_node_name, context_hints))
                 # combine hints into a single string in format "name1:value1;[name2:value2;]"
                 hints_str = ""

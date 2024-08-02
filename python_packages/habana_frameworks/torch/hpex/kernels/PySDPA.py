@@ -16,7 +16,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch._higher_order_ops.hinted_context import hinted_context
+from torch._higher_order_ops.hints_wrap import hints_wrapper
 
 # PREFERRED_SLICE_SIZE = 16
 # MINIMUM_SIZE = 16
@@ -175,7 +175,7 @@ class PySDPAHinted(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, q, k, v, is_causal=False, with_slice=True):
-        def forward_hinted(ctx, q, k, v, is_causal, with_slice, hint):
+        def forward_hinted(q, k, v, is_causal, with_slice):
             # using default slice size 1
             batch_heads = q.shape[0] * q.shape[1]
 
@@ -223,27 +223,31 @@ class PySDPAHinted(torch.autograd.Function):
             return tuple(outputs)
 
         if is_causal:
-            out, retain_exp, retain_max = hinted_context(
+            out, retain_exp, retain_max = hints_wrapper(
                 forward_hinted,
-                ctx,
-                q,
-                k,
-                v,
-                is_causal,
-                with_slice,
-                hint='{"preserve_order": "true", "group_id": 0}',
+                (
+                    q,
+                    k,
+                    v,
+                    is_causal,
+                    with_slice,
+                ),
+                {},
+                hints={"schedule_policy": "strict", "group_id": 0},
             )
             ctx.save_for_backward(q, k, v, out, retain_exp, retain_max)
         else:
-            (out,) = hinted_context(
+            (out,) = hints_wrapper(
                 forward_hinted,
-                ctx,
-                q,
-                k,
-                v,
-                is_causal,
-                with_slice,
-                hint='{"preserve_order": "true", "group_id": 0}',
+                (
+                    q,
+                    k,
+                    v,
+                    is_causal,
+                    with_slice,
+                ),
+                {},
+                hints={"schedule_policy": "strict", "group_id": 0},
             )
             ctx.save_for_backward(q, k, v, out)
 
@@ -254,7 +258,7 @@ class PySDPAHinted(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, dout):
-        def backward_hinted(do, q, k, v, O, is_causal, with_slice, retain_exp, retain_max, hint):
+        def backward_hinted(do, q, k, v, O, is_causal, with_slice, retain_exp, retain_max):
             assert q.dim() == 4, " Currently support only 4D"
 
             # using default slice size 1
@@ -319,17 +323,20 @@ class PySDPAHinted(torch.autograd.Function):
             q, k, v, out = ctx.saved_tensors
             retain_exp, retain_max = None, None
 
-        dq, dk, dv = hinted_context(
+        dq, dk, dv = hints_wrapper(
             backward_hinted,
-            dout,
-            q,
-            k,
-            v,
-            out,
-            ctx.is_causal,
-            ctx.with_slice,
-            retain_exp,
-            retain_max,
-            hint='{"preserve_order": "true", "group_id": 1}',
+            (
+                dout,
+                q,
+                k,
+                v,
+                out,
+                ctx.is_causal,
+                ctx.with_slice,
+                retain_exp,
+                retain_max,
+            ),
+            {},
+            hints={"schedule_policy": "strict", "group_id": 1},
         )
         return dq, dk, dv, None, None, None

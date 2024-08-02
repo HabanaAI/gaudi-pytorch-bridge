@@ -19,7 +19,7 @@ from torch.testing._internal.common_utils import TestCase
 
 skip_test = False
 try:
-    from torch._higher_order_ops.hinted_context import hinted_context
+    from torch._higher_order_ops.hints_wrap import hints_wrapper
 except ModuleNotFoundError:
     skip_test = True
 
@@ -127,14 +127,14 @@ class ToyModelOuterHint(torch.nn.Module):
         self.softmax = torch.nn.Softmax(dim=1)
 
     def forward(self, x):
-        def outer_hint_function(input, hint):
+        def outer_hint_function(input):
             out = input
             out = self.layers[0](out)
             out = self.layers[1](out)
             out = self.layers[2](out)
             return self.softmax(out)
 
-        out = hinted_context(outer_hint_function, x, hint='{"outer_hint": "True"}')
+        out = hints_wrapper(outer_hint_function, (x,), {}, hints={"outer_hint": "True"})
 
         return torch.reshape(out, (out.size(0), out.size(1)))
 
@@ -152,17 +152,17 @@ class ToyModelNestedHint(torch.nn.Module):
         self.softmax = torch.nn.Softmax(dim=1)
 
     def forward(self, x):
-        def inner_hint_function(input, block, hint):
+        def inner_hint_function(input, block):
             return self.layers[block](input)
 
-        def outer_hint_function(input, hint):
+        def outer_hint_function(input):
             out = input
-            out = hinted_context(inner_hint_function, out, 0, hint='{"inner_hint": "1"}')
-            out = hinted_context(inner_hint_function, out, 1, hint='{"inner_hint": "2"}')
-            out = hinted_context(inner_hint_function, out, 2, hint='{"inner_hint": "3"}')
+            out = hints_wrapper(inner_hint_function, (out, 0), {}, hints={"inner_hint": "1"})
+            out = hints_wrapper(inner_hint_function, (out, 1), {}, hints={"inner_hint": "2"})
+            out = hints_wrapper(inner_hint_function, (out, 2), {}, hints={"inner_hint": "3"})
             return self.softmax(out)
 
-        out = hinted_context(outer_hint_function, x, hint='{"outer_hint": "True"}')
+        out = hints_wrapper(outer_hint_function, (x,), {}, hints={"outer_hint": "True"})
 
         return torch.reshape(out, (out.size(0), out.size(1)))
 
@@ -185,11 +185,11 @@ class ToyModelFunctionalLinearWithHints(torch.nn.Module):
         super().__init__()
 
     def forward(self, x, y):
-        def outer_hint_function(input1, input2, hint):
+        def outer_hint_function(input1, input2):
             out = torch.nn.functional.linear(input1, input2)
             return out
 
-        out = hinted_context(outer_hint_function, x, y, hint='{"outer_functional_linear_hint": "true"}')
+        out = hints_wrapper(outer_hint_function, (x, y), {}, hints={"outer_functional_linear_hint": "true"})
 
         return torch.reshape(out, (out.size(0), out.size(1)))
 
@@ -224,24 +224,23 @@ class LinearConstantHinted(torch.autograd.Function):
         ctx.const1 = const1
         ctx.const2 = const2
 
-        def forward_hinted(tensor, const1, const2, hint):
+        def forward_hinted(tensor, const1, const2):
             return tensor * const1 + const2
 
-        return hinted_context(forward_hinted, tensor, const1, const2, hint='{"fwd_custom_linear": "True"}')
+        return hints_wrapper(forward_hinted, (tensor, const1, const2), {}, hints={"fwd_custom_linear": "True"})
 
     @staticmethod
     def backward(ctx, grad_output):
         # Dummy, mathematically incorrect, implementation of BWD just to show hints.
-        def backward_hinted(grad_output, const1, const2, hint):
+        def backward_hinted(grad_output, const1, const2):
             return grad_output * const1 + const2
 
         return (
-            hinted_context(
+            hints_wrapper(
                 backward_hinted,
-                grad_output,
-                ctx.const1,
-                ctx.const2,
-                hint='{"bwd_custom_linear": "True"}',
+                (grad_output, ctx.const1, ctx.const2),
+                {},
+                hints={"bwd_custom_linear": "True"},
             ),
             None,
             None,
@@ -285,17 +284,17 @@ class ToyModelAutogradOverrideWithHints(torch.nn.Module):
         self.softmax = torch.nn.Softmax(dim=1)
 
     def forward(self, x):
-        def inner_hint_function(input, block, hint):
+        def inner_hint_function(input, block):
             return self.layers[block](input)
 
-        def outer_hint_function(input, hint):
+        def outer_hint_function(input):
             out = input
-            out = hinted_context(inner_hint_function, out, 0, hint='{"inner_hint": "1"}')
-            out = hinted_context(inner_hint_function, out, 1, hint='{"inner_hint": "2"}')
-            out = hinted_context(inner_hint_function, out, 2, hint='{"inner_hint": "3"}')
+            out = hints_wrapper(inner_hint_function, (out, 0), {}, hints={"inner_hint": "1"})
+            out = hints_wrapper(inner_hint_function, (out, 1), {}, hints={"inner_hint": "2"})
+            out = hints_wrapper(inner_hint_function, (out, 2), {}, hints={"inner_hint": "3"})
             return self.softmax(out)
 
-        out = hinted_context(outer_hint_function, x, hint='{"outer_hint": "True"}')
+        out = hints_wrapper(outer_hint_function, (x,), {}, hints={"outer_hint": "True"})
 
         out = LinearConstantHinted.apply(out, 1.05, 0.05)
 
@@ -308,40 +307,39 @@ class LinearConstantNestedHinted(torch.autograd.Function):
         ctx.const1 = const1
         ctx.const2 = const2
 
-        def forward_mul(tensor, const1, hint):
+        def forward_mul(tensor, const1):
             return tensor * const1
 
-        def forward_add(tensor, const2, hint):
+        def forward_add(tensor, const2):
             return tensor + const2
 
-        def forward_hinted(tensor, const1, const2, hint):
-            out = hinted_context(forward_mul, tensor, const1, hint='{"part": "mul"}')
-            out = hinted_context(forward_add, out, const2, hint='{"part": "add"}')
+        def forward_hinted(tensor, const1, const2):
+            out = hints_wrapper(forward_mul, (tensor, const1), {}, hints={"part": "mul"})
+            out = hints_wrapper(forward_add, (out, const2), {}, hints={"part": "add"})
             return out
 
-        return hinted_context(forward_hinted, tensor, const1, const2, hint='{"fwd_custom_linear": "True"}')
+        return hints_wrapper(forward_hinted, (tensor, const1, const2), {}, hints={"fwd_custom_linear": "True"})
 
     @staticmethod
     def backward(ctx, grad_output):
         # Dummy, mathematically incorrect, implementation of BWD just to show hints.
-        def backward_mul(tensor, const1, hint):
+        def backward_mul(tensor, const1):
             return tensor * const1
 
-        def backward_add(tensor, const2, hint):
+        def backward_add(tensor, const2):
             return tensor + const2
 
-        def backward_hinted(grad_output, const1, const2, hint):
-            out = hinted_context(backward_mul, grad_output, const1, hint='{"part": "mul"}')
-            out = hinted_context(backward_add, out, const2, hint='{"part": "add"}')
+        def backward_hinted(grad_output, const1, const2):
+            out = hints_wrapper(backward_mul, (grad_output, const1), {}, hints={"part": "mul"})
+            out = hints_wrapper(backward_add, (out, const2), {}, hints={"part": "add"})
             return out
 
         return (
-            hinted_context(
+            hints_wrapper(
                 backward_hinted,
-                grad_output,
-                ctx.const1,
-                ctx.const2,
-                hint='{"bwd_custom_linear": "True"}',
+                (grad_output, ctx.const1, ctx.const2),
+                {},
+                hints={"bwd_custom_linear": "True"},
             ),
             None,
             None,
@@ -361,17 +359,17 @@ class ToyModelAutogradOverrideWithNestedHints(torch.nn.Module):
         self.softmax = torch.nn.Softmax(dim=1)
 
     def forward(self, x):
-        def inner_hint_function(input, block, hint):
+        def inner_hint_function(input, block):
             return self.layers[block](input)
 
-        def outer_hint_function(input, hint):
+        def outer_hint_function(input):
             out = input
-            out = hinted_context(inner_hint_function, out, 0, hint='{"inner_hint": "1"}')
-            out = hinted_context(inner_hint_function, out, 1, hint='{"inner_hint": "2"}')
-            out = hinted_context(inner_hint_function, out, 2, hint='{"inner_hint": "3"}')
+            out = hints_wrapper(inner_hint_function, (out, 0), {}, hints={"inner_hint": "1"})
+            out = hints_wrapper(inner_hint_function, (out, 1), {}, hints={"inner_hint": "2"})
+            out = hints_wrapper(inner_hint_function, (out, 2), {}, hints={"inner_hint": "3"})
             return self.softmax(out)
 
-        out = hinted_context(outer_hint_function, x, hint='{"outer_hint": "True"}')
+        out = hints_wrapper(outer_hint_function, (x,), {}, hints={"outer_hint": "True"})
 
         out = LinearConstantNestedHinted.apply(out, 1.05, 0.05)
 
@@ -384,10 +382,10 @@ class ComplexOperationWithPreservedOrder(torch.autograd.Function):
         ctx.const1 = const1
         ctx.const2 = const2
 
-        def forward_part1(tensor, const1, hint):
+        def forward_part1(tensor, const1):
             return tensor * const1
 
-        def forward_part2_serial(tensor, hint):
+        def forward_part2_serial(tensor):
             # Path A
             a0 = torch.relu(tensor)
             a1 = a0 * 1.5
@@ -414,7 +412,7 @@ class ComplexOperationWithPreservedOrder(torch.autograd.Function):
 
             return a5 + b5 + c5
 
-        def forward_part2_interleaved(tensor, hint):
+        def forward_part2_interleaved(tensor):
             a0 = torch.relu(tensor)
             b0 = torch.selu(tensor)
             c0 = torch.celu(tensor)
@@ -440,28 +438,33 @@ class ComplexOperationWithPreservedOrder(torch.autograd.Function):
             c5 = c4 + 2
             return a5 + b5 + c5
 
-        def forward_part3(tensor, const2, hint):
+        def forward_part3(tensor, const2):
             return tensor + const2
 
-        def forward_hinted(tensor, const1, const2, hint):
-            out = torch.ops.higher_order.hinted_context(forward_part1, tensor, const1, hint='{"part": "pre"}')
-            out = torch.ops.higher_order.hinted_context(forward_part2_serial, out, hint='{"part_id": "middle_serial"}')
-            out = torch.ops.higher_order.hinted_context(
-                forward_part2_interleaved, out, hint='{"part_id": "middle_interleaved"}'
+        def forward_hinted(tensor, const1, const2):
+            out = torch.ops.higher_order.hints_wrapper(forward_part1, (tensor, const1), {}, hints={"part": "pre"})
+            out = torch.ops.higher_order.hints_wrapper(
+                forward_part2_serial, (out,), {}, hints={"part_id": "middle_serial"}
             )
-            out = torch.ops.higher_order.hinted_context(forward_part3, out, const2, hint='{"part_id": "post"}')
+            out = torch.ops.higher_order.hints_wrapper(
+                forward_part2_interleaved, (out,), {}, hints={"part_id": "middle_interleaved"}
+            )
+            out = torch.ops.higher_order.hints_wrapper(forward_part3, (out, const2), {}, hints={"part_id": "post"})
             return out
 
-        return torch.ops.higher_order.hinted_context(
-            forward_hinted, tensor, const1, const2, hint='{"some_complex_op_fwd": "true", "preserve_order": "true"}'
+        return torch.ops.higher_order.hints_wrapper(
+            forward_hinted,
+            (tensor, const1, const2),
+            {},
+            hints={"some_complex_op_fwd": "true", "preserve_order": "true"},
         )
 
     @staticmethod
     def backward(ctx, grad_output):
-        def backward_part1(tensor, const1, hint):
+        def backward_part1(tensor, const1):
             return tensor * const1
 
-        def backward_part2_serial(tensor, hint):
+        def backward_part2_serial(tensor):
             # Path A
             a0 = torch.relu(tensor)
             a1 = a0 * 1.5
@@ -488,7 +491,7 @@ class ComplexOperationWithPreservedOrder(torch.autograd.Function):
 
             return a5 + b5 + c5
 
-        def backward_part2_interleaved(tensor, hint):
+        def backward_part2_interleaved(tensor):
             a0 = torch.relu(tensor)
             b0 = torch.selu(tensor)
             c0 = torch.celu(tensor)
@@ -514,25 +517,26 @@ class ComplexOperationWithPreservedOrder(torch.autograd.Function):
             c5 = c4 + 2
             return a5 + b5 + c5
 
-        def backward_part3(tensor, const2, hint):
+        def backward_part3(tensor, const2):
             return tensor + const2
 
-        def backward_hinted(grad_output, const1, const2, hint):
-            out = torch.ops.higher_order.hinted_context(backward_part1, grad_output, const1, hint='{"part": "pre"}')
-            out = torch.ops.higher_order.hinted_context(backward_part2_serial, out, hint='{"part_id": "middle_serial"}')
-            out = torch.ops.higher_order.hinted_context(
-                backward_part2_interleaved, out, hint='{"part_id": "middle_interleaved"}'
+        def backward_hinted(grad_output, const1, const2):
+            out = torch.ops.higher_order.hints_wrapper(backward_part1, (grad_output, const1), {}, hints={"part": "pre"})
+            out = torch.ops.higher_order.hints_wrapper(
+                backward_part2_serial, (out,), {}, hints={"part_id": "middle_serial"}
             )
-            out = torch.ops.higher_order.hinted_context(backward_part3, out, const2, hint='{"part_id": "post"}')
+            out = torch.ops.higher_order.hints_wrapper(
+                backward_part2_interleaved, (out,), {}, hints={"part_id": "middle_interleaved"}
+            )
+            out = torch.ops.higher_order.hints_wrapper(backward_part3, (out, const2), {}, hints={"part_id": "post"})
             return out
 
         return (
-            torch.ops.higher_order.hinted_context(
+            torch.ops.higher_order.hints_wrapper(
                 backward_hinted,
-                grad_output,
-                ctx.const1,
-                ctx.const2,
-                hint='{"some_complex_op_bwd": "true", "preserve_order": "true"}',
+                (grad_output, ctx.const1, ctx.const2),
+                {},
+                hints={"some_complex_op_bwd": "true", "preserve_order": "true"},
             ),
             None,
             None,
@@ -566,23 +570,27 @@ class ToyModelAutogradOverrideWithPreservedOrder(torch.nn.Module):
 class NestReluWithHints(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input):
-        def forward_relu(input, hint):
+        def forward_relu(input):
             out = torch.relu(input)
             return out
 
-        return torch.ops.higher_order.hinted_context(forward_relu, input, hint='{"nest_relu_autograd_fwd": "true"}')
+        return torch.ops.higher_order.hints_wrapper(
+            forward_relu, (input,), {}, hints={"nest_relu_autograd_fwd": "true"}
+        )
 
     @staticmethod
     def backward(ctx, input):
         # Dummy, mathematically incorrect, implementation of BWD just to show hints.
-        def backward_relu(input, hint):
+        def backward_relu(input):
             out = torch.relu(input)
             return out
 
-        return torch.ops.higher_order.hinted_context(backward_relu, input, hint='{"nest_relu_autograd_bwd": "true"}')
+        return torch.ops.higher_order.hints_wrapper(
+            backward_relu, (input,), {}, hints={"nest_relu_autograd_bwd": "true"}
+        )
 
 
-@pytest.mark.skipif(skip_test, reason="hinted_context op is not supported yet")
+@pytest.mark.skipif(skip_test, reason="hints_wrapper op is not supported yet")
 class ContextHintsTests(TestCase):
     def test_basic(self):
         clear_t_compile_logs()
@@ -614,6 +622,7 @@ class ContextHintsTests(TestCase):
         self.assertTrue(loss3 > loss4)
 
     def test_outer_hint(self):
+        pytest.skip("torch._higher_order.ops.hints_wrapper doesn't support autograd yet.")
         clear_t_compile_logs()
         torch._dynamo.reset()
 
@@ -646,6 +655,7 @@ class ContextHintsTests(TestCase):
         check_hints_in_jit_ir("_softmax", {"outer_hint": "True"})
 
     def test_nested_hint(self):
+        pytest.skip("torch._higher_order.ops.hints_wrapper doesn't support autograd yet.")
         clear_t_compile_logs()
         torch._dynamo.reset()
 
@@ -730,6 +740,8 @@ class ContextHintsTests(TestCase):
         check_hints_in_jit_ir("_softmax_backward_data", [])
 
     def test_nested_autograd_hint(self):
+        pytest.skip("torch._higher_order.ops.hints_wrapper doesn't support autograd yet.")
+
         clear_t_compile_logs()
         torch._dynamo.reset()
 
@@ -756,6 +768,7 @@ class ContextHintsTests(TestCase):
         check_hints_in_jit_ir("addmm", {"outer_hint": "True", "inner_hint": "3"}, 2)
 
     def test_nested_autograd_nestedhint(self):
+        pytest.skip("torch._higher_order.ops.hints_wrapper doesn't support autograd yet.")
         clear_t_compile_logs()
         torch._dynamo.reset()
 
@@ -837,12 +850,12 @@ class ContextHintsTests(TestCase):
         torch._dynamo.reset()
 
         def hinted_func(a, b):
-            def func(a, b, hint):
+            def func(a, b):
                 z1, indice_out = torch.topk(a, 2)
                 z2 = z1 + b
                 return z2, indice_out
 
-            return hinted_context(func, a, b, hint='{"preserve_order": "True", "group_id": 1}')
+            return hints_wrapper(func, (a, b), {}, hints={"preserve_order": "True", "group_id": 1})
 
         x = torch.randn(2, 5, dtype=torch.float).to("hpu")
         y = 1
@@ -861,12 +874,12 @@ class ContextHintsTests(TestCase):
         torch._dynamo.reset()
 
         def hinted_func():
-            def func(hint):
+            def func():
                 z1 = torch.arange(0, 10, dtype=torch.float, device="hpu")
                 z2 = z1 + 3
                 return z2
 
-            return hinted_context(func, hint='{"preserve_order": "True", "group_id": 99}')
+            return hints_wrapper(func, (), {}, hints={"preserve_order": "True", "group_id": 99})
 
         compiled_fn = torch.compile(hinted_func, backend="hpu_backend")
         res = compiled_fn()

@@ -109,3 +109,8 @@ class ColorGraph:
         lines.append(f"Partition colors: {self.partition_colors}")
         lines.extend([f"{k} --> {v}" for k, v in self._graph.items()])
         return "\n".join(lines)
+
+
+class SchedulePolicy(Enum):
+    # default mode, based on original execution order
+    strict = 1

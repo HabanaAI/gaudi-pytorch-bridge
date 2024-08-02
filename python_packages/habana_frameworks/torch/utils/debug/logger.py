@@ -19,6 +19,8 @@ def format_args(args):
 
         if "{}" in format_string:
             # Using {} style format
+            if not format_args:
+                return ""
             return format_string.format(*map(str, format_args))
         elif "%" in format_string:
             # Using % style format

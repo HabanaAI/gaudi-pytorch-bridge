@@ -14,6 +14,10 @@ import os
 import sys
 import time
 
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
+
+hpu_backend_config.use_eager_fallback = True
+
 # FIXME: remove unused packages
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.hpu as ht
@@ -88,6 +92,9 @@ total_runs = int(os.environ.get("PYTHON_SDPA_TOTAL_RUNS", "3"))
 # false (default) -> use synapse profiler
 use_tensorboard = os.environ.get("PYTHON_SDPA_USE_TENSORBOARD", "0") == "1"
 
+# turn on for CI running
+ci_run = os.environ.get("PYTHON_SDPA_CI_RUN", "1") == "1"
+
 # parameters extracted from real model
 chosen_parameters_for_benchmark = [
     (
@@ -125,10 +132,12 @@ chosen_parameters_for_ci = [
     ),
 ]
 
+chosen_parameters = chosen_parameters_for_ci if ci_run else chosen_parameters_for_benchmark
+
 
 @pytest.mark.parametrize(
     "batch_size, n_heads, seq_len_N_t, seq_len_N_s, head_dim_qk, head_dim_v, dropout_p, use_bf16, is_causal, preferred_slice_size",
-    chosen_parameters_for_ci,
+    chosen_parameters,
 )
 def test_multiple_sdpa_impls(
     batch_size,
