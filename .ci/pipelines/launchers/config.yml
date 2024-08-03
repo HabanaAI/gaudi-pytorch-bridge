@@ -36,11 +36,6 @@ launchers:
   gerritTriggerMap:
   - repository: pytorch-vision-fork
   - repository: pytorch-integration
-- testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_lazy
-  silentMode: true
-  gerritTriggerMap:
-  - repository: pytorch-vision-fork
-  - repository: pytorch-integration
 - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile
   gerritTriggerMap:
   - repository: pytorch-vision-fork

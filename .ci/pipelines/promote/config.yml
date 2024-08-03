@@ -10,8 +10,6 @@ orchestratorConfig:
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_compile
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_sim_py_suite_eager
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_cpp_suite
-    - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_lazy
-      silentMode: true
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_compile
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi3_sim_py_suite_eager
     - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi2_asic_topology_group_1
@@ -72,11 +70,6 @@ orchestratorConfig:
     - testToLaunch: habanaqa_inference/Tests/Test_habanaqa_inference_gaudi3_asic_llama7b_hqt_pcq_4096t_suite
     # Quantization toolkit tests
     - testToLaunch: habana_quantization_toolkit/Tests/Test_habana_quantization_toolkit_gaudi2_asic_test
-    # Huda
-    - testToLaunch: huda/Tests/Test_huda_gaudi2_asic_E2E_ResNet50
-      silentMode: true
-    - testToLaunch: huda/Tests/Test_huda_gaudi2_asic_unit_tests
-      silentMode: true
   codeCoverageConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   coverityConfig:
