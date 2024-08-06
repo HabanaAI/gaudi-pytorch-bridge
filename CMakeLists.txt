@@ -79,6 +79,11 @@ if(NOT DEFINED CLANG_TIDY OR CLANG_TIDY)
   endif()
 endif()
 
+option(CODE_COVERAGE "Allow code coverage" OFF)
+if(CODE_COVERAGE)
+  message(STATUS "code coverage is enabled.")
+endif()
+
 get_property(torch_flags TARGET torch PROPERTY INTERFACE_COMPILE_OPTIONS)
 
 if(NOT "${torch_flags}" STREQUAL "")

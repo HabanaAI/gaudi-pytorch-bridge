@@ -1286,6 +1286,11 @@ def get_cmake_configurations(args) -> Dict[str, str]:
         cmake_flags.set_if_missing("BUILD_TESTS", "OFF")
     if args.upstream_compile:
         cmake_flags.set_if_missing("UPSTREAM_COMPILE", "ON")
+    if args.coverage:
+        cmake_flags.set_if_missing("CODE_COVERAGE", "ON")
+        args.release = False
+        args.build_all = False
+        log.info("Enforcing build type to debug, since code coverage is enabled.")
     cmake_flags.set_if_missing("BUILD_PKGS", "OFF")  # wheel builds are now handled in multi-build Makefile
 
     build_type = "CMAKE_BUILD_TYPE"
@@ -1475,6 +1480,7 @@ def parse_args():
         "$PYTORCH_MODULES_DEBUG_BUILD or both depending on the selected "
         "configuration.",
     )
+    parser.add_argument("--coverage", action="store_true", help="Enable code coverage analysis.")
     parser.add_argument(
         "--get-pt-version",
         action="store_true",
