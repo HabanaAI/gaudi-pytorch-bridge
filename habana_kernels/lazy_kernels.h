@@ -1156,7 +1156,6 @@ class LazyOp {
   get_result() {
     PT_LAZY_TRACE;
     if (m_output_meta_fn) {
-      TORCH_INTERNAL_ASSERT_DEBUG_ONLY(m_out_index == 0);
       auto meta = m_output_meta_fn(get_inputs());
       TORCH_INTERNAL_ASSERT_DEBUG_ONLY(meta.size() == 1);
       auto output_meta = meta[0];
