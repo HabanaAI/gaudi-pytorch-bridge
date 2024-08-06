@@ -2,7 +2,7 @@
  * Copyright (c) 2022-2023, NVIDIA CORPORATION & AFFILIATES. All rights
  *reserved.
  *
- * See LICENSE for license information.
+ * See LICENSE.txt for license information.
  ************************************************************************/
 /******************************************************************************
  * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
