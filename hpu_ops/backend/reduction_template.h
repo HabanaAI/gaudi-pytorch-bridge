@@ -70,7 +70,7 @@ std::vector<synapse_helpers::tensor> HandleReductionMultiDimAndKeepdim(
     synapse_helpers::graph& graph,
     synTensor syn_in,
     const std::string& guid,
-    const std::vector<int64_t>& dimsToReduce,
+    c10::IntArrayRef dimsToReduce,
     const int64_t inputRank,
     const bool keepdim,
     std::vector<NodeAttr::NodeOutputAttr> output_attr);

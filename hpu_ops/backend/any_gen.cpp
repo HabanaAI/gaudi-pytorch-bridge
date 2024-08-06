@@ -1,4 +1,4 @@
-/******************************************************************************
+/*******************************************************************************
  * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
@@ -48,7 +48,7 @@ static synapse_helpers::tensor AnyCommonFunc(
     synapse_helpers::graph& graph,
     synTensor input,
     const at::Tensor& self,
-    const at::IntArrayRef dim,
+    const at::IntArrayRef dims,
     const bool keepdim,
     const at::IntArrayRef outshape) {
   // TODO: for integral types, use reduce_sum_fwd_i32 instead
@@ -69,7 +69,7 @@ static synapse_helpers::tensor AnyCommonFunc(
 
   auto rank = self.dim();
   ns_Reduction::ParamsV2 reductionParams =
-      FillReductionParams(rank, dim.vec(), keepdim);
+      FillReductionParams(rank, dims, keepdim);
 
   auto reduce_sum = op->BuildNode(
       op,
@@ -86,7 +86,7 @@ static synapse_helpers::tensor AnyCommonFunc(
 
 void AnyDims::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, 0);
-  auto dims = stack.at(1).toIntList().vec();
+  auto dims = stack.at(1).toDimVector();
   bool keepdim = stack.at(2).toBool();
 
   auto any_out = AnyCommonFunc(

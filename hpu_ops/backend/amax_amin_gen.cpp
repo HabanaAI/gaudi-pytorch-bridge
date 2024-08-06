@@ -11,160 +11,94 @@
  *******************************************************************************
  */
 
+#include "ATen/core/ivalue.h"
 #include "generated/backend/amax.h"
 #include "generated/backend/amin.h"
 #include "generated/backend/aminmax.h"
 #include "hpu_ops/backend/reduction_template.h"
 
-namespace habana {
-OutputMetaDataVector AminmaxMeta(const at::Stack& stack) {
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  auto dim = stack.at(1);
-  auto is_dim_none = dim.isNone();
-  const bool keepdim = stack.at(2).toBool();
+namespace sh = synapse_helpers;
 
-  auto dim_vec =
-      is_dim_none ? std::vector<int64_t>{} : std::vector<int64_t>{dim.toInt()};
+namespace habana {
+static at::DimVector toDimVector(c10::IValue ival) {
+  return ival.isNone()
+      ? at::DimVector{}
+      : ival.isInt() ? at::DimVector{ival.toInt()} : ival.toDimVector();
+}
+
+static OutputMetaDataVector AminmaxMetaCommon(
+    const at::Stack& stack,
+    int count) {
+  const torch::Tensor& self = stack_tensor(stack, 0);
+  at::DimVector dim_vec = toDimVector(stack.at(1));
+  const bool keepdim = stack.at(2).toBool();
 
   auto shapes = ReductionOutputShape(self, dim_vec, keepdim);
 
   OutputMetaData meta;
   meta.shape = shapes[0];
   meta.dtype = self.scalar_type();
-  return {meta, meta};
+  return OutputMetaDataVector(count, meta);
+}
+
+OutputMetaDataVector AminmaxMeta(const at::Stack& stack) {
+  return AminmaxMetaCommon(stack, 2);
 }
 
 OutputMetaDataVector AminAmaxMeta(const at::Stack& stack) {
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  auto dim = stack.at(1);
-  auto is_dim_none = dim.isNone();
-  const bool keepdim = stack.at(2).toBool();
-
-  auto dim_vec = is_dim_none ? std::vector<int64_t>{} : dim.toIntVector();
-
-  auto shapes = ReductionOutputShape(self, dim_vec, keepdim);
-
-  OutputMetaData meta;
-  meta.shape = shapes[0];
-  meta.dtype = self.scalar_type();
-  return {meta};
+  return AminmaxMetaCommon(stack, 1);
 }
 
 std::shared_ptr<void> FillAminAmaxParams(const at::Stack& stack, size_t& size) {
   auto input = stack.at(0).toTensor();
   auto rank = input.dim();
-  auto dim = stack.at(1);
-  auto isDimNone = dim.isNone();
-  auto dims = isDimNone ? std::vector<int64_t>{} : dim.toIntVector();
+  at::DimVector dim_vec = toDimVector(stack.at(1));
   auto keepDim = stack.at(2).toBool();
 
   PARAMS_STUB(ns_Reduction::ParamsV2);
-  *params = FillReductionParams(rank, dims, keepDim);
+  *params = FillReductionParams(rank, dim_vec, keepDim);
 
   return params;
 }
 
-static std::vector<synapse_helpers::tensor> AminmaxCommon(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    const std::vector<synTensor>& input_tensor,
-    const at::IntArrayRef output_shape,
-    const torch::Tensor& self,
-    const std::vector<int64_t>& dim,
-    const bool keepdim,
-    c10::optional<int> final_idx1 = c10::nullopt,
-    c10::optional<int> final_idx2 = c10::nullopt) {
-  std::vector<synapse_helpers::tensor> amin_max;
-
-  std::vector<NodeAttr::NodeOutputAttr> amin_output_attrs = {
-      {output_shape, self.scalar_type(), final_idx1},
-      {output_shape, self.scalar_type()}};
-  std::vector<NodeAttr::NodeOutputAttr> amax_output_attrs = {
-      {output_shape, self.scalar_type(), final_idx2},
-      {output_shape, self.scalar_type()}};
-
-  auto amin = HandleReductionDimAndKeepdim(
-      op,
-      graph,
-      self,
-      {input_tensor},
-      dim,
-      keepdim,
-      get_guid_with_precision("reduce_min_fwd", op->ScalarType()),
-      amin_output_attrs);
-
-  auto amax = HandleReductionDimAndKeepdim(
-      op,
-      graph,
-      self,
-      {input_tensor},
-      dim,
-      keepdim,
-      get_guid_with_precision("reduce_max_fwd", op->ScalarType()),
-      amax_output_attrs);
-
-  amin_max.emplace_back(std::move(amin[0]));
-  amin_max.emplace_back(std::move(amax[0]));
-
-  return amin_max;
-}
-
-void Aminmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void Aminmax::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
-  auto is_dim_none = stack.at(1).isNone();
-  const bool keepdim = stack.at(2).toBool();
+  size_t paramsSize = 0;
+  auto params = FillParams(stack, paramsSize);
+  const auto meta = OutputMeta(stack)[0];
 
-  auto dim = stack.at(1);
-  auto dim_vec =
-      is_dim_none ? std::vector<int64_t>{} : std::vector<int64_t>{dim.toInt()};
+  c10::optional<sh::tensor> castedInput{};
+  // Convert bool tensor to 0x00 and 0x01
+  if (self.scalar_type() == c10::ScalarType::Bool) {
+    castedInput = BuildBoolCast(
+        this, graph, syn_in(0), self.sizes(), c10::ScalarType::Bool);
+  }
 
-  auto output_shape = GetOutputMetaData(0).shape;
+  std::array<std::string, 2> guids = {
+      get_guid_with_precision("reduce_min_multi_dim_fwd", meta.dtype),
+      get_guid_with_precision("reduce_max_multi_dim_fwd", meta.dtype),
+  };
 
-  auto input = syn_in(0);
+  for (size_t i = 0; i < guids.size(); ++i) {
+    // Leverage autocast feature from CGUID to support integer inputs
+    if (c10::isIntegralType(meta.dtype, true)) {
+      update_guid_dtype(guids[i], c10::ScalarType::Int);
+    }
 
-  if ((self.scalar_type() == torch::kBool) ||
-      (self.scalar_type() == torch::kInt8)) {
-    auto cast = HandleReductionDtype(this, graph, self, input, torch::kInt32);
-
-    auto amin_max = AminmaxCommon(
-        this,
+    auto input =
+        castedInput.has_value() ? castedInput.value().get() : syn_in(0);
+    auto op = BuildOp(
         graph,
-        {cast.value().get()},
-        output_shape,
-        self,
-        dim_vec,
-        keepdim);
-
-    auto cast1 = BuildCast(
-        this,
-        graph,
-        amin_max[0].get(),
-        output_shape,
-        torch::kInt32,
-        torch::kBool,
-        0);
-
-    auto cast2 = BuildCast(
-        this,
-        graph,
-        amin_max[1].get(),
-        output_shape,
-        torch::kInt32,
-        torch::kBool,
-        1);
-
-    syn_out(0) = std::move(cast1);
-    syn_out(1) = std::move(cast2);
-  } else {
-    auto amin_max = AminmaxCommon(
-        this, graph, {syn_in(0)}, output_shape, self, dim_vec, keepdim, 0, 1);
-
-    syn_out(0) = std::move(amin_max[0]);
-    syn_out(1) = std::move(amin_max[1]);
+        guids[i],
+        {input},
+        {{meta.shape, meta.dtype, i}},
+        params.get(),
+        paramsSize);
+    syn_out(i) = std::move(op[0]);
   }
 }
 
-void AminAmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
+void AminAmax::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   size_t paramsSize = 0;
   auto params = FillParams(stack, paramsSize);
@@ -175,7 +109,7 @@ void AminAmax::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
     update_guid_dtype(guid_, c10::ScalarType::Int);
   }
 
-  c10::optional<synapse_helpers::tensor> castedInput = c10::nullopt;
+  c10::optional<sh::tensor> castedInput = c10::nullopt;
   // Convert bool tensor to 0x00 and 0x01
   if (self.scalar_type() == c10::ScalarType::Bool) {
     castedInput = BuildBoolCast(

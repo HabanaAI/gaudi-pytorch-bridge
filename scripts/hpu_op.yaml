@@ -1791,14 +1791,22 @@ amin.out:
 
 aminmax:
   output_meta: AminmaxMeta
-  dtypes: [Float, BFloat16, Long, Int, Char]
+  dtypes:
+    Gaudi: [Float, BFloat16, Int, Long, Byte, Short, Char]
+    Gaudi2: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: Aminmax
+  custom_fill_params: FillAminAmaxParams
   out_ids: [0, 0]
 
 aminmax.out:
   output_meta: AminmaxMeta
-  dtypes: [Float, BFloat16, Long, Int, Char]
+  dtypes:
+    Gaudi: [Float, BFloat16, Int, Long, Byte, Short, Char]
+    Gaudi2: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [Float, BFloat16, Int, Long, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: Aminmax
+  custom_fill_params: FillAminAmaxParams
 
 any.all_out:
   output_meta: AllAnyMeta

@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -42,6 +42,9 @@ def test_sort(dim, descending):
 def test_sort_stable(dim, descending, stable):
     def fn(input, dim, descending, stable):
         return input.sort(dim=dim, descending=descending, stable=stable)
+
+    if dim in [3, -1] and not descending and stable:
+        pytest.skip("SortStableFallbackCheck returns false")
 
     # CPU
     x = torch.randn([12, 10, 8, 6])

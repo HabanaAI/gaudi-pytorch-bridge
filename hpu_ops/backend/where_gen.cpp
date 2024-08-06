@@ -93,6 +93,7 @@ FALLBACK_CHECK(
     case torch::kInt32:
     case torch::kBFloat16:
     case torch::kFloat32:
+    case torch::kFloat64:
     case torch::kUInt8:
     case torch::kInt16:
     case torch::kInt8:

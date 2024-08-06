@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -14,49 +14,52 @@ import os
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import hpu
-from torch.testing._internal.common_device_type import ops
-from torch.testing._internal.common_methods_invocations import ReductionOpInfo, op_db
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
+    compare_tensors,
+    format_tc,
+    is_gaudi1,
+    is_pytest_mode_compile,
+)
+
+dtypes = [torch.float32, torch.bfloat16, torch.int, torch.bool]
+if not is_gaudi1():
+    dtypes += [torch.float8_e5m2, torch.float8_e4m3fn]
 
 
-@pytest.mark.parametrize("op", [torch.amin, torch.amax])
-@pytest.mark.parametrize("shapes", [(3, 4, 5, 6), (2, 3, 5, 4)])
-@pytest.mark.parametrize("dim", [-4, -3, -2, -1, 0, 1, 2, 3])
-@pytest.mark.parametrize("dtype", ["float"])
-def test_hpu_amax_amin(op, shapes, dim, dtype):
-    def fn(input, dim):
-        return op(input, dim)
+@pytest.mark.parametrize("op", [torch.amin, torch.amax, torch.aminmax], ids=format_tc)
+@pytest.mark.parametrize("shape", [(3, 4, 5, 6)], ids=format_tc)
+@pytest.mark.parametrize("dim", [None, -4, -3, -2, -1, 0, 1, 2, 3], ids=format_tc)
+@pytest.mark.parametrize("keepdim", [False, True], ids=format_tc)
+@pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
+def test_hpu_amax_amin(op, shape, dim, keepdim, dtype):
+    def fn(input, dim, keepdim):
+        return op(input, dim=dim, keepdim=keepdim)
 
-    cpu_input = torch.randn(shapes, dtype=getattr(torch, dtype))
-    hpu_input = cpu_input.to(hpu)
-    torch._dynamo.reset()
+    if dtype == torch.int:
+        cpu_input = torch.randint(low=-100, high=100, size=shape, dtype=dtype)
+    elif dtype == torch.bool:
+        cpu_input = torch.randint(low=0, high=1, size=shape, dtype=dtype)
+    else:
+        cpu_input = torch.randn(shape).to(dtype)
 
-    hpu_wrapped_fn = torch.compile(fn, backend="hpu_backend") if pytest.mode == "compile" else fn
-    cpu_output = fn(cpu_input, dim)
-    hpu_output = hpu_wrapped_fn(hpu_input, dim).cpu()
-    assert torch.allclose(cpu_output, hpu_output)
+    hpu_input = cpu_input.to("hpu")
 
+    if dtype in [torch.float8_e5m2, torch.float8_e4m3fn]:
+        cpu_input = cpu_input.float()
 
-@pytest.mark.parametrize("dtype", [torch.bool])
-def test_hpu_amax_amin_bool(dtype):
-    os.environ["PT_HPU_PLACE_ON_CPU"] = ""
+    cpu_output = fn(cpu_input, dim, keepdim)
 
-    def convert_boolean_tensors(x):
-        if not isinstance(x, torch.Tensor) or x.dtype != dtype:
-            return x
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        fn = torch.compile(fn, backend="hpu_backend")
 
-        # Map False -> 0 and True -> Random value in [2, 255]
-        true_vals = torch.randint(2, 255, x.shape).to(torch.uint8).to(hpu)
-        false_vals = torch.zeros(()).to(torch.uint8).to(hpu)
-        x_int = torch.where(x, true_vals, false_vals)
+    hpu_output = fn(hpu_input, dim, keepdim)
 
-        ret = x_int.view(torch.bool)
-        return ret
+    if is_pytest_mode_compile():
+        ops_expected = op.__name__ if op != torch.aminmax else {"amin", "amax"}
+        check_ops_executed_in_jit_ir(ops_expected)
 
-    for op in [x for x in op_db if (x.name == "amax" or x.name == "amin")]:
-        for sample in op.sample_inputs(hpu, dtype):
-            expect = op(sample.input, *sample.args, **sample.kwargs)
-            transformed = sample.transform(convert_boolean_tensors)
-            actual = op(transformed.input, *transformed.args, **transformed.kwargs)
-
-            assert torch.allclose(expect, actual)
+    compare_tensors(hpu_output, cpu_output, atol=0.0, rtol=0.0)
