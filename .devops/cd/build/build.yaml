@@ -8,6 +8,7 @@ sourceControl:
     - automation
     - devops/cd_release
     - embedded-specs
+    - habana-transformer-engine
     - hcl
     - huda
     - media
@@ -55,6 +56,8 @@ steps:
       cmd: cd ${BUILD_DIR} && make build-hqt RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
     - name: inc
       cmd: cd ${BUILD_DIR} && make build-inc RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
+    - name: hte
+      cmd: cd ${BUILD_DIR} && make build-hte RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}
   postBuild:
     - name: archive PT
       cmd: cd ${BUILD_DIR} && make archive RELEASE_VERSION=${RELEASE_VERSION} RELEASE_BUILD_ID=${RELEASE_BUILD_ID} SRC_DIR=${SOURCE_DIR} WORK_DIR=${WORKSPACE} BUILD_OS=${BUILD_OS}

@@ -66,5 +66,8 @@
     },
     "inc": {
         "cmd" : "build_inc -w"
+    },
+    "hte": {
+        "cmd" : "build_pytorch_te -w"
     }
 }
