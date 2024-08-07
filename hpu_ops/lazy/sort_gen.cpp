@@ -20,14 +20,14 @@ FALLBACK_CHECK(
     const at::Tensor& self,
     c10::optional<bool> stable,
     int64_t dim_,
-    bool descending) {
+    [[maybe_unused]] bool descending) {
   bool isStable = stable.has_value() ? stable.value() : false;
   auto dim = at::maybe_wrap_dim(dim_, self.dim());
 
   if (dim == 0) {
     return !isStable;
   } else if (isStable) {
-    if (self.sizes()[dim] <= 37 && descending)
+    if (self.sizes()[dim] <= 37)
       return true;
     else
       return false;

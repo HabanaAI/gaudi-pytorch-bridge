@@ -21,6 +21,24 @@ sizes_vec SortOutputShape(const at::Stack& stack) {
   return {{shape, shape}};
 }
 
+OutputMetaDataVector SortStableMeta(const at::Stack& stack) {
+  auto shapes = SortOutputShape(stack);
+  auto self = stack_tensor(stack, 0);
+  auto memoryFormat = self.suggest_memory_format();
+
+  OutputMetaData meta_value{};
+  OutputMetaData meta_index{};
+
+  meta_value.dtype = self.scalar_type();
+  meta_value.shape = shapes[0];
+  meta_value.mem_format = memoryFormat;
+
+  meta_index.dtype = c10::ScalarType::Long;
+  meta_index.shape = shapes[1];
+  meta_index.mem_format = memoryFormat;
+  return {meta_value, meta_index};
+}
+
 void SortStable::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -31,7 +49,10 @@ void SortStable::AddNode(
   bool descending = stack.at(3).isNone() ? false : stack.at(3).toBool();
   auto k = self.dim() ? self.size(dim) : 1;
 
-  auto outshape = SortOutputShape(stack)[0];
+  auto meta = SortStableMeta(stack);
+  auto meta_value = meta[0];
+  auto meta_index = meta[1];
+  auto outshape = meta_value.shape;
   std::vector<synapse_helpers::tensor> result{};
 
   std::vector<synTensor> syn_inputs{syn_in(0)};
@@ -61,7 +82,8 @@ void SortStable::AddNode(
       graph,
       "topk",
       {std::move(syn_inputs)},
-      {{outshape, ScalarType(), 0}, {outshape, c10::ScalarType::Int, 1}},
+      {{meta_value.shape, meta_value.dtype, 0},
+       {meta_index.shape, meta_index.dtype, 1}},
       &params,
       sizeof(params));
 
