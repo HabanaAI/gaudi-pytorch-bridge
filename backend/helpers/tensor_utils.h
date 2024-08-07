@@ -93,7 +93,8 @@ void copy_data_to_device(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking,
-    synapse_helpers::hpuStream_t hpu_stream);
+    synapse_helpers::hpuStream_t hpu_stream,
+    void* host_ptr = nullptr);
 
 void copy_data_within_device(
     const at::Tensor& src,

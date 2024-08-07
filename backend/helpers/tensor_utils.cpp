@@ -460,7 +460,8 @@ void habana_helpers::copy_data_to_device(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking,
-    synapse_helpers::hpuStream_t hpu_stream) {
+    synapse_helpers::hpuStream_t hpu_stream,
+    void* host_ptr) {
   auto device_id = dst.device().index();
   auto& device = habana::HPURegistrar::get_device(device_id);
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
@@ -474,10 +475,8 @@ void habana_helpers::copy_data_to_device(
     // already allocated in the main thread
     void* host_cpu_data = nullptr;
     if (!is_pinned) {
-      if (auto tmeta = src.unsafeGetTensorImpl()->get_backend_meta()) {
-        if (auto hb_tmeta = dynamic_cast<habana::TensorExtraMeta*>(tmeta)) {
-          host_cpu_data = hb_tmeta->get_host_cpu_data_ptr();
-        }
+      if (host_ptr) {
+        host_cpu_data = host_ptr;
       }
     }
 

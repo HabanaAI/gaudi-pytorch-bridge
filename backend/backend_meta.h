@@ -451,14 +451,6 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     is_tensor_pipelined_ = true;
   }
 
-  void* get_host_cpu_data_ptr() const {
-    return host_cpu_data_ptr_;
-  }
-
-  void set_host_cpu_data_ptr(void* ptr) {
-    host_cpu_data_ptr_ = ptr;
-  }
-
  private:
   c10::IntArrayRef sizes_{0};
   habana::LayoutFormat tensor_layout_{habana::LayoutFormat::NCHW};
@@ -489,7 +481,6 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   c10::optional<unsigned> exp_bias_{c10::nullopt};
 
   bool is_tensor_pipelined_{false};
-  void* host_cpu_data_ptr_{nullptr};
 };
 
 TensorExtraMeta* get_tensor_extra_meta_from_hb_internal_tensor_impl(

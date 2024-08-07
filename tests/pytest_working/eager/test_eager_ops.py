@@ -1737,3 +1737,18 @@ def test_efficientzerotensor_node_params_2():
 
     num_cache_entries_end = htdebug._get_jit_cache_size()
     assert num_cache_entries_end == iteration
+
+
+# test for fix in SW-192192
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_h2d_copy_race_condition_fix():
+
+    t1 = torch.arange(1, 5, dtype=torch.bfloat16)
+    t2 = torch.arange(1, 5, dtype=torch.bfloat16)
+    for iteration in range(5):
+        t1_hpu = t1.to("hpu", non_blocking=True)
+        t2_hpu = t2.to("hpu", non_blocking=True)
+        output_hpu = torch.add(t1_hpu, t2_hpu)
+        output = torch.add(t1, t2)
+
+    assert torch.equal(output, output_hpu.cpu())

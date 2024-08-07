@@ -218,22 +218,25 @@ void Execute_Copy(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking,
-    c10::hpu::HPUStream stream) {
+    c10::hpu::HPUStream stream,
+    void* host_ptr = nullptr) {
   habana_helpers::copy_data_to_device(
-      std::move(src), std::move(dst), non_blocking, stream);
+      std::move(src), std::move(dst), non_blocking, stream, host_ptr);
 }
 
 void Copy_Compile_Empty_Task(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking,
-    c10::hpu::HPUStream stream) {
+    c10::hpu::HPUStream stream,
+    void* host_ptr) {
   habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
       Execute_Copy,
       std::move(src),
       std::move(dst),
       std::move(non_blocking),
-      std::move(stream));
+      std::move(stream),
+      std::move(host_ptr));
 
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
     habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
@@ -255,7 +258,8 @@ void Copy_Empty_Lowering_Task(
     const at::Tensor& src,
     const at::Tensor& dst,
     bool non_blocking,
-    c10::hpu::HPUStream stream) {
+    c10::hpu::HPUStream stream,
+    void* host_ptr) {
   // Note: Here we clear the permutation info in lowering thread when the
   // pipeline is enabled, to avoid race condition.
   // Because src tensor is always not permuted and we will directly copy src
@@ -267,7 +271,8 @@ void Copy_Empty_Lowering_Task(
       std::move(src),
       std::move(dst),
       non_blocking,
-      std::move(stream));
+      std::move(stream),
+      std::move(host_ptr));
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
     habana_helpers::Singleton_CompileThreadPool::getInstance()
         .JoinPendingThread();
@@ -283,11 +288,11 @@ void Register_Copy_In_Pipeline(
   auto dst_hb_tmeta{habana::get_tensor_extra_meta(dst)};
   dst_hb_tmeta->set_tensor_pipelined();
 
+  void* host_ptr;
   // Set cpu host memory metadata on the src cpu tensor (if non-pinned memory)
   if (!habana::PinnedMemoryAllocator_is_pinned(src.data_ptr())) {
     // Allocate host memory and do std::copy in the main thread
     // host memory will be freed after dma memcopy at copy_data_to_device
-    void* host_ptr;
     const size_t total_bytes = habana_helpers::GetNBytes(src);
     synStatus status =
         habana::HPURegistrar::get_device().get_host_memory().malloc(
@@ -302,9 +307,6 @@ void Register_Copy_In_Pipeline(
         reinterpret_cast<uint8_t*>(src.data_ptr()),
         reinterpret_cast<uint8_t*>(src.data_ptr()) + total_bytes,
         reinterpret_cast<uint8_t*>(host_ptr));
-
-    auto src_hb_tmeta{habana::get_tensor_extra_meta(src)};
-    src_hb_tmeta->set_host_cpu_data_ptr(host_ptr);
   }
 
   habana::eager::SingleTonEagerContext::getInstance()
@@ -313,7 +315,8 @@ void Register_Copy_In_Pipeline(
           std::move(src),
           std::move(dst),
           non_blocking,
-          std::move(stream));
+          std::move(stream),
+          std::move(host_ptr));
 }
 
 void Pipeline_Or_Direct_Copy(
