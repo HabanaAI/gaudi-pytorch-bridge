@@ -11,6 +11,34 @@
 #include "hpu_ops/backend/reduction_template.h"
 
 namespace habana {
+
+SharedMetaDataVector AllSharedMeta(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  auto dtype = self.scalar_type();
+  auto isIntegralInput = c10::isIntegralType(dtype, true);
+
+  SharedMetaTensor metaTensor{self.dim(), c10::ScalarType::Float};
+
+  int outDim = stack.size() > 1 and stack.at(1).isInt() ? (int)self.dim() : 1;
+  SharedMetaData reduceMeta{"reduce_prod_fwd"};
+  reduceMeta.inputs_data = {metaTensor};
+  reduceMeta.outputs_data = {{outDim, c10::ScalarType::Float}};
+
+  if (isIntegralInput) {
+    return {reduceMeta};
+  }
+  metaTensor.second = dtype;
+  SharedMetaData absMeta{"abs_fwd"};
+  absMeta.inputs_data = {metaTensor};
+  absMeta.outputs_data = {metaTensor};
+
+  SharedMetaData ceilMeta{"ceil_fwd"};
+  ceilMeta.inputs_data = {metaTensor};
+  ceilMeta.outputs_data = {metaTensor};
+
+  return {absMeta, ceilMeta, reduceMeta};
+}
+
 static auto AllCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,

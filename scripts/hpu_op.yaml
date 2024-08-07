@@ -1717,6 +1717,7 @@ alias:
 
 all:
   output_meta: AllAnyMeta
+  op_validator: AllSharedMeta
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int, Short]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
@@ -1726,6 +1727,7 @@ all:
 
 all.all_out:
   output_meta: AllAnyMeta
+  op_validator: AllSharedMeta
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int, Short]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
@@ -1734,6 +1736,7 @@ all.all_out:
 
 all.dim:
   output_meta: AllAnyDimMeta
+  op_validator: AllSharedMeta
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int, Short]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
@@ -1743,6 +1746,7 @@ all.dim:
 
 all.out:
   output_meta: AllAnyDimMeta
+  op_validator: AllSharedMeta
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int, Short]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
@@ -1751,6 +1755,7 @@ all.out:
 
 all.dims:
   output_meta: AllAnyDimMeta
+  op_validator: AllSharedMeta
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int, Short]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
@@ -1760,6 +1765,7 @@ all.dims:
 
 all.dims_out:
   output_meta: AllAnyDimMeta
+  op_validator: AllSharedMeta
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int, Short]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
@@ -1849,6 +1855,7 @@ _aminmax.dim:
 
 any.all_out:
   output_meta: AllAnyMeta
+  op_validator: AnySharedMeta
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
@@ -1857,6 +1864,7 @@ any.all_out:
 
 any:
   output_meta: AllAnyMeta
+  op_validator: AnySharedMeta
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
@@ -1866,6 +1874,7 @@ any:
 
 any.dim:
   output_meta: AllAnyDimMeta
+  op_validator: AnySharedMeta
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
@@ -1875,6 +1884,7 @@ any.dim:
 
 any.dims:
   output_meta: AllAnyDimMeta
+  op_validator: AnySharedMeta
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
@@ -1884,6 +1894,7 @@ any.dims:
 
 any.dims_out:
   output_meta: AllAnyDimMeta
+  op_validator: AnySharedMeta
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]
@@ -1892,6 +1903,7 @@ any.dims_out:
 
 any.out:
   output_meta: AllAnyDimMeta
+  op_validator: AnySharedMeta
   dtypes:
     Gaudi: [Char, Float, BFloat16, Int]
     Gaudi2: [Char, Float, BFloat16, Int, Short, Half]

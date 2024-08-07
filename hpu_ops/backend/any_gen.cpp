@@ -43,6 +43,24 @@ OutputMetaDataVector AllAnyDimMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector AnySharedMeta(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+
+  std::pair<int, at::ScalarType> metaTensor{self.dim(), c10::ScalarType::Float};
+
+  SharedMetaData absMetaData{"abs_fwd"};
+  absMetaData.inputs_data = {metaTensor};
+  absMetaData.outputs_data = {metaTensor};
+
+  SharedMetaData reduceMetaData{"reduce_sum_multi_dim_fwd"};
+  reduceMetaData.inputs_data = {metaTensor};
+
+  int outDim = stack.size() > 1 and stack.at(1).isInt() ? (int)self.dim() : 1;
+  reduceMetaData.outputs_data = {{outDim, c10::ScalarType::Float}};
+
+  return {absMetaData, reduceMetaData};
+}
+
 static synapse_helpers::tensor AnyCommonFunc(
     OpBackend* op,
     synapse_helpers::graph& graph,
