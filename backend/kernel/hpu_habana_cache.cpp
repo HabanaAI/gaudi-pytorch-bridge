@@ -39,7 +39,8 @@ namespace habana {
 
 // static initializations
 std::mutex RecipeCacheLRU::mutex_;
-RecipeCacheLRU* RecipeCacheLRU::instance_ = nullptr;
+std::unique_ptr<RecipeCacheLRU> RecipeCacheLRU::instance_ = nullptr;
+std::once_flag RecipeCacheLRU::initialize_once_flag_{};
 size_t RecipeCacheLRU::max_size_ = PGM_LRU_MAX_LAZY_NRECIPES;
 
 size_t RecipeValueSpec::count = 0;
@@ -1786,6 +1787,23 @@ void RecipeLauncher::Launch(
 
   num_launches++;
   PT_BRIDGE_END;
+}
+
+void RecipeCacheLRU::CreateInstance() {
+  instance_.reset(new RecipeCacheLRU());
+
+  // PT_HPU_LAZY_MODE = 0 is Pure Eager and 2 is Eager through Lazy
+  if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)
+    max_size_ = PGM_LRU_MAX_LAZY_NRECIPES;
+  else
+    max_size_ = PGM_LRU_MAX_EAGER_NRECIPES;
+  char* smaxsize = getenv("HABANA_PGM_LRU_MAX");
+  if (smaxsize != nullptr) {
+    max_size_ = std::max(PGM_LRU_MIN_NRECIPES, atoi(smaxsize));
+  }
+
+  habana::hpu_registrar().register_recipe_cache(
+      []() { instance_.reset(nullptr); });
 }
 
 void RecipeCacheLRU::add(

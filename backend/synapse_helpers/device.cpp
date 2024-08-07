@@ -1025,6 +1025,12 @@ void device::flush_stream_events() {
       stream.flush();
     }
   }
+  // Releasing the GIL here is necessary to avoid a hang. The
+  // synchronize_event function calls event->complete(), which
+  // destroys tensors holding Python objects and requires the GIL.
+  // Without releasing the GIL, the main thread can get stuck on
+  // is_flushed(), leading to a potential deadlock
+  habana_helpers::AutoNoGIL gil_release;
   auto start = std::chrono::steady_clock::now();
   while (true) {
     if (sem_.is_flushed())
