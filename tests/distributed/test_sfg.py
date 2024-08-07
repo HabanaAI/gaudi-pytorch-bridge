@@ -83,36 +83,24 @@ class SplitWeightLinear(nn.Module):
         self.num_shards = num_shards
 
     def forward(self, inp, dummy_tensor_for_hccl_sync):
-        # torch.matmul(input size=(370, 2048, 1024), weight size = (1024, 8192) + bias (size = 8192)
-        # output size = (370, 2048, 8192)
         total_shard_size = inp.size()[0]
         shard_size = int(total_shard_size // self.num_shards)
         start_offset = 0
         output_start_offset = 0
 
-        output = torch.empty([inp.size()[0], inp.size()[1], self.weight.size()[1]], dtype=inp.dtype, device="hpu")
-
         output_list = []
 
         for i in range(self.num_shards):
             curr_shard_size = shard_size if i < self.num_shards - 1 else total_shard_size - start_offset
-            output_shard = output[start_offset : start_offset + curr_shard_size, :, :]
             matmul_out = torch.matmul(inp[start_offset : start_offset + curr_shard_size, :, :], self.weight)
             torch.distributed.all_reduce(matmul_out)
-            output = torch.slice_scatter(
-                output, matmul_out, dim=0, start=start_offset, end=start_offset + curr_shard_size
-            )
+            add_out = matmul_out + self.bias
+            output_list.append(add_out)
             start_offset = start_offset + curr_shard_size
 
-        return output + self.bias
+        output = torch.cat(output_list)
 
-    def forward_old(self, input, dummy_tensor_for_hccl_sync):
-        # work = torch.distributed.all_reduce(dummy_tensor_for_hccl_sync, async_op=True)
-        # work.wait()
-
-        output = torch.matmul(input, self.weight)
-        torch.distributed.all_reduce(output)
-        return output + self.bias
+        return output
 
 
 class FullLinear(nn.Module):
@@ -229,11 +217,8 @@ def run_single_node(rank, *arguments):
     do_one_shard = args.do_one_shard
 
     os.environ["PT_HPU_COMPILE_USE_RECIPES"] = "1"
-    os.environ["PT_HPU_DISABLE_fuse_allreduce_calls"] = "1"
     os.environ["PT_HPU_USE_INPLACE_COLLECTIVE"] = "1"
     os.environ["PT_HPU_LAZY_MODE"] = "0"
-    os.environ["PT_HPU_ENABLE_SFG"] = "1"
-    os.environ["PT_HPU_ENABLE_LAZY_COLLECTIVES"] = "1"
 
     os.environ["WORLD_SIZE"] = str(world_size)
     os.environ["RANK"] = str(rank)
@@ -262,6 +247,8 @@ def run_single_node(rank, *arguments):
 
     import habana_frameworks.torch.core as htcore
     import habana_frameworks.torch.distributed.hccl
+
+    torch._inductor.config._fuse_ddp_communication = False
 
     torch.manual_seed(12345)
     comm_group = torch.distributed.init_process_group("hccl")
