@@ -10,7 +10,8 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
-#include "bucketize.h"
+#include "eq.h"
+#include "squeeze.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -20,26 +21,44 @@ using torch::jit::Stack;
 
 namespace habana {
 
-static CheckNodeWithSharedLayerValidator validator_bucketize_Scalar("bucketize.Scalar", "search_sorted_fwd", {1}, {0}, BucketizeMeta, {0, 1}, false, false, false, false);
 
 
-at::Tensor bucketize(const at::Scalar & self, const at::Tensor & boundaries, bool out_int32, bool right) {
+at::Tensor squeeze(const at::Tensor & self, at::IntArrayRef dim) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO("bucketize: ", DUMP_4ARGS(self, boundaries, out_int32, right));
+  PT_OP_INFO("squeeze: ", DUMP_2ARGS(self, dim));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, c10::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kDouble}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(self, squeeze, dims, self, dim)
+
+  return habana_lazy::squeeze_dims_hpu_lazy(self, dim);
+}
+
+at::Tensor & eq_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("eq_out: ", DUMP_3ARGS(self, other, out));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
   static_cast<void>(compute_type);
 
-  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, self, boundaries, out_int32, right)
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kLong, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kInt, at::kChar, at::kByte, at::kLong, at::kShort, at::kDouble, at::kBool}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, eq, Scalar_out, self, other, out)
 
-  LazyOp<at::Tensor> hpu_op{"aten::bucketize", {self, boundaries, out_int32, right}};
+  LazyOp<at::Tensor &> hpu_op{"aten::eq", {self, other, out}};
   hpu_op.set_scalar_types({compute_type});
-  hpu_op.SetOutputMetaFn(BucketizeMeta);
-  RUN_MAYBE_WITH_ACC_THREAD(bucketize, hpu_op);
+  hpu_op.SetOutputMetaFn(CompareMeta);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(eq_out, hpu_op, out);
 }
 
 
@@ -50,7 +69,8 @@ static const auto& kr_gen_6 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("bucketize.Scalar", static_cast<at::Tensor (*)(const at::Scalar &, const at::Tensor &, bool, bool)>(&habana::bucketize));
+  m.impl("squeeze.dims", static_cast<at::Tensor (*)(const at::Tensor &, at::IntArrayRef)>(&habana::squeeze));
+  m.impl("eq.Scalar_out", static_cast<at::Tensor & (*)(const at::Tensor &, const at::Scalar &, at::Tensor &)>(&habana::eq_out));
 
 }
 

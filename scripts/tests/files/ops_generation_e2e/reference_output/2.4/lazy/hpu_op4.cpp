@@ -10,7 +10,8 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
-#include "as_strided.h"
+#include "clone.h"
+#include "prod.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -22,15 +23,44 @@ namespace habana {
 
 
 
-at::Tensor as_strided(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, c10::optional<c10::SymInt> storage_offset) {
+at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO("as_strided: ", DUMP_4ARGS(self, size, stride, storage_offset));
+  PT_OP_INFO("prod_out: ", DUMP_5ARGS(self, dim, keepdim, dtype, out));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  return habana_lazy::as_strided_hpu(self, size, stride, storage_offset);
+  auto compute_type = DTypeHelper::get_compute_dtype({self}, out, DTypeHelper::DtypePromoteVariant::kReduction, false/*safe_cast*/, dtype);
+  static_cast<void>(compute_type);
+
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, prod, int_out, self, dim, keepdim, dtype, out)
+
+  ReductionFrontendTemplate<at::Tensor &> hpu_op{"aten::prod", {self, dim, keepdim, dtype, out}, ReductionOutputShape(self, dim, keepdim)};
+  hpu_op.set_scalar_types({compute_type});
+  hpu_op.SetReductionVarsIndices(1, 2, 3);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(prod_out, hpu_op, out);
+}
+
+at::Tensor clone(const at::Tensor & self, c10::optional<at::MemoryFormat> memory_format) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("clone: ", DUMP_2ARGS(self, memory_format));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kInt, at::kChar, at::kByte, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE(self, clone, self, memory_format)
+
+  LazyOp<at::Tensor> hpu_op{"aten::clone", {self, memory_format}};
+  hpu_op.SetOutputMetaFn(CloneMeta);
+  RUN_MAYBE_WITH_ACC_THREAD(clone, hpu_op);
 }
 
 
@@ -41,7 +71,8 @@ static const auto& kr_gen_4 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("as_strided", static_cast<at::Tensor (*)(const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, c10::optional<c10::SymInt>)>(&habana::as_strided));
+  m.impl("prod.int_out", static_cast<at::Tensor & (*)(const at::Tensor &, int64_t, bool, c10::optional<at::ScalarType>, at::Tensor &)>(&habana::prod_out));
+  m.impl("clone", static_cast<at::Tensor (*)(const at::Tensor &, c10::optional<at::MemoryFormat>)>(&habana::clone));
 
 }
 

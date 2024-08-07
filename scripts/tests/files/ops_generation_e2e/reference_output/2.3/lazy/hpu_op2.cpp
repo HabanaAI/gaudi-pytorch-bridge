@@ -10,7 +10,8 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
-#include "_fused_dropout.h"
+#include "addbmm.h"
+#include "as_strided.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -20,24 +21,33 @@ using torch::jit::Stack;
 
 namespace habana {
 
+static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta);
 
 
-::std::tuple<at::Tensor,at::Tensor> _fused_dropout(const at::Tensor & self, double p, c10::optional<at::Generator> generator) {
+at::Tensor as_strided(const at::Tensor & self, c10::SymIntArrayRef size, c10::SymIntArrayRef stride, c10::optional<c10::SymInt> storage_offset) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO("_fused_dropout: ", DUMP_3ARGS(self, p, generator));
+  PT_OP_INFO("as_strided: ", DUMP_4ARGS(self, size, stride, storage_offset));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, self, p, generator)
+  return habana_lazy::as_strided_hpu(self, size, stride, storage_offset);
+}
 
-  GeneratorToSeed<::std::tuple<at::Tensor,at::Tensor>> hpu_op{"hpu::_fused_dropout", {self, p, generator}};
-  hpu_op.SetOutputMetaFn(FusedNativeDropoutMeta);
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(_fused_dropout, hpu_op);
+at::Tensor addbmm(const at::Tensor & self, const at::Tensor & batch1, const at::Tensor & batch2, const at::Scalar & beta, const at::Scalar & alpha) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("addbmm: ", DUMP_5ARGS(self, batch1, batch2, beta, alpha));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, self, batch1, batch2, beta, alpha)
+
+  LazyOp<at::Tensor> hpu_op{"aten::addbmm", {self, batch1, batch2, beta, alpha}};
+  hpu_op.SetOutputMetaFn(AddBMMMeta);
+  RUN_MAYBE_WITH_ACC_THREAD(addbmm, hpu_op);
 }
 
 
@@ -48,7 +58,8 @@ static const auto& kr_gen_2 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("_fused_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, c10::optional<at::Generator>)>(&habana::_fused_dropout));
+  m.impl("as_strided", static_cast<at::Tensor (*)(const at::Tensor &, c10::SymIntArrayRef, c10::SymIntArrayRef, c10::optional<c10::SymInt>)>(&habana::as_strided));
+  m.impl("addbmm", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Scalar &, const at::Scalar &)>(&habana::addbmm));
 
 }
 

@@ -10,7 +10,8 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
-#include "addbmm.h"
+#include "mul.h"
+#include "sort.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -20,22 +21,48 @@ using torch::jit::Stack;
 
 namespace habana {
 
-static CheckNodeWithSharedLayerValidator validator_addbmm("addbmm", AddBMMSharedMeta);
 
 
-at::Tensor addbmm(const at::Tensor & self, const at::Tensor & batch1, const at::Tensor & batch2, const at::Scalar & beta, const at::Scalar & alpha) {
+at::Tensor & mul_out(const at::Tensor & self, const at::Scalar & other, at::Tensor & out) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO("addbmm: ", DUMP_5ARGS(self, batch1, batch2, beta, alpha));
+  PT_OP_INFO("mul_out: ", DUMP_3ARGS(self, other, out));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  VAL_CUSTOM_FALLBACK_IF_UNSUPPORTED_DTYPE(addbmm, self, batch1, batch2, beta, alpha)
+  auto compute_type = DTypeHelper::get_compute_dtype({self, other}, out, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, true/*safe_cast*/);
+  static_cast<void>(compute_type);
 
-  LazyOp<at::Tensor> hpu_op{"aten::addbmm", {self, batch1, batch2, beta, alpha}};
-  hpu_op.SetOutputMetaFn(AddBMMMeta);
-  RUN_MAYBE_WITH_ACC_THREAD(addbmm, hpu_op);
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kShort, at::kDouble, at::kBool}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kByte, at::kChar, at::kFloat, at::kInt, at::kLong, at::kShort, at::kHalf, at::kFloat8_e5m2, at::kFloat8_e4m3fn, at::kDouble, at::kBool}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, mul, Scalar_out, self, other, out)
+
+  LazyOp<at::Tensor &> hpu_op{"aten::mul", {self, other, out}, BinaryOutputShape};
+  hpu_op.set_scalar_types({compute_type});
+  hpu_op.SetOutputMetaFn(PointwiseMeta<static_cast<int>(DTypeHelper::DtypePromoteVariant::kPromoteToCommon), true, 0, 1>);
+  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(mul_out, hpu_op, out);
+}
+
+::std::tuple<at::Tensor &,at::Tensor &> sort_out(const at::Tensor & self, c10::optional<bool> stable, int64_t dim, bool descending, at::Tensor & values, at::Tensor & indices) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("sort_out: ", DUMP_6ARGS(self, stable, dim, descending, values, indices));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kFloat, at::kInt, at::kBFloat16, at::kShort, at::kDouble}},
+   {synDeviceGaudi2, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}},
+   {synDeviceGaudi3, {at::kFloat, at::kInt, at::kLong, at::kBFloat16, at::kShort, at::kHalf, at::kDouble}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(self, sort, values_stable, self, stable, dim, descending, values, indices)
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(values, sort, values_stable, self, stable, dim, descending, values, indices)
+
+  FALLBACK_IF_UNSUPPORTED_INPUTS2(SortStableFallbackCheck(self, stable, dim, descending), sort, values_stable, self, stable, dim, descending, values, indices)
+  LazyOp<::std::tuple<at::Tensor &,at::Tensor &>> hpu_op{"aten::sort", {self, stable, dim, descending, values, indices}, SortOutputShape};
+  auto tuple = ::std::tuple<at::Tensor &,at::Tensor &>(values, indices);
+  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(sort_out, hpu_op, tuple);
 }
 
 
@@ -46,7 +73,8 @@ static const auto& kr_gen_5 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("addbmm", static_cast<at::Tensor (*)(const at::Tensor &, const at::Tensor &, const at::Tensor &, const at::Scalar &, const at::Scalar &)>(&habana::addbmm));
+  m.impl("mul.Scalar_out", static_cast<at::Tensor & (*)(const at::Tensor &, const at::Scalar &, at::Tensor &)>(&habana::mul_out));
+  m.impl("sort.values_stable", static_cast<::std::tuple<at::Tensor &,at::Tensor &> (*)(const at::Tensor &, c10::optional<bool>, int64_t, bool, at::Tensor &, at::Tensor &)>(&habana::sort_out));
 
 }
 

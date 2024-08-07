@@ -10,7 +10,8 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
-#include "_foreach_add.h"
+#include "_fused_dropout.h"
+#include "native_dropout.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -22,20 +23,43 @@ namespace habana {
 
 
 
-void _foreach_add_(at::TensorList self, const at::Scalar & scalar) {
+::std::tuple<at::Tensor,at::Tensor> _fused_dropout(const at::Tensor & self, double p, c10::optional<at::Generator> generator) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO("_foreach_add_: ", DUMP_2ARGS(self, scalar));
+  PT_OP_INFO("_fused_dropout: ", DUMP_3ARGS(self, p, generator));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kDouble, at::kBool}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kLong, at::kInt, at::kShort, at::kChar, at::kHalf, at::kDouble, at::kBool}}}))
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE(self, _fused_dropout, self, p, generator)
 
-  LazyOp<void> hpu_op{"aten::_foreach_add_", {self, scalar}};
-  RUN_TENSOR_LIST_INPLACE_MAYBE_WITH_ACC_THREAD(_foreach_add_, hpu_op, self);
+  GeneratorToSeed<::std::tuple<at::Tensor,at::Tensor>> hpu_op{"hpu::_fused_dropout", {self, p, generator}};
+  hpu_op.SetOutputMetaFn(FusedNativeDropoutMeta);
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(_fused_dropout, hpu_op);
+}
+
+::std::tuple<at::Tensor,at::Tensor> native_dropout(const at::Tensor & input, double p, c10::optional<bool> train) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("native_dropout: ", DUMP_3ARGS(input, p, train));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
+   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
+   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
+  FALLBACK_IF_UNSUPPORTED_DTYPE(input, native_dropout, input, p, train)
+
+  if (auto eePath = NativeDropoutEarlyExitCondition(input, p, train))
+    return NativeDropoutEarlyExit(eePath, input, p, train);
+
+  NativeDropoutFE<::std::tuple<at::Tensor,at::Tensor>> hpu_op{"hpu::native_dropout", {input, p, train}};
+  hpu_op.SetOutputMetaFn(FusedNativeDropoutMeta);
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(native_dropout, hpu_op);
 }
 
 
@@ -46,7 +70,8 @@ static const auto& kr_gen_1 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("_foreach_add_.Scalar", static_cast<void (*)(at::TensorList, const at::Scalar &)>(&habana::_foreach_add_));
+  m.impl("_fused_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, c10::optional<at::Generator>)>(&habana::_fused_dropout));
+  m.impl("native_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, c10::optional<bool>)>(&habana::native_dropout));
 
 }
 

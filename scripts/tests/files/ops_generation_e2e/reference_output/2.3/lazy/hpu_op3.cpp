@@ -10,7 +10,8 @@
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
 
-#include "native_dropout.h"
+#include "bucketize.h"
+#include "elu.h"
 
 
 using habana_helpers::DTypeHelper;
@@ -20,27 +21,41 @@ using torch::jit::Stack;
 
 namespace habana {
 
+static CheckNodeWithSharedLayerValidator validator_bucketize_Scalar("bucketize.Scalar", "search_sorted_fwd", {1}, {0}, BucketizeMeta, {0, 1}, false, false, false, false);
+static CheckNodeWithSharedLayerValidator validator_elu("elu", "elu_fwd", {0}, {}, nullptr, {}, false, false, false, false);
 
 
-::std::tuple<at::Tensor,at::Tensor> native_dropout(const at::Tensor & input, double p, c10::optional<bool> train) {
+at::Tensor bucketize(const at::Scalar & self, const at::Tensor & boundaries, bool out_int32, bool right) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
-  PT_OP_INFO("native_dropout: ", DUMP_3ARGS(input, p, train));
+  PT_OP_INFO("bucketize: ", DUMP_4ARGS(self, boundaries, out_int32, right));
 
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kDouble}},
-   {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}},
-   {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kHalf, at::kDouble}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE(input, native_dropout, input, p, train)
+  auto compute_type = DTypeHelper::get_compute_dtype({self, boundaries}, c10::nullopt, DTypeHelper::DtypePromoteVariant::kPromoteToCommon, false/*safe_cast*/);
+  static_cast<void>(compute_type);
 
-  if (auto eePath = NativeDropoutEarlyExitCondition(input, p, train))
-    return NativeDropoutEarlyExit(eePath, input, p, train);
+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE2(bucketize, Scalar, self, boundaries, out_int32, right)
 
-  NativeDropoutFE<::std::tuple<at::Tensor,at::Tensor>> hpu_op{"hpu::native_dropout", {input, p, train}};
-  hpu_op.SetOutputMetaFn(FusedNativeDropoutMeta);
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(native_dropout, hpu_op);
+  LazyOp<at::Tensor> hpu_op{"aten::bucketize", {self, boundaries, out_int32, right}};
+  hpu_op.set_scalar_types({compute_type});
+  hpu_op.SetOutputMetaFn(BucketizeMeta);
+  RUN_MAYBE_WITH_ACC_THREAD(bucketize, hpu_op);
+}
+
+at::Tensor elu(const at::Tensor & self, const at::Scalar & alpha, const at::Scalar & scale, const at::Scalar & input_scale) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO("elu: ", DUMP_4ARGS(self, alpha, scale, input_scale));
+
+  [[maybe_unused]] bool require_h2d = false;
+  [[maybe_unused]] bool require_st = false;
+
+  VAL_FALLBACK_IF_UNSUPPORTED_DTYPE(elu, self, alpha, scale, input_scale)
+
+  LazyOp<at::Tensor> hpu_op{"aten::elu", {self, alpha, scale, input_scale}};
+  RUN_MAYBE_WITH_ACC_THREAD(elu, hpu_op);
 }
 
 
@@ -51,7 +66,8 @@ static const auto& kr_gen_3 = KernelRegistry()
 ;
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {
-  m.impl("native_dropout", static_cast<::std::tuple<at::Tensor,at::Tensor> (*)(const at::Tensor &, double, c10::optional<bool>)>(&habana::native_dropout));
+  m.impl("bucketize.Scalar", static_cast<at::Tensor (*)(const at::Scalar &, const at::Tensor &, bool, bool)>(&habana::bucketize));
+  m.impl("elu", static_cast<at::Tensor (*)(const at::Tensor &, const at::Scalar &, const at::Scalar &, const at::Scalar &)>(&habana::elu));
 
 }
 
