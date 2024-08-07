@@ -345,25 +345,6 @@ void NativeGroupNormFwd::AddNode(sh::graph& graph, const at::Stack& stack) {
       syn_out(i) = std::move(output[0]);
     }
   } else {
-    const auto rank = input.pt_t.dim();
-    auto layout = [rank]() {
-      if (rank == 3) {
-        return synapse_helpers::layouts::SynapseLayoutFormat::WCN;
-      } else if (rank == 4) {
-        return synapse_helpers::layouts::SynapseLayoutFormat::WHCN;
-      } else {
-        return synapse_helpers::layouts::SynapseLayoutFormat::WHDCN;
-      }
-    }();
-
-    SetSynapseLayouts(
-        {layout,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE},
-        {layout,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-
     auto outputs = BuildOp(
         graph,
         GetGuid(),
