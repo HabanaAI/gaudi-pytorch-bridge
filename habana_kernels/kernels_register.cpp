@@ -1621,6 +1621,43 @@ at::Tensor habana_expand_into_jagged_permute_wrap(
       permute, input_offsets, output_offsets, output_size);
 }
 
+at::Tensor mixture_of_experts_wrap(
+    const at::Tensor& input,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList expert_weights_1,
+    const at::TensorList expert_weights_2,
+    const at::TensorList expert_weights_3,
+    c10::string_view activation,
+    int64_t experts_min,
+    int64_t experts_max) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts :",
+      DUMP_9ARGS(
+          input,
+          expert_routing_table,
+          router_weights,
+          expert_weights_1,
+          expert_weights_2,
+          expert_weights_3,
+          activation,
+          experts_min,
+          experts_max));
+
+  return mixture_of_experts_lazy(
+      input,
+      expert_routing_table,
+      router_weights,
+      expert_weights_1,
+      expert_weights_2,
+      expert_weights_3,
+      activation,
+      experts_min,
+      experts_max);
+}
+
 at::Tensor habana_split_permute_cat_wrap(
     const at::Tensor& input,
     const at::Tensor& indices,
@@ -2744,6 +2781,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::habana_expand_into_jagged_permute(Tensor permute, Tensor input_offsets, Tensor output_offsets, int output_size) -> Tensor");
   m.def(
+      "hpu::mixture_of_experts(Tensor input, Tensor expert_routing_table, Tensor router_weights, Tensor[] expert_weights_1, Tensor[] expert_weights_2, Tensor[] expert_weights_3, str activation, int experts_min, int experts_max) -> Tensor");
+  m.def(
       "hpu::habana_split_permute_cat(Tensor input, Tensor indices, int batch_size, int num_features, int dims) -> Tensor");
   m.def(
       "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor");
@@ -2885,6 +2924,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::ragged_softmax", _ragged_softmax_wrap);
   m.impl("hpu::scaled_masked_softmax", scaled_masked_softmax_wrap);
   m.impl("hpu::custom_softmax", custom_softmax_wrap);
+  m.impl("hpu::mixture_of_experts", mixture_of_experts_wrap);
   m.impl("hpu::fp8_reshape", fp8_reshape_wrap);
   m.impl("hpu::fp8_permute", fp8_permute_wrap);
   m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_norm_hpu_lazy);

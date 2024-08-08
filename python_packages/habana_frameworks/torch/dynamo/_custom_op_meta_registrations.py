@@ -607,6 +607,21 @@ def meta_rotary_pos_embedding(input, sin, cos, position_ids, offset, mode):
     return input.new_empty(input.shape)
 
 
+@register_meta([torch.ops.hpu.mixture_of_experts.default])
+def meta_mixture_of_experts(
+    input,
+    expert_routing_table,
+    router_weights,
+    expert_weights_1,
+    expert_weights_2,
+    expert_weights_3,
+    activation,
+    experts_min,
+    experts_max,
+):
+    return input.new_empty(input.shape)
+
+
 @register_meta([torch.ops.hpu.rotary_pos_embedding_backward.default])
 def meta_rotary_pos_embedding_backward(grad_in, sin, cos, position_ids, offset, mode):
     return grad_in.new_empty(grad_in.shape)

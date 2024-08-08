@@ -1736,7 +1736,7 @@ at::Tensor quantize_per_channel(
 at::Tensor dequantize_per_channel(
     const at::Tensor& input,
     const at::Tensor& scales,
-#if IS_PYTORCH_AT_LEAST(2,4)
+#if IS_PYTORCH_AT_LEAST(2, 4)
     const c10::optional<at::Tensor>& zero_points,
 #else
     const at::Tensor& zero_points,
@@ -2094,6 +2094,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor");
   m.def(
+      "hpu::mixture_of_experts(Tensor input, Tensor expert_routing_table, Tensor router_weights, Tensor[] expert_weights_1, Tensor[] expert_weights_2, Tensor[] expert_weights_3, str activation, int experts_min, int experts_max) -> Tensor");
+  m.def(
       "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
   m.def(
       "hpu::rotary_pos_embedding_backward(Tensor grad_in, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
@@ -2157,7 +2159,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::sdpa_bwd(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor P, Tensor? dm, bool is_causal, float p, float scale, Tensor fwd_out) -> (Tensor, Tensor, Tensor)");
   m.def("hpu::accumulate_grads_(Tensor[] variables, Tensor[] new_grads) -> ()");
   m.def("hpu::custom_foreach_add_(Tensor(a!)[] self, Tensor[] other) -> ()");
-#if IS_PYTORCH_AT_LEAST(2,4)
+#if IS_PYTORCH_AT_LEAST(2, 4)
   m.def(
       "hpu::batched_nms_eager(Tensor boxes, Tensor scores, Tensor indexes, float iou_threshold, int max_classes) -> (Tensor, Tensor)");
 #else

@@ -50,6 +50,7 @@ hpu_supported_op_list = {
     "fp8_gemm_v2",
     "in_place_interleave",
     "kv_reorder",
+    "mixture_of_experts",
     "rms_norm",
     "rms_norm_fast",
     "rms_norm_backward",

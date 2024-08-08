@@ -253,6 +253,16 @@ at::Tensor habana_expand_into_jagged_permute_wrap(
     const at::Tensor& input_offsets,
     const at::Tensor& output_offsets,
     int64_t output_size);
+at::Tensor mixture_of_experts_wrap(
+    const at::Tensor& input,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList expert_weights_1,
+    const at::TensorList expert_weights_2,
+    const at::TensorList expert_weights_3,
+    c10::string_view activation,
+    int64_t experts_min,
+    int64_t experts_max);
 at::Tensor habana_split_permute_cat_wrap(
     const at::Tensor& input,
     const at::Tensor& indices,
