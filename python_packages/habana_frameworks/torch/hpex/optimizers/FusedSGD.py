@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -99,7 +99,7 @@ class FusedSGD(Optimizer):
                     grad_list.append(grad)
                     d_p_list.append(weight)
 
-                torch.ops.hpu.optimizer_sgd(
+                _hpex_C.fused_sgd(
                     grad_list,
                     d_p_list,
                     self.lr_t,
@@ -123,18 +123,17 @@ class FusedSGD(Optimizer):
                     d_p_list.append(weight)
                     state = self.state[p]
                     if "momentum_buffer" not in state:
-                        state["momentum_buffer"] = torch.zeros(grad.shape).to(hpu, non_blocking=True)
+                        state["momentum_buffer"] = torch.zeros(grad.shape).to("hpu")
                     momentum_buffer_list.append(state["momentum_buffer"])
 
-                momentum_t = torch.tensor(group["momentum"]).to(hpu, non_blocking=True)
-                torch.ops.hpu.optimizer_sgd_momentum(
+                _hpex_C.fused_sgd_momentum(
                     grad_list,
                     d_p_list,
                     momentum_buffer_list,
                     self.step_t,
                     self.lr_t,
-                    momentum_t,
                     group["weight_decay"],
+                    torch.tensor(group["momentum"], device="hpu"),
                     group["dampening"],
                     group["nesterov"],
                 )

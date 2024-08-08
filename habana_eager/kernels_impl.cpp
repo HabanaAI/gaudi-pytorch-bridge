@@ -188,8 +188,8 @@ void optimizer_sgd_momentum_hpu_wrap(
     TensorList& momentum,
     const at::Tensor& epoch_num,
     at::Tensor& lr,
-    at::Tensor& mom,
     const float wd,
+    at::Tensor& mom,
     const float damp,
     const bool nesterov) {
   PT_EAGER_TRACE;
@@ -201,8 +201,8 @@ void optimizer_sgd_momentum_hpu_wrap(
           momentum,
           epoch_num,
           lr,
-          mom,
           wd,
+          mom,
           damp,
           nesterov));
   TORCH_CHECK(

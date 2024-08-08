@@ -3222,8 +3222,6 @@ hpu::optimizer_lamb_fused_norm;                                      NO;  NO;  Y
 hpu::optimizer_lamb_phase1;                                          NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 hpu::optimizer_lamb_phase2;                                          NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 hpu::optimizer_resource_apply_momentum;                              NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
-hpu::optimizer_sgd;                                                  NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
-hpu::optimizer_sgd_momentum;                                         NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 hpu::ragged_softmax;                                                 NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 hpu::rms_norm;                                                       NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;
 hpu::rms_norm_backward;                                              NO;  NO;  YES; NA;       NA;    NO;      NO;   NO;           0;

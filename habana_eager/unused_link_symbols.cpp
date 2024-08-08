@@ -354,6 +354,17 @@ void optimizer_lars_hpu_wrap(
   EAGER_NOT_SUPPORTED;
 }
 
+void optimizer_sgd_hpu_wrap(
+    [[maybe_unused]] const TensorList& gradients,
+    [[maybe_unused]] TensorList& weights,
+    [[maybe_unused]] at::Tensor& lr,
+    [[maybe_unused]] const float wd,
+    [[maybe_unused]] const float mom,
+    [[maybe_unused]] const float damp,
+    [[maybe_unused]] const bool nesterov) {
+  EAGER_NOT_SUPPORTED;
+}
+
 std::tuple<torch::Tensor&, torch::Tensor&>
 optimizer_sparse_sgd_with_valid_count_hpu_wrap(
     [[maybe_unused]] const Tensor& gradients,

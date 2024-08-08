@@ -878,64 +878,6 @@ void optimizer_adamw(
   hpu_op.call(tensorlists);
 }
 
-void optimizer_sgd(
-    const at::TensorList gradients,
-    at::TensorList weights,
-    at::Tensor& lr,
-    double wd,
-    double mom,
-    double damp,
-    bool nesterov) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      " optimizer_sgd:",
-      DUMP_7ARGS(gradients, weights, lr, wd, mom, damp, nesterov));
-  TORCH_CHECK(
-      (weights.size() > 0),
-      "optimizer_sgd : can not process empty weight vector");
-  habana::eager::EagerOp<void> hpu_op{
-      "hpu::optimizer_sgd", {gradients, weights, lr, wd, mom, damp, nesterov}};
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::InplaceOut, "hpu::optimizer_sgd", {1}});
-  hpu_op.call({weights});
-}
-
-void optimizer_sgd_momentum(
-    const at::TensorList gradients,
-    at::TensorList weights,
-    at::TensorList momentum,
-    const at::Tensor& epoch_num,
-    at::Tensor& lr,
-    at::Tensor& mom,
-    double wd,
-    double damp,
-    bool nesterov) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      " optimizer_sgd_momentum:",
-      DUMP_9ARGS(
-          gradients,
-          weights,
-          momentum,
-          epoch_num,
-          lr,
-          mom,
-          wd,
-          damp,
-          nesterov));
-  TORCH_CHECK(
-      (weights.size() > 0),
-      "optimizer_sgd_momentum : can not process empty weight vector");
-  habana::eager::EagerOp<void> hpu_op{
-      "hpu::optimizer_sgd_momentum",
-      {gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov}};
-  hpu_op.set_eager_op_info(
-      {habana::eager::eagerOpKind::InplaceOut,
-       "hpu::optimizer_sgd_momentum",
-       {1, 2}});
-  hpu_op.call({weights, momentum});
-}
-
 at::Tensor rotary_pos_embedding(
     const at::Tensor& input,
     const at::Tensor& sin,
@@ -2112,10 +2054,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::optimizer_lars(Tensor[] params, Tensor(a!)[] grads, int[] skip_masks, float eeta, float weight_decay, float eps, Tensor lr) -> ()");
   m.def(
       "hpu::optimizer_resource_apply_momentum(Tensor(a!)[] params_momentum_buf_list, Tensor[] dp_list, float momentum) -> ()");
-  m.def(
-      "hpu::optimizer_sgd(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!) learning_rate, float wd, float mom, float damp, bool nesterov) -> ()");
-  m.def(
-      "hpu::optimizer_sgd_momentum(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] momentum_in, Tensor epoch_num, Tensor(c!) learning_rate, Tensor(d!) mom, float wd, float damp, bool nesterov) -> ()");
   m.def("hpu::repeat_ht(Tensor self, Tensor result_shape) -> Tensor");
   m.def(
       "hpu::expand_ds(Tensor(a) self, Tensor shape, *, bool implicit=False) -> Tensor(a)");
@@ -2278,8 +2216,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::optimizer_resource_apply_momentum",
       optimizer_resource_apply_momentum);
   m.impl("hpu::ragged_softmax", _ragged_softmax);
-  m.impl("hpu::optimizer_sgd", optimizer_sgd);
-  m.impl("hpu::optimizer_sgd_momentum", optimizer_sgd_momentum);
   m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding);
   m.impl("hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward);
   m.impl("hpu::ctc_loss_custom", ctc_loss_custom);

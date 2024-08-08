@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2020-2024 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2020-2023 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -1028,6 +1028,11 @@ void OptimizerFusedLarsOperatorLazy::AddNode(
 }
 
 } // namespace habana
+
+TORCH_LIBRARY_FRAGMENT(hpu, m) {
+  m.def(
+      "optimizer_sgd_momentum(Tensor[] gradients, Tensor(a!)[] weights_in, Tensor(b!)[] momentum_in, Tensor epoch_num, Tensor(c!) learning_rate, Tensor mom, float wd, float damp, bool nesterov) -> ()");
+}
 
 static auto& OptimizerKernelsKernelRegistry =
     habana::KernelRegistry()
