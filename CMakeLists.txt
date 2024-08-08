@@ -403,7 +403,6 @@ if(BUILD_PKGS)
     habana_frameworks/torch/hpex/csrc/embedding_bag_preproc.cpp
     habana_frameworks/torch/hpex/csrc/radix_sort.h
     habana_frameworks/torch/hpex/kernels/__init__.py
-    habana_frameworks/torch/hpex/kernels/CustomNms.py
     habana_frameworks/torch/hpex/kernels/CustomRoiAlign.py
     habana_frameworks/torch/hpex/kernels/EmbeddingBag.py
     habana_frameworks/torch/hpex/kernels/EmbeddingBagPreproc.py

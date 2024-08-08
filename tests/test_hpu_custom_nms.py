@@ -12,43 +12,35 @@ test_case_list = [
 
 @pytest.mark.parametrize("num_boxes, iou_threshold", test_case_list)
 def test_nms_lazy(num_boxes, iou_threshold):
-
-    scores = torch.rand(num_boxes)
+    # prep cpu inputs
     boxes = torch.rand(num_boxes, 4) * 256
     boxes[:, 2:] += boxes[:, :2]
-    keep_cpu = torchvision.ops.nms(boxes, scores, iou_threshold)
+    scores = torch.rand(num_boxes)
 
-    try:
-        from habana_frameworks.torch.hpex.kernels import CustomNms
-    except ImportError:
-        raise ImportError("Please install habana_torch.")
-    nms = CustomNms()
-    hpu_box = boxes.to(hpu)
+    # prep hpu inputs
+    hpu_boxes = boxes.to(hpu)
     hpu_scores = scores.to(hpu)
-    keep_hpu = nms.nms(hpu_box, hpu_scores, iou_threshold)
-    compare_tensors(keep_hpu.to(cpu), keep_cpu, atol=0, rtol=0)
-    keep_hpu = torchvision.ops.nms(hpu_box, hpu_scores, iou_threshold)
+
+    keep_cpu = torchvision.ops.nms(boxes, scores, iou_threshold)
+    keep_hpu = torchvision.ops.nms(hpu_boxes, hpu_scores, iou_threshold)
     compare_tensors(keep_hpu.to(cpu), keep_cpu, atol=0, rtol=0)
 
 
 @pytest.mark.parametrize("num_boxes, iou_threshold", test_case_list)
 def test_batched_nms_lazy(num_boxes, iou_threshold):
-
-    scores = torch.rand(num_boxes)
-    idx = torch.randint(0, 5, (num_boxes,))
+    # prep cpu inputs
     boxes = torch.rand(num_boxes, 4) * 256
     boxes[:, 2:] += boxes[:, :2]
-    keep_cpu = torchvision.ops.batched_nms(boxes, scores, idx, iou_threshold)
+    scores = torch.rand(num_boxes)
+    idx = torch.randint(0, 5, (num_boxes,))
 
-    try:
-        from habana_frameworks.torch.hpex.kernels import CustomNms
-    except ImportError:
-        raise ImportError("Please install habana_torch.")
-    nms = CustomNms()
-    hpu_box = boxes.to(hpu)
+    # prep hpu inputs
+    hpu_boxes = boxes.to(hpu)
     hpu_scores = scores.to(hpu)
     hpu_idx = idx.to(hpu)
-    keep_hpu = nms.batched_nms(hpu_box, hpu_scores, hpu_idx, iou_threshold)
+
+    keep_cpu = torchvision.ops.batched_nms(boxes, scores, idx, iou_threshold)
+    keep_hpu = torchvision.ops.batched_nms(hpu_boxes, hpu_scores, hpu_idx, iou_threshold)
     compare_tensors(keep_hpu.to(cpu), keep_cpu, atol=0, rtol=0)
 
 
