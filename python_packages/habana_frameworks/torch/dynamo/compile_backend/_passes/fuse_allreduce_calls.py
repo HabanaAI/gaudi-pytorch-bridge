@@ -472,4 +472,8 @@ def _scatter_wait_result(
     need_sort_nodes = sorted(need_sort_nodes, key=lambda node: node_indices[node])
     _move_after(need_sort_nodes, last_as_strided_node)
 
-    gm.graph.eliminate_dead_code()
+    # remove original collective ops
+    for cb in comm_blocks:
+        for wiat_node in cb.wait_nodes:
+            gm.graph.erase_node(wiat_node)
+        gm.graph.erase_node(cb.comm_node)
