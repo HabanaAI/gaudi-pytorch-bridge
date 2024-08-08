@@ -18,7 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 def is_lazy():
-    return os.getenv("PT_HPU_LAZY_MODE", "1") != "0"
+    if is_lazy._is_lazy is None:
+        is_lazy._is_lazy = os.getenv("PT_HPU_LAZY_MODE", "1") != "0"
+    return is_lazy._is_lazy
+
+
+is_lazy._is_lazy = None
 
 
 def lazy_only(func):
