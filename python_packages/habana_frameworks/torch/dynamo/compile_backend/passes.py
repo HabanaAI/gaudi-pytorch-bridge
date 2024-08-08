@@ -216,6 +216,7 @@ def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -
         "scalar_tensor",
         "logspace",
         "slice_scatter",
+        "as_strided",
         "as_strided_scatter",
         "slice",
         "_roi_align_backward",
