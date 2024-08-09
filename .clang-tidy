@@ -101,7 +101,6 @@ performance-*,
 -performance-unnecessary-copy-initialization,
 -performance-unnecessary-value-param,
 '
-AnalyzeTemporaryDtors: false
 FormatStyle: file
 HeaderFilterRegex: 'habana|hpu|pt_ver|pytorch_helpers|python_packages|tests/'
 # WarningsAsErrors: '*'
