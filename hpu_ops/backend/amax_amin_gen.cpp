@@ -20,20 +20,26 @@
 namespace sh = synapse_helpers;
 
 namespace habana {
-static at::DimVector toDimVector(c10::IValue ival) {
-  return ival.isNone()
+
+static std::tuple<at::Tensor, at::DimVector, bool> ParseSignature(
+    const at::Stack& stack) {
+  const at::Tensor& self = stack.at(0).toTensor();
+  const bool is_dim_none = stack.size() == 1 || stack.at(1).isNone();
+  const bool keepdim = stack.size() >= 3 && stack.at(2).toBool();
+
+  at::DimVector dim_vec = is_dim_none
       ? at::DimVector{}
-      : ival.isInt() ? at::DimVector{ival.toInt()} : ival.toDimVector();
+      : stack.at(1).isInt() ? at::DimVector{stack.at(1).toInt()}
+                            : stack.at(1).toDimVector();
+  return {self, dim_vec, keepdim};
 }
 
 static OutputMetaDataVector AminmaxMetaCommon(
     const at::Stack& stack,
     int count) {
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  at::DimVector dim_vec = toDimVector(stack.at(1));
-  const bool keepdim = stack.at(2).toBool();
+  const auto [self, dim_vec, keepdim] = ParseSignature(stack);
 
-  auto shapes = ReductionOutputShape(self, dim_vec, keepdim);
+  const auto shapes = ReductionOutputShape(self, dim_vec, keepdim);
 
   OutputMetaData meta;
   meta.shape = shapes[0];
@@ -50,13 +56,11 @@ OutputMetaDataVector AminAmaxMeta(const at::Stack& stack) {
 }
 
 std::shared_ptr<void> FillAminAmaxParams(const at::Stack& stack, size_t& size) {
-  auto input = stack.at(0).toTensor();
-  auto rank = input.dim();
-  at::DimVector dim_vec = toDimVector(stack.at(1));
-  auto keepDim = stack.at(2).toBool();
+  const auto [self, dim_vec, keepdim] = ParseSignature(stack);
+  auto rank = self.dim();
 
   PARAMS_STUB(ns_Reduction::ParamsV2);
-  *params = FillReductionParams(rank, dim_vec, keepDim);
+  *params = FillReductionParams(rank, dim_vec, keepdim);
 
   return params;
 }

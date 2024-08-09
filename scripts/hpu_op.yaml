@@ -1808,6 +1808,26 @@ aminmax.out:
   op_backend: Aminmax
   custom_fill_params: FillAminAmaxParams
 
+_aminmax:
+  output_meta: AminmaxMeta
+  dtypes:
+    Gaudi: [Float, BFloat16, Long, Int, Byte, Short, Char]
+    Gaudi2: [Float, BFloat16, Long, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [Float, BFloat16, Long, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
+  op_backend: Aminmax
+  custom_fill_params: FillAminAmaxParams
+  out_ids: [0, 0]
+
+_aminmax.dim:
+  output_meta: AminmaxMeta
+  dtypes:
+    Gaudi: [Float, BFloat16, Long, Int, Byte, Short, Char]
+    Gaudi2: [Float, BFloat16, Long, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [Float, BFloat16, Long, Int, Byte, Short, Char, Half, Float8_e5m2, Float8_e4m3fn]
+  op_backend: Aminmax
+  custom_fill_params: FillAminAmaxParams
+  out_ids: [0, 0]
+
 any.all_out:
   output_meta: AllAnyMeta
   dtypes:
