@@ -69,6 +69,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_allreduce_parents,
             pass_pattern_rewriter,
             pass_fake_propagation,
+            pass_remove_unnecessary_full_copy,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
             pass_reinplace_inplaceable_ops,
             pass_mark_collective_input,
@@ -2477,6 +2478,58 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
     if hpu_backend_config.use_inplace_index_copy:
         reinplace_index_copy_ops(ctx.graph_module)
 
+    return graph_changed
+
+
+def pass_remove_unnecessary_full_copy(ctx: OptimizerContext):
+    """
+    The following pattern is quite redudent:
+    def fowrard():
+        a = op0(xxx)
+        full = torch.ops.full.default(yyy)
+        b = full.copy(a)
+        return b
+    We can match such pattern and transform them to:
+    def fowrard():
+        a = op0(xxx)
+        return a
+    """
+    to_remove = []
+    for node in ctx.graph_module.graph.nodes:
+        is_full_copy_pattern = (
+            node.name.startswith("full") and len(node.users) == 1 and list(node.users.keys())[0].name.startswith("copy")
+        )
+        if not is_full_copy_pattern:
+            continue
+
+        full_node, copy_node = node, list(node.users.keys())[0]
+        copy_args = list(copy_node.args)
+        if full_node != copy_args[0]:
+            continue
+
+        def match(lhs, rhs) -> bool:
+            return lhs is not None and rhs is not None and lhs == rhs
+
+        dst, src = copy_args[0], copy_args[1]
+        if not (
+            match(dst.meta["output_device"], src.meta["output_device"])
+            and match(dst.meta["output_shapes"][0], src.meta["output_shapes"][0])
+            and match(dst.meta["output_dtypes"][0], src.meta["output_dtypes"][0])
+            and match(dst.meta["output_layouts"][0], src.meta["output_layouts"][0])
+            and match(dst.meta["output_strides"][0], src.meta["output_strides"][0])
+            and match(dst.meta["output_contiguous"][0], src.meta["output_contiguous"][0])
+        ):
+            continue
+
+        copy_src_node = copy_args[1]
+        copy_node.replace_all_uses_with(copy_src_node)
+        to_remove.append(copy_node)
+        to_remove.append(full_node)
+
+    for node in to_remove:
+        ctx.graph_module.graph.erase_node(node)
+
+    graph_changed = len(to_remove) > 0
     return graph_changed
 
 
