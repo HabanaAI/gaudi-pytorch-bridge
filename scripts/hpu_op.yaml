@@ -1916,6 +1916,7 @@ amax:
   custom_fill_params: FillAminAmaxParams
   op_backend: AminAmax
   out_ids: [0]
+  op_validator: AmaxSharedMeta
 
 amax.out:
   dtypes:
@@ -1926,6 +1927,7 @@ amax.out:
   output_meta: AminAmaxMeta
   custom_fill_params: FillAminAmaxParams
   op_backend: AminAmax
+  op_validator: AmaxSharedMeta
 
 amin:
   dtypes:
@@ -1937,6 +1939,7 @@ amin:
   custom_fill_params: FillAminAmaxParams
   op_backend: AminAmax
   out_ids: [0]
+  op_validator: AminSharedMeta
 
 amin.out:
   dtypes:
@@ -1947,6 +1950,7 @@ amin.out:
   output_meta: AminAmaxMeta
   custom_fill_params: FillAminAmaxParams
   op_backend: AminAmax
+  op_validator: AminSharedMeta
 
 aminmax:
   output_meta: AminmaxMeta
@@ -2104,6 +2108,7 @@ argmax:
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
   guid: argmax_multi_dim_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 argmax.out:
   output_meta: ArgMinMaxMeta
@@ -2113,6 +2118,7 @@ argmax.out:
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
   guid: argmax_multi_dim_fwd
+  op_validator: check-node-with-shared-layer
 
 argmin:
   output_meta: ArgMinMaxMeta
@@ -2123,6 +2129,7 @@ argmin:
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
   guid: argmin_multi_dim_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 argmin.out:
   output_meta: ArgMinMaxMeta
@@ -2132,6 +2139,7 @@ argmin.out:
     Gaudi2: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
     Gaudi3: [BFloat16, Float, Int, Byte, Char, Short, Long, Half]
   guid: argmin_multi_dim_fwd
+  op_validator: check-node-with-shared-layer
 
 asin:
   promote_int_to_float: [self]
@@ -6085,6 +6093,7 @@ max:
     Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_max_multi_dim_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 min:
   output_meta: ReduceMinMaxMeta
@@ -6095,6 +6104,7 @@ min:
     Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
   guid: reduce_min_multi_dim_fwd
   out_ids: [0]
+  op_validator: check-node-with-shared-layer
 
 min.dim:
   dtypes:

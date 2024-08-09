@@ -345,4 +345,38 @@ SharedMetaDataVector LogicalBinarySharedMeta(
   return {logicalBinaryMeta};
 }
 
+SharedMetaDataVector AminAmaxSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  auto self = stack.at(0).toTensor();
+  const bool keepDim = stack.at(2).toBool();
+  auto rank = self.dim();
+  auto inputDtype = self.scalar_type();
+
+  if (c10::isIntegralType(inputDtype, true)) {
+    inputDtype = c10::ScalarType::Int;
+  }
+  auto outputDtype = inputDtype;
+
+  SharedMetaDataVector metaVec;
+  if (inputDtype == c10::ScalarType::Bool) {
+    metaVec = BoolCastSharedMeta({self});
+    inputDtype = at::kBool;
+  }
+
+  auto outputRank = rank;
+  if (!keepDim) {
+    auto dim = stack.at(1);
+    auto dimVec = dim.isNone() ? std::vector<int64_t>{} : dim.toIntVector();
+    auto dimNum = dimVec.size();
+    outputRank = dimNum == 0 ? 0 : outputRank - dimNum;
+  }
+
+  SharedMetaData reduceMaxMultiDimFwdMeta(guid);
+  reduceMaxMultiDimFwdMeta.inputs_data = {{rank, inputDtype}};
+  reduceMaxMultiDimFwdMeta.outputs_data = {{outputRank, outputDtype}};
+  metaVec.push_back(reduceMaxMultiDimFwdMeta);
+  return metaVec;
+}
+
 } // namespace habana

@@ -36,4 +36,6 @@ SHARED_META_GUID(ForeachCompound)
 SHARED_META(BoolCast)
 SHARED_META_GUID(LogicalBinary)
 SHARED_META_GUID(UnaryForeach)
+SHARED_META_GUID(AminAmax)
+
 } // namespace habana
