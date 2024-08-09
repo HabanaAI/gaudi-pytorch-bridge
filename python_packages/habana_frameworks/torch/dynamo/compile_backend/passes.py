@@ -29,6 +29,7 @@ from packaging.version import Version
 from torch.distributed._spmd.graph_utils import find_node
 from torch.fx.experimental.proxy_tensor import py_sym_types
 from torch.fx.passes.operator_support import OperatorSupport
+from torch.fx.passes.reinplace import _FunctionalizationMetadataProp
 
 from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.propose_collective_blocks import pass_propose_collective_blocks
@@ -2360,8 +2361,6 @@ def pass_summarize_graph(ctx: OptimizerContext):
     return False
 
 
-from torch.fx.passes.reinplace import _FunctionalizationMetadataProp
-
 inplaceable_ops = {}
 
 try:
@@ -2386,7 +2385,7 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
     is replace with all_reduce_ which is an inplace variant of collective
     """
     graph_changed = False
-    if not hpu_backend_config.use_inplace_allreduce:
+    if not hpu_backend_config.use_inplace_allreduce and not hpu_backend_config.use_inplace_index_copy:
         return graph_changed
 
     graph = ctx.graph_module.graph
@@ -2435,8 +2434,48 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
 
         gm.recompile()
 
-    _FunctionalizationMetadataProp(ctx.graph_module).propagate(*(ctx.example_inputs))
-    reinplace_collective_ops(ctx.graph_module)
+    def reinplace_index_copy_ops(gm: torch.fx.GraphModule):
+        inplaceable_index_copy_ops = {
+            torch.ops.aten.index_copy.default: InplaceableOp(torch.ops.aten.index_copy_.default, 0),
+        }
+
+        replace_dict: Dict[torch.fx.Node, torch.fx.Node] = {}
+
+        for idx, node in enumerate(gm.graph.nodes):
+            if (inplaceable_op := inplaceable_index_copy_ops.get(node.target, None)) is not None:
+                mutated_arg = node.args[inplaceable_op.mutated_arg]
+                mutated_arg_users = list(mutated_arg.users)
+                if (
+                    len(mutated_arg_users) == 2
+                    and (
+                        mutated_arg_users[0].target == torch.ops.aten.copy_.default
+                        or mutated_arg_users[1].target == torch.ops.aten.copy_.default
+                    )
+                    and not (mutated_arg.op == "call_function" and helper_is_view_node(mutated_arg))
+                ):
+                    # the mutated arg is only used by one index_copy op and one
+                    # copy_ op, and it's not a view tensor
+                    inplace_copy_node = (
+                        mutated_arg_users[0]
+                        if mutated_arg_users[0].target == torch.ops.aten.copy_.default
+                        else mutated_arg_users[1]
+                    )
+                    # modify index_copy to index_copy_ directly
+                    node.target = inplaceable_op.inplace_op
+                    # connect copy_'s uses to index_copy_
+                    replace_dict[inplace_copy_node] = node
+
+        for node, replacement in replace_dict.items():
+            node.replace_all_uses_with(replacement)
+            gm.graph.erase_node(node)
+
+        gm.recompile()
+
+    if hpu_backend_config.use_inplace_allreduce:
+        _FunctionalizationMetadataProp(ctx.graph_module).propagate(*(ctx.example_inputs))
+        reinplace_collective_ops(ctx.graph_module)
+    if hpu_backend_config.use_inplace_index_copy:
+        reinplace_index_copy_ops(ctx.graph_module)
 
     return graph_changed
 
