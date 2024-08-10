@@ -152,6 +152,54 @@ static std::vector<synapse_helpers::tensor> ReduceWeight(
           sizeof(reduce_params)});
 }
 
+static std::vector<synapse_helpers::tensor> ComputeWeightsSum(
+    OpBackend* op,
+    synapse_helpers::graph& graph,
+    const at::Stack& stack,
+    const OutputMetaData& meta,
+    std::vector<synTensor> inputs) {
+  constexpr auto synTargetIdx = 0;
+  constexpr auto synWeightIdx = 1;
+
+  const auto target = stack_tensor(stack, 1);
+  const auto weights = stack_tensor(stack, 2);
+
+  const auto targetSizes = target.sizes().vec();
+  const auto targetFlattenSize = std::accumulate(
+      targetSizes.cbegin(), targetSizes.cend(), 1, std::multiplies<int>{});
+
+  auto flattenTarget = OpBackend::BuildFlatten(
+      op,
+      graph,
+      std::move(inputs[synTargetIdx]),
+      {targetFlattenSize},
+      target.scalar_type());
+
+  ns_GatherElementsKernel::Params gatherParams{};
+  gatherParams.axis = 0;
+
+  auto targetMappedToWeights = OpBackend::BuildNode(
+      op,
+      graph,
+      {get_guid_with_precision("gather_elements_fwd", weights.scalar_type()),
+       std::vector<synTensor>{
+           std::move(inputs[synWeightIdx]), std::move(flattenTarget.get())},
+       {{targetFlattenSize, weights.scalar_type()}},
+       &gatherParams,
+       sizeof(gatherParams)});
+
+  ns_Reduction::Params reduceParams{.reductionDimension = 0};
+
+  return OpBackend::BuildNode(
+      op,
+      graph,
+      {get_guid_with_precision("reduce_sum_fwd", meta.dtype),
+       std::vector<synTensor>{std::move(targetMappedToWeights[0].get())},
+       {{1, meta.dtype}},
+       &reduceParams,
+       sizeof(reduceParams)});
+}
+
 void NllLoss2DFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -181,7 +229,9 @@ void NllLoss2DFwd::AddNode(
     nll_loss =
         NllLoss(this, graph, {syn_in(0), syn_in(1)}, meta, params, size, 0);
   } else { // weight is not none
-    auto weight_sum = ReduceWeight(this, meta, graph, {syn_in(2)});
+    auto weight_sum = (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 0)
+        ? ComputeWeightsSum(this, graph, stack, meta, {syn_in(1), syn_in(2)})
+        : ReduceWeight(this, meta, graph, {syn_in(2)});
 
     nll_loss = NllLoss(
         this,
