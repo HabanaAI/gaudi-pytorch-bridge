@@ -374,11 +374,47 @@ synapse_error_v<device_handle> device::create(
       synapse_helpers::get_value(std::move(synapse_session_create_result));
 
   synDeviceType acquired_device_type = synDeviceGaudi;
-  if (std::getenv("HLS_MODULE_ID") != nullptr) {
+  auto s_wsize = std::getenv("WORLD_SIZE")
+      ? std::getenv("WORLD_SIZE")
+      : std::getenv("OMPI_COMM_WORLD_SIZE");
+  auto world_size = (s_wsize) ? std::stoul(s_wsize) : 1;
+  uint32_t total_device_count = 0;
+  auto status_ret = synDeviceGetCount(&total_device_count);
+  if (status_ret != synSuccess) {
+    return synapse_error{"Device get count failed.", status_ret};
+  }
+  auto hls_mod_id_env_var = std::getenv("HLS_MODULE_ID");
+  bool device_detected = false;
+  auto habana_visible_modules = std::getenv("HABANA_VISIBLE_MODULES");
+
+  // Fallback mechanism for synDeviceAcquireByModuleId failure.
+
+  // If acquiring a device by ID fails, it attempt to acquire a free device
+  // only if HABANA_VISIBLE_MODULES is not set and the total number of devices
+  // is greater than or equal to the world_size (obtained from
+  // either WORLD_SIZE or OMPI_COMM_WORLD_SIZE).
+
+  // When `HABANA_VISIBLE_MODULES` is set, it restricts the application to only
+  // the listed devices. Therefore, the fallback can't be used, as it might
+  // select devices that aren't included in that list.
+
+  // If any free device is acquired, HLS_MODULE_ID may not match the
+  // allocated device ID.
+
+  // This approach cannot be used in multi-node scenarios because cards on
+  // different HLS nodes must be acquired using well-defined module IDs.
+  // Otherwise, the network calls won't function correctly.
+  // For single-node scenarios where total_device_count >= world_size, this
+  // method can be used.
+
+  bool acquire_on_failed_by_moduleid =
+      ((habana_visible_modules == nullptr) &&
+       (total_device_count >= world_size));
+  if (hls_mod_id_env_var != nullptr) {
     // Required for  multi chip configuration
     status = synDeviceAcquireByModuleId(
         &new_device_id,
-        static_cast<synModuleId>(std::stoul(std::getenv("HLS_MODULE_ID"))));
+        static_cast<synModuleId>(std::stoul(hls_mod_id_env_var)));
     if (status == synSuccess) {
       synDeviceInfo dinfo;
       auto status_info = synDeviceGetInfo(new_device_id, &dinfo);
@@ -386,9 +422,21 @@ synapse_error_v<device_handle> device::create(
         return synapse_error{"Device get info failed.", status_info};
       }
       acquired_device_type = dinfo.deviceType;
+      device_detected = true;
+    } else {
+      if (acquire_on_failed_by_moduleid) {
+        PT_SYNHELPER_WARN(
+            "Device acquire failed for hls_mod_id: ",
+            std::stoul(hls_mod_id_env_var),
+            " with status ",
+            Logger::formatStatusMsg(status),
+            ". Proceeding without moduleid.");
+      }
     }
-  } else {
-    bool device_detected = false;
+  }
+
+  if (!device_detected &&
+      (hls_mod_id_env_var == nullptr || acquire_on_failed_by_moduleid)) {
     for (auto const& device_type : allowed_device_types) {
       uint32_t device_count = 0;
       synStatus getCountStatus =
