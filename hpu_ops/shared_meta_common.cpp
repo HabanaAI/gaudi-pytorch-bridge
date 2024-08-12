@@ -13,6 +13,7 @@
 
 #include "hpu_ops/shared_meta_common.h"
 #include <unordered_set>
+
 namespace habana {
 
 // if all integers are not supported enter only torch::kInt32
@@ -376,6 +377,55 @@ SharedMetaDataVector AminAmaxSharedMeta(
   reduceMaxMultiDimFwdMeta.inputs_data = {{rank, inputDtype}};
   reduceMaxMultiDimFwdMeta.outputs_data = {{outputRank, outputDtype}};
   metaVec.push_back(reduceMaxMultiDimFwdMeta);
+  return metaVec;
+}
+
+SharedMetaDataVector BinaryWithAlphaSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  auto self = stack.at(0);
+  auto other = stack.at(1);
+  auto selfTensor = self.toTensor();
+  auto selfRank = selfTensor.dim();
+  auto otherRank = other.isTensor() ? other.toTensor().dim() : 1;
+  auto outputRank = std::max(selfRank, otherRank);
+
+  at::ScalarType outputType;
+  if (other.isTensor()) {
+    const at::Tensor& otherTensor = other.toTensor();
+    outputType = at::result_type(selfTensor, otherTensor);
+  } else {
+    const auto& otherScalar = other.toScalar();
+    outputType = at::result_type(selfTensor, otherScalar);
+  }
+
+  const auto& alpha = stack.at(2).toScalar();
+  SharedMetaDataVector metaVec;
+  if (alpha.equal(1)) {
+    // This node will only appear in eager mode but there is no way to
+    // distinguish mode here so both possibilities should be added to
+    // verification
+    std::string opName;
+    SharedMetaData binaryKernelMeta;
+    binaryKernelMeta.inputs_data = {
+        {selfRank, outputType}, {otherRank, outputType}};
+    binaryKernelMeta.outputs_data = {{outputRank, outputType}};
+    if (guid == "add") {
+      binaryKernelMeta.guid = "add";
+    } else {
+      if (guid == "rsub") {
+        binaryKernelMeta.inputs_data = {
+            {otherRank, outputType}, {selfRank, outputType}};
+      }
+      binaryKernelMeta.guid = "sub";
+    }
+    metaVec.push_back(binaryKernelMeta);
+  }
+  SharedMetaData binaryWithAlphaMeta{"binary_with_alpha_fwd"};
+  binaryWithAlphaMeta.inputs_data = {
+      {selfRank, outputType}, {otherRank, outputType}};
+  binaryWithAlphaMeta.outputs_data = {{outputRank, outputType}};
+  metaVec.push_back(binaryWithAlphaMeta);
   return metaVec;
 }
 

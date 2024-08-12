@@ -1570,6 +1570,7 @@ add.Tensor:
   op_backend: BinaryWithAlpha
   out_ids: [0]
   promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaAddSharedMeta
   lazy:
     acc_thread: true
     override_fn: add_tensor_hpu_lazy
@@ -1587,6 +1588,7 @@ add.Scalar:
   op_backend: BinaryWithAlpha
   out_ids: [0]
   promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaAddSharedMeta
   lazy:
     acc_thread: true
     override_fn: add_scalar_hpu_lazy
@@ -1620,6 +1622,7 @@ add.out:
   st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaAddSharedMeta
 
 add.Scalar_out:
   custom_fill_params: FillBinaryAddParams
@@ -1633,6 +1636,7 @@ add.Scalar_out:
   st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaAddSharedMeta
 
 addbmm:
   dtypes:
@@ -7875,6 +7879,7 @@ rsub.Tensor:
   scalar_ids: [2]
   st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
+  op_validator: BinaryWithAlphaRSubSharedMeta
 
 rsub.Scalar:
   custom_fill_params: FillBinaryRSubParams
@@ -7888,6 +7893,7 @@ rsub.Scalar:
   scalar_ids: [1, 2]
   st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
+  op_validator: BinaryWithAlphaRSubSharedMeta
 
 scalar_tensor:
   dtypes:
@@ -8759,6 +8765,7 @@ sub.Tensor:
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
   promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaSubSharedMeta
 
 sub.Scalar:
   broadcast: true
@@ -8773,6 +8780,7 @@ sub.Scalar:
   st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaSubSharedMeta
 
 sub_.Tensor:
   custom_fill_params: FillBinarySubParams
@@ -8786,6 +8794,7 @@ sub_.Tensor:
   op_backend: BinaryWithAlpha
   scalar_ids: [2]
   promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaSubSharedMeta
 
 sub_.Scalar:
   custom_fill_params: FillBinarySubParams
@@ -8799,6 +8808,7 @@ sub_.Scalar:
   st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaSubSharedMeta
 
 sub.Scalar_out:
   broadcast: true
@@ -8812,6 +8822,7 @@ sub.Scalar_out:
   st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaSubSharedMeta
 
 sub.out:
   broadcast: true
@@ -8824,6 +8835,7 @@ sub.out:
   st_meta: BinarySTMeta
   op_backend: BinaryWithAlpha
   promote_to_common_type: [self, other]
+  op_validator: BinaryWithAlphaSubSharedMeta
 
 sum:
   output_meta: ReductionOpMeta

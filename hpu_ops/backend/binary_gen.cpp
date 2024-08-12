@@ -19,6 +19,7 @@
 #include "generated/backend/sub.h"
 #include "hpu_ops/backend/foreach.h"
 #include "hpu_ops/common/scalar_dtype_range.h"
+#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 const unsigned SELF_INDEX = 0;
@@ -67,6 +68,17 @@ std::shared_ptr<void> FillBinaryWithAlphaParams(
 
   params->mode = mode;
   return params;
+}
+
+SharedMetaDataVector BinaryWithAlphaAddSharedMeta(const at::Stack& stack) {
+  return BinaryWithAlphaSharedMeta(stack, "add");
+}
+
+SharedMetaDataVector BinaryWithAlphaSubSharedMeta(const at::Stack& stack) {
+  return BinaryWithAlphaSharedMeta(stack, "sub");
+}
+SharedMetaDataVector BinaryWithAlphaRSubSharedMeta(const at::Stack& stack) {
+  return BinaryWithAlphaSharedMeta(stack, "rsub");
 }
 
 std::shared_ptr<void> FillBinaryRSubParams(
