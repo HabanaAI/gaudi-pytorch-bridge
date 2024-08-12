@@ -19,5 +19,9 @@
 namespace habana {
 namespace eager {
 at::Tensor masked_select_eager(const at::Tensor& self, const at::Tensor& mask);
+at::Tensor& masked_select_out_eager(
+    const at::Tensor& self,
+    const at::Tensor& mask,
+    at::Tensor& out);
 } // namespace eager
 } // namespace habana

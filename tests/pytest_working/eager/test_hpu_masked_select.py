@@ -55,3 +55,25 @@ class TestHpuMaskedSelect:
         hpu_result = fn(hpu_input, hpu_mask)
 
         torch.allclose(cpu_result, hpu_result.cpu())
+
+    @staticmethod
+    def test_hpu_masked_select_out(self_shape, mask_shape, dtype):
+        if is_gaudi1() and dtype == torch.half:
+            pytest.skip("Half is not supported on Gaudi.")
+
+        def fn(input, mask, out):
+            torch.ops.aten.masked_select.out(input, mask, out=out)
+            return out
+
+        cpu_input = torch.zeros(self_shape, dtype=dtype).random_()
+        cpu_mask = torch.zeros(mask_shape, dtype=torch.bool).random_()
+        cpu_out = torch.zeros((1), dtype=dtype)  # create a dummy out tensor
+
+        hpu_input = cpu_input.to("hpu")
+        hpu_mask = cpu_mask.to("hpu")
+        hpu_out = cpu_out.to("hpu")
+
+        cpu_result = fn(cpu_input, cpu_mask, cpu_out)
+        hpu_result = fn(hpu_input, hpu_mask, hpu_out)
+
+        torch.allclose(cpu_result, hpu_result.cpu())

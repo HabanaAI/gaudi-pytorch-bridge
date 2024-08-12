@@ -312,3 +312,24 @@ at::Tensor hpu_wrap::masked_select(
   }
   return habana::eager::masked_select_eager(self, mask);
 }
+
+at::Tensor& hpu_wrap::masked_select_out(
+    const at::Tensor& self,
+    const at::Tensor& mask,
+    at::Tensor& out) {
+  PT_EAGER_TRACE;
+  if ((self.scalar_type() != c10::ScalarType::Float) &&
+      (self.scalar_type() != c10::ScalarType::Double) &&
+      (self.scalar_type() != c10::ScalarType::Int) &&
+      (self.scalar_type() != c10::ScalarType::Long) &&
+      (self.scalar_type() != c10::ScalarType::Char) &&
+      (self.scalar_type() != c10::ScalarType::Bool) &&
+      (self.scalar_type() != c10::ScalarType::BFloat16) &&
+      !(self.scalar_type() == c10::ScalarType::Half &&
+        habana::HPURegistrar::get_device().type() !=
+            synDeviceType::synDeviceGaudi)) {
+    return dispatch_fallback<ATEN_OP(masked_select_out)>::call(
+        OpSupportLevel::Value::unsupported_dtype, PARAMS2(self, mask, out));
+  }
+  return habana::eager::masked_select_out_eager(self, mask, out);
+}
