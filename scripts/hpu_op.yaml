@@ -9520,7 +9520,7 @@ cast_to_fp8_hybrid:
   custom_fill_params: CastToFp8HybridParams
 
 fake_quant_fp4:
-  custom_op_schema: "hpu::fake_quant_fp4(Tensor input, bool stochastic_rounding, int axis, int dtype) -> Tensor"
+  custom_op_schema: "hpu::fake_quant_fp4(Tensor input, bool stochastic_rounding, int axis, str dtype) -> Tensor"
   custom_fill_params: FillFakeQuantFp4Params
   guid: fake_quantize_fp4
   out_ids: [0]
