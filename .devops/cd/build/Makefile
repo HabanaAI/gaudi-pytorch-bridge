@@ -135,7 +135,7 @@ init-python: validate init ## install python build dependencies
 	-v $(VENV_DIR):/tmp/.venv \
 	-e HOME=/tmp -e DOCKER_CI_ENV=true -e _STACK=/npu-stack -e _BUILD=/builds \
 	$(DOCKER_IMAGE) \
-	'__check_pytorch_dev_py_deps'
+	'install_pytorch_build_requirements'
 
 install-fork: validate init ## install the PT fork whl
 	@echo Install python build dependencies
