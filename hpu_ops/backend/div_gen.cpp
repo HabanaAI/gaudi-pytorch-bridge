@@ -11,9 +11,48 @@
  *******************************************************************************
  */
 
+#include "backend/synapse_helpers/env_flags.h"
 #include "generated/backend/div.h"
+#include "hpu_ops/common/div_round_gen.h"
 
 namespace habana {
+
+SharedMetaDataVector DivideSharedMeta(const at::Stack& stack) {
+  auto self = stack.at(0);
+  auto selfTensor = self.toTensor();
+  auto selfRank = selfTensor.dim();
+  auto selfType = selfTensor.scalar_type();
+  auto other = stack.at(1);
+  int64_t otherRank;
+  at::ScalarType otherType;
+  if (other.isTensor()) {
+    auto otherTensor = other.toTensor();
+    otherType = otherTensor.scalar_type();
+    otherRank = otherTensor.dim();
+  } else {
+    otherType = other.toScalar().type();
+    otherRank = 1;
+  }
+
+  auto commonType = GetCommonDtype({self, other}, true);
+  if (c10::isIntegralType(selfType, true))
+    selfType = commonType;
+
+  if (c10::isIntegralType(otherType, true))
+    otherType = commonType;
+
+  auto resultType = GetResultDtype({self, other}, true);
+  std::string guid = "div";
+  if (selfType == at::ScalarType::Float &&
+      IS_ENV_FLAG_DEFINED_NEW(PT_HPU_ENABLE_DIV_PRECISE) &&
+      GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DIV_PRECISE))
+    guid = "div_precise";
+
+  SharedMetaData divMeta{guid};
+  divMeta.inputs_data = {{selfRank, resultType}, {otherRank, resultType}};
+  divMeta.outputs_data = {{std::max(selfRank, otherRank), resultType}};
+  return {divMeta};
+}
 
 void Divide::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   if (ScalarType() == at::ScalarType::Float) {

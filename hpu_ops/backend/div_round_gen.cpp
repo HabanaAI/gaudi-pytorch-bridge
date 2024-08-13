@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -30,6 +30,37 @@ OutputMetaDataVector DivModeMeta(const at::Stack& stack) {
   meta.dtype = GetResultDtype(stack, stack[2].isNone());
 
   return {meta};
+}
+
+SharedMetaDataVector DivModeSharedMeta(const at::Stack& stack) {
+  auto self = stack.at(0);
+  auto selfTensor = self.toTensor();
+  auto selfRank = selfTensor.dim();
+  auto other = stack.at(1);
+  int64_t otherRank = other.isTensor() ? other.toTensor().dim() : 1;
+  auto outputRank = std::max(selfRank, otherRank);
+
+  auto isRoundingModeNone = stack.at(2).isNone();
+  auto resultType = GetResultDtype(stack, isRoundingModeNone);
+  if (!isRoundingModeNone && c10::isIntegralType(resultType, true)) {
+    SharedMetaData divModMeta{"div_mod_fwd"};
+    divModMeta.inputs_data = {{selfRank, resultType}, {otherRank, resultType}};
+    divModMeta.outputs_data = {
+        {outputRank, resultType}, {outputRank, resultType}};
+    return {divModMeta};
+  } else {
+    auto commonType = GetCommonDtype(stack, isRoundingModeNone);
+    std::string guid = "div";
+    if (commonType == at::ScalarType::Float &&
+        IS_ENV_FLAG_DEFINED_NEW(PT_HPU_ENABLE_DIV_PRECISE) &&
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DIV_PRECISE))
+      guid = "div_precise";
+
+    SharedMetaData divMeta{guid};
+    divMeta.inputs_data = {{selfRank, commonType}, {otherRank, commonType}};
+    divMeta.outputs_data = {{outputRank, commonType}};
+    return {divMeta};
+  }
 }
 
 std::vector<synapse_helpers::tensor> DivCommonFunction(

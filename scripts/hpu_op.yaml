@@ -3444,12 +3444,14 @@ div.out:
   promote_int_to_float: [self, other]
   op_backend: Divide
   op_frontend: BinaryScalarFE
+  op_validator: DivideSharedMeta
 
 div.out_mode:
   fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
   guid: div
   op_backend: DivRoundModeOperator
   output_meta: DivModeMeta
+  op_validator: DivModeSharedMeta
 
 div.Scalar:
   dtypes:
@@ -3462,6 +3464,7 @@ div.Scalar:
   scalar_ids: [1]
   promote_int_to_float: [self, other]
   op_backend: Divide
+  op_validator: DivideSharedMeta
 
 div_.Scalar:
   dtypes:
@@ -3474,6 +3477,7 @@ div_.Scalar:
   scalar_ids: [1]
   promote_int_to_float: [self, other]
   op_backend: Divide
+  op_validator: DivideSharedMeta
 
 div.Scalar_mode:
   fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
@@ -3483,6 +3487,7 @@ div.Scalar_mode:
   out_ids: [0]
   scalar_ids: [1]
   output_meta: DivModeMeta
+  op_validator: DivModeSharedMeta
 
 div_.Scalar_mode:
   fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
@@ -3491,6 +3496,7 @@ div_.Scalar_mode:
   op_backend: DivRoundModeOperator
   inplace_ids: [0]
   scalar_ids: [1]
+  op_validator: DivModeSharedMeta
 
 div.Tensor:
   broadcast: true
@@ -3503,6 +3509,7 @@ div.Tensor:
   promote_int_to_float: [self, other]
   op_backend: Divide
   op_frontend: BinaryScalarFE
+  op_validator: DivideSharedMeta
 
 div.Tensor_mode:
   fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
@@ -3511,6 +3518,7 @@ div.Tensor_mode:
   op_backend: DivRoundModeOperator
   output_meta: DivModeMeta
   out_ids: [0]
+  op_validator: DivModeSharedMeta
 
 div_.Tensor:
   dtypes:
@@ -3522,6 +3530,7 @@ div_.Tensor:
   promote_int_to_float: [self, other]
   op_backend: Divide
   op_frontend: BinaryScalarFE
+  op_validator: DivideSharedMeta
 
 div_.Tensor_mode:
   fallback_check: [DivTensorModeFallbackCheck, self, other, rounding_mode]
@@ -3529,6 +3538,7 @@ div_.Tensor_mode:
   op_frontend: DivMode
   op_backend: DivRoundModeOperator
   inplace_ids: [0]
+  op_validator: DivModeSharedMeta
 
 div.Scalar_mode_out:
   fallback_check: [DivScalarModeFallbackCheck, self, other, rounding_mode]
@@ -3537,6 +3547,7 @@ div.Scalar_mode_out:
   op_backend: DivRoundModeOperator
   output_meta: DivModeMeta
   scalar_ids: [1]
+  op_validator: DivModeSharedMeta
 
 div.Scalar_out:
   dtypes:
@@ -3548,6 +3559,7 @@ div.Scalar_out:
   promote_int_to_float: [self, other]
   scalar_ids: [1]
   op_backend: Divide
+  op_validator: DivideSharedMeta
 
 dot:
   output_meta: DotMeta
