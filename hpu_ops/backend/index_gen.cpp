@@ -234,9 +234,55 @@ static std::shared_ptr<void> FillPermuteParams(
   return params;
 }
 
+std::shared_ptr<void> FillIndexParams(const at::Stack& stack, size_t& size) {
+  PARAMS_STUB(ns_IndexKernel::Params);
+
+  auto const& adv_indexing_dims = stack.at(2).toBoolList();
+  auto const aid_size = adv_indexing_dims.size();
+  for (size_t i = 0; i < aid_size; ++i)
+    params->advanced_indexing_dims[i] = adv_indexing_dims[i];
+
+  auto const& self_permute_dims = stack.at(3).toIntList();
+  auto const spd_size = self_permute_dims.size();
+  for (size_t i = 0; i < spd_size; ++i)
+    params->self_permute_dims[i] = self_permute_dims[i];
+
+  params->num_index_tensors = stack.at(4).toScalar().toInt();
+
+  return params;
+}
+
 void IndexHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
+  if (!GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE)) {
+    // new implementation only for eager.
+    size_t size = 0;
+    auto params = FillIndexParams(stack, size);
+    auto meta = IndexMeta(stack)[0];
+
+    StackGetter stackGetter(stack, "IndexHabanaOperator::AddNode");
+    auto input = getNextInput<TensorsPair>(stackGetter);
+    auto indices = getNextInput<std::vector<TensorsPair>>(stackGetter);
+
+    std::vector<synTensor> index_input{input.syn_t};
+    for (auto const& index : indices)
+      index_input.push_back(index.syn_t);
+
+    auto result = BuildOp(
+        graph,
+        get_guid_with_precision("index", meta.dtype),
+        std::move(index_input),
+        {{meta.shape, meta.dtype, 0}},
+        params.get(),
+        size);
+
+    syn_out(0) = std::move(result[0]);
+
+    return;
+  }
+
+  // leave old implementation for lazy.
   const at::Tensor self = stack_tensor(stack, 0);
   const c10::List<at::Tensor> indices = stack.at(1).toTensorList();
   std::vector<bool> adv_ind_dim = stack[2].toBoolList().vec();
