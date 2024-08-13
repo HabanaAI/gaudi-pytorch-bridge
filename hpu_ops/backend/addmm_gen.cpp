@@ -11,23 +11,17 @@
  *******************************************************************************
  */
 
+#include "generated/backend/_addmm_activation.h"
 #include "generated/backend/addbmm.h"
 #include "generated/backend/addmm.h"
 #include "hpu_ops/backend/reduction_template.h"
-#define idxSelf 0
-#define idxMat1 1
-#define idxMat2 2
-#define idxBatch1 1
-#define idxBatch2 2
-#define idxBeta 3
-#define idxAlpha 4
 
 namespace habana {
 
 sizes_vec AddMMOutshape(const at::Stack& stack) {
-  auto self = stack_tensor(stack, idxSelf);
-  auto mat1 = stack_tensor(stack, idxMat1);
-  auto mat2 = stack_tensor(stack, idxMat2);
+  auto self = stack_tensor(stack, 0);
+  auto mat1 = stack_tensor(stack, 1);
+  auto mat2 = stack_tensor(stack, 2);
   TORCH_CHECK(
       self.dim() == 2 || self.dim() == 1 || self.dim() == 0,
       "addmm: Expected self to be 0-D, 1-D or 2-D, but got ",
@@ -72,9 +66,9 @@ OutputMetaDataVector AddMMMeta(const at::Stack& stack) {
 }
 
 OutputMetaDataVector AddBMMMeta(const at::Stack& stack) {
-  auto self = stack_tensor(stack, idxSelf);
-  auto batch1 = stack_tensor(stack, idxBatch1);
-  auto batch2 = stack_tensor(stack, idxBatch2);
+  auto self = stack_tensor(stack, 0);
+  auto batch1 = stack_tensor(stack, 1);
+  auto batch2 = stack_tensor(stack, 2);
   TORCH_CHECK(
       self.dim() == 2 || self.dim() == 1 || self.dim() == 0,
       "addbmm: Expected self to be 0-D, 1-D or 2-D, but got ",
@@ -206,8 +200,8 @@ static std::vector<synapse_helpers::tensor> AddMMCommon(
     const bool is_batch) {
   std::vector<synapse_helpers::tensor> addmm_out;
 
-  const float beta_val = stack.at(idxBeta).toScalar().toFloat();
-  const float alpha_val = stack.at(idxAlpha).toScalar().toFloat();
+  const float beta_val = stack.at(3).toScalar().toFloat();
+  const float alpha_val = stack.at(4).toScalar().toFloat();
 
   if (alpha_val == 0.0 && beta_val == 0.0) {
     addmm_out.emplace_back(OpBackend::BuildConstant(
@@ -251,8 +245,8 @@ static std::vector<synapse_helpers::tensor> AddMMCommon(
 void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto meta = AddMMMeta(stack);
 
-  const float beta_val = stack.at(idxBeta).toScalar().toFloat();
-  const float alpha_val = stack.at(idxAlpha).toScalar().toFloat();
+  const float beta_val = stack.at(3).toScalar().toFloat();
+  const float alpha_val = stack.at(4).toScalar().toFloat();
 
   const bool shouldUseParams = beta_val == 0.0 || beta_val == 1.0 ||
       alpha_val == 1.0 || alpha_val == 0.0;
@@ -291,6 +285,68 @@ void AddMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         {{meta[0].shape, meta[0].dtype, 0}});
 
     syn_out(0) = std::move(addmm[0]);
+  }
+}
+
+void AddMMActivation::AddNode(
+    synapse_helpers::graph& graph,
+    const at::Stack& stack) {
+  const auto meta = AddMMMeta(stack)[0];
+
+  const float beta_val = stack.at(3).toScalar().toFloat();
+  const float alpha_val = stack.at(4).toScalar().toFloat();
+
+  const bool shouldUseParams = beta_val == 0.0 || beta_val == 1.0 ||
+      alpha_val == 1.0 || alpha_val == 0.0;
+
+  const bool append_activation = !(alpha_val == 0 && beta_val == 0);
+
+  std::vector<synapse_helpers::tensor> result;
+  if (shouldUseParams) {
+    ns_AddmmKernel::Params params{};
+    params.alpha = alpha_val;
+    params.beta = beta_val;
+
+    result = BuildOp(
+        graph,
+        guid_,
+        {syn_in(0), syn_in(1), syn_in(2)},
+        {{meta.shape,
+          meta.dtype,
+          append_activation ? c10::nullopt : c10::optional(0)}},
+        &params,
+        sizeof(params));
+  } else {
+    auto alpha_tensor = ConstantHelper(graph, alpha_val, ScalarType(), 1);
+    auto beta_tensor = ConstantHelper(graph, beta_val, ScalarType(), 1);
+    result = BuildOp(
+        graph,
+        guid_,
+        {syn_in(0),
+         syn_in(1),
+         syn_in(2),
+         beta_tensor.get(),
+         alpha_tensor.get()},
+        {{meta.shape,
+          meta.dtype,
+          append_activation ? c10::nullopt : c10::optional(0)}});
+  }
+
+  if (append_activation) {
+    bool use_gelu = stack.at(5).toBool();
+    std::vector<NodeAttr::NodeOutputAttr> act_output_attr{
+        {meta.shape, meta.dtype, 0}};
+    if (use_gelu) {
+      act_output_attr.push_back({meta.shape, meta.dtype});
+    }
+    auto act = BuildOp(
+        graph,
+        get_guid_with_precision(use_gelu ? "gelu_fwd" : "relu_fwd", meta.dtype),
+        {result[0].get()},
+        act_output_attr);
+    syn_out(0) = std::move(act[0]);
+  } else {
+    syn_out(0) = std::move(result[0]);
   }
 }
 
@@ -333,8 +389,8 @@ SharedMetaDataVector AlphaSharedMeta(
 } // namespace
 
 SharedMetaDataVector AddBMMSharedMeta(const at::Stack& stack) {
-  const float beta = stack.at(idxBeta).toScalar().toFloat();
-  const float alpha = stack.at(idxAlpha).toScalar().toFloat();
+  const float beta = stack.at(3).toScalar().toFloat();
+  const float alpha = stack.at(4).toScalar().toFloat();
 
   if (alpha == 0.0 and beta == 0.0) {
     return {};
@@ -372,7 +428,7 @@ SharedMetaDataVector AddBMMSharedMeta(const at::Stack& stack) {
 void AddBMM::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto outshape = AddBMMMeta(stack)[0].shape;
   std::vector<synTensor> input_tensor{syn_in(0), syn_in(1), syn_in(2)};
-  const int64_t batch_size = stack_tensor(stack, idxBatch1).sizes()[0];
+  const int64_t batch_size = stack_tensor(stack, 1).sizes()[0];
   auto gemm_outshape = {batch_size, outshape[0], outshape[1]};
   auto addbmm_out = AddMMCommon(
       this, graph, stack, input_tensor, outshape, gemm_outshape, true);
