@@ -696,7 +696,7 @@ void graph::launch(
     stream& compute_stream,
     size_t active_graph_key) {
   PT_SYNHELPER_BEGIN;
-  synStatus status;
+  synStatus status = synStatus::synSuccess;
 
   if (recipe_handle.graph_is_empty_) {
     // Valid case, in some special scenarios Op does not add to graph.
@@ -840,15 +840,17 @@ void graph::launch(
         std::back_inserter(event_handles),
         [](shared_event& event) -> synEventHandle { return *event; });
 
-    status = synLaunchWithExternalEvents(
-        compute_stream,
-        inputs_and_outputs_info.data(),
-        inputs_and_outputs_info.size(),
-        workspace_buffer,
-        recipe_handle.syn_recipe_handle_,
-        event_handles.data(),
-        event_handles.size(),
-        flags);
+    if (!GET_ENV_FLAG_NEW(PT_COMPILE_ONLY_MODE)) {
+      status = synLaunchWithExternalEvents(
+          compute_stream,
+          inputs_and_outputs_info.data(),
+          inputs_and_outputs_info.size(),
+          workspace_buffer,
+          recipe_handle.syn_recipe_handle_,
+          event_handles.data(),
+          event_handles.size(),
+          flags);
+    }
   }
 
   if (synapse_helpers::memory_reporter_enable() && active_graph_key > 0) {

@@ -765,6 +765,13 @@ PT_CACHE_FOLDER_DELETE:
   type: bool
   default: false
 
+PT_COMPILE_ONLY_MODE:
+  type: bool
+  default: false
+  settable: true
+  doc: "Disable synLaunch calls in the backend. Careful: garbage results will be produced - use wisely."
+
+
 PT_HPU_ENABLE_DIV_PRECISE:
   type: bool
   default: false
