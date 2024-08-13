@@ -4270,7 +4270,6 @@ Tensor batch_norm_backward_elemt_lazy(
   return std::tie(out1, out2);
 }
 
-#if 1 // BatchNorm based implementation
 std::tuple<at::Tensor, at::Tensor, at::Tensor>
 native_group_norm_backward_hpu_lazy(
     const at::Tensor& grad_out,
@@ -4392,95 +4391,6 @@ native_group_norm_backward_hpu_lazy(
 
   return std::make_tuple(gin, grad_gamma, grad_beta);
 }
-#else // LayerNorm based implementation
-std::tuple<at::Tensor, at::Tensor, at::Tensor>
-native_group_norm_backward_hpu_lazy(
-    const at::Tensor& grad_out,
-    const at::Tensor& input,
-    const at::Tensor& mean,
-    const at::Tensor& rstd,
-    const c10::optional<at::Tensor>& weight_opt,
-    [[maybe_unused]] c10::SymInt N,
-    [[maybe_unused]] c10::SymInt C,
-    [[maybe_unused]] c10::SymInt HxW,
-    int64_t num_groups,
-    std::array<bool, 3> output_mask) {
-  std::vector<int64_t> normalized_shape = input.sizes().vec();
-  normalized_shape.erase(normalized_shape.begin());
-  // IntArrayRef normalized_shape = normalized_shape_vec;
-  Tensor weight = weight_opt.value_or(Tensor());
-  if (!weight.defined()) {
-    auto options = torch::TensorOptions()
-                       .dtype(c10::ScalarType::Float)
-                       .device(torch::kHPU)
-                       .requires_grad(false);
-    weight = torch::ones(normalized_shape, options);
-  }
-
-  using T = std::tuple<Tensor, Tensor, Tensor>;
-  struct GNBack : LazyOp<T> {
-    GNBack(
-        const at::Tensor& grad_out,
-        const at::Tensor& input,
-        const at::Tensor& mean,
-        const at::Tensor& rstd,
-        const at::Tensor& weight,
-        std::vector<int64_t> normalized_shape,
-        int64_t num_groups,
-        std::array<bool, 3> output_mask)
-        : LazyOp<T>(
-              "hpu::group_norm_backward",
-              {grad_out,
-               input,
-               mean,
-               rstd,
-               weight,
-               normalized_shape,
-               num_groups,
-               output_mask},
-              {5, 6, 7},
-              {},
-              -1),
-          grad_output{std::move(grad_out)},
-          weight{std::move(weight)},
-          normalized_shape{normalized_shape},
-          output_mask{output_mask} {}
-
-   private:
-    T get_result_overrideable() override {
-      auto sizes = GroupNormBackwardOperator::getOutputSizes(
-          grad_output, normalized_shape);
-      auto result1 = empty_hpu_lazy(
-          sizes[0],
-          grad_output.options(),
-          grad_output.suggest_memory_format(),
-          false);
-      at::Tensor result2, result3;
-      if (output_mask[1])
-        result2 = empty_hpu_lazy(
-            sizes[1], weight.options(), weight.suggest_memory_format(), false);
-      if (output_mask[2])
-        result3 = empty_hpu_lazy(
-            sizes[2], weight.options(), weight.suggest_memory_format(), false);
-      return std::make_tuple(result1, result2, result3);
-    }
-    Tensor grad_output;
-    Tensor weight;
-    std::vector<int64_t> normalized_shape;
-    std::array<bool, 3> output_mask;
-  };
-  GNBack op(
-      grad_out,
-      input,
-      mean,
-      rstd,
-      weight,
-      normalized_shape,
-      num_groups,
-      output_mask);
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(group_norm_backward, op)
-}
-#endif
 
 std::tuple<Tensor, Tensor, Tensor> instance_norm_hpu_lazy(
     const Tensor& input,

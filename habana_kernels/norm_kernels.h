@@ -273,26 +273,6 @@ class LayerNormOperator : public habana::HabanaOperator {
   }
 };
 
-class LayerNormBackwardOperator : public habana::HabanaOperator {
- public:
-  LayerNormBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("layer_norm_bwd", scalarType)) {
-    this->CreateSynContext(device_id);
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-  std::tuple<at::Tensor, at::Tensor, at::Tensor> AllocatePTOutputs(
-      const at::Tensor& input,
-      const at::Tensor& weight,
-      bool is_persistent);
-  static std::vector<std::vector<int64_t>> getOutputSizes(
-      const at::Tensor& input,
-      const at::Tensor& gamma);
-};
-
 // Norm Operator
 class NormOperator : public HabanaOperator {
  public:
@@ -437,38 +417,6 @@ class GroupNormForwardOperator : public habana::HabanaOperator {
       const at::Tensor& input,
       at::IntArrayRef normalized_shape,
       int64_t num_groups);
-};
-
-class GroupNormBackwardOperator : public habana::HabanaOperator {
- public:
-  GroupNormBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("layer_norm_bwd", scalarType)) {
-    this->CreateSynContext(device_id); // GroupNorm using LayerNorm
-    // assign layouts for input and output tensors
-    kernel_meta_data_.input_layout.assign(
-        {habana::LayoutFormat::NCHW,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign(
-        {habana::LayoutFormat::NCHW,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-    kernel_meta_data_.synapse_input_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-    kernel_meta_data_.synapse_output_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-  }
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-  static std::vector<std::vector<int64_t>> getOutputSizes(
-      const at::Tensor& input,
-      at::IntArrayRef normalized_shape);
 };
 
 } // namespace habana
