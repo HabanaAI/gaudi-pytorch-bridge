@@ -121,6 +121,9 @@ hpu_fallback_op_list = {
     "slice_backward",  # SW-146680
     "addcmul",
     "index",  # SW-146773
+    # Non-inferable
+    "nonzero",
+    "_unique2",
 }
 
 # List of ops that do not support dynamic shape in torch.compile
