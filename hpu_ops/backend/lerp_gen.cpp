@@ -77,7 +77,7 @@ synapse_helpers::tensor CommonLerp(
       op,
       graph,
       {get_guid_with_precision("mult", meta.dtype),
-       {isWeightTensor ? syn_inputs[2] : constant.value().get(), sub[0].get()},
+       {sub[0].get(), isWeightTensor ? syn_inputs[2] : constant.value().get()},
        {{meta.shape, meta.dtype}}});
 
   // addition of start and mult

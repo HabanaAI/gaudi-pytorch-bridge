@@ -1659,6 +1659,25 @@ def test_sag_section_validation_issue():
         assert torch.equal(a, a_h.cpu())
 
 
+@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
+def test_sag_lerp():
+    params = [((2, 2), 10), ((4, 4), 20)]
+
+    htdebug._clear_jit_cache()
+    for size, end_val in params:
+        start = torch.ones(size)
+        end = torch.empty(size).fill_(end_val)
+
+        start_hpu = start.to("hpu")
+        end_hpu = end.to("hpu")
+        out = torch.lerp(start, end, 0.5)
+        out_hpu = torch.lerp(start_hpu, end_hpu, 0.5)
+        assert torch.allclose(out, out_hpu.cpu(), atol=0.001, rtol=0.001)
+
+    shape_agnostic_not_supported_ops = htdebug._get_shape_agnostic_unsupported_ops()
+    assert len(shape_agnostic_not_supported_ops) == 0
+
+
 # test node params patching for masked_fill op
 @pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_masked_fill_node_params():
