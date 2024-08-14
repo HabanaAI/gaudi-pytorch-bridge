@@ -147,7 +147,7 @@ void HbExecutionContext::saveInputsAndOutputs(
         auto input_ir_v_uid = input_ir_v_.m_data_ptr.lock()->unique_id;
         for (auto& m_marked_user_input_t : m_marked_user_inputs) {
           auto marked_input_hbl =
-              habana_lazy::GetHbLazyTensor(m_marked_user_input_t);
+              habana_lazy::GetHbLazyTensor(m_marked_user_input_t, false, false);
           if (input_ir_v_uid == marked_input_hbl.getTensorUniqueId()) {
             m_user_input_positions[idx] = input_tensor_idx;
             m_user_input_match_index.insert(input_tensor_idx);
