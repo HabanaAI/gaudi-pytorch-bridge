@@ -39,6 +39,33 @@ static auto BuildErfc(
        {{outshape, dtype, out_index}}});
 }
 
+SharedMetaDataVector UnaryForeachErfcSharedMeta(const at::Stack& stack) {
+  auto tensors = stack.at(0).toTensorList();
+  auto tensorsSize = tensors.size();
+  SharedMetaDataVector metaVec;
+  const int numberOfKernelPerIteration = 2;
+  metaVec.reserve(tensorsSize * numberOfKernelPerIteration);
+  for (size_t i = 0; i < tensorsSize; i++) {
+    const at::Tensor& tensor = tensors[i];
+    auto rank = tensor.dim();
+    auto inputType = tensor.scalar_type();
+    inputType = inputType != torch::kBFloat16 ? torch::kFloat32 : inputType;
+    auto outputType = inputType;
+
+    SharedMetaTensor outputTensor{rank, outputType};
+    SharedMetaData erfMeta{"erf_fwd"};
+    erfMeta.inputs_data = {{rank, inputType}};
+    erfMeta.outputs_data = {outputTensor};
+    metaVec.push_back(erfMeta);
+
+    SharedMetaData subMeta{"sub_fwd"};
+    subMeta.inputs_data = {outputTensor, outputTensor};
+    subMeta.outputs_data = {outputTensor};
+    metaVec.push_back(subMeta);
+  }
+  return metaVec;
+}
+
 void ForeachErfc::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

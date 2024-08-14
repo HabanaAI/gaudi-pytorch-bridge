@@ -62,35 +62,51 @@ static auto BuildFrac(
 SharedMetaDataVector FracSharedMeta(const at::Stack& stack) {
   auto tensor = stack.at(0).toTensor();
   SharedMetaDataVector metaVec;
-  metaVec.resize(5);
+  metaVec.reserve(5);
   SharedMetaData sharedMeta;
 
   auto rank = tensor.dim();
   auto dtype = tensor.scalar_type();
-  auto index = 0;
 
   SharedMetaTensor inOutMetaTensor{rank, dtype};
   sharedMeta.guid = "sign_fwd";
   sharedMeta.inputs_data = {inOutMetaTensor};
   sharedMeta.outputs_data = {inOutMetaTensor};
-  metaVec[index++] = sharedMeta;
+  metaVec.push_back(sharedMeta);
 
   sharedMeta.guid = "abs_fwd";
-  metaVec[index++] = sharedMeta;
+  metaVec.push_back(sharedMeta);
 
   if (isIntegralType(dtype, true))
     inOutMetaTensor.second = torch::kFloat32;
 
   sharedMeta.guid = "floor_fwd";
-  metaVec[index++] = sharedMeta;
+  metaVec.push_back(sharedMeta);
 
   sharedMeta.guid = "mult";
   sharedMeta.inputs_data = {inOutMetaTensor, inOutMetaTensor};
-  metaVec[index++] = sharedMeta;
+  metaVec.push_back(sharedMeta);
 
   sharedMeta.guid = "sub";
-  metaVec[index] = sharedMeta;
+  metaVec.push_back(sharedMeta);
+  return metaVec;
+}
 
+SharedMetaDataVector UnaryForeachFracSharedMeta(const at::Stack& stack) {
+  auto tensors = stack.at(0).toTensorList();
+  auto tensorsSize = tensors.size();
+  SharedMetaDataVector metaVec;
+  const int numberOfKernelPerIteration = 5;
+  metaVec.reserve(tensorsSize * numberOfKernelPerIteration);
+  SharedMetaData sharedMeta;
+  for (size_t i = 0; i < tensorsSize; i++) {
+    at::Stack fracStack = {c10::IValue(tensors[i])};
+    auto fracSharedMetaVec = FracSharedMeta(fracStack);
+    metaVec.insert(
+        std::end(metaVec),
+        std::begin(fracSharedMetaVec),
+        std::end(fracSharedMetaVec));
+  }
   return metaVec;
 }
 

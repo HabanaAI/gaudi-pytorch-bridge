@@ -12,8 +12,38 @@
  */
 
 #include "hpu_ops/shared_meta_common.h"
-
+#include <unordered_set>
 namespace habana {
+
+// if all integers are not supported enter only torch::kInt32
+static std::unordered_map<std::string, std::set<at::ScalarType>>
+    foreachOpsUnsupportedDtypes = {
+        {"acos_fwd", {torch::kInt32, torch::kFloat16, torch::kBFloat16}},
+        {"asin_fwd", {torch::kInt32, torch::kFloat16, torch::kBFloat16}},
+        {"atan_fwd", {torch::kInt32, torch::kFloat16, torch::kBFloat16}},
+        {"ceil_fwd", {torch::kInt32}},
+        {"cos_fwd", {torch::kInt32}},
+        {"cosh_fwd", {torch::kInt32, torch::kFloat16, torch::kBFloat16}},
+        {"erf_fwd", {torch::kInt32, torch::kFloat16}},
+        {"exp_fwd", {torch::kInt32}},
+        {"expm1_fwd", {torch::kInt32, torch::kFloat16, torch::kBFloat16}},
+        {"floor_fwd", {torch::kInt32}},
+        {"gammaln_fwd", {torch::kInt32, torch::kFloat16, torch::kBFloat16}},
+        {"log_fwd", {torch::kInt32}},
+        {"log10_fwd", {torch::kInt32}},
+        {"log1p_fwd", {torch::kInt32}},
+        {"log2_fwd", {torch::kInt32}},
+        {"neg_fwd", {torch::kInt16, torch::kInt8}},
+        {"reciprocal_fwd", {torch::kInt32}},
+        {"round_fwd", {torch::kInt32}},
+        {"sigmoid_fwd", {torch::kInt32}},
+        {"sin_fwd", {torch::kInt32}},
+        {"sinh_fwd", {torch::kInt32, torch::kFloat16, torch::kBFloat16}},
+        {"sqrt_fwd", {torch::kInt32}},
+        {"tan_fwd", {torch::kInt32, torch::kFloat16, torch::kBFloat16}},
+        {"tanh_fwd", {torch::kInt32}},
+        {"trunc_fwd", {torch::kInt32}},
+};
 
 SharedMetaDataVector Input0SharedMeta(
     const at::Stack& stack,
@@ -121,6 +151,43 @@ SharedMetaDataVector RoundingSharedMeta(
   roundingMeta.inputs_data = {inOutTensor};
   roundingMeta.outputs_data = {inOutTensor};
   return {roundingMeta};
+}
+
+SharedMetaDataVector UnaryForeachSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  auto tensors = stack.at(0).toTensorList();
+  auto tensorsSize = tensors.size();
+  SharedMetaDataVector metaVec;
+  metaVec.resize(tensorsSize);
+  for (size_t i = 0; i < tensorsSize; i++) {
+    const at::Tensor& tensor = tensors[i];
+    auto rank = tensor.dim();
+    auto inputType = tensor.scalar_type();
+
+    auto guidIt = foreachOpsUnsupportedDtypes.find(guid);
+    if (guidIt != std::end(foreachOpsUnsupportedDtypes)) {
+      bool isInputTypeUnsupported =
+          guidIt->second.find(inputType) != std::end(guidIt->second);
+      if (isIntegralType(inputType, true)) {
+        bool isI32Unsupported =
+            guidIt->second.find(torch::kInt32) != std::end(guidIt->second);
+        if (isI32Unsupported)
+          inputType = torch::kFloat32;
+        else
+          inputType = isInputTypeUnsupported ? torch::kInt32 : inputType;
+      } else if (isInputTypeUnsupported) {
+        inputType = torch::kFloat32;
+      }
+    }
+
+    auto outputType = inputType;
+    SharedMetaData foreachMeta{guid};
+    foreachMeta.inputs_data = {{rank, inputType}};
+    foreachMeta.outputs_data = {{rank, outputType}};
+    metaVec[i] = foreachMeta;
+  }
+  return metaVec;
 }
 
 } // namespace habana

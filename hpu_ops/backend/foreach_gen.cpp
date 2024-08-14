@@ -16,6 +16,13 @@
 #include "generated/backend/_foreach_div.h"
 #include "generated/backend/_foreach_zero.h"
 #include "hpu_ops/backend/foreach.h"
+#include "hpu_ops/shared_meta_common.h"
+
+#define UNARY_FOREACH_SHARED_META(name, guid)          \
+  SharedMetaDataVector UnaryForeach##name##SharedMeta( \
+      const at::Stack& stack) {                        \
+    return UnaryForeachSharedMeta(stack, guid);        \
+  }
 
 namespace habana {
 const unsigned SELF_INDEX = 0;
@@ -48,6 +55,35 @@ OutputMetaDataVector ForeachMeta(const at::Stack& stack) {
 OutputMetaDataVector NonIntegerForeachMeta(const at::Stack& stack) {
   return CommonForeachMeta(stack, true);
 }
+
+UNARY_FOREACH_SHARED_META(Abs, "abs_fwd")
+UNARY_FOREACH_SHARED_META(Acos, "acos_fwd")
+UNARY_FOREACH_SHARED_META(Asin, "asin_fwd")
+UNARY_FOREACH_SHARED_META(Atan, "atan_fwd")
+UNARY_FOREACH_SHARED_META(Ceil, "ceil_fwd")
+UNARY_FOREACH_SHARED_META(Cos, "cos_fwd")
+UNARY_FOREACH_SHARED_META(Cosh, "cosh_fwd")
+UNARY_FOREACH_SHARED_META(Erf, "erf_fwd")
+UNARY_FOREACH_SHARED_META(Exp, "exp_fwd")
+UNARY_FOREACH_SHARED_META(Expm1, "expm1_fwd")
+UNARY_FOREACH_SHARED_META(Floor, "floor_fwd")
+UNARY_FOREACH_SHARED_META(Lgamma, "gammaln_fwd")
+UNARY_FOREACH_SHARED_META(Log, "log_fwd")
+UNARY_FOREACH_SHARED_META(Log10, "log10_fwd")
+UNARY_FOREACH_SHARED_META(Log1p, "log1p_fwd")
+UNARY_FOREACH_SHARED_META(Log2, "log2_fwd")
+UNARY_FOREACH_SHARED_META(Neg, "neg_fwd")
+UNARY_FOREACH_SHARED_META(Reciprocal, "reciprocal_fwd")
+UNARY_FOREACH_SHARED_META(Round, "round_fwd")
+UNARY_FOREACH_SHARED_META(Sign, "sign_fwd")
+UNARY_FOREACH_SHARED_META(Sigmoid, "sigmoid_fwd")
+UNARY_FOREACH_SHARED_META(Sin, "sin_fwd")
+UNARY_FOREACH_SHARED_META(Sinh, "sinh_fwd")
+UNARY_FOREACH_SHARED_META(Sqrt, "sqrt_fwd")
+UNARY_FOREACH_SHARED_META(Tan, "tan_fwd")
+UNARY_FOREACH_SHARED_META(Tanh, "tanh_fwd")
+UNARY_FOREACH_SHARED_META(Trunc, "trunc_fwd")
+UNARY_FOREACH_SHARED_META(Zero, "constant")
 
 static OutputMetaData MetaForSingleOutput(
     const at::Tensor& self,

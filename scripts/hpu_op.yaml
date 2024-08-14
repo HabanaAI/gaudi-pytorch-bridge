@@ -168,12 +168,14 @@ _foreach_abs:
   op_backend: Foreach
   output_meta: ForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachAbsSharedMeta
 
 _foreach_abs_:
   dtypes: [BFloat16, Float]
   guid: abs_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachAbsSharedMeta
 
 _foreach_add.Scalar:
   # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
@@ -360,12 +362,14 @@ _foreach_acos:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachAcosSharedMeta
 
 _foreach_acos_:
   dtypes: [Float]
   guid: acos_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachAcosSharedMeta
 
 _foreach_asin:
   dtypes: [Float]
@@ -373,12 +377,14 @@ _foreach_asin:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachAsinSharedMeta
 
 _foreach_asin_:
   dtypes: [Float]
   guid: asin_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachAsinSharedMeta
 
 _foreach_atan:
   dtypes: [Float]
@@ -386,12 +392,14 @@ _foreach_atan:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachAtanSharedMeta
 
 _foreach_atan_:
   dtypes: [Float]
   guid: atan_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachAtanSharedMeta
 
 _foreach_ceil:
   dtypes: [BFloat16, Float]
@@ -399,12 +407,14 @@ _foreach_ceil:
   op_backend: Foreach
   output_meta: ForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachCeilSharedMeta
 
 _foreach_ceil_:
   dtypes: [BFloat16, Float]
   guid: ceil_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachCeilSharedMeta
 
 _foreach_clamp_max.Scalar:
   dtypes:
@@ -525,12 +535,14 @@ _foreach_cos:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachCosSharedMeta
 
 _foreach_cos_:
   dtypes: [BFloat16, Float]
   guid: cos_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachCosSharedMeta
 
 _foreach_cosh:
   dtypes: [Float]
@@ -538,12 +550,14 @@ _foreach_cosh:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachCoshSharedMeta
 
 _foreach_cosh_:
   dtypes: [Float]
   guid: cosh_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachCoshSharedMeta
 
 _foreach_div.Scalar:
   dtypes:
@@ -627,23 +641,27 @@ _foreach_erf:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachErfSharedMeta
 
 _foreach_erf_:
   dtypes: [BFloat16, Float]
   guid: erf_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachErfSharedMeta
 
 _foreach_erfc:
   dtypes: [BFloat16, Float]
   op_backend: ForeachErfc
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachErfcSharedMeta
 
 _foreach_erfc_:
   dtypes: [BFloat16, Float]
   inplace_ids: [0]
   op_backend: ForeachErfc
+  op_validator: UnaryForeachErfcSharedMeta
 
 _foreach_exp:
   dtypes: [BFloat16, Float]
@@ -651,12 +669,14 @@ _foreach_exp:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachExpSharedMeta
 
 _foreach_exp_:
   dtypes: [BFloat16, Float]
   guid: exp_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachExpSharedMeta
 
 _foreach_expm1:
   dtypes: [Float]
@@ -664,12 +684,14 @@ _foreach_expm1:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachExpm1SharedMeta
 
 _foreach_expm1_:
   dtypes: [Float]
   guid: expm1_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachExpm1SharedMeta
 
 _foreach_floor:
   dtypes: [BFloat16, Float]
@@ -677,6 +699,7 @@ _foreach_floor:
   op_backend: Foreach
   output_meta: ForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachFloorSharedMeta
 
 _foreach_floor_:
   dtypes: [BFloat16, Float]
@@ -689,11 +712,13 @@ _foreach_frac:
   op_backend: ForeachFrac
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachFracSharedMeta
 
 _foreach_frac_:
   dtypes: [BFloat16, Float]
   inplace_ids: [0]
   op_backend: ForeachFrac
+  op_validator: UnaryForeachFracSharedMeta
 
 _foreach_lerp.Scalar:
   dtypes:
@@ -735,12 +760,14 @@ _foreach_lgamma:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachLgammaSharedMeta
 
 _foreach_lgamma_:
   dtypes: [Float]
   guid: gammaln_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachLgammaSharedMeta
 
 _foreach_log:
   dtypes: [BFloat16, Float]
@@ -748,23 +775,27 @@ _foreach_log:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachLogSharedMeta
 
 _foreach_log_:
   dtypes: [BFloat16, Float]
   guid: log_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachLogSharedMeta
 
 _foreach_log10:
   dtypes: [BFloat16, Float]
   op_backend: ForeachLog10
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachLog10SharedMeta
 
 _foreach_log10_:
   dtypes: [BFloat16, Float]
   inplace_ids: [0]
   op_backend: ForeachLog10
+  op_validator: UnaryForeachLog10SharedMeta
 
 _foreach_log1p:
   dtypes: [BFloat16, Float]
@@ -772,12 +803,14 @@ _foreach_log1p:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachLog1pSharedMeta
 
 _foreach_log1p_:
   dtypes: [BFloat16, Float]
   guid: log1p_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachLog1pSharedMeta
 
 _foreach_log2:
   dtypes: [BFloat16, Float]
@@ -785,12 +818,14 @@ _foreach_log2:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachLog2SharedMeta
 
 _foreach_log2_:
   dtypes: [BFloat16, Float]
   guid: log2_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachLog2SharedMeta
 
 _foreach_maximum.Scalar:
   dtypes:
@@ -988,12 +1023,14 @@ _foreach_neg:
   op_backend: Foreach
   output_meta: ForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachNegSharedMeta
 
 _foreach_neg_:
   dtypes: [BFloat16, Float, Int]
   guid: neg_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachNegSharedMeta
 
 _foreach_pow.Scalar:
   dtypes:
@@ -1068,12 +1105,14 @@ _foreach_reciprocal:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachReciprocalSharedMeta
 
 _foreach_reciprocal_:
   dtypes: [BFloat16, Float]
   guid: reciprocal_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachReciprocalSharedMeta
 
 _foreach_round:
   custom_fill_params: FillRoundParams
@@ -1082,6 +1121,7 @@ _foreach_round:
   op_backend: Foreach
   output_meta: ForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachRoundSharedMeta
 
 _foreach_round_:
   custom_fill_params: FillRoundParams
@@ -1089,6 +1129,7 @@ _foreach_round_:
   guid: round_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachRoundSharedMeta
 
 _foreach_sign:
   dtypes:
@@ -1099,6 +1140,7 @@ _foreach_sign:
   op_backend: Foreach
   output_meta: ForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachSignSharedMeta
 
 _foreach_sign_:
   dtypes:
@@ -1108,6 +1150,7 @@ _foreach_sign_:
   guid: sign_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachSignSharedMeta
 
 _foreach_sigmoid:
   dtypes: [BFloat16, Float]
@@ -1115,12 +1158,14 @@ _foreach_sigmoid:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachSigmoidSharedMeta
 
 _foreach_sigmoid_:
   dtypes: [BFloat16, Float]
   guid: sigmoid_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachSigmoidSharedMeta
 
 _foreach_sin:
   dtypes: [BFloat16, Float]
@@ -1128,12 +1173,14 @@ _foreach_sin:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachSinSharedMeta
 
 _foreach_sin_:
   dtypes: [BFloat16, Float]
   guid: sin_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachSinSharedMeta
 
 _foreach_sinh:
   dtypes: [Float]
@@ -1141,12 +1188,14 @@ _foreach_sinh:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachSinhSharedMeta
 
 _foreach_sinh_:
   dtypes: [Float]
   guid: sinh_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachSinhSharedMeta
 
 _foreach_sqrt:
   dtypes: [BFloat16, Float]
@@ -1154,12 +1203,14 @@ _foreach_sqrt:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachSqrtSharedMeta
 
 _foreach_sqrt_:
   dtypes: [BFloat16, Float]
   guid: sqrt_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachSqrtSharedMeta
 
 _foreach_sub.Scalar:
   dtypes:
@@ -1224,12 +1275,14 @@ _foreach_tan:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachTanSharedMeta
 
 _foreach_tan_:
   dtypes: [Float]
   guid: tan_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachTanSharedMeta
 
 _foreach_tanh:
   dtypes: [BFloat16, Float]
@@ -1237,12 +1290,14 @@ _foreach_tanh:
   op_backend: Foreach
   output_meta: NonIntegerForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachTanhSharedMeta
 
 _foreach_tanh_:
   dtypes: [BFloat16, Float]
   guid: tanh_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachTanhSharedMeta
 
 _foreach_trunc:
   dtypes: [BFloat16, Float]
@@ -1250,17 +1305,20 @@ _foreach_trunc:
   op_backend: Foreach
   output_meta: ForeachMeta
   out_ids: [0]
+  op_validator: UnaryForeachTruncSharedMeta
 
 _foreach_trunc_:
   dtypes: [BFloat16, Float]
   guid: trunc_fwd
   inplace_ids: [0]
   op_backend: Foreach
+  op_validator: UnaryForeachTruncSharedMeta
 
 _foreach_zero_:
   dtypes: [BFloat16, Float, Int, Short, Byte, Char]
   inplace_ids: [0]
   op_backend: ForeachZero
+  op_validator: UnaryForeachZeroSharedMeta
 
 _fused_dropout:
   output_meta: FusedNativeDropoutMeta
