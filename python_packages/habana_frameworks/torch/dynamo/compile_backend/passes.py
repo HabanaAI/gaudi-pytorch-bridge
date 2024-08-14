@@ -343,6 +343,18 @@ def get_dynamic_config_value():
     return is_dynamic
 
 
+def is_higher_order_node(node: torch.fx.Node) -> bool:
+    """
+    nodes that need to be executed eagerly, while subgraph can be compiled
+    """
+    assert node.op == "call_function"
+    supported_higher_order_ops = ["cond", "while_loop"]
+
+    return (
+        isinstance(node.target, torch._ops.HigherOrderOperator) and node.target.__name__ in supported_higher_order_ops
+    )
+
+
 def optimize_graph(
     stage: OptimizationPassPlacement,
     graph_module: torch.fx.GraphModule,
@@ -374,36 +386,70 @@ def optimize_graph(
         None,
     )
 
+    def run_passes(ctx: OptimizerContext):
+        graph_changed = False
+        visualization_mode = bc.get_pt_hpu_graph_dump_mode()
+        visualisation_enabled = visualization_mode in ["all", "compile", "compile_fx"]
+        with graph_visualizer(
+            graph_module=ctx.graph_module,
+            active_stage=stage,
+            final_stage=OptimizationPassPlacement.POST_PARTITIONER,
+            disable=not visualisation_enabled,
+        ) as gv:
+            for optimization_pass in get_passes(stage):
+                pass_name = optimization_pass.__name__
+                env_name = "PT_HPU_DISABLE_" + pass_name
+                if os.getenv(env_name, "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
+                    logger.debug("pass %s was disabled by env at stage %s", pass_name, stage)
+                else:
+                    logger.debug("running %s pass at stage %s", pass_name, stage)
+
+                    with Timer() as t:
+                        current_graph_changed = optimization_pass(ctx)
+
+                    graph_changed = current_graph_changed or graph_changed
+                    if current_graph_changed:
+                        gv.visualize_graph(ctx.graph_module, optimization_pass.__name__)
+
+                    logger.debug(
+                        "pass %s at stage %s took: %.3f [s]",
+                        pass_name,
+                        stage,
+                        t.elapsed,
+                    )
+        return graph_changed
+
+    def _get_subgraph_names(gm):
+        for node in gm.graph.nodes:
+            if node.target == torch.ops.higher_order.cond:
+                true_subgraph_name = node.args[1].name
+                false_subgraph_name = node.args[2].name
+                yield true_subgraph_name
+                yield false_subgraph_name
+
+    def recursive_run_passes(ctx, graph_changed, module_prefix=""):
+        for submodule_name in _get_subgraph_names(ctx.graph_module):
+            submodule = getattr(ctx.graph_module, submodule_name)
+
+            # create new ctx for submodule
+            # outer-most graph module is dynamic while sub module is static?
+            sub_ctx = OptimizerContext(
+                submodule, ctx.example_inputs, ctx.is_training, ctx.is_backward, ctx.is_dynamic, ctx.stage, None
+            )
+
+            submodule_qualified_name = submodule_name if module_prefix is "" else (module_prefix + "." + submodule_name)
+            graph_changed = recursive_run_passes(sub_ctx, graph_changed, submodule_qualified_name)
+
+        logger.debug(
+            "Running passes of {} stage on module {}".format(
+                ctx.stage, "outer_most" if module_prefix is "" else module_prefix
+            )
+        )
+        graph_changed = run_passes(ctx) or graph_changed
+        return graph_changed
+
     graph_changed = False
-    visualization_mode = bc.get_pt_hpu_graph_dump_mode()
-    visualisation_enabled = visualization_mode in ["all", "compile", "compile_fx"]
-    with graph_visualizer(
-        graph_module=graph_module,
-        active_stage=stage,
-        final_stage=OptimizationPassPlacement.POST_PARTITIONER,
-        disable=not visualisation_enabled,
-    ) as gv:
-        for optimization_pass in get_passes(stage):
-            pass_name = optimization_pass.__name__
-            env_name = "PT_HPU_DISABLE_" + pass_name
-            if os.getenv(env_name, "").upper() in ["ON", "1", "YES", "TRUE", "Y"]:
-                logger.debug("pass %s was disabled by env at stage %s", pass_name, stage)
-            else:
-                logger.debug("running %s pass at stage %s", pass_name, stage)
-
-                with Timer() as t:
-                    current_graph_changed = optimization_pass(ctx)
-
-                graph_changed = current_graph_changed or graph_changed
-                if current_graph_changed:
-                    gv.visualize_graph(graph_module, optimization_pass.__name__)
-
-                logger.debug(
-                    "pass %s at stage %s took: %.3f [s]",
-                    pass_name,
-                    stage,
-                    t.elapsed,
-                )
+    graph_changed = recursive_run_passes(ctx, graph_changed)
 
     return graph_changed
 
@@ -638,6 +684,9 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
     This function takes out basic information from propagated fake tensor, like
     dtype, layout and device and puts it to the node that created it.
     """
+    # just skip for get_attr node since it's not necessary
+    if node.op == "get_attr":
+        return
 
     result = helper_handle_noncontiguous_output(node, result)
 
@@ -1055,6 +1104,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
         if (
             node.op != "placeholder"
             and node.op != "output"
+            and node.op != "get_attr"
             and not (node.op == "call_function" and "to_copy" in node.target.__name__)
             and node.meta["output_device"].type == "hpu"
             and not is_backward_checkpoint_op(node)
@@ -1062,7 +1112,7 @@ def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
             for arg in node.args:
                 if (
                     isinstance(arg, torch.fx.Node)
-                    and arg.meta["output_device"].type != "hpu"
+                    and ("output_device" in arg.meta and arg.meta["output_device"].type != "hpu")
                     and _is_cpu_scalar_copy_required(node, arg)
                 ):
                     nodes_to_fix_list.append(node)
@@ -1109,6 +1159,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
         placement = None
         dynamic_call_function = is_call_function_dynamic(node, ctx.is_dynamic) if node.op == "call_function" else False
         if node.op in ["placeholder", "output", "get_attr"]:
+            placement = "eager"
+        elif node.op == "call_function" and is_higher_order_node(node):
             placement = "eager"
         elif node.op == "call_function" and "to_copy" in node.target.__name__:
             input_node = None
