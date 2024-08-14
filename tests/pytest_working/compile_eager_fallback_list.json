@@ -1,5 +1,6 @@
 {
         "all": [
+                "test_capture_scalar_outputs",
                 "test_output_alias_of_intermidate_base_tensor",
                 "test_addcdiv[dtype0]",
                 "test_addmm[1-1-1-bfloat16]",

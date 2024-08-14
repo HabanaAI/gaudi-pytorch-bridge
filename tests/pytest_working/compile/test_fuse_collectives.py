@@ -13,7 +13,7 @@ import torch
 import torch.distributed as dist
 import torch.distributed._functional_collectives as fcol
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_dynamo_utils import assert_helper
+from test_utils import fga_assert_helper
 from torch.distributed.distributed_c10d import _get_default_group
 
 
@@ -40,4 +40,6 @@ def test_collective_block_fuse():
         t2 = torch.tensor([2], device="hpu")
         fn(t1, t2, pg)
         ops_summary = fga.get_ops_summary()
-        assert_helper(ops_summary=ops_summary, op="torch.ops._c10d_functional.all_reduce.default", count_list=[(0, 3)])
+        fga_assert_helper(
+            ops_summary=ops_summary, op="torch.ops._c10d_functional.all_reduce.default", count_list=[(0, 3)]
+        )

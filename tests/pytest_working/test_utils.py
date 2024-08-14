@@ -642,3 +642,16 @@ def print_tensors(labels, tensors):
     for l, t in zip(labels, tensors):
         print(f"{l} : {t.shape}")
     print_tensors_internal([t.tolist() for t in tensors])
+
+
+def fga_assert_helper(ops_summary, op, count_list):
+    assert len(ops_summary) == len(count_list)
+    for single_graph_summary, graph_eager_count in zip(ops_summary, count_list):
+        if graph_eager_count is None:
+            assert op not in single_graph_summary
+        else:
+            graph_count, eager_count = graph_eager_count
+            if graph_count != 0 or eager_count != 0:
+                assert op in single_graph_summary
+                assert single_graph_summary[op].graph_count == graph_count
+                assert single_graph_summary[op].eager_count == eager_count

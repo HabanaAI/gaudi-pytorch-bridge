@@ -25,8 +25,7 @@ from habana_frameworks.torch.core.quantizer import (
     habana_quantizer,
 )
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_dynamo_utils import assert_helper
-from test_utils import is_gaudi1
+from test_utils import fga_assert_helper, is_gaudi1
 from torch.ao.quantization.observer import MinMaxObserver
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.ao.quantization.quantizer import QuantizationSpec, Quantizer
@@ -105,7 +104,7 @@ quant_float_dtype_list = [
 def verify_nodes(ops_summary, expected_op_count):
     for op, count_list in expected_op_count.items():
         if not op.startswith("skip_"):
-            assert_helper(ops_summary=ops_summary, op=op, count_list=count_list)
+            fga_assert_helper(ops_summary=ops_summary, op=op, count_list=count_list)
 
 
 def use_pt2e_quant_flow(

@@ -23,7 +23,8 @@ class FxGraphAnalyzer:
     id_iter = itertools.count()
     registered_contexts: dict = dict()
 
-    def __init__(self, reset_dynamo=False):
+    def __init__(self, reset_dynamo=False, capture_non_hpu_output=False):
+        self.capture_non_hpu_output = capture_non_hpu_output
         self.reset_dynamo = reset_dynamo
         self.id = next(FxGraphAnalyzer.id_iter)
         self.graphs = list()
@@ -65,7 +66,7 @@ class FxGraphAnalyzer:
                 if (
                     "output_device" not in n.meta
                     or n.meta["output_device"] is None
-                    or n.meta["output_device"].type != "hpu"
+                    or (n.meta["output_device"].type != "hpu" and not self.capture_non_hpu_output)
                 ):
                     continue
                 target_name = n._pretty_print_target(n.target)

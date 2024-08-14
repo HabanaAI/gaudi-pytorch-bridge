@@ -15,6 +15,7 @@ import torch
 from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from habana_frameworks.torch.dynamo.compile_backend.shared_layer import hpu_fallback_op_list
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
+from test_utils import fga_assert_helper
 
 
 @contextmanager
@@ -52,19 +53,6 @@ def fn2(x, y):
     return res * res
 
 
-def assert_helper(ops_summary, op, count_list):
-    assert len(ops_summary) == len(count_list)
-    for single_graph_summary, graph_eager_count in zip(ops_summary, count_list):
-        if graph_eager_count is None:
-            assert op not in single_graph_summary
-        else:
-            graph_count, eager_count = graph_eager_count
-            if graph_count != 0 or eager_count != 0:
-                assert op in single_graph_summary
-                assert single_graph_summary[op].graph_count == graph_count
-                assert single_graph_summary[op].eager_count == eager_count
-
-
 def test_simple():
     with use_eager_fallback():
         with use_randint_eager_fallback():
@@ -74,8 +62,8 @@ def test_simple():
                 fn(t1, t2, "hpu")
 
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary, "torch.ops.aten.randint.low", [(0, 1)])
-    assert_helper(ops_summary, "torch.ops.aten.add.Tensor", [(2, 0)])
+    fga_assert_helper(ops_summary, "torch.ops.aten.randint.low", [(0, 1)])
+    fga_assert_helper(ops_summary, "torch.ops.aten.add.Tensor", [(2, 0)])
 
 
 def test_cpu():
@@ -100,17 +88,17 @@ def test_multiple():
             fn(t1.to("cpu"), t2.to("cpu"), "cpu")
 
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary, "torch.ops.aten.randint.low", [None, (1, 0), None])
-    assert_helper(ops_summary, "torch.ops.aten.add.Tensor", [(1, 0), (2, 0), None])
-    assert_helper(ops_summary, "torch.ops.aten.mul.Tensor", [(2, 0), None, None])
+    fga_assert_helper(ops_summary, "torch.ops.aten.randint.low", [None, (1, 0), None])
+    fga_assert_helper(ops_summary, "torch.ops.aten.add.Tensor", [(1, 0), (2, 0), None])
+    fga_assert_helper(ops_summary, "torch.ops.aten.mul.Tensor", [(2, 0), None, None])
 
     ops_summary2 = fga2.get_ops_summary()
-    assert_helper(ops_summary2, "torch.ops.aten.add.Tensor", [(1, 0)])
-    assert_helper(ops_summary2, "torch.ops.aten.mul.Tensor", [(2, 0)])
+    fga_assert_helper(ops_summary2, "torch.ops.aten.add.Tensor", [(1, 0)])
+    fga_assert_helper(ops_summary2, "torch.ops.aten.mul.Tensor", [(2, 0)])
 
     ops_summary3 = fga3.get_ops_summary()
-    assert_helper(ops_summary3, "torch.ops.aten.randint.low", [(1, 0)])
-    assert_helper(ops_summary3, "torch.ops.aten.add.Tensor", [(2, 0)])
+    fga_assert_helper(ops_summary3, "torch.ops.aten.randint.low", [(1, 0)])
+    fga_assert_helper(ops_summary3, "torch.ops.aten.add.Tensor", [(2, 0)])
 
 
 def test_bulitin():
@@ -123,4 +111,4 @@ def test_bulitin():
         clone_fn(t)
 
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary, "torch.ops.aten.add.Tensor", [(1, 0)])
+    fga_assert_helper(ops_summary, "torch.ops.aten.add.Tensor", [(1, 0)])

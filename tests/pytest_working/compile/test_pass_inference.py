@@ -14,7 +14,7 @@ import copy
 import torch
 import torch.nn.functional as F
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
-from test_dynamo_utils import assert_helper
+from test_utils import fga_assert_helper
 
 
 class MyModule(torch.nn.Module):
@@ -68,7 +68,7 @@ def test_linear():
         out_hpu = func(x=x, m=m, device="hpu")
 
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary=ops_summary, op="torch.ops.aten.linear", count_list=[(1, 0)])
+    fga_assert_helper(ops_summary=ops_summary, op="torch.ops.aten.linear", count_list=[(1, 0)])
 
     out_cpu = func(x=x_c, m=m_c, device="cpu")
     assert torch.allclose(out_cpu[0].float(), out_hpu[0].to(device=torch.device("cpu")), rtol=1e-3, atol=1e-3)
@@ -93,14 +93,14 @@ def test_graph_freeze():
         out_hpu_no_freeze = func(x=x, m=m, device="hpu", freeze=False)
 
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary=ops_summary, op="torch.ops.aten._to_copy.default", count_list=[(4, 0)])
-    assert_helper(ops_summary=ops_summary, op="torch.ops.aten.transpose.int", count_list=[(1, 0)])
+    fga_assert_helper(ops_summary=ops_summary, op="torch.ops.aten._to_copy.default", count_list=[(4, 0)])
+    fga_assert_helper(ops_summary=ops_summary, op="torch.ops.aten.transpose.int", count_list=[(1, 0)])
 
     with FxGraphAnalyzer(reset_dynamo=True) as fga:
         out_hpu = func(x=x, m=m, device="hpu", freeze=True)
 
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary=ops_summary, op="torch.ops.aten._to_copy.default", count_list=[(2, 0)])
+    fga_assert_helper(ops_summary=ops_summary, op="torch.ops.aten._to_copy.default", count_list=[(2, 0)])
 
     out_cpu = func(x=x_c, m=m_c, device="cpu")
     assert torch.allclose(out_cpu[0].float(), out_hpu[0].to(device=torch.device("cpu")), rtol=1e-3, atol=1e-3)
@@ -123,7 +123,7 @@ def test_silu():
         out_hpu = func(x=x, m=m, device="hpu", freeze=True)
 
     ops_summary = fga.get_ops_summary()
-    assert_helper(ops_summary=ops_summary, op="torch.ops.aten.silu.default", count_list=[(1, 0)])
+    fga_assert_helper(ops_summary=ops_summary, op="torch.ops.aten.silu.default", count_list=[(1, 0)])
 
     out_cpu = func(x=x_c, m=m_c, device="cpu")
     # changed the tolerance value due to some differences seen between CPU and HPU accuracy for silu
