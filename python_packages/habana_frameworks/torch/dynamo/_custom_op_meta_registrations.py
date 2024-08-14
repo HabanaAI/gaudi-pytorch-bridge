@@ -597,11 +597,6 @@ def meta_ragged_softmax(self, dim, half_to_float, valid_count):
     return
 
 
-@register_meta([torch.ops.hpu.fused_clip_norm.default])
-def meta_fused_clip_norm(grads, max_norm, norm_type):
-    return max_norm
-
-
 @register_meta([torch.ops.hpu.rotary_pos_embedding.default])
 def meta_rotary_pos_embedding(input, sin, cos, position_ids, offset, mode):
     return input.new_empty(input.shape)
