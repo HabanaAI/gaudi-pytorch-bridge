@@ -2770,8 +2770,8 @@ void HabanaLaunchOpPT::ProcessIntermediateSymbolicShapes(
           auto value_name = output_val->debugName();
           if (output_val->hasUses()) {
             dsi.value_to_sizeexpr[value_name] = {size_expr_vec[output_idx]};
+            output_idx++;
           }
-          output_idx++;
         }
       }
     }
