@@ -38,6 +38,16 @@ from torch.ao.quantization.quantizer.xnnpack_quantizer_utils import (
 from torch.fx.passes.utils.source_matcher_utils import get_source_partitions
 
 
+# Fixture to set the environment variable
+@pytest.fixture
+def set_env_variable():
+    variable_name_fx_pass = "USE_FX_GRAPH_PATTERN_MATCHING"
+    os.environ[variable_name_fx_pass] = "1"
+    # Yield to provide the value for the test
+    yield "1"
+    os.environ[variable_name_fx_pass] = "0"
+
+
 class SimpleModel(torch.nn.Module):
     def __init__(self, dtype):
         super(SimpleModel, self).__init__()
@@ -189,7 +199,7 @@ def use_pt2e_quant_flow(
 @pytest.mark.parametrize("quant_dtype", quant_float_dtype_list)
 @pytest.mark.parametrize("use_graph_break", [False, True])
 @pytest.mark.parametrize("pass_input_during_export", [False, True])
-def test_pt2e_quant_float(test_case, quant_dtype, use_graph_break, pass_input_during_export):
+def test_pt2e_quant_float(set_env_variable, test_case, quant_dtype, use_graph_break, pass_input_during_export):
 
     quantizer = habana_quantizer()
     quant_config = habana_quant_config_symmetric(quant_dtype)
@@ -198,9 +208,9 @@ def test_pt2e_quant_float(test_case, quant_dtype, use_graph_break, pass_input_du
     expected_op_count = {
         "after_prepare_pt2e": {
             "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
-            "torch.ops.aten.minimum.default": [(3, 0), (3, 0)],
-            "torch.ops.aten.maximum.default": [(3, 0), (3, 0)],
-            "torch.ops.aten.copy.default": [(6, 0), (6, 0)],
+            "torch.ops.aten.minimum.default": [(2, 0), (2, 0)],
+            "torch.ops.aten.maximum.default": [(2, 0), (2, 0)],
+            "torch.ops.aten.copy.default": [(4, 0), (4, 0)],
             "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
             "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
             "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
@@ -208,13 +218,8 @@ def test_pt2e_quant_float(test_case, quant_dtype, use_graph_break, pass_input_du
             "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
         },
         "after_convert_pt2e": {
-            "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(3, 0), (3, 0)],
-            "torch.ops.quantized_decomposed.dequantize_per_tensor.default": [(3, 0), (3, 0)],
-            "skip_torch.ops.hpu.linear.default": [(1, 0), (1, 0)],
-            "skip_torch.ops.aten.linear": [(1, 0), (1, 0)],
-            "torch.ops.aten.transpose.int": [(1, 0), (1, 0)],
-            "torch.ops.aten.mm.default": [(1, 0), (0, 0)],
-            "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
+            "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(2, 0), (2, 0)],
+            "torch.ops.hpu.fp8_gemm_v2.default": [(1, 0), (1, 0)],
             "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
         },
     }

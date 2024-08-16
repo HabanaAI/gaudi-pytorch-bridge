@@ -126,6 +126,7 @@ class habana_quantizer(Quantizer):
         self._annotate_matmul(model, config)
         self._annotate_conv2d(model, config)
         self._annotate_maxpool2d(model, config)
+        # self._annotate_softmax(model, config)
 
         return model
 
@@ -258,6 +259,28 @@ class habana_quantizer(Quantizer):
                 _annotated=True,
             )
 
+    def _annotate_softmax(self, gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
+        softmax_partitions = get_source_partitions(gm.graph, [torch.softmax, torch.nn.functional.softmax])
+        # breakpoint()
+
+        if len(softmax_partitions) == 0:
+            return
+
+        output_act_qspec = get_input_act_qspec(quantization_config)
+        input_act_qspec = get_input_act_qspec(quantization_config)
+        for module_or_fn_type, partitions in softmax_partitions.items():
+            for p in partitions:
+                assert len(p.input_nodes) == 1
+                act_node = p.input_nodes[0]
+                assert len(p.output_nodes) == 1
+                output_node = p.output_nodes[0]
+
+                _update_input_qspec_map(p, act_node, input_act_qspec)
+                _update_output_qspec(output_node, output_act_qspec)
+
+                nodes_to_mark_annotated = list(p.nodes)
+                _mark_nodes_as_annotated(nodes_to_mark_annotated)
+
     def validate(self, model: torch.fx.GraphModule) -> None:
         """validate if the annotated graph is supported by the backend"""
         pass
@@ -303,7 +326,7 @@ def habana_quant_config_symmetric(quant_dtype):
     )
     quantization_config = QuantizationConfig(
         act_quantization_spec,
-        act_quantization_spec,
+        None,
         weight_quantization_spec,
         bias_quantization_spec,
     )
