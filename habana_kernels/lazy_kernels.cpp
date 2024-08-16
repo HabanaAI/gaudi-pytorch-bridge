@@ -3607,21 +3607,6 @@ Tensor kl_div_hpu_lazy(
   RUN_MAYBE_WITH_ACC_THREAD(kl_div, k)
 }
 
-Tensor kl_div_backward_hpu_lazy(
-    const Tensor& grad_output,
-    const Tensor& self,
-    const Tensor& target,
-    int64_t reduction,
-    bool log_target) {
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor> k(
-      "aten::kl_div_backward",
-      {grad_output, self, target, reduction, log_target},
-      {self.sizes().vec()});
-  RUN_MAYBE_WITH_ACC_THREAD(kl_div_backward, k)
-}
-
 /*
 For (N,C,L) inputs, reshape to (N,C,1,L) in PyTorch framework order
 For (N,C) inputs, reshape to (N,C,1,1) in Pytorch Framework order

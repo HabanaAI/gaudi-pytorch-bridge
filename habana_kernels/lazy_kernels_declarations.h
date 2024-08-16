@@ -197,12 +197,6 @@ at::Tensor kl_div_hpu_lazy(
     const at::Tensor& target,
     int64_t reduction,
     bool log_target);
-at::Tensor kl_div_backward_hpu_lazy(
-    const at::Tensor& grad,
-    const at::Tensor& input,
-    const at::Tensor& target,
-    int64_t reduction,
-    bool log_target);
 std::tuple<at::Tensor, at::Tensor, at::Tensor> batch_norm_hpu_lazy(
     const at::Tensor& input,
     const c10::optional<at::Tensor>& weight,
