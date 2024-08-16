@@ -1975,6 +1975,12 @@ void RecipeCacheLRU::ResetDiskCache() {
   disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
 }
 
+void RecipeCacheLRU::DeleteDiskCache() {
+  if (disk_cache_) {
+    disk_cache_.reset();
+  }
+}
+
 void RecipeCacheLRU::FlushDiskCache() {
   if (disk_cache_) {
     disk_cache_->flush();

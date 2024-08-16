@@ -576,6 +576,7 @@ class RecipeCacheLRU {
   bool drop_lru(size_t& num_recipes);
   void remove_oldest();
   void ResetDiskCache();
+  void DeleteDiskCache();
   void FlushDiskCache();
   void Serialize(std::string recipe_cache_path);
   void Deserialize(std::string recipe_cache_path);

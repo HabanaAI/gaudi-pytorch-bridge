@@ -178,6 +178,7 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest1) {
   auto res2 = deserializedRecipe.to(torch::kCPU);
   auto res1 = originalRecipe.to(torch::kCPU);
   EXPECT_EQ(allclose(res1, res2), true);
+  RecipeCacheLRU::get_cache().DeleteDiskCache();
 }
 
 TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
@@ -229,6 +230,7 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
   auto res2 = deserializedRecipe.to(torch::kCPU);
   auto res1 = originalRecipe.to(torch::kCPU);
   EXPECT_EQ(allclose(res1, res2), true);
+  RecipeCacheLRU::get_cache().DeleteDiskCache();
 }
 
 TEST(HabanaSerializationTest, CharArrayTest) {
