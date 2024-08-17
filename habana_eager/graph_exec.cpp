@@ -182,8 +182,6 @@ GraphExec::GraphExec(
       m_mark_dynamic(mark_dynamic && dynamic) {
   PT_EAGER_TRACE;
 
-  habana::eager::JoinPendingPipelineThreads();
-
   m_graph_name = "graph_recipe_" + std::to_string(recipe_id);
   bool ds_refine = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_COMPILE_THREAD);
 
@@ -227,8 +225,6 @@ GraphExec::GraphExec(
       HABANA_ASSERT(in_stack.size() == m_range_infos.size());
     }
   }
-
-  pass::DetectWeightTensors(m_graph, m_graph_inputs_to_permute);
 
   at::ArrayRef<torch::jit::IValue> input_refs =
       torch::jit::last(in_stack, m_graph->inputs().size());
@@ -448,8 +444,6 @@ torch::jit::Stack GraphExec::launch(
             tensor));
   }
 
-  HandleWeightPermutation(backend_inputs);
-
   m_is_pipeline_supported = m_is_pipeline_supported && !backend_outputs.empty();
   m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
   LaunchDynamicShapes launch_shapes;
@@ -541,17 +535,6 @@ torch::jit::Stack GraphExec::LaunchRecipe(
     }
   } catch (const std::exception& e) {
     PT_EAGER_FATAL("HabanaLaunchOpPT Run returned exception....\n", e.what());
-  }
-}
-
-void GraphExec::HandleWeightPermutation(torch::jit::Stack& stack) {
-  PT_EAGER_TRACE;
-  for (auto input : m_graph_inputs_to_permute) {
-    c10::IValue input_value{stack[input]};
-    HABANA_ASSERT(input_value.isTensor());
-    torch::Tensor weight_tensor{input_value.toTensor()};
-    habana::graph::PermuteWeightTensor t(weight_tensor);
-    t.PermuteIfNeeded();
   }
 }
 

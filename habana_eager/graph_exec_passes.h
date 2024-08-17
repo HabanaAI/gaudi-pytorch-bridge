@@ -20,9 +20,6 @@ namespace pass {
 void SanitizeGraphInput(std::shared_ptr<torch::jit::Graph> graph);
 bool HandleTupleOnOutput(std::shared_ptr<torch::jit::Graph> graph);
 bool AddAttributeAlpha(std::shared_ptr<torch::jit::Graph> graph);
-void DetectWeightTensors(
-    std::shared_ptr<torch::jit::Graph> graph,
-    std::set<int>& graph_inputs_to_permute);
 bool GetOutputsOrderInGraph(
     std::shared_ptr<torch::jit::Graph> graph,
     std::vector<size_t>& outputs_order);

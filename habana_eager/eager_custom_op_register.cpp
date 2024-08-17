@@ -18,6 +18,7 @@
 #include "common/dump_args.h"
 #include "common/random_utils.h"
 #include "habana_eager/ops/eager_op.h"
+#include "habana_eager/graph_weight_permute.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/random_gen_kernels.h"
@@ -2128,6 +2129,12 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd(
   return hpu_op.call();
 }
 
+at::Tensor weight_permutation (const at::Tensor& weight) {
+    habana::graph::PermuteWeightTensor t(weight);
+    t.PermuteIfNeeded();
+    return weight;
+}
+
 } // namespace
 
 namespace habana::eager {
@@ -2318,6 +2325,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::constant_pad_nd_ds(Tensor input, SymInt[] pad, Scalar value, SymInt[]? size=None) -> Tensor");
   m.def(
+      "hpu::weight_permutation(Tensor input) -> Tensor");
+  m.def(
       "hpu::custom_bernoulli.Size(SymInt[] size, float p, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def(
       "hpu::habana_seed_generator(Tensor seed, Tensor counter, int size) -> Tensor");
@@ -2427,6 +2436,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::slice_ds", slice_ds);
   m.impl("hpu::constant_pad_nd_ds", constant_pad_nd_ds);
   m.impl("hpu::fused_clip_norm", fused_clip_norm);
+  m.impl("hpu::weight_permutation", weight_permutation);
 }
 
 TORCH_LIBRARY_IMPL(aten, HPU, m) {

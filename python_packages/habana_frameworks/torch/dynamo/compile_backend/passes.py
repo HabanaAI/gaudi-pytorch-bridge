@@ -56,6 +56,8 @@ from .symbolic_execution import (
 
 logger = get_compile_backend_logger()
 
+host_call_functions = {"torch.ops.hpu.weight_permutation"}
+
 
 def get_passes(stage: OptimizationPassPlacement):
     """
@@ -78,6 +80,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_allreduce_parents,
             pass_pattern_rewriter,
             pass_fake_propagation,
+            pass_weight_permutation,
             pass_remove_unnecessary_full_copy,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
             pass_reinplace_inplaceable_ops,
@@ -1146,6 +1149,46 @@ def pass_fake_propagation(ctx: OptimizerContext) -> bool:
         return pass_fake_propagation_current(ctx)
 
 
+def pass_weight_permutation(ctx: OptimizerContext):
+    """
+    This pass inserts weight permutation node before convolution, handles both
+    directly weight of convolution and casted weight.
+    """
+    graph_changed = False
+    for node in ctx.graph_module.graph.nodes:
+        if node.op == "call_function" and node.target == torch.ops.aten.convolution.default:
+            dim = len(node.meta["tensor_meta"].shape)
+            if dim in (4, 5):
+                weight_node = node.args[1]
+                while weight_node.args:
+                    node = weight_node
+                    weight_node = weight_node.args[0]
+                with ctx.graph_module.graph.inserting_before(node):
+                    weight_permutation_node = ctx.graph_module.graph.call_function(
+                        torch.ops.hpu.weight_permutation, (weight_node,), {}
+                    )
+                    weight_permutation_node.meta = copy.copy(weight_node.meta)
+                    weight_permutation_node.val_args = weight_permutation_node.args
+                    weight_permutation_node.val_kwargs = weight_permutation_node.kwargs
+                node.replace_input_with(weight_node, weight_permutation_node)
+                graph_changed = True
+                logger.info(
+                    "Permute node: {} op: {} target: {} dim: {}",
+                    node.name,
+                    node.op,
+                    node.target,
+                    dim,
+                )
+            else:
+                logger.info("No permutation, permute weight support only 4/5D tensors")
+
+    if graph_changed:
+        ctx.graph_module.graph.lint()
+        ctx.graph_module.recompile()
+
+    return graph_changed
+
+
 def pass_propose_partitions(ctx: OptimizerContext) -> bool:
     """
     This pass is supposed to run partitioner that will create proposition of partitioning.
@@ -1350,6 +1393,8 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                 logger.debug(
                     f"{node._pretty_print_target(node.target)} fellback to eager becouse it was identified as non D2D copy"
                 )
+        elif node.op == "call_function" and node._pretty_print_target(node.target) in host_call_functions:
+            placement = "eager"
         elif node.op == "call_function" and is_eager_fallback_required(node, is_dynamic=dynamic_call_function):
             placement = "eager"
         elif node.meta["output_device"].type == "hpu":
@@ -2838,10 +2883,15 @@ def pass_check_eager_fallbacks(ctx: OptimizerContext):
     if not hpu_backend_config.use_eager_fallback:
         eager_nodes = []
         for node in ctx.graph_module.graph.nodes:
-            if node.op in {"call_function", "call_method"} and node._pretty_print_target(node.target) not in {
-                "operator.getitem",
-                "habana_frameworks.torch.dynamo.compile_backend.symbolic_execution.symexpr_python",
-            }:
+            if (
+                node.op in {"call_function", "call_method"}
+                and node._pretty_print_target(node.target)
+                not in {
+                    "operator.getitem",
+                    "habana_frameworks.torch.dynamo.compile_backend.symbolic_execution.symexpr_python",
+                }
+                and node._pretty_print_target(node.target) not in host_call_functions
+            ):
                 if node.meta["placement"] == "eager":
                     eager_nodes.append(str(node) + ":" + node._pretty_print_target(node.target))
         assert len(eager_nodes) == 0, f"Eager fallback in nodes: {eager_nodes}"

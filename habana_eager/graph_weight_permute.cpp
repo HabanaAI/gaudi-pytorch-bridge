@@ -32,10 +32,6 @@ PermuteWeightTensor::PermuteWeightTensor(const torch::Tensor& weight)
 void PermuteWeightTensor::PermuteIfNeeded() {
   if (ShouldPermuteWeight()) {
     PT_EAGER_TRACE;
-    HABANA_ASSERT(
-        m_tensor_dim == 4 || m_tensor_dim == 5,
-        "Permute weight support only 4/5D tensors");
-
     MemoryPermutation new_permutation;
 
     torch::Tensor weight_cpu{m_weight.to(c10::kCPU)};
