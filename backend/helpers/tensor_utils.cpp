@@ -410,15 +410,29 @@ void habana_helpers::copy_data_to_host(
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
-    const at::Tensor srcRef = src;
-    const at::Tensor dstRef = dst;
+    struct ResourceHolder {
+      ResourceHolder(const at::Tensor& src, const at::Tensor& dst)
+          : src_(src), dst_(dst) {}
+
+      at::Tensor src_;
+      at::Tensor dst_;
+
+      void release_resources() {
+        src_ = at::Tensor();
+        dst_ = at::Tensor();
+      }
+    };
+
+    auto callback = [rh = std::make_shared<ResourceHolder>(
+                         src, dst)]() mutable { rh->release_resources(); };
+
     device.copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src_data_ptr),
         dst.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(
             src.storage().data_ptr().get()),
         habana_helpers::GetNBytes(src),
-        [srcRef, dstRef]() { return; },
+        callback,
         is_pinned,
         hpu_stream);
   } else {
@@ -548,8 +562,22 @@ void habana_helpers::copy_data_within_device(
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
-    const at::Tensor srcRef = src;
-    const at::Tensor dstRef = dst;
+    struct ResourceHolder {
+      ResourceHolder(const at::Tensor& src, const at::Tensor& dst)
+          : src_(src), dst_(dst) {}
+
+      at::Tensor src_;
+      at::Tensor dst_;
+
+      void release_resources() {
+        src_ = at::Tensor();
+        dst_ = at::Tensor();
+      }
+    };
+
+    auto callback = [rh = std::make_shared<ResourceHolder>(
+                         src, dst)]() mutable { rh->release_resources(); };
+
     device.copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
@@ -558,7 +586,7 @@ void habana_helpers::copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(
             dst.storage().data_ptr().get()),
         habana_helpers::GetNBytes(src),
-        [srcRef, dstRef]() { return; },
+        callback,
         c10::hpu::getCurrentHPUStream());
   } else {
     std::atomic<bool> copyDone{false};
