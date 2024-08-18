@@ -12,6 +12,7 @@
 # torch.compile Dynamic Shapes test code for slice_scatter op
 # Set environment variable PT_HPU_LAZY_MODE to 0
 
+import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 from test_utils import cpu, hpu
@@ -21,6 +22,10 @@ torch._dynamo.config.specialize_int = False
 
 # Test case to check slice_scatter DS with negative values as parameters
 # SW-180452
+@pytest.mark.skipif(
+    bc.get_pt_hpu_gpu_migration(),
+    reason="Test not suitable for GPU Migration functionality. Default 'inductor' backend is also mapped to 'hpu_backend'.",
+)
 def test_slice_scatter_negative_end():
     input_shapes = [
         ((2, 17, 16, 3706), (2, 17, 16, 3702), 3, 0, -4),
@@ -52,6 +57,10 @@ def test_slice_scatter_negative_end():
 
 # shape_src should be of the same size as torch.select(input_shape, dim,index)
 # This equates to the second dimension of input_shape for dim=0
+@pytest.mark.skipif(
+    bc.get_pt_hpu_gpu_migration(),
+    reason="Test not suitable for GPU Migration functionality. Default 'inductor' backend is also mapped to 'hpu_backend'.",
+)
 def test_slice_scatter_compatible_with_select_scatter():
     input_shapes = [
         ((16, 16), (1, 16), 0, 4, 5, 1),

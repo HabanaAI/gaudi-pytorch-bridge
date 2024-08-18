@@ -10,6 +10,7 @@
 #
 # ******************************************************************************
 import habana_frameworks.torch.dynamo.compile_backend
+import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 from test_utils import format_tc, is_gaudi1
@@ -36,6 +37,10 @@ if not is_gaudi1():
 
 @pytest.mark.parametrize("shape, dim", params, ids=format_tc)
 @pytest.mark.parametrize("dtype", dtypes, ids=format_tc)
+@pytest.mark.skipif(
+    bc.get_pt_hpu_gpu_migration(),
+    reason="Test not suitable for GPU Migration functionality. Default 'inductor' backend is also mapped to 'hpu_backend'.",
+)
 def test_hpu_count_nonzero(shape, dim, dtype):
     torch._dynamo.reset()
 

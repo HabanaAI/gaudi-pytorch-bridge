@@ -881,6 +881,10 @@ def test_graph_pipelining():
         assert torch.allclose(h_result.to("cpu"), result, atol=0.001, rtol=0.001)
 
 
+@pytest.mark.skipif(
+    bc.get_pt_hpu_gpu_migration(),
+    reason="Test not suitable for GPU Migration functionality. Default 'inductor' backend is also mapped to 'hpu_backend'.",
+)
 def test_graph_BatchNorm_pipelining():
     input = [
         (2, 3, 4, 4),

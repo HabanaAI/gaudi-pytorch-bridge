@@ -10,12 +10,17 @@
 #
 ###############################################################################
 import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 
 
 @pytest.mark.parametrize("shape", [(2, 6, 5), (2, 3, 4)])
 @pytest.mark.parametrize("perm", [(1, 0, 2), (2, 0, 1)])
+@pytest.mark.skipif(
+    bc.get_pt_hpu_gpu_migration(),
+    reason="Test not suitable for GPU Migration functionality. Default 'inductor' backend is also mapped to 'hpu_backend'.",
+)
 def test_empty_permute(shape, perm):
     # Create torch.empty_permuted on HPU device
     def fn(input, shape, perm, device):

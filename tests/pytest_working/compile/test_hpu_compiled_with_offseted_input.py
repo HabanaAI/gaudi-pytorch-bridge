@@ -11,6 +11,8 @@
 ###############################################################################
 import os
 
+import habana_frameworks.torch.internal.bridge_config as bc
+import pytest
 import torch
 
 
@@ -24,6 +26,10 @@ def cpu_fn(x):
     return x + x
 
 
+@pytest.mark.skipif(
+    bc.get_pt_hpu_gpu_migration(),
+    reason="Test not suitable for GPU Migration functionality. Default 'inductor' backend is also mapped to 'hpu_backend'.",
+)
 def test_compiled_with_view_input():
     t = torch.rand([2, 3], device="hpu")
     input_tensor_hpu = t.transpose(0, 1)

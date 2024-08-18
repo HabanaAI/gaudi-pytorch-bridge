@@ -11,6 +11,7 @@
 ###############################################################################
 
 import habana_frameworks.torch.hpu as hpu
+import habana_frameworks.torch.internal.bridge_config as bc
 import numpy as np
 import pytest
 import torch
@@ -41,6 +42,10 @@ from test_utils import format_tc
     ids=format_tc,
 )
 @pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16], ids=format_tc)
+@pytest.mark.skipif(
+    bc.get_pt_hpu_gpu_migration(),
+    reason="Test not suitable for GPU Migration functionality. Default 'inductor' backend is also mapped to 'hpu_backend'.",
+)
 class TestHpuScatterAdd:
     @classmethod
     def setup_class(self):

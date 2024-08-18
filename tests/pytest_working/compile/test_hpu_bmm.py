@@ -10,12 +10,17 @@
 #
 ###############################################################################
 import habana_frameworks.torch.dynamo.compile_backend
+import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 
 
 @pytest.mark.parametrize("shapes", [([10, 4, 5], [10, 5, 3]), ([3, 1, 5], [3, 5, 7])])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16])
+@pytest.mark.skipif(
+    bc.get_pt_hpu_gpu_migration(),
+    reason="Test not suitable for GPU Migration functionality. Default 'inductor' backend is also mapped to 'hpu_backend'.",
+)
 def test_hpu_bmm(shapes, dtype):
     def fn(input, mat2):
         return torch.bmm(input, mat2)

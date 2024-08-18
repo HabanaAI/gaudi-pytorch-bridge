@@ -11,6 +11,7 @@
 ###############################################################################
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.dynamo.compile_backend
+import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 from test_utils import format_tc, setup_teardown_env_fixture
@@ -74,6 +75,10 @@ def test_reduction_dim(op_code, dim, keepdim):
     [{"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 1}],
     indirect=True,
 )
+@pytest.mark.skipif(
+    bc.get_pt_hpu_gpu_migration(),
+    reason="Test not suitable for GPU Migration functionality. Default 'inductor' backend is also mapped to 'hpu_backend'.",
+)
 def test_hpu_std(input, dim, correction, keepdim, setup_teardown_env_fixture):
     def fn(input, dim, correction, keepdim):
         return torch.std(input, dim=dim, correction=correction, keepdim=keepdim)
@@ -97,6 +102,10 @@ def test_hpu_std(input, dim, correction, keepdim, setup_teardown_env_fixture):
     "setup_teardown_env_fixture",
     [{"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 1}],
     indirect=True,
+)
+@pytest.mark.skipif(
+    bc.get_pt_hpu_gpu_migration(),
+    reason="Test not suitable for GPU Migration functionality. Default 'inductor' backend is also mapped to 'hpu_backend'.",
 )
 def test_hpu_std_var_mean(input, dim, correction, keepdim, dtype, setup_teardown_env_fixture):
     def fn(input, dim, correction, keepdim):

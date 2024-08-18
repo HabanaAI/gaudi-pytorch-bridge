@@ -10,6 +10,7 @@
 #
 ###############################################################################
 import habana_frameworks.torch.core as htcore
+import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 from test_utils import is_gaudi1
@@ -64,6 +65,10 @@ def gen_inputs(size, weight_use, dtype, force_f32_for_cpu=False):
 @pytest.mark.parametrize("weight_use", weight_uses)
 @pytest.mark.parametrize("reduction", reductions)
 @pytest.mark.parametrize("dtype", dtypes)
+@pytest.mark.skipif(
+    bc.get_pt_hpu_gpu_migration(),
+    reason="Test not suitable for GPU Migration functionality. Default 'inductor' backend is also mapped to 'hpu_backend'.",
+)
 def test_hpu_compile_binary_cross_entropy_fwd(input_size, weight_use, reduction, dtype):
     if type(input_size) == tuple and len(input_size) == 5:
         pytest.xfail("Binary cross entropy Op doesn't support 5D inputs on hpu - [SW-163929]")

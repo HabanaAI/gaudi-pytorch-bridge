@@ -12,6 +12,7 @@
 # torch.compile Dynamic Shapes test code for as_strided_scatter op
 # Set environment variable PT_HPU_LAZY_MODE to 0
 
+import habana_frameworks.torch.internal.bridge_config as bc
 import pytest
 import torch
 from test_utils import cpu, hpu
@@ -20,6 +21,10 @@ torch._dynamo.config.specialize_int = False
 
 
 # input, src, stride, storage_offset
+@pytest.mark.skipif(
+    bc.get_pt_hpu_gpu_migration(),
+    reason="Test not suitable for GPU Migration functionality. Default 'inductor' backend is also mapped to 'hpu_backend'.",
+)
 def test_as_strided_scatter():
     input_shapes = [
         ((16, 16), (1, 16), (1, 2), 1),
