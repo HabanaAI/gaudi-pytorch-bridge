@@ -253,19 +253,6 @@ ProcessGroupHcclBase::~ProcessGroupHcclBase() = default;
 
 static constexpr int CoalActive = 0x01, CoalColl = 0x02, CoalP2P = 0x04;
 
-void ProcessGroupHcclBase::groupStart() {
-  initComms();
-  auto ret = hcclGroupStart();
-  TORCH_CHECK(ret == hcclSuccess);
-}
-
-void ProcessGroupHcclBase::groupEnd() {
-  auto ret = hcclGroupEnd();
-  TORCH_CHECK(ret == hcclSuccess);
-}
-
-ProcessGroupHcclBase::CoalescedWorkHCCL::CoalescedWorkHCCL() {}
-
 ProcessGroupHcclBase::CoalescedWorkHCCL::~CoalescedWorkHCCL() = default;
 
 // Method to append a new Work object to works_
@@ -282,6 +269,7 @@ void ProcessGroupHcclBase::CoalescedWorkHCCL::clear() {
 // Same as calling synchronize().
 bool ProcessGroupHcclBase::CoalescedWorkHCCL::wait(
     std::chrono::milliseconds timeout [[maybe_unused]]) {
+  pg_->waitForJobCompletion();
   for (auto& w : works_) {
     w->wait(timeout);
   }
@@ -299,7 +287,7 @@ void ProcessGroupHcclBase::startCoalescing() {
       "Coalescing is already in progress. Have you invoked startCoalescing again without endCoalescing. BTW nested coalesing is not supported.");
 
   coalesed_works_ =
-      c10::make_intrusive<ProcessGroupHcclBase::CoalescedWorkHCCL>();
+      c10::make_intrusive<ProcessGroupHcclBase::CoalescedWorkHCCL>(this);
   coalescing_state_ |= CoalActive;
   coalesed_works_->clear();
   groupStart();

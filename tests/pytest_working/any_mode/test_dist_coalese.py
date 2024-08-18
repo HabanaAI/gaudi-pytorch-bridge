@@ -29,6 +29,8 @@ def get_world_trs():
 def setup(rank, world_size=1):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "12355"
+    os.environ["RANK"] = str(rank)
+
     import habana_frameworks.torch.distributed.hccl
 
     dist.init_process_group(backend="hccl", rank=rank, world_size=world_size)
@@ -134,8 +136,9 @@ def allgather_into_tensor_coalesced_test(rank, world_size, kwargs):
         torch.distributed.distributed_c10d.all_gather_into_tensor(output, input, group=pg, async_op=kwargs["async_op"])
     cs = pg._end_coalescing(torch.device(device))
     cs.wait()
+    k = torch.ones(1 * world_size)
     for tensor in output_tensors:
-        torch.testing.assert_close(tensor.to("cpu"), torch.ones(1 * world_size))
+        torch.testing.assert_close(tensor.to("cpu"), k)
 
 
 def dynamo_coalescing_manager_test(rank, world_size, kwargs):
@@ -179,6 +182,26 @@ def dynamo_trace_allgather_coalesced_test(rank, world_size, kwargs):
         torch.testing.assert_close(tensor.to("cpu"), expected_outputs[i])
 
 
+def batch_isend_irecv_hccl_test(rank, world_size, kwargs):
+    def _build_tensor(size, value=None, dtype=torch.bfloat16):
+        if value is None:
+            value = size
+        return torch.empty(size, 1, 4096, dtype=dtype).fill_(value).to("hpu")
+
+    p2p_op_list = []
+    for src in range(0, world_size):
+        send_tensor = _build_tensor(rank + 1)
+        recv_tensor = _build_tensor(src + 1)
+        recv_op = dist.P2POp(dist.irecv, recv_tensor, src)
+        p2p_op_list.append(recv_op)
+        send_op = dist.P2POp(dist.isend, send_tensor, src)
+        p2p_op_list.append(send_op)
+
+    reqs = dist.batch_isend_irecv(p2p_op_list)
+    for req in reqs:
+        req.wait()
+
+
 def run_test(rank: int, world_size: int, test_func: Callable, kwargs):
     setup(rank, world_size)
     if rank == 0:
@@ -199,6 +222,7 @@ def run_tests():
         {"func": reduce_scatter_tensor_coalesced_test, "kwargs": {}},
         {"func": dynamo_coalescing_manager_test, "kwargs": {}},
         {"func": dynamo_trace_allgather_coalesced_test, "kwargs": {}},
+        {"func": batch_isend_irecv_hccl_test, "kwargs": {}},
     ]
     for config in test_configs:
         mp.spawn(run_test, args=(WORLD_SIZE, config["func"], config["kwargs"]), nprocs=WORLD_SIZE, join=True)

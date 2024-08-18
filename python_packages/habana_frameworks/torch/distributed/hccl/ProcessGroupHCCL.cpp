@@ -400,6 +400,54 @@ c10::intrusive_ptr<Work> ProcessGroupHCCL::pointToPoint(
   return work;
 }
 
+void ProcessGroupHCCL::groupStart() {
+  initComms();
+
+  auto pr = std::make_shared<std::promise<bool>>();
+  std::future<bool> fut = pr->get_future();
+  auto fn = hcclGroupStart;
+  auto func = [fn = fn, pr = pr]() mutable {
+    hcclResult_t hccl_result = hcclSuccess;
+    hccl_result = hcclGroupStart();
+    TORCH_CHECK(
+        hcclSuccess == hccl_result, "hcclGroupStart call returned error");
+    pr->set_value(hccl_result == hcclSuccess);
+    return true;
+  };
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_ASYNC_COLLECTIVE)) {
+    func();
+  } else {
+    JobThreadHCCL::getInstance()->addJob(std::move(func));
+  }
+}
+
+void ProcessGroupHCCL::groupEnd() {
+  auto pr = std::make_shared<std::promise<bool>>();
+
+  std::future<bool> fut = pr->get_future();
+  auto fn = hcclGroupStart;
+  auto func = [fn = fn, pr = pr]() mutable {
+    hcclResult_t hccl_result = hcclSuccess;
+    hccl_result = hcclGroupEnd();
+    TORCH_CHECK(hcclSuccess == hccl_result, "hcclGroupEnd call returned error");
+    pr->set_value(hccl_result == hcclSuccess);
+    return true;
+  };
+
+  if (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_ASYNC_COLLECTIVE)) {
+    func();
+  } else {
+    JobThreadHCCL::getInstance()->addJob(std::move(func));
+  }
+}
+
+void ProcessGroupHCCL::waitForJobCompletion() {
+  while (JobThreadHCCL::getInstance()->jobCounter() > 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+}
+
 c10::intrusive_ptr<Work> ProcessGroupHCCL::collective(
     std::vector<at::Tensor>& inputs,
     std::vector<at::Tensor>& outputs,

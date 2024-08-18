@@ -93,6 +93,12 @@ class TORCH_API ProcessGroupHCCL : public ProcessGroupHcclBase {
   void destroy() override;
 
  protected:
+  void groupStart();
+
+  void groupEnd();
+
+  void waitForJobCompletion();
+
   // Helper that encapsulates work shared across all collective communication
   c10::intrusive_ptr<Work> collective(
       std::vector<at::Tensor>& input,

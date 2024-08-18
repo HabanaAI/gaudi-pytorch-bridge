@@ -498,6 +498,17 @@ void Collective_Empty_Lowering_Task(
   }
 }
 
+void ProcessGroupEagerHCCL::groupStart() {
+  initComms();
+  TORCH_CHECK(
+      hcclSuccess == hcclGroupStart(), "hcclGroupStart call returned error");
+}
+
+void ProcessGroupEagerHCCL::groupEnd() {
+  TORCH_CHECK(
+      hcclSuccess == hcclGroupEnd(), "hcclGroupEnd call returned error");
+}
+
 c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
     std::vector<at::Tensor>& inputs,
     std::vector<at::Tensor>& outputs,

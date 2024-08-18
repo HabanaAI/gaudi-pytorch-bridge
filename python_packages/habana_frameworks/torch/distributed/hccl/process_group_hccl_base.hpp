@@ -134,9 +134,6 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
       int srcRank,
       int tag) override;
 
-  void groupStart();
-
-  void groupEnd();
 
   void startCoalescing() override;
 
@@ -152,7 +149,7 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
       : public Work,
         public std::enable_shared_from_this<CoalescedWorkHCCL> {
    public:
-    CoalescedWorkHCCL();
+    explicit CoalescedWorkHCCL(ProcessGroupHcclBase* pg) : pg_(pg) {}
 
     ~CoalescedWorkHCCL();
 
@@ -171,9 +168,18 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
     std::vector<c10::intrusive_ptr<Work>> works_;
 
     friend class ProcessGroupHcclBase;
+
+   private:
+    ProcessGroupHcclBase* pg_; // Pointer to the enclosing class instance
   };
 
  protected:
+  virtual void groupStart() = 0;
+
+  virtual void groupEnd() = 0;
+
+  virtual void waitForJobCompletion() = 0;
+
   virtual c10::intrusive_ptr<Work> collective(
       std::vector<at::Tensor>& input,
       std::vector<at::Tensor>& output,
