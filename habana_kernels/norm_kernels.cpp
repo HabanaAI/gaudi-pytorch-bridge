@@ -284,7 +284,6 @@ void LayerNormOperator::AllocateAndAddSynapseNodeReshapePath(
       nullptr,
       nullptr,
       deterministic,
-      min_latency_node,
       getContextHints());
   // Add Reshape node for output tensor to graph -
   // output.view(input.sizes().vec())
@@ -391,7 +390,6 @@ void LayerNormOperator::AllocateAndAddSynapseNodeTPCAffinePath(
       input_layouts.data(),
       output_layouts.data(),
       deterministic,
-      min_latency_node,
       getContextHints());
 }
 

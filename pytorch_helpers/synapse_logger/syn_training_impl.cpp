@@ -151,8 +151,6 @@ SYN_API_PTR(synTensorSetAllowPermutation);
 SYN_API_PTR(synTensorGetHostPtr);
 SYN_API_PTR(synStatusGetBriefDescription);
 SYN_API_PTR(synDumpStateAndTerminate);
-SYN_API_PTR(synNodeSetMinimalLatency);
-SYN_API_PTR(synNodeGetMinimalLatency);
 
 void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synDeviceSynchronize);
@@ -261,8 +259,6 @@ void LoadSymbols(void* lib_handle) {
   SYN_API_INIT_PTR(synTensorGetHostPtr);
   SYN_API_INIT_PTR(synStatusGetBriefDescription);
   SYN_API_INIT_PTR(synDumpStateAndTerminate);
-  SYN_API_INIT_PTR(synNodeSetMinimalLatency);
-  SYN_API_INIT_PTR(synNodeGetMinimalLatency);
 }
 
 } // namespace lib_synapse
@@ -1906,40 +1902,5 @@ synStatus SYN_API_CALL synNodeSetUserProgrammability(
       nodeId,
       userProgrammability);
   API_LOG_RESULT();
-  return status;
-}
-
-synStatus SYN_API_CALL synNodeSetMinimalLatency(
-    const synGraphHandle graphHandle,
-    const synNodeId nodeId,
-    const bool minimalLatency) {
-  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-  API_LOG_CALL(ARG(graphHandle), ARG(nodeId), ARG(minimalLatency));
-
-  synStatus status;
-  CALL_SYN_FUNC(
-      lib_synapse::synNodeSetMinimalLatency,
-      graphHandle,
-      nodeId,
-      minimalLatency);
-  API_LOG_RESULT();
-  return status;
-}
-
-synStatus SYN_API_CALL synNodeGetMinimalLatency(
-    const synGraphHandle graphHandle,
-    const synNodeId nodeId,
-    bool* minimalLatency) {
-  LOG_TRACE("SYN_API", "{}", __FUNCTION__);
-
-  API_LOG_CALL(ARG(graphHandle), ARG(nodeId), ARG(minimalLatency));
-  synStatus status;
-  CALL_SYN_FUNC(
-      lib_synapse::synNodeGetMinimalLatency,
-      graphHandle,
-      nodeId,
-      minimalLatency)
-  API_LOG_RESULT(S_ARG(minimalLatency));
-
   return status;
 }

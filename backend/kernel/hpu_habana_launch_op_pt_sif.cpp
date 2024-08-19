@@ -487,10 +487,6 @@ void HabanaLaunchOpPT::RunHybridSif(
     // Set the deterministic val
     habana_op->setDeterministic(node->i(torch::jit::attr::deterministic));
 
-    if (node->hasAttribute(jitgraph_utils::symbol_sfg)) {
-      habana_op->setMinLatencyNode();
-    }
-
     auto op_input_stack = createInputStackForNode(node, val_to_ival_map);
 
     // Setup the config params for the kernels
@@ -630,10 +626,6 @@ bool HabanaLaunchOpPT::RunHybridSif(
 
     // Set the deterministic val
     habana_op->setDeterministic(node->i(torch::jit::attr::deterministic));
-
-    if (node->hasAttribute(jitgraph_utils::symbol_sfg)) {
-      habana_op->setMinLatencyNode();
-    }
 
     // Set kernel execution mode
     habana_op->SetExecutionMode(execution_mode_);

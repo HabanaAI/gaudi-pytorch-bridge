@@ -705,7 +705,6 @@ void habana::HabanaOperator::AddNodeToSynapseGraph(
       input_layouts.empty() ? nullptr : input_layouts.data(),
       output_layouts.empty() ? nullptr : output_layouts.data(),
       deterministic,
-      min_latency_node,
       getContextHints());
 }
 

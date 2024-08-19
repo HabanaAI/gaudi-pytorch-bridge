@@ -372,7 +372,6 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
       input_layouts.data(),
       nullptr,
       false,
-      min_latency_node,
       getContextHints());
 
   auto output = habana::createPTTensor(
@@ -408,7 +407,6 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
       input_layouts.data(),
       output_layouts.data(),
       false,
-      min_latency_node,
       getContextHints());
 }
 

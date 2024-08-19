@@ -627,14 +627,6 @@ class HabanaOperator {
     return deterministic;
   }
 
-  void setMinLatencyNode() {
-    min_latency_node = true;
-  }
-
-  bool getMinLatencyNode() {
-    return min_latency_node;
-  }
-
   void setContextHints(const std::string& hints_str) {
     hints_str_ = hints_str;
   }
@@ -756,7 +748,6 @@ class HabanaOperator {
   //
   std::vector<HabanaOperatorPtr> kernels_;
   bool deterministic{false};
-  bool min_latency_node{false};
   habana_helpers::HabanaFrontendTypes execution_mode{
       habana_helpers::HabanaFrontendTypes::INVALID};
   bool no_compute_flag{false};

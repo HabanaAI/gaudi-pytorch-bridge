@@ -1709,7 +1709,6 @@ void ScatterNdOperator::AllocateAndAddSynapseNode(
       nullptr,
       nullptr,
       deterministic,
-      min_latency_node,
       getContextHints());
 }
 
@@ -2370,7 +2369,6 @@ void ArangeOperator::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         deterministic,
-        min_latency_node,
         getContextHints());
 
     // respective cast node
@@ -2627,7 +2625,6 @@ void ArangeOperatorHT::AllocateAndAddSynapseNode(
           nullptr,
           nullptr,
           deterministic,
-          min_latency_node,
           getContextHints());
 
       // respective cast node

@@ -141,7 +141,6 @@ void SoftmaxIntOperator::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         deterministic,
-        min_latency_node,
         getContextHints());
   } else {
     // Softmax Operator

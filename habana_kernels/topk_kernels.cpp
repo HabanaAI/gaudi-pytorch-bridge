@@ -243,7 +243,6 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         deterministic,
-        min_latency_node,
         getContextHints());
   } else {
     synBeamParams params;
@@ -262,7 +261,6 @@ void TopkOutOperator::AllocateAndAddSynapseNode(
         nullptr,
         nullptr,
         deterministic,
-        min_latency_node,
         getContextHints());
   }
 }
