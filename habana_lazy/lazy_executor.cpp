@@ -191,34 +191,8 @@ void HbExecutionContext::updateInputs(ir::ValueList inputVals) {
 std::unique_ptr<HbExecutionContextArena> HbExecutionContextArena::instance_{};
 std::once_flag HbExecutionContextArena::initialize_once_flag_{};
 
-HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(
-    int index) {
-  index = 0;
-  // Force everything to use index 0. Need to remove device index as
-  // a whole
-  index = 0;
-  auto hbcontext = m_execution_context_list.find(index);
-  if (hbcontext != std::end(m_execution_context_list)) {
-    return hbcontext->second;
-  } else {
-    return createExecutionContext(index);
-  }
-}
-
-HbExecutionContext* HbExecutionContextArena::createExecutionContext(int index) {
-  index = 0;
-  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
-  m_execution_context_list[index] = new HbExecutionContext;
-  // m_execution_context_list[index]->setDevice(device);
-  return m_execution_context_list[index];
-}
-
-void HbExecutionContextArena::removeExecutionContext(int index) {
-  std::lock_guard<std::recursive_mutex> lock(HbContextArena::Get()->GetMutex());
-  index = 0;
-  auto context = m_execution_context_list[index];
-  delete context;
-  m_execution_context_list.erase(index);
+HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(int) {
+  return &execution_context_;
 }
 
 void HbExecutionContextArena::CreateInstance() {

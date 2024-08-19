@@ -440,8 +440,6 @@ class HbExecutionContextArena {
 
   HbExecutionContext* getDeviceExecutionContext(
       int device = 0); // TODO remove device from everywhere
-  HbExecutionContext* createExecutionContext(int device);
-  void removeExecutionContext(int device);
   HbExecutionContextArena() = default;
   const LazyExecutionMode& getExecutionMode();
   void setExecutionMode(LazyExecutionMode m);
@@ -466,7 +464,7 @@ class HbExecutionContextArena {
   // Keep a map of all the execution contexts in play
   // Right now we support  a single context per device, map maintains ID to
   // context map
-  std::unordered_map<int, HbExecutionContext*> m_execution_context_list;
+  HbExecutionContext execution_context_;
   std::unordered_map<size_t, uint64_t> unique_graph_index_counter;
   static std::once_flag initialize_once_flag_;
   static std::unique_ptr<HbExecutionContextArena> instance_;
