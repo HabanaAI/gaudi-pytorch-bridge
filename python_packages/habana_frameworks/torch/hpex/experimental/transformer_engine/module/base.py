@@ -282,6 +282,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             )
         # Load extra items.
         self.fp8_meta.update(state["extra_fp8_variables"])
+        self.run_cnt = self.fp8_meta["run_cnt"]
         self.fp8_meta["recipe"].amax_history_len = state["amax_history_fwd"].shape[0]
         if "global_fp8_buffer_pos_fwd_recompute" in self.fp8_meta:
             del self.fp8_meta["global_fp8_buffer_pos_fwd_recompute"]
@@ -438,10 +439,7 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         if manual:
             return enabled
         else:
-            return (
-                self.fp8_meta["recipe"].interval == 1
-                or (self.run_cnt + self.fp8_meta["recipe"].interval - 2) % self.fp8_meta["recipe"].interval == 0
-            )
+            return self.fp8_meta["recipe"].interval == 1 or self.run_cnt % self.fp8_meta["recipe"].interval == 0
 
     @contextmanager
     def prepare_forward(
@@ -653,3 +651,23 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
         is_first_microbatch: Union[bool, None],
     ) -> List[torch.Tensor]:
         """Needs override."""
+
+    def _load_from_state_dict(
+        self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+    ):
+        """
+        This function loads tensors and extra state including fp8 metadata.
+        This metadata is essential for copying fp8 tensors, as the copy_ function
+        uses the scale_inv parameter from fp8_meta to set the correct scaling factor
+        for the new tensor.
+        Hence, this extra state must be loaded before the tensor copying process,
+        not after, as is typically done in _load_from_state_dict.
+        Tensors are copied into fp8 tensors only when fp8,
+        otherwise, this behavior is not required.
+        """
+        extra_state_key = prefix + torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX
+        if extra_state_key in state_dict:
+            self.set_extra_state(state_dict[extra_state_key])
+        super()._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs
+        )

@@ -13,7 +13,6 @@ import os
 import habana_frameworks.torch as ht
 import habana_frameworks.torch.hpex.experimental.transformer_engine as te
 import habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 as fp8
-import numpy as np
 import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback
@@ -233,11 +232,11 @@ class MyLinear(torch.nn.Module):
         # uniform(-1/sqrt(in_features), 1/sqrt(in_features)). For details, see
         # https://github.com/pytorch/pytorch/issues/57109
         if not self.skip_weight_param_allocation:
-            torch.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+            torch.nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
         if self.bias is not None:
-            fan_in, _ = torch.init._calculate_fan_in_and_fan_out(self.weight)
+            fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight)
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-            torch.init.uniform_(self.bias, -bound, bound)
+            torch.nn.init.uniform_(self.bias, -bound, bound)
 
     def forward(self, input: torch.Tensor, weight: torch.Tensor = None, bias: torch.Tensor = None) -> torch.Tensor:
         return torch.nn.functional.linear(
@@ -262,21 +261,23 @@ def fwd_step(linear, inp, *args, fp8_enabled=True, fp8_recipe=None, skip_fp8_con
     return out
 
 
-def bwd_step(out, loss_multiplier=None, optimizer=None):
+def bwd_step(out, loss_multiplier=None, optimizer=None, skip_opt=False):
     loss = out.sum()
     if loss_multiplier is not None:
         loss *= loss_multiplier
 
     loss.backward()
-    if optimizer is not None:
+    if optimizer is not None and not skip_opt:
         optimizer.step()
 
 
-def train_step(linear, inp, *args, loss_multiplier=None, skip_bwd=False, optimizer=None, **kwargs) -> torch.Tensor:
+def train_step(
+    linear, inp, *args, loss_multiplier=None, skip_bwd=False, optimizer=None, skip_opt=False, **kwargs
+) -> torch.Tensor:
     out = fwd_step(linear, inp, *args, **kwargs)
 
     if not skip_bwd:
-        bwd_step(out, loss_multiplier, optimizer)
+        bwd_step(out, loss_multiplier, optimizer, skip_opt)
 
     return out
 
@@ -1109,7 +1110,9 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
             # Force computations
             model.fp8_meta["scaling_fwd"].amax_history.cpu()
 
-        if (not manual and ((c - 1) % interval == 1 or interval == 1)) or (
+        # c is analogous to run_cnt in TE module, c already incremented and
+        # same is used in manual False is_scale_update_required function
+        if (not manual and (c % interval == 1 or interval == 1)) or (
             manual and ((c - 1) % interval == 2 or interval == 1)
         ):
             update_scale()
@@ -1135,18 +1138,40 @@ def test_amax_measure_interval(dtype, amax_history_len, interval, manual, reduce
 
                 for m, my_linear in enumerate(my_linears):
                     suffix = f"at iter {iter}, input {i}, module {m}"
-                    assert torch.equal(
-                        my_linear.fp8_meta["scaling_fwd"].scale, refs[m]["fwd_scale"]
-                    ), f"wrong fwd scale computed {suffix}"
-                    assert torch.equal(
-                        my_linear.fp8_meta["scaling_fwd"].scale_inv, refs[m]["fwd_scale_inv"]
-                    ), f"wrong fwd scale_inv computed {suffix}"
-                    assert torch.equal(
-                        my_linear.fp8_meta["scaling_bwd"].scale, refs[m]["bwd_scale"]
-                    ), f"wrong bwd scale computed {suffix}"
-                    assert torch.equal(
-                        my_linear.fp8_meta["scaling_bwd"].scale_inv, refs[m]["bwd_scale_inv"]
-                    ), f"wrong bwd scale_inv computed {suffix}"
+                    if not manual and my_linear.run_cnt < interval:
+                        assert torch.equal(
+                            my_linear.fp8_meta["scaling_fwd"].scale,
+                            refs[m]["fwd_scale"],
+                        ), f"wrong fwd scale computed {suffix}"
+                        assert torch.equal(
+                            my_linear.fp8_meta["scaling_fwd"].scale_inv,
+                            refs[m]["fwd_scale_inv"],
+                        ), f"wrong fwd scale_inv computed {suffix}"
+                        assert torch.equal(
+                            my_linear.fp8_meta["scaling_bwd"].scale,
+                            refs[m]["bwd_scale"],
+                        ), f"wrong bwd scale computed {suffix}"
+                        assert torch.equal(
+                            my_linear.fp8_meta["scaling_bwd"].scale_inv,
+                            refs[m]["bwd_scale_inv"],
+                        ), f"wrong bwd scale_inv computed {suffix}"
+                    elif manual:
+                        assert torch.equal(
+                            my_linear.fp8_meta["scaling_fwd"].scale,
+                            refs[m]["fwd_scale"],
+                        ), f"wrong fwd scale computed {suffix}"
+                        assert torch.equal(
+                            my_linear.fp8_meta["scaling_fwd"].scale_inv,
+                            refs[m]["fwd_scale_inv"],
+                        ), f"wrong fwd scale_inv computed {suffix}"
+                        assert torch.equal(
+                            my_linear.fp8_meta["scaling_bwd"].scale,
+                            refs[m]["bwd_scale"],
+                        ), f"wrong bwd scale computed {suffix}"
+                        assert torch.equal(
+                            my_linear.fp8_meta["scaling_bwd"].scale_inv,
+                            refs[m]["bwd_scale_inv"],
+                        ), f"wrong bwd scale_inv computed {suffix}"
                     global_fp8_buffer_fwd_id = "FWD_AMAX_" + str(global_counter)
                     global_fp8_buffer_bwd_id = "BWD_AMAX_" + str(global_counter)
                     if reduce_amax and my_linear.get_amax_measure_state()["fwd_enabled"]:
@@ -1827,3 +1852,202 @@ def test_te_fused_sdpa(
             torch.max(torch.abs(v_grad_hpu_ref_c - v_grad_hpu_c)),
         )
         compare_tensors(v_grad_hpu_c, v_grad_hpu_ref_c, atol=atol, rtol=rtol)
+
+
+@pytest.mark.parametrize("amax_history_len", [4])
+@pytest.mark.parametrize("measure_interval", [4])
+@pytest.mark.parametrize("reduce_amax", [True])
+@pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
+@pytest.mark.parametrize("device", [torch.device("hpu")])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32], ids=["bf16", "fp32"])
+@pytest.mark.parametrize("gbs", [12])
+@pytest.mark.parametrize("mbs", [2])
+@pytest.mark.parametrize("in_features", [4])
+@pytest.mark.parametrize("out_features", [8])
+@pytest.mark.parametrize("train_iters", [2])
+@pytest.mark.parametrize("lr", [0.1])
+def test_save_load_te_module_indirectly(
+    amax_history_len,
+    measure_interval,
+    reduce_amax,
+    fp8_format,
+    device,
+    dtype,
+    gbs,
+    mbs,
+    in_features,
+    out_features,
+    train_iters,
+    lr,
+):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
+
+    torch.manual_seed(123)
+
+    class FP8ModuleRunner:
+        def __init__(self, module):
+            self.module = module
+            self.run_cnt = 0
+            FP8GlobalStateManager.set_measurement_mode(manual=False)
+
+        def __call__(self, input_, weight, bias=None, gbs: int = 1):
+            self.run_cnt += 1
+
+            is_first_microbatch = self.run_cnt % get_num_microbatches(gbs, input_.shape[0]) in [1]
+
+            return self.module(input_, weight, bias, is_first_microbatch=is_first_microbatch)
+
+    class TestFP8Linear(MyLinear):
+        def __init__(
+            self,
+            input_size,
+            output_size,
+            skip_weight_param_allocation: bool = False,
+            device=device,
+            dtype=dtype,
+        ):
+            super(TestFP8Linear, self).__init__(
+                in_features=input_size,
+                out_features=output_size,
+                bias=True,
+                device=device,
+                dtype=dtype,
+                skip_weight_param_allocation=skip_weight_param_allocation,
+            )
+            linear = te.Linear(
+                self.in_features,
+                self.out_features,
+                skip_weight_param_allocation=not skip_weight_param_allocation,
+                bias=False,
+            )
+            self.output_linear = FP8ModuleRunner(linear)
+
+        def get_extra_state(self):
+            return self.output_linear.module.get_extra_state()
+
+        def _load_from_state_dict(
+            self,
+            state_dict,
+            prefix,
+            local_metadata,
+            strict,
+            missing_keys,
+            unexpected_keys,
+            error_msgs,
+        ):
+            extra_state_key = prefix + torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX
+            extra_state_value = None
+            if extra_state_key in state_dict:
+                extra_state_value = state_dict[extra_state_key]
+                self.output_linear.module._load_from_state_dict(
+                    {extra_state_key: extra_state_value},
+                    prefix,
+                    local_metadata,
+                    strict,
+                    missing_keys,
+                    unexpected_keys,
+                    error_msgs,
+                )
+                state_dict.pop(extra_state_key)
+            super()._load_from_state_dict(
+                state_dict,
+                prefix,
+                local_metadata,
+                strict,
+                missing_keys,
+                unexpected_keys,
+                error_msgs,
+            )
+            state_dict[extra_state_key] = extra_state_value
+
+        def forward(self, input_: torch.Tensor, gbs: int = 1):
+            return self.output_linear(input_, self.weight, self.bias, gbs)
+
+    def get_num_microbatches(gbs, mbs):
+        return gbs // mbs
+
+    def train_iteration(model, gbs, mbs, in_features, dtype, device, fp8_recipe, optimizer):
+        train_step = get_train_step_function(eager_fallbacks=True)
+        for _ in range(get_num_microbatches(gbs, mbs) - 1):
+            input_tensor = torch.randn(mbs, in_features, dtype=dtype).to(device)
+            train_step(
+                model,
+                input_tensor,
+                gbs=gbs,
+                fp8_recipe=fp8_recipe,
+                skip_opt=True,
+                optimizer=optimizer,
+            )
+            if model.output_linear.module.run_cnt < measure_interval:
+                # FWD scale in fp8_meta has 2 values - [scale of input, scale of weight]
+                fwd_scale_size = 2
+                assert torch.allclose(
+                    model.output_linear.module.fp8_meta["scaling_fwd"].scale,
+                    torch.ones(fwd_scale_size, device=device),
+                    rtol=0.0,
+                    atol=0.0,
+                ), f"scale should be 1 till {measure_interval=} run"
+        input_tensor = torch.ones(mbs, in_features, dtype=dtype).to(device)
+        train_step(model, input_tensor, gbs=gbs, fp8_recipe=fp8_recipe, optimizer=optimizer)
+
+    def compare_fp8_extra_state(loaded_extra_state, saved_extra_state):
+        for key in loaded_extra_state.keys():
+            if isinstance(loaded_extra_state[key], torch.Tensor):
+                # 'scale_fwd', 'scale_inv_fwd', 'amax_history_fwd', 'amax_history_index_fwd',
+                # 'scale_hybrid', 'scale_inv_hybrid', 'amax_history_hybrid', 'amax_history_index_hybrid',
+                # 'scale_bwd', 'scale_inv_bwd', 'amax_history_bwd', 'amax_history_index_bwd'
+                assert torch.allclose(
+                    loaded_extra_state[key], saved_extra_state[key], rtol=0.0, atol=0.0
+                ), f"loaded {key} from saved state not matching to saved state"
+            elif isinstance(loaded_extra_state[key], dict):
+                for k in loaded_extra_state[key].keys():
+                    if isinstance(loaded_extra_state[key][k], list):
+                        # 'global_fp8_buffer' - 'FWD_AMAX_*', 'BWD_AMAX_*'
+                        # 'extra_fp8_variables' - 'run_id_fwd_stack',
+                        for val, load_val in zip(loaded_extra_state[key][k], saved_extra_state[key][k]):
+                            assert torch.allclose(
+                                val, load_val, rtol=0.0, atol=0.0
+                            ), f"loaded {key}-{k} from saved state not matching to saved state"
+                    else:
+                        # 'global_fp8_state' - 'FP8_AUTOCAST_COUNTER', 'FP8_CURRENT_CONTEXT_ID',
+                        #                      'FP8_AUTOCAST_DEPTH', 'FP8_MANUAL_MEASUREMENT',
+                        #                      'buffer_delete_key_fwd', 'buffer_delete_key_bwd'
+                        # 'update_amax_fwd' - 'manual', 'bwd_enabled', 'fwd_enabled'
+                        # 'update_amax_bwd' - 'manual', 'bwd_enabled', 'fwd_enabled'
+                        # 'extra_fp8_variables' - 'fp8_checkpoint', 'is_scale_update_required',
+                        # 'num_gemms', 'fp8_max_fwd', 'fp8_max_bwd', 'first_module', 'run_id_fwd', 'name', 'run_cnt',
+                        # 'global_fp8_buffer_pos_fwd', 'run_id_bwd', 'global_fp8_buffer_pos_bwd'
+                        assert loaded_extra_state[key][k] == saved_extra_state[key][k]
+
+    def print_extra_state(state_dict):
+        if not torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX in state_dict.keys():
+            return None
+        extra_state = state_dict[f"{torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX}"]
+        FIRST_CHARACTER = 0
+        extra_state.seek(FIRST_CHARACTER)
+        extra_state = torch.load(extra_state)
+        return extra_state
+
+    fp8_recipe = DelayedScaling(
+        fp8_format=fp8_format,
+        amax_history_len=amax_history_len,
+        reduce_amax=reduce_amax,
+        interval=measure_interval,
+        amax_compute_algo="max",
+    )
+    test_linear = TestFP8Linear(in_features, out_features)
+    optimizer = torch.optim.SGD(test_linear.parameters(), lr=lr)
+
+    for _ in range(train_iters):
+        train_iteration(test_linear, gbs, mbs, in_features, dtype, device, fp8_recipe, optimizer)
+
+    assert (
+        torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX in test_linear.state_dict().keys()
+    ), f"{torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX} is not present in {test_linear.output_linear.module.state_dict().keys()}"
+    saved_extra_state = print_extra_state(test_linear.state_dict())
+
+    loaded_test_linear = TestFP8Linear(in_features, out_features)
+    loaded_test_linear.load_state_dict(test_linear.state_dict())
+    loaded_extra_state = print_extra_state(loaded_test_linear.state_dict())
+    compare_fp8_extra_state(loaded_extra_state, saved_extra_state)
