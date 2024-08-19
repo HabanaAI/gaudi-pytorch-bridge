@@ -2638,8 +2638,6 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::native_batch_norm_backward(Tensor input, Tensor? grad_out, Tensor? weight, Tensor? mean, Tensor? invistd, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)");
   m.def(
-      "hpu::group_norm(Tensor input, Tensor weight, Tensor bias, int[] normalized_shape, int num_groups, float eps) -> (Tensor, Tensor, Tensor)");
-  m.def(
       "as_strided_lazy_(Tensor self, int[] size, int[] stride, int offset, bool can_replace) -> (Tensor)");
   m.def(
       "as_strided_lazy_cl_(Tensor self, int[] size, int[] stride, int offset, bool can_replace) -> (Tensor)");
