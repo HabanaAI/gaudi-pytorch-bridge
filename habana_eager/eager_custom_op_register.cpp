@@ -905,6 +905,69 @@ at::Tensor fused_clip_norm(
   return grad.back();
 }
 
+at::Tensor mixture_of_experts(
+    const at::Tensor& input,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList expert_weights_1,
+    const at::TensorList expert_weights_2,
+    const at::TensorList expert_weights_3,
+    c10::string_view activation,
+    int64_t experts_min,
+    int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts :",
+      DUMP_9ARGS(
+          input,
+          expert_routing_table,
+          router_weights,
+          expert_weights_1,
+          expert_weights_2,
+          expert_weights_3,
+          activation,
+          experts_min,
+          experts_max));
+  // experts_min/max are used by CGuid path only,
+  // so they don't affect eager execution
+
+  std::function<at::Tensor(const at::Tensor& x)> activation_fn;
+  if (activation == "gelu") {
+    activation_fn = [](const at::Tensor& x) {
+      return torch::nn::functional::gelu(x);
+    };
+  } else if (activation == "relu") {
+    activation_fn = [](const at::Tensor& x) {
+      return torch::nn::functional::relu(x);
+    };
+  } else if (activation == "silu") {
+    activation_fn = [](const at::Tensor& x) {
+      return torch::nn::functional::silu(x);
+    };
+  }
+  const int num_experts = expert_weights_1.size();
+  const int num_tokens = input.size(0);
+  const int hidden_dim = input.size(1);
+  auto final_hidden_states =
+      torch::zeros({1, num_tokens, hidden_dim}, input.options());
+  auto padded_weights = torch::zeros({num_tokens, num_experts}, input.options())
+                            .scatter_(-1, expert_routing_table, router_weights)
+                            .reshape({-1, num_tokens, num_experts})
+                            .permute({2, 0, 1})
+                            .unsqueeze(-1);
+
+  for (int expert_idx = 0; expert_idx < num_experts; expert_idx++) {
+    auto hidden_states_w1 =
+        activation_fn(torch::matmul(input, expert_weights_1[expert_idx]));
+    auto hidden_states_w2 = torch::matmul(input, expert_weights_2[expert_idx]);
+    auto hidden_states_w3 = torch::matmul(
+        hidden_states_w1 * hidden_states_w2, expert_weights_3[expert_idx]);
+    final_hidden_states += hidden_states_w3 * padded_weights[expert_idx];
+  }
+
+  return final_hidden_states;
+}
+
 at::Tensor rotary_pos_embedding(
     const at::Tensor& input,
     const at::Tensor& sin,
@@ -2266,6 +2329,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::optimizer_resource_apply_momentum",
       optimizer_resource_apply_momentum);
   m.impl("hpu::ragged_softmax", _ragged_softmax);
+  m.impl("hpu::mixture_of_experts", mixture_of_experts);
   m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding);
   m.impl("hpu::rotary_pos_embedding_backward", rotary_pos_embedding_backward);
   m.impl("hpu::ctc_loss_custom", ctc_loss_custom);
