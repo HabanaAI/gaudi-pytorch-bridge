@@ -878,17 +878,33 @@ def meta_rotary_pos_embedding(input, sin, cos, position_ids, offset, mode):
 
 @register_meta([torch.ops.hpu.mixture_of_experts.default])
 def meta_mixture_of_experts(
-    input,
+    hidden_states,
     expert_routing_table,
     router_weights,
-    expert_weights_1,
-    expert_weights_2,
-    expert_weights_3,
+    w1,
+    w2,
+    w3,
+    permuted_weights,
     activation,
     experts_min,
     experts_max,
 ):
-    return input.new_empty(input.shape)
+    return hidden_states.new_empty(hidden_states.shape)
+
+
+@register_meta([torch.ops.hpu.mixture_of_experts.fused_weights])
+def meta_mixture_of_experts_fused_weights(
+    hidden_states,
+    expert_routing_table,
+    router_weights,
+    w12,
+    w3,
+    permuted_weights,
+    activation,
+    experts_min,
+    experts_max,
+):
+    return hidden_states.new_empty(hidden_states.shape)
 
 
 @register_meta([torch.ops.hpu.rotary_pos_embedding_backward.default])

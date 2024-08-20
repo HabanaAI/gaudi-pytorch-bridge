@@ -6906,30 +6906,61 @@ at::Tensor habana_expand_into_jagged_permute_lazy(
 }
 
 at::Tensor mixture_of_experts_lazy(
-    const at::Tensor& input,
+    const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
     const at::Tensor& router_weights,
-    const at::TensorList expert_weights_1,
-    const at::TensorList expert_weights_2,
-    const at::TensorList expert_weights_3,
-    c10::string_view activation,
-    int64_t experts_min,
-    int64_t experts_max) {
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
   LazyOp<at::Tensor> op{
       "hpu::mixture_of_experts",
-      {input,
+      {hidden_states,
        expert_routing_table,
        router_weights,
-       expert_weights_1,
-       expert_weights_2,
-       expert_weights_3,
+       w1,
+       w2,
+       w3,
+       permuted_weights,
        activation,
        experts_min,
        experts_max},
-      {input.sizes().vec()},
+      {hidden_states.sizes().vec()},
+      0};
+
+  RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, op)
+}
+at::Tensor mixture_of_experts_fused_weights_lazy(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+
+  LazyOp<at::Tensor> op{
+      "hpu::mixture_of_experts",
+      {hidden_states,
+       expert_routing_table,
+       router_weights,
+       w12,
+       w3,
+       permuted_weights,
+       activation,
+       experts_min,
+       experts_max},
+      {hidden_states.sizes().vec()},
       0};
 
   RUN_MAYBE_WITH_ACC_THREAD(mixture_of_experts, op)

@@ -17,8 +17,8 @@
 #include <torch/library.h>
 #include "common/dump_args.h"
 #include "common/random_utils.h"
-#include "habana_eager/ops/eager_op.h"
 #include "habana_eager/graph_weight_permute.h"
+#include "habana_eager/ops/eager_op.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/random_gen_kernels.h"
@@ -915,25 +915,27 @@ at::Tensor fused_clip_norm(
 }
 
 at::Tensor mixture_of_experts(
-    const at::Tensor& input,
+    const at::Tensor& hidden_states,
     const at::Tensor& expert_routing_table,
     const at::Tensor& router_weights,
-    const at::TensorList expert_weights_1,
-    const at::TensorList expert_weights_2,
-    const at::TensorList expert_weights_3,
-    c10::string_view activation,
-    int64_t experts_min,
-    int64_t experts_max) {
+    const at::TensorList w1,
+    const at::TensorList w2,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "mixture_of_experts :",
-      DUMP_9ARGS(
-          input,
+      DUMP_10ARGS(
+          hidden_states,
           expert_routing_table,
           router_weights,
-          expert_weights_1,
-          expert_weights_2,
-          expert_weights_3,
+          w1,
+          w2,
+          w3,
+          permuted_weights,
           activation,
           experts_min,
           experts_max));
@@ -954,27 +956,81 @@ at::Tensor mixture_of_experts(
       return torch::nn::functional::silu(x);
     };
   }
-  const int num_experts = expert_weights_1.size();
-  const int num_tokens = input.size(0);
-  const int hidden_dim = input.size(1);
+  const int num_experts = w1.size();
+  const int num_tokens = hidden_states.size(0);
+  const int hidden_dim = hidden_states.size(1);
   auto final_hidden_states =
-      torch::zeros({1, num_tokens, hidden_dim}, input.options());
-  auto padded_weights = torch::zeros({num_tokens, num_experts}, input.options())
-                            .scatter_(-1, expert_routing_table, router_weights)
-                            .reshape({-1, num_tokens, num_experts})
-                            .permute({2, 0, 1})
-                            .unsqueeze(-1);
+      torch::zeros({1, num_tokens, hidden_dim}, hidden_states.options());
+  auto padded_weights =
+      torch::zeros({num_tokens, num_experts}, hidden_states.options())
+          .scatter_(-1, expert_routing_table, router_weights)
+          .reshape({-1, num_tokens, num_experts})
+          .permute({2, 0, 1})
+          .unsqueeze(-1);
 
   for (int expert_idx = 0; expert_idx < num_experts; expert_idx++) {
+    const at::Tensor current_expert_w1 =
+        permuted_weights ? w1[expert_idx].transpose(0, 1) : w1[expert_idx];
+    const at::Tensor current_expert_w2 =
+        permuted_weights ? w2[expert_idx].transpose(0, 1) : w2[expert_idx];
+    const at::Tensor current_expert_w3 =
+        permuted_weights ? w3[expert_idx].transpose(0, 1) : w3[expert_idx];
+
     auto hidden_states_w1 =
-        activation_fn(torch::matmul(input, expert_weights_1[expert_idx]));
-    auto hidden_states_w2 = torch::matmul(input, expert_weights_2[expert_idx]);
-    auto hidden_states_w3 = torch::matmul(
-        hidden_states_w1 * hidden_states_w2, expert_weights_3[expert_idx]);
+        activation_fn(torch::matmul(hidden_states, current_expert_w1));
+    auto hidden_states_w2 = torch::matmul(hidden_states, current_expert_w2);
+    auto hidden_states_w3 =
+        torch::matmul(hidden_states_w1 * hidden_states_w2, current_expert_w3);
     final_hidden_states += hidden_states_w3 * padded_weights[expert_idx];
   }
 
   return final_hidden_states;
+}
+
+at::Tensor mixture_of_experts_fused_weights(
+    const at::Tensor& hidden_states,
+    const at::Tensor& expert_routing_table,
+    const at::Tensor& router_weights,
+    const at::TensorList w12,
+    const at::TensorList w3,
+    const bool permuted_weights,
+    const c10::string_view activation,
+    const int64_t experts_min,
+    const int64_t experts_max) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "mixture_of_experts.fused_weights :",
+      DUMP_9ARGS(
+          hidden_states,
+          expert_routing_table,
+          router_weights,
+          w12,
+          w3,
+          permuted_weights,
+          activation,
+          experts_min,
+          experts_max));
+
+  std::vector<at::Tensor> w1, w2;
+  const auto splitDim = permuted_weights ? 0 : 1;
+  const auto splitIndex = w12[0].size(splitDim) / 2;
+  for (const auto& tensor : w12) {
+    auto w12_split = tensor.split(splitIndex, splitDim);
+    w1.push_back(w12_split[0]);
+    w2.push_back(w12_split[1]);
+  }
+
+  return mixture_of_experts(
+      hidden_states,
+      expert_routing_table,
+      router_weights,
+      w1,
+      w2,
+      w3,
+      permuted_weights,
+      activation,
+      experts_min,
+      experts_max);
 }
 
 void optimizer_sgd(
@@ -2129,10 +2185,10 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd(
   return hpu_op.call();
 }
 
-at::Tensor weight_permutation (const at::Tensor& weight) {
-    habana::graph::PermuteWeightTensor t(weight);
-    t.PermuteIfNeeded();
-    return weight;
+at::Tensor weight_permutation(const at::Tensor& weight) {
+  habana::graph::PermuteWeightTensor t(weight);
+  t.PermuteIfNeeded();
+  return weight;
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd(
@@ -2595,7 +2651,9 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::ragged_softmax(Tensor self, int dim, bool half_to_float, Tensor valid_count) -> Tensor");
   m.def(
-      "hpu::mixture_of_experts(Tensor input, Tensor expert_routing_table, Tensor router_weights, Tensor[] expert_weights_1, Tensor[] expert_weights_2, Tensor[] expert_weights_3, str activation, int experts_min, int experts_max) -> Tensor");
+      "hpu::mixture_of_experts(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w1, Tensor[] w2, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
+  m.def(
+      "hpu::mixture_of_experts.fused_weights(Tensor hidden_states, Tensor expert_routing_table, Tensor router_weights, Tensor[] w12, Tensor[] w3, bool permuted_weights, str activation, int experts_min, int experts_max) -> Tensor");
   m.def(
       "hpu::rotary_pos_embedding(Tensor input, Tensor sin, Tensor cos, Tensor? position_ids, int offset, int mode) -> Tensor");
   m.def(
@@ -2701,8 +2759,7 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::constant_pad_nd(Tensor input, Tensor pad_tensor, Tensor output_shape_tensor, Scalar value) -> Tensor");
   m.def(
       "hpu::constant_pad_nd_ds(Tensor input, SymInt[] pad, Scalar value, SymInt[]? size=None) -> Tensor");
-  m.def(
-      "hpu::weight_permutation(Tensor input) -> Tensor");
+  m.def("hpu::weight_permutation(Tensor input) -> Tensor");
   m.def(
       "hpu::custom_bernoulli.Size(SymInt[] size, float p, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor");
   m.def(
@@ -2788,6 +2845,9 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       optimizer_resource_apply_momentum);
   m.impl("hpu::ragged_softmax", _ragged_softmax);
   m.impl("hpu::mixture_of_experts", mixture_of_experts);
+  m.impl(
+      "hpu::mixture_of_experts.fused_weights",
+      mixture_of_experts_fused_weights);
   m.impl("hpu::optimizer_sgd", optimizer_sgd);
   m.impl("hpu::optimizer_sgd_momentum", optimizer_sgd_momentum);
   m.impl("hpu::rotary_pos_embedding", rotary_pos_embedding);
