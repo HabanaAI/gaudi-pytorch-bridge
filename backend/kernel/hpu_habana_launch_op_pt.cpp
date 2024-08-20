@@ -2990,6 +2990,7 @@ void HabanaLaunchOpPT::BuildSynapseGraphLite(
   PT_DYNAMIC_SHAPE_DEBUG("Running BuildSynapseGraphLite");
   auto recipe_holder = GetCachedRecipe(cur_rargpsh);
   RecipeValueSpec& rv = *recipe_holder->rvs_;
+  SymExprFactory::getInstance().clear_expr_cache();
   if (rv.ds_sifinfo_map.count(sym_expr_hash_) > 0) {
     synapse_helpers::detail::tensor_name_generator::reset();
     habana::ShapeInference::ResetShapeTensorId();
@@ -3034,6 +3035,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   std::shared_ptr<torch::jit::Graph> rv_jit_graph = nullptr;
   torch::jit::graph_node_list::iterator itr_rv_node;
   if (syn_graph->is_dynamic_graph() && enable_optim_output_sif_) {
+    SymExprFactory::getInstance().clear_expr_cache();
     if (m_map_shape.m_pass == ShapeInfo::InferencePass::INVALID) {
       ProcessIntermediateSymbolicShapes(jit_ir_graph_);
       CreateValueToIShapeMapForInputs(jit_ir_graph_);

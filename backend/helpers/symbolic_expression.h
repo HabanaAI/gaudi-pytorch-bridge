@@ -39,7 +39,7 @@ class SymExpression {
 
  public:
   SymExpression(std::string e, SymbolValueMap& in_symbol_value_map);
-  std::string get_expr_str();
+  std::string& get_expr_str();
   int64_t eval();
   void dump_symbol_table();
 };
@@ -57,7 +57,7 @@ class SizeExpression {
 };
 
 class SymExprFactory {
-  std::unordered_map<std::shared_ptr<SymExpression>, int64_t> expr_value_cache;
+  std::unordered_map<std::string_view, int64_t> expr_value_cache;
   SymExprFactory() {}
   ~SymExprFactory() {}
 
@@ -72,6 +72,8 @@ class SymExprFactory {
 
   std::vector<int64_t> evaluate_symsize(
       std::shared_ptr<SizeExpression> size_expr);
+
+  void clear_expr_cache();
 };
 
 } // namespace habana

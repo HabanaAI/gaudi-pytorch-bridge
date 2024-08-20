@@ -103,6 +103,7 @@ void ProcessRangeInfos(
   // and in_symbol_idx_map symbols
   InputSymbolMap in_symbol_value_map;
   // Min Evaluation
+  SymExprFactory::getInstance().clear_expr_cache();
   std::for_each(
       in_symbol_idx_map.begin(),
       in_symbol_idx_map.end(),
@@ -125,6 +126,7 @@ void ProcessRangeInfos(
   }
 
   // Max Evaluation
+  SymExprFactory::getInstance().clear_expr_cache();
   std::for_each(
       in_symbol_idx_map.begin(),
       in_symbol_idx_map.end(),

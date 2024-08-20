@@ -62,7 +62,7 @@ habana::SymExpression::SymExpression(
   }
 }
 
-std::string SymExpression::get_expr_str() {
+std::string& SymExpression::get_expr_str() {
   return m_expr_str;
 }
 
@@ -121,19 +121,23 @@ std::vector<int64_t> SymExprFactory::evaluate_symsize(
   std::vector<int64_t> result;
   std::vector<SymExpression>& sym_exprs = size_expr->get_expressions();
   for (auto& sym_expr : sym_exprs) {
-    auto sym_expr_sh = std::make_shared<SymExpression>(sym_expr);
-    auto it = expr_value_cache.find(sym_expr_sh);
+    auto sym_expr_str = sym_expr.get_expr_str();
+    const auto& it = expr_value_cache.find(sym_expr_str);
     if (it != expr_value_cache.end()) {
-      result.push_back(expr_value_cache[sym_expr_sh]);
+      result.push_back(expr_value_cache[sym_expr_str]);
     } else {
       int64_t value = sym_expr.eval();
-      expr_value_cache[sym_expr_sh] = value;
+      expr_value_cache[sym_expr_str] = value;
       result.push_back(value);
     }
   }
 
   PT_BRIDGE_DEBUG("SizeExpression eval result:", result);
   return result;
+}
+
+void SymExprFactory::clear_expr_cache() {
+  expr_value_cache.clear();
 }
 
 } // namespace habana
