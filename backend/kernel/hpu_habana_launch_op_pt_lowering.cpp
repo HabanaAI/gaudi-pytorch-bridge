@@ -442,9 +442,9 @@ void habana::HabanaLaunchOpPT::HandleTensorWithZeroSize(
   ConstantInformation::checksum_t checksum{0};
   constant_information.Insert(const_id, checksum);
   constant_information.PushInfo(const_id, checksum, key, 0 /*_section_size*/);
-  at::DataPtr data = tensor.storage().allocator()->allocate(0);
+  at::DataPtr data = tensor.storage().allocator()->allocate(2);
   auto old_data_ptr = tensor.storage().set_data_ptr(std::move(data));
-  tensor.storage().set_nbytes(0);
+  tensor.storage().set_nbytes(2);
   if (checksum_if_exists.has_value() and
       checksum_if_exists.value() != checksum) {
     PT_BRIDGE_DEBUG(
@@ -594,10 +594,9 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
        iter != pt_to_synapse_tensors.end();
        ++iter) {
     auto& src = iter->first->toTensor();
-    PT_BRIDGE_DEBUG("tensor storage:: ", src.has_storage());
+    // PT_BRIDGE_DEBUG("tensor ", src, " has_storage: ", src.has_storage());
     if (src.has_storage()) {
       auto tmeta{get_tensor_extra_meta(src)};
-      PT_BRIDGE_DEBUG("tensor is_const_tensor:  ", tmeta->is_const_tensor());
       for (synapse_helpers::tensor& tensor : *(iter->second)) {
         if (tmeta->is_const_tensor()) {
           PT_BRIDGE_DEBUG(
@@ -608,8 +607,6 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
           // habana_helpers::handle_const_section_tensor(src, tensor);
           // remove the const marking to avoid copy more than once
           TensorExtraMeta::set_const_tensor(src, false);
-          PT_BRIDGE_DEBUG(
-              "tensor is_const_tensor:  ", tmeta->is_const_tensor());
           uint64_t section_size = 0, section_data = 0;
           synSectionId tensorSectionId;
           bool isInput;
@@ -624,7 +621,6 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
             continue;
           }
           HABANA_ASSERT(tensorSectionId != INVALID_SECTION_ID);
-          PT_BRIDGE_DEBUG("tensor section ID:  ", tensorSectionId);
           synStatus status;
           status = synRecipeSectionGetProp(
               recipe.syn_recipe_handle_,
@@ -634,7 +630,9 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
           HABANA_ASSERT(
               status == synStatus::synSuccess, Logger::synStatusToStr(status));
           PT_BRIDGE_DEBUG(
-              "section_size:: ",
+              "section ID: ",
+              tensorSectionId,
+              " section_size:: ",
               section_size,
               " , size (bridge) :: ",
               tensor.get_host_ptr_size());

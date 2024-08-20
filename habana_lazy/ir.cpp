@@ -255,6 +255,10 @@ std::string Value::ToString() const {
     std::replace(name.begin(), name.end(), ':', '_');
     ss << "_" << name;
   }
+  if (DataPtrValidAndNotExpired()) {
+    std::shared_ptr<Data> d = m_data_ptr.lock();
+    ss << " Uniqueid: " << d->unique_id;
+  }
   return ss.str();
 }
 
