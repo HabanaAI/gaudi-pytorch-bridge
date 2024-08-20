@@ -1643,35 +1643,6 @@ def test_empty_resize_node_params():
         assert num_cache_entries_end == num_cache_entries_start
 
 
-# test node params patching for scatter op
-@pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
-def test_scatter_node_params():
-    params = [0, 1]
-
-    index = [[1, 0], [0, 1]]
-    iteration = 0
-    htdebug._clear_jit_cache()
-    for dim in params:
-        index_tensor = torch.Tensor(index).type(torch.int64)
-        index_tensor_hpu = index_tensor.to("hpu")
-        src_tensor = torch.randn((2, 2), dtype=torch.bfloat16)
-        src_tensor_hpu = src_tensor.to("hpu")
-        output_tensor = torch.randn((2, 2), dtype=torch.bfloat16)
-        output_tensor_hpu = output_tensor.to("hpu")
-        output_tensor.scatter_(dim, index_tensor, src_tensor)
-        output_tensor_hpu.scatter_(dim, index_tensor_hpu, src_tensor_hpu)
-
-        assert torch.equal(output_tensor, output_tensor_hpu.cpu())
-
-        if iteration == 0:
-            num_cache_entries_start = htdebug._get_jit_cache_size()
-
-        iteration += 1
-
-        num_cache_entries_end = htdebug._get_jit_cache_size()
-        assert num_cache_entries_end == num_cache_entries_start
-
-
 def test_sag_section_validation_issue():
     params = [(16, (2, 2), (1, 2)), (2732 * 258, (2732, 257), (1, 257))]
 
