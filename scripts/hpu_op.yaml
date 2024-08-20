@@ -3183,6 +3183,7 @@ cumprod:
   output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
   out_ids: [0]
+  op_validator: FillCumProdSharedMeta
 
 cumprod.out:
   custom_fill_params: FillCumsumParams
@@ -3190,6 +3191,7 @@ cumprod.out:
   guid: cumprod_fwd
   output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
+  op_validator: FillCumProdSharedMeta
 
 cumprod_:
   custom_fill_params: FillCumsumParams
@@ -3208,6 +3210,7 @@ cumsum:
   output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
   out_ids: [0]
+  op_validator: FillCumSumSharedMeta
 
 cumsum.out:
   custom_fill_params: FillCumsumParams
@@ -3218,6 +3221,7 @@ cumsum.out:
   guid: cumsum_fwd
   output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
+  op_validator: FillCumSumSharedMeta
 
 cumsum_:
   custom_fill_params: FillCumsumParams
@@ -3229,6 +3233,7 @@ cumsum_:
   output_meta: CumsumMeta
   op_backend: CumsumHabanaOperator
   inplace_ids: [0]
+  op_validator: FillCumSumSharedMeta
 
 diag.out:
   output_meta: DiagMeta
@@ -3739,6 +3744,7 @@ fill.Scalar:
   op_backend: FillScalar
   op_frontend: FillFE
   out_ids: [0]
+  op_validator: FillScalarSharedMeta
 
 fill.Scalar_out:
   dtypes:
@@ -3747,6 +3753,7 @@ fill.Scalar_out:
     Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: FillScalar
   op_frontend: FillFE
+  op_validator: FillScalarSharedMeta
 
 fill.Tensor_out:
   dtypes:
@@ -3754,6 +3761,7 @@ fill.Tensor_out:
     Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: Fill
+  op_validator: FillSharedMeta
 
 fill_.Scalar:
   dtypes:
@@ -3763,6 +3771,7 @@ fill_.Scalar:
   op_backend: FillScalar
   op_frontend: FillFE
   inplace_ids: [0]
+  op_validator: FillScalarSharedMeta
 
 fill_.Tensor:
   dtypes:
@@ -3771,6 +3780,7 @@ fill_.Tensor:
     Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn]
   op_backend: Fill
   inplace_ids: [0]
+  op_validator: FillSharedMeta
 
 flip:
   dtypes:
@@ -4036,6 +4046,7 @@ gelu:
   op_backend: Gelu
   output_meta: GeluMeta
   out_ids: [0]
+  op_validator: GeluSharedMeta
 
 gelu_:
   dtypes:
@@ -4044,6 +4055,7 @@ gelu_:
     Gaudi3: [BFloat16, Float, Half]
   op_backend: Gelu
   inplace_ids: [0]
+  op_validator: GeluSharedMeta
 
 gelu.out:
   dtypes:
@@ -4052,6 +4064,7 @@ gelu.out:
     Gaudi3: [BFloat16, Float, Half]
   output_meta: GeluMeta
   op_backend: Gelu
+  op_validator: GeluSharedMeta
 
 gelu_backward:
   custom_fill_params: FillGeluBwdParams
@@ -4468,6 +4481,7 @@ isfinite:
   guid: isfinite_fwd
   out_dtypes: [Bool]
   out_ids: [0]
+  op_validator: IsFiniteSharedMeta
 
 isinf:
   custom_fill_params: FillisinfParamsFwd
@@ -4479,6 +4493,7 @@ isinf:
   op_backend: _IsFiniteInfNan
   out_dtypes: [Bool]
   out_ids: [0]
+  op_validator: IsInfSharedMeta
 
 isinf.out:
   custom_fill_params: FillisinfParamsFwd
@@ -4489,6 +4504,7 @@ isinf.out:
   out_dtypes: [Bool]
   guid: isinf_fwd
   op_backend: _IsFiniteInfNan
+  op_validator: IsInfSharedMeta
 
 isnan:
   dtypes:
@@ -4499,6 +4515,7 @@ isnan:
   op_backend: _IsFiniteInfNan
   out_dtypes: [Bool]
   out_ids: [0]
+  op_validator: IsNanSharedMeta
 
 isneginf:
   custom_fill_params: FillisneginfParamsFwd
@@ -4510,6 +4527,7 @@ isneginf:
   op_backend: _IsFiniteInfNan
   out_dtypes: [Bool]
   out_ids: [0]
+  op_validator: IsInfSharedMeta
 
 isneginf.out:
   custom_fill_params: FillisneginfParamsFwd
@@ -4520,6 +4538,7 @@ isneginf.out:
   out_dtypes: [Bool]
   guid: isinf_fwd
   op_backend: _IsFiniteInfNan
+  op_validator: IsInfSharedMeta
 
 isposinf:
   custom_fill_params: FillisposinfParamsFwd
@@ -4531,6 +4550,7 @@ isposinf:
   op_backend: _IsFiniteInfNan
   out_dtypes: [Bool]
   out_ids: [0]
+  op_validator: IsInfSharedMeta
 
 isposinf.out:
   custom_fill_params: FillisposinfParamsFwd
@@ -4541,6 +4561,7 @@ isposinf.out:
   out_dtypes: [Bool]
   guid: isinf_fwd
   op_backend: _IsFiniteInfNan
+  op_validator: IsInfSharedMeta
 
 kl_div:
   dtypes: [BFloat16, Float]

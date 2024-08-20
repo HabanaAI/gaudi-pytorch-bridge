@@ -13,7 +13,7 @@
 
 #include "generated/backend/cumprod.h"
 #include "generated/backend/cumsum.h"
-
+#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 
@@ -32,6 +32,14 @@ OutputMetaDataVector CumsumMeta(const at::Stack& stack) {
     meta.dtype = stack.at(2).toScalarType();
 
   return {meta};
+}
+
+SharedMetaDataVector FillCumSumSharedMeta(const at::Stack& stack) {
+  return FillCumSumProdSharedMeta(stack, "cumsum_fwd");
+}
+
+SharedMetaDataVector FillCumProdSharedMeta(const at::Stack& stack) {
+  return FillCumSumProdSharedMeta(stack, "cumprod_fwd");
 }
 
 std::shared_ptr<void> FillCumsumParams(const at::Stack& stack, size_t& size) {

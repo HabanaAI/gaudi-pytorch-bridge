@@ -22,7 +22,10 @@
 namespace habana {
 
 SHARED_META(Input0)
+SHARED_META(Input0ToOut0And1)
 SHARED_META(AdaptiveBwd)
 SHARED_META(AvgPoolBwd)
+SHARED_META(FillCumSumProd)
+SHARED_META(IsFiniteInfNan)
 
 } // namespace habana

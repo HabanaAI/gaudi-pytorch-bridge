@@ -14,6 +14,31 @@
 #include "generated/backend/fill.h"
 
 namespace habana {
+SharedMetaDataVector FillSharedMeta(const at::Stack& stack) {
+  const auto& input = stack_tensor(stack, 0);
+  const auto& other = stack_tensor(stack, 1);
+  auto dtype = input.scalar_type();
+
+  SharedMetaData meta{"broadcast"};
+  meta.inputs_data = {{other.dim(), dtype}};
+  meta.outputs_data = {{input.dim(), dtype}};
+
+  return {meta};
+}
+
+SharedMetaDataVector FillScalarSharedMeta(const at::Stack& stack) {
+  const auto& input = stack_tensor(stack, 0);
+  auto dtype = input.scalar_type();
+  auto rank = input.dim();
+
+  SharedMetaData meta{"memcpy"};
+  SharedMetaTensor inOutTensor{rank, dtype};
+  meta.inputs_data = {inOutTensor};
+  meta.outputs_data = {inOutTensor};
+
+  return {meta};
+}
+
 void Fill::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
 

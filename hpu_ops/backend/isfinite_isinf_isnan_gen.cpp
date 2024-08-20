@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,8 +13,21 @@
 #include "generated/backend/isfinite.h"
 #include "generated/backend/isinf.h"
 #include "generated/backend/isnan.h"
+#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
+
+SharedMetaDataVector IsFiniteSharedMeta(const at::Stack& stack) {
+  return IsFiniteInfNanSharedMeta(stack, "isfinite_fwd");
+}
+
+SharedMetaDataVector IsInfSharedMeta(const at::Stack& stack) {
+  return IsFiniteInfNanSharedMeta(stack, "isinf_fwd");
+}
+
+SharedMetaDataVector IsNanSharedMeta(const at::Stack& stack) {
+  return IsFiniteInfNanSharedMeta(stack, "isnan_fwd");
+}
 
 void _IsFiniteInfNan::AddNode(
     synapse_helpers::graph& graph,

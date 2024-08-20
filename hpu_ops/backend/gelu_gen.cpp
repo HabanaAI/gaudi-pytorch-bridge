@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -13,6 +13,7 @@
 #include "generated/backend/gelu.h"
 #include "generated/backend/gelu_backward.h"
 #include "hpu_ops/op_backend.h"
+#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 OutputMetaDataVector GeluMeta(const at::Stack& stack) {
@@ -22,6 +23,10 @@ OutputMetaDataVector GeluMeta(const at::Stack& stack) {
   meta.dtype = self.scalar_type();
   meta.mem_format = self.suggest_memory_format();
   return {meta};
+}
+
+SharedMetaDataVector GeluSharedMeta(const at::Stack& stack) {
+  return Input0ToOut0And1SharedMeta(stack, "gelu_fwd");
 }
 
 std::shared_ptr<void> FillGeluParams(
