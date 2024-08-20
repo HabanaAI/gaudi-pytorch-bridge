@@ -1,5 +1,5 @@
 ###############################################################################
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -24,9 +24,6 @@ def check_dbg_env_var(v):
     if int(os.getenv(v, 0)) == 1:
         env_var_set = True
     return env_var_set
-
-
-dbg_env_var = check_dbg_env_var("FSDPA_DBG_USE_DROPOUT_STUB")
 
 
 def is_gqa(q, k):
@@ -93,9 +90,8 @@ def sdpa_fwd_wrapper(
     recompute_mode=None,
     valid_seq_len=None,
     seq_padding_type="left",
+    return_dropout_mask=False,
 ):
-    global dbg_env_var
-
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
     softmax_mode = softmax_mode.lower()
     seq_padding_type = seq_padding_type.lower()
@@ -116,6 +112,9 @@ def sdpa_fwd_wrapper(
         assert (
             is_causal and (requires_backward == False) and (attn_mask == None)
         ), "Valid sequence length is supported only in inference with is_causal(triangular) mask case"
+
+    if recompute:
+        assert return_dropout_mask == False, "Return_dropout_mask is not supported in recompute mode"
 
     gqa = is_gqa(q, k)
     if gqa:
@@ -146,7 +145,12 @@ def sdpa_fwd_wrapper(
         if gqa:
             out = gqa_output_reshape(out)
         if not requires_backward:
-            return out
+            if not return_dropout_mask:
+                return out
+            if dropout_p > 0.0 and gqa:
+                dm = gqa_output_reshape(dm)
+            return out, dm
+
         ctx.save_for_backward(q, k, v, P, dm, out)
 
     ctx.dropout_p = dropout_p
@@ -159,10 +163,10 @@ def sdpa_fwd_wrapper(
     if recompute:
         return out
 
-    if not dbg_env_var:
+    if not return_dropout_mask:
         return out
     else:
-        if gqa:
+        if dropout_p > 0.0 and gqa:
             dm = gqa_output_reshape(dm)
         return out, dm
 
@@ -184,7 +188,7 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
             dv = gqa_output_reshape(dv)
-        return dq, dk, dv, None, None, None, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None, None, None, None
     else:
         q, k, v, P, dm, fwd_out = ctx.saved_tensors
         scale = ctx.scale
@@ -198,7 +202,7 @@ def sdpa_bwd_wrapper(ctx, dout, *args):
             dq = gqa_output_reshape(dq)
             dk = gqa_output_reshape(dk)
             dv = gqa_output_reshape(dv)
-        return dq, dk, dv, None, None, None, None, None, None, None, None
+        return dq, dk, dv, None, None, None, None, None, None, None, None, None
 
 
 class FusedSDPA(torch.autograd.Function):
@@ -216,6 +220,7 @@ class FusedSDPA(torch.autograd.Function):
         recompute_mode=None,
         valid_seq_len=None,
         seq_padding_type="left",
+        return_dropout_mask=False,
     ):
         return sdpa_fwd_wrapper(
             ctx,
@@ -230,6 +235,7 @@ class FusedSDPA(torch.autograd.Function):
             recompute_mode=recompute_mode,
             valid_seq_len=valid_seq_len,
             seq_padding_type=seq_padding_type,
+            return_dropout_mask=return_dropout_mask,
         )
 
     @staticmethod

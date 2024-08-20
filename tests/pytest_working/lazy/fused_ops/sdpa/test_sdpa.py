@@ -1,3 +1,15 @@
+###############################################################################
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 import math  # for ceil etc
 import os
 import sys
@@ -169,6 +181,24 @@ tc_list = [
         8,  # head_dim_qk, i.e. head_dim of q and k
         16,  # head_dim_v,  i.e. head_dim of v
         0.0,  # dropout_p,
+        True,  # use_attn_mask,
+        True,  # use_float_mask,
+        False,  # enable_autocast
+        False,  # is_causal
+        False,  # recompute
+        False,  # rhslice
+        False,  # inference
+        "None",  # softmax_mode
+    ),
+    # Cross attention with head_dim qk != head_dim v, non-inference mode, returning dropout mask to user
+    (
+        2,  # batch_size,
+        4,  # n_heads,
+        32,  # seq_len_N_t, i.e. Target seq len (i.e, of q)
+        16,  # seq_len_N_s, i.e. Source seq len (i.e, of k and v)
+        8,  # head_dim_qk, i.e. head_dim of q and k
+        16,  # head_dim_v,  i.e. head_dim of v
+        0.1,  # dropout_p,
         True,  # use_attn_mask,
         True,  # use_float_mask,
         False,  # enable_autocast
@@ -1030,10 +1060,7 @@ def test_sdpa(
         assert is_causal == False, " use_attn_mask and is_causal can not be True at the same time"
 
     DBG_ONLY_dropout_mask_g = None
-
-    os.environ["FSDPA_DBG_USE_DROPOUT_STUB"] = "1"
-    if dropout_p == 0.0:
-        os.environ["FSDPA_DBG_USE_DROPOUT_STUB"] = "0"
+    return_dropout_mask = dropout_p > 0.0 and not recompute
 
     # Set the env. var to enable batchsize/Num heads slicing if needed.
     if rhslice:
@@ -1077,7 +1104,7 @@ def test_sdpa(
     if perf_run:
         exit(0)
     # ----------------------------------HPU Fused SDPA attention---------------------------------------------
-    if not check_dbg_env_var("FSDPA_DBG_USE_DROPOUT_STUB") or recompute:
+    if not return_dropout_mask:
         with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
             # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
             with ht.sdp_kernel(enable_recompute=recompute):
@@ -1087,7 +1114,18 @@ def test_sdpa(
             # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
             with ht.sdp_kernel(enable_recompute=recompute):
                 O_hpu, DBG_ONLY_dropout_mask_g = FusedSDPA.apply(
-                    q_hpu, k_hpu, v_hpu, attn_mask_hpu, dropout_p, is_causal, None, softmax_mode
+                    q_hpu,
+                    k_hpu,
+                    v_hpu,
+                    attn_mask_hpu,
+                    dropout_p,
+                    is_causal,
+                    None,
+                    softmax_mode,
+                    None,
+                    None,
+                    "left",
+                    return_dropout_mask,
                 )
         DBG_ONLY_dropout_mask_g = DBG_ONLY_dropout_mask_g.to("cpu")
 
