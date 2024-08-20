@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "../utils/device_type_util.h"
 #include "util.h"
 
 using GroupNormSizes_t =
@@ -52,6 +53,10 @@ class NativeGroupNormTests
 };
 
 TEST_P(NativeGroupNormTests, GroupNormFwdBwdExecute) {
+  if (isGaudi2()) {
+    GTEST_SKIP()
+        << "Temporary test skipped on Gaudi2 due to https://jira.habana-labs.com/browse/SW-197674";
+  }
   constexpr const auto OUTPUTS_NUMBER = 3;
   const auto [groupNormSizes, epsilon, dtype, flagParam] = GetParam();
 
