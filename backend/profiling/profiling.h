@@ -108,12 +108,14 @@ class TraceSink {
    * Clean-up and reset data containers and variables in the object.
    */
   virtual void clear() = 0;
+
+  virtual int64_t transToRelativeTime(int64_t time) = 0;
 };
 
 class TraceSource {
  public:
   virtual ~TraceSource(){};
-  virtual void start() = 0;
+  virtual void start(TraceSink& output) = 0;
   virtual void stop() = 0;
   virtual void extract(TraceSink& output) = 0;
   virtual TraceSourceVariant get_variant() = 0;

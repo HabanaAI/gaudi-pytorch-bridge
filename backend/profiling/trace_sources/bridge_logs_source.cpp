@@ -23,9 +23,9 @@
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace {
-uint64_t NowMicros() {
+uint64_t nowNanos() {
   return static_cast<uint64_t>(
-      std::chrono::duration_cast<std::chrono::microseconds>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
           std::chrono::system_clock::now().time_since_epoch())
           .count());
 }
@@ -39,7 +39,7 @@ struct BridgeLogsSourceImpl : public TraceSource {
   ~BridgeLogsSourceImpl() override = default;
   void log(std::string_view id, bool is_begin) {
     if (enabled(id)) {
-      int64_t dtime = NowMicros();
+      int64_t dtime = nowNanos();
       pid_t tid = syscall(__NR_gettid);
       std::string event_id{id};
       std::lock_guard<std::mutex> lg{m};
@@ -96,7 +96,7 @@ struct BridgeLogsSourceImpl : public TraceSource {
     static BridgeLogsSourceImpl source;
     return source;
   }
-  void start() override {
+  void start(TraceSink&) override {
     is_started_ = true;
   }
   void stop() override {
@@ -155,8 +155,8 @@ BridgeLogsSource::BridgeLogsSource(
 
 BridgeLogsSource::~BridgeLogsSource() {}
 
-void BridgeLogsSource::start() {
-  BridgeLogsSourceImpl::instance().start();
+void BridgeLogsSource::start(TraceSink& sink) {
+  BridgeLogsSourceImpl::instance().start(sink);
 }
 void BridgeLogsSource::stop() {
   BridgeLogsSourceImpl::instance().stop();

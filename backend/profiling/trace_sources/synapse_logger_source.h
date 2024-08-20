@@ -31,7 +31,7 @@ class SynapseLoggerSource : public TraceSource,
       bool is_active,
       const std::vector<std::string>& mandatory_events);
   virtual ~SynapseLoggerSource() = default;
-  void start() override;
+  void start(TraceSink&) override;
   void stop() override;
   void extract(TraceSink& trace_sink) override;
   TraceSourceVariant get_variant() override;

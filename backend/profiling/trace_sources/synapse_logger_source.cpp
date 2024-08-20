@@ -54,7 +54,7 @@ SynapseLoggerSource::SynapseLoggerSource(
   EnableSynapseApiLogger(this);
 }
 
-void SynapseLoggerSource::start() {
+void SynapseLoggerSource::start(TraceSink&) {
   is_started_ = true;
 }
 

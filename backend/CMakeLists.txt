@@ -57,6 +57,7 @@ add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synaps
   helpers/create_tensor.cpp
   helpers/event_dispatcher.cpp
   profiling/json_activity_profiler.cpp
+  profiling/json_file_parser.cpp
   profiling/kineto_activity_profiler.cpp
   profiling/profiling.cpp
   profiling/trace_sources/synapse_logger_source.cpp

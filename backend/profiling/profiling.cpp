@@ -29,7 +29,6 @@ void Profiler::init_sources(
     bool bridge,
     bool memory,
     const std::vector<std::string>& mandatory_events) {
-
   // if an object contained this class is static,
   // this function called several time in the same object.
   // Need to avoid logger duplication in the list.
@@ -56,7 +55,7 @@ void Profiler::init_sources(
 
 void Profiler::start() {
   for (auto& trace_source : trace_sources_) {
-    trace_source->start();
+    trace_source->start(trace_sink_);
   }
 }
 

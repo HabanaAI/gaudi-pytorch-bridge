@@ -261,6 +261,8 @@ bool HpuTraceParser::isEventInTime(
     long double start,
     long double end,
     long double wall_stop_time) {
+  start *= 1000;
+  end *= 1000;
   return start > hpu_start_time_ && end < wall_stop_time;
 }
 
@@ -369,6 +371,7 @@ void HpuTraceParser::convertEventsToActivities(
 }
 
 int64_t HpuTraceParser::timeStampHpuToTB(long double t) {
+  t *= 1000;
   if (t > hpu_start_time_) {
     return static_cast<int64_t>(roundl(t - hpu_start_time_ + wall_start_time_));
   } else {

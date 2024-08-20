@@ -33,7 +33,7 @@ struct MemoryLogger : public TraceSource {
     static MemoryLogger source;
     return source;
   }
-  void start() {
+  void start(TraceSink&) {
     enabled_ = true;
   }
   void stop() {
@@ -71,7 +71,7 @@ struct MemoryLogger : public TraceSource {
       uint64_t total_allocated,
       uint64_t total_reserved) {
     if (enabled_ && size > 0) {
-      int64_t dtime = nowMicros();
+      int64_t dtime = nowNanos();
       std::lock_guard<std::mutex> lg{m};
       ptrs_.emplace(addr, size);
       events_.emplace_back(dtime, addr, size, total_allocated, total_reserved);
@@ -85,7 +85,7 @@ struct MemoryLogger : public TraceSource {
       std::lock_guard<std::mutex> lg{m};
       auto it = ptrs_.find(addr);
       if (it != ptrs_.end()) {
-        int64_t dtime = nowMicros();
+        int64_t dtime = nowNanos();
         int64_t bytes{static_cast<int64_t>(it->second) * -1};
         events_.emplace_back(
             dtime, addr, bytes, total_allocated, total_reserved);
@@ -93,9 +93,9 @@ struct MemoryLogger : public TraceSource {
       }
     }
   }
-  uint64_t nowMicros() {
+  uint64_t nowNanos() {
     return static_cast<uint64_t>(
-        std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
             std::chrono::system_clock::now().time_since_epoch())
             .count());
   }
@@ -128,8 +128,8 @@ struct MemoryLogger : public TraceSource {
 };
 
 MemorySource::~MemorySource() {}
-void MemorySource::start() {
-  MemoryLogger::instance().start();
+void MemorySource::start(TraceSink& sink) {
+  MemoryLogger::instance().start(sink);
 }
 void MemorySource::stop() {
   MemoryLogger::instance().stop();

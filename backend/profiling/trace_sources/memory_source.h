@@ -20,7 +20,7 @@ namespace profile {
 class MemorySource : public TraceSource {
  public:
   ~MemorySource() override;
-  void start() override;
+  void start(TraceSink&) override;
   void stop() override;
   void extract(TraceSink& output) override;
   TraceSourceVariant get_variant() override;

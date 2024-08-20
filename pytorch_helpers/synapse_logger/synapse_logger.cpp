@@ -33,6 +33,13 @@
 #include "object_dump.h"
 #include "synapse_api.h"
 
+uint64_t NowNanos() {
+  return static_cast<uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(
+          std::chrono::system_clock::now().time_since_epoch())
+          .count());
+}
+
 uint64_t NowMicros() {
   return static_cast<uint64_t>(
       std::chrono::duration_cast<std::chrono::microseconds>(
@@ -187,7 +194,7 @@ void SynapseLogger::on_log(
   if (observer_) {
     pid_t tid = syscall(__NR_gettid);
     pid_t pid = getpid();
-    int64_t dtime = NowMicros();
+    int64_t dtime = NowNanos();
     observer_->on_log(name, args, pid, tid, dtime, begin);
   }
 }

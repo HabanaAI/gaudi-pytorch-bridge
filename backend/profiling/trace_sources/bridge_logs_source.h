@@ -23,7 +23,7 @@ class BridgeLogsSource : public TraceSource {
       bool is_active,
       const std::vector<std::string>& mandatory_events);
   ~BridgeLogsSource() override;
-  void start() override;
+  void start(TraceSink&) override;
   void stop() override;
   void extract(TraceSink& output) override;
   TraceSourceVariant get_variant() override;

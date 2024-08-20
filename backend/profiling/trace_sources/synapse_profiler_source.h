@@ -25,7 +25,7 @@ class SynapseProfilerSource : public TraceSource {
   SynapseProfilerSource();
   ~SynapseProfilerSource() = default;
 
-  void start() override;
+  void start(TraceSink& output) override;
   void stop() override;
   void extract(TraceSink& output) override;
   TraceSourceVariant get_variant() override;

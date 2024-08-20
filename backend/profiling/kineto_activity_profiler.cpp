@@ -139,6 +139,10 @@ class GenericTraceActivitySink : public TraceSink {
    */
   virtual void clear() override {}
 
+  virtual int64_t transToRelativeTime(int64_t time) override {
+    return time;
+  }
+
  private:
   const TraceSpan& defaultTraceSpan() {
     static TraceSpan span(0, 0, "PyTorch Profiler", "");
