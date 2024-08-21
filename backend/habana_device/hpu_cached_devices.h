@@ -201,11 +201,6 @@ class HPURegistrar {
     accumulation_thread_cleanup_.reset(std::move(acc_thread_cleanup));
   }
 
-  void register_recipe_cache(CallFinally::FinalFunc&& recipe_cache_cleanup) {
-    TORCH_CHECK(!recipe_cache_cleanup_);
-    recipe_cache_cleanup_.reset(std::move(recipe_cache_cleanup));
-  }
-
   void register_lazy_exec_thread_pool(
       CallFinally::FinalFunc&& lazy_exec_thread_pool_cleanup) {
     TORCH_CHECK(!lazy_exec_thread_pool_cleanup_);
@@ -240,7 +235,6 @@ class HPURegistrar {
   HPUDevice* active_device_{nullptr};
   using device_holder = std::unique_ptr<HPUDevice, void (*)(HPUDevice*)>;
   device_holder acquired_device_;
-  CallFinally recipe_cache_cleanup_{};
   CallFinally lazy_exec_thread_pool_cleanup_{};
   CallFinally lazy_execution_arena_cleanup_{};
   CallFinally eager_context_cleanup_{};

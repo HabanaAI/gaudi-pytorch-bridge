@@ -529,8 +529,19 @@ class DiskCache {
 class RecipeCacheLRU {
  public:
   static RecipeCacheLRU& get_cache() {
-    std::call_once(initialize_once_flag_, CreateInstance);
-    HABANA_ASSERT(instance_);
+    std::lock_guard<std::mutex> lg(mutex_);
+    if (!instance_) {
+      instance_ = new RecipeCacheLRU();
+      // PT_HPU_LAZY_MODE = 0 is Pure Eager and 2 is Eager through Lazy
+      if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 1)
+        max_size_ = PGM_LRU_MAX_LAZY_NRECIPES;
+      else
+        max_size_ = PGM_LRU_MAX_EAGER_NRECIPES;
+      char* smaxsize = getenv("HABANA_PGM_LRU_MAX");
+      if (smaxsize != nullptr) {
+        max_size_ = std::max(PGM_LRU_MIN_NRECIPES, atoi(smaxsize));
+      }
+    }
     return *instance_;
   }
 
@@ -579,10 +590,10 @@ class RecipeCacheLRU {
   static void DumpDynamicShapeMemoryStat();
 
   // friend std::ostream& operator<<(std::ostream& O, const RecipeCacheLRU& v);
-  ~RecipeCacheLRU() = default;
 
  private:
   RecipeCacheLRU();
+  ~RecipeCacheLRU() = default;
   RecipeCacheLRU(const RecipeCacheLRU&) = delete;
   RecipeCacheLRU& operator=(const RecipeCacheLRU&) = delete;
   bool drop_lru_impl(size_t& recipe_count, bool mem_exhausted = false);
@@ -592,12 +603,10 @@ class RecipeCacheLRU {
   void InitDiskCache();
 
   static std::mutex mutex_;
-  static std::unique_ptr<RecipeCacheLRU> instance_;
+  static RecipeCacheLRU* instance_;
   static size_t max_size_;
   std::unique_ptr<DiskCache> disk_cache_;
   static const uint32_t default_host_memory_threshold = 90;
-  static std::once_flag initialize_once_flag_;
-  static void CreateInstance();
 
   std::list<std::pair<
       std::shared_ptr<RecipeArgumentSpec>,
