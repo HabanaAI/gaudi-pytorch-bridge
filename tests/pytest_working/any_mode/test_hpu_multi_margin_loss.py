@@ -11,7 +11,8 @@
 ###############################################################################
 import pytest
 import torch
-from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, format_tc, is_gaudi1, is_pytest_mode_compile
+from compile.test_dynamo_utils import use_eager_fallback
+from test_utils import compile_function_if_compile_mode, format_tc, is_gaudi1
 
 dtypes = [torch.float32, torch.bfloat16]
 if not is_gaudi1():
@@ -19,36 +20,39 @@ if not is_gaudi1():
 
 
 def multi_margin_loss_common(C, N, dtype, p, margin, is_weight, size_average, reduce, reduction):
-    op = torch.nn.functional.multi_margin_loss
-
-    # This flag is used because otherwise decomposition leading to eager fallback is executed.
-    # For now we want this decomposition for non-inference mode as we do not support backward version of the operator for now.
-    @torch.inference_mode()
     def func(x, y, p, margin, weight, size_average, reduce, reduction):
-        return op(x, y, p, margin, weight, size_average, reduce, reduction)
+        result = torch.nn.functional.multi_margin_loss(x, y, p, margin, weight, size_average, reduce, reduction)
+        grad = torch.ones_like(result)
+        result.backward(grad)
+        return result, x.grad
 
-    cpu_input = torch.rand((N, C) if N is not None else C)
-    hpu_input = cpu_input.to(dtype=dtype).to("hpu")
-    cpu_target = torch.randint(0, C, (N,) if N is not None else (1,))
-    hpu_target = cpu_target.to("hpu")
-    cpu_weight, hpu_weight = None, None
-    if is_weight:
-        cpu_weight = torch.rand(C)
-        hpu_weight = cpu_weight.to(dtype=dtype).to("hpu")
+    # Allow eager fallback as op is decomposed at the "compositeimplicitautograd" and decomposition use index op.
+    # Currently is no good way to remove disallow this decomposition.
+    # Details are described in: https://github.com/pytorch/pytorch/issues/112744
+    with use_eager_fallback():
+        cpu_input = torch.rand((N, C) if N is not None else C, requires_grad=True)
+        hpu_input = cpu_input.to(dtype=dtype).to("hpu").detach()
+        hpu_input.requires_grad = True
 
-    cpu_output = op(cpu_input, cpu_target, p, margin, cpu_weight, size_average, reduce, reduction)
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-    hpu_op = torch.compile(func, backend="hpu_backend") if is_pytest_mode_compile() else op
-    hpu_output = hpu_op(hpu_input, hpu_target, p, margin, hpu_weight, size_average, reduce, reduction)
+        cpu_target = torch.randint(0, C, (N,) if N is not None else (1,))
+        hpu_target = cpu_target.to("hpu")
+        cpu_weight, hpu_weight = None, None
+        if is_weight:
+            cpu_weight = torch.rand(C)
+            hpu_weight = cpu_weight.to(dtype=dtype).to("hpu")
 
-    rtol = 0.001 if dtype == torch.float16 else None
-    atol = 3e-4 if dtype == torch.float16 else None
-    torch.testing.assert_close(cpu_output.to(dtype), hpu_output.cpu(), rtol=rtol, atol=atol)
+        cpu_output, cpu_grad = func(cpu_input, cpu_target, p, margin, cpu_weight, size_average, reduce, reduction)
+        hpu_func = compile_function_if_compile_mode(func)
+        hpu_output, hpu_grad = hpu_func(hpu_input, hpu_target, p, margin, hpu_weight, size_average, reduce, reduction)
 
-    if is_pytest_mode_compile():
-        check_ops_executed_in_jit_ir("multi_margin_loss")
+        rtol = 0.001 if dtype == torch.float16 else None
+        atol = 3e-4 if dtype == torch.float16 else None
+        torch.testing.assert_close(cpu_output.to(dtype), hpu_output.cpu(), rtol=rtol, atol=atol)
+
+        if dtype == torch.bfloat16:
+            rtol = 1e-04
+            atol = 0.016
+        torch.testing.assert_close(cpu_grad.to(dtype), hpu_grad.cpu(), rtol=rtol, atol=atol)
 
 
 @pytest.mark.parametrize(

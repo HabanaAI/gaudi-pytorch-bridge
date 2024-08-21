@@ -4670,9 +4670,9 @@ hypot_:
 index.Tensor:
   output_meta: IndexMeta
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
+    Gaudi: [BFloat16, Float, Long, Int, Char, Byte]
+    Gaudi2: [BFloat16, Float, Long, Int, Char, Byte, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Char, Byte, Half]
   guid: index
   fallback_check: [IndexFallbackCheck, indices]
   op_backend: IndexHabanaOperator
@@ -6294,6 +6294,18 @@ multi_margin_loss:
   out_ids: [0]
   output_meta: MultiMarginLossMeta
 
+multi_margin_loss_backward:
+  custom_fill_params: FillMultiMarginLossBackwardParams
+  guid: multi_margin_loss_bwd
+  out_ids: [1]
+  op_validator: check-node-with-shared-layer
+  output_meta: MultiMarginLossBackwardMeta
+
+multi_margin_loss_backward.grad_input:
+  custom_fill_params: FillMultiMarginLossBackwardParams
+  guid: multi_margin_loss_bwd
+  op_validator: check-node-with-shared-layer
+
 multinomial:
   custom_fill_params: FillMultinomialParams
   dtypes:
@@ -6581,9 +6593,9 @@ native_layer_norm_backward:
 
 ne.Tensor_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Byte, Char, Long]
-    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half, Long]
+    Gaudi: [BFloat16, Float, Long, Int, Byte, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Byte, Char, Half]
   op_backend: NE
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
@@ -6592,9 +6604,9 @@ ne.Tensor_out:
 
 ne.Scalar_out:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Long, Byte, Char]
-    Gaudi2: [BFloat16, Float, Int, Long, Byte, Char, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Byte, Char, Half]
+    Gaudi: [BFloat16, Float, Long, Int, Byte, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Byte, Char, Half]
   scalar_ids: [1]
   op_backend: NE
   output_meta: CompareMeta
@@ -6604,9 +6616,9 @@ ne.Scalar_out:
 
 ne_.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Byte, Char]
-    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
-    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
+    Gaudi: [BFloat16, Float, Long, Int, Byte, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Byte, Char, Half]
   op_backend: NE
   scalar_ids: [1]
   inplace_ids: [0]
@@ -6616,9 +6628,9 @@ ne_.Scalar:
 
 ne_.Tensor:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Byte, Char]
-    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
-    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
+    Gaudi: [BFloat16, Float, Long, Int, Byte, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Byte, Char, Half]
   op_backend: NE
   inplace_ids: [0]
   promote_to_common_type: [self, other]
@@ -6627,9 +6639,9 @@ ne_.Tensor:
 
 ne.Scalar:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Byte, Char]
-    Gaudi2: [BFloat16, Float, Int, Long, Byte, Char, Half]
-    Gaudi3: [BFloat16, Float, Int, Byte, Long, Char, Half]
+    Gaudi: [BFloat16, Float, Long, Int, Byte, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Byte, Char, Half]
   op_frontend: CompareScalarToTensor
   output_meta: CompareMeta
   op_backend: NE
@@ -6640,9 +6652,9 @@ ne.Scalar:
 
 ne.Tensor:
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Byte, Char]
-    Gaudi2: [BFloat16, Float, Int, Byte, Char, Half]
-    Gaudi3: [BFloat16, Float, Int, Byte, Char, Half]
+    Gaudi: [BFloat16, Float, Long, Int, Byte, Char]
+    Gaudi2: [BFloat16, Float, Long, Int, Byte, Char, Half]
+    Gaudi3: [BFloat16, Float, Long, Int, Byte, Char, Half]
   op_backend: NE
   output_meta: CompareMeta
   out_ids: [0]

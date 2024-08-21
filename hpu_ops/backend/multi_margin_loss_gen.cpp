@@ -15,13 +15,11 @@
 
 namespace habana {
 
-std::shared_ptr<void> FillMultiMarginLossParams(
-    const at::Stack& stack,
-    size_t& size) {
-  int p = stack.at(2).toInt();
-  float margin = stack.at(3).toScalar().toDouble();
-  int64_t reduction = stack.at(5).toInt();
-
+static std::shared_ptr<void> MultiMarginLossParamsCommon(
+    size_t& size,
+    int p,
+    float margin,
+    int64_t reduction) {
   PARAMS_STUB(ns_MultiMarginLoss::Params);
   params->p = p;
   params->margin = margin;
@@ -44,6 +42,26 @@ std::shared_ptr<void> FillMultiMarginLossParams(
   return params;
 }
 
+std::shared_ptr<void> FillMultiMarginLossParams(
+    const at::Stack& stack,
+    size_t& size) {
+  int p = stack.at(2).toInt();
+  float margin = stack.at(3).toScalar().toDouble();
+  int64_t reduction = stack.at(5).toInt();
+
+  return MultiMarginLossParamsCommon(size, p, margin, reduction);
+}
+
+std::shared_ptr<void> FillMultiMarginLossBackwardParams(
+    const at::Stack& stack,
+    size_t& size) {
+  int p = stack.at(3).toInt();
+  float margin = stack.at(4).toScalar().toDouble();
+  int64_t reduction = stack.at(6).toInt();
+
+  return MultiMarginLossParamsCommon(size, p, margin, reduction);
+}
+
 OutputMetaDataVector MultiMarginLossMeta(const at::Stack& stack) {
   const auto& input = stack.at(0).toTensor();
   const auto& target = stack.at(1).toTensor();
@@ -56,6 +74,12 @@ OutputMetaDataVector MultiMarginLossMeta(const at::Stack& stack) {
       : std::vector<int64_t>{};
 
   return {OutputMetaData(dtype, shape)};
+}
+
+OutputMetaDataVector MultiMarginLossBackwardMeta(const at::Stack& stack) {
+  const auto& input = stack.at(1).toTensor();
+
+  return {OutputMetaData(input.scalar_type(), input.sizes().vec())};
 }
 
 } // namespace habana
