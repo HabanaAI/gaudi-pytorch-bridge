@@ -129,7 +129,7 @@ class FusedCollectiveOperatorSupport(OperatorSupport):
 
 def pass_allreduce_parents(ctx: OptimizerContext) -> bool:
     # TODO: try to reuse torch.fx.passes.infra.partitioner._DependencyViewer
-    if bc.get_pt_hpu_enable_allreduce_graph_split():
+    if hpu_backend_config.enable_allreduce_graph_split:
         gm = ctx.graph_module
         allreduces = find_node(gm.graph, lambda n: n.name.startswith("all_reduce"))
         for allreduce in allreduces:
@@ -150,7 +150,7 @@ def pass_allreduce_parents(ctx: OptimizerContext) -> bool:
 
 
 def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
-    if bc.get_pt_hpu_enable_allreduce_graph_split():
+    if hpu_backend_config.enable_allreduce_graph_split:
         graph = ctx.graph_module.graph
         allreduces = find_node(graph, lambda n: n.name.startswith("all_reduce"))
         graph_changed = False
@@ -176,16 +176,30 @@ def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
         waittensors = find_node(graph, lambda n: n.name.startswith("wait_tensor"))
         for waittensor in waittensors:
             downstream_nodes = list(waittensor.users.keys())
+
+            # if the wait_tensor has no users. move it to after the
+            # corresponding collective node
+            if len(downstream_nodes) == 0:
+                producer = waittensor.all_input_nodes[0]
+                producer.append(waittensor)
+                graph_changed = True
+                continue
+
+            fused = None
+
             nodes_to_move = [waittensor]
             while len(downstream_nodes) > 0:
                 new_downstream_nodes = []
                 for downstream_node in downstream_nodes:
                     if not downstream_node.name.startswith("fused"):
-                        new_downstream_nodes.extend(list(waittensor.users.keys()))
+                        new_downstream_nodes.extend(list(downstream_node.users.keys()))
                         nodes_to_move.append(downstream_node)
                     else:
                         fused = downstream_node
                 downstream_nodes = new_downstream_nodes
+
+            if fused is None:
+                continue
 
             for node in nodes_to_move:
                 fused.prepend(node)
@@ -193,8 +207,8 @@ def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
             if len(nodes_to_move) > 0:
                 graph_changed = True
 
-            if graph_changed:
-                ctx.graph_module.recompile()
+        if graph_changed:
+            ctx.graph_module.recompile()
 
         return graph_changed
     return False
@@ -910,7 +924,7 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
     assert ctx.current_partitions is None
 
     ctx.current_partitions = []
-    if bc.get_pt_hpu_enable_allreduce_graph_split():
+    if hpu_backend_config.enable_allreduce_graph_split:
         allreduces = find_node(ctx.graph_module.graph, lambda n: n.name.startswith("all_reduce"))
         for allreduce in allreduces:
             cls = FusedCollectiveOperatorSupport
