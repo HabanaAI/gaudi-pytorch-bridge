@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -43,18 +43,10 @@ static std::pair<synTensor, synTensor> NormalizeInput(
     const std::string& greater_node,
     std::vector<sh::tensor>& storage) {
   synTensor input_t = input.syn_t;
-  auto input_dims = input.pt_t.dim();
-  auto input_numel = input.pt_t.numel();
-  const auto dtype = op->ScalarType();
 
-  if (input_dims > 1) {
-    storage.emplace_back(
-        op->BuildReshape(op, graph, input_t, input_numel, dtype));
-    input_t = storage.back().get();
-  }
-
-  ns_Reduction::Params reduce_params{};
-  reduce_params.reductionDimension = 0;
+  ns_Reduction::ParamsV2 reduce_params{};
+  reduce_params.reductionDimensionMask = 0;
+  reduce_params.keepDim = false;
   auto sum_sq = op->BuildNode(
       op,
       graph,
@@ -102,7 +94,7 @@ void OptimizerFusedLarsOperator::AddNode(
   std::string mul_node = get_guid_with_precision("mult_fwd", ScalarType());
   std::string div_node = get_guid_with_precision("div_fwd", ScalarType());
   std::string reduce_sum_sq_node =
-      get_guid_with_precision("reduce_sum_square_fwd", ScalarType());
+      get_guid_with_precision("reduce_sum_square_multi_dim_fwd", ScalarType());
   std::string sqrt_node = get_guid_with_precision("sqrt_fwd", ScalarType());
   std::string greater_node =
       get_guid_with_precision("greater_fwd", ScalarType());
