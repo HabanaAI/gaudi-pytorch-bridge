@@ -287,7 +287,7 @@ def export(
             model(*args)
             logger.debug(f"Graph after pt2e kind of export:\n {model.graph}")
 
-        setattr(model, "muti_graph", True)
+        setattr(model, "multi_graph", True)
         export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
     else:
@@ -296,7 +296,7 @@ def export(
             kwargs.pop("graph_break_present")
         model = _native_pt2e_quantization_interface("export")(f, args, kwargs, dynamic_shapes)
         logger.debug(f"Graph after pt2 export:\n {model.graph}")
-        setattr(model, "muti_graph", False)
+        setattr(model, "multi_graph", False)
         export_model_record[id_model] = [model, habana_pt2e_quant_context]
         return model
 
@@ -313,8 +313,8 @@ def prepare_pt2e(
     """
     logger.debug("Habana's implementation of PT2E based quantization flow: [prepare_pt2e]")
 
-    muti_graph = getattr(model, "muti_graph")
-    if muti_graph:
+    multi_graph = getattr(model, "multi_graph", False)
+    if multi_graph:
         # Set "prepare_pt2e" cmd for HabanaQuantWrapperModule
         global habana_quantization_map_queue
         model_key = getattr(model, "meta_hb_quant_id")
@@ -327,12 +327,12 @@ def prepare_pt2e(
         if habana_pt2e_quant_context.get_input_for_tracing() != None:
             model(*habana_pt2e_quant_context.get_input_for_tracing())
             logger.debug(f"Graph after prepare_pt2e:\n {model.graph}")
-        setattr(model, "muti_graph", True)
+        setattr(model, "multi_graph", True)
         return model
     else:
         model = _native_pt2e_quantization_interface("prepare_pt2e")(model, quantizer)
         logger.debug(f"Graph after prepare_pt2e:\n {model.graph}")
-        setattr(model, "muti_graph", False)
+        setattr(model, "multi_graph", False)
         return model
 
 
@@ -349,8 +349,8 @@ def convert_pt2e(
     """
     logger.debug("Habana's implementation of PT2E based quantization flow: [convert_pt2e]")
 
-    muti_graph = getattr(model, "muti_graph")
-    if muti_graph:
+    multi_graph = getattr(model, "multi_graph", False)
+    if multi_graph:
         # Set "convert_pt2e" cmd for HabanaQuantWrapperModule
         global habana_quantization_map_queue
         model_key = getattr(model, "meta_hb_quant_id")
@@ -369,14 +369,14 @@ def convert_pt2e(
         if habana_pt2e_quant_context.get_input_for_tracing() != None:
             model(*habana_pt2e_quant_context.get_input_for_tracing())
             logger.debug(f"Graph after convert_pt2e:\n {model.graph}")
-        setattr(model, "muti_graph", True)
+        setattr(model, "multi_graph", True)
         return model
     else:
         model = _native_pt2e_quantization_interface("convert_pt2e")(
-            model, use_reference_representation, fold_quantize=False
+            model, use_reference_representation, fold_quantize=fold_quantize
         )
         logger.debug(f"Graph after convert_pt2e:\n {model.graph}")
-        setattr(model, "muti_graph", False)
+        setattr(model, "multi_graph", False)
         return model
 
 
