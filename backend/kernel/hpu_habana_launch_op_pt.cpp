@@ -4981,7 +4981,13 @@ void HabanaLaunchOpPT::run(
   idx += 1;
   if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED) {
     cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
-        false, input_refs, jit_ir_graph_, graph_key_, op_strs_);
+        false,
+        input_refs,
+        jit_ir_graph_,
+        graph_key_,
+        op_strs_,
+        graph_symint_hash_,
+        graph_perm_hash_);
   }
 
   auto is_enable_4stage_pipeline = enable_4stage_pipeline_;

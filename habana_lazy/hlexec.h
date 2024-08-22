@@ -221,6 +221,11 @@ class HlExec {
  public:
   HlExec();
   HlExec(ScopePtr scope);
+  HlExec(OptimizedJITGraphAndMetaDataPtr ptr, size_t hash) {
+    mp_g_and_meta_data_ = ptr;
+    m_g_hash_ = hash;
+    mp_g_ = mp_g_and_meta_data_->get_cached_graph();
+  }
 
   virtual ~HlExec() {}
 
@@ -288,6 +293,8 @@ class HlExec {
       torch::jit::Stack& stack,
       const c10::hpu::HPUStream& stream,
       bool dry_run = false);
+
+  void Launch(torch::jit::Stack& stack, bool dry_run = false);
 
   GraphPtr get_graph() {
     return mp_g_;

@@ -19,6 +19,10 @@
 #include "ir_utils.h"
 #include "view.h"
 
+namespace habana {
+struct OptimizedJITGraphAndMetaData;
+}
+
 enum LazyTensorExecutionStatus {
   kUN_REGISTERED = 0,
   kREGISTERED,
@@ -402,10 +406,8 @@ class HbLazyTensor {
   static void SetDynamicMode();
 
   static void ExecuteCachedGraph(
-      std::shared_ptr<torch::jit::Graph> graph,
+      std::shared_ptr<habana::OptimizedJITGraphAndMetaData> graph,
       size_t hash,
-      size_t graphKey,
-      std::string opStrs,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_out,
       std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,

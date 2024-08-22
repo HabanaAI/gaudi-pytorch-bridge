@@ -99,7 +99,9 @@ struct RecipeArgumentSpec {
       at::ArrayRef<torch::jit::IValue> input_refs,
       const std::shared_ptr<torch::jit::Graph>& irgraph,
       const size_t& graphKey,
-      const std::string& op_strs);
+      const std::string& op_strs,
+      size_t symhash,
+      size_t permhash);
 
   bool operator==(const RecipeArgumentSpec& arg) const {
     bool ret = (opstrs == arg.opstrs && token_ == arg.token_);

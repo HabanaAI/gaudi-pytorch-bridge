@@ -125,6 +125,18 @@ HlExec::HlExec(ScopePtr scope) {
   m_g_hash_ = 0;
 }
 
+void HlExec::Launch(torch::jit::Stack& stack, bool dry_run) {
+  PT_LAZY_TRACE;
+  auto launcher = CreateLauncher(m_g_hash_, mp_g_and_meta_data_, nullptr);
+  try {
+    launcher->Run(stack, dry_run);
+  } catch (const std::exception& e) {
+    PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
+    get_habana_lazy_executor().setExecutionMode(LazyExecutionMode::kLAZY);
+    throw;
+  }
+}
+
 void HlExec::Launch(
     torch::jit::Stack& stack,
     const c10::hpu::HPUStream& stream,
@@ -139,20 +151,6 @@ void HlExec::Launch(
   // We have short-circuited certain utilities in synapse helpers, we need to
   // remove that code
 
-  if (context->getCapturing()) {
-    // save the graph for perf mode
-    context->saveGraph(mp_g_);
-
-    // save the hash for perf mode
-    context->saveHash(m_g_hash_);
-
-    // save the graph key for perf mode
-    context->saveGraphKey(mp_g_and_meta_data_->get_cached_graph_key());
-
-    // save the graph key for perf mode
-    context->saveOpStrs(mp_g_and_meta_data_->get_cached_opstrs());
-  }
-
   std::string opName = getHabanaLazyGraphName();
   if (lazyInfo) {
     opName = lazyInfo->get_lazy_op_name();
@@ -165,6 +163,11 @@ void HlExec::Launch(
   mp_g_and_meta_data_->SetOpName(opName);
   mp_g_and_meta_data_->SetHPUStream(stream);
   mp_g_and_meta_data_->SetDynamicGraph(isDynamic);
+
+  if (context->getCapturing()) {
+    context->saveHash(m_g_hash_);
+    context->saveGraphAndMeta(mp_g_and_meta_data_);
+  }
 
   auto launcher = CreateLauncher(m_g_hash_, mp_g_and_meta_data_, lazyInfo);
   try {

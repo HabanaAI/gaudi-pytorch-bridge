@@ -128,7 +128,9 @@ RecipeArgumentSpec::RecipeArgumentSpec(
     at::ArrayRef<torch::jit::IValue> input_refs,
     const std::shared_ptr<torch::jit::Graph>& irgraph,
     const size_t& graphKey,
-    const std::string& op_strs)
+    const std::string& op_strs,
+    size_t symhash,
+    size_t permhash)
     : cas(with_grad, input_refs), opstrs(op_strs), hash_code(cas.hashCode()) {
   cargspec_hash_code = cas.hashCode();
   graph_hash_code = graphKey;
@@ -142,10 +144,8 @@ RecipeArgumentSpec::RecipeArgumentSpec(
   hash_code = at::hash_combine(hash_code, h2d_hash_code);
   size_t hw_scaling_hash_code = ComputeHwScalingHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, hw_scaling_hash_code);
-  size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
-  hash_code = at::hash_combine(hash_code, sym_hash_code);
-  size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-  hash_code = at::hash_combine(hash_code, perm_hash_code);
+  hash_code = at::hash_combine(hash_code, symhash);
+  hash_code = at::hash_combine(hash_code, permhash);
 
   for (auto* node : irgraph->nodes()) {
     auto node_qual_str = node->kind().toQualString();
