@@ -87,6 +87,7 @@ def get_passes(stage: OptimizationPassPlacement):
             # These passes will prepare proper placement for some corner-cases.
             pass_graph_print,
             pass_eagerize_leaf_views,
+            pass_reinplace_index_copy_ops,  # we need the placement information in this pass
             pass_handle_negative_dims,
             pass_replace_sym_size,
             pass_inference_fuse_linear,
@@ -2440,7 +2441,7 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
     is replace with all_reduce_ which is an inplace variant of collective
     """
     graph_changed = False
-    if not hpu_backend_config.use_inplace_allreduce and not hpu_backend_config.use_inplace_index_copy:
+    if not hpu_backend_config.use_inplace_allreduce:
         return graph_changed
 
     graph = ctx.graph_module.graph
@@ -2489,6 +2490,32 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
 
         gm.recompile()
 
+    _FunctionalizationMetadataProp(ctx.graph_module).propagate(*(ctx.example_inputs))
+    reinplace_collective_ops(ctx.graph_module)
+
+    return graph_changed
+
+
+def pass_reinplace_index_copy_ops(ctx: OptimizerContext) -> bool:
+    """
+    This pass tries to replace the usage of out of place variant with the
+    inplace variant of the index_copy op. This matches a particular variant
+    of the index_copy where index_copy->copy_ is present, then the combination
+    is replace with index_copy_ which is an inplace variant of index_copy
+    """
+    graph_changed = False
+    if not hpu_backend_config.use_inplace_index_copy:
+        return graph_changed
+
+    graph = ctx.graph_module.graph
+
+    def has_any_eager_users(node: torch.fx.Node):
+        user_nodes = list(node.users.keys())
+        for user_node in user_nodes:
+            if user_node.meta.get("placement", "") == "eager":
+                return True
+        return False
+
     def reinplace_index_copy_ops(gm: torch.fx.GraphModule):
         inplaceable_index_copy_ops = {
             torch.ops.aten.index_copy.default: InplaceableOp(torch.ops.aten.index_copy_.default, 0),
@@ -2507,6 +2534,7 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
                         or mutated_arg_users[1].target == torch.ops.aten.copy_.default
                     )
                     and not (mutated_arg.op == "call_function" and helper_is_view_node(mutated_arg))
+                    and not has_any_eager_users(node)  # index_copy_ output can't be the partition output
                 ):
                     # the mutated arg is only used by one index_copy op and one
                     # copy_ op, and it's not a view tensor
@@ -2526,11 +2554,7 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
 
         gm.recompile()
 
-    if hpu_backend_config.use_inplace_allreduce:
-        _FunctionalizationMetadataProp(ctx.graph_module).propagate(*(ctx.example_inputs))
-        reinplace_collective_ops(ctx.graph_module)
-    if hpu_backend_config.use_inplace_index_copy:
-        reinplace_index_copy_ops(ctx.graph_module)
+    reinplace_index_copy_ops(ctx.graph_module)
 
     return graph_changed
 
