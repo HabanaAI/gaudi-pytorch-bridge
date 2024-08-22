@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -14,6 +14,16 @@
 #include "generated/backend/zero.h"
 
 namespace habana {
+
+SharedMetaDataVector ZeroSharedMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto dtype = self.scalar_type();
+  auto rank = self.dim();
+
+  SharedMetaData memsetSharedMeta{"constant"};
+  memsetSharedMeta.outputs_data.emplace_back(rank, dtype);
+  return {memsetSharedMeta};
+}
 
 void ZeroHpuLazyOperator::AddNode(
     synapse_helpers::graph& graph,

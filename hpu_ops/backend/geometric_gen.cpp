@@ -29,6 +29,17 @@ std::shared_ptr<void> FillRandomNegativeBinomialParams(
   return params;
 }
 
+SharedMetaDataVector GeometricSharedMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto rank = self.dim();
+  auto dtype = self.scalar_type();
+
+  SharedMetaData geometricSharedMeta{"random_negative_binomial_fwd"};
+  geometricSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Int);
+  geometricSharedMeta.outputs_data.emplace_back(rank, dtype);
+  return {geometricSharedMeta};
+}
+
 void Geometric::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
 

@@ -190,4 +190,28 @@ SharedMetaDataVector UnaryForeachSharedMeta(
   return metaVec;
 }
 
+SharedMetaDataVector CompareSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  auto self = stack_tensor(stack, 0);
+  auto other = stack.at(1);
+  auto selfRank = self.dim();
+  auto otherRank = other.isScalar() ? 1 : other.toTensor().dim();
+  auto outputRank = std::max(selfRank, otherRank);
+  auto inputType = habana_helpers::DTypeHelper::get_compute_dtype(
+      {self, other},
+      c10::nullopt,
+      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+      false);
+  if ((guid == "less" || guid == "less_fwd") &&
+      inputType == c10::ScalarType::Short)
+    inputType = c10::ScalarType::Int;
+
+  SharedMetaData compareSharedMeta{guid};
+  compareSharedMeta.inputs_data = {
+      {selfRank, inputType}, {otherRank, inputType}};
+  compareSharedMeta.outputs_data = {{outputRank, c10::ScalarType::Bool}};
+  return {compareSharedMeta};
+}
+
 } // namespace habana

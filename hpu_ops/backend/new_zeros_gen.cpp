@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -24,6 +24,17 @@ OutputMetaDataVector NewZerosMeta(const at::Stack& stack) {
   meta.shape = stack.at(1).toIntVector();
 
   return {meta};
+}
+
+SharedMetaDataVector NewZerosSharedMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto optionalDtype = stack.at(2).toOptional<at::ScalarType>();
+  auto dtype = optionalDtype.value_or(self.scalar_type());
+  auto rank = stack.at(1).toIntVector().size();
+
+  SharedMetaData memsetSharedMeta{"memset"};
+  memsetSharedMeta.outputs_data.emplace_back(rank, dtype);
+  return {memsetSharedMeta};
 }
 
 void NewZerosOperator::AddNode(

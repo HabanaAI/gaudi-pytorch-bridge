@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -17,6 +17,7 @@
 #include "generated/backend/le.h"
 #include "generated/backend/lt.h"
 #include "generated/backend/ne.h"
+#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 OutputMetaDataVector CompareMeta(const at::Stack& stack) {
@@ -28,4 +29,25 @@ OutputMetaDataVector CompareMeta(const at::Stack& stack) {
   meta.dtype = at::kBool;
   return {meta};
 }
+
+SharedMetaDataVector CompareEqSharedMeta(const at::Stack& stack) {
+  return CompareSharedMeta(stack, "equal_fwd");
+}
+
+SharedMetaDataVector CompareGeSharedMeta(const at::Stack& stack) {
+  return CompareSharedMeta(stack, "greater_equal_fwd");
+}
+
+SharedMetaDataVector CompareGtSharedMeta(const at::Stack& stack) {
+  return CompareSharedMeta(stack, "greater_fwd");
+}
+
+SharedMetaDataVector CompareLeSharedMeta(const at::Stack& stack) {
+  return CompareSharedMeta(stack, "less_equal_fwd");
+}
+
+SharedMetaDataVector CompareLtSharedMeta(const at::Stack& stack) {
+  return CompareSharedMeta(stack, "less_fwd");
+}
+
 } // namespace habana

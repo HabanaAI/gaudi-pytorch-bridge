@@ -41,6 +41,36 @@ std::shared_ptr<void> FillsoftshrinkbwdParams(
   return FillshrinkParams(stack, size, ShrinkMode_t::SOFT_SHRINK, 2);
 }
 
+SharedMetaDataVector HardShrinkFwdSharedMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto dtype = self.scalar_type();
+  auto rank = self.dim();
+  float lambda = stack.at(1).toScalar().to<float>();
+
+  SharedMetaData hardShrinkFwdMeta{"memcpy"};
+  hardShrinkFwdMeta.guid = lambda < 0.0 ? "memcpy" : "shrink_fwd";
+  hardShrinkFwdMeta.inputs_data.emplace_back(rank, dtype);
+  hardShrinkFwdMeta.outputs_data = hardShrinkFwdMeta.inputs_data;
+  return {hardShrinkFwdMeta};
+}
+
+SharedMetaDataVector HardShrinkBwdSharedMeta(const at::Stack& stack) {
+  auto grad = stack_tensor(stack, 0);
+  auto self = stack_tensor(stack, 1);
+  auto selfDtype = self.scalar_type();
+  auto selfRank = self.dim();
+  auto gradDType = grad.scalar_type();
+  auto gradRank = grad.dim();
+  float lambda = stack.at(2).toScalar().to<float>();
+
+  SharedMetaData hardShrinkBwdMeta{"memcpy"};
+  hardShrinkBwdMeta.guid = lambda < 0.0 ? "memcpy" : "shrink_bwd";
+  hardShrinkBwdMeta.inputs_data = {
+      {gradRank, gradDType}, {selfRank, selfDtype}};
+  hardShrinkBwdMeta.outputs_data = {hardShrinkBwdMeta.inputs_data[1]};
+  return {hardShrinkBwdMeta};
+}
+
 void HardShrinkFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

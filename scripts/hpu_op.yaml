@@ -4158,6 +4158,7 @@ ge.Scalar:
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
   handle_bool_inputs: true
+  op_validator: CompareGeSharedMeta
 
 ge.Tensor:
   dtypes:
@@ -4226,6 +4227,7 @@ geometric_:
   op_frontend: GeneratorToSeed
   op_backend: Geometric
   schema_args: "(Tensor(a!) self, float p, Tensor seed) -> Tensor(a!)"
+  op_validator: GeometricSharedMeta
 
 geometric.out:
   custom_fill_params: FillRandomNegativeBinomialParams
@@ -4233,6 +4235,7 @@ geometric.out:
   op_frontend: GeneratorToSeedOut
   op_backend: Geometric
   schema_args: "(Tensor self, float p, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+  op_validator: GeometricSharedMeta
 
 glu:
   dtypes: [Float]
@@ -4377,6 +4380,7 @@ gt.Scalar:
   out_ids: [0]
   promote_to_common_type: [self, other]
   handle_bool_inputs: true
+  op_validator: CompareGtSharedMeta
 
 gt.Tensor:
   dtypes:
@@ -4395,22 +4399,26 @@ hardshrink:
   guid: shrink_fwd
   op_backend: HardShrinkFwd
   out_ids: [0]
+  op_validator: HardShrinkFwdSharedMeta
 
 hardshrink.out:
   dtypes: [Float, BFloat16]
   guid: shrink_fwd
   op_backend: HardShrinkFwd
+  op_validator: HardShrinkFwdSharedMeta
 
 hardshrink_backward:
   dtypes: [Float, BFloat16]
   guid: shrink_bwd
   op_backend: HardShrinkBwd
   out_ids: [0]
+  op_validator: HardShrinkBwdSharedMeta
 
 hardshrink_backward.grad_input:
   dtypes: [Float, BFloat16]
   guid: shrink_bwd
   op_backend: HardShrinkBwd
+  op_validator: HardShrinkBwdSharedMeta
 
 hardsigmoid.out:
   custom_fill_params: FillHardSigmoidParams
@@ -4996,6 +5004,7 @@ le.Scalar:
   out_ids: [0]
   promote_to_common_type: [self, other]
   handle_bool_inputs: true
+  op_validator: CompareLeSharedMeta
 
 le.Tensor:
   dtypes:
@@ -5618,6 +5627,7 @@ lt.Scalar:
   out_ids: [0]
   promote_to_common_type: [self, other]
   handle_bool_inputs: true
+  op_validator: CompareLtSharedMeta
 
 lt.Tensor:
   dtypes:
@@ -6501,6 +6511,7 @@ ne.Tensor_out:
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  op_validator: CompareNeSharedMeta
 
 ne.Scalar_out:
   dtypes:
@@ -6512,6 +6523,7 @@ ne.Scalar_out:
   output_meta: CompareMeta
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  op_validator: CompareNeSharedMeta
 
 ne_.Scalar:
   dtypes:
@@ -6523,6 +6535,7 @@ ne_.Scalar:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  op_validator: CompareNeSharedMeta
 
 ne_.Tensor:
   dtypes:
@@ -6533,6 +6546,7 @@ ne_.Tensor:
   inplace_ids: [0]
   promote_to_common_type: [self, other]
   safe_cast_check: false
+  op_validator: CompareNeSharedMeta
 
 ne.Scalar:
   dtypes:
@@ -6545,6 +6559,7 @@ ne.Scalar:
   scalar_ids: [1]
   out_ids: [0]
   promote_to_common_type: [self, other]
+  op_validator: CompareNeSharedMeta
 
 ne.Tensor:
   dtypes:
@@ -6555,6 +6570,7 @@ ne.Tensor:
   output_meta: CompareMeta
   out_ids: [0]
   promote_to_common_type: [self, other]
+  op_validator: CompareNeSharedMeta
 
 neg.out:
   dtypes:
@@ -6590,6 +6606,7 @@ new_zeros:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
   op_backend: NewZerosOperator
   out_ids: [0]
+  op_validator: NewZerosSharedMeta
 
 nextafter:
   dtypes:
@@ -9539,6 +9556,7 @@ zero_:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long, Float8_e5m2, Float8_e4m3fn]
   op_backend: ZeroHpuLazyOperator
   inplace_ids: [0]
+  op_validator: ZeroSharedMeta
 
 slice_backward:
   output_meta: SliceBackwardMeta

@@ -28,6 +28,7 @@ SHARED_META(AvgPoolBwd)
 SHARED_META(FillCumSumProd)
 SHARED_META(IsFiniteInfNan)
 SHARED_META(Rounding)
+SHARED_META(Compare)
 
 SHARED_META(UnaryForeach)
 } // namespace habana
