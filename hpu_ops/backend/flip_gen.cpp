@@ -1,16 +1,39 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
+
 #include "generated/backend/flip.h"
 #define GUID "reverse"
 
 namespace habana {
+
+SharedMetaDataVector FlipSharedMeta(const at::Stack& stack) {
+  auto input = stack_tensor(stack, 0);
+  auto rank = input.dim();
+  auto dtype = input.scalar_type();
+  auto dimList = stack.at(1).toIntList().vec();
+  auto dimListSize = dimList.size();
+  if (dimListSize == 0) {
+    SharedMetaData memcpySharedMeta("memcpy");
+    memcpySharedMeta.inputs_data = {{rank, dtype}};
+    memcpySharedMeta.outputs_data = {{rank, dtype}};
+    return {memcpySharedMeta};
+  }
+
+  SharedMetaData reverseSharedMeta(GUID);
+  reverseSharedMeta.inputs_data = {{rank, dtype}, {1, at::ScalarType::Int}};
+  reverseSharedMeta.outputs_data = {{rank, dtype}};
+  return {reverseSharedMeta};
+}
 
 void Flip::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(

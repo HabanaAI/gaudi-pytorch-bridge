@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -36,6 +36,22 @@ c10::ScalarType GetKernelExponentType(const c10::ScalarType dtype) {
     default:
       return c10::ScalarType::Int;
   }
+}
+
+SharedMetaDataVector FrexpSharedMeta(const at::Stack& stack) {
+  auto input = stack_tensor(stack, 0);
+  auto inputType = input.scalar_type();
+  auto rank = input.dim();
+
+  if (c10::isIntegralType(inputType, true))
+    inputType = c10::ScalarType::Float;
+
+  auto exponentType = GetKernelExponentType(inputType);
+
+  SharedMetaData frexpSharedMeta{"frexp"};
+  frexpSharedMeta.inputs_data.emplace_back(rank, inputType);
+  frexpSharedMeta.outputs_data = {{rank, exponentType}, {rank, inputType}};
+  return {frexpSharedMeta};
 }
 
 void Frexp::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

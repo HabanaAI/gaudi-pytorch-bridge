@@ -27,5 +27,6 @@ SHARED_META(AdaptiveBwd)
 SHARED_META(AvgPoolBwd)
 SHARED_META(FillCumSumProd)
 SHARED_META(IsFiniteInfNan)
+SHARED_META(Rounding)
 
 } // namespace habana

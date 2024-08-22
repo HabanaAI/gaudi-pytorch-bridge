@@ -56,8 +56,9 @@ inline bool is_unchanged(
     return !t2.has_value();
 }
 
+template <typename ContainerType>
 inline bool is_unchanged(
-    const c10::ArrayRef<at::Tensor>& t1,
+    const ContainerType& t1,
     const std::vector<at::Tensor>& t2) {
   assert(t1.size() == t2.size());
   auto p2{t2.cbegin()};

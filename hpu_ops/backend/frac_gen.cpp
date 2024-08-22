@@ -59,6 +59,41 @@ static auto BuildFrac(
        {{outshape, dtype, out_index}}});
 }
 
+SharedMetaDataVector FracSharedMeta(const at::Stack& stack) {
+  auto tensor = stack.at(0).toTensor();
+  SharedMetaDataVector metaVec;
+  metaVec.resize(5);
+  SharedMetaData sharedMeta;
+
+  auto rank = tensor.dim();
+  auto dtype = tensor.scalar_type();
+  auto index = 0;
+
+  SharedMetaTensor inOutMetaTensor{rank, dtype};
+  sharedMeta.guid = "sign_fwd";
+  sharedMeta.inputs_data = {inOutMetaTensor};
+  sharedMeta.outputs_data = {inOutMetaTensor};
+  metaVec[index++] = sharedMeta;
+
+  sharedMeta.guid = "abs_fwd";
+  metaVec[index++] = sharedMeta;
+
+  if (isIntegralType(dtype, true))
+    inOutMetaTensor.second = torch::kFloat32;
+
+  sharedMeta.guid = "floor_fwd";
+  metaVec[index++] = sharedMeta;
+
+  sharedMeta.guid = "mult";
+  sharedMeta.inputs_data = {inOutMetaTensor, inOutMetaTensor};
+  metaVec[index++] = sharedMeta;
+
+  sharedMeta.guid = "sub";
+  metaVec[index] = sharedMeta;
+
+  return metaVec;
+}
+
 void Frac::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& outshape = stack_tensor(stack, 0).sizes();
   auto out = BuildFrac(this, graph, syn_in(0), ScalarType(), outshape, 0);

@@ -14,8 +14,21 @@
 #include "generated/backend/ceil.h"
 #include "generated/backend/floor.h"
 #include "generated/backend/trunc.h"
+#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
+SharedMetaDataVector RoundingTruncSharedMeta(const at::Stack& stack) {
+  return RoundingSharedMeta(stack, "trunc_fwd");
+}
+
+SharedMetaDataVector RoundingCeilSharedMeta(const at::Stack& stack) {
+  return RoundingSharedMeta(stack, "ceil_fwd");
+}
+
+SharedMetaDataVector RoundingFloorSharedMeta(const at::Stack& stack) {
+  return RoundingSharedMeta(stack, "floor_fwd");
+}
+
 void RoundingFunc::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

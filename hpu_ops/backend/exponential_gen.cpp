@@ -24,6 +24,19 @@ OutputMetaDataVector ExponentialMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector ExponentialSharedMeta(const at::Stack& stack) {
+  auto input = stack_tensor(stack, 0);
+  auto dtype = input.scalar_type();
+  auto rank = input.dim();
+  auto seed = stack.at(2);
+
+  SharedMetaData randomSharedMeta("random_exponential_fwd");
+  randomSharedMeta.inputs_data.emplace_back(
+      1, seed.isTensor() ? seed.toTensor().scalar_type() : at::ScalarType::Int);
+  randomSharedMeta.outputs_data.emplace_back(rank, dtype);
+  return {randomSharedMeta};
+}
+
 std::shared_ptr<void> FillExponentialParams(
     const at::Stack& stack,
     size_t& size) {

@@ -107,4 +107,20 @@ SharedMetaDataVector IsFiniteInfNanSharedMeta(
   return {meta};
 }
 
+SharedMetaDataVector RoundingSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  auto input = stack.at(0).toTensor();
+  auto rank = input.dim();
+  auto dtype = input.scalar_type();
+
+  SharedMetaData roundingMeta;
+  roundingMeta.guid = c10::isIntegralType(dtype, true) ? "identity" : guid;
+
+  SharedMetaTensor inOutTensor = {rank, dtype};
+  roundingMeta.inputs_data = {inOutTensor};
+  roundingMeta.outputs_data = {inOutTensor};
+  return {roundingMeta};
+}
+
 } // namespace habana

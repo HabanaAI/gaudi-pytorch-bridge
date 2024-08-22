@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include <shared_layer_api.hpp>
 #include "common/utils.h"
 #include "generated/backend/cat.h"
 
@@ -59,6 +60,42 @@ OutputMetaDataVector CatMeta(const at::Stack& stack) {
       {},
       first_tensor.layout(),
       first_tensor.suggest_memory_format()}};
+}
+
+SharedMetaDataVector CatSharedMeta(const at::Stack& stack) {
+  auto inputs = stack[0].toTensorList().vec();
+  auto inputsSize = inputs.size();
+  std::vector<int> ranks;
+  ranks.resize(inputsSize);
+  std::transform(
+      std::begin(inputs),
+      std::end(inputs),
+      std::begin(ranks),
+      [](const at::Tensor& tensor) { return tensor.dim(); });
+  auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+      {inputs},
+      c10::nullopt,
+      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+      false);
+  auto firstNon1DElement = std::find_if(
+      std::begin(ranks), std::end(ranks), [](int rank) { return rank > 1; });
+  bool isAll1D = firstNon1DElement == std::end(ranks);
+  SharedMetaData concatMeta("concat");
+  auto outputRank = isAll1D ? 2 : *firstNon1DElement;
+
+  /* It's not possible to check if tensor is invalid (empty 1D) due to DSD
+     Pytorch will reject op with valid tensors with different ranks.
+     Invalid tensors will be not added to graph, so to make it transparent
+     when 1D and 1D+ tensors are provided, 1D tensors should be added with
+     output rank to shared meta
+  */
+  for (decltype(inputsSize) i = 0;
+       i < inputsSize && i < SharedLayer::MAX_TENSOR_NR;
+       i++)
+    concatMeta.inputs_data.emplace_back(
+        (!isAll1D && ranks[i] == 1) ? outputRank : ranks[i], dtype);
+  concatMeta.outputs_data.emplace_back(outputRank, dtype);
+  return {concatMeta};
 }
 
 bool CatSTMeta(

@@ -2759,6 +2759,7 @@ cat:
   guid: concat
   op_backend: CatHabanaOperator
   out_ids: [0]
+  op_validator: CatSharedMeta
 
 cat.out:
   promote_to_common_type: [tensors]
@@ -2766,6 +2767,7 @@ cat.out:
   st_meta: CatSTMeta
   guid: concat
   op_backend: CatHabanaOperator
+  op_validator: CatSharedMeta
 
 ceil:
   dtypes:
@@ -2775,6 +2777,7 @@ ceil:
   guid: ceil_fwd
   out_ids: [0]
   op_backend: RoundingFunc
+  op_validator: RoundingCeilSharedMeta
 
 ceil.out:
   dtypes:
@@ -2783,6 +2786,7 @@ ceil.out:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: ceil_fwd
   op_backend: RoundingFunc
+  op_validator: RoundingCeilSharedMeta
 
 ceil_:
   dtypes:
@@ -2792,6 +2796,7 @@ ceil_:
   guid: ceil_fwd
   inplace_ids: [0]
   op_backend: RoundingFunc
+  op_validator: RoundingCeilSharedMeta
 
 channel_shuffle:
   output_meta: ChannelShuffleMeta
@@ -3728,6 +3733,7 @@ exponential:
   out_ids: [0]
   output_meta: ExponentialMeta
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed) -> Tensor"
+  op_validator: ExponentialSharedMeta
 
 exponential_:
   custom_fill_params: FillExponentialParams
@@ -3736,6 +3742,7 @@ exponential_:
   op_frontend: GeneratorToSeed
   op_backend: ExponentialSeedTensorInput
   schema_args: "(Tensor(a!) self, float lambd=1.0, *, Tensor seed) -> Tensor(a!)"
+  op_validator: ExponentialSharedMeta
 
 exponential.out:
   custom_fill_params: FillExponentialParams
@@ -3744,16 +3751,19 @@ exponential.out:
   op_backend: ExponentialSeedTensorInput
   output_meta: ExponentialMeta
   schema_args: "(Tensor self, float lambd=1.0, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+  op_validator: ExponentialSharedMeta
 
 eye.out:
   output_meta: EyeMeta
   dtypes: [BFloat16, Float, Int]
   op_backend: EyeOpOut
+  op_validator: EyeSharedMeta
 
 eye.m_out:
   output_meta: EyeMeta
   dtypes: [BFloat16, Float, Int]
   op_backend: EyeOpOut
+  op_validator: EyeSharedMeta
 
 fill.Scalar:
   dtypes:
@@ -3808,6 +3818,7 @@ flip:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   op_backend: Flip
   out_ids: [0]
+  op_validator: FlipSharedMeta
 
 floor:
   dtypes:
@@ -3817,6 +3828,7 @@ floor:
   guid: floor_fwd
   op_backend: RoundingFunc
   out_ids: [0]
+  op_validator: RoundingFloorSharedMeta
 
 floor.out:
   dtypes:
@@ -3825,6 +3837,7 @@ floor.out:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: floor_fwd
   op_backend: RoundingFunc
+  op_validator: RoundingFloorSharedMeta
 
 floor_:
   dtypes:
@@ -3834,6 +3847,7 @@ floor_:
   guid: floor_fwd
   inplace_ids: [0]
   op_backend: RoundingFunc
+  op_validator: RoundingFloorSharedMeta
 
 floor_divide.out:
   custom_fill_params: FillFloorDivideParams
@@ -3875,15 +3889,18 @@ frac:
   dtypes: [BFloat16, Float]
   op_backend: Frac
   out_ids: [0]
+  op_validator: FracSharedMeta
 
 frac_:
   dtypes: [BFloat16, Float]
   op_backend: Frac
   inplace_ids: [0]
+  op_validator: FracSharedMeta
 
 frac.out:
   dtypes: [BFloat16, Float]
   op_backend: Frac
+  op_validator: FracSharedMeta
 
 frexp.Tensor:
   dtypes:
@@ -3894,6 +3911,7 @@ frexp.Tensor:
   op_backend: Frexp
   guid: frexp
   out_ids: [0, 0]
+  op_validator: FrexpSharedMeta
 
 frexp.Tensor_out:
   output_meta: FrexpMeta
@@ -3903,6 +3921,7 @@ frexp.Tensor_out:
     Gaudi3: [Float, BFloat16, Half]
   guid: frexp
   op_backend: Frexp
+  op_validator: FrexpSharedMeta
 
 fmod.Scalar:
   dtypes: [BFloat16, Float, Int]
@@ -8810,6 +8829,7 @@ trunc:
   guid: trunc_fwd
   out_ids: [0]
   op_backend: RoundingFunc
+  op_validator: RoundingTruncSharedMeta
 
 trunc.out:
   dtypes:
@@ -8818,6 +8838,7 @@ trunc.out:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half, Long]
   guid: trunc_fwd
   op_backend: RoundingFunc
+  op_validator: RoundingTruncSharedMeta
 
 trunc_:
   dtypes:
@@ -8827,6 +8848,7 @@ trunc_:
   guid: trunc_fwd
   inplace_ids: [0]
   op_backend: RoundingFunc
+  op_validator: RoundingTruncSharedMeta
 
 unbind.int:
   override_fn: unbind_hpu_lazy_
