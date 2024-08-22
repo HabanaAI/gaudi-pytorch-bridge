@@ -72,7 +72,12 @@ class TestHpuMaskedMixedDevices:
 @pytest.mark.parametrize("value", [-5])
 @pytest.mark.parametrize("scalar_value", [True, False])
 @pytest.mark.parametrize("dtype", [torch.float, torch.bfloat16, torch.int], ids=format_tc)
-def test_masked_fill(self_shape, mask_shape, value, scalar_value, dtype):
+@pytest.mark.parametrize(
+    "setup_teardown_env_fixture",
+    [{"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 0}],
+    indirect=True,
+)
+def test_masked_fill(self_shape, mask_shape, value, scalar_value, dtype, setup_teardown_env_fixture):
     def fn(self, mask, value):
         return self.masked_fill(mask, value)
 

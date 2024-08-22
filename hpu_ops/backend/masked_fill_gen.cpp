@@ -36,7 +36,7 @@ bool MaskedFillSTMeta(
 std::shared_ptr<void> FillMaskedFillParams(
     const at::Stack& stack,
     size_t& size) {
-  PARAMS_STUB(ns_MaskedFill::Params);
+  PARAMS_STUB(ns_MaskedFill::ParamsV2);
   auto value = stack.at(2);
   if (value.isTensor()) {
     return params;
@@ -44,12 +44,18 @@ std::shared_ptr<void> FillMaskedFillParams(
 
   auto self = stack_tensor(stack, 0);
   auto self_dtype = habana_helpers::getInternalDtype(self.scalar_type());
-  if (c10::isIntegralType(self_dtype, true)) {
+
+  if ((self_dtype == c10::ScalarType::Long ||
+       self_dtype == c10::ScalarType::UInt64) &&
+      common::IsInt64Supported()) {
+    int64_t val = value.to<int64_t>();
+    params->value_low = val;
+    params->value_high = val >> 32;
+  } else if (c10::isIntegralType(self_dtype, true)) {
     params->value.i = value.toScalar().toInt();
   } else {
     params->value.f = value.toScalar().toFloat();
   }
-
   return params;
 }
 
@@ -59,22 +65,27 @@ void MaskedFill::AddNode(
   size_t size = 0;
   std::vector<synTensor> inputs = {syn_in(0), syn_in(1)};
 
-  auto out_shape = MaskedFillMeta(stack)[0].shape;
+  auto metadata = MaskedFillMeta(stack)[0];
+  auto out_shape = metadata.shape;
+  auto out_dtype = metadata.dtype;
   const auto& params = FillMaskedFillParams(stack, size);
 
   auto value = stack.at(2);
   if (value.isTensor()) {
     inputs.push_back(syn_in(2));
   }
-
+  bool check_long = (out_dtype == c10::ScalarType::Long ||
+                     out_dtype == c10::ScalarType::UInt64) &&
+      common::IsInt64Supported();
+  auto guid =
+      get_guid_with_precision("masked_fill_fwd", ScalarType(), check_long);
   auto result = BuildOp(
       graph,
-      GetGuid(),
+      guid,
       std::move(inputs),
-      {{out_shape, ScalarType(), 0}},
+      {{out_shape, out_dtype, 0}},
       params.get(),
       size);
-
   syn_out(0) = std::move(result[0]);
 }
 
