@@ -1,5 +1,19 @@
+import atexit
 import os
 from typing import Tuple
+
+
+@atexit.register
+def quit_if_ray():
+    # WA for the issue in Ray https://github.com/ray-project/ray/issues/19937
+    # Ray does not respect atexit hooks for forked processes, as the result
+    # the atexit is called in main process only and it hangs in the hccl singleton destructor
+    # Exiting after _hccl_*_C atexit handlers without calling further handlers
+    import sys
+
+    if "ray.core" in sys.modules:
+        os._exit(0)
+
 
 import torch
 from habana_frameworks.torch.hpu import HABANA_VISIBLE_MODULES_VAR, HLS_MODULE_ID_VAR
