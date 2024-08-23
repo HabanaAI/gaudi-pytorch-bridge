@@ -406,81 +406,6 @@ void EmbeddingBagSumForwardOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
-void EmbeddingBagSumBackwardOperator::AllocateSynapseInputs(
-    synapse_helpers::graph& graph,
-    const std::vector<at::Tensor>& inputs,
-    bool is_persistent) {
-  HABANA_ASSERT(inputs.size() == 5);
-
-  // Allocate only the tensors needed for bwd operation in the right order
-  for (int cnt = 1; cnt < 5; cnt++) {
-    HabanaOperator::AllocateSynapseInput(graph, inputs[cnt], is_persistent);
-  }
-}
-
-/*AllocateSynapseInput needs to be overloaded as it is used in PT bridge code*/
-synapse_helpers::tensor& EmbeddingBagSumBackwardOperator::AllocateSynapseInput(
-    synapse_helpers::graph& graph,
-    const at::Tensor& input,
-    bool is_persistent,
-    synTensorType shape_tensor_type,
-    void* host_ptr,
-    [[maybe_unused]] const std::string& idx) {
-  static_cast<void>(shape_tensor_type);
-  static_cast<void>(host_ptr);
-  // static_cast<void>(idx);
-  if (valid_input_idx.count(input_idx)) {
-    auto syn_tensor_input = habana_helpers::create_tensor(
-        input, graph, is_persistent, false, c10::nullopt);
-
-    p_context_->syn_inputs_.emplace_back(syn_tensor_input);
-
-    p_context_->pt_inputs_.emplace_back(input);
-  }
-  input_idx++;
-  return p_context_->syn_inputs_.back();
-}
-
-/*SetSynapseInput needs to be overloaded as it is used in PT bridge code for
- * intermediate nodes*/
-synapse_helpers::tensor_or_ref& EmbeddingBagSumBackwardOperator::
-    SetSynapseInput(synapse_helpers::tensor& tensor) {
-  if (valid_input_idx.count(input_idx)) {
-    p_context_->syn_inputs_.emplace_back(tensor);
-  }
-
-  input_idx++;
-  return p_context_->syn_inputs_.back();
-}
-
-void EmbeddingBagSumBackwardOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  HABANA_ASSERT(inputs.size() == 5);
-
-  HABANA_ASSERT(inputs[0].isTensor());
-  HABANA_ASSERT(inputs[1].isTensor());
-  HABANA_ASSERT(inputs[2].isTensor());
-  HABANA_ASSERT(inputs[3].isTensor());
-  HABANA_ASSERT(inputs[4].isTensor());
-
-  auto out = inputs[0].toTensor();
-  auto input = inputs[1].toTensor();
-  auto indices_bwd = inputs[2].toTensor();
-  auto offsets_bwd = inputs[3].toTensor();
-  auto valid_count_bwd = inputs[4].toTensor();
-
-  HABANA_ASSERT(out.dim() == 2);
-  HABANA_ASSERT(input.dim() == 2);
-  HABANA_ASSERT(indices_bwd.dim() == 1);
-  HABANA_ASSERT(offsets_bwd.dim() == 1);
-  HABANA_ASSERT(valid_count_bwd.numel() == 2);
-
-  AllocateSynapseOutput(graph, out, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, nullptr, 0);
-}
-
 void EmbeddingBagSumBwdKernelModeOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -527,9 +452,6 @@ static auto& EmbeddingKernelsKernelRegistry =
         .add(
             "aten::embedding_bag_sum_fwd",
             KERNEL_FN(EmbeddingBagSumForwardOperator))
-        .add(
-            "aten::embedding_bag_sum_bwd.out",
-            KERNEL_FN(EmbeddingBagSumBackwardOperator))
         .add("hpu::embedding_bag_sum", KERNEL_FN(EmbeddingBagSumOperator))
         .add(
             "hpu::embedding_bag_sum_bwd_out",

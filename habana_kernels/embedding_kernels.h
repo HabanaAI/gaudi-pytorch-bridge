@@ -83,56 +83,6 @@ class EmbeddingBagSumForwardOperator : public HabanaOperator {
   std::set<int> valid_input_idx;
 };
 
-//
-// EmbeddingBagSum Backward Operator
-class EmbeddingBagSumBackwardOperator : public HabanaOperator {
- public:
-  EmbeddingBagSumBackwardOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision(
-            "embedding_bag_sum_small_lengths_2d_fwd",
-            scalarType)),
-        input_idx(0) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({
-        LayoutFormat::ANY,
-        LayoutFormat::ANY,
-        LayoutFormat::ANY,
-        LayoutFormat::ANY,
-    });
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-
-    valid_input_idx.insert(1);
-    valid_input_idx.insert(2);
-    valid_input_idx.insert(3);
-    valid_input_idx.insert(4);
-  }
-
-  void AllocateSynapseInputs(
-      synapse_helpers::graph& graph,
-      const std::vector<at::Tensor>& inputs,
-      bool is_persistent = false) override;
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  synapse_helpers::tensor& AllocateSynapseInput(
-      synapse_helpers::graph& graph,
-      const at::Tensor& input,
-      bool is_persistent = false,
-      synTensorType shape_tensor_type = DATA_TENSOR,
-      void* host_ptr = nullptr,
-      const std::string& idx = std::string()) override;
-
-  synapse_helpers::tensor_or_ref& SetSynapseInput(
-      synapse_helpers::tensor& tensor) override;
-
- private:
-  int input_idx;
-  std::set<int> valid_input_idx;
-};
-
 // Pad Operator
 class PadOperator : public HabanaOperator {
  public:
