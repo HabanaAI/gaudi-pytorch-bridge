@@ -138,7 +138,6 @@ add_habana_library(habana_pytorch_plugin SHARED
   habana_kernels/nms_kernels.cpp
   habana_kernels/norm_kernels.cpp
   habana_kernels/optimizer_kernels.cpp
-  habana_kernels/pool_kernels.cpp
   habana_kernels/random_gen_kernels.cpp
   habana_kernels/reduction_kernels.cpp
   habana_kernels/repeat.cpp
@@ -243,7 +242,6 @@ add_habana_library(habana_pytorch2_plugin SHARED
   habana_kernels/nonzero_kernel.cpp
   habana_kernels/norm_kernels.cpp
   habana_kernels/optimizer_kernels.cpp
-  habana_kernels/pool_kernels.cpp
   habana_kernels/random_gen_kernels.cpp
   habana_kernels/reduction_kernels.cpp
   habana_kernels/repeat.cpp
