@@ -217,7 +217,7 @@ def test_pt2e_quant_float(set_env_variable, test_case, quant_dtype, use_graph_br
             "torch.ops.aten.addmm.default": [(0, 0), (1, 0)],
         },
         "after_convert_pt2e": {
-            "torch.ops.quantized_decomposed.quantize_per_tensor.default": [(2, 0), (2, 0)],
+            "torch.ops.hpu.cast_to_fp8_v2.scalar": [(2, 0), (2, 0)],
             "torch.ops.hpu.fp8_gemm_v2.default": [(1, 0), (1, 0)],
             "torch.ops.aten.relu.default": [(1, 0), (1, 0)],
         },

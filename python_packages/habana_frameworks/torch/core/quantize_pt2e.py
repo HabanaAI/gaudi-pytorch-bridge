@@ -11,6 +11,7 @@
 ###############################################################################
 
 import importlib
+import operator
 import os
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -208,6 +209,7 @@ class HabanaQuantWrapperModule(torch.nn.Module):
                     logger.debug("============================================")
                     replace_pattern_quant_dequant_mm_addmm(self._converted_module)
                     replace_pattern_quant_dequant_bmm(self._converted_module)
+                    replace_quantize_with_cast(self._converted_module)
                     # replace_pattern_quant_dequant_softmax(self._converted_module)
                     logger.debug("=================AFTER PASS================")
                     logger.debug(self._converted_module.graph)
@@ -253,17 +255,27 @@ def habana_quant_backend(
     example_inputs: List[torch.Tensor],
     module_key: torch.fx.GraphModule,
     pt2e_quant_context: HabanaPT2EQuantContext,
+    **kwargs,
 ):
     """
     This function implements interface for Habana's PT2E quantization backend.
     """
-    from habana_frameworks.torch.dynamo.compile_backend.decomposition import get_hpu_decompositions
+    from habana_frameworks.torch.dynamo.compile_backend import config as habana_quant_backend_config
+    from habana_frameworks.torch.dynamo.compile_backend.decomposition import (
+        get_hpu_decompositions,
+        override_composite_ops,
+    )
 
-    return aot_autograd(
-        fw_compiler=partial(habana_quant_compiler_fw, module_key=module_key, pt2e_quant_context=pt2e_quant_context),
-        bw_compiler=habana_quant_compiler_bw_raise,
-        decompositions=get_hpu_decompositions(),
-    )(graph_module, example_inputs)
+    options = kwargs["options"] if "options" in kwargs else None
+    with habana_quant_backend_config.patch(options), override_composite_ops():
+        return aot_autograd(
+            fw_compiler=habana_quant_backend_config.patch(options)(
+                partial(habana_quant_compiler_fw, module_key=module_key, pt2e_quant_context=pt2e_quant_context)
+            ),
+            bw_compiler=habana_quant_compiler_bw_raise,
+            decompositions=get_hpu_decompositions(),
+            keep_inference_input_mutations=habana_quant_backend_config.keep_input_mutations,
+        )(graph_module, example_inputs)
 
 
 # ======================================================================================
@@ -299,6 +311,7 @@ def export(
             f,
             backend=partial(habana_quant_backend, module_key=model_key, pt2e_quant_context=habana_pt2e_quant_context),
             dynamic=False,
+            options={"keep_input_mutations": True},
         )
         setattr(model, "meta_hb_quant_id", model_key)
         habana_pt2e_quant_context.set_model(model)
@@ -470,7 +483,13 @@ def replace_pattern_quant_dequant_softmax(graph_module: torch.fx.GraphModule):
 
 
 def get_dequant_node(node):
-    view_nodes = ["view.default", "expand.default", "clone.default"]
+    view_nodes = [
+        "view.default",
+        "expand.default",
+        "clone.default",
+        "_unsafe_view.default",
+        "slice.Tensor",
+    ]
     while node and node.op == "call_function":
         if is_node(node, "dequantize_per_tensor.default"):
             return node
@@ -479,6 +498,42 @@ def get_dequant_node(node):
             break
         node = node.args[0]
     return None
+
+
+def replace_quantize_with_cast(module: torch.fx.GraphModule):
+    # Iterate through all nodes in the graph
+    graph = module.graph
+
+    graph_changed = False
+    nodes_to_remove = []
+    for node in graph.nodes:
+        # Check if the node is a bmm.default operation
+        if is_node(node, "quantize_per_tensor.default"):
+
+            with graph.inserting_before(node):
+                invert_scale_node = 1 / node.args[1]
+                cast_node = graph.call_function(
+                    torch.ops.hpu.cast_to_fp8_v2,
+                    args=(
+                        node.args[0],
+                        invert_scale_node,
+                        False,
+                        False,
+                        torch.float8_e4m3fn,
+                    ),
+                )
+                quant_out = module.graph.call_function(operator.getitem, args=(cast_node, 0))
+            node.replace_all_uses_with(quant_out)
+            nodes_to_remove.extend(
+                [
+                    node,
+                ]
+            )
+
+    for node in nodes_to_remove:
+        graph.erase_node(node)
+    graph.lint()  # Ensure graph integrity
+    module.recompile()
 
 
 def replace_pattern_quant_dequant_bmm(module: torch.fx.GraphModule):
