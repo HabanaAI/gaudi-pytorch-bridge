@@ -107,6 +107,9 @@ bool fillSharedLayerTensorType(SharedLayer::Tensor& tensor, at::ScalarType t) {
     case at::ScalarType::Float8_e4m3fn:
       tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_F8_143;
       return true;
+    case at::ScalarType::Undefined:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::NUM_DATATYPES;
+      return true;
     default:
       tensor.geometry.dataType = SharedLayer::TensorDataType::NUM_DATATYPES;
       return false;
@@ -120,7 +123,9 @@ bool fillGuidParamInfo(
     return false;
 
   const auto rank = tensor_descr.getRank();
-  tensor.geometry.dims = rank == 0 ? 1 : rank;
+  const bool isOptionalNotPresent =
+      tensor_descr.getType() == at::ScalarType::Undefined;
+  tensor.geometry.dims = (rank == 0 && !isOptionalNotPresent) ? 1 : rank;
   return true;
 }
 

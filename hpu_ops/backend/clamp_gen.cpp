@@ -119,6 +119,43 @@ std::shared_ptr<void> FillClampMaxParams(const at::Stack& stack, size_t& size) {
       -std::numeric_limits<int>::max(), stack[1].toScalar().toInt(), size);
 }
 
+SharedMetaDataVector ClampSharedMeta(const at::Stack& stack) {
+  auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+      stack,
+      c10::nullopt,
+      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+      false);
+  auto self = stack_tensor(stack, 0);
+  auto selfRank = self.dim();
+
+  auto min = stack.at(1);
+  auto max = stack.at(2);
+  auto isMinTensor = min.isTensor();
+  auto isMaxTensor = max.isTensor();
+
+  SharedMetaData clampSharedMeta{"clamp_pt_fwd"};
+  clampSharedMeta.inputs_data.emplace_back(selfRank, dtype);
+  clampSharedMeta.inputs_data.push_back(
+      isMinTensor ? SharedMetaTensor{min.toTensor().dim(), dtype}
+                  : createOptionalNotPresentSharedMetaTensor());
+  clampSharedMeta.inputs_data.push_back(
+      isMaxTensor ? SharedMetaTensor{max.toTensor().dim(), dtype}
+                  : createOptionalNotPresentSharedMetaTensor());
+
+  clampSharedMeta.outputs_data.emplace_back(selfRank, dtype);
+  return {clampSharedMeta};
+}
+
+SharedMetaDataVector ClampMinSharedMeta(const at::Stack& stack) {
+  at::Scalar dummyScalar;
+  return ClampSharedMeta({stack.at(0), stack.at(1), dummyScalar});
+}
+
+SharedMetaDataVector ClampMaxSharedMeta(const at::Stack& stack) {
+  at::Scalar dummyScalar;
+  return ClampSharedMeta({stack.at(0), dummyScalar, stack.at(1)});
+}
+
 static synapse_helpers::tensor ClampCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,

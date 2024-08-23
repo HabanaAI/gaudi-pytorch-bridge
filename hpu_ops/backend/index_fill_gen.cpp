@@ -33,6 +33,35 @@ OutputMetaDataVector IndexFillMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector IndexFillSharedMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto selfRank = self.dim();
+  auto computeDtype = self.scalar_type();
+  auto index = stack_tensor(stack, 2);
+  auto indexRank = index.dim();
+  auto indexDtype = index.scalar_type();
+  auto value = stack.at(3);
+
+  SharedMetaDataVector metaVec;
+  if (value.isTensor()) {
+    auto valueTensor = value.toTensor();
+    auto valueDtype = valueTensor.scalar_type();
+    SharedMetaData broadcastSharedMeta{"broadcast"};
+    broadcastSharedMeta.inputs_data.emplace_back(1, valueDtype);
+    broadcastSharedMeta.outputs_data.emplace_back(selfRank, valueDtype);
+    metaVec.push_back(broadcastSharedMeta);
+  }
+
+  SharedMetaData indexFillSharedMeta{"index_copy_fwd"};
+  indexFillSharedMeta.inputs_data = {
+      {selfRank, computeDtype},
+      {indexRank, indexDtype},
+      {selfRank, computeDtype}};
+  indexFillSharedMeta.outputs_data.emplace_back(selfRank, computeDtype);
+  metaVec.push_back(indexFillSharedMeta);
+  return metaVec;
+}
+
 void IndexFill::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   const auto& input = stack.at(0).toTensor();
   const auto& dim = stack.at(1).toInt();

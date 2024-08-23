@@ -329,6 +329,11 @@ using OutputMetaDataVector = std::vector<OutputMetaData>;
 
 using SharedMetaTensor = std::pair<int, at::ScalarType>;
 using SharedMetaVector = std::vector<SharedMetaTensor>;
+
+inline SharedMetaTensor createOptionalNotPresentSharedMetaTensor() {
+  return {0, at::ScalarType::Undefined};
+}
+
 struct SharedMetaData {
   std::string guid;
   SharedMetaVector inputs_data;

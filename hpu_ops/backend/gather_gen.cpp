@@ -55,6 +55,18 @@ OutputMetaDataVector GatherMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector GatherSharedMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto selfDtype = self.scalar_type();
+  auto index = stack_tensor(stack, 2);
+  auto rank = self.dim();
+  SharedMetaData gatherElementsMeta{"gather_elements_fwd"};
+  gatherElementsMeta.inputs_data = {
+      {rank, selfDtype}, {rank, index.scalar_type()}};
+  gatherElementsMeta.outputs_data = {{rank, selfDtype}};
+  return {gatherElementsMeta};
+}
+
 std::shared_ptr<void> FillGatherParams(const at::Stack& stack, size_t& size) {
   auto self = stack.at(0).toTensor();
   int dim_ = stack.at(1).toInt();

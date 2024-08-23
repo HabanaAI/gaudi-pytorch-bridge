@@ -54,6 +54,64 @@ OutputMetaDataVector HuberLossBackwardMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector HuberLossBackwardSharedMeta(const at::Stack& stack) {
+  auto grad = stack_tensor(stack, 0);
+  auto gradRank = grad.dim();
+  auto self = stack_tensor(stack, 1);
+  auto selfRank = self.dim();
+  auto target = stack_tensor(stack, 2);
+  auto targetRank = target.dim();
+  auto dtype = self.scalar_type();
+
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(7);
+  SharedMetaTensor commonSharedTensor{selfRank, dtype};
+  SharedMetaTensor gradSharedTensor{gradRank, dtype};
+  SharedMetaTensor targetSharedTensor{targetRank, dtype};
+  SharedMetaVector commonBinarySharedInput{
+      commonSharedTensor, commonSharedTensor};
+  SharedMetaVector commonUnarySharedInput = {commonSharedTensor};
+  auto& commonSharedOutput = commonUnarySharedInput;
+
+  SharedMetaData subSharedMeta{"sub"};
+  subSharedMeta.inputs_data = {commonSharedTensor, targetSharedTensor};
+  subSharedMeta.outputs_data = commonSharedOutput;
+  metaVec.push_back(subSharedMeta);
+
+  SharedMetaData multGradNormSharedMeta{"mult"};
+  multGradNormSharedMeta.inputs_data = {gradSharedTensor, commonSharedTensor};
+  multGradNormSharedMeta.outputs_data = commonSharedOutput;
+  metaVec.push_back(multGradNormSharedMeta);
+
+  SharedMetaData signSharedMeta{"sign_fwd"};
+  signSharedMeta.inputs_data = commonUnarySharedInput;
+  signSharedMeta.outputs_data = commonSharedOutput;
+  metaVec.push_back(signSharedMeta);
+
+  SharedMetaData multCommonSharedMeta{"mult"};
+  multCommonSharedMeta.inputs_data = commonBinarySharedInput;
+  multCommonSharedMeta.outputs_data = commonSharedOutput;
+  metaVec.push_back(multCommonSharedMeta);
+
+  SharedMetaData absSharedMeta{"abs_fwd"};
+  absSharedMeta.inputs_data = commonUnarySharedInput;
+  absSharedMeta.outputs_data = commonSharedOutput;
+  metaVec.push_back(absSharedMeta);
+
+  SharedMetaData lessSharedMeta{"less_fwd"};
+  lessSharedMeta.inputs_data = commonBinarySharedInput;
+  lessSharedMeta.outputs_data.emplace_back(selfRank, c10::ScalarType::Bool);
+  metaVec.push_back(lessSharedMeta);
+
+  SharedMetaData whereSharedMeta{"where_fwd"};
+  whereSharedMeta.inputs_data = {
+      lessSharedMeta.outputs_data[0], commonSharedTensor, commonSharedTensor};
+  whereSharedMeta.outputs_data = commonSharedOutput;
+  metaVec.push_back(whereSharedMeta);
+
+  return metaVec;
+}
+
 void HuberLossBwdOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

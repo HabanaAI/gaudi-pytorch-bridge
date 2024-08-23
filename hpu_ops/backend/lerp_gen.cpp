@@ -48,6 +48,39 @@ OutputMetaDataVector ForeachLerpMeta(const at::Stack& stack) {
   return metaVector;
 }
 
+SharedMetaDataVector LerpSharedMeta(const at::Stack& stack) {
+  auto start = stack_tensor(stack, 0);
+  auto startRank = start.dim();
+  auto dtype = start.scalar_type();
+  auto end = stack_tensor(stack, 1);
+  auto endRank = end.dim();
+  auto weight = stack.at(2);
+  int64_t weightRank = 1;
+  if (weight.isTensor()) {
+    auto weightTensor = weight.toTensor();
+    weightRank = weightTensor.dim();
+  };
+
+  auto subOutputRank = std::max(startRank, endRank);
+  SharedMetaData subSharedMeta{"sub"};
+  subSharedMeta.inputs_data = {{endRank, dtype}, {startRank, dtype}};
+  subSharedMeta.outputs_data.emplace_back(subOutputRank, dtype);
+
+  auto multOutputRank = std::max(subOutputRank, weightRank);
+  SharedMetaData multSharedMeta{"mult"};
+  multSharedMeta.inputs_data = {
+      subSharedMeta.outputs_data[0], {weightRank, dtype}};
+  multSharedMeta.outputs_data.emplace_back(multOutputRank, dtype);
+
+  auto addOutputRank = std::max(startRank, multOutputRank);
+  SharedMetaData addSharedMeta{"add"};
+  addSharedMeta.inputs_data = {
+      {startRank, dtype}, {multSharedMeta.outputs_data[0]}};
+  addSharedMeta.outputs_data.emplace_back(addOutputRank, dtype);
+
+  return {subSharedMeta, multSharedMeta, addSharedMeta};
+}
+
 synapse_helpers::tensor CommonLerp(
     OpBackend* op,
     synapse_helpers::graph& graph,
