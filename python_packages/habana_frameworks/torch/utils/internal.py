@@ -27,18 +27,19 @@ is_lazy._is_lazy = None
 
 
 def lazy_only(func):
-    def wrapper(*args, **kwargs):
-        if is_lazy():
-            func(*args, **kwargs)
-        else:
-            if not wrapper.has_run:
-                logger.warning(
-                    f"Calling {func.__name__} function does not have any effect. It's lazy mode only functionality. (warning logged once)"
-                )
-                wrapper.has_run = True
+    def lazy_wrapper(*args, **kwargs):
+        func(*args, **kwargs)
 
-    wrapper.has_run = False
-    return wrapper
+    def non_lazy_wrapper(*args, **kwargs):
+        pass
+
+    if is_lazy():
+        return lazy_wrapper
+    else:
+        logger.warning(
+            f"Calling {func.__name__} function does not have any effect. It's lazy mode only functionality. (warning logged once)"
+        )
+        return non_lazy_wrapper
 
 
 class Timer:
