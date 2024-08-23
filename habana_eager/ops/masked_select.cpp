@@ -18,6 +18,8 @@ namespace habana {
 namespace eager {
 
 at::Tensor masked_select_eager(const at::Tensor& self, const at::Tensor& mask) {
+  TORCH_CHECK(mask.scalar_type() == c10::ScalarType::Bool,
+              "masked_select: expected BoolTensor for mask");
   auto new_size = at::infer_size(self.sizes(), mask.sizes());
   auto new_mask = at::broadcast_to(mask, new_size);
   auto new_self = at::broadcast_to(self, new_size);
