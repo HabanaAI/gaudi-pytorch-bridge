@@ -9114,8 +9114,8 @@ upsample_linear1d:
   guid: resize_fwd
   op_backend: UpsampleLinear1DFwdOperator
   synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
+  - [WHC, WHC]
+  - [WHC]
   out_ids: [0]
 
 upsample_linear1d.out:
@@ -9127,8 +9127,8 @@ upsample_linear1d.out:
   guid: resize_fwd
   op_backend: UpsampleLinear1DFwdOperator
   synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
+  - [WHC, WHC]
+  - [WHC]
 
 upsample_linear1d.vec:
   only_shared_layer: true
@@ -9147,8 +9147,8 @@ upsample_linear1d_backward:
   op_backend: UpsampleLinear1DBwdOperator
   out_ids: [0]
   synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
+  - [WHC, WHC]
+  - [WHC]
 
 upsample_linear1d_backward.grad_input:
   output_meta: UpsampleLinear1DBwdMeta
@@ -9159,8 +9159,8 @@ upsample_linear1d_backward.grad_input:
   guid: resize_bwd
   op_backend: UpsampleLinear1DBwdOperator
   synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
+  - [WHC, WHC]
+  - [WHC]
 
 upsample_nearest1d:
   output_meta: UpsampleNearest1DFwdMeta
@@ -9171,8 +9171,8 @@ upsample_nearest1d:
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
   synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
+  - [WHC, WHC]
+  - [WHC]
   out_ids: [0]
 
 upsample_nearest1d.out:
@@ -9184,8 +9184,8 @@ upsample_nearest1d.out:
   guid: resize_fwd
   op_backend: UpsampleNearest1DFwdOperator
   synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
+  - [WHC, WHC]
+  - [WHC]
 
 upsample_nearest1d.vec:
   only_shared_layer: true
@@ -9203,8 +9203,8 @@ upsample_nearest1d_backward:
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
   synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
+  - [WHC, WHC]
+  - [WHC]
   out_ids: [0]
 
 upsample_nearest1d_backward.grad_input:
@@ -9216,8 +9216,8 @@ upsample_nearest1d_backward.grad_input:
   guid: resize_bwd
   op_backend: UpsampleNearest1DBwdOperator
   synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
+  - [WHC, WHC]
+  - [WHC]
 
 _upsample_nearest_exact1d.out:
   output_meta: UpsampleNearest1DFwdMeta
@@ -9228,8 +9228,8 @@ _upsample_nearest_exact1d.out:
   guid: resize_fwd
   op_backend: UpsampleNearestExact1DFwdOperator
   synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
+  - [WHC, WHC]
+  - [WHC]
 
 _upsample_nearest_exact1d_backward.grad_input:
   output_meta: UpsampleNearest1DBwdMeta
@@ -9240,8 +9240,8 @@ _upsample_nearest_exact1d_backward.grad_input:
   guid: resize_bwd
   op_backend: UpsampleNearestExact1DBwdOperator
   synapse_layouts:
-  - [WHCN, WHCN]
-  - [WHCN]
+  - [WHC, WHC]
+  - [WHC]
 
 upsample_nearest2d:
   custom_fill_params: FillNearestFwdParams

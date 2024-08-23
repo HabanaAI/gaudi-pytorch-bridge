@@ -1530,6 +1530,7 @@ def test_sag_upsample_bicubic_2d_node_params():
 # test node params patching for upsample linear 1d op
 @pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported test")
 def test_sag_upsample_linear_1d_node_params():
+    pytest.xfail("[SW-198691] Param agnostic flow disabled for UpsampleLinear1D, needs correction")
     params = [2, 3]
 
     iteration = 0

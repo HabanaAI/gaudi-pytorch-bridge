@@ -772,7 +772,6 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
   auto shape_in = self_tensor.sizes().vec();
   std::vector<int64_t> out_shape_temp(shape_in.begin(), shape_in.end());
 
-  std::vector<synapse_helpers::tensor> reshape;
   std::unique_ptr<synapse_helpers::tensor> cast;
   auto intermediateDtype = meta.dtype;
   if (meta.dtype == c10::ScalarType::Byte) {
@@ -787,16 +786,6 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
     input = {cast->get()};
     intermediateDtype = c10::ScalarType::Float;
   }
-  std::vector<synTensor> reshaped_input(std::move(input));
-  // Reshape - 1D varaints only
-  // N,C,W to N,C,H,W where H=2
-  if (variant_type == 3) {
-    out_shape_temp = {
-        shape_in[0], shape_in[1], static_cast<int64_t>(1), shape_in[2]};
-    reshape.emplace_back(OpBackend::BuildReshape(
-        op, graph, reshaped_input[0], out_shape_temp, intermediateDtype));
-    reshaped_input[0] = reshape[0].get();
-  }
   // Resize
   // modify input width value with output width value
   // when both size and scale is provided with align_corners=false
@@ -804,7 +793,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
       isForward && !align_corners && (!out_size.isNone() && !scales.isNone());
   if (modifyInputWithOutputWidth) {
     if (variant_type == 3) { // 1D
-      out_shape_temp.at(3) = static_cast<int64_t>(shape_in[2] * scale_w);
+      out_shape_temp.at(2) = static_cast<int64_t>(shape_in[2] * scale_w);
     } else if (variant_type == 5) { // 3D
       out_shape_temp.at(2) = static_cast<int64_t>(shape_in[2] * scale_d);
       out_shape_temp.at(3) = static_cast<int64_t>(shape_in[3] * scale_h);
@@ -812,7 +801,7 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
     }
   } else {
     if (variant_type == 3) { // 1D
-      out_shape_temp.at(3) = meta.shape.at(2);
+      out_shape_temp.at(2) = meta.shape.at(2);
     } else if (variant_type == 5) { // 3D
       out_shape_temp.at(2) = meta.shape.at(2);
       out_shape_temp.at(3) = meta.shape.at(3);
@@ -832,13 +821,13 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
       scale_d,
       align_corners);
   auto final_index_for_resize = modifyInputWithOutputWidth ||
-          variant_type == 3 || meta.dtype == c10::ScalarType::Byte
+          meta.dtype == c10::ScalarType::Byte
       ? c10::optional<int>()
       : c10::optional<int>(0);
   auto resize = Resize(
       op,
       graph,
-      reshaped_input,
+      input,
       out_shape_temp,
       intermediateDtype,
       params,
@@ -849,11 +838,11 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
   if (modifyInputWithOutputWidth) {
     std::vector<int64_t> slice_shape(meta.shape.begin(), meta.shape.end());
     if (variant_type == 3) { // 1D
-      // NCHW
-      slice_shape = {shape_in[0], shape_in[1], 1 /*H*/, meta.shape.at(2)};
+      // NCW
+      slice_shape = {shape_in[0], shape_in[1], meta.shape.at(2)};
     }
     auto final_index_for_slice =
-        (variant_type == 3 || meta.dtype == c10::ScalarType::Byte)
+        (meta.dtype == c10::ScalarType::Byte)
         ? c10::optional<int>()
         : c10::optional<int>(0);
 
@@ -866,22 +855,6 @@ std::vector<synapse_helpers::tensor> UpsampleCommonFuncSynapseLayout(
         intermediateDtype,
         final_index_for_slice);
   };
-
-  // Reshape - 1D variants only
-  // N,C,H,W to N,C,W where H=2
-  if (variant_type == 3) {
-    c10::optional<int> final_result_index = {0};
-    if (meta.dtype == c10::ScalarType::Byte) {
-      final_result_index = c10::nullopt;
-    }
-    resize.front() = OpBackend::BuildReshape(
-        op,
-        graph,
-        resize[0].get(),
-        meta.shape,
-        intermediateDtype,
-        final_result_index);
-  }
   if (meta.dtype == c10::ScalarType::Byte) {
     // f32 to u8
     std::vector<synapse_helpers::tensor> result;

@@ -144,8 +144,9 @@ class NodeParamAgnosticOpList {
         c10::Symbol::fromQualString("aten::upsample_bicubic2d_backward"),
         c10::Symbol::fromQualString("aten::upsample_bilinear2d"),
         c10::Symbol::fromQualString("aten::upsample_bilinear2d_backward"),
-        c10::Symbol::fromQualString("aten::upsample_linear1d"),
-        c10::Symbol::fromQualString("aten::upsample_linear1d_backward"),
+        // TODO: [SW-198691] investigate and try to reenable, or remove from the list
+        //c10::Symbol::fromQualString("aten::upsample_linear1d"),
+        //c10::Symbol::fromQualString("aten::upsample_linear1d_backward"),
         c10::Symbol::fromQualString("aten::upsample_nearest1d"),
         c10::Symbol::fromQualString("aten::upsample_nearest1d_backward"),
         c10::Symbol::fromQualString("aten::upsample_nearest2d_backward"),
