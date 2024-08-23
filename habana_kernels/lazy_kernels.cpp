@@ -51,6 +51,7 @@
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/sbs_debug.h"
 #include "habana_lazy/view_utils.h"
+#include "hpu_ops/bincount.h"
 #include "hpu_ops/ctc_loss_custom.h"
 #include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/masked_batch_gemm.h"
@@ -2010,6 +2011,73 @@ Tensor& baddbmm_hpu_lazy_(
     self.add_(r_bmm, alpha);
   }
   return self;
+}
+
+at::Tensor cast_to_32(const at::Tensor& self) {
+  if (self.scalar_type() == c10::ScalarType::Long ||
+      self.scalar_type() == c10::ScalarType::Byte ||
+      self.scalar_type() == c10::ScalarType::Char ||
+      self.scalar_type() == c10::ScalarType::Short) {
+    return self.to(c10::ScalarType::Int);
+  } else if (
+      self.scalar_type() == c10::ScalarType::Double ||
+      self.scalar_type() == c10::ScalarType::Half ||
+      self.scalar_type() == c10::ScalarType::BFloat16) {
+    return self.to(c10::ScalarType::Float);
+  }
+  return self;
+}
+
+c10::optional<at::Tensor> cast_weights(
+    const c10::optional<at::Tensor>& weights) {
+  if (weights.has_value() &&
+      (weights.value().dtype() != c10::ScalarType::Int &&
+       weights.value().dtype() != c10::ScalarType::Float)) {
+    return c10::make_optional<at::Tensor>(cast_to_32(weights.value()));
+  }
+  return weights;
+}
+
+c10::ScalarType bincount_output_dtype(
+    const c10::optional<at::Tensor>& weights) {
+  if (!weights.has_value()) {
+    return c10::ScalarType::Long;
+  }
+  return (weights.value().scalar_type() == c10::ScalarType::Float)
+      ? c10::ScalarType::Float
+      : c10::ScalarType::Double;
+}
+
+Tensor bincount_hpu_lazy(
+    const Tensor& self,
+    const c10::optional<Tensor>& weights,
+    int64_t minlength) {
+  PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
+
+  auto elements = self.numel();
+
+  if (elements == 0) {
+    auto shape = DimVector{minlength};
+    return at::zeros(shape, TensorOptions(kHPU).dtype(at::kLong));
+  }
+
+  auto max_in_input = static_cast<int64_t>(at::max(self).item<int64_t>());
+  int64_t length = std::max(max_in_input + 1, minlength);
+  std::vector<int64_t> shape{length};
+  // Add bincount node
+  LazyOp<at::Tensor> hpu_op{
+      "hpu::bincount_backend",
+      {cast_to_32(self), length, cast_weights(weights)},
+      {shape},
+      0};
+  hpu_op.SetOutputMetaFn(BinCountMeta);
+  auto result_bincount = hpu_op.call();
+  auto out_dtype = bincount_output_dtype(weights);
+  if (result_bincount.scalar_type() != out_dtype) {
+    return result_bincount.to(out_dtype);
+  }
+  return result_bincount;
 }
 
 at::Tensor prepare_hpu_tensor(const at::Tensor& t) {

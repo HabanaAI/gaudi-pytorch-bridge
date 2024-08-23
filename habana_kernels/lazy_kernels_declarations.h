@@ -24,6 +24,10 @@
 using OptionalIntArrayRef = at::OptionalIntArrayRef;
 
 namespace habana_lazy {
+at::Tensor bincount_hpu_lazy(
+    const at::Tensor& self,
+    const c10::optional<at::Tensor>& weights,
+    int64_t minlength);
 at::Tensor _copy_from(
     const at::Tensor& self,
     const at::Tensor& dst,

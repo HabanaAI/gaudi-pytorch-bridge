@@ -19,6 +19,7 @@
 #include "habana_eager/eager_tensor.h"
 #include "habana_eager/helpers.h"
 #include "habana_eager/ops/as_strided.h"
+#include "habana_eager/ops/bincount.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/empty.h"
 #include "habana_eager/ops/index_put.h"
@@ -214,6 +215,47 @@ at::Tensor& hpu_wrap::_index_put_impl_(
     bool sorted,
     bool return_inverse) {
   return habana::eager::_unique_eager(self, sorted, return_inverse);
+}
+
+at::Tensor hpu_wrap::bincount(
+    const at::Tensor& self,
+    const c10::optional<at::Tensor>& weights,
+    int64_t minlength) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("bincount :", DUMP_3ARGS(self, weights, minlength));
+  static const std::array<c10::ScalarType, 5> valid_self_types = {
+      c10::ScalarType::Int,
+      c10::ScalarType::Long,
+      c10::ScalarType::Short,
+      c10::ScalarType::Char,
+      c10::ScalarType::Byte,
+  };
+  static const std::array<c10::ScalarType, 9> valid_weights_types = {
+      c10::ScalarType::Float,
+      c10::ScalarType::BFloat16,
+      c10::ScalarType::Int,
+      c10::ScalarType::Long,
+      c10::ScalarType::Short,
+      c10::ScalarType::Char,
+      c10::ScalarType::Byte,
+      c10::ScalarType::Double,
+      c10::ScalarType::Half,
+  };
+  bool is_self_valid = std::find(
+                           valid_self_types.begin(),
+                           valid_self_types.end(),
+                           self.scalar_type()) != valid_self_types.end();
+  bool is_weights_valid = !weights.has_value() ||
+      std::find(
+          valid_weights_types.begin(),
+          valid_weights_types.end(),
+          weights.value().scalar_type()) != valid_weights_types.end();
+  if (is_self_valid && is_weights_valid) {
+    return habana::eager::bincount_eager(self, weights, minlength);
+  }
+  return dispatch_fallback<ATEN_OP(bincount)>::call(
+      OpSupportLevel::Value::unsupported_dtype,
+      PARAMS2(self, weights, minlength));
 }
 
 at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {

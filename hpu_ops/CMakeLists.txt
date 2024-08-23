@@ -129,6 +129,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/bernoulli_gen.cpp
   backend/binarycrossentropy_gen.cpp
   backend/binary_gen.cpp
+  backend/bincount_gen.cpp
   backend/bitwise_gen.cpp
   backend/bitwise_shift_gen.cpp
   backend/bmm_gen.cpp

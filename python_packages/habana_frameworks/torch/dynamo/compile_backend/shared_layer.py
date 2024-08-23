@@ -124,6 +124,7 @@ hpu_fallback_op_list = {
     # Non-inferable
     "nonzero",
     "_unique2",
+    "bincount",
 }
 
 # List of ops that do not support dynamic shape in torch.compile

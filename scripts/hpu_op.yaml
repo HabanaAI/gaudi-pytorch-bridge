@@ -9665,6 +9665,9 @@ split_with_sizes:
 _index_put_impl_:
   hpu_wrap_all_versions: true
 
+bincount:
+  hpu_wrap_all_versions: true
+
 nonzero:
   hpu_wrap_all_versions: true
 
