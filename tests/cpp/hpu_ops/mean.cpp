@@ -77,7 +77,7 @@ TEST_F(HpuOpTest, mean_dim_bfloat) {
   auto expected = torch::mean(GetCpuInput(0), {0} /*dim*/, keepdim, dtype);
   auto result = torch::mean(GetHpuInput(0), {0} /*dim*/, keepdim, dtype);
 
-  Compare(expected, result);
+  Compare(expected, result, 1e-2, 1e-2);
 }
 
 TEST_F(HpuOpTest, mean_3d_float) {

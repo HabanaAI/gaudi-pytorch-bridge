@@ -114,7 +114,11 @@ void ReductionBackendTemplate::AddNode(
 }
 
 inline bool reduction_support_f32(const std::string& guid) {
-  return guid.find("reduce_prod_multi_dim") != std::string::npos;
+  return guid.find("reduce_prod_multi_dim_fwd") != std::string::npos or guid.find("reduce_mean_multi_dim_fwd") != std::string::npos;
+}
+
+inline bool reduction_support_i32(const std::string& guid) {
+  return guid.find("reduce_sum_multi_dim") != std::string::npos;
 }
 
 // Returns the input after cast to the supplied dtype. If dtype is none or if
@@ -126,21 +130,17 @@ c10::optional<synapse_helpers::tensor> HandleReductionDtype(
     synTensor syn_in,
     at::optional<at::ScalarType> dtype) {
   auto dtype_val = dtype.value_or(self.scalar_type());
-
-  if (!dtype.has_value() and at::isIntegralType(self.scalar_type(), true)) {
-    dtype_val = at::kInt;
-  }
-
-  // Update guid with the dtype to be used
   std::string guid = op->GetGuid();
-  auto guid_dtype = dtype_val;
-  if (reduction_support_f32(guid) and at::isIntegralType(guid_dtype, true)) {
-    guid_dtype = at::kFloat;
+  if (at::isIntegralType(self.scalar_type(), true) and reduction_support_i32(guid)) {
+    if (dtype_val != at::kFloat) { dtype_val = at::kInt;}
+  } else if (
+      reduction_support_f32(guid) and at::isIntegralType(self.scalar_type(), true)) {
+    dtype_val = at::kFloat;
   } else {
+    return c10::nullopt;
     // do nothing
   }
-  op->SetGuid(update_guid_dtype(guid, guid_dtype));
-
+  op->SetGuid(update_guid_dtype(guid, dtype_val));
   if (habana_helpers::getInternalDtype(dtype_val) ==
       habana_helpers::getInternalDtype(self.scalar_type())) {
     return c10::nullopt;
