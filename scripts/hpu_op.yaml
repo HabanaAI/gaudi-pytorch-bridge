@@ -5807,31 +5807,35 @@ max_pool3d_with_indices_backward:
 #   - [WHDCN]
 
 mean:
+  output_meta: ReductionOpMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: reduce_mean_multi_dim_fwd
-  reduction: true
+  op_backend: ReductionOp
   out_ids: [0]
   acc_thread: true
 
 mean.dim:
+  output_meta: ReductionOpListMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: reduce_mean_multi_dim_fwd
-  reduction: true
+  op_backend: ReductionOpList
   out_ids: [0]
 
 mean.out:
+  output_meta: ReductionOpListMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: reduce_mean_multi_dim_fwd
-  reduction: true
+  op_backend: ReductionOpList
+  promote_to_common_type: [self]
 
 median:
   output_meta: MedianOutputMeta
@@ -6977,30 +6981,33 @@ _prelu_kernel_backward:
   op_validator: check-node-with-shared-layer
 
 prod:
+  output_meta: ReductionOpMeta
   dtypes:
     Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
     Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
   guid: reduce_prod_multi_dim_fwd
   out_ids: [0]
-  reduction: true
+  op_backend: ReductionOp
 
 prod.dim_int:
+  output_meta: ReductionOpListMeta
   dtypes:
     Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
     Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
   guid: reduce_prod_multi_dim_fwd
   out_ids: [0]
-  reduction: true
+  op_backend: ReductionOpList
 
 prod.int_out:
+  output_meta: ReductionOpListMeta
   dtypes:
     Gaudi: [BFloat16, Float, Char, Byte, Short, Int]
     Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
     Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half, Long]
   guid: reduce_prod_multi_dim_fwd
-  reduction: true
+  op_backend: ReductionOpList
   safe_cast_check: false
 
 put_:
@@ -8561,30 +8568,33 @@ sub.out:
   promote_to_common_type: [self, other]
 
 sum:
-  reduction: true
+  output_meta: ReductionOpMeta
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Char, Int]
+    Gaudi2: [BFloat16, Float, Char, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Char, Int, Half, Float8_e5m2, Float8_e4m3fn]
+  op_backend: ReductionOp
   guid: reduce_sum_multi_dim_fwd
   out_ids: [0]
 
 sum.dim_IntList:
-  reduction: true
+  output_meta: ReductionOpListMeta
   dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
-  guid: reduce_sum_fwd
+    Gaudi: [BFloat16, Float, Char, Int]
+    Gaudi2: [BFloat16, Float, Char, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Char, Int, Half, Long, Float8_e5m2, Float8_e4m3fn]
+  op_backend: ReductionOpList
+  guid: reduce_sum_multi_dim_fwd
   out_ids: [0]
 
 sum.IntList_out:
+  output_meta: ReductionOpListMeta
   dtypes:
-    Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3: [BFloat16, Float, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi: [BFloat16, Float, Char, Int, Long]
+    Gaudi2: [BFloat16, Float, Char, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+    Gaudi3: [BFloat16, Float, Char, Int, Long, Half, Float8_e5m2, Float8_e4m3fn]
+  op_backend: ReductionOpList
   guid: reduce_sum_multi_dim_fwd
-  reduction: true
 
 t:
   override_fn: t_hpu_lazy
