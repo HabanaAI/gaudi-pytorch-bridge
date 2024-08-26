@@ -173,9 +173,9 @@ class FusedLamb(Optimizer):
                 exp_avg_list.append(exp_avg)
                 exp_avg_sq_list.append(exp_avg_sq)
 
-                wt_norm_list.append(torch.empty((1,), device=self.device))
-                adam_norm_list.append(torch.empty((1,), device=self.device))
-                adam_step_list.append(torch.empty_like(exp_avg))
+                wt_norm_list.append(torch.empty((1,), device=self.device).to(p.dtype))
+                adam_norm_list.append(torch.empty((1,), device=self.device).to(p.dtype))
+                adam_step_list.append(torch.empty_like(exp_avg).to(p.dtype))
 
             torch.ops.hpu.optimizer_lamb_phase1(
                 grad_list,

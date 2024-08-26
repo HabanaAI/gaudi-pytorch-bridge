@@ -762,8 +762,16 @@ void optimizer_lamb_phase1(
        bias_correction1,
        bias_correction2,
        weight_decay}};
-  return hpu_op.call(
-      {exp_avg, exp_avg_sq, out_weight_norms, out_adam_norms, out_adam_steps});
+
+  hpu_op.set_eager_op_info(
+      {habana::eager::eagerOpKind::Inplace,
+       "hpu::optimizer_lamb_phase1",
+       decltype(habana::eager::EagerOpMetaData::out_indices_){2, 3, 4, 5, 6}});
+
+  std::vector<at::TensorList> tensorlists = {
+      exp_avg, exp_avg_sq, out_weight_norms, out_adam_norms, out_adam_steps};
+
+  return hpu_op.call(tensorlists);
 }
 
 void optimizer_lamb_phase2(
