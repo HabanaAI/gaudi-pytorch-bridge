@@ -696,52 +696,6 @@ void SumDimOutOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   ReduceOperator::SetPTOutputs(inputs);
 }
 
-void ProdDimOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  Tensor output;
-  auto dim = inputs[1].toInt();
-  // Replacing Int value with single element IntList
-  IntArrayRef dimArr(&dim, 1);
-  inputs[1] = IValue(dimArr);
-  inputs.insert(inputs.begin(), IValue(output));
-  ReduceOperator::SetPTOutputs(inputs);
-}
-
-void ProdDimOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 4,
-      "Incorrect size of inputs expected for ProdDim operator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be tensor for ProdDim operator");
-  TORCH_CHECK(
-      inputs[1].isInt(), "Input arg3 expected to be Int for ProdDim operator");
-  TORCH_CHECK(
-      inputs[2].isBool(),
-      "Input arg4 expected to be Bool for ProdDim operator");
-
-  Tensor self = inputs[0].toTensor();
-  auto dim = inputs[1].toInt();
-  // Replacing Int value with single element IntList
-  IntArrayRef dimArr(&dim, 1);
-  inputs[1] = IValue(dimArr);
-
-  bool keepdim = inputs[2].toBool();
-
-  Tensor output = habana::createPTTensor(
-      self,
-      {0},
-      self.options(),
-      // keepdim = false => output dim < 4
-      keepdim ? self.suggest_memory_format() : at::MemoryFormat::Contiguous,
-      output_metadata.at(0).persistent);
-  inputs.insert(inputs.begin(), IValue(output));
-
-  ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
-}
-
 InferOutputMetaRetType SumOperator::InferOutputMeta(torch::jit::Stack& inputs) {
   if (inputs.size() == 2) {
     Tensor self = inputs[0].toTensor();
@@ -1093,5 +1047,4 @@ void ReduceMultiOutputOperator::AllocateAndAddSynapseNode(
 
 static auto& ReductionKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::_grad_sum_to_size", KERNEL_FN(GradSumToSizeOperator))
-        .add("hpu::prod_dim_Int", KERNEL_FN(ProdDimOperator));
+        .add("aten::_grad_sum_to_size", KERNEL_FN(GradSumToSizeOperator));

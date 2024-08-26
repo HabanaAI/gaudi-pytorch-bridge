@@ -92,23 +92,6 @@ class MeanOperator : public ReduceOperator {
 };
 
 //
-// ProdDim Operator
-class ProdDimOperator : public ReduceOperator {
- public:
-  ProdDimOperator(int device_id, c10::ScalarType scalarType)
-      : ReduceOperator(
-            device_id,
-            get_guid_with_precision("reduce_prod_fwd", scalarType)) {}
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  virtual void SetPTOutputs(torch::jit::Stack& inputs) override;
-};
-
-//
 // SumDimOutOperator Operator
 class SumDimOutOperator : public ReduceOperator {
  public:
