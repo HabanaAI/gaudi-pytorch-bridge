@@ -237,103 +237,6 @@ void RandpermOperator::AllocateAndAddSynapseNode(
       std::move(randShuffleOp->GetOutputs()[0]));
 }
 
-void DropoutOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 3,
-      "Incorrect size",
-      inputs.size(),
-      " of inputs expected for DropoutOperator Operator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be Tensor for DropoutOperator Operator");
-  TORCH_CHECK(
-      inputs[1].isDouble(),
-      "Input arg2 expected to be Double for DropoutOperator Operator");
-  TORCH_CHECK(
-      inputs[2].isTensor(),
-      "Input arg3 expected to be Tensor for DropoutOperator Operator");
-
-  auto self = inputs[0].toTensor();
-  auto p = inputs[1].toDouble();
-  auto scalar_type = self.scalar_type();
-  TORCH_CHECK(
-      (scalar_type == c10::ScalarType::Float) ||
-          (scalar_type == c10::ScalarType::BFloat16) ||
-          (scalar_type == c10::ScalarType::Half),
-      "Expected float, bfloat16 or half data type");
-
-  ns_DropoutKernel::Params params;
-
-  params.ratio = static_cast<float>(p);
-  p_context_->params_.emplace<ns_DropoutKernel::Params>(params);
-  p_context_->params_size_ = sizeof(params);
-
-  Tensor output = habana::createPTTensor(
-      self,
-      self.sizes(),
-      self.options(),
-      self.suggest_memory_format(),
-      self.scalar_type(),
-      output_metadata.at(0).persistent);
-  Tensor output_mask = habana::createPTTensor(
-      self,
-      self.sizes(),
-      self.options(),
-      self.suggest_memory_format(),
-      c10::ScalarType::Char,
-      output_metadata.at(1).persistent);
-  std::vector<at::Tensor> pt_outputs{output, output_mask};
-  AllocateSynapseOutputs(graph, pt_outputs, output_metadata);
-  AddNodeToSynapseGraph(graph, &params, sizeof(params));
-}
-
-InferOutputMetaRetType DropoutOperator::InferOutputMeta(
-    torch::jit::Stack& inputs) {
-  auto self = inputs[0].toTensor();
-
-  InferOutputMetaRetType out;
-  // output
-  out.AddOutputTensor(habana::TensorMetaData(
-      self.sizes().vec(),
-      HabanaOperator::CalculateStrides(
-          self.sizes().vec(), self.suggest_memory_format()),
-      self.scalar_type(),
-      self.suggest_memory_format()));
-  // output_mask
-  out.AddOutputTensor(habana::TensorMetaData(
-      self.sizes().vec(),
-      HabanaOperator::CalculateStrides(
-          self.sizes().vec(), self.suggest_memory_format()),
-      c10::ScalarType::Char,
-      self.suggest_memory_format()));
-  return out;
-}
-
-void DropoutOperator::SetPTOutputs(
-    const torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  auto self = inputs[0].toTensor();
-  Tensor output = habana::createPTTensor(
-      self,
-      self.sizes(),
-      self.options(),
-      self.suggest_memory_format(),
-      self.scalar_type(),
-      output_metadata.at(0).persistent);
-  Tensor output_mask = habana::createPTTensor(
-      self,
-      self.sizes(),
-      self.options(),
-      self.suggest_memory_format(),
-      c10::ScalarType::Char,
-      output_metadata.at(1).persistent);
-  std::vector<at::Tensor> pt_outputs{output, output_mask};
-  HabanaOperator::SetPTOutputs(pt_outputs);
-}
-
 void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -413,6 +316,5 @@ void HabanaRandomSeedOperator::AllocateAndAddSynapseNode(
 static auto& RandomGenKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::randperm_out", KERNEL_FN(RandpermOperator))
-        .add("aten::_fused_dropout_backward", KERNEL_FN(DropoutOperator))
         .add("hpu::randperm_out_ds_ht", KERNEL_FN(RandpermOperatorHT))
         .add("hpu::habana_random_seed", KERNEL_FN(HabanaRandomSeedOperator));
