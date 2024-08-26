@@ -36,12 +36,14 @@ class HabanaSerializationRecipeTest : public ::testing::Test {
   void SetUp() override {
     m_cache_path = GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH);
     overrideEmptyCachePathEnv();
+    HPUDeviceContext::recipe_cache().ResetDiskCache();
   }
 
   void TearDown() override {
     if (m_cache_overriden) {
       SET_ENV_FLAG_NEW(PT_RECIPE_CACHE_PATH, "", 1); // set empty path
     }
+    HPUDeviceContext::recipe_cache().DeleteDiskCache();
   }
 
  private:
@@ -116,7 +118,6 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest1) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) {
     GTEST_SKIP();
   }
-  HPUDeviceContext::recipe_cache().ResetDiskCache();
   // make sure dir is empty.
   if (fs::exists(fs::path(getCachePath()))) {
     removeFiles(getCachePath().c_str());
@@ -178,14 +179,12 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest1) {
   auto res2 = deserializedRecipe.to(torch::kCPU);
   auto res1 = originalRecipe.to(torch::kCPU);
   EXPECT_EQ(allclose(res1, res2), true);
-  HPUDeviceContext::recipe_cache().DeleteDiskCache();
 }
 
 TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) {
     GTEST_SKIP();
   }
-  HPUDeviceContext::recipe_cache().ResetDiskCache();
   // make sure dir is empty.
   if (fs::exists(fs::path(getCachePath()))) {
     removeFiles(getCachePath().c_str());
@@ -230,7 +229,6 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
   auto res2 = deserializedRecipe.to(torch::kCPU);
   auto res1 = originalRecipe.to(torch::kCPU);
   EXPECT_EQ(allclose(res1, res2), true);
-  HPUDeviceContext::recipe_cache().DeleteDiskCache();
 }
 
 TEST(HabanaSerializationTest, CharArrayTest) {
