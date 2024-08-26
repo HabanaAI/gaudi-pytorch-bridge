@@ -2075,8 +2075,23 @@ __set_up_pytorch_artifacts_impl() (
         $__pip_cmd install -U "${LIGHTNING_HABANA_FORK_BUILD}"/pkgs/*.whl --force-reinstall --no-deps
     fi
 
+    __install_habana_transformer_engine
+
     check_no_unwanted_packages_installed
 )
+
+
+__install_habana_transformer_engine() {
+    echo "-> Looking for Habana Transformer Engine wheel to install"
+    hte_whls=$(ls ${TRANSFORMER_ENGINE_FORK_BUILD}/pkgs/*.whl 2>/dev/null | wc -l || true)
+    if [ ${hte_whls} -gt 0 ]; then
+        echo "  -> Habana Transformer Engine wheel found"
+        $__pip_cmd install -U "${TRANSFORMER_ENGINE_FORK_BUILD}"/pkgs/*.whl --force-reinstall --no-deps
+        echo "  -> Habana Transformer Engine installed"
+    else
+        echo "  -> Habana Transformer Engine wheel not found"
+    fi
+}
 
 # Args: $1 - profile name as in build_profiles.json, e.g. current, next
 __set_up_pytorch_artifacts_for_testing_impl() {
