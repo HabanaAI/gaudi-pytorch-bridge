@@ -43,14 +43,29 @@ LibraryType getLoadedLibraryType() {
   return LibraryType::EAGER;
 }
 
-bool IsRecordStreamEnabled() {
-  static bool value = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM);
+namespace {
+bool _IsRecordStreamEnabled() {
+  bool value = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM);
   return value;
 }
 
+bool _IsRecordStreamNoHolderEnabled() {
+  bool value = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM_NOHOLDER);
+  return value and _IsRecordStreamEnabled();
+}
+
+thread_local bool _recordStreamEnabled = _IsRecordStreamEnabled();
+thread_local bool _recordStreamNoHolderEnabled =
+    _IsRecordStreamNoHolderEnabled();
+
+} // namespace
+
+bool IsRecordStreamEnabled() {
+  return _recordStreamEnabled;
+}
+
 bool IsRecordStreamNoHolderEnabled() {
-  static bool value = GET_ENV_FLAG_NEW(PT_HPU_ENABLE_RECORD_STREAM_NOHOLDER);
-  return value and IsRecordStreamEnabled();
+  return _recordStreamNoHolderEnabled;
 }
 
 } // namespace common
