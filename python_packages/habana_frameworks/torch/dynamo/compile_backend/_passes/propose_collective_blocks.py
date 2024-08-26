@@ -9,6 +9,8 @@
 # was provided.
 #
 ###############################################################################
+from torch._inductor import config
+
 from .utils import ColorGraph, OptimizationPassPlacement, OptimizerContext
 
 
@@ -21,6 +23,9 @@ def pass_propose_collective_blocks(ctx: OptimizerContext) -> bool:
     """
     assert ctx.stage == OptimizationPassPlacement.PRE_PLACEMENT
     assert ctx.graph_module is not None
+
+    if not config._fuse_ddp_communication:
+        return False
 
     graph_changed = False
 

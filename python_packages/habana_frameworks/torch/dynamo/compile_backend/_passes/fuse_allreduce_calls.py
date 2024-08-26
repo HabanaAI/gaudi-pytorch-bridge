@@ -188,6 +188,9 @@ def get_comm_block(comm_node: torch.fx.Node) -> CommBlock:
 
 
 def pass_fuse_collectives(ctx: OptimizerContext) -> bool:
+    if not config._fuse_ddp_communication:
+        return False
+
     input_module = ctx.graph_module
     bucket_size_mb = config._fuse_ddp_bucket_size
     graph_changed = comm_fusion_with_concat(input_module, bucket_size_mb)
