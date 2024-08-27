@@ -32,8 +32,14 @@ from gen_op import (
     is_eager_op,
     parse_params,
 )
+from packaging.version import Version
 
 TORCH_PKG_PATH = torch.__path__[0]
+
+pytestmark = pytest.mark.skipif(
+    Version(Version(torch.__version__).base_version) < Version("2.4.0"),
+    reason="Only newest PyTorch version should be validated",
+)
 
 
 @dataclass
