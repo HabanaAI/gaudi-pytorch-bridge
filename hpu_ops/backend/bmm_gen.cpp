@@ -19,6 +19,16 @@ OutputMetaDataVector BmmMeta(const at::Stack& stack) {
   auto self_end_iter = self_sizes.end();
   auto mat2_end_iter = mat2_sizes.end();
 
+  OutputMetaData meta;
+  meta.dtype = self.scalar_type();
+
+  if ((self.dim() == 4 && mat2.dim() == 4) ||
+      (self.dim() == 5 && mat2.dim() == 5)) {
+    meta.shape = self_sizes.vec();
+    meta.shape.back() = mat2_sizes.back();
+    return {meta};
+  }
+
   TORCH_CHECK(self.dim() == 3, "BMM Input1 should be 3D, but got ", self.dim())
   TORCH_CHECK(mat2.dim() == 3, "BMM Input2 should be 3D, but got ", mat2.dim())
   // Inner Dimentions
@@ -39,8 +49,6 @@ OutputMetaDataVector BmmMeta(const at::Stack& stack) {
       *(mat2_end_iter - 2),
       "]")
 
-  OutputMetaData meta;
-  meta.dtype = self.scalar_type();
   meta.shape = {self_sizes[0], self_sizes[1], *(mat2_end_iter - 1)};
   return {meta};
 }

@@ -83,6 +83,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_fake_propagation,
             pass_weight_permutation,
             pass_remove_unnecessary_full_copy,
+            pass_remove_unnecessary_bmm_view,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
             pass_reinplace_inplaceable_ops,
             pass_mark_collective_input,
@@ -2926,5 +2927,49 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
                 node.meta.update(after.meta)
 
     ctx.graph_module = helper_post_pass_finalize(input_module=ctx.graph_module)
+
+    return graph_changed
+
+
+def pass_remove_unnecessary_bmm_view(ctx: OptimizerContext):
+    def is_view_node(node):
+        view_ops = {torch.ops.aten.view.default, torch.ops.aten._unsafe_view.default}
+        return node.target in view_ops
+
+    def get_node_dim(node):
+        tensor_meta = node.meta.get("tensor_meta", None)
+        if tensor_meta:
+            return len(tensor_meta.shape)
+        else:
+            return None
+
+    graph_changed = False
+
+    for node in ctx.graph_module.graph.nodes:
+        if node.op == "call_function" and node.target == torch.ops.aten.bmm.default:
+            bmm_input_left, bmm_input_right = node.args
+            bmm_output = list(node.users.keys())[0]
+
+            if all(map(is_view_node, [bmm_input_left, bmm_input_right, bmm_output])):
+                left_dim = get_node_dim(bmm_input_left.args[0])
+                right_dim = get_node_dim(bmm_input_right.args[0])
+
+                if left_dim in {4, 5} and left_dim == right_dim:
+                    node.replace_input_with(bmm_input_left, bmm_input_left.args[0])
+                    node.replace_input_with(bmm_input_right, bmm_input_right.args[0])
+
+                    for bmm_output_user in list(bmm_output.users.keys()):
+                        bmm_output_user.replace_input_with(bmm_output, node)
+
+                    if "output_shapes" in node.meta:
+                        node.meta["output_shapes"] = bmm_output.meta.get("output_shapes", None)
+
+                    graph_changed = True
+
+    if graph_changed:
+        logger.debug("####### Removed unnecessary bmm view nodes")
+        ctx.graph_module.graph.eliminate_dead_code()
+        ctx.graph_module.graph.lint()
+        ctx.graph_module.recompile()
 
     return graph_changed
