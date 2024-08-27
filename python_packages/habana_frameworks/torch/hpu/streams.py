@@ -2,6 +2,7 @@ import builtins
 import collections
 import ctypes
 import inspect
+import os
 import warnings
 from typing import Any, Dict, List, Optional, Union
 
@@ -13,6 +14,8 @@ from torch._streambase import _EventBase, _StreamBase
 from ._utils import _get_device_index
 
 _int = builtins.int
+
+is_lazy_mode = os.getenv("PT_HPU_LAZY_MODE", "1") != "0"
 
 
 class _device:
@@ -158,6 +161,8 @@ class StreamContext:
         if cur_stream is None:
             return
         self.src_prev_stream = current_stream()
+        if self.src_prev_stream.stream_id == self.stream.stream_id:
+            return
         htorch.hpu.set_stream(cur_stream)
 
     def __exit__(self, type: Any, value: Any, traceback: Any):
@@ -165,6 +170,9 @@ class StreamContext:
         cur_stream = self.stream
         # If stream is None or no hpu device available, return
         if cur_stream is None or self.idx == -1:
+            return
+
+        if self.src_prev_stream.stream_id == self.stream.stream_id:
             return
 
         # Reset the stream on the original device
@@ -202,6 +210,10 @@ def _set_stream_by_id(stream_id, device_index, device_type):
     )
 
 
+# Global variable to cache the current stream
+_cached_stream = None
+
+
 def set_stream(stream):
     r"""Sets the current stream.This is a wrapper API to set the stream.
         Usage of this function is discouraged in favor of the ``stream``
@@ -211,8 +223,15 @@ def set_stream(stream):
         stream (Stream): selected stream. This function is a no-op
             if this argument is ``None``.
     """
+    global _cached_stream
+
     if stream is None:
         return
+
+    if is_lazy_mode:
+        if _cached_stream and _cached_stream.stream_id == stream.stream_id:
+            return
+        _cached_stream = stream
 
     device_idx = stream.device_index
     if not isinstance(device_idx, int):
@@ -233,13 +252,25 @@ def current_stream(device: Optional[_device_t] = None) -> Stream:
             by :func:`~torch.hpu.current_device`, if :attr:`device` is ``None``
             (default).
     """
+    global _cached_stream
+
+    # If a stream is cached, return it
+    if is_lazy_mode:
+        if _cached_stream is not None:
+            return _cached_stream
+
     streamdata = _hpu_C._hpu_getCurrentStream(_get_device_index(device, optional=True))
-    return Stream(
+    stream = Stream(
         stream_id=streamdata[0],
         device_index=streamdata[1],
         device_type=streamdata[2],
         is_default_stream=(streamdata[0] == 0),
     )
+
+    if is_lazy_mode:
+        _cached_stream = stream
+
+    return stream
 
 
 def default_stream(device: Optional[_device_t] = None) -> Stream:
