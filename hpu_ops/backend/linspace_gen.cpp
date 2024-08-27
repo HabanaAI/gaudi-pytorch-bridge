@@ -40,11 +40,11 @@ std::shared_ptr<void> LinspaceRangeParams(
                                     : stack[0].toTensor().item<float>();
   float end = stack[1].isScalar() ? stack[1].toScalar().to<float>()
                                   : stack[1].toTensor().item<float>();
-  int64_t step = stack[2].isScalar() ? stack[2].toScalar().to<float>()
-                                     : stack[2].toTensor().item<int64_t>();
+  int steps = stack[2].isScalar() ? stack[2].toScalar().to<float>()
+                                     : stack[2].toTensor().item<int>();
 
   float endValueModification = 0.000001;
-  int64_t arange_step = step;
+  int arange_step = steps;
 
   float delta = (end - start);
   if (1.0 != arange_step) {
@@ -55,6 +55,7 @@ std::shared_ptr<void> LinspaceRangeParams(
   }
 
   end += endValueModification;
+
   PARAMS_STUB(ns_RangeKernel::Params);
 
   get<float>(params->start) = start;
@@ -74,8 +75,8 @@ void LinspaceOut::AddNode(
                                     : stack[0].toTensor().item<float>();
   float end = stack[1].isScalar() ? stack[1].toScalar().to<float>()
                                   : stack[1].toTensor().item<float>();
-  int64_t step = stack[2].isScalar() ? stack[2].toScalar().to<float>()
-                                     : stack[2].toTensor().item<int64_t>();
+  int steps = stack[2].isScalar() ? stack[2].toScalar().to<float>()
+                                     : stack[2].toTensor().item<int>();
 
   // For Scalar_Tensor/Tensor_Scalar variants, int/int64 need to be cast to float32
   bool is_tensor_variant = !stack.at(3).isTensor();
@@ -85,27 +86,43 @@ void LinspaceOut::AddNode(
       ? c10::ScalarType::Float
       : ScalarType();
 
-  if (step == 0) {
-    // return empty tensor if zero step
+  if (steps == 0) {
+    // return empty tensor if zero steps
     auto result =
         habana::OpBackend::BuildOp(graph, "memset", {}, {{outshape, dtype, 0}});
     syn_out(0) = std::move(result[0]);
   } else {
-    if (start != end && step != 1) {
+    if (start != end && steps != 1) {
       size_t size = 0;
       auto params = LinspaceRangeParams(stack, size);
+      auto guid = get_guid_with_precision("range", dtype);
+      std::vector<synTensor> syn_inputs;
+      if (dtype == c10::ScalarType::Float &&
+        habana::HPURegistrar::get_device().type() != synDeviceType::synDeviceGaudi) {
+         guid = "linspace_f32";
+         if (stack.at(0).isTensor() && stack.at(1).isTensor()){
+          syn_inputs.emplace_back(syn_in(0));
+          syn_inputs.emplace_back(syn_in(1));
+         }
+         auto linspaceParams = std::make_shared<ns_LinspaceKernel::Params>();
+         linspaceParams->start = start;
+         linspaceParams->end = end;
+         linspaceParams->steps = steps;
+         params = linspaceParams;
+         size = sizeof(ns_LinspaceKernel::Params);
+      }
 
       auto range = BuildOp(
           graph,
-          get_guid_with_precision("range", dtype),
-          {},
+          guid,
+          std::move(syn_inputs),
           {{outshape, dtype, 0}},
           params.get(),
           size);
 
       syn_out(0) = std::move(range[0]);
     } else {
-      // return start when start == end or step == 1
+      // return start when start == end or steps == 1
       auto result = ConstantHelper(graph, start, dtype, outshape, 0);
       syn_out(0) = std::move(result);
     }
