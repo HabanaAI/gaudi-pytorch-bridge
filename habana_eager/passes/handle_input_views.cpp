@@ -32,8 +32,10 @@ struct HandleInputViewsPass {
   explicit HandleInputViewsPass(std::shared_ptr<torch::jit::Graph> graph)
       : m_graph(std::move(graph)) {}
 
-  bool run(torch::jit::Stack& example_inputs) {
-    bool changed{processInputs(m_graph->inputs(), example_inputs)};
+  bool run(
+      torch::jit::Stack& example_inputs,
+      std::vector<habana_helpers::RangeInfo>& range_infos) {
+    bool changed{processInputs(m_graph->inputs(), example_inputs, range_infos)};
     return changed;
   }
 
@@ -44,7 +46,8 @@ struct HandleInputViewsPass {
  private:
   bool processInputs(
       at::ArrayRef<torch::jit::Value*> inputs,
-      torch::jit::Stack& example_inputs) {
+      torch::jit::Stack& example_inputs,
+      std::vector<habana_helpers::RangeInfo>& range_infos) {
     bool changed{false};
     for (size_t input_idx = 0; input_idx < inputs.size(); input_idx++) {
       torch::jit::Value* input{inputs.at(input_idx)};
@@ -89,17 +92,24 @@ struct HandleInputViewsPass {
         }
 
         m_input_base_sizes_to_set[input_idx] = std::vector<int64_t>();
+        auto output_size = "[" + range_infos[input_idx].expr + "]";
         insert_strided_view_node(
             input_tensor,
             first_user,
             input,
             view_params,
-            m_input_base_sizes_to_set.at(input_idx));
+            m_input_base_sizes_to_set.at(input_idx),
+            output_size);
+
         changed |= true;
 
         if (needs_strided_insert) {
           insert_strided_insert_node(
-              input_tensor, input, last_user->output(0), view_params);
+              input_tensor,
+              input,
+              last_user->output(0),
+              view_params,
+              output_size);
 
           replace_with_out_of_place_op(last_user);
         }
@@ -114,7 +124,8 @@ struct HandleInputViewsPass {
       torch::jit::Node* node,
       torch::jit::Value* value_in,
       const habana::eager::ViewParam& p,
-      std::vector<int64_t>& base_sizes_to_set) {
+      std::vector<int64_t>& base_sizes_to_set,
+      std::string output_shape) {
     PT_EAGER_TRACE;
     torch::jit::WithInsertPoint insert_point(node);
 
@@ -143,6 +154,12 @@ struct HandleInputViewsPass {
 
     m_graph->insertNode(jit_node);
 
+    if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF)) {
+      auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+      jit_node->s_(symbol_outputshape, output_shape);
+      PT_EAGER_DEBUG("HandleViewPass filling output shape = ", output_shape);
+    }
+
     value_in->replaceAllUsesAfterNodeWith(jit_node, jit_node->output(0));
   }
 
@@ -150,7 +167,8 @@ struct HandleInputViewsPass {
       at::Tensor input_tensor,
       torch::jit::Value* value_in,
       torch::jit::Value* value_out,
-      const habana::eager::ViewParam& p) {
+      const habana::eager::ViewParam& p,
+      std::string output_shape) {
     PT_EAGER_TRACE;
 
     auto op_strided_insert =
@@ -179,6 +197,12 @@ struct HandleInputViewsPass {
         {p.getTotalElements()}));
 
     m_graph->insertNode(jit_node);
+
+    if (GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF)) {
+      auto symbol_outputshape = c10::Symbol::attr("output_shapes");
+      jit_node->s_(symbol_outputshape, output_shape);
+      PT_EAGER_DEBUG("HandleViewPass filling output shape = ", output_shape);
+    }
 
     value_out->replaceAllUsesAfterNodeWith(jit_node, jit_node->output(0));
   }
@@ -225,10 +249,11 @@ struct HandleInputViewsPass {
 bool HandleInputViews(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
-    std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map) {
+    std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map,
+    std::vector<habana_helpers::RangeInfo>& range_infos) {
   PT_EAGER_TRACE;
   HandleInputViewsPass pass{graph};
-  bool changed{pass.run(example_inputs)};
+  bool changed{pass.run(example_inputs, range_infos)};
   if (changed) {
     PT_EAGER_DEBUG(__PRETTY_FUNCTION__, ": \n", *graph);
   }

@@ -41,6 +41,8 @@ void PrintRangeInfos(std::vector<habana_helpers::RangeInfo>& range_infos) {
         info.index,
         " expr=",
         info.expr,
+        " stride=",
+        info.expr_strides,
         " min_shape=",
         info.min_shape,
         " max_shape=",
@@ -97,7 +99,8 @@ void PatchDynamicTensors(LaunchDynamicShapes& launch_shapes) {
 
 void ProcessRangeInfos(
     InputSymbolIndexMap in_symbol_idx_map,
-    std::vector<habana_helpers::RangeInfo>& range_infos) {
+    std::vector<habana_helpers::RangeInfo>& range_infos,
+    bool has_random) {
   // Index -1 in RangeInfo means this is backend added tensor
   // can be ST or H2D, evaluate min-max range from range_infos.expr
   // and in_symbol_idx_map symbols
@@ -109,13 +112,19 @@ void ProcessRangeInfos(
       in_symbol_idx_map.end(),
       [&](const std::pair<std::string, int64_t>& p) {
         int64_t scalar_index = p.second;
+        // This is added to correct the scalar index of the original stack.
+        // Random ops support adds additional 2 inputs to the stack at index
+        // 0 and 1.
+        if (has_random) {
+          scalar_index = scalar_index + 2;
+        }
         auto value =
             static_cast<double>(range_infos[scalar_index].min_shape[0]);
         auto value_sh = std::make_shared<double>(value);
         in_symbol_value_map[p.first] = value_sh;
       });
   for (auto& info : range_infos) {
-    if (info.index < 0) {
+    if (info.index < 0 && info.expr.size() > 2) {
       SymExprFactory& expr_factory = SymExprFactory::getInstance();
       auto size_expr =
           std::make_shared<SizeExpression>(info.expr, in_symbol_value_map);
@@ -132,13 +141,19 @@ void ProcessRangeInfos(
       in_symbol_idx_map.end(),
       [&](const std::pair<std::string, int64_t>& p) {
         int64_t scalar_index = p.second;
+        // This is added to correct the scalar index of the original stack.
+        // Random ops support adds additional 2 inputs to the stack at index
+        // 0 and 1.
+        if (has_random) {
+          scalar_index = scalar_index + 2;
+        }
         auto value =
             static_cast<double>(range_infos[scalar_index].max_shape[0]);
         auto value_sh = std::make_shared<double>(value);
         in_symbol_value_map[p.first] = value_sh;
       });
   for (auto& info : range_infos) {
-    if (info.index < 0) {
+    if (info.index < 0 && info.expr.size() > 2) {
       SymExprFactory& expr_factory = SymExprFactory::getInstance();
       auto size_expr =
           std::make_shared<SizeExpression>(info.expr, in_symbol_value_map);
@@ -215,7 +230,8 @@ GraphExec::GraphExec(
     if (m_mark_dynamic) {
       PT_DYNAMIC_SHAPE_DEBUG(
           "mark_dynamic flow is enabled for user min max ranges");
-      ProcessRangeInfos(m_in_symbol_idx_map, m_range_infos);
+      PrintRangeInfos(m_range_infos);
+      ProcessRangeInfos(m_in_symbol_idx_map, m_range_infos, m_has_randoms);
       // Removing the inputs from list which are removed from stack inputs
       auto list_begin = m_range_infos.begin();
       for (auto idx : m_dgraph_meta->remove_input_indexes) {
@@ -354,7 +370,10 @@ void GraphExec::RunGraphPasses(torch::jit::Stack& example_inputs) {
   RunPass(
       [this, &example_inputs]() {
         return pass::HandleInputViews(
-            this->m_graph, example_inputs, this->m_input_new_base_sizes);
+            this->m_graph,
+            example_inputs,
+            this->m_input_new_base_sizes,
+            this->m_range_infos);
       },
       dump_graphs,
       "HandleInputViews");

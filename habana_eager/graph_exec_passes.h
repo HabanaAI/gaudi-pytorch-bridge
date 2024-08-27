@@ -47,7 +47,8 @@ bool RemoveDetachOp(std::shared_ptr<torch::jit::Graph> graph);
 bool HandleInputViews(
     std::shared_ptr<torch::jit::Graph> graph,
     torch::jit::Stack& example_inputs,
-    std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map);
+    std::map<int64_t, std::vector<int64_t>>& input_base_sizes_map,
+    std::vector<habana_helpers::RangeInfo>& range_infos);
 bool RemoveDummyOutput(std::shared_ptr<torch::jit::Graph> graph);
 bool MarkParamsAsConst(
     std::shared_ptr<torch::jit::Graph> graph,

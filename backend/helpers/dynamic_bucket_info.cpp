@@ -811,6 +811,8 @@ size_t DynamicBucketInfo::GetUserBucketId(
       if (min_dim_val != max_dim_val) {
         ranges.emplace_back(std::make_pair(min_dim_val, max_dim_val));
         dim_range_map[dim_idx] = ranges.size() - 1;
+        dynamic_dims_helper_.FindOrAdd(
+            tensor_idx, dim_idx, shapes_.at(tensor_idx).dim_size(dim_idx));
       }
     }
     if (!dim_range_map.empty()) {

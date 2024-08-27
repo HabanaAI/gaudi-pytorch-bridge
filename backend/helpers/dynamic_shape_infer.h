@@ -24,14 +24,20 @@ struct RangeInfo {
   std::vector<int64_t> min_shape;
   std::vector<int64_t> max_shape;
   std::string expr;
+  std::string expr_strides;
   int index;
 
   RangeInfo(
       std::vector<int64_t> min_shape,
       std::vector<int64_t> max_shape,
       std::string expr,
+      std::string expr_strides,
       int index)
-      : min_shape(min_shape), max_shape(max_shape), expr(expr), index(index) {}
+      : min_shape(min_shape),
+        max_shape(max_shape),
+        expr(expr),
+        expr_strides(expr_strides),
+        index(index) {}
 };
 
 // Enum to represent different data types stored in IValue

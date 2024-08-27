@@ -35,22 +35,44 @@ def get_input_symbolic(graph_module, inputs):
     Returns a list of input shapes from the graph, in the form of
     in the order in which they appear in the graph.
     """
+    import numpy as np
+
     from ._recipe_compiler_C import RangeInfo
 
-    def is_mark_dynamic(inputs):
+    def is_mark_dynamic(inputs, graph_module):
+        has_tensor = False
         for input in inputs:
+            if isinstance(input, (torch.Tensor, FakeTensor)):
+                has_tensor = True
             if hasattr(input, "_dynamo_dynamic_range"):
                 logger.debug("Enabling user min/max flow")
                 return True
+        # This is the case when a graph input has no tensor but the range is set on
+        # symbolic input, since symbols has no attribute to identify if range is set
+        # via mark_dynamic, check if upper for non complex symbolic is less than max-1,
+        # if yes then it is probably set via mark_dynamic flag
+        if not has_tensor:
+            MAX_MINUS_ONE = sys.maxsize - 1
+            for input_node in graph_module.graph.nodes:
+                if input_node.op == "placeholder" and input_node.meta and "val" in input_node.meta:
+                    input_meta = input_node.meta["val"]
+                    if isinstance(input_meta, torch.SymInt):
+                        node = input_meta.node
+                        shape_env = node.shape_env
+                        expr = node.expr
+                        var_range = shape_env.var_to_range.get(expr, None)
+                        if var_range and var_range.upper < MAX_MINUS_ONE:
+                            logger.debug(
+                                f"Enabling user min/max flow because of {expr} upper range = {var_range.upper}"
+                            )
+                            return True
         return False
 
     def get_input(input_shape):
-        # MAX = sys.maxsize
-        # MAX_MINUS_ONE = MAX - 1
-        FACTOR = 10000
+        MAX_SIZE = 1_00_00_000
         min_shape = []
         max_shape = []
-        shape_expr = input_shape
+        shape_expr = list(input_shape)
         for dim in input_shape:
             if isinstance(dim, torch.SymInt):
                 node = dim.node
@@ -68,12 +90,13 @@ def get_input_symbolic(graph_module, inputs):
                 # recipe in 1 shot
                 logger.debug("Initial MIN ", var_range.lower)
                 logger.debug("Initial MAX ", var_range.upper)
-                if var_range.upper >= FACTOR * var_val:
-                    min_shape.append(int(var_val))
-                    max_shape.append(int(var_val) * 2)
+                if var_range.upper >= MAX_SIZE:
+                    logger.debug(f"WARN: max range {var_range.upper} greater than {MAX_SIZE} using max as 2*val")
+                    min_shape.append(np.int64(var_val))
+                    max_shape.append(np.int64(var_val) * 2)
                 else:
-                    min_shape.append(int(var_range.lower))
-                    max_shape.append(int(var_range.upper))
+                    min_shape.append(np.int64(var_range.lower))
+                    max_shape.append(np.int64(var_range.upper))
             else:
                 min_shape.append(dim)
                 max_shape.append(dim)
@@ -83,7 +106,7 @@ def get_input_symbolic(graph_module, inputs):
         return min_shape, max_shape, shape_expr
 
     min_max_shapes = []
-    mark_dynamic = is_mark_dynamic(inputs)
+    mark_dynamic = is_mark_dynamic(inputs, graph_module)
     with unset_fake_temporarily():
         input_idx = 0
         for input_node in graph_module.graph.nodes:
@@ -96,12 +119,13 @@ def get_input_symbolic(graph_module, inputs):
                         if isinstance(input_meta, (FakeTensor, torch.Tensor)):
                             input_shape = input_meta.size()
                             min, max, expr = get_input(input_shape)
-                            range_info = RangeInfo(min, max, str(expr), input_idx)
+                            expr_strides = [item for t in input_node.meta["output_strides"] for item in t]
+                            range_info = RangeInfo(min, max, str(expr), str(expr_strides), input_idx)
                             min_max_shapes.append(range_info)
                         elif isinstance(input_meta, torch.SymInt) or isinstance(input_meta, int):
                             input_shape = [input_meta]
                             min, max, expr = get_input(input_shape)
-                            range_info = RangeInfo(min, max, str(expr), input_idx)
+                            range_info = RangeInfo(min, max, str(expr), "INVALID", input_idx)
                             min_max_shapes.append(range_info)
                         else:
                             logger.debug(
@@ -111,18 +135,18 @@ def get_input_symbolic(graph_module, inputs):
                         input_meta = input_node.meta["tensor_meta"]
                         input_shape = input_meta.shape
                         min, max, expr = get_input(input_shape)
-                        range_info = RangeInfo(min, max, str(expr), input_idx)
+                        range_info = RangeInfo(min, max, str(expr), "INVALID", input_idx)
                         min_max_shapes.append(range_info)
                     else:
                         shape = list(stack_input.size())
-                        range_info = RangeInfo(shape, shape, "INVALID", input_idx)
+                        range_info = RangeInfo(shape, shape, "INVALID", "INVALID", input_idx)
                         min_max_shapes.append(range_info)
                         logger.debug(
                             f"WARN: Input does not contain val and tensor_meta fields in the metadata={input_node.meta}. Filling {shape} as min max. Please ensure you have exported the graph correctly"
                         )
                 else:
                     shape = list(stack_input.size())
-                    range_info = RangeInfo(shape, shape, "INVALID", input_idx)
+                    range_info = RangeInfo(shape, shape, "INVALID", "INVALID", input_idx)
                     min_max_shapes.append(range_info)
                     logger.debug(
                         f"WARN: Input {input_node.name} does not contain metadata.  Filling {shape} as min max. Please ensure you have exported the graph correctly"
@@ -199,8 +223,8 @@ class HabanaGraphModule(torch.nn.Module):
             self.check_for_random_ops()
             if self._has_randoms:
                 inputs = (None, None) + inputs
-                self._range_list.insert(0, RangeInfo([1], [1], "1", 0))
-                self._range_list.insert(1, RangeInfo([1], [1], "1", 1))
+                self._range_list.insert(0, RangeInfo([1], [1], "1", "1", 0))
+                self._range_list.insert(1, RangeInfo([1], [1], "1", "1", 1))
 
             self._recipe_id = graph_compile(
                 graph=self._jit_ir.graph,

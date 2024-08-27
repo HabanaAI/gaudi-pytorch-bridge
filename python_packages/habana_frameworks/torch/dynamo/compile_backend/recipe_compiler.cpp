@@ -157,10 +157,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
            std::vector<int64_t>,
            std::vector<int64_t>,
            std::string,
+           std::string,
            int>())
       .def_readwrite("min_shape", &habana_helpers::RangeInfo::min_shape)
       .def_readwrite("max_shape", &habana_helpers::RangeInfo::max_shape)
       .def_readwrite("expr", &habana_helpers::RangeInfo::expr)
+      .def_readwrite("expr_strides", &habana_helpers::RangeInfo::expr_strides)
       .def_readwrite("index", &habana_helpers::RangeInfo::index);
   m.def(
       "calculate_hash_code",

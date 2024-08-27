@@ -24,7 +24,17 @@
 
 namespace habana {
 namespace graph {
-
+std::vector<std::string> string_tokenizer(std::string s) {
+  std::vector<std::string> exprs;
+  std::string modified_s = s.substr(1, s.length() - 2);
+  std::stringstream ss(modified_s);
+  std::string word;
+  while (!ss.eof()) {
+    std::getline(ss, word, ',');
+    exprs.push_back(word);
+  }
+  return exprs;
+}
 bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
     torch::jit::Node* aten_view_node,
     torch::jit::Stack& org_stack,
@@ -66,7 +76,7 @@ bool ViewOperatorDS::ReplaceWithDynamicHPUOp(
     std::string original = aten_view_node->s(symbol_outputshape);
     std::string modified = original.substr(1, original.length() - 2);
     m_range_infos->emplace_back(
-        habana_helpers::RangeInfo({}, {}, modified, -1));
+        habana_helpers::RangeInfo({}, {}, modified, "INVALID", -1));
     PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
   } else {
     PT_DYNAMIC_SHAPE_WARN(
@@ -296,8 +306,8 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
         iv_h2d_tensor, scalar_indexes, {}, {}, m_dmeta);
     auto v_h2d_tensor = graph->addInput(arange_h2d_name);
     dtensor_indexes.push_back(stack_index);
-    m_range_infos->emplace_back(
-        habana_helpers::RangeInfo({}, {}, GetExprFromString(h2d_expr), -2));
+    m_range_infos->emplace_back(habana_helpers::RangeInfo(
+        {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
 
     // Use actual reshape sizes and avoid sizes with dims "-1"
     auto out_tensors = getOutputTensers(aten_arange_node, value_ivalue_map);
@@ -320,7 +330,7 @@ bool ArangeOperatorDS::ReplaceWithDynamicHPUOp(
       std::string original = aten_arange_node->s(symbol_outputshape);
       std::string modified = original.substr(1, original.length() - 2);
       m_range_infos->emplace_back(
-          habana_helpers::RangeInfo({}, {}, modified, -1));
+          habana_helpers::RangeInfo({}, {}, modified, "INVALID", -1));
       PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
     } else {
       PT_DYNAMIC_SHAPE_WARN(
@@ -468,7 +478,7 @@ bool ConstantPad2dOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t stack_index_ht = CreateH2DAndInsertToDSStack<int32_t>(
       pad_ht_vec, scalar_indexes_ht, HostDataType::UINT32_T, m_dmeta);
   m_range_infos->emplace_back(habana_helpers::RangeInfo(
-      {}, {}, GetExprFromString(pad_ht_vec_expr), -2));
+      {}, {}, GetExprFromString(pad_ht_vec_expr), "INVALID", -2));
   auto v_h2d_tensor = graph->addInput(padop_h2d_name);
 
   auto scalar_val = aten_pad_node->inputs().at(2);
@@ -511,7 +521,7 @@ bool ConstantPad2dOperatorDS::ReplaceWithDynamicHPUOp(
     std::string original = aten_pad_node->s(symbol_outputshape);
     std::string modified = original.substr(1, original.length() - 2);
     m_range_infos->emplace_back(
-        habana_helpers::RangeInfo({}, {}, modified, -1));
+        habana_helpers::RangeInfo({}, {}, modified, "INVALID", -1));
     PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
   } else {
     PT_DYNAMIC_SHAPE_WARN(
@@ -630,6 +640,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
       c10::Symbol::fromQualString("hpu::strided_view_ds_h2d")};
 
   std::vector<int64_t> tensor_indexes;
+  int input_strided_view = -1;
   if (!m_input_new_base_sizes->empty()) {
     auto as_strided_node_ip_0 = aten_as_strided_node->input(0)->debugName();
     for (auto& input_base_sizes_pair : *m_input_new_base_sizes) {
@@ -637,6 +648,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
       auto graph_inputs_idx = graph->inputs().at(input_idx)->debugName();
       if (strcmp(as_strided_node_ip_0.c_str(), graph_inputs_idx.c_str()) == 0) {
         tensor_indexes.push_back(input_idx);
+        input_strided_view = input_idx;
         break;
       }
     }
@@ -668,7 +680,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
     std::string original = aten_as_strided_node->s(symbol_outputshape);
     std::string modified = original.substr(1, original.length() - 2);
     m_range_infos->emplace_back(
-        habana_helpers::RangeInfo({}, {}, modified, -1));
+        habana_helpers::RangeInfo({}, {}, modified, "INVALID", -1));
     PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
   } else {
     PT_DYNAMIC_SHAPE_WARN(
@@ -717,6 +729,11 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
     expr_strides = GetRangeInfoExprFromListConstruct(
         stride_construct_node, org_stack_index_map, m_range_infos);
   }
+  if (input_strided_view >= 0) {
+    PT_DYNAMIC_SHAPE_DEBUG("Filling stride expression from input tensor");
+    expr_strides =
+        string_tokenizer(m_range_infos->at(input_strided_view).expr_strides);
+  }
   // Fill the strides values in reverse order
   for (auto it = values_strides.rbegin(); it != values_strides.rend(); ++it) {
     h2d_values.push_back(static_cast<uint64_t>(*it));
@@ -752,8 +769,8 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
       iv_st_strides_tensor, scalar_indexes, tensor_indexes, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(as_strided_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
-  m_range_infos->emplace_back(
-      habana_helpers::RangeInfo({}, {}, GetExprFromString(h2d_expr), -2));
+  m_range_infos->emplace_back(habana_helpers::RangeInfo(
+      {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
 
   // Due to InputView handling case the self tensor size is set to base tensor
   // in LaunchRecipe and it is set contiguous, Now since this base tensor goes
@@ -814,7 +831,7 @@ bool AsStridedOperatorDS::ReplaceWithDynamicHPUOp(
     auto v_st_offset_tensor = graph->addInput(as_strided_offset_st_name);
     dtensor_indexes.push_back(stack_index_offset);
     m_range_infos->emplace_back(habana_helpers::RangeInfo(
-        {}, {}, GetExprFromString({expr_offset}), -1));
+        {}, {}, GetExprFromString({expr_offset}), "INVALID", -1));
     // Create hpu::as_strided_view node and insert to the graph
     CreateAndInsertDynamicNodeToGraph(
         graph,
@@ -1039,8 +1056,8 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
       iv_st_strides_tensor, scalar_indexes, {}, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(as_strided_scatter_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
-  m_range_infos->emplace_back(
-      habana_helpers::RangeInfo({}, {}, GetExprFromString(h2d_expr), -2));
+  m_range_infos->emplace_back(habana_helpers::RangeInfo(
+      {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
 
   // There are two paths: StridedRatio path or normal path
   // Path 1: Normal path / Non-StridedRatio path
@@ -1096,7 +1113,7 @@ bool AsStridedScatterOperatorDS::ReplaceWithDynamicHPUOp(
     auto v_st_offset_tensor = graph->addInput(as_strided_scatter_offset_st_name);
     dtensor_indexes.push_back(stack_index_offset);
     m_range_infos->emplace_back(habana_helpers::RangeInfo(
-        {}, {}, GetExprFromString({expr_offset}), -1));
+        {}, {}, GetExprFromString({expr_offset}), "INVALID", -1));
 
     // Create hpu::as_strided_scatter node and insert to the graph
     // This has offset parameter
@@ -1260,8 +1277,8 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
       iv_st_strides_tensor, scalar_indexes, {}, {}, m_dmeta);
   auto v_st_strides_tensor = graph->addInput(strided_insert_stride_st_name);
   dtensor_indexes.push_back(stack_index_strides);
-  m_range_infos->emplace_back(
-      habana_helpers::RangeInfo({}, {}, GetExprFromString(h2d_expr), -2));
+  m_range_infos->emplace_back(habana_helpers::RangeInfo(
+      {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
 
   if (IsStridedRatioUndefined(self_strides, values_strides)) {
     auto tmeta{get_tensor_extra_meta(h2d_tensor_strides)};
@@ -1304,7 +1321,7 @@ bool StridedInsertOperatorDS::ReplaceWithDynamicHPUOp(
     auto v_st_offset_tensor = graph->addInput(strided_insert_offset_st_name);
     dtensor_indexes.push_back(stack_index_offset);
     m_range_infos->emplace_back(habana_helpers::RangeInfo(
-        {}, {}, GetExprFromString({expr_offset}), -1));
+        {}, {}, GetExprFromString({expr_offset}), "INVALID", -1));
     // Create hpu::as_strided_view node and insert to the graph
     CreateAndInsertDynamicNodeToGraph(
         graph,
@@ -1450,8 +1467,8 @@ bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
   int64_t stack_index = CreateH2DAndInsertToDSStack<int32_t>(
       h2d_values, scalar_indexes, HostDataType::INT32_T, m_dmeta);
   auto v_h2d_tensor = graph->addInput(arange_h2d_name);
-  m_range_infos->emplace_back(
-      habana_helpers::RangeInfo({}, {}, GetExprFromString(h2d_expr), -2));
+  m_range_infos->emplace_back(habana_helpers::RangeInfo(
+      {}, {}, GetExprFromString(h2d_expr), "INVALID", -2));
 
   // Step3: Register patching function and tensor lists
   std::vector<int64_t> dtensor_indexes{stack_index};
@@ -1472,7 +1489,7 @@ bool RandpermGeneratorOperatorDS::ReplaceWithDynamicHPUOp(
     std::string original = aten_randperm_node->s(symbol_outputshape);
     std::string modified = original.substr(1, original.length() - 2);
     m_range_infos->emplace_back(
-        habana_helpers::RangeInfo({}, {}, modified, -1));
+        habana_helpers::RangeInfo({}, {}, modified, "INVALID", -1));
     PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
   } else {
     PT_DYNAMIC_SHAPE_WARN(
@@ -1546,7 +1563,7 @@ bool RandOperatorDS::ReplaceWithDynamicHPUOp(
     std::string original = aten_rand_node->s(symbol_outputshape);
     std::string modified = original.substr(1, original.length() - 2);
     m_range_infos->emplace_back(
-        habana_helpers::RangeInfo({}, {}, modified, -1));
+        habana_helpers::RangeInfo({}, {}, modified, "INVALID", -1));
     PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
   } else {
     PT_DYNAMIC_SHAPE_WARN(
@@ -1636,7 +1653,7 @@ bool RandnOperatorDS::ReplaceWithDynamicHPUOp(
     std::string original = aten_rand_node->s(symbol_outputshape);
     std::string modified = original.substr(1, original.length() - 2);
     m_range_infos->emplace_back(
-        habana_helpers::RangeInfo({}, {}, modified, -1));
+        habana_helpers::RangeInfo({}, {}, modified, "INVALID", -1));
     PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
   } else {
     PT_DYNAMIC_SHAPE_WARN(
@@ -1726,7 +1743,7 @@ bool RandintOperatorDS::ReplaceWithDynamicHPUOp(
     std::string original = aten_rand_node->s(symbol_outputshape);
     std::string modified = original.substr(1, original.length() - 2);
     m_range_infos->emplace_back(
-        habana_helpers::RangeInfo({}, {}, modified, -1));
+        habana_helpers::RangeInfo({}, {}, modified, "INVALID", -1));
     PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
   } else {
     PT_DYNAMIC_SHAPE_WARN(
@@ -1818,7 +1835,7 @@ bool FullOpDS::ReplaceWithDynamicHPUOp(
     std::string original = aten_full_node->s(symbol_outputshape);
     std::string modified = original.substr(1, original.length() - 2);
     m_range_infos->emplace_back(
-        habana_helpers::RangeInfo({}, {}, modified, -1));
+        habana_helpers::RangeInfo({}, {}, modified, "INVALID", -1));
     PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
   } else {
     PT_DYNAMIC_SHAPE_WARN(
@@ -1906,7 +1923,7 @@ bool EmptyOpDS::ReplaceWithDynamicHPUOp(
     std::string original = aten_empty_node->s(symbol_outputshape);
     std::string modified = original.substr(1, original.length() - 2);
     m_range_infos->emplace_back(
-        habana_helpers::RangeInfo({}, {}, modified, -1));
+        habana_helpers::RangeInfo({}, {}, modified, "INVALID", -1));
     PT_DYNAMIC_SHAPE_DEBUG("Adding ST ranges shape", modified);
   } else {
     PT_DYNAMIC_SHAPE_WARN(
