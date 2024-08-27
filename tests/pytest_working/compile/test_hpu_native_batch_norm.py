@@ -19,6 +19,8 @@ from test_utils import format_tc
 @pytest.mark.parametrize(
     "params",
     [
+        ({"dims": (2, 3), "momentum": 0.999, "eps": 1e-5}),
+        ({"dims": (2, 3, 4), "momentum": 0.999, "eps": 1e-5}),
         ({"dims": (2, 3, 4, 5), "momentum": 0.999, "eps": 1e-5}),
         ({"dims": (2, 3, 4, 5, 6, 7), "momentum": 0.999, "eps": 1e-5}),
     ],

@@ -4915,7 +4915,7 @@ _native_batch_norm_legit_no_training:
       bias: [Float]
       running_mean: [Float]
       running_var: [Float]
-  guid: batch_norm_inf_reshape_fwd
+  guid: batch_norm_inf_reshape
   op_backend: BatchNormNoTrainingOpBackend
   out_ids: [0, 0, 0]
 
@@ -4938,9 +4938,6 @@ _native_batch_norm_legit.no_stats:
   guid: _native_batch_norm_legit.no_stats
   op_backend: BatchNormNoStatsOpBackend
   out_ids: [0, 0, 0]
-  synapse_layouts:
-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
-  - [WHCN, DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
 
 _native_batch_norm_legit_functional:
   custom_fill_params: FillBatchNormFwdParams
