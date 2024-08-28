@@ -12,7 +12,6 @@
 
 import torch
 from habana_frameworks.torch import _hpu_C
-from habana_frameworks.torch.dynamo.compile_backend.decomposition import override_decomposition_table
 from torch._decomp import global_decomposition_table
 from torch._meta_registrations import _compute_reduction_shape, register_meta, utils
 from torch._ops import HigherOrderOperator, OpOverload
@@ -702,15 +701,6 @@ def activate_hpu_custom_op_meta():
         op_overload.py_impl(torch._C.DispatchKey.Meta)(fn)
 
         _meta_lib_dont_use_me_use_register_meta_for_hpu.impl(op_overload, fn)
-
-    # Need to update the py_kernel registriation for _to_copy since we have
-    # a new version _to_copy registered.
-    # This should be removed if upstream pytorch included fix for:
-    # https://github.com/pytorch/pytorch/issues/128202
-    for op_overload, fn in override_decomposition_table.items():
-        if op_overload.has_kernel_for_dispatch_key(torch._C.DispatchKey.Meta):
-            op_overload.py_kernels.pop(torch._C.DispatchKey.Meta, None)
-        op_overload.py_impl(torch._C.DispatchKey.Meta)(fn)
 
 
 activate_hpu_custom_op_meta()

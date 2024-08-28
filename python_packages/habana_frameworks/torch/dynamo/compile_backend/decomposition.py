@@ -12,13 +12,12 @@
 
 from contextlib import contextmanager
 from itertools import accumulate
-from typing import Callable, Dict, Optional
+from typing import Optional
 
 import torch
 import torch._prims_common as utils
 from torch._decomp import core_aten_decompositions, get_decompositions
 from torch._ops import DispatchKey
-from torch._prims_common.wrappers import out_wrapper
 
 aten = torch.ops.aten
 
@@ -250,10 +249,6 @@ hpu_backend_decompositions_common = get_decompositions(
         aten.zeros_like.out,
     ]
 )
-
-# Override decomposition table for aten._to_copy for calling
-# wrap_output_with_input_device_ to wrap output with FakeTensor
-override_decomposition_table: Dict[torch._ops.OperatorBase, Callable] = {}
 
 
 def override_instance_norm(dispatch_key):
@@ -597,73 +592,6 @@ def split(self, split_size, dim=0):
         # Slice op is not yet supported for dynamic shape in torch compile
         result[idx - 1] = aten.slice(self, dim, new_split[idx - 1], new_split[idx], 1)
     return tuple(result)
-
-
-def device_hint(tensor):
-    if isinstance(tensor, torch._subclasses.FakeTensor):
-        return tensor.fake_device
-    else:
-        return None
-
-
-def wrap_output_with_input_device_(x, common_device):
-    # wrap meta tensor
-    if common_device is not None and x.device.type == "meta":
-        from torch._subclasses.fake_tensor import FakeTensorMode
-
-        fake_mode = FakeTensorMode()
-        fake_mode.in_kernel_invocation = True
-        converter = fake_mode.fake_tensor_converter
-        return converter.from_meta_and_device(fake_mode, x, common_device)
-
-    return x
-
-
-# Override decomposition for aten._to_copy for calling
-# wrap_output_with_input_device_ to wrap output with FakeTensor
-# if the input is a FakeTensor but the output is not. This is
-# a workaround due to this code was reverted in pt 2.3.0 by
-# https://github.com/pytorch/pytorch/issues/118790
-# This should be removed if upstream pytorch included fix for:
-# https://github.com/pytorch/pytorch/issues/128202
-@register_custom_decomposition(aten._to_copy, override_decomposition_table)
-@out_wrapper()
-def _to_copy(
-    x: torch.Tensor,
-    *,
-    dtype: Optional[torch.dtype] = None,
-    layout=None,
-    device: Optional[torch.device] = None,
-    pin_memory: bool = False,
-    non_blocking: bool = False,
-    memory_format: Optional[torch.memory_format] = None,
-):
-    assert not layout or layout == torch.strided, "only strided layout is allowed if specified"
-    assert not pin_memory, "pin memory is not supported"
-    if device is None and dtype is None and memory_format is None:
-        return x.clone()
-    dtype_converted = False
-    common_device = device_hint(x)
-    input_is_fake = isinstance(x, torch._subclasses.FakeTensor)
-
-    if device is not None and device != x.device:
-        # avoid conversions on cpu
-        if dtype is not None and device.type == "cpu":
-            x = torch._prims.convert_element_type(x, dtype)
-            dtype_converted = True
-        x = torch._prims.device_put(x, device)
-    if dtype is not None and not dtype_converted:
-        x = torch._prims.convert_element_type(x, dtype)
-        dtype_converted = True
-
-    # There are some cases for dtype promotion, faketensor converted into tensor.
-    # Need to convert into faketensor if input was a faketensor while output is not
-    # after the type conversion.
-    if dtype_converted and input_is_fake and not isinstance(x, torch._subclasses.FakeTensor):
-        x = wrap_output_with_input_device_(x, common_device)
-    if memory_format is not None:  # no ref/prim for memory format
-        return torch.clone(x, memory_format=memory_format)
-    return x
 
 
 def get_hpu_decompositions():
