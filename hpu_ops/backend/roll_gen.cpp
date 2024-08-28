@@ -1,16 +1,42 @@
-/******************************************************************************
- * Copyright (C) 2021-2023 HabanaLabs, Ltd.
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 
 #include "generated/backend/roll.h"
 
 namespace habana {
+
+std::shared_ptr<void> FillRollParams(const at::Stack& stack, size_t& size) {
+  PARAMS_STUB(ns_RollKernel::Params);
+
+  constexpr int64_t shiftIndex = 1;
+  constexpr int64_t dimsIndex = 2;
+
+  auto shifts = stack.at(shiftIndex).toIntVector();
+  auto dims = stack.at(dimsIndex).toIntVector();
+
+  params->num_dims = dims.size();
+
+  for (size_t i = 0; i < shifts.size(); i++) {
+    params->shifts[i] = shifts[i];
+  }
+
+  for (size_t i = 0; i < dims.size(); i++) {
+    params->dims[i] = dims[i];
+  }
+
+  return params;
+}
+
 void RollHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
@@ -19,6 +45,26 @@ void RollHabanaOperator::AddNode(
   constexpr int64_t axisIndex = 2;
 
   auto input = stack.at(inputIndex).toTensor();
+
+  // new i.e. cguid implementation for eager
+  if (!GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE)) {
+    size_t size = 0;
+    auto params = FillRollParams(stack, size);
+
+    auto result = BuildOp(
+        graph,
+        GetGuid(),
+        {syn_in(0)},
+        {{input.sizes(), ScalarType(), 0}},
+        params.get(),
+        size);
+
+    syn_out(0) = std::move(result[0]);
+
+    return;
+  }
+
+  // legacy implementation for lazy
   auto shift = stack.at(shiftIndex).toIntVector();
   auto axis = stack.at(axisIndex).toIntVector();
 
