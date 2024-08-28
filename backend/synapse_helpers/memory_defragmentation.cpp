@@ -642,20 +642,120 @@ bool MemoryDefragementer::SelectRegionForWorkspaceGrow(
   return true;
 }
 
+/// @brief This V2 algorithm will select movable blocks before worksapce block,
+/// regardless of the movable blocks are free or in-use. Then we can move those
+/// selected in-use block to other free blocks, as long as have enough free
+/// blocks to do the swap.
+///
+/// @example For exampl, this is the original memory layout: [Free 10G][Fixed
+/// 10G][Free 1G][InUse 1G][WS 1G] and we want to extend the WS to 2GB, but the
+/// memory block right before WS is in used, so we need defragment. With the V1
+/// algo, we don't have enough free block between the WS and the Fixed block, so
+/// the defragment will fail. But with V2 algo, we can select the [Free 1G] and
+/// [InUse 1G] blocks, and then move the [InUse 1G] block to the [Free 10G]
+/// block. Below is the memory layout after defragment: [InUse 1G][Free
+/// 9G][Fixed 10G][Free 2G][WS 1G].
+///
+/// @note In theory, this V2 algo should not cause any regression, it just give
+/// us one more chance to recorver when we encounter OOM issue.
+bool MemoryDefragementer::SelectRegionForWorkspaceGrowV2(
+    std::vector<MemoryBlock>& memory_blocks,
+    size_t allocation_size,
+    bool& defragmentation_needed,
+    std::unique_ptr<Region>& result) {
+  if (not memory_blocks.empty()) {
+    auto& last_mem_block = memory_blocks.back();
+    if (last_mem_block.state_ == MemoryState::FIXED &&
+        last_mem_block.size_ >= allocation_size) {
+      defragmentation_needed = false;
+      return true;
+    }
+  }
+
+  auto requested_mem_extension = allocation_size - workspace_size_;
+
+  // minimize region to move smallest amount of in use memory
+  auto region = absl::make_unique<Region>();
+  region->begin_ = memory_blocks.begin();
+  region->end_ = memory_blocks.end();
+  for (size_t i = memory_blocks.size(); i > 0; --i) {
+    size_t idx = i - 1;
+    auto& mem_info = memory_blocks[idx];
+    if (mem_info.state_ == MemoryState::FIXED && i == memory_blocks.size()) {
+      region->end_ = memory_blocks.begin() + idx;
+      // Skipping workspace
+      continue;
+    }
+
+    if (mem_info.state_ == MemoryState::FIXED) {
+      PT_DEVMEM_DEBUG(
+          "Not enough movable memory for workspace extension. Requested workspace extension size: ",
+          requested_mem_extension,
+          ". Movable memory size: ",
+          region->in_use_memory_ + region->free_memory_);
+      return false;
+    }
+
+    auto mem_block_size = mem_info.actual_size_;
+    if (mem_info.state_ != MemoryState::FREE) {
+      region->in_use_memory_ += mem_block_size;
+    } else {
+      region->free_memory_ += mem_block_size;
+    }
+
+    region->begin_ = memory_blocks.begin() + idx;
+
+    if (region->in_use_memory_ + region->free_memory_ >=
+        requested_mem_extension) {
+      break;
+    }
+  }
+
+  // check if defragmentation needs to be performed
+  defragmentation_needed = false;
+  for (auto it = region->begin_; it != region->end_; ++it) {
+    if (it->state_ == defragment_helpers::MemoryState::FIXED) {
+      PT_DEVMEM_FATAL(
+          "Defragmentation algorithm error. Trying to move fixed memory region");
+    }
+
+    if (it->state_ == defragment_helpers::MemoryState::IN_USE) {
+      defragmentation_needed = true;
+    }
+  }
+
+  if (defragmentation_needed) {
+    result.swap(region);
+  }
+
+  return true;
+}
+
 bool MemoryDefragementer::Run(
     std::vector<MemoryBlock>& memory_blocks,
     bool workspace_grow,
     size_t allocation_size,
     bool& defragmentation_needed,
-    std::unique_ptr<Region>& result) {
+    std::unique_ptr<Region>& result,
+    bool& is_v2) {
   // update the allocation size with alignment
   allocation_size = ((allocation_size + alignment_ - 1) & ~(alignment_ - 1));
   if (workspace_grow) {
-    return SelectRegionForWorkspaceGrow(
+    bool found = SelectRegionForWorkspaceGrow(
         memory_blocks,
         allocation_size,
         small_allocs_ptr_ + small_allocs_size_,
         mem_end_ptr_,
+        defragmentation_needed,
+        result);
+    if (found) {
+      is_v2 = false;
+      return found;
+    }
+    is_v2 = true;
+    return SelectRegionForWorkspaceGrowV2(
+        memory_blocks,
+        allocation_size,
         defragmentation_needed,
         result);
   }

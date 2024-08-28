@@ -79,7 +79,8 @@ class MemoryDefragementer {
       bool workspace_grow,
       size_t allocation_size,
       bool& defragmentation_needed,
-      std::unique_ptr<Region>& result);
+      std::unique_ptr<Region>& result,
+      bool& is_v2);
 
  private:
   pool_allocator::SubAllocator& allocator_;
@@ -115,6 +116,11 @@ class MemoryDefragementer {
       size_t allocation_size,
       int8_t* ptr_start,
       int8_t* ptr_end,
+      bool& defragmentation_needed,
+      std::unique_ptr<Region>& result);
+  bool SelectRegionForWorkspaceGrowV2(
+      std::vector<MemoryBlock>& memory_blocks,
+      size_t allocation_size,
       bool& defragmentation_needed,
       std::unique_ptr<Region>& result);
 };

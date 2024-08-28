@@ -731,12 +731,14 @@ bool device_memory::defragment_memory(
   bool defragmentation_needed = true;
   std::unique_ptr<defragment_helpers::Region> region;
   PT_DEVMEM_DEBUG("Looking for regions to defragment");
+  bool is_v2;
   if (!defragmenter.Run(
           memory_blocks,
           workspace_grow,
           allocation_size,
           defragmentation_needed,
-          region)) {
+          region,
+          is_v2)) {
     PT_DEVMEM_WARN(
         "Defragmentation cannot be started. No region that can be defragmented was found.");
     return false;
@@ -783,14 +785,19 @@ bool device_memory::defragment_memory(
         it->handle_, it->ptr_, it->size_, block_align(it->size_), it->stream_);
   }
 
+  bool alloc_first = workspace_grow && is_v2;
+
   if (movers.empty()) {
     PT_DEVMEM_WARN("No defragemtantion was done");
   } else {
     PT_DEVMEM_DEBUG("Moving ", movers.size(), " resources");
     suballoc_->set_defragmenter_state(true);
     std::vector<std::tuple<uint64_t, uint64_t, size_t>> move_address;
-    for (auto& mover : movers)
-      mover.Deallocate(*suballoc_);
+
+    if (!alloc_first) {
+      for (auto& mover : movers)
+        mover.Deallocate(*suballoc_);
+    }
 
     for (auto& mover : movers) {
       mover.Allocate(*suballoc_, handle2pointer_);
@@ -841,6 +848,10 @@ bool device_memory::defragment_memory(
       total_moved_memory += mover.ActualSize();
     }
     MoveData(device_, move_address);
+    if (alloc_first) {
+      for (auto& mover : movers)
+        mover.Deallocate(*suballoc_);
+    }
     PT_DEVMEM_DEBUG(
         "Move of resources completed no of resources::", movers.size());
     suballoc_->set_defragmenter_state(false);
