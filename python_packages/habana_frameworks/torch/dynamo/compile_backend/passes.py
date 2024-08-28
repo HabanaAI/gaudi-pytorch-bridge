@@ -33,6 +33,7 @@ from torch.fx.passes.operator_support import OperatorSupport
 from torch.fx.passes.reinplace import _FunctionalizationMetadataProp
 
 from ._passes.fuse_allreduce_calls import pass_fuse_collectives
+from ._passes.pattern_rewriter import pass_pattern_rewriter
 from ._passes.propose_collective_blocks import pass_propose_collective_blocks
 from ._passes.utils import ColorGraph, OptimizationPassPlacement, OptimizerContext, SchedulePolicy
 from .logger import get_compile_backend_logger
@@ -1222,81 +1223,6 @@ def pass_fuse_partitions(ctx: OptimizerContext) -> bool:
     HabanaPartitioner(ctx.graph_module).fuse_partitions(ctx.current_partitions)
 
     return True
-
-
-def pass_pattern_rewriter(ctx: OptimizerContext):
-    """
-    Rewrite problematic:
-        div(Scalar, Tensor, rounding_mode)
-        floor_divide(Scalar, Tensor)
-    that are unable to find proper variant.
-    """
-    fx_graph = ctx.graph_module
-
-    def replace_rewrite_div(fx_graph):
-        def pattern(scalar_input, tensor_input):
-            x = torch.ops.aten.div.Tensor_mode(scalar_input, tensor_input, rounding_mode=None)
-            return x
-
-        def replace(scalar_input, tensor_input):
-            x = torch.ops.aten.scalar_tensor(scalar_input)
-            x = torch.ops.aten.div.Tensor_mode(x, tensor_input, rounding_mode=None)
-            return x
-
-        def filter(match, *args, **kwargs):
-            return not isinstance(match.placeholder_nodes[0], torch.fx.node.Node)
-
-        torch.fx.subgraph_rewriter.replace_pattern_with_filters(fx_graph, pattern, replace, [filter])
-
-    def replace_rewrite_div_floor(fx_graph):
-        def pattern(scalar_input, tensor_input):
-            x = torch.ops.aten.div.Tensor_mode(scalar_input, tensor_input, rounding_mode="floor")
-            return x
-
-        def replace(scalar_input, tensor_input):
-            x = torch.ops.aten.scalar_tensor(scalar_input)
-            x = torch.ops.aten.div.Tensor_mode(x, tensor_input, rounding_mode="floor")
-            return x
-
-        def filter(match, *args, **kwargs):
-            return not isinstance(match.placeholder_nodes[0], torch.fx.node.Node)
-
-        torch.fx.subgraph_rewriter.replace_pattern_with_filters(fx_graph, pattern, replace, [filter])
-
-    def replace_rewrite_div_trunc(fx_graph):
-        def pattern(scalar_input, tensor_input):
-            x = torch.ops.aten.div.Tensor_mode(scalar_input, tensor_input, rounding_mode="trunc")
-            return x
-
-        def replace(scalar_input, tensor_input):
-            x = torch.ops.aten.scalar_tensor(scalar_input)
-            x = torch.ops.aten.div.Tensor_mode(x, tensor_input, rounding_mode="trunc")
-            return x
-
-        def filter(match, *args, **kwargs):
-            return not isinstance(match.placeholder_nodes[0], torch.fx.node.Node)
-
-        torch.fx.subgraph_rewriter.replace_pattern_with_filters(fx_graph, pattern, replace, [filter])
-
-    def replace_rewrite_floor_divide(fx_graph):
-        def pattern(scalar_input, tensor_input):
-            x = torch.ops.aten.floor_divide.default(scalar_input, tensor_input)
-            return x
-
-        def replace(scalar_input, tensor_input):
-            x = torch.ops.aten.scalar_tensor(scalar_input)
-            x = torch.ops.aten.floor_divide.default(x, tensor_input)
-            return x
-
-        def filter(match, *args, **kwargs):
-            return not isinstance(match.placeholder_nodes[0], torch.fx.node.Node)
-
-        torch.fx.subgraph_rewriter.replace_pattern_with_filters(fx_graph, pattern, replace, [filter])
-
-    replace_rewrite_div(fx_graph)
-    replace_rewrite_div_floor(fx_graph)
-    replace_rewrite_div_trunc(fx_graph)
-    replace_rewrite_floor_divide(fx_graph)
 
 
 def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
