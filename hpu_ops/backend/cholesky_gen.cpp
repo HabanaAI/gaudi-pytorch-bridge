@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 
+#include "generated/backend/cholesky.h"
 #include "generated/backend/linalg_cholesky_ex.h"
 
 namespace sh = synapse_helpers;
@@ -73,9 +74,13 @@ void Cholesky::AddNode(sh::graph& graph, const at::Stack& stack) {
     syn_out(0) = std::move(result[0]);
   }
 
-  // Because tpc kernel do not support checking if matrix is a real symmetric
-  // positive-definite matrix we leave it zeros for now.
-  auto info = BuildConstant(this, graph, 0, meta[1].dtype, meta[1].shape, 1);
-  syn_out(1) = std::move(info);
+  // Check if at::cholesky or at::linalg_cholesky_ex
+  auto has_two_outputs = (stack.size() >= 3) && stack.at(2).isBool();
+  if (has_two_outputs) {
+    // Because tpc kernel do not support checking if matrix is a real symmetric
+    // positive-definite matrix we leave it zeros for now.
+    auto info = BuildConstant(this, graph, 0, meta[1].dtype, meta[1].shape, 1);
+    syn_out(1) = std::move(info);
+  }
 }
 } // namespace habana

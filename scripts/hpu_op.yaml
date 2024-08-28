@@ -2878,6 +2878,17 @@ channel_shuffle:
   guid: channel_shuffle
   out_ids: [0]
 
+cholesky:
+  dtypes: [Float]
+  guid: cholesky_fwd
+  op_backend: Cholesky
+  out_ids: [0]
+
+cholesky.out:
+  dtypes: [Float]
+  guid: cholesky_fwd
+  op_backend: Cholesky
+
 clamp:
   custom_fill_params: FillClampParams
   dtypes:
