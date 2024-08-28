@@ -25,6 +25,6 @@ else
 fi
 python${MIN_PYTHON_VER} -m pip install ./*.whl -r requirements-pytorch.txt ${PIP_PYTHON_OPTIONS} --disable-pip-version-check --no-warn-script-location
 
-python${MIN_PYTHON_VER} -m pip uninstall -y pillow
-python${MIN_PYTHON_VER} -m pip uninstall -y pillow-simd
+python${MIN_PYTHON_VER} -m pip uninstall -y pillow ${PIP_PYTHON_OPTIONS}
+python${MIN_PYTHON_VER} -m pip uninstall -y pillow-simd ${PIP_PYTHON_OPTIONS}
 python${MIN_PYTHON_VER} -m pip install pillow-simd==${PILLOW_SIMD_VERSION} ${PIP_PYTHON_OPTIONS} --disable-pip-version-check
