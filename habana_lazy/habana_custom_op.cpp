@@ -1,4 +1,15 @@
-#include <iostream>
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
 #include "habana_kernels/binary_kernels.h"
 #include "habana_kernels/custom_op_kernel.h"
 #include "habana_kernels/lazy_kernels.h"
@@ -38,7 +49,7 @@ std::vector<at::Tensor> HabanaCustomOpDescriptor::execute(
 
 const HabanaCustomOpDescriptor HabanaCustomOpDescriptor::getCustomOpDescriptor(
     std::string op) {
-  return habana::KernelRegistry().get_custom_op_desc(op);
+  return habana::KernelRegistry().get_legacy_user_custom_op_desc(op);
 }
 
 const std::string& HabanaCustomOpDescriptor::getSchemaName() const {
@@ -97,10 +108,11 @@ const compute_output_shape_function& HabanaCustomOpDescriptor::
 }
 
 void registerKernel(HabanaCustomOpDescriptor& new_desc) {
-  habana::KernelRegistry().add_custom_op(
+  habana::KernelRegistry().add_legacy_user_custom_op(
       new_desc.getSchemaName(),
       [&](const int device_id, std::string schema_name) {
-        auto& desc = habana::KernelRegistry().get_custom_op_desc(schema_name);
+        auto& desc = habana::KernelRegistry().get_legacy_user_custom_op_desc(
+            schema_name);
         return std::make_shared<habana::CustomOperator>(device_id, desc);
       },
       new_desc);

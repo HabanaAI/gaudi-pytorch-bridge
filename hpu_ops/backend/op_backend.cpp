@@ -149,6 +149,12 @@ void OpBackend::EraseSynInput(int index) {
 OutputMetaDataVector OpBackend::OutputMeta(const at::Stack& stack) const {
   if (m_output_meta_fn) {
     return m_output_meta_fn(stack);
+  } else if (m_partial_output_meta_fn) {
+    OutputMetaDataVector meta;
+    for (const auto& m : m_partial_output_meta_fn(stack)) {
+      meta.emplace_back(m.dtype, m.shape);
+    }
+    return meta;
   }
   return {};
 }

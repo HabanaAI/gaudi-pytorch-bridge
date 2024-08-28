@@ -478,7 +478,7 @@ class LazyOp {
       type
       call() {
     habana_lazy::ir::setCurrentModuleName(module_name);
-    const auto& tensors = get_result_overrideable();
+    const auto& tensors = get_result();
     const auto& node = create_node();
     int i = 0;
 
@@ -1251,8 +1251,32 @@ class LazyOp {
       }
       return results;
     }
-    // Get results from derived class always for std::vector LazyOps
-    return get_result_overrideable();
+    // Get results from derived class when index is negative
+    if (m_out_index < 0) {
+      return get_result_overrideable();
+    }
+    const auto results_size = m_out_shapes.size();
+    HABANA_ASSERT(results_size != 0);
+
+    std::vector<at::Tensor> results;
+    results.reserve(results_size);
+    auto options = at::TensorOptions(at::kHPU);
+    if (m_scalar_types.empty()) {
+      auto dtype = get_inputs().at(m_out_index).toTensor().scalar_type();
+      for (const auto& out_shape : m_out_shapes) {
+        results.emplace_back(at::empty(
+            out_shape, options.dtype(dtype), at::MemoryFormat::Contiguous));
+      }
+    } else {
+      HABANA_ASSERT(m_scalar_types.size() == results_size);
+      for (size_t i = 0; i < results_size; ++i) {
+        results.emplace_back(at::empty(
+            m_out_shapes[i],
+            options.dtype(m_scalar_types[i]),
+            at::MemoryFormat::Contiguous));
+      }
+    }
+    return results;
   }
 
   const std::vector<std::vector<int64_t>>& get_out_shapes() const {

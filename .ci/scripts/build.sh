@@ -1274,6 +1274,10 @@ run_pytorch_modules_tests()
         ${__pytorch_modules_tests_exe} tests/ --collect-only
         __test_status=$((__test_status | $?))
         popd
+        pushd $PYTORCH_MODULES_ROOT_PATH/tests/user_custom_op/
+        ${__pytorch_modules_tests_exe} . --collect-only
+        __test_status=$((__test_status | $?))
+        popd
 
         return $__test_status
     fi
@@ -1310,6 +1314,17 @@ run_pytorch_modules_tests()
       (set -x; eval ${__pytorch_modules_tests_exe} tests/ -v $__failures $__py_filter --junit-xml="${__xml}_infra_scripts_pytest.xml" --junit-prefix="InfraScripts." ${__marker})
       __test_status=$((__test_status | $?))
       popd
+      if [[ "$__pytest_mode" = "eager" ]] ; then
+        pushd $PYTORCH_MODULES_ROOT_PATH/tests/user_custom_op/
+        $__python_cmd setup.py install
+        (set -x; eval PT_HPU_LAZY_MODE=0 ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
+        __test_status=$((__test_status | $?))
+        (set -x; eval ${__pytorch_modules_tests_exe} test_hpu_custom_op.py -v $__failures $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
+        __test_status=$((__test_status | $?))
+        (set -x; eval ${__pytorch_modules_tests_exe} test_hpu_legacy_custom_op.py -v $__failures $__py_filter --junit-xml="${__xml}_infra_custom_op_pytest.xml" --junit-prefix="InfraCustomOp." ${__marker})
+        __test_status=$((__test_status | $?))
+        popd
+      fi
     fi
 
     # return error code of the tests

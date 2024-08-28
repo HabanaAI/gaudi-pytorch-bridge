@@ -158,6 +158,7 @@ add_habana_library(habana_pytorch_plugin SHARED
   habana_lazy/tensor_impl.cpp
   habana_lazy/hlexec.cpp
   habana_lazy/habana_custom_op.cpp
+  habana_lazy/user_custom_op_frontend.cpp
   habana_lazy/passes/pass_utils.cpp
   habana_lazy/passes/recalculate_batchnorm_params.cpp
   habana_lazy/passes/fold_conv_batchnorm.cpp

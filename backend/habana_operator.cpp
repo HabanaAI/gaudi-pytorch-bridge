@@ -124,7 +124,7 @@ std::string habana::get_guid_with_precision(
       "topk"sv,
   };
   // Synapse guids do not take precision type/suffix
-  if (synapse_guids.contains(guid)) {
+  if (synapse_guids.contains(guid) or dtype == c10::ScalarType::Undefined) {
     return std::string{guid};
   }
 

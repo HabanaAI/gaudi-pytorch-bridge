@@ -1,3 +1,15 @@
+/*******************************************************************************
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
 #include <gtest/gtest.h>
 #include <perf_lib_layer_params.h>
 #include <tests/cpp/habana_lazy_test_infra.h>
@@ -122,16 +134,16 @@ class LazyCustomKernelKernelTest : public habana_lazy_test::LazyTest {
 
 at::Tensor custom_add_execute(torch::Tensor input_a, torch::Tensor input_b) {
   std::vector<c10::IValue> inputs{input_a, input_b};
-  auto op_desc =
-      habana::KernelRegistry().get_custom_op_desc("custom_op::custom_add");
+  auto op_desc = habana::KernelRegistry().get_legacy_user_custom_op_desc(
+      "custom_op::custom_add");
   std::vector<at::Tensor> output = op_desc.execute(inputs);
   return output[0];
 }
 
 at::Tensor custom_gelu_execute(torch::Tensor input_a) {
   std::vector<c10::IValue> inputs{input_a};
-  auto op_desc =
-      habana::KernelRegistry().get_custom_op_desc("custom_op::custom_gelu");
+  auto op_desc = habana::KernelRegistry().get_legacy_user_custom_op_desc(
+      "custom_op::custom_gelu");
   std::vector<at::Tensor> output = op_desc.execute(inputs);
   return output[0];
 }
@@ -142,8 +154,8 @@ std::tuple<at::Tensor, at::Tensor> custom_topk_execute(
     at::Scalar axis,
     bool bottom) {
   std::vector<c10::IValue> inputs{input_a, k, axis, bottom};
-  auto op_desc =
-      habana::KernelRegistry().get_custom_op_desc("custom_op::custom_topk");
+  auto op_desc = habana::KernelRegistry().get_legacy_user_custom_op_desc(
+      "custom_op::custom_topk");
   std::vector<at::Tensor> output = op_desc.execute(inputs);
   return {output[0], output[1]};
 }

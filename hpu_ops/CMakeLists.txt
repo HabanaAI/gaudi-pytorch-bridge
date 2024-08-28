@@ -319,6 +319,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   custom_op_outshape.cpp
   indexing_ops_helper.cpp
   shared_meta_common.cpp
+  user_custom_op_descriptor.cpp
   ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops0.cpp
   ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops1.cpp
   ${CMAKE_BINARY_DIR}/generated/backend/hpu_autocast_ops2.cpp

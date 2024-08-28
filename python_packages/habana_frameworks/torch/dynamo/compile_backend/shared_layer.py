@@ -214,6 +214,9 @@ def check_for_default_op_support(op_name, node, is_dynamic):
         parameter = node.val_kwargs.get(restrictions[0])
         if parameter in restrictions[1]:
             return True
+    # Enable torch.compile for user's CustomOp API
+    if node.target.namespace == "custom_op":
+        return True
     return False
 
 
