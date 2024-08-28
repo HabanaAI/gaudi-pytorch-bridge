@@ -22,7 +22,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import FusedSDPA
-from test_utils import compare_tensors, is_gaudi1
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
+    compare_tensors,
+    is_gaudi1,
+    is_pytest_mode_compile,
+)
 
 DBG_FLAG_use_func_drpout = False
 DBG_FLAG_verbose_print = False
@@ -1103,30 +1109,65 @@ def test_sdpa(
             profile_api.profiler_get_trace_json(trace_type, profile_dev_id)
     if perf_run:
         exit(0)
+
     # ----------------------------------HPU Fused SDPA attention---------------------------------------------
+    def sdpa_fn(
+        q_hpu=None,
+        k_hpu=None,
+        v_hpu=None,
+        attn_mask_hpu=None,
+        dropout_p=None,
+        is_causal=None,
+        scale=None,
+        softmax_mode=None,
+        recompute=None,
+        valid_seq_len=None,
+        seq_len_padding_type="left",
+        return_dropout_mask=False,
+    ):
+
+        return FusedSDPA.apply(
+            q_hpu,
+            k_hpu,
+            v_hpu,
+            attn_mask_hpu,
+            dropout_p,
+            is_causal,
+            scale,
+            softmax_mode,
+            recompute,
+            valid_seq_len,
+            seq_len_padding_type,
+            return_dropout_mask,
+        )
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        sdpa_fn = torch.compile(sdpa_fn, backend="hpu_backend")
+
+    with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
+        # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
+        with ht.sdp_kernel(enable_recompute=recompute):
+            sdpa_outs = sdpa_fn(
+                q_hpu,
+                k_hpu,
+                v_hpu,
+                attn_mask_hpu,
+                dropout_p,
+                is_causal,
+                None,
+                softmax_mode,
+                None,
+                None,
+                "left",
+                return_dropout_mask,
+            )
+
     if not return_dropout_mask:
-        with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
-            # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
-            with ht.sdp_kernel(enable_recompute=recompute):
-                O_hpu = FusedSDPA.apply(q_hpu, k_hpu, v_hpu, attn_mask_hpu, dropout_p, is_causal, None, softmax_mode)
+        O_hpu = sdpa_outs
     else:
-        with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
-            # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
-            with ht.sdp_kernel(enable_recompute=recompute):
-                O_hpu, DBG_ONLY_dropout_mask_g = FusedSDPA.apply(
-                    q_hpu,
-                    k_hpu,
-                    v_hpu,
-                    attn_mask_hpu,
-                    dropout_p,
-                    is_causal,
-                    None,
-                    softmax_mode,
-                    None,
-                    None,
-                    "left",
-                    return_dropout_mask,
-                )
+        O_hpu, DBG_ONLY_dropout_mask_g = sdpa_outs
         DBG_ONLY_dropout_mask_g = DBG_ONLY_dropout_mask_g.to("cpu")
 
     if not inference:
