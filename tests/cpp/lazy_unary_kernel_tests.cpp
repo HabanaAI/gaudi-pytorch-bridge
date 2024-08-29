@@ -642,8 +642,6 @@ TEST_F(LazyUnaryKernelTest, HardTanhInPlaceTest1) {
 }
 
 TEST_F(LazyUnaryKernelTest, HardTanhBwdTest) {
-  GTEST_SKIP()
-      << "Temporarily skiped due to TPC regression: https://jira.habana-labs.com/browse/SW-198522?filter=-2";
   torch::Tensor A =
       torch::arange(8, torch::dtype(torch::kFloat).requires_grad(true))
           .reshape({1, 1, 4, 2});
