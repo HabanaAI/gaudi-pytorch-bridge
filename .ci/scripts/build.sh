@@ -2075,7 +2075,7 @@ __set_up_pytorch_artifacts_impl() (
         -r "${PYTORCH_MODULES_ROOT_PATH}"/.ci/requirements/requirements-pytorch.txt
         "$@"
         "$pt_fork_wheel_path"
-        "${PYTORCH_VISION_FORK_BUILD}"/pkgs/*.whl
+        "${PYTORCH_VISION_BUILD}"/pkgs/*.whl
         "${PYTORCH_MODULES_RELEASE_BUILD}"/pkgs/*.whl
     )
 
@@ -2136,8 +2136,7 @@ __move_future_pytorch_version_artifacts_to_current_dirs() {
         local -r pt_next_dir=$(find $find_root -name pt_next_deps)
 
         cp -fv "$pt_next_dir"/whl_pyfork/*torch*.whl "${PYTORCH_FORK_RELEASE_BUILD}"/pkgs/
-        cp -fv "$pt_next_dir"/whl_pytorch_vision_fork/*torch*.whl "${PYTORCH_VISION_FORK_BUILD}"/pkgs/ || true
-        cp -fv "$pt_next_dir"/whl_pytorch_vision/*torch*.whl "${PYTORCH_VISION_BUILD}"/pkgs/ || true
+        cp -fv "$pt_next_dir"/whl_pytorch_vision/*torch*.whl "${PYTORCH_VISION_BUILD}"/pkgs/
         cp -fv "$pt_next_dir"/whl_pyint/*.whl "${PYTORCH_MODULES_RELEASE_BUILD}"/pkgs/
         cp -fv "$pt_next_dir"/{test_pt_integration,test_pt2_integration} "${PYTORCH_MODULES_RELEASE_BUILD}"/
     )
@@ -2613,6 +2612,7 @@ build_pytorch_vision()
     local __set_py_vers="false"
     local __profile_getter_path="${PYTORCH_MODULES_ROOT_PATH}/.devops/profile_getter.py"
     local __pt_vision_version
+    local __next_version=false
     # parameter while-loop
     while [ -n "$1" ];
     do
@@ -2643,6 +2643,9 @@ build_pytorch_vision()
             __pt_vision_version="$2"
             shift
             ;;
+        --next )
+            __next_version=true
+            ;;
         -h  | --help )
             usage $__scriptname
             restore_python_version
@@ -2658,7 +2661,11 @@ build_pytorch_vision()
 
     # checkout github torch vision repo
     if [ -z ${__pt_vision_version} ]; then
-        __pt_vision_version=$($__profile_getter_path --get-extras-version torchvision current)
+        if [ ${__next_version} = true ]; then
+            __pt_vision_version=$($__profile_getter_path --get-extras-version torchvision next)
+        else
+            __pt_vision_version=$($__profile_getter_path --get-extras-version torchvision current)
+        fi
     fi
     echo "get torch vision from github (tag: $__pt_vision_version)"
     get_github_repo "pytorch/vision" "${__pt_vision_version}"
@@ -2708,7 +2715,7 @@ install_pytorch_whls() {
         echo "Didn't find pytorch_fork whl file"
         exit 1
     fi
-    $__pip_cmd install -U ${PYTORCH_VISION_FORK_BUILD}/pkgs/*.whl
+    $__pip_cmd install -U ${PYTORCH_VISION_BUILD}/pkgs/*.whl
     install_pillow_simd
     if [ "${GERRIT_PROJECT}" = "lightning-habana-fork" ];  then
         $__pip_cmd install -U ${LIGHTNING_HABANA_FORK_BUILD}/pkgs/*.whl --force-reinstall --no-deps
@@ -2728,8 +2735,7 @@ install_pytorch_whls_future() {
     fi
     pt_next_dir=$(find $find_root -name pt_next_deps)
     cp -fv $pt_next_dir/whl_pyfork/*torch*.whl ${PYTORCH_FORK_RELEASE_BUILD}/pkgs/
-    cp -fv $pt_next_dir/whl_pytorch_vision_fork/*torch*.whl ${PYTORCH_VISION_FORK_BUILD}/pkgs/ || true
-    cp -fv $pt_next_dir/whl_pytorch_vision/*torch*.whl ${PYTORCH_VISION_BUILD}/pkgs/ || true
+    cp -fv $pt_next_dir/whl_pytorch_vision/*torch*.whl ${PYTORCH_VISION_BUILD}/pkgs/
     cp -fv $pt_next_dir/whl_pyint/*.whl ${PYTORCH_MODULES_RELEASE_BUILD}/pkgs/
     cp -fv $pt_next_dir/{test_pt_integration,test_pt2_integration} ${PYTORCH_MODULES_RELEASE_BUILD}/
     install_pytorch_whls

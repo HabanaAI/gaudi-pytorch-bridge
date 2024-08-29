@@ -73,7 +73,7 @@ if((env.GERRIT_PROJECT == 'lightning-habana-fork' ) && !isPromote) {
 }
 preBuildStages =  preBuildStages + lightningHabanaFork + ccacheStats
 def buildCommands = [
-    'Pytorch vision fork': 'build_pytorch_vision_fork -c',
+    'Pytorch vision': 'build_pytorch_vision -c',
     'Pytorch modules': 'build_pytorch_modules -c'
 ]
 
