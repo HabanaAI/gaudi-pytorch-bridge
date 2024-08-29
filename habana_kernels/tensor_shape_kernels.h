@@ -174,17 +174,6 @@ class SplitWithSizeOperator : public habana::HabanaOperator {
   void SetPTOutputs(torch::jit::Stack& inputs) override;
 };
 
-// Flatten Operator
-class FlattenOperator : public ReshapeOperator {
- public:
-  FlattenOperator(int device_id, c10::ScalarType scalarType)
-      : ReshapeOperator(device_id, scalarType) {}
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const habana::OutputMetaDataVector& output_metadata) override;
-};
-
 // View Operator
 class ViewOperator : public ReshapeOperator {
  public:
