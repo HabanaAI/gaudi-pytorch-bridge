@@ -17,7 +17,7 @@ import threading
 from collections import deque
 from functools import wraps
 from os import environ, path
-from typing import IO, Any, BinaryIO, Dict, Generator, Optional, Tuple, Union
+from typing import IO, Any, BinaryIO, Callable, Dict, Generator, Optional, Tuple, Union
 
 import habana_frameworks.torch.hpu as ht
 import habana_frameworks.torch.hpu.random as rand_hpu
@@ -490,6 +490,69 @@ def overwrite_torch_functions():
         return seed
 
     torch.seed = wrap_seed
+
+    # Wrapping torch.load to handle
+    # torch.save wrapping
+    load_orig = torch.load
+
+    def load_on_device(obj, map_location):
+        if isinstance(obj, torch.Tensor):
+            if isinstance(map_location, Callable):
+                return map_location(obj, obj.device)
+            else:
+                return obj.to(map_location)
+        elif isinstance(obj, dict):
+            return {k: load_on_device(v, map_location) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [load_on_device(e, map_location) for e in obj]
+        elif isinstance(obj, tuple):
+            return tuple(load_on_device(e, map_location) for e in obj)
+        else:
+            return obj
+
+    # wrap_load is for loading data that was saved with wrap_save
+    # First the data is loaded into 'cpu' with original torch.load
+    # Then it is sent to map_location (desired device)
+    @wraps(torch.load)
+    def wrap_load(
+        f: Union[str, os.PathLike, BinaryIO, IO[bytes]],
+        map_location: Optional[
+            Union[Callable[[torch.Storage, str], torch.Storage], torch.device, str, Dict[str, str]]
+        ] = None,
+        pickle_module: Any = pickle,
+        weights_only: bool = False,
+        mmap: Optional[bool] = None,
+        **pickle_load_args
+    ) -> Any:
+
+        # When weights_only is True, it tells torch.load to only load the model weights,
+        # and it cannot safely work with a custom pickle_module in this case
+        if weights_only is True and pickle_module is not None:
+            pickle_module = None
+
+        device = "cpu"
+        obj = load_orig(
+            f,
+            map_location=device,
+            pickle_module=pickle_module,
+            weights_only=weights_only,
+            mmap=mmap,
+            **pickle_load_args
+        )
+
+        if map_location is not None:
+            if isinstance(map_location, (str, torch.device, Callable)):
+                device = map_location
+            elif isinstance(map_location, dict):
+                device = map_location.get(device, device)
+
+        if device != "cpu":
+            obj = load_on_device(obj, device)
+
+        return obj
+
+    if is_lazy():
+        torch.load = wrap_load
 
 
 # wrap native pt2e-quant apis required to work on HPU with graph-breaks
