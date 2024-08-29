@@ -2855,10 +2855,16 @@ def pass_inference_fuse_linear(ctx: OptimizerContext) -> bool:
             if u.op != "call_function" or not helper_is_node_supported(node=u):
                 break
             if u.target == torch.ops.aten.addmm.default:
+                # transpose should be addmm's third input to be fused to linear
+                if len(u.args) < 3 or node is not u.args[2]:
+                    break
                 bias, inp, _ = list(u.args)
                 weight = list(node.args)[0]
                 new_args = (inp, weight, bias)
             elif u.target == torch.ops.aten.mm.default:
+                # transpose should be mm's second input to be fused to linear
+                if len(u.args) < 2 or node is not u.args[1]:
+                    break
                 inp, _ = list(u.args)
                 weight = list(node.args)[0]
                 new_args = (inp, weight)

@@ -11,6 +11,7 @@
 ###############################################################################
 import copy
 
+import pytest
 import torch
 import torch.nn.functional as F
 from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
@@ -128,3 +129,42 @@ def test_silu():
     out_cpu = func(x=x_c, m=m_c, device="cpu")
     # changed the tolerance value due to some differences seen between CPU and HPU accuracy for silu
     assert torch.allclose(out_cpu[0].float(), out_hpu[0].to(device=torch.device("cpu")), rtol=1e-2, atol=1e-2)
+
+
+"""
+The following test checks if pass_inference_fuse_linear works as expected and generates the correct result on HPU
+When transpose is the first argument mm/addmm, then fuse should not be applied
+"""
+
+
+class TransposeMatmulModel(torch.nn.Module):
+    def __init__(self, fuse_linear=True):
+        super().__init__()
+        self.param = torch.nn.Parameter(torch.rand(5, 4))
+        self.fuse_linear = fuse_linear
+
+    def forward(self, x):
+        x = torch.ops.aten.mul(x, 2.0)
+        param = torch.ops.aten.mul(self.param, 2.0)
+        if self.fuse_linear:
+            return torch.ops.aten.matmul.default(x, param.t())
+        else:
+            return torch.ops.aten.matmul.default(param.t(), x)
+
+
+@pytest.mark.parametrize("fuse_linear", [False, True])
+def test_pass_inference_fuse_linear(fuse_linear):
+    torch.manual_seed(123)
+    x = torch.randn((5, 4), dtype=torch.float, device=torch.device("cpu"))
+    x_c = x.clone().detach()
+    m = TransposeMatmulModel(fuse_linear)
+    m_c = copy.deepcopy(m)
+    with FxGraphAnalyzer(reset_dynamo=False) as fga:
+        out_hpu = func(x=x, m=m, device="hpu")
+
+    ops_summary = fga.get_ops_summary()
+    op_name = "torch.ops.aten.linear" if fuse_linear is True else "torch.ops.aten.mm.default"
+    fga_assert_helper(ops_summary=ops_summary, op=op_name, count_list=[(1, 0)])
+
+    out_cpu = func(x=x_c, m=m_c, device="cpu")
+    assert torch.allclose(out_cpu[0].float(), out_hpu[0].to(device=torch.device("cpu")).float(), rtol=1e-3, atol=1e-3)
