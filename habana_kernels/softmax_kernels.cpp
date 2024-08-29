@@ -25,48 +25,6 @@
 using namespace torch;
 using namespace habana;
 
-std::vector<int64_t> LogSoftmaxOperator::compute_output_shape(
-    const Tensor& self) {
-  return self.sizes().vec();
-}
-
-void LogSoftmaxOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  bool half_to_float;
-  TORCH_CHECK(
-      inputs.size() == 3,
-      "Incorrect size of input expected for softmax operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input type expected to be tensor");
-  TORCH_CHECK(inputs[1].isInt(), "Input type expected to be int");
-  if (!inputs[2].isNone())
-    TORCH_CHECK(inputs[2].isBool(), "Input type expected to be Bool");
-
-  at::Tensor self = inputs[0].toTensor();
-  int dim = inputs[1].toInt();
-
-  // FIXME Need to fix it for GraphMode SW-13887
-
-  if (!inputs[2].isNone()) {
-    half_to_float = inputs[2].toBool();
-    TORCH_CHECK(
-        !half_to_float,
-        "softmax with half to float conversion is not supported on HPU");
-  }
-
-  dim = at::maybe_wrap_dim(dim, self.dim(), /*wrap_scalar=*/true);
-
-  ns_Softmax::Params params{static_cast<int>(self.ndimension() - 1 - dim)};
-
-  p_context_->params_.emplace<ns_Softmax::Params>(params);
-  p_context_->params_size_ = sizeof(params);
-
-  auto output = habana::createPTTensor(self, output_metadata.at(0).persistent);
-  AllocateSynapseOutput(graph, output, output_metadata.at(0));
-  AddNodeToSynapseGraph(graph, &params, sizeof(params));
-}
-
 void SoftmaxIntOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,
@@ -185,6 +143,5 @@ void SoftmaxIntOperator::SetPTOutputs(torch::jit::Stack& inputs) {
 
 static auto& SoftmaxKernelsKernelRegistry =
     habana::KernelRegistry()
-        .add("aten::log_softmax", KERNEL_FN(LogSoftmaxOperator))
         .add("aten::softmax", KERNEL_FN(SoftmaxIntOperator))
         .add("aten::softmax.int", KERNEL_FN(SoftmaxIntOperator));

@@ -15,25 +15,6 @@
 
 namespace habana {
 
-// LogSofmax Operator
-//
-class LogSoftmaxOperator : public HabanaOperator {
- public:
-  LogSoftmaxOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("logsoftmax_fwd", scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign(
-        {LayoutFormat::ANY, LayoutFormat::ANY, LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  static std::vector<int64_t> compute_output_shape(const at::Tensor& self);
-};
-
 // Sofmax Operator
 //
 class SoftmaxIntOperator : public HabanaOperator {
