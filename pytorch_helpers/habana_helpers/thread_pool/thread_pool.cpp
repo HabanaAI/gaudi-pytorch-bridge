@@ -30,6 +30,7 @@ ThreadPoolBase<Queue, Task>::ThreadPoolBase(bool propagate_exception)
 template <template <typename> typename Queue, typename Task>
 ThreadPoolBase<Queue, Task>::~ThreadPoolBase() {
   // set flag to true to break main loop in the thread
+  ++active_task_count_;
   tasks_.push(Task{[this]() { stop_ = true; }});
   try {
     thread_.join();

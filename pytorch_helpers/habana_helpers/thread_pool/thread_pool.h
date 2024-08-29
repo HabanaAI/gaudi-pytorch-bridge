@@ -188,7 +188,7 @@ template <
     typename std::enable_if_t<std::is_same_v<T, move_only_function_void>, bool>>
 void ThreadPoolBase<Queue, Task>::waitWorkComplete() {
   RethrowIfException();
-  if (active_task_count_ == 0)
+  if (active_task_count_ == 0 || stop_)
     return;
 
   // We try to detect case when process has been forked. In that case working
