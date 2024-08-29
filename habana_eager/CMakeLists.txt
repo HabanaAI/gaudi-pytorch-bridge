@@ -52,7 +52,6 @@ add_habana_library(habana_pytorch2_frontend OBJECT
           passes/get_outputs_order_in_graph.cpp
           passes/handle_input_views.cpp
           passes/handle_tupple_on_output.cpp
-          passes/handle_views_insert_permute.cpp
           passes/remove_detach_op.cpp
           passes/remove_dummy_output.cpp
           passes/replace_getitem_with_list_unpack.cpp

@@ -23,7 +23,6 @@
 #include "habana_eager/graph_exec_passes.h"
 #include "habana_eager/graph_storage.h"
 #include "habana_eager/graph_weight_permute.h"
-#include "habana_eager/passes/handle_views_insert_permute.h"
 #include "habana_helpers/logging.h"
 #include "habana_helpers/thread_pool/thread_pool.h"
 

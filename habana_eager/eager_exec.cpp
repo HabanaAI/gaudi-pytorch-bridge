@@ -25,7 +25,6 @@
 #include "backend/synapse_helpers/device_context.h"
 #include "habana_eager/eager_view.h"
 #include "habana_eager/ops/eager_op.h"
-#include "passes/handle_views_insert_permute.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 #include "pytorch_helpers/visualize/visualize.h"

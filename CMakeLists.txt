@@ -120,7 +120,6 @@ add_habana_library(habana_pytorch_plugin SHARED
   habana_kernels/binary_kernels.cpp
   habana_kernels/binary_inplace_kernels.cpp
   habana_kernels/compare_kernels.cpp
-  habana_kernels/conv_pool_utils.cpp
   habana_kernels/embedding_kernels.cpp
   habana_kernels/fallback_helper.cpp
   habana_kernels/shape_agnostic_helper.cpp
@@ -230,7 +229,6 @@ add_habana_library(habana_pytorch2_plugin SHARED
   habana_kernels/binary_inplace_kernels.cpp
   habana_kernels/binary_kernels.cpp
   habana_kernels/compare_kernels.cpp
-  habana_kernels/conv_pool_utils.cpp
   habana_kernels/embedding_kernels.cpp
   habana_kernels/fallback_helper.cpp
   habana_kernels/shape_agnostic_helper.cpp
