@@ -36,6 +36,9 @@ using CollectiveFn = std::function<hcclResult_t(
     hcclComm_t&,
     synStreamHandle)>;
 
+using PointToPointFn = std::function<
+    hcclResult_t(at::Tensor&, void*, hcclComm_t&, synStreamHandle, int)>;
+
 // Now continue on other work in the current stream.
 class TORCH_API ProcessGroupHcclBase : public Backend {
  public:
@@ -187,8 +190,6 @@ class TORCH_API ProcessGroupHcclBase : public Backend {
       bool is_allreduce = false) = 0;
 
   virtual void initComms() = 0;
-  using PointToPointFn = std::function<
-      hcclResult_t(at::Tensor&, void*, hcclComm_t&, synStreamHandle, int)>;
   virtual c10::intrusive_ptr<Work> pointToPoint(
       std::vector<at::Tensor>& tensors,
       PointToPointFn fn,

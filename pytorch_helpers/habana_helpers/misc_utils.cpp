@@ -18,6 +18,7 @@
 #include "habana_helpers/logging.h"
 
 using JoinPendingPipelineThreadsFunc = void (*)(void);
+using RestoreOddSizeSendTensorsFunc = void (*)(std::vector<at::Tensor>&);
 
 namespace habana {
 
@@ -77,6 +78,18 @@ void TryJoinPendingEagerPipelineThreads() {
     joinPendingPipelineThreads();
   } else {
     PT_BRIDGE_WARN("habana::eager::JoinPendingPipelineThreads was not linked");
+  }
+}
+
+void TryRestoreOddSizeSendTensors(std::vector<at::Tensor>& tensors) {
+  static RestoreOddSizeSendTensorsFunc restoreOddSizeSendTensors =
+      reinterpret_cast<RestoreOddSizeSendTensorsFunc>(
+          dlsym(RTLD_DEFAULT, "RestoreOddSizeSendTensors"));
+  if (restoreOddSizeSendTensors) {
+    PT_BRIDGE_DEBUG("habana::eager::RestoreOddSizeSendTensors called");
+    restoreOddSizeSendTensors(tensors);
+  } else {
+    PT_BRIDGE_WARN("habana::eager::RestoreOddSizeSendTensors was not linked");
   }
 }
 

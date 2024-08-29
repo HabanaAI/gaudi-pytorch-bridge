@@ -69,6 +69,8 @@ class TORCH_API ProcessGroupEagerHCCL : public ProcessGroupHcclBase {
 
   void destroy() override;
 
+  void restoreOddSizeSendTensors(std::vector<at::Tensor>& tensors);
+
  protected:
   void groupStart();
 

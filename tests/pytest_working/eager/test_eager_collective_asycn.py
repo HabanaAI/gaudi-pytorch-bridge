@@ -159,6 +159,87 @@ def simple(rank, world_size, args):
     cleanup()
 
 
+def send_recieve_with_odd_size(rank, world_size, args):
+    device = f"{device_hpu}"
+    setup(rank, world_size)
+
+    def local_send(nodes):
+        _tensor = torch.ones(9, 9, device=device_hpu).to(torch.int8)
+        for node in nodes:
+            torch.distributed.send(_tensor, node)
+
+    def local_recv():
+        _tensor = torch.ones(9, 9, device=device_hpu).to(torch.int8)
+        torch.distributed.recv(_tensor, 0)
+        return _tensor
+
+    _tensor_ref = torch.ones(9, 9, device=device_hpu).to(torch.int8)
+    if rank == 0:
+        local_send(range(1, world_size))
+    else:
+        _tensor = local_recv()
+        assert torch.equal(_tensor, _tensor_ref)
+
+
+def send_recieve(rank, world_size, args):
+    device = f"{device_hpu}"
+    setup(rank, world_size)
+
+    def local_send(nodes):
+        _tensor = torch.ones(100, 100, device=device_hpu)
+        for node in nodes:
+            torch.distributed.send(_tensor, node)
+
+    def local_recv():
+        _tensor = torch.zeros(100, 100, device=device_hpu)
+        torch.distributed.recv(_tensor, 0)
+        return _tensor
+
+    _tensor_ref = torch.ones(100, 100, device=device_hpu)
+    if rank == 0:
+        local_send(range(1, world_size))
+    else:
+        _tensor = local_recv()
+        assert torch.equal(_tensor, _tensor_ref)
+
+
+def send_recieve_permuted(rank, world_size, args):
+    device = f"{device_hpu}"
+    setup(rank, world_size)
+
+    def local_send(tensor, nodes):
+        # _tensor = torch.ones(100, 100, device=device_hpu)
+        for node in nodes:
+            torch.distributed.send(tensor, node)
+
+    def local_recv():
+        _tensor = torch.zeros(1, 3, 3, 3, dtype=torch.float32, device=device_hpu)
+        torch.distributed.recv(_tensor, 0)
+        return _tensor
+
+    input_a = torch.arange(18, dtype=torch.float32, requires_grad=False).reshape(1, 2, 3, 3).to("hpu")
+    weight_a = torch.arange(6, dtype=torch.float32, requires_grad=False).reshape(3, 2, 1, 1).to("hpu")
+    conv = torch.nn.functional.conv2d(input_a, weight_a, bias=None, stride=1, padding=0, dilation=1, groups=1)
+    conv_cpu = conv.to("cpu")
+
+    if rank == 0:
+        # cache miss for copy d2d for sendPermuteToDense
+        local_send(conv, range(1, world_size))
+        # print("send1 tensor_cpu", conv_cpu)
+
+        # cache hit for copy d2d for sendPermuteToDense
+        local_send(conv, range(1, world_size))
+        # print("send2 conv_cpu", conv_cpu)
+    else:
+        _tensor = local_recv()
+        # print("recv1 tensor_cpu", _tensor.to("cpu"))
+        assert torch.equal(_tensor.to("cpu"), conv_cpu)
+
+        _tensor = local_recv()
+        # print("recv2 conv_cpu", _tensor.to("cpu"))
+        assert torch.equal(_tensor.to("cpu"), conv_cpu)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="test_eager_collective_asycn test for veriying async op")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbosity")
@@ -177,3 +258,6 @@ if __name__ == "__main__":
         mp.spawn(broadcast_with_odd_size, args=(WORLD_SIZE, args), nprocs=WORLD_SIZE, join=True)
         mp.spawn(all_gather_with_odd_size, args=(WORLD_SIZE, args), nprocs=WORLD_SIZE, join=True)
         mp.spawn(all_gather_with_odd_size_and_view, args=(WORLD_SIZE, args), nprocs=WORLD_SIZE, join=True)
+        mp.spawn(send_recieve, args=(2, args), nprocs=2, join=True)
+        mp.spawn(send_recieve_with_odd_size, args=(2, args), nprocs=2, join=True)
+        mp.spawn(send_recieve_permuted, args=(2, args), nprocs=2, join=True)

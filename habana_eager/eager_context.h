@@ -67,6 +67,7 @@ class SingleTonEagerContext {
 
 extern "C" void JoinPendingPipelineThreads();
 extern "C" void JoinPendingPipelineAllThreads();
+extern "C" void RestoreOddSizeSendTensors(std::vector<at::Tensor>& tensors);
 
 } // namespace eager
 } // namespace habana

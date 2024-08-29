@@ -55,8 +55,15 @@ struct EagerOpMetaData {
       std::unordered_set<size_t> out_indices)
       : op_kind_(kind), op_name_(name), out_indices_(out_indices) {}
 
-  EagerOpMetaData(eagerOpKind kind, std::string name, size_t num_out_tensors)
-      : op_kind_(kind), op_name_(name), num_out_tensors_(num_out_tensors) {}
+  EagerOpMetaData(
+      eagerOpKind kind,
+      std::string name,
+      size_t num_out_tensors,
+      bool skip_lowering = false)
+      : op_kind_(kind),
+        op_name_(name),
+        num_out_tensors_(num_out_tensors),
+        skip_lowering_(skip_lowering) {}
 
   EagerOpMetaData(
       eagerOpKind kind,
@@ -125,6 +132,7 @@ struct EagerOpMetaData {
   std::unordered_set<size_t> out_indices_;
   std::vector<int64_t> new_strided_insert_output_shape_;
   size_t num_out_tensors_ = 0;
+  bool skip_lowering_ = false;
 };
 
 /**
@@ -169,6 +177,8 @@ class EagerExec {
   void launch();
 
   void set_eager_op_info(EagerOpMetaData&& eager_op_meta_data);
+
+  bool check_and_skip_lowering();
 
  private:
   const at::Symbol m_symbol;

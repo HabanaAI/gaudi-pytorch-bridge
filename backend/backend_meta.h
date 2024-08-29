@@ -180,6 +180,24 @@ inline constexpr std::string_view to_string(const ParamType& t) {
   return "<UNKNOWN_PARAM_TYPE>";
 }
 
+struct SendTensorMeta {
+ public:
+  SendTensorMeta(bool isPermuted, const at::Tensor& tensor)
+      : isPermuted_(isPermuted), tensor_(tensor) {}
+
+  const bool& isPermuted() const {
+    return isPermuted_;
+  }
+
+  const at::Tensor& getTensor() const {
+    return tensor_;
+  }
+
+ private:
+  const bool isPermuted_;
+  const at::Tensor tensor_;
+};
+
 static constexpr int INVALID_CONST_ID = -1;
 static constexpr size_t INVALID_CHECKSUM = 0;
 struct TensorExtraMeta : public BaseTensorExtraMeta {
@@ -451,6 +469,29 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     is_tensor_pipelined_ = true;
   }
 
+  void set_send_org_tensor_meta(bool isPermute, const at::Tensor& src) {
+    HABANA_ASSERT(
+        send_tensor_meta_ == nullptr, "Send tensor meta is already set");
+    send_tensor_meta_ = std::make_shared<SendTensorMeta>(isPermute, src);
+  }
+
+  bool is_send_org_tensor_permuted() const {
+    if (send_tensor_meta_ == nullptr) {
+      return false;
+    }
+    return send_tensor_meta_->isPermuted();
+  }
+
+  std::unique_ptr<at::Tensor> get_send_org_tensor() const {
+    if (send_tensor_meta_ == nullptr) {
+      return nullptr;
+    }
+    if (send_tensor_meta_->isPermuted()) {
+      return nullptr;
+    }
+    return std::make_unique<at::Tensor>(send_tensor_meta_->getTensor());
+  }
+
  private:
   c10::IntArrayRef sizes_{0};
   habana::LayoutFormat tensor_layout_{habana::LayoutFormat::NCHW};
@@ -481,6 +522,7 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   c10::optional<unsigned> exp_bias_{c10::nullopt};
 
   bool is_tensor_pipelined_{false};
+  std::shared_ptr<SendTensorMeta> send_tensor_meta_{nullptr};
 };
 
 TensorExtraMeta* get_tensor_extra_meta_from_hb_internal_tensor_impl(

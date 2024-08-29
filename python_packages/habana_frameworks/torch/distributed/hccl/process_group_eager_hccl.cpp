@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include "process_group_eager_hccl.hpp"
+#include "habana_eager/ops/eager_op.h"
 
 #include <c10/core/TensorImpl.h>
 #include <c10/util/Exception.h>
@@ -28,6 +29,7 @@
 #include "backend/helpers/eager_pipeline.h"
 #include "backend/synapse_helpers/hccl_communicator.h"
 #include "habana_eager/eager_context.h"
+#include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/eager_tensor.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/kernel_utils.h"
@@ -45,6 +47,22 @@
 namespace c10d {
 
 namespace {
+static inline void restore_output_tensors(
+    const std::vector<std::pair<at::Tensor, at::Tensor>>&
+        in_out_tensors_contiguous,
+    const std::vector<at::Tensor>& outputs) {
+  for (size_t i = 0; i < in_out_tensors_contiguous.size(); ++i) {
+    if (outputs[i].unsafeGetTensorImpl() !=
+        in_out_tensors_contiguous[i].second.unsafeGetTensorImpl()) {
+      // provided output wasn't contiguous, so the result of collective is
+      // stored in tensors_contiguous[i]
+      PT_DISTRIBUTED_DEBUG(
+          "restore output tensor ", habana::to_string(outputs[i]));
+      outputs[i].copy_(in_out_tensors_contiguous[i].second, true);
+    }
+  }
+}
+
 class CollectiveContext {
  public:
   CollectiveContext(
@@ -70,15 +88,11 @@ class CollectiveContext {
     }
   }
 
-  CollectiveContext(std::vector<at::Tensor>& tensors)
-      : CollectiveContext(tensors, tensors) {}
+  CollectiveContext(std::vector<at::Tensor>& tensors, bool is_pipelined = false)
+      : CollectiveContext(tensors, tensors, is_pipelined) {}
 
   std::vector<std::pair<at::Tensor, at::Tensor>>& tensors() {
     return in_out_tensors_contiguous_;
-  }
-
-  std::vector<at::Tensor>& outputs() {
-    return outputs_;
   }
 
  private:
@@ -119,16 +133,7 @@ class CollectiveContext {
   }
 
   void restore_output_tensors_if_needed() {
-    for (size_t i = 0; i < in_out_tensors_contiguous_.size(); ++i) {
-      if (outputs_[i].unsafeGetTensorImpl() !=
-          in_out_tensors_contiguous_[i].second.unsafeGetTensorImpl()) {
-        // provided output wasn't contiguous, so the result of collective is
-        // stored in tensors_contiguous[i]
-        PT_DISTRIBUTED_DEBUG(
-            "restore output tensor ", habana::to_string(outputs_[i]));
-        outputs_[i].copy_(in_out_tensors_contiguous_[i].second, true);
-      }
-    }
+    restore_output_tensors(in_out_tensors_contiguous_, outputs_);
   }
 };
 } // namespace
@@ -245,9 +250,17 @@ void Synchronize_Execute_Task(
     synapse_helpers::hpuStream_t stream) {
   PT_DISTRIBUTED_DEBUG("Synchronize_Execute_Task");
   for (size_t i = 0; i < outputs.size(); ++i) {
+    // Check if the tensor metadata send org tensor is available.
+    // Use the org tensor address for synchronize.
+    // Note: This org tensor as a tensor metadata can be set if
+    // the previous OP is P2P send i.e. permutedSendTensorsToDense.
+    auto output_address = outputs[i].storage().data_ptr().get();
+    auto tensor_tmeta{habana::get_tensor_extra_meta(outputs[i])};
+    if (auto org_tensor = tensor_tmeta->get_send_org_tensor()) {
+      output_address = org_tensor->storage().data_ptr().get();
+    }
     comm->getDeviceCtxt()->synchronize_output(
-        (synapse_helpers::device_ptr)outputs[i].storage().data_ptr().get(),
-        stream);
+        (synapse_helpers::device_ptr)output_address, stream);
   }
 }
 
@@ -302,7 +315,7 @@ bool ProcessGroupEagerHCCL::WorkEager::wait(std::chrono::milliseconds timeout
             comm_,
             (c10::hpu::getCurrentHPUStream()).stream());
   } else {
-    // Nothing to join pending here
+    habana::eager::JoinPendingPipelineThreads();
     Synchronize_Execute_Task(
         outputs_, comm_, (c10::hpu::getCurrentHPUStream()).stream());
   }
@@ -324,17 +337,22 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::initWork(
   return c10::make_intrusive<ProcessGroupEagerHCCL::WorkEager>(outputs, comm_);
 }
 
-c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
-    std::vector<at::Tensor>& tensors,
-    PointToPointFn fn,
+void PointToPoint_Execute_Task(
+    std::shared_ptr<habana::HcclCommunicator> comm_,
+    std::unique_ptr<CollectiveContext> ctx,
+    PointToPointFn&& fn,
     int peerRank) {
-  CollectiveContext collective_ctx(tensors);
-
-  habana::eager::JoinPendingPipelineThreads();
-
   auto deviceCtxt = comm_->getDeviceCtxt();
-  for (auto& input_output : collective_ctx.tensors()) {
+  for (auto& input_output : ctx->tensors()) {
     at::Tensor& tensor = input_output.first;
+    // Check if the tensor metadata send org tensor is available.
+    // Use the org tensor for registering events and send it to NIC.
+    // Note: This org tensor as a tensor metadata can be set if
+    // the previous OP is P2P send i.e. permutedSendTensorsToDense.
+    auto tensor_tmeta{habana::get_tensor_extra_meta(tensor)};
+    if (auto org_tensor = tensor_tmeta->get_send_org_tensor()) {
+      tensor = *org_tensor;
+    }
     TORCH_CHECK(
         tensor.get_device() == 0,
         "All tensors are expected to be assigned to device with id 0");
@@ -373,6 +391,91 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
           resource_holder.reset();
           recipe_counter.decrease_and_notify();
         });
+  }
+
+  return;
+}
+
+void PointToPoint_Empty_Compile_Task(
+    std::shared_ptr<habana::HcclCommunicator> comm_,
+    std::unique_ptr<CollectiveContext> ctx,
+    PointToPointFn&& fn,
+    int peerRank) {
+  PT_DISTRIBUTED_DEBUG("PointToPoint_Empty_Compile_Task");
+  habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
+      PointToPoint_Execute_Task,
+      comm_,
+      std::move(ctx),
+      std::move(fn),
+      peerRank);
+
+  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+    habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+  }
+}
+
+void PointToPoint_Empty_Lowering_Task(
+    std::shared_ptr<habana::HcclCommunicator> comm_,
+    std::unique_ptr<CollectiveContext> ctx,
+    PointToPointFn&& fn,
+    int peerRank) {
+  PT_DISTRIBUTED_DEBUG("PointToPoint_Empty_Lowering_Task");
+  habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
+      PointToPoint_Empty_Compile_Task,
+      comm_,
+      std::move(ctx),
+      std::move(fn),
+      peerRank);
+  if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
+    habana_helpers::Singleton_CompileThreadPool::getInstance()
+        .JoinPendingThread();
+  }
+}
+
+c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
+    std::vector<at::Tensor>& tensors,
+    PointToPointFn fn,
+    int peerRank) {
+  PT_DISTRIBUTED_BEGIN;
+  PT_DISTRIBUTED_DEBUG("ProcessGroupEagerHCCL::pointToPoint");
+
+  const bool pipeline_flag = GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE) &&
+      GET_ENV_FLAG_NEW(PT_HPU_EAGER_COLLECTIVE_PIPELINE_ENABLE);
+
+  // Update backend tensors if pipeline is enabled
+  std::vector<at::Tensor> tensors_backend;
+  if (pipeline_flag) {
+    tensors_backend.reserve(tensors.size());
+    for (size_t i = 0; i < tensors.size(); i++) {
+      tensors_backend.push_back(
+          habana::eager::HbEagerTensorPool::get_backend_tensor(tensors[i]));
+
+      // Set tensor pipeline metadata
+      auto tensor_hb_tmeta{
+          habana::get_tensor_extra_meta(tensors_backend.back())};
+      tensor_hb_tmeta->set_tensor_pipelined();
+    }
+  }
+
+  auto ctx = pipeline_flag
+      ? std::make_unique<CollectiveContext>(tensors_backend, true)
+      : std::make_unique<CollectiveContext>(tensors);
+
+  if (pipeline_flag) {
+    const auto tensors = ctx->tensors();
+    habana::eager::SingleTonEagerContext::getInstance()
+        .ScheduleWorkAndUpdateLoweringThreadHandle(
+            PointToPoint_Empty_Lowering_Task,
+            comm_,
+            std::move(ctx),
+            std::move(fn),
+            peerRank);
+    // Restore the output tensors i.e. copy D2D in the main thread
+    // So that such copies are also pipelined.
+    restore_output_tensors(tensors, tensors_backend);
+  } else {
+    habana::eager::JoinPendingPipelineThreads();
+    PointToPoint_Execute_Task(comm_, std::move(ctx), std::move(fn), peerRank);
   }
 
   auto work =
@@ -558,16 +661,7 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
             is_allreduce);
     // Restore the output tensors i.e. copy D2D in the main thread
     // So that such copies are also pipelined.
-    // ToDo: Refactor it when handling pointToPoint collective pipeline.
-    for (size_t i = 0; i < input_output_tensors.size(); ++i) {
-      if (outputs_backend[i].unsafeGetTensorImpl() !=
-          input_output_tensors[i].second.unsafeGetTensorImpl()) {
-        PT_DISTRIBUTED_DEBUG(
-            "restore output tensor ", habana::to_string(outputs_backend[i]));
-        outputs_backend[i].copy_(input_output_tensors[i].second, true);
-      }
-    }
-
+    restore_output_tensors(input_output_tensors, outputs_backend);
   } else {
     habana::eager::JoinPendingPipelineThreads();
     Collective_Execute_Task(comm_, std::move(ctx), std::move(fn), is_allreduce);
@@ -592,20 +686,99 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::barrier(
 // if we can send metadata too via send mechanism to provide this info.
 void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
     std::vector<at::Tensor>& tensors) {
-  for (auto& tensor : tensors) {
-    synapse_helpers::layouts::MemoryPermutation permutation;
-    std::tie(permutation, std::ignore) =
-        habana_helpers::get_tensor_memory_permutation(tensor);
-    if (!permutation.empty()) {
-      auto t_meta{habana::get_tensor_extra_meta(tensor)};
-      PT_DISTRIBUTED_DEBUG(
-          "Tensor: ",
-          t_meta->get_id(),
-          " has permutation: ",
-          VecToString(permutation),
-          " transposing it back to be dense");
-      tensor = torch::clone(tensor);
-    }
+  std::vector<at::Tensor> clone_tensors;
+  clone_tensors.reserve(tensors.size());
+
+  // Allocate memory for clone tensors and get backend tensors
+  std::vector<std::pair<at::Tensor, at::Tensor>> tensors_backend;
+  tensors_backend.reserve(tensors.size());
+  // for (size_t i = 0; i < tensors.size(); i++) {
+  for (const auto& tensor : tensors) {
+    // Allocate memory for cloned tensors
+    clone_tensors.push_back(
+        at::empty_like(tensor, tensor.options().device(tensor.device())));
+
+    // Get backend tensors
+    tensors_backend.push_back(std::make_pair(
+        habana::eager::HbEagerTensorPool::get_backend_tensor(tensor),
+        habana::eager::HbEagerTensorPool::get_backend_tensor(
+            clone_tensors.back())));
+
+    // Set tensor pipeline metadata
+    auto tensor_hb_tmeta{
+        habana::get_tensor_extra_meta(tensors_backend.back().first)};
+    tensor_hb_tmeta->set_tensor_pipelined();
+    auto clone_tensor_hb_tmeta{
+        habana::get_tensor_extra_meta(tensors_backend.back().second)};
+    clone_tensor_hb_tmeta->set_tensor_pipelined();
+  }
+
+  auto pipeline_or_direct_send_permutes =
+      [](std::vector<std::pair<at::Tensor, at::Tensor>>&& tensors_pair) {
+        for (auto&& tensor_pair : tensors_pair) {
+          auto&& send_tensor = tensor_pair.first;
+          auto&& clone_tensor = tensor_pair.second;
+          synapse_helpers::layouts::MemoryPermutation permutation;
+          std::tie(permutation, std::ignore) =
+              habana_helpers::get_tensor_memory_permutation(send_tensor);
+          PT_DISTRIBUTED_DEBUG("Send: permutation: ", VecToString(permutation));
+          const bool is_permuted = !permutation.empty();
+
+          /*
+           * Get send tensor permutations (current op lowering stage).
+           * Set send org tensor as a metadata to the clone tensor.
+           * In the next op, i.e. copy send tensor to the clone tensor.
+           * If (permutation)
+           *   This copy clears the permutation on the cloned tensor.
+           * Else
+           *   Copy op is discarded at its lowering stage.
+           *
+           * In the pipeline stage, a clone tensor is used, which contains
+           * org send tensor in the metadata. The idea is to use the
+           * clone tensor in case the org send tensor has permutation set.
+           *
+           * If there is no permutation, then an org send tensor is used.
+           * Further, this metadata can be used to discard the next D2D copy op
+           * since clone tensor is not required and to avoid unnecessary copy
+           *
+           * This metadata is queried in the later pipeline stages to select
+           * either clone tensor. or org send tensor for registering events on
+           * collective stream/user streams.
+           *
+           * To avoid data race, this is the sequence of tensor metadata used.
+           * Write in current op lowering and Read in next op lowering/execute.
+           * Current Op Lowering: Set Send Org Metadata on the clone tensor
+           * Next Op Copy D2D Lowering: Get MetaData or Tensor Permutation
+           * Next Op P2P collective Op Execute: Get MetaData
+           * Next Op Work Wait Execute: Get MetaData
+           */
+
+          auto clone_tensor_hb_tmeta{
+              habana::get_tensor_extra_meta(clone_tensor)};
+          clone_tensor_hb_tmeta->set_send_org_tensor_meta(
+              is_permuted, send_tensor);
+        }
+      };
+
+  habana::eager::pipeline_or_direct_generic(
+      pipeline_or_direct_send_permutes, std::move(tensors_backend));
+
+  for (size_t i = 0; i < tensors.size(); i++) {
+    // Copy D2D, if any permutation set permutation will be cleared
+    // If No permutation, This op will be discarded at it lowering.
+    constexpr int num_outputs = 1;
+    constexpr bool skip_lowering = true;
+    habana::eager::EagerOp<at::Tensor&> hpu_op{
+        "hpu::_copy_from",
+        {tensors[i], clone_tensors[i]},
+        {clone_tensors[i].sizes().vec()},
+        num_outputs};
+    hpu_op.set_eager_op_info(
+        {habana::eager::eagerOpKind::InplaceOut,
+         "hpu::_copy_from",
+         num_outputs,
+         skip_lowering});
+    tensors[i] = hpu_op.call(const_cast<at::Tensor&>(clone_tensors[i]));
   }
 }
 
@@ -613,15 +786,33 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
 // So once we recive a tensor, we clear it's permutation info.
 void ProcessGroupEagerHCCL::clearPermutesFromRecvTensors(
     std::vector<at::Tensor>& tensors) {
-  for (auto& tensor : tensors) {
-    auto s_meta{habana::get_storage_extra_meta(tensor)};
-    if (s_meta) {
-      auto t_meta{habana::get_tensor_extra_meta(tensor)};
-      PT_DISTRIBUTED_DEBUG(
-          "Received tensor: ", t_meta->get_id(), " clearing its permutation.");
-      s_meta->set_memory_permutation({});
-    }
+  // Get backend tensors
+  std::vector<at::Tensor> tensors_backend;
+  tensors_backend.reserve(tensors.size());
+  for (size_t i = 0; i < tensors.size(); i++) {
+    tensors_backend.push_back(
+        habana::eager::HbEagerTensorPool::get_backend_tensor(tensors[i]));
+    // Set tensor pipeline metadata
+    auto tensor_hb_tmeta{habana::get_tensor_extra_meta(tensors_backend.back())};
+    tensor_hb_tmeta->set_tensor_pipelined();
   }
+
+  auto pipeline_or_direct_clear_permutes =
+      [](std::vector<at::Tensor>&& tensors) {
+        for (auto&& tensor : tensors) {
+          auto s_meta{habana::get_storage_extra_meta(tensor)};
+          if (s_meta) {
+            auto t_meta{habana::get_tensor_extra_meta(tensor)};
+            PT_DISTRIBUTED_DEBUG(
+                "Receive: tensor: ",
+                t_meta->get_id(),
+                " clearing its permutation.");
+            s_meta->set_memory_permutation({});
+          }
+        }
+      };
+  habana::eager::pipeline_or_direct_generic(
+      pipeline_or_direct_clear_permutes, std::move(tensors_backend));
 }
 
 } // namespace c10d

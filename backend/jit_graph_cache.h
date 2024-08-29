@@ -394,6 +394,14 @@ struct OptimizedJITGraphAndMetaData {
     return new_strided_insert_output_shape_;
   }
 
+  bool is_skip_tensor_permutation() const {
+    return skip_tensor_permutation_;
+  }
+
+  void set_skip_tensor_permutation() {
+    skip_tensor_permutation_ = true;
+  }
+
  private:
   std::shared_ptr<torch::jit::Graph> jit_graph_to_lowering = nullptr;
   std::string opstrs = std::string();
@@ -423,6 +431,7 @@ struct OptimizedJITGraphAndMetaData {
   std::vector<int64_t> new_strided_insert_output_shape_;
   bool user_mark_dynamic = false;
   std::vector<habana_helpers::RangeInfo> m_range_infos;
+  bool skip_tensor_permutation_{false};
 };
 
 /**

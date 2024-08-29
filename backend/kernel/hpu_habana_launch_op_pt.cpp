@@ -2097,8 +2097,10 @@ void HabanaLaunchOpPT::setSynapsePermuteFlag(
   }
 
   auto rank = out_syntensor.pt_shape().size();
-  auto is_allow = is_allow_view_output_permutation(ivpsh->toTensor());
-  if ((rank >= 2) && is_allow) {
+  const auto is_allow = is_allow_view_output_permutation(ivpsh->toTensor());
+  const auto skip_permute =
+      jit_graph_and_meta_data_->is_skip_tensor_permutation();
+  if ((rank >= 2) && is_allow && !skip_permute) {
     PT_BRIDGE_DEBUG(
         "Setting synapse allow permutation on tensor: ",
         out_syntensor.id(),
@@ -3633,7 +3635,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
 
   // allow permutation only for output tensors
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
-      !is_hccl_send_mark_step()) {
+      !is_hccl_send_mark_step() &&
+      !(jit_graph_and_meta_data_->is_skip_tensor_permutation())) {
     for (auto ti : output_tensorinfo_map) {
       auto ival = ti.first;
       auto iter = pt_to_synapse_tensors.find(ival);

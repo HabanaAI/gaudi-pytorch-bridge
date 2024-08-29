@@ -308,8 +308,33 @@ void process_node_params(
   }
 }
 
+bool EagerExec::check_and_skip_lowering() {
+  // Check if eager op is skip lowering candidate
+  if (!m_eager_op_meta_data.skip_lowering_) {
+    return false;
+  }
+
+  // Check condition: if input tensor metadata send org tensor is available
+  // It means it does not have permutation and lowering is not required
+  for (const auto& input : m_inputs) {
+    if (!input.isTensor()) {
+      continue;
+    }
+    auto tensor = input.toTensor();
+    auto tensor_tmeta{habana::get_tensor_extra_meta(tensor)};
+    if (tensor_tmeta->get_send_org_tensor()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void EagerExec::launch() {
   PT_EAGER_TRACE_WITH_NAME(m_graph_name);
+  if (check_and_skip_lowering()) {
+    PT_EAGER_DEBUG("Eager Op :", m_symbol.toQualString(), " Skip lowering ! ");
+    return;
+  }
   const c10::hpu::HPUStream& stream{c10::hpu::getCurrentHPUStream()};
 
   // stack is used for both inputs to synapse lowering and outputs from
@@ -425,6 +450,14 @@ void EagerExec::launch() {
       impl->set_sizes_contiguous(habana::get_base_tensor_size(in));
       impl->set_storage_offset(0);
       PT_EAGER_DEBUG("Eager op: Input tensor converted to base");
+    }
+
+    // check if skip tensor permutation flag is set
+    auto in_tmeta{habana::get_tensor_extra_meta(in)};
+    if (in_tmeta->is_send_org_tensor_permuted()) {
+      PT_EAGER_DEBUG(
+          "Eager op:", m_symbol.toQualString(), " Skip tensor permutation");
+      graph_and_meta->set_skip_tensor_permutation();
     }
   }
 

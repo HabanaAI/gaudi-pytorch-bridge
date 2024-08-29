@@ -35,6 +35,7 @@
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/tensor_impl.h"
 #include "pytorch_helpers/habana_helpers/job_thread.h"
+#include "pytorch_helpers/habana_helpers/misc_utils.h"
 
 using namespace synapse_helpers;
 namespace c10d {
@@ -1649,7 +1650,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
-  resizeOddTensor(tensors, changed, sizeList, strideList);
+  const bool is_odd_size =
+      resizeOddTensor(tensors, changed, sizeList, strideList);
+
   PT_IRGRAPH_DEBUG("step marker due to ProcessGroupHcclBase::send");
   habana_lazy::HbLazyTensor::StepMarker();
   permutedSendTensorsToDense(tensors);
@@ -1690,6 +1693,9 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
         return hccl_result;
       },
       dstRank);
+  if (is_odd_size) {
+    habana::TryRestoreOddSizeSendTensors(tensors);
+  }
   restoreOddTensorsize(tensors, changed, sizeList, strideList, work);
   if (coalescing_state_) {
     coalesed_works_->append(work);
@@ -1721,7 +1727,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::recv(
           synStreamHandle stream,
           int peerRank) {
         PT_DISTRIBUTED_DEBUG(
-            "[PYT-DIST] send with input_address :: ",
+            "[PYT-DIST] recv with input_address :: ",
             recv_buff,
             " elem_cnt :: ",
             tensor.numel(),

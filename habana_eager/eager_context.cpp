@@ -73,5 +73,21 @@ void JoinPendingPipelineAllThreads() {
       .JoinPendingThread();
 }
 
+// Method for restoring odd size tensors for eager collectives
+void RestoreOddSizeSendTensors(std::vector<at::Tensor>& tensors) {
+  // Join pending is required since it is called in the main thread.
+  // But this should not affect the performance as it is called for
+  // corner case of odd size tensors, which it self calls resize
+  // which calls Join pending since src tensor is in the pipeline.
+  // If no permutation, restore to the original tensor.
+  JoinPendingPipelineThreads();
+  for (auto& tensor : tensors) {
+    auto tensor_tmeta{habana::get_tensor_extra_meta(tensor)};
+    if (auto org_tensor = tensor_tmeta->get_send_org_tensor()) {
+      tensor = *org_tensor;
+    }
+  }
+}
+
 } // namespace eager
 } // namespace habana
