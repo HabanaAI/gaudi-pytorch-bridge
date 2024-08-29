@@ -183,9 +183,6 @@ class HabanaLaunchOpPT {
   void CreateIValueForNodeInputs(
       torch::jit::Node* node,
       habana_helpers::DynamicSIFInfo* dsi);
-  void CreateIValueForNodeOutputs(
-      torch::jit::Node* node,
-      habana_helpers::DynamicSIFInfo* dsi);
   void UpdateIshapeForNodeInputs(torch::jit::Node* node, RecipeValueSpec& rv);
   void UpdateIshapeForNodeOuputs(torch::jit::Node* node, RecipeValueSpec& rv);
   void CreateValueIShapeMapForNode(

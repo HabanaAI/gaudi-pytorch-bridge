@@ -45,12 +45,9 @@ static bool check_for_advanced_indexing(
         auto cur_scalar_type = input.scalar_type();
         if (first_scalar) {
           first_scalar = false;
-          prev_scalar_type = cur_scalar_type;
-        } else {
-          if (prev_scalar_type != cur_scalar_type) {
-            advanced_indexing = true;
-            break;
-          }
+        } else if (prev_scalar_type != cur_scalar_type) {
+          advanced_indexing = true;
+          break;
         }
         prev_scalar_type = cur_scalar_type;
       }

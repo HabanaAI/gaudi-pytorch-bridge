@@ -233,12 +233,6 @@ struct OptimizedJITGraphAndMetaData {
 
   void SetGraphIndex(size_t index);
 
-  bool GetDbgFlag();
-
-  void SetDbgFlag(bool flag);
-
-  bool GetOptimizedLazyEagerFlag();
-
   void SetOptimizedLazyEagerFlag(bool flag);
 
   void SetUserMarkDynamic(bool flag);

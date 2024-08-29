@@ -202,43 +202,6 @@ DTypeHelper DTypeHelper::op_with_optional_dtype_promotion(
   return dtype_helper;
 }
 
-DTypeHelper DTypeHelper::unary_op_with_optional_int_to_float_promotion(
-    const std::vector<at::IValue>& inputs,
-    bool int_to_float,
-    c10::optional<const at::IValue*> output,
-    bool safe_cast) {
-  DTypeHelper dtype_helper;
-  dtype_helper.add_inputs({&inputs.at(0)})
-      .set_promote_to_common_type(true)
-      .set_promote_int_to_float(int_to_float)
-      .set_safe_cast_to_output(safe_cast);
-  if (output.has_value()) {
-    dtype_helper.add_output(output.value());
-  }
-
-  dtype_helper.build();
-  return dtype_helper;
-}
-
-DTypeHelper DTypeHelper::unary_op_with_optional_int_to_long_promotion(
-    const std::vector<at::IValue>& inputs,
-    c10::optional<const at::IValue*> output,
-    c10::optional<c10::ScalarType> dtype,
-    bool promote_int_to_long) {
-  DTypeHelper dtype_helper;
-  dtype_helper.add_inputs({&inputs.at(0)})
-      .set_promote_int_to_long(promote_int_to_long);
-  if (output.has_value()) {
-    dtype_helper.add_output(output.value());
-  }
-  if (dtype.has_value()) {
-    dtype_helper.set_output_dtype(dtype.value());
-  }
-
-  dtype_helper.build();
-  return dtype_helper;
-}
-
 DTypeHelper DTypeHelper::binary_op_with_type_promotion(
     const std::vector<at::IValue>& inputs,
     c10::optional<const at::IValue*> output,
@@ -264,23 +227,6 @@ DTypeHelper DTypeHelper::binary_op_with_optional_int_to_float_promotion(
   dtype_helper.add_inputs({&inputs.at(0), &inputs.at(1)})
       .set_promote_to_common_type(true)
       .set_promote_int_to_float(int_to_float)
-      .set_safe_cast_to_output(safe_cast);
-  if (output.has_value()) {
-    dtype_helper.add_output(output.value());
-  }
-
-  dtype_helper.build();
-  return dtype_helper;
-}
-
-DTypeHelper DTypeHelper::binary_op_with_int_to_float_promotion(
-    const std::vector<at::IValue>& inputs,
-    c10::optional<const at::IValue*> output,
-    bool safe_cast) {
-  DTypeHelper dtype_helper;
-  dtype_helper.add_inputs({&inputs.at(0), &inputs.at(1)})
-      .set_promote_to_common_type(true)
-      .set_promote_int_to_float(true)
       .set_safe_cast_to_output(safe_cast);
   if (output.has_value()) {
     dtype_helper.add_output(output.value());

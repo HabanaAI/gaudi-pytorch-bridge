@@ -48,16 +48,6 @@ class DTypeHelper {
       bool int64_support = true) const;
   c10::ScalarType get_result_dtype() const;
 
-  static DTypeHelper unary_op_with_optional_int_to_float_promotion(
-      const std::vector<at::IValue>& stack,
-      bool int_to_float,
-      c10::optional<const at::IValue*> output,
-      bool safe_cast);
-  static DTypeHelper unary_op_with_optional_int_to_long_promotion(
-      const std::vector<at::IValue>& stack,
-      c10::optional<const at::IValue*> output,
-      c10::optional<c10::ScalarType> dtype,
-      bool promote_int_to_long);
   static DTypeHelper binary_op_with_type_promotion(
       const std::vector<at::IValue>& stack,
       c10::optional<const at::IValue*> output,
@@ -65,10 +55,6 @@ class DTypeHelper {
   static DTypeHelper binary_op_with_optional_int_to_float_promotion(
       const std::vector<at::IValue>& stack,
       bool int_to_float,
-      c10::optional<const at::IValue*> output,
-      bool safe_cast);
-  static DTypeHelper binary_op_with_int_to_float_promotion(
-      const std::vector<at::IValue>& stack,
       c10::optional<const at::IValue*> output,
       bool safe_cast);
   static DTypeHelper op_with_optional_dtype_promotion(

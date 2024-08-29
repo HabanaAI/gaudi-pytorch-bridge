@@ -160,26 +160,6 @@ struct SharedLayerOp {
 #define HPU_SUPPORTED_DTYPES(dtypes, suffix...) \
   const static SupportedDtypes supported_dtypes_##suffix dtypes;
 
-c10::optional<c10::IValue> toTypeInferredIValueOptional(py::handle input) {
-  // Errors need to be caught here because toTypeInferredIValue errors out
-  // on various object types, but we want it to work with all types.
-  try {
-    return torch::jit::toTypeInferredIValue(input);
-  } catch (const c10::Error& e) {
-    return c10::nullopt;
-  }
-}
-
-void pushIValueToStack(torch::jit::Stack& stack, pybind11::handle item) {
-  if (torch::is_symint(item)) {
-    stack.push_back(torch::jit::toIValue(item, c10::SymIntType::get()));
-  } else if (torch::is_symfloat(item)) {
-    stack.push_back(torch::jit::toIValue(item, c10::SymFloatType::get()));
-  } else {
-    stack.push_back(toTypeInferredIValueOptional(item));
-  }
-}
-
 template <typename SharedOp>
 bool check_support(
     c10::FunctionSchema& schema,

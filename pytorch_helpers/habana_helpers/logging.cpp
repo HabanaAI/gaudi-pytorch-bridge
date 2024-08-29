@@ -91,23 +91,6 @@ static void onModuleLoggersBeforeDestroy(LoggerType) {
       "Closing PyTorch logger. No more log messages will be logged.");
 }
 
-// a callback when an app got a signal (usually it means a crash)
-// can be used to log a stacktrace or any other info
-static void onModuleLoggersCrashSignal(
-    LoggerType,
-    int signal,
-    const char* signalStr,
-    bool isSevere) {
-  HLLOG_ERR(
-      PT_BRIDGE,
-      "Crash. signal : {} {}. Severity: {}",
-      signal,
-      signalStr,
-      isSevere ? "high" : "low");
-  hl_logger::logStacktrace(
-      LoggerType::PT_BRIDGE, isSevere ? HLLOG_LEVEL_ERROR : HLLOG_LEVEL_INFO);
-}
-
 } // namespace HlLogger
 
 // define logger internal variables. requires a list of all the logger names

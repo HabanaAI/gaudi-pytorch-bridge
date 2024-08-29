@@ -460,7 +460,6 @@ void CoalescedStringentPooling::print_pool_stats() const {
       if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
         max_cntgs_free_chunks_size = cntgs_free_chunks_size;
       }
-      cntgs_free_chunks_size = 0;
 
       if (chunk->prev && !chunk->prev->used && chunk->prev->size) {
         PT_DEVMEM_DEBUG(
@@ -498,10 +497,6 @@ void CoalescedStringentPooling::print_pool_stats() const {
   PT_DEVMEM_DEBUG(
       "CS_POOL::Fragmentation = ",
       1 - ((double)max_cntgs_free_chunks_size / free_chunks_size));
-  total_chunks = 0;
-  total_size = 0;
-  occupied_chunks = 0;
-  occupied_size = 0;
   free_chunks = 0;
   free_chunks_size = 0;
   pool_status.str("");
@@ -527,7 +522,6 @@ size_t CoalescedStringentPooling::get_max_cntgs_chunk_size() const {
       if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
         max_cntgs_free_chunks_size = cntgs_free_chunks_size;
       }
-      cntgs_free_chunks_size = 0;
     }
   }
 
@@ -1308,7 +1302,6 @@ void CoalescedStringentPooling::get_stats(MemoryStats* mem_stats) const {
         if (max_cntgs_free_chunks_size < cntgs_free_chunks_size) {
           max_cntgs_free_chunks_size = cntgs_free_chunks_size;
         }
-        cntgs_free_chunks_size = 0;
       } else {
         occupied_chunks++;
         occupied_size += chunk->size;

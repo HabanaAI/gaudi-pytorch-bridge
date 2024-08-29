@@ -242,44 +242,6 @@ void PadOperatorHT::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }
 
-/** @brief Function implementing torch.nn.functional.pad(input, pad,
- * mode='constant', value=0)
- *  @param self N-dimensional input tensor
- *  @param pad m-elements tuple, where m/2 ≤ input dimensions and m is even
- *  @param value fill value for "constant" padding
- */
-Tensor constant_pad_hpu(const Tensor& self, IntArrayRef pad, Scalar value) {
-  PT_KERNEL_BEGIN;
-
-  at::ScalarType scalar_type = self.scalar_type();
-  std::string node_type = get_guid_with_precision("pad_fwd", scalar_type);
-
-  size_t device_id = self.device().index();
-
-  PadOperator Op(device_id, scalar_type);
-  // Create Graph
-  auto graph = habana_helpers::create_graph(device_id, node_type);
-
-  // Assign Inputs to the Operator
-  std::vector<at::Tensor> pt_inputs{self};
-  Op.AllocateSynapseInputs(graph, pt_inputs, true);
-
-  // Build Params for the graph
-  std::vector<c10::IValue> stack = {IValue(self), IValue(pad), IValue(value)};
-  OutputMetaDataVector output_metadata(1);
-  output_metadata.at(0).persistent = true;
-  Op.AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
-  // compile and execute the graph
-  Op.Compile(graph);
-
-  std::vector<at::Tensor> out = Op.GetOutputs();
-  TORCH_CHECK(out.size() == 1, "Incorrect size of outputs");
-
-  PT_KERNEL_END;
-  return out.at(0);
-}
-
 void EmbeddingBagSumOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,

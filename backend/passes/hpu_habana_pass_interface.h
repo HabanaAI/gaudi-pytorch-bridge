@@ -36,7 +36,6 @@ class JITGraphPass {
   // pure virtual function providing interface framework.
   virtual std::unique_ptr<R> VisitGraph(
       const std::shared_ptr<torch::jit::Graph> graph) = 0;
-  virtual void MutateGraph(std::shared_ptr<torch::jit::Graph> graph) = 0;
 
  protected:
   // Should overwrite this with particular pass name everytime.

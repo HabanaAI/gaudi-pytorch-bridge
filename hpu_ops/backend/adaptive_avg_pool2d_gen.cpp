@@ -99,8 +99,6 @@ SharedMetaDataVector AdaptiveAvgPool2dBwdSharedMeta(const at::Stack& stack) {
 void AdaptiveAvgPool2dBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = FillAdaptiveAvgPool2dParamsBwd(stack, size);
   auto meta = AdaptiveAvgPool2dBwdMeta(stack)[0];
 
   if (stack_tensor(stack, 0).dim() == 4)

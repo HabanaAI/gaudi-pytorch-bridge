@@ -764,12 +764,11 @@ synapse_helpers::tensor habana::HabanaOperator::AllocateConstantSynapseTensor(
 
   // Double data type not supported in synapse convert it to float value on host
   const bool is_double_dtype = (val_type == at::ScalarType::Double);
-  auto scalar_val_type = is_double_dtype ? at::ScalarType::Float : val_type;
 
   // Check if Long data type can be supported or else convert it to int32
   const bool is_long_dtype_and_not_supported =
       (val_type == at::ScalarType::Long) && !common::IsInt64Supported();
-  scalar_val_type =
+  const auto scalar_val_type =
       is_long_dtype_and_not_supported ? at::ScalarType::Int : val_type;
 
   void* host_ptr = nullptr;

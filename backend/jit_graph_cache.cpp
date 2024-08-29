@@ -339,18 +339,6 @@ void OptimizedJITGraphAndMetaData::SetGraphIndex(size_t index) {
   graph_index = index;
 }
 
-bool OptimizedJITGraphAndMetaData::GetDbgFlag() {
-  return dbg;
-}
-
-void OptimizedJITGraphAndMetaData::SetDbgFlag(bool flag) {
-  dbg = flag;
-}
-
-bool OptimizedJITGraphAndMetaData::GetOptimizedLazyEagerFlag() {
-  return isOptimizedLazyEager;
-}
-
 void OptimizedJITGraphAndMetaData::SetOptimizedLazyEagerFlag(bool flag) {
   isOptimizedLazyEager = flag;
 }

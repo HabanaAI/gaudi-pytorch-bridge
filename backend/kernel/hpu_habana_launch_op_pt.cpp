@@ -1126,7 +1126,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
 
   auto is_in_graph_outputs =
       syn_build_cache.get_or_compute<&SynBuildCache::is_in_graph_outputs>(
-          [this, value_out]() { return isInGraphOutputs(value_out); },
+          [value_out]() { return isInGraphOutputs(value_out); },
           restride_node_out_val_counter);
 
   restride_node_out_val_counter++;
@@ -1134,7 +1134,7 @@ void HabanaLaunchOpPT::handleRestrideNode(
   if ((tensor.dim() == 4) || (tensor.dim() == 5)) {
     std::vector<int64_t>& new_pos =
         syn_build_cache.get_or_compute_ref<&SynBuildCache::new_positions>(
-            [this, node]() { return toIValue(node->input(1))->toIntVector(); },
+            [node]() { return toIValue(node->input(1))->toIntVector(); },
             restride_node_swap_counter);
 
     restride_node_swap_counter++;
@@ -1565,7 +1565,7 @@ void HabanaLaunchOpPT::handlePrimConstantNode(
     if (value->type()->kind() == c10::TypeKind::TensorType) {
       auto ivptrsh_updated =
           syn_build_cache.get_or_compute<&SynBuildCache::prim_nodes_ivals>(
-              [this, &ivptrsh]() { return castConstantTensor(ivptrsh); },
+              [&ivptrsh]() { return castConstantTensor(ivptrsh); },
               prim_nodes_ival_counter);
       value_to_ivalue[value] = ivptrsh_updated;
       std::string irn{"%intermediate_"};
@@ -2568,99 +2568,6 @@ void HabanaLaunchOpPT::UpdateIshapeForNodeOuputs(
   }
 }
 
-void HabanaLaunchOpPT::CreateIValueForNodeOutputs(
-    torch::jit::Node* node,
-    habana_helpers::DynamicSIFInfo* dsi) {
-  auto node_val = node->output(0);
-  auto node_qual_str = node->kind().toQualString();
-  std::string opname(node_qual_str);
-  if (value_to_ivalue.count(node_val) == 0) {
-    auto value_name = node_val->debugName();
-    PT_DYNAMIC_SHAPE_DEBUG(
-        "Processing node outputs for Ivalue creation :", value_name);
-    if (node->kind() == torch::jit::prim::Constant) {
-      HABANA_ASSERT(0, "Invalid Constant call");
-    } else if (node->kind() == torch::jit::prim::ListConstruct) {
-      HABANA_ASSERT(0, "Invalid ListConstruct call");
-    } else {
-      auto& size_expr_list = dsi->value_to_sizeexpr[value_name];
-      if (size_expr_list.size() == 1) {
-        auto& size_expr = size_expr_list[0];
-        if (size_expr == nullptr) {
-          std::vector<int64_t> concrete_size;
-          if (dsi->value_to_ishape.count(value_name) &&
-              dsi->value_to_ishape[value_name].IsUpdated()) {
-            concrete_size = dsi->value_to_ishape[value_name].getTensorShape();
-          }
-          at::Tensor dummy_t = createDynamicTensor(
-              concrete_size,
-              DATA_TENSOR,
-              dsi->value_to_ishape[value_name].getScalarType());
-          auto iv_tensor = torch::jit::IValue(dummy_t);
-          auto ivptrsh = std::make_shared<IVal>(iv_tensor);
-          value_to_ivalue[node_val] = ivptrsh;
-        } else {
-          SymExprFactory& expr_factory = SymExprFactory::getInstance();
-          std::vector<int64_t> concrete_size =
-              expr_factory.evaluate_symsize(size_expr);
-          PT_DYNAMIC_SHAPE_DEBUG(
-              "Output Node: ",
-              value_name,
-              ", size_expr: ",
-              size_expr->get_size_expr_str(),
-              ", concrete_size:",
-              concrete_size);
-          at::Tensor dummy_t = createDynamicTensor(
-              concrete_size,
-              DATA_TENSOR,
-              dsi->value_to_ishape[value_name].getScalarType());
-          auto iv_tensor = torch::jit::IValue(dummy_t);
-          auto ivptrsh = std::make_shared<IVal>(iv_tensor);
-          value_to_ivalue[node_val] = ivptrsh;
-        }
-      } else {
-        auto node_outputs = node->outputs();
-        // Handle prim::ListUnpack with tensor list inputs
-        if (*node->output(0)->type() == *torch::ListType::ofTensors() &&
-            node->outputs().size() == 1) {
-          auto unpack_node = GetUnpackNodeFromTensorList(node->output(0));
-          HABANA_ASSERT(
-              unpack_node != nullptr,
-              "TensorList is not input to ListUnpack node. Node: ",
-              node->kind().toQualString());
-          node_outputs = unpack_node->outputs();
-        }
-
-        HABANA_ASSERT(node_outputs.size() == size_expr_list.size());
-        c10::List<at::Tensor> list;
-        size_t output_idx{0};
-        for (auto node_out_val : node_outputs) {
-          auto value_name = node_out_val->debugName();
-          auto& size_expr = size_expr_list[output_idx];
-          SymExprFactory& expr_factory = SymExprFactory::getInstance();
-          std::vector<int64_t> concrete_size =
-              expr_factory.evaluate_symsize(size_expr);
-          PT_DYNAMIC_SHAPE_DEBUG(
-              "Output Node: ",
-              value_name,
-              ", size_expr: ",
-              size_expr->get_size_expr_str(),
-              ", concrete_size:",
-              concrete_size);
-          at::Tensor dummy_t = createDynamicTensor(
-              concrete_size,
-              DATA_TENSOR,
-              dsi->value_to_ishape[value_name].getScalarType());
-          list.emplace_back(dummy_t);
-          output_idx++;
-        }
-        IValPtrShared out_ival = std::make_shared<IVal>(list);
-        value_to_ivalue[node_val] = out_ival;
-      }
-    }
-  }
-}
-
 void HabanaLaunchOpPT::CreateORUpdateExprSymbolicTable(RecipeValueSpec* rv) {
   PT_BRIDGE_BEGIN;
   if (rv != nullptr && rv->ds_sifinfo_map.count(sym_expr_hash_) > 0) {
@@ -2799,8 +2706,6 @@ void HabanaLaunchOpPT::HandleOutputSIFException(
       : &ds_sif_info_;
 
   CreateIValueForNodeInputs(node, dsi);
-  // @TODO: Remove this if no regression observed
-  // CreateIValueForNodeOutputs(node, dsi);
 
   // Handle exception with a fallback
   OutputMetaDataVector& outputs_metadata =

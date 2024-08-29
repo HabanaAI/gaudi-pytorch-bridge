@@ -252,7 +252,7 @@ ProcessGroupHcclBase::ProcessGroupHcclBase(
 
 ProcessGroupHcclBase::~ProcessGroupHcclBase() = default;
 
-static constexpr int CoalActive = 0x01, CoalColl = 0x02, CoalP2P = 0x04;
+static constexpr int CoalActive = 0x01;
 
 ProcessGroupHcclBase::CoalescedWorkHCCL::~CoalescedWorkHCCL() = default;
 

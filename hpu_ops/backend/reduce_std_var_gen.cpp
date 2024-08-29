@@ -57,7 +57,6 @@ OutputMetaDataVector StdVarMeta(const at::Stack& stack) {
 }
 
 OutputMetaDataVector StdVarMeanMeta(const at::Stack& stack) {
-  const torch::Tensor& self = stack_tensor(stack, 0);
   auto meta = StdVarMeta(stack)[0];
   return {meta, meta};
 }

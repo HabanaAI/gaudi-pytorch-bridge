@@ -1266,35 +1266,4 @@ size_t HbLazyTensorViews::updateViewHash(
   return hash;
 }
 
-void HbLazyTensorViews::AttachStorageToViews(
-    const at::Tensor& t,
-    habana_lazy::HbLazyTensor& hbl) {
-  auto is_src_const = habana::is_tensor_const(t);
-  auto src_const_id = habana::get_tensor_const_id(t);
-
-  auto base = habana_lazy::HbLazyTensorViews::get_recent_base_tensor(
-      hbl.getDataPtr()->stride_params.value().base);
-  TORCH_CHECK(
-      base.storage().data_ptr(), "base tensor is expected to be have storage");
-  auto storage = base.storage();
-  auto t_updated = habana_lazy::empty_hpu_lazy(
-      t.sizes(), t.options(), t.suggest_memory_format(), false);
-  auto base_internal_tensor =
-      habana_lazy::GetHbLazyTensor(base).EvaluateTensorData();
-  auto at_internal_tensor = habana_lazy::AtenInternalHbTensor(
-      c10::Storage(storage),
-      c10::scalarTypeToTypeMeta(
-          habana_helpers::getInternalDtype(base_internal_tensor.scalar_type())),
-      c10::nullopt,
-      t.sizes(),
-      t.strides(),
-      c10::MemoryFormat::Contiguous);
-  at_internal_tensor.unsafeGetTensorImpl()->set_storage_offset(
-      t.unsafeGetTensorImpl()->storage_offset());
-  hbl = habana_lazy::GetHbLazyTensor(t_updated);
-  habana::set_tensor_const(at_internal_tensor, is_src_const, src_const_id);
-  hbl.SetTensorData(at_internal_tensor);
-  hbl.SetIsConstTensor(is_src_const, src_const_id);
-}
-
 } // namespace habana_lazy

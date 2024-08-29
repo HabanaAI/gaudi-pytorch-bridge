@@ -566,10 +566,6 @@ class HabanaOperator {
     return p_context_->excluded_output_indices_;
   }
 
-  virtual const KernelMetaData& GetKernelMetaData() const {
-    return kernel_meta_data_;
-  }
-
   virtual const std::vector<HabanaOperatorPtr> GetKernels() const {
     return kernels_;
   }

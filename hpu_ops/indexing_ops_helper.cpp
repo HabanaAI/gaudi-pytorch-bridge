@@ -386,36 +386,4 @@ std::vector<int64_t> ComputeIndexOperatorOutputShape(
   return output_shape;
 }
 
-std::vector<int64_t> get_index_result_shape(
-    std::vector<at::IValue> inputs_vec) {
-  const at::Tensor input = inputs_vec[0].toTensor();
-  auto indices = inputs_vec[1].toTensorList().vec();
-  auto adv_index_dims = inputs_vec[2].toBoolList().vec();
-  std::vector<int64_t> implicit_indices_pos_vec =
-      inputs_vec[3].toIntList().vec();
-  bool adv_indexing_present = false;
-  for (auto i : implicit_indices_pos_vec) {
-    if (i == -1) {
-      adv_indexing_present = true;
-      break;
-    }
-  }
-  if (adv_indexing_present) {
-    std::vector<int64_t> self_permute_dims = inputs_vec[4].toIntList().vec();
-    std::vector<int64_t> permuted_input_sizes, new_strides;
-    std::tie(permuted_input_sizes, new_strides) =
-        PermuteOperator::compute_output_shape(input, self_permute_dims);
-
-    auto indexing_tensor_shapes = calc_indexing_tensors_shapes(inputs_vec);
-    auto shape = habana::ComputeOutputShapeWithAdvIndexing(
-        permuted_input_sizes, adv_index_dims, indexing_tensor_shapes);
-    // TO DO: Resize output tensor if not of required shape.
-    return shape;
-  } else {
-    auto shape = ComputeIndexOperatorOutputShape(input, indices);
-    // TO DO: Resize output tensor if not of required shape.
-    return shape;
-  }
-}
-
 } // namespace habana

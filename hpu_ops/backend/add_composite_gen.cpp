@@ -127,8 +127,6 @@ void ForeachCompound::AddNode(
       "Guid need to be addcdiv or addcmul");
 
   const auto& selfs = stack.at(0).toTensorList();
-  const auto& tensors1 = stack.at(1).toTensorList();
-  const auto& tensors2 = stack.at(2).toTensorList();
   const auto& value = stack.at(3);
 
   const bool isValueTensor = value.isTensor();

@@ -142,8 +142,6 @@ SharedMetaDataVector AdaptiveAvgPool3dBwdSharedMeta(const at::Stack& stack) {
 void AdaptiveAvgPool3dBwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
-  size_t size = 0;
-  const auto& params = FillParams(stack, size);
   auto meta = OutputMeta(stack)[0];
   std::vector<synTensor> inputs = {syn_in(0), syn_in(1)};
   const auto rank = stack_tensor(stack, 0).dim();

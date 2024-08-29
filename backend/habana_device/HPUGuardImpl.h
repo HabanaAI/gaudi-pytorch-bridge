@@ -86,15 +86,6 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   at::Stream getStream(at::Device d) const noexcept override {
     return c10::hpu::getCurrentHPUStream(d.index()).unwrap();
   }
-
-  at::Stream getDefaultStream(at::Device d) const override {
-    return c10::hpu::getDefaultHPUStream(d.index());
-  }
-
-  at::Stream getStreamFromGlobalPool(at::Device d, bool isHighPriority = false)
-      const override {
-    return c10::hpu::getStreamFromPool(isHighPriority, d.index());
-  }
   at::Stream exchangeStream(at::Stream s) const noexcept override {
     c10::hpu::HPUStream hs(s);
     auto old_stream = c10::hpu::getCurrentHPUStream(s.device().index());
@@ -172,15 +163,5 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     return hpu_event->query();
   }
 
-  // Stream-related functions
-  bool queryStream(const at::Stream& stream) const override {
-    c10::hpu::HPUStream hpu_stream{stream};
-    return hpu_stream.query();
-  }
-
-  void synchronizeStream(const at::Stream& stream) const override {
-    c10::hpu::HPUStream hpu_stream{stream};
-    hpu_stream.synchronize();
-  }
 };
 } // namespace habana

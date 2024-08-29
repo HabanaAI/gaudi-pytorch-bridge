@@ -84,7 +84,6 @@ struct HandleDynamicOpsPass {
   void handlePrimListUnpackNode(torch::jit::Node* node) {
     auto node_vals = node->outputs();
     for (const auto& input : node->inputs()) {
-      const auto& name = input->debugName();
       auto tensors = (*m_value_ivalue_map[input]).toTensorList();
       for (size_t i = 0; i < tensors.size(); ++i) {
         const at::Tensor& tensor = tensors[i];

@@ -107,10 +107,6 @@ class ShapeInference {
   static void ResetMax();
 
   /*
-   * Reset the m_shape_info->m_actual_shapes structure
-   */
-  static void ResetActual();
-  /*
    * Method to update and store the shape information for
    * specified tensor
    */

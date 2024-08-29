@@ -104,11 +104,6 @@ std::vector<T> GetArangeH2DParams(at::Tensor& params_t, bool dry_run) {
   return params_data;
 }
 
-sizes_vec ArangeOutputShape(const at::Stack& stack) {
-  return {{get_arange_depth(
-      stack.at(0).toScalar(), stack.at(1).toScalar(), stack.at(2).toScalar())}};
-}
-
 std::shared_ptr<void> FillArangeParams(const at::Stack& stack, size_t& size) {
   const c10::Scalar start = stack.at(0).toScalar();
   const c10::Scalar end = stack.at(1).toScalar();
@@ -432,21 +427,6 @@ std::shared_ptr<void> FillArangeDefaultCommonParams(
     params->limit.i = static_cast<int>(ceil(end.to<float>()));
     params->delta.i = static_cast<int>(ceil(step.to<float>()));
   }
-  return params;
-}
-
-std::shared_ptr<void> FillArangeDefaultCommonParamsDS(
-    const int32_t start,
-    const int32_t end,
-    const int32_t step,
-    // c10::ScalarType out_dtype,
-    size_t& size) {
-  // auto internal_out_dtype = habana_helpers::getInternalDtype(out_dtype);
-  PARAMS_STUB(ns_RangeKernel::Params);
-  // Input parameters are integers. No casting/rounding needed.
-  params->start.i = start;
-  params->limit.i = end;
-  params->delta.i = step;
   return params;
 }
 

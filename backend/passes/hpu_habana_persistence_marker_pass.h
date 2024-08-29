@@ -80,10 +80,6 @@ class PersistenceMarkerPass : public JITGraphPass<PersistenceMarkerPassData> {
       : habana_launch_op_ptr_(habana_launch_op_ptr) {}
   std::unique_ptr<PersistenceMarkerPassData> VisitGraph(
       const std::shared_ptr<torch::jit::Graph> graph);
-  void MutateGraph(std::shared_ptr<torch::jit::Graph> graph) {
-    (void)graph;
-    PT_BRIDGE_DEBUG("Not supported!!!");
-  } // Not supported
 
  private:
   std::string pass_name_ = "persistence_marker_pass";

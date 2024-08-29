@@ -15,8 +15,6 @@
 
 namespace habana {
 
-namespace sh = synapse_helpers;
-
 OutputMetaDataVector PixelShuffleMeta(const at::Stack& stack) {
   auto input = stack.at(0).toTensor();
   const auto upscaleFactor = stack.at(1).toInt();

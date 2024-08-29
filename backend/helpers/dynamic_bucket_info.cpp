@@ -1729,7 +1729,6 @@ std::string DynamicBucketInfo::history_str() const {
     O << "Input[" << i << "]:" << DebugString(a, ref_tshapes) << '\n';
   }
   if (skipped) {
-    skipped = false;
     O << "  "
       << "..." << '\n';
   }

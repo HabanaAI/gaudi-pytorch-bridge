@@ -472,25 +472,6 @@ sh::tensor OpBackend::ReshapeHelper(
       this, graph, syn_in, sizes, dtype, final_result_index, exp_bias);
 }
 
-sh::tensor OpBackend::PermuteHelper(
-    sh::graph& graph,
-    synTensor syn_in,
-    at::IntArrayRef sizes,
-    at::IntArrayRef permutation,
-    at::ScalarType dtype,
-    c10::optional<int> final_result_index,
-    c10::optional<unsigned> exp_bias) {
-  return OpBackend::BuildPermute(
-      this,
-      graph,
-      syn_in,
-      sizes,
-      permutation,
-      dtype,
-      final_result_index,
-      exp_bias);
-}
-
 sh::tensor OpBackend::IdentityHelper(
     sh::graph& graph,
     synTensor syn_in,
