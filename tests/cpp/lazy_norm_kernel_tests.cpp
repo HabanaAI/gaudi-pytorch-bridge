@@ -79,7 +79,6 @@ TEST_F(LazyNormKernelTest, InstanceNorm3dFwdBwd) {
   auto depth_dim = 8;
   auto height_dim = 8;
   auto width_dim = 8;
-  auto num_el = batch_dim * channel_dim * depth_dim * height_dim * width_dim;
   auto input_tensor = torch::randn(
       {batch_dim, channel_dim, depth_dim, height_dim, width_dim},
       torch::dtype(torch::kFloat).requires_grad(true));
@@ -139,7 +138,6 @@ TEST_F(LazyNormKernelTest, InstanceNorm3dChLastFwdBwd) {
   auto depth_dim = 8;
   auto height_dim = 8;
   auto width_dim = 8;
-  auto num_el = batch_dim * channel_dim * depth_dim * height_dim * width_dim;
   auto input_tensor = torch::randn(
       {batch_dim, channel_dim, depth_dim, height_dim, width_dim},
       torch::dtype(torch::kFloat).requires_grad(true));

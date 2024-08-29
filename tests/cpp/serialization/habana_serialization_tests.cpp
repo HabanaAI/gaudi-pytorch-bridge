@@ -119,7 +119,7 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest1) {
   hpu_registrar().get_device().recipe_cache().ResetDiskCache();
   // make sure dir is empty.
   if (fs::exists(fs::path(getCachePath()))) {
-    auto removedFilesCount = removeFiles(getCachePath().c_str());
+    removeFiles(getCachePath().c_str());
     size_t cache_size = 0;
     bool dropped = false;
     do {
@@ -189,7 +189,7 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
   hpu_registrar().get_device().recipe_cache().ResetDiskCache();
   // make sure dir is empty.
   if (fs::exists(fs::path(getCachePath()))) {
-    auto removedFilesCount = removeFiles(getCachePath().c_str());
+    removeFiles(getCachePath().c_str());
     size_t cache_size = 0;
     bool dropped = false;
     do {

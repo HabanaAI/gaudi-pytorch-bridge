@@ -449,7 +449,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, index_select) {
   auto dim = 0;
   auto out_size = 0;
 
-  torch::ScalarType dtype = datatype;
   torch::Tensor cpu_in =
       torch::randint(0, max_value, {index_value}, torch::kInt);
   torch::Tensor hpu_in = cpu_in.to("hpu");

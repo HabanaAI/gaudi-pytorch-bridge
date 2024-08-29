@@ -119,8 +119,6 @@ TEST(TestStream, GetAndSetTest) {
 
 void thread_fun(at::optional<c10::hpu::HPUStream>& cur_thread_stream) {
   auto new_stream = c10::hpu::getStreamFromPool();
-  c10::hpu::HPUStream cur_stream = c10::hpu::getCurrentHPUStream();
-  c10::hpu::HPUStream default_stream = c10::hpu::getDefaultHPUStream();
   c10::hpu::setCurrentHPUStream(new_stream);
   cur_thread_stream = {c10::hpu::getCurrentHPUStream()};
   ASSERT_EQ_HPU(*cur_thread_stream, new_stream);
@@ -813,7 +811,6 @@ TEST(TestStream, TestWAR_multistream) {
   if (num_hpus == 0)
     return;
 
-  c10::hpu::HPUStream default_s = c10::hpu::getDefaultHPUStream();
   c10::hpu::HPUStream compute1 = c10::hpu::getStreamFromPool();
 
   torch::Tensor tensor_A = torch::randn({2000, 3000});

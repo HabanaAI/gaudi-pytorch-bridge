@@ -390,43 +390,6 @@ TEST_F(LazyIndexKernelTest, ScatterValueInplaceTest) {
   EXPECT_EQ(allclose(h_cout, a), true);
 }
 
-/*
-   This op uses cpu fallback
-TEST_F(LazyIndexKernelTest, ScatterValueTest) {
-  torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
-  torch::Tensor h_a = a.to(torch::kHPU);
-  int64_t dim = 0;
-  auto index = torch::randint(0, 5, {5, 7}, torch::dtype(torch::kInt64));
-  auto h_index = index.to(torch::kHPU);
-  auto value = 2;
-
-  torch::Tensor hOut = torch::scatter(h_a, dim, h_index, value);
-  auto h_cout = hOut.to(torch::kCPU);
-  torch::Tensor out = torch::scatter(a, dim, index, value);
-
-  EXPECT_EQ(allclose(h_cout, out), true);
-}
-*/
-
-// This test is failing randomly.
-// https://jira.habana-labs.com/browse/SW-44742
-
-/*TEST_F(LazyIndexKernelTest, ScatterAddTest) {
-  torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
-  torch::Tensor h_a = a.to(torch::kHPU);
-  int64_t dim = 1;
-  auto index = torch::randint(0, 5, {5, 7}, torch::dtype(torch::kInt64));
-  auto h_index = index.to(torch::kHPU);
-  torch::Tensor src = torch::randn({5, 7}, torch::requires_grad(false));
-  torch::Tensor h_src = src.to(torch::kHPU);
-
-  torch::Tensor hOut = torch::scatter_add(h_a, dim, h_index, h_src);
-  auto h_cout = hOut.to(torch::kCPU);
-  torch::Tensor out = torch::scatter_add(a, dim, index, src);
-
-  EXPECT_EQ(allclose(h_cout, out), true);
-}*/
-
 TEST_F(LazyIndexKernelTest, ScatterTest) {
   torch::Tensor a = torch::randn({5, 7}, torch::requires_grad(false));
   torch::Tensor h_a = a.to(torch::kHPU);
@@ -679,17 +642,7 @@ TEST_F(LazyIndexKernelTest, UniqueTest) {
 TEST_F(LazyIndexKernelTest, LinspaceTestStep1) {
   torch::Scalar start = 0.0;
   torch::Scalar end = 10.0;
-
   long int step = 11;
-
-  c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
-
-  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
-  at::TensorOptions hb_options =
-      at::TensorOptions().dtype(dtype).device(hb_device);
-  c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
-  at::TensorOptions cpu_options =
-      at::TensorOptions().dtype(dtype).device(cpu_device);
 
   auto h_a = torch::linspace(start, end, step);
   auto hOut = h_a.to(torch::kCPU);
@@ -701,17 +654,7 @@ TEST_F(LazyIndexKernelTest, LinspaceTestStep1) {
 TEST_F(LazyIndexKernelTest, LinspaceTestDivisableByStep) {
   torch::Scalar start = 612.3;
   torch::Scalar end = 630.3;
-
   long int step = 7;
-
-  c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
-
-  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
-  at::TensorOptions hb_options =
-      at::TensorOptions().dtype(dtype).device(hb_device);
-  c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
-  at::TensorOptions cpu_options =
-      at::TensorOptions().dtype(dtype).device(cpu_device);
 
   auto h_a = torch::linspace(start, end, step);
   auto hOut = h_a.to(torch::kCPU);
@@ -723,17 +666,7 @@ TEST_F(LazyIndexKernelTest, LinspaceTestDivisableByStep) {
 TEST_F(LazyIndexKernelTest, LinspaceTestDivisableByStepFractionalRange) {
   torch::Scalar start = 0.00093;
   torch::Scalar end = 0.00373;
-
   long int step = 8;
-
-  c10::optional<at::ScalarType> dtype = c10::ScalarType::Int;
-
-  c10::optional<at::Device> hb_device = at::DeviceType::HPU;
-  at::TensorOptions hb_options =
-      at::TensorOptions().dtype(dtype).device(hb_device);
-  c10::optional<at::Device> cpu_device = at::DeviceType::CPU;
-  at::TensorOptions cpu_options =
-      at::TensorOptions().dtype(dtype).device(cpu_device);
 
   auto h_a = torch::linspace(start, end, step);
   auto hOut = h_a.to(torch::kCPU);
@@ -741,27 +674,6 @@ TEST_F(LazyIndexKernelTest, LinspaceTestDivisableByStepFractionalRange) {
   auto a = torch::linspace(start, end, step);
   EXPECT_EQ(allclose(hOut, a), true);
 }
-
-/* This test uses CPU fallback
-TEST_F(LazyIndexKernelTest, AdvanceIndexTest) {
-  torch::Tensor input_cpu = torch::arange(48).reshape({8, 6});
-  torch::Tensor input_hpu = input_cpu.to(torch::kHPU);
-
-  auto i1 = torch::Tensor();
-  auto i2 = torch::tensor({4, 5});
-  c10::List<c10::optional<at::Tensor>> indices_cpu{
-      c10::make_optional(i1), c10::make_optional(i2)};
-
-  c10::List<c10::optional<at::Tensor>> indices_hpu{
-      c10::make_optional(i1), c10::make_optional(i2.to(torch::kHPU))};
-
-  auto out_cpu = at::index(input_cpu, indices_cpu);
-  auto out_hpu = at::index(input_hpu, indices_hpu);
-
-  bool equal = out_cpu.allclose(out_hpu.to(torch::kCPU), 0.001, 0.001);
-  EXPECT_EQ(equal, true);
-}
-*/
 
 TEST_F(LazyIndexKernelTest, LinspaceOutPosToNeFraction) {
   const int64_t constStepsValue = 45;

@@ -5,7 +5,6 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_lazy/aten_lazy_bridge.h"
 #include "habana_lazy/debug_utils.h"
-#include "habana_lazy/hlexec.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/ir_utils.h"
 #include "habana_lazy_test_infra.h"
@@ -271,8 +270,6 @@ TEST_F(LazyBinaryInplaceKernelTest, DivInplaceTest) {
 TEST_F(LazyBinaryInplaceKernelTest, DivInplaceIntermediateTest) {
   torch::Tensor A = torch::randn({2, 3});
   torch::Tensor B = torch::randn({2, 3});
-
-  exec::HlExec* hlexec = new exec::HlExec();
 
   auto hA = A.to(torch::kHPU);
   auto hB = B.to(torch::kHPU);

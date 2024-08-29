@@ -1749,7 +1749,7 @@ void runSortOutDynamicTest(std::vector<int> changing_dim_values, int dim) {
   }
 }
 
-void runConstantPadDynamicTest(std::vector<int> Pad, int val) {
+void runConstantPadDynamicTest() {
   c10::ScalarType dtype{torch::kInt32};
   for (int i = 0; i < 4; i++) {
     torch::Tensor input_cpu =
@@ -1766,7 +1766,7 @@ void runConstantPadDynamicTest(std::vector<int> Pad, int val) {
   }
 }
 TEST_F(LazyDynamicShapesTest, ConstantPad) {
-  runConstantPadDynamicTest({2}, 9);
+  runConstantPadDynamicTest();
 }
 
 TEST_F(LazyDynamicShapesTest, SortOutTest) {
