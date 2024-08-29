@@ -83,6 +83,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_fake_propagation,
             pass_weight_permutation,
             pass_remove_unnecessary_full_copy,
+            pass_remove_unnecessary_expand,
             pass_remove_unnecessary_bmm_view,
             pass_wa_mixed_devices,  # This is W/A for Adam having CPU scalar tensors parameters.
             pass_reinplace_inplaceable_ops,
@@ -2983,3 +2984,26 @@ def pass_remove_unnecessary_bmm_view(ctx: OptimizerContext):
         ctx.graph_module.recompile()
 
     return graph_changed
+
+
+def pass_remove_unnecessary_expand(ctx: OptimizerContext):
+    def get_node_shape(node):
+        return node.meta.get("tensor_meta", None).shape if "tensor_meta" in node.meta else None
+
+    graph_changed = False
+
+    for node in ctx.graph_module.graph.nodes:
+        if node.op == "call_function" and node.target == torch.ops.aten.expand.default:
+            input_node, target_shape = node.args
+            input_shape = get_node_shape(input_node)
+
+            if input_shape and list(input_shape) == target_shape:
+                for user in list(node.users.keys()):
+                    user.replace_input_with(node, input_node)
+                graph_changed = True
+
+    if graph_changed:
+        logger.debug("####### Removed unnecessary expand nodes")
+        ctx.graph_module.graph.eliminate_dead_code()
+        ctx.graph_module.graph.lint()
+        ctx.graph_module.recompile()
