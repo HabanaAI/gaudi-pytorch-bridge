@@ -412,34 +412,30 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
             return
 
     def get_amax_measure_state(self) -> dict:
-        res = {}
-        res["manual"] = FP8GlobalStateManager.get_manual_measurement_mode() is not None
-        if FP8GlobalStateManager.get_manual_measurement_mode() is not None:
-            res["bwd_enabled"] = FP8GlobalStateManager.get_manual_measurement_mode()
+        res = {"manual": FP8GlobalStateManager.get_manual_measurement_mode() is not None}
+        manual_mode = FP8GlobalStateManager.get_manual_measurement_mode()
+        if manual_mode is not None:
+            res["bwd_enabled"] = manual_mode
         else:
-            res["bwd_enabled"] = self.fp8_meta["recipe"].interval == 1 or (
-                self.run_cnt + self.fp8_meta["recipe"].interval - 2
-            ) % self.fp8_meta["recipe"].interval in range(
-                self.fp8_meta["recipe"].interval - self.fp8_meta["recipe"].amax_history_len,
-                self.fp8_meta["recipe"].interval,
-            )
+            interval = self.fp8_meta["recipe"].interval
+            amax_history_len = self.fp8_meta["recipe"].amax_history_len
+            run_position = self.run_cnt % interval
+            res["bwd_enabled"] = interval == 1 or run_position in range(interval - amax_history_len, interval)
         res["fwd_enabled"] = (
-            False
-            if (is_fp8_activation_recompute_enabled() and self.fp8_meta["in_activation_recompute_phase"])
-            else res["bwd_enabled"]
+            not (is_fp8_activation_recompute_enabled() and self.fp8_meta["in_activation_recompute_phase"])
+            and res["bwd_enabled"]
         )
         return res
 
     def is_scale_update_required(self) -> bool:
         if not self.fp8:
             return False
-        manual = self.fp8_meta["update_amax_fwd"].get("manual", False)
-        # based on bwd flag which is recompute agnostic
-        enabled = self.fp8_meta["update_amax_fwd"].get("bwd_enabled", False)
-        if manual:
-            return enabled
-        else:
-            return self.fp8_meta["recipe"].interval == 1 or self.run_cnt % self.fp8_meta["recipe"].interval == 0
+        manual_update = self.fp8_meta["update_amax_fwd"].get("manual", False)
+        bwd_enabled = self.fp8_meta["update_amax_fwd"].get("bwd_enabled", False)
+        if manual_update:
+            return bwd_enabled
+        update_interval = self.fp8_meta["recipe"].interval
+        return update_interval == 1 or self.run_cnt % update_interval == 0
 
     @contextmanager
     def prepare_forward(

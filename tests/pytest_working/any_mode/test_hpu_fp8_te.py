@@ -9,10 +9,12 @@
 
 import math
 import os
+import time
 
 import habana_frameworks.torch as ht
 import habana_frameworks.torch.hpex.experimental.transformer_engine as te
 import habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 as fp8
+import numpy as np
 import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback
@@ -2052,3 +2054,99 @@ def test_save_load_te_module_indirectly(
     loaded_test_linear.load_state_dict(test_linear.state_dict())
     loaded_extra_state = print_extra_state(loaded_test_linear.state_dict())
     compare_fp8_extra_state(loaded_extra_state, saved_extra_state)
+
+
+def get_avg_call_time(function_, linear, num_of_calls=100):
+    linear.run_cnt = 0
+    call_times_of_implementation = np.zeros(shape=num_of_calls)
+    for index in range(num_of_calls):
+        # Change a param used by the function to not allow interpreter to optimize the call
+        # Changing run_cnt means for TE that it's going through next mbs
+        linear.run_cnt += 1
+        time_start = time.time()
+        _ = function_()
+        call_time = time.time() - time_start
+        call_times_of_implementation[index] = call_time
+    # drop outliers
+    std_of_calls = np.std(call_times_of_implementation)
+    mean_of_calls = np.mean(call_times_of_implementation)
+    call_times_of_implementation[abs(call_times_of_implementation) > (mean_of_calls + 2 * std_of_calls)] = mean_of_calls
+    return np.mean(call_times_of_implementation)
+
+
+class FP8ModuleRunner:
+    """Simplified version of FP8ModuleRunner used in topologies.
+    Allows to track mbs for amax measurement & init anything needed for that.
+    """
+
+    def __init__(self, module, manual):
+        self.module = module
+        self.run_cnt = 0
+        self.manual = manual
+        FP8GlobalStateManager.set_measurement_mode(manual=self.manual)
+
+    def __call__(self, input_, bias=None, gbs: int = 1):
+        self.run_cnt += 1
+        return self.module(input_, self.module.weight, bias, is_first_microbatch=False)
+
+
+def compare_performance(function_, linear, reference_time, no_of_runs=10, expected_no_of_wins=5):
+    score = 0
+    # call it one time before the time measurement as a warmup
+    _ = get_avg_call_time(function_=function_, linear=linear)
+    for _ in range(no_of_runs):
+        # current implementation
+        avg_time_current = get_avg_call_time(function_=function_, linear=linear, num_of_calls=1000)
+        print(f"avg_time_current: {avg_time_current}")
+        if reference_time > avg_time_current:
+            score += 1
+    is_faster_than_reference = score > expected_no_of_wins
+    return is_faster_than_reference
+
+
+@pytest.mark.perf
+@pytest.mark.parametrize("manual", [None])
+@pytest.mark.parametrize("amax_history_len", [2, 3])
+@pytest.mark.parametrize("measure_interval", [2, 3])
+@pytest.mark.parametrize("reduce_amax", [True])
+@pytest.mark.parametrize("fp8_format", [Format.E5M2, Format.HYBRID], ids=["E5M2", "HYBRID"])
+@pytest.mark.parametrize("device", [torch.device("hpu")])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32], ids=["bf16", "fp32"])
+@pytest.mark.parametrize("mbs", [1])
+@pytest.mark.parametrize("in_features", [4])
+@pytest.mark.parametrize("out_features", [8])
+def test_te_amax_measure_state_perf(
+    manual,
+    amax_history_len,
+    measure_interval,
+    reduce_amax,
+    fp8_format,
+    device,
+    dtype,
+    mbs,
+    in_features,
+    out_features,
+):
+    if is_gaudi1():
+        pytest.skip(reason="FP8 not supported on Gaudi1")
+
+    linear = te.Linear(in_features, out_features, skip_weight_param_allocation=False, bias=True, params_dtype=dtype)
+    output_linear = FP8ModuleRunner(linear, manual)
+    input_tensor = torch.randn(mbs, in_features, dtype=dtype).to(device)
+    fp8_recipe = DelayedScaling(
+        fp8_format=fp8_format,
+        amax_history_len=amax_history_len,
+        interval=measure_interval,
+        amax_compute_algo="max",
+        margin=0,
+        reduce_amax=reduce_amax,
+    )
+    # we do a single fwd_step to initialize everything inside the linear
+    _ = fwd_step(output_linear, input_tensor, fp8_recipe=fp8_recipe)
+
+    # old implementation avg time
+    avg_time_old = 3e-06
+    is_current_faster = compare_performance(
+        function_=output_linear.module.get_amax_measure_state, linear=output_linear, reference_time=avg_time_old
+    )
+    assert is_current_faster, f"Current implementation is slower than previous"
