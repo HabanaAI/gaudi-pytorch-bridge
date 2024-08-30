@@ -8321,7 +8321,7 @@ _softmax:
     Gaudi3: [BFloat16, Float, Half]
   guid: softmax_fwd
   out_ids: [0]
-  op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-196893
 
 _softmax.out:
   custom_fill_params: FillSoftmaxForwardParams
@@ -8330,7 +8330,7 @@ _softmax.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   guid: softmax_fwd
-  op_validator: check-node-with-shared-layer
+  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-196893
 
 _softmax_backward_data:
   custom_fill_params: FillSoftmaxBackwardParams
