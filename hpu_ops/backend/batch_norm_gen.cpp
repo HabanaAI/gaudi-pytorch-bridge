@@ -154,9 +154,9 @@ c10::IntArrayRef get_rm_size(const at::Tensor& input) {
   return input.sizes()[rm_size_idx];
 }
 
-synapse_helpers::layouts::SynapseLayoutFormat getSynapseLayout(const int64_t& dimensions)
-{
-    switch (dimensions) {
+synapse_helpers::layouts::SynapseLayoutFormat getSynapseLayout(
+    const int64_t& dimensions) {
+  switch (dimensions) {
     case 2:
       return synapse_helpers::layouts::SynapseLayoutFormat::CN;
       break;
@@ -315,8 +315,8 @@ std::vector<sh::tensor> handle_batch_norm_training_fwd(
   std::optional<sh::tensor> biasStorageOpt;
   auto [bias] = get_or_create_tensor<TENSOR_IDX>(
       op, graph, bias_opt, rm_size, c10::ScalarType::Float, 0, biasStorageOpt);
-  bias = cast_if_necessary_or_default(
-      &op, graph, bias_opt, bias, biasStorageOpt);
+  bias =
+      cast_if_necessary_or_default(&op, graph, bias_opt, bias, biasStorageOpt);
   std::optional<sh::tensor> runningMeanStorageOpt;
   auto [running_mean, running_mean_storage_or_idx] =
       get_or_create_tensor<TENSOR_IDX, STORAGE_IDX>(
@@ -832,16 +832,8 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   /* 2. Perform frontend operations */
   // In case of batch norm:
   // 2.1 Preprocess inputs
-  // 2.1.1 Reshape input to 4D
 
-  std::optional<sh::tensor> inputStorageOpt;
-  const auto [input_4d, input_4d_shape] =
-      transform_tensor_to_4d<TENSOR_IDX, SHAPE_IDX>(
-          *this, graph, input, inputStorageOpt);
-
-  std::optional<sh::tensor> gradStorageOpt;
-  const auto [grad_out_4d] = transform_tensor_to_4d<TENSOR_IDX>(
-      *this, graph, grad_out, gradStorageOpt);
+  auto input_shape = input.pt_t.sizes();
 
   c10::IntArrayRef rm_size = get_rm_size(input.pt_t);
   std::optional<sh::tensor> weightStorageOpt;
@@ -919,30 +911,31 @@ void BatchNormBwdOpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
   size_t size; // Will be initialized by below call
   const auto params = FillBatchNormBwdParams(stack, size);
 
-  c10::optional<int> final_result_index_0 =
-      meta[INPUT_GRAD_IDX].shape.size() != 4
-      ? c10::optional<int>{c10::nullopt}
-      : c10::optional<int>{INPUT_GRAD_IDX};
+  auto inOutLayout = getSynapseLayout(input.pt_t.dim());
+  SetSynapseLayouts(
+      {inOutLayout,
+       inOutLayout,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE},
+      {inOutLayout,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
+       synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
+
   auto bn_out = BuildOp(
       graph,
-      get_guid_with_precision("batch_norm_bwd", meta[0].dtype),
-      {input_4d, grad_out_4d, saved_mean, saved_istd, weight},
-      {{input_4d_shape, meta[INPUT_GRAD_IDX].dtype, final_result_index_0},
+      get_guid_with_precision(
+          "batch_norm_reshape_bwd",
+          meta[0].dtype == c10::ScalarType::Half ? c10::ScalarType::Float
+                                                 : meta[0].dtype),
+      {input.syn_t, grad_out.syn_t, saved_mean, saved_istd, weight},
+      {{input_shape, meta[INPUT_GRAD_IDX].dtype, INPUT_GRAD_IDX},
        {meta[BIAS_GRAD_IDX].shape, meta[BIAS_GRAD_IDX].dtype, BIAS_GRAD_IDX},
        {meta[WEIGHT_GRAD_IDX].shape,
         meta[WEIGHT_GRAD_IDX].dtype,
         WEIGHT_GRAD_IDX}},
       params.get(),
       size);
-
-  // 2.4 Postprocess outputs
-  // 2.4.1 Reshape output to original input's shape
-  reshape_tensor(
-      *this,
-      graph,
-      meta[INPUT_GRAD_IDX].shape,
-      bn_out[INPUT_GRAD_IDX],
-      meta[INPUT_GRAD_IDX].dtype);
 
   // [SW-176505] Set allowPermutation=False as GC cannot handle
   // the case transpose -> reshape -> batchnorm
