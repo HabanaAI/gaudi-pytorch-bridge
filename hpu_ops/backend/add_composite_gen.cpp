@@ -13,6 +13,7 @@
 #include "generated/backend/_foreach_addcdiv.h"
 #include "generated/backend/addcdiv.h"
 #include "generated/backend/addcmul.h"
+#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 
@@ -77,6 +78,14 @@ OutputMetaDataVector ForeachCompoundMeta(const at::Stack& stack) {
   }
 
   return outputMetaDataVector;
+}
+
+SharedMetaDataVector ForeachAddcdivSharedMeta(const at::Stack& stack) {
+  return ForeachCompoundSharedMeta(stack, "addcdiv_fwd");
+}
+
+SharedMetaDataVector ForeachAddcmulSharedMeta(const at::Stack& stack) {
+  return ForeachCompoundSharedMeta(stack, "addcmul_fwd");
 }
 
 std::shared_ptr<void> FillAddCompositeParams(

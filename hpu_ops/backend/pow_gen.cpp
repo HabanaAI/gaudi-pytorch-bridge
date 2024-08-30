@@ -129,6 +129,72 @@ static synapse_helpers::tensor createForeachPowNode(
   }
 }
 
+static SharedMetaDataVector ForeachPowOneIterationSharedMeta(
+    const at::Stack& stack) {
+  const auto& self = stack.at(0);
+  const auto& other = stack.at(1);
+  if (self.isTensor() && other.isTensor()) {
+    const auto& selfTensor = self.toTensor();
+    const auto& otherTensor = other.toTensor();
+    auto selfRank = selfTensor.dim();
+    auto otherRank = otherTensor.dim();
+    auto outputRank = std::max(selfRank, otherRank);
+    auto dtype = at::result_type(selfTensor, otherTensor);
+    if (isIntegralType(dtype, true))
+      dtype = torch::kFloat32;
+
+    SharedMetaData powSharedMeta{"pow_fwd"};
+    powSharedMeta.inputs_data = {{selfRank, dtype}, {otherRank, dtype}};
+    powSharedMeta.outputs_data = {{outputRank, dtype}};
+    return {powSharedMeta};
+  } else if (self.isTensor() && other.isScalar()) {
+    const auto& selfTensor = self.toTensor();
+    auto rank = selfTensor.dim();
+    const auto& otherScalar = other.toScalar();
+    auto dtype = at::result_type(selfTensor, otherScalar);
+    if (isIntegralType(dtype, true))
+      dtype = torch::kFloat32;
+
+    const float exponent = otherScalar.toFloat();
+    if (exponent == 1.) {
+      SharedMetaData identitySharedMeta{"identity"};
+      identitySharedMeta.inputs_data.emplace_back(rank, dtype);
+      identitySharedMeta.outputs_data = identitySharedMeta.inputs_data;
+      return {identitySharedMeta};
+    } else if (exponent == 2. || exponent == 3.) {
+      SharedMetaData multSharedMeta{"mult_fwd"};
+      multSharedMeta.inputs_data = {{rank, dtype}, {rank, dtype}};
+      multSharedMeta.outputs_data.emplace_back(rank, dtype);
+      return {multSharedMeta};
+    } else {
+      SharedMetaData powSharedMeta{"pow_fwd"};
+      powSharedMeta.inputs_data = {{rank, dtype}, {1, dtype}};
+      powSharedMeta.outputs_data = {{rank, dtype}};
+      return {powSharedMeta};
+    }
+  } else {
+    const auto& selfScalar = self.toScalar();
+    const auto& otherTensor = other.toTensor();
+    auto rank = otherTensor.dim();
+    auto dtype = at::result_type(selfScalar, otherTensor);
+    if (isIntegralType(dtype, true))
+      dtype = torch::kFloat32;
+
+    SharedMetaData powSharedMeta{"pow_fwd"};
+    powSharedMeta.inputs_data = {{1, dtype}, {rank, dtype}};
+    powSharedMeta.outputs_data = {{rank, dtype}};
+    return {powSharedMeta};
+  }
+}
+
+SharedMetaDataVector PowForeachBinarySharedMeta(const at::Stack& stack) {
+  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
+    return ForeachPowOneIterationSharedMeta(stack);
+  };
+
+  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+}
+
 void PowForeachBinary::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

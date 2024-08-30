@@ -234,6 +234,49 @@ size_t computeInputsNumber(const at::Stack& stack) {
   return self_size + other_size;
 }
 
+SharedMetaDataVector CommonForeachBinarySharedMeta(
+    const at::Stack& stack,
+    SharedMetaCreateFunction sharedMetaCreator) {
+  SharedMetaDataVector metaVec;
+  if (stack.at(SELF_INDEX).isTensorList()) {
+    const auto& selfs = stack[SELF_INDEX].toList();
+    auto selfsSize = selfs.size();
+    metaVec.reserve(selfsSize);
+    const auto& others = stack[OTHER_INDEX];
+    c10::optional<c10::List<c10::IValue>> othersList = c10::nullopt;
+    if (others.isList())
+      othersList = others.toList();
+
+    for (size_t i = 0; i < selfsSize; i++) {
+      c10::IValue other =
+          othersList.has_value() ? othersList.value()[i] : others;
+      at::Stack oneIterationStack = {selfs[i], other};
+      if (stack.size() > 2)
+        oneIterationStack.push_back(stack.at(ALPHA_INDEX));
+
+      auto oneIterationSharedMeta = sharedMetaCreator(oneIterationStack);
+      metaVec.insert(
+          std::end(metaVec),
+          std::begin(oneIterationSharedMeta),
+          std::end(oneIterationSharedMeta));
+    }
+  } else {
+    const auto& self = stack.at(SELF_INDEX);
+    const auto others = stack.at(OTHER_INDEX).toList();
+    auto othersSize = others.size();
+    for (size_t i = 0; i < othersSize; i++) {
+      at::Stack oneIterationStack = {self, others[i]};
+      auto oneIterationSharedMeta = sharedMetaCreator(oneIterationStack);
+      metaVec.insert(
+          std::end(metaVec),
+          std::begin(oneIterationSharedMeta),
+          std::end(oneIterationSharedMeta));
+    }
+  }
+
+  return metaVec;
+}
+
 std::vector<synapse_helpers::tensor> CommonForeachBinary(
     OpBackend* op,
     std::string& guid,

@@ -24,6 +24,8 @@ typedef std::function<synapse_helpers::tensor(
     const std::vector<at::IValue>&,
     int out_index)>
     NodeCreateFunction;
+typedef std::function<SharedMetaDataVector(const at::Stack&)>
+    SharedMetaCreateFunction;
 
 std::vector<synapse_helpers::tensor> CommonForeachBinary(
     OpBackend* op,
@@ -32,4 +34,8 @@ std::vector<synapse_helpers::tensor> CommonForeachBinary(
     synapse_helpers::graph& graph,
     const at::Stack& stack,
     NodeCreateFunction node_creator);
+
+SharedMetaDataVector CommonForeachBinarySharedMeta(
+    const at::Stack& stack,
+    SharedMetaCreateFunction sharedMetaCreator);
 } // namespace habana

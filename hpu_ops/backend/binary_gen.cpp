@@ -233,6 +233,140 @@ static synapse_helpers::tensor createForeachBinaryNode(
       update_guid)[0]);
 }
 
+static SharedMetaDataVector ForeachBinaryOneIterationSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid,
+    bool castIntToFloat,
+    bool supportI8,
+    bool supportI16,
+    bool mulOrDiv) {
+  const auto& self = stack_tensor(stack, SELF_INDEX);
+  const auto other = stack.at(OTHER_INDEX);
+  auto selfRank = self.dim();
+  int64_t otherRank = 1;
+  at::optional<at::Scalar> alpha = c10::nullopt;
+  bool autocastToF32 = false;
+  at::ScalarType resultType;
+  std::string updatedGuid = guid;
+
+  SharedMetaDataVector metaVec;
+  if (other.isTensor()) {
+    const auto& otherTensor = other.toTensor();
+    if (stack.size() > 2) {
+      alpha = stack.at(ALPHA_INDEX).toScalar();
+    }
+
+    otherRank = otherTensor.dim();
+    resultType = at::result_type(self, otherTensor);
+    update_result_type(
+        resultType, updatedGuid, castIntToFloat, supportI8, supportI16);
+  } else {
+    const auto& otherScalar = stack.at(OTHER_INDEX).toScalar();
+    resultType = at::result_type(self, otherScalar);
+    update_result_type(
+        resultType, updatedGuid, castIntToFloat, supportI8, supportI16);
+    const float value = otherScalar.toFloat();
+    if (mulOrDiv && is_value_out_of_scalar_range(value, resultType))
+      autocastToF32 = true;
+  }
+
+  if (alpha.has_value() && alpha.value().toFloat() != 1.) {
+    SharedMetaData multSharedMeta{"mult"};
+    multSharedMeta.inputs_data = {{otherRank, resultType}, {1, resultType}};
+    multSharedMeta.outputs_data.emplace_back(otherRank, resultType);
+    metaVec.push_back(multSharedMeta);
+  }
+
+  if (autocastToF32)
+    resultType = torch::kFloat32;
+
+  auto outputRank = std::max(selfRank, otherRank);
+  SharedMetaData sharedMetaBinary{guid};
+  sharedMetaBinary.inputs_data = {
+      {selfRank, resultType}, {otherRank, resultType}};
+  sharedMetaBinary.outputs_data.emplace_back(outputRank, resultType);
+  metaVec.push_back(sharedMetaBinary);
+  return metaVec;
+}
+
+SharedMetaDataVector AddForeachBinarySharedMeta(const at::Stack& stack) {
+  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
+    const bool castIntToFloat = false;
+    const bool supportI8 = true;
+    const bool supportI16 = true;
+    const bool mulOrDiv = false;
+    return ForeachBinaryOneIterationSharedMeta(
+        stack, "add_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
+  };
+
+  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+}
+
+SharedMetaDataVector DivForeachBinarySharedMeta(const at::Stack& stack) {
+  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
+    const bool castIntToFloat = true;
+    const bool supportI8 = true;
+    const bool supportI16 = true;
+    const bool mulOrDiv = true;
+    return ForeachBinaryOneIterationSharedMeta(
+        stack, "div_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
+  };
+
+  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+}
+
+SharedMetaDataVector MaxForeachBinarySharedMeta(const at::Stack& stack) {
+  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
+    const bool castIntToFloat = false;
+    const bool supportI8 = false;
+    const bool supportI16 = false;
+    const bool mulOrDiv = false;
+    return ForeachBinaryOneIterationSharedMeta(
+        stack, "max_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
+  };
+
+  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+}
+
+SharedMetaDataVector MinForeachBinarySharedMeta(const at::Stack& stack) {
+  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
+    const bool castIntToFloat = false;
+    const bool supportI8 = false;
+    const bool supportI16 = false;
+    const bool mulOrDiv = false;
+    return ForeachBinaryOneIterationSharedMeta(
+        stack, "min_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
+  };
+
+  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+}
+
+SharedMetaDataVector MultForeachBinarySharedMeta(const at::Stack& stack) {
+  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
+    const bool castIntToFloat = false;
+    const bool supportI8 = true;
+    const bool supportI16 = true;
+    const bool mulOrDiv = true;
+    return ForeachBinaryOneIterationSharedMeta(
+        stack, "mult_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
+  };
+
+  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+}
+
+SharedMetaDataVector SubForeachBinarySharedMeta(const at::Stack& stack) {
+  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
+    const bool castIntToFloat = false;
+    const bool supportI8 = false;
+    const bool supportI16 = true;
+    const bool mulOrDiv = false;
+    return ForeachBinaryOneIterationSharedMeta(
+        stack, "sub_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
+  };
+
+  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+}
+
 void ForeachBinary::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

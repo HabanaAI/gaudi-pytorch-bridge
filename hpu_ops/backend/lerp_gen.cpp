@@ -81,6 +81,32 @@ SharedMetaDataVector LerpSharedMeta(const at::Stack& stack) {
   return {subSharedMeta, multSharedMeta, addSharedMeta};
 }
 
+SharedMetaDataVector ForeachLerpSharedMeta(const at::Stack& stack) {
+  const auto& starts = stack.at(0).toList();
+  auto startsSize = starts.size();
+  const auto& ends = stack.at(1).toList();
+  auto weightTensors = stack.at(2);
+  c10::optional<c10::List<c10::IValue>> weightTensorList = c10::nullopt;
+  if (weightTensors.isTensorList()) {
+    weightTensorList = weightTensors.toList();
+  }
+
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(startsSize * 3);
+  for (size_t i = 0; i < startsSize; i++) {
+    c10::IValue weight = weightTensorList.has_value()
+        ? weightTensorList.value()[i]
+        : c10::IValue();
+    at::Stack lerpStack = {starts[i], ends[i], weight};
+    auto lerpSharedMeta = LerpSharedMeta(lerpStack);
+    metaVec.insert(
+        std::end(metaVec),
+        std::begin(lerpSharedMeta),
+        std::end(lerpSharedMeta));
+  }
+  return metaVec;
+}
+
 synapse_helpers::tensor CommonLerp(
     OpBackend* op,
     synapse_helpers::graph& graph,

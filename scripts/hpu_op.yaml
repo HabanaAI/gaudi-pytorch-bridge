@@ -183,6 +183,7 @@ _foreach_add.Scalar:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
 
 _foreach_add.List:
   # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
@@ -190,6 +191,7 @@ _foreach_add.List:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
 
 _foreach_add.Tensor:
   # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
@@ -197,6 +199,7 @@ _foreach_add.Tensor:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
 
 _foreach_add.ScalarList:
   # dtypes: [BFloat16, Float, Short, Int] https://jira.habana-labs.com/browse/SW-88870
@@ -204,6 +207,7 @@ _foreach_add.ScalarList:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
 
 _foreach_add_.Scalar:
   dtypes:
@@ -213,6 +217,7 @@ _foreach_add_.Scalar:
   guid: add_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
 
 _foreach_add_.List:
   dtypes:
@@ -222,6 +227,7 @@ _foreach_add_.List:
   guid: add_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
 
 _foreach_add_.Tensor:
   dtypes:
@@ -231,6 +237,7 @@ _foreach_add_.Tensor:
   guid: add_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
 
 _foreach_add_.ScalarList:
   guid: add_fwd
@@ -240,6 +247,7 @@ _foreach_add_.ScalarList:
     Gaudi2: [BFloat16, Float, Long, Int, Short, Char, Half]
     Gaudi3: [BFloat16, Float, Long, Int, Short, Char, Half]
   inplace_ids: [0]
+  op_validator: AddForeachBinarySharedMeta
 
 _foreach_addcdiv.Scalar:
 
@@ -251,6 +259,7 @@ _foreach_addcdiv.Scalar:
   op_backend: ForeachCompound
   output_meta: ForeachCompoundMeta
   out_ids: [0]
+  op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv.ScalarList:
   dtypes:
@@ -261,6 +270,7 @@ _foreach_addcdiv.ScalarList:
   op_backend: ForeachCompound
   output_meta: ForeachCompoundMeta
   out_ids: [0]
+  op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv.Tensor:
   dtypes:
@@ -271,6 +281,7 @@ _foreach_addcdiv.Tensor:
   op_backend: ForeachCompound
   output_meta: ForeachCompoundMeta
   out_ids: [0]
+  op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv_.Scalar:
   dtypes:
@@ -280,6 +291,7 @@ _foreach_addcdiv_.Scalar:
   guid: addcdiv_fwd
   op_backend: ForeachCompound
   inplace_ids: [0]
+  op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv_.ScalarList:
   dtypes:
@@ -289,6 +301,7 @@ _foreach_addcdiv_.ScalarList:
   guid: addcdiv_fwd
   op_backend: ForeachCompound
   inplace_ids: [0]
+  op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcdiv_.Tensor:
   dtypes:
@@ -298,6 +311,7 @@ _foreach_addcdiv_.Tensor:
   guid: addcdiv_fwd
   op_backend: ForeachCompound
   inplace_ids: [0]
+  op_validator: ForeachAddcdivSharedMeta
 
 _foreach_addcmul.Scalar:
   dtypes:
@@ -308,6 +322,7 @@ _foreach_addcmul.Scalar:
   op_backend: ForeachCompound
   output_meta: ForeachCompoundMeta
   out_ids: [0]
+  op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul.ScalarList:
   dtypes:
@@ -318,6 +333,7 @@ _foreach_addcmul.ScalarList:
   op_backend: ForeachCompound
   output_meta: ForeachCompoundMeta
   out_ids: [0]
+  op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul.Tensor:
   dtypes:
@@ -328,6 +344,7 @@ _foreach_addcmul.Tensor:
   op_backend: ForeachCompound
   output_meta: ForeachCompoundMeta
   out_ids: [0]
+  op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul_.Scalar:
   dtypes:
@@ -337,6 +354,7 @@ _foreach_addcmul_.Scalar:
   guid: addcmul_fwd
   op_backend: ForeachCompound
   inplace_ids: [0]
+  op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul_.ScalarList:
   dtypes:
@@ -346,6 +364,7 @@ _foreach_addcmul_.ScalarList:
   guid: addcmul_fwd
   op_backend: ForeachCompound
   inplace_ids: [0]
+  op_validator: ForeachAddcmulSharedMeta
 
 _foreach_addcmul_.Tensor:
   dtypes:
@@ -355,6 +374,7 @@ _foreach_addcmul_.Tensor:
   guid: addcmul_fwd
   op_backend: ForeachCompound
   inplace_ids: [0]
+  op_validator: ForeachAddcmulSharedMeta
 
 _foreach_acos:
   dtypes: [Float]
@@ -425,6 +445,7 @@ _foreach_clamp_max.Scalar:
   output_meta: ForeachBinaryMeta
   op_backend: ForeachClamp
   out_ids: [0]
+  op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max.List:
   dtypes:
@@ -435,6 +456,7 @@ _foreach_clamp_max.List:
   output_meta: ForeachBinaryMeta
   op_backend: ForeachClamp
   out_ids: [0]
+  op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max.ScalarList:
   dtypes:
@@ -445,6 +467,7 @@ _foreach_clamp_max.ScalarList:
   output_meta: ForeachBinaryMeta
   op_backend: ForeachClamp
   out_ids: [0]
+  op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max_.Scalar:
   dtypes:
@@ -454,6 +477,7 @@ _foreach_clamp_max_.Scalar:
   guid: foreach_clamp_max
   op_backend: ForeachClamp
   inplace_ids: [0]
+  op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_max_.List:
   dtypes:
@@ -464,6 +488,7 @@ _foreach_clamp_max_.List:
   op_backend: ForeachClamp
   inplace_ids: [0]
 
+
 _foreach_clamp_max_.ScalarList:
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Short, Char]
@@ -472,6 +497,7 @@ _foreach_clamp_max_.ScalarList:
   guid: foreach_clamp_max
   op_backend: ForeachClamp
   inplace_ids: [0]
+  op_validator: ForeachClampMaxSharedMeta
 
 _foreach_clamp_min.Scalar:
   dtypes:
@@ -482,6 +508,7 @@ _foreach_clamp_min.Scalar:
   output_meta: ForeachBinaryMeta
   op_backend: ForeachClamp
   out_ids: [0]
+  op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min.List:
   dtypes:
@@ -492,6 +519,7 @@ _foreach_clamp_min.List:
   output_meta: ForeachBinaryMeta
   op_backend: ForeachClamp
   out_ids: [0]
+  op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min.ScalarList:
   dtypes:
@@ -502,6 +530,7 @@ _foreach_clamp_min.ScalarList:
   output_meta: ForeachBinaryMeta
   op_backend: ForeachClamp
   out_ids: [0]
+  op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min_.Scalar:
   dtypes:
@@ -511,6 +540,7 @@ _foreach_clamp_min_.Scalar:
   guid: foreach_clamp_min
   op_backend: ForeachClamp
   inplace_ids: [0]
+  op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min_.List:
   dtypes:
@@ -520,6 +550,7 @@ _foreach_clamp_min_.List:
   guid: foreach_clamp_min
   op_backend: ForeachClamp
   inplace_ids: [0]
+  op_validator: ForeachClampMinSharedMeta
 
 _foreach_clamp_min_.ScalarList:
   dtypes:
@@ -529,6 +560,7 @@ _foreach_clamp_min_.ScalarList:
   guid: foreach_clamp_min
   op_backend: ForeachClamp
   inplace_ids: [0]
+  op_validator: ForeachClampMinSharedMeta
 
 _foreach_cos:
   guid: cos_fwd
@@ -568,6 +600,7 @@ _foreach_div.Scalar:
   op_backend: ForeachBinary
   output_meta: DivForeachBinaryMeta
   out_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
 
 _foreach_div.Tensor:
   dtypes:
@@ -578,6 +611,7 @@ _foreach_div.Tensor:
   op_backend: ForeachBinary
   output_meta: DivForeachBinaryMeta
   out_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
 
 _foreach_div.List:
   dtypes:
@@ -588,6 +622,7 @@ _foreach_div.List:
   op_backend: ForeachBinary
   output_meta: DivForeachBinaryMeta
   out_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
 
 _foreach_div.ScalarList:
   dtypes:
@@ -598,6 +633,7 @@ _foreach_div.ScalarList:
   op_backend: ForeachBinary
   output_meta: DivForeachBinaryMeta
   out_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
 
 _foreach_div_.Scalar:
   dtypes:
@@ -607,6 +643,7 @@ _foreach_div_.Scalar:
   guid: div_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
 
 _foreach_div_.Tensor:
   dtypes:
@@ -616,6 +653,7 @@ _foreach_div_.Tensor:
   guid: div_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
 
 _foreach_div_.List:
   dtypes:
@@ -625,6 +663,7 @@ _foreach_div_.List:
   guid: div_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
 
 _foreach_div_.ScalarList:
   dtypes:
@@ -634,6 +673,7 @@ _foreach_div_.ScalarList:
   guid: div_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: DivForeachBinarySharedMeta
 
 _foreach_erf:
   dtypes: [BFloat16, Float]
@@ -728,6 +768,7 @@ _foreach_lerp.Scalar:
   op_backend: ForeachLerp
   output_meta: ForeachLerpMeta
   out_ids: [0]
+  op_validator: ForeachLerpSharedMeta
 
 _foreach_lerp.List:
   dtypes:
@@ -737,6 +778,7 @@ _foreach_lerp.List:
   op_backend: ForeachLerp
   output_meta: ForeachLerpMeta
   out_ids: [0]
+  op_validator: ForeachLerpSharedMeta
 
 _foreach_lerp_.Scalar:
   dtypes:
@@ -745,6 +787,7 @@ _foreach_lerp_.Scalar:
     Gaudi3: [BFloat16, Float, Half]
   op_backend: ForeachLerp
   inplace_ids: [0]
+  op_validator: ForeachLerpSharedMeta
 
 _foreach_lerp_.List:
   dtypes:
@@ -753,6 +796,7 @@ _foreach_lerp_.List:
     Gaudi3: [BFloat16, Float, Half]
   op_backend: ForeachLerp
   inplace_ids: [0]
+  op_validator: ForeachLerpSharedMeta
 
 _foreach_lgamma:
   dtypes: [Float]
@@ -836,6 +880,7 @@ _foreach_maximum.Scalar:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum.List:
   dtypes:
@@ -846,6 +891,7 @@ _foreach_maximum.List:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum.ScalarList:
   dtypes:
@@ -856,6 +902,7 @@ _foreach_maximum.ScalarList:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum_.Scalar:
   dtypes:
@@ -865,6 +912,7 @@ _foreach_maximum_.Scalar:
   guid: max_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum_.List:
   dtypes:
@@ -874,6 +922,7 @@ _foreach_maximum_.List:
   guid: max_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: MaxForeachBinarySharedMeta
 
 _foreach_maximum_.ScalarList:
   dtypes:
@@ -883,6 +932,7 @@ _foreach_maximum_.ScalarList:
   guid: max_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: MaxForeachBinarySharedMeta
 
 _foreach_minimum.Scalar:
   dtypes:
@@ -893,6 +943,7 @@ _foreach_minimum.Scalar:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum.List:
   dtypes:
@@ -903,6 +954,7 @@ _foreach_minimum.List:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum.ScalarList:
   dtypes:
@@ -913,6 +965,7 @@ _foreach_minimum.ScalarList:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum_.Scalar:
   dtypes:
@@ -922,6 +975,7 @@ _foreach_minimum_.Scalar:
   guid: min_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum_.List:
   dtypes:
@@ -931,6 +985,7 @@ _foreach_minimum_.List:
   guid: min_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: MinForeachBinarySharedMeta
 
 _foreach_minimum_.ScalarList:
   dtypes:
@@ -940,6 +995,7 @@ _foreach_minimum_.ScalarList:
   guid: min_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: MinForeachBinarySharedMeta
 
 _foreach_mul.Scalar:
   dtypes:
@@ -950,6 +1006,7 @@ _foreach_mul.Scalar:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul.List:
   dtypes:
@@ -960,6 +1017,7 @@ _foreach_mul.List:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul.Tensor:
   dtypes:
@@ -970,6 +1028,7 @@ _foreach_mul.Tensor:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul.ScalarList:
   dtypes:
@@ -980,6 +1039,7 @@ _foreach_mul.ScalarList:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul_.Scalar:
   dtypes:
@@ -989,6 +1049,7 @@ _foreach_mul_.Scalar:
   guid: mult_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul_.Tensor:
   dtypes:
@@ -998,6 +1059,7 @@ _foreach_mul_.Tensor:
   guid: mult_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul_.List:
   dtypes:
@@ -1007,6 +1069,7 @@ _foreach_mul_.List:
   guid: mult_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
 
 _foreach_mul_.ScalarList:
   dtypes:
@@ -1016,6 +1079,7 @@ _foreach_mul_.ScalarList:
   guid: mult_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: MultForeachBinarySharedMeta
 
 _foreach_neg:
   dtypes: [BFloat16, Float, Int]
@@ -1041,6 +1105,7 @@ _foreach_pow.Scalar:
   op_backend: PowForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: PowForeachBinarySharedMeta
 
 _foreach_pow.ScalarAndTensor:
   dtypes:
@@ -1051,6 +1116,7 @@ _foreach_pow.ScalarAndTensor:
   op_backend: PowForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [1]
+  op_validator: PowForeachBinarySharedMeta
 
 _foreach_pow.List:
   dtypes:
@@ -1061,6 +1127,7 @@ _foreach_pow.List:
   op_backend: PowForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: PowForeachBinarySharedMeta
 
 _foreach_pow.ScalarList:
   dtypes:
@@ -1071,6 +1138,7 @@ _foreach_pow.ScalarList:
   op_backend: PowForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: PowForeachBinarySharedMeta
 
 _foreach_pow_.Scalar:
   dtypes:
@@ -1080,6 +1148,7 @@ _foreach_pow_.Scalar:
   guid: pow_fwd
   op_backend: PowForeachBinary
   inplace_ids: [0]
+  op_validator: PowForeachBinarySharedMeta
 
 _foreach_pow_.List:
   dtypes:
@@ -1089,6 +1158,7 @@ _foreach_pow_.List:
   guid: pow_fwd
   op_backend: PowForeachBinary
   inplace_ids: [0]
+  op_validator: PowForeachBinarySharedMeta
 
 _foreach_pow_.ScalarList:
   dtypes:
@@ -1098,6 +1168,7 @@ _foreach_pow_.ScalarList:
   guid: pow_fwd
   op_backend: PowForeachBinary
   inplace_ids: [0]
+  op_validator: PowForeachBinarySharedMeta
 
 _foreach_reciprocal:
   dtypes: [BFloat16, Float]
@@ -1221,6 +1292,7 @@ _foreach_sub.Scalar:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub.List:
   dtypes:
@@ -1231,6 +1303,7 @@ _foreach_sub.List:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub.ScalarList:
   dtypes:
@@ -1241,6 +1314,7 @@ _foreach_sub.ScalarList:
   op_backend: ForeachBinary
   output_meta: ForeachBinaryMeta
   out_ids: [0]
+  op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub_.Scalar:
   dtypes:
@@ -1250,6 +1324,7 @@ _foreach_sub_.Scalar:
   guid: sub_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub_.List:
   dtypes:
@@ -1259,6 +1334,7 @@ _foreach_sub_.List:
   guid: sub_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: SubForeachBinarySharedMeta
 
 _foreach_sub_.ScalarList:
   dtypes:
@@ -1268,6 +1344,7 @@ _foreach_sub_.ScalarList:
   guid: sub_fwd
   op_backend: ForeachBinary
   inplace_ids: [0]
+  op_validator: SubForeachBinarySharedMeta
 
 _foreach_tan:
   dtypes: [Float]

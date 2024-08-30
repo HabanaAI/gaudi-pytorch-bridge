@@ -214,4 +214,62 @@ SharedMetaDataVector CompareSharedMeta(
   return {compareSharedMeta};
 }
 
+SharedMetaDataVector ForeachCompoundSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  const auto& selfs = stack.at(0).toTensorList();
+  const auto& tensors1 = stack.at(1).toTensorList();
+  const auto& tensors2 = stack.at(2).toTensorList();
+  const auto& value = stack.at(3);
+  const bool isValueTensor = value.isTensor();
+  const auto selfsSize = selfs.size();
+  int maxNoOfNodesPerIteration = isValueTensor ? 3 : 1;
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(selfsSize * maxNoOfNodesPerIteration);
+  for (size_t i = 0; i < selfsSize; ++i) {
+    const auto& self = selfs[i];
+    const auto& tensor1 = tensors1[i];
+    const auto& tensor2 = tensors2[i];
+    const auto selfRank = self.dim();
+    const auto tensor1Rank = tensor1.dim();
+    const auto tensor2Rank = tensor2.dim();
+    const auto selfDtype = self.scalar_type();
+    at::ScalarType dtype =
+        at::promote_types(selfDtype, at::result_type(tensor1, tensor2));
+    const int outputRank =
+        std::max(selfRank, std::max(tensor1Rank, tensor2Rank));
+    bool isAddcdiv = guid == "addcdiv_fwd";
+    const bool isOutputIntegral = c10::isIntegralType(dtype, true);
+    dtype = (isAddcdiv && isOutputIntegral) ? torch::kFloat32 : dtype;
+    c10::optional<SharedMetaData> floorSharedMeta = c10::nullopt;
+
+    if (isValueTensor) {
+      auto valueTensor = value.toTensor();
+      auto valueRank = valueTensor.dim();
+      auto valueDtype = valueTensor.scalar_type();
+      SharedMetaData sliceAxisSharedMeta{"slice_axis"};
+      sliceAxisSharedMeta.inputs_data.emplace_back(valueRank, valueDtype);
+      sliceAxisSharedMeta.outputs_data.emplace_back(1, valueDtype);
+      metaVec.push_back(sliceAxisSharedMeta);
+
+      if (c10::isFloatingType(valueDtype) && isOutputIntegral) {
+        floorSharedMeta = {"floor_fwd"};
+        sliceAxisSharedMeta.inputs_data = sliceAxisSharedMeta.outputs_data;
+        sliceAxisSharedMeta.outputs_data = sliceAxisSharedMeta.inputs_data;
+        metaVec.push_back(sliceAxisSharedMeta);
+      }
+    }
+
+    SharedMetaData compositeSharedMeta{guid};
+    compositeSharedMeta.inputs_data = {
+        {selfRank, dtype}, {tensor1Rank, dtype}, {tensor2Rank, dtype}};
+    if (floorSharedMeta.has_value())
+      compositeSharedMeta.inputs_data.emplace_back(1, dtype);
+
+    compositeSharedMeta.outputs_data.emplace_back(outputRank, dtype);
+    metaVec.push_back(compositeSharedMeta);
+  }
+  return metaVec;
+}
+
 } // namespace habana

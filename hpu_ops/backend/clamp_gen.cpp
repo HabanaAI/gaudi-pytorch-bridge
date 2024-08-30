@@ -156,6 +156,22 @@ SharedMetaDataVector ClampMaxSharedMeta(const at::Stack& stack) {
   return ClampSharedMeta({stack.at(0), dummyScalar, stack.at(1)});
 }
 
+SharedMetaDataVector ForeachClampMinSharedMeta(const at::Stack& stack) {
+  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
+    return ClampMinSharedMeta(stack);
+  };
+
+  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+}
+
+SharedMetaDataVector ForeachClampMaxSharedMeta(const at::Stack& stack) {
+  SharedMetaCreateFunction sharedMetaCreator = [](const at::Stack& stack) {
+    return ClampMaxSharedMeta(stack);
+  };
+
+  return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+}
+
 static synapse_helpers::tensor ClampCommon(
     OpBackend* op,
     synapse_helpers::graph& graph,

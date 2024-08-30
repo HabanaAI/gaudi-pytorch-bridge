@@ -29,6 +29,6 @@ SHARED_META(FillCumSumProd)
 SHARED_META(IsFiniteInfNan)
 SHARED_META(Rounding)
 SHARED_META(Compare)
-
+SHARED_META(ForeachCompound)
 SHARED_META(UnaryForeach)
 } // namespace habana
