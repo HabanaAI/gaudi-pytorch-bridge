@@ -7329,7 +7329,23 @@ fp8_sdpa_recomp_fwd_lazy(
     c10::string_view seq_padding_type) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
+
+  c10::optional<at::Tensor> seed_opt;
+
+  if (p > 0.0) {
+    c10::optional<Generator> gen;
+    seed_opt = habana::get_seed_tensor_hpu(gen);
+  }
+  LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor, Tensor>> hpu_op{
+      "hpu::fp8_sdpa_recomp_fwd_be",
+      {q,         k,         v,         attention_mask,    seed_opt,
+       p,         scale,     is_causal, requires_backward, softmax_mode,
+       d_scale_q, d_scale_k, d_scale_v, q_scale_s,         q_scale_o,
+       d_scale_s, is_amax_s, is_amax_o, valid_seq_len,     seq_padding_type},
+      Fp8SDPARecompFwdOutputShape};
+
   auto fwdOutType = q.scalar_type();
+
   if (q.scalar_type() == at::ScalarType::Float8_e4m3fn) {
     if (q_scale_o.has_value()) {
       fwdOutType = at::ScalarType::Float8_e4m3fn;
@@ -7353,74 +7369,15 @@ fp8_sdpa_recomp_fwd_lazy(
     mType = c10::ScalarType::BFloat16;
   }
 
-  if (p > 0.0) {
-    c10::optional<Generator> gen;
-    auto seed = habana::get_seed_tensor_hpu(gen);
-    LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor, Tensor>> hpu_op{
-        "hpu::fp8_sdpa_recomp_fwd_dropout_seed",
-        {seed,
-         q,
-         k,
-         v,
-         attention_mask,
-         p,
-         scale,
-         is_causal,
-         requires_backward,
-         softmax_mode,
-         d_scale_q,
-         d_scale_k,
-         d_scale_v,
-         q_scale_s,
-         q_scale_o,
-         d_scale_s,
-         is_amax_s,
-         is_amax_o,
-         valid_seq_len,
-         seq_padding_type},
-        Fp8SDPARecompFwdOutputShape};
-    hpu_op.set_scalar_types(
-        {fwdOutType,
-         mType,
-         linvType,
-         c10::ScalarType::Int,
-         c10::ScalarType::Float,
-         c10::ScalarType::Float});
+  hpu_op.set_scalar_types(
+      {fwdOutType,
+       mType,
+       linvType,
+       c10::ScalarType::Int,
+       c10::ScalarType::Float,
+       c10::ScalarType::Float});
 
-    RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_recomp_fwd, hpu_op)
-  } else {
-    LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor, Tensor, Tensor>> hpu_op{
-        "hpu::fp8_sdpa_recomp_fwd",
-        {q,
-         k,
-         v,
-         attention_mask,
-         p,
-         scale,
-         is_causal,
-         requires_backward,
-         softmax_mode,
-         d_scale_q,
-         d_scale_k,
-         d_scale_v,
-         q_scale_s,
-         q_scale_o,
-         d_scale_s,
-         is_amax_s,
-         is_amax_o,
-         valid_seq_len,
-         seq_padding_type},
-        Fp8SDPARecompFwdOutputShape};
-    hpu_op.set_scalar_types(
-        {fwdOutType,
-         mType,
-         linvType,
-         c10::ScalarType::Int,
-         c10::ScalarType::Float,
-         c10::ScalarType::Float});
-
-    RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_recomp_fwd, hpu_op)
-  }
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_recomp_fwd, hpu_op)
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
@@ -7444,6 +7401,34 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
 
+  c10::optional<at::Tensor> seed_opt;
+
+  if (p > 0.0) {
+    c10::optional<Generator> gen;
+    seed_opt = habana::get_seed_tensor_hpu(gen);
+  }
+  LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
+      "hpu::fp8_sdpa_fwd_dropout_seed",
+      {q,
+       k,
+       v,
+       attention_mask,
+       seed_opt,
+       p,
+       scale,
+       is_causal,
+       softmax_mode,
+       d_scale_q,
+       d_scale_k,
+       d_scale_v,
+       q_scale_s,
+       q_scale_o,
+       d_scale_s,
+       is_amax_s,
+       valid_seq_len,
+       seq_padding_type},
+      Fp8SDPAFwdOutputShape};
+
   auto fwdOutType = q.scalar_type();
   auto sfmxType = q.scalar_type();
   // if (is_amax_s) {
@@ -7461,60 +7446,10 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_fwd_lazy(
     }
   }
 
-  if (p > 0.0) {
-    c10::optional<Generator> gen;
-    auto seed = habana::get_seed_tensor_hpu(gen);
-    LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
-        "hpu::fp8_sdpa_fwd_dropout_seed",
-        {seed,
-         q,
-         k,
-         v,
-         attention_mask,
-         p,
-         scale,
-         is_causal,
-         softmax_mode,
-         d_scale_q,
-         d_scale_k,
-         d_scale_v,
-         q_scale_s,
-         q_scale_o,
-         d_scale_s,
-         is_amax_s,
-         valid_seq_len,
-         seq_padding_type},
-        Fp8SDPAFwdOutputShape};
-    hpu_op.set_scalar_types(
-        {fwdOutType, sfmxType, c10::ScalarType::Char, c10::ScalarType::Float});
+  hpu_op.set_scalar_types(
+      {fwdOutType, sfmxType, c10::ScalarType::Char, c10::ScalarType::Float});
 
-    RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_fwd, hpu_op)
-  } else {
-    LazyOp<std::tuple<Tensor, Tensor, Tensor, Tensor>> hpu_op{
-        "hpu::fp8_sdpa_fwd",
-        {q,
-         k,
-         v,
-         attention_mask,
-         p,
-         scale,
-         is_causal,
-         softmax_mode,
-         d_scale_q,
-         d_scale_k,
-         d_scale_v,
-         q_scale_s,
-         q_scale_o,
-         d_scale_s,
-         is_amax_s,
-         valid_seq_len,
-         seq_padding_type},
-        Fp8SDPAFwdOutputShape};
-    hpu_op.set_scalar_types(
-        {fwdOutType, sfmxType, c10::ScalarType::Char, c10::ScalarType::Float});
-
-    RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_fwd, hpu_op)
-  }
+  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_sdpa_fwd, hpu_op)
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor> sdpa_bwd_lazy(

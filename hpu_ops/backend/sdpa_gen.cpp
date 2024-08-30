@@ -146,7 +146,6 @@ sizes_vec_template<DimT> SDPAFwdOutputShapeCommon(
 sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
   auto q_or_seed = stack[0].toTensor();
   int q_index = (q_or_seed.sizes().vec().size() < 3) ? 1 : 0;
-
   auto q = stack_tensor(stack, q_index);
   auto k = stack_tensor(stack, q_index + 1);
   auto v = stack_tensor(stack, q_index + 2);
@@ -154,23 +153,6 @@ sizes_vec SDPAFwdOutputShape(const at::Stack& stack) {
   auto drp_prob = stack.at(drp_prob_idx).toDouble();
   return SDPAFwdOutputShapeCommon(q.sizes(), k.sizes(), v.sizes(), drp_prob);
 }
-
-/*This is called only in compile*/
-sym_sizes_vec fp8_sdpa_fwd_out_shape(
-    const std::vector<at::Tensor>& inputs,
-    const std::vector<float>& params) {
-  TORCH_CHECK(inputs.size() == 3);
-  TORCH_CHECK(params.size() == 1);
-  sym_sizes_vec out_sizes = SDPAFwdOutputShapeCommon(
-      inputs[0].sym_sizes(),
-      inputs[1].sym_sizes(),
-      inputs[2].sym_sizes(),
-      params[0] /*dropout_p*/);
-  // insert amax_ds shape
-  out_sizes.push_back({1});
-  return out_sizes;
-}
-REGISTER_CUSTOM_OP_OUTSHAPE_FUN(fp8_sdpa_fwd, fp8_sdpa_fwd_out_shape);
 
 /*This is called only in compile*/
 sym_sizes_vec sdpa_fwd_out_shape(
@@ -260,7 +242,13 @@ static void fillSdpaParams(
 }
 
 sizes_vec Fp8SDPAFwdOutputShape(const at::Stack& stack) {
-  sizes_vec out_shapes = SDPAFwdOutputShape(stack);
+  auto q = stack_tensor(stack, 0);
+  auto k = stack_tensor(stack, 1);
+  auto v = stack_tensor(stack, 2);
+  int drp_prob_idx = 5;
+  auto drp_prob = stack.at(drp_prob_idx).toDouble();
+  sizes_vec out_shapes =
+      SDPAFwdOutputShapeCommon(q.sizes(), k.sizes(), v.sizes(), drp_prob);
   // insert amax_s shape
   out_shapes.push_back({1});
   return out_shapes;
@@ -292,7 +280,6 @@ void SDPAFwd::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
   SDPA_SET_FLAGS(seq_padding_type == "left", flags, SEQ_PADDING_LEFT)
   SDPA_SET_FLAGS(seq_padding_type == "right", flags, SEQ_PADDING_RIGHT)
-
   ns_Sdpa::ParamsV3 params{};
   fillSdpaParams(params, p, scale, is_causal, false, softmax_mode, flags);
 
@@ -336,17 +323,11 @@ void Fp8SDPAFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   StackGetter stackGetter(stack, "Fp8SDPAFwd::AddNode");
-  auto q_or_seed = stack[0].toTensor();
-  bool seed_present = (q_or_seed.sizes().vec().size() < 3);
-  synTensor seed_tensor = nullptr;
-  if (seed_present) {
-    auto seed = getNextInput<TensorsPair>(stackGetter);
-    seed_tensor = seed.syn_t;
-  }
   auto q = getNextInput<TensorsPair>(stackGetter);
   auto k = getNextInput<TensorsPair>(stackGetter);
   auto v = getNextInput<TensorsPair>(stackGetter);
   auto attention_mask = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto seed = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
   auto is_causal = getNextInput<bool>(stackGetter);
@@ -389,8 +370,11 @@ void Fp8SDPAFwd::AddNode(
   } else {
     syn_inputs.push_back(nullptr);
   }
-
-  syn_inputs.push_back(seed_tensor);
+  if (p > 0.0) {
+    syn_inputs.push_back(seed.value().syn_t);
+  } else {
+    syn_inputs.push_back(nullptr);
+  }
 
   SDPA_ADD_INPUTS(d_scale_q)
   SDPA_ADD_INPUTS(d_scale_k)
@@ -762,7 +746,6 @@ sizes_vec_template<DimT> SDPARecompFwdOutputShapeCommon(
 sizes_vec SDPARecompFwdOutputShape(const at::Stack& stack) {
   auto q_or_seed = stack_tensor(stack, 0);
   int q_index = (q_or_seed.sizes().vec().size() < 3) ? 1 : 0;
-
   auto q = stack_tensor(stack, q_index);
   auto k = stack_tensor(stack, q_index + 1);
   auto v = stack_tensor(stack, q_index + 2);
@@ -784,25 +767,7 @@ sym_sizes_vec sdpa_recomp_fwd_out_shape(
       static_cast<bool>(params[0]));
 }
 
-sym_sizes_vec fp8_sdpa_recomp_fwd_out_shape(
-    const std::vector<at::Tensor>& inputs,
-    const std::vector<int64_t>& params) {
-  TORCH_CHECK(inputs.size() == 3);
-  TORCH_CHECK(params.size() == 1);
-  sym_sizes_vec out_sizes = SDPARecompFwdOutputShapeCommon(
-      inputs[0].sym_sizes(),
-      inputs[1].sym_sizes(),
-      inputs[2].sym_sizes(),
-      static_cast<bool>(params[0]));
-  out_sizes.push_back({1});
-  out_sizes.push_back({1});
-  return out_sizes;
-}
-
 REGISTER_CUSTOM_OP_OUTSHAPE_FUN(sdpa_recomp_fwd, sdpa_recomp_fwd_out_shape);
-REGISTER_CUSTOM_OP_OUTSHAPE_FUN(
-    fp8_sdpa_recomp_fwd,
-    fp8_sdpa_recomp_fwd_out_shape);
 
 sizes_vec Fp8SDPARecompFwdOutputShape(const at::Stack& stack) {
   sizes_vec out_shape = SDPARecompFwdOutputShape(stack);
@@ -917,17 +882,11 @@ void Fp8SDPARecompFwd::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
   StackGetter stackGetter(stack, "Fp8SDPARecompFwd::AddNode");
-  auto q_or_seed = stack[0].toTensor();
-  bool seed_present = (q_or_seed.sizes().vec().size() < 3);
-  synTensor seed_tensor = nullptr;
-  if (seed_present) {
-    auto seed = getNextInput<TensorsPair>(stackGetter);
-    seed_tensor = seed.syn_t;
-  }
   auto q = getNextInput<TensorsPair>(stackGetter);
   auto k = getNextInput<TensorsPair>(stackGetter);
   auto v = getNextInput<TensorsPair>(stackGetter);
   auto attention_mask = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto seed = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto p = getNextInput<double>(stackGetter);
   auto scale = getNextInput<double>(stackGetter);
   auto is_causal = getNextInput<bool>(stackGetter);
@@ -984,7 +943,11 @@ void Fp8SDPARecompFwd::AddNode(
   } else {
     syn_inputs.push_back(nullptr);
   }
-  syn_inputs.push_back(seed_tensor);
+  if (p > 0.0) {
+    syn_inputs.push_back(seed.value().syn_t);
+  } else {
+    syn_inputs.push_back(nullptr);
+  }
 
   SDPA_ADD_INPUTS(d_scale_q)
   SDPA_ADD_INPUTS(d_scale_k)
@@ -1140,21 +1103,10 @@ static const auto& SDPAKernelRegistry =
         .add(
             "hpu::sdpa_recomp_fwd_dropout_seed",
             KERNEL_FN_GLOBAL(habana::SDPARecompFwd))
-        .add("hpu::fp8_sdpa_fwd", KERNEL_FN_GLOBAL(habana::Fp8SDPAFwd))
+        .add(
+            "hpu::fp8_sdpa_recomp_fwd_be",
+            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
         .add(
             "hpu::fp8_sdpa_fwd_dropout_seed",
             KERNEL_FN_GLOBAL(habana::Fp8SDPAFwd))
-        .add(
-            "hpu::fp8_sdpa_fwd_non_dropout",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPAFwd))
-        .add(
-            "hpu::fp8_sdpa_recomp_fwd",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
-            "hpu::fp8_sdpa_recomp_fwd_dropout_seed",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-        .add(
-            "hpu::fp8_sdpa_recomp_fwd_non_dropout",
-            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-
         .add("hpu::sdpa_recomp_bwd", KERNEL_FN_GLOBAL(habana::SDPARecompBwd));

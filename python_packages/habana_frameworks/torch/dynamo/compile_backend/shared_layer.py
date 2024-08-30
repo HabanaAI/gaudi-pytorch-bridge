@@ -77,15 +77,6 @@ hpu_supported_op_list = {
     "sdpa_fwd_non_dropout",
     "sdpa_fwd_dropout_seed",
     "sdpa_bwd",
-    "fp8_sdpa_fwd",
-    "fp8_sdpa_fwd_dropout",
-    "fp8_sdpa_fwd_non_dropout",
-    "fp8_sdpa_fwd_dropout_seed",
-    "fp8_sdpa_bwd",
-    "fp8_sdpa_recomp_fwd",
-    "fp8_sdpa_recomp_fwd_dropout",
-    "fp8_sdpa_recomp_fwd_non_dropout",
-    "fp8_sdpa_recomp_fwd_dropout_seed",
     "clone",
     "copy_",
     # view ops
@@ -153,6 +144,7 @@ hpu_ds_fallback_list = {
     "sdpa_recomp_fwd_dropout_seed",
     "sdpa_recomp_bwd",
     "fp8_sdpa_recomp_fwd",
+    "fp8_sdpa_recomp_fwd_be",
 }
 
 
