@@ -6074,6 +6074,7 @@ median.dim:
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
   op_backend: Mediandim
+  guid: mediandim
   out_ids: [0, 0]
 
 median.dim_values:
@@ -6083,6 +6084,7 @@ median.dim_values:
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
   op_backend: Mediandim
+  guid: mediandim
 
 max:
   output_meta: ReduceMinMaxMeta

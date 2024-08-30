@@ -20,6 +20,17 @@ constexpr size_t index_of_reduction_axis = 1;
 constexpr size_t index_of_keepdim = 2;
 constexpr int descending_order = 0;
 
+std::shared_ptr<void> FillMediandimParams(
+    const at::Stack& stack,
+    size_t& size) {
+  PARAMS_STUB(ns_MediandimKernel::Params);
+
+  params->reduction_dim = stack[index_of_reduction_axis].toInt();
+  params->keep_dim = stack[index_of_keepdim].toBool();;
+
+  return params;
+}
+
 OutputMetaDataVector MedianOutputMeta(const at::Stack& stack) {
   OutputMetaData meta;
   meta.shape = {};
@@ -70,86 +81,22 @@ void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack_tensor(stack, index_of_self);
   auto self_size = self.sizes().vec();
 
-  if (self_size.size() == 0) {
-    auto out_shape = MediandimOutputShape(stack)[0];
-    auto out = OpBackend::BuildOp(
-        graph, "identity", {syn_in(0)}, {{out_shape, ScalarType(), 0}});
-    syn_out(0) = std::move(out[0]);
-    auto indices_dtype = common::IsInt64Supported() ? c10::ScalarType::Long
-                                                    : c10::ScalarType::Int;
-    auto index = ConstantHelper(graph, /*val=*/0, indices_dtype, out_shape, 1);
-    syn_out(1) = std::move(index);
-    return;
-  }
-
-  bool keepdim = stack[index_of_keepdim].toBool();
-  int64_t reduction_axis = c10::maybe_wrap_dim(
-      stack[index_of_reduction_axis].toInt(),
-      self.dim(),
-      /*wrap_scalar=*/true);
+  size_t size = 0;
+  auto params = FillMediandimParams(stack, size);
   auto meta = MedianDimOutputMeta(stack);
 
-  std::vector<int64_t> topk_outshape;
-  topk_outshape = self_size;
-
-  auto topk = TopK_Helper(
-      this,
+  auto result = BuildOp(
       graph,
-      {syn_in(index_of_self)},
-      reduction_axis,
-      topk_outshape,
-      descending_order,
-      self.ndimension(),
-      topk_outshape[reduction_axis],
-      1, /* median variant */
-      c10::nullopt);
+      GetGuid(),
+      {syn_in(0)},
+      {{meta[0].shape, meta[0].dtype, 0}, {meta[1].shape, meta[1].dtype, 1}},
+      params.get(),
+      size);
 
-  std::vector<int64_t> slice_outshape;
-  slice_outshape = self_size;
-  /* The output tensor will have the single median value along the reduction
-     axis. Hence the size along the reduction axis = 1 */
-  slice_outshape[reduction_axis] = 1;
+  syn_out(0) = std::move(result[0]);
+  syn_out(1) = std::move(result[1]);
 
-  auto median_value = Median_Slice_Helper(
-      this,
-      graph,
-      {topk[0].get()},
-      slice_outshape,
-      meta[0].dtype,
-      self_size[reduction_axis],
-      self.ndimension(),
-      reduction_axis,
-      1 /* median variant */,
-      keepdim,
-      0 /* node index*/);
-
-  auto median_index = Median_Slice_Helper(
-      this,
-      graph,
-      {topk[1].get()},
-      slice_outshape,
-      meta[1].dtype,
-      self_size[reduction_axis],
-      self.ndimension(),
-      reduction_axis,
-      1 /* median variant */,
-      keepdim,
-      1 /* node index */);
-
-  if (keepdim) {
-    syn_out(0) = std::move(median_value[0]);
-    syn_out(1) = std::move(median_index[0]);
-  } else {
-    auto output_shape = MediandimOutputShape(stack)[0];
-    auto reshaped_median_value = ReshapeHelper(
-        graph, median_value[0].get(), meta[0].shape, meta[0].dtype, 0);
-
-    auto reshaped_median_index = ReshapeHelper(
-        graph, median_index[0].get(), meta[1].shape, meta[1].dtype, 1);
-
-    syn_out(0) = std::move(reshaped_median_value);
-    syn_out(1) = std::move(reshaped_median_index);
-  }
+  return;
 }
 
 } // namespace habana
