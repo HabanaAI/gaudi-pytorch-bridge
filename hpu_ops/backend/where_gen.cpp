@@ -34,6 +34,26 @@ OutputMetaDataVector WhereMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector WhereSharedMeta(const at::Stack& stack) {
+  auto cond = stack_tensor(stack, 0);
+  auto self = stack_tensor(stack, 1);
+  auto other = stack_tensor(stack, 2);
+
+  SharedMetaData whereMeta{"where_fwd"};
+  whereMeta.inputs_data.emplace_back(cond.dim(), cond.scalar_type());
+  whereMeta.inputs_data.emplace_back(self.dim(), self.scalar_type());
+  whereMeta.inputs_data.emplace_back(other.dim(), other.scalar_type());
+
+  auto result_type = habana_helpers::DTypeHelper::get_compute_dtype(
+      {self, other},
+      c10::nullopt,
+      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+      false);
+  whereMeta.outputs_data.emplace_back(self.dim(), result_type);
+
+  return {whereMeta};
+}
+
 void WhereBackend::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

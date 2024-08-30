@@ -50,6 +50,32 @@ bool ShouldCastToOutputType(
       (output_dtype == at::kFloat && dtype == at::kBFloat16);
 }
 
+SharedMetaDataVector XlogYSharedMeta(const at::Stack& stack) {
+  auto self = stack.at(0);
+  auto other = stack.at(1);
+
+  auto result_dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+    {self, other},
+    c10::nullopt,
+    habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteIntToFloat,
+    false);
+
+  unsigned selfDim = self.isTensor() ? self.toTensor().dim() : 1;
+  unsigned otherDim = other.isTensor() ? other.toTensor().dim() : 1;
+  unsigned outDim = std::max(selfDim, otherDim);
+
+  SharedMetaData log1pMeta("log1p_fwd");
+  log1pMeta.inputs_data.emplace_back(otherDim, result_dtype);
+  log1pMeta.outputs_data.emplace_back(otherDim, result_dtype);
+
+  SharedMetaData multMeta("mult");
+  multMeta.inputs_data.emplace_back(selfDim, result_dtype);
+  multMeta.inputs_data.emplace_back(otherDim, result_dtype);
+  multMeta.outputs_data.emplace_back(outDim, result_dtype);
+
+  return {log1pMeta, multMeta};
+}
+
 void Xlog1PyOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {
