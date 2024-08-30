@@ -55,6 +55,10 @@ def init() -> None:
 
     Does nothing if the HPU state is already initialized.
     """
+    _lazy_init()
+
+
+def _lazy_init() -> None:
     global _initialized
     if is_initialized() or hasattr(_tls, "is_initializing"):
         return
@@ -120,7 +124,7 @@ def get_device_name(device: Optional[_device_t] = None) -> str:
         warnings.warn("Device not available")
         return ""
 
-    init()
+    _lazy_init()
     device = _get_device_index(device, optional=True)
     if device < 0 or device >= device_count():
         raise AssertionError("Invalid device id")
@@ -129,13 +133,13 @@ def get_device_name(device: Optional[_device_t] = None) -> str:
 
 def current_device() -> int:
     r"""Returns the index of a currently selected device."""
-    init()
+    _lazy_init()
     return _hpu_C.current_device()
 
 
 def synchronize() -> None:
     r"""Waits for all kernels in all streams on a HPU device to complete."""
-    init()
+    _lazy_init()
     return _hpu_C.synchronize_device()
 
 
@@ -250,7 +254,7 @@ def get_device_capability(device: Optional[_device_t] = None) -> str:
         warnings.warn("Device not available")
         return ""
 
-    init()
+    _lazy_init()
     device = _get_device_index(device, optional=True)
     if device < 0 or device >= device_count():
         raise AssertionError("Invalid device id")
@@ -262,7 +266,7 @@ def get_device_properties(device: Optional[_device_t] = None) -> str:
         warnings.warn("Device not available")
         return ""
 
-    init()
+    _lazy_init()
     device = _get_device_index(device, optional=True)
     if device < 0 or device >= device_count():
         raise AssertionError("Invalid device id")
@@ -273,7 +277,7 @@ def can_device_access_peer(device: _device_t, peer_device: _device_t) -> bool:
     if not is_available():
         warnings.warn("Device not available")
         return ""
-    init()
+    _lazy_init()
     device = _get_device_index(device, optional=True)
     peer_device = _get_device_index(peer_device, optional=True)
     count = device_count()
@@ -388,7 +392,7 @@ def memory_usage(device: Optional[Union[Device, int]] = None) -> int:
             statistic for the current device, given by :func:`~torch.cuda.current_device`,
             if :attr:`device` is ``None`` (default).
     """
-    init()
+    _lazy_init()
     device_idx = _get_device_index(device, optional=True)
     if device_idx < 0 or device_idx >= device_count():
         raise AssertionError("Invalid device id")
@@ -403,7 +407,7 @@ def utilization(device: Optional[Union[Device, int]] = None) -> int:
             statistic for the current device, given by :func:`~torch.cuda.current_device`,
             if :attr:`device` is ``None`` (default).
     """
-    init()
+    _lazy_init()
     device_idx = _get_device_index(device, optional=True)
     if device_idx < 0 or device_idx >= torch.hpu.device_count():
         raise AssertionError("Invalid device id")
