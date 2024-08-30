@@ -252,6 +252,7 @@ def _is_cpu_scalar_copy_required(node: torch.fx.Node, node_arg: torch.fx.Node) -
         "slice",
         "_roi_align_backward",
         "clamp",
+        "roi_align",
     ]
     copy_required = True
     if node.op == "call_function":
