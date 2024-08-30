@@ -3,20 +3,24 @@ import copy
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.hpu as ht
 import numpy as np
+import pytest
 import torch
+from test_utils import compare_tensors
 
 
-def test_fused_clip_norm():
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+def test_fused_clip_norm(dtype):
     habana = torch.device("hpu")
     cpu = torch.device("cpu")
 
-    d1, d2, norm_type = 16, 128, 2.0
+    d1, d2 = 16, 128
+    norm_type = 2.0
     max_norm_val = 1.0
 
     # Init simple linear network for parameter list with input and gt
-    op = torch.nn.Linear(in_features=d1 * d2, out_features=d1)
-    x = torch.randn(d1, d1 * d2)
-    t = torch.ones(d1, d1)
+    op = torch.nn.Linear(in_features=d1 * d2, out_features=d1).to(dtype)
+    x = torch.randn(d1, d1 * d2).to(dtype)
+    t = torch.ones(d1, d1).to(dtype)
 
     # Copy model, input, and gt for hpu use
     op_hpu = copy.deepcopy(op).to(habana)
@@ -43,20 +47,13 @@ def test_fused_clip_norm():
     n_hpu = fcn.clip_norm(op_hpu.parameters())
 
     # verify correctness of total norm
-    assert np.allclose(
-        n_hpu.to(cpu).detach().numpy(),
-        n_cpu.detach().numpy(),
-        atol=0.001,
-        rtol=0.001,
-        equal_nan=True,
-    )
+    if dtype == torch.bfloat16:
+        atol = rtol = 0.01
+    else:
+        atol = rtol = 0.001
+
+    compare_tensors(n_hpu.to(cpu).detach(), n_cpu.detach(), atol=atol, rtol=rtol)
 
     # verify correctness of grad
     for p, q in zip(op_hpu.parameters(), op.parameters()):
-        assert np.allclose(
-            p.grad.data.to(cpu).detach().numpy(),
-            q.grad.data.detach().numpy(),
-            atol=0.001,
-            rtol=0.001,
-            equal_nan=True,
-        )
+        compare_tensors(p.grad.data.to(cpu).detach(), q.grad.data.detach(), atol=atol, rtol=rtol)

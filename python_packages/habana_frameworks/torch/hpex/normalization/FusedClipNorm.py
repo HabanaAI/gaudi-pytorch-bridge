@@ -21,7 +21,11 @@ from habana_frameworks.torch.utils.internal import is_lazy
 
 class FusedClipNorm:
     def __init__(self, parameters: Iterable[torch.nn.parameter.Parameter], max_norm):
-        self.max_norm_t = (torch.ones((1)) * max_norm).to(torch.device("hpu"))
+        params_list = list(parameters)
+        self.dtype = torch.float32
+        if len(params_list) != 0:
+            self.dtype = params_list[0].dtype  # assume params are of same type and use type of first param
+        self.max_norm_t = (torch.ones((1)) * max_norm).to(self.dtype).to(torch.device("hpu"))
         self.norm_type = 2.0
         super(FusedClipNorm, self).__init__()
 
@@ -45,7 +49,7 @@ class FusedClipNorm:
                     total_norm = _hpex_C.fused_norm(norm_list, self.max_norm_t, self.norm_type)
             else:
                 # append a tensor to the grad list that will serve as a total norm result placeholder
-                norm_list.append(torch.zeros(1).to("hpu"))
+                norm_list.append(torch.zeros(1).to(self.dtype).to(torch.device("hpu")))
                 with torch.no_grad():
                     total_norm = torch.ops.hpu.fused_clip_norm(norm_list, self.max_norm_t, self.norm_type)
 
