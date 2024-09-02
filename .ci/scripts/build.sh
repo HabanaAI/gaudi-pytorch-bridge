@@ -2257,7 +2257,7 @@ install_pillow_simd()
 {
     $__pip_cmd uninstall -y pillow
     $__pip_cmd uninstall -y pillow-simd
-    cmd=($__pip_cmd install pillow-simd==7.0.0.post3)
+    cmd=($__pip_cmd install pillow-simd==9.5.0.post1)
     if ! __running_in_venv; then
         cmd+=(--user)
     fi

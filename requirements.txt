@@ -26,4 +26,4 @@ symengine==0.9.2 ; python_version >= '3.11'
 
 # Required by torchvision at build time for optimal performance
 # See https://github.com/pytorch/vision/blob/1041e797db6ef73ff7fa87788d59376aa7b158b7/setup.py#L101
-pillow-simd==7.0.0.post3
+pillow-simd==9.5.0.post1
