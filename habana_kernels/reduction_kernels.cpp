@@ -847,81 +847,6 @@ void MeanOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   ReduceOperator::SetPTOutputs(inputs);
 }
 
-/**
- * @brief This function adds synapse nodes corresponding to
- *aten::_grad_sum_to_size operator
- * @param self - (FP32/BF16) Input tensor
- * @param shape - (IntArray) Shape of output tensor
- **/
-void GradSumToSizeOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 2,
-      "Incorrect size of inputs expected for _grad_sum_to_size operator");
-  TORCH_CHECK(inputs[0].isTensor(), "Input arg1 expected to be tensor");
-  TORCH_CHECK(inputs[1].isIntList(), "Input arg2 expected to be tensor");
-
-  auto self = inputs[0].toTensor();
-  auto shape = inputs[1].toIntList();
-  auto device_id = self.device().index();
-  auto scalar_type = self.scalar_type();
-
-  std::vector<int64_t> reduce_dims;
-  const at::IntArrayRef sizes = self.sizes();
-  const int64_t leading_dims = sizes.size() - shape.size();
-  for (int64_t i = 0; i < leading_dims; ++i) {
-    reduce_dims.push_back(i);
-  }
-  for (int64_t i = leading_dims; i < static_cast<int64_t>(sizes.size()); ++i) {
-    if (shape[i - leading_dims] == 1 && sizes[i] != 1) {
-      reduce_dims.push_back(i);
-    }
-  }
-
-  auto sum_op = make_operator<SumDimOperator>(device_id, scalar_type);
-  if (!reduce_dims.empty()) {
-    sum_op->SetSynapseInput(p_context_->syn_inputs_[0]);
-    torch::jit::Stack stack = {
-        IValue(self), IValue(reduce_dims), IValue(true), IValue(scalar_type)};
-    sum_op->AllocateAndAddSynapseNode(
-        graph, stack, leading_dims ? OutputMetaDataVector(1) : output_metadata);
-  }
-
-  if (leading_dims) {
-    auto reshape_op = make_operator<ReshapeOperator>(
-        self.device().index(), self.scalar_type());
-    reshape_op->SetSynapseInput(sum_op->GetSynOutputs()[0]);
-    torch::jit::Stack stack = {IValue(sum_op->GetOutputs()[0]), IValue(shape)};
-    reshape_op->AllocateAndAddSynapseNode(graph, stack, output_metadata);
-    p_context_->syn_outputs_.emplace_back(
-        std::move(reshape_op->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(
-        std::move(reshape_op->GetOutputs()[0]));
-  } else {
-    if (!reduce_dims.empty()) {
-      p_context_->syn_outputs_.emplace_back(
-          std::move(sum_op->GetSynOutputs()[0]));
-      p_context_->pt_outputs_.emplace_back(std::move(sum_op->GetOutputs()[0]));
-    } else {
-      // The target shape is identical to the shape of the input tensor.
-      // Adding an identity node which results in creation of output as
-      // as tensor aliased to input (within GC)
-      auto identityOp = make_operator<IdentityOperator>(device_id, scalar_type);
-      identityOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-
-      torch::jit::Stack stack = {IValue(self)};
-      identityOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
-      p_context_->syn_outputs_.emplace_back(
-          std::move(identityOp->GetSynOutputs()[0]));
-      p_context_->pt_outputs_.emplace_back(
-          std::move(identityOp->GetOutputs()[0]));
-    }
-  }
-}
-
 void ReduceSumBwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
@@ -1044,7 +969,3 @@ void ReduceMultiOutputOperator::AllocateAndAddSynapseNode(
 
   ReduceOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
 }
-
-static auto& ReductionKernelsKernelRegistry =
-    habana::KernelRegistry()
-        .add("aten::_grad_sum_to_size", KERNEL_FN(GradSumToSizeOperator));

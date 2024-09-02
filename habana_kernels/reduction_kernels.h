@@ -161,23 +161,6 @@ class SumSquareOperator : public SumOperator {
             get_guid_with_precision("reduce_sum_square_fwd", scalarType)) {}
 };
 
-// _grad_sum_to_size Operator
-class GradSumToSizeOperator : public HabanaOperator {
- public:
-  GradSumToSizeOperator(int device_id, c10::ScalarType scalar_type)
-      : HabanaOperator(
-            get_guid_with_precision("grad_sum_to_size", scalar_type)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.input_layout.assign({LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign({LayoutFormat::ANY});
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-};
-
 // Reduce Sum Backward Operator.
 class ReduceSumBwdOperator : public HabanaOperator {
  public:
