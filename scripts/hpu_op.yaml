@@ -9153,9 +9153,9 @@ upsample_bicubic2d.out:
   custom_fill_params: FillBicubicFwdParams
   output_meta: UpsampleBicubic2DFwdMeta
   dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
+    Gaudi: [BFloat16, Float, Int, Char, Byte, Short]
+    Gaudi2: [BFloat16, Float, Int, Char, Byte, Short, Half]
+    Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   guid: resize_fwd
   synapse_layouts:
   - [WHCN, WHCN]
