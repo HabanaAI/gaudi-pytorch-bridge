@@ -89,6 +89,41 @@ RecipeArgumentSpec::RecipeArgumentSpec(
 }
 
 RecipeArgumentSpec::RecipeArgumentSpec(
+    at::ArrayRef<torch::jit::IValue> input_refs,
+    const size_t& graphKey,
+    const size_t& graph_sym_hash,
+    const size_t& graph_perm_hash,
+    const std::string& op_strs)
+    : cas(false, input_refs), opstrs(op_strs), graph_hash_code(graphKey) {
+  hash_code = graph_hash_code;
+  hash_code = at::hash_combine(hash_code, graph_sym_hash);
+  hash_code = at::hash_combine(hash_code, graph_perm_hash);
+  graph_with_permute_hash_code = hash_code;
+}
+
+RecipeArgumentSpec::RecipeArgumentSpec(
+    at::ArrayRef<torch::jit::IValue> input_refs,
+    const size_t& graphKey,
+    const size_t& graph_sym_hash,
+    const size_t& graph_perm_hash,
+    const std::string& op_strs,
+    const uint64_t token)
+    : cas(false, input_refs), opstrs(op_strs) {
+  graph_hash_code = graphKey;
+  hash_code = at::hash_combine(hash_code, graph_hash_code);
+  token_ = token;
+  hash_code = at::hash_combine(hash_code, token_);
+
+  ComputeOffsetHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, offset_hash_code);
+  size_t hw_scaling_hash_code = ComputeHwScalingHashCode(input_refs);
+  hash_code = at::hash_combine(hash_code, hw_scaling_hash_code);
+  hash_code = at::hash_combine(hash_code, graph_sym_hash);
+  hash_code = at::hash_combine(hash_code, graph_perm_hash);
+  dynamic_hash_code = hash_code;
+}
+
+RecipeArgumentSpec::RecipeArgumentSpec(
     bool with_grad,
     at::ArrayRef<torch::jit::IValue> input_refs,
     const std::shared_ptr<torch::jit::Graph>& irgraph,

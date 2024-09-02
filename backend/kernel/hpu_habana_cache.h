@@ -80,6 +80,21 @@ struct RecipeArgumentSpec {
       const uint64_t token);
 
   RecipeArgumentSpec(
+      at::ArrayRef<torch::jit::IValue> input_refs,
+      const size_t& graphKey,
+      const size_t& graph_sym_hash,
+      const size_t& graph_perm_hash,
+      const std::string& op_strs);
+
+  RecipeArgumentSpec(
+      at::ArrayRef<torch::jit::IValue> input_refs,
+      const size_t& graphKey,
+      const size_t& graph_sym_hash,
+      const size_t& graph_perm_hash,
+      const std::string& op_strs,
+      const uint64_t token);
+
+  RecipeArgumentSpec(
       bool with_grad,
       at::ArrayRef<torch::jit::IValue> input_refs,
       const std::shared_ptr<torch::jit::Graph>& irgraph,

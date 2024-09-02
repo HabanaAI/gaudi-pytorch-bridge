@@ -2789,6 +2789,7 @@ void HabanaLaunchOpPT::HandleOutputSIFException(
     RecipeValueSpec& rv,
     size_t& outputs_meta_index,
     SynBuildCache& syn_build_cache) {
+  PT_BRIDGE_BEGIN
   bool ds_sif_info_cached =
       (rv.ds_sifinfo_map.count(sym_expr_hash_) > 0) ? true : false;
   habana_helpers::DynamicSIFInfo* dsi = (ds_sif_info_cached)
@@ -2886,6 +2887,7 @@ void HabanaLaunchOpPT::HandleOutputExprUnMappedJITGraph(
     RecipeValueSpec& rv,
     std::shared_ptr<synapse_helpers::graph>& syn_graph,
     SynBuildCache& syn_build_cache) {
+  PT_BRIDGE_BEGIN
   PT_DYNAMIC_SHAPE_DEBUG("Running HandleOutputExprUnMappedJITGraph");
   BuildSynapseGraph(syn_graph, syn_build_cache, true);
   rv.ds_sifinfo_map[sym_expr_hash_] = std::move(ds_sif_info_);
@@ -4115,11 +4117,15 @@ void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
   }
 }
 
-void HabanaLaunchOpPT::CreateFirstDynamicBucket() {
+void HabanaLaunchOpPT::CreateFirstDynamicBucket(
+    std::shared_ptr<RecipeArgumentSpec> rargpsh_graph) {
+  PT_BRIDGE_BEGIN
   RecipeCacheLRU::SetHostMemoryThreshold();
 
-  std::shared_ptr<RecipeArgumentSpec> rargpsh_graph =
-      std::make_shared<RecipeArgumentSpec>(input_refs, graph_key_, op_strs_);
+  if (nullptr == rargpsh_graph) {
+    rargpsh_graph = std::make_shared<RecipeArgumentSpec>(
+        input_refs, graph_key_, graph_symint_hash_, graph_perm_hash_, op_strs_);
+  }
 
   current_dbipsh_ = DynamicBucketInfoMap::get_instance().get(rargpsh_graph);
   if (nullptr == current_dbipsh_) {
@@ -4139,7 +4145,6 @@ void HabanaLaunchOpPT::CreateFirstDynamicBucket() {
             GetSynapseGraphName(),
             current_dbipsh_->getCount(),
             rargpsh_graph->hashCode()));
-
     // Create bucket 0
     DynamicShapeInfo graph_input_info;
     graph_input_info.act_input_tshapes =
@@ -4172,7 +4177,12 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
   PT_BRIDGE_BEGIN;
 
   std::shared_ptr<RecipeArgumentSpec> rargpsh_graph =
-      std::make_shared<RecipeArgumentSpec>(input_refs, graph_key_, op_strs_);
+      std::make_shared<RecipeArgumentSpec>(
+          input_refs,
+          graph_key_,
+          graph_symint_hash_,
+          graph_perm_hash_,
+          op_strs_);
 
   PT_DYNAMIC_SHAPE_DEBUG(
       "====================\n",
@@ -4184,7 +4194,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
 
   if (enable_user_dynamic_ranges)
     CreateDynamicDBI(graph_key_with_perm_);
-  CreateFirstDynamicBucket();
+  CreateFirstDynamicBucket(rargpsh_graph);
 
   DynamicShapeInfo graph_input_info;
   CreateDynamicBucketInputShapes(graph_input_info.act_input_tshapes);
@@ -4241,7 +4251,12 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
       graph_input_info.min_policy, graph_input_info.max_policy);
 
   cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
-      input_refs, graph_key_, op_strs_, cur_ds_token_);
+      input_refs,
+      graph_key_,
+      graph_symint_hash_,
+      graph_perm_hash_,
+      op_strs_,
+      cur_ds_token_);
   PT_DYNAMIC_SHAPE_DEBUG("cur_rargpsh = ", *cur_rargpsh);
   DynamicBucketInfoMap::get_instance().add(cur_rargpsh, current_dbipsh_);
   // Used only for compilation statistics purpose now
@@ -4923,10 +4938,12 @@ void HabanaLaunchOpPT::run(
 
   // Check whether dynamic shape is needed
   graph_key_with_perm_ = graph_key_;
-  size_t sym_hash_code = habana::ComputeSymSizeHashCode(input_refs);
-  graph_key_with_perm_ = at::hash_combine(graph_key_with_perm_, sym_hash_code);
-  size_t perm_hash_code = habana::ComputePermutationHashCode(input_refs);
-  graph_key_with_perm_ = at::hash_combine(graph_key_with_perm_, perm_hash_code);
+  graph_symint_hash_ = habana::ComputeSymSizeHashCode(input_refs);
+  graph_key_with_perm_ =
+      at::hash_combine(graph_key_with_perm_, graph_symint_hash_);
+  graph_perm_hash_ = habana::ComputePermutationHashCode(input_refs);
+  graph_key_with_perm_ =
+      at::hash_combine(graph_key_with_perm_, graph_perm_hash_);
 
   const auto eager_mode =
       (execution_mode_ == habana_helpers::HabanaFrontendTypes::EAGER);
@@ -5594,7 +5611,6 @@ void HabanaLaunchOpPT::run_pass() {
       habana_helpers::create_graph(device.id(), GetSynapseGraphName(), true));
   syn_graph->set_dynamic_graph(true);
   syn_graph->set_optim_output_sif_enabled(enable_optim_output_sif_);
-  CreateValueToIvalueMapForInputs();
   SynBuildCache cache;
 
   if (enable_optim_output_sif_ &&
@@ -5602,6 +5618,7 @@ void HabanaLaunchOpPT::run_pass() {
           habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
     BuildSynapseGraphLite(syn_graph, cache);
   } else {
+    CreateValueToIvalueMapForInputs();
     BuildSynapseGraph(syn_graph, cache, true);
   }
 

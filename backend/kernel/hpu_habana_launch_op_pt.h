@@ -408,6 +408,8 @@ class HabanaLaunchOpPT {
   std::string op_strs_ = std::string();
   size_t graph_key_ = 0;
   size_t graph_key_with_perm_ = 0;
+  size_t graph_symint_hash_ = 0;
+  size_t graph_perm_hash_ = 0;
   std::vector<std::vector<int64_t>> out_shapes{};
 
   size_t prim_nodes_ival_counter{0};
@@ -612,7 +614,8 @@ class HabanaLaunchOpPT {
   void InitiateSynlaunchTimeCapture(RecipeLauncher& rv);
   void ProcessHabanaFusedOpWithDS(
       HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution);
-  void CreateFirstDynamicBucket();
+  void CreateFirstDynamicBucket(
+      std::shared_ptr<RecipeArgumentSpec> rargpsh_graph = nullptr);
   void DumpStaticCompilationStatistics(
       size_t graph_key_with_perm,
       bool is_compile = false);
