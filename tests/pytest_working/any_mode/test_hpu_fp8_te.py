@@ -1854,6 +1854,7 @@ def test_te_fused_sdpa(
         compare_tensors(v_grad_hpu_c, v_grad_hpu_ref_c, atol=atol, rtol=rtol)
 
 
+@pytest.mark.skipif(is_gaudi3(), reason="[SW-199297]")
 @pytest.mark.parametrize("amax_history_len", [4])
 @pytest.mark.parametrize("measure_interval", [4])
 @pytest.mark.parametrize("reduce_amax", [True])

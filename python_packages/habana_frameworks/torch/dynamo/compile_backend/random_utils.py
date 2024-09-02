@@ -31,6 +31,9 @@ HABANA_RANDOM_OPS.update(
     {
         "hpu.sdpa_recomp_fwd_dropout.default": torch.ops.hpu.sdpa_recomp_fwd_dropout_seed,
         "hpu.sdpa_fwd_dropout.default": torch.ops.hpu.sdpa_fwd_dropout_seed,
+        "hpu.fp8_sdpa_fwd_dropout.default": torch.ops.hpu.fp8_sdpa_fwd_dropout_seed,
+        "hpu.fp8_sdpa_recomp_fwd_dropout.default": torch.ops.hpu.fp8_sdpa_recomp_fwd_dropout_seed,
+        "aten.uniform.default": torch.ops.hpu.habana_uniform,
     }
 )
 HABANA_RANDOM_OPS = HABANA_RANDOM_OPS if bc.get_pt_hpu_wrap_random_ops_compile() else {}
