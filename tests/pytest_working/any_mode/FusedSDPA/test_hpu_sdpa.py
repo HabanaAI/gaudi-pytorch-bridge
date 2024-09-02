@@ -10,6 +10,7 @@
 #
 ###############################################################################
 
+import csv
 import math  # for ceil etc
 import os
 import sys
@@ -17,11 +18,13 @@ import sys
 import habana_frameworks.torch.core as htcore
 import habana_frameworks.torch.hpu as ht
 import numpy as np
+import pandas as pd
 import pytest
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import FusedSDPA
+from sdpa_test_utils import check_dbg_env_var, get_dbg_env_var_num, vb_print
 from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
@@ -31,7 +34,6 @@ from test_utils import (
 )
 
 DBG_FLAG_use_func_drpout = False
-DBG_FLAG_verbose_print = False
 print_max_diff = False
 
 # Large -ve value ; Using -inf can cause issues when softmax soft max is taken over a
@@ -40,22 +42,6 @@ print_max_diff = False
 
 # LNEG = float('-inf')
 LNEG = -1e9
-
-
-def vb_print(*args, **kwargs):
-    if DBG_FLAG_verbose_print:
-        print(*args, **kwargs)
-
-
-def check_dbg_env_var(v):
-    env_var_set = False
-    if int(os.getenv(v, 0)) == 1:
-        env_var_set = True
-    return env_var_set
-
-
-def get_dbg_env_var_num(v):
-    return int(os.getenv(v, 0))
 
 
 def create_dropout_mask(input, shape, p, generator=None):
@@ -744,6 +730,11 @@ fast_list = [
 # For now disable additional tests
 total_tc_list = tc_list + tc_list_recompute + tc_list_rhslice + tc_list_rhslice_inf_attn_mask + fast_list
 # total_tc_list = fast_list
+current_dir = os.path.dirname(__file__)
+csv_file_path = os.path.join(current_dir, "sdpa_config.csv")
+with open(csv_file_path, "r") as config_obj:
+    config_reader = csv.reader(config_obj)
+    # total_tc_list = list(config_reader)
 
 
 def is_param_combo_valid(
@@ -912,6 +903,7 @@ def is_param_combo_valid(
 """
 # DONOT remove following line: re-enable black formatting
 # fmt: on
+[print(config_list) for config_list in total_tc_list]
 
 
 # @pytest.mark.xfail(reason="Results mismatch")
@@ -939,6 +931,39 @@ def test_sdpa(
     inference,
     softmax_mode,
 ):
+    config_name = (
+        "BatchSize = "
+        + str(batch_size)
+        + " num_heads = "
+        + str(n_heads)
+        + " Nt = "
+        + str(seq_len_N_t)
+        + " Ns = "
+        + str(seq_len_N_s)
+        + " head_dim_qk = "
+        + str(head_dim_qk)
+        + " head_dim_v = "
+        + str(head_dim_v)
+        + " dropout_p = "
+        + str(dropout_p)
+        + "use_attn_mask = "
+        + str(use_attn_mask)
+        + " use_float_mask = = "
+        + str(use_float_mask)
+        + " enable_autocast = "
+        + str(enable_autocast)
+        + " is_causal = "
+        + str(is_causal)
+        + " recompute = "
+        + str(recompute)
+        + " rhSlice = "
+        + str(rhslice)
+        + " infrecence = "
+        + str(inference)
+        + " softmax_mode = "
+        + str(softmax_mode)
+    )
+    print(config_name)
     test_case_valid = is_param_combo_valid(
         batch_size,
         n_heads,

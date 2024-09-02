@@ -1,3 +1,4 @@
+import copy
 import math  # for ceil etc
 import os
 import sys
@@ -10,9 +11,16 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from habana_frameworks.torch.hpex.kernels import fp8_fused_sdpa
-from test_utils import compare_tensors, is_gaudi1, is_gaudi3
+from sdpa_test_utils import check_dbg_env_var, get_dbg_env_var_num, vb_print
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    clear_t_compile_logs,
+    compare_tensors,
+    is_gaudi1,
+    is_gaudi3,
+    is_pytest_mode_compile,
+)
 
-DBG_FLAG_verbose_print = False
 print_max_diff = False
 
 
@@ -23,13 +31,6 @@ LNEG = -1e9
 attention_scale = None
 # test_backward = True
 test_with_identity = False
-
-
-def check_dbg_env_var(v):
-    env_var_set = False
-    if int(os.getenv(v, 0)) == 1:
-        env_var_set = True
-    return env_var_set
 
 
 def dump_bwd_api_params(
@@ -79,11 +80,6 @@ def dump_bwd_api_params(
     print_t_info("q_scale_ds", q_scale_ds, is_scale=True)
     print("is_amax_ds : ", is_amax_ds)
     print("=" * 90)
-
-
-def vb_print(*args, **kwargs):
-    if DBG_FLAG_verbose_print:
-        print(*args, **kwargs)
 
 
 def process_results(results):
@@ -159,8 +155,8 @@ def get_scale_values(name, t, is_t_amax=False, scale_limit=None):
         vb_print(name, ": after limiting : scale pow2", scaleT_pow2)
         vb_print(name, ": after limiting : Inv scale", scaleTInv)
 
-    scaleT_cpu = torch.tensor(scaleT_pow2, dtype=torch.float)
-    scaleTInv_cpu = torch.tensor(scaleTInv, dtype=torch.float)
+    scaleT_cpu = torch.Tensor([scaleT_pow2])
+    scaleTInv_cpu = torch.Tensor([scaleTInv])
     scaleT_hpu = scaleT_cpu.to("hpu")
     scaleTInv_hpu = scaleTInv_cpu.to("hpu")
     return scaleT_hpu, scaleTInv_hpu
@@ -887,6 +883,51 @@ def test_sdpa(
     is_amax_ds,
     fp8_run_out_type,
 ):
+    config_name = (
+        "BatchSize = "
+        + str(batch_size)
+        + " q_heads = "
+        + str(q_heads)
+        + " kv_heads = "
+        + str(kv_heads)
+        + " Nt = "
+        + str(seq_len_N_t)
+        + " Ns = "
+        + str(seq_len_N_s)
+        + " head_dim_qk = "
+        + str(head_dim_qk)
+        + " head_dim_v = "
+        + str(head_dim_v)
+        + " dropout_p = "
+        + str(dropout_p)
+        + "use_attn_mask = "
+        + str(use_attn_mask)
+        + " use_float_mask = = "
+        + str(use_float_mask)
+        + " enable_autocast = "
+        + str(enable_autocast)
+        + " is_causal = "
+        + str(is_causal)
+        + " recompute = "
+        + str(recompute)
+        + " rhSlice = "
+        + str(rhslice)
+        + " infrecence = "
+        + str(inference)
+        + " softmax_mode = "
+        + str(softmax_mode)
+        + " is_amax_s = "
+        + str(is_amax_s)
+        + " is_amx_o = "
+        + str(is_amax_o)
+        + " is_amax_ds = "
+        + str(is_amax_ds)
+        + " fp8_run_out_type= "
+        + str(fp8_run_out_type)
+    )
+
+    print(config_name)
+
     test_case_valid = is_param_combo_valid(
         batch_size,
         q_heads,
@@ -1112,10 +1153,22 @@ def test_sdpa(
             # Non-recomp does not support FWD output in Fp8. No q_scale_o
             if recompute:
                 scaleO_hpu, _ = get_scale_values("o", O_ref)
+                q_scale_o_copy = copy.deepcopy(scaleO_hpu)
                 q_scale_o = scaleO_hpu
 
         # Let fp8 conversions and scale transfer to HPU be in a separate graph
         htcore.mark_step()
+
+    def sdpa_fn(model, q_hpu, k_hpu, v_hpu, attn_mask, dropout_p, is_causal, softmax_mode):
+        return model(
+            q_hpu,
+            k_hpu,
+            v_hpu,
+            attn_mask=attn_mask_hpu,
+            dropout_p=dropout_p,
+            is_causal=is_causal,
+            softmax_mode=softmax_mode,
+        )
 
     # ----------------------------------HPU Fused SDPA attention---------------------------------------------
     with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
@@ -1137,7 +1190,14 @@ def test_sdpa(
                 # make scale tensors constant
                 _mark_params_as_const(model)
                 _check_params_as_const(model)
-            O_hpu, amax_s, amax_o = model(
+
+            if is_pytest_mode_compile():
+                clear_t_compile_logs()
+                torch._dynamo.reset()
+                sdpa_fn = torch.compile(sdpa_fn, backend="hpu_backend")
+
+            O_hpu, amax_s, amax_o = sdpa_fn(
+                model,
                 q_hpu,
                 k_hpu,
                 v_hpu,
@@ -1159,7 +1219,7 @@ def test_sdpa(
     O_hpu_c = O_hpu.detach().to("cpu")
     vb_print("DPA output dtype from HPU = ", O_hpu_c.dtype)
     if fp8_run and fp8_run_out_type == "fp8_143" and recompute == True:
-        O_hpu_c = O_hpu_c.to(q_t.dtype) / q_scale_o.to("cpu").to(q_t.dtype)
+        O_hpu_c = O_hpu_c.to(q_t.dtype) / q_scale_o_copy.to("cpu").to(q_t.dtype)
 
     if is_amax_s:
         amax_s_hpu_c = amax_s.detach().to("cpu")
@@ -1284,7 +1344,55 @@ def test_sdpa(
         q_scale_ds,
         is_amax_ds,
     )
-    dq, dk, dv, amax_ds = torch.ops.hpu.fp8_sdpa_bwd(
+
+    def sdpa_bwd_fn(
+        g_hpu,
+        q_hpu,
+        k_hpu,
+        v_hpu,
+        P_hpu,
+        dm,
+        is_causal,
+        dropout_p,
+        scale,
+        d_scale_q,
+        d_scale_k,
+        d_scale_v,
+        d_scale_s,
+        d_scale_do,
+        d_scale_ds,
+        q_scale_s,
+        q_scale_ds,
+        is_amax_ds,
+        O_hpu,
+    ):
+        return torch.ops.hpu.fp8_sdpa_bwd(
+            g_hpu,
+            q_hpu,
+            k_hpu,
+            v_hpu,
+            P_hpu,
+            dm,
+            is_causal,
+            dropout_p,
+            scale,
+            d_scale_q,
+            d_scale_k,
+            d_scale_v,
+            d_scale_s,
+            d_scale_do,
+            d_scale_ds,
+            q_scale_s,
+            q_scale_ds,
+            is_amax_ds,
+            O_hpu,
+        )
+
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        sdpa_bwd_fn = torch.compile(sdpa_bwd_fn, backend="hpu_backend")
+    dq, dk, dv, amax_ds = sdpa_bwd_fn(
         g_hpu,
         q_hpu,
         k_hpu,

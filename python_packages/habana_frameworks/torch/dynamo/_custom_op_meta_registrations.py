@@ -691,6 +691,7 @@ def meta_fp8_sdpa_bwd(
     v_hpu,
     P_hpu,
     dm,
+    is_causal,
     dropout_p,
     scale,
     d_scale_q,
@@ -704,10 +705,10 @@ def meta_fp8_sdpa_bwd(
     is_amax_ds,
     fwd_out,
 ):
-    grad_q = q.new_empty(q.shape)
-    grad_k = k.new_empty(k.shape)
-    grad_v = v.new_empty(v.shape)
-    grad_amax = q.new_empty([1], dtype=torch.float)
+    grad_q = q_hpu.new_empty(q_hpu.shape, dtype=torch.bfloat16)
+    grad_k = k_hpu.new_empty(k_hpu.shape, dtype=torch.bfloat16)
+    grad_v = v_hpu.new_empty(v_hpu.shape, dtype=torch.bfloat16)
+    grad_amax = q_hpu.new_empty([1], dtype=torch.float)
     return grad_q, grad_k, grad_v, grad_amax
 
 
