@@ -126,7 +126,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
     const bool keepdim,
     at::IntArrayRef dims,
     std::vector<synTensor> input,
-    const int correction,
+    const double correction,
     const std::vector<NodeAttr::NodeOutputAttr>& output_attr,
     const bool take_sqrt,
     const bool mean_op) {
@@ -285,11 +285,22 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
   return outputs;
 }
 
+// correction must be 0 or 1, but ivalue can be float/double/int/None.
+double getCorrectionValue(c10::IValue ivalue) {
+    if (ivalue.isNone()){
+      return 1;
+    }
+    if (ivalue.isInt()){
+      return ivalue.toInt();
+    }
+    // computation for floating point
+    return ivalue.toDouble();
+}
+
 void Var::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto dims = getDimsVector(stack, self);
-  const int correction =
-      stack.at(2).isNone() ? 0 : stack.at(2).toScalar().toInt();
+  const double correction = getCorrectionValue(stack.at(2));
   const bool keepdim = stack.at(3).toBool();
 
   auto meta = StdVarMeta(stack)[0];
@@ -313,13 +324,13 @@ void Var::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 void VarMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
 
-  int correction = 0;
+  double correction = 0;
   bool keepdim = false;
   if (stack.at(1).isBool()) {
     // this argument is for 'unbiased', convert its value for 'correction'
     correction = static_cast<int>(stack.at(1).toBool());
   } else {
-    correction = stack.at(2).isNone() ? 0 : stack.at(2).toScalar().toInt();
+    correction = getCorrectionValue(stack.at(2));
     keepdim = stack.at(3).toBool();
   }
 
@@ -352,8 +363,7 @@ void VarMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 void Std::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto dims = getDimsVector(stack, self);
-  const int correction =
-      stack.at(2).isNone() ? 0 : stack.at(2).toScalar().toInt();
+  const double correction = getCorrectionValue(stack.at(2));
   const bool keepdim = stack.at(3).toBool();
 
   auto meta = StdVarMeta(stack)[0];
@@ -377,8 +387,7 @@ void Std::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 void StdMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto dims = getDimsVector(stack, self);
-  const int correction =
-      stack.at(2).isNone() ? 0 : stack.at(2).toScalar().toInt();
+  const double correction = getCorrectionValue(stack.at(2));
   const bool keepdim = stack.at(3).toBool();
 
   auto meta = StdVarMeanMeta(stack);
