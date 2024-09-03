@@ -27,12 +27,12 @@ static std::vector<int64_t> broadcast_size(
   }
   auto isz = indices[0].sizes().vec();
   auto self_sizes = self.sizes().vec();
-  if (indices[0].dim() == 1) {
-    size = isz;
-  } else {
+  if ((indices[0].scalar_type() == c10::ScalarType::Bool)) {
     std::vector<int64_t> sz{isz[0]}; // if index is 2-D (for bool), number of
                                      // rows indicates broadcast size
     size = sz;
+  } else {
+    size = isz;
   }
   for (size_t i = 1; i < indices.size(); i++) {
     size = at::infer_size(size, indices[i].sizes());
@@ -380,6 +380,7 @@ void IndexPutEager::AddNode(
 
   for (size_t i = rank_idx; i < rank_inp; ++i)
     value_upd_dim.push_back(self.sizes().vec()[i]);
+
   auto values_scalar_type = values.scalar_type();
   std::vector<synapse_helpers::tensor> values_bcast_or_reshape_sh_tensor;
   // value_upd_dim is the final shape we want for values tensor to match
@@ -400,8 +401,17 @@ void IndexPutEager::AddNode(
     values_bcast_or_reshape_sh_tensor.emplace_back(BroadcastHelper(
         graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type));
   } else {
+    auto num_dims_to_squeeze = values.dim() - (int64_t)value_upd_dim.size();
+    auto values_sizes = values.sizes().vec();
+    std::vector<int64_t>::iterator it;
+    for (auto i = num_dims_to_squeeze; i > 0; i--) {
+      it = values_sizes.begin();
+      if (*it == 1) {
+        values_sizes.erase(it);
+      }
+    }
     auto squeeze = SqueezeHelper(
-        graph, syn_in(1 + indices.size()), {1}, values_scalar_type);
+        graph, syn_in(1 + indices.size()), values_sizes, values_scalar_type);
     values_bcast_or_reshape_sh_tensor.emplace_back(BroadcastHelper(
         graph, squeeze.get(), value_upd_dim, values_scalar_type));
   }
