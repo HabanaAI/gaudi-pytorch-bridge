@@ -30,7 +30,6 @@ from torch.distributed._spmd.graph_utils import find_node
 from torch.fx.experimental.proxy_tensor import py_sym_types
 from torch.fx.node import map_arg
 from torch.fx.passes.operator_support import OperatorSupport
-from torch.fx.passes.reinplace import _FunctionalizationMetadataProp
 
 from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.pattern_rewriter import pass_pattern_rewriter
@@ -2656,34 +2655,20 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
         for idx, node in enumerate(gm.graph.nodes):
             if (inplaceable_op := inplaceable_ops.get(node.target, None)) is not None:
                 mutated_arg = node.args[inplaceable_op.mutated_arg]
-                for node in mutated_arg.users:
-                    node_users = list(node.users)
-                    if len(node_users) == 1 and node_users[0].target == torch.ops._c10d_functional.wait_tensor.default:
+                node_users = list(node.users)
+                if len(node_users) == 1 and node_users[0].target == torch.ops._c10d_functional.wait_tensor.default:
+                    wait_tensor_node = node_users[0]
+                    wait_tensor_node_users = list(wait_tensor_node.users)
+                    if (
+                        len(wait_tensor_node_users) == 1
+                        and wait_tensor_node_users[0].target == torch.ops.aten.copy.default
+                    ):
 
-                        wait_tensor_node = node_users[0]
-                        wait_tensor_node_users = list(wait_tensor_node.users)
-                        if (
-                            len(wait_tensor_node_users) == 1
-                            and wait_tensor_node_users[0].target == torch.ops.aten.copy.default
-                        ):
-
-                            copy_node = wait_tensor_node_users[0]
-                            dst = node.args[0]
-                            src = node.args[1]
-                            dst_base = (
-                                dst.meta["view_of"].meta["fake_result"]
-                                if "view_of" in dst.meta
-                                else dst.meta["fake_result"]
-                            )
-                            arg_base = (
-                                mutated_arg.meta["view_of"].meta["fake_result"]
-                                if "view_of" in mutated_arg.meta
-                                else mutated_arg.meta["fake_result"]
-                            )
-                            if dst_base.untyped_storage()._cdata == arg_base.untyped_storage()._cdata:
-                                replace_dict[copy_node] = copy_node.args[1]
-                                node.target = inplaceable_op.inplace_op
-                                graph_changed = True
+                        copy_node = wait_tensor_node_users[0]
+                        if copy_node.args[0] == mutated_arg:
+                            replace_dict[copy_node] = copy_node.args[1]
+                            node.target = inplaceable_op.inplace_op
+                            graph_changed = True
 
         for node, replacement in replace_dict.items():
             while replacement in replace_dict:
@@ -2694,7 +2679,6 @@ def pass_reinplace_inplaceable_ops(ctx: OptimizerContext) -> bool:
 
         gm.recompile()
 
-    _FunctionalizationMetadataProp(ctx.graph_module).propagate(*(ctx.example_inputs))
     reinplace_collective_ops(ctx.graph_module)
 
     return graph_changed
