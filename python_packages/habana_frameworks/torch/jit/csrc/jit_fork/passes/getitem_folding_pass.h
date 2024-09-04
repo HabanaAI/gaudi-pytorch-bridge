@@ -1,0 +1,24 @@
+/*******************************************************************************
+ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+//  todo: cleanup licenses? https://jira.habana-labs.com/browse/SW-199903
+#pragma once
+
+#include "jit_fork/ir/ir.h"
+
+namespace habana_torch {
+namespace jit {
+
+bool GetItemFoldingPass(habana_torch::jit::Graph& g);
+
+} // namespace jit
+} // namespace habana_torch

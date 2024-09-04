@@ -232,8 +232,13 @@ class HabanaGraphModule(torch.nn.Module):
                 self._range_list.insert(0, RangeInfo([1], [1], "1", "1", 0))
                 self._range_list.insert(1, RangeInfo([1], [1], "1", "1", 1))
 
+            if bc.get_pt_hpu_use_jit_fork():
+                graph = self._jit_ir
+            else:
+                graph = self._jit_ir.graph
+
             self._recipe_id = graph_compile(
-                graph=self._jit_ir.graph,
+                graph=graph,
                 inputs=inputs,
                 dynamic=self._dynamic,
                 inference=self._inference,

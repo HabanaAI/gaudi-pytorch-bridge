@@ -34,6 +34,7 @@ from ._passes.fuse_allreduce_calls import pass_fuse_collectives
 from ._passes.pattern_rewriter import pass_pattern_rewriter
 from ._passes.propose_collective_blocks import pass_propose_collective_blocks
 from ._passes.utils import ColorGraph, OptimizationPassPlacement, OptimizerContext, SchedulePolicy
+from .cluster_compiler import pass_compile_clusters_jit_fork_version
 from .logger import get_compile_backend_logger
 from .partitioner import HabanaPartitioner
 from .random_utils import (
@@ -112,6 +113,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_merge_paths,
             # This is final pass that creates final submoduled graph.
             pass_fuse_partitions,
+            pass_add_fused_op_metadata,
             pass_reorder_allreduce,
             pass_make_symints_available,
             pass_graph_print,
@@ -457,12 +459,12 @@ def optimize_graph(
                 submodule, ctx.example_inputs, ctx.is_training, ctx.is_backward, ctx.is_dynamic, ctx.stage, None
             )
 
-            submodule_qualified_name = submodule_name if module_prefix is "" else (module_prefix + "." + submodule_name)
+            submodule_qualified_name = submodule_name if module_prefix == "" else (module_prefix + "." + submodule_name)
             graph_changed = recursive_run_passes(sub_ctx, graph_changed, submodule_qualified_name)
 
         logger.debug(
             "Running passes of {} stage on module {}".format(
-                ctx.stage, "outer_most" if module_prefix is "" else module_prefix
+                ctx.stage, "outer_most" if module_prefix == "" else module_prefix
             )
         )
         graph_changed = run_passes(ctx) or graph_changed
@@ -942,7 +944,9 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
             if hasattr(res, "shape"):
                 output_shapes.append(res.shape)
                 output_contiguous.append(res.is_contiguous())
-                output_strides.append(res.storage_offset())
+                # todo https://jira.habana-labs.com/browse/SW-199903:
+                #  this must be a bug!
+                # output_strides.append(res.storage_offset())
                 output_strides.append(res.stride())
                 logger.debug("    result shape: %s", res.shape)
 
@@ -987,11 +991,25 @@ def fill_propagated_tensor_metadata_to_node(result: torch.Tensor, node: torch.fx
         assert node.meta["output_shapes"] == output_shapes
 
     node.meta["output_device"] = device
-    node.meta["output_dtypes"] = dtypes
-    node.meta["output_layouts"] = layouts
-    node.meta["output_shapes"] = output_shapes
-    node.meta["output_strides"] = output_strides
-    node.meta["output_contiguous"] = output_contiguous
+    node.meta["output_dtypes"] = dtypes  # list expected
+    node.meta["output_layouts"] = layouts  # list expected
+    node.meta["output_shapes"] = output_shapes  # list expected
+    node.meta["output_strides"] = output_strides  # list expected
+    node.meta["output_contiguous"] = output_contiguous  # list expected
+
+    if bc.get_pt_hpu_use_jit_fork():
+        logger.debug(f'Filling metadata "val" for Lowering pass')
+
+        with torch._subclasses.fake_tensor.FakeTensorMode():
+            meta_output_vals = []
+            for i in range(len(dtypes)):
+                meta_output_vals.append(  # output_strides consists of storage_offset, strides, acccess only strides
+                    torch.empty_strided(output_shapes[i], output_strides[i], dtype=dtypes[i], device=device)
+                )
+
+        node.meta["val"] = tuple(meta_output_vals) if len(meta_output_vals) > 1 else meta_output_vals[0]
+        graph_changed = True
+        return graph_changed
 
 
 def pass_fake_propagation_current(ctx: OptimizerContext) -> bool:
@@ -1243,6 +1261,44 @@ def pass_fuse_partitions(ctx: OptimizerContext) -> bool:
     ctx.habana_partitioner.fuse_partitions(ctx.current_partitions)
 
     return True
+
+
+def pass_add_fused_op_metadata(ctx: OptimizerContext):
+    """
+    This pass goes through every fused node (`call_module`) created by GraphPartitioner
+    and adds output metadata according to subgraph outputs
+    """
+    graph_changed = False
+    if not bc.get_pt_hpu_use_jit_fork():
+        return graph_changed
+
+    logger.debug("JitLowering pass_add_fused_op_metadata")
+
+    for graph_node in ctx.graph_module.graph.nodes:
+        if graph_node.op != "call_module":
+            continue
+
+        target = graph_node.target
+        submod = ctx.graph_module.get_submodule(target)
+
+        for subgraph_node in submod.graph.nodes:
+            if subgraph_node.op != "output":
+                continue
+
+            args = subgraph_node.args
+            if len(args) == 1 and isinstance(args[0], tuple):
+                args = args[0]
+            assert all(
+                map(lambda x: isinstance(x, torch.fx.Node), args)
+            ), "Currently we are assuming that all args of output should be Nodes"
+            meta_val = tuple([a.meta.get("val", None) for a in args])
+
+        assert meta_val, f"Target has 0 outputs: {target}"
+
+        graph_node.meta["val"] = meta_val if len(meta_val) > 1 else meta_val[0]
+        graph_changed = True
+
+    return graph_changed
 
 
 def pass_wa_mixed_devices(ctx: OptimizerContext) -> bool:
@@ -2410,6 +2466,11 @@ def pass_compile_clusters(ctx: OptimizerContext):
     it to the HPU backend for recipe compilation and substitute the target with
     newly compiled one.
     """
+
+    use_jit_fork = bc.get_pt_hpu_use_jit_fork()
+
+    if use_jit_fork:
+        return pass_compile_clusters_jit_fork_version(ctx)
 
     # It seems that this pass assumes that the fx graph and the jit graph must
     # have same ops order. Otherwise, the shape propagation may fail. However,

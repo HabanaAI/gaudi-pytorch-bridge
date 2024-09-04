@@ -426,6 +426,11 @@ PT_HPU_ENABLE_JIT_GRAPH_NAME_HASH:
   type: bool
   default: false
 
+PT_HPU_USE_JIT_FORK:
+  type: bool
+  default: false
+  doc: "Experimental enablement of forked jit lowering"
+
 PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR:
   type: bool
   default: true
