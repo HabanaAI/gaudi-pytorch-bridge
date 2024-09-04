@@ -207,8 +207,6 @@ endif
 	/npu-stack/cd_release/scripts/hl_tree_builder/tree_builder.sh /npu-stack/pytorch-integration/.devops/cd/build/package_$(CSV_FILE_SUFFIX).csv
 	@echo archiving pytorch to tgz package
 	tar -czvf $(OUTPUT_DIR)/pytorch_modules$(PT_BUILD_TYPE)-v$(PT_VERSION)_$(RELEASE_VERSION)_$(RELEASE_BUILD_ID).tgz --directory=$(PACK_DIR) .
-	@echo copying hqt to output_dir
-	cp ${PACK_DIR}/habana_quantization_toolkit* ${OUTPUT_DIR} || true
 
 test-nda: validate ## run NDA tests on selected package name
 ifndef PACKAGE_NAME

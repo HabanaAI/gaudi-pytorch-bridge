@@ -61,9 +61,6 @@
     "data_next": {
         "cmd": "build_pytorch_data --pt-data-version $(jq -rj '.pt_versions.next.extras.torchdata' ${HABANA_SOFTWARE_STACK}/pytorch-integration/.devops/build_profiles/profiles.json) ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
     },
-    "hqt": {
-        "cmd" : "build_hqt -w"
-    },
     "inc": {
         "cmd" : "build_inc -w"
     },
