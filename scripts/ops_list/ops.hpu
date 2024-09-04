@@ -943,3 +943,5 @@ aten::softmax.int
 aten::matmul
 hpu::optimizer_sgd
 hpu::optimizer_sgd_momentum
+hpu::optimizer_ema
+hpu::optimizer_ema_

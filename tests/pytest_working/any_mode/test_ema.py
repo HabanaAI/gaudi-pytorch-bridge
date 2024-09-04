@@ -11,13 +11,17 @@
 ###############################################################################
 
 import math
+import time
+from contextlib import contextmanager
 from copy import deepcopy
 
 import pytest
 import torch
 import torch.nn.functional as F
+from compile.test_dynamo_utils import use_eager_fallback
+from habana_frameworks.torch.dynamo.compile_backend.config import configuration_flags
 from habana_frameworks.torch.hpex.movingavrg import FusedEMA
-from test_utils import compare_tensors, hpu
+from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs, compare_tensors, hpu, is_pytest_mode_compile
 from torch import nn
 
 
@@ -77,20 +81,39 @@ class convModel(nn.Module):
 
 @pytest.mark.parametrize("decay", [0.9999, 0.5])
 @pytest.mark.parametrize("epochs", [1, 2])
-def test_ema(decay, epochs):
-    cpu_model = convModel()
-    cpu_ema = convModel()
-    hpu_model = deepcopy(cpu_model).to(hpu)
-    hpu_ema = deepcopy(cpu_ema).to(hpu)
+@pytest.mark.parametrize("precision", [torch.float, torch.bfloat16])
+def test_ema(decay, epochs, precision):
+    model_cpu = convModel().to(precision)
+    model_cpu.zero_grad()
+    model_hpu = deepcopy(model_cpu).to(hpu)
 
-    cpu_optim = EMA(cpu_ema, decay)
-    hpu_optim = FusedEMA(hpu_ema, decay)
+    inputs_cpu = torch.randn(1, 4, 28, 28).to(precision)
+    inputs_hpu = deepcopy(inputs_cpu).to(hpu)
 
-    for _ in range(epochs):
-        cpu_optim.update(cpu_model)
-        hpu_optim.update(hpu_model)
+    def run_and_update(model, optim, inputs):
+        optim = optim(model, decay)
+        params = []
+        for _ in range(epochs):
+            model_output = model(inputs)
+            loss = torch.sum(model_output)
+            loss.backward()
+            optim.update(model)
+            params = list(optim.ema.state_dict().values())
+        return params
 
-        cpu_params = list(cpu_optim.ema.state_dict().values())
-        hpu_params = list(hpu_optim.ema.state_dict().values())
+    run_cpu = run_and_update
+    run_hpu = run_and_update
+    if is_pytest_mode_compile():
+        clear_t_compile_logs()
+        torch._dynamo.reset()
+        run_hpu = torch.compile(run_and_update, backend="hpu_backend")
 
-        compare_tensors(hpu_params, cpu_params, atol=1.0e-7, rtol=1.0e-5)
+    # allow eager fallback because some of the operations in FusedEMA wrapper
+    # needs CPU execution
+    with use_eager_fallback():
+        cpu_params = run_cpu(model_cpu, EMA, inputs_cpu)
+        hpu_params = run_hpu(model_hpu, FusedEMA, inputs_hpu)
+        for cp, hp in zip(cpu_params, hpu_params):
+            compare_tensors(hp, cp, atol=1.0e-7, rtol=1.0e-5)
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("optimizer_ema")
