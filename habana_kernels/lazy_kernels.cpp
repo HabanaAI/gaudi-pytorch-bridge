@@ -3429,11 +3429,15 @@ Tensor& index_put_hpu_lazy_(
   auto index_put_result =
       index_put_hpu_lazy(self_clone, indices, value, accumulate);
 
-  LazyOp<at::Tensor&> k{
-      "hpu::habana_d2d_memcpy_other", {index_put_result, self}};
-  self = k.call(self);
+  auto& stride_params_opt = GetHbLazyTensor(self).getDataPtr()->stride_params;
+  if (!stride_params_opt.has_value()) {
+    LazyOp<at::Tensor&> k{
+        "hpu::habana_d2d_memcpy_other", {index_put_result, self}};
+    self = k.call(self);
+  } else {
+    HbLazyTensorViews::HandleViewsD2D(index_put_result, self);
+  }
 
-  HbLazyTensorViews::HandleViewsD2D(index_put_result, self);
   // In DS case changing shapes will not cause a cache miss, therefore no need
   // to break index_put op from subsequent graph whereas in other cases
   // changing shapes will cause cache misses therefore breaking graph.
