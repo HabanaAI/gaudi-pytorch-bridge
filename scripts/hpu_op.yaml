@@ -1767,7 +1767,7 @@ addmm.out:
   op_backend: AddMM
 
 _addmm_activation.out:
-  ouput_meta: AddMMMeta
+  output_meta: AddMMMeta
   dtypes:
     Gaudi: [BFloat16, Float]
     Gaudi2: [BFloat16, Float, Half]
@@ -7650,40 +7650,40 @@ replication_pad3d.out:
 replication_pad1d_backward:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad1dBwdParams
-  dtype: [BFloat16, Float, Int]
+  dtypes: [BFloat16, Float, Int]
   out_ids: [0]
   op_backend: ReplicationPad1dBwdOp
 
 replication_pad1d_backward.grad_input:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad1dBwdParams
-  dtype: [BFloat16, Float, Int]
+  dtypes: [BFloat16, Float, Int]
   op_backend: ReplicationPad1dBwdOp
 
 replication_pad2d_backward:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad2dBwdParams
-  dtype: [BFloat16, Float, Int]
+  dtypes: [BFloat16, Float, Int]
   out_ids: [0]
   op_backend: ReplicationPad2dBwdOp
 
 replication_pad2d_backward.grad_input:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad2dBwdParams
-  dtype: [BFloat16, Float, Int]
+  dtypes: [BFloat16, Float, Int]
   op_backend: ReplicationPad2dBwdOp
 
 replication_pad3d_backward:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad3dBwdParams
-  dtype: [BFloat16, Float, Int]
+  dtypes: [BFloat16, Float, Int]
   out_ids: [0]
   op_backend: ReplicationPad3dBwdOp
 
 replication_pad3d_backward.grad_input:
   output_meta: ReplicationPadBwdMeta
   custom_fill_params: FillReplicationPad3dBwdParams
-  dtype: [BFloat16, Float, Int]
+  dtypes: [BFloat16, Float, Int]
   op_backend: ReplicationPad3dBwdOp
 
 resize_:

@@ -95,6 +95,45 @@ _TYPE_NSMAP = {
 }
 
 
+_AVAILABLE_FIELDS = {
+    "acc_thread",
+    "broadcast",
+    "custom_fill_params",
+    "custom_op_schema",
+    "custom_output_shape",
+    "dtypes",
+    "early_exit",
+    "fallback_check",
+    "guid",
+    "handle_bool_inputs",
+    "hpu_wrap_all_versions",
+    "hpu_wrap_version_list",
+    "hpu_wrap_version_range",
+    "hw_scaling_ids",
+    "inplace_ids",
+    "lazy",
+    "no_compute_flag",
+    "only_shared_layer",
+    "op_backend",
+    "op_frontend",
+    "op_validator",
+    "out_dtypes",
+    "out_ids",
+    "output_meta",
+    "override_fn",
+    "promote_int_to_float",
+    "promote_int_to_long",
+    "promote_to_common_type",
+    "reduction",
+    "safe_cast_check",
+    "scalar_ids",
+    "schema_args",
+    "st_meta",
+    "synapse_layouts",
+    "tpc_input_order",
+}
+
+
 def torch_library_fragment(custom_schema_regs):
     if custom_schema_regs:
         return "TORCH_LIBRARY_FRAGMENT(hpu, m) {\n" "  static_cast<void>(m);\n" f"{custom_schema_regs}\n" "}"
@@ -2099,6 +2138,12 @@ def generate_frontend(args, fgens, out_dir, is_custom=False):
         )
 
 
+def check_op_params(op_name, op_params):
+    for field in op_params.keys():
+        if field not in _AVAILABLE_FIELDS:
+            raise Exception(f"Invalid field for {op_name}: {field}")
+
+
 def generate(args):
     yaml_ctx = YamlContext(args.yaml)
     pt_ops, errors, all_ops_metas = extract_pt_ops(args.pt_signatures, yaml_ctx.get_op_names())
@@ -2111,6 +2156,7 @@ def generate(args):
     fgens_custom = []
 
     for op_name, op_params in yaml_ctx.get_op_data():
+        check_op_params(op_name, op_params)
         ctxop = Op(op_name, op_params)
         if is_hpu_wrap(ctxop, minor_pt_ver):
             fndef = pt_ops.get(op_name, None)

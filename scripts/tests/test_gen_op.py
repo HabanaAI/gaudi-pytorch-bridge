@@ -22,6 +22,7 @@ import pytest
 import torch
 from gen_op import (
     _TYPE_NSMAP,
+    check_op_params,
     cpp_from_schema,
     generate,
     generate_check_kernel_support,
@@ -266,3 +267,10 @@ def test_parse_params(cpp_sig, out_indices, expected_results):
     assert call_args == expected_results["call_args"]
     assert out_indices == expected_results["out_indices"]
     assert fc_params == expected_results["fc_params"]
+
+
+def test_check_op_params_exception():
+    op_name = "wrong_op"
+    op_params = {"guid": "nop", "dtype": ["float"]}
+    with pytest.raises(Exception, match="wrong_op.*dtype"):
+        check_op_params(op_name, op_params)
