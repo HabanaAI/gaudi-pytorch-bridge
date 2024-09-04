@@ -282,7 +282,7 @@ def export(
     """
     logger.debug("Habana's implementation of PT2E based quantization flow: [export]")
 
-    id_model = id(f)
+    id_model = hash((id(f), type(f).__name__))
     global export_model_record
     global habana_pt2e_quant_context
     if id_model in export_model_record.keys():
