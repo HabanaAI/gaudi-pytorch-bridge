@@ -2,7 +2,6 @@ def stableBranch = GERRIT_BRANCH - '_next'
 def isPromote = env.IS_PROMOTE.toBoolean() || env.TRIGGER_BUILD.startsWith("Promote")
 def libraryBranch = stableBranch - "${env.product}."
 src = library("pipeline-library@${libraryBranch}")
-Boolean isBisect = (JOB_BASE_NAME.toLowerCase().contains('bisect') || (env.TRIGGER_BUILD && env.TRIGGER_BUILD.toLowerCase().contains('bisect')))
 def isPrimaryOS = env.IS_PRIMARY_OS ? Boolean.valueOf(env.IS_PRIMARY_OS) : true
 
 def user_install = env.runInDocker == 'true' ? '' : '--user'
@@ -83,6 +82,5 @@ genericBuilder(
     preBuildStages: preBuildStages,
     buildDependencies: buildDependencies,
     buildCommands: buildCommands,
-    manifest: manifest,
-    checkoutDepth: isBisect ? 10 : 1 //temporary fix for SW-179025 - precommit hook needs depth to create diff
+    manifest: manifest
 )
