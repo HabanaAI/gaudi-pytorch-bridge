@@ -97,9 +97,7 @@ void ScaledMaskedTriangularSoftmax::AddNode(
       shape[0] % grouped_batch_size == 0,
       "dim0 must be a multiple of grouped_batch_size.");
 
-  auto start_end_reshape = std::vector<int64_t>{start_end.pt_t.numel()};
-
-  auto start_end_reshaped = ReshapeHelper(
+  auto start_end_flattend = FlattenHelper(
       graph,
       start_end.syn_t,
       {start_end.pt_t.numel()},
@@ -115,7 +113,7 @@ void ScaledMaskedTriangularSoftmax::AddNode(
       this,
       graph,
       {guid_,
-       {self.syn_t, start_end_reshaped.get()},
+       {self.syn_t, start_end_flattend.get()},
        {{self.pt_t.sizes().vec(), out_dtype, 0}},
        &params,
        sizeof(params)});
