@@ -120,15 +120,6 @@ at::Tensor& embedding_bag_sum_bwd_out_kernel_mode_hpu_lazy(
     const at::Tensor& offsets,
     const at::Tensor& valid_count,
     int64_t kernel_mode);
-at::Tensor embedding_bag_sum_fwd_hpu_lazy(
-    const at::Tensor& input,
-    const at::Tensor& indices_fwd,
-    const at::Tensor& offsets_fwd,
-    const at::Tensor& valid_count,
-    const at::Tensor& indices_bwd,
-    const at::Tensor& offsets_bwd,
-    const at::Tensor& valid_count_bwd,
-    const at::Tensor& grad_weight);
 at::Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
     at::Tensor& out,
     const at::Tensor& input,

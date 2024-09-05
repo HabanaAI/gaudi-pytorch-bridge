@@ -2264,32 +2264,6 @@ Tensor embedding_bag_sum_hpu_lazy(
   };
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(embedding_bag_sum, func, out)
 }
-Tensor embedding_bag_sum_fwd_hpu_lazy(
-    const Tensor& input,
-    const Tensor& indices_fwd,
-    const Tensor& offsets_fwd,
-    const Tensor& valid_count,
-    const Tensor& indices_bwd,
-    const Tensor& offsets_bwd,
-    const Tensor& valid_count_bwd,
-    const Tensor& grad_weight) {
-  PT_LAZY_TRACE;
-  static_cast<void>(valid_count_bwd);
-  std::vector<int64_t> sizes{offsets_fwd.numel() - 1, input.size(1)};
-  LazyOp<at::Tensor> op{
-      "aten::embedding_bag_sum_fwd",
-      {input,
-       indices_fwd,
-       offsets_fwd,
-       valid_count,
-       indices_bwd,
-       offsets_bwd,
-       valid_count_bwd,
-       grad_weight},
-      {sizes}};
-
-  RUN_MAYBE_WITH_ACC_THREAD(embedding_bag_sum_fwd, op)
-}
 Tensor& embedding_bag_sum_bwd_out_hpu_lazy(
     Tensor& out,
     const Tensor& input,
