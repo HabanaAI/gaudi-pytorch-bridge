@@ -1162,25 +1162,28 @@ def pass_weight_permutation(ctx: OptimizerContext):
             dim = len(node.meta["tensor_meta"].shape)
             if dim in (4, 5):
                 weight_node = node.args[1]
-                while weight_node.args:
+                while (
+                    weight_node.op == "call_function" and "to_copy" in weight_node.target.__name__ and weight_node.args
+                ):
                     node = weight_node
                     weight_node = weight_node.args[0]
-                with ctx.graph_module.graph.inserting_before(node):
-                    weight_permutation_node = ctx.graph_module.graph.call_function(
-                        torch.ops.hpu.weight_permutation, (weight_node,), {}
+                if weight_node.meta["output_device"].type == "hpu":
+                    with ctx.graph_module.graph.inserting_before(node):
+                        weight_permutation_node = ctx.graph_module.graph.call_function(
+                            torch.ops.hpu.weight_permutation, (weight_node,), {}
+                        )
+                        weight_permutation_node.meta = copy.copy(weight_node.meta)
+                        weight_permutation_node.val_args = weight_permutation_node.args
+                        weight_permutation_node.val_kwargs = weight_permutation_node.kwargs
+                    node.replace_input_with(weight_node, weight_permutation_node)
+                    graph_changed = True
+                    logger.info(
+                        "Permute node: {} op: {} target: {} dim: {}",
+                        node.name,
+                        node.op,
+                        node.target,
+                        dim,
                     )
-                    weight_permutation_node.meta = copy.copy(weight_node.meta)
-                    weight_permutation_node.val_args = weight_permutation_node.args
-                    weight_permutation_node.val_kwargs = weight_permutation_node.kwargs
-                node.replace_input_with(weight_node, weight_permutation_node)
-                graph_changed = True
-                logger.info(
-                    "Permute node: {} op: {} target: {} dim: {}",
-                    node.name,
-                    node.op,
-                    node.target,
-                    dim,
-                )
             else:
                 logger.info("No permutation, permute weight support only 4/5D tensors")
 
