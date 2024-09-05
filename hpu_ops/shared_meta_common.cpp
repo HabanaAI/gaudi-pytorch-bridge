@@ -272,4 +272,77 @@ SharedMetaDataVector ForeachCompoundSharedMeta(
   return metaVec;
 }
 
+SharedMetaDataVector BoolCastSharedMeta(const at::Stack& stack) {
+  auto input = stack_tensor(stack, 0);
+  auto dtype = input.scalar_type();
+  auto rank = input.dim();
+  SharedMetaDataVector metaVec = {};
+  SharedMetaData equalFwdMeta{"equal_fwd"};
+  equalFwdMeta.inputs_data = {{rank, dtype}, {rank, dtype}};
+  equalFwdMeta.outputs_data = {{rank, at::kBool}};
+  metaVec.push_back(equalFwdMeta);
+
+  SharedMetaData notFwdMeta("not_fwd");
+  notFwdMeta.inputs_data = equalFwdMeta.outputs_data;
+  notFwdMeta.outputs_data = equalFwdMeta.outputs_data;
+  metaVec.push_back(notFwdMeta);
+  return metaVec;
+}
+
+SharedMetaDataVector LogicalBinarySharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  auto self = stack.at(0).toTensor();
+  auto other = stack.at(1).toTensor();
+  auto selfRank = self.dim();
+  auto selfDtype = self.scalar_type();
+  auto otherDtype = other.scalar_type();
+  const bool isI16 = selfDtype == c10::ScalarType::Short ||
+      otherDtype == c10::ScalarType::Short;
+  const bool isI64 =
+      selfDtype == c10::ScalarType::Long || otherDtype == c10::ScalarType::Long;
+  const bool isI16orI64 = isI16 || isI64;
+  bool promoteToCommonType = false;
+
+  if ((selfDtype == c10::ScalarType::Char &&
+       otherDtype == c10::ScalarType::Byte) ||
+      (selfDtype == c10::ScalarType::Byte &&
+       otherDtype == c10::ScalarType::Char)) {
+    selfDtype = c10::ScalarType::Byte;
+    otherDtype = c10::ScalarType::Byte;
+  } else if (selfDtype != otherDtype) {
+    auto isSelfIntegral = c10::isIntegralType(selfDtype, false);
+    auto isOtherIntegral = c10::isIntegralType(otherDtype, false);
+    if (guid == "and" && !isI16) {
+      promoteToCommonType = true;
+    } else if ((guid == "or" || "xor") && !isI16orI64) {
+      if (!(isSelfIntegral || isOtherIntegral) ||
+          ((isSelfIntegral ^ isOtherIntegral) &&
+           ((c10::elementSize(selfDtype) == 1 ||
+             c10::elementSize(otherDtype) == 1)))) {
+        promoteToCommonType = true;
+      }
+    }
+  }
+
+  if (promoteToCommonType) {
+    auto computeDtype = habana_helpers::DTypeHelper::get_compute_dtype(
+        {self, other},
+        c10::nullopt,
+        habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+        false,
+        c10::nullopt,
+        false,
+        false);
+    selfDtype = computeDtype;
+    otherDtype = computeDtype;
+  }
+
+  SharedMetaData logicalBinaryMeta{guid};
+  logicalBinaryMeta.inputs_data = {
+      {selfRank, selfDtype}, {other.dim(), otherDtype}};
+  logicalBinaryMeta.outputs_data = {{selfRank, at::kBool}};
+  return {logicalBinaryMeta};
+}
+
 } // namespace habana

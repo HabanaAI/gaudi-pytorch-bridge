@@ -15,6 +15,7 @@
 #include "generated/backend/logical_not.h"
 #include "generated/backend/logical_or.h"
 #include "generated/backend/logical_xor.h"
+#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 
@@ -35,6 +36,37 @@ OutputMetaDataVector LogicalNotMeta(const at::Stack& stack) {
   meta.dtype = at::kBool;
 
   return {meta};
+}
+
+SharedMetaDataVector LogicalNotSharedMeta(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  auto rank = self.dim();
+  auto dtype = self.scalar_type();
+  SharedMetaDataVector metaVec = {};
+  if ((self.scalar_type() == at::kFloat) ||
+      (self.scalar_type() == at::kBFloat16) ||
+      (self.scalar_type() == at::kInt) || (self.scalar_type() == at::kShort)) {
+    metaVec = BoolCastSharedMeta({self});
+    dtype = at::kBool;
+  }
+
+  SharedMetaData notMeta{"not"};
+  notMeta.inputs_data = {{rank, dtype}};
+  notMeta.outputs_data = {{rank, at::kBool}};
+  metaVec.push_back(notMeta);
+  return metaVec;
+}
+
+SharedMetaDataVector LogicalBinaryAndSharedMeta(const at::Stack& stack) {
+  return LogicalBinarySharedMeta(stack, "and");
+}
+
+SharedMetaDataVector LogicalBinaryOrSharedMeta(const at::Stack& stack) {
+  return LogicalBinarySharedMeta(stack, "or");
+}
+
+SharedMetaDataVector LogicalBinaryXorSharedMeta(const at::Stack& stack) {
+  return LogicalBinarySharedMeta(stack, "xor");
 }
 
 void LogicalNotOut::AddNode(

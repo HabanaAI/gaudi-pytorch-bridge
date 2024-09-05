@@ -15,20 +15,25 @@
 
 #include "hpu_ops/hpu_op_helper.h"
 
-#define SHARED_META(name)                \
+#define SHARED_META(name) \
+  SharedMetaDataVector name##SharedMeta(const at::Stack& stack);
+
+#define SHARED_META_GUID(name)           \
   SharedMetaDataVector name##SharedMeta( \
       const at::Stack& stack, const std::string& guid);
 
 namespace habana {
 
-SHARED_META(Input0)
-SHARED_META(Input0ToOut0And1)
-SHARED_META(AdaptiveBwd)
-SHARED_META(AvgPoolBwd)
-SHARED_META(FillCumSumProd)
-SHARED_META(IsFiniteInfNan)
-SHARED_META(Rounding)
-SHARED_META(Compare)
-SHARED_META(ForeachCompound)
-SHARED_META(UnaryForeach)
+SHARED_META_GUID(Input0)
+SHARED_META_GUID(Input0ToOut0And1)
+SHARED_META_GUID(AdaptiveBwd)
+SHARED_META_GUID(AvgPoolBwd)
+SHARED_META_GUID(FillCumSumProd)
+SHARED_META_GUID(IsFiniteInfNan)
+SHARED_META_GUID(Rounding)
+SHARED_META_GUID(Compare)
+SHARED_META_GUID(ForeachCompound)
+SHARED_META(BoolCast)
+SHARED_META_GUID(LogicalBinary)
+SHARED_META_GUID(UnaryForeach)
 } // namespace habana
