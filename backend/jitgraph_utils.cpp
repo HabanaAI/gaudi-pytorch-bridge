@@ -63,30 +63,6 @@ torch::jit::Value* GetRestridedOutvalue(const torch::jit::Value* val) {
   return restride_node ? restride_node->output(0) : nullptr;
 }
 
-torch::jit::Value* GetPermuteOutvalue(const torch::jit::Value* val) {
-  auto restride_node = returnNodeUsesValue(val, {"hpu::permute"});
-  return restride_node ? restride_node->output(0) : nullptr;
-}
-
-bool isPermuteInGraphOutputs(const torch::jit::Value* value) {
-  // return if graph output is restrided node output
-  if (IsOutputToPermute(value)) {
-    auto value_permuted = GetPermuteOutvalue(value);
-    TORCH_CHECK(nullptr != value_permuted, "Permuted value output is null");
-    auto graph_outs = value->owningGraph()->outputs();
-    for (auto value_out : graph_outs) {
-      if (value_permuted->unique() == value_out->unique()) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-bool IsOutputToPermute(const torch::jit::Value* value) {
-  return returnNodeUsesValue(value, {"hpu::permute"}) ? true : false;
-}
-
 torch::jit::Node* GetUnpackNodeFromTensorList(const torch::jit::Value* val) {
   return returnNodeUsesValue(val, {"prim::ListUnpack"});
 }

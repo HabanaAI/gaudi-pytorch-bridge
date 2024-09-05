@@ -264,8 +264,7 @@ bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
     torch::jit::Node* node,
     torch::jit::Value* value_out) {
   bool is_persistent = false;
-  if (use_persistent_tensors || isInGraphOutputs(value_out) ||
-      isPermuteInGraphOutputs(value_out)) {
+  if (use_persistent_tensors || isInGraphOutputs(value_out)) {
     // Highest priority is given to the env variable, and if
     // part of the graph output
     auto in_graph_output = isInGraphOutputs(value_out);
