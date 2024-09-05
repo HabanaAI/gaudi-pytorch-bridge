@@ -41,9 +41,7 @@ bool isInplaceOp(const Node* node) {
 
 bool isControlNode(const Node* node) {
   return node
-      ? ((node->kind().toQualString() == std::string("hpu::control_edge_")) ||
-         (node->kind().toQualString() ==
-          std::string("hpu::control_edge_other_")))
+      ? (node->kind().toQualString() == std::string("hpu::control_edge_"))
       : false;
 }
 

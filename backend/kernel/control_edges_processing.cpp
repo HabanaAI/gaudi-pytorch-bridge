@@ -27,10 +27,6 @@ enum class ControlEdgeType {
    */
   Default,
   /**
-   * Control edge represented with hpu::control_edge_other_ node
-   */
-  Other,
-  /**
    * Control edge for inplace op with inplace input at first position (index 0)
    */
   InplaceInput0,
@@ -66,9 +62,7 @@ inline bool IsControlEdgeTypeInplace(const ControlEdgeType cet) {
  */
 ControlEdgeType NodeRequiresControlEdge(const torch::jit::Node* const node) {
   using namespace std::literals;
-  if ("hpu::control_edge_other_"sv == node->kind().toQualString()) {
-    return ControlEdgeType::Other;
-  } else if (habana::control_edges::IsControlEdgeNode(node)) {
+  if (habana::control_edges::IsControlEdgeNode(node)) {
     return ControlEdgeType::Default;
   } else if (int inputId = jitgraph_utils::inplaceInputId(node); inputId >= 0) {
     return (inputId == 0) ? ControlEdgeType::InplaceInput0
@@ -93,8 +87,7 @@ bool IsValidBlockingOrBlockedNode(const torch::jit::Node* const blocking_node) {
   auto node_str = std::string_view{blocking_node->kind().toQualString()};
   auto c_edge = NodeRequiresControlEdge(blocking_node);
   return not(
-      ((c_edge == ControlEdgeType::Default) ||
-       (c_edge == ControlEdgeType::Other)) ||
+      (c_edge == ControlEdgeType::Default) ||
       (node_str == "prim::Param"sv) || (node_str == "prim::Return"sv));
 }
 
@@ -163,7 +156,6 @@ bool IsControlEdgeNode(const torch::jit::Node* const node) {
   return (
       node_str == "hpu::as_strided_lazy_"sv ||
       node_str == "hpu::as_strided_lazy_cl_"sv ||
-      node_str == "hpu::control_edge_other_"sv ||
       node_str == "hpu::control_edge_"sv);
 }
 
@@ -486,7 +478,7 @@ void ControlEdgesProcessor::PrepareBlockingNodeList(
     std::vector<synNodeId>& blocking_syn_nodes_vec) {
   const int first_input =
       control_type == ControlEdgeType::InplaceInput1 ? 1 : 0;
-  const int num_inputs = control_type == ControlEdgeType::Other ? 2 : 1;
+  const int num_inputs = 1;
   const int behind_last_input = first_input + num_inputs;
 
   for (int i = first_input; i < behind_last_input; i++) {
@@ -539,8 +531,7 @@ void ControlEdgesProcessor::PrepareBlockingNodeList(
 
     // Traverse up until a non control edge node is reached.
     auto c_edge = NodeRequiresControlEdge(parent_node);
-    while ((c_edge == ControlEdgeType::Default) ||
-           (c_edge == ControlEdgeType::Other)) {
+    while (c_edge == ControlEdgeType::Default) {
       parent_node = parent_node->input(0)->node();
       c_edge = NodeRequiresControlEdge(parent_node);
     }

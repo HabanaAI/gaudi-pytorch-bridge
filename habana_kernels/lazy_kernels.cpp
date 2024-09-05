@@ -377,21 +377,6 @@ std::vector<int64_t> CalculateStrides(
   return {sizes[1] * sizes[2] * sizes[3], sizes[3] * sizes[2], sizes[3], 1};
 }
 
-ir::Value AddControlEdge(const at::Tensor& src, const at::Tensor& dst) {
-  auto hb_result = GetHbLazyTensor(dst);
-  auto hb_tensor = GetHbLazyTensor(src);
-  auto node = ir::Node::Create(
-      Symbol::fromQualString("hpu::control_edge_other_"),
-      {hb_tensor.GetIrValue(), hb_result.GetIrValue()});
-  node->set_as_control_edge();
-  std::vector<at::Tensor> input_pt_vec;
-  input_pt_vec.push_back(src);
-  input_pt_vec.push_back(dst);
-  ir::Value& out = hb_result.IrSetNode(node);
-  node->AddInputPtTensors(input_pt_vec);
-  return out;
-}
-
 void updateDstDependencies(const Tensor& dst) {
   if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) {
     return;

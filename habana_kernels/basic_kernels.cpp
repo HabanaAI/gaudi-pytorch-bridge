@@ -2021,7 +2021,6 @@ static auto& BasicKernelsKernelRegistry =
         .add("hpu::habana_d2d_memcpy_other", KERNEL_FN_GLOBAL(MemCopyOperator))
         .add("aten::to.dtype", KERNEL_FN_GLOBAL(ToDtypeOperator))
         .add("hpu::control_edge_", KERNEL_FN_GLOBAL(DummyOperator))
-        .add("hpu::control_edge_other_", KERNEL_FN_GLOBAL(DummyOperator))
         .add("hpu::as_strided_lazy_", KERNEL_FN_GLOBAL(AsStridedOperator))
         .add("hpu::as_strided_lazy_cl_", KERNEL_FN_GLOBAL(AsStridedClOperator))
         .add("hpu::strided_view", KERNEL_FN_GLOBAL(StridedViewOperator))
