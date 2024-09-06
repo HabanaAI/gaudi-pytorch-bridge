@@ -9959,10 +9959,3 @@ rms_norm_backward:
   out_ids: [0, 0]
   output_meta: RMSNormBwdMeta
   custom_fill_params: RMSNormBwdParams
-
-rms_norm_fast_backward:
-  custom_op_schema: "hpu::rms_norm_fast_backward(Tensor grad_in, Tensor data_in, Tensor gamma, Tensor inverse_rms, bool use_stages, int bwd_mode) -> (Tensor, Tensor)"
-  guid: rms_norm_fast_bwd
-  out_ids: [0, 0]
-  output_meta: RMSNormBwdMeta
-  custom_fill_params: RMSNormBwdParams

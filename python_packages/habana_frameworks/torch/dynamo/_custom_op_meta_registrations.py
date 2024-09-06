@@ -905,11 +905,11 @@ def meta_rms_norm(data_in, gamma, epsilon):
         data_in_dtype = torch.float32
 
     return data_in.new_empty(data_in.shape, dtype=data_in_dtype), data_in.new_empty(
-        inverse_root_mean_square_shape, dtype=data_in_dtype
+        inverse_root_mean_square_shape, dtype=torch.float32
     )
 
 
-@register_meta([torch.ops.hpu.rms_norm_backward.default, torch.ops.hpu.rms_norm_fast_backward.default])
+@register_meta([torch.ops.hpu.rms_norm_backward.default])
 def meta_rms_norm_backward(grad_in, data_in, gamma, inverse_rms, use_stages, bwd_mode):
     return data_in.new_empty(data_in.shape), gamma.new_empty(gamma.shape)
 

@@ -35,7 +35,7 @@ OutputMetaDataVector RMSNormMeta(const at::Stack& stack) {
   first_output.dtype = data_in_dtype;
   OutputMetaData second_output;
   second_output.shape = inverse_root_mean_square_sizes;
-  second_output.dtype = data_in_dtype;
+  second_output.dtype = c10::ScalarType::Float;
   return {first_output, second_output};
 }
 
@@ -75,24 +75,15 @@ std::shared_ptr<void> RMSNormBwdParams(
 }
 
 OutputMetaDataVector RMSNormBwdMeta(const at::Stack& stack) {
-  const auto& data_in = stack.at(1).toTensor();
-  const auto& gamma = stack.at(2).toTensor();
-
-  auto type = data_in.scalar_type();
-  bool types_match = true;
-  for(std::size_t i{0}; i < 4; ++i){
-    if(type != stack.at(i).toTensor().scalar_type()) {
-      types_match = false;
-      break;
-    }
-  }
+  auto data_in = stack.at(1).toTensor();
+  auto gamma = stack.at(2).toTensor();
 
   OutputMetaData first_output;
   first_output.shape = data_in.sizes().vec();
-  first_output.dtype = types_match ? type : c10::ScalarType::Float;
+  first_output.dtype = data_in.scalar_type();
   OutputMetaData second_output;
   second_output.shape = gamma.sizes().vec();
-  second_output.dtype = types_match ? type : c10::ScalarType::Float;
+  second_output.dtype = gamma.scalar_type();
   return {first_output, second_output};
 }
 } // namespace habana
