@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -11,18 +11,10 @@
  *******************************************************************************
  */
 #include "generated/backend/sort.h"
-#include "habana_kernels/index_kernels.h"
 
 namespace habana {
 
-sizes_vec SortOutputShape(const at::Stack& stack) {
-  const torch::Tensor& self = stack_tensor(stack, 0);
-  std::vector<int64_t> shape = self.sizes().vec();
-  return {{shape, shape}};
-}
-
 OutputMetaDataVector SortStableMeta(const at::Stack& stack) {
-  auto shapes = SortOutputShape(stack);
   auto self = stack_tensor(stack, 0);
   auto memoryFormat = self.suggest_memory_format();
 
@@ -30,11 +22,11 @@ OutputMetaDataVector SortStableMeta(const at::Stack& stack) {
   OutputMetaData meta_index{};
 
   meta_value.dtype = self.scalar_type();
-  meta_value.shape = shapes[0];
+  meta_value.shape = self.sizes().vec();
   meta_value.mem_format = memoryFormat;
 
   meta_index.dtype = c10::ScalarType::Long;
-  meta_index.shape = shapes[1];
+  meta_index.shape = self.sizes().vec();
   meta_index.mem_format = memoryFormat;
   return {meta_value, meta_index};
 }

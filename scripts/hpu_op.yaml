@@ -37,7 +37,6 @@
 #  - only_shared_layer - mark ops registered and implemented manually in the backend just for shared layer validation.
 #  - override_fn - function for full override of the op frontend and backend.
 #  - lazy - separate flow for lazy mode.
-#  - custom_output_shape - function for outputs shape calculation. Deprecated, use output_meta.
 #  - out_dtypes - dtypes of output tensors. Deprecated, use output_meta.
 
 _assert_async:
@@ -8751,7 +8750,6 @@ sub.Scalar:
   promote_to_common_type: [self, other]
 
 sub_.Tensor:
-  custom_output_shape: BinaryOutputShapeInplace
   custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
@@ -8765,7 +8763,6 @@ sub_.Tensor:
   promote_to_common_type: [self, other]
 
 sub_.Scalar:
-  custom_output_shape: BinaryOutputShapeInplace
   custom_fill_params: FillBinarySubParams
   dtypes:
     Gaudi: [BFloat16, Float, Short, Int]
@@ -8990,7 +8987,6 @@ sort.values_stable:
     Gaudi: [Float, Int, BFloat16, Short]
     Gaudi2: [Float, Int, Long, BFloat16, Short, Half]
     Gaudi3: [Float, Int, Long, BFloat16, Short, Half]
-  custom_output_shape: SortOutputShape
   output_meta: SortStableMeta
   fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
@@ -9002,7 +8998,6 @@ sort.stable:
     Gaudi3: [Float, Int, Long, BFloat16, Short, Half]
   fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
-  custom_output_shape: SortOutputShape
   output_meta: SortStableMeta
   out_ids: [0, 0]
 

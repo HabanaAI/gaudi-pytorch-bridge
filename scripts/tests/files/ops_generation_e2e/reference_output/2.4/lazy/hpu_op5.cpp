@@ -60,7 +60,7 @@ at::Tensor & mul_out(const at::Tensor & self, const at::Scalar & other, at::Tens
   FALLBACK_IF_UNSUPPORTED_DTYPE2(values, sort, values_stable, self, stable, dim, descending, values, indices)
 
   FALLBACK_IF_UNSUPPORTED_INPUTS2(SortStableFallbackCheck(self, stable, dim, descending), sort, values_stable, self, stable, dim, descending, values, indices)
-  LazyOp<::std::tuple<at::Tensor &,at::Tensor &>> hpu_op{"aten::sort", {self, stable, dim, descending, values, indices}, SortOutputShape};
+  LazyOp<::std::tuple<at::Tensor &,at::Tensor &>> hpu_op{"aten::sort", {self, stable, dim, descending, values, indices}};
   auto tuple = ::std::tuple<at::Tensor &,at::Tensor &>(values, indices);
   RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(sort_out, hpu_op, tuple);
 }

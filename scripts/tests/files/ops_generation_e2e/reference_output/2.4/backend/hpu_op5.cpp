@@ -29,7 +29,6 @@ struct Gensort_values_stable : SortStable {
   Gensort_values_stable(int device_id, c10::ScalarType scalar_type) :
       SortStable(device_id, "None", scalar_type, {}, {}, {}, true) {
         SetNumOutTensors(2);
-        SetComputeOutputShapes(SortOutputShape);
   }
 };
 

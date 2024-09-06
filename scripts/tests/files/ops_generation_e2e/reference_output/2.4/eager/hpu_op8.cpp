@@ -33,7 +33,7 @@ namespace habana {
   FALLBACK_IF_UNSUPPORTED_DTYPE2(values, sort, values_stable, self, stable, dim, descending, values, indices)
 
   FALLBACK_IF_UNSUPPORTED_INPUTS2(SortStableFallbackCheck(self, stable, dim, descending), sort, values_stable, self, stable, dim, descending, values, indices)
-  eager::EagerOp<::std::tuple<at::Tensor &,at::Tensor &>> hpu_op{"aten::sort", {self, stable, dim, descending, values, indices}, SortOutputShape};
+  eager::EagerOp<::std::tuple<at::Tensor &,at::Tensor &>> hpu_op{"aten::sort", {self, stable, dim, descending, values, indices}};
   hpu_op.set_eager_op_info({eager::eagerOpKind::InplaceOut, "aten::sort", require_h2d, require_st, 2});
   return hpu_op.call(::std::tuple<at::Tensor &,at::Tensor &>(values, indices));
 }

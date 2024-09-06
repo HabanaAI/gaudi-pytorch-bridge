@@ -100,7 +100,6 @@ _AVAILABLE_FIELDS = {
     "broadcast",
     "custom_fill_params",
     "custom_op_schema",
-    "custom_output_shape",
     "dtypes",
     "early_exit",
     "fallback_check",
@@ -462,12 +461,8 @@ class Op:
 
     def get_custom_output_shape(self):
         if self.op.get("broadcast", False):
-            assert (
-                self.op.get("custom_output_shape", None) is None
-            ), "broadcast will insert custom_output_shape, so no need to define it."
             return "BinaryOutputShape"
-
-        return self.op.get("custom_output_shape", None)
+        return None
 
     def get_output_meta(self):
         return self.op.get("output_meta", None)
@@ -674,7 +669,6 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
     custom_fill_params = ctxop.get_custom_fill_params()
     tpc_input_order = ctxop.get_tpc_input_order()
     op_backend_class = ctxop.get_op_backend_class()
-    output_shape_fn = ctxop.get_custom_output_shape()
     output_meta_fn = ctxop.get_output_meta()
     shared_layer_meta_meta_fn = ctxop.get_shared_layer_meta()
     st_meta_fn = ctxop.get_st_meta()
@@ -735,8 +729,6 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
             f"{str(ctxop.op.get('broadcast', False)).lower()}, "
             f"{', '.join(map(str, input_indices))}>);"
         )
-    elif output_shape_fn:
-        ctor_extra_calls.append("SetComputeOutputShapes({});".format(output_shape_fn))
 
     if st_meta_fn:
         ctor_extra_calls.append("SetSTMetaFn({});".format(st_meta_fn))
@@ -906,8 +898,8 @@ def generate_header_decls(fgens):
                 early_exit_decls += f"unsigned {early_exit_fun}Condition({args};\n"
                 early_exit_decls += f"{rtype}{early_exit_fun}(unsigned eePath, {args};\n"
                 early_exit_fns.add(early_exit_fun)
-
         outshape_decls += build(fgen.ctxop.get_custom_output_shape(), outshape_fns, "OUTSHAPE_DECL")
+
         outmeta_decls += build(fgen.ctxop.get_output_meta(), outmeta_fns, "OUTMETA_DECL")
         shared_layer_meta_decls += build(
             fgen.ctxop.get_shared_layer_meta(), shared_layer_meta_fns, "SHARED_LAYER_META_DECL"
@@ -1294,7 +1286,6 @@ def handle_output_shape_fn(ctxop, param_vars):
         return "};\n"
     code = ""
     output_shape_fn = ctxop.get_custom_output_shape()
-
     if output_shape_fn:
         code += f", {output_shape_fn}"
     elif ctxop.get_reduction():
