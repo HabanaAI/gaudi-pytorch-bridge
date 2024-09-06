@@ -155,7 +155,6 @@ isfinite:
     Gaudi3: [BFloat16, Float, Half, Int]
   op_backend: _IsFiniteInfNan
   guid: isfinite_fwd
-  out_dtypes: [Bool]
   out_ids: [0]
 
 upsample_bicubic2d.vec:

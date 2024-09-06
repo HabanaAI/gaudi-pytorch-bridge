@@ -37,7 +37,6 @@ at::Tensor isfinite(const at::Tensor & self) {
   FALLBACK_IF_UNSUPPORTED_DTYPE(self, isfinite, self)
 
   LazyOp<at::Tensor> hpu_op{"aten::isfinite", {self}};
-  hpu_op.set_scalar_types({at::kBool});
   RUN_MAYBE_WITH_ACC_THREAD(isfinite, hpu_op);
 }
 

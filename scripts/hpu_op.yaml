@@ -37,7 +37,6 @@
 #  - only_shared_layer - mark ops registered and implemented manually in the backend just for shared layer validation.
 #  - override_fn - function for full override of the op frontend and backend.
 #  - lazy - separate flow for lazy mode.
-#  - out_dtypes - dtypes of output tensors. Deprecated, use output_meta.
 
 _assert_async:
   guid: assert_async
@@ -4733,9 +4732,9 @@ isfinite:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
+  output_meta: IsFiniteInfNanMeta
   op_backend: _IsFiniteInfNan
   guid: isfinite_fwd
-  out_dtypes: [Bool]
   out_ids: [0]
   op_validator: IsFiniteSharedMeta
 
@@ -4746,8 +4745,8 @@ isinf:
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
   guid: isinf_fwd
+  output_meta: IsFiniteInfNanMeta
   op_backend: _IsFiniteInfNan
-  out_dtypes: [Bool]
   out_ids: [0]
   op_validator: IsInfSharedMeta
 
@@ -4757,8 +4756,8 @@ isinf.out:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
-  out_dtypes: [Bool]
   guid: isinf_fwd
+  output_meta: IsFiniteInfNanMeta
   op_backend: _IsFiniteInfNan
   op_validator: IsInfSharedMeta
 
@@ -4768,8 +4767,8 @@ isnan:
     Gaudi2: [BFloat16, Float, Half, Int, Byte, Char, Short, Long]
     Gaudi3: [BFloat16, Float, Half, Int, Byte, Char, Short, Long]
   guid: isnan_fwd
+  output_meta: IsFiniteInfNanMeta
   op_backend: _IsFiniteInfNan
-  out_dtypes: [Bool]
   out_ids: [0]
   op_validator: IsNanSharedMeta
 
@@ -4780,8 +4779,8 @@ isneginf:
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
   guid: isinf_fwd
+  output_meta: IsFiniteInfNanMeta
   op_backend: _IsFiniteInfNan
-  out_dtypes: [Bool]
   out_ids: [0]
   op_validator: IsInfSharedMeta
 
@@ -4791,8 +4790,8 @@ isneginf.out:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
-  out_dtypes: [Bool]
   guid: isinf_fwd
+  output_meta: IsFiniteInfNanMeta
   op_backend: _IsFiniteInfNan
   op_validator: IsInfSharedMeta
 
@@ -4803,8 +4802,8 @@ isposinf:
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
   guid: isinf_fwd
+  output_meta: IsFiniteInfNanMeta
   op_backend: _IsFiniteInfNan
-  out_dtypes: [Bool]
   out_ids: [0]
   op_validator: IsInfSharedMeta
 
@@ -4814,8 +4813,8 @@ isposinf.out:
     Gaudi: [BFloat16, Float, Int]
     Gaudi2: [BFloat16, Float, Half, Int]
     Gaudi3: [BFloat16, Float, Half, Int]
-  out_dtypes: [Bool]
   guid: isinf_fwd
+  output_meta: IsFiniteInfNanMeta
   op_backend: _IsFiniteInfNan
   op_validator: IsInfSharedMeta
 
@@ -6617,7 +6616,6 @@ native_batch_norm_backward:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: BatchNormBwdOpBackend
-  out_dtypes: [input, Float, Float]
   out_ids: [0, 1, 1]
   synapse_layouts:
   - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
@@ -8381,7 +8379,6 @@ signbit:
     Gaudi2: [BFloat16, Float, Int, Char, Byte, Half]
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Half]
   guid: signbit_fwd
-  out_dtypes: [Bool]
   out_ids: [0]
   op_validator: check-node-with-shared-layer
 

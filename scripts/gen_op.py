@@ -116,7 +116,6 @@ _AVAILABLE_FIELDS = {
     "op_backend",
     "op_frontend",
     "op_validator",
-    "out_dtypes",
     "out_ids",
     "output_meta",
     "override_fn",
@@ -550,9 +549,6 @@ class Op:
     @lazy_support
     def get_acc_thread(self):
         return self.op.get("acc_thread", False)
-
-    def get_out_dtypes(self):
-        return self.op.get("out_dtypes", None)
 
     def get_op_validator_generator(self) -> OpValidatorGenerator:
         op_validator = self.get_op_validator()
@@ -1426,13 +1422,6 @@ def lazy_frontend(
     if st_meta:
         code += f"  hpu_op.SetSTMetaFn({st_meta});\n"
 
-    out_dtypes = ctxop.get_out_dtypes()
-    if out_dtypes:
-        assert not use_compute_type, "Cannot use out_dtypes for frontends that use use_compute_type"
-        code += "  hpu_op.set_scalar_types({{{}}});\n".format(
-            ", ".join([d + ".scalar_type()" if d in param_vars else "at::k" + d for d in out_dtypes])
-        )
-
     hw_scaling_ids = ctxop.get_hw_scaling_ids()
     if hw_scaling_ids:
         code += "  hpu_op.set_hw_scaling_index({{{}}});\n".format(", ".join([str(id) for id in hw_scaling_ids]))
@@ -1619,13 +1608,6 @@ def eager_frontend(
         code += "  hpu_op.set_scalar_types({compute_type});\n"
 
     code += handle_output_meta(ctxop, promote_types, dtype_helper_inputs, param_vars, type_promo_variant)
-
-    out_dtypes = ctxop.get_out_dtypes()
-    if out_dtypes:
-        assert not use_compute_type, "Cannot use out_dtypes for frontends that use use_compute_type"
-        code += "  hpu_op.set_scalar_types({{{}}});\n".format(
-            ", ".join([d + ".scalar_type()" if d in param_vars else "at::k" + d for d in out_dtypes])
-        )
 
     hw_scaling_ids = ctxop.get_hw_scaling_ids()
     if hw_scaling_ids:
