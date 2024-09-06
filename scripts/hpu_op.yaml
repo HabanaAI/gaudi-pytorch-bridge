@@ -4701,6 +4701,7 @@ hypot_:
 
 index.Tensor:
   output_meta: IndexMeta
+  custom_fill_params: FillIndexParams
   dtypes:
     Gaudi: [BFloat16, Float, Long, Int, Char, Byte]
     Gaudi2: [BFloat16, Float, Long, Int, Char, Byte, Half]
@@ -4714,6 +4715,7 @@ index.Tensor:
 
 index.Tensor_out:
   output_meta: IndexMeta
+  custom_fill_params: FillIndexParams
   dtypes:
     Gaudi: [BFloat16, Float, Int, Long, Char, Byte]
     Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Half]
