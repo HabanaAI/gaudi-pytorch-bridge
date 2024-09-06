@@ -234,11 +234,11 @@ class HabanaLaunchOpPT {
   }
 
   at::ArrayRef<torch::jit::IValue> get_input_refs() const {
-    return input_refs;
+    return input_refs_;
   }
 
   std::shared_ptr<RecipeArgumentSpec> get_cur_rargpsh() const {
-    return cur_rargpsh;
+    return cur_rargpsh_;
   }
 
   std::optional<std::vector<at::Tensor>> get_allocated_outputs() const {
@@ -246,19 +246,19 @@ class HabanaLaunchOpPT {
   }
 
   torch::jit::Stack& get_input_stack() {
-    return input_st_copy;
+    return input_st_copy_;
   }
 
   void set_input_stack(torch::jit::Stack stack) {
-    input_st_copy = std::move(stack);
+    input_st_copy_ = std::move(stack);
   }
 
   void set_symbol_values(InputSymbolMap symint_value) {
-    in_symbol_value_map = std::move(symint_value);
+    in_symbol_value_map_ = std::move(symint_value);
   }
 
   InputSymbolMap& get_symbol_values() {
-    return in_symbol_value_map;
+    return in_symbol_value_map_;
   }
 
   std::shared_ptr<VecOfIValPtrSh> get_intermediate_tensors_ptrsh() const {
@@ -307,16 +307,16 @@ class HabanaLaunchOpPT {
   std::unordered_map<int64_t, int64_t> ival_hash_to_input_index_map_ = {};
 
   /// Property---------------------------------///-------------Comments--------------///---Read/Write-in-Lowering-Thread---///---Read/Write-in-Compile-Thread----///--Read/Write-in-Execute-Thread
-  /// hpu_stream-------------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
-  /// input_refs-------------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// hpu_stream_------------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// input_refs_------------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   /// cur_rvalpsh------------------------------///-----------------------------------///---------------Write---------------///----------------Write--------------///-----------Read
   /// jit_graph_and_meta_data_-----------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
-  /// input_st_copy----------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// input_st_copy_---------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   /// refine_ds_enabled_-----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
-  /// num_inputs-------------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// num_inputs_------------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   /// syn_graph_ptr_---------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   /// current_dbipsh_--------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Write-for-dynamic-shapes
-  /// cur_rargpsh------------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  /// cur_rargpsh_-----------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // duplicate_intermediate_to_outtinfo_map----///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
   // persistence_marker_pass_data_ptr_---------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // dry_run_----------------------------------///-----------------------------------///---------------Write---------------///------Read-for-Dynamic-Shapes------///-----------Read
@@ -326,16 +326,16 @@ class HabanaLaunchOpPT {
   // jit_ir_graph------------------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///-----------Read
   // op_strs-----------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
   // graph_key---------------------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///------------NA
-  // out_shapes--------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
-  // prim_nodes_ival_counter-------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
-  // restride_node_swap_counter----------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
-  // restride_node_out_val_counter-------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
-  // input_tms---------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
-  // habana_kernels----------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
-  // meta_syn_tensors--------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
-  // pt_stack_sh-------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
-  // value_to_ivalue---------------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///-----------Read
-  // pt_to_synapse_tensors---------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///------------NA
+  // out_shapes_-------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // prim_nodes_ival_counter_------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // restride_node_swap_counter_---------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // restride_node_out_val_counter_------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // input_tms_--------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // habana_kernels_---------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // meta_syn_tensors_-------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // pt_stack_sh_------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
+  // value_to_ivalue_--------------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///-----------Read
+  // pt_to_synapse_tensors_--------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///------------NA
   // ivalue_to_tensor_info_map-----------------///-----------------------------------///---------------Write---------------///---------------Write---------------///------------NA
   // input_tivs--------------------------------///-----------------------------------///---------------Write---------------///---------------Write---------------///------------NA
   // output_tensorinfos------------------------///-----------------------------------///-----------------NA----------------///---------------Write---------------///------------NA
@@ -392,17 +392,17 @@ class HabanaLaunchOpPT {
  private:
   // user stream info
   synapse_helpers::hpuStream_t hpu_stream_;
-  at::ArrayRef<torch::jit::IValue> input_refs;
+  at::ArrayRef<torch::jit::IValue> input_refs_;
   std::shared_ptr<RecipeLauncher> recipe_launcher_{nullptr};
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData>
       jit_graph_and_meta_data_ = nullptr;
-  bool enable_user_dynamic_ranges = false;
-  std::vector<habana_helpers::RangeInfo> m_range_infos;
-  torch::jit::Stack input_st_copy;
+  bool enable_user_dynamic_ranges_ = false;
+  std::vector<habana_helpers::RangeInfo> range_infos_;
+  torch::jit::Stack input_st_copy_;
   bool refine_ds_enabled_{false};
-  size_t num_inputs{0};
+  size_t num_inputs_{0};
   std::shared_ptr<habana_helpers::DynamicBucketInfo> current_dbipsh_{};
-  std::shared_ptr<RecipeArgumentSpec> cur_rargpsh{nullptr};
+  std::shared_ptr<RecipeArgumentSpec> cur_rargpsh_{nullptr};
   std::unique_ptr<PersistenceMarkerPassData> persistence_marker_pass_data_ptr_;
   std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend> lazy_info_ =
       nullptr;
@@ -417,31 +417,31 @@ class HabanaLaunchOpPT {
   size_t graph_key_with_perm_ = 0;
   size_t graph_symint_hash_ = 0;
   size_t graph_perm_hash_ = 0;
-  std::vector<std::vector<int64_t>> out_shapes{};
+  std::vector<std::vector<int64_t>> out_shapes_{};
 
-  size_t prim_nodes_ival_counter{0};
-  size_t restride_node_swap_counter{0};
-  size_t restride_node_out_val_counter{0};
+  size_t prim_nodes_ival_counter_{0};
+  size_t restride_node_swap_counter_{0};
+  size_t restride_node_out_val_counter_{0};
 
-  std::vector<TensorMetaData> input_tms;
+  std::vector<TensorMetaData> input_tms_;
 
   // We keep a vector of kernels so that the context memory
   //   for each kernel is retained till graph execution
   // This is done to enable reuse of PT and synapse tensors and their
   // processing
-  std::vector<HabanaOperatorPtr> habana_kernels;
+  std::vector<HabanaOperatorPtr> habana_kernels_;
 
   // map between PT and synapse tensors
-  std::deque<synapse_helpers::tensor> meta_syn_tensors;
+  std::deque<synapse_helpers::tensor> meta_syn_tensors_;
 
-  VecOfIValPtrSh pt_stack_sh;
-  CValuePtrToIValuePtrMap value_to_ivalue;
-  InputSymbolMap in_symbol_value_map;
+  VecOfIValPtrSh pt_stack_sh_;
+  CValuePtrToIValuePtrMap value_to_ivalue_;
+  InputSymbolMap in_symbol_value_map_;
   habana_helpers::DynamicSIFInfo ds_sif_info_;
   size_t sym_expr_hash_ = 0;
-  std::unordered_set<std::string> st_backend_create_op_list;
+  std::unordered_set<std::string> st_backend_create_op_list_;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
-      pt_to_synapse_tensors;
+      pt_to_synapse_tensors_;
 
   std::unordered_map<IValPtrShared, PtTensorInfoShared>
       ivalue_to_tensor_info_map;
@@ -538,7 +538,7 @@ class HabanaLaunchOpPT {
   int64_t intermediate_syn_tensors_count_{0};
 
   // Count for implicit synapse tensors which are duplicate to inputs
-  // and are persistent and not present in pt_to_synapse_tensors map
+  // and are persistent and not present in pt_to_synapse_tensors_ map
   int64_t implicit_syn_tensors_count_{0};
 
   // Count for JIT IR nodes for which meta attribute is set

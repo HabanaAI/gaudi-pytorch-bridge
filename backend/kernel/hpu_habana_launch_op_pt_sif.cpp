@@ -563,10 +563,10 @@ bool HabanaLaunchOpPT::RunHybridSif(
 
   CValPtrtoIValueMap val_to_ival_map;
   auto graph_inputs = jit_ir_graph_->inputs();
-  TORCH_CHECK(input_refs.size() == graph_inputs.size(), "Input size mismatch");
+  TORCH_CHECK(input_refs_.size() == graph_inputs.size(), "Input size mismatch");
   for (size_t i = 0; i < graph_inputs.size(); i++) {
     auto input = graph_inputs[i];
-    val_to_ival_map[input] = input_refs[i];
+    val_to_ival_map[input] = input_refs_[i];
   }
 
   // Figure out the right device id
@@ -813,16 +813,16 @@ bool HabanaLaunchOpPT::RunHybridSif(
   if constexpr (DynamicShapes) {
     // For all Graph inputs create a sif mapping
     for (size_t i = 0; i < graph_inputs.size(); ++i) {
-      if (input_refs[i].isScalar())
+      if (input_refs_[i].isScalar())
         continue;
-      HABANA_ASSERT(input_refs[i].isTensor());
+      HABANA_ASSERT(input_refs_[i].isTensor());
       auto inp_sif_tid = habana::ShapeInference::ReadAndIncrementSifTensorId();
-      tidx_to_tensor_map.insert({inp_sif_tid, input_refs[i].toTensor()});
+      tidx_to_tensor_map.insert({inp_sif_tid, input_refs_[i].toTensor()});
       PT_DYNAMIC_SHAPE_DEBUG(
           "For graph inputs, adding to tidx_to_tensor_map: ",
           inp_sif_tid,
           " -> ",
-          habana_helpers::DebugString(input_refs[i].toTensor()));
+          habana_helpers::DebugString(input_refs_[i].toTensor()));
     }
 
     // For all input shape tensors create a sif mapping
