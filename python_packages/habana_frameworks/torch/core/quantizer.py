@@ -261,7 +261,6 @@ class habana_quantizer(Quantizer):
 
     def _annotate_softmax(self, gm: torch.fx.GraphModule, quantization_config: QuantizationConfig) -> None:
         softmax_partitions = get_source_partitions(gm.graph, [torch.softmax, torch.nn.functional.softmax])
-        # breakpoint()
 
         if len(softmax_partitions) == 0:
             return

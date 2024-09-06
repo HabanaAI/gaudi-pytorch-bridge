@@ -22,7 +22,7 @@ from torch._inductor.constant_folding import ConstantFolder, replace_node_with_c
 from torch._inductor.freezing import discard_traced_gm_params, invalidate_eager_modules, replace_params_with_constants
 
 from . import config as hpu_backend_config
-from .passes import helper_post_pass_finalize
+from .passes import post_pass_finalize
 
 logger = get_compile_backend_logger()
 
@@ -116,7 +116,7 @@ def constant_fold(gm: torch.fx.GraphModule, constraint_fn: Optional[Callable[[to
         gm.graph.erase_node(node)
 
     gm = helper_post_pass_placement_update(input_module=gm)
-    gm = helper_post_pass_finalize(input_module=gm)
+    gm = post_pass_finalize(input_module=gm)
 
 
 def freeze(
@@ -176,7 +176,7 @@ def freeze(
     # TODO - further restrict cse ? right now needed to dedup aliasing ops
     cse_graph = fx_graph_cse(aot_autograd_gm.graph)
     aot_autograd_gm.graph = cse_graph
-    aot_autograd_gm = helper_post_pass_finalize(input_module=aot_autograd_gm)
+    aot_autograd_gm = post_pass_finalize(input_module=aot_autograd_gm)
 
     aot_example_inputs = [example_inputs[ind] for ind in preserved_arg_indices]
     fake_mode = detect_fake_mode(aot_example_inputs)
@@ -208,7 +208,7 @@ def freeze(
         if idx not in removed_indices:
             preserved_arg_indices_updated.append(arg_idx)
 
-    aot_autograd_gm = helper_post_pass_finalize(input_module=aot_autograd_gm)
+    aot_autograd_gm = post_pass_finalize(input_module=aot_autograd_gm)
 
     logger.debug(
         "Post constant folding and CSE frozen graph:\n%s",

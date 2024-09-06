@@ -18,7 +18,7 @@ from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend
 from torch._dynamo.utils import count_calls
 from torch._functorch.partitioners import default_partition
 
-from .passes import helper_is_view_node
+from .passes import is_view_node
 
 
 def is_call_function_node(node: torch.fx.Node):
@@ -34,10 +34,10 @@ def helper_is_inplace_node(node: torch.fx.Node):
     return node_name.endswith("_")
 
 
-def helper_is_view_node_wrapper(node: torch.fx.Node):
+def is_view_node_wrapper(node: torch.fx.Node):
     if not is_call_function_node(node):
         return False
-    return helper_is_view_node(node)
+    return is_view_node(node)
 
 
 def has_mutation_users(producer: torch.fx.Node):
@@ -51,7 +51,7 @@ def has_mutation_users(producer: torch.fx.Node):
                 return True
 
             # further check the viewed output
-            if helper_is_view_node_wrapper(user):
+            if is_view_node_wrapper(user):
                 queue.append(user)
 
     return False

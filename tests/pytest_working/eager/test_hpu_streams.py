@@ -24,9 +24,6 @@ def testBasic():
     s0 = ht.hpu.Stream()
     s1 = ht.hpu.Stream()
 
-    # breakpoint()
-    # print(type(s0))
-
     print("QUERY s0 - START")
     print(s0.query())
     print("QUERY - FINISHED")
@@ -59,29 +56,11 @@ def testAddOnStreams():
         for _ in range(500):
             torch.add(tA_h, tB_h)
 
-    # with ht.hpu.stream(s1):
-    #     tOut3 = torch.add(tB_h,tB_h)
-
     print("StreamSync-s0 - Start")
     s0.synchronize()
     print("StreamSync-s0 - End")
 
-    # print('StreamSync-s1 - Start')
-    # s1.synchronize()
-    # print('StreamSync-s1 - End')
-
-    # s1.synchronize()
-    # print(f'S0={s0.query()} S1={s1.query()}')
     print(f"{s0.id()}")  # {s1.id()}')
-    # print(tOut1.cpu())
-    # exit()
-    # with ht.hpu.stream(s1):
-    #     tOut = torch.add(tB_h,tB_h)
-
-    # print(tOut.cpu())
-
-    # with ht.hpu.stream(s1):
-    #     print('Inside context for S1')
 
 
 def testStreamSyncBasic():
@@ -131,14 +110,6 @@ def testAddFwdBwd():
 
     s1.synchronize()
 
-    # # print(f'S0={s0.query()} S1={s1.query()}')
-    # print(tOut0.cpu())
-    # print(tOut1.cpu())
-    # print(tOut2.cpu())
-
-    # with ht.hpu.stream(s1):
-    #     print('Inside context for S1')
-
     print("TEST: AddFwdBwd - END")
 
 
@@ -172,8 +143,6 @@ def testIf():
     ht.hpu.default_stream()
     ht.hpu.current_stream()
 
-    # breakpoint()
-
 
 def test_stream_none():
     print("TEST: stream_none - START")
@@ -183,7 +152,6 @@ def test_stream_none():
 def test_stream_event_uninit():
     print("TEST: stream_none - START")
     ht.hpu.Stream()
-    # e1 = ht.hpu.Event()
 
 
 def testInfo():
@@ -197,8 +165,6 @@ def testInfo():
     print("D==s1  :: ", d == s1)
     print("s1==s1 :: ", s1 == s1)
     print("s1==s2 :: ", s1 == s2)
-    # print(s1==3)
-    # breakpoint()
     print(f"s1.device_index={s1.device_index} , Default stream id={d.id()} s1.id()={s1.id()} s2.id()={s2.id()}")
 
 
@@ -215,8 +181,6 @@ def testProfiling():
     print(f"Before record :endEv info={repr(endEv)}")
     startEv.record()
     time.sleep(0.5)
-    # for _ in range(100):
-    #     tA_h = torch.add(tA_h,tB_h)
     endEv.record()
     endEv.synchronize()
     print(f"Time Elapsed={startEv.elapsed_time(endEv)}")  # milliseconds
@@ -266,26 +230,16 @@ def testEventSync():
     tA_h = torch.zeros(in_shape).to("hpu")
     tB_h = torch.ones(in_shape).to("hpu")
 
-    # s = ht.hpu.Stream()
     startEv = ht.hpu.Event()
-    # # print(type(startEv),type(s))
     endEv = ht.hpu.Event()
-    # assert endEv.query()is True , "Event query on unrecorded event returned False (expected True)"
     startEv.record()
     print(f"START: start of loop - query()={startEv.query()}")
     for _ in range(3):
         tA_h = torch.add(tA_h, tB_h)
     print(f"START: end of loop - query()={startEv.query()}")
-    # htcore.mark_step()
     endEv.record()
-    # print(f'START: start of loop2')
-    # # endEv.wait()
-    # for _ in range(3):
-    #     tA_h = torch.add(tA_h,tB_h)
-    # print(f'START: end of loop2')
     # # Waits for everything to finish running
     endEv.synchronize()
-    # print(tA_h.cpu())
 
 
 def testEventSyncUserStream():
@@ -294,7 +248,6 @@ def testEventSyncUserStream():
     print("Create s0")
     s0 = ht.hpu.Stream()
     print("Created s0")
-    # s1 = ht.hpu.Stream()
     in_shape = (10, 2)
     tA_h = torch.zeros(in_shape).to("hpu")
     tB_h = torch.ones(in_shape).to("hpu")
@@ -305,7 +258,6 @@ def testEventSyncUserStream():
         startEv.record()
 
     startEv.synchronize()
-    # print(tA_h.cpu())
 
 
 def testStreamEvents():
