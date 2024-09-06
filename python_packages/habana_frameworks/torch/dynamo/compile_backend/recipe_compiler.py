@@ -39,20 +39,11 @@ def get_input_symbolic(graph_module, inputs):
 
     from ._recipe_compiler_C import RangeInfo
 
-    # We are limiting the max size here for range max value.
-    # Since we dont have clear indicaion for which all symbols
-    # the max range is specifically set by user so for symbols
-    # where max is not set it is coming [2, INT_MAX], now we could
-    # have had this check specifically to check for INT_MAX but
-    # sometimes the symbols are coming as expression in which case
-    # the value max value may depend on expression. Hence as asfe side
-    # we are limiting the max value to MAX_UPPER_SIZE, above which we create
-    # out own default range [val, val*2]. It also help us in avoiding
-    # workspace allocation failiure.
-    MAX_UPPER_SIZE = 1_00_00_000
-
     def is_mark_dynamic(inputs, graph_module):
+        has_tensor = False
         for input in inputs:
+            if isinstance(input, (torch.Tensor, FakeTensor)):
+                has_tensor = True
             if hasattr(input, "_dynamo_dynamic_range"):
                 logger.debug("Enabling user min/max flow")
                 return True
@@ -60,23 +51,28 @@ def get_input_symbolic(graph_module, inputs):
         # symbolic input, since symbols has no attribute to identify if range is set
         # via mark_dynamic, check if upper for non complex symbolic is less than max-1,
         # if yes then it is probably set via mark_dynamic flag
-        for input_node in graph_module.graph.nodes:
-            if input_node.op == "placeholder" and input_node.meta and "val" in input_node.meta:
-                input_meta = input_node.meta["val"]
-                if isinstance(input_meta, torch.SymInt):
-                    node = input_meta.node
-                    shape_env = node.shape_env
-                    expr = node.expr
-                    var_range = shape_env.var_to_range.get(expr, None)
-                    if var_range and var_range.upper < MAX_UPPER_SIZE:
-                        logger.debug(f"Enabling user min/max flow because of {expr} upper range = {var_range.upper}")
-                        return True
+        if not has_tensor:
+            MAX_MINUS_ONE = sys.maxsize - 1
+            for input_node in graph_module.graph.nodes:
+                if input_node.op == "placeholder" and input_node.meta and "val" in input_node.meta:
+                    input_meta = input_node.meta["val"]
+                    if isinstance(input_meta, torch.SymInt):
+                        node = input_meta.node
+                        shape_env = node.shape_env
+                        expr = node.expr
+                        var_range = shape_env.var_to_range.get(expr, None)
+                        if var_range and var_range.upper < MAX_MINUS_ONE:
+                            logger.debug(
+                                f"Enabling user min/max flow because of {expr} upper range = {var_range.upper}"
+                            )
+                            return True
         return False
 
     def get_input(input_shape):
+        MAX_SIZE = 1_00_00_000
         min_shape = []
         max_shape = []
-        shape_expr = []
+        shape_expr = list(input_shape)
         for dim in input_shape:
             if isinstance(dim, torch.SymInt):
                 node = dim.node
@@ -94,23 +90,16 @@ def get_input_symbolic(graph_module, inputs):
                 # recipe in 1 shot
                 logger.debug("Initial MIN ", var_range.lower)
                 logger.debug("Initial MAX ", var_range.upper)
-                if var_range.upper >= MAX_UPPER_SIZE:
-                    logger.debug(f"WARN: max range {var_range.upper} greater than {MAX_UPPER_SIZE} using max as 2*val")
+                if var_range.upper >= MAX_SIZE:
+                    logger.debug(f"WARN: max range {var_range.upper} greater than {MAX_SIZE} using max as 2*val")
                     min_shape.append(np.int64(var_val))
                     max_shape.append(np.int64(var_val) * 2)
                 else:
                     min_shape.append(np.int64(var_range.lower))
                     max_shape.append(np.int64(var_range.upper))
-                # Simplify the sympy expression so that can be used by Exprtk
-                pexpr = PythonPrinter().doprint
-                sz_str = pexpr(expr)
-                sz_sympy = sympify(sz_str)
-                sz_sympy = substitute_sympyfn(sz_sympy)
-                shape_expr.append(sz_sympy)
             else:
                 min_shape.append(dim)
                 max_shape.append(dim)
-                shape_expr.append(dim)
         logger.debug("Final MIN ", min_shape)
         logger.debug("Final MAX ", max_shape)
         logger.debug("Shape ", shape_expr)
@@ -129,14 +118,12 @@ def get_input_symbolic(graph_module, inputs):
                         input_meta = input_node.meta["val"]
                         if isinstance(input_meta, (FakeTensor, torch.Tensor)):
                             input_shape = input_meta.size()
-                            logger.debug(f"Getting Min/Max for Tensor {input_node.name}")
                             min, max, expr = get_input(input_shape)
                             expr_strides = [item for t in input_node.meta["output_strides"] for item in t]
                             range_info = RangeInfo(min, max, str(expr), str(expr_strides), input_idx)
                             min_max_shapes.append(range_info)
                         elif isinstance(input_meta, torch.SymInt) or isinstance(input_meta, int):
                             input_shape = [input_meta]
-                            logger.debug(f"Getting Min/Max for Symbol {input_node.name}")
                             min, max, expr = get_input(input_shape)
                             range_info = RangeInfo(min, max, str(expr), "INVALID", input_idx)
                             min_max_shapes.append(range_info)
