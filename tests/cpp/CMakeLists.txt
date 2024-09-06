@@ -270,11 +270,10 @@ list(APPEND misc_tests_src
 )
 
 list(APPEND eager_tests_src
-  eager_kernel_tests.cpp
+  shape_agnostic_tests.cpp
   eager_pipeline_tests.cpp
   eager_view_tests.cpp
-  scalar_dtype_range_tests.cpp
-  shape_agnostic_tests.cpp
+  eager_kernel_tests.cpp
 )
 
 add_habana_executable(
