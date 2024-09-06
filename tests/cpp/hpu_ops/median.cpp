@@ -79,8 +79,6 @@ TEST_P(MedianDimValuesHpuOpTest, median_dim_values) {
   Compare(expected_value, result_value);
 }
 /**
- * Test cases fail when the size of the tensor in the reduction axis >37
- * Issue Raised: https://jira.habana-labs.com/browse/SW-70095
  * Mis-match in the Median index value
  * Issue Raised: https://jira.habana-labs.com/browse/SW-68143
  */
@@ -102,6 +100,16 @@ INSTANTIATE_TEST_CASE_P(
             std::vector<int64_t>({1, 1, 1, 1}),
             std::vector<int64_t>({2, 3, 4, 1}),
             std::vector<int64_t>({2, 2, 2, 2, 2}))));
+
+// Tests where reduction axis size is >= 37.
+INSTANTIATE_TEST_CASE_P(
+    MedianDimHighReduxtionAxis,
+    MedianDimHpuOpTest,
+    ::testing::Combine(
+        ::testing::Values(torch::kFloat),
+        ::testing::Values(std::vector<int64_t>({40, 3, 2})),
+        ::testing::Values(0),
+        ::testing::Values(true)));
 INSTANTIATE_TEST_CASE_P(
     MedianDim,
     MedianDimHpuOpTest,
@@ -112,9 +120,9 @@ INSTANTIATE_TEST_CASE_P(
             torch::kBFloat16,
             torch::kInt32),
         ::testing::Values(
-            std::vector<int64_t>({8, 24, 24, 5}),
-            std::vector<int64_t>({12, 8, 12, 8}),
-            std::vector<int64_t>({64, 24, 4})),
+            std::vector<int64_t>({2, 3, 4}),
+            std::vector<int64_t>({3, 4, 5, 2}),
+            std::vector<int64_t>({3, 1, 5, 2, 3})),
         ::testing::Values(2, -2, 1),
         ::testing::Bool()));
 INSTANTIATE_TEST_SUITE_P(
