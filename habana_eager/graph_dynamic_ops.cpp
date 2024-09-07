@@ -94,7 +94,7 @@ std::string GetRangeInfoExprFromInput(
     torch::jit::Value* input,
     GraphInputIndexMap& org_stack_index_map,
     std::vector<habana_helpers::RangeInfo>* range_infos) {
-  std::string value = "";
+  std::string value = "0";
   if (input == nullptr)
     return value;
   static const auto constant_symbol{

@@ -5778,6 +5778,14 @@ void HabanaLaunchOpPT::handle_pass_exception(
       break;
   }
 
+  if (graph_input_info.current_bucket_id == 0) {
+    // current_bucket_id = 0 having ranges means this is user min max case
+    // if there is fallback in such case, set next policy to CURRENT for both
+    // and recalculate ranges
+    graph_input_info.min_policy = habana_helpers::DynamicDimsPolicy::CURRENT;
+    graph_input_info.max_policy = habana_helpers::DynamicDimsPolicy::CURRENT;
+  }
+
   // The above switch case changes the policy, get new ranges with changed
   // policy.
   habana::ShapeInference::SetMinMaxPolicyInUse(

@@ -632,10 +632,12 @@ class DynamicBucketInfo {
     max_policy_ = getPolicy(max_policy_seq.at(0) - zero_offset);
   }
   void RestoreLocalMinHistory() {
-    local_min_history_tensor_shapes_ = local_min_history_success_shapes_;
+    if (!local_min_history_success_shapes_.empty())
+      local_min_history_tensor_shapes_ = local_min_history_success_shapes_;
   }
   void RestoreLocalMaxHistory() {
-    local_max_history_tensor_shapes_ = local_max_history_success_shapes_;
+    if (!local_max_history_success_shapes_.empty())
+      local_max_history_tensor_shapes_ = local_max_history_success_shapes_;
   }
   void RestoreLocalHistoryPerTensor(bool isMin) {
     auto idx = isMin ? 0 : 1;
