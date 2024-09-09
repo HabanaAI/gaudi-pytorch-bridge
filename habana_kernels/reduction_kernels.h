@@ -161,23 +161,6 @@ class SumSquareOperator : public SumOperator {
             get_guid_with_precision("reduce_sum_square_fwd", scalarType)) {}
 };
 
-// Reduce Sum Backward Operator.
-class ReduceSumBwdOperator : public HabanaOperator {
- public:
-  ReduceSumBwdOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("reduce_sum_bwd", scalarType)) {
-    this->CreateSynContext(device_id);
-  }
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-
-  virtual InferOutputMetaRetType InferOutputMeta(
-      torch::jit::Stack& inputs) override;
-};
-
 // Reduce Mean Backward Operator.
 class ReduceMeanBwdOperator : public HabanaOperator {
  public:

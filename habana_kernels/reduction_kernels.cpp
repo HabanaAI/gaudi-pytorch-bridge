@@ -847,55 +847,6 @@ void MeanOperator::SetPTOutputs(torch::jit::Stack& inputs) {
   ReduceOperator::SetPTOutputs(inputs);
 }
 
-void ReduceSumBwdOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    torch::jit::Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 3,
-      "Incorrect size of inputs expected for ReduceSumBwd operator");
-  TORCH_CHECK(
-      inputs[0].isTensor(),
-      "Input arg1 expected to be tensor for ReduceSumBwd operator");
-  TORCH_CHECK(
-      inputs[1].isIntList(),
-      "Input arg2 expected to be int list for ReduceSumBwd operator");
-  TORCH_CHECK(
-      inputs[2].isInt(),
-      "Input arg3 expected to be a integer for ReduceSumBwd operator");
-
-  auto grad_out = inputs[0].toTensor();
-  auto grad_inp_size = inputs[1].toIntList();
-  auto reduce_dim = inputs[2].toInt();
-
-  int64_t data[grad_inp_size.size()];
-  std::copy(grad_inp_size.begin(), grad_inp_size.end(), data);
-  IntArrayRef dim_arr(data, grad_inp_size.size());
-
-  ns_Reduction::Params params{};
-  params.reductionDimension = reduce_dim;
-
-  auto output = habana::createPTTensor(
-      grad_out, dim_arr, grad_out.options(), output_metadata.at(0).persistent);
-  AllocateSynapseOutputs(graph, {output}, output_metadata);
-  AddNodeToSynapseGraph(graph, &params, sizeof(params));
-}
-
-InferOutputMetaRetType ReduceSumBwdOperator::InferOutputMeta(
-    torch::jit::Stack& inputs) {
-  auto grad_out = inputs[0].toTensor();
-  auto dim_arr_vec = inputs[1].toIntVector();
-
-  InferOutputMetaRetType out;
-  out.AddOutputTensor(habana::TensorMetaData(
-      dim_arr_vec,
-      HabanaOperator::CalculateStrides(
-          dim_arr_vec, grad_out.suggest_memory_format()),
-      grad_out.scalar_type(),
-      grad_out.suggest_memory_format()));
-  return out;
-}
-
 void ReduceMeanBwdOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     torch::jit::Stack& inputs,
