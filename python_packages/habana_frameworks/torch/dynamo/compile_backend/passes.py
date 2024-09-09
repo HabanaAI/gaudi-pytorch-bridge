@@ -1213,15 +1213,18 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
     assert ctx.stage == OptimizationPassPlacement.PARTITIONER
     assert ctx.graph_module is not None
     assert ctx.current_partitions is None
+    assert ctx.habana_partitioner is None
 
     ctx.current_partitions = []
     if hpu_backend_config.enable_allreduce_graph_split:
         allreduces = [n for n in ctx.graph_module.graph.nodes if n.name.startswith("all_reduce")]
+        cls = FusedCollectiveOperatorSupport
+        ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module, cls)
         for allreduce in allreduces:
-            cls = FusedCollectiveOperatorSupport
             setattr(cls, "allreduce_name", allreduce.name)
-            ctx.current_partitions.extend(HabanaPartitioner(ctx.graph_module, cls).propose_partitions())
-    ctx.current_partitions.extend(HabanaPartitioner(ctx.graph_module).propose_partitions())
+            ctx.current_partitions.extend(ctx.habana_partitioner.propose_partitions())
+    ctx.habana_partitioner = HabanaPartitioner(ctx.graph_module)
+    ctx.current_partitions.extend(ctx.habana_partitioner.propose_partitions())
 
     # Nothing was really changed.
     return False
@@ -1235,8 +1238,9 @@ def pass_fuse_partitions(ctx: OptimizerContext) -> bool:
     assert ctx.stage == OptimizationPassPlacement.PARTITIONER
     assert ctx.graph_module is not None
     assert ctx.current_partitions is not None
+    assert ctx.habana_partitioner is not None
 
-    HabanaPartitioner(ctx.graph_module).fuse_partitions(ctx.current_partitions)
+    ctx.habana_partitioner.fuse_partitions(ctx.current_partitions)
 
     return True
 

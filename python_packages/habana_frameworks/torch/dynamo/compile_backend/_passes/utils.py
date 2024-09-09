@@ -17,6 +17,7 @@ from typing import List
 
 import torch
 from habana_frameworks.torch.dynamo.compile_backend.logger import get_compile_backend_logger
+from habana_frameworks.torch.dynamo.compile_backend.partitioner import HabanaPartitioner
 
 logger = get_compile_backend_logger()
 
@@ -37,6 +38,7 @@ class OptimizerContext:
     is_dynamic: bool
     stage: OptimizationPassPlacement
     current_partitions: List
+    habana_partitioner: HabanaPartitioner = None
 
 
 class ColorGraph:
