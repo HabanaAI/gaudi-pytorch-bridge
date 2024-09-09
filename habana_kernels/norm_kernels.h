@@ -213,66 +213,6 @@ class BatchNormInfOperator : public habana::HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 };
 
-class LayerNormOperator : public habana::HabanaOperator {
- public:
-  LayerNormOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator(get_guid_with_precision("layer_norm_fwd", scalarType)) {
-    this->CreateSynContext(device_id);
-    // assign layouts for input and output tensors
-    kernel_meta_data_.input_layout.assign(
-        {habana::LayoutFormat::NCHW,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-    kernel_meta_data_.output_layout.assign(
-        {habana::LayoutFormat::NCHW,
-         habana::LayoutFormat::ANY,
-         habana::LayoutFormat::ANY});
-    kernel_meta_data_.synapse_input_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-    kernel_meta_data_.synapse_output_layout.assign(
-        {synapse_helpers::layouts::SynapseLayoutFormat::WHCN,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE,
-         synapse_helpers::layouts::SynapseLayoutFormat::DONT_CARE});
-  }
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata) override;
-  virtual void AllocateAndAddSynapseNodeTPCAffinePath(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata);
-  virtual void AllocateAndAddSynapseNodeReshapePath(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const OutputMetaDataVector& output_metadata);
-  std::tuple<at::Tensor, at::Tensor, at::Tensor> AllocatePTOutputs(
-      const at::Tensor& input,
-      at::IntArrayRef normalized_shape,
-      const at::Tensor& bias,
-      const at::Tensor& weight,
-      int64_t m,
-      std::array<bool, 3> is_persistent);
-  static std::vector<std::vector<int64_t>> getOutputSizes(
-      const at::Tensor& input,
-      at::IntArrayRef normalized_shape);
-
-  static bool is_tpc_affine_path(
-      const at::Tensor& input,
-      at::IntArrayRef normalized_shape,
-      const at::Tensor& weight) {
-    /*
-    We use the TPC Affine path only for 4D input, AND
-    PyTorch layerNorm affine flag False (weight not defined) OR normalization is
-    done across all dims except N
-    */
-    return (input.dim() == 4) &&
-        (!weight.defined() || (normalized_shape.size() == (size_t)input.dim()));
-  }
-};
-
 // Norm Operator
 class NormOperator : public HabanaOperator {
  public:
