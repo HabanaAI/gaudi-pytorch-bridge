@@ -198,10 +198,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
   auto sumop = OpBackend::BuildNode(
       op,
       graph,
-      {get_guid_with_precision(
-           "reduce_sum_fwd",
-           indices_scalar_type,
-           indices_scalar_type == c10::ScalarType::Long),
+      {get_guid_with_precision("reduce_sum_fwd", indices_scalar_type),
        {mulOp.at(0).get()},
        {{red_output_shape, indices_scalar_type}},
        &red_params,
