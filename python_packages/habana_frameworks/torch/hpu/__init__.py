@@ -99,12 +99,17 @@ def is_available() -> bool:
     return _hpu_C.device_count() > 0
 
 
-def device_count() -> int:
+def device_count():
     r"""Returns the number of HPUs available."""
-    if is_available():
-        return _hpu_C.device_count()
-    else:
-        return 0
+    if device_count._device_count is None:
+        if _hpu_C.device_count() > 0:
+            device_count._device_count = _hpu_C.device_count()
+        else:
+            device_count._device_count = 0
+    return device_count._device_count
+
+
+device_count._device_count = None
 
 
 def get_device_name(device: Optional[_device_t] = None) -> str:
