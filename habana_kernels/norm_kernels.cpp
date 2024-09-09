@@ -41,11 +41,6 @@
 using namespace torch;
 using namespace habana;
 
-bool is_5d_tensor(const std::vector<int64_t>& shape_in) {
-  const uint64_t DIM5 = 5;
-  return shape_in.size() == DIM5;
-}
-
 void BatchNormInfOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& in_stack,
