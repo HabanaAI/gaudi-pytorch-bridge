@@ -333,6 +333,37 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> hpu_wrap::_unique2(
   return unique2_hpu_lazy(self, sorted, return_inverse, return_counts);
 }
 
+Tensor& hpu_wrap::index_add_out(
+    const Tensor& self,
+    int64_t dim,
+    const Tensor& index,
+    const Tensor& source,
+    const Scalar& alpha,
+    Tensor& out) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "index_add_out :",
+      " self=",
+      to_string(self),
+      " dim=",
+      to_string(dim),
+      " index=",
+      to_string(index),
+      " source=",
+      to_string(source),
+      " alpha=",
+      to_string(alpha),
+      " out=",
+      to_string(out));
+  FALLBACK_IF_UNSUPPORTED_OP(
+      index_add_out,
+      PARAMS1(self, index, source, out),
+      PARAMS2(self, dim, index, source, alpha, out))
+
+  return index_add_hpu_lazy_out(self, dim, index, source, alpha, out);
+}
+
 Tensor& hpu_wrap::nonzero_out(const Tensor& self, Tensor& out) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -2758,6 +2789,8 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::fp8_permute(Tensor input, int[] dims, Tensor(a!) out) -> Tensor(a!)");
   m.def("hpu::fp8_reshape(Tensor input, int[] shape) -> Tensor");
+  m.def(
+      "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
   m.def("hpu::habana_random_seed(Tensor input) -> (Tensor)");
   m.def(
       "hpu::habana_permute_1D_sparse_data(Tensor permute, Tensor lengths, Tensor indices, Tensor? weights=None) -> (Tensor, Tensor, Tensor)");

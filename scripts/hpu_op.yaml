@@ -4809,42 +4809,6 @@ kthvalue.values:
   output_meta: KthvalueMeta
   op_validator: check-node-with-shared-layer
 
-index_add:
-  custom_fill_params: FillIndexAddParams
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int]
-      index: [Int, Long]
-      source: [BFloat16, Float, Int]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Half]
-      index: [Int, Long]
-      source: [BFloat16, Float, Int, Half]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Half]
-      index: [Int, Long]
-      source: [BFloat16, Float, Int, Half]
-  guid: index_add_fwd
-  out_ids: [0]
-
-index_add.out:
-  custom_fill_params: FillIndexAddParams
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int]
-      index: [Int, Long]
-      source: [BFloat16, Float, Int]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Half]
-      index: [Int, Long]
-      source: [BFloat16, Float, Int, Half]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Half]
-      index: [Int, Long]
-      source: [BFloat16, Float, Int, Half]
-  guid: index_add_fwd
-
-
 index_add_:
   dtypes:
     Gaudi:
@@ -9836,6 +9800,9 @@ masked_select.out:
   hpu_wrap_all_versions: true
 
 scatter_add_:
+  hpu_wrap_all_versions: true
+
+index_add.out:
   hpu_wrap_all_versions: true
 
 nonzero.out:
