@@ -12,7 +12,13 @@
 import habana_frameworks.torch.dynamo.compile_backend
 import pytest
 import torch
-from test_utils import format_tc, is_pytest_mode_compile, is_pytest_mode_eager
+from test_utils import (
+    check_ops_executed_in_jit_ir,
+    compile_function_if_compile_mode,
+    format_tc,
+    is_pytest_mode_compile,
+    is_pytest_mode_eager,
+)
 
 select_backward_test_case_list = [
     # size, dim, index
@@ -22,10 +28,10 @@ select_backward_test_case_list = [
     ((3, 4), 0, 2),
     ((16, 16), 0, 8),
     ((16, 16), 0, -8),
-    ((16, 8), 1, 7),  # XFAIL
+    ((16, 8), 1, 7),
     ((8, 4, 16), 0, 5),
-    ((8, 6, 12), 1, 5),  # XFAIL
-    ((16, 12, 8), 2, 7),  # XFAIL
+    ((8, 6, 12), 1, 5),
+    ((16, 12, 8), 2, 7),
     ((16, 12, 8), 2, -2),
     ((4, 6, 12, 30), 3, 9),
 ]
@@ -41,26 +47,25 @@ def test_select(size, dim, index, dtype):
     else:
         input_cpu = torch.rand(size, dtype=dtype)
 
-    def fn(input, dim, index):
-        return torch.select(input, dim, index)
+    zero_cpu = None
+    zero_hpu = None if is_pytest_mode_eager() else torch.zeros([], dtype=dtype, device="hpu")
+
+    def fn(input, dim, index, zero):
+        select = torch.select(input, dim, index)
+        # add simple operation as select only may not create any executable graph
+        return select + zero if zero is not None else select
 
     input_hpu = input_cpu.to("hpu")
 
-    hpu_fn = torch.compile(fn, backend="hpu_backend") if is_pytest_mode_compile() else fn
+    hpu_fn = compile_function_if_compile_mode(fn)
 
-    if size == (16, 8) and dim == 1 and index == 7:
-        pytest.xfail("SW-165317")
-
-    if size == (8, 6, 12) and dim == 1 and index == 5:
-        pytest.xfail("SW-165317")
-
-    if size == (16, 12, 8) and dim == 2 and index == 7:
-        pytest.xfail("SW-165317")
-
-    cpu_output = fn(input_cpu, dim, index)
+    cpu_output = fn(input_cpu, dim, index, zero_cpu)
     if dtype == torch.float64:
         cpu_output.to(torch.float32).to(torch.float64)
-    hpu_output = hpu_fn(input_hpu, dim, index).cpu()
+    hpu_output = hpu_fn(input_hpu, dim, index, zero_hpu).cpu()
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("select")
 
     if dtype == torch.float64:
         assert torch.allclose(cpu_output, hpu_output)
