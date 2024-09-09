@@ -7615,13 +7615,13 @@ remainder.Scalar_out:
   op_validator: check-node-with-shared-layer
 
 repeat:
+  custom_fill_params: FillRepeatFwdParams
   output_meta: RepeatMeta
-  guid: tile_fwd
+  guid: repeat_pt_fwd
   dtypes:
     Gaudi: [BFloat16, Float, Int, Char]
     Gaudi2: [BFloat16, Float, Int, Long, Half, Char, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Int, Long, Half, Char, Float8_e5m2, Float8_e4m3fn]
-  op_backend: RepeatOp
   lazy:
     override_fn: repeat_hpu
   acc_thread: true
