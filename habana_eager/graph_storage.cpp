@@ -35,6 +35,7 @@ size_t GraphStorage::add_new_recipe(
     std::vector<habana_helpers::RangeInfo>& range_infos,
     bool mark_dynamic) {
   PT_EAGER_TRACE;
+  habana::eager::JoinPendingPipelineThreads();
   size_t output_recipe_group_id{m_storage_vec.size()};
   m_storage_vec.emplace_back(
       output_recipe_group_id,
