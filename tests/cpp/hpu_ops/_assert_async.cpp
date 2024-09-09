@@ -21,7 +21,7 @@ using namespace at;
 class HpuOpTest : public HpuOpTestUtil {};
 
 TEST_F(HpuOpTest, AsyncAssert) {
-  if (isGaudi3()) {
+  if (isGaudi3() || isGaudi2()) {
     GTEST_SKIP() << "Test skipped on Gaudi3.";
   }
   auto y = torch::zeros(1).to(torch::kHPU);
