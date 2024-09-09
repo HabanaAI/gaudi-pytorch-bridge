@@ -9027,6 +9027,7 @@ topk:
   op_frontend: LazyTopk
   out_ids: [0, 0]
   schema_args: "(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True) -> (Tensor values, Tensor indices)"
+  op_validator: TopkSharedMeta
 
 topk.values:
   dtypes:
@@ -9037,6 +9038,7 @@ topk.values:
   op_frontend: TopKFE
   op_backend: Topk
   schema_args: "(Tensor self, Tensor k, int dim=-1, bool largest=True, bool sorted=True, *, Tensor(a!) values, Tensor(b!) indices) -> (Tensor(a!) values, Tensor(b!) indices)"
+  op_validator: TopkSharedMeta
 
 sort.values_stable:
   dtypes:
@@ -9046,6 +9048,7 @@ sort.values_stable:
   output_meta: SortStableMeta
   fallback_check: [SortStableFallbackCheck, self, stable, dim, descending]
   op_backend: SortStable
+  op_validator: TopkSharedMeta
 
 sort.stable:
   dtypes:
@@ -9056,6 +9059,7 @@ sort.stable:
   op_backend: SortStable
   output_meta: SortStableMeta
   out_ids: [0, 0]
+  op_validator: TopkSharedMeta
 
 trace:
   dtypes: [BFloat16, Float, Int]
@@ -9094,20 +9098,20 @@ triu:
   dtypes: [BFloat16, Float, Char]
   guid: matrix_band_part_fwd
   out_ids: [0]
-  op_validator: check-node-with-shared-layer
+  op_validator: TriluSharedMeta
 
 triu.out:
   custom_fill_params: FillTriuParams
   dtypes: [BFloat16, Float, Char]
   guid: matrix_band_part_fwd
-  op_validator: check-node-with-shared-layer
+  op_validator: TriluSharedMeta
 
 triu_:
   custom_fill_params: FillTriuParams
   dtypes: [BFloat16, Float, Char]
   guid: matrix_band_part_fwd
   inplace_ids: [0]
-  op_validator: check-node-with-shared-layer
+  op_validator: TriluSharedMeta
 
 tril_indices:
   custom_fill_params: FillTrilIndicesParams

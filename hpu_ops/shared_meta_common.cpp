@@ -449,4 +449,15 @@ SharedMetaDataVector BitwiseLogicalSharedMeta(
   return {bitwiseSharedMeta};
 }
 
+SharedMetaDataVector TopkSharedMeta(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+
+  SharedMetaData topkMeta("topk");
+  topkMeta.inputs_data.emplace_back(self.dim(), self.scalar_type());
+  topkMeta.outputs_data.emplace_back(self.dim(), self.scalar_type());
+  topkMeta.outputs_data.emplace_back(self.dim(), c10::ScalarType::Int);
+
+  return {topkMeta};
+}
+
 } // namespace habana

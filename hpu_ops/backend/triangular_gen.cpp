@@ -12,6 +12,7 @@
 #include "generated/backend/tril_indices.h"
 #include "generated/backend/triu.h"
 #include "generated/backend/triu_indices.h"
+#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 std::shared_ptr<void> FillTriuParams(const at::Stack& stack, size_t& size) {
@@ -121,6 +122,10 @@ OutputMetaDataVector TrilIndicesMeta(const at::Stack& stack) {
 
 OutputMetaDataVector TriuIndicesMeta(const at::Stack& stack) {
   return TriluIndicesMeta(stack, false);
+}
+
+SharedMetaDataVector TriluSharedMeta(const at::Stack& stack) {
+  return Input0SharedMeta(stack, "matrix_band_part_fwd");
 }
 
 void TriluIndices::AddNode(
