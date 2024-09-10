@@ -342,19 +342,17 @@ def overwrite_torch_functions():
 
     @wraps(torch.Tensor._reduce_ex_internal)
     def _reduce_ex_internal_habana(self, proto):
-        if is_lazy():
-            # Lazy tensor is storage less and will go numpy()
-            # which will throw checked exception when tensor requires grad.
-            with torch.no_grad():
-                func, args = _original_reduce_ex_internal(self, proto)
-        else:
+        # Lazy tensor is storage less and will go numpy()
+        # which will throw checked exception when tensor requires grad.
+        with torch.no_grad():
             func, args = _original_reduce_ex_internal(self, proto)
         if self.device.type.startswith("hpu"):
             return _deserialize_habana_wrapper, (func, HpuMarker(), *args)
 
         return func, args
 
-    torch.Tensor._reduce_ex_internal = _reduce_ex_internal_habana
+    if is_lazy():
+        torch.Tensor._reduce_ex_internal = _reduce_ex_internal_habana
 
     # wrap torch.random.fork_rng
 
