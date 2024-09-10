@@ -426,22 +426,6 @@ class OpBackend : public HabanaOperator {
       at::ScalarType dtype,
       c10::optional<int> final_result_index = c10::nullopt);
 
-  static std::vector<synapse_helpers::tensor> BuildNonZero(
-      OpBackend*,
-      synapse_helpers::graph&,
-      synapse_helpers::tensor&,
-      at::IntArrayRef,
-      at::ScalarType,
-      c10::optional<int> = c10::nullopt);
-
-  static synapse_helpers::tensor BuildScatterNDOnnx(
-      OpBackend*,
-      synapse_helpers::graph&,
-      const std::vector<synTensor>&,
-      at::IntArrayRef,
-      at::ScalarType,
-      c10::optional<int> = c10::nullopt);
-
   static synapse_helpers::tensor BuildPermute(
       OpBackend* op,
       synapse_helpers::graph& graph,
