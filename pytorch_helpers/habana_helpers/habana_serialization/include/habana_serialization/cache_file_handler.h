@@ -19,6 +19,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include "recipe_cache_config.h"
 
 #if !defined __GNUC__ || __GNUC__ >= 8
 #include <filesystem>
@@ -82,7 +83,7 @@ class CacheFileHandler {
   virtual void checkAndDelete() = 0;
 
  public:
-  CacheFileHandler();
+  CacheFileHandler(const RecipeCacheConfig& recipe_cache_config);
   virtual ~CacheFileHandler() = default;
 
   static int fileOpen(const std::string& fname, int flags);
@@ -97,8 +98,6 @@ class CacheFileHandler {
       int flags,
       bool block,
       size_t& size);
-  // Must be called if CachePath changes
-  void init(std::string path);
   // Add the size of new file and delete something if required
   void addFileInfo(const std::string& cache_id);
 };

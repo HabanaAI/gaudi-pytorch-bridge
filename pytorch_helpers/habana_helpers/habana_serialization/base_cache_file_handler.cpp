@@ -31,8 +31,9 @@
 
 namespace serialization {
 
-BaseCacheFileHandler::BaseCacheFileHandler()
-    : CacheFileHandler(), eviction_lock_fd_(-1) {}
+BaseCacheFileHandler::BaseCacheFileHandler(
+    const RecipeCacheConfig& recipe_cache_config)
+    : CacheFileHandler(recipe_cache_config), eviction_lock_fd_(-1) {}
 
 BaseCacheFileHandler::~BaseCacheFileHandler() {
   if (eviction_lock_fd_ >= 0) {

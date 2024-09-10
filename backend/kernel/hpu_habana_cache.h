@@ -527,7 +527,7 @@ struct RecipeHolder {
 
 class DiskCache {
  public:
-  DiskCache(std::string cache_path);
+  DiskCache(const serialization::RecipeCacheConfig& recipe_cache_config);
   void Add(const RecipeHolder& val, const RecipeArgumentSpec& spec);
   std::shared_ptr<RecipeHolder> Find(const RecipeArgumentSpec& spec);
   // in case RecipeValueSpec creation failed, DiskCache is leaving lock files on
@@ -593,8 +593,8 @@ class RecipeCacheLRU {
   void ResetDiskCache();
   void DeleteDiskCache();
   void FlushDiskCache();
-  void Serialize(std::string recipe_cache_path);
-  void Deserialize(std::string recipe_cache_path);
+  void Serialize();
+  void Deserialize();
 
   static void SetHostMemoryThreshold(
       uint32_t host_memory_threshold = default_host_memory_threshold);
@@ -637,6 +637,8 @@ class RecipeCacheLRU {
       RecipeArgumentSpecHash,
       RecipeArgumentSpecEqual>
       map_;
+
+  serialization::RecipeCacheConfig recipe_cache_config_;
 };
 
 class DynamicBucketInfoMap {

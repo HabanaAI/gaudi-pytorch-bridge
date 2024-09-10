@@ -32,7 +32,7 @@ namespace serialization {
 
 class BaseCacheFileHandler : public CacheFileHandler {
  public:
-  BaseCacheFileHandler();
+  BaseCacheFileHandler(const RecipeCacheConfig& recipe_cache_config);
   virtual ~BaseCacheFileHandler();
 
  protected:

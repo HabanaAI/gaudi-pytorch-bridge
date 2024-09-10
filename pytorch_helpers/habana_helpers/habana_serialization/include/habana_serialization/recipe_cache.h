@@ -26,12 +26,13 @@
 #include "cache_file_handler.h"
 #include "habana_helpers/job_thread.h"
 #include "inter_host_cache.h"
+#include "recipe_cache_config.h"
 
 namespace serialization {
 
 class RecipeCache {
  public:
-  RecipeCache(std::string cache_path);
+  RecipeCache(const RecipeCacheConfig& recipe_cache_config);
   ~RecipeCache();
 
   // if synRecipeHandle is nullptr, it will not be serialized to file, only

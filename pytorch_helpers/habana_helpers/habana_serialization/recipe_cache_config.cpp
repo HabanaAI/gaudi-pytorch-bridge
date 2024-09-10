@@ -110,11 +110,11 @@ std::vector<std::string> RecipeCacheConfig::split_params(
   return params;
 }
 
-const std::string& RecipeCacheConfig::path() {
+const std::string& RecipeCacheConfig::path() const {
   return cache_directory_path_;
 }
 
-bool RecipeCacheConfig::delete_on_init() {
+bool RecipeCacheConfig::delete_on_init() const {
   return delete_cache_on_init_;
 }
 
@@ -123,9 +123,7 @@ void RecipeCacheConfig::disable_delete_on_init() {
   SET_ENV_FLAG_NEW(PT_CACHE_FOLDER_DELETE, false, 1);
 }
 
-unsigned int RecipeCacheConfig::cache_dir_max_size_mb() {
+unsigned int RecipeCacheConfig::cache_dir_max_size_mb() const {
   return cache_dir_max_size_mb_;
 }
-
-std::mutex RecipeCacheConfig::mutex_;
 }; // namespace serialization

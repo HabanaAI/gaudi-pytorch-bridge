@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <memory>
 #include <mutex>
 #include <string>
 #include "cache_file_handler.h"

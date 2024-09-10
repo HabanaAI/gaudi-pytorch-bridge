@@ -1988,26 +1988,13 @@ RecipeCacheLRU::RecipeCacheLRU() {
 
 void RecipeCacheLRU::InitDiskCache() {
   // Set disk_cache_ if PT_RECIPE_CACHE_PATH is defined
-  const std::string recipe_cache_path =
-      serialization::RecipeCacheConfig::get_instance().path();
-  if (recipe_cache_path.empty()) {
-    return;
-  }
-  disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
+  if (!recipe_cache_config_.path().empty())
+    disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_config_);
 }
 
 void RecipeCacheLRU::ResetDiskCache() {
-  auto& recipe_cache_cfg = serialization::RecipeCacheConfig::get_instance();
-  recipe_cache_cfg.reload();
-  const std::string recipe_cache_path = recipe_cache_cfg.path();
-
-  if (recipe_cache_path.empty()) {
-    return;
-  }
-  if (disk_cache_) {
-    disk_cache_.reset();
-  }
-  disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
+  recipe_cache_config_.reload();
+  InitDiskCache();
 }
 
 void RecipeCacheLRU::DeleteDiskCache() {
@@ -2068,10 +2055,8 @@ void DynamicBucketInfoMap::save_ds_checkpoint(std::ofstream& ds_checkpoint) {
   const bool is_ds_cache_enabled =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD);
 
-  std::string recipe_cache_path =
-      serialization::RecipeCacheConfig::get_instance().path();
-  if (!recipe_cache_path.empty() && is_ds_cache_enabled) {
-    RecipeCacheLRU::get_cache().Serialize(recipe_cache_path);
+  if (is_ds_cache_enabled) {
+    RecipeCacheLRU::get_cache().Serialize();
   }
 }
 
@@ -2084,10 +2069,8 @@ void DynamicBucketInfoMap::load_ds_checkpoint(std::ifstream& ds_checkpoint) {
 
   const bool is_ds_cache_enabled =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD);
-  std::string recipe_cache_path =
-      serialization::RecipeCacheConfig::get_instance().path();
-  if (!recipe_cache_path.empty() && is_ds_cache_enabled) {
-    RecipeCacheLRU::get_cache().Deserialize(recipe_cache_path);
+  if (is_ds_cache_enabled) {
+    RecipeCacheLRU::get_cache().Deserialize();
   }
 }
 
@@ -2130,13 +2113,13 @@ size_t RecipeCacheLRU::Size() const {
   return size;
 }
 
-void RecipeCacheLRU::Serialize(std::string recipe_cache_path) {
-  if (recipe_cache_path.empty()) {
+void RecipeCacheLRU::Serialize() {
+  if (recipe_cache_config_.path().empty()) {
     PT_BRIDGE_DEBUG("disk recipe cache not path, cannot serialize");
     return;
   }
 
-  disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
+  disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_config_);
 
   for (const auto& ele : list_) {
     auto val = disk_cache_->Find(*(ele.first));
@@ -2146,14 +2129,14 @@ void RecipeCacheLRU::Serialize(std::string recipe_cache_path) {
   }
 }
 
-void RecipeCacheLRU::Deserialize(std::string recipe_cache_path) {
-  if (recipe_cache_path.empty()) {
+void RecipeCacheLRU::Deserialize() {
+  if (recipe_cache_config_.path().empty()) {
     PT_BRIDGE_DEBUG("disk recipe cache not path, cannot De-serialize");
     return;
   }
 
-  serialization::RecipeCacheConfig::get_instance().disable_delete_on_init();
-  disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_path);
+  recipe_cache_config_.disable_delete_on_init();
+  disk_cache_ = absl::make_unique<DiskCache>(recipe_cache_config_);
 }
 
 size_t RecipeCacheLRU::SynapseRecipeSize() const {
@@ -2224,8 +2207,9 @@ void DynamicBucketInfoMap::refine_graph(size_t graph_key) {
       false, "Graph key ", graph_key, " is missing from DynamicBucketInfoMap");
 }
 
-DiskCache::DiskCache(std::string cache_path)
-    : recipe_cache_(std::move(cache_path))
+DiskCache::DiskCache(
+    const serialization::RecipeCacheConfig& recipe_cache_config)
+    : recipe_cache_(recipe_cache_config)
 // TODO: add pytorch version, TICKET SW-62210
 {
   if (GET_ENV_FLAG_NEW(PT_RECIPE_CACHE_IGNORE_VERSION)) {

@@ -36,8 +36,8 @@ std::string metadata_file_path(
   return path + "/" + cache_id + METADATA_SUFFIX;
 }
 
-CacheFileHandler::CacheFileHandler()
-    : maxFolderSize(RecipeCacheConfig::get_instance().cache_dir_max_size_mb()) {
+CacheFileHandler::CacheFileHandler(const RecipeCacheConfig& recipe_cache_config)
+    : maxFolderSize(recipe_cache_config.cache_dir_max_size_mb()) {
   maxFolderSize = maxFolderSize * 1024 * 1024;
 
   const char* s_local_rank = getenv("LOCAL_RANK") ? getenv("LOCAL_RANK") : "0";
@@ -45,13 +45,11 @@ CacheFileHandler::CacheFileHandler()
 
   const char* s_rank = getenv("RANK") ? getenv("RANK") : "0";
   rank = std::atoi(s_rank);
-}
 
-void CacheFileHandler::init(std::string path) {
-  cache_path = std::move(path);
+  cache_path = recipe_cache_config.path();
   fs::path dir_path{cache_path};
   HABANA_ASSERT(fs::exists(dir_path), "Recipe cache path is expected");
-  if (RecipeCacheConfig::get_instance().delete_on_init()) {
+  if (recipe_cache_config.delete_on_init()) {
     if (local_rank == 0) {
       try {
         auto de = fs::directory_iterator{dir_path};

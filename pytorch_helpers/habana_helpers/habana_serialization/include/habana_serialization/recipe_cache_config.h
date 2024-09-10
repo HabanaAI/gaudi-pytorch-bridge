@@ -20,25 +20,17 @@ namespace serialization {
 
 class RecipeCacheConfig {
  public:
+  RecipeCacheConfig();
   void reload();
-  const std::string& path();
-  bool delete_on_init();
+  const std::string& path() const;
+  bool delete_on_init() const;
   void disable_delete_on_init();
-  unsigned cache_dir_max_size_mb();
-  static RecipeCacheConfig& get_instance() {
-    std::lock_guard<std::mutex> lg(mutex_);
-    static RecipeCacheConfig instance_;
-
-    return instance_;
-  }
+  unsigned cache_dir_max_size_mb() const;
 
  private:
-  RecipeCacheConfig();
   std::vector<std::string> split_params(const std::string& config);
   std::string cache_directory_path_;
   bool delete_cache_on_init_;
   unsigned int cache_dir_max_size_mb_;
-
-  static std::mutex mutex_;
 };
 } // namespace serialization

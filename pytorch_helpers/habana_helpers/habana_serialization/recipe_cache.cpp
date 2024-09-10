@@ -91,8 +91,8 @@ absl::optional<synRecipeHandle> get_recipe_handle(
 
 namespace serialization {
 
-RecipeCache::RecipeCache(std::string cache_path)
-    : cache_path_{std::move(cache_path)},
+RecipeCache::RecipeCache(const RecipeCacheConfig& recipe_cache_config)
+    : cache_path_{recipe_cache_config.path()},
       is_cache_valid_{false},
       inter_host_cache_{nullptr},
       cf_handler_{nullptr} {
@@ -123,8 +123,7 @@ RecipeCache::RecipeCache(std::string cache_path)
         err_code.message());
   }
 
-  cf_handler_ = std::make_unique<BaseCacheFileHandler>();
-  cf_handler_->init(cache_path_);
+  cf_handler_ = std::make_unique<BaseCacheFileHandler>(recipe_cache_config);
 
   if (GET_ENV_FLAG_NEW(PT_ENABLE_INTER_HOST_CACHING)) {
     inter_host_cache_ =
