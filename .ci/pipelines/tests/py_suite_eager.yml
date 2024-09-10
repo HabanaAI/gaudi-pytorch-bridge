@@ -21,6 +21,7 @@ common:
     - TPC_FUSER
     - TPC_KERNELS
     - TPCSIM
+    - HABANA_TRANSFORMER_ENGINE
   config:
     testCommand: run_pytorch_modules_tests
     loadLKD: true
