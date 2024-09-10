@@ -627,7 +627,7 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(3), in_stack, org_stack_index_map, end, end_idx);
   auto end_expr = GetRangeInfoExprFromInput(
-      slice_node->inputs().at(2), org_stack_index_map, m_range_infos);
+      slice_node->inputs().at(3), org_stack_index_map, m_range_infos);
   // get step
   GetValueAndScalarIndexFromInput(
       slice_node->inputs().at(4),
@@ -636,7 +636,7 @@ bool SliceOperatorDS::ReplaceWithDynamicHPUOp(
       step,
       step_idx);
   auto step_expr = GetRangeInfoExprFromInput(
-      slice_node->inputs().at(3), org_stack_index_map, m_range_infos);
+      slice_node->inputs().at(4), org_stack_index_map, m_range_infos);
 
   // capture actual values
   mixed_indexes.push_back(std::make_pair(dim_idx, dim));

@@ -51,26 +51,11 @@ def get_input_symbolic(graph_module, inputs):
     # workspace allocation failiure.
     MAX_UPPER_SIZE = 1_00_00_000
 
-    def is_mark_dynamic(inputs, graph_module):
+    def is_mark_dynamic(inputs):
         for input in inputs:
             if hasattr(input, "_dynamo_dynamic_range"):
                 logger.debug("Enabling user min/max flow")
                 return True
-        # This is the case when a graph input has no tensor but the range is set on
-        # symbolic input, since symbols has no attribute to identify if range is set
-        # via mark_dynamic, check if upper for non complex symbolic is less than max-1,
-        # if yes then it is probably set via mark_dynamic flag
-        for input_node in graph_module.graph.nodes:
-            if input_node.op == "placeholder" and input_node.meta and "val" in input_node.meta:
-                input_meta = input_node.meta["val"]
-                if isinstance(input_meta, torch.SymInt):
-                    node = input_meta.node
-                    shape_env = node.shape_env
-                    expr = node.expr
-                    var_range = shape_env.var_to_range.get(expr, None)
-                    if var_range and var_range.upper < MAX_UPPER_SIZE:
-                        logger.debug(f"Enabling user min/max flow because of {expr} upper range = {var_range.upper}")
-                        return True
         return False
 
     def get_input(input_shape):
@@ -89,9 +74,9 @@ def get_input_symbolic(graph_module, inputs):
                 var_range = shape_env.var_to_range.get(expr, None) or shape_env.bound_sympy(expr)
                 var_val = shape_env.var_to_val.get(expr, None) or expr.xreplace(shape_env.var_to_val)
                 assert var_range, var_val
-                # if range is [2, INT_MAX] then allocate min as current val
-                # and max as 2*curr val so that in backend can create dynamic
-                # recipe in 1 shot
+                # if range upper value is greater than MAX_UPPER_SIZE
+                # then allocate min as current val and max as 2*curr val
+                # so that in backend can create dynamic recipe in 1 shot
                 logger.debug("Initial MIN ", var_range.lower)
                 logger.debug("Initial MAX ", var_range.upper)
                 if var_range.upper >= MAX_UPPER_SIZE:
@@ -117,7 +102,7 @@ def get_input_symbolic(graph_module, inputs):
         return min_shape, max_shape, shape_expr
 
     min_max_shapes = []
-    mark_dynamic = is_mark_dynamic(inputs, graph_module)
+    mark_dynamic = is_mark_dynamic(inputs)
     with unset_fake_temporarily():
         input_idx = 0
         for input_node in graph_module.graph.nodes:
