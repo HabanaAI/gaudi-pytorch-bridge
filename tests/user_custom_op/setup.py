@@ -1,4 +1,4 @@
-# ******************************************************************************
+###############################################################################
 # Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
@@ -8,7 +8,7 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-# ******************************************************************************
+###############################################################################
 
 import pybind11
 from habana_frameworks.torch.utils.lib_utils import get_include_dir, get_lib_dir

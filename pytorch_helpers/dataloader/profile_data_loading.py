@@ -1,5 +1,15 @@
-# Copyright (c) 2021, Habana Labs Ltd.  All rights reserved.
+###############################################################################
+# Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
 #
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 # help:
 #  mpirun -n 8 --bind-to core --map-by slot:PE=7 --report-bindings \
 #       --allow-run-as-root python -u \

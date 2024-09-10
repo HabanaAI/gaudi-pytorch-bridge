@@ -1,3 +1,15 @@
+###############################################################################
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
+# All Rights Reserved.
+#
+# Unauthorized copying of this file or any element(s) within it, via any medium
+# is strictly prohibited.
+# This file contains Habana Labs, Ltd. proprietary and confidential information
+# and is subject to the confidentiality and license agreements under which it
+# was provided.
+#
+###############################################################################
+
 # Parses the ops yaml file (scripts/hpu_ops.yaml) and creates as csv file
 # with a table of ops and the entries for  yaml fileds like
 

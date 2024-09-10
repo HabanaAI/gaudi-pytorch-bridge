@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# ##############################################################################
+###############################################################################
 # Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
@@ -9,7 +9,7 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-# ##############################################################################
+###############################################################################
 
 import os
 import shutil

@@ -75,19 +75,20 @@ repos:
   #   hooks:
   #       - id: pylint
   #         exclude: ^topologies/
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.5
+    hooks:
+      - id: insert-license
+        name: Handle copyright headers in scripts
+        files: \.(ba|z)sh$|CMakeLists.txt$|\.cmake$|(?<!__init__)\.py$
+        args:
+          - --allow-past-years
+          - --use-current-year
+          - --comment-style
+          - |-
+            ###############################################################################|#|###############################################################################
+        exclude: ^(topologies|python_packages/habana_frameworks/torch/hpex/|python_packages/habana_frameworks/torch/dynamo/)
   # TODO: fix issues and enable when time allows: https://jira.habana-labs.com/browse/SW-121816
-  # - repo: https://github.com/Lucas-C/pre-commit-hooks
-  #   rev: v1.4.2
-  #   hooks:
-  #       - id: insert-license
-  #         name: Handle copyright headers in scripts
-  #         files: \.(ba|z)sh$|CMakeLists.txt$|\.cmake$|\.py$
-  #         args:
-  #             - --comment-style
-  #             - '###############################################################################|#|###############################################################################'
-  #             - --fuzzy-match-generates-todo
-  #             - --use-current-year
-  #         exclude: ^topologies/
   #       - id: insert-license
   #         name: Handle copyright headers in C++ files
   #         files: \.c(pp)?$|\.h(pp)?$

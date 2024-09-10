@@ -1,4 +1,4 @@
-# ******************************************************************************
+###############################################################################
 # Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
@@ -8,7 +8,7 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-# ******************************************************************************
+###############################################################################
 
 from common_test import custom_topk, is_lazy
 

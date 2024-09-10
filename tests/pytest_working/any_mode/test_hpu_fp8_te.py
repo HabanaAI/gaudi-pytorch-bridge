@@ -1,3 +1,4 @@
+###############################################################################
 # Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
@@ -6,6 +7,8 @@
 # This file contains Habana Labs, Ltd. proprietary and confidential information
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
+#
+###############################################################################
 
 import math
 import os

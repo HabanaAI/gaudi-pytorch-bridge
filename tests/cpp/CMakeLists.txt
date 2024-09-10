@@ -1,4 +1,4 @@
-# ##############################################################################
+###############################################################################
 # Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
@@ -8,7 +8,7 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 #
-# ##############################################################################
+###############################################################################
 
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
