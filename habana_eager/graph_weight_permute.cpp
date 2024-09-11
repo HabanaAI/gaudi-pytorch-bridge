@@ -12,7 +12,6 @@
  */
 
 #include "habana_eager/graph_weight_permute.h"
-#include "backend/helpers/eager_pipeline.h"
 #include "habana_eager/eager_context.h"
 #include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/graph_exec.h"

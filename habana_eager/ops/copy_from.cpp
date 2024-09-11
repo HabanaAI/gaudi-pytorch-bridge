@@ -15,7 +15,6 @@
 #include "backend/backend_meta.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/tensor_utils.h"
 #include "common/utils.h"
 #include "habana_eager/eager_context.h"
@@ -230,7 +229,7 @@ void Copy_Compile_Empty_Task(
     bool non_blocking,
     c10::hpu::HPUStream stream,
     void* host_ptr) {
-  habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
+  hpu_registrar().get_device().execute_thread().enqueue(
       Execute_Copy,
       std::move(src),
       std::move(dst),
@@ -239,7 +238,7 @@ void Copy_Compile_Empty_Task(
       std::move(host_ptr));
 
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+    hpu_registrar().get_device().execute_thread().waitWorkComplete();
   }
 }
 
@@ -266,7 +265,7 @@ void Copy_Empty_Lowering_Task(
   // data to dst. So if dst is permuted, we need to clear the permutation info
   // in dst.
   clear_permutation_info(dst);
-  habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
+  hpu_registrar().get_device().compile_thread().enqueue(
       Copy_Compile_Empty_Task,
       std::move(src),
       std::move(dst),
@@ -274,8 +273,7 @@ void Copy_Empty_Lowering_Task(
       std::move(stream),
       std::move(host_ptr));
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana_helpers::Singleton_CompileThreadPool::getInstance()
-        .JoinPendingThread();
+    hpu_registrar().get_device().compile_thread().waitWorkComplete();
   }
 }
 

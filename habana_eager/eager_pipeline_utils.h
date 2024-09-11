@@ -14,7 +14,6 @@
 
 #include <ATen/core/TensorBody.h>
 #include "backend/backend_meta.h"
-#include "backend/helpers/eager_pipeline.h"
 #include "backend/synapse_helpers/layout_utils.h"
 #include "eager_tensor.h"
 #include "habana_eager/eager_context.h"

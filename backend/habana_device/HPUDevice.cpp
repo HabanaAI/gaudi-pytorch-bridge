@@ -15,8 +15,14 @@
 #include <memory>
 #include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/time_slot.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 
 namespace habana {
+
+void ThreadPoolWithGILRelease::waitWorkComplete() {
+  habana_helpers::AutoNoGIL gil_release;
+  habana_helpers::ThreadPool::waitWorkComplete();
+}
 
 HPUDevice::HPUDevice()
     : scalar_cache_{std::make_unique<backend::ScalarCache>()} {

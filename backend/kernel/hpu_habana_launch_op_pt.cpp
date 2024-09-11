@@ -28,7 +28,6 @@
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/compilation_statistics.h"
 #include "backend/helpers/create_tensor.h"
-#include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/helpers/graph.h"
 #include "backend/helpers/symbolic_expression.h"
@@ -81,8 +80,7 @@ class PipelineCall : public PipelineCallBase {
     return is_called_;
   }
   void compile_sync() override {
-    habana_helpers::Singleton_CompileThreadPool::getInstance()
-        .JoinPendingThread();
+    hpu_registrar().get_device().compile_thread().waitWorkComplete();
   }
 
  private:
@@ -108,12 +106,11 @@ void LoweringTask(
     return;
   }
 
-  habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
+  hpu_registrar().get_device().compile_thread().enqueue(
       HabanaLaunchOpPipeline::CompileSynapseTask, std::move(launch_op));
 
   if (sync_with_compile_stage)
-    habana_helpers::Singleton_CompileThreadPool::getInstance()
-        .JoinPendingThread();
+    hpu_registrar().get_device().compile_thread().waitWorkComplete();
 }
 } // namespace HabanaLaunchOpPipeline
 

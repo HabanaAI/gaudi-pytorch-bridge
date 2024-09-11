@@ -11,6 +11,7 @@
  *******************************************************************************
  */
 #include <torch/extension.h>
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "habana_eager/eager_context.h"
 

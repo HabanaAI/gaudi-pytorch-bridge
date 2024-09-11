@@ -12,7 +12,6 @@
  */
 #include <gtest/gtest.h>
 #include <torch/torch.h>
-#include "backend/helpers/eager_pipeline.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "habana_lazy_test_infra.h"
 
@@ -70,10 +69,10 @@ TEST_F(EagerPipelineTest, CompileError) {
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);
-  habana_helpers::Singleton_CompileThreadPool::getInstance().Enqueue(
+  habana::hpu_registrar().get_device().compile_thread().enqueue(
       CompileTask, true);
-  EXPECT_ANY_THROW(habana_helpers::Singleton_CompileThreadPool::getInstance()
-                       .JoinPendingThread());
+  EXPECT_ANY_THROW(
+      habana::hpu_registrar().get_device().compile_thread().waitWorkComplete());
   SET_ENV_FLAG_NEW(
       PT_HPU_THREAD_POOL_QUEUE_CAPACITY, default_queue_capacity_, 1);
 }
@@ -82,10 +81,9 @@ TEST_F(EagerPipelineTest, ExecError) {
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);
-  habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
-      ExecTask, true);
-  EXPECT_ANY_THROW(habana_helpers::Singleton_ExecThreadPool::getInstance()
-                       .JoinPendingThread());
+  habana::hpu_registrar().get_device().execute_thread().enqueue(ExecTask, true);
+  EXPECT_ANY_THROW(
+      habana::hpu_registrar().get_device().execute_thread().waitWorkComplete());
   SET_ENV_FLAG_NEW(
       PT_HPU_THREAD_POOL_QUEUE_CAPACITY, default_queue_capacity_, 1);
 }

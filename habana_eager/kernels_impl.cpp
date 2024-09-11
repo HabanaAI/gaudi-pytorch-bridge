@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 #include "backend/backend_meta.h"
-#include "backend/helpers/eager_pipeline.h"
 #include "common/dump_args.h"
 #include "generated/eager/wrap_kernels_declarations.h"
 #include "habana_eager/eager_context.h"

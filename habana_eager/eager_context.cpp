@@ -18,7 +18,6 @@
 #include <mutex>
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/eager_pipeline.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 #include "pytorch_helpers/habana_helpers/thread_queue.h"
@@ -56,19 +55,21 @@ void SingleTonEagerContext::JoinPendingLoweringThread() {
 }
 
 void JoinPendingPipelineThreads() {
+  if (!habana::hpu_registrar().is_initialized())
+    return;
   habana::eager::SingleTonEagerContext::getInstance()
       .JoinPendingLoweringThread();
-  habana_helpers::Singleton_CompileThreadPool::getInstance()
-      .JoinPendingThread();
-  habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+  hpu_registrar().get_device().compile_thread().waitWorkComplete();
+  hpu_registrar().get_device().execute_thread().waitWorkComplete();
 }
 
 void JoinPendingPipelineAllThreads() {
+  if (!habana::hpu_registrar().is_initialized())
+    return;
   habana::eager::SingleTonEagerContext::getInstance()
       .JoinPendingLoweringThread();
-  habana_helpers::Singleton_CompileThreadPool::getInstance()
-      .JoinPendingThread();
-  habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+  hpu_registrar().get_device().compile_thread().waitWorkComplete();
+  hpu_registrar().get_device().execute_thread().waitWorkComplete();
   hpu_registrar().get_device().garbage_collection_thread().waitWorkComplete();
 }
 

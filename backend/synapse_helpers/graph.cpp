@@ -28,7 +28,6 @@
 #include "absl/memory/memory.h"
 
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/helpers/runtime_config.h"
 #include "backend/synapse_helpers/device.h"

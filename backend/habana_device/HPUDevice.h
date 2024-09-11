@@ -24,6 +24,12 @@ class TimeSlot;
 
 namespace habana {
 
+class ThreadPoolWithGILRelease : public habana_helpers::ThreadPool {
+ public:
+  ThreadPoolWithGILRelease() : habana_helpers::ThreadPool(true){};
+  void waitWorkComplete();
+};
+
 class DeviceResource {
  public:
   virtual ~DeviceResource() {}
@@ -178,6 +184,14 @@ class HPUDevice {
     return garbage_collection_thread_;
   }
 
+  habana_helpers::ThreadPool& compile_thread() {
+    return compile_thread_;
+  }
+
+  habana_helpers::ThreadPool& execute_thread() {
+    return execute_thread_;
+  }
+
   bool get_exception_occurred() const {
     return exception_occurred;
   }
@@ -190,6 +204,9 @@ class HPUDevice {
   habana_helpers::ThreadPool garbage_collection_thread_{true};
   synapse_helpers::device_handle device_{nullptr};
   std::unique_ptr<backend::ScalarCache> scalar_cache_{nullptr};
+
+  ThreadPoolWithGILRelease execute_thread_;
+  ThreadPoolWithGILRelease compile_thread_;
 
   std::once_flag lowering_thread_initialize_once_flag_{};
   std::unique_ptr<DeviceResource> lowering_thread_{nullptr};

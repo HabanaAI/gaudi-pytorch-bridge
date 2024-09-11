@@ -12,7 +12,6 @@
  */
 
 #include "backend/kernel/hpu_habana_execute_op_pt.h"
-#include "backend/helpers/eager_pipeline.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
 #include "backend/synapse_helpers/device_context.h"
 
@@ -21,8 +20,7 @@ namespace habana {
 namespace HabanaLaunchOpPipeline {
 void ExecuteSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
   auto execute_queue_length =
-      habana_helpers::Singleton_CompileThreadPool::getInstance()
-          .get_number_of_active_tasks_in_queue();
+      hpu_registrar().get_device().compile_thread().get_active_task_count();
   LOP::emit_event_fast(
       true,
       "EagerExecuteTask()",

@@ -12,7 +12,6 @@
  */
 
 #include "backend/kernel/hpu_habana_compile_op_pt.h"
-#include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/kernel/hpu_habana_execute_op_pt.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
@@ -23,8 +22,7 @@ namespace habana {
 namespace HabanaLaunchOpPipeline {
 void CompileSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
   auto compile_queue_length =
-      habana_helpers::Singleton_CompileThreadPool::getInstance()
-          .get_number_of_active_tasks_in_queue();
+      hpu_registrar().get_device().compile_thread().get_active_task_count();
   LOP::emit_event_fast(
       true,
       "EagerCompileTask()",
@@ -38,11 +36,11 @@ void CompileSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
   auto jit_cache_hit_count_for_event =
       launch_op->get_jit_graph_cache_hit_count();
 
-  habana_helpers::Singleton_ExecThreadPool::getInstance().Enqueue(
+  hpu_registrar().get_device().execute_thread().enqueue(
       HabanaLaunchOpPipeline::ExecuteSynapseTask, std::move(launch_op));
 
   if (sync_with_execute_stage)
-    habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
+    hpu_registrar().get_device().execute_thread().waitWorkComplete();
 
   LOP::emit_event_fast(
       false,
