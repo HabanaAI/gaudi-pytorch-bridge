@@ -57,6 +57,8 @@ void SelectBackward::AddNode(
   auto dim = getNextInput<int>(stackGetter);
   auto index = getNextInput<int>(stackGetter);
 
+  dim = at::maybe_wrap_dim(dim, input_sizes.size());
+
   const auto grad_scalar_type = grad.pt_t.scalar_type();
   const auto grad_shape = grad.pt_t.sizes();
 
