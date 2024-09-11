@@ -279,6 +279,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/scalar_tensor_gen.cpp
   backend/scaled_masked_softmax.cpp
   backend/scaled_triangular_softmax.cpp
+  backend/scaled_mm_gen.cpp
   backend/scatter_add_gen.cpp
   backend/scatter_gen.cpp
   backend/scatter_reduce_gen.cpp

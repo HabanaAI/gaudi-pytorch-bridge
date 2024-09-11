@@ -7899,6 +7899,19 @@ scalar_tensor:
   op_backend: ScalarTensor
   out_ids: [0]
 
+_scaled_mm:
+  guid: fp8_gemm
+  output_meta: ScaledMmMeta
+  op_validator: ScaledMmSharedMeta
+  op_backend: ScaledMm
+  out_ids: [0, 0]
+
+_scaled_mm.out:
+  guid: fp8_gemm
+  output_meta: ScaledMmMeta
+  op_validator: ScaledMmSharedMeta
+  op_backend: ScaledMm
+
 scatter.src:
   dtypes:
     Gaudi:
