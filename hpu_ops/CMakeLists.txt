@@ -389,7 +389,6 @@ add_habana_library(habana_pytorch_frontend_ops OBJECT
           lazy/optimizer_lamb_gen.cpp
           lazy/pow_gen.cpp
           lazy/random_gen.cpp
-          lazy/sort_gen.cpp
           lazy/topk_gen.cpp
           lazy/unique_gen.cpp
           lazy/upsample_gen.cpp
