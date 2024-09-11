@@ -1005,6 +1005,7 @@ class LazyOp {
       THHTensor_resizeNd(impl, out_shape.size(), out_shape.data(), nullptr);
       hl_self.ClearStrideParams();
       self.unsafeGetTensorImpl()->set_sizes_contiguous(out_shape);
+      self.unsafeGetTensorImpl()->set_storage_offset(0);
       if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
           GET_ENV_FLAG_NEW(PT_HPU_EAGER_SHAPE_AGNOSTIC_GRAPH) &&
           info_to_lazy_backend) {
