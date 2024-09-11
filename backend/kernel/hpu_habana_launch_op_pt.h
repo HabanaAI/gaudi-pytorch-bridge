@@ -325,7 +325,7 @@ class HabanaLaunchOpPT {
   /// syn_graph_ptr_---------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   /// current_dbipsh_--------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Write-for-dynamic-shapes
   /// cur_rargpsh_-----------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
-  // duplicate_intermediate_to_outtinfo_map----///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // duplicate_intermediate_to_outtinfo_map_---///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
   // persistence_marker_pass_data_ptr_---------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // dry_run_----------------------------------///-----------------------------------///---------------Write---------------///------Read-for-Dynamic-Shapes------///-----------Read
   // node_bcast_map_---------------------------///----------------LAZY---------------///----------------NA-----------------///----------------NA-----------------///------------NA
@@ -344,41 +344,41 @@ class HabanaLaunchOpPT {
   // pt_stack_sh_------------------------------///-----------------------------------///---------------Write---------------///----------------NA-----------------///------------NA
   // value_to_ivalue_--------------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///-----------Read
   // pt_to_synapse_tensors_--------------------///-----------------------------------///---------------Write---------------///---------------Read----------------///------------NA
-  // ivalue_to_tensor_info_map-----------------///-----------------------------------///---------------Write---------------///---------------Write---------------///------------NA
-  // input_tivs--------------------------------///-----------------------------------///---------------Write---------------///---------------Write---------------///------------NA
-  // output_tensorinfos------------------------///-----------------------------------///-----------------NA----------------///---------------Write---------------///------------NA
-  // input_tiv_map-----------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
-  // duplicate_input_tivs----------------------///-----------------------------------///-----------------NA----------------///---------------Write---------------///------------NA
-  // buff_to_input_ivpsh_map-------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
-  // buff_to_intermediate_ivpsh_map------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
-  // buff_to_output_ivpsh_map------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
-  // buff_to_syn_tensor_map--------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
-  // duplicate_outtinfos-----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
-  // appended_index----------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
-  // intermediate_index------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
-  // shape_index-------------------------------///----------Dynamic-Shapes-----------///---------------Write---------------///-----------------NA----------------///------------NA
-  // aten_intermediates------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
-  // intermediate_tinfos-----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
-  // dma_input_tensorinfos---------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
-  // shape_tensor_tinfos-----------------------///----------Dynamic-Shapes-----------///---------------Write---------------///----------------Read---------------///------------NA
-  // num_tensor_inputs-------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
-  // use_persistent_tensors--------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
-  // pt_stack----------------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Write
-  // output_tensorinfo_map---------------------///-----------------------------------///---------------Write---------------///----------------Write--------------///------------NA
-  // duplicate_input_to_outtinfo_map-----------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
-  // duplicate_output_to_outtinfo_map----------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
-  // sif_tidx_to_tinfo_map---------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // ivalue_to_tensor_info_map_----------------///-----------------------------------///---------------Write---------------///---------------Write---------------///------------NA
+  // input_tivs_-------------------------------///-----------------------------------///---------------Write---------------///---------------Write---------------///------------NA
+  // output_tensorinfos_-----------------------///-----------------------------------///-----------------NA----------------///---------------Write---------------///------------NA
+  // input_tiv_map_----------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // duplicate_input_tivs_---------------------///-----------------------------------///-----------------NA----------------///---------------Write---------------///------------NA
+  // buff_to_input_ivpsh_map_------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // buff_to_intermediate_ivpsh_map_-----------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // buff_to_output_ivpsh_map_-----------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // buff_to_syn_tensor_map_-------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // duplicate_outtinfos_----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // appended_index_---------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // intermediate_index_-----------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // shape_index_------------------------------///----------Dynamic-Shapes-----------///---------------Write---------------///-----------------NA----------------///------------NA
+  // aten_intermediates_-----------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
+  // intermediate_tinfos_----------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // dma_input_tensorinfos_--------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // shape_tensor_tinfos_----------------------///----------Dynamic-Shapes-----------///---------------Write---------------///----------------Read---------------///------------NA
+  // num_tensor_inputs_------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // use_persistent_tensors_-------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
+  // pt_stack_---------------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Write
+  // output_tensorinfo_map_--------------------///-----------------------------------///---------------Write---------------///----------------Write--------------///------------NA
+  // duplicate_input_to_outtinfo_map_----------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // duplicate_output_to_outtinfo_map_---------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // sif_tidx_to_tinfo_map_--------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
   // enable_caching_---------------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // enable_graph_caching_---------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // enable_eager_caching_---------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // enable_shape_agnostic_caching_------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // enable_2stage_pipeline_-------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // enable_4stage_pipeline_-------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
-  // enable_optim_output_sif_-------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
+  // enable_optim_output_sif_------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///-----------Read
   // enable_fast_shape_inf_--------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // cur_ds_token_-----------------------------///----------Dynamic-Shapes-----------///---------------Write---------------///-----------------NA----------------///------------NA
-  // jit_to_synapse_node_idx_map---------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
-  // collective_kernels_info-------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // jit_to_synapse_node_idx_map_--------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
+  // collective_kernels_info_------------------///-----------------------------------///---------------Write---------------///----------------Read---------------///------------NA
   // execution_mode_---------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///------------NA
   // allocated_outputs_------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
   // aten_outputs_-----------------------------///-----------------------------------///---------------Write---------------///-----------------NA----------------///-----------Read
@@ -453,71 +453,71 @@ class HabanaLaunchOpPT {
       pt_to_synapse_tensors_;
 
   std::unordered_map<IValPtrShared, PtTensorInfoShared>
-      ivalue_to_tensor_info_map;
+      ivalue_to_tensor_info_map_;
 
   void update_syn_launch_info(uint64_t oldAddress, uint64_t newAdress);
   // TIV : absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>
   // objects TIVs for launcing the recipe
 
-  // input_tivs and output_tensorinfos are used with caching disabled
+  // input_tivs_ and output_tensorinfos_ are used with caching disabled
   std::vector<
       absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>>
-      input_tivs;
-  std::vector<PtTensorInfoShared> output_tensorinfos;
+      input_tivs_;
+  std::vector<PtTensorInfoShared> output_tensorinfos_;
 
   // Following tiv stores are used with caching enabled
   std::unordered_map<
       IValPtrShared,
       absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>>
-      input_tiv_map;
+      input_tiv_map_;
   std::vector<
       absl::variant<PtTensorInfoShared, std::vector<PtTensorInfoShared>>>
-      duplicate_input_tivs;
-  std::unordered_map<void*, IValPtrShared> buff_to_input_ivpsh_map;
-  std::unordered_map<void*, IValPtrShared> buff_to_intermediate_ivpsh_map;
-  std::unordered_map<void*, IValPtrShared> buff_to_output_ivpsh_map;
+      duplicate_input_tivs_;
+  std::unordered_map<void*, IValPtrShared> buff_to_input_ivpsh_map_;
+  std::unordered_map<void*, IValPtrShared> buff_to_intermediate_ivpsh_map_;
+  std::unordered_map<void*, IValPtrShared> buff_to_output_ivpsh_map_;
   std::unordered_map<void*, synapse_helpers::tensor_or_ref>
-      buff_to_syn_tensor_map;
-  std::vector<PtTensorInfoShared> duplicate_outtinfos;
+      buff_to_syn_tensor_map_;
+  std::vector<PtTensorInfoShared> duplicate_outtinfos_;
 
-  size_t appended_index{0};
-  size_t intermediate_index{0};
-  size_t shape_index{0};
+  size_t appended_index_{0};
+  size_t intermediate_index_{0};
+  size_t shape_index_{0};
 
   // The persistent intermediates are stored in the following two vectors.
-  // aten_intermediates is used for storing intermediates which are usually
+  // aten_intermediates_ is used for storing intermediates which are usually
   // marked persistent by persistenceMarkingPass.
-  std::vector<at::Tensor> aten_intermediates;
-  // tinfos corresponding to aten_intermediates.
-  std::vector<PtTensorInfoShared> intermediate_tinfos;
+  std::vector<at::Tensor> aten_intermediates_;
+  // tinfos corresponding to aten_intermediates_.
+  std::vector<PtTensorInfoShared> intermediate_tinfos_;
 
-  // tinfos corresponding to aten_intermediates.
-  std::deque<PtTensorInfoShared> dma_input_tensorinfos;
+  // tinfos corresponding to aten_intermediates_.
+  std::deque<PtTensorInfoShared> dma_input_tensorinfos_;
   // tinfos corresponding to shape tensor.
-  std::vector<PtTensorInfoShared> shape_tensor_tinfos;
+  std::vector<PtTensorInfoShared> shape_tensor_tinfos_;
 
   // caching :: begin
 
   // The inputs holding data usually are of type tensor and tensorList.
   // The following member keeps track of total number of tensor and tensorList
   // inputs
-  size_t num_tensor_inputs{0};
+  size_t num_tensor_inputs_{0};
 
   // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members)
-  const bool use_persistent_tensors;
+  const bool use_persistent_tensors_;
 
-  torch::jit::Stack* pt_stack{nullptr};
-  uint64_t t_compile_ns{0};
+  torch::jit::Stack* pt_stack_{nullptr};
+  uint64_t t_compile_ns_{0};
 
   // Making the cache eviction policy as lru as default
 
-  IValPtrSharedToTesorInfoMap output_tensorinfo_map;
-  IValPtrSharedToTesorInfoMap duplicate_input_to_outtinfo_map;
-  IValPtrSharedToTesorInfoMap duplicate_intermediate_to_outtinfo_map;
-  IValPtrSharedToTesorInfoMap duplicate_output_to_outtinfo_map;
+  IValPtrSharedToTesorInfoMap output_tensorinfo_map_;
+  IValPtrSharedToTesorInfoMap duplicate_input_to_outtinfo_map_;
+  IValPtrSharedToTesorInfoMap duplicate_intermediate_to_outtinfo_map_;
+  IValPtrSharedToTesorInfoMap duplicate_output_to_outtinfo_map_;
 
   // Output shape inference map
-  std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
+  std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map_;
 
   // caching :: end
 
@@ -533,8 +533,8 @@ class HabanaLaunchOpPT {
   uint64_t cur_ds_token_{0};
 
   std::unordered_map<torch::jit::Node*, std::vector<synNodeId>>
-      jit_to_synapse_node_idx_map;
-  habana_helpers::CollectiveKernelInfos collective_kernels_info;
+      jit_to_synapse_node_idx_map_;
+  habana_helpers::CollectiveKernelInfos collective_kernels_info_;
 
   // Execution mode based on frontend type
   habana_helpers::HabanaFrontendTypes execution_mode_{
@@ -715,12 +715,12 @@ class HabanaLaunchOpPT {
       const IValPtrShared& ivpsh,
       const PtTensorInfoShared ti) {
     void* buffp = ti->get_buffer();
-    intermediate_tinfos.emplace_back(ti);
-    aten_intermediates.push_back(ivpsh->toTensor());
+    intermediate_tinfos_.emplace_back(ti);
+    aten_intermediates_.push_back(ivpsh->toTensor());
     // We might have outputs that are duplicate of
     // persistent intermediate tensors
     if (false == ti->is_ZST()) {
-      buff_to_intermediate_ivpsh_map.emplace(buffp, ivpsh);
+      buff_to_intermediate_ivpsh_map_.emplace(buffp, ivpsh);
     }
   }
   void AddAtenIntermediate(
@@ -821,7 +821,7 @@ class HabanaLaunchOpPT {
 
   // Dynamic shape specific functions
   size_t current_bucket_id_{};
-  bool updatemax_graph = false;
+  bool updatemax_graph_ = false;
 
   void FillMaxValues(
       const HabanaOperatorPtr& habana_op,
@@ -852,7 +852,7 @@ class HabanaLaunchOpPT {
       const HabanaOperatorPtr& habana_op,
       at::Tensor& pt_tensor,
       std::string idx = std::string());
-  habana::ShapeInfo m_map_shape;
+  habana::ShapeInfo map_shape_;
   void run_shape_inference(
       const ShapeInfo::InferencePass& pass,
       DynamicShapeInfo& graph_input_info);

@@ -557,7 +557,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
   bool shape_tensors_flag = false;
   PT_DYNAMIC_SHAPE_DEBUG(
       "\nRunning hybrid shape inference on graph: ", GetSynapseGraphName());
-  habana::PrintStack(*pt_stack);
+  habana::PrintStack(*pt_stack_);
   PT_DYNAMIC_SHAPE_DEBUG(
       "JIT_IR_Graph_BEGIN\n", jit_ir_graph_->toString(), "JIT_IR_Graph_END\n");
 

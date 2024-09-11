@@ -179,7 +179,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
     : name_(optimized_jit_graph_and_meta_data->GetOpName()),
       graph_index_(optimized_jit_graph_and_meta_data->GetGraphIndex()),
       jit_ir_graph_(optimized_jit_graph_and_meta_data->get_cached_graph()),
-      use_persistent_tensors{GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR)} {
+      use_persistent_tensors_{GET_ENV_FLAG_NEW(HABANA_USE_PERSISTENT_TENSOR)} {
   refine_ds_enabled_ = optimized_jit_graph_and_meta_data->GetDynamicGraph();
   enable_fast_shape_inf_ =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_FAST_SHAPE_INFERENCE) &&
@@ -269,7 +269,7 @@ bool HabanaLaunchOpPT::nodeOutputPersistencePerValue(
     torch::jit::Node* node,
     torch::jit::Value* value_out) {
   bool is_persistent = false;
-  if (use_persistent_tensors || isInGraphOutputs(value_out)) {
+  if (use_persistent_tensors_ || isInGraphOutputs(value_out)) {
     // Highest priority is given to the env variable, and if
     // part of the graph output
     auto in_graph_output = isInGraphOutputs(value_out);
@@ -393,9 +393,9 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
     void* pt_tensor_buffer_start = pt_tensor.storage().data_ptr().get();
     bool is_duplicate_syn_tensor{
         (pt_tensor_buffer_start != nullptr &&
-         buff_to_syn_tensor_map.count(pt_tensor_buffer_start))};
+         buff_to_syn_tensor_map_.count(pt_tensor_buffer_start))};
     if (is_duplicate_syn_tensor) {
-      auto syn_tensor_it = buff_to_syn_tensor_map.find(pt_tensor_buffer_start);
+      auto syn_tensor_it = buff_to_syn_tensor_map_.find(pt_tensor_buffer_start);
       synapse_helpers::tensor& st = syn_tensor_it->second;
       habana_op->set_is_duplicate_input_flag(true);
       habana_op->add_syn_input_tensor_orig(st);
@@ -409,7 +409,7 @@ synapse_helpers::tensor& HabanaLaunchOpPT::AllocateSynapseTensor(
     }
 
     if (pt_tensor_buffer_start != nullptr) {
-      buff_to_syn_tensor_map.emplace(
+      buff_to_syn_tensor_map_.emplace(
           pt_tensor_buffer_start, synapse_helpers::tensor_or_ref(syn_tensor));
     }
     return syn_tensor;
@@ -459,12 +459,12 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
       ti->set_host_ptr(tmeta->get_host_ptr());
     }
     tiv.push_back(ti);
-    ivalue_to_tensor_info_map[ivalue] = ti;
+    ivalue_to_tensor_info_map_[ivalue] = ti;
 
     if (enable_caching_ || enable_shape_agnostic_caching_) {
       void* buffp = ti->get_buffer_start();
       if (ti->is_ZST() == false) {
-        buff_to_input_ivpsh_map.emplace(buffp, ivalue);
+        buff_to_input_ivpsh_map_.emplace(buffp, ivalue);
       }
     }
   }
@@ -476,18 +476,18 @@ void HabanaLaunchOpPT::HandleUnmappedTensor(
     }
 
     if (enable_caching_ || enable_shape_agnostic_caching_) {
-      input_tiv_map.emplace(value_to_ivalue_[value_in], tiv);
+      input_tiv_map_.emplace(value_to_ivalue_[value_in], tiv);
       auto node_qual_str = value_in->node()->kind().toQualString();
       if ((strcmp(node_qual_str, "hpu::restride_cl") == 0) ||
           (strcmp(node_qual_str, "hpu::restride") == 0)) {
         auto restride_node = value_in->node();
         auto restride_value_in = restride_node->input(0);
         if (isInGraphInputs(restride_value_in) != -1) {
-          input_tiv_map.emplace(value_to_ivalue_[restride_value_in], tiv);
+          input_tiv_map_.emplace(value_to_ivalue_[restride_value_in], tiv);
         }
       }
     } else {
-      input_tivs.emplace_back(tiv);
+      input_tivs_.emplace_back(tiv);
     }
   }
 }
@@ -595,9 +595,9 @@ void HabanaLaunchOpPT::GetSynapseInputs(
         syn_tensor.get(),
         syn_tensor.tensor_type(),
         DMAInputGeneratorType::SEEDTENSOR);
-    ti->set_dma_tensor_idx(aten_intermediates.size());
-    dma_input_tensorinfos.emplace_back(ti);
-    aten_intermediates.emplace_back(seed_tensor);
+    ti->set_dma_tensor_idx(aten_intermediates_.size());
+    dma_input_tensorinfos_.emplace_back(ti);
+    aten_intermediates_.emplace_back(seed_tensor);
   }
 }
 
@@ -608,7 +608,7 @@ PtTensorInfoShared HabanaLaunchOpPT::ProcessPersistentNodeOutput(
   // If the node output is persistent, there are the following possibilities
   // 1. The output is not in graph output, hence it is an intermediate
   //    which is persistent.
-  //    A: Add it to duplicate_input_tivs as this would be a duplicate of a
+  //    A: Add it to duplicate_input_tivs_ as this would be a duplicate of a
   //       persistent input tensor if a parent exists
   //    B: Add it to intermediate tensor list if no parent available.
   //       Right now thats the only data structure that supports adding it
@@ -617,10 +617,10 @@ PtTensorInfoShared HabanaLaunchOpPT::ProcessPersistentNodeOutput(
   // 2. The output is in graph output. In this scenario, it could be -
   //    A: It is an output created by the PT kernel that goes to the
   //       graph output.
-  //       Add it to output_tensorinfos as it is to be counted as an
+  //       Add it to output_tensorinfos_ as it is to be counted as an
   //       output tensor of the recipe.
   //       With enable_caching_, this is maintained in
-  //       output_tensorinfo_map
+  //       output_tensorinfo_map_
   //    B: It is a duplicate of an input. An example:
   //           graph(%id:0 : Float(*),
   //                 ..
@@ -630,7 +630,7 @@ PtTensorInfoShared HabanaLaunchOpPT::ProcessPersistentNodeOutput(
   //       Here, the aten::add_ creates a duplicate for output from the
   //       input, hence %1 is a duplicate of input %id:0. The duplicate
   //       output also goes to graph output.
-  //       Add it to duplicate_input_to_outtinfo_map with
+  //       Add it to duplicate_input_to_outtinfo_map_ with
   //       enable_caching_
   //    C: It is a duplicate of a persistent intermediate. An example:
   //           graph(%id:9 : Tensor,
@@ -645,7 +645,7 @@ PtTensorInfoShared HabanaLaunchOpPT::ProcessPersistentNodeOutput(
   //       Here, the aten::mul_ creates a duplicate for output from the
   //       persistent intermediate %6. The duplicate output goes to graph
   //       output.
-  //       Add it to duplicate_intermediate_to_outtinfo_map with
+  //       Add it to duplicate_intermediate_to_outtinfo_map_ with
   //       enable_caching_
   //    D: It is a duplicate of an existing output
 
@@ -657,17 +657,17 @@ PtTensorInfoShared HabanaLaunchOpPT::ProcessPersistentNodeOutput(
       out_syntensor.get(),
       out_syntensor.tensor_type());
   ti->set_external(out_syntensor.is_external());
-  ivalue_to_tensor_info_map[ivpsh] = ti;
+  ivalue_to_tensor_info_map_[ivpsh] = ti;
   void* buffp = ti->get_buffer_start();
 
   if (false == isInGraphOutputs(vp)) {
-    if (ti->is_ZST() == false && buff_to_input_ivpsh_map.count(buffp)) {
+    if (ti->is_ZST() == false && buff_to_input_ivpsh_map_.count(buffp)) {
       // Case 1.A: intermediate persistent tensor which an alias of an input
-      PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs ", *ti);
-      duplicate_input_tivs.emplace_back(ti);
+      PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs_ ", *ti);
+      duplicate_input_tivs_.emplace_back(ti);
     } else {
-      if (ti->is_ZST() == false && buff_to_output_ivpsh_map.count(buffp)) {
-        duplicate_outtinfos.emplace_back(ti);
+      if (ti->is_ZST() == false && buff_to_output_ivpsh_map_.count(buffp)) {
+        duplicate_outtinfos_.emplace_back(ti);
       } else {
         // Case 1.B: intermediate persistent tensor
         if (ti->is_view_tensor()) {
@@ -683,35 +683,35 @@ PtTensorInfoShared HabanaLaunchOpPT::ProcessPersistentNodeOutput(
     if (!enable_caching_ && !enable_shape_agnostic_caching_) {
       // Case 2.A: graph output tensor
       // needs to be added to enable layout handling for lazy eager
-      PT_BRIDGE_DEBUG("Adding to output_tensorinfo_map ", *ti);
-      output_tensorinfo_map.emplace(ivpsh, ti);
+      PT_BRIDGE_DEBUG("Adding to output_tensorinfo_map_ ", *ti);
+      output_tensorinfo_map_.emplace(ivpsh, ti);
     } else {
       // Is this a duplicate tensor going to graph output?
       // See if this the buffer pointer matches any input, then -
       // Check whether it is an alias of any input
-      if (ti->is_ZST() == false && buff_to_input_ivpsh_map.count(buffp)) {
+      if (ti->is_ZST() == false && buff_to_input_ivpsh_map_.count(buffp)) {
         // Case 2.B: Graph output that is duplicate of input
-        PT_BRIDGE_DEBUG("Adding to duplicate_input_to_outtinfo_map ", *ti);
-        duplicate_input_to_outtinfo_map.emplace(ivpsh, ti);
+        PT_BRIDGE_DEBUG("Adding to duplicate_input_to_outtinfo_map_ ", *ti);
+        duplicate_input_to_outtinfo_map_.emplace(ivpsh, ti);
       } else if (
           ti->is_ZST() == false &&
-          buff_to_intermediate_ivpsh_map.count(buffp)) {
+          buff_to_intermediate_ivpsh_map_.count(buffp)) {
         // Case 2.C: Graph output that is duplicate of a persistent
         // intermediate
         PT_BRIDGE_DEBUG(
-            "Adding to duplicate_intermediate_to_outtinfo_map ", *ti);
-        duplicate_intermediate_to_outtinfo_map.emplace(ivpsh, ti);
+            "Adding to duplicate_intermediate_to_outtinfo_map_ ", *ti);
+        duplicate_intermediate_to_outtinfo_map_.emplace(ivpsh, ti);
       } else if (
-          ti->is_ZST() == false && buff_to_output_ivpsh_map.count(buffp)) {
+          ti->is_ZST() == false && buff_to_output_ivpsh_map_.count(buffp)) {
         // Case 2.D: Graph output that is duplicate of a previous output
-        PT_BRIDGE_DEBUG("Adding to duplicate_output_to_outtinfo_map ", *ti);
-        duplicate_output_to_outtinfo_map.emplace(ivpsh, ti);
+        PT_BRIDGE_DEBUG("Adding to duplicate_output_to_outtinfo_map_ ", *ti);
+        duplicate_output_to_outtinfo_map_.emplace(ivpsh, ti);
       } else {
         // Case 2.A: graph output tensor, enable_tensor_release_
-        PT_BRIDGE_DEBUG("Adding to output_tensorinfo_map ", *ti);
-        output_tensorinfo_map.emplace(ivpsh, ti);
+        PT_BRIDGE_DEBUG("Adding to output_tensorinfo_map_ ", *ti);
+        output_tensorinfo_map_.emplace(ivpsh, ti);
         if (ti->is_ZST() == false) {
-          buff_to_output_ivpsh_map.emplace(buffp, ivpsh);
+          buff_to_output_ivpsh_map_.emplace(buffp, ivpsh);
         }
       }
     }
@@ -727,8 +727,8 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
 
   bool shape_inf_flag = enable_fast_shape_inf_ &&
       syn_graph_ptr_->is_dynamic_graph() &&
-      !(m_map_shape.m_pass == ShapeInfo::InferencePass::MIN_SHAPE ||
-        m_map_shape.m_pass == ShapeInfo::InferencePass::MAX_SHAPE);
+      !(map_shape_.m_pass == ShapeInfo::InferencePass::MIN_SHAPE ||
+        map_shape_.m_pass == ShapeInfo::InferencePass::MAX_SHAPE);
 
   if ((shape_inf_flag || enable_shape_agnostic_caching_) &&
       !op_output_shape.empty()) {
@@ -802,32 +802,32 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
       if (use_output_shape && !op_output_shape.empty()) {
         auto output = op_output_shape.GetOutputTensor().at(output_tensor_idx);
         auto output_sif_tidx{std::get<0>(output)};
-        auto ret = sif_tidx_to_tinfo_map.insert({output_sif_tidx, ti});
+        auto ret = sif_tidx_to_tinfo_map_.insert({output_sif_tidx, ti});
         if (ret.second) {
           PT_DYNAMIC_SHAPE_DEBUG(
-              "Output tensor cs: adding to sif_tidx_to_tinfo_map : ",
+              "Output tensor cs: adding to sif_tidx_to_tinfo_map_ : ",
               output_sif_tidx,
               " -> ",
               *ti);
         } else {
           PT_DYNAMIC_SHAPE_DEBUG(
-              "Output tensor cs: failed adding to sif_tidx_to_tinfo_map : ",
+              "Output tensor cs: failed adding to sif_tidx_to_tinfo_map_ : ",
               output_sif_tidx,
               " -> ",
               *ti);
         }
       } else {
         // op_output_shape is empty
-        auto ret = sif_tidx_to_tinfo_map.insert({cur_sif_tidx, ti});
+        auto ret = sif_tidx_to_tinfo_map_.insert({cur_sif_tidx, ti});
         if (ret.second) {
           PT_DYNAMIC_SHAPE_DEBUG(
-              "Output tensor manual: adding to sif_tidx_to_tinfo_map : ",
+              "Output tensor manual: adding to sif_tidx_to_tinfo_map_ : ",
               cur_sif_tidx,
               " -> ",
               *ti);
         } else {
           PT_DYNAMIC_SHAPE_DEBUG(
-              "Output tensor manual: failed adding to sif_tidx_to_tinfo_map : ",
+              "Output tensor manual: failed adding to sif_tidx_to_tinfo_map_ : ",
               cur_sif_tidx,
               " -> ",
               *ti);
@@ -872,7 +872,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
       // For some kernels, like the inplace ones, the kernel output is always
       // created as persistent. Patching table needs to be updated accordingly
       // for such tensors.
-      if (use_persistent_tensors || out_tensor_syn.is_persistent()) {
+      if (use_persistent_tensors_ || out_tensor_syn.is_persistent()) {
         const auto& out_val = output_nodes[output_nodes_idx];
         auto ti = ProcessPersistentNodeOutput(ivpsh, out_val, out_tensor_syn);
 
@@ -927,7 +927,7 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
     // For some kernels, like the inplace ones, the kernel output is always
     // created as persistent. Patching table needs to be updated accordingly
     // for such tensors.
-    if (use_persistent_tensors || sh_t.is_persistent()) {
+    if (use_persistent_tensors_ || sh_t.is_persistent()) {
       PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
           ivpsh,
           sh_t.name(),
@@ -937,10 +937,10 @@ int64_t HabanaLaunchOpPT::ProcessSynapseOutputs(
           sh_t.tensor_type());
 
       ti->set_external(sh_t.is_external());
-      duplicate_input_tivs.emplace_back(ti);
+      duplicate_input_tivs_.emplace_back(ti);
 
       // persistent tensor which an alias of an input
-      PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs ", *ti);
+      PT_BRIDGE_DEBUG("Adding to duplicate_input_tivs_ ", *ti);
       implicit_syn_tensors_count_++;
 
       handle_permutes(ti, sh_t, ivpsh);
@@ -978,8 +978,8 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
     bool isRecursiveCall) {
   bool shape_inf_flag = enable_fast_shape_inf_ &&
       syn_graph_ptr_->is_dynamic_graph() &&
-      !(m_map_shape.m_pass == ShapeInfo::InferencePass::MIN_SHAPE ||
-        m_map_shape.m_pass == ShapeInfo::InferencePass::MAX_SHAPE);
+      !(map_shape_.m_pass == ShapeInfo::InferencePass::MIN_SHAPE ||
+        map_shape_.m_pass == ShapeInfo::InferencePass::MAX_SHAPE);
 
   auto backend_ST_TIDs = ShapeInference::GetBackendStTidxList();
 
@@ -990,16 +990,16 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
         continue;
       }
 
-      auto irn = "%shapeInput_" + std::to_string(shape_index++);
+      auto irn = "%shapeInput_" + std::to_string(shape_index_++);
       PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(st, irn);
       if (shape_inf_flag) {
         if (st.is_intermediate_shape_tensor()) {
-          intermediate_shape_tensors.emplace_back(shape_tensor_tinfos.size());
+          intermediate_shape_tensors.emplace_back(shape_tensor_tinfos_.size());
           PT_DYNAMIC_SHAPE_DEBUG(
               "auto_gen path: intermediate shape tensor : ", *ti);
         }
       }
-      shape_tensor_tinfos.emplace_back(ti);
+      shape_tensor_tinfos_.emplace_back(ti);
     }
   }
 
@@ -1013,13 +1013,13 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
       }
 
       std::string irn{"%shapeInput_"};
-      irn += std::to_string(shape_index);
-      shape_index++;
+      irn += std::to_string(shape_index_);
+      shape_index_++;
       PtTensorInfoShared ti =
           std::make_shared<PtTensorInfo>(maybe_syn_shape_tensor, irn);
       if (shape_inf_flag) {
         if (maybe_syn_shape_tensor.is_intermediate_shape_tensor()) {
-          intermediate_shape_tensors.emplace_back(shape_tensor_tinfos.size());
+          intermediate_shape_tensors.emplace_back(shape_tensor_tinfos_.size());
           PT_DYNAMIC_SHAPE_DEBUG(
               "manual path: adding intermediate shape tensor for index = ",
               intermediate_shape_tensors.back(),
@@ -1031,7 +1031,7 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
           if (true == isRecursiveCall)
             continue;
 
-          inputs_shape_tensors.emplace_back(shape_tensor_tinfos.size());
+          inputs_shape_tensors.emplace_back(shape_tensor_tinfos_.size());
           PT_DYNAMIC_SHAPE_DEBUG(
               "manual path: adding input shape tensor for index = ",
               inputs_shape_tensors.back(),
@@ -1039,7 +1039,7 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
               *ti);
         }
       }
-      shape_tensor_tinfos.emplace_back(ti);
+      shape_tensor_tinfos_.emplace_back(ti);
     }
   }
 
@@ -1089,14 +1089,14 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
         meta_syn_tensors_.back().id(),
         meta_syn_tensors_.back().get(),
         meta_syn_tensors_.back().tensor_type());
-    ivalue_to_tensor_info_map[value_to_ivalue_[value_in]] = ti;
+    ivalue_to_tensor_info_map_[value_to_ivalue_[value_in]] = ti;
     if (!isInGraphOutputs(value_in)) {
-      duplicate_input_tivs.emplace_back(ti);
+      duplicate_input_tivs_.emplace_back(ti);
     } else {
       if (!enable_caching_ && !enable_shape_agnostic_caching_) {
-        output_tensorinfos.emplace_back(ti);
+        output_tensorinfos_.emplace_back(ti);
       } else {
-        duplicate_outtinfos.emplace_back(ti);
+        duplicate_outtinfos_.emplace_back(ti);
       }
     }
   } else {
@@ -1222,95 +1222,95 @@ void HabanaLaunchOpPT::handleRestrideNode(
 
     if (enable_caching_ || enable_shape_agnostic_caching_) {
       void* buffp = ti->get_buffer_start();
-      if (output_tensorinfo_map.count(ivpsh)) {
+      if (output_tensorinfo_map_.count(ivpsh)) {
         // Case 2.A: graph output tensor
         PT_BRIDGE_DEBUG(
             "removing ivalue for restride input %",
             value_in->debugName(),
-            " from output_tensorinfo_map");
-        output_tensorinfo_map.erase(ivpsh);
+            " from output_tensorinfo_map_");
+        output_tensorinfo_map_.erase(ivpsh);
 
         PT_BRIDGE_DEBUG(
             "adding ivalue for restride output %",
             value_out->debugName(),
-            " to output_tensorinfo_map");
-        output_tensorinfo_map.emplace(ivpsh_restrided, ti);
+            " to output_tensorinfo_map_");
+        output_tensorinfo_map_.emplace(ivpsh_restrided, ti);
       } else if (
           ti->is_ZST() == false &&
-          buff_to_intermediate_ivpsh_map.count(buffp)) {
+          buff_to_intermediate_ivpsh_map_.count(buffp)) {
         // Case 2.C: Graph output that is duplicate of a persistent
         // intermediate
         PT_BRIDGE_DEBUG(
-            "updating buff_to_intermediate_ivpsh_map entry for ",
+            "updating buff_to_intermediate_ivpsh_map_ entry for ",
             buffp,
             " with ivalue for restride output %",
             value_out->debugName());
 
-        buff_to_intermediate_ivpsh_map.erase(buffp);
-        buff_to_intermediate_ivpsh_map.emplace(buffp, ivpsh_restrided);
+        buff_to_intermediate_ivpsh_map_.erase(buffp);
+        buff_to_intermediate_ivpsh_map_.emplace(buffp, ivpsh_restrided);
         TORCH_CHECK(
-            duplicate_intermediate_to_outtinfo_map.count(ivpsh),
+            duplicate_intermediate_to_outtinfo_map_.count(ivpsh),
             " entry for restride input %",
             value_in->debugName(),
-            " not found in duplicate_intermediate_to_outtinfo_map");
+            " not found in duplicate_intermediate_to_outtinfo_map_");
 
         PT_BRIDGE_DEBUG(
-            "updating duplicate_intermediate_to_outtinfo_map entry for ",
+            "updating duplicate_intermediate_to_outtinfo_map_ entry for ",
             buffp,
             " with ivalue for restride output %",
             value_out->debugName());
-        duplicate_intermediate_to_outtinfo_map.erase(ivpsh);
-        duplicate_intermediate_to_outtinfo_map.emplace(ivpsh_restrided, ti);
+        duplicate_intermediate_to_outtinfo_map_.erase(ivpsh);
+        duplicate_intermediate_to_outtinfo_map_.emplace(ivpsh_restrided, ti);
       } else if (
-          ti->is_ZST() == false && buff_to_input_ivpsh_map.count(buffp)) {
+          ti->is_ZST() == false && buff_to_input_ivpsh_map_.count(buffp)) {
         // Case 2.B: Graph output that is duplicate of input
         PT_BRIDGE_DEBUG(
-            "updating buff_to_input_ivpsh_map entry for ",
+            "updating buff_to_input_ivpsh_map_ entry for ",
             buffp,
             " with ivalue for restride output %",
             value_out->debugName());
 
-        buff_to_input_ivpsh_map.erase(buffp);
-        buff_to_input_ivpsh_map.emplace(buffp, ivpsh_restrided);
+        buff_to_input_ivpsh_map_.erase(buffp);
+        buff_to_input_ivpsh_map_.emplace(buffp, ivpsh_restrided);
 
         TORCH_CHECK(
-            duplicate_input_to_outtinfo_map.count(ivpsh),
+            duplicate_input_to_outtinfo_map_.count(ivpsh),
             " entry for restride input %",
             value_in->debugName(),
-            " not found in duplicate_input_to_outtinfo_map");
+            " not found in duplicate_input_to_outtinfo_map_");
 
         PT_BRIDGE_DEBUG(
-            "updating duplicate_input_to_outtinfo_map entry for ",
+            "updating duplicate_input_to_outtinfo_map_ entry for ",
             buffp,
             " with ivalue for restride output %",
             value_out->debugName());
-        duplicate_input_to_outtinfo_map.erase(ivpsh);
-        duplicate_input_to_outtinfo_map.emplace(ivpsh_restrided, ti);
+        duplicate_input_to_outtinfo_map_.erase(ivpsh);
+        duplicate_input_to_outtinfo_map_.emplace(ivpsh_restrided, ti);
       } else if (
-          ti->is_ZST() == false && buff_to_output_ivpsh_map.count(buffp)) {
+          ti->is_ZST() == false && buff_to_output_ivpsh_map_.count(buffp)) {
         // Case 2.D: Graph output that is duplicate of a previous output
         PT_BRIDGE_DEBUG(
-            "updating buff_to_output_ivpsh_map entry for ",
+            "updating buff_to_output_ivpsh_map_ entry for ",
             buffp,
             " with ivalue for restride output %",
             value_out->debugName());
 
-        buff_to_output_ivpsh_map.erase(buffp);
-        buff_to_output_ivpsh_map.emplace(buffp, ivpsh_restrided);
+        buff_to_output_ivpsh_map_.erase(buffp);
+        buff_to_output_ivpsh_map_.emplace(buffp, ivpsh_restrided);
 
         TORCH_CHECK(
-            duplicate_output_to_outtinfo_map.count(ivpsh),
+            duplicate_output_to_outtinfo_map_.count(ivpsh),
             " entry for restride input %",
             value_in->debugName(),
-            " not found in duplicate_output_to_outtinfo_map");
+            " not found in duplicate_output_to_outtinfo_map_");
 
         PT_BRIDGE_DEBUG(
-            "updating duplicate_output_to_outtinfo_map entry for ",
+            "updating duplicate_output_to_outtinfo_map_ entry for ",
             buffp,
             " with ivalue for restride output %",
             value_out->debugName());
-        duplicate_output_to_outtinfo_map.erase(ivpsh);
-        duplicate_output_to_outtinfo_map.emplace(ivpsh_restrided, ti);
+        duplicate_output_to_outtinfo_map_.erase(ivpsh);
+        duplicate_output_to_outtinfo_map_.emplace(ivpsh_restrided, ti);
       } else {
         TORCH_CHECK(
             false,
@@ -1323,8 +1323,8 @@ void HabanaLaunchOpPT::handleRestrideNode(
 
     value_to_ivalue_[value_in] = ivpsh_restrided;
     value_to_ivalue_[value_out] = ivpsh_restrided;
-    ivalue_to_tensor_info_map[value_to_ivalue_[value_in]] = ti;
-    ivalue_to_tensor_info_map[value_to_ivalue_[value_out]] = ti;
+    ivalue_to_tensor_info_map_[value_to_ivalue_[value_in]] = ti;
+    ivalue_to_tensor_info_map_[value_to_ivalue_[value_out]] = ti;
   } else {
     PT_BRIDGE_DEBUG(
         "restride node output %", value_out->debugName(), " is non persistent");
@@ -1587,8 +1587,8 @@ void HabanaLaunchOpPT::handlePrimConstantNode(
               prim_nodes_ival_counter_);
       value_to_ivalue_[value] = ivptrsh_updated;
       std::string irn{"%intermediate_"};
-      irn += std::to_string(intermediate_index);
-      intermediate_index++;
+      irn += std::to_string(intermediate_index_);
+      intermediate_index_++;
 
       auto tensor = ivptrsh_updated->toTensor();
       meta_syn_tensors_.push_back(habana_helpers::create_tensor(
@@ -1606,8 +1606,8 @@ void HabanaLaunchOpPT::handlePrimConstantNode(
           meta_syn_tensors_.back().get(),
           meta_syn_tensors_.back().tensor_type());
 
-      ivalue_to_tensor_info_map[ivptrsh_updated] = ti;
-      aten_intermediates.push_back(tensor);
+      ivalue_to_tensor_info_map_[ivptrsh_updated] = ti;
+      aten_intermediates_.push_back(tensor);
     } else {
       ivptrsh =
           syn_build_cache.get_or_compute<&SynBuildCache::prim_nodes_ivals>(
@@ -1745,15 +1745,15 @@ void HabanaLaunchOpPT::handleMetaOps(torch::jit::Node* node) {
         pt_to_synapse_tensors_.emplace(value_to_ivalue_[value_in], tensorList);
 
         if (enable_caching_) {
-          input_tiv_map.emplace(
+          input_tiv_map_.emplace(
               value_to_ivalue_[value_in],
               PtTensorInfo(
                   value_to_ivalue_[value_in],
                   meta_syn_tensors_.back().name(),
                   value_in));
-          buff_to_input_ivpsh_map.emplace(in_data, value_to_ivalue_[value_in]);
+          buff_to_input_ivpsh_map_.emplace(in_data, value_to_ivalue_[value_in]);
         } else {
-          input_tivs.emplace_back(PtTensorInfo(
+          input_tivs_.emplace_back(PtTensorInfo(
               value_to_ivalue_[value_in],
               meta_syn_tensors_.back().name(),
               value_in));
@@ -2241,17 +2241,17 @@ void HabanaLaunchOpPT::UpdatePTStack(DynamicShapeInfo& graph_input_info) {
   graph_input_info.max_input_tshapes.insert(
       ranges.max_shapes.begin(), ranges.max_shapes.end());
   SetH2DMinMaxData(
-      *pt_stack,
+      *pt_stack_,
       graph_input_info.max_input_tshapes,
       ShapeInfo::InferencePass::MAX_SHAPE);
-  updatemax_graph = false;
+  updatemax_graph_ = false;
 }
 
 void HabanaLaunchOpPT::RevertH2DMinMaxData() {
-  for (size_t i = 0; i < pt_stack->size(); ++i) {
-    if (pt_stack->at(i).isTensor()) {
-      auto& input_tensor = pt_stack->at(i);
-      auto tmeta = get_tensor_extra_meta(pt_stack->at(i).toTensor());
+  for (size_t i = 0; i < pt_stack_->size(); ++i) {
+    if (pt_stack_->at(i).isTensor()) {
+      auto& input_tensor = pt_stack_->at(i);
+      auto tmeta = get_tensor_extra_meta(pt_stack_->at(i).toTensor());
       if (tmeta->get_tensor_type() == HOST_TO_DEVICE_TENSOR &&
           tmeta->peek_H2D_data_for_bucketing()) {
         auto ivalHash = input_tensor.hash().toInt();
@@ -2265,7 +2265,7 @@ void HabanaLaunchOpPT::RevertH2DMinMaxData() {
       }
     }
   }
-  updatemax_graph = false;
+  updatemax_graph_ = false;
 }
 
 void HabanaLaunchOpPT::UpdateValueIShapeMapForListUnpack(
@@ -2902,10 +2902,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   torch::jit::graph_node_list::iterator itr_rv_node;
   if (syn_graph->is_dynamic_graph() && enable_optim_output_sif_) {
     SymExprFactory::getInstance().clear_expr_cache();
-    if (m_map_shape.m_pass == ShapeInfo::InferencePass::INVALID) {
+    if (map_shape_.m_pass == ShapeInfo::InferencePass::INVALID) {
       ProcessIntermediateSymbolicShapes(jit_ir_graph_);
       CreateValueToIShapeMapForInputs(jit_ir_graph_);
-    } else if (m_map_shape.m_pass == ShapeInfo::InferencePass::OUTPUT_SHAPE) {
+    } else if (map_shape_.m_pass == ShapeInfo::InferencePass::OUTPUT_SHAPE) {
       auto recipe_holder = GetCachedRecipe(cur_rargpsh_);
       RecipeValueSpec& rv = *recipe_holder->rvs_;
       ShapeInference::SetTensorMapping(rv.st_to_tensor_idx_map);
@@ -3055,7 +3055,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // when changing.
     PT_OP_INFO(
         "JIT_OP ",
-        OpInfo::DumpPassInfo(*syn_graph, m_map_shape.m_pass),
+        OpInfo::DumpPassInfo(*syn_graph, map_shape_.m_pass),
         OpInfo::DumpOpInfo(op, input_stack));
 
     // If there is a "meta attribute" marked with attr::arg1, add the meta attr
@@ -3144,7 +3144,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
             habana_helpers::DynamicDimsPolicy::CALCULATED) &&
            ((strcmp(node->kind().toQualString(), "hpu::slice") == 0) ||
             strcmp(node->kind().toQualString(), "hpu::slice_ht") == 0));
-      updatemax_graph |=
+      updatemax_graph_ |=
           ((habana::ShapeInference::GetCurrentPass() ==
             habana::ShapeInfo::InferencePass::MAX_SHAPE) &&
            (habana::ShapeInference::GetMaxPolicyInUse() ==
@@ -3166,7 +3166,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       uint64_t changed_st_id = habana::ShapeInference::GetShapeTensorId();
 
       if (enable_optim_output_sif_ &&
-          (m_map_shape.m_pass == ShapeInfo::InferencePass::INVALID) &&
+          (map_shape_.m_pass == ShapeInfo::InferencePass::INVALID) &&
           curr_st_id != changed_st_id) {
         dynamic_nodes_with_backend_STs.insert(node_idx);
         PT_DYNAMIC_SHAPE_DEBUG(
@@ -3257,7 +3257,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       }
     }
 
-    jit_to_synapse_node_idx_map.emplace(
+    jit_to_synapse_node_idx_map_.emplace(
         node, syn_graph_ptr_->get_node_indices());
     syn_graph_ptr_->clear_node_indices();
 
@@ -3279,17 +3279,17 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
           for (auto& idx : intermediate_shape_tensors) {
             auto tensor_idx =
                 std::get<0>(intermediate_shape_tensor_cs[index++]);
-            auto ti{shape_tensor_tinfos[idx]};
-            auto ret = sif_tidx_to_tinfo_map.insert({tensor_idx, ti});
+            auto ti{shape_tensor_tinfos_[idx]};
+            auto ret = sif_tidx_to_tinfo_map_.insert({tensor_idx, ti});
             if (ret.second) {
               PT_DYNAMIC_SHAPE_DEBUG(
-                  "Intermediate shape tensor: adding to sif_tidx_to_tinfo_map : ",
+                  "Intermediate shape tensor: adding to sif_tidx_to_tinfo_map_ : ",
                   tensor_idx,
                   " -> ",
                   *ti);
             } else {
               PT_DYNAMIC_SHAPE_DEBUG(
-                  "Intermediate shape tensor: failed adding to sif_tidx_to_tinfo_map : ",
+                  "Intermediate shape tensor: failed adding to sif_tidx_to_tinfo_map_ : ",
                   tensor_idx,
                   " -> ",
                   *ti);
@@ -3297,9 +3297,9 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
           }
         } else {
           for (auto& idx : intermediate_shape_tensors) {
-            auto ti{shape_tensor_tinfos[idx]};
+            auto ti{shape_tensor_tinfos_[idx]};
             PT_DYNAMIC_SHAPE_DEBUG(
-                "Intermediate shape tensor: delayed adding to sif_tidx_to_tinfo_map : ",
+                "Intermediate shape tensor: delayed adding to sif_tidx_to_tinfo_map_ : ",
                 *ti);
             intermediate_shape_tensors_vec.emplace_back(idx);
           }
@@ -3314,9 +3314,9 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         ProcessSynapseOutputs(HabanaKernel, node, kernel_output_cs);
 
     if (syn_graph->is_dynamic_graph() && enable_optim_output_sif_ &&
-        (m_map_shape.m_pass == ShapeInfo::InferencePass::INVALID ||
-         m_map_shape.m_pass == ShapeInfo::InferencePass::OUTPUT_SHAPE)) {
-      if (m_map_shape.m_pass == ShapeInfo::InferencePass::INVALID) {
+        (map_shape_.m_pass == ShapeInfo::InferencePass::INVALID ||
+         map_shape_.m_pass == ShapeInfo::InferencePass::OUTPUT_SHAPE)) {
+      if (map_shape_.m_pass == ShapeInfo::InferencePass::INVALID) {
         CreateValueIShapeMapForNode(node, node, input_stack, outputs_metadata);
       } else {
         while ((*itr_rv_node)->kind() != node->kind()) {
@@ -3360,29 +3360,29 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         void* buffp = tensor.data_ptr();
 
         // Check whether it is an alias of any input
-        auto it = buff_to_input_ivpsh_map.find(buffp);
-        if (it != buff_to_input_ivpsh_map.end()) {
+        auto it = buff_to_input_ivpsh_map_.find(buffp);
+        if (it != buff_to_input_ivpsh_map_.end()) {
           std::string irn{"%appended_indup_"};
-          irn += std::to_string(appended_index);
-          appended_index++;
+          irn += std::to_string(appended_index_);
+          appended_index_++;
 
           PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(
               tensor, tensor_name, irn, tensor_id);
           auto& ivpsh = it->second;
-          ivalue_to_tensor_info_map[ivpsh] = ti;
+          ivalue_to_tensor_info_map_[ivpsh] = ti;
 
           if (enable_caching_ || enable_shape_agnostic_caching_) {
-            auto mit = input_tiv_map.find(ivpsh);
-            TORCH_CHECK(input_tiv_map.end() != mit, "tinfo missing for input");
+            auto mit = input_tiv_map_.find(ivpsh);
+            TORCH_CHECK(input_tiv_map_.end() != mit, "tinfo missing for input");
 
             TORCH_CHECK(ivpsh->isTensor(), "non tensor parent found");
           }
 
-          duplicate_input_tivs.emplace_back(ti);
+          duplicate_input_tivs_.emplace_back(ti);
         } else {
           std::string irn{"%intermediate_"};
-          irn += std::to_string(intermediate_index);
-          intermediate_index++;
+          irn += std::to_string(intermediate_index_);
+          intermediate_index_++;
 
           IValPtrShared ivpsh = std::make_shared<IVal>(tensor);
           AddAtenIntermediate(ivpsh, tensor_name, irn, tensor_id);
@@ -3403,8 +3403,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       for (auto input : node_inputs) {
         auto ivalptr = value_to_ivalue_.at(input);
         if (ivalptr->isTensor()) {
-          HABANA_ASSERT(ivalue_to_tensor_info_map.count(ivalptr));
-          PtTensorInfoShared ti = ivalue_to_tensor_info_map.at(ivalptr);
+          HABANA_ASSERT(ivalue_to_tensor_info_map_.count(ivalptr));
+          PtTensorInfoShared ti = ivalue_to_tensor_info_map_.at(ivalptr);
           kernel_info.input_tensor_infos.push_back(ti);
         } else {
           kernel_info.input_tensor_infos.push_back(nullptr);
@@ -3415,8 +3415,8 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       for (auto output : node_outputs) {
         auto ivalptr = value_to_ivalue_.at(output);
         if (ivalptr->isTensor()) {
-          HABANA_ASSERT(ivalue_to_tensor_info_map.count(ivalptr));
-          PtTensorInfoShared ti = ivalue_to_tensor_info_map.at(ivalptr);
+          HABANA_ASSERT(ivalue_to_tensor_info_map_.count(ivalptr));
+          PtTensorInfoShared ti = ivalue_to_tensor_info_map_.at(ivalptr);
           kernel_info.output_tensor_infos.push_back(ti);
         } else {
           kernel_info.output_tensor_infos.push_back(nullptr);
@@ -3424,7 +3424,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       }
       kernel_info.kernel =
           std::dynamic_pointer_cast<CollectiveOperator>(HabanaKernel);
-      collective_kernels_info.AddKernel(std::move(kernel_info));
+      collective_kernels_info_.AddKernel(std::move(kernel_info));
     }
 
     // Adding to a vector as we share context through shared pointers and we
@@ -3440,42 +3440,42 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       auto input = jit_ir_graph_->inputs().at(i);
       HABANA_ASSERT(value_to_ivalue_.count(input));
       auto input_ivalue = value_to_ivalue_[input];
-      HABANA_ASSERT(ivalue_to_tensor_info_map.count(input_ivalue));
+      HABANA_ASSERT(ivalue_to_tensor_info_map_.count(input_ivalue));
       auto tensor_idx = habana::ShapeInference::ReadAndIncrementSifTensorId();
-      auto ret = sif_tidx_to_tinfo_map.insert(
-          {tensor_idx, ivalue_to_tensor_info_map[input_ivalue]});
+      auto ret = sif_tidx_to_tinfo_map_.insert(
+          {tensor_idx, ivalue_to_tensor_info_map_[input_ivalue]});
       if (ret.second) {
         PT_DYNAMIC_SHAPE_DEBUG(
-            "Input tensor: adding to sif_tidx_to_tinfo_map : ",
+            "Input tensor: adding to sif_tidx_to_tinfo_map_ : ",
             tensor_idx,
             " -> ",
-            *ivalue_to_tensor_info_map[input_ivalue]);
+            *ivalue_to_tensor_info_map_[input_ivalue]);
       } else {
         PT_DYNAMIC_SHAPE_DEBUG(
-            "Input tensor: failed adding to sif_tidx_to_tinfo_map : ",
+            "Input tensor: failed adding to sif_tidx_to_tinfo_map_ : ",
             tensor_idx,
             " -> ",
-            *ivalue_to_tensor_info_map[input_ivalue]);
+            *ivalue_to_tensor_info_map_[input_ivalue]);
       }
     }
 
     // Generate patching info for inputs shape tensors during fast sif
     for (auto const& idx : inputs_shape_tensors_vec) {
       auto tensor_idx = habana::ShapeInference::ReadAndIncrementSifTensorId();
-      auto ret =
-          sif_tidx_to_tinfo_map.insert({tensor_idx, shape_tensor_tinfos[idx]});
+      auto ret = sif_tidx_to_tinfo_map_.insert(
+          {tensor_idx, shape_tensor_tinfos_[idx]});
       if (ret.second) {
         PT_DYNAMIC_SHAPE_DEBUG(
-            "Input shape tensor: adding to sif_tidx_to_tinfo_map : ",
+            "Input shape tensor: adding to sif_tidx_to_tinfo_map_ : ",
             tensor_idx,
             " -> ",
-            *shape_tensor_tinfos[idx]);
+            *shape_tensor_tinfos_[idx]);
       } else {
         PT_DYNAMIC_SHAPE_DEBUG(
-            "Input shape tensor: failed adding to sif_tidx_to_tinfo_map : ",
+            "Input shape tensor: failed adding to sif_tidx_to_tinfo_map_ : ",
             tensor_idx,
             " -> ",
-            *shape_tensor_tinfos[idx]);
+            *shape_tensor_tinfos_[idx]);
       }
     }
 
@@ -3483,20 +3483,20 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // supporting InferOutputMeta during fast sif
     for (auto const& idx : intermediate_shape_tensors_vec) {
       auto tensor_idx = habana::ShapeInference::ReadAndIncrementSifTensorId();
-      auto ret =
-          sif_tidx_to_tinfo_map.insert({tensor_idx, shape_tensor_tinfos[idx]});
+      auto ret = sif_tidx_to_tinfo_map_.insert(
+          {tensor_idx, shape_tensor_tinfos_[idx]});
       if (ret.second) {
         PT_DYNAMIC_SHAPE_DEBUG(
-            "Intermediate shape tensor: adding to sif_tidx_to_tinfo_map : ",
+            "Intermediate shape tensor: adding to sif_tidx_to_tinfo_map_ : ",
             tensor_idx,
             " -> ",
-            *shape_tensor_tinfos[idx]);
+            *shape_tensor_tinfos_[idx]);
       } else {
         PT_DYNAMIC_SHAPE_DEBUG(
-            "Intermediate shape tensor: failed adding to sif_tidx_to_tinfo_map : ",
+            "Intermediate shape tensor: failed adding to sif_tidx_to_tinfo_map_ : ",
             tensor_idx,
             " -> ",
-            *shape_tensor_tinfos[idx]);
+            *shape_tensor_tinfos_[idx]);
       }
     }
   }
@@ -3505,7 +3505,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   if (GET_ENV_FLAG_NEW(PT_HPU_ENABLE_SYNAPSE_OUTPUT_PERMUTE) &&
       !is_hccl_send_mark_step() &&
       !(jit_graph_and_meta_data_->is_skip_tensor_permutation())) {
-    for (auto ti : output_tensorinfo_map) {
+    for (auto ti : output_tensorinfo_map_) {
       auto ival = ti.first;
       auto iter = pt_to_synapse_tensors_.find(ival);
       HABANA_ASSERT(pt_to_synapse_tensors_.count(ival));
@@ -3554,7 +3554,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
         ti.second->set_allow_permutation(true);
       }
     }
-    for (auto ti : duplicate_input_to_outtinfo_map) {
+    for (auto ti : duplicate_input_to_outtinfo_map_) {
       auto ival = ti.first;
       auto iter = pt_to_synapse_tensors_.find(ival);
       HABANA_ASSERT(pt_to_synapse_tensors_.count(ival));
@@ -3611,7 +3611,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     // Process control edges
     bool control_edge_processing_required = control_edges::ProcessControlEdges(
         *jit_ir_graph_,
-        jit_to_synapse_node_idx_map,
+        jit_to_synapse_node_idx_map_,
         memory_reuse_pairs,
         syn_graph_ptr_.get());
     if (control_edge_processing_required)
@@ -4223,7 +4223,7 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
               ShapeInfo::InferencePass::OUTPUT_SHAPE, graph_input_info);
           PT_DYNAMIC_SHAPE_DEBUG("OutputSif_END");
         }
-        current_dbipsh_->SetInputMetaData(*pt_stack, current_bucket_id_);
+        current_dbipsh_->SetInputMetaData(*pt_stack_, current_bucket_id_);
         bool refine_candidate =
             (current_dbipsh_->GetMFUBucket() == current_bucket_id_);
         current_dbipsh_->get_statistics()->LogUsedBucket(
@@ -4425,20 +4425,20 @@ void HabanaLaunchOpPT::ConstructDuplicateShapeMap(
     auto input_ivalue = value_to_ivalue_[input];
     if (!input_ivalue->isTensor())
       continue;
-    HABANA_ASSERT(ivalue_to_tensor_info_map.count(input_ivalue));
-    tensors_info.emplace_back(ivalue_to_tensor_info_map[input_ivalue]);
+    HABANA_ASSERT(ivalue_to_tensor_info_map_.count(input_ivalue));
+    tensors_info.emplace_back(ivalue_to_tensor_info_map_[input_ivalue]);
   }
 
   for (size_t i = 0; i < jit_ir_graph_->outputs().size(); ++i) {
     auto output = jit_ir_graph_->outputs().at(i);
     HABANA_ASSERT(value_to_ivalue_.count(output));
     auto output_ivalue = value_to_ivalue_[output];
-    HABANA_ASSERT(ivalue_to_tensor_info_map.count(output_ivalue));
-    tensors_info.emplace_back(ivalue_to_tensor_info_map[output_ivalue]);
+    HABANA_ASSERT(ivalue_to_tensor_info_map_.count(output_ivalue));
+    tensors_info.emplace_back(ivalue_to_tensor_info_map_[output_ivalue]);
   }
 
   // Get all non-persistent tensors info supported by hybrid sif
-  for (auto& tinfo_map : sif_tidx_to_tinfo_map) {
+  for (auto& tinfo_map : sif_tidx_to_tinfo_map_) {
     tensors_info.emplace_back(tinfo_map.second);
   }
 
@@ -4774,7 +4774,7 @@ void HabanaLaunchOpPT::UpdatePatchingInformation(
         intermediate_tensors_ptr_sh_,
         dma_inputs_,
         aten_outputs_,
-        m_map_shape.m_actual_shapes,
+        map_shape_.m_actual_shapes,
         local_tidx_to_tensor_map,
         allocated_outputs_,
         out_shapes_,
@@ -4786,7 +4786,7 @@ void HabanaLaunchOpPT::UpdatePatchingInformation(
         intermediate_tensors_ptr_sh_,
         dma_inputs_,
         aten_outputs_,
-        m_map_shape.m_actual_shapes,
+        map_shape_.m_actual_shapes,
         local_tidx_to_tensor_map,
         allocated_outputs_);
   }
@@ -5098,7 +5098,7 @@ void HabanaLaunchOpPT::run(
       }
       PT_EAGER_DEBUG(
           "[SHAPE AGNOSTIC] Shape agnostic SIF tinfo map size : ",
-          sif_tidx_to_tinfo_map.size(),
+          sif_tidx_to_tinfo_map_.size(),
           " intermediate tensors size : ",
           intermediate_syn_tensors_count_);
 
@@ -5264,7 +5264,7 @@ void HabanaLaunchOpPT::run(
   auto syn_graph =
       std::make_shared<synapse_helpers::graph>(habana_helpers::create_graph(
           device.id(), GetSynapseGraphName(), dry_run__, use_eager_compiler));
-  m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
+  map_shape_.m_pass = ShapeInfo::InferencePass::INVALID;
   BuildSynapseGraph(syn_graph, jit_graph_and_meta_data_->syn_build_cache_);
 
   if ((eager_mode || compile_mode) &&
@@ -5340,22 +5340,22 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
     torch::jit::Stack* old_stack = nullptr;
     VecOfIValPtrSh old_pt_stack_sh;
 
-    old_stack = pt_stack;
+    old_stack = pt_stack_;
     old_pt_stack_sh = pt_stack_sh_;
     pt_stack_sh_.clear();
 
-    new_stack = CreateStack(*pt_stack, graph_input_info.min_input_tshapes);
+    new_stack = CreateStack(*pt_stack_, graph_input_info.min_input_tshapes);
     SetH2DMinMaxData(
         *old_stack,
         graph_input_info.min_input_tshapes,
         ShapeInfo::InferencePass::MIN_SHAPE);
-    pt_stack = &new_stack;
+    pt_stack_ = &new_stack;
 
     for (size_t j{0}; j < new_stack.size(); j++) {
       IValPtrShared ivpsh = std::make_shared<IVal>(new_stack[j]);
       pt_stack_sh_.push_back(ivpsh);
     }
-    m_map_shape.m_pass = ShapeInfo::InferencePass::MIN_SHAPE;
+    map_shape_.m_pass = ShapeInfo::InferencePass::MIN_SHAPE;
     std::string error_str;
 
     try {
@@ -5364,25 +5364,25 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       error_str = e.what();
       PT_DYNAMIC_SHAPE_DEBUG(
           "Exception occured in Pass = ",
-          m_map_shape.m_pass,
+          map_shape_.m_pass,
           " - Details :\n",
           error_str);
 
       pt_stack_sh_.clear();
-      pt_stack = old_stack;
+      pt_stack_ = old_stack;
       pt_stack_sh_ = old_pt_stack_sh;
       throw;
     }
 
     pt_stack_sh_.clear();
-    pt_stack = old_stack;
+    pt_stack_ = old_stack;
     pt_stack_sh_ = old_pt_stack_sh;
 
     PT_DYNAMIC_SHAPE_DEBUG(
         "Pass = ",
-        m_map_shape.m_pass,
+        map_shape_.m_pass,
         " completed. Shapes\n",
-        m_map_shape.m_min_shapes);
+        map_shape_.m_min_shapes);
   }
 
   // Max shape inference
@@ -5391,22 +5391,22 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
     torch::jit::Stack* old_stack = nullptr;
     VecOfIValPtrSh old_pt_stack_sh;
 
-    old_stack = pt_stack;
+    old_stack = pt_stack_;
     old_pt_stack_sh = pt_stack_sh_;
     pt_stack_sh_.clear();
 
-    new_stack = CreateStack(*pt_stack, graph_input_info.max_input_tshapes);
+    new_stack = CreateStack(*pt_stack_, graph_input_info.max_input_tshapes);
     SetH2DMinMaxData(
         *old_stack,
         graph_input_info.max_input_tshapes,
         ShapeInfo::InferencePass::MAX_SHAPE);
-    pt_stack = &new_stack;
+    pt_stack_ = &new_stack;
 
     for (size_t j{0}; j < new_stack.size(); j++) {
       IValPtrShared ivpsh = std::make_shared<IVal>(new_stack[j]);
       pt_stack_sh_.push_back(ivpsh);
     }
-    m_map_shape.m_pass = ShapeInfo::InferencePass::MAX_SHAPE;
+    map_shape_.m_pass = ShapeInfo::InferencePass::MAX_SHAPE;
     std::string error_str;
 
     try {
@@ -5415,25 +5415,25 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
       error_str = e.what();
       PT_DYNAMIC_SHAPE_DEBUG(
           "Exception occured in Pass = ",
-          m_map_shape.m_pass,
+          map_shape_.m_pass,
           " - Details :\n",
           error_str);
 
       pt_stack_sh_.clear();
-      pt_stack = old_stack;
+      pt_stack_ = old_stack;
       pt_stack_sh_ = old_pt_stack_sh;
       throw;
     }
 
     pt_stack_sh_.clear();
-    pt_stack = old_stack;
+    pt_stack_ = old_stack;
     pt_stack_sh_ = old_pt_stack_sh;
 
     PT_DYNAMIC_SHAPE_DEBUG(
         "Pass = ",
-        m_map_shape.m_pass,
+        map_shape_.m_pass,
         " completed. Shapes\n",
-        m_map_shape.m_max_shapes);
+        map_shape_.m_max_shapes);
   }
 
   auto& device = HPUDeviceContext::get_device();
@@ -5457,7 +5457,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
           input_refs_, graph_key_, op_strs_, cur_ds_token_);
       new_recipe_key = cur_rargpsh_->hashCode();
 
-      m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
+      map_shape_.m_pass = ShapeInfo::InferencePass::INVALID;
       SynBuildCache cache;
       BuildSynapseGraph(syn_graph, cache);
       recipe = CompileSynapseGraph();
@@ -5546,14 +5546,14 @@ void HabanaLaunchOpPT::run_shape_inference(
   torch::jit::Stack new_stack;
   torch::jit::Stack* old_stack = nullptr;
   VecOfIValPtrSh old_pt_stack_sh;
-  m_map_shape.m_pass = pass;
+  map_shape_.m_pass = pass;
   if ((pass == ShapeInfo::InferencePass::MIN_SHAPE) ||
       (pass == ShapeInfo::InferencePass::MAX_SHAPE)) {
-    old_stack = pt_stack;
+    old_stack = pt_stack_;
     old_pt_stack_sh = pt_stack_sh_;
     pt_stack_sh_.clear();
     if (pass == ShapeInfo::InferencePass::MIN_SHAPE) {
-      new_stack = CreateStack(*pt_stack, graph_input_info.min_input_tshapes);
+      new_stack = CreateStack(*pt_stack_, graph_input_info.min_input_tshapes);
       SetH2DMinMaxData(
           *old_stack,
           graph_input_info.min_input_tshapes,
@@ -5563,7 +5563,7 @@ void HabanaLaunchOpPT::run_shape_inference(
           graph_input_info.min_input_tshapes,
           ShapeInfo::InferencePass::MIN_SHAPE);
     } else {
-      new_stack = CreateStack(*pt_stack, graph_input_info.max_input_tshapes);
+      new_stack = CreateStack(*pt_stack_, graph_input_info.max_input_tshapes);
       SetH2DMinMaxData(
           *old_stack,
           graph_input_info.max_input_tshapes,
@@ -5573,7 +5573,7 @@ void HabanaLaunchOpPT::run_shape_inference(
           graph_input_info.max_input_tshapes,
           ShapeInfo::InferencePass::MAX_SHAPE);
     }
-    pt_stack = &new_stack;
+    pt_stack_ = &new_stack;
 
     size_t j = new_stack.size() - num_inputs_;
     for (; j < new_stack.size(); j++) {
@@ -5596,11 +5596,11 @@ void HabanaLaunchOpPT::run_shape_inference(
 
   if (old_stack) {
     pt_stack_sh_.clear();
-    pt_stack = old_stack;
+    pt_stack_ = old_stack;
     pt_stack_sh_ = old_pt_stack_sh;
   }
 
-  if (updatemax_graph) {
+  if (updatemax_graph_) {
     UpdatePTStack(graph_input_info);
   }
 
@@ -5831,7 +5831,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
   } else {
     last_compilation_pass = habana_helpers::CompilationPass::DYNAMIC_MAX;
   }
-  m_map_shape.m_pass = ShapeInfo::InferencePass::INVALID;
+  map_shape_.m_pass = ShapeInfo::InferencePass::INVALID;
   auto syn_graph = std::make_shared<synapse_helpers::graph>(
       habana_helpers::create_graph(device.id(), GetSynapseGraphName()));
   syn_graph->set_dynamic_graph(is_dynamic_graph);
