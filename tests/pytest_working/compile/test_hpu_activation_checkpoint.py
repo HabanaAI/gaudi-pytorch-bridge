@@ -169,7 +169,6 @@ def test_checkpoint_all_ops():
     assert torch.equal(grad, grad_checkpoint)
 
 
-@pytest.mark.skip(reason="https://github.com/pytorch/pytorch/pull/133068")
 @pytest.mark.parametrize("eager_op", [poisson, bernoulli])
 def test_checkpoint_all_eager_fallback(eager_op):
     torch._dynamo.reset()
