@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -25,19 +25,23 @@ OutputMetaDataVector SelectBackwardMeta(const at::Stack& stack) {
   return {meta};
 }
 
-template <typename idx_t, typename size_t>
-idx_t normalize_idx(idx_t idx, size_t size) {
+static int normalize_idx(int idx, int64_t size) {
   if (size <= 0) {
     return 0;
   }
 
   if (idx < 0) {
-    do {
-      idx += size;
-    } while (idx < 0);
-  } else {
-    while (idx > size) {
-      idx -= size;
+    idx += size;
+    if (idx < 0) {
+      idx %= size;
+      if (idx < 0) {
+        idx += size;
+      }
+    }
+  } else if (idx >= size) {
+    idx -= size;
+    if (idx >= size) {
+      idx %= size;
     };
   }
 
@@ -90,8 +94,10 @@ void SelectBackward::AddNode(
 
     reshaped_grad_size.insert(reshaped_grad_size.begin() + dim, 1);
 
-    reshaped_grad = OpBackend::BuildReshape(
-        this, graph, grad.syn_t, reshaped_grad_size, grad_scalar_type);
+    auto dim_tpc = get_dim_in_tpc_order(dim, grad_shape.size() + 1);
+
+    reshaped_grad = OpBackend::BuildExpandDims(
+        this, graph, grad.syn_t, reshaped_grad_size, grad_scalar_type, dim_tpc);
   }
 
   auto output = OpBackend::BuildNode(
