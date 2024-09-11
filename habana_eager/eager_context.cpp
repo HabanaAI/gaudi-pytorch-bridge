@@ -69,8 +69,7 @@ void JoinPendingPipelineAllThreads() {
   habana_helpers::Singleton_CompileThreadPool::getInstance()
       .JoinPendingThread();
   habana_helpers::Singleton_ExecThreadPool::getInstance().JoinPendingThread();
-  habana_helpers::Singleton_GarbageCollectionThreadPool::getInstance()
-      .JoinPendingThread();
+  hpu_registrar().get_device().garbage_collection_thread().waitWorkComplete();
 }
 
 // Method for restoring odd size tensors for eager collectives

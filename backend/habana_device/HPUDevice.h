@@ -16,16 +16,7 @@
 #include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
-
-namespace habana_helpers {
-template <template <typename> class Queue, typename Task>
-class ThreadPoolBase;
-
-template <typename T>
-class BlockingQueue;
-class move_only_function_void;
-using ThreadPool = ThreadPoolBase<BlockingQueue, move_only_function_void>;
-} // namespace habana_helpers
+#include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 
 namespace synapse_helpers {
 class TimeSlot;
@@ -183,6 +174,10 @@ class HPUDevice {
     return *raw_lowering_thread_;
   }
 
+  habana_helpers::ThreadPool& garbage_collection_thread() {
+    return garbage_collection_thread_;
+  }
+
   bool get_exception_occurred() const {
     return exception_occurred;
   }
@@ -192,6 +187,7 @@ class HPUDevice {
   }
 
  private:
+  habana_helpers::ThreadPool garbage_collection_thread_{true};
   synapse_helpers::device_handle device_{nullptr};
   std::unique_ptr<backend::ScalarCache> scalar_cache_{nullptr};
 

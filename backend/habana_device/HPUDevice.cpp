@@ -15,7 +15,6 @@
 #include <memory>
 #include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/time_slot.h"
-#include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
 
 namespace habana {
 

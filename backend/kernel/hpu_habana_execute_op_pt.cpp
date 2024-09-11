@@ -64,8 +64,8 @@ void HabanaLaunchOpPT::ExecuteSynapse() {
     auto graphHandle = syn_graph_ptr_->get_graph_handle();
     if (graphHandle != nullptr) {
       syn_graph_ptr_->set_is_valid(false);
-      habana_helpers::Singleton_GarbageCollectionThreadPool::getInstance()
-          .Enqueue(SynapseGraphDestroyTask, std::move(graphHandle));
+      hpu_registrar().get_device().garbage_collection_thread().enqueue(
+          SynapseGraphDestroyTask, std::move(graphHandle));
     }
   }
 

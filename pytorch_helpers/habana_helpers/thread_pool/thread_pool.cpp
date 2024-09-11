@@ -44,15 +44,17 @@ void ThreadPoolBase<Queue, Task>::executePendingTask(Task&& task) {
   try {
     task();
   } catch (const std::exception& e) {
-    if (propagate_exception_)
+    if (propagate_exception_) {
       ex_ptr_ = std::current_exception();
-    else
-      PT_BRIDGE_FATAL("Exception in launch thread pool task: ", e.what());
+      PT_BRIDGE_WARN("Exception caught in thread: ", e.what());
+    } else
+      PT_BRIDGE_FATAL("Exception caught in thread: ", e.what());
   } catch (...) {
-    if (propagate_exception_)
+    if (propagate_exception_) {
       ex_ptr_ = std::current_exception();
-    else
-      PT_BRIDGE_FATAL("Exception in launch thread pool task: unknown");
+      PT_BRIDGE_WARN("Exception caught in thread: unknown");
+    } else
+      PT_BRIDGE_FATAL("Exception caught in thread: unknown");
   }
 }
 

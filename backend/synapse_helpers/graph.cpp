@@ -27,6 +27,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/eager_pipeline.h"
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/helpers/runtime_config.h"
@@ -947,8 +948,8 @@ void SynapseRecipeDestroyTask(synRecipeHandle recipeHandle) {
 
 graph::recipe_handle::~recipe_handle() {
   if (syn_recipe_handle_) {
-    habana_helpers::Singleton_GarbageCollectionThreadPool::getInstance()
-        .Enqueue(SynapseRecipeDestroyTask, std::move(syn_recipe_handle_));
+    habana::hpu_registrar().get_device().garbage_collection_thread().enqueue(
+        SynapseRecipeDestroyTask, std::move(syn_recipe_handle_));
   }
 }
 
