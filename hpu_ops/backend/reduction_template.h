@@ -55,6 +55,11 @@ OutputMetaDataVector ReductionMeta(const at::Stack& stack) {
     meta.dtype = self.scalar_type();
   }
 
+  // When the output tensor is provided, it indicates this is sum.out version,
+  // and output tensor type should be used.
+  if (stack.back().isTensor())
+    meta.dtype = stack.back().toTensor().scalar_type();
+
   return {meta};
 }
 

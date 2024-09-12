@@ -26,6 +26,23 @@ OutputMetaDataVector ReductionOpListMeta(const at::Stack& stack) {
   return ReductionMeta<1, 2, 3>(stack);
 }
 
+static bool areTypesAllowedForSumOut(
+    const at::ScalarType& inputType,
+    const at::ScalarType& outputType) {
+  switch (inputType) {
+    case at::kInt:
+    case at::kFloat:
+      return outputType == inputType;
+    case at::kBFloat16:
+    case at::kHalf:
+    case at::kFloat8_e5m2:
+    case at::kFloat8_e4m3fn:
+      return outputType == inputType || outputType == at::kFloat;
+    default:
+      return false;
+  }
+}
+
 static sh::tensor ReductionOpCommon(
     OpBackend* op,
     sh::graph& graph,
@@ -36,6 +53,19 @@ static sh::tensor ReductionOpCommon(
     const at::optional<uint8_t>& dtype_index) {
   auto self = stack_tensor(stack, 0);
   auto dtype = get_dtype(stack, dtype_index);
+
+  // When the output tensor is provided, it indicates this is sum.out version,
+  // and output tensor type should be used.
+  const bool isSumOutVersion = stack.back().isTensor();
+  if (isSumOutVersion) {
+    dtype = stack.back().toTensor().scalar_type();
+    if (dtype == at::kLong && !common::IsInt64Supported()) {
+      dtype = at::kInt;
+    } else if (dtype == at::kDouble) {
+      dtype = at::kFloat;
+    }
+  }
+
   auto cast = HandleReductionDtype(op, graph, self, input, dtype);
   if (cast.has_value()) {
     input = cast.value().get();
@@ -47,14 +77,31 @@ static sh::tensor ReductionOpCommon(
   int ndims = self.dim();
   auto params = FillReductionParams(ndims, dims, keepdim);
   auto shape = ReductionOutputShape(self, dims, keepdim)[0];
+
+  // Due to dtype restrictions, a check is required to ensure the types are
+  // allowed for the sum.out version.
+  const bool isAdditionalCastNeeded =
+      (isSumOutVersion &&
+       !areTypesAllowedForSumOut(op->ScalarType(), dtype.value()));
+  const c10::optional<int> finalResultIndex =
+      isAdditionalCastNeeded ? c10::nullopt : c10::optional<int>(0);
+
   auto result = OpBackend::BuildNode(
       op,
       graph,
       {op->GetGuid(),
        {std::move(input)},
-       {{shape, op->ScalarType(), 0}},
+       {{shape, op->ScalarType(), finalResultIndex}},
        &params,
        sizeof(params)});
+
+  if (isAdditionalCastNeeded) {
+    auto resultCast = OpBackend::BuildCast(
+        op, graph, result[0].get(), shape, op->ScalarType(), dtype.value(), 0);
+
+    return resultCast;
+  }
+
   return std::move(result[0]);
 }
 
