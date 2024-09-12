@@ -11,7 +11,18 @@
 # and is subject to the confidentiality and license agreements under which it
 # was provided.
 
-"""Transformer Engine bindings for pyTorch"""
-from .distributed import checkpoint
-from .fp8 import fp8_autocast
-from .module import FusedAttention, Linear
+"""Transformer Engine import for pyTorch"""
+
+import importlib
+import sys
+
+te = importlib.import_module("intel_transformer_engine")
+
+for name in dir(te):
+    if not name.startswith("__"):
+        attr = getattr(te, name)
+        if isinstance(attr, type(sys)):
+            sys.modules[f"habana_frameworks.torch.hpex.experimental.transformer_engine.{name}"] = attr
+        globals()[name] = attr
+
+__all__ = dir(te)
