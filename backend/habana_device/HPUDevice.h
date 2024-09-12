@@ -174,11 +174,8 @@ class HPUDevice {
     return *scalar_cache_;
   }
 
-  habana_helpers::ThreadPool& get_lowering_thread() {
-    std::call_once(lowering_thread_initialize_once_flag_, [this]() {
-      create_lowering_thread();
-    });
-    return *raw_lowering_thread_;
+  habana_helpers::ThreadPool& lowering_thread() {
+    return lowering_thread_;
   }
 
   habana_helpers::ThreadPool& garbage_collection_thread() {
@@ -214,12 +211,7 @@ class HPUDevice {
 
   ThreadPoolWithGILRelease execute_thread_;
   ThreadPoolWithGILRelease compile_thread_;
-
-  std::once_flag lowering_thread_initialize_once_flag_{};
-  std::unique_ptr<DeviceResource> lowering_thread_{nullptr};
-  habana_helpers::ThreadPool* raw_lowering_thread_{nullptr};
-
-  habana_helpers::ThreadPool& create_lowering_thread();
+  habana_helpers::ThreadPool lowering_thread_{true};
 
   // Holding this is required for proper destruction order
   std::shared_ptr<ConstantInformation> constant_information{

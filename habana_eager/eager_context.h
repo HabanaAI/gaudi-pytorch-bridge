@@ -45,7 +45,7 @@ class SingleTonEagerContext {
    */
   template <class F, class... Args>
   void ScheduleWorkAndUpdateLoweringThreadHandle(F&& f, Args&&... args) {
-    hpu_registrar().get_device().get_lowering_thread().enqueue<F, Args...>(
+    hpu_registrar().get_device().lowering_thread().enqueue<F, Args...>(
         std::forward<F>(f), std::forward<Args>(args)...);
   }
 

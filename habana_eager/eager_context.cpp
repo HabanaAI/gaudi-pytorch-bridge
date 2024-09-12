@@ -44,7 +44,7 @@ void SingleTonEagerContext::JoinPendingLoweringThread() {
   try {
     // TODO remove gil_release once SW-160978 is fixed
     habana_helpers::AutoNoGIL gil_release;
-    hpu_registrar().get_device().get_lowering_thread().waitWorkComplete();
+    hpu_registrar().get_device().lowering_thread().waitWorkComplete();
   } catch (const std::exception& e) {
     hpu_registrar().get_device().set_exception_occurred(true);
     PT_BRIDGE_FATAL("Exception in Lowering thread...\n", e.what());

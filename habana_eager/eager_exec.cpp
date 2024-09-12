@@ -502,10 +502,8 @@ void EagerExec::launch() {
     throw;
   }
 
-  auto lowering_queue_length = hpu_registrar()
-                                   .get_device()
-                                   .get_lowering_thread()
-                                   .get_active_task_count();
+  auto lowering_queue_length =
+      hpu_registrar().get_device().lowering_thread().get_active_task_count();
   LOP::emit_event_fast(
       false,
       "EagerLoweringTask()",
