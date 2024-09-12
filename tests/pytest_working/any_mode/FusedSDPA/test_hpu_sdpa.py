@@ -903,7 +903,6 @@ def is_param_combo_valid(
 """
 # DONOT remove following line: re-enable black formatting
 # fmt: on
-[print(config_list) for config_list in total_tc_list]
 
 
 # @pytest.mark.xfail(reason="Results mismatch")
