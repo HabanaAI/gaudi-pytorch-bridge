@@ -940,7 +940,7 @@ void habana::HabanaLaunchOpPT::StoreCompiledInformation(
       current_dbipsh_->SetSynapseRecipePtr(current_bucket_id_, rvs);
     }
     auto rh = std::make_shared<RecipeHolder>(recipe_launcher_, rvs);
-    RecipeCacheLRU::get_cache().add(cur_rargpsh, rh);
+    hpu_registrar().get_device().recipe_cache().add(cur_rargpsh, rh);
     PT_BRIDGE_DEBUG(
         "HabanaOp recipe cache :: adding new recipe to cache :: ", rvs->key);
   }

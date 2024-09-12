@@ -420,7 +420,8 @@ TEST_F(LazyDynamicShapesTest, DynamicShapeClearCachedRecipes) {
 
     habana::ClearDynamicBucketRecipeInfo();
 
-    EXPECT_EQ(habana::RecipeCacheLRU::get_cache().empty(), true);
+    EXPECT_EQ(
+        habana::hpu_registrar().get_device().recipe_cache().empty(), true);
     EXPECT_EQ(habana::DynamicBucketInfoMap::get_instance().empty(), true);
 
     PT_TEST_DEBUG("PTI_DBG :: TEST ", i, "  ========\n");
@@ -2229,8 +2230,9 @@ TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
     }
   }
 
-  auto actual_recipe_count = habana::RecipeCacheLRU::get_cache().get_length();
-  habana::RecipeCacheLRU::get_cache().clear();
+  auto actual_recipe_count =
+      habana::hpu_registrar().get_device().recipe_cache().get_length();
+  habana::hpu_registrar().get_device().recipe_cache().clear();
 
   UNSET_ENV_FLAG_NEW(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT);
   habana::RecipeCacheLRU::SetHostMemoryThreshold(1);
@@ -2252,7 +2254,8 @@ TEST_F(LazyDynamicShapesTest, EvictRecipeSingleOpRelu) {
   UNSET_ENV_FLAG_NEW(PT_HPU_HOST_MEMORY_THRESHOLD_PERCENT);
   habana::RecipeCacheLRU::SetHostMemoryThreshold(initial_host_mem_threshold);
 
-  auto current_recipe_count = habana::RecipeCacheLRU::get_cache().get_length();
+  auto current_recipe_count =
+      habana::hpu_registrar().get_device().recipe_cache().get_length();
   HABANA_ASSERT(
       (current_recipe_count < actual_recipe_count) ||
       (recipe_cache_path != nullptr));

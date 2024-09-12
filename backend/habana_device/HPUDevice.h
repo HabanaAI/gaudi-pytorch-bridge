@@ -13,6 +13,7 @@
 #pragma once
 #include <c10/core/Device.h>
 #include "backend/kernel/constant_information.h"
+#include "backend/kernel/hpu_recipe_cache.h"
 #include "backend/scalar_cache.h"
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
@@ -192,6 +193,10 @@ class HPUDevice {
     return execute_thread_;
   }
 
+  RecipeCacheLRU& recipe_cache() {
+    return recipe_cache_;
+  }
+
   bool get_exception_occurred() const {
     return exception_occurred;
   }
@@ -204,6 +209,8 @@ class HPUDevice {
   habana_helpers::ThreadPool garbage_collection_thread_{true};
   synapse_helpers::device_handle device_{nullptr};
   std::unique_ptr<backend::ScalarCache> scalar_cache_{nullptr};
+
+  RecipeCacheLRU recipe_cache_;
 
   ThreadPoolWithGILRelease execute_thread_;
   ThreadPoolWithGILRelease compile_thread_;

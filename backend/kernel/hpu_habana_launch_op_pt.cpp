@@ -128,12 +128,13 @@ std::unordered_set<std::string>& HabanaLaunchOpPT::disabled_jit_ir_ops() {
 void HabanaLaunchOpPT::cleanUp() {
   ref_input_shape_map() = {};
   DynamicBucketInfoMap::get_instance().clear();
-  RecipeCacheLRU::get_cache().clear();
+  if (habana::hpu_registrar().is_initialized())
+    hpu_registrar().get_device().recipe_cache().clear();
 }
 
 bool dropCachedRecipe_LRU(size_t& recipe_count) {
   bool dropped{false};
-  dropped = RecipeCacheLRU::get_cache().drop_lru(recipe_count);
+  dropped = hpu_registrar().get_device().recipe_cache().drop_lru(recipe_count);
   return dropped;
 }
 
@@ -4100,8 +4101,10 @@ void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
     while (dropped && eviction_threshold_left > 0) {
       dropped = dropCachedRecipe_LRU(num_recipes);
       if (dropped) {
-        auto dropped_arg = RecipeCacheLRU::get_cache().dropped_recipe.first;
-        auto dropped_val = RecipeCacheLRU::get_cache().dropped_recipe.second;
+        auto dropped_arg =
+            hpu_registrar().get_device().recipe_cache().dropped_recipe.first;
+        auto dropped_val =
+            hpu_registrar().get_device().recipe_cache().dropped_recipe.second;
         // Update the eviction threshold left after removing this recipe
         eviction_threshold_left -=
             dropped_val->rl_->recipe_->get_recipe_host_mem_size();
@@ -5587,7 +5590,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   rvs->set_op_strs(cur_rargpsh->get_op_strs());
   recipe_launcher_ = std::make_unique<RecipeLauncher>(*rvs, recipe);
   auto recipe_holder = std::make_shared<RecipeHolder>(recipe_launcher_, rvs);
-  RecipeCacheLRU::get_cache().add(cur_rargpsh, recipe_holder);
+  hpu_registrar().get_device().recipe_cache().add(cur_rargpsh, recipe_holder);
   DynamicBucketInfoMap::get_instance().add(cur_rargpsh, current_dbipsh_);
 
   new_recipe_key = cur_rargpsh->hashCode();
