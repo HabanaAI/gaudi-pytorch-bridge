@@ -11,6 +11,7 @@
 ###############################################################################
 import pytest
 import torch
+from habana_frameworks.torch.dynamo.compile_backend import config as hpu_backend_config
 from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
@@ -40,6 +41,8 @@ def test_binary(func, shape_a, shape_b, alpha, dtype):
         return func(input, other, alpha=alpha)
 
     if is_pytest_mode_compile():
+        orig_flag = hpu_backend_config.reinplace_add
+        hpu_backend_config.reinplace_add = False
         clear_t_compile_logs()
         torch._dynamo.reset()
         fn = torch.compile(fn, backend="hpu_backend")
@@ -69,6 +72,7 @@ def test_binary(func, shape_a, shape_b, alpha, dtype):
     if is_pytest_mode_compile():
         name = "add" if func == torch.add else "sub"
         check_ops_executed_in_jit_ir(name)
+        hpu_backend_config.reinplace_add = orig_flag
 
 
 @pytest.mark.skipif(is_gaudi1(), reason="G1 unsupported trunc mode")

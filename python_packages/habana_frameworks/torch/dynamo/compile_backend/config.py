@@ -62,6 +62,7 @@ enable_allreduce_graph_split = _get_bool_from_env("PT_HPU_ENABLE_ALLREDUCE_GRAPH
 # when set to 1, the compiled recipe is always static
 # even if the fx graph traced by torch dynamic has symbols
 force_static_compile = _get_bool_from_env("PT_HPU_FORCE_STATIC_COMPILE", "0")
+reinplace_add = _get_bool_from_env("PT_HPU_REINPLACE_ADD", "1")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])

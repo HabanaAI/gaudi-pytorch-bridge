@@ -95,6 +95,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_graph_print,
             pass_eagerize_leaf_views,
             pass_reinplace_index_copy_ops,  # we need the placement information in this pass
+            pass_reinplace_add_ops,
             pass_handle_negative_dims,
             pass_replace_sym_size,
             pass_inference_fuse_linear,
@@ -105,6 +106,7 @@ def get_passes(stage: OptimizationPassPlacement):
         return passes
     elif stage == OptimizationPassPlacement.PARTITIONER:
         return [
+            pass_graph_print,
             # These passes will prepare proper placement for some corner-cases.
             pass_propose_partitions,
             pass_merge_paths,
@@ -121,6 +123,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_graph_print,
             pass_summarize_graph,
             pass_check_eager_fallbacks,
+            pass_detect_partition_in_to_out_duplicates,
             pass_compile_clusters,
         ]
     else:
@@ -2340,6 +2343,62 @@ def wrap_random_ops(input_module: torch.fx.GraphModule):
     input_module.recompile()
 
 
+def remove_duplicated_outputs(input_module: torch.fx.GraphModule):
+    """
+    This function will remove those outputs which are duplicated with inputs in
+    the fx graph. So that the generated JIT graph won't have duplicated output.
+    This function run before we convert fx graph to jit graph.
+
+    For example, the add_1 output in following graph will be removed. def
+    forward(self, mm: "bf16[4,4]", relu: "bf16[4,4]", _to_copy_1: "bf16[4,4]"):
+        add: "bf16[4, 4]" = torch.ops.aten.add_.Tensor(mm, relu) relu_1:
+        "bf16[4, 4]" = torch.ops.aten.relu.default(_to_copy_1) add_1: "bf16[4,
+        4]" = torch.ops.aten.add_.Tensor(add, relu_1) relu_2: "bf16[4, 4]" =
+        torch.ops.aten.relu.default(add_1) return (add_1, relu_2)
+    """
+    in_to_out_dups = input_module.meta.get("in_to_out_dups", None)
+    if in_to_out_dups is None:
+        return
+
+    duplicated_out_indexes = list(in_to_out_dups.values())
+    for node in input_module.graph.nodes:
+        if node.op == "output":
+            output_node = node
+            break  # expect only one output node per fx graph
+
+    # remove the duplicated outputs
+    outs = list(output_node.args[0]) if type(output_node.args[0]) == tuple else [output_node.args[0]]
+    for idx in duplicated_out_indexes:
+        outs.remove(outs[idx])
+
+    # create a new output node
+    input_module.graph.output(outs[0] if len(outs) == 1 else tuple(outs))
+    input_module.graph.erase_node(output_node)
+    input_module.graph.lint()
+    return
+
+
+def remove_no_effect_inplace_add(graph_module: torch.fx.GraphModule):
+    """
+    This function will convert some reinpalced add_ ops back to out-of-place
+    version if they don't cause partition input/output duplications. This is a
+    WA since those add_ ops will be converted back to out-of-place version
+    during generating jit graph by _jit_pass_remove_mutation, and that jit pass
+    will change the ops order inside the graph, and make the
+    jit_node_shape_propagation failed.
+    """
+    for node in graph_module.graph.nodes:
+        if not (node.op == "call_function" and node.target == torch.ops.aten.add_.Tensor):
+            continue
+
+        src0 = node.args[0]
+        if not (src0.op == "placeholder" or src0.target.__name__.split(".")[0].endswith("_")):
+            # this inplace add_ op doesn't have possbility to change the arg, so
+            # convert it to out-of-place version.
+            node.target = torch.ops.aten.add.Tensor
+    return
+
+
 def pass_compile_clusters(ctx: OptimizerContext):
     """
     This pass goes through each node in the main module. For each generated HPU cluster
@@ -2348,6 +2407,10 @@ def pass_compile_clusters(ctx: OptimizerContext):
     newly compiled one.
     """
 
+    # It seems that this pass assumes that the fx graph and the jit graph must
+    # have same ops order. Otherwise, the shape propagation may fail. However,
+    # the _jit_pass_remove_mutation pass has possiblity to change the jit graph
+    # ops order, and may break the assumption.
     def jit_node_shape_propagation(jit_ir, fx_module):
         Jit_graph = jit_ir.graph
         logger.debug("JIT processing shape propagation JIT graph:", Jit_graph)
@@ -2523,6 +2586,8 @@ def pass_compile_clusters(ctx: OptimizerContext):
 
         module = copy.deepcopy(input_module)
         wrap_random_ops(module)
+        remove_duplicated_outputs(module)
+        remove_no_effect_inplace_add(module)
 
         with _disable_jit_autocast():
             strip_overloads(module)
@@ -2745,6 +2810,127 @@ def pass_reinplace_index_copy_ops(ctx: OptimizerContext) -> bool:
     reinplace_index_copy_ops(ctx.graph_module)
 
     return graph_changed
+
+
+def pass_reinplace_add_ops(ctx: OptimizerContext):
+    """
+    In this pass, we will reinplace all possible out-of-place
+    torch.ops.aten.add.Tensor ops, to optimize the memory consumption.
+    """
+    if not hpu_backend_config.reinplace_add:
+        return False
+
+    graph_changed = False
+
+    def is_eligible_add_node(node: torch.fx.Node):
+        def is_view_op(_node: torch.fx.Node):
+            return _node.op == "call_function" and helper_is_view_node(_node)
+
+        is_add = node.op == "call_function" and node.target == torch.ops.aten.add.Tensor
+        if not is_add:
+            return False
+
+        src0, src1 = node.args[0], node.args[1]
+        is_add_two_tensors = type(src0) == torch.fx.Node and type(src1) == torch.fx.Node
+        is_float_dtype = (
+            is_add_two_tensors
+            and src0.meta["output_dtypes"][0] == src1.meta["output_dtypes"][0]
+            and src0.meta["output_dtypes"][0] in (torch.float32, torch.bfloat16, torch.float16)
+        )
+        is_eligible = is_float_dtype and not src0.op == "placeholder" and not is_view_op(src0)
+
+        # add must be the last user of its src0
+        src0_users = list(src0.users.keys())
+        is_eligible = (
+            is_eligible
+            and not any(user > node for user in src0_users)
+            and not any(is_view_op(user) for user in src0_users)
+        )
+
+        return is_eligible
+
+    for node in ctx.graph_module.graph.nodes:
+        if not is_eligible_add_node(node):
+            continue
+
+        node.target = torch.ops.aten.add_.Tensor
+        graph_changed = True
+
+    return graph_changed
+
+
+def pass_detect_partition_in_to_out_duplicates(ctx: OptimizerContext):
+    """
+    This pass will detect the duplicated inputs outputs caused by inplace ops
+    inside partition.
+
+    Note: Currently, we only detect the duplicates caused by inplace add_ ops
+    (the WA 1), because some ops whose name ends with "_" are actually not
+    inplaced, such as __rshift__.
+
+    Take the following graph as an example, if the output of __rshift__ is not
+    returned from the fx graph, then the converted jit graph will not contain
+    rshift op:
+
+    def forward(self, arg1_1, arg0_1):
+        rshift = torch.ops.aten.__rshift__.Tensor(arg1_1, arg0_1)
+        return
+
+    The generated JIT graph:
+
+    graph(%self : __torch__.torch.fx.graph_module.GraphModule,
+            %arg1_1.1 : Tensor,
+            %arg0_1.1 : Tensor):
+        %20 : () = prim::Constant[value=()]()
+        return (%20)
+
+    """
+
+    # currently, we only consider the duplications caused by inplace op.
+    def detect_in_to_out_duplicates(graph_module: torch.fx.GraphModule):
+        in_nodes = []
+        for node in graph_module.graph.nodes:
+            if node.op == "placeholder":
+                in_nodes.append(node)
+
+        in_to_out_dups = dict()
+        visited = set()
+        for in_idx, in_node in enumerate(in_nodes):
+            queue = [in_node]
+            while queue:
+                current = queue.pop(0)
+                visited.add(current)
+                for user_node in current.users:
+                    if user_node in visited:
+                        continue
+                    elif (
+                        user_node.op == "call_function"
+                        and user_node.target.__name__.split(".")[0].endswith("_")
+                        and user_node.target == torch.ops.aten.add_.Tensor  # WA 1
+                        and user_node.args[0] == current
+                    ):
+                        # inplace op, and current op is the mutable arg (we
+                        # assume mutable arg is always the arg0)
+                        queue.append(user_node)
+                    elif user_node.op == "output":
+                        outs = list(user_node.args[0]) if type(user_node.args[0]) == tuple else [user_node.args[0]]
+                        for out_idx, out in enumerate(outs):
+                            if out == current:
+                                in_to_out_dups[in_idx] = out_idx
+        return in_to_out_dups
+
+    changed = False
+    for n in ctx.graph_module.graph.nodes:
+        logger.debug("Node: %s Op: %s Target: %s", n, n.op, n.target)
+
+        if n.op == "call_module":
+            assert not n.kwargs
+            submod = ctx.graph_module.get_submodule(n.target)
+            in_to_out_dups = detect_in_to_out_duplicates(submod)
+            if len(in_to_out_dups) > 0:
+                submod.meta["in_to_out_dups"] = in_to_out_dups
+                changed = True
+    return changed
 
 
 def pass_remove_unnecessary_full_copy(ctx: OptimizerContext):

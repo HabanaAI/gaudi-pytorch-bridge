@@ -173,7 +173,8 @@ class HabanaGraphModule(torch.nn.Module):
         super().__init__()
         self._jit_ir = jit_ir
         self._fx_module = graph_module
-        self._outputs_metadata = outputs_metadata
+        self._in_to_out_dups = graph_module.meta.get("in_to_out_dups", None)
+        self._outputs_metadata = outputs_metadata.copy()
         self._pholder_symbolic_dict = pholder_symbolic_dict
         self._range_list = []
         self._inference = not is_training
@@ -192,6 +193,13 @@ class HabanaGraphModule(torch.nn.Module):
         else:
             for md in self._outputs_metadata:
                 self._outputs_batch_data.append(EmptyBatchData(md[0], md[1], md[2]))
+
+        # We won't allocate tensors for outputs who duplicate inputs
+        if self._in_to_out_dups is not None:
+            self._out_to_in_dups = {v: k for k, v in self._in_to_out_dups.items()}
+            for idx in self._out_to_in_dups.keys():
+                self._outputs_batch_data.remove(self._outputs_batch_data[idx])
+                self._outputs_metadata.remove(self._outputs_metadata[idx])
 
     def __call__(self, *args):
         outputs = []
@@ -239,11 +247,23 @@ class HabanaGraphModule(torch.nn.Module):
         elif self._has_randoms:
             inputs = (None, None) + inputs
 
-        return graph_launch(
+        out_stack = graph_launch(
             recipe_id=self._recipe_id,
             inputs=inputs,
             outputs=outputs,
         )
+
+        # insert the inputs into the out stack
+        if self._in_to_out_dups is not None:
+            out_stack = (
+                list(out_stack) if type(out_stack) == tuple else ([out_stack] if out_stack is not None else list())
+            )
+            out_idxes = list(self._out_to_in_dups.keys())
+            for out_idx in out_idxes:
+                out_stack.insert(out_idx, args[self._out_to_in_dups[out_idx]])
+            out_stack = tuple(out_stack) if len(out_stack) > 1 else out_stack[0]
+
+        return out_stack
 
     def check_for_random_ops(self):
         for n in self._fx_module.graph.nodes:
