@@ -52,11 +52,11 @@
       }
     },
     "next": {
-      "version": "2.4.1",
+      "version": "2.5.0",
       "default_source": "build",
       "extras": {
-        "torchvision": "v0.19.1-rc5",
-        "torchaudio": "v2.4.1-rc4",
+        "torchvision": "v0.19.1",
+        "torchaudio": "v2.4.1",
         "torchtext": "v0.18.0",
         "torchdata": "v0.7.1"
       }

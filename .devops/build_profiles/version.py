@@ -122,6 +122,12 @@ class Version(packaging.version.Version):
             return release_matches
         return release_matches and self.pre == candidate.pre
 
+    def major_minor_match(self, candidate: Version) -> bool:
+        """Less strict check than "singificant_matches" due to
+        issues during patch upgrade of PyTorch
+        """
+        return self.major == candidate.major and self.minor == candidate.minor
+
 
 def is_official_stable_cpu_version(pt_ver: Version) -> bool:
     return not pt_ver.is_prerelease and pt_ver.local == "cpu" and not pt_ver.is_devrelease

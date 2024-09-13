@@ -1922,7 +1922,7 @@ except:
 installed_version=torch.__version__
 expected_version=get_profile(sys.argv[1]).version
 
-if Version(expected_version).significant_matches(Version(installed_version)):
+if Version(expected_version).major_minor_match(Version(installed_version)):
     sys.exit()
 
 print(f"ERROR: Installed torch version {installed_version} does not resemble the expected {expected_version}",
