@@ -13,6 +13,9 @@
 
 #include "hpu_ops/sdpa_gen.h"
 #include "hpu_ops/custom_op_outshape.h"
+#include "hpu_ops/fp8_utils.h"
+namespace fp8 = habana::fp8;
+namespace sh = synapse_helpers;
 
 #define SDPA_SET_FLAGS(condition, flags, flag_name) \
   if (condition) {                                  \
@@ -933,12 +936,18 @@ void Fp8SDPARecompFwd::AddNode(
   auto is_causal = getNextInput<bool>(stackGetter);
   auto requires_backward = getNextInput<bool>(stackGetter);
   auto softmax_mode = getNextInput<c10::string_view>(stackGetter);
-  auto d_scale_q = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto d_scale_k = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto d_scale_v = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto q_scale_s = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto q_scale_o = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto d_scale_s = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto d_scale_q =
+      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+  auto d_scale_k =
+      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+  auto d_scale_v =
+      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+  auto q_scale_s =
+      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+  auto q_scale_o =
+      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+  auto d_scale_s =
+      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
   auto is_amax_s = getNextInput<bool>(stackGetter);
   auto is_amax_o = getNextInput<bool>(stackGetter);
   // amax_s and/or amax_o needed
@@ -952,12 +961,6 @@ void Fp8SDPARecompFwd::AddNode(
 
   SDPA_SET_FLAGS(is_amax_s, flags, AMAX_S)
   SDPA_SET_FLAGS(is_amax_o, flags, AMAX_O)
-  SDPA_SET_FLAGS(d_scale_q, flags, D_SCALE_Q)
-  SDPA_SET_FLAGS(d_scale_k, flags, D_SCALE_K)
-  SDPA_SET_FLAGS(d_scale_v, flags, D_SCALE_V)
-  SDPA_SET_FLAGS(q_scale_s, flags, Q_SCALE_S)
-  SDPA_SET_FLAGS(q_scale_o, flags, Q_SCALE_O)
-  SDPA_SET_FLAGS(d_scale_s, flags, D_SCALE_S)
   SDPA_SET_FLAGS(valid_seq_len, flags, VALID_SEQ_LEN_PRESENT)
   SDPA_SET_FLAGS(seq_padding_type == "left", flags, SEQ_PADDING_LEFT)
   SDPA_SET_FLAGS(seq_padding_type == "right", flags, SEQ_PADDING_RIGHT)
@@ -965,15 +968,6 @@ void Fp8SDPARecompFwd::AddNode(
   // TODO: add the flag definition to perf_lib_layer_paras.h
   // flags |= (1 << 13);
   //}
-
-  fillSdpaParams(
-      params,
-      p,
-      scale,
-      is_causal,
-      !requires_backward /*is_inference*/,
-      softmax_mode,
-      flags);
 
   std::string guid =
       get_guid_with_precision("sdpa_recomp_fwd", q.pt_t.scalar_type());
@@ -986,16 +980,51 @@ void Fp8SDPARecompFwd::AddNode(
   }
   syn_inputs.push_back(seed_tensor);
 
-  SDPA_ADD_INPUTS(d_scale_q)
-  SDPA_ADD_INPUTS(d_scale_k)
-  SDPA_ADD_INPUTS(d_scale_v)
-  SDPA_ADD_INPUTS(q_scale_s)
-  SDPA_ADD_INPUTS(q_scale_o)
-  SDPA_ADD_INPUTS(d_scale_s)
+  std::vector<sh::tensor> adjusted_scale;
+
+  auto sdpa_add_inputs_and_flags = [&](std::variant<TensorsPair, c10::IValue>&
+                                           scaleOpt,
+                                       unsigned int flag_name) {
+    if (std::holds_alternative<TensorsPair>(scaleOpt)) {
+      auto scale_t = std::get<TensorsPair>(scaleOpt);
+      fp8::HandleScaleTensor(
+          this, graph, scale_t.pt_t, scale_t.syn_t, adjusted_scale, syn_inputs);
+      if (scale_t.pt_t.numel() > 0)
+        flags |= flag_name;
+    } else {
+      auto scale_s = std::get<c10::IValue>(scaleOpt);
+      if (scale_s.isDouble() && (scale_s.toDouble() != 0.)) {
+        fp8::HandleScaleScalar(
+            this,
+            graph,
+            scale_s,
+            p_context_->device_id_,
+            adjusted_scale,
+            syn_inputs);
+        flags |= flag_name;
+      } else {
+        syn_inputs.push_back(nullptr);
+      }
+    }
+  };
+  sdpa_add_inputs_and_flags(d_scale_q, SdpaFlags_t::SDPA_FLAGS_D_SCALE_Q);
+  sdpa_add_inputs_and_flags(d_scale_k, SdpaFlags_t::SDPA_FLAGS_D_SCALE_K);
+  sdpa_add_inputs_and_flags(d_scale_v, SdpaFlags_t::SDPA_FLAGS_D_SCALE_V);
+  sdpa_add_inputs_and_flags(q_scale_s, SdpaFlags_t::SDPA_FLAGS_Q_SCALE_S);
+  sdpa_add_inputs_and_flags(q_scale_o, SdpaFlags_t::SDPA_FLAGS_Q_SCALE_O);
+  sdpa_add_inputs_and_flags(d_scale_s, SdpaFlags_t::SDPA_FLAGS_D_SCALE_S);
 
   if (valid_seq_len) {
     syn_inputs.push_back(valid_seq_len.value().syn_t);
   }
+  fillSdpaParams(
+      params,
+      p,
+      scale,
+      is_causal,
+      !requires_backward /*is_inference*/,
+      softmax_mode,
+      flags);
 
   std::vector<NodeAttr::NodeOutputAttr> output_attrs;
 
@@ -1004,10 +1033,15 @@ void Fp8SDPARecompFwd::AddNode(
   auto fwdOutType = q.pt_t.scalar_type();
 
   if (q.pt_t.scalar_type() == at::ScalarType::Float8_e4m3fn) {
-    if (q_scale_o) {
-      fwdOutType = at::ScalarType::Float8_e4m3fn;
+    if (std::holds_alternative<TensorsPair>(q_scale_o)) {
+      auto scale_t = std::get<TensorsPair>(q_scale_o);
+      fwdOutType = scale_t.pt_t.numel() > 0 ? at::ScalarType::Float8_e4m3fn
+                                            : at::ScalarType::BFloat16;
     } else {
-      fwdOutType = at::ScalarType::BFloat16;
+      auto scale_s = std::get<c10::IValue>(q_scale_o);
+      fwdOutType = (scale_s.isDouble() && (scale_s.toDouble() != 0.))
+          ? at::ScalarType::Float8_e4m3fn
+          : at::ScalarType::BFloat16;
     }
   }
 
@@ -1156,5 +1190,13 @@ static const auto& SDPAKernelRegistry =
         .add(
             "hpu::fp8_sdpa_recomp_fwd_non_dropout",
             KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
-
+        .add(
+            "hpu::fp8_sdpa_recomp_fwd.scalar",
+            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
+        .add(
+            "hpu::fp8_sdpa_recomp_fwd_dropout_seed.scalar",
+            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
+        .add(
+            "hpu::fp8_sdpa_recomp_fwd_non_dropout.scalar",
+            KERNEL_FN_GLOBAL(habana::Fp8SDPARecompFwd))
         .add("hpu::sdpa_recomp_bwd", KERNEL_FN_GLOBAL(habana::SDPARecompBwd));

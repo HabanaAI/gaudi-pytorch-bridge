@@ -121,6 +121,7 @@ def fp8_sdpa_fwd_wrapper(
 
     amax_s = None
     amax_o = None
+
     if recompute:
         out, m, linv, seed, amax_s, amax_o = torch.ops.hpu.fp8_sdpa_recomp_fwd(
             q,

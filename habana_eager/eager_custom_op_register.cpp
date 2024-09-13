@@ -2405,14 +2405,15 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> fp8_sdpa_bwd(
   return hpu_op.call();
 }
 
-std::tuple<
+template <class T>
+static std::tuple<
     at::Tensor,
     at::Tensor,
     at::Tensor,
     at::Tensor,
     at::Tensor,
     at::Tensor>
-fp8_sdpa_recomp_fwd(
+fp8_sdpa_recomp_fwd_common(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
@@ -2422,16 +2423,17 @@ fp8_sdpa_recomp_fwd(
     const bool is_causal,
     const bool requires_backward,
     c10::string_view softmax_mode,
-    const c10::optional<at::Tensor>& d_scale_q,
-    const c10::optional<at::Tensor>& d_scale_k,
-    const c10::optional<at::Tensor>& d_scale_v,
-    const c10::optional<at::Tensor>& q_scale_s,
-    const c10::optional<at::Tensor>& q_scale_o,
-    const c10::optional<at::Tensor>& d_scale_s,
+    T d_scale_q,
+    T d_scale_k,
+    T d_scale_v,
+    T q_scale_s,
+    T q_scale_o,
+    T d_scale_s,
     const bool is_amax_s,
     const bool is_amax_o,
     const c10::optional<at::Tensor>& valid_seq_len,
-    c10::string_view seq_padding_type) {
+    c10::string_view seq_padding_type,
+    c10::ScalarType fwdOutType) {
   PT_EAGER_TRACE;
   PT_OP_INFO(
       "fp8_sdpa_recomp_fwd :",
@@ -2455,15 +2457,6 @@ fp8_sdpa_recomp_fwd(
           is_amax_o,
           valid_seq_len,
           seq_padding_type));
-  auto fwdOutType = q.scalar_type();
-
-  if (q.scalar_type() == at::ScalarType::Float8_e4m3fn) {
-    if (q_scale_o.has_value()) {
-      fwdOutType = at::ScalarType::Float8_e4m3fn;
-    } else {
-      fwdOutType = at::ScalarType::BFloat16;
-    }
-  }
 
   auto linvType = c10::ScalarType::Float;
 
@@ -2524,7 +2517,6 @@ fp8_sdpa_recomp_fwd(
          c10::ScalarType::Float});
 
     return hpu_op.call();
-
   } else {
     habana::eager::EagerOp<std::tuple<
         at::Tensor,
@@ -2562,8 +2554,120 @@ fp8_sdpa_recomp_fwd(
          c10::ScalarType::Int,
          c10::ScalarType::Float,
          c10::ScalarType::Float});
+
     return hpu_op.call();
   }
+}
+
+std::tuple<
+    at::Tensor,
+    at::Tensor,
+    at::Tensor,
+    at::Tensor,
+    at::Tensor,
+    at::Tensor>
+fp8_sdpa_recomp_fwd(
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const double p,
+    const double scale,
+    const bool is_causal,
+    const bool requires_backward,
+    c10::string_view softmax_mode,
+    const c10::optional<at::Tensor>& d_scale_q,
+    const c10::optional<at::Tensor>& d_scale_k,
+    const c10::optional<at::Tensor>& d_scale_v,
+    const c10::optional<at::Tensor>& q_scale_s,
+    const c10::optional<at::Tensor>& q_scale_o,
+    const c10::optional<at::Tensor>& d_scale_s,
+    const bool is_amax_s,
+    const bool is_amax_o,
+    const c10::optional<at::Tensor>& valid_seq_len,
+    c10::string_view seq_padding_type) {
+  PT_EAGER_TRACE;
+  auto fwdOutType = q.scalar_type();
+
+  if (q.scalar_type() == at::ScalarType::Float8_e4m3fn &&
+      (!q_scale_o.has_value()))
+    fwdOutType = at::ScalarType::BFloat16;
+  return fp8_sdpa_recomp_fwd_common<c10::optional<at::Tensor>>(
+      q,
+      k,
+      v,
+      attention_mask,
+      p,
+      scale,
+      is_causal,
+      requires_backward,
+      softmax_mode,
+      d_scale_q,
+      d_scale_k,
+      d_scale_v,
+      q_scale_s,
+      q_scale_o,
+      d_scale_s,
+      is_amax_s,
+      is_amax_o,
+      valid_seq_len,
+      seq_padding_type,
+      fwdOutType);
+}
+
+std::tuple<
+    at::Tensor,
+    at::Tensor,
+    at::Tensor,
+    at::Tensor,
+    at::Tensor,
+    at::Tensor>
+fp8_sdpa_recomp_scalar_fwd(
+    const at::Tensor& q,
+    const at::Tensor& k,
+    const at::Tensor& v,
+    const c10::optional<at::Tensor>& attention_mask,
+    const double p,
+    const double scale,
+    const bool is_causal,
+    const bool requires_backward,
+    c10::string_view softmax_mode,
+    const double d_scale_q,
+    const double d_scale_k,
+    const double d_scale_v,
+    const double q_scale_s,
+    const double q_scale_o,
+    const double d_scale_s,
+    const bool is_amax_s,
+    const bool is_amax_o,
+    const c10::optional<at::Tensor>& valid_seq_len,
+    c10::string_view seq_padding_type) {
+  PT_EAGER_TRACE;
+  auto fwdOutType = q.scalar_type();
+  if (q.scalar_type() == at::ScalarType::Float8_e4m3fn && (q_scale_o == 0.))
+    fwdOutType = at::ScalarType::BFloat16;
+
+  return fp8_sdpa_recomp_fwd_common<double>(
+      q,
+      k,
+      v,
+      attention_mask,
+      p,
+      scale,
+      is_causal,
+      requires_backward,
+      softmax_mode,
+      d_scale_q,
+      d_scale_k,
+      d_scale_v,
+      q_scale_s,
+      q_scale_o,
+      d_scale_s,
+      is_amax_s,
+      is_amax_o,
+      valid_seq_len,
+      seq_padding_type,
+      fwdOutType);
 }
 
 } // namespace
@@ -2752,6 +2856,15 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::fp8_sdpa_recomp_fwd_dropout(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
   m.def(
       "hpu::fp8_sdpa_recomp_fwd_dropout_seed(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, Tensor? d_scale_q, Tensor? d_scale_k, Tensor? d_scale_v, Tensor? q_scale_s, Tensor? q_scale_o, Tensor? d_scale_s, bool is_amax_s, bool is_amax_o, Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::fp8_sdpa_recomp_fwd.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0, Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::fp8_sdpa_recomp_fwd_non_dropout.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::fp8_sdpa_recomp_fwd_dropout.scalar(Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_0,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+  m.def(
+      "hpu::fp8_sdpa_recomp_fwd_dropout_seed.scalar(Tensor seed, Tensor q, Tensor k, Tensor v, Tensor? attention_mask, float p, float scale, bool is_causal, bool requires_backward, str softmax_mode, float d_scale_q, float d_scale_k, float d_scale_v, float q_scale_s, float q_scale_o, float d_scale_s, bool is_amax_s, bool is_amax_o,  Tensor? valid_seq_len, str seq_padding_type ) -> (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor)");
+
   m.def("hpu::accumulate_grads_(Tensor[] variables, Tensor[] new_grads) -> ()");
   m.def("hpu::custom_foreach_add_(Tensor(a!)[] self, Tensor[] other) -> ()");
 #if IS_PYTORCH_AT_LEAST(2, 4)
@@ -2892,6 +3005,11 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::fp8_sdpa_recomp_fwd", fp8_sdpa_recomp_fwd);
   m.impl("hpu::fp8_sdpa_recomp_fwd_non_dropout", fp8_sdpa_recomp_fwd);
   m.impl("hpu::fp8_sdpa_recomp_fwd_dropout", fp8_sdpa_recomp_fwd);
+  m.impl("hpu::fp8_sdpa_recomp_fwd.scalar", fp8_sdpa_recomp_scalar_fwd);
+  m.impl(
+      "hpu::fp8_sdpa_recomp_fwd_non_dropout.scalar",
+      fp8_sdpa_recomp_scalar_fwd);
+  m.impl("hpu::fp8_sdpa_recomp_fwd_dropout.scalar", fp8_sdpa_recomp_scalar_fwd);
   m.impl(
       "hpu::scaled_triangular_softmax_retain",
       scaled_triangular_softmax_retain);

@@ -16,12 +16,12 @@
 #include "hpu_ops/backend/reduction_template.h"
 #include "hpu_ops/common/batched_matmul_output_shape.h"
 #include "hpu_ops/custom_op_outshape.h"
+#include "hpu_ops/fp8_utils.h"
 
 namespace sh = synapse_helpers;
 
 namespace habana {
-
-namespace {
+namespace fp8 {
 auto GetFp8Dtypes(const at::ScalarType& dtype) {
   auto syn_dtype = dtype == at::ScalarType::Char
       ? fp8_syn_type
@@ -68,7 +68,7 @@ void HandleScaleTensor(
     synTensor syn_scale,
     std::vector<sh::tensor>& maybe_reshaped_scale,
     std::vector<synTensor>& syn_inputs,
-    const c10::IValue& scale_shape_ival = c10::IValue{}) {
+    const c10::IValue& scale_shape_ival) {
   if (scale.numel() > 1 and not scale_shape_ival.isNone() and
       scale.sizes().vec() != scale_shape_ival.toIntVector()) {
     maybe_reshaped_scale.emplace_back(OpBackend::BuildReshape(
@@ -90,7 +90,7 @@ void HandleScaleScalar(
     const int device_id,
     std::vector<sh::tensor>& maybe_const_scale,
     std::vector<synTensor>& syn_inputs,
-    const c10::IValue& scale_shape_ival = c10::IValue{}) {
+    const c10::IValue& scale_shape_ival) {
   if (scale.isDouble()) {
     maybe_const_scale.emplace_back(
         op->BuildConstantTensor(op, graph, scale.toDouble()));
@@ -107,7 +107,9 @@ void HandleScaleScalar(
     syn_inputs.push_back(nullptr);
   }
 }
-} // namespace
+} // namespace fp8
+
+using namespace habana::fp8;
 
 ns_CastKernel::Params GetCastParams(
     const bool stochastic,

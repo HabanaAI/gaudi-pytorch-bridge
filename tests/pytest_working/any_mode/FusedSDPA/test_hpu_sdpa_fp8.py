@@ -184,16 +184,34 @@ class TestModel(torch.nn.Module):
         is_amax_s=False,
         is_amax_o=False,
         inference=False,
+        is_scalar_run=False,
     ):
         super(TestModel, self).__init__()
-        if inference:  # make scales/descales nn Parameter so that they can be made constants later
+
+        def get_first_scalar(scaleOpt):
+            if is_scalar_run and (scaleOpt is not None):
+                return scaleOpt.to("cpu")[0].item()
+            return scaleOpt
+
+        [d_scale_q, d_scale_k, d_scale_v, q_scale_s, q_scale_o, d_scale_s] = [
+            get_first_scalar(d_scale_q),
+            get_first_scalar(d_scale_k),
+            get_first_scalar(d_scale_v),
+            get_first_scalar(q_scale_s),
+            get_first_scalar(q_scale_o),
+            get_first_scalar(d_scale_s),
+        ]
+
+        if (
+            inference and not is_scalar_run
+        ):  # make scales/descales nn Parameter so that they can be made constants later
             self.d_scale_q = torch.nn.Parameter(d_scale_q) if d_scale_q is not None else None
             self.d_scale_k = torch.nn.Parameter(d_scale_k) if d_scale_k is not None else None
             self.d_scale_v = torch.nn.Parameter(d_scale_v) if d_scale_v is not None else None
             self.q_scale_s = torch.nn.Parameter(q_scale_s) if q_scale_s is not None else None
             self.q_scale_o = torch.nn.Parameter(q_scale_o) if q_scale_o is not None else None
             self.d_scale_s = torch.nn.Parameter(d_scale_s) if d_scale_s is not None else None
-        else:  # Training case; No need to make scales/descales nn Parameter
+        else:  # Training case/ Scalar run case; No need to make scales/descales nn Parameter
             self.d_scale_q = d_scale_q
             self.d_scale_k = d_scale_k
             self.d_scale_v = d_scale_v
@@ -364,6 +382,7 @@ def is_param_combo_valid(
     is_amax_o,
     is_amax_ds,
     fp8_run_out_type,
+    is_scalar_run,
 ):
 
     # BWD is not supported in recompute. So only test inference.
@@ -376,6 +395,8 @@ def is_param_combo_valid(
         if inference:
             if is_causal == False:
                 return False
+    if not recompute and is_scalar_run:
+        return False
 
     if not inference:  # limiting tests Temporarily for training
         if q_heads != kv_heads:
@@ -853,10 +874,21 @@ tc_list = tc_list_inf + tc_list_train
     ids=lambda fp8_run_out_type: f"fp8_run_out_type-{fp8_run_out_type}"
 )
 """
+tc_list = list(tc_list)
+tc_list_copy_scalar = copy.deepcopy(tc_list)
+tc_list_copy_tensor = copy.deepcopy(tc_list)
+
+tc_list_copy_scalar = [list(item) for item in tc_list_copy_scalar]
+tc_list_copy_tensor = [list(item) for item in tc_list_copy_tensor]
+
+[item.append(True) for item in tc_list_copy_scalar]
+[item.append(False) for item in tc_list_copy_tensor]
+
+tc_list = tc_list_copy_scalar + tc_list_copy_tensor
 # DONOT remove following line: re-enable black formatting
 # fmt: on
 @pytest.mark.parametrize(
-    "batch_size,q_heads,kv_heads,seq_len_N_t,seq_len_N_s,head_dim_qk,head_dim_v,dropout_p,use_attn_mask,use_float_mask,enable_autocast,is_causal,recompute,rhslice,inference,softmax_mode,is_amax_s,is_amax_o,is_amax_ds,fp8_run_out_type",
+    "batch_size,q_heads,kv_heads,seq_len_N_t,seq_len_N_s,head_dim_qk,head_dim_v,dropout_p,use_attn_mask,use_float_mask,enable_autocast,is_causal,recompute,rhslice,inference,softmax_mode,is_amax_s,is_amax_o,is_amax_ds,fp8_run_out_type, scalar_run",
     tc_list,
 )
 
@@ -882,6 +914,7 @@ def test_sdpa(
     is_amax_o,
     is_amax_ds,
     fp8_run_out_type,
+    scalar_run,
 ):
     config_name = (
         "BatchSize = "
@@ -924,6 +957,8 @@ def test_sdpa(
         + str(is_amax_ds)
         + " fp8_run_out_type= "
         + str(fp8_run_out_type)
+        + "is_scalar_run"
+        + str(scalar_run)
     )
 
     print(config_name)
@@ -949,6 +984,7 @@ def test_sdpa(
         is_amax_o,
         is_amax_ds,
         fp8_run_out_type,
+        scalar_run,
     )
     if is_gaudi1():
         pytest.skip("Fp8 tests not supported on G1")
@@ -1174,6 +1210,7 @@ def test_sdpa(
     with torch.autocast(device_type="hpu", dtype=torch.bfloat16, enabled=enable_autocast):
         # Use ht.sdp_kernel() context manager to enable/disable recompute based on pytest recompute parameter
         with ht.sdp_kernel(enable_recompute=recompute):
+
             model = TestModel(
                 d_scale_q=scaleQInv_hpu,
                 d_scale_k=scaleKInv_hpu,
@@ -1184,6 +1221,7 @@ def test_sdpa(
                 is_amax_s=is_amax_s,
                 is_amax_o=is_amax_o,
                 inference=inference,
+                is_scalar_run=scalar_run,
             )
 
             if inference:
