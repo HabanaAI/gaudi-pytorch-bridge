@@ -155,11 +155,11 @@ at::Tensor _copy_from_d2h(
   synapse_helpers::layouts::MemoryPermutation permutation;
   std::tie(permutation, std::ignore) =
       habana_helpers::get_tensor_memory_permutation(self_);
+  auto tmeta{habana::get_tensor_extra_meta(self_)};
   if (permutation.size() != 0) {
     // translate synapse permtue to pt permute
     auto pt_permute = translateSynapsePermuteToPt(permutation);
     // if view tensor and not grad view tensor, then get the base tensor
-    auto tmeta{habana::get_tensor_extra_meta(self_)};
     auto t = (tmeta->is_view_tensor() && !tmeta->is_maybe_grad_view())
         ? habana::eager::create_base(self_)
         : self_;
@@ -198,6 +198,16 @@ at::Tensor _copy_from_d2h(
     dst.unsafeGetTensorImpl()->set_sizes_contiguous(dst.sizes());
     dst.unsafeGetTensorImpl()->set_storage_offset(0);
   }
+  if (tmeta->has_valid_const_id()) {
+    HABANA_ASSERT(
+        tmeta->get_host_ptr() != nullptr, "Host pointer can not be invalid");
+    std::memcpy(
+        dst.data_ptr(),
+        tmeta->get_host_ptr(),
+        habana_helpers::GetNBytes(self_));
+    return dst;
+  }
+
   if (!common::IsInt64Supported() &&
       self_.scalar_type() == c10::ScalarType::Long) {
     habana_helpers::copy_data_to_host(self_, dst, false);

@@ -254,7 +254,10 @@ StorageExtraMeta* get_storage_extra_meta(
       // ref: TEST_F(LazyTensorShapeKernelTest, Resize)
       In this case alloc_ctx->num_bytes can differ from that of
       tensor_impl->storage().nbytes() */
-      if (nbytes.value() != tensor_impl->storage().nbytes()) {
+      /*In case of constants, it is possible that the device's storage differs
+      from the original size of the tensor*/
+      if (!tmeta->has_valid_const_id() and
+          nbytes.value() != tensor_impl->storage().nbytes()) {
         PT_BRIDGE_DEBUG(
             " Accessing base meta. Nbytes: ",
             nbytes.value(),
