@@ -135,9 +135,7 @@ int inplaceInputId(const torch::jit::Node* node) {
   // but operators of the form op and __op__ are not:
   if ((endch == '_' && before_endch != '_') || strstr(node_name, "__i")) {
       inputId = 0;
-  } else if (
-      (strcmp(node_name, "hpu::habana_d2d_memcpy") == 0) ||
-      (strcmp(node_name, "hpu::habana_d2d_memcpy_other") == 0)) {
+  } else if (strcmp(node_name, "hpu::habana_d2d_memcpy_other") == 0) {
     // Matching how MemCopyOperator::AllocateAndAddSynapseNode() calls
     // habana_helpers::duplicate_tensor_in_memory_section()
     inputId = (node->inputs().size() == 2) ? 1 : -1;
