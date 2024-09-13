@@ -60,6 +60,7 @@ hpu_backend_decompositions_common = get_decompositions(
         aten.diag_embed.out,
         aten.dot.default,
         aten.dot.out,
+        aten.vdot,
         aten.elu.default,
         aten.elu.out,
         aten.elu_backward.default,
