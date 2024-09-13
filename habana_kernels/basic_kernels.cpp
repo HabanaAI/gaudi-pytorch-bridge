@@ -278,92 +278,6 @@ Tensor& copy_hpu_(
   return dst;
 }
 
-//
-// ToDtype Operator
-class ToDtypeOperator : public habana::HabanaOperator {
- public:
-  ToDtypeOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("to_dtype") {
-    static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
-  }
-
-  virtual void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const habana::OutputMetaDataVector& output_metadata) override {
-    // This function can handle following 2 schemas only:
-    // (1) to.device(Tensor self, Device device, ScalarType dtype, bool
-    // non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) ->
-    // (2) Tensor to.dtype(Tensor self, ScalarType dtype, bool
-    // non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) ->
-    // Tensor
-    TORCH_CHECK(
-        inputs.size() >= 5,
-        "Incorrect size of inputs expected for cast operator");
-    TORCH_CHECK(
-        inputs[0].isTensor(),
-        "Input arg1 expected to be tensor for toDtype operator");
-
-    if (inputs.size() == 6) {
-      // Erase device information to unify subsequent code for both schemas.
-      // Should be ok since we come here only for Habana device
-      inputs.erase(inputs.cbegin() + 1);
-    }
-
-    auto self = inputs[0].toTensor();
-    auto type = inputs[1].toScalarType();
-
-    // Determine cast node_type to use based on src & dst dtypes
-    std::string node_type;
-
-    if ((type != self.scalar_type()) &&
-        !((type == c10::ScalarType::Char &&
-           self.scalar_type() == c10::ScalarType::Bool) ||
-          (type == c10::ScalarType::Bool &&
-           self.scalar_type() == c10::ScalarType::Char))) {
-      std::pair<c10::ScalarType, c10::ScalarType> type_key{
-          self.scalar_type(), type};
-
-      auto node_type_opt{habana_helpers::direct_cast_guid(type_key)};
-      HABANA_ASSERT(
-          node_type_opt.has_value() &&
-              "Unsupported Cast operation requested in ToDtypeOperator::AllocateAndAddSynapseNode",
-          self.scalar_type(),
-          " -> ",
-          type);
-      node_type = std::move(node_type_opt.value());
-    } else {
-      // Cases where a simple copy is being done (input_new = input) come as .to
-      // call with same input & output data types. we add a identity node to
-      // graph to handle this
-      auto memcopyOp = make_operator<IdentityOperator>(
-          self.device().index(), self.scalar_type());
-      memcopyOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-
-      torch::jit::Stack stack = {IValue(self)};
-      memcopyOp->AllocateAndAddSynapseNode(graph, stack, output_metadata);
-
-      p_context_->syn_outputs_.emplace_back(
-          std::move(memcopyOp->GetSynOutputs()[0]));
-      p_context_->pt_outputs_.emplace_back(
-          std::move(memcopyOp->GetOutputs()[0]));
-      return;
-    }
-
-    // we do not care about last 3 entries dtype conversion, so throw them away
-    inputs.pop_back();
-    inputs.pop_back();
-    inputs.pop_back();
-
-    auto Op = make_operator<CastOperator>(self.device().index(), node_type);
-    Op->SetSynapseInput(p_context_->syn_inputs_[0]);
-    Op->AllocateAndAddSynapseNode(graph, inputs, output_metadata);
-    p_context_->syn_outputs_.emplace_back(std::move(Op->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(std::move(Op->GetOutputs()[0]));
-  }
-};
-
 InferOutputMetaRetType MemCopyOperator::InferOutputMeta(
     torch::jit::Stack& inputs) {
   auto output = inputs[(inputs.size() == 2) ? 1 : 0].toTensor();
@@ -2019,7 +1933,6 @@ static auto& BasicKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::habana_d2d_memcpy", KERNEL_FN_GLOBAL(MemCopyOperator))
         .add("hpu::habana_d2d_memcpy_other", KERNEL_FN_GLOBAL(MemCopyOperator))
-        .add("aten::to.dtype", KERNEL_FN_GLOBAL(ToDtypeOperator))
         .add("hpu::control_edge_", KERNEL_FN_GLOBAL(DummyOperator))
         .add("hpu::as_strided_lazy_", KERNEL_FN_GLOBAL(AsStridedOperator))
         .add("hpu::as_strided_lazy_cl_", KERNEL_FN_GLOBAL(AsStridedClOperator))
