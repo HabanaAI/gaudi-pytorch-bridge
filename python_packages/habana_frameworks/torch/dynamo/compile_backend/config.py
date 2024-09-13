@@ -63,6 +63,8 @@ enable_allreduce_graph_split = _get_bool_from_env("PT_HPU_ENABLE_ALLREDUCE_GRAPH
 # even if the fx graph traced by torch dynamic has symbols
 force_static_compile = _get_bool_from_env("PT_HPU_FORCE_STATIC_COMPILE", "0")
 reinplace_add = _get_bool_from_env("PT_HPU_REINPLACE_ADD", "1")
+reassign_full_copy = _get_bool_from_env("PT_HPU_REASSIGN_FULL_COPY", "1")
+reassign_copy_ = _get_bool_from_env("PT_HPU_REASSIGN_COPY_", "1")
 
 # adds patch, save_config, etc
 install_config_module(sys.modules[__name__])

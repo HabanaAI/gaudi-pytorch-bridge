@@ -62,7 +62,10 @@ class ColorGraph:
             self._graph[color].add(user_color)
 
     def add_output_node(self, color):
-        self._graph[color] = set()
+        # We have cases in which a node without any users belongs to a
+        # partition, and that partition can have other users.
+        if color not in self._graph:
+            self._graph[color] = set()
 
     def _merge_non_partition_colors(self):
         for color in self.colors_to_remove:

@@ -110,6 +110,7 @@ def get_passes(stage: OptimizationPassPlacement):
             pass_graph_print,
             # These passes will prepare proper placement for some corner-cases.
             pass_propose_partitions,
+            pass_post_process_partitions,
             pass_merge_paths,
             # This is final pass that creates final submoduled graph.
             pass_fuse_partitions,
@@ -1246,6 +1247,117 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
 
     # Nothing was really changed.
     return False
+
+
+def match_full_copy_pattern(node: torch.fx.Node) -> tuple[bool, torch.fx.Node, torch.fx.Node]:
+    is_full_copy_pattern = (
+        node.name.startswith("full") and len(node.users) == 1 and list(node.users.keys())[0].name.startswith("copy")
+    )
+    if not is_full_copy_pattern:
+        return (False, None, None)
+
+    full_node, copy_node = node, list(node.users.keys())[0]
+    copy_args = list(copy_node.args)
+    if full_node != copy_args[0]:
+        return (False, None, None)
+    return (True, full_node, copy_node)
+
+
+def pass_post_process_partitions(ctx: OptimizerContext):
+    """
+    This pass will do some post process for those proposed partitions from hpu
+    partitioner, like move some specific ops from one partition to another
+    partition, to reduce some unnecessary tensor passing between partitions.
+    Currently, the post process is mainly for device memory optimization.
+    """
+    from torch.fx.passes.infra.partitioner import Partition
+
+    partition_changed = False
+
+    def reassign_full_copy_to_upstream_partition(
+        graph_module, assignments: Dict[torch.fx.Node, int], partitions_by_id: Dict[int, Partition]
+    ):
+        changed = False
+        for node in graph_module.graph.nodes:
+            matched, full_node, copy_node = match_full_copy_pattern(node)
+            if not matched:
+                continue
+
+            # now, we detected a full+copy pattern
+            copy_args = list(copy_node.args)
+            copy_src_node = copy_args[1]
+            if (
+                full_node not in assignments
+                or copy_node not in assignments
+                or copy_src_node not in assignments
+                or assignments[full_node] != assignments[copy_node]
+                or assignments[full_node] == assignments[copy_src_node]
+            ):
+                continue
+
+            # now we have full+copy in one partition and the copy src node in
+            # another partition. we will merge the full+copy to its upstream
+            # partittion
+            full_copy_partition = partitions_by_id[assignments[full_node]]
+            upstream_partition = partitions_by_id[assignments[copy_src_node]]
+            full_copy_partition.remove_node(full_node)
+            full_copy_partition.remove_node(copy_node)
+            upstream_partition.add_node(full_node)
+            upstream_partition.add_node(copy_node)
+            changed = True
+        return changed
+
+    def reassign_copy__to_upstream_partition(
+        graph_module, assignments: Dict[torch.fx.Node, int], partitions_by_id: Dict[int, Partition]
+    ):
+        changed = False
+        for node in graph_module.graph.nodes:
+            if not (node.op == "call_function" and node.target == torch.ops.aten.copy_.default):
+                continue
+
+            copy_node = node
+            copy_args = list(copy_node.args)
+            copy_src_node, copy_dst_node = copy_args[1], copy_args[0]
+
+            if copy_dst_node.op != "placeholder":
+                continue
+
+            # now, we detected a reassignable copy_ node
+            if (
+                copy_node not in assignments
+                or copy_src_node not in assignments
+                or assignments[copy_node] == assignments[copy_src_node]
+            ):
+                continue
+
+            # now we have copy_ in one partition and the copy_ src node in
+            # another partition. we will merge the copy_ to its upstream
+            # partittion
+            copy_partition = partitions_by_id[assignments[copy_node]]
+            upstream_partition = partitions_by_id[assignments[copy_src_node]]
+            copy_partition.remove_node(copy_node)
+            upstream_partition.add_node(copy_node)
+            changed = True
+        return changed
+
+    assignments: Dict[torch.fx.Node, int] = {}  # mapping from node to partition_id
+    partitions_by_id: Dict[int, Partition] = {}  # mapping from partition_id to partition
+    for partition in ctx.current_partitions:
+        id = partition.id
+        partitions_by_id[id] = partition
+        for node in list(partition.nodes):
+            assignments[node] = id
+
+    if hpu_backend_config.reassign_full_copy:
+        partition_changed = partition_changed or reassign_full_copy_to_upstream_partition(
+            ctx.graph_module, assignments, partitions_by_id
+        )
+    if hpu_backend_config.reassign_copy_:
+        partition_changed = partition_changed or reassign_copy__to_upstream_partition(
+            ctx.graph_module, assignments, partitions_by_id
+        )
+
+    return partition_changed
 
 
 def pass_fuse_partitions(ctx: OptimizerContext) -> bool:
@@ -2978,20 +3090,14 @@ def pass_remove_unnecessary_full_copy(ctx: OptimizerContext):
     """
     to_remove = []
     for node in ctx.graph_module.graph.nodes:
-        is_full_copy_pattern = (
-            node.name.startswith("full") and len(node.users) == 1 and list(node.users.keys())[0].name.startswith("copy")
-        )
-        if not is_full_copy_pattern:
-            continue
-
-        full_node, copy_node = node, list(node.users.keys())[0]
-        copy_args = list(copy_node.args)
-        if full_node != copy_args[0]:
+        matched, full_node, copy_node = match_full_copy_pattern(node)
+        if not matched:
             continue
 
         def match(lhs, rhs) -> bool:
             return lhs is not None and rhs is not None and lhs == rhs
 
+        copy_args = list(copy_node.args)
         dst, src = copy_args[0], copy_args[1]
         if not (
             match(dst.meta["output_device"], src.meta["output_device"])
