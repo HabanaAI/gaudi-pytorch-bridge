@@ -14,6 +14,7 @@
 #include "generated/backend/bitwise_and.h"
 #include "generated/backend/bitwise_or.h"
 #include "generated/backend/bitwise_xor.h"
+#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 
@@ -38,6 +39,22 @@ OutputMetaDataVector BitwiseLogicalMeta(const at::Stack& stack) {
       habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
       false);
   return {meta};
+}
+
+SharedMetaDataVector BitwiseAndSharedMeta(const at::Stack& stack) {
+  return BitwiseLogicalSharedMeta(stack, "bitwise_and_fwd");
+}
+
+SharedMetaDataVector BitwiseOrSharedMeta(const at::Stack& stack) {
+  return BitwiseLogicalSharedMeta(stack, "bitwise_or_fwd");
+}
+
+SharedMetaDataVector BitwiseXorSharedMeta(const at::Stack& stack) {
+  return BitwiseLogicalSharedMeta(stack, "bitwise_xor_fwd");
+}
+
+SharedMetaDataVector BitwiseShiftSharedMeta(const at::Stack& stack) {
+  return BitwiseLogicalSharedMeta(stack, "bitshift_fwd");
 }
 
 } // namespace habana

@@ -43,6 +43,7 @@ _assert_async:
   guid: assert_async
   out_ids: [0]
   op_backend: AssertAsync
+  op_validator: AssertAsyncSharedMeta
 
 __ilshift__.Scalar:
   dtypes: [Int, Char, Byte, Short]
@@ -160,6 +161,7 @@ _efficientzerotensor:
     Gaudi3: [BFloat16, Float, Int, Char, Byte, Short, Half]
   op_backend: EfficientZeroTensor
   out_ids: [0]
+  op_validator: EfficientZeroSharedMeta
 
 _foreach_abs:
   dtypes: [BFloat16, Float]
@@ -1407,6 +1409,7 @@ _fused_dropout:
   op_backend: FusedNativeDropout
   out_ids: [0, 0]
   schema_args: "(Tensor self, float p, Tensor? seed) -> (Tensor, Tensor)"
+  op_validator: FusedNativeDropoutSharedMeta
 
 _cdist_forward:
   output_meta: CdistFwdMeta
@@ -1443,6 +1446,7 @@ native_dropout:
   op_backend: FusedNativeDropout
   out_ids: [0, 0]
   schema_args: "(Tensor input, float p, Tensor? seed) -> (Tensor, Tensor)"
+  op_validator: FusedNativeDropoutSharedMeta
 
 pixel_shuffle:
   output_meta: PixelShuffleMeta
@@ -2609,6 +2613,7 @@ bitwise_and.Scalar:
   guid: bitwise_and_fwd
   out_ids: [0]
   scalar_ids: [1]
+  op_validator: BitwiseAndSharedMeta
 
 bitwise_and.Tensor:
   output_meta: BitwiseLogicalMeta
@@ -2649,6 +2654,7 @@ bitwise_left_shift.Scalar_Tensor:
   op_frontend: ScalarTypeConversion
   out_ids: [1]
   scalar_ids: [0]
+  op_validator: BitwiseShiftSharedMeta
 
 bitwise_left_shift.Tensor:
   broadcast: true
@@ -2729,6 +2735,7 @@ bitwise_or.Scalar:
   promote_to_common_type: [self, other]
   out_ids: [0]
   scalar_ids: [1]
+  op_validator: BitwiseOrSharedMeta
 
 bitwise_or.Tensor:
   output_meta: BitwiseLogicalMeta
@@ -2769,6 +2776,7 @@ bitwise_right_shift.Scalar_Tensor:
   op_frontend: ScalarTypeConversion
   out_ids: [1]
   scalar_ids: [0]
+  op_validator: BitwiseShiftSharedMeta
 
 bitwise_right_shift.Tensor:
   broadcast: true
@@ -2831,6 +2839,7 @@ bitwise_xor.Scalar:
   guid: bitwise_xor_fwd
   out_ids: [0]
   scalar_ids: [1]
+  op_validator: BitwiseXorSharedMeta
 
 bitwise_xor.Tensor:
   output_meta: BitwiseLogicalMeta
@@ -5503,13 +5512,13 @@ logcumsumexp.out:
   dtypes: [BFloat16, Float]
   guid: log_cumsum_exp_fwd
   custom_fill_params: FillCumsumParams
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
+  op_validator: check-node-with-shared-layer
 
 _logcumsumexp.out:
   dtypes: [BFloat16, Float]
   guid: log_cumsum_exp_fwd
   custom_fill_params: FillCumsumParams
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
+  op_validator: check-node-with-shared-layer
 
 logical_and:
   output_meta: LogicalMeta

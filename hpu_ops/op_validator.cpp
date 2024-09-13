@@ -84,9 +84,15 @@ bool fillSharedLayerTensorType(SharedLayer::Tensor& tensor, at::ScalarType t) {
     case at::ScalarType::Short:
       tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_I16;
       return true;
+    case at::ScalarType::UInt16:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_U16;
+      return true;
     case at::ScalarType::Int:
     case at::ScalarType::Long:
       tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_I32;
+      return true;
+    case at::ScalarType::UInt32:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_U32;
       return true;
     case at::ScalarType::Half:
       tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_F16;

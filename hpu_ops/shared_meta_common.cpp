@@ -429,4 +429,24 @@ SharedMetaDataVector BinaryWithAlphaSharedMeta(
   return metaVec;
 }
 
+SharedMetaDataVector BitwiseLogicalSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  auto self = stack.at(0);
+  auto other = stack.at(1);
+  auto dtype = habana_helpers::DTypeHelper::get_compute_dtype(
+      {self, self},
+      c10::nullopt,
+      habana_helpers::DTypeHelper::DtypePromoteVariant::kPromoteToCommon,
+      false);
+  auto inputRank = self.isTensor() ? self.toTensor().dim() : 1;
+  auto otherRank = other.isTensor() ? other.toTensor().dim() : 1;
+  auto outputRank = std::max(inputRank, otherRank);
+
+  SharedMetaData bitwiseSharedMeta{guid};
+  bitwiseSharedMeta.inputs_data = {{inputRank, dtype}, {otherRank, dtype}};
+  bitwiseSharedMeta.outputs_data.emplace_back(outputRank, dtype);
+  return {bitwiseSharedMeta};
+}
+
 } // namespace habana

@@ -38,5 +38,6 @@ SHARED_META_GUID(LogicalBinary)
 SHARED_META_GUID(UnaryForeach)
 SHARED_META_GUID(AminAmax)
 SHARED_META_GUID(BinaryWithAlpha)
+SHARED_META_GUID(BitwiseLogical)
 
 } // namespace habana

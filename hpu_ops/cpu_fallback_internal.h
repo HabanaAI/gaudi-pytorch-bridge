@@ -264,6 +264,14 @@ at::ScalarType expected_result_dtype(
     ParameterTypes...) {
   return tarr.front().scalar_type();
 }
+
+template <class... ParameterTypes>
+at::ScalarType expected_result_dtype(
+    [[maybe_unused]] const c10::ArrayRef<c10::SymInt>& sarr,
+    ParameterTypes...) {
+  return at::ScalarType::Int;
+}
+
 /*
  * Wrapper that executes a fallback path when op cannot be executed as is.
  * Partial specializations follow patterns of BoxedKernelWrapper (see

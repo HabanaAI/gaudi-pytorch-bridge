@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -14,6 +14,16 @@
 #include "generated/backend/_assert_async.h"
 
 namespace habana {
+SharedMetaDataVector AssertAsyncSharedMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+
+  SharedMetaData assertAsyncSharedMeta{"assert_async"};
+  assertAsyncSharedMeta.inputs_data.emplace_back(
+      self.dim(), self.scalar_type());
+  assertAsyncSharedMeta.outputs_data.emplace_back(1, c10::ScalarType::UInt32);
+  return {assertAsyncSharedMeta};
+}
+
 void AssertAsync::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

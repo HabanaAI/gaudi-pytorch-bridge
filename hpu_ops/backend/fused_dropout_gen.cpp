@@ -71,6 +71,30 @@ OutputMetaDataVector FusedNativeDropoutCheckpointMeta(const at::Stack& stack) {
   return {SeedOutputMeta(), metas[0], metas[1]};
 }
 
+SharedMetaDataVector FusedNativeDropoutSharedMeta(const at::Stack& stack) {
+  auto seed = stack.at(2);
+  auto isSeedTensor = seed.isTensor();
+  at::ScalarType seedDtype = at::ScalarType::Int;
+  auto seedRank = 1;
+  if (isSeedTensor) {
+    auto seedTensor = seed.toTensor();
+    seedRank = seedTensor.dim();
+    seedDtype = seedTensor.scalar_type();
+  }
+
+  auto self = (stack.at(0).isTensor() && stack.at(1).isTensor())
+      ? stack_tensor(stack, 1)
+      : stack_tensor(stack, 0);
+  auto selfRank = self.dim();
+  auto selfDtype = self.scalar_type();
+  SharedMetaData dropoutSharedMeta{"dropout_fwd"};
+  dropoutSharedMeta.inputs_data = {
+      {selfRank, selfDtype}, {seedRank, seedDtype}};
+  dropoutSharedMeta.outputs_data = {
+      {selfRank, selfDtype}, {selfRank, at::ScalarType::Char}};
+  return {dropoutSharedMeta};
+}
+
 void FusedNativeDropout::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto seed = stack.at(2);
   size_t size = 0;

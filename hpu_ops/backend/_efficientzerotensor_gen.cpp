@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -26,6 +26,17 @@ OutputMetaDataVector EfficientZeroMeta(const at::Stack& stack) {
   meta.shape = stack.at(0).toIntVector();
 
   return {meta};
+}
+
+SharedMetaDataVector EfficientZeroSharedMeta(const at::Stack& stack) {
+  auto rank = stack.at(0).toIntVector().size();
+  auto optionalDtype = stack.at(1).toOptional<at::ScalarType>();
+  const at::ScalarType& dtype =
+      optionalDtype.value_or(torch::get_default_dtype_as_scalartype());
+
+  SharedMetaData efficientZeroSharedMeta{"memset"};
+  efficientZeroSharedMeta.outputs_data.emplace_back(rank, dtype);
+  return {efficientZeroSharedMeta};
 }
 
 void EfficientZeroTensor::AddNode(
