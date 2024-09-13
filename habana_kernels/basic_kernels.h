@@ -113,22 +113,6 @@ class AsStridedOperator : public habana::HabanaOperator {
       compute_output_shape(c10::IntArrayRef, c10::IntArrayRef);
 };
 
-// As Strided for channels last
-/* The implementation follows the implementation of original Asstrided op with
- *the additional change of setting kernel meta data for NHWC layout to signal
- * the permute pass
- */
-class AsStridedClOperator : public AsStridedOperator {
- public:
-  AsStridedClOperator(int device_id, c10::ScalarType scalarType)
-      : AsStridedOperator(device_id, scalarType) {
-    static_cast<void>(scalarType);
-
-    kernel_meta_data_.input_layout.assign({habana::LayoutFormat::NHWC});
-    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::NHWC});
-  }
-};
-
 class SliceInsertOperator : public habana::HabanaOperator {
  public:
   SliceInsertOperator(int device_id, c10::ScalarType scalarType)

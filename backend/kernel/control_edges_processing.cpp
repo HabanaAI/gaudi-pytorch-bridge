@@ -155,7 +155,6 @@ bool IsControlEdgeNode(const torch::jit::Node* const node) {
 
   return (
       node_str == "hpu::as_strided_lazy_"sv ||
-      node_str == "hpu::as_strided_lazy_cl_"sv ||
       node_str == "hpu::control_edge_"sv);
 }
 

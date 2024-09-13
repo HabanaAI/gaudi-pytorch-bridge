@@ -40,9 +40,7 @@ void replace_views_with_reshapes(std::shared_ptr<Graph>& graph) {
   // collect candidate as_strided nodes
   // TODO add other ops like view, slice etc once strided memcpy is available
   for (auto* node : graph_nodes) {
-    if ((strcmp(node->kind().toQualString(), "hpu::as_strided_lazy_") == 0) ||
-        (strcmp(node->kind().toQualString(), "hpu::as_strided_lazy_cl_") ==
-         0)) {
+    if (strcmp(node->kind().toQualString(), "hpu::as_strided_lazy_") == 0) {
       auto input_uses = node->input(0)->uses();
       auto output_uses = node->output(0)->uses();
 
