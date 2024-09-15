@@ -12,65 +12,18 @@
  */
 
 #include "eager_context.h"
-#include <c10/macros/Macros.h>
-#include <future>
-#include <memory>
-#include <mutex>
-#include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
-#include "pytorch_helpers/habana_helpers/logging.h"
-#include "pytorch_helpers/habana_helpers/python_utils.h"
-#include "pytorch_helpers/habana_helpers/thread_queue.h"
 
-namespace habana {
-namespace eager {
-
-std::once_flag SingleTonEagerContext::initialize_once_flag_{};
-std::unique_ptr<SingleTonEagerContext> SingleTonEagerContext::instance_{
-    nullptr};
-
-void SingleTonEagerContext::CreateInstance() {
-  instance_.reset(new SingleTonEagerContext());
-  habana::hpu_registrar().register_eager_context(
-      []() { instance_.reset(nullptr); });
-  c10::hpu::setJoinEagerThreadsCB(habana::eager::JoinPendingPipelineAllThreads);
-}
-
-void SingleTonEagerContext::JoinPendingLoweringThread() {
-  PT_EAGER_TRACE;
-  if (!hpu_registrar().is_initialized())
-    return;
-
-  try {
-    // TODO remove gil_release once SW-160978 is fixed
-    habana_helpers::AutoNoGIL gil_release;
-    hpu_registrar().get_device().lowering_thread().waitWorkComplete();
-  } catch (const std::exception& e) {
-    hpu_registrar().get_device().set_exception_occurred(true);
-    PT_BRIDGE_FATAL("Exception in Lowering thread...\n", e.what());
-  } catch (...) {
-    hpu_registrar().get_device().set_exception_occurred(true);
-    PT_BRIDGE_FATAL("Exception in Lowering thread...\n");
-  }
-}
+namespace habana::eager {
 
 void JoinPendingPipelineThreads() {
-  if (!habana::hpu_registrar().is_initialized())
-    return;
-  habana::eager::SingleTonEagerContext::getInstance()
-      .JoinPendingLoweringThread();
-  hpu_registrar().get_device().compile_thread().waitWorkComplete();
-  hpu_registrar().get_device().execute_thread().waitWorkComplete();
+  if (habana::hpu_registrar().is_initialized())
+    hpu_registrar().get_device().join_pipeline_threads();
 }
 
 void JoinPendingPipelineAllThreads() {
-  if (!habana::hpu_registrar().is_initialized())
-    return;
-  habana::eager::SingleTonEagerContext::getInstance()
-      .JoinPendingLoweringThread();
-  hpu_registrar().get_device().compile_thread().waitWorkComplete();
-  hpu_registrar().get_device().execute_thread().waitWorkComplete();
-  hpu_registrar().get_device().garbage_collection_thread().waitWorkComplete();
+  if (habana::hpu_registrar().is_initialized())
+    hpu_registrar().get_device().join_all_threads();
 }
 
 // Restore tensors to the org tensors for eager send P2P collective
@@ -85,5 +38,4 @@ void RestoreToOrgSendTensors(
   }
 }
 
-} // namespace eager
-} // namespace habana
+} // namespace habana::eager

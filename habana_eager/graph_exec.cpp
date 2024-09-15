@@ -473,14 +473,13 @@ torch::jit::Stack GraphExec::launch(
   }
   if (m_is_pipeline_supported) {
     // Check if condition needed specific to dynamic
-    habana::eager::SingleTonEagerContext::getInstance()
-        .ScheduleWorkAndUpdateLoweringThreadHandle(
-            LaunchRecipeTask,
-            this,
-            std::move(backend_inputs),
-            std::move(backend_outputs),
-            std::move(launch_shapes),
-            std::move(in_symbol_value_map));
+    habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
+        LaunchRecipeTask,
+        this,
+        std::move(backend_inputs),
+        std::move(backend_outputs),
+        std::move(launch_shapes),
+        std::move(in_symbol_value_map));
     return {};
   } else {
     std::optional<std::vector<at::Tensor>> maybe_backend_outputs;

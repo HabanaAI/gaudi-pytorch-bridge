@@ -120,13 +120,12 @@ void EagerOpBase::run(OutputSpecsOrTensors&& out_spec_or_tensors) {
       }
     }
 
-    SingleTonEagerContext::getInstance()
-        .ScheduleWorkAndUpdateLoweringThreadHandle(
-            EagerLoweringTask,
-            m_symbol,
-            std::move(stack),
-            std::move(out_spec_or_tensors),
-            std::move(m_eager_op_meta_data));
+    ScheduleWorkAndUpdateLoweringThreadHandle(
+        EagerLoweringTask,
+        m_symbol,
+        std::move(stack),
+        std::move(out_spec_or_tensors),
+        std::move(m_eager_op_meta_data));
 
   } else {
     // To maintain the order for launch, ensure that all pending tasks in

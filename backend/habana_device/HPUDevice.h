@@ -202,6 +202,9 @@ class HPUDevice {
     exception_occurred = is_exception;
   }
 
+  void join_all_threads();
+  void join_pipeline_threads();
+
  private:
   habana_helpers::ThreadPool garbage_collection_thread_{true};
   synapse_helpers::device_handle device_{nullptr};
@@ -211,7 +214,7 @@ class HPUDevice {
 
   ThreadPoolWithGILRelease execute_thread_;
   ThreadPoolWithGILRelease compile_thread_;
-  habana_helpers::ThreadPool lowering_thread_{true};
+  ThreadPoolWithGILRelease lowering_thread_;
 
   // Holding this is required for proper destruction order
   std::shared_ptr<ConstantInformation> constant_information{

@@ -31,11 +31,10 @@ void op_Lowering_Task(F&& f, Args&&... args) {
 template <class F, class... Args>
 void pipeline_or_direct_generic(F&& f, Args&&... args) {
   if (GET_ENV_FLAG_NEW(PT_HPU_EAGER_PIPELINE_ENABLE)) {
-    habana::eager::SingleTonEagerContext::getInstance()
-        .ScheduleWorkAndUpdateLoweringThreadHandle(
-            op_Lowering_Task<F, Args...>,
-            std::forward<F>(f),
-            std::forward<Args>(args)...);
+    habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
+        op_Lowering_Task<F, Args...>,
+        std::forward<F>(f),
+        std::forward<Args>(args)...);
   } else {
     std::forward<F>(f)(std::forward<Args>(args)...);
   }

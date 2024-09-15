@@ -215,11 +215,6 @@ class HPURegistrar {
         std::move(lazy_execution_arena_cleanup));
   }
 
-  void register_eager_context(CallFinally::FinalFunc&& eager_context_cleanup) {
-    TORCH_CHECK(!eager_context_cleanup_);
-    eager_context_cleanup_.reset(std::move(eager_context_cleanup));
-  }
-
  private:
   static std::once_flag initialize_once_flag_;
   static std::unique_ptr<HPURegistrar> instance_;
@@ -237,7 +232,6 @@ class HPURegistrar {
   device_holder acquired_device_;
   CallFinally lazy_exec_thread_pool_cleanup_{};
   CallFinally lazy_execution_arena_cleanup_{};
-  CallFinally eager_context_cleanup_{};
   CallFinally process_group_finalizer_;
   CallFinally accumulation_thread_cleanup_{};
   CallFinally media_proxy_finalizer_;

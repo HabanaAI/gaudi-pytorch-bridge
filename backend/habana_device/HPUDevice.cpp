@@ -20,6 +20,7 @@
 namespace habana {
 
 void ThreadPoolWithGILRelease::waitWorkComplete() {
+  // TODO remove gil_release once SW-160978 is fixed
   habana_helpers::AutoNoGIL gil_release;
   habana_helpers::ThreadPool::waitWorkComplete();
 }
@@ -71,6 +72,22 @@ std::shared_ptr<synapse_helpers::TimeSlot> HPUDevice::create_time_slot(
         " reached, will not create any time event");
     return nullptr;
   }
+}
+
+void HPUDevice::join_all_threads() {
+  join_pipeline_threads();
+  garbage_collection_thread_.waitWorkComplete();
+}
+void HPUDevice::join_pipeline_threads() {
+  try {
+    lowering_thread_.waitWorkComplete();
+  } catch (...) {
+    exception_occurred = true;
+    throw;
+  }
+
+  compile_thread_.waitWorkComplete();
+  execute_thread_.waitWorkComplete();
 }
 
 } // namespace habana

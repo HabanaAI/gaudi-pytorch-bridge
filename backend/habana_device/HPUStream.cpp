@@ -21,20 +21,16 @@
 #include <iostream>
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/habana_device/HPUStream.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/lazy_executor.h"
 
 namespace c10 {
 namespace hpu {
 
-static JoinEagerThreads join_eager_threads_cb = nullptr;
-void setJoinEagerThreadsCB(JoinEagerThreads cb) {
-  join_eager_threads_cb = cb;
-}
 void joinEagerThreadsCB() {
-  if (join_eager_threads_cb != nullptr) {
-    join_eager_threads_cb();
-  }
+  if (habana::hpu_registrar().is_initialized())
+    habana::hpu_registrar().get_device().join_all_threads();
 }
 
 namespace {

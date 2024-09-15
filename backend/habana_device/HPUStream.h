@@ -201,7 +201,6 @@ class HPUStream {
   Stream stream_;
 };
 
-void setJoinEagerThreadsCB(JoinEagerThreads cb);
 void joinEagerThreadsCB();
 
 /**

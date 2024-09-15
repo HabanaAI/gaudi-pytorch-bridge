@@ -307,14 +307,13 @@ void Register_Copy_In_Pipeline(
         reinterpret_cast<uint8_t*>(host_ptr));
   }
 
-  habana::eager::SingleTonEagerContext::getInstance()
-      .ScheduleWorkAndUpdateLoweringThreadHandle(
-          Copy_Empty_Lowering_Task,
-          std::move(src),
-          std::move(dst),
-          non_blocking,
-          std::move(stream),
-          std::move(host_ptr));
+  habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
+      Copy_Empty_Lowering_Task,
+      std::move(src),
+      std::move(dst),
+      non_blocking,
+      std::move(stream),
+      std::move(host_ptr));
 }
 
 void Pipeline_Or_Direct_Copy(

@@ -306,12 +306,11 @@ bool ProcessGroupEagerHCCL::WorkEager::wait(std::chrono::milliseconds timeout
           habana::get_tensor_extra_meta(outputs_backend.back())};
       output_hb_tmeta->set_tensor_pipelined();
     }
-    habana::eager::SingleTonEagerContext::getInstance()
-        .ScheduleWorkAndUpdateLoweringThreadHandle(
-            Synchronize_Empty_Lowering_Task,
-            std::move(outputs_backend),
-            comm_,
-            (c10::hpu::getCurrentHPUStream()).stream());
+    habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
+        Synchronize_Empty_Lowering_Task,
+        std::move(outputs_backend),
+        comm_,
+        (c10::hpu::getCurrentHPUStream()).stream());
   } else {
     habana::eager::JoinPendingPipelineThreads();
     Synchronize_Execute_Task(
@@ -460,13 +459,12 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::pointToPoint(
 
   if (pipeline_flag) {
     const auto tensors = ctx->tensors();
-    habana::eager::SingleTonEagerContext::getInstance()
-        .ScheduleWorkAndUpdateLoweringThreadHandle(
-            PointToPoint_Empty_Lowering_Task,
-            comm_,
-            std::move(ctx),
-            std::move(fn),
-            peerRank);
+    habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
+        PointToPoint_Empty_Lowering_Task,
+        comm_,
+        std::move(ctx),
+        std::move(fn),
+        peerRank);
     // Restore the output tensors i.e. copy D2D in the main thread
     // So that such copies are also pipelined.
     restore_output_tensors(tensors, tensors_backend);
@@ -648,13 +646,12 @@ c10::intrusive_ptr<Work> ProcessGroupEagerHCCL::collective(
 
   if (pipeline_flag) {
     const auto input_output_tensors = ctx->tensors();
-    habana::eager::SingleTonEagerContext::getInstance()
-        .ScheduleWorkAndUpdateLoweringThreadHandle(
-            Collective_Empty_Lowering_Task,
-            comm_,
-            std::move(ctx),
-            std::move(fn),
-            is_allreduce);
+    habana::eager::ScheduleWorkAndUpdateLoweringThreadHandle(
+        Collective_Empty_Lowering_Task,
+        comm_,
+        std::move(ctx),
+        std::move(fn),
+        is_allreduce);
     // Restore the output tensors i.e. copy D2D in the main thread
     // So that such copies are also pipelined.
     restore_output_tensors(input_output_tensors, outputs_backend);
