@@ -252,7 +252,7 @@ class Node {
   std::string _op;
   std::string _target_qualified_name;
   bool _is_target_callable; // callable(node.target)
-  bool _hpu_placed;
+  bool _is_supported;
   InsertionOrderUnorderedSet<Node*> _users;
   InsertionOrderUnorderedSet<Node*> _input_nodes;
 
@@ -263,13 +263,13 @@ class Node {
       std::string _op,
       std::string _target_qualified_name,
       bool _is_target_callable,
-      bool _hpu_placed)
+      bool _is_supported)
       : _prim_id(_prim_id),
         _name(_name),
         _op(_op),
         _target_qualified_name(_target_qualified_name),
         _is_target_callable(_is_target_callable),
-        _hpu_placed(_hpu_placed) {
+        _is_supported(_is_supported) {
     std::vector<std::string> acceptable_ops = {
         "placeholder",
         "call_method",
@@ -300,8 +300,8 @@ class Node {
   bool is_target_callable() const {
     return _is_target_callable;
   }
-  bool hpu_placed() const {
-    return _hpu_placed;
+  bool is_supported() const {
+    return _is_supported;
   }
   InsertionOrderUnorderedSet<Node*>& users() {
     return _users;
@@ -426,7 +426,7 @@ class BindedPartitioner {
           node_wrapper.attr("op").cast<std::string>(),
           node_wrapper.attr("target_qualified_name").cast<std::string>(),
           node_wrapper.attr("is_target_callable").cast<bool>(),
-          node_wrapper.attr("hpu_placed").cast<bool>());
+          node_wrapper.attr("is_supported").cast<bool>());
       mapping.insert({prim_id, &_nodes.back()});
     }
 
@@ -458,7 +458,7 @@ class BindedPartitioner {
       Node* node = &(*it);
       InsertionOrderUnorderedSet<int> merge_candidates;
 
-      if (node->hpu_placed() && assignment.exist(node) == false) {
+      if (node->is_supported() && assignment.exist(node) == false) {
         int partition_id = new_partition_id++;
         merge_single_node(
             node, partition_id, partition_map, assignment, partitions_by_id);

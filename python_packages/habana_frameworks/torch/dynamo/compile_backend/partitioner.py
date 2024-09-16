@@ -65,7 +65,8 @@ class HabanaPartitioner(CapabilityBasedPartitioner):
         mapping_address = {}
         mapping_prim_id = {}
         for idx, node in enumerate(self.graph_module.graph.nodes):
-            wrapper = NodeWrapper(node, idx)
+            is_node_supported = self._CapabilityBasedPartitioner__is_node_supported(node)
+            wrapper = NodeWrapper(node, idx, is_node_supported)
             mapping_address[id(node)] = id(wrapper)
             mapping_prim_id[idx] = node
             node_wrappers.append(wrapper)
@@ -89,7 +90,7 @@ class NodeWrapper:
     propose_partitions method
     """
 
-    def __init__(self, node: torch.fx.Node, prim_id: int):
+    def __init__(self, node: torch.fx.Node, prim_id: int, is_supported: bool):
         self.prim_id = prim_id
         self.name = node.name
         self.op = node.op
@@ -97,7 +98,7 @@ class NodeWrapper:
             torch.fx.node._get_qualified_name(node.target) if node.op == "call_function" else ""
         )
         self.is_target_callable = callable(node.target)
-        self.hpu_placed = node.meta["placement"] == "hpu_cluster"
+        self.is_supported = is_supported
         self.users = [id(user) for user in node.users]
         self.input_nodes = [id(input_node) for input_node in node.all_input_nodes]
 
