@@ -31,7 +31,6 @@ add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synaps
   kernel/hpu_recipe_cache.cpp
   kernel/hpu_shape_inference.cpp
   kernel/refinement_engine.cpp
-  passes/remove_inplace_ops.cpp
   passes/hpu_habana_persistence_marker_pass.cpp
   passes/replace_inplace_ops_ds.cpp
   habana_device/HPUAllocator.cpp
@@ -66,20 +65,6 @@ add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synaps
   profiling/trace_sources/bridge_logs_source.cpp
   profiling/trace_sources/trace_parser.cpp
   profiling/trace_sources/memory_source.cpp
-  program/components/cache.cpp
-  program/components/executor.cpp
-  program/components/program.cpp
-  program/components/splitter.cpp
-  program/components/strategy.cpp
-  program/create_executor.cpp
-  program/scheduling_strategies/naive_rpo_scheduling_strategy.cpp
-  program/splitting_strategies/eager_splitting_strategy.cpp
-  program/splitting_strategies/lvaspill_splitting_strategy.cpp
-  program/utils/jit_bfstopsort.cpp
-  program/utils/jit_fixcolors.cpp
-  program/utils/jit_fixcycles.cpp
-  program/utils/jit_liveness_analysis.cpp
-  program/utils/union_find.cpp
 )
 
 add_custom_command(TARGET habana_pytorch_backend POST_BUILD

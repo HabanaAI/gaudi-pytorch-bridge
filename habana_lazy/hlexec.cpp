@@ -20,7 +20,6 @@
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
-#include "backend/program/create_executor.h"
 #include "backend/synapse_helpers/device.h"
 #include "habana_helpers/logging.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
@@ -78,42 +77,11 @@ struct HabanaLaunchOpLauncher : Launcher {
 };
 
 /*
- * Launcher for clustered programs
- */
-struct ClusteredProgramLauncher : Launcher {
-  ClusteredProgramLauncher(
-      std::size_t graph_hash,
-      const std::shared_ptr<habana::OptimizedJITGraphAndMetaData>& graph_meta) {
-    executor_ = habana::program::CreateExecutor(graph_hash, graph_meta);
-    TORCH_CHECK(executor_ != nullptr);
-  }
-
-  void Run(
-      torch::jit::Stack& stack,
-      std::shared_ptr<habana::RecipeArgumentSpec> /*cached_rarg_psh*/,
-      bool /*dry_run*/) override {
-    executor_->Run(stack);
-  }
-
-  std::unique_ptr<habana::program::Executor> executor_;
-};
-
-/*
- * Creates launcher.
- *
- * When PT_HPU_CLUSTERED_PROGRAM is set then launcher for clustered programs
- * is created, ohterwise launcher for HabanaLaunchOpPT is used.
+ * Creates HabanaLaunchOpPT launcher.
  */
 std::unique_ptr<Launcher> CreateLauncher(
-    std::size_t graph_hash,
     const std::shared_ptr<habana::OptimizedJITGraphAndMetaData>& graph_meta,
     const std::shared_ptr<habana_lazy::HbLazyFrontEndInfoToBackend>& info) {
-  static bool is_clustered_program_enabled =
-      GET_ENV_FLAG_NEW(PT_HPU_CLUSTERED_PROGRAM);
-
-  if (is_clustered_program_enabled) {
-    return std::make_unique<ClusteredProgramLauncher>(graph_hash, graph_meta);
-  }
   return std::make_unique<HabanaLaunchOpLauncher>(graph_meta, info);
 }
 
@@ -139,7 +107,7 @@ void HlExec::Launch(
     std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
     bool dry_run) {
   PT_LAZY_TRACE;
-  auto launcher = CreateLauncher(m_g_hash_, mp_g_and_meta_data_, nullptr);
+  auto launcher = CreateLauncher(mp_g_and_meta_data_, nullptr);
   try {
     launcher->Run(stack, cached_rarg_psh, dry_run);
   } catch (const std::exception& e) {
@@ -154,8 +122,7 @@ void HlExec::Launch(
     const c10::hpu::HPUStream& stream,
     bool dry_run) {
   PT_LAZY_TRACE;
-  auto& device = habana::HPUDeviceContext::get_device();
-  auto context = get_device_lazy_execution_context(device.id());
+  auto context = get_device_lazy_execution_context();
   // TODO : remove this env variable use
   // This is temporarily done to deactivate code in synapse helpers for lazy
   // mode kernel registration We will move to using shape utilities instead and
@@ -181,7 +148,7 @@ void HlExec::Launch(
     context->saveGraphAndMeta(mp_g_and_meta_data_);
   }
 
-  auto launcher = CreateLauncher(m_g_hash_, mp_g_and_meta_data_, lazyInfo);
+  auto launcher = CreateLauncher(mp_g_and_meta_data_, lazyInfo);
   try {
     launcher->Run(stack, nullptr, dry_run);
   } catch (const std::exception& e) {
@@ -415,8 +382,7 @@ void HlExec::SearchAndDeleteRedundantInputs(
     }
   }
 
-  auto& device = habana::HPUDeviceContext::get_device();
-  auto context = get_device_lazy_execution_context(device.id());
+  auto context = get_device_lazy_execution_context();
   // Save po_data input and output to context for perf mode
   if (context->getCapturing() &&
       context->updateInputsRequired(po_data_input_indices_for_deletion)) {

@@ -432,8 +432,7 @@ class HbExecutionContextArena {
     return *instance_;
   }
 
-  HbExecutionContext* getDeviceExecutionContext(
-      int device = 0); // TODO remove device from everywhere
+  HbExecutionContext* getDeviceExecutionContext();
   HbExecutionContextArena() = default;
   const LazyExecutionMode& getExecutionMode();
   void setExecutionMode(LazyExecutionMode m);
@@ -473,8 +472,8 @@ inline HbExecutionContextArena& get_habana_lazy_executor() {
   return HbExecutionContextArena::Get();
 }
 
-inline HbExecutionContext* get_device_lazy_execution_context(int device = 0) {
-  return get_habana_lazy_executor().getDeviceExecutionContext(device);
+inline HbExecutionContext* get_device_lazy_execution_context() {
+  return get_habana_lazy_executor().getDeviceExecutionContext();
 }
 
 /*

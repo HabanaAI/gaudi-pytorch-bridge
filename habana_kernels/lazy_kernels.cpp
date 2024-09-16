@@ -114,8 +114,7 @@ void AddMemcpy(const Tensor& src, Tensor& dst) {
   // As its an inplace op and we want this op to execute
   // we want to wind back status of this tensor to registered
   // so that when post order is created, we actually execute it
-  auto context =
-      habana_lazy::get_device_lazy_execution_context(dst.device().index());
+  auto context = habana_lazy::get_device_lazy_execution_context();
   context->RegisterTensor(hl_dst.getDataPtr());
   hl_dst.IrSetNode(copy_node);
   std::vector<at::Tensor> input_pt_vec;
@@ -578,13 +577,7 @@ Tensor& copy_hpu_lazy_D2D(
   habana::set_tensor_const(self, is_src_const, const_tensor_id);
   HbLazyTensor hb_tensor = GetHbLazyTensor(src);
 
-  auto self_dtype = ((self.scalar_type() == c10::ScalarType::Long) ||
-                     (self.scalar_type() == c10::ScalarType::Short) ||
-                     (self.scalar_type() == c10::ScalarType::Byte))
-      ? (c10::ScalarType::Int)
-      : self.scalar_type();
-
-  self_dtype = (self.scalar_type() == c10::ScalarType::Double)
+  auto self_dtype = (self.scalar_type() == c10::ScalarType::Double)
       ? c10::ScalarType::Float
       : self.scalar_type();
 
@@ -666,32 +659,6 @@ Tensor& copy_hpu_lazy_D2D(
       };
 
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(copy_, op_func, self_);
-}
-
-Tensor as_strided_layout_hpu_lazy(
-    const Tensor& self,
-    IntArrayRef size,
-    IntArrayRef stride) {
-  int64_t dim_out_pos[] = {
-      LayoutFormatDims::H,
-      LayoutFormatDims::W,
-      LayoutFormatDims::C,
-      LayoutFormatDims::N};
-  int64_t dim_out_pos_3d[] = {
-      LayoutFormatWithDepthDims::D,
-      LayoutFormatWithDepthDims::H,
-      LayoutFormatWithDepthDims::W,
-      LayoutFormatWithDepthDims::C,
-      LayoutFormatWithDepthDims::N};
-  IntArrayRef dims_ = dim_out_pos;
-  if (self.dim() == 5)
-    dims_ = dim_out_pos_3d;
-  auto node = std::make_shared<ir::AsStridedLayout>(
-      self, dims_, "hpu::as_strided_layout");
-  auto result = empty_strided_hpu_lazy(size, stride, self.options(), false);
-  auto hl_result = GetHbLazyTensor(result);
-  hl_result.IrSetNode(node);
-  return result;
 }
 
 at::Tensor handleWeightTensorLayout(const Tensor& src) {
@@ -1024,7 +991,7 @@ Tensor& copy_hpu_lazy_H2D(Tensor& self, const Tensor& src_, bool non_blocking) {
   // Get the internal tensor for copy kernel
   // First get the lazy tensor
   auto self_hb_tensor = GetOrCreateHbLazyTensor(self, self.device());
-  auto context = get_device_lazy_execution_context(self.device().index());
+  auto context = get_device_lazy_execution_context();
   if (self_hb_tensor.IsExecutionInProgress()) {
     context->JoinPendingLaunchThread();
   }
@@ -1932,38 +1899,6 @@ Tensor& add_tensor_hpu_lazy_(
   RUN_MANUAL_OP_MAYBE_WITH_ACC_THREAD(add_, op_func, self);
 }
 
-Tensor baddbmm_hpu_lazy(
-    const Tensor& self,
-    const Tensor& batch1,
-    const Tensor& batch2,
-    const Scalar& beta,
-    const Scalar& alpha) {
-  PT_LAZY_TRACE;
-  Tensor out = torch::mul(torch::bmm(batch1, batch2), alpha);
-  if (beta.toFloat() != 0) {
-    out.add_(self, beta);
-  }
-  return out;
-}
-
-Tensor& baddbmm_hpu_lazy_(
-    Tensor& self,
-    const Tensor& batch1,
-    const Tensor& batch2,
-    const Scalar& beta,
-    const Scalar& alpha) {
-  PT_LAZY_TRACE;
-  if (beta.toFloat() == 0) {
-    torch::bmm_outf(batch1, batch2, self);
-    self.mul_(alpha);
-  } else {
-    Tensor r_bmm = torch::bmm(batch1, batch2);
-    self.mul_(beta);
-    self.add_(r_bmm, alpha);
-  }
-  return self;
-}
-
 at::Tensor cast_to_32(const at::Tensor& self) {
   if (self.scalar_type() == c10::ScalarType::Long ||
       self.scalar_type() == c10::ScalarType::Byte ||
@@ -2314,12 +2249,9 @@ static bool check_for_advanced_indexing(
         auto cur_scalar_type = input.scalar_type();
         if (first_scalar) {
           first_scalar = false;
-          prev_scalar_type = cur_scalar_type;
-        } else {
-          if (prev_scalar_type != cur_scalar_type) {
-            advanced_indexing = true;
-            break;
-          }
+        } else if (prev_scalar_type != cur_scalar_type) {
+          advanced_indexing = true;
+          break;
         }
         prev_scalar_type = cur_scalar_type;
       }
@@ -3578,16 +3510,6 @@ at::Tensor select_hpu_lazy(
     SET_SIZE_STRIDE_0D(out);
   }
   return out;
-}
-
-bool can_convert(const Scalar& value) {
-  if (value.isFloatingPoint()) {
-    auto float_value = value.toFloat();
-    auto int_value = value.toInt();
-    auto diff = float_value - int_value;
-    return !(diff > 0);
-  }
-  return true;
 }
 
 Tensor kl_div_hpu_lazy(

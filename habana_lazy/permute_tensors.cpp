@@ -182,15 +182,6 @@ void PermuteTensors::setMemoryPermutation(
   hb_impl->SetMemoryPermutation(permutation);
 }
 
-void PermuteTensors::clearPermuteInformation(
-    const torch::Tensor& permutedTensor) {
-  PT_LAZY_TRACE;
-  TORCH_CHECK(
-      permutedTensor.device().type() == c10::DeviceType::HPU,
-      "clearPermuteInformation permutedTensor should be HPU");
-  setMemoryPermutation(permutedTensor, {});
-}
-
 void PermuteTensors::permuteWeightToRSCKInMemory(torch::Tensor& weight) {
   PT_LAZY_TRACE;
   PT_LAYOUTS_DEBUG("Permuting weight to RSCK, count: ", m_permute_counter++);
@@ -345,8 +336,7 @@ const torch::Tensor PermuteTensors::getPreCastedWeight(
   auto hl_copy_to_cpu = GetHbLazyTensor(copy_to_cpu);
   hl_copy_to_cpu.AssignIrValue(ir_weight_value);
   hl_copy_to_cpu.SetTensorData(tensor_data);
-  auto context =
-      get_device_lazy_execution_context(copy_to_cpu.device().index());
+  auto context = get_device_lazy_execution_context();
   context->MarkTensorStatus(
       hl_copy_to_cpu.getDataPtr(), LazyTensorExecutionStatus::kINPUT);
   return copy_to_cpu;

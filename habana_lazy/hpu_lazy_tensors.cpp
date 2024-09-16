@@ -86,8 +86,7 @@ void HbContextArena::RegisterTensor(std::shared_ptr<Data> data) {
   devctx->tensors_data.emplace(data->unique_id, data);
   // Register to execution context as well, we can merge these two contexts
   // later
-  auto device_id = data->device.index();
-  auto context = habana_lazy::get_device_lazy_execution_context(device_id);
+  auto context = habana_lazy::get_device_lazy_execution_context();
   context->RegisterTensor(data);
   if (synapse_helpers::memory_reporter_enable()) {
     auto& device = habana::HPUDeviceContext::get_device();
@@ -107,8 +106,7 @@ void HbContextArena::UnregisterTensor(Data* data) {
   HbContext* devctx = GetHbContext(data->device);
   // UnRegister from execution context as well, we can merge these two contexts
   // later
-  auto device_id = data->device.index();
-  auto context = habana_lazy::get_device_lazy_execution_context(device_id);
+  auto context = habana_lazy::get_device_lazy_execution_context();
 
   context->UnregisterTensor(data);
   // The weak ptr in tensors_data is reset before acquiring the m_mtx,
@@ -288,8 +286,7 @@ at::Tensor CopyTensor(const at::Tensor& ref) {
 
 at::Tensor HbLazyTensor::ToTensor(bool detached) {
   at::Tensor tensor;
-  auto context =
-      habana_lazy::get_device_lazy_execution_context(GetDevice().index());
+  auto context = habana_lazy::get_device_lazy_execution_context();
   context->JoinPendingLaunchThread();
 
   c10::optional<at::Tensor> tensor_data = CurrentTensorData();
@@ -497,8 +494,7 @@ c10::TensorImpl* HbLazyTensor::getAttachedTensorImpl() const {
   }
 }
 c10::optional<at::Tensor> HbLazyTensor::CurrentTensorData() const {
-  auto device_id = GetDevice().index();
-  auto context = habana_lazy::get_device_lazy_execution_context(device_id);
+  auto context = habana_lazy::get_device_lazy_execution_context();
   if (context != nullptr) {
     auto status = context->getTensorExecutionStatus(getDataPtr());
     if (status == kEXECUTION_COMPLETE || status == kINPUT) {
@@ -565,41 +561,6 @@ void HbLazyTensor::IrReconnectAsInputNode() const {
 void HbLazyTensor::setPtrDataIrToData() {
   if (mp_data.get())
     mp_data->ir_value.m_data_ptr = mp_data;
-}
-
-void HbLazyTensor::ClearAndAssignNewIrValue() {
-  // Reset the ir_value with the following content -
-  // - The m_data_ptr should continue to point to the
-  //   same lazy tensor data_ptr()
-  // - New hpu::input Tensor node within the ir_value as
-  //   the output tensors are obtained after computing the
-  //   graph associated with it and can be used as an input
-  //   tensor to further ops using this tensor.
-
-  ir::Value val = createIrValueFromData();
-  if (GET_ENV_FLAG_NEW(PT_HPU_AVOID_RE_EXECUTE_GRAPHS)) {
-    ir::Value& currentIrVal = CurrentIrValue();
-    // Check if any other node uses this node, if used, then replace its irval
-    // with the new one.
-    if (currentIrVal.mp_node) {
-      auto node = currentIrVal.mp_node.get();
-      auto& uses = node->GetUses();
-      // Set the value ptr as input node, this will make sure the mp_node in
-      // value is proper.
-      ir::NodePtr inp_node = std::make_shared<ir::Input>(*this);
-      val.SetNode(inp_node, GetDevice(), GetSizes(), dtype_optional());
-      if (uses.size()) {
-        auto tensor = AtenFromHbLazyTensor(
-            *this, c10::nullopt, c10::nullopt, c10::nullopt, c10::nullopt);
-        for (ir::Use use : uses) {
-          if (use.mp_node) {
-            use.mp_node->ReplaceInput(val, use.m_operand_index, tensor);
-          }
-        }
-      }
-    }
-  }
-  AssignIrValue(val);
 }
 
 // cannot add constant support here as tensor not present
@@ -710,8 +671,7 @@ at::Tensor HbLazyTensor::EvaluateTensorData(bool sync_acc_thread) {
   PT_LAZY_TRACE;
   // Generate the tensor data if its not been generated yet
   // Forced for finishing the pending execution here
-  auto context =
-      habana_lazy::get_device_lazy_execution_context(GetDevice().index());
+  auto context = habana_lazy::get_device_lazy_execution_context();
 
   // Check if in-flight execution thread has data, then wait for its completion.
   if (IsExecutionInProgress()) {
@@ -760,8 +720,7 @@ c10::optional<at::Tensor> HbLazyTensor::GetHbLazyTensorDataForMedia() {
   habana_lazy::AccThread::Get().SyncAccThreadPool();
 
   auto currentIrValue = CurrentIrValue();
-  auto context =
-      habana_lazy::get_device_lazy_execution_context(GetDevice().index());
+  auto context = habana_lazy::get_device_lazy_execution_context();
 
   if (CurrentIrValue() && !CurrentTensorData()) {
     context->JoinPendingLaunchThread();
@@ -942,8 +901,7 @@ torch::jit::Stack PrepareInputStack(
     bool is_OptimizedLazyEager [[maybe_unused]],
     habana_lazy::ir::NodePtrList* ptr_post_order = nullptr,
     bool copy_scalar_to_hpu = true) {
-  auto device = (*tensors)[0].GetDevice();
-  auto context = get_device_lazy_execution_context(device.index());
+  auto context = get_device_lazy_execution_context();
   torch::jit::Stack stack;
   // stack is used for both inputs to synapse lowering and outputs from
   // synapse lowering, therefore allocate memory which is max of input
@@ -1006,7 +964,7 @@ void PostLaunch(
     bool is_exception,
     [[maybe_unused]] bool is_OptimizedLazyEager = false) {
   auto device = (*tensors)[0].GetDevice();
-  auto context = get_device_lazy_execution_context(device.index());
+  auto context = get_device_lazy_execution_context();
 
   HABANA_ASSERT(is_exception || (stack.size() == indices.size()));
 
@@ -1308,7 +1266,7 @@ void HbLazyTensor::SyncTensorsGraphInternal(
   LaunchStreamInfo stream_info = {c10::hpu::getCurrentHPUStream()};
 
   auto device = (*tensors)[0].GetDevice();
-  auto context = get_device_lazy_execution_context(device.index());
+  auto context = get_device_lazy_execution_context();
   bool isOptimizedLazyEager = false;
   size_t optimized_lazy_eager_key = 0;
   if (lazyFrontEndInfo) {

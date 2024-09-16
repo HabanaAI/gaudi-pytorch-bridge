@@ -511,7 +511,6 @@ class HbLazyTensor {
     return mp_data;
   }
 
-  void ClearAndAssignNewIrValue();
   static void SyncTensorsGraphInternal(
       std::vector<HbLazyTensor>* tensors,
       std::shared_ptr<HbLazyFrontEndInfoToBackend> lazyFrontEndInfo = nullptr,

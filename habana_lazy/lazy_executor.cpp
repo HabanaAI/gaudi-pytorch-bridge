@@ -191,7 +191,7 @@ void HbExecutionContext::updateInputs(ir::ValueList inputVals) {
 std::unique_ptr<HbExecutionContextArena> HbExecutionContextArena::instance_{};
 std::once_flag HbExecutionContextArena::initialize_once_flag_{};
 
-HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext(int) {
+HbExecutionContext* HbExecutionContextArena::getDeviceExecutionContext() {
   return &execution_context_;
 }
 

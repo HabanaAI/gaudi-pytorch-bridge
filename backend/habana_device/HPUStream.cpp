@@ -110,8 +110,7 @@ bool HPUStream::query() const {
       habana_lazy::HbLazyTensor::StepMarker({});
     } else {
       // If there are current jobs in stream. return false
-      auto context =
-          habana_lazy::get_device_lazy_execution_context(device_index);
+      auto context = habana_lazy::get_device_lazy_execution_context();
       if (context->HaveJobsInStream(hpu_stream_id)) {
         return false;
       }

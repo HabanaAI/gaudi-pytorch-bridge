@@ -37,7 +37,7 @@ class SynapseHelpersMemoryTest : public ::testing::Test {
     // clear cache scalar tensors map
     setenv("PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP", "1", 1);
     habana_lazy::HbExecutionContext* context =
-        habana_lazy::get_device_lazy_execution_context(device.id());
+        habana_lazy::get_device_lazy_execution_context();
     context->clear();
     // set up defragment, pool and 3gb pool for testing
     setenv("PT_HABANA_POOL_SIZE", "3", 1);
@@ -661,7 +661,6 @@ TEST_F(SynapseHelpersMemoryTest, OOM_FreeMemInEndofsmallallocRegion) {
 
 TEST_F(SynapseHelpersMemoryTest, Verify_Reset_pool) {
   auto& device = habana::HPUDeviceContext::get_device();
-  size_t ws = device.get_workspace_size();
   // allocate workspace buffer 2GB, so we leave 1GB for the remaining
   // allocations in the test
   device.get_workspace_buffer(GB_2);

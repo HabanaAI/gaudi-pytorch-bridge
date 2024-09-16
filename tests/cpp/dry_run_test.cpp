@@ -47,7 +47,7 @@ TEST_F(DryRunTest, Test) {
 
   auto& device = habana::HPUDeviceContext::get_device();
   habana_lazy::HbExecutionContext* context =
-      habana_lazy::get_device_lazy_execution_context(device.id());
+      habana_lazy::get_device_lazy_execution_context();
 
   synapse_helpers::MemoryStats stats;
   device.get_device_memory().get_memory_stats(&stats);

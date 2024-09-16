@@ -26,7 +26,6 @@ class PermuteTensors {
       const torch::Tensor& permutedTensor,
       torch::Tensor& cpuTensor,
       bool non_blocking);
-  static void clearPermuteInformation(const torch::Tensor& permutedTensor);
 
  private:
   static void setMemoryPermutation(
