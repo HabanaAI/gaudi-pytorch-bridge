@@ -90,6 +90,11 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
       std::vector<at::Tensor>& inputTensors,
       const AllgatherOptions& opts = AllgatherOptions()) override;
 
+  c10::intrusive_ptr<Work> reduce_scatter_tensor_coalesced(
+      std::vector<at::Tensor>& outputs,
+      std::vector<at::Tensor>& inputs,
+      const ReduceScatterOptions& opts = ReduceScatterOptions()) override;
+
   c10::intrusive_ptr<Work> gather(
       std::vector<std::vector<at::Tensor>>& outputTensors,
       std::vector<at::Tensor>& inputTensors,
@@ -138,7 +143,39 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
 
   c10::intrusive_ptr<Work> barrier(
       const BarrierOptions& opts = BarrierOptions()) override;
+
   void destroy();
+
+  void startCoalescing() override;
+
+  c10::intrusive_ptr<Work> endCoalescing() override;
+
+  class CoalescedWorkHCCL
+      : public Work,
+        public std::enable_shared_from_this<CoalescedWorkHCCL> {
+   public:
+    CoalescedWorkHCCL() {}
+    explicit CoalescedWorkHCCL(ProcessGroupLazyHCCL* pg) : pg_(pg) {}
+
+    ~CoalescedWorkHCCL();
+
+    // Same as calling synchronize() for HCCL work.
+    bool wait(std::chrono::milliseconds timeout = kNoTimeout);
+
+    // Method to append a new Work object to works_
+    void append(const c10::intrusive_ptr<Work>& work);
+
+    // Method to clear the works_ vector
+    void clear();
+
+   protected:
+    std::vector<c10::intrusive_ptr<Work>> works_;
+
+    friend class ProcessGroupLazyHCCL;
+
+   private:
+    ProcessGroupLazyHCCL* pg_; // Pointer to the enclosing class instance
+  };
 
  private:
   void hostBarrier();
@@ -151,6 +188,15 @@ class TORCH_API ProcessGroupLazyHCCL : public Backend {
 
  protected:
   std::shared_ptr<habana::HcclCommunicator> comm_;
+
+  // Flag to denote if a coalescing groupStart/groupEnd block is active
+  int coalescing_state_ = 0;
+
+  c10::intrusive_ptr<CoalescedWorkHCCL> coalesed_works_ = nullptr;
+
+  void groupStart();
+
+  void groupEnd();
 };
 
 } // namespace c10d

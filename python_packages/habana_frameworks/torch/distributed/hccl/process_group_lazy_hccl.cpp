@@ -24,9 +24,8 @@
 #include "habana_lazy/hpu_lazy_tensors.h"
 #include "habana_lazy/permute_tensors.h"
 #include "habana_lazy/tensor_impl.h"
-#include "pytorch_helpers/habana_helpers/python_utils.h"
-
 #include "process_group_registry.hpp"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 
 namespace c10d {
 
@@ -169,8 +168,8 @@ void restoreTensorsize(
     }
   }
 }
-
 } // namespace
+
 ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
     const c10::intrusive_ptr<Store>& store,
     int rank,
@@ -204,6 +203,41 @@ ProcessGroupLazyHCCL::ProcessGroupLazyHCCL(
         }
       });
 };
+
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter_tensor_coalesced(
+    std::vector<at::Tensor>& outputs,
+    std::vector<at::Tensor>& inputs,
+    const ReduceScatterOptions& opts) {
+
+  for (size_t index = 0; index < inputs.size(); ++index) {
+    auto data_type = inputs.at(index).scalar_type();
+    bool cast_tensor =
+        !(data_type == c10::ScalarType::Float ||
+          data_type == c10::ScalarType::BFloat16);
+    at::Tensor t_updated;
+    if (!cast_tensor) {
+      habana_lazy::reduce_scatter_hpu_lazy_out(
+          inputs.at(index),
+          (uint8_t)opts.reduceOp,
+          comm_->GetId(),
+          outputs.at(index));
+    } else {
+      t_updated = inputs.at(index).to(c10::ScalarType::Float);
+      auto output =
+          at::empty_like(outputs.at(index), c10::ScalarType::Float);
+      habana_lazy::reduce_scatter_hpu_lazy_out(
+          t_updated, (uint8_t)opts.reduceOp, comm_->GetId(), output);
+      outputs.at(index).copy_(output.to(data_type));
+    }
+  }
+
+  auto work =
+      c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+  return work;
+}
 
 ProcessGroupLazyHCCL::~ProcessGroupLazyHCCL() {
   PT_DISTRIBUTED_DEBUG(
@@ -290,7 +324,11 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::broadcast(
   }
   habana_lazy::HbLazyTensor::StepMarker();
   restoreOddTensorsize(tensors, changed, sizeList, strideList);
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+  auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+  return work;
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allreduce(
@@ -314,15 +352,19 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allreduce(
       t.copy_(t_updated.to(data_type));
     }
   }
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+  auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
+  return work;
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allreduce_coalesced(
     std::vector<at::Tensor>& tensors,
-    [[maybe_unused]] const AllreduceCoalescedOptions& opts) {
-  at::TensorList at_tensors(tensors);
-  HABANA_ASSERT(false, __FUNCTION__, " not implemented");
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+    const AllreduceCoalescedOptions& opts) {
+  return allreduce(tensors, opts);
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce(
@@ -345,7 +387,11 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce(
       t.copy_(t_updated.to(data_type));
     }
   }
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+  auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+  return work;
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
@@ -397,7 +443,14 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather(
     restoreOddTensorsize(
         outputTensors[i], changed[i], sizeList[i], strideList[i]);
   }
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(output_list_flat);
+  auto work =
+      c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(output_list_flat);
+
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
+  return work;
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_allgather_base(
@@ -478,15 +531,83 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_allgather_base(
       out_strideList,
       out_resize_extra_num_elems,
       ori_input_size);
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
+  auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
+
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+  return work;
 };
 
+static constexpr int CoalActive = 0x01;
+
+void ProcessGroupLazyHCCL::groupStart() {
+  hcclResult_t hccl_result = hcclSuccess;
+  hccl_result = hcclGroupStart();
+  TORCH_CHECK(hcclSuccess == hccl_result, "hcclGroupStart call returned error");
+}
+
+void ProcessGroupLazyHCCL::groupEnd() {
+  hcclResult_t hccl_result = hcclGroupEnd();
+  TORCH_CHECK(hcclSuccess == hccl_result, "hcclGroupEnd call returned error");
+}
+
+ProcessGroupLazyHCCL::CoalescedWorkHCCL::~CoalescedWorkHCCL() = default;
+
+// Method to append a new Work object to works_
+void c10d::ProcessGroupLazyHCCL::CoalescedWorkHCCL::append(
+    const c10::intrusive_ptr<Work>& work) {
+  works_.push_back(work);
+}
+
+// Method to clear the works_ vector
+void c10d::ProcessGroupLazyHCCL::CoalescedWorkHCCL::clear() {
+  works_.clear();
+}
+
+// Same as calling synchronize().
+bool c10d::ProcessGroupLazyHCCL::CoalescedWorkHCCL::wait(
+    std::chrono::milliseconds timeout [[maybe_unused]]) {
+  for (auto& w : works_) {
+    w->wait(timeout);
+  }
+  // Always return true, because abort API is not implemented.
+  return true;
+}
+
+void ProcessGroupLazyHCCL::startCoalescing() {
+  TORCH_CHECK(
+      habana::HPUDeviceContext::is_device_acquired(),
+      "HPU Device not initialized! startCoalescing cannot be done without device init!")
+
+  TORCH_CHECK(
+      coalescing_state_ == 0,
+      "Coalescing is already in progress. Have you invoked startCoalescing again without endCoalescing. BTW nested coalesing is not supported.");
+
+  coalesed_works_ =
+      c10::make_intrusive<ProcessGroupLazyHCCL::CoalescedWorkHCCL>();
+  coalescing_state_ |= CoalActive;
+  coalesed_works_->clear();
+  groupStart();
+}
+
+c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::endCoalescing() {
+  TORCH_CHECK(
+      coalescing_state_ != 0, "endCoalescing invoked without startCoalescing");
+
+  TORCH_CHECK(
+      coalesed_works_ != nullptr, "Error: coalesed_works_ is not initied")
+
+  coalescing_state_ = 0;
+  groupEnd();
+  return coalesed_works_;
+}
+
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::allgather_coalesced(
-    [[maybe_unused]] std::vector<std::vector<at::Tensor>>& outputTensorLists,
-    [[maybe_unused]] std::vector<at::Tensor>& inputTensors,
-    [[maybe_unused]] const AllgatherOptions& opts) {
-  throw std::runtime_error(
-      "allgather_coalesced is currently not supported with HCCL");
+    std::vector<std::vector<at::Tensor>>& outputTensorLists,
+    std::vector<at::Tensor>& inputTensors,
+    const AllgatherOptions& opts) {
+  return allgather(outputTensorLists, inputTensors, opts);
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
@@ -552,6 +673,9 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::gather(
   for (size_t i = 0; i < outputTensors.size(); i++) {
     restoreOddTensorsize(
         outputTensors[i], changed[i], sizeList[i], strideList[i]);
+  }
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
   }
   return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputs);
 };
@@ -629,7 +753,13 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall(
   }
 
   std::vector<at::Tensor> out_tensors = {outputTensors};
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
+  auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
+
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+
+  return work;
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
@@ -660,7 +790,11 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::alltoall_base(
     outputTensor.copy_(t_output.to(data_type));
   }
   std::vector<at::Tensor> out_tensors = {outputTensor};
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
+  auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+  return work;
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::scatter(
@@ -704,7 +838,12 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::reduce_scatter(
     }
   }
 
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputTensors);
+  auto work =
+      c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(outputTensors);
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+  return work;
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_reduce_scatter_base(
@@ -714,7 +853,11 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::_reduce_scatter_base(
   habana_lazy::reduce_scatter_hpu_lazy_out(
       inputTensor, (uint8_t)opts.reduceOp, comm_->GetId(), outputTensor);
   std::vector<at::Tensor> out_tensors = {outputTensor};
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
+  auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(out_tensors);
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+  return work;
 };
 
 void ProcessGroupLazyHCCL::permutedSendTensorsToDense(at::Tensor& tensor) {
@@ -750,7 +893,11 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::send(
     habana_lazy::send_hpu_lazy_(tensor, dstRank, tag, comm_->GetId());
   }
   restoreOddTensorsize(tensors, changed, sizeList, strideList);
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+  auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+  return work;
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::recv(
@@ -767,7 +914,11 @@ c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::recv(
         tensors.at(index), srcRank, tag, comm_->GetId());
   }
   restoreOddTensorsize(tensors, changed, sizeList, strideList);
-  return c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+  auto work = c10::make_intrusive<ProcessGroupLazyHCCL::WorkLazy>(tensors);
+  if (coalescing_state_) {
+    coalesed_works_->append(work);
+  }
+  return work;
 };
 
 c10::intrusive_ptr<Work> ProcessGroupLazyHCCL::recvAnysource(
@@ -864,8 +1015,8 @@ using intrusive_ptr_class_ = py::class_<T, c10::intrusive_ptr<T>>;
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
   py::object backend =
       (py::object)py::module_::import("torch.distributed").attr("_Backend");
-  intrusive_ptr_class_<::c10d::ProcessGroupLazyHCCL>
-      processGroupHccl(module, "ProcessGroupHCCL", backend);
+  intrusive_ptr_class_<::c10d::ProcessGroupLazyHCCL> processGroupHccl(
+      module, "ProcessGroupHCCL", backend);
 
   processGroupHccl.def(py::init(
       &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupLazyHCCL>::create));
