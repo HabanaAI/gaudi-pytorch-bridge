@@ -18,9 +18,9 @@ import warnings
 os.environ["TORCHINDUCTOR_COMPILE_THREADS"] = "1"
 
 # This is to prevent torch autoload mechanism from causing circular imports
-import habana_frameworks
+import habana_frameworks.autoload
 
-habana_frameworks.is_loaded = True
+habana_frameworks.autoload.is_loaded = True
 
 import torch
 from habana_frameworks.torch.utils.internal import is_lazy

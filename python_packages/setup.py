@@ -84,7 +84,7 @@ setup(
     },
     entry_points={
         "torch.backends": [
-            "device_backend = habana_frameworks:__autoload",
+            "device_backend = habana_frameworks.autoload:__autoload",
         ],
     },
     options={
