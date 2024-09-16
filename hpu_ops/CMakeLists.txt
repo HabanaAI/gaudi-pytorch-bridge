@@ -151,6 +151,7 @@ add_habana_library(habana_pytorch_backend_ops OBJECT
   backend/ctc_loss_gen.cpp
   backend/cumsum_gen.cpp
   backend/custom_softmax.cpp
+  backend/deform_conv2d.cpp
   backend/diag_gen.cpp
   backend/div_gen.cpp
   backend/div_mod_util.cpp

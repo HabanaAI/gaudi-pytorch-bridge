@@ -2221,6 +2221,8 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
   m.impl(
       TORCH_SELECTIVE_NAME("torchvision::_roi_align_backward"),
       TORCH_FN(roi_align_bwd_wrap));
+  m.impl("deform_conv2d", deform_conv2d_lazy);
+  m.impl("_deform_conv2d_backward", deform_conv2d_backward_lazy);
 }
 } // namespace ops
 } // namespace vision

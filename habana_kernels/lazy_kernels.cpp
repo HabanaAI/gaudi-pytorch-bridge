@@ -54,6 +54,7 @@
 #include "habana_lazy/view_utils.h"
 #include "hpu_ops/bincount.h"
 #include "hpu_ops/ctc_loss_custom.h"
+#include "hpu_ops/deform_conv2d.h"
 #include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/masked_batch_gemm.h"
 #include "hpu_ops/op_logger.h"
@@ -5919,6 +5920,120 @@ at::Tensor roi_align_bwd_hpu_lazy(
        aligned},
       {out_shape});
   RUN_MAYBE_WITH_ACC_THREAD(roi_align_bwd, k)
+}
+
+at::Tensor deform_conv2d_lazy(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const at::Tensor& offset,
+    const at::Tensor& mask,
+    const at::Tensor& bias,
+    int64_t stride_h,
+    int64_t stride_w,
+    int64_t pad_h,
+    int64_t pad_w,
+    int64_t dilation_h,
+    int64_t dilation_w,
+    int64_t groups,
+    int64_t offset_groups,
+    bool use_mask) {
+  PT_LAZY_OP_TRACE;
+  PT_LAZY_TRACE;
+  PT_OP_INFO(
+      "deform_conv2d :",
+      DUMP_14ARGS(
+          input,
+          weight,
+          offset,
+          mask,
+          bias,
+          stride_h,
+          stride_w,
+          pad_h,
+          pad_w,
+          dilation_h,
+          dilation_w,
+          groups,
+          offset_groups,
+          use_mask));
+
+  LazyOp<at::Tensor> hpu_op{
+      "torchvision::deform_conv2d",
+      {input,
+       weight,
+       offset,
+       mask,
+       bias,
+       stride_h,
+       stride_w,
+       pad_h,
+       pad_w,
+       dilation_h,
+       dilation_w,
+       groups,
+       offset_groups,
+       use_mask}};
+  hpu_op.SetOutputMetaFn(DeformConv2dOutputMeta);
+  return hpu_op.call();
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor>
+deform_conv2d_backward_lazy(
+    const at::Tensor& grad,
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const at::Tensor& offset,
+    const at::Tensor& mask,
+    const at::Tensor& bias,
+    int64_t stride_h,
+    int64_t stride_w,
+    int64_t pad_h,
+    int64_t pad_w,
+    int64_t dilation_h,
+    int64_t dilation_w,
+    int64_t groups,
+    int64_t offset_groups,
+    bool use_mask) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "_deform_conv2d_backward :",
+      DUMP_15ARGS(
+          grad,
+          input,
+          weight,
+          offset,
+          mask,
+          bias,
+          stride_h,
+          stride_w,
+          pad_h,
+          pad_w,
+          dilation_h,
+          dilation_w,
+          groups,
+          offset_groups,
+          use_mask));
+
+  LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor>>
+      hpu_op{
+          "torchvision::_deform_conv2d_backward",
+          {grad,
+           input,
+           weight,
+           offset,
+           mask,
+           bias,
+           stride_h,
+           stride_w,
+           pad_h,
+           pad_w,
+           dilation_h,
+           dilation_w,
+           groups,
+           offset_groups,
+           use_mask}};
+  hpu_op.SetOutputMetaFn(DeformConv2dBackwardOutputMeta);
+  return hpu_op.call();
 }
 
 at::Tensor& broadcast_hpu_lazy_(

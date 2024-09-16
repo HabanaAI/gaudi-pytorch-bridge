@@ -23,6 +23,7 @@
 #include "habana_kernels/index_kernels.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "hpu_ops/ctc_loss_custom.h"
+#include "hpu_ops/deform_conv2d.h"
 #include "hpu_ops/fp8_ops.h"
 #include "hpu_ops/fused_clip_norm.h"
 #include "hpu_ops/masked_batch_gemm.h"
@@ -1268,319 +1269,6 @@ at::Tensor convert_from_uint4(
       "convert_from_uint4", input, scale, zero_point, out_dtype);
 }
 
-/***********************************************************************************
- * Native ops
- **********************************************************************************/
-
-at::Tensor nms(
-    const at::Tensor& boxes,
-    const at::Tensor& scores,
-    double iou_threshold) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO("nms :", DUMP_3ARGS(boxes, scores, iou_threshold));
-
-  // max_classes set for COCO dataset for now, can be increased in future
-  // based on requirement. larger max_classes => smaller max size for
-  // num_boxes allowed because of memory trade-off.
-  int max_classes = 81;
-
-  auto indices = at::zeros_like(scores, torch::kInt32);
-  const int64_t box_id_out_shape{scores.sizes()[0] * max_classes};
-  const int64_t shape_tensor_shape{5};
-
-  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
-      "hpu::batched_nms_eager",
-      {boxes, scores, indices, iou_threshold, max_classes},
-      {{box_id_out_shape}, {shape_tensor_shape}}};
-
-  hpu_op.set_scalar_types({torch::kLong, torch::kInt});
-
-  auto [output_nms, shape_tensor] = hpu_op.call();
-  const int64_t output_numel = shape_tensor[0].item<int64_t>();
-
-  const auto output = output_nms.slice(0, 0, output_numel, 1);
-
-  return output;
-}
-
-at::Tensor roi_align(
-    const at::Tensor& input,
-    const at::Tensor& rois,
-    double spatial_scale,
-    int64_t output_h,
-    int64_t output_w,
-    int64_t sampling_ratio,
-    bool aligned) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "roi_align :",
-      DUMP_7ARGS(
-          input,
-          rois,
-          spatial_scale,
-          output_h,
-          output_w,
-          sampling_ratio,
-          aligned));
-
-  std::vector<int64_t> output_shape{
-      rois.size(0), input.size(1), output_h, output_w};
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "torchvision::roi_align",
-      {input, rois, spatial_scale, output_h, output_w, sampling_ratio, aligned},
-      {{output_shape}}};
-  return hpu_op.call();
-}
-
-at::Tensor roi_align_backward(
-    const at::Tensor& grad,
-    const at::Tensor& rois,
-    double spatial_scale,
-    int64_t pooled_height,
-    int64_t pooled_width,
-    int64_t batch_size,
-    int64_t channels,
-    int64_t height,
-    int64_t width,
-    int64_t sampling_ratio,
-    bool aligned) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "_roi_align_backward :",
-      DUMP_11ARGS(
-          grad,
-          rois,
-          spatial_scale,
-          pooled_height,
-          pooled_width,
-          batch_size,
-          channels,
-          height,
-          width,
-          sampling_ratio,
-          aligned));
-
-  std::vector<int64_t> output_shape{batch_size, channels, height, width};
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "torchvision::_roi_align_backward",
-      {grad,
-       rois,
-       spatial_scale,
-       pooled_height,
-       pooled_width,
-       batch_size,
-       channels,
-       height,
-       width,
-       sampling_ratio,
-       aligned},
-      {{output_shape}}};
-  return hpu_op.call();
-}
-
-at::Tensor dropout(const at::Tensor& input, double p, bool train) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO("dropout :", DUMP_3ARGS(input, p, train));
-
-  return std::get<0>(at::native_dropout(input, p, train));
-}
-
-// pytorch decomposes this op to at::_euclidean_dist in some cases
-// For hpu we prefer to call _cdist_forward in all cases
-at::Tensor cdist(
-    const at::Tensor& x1,
-    const at::Tensor& x2,
-    const double p,
-    c10::optional<int64_t> compute_mode) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO("cdist :", DUMP_4ARGS(x1, x2, p, compute_mode));
-
-  return _cdist_forward(x1, x2, p, compute_mode);
-}
-
-at::Tensor quantize_per_tensor(
-    const at::Tensor& input,
-    double scale,
-    int64_t zero_point,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "quantize_per_tensor :",
-      DUMP_6ARGS(input, scale, zero_point, quant_min, quant_max, type));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "quantized_decomposed::quantize_per_tensor",
-      {input, scale, zero_point, quant_min, quant_max, type},
-      {{input.sizes().vec()}}};
-  hpu_op.set_scalar_types({type});
-  return hpu_op.call();
-}
-
-at::Tensor quantize_per_tensor_tensor(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const at::Tensor& zero_point,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "quantize_per_tensor.tensor :",
-      DUMP_6ARGS(input, scale, zero_point, quant_min, quant_max, type));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "quantized_decomposed::quantize_per_tensor",
-      {input, scale, zero_point, quant_min, quant_max, type},
-      {{input.sizes().vec()}}};
-  hpu_op.set_scalar_types({type});
-  return hpu_op.call();
-}
-
-at::Tensor quantize_per_tensor_tensor2(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const at::Tensor& zero_point,
-    const at::Tensor& quant_min,
-    const at::Tensor& quant_max,
-    at::ScalarType type) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "quantize_per_tensor.tensor2 :",
-      DUMP_6ARGS(input, scale, zero_point, quant_min, quant_max, type));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "quantized_decomposed::quantize_per_tensor",
-      {input, scale, zero_point, quant_min, quant_max, type},
-      {{input.sizes().vec()}}};
-  hpu_op.set_scalar_types({type});
-  return hpu_op.call();
-}
-
-at::Tensor dequantize_per_tensor(
-    const at::Tensor& input,
-    double scale,
-    int64_t zero_point,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type,
-    c10::optional<at::ScalarType> out_dtype) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "dequantize_per_tensor :",
-      DUMP_7ARGS(
-          input, scale, zero_point, quant_min, quant_max, type, out_dtype));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "quantized_decomposed::dequantize_per_tensor",
-      {input, scale, zero_point, quant_min, quant_max, type, out_dtype},
-      {{input.sizes().vec()}}};
-  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
-  return hpu_op.call();
-}
-
-at::Tensor dequantize_per_tensor_tensor(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const at::Tensor& zero_point,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type,
-    c10::optional<at::ScalarType> out_dtype) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "dequantize_per_tensor.tensor :",
-      DUMP_7ARGS(
-          input, scale, zero_point, quant_min, quant_max, type, out_dtype));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "quantized_decomposed::dequantize_per_tensor",
-      {input, scale, zero_point, quant_min, quant_max, type, out_dtype},
-      {{input.sizes().vec()}}};
-  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
-  return hpu_op.call();
-}
-
-at::Tensor dequantize_per_tensor_tensor2(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const at::Tensor& zero_point,
-    const at::Tensor& quant_min,
-    const at::Tensor& quant_max,
-    at::ScalarType type,
-    c10::optional<at::ScalarType> out_dtype) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "dequantize_per_tensor.tensor2 :",
-      DUMP_7ARGS(
-          input, scale, zero_point, quant_min, quant_max, type, out_dtype));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "quantized_decomposed::dequantize_per_tensor",
-      {input, scale, zero_point, quant_min, quant_max, type, out_dtype},
-      {{input.sizes().vec()}}};
-  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
-  return hpu_op.call();
-}
-
-at::Tensor quantize_per_channel(
-    const at::Tensor& input,
-    const at::Tensor& scales,
-    const at::Tensor& zero_points,
-    int64_t axis,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "quantize_per_channel :",
-      DUMP_7ARGS(input, scales, zero_points, axis, quant_min, quant_max, type));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "quantized_decomposed::quantize_per_channel",
-      {input, scales, zero_points, axis, quant_min, quant_max, type},
-      {{input.sizes().vec()}}};
-  hpu_op.set_scalar_types({type});
-  return hpu_op.call();
-}
-
-at::Tensor dequantize_per_channel(
-    const at::Tensor& input,
-    const at::Tensor& scales,
-#if IS_PYTORCH_AT_LEAST(2, 4)
-    const c10::optional<at::Tensor>& zero_points,
-#else
-    const at::Tensor& zero_points,
-#endif
-    int64_t axis,
-    int64_t quant_min,
-    int64_t quant_max,
-    at::ScalarType type,
-    c10::optional<at::ScalarType> out_dtype) {
-  PT_EAGER_TRACE;
-  PT_OP_INFO(
-      "dequantize_per_channel :",
-      DUMP_8ARGS(
-          input,
-          scales,
-          zero_points,
-          axis,
-          quant_min,
-          quant_max,
-          type,
-          out_dtype));
-
-  habana::eager::EagerOp<at::Tensor> hpu_op{
-      "quantized_decomposed::dequantize_per_channel",
-      {input, scales, zero_points, axis, quant_min, quant_max, type, out_dtype},
-      {{input.sizes().vec()}}};
-  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
-  return hpu_op.call();
-}
-
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> sdpa_recomp_fwd(
     const at::Tensor& q,
     const at::Tensor& k,
@@ -2280,6 +1968,433 @@ fp8_sdpa_recomp_scalar_fwd(
       fwdOutType);
 }
 
+/***********************************************************************************
+ * Native ops
+ **********************************************************************************/
+
+at::Tensor nms(
+    const at::Tensor& boxes,
+    const at::Tensor& scores,
+    double iou_threshold) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("nms :", DUMP_3ARGS(boxes, scores, iou_threshold));
+
+  // max_classes set for COCO dataset for now, can be increased in future
+  // based on requirement. larger max_classes => smaller max size for
+  // num_boxes allowed because of memory trade-off.
+  int max_classes = 81;
+
+  auto indices = at::zeros_like(scores, torch::kInt32);
+  const int64_t box_id_out_shape{scores.sizes()[0] * max_classes};
+  const int64_t shape_tensor_shape{5};
+
+  habana::eager::EagerOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
+      "hpu::batched_nms_eager",
+      {boxes, scores, indices, iou_threshold, max_classes},
+      {{box_id_out_shape}, {shape_tensor_shape}}};
+
+  hpu_op.set_scalar_types({torch::kLong, torch::kInt});
+
+  auto [output_nms, shape_tensor] = hpu_op.call();
+  const int64_t output_numel = shape_tensor[0].item<int64_t>();
+
+  const auto output = output_nms.slice(0, 0, output_numel, 1);
+
+  return output;
+}
+
+at::Tensor roi_align(
+    const at::Tensor& input,
+    const at::Tensor& rois,
+    double spatial_scale,
+    int64_t output_h,
+    int64_t output_w,
+    int64_t sampling_ratio,
+    bool aligned) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "roi_align :",
+      DUMP_7ARGS(
+          input,
+          rois,
+          spatial_scale,
+          output_h,
+          output_w,
+          sampling_ratio,
+          aligned));
+
+  std::vector<int64_t> output_shape{
+      rois.size(0), input.size(1), output_h, output_w};
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "torchvision::roi_align",
+      {input, rois, spatial_scale, output_h, output_w, sampling_ratio, aligned},
+      {{output_shape}}};
+  return hpu_op.call();
+}
+
+at::Tensor roi_align_backward(
+    const at::Tensor& grad,
+    const at::Tensor& rois,
+    double spatial_scale,
+    int64_t pooled_height,
+    int64_t pooled_width,
+    int64_t batch_size,
+    int64_t channels,
+    int64_t height,
+    int64_t width,
+    int64_t sampling_ratio,
+    bool aligned) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "_roi_align_backward :",
+      DUMP_11ARGS(
+          grad,
+          rois,
+          spatial_scale,
+          pooled_height,
+          pooled_width,
+          batch_size,
+          channels,
+          height,
+          width,
+          sampling_ratio,
+          aligned));
+
+  std::vector<int64_t> output_shape{batch_size, channels, height, width};
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "torchvision::_roi_align_backward",
+      {grad,
+       rois,
+       spatial_scale,
+       pooled_height,
+       pooled_width,
+       batch_size,
+       channels,
+       height,
+       width,
+       sampling_ratio,
+       aligned},
+      {{output_shape}}};
+  return hpu_op.call();
+}
+
+at::Tensor dropout(const at::Tensor& input, double p, bool train) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("dropout :", DUMP_3ARGS(input, p, train));
+
+  return std::get<0>(at::native_dropout(input, p, train));
+}
+
+// pytorch decomposes this op to at::_euclidean_dist in some cases
+// For hpu we prefer to call _cdist_forward in all cases
+at::Tensor cdist(
+    const at::Tensor& x1,
+    const at::Tensor& x2,
+    const double p,
+    c10::optional<int64_t> compute_mode) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO("cdist :", DUMP_4ARGS(x1, x2, p, compute_mode));
+
+  return _cdist_forward(x1, x2, p, compute_mode);
+}
+
+at::Tensor quantize_per_tensor(
+    const at::Tensor& input,
+    double scale,
+    int64_t zero_point,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "quantize_per_tensor :",
+      DUMP_6ARGS(input, scale, zero_point, quant_min, quant_max, type));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::quantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({type});
+  return hpu_op.call();
+}
+
+at::Tensor quantize_per_tensor_tensor(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const at::Tensor& zero_point,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "quantize_per_tensor.tensor :",
+      DUMP_6ARGS(input, scale, zero_point, quant_min, quant_max, type));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::quantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({type});
+  return hpu_op.call();
+}
+
+at::Tensor quantize_per_tensor_tensor2(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const at::Tensor& zero_point,
+    const at::Tensor& quant_min,
+    const at::Tensor& quant_max,
+    at::ScalarType type) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "quantize_per_tensor.tensor2 :",
+      DUMP_6ARGS(input, scale, zero_point, quant_min, quant_max, type));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::quantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({type});
+  return hpu_op.call();
+}
+
+at::Tensor dequantize_per_tensor(
+    const at::Tensor& input,
+    double scale,
+    int64_t zero_point,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "dequantize_per_tensor :",
+      DUMP_7ARGS(
+          input, scale, zero_point, quant_min, quant_max, type, out_dtype));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::dequantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type, out_dtype},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
+  return hpu_op.call();
+}
+
+at::Tensor dequantize_per_tensor_tensor(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const at::Tensor& zero_point,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "dequantize_per_tensor.tensor :",
+      DUMP_7ARGS(
+          input, scale, zero_point, quant_min, quant_max, type, out_dtype));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::dequantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type, out_dtype},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
+  return hpu_op.call();
+}
+
+at::Tensor dequantize_per_tensor_tensor2(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const at::Tensor& zero_point,
+    const at::Tensor& quant_min,
+    const at::Tensor& quant_max,
+    at::ScalarType type,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "dequantize_per_tensor.tensor2 :",
+      DUMP_7ARGS(
+          input, scale, zero_point, quant_min, quant_max, type, out_dtype));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::dequantize_per_tensor",
+      {input, scale, zero_point, quant_min, quant_max, type, out_dtype},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
+  return hpu_op.call();
+}
+
+at::Tensor quantize_per_channel(
+    const at::Tensor& input,
+    const at::Tensor& scales,
+    const at::Tensor& zero_points,
+    int64_t axis,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "quantize_per_channel :",
+      DUMP_7ARGS(input, scales, zero_points, axis, quant_min, quant_max, type));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::quantize_per_channel",
+      {input, scales, zero_points, axis, quant_min, quant_max, type},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({type});
+  return hpu_op.call();
+}
+
+at::Tensor dequantize_per_channel(
+    const at::Tensor& input,
+    const at::Tensor& scales,
+#if IS_PYTORCH_AT_LEAST(2, 4)
+    const c10::optional<at::Tensor>& zero_points,
+#else
+    const at::Tensor& zero_points,
+#endif
+    int64_t axis,
+    int64_t quant_min,
+    int64_t quant_max,
+    at::ScalarType type,
+    c10::optional<at::ScalarType> out_dtype) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "dequantize_per_channel :",
+      DUMP_8ARGS(
+          input,
+          scales,
+          zero_points,
+          axis,
+          quant_min,
+          quant_max,
+          type,
+          out_dtype));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "quantized_decomposed::dequantize_per_channel",
+      {input, scales, zero_points, axis, quant_min, quant_max, type, out_dtype},
+      {{input.sizes().vec()}}};
+  hpu_op.set_scalar_types({out_dtype.value_or(at::ScalarType::Float)});
+  return hpu_op.call();
+}
+
+at::Tensor deform_conv2d(
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const at::Tensor& offset,
+    const at::Tensor& mask,
+    const at::Tensor& bias,
+    int64_t stride_h,
+    int64_t stride_w,
+    int64_t pad_h,
+    int64_t pad_w,
+    int64_t dilation_h,
+    int64_t dilation_w,
+    int64_t groups,
+    int64_t offset_groups,
+    bool use_mask) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "deform_conv2d :",
+      DUMP_14ARGS(
+          input,
+          weight,
+          offset,
+          mask,
+          bias,
+          stride_h,
+          stride_w,
+          pad_h,
+          pad_w,
+          dilation_h,
+          dilation_w,
+          groups,
+          offset_groups,
+          use_mask));
+
+  habana::eager::EagerOp<at::Tensor> hpu_op{
+      "torchvision::deform_conv2d",
+      {input,
+       weight,
+       offset,
+       mask,
+       bias,
+       stride_h,
+       stride_w,
+       pad_h,
+       pad_w,
+       dilation_h,
+       dilation_w,
+       groups,
+       offset_groups,
+       use_mask}};
+  hpu_op.SetOutputMetaFn(habana::DeformConv2dOutputMeta);
+  return hpu_op.call();
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor>
+deform_conv2d_backward(
+    const at::Tensor& grad,
+    const at::Tensor& input,
+    const at::Tensor& weight,
+    const at::Tensor& offset,
+    const at::Tensor& mask,
+    const at::Tensor& bias,
+    int64_t stride_h,
+    int64_t stride_w,
+    int64_t pad_h,
+    int64_t pad_w,
+    int64_t dilation_h,
+    int64_t dilation_w,
+    int64_t groups,
+    int64_t offset_groups,
+    bool use_mask) {
+  PT_EAGER_TRACE;
+  PT_OP_INFO(
+      "_deform_conv2d_backward :",
+      DUMP_15ARGS(
+          grad,
+          input,
+          weight,
+          offset,
+          mask,
+          bias,
+          stride_h,
+          stride_w,
+          pad_h,
+          pad_w,
+          dilation_h,
+          dilation_w,
+          groups,
+          offset_groups,
+          use_mask));
+
+  habana::eager::EagerOp<
+      std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor>>
+      hpu_op{
+          "torchvision::_deform_conv2d_backward",
+          {grad,
+           input,
+           weight,
+           offset,
+           mask,
+           bias,
+           stride_h,
+           stride_w,
+           pad_h,
+           pad_w,
+           dilation_h,
+           dilation_w,
+           groups,
+           offset_groups,
+           use_mask}};
+  hpu_op.SetOutputMetaFn(habana::DeformConv2dBackwardOutputMeta);
+  return hpu_op.call();
+}
+
 } // namespace
 
 namespace habana::eager {
@@ -2592,6 +2707,8 @@ TORCH_LIBRARY_IMPL(torchvision, HPU, m) {
   m.impl("roi_align", roi_align);
   m.impl("_roi_align_backward", roi_align_backward);
   m.impl("nms", nms);
+  m.impl("deform_conv2d", deform_conv2d);
+  m.impl("_deform_conv2d_backward", deform_conv2d_backward);
 }
 
 TORCH_LIBRARY_IMPL(quantized_decomposed, HPU, m) {
