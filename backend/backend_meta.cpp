@@ -17,6 +17,7 @@
 #include "backend/helpers/runtime_config.h"
 #include "backend/jit_graph_cache.h"
 #include "backend_meta.h"
+#include "pytorch_helpers/habana_helpers/python_utils.h"
 #if HAVE_TORCH_BACKEND_META_SUPPORT
 // detecting that there is a torch patch in place that introduces
 // c10::BackendMeta in the TensorImpl and we don't have to rely on
@@ -133,6 +134,8 @@ void TensorExtraMeta::set_const_tensor(
           habana_helpers::GetNBytes(tensor),
           [&copyDone]() { copyDone = true; },
           true);
+
+      habana_helpers::AutoNoGIL gil_release;
       // wait for copy completion
       while (!copyDone) {
         std::this_thread::yield();
