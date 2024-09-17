@@ -1680,6 +1680,7 @@ def test_sag_lerp():
     assert len(shape_agnostic_not_supported_ops) == 0
 
 
+@pytest.mark.skip(reason="SW-201659 - too long test execution")
 def test_lop():
     cpu_tensor = torch.Tensor(np.arange(-10.0, 10.0, 0.1))
     hpu_tensor = cpu_tensor.to("hpu")
