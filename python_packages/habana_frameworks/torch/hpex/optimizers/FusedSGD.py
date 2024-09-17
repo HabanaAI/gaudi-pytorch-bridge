@@ -14,6 +14,8 @@ from typing import Callable, Iterable
 
 import habana_frameworks.torch.core as htcore
 import torch
+from habana_frameworks.torch import _hpex_C
+from habana_frameworks.torch.utils.internal import is_lazy
 from torch.optim import Optimizer
 from torch.optim.optimizer import required
 
@@ -64,6 +66,7 @@ class FusedSGD(Optimizer):
         self.lr_list = []
         self.lr_t = None
         self.step_t = torch.tensor([0], dtype=torch.int32, requires_grad=False).to(hpu, non_blocking=True)
+        self.is_lazy = is_lazy()
 
         htcore.step_closure._mark_step_if_lazy()
 
@@ -96,15 +99,29 @@ class FusedSGD(Optimizer):
 
                     grad_list.append(grad)
                     d_p_list.append(weight)
-                torch.ops.hpu.optimizer_sgd(
-                    grad_list,
-                    d_p_list,
-                    self.lr_t,
-                    group["weight_decay"],
-                    group["momentum"],
-                    group["dampening"],
-                    group["nesterov"],
-                )
+
+                if self.is_lazy:
+                    htcore.step_closure._mark_step_if_lazy()
+                    _hpex_C.optimizer_sgd(
+                        grad_list,
+                        d_p_list,
+                        self.lr_t,
+                        group["weight_decay"],
+                        group["momentum"],
+                        group["dampening"],
+                        group["nesterov"],
+                    )
+                    htcore.step_closure._mark_step_if_lazy()
+                else:
+                    torch.ops.hpu.optimizer_sgd(
+                        grad_list,
+                        d_p_list,
+                        self.lr_t,
+                        group["weight_decay"],
+                        group["momentum"],
+                        group["dampening"],
+                        group["nesterov"],
+                    )
             else:
                 grad_list, d_p_list, momentum_buffer_list = [], [], []
                 for p in group["params"]:
@@ -124,16 +141,31 @@ class FusedSGD(Optimizer):
                     momentum_buffer_list.append(state["momentum_buffer"])
 
                 momentum_t = torch.tensor(group["momentum"]).to(hpu, non_blocking=True)
-                torch.ops.hpu.optimizer_sgd_momentum(
-                    grad_list,
-                    d_p_list,
-                    momentum_buffer_list,
-                    self.step_t,
-                    self.lr_t,
-                    momentum_t,
-                    group["weight_decay"],
-                    group["dampening"],
-                    group["nesterov"],
-                )
+                if self.is_lazy:
+                    htcore.step_closure._mark_step_if_lazy()
+                    _hpex_C.optimizer_sgd_momentum(
+                        grad_list,
+                        d_p_list,
+                        momentum_buffer_list,
+                        self.step_t,
+                        self.lr_t,
+                        momentum_t,
+                        group["weight_decay"],
+                        group["dampening"],
+                        group["nesterov"],
+                    )
+                    htcore.step_closure._mark_step_if_lazy()
+                else:
+                    torch.ops.hpu.optimizer_sgd_momentum(
+                        grad_list,
+                        d_p_list,
+                        momentum_buffer_list,
+                        self.step_t,
+                        self.lr_t,
+                        momentum_t,
+                        group["weight_decay"],
+                        group["dampening"],
+                        group["nesterov"],
+                    )
 
         return loss

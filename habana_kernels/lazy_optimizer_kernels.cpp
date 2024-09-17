@@ -316,6 +316,43 @@ void optimizer_adagrad_hpu_lazy(
   loo.call(weights, variances, ADAGRAD);
 }
 
+void optimizer_sgd_hpu_lazy(
+    const TensorList& gradients,
+    TensorList& weights,
+    at::Tensor& lr,
+    const float wd,
+    const float mom,
+    const float damp,
+    const bool nesterov) {
+  PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
+
+  LazyOptimizationOp<void> loo(
+      "hpu::habanaOptimizerSgd",
+      {gradients, weights, lr, wd, mom, damp, nesterov});
+
+  loo.call(weights);
+}
+
+void optimizer_sgd_momentum_hpu_lazy(
+    const TensorList& gradients,
+    TensorList& weights,
+    TensorList& momentum,
+    const at::Tensor& epoch_num,
+    at::Tensor& lr,
+    const at::Tensor& mom,
+    const float wd,
+    const float damp,
+    const bool nesterov) {
+  PT_LAZY_TRACE;
+  habana_lazy::NoAccThread no_acc_thread;
+
+  LazyOptimizationOp<void> loo(
+      "hpu::habanaOptimizerSgdMomentum",
+      {gradients, weights, momentum, epoch_num, lr, mom, wd, damp, nesterov});
+  loo.call(weights, momentum, OPTIMIZER::SGD_MOMENTUM);
+}
+
 void optimizer_lars_hpu_lazy(
     const at::TensorList params,
     at::TensorList grads,
