@@ -19,6 +19,7 @@
 #include "habana_eager/eager_context.h"
 #include "pytorch_helpers/habana_helpers/python_utils.h"
 #include "pytorch_helpers/habana_helpers/thread_pool/thread_pool.h"
+#include "pytorch_helpers/low_overhead_profiler/profiler.h"
 
 namespace habana {
 namespace eager {
@@ -32,6 +33,7 @@ void EagerLoweringTask(
   LOP::emit_event_fast(
       true,
       "EagerLoweringTask()",
+      eager_op_meta_data.op_name_,
       (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_LOWERING_ID,
       lowering_queue_length);
   habana::eager::EagerExec hlexec{

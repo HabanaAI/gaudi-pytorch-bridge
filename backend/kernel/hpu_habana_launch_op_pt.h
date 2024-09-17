@@ -20,6 +20,7 @@
 #include "backend/helpers/tensor_utils.h"
 #include "backend/jit_graph_cache.h"
 #include "backend/kernel/hpu_shape_inference.h"
+#include "pytorch_helpers/low_overhead_profiler/profiler.h"
 
 namespace habana {
 using IValPtrSharedToTesorInfoMap =

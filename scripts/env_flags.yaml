@@ -825,3 +825,7 @@ PT_HPU_CLEAR_PERM_INFO:
   default: true
   doc: "This is a debug flag to temporarily disable permutation info clear.\n
 Do not use it in production"
+
+PT_HPU_EVENT_TABLE_SIZE:
+  type: unsigned
+  default: 10000000

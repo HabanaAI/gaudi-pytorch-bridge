@@ -16,6 +16,7 @@
 #include <climits>
 #include <list>
 #include <mutex>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -42,6 +43,7 @@ struct Event {
   uint64_t timestamp;
   uint64_t jit_cache_key;
   const char* name;
+  std::string op_name;
   uint32_t thread_id;
   uint32_t cpu_id;
   uint32_t user_event_id;
@@ -50,6 +52,7 @@ struct Event {
   uint64_t jit_cache_hit_count;
   bool is_begin;
   uint64_t device_queue_length;
+  uint64_t stage_time;
 };
 
 struct ProfilerEngine {
@@ -84,10 +87,84 @@ struct ProfilerEngine {
 void emit_event_fast(
     bool is_begin,
     const char* name,
+    std::string_view op_name,
     int32_t pipe_stage_id = -1,
     uint64_t queue_length = 0,
     uint64_t jit_key = 0,
     uint64_t jit_cache_hit_count = 0,
     uint64_t device_queue_length = 0);
+
+class ScopeEventImpl {
+ public:
+  ScopeEventImpl(
+      const char* event_name,
+      const std::string& op_name,
+      int32_t pipeline_stage_id,
+      uint64_t jit_key,
+      uint64_t jit_cache_hit_count,
+      uint64_t queue_length,
+      uint64_t device_queue_length)
+      : event_name_(event_name),
+        op_name_(op_name),
+        pipeline_stage_id_(pipeline_stage_id),
+        jit_key_(jit_key),
+        jit_cache_hit_count_(jit_cache_hit_count),
+        queue_length_(queue_length),
+        device_queue_length_(device_queue_length) {
+    // Emit the start event
+    LOP::emit_event_fast(
+        true, event_name_, op_name_, pipeline_stage_id_, queue_length_);
+  }
+
+  ~ScopeEventImpl() {
+    // Emit the end event
+    LOP::emit_event_fast(
+        false,
+        event_name_,
+        op_name_,
+        pipeline_stage_id_,
+        queue_length_,
+        jit_key_,
+        jit_cache_hit_count_,
+        device_queue_length_);
+  }
+
+ private:
+  const char* event_name_;
+  const std::string op_name_;
+  int32_t pipeline_stage_id_;
+  uint64_t jit_key_;
+  uint64_t jit_cache_hit_count_;
+  uint64_t queue_length_;
+  uint64_t device_queue_length_;
+};
+
+class ScopeEvent {
+ public:
+  ScopeEvent(
+      const char* event_name,
+      const std::string& op_name,
+      int32_t pipeline_stage_id,
+      uint64_t jit_key,
+      uint64_t jit_cache_hit_count,
+      uint64_t queue_length,
+      uint64_t device_queue_length) {
+    bool enable_lop_collection =
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LOP_METRICS_COLLECTION) ||
+        GET_ENV_FLAG_NEW(PT_HPU_ENABLE_LOP_TRACES_COLLECTION);
+    if (enable_lop_collection)
+      scope_event_ = std::make_unique<ScopeEventImpl>(
+          event_name,
+          op_name,
+          pipeline_stage_id,
+          jit_key,
+          jit_cache_hit_count,
+          queue_length,
+          device_queue_length);
+  }
+
+ private:
+  std::unique_ptr<ScopeEventImpl> scope_event_;
+};
 
 } // namespace LOP

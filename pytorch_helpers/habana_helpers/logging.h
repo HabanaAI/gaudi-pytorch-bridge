@@ -24,7 +24,6 @@
 #include "backend/profiling/profiling.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "backend/synapse_helpers/runtime_tracing.h"
-#include "pytorch_helpers/low_overhead_profiler/profiler.h"
 
 #include <fmt/ostream.h>
 #include <fmt/ranges.h>

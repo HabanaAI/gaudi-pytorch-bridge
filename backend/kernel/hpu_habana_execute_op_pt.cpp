@@ -20,22 +20,20 @@ namespace habana {
 namespace HabanaLaunchOpPipeline {
 void ExecuteSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
   auto execute_queue_length =
-      HPUDeviceContext::compile_thread().get_active_task_count();
-  LOP::emit_event_fast(
-      true,
-      "EagerExecuteTask()",
-      (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_EXECUTE_ID,
-      execute_queue_length);
-  launch_op->ExecuteSynapse();
+      HPUDeviceContext::execute_thread().get_active_task_count();
+  const auto& op_name = launch_op->get_jit_graph_and_meta_data()->GetOpName();
   auto& device = habana::HPUDeviceContext::get_device();
-  LOP::emit_event_fast(
-      false,
+  uint64_t device_queue_length = device.get_active_recipe_counter().get_count();
+  LOP::ScopeEvent scope_event(
       "EagerExecuteTask()",
+      op_name,
       (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_EXECUTE_ID,
-      execute_queue_length,
       launch_op->get_graph_key(),
       launch_op->get_jit_graph_cache_hit_count(),
-      device.get_active_recipe_counter().get_count());
+      execute_queue_length,
+      device_queue_length);
+
+  launch_op->ExecuteSynapse();
 }
 } // namespace HabanaLaunchOpPipeline
 

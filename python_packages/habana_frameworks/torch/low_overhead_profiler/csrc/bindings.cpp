@@ -14,6 +14,7 @@
 #include "backend/habana_device/HPUDevice.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "pybind11/stl.h"
+#include "pytorch_helpers/low_overhead_profiler/profiler.h"
 #include "synapse_api.h"
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {

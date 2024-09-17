@@ -506,6 +506,7 @@ void EagerExec::launch() {
   LOP::emit_event_fast(
       false,
       "EagerLoweringTask()",
+      graph_and_meta->GetOpName(),
       (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_LOWERING_ID,
       lowering_queue_length,
       key,
