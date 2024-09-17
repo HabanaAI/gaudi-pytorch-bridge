@@ -75,15 +75,6 @@ void HPURegistrar::device_deleter(HPUDevice* device) {
 
 void HPURegistrar::device_deleter_internal(HPUDevice* device) {
   PT_BRIDGE_DEBUG("Releasing hpu device ", acquired_device_.get());
-  // Cleanup the device
-  device->cleanup();
-
-  // Run late-cleanup test hook if armed.
-  if (test_inject_late_cleanup_) {
-    test_inject_late_cleanup_();
-    test_inject_late_cleanup_ = nullptr;
-  }
-
   // while deleting, the device is still accessible
   // by get_device() via active_device_, albeit with a warning.
   // Notably Tensor deallocations due to streams being flushed
