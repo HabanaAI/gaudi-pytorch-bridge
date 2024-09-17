@@ -365,6 +365,15 @@ def is_higher_order_node(node: torch.fx.Node) -> bool:
     )
 
 
+def is_constant_for_lift_fresh_copy(node: torch.fx.Node, arg: torch.fx.Node) -> bool:
+    return (
+        node.op == "call_function"
+        and str(node.target) == "aten.lift_fresh_copy.default"
+        and arg.op == "get_attr"
+        and arg.target.startswith("_tensor_constant")
+    )
+
+
 def optimize_graph(
     stage: OptimizationPassPlacement,
     graph_module: torch.fx.GraphModule,
@@ -1342,6 +1351,9 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
                         continue
                     elif is_backward_checkpoint_op(node) and arg.meta["output_device"] == torch.device("cpu"):
                         logger.debug("Argument {} to node {} is an rng_state - a cpu tensor by definition", arg, node)
+                        continue
+                    elif is_constant_for_lift_fresh_copy(node, arg):
+                        logger.debug("Argument {} to node {} is a _tensor_constant get_attr", arg, node)
                         continue
                     assert arg.meta["output_device"].type == "hpu"
 
