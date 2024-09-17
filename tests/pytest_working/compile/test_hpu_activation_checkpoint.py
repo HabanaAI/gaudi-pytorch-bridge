@@ -16,11 +16,6 @@ from habana_frameworks.torch.dynamo.compile_backend.shared_layer import hpu_fall
 from test_dynamo_utils import use_eager_fallback
 from test_utils import check_ops_executed_in_jit_ir, clear_t_compile_logs
 
-# Manual initialization is needed for eager activation checkpoint.
-# PyTorch checks if torch.hpu.is_initialized() is True.
-# It won't be needed after https://jira.habana-labs.com/browse/SW-193502 is done.
-torch.hpu.init()
-
 
 def bernoulli(x):
     return torch.bernoulli(x) * x
