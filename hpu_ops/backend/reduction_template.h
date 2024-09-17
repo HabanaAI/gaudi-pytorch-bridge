@@ -47,6 +47,15 @@ OutputMetaDataVector ReductionMeta(const at::Stack& stack) {
   return {meta};
 }
 
+inline bool reduction_support_f32(const std::string& guid) {
+  return guid.find("reduce_prod_multi_dim_fwd") != std::string::npos or
+      guid.find("reduce_mean_multi_dim_fwd") != std::string::npos;
+}
+
+inline bool reduction_support_i32(const std::string& guid) {
+  return guid.find("reduce_sum_multi_dim") != std::string::npos;
+}
+
 c10::optional<synapse_helpers::tensor> HandleReductionDtype(
     OpBackend* op,
     synapse_helpers::graph& graph,

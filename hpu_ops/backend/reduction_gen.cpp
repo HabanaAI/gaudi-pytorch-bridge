@@ -43,6 +43,71 @@ static bool areTypesAllowedForSumOut(
   }
 }
 
+SharedMetaDataVector ReductionOpSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid,
+    bool isListVariant) {
+  const auto& self = stack_tensor(stack, 0);
+
+  c10::optional<uint8_t> dimIndex =
+      isListVariant ? c10::make_optional<uint8_t>(1) : c10::nullopt;
+  c10::optional<uint8_t> keepDimIndex =
+      isListVariant ? c10::make_optional<uint8_t>(2) : c10::nullopt;
+  c10::optional<uint8_t> dtypeIndex = isListVariant
+      ? c10::make_optional<uint8_t>(3)
+      : c10::make_optional<uint8_t>(1);
+  auto dtype = get_dtype(stack, dtypeIndex);
+  const bool isOutVersion = stack.back().isTensor();
+  if (isOutVersion)
+    dtype = stack.back().toTensor().scalar_type();
+
+  const auto selfDtype = self.scalar_type();
+  auto computeDtype = dtype.value_or(selfDtype);
+  if (at::isIntegralType(selfDtype, true)) {
+    if (reduction_support_i32(guid))
+      computeDtype = computeDtype != at::kFloat ? at::kInt : computeDtype;
+    else if (reduction_support_f32(guid))
+      computeDtype = at::kFloat;
+  }
+
+  const auto dims = get_dims(stack, dimIndex);
+  const auto dimsSize = dims.size();
+  const auto inputRank = self.dim();
+  const bool keepDim = get_keepdim(stack, keepDimIndex);
+  int64_t outputRank = (!keepDim && dimsSize == 0) ? 1 : inputRank - dimsSize;
+  if (outputRank <= 0)
+    outputRank = 1;
+
+  SharedMetaData reductionSharedMeta{guid};
+  reductionSharedMeta.inputs_data.emplace_back(inputRank, computeDtype);
+  reductionSharedMeta.outputs_data.emplace_back(outputRank, computeDtype);
+  return {reductionSharedMeta};
+}
+
+SharedMetaDataVector ReductionOpSumSharedMeta(const at::Stack& stack) {
+  return ReductionOpSharedMeta(stack, "reduce_sum_multi_dim_fwd", false);
+}
+
+SharedMetaDataVector ReductionOpSumListSharedMeta(const at::Stack& stack) {
+  return ReductionOpSharedMeta(stack, "reduce_sum_multi_dim_fwd", true);
+}
+
+SharedMetaDataVector ReductionOpMeanSharedMeta(const at::Stack& stack) {
+  return ReductionOpSharedMeta(stack, "reduce_mean_multi_dim_fwd", false);
+}
+
+SharedMetaDataVector ReductionOpMeanListSharedMeta(const at::Stack& stack) {
+  return ReductionOpSharedMeta(stack, "reduce_mean_multi_dim_fwd", true);
+}
+
+SharedMetaDataVector ReductionOpProdSharedMeta(const at::Stack& stack) {
+  return ReductionOpSharedMeta(stack, "reduce_prod_multi_dim_fwd", false);
+}
+
+SharedMetaDataVector ReductionOpProdListSharedMeta(const at::Stack& stack) {
+  return ReductionOpSharedMeta(stack, "reduce_prod_multi_dim_fwd", true);
+}
+
 static sh::tensor ReductionOpCommon(
     OpBackend* op,
     sh::graph& graph,

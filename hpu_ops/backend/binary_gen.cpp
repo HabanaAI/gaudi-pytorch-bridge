@@ -264,7 +264,7 @@ static SharedMetaDataVector ForeachBinaryOneIterationSharedMeta(
   SharedMetaDataVector metaVec;
   if (other.isTensor()) {
     const auto& otherTensor = other.toTensor();
-    if (stack.size() > 2) {
+    if (stack.size() > 2 && stack.at(ALPHA_INDEX).isScalar()) {
       alpha = stack.at(ALPHA_INDEX).toScalar();
     }
 
@@ -364,6 +364,15 @@ SharedMetaDataVector MultForeachBinarySharedMeta(const at::Stack& stack) {
   };
 
   return CommonForeachBinarySharedMeta(stack, sharedMetaCreator);
+}
+
+SharedMetaDataVector MulBinarySharedMeta(const at::Stack& stack) {
+  const bool castIntToFloat = false;
+  const bool supportI8 = true;
+  const bool supportI16 = true;
+  const bool mulOrDiv = true;
+  return ForeachBinaryOneIterationSharedMeta(
+      stack, "mult_fwd", castIntToFloat, supportI8, supportI16, mulOrDiv);
 }
 
 SharedMetaDataVector SubForeachBinarySharedMeta(const at::Stack& stack) {

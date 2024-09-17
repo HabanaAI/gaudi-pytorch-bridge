@@ -41,5 +41,6 @@ SHARED_META_GUID(BinaryWithAlpha)
 SHARED_META_GUID(BitwiseLogical)
 SHARED_META(Topk)
 SHARED_META_GUID(RandomSeedTensorInput)
+SHARED_META_GUID(MatrixMulWithAdd)
 
 } // namespace habana
