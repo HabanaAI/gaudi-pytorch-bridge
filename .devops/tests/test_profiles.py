@@ -30,8 +30,8 @@ def teardown_module():
 
 
 def test_get_version_literal_and_source():
-    assert profiles.get_version_literal_and_source("current") == profiles.VersionLiteralAndSource("1.2.3", "build")
-    assert profiles.get_version_literal_and_source("previous") == profiles.VersionLiteralAndSource("1.0.0", "pypi")
+    assert profiles.get_version_literal_and_source("current") == profiles.VersionLiteralAndSource("1.2", "build")
+    assert profiles.get_version_literal_and_source("previous") == profiles.VersionLiteralAndSource("1.0", "pypi")
     assert profiles.get_version_literal_and_source("rc") is None
     assert profiles.get_version_literal_and_source("nightly") == profiles.VersionLiteralAndSource(
         "nightly", r"https://download.pytorch.org/whl/nightly/cpu"
@@ -51,12 +51,12 @@ def test_get_args_for_profile():
         "--manylinux",
         "--python-versions=3.8",
         "--pt-versions",
-        "1.0.0",
-        "1.2.3",
+        "1.0",
+        "1.2",
     ]
     assert profiles.get_args_for_profile("test1") == test1_args
 
-    assert profiles.get_args_for_profile("test2") == ["--pt-versions", "1.0.0"]
+    assert profiles.get_args_for_profile("test2") == ["--pt-versions", "1.0"]
 
     with pytest.raises(RuntimeError, match=r".*profile.*pt-versions"):
         profiles.get_args_for_profile("test3")
@@ -71,7 +71,7 @@ def test_get_args_for_profile():
         "-c",
         "--build-whl",
         "--wheel-spec",
-        "habana-pytorch:1.2.3,1.0.0:standard",
+        "habana-pytorch:1.2,1.0:standard",
         "habana-pytorch-internal:nightly:optional",
     ]
 
@@ -89,7 +89,7 @@ def test_get_required_pt():
             profiles.get_version_literal_and_source("current").version,
             profiles.RequirementPurpose.RUNTIME,
         )
-        == "pytorch==1.2.3"
+        == "pytorch==1.2"
     )
     assert (
         profiles.get_required_pt(
@@ -103,7 +103,7 @@ def test_get_required_pt():
             profiles.get_version_literal_and_source("current").version,
             profiles.RequirementPurpose.BUILD,
         )
-        == "pytorch==1.2.3"
+        == "pytorch==1.2"
     )
 
 

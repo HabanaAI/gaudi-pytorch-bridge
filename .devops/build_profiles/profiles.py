@@ -56,7 +56,11 @@ def get_version_literal_and_source(version_name: str) -> Optional[VersionLiteral
     available_pt_versions = profiles_json["pt_versions"]
     try:
         node = available_pt_versions[version_name]
-        return None if node["version"] is None else VersionLiteralAndSource(node["version"], node["default_source"])
+        return (
+            None
+            if node["version"] is None
+            else VersionLiteralAndSource(".".join(node["version"].split(".", 2)[:2]), node["default_source"])
+        )
     except KeyError as exc:
         raise KeyError(f'pt_version "{version_name}" is not defined') from exc
 
