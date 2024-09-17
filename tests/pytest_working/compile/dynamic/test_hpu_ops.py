@@ -705,11 +705,12 @@ def test_op_adaptiveAvgPool2d_bwd():
         avg_pool.backward(grad)
         return input.grad
 
-    compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
+    compiled_fn = raw_function
     for s in input_shapes:
         if is_pytest_mode_compile():
             clear_t_compile_logs()
             torch._dynamo.reset()
+            compiled_fn = torch.compile(raw_function, backend="hpu_backend", dynamic=True)
 
         t = torch.rand(s, dtype=dtype)
         t_h = t.to("hpu")
