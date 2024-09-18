@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -16,6 +16,62 @@
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
+
+SharedMetaDataVector RreluWithNoiseSharedMeta(const at::Stack& stack) {
+  auto self = stack.at(0).toTensor();
+  auto rank = self.dim();
+  auto dtype = self.scalar_type();
+  auto training = stack.at(4).toBool();
+
+  if (!training) {
+    SharedMetaData leakyReluSharedMeta("leakyrelu_fwd");
+    leakyReluSharedMeta.inputs_data.emplace_back(rank, dtype);
+    leakyReluSharedMeta.outputs_data.emplace_back(rank, dtype);
+
+    return {leakyReluSharedMeta};
+  }
+
+  SharedMetaDataVector out;
+
+  if (stack.at(1).isTensor()) {
+    auto noiseIn = stack.at(1).toTensor();
+    rank = std::max(self.dim(), noiseIn.dim());
+  } else {
+    SharedMetaData const1SharedMeta("constant");
+    const1SharedMeta.outputs_data.emplace_back(rank, dtype);
+    out.push_back(const1SharedMeta);
+  }
+
+  SharedMetaData randUniformSharedMeta("random_uniform_fwd");
+  randUniformSharedMeta.inputs_data.emplace_back(1, at::ScalarType::Int);
+  randUniformSharedMeta.outputs_data.emplace_back(rank, dtype);
+  out.push_back(randUniformSharedMeta);
+
+  SharedMetaData onesSharedMeta("constant");
+  onesSharedMeta.outputs_data.emplace_back(rank, dtype);
+  out.push_back(onesSharedMeta);
+
+  SharedMetaData lessEqSharedMeta("less_equal_fwd");
+  lessEqSharedMeta.inputs_data.emplace_back(rank, dtype);
+  lessEqSharedMeta.inputs_data.emplace_back(rank, dtype);
+  lessEqSharedMeta.outputs_data.emplace_back(rank, at::ScalarType::Bool);
+  out.push_back(lessEqSharedMeta);
+
+  SharedMetaData whereSharedMeta("where_fwd");
+  whereSharedMeta.inputs_data.emplace_back(rank, at::ScalarType::Bool);
+  whereSharedMeta.inputs_data.emplace_back(rank, dtype);
+  whereSharedMeta.inputs_data.emplace_back(rank, dtype);
+  whereSharedMeta.outputs_data.emplace_back(rank, dtype);
+  out.push_back(whereSharedMeta);
+
+  SharedMetaData multSharedMeta("mult");
+  multSharedMeta.inputs_data.emplace_back(rank, dtype);
+  multSharedMeta.inputs_data.emplace_back(rank, dtype);
+  multSharedMeta.outputs_data.emplace_back(rank, dtype);
+  out.push_back(multSharedMeta);
+
+  return out;
+}
 
 void Rrelu_with_noise::AddNode(
     synapse_helpers::graph& graph,
@@ -100,6 +156,25 @@ void Rrelu_with_noise::AddNode(
         size);
     syn_out(0) = std::move(output[0]);
   }
+}
+
+SharedMetaDataVector RreluWithNoiseBwdSharedMeta(const at::Stack& stack) {
+  auto grad = stack.at(0).toTensor();
+  auto rank = grad.dim();
+  auto resultType = grad.scalar_type();
+
+  auto training = stack.at(5).toBool();
+  auto lower = stack.at(3).toScalar().to<float>();
+  auto upper = stack.at(4).toScalar().to<float>();
+  auto guid = "leakyrelu_bwd";
+  if (training && (upper - lower) > 1e-6) {
+    guid = "mult";
+  }
+  SharedMetaData rreluBwdSharedMeta(guid);
+    rreluBwdSharedMeta.inputs_data.emplace_back(rank, resultType);
+    rreluBwdSharedMeta.inputs_data.emplace_back(rank, resultType);
+    rreluBwdSharedMeta.outputs_data.emplace_back(rank, resultType);
+    return {rreluBwdSharedMeta};
 }
 
 void Rrelu_with_noise_bwd::AddNode(

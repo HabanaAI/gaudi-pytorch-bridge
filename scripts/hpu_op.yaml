@@ -7833,6 +7833,7 @@ rrelu_with_noise:
   op_backend: Rrelu_with_noise
   out_ids: [0]
   schema_args: "(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor"
+  op_validator: RreluWithNoiseSharedMeta
 
 rrelu_with_noise_:
   dtypes: [BFloat16, Float]
@@ -7840,17 +7841,20 @@ rrelu_with_noise_:
   op_backend: Rrelu_with_noise
   inplace_ids: [0]
   schema_args: "(Tensor(a!) self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed) -> Tensor(a!)"
+  op_validator: RreluWithNoiseSharedMeta
 
 rrelu_with_noise.out:
   dtypes: [BFloat16, Float]
   op_frontend: GeneratorToSeedOut
   op_backend: Rrelu_with_noise
   schema_args: "(Tensor self, Tensor noise, Scalar lower, Scalar upper, bool training, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
+  op_validator: RreluWithNoiseSharedMeta
 
 rrelu_with_noise_backward:
   dtypes: [BFloat16, Float]
   op_backend: Rrelu_with_noise_bwd
   out_ids: [0]
+  op_validator: RreluWithNoiseBwdSharedMeta
 
 rsqrt:
   promote_int_to_float: [self]
@@ -8630,6 +8634,7 @@ special_xlog1py:
     Gaudi3: [BFloat16, Float]
   op_backend: Xlog1PyOperator
   out_ids: [0]
+  op_validator: XlogYSharedMeta
 
 special_xlog1py.other_scalar:
   output_meta: XlogYMeta
@@ -8640,6 +8645,7 @@ special_xlog1py.other_scalar:
   op_frontend: LazyXlogY
   op_backend: Xlog1PyOperator
   out_ids: [0]
+  op_validator: XlogYSharedMeta
 
 special_xlog1py.other_scalar_out:
   output_meta: XlogYMeta
@@ -8649,6 +8655,7 @@ special_xlog1py.other_scalar_out:
     Gaudi3: [BFloat16, Float, Int, Long]
   op_frontend: LazyXlogY
   op_backend: Xlog1PyOperator
+  op_validator: XlogYSharedMeta
 
 special_xlog1py.out:
   output_meta: XlogYMeta
@@ -8657,6 +8664,7 @@ special_xlog1py.out:
     Gaudi2: [BFloat16, Float, Int, Long]
     Gaudi3: [BFloat16, Float, Int, Long]
   op_backend: Xlog1PyOperator
+  op_validator: XlogYSharedMeta
 
 special_xlog1py.self_scalar:
   output_meta: XlogYMeta
@@ -8667,6 +8675,7 @@ special_xlog1py.self_scalar:
   op_frontend: LazyXlogY
   op_backend: Xlog1PyOperator
   out_ids: [1]
+  op_validator: XlogYSharedMeta
 
 special_xlog1py.self_scalar_out:
   output_meta: XlogYMeta
@@ -8676,6 +8685,7 @@ special_xlog1py.self_scalar_out:
     Gaudi3: [BFloat16, Float, Int, Long]
   op_frontend: LazyXlogY
   op_backend: Xlog1PyOperator
+  op_validator: XlogYSharedMeta
 
 special_entr:
   promote_int_to_float: [self]
