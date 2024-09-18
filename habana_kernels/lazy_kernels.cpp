@@ -801,13 +801,19 @@ void copy_hpu_lazy_D2H_internal(
   } else {
     auto tensor_data_ = tensor_data;
     if (_src.dtype() != tensor_data.dtype()) {
-      auto& params_opt = GetHbLazyTensor(_src).getDataPtr()->stride_params;
-      if (params_opt.has_value() &&
-          params_opt.value().optype == kStridedOpViewDtype) {
-        tensor_data_ =
-            at::empty_like(self, _src.options(), _src.suggest_memory_format());
-        tensor_data_.unsafeGetTensorImpl()->set_storage_keep_dtype(
-            tensor_data.storage());
+      auto tmp_hb_tensor = GetHbLazyTensor(_src);
+      // try to find view_dtype in view chain (if available)
+      while (tmp_hb_tensor.getDataPtr()->stride_params.has_value()) {
+        const auto& stride_param =
+            tmp_hb_tensor.getDataPtr()->stride_params.value();
+        if (stride_param.optype == kStridedOpViewDtype) {
+          tensor_data_ = at::empty_like(
+              self, _src.options(), _src.suggest_memory_format());
+          tensor_data_.unsafeGetTensorImpl()->set_storage_keep_dtype(
+              tensor_data.storage());
+          break;
+        }
+        tmp_hb_tensor = GetHbLazyTensor(stride_param.parent);
       }
     }
     self = copy_hpu_(self, tensor_data_, non_blocking, hpu_stream);
