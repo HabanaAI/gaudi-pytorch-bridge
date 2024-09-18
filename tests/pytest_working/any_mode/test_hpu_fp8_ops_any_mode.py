@@ -21,6 +21,7 @@ from test_utils import (
     compare_tensors,
     format_tc,
     is_gaudi1,
+    is_gaudi2,
     is_pytest_mode_compile,
     is_pytest_mode_eager,
     is_pytest_mode_lazy,
@@ -222,9 +223,9 @@ def test_cast_to_fp8_v2_out_of_range(dtype, stochastic, big_tensor, out_dtype):
         min = torch.finfo(out_dtype).min
         max = torch.finfo(out_dtype).max
     else:
-        input = torch.tensor([1000, 300, -300, -1000], dtype=dtype)
-        min = -240.0
-        max = 240.0
+        input = torch.tensor([1000, 500, -500, -1000], dtype=dtype)
+        min = -240.0 if is_gaudi2() else torch.finfo(out_dtype).min
+        max = 240.0 if is_gaudi2() else torch.finfo(out_dtype).max
     expected = torch.tensor([max, max, min, min], dtype=torch.float)
 
     # Check big tensor to verify tpc_fuser behavior
