@@ -492,7 +492,7 @@ void HabanaLaunchOpPT::RunHybridSif(
     // Setup the config params for the kernels
     auto outputs_metadata = populate_node_output_metadata(node);
 
-    if (not disabled_jit_ir_ops().count(op_name)) {
+    if (not HabanaLaunchOpUtils::disabled_jit_ir_ops().count(op_name)) {
       // Set output meta data if auto-gen op
       if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
         op->SetOutputMetadata(outputs_metadata);
@@ -504,7 +504,7 @@ void HabanaLaunchOpPT::RunHybridSif(
           mapOutputTensors(node, habana_op, output_shape_info, val_to_ival_map);
         } catch (std::exception& e) {
           PT_DYNAMIC_SHAPE_DEBUG("Catch Exception SIF failed: ", e.what());
-          disabled_jit_ir_ops().insert(op_name);
+          HabanaLaunchOpUtils::disabled_jit_ir_ops().insert(op_name);
           propagateShape(
               node,
               op_input_stack,
@@ -713,7 +713,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
       }
     }};
 
-    if (!disabled_jit_ir_ops().count(op_name)) {
+    if (!HabanaLaunchOpUtils::disabled_jit_ir_ops().count(op_name)) {
       // Set output meta data if auto-gen op
       if (auto op = std::dynamic_pointer_cast<OpBackend>(habana_op)) {
         op->SetOutputMetadata(outputs_metadata);

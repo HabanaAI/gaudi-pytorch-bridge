@@ -21,7 +21,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       habana_lazy::AccThread::Get().SyncAccThreadPool();
     } catch (const c10::Error& e) {
     }
-    habana::HabanaLaunchOpPT::cleanUp();
+    habana::HabanaLaunchOpUtils::cleanUp();
   });
   m.def("get_tensor_info", [](const at::Tensor& t) -> pybind11::object {
     auto base_tensor = habana_lazy::HbLazyTensorViews::get_base_tensor(t);

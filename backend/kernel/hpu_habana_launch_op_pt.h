@@ -133,6 +133,13 @@ void LoweringTask(
     std::optional<std::vector<std::vector<int64_t>>> output_shapes = {});
 } // namespace HabanaLaunchOpPipeline
 
+namespace HabanaLaunchOpUtils {
+void cleanUp();
+std::unordered_map<size_t, habana_helpers::InpTensorShapes>&
+ref_input_shape_map();
+std::unordered_set<std::string>& disabled_jit_ir_ops();
+} // namespace HabanaLaunchOpUtils
+
 namespace OpInfo {
 std::string DumpOpInfo(
     const at::OperatorName& opname,
@@ -199,10 +206,6 @@ class HabanaLaunchOpPT {
   void UpdateValueToIShapeMapForInputs(
       std::shared_ptr<torch::jit::Graph>& jit_graph,
       RecipeValueSpec& rv);
-  static void cleanUp();
-
-  static std::unordered_map<size_t, habana_helpers::InpTensorShapes>&
-  ref_input_shape_map();
 
   c10::ScalarType getNodeScalarType(torch::jit::Node* node);
   void set_lazy_front_end_info(
@@ -888,8 +891,6 @@ class HabanaLaunchOpPT {
   // hybrid mode. This hybrid shape inference pass uses OutputShapeInf
   // for JIT OPs whenever possible, otherwise falls back to
   // AllocateAndAddSynapseNode for the output shape computation.
-
-  static std::unordered_set<std::string>& disabled_jit_ir_ops();
 
   torch::jit::Stack create_stack_for_node(
       const torch::jit::Node* node,

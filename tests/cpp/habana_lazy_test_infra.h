@@ -48,7 +48,7 @@ class EnvHelper {
 
  protected:
   void TearDownBridge() {
-    habana::HabanaLaunchOpPT::cleanUp();
+    habana::HabanaLaunchOpUtils::cleanUp();
   }
 
   void SetMode(unsigned mode = 1, int force = 0) {

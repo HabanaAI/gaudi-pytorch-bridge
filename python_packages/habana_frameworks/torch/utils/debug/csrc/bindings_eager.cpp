@@ -21,7 +21,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       habana::eager::JoinPendingPipelineThreads();
     } catch (const c10::Error& e) {
     }
-    habana::HabanaLaunchOpPT::cleanUp();
+    habana::HabanaLaunchOpUtils::cleanUp();
   });
   m.def("join_pending_pipeline_threads", []() {
     habana::eager::JoinPendingPipelineThreads();

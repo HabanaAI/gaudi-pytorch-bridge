@@ -902,7 +902,7 @@ void habana::HabanaLaunchOpPT::ConstructPatchingTableAndAtenOutputs(
         std::move(dynamic_nodes_with_backend_STs);
     rv.ds_sifinfo_map[sym_expr_hash_] = std::move(ds_sif_info_);
   }
-  rv.disabled_jit_ir_ops_ = disabled_jit_ir_ops();
+  rv.disabled_jit_ir_ops_ = HabanaLaunchOpUtils::disabled_jit_ir_ops();
 
   if (recipe) {
     rv.populate_syn_tensor_ids(*recipe);
