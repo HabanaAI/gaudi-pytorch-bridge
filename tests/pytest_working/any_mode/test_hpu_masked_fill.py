@@ -17,6 +17,7 @@ from test_utils import (
     clear_t_compile_logs,
     compare_tensors,
     format_tc,
+    is_gaudi1,
     is_gaudi3,
     is_pytest_mode_compile,
     setup_teardown_env_fixture,
@@ -98,6 +99,42 @@ def test_masked_fill(self_shape, mask_shape, value, scalar_value, dtype, setup_t
     result = fn(self_hpu, mask_hpu, value_hpu)
 
     compare_tensors(result, expected, atol=0.0, rtol=0.0)
+    if is_pytest_mode_compile():
+        ops = {"masked_fill"}
+        check_ops_executed_in_jit_ir(ops)
+
+
+@pytest.mark.skipif(is_gaudi1(), reason="Not supported by Gaudi")
+@pytest.mark.parametrize("dtype", [torch.float8_e4m3fn, torch.float8_e5m2])
+@pytest.mark.parametrize(
+    "setup_teardown_env_fixture",
+    [{"PT_HPU_ENABLE_REFINE_DYNAMIC_SHAPES": 0}],
+    indirect=True,
+)
+def test_masked_fill_float8(dtype, setup_teardown_env_fixture):
+    def fn(inp, mask, max_val):
+        output = inp.masked_fill_(mask, max_val)
+        return output
+
+    # CPU
+    mask_val = -100
+    input_c = torch.randn((1000, 1000), dtype=torch.bfloat16)
+    mask = torch.randint(0, 2, (1000, 1000)).to(torch.bool)
+    result = fn(input_c, mask, mask_val)
+    result = (result * mask).to(dtype).to(torch.bfloat16)
+
+    if pytest.mode == "compile":
+        torch._dynamo.reset()
+        clear_t_compile_logs()
+        fn = torch.compile(fn, backend="hpu_backend")
+
+    # HPU
+    input_hpu = input_c.to("hpu").to(dtype)
+    mask_hpu = mask.to("hpu")
+    hresult = fn(input_hpu, mask_hpu, mask_val).cpu().to(torch.bfloat16)
+
+    hresult = hresult * mask  # checking value on only where mask is true on bf16 dtype
+    assert torch.allclose(result, hresult, atol=0.01, rtol=0.01)
     if is_pytest_mode_compile():
         ops = {"masked_fill"}
         check_ops_executed_in_jit_ir(ops)

@@ -5801,13 +5801,13 @@ masked_fill_.Scalar:
       mask: [Int, Char]
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
-      self: [BFloat16, Float, Int, Char, Half, Long]
+      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
       mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long]
+      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
     Gaudi3:
-      self: [BFloat16, Float, Int, Char, Half, Long]
+      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
       mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long]
+      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: masked_fill_fwd
   op_backend: MaskedFill
   inplace_ids: [0]
@@ -5821,13 +5821,13 @@ masked_fill_.Tensor:
       mask: [Int, Char]
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
-      self: [BFloat16, Float, Int, Char, Half, Long]
+      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
       mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long]
+      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
     Gaudi3:
-      self: [BFloat16, Float, Int, Char, Half, Long]
+      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
       mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long]
+      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: masked_fill_fwd
   op_backend: MaskedFill
   st_meta: MaskedFillSTMeta
@@ -5842,13 +5842,13 @@ masked_fill.Scalar:
       mask: [Int, Char]
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
-      self: [BFloat16, Float, Int, Char, Half, Long]
+      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
       mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long]
+      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
     Gaudi3:
-      self: [BFloat16, Float, Int, Char, Half, Long]
+      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
       mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long]
+      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: masked_fill_fwd
   op_backend: MaskedFill
   st_meta: MaskedFillSTMeta
@@ -5864,13 +5864,13 @@ masked_fill.Tensor:
       mask: [Int, Char]
       value: [BFloat16, Float, Int, Char]
     Gaudi2:
-      self: [BFloat16, Float, Int, Char, Half, Long]
+      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
       mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long]
+      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
     Gaudi3:
-      self: [BFloat16, Float, Int, Char, Half, Long]
+      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
       mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long]
+      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: masked_fill_fwd
   op_backend: MaskedFill
   st_meta: MaskedFillSTMeta
