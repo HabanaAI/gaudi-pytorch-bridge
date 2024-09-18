@@ -62,6 +62,26 @@ class ProcessGroupHCCLRegistry {
   void cleanup() {
     PT_DISTRIBUTED_DEBUG("Clearing distributed process groups");
     {
+      // Destroying all process groups in order to ensure that all events
+      // have been handled (all tensors connected with pending events are
+      // deallocated) before Python interpreter finalization. If tensor is
+      // deallocated when interpreter is down or is going down (finalizing) then
+      // cPython may issue std::terminate (abort), what will be observed in DFA
+      // report.
+      py::object dist = py::module_::import("torch.distributed");
+      py::object destroy_process_group = dist.attr("destroy_process_group");
+      py::object default_pg = dist.attr("GroupMember").attr("WORLD");
+      if (!default_pg.is(py::none())) {
+        PT_DISTRIBUTED_DEBUG("Destroying process groups at exit");
+        destroy_process_group();
+      }
+      // It may so happen (deepspeed being the primary example) that some
+      // process groups remain after destroy_process_group. This is a problem,
+      // because a process group holds a reference and prevents removal of a syn
+      // device. To mitigate this, destroy all the process groups that are still
+      // alive which will put them in an unattached state.
+    }
+    {
       std::unique_lock<std::mutex> lock{groups_mutex_};
 
       auto it = groups_.rbegin();

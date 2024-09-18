@@ -118,6 +118,17 @@ class MediaProxyHolder {
 
   PytMediaProxy media_proxy_impl_;
   mediaFwProxy media_fw_proxy_{};
+  std::vector<std::function<void()>> media_deleter_;
+
+  ~MediaProxyHolder() {
+    if (!media_deleter_.empty()) {
+      for (auto& func : media_deleter_)
+        func();
+    } else {
+      PT_BRIDGE_WARN(
+          "MediaProxy is being deleted without notifying Media!!! Media hasn't provided appropriate function.");
+    }
+  }
 
  private:
   MediaProxyHolder() : media_proxy_impl_(0) {
@@ -153,9 +164,8 @@ torch::Tensor GetOutputTensor(uintptr_t addr) {
       &MediaProxyHolder::getInstance().media_proxy_impl_, addr);
 }
 
-void RegisterMediaDeleter(std::function<void()>) {
-  // This function will be defined after HPURegistrar deleting will be triggered
-  // by Python atexit
+void RegisterMediaDeleter(std::function<void()> func) {
+  MediaProxyHolder::getInstance().media_deleter_.push_back(std::move(func));
 }
 
 } // namespace torch_hpu

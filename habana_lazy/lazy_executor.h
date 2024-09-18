@@ -473,7 +473,8 @@ inline HbExecutionContextArena& get_habana_lazy_executor() {
 }
 
 inline HbExecutionContext* get_device_lazy_execution_context() {
-  return get_habana_lazy_executor().getDeviceExecutionContext();
+  auto& arena = get_habana_lazy_executor();
+  return &arena == nullptr ? nullptr : arena.getDeviceExecutionContext();
 }
 
 /*

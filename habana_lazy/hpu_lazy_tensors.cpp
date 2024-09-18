@@ -119,7 +119,8 @@ void HbContextArena::UnregisterTensor(Data* data) {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
     devctx->tensors_data.erase(unique_id);
     devctx->erase(unique_id);
-    if (synapse_helpers::memory_reporter_enable()) {
+    if (synapse_helpers::memory_reporter_enable() &&
+        habana::HPUDeviceContext::is_device_acquired()) {
       auto& device = habana::HPUDeviceContext::get_device();
       synapse_helpers::MemoryReporter* reporter =
           device.get_device_memory().get_memory_reporter();

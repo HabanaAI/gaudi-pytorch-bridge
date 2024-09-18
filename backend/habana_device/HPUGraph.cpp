@@ -117,9 +117,11 @@ void HPUGraph::destroy() {
 
   habana_lazy::HbExecutionContext* context =
       habana_lazy::get_device_lazy_execution_context();
-  /* Set graph capture mode off */
-  context->setCapturing(false);
-  context->setCaptureGraph(nullptr);
+  if (context != nullptr) {
+    /* Set graph capture mode off */
+    context->setCapturing(false);
+    context->setCaptureGraph(nullptr);
+  }
 }
 
 void HPUGraph::mark_step() {
@@ -444,9 +446,11 @@ void HPUGraph::mark_user_inputs(std::vector<at::Tensor>& static_inputs) {
 HPUGraph::~HPUGraph() {
   habana_lazy::HbExecutionContext* context =
       habana_lazy::get_device_lazy_execution_context();
-  /* Set graph capture mode off */
-  context->setCapturing(false);
-  context->setCaptureGraph(nullptr);
+  if (context != nullptr) {
+    /* Set graph capture mode off */
+    context->setCapturing(false);
+    context->setCaptureGraph(nullptr);
+  }
 }
 
 SingleHPUGraph::~SingleHPUGraph() {

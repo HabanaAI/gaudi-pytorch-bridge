@@ -11,6 +11,8 @@
  *******************************************************************************
  */
 #include "backend/habana_device/hpu_cached_devices.h"
+#include <Python.h>
+#include <pybind11/pybind11.h>
 #include <mutex>
 #include "backend/synapse_helpers/session.h"
 #include "habana_helpers/logging.h"
@@ -34,6 +36,23 @@ void HPURegistrar::create_instance() {
     finalize_instance();
   }};
   instance_.reset(new HPURegistrar());
+  if (Py_IsInitialized() != 0) {
+    // If the interpreter is initialized we anticipate to be running in a python
+    // session. In such case HPURegistrar must be deleted even earlier when it
+    // is still possible to access the interpreter and remove python resources
+    // (e.g. Tensors).
+    // Lastly there are tensors kept alive by the python interpreter that are
+    // disposed in Py_FinalizeEx/_PyModule_Clear. This is already after the
+    // device got deleted.
+    PT_BRIDGE_DEBUG(
+        "python session: registering removal of HPURegistrar on python ataxit");
+    pybind11::gil_scoped_acquire gil;
+    auto atexit = pybind11::module_::import("atexit");
+    atexit.attr("register")(pybind11::cpp_function([]() {
+      PT_BRIDGE_DEBUG("python atexit cleanup");
+      finalize_instance();
+    }));
+  }
 }
 
 void HPURegistrar::finalize_instance() {

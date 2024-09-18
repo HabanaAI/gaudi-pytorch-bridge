@@ -1080,6 +1080,7 @@ void device::flush_stream_events() {
       stream.flush();
     }
   }
+  habana_helpers::AutoNoGIL gil_release;
   auto start = std::chrono::steady_clock::now();
   while (true) {
     if (sem_.is_flushed())

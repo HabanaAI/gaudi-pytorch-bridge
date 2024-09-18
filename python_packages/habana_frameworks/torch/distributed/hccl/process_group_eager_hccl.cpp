@@ -184,8 +184,6 @@ void ProcessGroupEagerHCCL::destroy() {
     comm_->flush_stream();
     comm_.reset();
   }
-
-  destroyHandshake();
 }
 
 ProcessGroupEagerHCCL::~ProcessGroupEagerHCCL() {
@@ -198,6 +196,7 @@ ProcessGroupEagerHCCL::~ProcessGroupEagerHCCL() {
       rank_);
   habana_helpers::AutoNoGIL gil_release;
   destroy();
+  destroyHandshake();
 };
 
 ProcessGroupEagerHCCL::WorkEager::WorkEager(
@@ -822,46 +821,4 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
 
   processGroupHccl.def(py::init(
       &c10d::ProcessGroupHCCLRegistry<c10d::ProcessGroupEagerHCCL>::create));
-
-  py::cpp_function cleanup = []() {
-    {
-      // Flushing all streams in order to ensure that all events have been
-      // handled (all tensors connected with pending events are deallocated)
-      // before Python interpreter finalization. If tensor is deallocated when
-      // interpreter is down or is going down (finalizing) then cPython may
-      // issue std::terminate (abort), what will be observed in DFA report.
-
-      auto gil_release = pybind11::gil_scoped_release();
-
-      const int hccl_comms_num = habana::HcclCommunicator::Count();
-      PT_DISTRIBUTED_DEBUG("PG cleanup: HCCL comms count: ", hccl_comms_num);
-
-      for (int hccl_comm_id = 0; hccl_comm_id < hccl_comms_num;
-           hccl_comm_id++) {
-        std::shared_ptr<habana::HcclCommunicator> hccl_comm =
-            habana::HcclCommunicator::Get(hccl_comm_id);
-
-        if (hccl_comm) {
-          PT_DISTRIBUTED_DEBUG(
-              "PG cleanup: flushing HCCL comm with id=", hccl_comm_id);
-          hccl_comm->flush_stream();
-        } else {
-          PT_DISTRIBUTED_DEBUG(
-              "PG cleanup: HCCL comm with given id has been already destroyed, id=",
-              hccl_comm_id);
-        }
-      }
-    }
-
-    // Destroying default PG when it hasn't been destroyed by user.
-
-    py::object dist = py::module_::import("torch.distributed");
-    py::object destroy_process_group = dist.attr("destroy_process_group");
-    py::object default_pg = dist.attr("GroupMember").attr("WORLD");
-    if (!default_pg.is(py::none())) {
-      PT_DISTRIBUTED_DEBUG("Destroying process groups at exit");
-      destroy_process_group();
-    }
-  };
-  py::module::import("atexit").attr("register")(cleanup);
 };

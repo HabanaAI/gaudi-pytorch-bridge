@@ -108,6 +108,13 @@ void HPUDeviceContextImpl::Finish() {
   device_context.scalar_cache_.reset();
 
   device_context.constant_information_->ClearChecksumInformation();
+
+  // We have to remove garbage_collection_thread_ after destroying the stream
+  // but before releasing the device_id. Both classes are owned by class device
+  // So, we have to use this workaround till we refactor device class by
+  // decomposing it into smaller classes
+  device_context.device_->cleanup();
+
   device_context.garbage_collection_thread_.reset();
   device_context.device_.reset();
 
