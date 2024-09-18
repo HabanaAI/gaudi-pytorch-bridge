@@ -1650,11 +1650,11 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
   std::unique_ptr<bool[]> changed(new bool[tensor_size]);
   std::vector<std::vector<int64_t>> sizeList(tensor_size);
   std::vector<std::vector<int64_t>> strideList(tensor_size);
-  const bool is_odd_size =
-      resizeOddTensor(tensors, changed, sizeList, strideList);
+  resizeOddTensor(tensors, changed, sizeList, strideList);
 
   PT_IRGRAPH_DEBUG("step marker due to ProcessGroupHcclBase::send");
   habana_lazy::HbLazyTensor::StepMarker();
+  std::vector<at::Tensor> org_tensors{tensors};
   permutedSendTensorsToDense(tensors);
   auto work = pointToPoint(
       tensors,
@@ -1693,9 +1693,7 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::send(
         return hccl_result;
       },
       dstRank);
-  if (is_odd_size) {
-    habana::TryRestoreOddSizeSendTensors(tensors);
-  }
+  habana::TryRestoreToOrgSendTensors(tensors, org_tensors);
   restoreOddTensorsize(tensors, changed, sizeList, strideList, work);
   if (coalescing_state_) {
     coalesed_works_->append(work);

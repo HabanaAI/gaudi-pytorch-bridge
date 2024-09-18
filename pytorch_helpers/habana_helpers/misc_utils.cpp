@@ -18,7 +18,8 @@
 #include "habana_helpers/logging.h"
 
 using JoinPendingPipelineThreadsFunc = void (*)(void);
-using RestoreOddSizeSendTensorsFunc = void (*)(std::vector<at::Tensor>&);
+using RestoreToOrgSendTensorsFunc =
+    void (*)(std::vector<at::Tensor>&, std::vector<at::Tensor>&);
 
 namespace habana {
 
@@ -81,15 +82,17 @@ void TryJoinPendingEagerPipelineThreads() {
   }
 }
 
-void TryRestoreOddSizeSendTensors(std::vector<at::Tensor>& tensors) {
-  static RestoreOddSizeSendTensorsFunc restoreOddSizeSendTensors =
-      reinterpret_cast<RestoreOddSizeSendTensorsFunc>(
-          dlsym(RTLD_DEFAULT, "RestoreOddSizeSendTensors"));
-  if (restoreOddSizeSendTensors) {
-    PT_BRIDGE_DEBUG("habana::eager::RestoreOddSizeSendTensors called");
-    restoreOddSizeSendTensors(tensors);
+void TryRestoreToOrgSendTensors(
+    std::vector<at::Tensor>& tensors,
+    std::vector<at::Tensor>& org_tensors) {
+  static RestoreToOrgSendTensorsFunc restoreToOrgSendTensors =
+      reinterpret_cast<RestoreToOrgSendTensorsFunc>(
+          dlsym(RTLD_DEFAULT, "RestoreToOrgSendTensors"));
+  if (restoreToOrgSendTensors) {
+    PT_BRIDGE_DEBUG("habana::eager::RestoreToOrgSendTensors called");
+    restoreToOrgSendTensors(tensors, org_tensors);
   } else {
-    PT_BRIDGE_WARN("habana::eager::RestoreOddSizeSendTensors was not linked");
+    PT_BRIDGE_WARN("habana::eager::RestoreToOrgSendTensors was not linked");
   }
 }
 

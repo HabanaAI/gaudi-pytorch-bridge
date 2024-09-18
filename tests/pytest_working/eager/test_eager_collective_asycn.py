@@ -240,6 +240,27 @@ def send_recieve_permuted(rank, world_size, args):
         assert torch.equal(_tensor.to("cpu"), conv_cpu)
 
 
+# gather collective uses send/receive
+def gather_with_odd_size(rank, world_size, args):
+    device = f"{device_hpu}"
+    setup(rank, world_size)
+
+    input = rank * torch.ones((15), dtype=torch.uint8, device=device)
+    output_list = [torch.empty_like(input, dtype=torch.uint8) for _ in range(world_size)]
+    expected_output_list = [i * torch.ones_like(input, dtype=torch.uint8, device=device) for i in range(world_size)]
+
+    for r in range(world_size):
+        torch.distributed.gather(input, output_list if rank == r else None, dst=r)
+        if rank == r:
+            for t1, t2 in zip(expected_output_list, output_list):
+                assert torch.equal(t1.cpu(), t2.cpu()), (
+                    f"Gathered tensor is not equal to expected one. " f"Got: {t2}, expected: {t1}."
+                )
+
+    dist.barrier()
+    cleanup()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="test_eager_collective_asycn test for veriying async op")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbosity")
@@ -261,3 +282,4 @@ if __name__ == "__main__":
         mp.spawn(send_recieve, args=(2, args), nprocs=2, join=True)
         mp.spawn(send_recieve_with_odd_size, args=(2, args), nprocs=2, join=True)
         mp.spawn(send_recieve_permuted, args=(2, args), nprocs=2, join=True)
+        mp.spawn(gather_with_odd_size, args=(2, args), nprocs=2, join=True)

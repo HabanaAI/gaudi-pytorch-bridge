@@ -688,7 +688,6 @@ void ProcessGroupEagerHCCL::permutedSendTensorsToDense(
   // Allocate memory for clone tensors and get backend tensors
   std::vector<std::pair<at::Tensor, at::Tensor>> tensors_backend;
   tensors_backend.reserve(tensors.size());
-  // for (size_t i = 0; i < tensors.size(); i++) {
   for (const auto& tensor : tensors) {
     // Allocate memory for cloned tensors
     clone_tensors.push_back(

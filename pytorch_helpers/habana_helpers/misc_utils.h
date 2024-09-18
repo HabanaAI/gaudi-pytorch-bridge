@@ -66,6 +66,8 @@ inline int64_t mod_exp(bool w, int64_t x = 997) {
 bool IsHostMemoryThresholdReached();
 int GetRankFromEnv();
 void TryJoinPendingEagerPipelineThreads();
-void TryRestoreOddSizeSendTensors(std::vector<at::Tensor>& tensors);
+void TryRestoreToOrgSendTensors(
+    std::vector<at::Tensor>& tensors,
+    std::vector<at::Tensor>& org_tensors);
 
 } // namespace habana
