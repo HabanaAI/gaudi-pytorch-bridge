@@ -1533,13 +1533,13 @@ void HbLazyTensor::SyncTensorsGraphInternal(
 
 void HbLazyTensor::ExecuteCachedGraph(
     std::shared_ptr<habana::OptimizedJITGraphAndMetaData> graph,
+    std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
     size_t hash,
     std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in,
     std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_out,
     std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,
     const std::unordered_map<int64_t, c10::optional<at::Generator>>&
         seed_tensors_generator_map,
-    bool is_cached,
     uint64_t launch_jobid) {
   PT_LAZY_TRACE;
   get_habana_lazy_executor().setExecutionMode(LazyExecutionMode::kLOWERING);
@@ -1555,8 +1555,6 @@ void HbLazyTensor::ExecuteCachedGraph(
   // stack is used for both inputs to synapse lowering and outputs from
   // synapse lowering, therefore allocate memory which is max of input
   // and output size.
-  HABANA_ASSERT(is_cached == true);
-
   stack.reserve(std::max(hblazy_tensors_in.size(), hblazy_tensors_out.size()));
 
   for (const auto& in : hblazy_tensors_in) {
@@ -1585,7 +1583,7 @@ void HbLazyTensor::ExecuteCachedGraph(
   }
 
   // Launch the execution
-  hlexec.Launch(stack);
+  hlexec.Launch(stack, cached_rarg_psh);
 
   HABANA_ASSERT(stack.size() == hblazy_tensors_out.size());
   for (const auto& in : hblazy_tensors_in) {

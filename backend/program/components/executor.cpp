@@ -62,7 +62,7 @@ void Executor::RunCluster(Cluster& cluster) {
 
   cluster.lazy_graph_exec_->SetHPUStream(env_.stream);
   habana::HabanaLaunchOpPT habana_launch_op_(cluster.lazy_graph_exec_);
-  habana_launch_op_.run(frame.stack_);
+  habana_launch_op_.run(frame.stack_, nullptr);
 
   PropagateClusterOutputs(frame, cluster);
 }

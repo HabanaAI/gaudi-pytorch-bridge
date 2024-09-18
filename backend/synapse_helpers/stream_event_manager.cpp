@@ -51,7 +51,7 @@ void stream_event_manager::add_future(
 }
 
 void stream_event_manager::wait_for_future(device_ptr device_address) {
-  PT_SYNHELPER_TRACE;
+  // PT_SYNHELPER_TRACE;
   std::shared_future<bool> fut;
   {
     std::lock_guard<std::mutex> lock(future_mut_);

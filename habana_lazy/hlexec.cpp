@@ -48,7 +48,10 @@ namespace {
 struct Launcher {
   virtual ~Launcher() = default;
 
-  virtual void Run(torch::jit::Stack& stack, bool dry_run = false) = 0;
+  virtual void Run(
+      torch::jit::Stack& stack,
+      std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh = nullptr,
+      bool dry_run = false) = 0;
 };
 
 /*
@@ -64,8 +67,11 @@ struct HabanaLaunchOpLauncher : Launcher {
     }
   }
 
-  void Run(torch::jit::Stack& stack, bool dry_run) override {
-    return habana_launch_op_.run(stack, {}, {}, dry_run);
+  void Run(
+      torch::jit::Stack& stack,
+      std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
+      bool dry_run) override {
+    return habana_launch_op_.run(stack, cached_rarg_psh, {}, {}, dry_run);
   }
 
   habana::HabanaLaunchOpPT habana_launch_op_;
@@ -82,7 +88,10 @@ struct ClusteredProgramLauncher : Launcher {
     TORCH_CHECK(executor_ != nullptr);
   }
 
-  void Run(torch::jit::Stack& stack, bool /*dry_run*/) override {
+  void Run(
+      torch::jit::Stack& stack,
+      std::shared_ptr<habana::RecipeArgumentSpec> /*cached_rarg_psh*/,
+      bool /*dry_run*/) override {
     executor_->Run(stack);
   }
 
@@ -125,11 +134,14 @@ HlExec::HlExec(ScopePtr scope) {
   m_g_hash_ = 0;
 }
 
-void HlExec::Launch(torch::jit::Stack& stack, bool dry_run) {
+void HlExec::Launch(
+    torch::jit::Stack& stack,
+    std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
+    bool dry_run) {
   PT_LAZY_TRACE;
   auto launcher = CreateLauncher(m_g_hash_, mp_g_and_meta_data_, nullptr);
   try {
-    launcher->Run(stack, dry_run);
+    launcher->Run(stack, cached_rarg_psh, dry_run);
   } catch (const std::exception& e) {
     PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
     get_habana_lazy_executor().setExecutionMode(LazyExecutionMode::kLAZY);
@@ -171,7 +183,7 @@ void HlExec::Launch(
 
   auto launcher = CreateLauncher(m_g_hash_, mp_g_and_meta_data_, lazyInfo);
   try {
-    launcher->Run(stack, dry_run);
+    launcher->Run(stack, nullptr, dry_run);
   } catch (const std::exception& e) {
     PT_BRIDGE_DEBUG("HabanaLaunchOpPT Run returned exception....\n", e.what());
     get_habana_lazy_executor().setExecutionMode(LazyExecutionMode::kLAZY);

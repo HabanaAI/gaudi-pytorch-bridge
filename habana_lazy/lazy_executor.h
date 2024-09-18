@@ -211,6 +211,15 @@ class HbExecutionContext {
     return g_mt_ptr;
   }
 
+  void saveRecipeArgSpec(
+      std::shared_ptr<habana::RecipeArgumentSpec> cache_rargpsh) {
+    m_graph_rarg_psh = cache_rargpsh;
+  }
+
+  std::shared_ptr<habana::RecipeArgumentSpec> getRecipeArgSpec() {
+    return m_graph_rarg_psh;
+  }
+
   void setCapturing(bool capture) {
     m_capturing_graph = capture;
   }
@@ -333,6 +342,7 @@ class HbExecutionContext {
     m_hblazy_tensors.clear();
     m_user_input_positions.clear();
     m_user_input_match_index.clear();
+    m_graph_rarg_psh = nullptr;
   }
 
   // We want to retain some tensors for special cases where PT releases them
@@ -393,6 +403,7 @@ class HbExecutionContext {
  private:
   size_t mp_g_hash{0};
   OptimizedJITGraphAndMetaDataPtr g_mt_ptr;
+  std::shared_ptr<habana::RecipeArgumentSpec> m_graph_rarg_psh{nullptr};
   ir::ValueList m_input_vals;
   ir::ValueList m_output_vals;
   std::vector<at::Tensor> m_marked_user_inputs;

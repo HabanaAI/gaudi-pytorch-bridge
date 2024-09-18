@@ -49,8 +49,8 @@
 #include "habana_kernels/lazy_kernels_declarations.h"
 #include "habana_kernels/random_gen_kernels.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
+#include "habana_lazy/lazy_executor.h"
 #include "hpu_ops/op_logger.h"
-
 using namespace torch::jit;
 using namespace jitgraph_utils;
 namespace habana {
@@ -96,7 +96,8 @@ void LoweringTask(
 
   bool sync_with_compile_stage = !launch_op->get_enable_4stage_pipeline();
 
-  launch_op->run(stack, allocated_outputs, output_shapes, false, pipeline_call);
+  launch_op->run(
+      stack, nullptr, allocated_outputs, output_shapes, false, pipeline_call);
 
   if (!pipeline_call.is_called()) {
     PT_BRIDGE_DEBUG(
@@ -4916,6 +4917,7 @@ void HabanaLaunchOpPT::UpdatePatchingInformation(
 
 void HabanaLaunchOpPT::run(
     torch::jit::Stack& stack,
+    std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
     std::optional<std::vector<at::Tensor>> allocated_outputs,
     std::optional<std::vector<std::vector<int64_t>>> output_shapes,
     bool dry_run,
@@ -4980,14 +4982,27 @@ void HabanaLaunchOpPT::run(
 
   idx += 1;
   if (enable_caching_ || IS_BRIDGE_DEBUG_ENABLED) {
-    cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
-        false,
-        input_refs,
-        jit_ir_graph_,
-        graph_key_,
-        op_strs_,
-        graph_symint_hash_,
-        graph_perm_hash_);
+    if ((cached_rarg_psh.get() == nullptr) ||
+        (cached_rarg_psh->graphWithPermuteHashCode() != graph_perm_hash_)) {
+      cur_rargpsh = std::make_shared<RecipeArgumentSpec>(
+          false,
+          input_refs,
+          jit_ir_graph_,
+          graph_key_,
+          op_strs_,
+          graph_symint_hash_,
+          graph_perm_hash_);
+      auto& device = habana::HPURegistrar::get_device();
+      auto context =
+          habana_lazy::get_device_lazy_execution_context(device.id());
+
+      if ((context->getCapturing() &&
+           (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_HPUGRAPH_REPLAY_HASHCHECK)))) {
+        context->saveRecipeArgSpec(cur_rargpsh);
+      }
+    } else {
+      cur_rargpsh = cached_rarg_psh;
+    }
   }
 
   auto is_enable_4stage_pipeline = enable_4stage_pipeline_;

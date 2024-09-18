@@ -294,7 +294,10 @@ class HlExec {
       const c10::hpu::HPUStream& stream,
       bool dry_run = false);
 
-  void Launch(torch::jit::Stack& stack, bool dry_run = false);
+  void Launch(
+      torch::jit::Stack& stack,
+      std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh = nullptr,
+      bool dry_run = false);
 
   GraphPtr get_graph() {
     return mp_g_;

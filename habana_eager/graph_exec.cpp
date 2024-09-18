@@ -550,7 +550,8 @@ torch::jit::Stack GraphExec::LaunchRecipe(
       habana::HabanaLaunchOpPT habana_launch_op(m_graph_and_meta);
       habana_launch_op.set_input_stack(stack);
       habana_launch_op.set_symbol_values(in_symbol_value_map);
-      habana_launch_op.run(habana_launch_op.get_input_stack(), maybe_outputs);
+      habana_launch_op.run(
+          habana_launch_op.get_input_stack(), nullptr, maybe_outputs);
       return habana_launch_op.get_input_stack();
     }
   } catch (const std::exception& e) {

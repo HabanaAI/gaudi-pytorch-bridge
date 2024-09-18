@@ -170,6 +170,7 @@ class HabanaLaunchOpPT {
 
   void run(
       torch::jit::Stack& stack,
+      std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh = nullptr,
       std::optional<std::vector<at::Tensor>> allocated_outputs = {},
       std::optional<std::vector<std::vector<int64_t>>> output_shapes = {},
       bool dry_run = false,

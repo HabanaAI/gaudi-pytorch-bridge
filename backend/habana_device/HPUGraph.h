@@ -23,6 +23,7 @@ namespace hpu {
 struct SingleHPUGraph {
   SingleHPUGraph(
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData> g_mt_ptr,
+      std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
       habana_lazy::ir::ValueList input_vals,
       habana_lazy::ir::ValueList output_vals,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors,
@@ -31,6 +32,7 @@ struct SingleHPUGraph {
           seed_tensors_generator,
       size_t hash)
       : g_mt_ptr_{g_mt_ptr},
+        cached_rarg_psh_{cached_rarg_psh},
         input_vals_{input_vals},
         output_vals_{output_vals},
         hblazy_tensors_out_{hblazy_tensors},
@@ -48,6 +50,7 @@ struct SingleHPUGraph {
   void replayGraph(habana_lazy::ir::ValueList& input_vals, bool async = false);
 
   std::shared_ptr<habana::OptimizedJITGraphAndMetaData> g_mt_ptr_;
+  std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh_{nullptr};
   habana_lazy::ir::ValueList input_vals_;
   habana_lazy::ir::ValueList output_vals_;
   std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in_;

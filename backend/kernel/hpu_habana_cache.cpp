@@ -134,6 +134,7 @@ RecipeArgumentSpec::RecipeArgumentSpec(
   size_t hw_scaling_hash_code = ComputeHwScalingHashCode(input_refs);
   hash_code = at::hash_combine(hash_code, hw_scaling_hash_code);
   hash_code = at::hash_combine(hash_code, symhash);
+  graph_with_permute_hash_code = permhash;
   hash_code = at::hash_combine(hash_code, permhash);
 
   for (auto* node : irgraph->nodes()) {

@@ -144,6 +144,7 @@ void HPUGraph::mark_step() {
       context->getGraphAndMeta()->get_cached_graph()) {
     auto captured_graph = std::make_shared<SingleHPUGraph>(
         context->getGraphAndMeta(),
+        context->getRecipeArgSpec(),
         context->getInputs(),
         context->getOutputs(),
         context->getHbLazyTensors(),
@@ -462,6 +463,7 @@ SingleHPUGraph::~SingleHPUGraph() {
 void SingleHPUGraph::replayGraph(
     habana_lazy::ir::ValueList& input_vals,
     bool async) {
+  PT_LAZY_TRACE;
   bool dynamic_env_ = habana_helpers::GetRefineDynamicShapeStatus();
   if (dynamic_env_) {
     habana_helpers::DisableRefineDynamicShape();
@@ -502,27 +504,32 @@ void SingleHPUGraph::replayGraph(
     }
   }
 
+  std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh = nullptr;
+  if (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_HPUGRAPH_REPLAY_HASHCHECK)) {
+    cached_rarg_psh = cached_rarg_psh_;
+  }
+
   if (queue_in_thread_pool) {
     context->m_launch_thread_handle =
         habana_lazy::SingleTonExecThreadPool::getInstance().enqueue(
             habana_lazy::HbLazyTensor::ExecuteCachedGraph,
             g_mt_ptr_,
+            cached_rarg_psh,
             hash_,
             hblazy_tensors_in_,
             hblazy_tensors_out_,
             prev_graph_interdep_out_t_list_,
             seed_tensors_generator_,
-            true /*is_cached*/,
             launch_jobid);
   } else {
     habana_lazy::HbLazyTensor::ExecuteCachedGraph(
         g_mt_ptr_,
+        cached_rarg_psh,
         hash_,
         hblazy_tensors_in_,
         hblazy_tensors_out_,
         prev_graph_interdep_out_t_list_,
         seed_tensors_generator_,
-        true /*is_cached*/,
         launch_jobid);
   }
 

@@ -1036,7 +1036,7 @@ c10::ScalarType scalar_type(const c10::Scalar& s) {
 
 std::tuple<synapse_helpers::layouts::MemoryPermutation, bool>
 get_tensor_memory_permutation(const at::Tensor& tensor) {
-  PT_BRIDGE_TRACE;
+  // PT_BRIDGE_TRACE;
   if (!tensor.has_storage()) {
     PT_BRIDGE_DEBUG(
         "Getting permutations from storage-less tensor. Returning defaults..");

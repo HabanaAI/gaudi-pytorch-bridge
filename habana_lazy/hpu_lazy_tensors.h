@@ -21,7 +21,8 @@
 
 namespace habana {
 struct OptimizedJITGraphAndMetaData;
-}
+struct RecipeArgumentSpec;
+} // namespace habana
 
 enum LazyTensorExecutionStatus {
   kUN_REGISTERED = 0,
@@ -407,13 +408,13 @@ class HbLazyTensor {
 
   static void ExecuteCachedGraph(
       std::shared_ptr<habana::OptimizedJITGraphAndMetaData> graph,
+      std::shared_ptr<habana::RecipeArgumentSpec> cached_rarg_psh,
       size_t hash,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_in,
       std::vector<habana_lazy::HbLazyTensor> hblazy_tensors_out,
       std::vector<habana_lazy::HbLazyTensor> hbt_last_out_used_as_inputs,
       const std::unordered_map<int64_t, c10::optional<at::Generator>>&
           seed_tensors_generator_map,
-      bool is_cached,
       uint64_t launch_jobid);
 
   static void* lazyTensorDataPtr(const at::Tensor& t);
