@@ -551,6 +551,17 @@ InferOutputMetaRetType ViewOperator::InferOutputMeta(
   return ReshapeOperator::InferOutputMeta(inputs);
 }
 
+bool ViewOperator::STMeta(
+    habana_helpers::IShapeList& inputs,
+    habana_helpers::IShapeList& outputs) {
+  std::vector<int64_t> out_shape = outputs[0].getTensorShape();
+  static_cast<void>(inputs);
+  PT_BRIDGE_DEBUG("ViewOperatorSTMeta output shape ", out_shape);
+  habana_helpers::UpdateSTShapeInfo(out_shape);
+
+  return true;
+}
+
 void ViewOperator::AllocateAndAddSynapseNode(
     synapse_helpers::graph& graph,
     Stack& inputs,

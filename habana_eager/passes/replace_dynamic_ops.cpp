@@ -14,10 +14,11 @@
 #include <c10/util/ArrayRef.h>
 
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
+#include "backend/helpers/dynamic_graph_utils.h"
 #include "backend/kernel/hpu_habana_launch_op_pt.h"
+#include "backend/passes/replace_inplace_ops_ds.h"
 #include "habana_eager/graph_dynamic.h"
 #include "habana_eager/graph_dynamic_ops.h"
-#include "backend/passes/replace_inplace_ops_ds.h"
 
 namespace habana {
 namespace graph {
@@ -42,14 +43,6 @@ struct HandleDynamicOpsPass {
   }
 
  private:
-  void createGraphInputStackIndexMap(GraphInputIndexMap& org_stack_index_map) {
-    for (size_t idx = 0; idx < m_graph->inputs().size(); ++idx) {
-      auto input = m_graph->inputs().at(idx);
-      auto name = input->debugName();
-      org_stack_index_map[name] = idx;
-    }
-  }
-
   void eliminateUnusedInputs(torch::jit::Block* block) {
     c10::ArrayRef<torch::jit::Value*> inputs = block->inputs();
     size_t i = inputs.size() - 1;
@@ -201,73 +194,9 @@ struct HandleDynamicOpsPass {
     return true;
   }
 
-  bool nodeHasScalarGraphInput(
-      torch::jit::Node* node,
-      GraphInputIndexMap& org_stack_index_map) {
-    for (const auto& input : node->inputs()) {
-      torch::jit::Node* producer_node = input->node();
-      if (producer_node->kind() == torch::jit::prim::ListConstruct)
-        return nodeHasScalarGraphInput(producer_node, org_stack_index_map);
-      else {
-        auto ivalue = m_value_ivalue_map[const_cast<torch::jit::Value*>(input)];
-        if (!ivalue->isTensor()) {
-          if (org_stack_index_map.count(input->debugName())) {
-            auto node_name = node->kind().toQualString();
-            PT_EAGER_DEBUG(
-                "Node ",
-                node_name,
-                " has scalar inputs that are also graph inputs");
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
-  bool isNodeDynamic(
-      torch::jit::Node* node,
-      GraphInputIndexMap& org_stack_index_map) {
-    // Assuming node is dynamic by default
-    bool isDynamic = true;
-    auto node_name = node->kind().toQualString();
-    auto outputshapes_attr = c10::Symbol::attr("output_shapes");
-    if (node->hasAttribute(outputshapes_attr)) {
-      auto outputshapes_str = node->s(outputshapes_attr);
-      if (outputshapes_str.empty()) {
-        PT_EAGER_DEBUG(
-            "output_shapes attr is empty for node = ",
-            node_name,
-            ", assuming it to be dynamic");
-      } else {
-        bool hasSymbol = false;
-        for (auto& c : outputshapes_str) {
-          if (!(std::isdigit(c) || c == '[' || c == ']' || c == ',' ||
-                std::isspace(c)))
-            hasSymbol = true;
-        }
-        // Node is not dynamic if it does not have
-        // any non-numeric symbols
-        if (!hasSymbol)
-          isDynamic = false;
-        // If node has scalar inputs that are also graph inputs
-        // Differing values of those inputs cause JIT cache miss
-        // Better to replace such nodes
-        if (nodeHasScalarGraphInput(node, org_stack_index_map))
-          isDynamic = true;
-      }
-    } else {
-      PT_EAGER_DEBUG(
-          "output_shapes attr is missing for node = ",
-          node_name,
-          ", assuming it to be dynamic");
-    }
-    return isDynamic;
-  }
-
   bool processBlock(torch::jit::Block* block, torch::jit::Stack& org_stack) {
     GraphInputIndexMap org_stack_index_map;
-    createGraphInputStackIndexMap(org_stack_index_map);
+    habana_helpers::createGraphInputStackIndexMap(m_graph, org_stack_index_map);
     HABANA_ASSERT(m_graph->inputs().size() == org_stack.size());
     bool changed{true};
     // First Pass: Repace all dynamic shape ops with hpu implementation.
@@ -279,6 +208,14 @@ struct HandleDynamicOpsPass {
       DynamicOpPtr dsOp = DSOpsRegistry().get(node_name);
       if (!dsOp)
         continue;
+      if (!habana_helpers::isNodeDynamic(
+              node, org_stack_index_map, m_value_ivalue_map)) {
+        PT_EAGER_DEBUG(
+            "Skipping Dynamic HPU op replacement for ",
+            node_name,
+            " as its output shapes are static");
+        continue;
+      }
 
       PT_EAGER_DEBUG("Replace dynamic Op: ", node_name);
       dsOp->m_input_new_base_sizes = m_input_new_base_sizes;

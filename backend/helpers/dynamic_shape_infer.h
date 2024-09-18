@@ -103,6 +103,5 @@ struct DynamicSIFInfo {
 };
 
 void UpdateSTShapeInfo(std::vector<int64_t>& shape);
-bool is_symbolic_expr(std::string expr_str);
 
 } // namespace habana_helpers

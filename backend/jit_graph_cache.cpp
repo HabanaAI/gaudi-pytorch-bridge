@@ -15,6 +15,7 @@
 #define XXH_STATIC_LINKING_ONLY
 #define XXH_IMPLEMENTATION
 #include <utilities/xxhash.h>
+#include "backend/helpers/dynamic_graph_utils.h"
 #include "backend/lazy_to_backend.h"
 #include "habana_eager/passes/detect_weights_tensors.cpp"
 

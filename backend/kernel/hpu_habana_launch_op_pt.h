@@ -14,6 +14,7 @@
 
 #include "backend/helpers/dynamic_bucket_info.h"
 #include "backend/helpers/dynamic_bucket_info_utils.h"
+#include "backend/helpers/dynamic_graph_utils.h"
 #include "backend/helpers/dynamic_shape_infer.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/helpers/tensor_utils.h"
@@ -440,10 +441,11 @@ class HabanaLaunchOpPT {
 
   VecOfIValPtrSh pt_stack_sh_;
   CValuePtrToIValuePtrMap value_to_ivalue_;
+  GraphInputIndexMap org_stack_index_map;
   InputSymbolMap in_symbol_value_map_;
   habana_helpers::DynamicSIFInfo ds_sif_info_;
   size_t sym_expr_hash_ = 0;
-  std::unordered_set<std::string> st_backend_create_op_list_;
+  std::unordered_set<uint32_t> dynamic_nodes_with_backend_STs;
   std::unordered_map<IValPtrShared, SharedSynTensorOrRefListPtr>
       pt_to_synapse_tensors_;
 

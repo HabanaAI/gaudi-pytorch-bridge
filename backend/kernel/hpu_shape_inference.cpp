@@ -20,6 +20,7 @@ using tensor_name_generator = synapse_helpers::detail::tensor_name_generator;
 thread_local ShapeInfo* ShapeInference::m_shape_info(nullptr);
 thread_local ShapeInfTensorId ShapeInference::sif_tensor_id;
 thread_local ShapeInfTensorId ShapeInference::shape_tensor_id;
+thread_local std::unordered_set<uint64_t> ShapeInference::backend_ST_TIDs;
 thread_local std::unordered_map<uint64_t, uint64_t>
     ShapeInference::st_to_tensor_idx_map;
 

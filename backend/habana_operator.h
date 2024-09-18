@@ -725,6 +725,14 @@ class HabanaOperator {
     execution_mode = mode;
   }
 
+  void SetOpDynamicity(bool is_op_dynamic_) {
+    is_op_dynamic = is_op_dynamic_;
+  }
+
+  bool GetOpDynamicity() {
+    return is_op_dynamic;
+  }
+
   const habana_helpers::HabanaFrontendTypes& GetExecutionMode() {
     return execution_mode;
   }
@@ -751,6 +759,7 @@ class HabanaOperator {
       habana_helpers::HabanaFrontendTypes::INVALID};
   bool no_compute_flag{false};
   std::string hints_str_{};
+  bool is_op_dynamic{true};
 };
 
 class RegisterKernel {

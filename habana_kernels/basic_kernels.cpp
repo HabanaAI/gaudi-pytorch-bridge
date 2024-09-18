@@ -1303,6 +1303,7 @@ void StridedInsertOperator::compute_params(
           graph,
           false,
           SHAPE_TENSOR,
+          hop.GetOpDynamicity(),
           "",
           nullptr);
       syn_shape_input.set_intermediate_shape_tensor();
@@ -1757,12 +1758,14 @@ void StridedViewOperator::compute_params(
     } else {
       auto offset_tensor = inputs[2].toTensor();
       offset = offset_tensor.sizes()[0];
+      bool is_op_dynamic = true;
       auto syn_shape_input = habana_helpers::create_shape_tensor_backend(
           strides_ref,
           self.device().index(),
           graph,
           false,
           SHAPE_TENSOR,
+          is_op_dynamic,
           "",
           nullptr);
       syn_shape_input.set_intermediate_shape_tensor();

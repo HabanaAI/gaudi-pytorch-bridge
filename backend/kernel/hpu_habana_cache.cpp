@@ -406,8 +406,8 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
     deserialize(is, disabled_jit_ir_ops_);
     deserialize(is, st_to_tensor_idx_map);
     deserialize(is, execution_mode);
-    deserialize(is, st_backend_create_op_list);
     deserialize(is, enable_optim_output_sif_);
+    deserialize(is, dynamic_nodes_with_backend_STs);
   }
 }
 
@@ -477,8 +477,8 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
     serialize(os, disabled_jit_ir_ops_);
     serialize(os, st_to_tensor_idx_map);
     serialize(os, execution_mode);
-    serialize(os, st_backend_create_op_list);
     serialize(os, enable_optim_output_sif_);
+    serialize(os, dynamic_nodes_with_backend_STs);
   }
 }
 

@@ -75,6 +75,7 @@ synapse_helpers::tensor create_shape_tensor_backend(
     synapse_helpers::graph& graph,
     bool persistent,
     synTensorType shape_tensor_type,
+    bool is_op_dynamic,
     const std::string& name = std::string(),
     void* host_ptr = nullptr);
 
@@ -94,6 +95,7 @@ synapse_helpers::tensor create_shape_tensor_backend(
     synapse_helpers::graph& graph,
     bool persistent,
     synTensorType shape_tensor_type,
+    bool is_op_dynamic,
     const std::string& name = std::string(),
     void* host_ptr = nullptr);
 

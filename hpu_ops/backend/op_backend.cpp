@@ -677,6 +677,7 @@ void OpBackend::CreateShapeTensorInput(
         graph,
         false,
         shape_tensor_type,
+        is_op_dynamic,
         std::string(),
         hostDataPtr);
     st.set_intermediate_shape_tensor();
@@ -799,7 +800,11 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       outputs.emplace_back(
           habana_helpers::is_shape_tensor(attr.tensor_type)
               ? habana_helpers::create_shape_tensor_backend(
-                    t, graph, is_persistent, attr.tensor_type)
+                    t,
+                    graph,
+                    is_persistent,
+                    attr.tensor_type,
+                    op->GetOpDynamicity())
               : attr.syn_data_type == syn_type_na
                   ? habana_helpers::create_tensor(
                         t,

@@ -227,6 +227,18 @@ class ShapeInference {
     st_to_tensor_idx_map.clear();
   }
 
+  static void SaveBackendStTid(uint64_t t_idx) {
+    backend_ST_TIDs.insert(t_idx);
+  }
+
+  static std::unordered_set<uint64_t> GetBackendStTidxList() {
+    return backend_ST_TIDs;
+  }
+
+  static void ResetBackendStTidxList() {
+    backend_ST_TIDs.clear();
+  }
+
  private:
   /*
    * Stores all the shape information
@@ -234,6 +246,7 @@ class ShapeInference {
   static thread_local ShapeInfo* m_shape_info;
   static thread_local ShapeInfTensorId sif_tensor_id;
   static thread_local ShapeInfTensorId shape_tensor_id;
+  static thread_local std::unordered_set<uint64_t> backend_ST_TIDs;
   static thread_local std::unordered_map<uint64_t, uint64_t>
       st_to_tensor_idx_map;
 };

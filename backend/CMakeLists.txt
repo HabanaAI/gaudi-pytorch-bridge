@@ -45,6 +45,7 @@ add_habana_library(habana_pytorch_backend SHARED $<TARGET_OBJECTS:pytorch_synaps
   helpers/dynamic_bucket_info_utils.cpp
   helpers/dynamic_shape_info.cpp
   helpers/symbolic_expression.cpp
+  helpers/dynamic_graph_utils.cpp
   helpers/dynamic_shape_infer.cpp
   helpers/runtime_config.cpp
   helpers/compilation_statistics.cpp

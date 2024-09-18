@@ -978,19 +978,15 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
       !(m_map_shape.m_pass == ShapeInfo::InferencePass::MIN_SHAPE ||
         m_map_shape.m_pass == ShapeInfo::InferencePass::MAX_SHAPE);
 
-  auto st_to_tensor_idx_map = ShapeInference::GetTensorMapping();
+  auto backend_ST_TIDs = ShapeInference::GetBackendStTidxList();
 
   if (auto op = std::dynamic_pointer_cast<OpBackend>(habanaOp)) {
     for (const auto& st : op->GetShapeTensors()) {
-      bool is_backend_ST = false;
-      for (const auto& pair : st_to_tensor_idx_map) {
-        if (pair.second == st.id()) {
-          is_backend_ST = true;
-          break;
-        }
-      }
-      if (!is_backend_ST)
+      if (enable_optim_output_sif_ &&
+          (backend_ST_TIDs.find(st.id()) == backend_ST_TIDs.end())) {
         continue;
+      }
+
       auto irn = "%shapeInput_" + std::to_string(shape_index++);
       PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(st, irn);
       if (shape_inf_flag) {
@@ -1007,15 +1003,12 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
   for (synapse_helpers::tensor& maybe_syn_shape_tensor :
        habanaOp->GetSynInputs()) {
     if (maybe_syn_shape_tensor.is_shape_tensor()) {
-      bool is_backend_ST = false;
-      for (const auto& pair : st_to_tensor_idx_map) {
-        if (pair.second == maybe_syn_shape_tensor.id()) {
-          is_backend_ST = true;
-          break;
-        }
-      }
-      if (!is_backend_ST)
+      if (enable_optim_output_sif_ &&
+          (backend_ST_TIDs.find(maybe_syn_shape_tensor.id()) ==
+           backend_ST_TIDs.end())) {
         continue;
+      }
+
       std::string irn{"%shapeInput_"};
       irn += std::to_string(shape_index);
       shape_index++;
@@ -2811,8 +2804,10 @@ void HabanaLaunchOpPT::HandleOutputExprMappedJITGraph(
   }
 
   size_t outputs_metadata_index = 0;
+  uint32_t node_idx = static_cast<uint32_t>(-1);
   torch::jit::graph_node_list graph_nodes = rv_jit_graph->nodes();
   for (auto* node : graph_nodes) {
+    ++node_idx;
     auto node_qual_str = node->kind().toQualString();
     std::string opname(node_qual_str);
 
@@ -2842,8 +2837,9 @@ void HabanaLaunchOpPT::HandleOutputExprMappedJITGraph(
       UpdateValueIShapeMapForListUnpack(unpack_node, rv);
     }
 
-    // Check if the op is creating shape tensor at the backend
-    if (!rv.st_backend_create_op_list.count(node->kind().toQualString())) {
+    // Skip for static backend STs and all frontend STs
+    if (rv.dynamic_nodes_with_backend_STs.find(node_idx) ==
+        rv.dynamic_nodes_with_backend_STs.end()) {
       continue;
     }
 
@@ -2921,6 +2917,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   // This is used to create mapping between shape Tensor to tensor idx
   habana::ShapeInference::ResetShapeTensorId();
   habana::ShapeInference::ResetTensorMapping();
+  habana::ShapeInference::ResetBackendStTidxList();
 
   std::shared_ptr<torch::jit::Graph> rv_jit_graph = nullptr;
   torch::jit::graph_node_list::iterator itr_rv_node;
@@ -2982,8 +2979,10 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
   std::vector<std::pair<torch::jit::Value*, torch::jit::Node*>>
       memory_reuse_pairs;
   int inx = 0;
+  uint32_t node_idx = static_cast<uint32_t>(-1);
   PT_OP_DEBUG("JIT Graph: ", jit_ir_graph_->toString());
   for (auto* node : graph_nodes) {
+    ++node_idx;
     std::vector<IdxTensorTuple> intermediate_shape_tensor_cs;
     auto node_qual_str = node->kind().toQualString();
     std::string opname(node_qual_str);
@@ -3019,6 +3018,12 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     const auto& op = node->schema().operator_name();
     HabanaOperatorPtr HabanaKernel =
         KernelRegistry().get(device_id, op, getNodeScalarType(node));
+
+    bool is_node_dynamic = habana_helpers::isNodeDynamic(
+        node, org_stack_index_map, value_to_ivalue_);
+    HabanaKernel->SetOpDynamicity(is_node_dynamic);
+    PT_DYNAMIC_SHAPE_DEBUG(
+        "For op = ", opname, ", is current node dynamic = ", is_node_dynamic);
 
     TORCH_CHECK(HabanaKernel, op, " isn't registered in KernelRegistry!");
 
@@ -3178,12 +3183,15 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       uint64_t curr_st_id = habana::ShapeInference::GetShapeTensorId();
       HabanaKernel->AllocateAndAddSynapseNode(
           *syn_graph, input_stack, outputs_metadata);
+      // ST_Id is incremented only when the node is dynamic and it creates ST(s)
       uint64_t changed_st_id = habana::ShapeInference::GetShapeTensorId();
+
       if (enable_optim_output_sif_ &&
           (m_map_shape.m_pass == ShapeInfo::InferencePass::INVALID) &&
-          (changed_st_id != curr_st_id)) {
-        // Update st_backend_creation_op_list
-        st_backend_create_op_list_.insert(node->kind().toQualString());
+          curr_st_id != changed_st_id) {
+        dynamic_nodes_with_backend_STs.insert(node_idx);
+        PT_DYNAMIC_SHAPE_DEBUG(
+            "Dynamic Node with op", opname, "is creating ST(s) at the backend");
       }
 
       HabanaKernel->dump(node, input_stack);
@@ -3444,12 +3452,6 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
     habana_kernels_.push_back(HabanaKernel);
   }
 
-  // Print st_backend_create_op_list_
-  for (auto itr = st_backend_create_op_list_.begin();
-       itr != st_backend_create_op_list_.end();
-       itr++) {
-    PT_BRIDGE_DEBUG("Ops which are creating ST at the backend: ", *itr);
-  }
 
   // Generate patching info for graph inputs during fast sif
   if ((refine_ds_enabled_ && enable_fast_shape_inf_ &&
@@ -5539,6 +5541,8 @@ void HabanaLaunchOpPT::run_pass() {
     BuildSynapseGraphLite(syn_graph, cache);
   } else {
     CreateValueToIvalueMapForInputs();
+    habana_helpers::createGraphInputStackIndexMap(
+        jit_ir_graph_, org_stack_index_map);
     BuildSynapseGraph(syn_graph, cache, true);
   }
 

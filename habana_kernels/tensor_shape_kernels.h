@@ -163,4 +163,7 @@ class ViewOperator : public ReshapeOperator {
       synapse_helpers::graph& graph,
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override;
+  virtual bool STMeta(
+      habana_helpers::IShapeList& inputs,
+      habana_helpers::IShapeList& outputs) override;
 };
