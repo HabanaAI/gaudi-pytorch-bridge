@@ -1252,216 +1252,6 @@ std::tuple<Tensor&, Tensor&> cast_to_fp8_wrap(
   return cast_to_fp8_lazy(input, scale, stochastic_rounding, out, amax);
 }
 
-std::tuple<Tensor&, Tensor&, Tensor&> fp8_cast_transpose_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& transposed,
-    at::Tensor& amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "fp8_cast_transpose:",
-      " input=",
-      to_string(input),
-      " scale=",
-      to_string(scale),
-      " stochastic_rounding=",
-      to_string(stochastic_rounding));
-  FP8_CHECK
-  return fp8_cast_transpose_lazy(
-      input, scale, stochastic_rounding, out, transposed, amax);
-}
-std::tuple<Tensor&, Tensor&, Tensor&, Tensor&> fp8_cast_transpose_bgrad_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& transposed,
-    at::Tensor& bgrad,
-    at::Tensor& amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      " fp8_cast_transpose_bgrad:",
-      " input=",
-      to_string(input),
-      " scale=",
-      to_string(scale),
-      " stochastic_rounding=",
-      to_string(stochastic_rounding));
-  FP8_CHECK
-  return fp8_cast_transpose_bgrad_lazy(
-      input, scale, stochastic_rounding, out, transposed, bgrad, amax);
-}
-std::tuple<Tensor&, Tensor&, Tensor&, Tensor&>
-fp8_cast_transpose_bgrad_dgelu_wrap(
-    const at::Tensor& grad,
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    const c10::optional<at::Tensor>& retain,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& transposed,
-    at::Tensor& bgrad,
-    at::Tensor& amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "fp8_cast_transpose_bgrad:",
-      " input=",
-      to_string(input),
-      " scale=",
-      to_string(scale),
-      " stochastic_rounding=",
-      to_string(stochastic_rounding));
-  FP8_CHECK
-  return fp8_cast_transpose_bgrad_dgelu_lazy(
-      grad,
-      input,
-      scale,
-      retain,
-      stochastic_rounding,
-      out,
-      transposed,
-      bgrad,
-      amax);
-}
-std::tuple<Tensor, Tensor, Tensor> fp8_dropout_wrap(
-    const at::Tensor& input,
-    double p,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "fp8_dropout:",
-      DUMP_6ARGS(input, p, scale, stochastic_rounding, is_amax, dtype));
-  FP8_CHECK
-  return fp8_dropout_lazy(input, p, scale, stochastic_rounding, is_amax, dtype);
-}
-std::tuple<Tensor&, Tensor&, Tensor&> fp8_gelu_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& retain,
-    at::Tensor& amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "fp8_gelu:",
-      " input=",
-      to_string(input),
-      " scale=",
-      to_string(scale),
-      ", stochastic_rounding=",
-      to_string(stochastic_rounding));
-  FP8_CHECK
-  return fp8_gelu_lazy(input, scale, stochastic_rounding, out, retain, amax);
-}
-std::tuple<Tensor, Tensor, Tensor> fp8_gelu_v2_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "fp8_gelu_v2:",
-      DUMP_5ARGS(input, scale, stochastic_rounding, is_amax, dtype));
-  FP8_CHECK
-  return fp8_gelu_v2_lazy(input, scale, stochastic_rounding, is_amax, dtype);
-}
-std::tuple<Tensor, Tensor, Tensor> fp8_bgrad_dgelu_wrap(
-    const at::Tensor& grad,
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    const c10::optional<at::Tensor>& retain,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "fp8_bgrad_dgelu:",
-      DUMP_7ARGS(
-          grad, input, scale, retain, stochastic_rounding, is_amax, dtype));
-  FP8_CHECK
-  return fp8_bgrad_dgelu_lazy(
-      grad, input, scale, retain, stochastic_rounding, is_amax, dtype);
-}
-
-std::tuple<Tensor, Tensor> fp8_fast_softmax_wrap(
-    const at::Tensor& input,
-    const at::Tensor& mask,
-    const c10::optional<at::Tensor>& scale,
-    double softmax_scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "fp8_fast_softmax:",
-      DUMP_7ARGS(
-          input,
-          mask,
-          scale,
-          softmax_scale,
-          stochastic_rounding,
-          is_amax,
-          dtype));
-  FP8_CHECK
-  return fp8_fast_softmax_lazy(
-      input, mask, scale, softmax_scale, stochastic_rounding, is_amax, dtype);
-}
-
-std::tuple<Tensor&, Tensor&, Tensor&, Tensor&> fp8_layernorm_wrap(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const at::Tensor& bias,
-    double eps,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& mean,
-    at::Tensor& istd,
-    at::Tensor& amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "fp8_layernorm:",
-      " input=",
-      to_string(input),
-      " weight=",
-      to_string(weight),
-      " bias=",
-      to_string(bias),
-      " eps=",
-      to_string(eps),
-      " scale=",
-      to_string(scale),
-      ", stochastic_rounding=",
-      to_string(stochastic_rounding));
-  FP8_CHECK
-  return fp8_layernorm_lazy(
-      input,
-      weight,
-      bias,
-      eps,
-      scale,
-      stochastic_rounding,
-      out,
-      mean,
-      istd,
-      amax);
-}
-
 Tensor& fp8_gemm_wrap(
     const at::Tensor& A,
     bool trans_A,
@@ -1509,34 +1299,6 @@ Tensor& fp8_gemm_wrap(
       bias,
       accumulate,
       out);
-}
-
-at::Tensor& fp8_transpose_wrap(const at::Tensor& input, at::Tensor& out) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("fp8_transpose:", " input=", to_string(input));
-  FP8_CHECK
-  return fp8_transpose_lazy(input, out);
-}
-
-at::Tensor& fp8_permute_wrap(
-    const at::Tensor& input,
-    at::IntArrayRef dims,
-    at::Tensor& out) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(
-      "fp8_permute:", " input=", to_string(input), " dims=", to_string(dims));
-  FP8_CHECK
-  return fp8_permute_lazy(input, dims, out);
-}
-
-at::Tensor fp8_reshape_wrap(const at::Tensor& input, at::IntArrayRef shape) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO("fp8_reshape:", " input=", to_string(input));
-  FP8_CHECK
-  return fp8_reshape_lazy(input, shape);
 }
 
 at::Tensor matmul_ex_wrap(
@@ -2220,62 +1982,6 @@ scaled_triangular_softmax_retain_wrap(
   return scaled_triangular_softmax_retain_lazy(self, inv_scale_attn);
 }
 
-at::Tensor& fp8_copy_wrap(at::Tensor& self, const at::Tensor& src) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(DUMP_2ARGS(self, src));
-  if (synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type())) {
-    return fp8_copy_lazy(self, src);
-  } else {
-    TORCH_CHECK(false, "FP8 data type is not available on this device.")
-  }
-}
-
-at::Tensor& fp8_kv_reorder_wrap(
-    at::Tensor& self,
-    const at::Tensor start,
-    const at::Tensor end,
-    const at::Tensor beam_idx) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(DUMP_4ARGS(self, start, end, beam_idx));
-  FP8_CHECK
-  return fp8_kv_reorder_lazy(self, start, end, beam_idx);
-}
-
-at::Tensor& fp8_index_copy_wrap(
-    at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index,
-    const at::Tensor& source) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(DUMP_4ARGS(self, dim, index, source));
-  FP8_CHECK
-  return fp8_index_copy_lazy(self, dim, index, source);
-}
-
-at::Tensor fp8_repeat_v2_wrap(
-    const at::Tensor& self,
-    c10::SymIntArrayRef repeats) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(DUMP_2ARGS(self, repeats));
-  FP8_CHECK
-  return fp8_repeat_v2_lazy(self, repeats);
-}
-
-at::Tensor fp8_index_select_v2_wrap(
-    const at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  PT_OP_INFO(DUMP_3ARGS(self, dim, index));
-  FP8_CHECK
-  return fp8_index_select_v2_lazy(self, dim, index);
-}
-
 at::Tensor& kv_reorder_wrap(
     at::Tensor& self,
     const at::Tensor start,
@@ -2695,39 +2401,21 @@ TORCH_LIBRARY(hpu, m) {
   m.def(
       "hpu::cast_to_fp8(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) amax) -> (Tensor(a!), Tensor(b!))");
   m.def(
-      "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
+      "hpu::cast_to_fp8_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
   m.def(
-      "hpu::cast_to_fp8_v2.scalar(Tensor input, float scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
+      "hpu::cast_to_fp8_v2.scalar(Tensor input, float scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
   m.def(
-      "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
+      "hpu::cast_to_fp8_v2.scalar_list(Tensor input, float[] scale, bool stochastic_rounding=False, bool is_amax=False, ScalarType dtype=None, int[]? scale_shape=None) -> (Tensor, Tensor)");
   m.def(
       "hpu::convert_from_int4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
   m.def(
       "hpu::convert_from_uint4(Tensor input, Tensor scale, Tensor? zero_point, ScalarType out_dtype) -> Tensor");
-  m.def(
-      "hpu::fp8_cast_transpose(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
-  m.def(
-      "hpu::fp8_cast_transpose_bgrad(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) bgrad, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
-  m.def(
-      "hpu::fp8_cast_transpose_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale, Tensor? retain, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) transposed, Tensor(c!) bgrad, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
   m.def(
       "hpu::cast_from_fp8(Tensor input, Tensor? scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor");
   m.def(
       "hpu::cast_from_fp8.scalar(Tensor input, float scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor");
   m.def(
       "hpu::cast_from_fp8.scalar_list(Tensor input, float[] scale, ScalarType out_dtype, int[]? scale_shape=None) -> Tensor");
-  m.def(
-      "hpu::fp8_dropout(Tensor input, float p, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
-  m.def(
-      "hpu::fp8_gelu(Tensor input, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) retain, Tensor(c!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!))");
-  m.def(
-      "hpu::fp8_gelu_v2(Tensor input, Tensor? scale=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
-  m.def(
-      "hpu::fp8_bgrad_dgelu(Tensor grad, Tensor input, Tensor? scale=None, Tensor? retain=None, bool stochastic_rounding=False, bool is_amax=False, ScalarType? dtype=None) -> (Tensor, Tensor, Tensor)");
-  m.def(
-      "hpu::fp8_fast_softmax(Tensor input, Tensor mask, Tensor? scale, float softmax_scale, bool stochastic_rounding, bool is_amax, ScalarType? dtype=None) -> (Tensor, Tensor)");
-  m.def(
-      "hpu::fp8_layernorm(Tensor input, Tensor weight, Tensor bias, float eps, Tensor? scale, bool stochastic_rounding, Tensor(a!) out, Tensor(b!) mean, Tensor(c!) istd, Tensor(d!) amax) -> (Tensor(a!), Tensor(b!), Tensor(c!), Tensor(d!))");
   m.def(
       "hpu::fp8_gemm(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor D, ScalarType out_dtype, Tensor? A_scale_inv, Tensor? B_scale_inv, Tensor? bias, bool accumulate, Tensor(a!) out) -> Tensor(a!)");
   m.def(
@@ -2736,10 +2424,6 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::fp8_gemm_v2.scalar(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float A_scale_inv, float B_scale_inv, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor");
   m.def(
       "hpu::fp8_gemm_v2.scalar_list(Tensor A, bool trans_A, Tensor B, bool trans_B, Tensor? D, ScalarType out_dtype, float[] A_scale_inv, float[] B_scale_inv, Tensor? bias=None, bool accumulate=False, int[]? B_scale_shape=None) -> Tensor");
-  m.def("hpu::fp8_transpose(Tensor input, Tensor(a!) out) -> Tensor(a!)");
-  m.def(
-      "hpu::fp8_permute(Tensor input, int[] dims, Tensor(a!) out) -> Tensor(a!)");
-  m.def("hpu::fp8_reshape(Tensor input, int[] shape) -> Tensor");
   m.def(
       "hpu::index_add(Tensor self, int dim, Tensor index, Tensor source, *, Scalar alpha=1) -> Tensor");
   m.def("hpu::habana_random_seed(Tensor input) -> (Tensor)");
@@ -2832,16 +2516,8 @@ TORCH_LIBRARY(hpu, m) {
       "hpu::scaled_triangular_softmax(Tensor self, float inv_scale_attn, Tensor? exp_sum_recpr=None, Tensor? max=None) -> Tensor");
   m.def(
       "hpu::scaled_triangular_softmax_retain(Tensor self, float inv_scale_attn) -> (Tensor, Tensor, Tensor)");
-  m.def("hpu::fp8_copy_(Tensor(a!) self, Tensor src) -> Tensor(a!)");
-  m.def(
-      "hpu::fp8_kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
   m.def(
       "hpu::kv_reorder_(Tensor(a!) self, Tensor start, Tensor end, Tensor beam_idx) -> (Tensor(a!))");
-  m.def(
-      "hpu::fp8_index_copy_(Tensor(a!) self, int dim, Tensor index, Tensor source) -> Tensor(a!)");
-  m.def("hpu::fp8_repeat_v2(Tensor self, SymInt[] repeats) -> Tensor");
-  m.def(
-      "hpu::fp8_index_select_v2(Tensor self, int dim, Tensor index) -> Tensor");
   m.def(
       "hpu::scaled_masked_triangular_softmax(Tensor self, Tensor start_end, float inv_scale_attn, int grouped_batch_size, bool use_max, int mode, ScalarType? out_dtype=None) -> Tensor");
   m.def("hpu::in_place_interleave_(Tensor(a!) self) -> (Tensor(a!))");
@@ -2892,25 +2568,13 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl("hpu::cast_to_fp8_v2.scalar_list", cast_to_fp8_v2_scalar_list_lazy);
   m.impl("hpu::convert_from_int4", convert_from_int4_lazy);
   m.impl("hpu::convert_from_uint4", convert_from_uint4_lazy);
-  m.impl("hpu::fp8_cast_transpose", fp8_cast_transpose_wrap);
-  m.impl("hpu::fp8_cast_transpose_bgrad", fp8_cast_transpose_bgrad_wrap);
-  m.impl(
-      "hpu::fp8_cast_transpose_bgrad_dgelu",
-      fp8_cast_transpose_bgrad_dgelu_wrap);
   m.impl("hpu::cast_from_fp8", cast_from_fp8_lazy);
   m.impl("hpu::cast_from_fp8.scalar", cast_from_fp8_scalar_lazy);
   m.impl("hpu::cast_from_fp8.scalar_list", cast_from_fp8_scalar_list_lazy);
-  m.impl("hpu::fp8_dropout", fp8_dropout_wrap);
-  m.impl("hpu::fp8_gelu", fp8_gelu_wrap);
-  m.impl("hpu::fp8_gelu_v2", fp8_gelu_v2_wrap);
-  m.impl("hpu::fp8_bgrad_dgelu", fp8_bgrad_dgelu_wrap);
-  m.impl("hpu::fp8_fast_softmax", fp8_fast_softmax_wrap);
-  m.impl("hpu::fp8_layernorm", fp8_layernorm_wrap);
   m.impl("hpu::fp8_gemm", fp8_gemm_wrap);
   m.impl("hpu::fp8_gemm_v2", fp8_gemm_v2_lazy);
   m.impl("hpu::fp8_gemm_v2.scalar", fp8_gemm_v2_lazy_scalar);
   m.impl("hpu::fp8_gemm_v2.scalar_list", fp8_gemm_v2_lazy_scalar_list);
-  m.impl("hpu::fp8_transpose", fp8_transpose_wrap);
   m.impl("hpu::ragged_softmax", _ragged_softmax_wrap);
   m.impl("hpu::scaled_masked_softmax", scaled_masked_softmax_wrap);
   m.impl("hpu::custom_softmax", custom_softmax_wrap);
@@ -2918,8 +2582,6 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
   m.impl(
       "hpu::mixture_of_experts.fused_weights",
       mixture_of_experts_fused_weights_wrap);
-  m.impl("hpu::fp8_reshape", fp8_reshape_wrap);
-  m.impl("hpu::fp8_permute", fp8_permute_wrap);
   m.impl("hpu::optimizer_lamb_fused_norm", optimizer_lamb_norm_hpu_lazy);
   m.impl(
       "hpu::optimizer_resource_apply_momentum",
@@ -2946,12 +2608,7 @@ TORCH_LIBRARY_IMPL(hpu, HPU, m) {
       "hpu::scaled_triangular_softmax_retain",
       scaled_triangular_softmax_retain_wrap);
   m.impl("hpu::sum_fp8", sum_fp8_lazy);
-  m.impl("hpu::fp8_copy_", fp8_copy_wrap);
-  m.impl("hpu::fp8_kv_reorder_", fp8_kv_reorder_wrap);
   m.impl("hpu::kv_reorder_", kv_reorder_wrap);
-  m.impl("hpu::fp8_index_copy_", fp8_index_copy_wrap);
-  m.impl("hpu::fp8_repeat_v2", fp8_repeat_v2_wrap);
-  m.impl("hpu::fp8_index_select_v2", fp8_index_select_v2_wrap);
   m.impl(
       "hpu::scaled_masked_triangular_softmax",
       scaled_masked_triangular_softmax_wrap);

@@ -555,21 +555,21 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
     bool is_amax,
-    c10::optional<at::ScalarType> dtype,
+    at::ScalarType dtype,
     OptionalIntArrayRef scale_shape);
 std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_lazy(
     const at::Tensor& input,
     double scale,
     bool stochastic_rounding,
     bool is_amax,
-    c10::optional<at::ScalarType> dtype,
+    at::ScalarType dtype,
     OptionalIntArrayRef scale_shape);
 std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_list_lazy(
     const at::Tensor& input,
     c10::ArrayRef<double> scale,
     bool stochastic_rounding,
     bool is_amax,
-    c10::optional<at::ScalarType> dtype,
+    at::ScalarType dtype,
     OptionalIntArrayRef scale_shape);
 at::Tensor cast_from_fp8_lazy(
     const at::Tensor& input,
@@ -596,81 +596,6 @@ at::Tensor convert_from_uint4_lazy(
     const at::Tensor& scale,
     const c10::optional<at::Tensor>& zero_point,
     at::ScalarType out_dtype);
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& transposed,
-    at::Tensor& amax);
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
-fp8_cast_transpose_bgrad_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& transposed,
-    at::Tensor& bgrad,
-    at::Tensor& amax);
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
-fp8_cast_transpose_bgrad_dgelu_lazy(
-    const at::Tensor& grad,
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    const c10::optional<at::Tensor>& retain,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& transposed,
-    at::Tensor& bgrad,
-    at::Tensor& amax);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout_lazy(
-    const at::Tensor& input,
-    double p,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype);
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& retain,
-    at::Tensor& amax);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu_lazy(
-    const at::Tensor& grad,
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    const c10::optional<at::Tensor>& retain,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype);
-std::tuple<at::Tensor, at::Tensor> fp8_fast_softmax_lazy(
-    const at::Tensor& input,
-    const at::Tensor& mask,
-    const c10::optional<at::Tensor>& scale,
-    double softmax_scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype);
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
-fp8_layernorm_lazy(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const at::Tensor& bias,
-    double eps,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& mean,
-    at::Tensor& istd,
-    at::Tensor& amax);
 at::Tensor& fp8_gemm_lazy(
     const at::Tensor& A,
     bool trans_A,
@@ -719,12 +644,6 @@ at::Tensor fp8_gemm_v2_lazy_scalar_list(
     const c10::optional<at::Tensor>& bias,
     bool accumulate,
     OptionalIntArrayRef B_scale_shape);
-at::Tensor& fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out);
-at::Tensor& fp8_permute_lazy(
-    const at::Tensor& input,
-    at::IntArrayRef dims,
-    at::Tensor& out);
-at::Tensor fp8_reshape_lazy(const at::Tensor& input, at::IntArrayRef shape);
 std::tuple<at::Tensor, at::Tensor, at::Tensor>
 native_group_norm_backward_hpu_lazy(
     const at::Tensor& grad_out,
@@ -992,31 +911,12 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor>
 scaled_triangular_softmax_retain_lazy(
     const at::Tensor& self,
     double inv_scale_attn);
-at::Tensor& fp8_copy_lazy(at::Tensor& self, const at::Tensor& src);
-at::Tensor& fp8_kv_reorder_lazy(
-    at::Tensor& self,
-    const at::Tensor start,
-    const at::Tensor end,
-    const at::Tensor beam_idx);
 at::Tensor& kv_reorder_lazy(
     at::Tensor& self,
     const at::Tensor start,
     const at::Tensor end,
     const at::Tensor beam_idx);
 at::Tensor& in_place_interleave_lazy(at::Tensor& self);
-
-at::Tensor& fp8_index_copy_lazy(
-    at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index,
-    const at::Tensor& source);
-at::Tensor fp8_repeat_v2_lazy(
-    const at::Tensor& self,
-    c10::SymIntArrayRef repeats);
-at::Tensor fp8_index_select_v2_lazy(
-    const at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index);
 at::Tensor scaled_masked_triangular_softmax_lazy(
     const at::Tensor& self,
     const at::Tensor& start_end,

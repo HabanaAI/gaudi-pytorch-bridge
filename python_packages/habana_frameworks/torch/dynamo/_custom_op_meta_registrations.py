@@ -96,21 +96,6 @@ def meta_convert_from_uint4(input, scale, zero_point, out_dtype):
     return meta_convert_from_int4_common(input, out_dtype)
 
 
-@register_meta([torch.ops.hpu.fp8_cast_transpose.default])
-def meta_fp8_cast_transpose(input, scale, stochastic, out, transposed, amax):
-    return out, transposed, amax
-
-
-@register_meta([torch.ops.hpu.fp8_cast_transpose_bgrad.default])
-def meta_fp8_cast_transpose_bgrad(input, scale, stochastic, out, transposed, bgrad, amax):
-    return out, transposed, bgrad, amax
-
-
-@register_meta([torch.ops.hpu.fp8_cast_transpose_bgrad_dgelu.default])
-def meta_fp8_cast_transpose_bgrad_dgelu(grad, input, scale, retain, stochastic, out, transposed, bgrad, amax):
-    return out, transposed, bgrad, amax
-
-
 @register_meta([torch.ops.hpu.cast_from_fp8.default])
 def meta_cast_from_fp8(input, scale, out_dtype, scale_shape=None):
     return input.new_empty(input.shape, dtype=out_dtype)
@@ -124,51 +109,6 @@ def meta_cast_from_fp8_scalar(input, scale, out_dtype, scale_shape=None):
 @register_meta([torch.ops.hpu.cast_from_fp8.scalar_list])
 def meta_cast_from_fp8_scalar_list(input, scale, out_dtype, scale_shape=None):
     return input.new_empty(input.shape, dtype=out_dtype)
-
-
-@register_meta([torch.ops.hpu.fp8_dropout.default])
-def meta_fp8_dropout(input, p, scale, stochastic_rounding, is_amax, dtype):
-    out_dtype = dtype if dtype else torch.int8
-    out = input.new_empty(input.shape, dtype=out_dtype)
-    mask = input.new_empty(input.shape, dtype=torch.int8)
-    amax = input.new_empty((), dtype=torch.float32)
-    return out, mask, amax
-
-
-@register_meta([torch.ops.hpu.fp8_gelu.default])
-def meta_fp8_gelu(input, scale, stochastic, out, retain, amax):
-    return out, retain, amax
-
-
-@register_meta([torch.ops.hpu.fp8_bgrad_dgelu.default])
-def meta_fp8_bgrad_dgelu(grad, input, scale, retain, stochastic, is_amax, dtype):
-    out_dtype = dtype if dtype else torch.int8
-    out = input.new_empty(input.shape, dtype=out_dtype)
-    bgrad = input.new_empty(input.shape[1], dtype=input.dtype)
-    amax = input.new_empty((), dtype=torch.float32)
-    return out, bgrad, amax
-
-
-@register_meta([torch.ops.hpu.fp8_fast_softmax.default])
-def meta_fp8_fast_softmax(input, mask, scale, softmax_scale, stochastic, is_amax, dtype):
-    out_dtype = dtype if dtype else torch.int8
-    out = input.new_empty(input.shape, dtype=out_dtype)
-    amax = input.new_empty((), dtype=torch.float32)
-    return out, amax
-
-
-@register_meta([torch.ops.hpu.fp8_gelu_v2.default])
-def meta_fp8_gelu_v2(input, scale, stochastic, is_amax, dtype):
-    out_dtype = dtype if dtype else torch.int8
-    out = input.new_empty(input.shape, dtype=out_dtype)
-    retain = input.new_empty(input.shape)
-    amax = input.new_empty((), dtype=torch.float32)
-    return out, retain, amax
-
-
-@register_meta([torch.ops.hpu.fp8_layernorm.default])
-def meta_fp8_layernorm(input, weight, bias, eps, scale, stochastic, out, mean, istd, amax):
-    return out, mean, istd, amax
 
 
 @register_meta([torch.ops.hpu.fp8_gemm.default])
@@ -306,21 +246,6 @@ def meta_conv2d_fp8_scalar(
     return meta_conv2d_fp8_common(input, weight, stride, padding, dilation, out_dtype)
 
 
-@register_meta([torch.ops.hpu.fp8_transpose.default])
-def meta_fp8_transpose(input, dims, out):
-    return out
-
-
-@register_meta([torch.ops.hpu.fp8_permute.default])
-def meta_fp8_permute(input, out):
-    return out
-
-
-@register_meta([torch.ops.hpu.fp8_reshape.default])
-def meta_fp8_reshape(input, shape):
-    return input.new_empty(shape)
-
-
 @register_meta([torch.ops.hpu.optimizer_lamb_fused_norm.default])
 def meta_optimizer_lamb_fused_norm(grads, scale):
     return grads[0].new_empty((1,))
@@ -421,16 +346,6 @@ def meta_scaled_triangular_softmax_retain(input, inv_scale_attn):
     return out, exp_sum_recpr, max
 
 
-@register_meta([torch.ops.hpu.fp8_copy_.default])
-def meta_fp8_copy_(self, src):
-    return self
-
-
-@register_meta([torch.ops.hpu.fp8_kv_reorder_.default])
-def meta_fp8_kv_reorder_(self, start, end, beam_idx):
-    return self
-
-
 @register_meta([torch.ops.hpu.kv_reorder_.default])
 def meta_kv_reorder_(self, start, end, beam_idx):
     return self
@@ -439,28 +354,6 @@ def meta_kv_reorder_(self, start, end, beam_idx):
 @register_meta([torch.ops.hpu.kv_reorder.default])
 def meta_kv_reorder(self, start, end, beam_idx):
     return self.new_empty(self.shape)
-
-
-@register_meta([torch.ops.hpu.fp8_index_copy_.default])
-def meta_fp8_index_copy_(self, src):
-    return self
-
-
-@register_meta([torch.ops.hpu.fp8_repeat_v2.default])
-def meta_fp8_repeat_v2(self, repeats):
-    if len(repeats) == 0:
-        return self
-
-    out_shape = _hpu_C.custom_op_calc_out_shape_params_int("fp8_repeat_v2", [self], repeats)[0]
-    return self.new_empty(out_shape)
-
-
-@register_meta([torch.ops.hpu.fp8_index_select_v2.default])
-def meta_fp8_index_select_v2(self, dim, index):
-    result_size = list(self.size())
-    if self.dim() > 0:
-        result_size[dim] = index.numel()
-    return self.new_empty(result_size)
 
 
 @register_meta([torch.ops.hpu.scaled_masked_softmax])

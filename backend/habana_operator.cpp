@@ -26,53 +26,6 @@
 #include "hpu_ops/hpu_op_helper.h"
 #include "hpu_ops/op_logger.h"
 
-static const synDataType fp8_syn_type =
-    GET_ENV_FLAG_NEW(PT_USE_FP8_143) ? syn_type_fp8_143 : syn_type_fp8_152;
-
-bool habana::HabanaOperator::isFp8Op(const std::string_view guid) {
-  using namespace std::literals;
-  // Note: For 26 items, benchmark shown 6% improvement using constexpr array
-  // (+any_of) over absl::flat_hash_set (+contains). Adding more items requires
-  // reevaluation of results. For reference on why
-  // https://www.youtube.com/watch?v=INn3xa4pMfg
-  static constexpr std::array<std::string_view, 32> fp8_ops{
-      "cast_from_fp8_f32"sv,
-      "cast_from_fp8_bf16"sv,
-      "cast_from_fp8_i8"sv,
-      "cast_to_fp8_f32"sv,
-      "cast_to_fp8_bf16"sv,
-      "cast_to_fp8_v2_f32"sv,
-      "cast_to_fp8_v2_bf16"sv,
-      "fp8_cast_transpose_f32"sv,
-      "fp8_cast_transpose_bf16"sv,
-      "fp8_cast_transpose_bgrad_f32"sv,
-      "fp8_cast_transpose_bgrad_bf16"sv,
-      "fp8_cast_transpose_bgrad_dgelu_f32"sv,
-      "fp8_cast_transpose_bgrad_dgelu_bf16"sv,
-      "fp8_copy__i8"sv,
-      "fp8_dropout_f32"sv,
-      "fp8_dropout_bf16"sv,
-      "fp8_gelu_f32"sv,
-      "fp8_gelu_bf16"sv,
-      "fp8_bgrad_dgelu_f32"sv,
-      "fp8_bgrad_dgelu_bf16"sv,
-      "fp8_gemm_i8"sv,
-      "fp8_gemm_v2_i8"sv,
-      "fp8_layernorm_f32"sv,
-      "fp8_layernorm_bf16"sv,
-      "fp8_reshape_i8"sv,
-      "fp8_transpose_i8"sv,
-      "fp8_permute_i8"sv,
-      "fp8_kv_reorder_i8"sv,
-      "fp8_index_copy__i8"sv,
-      "fp8_repeat_v2_i8"sv,
-      "fp8_index_select_v2_i8"sv,
-      "in_place_interleave__i8"sv};
-
-  return std::any_of(
-      fp8_ops.begin(), fp8_ops.end(), [&guid](auto&& v) { return v == guid; });
-}
-
 std::string habana::get_guid_with_precision(
     const std::string_view guid,
     c10::ScalarType dtype,
@@ -418,11 +371,6 @@ synapse_helpers::tensor& habana::HabanaOperator::AllocateSynapseInput(
               permutation);
 
       p_context_->syn_inputs_.emplace_back(std::move(syn_tensor_input));
-    } else if (input.scalar_type() == c10::ScalarType::Char && isFp8Op(guid_)) {
-      // fp8 tensors are exposed to Pytorch via torch.int8 type, therefor for
-      // fp8 ops synTensors must have manually set syn_type_fp8_152/143 type
-      p_context_->syn_inputs_.emplace_back(habana_helpers::create_tensor(
-          input, graph, is_persistent, false, fp8_syn_type));
     } else if (
         // int4/uint4 tensors are exposed to Pytorch via torch.int type,
         // therefor for int4 ops synTensors must have manually set
@@ -753,10 +701,8 @@ synapse_helpers::tensor habana::HabanaOperator::AllocateConstantSynapseTensor(
       CASE(Half);
       CASE(Bool);
       CASE(BFloat16);
-#if HAVE_FP8_SUPPORT
       CASE(Float8_e5m2);
       CASE(Float8_e4m3fn);
-#endif
       default:
         HABANA_ASSERT(0, "Unsupported scalar type: ", val_type);
     }

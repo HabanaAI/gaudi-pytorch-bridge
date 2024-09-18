@@ -14,7 +14,7 @@ from enum import Enum
 import numpy as np
 import pytest
 import torch
-from fp8_utils import FP8_MAX, simulateFp8Precision
+from fp8_utils import FP8_MAX, fp8_dtypes, simulateFp8Precision
 from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
@@ -35,8 +35,6 @@ import habana_frameworks.torch.hpu as ht
 ht.disable_dynamic_shape()
 
 pytestmark = [pytest.mark.skipif(is_gaudi1(), reason="Gaudi doesn't support fp8")]
-
-fp8_dtypes = [torch.float8_e5m2, torch.float8_e4m3fn]
 
 
 class ScaleMode(Enum):
@@ -369,29 +367,28 @@ def fp8_gemm_v2_common(shapeA, shapeB, bias, accumulate, scaleA, scaleB, dtype, 
     scaleAInv = None
     scaleBInv = None
 
-    variant = "143" if fp8_dtype == torch.float8_e4m3fn else "152"
     if scaleA == ScaleMode.TENSOR:
-        scaleA_hpu = (FP8_MAX[variant] / max_A).to(hpu)
+        scaleA_hpu = (FP8_MAX[fp8_dtype] / max_A).to(hpu)
         scaleAInv = torch.reciprocal(scaleA_hpu)
     elif scaleA == ScaleMode.SCALAR:
-        scaleA_hpu = (FP8_MAX[variant] / max_A).item()
+        scaleA_hpu = (FP8_MAX[fp8_dtype] / max_A).item()
         scaleAInv = 1 / scaleA_hpu
         if not scaleB:
             scaleBInv = 1.0
 
     if scaleB == ScaleMode.TENSOR:
-        scaleB_hpu = (FP8_MAX[variant] / max_B).to(hpu)
+        scaleB_hpu = (FP8_MAX[fp8_dtype] / max_B).to(hpu)
         scaleBInv = torch.reciprocal(scaleB_hpu)
     elif scaleB == ScaleMode.SCALAR:
-        scaleB_hpu = (FP8_MAX[variant] / max_B).item()
+        scaleB_hpu = (FP8_MAX[fp8_dtype] / max_B).item()
         scaleBInv = 1 / scaleB_hpu
         if not scaleA:
             scaleAInv = 1.0
     elif scaleB == ScaleMode.TENSOR_CHANNEL:
-        scaleB_hpu = (FP8_MAX[variant] / max_B).expand(shapeB[-1]).to(hpu)
+        scaleB_hpu = (FP8_MAX[fp8_dtype] / max_B).expand(shapeB[-1]).to(hpu)
         scaleBInv = torch.reciprocal(scaleB_hpu)
     elif scaleB == ScaleMode.SCALAR_CHANNEL:
-        scaleB_h = (FP8_MAX[variant] / max_B).expand(shapeB[-1])
+        scaleB_h = (FP8_MAX[fp8_dtype] / max_B).expand(shapeB[-1])
         scaleBInv = (1 / scaleB_h).numpy().tolist()
         scaleB_hpu = scaleB_h.numpy().tolist()
         if not scaleA:

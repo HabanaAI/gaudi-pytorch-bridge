@@ -37,44 +37,20 @@ ns_CastKernel::Params GetCastParams(
 // order to deal with that problem.
 DEFINE_OP(CastToFp8)
 DEFINE_OP(CastToFp8V2)
-DEFINE_OP(Fp8CastTranspose)
-DEFINE_OP(Fp8CastTransposeBgrad)
-DEFINE_OP(Fp8CastTransposeBgradDgelu)
 DEFINE_OP(CastFromFp8)
-DEFINE_OP(Fp8Dropout)
-DEFINE_OP(Fp8Gelu)
-DEFINE_OP(Fp8GeluV2)
-DEFINE_OP(Fp8BgradDgelu)
-DEFINE_OP(Fp8FastSoftmax)
-DEFINE_OP(Fp8Layernorm)
 DEFINE_OP(Fp8Gemm)
 DEFINE_OP(Fp8GemmV2)
-DEFINE_OP(Fp8Transpose)
-DEFINE_OP(Fp8Permute)
-DEFINE_OP(Fp8Reshape)
-DEFINE_OP(Fp8Copy_)
-DEFINE_OP(Fp8KvReorder)
-DEFINE_OP(Fp8IndexCopy_)
-DEFINE_OP(Fp8RepeatV2)
-DEFINE_OP(Fp8IndexSelectV2)
 HPU_OP_BACKEND(InPlaceInterleaveCommon)
 DEFINE_OP(Conv2dFp8)
 DEFINE_OP(SumFp8)
 
 OUTSHAPE_DECL(CastToFp8V2OutputShape)
-OUTSHAPE_DECL(Fp8DropoutOutputShape)
-OUTSHAPE_DECL(Fp8GeluV2OutputShape)
 OUTSHAPE_DECL(Fp8GemmV2OutputShape)
-OUTSHAPE_DECL(Fp8BgradDgeluOutputShape)
-OUTSHAPE_DECL(Fp8FastSoftmaxOutputShape)
-OUTSHAPE_DECL(Fp8ReshapeOutputShape)
-OUTSHAPE_DECL(Fp8RepeatV2OutputShape)
-OUTSHAPE_DECL(Fp8IndexSelectV2OutputShape)
 OUTSHAPE_DECL(Conv2dFp8OutputShape)
 OUTSHAPE_DECL(SumFp8OutputShape)
 
-const synDataType fp8_syn_type =
-    GET_ENV_FLAG_NEW(PT_USE_FP8_143) ? syn_type_fp8_143 : syn_type_fp8_152;
+// Determines if STOCHASTIC_FLUSH_TO_ZERO should be used instead
+// of STORCHASTIC_ROUNDING.
 const bool is_sr_sftz = GET_ENV_FLAG_NEW(PT_HPU_STOCHASTIC_ROUNDING_MODE) == 1;
 
 } // namespace habana

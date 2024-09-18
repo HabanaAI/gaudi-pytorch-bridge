@@ -15,7 +15,6 @@ import os
 from dataclasses import dataclass, field
 from typing import Callable, List
 
-import numpy as np
 import pytest
 import torch
 from test_utils import (

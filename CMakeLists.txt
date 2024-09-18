@@ -407,7 +407,6 @@ if(BUILD_PKGS)
     habana_frameworks/torch/hpex/kernels/EmbeddingBag.py
     habana_frameworks/torch/hpex/kernels/EmbeddingBagPreproc.py
     habana_frameworks/torch/hpex/kernels/fbgemm.py
-    habana_frameworks/torch/hpex/kernels/Fp8Ops.py
     habana_frameworks/torch/hpex/movingavrg/__init__.py
     habana_frameworks/torch/hpex/movingavrg/FusedEMA.py
     habana_frameworks/torch/hpex/normalization/__init__.py

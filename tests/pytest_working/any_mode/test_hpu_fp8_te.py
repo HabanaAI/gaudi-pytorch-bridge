@@ -19,11 +19,7 @@ import pytest
 import torch
 from compile.test_dynamo_utils import use_eager_fallback
 from fp8_utils import simulateFp8Precision
-from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import (
-    cast_from_fp8,
-    cast_to_fp8,
-    fp8_gelu,
-)
+from habana_frameworks.torch.hpex.experimental.transformer_engine.cpp_extensions import cast_from_fp8, cast_to_fp8
 from habana_frameworks.torch.hpex.experimental.transformer_engine.fp8 import FP8GlobalStateManager
 from habana_frameworks.torch.hpex.experimental.transformer_engine.recipe import DelayedScaling, Format
 from habana_frameworks.torch.hpex.experimental.transformer_engine.utils import FP8FwdTensors, FP8TensorMeta
@@ -146,59 +142,6 @@ def test_te_cast_with_stochastic_rounding(device, dtype, stochastic_rounding, sc
 
     if is_pytest_mode_compile():
         check_ops_executed_in_jit_ir({"cast_to_fp8_v2", "cast_from_fp8"})
-
-
-@pytest.mark.parametrize("device", [torch.device("hpu:0")])
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32], ids=["bf16", "fp32"])
-@pytest.mark.parametrize("stochastic_rounding", [True, False])
-@pytest.mark.parametrize("scale", [1.0, 16.0])
-@pytest.mark.parametrize("value, rounded_value", [(18.5, 20.0), (-18.5, 0.0)])
-def test_te_gelu_with_stochastic_rounding(device, dtype, stochastic_rounding, scale, value, rounded_value):
-    if is_gaudi1():
-        pytest.skip(reason="FP8 not supported on Gaudi1")
-    if dtype == torch.float32:
-        pytest.skip("SW-144156 fp8_gelu compilation fails with segfault (fp32 dtype)")
-    if (is_pytest_mode_eager() or is_pytest_mode_compile()) and rounded_value == 20.0 and not stochastic_rounding:
-        pytest.xfail("SW-188508")
-
-    input_data = torch.tensor([value] * 1000, dtype=dtype, device=device)
-    meta = FP8TensorMeta()
-    meta.scale = torch.full((1,), scale, dtype=torch.float32, device=device)
-    meta.scale_inv = torch.full((1,), 0.0, dtype=torch.float32, device=device)
-    meta.amax_history = torch.zeros(1, 1, dtype=torch.float32, device=device)
-    meta.amax_history_index = torch.zeros(1, dtype=torch.float32, device=device)
-
-    def fn(inp, meta):
-        gelu_out, _ = fp8_gelu(
-            inp,
-            meta,
-            FP8FwdTensors.GEMM1_INPUT,
-            torch.float8_e5m2,
-            stochastic_rounding=stochastic_rounding,
-        )
-
-        upcasted = cast_from_fp8(
-            gelu_out,
-            meta,
-            FP8FwdTensors.GEMM1_INPUT,
-            torch.float32,
-        )
-        return gelu_out, upcasted
-
-    gelu_out, upcasted = fn(input_data, meta)
-
-    mean = torch.mean(upcasted).cpu()  # xfail as upcasted is fp32 SW-188508
-
-    # When stochastic rounding is turned off, input will be rounded to the nearest representable value
-    # in given format (20.0 for e5m2, 18.0 for e4m3). With stochastic rounding, it rounds up or down
-    # with the probability dependent on the distance between original value to the closest fp8 numbers,
-    # so the mean result should be close to the input value (max diff has been chosen experimentally).
-    if stochastic_rounding:
-        assert mean <= torch.nn.functional.gelu(torch.tensor(value + 1.0))
-        assert mean >= torch.nn.functional.gelu(torch.tensor(value - 1.0))
-    else:
-        assert mean == torch.nn.functional.gelu(torch.tensor(rounded_value))
-    assert meta.scale_inv.item() == 1.0 / scale
 
 
 class MyLinear(torch.nn.Module):

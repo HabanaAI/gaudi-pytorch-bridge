@@ -159,11 +159,7 @@ bool is_inplace(at::Symbol symbol) {
 
   size_t len = strlen(node_name);
   char endch = node_name[len - 1];
-  if (endch == '_' || !strcmp(node_name, "hpu::fp8_transpose") ||
-      !strcmp(node_name, "hpu::fp8_permute")) {
-    return true;
-  }
-  return false;
+  return endch == '_';
 }
 
 namespace {
@@ -6139,7 +6135,7 @@ static std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_common(
     T scale,
     bool stochastic_rounding,
     bool is_amax,
-    c10::optional<at::ScalarType> dtype,
+    at::ScalarType dtype,
     OptionalIntArrayRef scale_shape) {
   PT_LAZY_OP_TRACE;
   PT_LAZY_TRACE;
@@ -6152,8 +6148,7 @@ static std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_common(
       "hpu::cast_to_fp8_v2",
       {input, scale, stochastic_rounding, is_amax, dtype, scale_shape},
       CastToFp8V2OutputShape};
-  auto out_dtype = dtype.has_value() ? dtype.value() : at::ScalarType::Char;
-  hpu_op.set_scalar_types({out_dtype, at::ScalarType::Float});
+  hpu_op.set_scalar_types({dtype, at::ScalarType::Float});
 
   RUN_MAYBE_WITH_ACC_THREAD(cast_to_fp8_v2, hpu_op)
 }
@@ -6163,7 +6158,7 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_lazy(
     const c10::optional<at::Tensor>& scale,
     bool stochastic_rounding,
     bool is_amax,
-    c10::optional<at::ScalarType> dtype,
+    at::ScalarType dtype,
     OptionalIntArrayRef scale_shape) {
   return cast_to_fp8_v2_common(
       input, scale, stochastic_rounding, is_amax, dtype, scale_shape);
@@ -6174,7 +6169,7 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_lazy(
     double scale,
     bool stochastic_rounding,
     bool is_amax,
-    c10::optional<at::ScalarType> dtype,
+    at::ScalarType dtype,
     OptionalIntArrayRef) {
   return cast_to_fp8_v2_common(
       input, scale, stochastic_rounding, is_amax, dtype, c10::nullopt);
@@ -6185,7 +6180,7 @@ std::tuple<at::Tensor, at::Tensor> cast_to_fp8_v2_scalar_list_lazy(
     c10::ArrayRef<double> scale,
     bool stochastic_rounding,
     bool is_amax,
-    c10::optional<at::ScalarType> dtype,
+    at::ScalarType dtype,
     OptionalIntArrayRef scale_shape) {
   return cast_to_fp8_v2_common(
       input, scale, stochastic_rounding, is_amax, dtype, scale_shape);
@@ -6269,229 +6264,6 @@ at::Tensor convert_from_uint4_lazy(
     at::ScalarType out_dtype) {
   return convert_from_int4_common(
       "convert_from_uint4", input, scale, zero_point, out_dtype);
-}
-
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& transposed,
-    at::Tensor& amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>> hpu_op{
-      "hpu::fp8_cast_transpose",
-      {input, scale, stochastic_rounding, out, transposed, amax},
-      {input.sizes().vec(), transposed.sizes().vec(), amax.sizes().vec()}};
-  auto result = ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>(
-      out, transposed, amax);
-
-  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_cast_transpose, hpu_op, result)
-}
-
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
-fp8_cast_transpose_bgrad_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& transposed,
-    at::Tensor& bgrad,
-    at::Tensor& amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>> hpu_op{
-      "hpu::fp8_cast_transpose_bgrad",
-      {input, scale, stochastic_rounding, out, transposed, bgrad, amax},
-      {input.sizes().vec(),
-       transposed.sizes().vec(),
-       bgrad.sizes().vec(),
-       amax.sizes().vec()}};
-  auto result =
-      ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>(
-          out, transposed, bgrad, amax);
-
-  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(
-      fp8_cast_transpose_bgrad, hpu_op, result)
-}
-
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
-fp8_cast_transpose_bgrad_dgelu_lazy(
-    const at::Tensor& grad,
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    const c10::optional<at::Tensor>& retain,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& transposed,
-    at::Tensor& bgrad,
-    at::Tensor& amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>> hpu_op{
-      "hpu::fp8_cast_transpose_bgrad_dgelu",
-      {grad,
-       input,
-       scale,
-       retain,
-       stochastic_rounding,
-       out,
-       transposed,
-       bgrad,
-       amax},
-      {input.sizes().vec(),
-       transposed.sizes().vec(),
-       bgrad.sizes().vec(),
-       amax.sizes().vec()}};
-  auto result =
-      ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>(
-          out, transposed, bgrad, amax);
-
-  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(
-      fp8_cast_transpose_bgrad_dgelu, hpu_op, result)
-}
-
-std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout_lazy(
-    const at::Tensor& input,
-    double p,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  std::vector<int64_t> amax_size{1};
-  LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
-      "hpu::fp8_dropout",
-      {input, p, scale, stochastic_rounding, is_amax, dtype},
-      {input.sizes().vec(), input.sizes().vec(), amax_size}};
-  auto out_dtype = dtype.has_value() ? dtype.value() : at::ScalarType::Char;
-  hpu_op.set_scalar_types(
-      {out_dtype, c10::ScalarType::Char, c10::ScalarType::Float});
-
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_dropout, hpu_op)
-}
-
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& retain,
-    at::Tensor& amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>> hpu_op{
-      "hpu::fp8_gelu",
-      {input, scale, stochastic_rounding, out, retain, amax},
-      {input.sizes().vec(), input.sizes().vec(), amax.sizes().vec()}};
-  auto result =
-      ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&>(out, retain, amax);
-
-  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_gelu, hpu_op, result)
-}
-
-std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2_lazy(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  std::vector<int64_t> amax_size{1};
-  LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
-      "hpu::fp8_gelu_v2",
-      {input, scale, stochastic_rounding, is_amax, dtype},
-      {input.sizes().vec(), input.sizes().vec(), amax_size}};
-  auto out_dtype = dtype.has_value() ? dtype.value() : at::ScalarType::Char;
-  hpu_op.set_scalar_types(
-      {out_dtype, input.scalar_type(), c10::ScalarType::Float});
-
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_gelu_v2, hpu_op)
-}
-
-std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu_lazy(
-    const at::Tensor& grad,
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    const c10::optional<at::Tensor>& retain,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  std::vector<int64_t> out_size = input.sizes().vec();
-  std::vector<int64_t> bgrad_size{out_size[1]};
-  std::vector<int64_t> amax_size{1};
-  LazyOp<std::tuple<at::Tensor, at::Tensor, at::Tensor>> hpu_op{
-      "hpu::fp8_bgrad_dgelu",
-      {grad, input, scale, retain, stochastic_rounding, is_amax, dtype},
-      {out_size, bgrad_size, amax_size}};
-  auto out_dtype = dtype.has_value() ? dtype.value() : at::ScalarType::Char;
-  hpu_op.set_scalar_types(
-      {out_dtype, input.scalar_type(), c10::ScalarType::Float});
-
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_bgrad_dgelu, hpu_op)
-}
-
-std::tuple<at::Tensor, at::Tensor> fp8_fast_softmax_lazy(
-    const at::Tensor& input,
-    const at::Tensor& mask,
-    const c10::optional<at::Tensor>& scale,
-    double softmax_scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  std::vector<int64_t> amax_size{1};
-  LazyOp<std::tuple<at::Tensor, at::Tensor>> hpu_op{
-      "hpu::fp8_fast_softmax",
-      {input, mask, scale, softmax_scale, stochastic_rounding, is_amax, dtype},
-      {input.sizes().vec(), amax_size}};
-  auto out_dtype = dtype.has_value() ? dtype.value() : at::ScalarType::Char;
-  hpu_op.set_scalar_types({out_dtype, c10::ScalarType::Float});
-
-  RUN_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_fast_softmax, hpu_op)
-}
-
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
-fp8_layernorm_lazy(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const at::Tensor& bias,
-    double eps,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& mean,
-    at::Tensor& istd,
-    at::Tensor& amax) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  LazyOp<std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>> hpu_op{
-      "hpu::fp8_layernorm",
-      {input,
-       weight,
-       bias,
-       eps,
-       scale,
-       stochastic_rounding,
-       out,
-       mean,
-       istd,
-       amax},
-      {input.sizes().vec(),
-       mean.sizes().vec(),
-       istd.sizes().vec(),
-       amax.sizes().vec()}};
-  auto result =
-      ::std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>(
-          out, mean, istd, amax);
-
-  RUN_INPLACE_TUPLE_MAYBE_WITH_ACC_THREAD(fp8_layernorm, hpu_op, result)
 }
 
 at::Tensor& fp8_gemm_lazy(
@@ -6645,32 +6417,6 @@ at::Tensor fp8_gemm_v2_lazy_scalar_list(
       bias,
       accumulate,
       B_scale_shape);
-}
-
-at::Tensor& fp8_transpose_lazy(const at::Tensor& input, at::Tensor& out) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> hpu_op{
-      "hpu::fp8_transpose", {input, out}, {out.sizes().vec()}};
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_transpose, hpu_op, out)
-}
-
-at::Tensor& fp8_permute_lazy(
-    const at::Tensor& input,
-    at::IntArrayRef dims,
-    at::Tensor& out) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor&> hpu_op{
-      "hpu::fp8_permute", {input, dims, out}, {out.sizes().vec()}};
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_permute, hpu_op, out)
-}
-
-at::Tensor fp8_reshape_lazy(const at::Tensor& input, at::IntArrayRef shape) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> hpu_op{"hpu::fp8_reshape", {input, shape}, {shape.vec()}};
-  RUN_MAYBE_WITH_ACC_THREAD(fp8_reshape, hpu_op)
 }
 
 inline bool is_main_thread_and_lazy_collectives_enabled() {
@@ -7886,31 +7632,6 @@ scaled_triangular_softmax_retain_lazy(
   RUN_TUPLE_MAYBE_WITH_ACC_THREAD(scaled_triangular_softmax_retain, op)
 }
 
-at::Tensor& fp8_copy_lazy(at::Tensor& self, const at::Tensor& src) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor&> op{"hpu::fp8_copy_", {self, src}, {{self.sizes().vec()}}};
-
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_copy_, op, self)
-}
-
-at::Tensor& fp8_kv_reorder_lazy(
-    at::Tensor& self,
-    const at::Tensor start,
-    const at::Tensor end,
-    const at::Tensor beam_idx) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor&> op{
-      "hpu::fp8_kv_reorder_",
-      {self, start, end, beam_idx},
-      {{self.sizes().vec()}}};
-
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_kv_reorder, op, self)
-}
-
 at::Tensor& kv_reorder_lazy(
     at::Tensor& self,
     const at::Tensor start,
@@ -7923,49 +7644,6 @@ at::Tensor& kv_reorder_lazy(
       "hpu::kv_reorder_", {self, start, end, beam_idx}, {{self.sizes().vec()}}};
 
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(kv_reorder, op, self)
-}
-
-at::Tensor& fp8_index_copy_lazy(
-    at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index,
-    const at::Tensor& source) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-
-  LazyOp<at::Tensor&> op{
-      "hpu::fp8_index_copy_",
-      {self, dim, index, source},
-      {{self.sizes().vec()}}};
-
-  RUN_INPLACE_MAYBE_WITH_ACC_THREAD(fp8_copy_, op, self)
-}
-
-at::Tensor fp8_repeat_v2_lazy(
-    const at::Tensor& self,
-    c10::SymIntArrayRef repeats) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::fp8_repeat_v2", {self, repeats}, Fp8RepeatV2OutputShape};
-  hpu_op.set_scalar_types({at::ScalarType::Char});
-
-  RUN_MAYBE_WITH_ACC_THREAD(fp8_repeat_v2, hpu_op)
-}
-
-at::Tensor fp8_index_select_v2_lazy(
-    const at::Tensor& self,
-    int64_t dim,
-    const at::Tensor& index) {
-  PT_LAZY_OP_TRACE;
-  PT_LAZY_TRACE;
-  LazyOp<at::Tensor> hpu_op{
-      "hpu::fp8_index_select_v2",
-      {self, dim, index},
-      Fp8IndexSelectV2OutputShape};
-  hpu_op.set_scalar_types({at::ScalarType::Char});
-
-  RUN_MAYBE_WITH_ACC_THREAD(fp8_index_select_v2, hpu_op)
 }
 
 at::Tensor scaled_masked_triangular_softmax_lazy(

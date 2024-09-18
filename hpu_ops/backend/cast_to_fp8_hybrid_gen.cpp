@@ -14,6 +14,8 @@
 
 namespace habana {
 
+// Determines if STOCHASTIC_FLUSH_TO_ZERO should be used instead
+// of STORCHASTIC_ROUNDING.
 static const bool is_sr_sftz =
     GET_ENV_FLAG_NEW(PT_HPU_STOCHASTIC_ROUNDING_MODE) == 1;
 

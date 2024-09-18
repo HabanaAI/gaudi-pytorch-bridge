@@ -202,12 +202,10 @@ CastType DataTypeToCastType(const at::ScalarType& dt) {
       return CastType::bf16;
     case at::ScalarType::Half:
       return CastType::fp16;
-#if HAVE_FP8_SUPPORT
     case at::ScalarType::Float8_e5m2:
       return CastType::f8;
     case at::ScalarType::Float8_e4m3fn:
       return CastType::hf8;
-#endif
     case at::ScalarType::Char:
     case at::ScalarType::Bool:
       return CastType::i8;
@@ -233,12 +231,10 @@ at::ScalarType CastTypeToDataType(CastType ct) {
       return at::ScalarType::BFloat16;
     case CastType::fp16:
       return at::ScalarType::Half;
-#if HAVE_FP8_SUPPORT
     case CastType::f8:
       return at::ScalarType::Float8_e5m2;
     case CastType::hf8:
       return at::ScalarType::Float8_e4m3fn;
-#endif
     case CastType::i8:
       return at::ScalarType::Char;
     case CastType::i16:

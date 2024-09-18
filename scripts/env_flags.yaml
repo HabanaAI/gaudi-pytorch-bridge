@@ -408,12 +408,6 @@ PT_HPU_USE_UNSORTED_SCATTER_ADD:
   type: bool
   default: true
 
-PT_USE_FP8_143:
-  type: bool
-  default: false
-  doc: "enables fp8_143 variant instead of default fp8_152\n
-for simulation purposes in algo team"
-
 PT_HPU_ENABLE_DYNAMIC_PASS_FALLBACK:
   type: bool
   default: true

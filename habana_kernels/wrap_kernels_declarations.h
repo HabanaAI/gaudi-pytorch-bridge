@@ -135,81 +135,6 @@ std::tuple<at::Tensor&, at::Tensor&> cast_to_fp8_wrap(
     bool stochastic_rounding,
     at::Tensor& out,
     at::Tensor& amax);
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_cast_transpose_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& transposed,
-    at::Tensor& amax);
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
-fp8_cast_transpose_bgrad_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& transposed,
-    at::Tensor& bgrad,
-    at::Tensor& amax);
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
-fp8_cast_transpose_bgrad_dgelu_wrap(
-    const at::Tensor& grad,
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    const c10::optional<at::Tensor>& retain,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& transposed,
-    at::Tensor& bgrad,
-    at::Tensor& amax);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_dropout_wrap(
-    const at::Tensor& input,
-    double p,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype);
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&> fp8_gelu_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& retain,
-    at::Tensor& amax);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2_wrap(
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype);
-std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_bgrad_dgelu_wrap(
-    const at::Tensor& grad,
-    const at::Tensor& input,
-    const c10::optional<at::Tensor>& scale,
-    const c10::optional<at::Tensor>& retain,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype);
-std::tuple<at::Tensor, at::Tensor> fp8_fast_softmax_wrap(
-    const at::Tensor& input,
-    const at::Tensor& mask,
-    const c10::optional<at::Tensor>& scale,
-    double softmax_scale,
-    bool stochastic_rounding,
-    bool is_amax,
-    c10::optional<at::ScalarType> dtype);
-std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&>
-fp8_layernorm_wrap(
-    const at::Tensor& input,
-    const at::Tensor& weight,
-    const at::Tensor& bias,
-    double eps,
-    const c10::optional<at::Tensor>& scale,
-    bool stochastic_rounding,
-    at::Tensor& out,
-    at::Tensor& mean,
-    at::Tensor& istd,
-    at::Tensor& amax);
 at::Tensor& fp8_gemm_wrap(
     const at::Tensor& A,
     bool trans_A,
@@ -222,12 +147,6 @@ at::Tensor& fp8_gemm_wrap(
     const c10::optional<at::Tensor>& bias,
     bool accumulate,
     at::Tensor& out);
-at::Tensor& fp8_transpose_wrap(const at::Tensor& input, at::Tensor& out);
-at::Tensor& fp8_permute_wrap(
-    const at::Tensor& input,
-    at::IntArrayRef dims,
-    at::Tensor& out);
-at::Tensor fp8_reshape_wrap(const at::Tensor& input, at::IntArrayRef shape);
 at::Tensor matmul_ex_wrap(
     const at::Tensor& self,
     const at::Tensor& other,

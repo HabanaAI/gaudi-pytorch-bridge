@@ -372,8 +372,6 @@ class HabanaOperator {
  public:
   HabanaOperator(const std::string guid) : guid_(guid) {}
 
-  static bool isFp8Op(const std::string_view guid);
-
   //
   // Creates graph builder context, based on the device
   void CreateSynContext(int device_id, std::string node_type = "") {

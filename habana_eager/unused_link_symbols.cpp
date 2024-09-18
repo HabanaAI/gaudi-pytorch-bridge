@@ -384,14 +384,6 @@ optimizer_sparse_sgd_with_valid_count_hpu_wrap(
   EAGER_NOT_SUPPORTED;
 }
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor> fp8_gelu_v2_wrap(
-    [[maybe_unused]] const at::Tensor& input,
-    [[maybe_unused]] const c10::optional<at::Tensor>& scale,
-    [[maybe_unused]] bool stochastic_rounding,
-    [[maybe_unused]] bool is_amax) {
-  EAGER_NOT_SUPPORTED;
-}
-
 void optimizer_ema_hpu_wrap(
     [[maybe_unused]] const TensorList model_inputs,
     [[maybe_unused]] TensorList updated_ema,

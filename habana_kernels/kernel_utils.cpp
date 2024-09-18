@@ -156,7 +156,6 @@ static auto get_platform_cast_map() {
       break;
   }
 
-#if HAVE_FP8_SUPPORT
   if (synapse_helpers::device_supports_fp8(type)) {
     // float8_e5m2
     cast_map.insert(
@@ -185,7 +184,6 @@ static auto get_platform_cast_map() {
         {{c10::ScalarType::Float8_e4m3fn, c10::ScalarType::BFloat16},
          "cast_hf8_to_bf16"});
   }
-#endif
   return cast_map;
 }
 

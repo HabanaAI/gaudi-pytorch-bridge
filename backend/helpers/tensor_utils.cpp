@@ -689,13 +689,11 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
       TORCH_CHECK(false, "Complex datatype is not supported on HPU device.");
       return false;
     }
-#if HAVE_FP8_SUPPORT
     case c10::ScalarType::Float8_e5m2:
     case c10::ScalarType::Float8_e4m3fn: {
       return synapse_helpers::device_supports_fp8(
           habana::HPURegistrar::get_device().type());
     }
-#endif
     default:
       return false;
   }

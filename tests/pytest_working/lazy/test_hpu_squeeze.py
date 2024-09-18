@@ -1,5 +1,5 @@
 # ******************************************************************************
-# Copyright (C) 2023 Habana Labs, Ltd. an Intel Company
+# Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
 # All Rights Reserved.
 #
 # Unauthorized copying of this file or any element(s) within it, via any medium
@@ -12,14 +12,14 @@
 
 import pytest
 import torch
-from fp8_utils import FP8_NAMES, check_native_fp8, dtype_from_string
+from fp8_utils import fp8_dtypes
 from test_utils import compare_tensors, is_gaudi1
 
 shapes = [(3, 1, 7, 4, 1), (1, 5, 1, 1, 8)]
 dims = [(0, 3), (-1, 2), (1, -2, 0)]
 dtypes = [torch.float, torch.bfloat16, torch.int]
 if not is_gaudi1():
-    dtypes = dtypes + FP8_NAMES
+    dtypes = dtypes + fp8_dtypes
 
 
 @pytest.mark.parametrize("shape", shapes)
@@ -27,16 +27,12 @@ if not is_gaudi1():
 @pytest.mark.parametrize("dtype", dtypes)
 @pytest.mark.parametrize("modify_view", [True, False])
 def test_hpu_squeeze(shape, dims, dtype, modify_view):
-    check_native_fp8(dtype)
-    is_fp8 = dtype in FP8_NAMES
-    dtype = dtype_from_string(dtype)
-
     input = (torch.randn(shape) * 5.0).to(dtype)
     input_hpu = input.to("hpu")
     result = torch.squeeze(input, dims)
     result_hpu = torch.squeeze(input_hpu, dims)
 
-    if is_fp8:
+    if dtype in fp8_dtypes:
         result = result.float()
         input = input.float()
         result_hpu = result_hpu.float()
@@ -57,16 +53,12 @@ def test_hpu_squeeze(shape, dims, dtype, modify_view):
 @pytest.mark.parametrize("dtype", dtypes)
 @pytest.mark.parametrize("modify_view", [True, False])
 def test_hpu_squeeze_dim0(shape, dim, dtype, modify_view):
-    check_native_fp8(dtype)
-    is_fp8 = dtype in FP8_NAMES
-    dtype = dtype_from_string(dtype)
-
     input = (torch.randn(shape) * 5.0).to(dtype)
     input_hpu = input.to("hpu")
     result = torch.squeeze(input, dim)
     result_hpu = torch.squeeze(input_hpu, dim)
 
-    if is_fp8:
+    if dtype in fp8_dtypes:
         result = result.float()
         input = input.float()
         result_hpu = result_hpu.float()
