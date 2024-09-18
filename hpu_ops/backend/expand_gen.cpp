@@ -11,7 +11,6 @@
  *******************************************************************************
  */
 #include <ATen/ExpandUtils.h>
-#include "habana_kernels/kernel_utils.h"
 #include "hpu_ops/expand.h"
 
 namespace habana {
@@ -54,15 +53,8 @@ void ExpandOp::AddNode(
   const auto& metadata = GetOutputMetaData(0);
   auto final_result_index =
       metadata.persistent ? c10::make_optional<int>(0) : c10::nullopt;
-  const auto exp_bias =
-      habana_helpers::get_tensor_exp_bias(inputs[0].toTensor());
   auto broadcast = BroadcastHelper(
-      graph,
-      syn_in(0),
-      metadata.shape,
-      metadata.dtype,
-      final_result_index,
-      exp_bias);
+      graph, syn_in(0), metadata.shape, metadata.dtype, final_result_index);
   syn_out(0) = std::move(broadcast);
 }
 
@@ -77,7 +69,6 @@ OutputMetaDataVector ExpandMeta(const at::Stack& stack) {
   OutputMetaDataVector meta(1);
   meta.at(0).shape = expandedSizes;
   meta.at(0).dtype = self.scalar_type();
-  habana_helpers::set_output_hw_scaling_meta(self, meta.at(0));
   return meta;
 }
 

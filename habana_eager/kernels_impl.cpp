@@ -77,7 +77,6 @@ Tensor hpu_wrap::_reshape_alias(
   auto pipeline_or_direct_reshape_alias = [](const at::Tensor& self,
                                              const at::Tensor& result) {
     habana::eager::view_propagate_permutation(self, result);
-    habana_helpers::set_output_hw_scaling_meta(self, result);
   };
   auto src_backend = habana::eager::HbEagerTensorPool::get_backend_tensor(self);
   auto dst_backend =

@@ -453,14 +453,6 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
     is_maybe_grad_view_ = true;
   }
 
-  c10::optional<unsigned> get_exp_bias() const {
-    return exp_bias_;
-  }
-
-  void set_exp_bias(c10::optional<unsigned> exp_bias) {
-    exp_bias_ = exp_bias;
-  }
-
   bool is_tensor_pipelined() const {
     return is_tensor_pipelined_;
   }
@@ -519,7 +511,6 @@ struct TensorExtraMeta : public BaseTensorExtraMeta {
   // view meta
   bool is_view_{false};
   bool is_maybe_grad_view_{false};
-  c10::optional<unsigned> exp_bias_{c10::nullopt};
 
   bool is_tensor_pipelined_{false};
   std::shared_ptr<SendTensorMeta> send_tensor_meta_{nullptr};

@@ -21,7 +21,6 @@ struct Gensqueeze_dims : SqueezeDims {
   Gensqueeze_dims(int device_id, c10::ScalarType scalar_type) :
       SqueezeDims(device_id, "squeeze", scalar_type, {0}, {}, {}, false) {
         SetOutputMetaFn(SqueezeDimsMeta);
-        SetHwScalingIds({0});
   }
 };
 

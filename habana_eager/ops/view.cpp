@@ -44,7 +44,6 @@ at::Tensor view_hpu(const at::Tensor& self, c10::SymIntArrayRef size) {
   auto pipeline_or_direct_view = [](const at::Tensor& self,
                                     const at::Tensor& result) {
     habana::eager::view_propagate_permutation(self, result);
-    habana_helpers::set_output_hw_scaling_meta(self, result);
   };
   pipeline_or_direct_generic(
       pipeline_or_direct_view, std::move(src_backend), std::move(dst_backend));
@@ -90,7 +89,6 @@ at::Tensor alias(const at::Tensor& self) {
   auto pipeline_or_direct_alias = [](const at::Tensor& self,
                                      const at::Tensor& result) {
     habana::eager::view_propagate_permutation(self, result);
-    habana_helpers::set_output_hw_scaling_meta(self, result);
   };
   pipeline_or_direct_generic(
       pipeline_or_direct_alias, std::move(src_backend), std::move(dst_backend));

@@ -323,7 +323,6 @@ void MemCopyOperator::AllocateAndAddSynapseNode(
     p_context_->pt_outputs_.emplace_back(output);
   } else {
     output = habana::createPTTensor(self, output_metadata.at(0).persistent);
-    habana_helpers::set_output_hw_scaling_meta(self, output);
     AllocateSynapseOutput(graph, output, output_metadata.at(0));
   }
   p_context_->params_size_ = 0;
@@ -366,7 +365,6 @@ void IdentityOperator::AllocateAndAddSynapseNode(
   } else {
     output = habana::createPTTensor(self, output_metadata.at(0).persistent);
   }
-  habana_helpers::set_output_hw_scaling_meta(self, output);
 
   p_context_->params_size_ = 0;
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
@@ -1854,7 +1852,6 @@ void StridedViewOperator::AllocateAndAddSynapseNode(
         self.suggest_memory_format(),
         mdata.persistent);
   }
-  habana_helpers::set_output_hw_scaling_meta(self, output);
   AllocateSynapseOutput(graph, output, mdata);
 
   if (!meta_op) {

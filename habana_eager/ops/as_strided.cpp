@@ -17,7 +17,6 @@
 #include "habana_eager/eager_pipeline_utils.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/view.h"
-#include "habana_kernels/kernel_utils.h"
 #include "pytorch_helpers/habana_helpers/misc_utils.h"
 namespace habana {
 namespace eager {
@@ -41,7 +40,6 @@ at::Tensor as_strided_hpu(
   auto pipeline_or_direct_as_strided = [](const at::Tensor& self,
                                           const at::Tensor& result) {
     habana::eager::view_propagate_permutation(self, result);
-    habana_helpers::set_output_hw_scaling_meta(self, result);
   };
   habana::eager::pipeline_or_direct_generic(
       pipeline_or_direct_as_strided,

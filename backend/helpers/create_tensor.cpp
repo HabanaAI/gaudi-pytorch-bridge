@@ -214,10 +214,6 @@ synapse_helpers::tensor create_tensor(
       builder.use_suffix(name);
     }
 
-    if (auto exp_bias = tmeta->get_exp_bias()) {
-      builder.with_quant_params(*exp_bias);
-    }
-
     // To avoid special device index(-1) when it use
     // StorageLessWrapperTensorImpl to create tensor
     auto device_index =
@@ -300,10 +296,6 @@ synapse_helpers::tensor create_tensor(
 
   if (!name.empty()) {
     builder.use_suffix(name);
-  }
-
-  if (auto exp_bias = tmeta->get_exp_bias()) {
-    builder.with_quant_params(*exp_bias);
   }
 
   // To avoid special device index(-1) when it use
@@ -829,11 +821,6 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section(
     builder.with_dynamic_shape(tensor.dynamic_shape());
   }
 
-  if (tensor.has_quant_params()) {
-    const auto quant_params = tensor.get_quant_params();
-    builder.with_quant_params(quant_params.expBias, quant_params.scale);
-  }
-
   auto maybe_tensor = builder.build(
       habana::HPUDeviceContext::get_device(tensor.device_id()), tensor.graph());
   synapse_helpers::tensor syn_tensor =
@@ -896,11 +883,6 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
   }
   PT_LAZY_DEBUG("Setting a duplicate tensor with permutation: ", permutation);
   builder.with_permutation(permutation);
-
-  if (tensor.has_quant_params()) {
-    const auto quant_params = tensor.get_quant_params();
-    builder.with_quant_params(quant_params.expBias, quant_params.scale);
-  }
 
   auto maybe_tensor = builder.build(
       habana::HPUDeviceContext::get_device(tensor.device_id()), tensor.graph());

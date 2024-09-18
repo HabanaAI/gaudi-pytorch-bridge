@@ -152,7 +152,6 @@ void PadOperator::AllocateAndAddSynapseNode(
   } else {
     output = at::empty(shape, self.options());
   }
-  habana_helpers::set_output_hw_scaling_meta(self, output);
   AllocateSynapseOutput(graph, output, output_metadata.at(0));
   AddNodeToSynapseGraph(graph, &param, sizeof(param));
 }

@@ -193,8 +193,6 @@ struct RecipeArgumentSpec {
  private:
   void ComputeOffsetHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
   void ComputeH2DHashCode(at::ArrayRef<torch::jit::IValue> input_refs);
-  size_t ComputeHwScalingHashCode(
-      at::ArrayRef<torch::jit::IValue> input_refs) const;
 
   HbCas cas;
   std::string opstrs;

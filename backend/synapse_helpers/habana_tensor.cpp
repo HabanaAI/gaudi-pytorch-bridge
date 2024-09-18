@@ -209,13 +209,11 @@ tensor::tensor(tensor&& other) noexcept
       tensor_id_{other.id()},
       device_id_{other.device_id_},
       data_type_{other.data_type_},
-      quant_params_{other.quant_params_},
       total_size_bytes_{other.total_size_bytes_},
       shape_{other.shape_},
       stride_{other.stride_},
       tensor_{other.tensor_},
       placeholder_{other.placeholder_},
-      has_quant_params_{other.has_quant_params_},
       is_persistent_{other.is_persistent_},
       is_external_{other.is_external_},
       is_intermediate_shape_(other.is_intermediate_shape_),
@@ -244,13 +242,11 @@ tensor& tensor::operator=(tensor&& other) noexcept {
   tensor_id_ = other.id();
   device_id_ = other.device_id_;
   data_type_ = other.data_type_;
-  has_quant_params_ = other.has_quant_params_;
   total_size_bytes_ = other.total_size_bytes_;
   shape_ = other.shape_;
   stride_ = other.stride_;
   tensor_ = other.tensor_;
   placeholder_ = other.placeholder_;
-  quant_params_ = other.quant_params_;
   is_persistent_ = other.is_persistent_;
   is_external_ = other.is_external_;
   is_intermediate_shape_ = other.is_intermediate_shape_;
@@ -417,22 +413,6 @@ synapse_error_o tensor::set_quantization_dynamic_range() {
   return {};
 }
 
-synapse_error_o tensor::set_quantization_params() {
-  synFpQuantMetadata data_struct{data_type_, &quant_params_, 1};
-  auto status = synTensorSetQuantizationData(
-      tensor_, SYN_FP_QUANT_METADATA, &data_struct, sizeof(synFpQuantMetadata));
-  SYNAPSE_SUCCESS_CHECK_WITH_OP(
-      "synTensorSetQuantizationData failed.", status, cleanup());
-  PT_SYNHELPER_DEBUG(
-      "synFpQuantParam set: ",
-      tensor_name_,
-      ", expBias ",
-      quant_params_.expBias,
-      ", scale  ",
-      quant_params_.scale);
-  return {};
-}
-
 synapse_error_o tensor::create() {
   if (GET_ENV_FLAG_NEW(PT_HPU_INTERNAL_OLD_SYNAPI)) {
     return create_old_synapi();
@@ -448,8 +428,6 @@ synapse_error_o tensor::create() {
   if (habana_helpers::IsInferenceMode() && have_quantization_data_ &&
       tensor_type_ == DATA_TENSOR) {
     set_quantization_dynamic_range();
-  } else if (has_quant_params_) {
-    set_quantization_params();
   }
 
   synTensorGeometry maxGeometry;

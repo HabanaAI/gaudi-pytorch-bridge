@@ -2055,7 +2055,6 @@ Tensor constant_pad_hpu_lazy(
   auto sizes = PadOperator::compute_output_shape(self, pad);
   auto out = empty_hpu_lazy(
       sizes, self.options(), self.suggest_memory_format(), false);
-  habana_helpers::set_output_hw_scaling_meta(self, out);
 
   std::vector<int64_t> pad_vec = pad.vec();
   auto func = [pad_vec = std::move(pad_vec), out, self, value]() mutable {
@@ -4724,7 +4723,6 @@ Tensor squeeze_hpu_lazy(const Tensor& self, int64_t dim_) {
   } else {
     out = at::native::squeeze(self);
   }
-  habana_helpers::set_output_hw_scaling_meta(self, out);
 
   // lazy eager optimized view handling (no need to create view table)
   if ((GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) == 2) &&
@@ -4770,7 +4768,6 @@ Tensor squeeze_dims_hpu_lazy(const Tensor& self, IntArrayRef dims) {
       (GET_ENV_FLAG_NEW(PT_HPU_LAZY_EAGER_VIEW_HANDLING) == true)) {
     return out;
   }
-  habana_helpers::set_output_hw_scaling_meta(self, out);
 
   auto param_setter = [dims_vec](
                           const Tensor& self, StrideParams& strided_param) {
@@ -4805,7 +4802,6 @@ Tensor unsqueeze_hpu_lazy(const Tensor& self, int64_t dim_) {
   auto dim = at::maybe_wrap_dim(dim_, self.dim() + 1);
 
   auto out = at::native::unsqueeze(self, dim);
-  habana_helpers::set_output_hw_scaling_meta(self, out);
   auto param_setter = [dim](const Tensor& self, StrideParams& strided_param) {
     strided_param.optype = kStridedOpUnsqueeze;
     StridedOpSqueezeParams squeeze_param = {dim};

@@ -407,20 +407,6 @@ class tensor final {
     dynamic_range_.max = max;
   }
 
-  void set_quant_params(unsigned exp_bias, float scale) {
-    has_quant_params_ = true;
-    quant_params_.expBias = exp_bias;
-    quant_params_.scale = scale;
-  }
-
-  synFpQuantParam get_quant_params() const {
-    return quant_params_;
-  }
-
-  bool has_quant_params() const {
-    return has_quant_params_;
-  }
-
   uint64_t get_host_ptr() const {
     return reinterpret_cast<uint64_t>(host_ptr_);
   }
@@ -502,14 +488,12 @@ class tensor final {
   synapse_error_o create();
   void cleanup();
   synapse_error_o set_quantization_dynamic_range();
-  synapse_error_o set_quantization_params();
 
   std::string tensor_name_;
   uint64_t tensor_id_{INVALID_SYN_TENSOR_ID};
   synDeviceId device_id_;
   synDataType data_type_;
   synQuantDynamicRange dynamic_range_{0, 0};
-  synFpQuantParam quant_params_{};
   // TODO: total size can be counted basing on type and dimensions
   uint64_t total_size_bytes_;
   dynamic_shape_t shape_;
@@ -517,7 +501,6 @@ class tensor final {
   synTensor tensor_{nullptr};
   bool placeholder_{false};
   bool have_quantization_data_{false};
-  bool has_quant_params_{false};
   bool is_persistent_{false};
   bool is_external_{false};
   bool is_intermediate_shape_{false};

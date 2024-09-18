@@ -48,11 +48,6 @@ void insert_long_casts(CastMap& map) {
         {{c10::ScalarType::Float, c10::ScalarType::Long}, "cast_f32_to_i32"});
   }
 }
-
-bool is_fp8(at::ScalarType dtype) {
-  return dtype == at::ScalarType::Float8_e5m2 or
-      dtype == at::ScalarType::Float8_e4m3fn;
-}
 } // namespace
 
 at::ScalarType habana_helpers::getInternalDtype(at::ScalarType dtype) {
@@ -326,33 +321,6 @@ std::vector<int64_t> habana_helpers::compute_broadcast_shape(
   // reverse output sizes to natural Pytorch order
   std::reverse(out_size.begin(), out_size.end());
   return out_size;
-}
-
-void habana_helpers::set_tensor_exp_bias(
-    const at::Tensor& tensor,
-    c10::optional<unsigned> exp_bias) {
-  habana::get_tensor_extra_meta(tensor)->set_exp_bias(exp_bias);
-}
-
-c10::optional<unsigned> habana_helpers::get_tensor_exp_bias(
-    const at::Tensor& tensor) {
-  return habana::get_tensor_extra_meta(tensor)->get_exp_bias();
-}
-
-void habana_helpers::set_output_hw_scaling_meta(
-    const at::Tensor& input,
-    const at::Tensor& output) {
-  if (is_fp8(input.scalar_type()) and is_fp8(output.scalar_type())) {
-    set_tensor_exp_bias(output, get_tensor_exp_bias(input));
-  }
-}
-
-void habana_helpers::set_output_hw_scaling_meta(
-    const at::Tensor& input,
-    habana::OutputMetaData& meta) {
-  if (is_fp8(input.scalar_type()) and is_fp8(meta.dtype)) {
-    meta.exp_bias = get_tensor_exp_bias(input);
-  }
 }
 
 /**

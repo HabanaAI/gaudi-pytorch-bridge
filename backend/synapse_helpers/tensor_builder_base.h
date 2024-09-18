@@ -139,15 +139,6 @@ class tensor_builder_base {
     return static_cast<ConcreteBuilder&>(*this);
   }
 
-  ConcreteBuilder& with_quant_params(
-      const unsigned exp_bias,
-      const float scale = 1.0) {
-    has_quant_params_ = true;
-    exp_bias_ = exp_bias;
-    scale_ = scale;
-    return static_cast<ConcreteBuilder&>(*this);
-  }
-
   ConcreteBuilder& with_dynamic_shape(
       const tensor::dynamic_shape_t& dynamic_shape) {
     HABANA_ASSERT(dynamic_shape.max().rank() == dynamic_shape.min().rank());
@@ -332,8 +323,6 @@ class tensor_builder_base {
         permutation_);
     if (have_quantization_data)
       t.set_inference_range(inference_min, inference_max);
-    if (has_quant_params_)
-      t.set_quant_params(exp_bias_, scale_);
     t.set_dont_allow_permute(dont_allow_permutation_);
     t.set_shape_agnostic_on(is_shape_agnostic_on_);
 
@@ -366,9 +355,6 @@ class tensor_builder_base {
   bool is_const_section_{false};
   bool have_quantization_data{false};
   float inference_min = 0, inference_max = 0;
-  bool has_quant_params_{false};
-  unsigned exp_bias_ = 0;
-  float scale_ = 0.0;
   shared_memory_section memory_section_{nullptr};
   void* host_ptr_{nullptr};
   uint64_t host_ptr_size_{0};

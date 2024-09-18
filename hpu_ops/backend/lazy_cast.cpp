@@ -13,7 +13,6 @@
 
 #include "hpu_ops/lazy_cast.h"
 #include "backend/helpers/cast_sequence.h"
-#include "habana_kernels/kernel_utils.h"
 
 namespace habana {
 
@@ -89,10 +88,8 @@ static void copy_impl(
 
   if ((src_type_cast_type == dst_type_cast_type) &&
       !(dst_type == at::ScalarType::Bool && src_type == at::ScalarType::Char)) {
-    NodeAttr::NodeOutputAttr out_attr{shape, src_type, 0};
-    out_attr.exp_bias = habana_helpers::get_tensor_exp_bias(src);
-    output = std::move(
-        OpBackend::BuildNode(op, graph, {"identity", {input}, {out_attr}})[0]);
+    output = std::move(OpBackend::BuildNode(
+        op, graph, {"identity", {input}, {{shape, src_type, 0}}})[0]);
   } else {
     output =
         OpBackend::BuildCast(op, graph, input, shape, src_type, dst_type, 0);
@@ -139,9 +136,7 @@ Copy<true>::Copy(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, {}, scalar_type, {}, {0}, {}, false) {}
 template <>
 Copy<false>::Copy(int device_id, c10::ScalarType scalar_type)
-    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {
-  SetHwScalingIds({0});
-}
+    : OpBackend(device_id, {}, scalar_type, {0}, {}, {}, false) {}
 
 struct ToCopy : OpBackend {
   ToCopy(int device_id, c10::ScalarType scalar_type);

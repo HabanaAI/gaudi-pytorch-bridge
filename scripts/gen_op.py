@@ -108,7 +108,6 @@ _AVAILABLE_FIELDS = {
     "hpu_wrap_all_versions",
     "hpu_wrap_version_list",
     "hpu_wrap_version_range",
-    "hw_scaling_ids",
     "inplace_ids",
     "lazy",
     "no_compute_flag",
@@ -481,9 +480,6 @@ class Op:
     def get_tpc_input_order(self):
         return self.op.get("tpc_input_order", None)
 
-    def get_hw_scaling_ids(self):
-        return self.op.get("hw_scaling_ids", [])
-
     def promote_to_common_type(self):
         return self.op.get("promote_to_common_type", [])
 
@@ -756,10 +752,6 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
                 ", ".join(extract_reduction_vars_indices(param_vars, True))
             )
         )
-
-    hw_scaling_ids = ctxop.get_hw_scaling_ids()
-    if hw_scaling_ids:
-        ctor_extra_calls.append("SetHwScalingIds({{{}}});".format(", ".join([str(id) for id in hw_scaling_ids])))
 
     return templates._OPCLASS_HEADER.format(
         op_backend_class=op_backend_class,
@@ -1422,10 +1414,6 @@ def lazy_frontend(
     if st_meta:
         code += f"  hpu_op.SetSTMetaFn({st_meta});\n"
 
-    hw_scaling_ids = ctxop.get_hw_scaling_ids()
-    if hw_scaling_ids:
-        code += "  hpu_op.set_hw_scaling_index({{{}}});\n".format(", ".join([str(id) for id in hw_scaling_ids]))
-
     if op_frontend_class == "ReductionFrontendTemplate":
         code += "  hpu_op.SetReductionVarsIndices({});\n".format(", ".join(extract_reduction_vars_indices(param_vars)))
 
@@ -1608,10 +1596,6 @@ def eager_frontend(
         code += "  hpu_op.set_scalar_types({compute_type});\n"
 
     code += handle_output_meta(ctxop, promote_types, dtype_helper_inputs, param_vars, type_promo_variant)
-
-    hw_scaling_ids = ctxop.get_hw_scaling_ids()
-    if hw_scaling_ids:
-        code += "  hpu_op.set_hw_scaling_index({{{}}});\n".format(", ".join([str(id) for id in hw_scaling_ids]))
 
     if op_frontend_class == "ReductionFrontendTemplate":
         code += "  hpu_op.SetReductionVarsIndices({});\n".format(", ".join(extract_reduction_vars_indices(param_vars)))

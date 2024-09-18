@@ -131,7 +131,6 @@ squeeze.dims:
   guid: squeeze
   op_backend: SqueezeDims
   out_ids: [0]
-  hw_scaling_ids: [0]
   lazy:
     acc_thread: true
     override_fn: squeeze_dims_hpu_lazy

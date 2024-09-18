@@ -758,12 +758,6 @@ void EagerExec::update_key_for_tensor(const at::Tensor& t, size_t& key) {
     }
   }
 
-  // exp_bias is a parameter of the synTensor,
-  // so it has to participate in hash calculation
-  if (auto exp_bias_opt = input_tmeta->get_exp_bias()) {
-    key = at::hash_combine(key, *exp_bias_opt);
-  }
-
   key = at::hash_combine(key, static_cast<size_t>(t.suggest_memory_format()));
   key = at::hash_combine(key, static_cast<size_t>(t.layout()));
   key = at::hash_combine(key, t.dim());
