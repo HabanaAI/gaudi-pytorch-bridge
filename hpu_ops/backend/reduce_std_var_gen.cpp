@@ -22,9 +22,9 @@ namespace habana {
 
 std::vector<int64_t> fillDims(const at::Tensor& self) {
   std::vector<int64_t> dims;
-  auto input_size = self.sizes().vec().size();
+  auto input_size = self.dim();
   dims.reserve(input_size);
-  for (size_t i = 0; i < input_size; i++)
+  for (auto i = 0; i < input_size; i++)
     dims.push_back(i);
   return dims;
 }
@@ -296,6 +296,137 @@ double getCorrectionValue(c10::IValue ivalue) {
     return ivalue.toDouble();
 }
 
+SharedMetaDataVector VarStdCommonSharedMeta(
+    const at::Stack& stack,
+    const bool keepdim,
+    const double correction,
+    const bool take_sqrt,
+    const bool mean_op) {
+  auto self = stack.at(0).toTensor();
+  auto dtype = self.scalar_type();
+  auto inRank = self.dim();
+
+  SharedMetaDataVector out;
+
+  SharedMetaData meanSharedMeta{"reduce_mean_multi_dim_fwd"};
+  meanSharedMeta.inputs_data.emplace_back(inRank, dtype);
+  meanSharedMeta.outputs_data.emplace_back(inRank, dtype);
+  out.push_back(meanSharedMeta);
+
+  SharedMetaData sub1SharedMeta{"sub_fwd"};
+  sub1SharedMeta.inputs_data.emplace_back(inRank, dtype);
+  sub1SharedMeta.inputs_data.emplace_back(1, dtype);
+  sub1SharedMeta.outputs_data.emplace_back(inRank, dtype);
+  out.push_back(sub1SharedMeta);
+
+  SharedMetaData sumSquareSharedMeta{"reduce_sum_square_multi_dim_fwd"};
+  sumSquareSharedMeta.inputs_data.emplace_back(inRank, dtype);
+  sumSquareSharedMeta.outputs_data.emplace_back(inRank, dtype);
+  out.push_back(sumSquareSharedMeta);
+
+  auto dims = getDimsVector(stack, self);
+  const bool enable_reduce_sum = needsReduceSum(dims);
+  if (enable_reduce_sum) {
+    SharedMetaData sumSquareFinalSharedMeta{"reduce_sum_multi_dim_fwd"};
+    sumSquareFinalSharedMeta.inputs_data.emplace_back(inRank, dtype);
+    sumSquareFinalSharedMeta.outputs_data.emplace_back(inRank, dtype);
+    out.push_back(sumSquareFinalSharedMeta);
+  }
+
+  // slice size helper
+  SharedMetaData sz{"size"};
+  sz.inputs_data.emplace_back(inRank, dtype);
+  sz.outputs_data.emplace_back(1, c10::ScalarType::Int);
+  if (inRank != 1) {
+    SharedMetaData sliceAxisSharedMeta{"slice_axis"};
+    sliceAxisSharedMeta.inputs_data.emplace_back(inRank, dtype);
+    sliceAxisSharedMeta.outputs_data.emplace_back(1, dtype);
+    for (auto i = 0u; i < inRank; ++i) {
+      out.push_back(sliceAxisSharedMeta);
+    }
+  }
+  out.push_back(sz);
+
+  if (correction) {
+    SharedMetaData constSharedMeta{"constant"};
+    constSharedMeta.outputs_data.emplace_back(1, at::kFloat);
+    out.push_back(constSharedMeta);
+    SharedMetaData sub2SharedMeta{"sub_fwd"};
+    sub2SharedMeta.inputs_data.emplace_back(1, dtype);
+    sub2SharedMeta.inputs_data.emplace_back(1, dtype);
+    sub2SharedMeta.outputs_data.emplace_back(1, dtype);
+    out.push_back(sub2SharedMeta);
+  }
+
+  SharedMetaData reciprocalSharedMeta{"reciprocal_fwd"};
+  reciprocalSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Float);
+  reciprocalSharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Float);
+  out.push_back(reciprocalSharedMeta);
+
+  SharedMetaData multSharedMeta{"mult_fwd"};
+  multSharedMeta.inputs_data.emplace_back(inRank, c10::ScalarType::Float);
+  multSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Float);
+  multSharedMeta.outputs_data.emplace_back(inRank, c10::ScalarType::Float);
+  out.push_back(multSharedMeta);
+
+  if (take_sqrt) {
+    SharedMetaData sqrtSharedMeta{"sqrt_fwd"};
+    sqrtSharedMeta.inputs_data.emplace_back(inRank, c10::ScalarType::Float);
+    sqrtSharedMeta.outputs_data.emplace_back(inRank, c10::ScalarType::Float);
+    out.push_back(sqrtSharedMeta);
+  }
+
+  if (mean_op && !keepdim) {
+    for (auto i = 0u; i < inRank; ++i) {
+      SharedMetaData squeezeSharedMeta{"squeeze"};
+      squeezeSharedMeta.inputs_data.emplace_back(inRank - i, dtype);
+      squeezeSharedMeta.outputs_data.emplace_back(inRank - i - 1, dtype);
+      out.push_back(squeezeSharedMeta);
+    }
+  }
+
+  return out;
+}
+
+double getVarMeanCorrection(const at::Stack& stack) {
+  if (stack.at(1).isBool()) {
+    // this argument is for 'unbiased', convert its value for 'correction'
+    return static_cast<int>(stack.at(1).toBool());
+  }
+  return getCorrectionValue(stack.at(2));
+}
+
+bool getVarMeanKeepdim(const at::Stack& stack) {
+  if (stack.at(1).isBool()) {
+    return false;
+  }
+  return stack.at(3).toBool();
+}
+
+SharedMetaDataVector VarSharedMeta(const at::Stack& stack) {
+  const double correction = getCorrectionValue(stack.at(2));
+  const bool keepdim = stack.at(3).toBool();
+  return VarStdCommonSharedMeta(stack, keepdim, correction, false, false);
+}
+
+SharedMetaDataVector VarMeanSharedMeta(const at::Stack& stack) {
+  double correction = getVarMeanCorrection(stack);
+  bool keepdim = getVarMeanKeepdim(stack);
+  return VarStdCommonSharedMeta(stack, keepdim, correction, false, true);
+}
+
+SharedMetaDataVector StdSharedMeta(const at::Stack& stack) {
+  const double correction = getCorrectionValue(stack.at(2));
+  const bool keepdim = stack.at(3).toBool();
+  return VarStdCommonSharedMeta(stack, keepdim, correction, true, false);
+}
+
+SharedMetaDataVector StdMeanSharedMeta(const at::Stack& stack) {
+  const double correction = getCorrectionValue(stack.at(2));
+  const bool keepdim = stack.at(3).toBool();
+  return VarStdCommonSharedMeta(stack, keepdim, correction, true, true);
+}
+
 void Var::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
   auto dims = getDimsVector(stack, self);
@@ -323,15 +454,8 @@ void Var::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 void VarMean::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   auto self = stack.at(0).toTensor();
 
-  double correction = 0;
-  bool keepdim = false;
-  if (stack.at(1).isBool()) {
-    // this argument is for 'unbiased', convert its value for 'correction'
-    correction = static_cast<int>(stack.at(1).toBool());
-  } else {
-    correction = getCorrectionValue(stack.at(2));
-    keepdim = stack.at(3).toBool();
-  }
+  double correction = getVarMeanCorrection(stack);
+  bool keepdim = getVarMeanKeepdim(stack);
 
   auto dims = getDimsVector(stack, self);
 

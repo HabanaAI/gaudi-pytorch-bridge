@@ -8749,11 +8749,13 @@ std.correction:
   dtypes: [BFloat16, Float]
   op_backend: Std
   out_ids: [0]
+  op_validator: StdSharedMeta
 
 std.correction_out:
   output_meta: StdVarMeta
   dtypes: [BFloat16, Float]
   op_backend: Std
+  op_validator: StdMeanSharedMeta
 
 std_mean.correction:
   output_meta: StdVarMeanMeta
@@ -9581,23 +9583,27 @@ var.correction:
   dtypes: [BFloat16, Float]
   op_backend: Var
   out_ids: [0]
+  op_validator: VarSharedMeta
 
 var.correction_out:
   output_meta: StdVarMeta
   dtypes: [BFloat16, Float]
   op_backend: Var
+  op_validator: VarSharedMeta
 
 var_mean:
   output_meta: StdVarMeanMeta
   dtypes: [BFloat16, Float]
   op_backend: VarMean
   out_ids: [0, 0]
+  op_validator: VarMeanSharedMeta
 
 var_mean.correction:
   output_meta: StdVarMeanMeta
   dtypes: [BFloat16, Float]
   op_backend: VarMean
   out_ids: [0, 0]
+  op_validator: VarMeanSharedMeta
 
 vdot:
   output_meta: VdotMeta
