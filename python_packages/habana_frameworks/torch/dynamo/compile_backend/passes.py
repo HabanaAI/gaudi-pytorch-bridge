@@ -1439,6 +1439,7 @@ collective_ops = set(
 view_ops_set = set(
     [
         torch.ops.aten.view.default,
+        torch.ops.aten._unsafe_view.default,
     ]
 )
 
