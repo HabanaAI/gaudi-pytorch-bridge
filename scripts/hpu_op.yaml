@@ -3698,6 +3698,8 @@ equal:
     Gaudi: [BFloat16, Float, Int, Char, Byte, Long]
     Gaudi2: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
     Gaudi3: [BFloat16, Float, Half, Int, Char, Byte, Long, Short]
+  custom_fill_params: FillEqualParams
+  output_meta: EqualMeta
   op_backend: Equal
   out_ids: [0]
 

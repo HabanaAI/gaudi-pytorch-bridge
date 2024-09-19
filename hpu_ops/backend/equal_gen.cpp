@@ -14,24 +14,50 @@
 
 namespace habana {
 
+std::shared_ptr<void> FillEqualParams(const at::Stack& stack, size_t& size) {
+  PARAMS_STUB(ns_EqualPt::Params);
+  auto self_sizes = stack_tensor(stack, 0).sizes();
+  auto other_sizes = stack_tensor(stack, 1).sizes();
+  params->forceFalse = self_sizes.size() != other_sizes.size();
+  return params;
+}
+
+OutputMetaDataVector EqualMeta(const at::Stack&) {
+  OutputMetaData meta;
+  meta.shape = {};
+  meta.dtype = c10::ScalarType::Bool;
+  return {meta};
+}
+
 void Equal::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(stack, "Equal::AddNode");
   auto self = getNextInput<TensorsPair>(stackGetter);
   auto other = getNextInput<TensorsPair>(stackGetter);
 
+  size_t paramsSize = 0;
+  auto params = FillParams(stack, paramsSize);
+  const auto meta = OutputMeta(stack)[0];
+
   auto self_size = self.pt_t.sizes();
   auto other_size = other.pt_t.sizes();
-  at::ScalarType result_type = c10::ScalarType::Bool;
 
-  if (self_size == other_size) {
+  // DS not yet ready due to SW-202624
+  if (!graph.is_dynamic_graph()) {
+    auto equal = BuildOp(
+        graph,
+        get_guid_with_precision("equal_pt_fwd", ScalarType()),
+        {self.syn_t, other.syn_t},
+        {{meta.shape, meta.dtype, 0}},
+        params.get(),
+        paramsSize);
+
+    syn_out(0) = std::move(equal[0]);
+  } else if (self_size == other_size) {
     auto eq = BuildOp(
         graph,
         get_guid_with_precision("equal_fwd", ScalarType()),
         {self.syn_t, other.syn_t},
-        {{self_size, result_type}});
-
-    int64_t reduced_dim = 1;
-    c10::IntArrayRef reduced_size = reduced_dim;
+        {{self_size, meta.dtype}});
 
     // Although it seems we could skip reduction in the case of (1) input shape
     // and pass result of equal_fwd directly to the output we can't actually do
@@ -45,13 +71,13 @@ void Equal::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
         graph,
         "reduce_prod_multi_dim_fwd_f32",
         {eq[0].get()},
-        {{reduced_size, result_type, 0}},
+        {{meta.shape, meta.dtype, 0}},
         params.get(),
         size);
 
     syn_out(0) = std::move(reduce_prod[0]);
   } else { // inputs with different shape
-    auto false_tensor = ConstantHelper(graph, false, result_type, 1, 0);
+    auto false_tensor = ConstantHelper(graph, false, meta.dtype, 1, 0);
 
     syn_out(0) = std::move(false_tensor);
   }
