@@ -40,7 +40,6 @@ conv3d                                   Yes      Yes      Yes       No       No
 dropout                                  Yes      Yes      Yes       No       No        No       No     torch.nn.functional
 embedding                                Yes      Yes      Yes       No       Yes       Yes      Yes    torch.nn.functional
 embedding_bag                            Yes      Yes      Yes       No       No        No       No     torch.nn.functional
-embedding_renorm                         Yes      Yes      Yes       No       No        No       No     torch.nn.functional
 elu                                      Yes      Yes      Yes       No       No        No       No     torch.nn.functional
 elu\_                                    Yes      Yes      Yes       No       No        No       No     torch.nn.functional
 gelu                                     Yes      Yes      Yes       No       No        No       No     torch.nn.functional
@@ -146,6 +145,7 @@ div                                      Yes      Yes      Yes       No       Ye
 divide                                   Yes      Yes      Yes       No       Yes       Yes      No     torch
 dot                                      Yes      Yes      Yes       No       Yes       No       No     torch
 embedding                                Yes      Yes      Yes       No       Yes       Yes      Yes    torch
+embedding_renorm\_                       Yes      Yes      Yes       No       No        No       No     torch
 empty                                    Yes      Yes      Yes       Yes      Yes       Yes      Yes    torch
 empty_like                               Yes      Yes      Yes       Yes      Yes       Yes      Yes    torch
 empty_strided                            Yes      Yes      Yes       Yes      Yes       Yes      Yes    torch
