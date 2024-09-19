@@ -40,7 +40,6 @@ use_compiled_recipes = _get_bool_from_env("PT_HPU_COMPILE_USE_RECIPES", "1")
 # with each of those values, hpu backend creates AOT Autograd instance with decomposition list
 # containing either Habana defined (habana), PT Framework defined (core_aten) or no decompositions.
 decomposition_mode = _get_decomp_mode("PT_HPU_COMPILE_DECOMPOSITION_MODE", "habana")
-verbose = _get_bool_from_env("PT_HPU_COMPILE_VERBOSE", "0")
 keep_input_mutations = _get_bool_from_env("PT_HPU_KEEP_INPUT_MUTATIONS", "1")
 use_eager_fallback = _get_bool_from_env("PT_HPU_USE_EAGER_FALLBACK", "1")
 # enables graph freezing and constant folding for inference
