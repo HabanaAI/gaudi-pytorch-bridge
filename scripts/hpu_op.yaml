@@ -2403,9 +2403,6 @@ _adaptive_avg_pool3d:
     Gaudi3: [BFloat16, Float, Half]
   guid: adaptive_avg_pool_3d_fwd
   op_backend: AdaptiveAvgPool3dFwd
-  synapse_layouts:
-  - [WHDCN, WHDCN]
-  - [WHDCN]
   out_ids: [0]
   op_validator: AdaptiveAvgPool3dFwdSharedMeta
 
@@ -2418,9 +2415,6 @@ adaptive_avg_pool3d.out:
     Gaudi3: [BFloat16, Float, Half]
   guid: adaptive_avg_pool_3d_fwd
   op_backend: AdaptiveAvgPool3dFwd
-  synapse_layouts:
-  - [WHDCN, WHDCN]
-  - [WHDCN]
   op_validator: AdaptiveAvgPool3dFwdSharedMeta
 
 _adaptive_avg_pool3d_backward:

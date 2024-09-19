@@ -62,26 +62,7 @@ OutputMetaDataVector AdaptiveAvgPool3dBwdMeta(const at::Stack& stack) {
 }
 
 SharedMetaDataVector AdaptiveAvgPool3dFwdSharedMeta(const at::Stack& stack) {
-  const auto& self = stack_tensor(stack, 0);
-  const auto reshape_required = self.dim() == 4;
-
-  SharedMetaData meta_adaptive{"adaptive_avg_pool_3d_fwd"};
-  meta_adaptive.inputs_data = {{5, self.scalar_type()}};
-  meta_adaptive.outputs_data = {meta_adaptive.inputs_data[0]};
-
-  if (reshape_required) {
-    SharedMetaData meta_expand{"expand_dims"};
-    meta_expand.inputs_data = {{self.dim(), self.scalar_type()}};
-    meta_expand.outputs_data = {meta_adaptive.inputs_data[0]};
-
-    SharedMetaData meta_reshape{"reshape"};
-    meta_reshape.inputs_data = {{meta_adaptive.outputs_data[0]}};
-    meta_reshape.outputs_data = {meta_expand.inputs_data[0]};
-
-    return {meta_expand, meta_adaptive, meta_reshape};
-  }
-
-  return {meta_adaptive};
+  return Input0SharedMeta(stack, "adaptive_avg_pool_3d_fwd");
 }
 
 void AdaptiveAvgPool3dFwd::AddNode(
@@ -90,49 +71,25 @@ void AdaptiveAvgPool3dFwd::AddNode(
   size_t size = 0;
   const auto& params = FillAdaptiveAvgPool3dParamsFwd(stack, size);
   auto meta = AdaptiveAvgPool3dMeta(stack)[0];
-  auto intermediateOutShape = meta.shape;
-  auto self = stack_tensor(stack, 0);
-  auto reshapeRequired = (self.dim() == 4);
-  std::vector<synTensor> inputs = {syn_in(0)};
-  std::vector<synapse_helpers::tensor> expandResult;
-  c10::optional<int> finalIndex =
-      reshapeRequired ? c10::nullopt : c10::make_optional<int>(0);
-
-  if (reshapeRequired) {
-    std::vector<int64_t> inputExpandedShape = {1};
-    const auto& selfShape = self.sizes().vec();
-    inputExpandedShape.insert(
-        std::end(inputExpandedShape),
-        std::begin(selfShape),
-        std::end(selfShape));
-    intermediateOutShape.insert(std::begin(intermediateOutShape), 1);
-    synAxisParams expandParams{4};
-    auto expandedInput = BuildOp(
-        graph,
-        "expand_dims",
-        std::move(inputs),
-        {{inputExpandedShape, meta.dtype}},
-        &expandParams,
-        sizeof(expandParams));
-    expandResult.push_back(std::move(expandedInput[0]));
-    inputs = {expandResult[0].get()};
+  const auto rank = stack_tensor(stack, 0).dim();
+  if (rank == 4) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDC},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDC});
+  } else if (rank == 5) {
+    SetSynapseLayouts(
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN},
+        {synapse_helpers::layouts::SynapseLayoutFormat::WHDCN});
   }
 
   auto adaptiveAvgPool = BuildOp(
       graph,
       GetGuid(),
-      std::move(inputs),
-      {{intermediateOutShape, meta.dtype, finalIndex}},
+      {syn_in(0)},
+      {{meta.shape, meta.dtype, 0}},
       params.get(),
       size);
-
-  if (reshapeRequired) {
-    auto reshapedAdaptiveAvgPool = ReshapeHelper(
-        graph, adaptiveAvgPool[0].get(), meta.shape, meta.dtype, 0);
-    syn_out(0) = std::move(reshapedAdaptiveAvgPool);
-  } else {
-    syn_out(0) = std::move(adaptiveAvgPool[0]);
-  }
+  syn_out(0) = std::move(adaptiveAvgPool[0]);
 }
 
 SharedMetaDataVector AdaptiveAvgPool3dBwdSharedMeta(const at::Stack& stack) {
