@@ -735,13 +735,24 @@ def meta_fp8_sdpa_recomp_fwd_dropout_seed(
     return meta_fp8_sdpa_recomp_fwd_helper(q, k, v, q_scale_o, softmax_mode, requires_backward)
 
 
+def meta_softmax_fp8_common(input, input_scale):
+    dtype = torch.bfloat16 if (input_scale is None) else torch.float8_e4m3fn
+    return input.new_empty(input.shape, dtype=dtype)
+
+
 @register_meta([torch.ops.hpu.softmax_fp8.default])
 def meta_softmax_fp8(input, dim, input_scale=None, output_scale=None, inv_attn_heads=None, fused_add=None):
-    if input_scale is None:
-        dtype = torch.bfloat16
-    else:
-        dtype = torch.float8_e4m3fn
-    return input.new_empty(input.shape, dtype=dtype)
+    return meta_softmax_fp8_common(input, input_scale)
+
+
+@register_meta([torch.ops.hpu.softmax_fp8.Scalar_scales])
+def meta_softmax_fp8(input, dim, input_scale, output_scale, inv_attn_heads=None, fused_add=None):
+    return meta_softmax_fp8_common(input, input_scale)
+
+
+@register_meta([torch.ops.hpu.softmax_fp8.Scalar])
+def meta_softmax_fp8(input, dim, input_scale, output_scale, inv_attn_heads, fused_add=None):
+    return meta_softmax_fp8_common(input, input_scale)
 
 
 @register_meta([torch.ops.hpu.in_place_interleave_.default])

@@ -9973,6 +9973,20 @@ softmax_fp8:
   out_ids: [0]
   output_meta: SoftmaxFp8Meta
 
+softmax_fp8.Scalar_scales:
+  custom_op_schema: "hpu::softmax_fp8.Scalar_scales(Tensor input, int dim, float input_scale, float output_scale, Tensor? inv_attn_heads=None, Tensor? fused_add=None) -> Tensor"
+  guid: softmax_fwd
+  op_backend: SoftmaxFp8
+  out_ids: [0]
+  output_meta: SoftmaxFp8Meta
+
+softmax_fp8.Scalar:
+  custom_op_schema: "hpu::softmax_fp8.Scalar(Tensor input, int dim, float input_scale, float output_scale, float inv_attn_heads, Tensor? fused_add=None) -> Tensor"
+  guid: softmax_fwd
+  op_backend: SoftmaxFp8
+  out_ids: [0]
+  output_meta: SoftmaxFp8Meta
+
 rms_norm:
   custom_op_schema: "hpu::rms_norm(Tensor data_in, Tensor gamma, float epsilon) -> (Tensor, Tensor)"
   guid: rms_norm_ex_fwd

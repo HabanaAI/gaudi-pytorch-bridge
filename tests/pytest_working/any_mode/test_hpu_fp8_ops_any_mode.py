@@ -19,6 +19,7 @@ from test_utils import (
     check_ops_executed_in_jit_ir,
     clear_t_compile_logs,
     compare_tensors,
+    compile_function_if_compile_mode,
     format_tc,
     is_gaudi1,
     is_gaudi2,
@@ -990,8 +991,6 @@ def test_softmax_fp8(shape, dim, is_scale, is_inv_attn_heads, fused_add_shape):
     inv_attn_heads = inv_attn_heads_hpu = None
     fused_add = fused_add_hpu = None
 
-    fn = torch.ops.hpu.softmax_fp8
-
     if is_scale:
         scale_input = torch.tensor(0.05)
         scale_output = torch.tensor(2.5)
@@ -1008,10 +1007,8 @@ def test_softmax_fp8(shape, dim, is_scale, is_inv_attn_heads, fused_add_shape):
         inv_attn_heads = torch.tensor(0.1)
         inv_attn_heads_hpu = inv_attn_heads.to("hpu")
 
-    if is_pytest_mode_compile():
-        clear_t_compile_logs()
-        torch._dynamo.reset()
-        fn = torch.compile(fn, backend="hpu_backend")
+    fn = torch.ops.hpu.softmax_fp8
+    fn = compile_function_if_compile_mode(fn)
 
     result = fn(input_hpu, dim, scale_input_hpu, scale_output_hpu, inv_attn_heads_hpu, fused_add_hpu)
 
@@ -1029,6 +1026,40 @@ def test_softmax_fp8(shape, dim, is_scale, is_inv_attn_heads, fused_add_shape):
         assert result.dtype == torch.float8_e4m3fn
     else:
         assert result.dtype == torch.bfloat16
+
+    compare_tensors(result, result_ref_fp32, atol=1e-2, rtol=0.1251)
+
+    if is_pytest_mode_compile():
+        check_ops_executed_in_jit_ir("softmax_fp8")
+
+
+@pytest.mark.parametrize("shape", [(5, 4, 4, 6)])
+@pytest.mark.parametrize("dim", [-1])  # currently only last dim is supported by tpc
+@pytest.mark.parametrize("is_inv_attn_heads", ["tensor", "scalar", None])
+def test_softmax_fp8_scalar(shape, dim, is_inv_attn_heads):
+    input = torch.rand(shape, dtype=torch.bfloat16) * 4.0
+    input_hpu = input.to("hpu")
+    scale_input = 0.05
+    scale_output = 2.5
+    inv_attn_heads = inv_attn_heads_hpu = None
+
+    if is_inv_attn_heads:
+        inv_attn_heads = torch.tensor(0.1)
+        inv_attn_heads_hpu = inv_attn_heads.to("hpu") if is_inv_attn_heads == "tensor" else 0.1
+
+    fn = torch.ops.hpu.softmax_fp8
+    fn = compile_function_if_compile_mode(fn)
+
+    result = fn(input_hpu, dim, scale_input, scale_output, inv_attn_heads_hpu)
+
+    if is_inv_attn_heads:
+        input = input * inv_attn_heads
+    input = input * scale_input
+
+    result_ref_fp32 = torch.softmax(input, dim).to(torch.bfloat16)
+
+    result_ref_fp32 = (result_ref_fp32 * scale_output).to(torch.float8_e4m3fn)
+    assert result.dtype == torch.float8_e4m3fn
 
     compare_tensors(result, result_ref_fp32, atol=1e-2, rtol=0.1251)
 

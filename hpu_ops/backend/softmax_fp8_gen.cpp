@@ -12,6 +12,8 @@
  */
 #include "generated/backend/softmax_fp8.h"
 
+namespace sh = synapse_helpers;
+
 namespace habana {
 
 namespace {
@@ -34,26 +36,53 @@ void addOptionalTensor(
   }
 }
 
+void handleScale(
+    habana::OpBackend* op,
+    sh::graph& graph,
+    const std::variant<OpBackend::TensorsPair, c10::IValue>& scale,
+    std::vector<sh::tensor>& const_scales,
+    std::vector<synTensor>& syn_inputs) {
+  // If scale is a Tensor, add respective synTensor to the node inputs.
+  if (std::holds_alternative<OpBackend::TensorsPair>(scale)) {
+    addOptionalTensor(
+        std::get<OpBackend::TensorsPair>(scale),
+        syn_inputs,
+        at::ScalarType::Float,
+        "scale");
+    return;
+  }
+
+  // If scale is a Scalar, create a const tensor first.
+  const auto scale_value = std::get<c10::IValue>(scale);
+  if (scale_value.isDouble()) {
+    const_scales.emplace_back(
+        op->BuildConstantTensor(op, graph, scale_value.toDouble()));
+    syn_inputs.push_back(const_scales.back().get());
+  } else {
+    syn_inputs.push_back(nullptr);
+  }
+}
+
 } // namespace
 
 OutputMetaDataVector SoftmaxFp8Meta(const at::Stack& stack) {
   OutputMetaData meta;
   meta.shape = stack_tensor(stack, 0).sizes().vec();
-  meta.dtype = stack[2].isTensor() ? at::ScalarType::Float8_e4m3fn
-                                   : at::ScalarType::BFloat16;
+  meta.dtype = stack[2].isNone() ? at::ScalarType::BFloat16
+                                 : at::ScalarType::Float8_e4m3fn;
   return {meta};
 }
 
-void SoftmaxFp8::AddNode(
-    synapse_helpers::graph& graph,
-    const at::Stack& stack) {
+void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(stack, "SoftmaxFp8::AddNode");
   auto self = getNextInput<TensorsPair>(stackGetter);
   int dim = getNextInput<int>(stackGetter);
-  auto input_scale_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
-  auto output_scale_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
+  auto input_scale_opt =
+      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
+  auto output_scale_opt =
+      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
   auto inv_attn_heads_opt =
-      getNextInput<c10::optional<TensorsPair>>(stackGetter);
+      getNextInput<std::variant<TensorsPair, c10::IValue>>(stackGetter);
   auto fused_add_opt = getNextInput<c10::optional<TensorsPair>>(stackGetter);
   auto rank = self.pt_t.dim();
   dim = at::maybe_wrap_dim(dim, rank, /*wrap_scalar=*/true);
@@ -63,13 +92,21 @@ void SoftmaxFp8::AddNode(
       self.pt_t.scalar_type() == at::ScalarType::BFloat16,
       "Input tensor must be of torch.bfloat16 dtype.");
 
+  const bool is_input_scale =
+      std::holds_alternative<OpBackend::TensorsPair>(input_scale_opt) or
+      std::get<c10::IValue>(input_scale_opt).isDouble();
+  const bool is_output_scale =
+      std::holds_alternative<OpBackend::TensorsPair>(output_scale_opt) or
+      std::get<c10::IValue>(output_scale_opt).isDouble();
+
   TORCH_CHECK(
-      (input_scale_opt && output_scale_opt) ||
-          (!input_scale_opt && !output_scale_opt),
-      "Output and input scales must be both given or None.");
+      is_input_scale == is_output_scale,
+      "Output and input scales must be both given or None");
 
   if (fused_add_opt) {
-    TORCH_CHECK((input_scale_opt), "FusedAdd available only for Float8 output");
+    TORCH_CHECK(
+        is_input_scale,
+        "FusedAdd available only for Float8 output, but input scale is not given.");
     TORCH_CHECK(
         (rank == fused_add_opt->pt_t.dim()),
         "FusedAdd tensor must have the same rank as the input tensor");
@@ -86,8 +123,8 @@ void SoftmaxFp8::AddNode(
 
   ns_Softmax::ParamsV7 params{};
   params.dim = static_cast<int>(rank - dim - 1);
-  int mode = input_scale_opt ? SoftmaxMode_t::SOFTMAX_HF8_1B
-                             : SoftmaxMode_t::SOFTMAX_HF8_1C;
+  int mode = is_input_scale ? SoftmaxMode_t::SOFTMAX_HF8_1B
+                            : SoftmaxMode_t::SOFTMAX_HF8_1C;
   if (fused_add_opt)
     mode |= SoftmaxMode_t::FUSED_ADD;
   params.mode = static_cast<SoftmaxMode_t>(mode);
@@ -96,12 +133,10 @@ void SoftmaxFp8::AddNode(
   // and are not used by fp8 version but need to be passed as nullptr to place
   // rest optional inputs on correct positions.
   std::vector<synTensor> syn_inputs{self.syn_t, nullptr, nullptr, nullptr};
-  addOptionalTensor(
-      input_scale_opt, syn_inputs, at::ScalarType::Float, "input_scale");
-  addOptionalTensor(
-      inv_attn_heads_opt, syn_inputs, at::ScalarType::Float, "inv_attn_heads");
-  addOptionalTensor(
-      output_scale_opt, syn_inputs, at::ScalarType::Float, "output_scale");
+  std::vector<sh::tensor> const_scales;
+  handleScale(this, graph, input_scale_opt, const_scales, syn_inputs);
+  handleScale(this, graph, inv_attn_heads_opt, const_scales, syn_inputs);
+  handleScale(this, graph, output_scale_opt, const_scales, syn_inputs);
   addOptionalTensor(
       fused_add_opt, syn_inputs, at::ScalarType::BFloat16, "fused_add");
 
