@@ -11,14 +11,13 @@
  *******************************************************************************
  */
 #include "rem_dup_const_pass.h"
-
+#include "habana_helpers/logging.h"
 namespace habana_torch {
 namespace jit {
 bool RemoveDuplicateConstPass(habana_torch::jit::Graph& g) {
   bool graph_changed = false;
   std::list<Node*> const_nodes, nodes_to_remove;
-  // todo: use bridge asserts https://jira.habana-labs.com/browse/SW-200787
-  // GAUDI_JIT_DEBUG("Starting 'Remove duplicate const' pass.");
+  PT_BRIDGE_DEBUG("Starting 'Remove duplicate const' pass.");
   for (Node* n : g.nodes()) {
     // Iterate only over const nodes
     if (n->kind() == prim::Constant) {
@@ -39,12 +38,11 @@ bool RemoveDuplicateConstPass(habana_torch::jit::Graph& g) {
       }
     }
   }
-  // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-  // GAUDI_JIT_DEBUG("Found ", nodes_to_remove.size(), " nodes to be removed.");
+  PT_BRIDGE_DEBUG("Found ", nodes_to_remove.size(), " nodes to be removed.");
   // Remove duplicate nodes
   std::for_each(nodes_to_remove.begin(), nodes_to_remove.end(), [](Node* n) {
     TORCH_CHECK(!n->hasUses());
-    // GAUDI_JIT_DEBUG("Removing node ", *n, ".");
+    PT_BRIDGE_DEBUG("Removing node ", *n, ".");
     n->destroy();
   });
   // Move all the const nodes to the top

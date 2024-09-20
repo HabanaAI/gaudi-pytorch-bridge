@@ -30,12 +30,12 @@
 #include <torch/csrc/utils/python_stub.h>
 #include <torch/csrc/utils/schema_info.h>
 
+#include "habana_helpers/logging.h"
 #include "jit_fork/ir/attributes.h"
 #include "jit_fork/ir/graph_node_list.h"
 #include "jit_fork/ir/named_value.h"
 #include "jit_fork/ir/scope.h"
 #include "jit_fork/ir/type_wrapper.h"
-// todo - use our logging/asserts mechanisms
 
 // Forward declare, the real meat is in python_ir.cpp
 // todo: caution - it is declared in torch::jit - upstream version, correct it?
@@ -533,19 +533,19 @@ struct TORCH_API Node {
   // lots of things like chunk have a single input or single output, so we have
   // a helper to make accessing it easier
   Value* input() {
-    // IPEX_JIT_ASSERT(inputs_.size() == 1);
+    HABANA_ASSERT(inputs_.size() == 1);
     return inputs_.at(0);
   }
   Value* output() {
-    // IPEX_JIT_ASSERT(outputs_.size() == 1);
+    HABANA_ASSERT(outputs_.size() == 1);
     return outputs_.at(0);
   }
   const Value* output() const {
-    // IPEX_JIT_ASSERT(outputs_.size() == 1);
+    HABANA_ASSERT(outputs_.size() == 1);
     return outputs_.at(0);
   }
   const Value* input() const {
-    // IPEX_JIT_ASSERT(inputs_.size() == 1);
+    HABANA_ASSERT(inputs_.size() == 1);
     return inputs_.at(0);
   }
   // Access a particular input.  This is a checked index.
@@ -857,21 +857,21 @@ struct TORCH_API Node {
     return this;
   }
   bool hasAttribute(Symbol name) const {
-    // IPEX_JIT_ASSERT(name.is_attr());
+    HABANA_ASSERT(name.is_attr());
     return findAttr(name, false) != values_.end();
   }
   bool hasAttributeS(const std::string& name) const {
     return hasAttribute(Symbol::attr(name));
   }
   AttributeKind kindOf(Symbol name) const {
-    // IPEX_JIT_ASSERT(name.is_attr());
+    HABANA_ASSERT(name.is_attr());
     return (*findAttr(name, true))->kind();
   }
   AttributeKind kindOfS(const std::string& name) const {
     return kindOf(Symbol::attr(name));
   }
   Node* removeAttribute(Symbol name) {
-    // IPEX_JIT_ASSERT(name.is_attr());
+    HABANA_ASSERT(name.is_attr());
     values_.erase(findAttr(name, true));
     return this;
   }
@@ -960,7 +960,7 @@ struct TORCH_API Node {
 
   template <typename T>
   Node* setAttr(Symbol name, typename T::ConstructorType v) {
-    // IPEX_JIT_ASSERT(name.is_attr());
+    HABANA_ASSERT(name.is_attr());
     auto it = findAttr(name, false);
     auto nv = AVPtr(new T(name, std::forward<typename T::ConstructorType>(v)));
     // NOLINTNEXTLINE(bugprone-branch-clone)
@@ -973,7 +973,7 @@ struct TORCH_API Node {
   }
   template <typename T>
   typename T::ValueType& getAttr(Symbol name) const {
-    // IPEX_JIT_ASSERT(name.is_attr());
+    HABANA_ASSERT(name.is_attr());
     auto it = findAttr(name, true);
     auto* child = dynamic_cast<T*>(it->get());
     if (child == nullptr) {
@@ -987,26 +987,26 @@ struct TORCH_API Node {
   // a big pile of messages.
   std::vector<AVPtr> values_;
   std::vector<AVPtr>::iterator findAttr(Symbol name, bool required) {
-    // IPEX_JIT_ASSERT(name.is_attr());
+    HABANA_ASSERT(name.is_attr());
     auto it = std::find_if(values_.begin(), values_.end(), [&](const AVPtr& v) {
       return v->name == name;
     });
     if (required && it == values_.end()) {
       throw IRAttributeError(name, false);
     }
-    // IPEX_JIT_ASSERT(!required || it != values_.end());
+    HABANA_ASSERT(!required || it != values_.end());
     return it;
   }
   std::vector<AVPtr>::const_iterator findAttr(Symbol name, bool required)
       const {
-    // IPEX_JIT_ASSERT(name.is_attr());
+    HABANA_ASSERT(name.is_attr());
     auto it = std::find_if(values_.begin(), values_.end(), [&](const AVPtr& v) {
       return v->name == name;
     });
     if (required && it == values_.end()) {
       throw IRAttributeError(name, false);
     }
-    // IPEX_JIT_ASSERT(!required || it != values_.end());
+    HABANA_ASSERT(!required || it != values_.end());
     return it;
   }
 
@@ -1025,7 +1025,7 @@ struct TORCH_API Node {
 
   bool inBlockList() const {
     if (next() == nullptr) {
-      // IPEX_JIT_ASSERT(prev() == nullptr);
+      HABANA_ASSERT(prev() == nullptr);
     }
     return next() != nullptr;
   }
@@ -1148,12 +1148,12 @@ struct Block {
   }
 
   Node* appendNode(Node* n) {
-    // IPEX_JIT_ASSERT(n->graph_ == graph_ && !n->inBlockList());
+    HABANA_ASSERT(n->graph_ == graph_ && !n->inBlockList());
     n->insertBefore(output_);
     return n;
   }
   Node* prependNode(Node* n) {
-    // IPEX_JIT_ASSERT(n->graph_ == graph_ && !n->inBlockList());
+    HABANA_ASSERT(n->graph_ == graph_ && !n->inBlockList());
     n->insertAfter(input_);
     return n;
   }
@@ -1433,22 +1433,22 @@ struct Graph : std::enable_shared_from_this<Graph> {
   // initialized to insert at the end of the top level block
   // can be changed with setInsertPoint()
   Node* insertNode(Node* n) {
-    // IPEX_JIT_DEBUG("Inserting new JIT node: ", *n);
-    // IPEX_JIT_ASSERT(
-    //    insert_before_->inBlockList() &&
-    //    "insert point node is no longer in a block list");
+    PT_BRIDGE_DEBUG("Inserting new JIT node: ", *n);
+    HABANA_ASSERT(
+        insert_before_->inBlockList() &&
+        "insert point node is no longer in a block list");
     return n->insertBefore(insert_before_);
   }
   // set where nodes are inserted to append to the end of this block
   void setInsertPoint(Block* b) {
-    // IPEX_JIT_ASSERT(b->owningGraph() == this);
+    HABANA_ASSERT(b->owningGraph() == this);
     setInsertPoint(b->return_node());
   }
   // set where nodes are inserted to insert _before_ this node
   // for implementation simplicity we only support inserting before a node for
   // now
   void setInsertPoint(Node* n) {
-    // IPEX_JIT_ASSERT(n->owningGraph() == this && n->inBlockList());
+    HABANA_ASSERT(n->owningGraph() == this && n->inBlockList());
     insert_before_ = n;
     predicted_insert_count_ = 0;
   }
@@ -1870,11 +1870,9 @@ struct FunctionSchemaMap {
 } // namespace habana_torch
 
 // todo
-/* create formatter skipped for now
- * #define CREATE_OSTREAM_FORMATTER(type) \
+// create formatter skipped for now
+/* #define CREATE_OSTREAM_FORMATTER(type) \
  *   template <>                          \
- *   struct fmt::formatter<type> : ostream_formatter {};
- *
- * CREATE_OSTREAM_FORMATTER(habana_torch::jit::Graph);
- * CREATE_OSTREAM_FORMATTER(habana_torch::jit::Node);
- */
+ *   struct fmt::formatter<type> : ostream_formatter {}; */
+CREATE_OSTREAM_FORMATTER(habana_torch::jit::Graph);
+CREATE_OSTREAM_FORMATTER(habana_torch::jit::Node);

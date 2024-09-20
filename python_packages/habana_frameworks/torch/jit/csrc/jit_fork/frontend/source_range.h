@@ -19,6 +19,7 @@
 #include <sstream>
 #include <unordered_map>
 
+#include "habana_helpers/logging.h"
 namespace habana_torch {
 namespace jit {
 
@@ -145,9 +146,8 @@ struct TORCH_API StringCordView {
     }
 
     char operator*() const {
-      // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-      // GAUDI_JIT_ASSERT(line_ < str_->pieces_.size());
-      // GAUDI_JIT_ASSERT(pos_ < str_->pieces_[line_].size());
+      HABANA_ASSERT(line_ < str_->pieces_.size());
+      HABANA_ASSERT(pos_ < str_->pieces_[line_].size());
       return str_->pieces_[line_].at(pos_);
     }
 

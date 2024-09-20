@@ -15,8 +15,8 @@
 #include <torch/csrc/jit/runtime/operator.h>
 #include <torch/csrc/jit/runtime/register_ops_utils.h>
 
+#include "habana_helpers/logging.h"
 #include "jit_fork/ir/ir.h"
-
 namespace habana_torch::jit {
 
 static bool insertableTensor(const at::Tensor& ten) {
@@ -85,8 +85,7 @@ c10::optional<Value*> tryInsertConstant(
       n->destroy();
       return g.insertNode(g.createNone())->output();
     }
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_ASSERT(!ref.requires_grad());
+    HABANA_ASSERT(!ref.requires_grad());
     n->output()->inferTypeFrom(
         ref); // note: before t_ because of std::move(ref)
     n->t_(attr::value, std::move(ref));
@@ -190,22 +189,19 @@ c10::optional<IValue> toIValue(const Value* v) {
       type->cast<ListType>() &&
       node->kindOf(attr::value) == AttributeKind::ival) {
     const auto& list = node->ival(attr::value);
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_ASSERT(list.isList());
+    HABANA_ASSERT(list.isList());
     return list;
   } else if (
       type->cast<DictType>() &&
       node->kindOf(attr::value) == AttributeKind::ival) {
     const auto& dict = node->ival(attr::value);
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_ASSERT(dict.isGenericDict());
+    HABANA_ASSERT(dict.isGenericDict());
     return dict;
   } else if (
       type->cast<TupleType>() &&
       node->kindOf(attr::value) == AttributeKind::ival) {
     const auto& tup = node->ival(attr::value);
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_ASSERT(tup.isTuple());
+    HABANA_ASSERT(tup.isTuple());
     return tup;
   } else if (type == StringType::get()) {
     const auto& s = node->s(attr::value);

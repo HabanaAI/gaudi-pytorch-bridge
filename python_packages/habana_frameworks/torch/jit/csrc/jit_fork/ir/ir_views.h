@@ -10,6 +10,7 @@
 
 #include <c10/util/irange.h>
 
+#include "habana_helpers/logging.h"
 #include "jit_fork/ir/ir.h"
 
 namespace habana_torch {
@@ -17,8 +18,7 @@ namespace jit {
 
 struct IfView {
   explicit IfView(Node* node) : node_(node) {
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_ASSERT(node->kind() == ::c10::prim::If);
+    HABANA_ASSERT(node->kind() == ::c10::prim::If);
   }
   Value* cond() const {
     return node_->input(0);
@@ -57,10 +57,8 @@ struct IfView {
 
 struct LoopView {
   explicit LoopView(Node* node) : node_(node) {
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_ASSERT(
-    //    node->kind() == ::c10::prim::Loop || node->kind() ==
-    //    ::c10::onnx::Loop);
+    HABANA_ASSERT(
+        node->kind() == ::c10::prim::Loop || node->kind() == ::c10::onnx::Loop);
   }
   Block* bodyBlock() const {
     return node_->blocks().at(0);

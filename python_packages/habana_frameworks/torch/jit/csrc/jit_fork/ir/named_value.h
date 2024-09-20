@@ -14,6 +14,7 @@
 
 #include <torch/csrc/utils/variadic.h>
 
+#include "habana_helpers/logging.h"
 #include "jit_fork/frontend/source_range.h"
 #include "jit_fork/ir/constants.h"
 
@@ -73,15 +74,13 @@ struct NamedValue {
     return value_;
   }
 
-  // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
   const std::string& name() const {
-    // GAUDI_JIT_ASSERT(name_);
+    HABANA_ASSERT(name_);
     return *name_;
   }
 
-  // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
   const SourceRange& loc() const {
-    // GAUDI_JIT_ASSERT(loc_);
+    HABANA_ASSERT(loc_);
     return *loc_;
   }
 

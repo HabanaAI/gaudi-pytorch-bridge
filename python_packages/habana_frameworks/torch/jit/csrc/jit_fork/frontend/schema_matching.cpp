@@ -17,6 +17,7 @@
 #include <torch/csrc/jit/frontend/builtin_functions.h>
 #include <torch/csrc/jit/runtime/operator.h>
 
+#include "habana_helpers/logging.h"
 #include "jit_fork/frontend/error_report.h"
 #include "jit_fork/frontend/function_schema_parser.h"
 #include "jit_fork/ir/ir.h"
@@ -520,9 +521,8 @@ static c10::optional<MatchedSchema> tryMatchSchema(
   const auto& returns = schema.returns();
   auto return_types = fmap(returns, [&](const Argument& r) {
     TypePtr result = tryEvalTypeVariables(r.type(), type_env);
-    /* GAUDI_JIT_ASSERT(
-     *    result, r.type()->repr_str(), " has unbound type variables.");
-     */
+    HABANA_ASSERT(result, r.type()->repr_str(), " has unbound type variables.");
+
     return result;
   });
   // Codegen does not support return of namedtuples with undefined field names.
@@ -592,8 +592,7 @@ std::pair<size_t, MatchedSchema> matchSchemas(
     at::ArrayRef<NamedValue> kwargs,
     const c10::optional<NamedValue>& self,
     bool render_errors) {
-  // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-  // GAUDI_JIT_ASSERT(!schemas.empty());
+  HABANA_ASSERT(!schemas.empty());
   // if there is only one schema, we do not need to try without conversions
   // first. this is faster and puts less dead code in the graph.
   if (schemas.size() == 1) {
@@ -701,9 +700,7 @@ Value* emitBuiltinCall(
         } else {
           if (!isOpCurrentBasedOnUpgraderEntries(
                   version_entry->second, graph_version.value())) {
-            // todo: use bridge infra
-            // https://jira.habana-labs.com/browse/SW-200787
-            // GAUDI_JIT_ASSERT(false, "Valid upgrader must be present");
+            HABANA_ASSERT(false, "Valid upgrader must be present");
           }
         }
       }

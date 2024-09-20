@@ -18,6 +18,7 @@
 
 #include <torch/csrc/jit/passes/common_subexpression_elimination.h>
 
+#include "habana_helpers/logging.h"
 #include "jit_fork/ir/node_hashing.h"
 
 #include <c10/util/Exception.h> // for TORCH_CHECK
@@ -153,8 +154,7 @@ bool ivaluesEqual(const IValue& a1, const IValue& a2) {
   if (a1.isObject()) {
     return &a1.toObjectRef() == &a2.toObjectRef();
   }
-  // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-  // GAUDI_JIT_ASSERT(false);
+  HABANA_ASSERT(false);
   {
     // Added temporarily, without it reaching end of non void function
     if (!(false)) {
@@ -175,9 +175,8 @@ bool ivaluesEqual(const IValue& a1, const IValue& a2) {
 // This function may be too conservative for general use.
 // Do NOT support g/gs attributes.
 bool attributesEqualCSE(const Node* lhs, const Node* rhs) {
-  // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-  // GAUDI_JIT_ASSERT(lhs != nullptr);
-  // GAUDI_JIT_ASSERT(rhs != nullptr);
+  HABANA_ASSERT(lhs != nullptr);
+  HABANA_ASSERT(rhs != nullptr);
   // One has attributes, the other does not.
   if (lhs->hasAttributes() != rhs->hasAttributes())
     return false;
@@ -240,8 +239,7 @@ bool attributesEqualCSE(const Node* lhs, const Node* rhs) {
 // Makes a hash that hashes the input Value, the output type
 // as well as the node attributes
 size_t HashNode::operator()(const Node* k) const {
-  // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-  // GAUDI_JIT_ASSERT(k != nullptr);
+  HABANA_ASSERT(k != nullptr);
   size_t constant_hash = 0;
   if (k->kind() == prim::Constant) {
     TypePtr type = k->output()->type();

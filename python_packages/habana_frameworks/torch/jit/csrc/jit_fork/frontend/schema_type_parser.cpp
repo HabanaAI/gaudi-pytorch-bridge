@@ -181,8 +181,7 @@ c10::optional<AliasInfo> SchemaTypeParser::parseAliasAnnotation() {
     } else {
       // We didn't encounter an ->, so assume the "after set" is identical
       // to the "before set"
-      // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-      // GAUDI_JIT_ASSERT(alias_info.afterSets().empty());
+      HABANA_ASSERT(alias_info.afterSets().empty());
       for (const auto& set : alias_info.beforeSets()) {
         alias_info.addAfterSet(set);
       }
@@ -275,8 +274,7 @@ TypeWrapper SchemaTypeParser::parseRefinedTensor() {
   SymbolicStrides strides;
 
   auto maybe_dtype = parseTensorDType(L.expect(TK_IDENT).text());
-  // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-  // GAUDI_JIT_ASSERT(maybe_dtype);
+  HABANA_ASSERT(maybe_dtype);
   at::ScalarType dtype = *maybe_dtype;
   parseList('(', ',', ')', [&] {
     const std::string& field = L.expect(TK_IDENT).text();

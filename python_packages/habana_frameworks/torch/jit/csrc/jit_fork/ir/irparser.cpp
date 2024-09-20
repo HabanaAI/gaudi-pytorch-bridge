@@ -19,12 +19,12 @@
 #include <string>
 #include <vector>
 
+#include "habana_helpers/logging.h"
 #include "jit_fork/frontend/lexer.h"
 #include "jit_fork/frontend/parse_string_literal.h"
 #include "jit_fork/frontend/schema_type_parser.h"
 #include "jit_fork/ir/ir.h"
 #include "jit_fork/ir/type_wrapper.h"
-
 namespace habana_torch::jit {
 
 struct VarWithType;
@@ -149,10 +149,8 @@ VarWithType IRParser::parseVarWithType(bool allow_optional) {
   }
   if (L.nextIf(':')) {
     auto type_alias = type_parser.parseType();
-    /* GAUDI_JIT_ASSERT(
-     *   !type_alias.second, "Parsing IR with Alias Info not handled");
-     *   r.type = type_alias.first;
-     */
+    HABANA_ASSERT(!type_alias.second, "Parsing IR with Alias Info not handled");
+    r.type = type_alias.first;
   }
   return r;
 }
@@ -230,9 +228,9 @@ ParsedLiteral IRParser::parseScalarLiteral(Node* n, std::string starting_str) {
       } else {
         r.k = AttributeKind::ty;
         type_alias = type_parser.parseType();
-        /* GAUDI_JIT_ASSERT(
-         *   !type_alias.second, "Parsing IR with Alias Info not handled");
-         */
+        HABANA_ASSERT(
+            !type_alias.second, "Parsing IR with Alias Info not handled");
+
         r.ty = type_alias.first;
         return r;
       }
@@ -356,34 +354,33 @@ void IRParser::parseAttr(Node* n) {
     c10::List<double> fs;
     c10::List<c10::complex<double>> cs;
     std::vector<TypeWrapper> tys;
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // int elem_num = 0;
+    int elem_num = 0;
     parseList('[', ',', ']', [&] {
       ParsedLiteral r = parseScalarLiteral(n);
       switch (r.k) {
         case AttributeKind::s:
           ss.push_back(r.s);
-          // GAUDI_JIT_ASSERT(!elem_num++ || k == AttributeKind::ss);
+          HABANA_ASSERT(!elem_num++ || k == AttributeKind::ss);
           k = AttributeKind::ss;
           break;
         case AttributeKind::i:
           is.push_back(r.i);
-          // GAUDI_JIT_ASSERT(!elem_num++ || k == AttributeKind::is);
+          HABANA_ASSERT(!elem_num++ || k == AttributeKind::is);
           k = AttributeKind::is;
           break;
         case AttributeKind::f:
           fs.push_back(r.f);
-          // GAUDI_JIT_ASSERT(!elem_num++ || k == AttributeKind::fs);
+          HABANA_ASSERT(!elem_num++ || k == AttributeKind::fs);
           k = AttributeKind::fs;
           break;
         case AttributeKind::c:
           cs.push_back(r.c);
-          // GAUDI_JIT_ASSERT(!elem_num++ || k == AttributeKind::cs);
+          HABANA_ASSERT(!elem_num++ || k == AttributeKind::cs);
           k = AttributeKind::cs;
           break;
         case AttributeKind::ty:
           tys.push_back(r.ty);
-          // GAUDI_JIT_ASSERT(!elem_num++ || k == AttributeKind::tys);
+          HABANA_ASSERT(!elem_num++ || k == AttributeKind::tys);
           k = AttributeKind::tys;
           break;
         default:
@@ -667,19 +664,18 @@ void IRParser::parse() {
   // The last statement should be return, which specifies graph outputs
   parseReturnOperator();
 
-  // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
   for (Node* n : deferred_tensor_value_initializations_) {
     auto type = n->output()->type()->expect<TensorType>();
     auto tt = n->output()->type()->cast<TensorType>();
-    // GAUDI_JIT_ASSERT(tt, "expected tensor output ", *n);
+    HABANA_ASSERT(tt, "expected tensor output ", *n);
     auto sizes = tt->sizes().concrete_sizes();
-    // GAUDI_JIT_ASSERT(sizes);
+    HABANA_ASSERT(sizes);
     auto strides = tt->strides().concrete_sizes();
-    // GAUDI_JIT_ASSERT(strides);
+    HABANA_ASSERT(strides);
     auto device = tt->device();
-    // GAUDI_JIT_ASSERT(device);
+    HABANA_ASSERT(device);
     auto dtype = tt->scalarType();
-    // GAUDI_JIT_ASSERT(dtype);
+    HABANA_ASSERT(dtype);
     auto options = at::TensorOptions(*device).dtype(*dtype);
     auto t = n->t_(attr::value, at::empty_strided(*sizes, *strides, options));
     (void)t;

@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "habana_helpers/logging.h"
 #include "jit_fork/frontend/error_report.h"
 #include "jit_fork/frontend/parser_constants.h"
 #include "jit_fork/frontend/source_range.h"
@@ -159,8 +160,7 @@ struct TokenTrie {
   TokenTrie() : kind(0) {}
   void insert(const char* str, int tok) {
     if (*str == '\0') {
-      // todo: use bridge asserts https://jira.habana-labs.com/browse/SW-200787
-      // GAUDI_JIT_ASSERT(kind == 0);
+      HABANA_ASSERT(kind == 0);
       kind = tok;
       return;
     }
@@ -545,10 +545,9 @@ struct Lexer {
   Token lexRaw(bool whitespace_token = false) {
     // NOLINTNEXTLINE(cppcoreguidelines-init-variables)
     int kind;
-    // todo: use bridge asserts https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_ASSERT(source);
+    HABANA_ASSERT(source);
     if (current == nullptr) {
-      // GAUDI_JIT_ASSERT(pos == 0);
+      HABANA_ASSERT(pos == 0);
       current = std::make_unique<StringCordView::Iterator>(
           source->text_str().begin());
     }

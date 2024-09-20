@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include "habana_helpers/logging.h"
+
 namespace habana_torch {
 namespace jit {
 
@@ -79,8 +81,7 @@ struct generic_graph_node_list_iterator {
     return cur;
   }
   generic_graph_node_list_iterator& operator++() {
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_ASSERT(cur);
+    HABANA_ASSERT(cur);
     cur = cur->next_in_graph[d];
     return *this;
   }
@@ -90,8 +91,7 @@ struct generic_graph_node_list_iterator {
     return old;
   }
   generic_graph_node_list_iterator& operator--() {
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_ASSERT(cur);
+    HABANA_ASSERT(cur);
     cur = cur->next_in_graph[reverseDir()];
     return *this;
   }

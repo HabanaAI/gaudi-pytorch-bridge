@@ -7,6 +7,7 @@
  */
 
 #include "jit_fork/ir/subgraph_matcher.h"
+#include "habana_helpers/logging.h"
 
 #include <regex>
 #include <stack>
@@ -102,17 +103,16 @@ bool SubgraphMatcher::matchValues(const Value* v1, Value* v2) {
   // Check if we've already visited these values.
   if (values_map_.count(v1)) {
     if (values_map_.at(v1) != v2) {
-      // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-      // GAUDI_JIT_DEBUG(
-      //     "Values %",
-      //     v1->debugName(),
-      //     " and %",
-      //     v2->debugName(),
-      //     " did not match because %",
-      //     v1->debugName(),
-      //     " has already been matched with %",
-      //     values_map_.at(v1)->debugName(),
-      //     ".\n");
+      PT_BRIDGE_DEBUG(
+          "Values %",
+          v1->debugName(),
+          " and %",
+          v2->debugName(),
+          " did not match because %",
+          v1->debugName(),
+          " has already been matched with %",
+          values_map_.at(v1)->debugName(),
+          ".\n");
       return false;
     }
     return true;
@@ -122,120 +122,116 @@ bool SubgraphMatcher::matchValues(const Value* v1, Value* v2) {
   // PARAM, we're comparing entering values - in these two cases the number of
   // uses don't need to be the same.
   if (v1->uses().size() != v2->uses().size() && !isOutput(v1) && !isInput(v1)) {
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_DEBUG(
-    //     "Values %",
-    //     v1->debugName(),
-    //     " and %",
-    //     v2->debugName(),
-    //     " did not match because number of their uses is different.\n");
+    PT_BRIDGE_DEBUG(
+        "Values %",
+        v1->debugName(),
+        " and %",
+        v2->debugName(),
+        " did not match because number of their uses is different.\n");
     return false;
   }
 
   // Add the values to the map before calling matchNodes to avoid infinite
   // recursion.
-  // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-  // GAUDI_JIT_DEBUG(
-  //     "Values %", v1->debugName(), " and %", v2->debugName(), " matched.\n");
+  PT_BRIDGE_DEBUG(
+      "Values %", v1->debugName(), " and %", v2->debugName(), " matched.\n");
   values_map_[v1] = v2;
   return matchNodes(v1->node(), v2->node());
 }
 
 bool SubgraphMatcher::matchAttributes(const Node* n1, Node* n2) {
   if (n1->numAttributes() != n2->numAttributes()) {
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_DEBUG("Nodes did not match in number attributes:\n", *n1, *n2);
+    PT_BRIDGE_DEBUG("Nodes did not match in number attributes:\n", *n1, *n2);
     return false;
   }
   for (const Symbol& attr_name : n1->attributeNames()) {
     if (n1->kindOf(attr_name) != n2->kindOf(attr_name)) {
-      // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-      // GAUDI_JIT_DEBUG(
-      //     "Nodes did not match because type of attribute '",
-      //     attr_name.toQualString(),
-      //     "' did not match:\n",
-      //     *n1,
-      //     *n2);
+      PT_BRIDGE_DEBUG(
+          "Nodes did not match because type of attribute '",
+          attr_name.toQualString(),
+          "' did not match:\n",
+          *n1,
+          *n2);
       return false;
     }
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
     switch (n1->kindOf(attr_name)) {
       case AttributeKind::s:
         if (!std::regex_match(n2->s(attr_name), std::regex(n1->s(attr_name)))) {
-          // GAUDI_JIT_DEBUG(
-          //     "Nodes did not match because attribute '",
-          //     attr_name.toQualString(),
-          //     "' did not match: ",
-          //     n1->s(attr_name),
-          //     " != ",
-          //     n2->s(attr_name),
-          //     " \n",
-          //     *n1,
-          //     *n2);
+          PT_BRIDGE_DEBUG(
+              "Nodes did not match because attribute '",
+              attr_name.toQualString(),
+              "' did not match: ",
+              n1->s(attr_name),
+              " != ",
+              n2->s(attr_name),
+              " \n",
+              *n1,
+              *n2);
+
           return false;
         }
         break;
       case AttributeKind::c:
         if (n1->c(attr_name) != n2->c(attr_name)) {
-          // GAUDI_JIT_DEBUG(
-          //     "Nodes did not match because attribute '",
-          //     attr_name.toQualString(),
-          //     "' did not match:",
-          //     "(r:",
-          //     n1->c(attr_name).real(),
-          //     ", i:",
-          //     n1->c(attr_name).imag(),
-          //     ")",
-          //     " != ",
-          //     "(r:",
-          //     n2->c(attr_name).real(),
-          //     ", i:",
-          //     n2->c(attr_name).imag(),
-          //     ")",
-          //     " \n",
-          //     *n1,
-          //     *n2);
+          PT_BRIDGE_DEBUG(
+              "Nodes did not match because attribute '",
+              attr_name.toQualString(),
+              "' did not match:",
+              "(r:",
+              n1->c(attr_name).real(),
+              " << i:",
+              n1->c(attr_name).imag(),
+              ")",
+              " != ",
+              "(r:",
+              n2->c(attr_name).real(),
+              " << i:",
+              n2->c(attr_name).imag(),
+              ")",
+              " \n",
+              *n1,
+              *n2);
           return false;
         }
         break;
       case AttributeKind::f:
         if (n1->f(attr_name) != n2->f(attr_name)) {
-          // GAUDI_JIT_DEBUG(
-          //     "Nodes did not match because attribute '",
-          //     attr_name.toQualString(),
-          //     "' did not match:",
-          //     n1->f(attr_name),
-          //     " != ",
-          //     n2->f(attr_name),
-          //     " \n",
-          //     *n1,
-          //     *n2);
+          PT_BRIDGE_DEBUG(
+              "Nodes did not match because attribute '",
+              attr_name.toQualString(),
+              "' did not match:",
+              n1->f(attr_name),
+              " != ",
+              n2->f(attr_name),
+              " \n",
+              *n1,
+              *n2);
           return false;
         }
         break;
       case AttributeKind::i:
         if (n1->i(attr_name) != n2->i(attr_name)) {
-          // GAUDI_JIT_DEBUG(
-          //     "Nodes did not match because attribute '",
-          //     attr_name.toQualString(),
-          //     "' did not match:",
-          //     n1->i(attr_name),
-          //     " != ",
-          //     n2->i(attr_name),
-          //     " \n",
-          //     *n1,
-          //     *n2);
+          PT_BRIDGE_DEBUG(
+              "Nodes did not match because attribute '",
+              attr_name.toQualString(),
+              "' did not match:",
+              n1->i(attr_name),
+              " != ",
+              n2->i(attr_name),
+              " \n",
+              *n1,
+              *n2);
           return false;
         }
         break;
       default: {
         // Other attributes types not supported yet
-        // GAUDI_JIT_DEBUG(
-        //     "Nodes did not match because type of attribute '",
-        //     attr_name.toQualString(),
-        //     "' is not supported.\n",
-        //     *n1,
-        //     *n2);
+        PT_BRIDGE_DEBUG(
+            "Nodes did not match because type of attribute '",
+            attr_name.toQualString(),
+            "' is not supported.\n",
+            *n1,
+            *n2);
         return false;
       }
     }
@@ -267,44 +263,41 @@ bool SubgraphMatcher::matchNodes(const Node* n1, Node* n2) {
 
   // Param node in pattern graph matches everything.
   if (n1->kind() == prim::Param) {
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_DEBUG("Nodes matched:\n", *n1, *n2);
+    PT_BRIDGE_DEBUG("Nodes matched:\n", *n1, *n2);
     return true;
   }
 
   // We don't allow matches to span across blocks, so check if N2 is in the same
   // block as the first (anchor) node.
   if (n2->owningBlock() != anchor_->owningBlock()) {
-    /* GAUDI_JIT_DEBUG(
-     *   "Nodes did not match because it is in the different block:\n",
-     *   *n1,
-     *   *n2);
-     *   return false;
-     */
+    PT_BRIDGE_DEBUG(
+        "Nodes did not match because it is in the different block:\n",
+        *n1,
+        *n2);
+    return false;
   }
 
   // Special handling for matching modules
   if (n1->kind() == Symbol::fromQualString("match::module")) {
     if (n2->kind() == prim::GetAttr) {
       if (!n1->hasAttributeS("name")) {
-        /* GAUDI_JIT_DEBUG(
-         * "Nodes did not match because special node match::module does not
-         * have 'name' attribute:\n",
-         * *n1,
-         * *n2);
-         */
+        PT_BRIDGE_DEBUG(
+            "Nodes did not match because special node match::module does not have 'name' attribute:\n ",
+            *n1,
+            *n2);
+
         return false;
       }
       auto t = n2->output()->type()->expect<ClassType>();
       auto real_typename = t->name()->qualifiedName();
       auto pattern_typename = n1->s(attr::name);
       if (!endsWith(real_typename, pattern_typename)) {
-        /* GAUDI_JIT_DEBUG(
-         *     "Nodes did not match because expected module type is
-         * different:\n"); GAUDI_JIT_DEBUG("  actualtype:    ", real_typename,
-         * "\n"); GAUDI_JIT_DEBUG("  expected type: ", pattern_typename, "\n");
-         * GAUDI_JIT_DEBUG("Nodes:", *n1, *n2);
-         */
+        PT_BRIDGE_DEBUG(
+            "Nodes did not match because expected module type is different:\n");
+        PT_BRIDGE_DEBUG("  actualtype:    ", real_typename, "\n");
+        PT_BRIDGE_DEBUG("  expected type: ", pattern_typename, "\n");
+        PT_BRIDGE_DEBUG("Nodes:", *n1, *n2);
+
         return false;
       }
     }
@@ -312,11 +305,11 @@ bool SubgraphMatcher::matchNodes(const Node* n1, Node* n2) {
     if (n1->kind() != n2->kind() ||
         n1->outputs().size() != n2->outputs().size() ||
         n1->inputs().size() != n2->inputs().size()) {
-      /* GAUDI_JIT_DEBUG(
-       *     "Nodes did not match in their kind or number of inputs/outputs:\n",
-       *     *n1,
-       *     *n2);
-       */
+      PT_BRIDGE_DEBUG(
+          "Nodes did not match in their kind or number of inputs/outputs:\n",
+          *n1,
+          *n2);
+
       return false;
     }
     if (!matchAttributes(n1, n2)) {
@@ -338,8 +331,7 @@ bool SubgraphMatcher::matchNodes(const Node* n1, Node* n2) {
     }
   }
 
-  // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-  // GAUDI_JIT_DEBUG("Nodes matched:\n", *n1, *n2);
+  PT_BRIDGE_DEBUG("Nodes matched:\n", *n1, *n2);
   return true;
 }
 
@@ -348,8 +340,7 @@ bool SubgraphMatcher::matchNodes(const Node* n1, Node* n2) {
  * exiting node in the pattern and anchor node in the actual graph.
  */
 bool SubgraphMatcher::matchesSubgraphFromAnchorNode(Node* anchor) {
-  // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-  // GAUDI_JIT_DEBUG("Starting match from a new anchor: ", *anchor);
+  PT_BRIDGE_DEBUG("Starting match from a new anchor: ", *anchor);
 
   nodes_map_.clear();
   values_map_.clear();
@@ -362,11 +353,11 @@ bool SubgraphMatcher::matchesSubgraphFromAnchorNode(Node* anchor) {
     return false;
   }
 
-  /* for (const Value* output : pattern_.outputs()) {
-   *     GAUDI_JIT_ASSERT(values_map_.count(output));
-   * }
-   * GAUDI_JIT_DEBUG("Pattern matched!\n");
-   */
+  for (const Value* output : pattern_.outputs()) {
+    HABANA_ASSERT(values_map_.count(output));
+  }
+  PT_BRIDGE_DEBUG("Pattern matched!\n");
+
   return true;
 }
 
@@ -374,10 +365,10 @@ bool SubgraphMatcher::matchesSubgraphFromAnchorNode(Node* anchor) {
 
 // Main entry point for the subgraph matching.
 std::vector<Match> findPatternMatches(const Graph& pattern, Graph& graph) {
-  /* GAUDI_JIT_ASSERT(patternGraphIsValid(pattern));
-   * GAUDI_JIT_DEBUG("Pattern graph: ", &pattern);
-   * GAUDI_JIT_DEBUG("Target graph: ", &graph);
-   */
+  HABANA_ASSERT(patternGraphIsValid(pattern));
+  PT_BRIDGE_DEBUG("Pattern graph: ", &pattern);
+  PT_BRIDGE_DEBUG("Target graph: ", &graph);
+
   SubgraphMatcher m(pattern);
   std::vector<Match> matches;
   std::stack<Block*> blocks_to_visit;

@@ -17,8 +17,8 @@
 
 #include <torch/csrc/Export.h>
 
+#include "habana_helpers/logging.h"
 #include "jit_fork/ir/type_wrapper.h"
-// // todo - use our logging mechanisms
 
 namespace habana_torch {
 namespace jit {
@@ -62,8 +62,7 @@ static inline const char* toString(AttributeKind kind) {
       "ty",
       "tys",
       "ival"};
-  // todo: use bridge asserts https://jira.habana-labs.com/browse/SW-200787
-  // // GAUDI_JIT_ASSERT(size_t(kind) < sizeof(names) / sizeof(*names));
+  HABANA_ASSERT(size_t(kind) < sizeof(names) / sizeof(*names));
   return names[int(kind)];
 }
 

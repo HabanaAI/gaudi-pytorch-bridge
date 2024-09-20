@@ -12,16 +12,18 @@
  */
 // todo: cleanup licenses? https://jira.habana-labs.com/browse/SW-199903
 #include "getitem_folding_pass.h"
-
+#include <iostream>
+#include <sstream>
+#include <string>
+#include "habana_helpers/logging.h"
 namespace habana_torch {
 namespace jit {
 namespace {
 
 class ProcessGetItemNodes {
  public:
-  // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
   bool run(habana_torch::jit::Graph& g) {
-    // GAUDI_JIT_DEBUG("Starting 'GetItem folding' pass.");
+    PT_BRIDGE_DEBUG("Starting 'GetItem folding' pass.");
     for (Node* n : g.nodes()) {
       // Collect all the list unpack nodes as we go
       collectUnpackNodes(n);
@@ -31,12 +33,12 @@ class ProcessGetItemNodes {
         Value* dest_value = getDestValue(inputs);
         if (dest_value != nullptr) {
           Value* getitem_value = n->outputs()[GETITEM_ARG];
-          // GAUDI_JIT_DEBUG(
-          //     "Replacing: ",
-          //     getitem_value->debugName(),
-          //     " with ",
-          //     dest_value->debugName(),
-          //     ".");
+          PT_BRIDGE_DEBUG(
+              "Replacing: ",
+              getitem_value->debugName(),
+              " with ",
+              dest_value->debugName(),
+              ".");
           getitem_value->replaceAllUsesWith(dest_value);
           graph_changed = true;
           // Collect debug names
@@ -148,8 +150,7 @@ class ProcessGetItemNodes {
     if (inputs[INDEX_ARG]->node()->kind() != prim::Constant) {
       return false;
     }
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_DEBUG("Found __getitem__ node: ", *n, ".");
+    PT_BRIDGE_DEBUG("Found __getitem__ node: ", *n, ".");
     return true;
   }
 
@@ -159,8 +160,7 @@ class ProcessGetItemNodes {
 
   static void destroyNodeIfHasNoUses(Node* n) {
     if (!n->hasUses()) {
-      // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-      // GAUDI_JIT_DEBUG("Removing node ", *n, ".");
+      PT_BRIDGE_DEBUG("Removing node ", *n, ".");
       n->destroy();
     }
   };
@@ -189,14 +189,13 @@ class ProcessGetItemNodes {
         value_new_names_map.end(),
         [&](auto& value) {
           if (!isNumber(value.second))
-            // todo: use bridge infra
-            // https://jira.habana-labs.com/browse/SW-200787 GAUDI_JIT_DEBUG(
-            //     "Renaming value ",
-            //     value.first->debugName(),
-            //     " to ",
-            //     value.second,
-            //     ".");
-            value.first->setDebugName(value.second);
+            PT_BRIDGE_DEBUG(
+                "Renaming value ",
+                value.first->debugName(),
+                " to ",
+                value.second,
+                ".");
+          value.first->setDebugName(value.second);
         });
   }
 

@@ -7,7 +7,7 @@
  */
 
 #include "jit_fork/ir/graph_utils.h"
-
+#include "habana_helpers/logging.h"
 namespace habana_torch {
 namespace jit {
 
@@ -27,8 +27,7 @@ TypePtr inferShapeAndTypeForInput(
   if (auto tuple_type = input_type->cast<TupleType>()) {
     std::vector<TypePtr> types;
     for (const auto& sub_type : tuple_type->containedTypes()) {
-      // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-      // GAUDI_JIT_ASSERT(s_iter != s_iter_end);
+      HABANA_ASSERT(s_iter != s_iter_end);
       types.emplace_back(
           inferShapeAndTypeForInput(sub_type, s_iter, s_iter_end, complete));
     }
@@ -63,13 +62,12 @@ void setInputTensorTypes(
   auto s_iter = stack.begin();
   size_t list_idx = 0;
   if (!param_count_list.empty()) {
-    // todo: use bridge infra https://jira.habana-labs.com/browse/SW-200787
-    // GAUDI_JIT_ASSERT(
-    //    input_values.size() == param_count_list.size(),
-    //    " input_values:",
-    //    input_values.size(),
-    //    " vs param_count_list:",
-    //    param_count_list.size());
+    HABANA_ASSERT(
+        input_values.size() == param_count_list.size(),
+        " input_values:",
+        input_values.size(),
+        " vs param_count_list:",
+        param_count_list.size());
   }
   for (auto v : input_values) {
     // Leave packed param types alone. This is needed for downstream passes
@@ -79,15 +77,11 @@ void setInputTensorTypes(
       if (auto qualname = named_type->name()) {
         if (torch::jit::getCustomClass(qualname->qualifiedName())) {
           if (param_count_list.empty()) {
-            // todo: use bridge infra
-            // https://jira.habana-labs.com/browse/SW-200787
-            // GAUDI_JIT_ASSERT(s_iter != stack.end());
+            HABANA_ASSERT(s_iter != stack.end());
             s_iter++;
           } else {
             if (param_count_list[list_idx] > 0) {
-              // todo: use bridge infra
-              // https://jira.habana-labs.com/browse/SW-200787
-              // GAUDI_JIT_ASSERT(s_iter != stack.end());
+              HABANA_ASSERT(s_iter != stack.end());
             }
             s_iter += param_count_list[list_idx];
           }
