@@ -152,28 +152,6 @@ class BroadcastOperator : public habana::HabanaOperator {
       const habana::OutputMetaDataVector& output_metadata) override;
 };
 
-//
-// split_with_size Operator
-class SplitWithSizeOperator : public habana::HabanaOperator {
- public:
-  SplitWithSizeOperator(int device_id, c10::ScalarType scalarType)
-      : HabanaOperator("split_with_size") {
-    static_cast<void>(scalarType);
-    this->CreateSynContext(device_id);
-  }
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const habana::OutputMetaDataVector& output_metadata) override;
-
-  static std::vector<std::vector<int64_t>> compute_output_shape(
-      const at::Tensor& self,
-      c10::IntArrayRef split_sizes,
-      int64_t dim);
-
-  void SetPTOutputs(torch::jit::Stack& inputs) override;
-};
-
 // View Operator
 class ViewOperator : public ReshapeOperator {
  public:

@@ -700,109 +700,6 @@ void BroadcastOperator::AllocateAndAddSynapseNode(
   AddNodeToSynapseGraph(graph, nullptr, 0);
 }
 
-void SplitWithSizeOperator::AllocateAndAddSynapseNode(
-    synapse_helpers::graph& graph,
-    Stack& inputs,
-    const OutputMetaDataVector& output_metadata) {
-  TORCH_CHECK(
-      inputs.size() == 3,
-      "Incorrect size of input arguments for SplitWithSizes Operator");
-  auto self = inputs[0].toTensor();
-  c10::List<int64_t> split_sizes;
-  int uniform_split_size = 0;
-  // input[1] is an array of split sizes along dim or an int that gives the
-  // uniform split size along the dim
-  if (inputs[1].isIntList()) {
-    split_sizes = inputs[1].toIntList();
-  } else {
-    uniform_split_size = inputs[1].toInt();
-  }
-  auto dim = inputs[2].toInt();
-  int64_t num_splits = (!uniform_split_size)
-      ? split_sizes.size()
-      : self.size(dim) / uniform_split_size;
-
-  HABANA_ASSERT(
-      output_metadata.size() == split_sizes.size() ||
-      output_metadata.size() == (size_t)num_splits);
-  TORCH_CHECK(self.dim() != 0, "split expects at least a 1-dimensional tensor");
-  int64_t dim_size = self.size(dim);
-  int64_t start_idx = 0;
-  int64_t i;
-
-  for (i = 0; i < num_splits; ++i) {
-    int length;
-    if (!uniform_split_size)
-      length = split_sizes.get(i);
-    else
-      length = uniform_split_size;
-    TORCH_CHECK(
-        length >= 0,
-        "split_with_sizes expects split_sizes have only non-negative ",
-        "entries, but got split_sizes=",
-        split_sizes.vec());
-
-    auto narrowOp = make_operator<NarrowOperator>(
-        self.device().index(), self.scalar_type());
-    narrowOp->SetSynapseInput(p_context_->syn_inputs_[0]);
-    torch::jit::Stack stack = {
-        IValue(self), IValue(dim), IValue(start_idx), IValue(length)};
-    narrowOp->AllocateAndAddSynapseNode(graph, stack, {output_metadata.at(i)});
-    p_context_->syn_outputs_.emplace_back(
-        std::move(narrowOp->GetSynOutputs()[0]));
-    p_context_->pt_outputs_.emplace_back(std::move(narrowOp->GetOutputs()[0]));
-
-    start_idx += length;
-  }
-
-  TORCH_CHECK(
-      start_idx == dim_size,
-      "split_with_sizes expects split_sizes to sum exactly to ",
-      dim_size,
-      " (input tensor's size at dimension ",
-      dim,
-      "), ",
-      "but got split_sizes=",
-      split_sizes.vec());
-}
-
-std::vector<std::vector<int64_t>> SplitWithSizeOperator::compute_output_shape(
-    const Tensor& self,
-    IntArrayRef split_sizes,
-    int64_t dim) {
-  int64_t num_splits = split_sizes.size();
-  int64_t start_idx = 0;
-  int64_t i = 0;
-  std::vector<std::vector<int64_t>> shapes;
-  for (i = 0; i < num_splits; ++i) {
-    auto length = split_sizes[i];
-    auto end = start_idx + length;
-    int64_t step = 1;
-
-    auto size =
-        SliceOperator::compute_output_shape(self, dim, start_idx, end, step);
-    shapes.push_back(size);
-    start_idx += length;
-  }
-  return shapes;
-}
-void SplitWithSizeOperator::SetPTOutputs(torch::jit::Stack& inputs) {
-  auto self = inputs[0].toTensor();
-  auto split_sizes = inputs[1].toIntList();
-  auto dim = inputs[2].toInt();
-
-  std::vector<std::vector<int64_t>> shapes =
-      SplitWithSizeOperator::compute_output_shape(self, split_sizes.vec(), dim);
-  int64_t i = 0;
-  std::vector<Tensor> splits(split_sizes.size());
-  for (const auto& shape : shapes) {
-    splits[i++] = habana::createPTTensor(
-        self, shape, self.options(), self.suggest_memory_format(), true);
-  }
-
-  HabanaOperator::SetPTOutputs(splits);
-}
-
 static const auto& TensorShapeKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("aten::permute", KERNEL_FN_GLOBAL(PermuteOperator))
@@ -818,5 +715,4 @@ static const auto& TensorShapeKernelsKernelRegistry =
         .add("hpu::view", KERNEL_FN_GLOBAL(ViewOperator))
         .add("hpu::view_neg", KERNEL_FN_GLOBAL(ViewOperator))
         .add("hpu::reshape", KERNEL_FN_GLOBAL(ViewOperator))
-        .add("aten::_unsafe_view", KERNEL_FN_GLOBAL(ViewOperator))
-        .add("aten::split_with_sizes", KERNEL_FN_GLOBAL(SplitWithSizeOperator));
+        .add("aten::_unsafe_view", KERNEL_FN_GLOBAL(ViewOperator));
