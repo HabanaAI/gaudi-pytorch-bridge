@@ -169,7 +169,7 @@ void LayerNormHabanaOperator::AddNode(
     // so there is no need to change shape of W/B tensors. For G3 situation is
     // the same as for G2.
     auto is_reshape_for_tpc_kernels_required = use_tpc_affine_path &&
-        (habana::HPURegistrar::get_device().type() ==
+        (habana::HPUDeviceContext::get_device().type() ==
          synDeviceType::synDeviceGaudi);
 
     int64_t normalized_shape_numel = c10::multiply_integers(

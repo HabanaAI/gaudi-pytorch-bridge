@@ -154,7 +154,7 @@ void HlExec::Launch(
     const c10::hpu::HPUStream& stream,
     bool dry_run) {
   PT_LAZY_TRACE;
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto context = get_device_lazy_execution_context(device.id());
   // TODO : remove this env variable use
   // This is temporarily done to deactivate code in synapse helpers for lazy
@@ -415,7 +415,7 @@ void HlExec::SearchAndDeleteRedundantInputs(
     }
   }
 
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto context = get_device_lazy_execution_context(device.id());
   // Save po_data input and output to context for perf mode
   if (context->getCapturing() &&

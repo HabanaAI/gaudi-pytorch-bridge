@@ -392,7 +392,7 @@ void habana::HabanaLaunchOpPT::DeserializeConstSection(
     HandleTensorWithZeroSize(tensor, ConstantInformation::key_t{key});
     return;
   }
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto device_id = device.id();
   void* data{};
   auto status = device.get_host_memory().malloc(&data, file_size);
@@ -490,7 +490,7 @@ void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
     ConstantInformation::key_t key,
     char* section_data_ptr,
     size_t old_size,
-    int device_id) {
+    int) {
   auto tmeta{get_tensor_extra_meta(tensor)};
   ConstantInformation::id_t const_id{tmeta->get_const_id()};
   // reallocation is required if old_size is not same as section size
@@ -531,9 +531,8 @@ void habana::HabanaLaunchOpPT::HandleTensorWithNewChecksum(
     // new data
     return;
   }
-  auto& device = HPURegistrar::get_device(device_id);
   std::atomic<bool> copyDone{false};
-  device.copy_data_to_device(
+  HPUDeviceContext::copy_data_to_device(
       section_data_ptr,
       reinterpret_cast<synapse_helpers::device_ptr>(tensor.data_ptr()),
       reinterpret_cast<synapse_helpers::device_ptr>(
@@ -655,7 +654,8 @@ void habana::HabanaLaunchOpPT::PostCompilationStepForConstTensors(
             HABANA_ASSERT(
                 tmeta->has_valid_const_id(),
                 "Constant tensor can not have constant id as -1");
-            [[maybe_unused]] auto& device = HPURegistrar::get_device(device_id);
+            [[maybe_unused]] auto& device =
+                HPUDeviceContext::get_device(device_id);
             status = synHostMap(device_id, section_size, section_data_ptr);
             HABANA_ASSERT(
                 status == synStatus::synSuccess,
@@ -943,7 +943,7 @@ void habana::HabanaLaunchOpPT::StoreCompiledInformation(
       current_dbipsh_->SetSynapseRecipePtr(current_bucket_id_, rvs);
     }
     auto rh = std::make_shared<RecipeHolder>(recipe_launcher_, rvs);
-    hpu_registrar().get_device().recipe_cache().add(cur_rargpsh_, rh);
+    HPUDeviceContext::recipe_cache().add(cur_rargpsh_, rh);
     PT_BRIDGE_DEBUG(
         "HabanaOp recipe cache :: adding new recipe to cache :: ", rvs->key);
   }
@@ -961,7 +961,7 @@ void habana::HabanaLaunchOpPT::ExecuteSynapseGraph() {
     return;
   }
 
-  [[maybe_unused]] auto& device = HPURegistrar::get_device();
+  [[maybe_unused]] auto& device = HPUDeviceContext::get_device();
 
   PT_BRIDGE_DEBUG("HabanaOp recipe cache :: launching new recipe");
 

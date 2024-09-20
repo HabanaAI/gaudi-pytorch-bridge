@@ -38,9 +38,10 @@ using namespace at;
 using namespace habana;
 using namespace habana_lazy;
 
-#define FP8_CHECK                                                              \
-  TORCH_CHECK(                                                                 \
-      synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type()), \
+#define FP8_CHECK                                 \
+  TORCH_CHECK(                                    \
+      synapse_helpers::device_supports_fp8(       \
+          HPUDeviceContext::get_device().type()), \
       "FP8 data type is not available on this device.")
 
 bool hpu_wrap::is_pinned(
@@ -292,7 +293,8 @@ at::Tensor& hpu_wrap::_index_put_impl_(
       (self.scalar_type() != c10::ScalarType::Float8_e5m2) &&
       (self.scalar_type() != c10::ScalarType::Float8_e4m3fn) &&
       !(self.scalar_type() == c10::ScalarType::Half &&
-        HPURegistrar::get_device().type() != synDeviceType::synDeviceGaudi)) {
+        HPUDeviceContext::get_device().type() !=
+            synDeviceType::synDeviceGaudi)) {
     return dispatch_fallback<ATEN_OP(_index_put_impl_)>::call(
         OpSupportLevel::Value::unsupported_dtype,
         PARAMS2(self, indices, values, accumulate, unsafe));
@@ -308,7 +310,7 @@ at::Tensor hpu_wrap::nonzero(const at::Tensor& self) {
       (self.scalar_type() != c10::ScalarType::BFloat16) &&
       (self.scalar_type() != c10::ScalarType::Bool) &&
       !(self.scalar_type() == c10::ScalarType::Half &&
-        habana::HPURegistrar::get_device().type() !=
+        habana::HPUDeviceContext::get_device().type() !=
             synDeviceType::synDeviceGaudi &&
         self.dim() >
             4)) { // self.dim()<=4 goes through cguid that doesn't support fp16
@@ -1670,7 +1672,7 @@ at::Tensor masked_batch_gemm_wrap(
       DUMP_6ARGS(a, b, mask_a, mask_b, trans_a, trans_b));
 
   TORCH_CHECK(
-      HPURegistrar::get_device().type() == synDeviceGaudi2,
+      HPUDeviceContext::get_device().type() == synDeviceGaudi2,
       "masked_batch_gemm is supported only on Gaudi2.");
   return masked_batch_gemm_lazy(a, b, mask_a, mask_b, trans_a, trans_b);
 }

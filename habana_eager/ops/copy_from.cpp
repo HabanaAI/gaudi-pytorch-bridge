@@ -239,7 +239,7 @@ void Copy_Compile_Empty_Task(
     bool non_blocking,
     c10::hpu::HPUStream stream,
     void* host_ptr) {
-  hpu_registrar().get_device().execute_thread().enqueue(
+  HPUDeviceContext::execute_thread().enqueue(
       Execute_Copy,
       std::move(src),
       std::move(dst),
@@ -248,7 +248,7 @@ void Copy_Compile_Empty_Task(
       std::move(host_ptr));
 
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    hpu_registrar().get_device().execute_thread().waitWorkComplete();
+    HPUDeviceContext::execute_thread().waitWorkComplete();
   }
 }
 
@@ -279,7 +279,7 @@ void Copy_Empty_Lowering_Task(
   // data to dst. So if dst is permuted, we need to clear the permutation info
   // in dst.
   clear_permutation_info(dst);
-  hpu_registrar().get_device().compile_thread().enqueue(
+  HPUDeviceContext::compile_thread().enqueue(
       Copy_Compile_Empty_Task,
       std::move(src),
       std::move(dst),
@@ -287,7 +287,7 @@ void Copy_Empty_Lowering_Task(
       std::move(stream),
       std::move(host_ptr));
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    hpu_registrar().get_device().compile_thread().waitWorkComplete();
+    HPUDeviceContext::compile_thread().waitWorkComplete();
   }
 }
 
@@ -307,7 +307,7 @@ void Register_Copy_In_Pipeline(
     // host memory will be freed after dma memcopy at copy_data_to_device
     const size_t total_bytes = habana_helpers::GetNBytes(src);
     synStatus status =
-        habana::HPURegistrar::get_device().get_host_memory().malloc(
+        habana::HPUDeviceContext::get_device().get_host_memory().malloc(
             &host_ptr, total_bytes);
     TORCH_CHECK(
         status == synStatus::synSuccess,

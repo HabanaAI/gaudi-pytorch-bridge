@@ -82,7 +82,7 @@ TEST_F(LazyTensorAPITest, ShapeTensorTest) {
   get_habana_lazy_executor().setExecutionMode(LazyExecutionMode::kLOWERING);
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto syn_graph =
       habana_helpers::create_graph(device.id(), "Test_graph", false);
   torch::Tensor input = torch::randn({10, 20}).to(torch::kHPU);

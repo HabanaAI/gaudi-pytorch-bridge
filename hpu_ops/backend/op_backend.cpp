@@ -591,7 +591,7 @@ void OpBackend::AddNode(sh::graph& graph, const at::Stack& stack) {
 
 InferOutputMetaRetType OpBackend::InferOutputMeta(at::Stack& stack) {
   m_output_inf_mode = true;
-  auto& device = habana::HPURegistrar::get_device(0).syn_device();
+  auto& device = habana::HPUDeviceContext::get_device(0);
   auto graph = sh::graph::create(device, {}, true);
 
   PopulateMetadata(stack, GetOutputMetaData());
@@ -956,7 +956,7 @@ sh::tensor OpBackend::BuildRegularCast(
 
     ns_CastKernel::ParamsV3 params{};
     params.round_mode = habana_helpers::get_cast_rounding_mode(to);
-    auto device_type{habana::HPURegistrar::get_device().type()};
+    auto device_type{habana::HPUDeviceContext::get_device().type()};
     if (sh::device_supports_trunc(device_type) &&
         src == c10::ScalarType::Float &&
         (dst == c10::ScalarType::Char || dst == c10::ScalarType::Byte)) {

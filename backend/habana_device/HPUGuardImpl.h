@@ -21,6 +21,7 @@
 #include <unordered_set>
 
 #include "HPUAllocator.h"
+#include "HPUDevice.h"
 #include "HPUEvent.h"
 #include "HPUStream.h"
 #include "PinnedMemoryAllocator.h"
@@ -50,7 +51,7 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
   }
 
   at::Device getDevice() const override {
-    return hpu_registrar().get_or_create_device().aten_device();
+    return HPUDeviceContext::get_or_create_aten_device();
   }
 
   void setDevice(at::Device d) const override {
@@ -63,10 +64,10 @@ struct HABANAGuardImpl final : public c10::impl::DeviceGuardImplInterface {
     // As there is always 1 device in play all the time,
     // setDevice() usage wont be required currently.
 
-    if (HPURegistrar::get_hpu_registrar().is_initialized()) {
+    if (HPUDeviceContext::is_device_acquired()) {
       TORCH_INTERNAL_ASSERT(d.type() == type());
       habana::HPUDeviceAllocator::allocator_active_device_id =
-          HPURegistrar::get_device(d.index()).id();
+          HPUDeviceContext::get_device(d.index()).id();
       TORCH_CHECK(
           habana::HPUDeviceAllocator::allocator_active_device_id == 0,
           "habana active device: ",

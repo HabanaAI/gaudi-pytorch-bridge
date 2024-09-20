@@ -204,7 +204,7 @@ class device {
         name, is_param, is_grad, is_optim_state, t_start, t_end);
   }
 
-  synapse_error copy_data_to_device(
+  [[nodiscard]] synapse_error copy_data_to_device(
       void* cpu_data,
       device_ptr destination,
       device_ptr event_addr,
@@ -214,7 +214,7 @@ class device {
       bool is_pinned = false,
       hpuStream_t hpu_stream = 0,
       void* host_cpu_data = nullptr);
-  synapse_error copy_data_to_host(
+  [[nodiscard]] synapse_error copy_data_to_host(
       device_ptr device_data,
       void* destination,
       device_ptr event_addr,
@@ -222,7 +222,7 @@ class device {
       const event_done_callback& done_cb,
       bool is_pinned = false,
       hpuStream_t hpu_stream = 0);
-  synapse_error copy_data_within_device(
+  [[nodiscard]] synapse_error copy_data_within_device(
       device_ptr source,
       device_ptr destination,
       device_ptr src_event_addr,
@@ -242,13 +242,13 @@ class device {
    * signaled on given stream immediately after operation is scheduled on
    * device2device stream. The event will not be tracked in SEM
    */
-  synapse_error copy_data_within_device(
+  [[nodiscard]] synapse_error copy_data_within_device(
       transfer_manifest const& manifest,
       event_done_callback unref_cb,
       stream* const next_operation_stream = nullptr,
       hpuStream_t hpu_stream = 0);
 
-  synapse_error copy_data_to_device(
+  [[nodiscard]] synapse_error copy_data_to_device(
       transfer_manifest const& transfers,
       event_done_callback unref_cb,
       hpuStream_t hpu_stream = 0);

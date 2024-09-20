@@ -12,7 +12,7 @@
  */
 #include "common/utils.h"
 #include <ATen/Tensor.h>
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/synapse_helpers/env_flags.h"
 
 namespace common {
@@ -30,7 +30,7 @@ bool IsInt64Supported() {
   // Until issues with failing tests are resolved result shall remain false
   auto result = true;
 
-  if (habana::HPURegistrar::get_device().name() == "GAUDI")
+  if (habana::HPUDeviceContext::get_device().name() == "GAUDI")
     result = false;
 
   if (IS_ENV_FLAG_DEFINED_NEW(PT_ENABLE_INT64_SUPPORT)) {

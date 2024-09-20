@@ -33,7 +33,7 @@ class SynapseHelpersMemoryTest : public ::testing::Test {
   void SetUp() override {
     habana::HABANAGuardImpl device_guard;
     device_guard.getDevice();
-    auto& device = habana::HPURegistrar::get_device().syn_device();
+    auto& device = habana::HPUDeviceContext::get_device();
     // clear cache scalar tensors map
     setenv("PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP", "1", 1);
     habana_lazy::HbExecutionContext* context =
@@ -57,7 +57,7 @@ class SynapseHelpersMemoryTest : public ::testing::Test {
     unsetenv("PT_HPU_POOL_STRATEGY");
     unsetenv("PT_ENABLE_MEMORY_DEFRAGMENTATION");
     unsetenv("PT_HPU_CLEAR_SCALAR_MAP_ON_MARKSTEP");
-    auto& device = habana::HPURegistrar::get_device().syn_device();
+    auto& device = habana::HPUDeviceContext::get_device();
     device.cleanup_workspace_buffer();
     device.get_device_memory().reset_pool();
     habana_helpers::EventDispatcher::Instance().unsubscribe_all();
@@ -132,7 +132,7 @@ class SynapseHelpersMemoryTest : public ::testing::Test {
 TEST_F(SynapseHelpersMemoryTest, degframentonOOM_one) {
   constexpr size_t CHUNKS_NUMBER = 5;
 
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto freeDeviceMemoryAtAdress =
       [&device](synapse_helpers::device_ptr address) {
         device.get_device_memory().free(reinterpret_cast<void*>(address));
@@ -172,7 +172,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOM_one) {
 }
 
 TEST_F(SynapseHelpersMemoryTest, degframentonOOM_multiple) {
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto freeDeviceMemoryAtAdress =
       [&device](synapse_helpers::device_ptr address) {
         device.get_device_memory().free(reinterpret_cast<void*>(address));
@@ -235,7 +235,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOM_multiple) {
 TEST_F(SynapseHelpersMemoryTest, degframentonOOMWithWS) {
   constexpr size_t CHUNKS_NUMBER = 5;
 
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto freeDeviceMemoryAtAdress =
       [&device](synapse_helpers::device_ptr address) {
         device.get_device_memory().free(reinterpret_cast<void*>(address));
@@ -273,7 +273,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMWithWS) {
 // disabling it for now. While enabling the test case, add defragmentation event
 // check as in other tests
 TEST_F(SynapseHelpersMemoryTest, DISABLED_degframentonOOMWithSmallAlloc) {
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   // Fill up the entire space expect the small alloc region
   // allocate workspace buffer 1.06gb
   device.get_workspace_buffer(1143820277);
@@ -345,7 +345,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_1) {
   }
   constexpr size_t CHUNKS_NUMBER = 6;
 
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto freeDeviceMemoryAtAdress =
       [&device](synapse_helpers::device_ptr address) {
         device.get_device_memory().free(reinterpret_cast<void*>(address));
@@ -409,7 +409,7 @@ TEST_F(SynapseHelpersMemoryTest, degframentonOOMandVerify_2) {
     GTEST_SKIP();
   }
 
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto freeDeviceMemoryAtAdress =
       [&device](synapse_helpers::device_ptr address) {
         device.get_device_memory().free(reinterpret_cast<void*>(address));
@@ -502,7 +502,7 @@ TEST_F(SynapseHelpersMemoryTest, GenTest) {
   std::vector<synapse_helpers::device_ptr> device_ptrs_small_chunks(
       SMALL_CHUNKS_NUMBER);
 
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto freeDeviceMemoryAtAdress =
       [&device](synapse_helpers::device_ptr address) {
         device.get_device_memory().free(reinterpret_cast<void*>(address));
@@ -575,7 +575,7 @@ TEST_F(SynapseHelpersMemoryTest, OOM_FreeMemInEndofsmallallocRegion) {
   constexpr size_t ALLOCATED_SMALL_CHUNK_3 = 172;
   constexpr size_t ALLOCATED_SMALL_CHUNK_4 = 213;
 
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto freeDeviceMemoryAtAdress =
       [&device](synapse_helpers::device_ptr address) {
         device.get_device_memory().free(reinterpret_cast<void*>(address));
@@ -660,7 +660,7 @@ TEST_F(SynapseHelpersMemoryTest, OOM_FreeMemInEndofsmallallocRegion) {
 }
 
 TEST_F(SynapseHelpersMemoryTest, Verify_Reset_pool) {
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   size_t ws = device.get_workspace_size();
   // allocate workspace buffer 2GB, so we leave 1GB for the remaining
   // allocations in the test

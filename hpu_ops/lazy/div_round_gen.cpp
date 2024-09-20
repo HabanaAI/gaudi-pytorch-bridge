@@ -44,7 +44,7 @@ static bool DivCommonCheck(
       return true;
     case torch::kHalf: {
       return synapse_helpers::device_supports_fp16(
-          HPURegistrar::get_device().type());
+          HPUDeviceContext::get_device().type());
     }
     case torch::kInt8:
     case torch::kInt16:

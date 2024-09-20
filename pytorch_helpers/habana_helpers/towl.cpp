@@ -12,7 +12,7 @@
  */
 #include "towl.h"
 #include <unistd.h>
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUDevice.h"
 
 // Defined here, should not be used directly inside bridge.
 
@@ -252,7 +252,7 @@ void emitDeviceMemorySummary(const char* tag) {
   if (not config.log_devmem_summary)
     return;
 
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto& device_memory = device.get_device_memory();
   synapse_helpers::MemoryStats stats;
   device_memory.get_memory_stats(&stats);

@@ -124,7 +124,7 @@ inline std::string& update_guid_trunc_mode(
       "mult_fwd"sv,
   };
 
-  auto device_type{habana::HPURegistrar::get_device().type()};
+  auto device_type{habana::HPUDeviceContext::get_device().type()};
   if (synapse_helpers::device_supports_trunc(device_type) &&
       guids_support_trunc.contains(guid) &&
       (dtype == c10::ScalarType::Char || dtype == c10::ScalarType::Byte)) {

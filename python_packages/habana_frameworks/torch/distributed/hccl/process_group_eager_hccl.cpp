@@ -268,10 +268,10 @@ void Synchronize_Empty_Compile_Task(
     std::shared_ptr<habana::HcclCommunicator> comm,
     synapse_helpers::hpuStream_t stream) {
   PT_DISTRIBUTED_DEBUG("Synchronize_Empty_Compile_Task");
-  habana::hpu_registrar().get_device().execute_thread().enqueue(
+  habana::HPUDeviceContext::execute_thread().enqueue(
       Synchronize_Execute_Task, std::move(outputs), comm, stream);
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana::hpu_registrar().get_device().execute_thread().waitWorkComplete();
+    habana::HPUDeviceContext::execute_thread().waitWorkComplete();
   }
 }
 
@@ -280,10 +280,10 @@ void Synchronize_Empty_Lowering_Task(
     std::shared_ptr<habana::HcclCommunicator> comm,
     synapse_helpers::hpuStream_t stream) {
   PT_DISTRIBUTED_DEBUG("Synchronize_Empty_Lowering_Task");
-  habana::hpu_registrar().get_device().compile_thread().enqueue(
+  habana::HPUDeviceContext::compile_thread().enqueue(
       Synchronize_Empty_Compile_Task, std::move(outputs), comm, stream);
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana::hpu_registrar().get_device().compile_thread().waitWorkComplete();
+    habana::HPUDeviceContext::compile_thread().waitWorkComplete();
   }
 }
 
@@ -399,7 +399,7 @@ void PointToPoint_Empty_Compile_Task(
     PointToPointFn&& fn,
     int peerRank) {
   PT_DISTRIBUTED_DEBUG("PointToPoint_Empty_Compile_Task");
-  habana::hpu_registrar().get_device().execute_thread().enqueue(
+  habana::HPUDeviceContext::execute_thread().enqueue(
       PointToPoint_Execute_Task,
       comm_,
       std::move(ctx),
@@ -407,7 +407,7 @@ void PointToPoint_Empty_Compile_Task(
       peerRank);
 
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana::hpu_registrar().get_device().execute_thread().waitWorkComplete();
+    habana::HPUDeviceContext::execute_thread().waitWorkComplete();
   }
 }
 
@@ -417,14 +417,14 @@ void PointToPoint_Empty_Lowering_Task(
     PointToPointFn&& fn,
     int peerRank) {
   PT_DISTRIBUTED_DEBUG("PointToPoint_Empty_Lowering_Task");
-  habana::hpu_registrar().get_device().compile_thread().enqueue(
+  habana::HPUDeviceContext::compile_thread().enqueue(
       PointToPoint_Empty_Compile_Task,
       comm_,
       std::move(ctx),
       std::move(fn),
       peerRank);
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana::hpu_registrar().get_device().compile_thread().waitWorkComplete();
+    habana::HPUDeviceContext::compile_thread().waitWorkComplete();
   }
 }
 
@@ -566,7 +566,7 @@ void Collective_Empty_Compile_Task(
     CollectiveFn&& fn,
     bool is_allreduce) {
   PT_DISTRIBUTED_DEBUG("Collective_Empty_Compile_Task");
-  habana::hpu_registrar().get_device().execute_thread().enqueue(
+  habana::HPUDeviceContext::execute_thread().enqueue(
       Collective_Execute_Task,
       comm_,
       std::move(ctx),
@@ -574,7 +574,7 @@ void Collective_Empty_Compile_Task(
       is_allreduce);
 
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana::hpu_registrar().get_device().execute_thread().waitWorkComplete();
+    habana::HPUDeviceContext::execute_thread().waitWorkComplete();
   }
 }
 
@@ -584,14 +584,14 @@ void Collective_Empty_Lowering_Task(
     CollectiveFn&& fn,
     bool is_allreduce) {
   PT_DISTRIBUTED_DEBUG("Collective_Empty_Lowering_Task");
-  habana::hpu_registrar().get_device().compile_thread().enqueue(
+  habana::HPUDeviceContext::compile_thread().enqueue(
       Collective_Empty_Compile_Task,
       comm_,
       std::move(ctx),
       std::move(fn),
       is_allreduce);
   if (not GET_ENV_FLAG_NEW(PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE)) {
-    habana::hpu_registrar().get_device().compile_thread().waitWorkComplete();
+    habana::HPUDeviceContext::compile_thread().waitWorkComplete();
   }
 }
 

@@ -123,7 +123,7 @@ FALLBACK_CHECK(
       return true;
     case torch::kHalf: {
       return synapse_helpers::device_supports_fp16(
-          HPURegistrar::get_device().type());
+          HPUDeviceContext::get_device().type());
     }
     default:
       return false;

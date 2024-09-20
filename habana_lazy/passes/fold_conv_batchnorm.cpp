@@ -50,7 +50,7 @@ bool computeUpdatedConvWeightAndBias(
   int ci = sizes.at(1);
   int co = sizes.at(0);
 
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto device_id = device.id();
   auto bytes = co * sizeof(float);
 

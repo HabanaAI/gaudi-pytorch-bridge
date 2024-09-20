@@ -16,9 +16,9 @@
 #include <perf_lib_layer_params.h>
 #include <algorithm>
 #include "backend/backend_meta.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/PinnedMemoryAllocator.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/get_n_bytes.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/synapse_helpers/device_helpers.h"
@@ -199,13 +199,13 @@ void habana_helpers::copy_scalar_to_device(
     const at::Tensor& dst,
     uint64_t size) {
   auto device_id = dst.device().index();
-  auto& device = habana::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPUDeviceContext::get_device(device_id);
   if (device.IsStreamASyncEnabled()) {
     // keeps a reference to the tensor it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
     const at::Tensor dstRef = dst;
-    device.copy_data_to_device(
+    habana::HPUDeviceContext::copy_data_to_device(
         src_ptr,
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -215,7 +215,7 @@ void habana_helpers::copy_scalar_to_device(
         c10::hpu::getCurrentHPUStream());
   } else {
     std::atomic<bool> copyDone{false};
-    device.copy_data_to_device(
+    habana::HPUDeviceContext::copy_data_to_device(
         src_ptr,
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -263,18 +263,18 @@ void habana_helpers::copy_scalars_to_device(
     dst_list.push_back(dst);
   }
 
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.IsStreamASyncEnabled()) {
     // src list and dst list keeps a reference to the tensors it is
     // operating on to prevent it from being deallocated while the
     // operation is still in flight.
-    device.copy_data_to_device(
+    habana::HPUDeviceContext::copy_data_to_device(
         manifest,
         [src_list, dst_list]() { return; },
         c10::hpu::getCurrentHPUStream());
   } else {
     std::atomic<bool> copyDone{false};
-    device.copy_data_to_device(
+    habana::HPUDeviceContext::copy_data_to_device(
         manifest,
         [&copyDone]() { copyDone = true; },
         c10::hpu::getCurrentHPUStream());
@@ -366,7 +366,7 @@ void habana_helpers::copy_data_to_host(
     bool non_blocking,
     synapse_helpers::hpuStream_t hpu_stream) {
   size_t device_id = src.device().index();
-  auto& device = habana::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPUDeviceContext::get_device(device_id);
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(dst.data_ptr());
   if (src.nbytes() == 0) {
     return;
@@ -426,7 +426,7 @@ void habana_helpers::copy_data_to_host(
     auto callback = [rh = std::make_shared<ResourceHolder>(
                          src, dst)]() mutable { rh->release_resources(); };
 
-    device.copy_data_to_host(
+    habana::HPUDeviceContext::copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src_data_ptr),
         dst.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -437,7 +437,7 @@ void habana_helpers::copy_data_to_host(
         hpu_stream);
   } else {
     std::atomic<bool> copyDone{false};
-    device.copy_data_to_host(
+    habana::HPUDeviceContext::copy_data_to_host(
         reinterpret_cast<synapse_helpers::device_ptr>(src_data_ptr),
         dst.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -477,7 +477,7 @@ void habana_helpers::copy_data_to_device(
     synapse_helpers::hpuStream_t hpu_stream,
     void* host_ptr) {
   auto device_id = dst.device().index();
-  auto& device = habana::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPUDeviceContext::get_device(device_id);
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
 
   if (src.nbytes() == 0) {
@@ -513,7 +513,7 @@ void habana_helpers::copy_data_to_device(
     auto callback = [rh = std::make_shared<ResourceHolder>(
                          src, dst)]() mutable { rh->release_resources(); };
 
-    device.copy_data_to_device(
+    habana::HPUDeviceContext::copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -526,7 +526,7 @@ void habana_helpers::copy_data_to_device(
         host_cpu_data);
   } else {
     std::atomic<bool> copyDone{false};
-    device.copy_data_to_device(
+    habana::HPUDeviceContext::copy_data_to_device(
         src.data_ptr(),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -556,7 +556,7 @@ void habana_helpers::copy_data_within_device(
     const at::Tensor& dst,
     bool non_blocking) {
   auto device_id = dst.device().index();
-  auto& device = habana::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPUDeviceContext::get_device(device_id);
 
   if (non_blocking && device.IsStreamASyncEnabled()) {
     // keeps a reference to the tensor it is
@@ -578,7 +578,7 @@ void habana_helpers::copy_data_within_device(
     auto callback = [rh = std::make_shared<ResourceHolder>(
                          src, dst)]() mutable { rh->release_resources(); };
 
-    device.copy_data_within_device(
+    habana::HPUDeviceContext::copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -590,7 +590,7 @@ void habana_helpers::copy_data_within_device(
         c10::hpu::getCurrentHPUStream());
   } else {
     std::atomic<bool> copyDone{false};
-    device.copy_data_within_device(
+    habana::HPUDeviceContext::copy_data_within_device(
         reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(dst.data_ptr()),
         reinterpret_cast<synapse_helpers::device_ptr>(
@@ -677,7 +677,7 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
     case c10::ScalarType::BFloat16:
       return true;
     case c10::ScalarType::Half: {
-      auto device_type{habana::HPURegistrar::get_device().type()};
+      auto device_type{habana::HPUDeviceContext::get_device().type()};
       if (device_type == synDeviceGaudi) {
         HABANA_ASSERT(false, "float16/half is not supported on Gaudi.");
       }
@@ -692,7 +692,7 @@ bool habana_helpers::is_supported_type(c10::ScalarType type) {
     case c10::ScalarType::Float8_e5m2:
     case c10::ScalarType::Float8_e4m3fn: {
       return synapse_helpers::device_supports_fp8(
-          habana::HPURegistrar::get_device().type());
+          habana::HPUDeviceContext::get_device().type());
     }
     default:
       return false;

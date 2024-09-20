@@ -12,13 +12,13 @@
  */
 #pragma once
 
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUDevice.h"
 
 namespace habana::eager {
 
 template <class F, class... Args>
 void ScheduleWorkAndUpdateLoweringThreadHandle(F&& f, Args&&... args) {
-  hpu_registrar().get_device().lowering_thread().enqueue<F, Args...>(
+  HPUDeviceContext::lowering_thread().enqueue<F, Args...>(
       std::forward<F>(f), std::forward<Args>(args)...);
 }
 

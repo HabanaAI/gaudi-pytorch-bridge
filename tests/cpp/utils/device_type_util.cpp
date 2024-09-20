@@ -17,17 +17,17 @@
 bool isGaudi() {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  return habana::HPURegistrar::get_device().type() == synDeviceGaudi;
+  return habana::HPUDeviceContext::get_device().type() == synDeviceGaudi;
 }
 
 bool isGaudi2() {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  return habana::HPURegistrar::get_device().type() == synDeviceGaudi2;
+  return habana::HPUDeviceContext::get_device().type() == synDeviceGaudi2;
 }
 
 bool isGaudi3() {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  return habana::HPURegistrar::get_device().type() == synDeviceGaudi3;
+  return habana::HPUDeviceContext::get_device().type() == synDeviceGaudi3;
 }

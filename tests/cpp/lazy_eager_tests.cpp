@@ -59,7 +59,7 @@ class DISABLED_LazyEagerTest : public HpuOpTestUtil {
 TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_log_sigmoid_fwd_out_1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     auto out = torch::empty(0);
     auto hout = torch::empty(0, c10::kHPU);
@@ -76,7 +76,7 @@ TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_log_sigmoid_fwd_out_1) {
 TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_log_sigmoid_fwd_out_2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     const int iterations = 10;
     auto out = torch::empty(0);
@@ -102,7 +102,7 @@ TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_mul_inplace_1) {
   }
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({2, 3});
     torch::Tensor B = torch::randn({2, 3});
@@ -126,7 +126,7 @@ TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_mul_inplace_2) {
   }
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     SET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE, 2, 1);
     SET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE, 0, 1);
@@ -160,7 +160,7 @@ TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_mul_inplace_2) {
 TEST_F(DISABLED_LazyEagerTest, optimized_lazy_copy_inplace_1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor tensor_A = torch::randn({1, 3, 3, 3});
     torch::Tensor tensor_B = torch::randn({1, 3, 3, 3});
@@ -189,7 +189,7 @@ TEST_F(DISABLED_LazyEagerTest, optimized_lazy_copy_inplace_1) {
 TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_add_f32_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A =
         torch::randn({2, 3}, torch::dtype(torch::kFloat32).requires_grad(false))
@@ -208,7 +208,7 @@ TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_add_f32_with_scalar) {
 TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_add_i32_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A =
         torch::randint(
@@ -228,7 +228,7 @@ TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_add_i32_with_scalar) {
 TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_div_f32_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn(
         {3, 3}, torch::dtype(torch::kFloat32).requires_grad(false));
@@ -252,7 +252,7 @@ TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_div_f32_with_scalar) {
 TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_div_mode_bf16_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn(
         {3, 3}, torch::dtype(torch::kBFloat16).requires_grad(false));
@@ -271,7 +271,7 @@ TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_div_mode_bf16_with_scalar) {
 TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_div_mode_i32_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randint(
         1, 100, {10, 10}, torch::dtype(torch::kInt32).requires_grad(false));
@@ -290,7 +290,7 @@ TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_div_mode_i32_with_scalar) {
 TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_clamp_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randint(
         -50, 50, {10, 10}, torch::dtype(torch::kInt32).requires_grad(false));
@@ -309,7 +309,7 @@ TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_clamp_with_scalar) {
 TEST_F(DISABLED_LazyEagerTest, optimized_lazy_eager_cmp_with_scalar) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randint(
         0, 2, {10}, torch::dtype(torch::kInt32).requires_grad(false));

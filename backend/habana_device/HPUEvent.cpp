@@ -13,14 +13,14 @@
 
 //#include "backend/habana_device/HPUAllocator.h"
 #include "backend/habana_device/HPUEvent.h"
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "habana_eager/eager_context.h"
 #include "habana_lazy/hpu_lazy_tensors.h"
 
 namespace at {
 namespace hpu {
 HPUEvent::~HPUEvent() {
-  auto& dev = habana::HPURegistrar::get_device().syn_device();
+  auto& dev = habana::HPUDeviceContext::get_device();
   if (is_created_) {
     dev.delete_event(id_, flags_);
   }
@@ -28,7 +28,7 @@ HPUEvent::~HPUEvent() {
 
 void HPUEvent::createEvent([[maybe_unused]] DeviceIndex device_index) {
   // get device
-  auto& dev = habana::HPURegistrar::get_device().syn_device();
+  auto& dev = habana::HPUDeviceContext::get_device();
   device_index_ = dev.id();
   id_ = dev.create_event(flags_);
   is_created_ = true;
@@ -49,7 +49,7 @@ bool HPUEvent::query() const {
   if (!is_created_) {
     return true;
   }
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
 
   return device.query_event(id_);
 }
@@ -65,7 +65,7 @@ void HPUEvent::recordOnce(const c10::hpu::HPUStream& stream) {
 
 // Note: hpuEventRecord must be called on the same device as the event.
 void HPUEvent::record(const c10::hpu::HPUStream& stream) {
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (!is_created_) {
     createEvent(stream.device_index());
     created_with_stream_ = stream.stream();
@@ -111,7 +111,7 @@ void HPUEvent::block(const c10::hpu::HPUStream& stream) {
     if (stream.stream() == recorded_stream_) {
       return;
     }
-    auto& device = habana::HPURegistrar::get_device().syn_device();
+    auto& device = habana::HPUDeviceContext::get_device();
     device.wait_event(id_, stream.stream());
   }
 }
@@ -121,14 +121,14 @@ float HPUEvent::elapsed_time(const HPUEvent& other) const {
   TORCH_CHECK(
       is_created_ && other.isCreated(),
       "Both events must be recorded before calculating elapsed time.");
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   return device.elapsed_time(id_, other.id_);
 }
 
 // Note: hpuEventSynchronize can be safely called from any device
 void HPUEvent::synchronize() const {
   if (is_created_) {
-    auto& device = habana::HPURegistrar::get_device().syn_device();
+    auto& device = habana::HPUDeviceContext::get_device();
     device.synchronize_event(id_);
   }
 }

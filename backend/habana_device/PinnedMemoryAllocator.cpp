@@ -11,8 +11,8 @@
  *******************************************************************************
  */
 #include "PinnedMemoryAllocator.h"
+#include "HPUDevice.h"
 #include "habana_helpers/logging.h"
-#include "hpu_cached_devices.h"
 
 namespace habana {
 synDeviceId PinnedMemoryAllocator::allocator_active_device_id = -1;
@@ -23,7 +23,7 @@ at::Allocator* getPinnedMemoryAllocator() {
 }
 
 bool PinnedMemoryAllocator_is_pinned(void* ptr) {
-  auto& device = HPURegistrar::get_device(
+  auto& device = HPUDeviceContext::get_device(
       habana::PinnedMemoryAllocator::allocator_active_device_id);
   return device.get_host_memory().is_host_memory(ptr);
 }
@@ -32,7 +32,7 @@ PinnedMemoryAllocator::PinnedMemoryAllocator() = default;
 PinnedMemoryAllocator::~PinnedMemoryAllocator() = default;
 
 void PinnedMemoryAllocator::deleter(void* ptr) {
-  auto& device = HPURegistrar::get_device(
+  auto& device = HPUDeviceContext::get_device(
       habana::PinnedMemoryAllocator::allocator_active_device_id);
   device.get_host_memory().free(ptr);
 }
@@ -44,7 +44,7 @@ at::DataPtr PinnedMemoryAllocator::allocate(size_t size) const {
 #endif
   void* ptr = nullptr;
   if (size != 0) {
-    auto& device = HPURegistrar::get_device(
+    auto& device = HPUDeviceContext::get_device(
         habana::PinnedMemoryAllocator::allocator_active_device_id);
     auto status = device.get_host_memory().malloc(&ptr, size);
     TORCH_HABANA_CHECK(

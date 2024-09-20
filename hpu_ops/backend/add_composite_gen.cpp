@@ -143,7 +143,7 @@ void ForeachCompound::AddNode(
 
   std::optional<synapse_helpers::tensor> cast{};
   if (isValueTensor && valueType == torch::kInt64 &&
-      (habana::HPURegistrar::get_device().type() !=
+      (habana::HPUDeviceContext::get_device().type() !=
        synDeviceType::synDeviceGaudi)) {
     cast = BuildCast(
         this,

@@ -450,7 +450,7 @@ void HabanaLaunchOpPT::RunHybridSif(
   PT_DYNAMIC_SHAPE_DEBUG(
       "SIF JIT_IR_Graph_BEGIN\n", graph->toString(), "JIT_IR_Graph_END\n");
 
-  const auto& device = HPURegistrar::get_device();
+  const auto& device = HPUDeviceContext::get_device();
 
   auto syn_graph =
       habana_helpers::create_graph(device.id(), "syn_sif_graph", true);
@@ -570,7 +570,7 @@ bool HabanaLaunchOpPT::RunHybridSif(
   }
 
   // Figure out the right device id
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPUDeviceContext::get_device();
   synDeviceId device_id = device.id();
 
   auto syn_graph =

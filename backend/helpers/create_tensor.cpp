@@ -14,7 +14,7 @@
 #include "backend/helpers/create_tensor.h"
 #include <string>
 #include "backend/backend_meta.h"
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/runtime_config.h"
 #include "backend/helpers/tensor_info.h"
@@ -42,7 +42,7 @@ void handle_const_section_tensor(const at::Tensor& tensor) {
             tmeta->get_const_id(),
             "already serialized...");
       }
-      auto& device = habana::HPURegistrar::get_device();
+      auto& device = habana::HPUDeviceContext::get_device();
       device.get_host_memory().free(tmeta->get_host_ptr());
       tmeta->set_host_ptr(nullptr);
       tmeta->set_data_in_host_memory(false);
@@ -107,7 +107,7 @@ synapse_helpers::tensor create_tensor(
                        .mark_external(external)
                        .with_dynamic_shape(dynamic_shape)
                        .build(
-                           habana::HPURegistrar::get_device(devid).syn_device(),
+                           habana::HPUDeviceContext::get_device(devid),
                            graph.get_graph_handle());
     synapse_helpers::tensor syn_tensor =
         absl::get<synapse_helpers::tensor>(std::move(variant));
@@ -126,8 +126,7 @@ synapse_helpers::tensor create_tensor(
     builder.use_suffix(name);
   }
   auto variant = builder.build(
-      habana::HPURegistrar::get_device(devid).syn_device(),
-      graph.get_graph_handle());
+      habana::HPUDeviceContext::get_device(devid), graph.get_graph_handle());
   synapse_helpers::tensor syn_tensor =
       absl::get<synapse_helpers::tensor>(std::move(variant));
   syn_tensor.set_pt_info(shape.vec(), calculate_strides(stride.vec()));
@@ -224,7 +223,7 @@ synapse_helpers::tensor create_tensor(
     auto device_index =
         tensor.device().index() == -1 ? 0 : tensor.device().index();
     auto variant = builder.build(
-        habana::HPURegistrar::get_device(device_index).syn_device(),
+        habana::HPUDeviceContext::get_device(device_index),
         graph.get_graph_handle());
     synapse_helpers::tensor syn_tensor =
         absl::get<synapse_helpers::tensor>(std::move(variant));
@@ -312,7 +311,7 @@ synapse_helpers::tensor create_tensor(
   auto device_index =
       tensor.device().index() == -1 ? 0 : tensor.device().index();
   auto variant = builder.build(
-      habana::HPURegistrar::get_device(device_index).syn_device(),
+      habana::HPUDeviceContext::get_device(device_index),
       graph.get_graph_handle());
   if (absl::holds_alternative<synapse_helpers::synapse_error>(variant)) {
     auto error = absl::get<synapse_helpers::synapse_error>(variant);
@@ -394,7 +393,7 @@ synapse_helpers::tensor create_tensor(
       builder.use_suffix(name);
     }
     auto variant = builder.build(
-        habana::HPURegistrar::get_device(tensor.device().index()).syn_device(),
+        habana::HPUDeviceContext::get_device(tensor.device().index()),
         graph.get_graph_handle());
     synapse_helpers::tensor syn_tensor =
         absl::get<synapse_helpers::tensor>(std::move(variant));
@@ -459,7 +458,7 @@ synapse_helpers::tensor create_tensor(
     builder.use_suffix(name);
   }
   auto variant = builder.build(
-      habana::HPURegistrar::get_device(tensor.device().index()).syn_device(),
+      habana::HPUDeviceContext::get_device(tensor.device().index()),
       graph.get_graph_handle());
   synapse_helpers::tensor syn_tensor =
       absl::get<synapse_helpers::tensor>(std::move(variant));
@@ -542,7 +541,7 @@ synapse_helpers::tensor create_shape_tensor(
         break;
     }
     auto variant = builder.build(
-        habana::HPURegistrar::get_device(syn_device).syn_device(),
+        habana::HPUDeviceContext::get_device(syn_device),
         graph.get_graph_handle());
     synapse_helpers::tensor syn_tensor =
         absl::get<synapse_helpers::tensor>(std::move(variant));
@@ -576,7 +575,7 @@ synapse_helpers::tensor create_shape_tensor(
     builder.use_suffix(name);
   }
   auto variant = builder.build(
-      habana::HPURegistrar::get_device(syn_device).syn_device(),
+      habana::HPUDeviceContext::get_device(syn_device),
       graph.get_graph_handle());
   synapse_helpers::tensor syn_tensor =
       absl::get<synapse_helpers::tensor>(std::move(variant));
@@ -658,7 +657,7 @@ synapse_helpers::tensor create_shape_tensor(
         break;
     }
     auto variant = builder.build(
-        habana::HPURegistrar::get_device(tensor.device().index()).syn_device(),
+        habana::HPUDeviceContext::get_device(tensor.device().index()),
         graph.get_graph_handle());
     synapse_helpers::tensor syn_tensor =
         absl::get<synapse_helpers::tensor>(std::move(variant));
@@ -692,7 +691,7 @@ synapse_helpers::tensor create_shape_tensor(
     builder.use_suffix(name);
   }
   auto variant = builder.build(
-      habana::HPURegistrar::get_device(tensor.device().index()).syn_device(),
+      habana::HPUDeviceContext::get_device(tensor.device().index()),
       graph.get_graph_handle());
   synapse_helpers::tensor syn_tensor =
       absl::get<synapse_helpers::tensor>(std::move(variant));
@@ -732,8 +731,7 @@ synapse_helpers::tensor create_const_tensor(
     builder.use_suffix(name);
   }
   auto variant = builder.build(
-      habana::HPURegistrar::get_device(devid).syn_device(),
-      graph.get_graph_handle());
+      habana::HPUDeviceContext::get_device(devid), graph.get_graph_handle());
   synapse_helpers::tensor syn_tensor =
       absl::get<synapse_helpers::tensor>(std::move(variant));
   syn_tensor.set_pt_info(shape.vec(), calculate_strides(stride.vec()));
@@ -837,8 +835,7 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section(
   }
 
   auto maybe_tensor = builder.build(
-      habana::HPURegistrar::get_device(tensor.device_id()).syn_device(),
-      tensor.graph());
+      habana::HPUDeviceContext::get_device(tensor.device_id()), tensor.graph());
   synapse_helpers::tensor syn_tensor =
       absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
   syn_tensor.set_pt_info(tensor.pt_shape(), tensor.pt_strides());
@@ -906,8 +903,7 @@ synapse_helpers::tensor duplicate_tensor_in_memory_section_with_size(
   }
 
   auto maybe_tensor = builder.build(
-      habana::HPURegistrar::get_device(tensor.device_id()).syn_device(),
-      tensor.graph());
+      habana::HPUDeviceContext::get_device(tensor.device_id()), tensor.graph());
   synapse_helpers::tensor syn_tensor =
       absl::get<synapse_helpers::tensor>(std::move(maybe_tensor));
   syn_tensor.set_pt_info(sizes, strides);

@@ -29,8 +29,7 @@ namespace c10 {
 namespace hpu {
 
 void joinEagerThreadsCB() {
-  if (habana::hpu_registrar().is_initialized())
-    habana::hpu_registrar().get_device().join_all_threads();
+  habana::HPUDeviceContext::join_all_threads();
 }
 
 namespace {
@@ -57,7 +56,7 @@ static thread_local std::unique_ptr<StreamId> current_streams = nullptr;
 static void initGlobalStreamState() {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  habana::HPURegistrar::get_device();
+  habana::HPUDeviceContext::get_device();
 }
 
 // Init front-end to ensure initialization only occurs once
@@ -95,7 +94,7 @@ HPUStream getStreamByStreamPtr(
 
 bool HPUStream::query() const {
   DeviceGuard guard{stream_.device()};
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto hpu_stream_id = stream();
   auto device_index = device.id();
   PT_DEVICE_DEBUG(
@@ -136,7 +135,7 @@ bool HPUStream::query() const {
 
 void HPUStream::synchronize() const {
   DeviceGuard guard{stream_.device()};
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto hpu_stream_id = stream();
   auto device_index = device.id();
   PT_DEVICE_DEBUG(
@@ -179,14 +178,14 @@ HPUStream getStreamFromPool(
     DeviceIndex device_index) {
   initHPUStreamsOnce();
   if (device_index == -1) {
-    auto& device = habana::HPURegistrar::get_device().syn_device();
+    auto& device = habana::HPUDeviceContext::get_device();
     device_index = device.id();
   }
 
   // create stream
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   synapse_helpers::hpuStream_t stream;
   PT_DEVICE_DEBUG("STREAM:: create a new stream::");
   device.create_stream(stream, isHighPriority);
@@ -199,7 +198,7 @@ HPUStream getStreamFromPool(
 HPUStream getDefaultHPUStream(DeviceIndex device_index) {
   initHPUStreamsOnce();
   if (device_index == -1) {
-    auto& device = habana::HPURegistrar::get_device();
+    auto& device = habana::HPUDeviceContext::get_device();
     device_index = device.id();
   }
   return HPUStreamForId(device_index, 0);
@@ -208,7 +207,7 @@ HPUStream getDefaultHPUStream(DeviceIndex device_index) {
 HPUStream getCurrentHPUStream(DeviceIndex device_index) {
   initHPUStreamsOnce();
   if (device_index == -1) {
-    auto& device = habana::HPURegistrar::get_device();
+    auto& device = habana::HPUDeviceContext::get_device();
     device_index = device.id();
   }
   PT_DEVICE_DEBUG(
@@ -227,7 +226,7 @@ void setCurrentHPUStream(HPUStream stream) {
       joinEagerThreadsCB();
 
       if (*current_streams == 0) {
-        auto& device = habana::HPURegistrar::get_device().syn_device();
+        auto& device = habana::HPUDeviceContext::get_device();
         synapse_helpers::hpuEvent_t id = device.create_event(false);
         device.record_event(id, *current_streams);
         device.wait_event(id, stream.id());

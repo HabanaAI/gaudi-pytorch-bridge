@@ -20,14 +20,14 @@ namespace habana {
 namespace HabanaLaunchOpPipeline {
 void ExecuteSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
   auto execute_queue_length =
-      hpu_registrar().get_device().compile_thread().get_active_task_count();
+      HPUDeviceContext::compile_thread().get_active_task_count();
   LOP::emit_event_fast(
       true,
       "EagerExecuteTask()",
       (int32_t)LOP::PipelineStageID::PIPELIE_STAGE_EXECUTE_ID,
       execute_queue_length);
   launch_op->ExecuteSynapse();
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   LOP::emit_event_fast(
       false,
       "EagerExecuteTask()",
@@ -62,7 +62,7 @@ void HabanaLaunchOpPT::ExecuteSynapse() {
     auto graphHandle = syn_graph_ptr_->get_graph_handle();
     if (graphHandle != nullptr) {
       syn_graph_ptr_->set_is_valid(false);
-      hpu_registrar().get_device().garbage_collection_thread().enqueue(
+      HPUDeviceContext::garbage_collection_thread().enqueue(
           SynapseGraphDestroyTask, std::move(graphHandle));
     }
   }

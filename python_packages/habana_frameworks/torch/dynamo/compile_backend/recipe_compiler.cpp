@@ -14,6 +14,7 @@
 #include <pybind11/stl.h>
 #include <torch/csrc/jit/python/pybind_utils.h>
 #include <torch/extension.h>
+#include "backend/habana_device/HPUAllocator.h"
 #include "backend/helpers/tensor_utils.h"
 #include "habana_eager/graph_storage.h"
 

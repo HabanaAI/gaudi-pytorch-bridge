@@ -21,7 +21,7 @@
 TEST(SynapseHelpersGraphTest, graphAttributes) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& synapse_device = habana::HPURegistrar::get_device().syn_device();
+  auto& synapse_device = habana::HPUDeviceContext::get_device();
   if (synapse_device.type() == synDeviceGaudi2) {
     habana_helpers::EnableInferenceMode();
     habana_helpers::EnableQuantization();

@@ -69,7 +69,6 @@ inline void THStorage_resizeBytes(
     at::DataPtr data = self->allocator()->allocate(size_bytes);
 
     if (self->data_ptr()) {
-      auto& device = habana::HPURegistrar::get_device(device_id);
       std::mutex mtx;
       std::condition_variable cv;
       std::atomic<bool> copyDone{false};
@@ -78,7 +77,7 @@ inline void THStorage_resizeBytes(
         copyDone = true;
         cv.notify_all();
       };
-      device.copy_data_within_device(
+      habana::HPUDeviceContext::copy_data_within_device(
           reinterpret_cast<synapse_helpers::device_ptr>(self->data()),
           reinterpret_cast<synapse_helpers::device_ptr>(data.get()),
           reinterpret_cast<synapse_helpers::device_ptr>(self->data()),

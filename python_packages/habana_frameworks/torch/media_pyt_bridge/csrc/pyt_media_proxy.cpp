@@ -22,10 +22,10 @@ namespace torch_hpu {
 PytMediaProxy::PytMediaProxy(int device_id) : device_id_(device_id) {}
 
 PytMediaProxy::~PytMediaProxy() {
-  if (!habana::HPURegistrar::get_hpu_registrar().is_initialized()) {
+  if (!habana::HPUDeviceContext::is_device_acquired()) {
     return; // Nothing to do
   }
-  auto& device = habana::HPURegistrar::get_device(device_id_);
+  auto& device = habana::HPUDeviceContext::get_device(device_id_);
   // print unrelease memory details
   for (auto elem : buffer_to_address_) {
     PT_BRIDGE_WARN("Unreleased buffer found, address = ", elem.first);
@@ -39,10 +39,10 @@ PytMediaProxy::~PytMediaProxy() {
 uintptr_t PytMediaProxy::allocatePersistentBuffer(size_t size) {
   PT_BRIDGE_DEBUG("allocatePersistentBuffer size = ", size);
   void* address{nullptr};
-  auto& device = habana::HPURegistrar::get_device(device_id_);
+  auto& device = habana::HPUDeviceContext::get_device(device_id_);
   device.get_device_memory().malloc(&address, size);
-  auto real_address = reinterpret_cast<uintptr_t>(
-      device.syn_device().get_fixed_address(address));
+  auto real_address =
+      reinterpret_cast<uintptr_t>(device.get_fixed_address(address));
   std::unique_lock<std::mutex> lock(m_mutex);
   auto iterator_emplaced_pair =
       buffer_to_address_.emplace(real_address, address);
@@ -55,7 +55,7 @@ void PytMediaProxy::freePersistentBuffer(uintptr_t real_address) {
   PT_BRIDGE_DEBUG("freePersistentBuffer addr = ", std::hex, real_address);
   auto it = buffer_to_address_.find(real_address);
   HABANA_ASSERT(it != buffer_to_address_.end());
-  auto& device = habana::HPURegistrar::get_device(device_id_);
+  auto& device = habana::HPUDeviceContext::get_device(device_id_);
   device.get_device_memory().free(it->second);
   buffer_to_address_.erase(it);
 }
@@ -92,9 +92,9 @@ uintptr_t PytMediaProxy::allocateFrameworkDeviceOutputTensor(
         shape.get_dims(), hb_options, c10::MemoryFormat::Contiguous, true);
   }
 
-  auto& device = habana::HPURegistrar::get_device(device_id_);
-  auto tensor_data_ptr = reinterpret_cast<uintptr_t>(
-      device.syn_device().get_fixed_address(tensor.data_ptr()));
+  auto& device = habana::HPUDeviceContext::get_device(device_id_);
+  auto tensor_data_ptr =
+      reinterpret_cast<uintptr_t>(device.get_fixed_address(tensor.data_ptr()));
   HABANA_ASSERT(tensor_data_ptr != synapse_helpers::device_nullptr);
   std::unique_lock<std::mutex> lock(m_mutex);
   auto iterator_emplaced_pair =
@@ -115,15 +115,15 @@ void PytMediaProxy::freeFrameworkOutputTensor(uint64_t addr) {
 }
 
 synDeviceId PytMediaProxy::getSynDeviceId() {
-  auto& device = habana::HPURegistrar::get_device(device_id_);
+  auto& device = habana::HPUDeviceContext::get_device(device_id_);
   return device.id();
 }
 
 synStreamHandle PytMediaProxy::getComputeStream() {
-  auto& device = habana::HPURegistrar::get_device(device_id_);
+  auto& device = habana::HPUDeviceContext::get_device(device_id_);
   auto hpu_stream = c10::hpu::getDefaultHPUStream(device.id());
   return static_cast<synStreamHandle>(
-      (void*)device.syn_device().get_stream(hpu_stream.id()));
+      (void*)device.get_stream(hpu_stream.id()));
 }
 
 torch::Tensor PytMediaProxy::getFrameworkOutputTensor(uintptr_t addr) {

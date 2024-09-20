@@ -15,7 +15,7 @@
 #include <c10/core/ScalarType.h>
 #include <torch_ver/csrc/distributed/c10d/Utils.hpp>
 #include <map>
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "common/utils.h"
 
@@ -50,7 +50,7 @@ hcclRedOp_t getHCCLReduceOp(const c10d::ReduceOp reduceOp) {
 }
 
 size_t getHCCLSliceSize(collectiveKind_t kind, bool lazy_collective) {
-  if (habana::HPURegistrar::get_device().type() !=
+  if (habana::HPUDeviceContext::get_device().type() !=
       synDeviceType::synDeviceGaudi) {
     return INT64_MAX;
   }

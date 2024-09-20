@@ -87,7 +87,7 @@ static synStatus waitTillRecipeExecution(
     size_t num_bytes,
     void*& v_ptr) {
   synStatus status{synStatus::synFail};
-  auto& device = HPURegistrar::get_device(device_id).syn_device();
+  auto& device = HPUDeviceContext::get_device(device_id);
   // Allocation has failed, if there are still recipies in queue to execute,
   // there is a chance to recover. Wait for next recipe to finish and try to
   // allocate again, continue until malloc succeeds, or there are no more
@@ -125,9 +125,12 @@ HPUDeviceAllocator::HPUDeviceAllocator() {
 }
 
 void HPUDeviceAllocator::deleter(void* ptr) {
+  if (!HPUDeviceContext::is_device_acquired())
+    return;
+
   synStatus status;
-  auto& device =
-      HPURegistrar::get_device(HPUDeviceAllocator::allocator_active_device_id);
+  auto& device = HPUDeviceContext::get_device(
+      HPUDeviceAllocator::allocator_active_device_id);
   if (ptr != nullptr) {
     auto alloc_ctx = reinterpret_cast<HPUAllocationContext*>(ptr);
     if (common::IsRecordStreamEnabled()) {
@@ -160,7 +163,7 @@ at::DataPtr HPUDeviceAllocator::allocate(size_t num_bytes) const {
       habana::HPUDeviceAllocator::allocator_active_device_id,
       " != 0");
 
-  auto& device = HPURegistrar::get_device(allocator_active_device_id);
+  auto& device = HPUDeviceContext::get_device(allocator_active_device_id);
 
   if (num_bytes != 0) {
     if (common::IsRecordStreamEnabled()) {
@@ -238,8 +241,8 @@ void HPUDeviceAllocator::recordStream(
   if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
     return;
   }
-  auto& device =
-      HPURegistrar::get_device(HPUDeviceAllocator::allocator_active_device_id);
+  auto& device = HPUDeviceContext::get_device(
+      HPUDeviceAllocator::allocator_active_device_id);
   if (ptr.get() != nullptr) {
     device.get_device_memory().recordStream(ptr.get(), stream.stream());
   }
@@ -251,7 +254,7 @@ void HPUDeviceAllocator::print_memory_stats(const char* msg) {
         habana::HPUDeviceAllocator::allocator_active_device_id) {
       return;
     }
-    auto& device = HPURegistrar::get_device(allocator_active_device_id);
+    auto& device = HPUDeviceContext::get_device(allocator_active_device_id);
     if (device.get_device_memory().get_pool_strategy() !=
         synapse_helpers::pool_allocator::strategy_none) {
       synapse_helpers::MemoryStats stats;
@@ -272,8 +275,7 @@ void HPUDeviceAllocator::memstat_devmem_start_collect(
   if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
     return;
   }
-  auto& device =
-      HPURegistrar::get_device(allocator_active_device_id).syn_device();
+  auto& device = HPUDeviceContext::get_device(allocator_active_device_id);
   if (device.IsStreamASyncEnabled()) {
     PT_DEVICE_WARN(
         "Warning: Set PT_ENABLE_HABANA_STREAMASYNC=0 for device memory "
@@ -295,8 +297,7 @@ void HPUDeviceAllocator::memstat_devmem_stop_collect(const char* msg) {
   if (unsigned(-1) == habana::HPUDeviceAllocator::allocator_active_device_id) {
     return;
   }
-  auto& device =
-      HPURegistrar::get_device(allocator_active_device_id).syn_device();
+  auto& device = HPUDeviceContext::get_device(allocator_active_device_id);
   if (device.get_device_memory().get_pool_strategy() !=
       synapse_helpers::pool_allocator::strategy_none) {
     std::string updated_msg = msg;
@@ -308,7 +309,7 @@ void HPUDeviceAllocator::memstat_devmem_stop_collect(const char* msg) {
 }
 
 void HPUDeviceAllocator::dump_memory_reporter() {
-  auto& device = HPURegistrar::get_device().syn_device();
+  auto& device = HPUDeviceContext::get_device();
   synapse_helpers::memory_reporter_event_create(
       device, synapse_helpers::mem_reporter_type::MEM_REPORTER_USER_CALL);
 }

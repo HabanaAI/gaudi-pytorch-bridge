@@ -223,7 +223,7 @@ std::vector<at::IValue> convert_ivalues_to_backend_tensors(
 
 std::vector<at::IValue> convert_cpu_wrapped_numbers(
     const std::vector<at::IValue>& inputs) {
-  auto& scalar_cache = HPURegistrar::get_device().get_scalar_cache();
+  auto& scalar_cache = HPUDeviceContext::scalar_cache();
   auto stack = inputs;
   for (size_t i = 0; i < stack.size(); i++) {
     auto& value = stack[i];
@@ -502,7 +502,7 @@ void EagerExec::launch() {
   }
 
   auto lowering_queue_length =
-      hpu_registrar().get_device().lowering_thread().get_active_task_count();
+      HPUDeviceContext::lowering_thread().get_active_task_count();
   LOP::emit_event_fast(
       false,
       "EagerLoweringTask()",
@@ -583,7 +583,7 @@ std::shared_ptr<torch::jit::Graph> EagerExec::create_eager_graph(
   /*Need to set this node if the deterministic mode is ON*/
   jit_node->i_(
       torch::jit::attr::deterministic,
-      HPURegistrar::get_hpu_global_config().getDeterministic() ||
+      HPUGlobalConfig::get().getDeterministic() ||
           at::globalContext().deterministicAlgorithms());
   PT_BRIDGE_DEBUG(
       "Deterministic val during Jit Node creation: ",
@@ -613,7 +613,7 @@ size_t EagerExec::calculate_operator_key(
 
   optimized_key = at::hash_combine(
       optimized_key,
-      HPURegistrar::get_hpu_global_config().getDeterministic() ||
+      HPUGlobalConfig::get().getDeterministic() ||
           at::globalContext().deterministicAlgorithms());
 
   for (size_t i = 0; i < parent_vec.size(); ++i)
@@ -957,7 +957,7 @@ void EagerExec::post_process_eager_graph(
 
 bool EagerExec::is_eager_compiler_supported_for_graph(
     std::shared_ptr<JitGraph>& graph) {
-  if (habana::HPURegistrar::get_device().type() == synDeviceGaudi) {
+  if (habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) {
     return false;
   }
   if (!GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILER)) {

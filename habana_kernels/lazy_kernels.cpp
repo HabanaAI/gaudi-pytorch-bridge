@@ -69,9 +69,10 @@
 using namespace habana;
 using namespace at;
 
-#define FP8_CHECK                                                              \
-  TORCH_CHECK(                                                                 \
-      synapse_helpers::device_supports_fp8(HPURegistrar::get_device().type()), \
+#define FP8_CHECK                                 \
+  TORCH_CHECK(                                    \
+      synapse_helpers::device_supports_fp8(       \
+          HPUDeviceContext::get_device().type()), \
       "FP8 data type is not available on this device.")
 
 namespace {

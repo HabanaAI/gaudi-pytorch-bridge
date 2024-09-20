@@ -196,8 +196,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return habana::HPUDeviceAllocator::dump_memory_reporter();
   });
   m.def("_disk_cache_flush", []() {
-    if (habana::hpu_registrar().is_initialized())
-      habana::hpu_registrar().get_device().recipe_cache().FlushDiskCache();
+    habana::HPUDeviceContext::flush_disk_cache();
   });
   m.def("hg_print", [](std::string msg) { PT_HPUGRAPH_DEBUG(msg); });
   py::enum_<log_level>(m, "log_level")

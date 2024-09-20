@@ -20,7 +20,7 @@
 #include <memory>
 #include <string_view>
 #include <vector>
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/dynamic_shape_infer.h"
 #include "backend/helpers/habana_types.h"
@@ -668,7 +668,7 @@ class HabanaOperator {
       int device_id,
       const std::vector<T>& vec,
       at::OptionalIntArrayRef sizes) {
-    auto& device = habana::HPURegistrar::get_device(device_id).syn_device();
+    auto& device = habana::HPUDeviceContext::get_device(device_id);
 
     void* host_ptr{nullptr};
     at::ScalarType vec_type{};

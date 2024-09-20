@@ -14,7 +14,7 @@
 #include "backend/helpers/cast_sequence.h"
 #include <vector>
 
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/helpers/enum_mapping_table.h"
 #include "common/utils.h"
 #include "pytorch_helpers/habana_helpers/dtype_helpers.h"
@@ -269,7 +269,7 @@ std::vector<CastTypes> get_cast_sequence(
 }
 
 std::vector<CastTypes> get_cast_sequence(CastTypes cast_types) {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   return get_cast_sequence(cast_types, device.type());
 }
 

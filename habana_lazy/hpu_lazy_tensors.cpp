@@ -12,6 +12,7 @@
  */
 #include "hpu_lazy_tensors.h"
 #include <torch/csrc/jit/ir/ir.h>
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUStream.h"
 #include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/event_dispatcher.h"
@@ -89,7 +90,7 @@ void HbContextArena::RegisterTensor(std::shared_ptr<Data> data) {
   auto context = habana_lazy::get_device_lazy_execution_context(device_id);
   context->RegisterTensor(data);
   if (synapse_helpers::memory_reporter_enable()) {
-    auto& device = habana::HPURegistrar::get_device();
+    auto& device = habana::HPUDeviceContext::get_device();
     synapse_helpers::MemoryReporter* reporter =
         device.get_device_memory().get_memory_reporter();
     reporter->getTensorStats()->createTensor(data->unique_id);
@@ -123,7 +124,7 @@ void HbContextArena::UnregisterTensor(Data* data) {
     devctx->tensors_data.erase(unique_id);
     devctx->erase(unique_id);
     if (synapse_helpers::memory_reporter_enable()) {
-      auto& device = habana::HPURegistrar::get_device();
+      auto& device = habana::HPUDeviceContext::get_device();
       synapse_helpers::MemoryReporter* reporter =
           device.get_device_memory().get_memory_reporter();
       reporter->getTensorStats()->removeTensor(unique_id);
@@ -396,7 +397,7 @@ void HbLazyTensor::SetTensorDataNullOpt() {
 void HbLazyTensor::SetTensorData(at::Tensor tensor_data) {
   data()->tensor_data = std::move(tensor_data);
   if (synapse_helpers::memory_reporter_enable()) {
-    auto& device = habana::HPURegistrar::get_device();
+    auto& device = habana::HPUDeviceContext::get_device();
     synapse_helpers::MemoryReporter* reporter =
         device.get_device_memory().get_memory_reporter();
     reporter->getTensorStats()->setTensorAddressData(
@@ -805,7 +806,7 @@ void HbLazyTensor::applyPendingGraph() {
 namespace {
 inline c10::Device GetDeviceOrCurrent(const std::string& device_str) {
   if (device_str.empty()) {
-    return habana::HPURegistrar::get_device().aten_device();
+    return habana::HPUDeviceContext::aten_device();
   }
 
   return c10::Device(device_str);
@@ -1713,7 +1714,7 @@ void HbLazyTensor::StepMarker(
     return;
   }
 
-  if (!habana::HPURegistrar::get_hpu_registrar().is_initialized()) {
+  if (!habana::HPUDeviceContext::is_device_acquired()) {
     // Nothing to do
     PT_LAZY_DEBUG("StepMarker called before device was initialized, skipping");
     return;

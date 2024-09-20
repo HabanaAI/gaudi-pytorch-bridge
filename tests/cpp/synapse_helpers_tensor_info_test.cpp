@@ -18,7 +18,7 @@
 #include <algorithm>
 #include <memory>
 #include <vector>
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/create_tensor.h"
 #include "backend/helpers/tensor_info.h"
@@ -32,7 +32,7 @@ TEST(SynapseHelpersTensorInfoTest, TensorInfoSize) {
   torch::Tensor hA = A.to(torch::kHPU);
   int64_t shape = std::numeric_limits<uint32_t>::max();
   synGraphHandle h;
-  auto& synapse_device = habana::HPURegistrar::get_device().syn_device();
+  auto& synapse_device = habana::HPUDeviceContext::get_device();
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device.type()));
   auto input_shape = tensor::shape_t{1_D, {shape}};
   auto build_result = tensor_builder(synDataType::syn_type_bf16)
@@ -50,7 +50,7 @@ TEST(SynapseHelpersTensorInfoTest, TensorInfoNumel) {
   torch::Tensor hA = A.to(torch::kHPU);
   int64_t shape = std::numeric_limits<uint32_t>::max() * 2;
   synGraphHandle h;
-  auto& synapse_device = habana::HPURegistrar::get_device().syn_device();
+  auto& synapse_device = habana::HPUDeviceContext::get_device();
   ASSERT_EQ(synSuccess, synGraphCreate(&h, synapse_device.type()));
   auto input_shape = tensor::shape_t{1_D, {shape}};
   auto build_result = tensor_builder(synDataType::syn_type_bf16)

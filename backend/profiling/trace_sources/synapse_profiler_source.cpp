@@ -78,10 +78,10 @@ void SynapseProfilerSource::start(TraceSink&) {
 
   if (bytes_req > 0) {
     void* data_ptr{nullptr};
-    auto& device = habana::HPURegistrar::get_device(0);
+    auto& device = habana::HPUDeviceContext::get_device(0);
     device.get_device_memory().malloc(&data_ptr, bytes_req);
-    auto user_buff = reinterpret_cast<void*>(
-        device.syn_device().get_fixed_address(data_ptr));
+    auto user_buff =
+        reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
     status = synProfilerSetUserBuffer(0, user_buff);
     if (status != synSuccess) {
       std::cerr << "synProfilerSetUserBuffer failed" << std::endl;

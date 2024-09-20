@@ -439,7 +439,7 @@ void set_as_strided_meta(JitNode* node) {
 void set_deterministic(JitNode* node) {
   node->i_(
       torch::jit::attr::deterministic,
-      HPURegistrar::get_hpu_global_config().getDeterministic() ||
+      HPUGlobalConfig::get().getDeterministic() ||
           at::globalContext().deterministicAlgorithms());
   PT_EAGER_DEBUG(
       "Deterministic val during Jit Node creation: ",

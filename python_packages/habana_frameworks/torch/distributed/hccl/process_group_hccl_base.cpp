@@ -21,6 +21,7 @@
 #include <future>
 #include <map>
 
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/helpers/collective_utils.h"
 #include "backend/helpers/tensor_utils.h"
 #include "backend/synapse_helpers/device_context.h"
@@ -280,7 +281,7 @@ bool ProcessGroupHcclBase::CoalescedWorkHCCL::wait(
 
 void ProcessGroupHcclBase::startCoalescing() {
   TORCH_CHECK(
-      habana::hpu_registrar().is_initialized(),
+      habana::HPUDeviceContext::is_device_acquired(),
       "HPU Device not initialized! startCoalescing cannot be done without device init!")
 
   TORCH_CHECK(
@@ -1770,7 +1771,8 @@ c10::intrusive_ptr<Work> ProcessGroupHcclBase::recvAnysource(
 }
 
 void ProcessGroupHcclBase::hostBarrier() {
-  if (this->emulate_distributed_) {
+  if (this->emulate_distributed_ ||
+      habana::HPUDeviceContext::get_exception_occurred()) {
     return;
   }
 
@@ -1792,11 +1794,6 @@ void ProcessGroupHcclBase::hostBarrier() {
   auto worker_count = store_->add(storeKey, 0);
   while (worker_count != size_) {
     worker_count = store_->add(storeKey, 0);
-    if (habana::hpu_registrar().is_initialized() &&
-        habana::hpu_registrar().get_device().get_exception_occurred()) {
-      habana::hpu_registrar().get_device().set_exception_occurred(false);
-      break;
-    }
     std::this_thread::sleep_for(
         std::chrono::milliseconds(kSynchronizeBusyWaitMillis));
   }

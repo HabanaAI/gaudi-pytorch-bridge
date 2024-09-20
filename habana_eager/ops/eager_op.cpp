@@ -28,7 +28,7 @@ void EagerLoweringTask(
     OutputSpecsOrTensors&& out_spec_or_tensors,
     EagerOpMetaData&& eager_op_meta_data) {
   auto lowering_queue_length =
-      hpu_registrar().get_device().lowering_thread().get_active_task_count();
+      HPUDeviceContext::lowering_thread().get_active_task_count();
   LOP::emit_event_fast(
       true,
       "EagerLoweringTask()",

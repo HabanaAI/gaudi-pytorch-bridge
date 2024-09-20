@@ -929,7 +929,7 @@ TEST_F(LazyBasicKernelTest, DISABLED_noncontigD2H_nonblocking) {
 
   auto fut = std::async(std::launch::async, []() {
     HbLazyTensor::StepMarkerFinish();
-    habana::HPURegistrar::synchronize_device();
+    habana::HPUDeviceContext::synchronize_device();
   });
   fut.get();
   EXPECT_EQ(allclose(out, hout_cpu, 0.001, 0.001), true);

@@ -17,13 +17,11 @@
 namespace habana::eager {
 
 void JoinPendingPipelineThreads() {
-  if (habana::hpu_registrar().is_initialized())
-    hpu_registrar().get_device().join_pipeline_threads();
+  HPUDeviceContext::join_pipeline_threads();
 }
 
 void JoinPendingPipelineAllThreads() {
-  if (habana::hpu_registrar().is_initialized())
-    hpu_registrar().get_device().join_all_threads();
+  HPUDeviceContext::join_all_threads();
 }
 
 // Restore tensors to the org tensors for eager send P2P collective

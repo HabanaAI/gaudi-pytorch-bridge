@@ -14,6 +14,7 @@
 #include "habana_helpers/frontend_utils.h"
 #include <ATen/core/ivalue.h>
 #include "backend/create_pt_tensor.h"
+#include "backend/habana_device/PinnedMemoryAllocator.h"
 #include "backend/habana_operator.h"
 #include "backend/helpers/graph.h"
 #include "backend/synapse_helpers/env_flags.h"
@@ -105,16 +106,15 @@ void habana_helpers::copy_scalar_to_host(
   std::atomic<bool> copyDone{false};
   bool is_pinned = habana::PinnedMemoryAllocator_is_pinned(src.data_ptr());
 
-  habana::HPURegistrar::get_device(src.device().index())
-      .copy_data_to_host(
-          reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
-          dst_ptr,
-          reinterpret_cast<synapse_helpers::device_ptr>(
-              src.storage().data_ptr().get()),
-          size,
-          [&copyDone]() { copyDone = true; },
-          is_pinned,
-          c10::hpu::getCurrentHPUStream());
+  habana::HPUDeviceContext::copy_data_to_host(
+      reinterpret_cast<synapse_helpers::device_ptr>(src.data_ptr()),
+      dst_ptr,
+      reinterpret_cast<synapse_helpers::device_ptr>(
+          src.storage().data_ptr().get()),
+      size,
+      [&copyDone]() { copyDone = true; },
+      is_pinned,
+      c10::hpu::getCurrentHPUStream());
 
   // Release GIL if going to wait. This thread might already acquired GIL and
   // the second thread will be waiting
@@ -178,7 +178,7 @@ at::Tensor habana_helpers::hpu_cast_tensor(
       "Unsupported Cast operation requested in hpu_cast_tensor()");
 
   int device_id = Input.device().index();
-  auto& device = habana::HPURegistrar::get_device(device_id);
+  auto& device = habana::HPUDeviceContext::get_device(device_id);
   CastOperator Op(device_id, node_type.value());
   std::vector<c10::IValue> stack = {
       c10::IValue(Input), c10::IValue(at::typeMetaToScalarType(type))};

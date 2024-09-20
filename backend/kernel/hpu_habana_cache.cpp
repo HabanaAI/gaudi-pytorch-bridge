@@ -336,8 +336,7 @@ std::string RecipeValueSpec::build_header_str() const {
 
 std::string RecipeValueSpec::digest_str() {
   std::ostringstream O;
-  auto& recipe_cache =
-      HPURegistrar::get_device().syn_device().get_recipe_handle_cache();
+  auto& recipe_cache = HPUDeviceContext::get_device().get_recipe_handle_cache();
   O << "Recipe digest : total size of graph recipes "
     << synapse_helpers::get_mem_str(RecipeValueSpec::total_recipe_ntbytes)
     << '\n';
@@ -356,7 +355,7 @@ std::string RecipeValueSpec::digest_str() {
 }
 
 int RecipeValueSpec::update_hit_count() {
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPUDeviceContext::get_device();
   device.get_recipe_handle_cache().increaseHitCount(key);
   auto rv_hit_count = device.get_recipe_handle_cache().getHitCount(key);
 
@@ -1356,7 +1355,7 @@ void RecipeValueSpec::patch_launch_info(
 
     if (synapse_helpers::memory_reporter_enable() &&
         ti.tensor_type() != HOST_TO_DEVICE_TENSOR) {
-      auto& device = HPURegistrar::get_device();
+      auto& device = HPUDeviceContext::get_device();
       synapse_helpers::MemoryReporter* reporter =
           device.get_device_memory().get_memory_reporter();
       reporter->getTensorStats()->updateTensorAddressData(
@@ -1520,7 +1519,7 @@ void RecipeLauncher::Launch(
   MaybePrintDebugInfo(
       input_refs, intermediate_tensors_ptr, aten_outputs, *this);
 
-  auto& device = HPURegistrar::get_device().syn_device();
+  auto& device = HPUDeviceContext::get_device();
   auto& stream_handle = device.get_stream(hpu_stream);
 
   std::vector<at::Tensor> ptRefs;
@@ -1666,7 +1665,7 @@ void RecipeLauncher::Launch(
             recipe_counter_ptr->decrease_and_notify();
             if (synapse_helpers::memory_reporter_enable() &&
                 resource_holder->active_graph_key_ > 0) {
-              auto& device = HPURegistrar::get_device();
+              auto& device = HPUDeviceContext::get_device();
               synapse_helpers::MemoryReporter* reporter =
                   device.get_device_memory().get_memory_reporter();
               reporter->getGraphStats()->removeLiveGraph(
@@ -1716,7 +1715,7 @@ void RecipeLauncher::Launch(
             recipe_counter_ptr->decrease_and_notify();
             if (synapse_helpers::memory_reporter_enable() &&
                 resource_holder->active_graph_key_ > 0) {
-              auto& device = HPURegistrar::get_device();
+              auto& device = HPUDeviceContext::get_device();
               synapse_helpers::MemoryReporter* reporter =
                   device.get_device_memory().get_memory_reporter();
               reporter->getGraphStats()->removeLiveGraph(
@@ -1802,7 +1801,7 @@ void RecipeLauncher::Launch(
     collective_kernels_info_->Launch(false, [] {});
 
     if (synapse_helpers::memory_reporter_enable() && active_graph_key_ > 0) {
-      auto& device = HPURegistrar::get_device();
+      auto& device = HPUDeviceContext::get_device();
       synapse_helpers::MemoryReporter* reporter =
           device.get_device_memory().get_memory_reporter();
       reporter->getGraphStats()->removeLiveGraph(active_graph_key_);
@@ -1853,7 +1852,7 @@ void DynamicBucketInfoMap::save_ds_checkpoint(std::ofstream& ds_checkpoint) {
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD);
 
   if (is_ds_cache_enabled) {
-    hpu_registrar().get_device().recipe_cache().Serialize();
+    HPUDeviceContext::recipe_cache().Serialize();
   }
 }
 
@@ -1867,7 +1866,7 @@ void DynamicBucketInfoMap::load_ds_checkpoint(std::ifstream& ds_checkpoint) {
   const bool is_ds_cache_enabled =
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_DISK_CACHE_FOR_DSD);
   if (is_ds_cache_enabled) {
-    hpu_registrar().get_device().recipe_cache().Deserialize();
+    HPUDeviceContext::recipe_cache().Deserialize();
   }
 }
 
@@ -1918,15 +1917,14 @@ void DynamicBucketInfoMap::DumpHistoryMemoryStat() {
 void RecipeCacheLRU::DumpRecipeMemoryStat() {
   PT_HOSTSTAT_DEBUG(
       "Size of Recipe LRU Cache: ",
-      synapse_helpers::get_mem_str(
-          hpu_registrar().get_device().recipe_cache().Size()));
+      synapse_helpers::get_mem_str(HPUDeviceContext::recipe_cache().Size()));
 }
 
 void RecipeCacheLRU::DumpSynapseRecipeMemoryStat() {
   PT_HOSTSTAT_DEBUG(
       "Size of Synapse Recipe: ",
       synapse_helpers::get_mem_str(
-          hpu_registrar().get_device().recipe_cache().SynapseRecipeSize()));
+          HPUDeviceContext::recipe_cache().SynapseRecipeSize()));
 }
 
 void RecipeCacheLRU::DumpDynamicShapeMemoryStat() {
@@ -1937,11 +1935,10 @@ void RecipeCacheLRU::DumpDynamicShapeMemoryStat() {
       synapse_helpers::get_mem_str(
           DynamicBucketInfoMap::get_instance().HistSize()),
       ", Recipe::",
-      synapse_helpers::get_mem_str(
-          hpu_registrar().get_device().recipe_cache().Size()),
+      synapse_helpers::get_mem_str(HPUDeviceContext::recipe_cache().Size()),
       ", SynapseRecipe::",
       synapse_helpers::get_mem_str(
-          hpu_registrar().get_device().recipe_cache().SynapseRecipeSize()));
+          HPUDeviceContext::recipe_cache().SynapseRecipeSize()));
 }
 
 void DynamicBucketInfoMap::add(
@@ -1964,7 +1961,7 @@ void DynamicBucketInfoMap::refine_graph(size_t graph_key) {
 }
 
 void ClearDynamicBucketRecipeInfo() {
-  hpu_registrar().get_device().recipe_cache().clear();
+  HPUDeviceContext::recipe_cache().clear();
   DynamicBucketInfoMap::get_instance().clear();
 }
 } // namespace habana

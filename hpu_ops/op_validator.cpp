@@ -63,7 +63,7 @@ SharedLayer::DeviceId _getDeviceType() {
   HABANAGuardImpl device_guard;
   device_guard.getDevice();
 
-  auto deviceType = HPURegistrar::get_device(0).type();
+  auto deviceType = HPUDeviceContext::get_device(0).type();
   auto deviceId = synDeviceTypeToSharedLayerType(deviceType);
   return deviceId;
 }

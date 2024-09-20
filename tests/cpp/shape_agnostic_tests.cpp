@@ -61,7 +61,7 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(true, false));
 
 TEST_F(ShapeAgnosticTest, PermuteAdd) {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({3, 3, 3});
     auto B = A.permute({0, 1, 2}).contiguous();
@@ -85,7 +85,7 @@ TEST_F(ShapeAgnosticTest, PermuteAdd) {
 
 TEST_P(ShapeAgnosticOrNormalFlowTest, ConvRelu) {
   habana::OptimizedJitGraphCache::GetOptimizedJitCache().Clear();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     auto input_tensor =
         torch::arange(27, torch::dtype(torch::kFloat).requires_grad(false))
@@ -139,7 +139,7 @@ TEST_P(ShapeAgnosticOrNormalFlowTest, ConvRelu) {
 // have any permute on the input so 3rd relu should cause a JIT/SAG cache
 // miss.
 TEST_P(ShapeAgnosticOrNormalFlowTest, ConvReluRelu) {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     // Disabling the number of cache entries check for now as the same
     // test is being also called for the lazy frontend as well and there
@@ -211,7 +211,7 @@ TEST_P(ShapeAgnosticOrNormalFlowTest, ConvReluRelu) {
 }
 
 TEST_F(ShapeAgnosticTest, ScalarAdd) {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({3, 3, 3}, torch::dtype(torch::kFloat))
                           .to(torch::dtype(torch::kLong));
@@ -234,7 +234,7 @@ TEST_F(ShapeAgnosticTest, ScalarAdd) {
 TEST_F(ShapeAgnosticTest, ResizeZST) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
     for (auto i = 0; i < in_shapes.size(); i++) {
@@ -267,7 +267,7 @@ TEST_F(ShapeAgnosticTest, ResizeZST) {
 TEST_F(ShapeAgnosticTest, CopyD2HView) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
     for (auto i = 0; i < in_shapes.size(); i++) {
@@ -288,7 +288,7 @@ TEST_F(ShapeAgnosticTest, CopyD2HView) {
 TEST_F(ShapeAgnosticTest, CopyH2DView) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
     for (auto i = 0; i < in_shapes.size(); i++) {
@@ -311,7 +311,7 @@ TEST_F(ShapeAgnosticTest, CopyH2DView) {
 TEST_F(ShapeAgnosticTest, CopyD2DView) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
     for (auto i = 0; i < in_shapes.size(); i++) {
@@ -334,7 +334,7 @@ TEST_F(ShapeAgnosticTest, CopyD2DView) {
 TEST_F(ShapeAgnosticTest, CopyD2DOffsetView) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
     std::vector<int> in_offsets = {4, 8};
@@ -360,7 +360,7 @@ TEST_F(ShapeAgnosticTest, CopyD2DOffsetView) {
 TEST_F(ShapeAgnosticTest, AddView) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
     for (auto i = 0; i < in_shapes.size(); i++) {
@@ -382,7 +382,7 @@ TEST_F(ShapeAgnosticTest, AddView) {
 TEST_F(ShapeAgnosticTest, Gelu) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
     for (auto i = 0; i < in_shapes.size(); i++) {
@@ -403,7 +403,7 @@ TEST_F(ShapeAgnosticTest, Gelu) {
 TEST_F(ShapeAgnosticTest, GeluView) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {32, 64};
     for (auto i = 0; i < in_shapes.size(); i++) {
@@ -425,7 +425,7 @@ TEST_F(ShapeAgnosticTest, GeluView) {
 TEST_F(ShapeAgnosticTest, EqWithCast) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
     for (auto i = 0; i < in_shapes.size(); i++) {
@@ -447,7 +447,7 @@ TEST_F(ShapeAgnosticTest, EqWithCast) {
 TEST_F(ShapeAgnosticTest, EqWithCastView) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {16, 32};
     for (auto i = 0; i < in_shapes.size(); i++) {
@@ -472,7 +472,7 @@ TEST_F(ShapeAgnosticTest, EqWithCastView) {
 TEST_F(ShapeAgnosticTest, Div) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {0, 0};
     for (auto i = 0; i < in_shapes.size(); i++) {
@@ -493,7 +493,7 @@ TEST_F(ShapeAgnosticTest, Div) {
 TEST_F(ShapeAgnosticTest, DISABLED_DivView) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {256, 512};
     for (auto i = 0; i < in_shapes.size(); i++) {
@@ -521,7 +521,7 @@ TEST_F(ShapeAgnosticTest, DISABLED_DivView) {
 TEST_F(ShapeAgnosticTest, StridedPermute) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     std::vector<int> in_shapes = {32, 64};
     for (auto i = 0; i < in_shapes.size(); i++) {
@@ -549,7 +549,7 @@ TEST_F(ShapeAgnosticTest, StridedPermute) {
 TEST_F(ShapeAgnosticTest, StridedPermute2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   std::vector<std::vector<int64_t>> in_shapes{
       {1024, 1024}, {64, 16, 128, 64}, {64, 128, 16, 64}, {64, 16, 64, 128}};
   std::vector<std::vector<int64_t>> in_strides{
@@ -582,7 +582,7 @@ TEST_F(ShapeAgnosticTest, StridedPermute2) {
 TEST_F(ShapeAgnosticTest, StridedPermute3) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   std::vector<std::vector<int64_t>> in_shapes{
       {16, 32, 3, 5, 4}, {16, 32, 3, 5, 4}};
   std::vector<std::vector<int64_t>> in_strides{
@@ -603,7 +603,7 @@ TEST_F(ShapeAgnosticTest, StridedPermute3) {
 TEST_F(ShapeAgnosticTest, Zero) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   std::vector<int64_t> shapes{{32}, {64}};
   std::vector<std::vector<int64_t>> in_shapes{{4, 4}, {4, 4}};
   std::vector<std::vector<int64_t>> in_strides{{1, 4}, {1, 4}};
@@ -630,7 +630,7 @@ TEST_F(ShapeAgnosticTest, Zero) {
 TEST_F(ShapeAgnosticTest, Fill) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   std::vector<std::vector<int64_t>> shapes{{2, 3}, {4, 6}};
   if (device.type() == synDeviceGaudi2) {
     for (auto i = 0; i < shapes.size(); i++) {
@@ -649,7 +649,7 @@ TEST_F(ShapeAgnosticTest, Fill) {
 TEST_F(ShapeAgnosticTest, CatAddView) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   std::vector<int64_t> in_shapes{32, 48};
   std::vector<int64_t> offset{4, 8};
   if (device.type() == synDeviceGaudi2) {
@@ -697,7 +697,7 @@ TEST_F(ShapeAgnosticTest, CatAddView) {
 TEST_F(ShapeAgnosticTest, LayerNormForwardExecute) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     auto input_tensor =
         torch::randn((480), torch::dtype(torch::kFloat).requires_grad(false))
@@ -746,7 +746,7 @@ TEST_F(ShapeAgnosticTest, LayerNormForwardExecute) {
 TEST_F(ShapeAgnosticTest, LayerNormForwardExecute2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     auto input_tensor = torch::randn(
         {24, 384, 1024}, torch::dtype(torch::kFloat).requires_grad(false));

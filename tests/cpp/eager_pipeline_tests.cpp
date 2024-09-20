@@ -69,10 +69,9 @@ TEST_F(EagerPipelineTest, CompileError) {
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);
-  habana::hpu_registrar().get_device().compile_thread().enqueue(
-      CompileTask, true);
+  habana::HPUDeviceContext::compile_thread().enqueue(CompileTask, true);
   EXPECT_ANY_THROW(
-      habana::hpu_registrar().get_device().compile_thread().waitWorkComplete());
+      habana::HPUDeviceContext::compile_thread().waitWorkComplete());
   SET_ENV_FLAG_NEW(
       PT_HPU_THREAD_POOL_QUEUE_CAPACITY, default_queue_capacity_, 1);
 }
@@ -81,9 +80,9 @@ TEST_F(EagerPipelineTest, ExecError) {
   auto default_queue_capacity_ =
       GET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY);
   SET_ENV_FLAG_NEW(PT_HPU_THREAD_POOL_QUEUE_CAPACITY, 1, 1);
-  habana::hpu_registrar().get_device().execute_thread().enqueue(ExecTask, true);
+  habana::HPUDeviceContext::execute_thread().enqueue(ExecTask, true);
   EXPECT_ANY_THROW(
-      habana::hpu_registrar().get_device().execute_thread().waitWorkComplete());
+      habana::HPUDeviceContext::execute_thread().waitWorkComplete());
   SET_ENV_FLAG_NEW(
       PT_HPU_THREAD_POOL_QUEUE_CAPACITY, default_queue_capacity_, 1);
 }

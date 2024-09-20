@@ -21,7 +21,7 @@
 #include <structmember.h>
 
 #include "Stream.h"
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUDevice.h"
 
 // namespace hpu {
 
@@ -72,19 +72,17 @@ static PyObject* THP_HPU_Stream_pynew(
         priority == 0, "Priority was explicitly set for a external stream")
   }
 
-  const auto current_device = habana::HPURegistrar::get_device().id();
+  const auto current_device = habana::HPUDeviceContext::get_device().id();
 
   auto stream = is_default_stream ? c10::hpu::getDefaultHPUStream(device_index)
-                                  : (stream_id || device_index)
-          ? c10::hpu::HPUStream::unpack3(
-                stream_id,
-                device_index,
-                static_cast<c10::DeviceType>(device_type))
-          : stream_ptr
-              ? at::hpu::getStreamByStreamPtr(
-                    reinterpret_cast<synapse_helpers::hpuStream_t>(stream_ptr),
-                    current_device)
-              : c10::hpu::getStreamFromPool((priority < 0), device_index);
+      : (stream_id || device_index)
+      ? c10::hpu::HPUStream::unpack3(
+            stream_id, device_index, static_cast<c10::DeviceType>(device_type))
+      : stream_ptr
+      ? at::hpu::getStreamByStreamPtr(
+            reinterpret_cast<synapse_helpers::hpuStream_t>(stream_ptr),
+            current_device)
+      : c10::hpu::getStreamFromPool((priority < 0), device_index);
 
   THP_HPU_Stream* self = (THP_HPU_Stream*)ptr.get();
   self->stream_id = static_cast<int64_t>(stream.id());

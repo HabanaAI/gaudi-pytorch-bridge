@@ -49,7 +49,7 @@ void* get_hb_lazy_data_ptr(HbLazyTensor& hb_tensor) {
 // Live tensor collection is not allowed if the launch thread execution is
 // in progress.
 const std::pair<uint64_t, uint32_t> get_future_memory() {
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto context = habana_lazy::get_device_lazy_execution_context();
 
   if (context == nullptr || context->m_launch_thread_handle.valid() == true ||
@@ -58,7 +58,7 @@ const std::pair<uint64_t, uint32_t> get_future_memory() {
     return std::make_pair<uint64_t, uint32_t>(0, 0);
   }
 
-  auto aten_device = device.aten_device();
+  auto aten_device = habana::HPUDeviceContext::aten_device();
 
   uint32_t future = 0;
   uint64_t future_bytes = 0;
@@ -104,7 +104,7 @@ void log_dev_mem_stats(
     ss << ", size " << size / GB << "gb";
   }
 
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto& device_memory = device.get_device_memory();
   if (device_memory.get_pool_strategy() !=
       synapse_helpers::pool_allocator::strategy_none) {
@@ -125,8 +125,7 @@ void log_dev_mem_stats(
     ss << " future " << future.first / GB << "gb (" << future.second << ")";
   }
 
-  ss << ", last workspace "
-     << device.syn_device().get_real_workspace_size() / GB << "gb";
+  ss << ", last workspace " << device.get_real_workspace_size() / GB << "gb";
 
   PT_MEMLOG_DEBUG(ss.str());
 }

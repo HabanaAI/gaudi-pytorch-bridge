@@ -53,7 +53,7 @@ class EagerViewOpsTest : public habana_lazy_test::LazyTest {
 TEST_F(EagerViewOpsTest, AddOnAsStrided1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({3, 3});
     auto hA = A.to(torch::kHPU);
@@ -74,7 +74,7 @@ TEST_F(EagerViewOpsTest, AddOnAsStrided1) {
 TEST_F(EagerViewOpsTest, AddOnAsStrided2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({3, 3});
     auto hA = A.to(torch::kHPU);
@@ -103,7 +103,7 @@ TEST_F(EagerViewOpsTest, AddOnAsStrided2) {
 TEST_F(EagerViewOpsTest, AddOnAsStrided3) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({3, 3});
     auto hA = A.to(torch::kHPU);
@@ -140,7 +140,7 @@ TEST_F(EagerViewOpsTest, AddOnAsStrided3) {
 TEST_F(EagerViewOpsTest, AddOnView1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({4});
     auto B = A.view({2, 2});
@@ -156,7 +156,7 @@ TEST_F(EagerViewOpsTest, AddOnView1) {
 TEST_F(EagerViewOpsTest, AddOnView2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({6});
     auto B = A.view({2, 3});
@@ -174,7 +174,7 @@ TEST_F(EagerViewOpsTest, AddOnView2) {
 TEST_F(EagerViewOpsTest, AddOnView3) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({6});
     auto B = A.view({2, 3});
@@ -192,7 +192,7 @@ TEST_F(EagerViewOpsTest, AddOnView3) {
 TEST_F(EagerViewOpsTest, DISABLED_AddMmOnView1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({1000});
     torch::Tensor B = torch::randn({256, 2048, 1, 1});
@@ -218,7 +218,7 @@ TEST_F(EagerViewOpsTest, DISABLED_AddMmOnView1) {
 TEST_F(EagerViewOpsTest, DISABLED_AddMmOnView2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({1000});
     torch::Tensor B = torch::randn({256, 2048, 1, 1});
@@ -248,7 +248,7 @@ TEST_F(EagerViewOpsTest, DISABLED_AddMmOnView2) {
 TEST_F(EagerViewOpsTest, DISABLED_AddMmInPlace1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({256, 1000});
     torch::Tensor B = torch::randn({256, 2048, 1, 1});
@@ -273,7 +273,7 @@ TEST_F(EagerViewOpsTest, DISABLED_AddMmInPlace1) {
 TEST_F(EagerViewOpsTest, DISABLED_AddMmInPlace2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({256, 1000});
     torch::Tensor B = torch::randn({256, 2048, 1, 1});
@@ -316,7 +316,7 @@ TEST_F(EagerViewOpsTest, DISABLED_AddMmInPlace2) {
 TEST_F(EagerViewOpsTest, AddOnAsStridedInPlace1) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({3, 3});
     auto hA = A.to(torch::kHPU);
@@ -337,7 +337,7 @@ TEST_F(EagerViewOpsTest, AddOnAsStridedInPlace1) {
 TEST_F(EagerViewOpsTest, AddOnAsStridedInPlace2) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     torch::Tensor A = torch::randn({3, 3});
     auto hA = A.to(torch::kHPU);
@@ -372,7 +372,7 @@ TEST_F(EagerViewOpsTest, AddOnAsStridedInPlace2) {
 TEST_F(EagerViewOpsTest, RReLUAsStridedInPlace) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   if (device.type() == synDeviceGaudi2) {
     float lower = 0.1;
     float upper = 0.9;

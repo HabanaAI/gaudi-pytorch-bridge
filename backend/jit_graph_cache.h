@@ -118,7 +118,7 @@ using CValPtrMap =
 using CValPtrtoIValueMap = std::unordered_map<CValPtr, torch::jit::IValue>;
 
 inline bool is_eager_caching_supported() {
-  return ((habana::HPURegistrar::get_device().type() == synDeviceGaudi) &&
+  return ((habana::HPUDeviceContext::get_device().type() == synDeviceGaudi) &&
           GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) ||
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_CACHE);
 }

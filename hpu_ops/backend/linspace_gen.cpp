@@ -98,12 +98,13 @@ void LinspaceOut::AddNode(
       auto guid = get_guid_with_precision("range", dtype);
       std::vector<synTensor> syn_inputs;
       if (dtype == c10::ScalarType::Float &&
-        habana::HPURegistrar::get_device().type() != synDeviceType::synDeviceGaudi) {
-         guid = "linspace_f32";
-         if (stack.at(0).isTensor() && stack.at(1).isTensor()){
+          habana::HPUDeviceContext::get_device().type() !=
+              synDeviceType::synDeviceGaudi) {
+        guid = "linspace_f32";
+        if (stack.at(0).isTensor() && stack.at(1).isTensor()) {
           syn_inputs.emplace_back(syn_in(0));
           syn_inputs.emplace_back(syn_in(1));
-         }
+        }
          auto linspaceParams = std::make_shared<ns_LinspaceKernel::Params>();
          linspaceParams->start = start;
          linspaceParams->end = end;

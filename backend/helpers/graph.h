@@ -12,7 +12,7 @@
  */
 #pragma once
 
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/synapse_helpers/device.h"
 #include "backend/synapse_helpers/graph.h"
 #include "habana_helpers/logging.h"
@@ -23,8 +23,7 @@ static inline synapse_helpers::graph create_graph(
     std::string name,
     bool dry_run = false,
     bool eager_mode = false) {
-  auto& device = habana::HPURegistrar::get_device(device_id);
-  return synapse_helpers::graph::create(
-      device.syn_device(), name, dry_run, eager_mode);
+  auto& device = habana::HPUDeviceContext::get_device(device_id);
+  return synapse_helpers::graph::create(device, name, dry_run, eager_mode);
 }
 } // namespace habana_helpers

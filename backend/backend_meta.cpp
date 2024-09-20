@@ -32,8 +32,11 @@
 namespace habana {
 
 TensorExtraMeta::~TensorExtraMeta() {
+  if (!HPUDeviceContext::is_device_acquired())
+    return;
+
   if (get_host_ptr()) {
-    auto& device = HPURegistrar::get_device();
+    auto& device = HPUDeviceContext::get_device();
     device.get_host_memory().free(get_host_ptr());
     device.get_host_memory().free(get_compile_host_ptr());
   }
@@ -44,7 +47,7 @@ void TensorExtraMeta::set_host_data(
     int size,
     int el_size,
     HostDataType dt_type) {
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPUDeviceContext::get_device();
   id_ = device.id();
   int total_elem = 2 * size * el_size;
   int data_size = size * el_size;
@@ -112,7 +115,7 @@ void TensorExtraMeta::set_const_tensor(
       " is_const_tensor_ : ",
       is_const_tensor);
   if (is_const_tensor && (tmeta->get_host_ptr() == nullptr)) {
-    auto& device = HPURegistrar::get_device();
+    auto& device = HPUDeviceContext::get_device();
     void* host_ptr{};
     auto size = tensor.numel() * tensor.itemsize();
     auto status = device.get_host_memory().malloc(&host_ptr, size);
@@ -126,7 +129,7 @@ void TensorExtraMeta::set_const_tensor(
           tmeta->get_host_ptr(), tmeta->get_host_size(), tmeta->get_const_id());
     } else {
       std::atomic<bool> copyDone{false};
-      device.copy_data_to_host(
+      HPUDeviceContext::copy_data_to_host(
           reinterpret_cast<synapse_helpers::device_ptr>(tensor.data_ptr()),
           tmeta->get_host_ptr(),
           reinterpret_cast<synapse_helpers::device_ptr>(

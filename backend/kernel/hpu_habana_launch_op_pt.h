@@ -682,7 +682,7 @@ class HabanaLaunchOpPT {
 
   std::shared_ptr<RecipeHolder> GetCachedRecipe(
       std::shared_ptr<RecipeArgumentSpec>& spec_key) {
-    auto rh{hpu_registrar().get_device().recipe_cache().get(spec_key)};
+    auto rh{HPUDeviceContext::recipe_cache().get(spec_key)};
     if (nullptr != rh && nullptr == rh->rvs_->jit_graph_) {
       rh->rvs_->jit_graph_ = jit_ir_graph_;
     }

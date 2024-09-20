@@ -251,7 +251,7 @@ class LazyDynamicTest : public LazyTest {
   void SetUp() override {
     SetDynamicMode();
     DisableDynamicPassFallback();
-    habana::hpu_registrar().get_device().recipe_cache().clear();
+    habana::HPUDeviceContext::recipe_cache().clear();
     LazyTest::SetUp();
   }
 

@@ -16,7 +16,7 @@
 bool IsDtypeSupportedOnCurrentDevice(torch::ScalarType dtype) {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   switch (device.type()) {
     case synDeviceGaudi:
       switch (dtype) {

@@ -13,9 +13,9 @@
 
 #pragma once
 
-#include <memory>
-
 #include <c10/util/intrusive_ptr.h>
+#include <memory>
+#include "backend/habana_device/hpu_cached_devices.h"
 
 namespace c10d {
 

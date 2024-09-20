@@ -61,7 +61,7 @@ class ScatterAddOpTest : public HpuOpTestUtil,
   void SetUp() override {
     DisableCpuFallback();
     TearDownBridge();
-    auto& hpuGConfig = habana::HPURegistrar::get_hpu_global_config();
+    auto& hpuGConfig = habana::HPUGlobalConfig::get();
     auto& torchGConfig = at::globalContext();
     deterministicTorchOldValue = torchGConfig.deterministicAlgorithms();
     hpuGConfig.setDeterministic(shapeInfo.deterministic);

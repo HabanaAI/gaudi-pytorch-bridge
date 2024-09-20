@@ -13,8 +13,8 @@
 #include <ATen/Tensor.h>
 #include <synapse_common_types.h>
 #include <torch/extension.h>
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUStream.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/helpers/event_dispatcher.h"
 #include "backend/helpers/tensor_info.h"
 #include "backend/synapse_helpers/device.h"
@@ -25,7 +25,7 @@ intptr_t GetDataPtr(const at::Tensor& t) {
 
   if (data_ptr) {
     size_t device_id = t.device().index();
-    auto& device = habana::HPURegistrar::get_device(device_id).syn_device();
+    auto& device = habana::HPUDeviceContext::get_device(device_id);
 
     auto address = reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
     return reinterpret_cast<intptr_t>(address);
@@ -43,10 +43,10 @@ void SetProfilerTracerMemory(const uint32_t device_id) {
 
   if (bytes_req > 0) {
     void* data_ptr{nullptr};
-    auto& device = habana::HPURegistrar::get_device(device_id);
+    auto& device = habana::HPUDeviceContext::get_device(device_id);
     device.get_device_memory().malloc(&data_ptr, bytes_req);
-    auto user_buff = reinterpret_cast<void*>(
-        device.syn_device().get_fixed_address(data_ptr));
+    auto user_buff =
+        reinterpret_cast<void*>(device.get_fixed_address(data_ptr));
     status = synProfilerSetUserBuffer(device_id, user_buff);
     if (status != synSuccess) {
       std::cerr << "synProfilerSetUserBuffer failed" << std::endl;
@@ -67,7 +67,7 @@ void RecordParam(
     const bool is_optim_state,
     const uint64_t t_start,
     const uint64_t t_size) {
-  auto& device = habana::HPURegistrar::get_device().syn_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   device.record_param(
       name, is_param, is_grad, is_optim_state, t_start, t_start + t_size);
 }
@@ -81,7 +81,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       [](const at::Tensor& t) { return GetDataPtr(t); },
       py::arg("t"));
   m.def("compute_stream", []() {
-    auto& d = habana::HPURegistrar::get_device().syn_device();
+    auto& d = habana::HPUDeviceContext::get_device();
     auto hpu_stream = c10::hpu::getDefaultHPUStream(d.id());
     void* stream = (void*)d.get_stream(hpu_stream.id());
     return reinterpret_cast<uintptr_t>(stream);
@@ -123,7 +123,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       .export_values();
 
   m.def("reset_device_memory", []() {
-    auto& device = habana::HPURegistrar::get_device().syn_device();
+    auto& device = habana::HPUDeviceContext::get_device();
     device.cleanup_workspace_buffer();
     device.get_device_memory().reset_pool();
     habana_helpers::EventDispatcher::Instance().unsubscribe_all();

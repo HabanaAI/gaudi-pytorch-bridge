@@ -105,7 +105,7 @@ bool recomputeBatchnormParams(
   int co = sizes.at(0);
   // std::cout << "co size: " << co << std::endl << std::flush;
 
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto device_id = device.id();
   auto bytes = co * sizeof(float);
 
@@ -182,7 +182,7 @@ void* GetDataInHostBuffer(
           auto tmeta{habana::get_tensor_extra_meta(tensor)};
           host_ptr = tmeta->get_host_ptr();
           if (host_ptr == nullptr) {
-            auto& device = habana::HPURegistrar::get_device();
+            auto& device = habana::HPUDeviceContext::get_device();
             auto device_id = device.id();
             auto size_in_bytes = habana_helpers::GetNBytes(tensor);
             // std::cout << "[GetDataInHostBuffer] [" << idx << "]
@@ -192,7 +192,7 @@ void* GetDataInHostBuffer(
                 status == synStatus::synSuccess,
                 Logger::synStatusToStr(status));
             std::atomic<bool> copyDone{false};
-            device.copy_data_to_host(
+            habana::HPUDeviceContext::copy_data_to_host(
                 reinterpret_cast<synapse_helpers::device_ptr>(
                     tensor.data_ptr()),
                 (void*)host_ptr,
@@ -222,7 +222,7 @@ void* GetDataInHostBuffer(
         auto tmeta{habana::get_tensor_extra_meta(tensor)};
         host_ptr = tmeta->get_host_ptr();
         if (host_ptr == nullptr) {
-          auto& device = habana::HPURegistrar::get_device();
+          auto& device = habana::HPUDeviceContext::get_device();
           auto device_id = device.id();
           auto size_in_bytes = habana_helpers::GetNBytes(tensor);
           // std::cout << "[GetDataInHostBuffer] [" << idx << "] size_in_bytes:
@@ -231,7 +231,7 @@ void* GetDataInHostBuffer(
           HABANA_ASSERT(
               status == synStatus::synSuccess, Logger::synStatusToStr(status));
           std::atomic<bool> copyDone{false};
-          device.copy_data_to_host(
+          habana::HPUDeviceContext::copy_data_to_host(
               reinterpret_cast<synapse_helpers::device_ptr>(tensor.data_ptr()),
               (void*)host_ptr,
               reinterpret_cast<synapse_helpers::device_ptr>(
@@ -268,14 +268,13 @@ void UpdateDataInDeviceMem(
     tensor = stack[index].toTensor();
   }
 
-  auto& device = habana::HPURegistrar::get_device();
   auto size_in_bytes = habana_helpers::GetNBytes(tensor);
   // std::cout << "[UpdateDataInDeviceMem] [" << idx << "] size_in_bytes: " <<
   // size_in_bytes << std::endl << std::flush;
 
   torch::jit::WithInsertPoint guard(node);
   std::atomic<bool> copyDone{false};
-  device.copy_data_to_device(
+  habana::HPUDeviceContext::copy_data_to_device(
       (void*)host_ptr,
       reinterpret_cast<synapse_helpers::device_ptr>(tensor.data_ptr()),
       reinterpret_cast<synapse_helpers::device_ptr>(

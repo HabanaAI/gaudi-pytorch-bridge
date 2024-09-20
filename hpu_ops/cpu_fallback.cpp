@@ -94,7 +94,7 @@ void cpu_fallback(const c10::OperatorHandle& op, torch::jit::Stack* stack) {
       habana_helpers::EventDispatcher::Topic::CPU_FALLBACK,
       habana_helpers::EventDispatcher::EventParams({{"op_name", op_name}}));
 
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPUDeviceContext::get_device();
 
   habana_lazy::HbExecutionContext* context =
       habana_lazy::get_device_lazy_execution_context(device.id());

@@ -1533,7 +1533,7 @@ class LazyOp {
 
     optimized_key = at::hash_combine(
         optimized_key,
-        habana::HPURegistrar::get_hpu_global_config().getDeterministic() ||
+        habana::HPUGlobalConfig::get().getDeterministic() ||
             at::globalContext().deterministicAlgorithms());
 
     std::unordered_set<size_t> input_hash_values;

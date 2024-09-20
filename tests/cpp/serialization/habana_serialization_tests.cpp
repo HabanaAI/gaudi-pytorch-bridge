@@ -116,17 +116,16 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest1) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) {
     GTEST_SKIP();
   }
-  hpu_registrar().get_device().recipe_cache().ResetDiskCache();
+  HPUDeviceContext::recipe_cache().ResetDiskCache();
   // make sure dir is empty.
   if (fs::exists(fs::path(getCachePath()))) {
     removeFiles(getCachePath().c_str());
     size_t cache_size = 0;
     bool dropped = false;
     do {
-      dropped =
-          hpu_registrar().get_device().recipe_cache().drop_lru(cache_size);
+      dropped = HPUDeviceContext::recipe_cache().drop_lru(cache_size);
     } while (cache_size > 0 && dropped);
-    HABANA_ASSERT(hpu_registrar().get_device().recipe_cache().empty());
+    HABANA_ASSERT(HPUDeviceContext::recipe_cache().empty());
   }
 
   torch::Tensor originalRecipe = {};
@@ -136,7 +135,7 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest1) {
   for (int i = 0; i < 5; i++) {
     int recipe_no = i % 4;
     if (recipe_no == 0) {
-      hpu_registrar().get_device().recipe_cache().clear();
+      HPUDeviceContext::recipe_cache().clear();
     }
     auto in =
         torch::randn({64, 4, 28, 28}, torch::dtype(torch::kFloat)); // nchw
@@ -165,7 +164,7 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest1) {
     habana_lazy::HbLazyTensor::StepMarker({});
 
     // ensure that disk cache thread stored recipes on disk
-    hpu_registrar().get_device().recipe_cache().FlushDiskCache();
+    HPUDeviceContext::recipe_cache().FlushDiskCache();
 
     int recipe_files_count = getFilesCount(getCachePath().c_str(), ".recipe");
     if (i < 4) {
@@ -179,24 +178,23 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest1) {
   auto res2 = deserializedRecipe.to(torch::kCPU);
   auto res1 = originalRecipe.to(torch::kCPU);
   EXPECT_EQ(allclose(res1, res2), true);
-  hpu_registrar().get_device().recipe_cache().DeleteDiskCache();
+  HPUDeviceContext::recipe_cache().DeleteDiskCache();
 }
 
 TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
   if (!GET_ENV_FLAG_NEW(PT_HPU_PGM_ENABLE_CACHE)) {
     GTEST_SKIP();
   }
-  hpu_registrar().get_device().recipe_cache().ResetDiskCache();
+  HPUDeviceContext::recipe_cache().ResetDiskCache();
   // make sure dir is empty.
   if (fs::exists(fs::path(getCachePath()))) {
     removeFiles(getCachePath().c_str());
     size_t cache_size = 0;
     bool dropped = false;
     do {
-      dropped =
-          hpu_registrar().get_device().recipe_cache().drop_lru(cache_size);
+      dropped = HPUDeviceContext::recipe_cache().drop_lru(cache_size);
     } while (cache_size > 0 && dropped);
-    HABANA_ASSERT(hpu_registrar().get_device().recipe_cache().empty());
+    HABANA_ASSERT(HPUDeviceContext::recipe_cache().empty());
   }
   torch::Tensor originalRecipe = {};
   torch::Tensor deserializedRecipe = {};
@@ -214,25 +212,25 @@ TEST_F(HabanaSerializationRecipeTest, serializeDeserializeRecipeTest2) {
     habana_lazy::HbLazyTensor::StepMarker({});
 
     // ensure that disk cache thread stored recipes on disk
-    hpu_registrar().get_device().recipe_cache().FlushDiskCache();
+    HPUDeviceContext::recipe_cache().FlushDiskCache();
 
     int recipe_files_count = getFilesCount(getCachePath().c_str(), ".recipe");
     if (i == 0) {
       originalRecipe = result;
       size_t one = 1;
-      hpu_registrar().get_device().recipe_cache().drop_lru(one);
-      HABANA_ASSERT(hpu_registrar().get_device().recipe_cache().empty());
+      HPUDeviceContext::recipe_cache().drop_lru(one);
+      HABANA_ASSERT(HPUDeviceContext::recipe_cache().empty());
       HABANA_ASSERT(recipe_files_count == 1);
     } else if (i == 1) {
       deserializedRecipe = result;
-      HABANA_ASSERT(!hpu_registrar().get_device().recipe_cache().empty());
+      HABANA_ASSERT(!HPUDeviceContext::recipe_cache().empty());
       HABANA_ASSERT(recipe_files_count == 1);
     }
   }
   auto res2 = deserializedRecipe.to(torch::kCPU);
   auto res1 = originalRecipe.to(torch::kCPU);
   EXPECT_EQ(allclose(res1, res2), true);
-  hpu_registrar().get_device().recipe_cache().DeleteDiskCache();
+  HPUDeviceContext::recipe_cache().DeleteDiskCache();
 }
 
 TEST(HabanaSerializationTest, CharArrayTest) {

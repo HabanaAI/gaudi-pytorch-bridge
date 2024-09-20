@@ -17,8 +17,8 @@
 #include <torch/csrc/utils/pycfunction_helpers.h>
 
 #include "Module.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUStream.h"
-#include "backend/habana_device/hpu_cached_devices.h"
 
 PyObject* THP_HPU_Module_getCurrentStream_wrap(
     [[maybe_unused]] PyObject* self,
@@ -104,7 +104,8 @@ PyObject* THP_HPU_Module_getStreamInfo_wrap(
       static_cast<c10::DeviceType>(device_type));
 
   TORCH_CHECK(
-      stream.device_index() == (int64_t)habana::HPURegistrar::get_device().id(),
+      stream.device_index() ==
+          (int64_t)habana::HPUDeviceContext::get_device().id(),
       "getStreamInfo invalid device_index");
   PyObject* output_tuple = PyTuple_New(2);
   PyTuple_SetItem(output_tuple, 0, THPDevice_New(stream.device()));
@@ -142,7 +143,8 @@ PyObject* THP_HPU_Module_setStream_wrap(
       static_cast<c10::DeviceType>(device_type));
 
   TORCH_CHECK(
-      stream.device_index() == (int64_t)habana::HPURegistrar::get_device().id(),
+      stream.device_index() ==
+          (int64_t)habana::HPUDeviceContext::get_device().id(),
       "setStream invalid device_index");
 
   c10::hpu::setCurrentHPUStream(stream);

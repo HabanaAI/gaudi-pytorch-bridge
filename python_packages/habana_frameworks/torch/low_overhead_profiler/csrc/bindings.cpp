@@ -11,7 +11,7 @@
  *******************************************************************************
  */
 #include <torch/extension.h>
-#include "backend/habana_device/hpu_cached_devices.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/synapse_helpers/env_flags.h"
 #include "pybind11/stl.h"
 #include "synapse_api.h"
@@ -24,7 +24,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_LOP_TRACES_COLLECTION, true, 1);
   });
   m.def("_stop_lo_host_profiler", []() {
-    habana::HPURegistrar::synchronize_host_multistage_pipeline();
+    habana::HPUDeviceContext::synchronize_host_multistage_pipeline();
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_LOP_METRICS_COLLECTION, false, 1);
     SET_ENV_FLAG_NEW(PT_HPU_ENABLE_LOP_TRACES_COLLECTION, false, 1);
   });

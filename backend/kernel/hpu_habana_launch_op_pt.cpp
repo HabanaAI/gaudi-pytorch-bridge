@@ -25,6 +25,7 @@
 #include <sstream>
 #include <unordered_map>
 #include "backend/backend_meta.h"
+#include "backend/habana_device/hpu_cached_devices.h"
 #include "backend/habana_device/tensor_builder.h"
 #include "backend/helpers/compilation_statistics.h"
 #include "backend/helpers/create_tensor.h"
@@ -80,7 +81,7 @@ class PipelineCall : public PipelineCallBase {
     return is_called_;
   }
   void compile_sync() override {
-    hpu_registrar().get_device().compile_thread().waitWorkComplete();
+    HPUDeviceContext::compile_thread().waitWorkComplete();
   }
 
  private:
@@ -107,11 +108,11 @@ void LoweringTask(
     return;
   }
 
-  hpu_registrar().get_device().compile_thread().enqueue(
+  HPUDeviceContext::compile_thread().enqueue(
       HabanaLaunchOpPipeline::CompileSynapseTask, std::move(launch_op));
 
   if (sync_with_compile_stage)
-    hpu_registrar().get_device().compile_thread().waitWorkComplete();
+    HPUDeviceContext::compile_thread().waitWorkComplete();
 }
 } // namespace HabanaLaunchOpPipeline
 
@@ -129,13 +130,12 @@ std::unordered_set<std::string>& HabanaLaunchOpPT::disabled_jit_ir_ops() {
 void HabanaLaunchOpPT::cleanUp() {
   ref_input_shape_map() = {};
   DynamicBucketInfoMap::get_instance().clear();
-  if (habana::hpu_registrar().is_initialized())
-    hpu_registrar().get_device().recipe_cache().clear();
+  HPUDeviceContext::recipe_cache_clear();
 }
 
 bool dropCachedRecipe_LRU(size_t& recipe_count) {
   bool dropped{false};
-  dropped = hpu_registrar().get_device().recipe_cache().drop_lru(recipe_count);
+  dropped = HPUDeviceContext::recipe_cache().drop_lru(recipe_count);
   return dropped;
 }
 
@@ -214,7 +214,7 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   enable_caching_ = enable_graph_caching_ || enable_eager_caching_;
 
   // Eager compiler is supported for Gaudi2 device.
-  const auto& device = HPURegistrar::get_device();
+  const auto& device = HPUDeviceContext::get_device();
   const bool is_eager_compiler_enabled = device.type() != synDeviceGaudi &&
       jit_graph_and_meta_data_->get_is_eager_compiler_supported() &&
       GET_ENV_FLAG_NEW(PT_HPU_ENABLE_EAGER_COMPILER);
@@ -1059,7 +1059,7 @@ void HabanaLaunchOpPT::create_duplicate_syn_tensor(
             .mark_persistence(true)
             .with_memory_section(syn_tensor_input.memorysection())
             .build(
-                HPURegistrar::get_device(tensor->device().index()).syn_device(),
+                HPUDeviceContext::get_device(tensor->device().index()),
                 syn_tensor_input.graph());
 
     meta_syn_tensors_.push_back(
@@ -2806,7 +2806,7 @@ void HabanaLaunchOpPT::HandleOutputExprMappedJITGraph(
     RecipeValueSpec& rv,
     SynBuildCache& syn_build_cache) {
   PT_DYNAMIC_SHAPE_DEBUG("Running HandleOutputExprMappedJITGraph");
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPUDeviceContext::get_device();
   synDeviceId device_id = device.id();
   CreateORUpdateExprSymbolicTable(&rv);
   ResetIShapeUpdateStatus(rv);
@@ -2933,7 +2933,7 @@ void HabanaLaunchOpPT::BuildSynapseGraph(
       syn_build_cache.clear_cached_graph_info();
   });
 
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPUDeviceContext::get_device();
   synDeviceId device_id = device.id();
   synapse_helpers::detail::tensor_name_generator::reset();
   syn_graph_ptr_ = syn_graph;
@@ -3990,7 +3990,7 @@ void HabanaLaunchOpPT::InitiateSynlaunchTimeCapture(RecipeLauncher& rv) {
   PT_BRIDGE_BEGIN;
   // Initiate recipe execution time collection
   if (current_dbipsh_->NeedRunTimeSlot(current_bucket_id_)) {
-    rv.time_slot_ = HPURegistrar::get_device().create_time_slot(hpu_stream_);
+    rv.time_slot_ = HPUDeviceContext::create_time_slot(hpu_stream_);
     if (rv.time_slot_) {
       current_dbipsh_->RegisterTimeSlot(rv.time_slot_, current_bucket_id_);
     }
@@ -4009,9 +4009,9 @@ void HabanaLaunchOpPT::EvictSynapseRecipe(size_t& dsi_bucket_id) {
       dropped = dropCachedRecipe_LRU(num_recipes);
       if (dropped) {
         auto dropped_arg =
-            hpu_registrar().get_device().recipe_cache().dropped_recipe.first;
+            HPUDeviceContext::recipe_cache().dropped_recipe.first;
         auto dropped_val =
-            hpu_registrar().get_device().recipe_cache().dropped_recipe.second;
+            HPUDeviceContext::recipe_cache().dropped_recipe.second;
         // Update the eviction threshold left after removing this recipe
         eviction_threshold_left -=
             dropped_val->rl_->recipe_->get_recipe_host_mem_size();
@@ -4850,7 +4850,7 @@ void HabanaLaunchOpPT::run(
   allocated_outputs_ = std::move(allocated_outputs);
 
   dry_run_ = dry_run;
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPUDeviceContext::get_device();
 
   // Check whether dynamic shape is needed
   graph_key_with_perm_ = graph_key_;
@@ -4902,9 +4902,7 @@ void HabanaLaunchOpPT::run(
           op_strs_,
           graph_symint_hash_,
           graph_perm_hash_);
-      auto& device = habana::HPURegistrar::get_device();
-      auto context =
-          habana_lazy::get_device_lazy_execution_context(device.id());
+      auto context = habana_lazy::get_device_lazy_execution_context();
 
       if ((context->getCapturing() &&
            (GET_ENV_FLAG_NEW(PT_HPU_DISABLE_HPUGRAPH_REPLAY_HASHCHECK)))) {
@@ -5462,12 +5460,11 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
         m_map_shape.m_max_shapes);
   }
 
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPUDeviceContext::get_device();
   std::string graphName{GetSynapseGraphName()};
 
   auto syn_graph = std::make_shared<synapse_helpers::graph>(
-      synapse_helpers::graph::create_for_refinement(
-          device.syn_device(), name_));
+      synapse_helpers::graph::create_for_refinement(device, name_));
 
   std::shared_ptr<synapse_helpers::graph::recipe_handle> recipe;
   auto rvs = std::make_shared<RecipeValueSpec>(jit_ir_graph_);
@@ -5515,7 +5512,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
   rvs->set_op_strs(cur_rargpsh_->get_op_strs());
   recipe_launcher_ = std::make_unique<RecipeLauncher>(*rvs, recipe);
   auto recipe_holder = std::make_shared<RecipeHolder>(recipe_launcher_, rvs);
-  hpu_registrar().get_device().recipe_cache().add(cur_rargpsh_, recipe_holder);
+  HPUDeviceContext::recipe_cache().add(cur_rargpsh_, recipe_holder);
   DynamicBucketInfoMap::get_instance().add(cur_rargpsh_, current_dbipsh_);
 
   new_recipe_key = cur_rargpsh_->hashCode();
@@ -5538,7 +5535,7 @@ void HabanaLaunchOpPT::CompileGraphWithRange(
 
 void HabanaLaunchOpPT::run_pass() {
   PT_BRIDGE_BEGIN;
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPUDeviceContext::get_device();
 
   //
   // Run the compile and execute method to infer the shapes
@@ -5785,7 +5782,7 @@ void HabanaLaunchOpPT::handle_pass_exception(
 void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
     DynamicShapeInfo& graph_input_info,
     HabanaLaunchOpPipeline::PipelineCallBase& pipeline_execution) {
-  auto& device = HPURegistrar::get_device();
+  auto& device = HPUDeviceContext::get_device();
   habana_helpers::CompilationPass last_compilation_pass =
       habana_helpers::CompilationPass::STATIC;
   // If both min and max exists then the graph is dynamic

@@ -22,7 +22,7 @@ namespace habana {
 namespace HabanaLaunchOpPipeline {
 void CompileSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
   auto compile_queue_length =
-      hpu_registrar().get_device().compile_thread().get_active_task_count();
+      HPUDeviceContext::compile_thread().get_active_task_count();
   LOP::emit_event_fast(
       true,
       "EagerCompileTask()",
@@ -36,11 +36,11 @@ void CompileSynapseTask(std::unique_ptr<habana::HabanaLaunchOpPT>&& launch_op) {
   auto jit_cache_hit_count_for_event =
       launch_op->get_jit_graph_cache_hit_count();
 
-  hpu_registrar().get_device().execute_thread().enqueue(
+  HPUDeviceContext::execute_thread().enqueue(
       HabanaLaunchOpPipeline::ExecuteSynapseTask, std::move(launch_op));
 
   if (sync_with_execute_stage)
-    hpu_registrar().get_device().execute_thread().waitWorkComplete();
+    HPUDeviceContext::execute_thread().waitWorkComplete();
 
   LOP::emit_event_fast(
       false,

@@ -22,6 +22,7 @@
 //clang-format on
 #include <tuple>
 #include "backend/habana_device/HPUAllocator.h"
+#include "backend/habana_device/HPUDevice.h"
 #include "backend/habana_device/HPUGraph.h"
 #include "backend/habana_device/HPUGuardImpl.h"
 #include "backend/helpers/runtime_config.h"
@@ -40,7 +41,7 @@ using namespace c10::hpu;
 void hpu_init() {
   habana::HABANAGuardImpl device_guard;
   device_guard.getDevice();
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   device.get_count_by_current_type();
   // later will add device properties here.
 }
@@ -49,7 +50,7 @@ const std::string get_device_name([[maybe_unused]] int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
-  return habana::HPURegistrar::get_device().name();
+  return habana::HPUDeviceContext::get_device().name();
 }
 
 /* clang-format off */
@@ -59,7 +60,7 @@ const synapse_helpers::MemoryStats get_mem_stat(
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   synapse_helpers::MemoryStats stats;
   device.get_device_memory().get_memory_stats(&stats);
   return stats;
@@ -69,7 +70,7 @@ const std::string get_hlml_shared_object_name([[maybe_unused]] int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   auto& device_memory = device.get_device_memory();
   auto hlml_reporter = device_memory.get_hlml_memory_reporter();
   if (hlml_reporter) {
@@ -82,7 +83,7 @@ void reset_peak_memory_stats([[maybe_unused]] int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   device.get_device_memory().reset_peak_memory_stats();
 }
 
@@ -90,7 +91,7 @@ void clear_memory_stats([[maybe_unused]] int device_id) {
   // We don't support index addresed device and for multi node
   // runs, every node has seperate copy of synapse lib and will
   // get device with index 0, so ignoring device_id for now.
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
   device.get_device_memory().clear_memory_stats();
 }
 
@@ -127,7 +128,7 @@ const std::string get_mem_stat_summary(int device_id) {
 const py::dict get_extended_mem_stat_summary() {
   using namespace pybind11::literals;
   auto stats = get_mem_stat(0);
-  auto& device = habana::HPURegistrar::get_device();
+  auto& device = habana::HPUDeviceContext::get_device();
 
   auto persistent =
       (int64_t)stats.bytes_in_use - (int64_t)stats.scratch_mem_in_use;
@@ -139,7 +140,7 @@ const py::dict get_extended_mem_stat_summary() {
       "in_use"_a = stats.bytes_in_use,
       "persistent"_a = persistent,
       "workspace"_a = stats.scratch_mem_in_use,
-      "last_workspace"_a = device.syn_device().get_real_workspace_size(),
+      "last_workspace"_a = device.get_real_workspace_size(),
       "future"_a = future_bytes,
       "max_cntgs_chunk"_a = max_cntgs_chunk,
       "max_in_use"_a = stats.peak_bytes_in_use,
@@ -161,7 +162,7 @@ void sync_threads() {
 }
 
 void clear_global_context() {
-  auto& d = habana::HPURegistrar::get_device().get_scalar_cache();
+  auto& d = habana::HPUDeviceContext::scalar_cache();
   d.ClearCache();
 }
 
@@ -177,7 +178,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     clear_global_context();
   });
   m.def("current_device", []() {
-    auto& d = habana::HPURegistrar::get_device();
+    auto& d = habana::HPUDeviceContext::get_device();
     return d.id();
   });
   m.def("synchronize_device", []() {
@@ -189,17 +190,17 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     habana_lazy::HbLazyTensor::StepMarker();
     PT_IRGRAPH_DEBUG(
         "synchronize host multistage pipeline due to bindings-synchronize_device");
-    habana::HPURegistrar::synchronize_host_multistage_pipeline();
-    habana::HPURegistrar::synchronize_device();
+    habana::HPUDeviceContext::synchronize_host_multistage_pipeline();
+    habana::HPUDeviceContext::synchronize_device();
   });
   m.def("device_count", []() {
-    return habana::HPURegistrar::get_total_device_count();
+    return habana::HPUDeviceContext::get_total_device_count();
   });
   m.def("get_device_capability", []() {
-    return habana::HPURegistrar::get_device_capability();
+    return habana::HPUDeviceContext::get_device_capability();
   });
   m.def("get_device_properties", [](unsigned id) {
-    return habana::HPURegistrar::get_device_properties(id);
+    return habana::HPUDeviceContext::get_device_properties(id);
   });
   m.def("reset_peak_memory_stats", [](int id) { reset_peak_memory_stats(id); });
   m.def("clear_memory_stats", [](int id) { clear_memory_stats(id); });
@@ -232,11 +233,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     return get_extended_mem_stat_summary();
   });
   m.def("setDeterministic", [](bool val) {
-    auto& gconfig = habana::HPURegistrar::get_hpu_global_config();
+    auto& gconfig = habana::HPUGlobalConfig::get();
     gconfig.setDeterministic(val);
   });
   m.def("getDeterministic", []() -> bool {
-    return habana::HPURegistrar::get_hpu_global_config().getDeterministic();
+    return habana::HPUGlobalConfig::get().getDeterministic();
   });
   m.def("get_device_name", [](int id) { return get_device_name(id); });
 #if IS_PYTORCH_AT_LEAST(2, 4)
@@ -420,7 +421,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 
   pybind11::cpp_function eager_cleanup = []() {
     PT_EAGER_DEBUG("Eager cleanup.");
-    habana::HPURegistrar::synchronize_host_multistage_pipeline();
+    habana::HPUDeviceContext::synchronize_host_multistage_pipeline();
   };
 
   pybind11::module::import("atexit").attr("register")(eager_cleanup);

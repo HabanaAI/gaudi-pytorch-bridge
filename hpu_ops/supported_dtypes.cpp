@@ -31,7 +31,7 @@ SupportedDtypes::SupportedDtypes(
     HABANAGuardImpl device_guard;
     device_guard.getDevice();
 
-    auto dev = HPURegistrar::get_device().type();
+    auto dev = HPUDeviceContext::get_device().type();
     return dev;
   };
 
