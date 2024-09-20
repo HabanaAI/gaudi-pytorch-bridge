@@ -23,9 +23,7 @@ namespace autocast {
 
 constexpr std::string_view AUTOCAST_LOWER_LIST =
     "PT_HPU_AUTOCAST_LOWER_PRECISION_OPS_LIST";
-constexpr std::string_view AUTOCAST_LOWER_LIST_DEPRECATED = "LOWER_LIST";
 constexpr std::string_view AUTOCAST_FP32_LIST = "PT_HPU_AUTOCAST_FP32_OPS_LIST";
-constexpr std::string_view AUTOCAST_FP32_LIST_DEPRECATED = "FP32_LIST";
 
 std::unordered_set<std::string> load_list(
     const std::string_view list_name,

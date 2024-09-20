@@ -19,35 +19,13 @@
 namespace at {
 namespace autocast {
 
-inline constexpr std::string_view deprecated_flag(const std::string_view flag) {
-  if (flag == AUTOCAST_LOWER_LIST) {
-    return AUTOCAST_LOWER_LIST_DEPRECATED;
-  } else if (flag == AUTOCAST_FP32_LIST) {
-    return AUTOCAST_FP32_LIST_DEPRECATED;
-  }
-  return "";
-}
-
 std::unordered_set<std::string> load_list(
     const std::string_view list_name,
     const std::unordered_set<std::string>& default_list) {
   auto path = std::getenv(list_name.data());
   if (path == nullptr) {
-    path = std::getenv(deprecated_flag(list_name).data());
-    if (path) {
-      PT_BRIDGE_WARN(
-          AUTOCAST_LOWER_LIST_DEPRECATED,
-          " and ",
-          AUTOCAST_FP32_LIST_DEPRECATED,
-          " are deprecated."
-          " Use ",
-          AUTOCAST_LOWER_LIST,
-          " and ",
-          AUTOCAST_FP32_LIST);
-    } else {
-      PT_BRIDGE_DEBUG("Loaded default autocast list.")
-      return default_list;
-    }
+    PT_BRIDGE_DEBUG("Loaded default autocast list.")
+    return default_list;
   }
   std::ifstream file(path);
   if (!file.is_open()) {

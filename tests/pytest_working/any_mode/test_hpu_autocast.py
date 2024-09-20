@@ -20,13 +20,6 @@ from test_utils import is_pytest_mode_compile
 # have to be reloaded before setting custom list of ops
 
 
-def load_modules(custom_autocast=False):
-    if custom_autocast:
-        path = str(pathlib.Path(__file__).parent.resolve())
-        os.environ["LOWER_LIST"] = path + "/autocast_files/lower_list.txt"
-        os.environ["FP32_LIST"] = path + "/autocast_files/fp32_list.txt"
-
-
 def assert_dtype(tensors, dtype):
     for tensor in tensors:
         assert tensor.dtype == dtype, f"Wrong dtype. Got {tensor.dtype}, expected {dtype}."
