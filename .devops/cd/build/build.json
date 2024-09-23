@@ -29,7 +29,7 @@
         "env": {
             "DATA_LOADER_AEON_LIB_PATH": "${AEON_RELEASE_BUILD}/lib/libaeon.so"
         },
-        "cmd": "DATA_LOADER_AEON_LIB_PATH=${AEON_RELEASE_BUILD}/lib/libaeon.so ; build_pytorch_modules --op-stats -v ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
+        "cmd": "DATA_LOADER_AEON_LIB_PATH=${AEON_RELEASE_BUILD}/lib/libaeon.so ; build_pytorch_modules --op-stats -v ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j 8"
     },
     "modules_next": {
         "env": {
@@ -62,9 +62,9 @@
         "cmd": "build_pytorch_data --pt-data-version $(jq -rj '.pt_versions.next.extras.torchdata' ${HABANA_SOFTWARE_STACK}/pytorch-integration/.devops/build_profiles/profiles.json) ${BUILD_TYPE_FLAG} ${CONFIGURE_FLAG} -j ${CPU_COUNT}"
     },
     "inc": {
-        "cmd" : "build_inc -w"
+        "cmd": "build_inc -w"
     },
     "hte": {
-        "cmd" : "build_pytorch_te -w"
+        "cmd": "build_pytorch_te -w"
     }
 }

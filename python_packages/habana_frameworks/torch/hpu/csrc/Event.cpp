@@ -221,6 +221,9 @@ PyTypeObject THP_HPU_EventType = {
     0, /* tp_next */
 #endif
     nullptr, /* tp_vectorcall */
+#if PY_VERSION_HEX >= 0x030c0000
+    0, /* tp_watched */
+#endif
 #if PY_VERSION_HEX < 0x03090000
     nullptr, /* int (*tp_print)(PyObject *, FILE *, int); */
 #endif

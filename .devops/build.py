@@ -91,6 +91,7 @@ supported_python_versions = (
     Version("3.8"),
     Version("3.10"),
     Version("3.11"),
+    Version("3.12"),
 )
 
 min_venv_python = supported_python_versions[0]
