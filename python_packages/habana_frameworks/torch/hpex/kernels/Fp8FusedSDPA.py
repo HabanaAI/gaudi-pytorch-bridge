@@ -77,6 +77,9 @@ def gqa_output_reshape(tensor):
     return tensor.reshape(new_shape)
 
 
+dbg_env_var_fsdpa = check_dbg_env_var("FSDPA_DBG_USE_DROPOUT_STUB")
+
+
 def fp8_sdpa_fwd_wrapper(
     ctx,
     q,
@@ -97,6 +100,7 @@ def fp8_sdpa_fwd_wrapper(
     is_amax_o=False,
     valid_seq_len=None,
     seq_padding_type="left",
+    recompute=None,
 ):
 
     requires_backward = q.requires_grad or k.requires_grad or v.requires_grad
@@ -106,7 +110,8 @@ def fp8_sdpa_fwd_wrapper(
         scale = 1.0 / math.sqrt(q.size(-1))
 
     # Check if recompute variant is enabled
-    recompute = ht.recompute_sdp_enabled()
+    if recompute is None:
+        recompute = ht.recompute_sdp_enabled()
 
     if requires_backward:
         assert is_causal == True, "Fp8 FusedSDPA in trining only supports Triangular mask"
@@ -185,7 +190,7 @@ def fp8_sdpa_fwd_wrapper(
     if recompute:
         return out, amax_s, amax_o
 
-    if not check_dbg_env_var("FSDPA_DBG_USE_DROPOUT_STUB"):
+    if not dbg_env_var_fsdpa:
         return out, amax_s, amax_o
     else:
         if gqa:
@@ -248,6 +253,7 @@ class Fp8FusedSDPA(torch.autograd.Function):
         is_amax_o=False,
         valid_seq_len=None,
         seq_padding_type="left",
+        recompute=None,
     ):
         return fp8_sdpa_fwd_wrapper(
             ctx,
@@ -269,6 +275,7 @@ class Fp8FusedSDPA(torch.autograd.Function):
             is_amax_o=is_amax_o,
             valid_seq_len=valid_seq_len,
             seq_padding_type=seq_padding_type,
+            recompute=recompute,
         )
 
     @staticmethod
@@ -295,6 +302,7 @@ def dump_api_params(
     is_amax_o=False,
     valid_seq_len=None,
     seq_padding_type="left",
+    recompute=None,
 ):
     def print_t_info(name, t, is_scale=False):
         if t is not None:
@@ -326,6 +334,7 @@ def dump_api_params(
     print("is_amax_o : ", is_amax_o)
     print_t_info("valid_seq_len", valid_seq_len)
     print("seq_padding_type : ", seq_padding_type)
+    print("recmpute : ", recompute)
     print("=" * 90)
 
 
@@ -348,6 +357,7 @@ def fp8_fused_sdpa(
     is_amax_o=False,
     valid_seq_len=None,
     seq_padding_type="left",
+    recompute=None,
 ):
     dump_api_params(
         q,
@@ -368,6 +378,7 @@ def fp8_fused_sdpa(
         is_amax_o,
         valid_seq_len,
         seq_padding_type,
+        recompute,
     )
     out, amax_s, amax_o = Fp8FusedSDPA.apply(
         q,
@@ -388,6 +399,7 @@ def fp8_fused_sdpa(
         is_amax_o,
         valid_seq_len,
         seq_padding_type,
+        recompute,
     )
 
     return out, amax_s, amax_o
