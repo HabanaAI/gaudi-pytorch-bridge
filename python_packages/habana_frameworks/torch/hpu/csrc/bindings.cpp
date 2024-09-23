@@ -419,12 +419,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
             opname, inputs, params);
       });
 
-  pybind11::cpp_function eager_cleanup = []() {
-    PT_EAGER_DEBUG("Eager cleanup.");
-    habana::HPUDeviceContext::synchronize_host_multistage_pipeline();
-  };
-
-  pybind11::module::import("atexit").attr("register")(eager_cleanup);
-
   m.doc() = "This module registers hpu backend.";
 }
