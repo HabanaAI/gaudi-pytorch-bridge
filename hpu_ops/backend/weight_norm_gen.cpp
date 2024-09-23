@@ -12,6 +12,7 @@
  */
 #include "generated/backend/_weight_norm_interface.h"
 #include "generated/backend/_weight_norm_interface_backward.h"
+#include "hpu_ops/backend/reduction_template.h"
 
 namespace habana {
 
@@ -29,13 +30,29 @@ sh::tensor NormCommon(
     const std::vector<NodeAttr::NodeOutputAttr>& output_attr,
     const bool is_vec_norm);
 
+static c10::DimVector getDimsToNorm(const int rank, const int dim) {
+  c10::DimVector dims_to_norm;
+  dims_to_norm.reserve(rank);
+
+  for (int64_t i = 0; i < rank; ++i) {
+    if (i != dim) // skip given dimension
+      dims_to_norm.push_back(i);
+  }
+
+  return dims_to_norm;
+}
+
 OutputMetaDataVector WeightNormMeta(const at::Stack& stack) {
   const torch::Tensor& v_in = stack_tensor(stack, 0);
   const torch::Tensor& g_in = stack_tensor(stack, 1);
+  auto dim = stack.at(2).toInt();
+  const auto keepdim = g_in.sizes().vec().size() == v_in.sizes().vec().size();
+
+  c10::DimVector dims_to_norm = getDimsToNorm(v_in.ndimension(), dim);
 
   OutputMetaDataVector metaVec(2);
   metaVec[0].shape = v_in.sizes().vec();
-  metaVec[1].shape = g_in.sizes().vec();
+  metaVec[1].shape = ReductionOutputShape(v_in, dims_to_norm, keepdim)[0];
 
   metaVec[0].dtype = v_in.scalar_type();
   metaVec[1].dtype = g_in.scalar_type();
@@ -48,10 +65,11 @@ void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
   auto g_in = stack_tensor(stack, 1);
   auto dim = stack.at(2).toInt();
 
-  const auto& v_in_dtype = metas[0].dtype;
-  const auto& g_in_dtype = metas[1].dtype;
-  const auto& v_in_shape = metas[0].shape;
-  const auto& g_in_shape = metas[1].shape;
+  const auto& v_dtype = metas[0].dtype;
+  const auto& v_shape = metas[0].shape;
+
+  const auto& g_dtype = metas[1].dtype;
+  const auto& g_in_shape = g_in.sizes().vec();
 
   /*
   NOTE:
@@ -66,41 +84,35 @@ void WeightNormOp::AddNode(sh::graph& graph, const at::Stack& stack) {
       " and g_in is on ",
       g_in.device());
 
-  c10::DimVector dims_to_norm;
-  dims_to_norm.reserve(v_in.ndimension());
-  for (int64_t i = 0; i < v_in.ndimension(); ++i) {
-    if (i != dim) // skip given dimension
-      dims_to_norm.push_back(i);
-  }
+  c10::DimVector dims_to_norm = getDimsToNorm(v_in.ndimension(), dim);
 
   at::Scalar ord = 2.0;
 
   auto normOp = NormCommon(
       this,
       graph,
-      g_in_dtype != v_in_dtype
-          ? BuildCast(
-                this, graph, syn_in(0), v_in.sizes(), v_in_dtype, g_in_dtype)
+      g_dtype != v_dtype
+          ? BuildCast(this, graph, syn_in(0), v_in.sizes(), v_dtype, g_dtype)
                 .get()
           : syn_in(0),
-      g_in_dtype,
+      g_dtype,
       v_in,
       dims_to_norm,
-      g_in_shape.size() == v_in_shape.size(),
+      g_in_shape.size() == v_shape.size(),
       ord,
-      {{g_in_shape, g_in_dtype, 1}},
+      {{metas[1].shape, g_dtype, 1}},
       false);
 
   auto divOp = BuildOp(
       graph,
-      get_guid_with_precision("div_fwd", v_in_dtype),
+      get_guid_with_precision("div_fwd", v_dtype),
       {syn_in(1), normOp.get()},
-      {{g_in_shape, g_in_dtype}});
+      {{g_in_shape, g_dtype}});
   auto mulOp = BuildOp(
       graph,
-      get_guid_with_precision("mult_fwd", v_in_dtype),
+      get_guid_with_precision("mult_fwd", v_dtype),
       {syn_in(0), divOp.at(0).get()},
-      {{v_in_shape, v_in_dtype, 0}});
+      {{v_shape, v_dtype, 0}});
 
   syn_out(0) = std::move(mulOp[0]);
   syn_out(1) = std::move(normOp);
