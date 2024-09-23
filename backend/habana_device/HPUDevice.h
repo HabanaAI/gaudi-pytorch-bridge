@@ -174,7 +174,7 @@ class HPUDevice {
     return *scalar_cache_;
   }
 
-  habana_helpers::ThreadPool& lowering_thread() {
+  ThreadPoolWithGILRelease& lowering_thread() {
     return lowering_thread_;
   }
 
@@ -182,11 +182,11 @@ class HPUDevice {
     return garbage_collection_thread_;
   }
 
-  habana_helpers::ThreadPool& compile_thread() {
+  ThreadPoolWithGILRelease& compile_thread() {
     return compile_thread_;
   }
 
-  habana_helpers::ThreadPool& execute_thread() {
+  ThreadPoolWithGILRelease& execute_thread() {
     return execute_thread_;
   }
 
