@@ -3194,14 +3194,27 @@ def pass_remove_unnecessary_bmm_view(ctx: OptimizerContext):
 
 def pass_remove_unnecessary_expand(ctx: OptimizerContext):
     def get_node_shape(node):
-        return node.meta.get("tensor_meta", None).shape if "tensor_meta" in node.meta else None
+        shape = None
+        if isinstance(node, torch.fx.Node):
+            tensor_meta = node.meta.get("val", node.meta.get("tensor_meta"))
+            if tensor_meta is not None:
+                if isinstance(tensor_meta, torch.Tensor):
+                    shape = tensor_meta.shape
+                elif isinstance(tensor_meta, py_sym_types):
+                    shape = tensor_meta
+        elif isinstance(node, int):
+            shape = node
+        return shape
 
     graph_changed = False
 
     for node in ctx.graph_module.graph.nodes:
         if node.op == "call_function" and node.target == torch.ops.aten.expand.default:
-            input_node, target_shape = node.args
+            input_node, target_shape_params = node.args
             input_shape = get_node_shape(input_node)
+            target_shape = []
+            for dim in target_shape_params:
+                target_shape.append(get_node_shape(dim))
 
             if input_shape and list(input_shape) == target_shape:
                 for user in list(node.users.keys()):
