@@ -611,11 +611,6 @@ PT_HPU_EAGER_ENABLE_GRADIENT_VIEW_LAYOUT_OPT:
   doc: "Allow permutations on all reduce gradient bucket view outputs for PT2.0. This\n
 is to improve multinode performance"
 
-PT_HPU_ENABLE_COMPOUND_LOWERING_OPS:
-  type: bool
-  default: true
-  doc: "Allow stitching together of ops in PT Bridge Lowering"
-
 PT_HPU_MATMUL3D_2D_RESHAPE:
   type: bool
   default: false
