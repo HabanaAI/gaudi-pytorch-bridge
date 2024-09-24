@@ -827,3 +827,9 @@ PT_HPU_ENABLE_LOP_TRACES_COLLECTION:
 PT_HPU_DISABLE_HPUGRAPH_REPLAY_HASHCHECK:
   type: bool
   default: true
+
+PT_HPU_CLEAR_PERM_INFO:
+  type: bool
+  default: true
+  doc: "This is a debug flag to temporarily disable permutation info clear.\n
+Do not use it in production"

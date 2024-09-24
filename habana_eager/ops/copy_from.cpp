@@ -253,6 +253,10 @@ void Copy_Compile_Empty_Task(
 }
 
 static void clear_permutation_info(const at::Tensor& tensor) {
+  if (not GET_ENV_FLAG_NEW(PT_HPU_CLEAR_PERM_INFO)) {
+    return;
+  }
+
   auto smeta{get_storage_extra_meta(tensor)};
   if (smeta) {
     auto synapse_permute = smeta->get_memory_permutation();
