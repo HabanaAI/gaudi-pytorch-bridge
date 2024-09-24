@@ -37,3 +37,4 @@ def enable_compiled_autograd(**kwargs):
 
     torch._dynamo.reset()
     torch._dynamo.config.optimize_ddp = "python_reducer"
+    torch._C._set_autograd_fallback_mode("nothing")
