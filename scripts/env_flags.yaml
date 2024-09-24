@@ -196,10 +196,6 @@ PT_ENABLE_INTER_HOST_CACHING:
   type: bool
   default: false
 
-PT_DO_NOT_LOWER_LINEAR_OP:
-  type: bool
-  default: false
-
 PT_ENABLE_HABANA_CACHING:
   type: bool
   default: true
