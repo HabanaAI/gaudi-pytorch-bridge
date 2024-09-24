@@ -113,10 +113,6 @@ SCHEMA_CPP_LIST = [
         "aten::normal.float_float(float mean, float std, SymInt[] size, *, Generator? generator=None, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor",
         "Tensor normal(double mean, double std, c10::SymIntArrayRef size, c10::optional<Generator> generator, c10::optional<ScalarType> dtype, c10::optional<Layout> layout, c10::optional<Device> device, c10::optional<bool> pin_memory)",
     ),
-    (
-        "aten::matmul_backward(Tensor grad, Tensor self, Tensor other, bool[2] mask) -> (Tensor, Tensor)",
-        "::std::tuple<Tensor,Tensor> matmul_backward(const Tensor & grad, const Tensor & self, const Tensor & other, ::std::array<bool,2> mask)",
-    ),
 ]
 
 

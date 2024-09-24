@@ -899,9 +899,6 @@ static auto& LinearKernelsKernelRegistry =
     habana::KernelRegistry()
         .add("hpu::mm_t", KERNEL_FN_DROP_ARG2(MMOperator))
         .add(
-            "aten::matmul_backward",
-            KERNEL_FN_DROP_ARG2(MatmulBackwardOperator))
-        .add(
             "hpu::matmul_backward",
             KERNEL_FN_DROP_ARG2(MatmulBackwardOperator))
         .add("aten::matmul", KERNEL_FN_DROP_ARG2(MatMulOperator));
