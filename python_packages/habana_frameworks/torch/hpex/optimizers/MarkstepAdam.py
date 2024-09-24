@@ -31,7 +31,6 @@ from torch.optim.optimizer import (
     _capturable_doc,
     _default_to_fused_or_foreach,
     _differentiable_doc,
-    _dispatch_sqrt,
     _foreach_doc,
     _fused_doc,
     _get_capturable_supported_devices,
@@ -466,7 +465,7 @@ def _single_tensor_adam(
 
             step_size = lr / bias_correction1
 
-            bias_correction2_sqrt = _dispatch_sqrt(bias_correction2)
+            bias_correction2_sqrt = bias_correction2**0.5
 
             if amsgrad:
                 # Maintains the maximum of all 2nd moment running avg. till now
@@ -608,7 +607,7 @@ def _multi_tensor_adam(
 
             step_size = _stack_if_compiling([(lr / bc) * -1 for bc in bias_correction1])
 
-            bias_correction2_sqrt = [_dispatch_sqrt(bc) for bc in bias_correction2]
+            bias_correction2_sqrt = [bc**0.5 for bc in bias_correction2]
 
             if amsgrad:
                 # Maintains the maximum of all 2nd moment running avg. till now

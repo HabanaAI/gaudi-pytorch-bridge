@@ -26,7 +26,6 @@ from habana_frameworks.torch.utils.debug.dynamo_utils import FxGraphAnalyzer
 from habana_frameworks.torch.utils.internal import Timer
 from habana_frameworks.torch.utils.visualization import graph_visualizer
 from packaging.version import Version
-from torch.distributed._spmd.graph_utils import find_node
 from torch.fx.experimental.proxy_tensor import py_sym_types
 from torch.fx.node import map_arg
 from torch.fx.passes.operator_support import OperatorSupport
@@ -146,7 +145,7 @@ def pass_allreduce_parents(ctx: OptimizerContext) -> bool:
     # TODO: try to reuse torch.fx.passes.infra.partitioner._DependencyViewer
     if hpu_backend_config.enable_allreduce_graph_split:
         gm = ctx.graph_module
-        allreduces = find_node(gm.graph, lambda n: n.name.startswith("all_reduce"))
+        allreduces = [n for n in gm.graph.nodes if n.name.startswith("all_reduce")]
         for allreduce in allreduces:
             downstream_allreduce_name = allreduce.name
             previous_nodes = allreduce.all_input_nodes
@@ -167,7 +166,7 @@ def pass_allreduce_parents(ctx: OptimizerContext) -> bool:
 def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
     if hpu_backend_config.enable_allreduce_graph_split:
         graph = ctx.graph_module.graph
-        allreduces = find_node(graph, lambda n: n.name.startswith("all_reduce"))
+        allreduces = [n for n in graph.nodes if n.name.startswith("all_reduce")]
         graph_changed = False
         for allreduce in allreduces:
             upstream_nodes = allreduce.all_input_nodes
@@ -188,7 +187,7 @@ def pass_reorder_allreduce(ctx: OptimizerContext) -> bool:
             if len(nodes_to_move) > 0:
                 graph_changed = True
 
-        waittensors = find_node(graph, lambda n: n.name.startswith("wait_tensor"))
+        waittensors = [n for n in graph.nodes if n.name.startswith("wait_tensor")]
         for waittensor in waittensors:
             downstream_nodes = list(waittensor.users.keys())
 
@@ -1214,7 +1213,7 @@ def pass_propose_partitions(ctx: OptimizerContext) -> bool:
 
     ctx.current_partitions = []
     if hpu_backend_config.enable_allreduce_graph_split:
-        allreduces = find_node(ctx.graph_module.graph, lambda n: n.name.startswith("all_reduce"))
+        allreduces = [n for n in ctx.graph_module.graph.nodes if n.name.startswith("all_reduce")]
         for allreduce in allreduces:
             cls = FusedCollectiveOperatorSupport
             setattr(cls, "allreduce_name", allreduce.name)

@@ -12,6 +12,7 @@
 
 import habana_frameworks.torch.internal.bridge_config as bc
 import torch
+from packaging.version import Version, parse
 
 HABANA_RANDOM_OPS_LIST = [
     "aten.bernoulli.default",
@@ -104,7 +105,10 @@ def is_hpu(args, kwargs):
     return any(dev == "hpu" for dev in devices)
 
 
-old_fn = run_and_save_rng_state.python_key_mode_table.pop(FakeTensorMode)
+if Version(parse(torch.__version__).base_version) >= Version("2.5"):
+    old_fn = run_and_save_rng_state.python_key_table.pop(FakeTensorMode)
+else:
+    old_fn = run_and_save_rng_state.python_key_mode_table.pop(FakeTensorMode)
 
 
 @run_and_save_rng_state.py_impl(FakeTensorMode)
