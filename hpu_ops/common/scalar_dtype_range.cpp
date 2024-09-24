@@ -16,6 +16,25 @@
 
 namespace habana {
 
+template <typename T>
+bool is_out_of_dtype_range(const float value) {
+  const float abs_value = abs(value);
+  return abs_value < float(std::numeric_limits<T>::min()) ||
+      abs_value > float(std::numeric_limits<T>::max());
+}
+
+bool is_value_out_of_scalar_range(
+    const float value,
+    const c10::ScalarType scalar_type) {
+  if (value == 0.0) {
+    return false;
+  }
+  return ((scalar_type == torch::kBFloat16) &&
+          is_out_of_dtype_range<c10::BFloat16>(value)) ||
+      ((scalar_type == torch::kFloat16) &&
+       is_out_of_dtype_range<c10::Half>(value));
+}
+
 void update_other_scalar_if_out_of_scalar_type_range(
     const std::vector<at::IValue>& inputs,
     std::vector<at::IValue>& hpu_inputs) {
