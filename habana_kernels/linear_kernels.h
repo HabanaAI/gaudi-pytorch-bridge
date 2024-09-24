@@ -125,10 +125,6 @@ class MatMulOperator : public HabanaOperator {
       const at::Tensor& self,
       const at::Tensor& mat2,
       bool other_transposed = false);
-
-  static bool is_gmemm_with_transpose_possible(
-      const at::Tensor& input,
-      const at::Tensor& weight);
 };
 
 class MatmulBackwardOperator : public HabanaOperator {
@@ -143,33 +139,6 @@ class MatmulBackwardOperator : public HabanaOperator {
       const OutputMetaDataVector& output_metadata) override;
 
  private:
-  void MatBwTranspose(
-      synapse_helpers::graph& graph,
-      HabanaOperatorPtr Op,
-      at::Tensor& mat,
-      synapse_helpers::tensor& syn_input);
-
-  void MatBwSpecialFold(
-      synapse_helpers::graph& graph,
-      HabanaOperatorPtr Op,
-      at::Tensor& mat1,
-      at::Tensor& mat2,
-      synapse_helpers::tensor& syn_input1,
-      synapse_helpers::tensor& syn_input2,
-      const OutputMetaData& output_metadata,
-      bool avoid_mat1_transpose = false);
-
-  void MatBwSize(
-      synapse_helpers::graph& graph,
-      HabanaOperatorPtr Op,
-      at::Tensor& mat1,
-      at::Tensor& mat2,
-      at::IntArrayRef sizes,
-      synapse_helpers::tensor& syn_input1,
-      synapse_helpers::tensor& syn_input2,
-      const OutputMetaData& output_metadata,
-      bool avoid_mat1_transpose = false);
-
   void MatBwReshape(
       synapse_helpers::graph& graph,
       at::Tensor& mat,
