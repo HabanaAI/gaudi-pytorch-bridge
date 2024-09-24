@@ -1914,7 +1914,6 @@ TEST_F(LazyDynamicShapesTest, DS_PadTest_HT) {
 }
 
 TEST_F(LazyDynamicShapesTest, DS_PadTest) {
-  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR, false, 1);
   auto pad_test = [](std::vector<int64_t> pad_sizes,
                      std::vector<int64_t> input_shape) {
     torch::Tensor tensor = torch::randn(input_shape).to(torch::kInt);
@@ -1933,7 +1932,6 @@ TEST_F(LazyDynamicShapesTest, DS_PadTest) {
   pad_test({0, 0, 0, 22}, {3, 87, 80});
   pad_test({0, 28, 0, 0}, {3, 80, 106});
   pad_test({0, 0, 0, 20}, {3, 119, 80});
-  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR);
 }
 
 TEST_F(LazyDynamicShapesTest, DISABLED_DS_GridSamplerTest) {

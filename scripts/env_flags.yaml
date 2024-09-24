@@ -440,18 +440,6 @@ PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR:
   type: bool
   default: true
 
-PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR:
-  type: bool
-  default: true
-
-PT_HPU_DEV_ENABLE_REPEAT_HOST_TENSOR:
-  type: bool
-  default: true
-
-PT_HPU_DEV_ENABLE_PAD_HOST_TENSOR:
-  type: bool
-  default: true
-
 PT_HPU_DEV_ENABLE_TOPK_USING_CGUID:
   type: bool
   default: true

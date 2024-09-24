@@ -576,7 +576,6 @@ TEST_F(SifTest, RandPermHT) {
   validate_sif_start();
   validate_shape_start();
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
-  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR, true, 1);
   std::vector<int> in_sizes{8, 10, 15};
   for (int i = 0; i < in_sizes.size(); i++) {
     int n = in_sizes[i];
@@ -590,6 +589,5 @@ TEST_F(SifTest, RandPermHT) {
   }
   validate_sif_end();
   validate_shape_end();
-  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR);
   UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
 }

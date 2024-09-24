@@ -707,7 +707,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, DISABLED_RoiAlignBwd) {
 // Also validates InferOutputMeta for RandPermHT
 TEST_F(LazyDynamicInferOutputMetasTest, RandPermHT) {
   SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR, true, 1);
-  SET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR, true, 1);
   std::vector<int> in_sizes{8, 10, 15};
   for (int i = 0; i < in_sizes.size(); i++) {
     int n = in_sizes[i];
@@ -719,7 +718,6 @@ TEST_F(LazyDynamicInferOutputMetasTest, RandPermHT) {
     auto lazy = torch::randperm(n, hb_options);
     auto lazy_cpu = lazy.to(torch::kCPU);
   }
-  UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_RANDPERM_HOST_TENSOR);
   UNSET_ENV_FLAG_NEW(PT_HPU_DEV_ENABLE_ARANGE_HOST_TENSOR);
 }
 
