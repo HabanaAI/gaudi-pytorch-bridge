@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -83,6 +83,17 @@ OutputMetaDataVector ConstantPadMeta(const at::Stack& stack) {
   return {meta};
 }
 
+static void FillPadParamsValue(
+    std::shared_ptr<ns_PadKernelEx::Params> params,
+    const at::Tensor& self,
+    const at::Scalar& scalar) {
+  if (c10::isIntegralType(self.scalar_type(), false)) {
+    params->value.i = scalar.to<decltype(params->value.i)>();
+  } else {
+    params->value.f = scalar.to<float>();
+  }
+}
+
 std::shared_ptr<void> FillConstantPadParams(
     const at::Stack& stack,
     size_t& size) {
@@ -93,25 +104,13 @@ std::shared_ptr<void> FillConstantPadParams(
   memset(params->pads, 0, sizeof(params->pads));
 
   if ((stack.size() == 4) && (stack.at(1).isTensor())) {
-    if (c10::isIntegralType(self.scalar_type(), false)) {
-      params->value.i = stack.at(3).toScalar().to<decltype(params->value.i)>();
-    } else {
-      params->value.f = stack.at(3).toScalar().to<float>();
-    }
+    FillPadParamsValue(params, self, stack.at(3).toScalar());
     return params;
   } else if ((stack.size() == 4) && (!stack.at(1).isTensor())) {
-    if (c10::isIntegralType(self.scalar_type(), false)) {
-      params->value.i = stack.at(2).toScalar().to<decltype(params->value.i)>();
-    } else {
-      params->value.f = stack.at(2).toScalar().to<float>();
-    }
+    FillPadParamsValue(params, self, stack.at(2).toScalar());
     return params;
   } else {
-    if (c10::isIntegralType(self.scalar_type(), false)) {
-      params->value.i = stack.at(2).toScalar().to<decltype(params->value.i)>();
-    } else {
-      params->value.f = stack.at(2).toScalar().to<float>();
-    }
+    FillPadParamsValue(params, self, stack.at(2).toScalar());
     auto pad = stack.at(1).toIntVector();
 
     auto ndim = self.dim();
