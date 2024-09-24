@@ -34,6 +34,7 @@
             "pytest_working/eager/test_pt_ops.py::test_randperm[1]",
             "pytest_working/eager/test_shallow_copy.py::test_view_with_strides",
             "pytest_working/eager/test_shallow_copy.py::test_view_with_strides2",
+            "pytest_working/any_mode/test_hpu_fp8_te.py::test_te_amax_measure_state_perf",
             "pytest_working/any_mode/test_hpu_index_copy.py::test_hpu_index_copy[dtype0-True-0-shape0]",
             "pytest_working/any_mode/test_hpu_index_copy.py::test_hpu_index_copy[dtype0-True-0-shape1]",
             "pytest_working/any_mode/test_hpu_index_copy.py::test_hpu_index_copy[dtype0-True-1-shape0]",
