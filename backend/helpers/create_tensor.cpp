@@ -465,30 +465,9 @@ synapse_helpers::tensor create_shape_tensor(
     synapse_helpers::graph& graph,
     bool persistent,
     synTensorType shape_tensor_type,
+    uint64_t& tensor_id,
     const std::string& name,
     void* host_ptr) {
-  uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
-  // In case of dynamic graph update the name shape map
-  if (graph.is_dynamic_graph()) {
-    tensor_id = synapse_helpers::detail::tensor_name_generator::get_tensor_id();
-    uint64_t shape_tensor_id =
-        habana::ShapeInference::ReadAndIncrementShapeTensorId();
-    if (graph.is_optim_output_sif_enabled() == true &&
-        habana::ShapeInference::GetCurrentPass() ==
-            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
-      tensor_id = habana::ShapeInference::GetSTMappedTensorIdx(shape_tensor_id);
-      PT_DYNAMIC_SHAPE_DEBUG(
-          "OUTPUT PASS: ST_ID = ", shape_tensor_id, " TID = ", tensor_id);
-      habana::ShapeInference::UpdateShapeInfo(
-          graph, tensor_id, input_shapes.vec());
-    } else {
-      PT_DYNAMIC_SHAPE_DEBUG("ST_ID = ", shape_tensor_id, " TID = ", tensor_id);
-      habana::ShapeInference::SaveSTAndTensorIdxMapping(
-          shape_tensor_id, tensor_id);
-      habana::ShapeInference::UpdateShapeInfo(graph, input_shapes.vec());
-    }
-  }
-
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
@@ -577,13 +556,15 @@ synapse_helpers::tensor create_shape_tensor(
   return syn_tensor;
 }
 
-synapse_helpers::tensor create_shape_tensor(
-    const at::Tensor& tensor,
+synapse_helpers::tensor create_shape_tensor_backend(
+    const c10::IntArrayRef& input_shapes,
+    synDeviceId syn_device,
     synapse_helpers::graph& graph,
     bool persistent,
     synTensorType shape_tensor_type,
     const std::string& name,
     void* host_ptr) {
+  PT_DYNAMIC_SHAPE_DEBUG("create_shape_tensor_backend called!");
   uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
   // In case of dynamic graph update the name shape map
   if (graph.is_dynamic_graph()) {
@@ -595,17 +576,39 @@ synapse_helpers::tensor create_shape_tensor(
             habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
       tensor_id = habana::ShapeInference::GetSTMappedTensorIdx(shape_tensor_id);
       PT_DYNAMIC_SHAPE_DEBUG(
-          "OUTPUT PASS: ST_ID = ", shape_tensor_id, " TID = ", tensor_id);
+          "OUTPUT PASS: Backend ST_ID = ",
+          shape_tensor_id,
+          " TID = ",
+          tensor_id);
       habana::ShapeInference::UpdateShapeInfo(
-          graph, tensor_id, tensor.sizes().vec());
+          graph, tensor_id, input_shapes.vec());
     } else {
       PT_DYNAMIC_SHAPE_DEBUG("ST_ID = ", shape_tensor_id, " TID = ", tensor_id);
       habana::ShapeInference::SaveSTAndTensorIdxMapping(
           shape_tensor_id, tensor_id);
-      habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
+      habana::ShapeInference::UpdateShapeInfo(graph, input_shapes.vec());
     }
   }
 
+  return create_shape_tensor(
+      input_shapes,
+      syn_device,
+      graph,
+      persistent,
+      shape_tensor_type,
+      tensor_id,
+      name,
+      host_ptr);
+}
+
+synapse_helpers::tensor create_shape_tensor(
+    const at::Tensor& tensor,
+    synapse_helpers::graph& graph,
+    bool persistent,
+    synTensorType shape_tensor_type,
+    uint64_t& tensor_id,
+    const std::string& name,
+    void* host_ptr) {
   if (graph.is_dry_run()) {
     // For dry run mode, just create a placeholder tensor
     return synapse_helpers::tensor::create_placeholder(
@@ -691,6 +694,75 @@ synapse_helpers::tensor create_shape_tensor(
       tensor.sizes().vec(), calculate_strides(tensor.sizes().vec()));
   PT_DYNAMIC_SHAPE_DEBUG("create_shape_tensor ", syn_tensor);
   return syn_tensor;
+}
+
+synapse_helpers::tensor create_shape_tensor_backend(
+    const at::Tensor& tensor,
+    synapse_helpers::graph& graph,
+    bool persistent,
+    synTensorType shape_tensor_type,
+    const std::string& name,
+    void* host_ptr) {
+  PT_DYNAMIC_SHAPE_DEBUG("create_shape_tensor_backend called!");
+  uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
+  // In case of dynamic graph update the name shape map
+  if (graph.is_dynamic_graph()) {
+    tensor_id = synapse_helpers::detail::tensor_name_generator::get_tensor_id();
+    uint64_t shape_tensor_id =
+        habana::ShapeInference::ReadAndIncrementShapeTensorId();
+    if (graph.is_optim_output_sif_enabled() == true &&
+        habana::ShapeInference::GetCurrentPass() ==
+            habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
+      tensor_id = habana::ShapeInference::GetSTMappedTensorIdx(shape_tensor_id);
+      PT_DYNAMIC_SHAPE_DEBUG(
+          "OUTPUT PASS: Backend ST_ID = ",
+          shape_tensor_id,
+          " TID = ",
+          tensor_id);
+      habana::ShapeInference::UpdateShapeInfo(
+          graph, tensor_id, tensor.sizes().vec());
+    } else {
+      PT_DYNAMIC_SHAPE_DEBUG("ST_ID = ", shape_tensor_id, " TID = ", tensor_id);
+      habana::ShapeInference::SaveSTAndTensorIdxMapping(
+          shape_tensor_id, tensor_id);
+      habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
+    }
+  }
+
+  return create_shape_tensor(
+      tensor, graph, persistent, shape_tensor_type, tensor_id, name, host_ptr);
+}
+
+synapse_helpers::tensor create_shape_tensor_frontend(
+    const at::Tensor& tensor,
+    synapse_helpers::graph& graph,
+    bool persistent,
+    synTensorType shape_tensor_type,
+    const std::string& name,
+    void* host_ptr) {
+  PT_DYNAMIC_SHAPE_DEBUG("create_shape_tensor_frontend called!");
+  uint64_t tensor_id{synapse_helpers::INVALID_SYN_TENSOR_ID};
+  if (graph.is_dynamic_graph()) {
+    tensor_id = synapse_helpers::detail::tensor_name_generator::get_tensor_id();
+    if (graph.is_optim_output_sif_enabled() == true) {
+      PT_DYNAMIC_SHAPE_DEBUG("Frontend ST at TID = ", tensor_id);
+      if (habana::ShapeInference::GetCurrentPass() !=
+          habana::ShapeInfo::InferencePass::OUTPUT_SHAPE) {
+        habana::ShapeInference::UpdateShapeInfo(
+            graph, tensor_id, tensor.sizes().vec());
+      }
+    } else {
+      uint64_t shape_tensor_id =
+          habana::ShapeInference::ReadAndIncrementShapeTensorId();
+      PT_DYNAMIC_SHAPE_DEBUG("ST_ID = ", shape_tensor_id, " TID = ", tensor_id);
+      habana::ShapeInference::SaveSTAndTensorIdxMapping(
+          shape_tensor_id, tensor_id);
+      habana::ShapeInference::UpdateShapeInfo(graph, tensor.sizes().vec());
+    }
+  }
+
+  return create_shape_tensor(
+      tensor, graph, persistent, shape_tensor_type, tensor_id, name, host_ptr);
 }
 
 synapse_helpers::tensor create_const_tensor(

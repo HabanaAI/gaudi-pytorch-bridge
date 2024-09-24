@@ -371,6 +371,7 @@ struct RecipeValueSpec {
       collective_kernels_info;
   std::unordered_map<int64_t, PtTensorInfoShared> sif_tidx_to_tinfo_map;
   std::unordered_map<uint64_t, uint64_t> st_to_tensor_idx_map;
+  habana_helpers::HabanaFrontendTypes execution_mode;
   std::unordered_set<std::string> st_backend_create_op_list;
   std::unordered_map<size_t, habana_helpers::DynamicSIFInfo> ds_sifinfo_map;
   std::unordered_set<std::string> disabled_jit_ir_ops_;

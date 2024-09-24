@@ -86,7 +86,7 @@ TEST_F(LazyTensorAPITest, ShapeTensorTest) {
   auto syn_graph =
       habana_helpers::create_graph(device.id(), "Test_graph", false);
   torch::Tensor input = torch::randn({10, 20}).to(torch::kHPU);
-  auto syn_shape_input = habana_helpers::create_shape_tensor(
+  auto syn_shape_input = habana_helpers::create_shape_tensor_backend(
       input, syn_graph, false, SHAPE_TENSOR);
   ASSERT_TRUE(syn_shape_input.is_persistent());
   get_habana_lazy_executor().setExecutionMode(exec_mode);

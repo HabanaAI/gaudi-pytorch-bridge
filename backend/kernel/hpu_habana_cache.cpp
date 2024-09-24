@@ -405,6 +405,7 @@ RecipeValueSpec::RecipeValueSpec(std::istream& is) {
     }
     deserialize(is, disabled_jit_ir_ops_);
     deserialize(is, st_to_tensor_idx_map);
+    deserialize(is, execution_mode);
     deserialize(is, st_backend_create_op_list);
     deserialize(is, enable_optim_output_sif_);
   }
@@ -475,6 +476,7 @@ void RecipeValueSpec::Serialize(std::ostream& os) const {
     serialize(os, sif_tensor_indices);
     serialize(os, disabled_jit_ir_ops_);
     serialize(os, st_to_tensor_idx_map);
+    serialize(os, execution_mode);
     serialize(os, st_backend_create_op_list);
     serialize(os, enable_optim_output_sif_);
   }
@@ -667,23 +669,30 @@ void RecipeValueSpec::update_patching_table(
             ti.tensor_type() != SHAPE_TENSOR) {
           continue;
         }
-        HABANA_ASSERT(
-            m_actual_shapes.count(tensor_id), "Tensor ID ", tensor_id);
-        auto dims = m_actual_shapes.at(tensor_id).get_dims();
-        auto syn_shape = ti.get_shape();
-
-        // If there is no change in the new shape values, then
-        // do not set the same shape, recalculate strides, etc
-        if (dims == syn_shape) {
-          continue;
+        if (enable_optim_output_sif_ == false ||
+            execution_mode == habana_helpers::HabanaFrontendTypes::LAZY) {
+          // Frontend STs should be part of m_actual_shapes
+          // in lazy mode or when enable_optim_output_sif_ is disabled
+          HABANA_ASSERT(
+              m_actual_shapes.count(tensor_id), "Tensor ID ", tensor_id);
         }
+        if (m_actual_shapes.count(tensor_id)) {
+          auto dims = m_actual_shapes.at(tensor_id).get_dims();
+          auto syn_shape = ti.get_shape();
 
-        std::vector<int64_t> strides(dims.size(), 1);
-        for (int64_t i = (int64_t)dims.size() - 1; i > 0; i--) {
-          strides[i - 1] *= dims[i] * strides[i];
+          // If there is no change in the new shape values, then
+          // do not set the same shape, recalculate strides, etc
+          if (dims == syn_shape) {
+            continue;
+          }
+
+          std::vector<int64_t> strides(dims.size(), 1);
+          for (int64_t i = (int64_t)dims.size() - 1; i > 0; i--) {
+            strides[i - 1] *= dims[i] * strides[i];
+          }
+          ti.set_shape(dims);
+          ti.set_strides(strides);
         }
-        ti.set_shape(dims);
-        ti.set_strides(strides);
       }
     }
   }
@@ -700,7 +709,6 @@ void RecipeValueSpec::update_patching_table(
   for (auto const& input : input_refs) {
     if (input.isTensor()) {
       auto& tensor = input.toTensor();
-
       auto tmeta{habana::get_tensor_extra_meta(tensor)};
       if (tmeta->has_valid_const_id()) {
         auto impl{tensor.unsafeGetTensorImpl()};
@@ -712,7 +720,7 @@ void RecipeValueSpec::update_patching_table(
           continue;
         }
       }
-      if (false == tmeta->is_shape_tensor()) {
+      if (tmeta->get_tensor_type() != synTensorType::HOST_TO_DEVICE_TENSOR) {
         auto& ti = *(dtensorinfos.at(ridx));
         ti.set_shape(tensor.sizes().vec());
         ti.set_strides(tensor.strides().vec());

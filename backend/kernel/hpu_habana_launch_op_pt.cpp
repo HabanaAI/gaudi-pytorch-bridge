@@ -977,8 +977,19 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
       !(m_map_shape.m_pass == ShapeInfo::InferencePass::MIN_SHAPE ||
         m_map_shape.m_pass == ShapeInfo::InferencePass::MAX_SHAPE);
 
+  auto st_to_tensor_idx_map = ShapeInference::GetTensorMapping();
+
   if (auto op = std::dynamic_pointer_cast<OpBackend>(habanaOp)) {
     for (const auto& st : op->GetShapeTensors()) {
+      bool is_backend_ST = false;
+      for (const auto& pair : st_to_tensor_idx_map) {
+        if (pair.second == st.id()) {
+          is_backend_ST = true;
+          break;
+        }
+      }
+      if (!is_backend_ST)
+        continue;
       auto irn = "%shapeInput_" + std::to_string(shape_index++);
       PtTensorInfoShared ti = std::make_shared<PtTensorInfo>(st, irn);
       if (shape_inf_flag) {
@@ -995,6 +1006,15 @@ void HabanaLaunchOpPT::ProcessSynapseShapeTensors(
   for (synapse_helpers::tensor& maybe_syn_shape_tensor :
        habanaOp->GetSynInputs()) {
     if (maybe_syn_shape_tensor.is_shape_tensor()) {
+      bool is_backend_ST = false;
+      for (const auto& pair : st_to_tensor_idx_map) {
+        if (pair.second == maybe_syn_shape_tensor.id()) {
+          is_backend_ST = true;
+          break;
+        }
+      }
+      if (!is_backend_ST)
+        continue;
       std::string irn{"%shapeInput_"};
       irn += std::to_string(shape_index);
       shape_index++;
@@ -2743,33 +2763,6 @@ void HabanaLaunchOpPT::HandleViewBaseOutputShape(
   }
 }
 
-uint64_t HabanaLaunchOpPT::HandleFrontendShapeTensorOp(torch::jit::Node* node) {
-  auto node_qual_str = node->kind().toQualString();
-  auto node_inputs = node->inputs();
-  uint64_t st_count = 0;
-  for (auto* input : node_inputs) {
-    if (value_to_ivalue_.count(input)) {
-      auto ivalue = value_to_ivalue_[input];
-      if (ivalue->isTensor()) {
-        auto tensor = ivalue->toTensor();
-        auto tmeta{habana::get_tensor_extra_meta(tensor)};
-        if (tmeta->is_shape_tensor()) {
-          auto shape = tensor.sizes().vec();
-          PT_BRIDGE_DEBUG(
-              "Calling dummy ST count updation for frontend shape tensor, op:",
-              node_qual_str);
-          habana_helpers::UpdateSTShapeInfo(shape);
-          st_count++;
-        }
-      }
-    } else {
-      PT_BRIDGE_DEBUG(
-          "Node input ", input->debugName(), " is missing in value_to_ivalue_");
-    }
-  }
-  return st_count;
-}
-
 void HabanaLaunchOpPT::ResetIShapeUpdateStatus(RecipeValueSpec& rv) {
   auto& dsi = rv.ds_sifinfo_map[sym_expr_hash_];
   for (auto& pair : dsi.value_to_ishape) {
@@ -2829,9 +2822,6 @@ void HabanaLaunchOpPT::HandleOutputExprMappedJITGraph(
       continue;
     }
 
-    uint64_t initial_st_tensor_id = habana::ShapeInference::GetShapeTensorId();
-    uint64_t st_count = HandleFrontendShapeTensorOp(node);
-
     // Handling the HandleInputViews created node which will not have
     // output_shapes attr
     if (opname.find("strided_view") != std::string::npos) {
@@ -2876,17 +2866,6 @@ void HabanaLaunchOpPT::HandleOutputExprMappedJITGraph(
     }
     if (!t_meta_exists) {
       PT_DYNAMIC_SHAPE_DEBUG("ST Meta not found for op:", node_qual_str);
-
-      // Decrement frontend ST count, fallback flow will handle all the input
-      // tensor including shape tensors.
-      for (uint64_t i = 0; i < st_count; i++) {
-        habana::ShapeInference::ReadAndDecrementShapeTensorId();
-      }
-      uint64_t reset_st_tensor_id = habana::ShapeInference::GetShapeTensorId();
-      HABANA_ASSERT(
-          reset_st_tensor_id == initial_st_tensor_id,
-          "Frontend shape tensor id not reset properly!!");
-
       HandleOutputSIFException(
           node, HabanaKernel, rv, outputs_metadata_index, syn_build_cache);
     }
@@ -5537,7 +5516,6 @@ void HabanaLaunchOpPT::run_pass() {
   PT_BRIDGE_BEGIN;
   auto& device = HPUDeviceContext::get_device();
 
-  //
   // Run the compile and execute method to infer the shapes
   auto syn_graph = std::make_shared<synapse_helpers::graph>(
       habana_helpers::create_graph(device.id(), GetSynapseGraphName(), true));
@@ -5846,6 +5824,7 @@ void HabanaLaunchOpPT::CompileAndRunDynamicGraph(
   auto syn_graph = std::make_shared<synapse_helpers::graph>(
       habana_helpers::create_graph(device.id(), GetSynapseGraphName()));
   syn_graph->set_dynamic_graph(is_dynamic_graph);
+  syn_graph->set_optim_output_sif_enabled(enable_optim_output_sif_);
   EvictSynapseRecipe(graph_input_info.current_bucket_id);
   SynBuildCache cache;
   BuildSynapseGraph(syn_graph, cache);

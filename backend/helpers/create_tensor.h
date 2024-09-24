@@ -58,10 +58,37 @@ synapse_helpers::tensor create_shape_tensor(
     synapse_helpers::graph& graph,
     bool persistent,
     synTensorType shape_tensor_type,
+    uint64_t& tensor_id,
+    const std::string& name = std::string(),
+    void* host_ptr = nullptr);
+
+synapse_helpers::tensor create_shape_tensor_frontend(
+    const at::Tensor& tensor,
+    synapse_helpers::graph& graph,
+    bool persistent,
+    synTensorType shape_tensor_type,
+    const std::string& name = std::string(),
+    void* host_ptr = nullptr);
+
+synapse_helpers::tensor create_shape_tensor_backend(
+    const at::Tensor& tensor,
+    synapse_helpers::graph& graph,
+    bool persistent,
+    synTensorType shape_tensor_type,
     const std::string& name = std::string(),
     void* host_ptr = nullptr);
 
 synapse_helpers::tensor create_shape_tensor(
+    const c10::IntArrayRef& input_shapes,
+    synDeviceId syn_device,
+    synapse_helpers::graph& graph,
+    bool persistent,
+    synTensorType shape_tensor_type,
+    uint64_t& tensor_id,
+    const std::string& name = std::string(),
+    void* host_ptr = nullptr);
+
+synapse_helpers::tensor create_shape_tensor_backend(
     const c10::IntArrayRef& input_shapes,
     synDeviceId syn_device,
     synapse_helpers::graph& graph,

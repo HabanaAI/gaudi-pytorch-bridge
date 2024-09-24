@@ -1299,7 +1299,7 @@ void StridedInsertOperator::compute_params(
     } else {
       auto offset_tensor = inputs[2].toTensor();
       offset = offset_tensor.sizes()[0];
-      auto syn_shape_input = habana_helpers::create_shape_tensor(
+      auto syn_shape_input = habana_helpers::create_shape_tensor_backend(
           strides_ref,
           orig_t.device().index(),
           graph,
@@ -1759,7 +1759,7 @@ void StridedViewOperator::compute_params(
     } else {
       auto offset_tensor = inputs[2].toTensor();
       offset = offset_tensor.sizes()[0];
-      auto syn_shape_input = habana_helpers::create_shape_tensor(
+      auto syn_shape_input = habana_helpers::create_shape_tensor_backend(
           strides_ref,
           self.device().index(),
           graph,

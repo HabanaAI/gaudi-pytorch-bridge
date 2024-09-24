@@ -672,7 +672,7 @@ void OpBackend::CreateShapeTensorInput(
   }
 
   if (force_create or graph.is_dynamic_graph()) {
-    auto st = habana_helpers::create_shape_tensor(
+    auto st = habana_helpers::create_shape_tensor_backend(
         GetProxyTensor(dtype, sizes),
         graph,
         false,
@@ -798,7 +798,7 @@ std::vector<sh::tensor> OpBackend::BuildNode(
       const auto& t = GetProxyTensor(attr.dtype, attr.sizes);
       outputs.emplace_back(
           habana_helpers::is_shape_tensor(attr.tensor_type)
-              ? habana_helpers::create_shape_tensor(
+              ? habana_helpers::create_shape_tensor_backend(
                     t, graph, is_persistent, attr.tensor_type)
               : attr.syn_data_type == syn_type_na
                   ? habana_helpers::create_tensor(

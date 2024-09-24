@@ -590,7 +590,6 @@ class HabanaLaunchOpPT {
       torch::jit::Node* node,
       habana_helpers::DynamicSIFInfo& dsisss);
 
-  uint64_t HandleFrontendShapeTensorOp(torch::jit::Node* node);
   void HandleOutputExprMappedJITGraph(
       std::shared_ptr<torch::jit::Graph>& rv_jit_graph,
       RecipeValueSpec& rv,
