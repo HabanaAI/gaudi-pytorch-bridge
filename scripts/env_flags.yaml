@@ -176,10 +176,6 @@ PT_HPU_ENABLE_LAZY_EAGER_EXECUTION_THREAD:
   type: bool
   default: true
 
-PT_HPU_ENABLE_LAZY_EAGER_LAUNCH_EXEC_THREAD:
-  type: bool
-  default: false
-
 PT_HPU_EAGER_4_STAGE_PIPELINE_ENABLE:
   type: bool
   default: true
