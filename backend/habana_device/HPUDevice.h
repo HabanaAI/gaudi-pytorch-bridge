@@ -81,10 +81,6 @@ class HPUDevice {
     return device_->type();
   }
 
-  void cleanup() {
-    device_->cleanup();
-  }
-
   synapse_helpers::device& syn_device() {
     return *device_;
   }

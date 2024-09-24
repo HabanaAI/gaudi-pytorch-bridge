@@ -477,6 +477,19 @@ class device {
     sem_.synchronize_event(event);
   }
 
+  // private inline method
+  inline bool copy_data_to_device_(
+      void* cpu_data,
+      device_ptr destination,
+      device_ptr event_addr,
+      size_t total_bytes,
+      const event_done_callback& done_cb,
+      bool is_pinned,
+      hpuStream_t hpu_stream,
+      void* host_cpu_data = nullptr);
+
+  uint64_t get_compute_stream_count();
+
   std::shared_ptr<session> synapse_session_;
 
   synDeviceType type_;
@@ -497,11 +510,6 @@ class device {
   memory_mapper memory_mapper_;
   host_memory host_memory_;
   device_memory device_memory_;
-  std::unordered_map<hpuStream_t, std::unique_ptr<stream>> streams_;
-  // Only used with old design of stream assignment
-  std::unordered_map<default_stream_type, std::unique_ptr<stream>>
-      default_streams_;
-  stream_event_manager sem_;
   recipe_handle_cache recipe_handle_cache_;
   bool is_caching_enabled_;
   bool is_stream_async_enabled_;
@@ -524,29 +532,22 @@ class device {
   // event counter
   std::atomic<uint64_t> event_index_{0};
   std::mutex event_mutex_;
+  std::mutex usr_event_mutex_;
+  std::mutex host_event_mutex_;
 
-  // private inline method
-  inline bool copy_data_to_device_(
-      void* cpu_data,
-      device_ptr destination,
-      device_ptr event_addr,
-      size_t total_bytes,
-      const event_done_callback& done_cb,
-      bool is_pinned,
-      hpuStream_t hpu_stream,
-      void* host_cpu_data = nullptr);
-
-  uint64_t get_compute_stream_count();
   // Empty be default, framework can register its function to be called before
   // device is released
   framework_specific_cleanup_fnc framework_specific_cleanup_{[] {}};
   std::map<size_t, uint32_t> workspace_usage_;
   std::unordered_map<hpuEvent_t, std::array<synEventHandle, END_TYPE_>>
       user_event_map_;
-  std::mutex usr_event_mutex_;
   std::unordered_map<uint64_t, std::shared_ptr<host_event>>
       addr_host_event_map_;
-  std::mutex host_event_mutex_;
+  stream_event_manager sem_;
+  std::unordered_map<hpuStream_t, std::unique_ptr<stream>> streams_;
+  // Only used with old design of stream assignment
+  std::unordered_map<default_stream_type, std::unique_ptr<stream>>
+      default_streams_;
 };
 
 std::ostream& operator<<(std::ostream& stream, const device& syn_device);
