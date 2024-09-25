@@ -30,6 +30,7 @@ std::map<at::ScalarType, hcclDataType_t> hcclDataType = {
     {at::kInt, hcclInt32},
     {at::kLong, hcclInt64},
     {at::kBFloat16, hcclBfloat16},
+    {at::kBool, hcclUint8},
 };
 
 // HCCL op mapping
