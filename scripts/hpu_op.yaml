@@ -4878,6 +4878,8 @@ index_copy:
       source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
+  # op_backend: IndexCopy
+  output_meta: IndexCopyMeta
   out_ids: [0]
   hw_scaling_ids: [0]
   op_validator: check-node-with-shared-layer
@@ -4898,6 +4900,7 @@ index_copy_:
       source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
   guid: index_copy_fwd
   custom_fill_params: FillIndexCopyParams
+  output_meta: IndexCopyMeta
   inplace_ids: [0]
   op_validator: check-node-with-shared-layer
 
@@ -4916,6 +4919,7 @@ index_copy.out:
       index: [Int, Long]
       source: [BFloat16, Float, Int, Char, Byte, Short, Half, Float8_e5m2, Float8_e4m3fn, Long]
   guid: index_copy_fwd
+  output_meta: IndexCopyMeta
   custom_fill_params: FillIndexCopyParams
   op_validator: check-node-with-shared-layer
 
