@@ -25,6 +25,73 @@ std::shared_ptr<void> FillBernoulliWithPParams(
   return params;
 }
 
+SharedMetaDataVector BernoulliSharedMeta(const at::Stack& stack) {
+  const auto& seed = stack.at(1);
+  auto seedRank = 1;
+  auto seedDtype = c10::ScalarType::Int;
+  if (seed.isTensor()) {
+    auto seedTensor = seed.toTensor();
+    seedRank = seedTensor.dim();
+    seedDtype = seedTensor.scalar_type();
+  }
+
+  const auto p = stack_tensor(stack, 0);
+  auto pRank = p.dim();
+  auto pDtype = p.scalar_type();
+
+  SharedMetaData bernoulliSharedMeta{"pt_bernoulli"};
+  bernoulliSharedMeta.inputs_data = {
+      {pRank, pDtype}, {seedRank, seedDtype}, {1, c10::ScalarType::Int}};
+  bernoulliSharedMeta.outputs_data.emplace_back(pRank, pDtype);
+
+  return {bernoulliSharedMeta};
+}
+
+SharedMetaDataVector BernoulliWithPSharedMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto selfRank = self.dim();
+  auto selfDtype = self.scalar_type();
+  auto p = stack.at(1);
+  auto seed = stack.at(2);
+  c10::optional<at::Tensor> seedOptionalTensor = c10::nullopt;
+  auto isSeedTensor = seed.isTensor();
+  bool seedHasValue;
+  if (isSeedTensor) {
+    seedOptionalTensor = seed.toOptional<at::Tensor>();
+    seedHasValue = seedOptionalTensor.has_value();
+  } else {
+    seedHasValue = seed.toOptional<at::Generator>().has_value();
+  }
+
+  // Precision type and output shape will be taken from self tensor, so even if
+  // it is not passed, due to the specificty of SharedLayer the first input must
+  // be provided so that the precision type match. "P" tensor will be
+  // casted self's dtype
+  SharedMetaData bernoulliSharedMeta{"pt_bernoulli"};
+  if (p.isScalar())
+    bernoulliSharedMeta.inputs_data.emplace_back(selfRank, selfDtype);
+  else
+    bernoulliSharedMeta.inputs_data.emplace_back(p.toTensor().dim(), selfDtype);
+
+  if (seedHasValue) {
+    auto seedRank = 1;
+    auto seedDtype = c10::ScalarType::Int;
+    if (isSeedTensor) {
+      seedRank = seedOptionalTensor.value().dim();
+      seedDtype = seedOptionalTensor.value().scalar_type();
+    }
+    bernoulliSharedMeta.inputs_data.emplace_back(seedRank, seedDtype);
+  } else {
+    bernoulliSharedMeta.inputs_data.push_back(
+        createOptionalNotPresentSharedMetaTensor());
+  }
+
+  bernoulliSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Int);
+  bernoulliSharedMeta.outputs_data.emplace_back(selfRank, selfDtype);
+
+  return {bernoulliSharedMeta};
+}
+
 static auto bernoulli_impl(
     OpBackend* op,
     synapse_helpers::graph& graph,

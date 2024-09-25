@@ -54,6 +54,79 @@ OutputMetaDataVector BinaryCrossEntropyBwdMetaData(const at::Stack& stack) {
   meta.shape = self.sizes().vec();
   return {meta};
 }
+SharedMetaDataVector BinaryCrossEntropyFwdSharedMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto target = stack_tensor(stack, 1);
+  auto weights = stack.at(2).toOptional<at::Tensor>();
+  auto reduction = stack.at(3).toInt();
+  auto dtype = self.scalar_type();
+  auto outputRank =
+      reduction == at::Reduction::Reduction::None ? self.dim() : 1;
+
+  SharedMetaData binaryCrossEntropyFwdSharedMeta{"binary_cross_entropy_fwd"};
+  binaryCrossEntropyFwdSharedMeta.inputs_data = {
+      {self.dim(), dtype}, {target.dim(), dtype}};
+  if (weights.has_value())
+    binaryCrossEntropyFwdSharedMeta.inputs_data.emplace_back(
+        target.dim(), dtype);
+
+  binaryCrossEntropyFwdSharedMeta.outputs_data.emplace_back(outputRank, dtype);
+  return {binaryCrossEntropyFwdSharedMeta};
+}
+
+SharedMetaDataVector BinaryCrossEntropyWithLogitsFwdSharedMeta(
+    const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto target = stack_tensor(stack, 1);
+  auto weights = stack.at(2).toOptional<at::Tensor>();
+  auto posWeights = stack.at(3).toOptional<at::Tensor>();
+
+  auto reduction = stack.at(4).toInt();
+  auto dtype = self.scalar_type();
+  auto outputRank =
+      reduction == at::Reduction::Reduction::None ? self.dim() : 1;
+
+  SharedMetaData binaryCrossEntropyFwdSharedMeta{"binary_cross_entropy_fwd"};
+  binaryCrossEntropyFwdSharedMeta.inputs_data = {
+      {self.dim(), dtype}, {target.dim(), dtype}};
+  if (posWeights.has_value())
+    binaryCrossEntropyFwdSharedMeta.inputs_data.emplace_back(
+        posWeights.value().dim(), dtype);
+
+  if (weights.has_value())
+    binaryCrossEntropyFwdSharedMeta.inputs_data.emplace_back(
+        target.dim(), dtype);
+
+  binaryCrossEntropyFwdSharedMeta.outputs_data.emplace_back(outputRank, dtype);
+  return {binaryCrossEntropyFwdSharedMeta};
+}
+
+SharedMetaDataVector BinaryCrossEntropyBwdSharedMeta(const at::Stack& stack) {
+  auto grad = stack_tensor(stack, 0);
+  auto self = stack_tensor(stack, 1);
+  auto target = stack_tensor(stack, 2);
+  auto weights = stack.at(3).toOptional<at::Tensor>();
+  auto rank = self.dim();
+  auto dtype = self.scalar_type();
+
+  SharedMetaData negGradSharedMeta{"neg_fwd"};
+  negGradSharedMeta.inputs_data.emplace_back(grad.dim(), dtype);
+  negGradSharedMeta.outputs_data = {negGradSharedMeta.inputs_data[0]};
+
+  SharedMetaData binaryCrossEntropyBwdSharedMeta{"binary_cross_entropy_bwd"};
+  binaryCrossEntropyBwdSharedMeta.inputs_data = {
+      {rank, dtype}, {target.dim(), dtype}};
+  if (weights.has_value())
+    binaryCrossEntropyBwdSharedMeta.inputs_data.emplace_back(
+        weights.value().dim(), dtype);
+
+  binaryCrossEntropyBwdSharedMeta.inputs_data.push_back(
+      negGradSharedMeta.outputs_data[0]);
+
+  binaryCrossEntropyBwdSharedMeta.outputs_data.emplace_back(rank, dtype);
+
+  return {negGradSharedMeta, binaryCrossEntropyBwdSharedMeta};
+}
 
 static std::shared_ptr<void> BceParams(
     const at::Stack& stack,

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2022-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2022-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -24,6 +24,20 @@ OutputMetaDataVector EmbeddingDenseBwdMeta(const at::Stack& stack) {
   meta.shape.push_back(num_weights);
   meta.shape.push_back(grad.sizes().vec().back());
   return {meta};
+}
+
+SharedMetaDataVector EmbeddingDenseBwdSharedMeta(const at::Stack& stack) {
+  auto gradOut = stack_tensor(stack, 0);
+  auto indices = stack_tensor(stack, 1);
+  auto dtype = gradOut.scalar_type();
+  auto gradRank = gradOut.dim();
+
+  SharedMetaData embeddingDenseBwdSharedMeta{"embedding_dense_pt_bwd"};
+  embeddingDenseBwdSharedMeta.inputs_data = {
+      {gradRank, dtype}, {indices.dim(), indices.scalar_type()}};
+  embeddingDenseBwdSharedMeta.outputs_data.emplace_back(2, dtype);
+
+  return {embeddingDenseBwdSharedMeta};
 }
 
 std::shared_ptr<void> FillEmbeddingDenseBackwardParams(

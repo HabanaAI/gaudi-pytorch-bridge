@@ -29,6 +29,34 @@ OutputMetaDataVector EqualMeta(const at::Stack&) {
   return {meta};
 }
 
+SharedMetaDataVector EqualSharedMeta(const at::Stack& stack) {
+  const auto self = stack_tensor(stack, 0);
+  const auto selfRank = self.dim();
+  const auto other = stack_tensor(stack, 1);
+  const auto otherRank = other.dim();
+
+  if (selfRank != otherRank) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data.emplace_back(1, c10::ScalarType::Bool);
+    return {constantSharedMeta};
+  } else {
+    const auto computeDtype = self.scalar_type();
+    auto rank = std::max(selfRank, otherRank);
+    SharedMetaData equalSharedMeta{"equal_fwd"};
+    SharedMetaTensor commonTensor = {rank, computeDtype};
+    equalSharedMeta.inputs_data = {commonTensor, commonTensor};
+    equalSharedMeta.outputs_data.emplace_back(rank, c10::ScalarType::Bool);
+
+    SharedMetaData reduceProdMultiDimSharedMeta{"reduce_prod_multi_dim_fwd"};
+    reduceProdMultiDimSharedMeta.inputs_data.emplace_back(
+        rank, c10::ScalarType::Float);
+    reduceProdMultiDimSharedMeta.outputs_data.emplace_back(
+        1, c10::ScalarType::Float);
+
+    return {equalSharedMeta, reduceProdMultiDimSharedMeta};
+  }
+}
+
 void Equal::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
   StackGetter stackGetter(this, stack, "Equal::AddNode");
   auto self = stackGetter.getNextInput<TensorsPair>();

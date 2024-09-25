@@ -1778,6 +1778,7 @@ adaptive_avg_pool3d_backward.grad_input:
     Gaudi3: [BFloat16, Float, Half]
   guid: complex_adaptive_avg_pool_3d_bwd
   op_backend: AdaptiveAvgPool3dBwd
+  op_validator: AdaptiveAvgPool3dBwdSharedMeta
 
 atanh:
   guid: atanh_fwd
@@ -1825,6 +1826,7 @@ bernoulli:
   op_frontend: GeneratorToSeed
   op_backend: Bernoulli
   out_ids: [0]
+  op_validator: BernoulliSharedMeta
   schema_args: "(Tensor self, *, Tensor? seed=None) -> Tensor"
 
 bernoulli_.float:
@@ -1837,6 +1839,7 @@ bernoulli_.float:
   inplace_ids: [0]
   op_frontend: BernoulliFE
   op_backend: BernoulliWithP
+  op_validator: BernoulliWithPSharedMeta
   schema_args: "(Tensor(a!) self, float p, *, Tensor? seed=None) -> Tensor(a!)"
 
 bernoulli_.Tensor:
@@ -1848,6 +1851,7 @@ bernoulli_.Tensor:
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: BernoulliWithP
+  op_validator: BernoulliWithPSharedMeta
   schema_args: "(Tensor(a!) self, Tensor p, *, Tensor? seed=None) -> Tensor(a!)"
 
 bernoulli.out:
@@ -1858,6 +1862,7 @@ bernoulli.out:
   guid: random_bernoulli_fwd
   op_frontend: GeneratorToSeedOut
   op_backend: BernoulliOut
+  op_validator: BernoulliSharedMeta
   schema_args: "(Tensor self, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
 
 bernoulli.float_out:
@@ -1869,6 +1874,7 @@ bernoulli.float_out:
   guid: random_bernoulli_fwd
   op_frontend: BernoulliOutFE
   op_backend: BernoulliWithP
+  op_validator: BernoulliWithPSharedMeta
   schema_args: "(Tensor self, float p, *, Tensor? seed=None, Tensor(a!) out) -> Tensor(a!)"
 
 binary_cross_entropy:
@@ -1879,6 +1885,7 @@ binary_cross_entropy:
     Gaudi3: [Float, BFloat16, Half]
   op_backend: BinaryCrossEntropyFwd
   out_ids: [0]
+  #op_validator: BinaryCrossEntropyFwdSharedMeta SW-163929
 
 binary_cross_entropy_backward:
   output_meta: BinaryCrossEntropyBwdMetaData
@@ -1888,6 +1895,7 @@ binary_cross_entropy_backward:
     Gaudi3: [Float, BFloat16, Half]
   op_backend: BinaryCrossEntropyBwd
   out_ids: [0]
+  #op_validator: BinaryCrossEntropyBwdSharedMeta SW-163929
 
 binary_cross_entropy.out:
   output_meta: BinaryCrossEntropyFwdMetaData
@@ -1896,6 +1904,7 @@ binary_cross_entropy.out:
     Gaudi2: [Float, BFloat16, Half]
     Gaudi3: [Float, BFloat16, Half]
   op_backend: BinaryCrossEntropyFwd
+  #op_validator: BinaryCrossEntropyFwdSharedMeta SW-163929
 
 binary_cross_entropy_backward.grad_input:
   output_meta: BinaryCrossEntropyBwdMetaData
@@ -1904,6 +1913,7 @@ binary_cross_entropy_backward.grad_input:
     Gaudi2: [Float, BFloat16, Half]
     Gaudi3: [Float, BFloat16, Half]
   op_backend: BinaryCrossEntropyBwd
+  #op_validator: BinaryCrossEntropyBwdSharedMeta SW-163929
 
 binary_cross_entropy_with_logits:
   output_meta: BinaryCrossEntropyLogitsFwdMetaData
@@ -1914,6 +1924,7 @@ binary_cross_entropy_with_logits:
   op_backend: BinaryCrossEntropyWithLogitsFwd
   fallback_check: [BCELogitsFallbackCheck, self]
   out_ids: [0]
+  #op_validator: BinaryCrossEntropyWithLogitsFwdSharedMeta SW-163929
 
 bitwise_and.Scalar:
   output_meta: BitwiseLogicalMeta
@@ -2713,7 +2724,7 @@ embedding:
   output_meta: EmbeddingMeta
   guid: embedding_pt_fwd
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
+  op_validator: check-node-with-shared-layer
 
 embedding_dense_backward:
   custom_fill_params: FillEmbeddingDenseBackwardParams
@@ -2731,6 +2742,7 @@ embedding_dense_backward:
   guid: embedding_dense_pt_bwd
   op_backend: EmbeddingDenseBwd
   out_ids: [0]
+  op_validator: EmbeddingDenseBwdSharedMeta
 
 embedding_renorm_:
   custom_fill_params: FillEmbeddingRenormFwdParams
@@ -2753,6 +2765,7 @@ equal:
   output_meta: EqualMeta
   op_backend: Equal
   out_ids: [0]
+  op_validator: EqualSharedMeta
 
 eq.Scalar_out:
   guid: equal_fwd
@@ -3277,6 +3290,7 @@ native_group_norm:
   op_backend: NativeGroupNormFwd
   output_meta: GroupNormFwdMeta
   out_ids: [0, 0, 0]
+  op_validator: NativeGroupNormFwdSharedMeta
 
 native_group_norm_backward:
   dtypes:
@@ -3289,6 +3303,7 @@ native_group_norm_backward:
   - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN, WHCN, DONT_CARE, DONT_CARE, DONT_CARE]
   out_ids: [0, 0, 0]
+  op_validator: NativeGroupNormBwdSharedMeta
   lazy:
     acc_thread: true
     override_fn: native_group_norm_backward_hpu_lazy
