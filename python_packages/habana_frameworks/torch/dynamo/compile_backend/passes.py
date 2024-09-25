@@ -1450,47 +1450,6 @@ def pass_mark_placement(ctx: OptimizerContext) -> bool:
     return True
 
 
-def pass_accumulate_grads(ctx: OptimizerContext) -> bool:
-    """
-    This pass collects inputs (variable, new_grad) from inductor.accumulate_grad_ nodes
-    in the graph, and passes them as TensorLists to the custom op hpu.accumulate_grads_.
-    hpu.accumulate_grads_ op is executed eagerly.
-    All accumulate_grad_ nodes are then removed.
-    """
-    assert ctx.graph_module is not None
-
-    graph = ctx.graph_module.graph
-
-    variables = []
-    grads = []
-    accumulate_grad_nodes = []
-
-    for node in graph.nodes:
-        if str(node.target) == "inductor.accumulate_grad_.default":
-            variables.append(node.args[0])
-            grads.append(node.args[1])
-            accumulate_grad_nodes.append(node)
-
-    if variables:
-        last_accumulate_grad = accumulate_grad_nodes[-1]
-        with graph.inserting_before(last_accumulate_grad):
-            accumulate_grads_ = graph.call_function(torch.ops.hpu.accumulate_grads_, (variables, grads), {})
-            accumulate_grads_.meta["placement"] = "eager"
-            accumulate_grads_.meta["output_device"] = last_accumulate_grad.meta["output_device"]
-            last_accumulate_grad.replace_all_uses_with(accumulate_grads_, propagate_meta=False)
-        for accumulate_grad in accumulate_grad_nodes:
-            graph.erase_node(accumulate_grad)
-
-        graph.lint()
-        ctx.graph_module.recompile()
-
-        logger.debug(f"inductor.accumulate_grad_ nodes were wrapped into hpu.accumulate_grads op.")
-
-        return True
-
-    return False
-
-
 collective_ops = set(
     [
         torch.ops._c10d_functional.all_reduce_.default,

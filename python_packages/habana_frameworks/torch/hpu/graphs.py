@@ -502,18 +502,6 @@ def get_user_input_tensor_list(inputs, tlist):
     return tlist
 
 
-def is_seq_of_tensor(obj):
-    if isinstance(obj, collections.abc.Sequence) and not isinstance(obj, str):
-        for mem in obj:
-            if not is_seq_of_tensor(mem):
-                return False
-        return True
-    elif torch.is_tensor(obj):
-        return True
-    else:
-        return False
-
-
 def extract_tensors(data):
     """
     Returns a list of all tensors contained within a given data structure.
