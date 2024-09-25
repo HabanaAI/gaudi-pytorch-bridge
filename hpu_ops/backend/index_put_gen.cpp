@@ -288,7 +288,7 @@ static synapse_helpers::tensor HandleIndexPutWithAcc(
     size_t size = 0;
     PARAMS_STUB(ns_CastKernel::Params);
     size = sizeof(params);
-    params->round_mode = CAST_ROUND_DEFAULT;
+    params->round_mode = CAST_ROUND_ZERO;
     next_node = OpBackend::BuildNode(
         op,
         graph,
