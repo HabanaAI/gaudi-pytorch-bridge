@@ -153,24 +153,3 @@ class OnesLikeOperator : public ConstantOperator {
     ConstantOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
   }
 };
-
-// ConstantOut Operator
-class ConstantOutOperator : public habana::HabanaOperator {
- public:
-  ConstantOutOperator(int device_id, c10::ScalarType scalarType)
-      : habana::HabanaOperator(
-            habana::get_guid_with_precision("constant", scalarType)) {
-    this->CreateSynContext(device_id);
-    kernel_meta_data_.output_layout.assign({habana::LayoutFormat::ANY});
-    // special case, adding -1 to the tpc order, will not add any inputs
-    kernel_meta_data_.tpc_input_order = {habana::NO_INPUTS};
-  }
-
-  habana::InferOutputMetaRetType InferOutputMeta(
-      torch::jit::Stack& inputs) override;
-
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const habana::OutputMetaDataVector& output_metadata) override;
-};
