@@ -10,11 +10,10 @@
 #
 ###############################################################################
 from habana_frameworks.torch.dynamo.device_interface import HpuInterface
-from habana_frameworks.torch.hpu import device_count
 from torch._dynamo.device_interface import register_interface_for_device
 
+# we do not support device indices >0, so eiter hpu or hpu:0
 register_interface_for_device("hpu", HpuInterface)
+register_interface_for_device("hpu:0", HpuInterface)
 
-for i in range(device_count()):
-    register_interface_for_device(f"hpu:{i}", HpuInterface)
 from . import trace_rules
