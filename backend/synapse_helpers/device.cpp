@@ -13,6 +13,7 @@
 #include "backend/synapse_helpers/device.h"
 #include <absl/types/variant.h>
 #include <hl_logger/hllog_core.hpp>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <synapse_api.h>
 #include <algorithm>
@@ -156,13 +157,17 @@ void CheckDynamicMinMaxPolicyOrder() {
   }
 }
 
-int GetSystemRamInKB(void) {
+uint64_t GetSystemRamInKB(void) {
   FILE* meminfo = fopen("/proc/meminfo", "r");
   if (meminfo != NULL) {
     char line[256];
     while (fgets(line, sizeof(line), meminfo)) {
-      int ram;
-      if (sscanf(line, "MemTotal: %d kB", &ram) == 1) {
+      uint64_t ram;
+      if (sscanf(
+              line,
+              "MemTotal: "
+              "%" SCNu64 "kB",
+              &ram) == 1) {
         fclose(meminfo);
         return ram;
       }
