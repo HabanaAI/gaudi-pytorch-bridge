@@ -464,7 +464,6 @@ torch::jit::Stack GraphExec::launch(
             tensor));
   }
 
-  m_is_pipeline_supported = m_is_pipeline_supported && !backend_outputs.empty();
   m_graph_and_meta->set_is_pipeline_supported(m_is_pipeline_supported);
   LaunchDynamicShapes launch_shapes;
   if (!m_ds_patch_data.launch_shapes.empty()) {
