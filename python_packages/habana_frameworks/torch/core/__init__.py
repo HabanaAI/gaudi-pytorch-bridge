@@ -38,8 +38,29 @@ torch._register_device_module("hpu", hpu)
 # wrap some torch functionalitis required to work with HPU
 overwrite_torch_functions()
 
-# wrap pt2e-quant apis required to work on HPU with graph-breaks
-overwrite_native_pt2e_quantization_interface()
+# this is to prevent potential circular imports caused by the function *overwrite_native_pt2e_quantization_interface()*
+from functools import wraps
+
+did_overwrite_quantization = False
+
+
+# A wrapper for bootstrap._find_and_load function to call overwrite_native_quantization_interface() when needed
+def on_import(wrapped):
+    @wraps(wrapped)
+    def inner(*args, **kwargs):
+        global did_overwrite_quantization
+        # we only need to overwrite once, after importing one of these modules
+        if args[0] in ["torch._export", "torch.ao.quantization.quantize_pt2e"] and not did_overwrite_quantization:
+            did_overwrite_quantization = True
+            overwrite_native_pt2e_quantization_interface()  # wrap pt2e-quant apis required to work on HPU with graph-breaks
+        return wrapped(*args, **kwargs)
+
+    return inner
+
+
+import importlib._bootstrap as bootstrap
+
+setattr(bootstrap, "_find_and_load", on_import(bootstrap._find_and_load))
 
 
 # enable profiler and weight sharing if required

@@ -21,9 +21,7 @@ from torch._dynamo.backends.registry import register_backend
 
 logger = logging.getLogger(__name__)
 
-from .compilers import hpu_inference_compiler, hpu_training_compiler_bw, hpu_training_compiler_fw
 from .decomposition import get_hpu_decompositions, override_composite_ops
-from .partition_fn import hpu_partition
 
 
 @register_backend
@@ -31,6 +29,9 @@ def hpu_backend(graph_module: torch.fx.GraphModule, example_inputs: List[torch.T
     """
     This function implements interface for HPU training/inference backend.
     """
+    from .compilers import hpu_inference_compiler, hpu_training_compiler_bw, hpu_training_compiler_fw
+    from .partition_fn import hpu_partition
+
     options = kwargs["options"] if "options" in kwargs else None
 
     inference_compiler = partial(hpu_inference_compiler, dyn_graph_module=graph_module)

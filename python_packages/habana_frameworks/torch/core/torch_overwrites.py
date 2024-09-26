@@ -557,28 +557,40 @@ def overwrite_torch_functions():
 
 # wrap native pt2e-quant apis required to work on HPU with graph-breaks
 
-from torch.ao.quantization.quantize_pt2e import convert_pt2e, prepare_pt2e
 
-org_export = torch._export.capture_pre_autograd_graph
-org_prepare_pt2e = prepare_pt2e
-org_convert_pt2e = convert_pt2e
+# A data class which holds the native implementations of some pt2e functions
+# The fields that hold the implementations are set when overwrite_native_pt2e_quantization_interface() is called
+class NativeFunctions:
+    org_export = None
+    org_prepare_pt2e = None
+    org_convert_pt2e = None
 
 
 def _native_pt2e_quantization_interface(name):
+    # Call this function, which saves the native functions in NativeFunction, if for some reason it hasn't happened yet
+    if any(
+        f is None
+        for f in [NativeFunctions.org_convert_pt2e, NativeFunctions.org_prepare_pt2e, NativeFunctions.org_export]
+    ):
+        overwrite_native_pt2e_quantization_interface()
     if name == "export":
-        global org_export
-        return org_export
+        return NativeFunctions.org_export
     elif name == "prepare_pt2e":
-        global org_prepare_pt2e
-        return org_prepare_pt2e
+        return NativeFunctions.org_prepare_pt2e
     elif name == "convert_pt2e":
-        global org_convert_pt2e
-        return org_convert_pt2e
+        return NativeFunctions.org_convert_pt2e
     else:
         return None
 
 
 def overwrite_native_pt2e_quantization_interface():
+
+    # This is to make sure the native funcitons implementations are saved in NativeFunctions before overwriting them
+    import torch.ao.quantization.quantize_pt2e as quantize_pt2e
+
+    NativeFunctions.org_export = torch._export.capture_pre_autograd_graph
+    NativeFunctions.org_convert_pt2e = quantize_pt2e.convert_pt2e
+    NativeFunctions.org_prepare_pt2e = quantize_pt2e.prepare_pt2e
 
     # wrap capture_pre_autograd_graph
     @wraps(torch._export.capture_pre_autograd_graph)
@@ -594,7 +606,6 @@ def overwrite_native_pt2e_quantization_interface():
 
     torch._export.capture_pre_autograd_graph = wrap_capture_pre_autograd_graph
 
-    import torch.ao.quantization.quantize_pt2e as quantize_pt2e
     from torch.ao.quantization.quantizer import Quantizer
     from torch.fx import GraphModule
 
