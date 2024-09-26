@@ -5453,6 +5453,7 @@ log_normal_:
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInput
+  op_validator: RandomLogNormalSharedMeta
   schema_args: "(Tensor(a!) self, float mean=1, float std=2, *, Tensor seed) -> Tensor(a!)"
 
 log_sigmoid_backward:
@@ -6371,6 +6372,7 @@ multinomial:
   guid: random_multinomial_pt_fwd
   out_ids: [0]
   op_frontend: GeneratorToSeed
+  op_validator: MultinomialSharedMeta
   output_meta: MultinomialMeta
   schema_args: "(Tensor self, int num_samples, bool replacement, Tensor seed) -> Tensor"
 
@@ -6382,6 +6384,7 @@ multinomial.out:
     Gaudi3: [BFloat16, Float, Half]
   guid: random_multinomial_pt_fwd
   op_frontend: GeneratorToSeedOut
+  op_validator: MultinomialSharedMeta
   output_meta: MultinomialMeta
   schema_args: "(Tensor self, int num_samples, bool replacement, Tensor seed,  Tensor(a!) out) -> Tensor(a!)"
 
@@ -6965,6 +6968,7 @@ normal_:
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInput
+  op_validator: RandomNormalSharedMeta
   schema_args: "(Tensor(a!) self, float mean=0, float std=1, *, Tensor seed) -> Tensor(a!)"
 
 normal.float_float:
@@ -6977,6 +6981,7 @@ normal.float_float:
   out_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: NormalBE
+  op_validator: NormalSharedMeta
   schema_args: "(float mean, float std, SymInt[] size, Tensor seed, *, ScalarType? dtype=None, Layout? layout=None, Device? device=None, bool? pin_memory=None) -> Tensor"
 
 normal.Tensor_float:
@@ -6988,6 +6993,7 @@ normal.Tensor_float:
   out_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: NormalBE
+  op_validator: NormalSharedMeta
   schema_args: "(Tensor mean, float stddev, *, Tensor seed) -> Tensor"
 
 normal.Tensor_float_out:
@@ -6998,6 +7004,7 @@ normal.Tensor_float_out:
     Gaudi3: [BFloat16, Float, Half]
   op_frontend: GeneratorToSeedOut
   op_backend: NormalBE
+  op_validator: NormalSharedMeta
   schema_args: "(Tensor mean, float std, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
 normal.float_Tensor:
@@ -7009,6 +7016,7 @@ normal.float_Tensor:
   out_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: NormalBE
+  op_validator: NormalSharedMeta
   schema_args: "(float mean, Tensor stddev, *, Tensor seed) -> Tensor"
 
 normal.float_Tensor_out:
@@ -7019,6 +7027,7 @@ normal.float_Tensor_out:
     Gaudi3: [BFloat16, Float, Half]
   op_frontend: GeneratorToSeedOut
   op_backend: NormalBE
+  op_validator: NormalSharedMeta
   schema_args: "(float mean, Tensor std, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
 normal.Tensor_Tensor:
@@ -7030,6 +7039,7 @@ normal.Tensor_Tensor:
   out_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: NormalBE
+  op_validator: NormalSharedMeta
   schema_args: "(Tensor mean, Tensor stddev, *, Tensor seed) -> Tensor"
 
 normal.Tensor_Tensor_out:
@@ -7040,6 +7050,7 @@ normal.Tensor_Tensor_out:
     Gaudi3: [BFloat16, Float, Half]
   op_frontend: GeneratorToSeedOut
   op_backend: NormalBE
+  op_validator: NormalSharedMeta
   schema_args: "(Tensor mean, Tensor std, *, Tensor seed, Tensor(a!) out) -> Tensor(a!)"
 
 norm.out:
@@ -7049,6 +7060,7 @@ norm.out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: NormOpWithDtype
+  op_validator: NormOpWithDtypeSharedMeta
 
 norm.dtype_out:
   output_meta: NormOpMeta
@@ -7057,6 +7069,7 @@ norm.dtype_out:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: NormOpWithDtype
+  op_validator: NormOpWithDtypeSharedMeta
 
 norm.Scalar:
   output_meta: NormMeta
@@ -7065,6 +7078,7 @@ norm.Scalar:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: NormOpScalar
+  op_validator: NormOpScalarSharedMeta
   out_ids: [0]
 
 norm.ScalarOpt_dim_dtype:
@@ -7074,6 +7088,7 @@ norm.ScalarOpt_dim_dtype:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: NormOpWithDtype
+  op_validator: NormOpWithDtypeSharedMeta
   out_ids: [0]
 
 norm.ScalarOpt_dim:
@@ -7083,6 +7098,7 @@ norm.ScalarOpt_dim:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: NormOpWithDtype
+  op_validator: NormOpWithDtypeSharedMeta
   out_ids: [0]
 
 norm.ScalarOpt_dtype:
@@ -7092,6 +7108,7 @@ norm.ScalarOpt_dtype:
     Gaudi2: [BFloat16, Float, Half]
     Gaudi3: [BFloat16, Float, Half]
   op_backend: NormOpScalarWithDtype
+  op_validator: NormOpScalarSharedMeta
   out_ids: [0]
 
 _weight_norm_interface:
@@ -7134,6 +7151,7 @@ poisson:
   out_ids: [0]
   op_frontend: GeneratorToSeed
   schema_args: "(Tensor self, Tensor seed) -> Tensor"
+  op_validator: PoissonSharedMeta
 
 pow_.Scalar:
   dtypes:
@@ -7322,6 +7340,7 @@ random_:
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInputIntegers
+  op_validator: RandomSeedTensorInputIntegersSharedMeta
   schema_args: "(Tensor(a!) self, Tensor seed) -> Tensor(a!)"
 
 random_.from:
@@ -7334,6 +7353,7 @@ random_.from:
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInputIntegers
+  op_validator: RandomSeedTensorInputIntegersSharedMeta
   schema_args: "(Tensor(a!) self, int from, int? to, Tensor seed) -> Tensor(a!)"
 
 random_.to:
@@ -7346,6 +7366,7 @@ random_.to:
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInputIntegers
+  op_validator: RandomSeedTensorInputIntegersSharedMeta
   schema_args: "(Tensor(a!) self, int to, Tensor seed) -> Tensor(a!)"
 
 randperm:
@@ -7356,6 +7377,7 @@ randperm:
     Gaudi3: [Int, Long, Half]
   guid: randperm
   op_backend: RandPermOp
+  op_validator: RandPermSharedMeta
   out_ids: [0]
   lazy:
     override_fn: randperm_nogen_hpu_lazy
@@ -7372,6 +7394,7 @@ randperm.generator:
   op_frontend: GeneratorToSeed
   op_backend: RandPermOp
   out_ids: [0]
+  op_validator: RandPermSharedMeta
   schema_args: "(SymInt n, Tensor seed, ScalarType? dtype, Layout? layout, Device? device, bool? pin_memory) -> Tensor"
 
 randperm.generator_out:
@@ -7383,6 +7406,7 @@ randperm.generator_out:
   guid: randperm
   op_frontend: GeneratorToSeedOut
   op_backend: RandPermOp
+  op_validator: RandPermSharedMeta
   lazy:
     override_fn: randperm_hpu_lazy
     acc_thread: true
@@ -9170,6 +9194,7 @@ uniform_:
   inplace_ids: [0]
   op_frontend: GeneratorToSeed
   op_backend: RandomSeedTensorInput
+  op_validator: RandomUniformSharedMeta
   schema_args: "(Tensor(a!) self, float from=0, float to=1, *, Tensor seed) -> Tensor(a!)"
 
 unique_dim:

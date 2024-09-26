@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -64,6 +64,29 @@ static std::shared_ptr<void> MultinomialParams(
 
 OutputMetaDataVector MultinomialMeta(const at::Stack& stack) {
   return {OutputMetaData(at::ScalarType::Long, MultinomialOutputShape(stack))};
+}
+
+SharedMetaDataVector MultinomialSharedMeta(const at::Stack& stack) {
+  const auto self = stack_tensor(stack, 0);
+  const auto selfDtype = self.scalar_type();
+  const auto rank = self.dim();
+  const auto& seed = stack.at(3);
+  SharedMetaTensor seedSharedTensor = {1, c10::ScalarType::Int};
+  if (seed.isTensor()) {
+    const auto seedTensor = seed.toTensor();
+    seedSharedTensor = {seedTensor.dim(), seedTensor.scalar_type()};
+  }
+
+  const auto outputDtype = selfDtype == c10::ScalarType::Float
+      ? c10::ScalarType::Int
+      : c10::ScalarType::Short;
+
+  SharedMetaData multinomialSharedMeta{"random_multinomial_pt_fwd"};
+  multinomialSharedMeta.inputs_data.emplace_back(rank, selfDtype);
+  multinomialSharedMeta.inputs_data.push_back(seedSharedTensor);
+  multinomialSharedMeta.outputs_data.emplace_back(rank, outputDtype);
+
+  return {multinomialSharedMeta};
 }
 
 std::shared_ptr<void> FillMultinomialParams(

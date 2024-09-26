@@ -22,6 +22,24 @@ std::shared_ptr<void> FillPoissonParams(const at::Stack&, size_t& size) {
   return params;
 }
 
+SharedMetaDataVector PoissonSharedMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  auto selfDtype = self.scalar_type();
+  auto rank = self.dim();
+  auto seed = stack.at(1);
+  SharedMetaTensor seedSharedTensor = {1, c10::ScalarType::Int};
+  if (seed.isTensor()) {
+    const auto seedTensor = seed.toTensor();
+    seedSharedTensor = {seedTensor.dim(), seedTensor.scalar_type()};
+  }
+
+  SharedMetaData poissonSharedMeta{"random_poisson_fwd"};
+  poissonSharedMeta.inputs_data.emplace_back(rank, selfDtype);
+  poissonSharedMeta.inputs_data.push_back(seedSharedTensor);
+  poissonSharedMeta.outputs_data.emplace_back(rank, selfDtype);
+  return {poissonSharedMeta};
+}
+
 HabanaPoisson::HabanaPoisson(int device_id, c10::ScalarType scalar_type)
     : OpBackend(device_id, "habana_poisson", scalar_type, {1}, {}, {}, false) {}
 

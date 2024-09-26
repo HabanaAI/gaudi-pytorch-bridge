@@ -460,4 +460,34 @@ SharedMetaDataVector TopkSharedMeta(const at::Stack& stack) {
   return {topkMeta};
 }
 
+SharedMetaDataVector RandomSeedTensorInputSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  auto self = stack_tensor(stack, 0);
+  auto seed = stack.at(3);
+  SharedMetaTensor seedSharedTensor = {1, c10::ScalarType::Int};
+  if (seed.isTensor()) {
+    const auto seedTensor = seed.toTensor();
+    seedSharedTensor = {seedTensor.dim(), seedTensor.scalar_type()};
+  }
+
+  const auto isUniform =
+      guid.find("philox_random_uniform") != std::string::npos;
+  auto computeDtype = self.scalar_type();
+  SharedMetaData randomSharedMeta{guid};
+  if (!isUniform) {
+    randomSharedMeta.inputs_data.push_back(
+        createOptionalNotPresentSharedMetaTensor());
+    if (computeDtype != c10::ScalarType::BFloat16)
+      computeDtype = c10::ScalarType::Float;
+  }
+
+  randomSharedMeta.inputs_data.push_back(seedSharedTensor);
+  if (isUniform)
+    randomSharedMeta.inputs_data.push_back(randomSharedMeta.inputs_data[0]);
+
+  randomSharedMeta.outputs_data.emplace_back(self.dim(), computeDtype);
+  return {randomSharedMeta};
+}
+
 } // namespace habana

@@ -1,11 +1,14 @@
 /******************************************************************************
- * Copyright (C) 2023-2024 HabanaLabs, Ltd.
+ * Copyright (C) 2023-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
 #include "generated/backend/arange.h"
 #include "generated/backend/randperm.h"
@@ -128,6 +131,21 @@ OutputMetaDataVector RandPermMeta(const at::Stack& stack) {
     meta.dtype = randperm_dtype;
   }
   return {meta};
+}
+
+SharedMetaDataVector RandPermSharedMeta(const at::Stack& stack) {
+  auto dtype = c10::ScalarType::Int;
+
+  SharedMetaData range{"range"};
+  range.outputs_data.emplace_back(1, dtype);
+
+  auto seedRank = stack.at(1).isTensor() ? stack_tensor(stack, 1).dim() : 1;
+  SharedMetaData randomShuffle{"random_shuffle_fwd"};
+  randomShuffle.inputs_data.push_back(range.outputs_data[0]);
+  randomShuffle.inputs_data.emplace_back(seedRank, dtype);
+  randomShuffle.outputs_data.emplace_back(1, dtype);
+
+  return {range, randomShuffle};
 }
 
 void RandPermOp::AddNode(

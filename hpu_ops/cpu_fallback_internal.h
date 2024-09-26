@@ -272,6 +272,31 @@ at::ScalarType expected_result_dtype(
   return at::ScalarType::Int;
 }
 
+template <class... ParameterTypes>
+at::ScalarType expected_result_dtype(
+    [[maybe_unused]] const c10::SymInt& sint,
+    std::optional<c10::ScalarType>& dtypeOpt,
+    ParameterTypes...) {
+  if (dtypeOpt.has_value()) {
+    return dtypeOpt.value();
+  } else {
+    return at::ScalarType::Int;
+  }
+}
+
+template <class... ParameterTypes>
+at::ScalarType expected_result_dtype(
+    [[maybe_unused]] const c10::SymInt& sint,
+    const std::optional<at::Generator>& gen,
+    std::optional<c10::ScalarType>& dtypeOpt,
+    ParameterTypes...) {
+  if (dtypeOpt.has_value()) {
+    return dtypeOpt.value();
+  } else {
+    return at::ScalarType::Int;
+  }
+}
+
 /*
  * Wrapper that executes a fallback path when op cannot be executed as is.
  * Partial specializations follow patterns of BoxedKernelWrapper (see

@@ -63,6 +63,48 @@ OutputMetaDataVector VecNormMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector NormCommonSharedMeta(
+    const int64_t& inputRank,
+    const int64_t& outputRank,
+    const at::ScalarType& dtype) {
+  SharedMetaData normCommonSharedMeta{"reduce_Lp_multi_dim_fwd"};
+  normCommonSharedMeta.inputs_data.emplace_back(inputRank, dtype);
+  normCommonSharedMeta.outputs_data.emplace_back(outputRank, dtype);
+  return {normCommonSharedMeta};
+}
+
+SharedMetaDataVector NormOpWithDtypeSharedMeta(const at::Stack& stack) {
+  const auto self = stack_tensor(stack, 0);
+  const bool keepdim = stack.at(3).toBool();
+  const auto inputRank = self.dim();
+  auto outputRank = inputRank;
+  if (!keepdim) {
+    if (stack.at(2).isNone()) {
+      outputRank = 1;
+    } else {
+      const int64_t dims =
+          static_cast<int64_t>(stack.at(2).toIntVector().size());
+      outputRank = dims >= inputRank ? 1 : inputRank - dims;
+    }
+  }
+
+  const auto dtype = (stack.size() >= 5 && !stack.at(4).isTensor())
+      ? stack.at(4).toScalarType()
+      : self.scalar_type();
+
+  return NormCommonSharedMeta(inputRank, outputRank, dtype);
+}
+
+SharedMetaDataVector NormOpScalarSharedMeta(const at::Stack& stack) {
+  auto self = stack_tensor(stack, 0);
+  const auto inputRank = self.dim();
+  const auto outputRank = 1;
+  const auto dtype =
+      stack.size() == 3 ? stack.at(2).toScalarType() : self.scalar_type();
+
+  return NormCommonSharedMeta(inputRank, outputRank, dtype);
+}
+
 static ns_ReduceLpV2::ParamsV2 FillPFormNormOpParams(
     const int64_t ndims,
     at::IntArrayRef dims,

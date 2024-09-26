@@ -40,4 +40,6 @@ SHARED_META_GUID(AminAmax)
 SHARED_META_GUID(BinaryWithAlpha)
 SHARED_META_GUID(BitwiseLogical)
 SHARED_META(Topk)
+SHARED_META_GUID(RandomSeedTensorInput)
+
 } // namespace habana
