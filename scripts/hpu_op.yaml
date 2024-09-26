@@ -10039,3 +10039,10 @@ rms_norm_backward:
   out_ids: [0, 0]
   output_meta: RMSNormBwdMeta
   custom_fill_params: RMSNormBwdParams
+
+plain_index:
+  custom_op_schema: "hpu::plain_index(Tensor self, Tensor[] indices) -> Tensor"
+  output_meta: PlainIndexMeta
+  guid: plain_index
+  op_backend: PlainIndexHabanaOperator
+  out_ids: [0]

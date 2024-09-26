@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -34,6 +34,9 @@ std::tuple<std::vector<int64_t>, std::vector<at::Tensor>> transposeToFront(
 std::vector<std::vector<int64_t>> calc_indexing_tensors_shapes(
     const at::Stack& stack);
 
+std::vector<std::vector<int64_t>> calc_plain_indexing_tensors_shapes(
+    const at::Stack& stack);
+
 std::tuple<bool, int, std::vector<int64_t>, std::vector<at::Tensor>>
 generate_advanced_indexing_indices_list(const at::Stack& stack);
 
@@ -46,5 +49,12 @@ bool handle_bool_mask_indices(
 std::vector<int64_t> ComputeIndexOperatorOutputShape(
     const at::Tensor& input,
     at::TensorList indices);
+
+
+std::vector<int64_t> broadcast_size(at::TensorList indices);
+
+std::vector<int64_t> CalcCatOutSize(
+    const std::vector<std::vector<int64_t>>* tensors,
+    int64_t* dim_inp);
 
 } // namespace habana

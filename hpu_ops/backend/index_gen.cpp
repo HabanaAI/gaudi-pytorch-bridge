@@ -22,63 +22,6 @@
 
 namespace habana {
 
-// broadcast index tensor shape and get the correct shape and size
-static std::vector<int64_t> broadcast_size(at::TensorList indices) {
-  std::vector<int64_t> size;
-  int max = 1;
-  int max_dim = 0;
-  int i = 0;
-  for (auto t : indices) {
-    if ((t.dim() > max) && (t.scalar_type() != c10::ScalarType::Bool)) {
-      max_dim = i;
-      max = t.dim();
-    }
-    i++;
-  }
-  auto isz = indices[max_dim].sizes().vec();
-  if ((indices[max_dim].dim() == 1) ||
-      (indices[max_dim].scalar_type() == c10::ScalarType::Bool)) {
-    std::vector<int64_t> sz{isz[0]}; // if index is 2-D (for bool), number of
-                                     // rows indicates broadcast size
-    size = sz;
-  } else {
-    size = isz;
-  }
-  for (size_t i = 1; i < indices.size(); i++) {
-    size = at::infer_size(size, indices[i].sizes());
-  }
-  return size;
-}
-
-static std::vector<int64_t> CalcCatOutSize(
-    const std::vector<std::vector<int64_t>>* tensors,
-    int64_t* dim_inp) {
-  auto tensor_count = tensors->size();
-
-  if (tensor_count == 0) // if tensor is empty or its first element is empty,
-                         // then concatenate out size is 0
-    return {0};
-
-  int64_t dim =
-      at::maybe_wrap_dim(*dim_inp, tensors->at(0).size(), /*wrap_scalar=*/true);
-
-  CatOperator::validate_cat_tensor_dim_sizes(tensors, *dim_inp);
-
-  if (dim != *dim_inp) {
-    *dim_inp = dim;
-  }
-
-  // out tensor size should match along all dimensions for input tensors except
-  // along the dim in which to cat
-  auto out_size = tensors->at(0);
-  if (out_size.size() != 0) {
-    out_size[dim] = 0;
-    for (unsigned i = 0; i < tensor_count; i++)
-      out_size[dim] += tensors->at(i)[dim];
-  }
-  return out_size;
-}
-
 static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
   at::Tensor self = stack_tensor(stack, 0);
   c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
@@ -172,17 +115,17 @@ static sizes_vec IndexOutShapeFromOrigStack(const at::Stack& stack) {
 
 sizes_vec IndexOutputShape(const at::Stack& stack) {
   const at::Tensor input = stack_tensor(stack, 0);
-  std::vector<bool> adv_ind_dim = stack[2].toBoolList().vec();
-  const int num_index_tensors = stack[4].toInt();
-  const bool adv_indexing_present = std::any_of(
-      adv_ind_dim.cbegin(),
-      adv_ind_dim.cbegin() + num_index_tensors,
-      [](const auto& i) { return i == true; });
-  auto indexing_tensor_shapes = calc_indexing_tensors_shapes(stack);
-  if (stack.size() > 3) { // indicates that we are getting the custom schema
+  auto indices = stack.at(1).toTensorList().vec();
+  if (stack.size() > 2) { // indicates that we are getting the custom schema
                           // with additional info
-    auto indices = stack.at(1).toTensorList().vec();
+    std::vector<bool> adv_ind_dim = stack[2].toBoolList().vec();
+    const int num_index_tensors = stack[4].toInt();
+    const bool adv_indexing_present = std::any_of(
+        adv_ind_dim.cbegin(),
+        adv_ind_dim.cbegin() + num_index_tensors,
+        [](const auto& i) { return i == true; });
     if (adv_indexing_present) {
+      auto indexing_tensor_shapes = calc_indexing_tensors_shapes(stack);
       std::vector<int64_t> self_permute_dims = stack[3].toIntList().vec();
       std::vector<int64_t> permuted_input_sizes, new_strides;
       std::tie(permuted_input_sizes, new_strides) =
@@ -192,8 +135,6 @@ sizes_vec IndexOutputShape(const at::Stack& stack) {
               permuted_input_sizes, adv_ind_dim, indexing_tensor_shapes)}};
       return shape;
     } else {
-      const at::Tensor input = stack_tensor(stack, 0);
-      auto indices = stack.at(1).toTensorList().vec();
       sizes_vec shape = std::vector<std::vector<int64_t>>{
           ComputeIndexOperatorOutputShape(input, indices)};
       return shape;
@@ -285,13 +226,17 @@ void IndexHabanaOperator::AddNode(
   // leave old implementation for lazy.
   const at::Tensor self = stack_tensor(stack, 0);
   const c10::List<at::Tensor> indices = stack.at(1).toTensorList();
-  std::vector<bool> adv_ind_dim = stack[2].toBoolList().vec();
-  const std::vector<int64_t> self_permute_dims = stack[3].toIntList().vec();
-  const int num_index_tensors = stack[4].toInt();
-  const bool adv_indexing_present = std::any_of(
-      adv_ind_dim.cbegin(),
-      adv_ind_dim.cbegin() + num_index_tensors,
-      [](const auto& i) { return i == true; });
+
+  bool adv_indexing_present = false;
+  if (stack.size() > 2) {
+    std::vector<bool> adv_ind_dim = stack[2].toBoolList().vec();
+    const std::vector<int64_t> self_permute_dims = stack[3].toIntList().vec();
+    const int num_index_tensors = stack[4].toInt();
+    adv_indexing_present = std::any_of(
+        adv_ind_dim.cbegin(),
+        adv_ind_dim.cbegin() + num_index_tensors,
+        [](const auto& i) { return i == true; });
+  }
 
   // find out final indexing tensor shapes - includes dims with
   // advanced/implicit indexing
@@ -434,6 +379,8 @@ void IndexHabanaOperator::AddNode(
     std::vector<synTensor> cat_input_synTensor;
     std::vector<synapse_helpers::tensor> cat_input_tensor;
     std::vector<std::vector<int64_t>> cat_input_index;
+    std::vector<bool> adv_ind_dim = stack[2].toBoolList().vec();
+    const std::vector<int64_t> self_permute_dims = stack[3].toIntList().vec();
 
     synTensor permuted_self_t;
     size_t size = 0;

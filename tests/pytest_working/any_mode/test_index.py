@@ -85,8 +85,8 @@ def test_index(shape, indices):
     if pytest.mode == "compile":
         pytest.skip(reason="https://jira.habana-labs.com/browse/SW-167770")
 
-    def wrapper_fn(shape, indices):
-        return torch.ops.aten.index(shape, indices)
+    def wrapper_fn(src, indices):
+        return torch.ops.aten.index(src, indices)
 
     if pytest.mode == "compile":
         f_hpu = torch.compile(wrapper_fn, backend="hpu_backend")

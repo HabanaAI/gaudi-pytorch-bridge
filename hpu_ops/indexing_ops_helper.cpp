@@ -18,8 +18,66 @@
 #include "habana_kernels/tensor_shape_kernels.h"
 #include "hpu_ops/hpu_op_helper.h"
 namespace habana {
+
+// broadcast index tensor shape and get the correct shape and size
+std::vector<int64_t> broadcast_size(at::TensorList indices) {
+  std::vector<int64_t> size;
+  int max = 1;
+  int max_dim = 0;
+  int i = 0;
+  for (auto t : indices) {
+    if ((t.dim() > max) && (t.scalar_type() != c10::ScalarType::Bool)) {
+      max_dim = i;
+      max = t.dim();
+    }
+    i++;
+  }
+  auto isz = indices[max_dim].sizes().vec();
+  if ((indices[max_dim].dim() == 1) ||
+      (indices[max_dim].scalar_type() == c10::ScalarType::Bool)) {
+    std::vector<int64_t> sz{isz[0]}; // if index is 2-D (for bool), number of
+                                     // rows indicates broadcast size
+    size = sz;
+  } else {
+    size = isz;
+  }
+  for (size_t i = 1; i < indices.size(); i++) {
+    size = at::infer_size(size, indices[i].sizes());
+  }
+  return size;
+}
+
+std::vector<int64_t> CalcCatOutSize(
+    const std::vector<std::vector<int64_t>>* tensors,
+    int64_t* dim_inp) {
+  auto tensor_count = tensors->size();
+
+  if (tensor_count == 0) // if tensor is empty or its first element is empty,
+                         // then concatenate out size is 0
+    return {0};
+
+  int64_t dim =
+      at::maybe_wrap_dim(*dim_inp, tensors->at(0).size(), /*wrap_scalar=*/true);
+
+  CatOperator::validate_cat_tensor_dim_sizes(tensors, *dim_inp);
+
+  if (dim != *dim_inp) {
+    *dim_inp = dim;
+  }
+
+  // out tensor size should match along all dimensions for input tensors except
+  // along the dim in which to cat
+  auto out_size = tensors->at(0);
+  if (out_size.size() != 0) {
+    out_size[dim] = 0;
+    for (unsigned i = 0; i < tensor_count; i++)
+      out_size[dim] += tensors->at(i)[dim];
+  }
+  return out_size;
+}
+
 // brodcast index tensor shape and get the correct shape and size
-static std::vector<int64_t> broadcast_size(at::TensorList indices) {
+static std::vector<int64_t> broadcast_size_local(at::TensorList indices) {
   auto size = indices[0].sizes().vec();
   for (size_t i = 1; i < indices.size(); i++) {
     size = at::infer_size(size, indices[i].sizes());
@@ -29,7 +87,7 @@ static std::vector<int64_t> broadcast_size(at::TensorList indices) {
 
 // get the first index tensor shape and size
 std::vector<int64_t> indices_size(at::TensorList indices) {
-  auto first_size = broadcast_size(indices);
+  auto first_size = broadcast_size_local(indices);
 
   int64_t in_tensor_count = indices.size(); // num input tensors
 
@@ -270,11 +328,16 @@ std::vector<std::vector<int64_t>> calc_indexing_tensors_shapes(
   at::Tensor self = stack_tensor(stack, 0);
   auto self_size = self.sizes().vec();
   c10::ArrayRef<c10::IValue> indices_ival = stack.at(1).toListRef();
-  std::vector<bool> adv_ind_dim = stack[2].toBoolList().vec();
-  const bool adv_indexing_present =
-      std::any_of(adv_ind_dim.cbegin(), adv_ind_dim.cend(), [](const auto& i) {
-        return i == true;
-      });
+  std::vector<bool> adv_ind_dim = {false};
+  bool adv_indexing_present = false;
+  if (stack.size() > 2) {
+    // potentially advanced indexing is present
+    adv_ind_dim = stack[2].toBoolList().vec();
+    adv_indexing_present = std::any_of(
+        adv_ind_dim.cbegin(), adv_ind_dim.cend(), [](const auto& i) {
+          return i == true;
+        });
+  }
   if (adv_indexing_present) {
     const std::vector<int64_t> self_permute_dims = stack[3].toIntList().vec();
     std::vector<int64_t> permuted_self_size(self_size.size(), 0);
@@ -347,7 +410,7 @@ generate_advanced_indexing_indices_list(const at::Stack& stack) {
     num_index_tensors = (int)indices_ival.size();
   }
 
-  auto broadcast_to_this_size = broadcast_size(indices);
+  auto broadcast_to_this_size = broadcast_size_local(indices);
   for (auto& tensor : indices)
     tensor = at::broadcast_to(tensor, broadcast_to_this_size);
 
