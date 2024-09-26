@@ -51,12 +51,6 @@ PT_COMPILATION_STATS_PATH:
 PT_RECIPE_TRACE_PATH:
   default: ""
 
-PT_HPU_CLUSTERED_PROGRAM_SPLIT_STR:
-  default: "default"
-
-PT_HPU_CLUSTERED_PROGRAM_SCHED_STR:
-  default: "default"
-
 PT_HPU_DYNAMIC_MIN_POLICY_ORDER:
   default: "4,5,3,1"
 
@@ -80,14 +74,6 @@ PT_RECIPE_CACHE_PATH:
   default: ""
   doc: "Env var 'PT_RECIPE_CACHE_PATH' to save compiled recipes to disk.\n
 If proper path is set, disk cache is enabled for all compiled recipes."
-
-PT_HPU_CLUSTERED_PROGRAM:
-  type: bool
-  default: false
-
-PT_HPU_CLUSTERED_PROGRAM_ENFORCE:
-  type: bool
-  default: false
 
 PT_HPU_LAZY_MODE:
   type: unsigned
