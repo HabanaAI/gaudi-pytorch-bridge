@@ -21,8 +21,22 @@ OutputMetaDataVector SearchSortedMeta(const at::Stack& stack) {
   } else {
     outshape = {1};
   }
-  bool out_int32 = stack.at(2).toBool();
+  auto sortedseq = stack_tensor(stack, 0);
+  auto seqshape = sortedseq.sizes().vec();
 
+  auto old_seqshape = seqshape;
+  auto old_outshape = outshape;
+  old_seqshape.erase(old_seqshape.end() - 1);
+  old_outshape.erase(old_outshape.end() - 1);
+  TORCH_CHECK(
+      seqshape.empty() || (old_seqshape == old_outshape),
+      "torch.searchsorted(): boundaries tensor should be 1 dimension or ",
+      "the first N-1 dimensions of boundaries tensor and input value tensor ",
+      "must match, but we got boundaries tensor ",
+      seqshape,
+      "and input value tensor ",
+      outshape);
+  bool out_int32 = stack.at(2).toBool();
   OutputMetaData meta;
   meta.shape = outshape;
   meta.dtype = out_int32 ? torch::kInt32 : torch::kLong;
