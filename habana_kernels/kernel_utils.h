@@ -134,22 +134,3 @@ class ConstantOperator : public habana::HabanaOperator {
       torch::jit::Stack& inputs,
       const habana::OutputMetaDataVector& output_metadata) override;
 };
-
-//
-// For suporting ones_like operation
-class OnesLikeOperator : public ConstantOperator {
- public:
-  OnesLikeOperator(int device_id, c10::ScalarType scalarType)
-      : ConstantOperator(device_id, scalarType) {}
-  void AllocateAndAddSynapseNode(
-      synapse_helpers::graph& graph,
-      torch::jit::Stack& inputs,
-      const habana::OutputMetaDataVector& output_metadata) override {
-    TORCH_CHECK(
-        inputs.size() == 6,
-        "OnesLikeOperator Operation expects 6 arguments as input")
-    inputs.erase(inputs.begin() + 1, inputs.end());
-    inputs.emplace_back(1);
-    ConstantOperator::AllocateAndAddSynapseNode(graph, inputs, output_metadata);
-  }
-};
