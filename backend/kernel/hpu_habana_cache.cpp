@@ -702,6 +702,16 @@ void RecipeValueSpec::update_patching_table(
       auto& tensor = input.toTensor();
 
       auto tmeta{habana::get_tensor_extra_meta(tensor)};
+      if (tmeta->has_valid_const_id()) {
+        auto impl{tensor.unsafeGetTensorImpl()};
+        if (impl->storage().nbytes() == 0) {
+          PT_BRIDGE_DEBUG(
+              "Skipping patching info for constant id: ",
+              tmeta->get_const_id());
+          ridx++;
+          continue;
+        }
+      }
       if (false == tmeta->is_shape_tensor()) {
         auto& ti = *(dtensorinfos.at(ridx));
         ti.set_shape(tensor.sizes().vec());
@@ -729,6 +739,17 @@ void RecipeValueSpec::update_patching_table(
       ridx++;
     } else if (input.isTensorList()) {
       for (const at::Tensor& t : input.toTensorList()) {
+        auto tmeta{habana::get_tensor_extra_meta(t)};
+        if (tmeta->has_valid_const_id()) {
+          auto impl{t.unsafeGetTensorImpl()};
+          if (impl->storage().nbytes() == 0) {
+            PT_BRIDGE_DEBUG(
+                "Skipping patching info for constant id: ",
+                tmeta->get_const_id());
+            ridx++;
+            continue;
+          }
+        }
         auto& ti = *(dtensorinfos.at(ridx));
         ti.set_shape(t.sizes().vec());
         ti.set_strides(t.strides().vec());
@@ -1321,6 +1342,7 @@ void RecipeValueSpec::patch_launch_info(
       tensor_ids_.size() == dtensorinfos.size(),
       "syn tensor ids are not populated");
 
+  auto& device = HPUDeviceContext::get_device();
   auto record_graph_data = GET_ENV_FLAG_NEW(PT_HPU_POOL_MEM_FRAGMENT_JSON);
   size_t tensor_idx{0};
   for (size_t i = 0; i < dtensorinfos.size(); ++i) {
@@ -1329,15 +1351,6 @@ void RecipeValueSpec::patch_launch_info(
       auto is_output = ti.is_output();
       synapse_helpers::log_synDeviceRecordGraphTensorInfo(
           ti.get_ir_name(), !is_output, is_output, i, ti.get_size());
-    }
-
-    if (synapse_helpers::memory_reporter_enable() &&
-        ti.tensor_type() != HOST_TO_DEVICE_TENSOR) {
-      auto& device = HPUDeviceContext::get_device();
-      synapse_helpers::MemoryReporter* reporter =
-          device.get_device_memory().get_memory_reporter();
-      reporter->getTensorStats()->updateTensorAddressData(
-          ti.get_buffer(), ti.get_syn_name(), ti.get_size());
     }
 
     switch (ti.tensor_type()) {
@@ -1352,6 +1365,12 @@ void RecipeValueSpec::patch_launch_info(
         break;
       }
       case HOST_TO_DEVICE_TENSOR: {
+        if (synapse_helpers::memory_reporter_enable()) {
+          synapse_helpers::MemoryReporter* reporter =
+              device.get_device_memory().get_memory_reporter();
+          reporter->getTensorStats()->updateTensorAddressData(
+              ti.get_buffer(), ti.get_syn_name(), ti.get_size());
+        }
         const auto& tsv = ti.syn_shape();
         syn_launch_info_vec.emplace_back(synLaunchTensorInfo{
             ti.get_syn_namec_str(),

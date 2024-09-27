@@ -442,9 +442,9 @@ void habana::HabanaLaunchOpPT::HandleTensorWithZeroSize(
   ConstantInformation::checksum_t checksum{0};
   constant_information.Insert(const_id, checksum);
   constant_information.PushInfo(const_id, checksum, key, 0 /*_section_size*/);
-  at::DataPtr data = tensor.storage().allocator()->allocate(2);
+  at::DataPtr data = tensor.storage().allocator()->allocate(0);
   auto old_data_ptr = tensor.storage().set_data_ptr(std::move(data));
-  tensor.storage().set_nbytes(2);
+  tensor.storage().set_nbytes(0);
   if (checksum_if_exists.has_value() and
       checksum_if_exists.value() != checksum) {
     PT_BRIDGE_DEBUG(
