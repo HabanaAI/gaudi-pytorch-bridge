@@ -3675,6 +3675,19 @@ index_fill.int_Scalar:
   out_ids: [0]
   op_validator: IndexFillSharedMeta
 
+index_reduce.out:
+  custom_fill_params: IndexReduceFillParams
+  guid: index_reduce_fwd
+  op_validator: check-node-with-shared-layer
+  fallback_check: [IndexReduceFallbackCheck, dim, reduce, include_self]
+
+index_reduce:
+  custom_fill_params: IndexReduceFillParams
+  guid: index_reduce_fwd
+  op_validator: check-node-with-shared-layer
+  fallback_check: [IndexReduceFallbackCheck, dim, reduce, include_self]
+  out_ids: [0]
+
 index_select:
   out_ids: [0]
   output_meta: IndexSelectMeta
