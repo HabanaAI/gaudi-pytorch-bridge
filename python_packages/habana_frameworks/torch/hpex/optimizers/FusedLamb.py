@@ -177,6 +177,8 @@ class FusedLamb(Optimizer):
                 adam_norm_list.append(torch.empty((1,), device=self.device).to(p.dtype))
                 adam_step_list.append(torch.empty_like(exp_avg).to(p.dtype))
 
+            htcore.step_closure._mark_step_if_lazy()
+
             torch.ops.hpu.optimizer_lamb_phase1(
                 grad_list,
                 wt_list,
