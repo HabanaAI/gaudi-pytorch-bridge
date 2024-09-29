@@ -509,12 +509,18 @@ void ReshapeOperator::AllocateAndAddSynapseNode(
     memory_format = at::MemoryFormat::Contiguous;
   }
 
-  auto output = habana::createPTTensor(
-      self,
-      inferred_size,
-      self.options(),
-      memory_format,
-      output_metadata.at(0).persistent);
+  at::Tensor output;
+  if (!graph.is_dry_run() &&
+      output_metadata.at(0).allocated_tensor.has_value()) {
+    output = output_metadata.at(0).allocated_tensor.value();
+  } else {
+    output = habana::createPTTensor(
+        self,
+        inferred_size,
+        self.options(),
+        memory_format,
+        output_metadata.at(0).persistent);
+  }
   habana_helpers::set_output_hw_scaling_meta(self, output);
 
   TORCH_CHECK(

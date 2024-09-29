@@ -402,3 +402,33 @@ def test_output_alias_of_intermidate_base_tensor():
     a_h = a.to("hpu")
     result_hpu = compiled_fn(a_h)
     assert torch.allclose(result_hpu.to("cpu"), result_ref, atol=0.001, rtol=0.001)
+
+
+def test_leaf_views_post_fx_partitions():
+    """
+    In this example, the "unsafe_index" gets executed eagerly causing a fx
+    graph break. Beacuse of which, the "view" becomes a leaf node in the first
+    submodule created during the front end partition passes,
+    leading to incorrect final results.
+    """
+
+    def raw_function(t1, t2):
+        mul = torch.ops.aten.mul.Tensor(t2, 0.5)
+        view = torch.ops.aten.view.default(mul, [4])  # <-- becomes leaf node
+        to_copy = torch.ops.aten._to_copy.default(view, dtype=torch.int64)
+        unsafe_index = torch.ops.aten._unsafe_index.Tensor(t1, [None, None, to_copy])
+        sub = torch.ops.aten.sub.Tensor(view, to_copy)
+        add = torch.ops.aten.add.Tensor(unsafe_index, sub)
+        return add
+
+    t1 = torch.tensor([[[1, 2]]], dtype=torch.float32)
+    t2 = torch.arange(start=0, end=4, dtype=torch.float32, layout=torch.strided, pin_memory=False)
+
+    # cpu
+    ref_out = raw_function(t1, t2)
+
+    ## hpu
+    hpu_model = torch.compile(raw_function, backend="hpu_backend", options={"use_eager_fallback": True})
+    hpu_out = hpu_model(t1.to("hpu"), t2.to("hpu"))
+
+    assert torch.allclose(hpu_out.to("cpu"), ref_out, atol=0.001, rtol=0.001)
