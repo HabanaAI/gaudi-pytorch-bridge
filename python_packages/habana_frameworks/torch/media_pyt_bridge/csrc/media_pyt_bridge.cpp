@@ -1,5 +1,19 @@
+/******************************************************************************
+ * Copyright (C) 2024 Habana Labs, Ltd. an Intel Company
+ * All Rights Reserved.
+ *
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
+ *
+ *******************************************************************************
+ */
+
+#include <pybind11/functional.h>
+#include <pybind11/stl.h>
 #include <torch/extension.h>
-#include <iostream>
 
 #include <media_pytorch_proxy.h>
 #include "backend/habana_device/hpu_cached_devices.h"
@@ -138,6 +152,12 @@ torch::Tensor GetOutputTensor(uintptr_t addr) {
   return getFwOutputTensor(
       &MediaProxyHolder::getInstance().media_proxy_impl_, addr);
 }
+
+void RegisterMediaDeleter(std::function<void()>) {
+  // This function will be defined after HPURegistrar deleting will be triggered
+  // by Python atexit
+}
+
 } // namespace torch_hpu
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -150,4 +170,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       "get_output_tensor",
       &torch_hpu::GetOutputTensor,
       "Return pytorch tensor from proxy object");
+  m.def(
+      "register_media_deleter",
+      &torch_hpu::RegisterMediaDeleter,
+      "Register Media Deleter");
 }

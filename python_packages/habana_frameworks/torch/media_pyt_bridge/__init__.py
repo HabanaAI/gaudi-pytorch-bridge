@@ -7,3 +7,7 @@ def CreatePytMediaProxy(device_id):
 
 def GetOutputTensor(addr):
     return _media_pyt_bridge_C.get_output_tensor(addr)
+
+
+def RegisterMediaDeleter(func):
+    return _media_pyt_bridge_C.register_media_deleter(func)
