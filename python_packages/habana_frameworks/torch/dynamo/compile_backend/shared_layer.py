@@ -141,8 +141,6 @@ hpu_fallback_op_list = {
 # List of ops that do not support dynamic shape in torch.compile
 # Ops added to this list will fallback to eager if DS is enabled
 hpu_ds_fallback_list = {
-    # SW-181805
-    "scatter_add",
     # SW-180608
     # Fallback for all FusedSDPA op variants
     "sdpa_fwd",
