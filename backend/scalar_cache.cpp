@@ -15,7 +15,6 @@
 #include <ATen/EmptyTensor.h>
 #include <ATen/core/TensorBase.h>
 #include "backend/helpers/tensor_utils.h"
-#include "common/utils.h"
 #include "pytorch_helpers/habana_helpers/logging.h"
 
 namespace habana {
@@ -25,7 +24,7 @@ namespace backend {
 c10::ScalarType GetInternalScalarType(const c10::ScalarType& scalar_type) {
   switch (scalar_type) {
     case c10::ScalarType::Long:
-      return common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
+      return c10::ScalarType::Int;
     case c10::ScalarType::Double:
       return c10::ScalarType::Float;
     case c10::ScalarType::Bool:

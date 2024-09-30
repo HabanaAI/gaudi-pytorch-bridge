@@ -611,7 +611,6 @@ def test_view_split_op_int64_default():
     assert list(t1[1:3].to("cpu")) == list(t[1:3])
 
 
-@pytest.mark.skip(reason="SW-203898")
 def test_view_split_op_int64_enabled():
     with bc.env_setting("PT_ENABLE_INT64_SUPPORT", True):
         assert bc.get_pt_enable_int64_support() == True

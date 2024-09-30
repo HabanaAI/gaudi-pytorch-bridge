@@ -79,7 +79,7 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   // i8      X    X  *   X   X   -  X  -   -   X
   // i16     X    X  -   *   X   -  -  -   -   X
   // i32     X    X  X   X   *   X  X  -   -   X
-  // i64     X    -  -   -   X   *  -  -   -   -
+  // i64     -    -  -   -   X   *  -  -   -   -
   // u8      X    X  X   -   X   -  *  -   -   X
   // f8      X    X  -   -   -   -  -  *   -   -
   // hf8     X    X  -   -   -   -  -  -   *   -
@@ -102,7 +102,7 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
       /* from   i8 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK, BF16, BF16,   OK },
       /* from  i16 */ LineT{  OK,   OK,  I32,   OK,  OK, I32,  I32, BF16, BF16,   OK },
       /* from  i32 */ LineT{  OK,   OK,   OK,   OK,  OK,  OK,   OK,  F32,  F32,   OK },
-      /* from  i64 */ LineT{  OK,  I32,  I32,  I32,  OK,  OK,  I32,  I32,  I32,  I32 },
+      /* from  i64 */ LineT{ I32,  I32,  I32,  I32,  OK,  OK,  I32,  I32,  I32,  I32 },
       /* from   u8 */ LineT{  OK,   OK,   OK,  I32,  OK, I32,   OK, BF16, BF16,   OK },
       /* from   f8 */ LineT{  OK,   OK, BF16, BF16, F32, F32, BF16,   OK, BF16, BF16 },
       /* from  hf8 */ LineT{  OK,   OK, BF16, BF16, F32, F32, BF16, BF16,   OK, BF16 },
@@ -124,7 +124,7 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
   // i8      X    X  *   X   X   -  X  -   -   X
   // i16     X    X  -   *   X   -  -  -   -   X
   // i32     X    X  X   X   *   X  X  -   -   X
-  // i64     X    -  -   -   X   *  -  -   -   -
+  // i64     -    -  -   -   X   *  -  -   -   -
   // u8      X    X  X   -   X   -  *  -   -   X
   // f8      X    X  -   -   -   -  -  *   -   -
   // hf8     X    X  -   -   -   -  -  -   *   -
@@ -147,7 +147,7 @@ CastStage get_cast_stage(CastTypes cast_types, synDeviceType syn_device_type) {
       /* from   i8 */ LineT{  OK,   OK,   OK,   OK,  OK, I32,   OK, BF16, BF16,   OK },
       /* from  i16 */ LineT{  OK,   OK,  I32,   OK,  OK, I32,  I32, BF16, BF16,   OK },
       /* from  i32 */ LineT{  OK,   OK,   OK,   OK,  OK,  OK,   OK,  F32,  F32,   OK },
-      /* from  i64 */ LineT{  OK,  I32,  I32,  I32,  OK,  OK,  I32,  I32,  I32,  I32 },
+      /* from  i64 */ LineT{ I32,  I32,  I32,  I32,  OK,  OK,  I32,  I32,  I32,  I32 },
       /* from   u8 */ LineT{  OK,   OK,   OK,  I32,  OK, I32,   OK, BF16, BF16,   OK },
       /* from   f8 */ LineT{  OK,   OK, BF16, BF16, F32, F32, BF16,   OK, BF16, BF16 },
       /* from  hf8 */ LineT{  OK,   OK, BF16, BF16, F32, F32, BF16, BF16,   OK, BF16 },
