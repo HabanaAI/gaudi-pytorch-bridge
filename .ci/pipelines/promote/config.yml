@@ -71,6 +71,8 @@ orchestratorConfig:
       silentMode: true
     # Quantization toolkit tests
     - testToLaunch: habana_quantization_toolkit/Tests/Test_habana_quantization_toolkit_gaudi2_asic_test
+    - testToLaunch:  pytorch_training_tests/Tests/Test_pytorch_training_tests_gaudi2_asic_promote_pt2e_quant
+      silentMode: true
   codeCoverageConfig:
   - testToLaunch: pytorch_modules/Tests/Test_pytorch_modules_gaudi_sim_cpp_suite
   coverityConfig:
