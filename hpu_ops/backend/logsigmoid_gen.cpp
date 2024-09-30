@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -21,6 +21,95 @@ OutputMetaDataVector LogSigmoidFwdMeta(const at::Stack& stack) {
   meta.dtype = self.scalar_type();
   meta.shape = self.sizes().vec();
   return {meta, meta};
+}
+
+SharedMetaDataVector LogSigmoidFwdSharedMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  auto rank = self.dim();
+  auto dtype = self.scalar_type();
+
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(6);
+  SharedMetaTensor commonTensor = {rank, dtype};
+
+  SharedMetaData negSharedMeta{"neg_fwd"};
+  negSharedMeta.inputs_data = {commonTensor};
+  negSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(negSharedMeta);
+
+  SharedMetaData maxSharedMeta{"max_fwd"};
+  maxSharedMeta.inputs_data = {commonTensor, commonTensor};
+  maxSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(maxSharedMeta);
+
+  SharedMetaData expSharedMeta{"exp_fwd"};
+  expSharedMeta.inputs_data = {commonTensor};
+  expSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(expSharedMeta);
+
+  SharedMetaData subSharedMeta{"sub_fwd"};
+  subSharedMeta.inputs_data = {commonTensor, commonTensor};
+  subSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(subSharedMeta);
+
+  SharedMetaData addSharedMeta{"add_fwd"};
+  addSharedMeta.inputs_data = {commonTensor, commonTensor};
+  addSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(addSharedMeta);
+
+  SharedMetaData logSharedMeta{"log_fwd"};
+  logSharedMeta.inputs_data = {commonTensor};
+  logSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(logSharedMeta);
+
+  return metaVec;
+}
+
+SharedMetaDataVector LogSigmoidBwdSharedMeta(const at::Stack& stack) {
+  const auto& grad = stack_tensor(stack, 0);
+  const auto& self = stack_tensor(stack, 1);
+  const auto selfRank = self.dim();
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(7);
+  SharedMetaTensor commonTensor = {selfRank, grad.scalar_type()};
+
+  SharedMetaData lessSharedMeta{"less_fwd"};
+  lessSharedMeta.inputs_data = {commonTensor, commonTensor};
+  lessSharedMeta.outputs_data.emplace_back(selfRank, c10::ScalarType::Bool);
+  metaVec.push_back(lessSharedMeta);
+
+  SharedMetaData negSharedMeta{"neg_fwd"};
+  negSharedMeta.inputs_data = {commonTensor};
+  negSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(negSharedMeta);
+
+  SharedMetaData whereSharedMeta{"where_fwd"};
+  whereSharedMeta.inputs_data = {
+      lessSharedMeta.outputs_data[0], commonTensor, commonTensor};
+  whereSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(whereSharedMeta);
+
+  SharedMetaData subSharedMeta{"sub"};
+  subSharedMeta.inputs_data = {commonTensor, commonTensor};
+  subSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(subSharedMeta);
+
+  SharedMetaData divSharedMeta{"div"};
+  divSharedMeta.inputs_data = {commonTensor, commonTensor};
+  divSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(divSharedMeta);
+
+  SharedMetaData multSharedMeta{"mult"};
+  multSharedMeta.inputs_data = {commonTensor, commonTensor};
+  multSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(multSharedMeta);
+
+  SharedMetaData addSharedMeta{"add"};
+  addSharedMeta.inputs_data = {commonTensor, commonTensor};
+  addSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(addSharedMeta);
+
+  return metaVec;
 }
 
 void LogSigmoidForward::AddNode(

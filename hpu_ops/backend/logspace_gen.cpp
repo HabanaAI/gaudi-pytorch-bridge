@@ -41,6 +41,49 @@ OutputMetaDataVector LogspaceOutMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector LogspaceSharedMeta(const at::Stack& stack) {
+  c10::ScalarType dtype;
+  if (stack.at(4).isTensor())
+    dtype = stack.at(4).toTensor().scalar_type();
+  else
+    dtype = stack.at(4).toOptional<at::ScalarType>().value_or(
+        torch::get_default_dtype_as_scalartype());
+
+  int64_t len = stack.at(2).toScalar().to<int64_t>();
+  float base = stack.at(3).toScalar().to<float>();
+
+  auto castNeeded = c10::isIntegralType(dtype, true);
+  auto outType = castNeeded ? at::kFloat : dtype;
+  if (len == 0) {
+    SharedMetaData memsetSharedMeta{"memset"};
+    memsetSharedMeta.outputs_data.emplace_back(1, outType);
+
+    return {memsetSharedMeta};
+  } else if (base == 1.f) {
+    // [SW-205149] return empty vector because shape tensor validation will
+    // block shape agnostic flow
+    return {};
+  }
+
+  float start = stack.at(0).toScalar().to<float>();
+  float end = stack.at(1).toScalar().to<float>();
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(3);
+  SharedMetaTensor commonTensor = {1, outType};
+  if (start != end && len != 1) {
+    SharedMetaData rangeSharedMeta{"range"};
+    rangeSharedMeta.outputs_data.push_back(commonTensor);
+    metaVec.push_back(rangeSharedMeta);
+  }
+
+  SharedMetaData powSharedMeta{"pow_fwd"};
+  powSharedMeta.inputs_data = {commonTensor, commonTensor};
+  powSharedMeta.outputs_data.push_back(commonTensor);
+  metaVec.push_back(powSharedMeta);
+
+  return metaVec;
+}
+
 std::shared_ptr<void> RangeParams(const at::Stack& stack, size_t& size) {
   float start = stack[0].toScalar().to<float>();
   float end = stack[1].toScalar().to<float>();
@@ -114,7 +157,7 @@ void LogSpace::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {
 
     auto result = castNeeded
         ? BuildCast(
-              this, graph, pow[0].get(), meta.shape, outType, torch::kInt32, 0)
+              this, graph, pow[0].get(), meta.shape, outType, meta.dtype, 0)
         : std::move(pow[0]);
 
     syn_out(0) = std::move(result);

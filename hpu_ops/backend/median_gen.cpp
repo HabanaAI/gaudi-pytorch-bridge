@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (C) 2021-2023 Habana Labs, Ltd. an Intel Company
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
  * Unauthorized copying of this file or any element(s) within it, via any medium
@@ -36,6 +36,16 @@ OutputMetaDataVector MedianOutputMeta(const at::Stack& stack) {
   meta.shape = {};
   meta.dtype = stack_tensor(stack, 0).scalar_type();
   return {meta};
+}
+
+SharedMetaDataVector MedianSharedMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+
+  SharedMetaData medianSharedMeta{"median"};
+  medianSharedMeta.inputs_data.emplace_back(self.dim(), self.scalar_type());
+  medianSharedMeta.outputs_data.emplace_back(1, self.scalar_type());
+
+  return {medianSharedMeta};
 }
 
 sizes_vec MediandimOutputShape(const at::Stack& stack) {
@@ -75,6 +85,22 @@ OutputMetaDataVector MedianDimOutputMeta(const at::Stack& stack) {
       common::IsInt64Supported() ? c10::ScalarType::Long : c10::ScalarType::Int;
 
   return {valuesMeta, indicesMeta};
+}
+
+SharedMetaDataVector MedianDimSharedMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  bool keepDim = stack[index_of_keepdim].toBool();
+  auto outputRank = self.dim();
+  if (!keepDim)
+    outputRank = outputRank <= 1 ? 1 : (outputRank - 1);
+
+  SharedMetaData medianDimSharedMeta{"mediandim"};
+  medianDimSharedMeta.inputs_data.emplace_back(self.dim(), self.scalar_type());
+  medianDimSharedMeta.outputs_data.emplace_back(outputRank, self.scalar_type());
+  medianDimSharedMeta.outputs_data.emplace_back(
+      outputRank, c10::ScalarType::Int);
+
+  return {medianDimSharedMeta};
 }
 
 void Mediandim::AddNode(synapse_helpers::graph& graph, const at::Stack& stack) {

@@ -3481,13 +3481,10 @@ hypot_:
 index.Tensor:
   output_meta: IndexMeta
   custom_fill_params: FillIndexParams
-  dtypes:
-    Gaudi: [BFloat16, Float, Long, Int, Char, Byte]
-    Gaudi2: [BFloat16, Float, Long, Int, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Long, Int, Char, Byte, Half]
   guid: index
   fallback_check: [IndexFallbackCheck, indices]
   op_backend: IndexHabanaOperator
+  op_validator: IndexSharedMeta
   op_frontend: IndexFE
   schema_args: "(Tensor self, Tensor[] indices, bool[] advanced_indexing_dims, int[] self_permute_dims, int num_index_tensors) -> Tensor"
   out_ids: [0]
@@ -3495,13 +3492,10 @@ index.Tensor:
 index.Tensor_out:
   output_meta: IndexMeta
   custom_fill_params: FillIndexParams
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Long, Char, Byte]
-    Gaudi2: [BFloat16, Float, Int, Long, Char, Byte, Half]
-    Gaudi3: [BFloat16, Float, Int, Long, Char, Byte, Half]
   guid: index
   fallback_check: [IndexFallbackCheck, indices]
   op_backend: IndexHabanaOperator
+  op_validator: IndexSharedMeta
   op_frontend: IndexOutFE
   schema_args: "(Tensor self, Tensor[] indices, bool[] advanced_indexing_dims, int[] self_permute_dims, int num_index_tensors, Tensor(a!) out) -> Tensor(a!)"
 
@@ -3845,24 +3839,24 @@ lerp_.Tensor:
   op_validator: LerpSharedMeta
 
 linalg_cross:
-  dtypes: [BFloat16, Float, Int]
   op_backend: LinAlgCross
+  op_validator: LinAlgCrossSharedMeta
   out_ids: [0]
 
 linalg_cross.out:
-  dtypes: [BFloat16, Float, Int]
   op_backend: LinAlgCross
+  op_validator: LinAlgCrossSharedMeta
 
 linalg_vector_norm:
   output_meta: VecNormMeta
-  dtypes: [BFloat16, Float]
   op_backend: VecNormOp
+  op_validator: NormOpWithDtypeSharedMeta
   out_ids: [0]
 
 linalg_vector_norm.out:
   output_meta: VecNormMeta
-  dtypes: [BFloat16, Float]
   op_backend: VecNormOp
+  op_validator: NormOpWithDtypeSharedMeta
 
 linalg_cholesky_ex:
   dtypes: [Float]
@@ -3885,38 +3879,25 @@ linear:
 linear_backward:
   output_meta: LinearBackwardMeta
   custom_fill_params: FillLinearBwdParams
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: linear_temp_bwd
   out_ids: [0, 0, 0]
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
+  op_validator: check-node-with-shared-layer
 
 linspace.Tensor_Scalar:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Half, Long]
   op_backend: LinspaceOut
+  op_validator: LinspaceOutSharedMeta
   output_meta: LinspaceMeta
   out_ids: [0]
 
 linspace.Scalar_Tensor:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Long]
-    Gaudi2: [BFloat16, Float, Int, Half, Long]
-    Gaudi3: [BFloat16, Float, Int, Half, Long]
   op_backend: LinspaceOut
+  op_validator: LinspaceOutSharedMeta
   output_meta: LinspaceMeta
   out_ids: [0]
 
 linspace.out:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Int, Half]
-    Gaudi3: [BFloat16, Float, Int, Half]
   op_backend: LinspaceOut
+  op_validator: LinspaceOutSharedMeta
   output_meta: LinspaceMeta
 
 log.out:
@@ -4034,24 +4015,24 @@ log_normal_:
   schema_args: "(Tensor(a!) self, float mean=1, float std=2, *, Tensor seed) -> Tensor(a!)"
 
 log_sigmoid_backward:
-  dtypes: [Float]
   op_backend: LogSigmoidBackward
+  op_validator: LogSigmoidBwdSharedMeta
   out_ids: [0]
 
 log_sigmoid_backward.grad_input:
-  dtypes: [Float]
   op_backend: LogSigmoidBackward
+  op_validator: LogSigmoidBwdSharedMeta
 
 log_sigmoid_forward:
   output_meta: LogSigmoidFwdMeta
-  dtypes: [Float]
   op_backend: LogSigmoidForward
+  op_validator: LogSigmoidFwdSharedMeta
   out_ids: [0, 0]
 
 log_sigmoid_forward.output:
   output_meta: LogSigmoidFwdMeta
-  dtypes: [Float]
   op_backend: LogSigmoidForward
+  op_validator: LogSigmoidFwdSharedMeta
 
 _log_softmax:
   guid: logsoftmax_fwd
@@ -4065,23 +4046,15 @@ _log_softmax.out:
   op_validator: check-node-with-shared-layer
 
 _log_softmax_backward_data:
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: logsoftmax_bwd_data
   custom_fill_params: FillLogSoftmaxBackwardParams
   out_ids: [0]
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
+  op_validator: check-node-with-shared-layer
 
 _log_softmax_backward_data.out:
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: logsoftmax_bwd_data
   custom_fill_params: FillLogSoftmaxBackwardParams
-  # op_validator: check-node-with-shared-layer https://jira.habana-labs.com/browse/SW-186280
+  op_validator: check-node-with-shared-layer
 
 logcumsumexp.out:
   guid: log_cumsum_exp_fwd
@@ -4193,14 +4166,14 @@ logit_backward.grad_input:
   op_validator: check-node-with-shared-layer
 
 logspace:
-  dtypes: [BFloat16, Float, Int]
   op_backend: LogSpace
+  op_validator: LogspaceSharedMeta
   output_meta: LogspaceMeta
   out_ids: [0]
 
 logspace.out:
-  dtypes: [BFloat16, Float, Int]
   op_backend: LogSpace
+  op_validator: LogspaceSharedMeta
   output_meta: LogspaceOutMeta
 
 lt.Scalar_out:
@@ -4544,30 +4517,21 @@ mean.out:
 
 median:
   output_meta: MedianOutputMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Half, Int]
-    Gaudi3: [BFloat16, Float, Half, Int]
   guid: median
   out_ids: [0]
+  op_validator: MedianSharedMeta
 
 median.dim:
   output_meta: MedianDimOutputMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Half, Int]
-    Gaudi3: [BFloat16, Float, Half, Int]
   op_backend: Mediandim
+  op_validator: MedianDimSharedMeta
   guid: mediandim
   out_ids: [0, 0]
 
 median.dim_values:
   output_meta: MedianDimOutputMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int]
-    Gaudi2: [BFloat16, Float, Half, Int]
-    Gaudi3: [BFloat16, Float, Half, Int]
   op_backend: Mediandim
+  op_validator: MedianDimSharedMeta
   guid: mediandim
 
 max:

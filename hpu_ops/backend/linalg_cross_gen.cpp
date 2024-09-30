@@ -1,12 +1,16 @@
 /******************************************************************************
- * Copyright (C) 2021 HabanaLabs, Ltd.
+ * Copyright (C) 2021-2024 Habana Labs, Ltd. an Intel Company
  * All Rights Reserved.
  *
- * Unauthorized copying of this file, via any medium is strictly prohibited.
- * Proprietary and confidential.
+ * Unauthorized copying of this file or any element(s) within it, via any medium
+ * is strictly prohibited.
+ * This file contains Habana Labs, Ltd. proprietary and confidential information
+ * and is subject to the confidentiality and license agreements under which it
+ * was provided.
  *
- ******************************************************************************
+ *******************************************************************************
  */
+
 #include "generated/backend/linalg_cross.h"
 
 namespace habana {
@@ -123,6 +127,40 @@ static std::vector<synapse_helpers::tensor> Concat(
        &concat_params,
        sizeof(concat_params)});
 }
+
+SharedMetaDataVector LinAlgCrossSharedMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto& other = stack_tensor(stack, 1);
+  auto rank = self.dim();
+  auto dtype = self.scalar_type();
+
+  SharedMetaTensor commonTensor = {rank, dtype};
+  SharedMetaDataVector metaVec;
+  metaVec.reserve(4);
+
+  SharedMetaData splitSharedMeta{"split"};
+  splitSharedMeta.inputs_data = {commonTensor};
+  splitSharedMeta.outputs_data = {commonTensor, commonTensor, commonTensor};
+  metaVec.push_back(splitSharedMeta);
+
+  SharedMetaData multSharedMeta{"mult_fwd"};
+  multSharedMeta.inputs_data = {commonTensor, commonTensor};
+  multSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(multSharedMeta);
+
+  SharedMetaData concatSharedMeta{"concat"};
+  concatSharedMeta.inputs_data = {commonTensor, commonTensor, commonTensor};
+  concatSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(concatSharedMeta);
+
+  SharedMetaData subSharedMeta{"sub"};
+  subSharedMeta.inputs_data = {commonTensor, commonTensor};
+  subSharedMeta.outputs_data = {commonTensor};
+  metaVec.push_back(subSharedMeta);
+
+  return metaVec;
+}
+
 void LinAlgCross::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

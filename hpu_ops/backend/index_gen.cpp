@@ -193,6 +193,34 @@ std::shared_ptr<void> FillIndexParams(const at::Stack& stack, size_t& size) {
   return params;
 }
 
+SharedMetaDataVector IndexSharedMeta(const at::Stack& stack) {
+  const auto& input = stack_tensor(stack, 0);
+  auto rank = input.dim();
+  auto dtype = input.scalar_type();
+  const auto indices = stack.at(1).toListRef();
+  SharedMetaData indexSharedMeta{"index"};
+  indexSharedMeta.inputs_data.emplace_back(rank, dtype);
+  int64_t broadcastedIndicesRank = 1;
+  auto notNoneIndicesNum = 0;
+  for (const auto& index : indices) {
+    if (!index.isNone()) {
+      const auto rank = index.toTensor().dim();
+      indexSharedMeta.inputs_data.emplace_back(rank, c10::ScalarType::Int);
+      broadcastedIndicesRank = std::max(broadcastedIndicesRank, rank);
+      notNoneIndicesNum++;
+    } else {
+      indexSharedMeta.inputs_data.emplace_back(1, c10::ScalarType::Int);
+    }
+  }
+
+  auto outputRank = stack.back().isTensor()
+      ? stack.back().toTensor().dim()
+      : broadcastedIndicesRank + rank - notNoneIndicesNum;
+  indexSharedMeta.outputs_data.emplace_back(outputRank, dtype);
+
+  return {indexSharedMeta};
+}
+
 void IndexHabanaOperator::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

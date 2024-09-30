@@ -65,6 +65,61 @@ std::shared_ptr<void> LinspaceRangeParams(
   return params;
 }
 
+SharedMetaDataVector LinspaceOutSharedMeta(const at::Stack& stack) {
+  auto end = stack.at(1);
+  auto steps = stack.at(2);
+  int stepsVal = steps.isScalar() ? steps.toScalar().to<int>()
+                                  : steps.toTensor().item<int>();
+  auto out = stack.at(3);
+  auto isOutTensor = out.isTensor();
+  auto isEndScalar = end.isScalar();
+  c10::ScalarType dtype;
+  if (isOutTensor)
+    dtype = out.toTensor().scalar_type();
+  else if (!isEndScalar)
+    dtype = end.toTensor().scalar_type();
+  else
+    dtype = end.toScalar().type();
+
+  if (!isOutTensor &&
+      (dtype == c10::ScalarType::Long || dtype == c10::ScalarType::Int))
+    dtype = c10::ScalarType::Float;
+
+  if (stepsVal == 0) {
+    SharedMetaData memsetSharedMeta{"memset"};
+    memsetSharedMeta.outputs_data.emplace_back(1, dtype);
+    return {memsetSharedMeta};
+  }
+
+  auto start = stack.at(0);
+  auto isStartScalar = start.isScalar();
+  float startVal = isStartScalar ? start.toScalar().to<float>()
+                                 : start.toTensor().item<float>();
+  float endVal =
+      isEndScalar ? end.toScalar().to<float>() : end.toTensor().item<float>();
+  if (startVal != endVal && stepsVal != 1) {
+    if (dtype == c10::ScalarType::Float &&
+        habana::HPUDeviceContext::get_device().type() !=
+            synDeviceType::synDeviceGaudi) {
+      SharedMetaData linspaceSharedMeta{"linspace"};
+      if (!isStartScalar && !isEndScalar)
+        linspaceSharedMeta.inputs_data = {
+            {start.toTensor().dim(), dtype}, {end.toTensor().dim(), dtype}};
+      linspaceSharedMeta.outputs_data.emplace_back(1, dtype);
+
+      return {linspaceSharedMeta};
+    }
+
+    SharedMetaData rangeSharedMeta{"range"};
+    rangeSharedMeta.outputs_data.emplace_back(1, dtype);
+
+    return {rangeSharedMeta};
+  }
+  // [SW-205149] return empty vector because shape tensor validation will block
+  // shape agnostic flow
+  return {};
+}
+
 void LinspaceOut::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

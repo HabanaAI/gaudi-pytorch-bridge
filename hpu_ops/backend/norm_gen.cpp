@@ -88,9 +88,11 @@ SharedMetaDataVector NormOpWithDtypeSharedMeta(const at::Stack& stack) {
     }
   }
 
-  const auto dtype = (stack.size() >= 5 && !stack.at(4).isTensor())
-      ? stack.at(4).toScalarType()
-      : self.scalar_type();
+  c10::ScalarType dtype;
+  if (stack.size() >= 5 && !stack.at(4).isTensor() && !stack.at(4).isNone())
+    dtype = stack.at(4).toScalarType();
+  else
+    dtype = self.scalar_type();
 
   return NormCommonSharedMeta(inputRank, outputRank, dtype);
 }
