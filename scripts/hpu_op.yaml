@@ -6217,6 +6217,7 @@ mm:
     Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: gemm
   out_ids: [0]
+  #op_validator: check-node-with-shared-layer SW-204315
 
 mm.out:
   output_meta: MmMeta
@@ -6225,6 +6226,7 @@ mm.out:
     Gaudi2: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
     Gaudi3: [BFloat16, Float, Half, Float8_e5m2, Float8_e4m3fn]
   guid: gemm
+  #op_validator: check-node-with-shared-layer SW-204315
 
 mse_loss:
   custom_fill_params: FillMseLossParams
