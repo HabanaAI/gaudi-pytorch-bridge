@@ -108,6 +108,7 @@ void HPUDeviceContextImpl::Finish() {
   device_context.scalar_cache_.reset();
 
   device_context.constant_information_->ClearChecksumInformation();
+  device_context.garbage_collection_thread_.reset();
   device_context.device_.reset();
 
   if (device_context.device_.use_count() != 0) {
@@ -120,7 +121,6 @@ void HPUDeviceContextImpl::Finish() {
   habana::HPUDeviceAllocator::allocator_active_device_id = -1;
   habana::PinnedMemoryAllocator::allocator_active_device_id = -1;
   device_context.constant_information_.reset();
-  device_context.garbage_collection_thread_.reset();
 }
 
 namespace HPUDeviceContext {
