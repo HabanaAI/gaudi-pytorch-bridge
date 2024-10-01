@@ -88,9 +88,11 @@ void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   dim = at::maybe_wrap_dim(dim, rank, /*wrap_scalar=*/true);
   auto out_meta = SoftmaxFp8Meta(stack)[0];
 
+  const auto& self_dtype = self.pt_t.scalar_type();
   TORCH_CHECK(
-      self.pt_t.scalar_type() == at::ScalarType::BFloat16,
-      "Input tensor must be of torch.bfloat16 dtype.");
+      self_dtype == at::ScalarType::BFloat16 ||
+          self_dtype == at::ScalarType::Float8_e4m3fn,
+      "Input tensor must be of torch.bfloat16 or torch.float8_e4m3fn dtype.");
 
   const bool is_input_scale =
       std::holds_alternative<TensorsPair>(input_scale_opt) or
@@ -102,6 +104,10 @@ void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
   TORCH_CHECK(
       is_input_scale == is_output_scale,
       "Output and input scales must be both given or None");
+
+  TORCH_CHECK(
+      !(self_dtype == at::ScalarType::Float8_e4m3fn) or is_input_scale,
+      "If Input is of torch.float8_e4m3fn dtype then input scale must be given.");
 
   if (fused_add_opt) {
     TORCH_CHECK(
@@ -123,7 +129,9 @@ void SoftmaxFp8::AddNode(sh::graph& graph, const at::Stack& stack) {
 
   ns_Softmax::ParamsV7 params{};
   params.dim = static_cast<int>(rank - dim - 1);
-  int mode = is_input_scale ? SoftmaxMode_t::SOFTMAX_HF8_1B
+  int mode = is_input_scale ? self_dtype == at::ScalarType::Float8_e4m3fn
+          ? SoftmaxMode_t::SOFTMAX_HF8_2B
+          : SoftmaxMode_t::SOFTMAX_HF8_1B
                             : SoftmaxMode_t::SOFTMAX_HF8_1C;
   if (fused_add_opt)
     mode |= SoftmaxMode_t::FUSED_ADD;

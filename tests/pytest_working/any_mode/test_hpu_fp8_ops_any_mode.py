@@ -978,14 +978,19 @@ def test_conv2d_fp8_bias_optimization(scale_a, scale_b, scale_out):
     ht.disable_inference_mode()
 
 
-@pytest.mark.parametrize("shape", [(5, 4, 4, 6)])
-@pytest.mark.parametrize("dim", [-1])  # currently only last dim is supported by tpc
-@pytest.mark.parametrize("is_scale", [True, False])
+@pytest.mark.parametrize(
+    "is_scale, input_dtype",
+    [(True, torch.bfloat16), (True, torch.float8_e4m3fn), (False, torch.bfloat16)],
+    ids=format_tc,
+)
 @pytest.mark.parametrize("is_inv_attn_heads", [True, False])
-@pytest.mark.parametrize("fused_add_shape", [{}, (5, 4, 4, 6), (5, 1, 1, 6)])
-def test_softmax_fp8(shape, dim, is_scale, is_inv_attn_heads, fused_add_shape):
+@pytest.mark.parametrize("fused_add_shape", [{}, (5, 4, 4, 6), (5, 1, 1, 6)], ids=format_tc)
+def test_softmax_fp8(is_scale, is_inv_attn_heads, fused_add_shape, input_dtype):
+    dim = -1  # currently only last dim is supported by tpc
+    shape = (5, 4, 4, 6)
     input = torch.rand(shape, dtype=torch.bfloat16) * 4.0
-    input_hpu = input.to("hpu")
+
+    input_hpu = input.to(input_dtype).to("hpu")
     scale_input = scale_input_hpu = None
     scale_output = scale_output_hpu = None
     inv_attn_heads = inv_attn_heads_hpu = None
@@ -1033,12 +1038,14 @@ def test_softmax_fp8(shape, dim, is_scale, is_inv_attn_heads, fused_add_shape):
         check_ops_executed_in_jit_ir("softmax_fp8")
 
 
-@pytest.mark.parametrize("shape", [(5, 4, 4, 6)])
-@pytest.mark.parametrize("dim", [-1])  # currently only last dim is supported by tpc
 @pytest.mark.parametrize("is_inv_attn_heads", ["tensor", "scalar", None])
-def test_softmax_fp8_scalar(shape, dim, is_inv_attn_heads):
+@pytest.mark.parametrize("input_dtype", [torch.bfloat16, torch.float8_e4m3fn])
+def test_softmax_fp8_scalar(is_inv_attn_heads, input_dtype):
+    dim = -1  # currently only last dim is supported by tpc
+    shape = (5, 4, 4, 6)
+
     input = torch.rand(shape, dtype=torch.bfloat16) * 4.0
-    input_hpu = input.to("hpu")
+    input_hpu = input.to(input_dtype).to("hpu")
     scale_input = 0.05
     scale_output = 2.5
     inv_attn_heads = inv_attn_heads_hpu = None
