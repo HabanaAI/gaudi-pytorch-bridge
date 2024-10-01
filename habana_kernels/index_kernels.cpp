@@ -1554,8 +1554,8 @@ bool ScatterNdONNXOperator::isInputValid(Stack& inputs) {
   auto indxSize = inputs[1].toTensor().sizes().vec();
   int indxRank = indxSize.size();
   int indxFCD = indxSize[indxRank - 1];
-  int32_t totalIndices = 1;
-  int32_t totalScatters = 1;
+  int64_t totalIndices = 1;
+  int64_t totalScatters = 1;
 
   for (int i = 0; i < indxRank - 1; i++) {
     totalIndices *= std::max(indxSize[i], 1L);
