@@ -143,8 +143,8 @@ class HPURegistrar {
   static const std::thread::id main_thread_id_;
 
   CallFinally device_deleter_;
-  CallFinally lazy_exec_thread_pool_cleanup_{};
   CallFinally lazy_execution_arena_cleanup_{};
+  CallFinally lazy_exec_thread_pool_cleanup_{};
   CallFinally process_group_finalizer_;
   CallFinally accumulation_thread_cleanup_{};
   CallFinally media_proxy_finalizer_;
