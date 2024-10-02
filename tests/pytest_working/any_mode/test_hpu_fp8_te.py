@@ -10,8 +10,10 @@
 #
 ###############################################################################
 
+import io
 import math
 import os
+import pickle
 import time
 
 import habana_frameworks.torch as ht
@@ -1973,9 +1975,14 @@ def test_save_load_te_module_indirectly(
         if not torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX in state_dict.keys():
             return None
         extra_state = state_dict[f"{torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX}"]
-        FIRST_CHARACTER = 0
-        extra_state.seek(FIRST_CHARACTER)
-        extra_state = torch.load(extra_state)
+
+        if isinstance(extra_state, torch.Tensor):
+            extra_state = pickle.loads(extra_state.detach().cpu().numpy().tobytes())
+        elif isinstance(extra_state, io.BytesIO):
+            FIRST_CHARACTER = 0
+            extra_state.seek(FIRST_CHARACTER)
+            extra_state = torch.load(extra_state)
+
         return extra_state
 
     fp8_recipe = DelayedScaling(

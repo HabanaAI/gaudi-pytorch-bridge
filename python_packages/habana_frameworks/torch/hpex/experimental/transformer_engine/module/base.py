@@ -24,6 +24,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
+import numpy as np
 import torch
 
 from ..constants import dist_group_type
@@ -219,11 +220,10 @@ class TransformerEngineBaseModule(torch.nn.Module, ABC):
                     extra[k] = v
             state["extra_fp8_variables"] = extra
 
-        # return state_tensor
-        state_serialized = io.BytesIO()
-        torch.save(state, state_serialized)
+        state_serialized = pickle.dumps(state)
+        state_tensor = torch.tensor(np.frombuffer(state_serialized, dtype=np.uint8))
 
-        return state_serialized
+        return state_tensor
 
     def set_extra_state(self, state) -> None:
         """Load previous state."""
