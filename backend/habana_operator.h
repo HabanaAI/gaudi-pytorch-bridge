@@ -14,6 +14,7 @@
 #include <ATen/Tensor.h>
 #include <absl/types/any.h>
 #include <c10/util/ArrayRef.h>
+#include <shared_layer_api.hpp>
 #include <synapse_api_types.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <functional>
@@ -334,9 +335,13 @@ inline SharedMetaTensor createOptionalNotPresentSharedMetaTensor() {
 }
 
 struct SharedMetaData {
+  struct SharedMetaValidationOptions {
+    bool allowLongType = false;
+  };
   std::string guid;
   SharedMetaVector inputs_data;
   SharedMetaVector outputs_data;
+  SharedMetaValidationOptions options;
 
   SharedMetaData(const std::string& guid) : guid(guid) {}
   SharedMetaData() = default;

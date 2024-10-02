@@ -20,6 +20,24 @@ OutputMetaDataVector MaskedScaleMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector MaskedScaleSharedMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto& mask = stack_tensor(stack, 1);
+  const auto rank = self.dim();
+  const auto dtype = self.scalar_type();
+
+  SharedMetaData multSharedMeta{"mult_fwd"};
+  multSharedMeta.inputs_data = {{rank, dtype}, {mask.dim(), dtype}};
+  multSharedMeta.outputs_data.emplace_back(rank, dtype);
+
+  if (rank > 1) {
+    SharedMetaData constantSharedMeta{"constant"};
+    constantSharedMeta.outputs_data.emplace_back(rank, dtype);
+    return {multSharedMeta, constantSharedMeta};
+  }
+  return {multSharedMeta};
+}
+
 void MaskedScale::AddNode(
     synapse_helpers::graph& graph,
     const at::Stack& stack) {

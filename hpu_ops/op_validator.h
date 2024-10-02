@@ -137,4 +137,53 @@ struct CheckNodeWithSharedLayerValidator {
   bool m_require_st = false;
 };
 
+struct SharedLayerGuidValidator {
+  SharedLayerGuidValidator(
+      const std::string& guid,
+      const detail::TensorDescrArray& input_values,
+      const detail::TensorDescrArray& output_values,
+      bool is_dynamic = false,
+      bool valid_shape_tensor = true,
+      bool valid_h2d_tensor = true)
+      : m_valid_shape_tensor(valid_shape_tensor),
+        m_valid_h2d_tensor(valid_h2d_tensor),
+        m_guid(guid),
+        m_input_values(input_values),
+        m_output_values(output_values),
+        m_is_dynamic(is_dynamic) {}
+  SharedLayerGuidValidator(
+      const std::string& guid,
+      const detail::TensorDescrArray& input_values,
+      const detail::TensorDescrArray& output_values,
+      const SharedMetaData::SharedMetaValidationOptions& options,
+      bool is_dynamic = false,
+      bool valid_shape_tensor = true,
+      bool valid_h2d_tensor = true)
+      : m_valid_shape_tensor(valid_shape_tensor),
+        m_valid_h2d_tensor(valid_h2d_tensor),
+        m_guid(guid),
+        m_input_values(input_values),
+        m_output_values(output_values),
+        m_options(options),
+        m_is_dynamic(is_dynamic) {}
+
+  SharedLayer::Return_t ValidateGuid();
+
+  bool m_valid_shape_tensor;
+  bool m_valid_h2d_tensor;
+
+ private:
+  const std::string m_guid;
+  const detail::TensorDescrArray m_input_values;
+  const detail::TensorDescrArray m_output_values;
+  const SharedMetaData::SharedMetaValidationOptions m_options;
+  const bool m_is_dynamic;
+  bool fillSharedLayerTensorType(
+      SharedLayer::Tensor& tensor,
+      const at::ScalarType& t);
+  bool fillGuidParamInfo(
+      SharedLayer::Tensor& tensor,
+      const detail::TensorDescr& tensor_descr);
+};
+
 } // namespace habana

@@ -4220,87 +4220,42 @@ lt.Tensor:
 
 _masked_scale:
   output_meta: MaskedScaleMeta
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Short, Byte, Char]
-    Gaudi2: [BFloat16, Float, Int, Short, Byte, Char, Half]
-    Gaudi3: [BFloat16, Float, Int, Short, Byte, Char, Half]
   op_backend: MaskedScale
+  op_validator: MaskedScaleSharedMeta
   out_ids: [0]
 
 masked_scatter:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char]
-    Gaudi2: [BFloat16, Float, Half, Int, Char]
-    Gaudi3: [BFloat16, Float, Half, Int, Char]
   guid: masked_scatter
+  op_validator: check-node-with-shared-layer
   out_ids: [0]
 
 masked_scatter_:
-  dtypes:
-    Gaudi: [BFloat16, Float, Int, Char]
-    Gaudi2: [BFloat16, Float, Half, Int, Char]
-    Gaudi3: [BFloat16, Float, Half, Int, Char]
   guid: masked_scatter
+  op_validator: check-node-with-shared-layer
   inplace_ids: [0]
 
 masked_fill_.Scalar:
   custom_fill_params: FillMaskedFillParams
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int, Char]
-      mask: [Int, Char]
-      value: [BFloat16, Float, Int, Char]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-      mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-      mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: masked_fill_fwd
   op_backend: MaskedFill
+  op_validator: MaskedFillSharedMeta
   inplace_ids: [0]
   scalar_ids: [2]
 
 masked_fill_.Tensor:
   custom_fill_params: FillMaskedFillParams
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int, Char]
-      mask: [Int, Char]
-      value: [BFloat16, Float, Int, Char]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-      mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-      mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: masked_fill_fwd
   op_backend: MaskedFill
+  op_validator: MaskedFillSharedMeta
   st_meta: MaskedFillSTMeta
   inplace_ids: [0]
 
 masked_fill.Scalar:
   custom_fill_params: FillMaskedFillParams
   output_meta: MaskedFillMeta
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int, Char]
-      mask: [Int, Char]
-      value: [BFloat16, Float, Int, Char]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-      mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-      mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: masked_fill_fwd
   op_backend: MaskedFill
+  op_validator: MaskedFillSharedMeta
   st_meta: MaskedFillSTMeta
   scalar_ids: [2]
   out_ids: [0]
@@ -4308,21 +4263,9 @@ masked_fill.Scalar:
 masked_fill.Tensor:
   custom_fill_params: FillMaskedFillParams
   output_meta: MaskedFillMeta
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float, Int, Char]
-      mask: [Int, Char]
-      value: [BFloat16, Float, Int, Char]
-    Gaudi2:
-      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-      mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-    Gaudi3:
-      self: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
-      mask: [Int, Char, Long]
-      value: [BFloat16, Float, Int, Char, Half, Long, Float8_e5m2, Float8_e4m3fn]
   guid: masked_fill_fwd
   op_backend: MaskedFill
+  op_validator: MaskedFillSharedMeta
   st_meta: MaskedFillSTMeta
   out_ids: [0]
 
@@ -4374,71 +4317,39 @@ fmax.out:
 max_pool2d_with_indices:
   custom_fill_params: FillSpatialReduction2DParamsFwd
   output_meta: MaxPool2DMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: pt_maxpool_2d_fwd
   op_backend: MaxPool2DWithIndices
+  op_validator: MaxPool2DWithIndicesFwdSharedMeta
   op_frontend: LazyMaxPool
   out_ids: [0, 0]
 
 max_pool2d_with_indices.out:
   custom_fill_params: FillSpatialReduction2DParamsFwd
   output_meta: MaxPool2DMeta
-  dtypes:
-    Gaudi: [BFloat16, Float]
-    Gaudi2: [BFloat16, Float, Half]
-    Gaudi3: [BFloat16, Float, Half]
   guid: pt_maxpool_2d_fwd
   op_backend: MaxPool2DWithIndices
+  op_validator: MaxPool2DWithIndicesFwdSharedMeta
 
 max_pool2d_with_indices_backward:
   custom_fill_params: FillSpatialReduction2DParamsBwd
   output_meta: MaxPoolMetaBwd
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float]
-      grad_output: [BFloat16, Float]
-      indices: [Int, Long]
-    Gaudi2:
-      self: [BFloat16, Float, Half]
-      grad_output: [BFloat16, Float, Half]
-      indices: [Int, Long]
-    Gaudi3:
-      self: [BFloat16, Float, Half]
-      grad_output: [BFloat16, Float, Half]
-      indices: [Int, Long]
   op_backend: MaxPool2DWithIndicesBwd
+  op_validator: MaxPool2DWithIndicesBwdSharedMeta
   guid: pt_maxpool_2d_bwd
   out_ids: [0]
 
 max_pool2d_with_indices_backward.grad_input:
   custom_fill_params: FillSpatialReduction2DParamsBwd
   output_meta: MaxPoolMetaBwd
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float]
-      grad_output: [BFloat16, Float]
-      indices: [Int, Long]
-    Gaudi2:
-      self: [BFloat16, Float, Half]
-      grad_output: [BFloat16, Float, Half]
-      indices: [Int, Long]
-    Gaudi3:
-      self: [BFloat16, Float, Half]
-      grad_output: [BFloat16, Float, Half]
-      indices: [Int, Long]
   op_backend: MaxPool2DWithIndicesBwd
+  op_validator: MaxPool2DWithIndicesBwdSharedMeta
   guid: pt_maxpool_2d_bwd
 
 max_pool3d_with_indices:
   custom_fill_params: FillSpatialReduction3DParamsFwd
-  dtypes:
-    self: [BFloat16, Float]
-    indices: [Int]
   guid: maxpool_3d_fwd
   op_backend: MaxPool3DWithIndicesOut
+  op_validator: MaxPool3DWithIndicesFwdSharedMeta
   output_meta: Maxpool3dWithIndicesMeta
   out_ids: [0, 0]
 
@@ -4458,12 +4369,9 @@ max_pool3d_with_indices:
 max_pool3d_with_indices_backward:
   custom_fill_params: FillSpatialReduction3DParamsBwd
   output_meta: MaxPoolMetaBwd
-  dtypes:
-    self: [BFloat16, Float]
-    grad_output: [BFloat16, Float]
-    indices: [Int, Long]
   guid: maxpool_3d_bwd
   op_backend: MaxPool3DWithIndicesBwd
+  op_validator: MaxPool3DWithIndicesBwdSharedMeta
   out_ids: [0]
 
 # Due to (https://jira.habana-labs.com/browse/SW-74263) issue following lines are commentd.
@@ -5099,27 +5007,9 @@ nextafter.out:
 nll_loss_backward:
   custom_fill_params: FillNllLossBwdParams
   output_meta: NllLossBwdMeta
-  dtypes:
-    Gaudi:
-      grad_output: [BFloat16, Float]
-      self: [BFloat16, Float]
-      target: [Int]
-      weight: [BFloat16, Float]
-      total_weight: [BFloat16, Float]
-    Gaudi2:
-      grad_output: [BFloat16, Float, Half]
-      self: [BFloat16, Float, Half]
-      target: [Int, Long]
-      weight: [BFloat16, Float, Half]
-      total_weight: [BFloat16, Float, Half]
-    Gaudi3:
-      grad_output: [BFloat16, Float, Half]
-      self: [BFloat16, Float, Half]
-      target: [Int]
-      weight: [BFloat16, Float, Half]
-      total_weight: [BFloat16, Float, Half]
   guid: nll_loss_bwd
   op_backend: NllLossBwd
+  op_validator: NllLossBwdSharedMeta
   out_ids: [0]
 
 nll_loss_forward:
@@ -5132,27 +5022,9 @@ nll_loss_forward:
 nll_loss2d_backward:
   custom_fill_params: FillNllLossBwdParams
   output_meta: NllLossBwdMeta
-  dtypes:
-    Gaudi:
-      grad_output: [BFloat16, Float]
-      self: [BFloat16, Float]
-      target: [Int, Long]
-      weight: [BFloat16, Float]
-      total_weight: [BFloat16, Float]
-    Gaudi2:
-      grad_output: [BFloat16, Float, Half]
-      self: [BFloat16, Float, Half]
-      target: [Int, Long]
-      weight: [BFloat16, Float, Half]
-      total_weight: [BFloat16, Float, Half]
-    Gaudi3:
-      grad_output: [BFloat16, Float, Half]
-      self: [BFloat16, Float, Half]
-      target: [Int, Long]
-      weight: [BFloat16, Float, Half]
-      total_weight: [BFloat16, Float, Half]
   guid: nll_loss_bwd
   op_backend: NllLoss2DBwd
+  op_validator: NllLoss2DBwdSharedMeta
   out_ids: [0]
   synapse_layouts:
   - [DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
@@ -5161,21 +5033,9 @@ nll_loss2d_backward:
 nll_loss2d_forward:
   custom_fill_params: FillNllLossFwdParams
   output_meta: NllLossFwdMeta
-  dtypes:
-    Gaudi:
-      self: [BFloat16, Float]
-      target: [Int, Long]
-      weight: [BFloat16, Float]
-    Gaudi2:
-      self: [BFloat16, Float, Half]
-      target: [Int, Long]
-      weight: [BFloat16, Float, Half]
-    Gaudi3:
-      self: [BFloat16, Float, Half]
-      target: [Int, Long]
-      weight: [BFloat16, Float, Half]
   guid: nll_loss_fwd
   op_backend: NllLoss2DFwd
+  op_validator: NllLoss2DFwdSharedMeta
   out_ids: [0, 0]
   synapse_layouts:
   - [WHCN, WHN, DONT_CARE, DONT_CARE]
@@ -5184,27 +5044,9 @@ nll_loss2d_forward:
 nll_loss_backward.grad_input:
   custom_fill_params: FillNllLossBwdParams
   output_meta: NllLossBwdMeta
-  dtypes:
-    Gaudi:
-      grad_output: [BFloat16, Float]
-      self: [BFloat16, Float]
-      target: [Int, Long]
-      weight: [BFloat16, Float]
-      total_weight: [BFloat16, Float]
-    Gaudi2:
-      grad_output: [BFloat16, Float, Half]
-      self: [BFloat16, Float, Half]
-      target: [Int, Long]
-      weight: [BFloat16, Float, Half]
-      total_weight: [BFloat16, Float, Half]
-    Gaudi3:
-      grad_output: [BFloat16, Float, Half]
-      self: [BFloat16, Float, Half]
-      target: [Int, Long]
-      weight: [BFloat16, Float, Half]
-      total_weight: [BFloat16, Float, Half]
   guid: nll_loss_bwd
   op_backend: NllLossBwd
+  op_validator: NllLossBwdSharedMeta
 
 nll_loss_forward.output:
   custom_fill_params: FillNllLossFwdParams
@@ -5215,14 +5057,9 @@ nll_loss_forward.output:
 nll_loss2d_backward.grad_input:
   custom_fill_params: FillNllLossBwdParams
   output_meta: NllLossBwdMeta
-  dtypes:
-    grad_output: [BFloat16, Float]
-    self: [BFloat16, Float]
-    target: [Long, Int]
-    weight: [BFloat16, Float]
-    total_weight: [BFloat16, Float]
   guid: nll_loss_bwd
   op_backend: NllLoss2DBwd
+  op_validator: NllLoss2DBwdSharedMeta
   synapse_layouts:
   - [DONT_CARE, DONT_CARE, DONT_CARE, DONT_CARE]
   - [WHCN]
@@ -5230,13 +5067,9 @@ nll_loss2d_backward.grad_input:
 nll_loss2d_forward.output:
   custom_fill_params: FillNllLossFwdParams
   output_meta: NllLossFwdMeta
-  dtypes:
-    self: [BFloat16, Float]
-    target: [Int, Long]
-    weight: [BFloat16, Float]
-    output: [BFloat16, Float]
   guid: nll_loss_fwd
   op_backend: NllLoss2DFwd
+  op_validator: NllLoss2DFwdSharedMeta
   synapse_layouts:
   - [WHCN, WHN, DONT_CARE, DONT_CARE]
   - [WHN]

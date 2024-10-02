@@ -73,132 +73,11 @@ SharedLayer::DeviceId getDeviceType() {
   return deviceId;
 }
 
-bool fillSharedLayerTensorType(SharedLayer::Tensor& tensor, at::ScalarType t) {
-  switch (t) {
-    case at::ScalarType::Byte:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_U8;
-      return true;
-    case at::ScalarType::Char:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_I8;
-      return true;
-    case at::ScalarType::Short:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_I16;
-      return true;
-    case at::ScalarType::UInt16:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_U16;
-      return true;
-    case at::ScalarType::Int:
-    case at::ScalarType::Long:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_I32;
-      return true;
-    case at::ScalarType::UInt32:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_U32;
-      return true;
-    case at::ScalarType::Half:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_F16;
-      return true;
-    case at::ScalarType::Float:
-    case at::ScalarType::Double:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_F32;
-      return true;
-    case at::ScalarType::Bool:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_I8;
-      return true;
-    case at::ScalarType::BFloat16:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_BF16;
-      return true;
-    case at::ScalarType::Float8_e5m2:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_F8_152;
-      return true;
-    case at::ScalarType::Float8_e4m3fn:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_F8_143;
-      return true;
-    case at::ScalarType::Undefined:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::NUM_DATATYPES;
-      return true;
-    default:
-      tensor.geometry.dataType = SharedLayer::TensorDataType::NUM_DATATYPES;
-      return false;
-  }
-}
-
-bool fillGuidParamInfo(
-    SharedLayer::Tensor& tensor,
-    const detail::TensorDescr& tensor_descr) {
-  if (not fillSharedLayerTensorType(tensor, tensor_descr.getType()))
-    return false;
-
-  const auto rank = tensor_descr.getRank();
-  const bool isOptionalNotPresent =
-      tensor_descr.getType() == at::ScalarType::Undefined;
-  tensor.geometry.dims = (rank == 0 && !isOptionalNotPresent) ? 1 : rank;
-  return true;
-}
-
 template <size_t MaxSize>
 void safe_string_copy(const std::string& source, char* destination) {
   static const auto limited_length_string_format =
       "%." + std::to_string(MaxSize) + "s";
   sprintf(destination, limited_length_string_format.c_str(), source.c_str());
-}
-
-/*
- * This function is a wrapper for shared layer query interface.
- */
-SharedLayer::Return_t ValidateGuid(
-    const std::string& guid,
-    const detail::TensorDescrArray& input_values,
-    const detail::TensorDescrArray& output_values,
-    bool is_dynamic = false,
-    bool valid_shape_tensor = true,
-    bool valid_h2d_tensor = true) {
-  SharedLayer::ParamsV2_t params{};
-  params.apiVersion = 1;
-  auto deviceId = getDeviceType();
-  params.deviceId = deviceId;
-
-  safe_string_copy<SharedLayer::MAX_NODE_NAME>(guid, params.guid.name);
-  // skipping:
-  // params.guid.nameHash - not used in lower layer
-  // params.guid.kernelProperties - not used in lower layer
-  // params.nodeParams.nodeParams - not used in lower layer
-  // params.nodeParams.nodeParamsSize - not used in lower layer
-
-  const size_t input_count = input_values.size();
-  const size_t output_count = output_values.size();
-
-  HABANA_ASSERT(
-      input_count <= SharedLayer::MAX_TENSOR_NR,
-      "Input count passed to Shared Layer exceeds limit");
-
-  HABANA_ASSERT(
-      output_count <= SharedLayer::MAX_TENSOR_NR,
-      "Output count passed to Shared Layer exceeds limit");
-
-  SharedLayer::Tensor input_tensors[input_count];
-  SharedLayer::Tensor output_tensors[output_count];
-
-  for (auto i = 0u; i < input_count; ++i) {
-    if (not fillGuidParamInfo(input_tensors[i], input_values[i])) {
-      return SharedLayer::Return_t::SHARED_LAYER_FAILED;
-    }
-  }
-  params.inputTensorNr = input_count;
-
-  for (auto i = 0u; i < output_count; ++i) {
-    if (not fillGuidParamInfo(output_tensors[i], output_values[i])) {
-      return SharedLayer::Return_t::SHARED_LAYER_FAILED;
-    }
-  }
-  params.outputTensorNr = output_count;
-
-  params.inputTensors = input_tensors;
-  params.outputTensors = output_tensors;
-  params.supportsDynamicShapes = is_dynamic;
-  params.requiresShapeTensor = valid_shape_tensor;
-  params.requiresH2DTensor = valid_h2d_tensor;
-
-  return synSharedLayerValidateGuidV2(&params);
 }
 
 detail::TensorDescr TryCastTensor(
@@ -493,8 +372,9 @@ bool CheckNodeWithSharedLayerValidator::Validate(
 
   auto inputs = CreateInputList(values, promoted_type, outputs.size());
 
-  auto validation_result = ValidateGuid(
-      m_guid, inputs, outputs, is_dynamic, check_st_h2d, check_st_h2d);
+  SharedLayerGuidValidator guidValidator{
+      m_guid, inputs, outputs, is_dynamic, check_st_h2d, check_st_h2d};
+  auto validation_result = guidValidator.ValidateGuid();
 
   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS == validation_result &&
       is_dynamic && !is_guid_support_dynamic_shape(m_guid)) {
@@ -505,8 +385,9 @@ bool CheckNodeWithSharedLayerValidator::Validate(
   if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
     if (validation_result ==
         SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT) {
-      validation_result =
-          ValidateGuid(m_guid, inputs, outputs, is_dynamic, false, true);
+      guidValidator.m_valid_shape_tensor = false;
+      guidValidator.m_valid_h2d_tensor = true;
+      validation_result = guidValidator.ValidateGuid();
       if (validation_result !=
           SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
         m_require_h2d = true;
@@ -564,14 +445,22 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
     auto inputs = CreateTensorList(meta.inputs_data);
     auto outputs = CreateTensorList(meta.outputs_data);
 
-    auto validation_result = ValidateGuid(
-        meta.guid, inputs, outputs, is_dynamic, check_st_h2d, check_st_h2d);
+    SharedLayerGuidValidator guidValidator{
+        meta.guid,
+        inputs,
+        outputs,
+        meta.options,
+        is_dynamic,
+        check_st_h2d,
+        check_st_h2d};
+    auto validation_result = guidValidator.ValidateGuid();
 
     if (SharedLayer::Return_t::SHARED_LAYER_SUCCESS != validation_result) {
       if (validation_result ==
           SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_SHAPE_TENSOR_INPUT) {
-        validation_result =
-            ValidateGuid(meta.guid, inputs, outputs, is_dynamic, false, true);
+        guidValidator.m_valid_shape_tensor = false;
+        guidValidator.m_valid_h2d_tensor = true;
+        validation_result = guidValidator.ValidateGuid();
         if (validation_result !=
             SharedLayer::Return_t::SHARED_LAYER_GUID_HAS_NO_H2D_TENSOR_INPUT) {
           m_require_h2d = true;
@@ -616,6 +505,128 @@ bool CheckNodeWithSharedLayerValidator::ValidateCustom(
   }
 
   return true;
+}
+
+bool SharedLayerGuidValidator::fillSharedLayerTensorType(
+    SharedLayer::Tensor& tensor,
+    const at::ScalarType& t) {
+  switch (t) {
+    case at::ScalarType::Byte:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_U8;
+      return true;
+    case at::ScalarType::Char:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_I8;
+      return true;
+    case at::ScalarType::Short:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_I16;
+      return true;
+    case at::ScalarType::UInt16:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_U16;
+      return true;
+    case at::ScalarType::Long:
+      if (m_options.allowLongType) {
+        tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_I64;
+        return true;
+      }
+      [[fallthrough]];
+    case at::ScalarType::Int:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_I32;
+      return true;
+    case at::ScalarType::UInt32:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_U32;
+      return true;
+    case at::ScalarType::Half:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_F16;
+      return true;
+    case at::ScalarType::Float:
+    case at::ScalarType::Double:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_F32;
+      return true;
+    case at::ScalarType::Bool:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_I8;
+      return true;
+    case at::ScalarType::BFloat16:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_BF16;
+      return true;
+    case at::ScalarType::Float8_e5m2:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_F8_152;
+      return true;
+    case at::ScalarType::Float8_e4m3fn:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::DATA_F8_143;
+      return true;
+    case at::ScalarType::Undefined:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::NUM_DATATYPES;
+      return true;
+    default:
+      tensor.geometry.dataType = SharedLayer::TensorDataType::NUM_DATATYPES;
+      return false;
+  }
+}
+
+bool SharedLayerGuidValidator::fillGuidParamInfo(
+    SharedLayer::Tensor& tensor,
+    const detail::TensorDescr& tensor_descr) {
+  if (not fillSharedLayerTensorType(tensor, tensor_descr.getType()))
+    return false;
+
+  const auto rank = tensor_descr.getRank();
+  const bool isOptionalNotPresent =
+      tensor_descr.getType() == at::ScalarType::Undefined;
+  tensor.geometry.dims = (rank == 0 && !isOptionalNotPresent) ? 1 : rank;
+  return true;
+}
+
+/*
+ * This function is a wrapper for shared layer query interface.
+ */
+SharedLayer::Return_t SharedLayerGuidValidator::ValidateGuid() {
+  SharedLayer::ParamsV2_t params{};
+  params.apiVersion = 1;
+  auto deviceId = getDeviceType();
+  params.deviceId = deviceId;
+
+  safe_string_copy<SharedLayer::MAX_NODE_NAME>(m_guid, params.guid.name);
+  // skipping:
+  // params.guid.nameHash - not used in lower layer
+  // params.guid.kernelProperties - not used in lower layer
+  // params.nodeParams.nodeParams - not used in lower layer
+  // params.nodeParams.nodeParamsSize - not used in lower layer
+
+  const size_t input_count = m_input_values.size();
+  const size_t output_count = m_output_values.size();
+
+  HABANA_ASSERT(
+      input_count <= SharedLayer::MAX_TENSOR_NR,
+      "Input count passed to Shared Layer exceeds limit");
+
+  HABANA_ASSERT(
+      output_count <= SharedLayer::MAX_TENSOR_NR,
+      "Output count passed to Shared Layer exceeds limit");
+
+  SharedLayer::Tensor input_tensors[input_count];
+  SharedLayer::Tensor output_tensors[output_count];
+
+  for (auto i = 0u; i < input_count; ++i) {
+    if (not fillGuidParamInfo(input_tensors[i], m_input_values[i])) {
+      return SharedLayer::Return_t::SHARED_LAYER_FAILED;
+    }
+  }
+  params.inputTensorNr = input_count;
+
+  for (auto i = 0u; i < output_count; ++i) {
+    if (not fillGuidParamInfo(output_tensors[i], m_output_values[i])) {
+      return SharedLayer::Return_t::SHARED_LAYER_FAILED;
+    }
+  }
+  params.outputTensorNr = output_count;
+
+  params.inputTensors = input_tensors;
+  params.outputTensors = output_tensors;
+  params.supportsDynamicShapes = m_is_dynamic;
+  params.requiresShapeTensor = m_valid_shape_tensor;
+  params.requiresH2DTensor = m_valid_h2d_tensor;
+
+  return synSharedLayerValidateGuidV2(&params);
 }
 
 } // namespace habana

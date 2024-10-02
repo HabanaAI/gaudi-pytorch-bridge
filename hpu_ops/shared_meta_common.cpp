@@ -500,4 +500,76 @@ SharedMetaDataVector PadBwdSharedMeta(const at::Stack& stack) {
   return {padBwdSharedMeta};
 }
 
+SharedMetaDataVector MaxPoolWithIndicesFwdSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto rank = self.dim();
+  const auto dtype = self.scalar_type();
+  auto indexType = c10::ScalarType::Long;
+
+  SharedMetaData maxPoolWithIndicesSharedMeta{guid};
+  maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(rank, dtype);
+  if (guid.find("maxpool_3d") != std::string::npos) {
+    switch (dtype) {
+      case c10::ScalarType::BFloat16:
+      case c10::ScalarType::Half:
+        indexType = c10::ScalarType::Short;
+        break;
+      default:
+        indexType = c10::ScalarType::Byte;
+        break;
+    }
+    maxPoolWithIndicesSharedMeta.outputs_data = {
+        {rank, indexType}, {rank, dtype}};
+  } else {
+    maxPoolWithIndicesSharedMeta.options.allowLongType = true;
+    maxPoolWithIndicesSharedMeta.outputs_data = {
+        {rank, dtype}, {rank, indexType}};
+  }
+
+  return {maxPoolWithIndicesSharedMeta};
+}
+
+SharedMetaDataVector MaxPoolWithIndicesBwdSharedMeta(
+    const at::Stack& stack,
+    const std::string& guid) {
+  const auto& grad = stack_tensor(stack, 0);
+  const auto& self = stack_tensor(stack, 1);
+  const auto& indices = stack_tensor(stack, 7);
+  const auto rank = self.dim();
+  const auto dtype = self.scalar_type();
+  auto indexType = c10::ScalarType::Long;
+  SharedMetaData maxPoolWithIndicesSharedMeta{guid};
+  maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(
+      grad.dim(), grad.scalar_type());
+  bool isMaxPool3d = guid.find("maxpool_3d") != std::string::npos;
+  if (isMaxPool3d) {
+    switch (dtype) {
+      case c10::ScalarType::BFloat16:
+      case c10::ScalarType::Half:
+        indexType = c10::ScalarType::Short;
+        break;
+      default:
+        indexType = c10::ScalarType::Byte;
+        break;
+    }
+
+    // optional not present tensors required for non TF version
+    auto optionalNotPresentTensor = createOptionalNotPresentSharedMetaTensor();
+    maxPoolWithIndicesSharedMeta.inputs_data.push_back(
+        optionalNotPresentTensor);
+    maxPoolWithIndicesSharedMeta.inputs_data.push_back(
+        optionalNotPresentTensor);
+  } else {
+    maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(rank, dtype);
+    maxPoolWithIndicesSharedMeta.options.allowLongType = true;
+  }
+  maxPoolWithIndicesSharedMeta.inputs_data.emplace_back(
+      indices.dim(), indexType);
+  maxPoolWithIndicesSharedMeta.outputs_data = {{rank, dtype}};
+
+  return {maxPoolWithIndicesSharedMeta};
+}
+
 } // namespace habana

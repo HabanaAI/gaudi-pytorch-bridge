@@ -18,6 +18,7 @@
 #include "generated/backend/max_pool3d_with_indices.h"
 #include "generated/backend/max_pool3d_with_indices_backward.h"
 #include "hpu_ops/backend/pool_helpers.h"
+#include "hpu_ops/shared_meta_common.h"
 
 namespace habana {
 
@@ -213,6 +214,22 @@ OutputMetaDataVector Maxpool3dWithIndicesMeta(const at::Stack& stack) {
   meta[1].dtype = c10::ScalarType::Long;
 
   return meta;
+}
+
+SharedMetaDataVector MaxPool2DWithIndicesFwdSharedMeta(const at::Stack& stack) {
+  return MaxPoolWithIndicesFwdSharedMeta(stack, "pt_maxpool_2d_fwd");
+}
+
+SharedMetaDataVector MaxPool2DWithIndicesBwdSharedMeta(const at::Stack& stack) {
+  return MaxPoolWithIndicesBwdSharedMeta(stack, "pt_maxpool_2d_bwd");
+}
+
+SharedMetaDataVector MaxPool3DWithIndicesFwdSharedMeta(const at::Stack& stack) {
+  return MaxPoolWithIndicesFwdSharedMeta(stack, "maxpool_3d_fwd");
+}
+
+SharedMetaDataVector MaxPool3DWithIndicesBwdSharedMeta(const at::Stack& stack) {
+  return MaxPoolWithIndicesBwdSharedMeta(stack, "maxpool_3d_bwd");
 }
 
 static std::shared_ptr<void> FillSpatialReduction3DParams(

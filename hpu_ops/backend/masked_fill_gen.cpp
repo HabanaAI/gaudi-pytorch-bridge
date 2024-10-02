@@ -25,6 +25,28 @@ OutputMetaDataVector MaskedFillMeta(const at::Stack& stack) {
   return {meta};
 }
 
+SharedMetaDataVector MaskedFillSharedMeta(const at::Stack& stack) {
+  const auto& self = stack_tensor(stack, 0);
+  const auto& mask = stack_tensor(stack, 1);
+  const auto& value = stack.at(2);
+  const auto dtype = self.scalar_type();
+  const auto selfRank = self.dim();
+  const auto maskRank = mask.dim();
+  const auto outputRank = std::max(selfRank, maskRank);
+
+  SharedMetaData maskedFillSharedMeta{"masked_fill_fwd"};
+  maskedFillSharedMeta.inputs_data = {
+      {selfRank, dtype}, {maskRank, mask.scalar_type()}};
+  if (value.isTensor()) {
+    // CGUID accepts any type and casts it to self's type
+    const auto& valueTensor = value.toTensor();
+    maskedFillSharedMeta.inputs_data.emplace_back(valueTensor.dim(), dtype);
+  }
+  maskedFillSharedMeta.outputs_data.emplace_back(outputRank, dtype);
+
+  return {maskedFillSharedMeta};
+}
+
 bool MaskedFillSTMeta(
     habana_helpers::IShapeList& inputs,
     habana_helpers::IShapeList& outputs) {
