@@ -3,7 +3,6 @@
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/op_logger.h"
 #include "common/dump_args.h"
-#include "hpu_ops/eager/reduction_template.h"
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"
@@ -26,17 +25,12 @@ at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, c10::o
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  auto compute_type = DTypeHelper::get_compute_dtype({self}, out, DTypeHelper::DtypePromoteVariant::kReduction, false/*safe_cast*/, dtype);
-  static_cast<void>(compute_type);
-
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kDouble, at::kBool}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, prod, int_out, self, dim, keepdim, dtype, out)
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(self, prod, int_out, self, dim, keepdim, dtype, out)
 
-  ReductionFrontendTemplate<at::Tensor &> hpu_op{"aten::prod", {self, dim, keepdim, dtype, out}, ReductionOutputShape(self, dim, keepdim)};
-  hpu_op.set_scalar_types({compute_type});
-  hpu_op.SetReductionVarsIndices(1, 2, 3);
+  eager::EagerOp<at::Tensor &> hpu_op{"aten::prod", {self, dim, keepdim, dtype, out}};
   hpu_op.set_eager_op_info({eager::eagerOpKind::InplaceOut, "aten::prod", require_h2d, require_st, 1});
   return hpu_op.call(out);
 }

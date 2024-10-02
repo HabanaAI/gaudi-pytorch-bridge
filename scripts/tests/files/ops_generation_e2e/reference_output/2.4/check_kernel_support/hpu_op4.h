@@ -50,13 +50,10 @@ bool func(torch::jit::Stack &stack, bool is_dynamic) {
 }
 private:
 bool impl(const at::Tensor & self, int64_t dim, bool keepdim, c10::optional<at::ScalarType> dtype, at::Tensor & out, bool is_dynamic) {
-  auto compute_type = DTypeHelper::get_compute_dtype({self}, out, DTypeHelper::DtypePromoteVariant::kReduction, false/*safe_cast*/, dtype);
-  static_cast<void>(compute_type);
-
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kDouble, at::kBool}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
-  RETURN_IF_UNSUPPORTED_DTYPE2(compute_type, prod, is_dynamic, int_out, self, dim, keepdim, dtype, out)
+  RETURN_IF_UNSUPPORTED_DTYPE2(self, prod, is_dynamic, int_out, self, dim, keepdim, dtype, out)
 
   return true;
 }

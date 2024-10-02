@@ -121,7 +121,6 @@ _AVAILABLE_FIELDS = {
     "promote_int_to_float",
     "promote_int_to_long",
     "promote_to_common_type",
-    "reduction",
     "safe_cast_check",
     "scalar_ids",
     "schema_args",
@@ -430,16 +429,12 @@ class Op:
         op_backend_class = self.op.get("op_backend", None)
         if op_backend_class:
             return op_backend_class
-        if self.get_reduction():
-            return "ReductionBackendTemplate"
         return "OpBackend"
 
     def get_op_frontend_class(self):
         op_frontend_class = self.op.get("op_frontend", None)
         if op_frontend_class:
             return op_frontend_class
-        if self.get_reduction():
-            return "ReductionFrontendTemplate"
         return "LazyOp"
 
     def get_early_exit_fun(self):
@@ -447,9 +442,6 @@ class Op:
         if early_exit_fun:
             return early_exit_fun
         return None
-
-    def get_reduction(self):
-        return self.op.get("reduction", False)
 
     def get_no_compute_flag(self):
         return self.op.get("no_compute_flag", False)
@@ -742,16 +734,6 @@ def get_op_backend_class_impl(ctxop, fname, cname, num_out_tensors, param_vars):
 
     if shared_layer_meta_meta_fn:
         ctor_extra_calls.append("SetSharedLayerMetaFn({});".format(shared_layer_meta_meta_fn))
-
-    if ctxop.get_reduction():
-        ctor_extra_calls.append(
-            "SetReductionVarsIndices({});".format(", ".join(extract_reduction_vars_indices(param_vars)))
-        )
-        ctor_extra_calls.append(
-            "if (GET_ENV_FLAG_NEW(PT_HPU_LAZY_MODE) != 1) SetOutputMetaFn(ReductionMeta<{}>);".format(
-                ", ".join(extract_reduction_vars_indices(param_vars, True))
-            )
-        )
 
     return templates._OPCLASS_HEADER.format(
         op_backend_class=op_backend_class,
@@ -1148,16 +1130,12 @@ def is_inplace_or_out_op(opname):
 def handle_type_promotion(ctxop, fname, fe_call_args, param_vars):
     promote_to_common_type = ctxop.promote_to_common_type()
     promote_int_to_float = ctxop.promote_int_to_float()
-    is_reduction = ctxop.get_reduction()
     safe_cast_check = ctxop.safe_cast_check()
-    skip_promote_int_to_long_for_reduction = (
-        is_reduction and type(ctxop.promote_int_to_long()) is bool and not ctxop.promote_int_to_long()
-    )
 
     promote_types = bool(promote_to_common_type) + bool(promote_int_to_float)
     assert promote_types < 2, "Only one of [promote_to_common_type, promote_int_to_float] may be set to True."
     promote_types = bool(promote_types)
-    use_compute_type = promote_types or is_reduction
+    use_compute_type = promote_types
     dtype_helper_inputs = []
     type_promo_variant = "None"
     code = ""
@@ -1172,8 +1150,7 @@ def handle_type_promotion(ctxop, fname, fe_call_args, param_vars):
                 dtype_helper_inputs = promote_to_common_type
         else:
             dtype_helper_inputs = ["self"]
-            if not skip_promote_int_to_long_for_reduction:
-                type_promo_variant = "Reduction"
+            type_promo_variant = "Reduction"
 
         safe_cast = is_inplace_or_out_op(fname)
         if safe_cast_check is not None:
@@ -1276,10 +1253,6 @@ def handle_output_shape_fn(ctxop, param_vars):
     output_shape_fn = ctxop.get_custom_output_shape()
     if output_shape_fn:
         code += f", {output_shape_fn}"
-    elif ctxop.get_reduction():
-        dim = "dim" if "dim" in param_vars else "{}"
-        keepdim = "keepdim" if "keepdim" in param_vars else "false"
-        code += f", ReductionOutputShape(self, {dim}, {keepdim})"
     return code + "};\n"
 
 
@@ -1414,9 +1387,6 @@ def lazy_frontend(
     if st_meta:
         code += f"  hpu_op.SetSTMetaFn({st_meta});\n"
 
-    if op_frontend_class == "ReductionFrontendTemplate":
-        code += "  hpu_op.SetReductionVarsIndices({});\n".format(", ".join(extract_reduction_vars_indices(param_vars)))
-
     code += handle_return_lazy(ctxop, rtype, sig, fname, fe_call_args, param_vars)
     return code + "\n}"
 
@@ -1481,7 +1451,6 @@ eager_custom_frontends_whitelist = [
     "IndexFE",
     "IndexOutFE",
     "NativeDropoutFE",
-    "ReductionFrontendTemplate",
     "TopKFE",
     "ConvolutionOverrideableFE",
     "ConvolutionBackwardOverrideableFE",
@@ -1596,9 +1565,6 @@ def eager_frontend(
         code += "  hpu_op.set_scalar_types({compute_type});\n"
 
     code += handle_output_meta(ctxop, promote_types, dtype_helper_inputs, param_vars, type_promo_variant)
-
-    if op_frontend_class == "ReductionFrontendTemplate":
-        code += "  hpu_op.SetReductionVarsIndices({});\n".format(", ".join(extract_reduction_vars_indices(param_vars)))
 
     op_type, op_name = get_eager_op_info(fname, ns)
     inplace_op_info = (op_type, op_name, out_indices)
@@ -1880,7 +1846,6 @@ def fndef_from_schema(schema):
 def print_backend_to_file(op_groups, op_backend, kr_regs, custom_schema_regs, gen_file_idx, args):
     backend_inclusions = """
 #include "hpu_ops/op_validator.h"
-#include "hpu_ops/backend/reduction_template.h"
 """
     header_inclusions = ""
     for op_group in sorted(op_groups):
@@ -1986,7 +1951,6 @@ def get_frontend_inclusions(mode):
     )
 
     eager_inclusions = (
-        '#include "hpu_ops/eager/reduction_template.h"\n'
         '#include "habana_eager/eager_exec.h"\n'
         '#include "habana_eager/ops/eager_op.h"\n'
         '#include "habana_eager/ops/override_fns.h"\n'
@@ -1994,7 +1958,7 @@ def get_frontend_inclusions(mode):
 
     lazy_inclusions = (
         '#include "habana_kernels/lazy_kernels_declarations.h"\n'
-        '#include "hpu_ops/lazy/reduction_template.h"\n'
+        '#include "habana_kernels/lazy_kernels.h"\n'
         '#include "habana_lazy/hpu_stage_submission.h"\n'
         "using habana_lazy::LazyOp;\n"
         "using habana_lazy::GraphHashBuilder;\n"
@@ -2449,7 +2413,6 @@ def generate_check_kernel_support(args):
     header_inclusions = (
         '#include "habana_kernels/lazy_kernels_declarations.h"\n'
         '#include "hpu_ops/cpu_fallback.h"\n'
-        '#include "hpu_ops/eager/reduction_template.h"\n'
         '#include "hpu_ops/op_validator.h"\n'
         '#include "habana_eager/ops/eager_op.h"\n'
     )

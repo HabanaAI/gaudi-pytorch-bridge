@@ -5,7 +5,7 @@
 #include "hpu_ops/op_logger.h"
 #include "common/dump_args.h"
 #include "habana_kernels/lazy_kernels_declarations.h"
-#include "hpu_ops/lazy/reduction_template.h"
+#include "habana_kernels/lazy_kernels.h"
 #include "habana_lazy/hpu_stage_submission.h"
 using habana_lazy::LazyOp;
 using habana_lazy::GraphHashBuilder;
@@ -31,17 +31,12 @@ at::Tensor & prod_out(const at::Tensor & self, int64_t dim, bool keepdim, c10::o
   [[maybe_unused]] bool require_h2d = false;
   [[maybe_unused]] bool require_st = false;
 
-  auto compute_type = DTypeHelper::get_compute_dtype({self}, out, DTypeHelper::DtypePromoteVariant::kReduction, false/*safe_cast*/, dtype);
-  static_cast<void>(compute_type);
-
   HPU_SUPPORTED_DTYPES(({{synDeviceGaudi, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kDouble, at::kBool}},
    {synDeviceGaudi2, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}},
    {synDeviceGaudi3, {at::kBFloat16, at::kFloat, at::kChar, at::kByte, at::kShort, at::kInt, at::kHalf, at::kDouble, at::kBool}}}))
-  FALLBACK_IF_UNSUPPORTED_DTYPE2(compute_type, prod, int_out, self, dim, keepdim, dtype, out)
+  FALLBACK_IF_UNSUPPORTED_DTYPE2(self, prod, int_out, self, dim, keepdim, dtype, out)
 
-  ReductionFrontendTemplate<at::Tensor &> hpu_op{"aten::prod", {self, dim, keepdim, dtype, out}, ReductionOutputShape(self, dim, keepdim)};
-  hpu_op.set_scalar_types({compute_type});
-  hpu_op.SetReductionVarsIndices(1, 2, 3);
+  LazyOp<at::Tensor &> hpu_op{"aten::prod", {self, dim, keepdim, dtype, out}};
   RUN_INPLACE_MAYBE_WITH_ACC_THREAD(prod_out, hpu_op, out);
 }
 

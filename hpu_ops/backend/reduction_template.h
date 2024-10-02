@@ -16,22 +16,6 @@
 #include "hpu_ops/hpu_op_helper.h"
 
 namespace habana {
-class ReductionBackendTemplate : public OpBackend {
-  at::optional<uint8_t> m_dim_index;
-  at::optional<uint8_t> m_keepdim_index;
-  at::optional<uint8_t> m_dtype_index;
-
-  void AddNode(synapse_helpers::graph& graph, const at::Stack& stack) override;
-
- public:
-  using OpBackend::OpBackend;
-
- protected:
-  void SetReductionVarsIndices(
-      at::optional<uint8_t> dim_index,
-      at::optional<uint8_t> keepdim_index,
-      at::optional<uint8_t> dtype_index);
-};
 
 template <int dim_index, int keepdim_index, int dtype_index>
 OutputMetaDataVector ReductionMeta(const at::Stack& stack) {
@@ -70,7 +54,7 @@ c10::optional<synapse_helpers::tensor> HandleReductionDtype(
     synTensor syn_in,
     at::optional<at::ScalarType> dtype);
 
-std::vector<synapse_helpers::tensor> HandleReductionMultiDimAndKeepdim(
+std::vector<synapse_helpers::tensor> HandleReduction(
     OpBackend* op,
     synapse_helpers::graph& graph,
     synTensor syn_in,
@@ -78,30 +62,6 @@ std::vector<synapse_helpers::tensor> HandleReductionMultiDimAndKeepdim(
     c10::IntArrayRef dimsToReduce,
     const int64_t inputRank,
     const bool keepdim,
-    std::vector<NodeAttr::NodeOutputAttr> output_attr);
-
-std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    const at::Tensor& self,
-    std::vector<synTensor> inputs,
-    const at::IntArrayRef dims,
-    bool keepdim,
-    const std::string& guid,
-    std::vector<NodeAttr::NodeOutputAttr> output_attr,
-    std::function<std::shared_ptr<
-        void>(const int64_t, size_t&, int64_t, c10::optional<at::Scalar>)>
-        fill_param_fn,
-    c10::optional<at::Scalar> ord = c10::nullopt);
-
-std::vector<synapse_helpers::tensor> HandleReductionDimAndKeepdim(
-    OpBackend* op,
-    synapse_helpers::graph& graph,
-    const at::Tensor& self,
-    std::vector<synTensor> inputs,
-    const at::IntArrayRef dims,
-    bool keepdim,
-    const std::string& guid,
     std::vector<NodeAttr::NodeOutputAttr> output_attr);
 
 std::vector<int64_t> CalculateReductionMultiDimAndKeepdimOutputSize(

@@ -91,7 +91,6 @@ prod.int_out:
     Gaudi2: [BFloat16, Float, Char, Byte, Short, Int, Half]
     Gaudi3: [BFloat16, Float, Char, Byte, Short, Int, Half]
   guid: reduce_prod_multi_dim_fwd
-  reduction: true
   safe_cast_check: false
 
 clone:

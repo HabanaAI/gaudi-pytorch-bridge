@@ -20,7 +20,6 @@
 #  - op_backend - custom OpBackend class overriding AddNode. Overrides most other fields.
 #  - op_frontend - custom frontend class overriding LazyOp/EagerOp, e.g. for op signature change.
 #  - schema_args - overriden signature of the op. Used with op_frontend.
-#  - reduction - sets op_backend to ReductionBackendTemplate and op_frontend to ReductionFrontendTemplate.
 #  - dtypes - dtypes supported by the operator. Not needed if op_validator used.
 #  - output_meta - function for output tensors metadata calculation.
 #  - custom_fill_params - function filling params structure for kernel/cguid. Not needed if op_backend used.

@@ -25,7 +25,6 @@ add_habana_library(habana_pytorch2_frontend OBJECT
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/convolution_overrideable_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/fill_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/random_gen.cpp
-          ${CMAKE_SOURCE_DIR}/hpu_ops/eager/reduction_template.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/topk_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/eager/optimizer_lamb_gen.cpp
           ${CMAKE_SOURCE_DIR}/hpu_ops/op_logger.cpp

@@ -3,7 +3,6 @@
 #include "hpu_ops/op_validator.h"
 #include "hpu_ops/op_logger.h"
 #include "common/dump_args.h"
-#include "hpu_ops/eager/reduction_template.h"
 #include "habana_eager/eager_exec.h"
 #include "habana_eager/ops/eager_op.h"
 #include "habana_eager/ops/override_fns.h"

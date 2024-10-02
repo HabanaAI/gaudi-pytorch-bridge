@@ -138,7 +138,7 @@ static std::vector<synapse_helpers::tensor> ComputeGEMM(
   if (!is_batch) {
     return gemm_out;
   } else {
-    return HandleReductionMultiDimAndKeepdim(
+    return HandleReduction(
         op,
         graph,
         gemm_out[0].get(),

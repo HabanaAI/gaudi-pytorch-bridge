@@ -143,7 +143,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
 
   // when keepdim is false there will be incompatible input sizes for the
   // sub node so keepdim is set as true for mean and it is reshaped at the end.
-  auto mean = HandleReductionMultiDimAndKeepdim(
+  auto mean = HandleReduction(
       op,
       graph,
       input[0],
@@ -170,7 +170,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
           enable_reduce_sum ? std::vector<int64_t>{min_dim} : dimsVec,
           enable_reduce_sum ? true : keepdim);
 
-  auto sum_square = HandleReductionMultiDimAndKeepdim(
+  auto sum_square = HandleReduction(
       op,
       graph,
       difference[0].get(),
@@ -181,7 +181,7 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
       {{reduce_sum_square_output_shape, output_attr[0].dtype}});
 
   auto sum_square_final = enable_reduce_sum
-      ? HandleReductionMultiDimAndKeepdim(
+      ? HandleReduction(
             op,
             graph,
             sum_square[0].get(),
@@ -286,14 +286,14 @@ std::vector<synapse_helpers::tensor> StdVarCommonFunc(
 
 // correction must be 0 or 1, but ivalue can be float/double/int/None.
 double getCorrectionValue(c10::IValue ivalue) {
-    if (ivalue.isNone()){
-      return 1;
-    }
-    if (ivalue.isInt()){
-      return ivalue.toInt();
-    }
-    // computation for floating point
-    return ivalue.toDouble();
+  if (ivalue.isNone()) {
+    return 1;
+  }
+  if (ivalue.isInt()) {
+    return ivalue.toInt();
+  }
+  // computation for floating point
+  return ivalue.toDouble();
 }
 
 SharedMetaDataVector VarStdCommonSharedMeta(
