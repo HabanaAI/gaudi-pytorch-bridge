@@ -538,19 +538,14 @@ void IndexPutBoolEager::AddNode(
   auto accumulate = stack.at(3).toBool();
   auto max_size = broadcast_size(indices, self);
   int64_t max_indices_count = 1;
-  bool all_bool_indices = true;
   for (size_t i = 0; i < indices.size(); i++) {
-    if (indices[i].scalar_type() == c10::ScalarType::Bool) {
-      max_indices_count = (indices[i].numel() > max_indices_count)
-          ? indices[i].numel()
-          : max_indices_count;
-    } else {
-      all_bool_indices = false;
-    }
+    max_indices_count = (indices[i].numel() > max_indices_count)
+        ? indices[i].numel()
+        : max_indices_count;
   }
-  auto indices_scalar_type = (common::IsInt64Supported() &&
-                              ((max_indices_count > INT_MAX) ||
-                               graph.is_dynamic_graph() || !all_bool_indices))
+  auto indices_scalar_type =
+      (common::IsInt64Supported() &&
+       ((max_indices_count > INT_MAX) || graph.is_dynamic_graph()))
       ? c10::ScalarType::Long
       : c10::ScalarType::Int;
   std::vector<synapse_helpers::tensor> nonzero;
@@ -585,26 +580,31 @@ void IndexPutBoolEager::AddNode(
   for (size_t i = 0; i < indices.size(); i++) {
     NonZeroParams_t index_params;
     index_params.dtype = indices[i].scalar_type();
-    auto bcastOpInd = BroadcastHelper(
+    std::vector<synTensor> inputPutBoolBroadcastIndexInputs{syn_in(0)};
+    std::vector<synapse_helpers::tensor> storage;
+    if (static_cast<int64_t>(max_size.size()) > indices[i].dim()) {
+      storage = unsqueeze(
+          indices[i], syn_in(i + 1), static_cast<int>(max_size.size()));
+      inputPutBoolBroadcastIndexInputs.emplace_back(storage[0].get());
+    } else {
+      inputPutBoolBroadcastIndexInputs.emplace_back(syn_in(i + 1));
+    }
+
+    auto bcastOpInd = BuildOp(
         graph,
-        static_cast<int64_t>(max_size.size()) > indices[i].dim()
-            ? unsqueeze(
-                  indices[i],
-                  syn_in(i + 1),
-                  static_cast<int>(max_size.size()))[0]
-                  .get()
-            : syn_in(i + 1),
-        max_size,
-        index_params.dtype);
+        "index_put_bool_broadcast_index",
+        std::move(inputPutBoolBroadcastIndexInputs),
+        {{max_size, index_params.dtype}});
+
     index_params.sizes = max_size;
     index_params.numel = std::accumulate(
         std::begin(max_size), std::end(max_size), 1, std::multiplies<size_t>());
-    index_params.force_long = !all_bool_indices;
+    index_params.force_long = false;
     nonzero = NonZeroCommon(
         this,
         graph,
         index_params,
-        bcastOpInd.get(),
+        bcastOpInd[0].get(),
         c10::nullopt,
         c10::nullopt,
         false);
@@ -677,18 +677,22 @@ void IndexPutBoolEager::AddNode(
       value_upd_dim.push_back(self_sizes[i]);
   }
 
-  auto bcastOp = BroadcastHelper(
-      graph, syn_in(1 + indices.size()), value_upd_dim, values_scalar_type);
+  auto bcastOp = BuildOp(
+      graph,
+      get_guid_with_precision(
+          "index_put_bool_broadcast_value", values_scalar_type),
+      {syn_in(0), syn_in(1), syn_in(1 + indices.size()), nonzero[0].get()},
+      {{value_upd_dim, values_scalar_type}});
+
   auto flattened_size = std::accumulate(
       std::begin(value_upd_dim),
       std::end(value_upd_dim),
       1,
       std::multiplies<size_t>());
-  std::vector<int64_t> reshape_bcast_size({catop.pt_shape()[0]});
   auto reshapebcastOp = BuildOp(
       graph,
       "flatten_fwd",
-      {bcastOp.get()},
+      {bcastOp[0].get()},
       {{{flattened_size}, values_scalar_type}});
 
   auto self_scalar_type = self.scalar_type();
