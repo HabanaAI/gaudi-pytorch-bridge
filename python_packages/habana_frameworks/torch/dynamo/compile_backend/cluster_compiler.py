@@ -91,7 +91,6 @@ class _ClusterCompiler(torch.fx.Interpreter):
             jit_ir, submod, is_training=self.ctx.is_training, is_dynamic=is_submod_dynamic
         )
         # todo https://jira.habana-labs.com/browse/SW-201169:
-        # fs1's SyngraphModule started with compilation,
         # in our case compilation:
         # - fails with jit forked lowering
         # - is done later - it doesn't seem to be a problem
