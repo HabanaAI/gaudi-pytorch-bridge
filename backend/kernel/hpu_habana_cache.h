@@ -349,6 +349,10 @@ struct RecipeValueSpec {
     graph_name = name;
   }
 
+  bool get_optim_output_sif_value() const {
+    return enable_optim_output_sif_;
+  }
+
   size_t get_aten_output_num() const {
     return (
         num_outputs + num_input_to_outduplicates +

@@ -277,6 +277,10 @@ class HabanaLaunchOpPT {
     return enable_optim_output_sif_;
   }
 
+  void set_enable_optim_output_sif(bool enable_optim_output_sif) {
+    enable_optim_output_sif_ = enable_optim_output_sif;
+  }
+
   std::shared_ptr<synapse_helpers::graph::recipe_handle> get_hpu_op_recipe()
       const {
     return hpu_op_recipe_;

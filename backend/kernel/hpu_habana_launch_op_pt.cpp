@@ -248,13 +248,14 @@ HabanaLaunchOpPT::HabanaLaunchOpPT(
   // FX graph have symbolic inputs but the symbols in FX nodes output_shape
   // meta has replaced with actual values.
   sym_expr_hash_ = optimized_jit_graph_and_meta_data->get_sym_expr_hash();
-  enable_optim_output_sif_ =
+  bool enable_optim_output_sif =
       (refine_ds_enabled_ &&
        GET_ENV_FLAG_NEW(PT_HPU_OPTIM_DYNAMIC_OUTPUT_SIF) &&
        (front_end_type == habana_helpers::HabanaFrontendTypes::COMPILE) &&
        sym_expr_hash_ != ULONG_MAX);
+  set_enable_optim_output_sif(enable_optim_output_sif);
   PT_DYNAMIC_SHAPE_DEBUG(
-      "Enable dynamic shape symbolic output sif = ", enable_optim_output_sif_);
+      "Enable dynamic shape symbolic output sif = ", enable_optim_output_sif);
 }
 
 HabanaLaunchOpPT::~HabanaLaunchOpPT() {
@@ -4198,6 +4199,15 @@ void HabanaLaunchOpPT::ProcessHabanaFusedOpWithDS(
             rargpsh_graph->graphHashCode(),
             ", recipe cache hit, recipe_key: ",
             cur_rargpsh_->hashCode());
+
+        // Updtating enable_optim_output_sif with RecipeValueSpec's saved value
+        // so that it's consistent with compilation time's shape inference flow.
+        bool cached_enable_optim_output_sif = rv.get_optim_output_sif_value();
+        set_enable_optim_output_sif(cached_enable_optim_output_sif);
+        PT_DYNAMIC_SHAPE_DEBUG(
+            "Updating DS symbolic output sif with Cached recipe's saved value = ",
+            cached_enable_optim_output_sif)
+
         PT_DYNAMIC_SHAPE_DEBUG("Running output shape inference pass");
         if (enable_fast_shape_inf_ && GET_ENV_FLAG_NEW(PT_HPU_RUN_HYBRID_SIF)) {
           PT_DYNAMIC_SHAPE_DEBUG(
